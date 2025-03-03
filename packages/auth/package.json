@@ -1,0 +1,23 @@
+{
+  "name": "@avenire/auth",
+  "module": "index.ts",
+  "type": "module",
+  "scripts": {
+    "clean": "git clean -xdf .cache .turbo dist node_modules",
+    "typecheck": "tsc --noEmit --emitDeclarationOnly false",
+    "env:generate": "gen-env-types"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@avenire/database": "*",
+    "@avenire/emailer": "*",
+    "@avenire/typescript-config": "*",
+    "better-auth": "^1.2.1",
+    "redis": "^4.7.0"
+  }
+}

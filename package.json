@@ -1,24 +1,30 @@
 {
-  "name": "Avenire",
+  "name": "avenire",
   "private": true,
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
-    "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "turbo run check-types"
+    "lint": "ultracite lint",
+    "format": "ultracite format",
+    "check-types": "turbo run check-types",
+    "db:migrate": "cd packages/database && bunx drizzle-kit migrate",
+    "db:generate": "cd packages/database && bunx drizzle-kit generate",
+    "db:pull": "cd packages/database && bunx drizzle-kit pull",
+    "db:studio": "cd packages/database && bunx drizzle-kit studio",
+    "auth:schema-gen": "bunx @better-auth/cli generate --output ./packages/database/schema/auth-schema.ts --config ./packages/auth/server.ts"
   },
   "devDependencies": {
-    "prettier": "^3.5.0",
+    "@biomejs/biome": "^1.9.4",
     "turbo": "^2.4.4",
-    "typescript": "5.7.3"
+    "typescript": "5.7.3",
+    "ultracite": "^4.1.20",
+    "@types/bun": "latest"
   },
   "engines": {
     "node": ">=18"
   },
   "packageManager": "bun@1.2.2",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ]
+  "workspaces": ["apps/*", "packages/*"],
+  "module": "index.ts",
+  "type": "module"
 }

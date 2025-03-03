@@ -1,5 +1,5 @@
 {
-  "name": "web",
+  "name": "@avenire/web",
   "version": "0.1.0",
   "type": "module",
   "private": true,
@@ -11,18 +11,16 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "@repo/ui": "*",
+    "@avenire/ui": "*",
     "next": "^15.1.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "@repo/eslint-config": "*",
-    "@repo/typescript-config": "*",
+    "@avenire/typescript-config": "*",
     "@types/node": "^22",
     "@types/react": "19.0.8",
     "@types/react-dom": "19.0.3",
-    "eslint": "^9.21.0",
     "typescript": "5.7.3"
   }
 }
