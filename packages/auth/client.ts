@@ -16,6 +16,14 @@ export const {
   useListPasskeys,
   listAccounts,
   unlinkAccount,
+  listSessions,
+  revokeSession,
+  revokeSessions,
+  revokeOtherSessions,
+  deleteUser,
+  changePassword,
+  forgetPassword,
+  resetPassword
 } = createAuthClient({
   baseURL: process.env.BASE_URL,
   plugins: [passkeyClient(), usernameClient()],

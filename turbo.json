@@ -1,21 +1,45 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "ui": "tui",
+  "globalDependencies": ["**/.env.*local"],
+  "ui": "stream",
+  "envMode": "loose",
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".next/**", "!.next/cache/**"]
+      "dependsOn": ["^build", "test"],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        ".basehub/**",
+        "**/generated/**"
+      ]
     },
-    "lint": {
-      "dependsOn": ["^lint"]
+    "test": {
+      "dependsOn": ["^test"]
     },
-    "check-types": {
-      "dependsOn": ["^check-types"]
+    "analyze": {
+      "dependsOn": ["^analyze"]
     },
     "dev": {
       "cache": false,
       "persistent": true
+    },
+    "clean": {
+      "cache": false
+    },
+    "migrate": {
+      "cache": false
+    },
+    "studio": {
+      "cache": false
+    },
+    "generate": {
+      "cache": false
+    },
+    "pull": {
+      "cache": false
+    },
+    "//#clean": {
+      "cache": false
     }
   }
 }

@@ -17,7 +17,6 @@
   },
   "dependencies": {
     "@avenire/typescript-config": "workspace:*",
-    "@avenire/emailer": "workspace:*",
     "@avenire/email": "workspace:*",
     "@react-email/components": "^0.0.33",
     "nodemailer": "^6.10.0"

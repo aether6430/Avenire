@@ -1,5 +1,5 @@
 {
-  "extends": "@repo/typescript-config/nextjs.json",
+  "extends": "@avenire/typescript-config/nextjs.json",
   "compilerOptions": {
     "plugins": [
       {
@@ -12,9 +12,8 @@
     "**/*.tsx",
     "next-env.d.ts",
     "next.config.js",
-    ".next/types/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules"
-  ]
+    ".next/types/**/*.ts",
+    "../../**/*.d.ts"
+, "../../packages/auth/auth-error-handler.ts"  ],
+  "exclude": ["node_modules"]
 }

@@ -1,116 +1,82 @@
+import * as React from 'react';
 import {
   Body,
+  Button,
   Container,
   Head,
   Heading,
-  Hr,
   Html,
-  Img,
-  Link,
   Preview,
   Section,
   Text,
-} from "@react-email/components";
-import * as React from "react";
+  Tailwind,
+  Hr,
+} from '@react-email/components';
 
-interface VerificationLinkProps {
-  verificationLink?: string;
-  username?: string;
-}
+export const EmailConfirmation = ({ name = 'there', confirmationLink = '/confirm-email' }) => {
+  return (
+    <Html>
+      <Head />
+      <Preview>Confirm your email address for Avenire</Preview>
+      <Tailwind>
+        <Body className="bg-[#101010] font-sans py-[40px]">
+          <Container className="bg-[#101010] rounded-[16px] p-[32px] mx-auto max-w-[600px] shadow-sm border border-gray-800">
+            {/* Header */}
+            <Heading className="text-[32px] font-bold text-[#F9F8FC] mt-0 mb-[8px]">
+              Hey {name}! 👋
+            </Heading>
 
-const baseUrl = `https://${process.env.BASE_URL}`;
+            <Text className="text-[18px] text-[#F9F8FC] mb-[24px]">
+              Welcome to Avenire! Please confirm your email address.
+            </Text>
 
-export const VerificationLink = ({
-  verificationLink,
-  username,
-}: VerificationLinkProps) => (
-  <Html>
-    <Head />
-    <Preview>Click here to verify your mail.</Preview>
-    <Body style={main}>
-      <Container style={container}>
-        <Img
-          src={`${baseUrl}/logo-light.svg`}
-          width={48}
-          height={48}
-          alt="Avenire"
-        />
-        <Heading style={heading}>🪄 Your verification link</Heading>
-        <Section style={body}>
-          <Text style={paragraph}>
-            Hey there, {username} almost there, just click
-            <Link style={link} href={verificationLink}>
-              here
-            </Link>
-            to verify your email.
-          </Text>
-          <Text style={paragraph}>
-            If you didn't request this, please ignore this email.
-          </Text>
-        </Section>
-        <Text style={paragraph}>
-          Best,
-          <br />- Avenire Team
-        </Text>
-        <Hr style={hr} />
-        <Img
-          src={`${baseUrl}/logo-light.svg`}
-          width={32}
-          height={32}
-          style={{
-            WebkitFilter: "grayscale(100%)",
-            filter: "grayscale(100%)",
-            margin: "20px 0",
-          }}
-        />
-        <Text style={footer}>Avenire Technologies Inc.</Text>
-      </Container>
-    </Body>
-  </Html>
-);
+            {/* Main content */}
+            <Section className="mb-[24px]">
+              <Text className="text-[16px] text-[#F9F8FC] mb-[16px]">
+                To get started with your AI-powered learning journey, please verify your email address by clicking the button below:
+              </Text>
 
-export default VerificationLink;
+              <Section className="text-center mb-[24px]">
+                <Button
+                  className="bg-[#99FFE4] text-[#000000] font-bold py-[14px] px-[32px] rounded-[8px] no-underline text-center box-border shadow-sm"
+                  href={confirmationLink}
+                >
+                  Confirm My Email
+                </Button>
+              </Section>
+            </Section>
 
-const main = {
-  backgroundColor: "#ffffff",
-  fontFamily:
-    '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif',
+            <Text className="text-[16px] text-[#F9F8FC] mb-[24px]">
+              This link will expire in 24 hours. If you didn't create an account with Avenire, you can safely ignore this email.
+            </Text>
+
+            <Text className="text-[16px] text-[#F9F8FC] mb-[8px]">
+              We're excited to have you join us!
+            </Text>
+
+            <Text className="text-[16px] font-bold text-[#F9F8FC] mb-[24px]">
+              The Avenire Team
+            </Text>
+
+            {/* Footer */}
+            <Hr className="border-t border-gray-800 my-[24px]" />
+
+            <Text className="text-[12px] text-[#F9F8FC] opacity-70 m-0">
+              Avenire Inc.
+            </Text>
+            <Text className="text-[12px] text-[#F9F8FC] opacity-70 m-0">
+              © {new Date().getFullYear()} Avenire. All rights reserved.
+            </Text>
+          </Container>
+        </Body>
+      </Tailwind>
+    </Html>
+  );
 };
 
-const container = {
-  margin: "0 auto",
-  padding: "20px 25px 48px",
-  backgroundImage: 'url("/static/raycast-bg.png")',
-  backgroundPosition: "bottom",
-  backgroundRepeat: "no-repeat, no-repeat",
+EmailConfirmation.PreviewProps = {
+  name: 'Alex',
+  confirmationLink: '/confirm-email?token=example123',
 };
 
-const heading = {
-  fontSize: "28px",
-  fontWeight: "bold",
-  marginTop: "48px",
-};
-
-const body = {
-  margin: "24px 0",
-};
-
-const paragraph = {
-  fontSize: "16px",
-  lineHeight: "26px",
-};
-
-const link = {
-  color: "#FF6363",
-};
-
-const hr = {
-  borderColor: "#dddddd",
-  marginTop: "48px",
-};
-
-const footer = {
-  color: "#8898aa",
-  fontSize: "12px",
-  marginLeft: "4px",
-};
+export default EmailConfirmation;

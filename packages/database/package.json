@@ -2,11 +2,18 @@
   "name": "@avenire/database",
   "module": "index.ts",
   "type": "module",
+  "exports": {
+    "queries": "./queries/"
+  },
   "scripts": {
     "build": "drizzle-kit generate",
     "clean": "git clean -xdf .cache .turbo dist node_modules",
     "typecheck": "tsc --noEmit --emitDeclarationOnly false",
-    "env:generate": "gen-env-types"
+    "env:generate": "gen-env-types",
+    "generate": "drizzle-kit generate",
+    "migrate": "drizzle-kit migrate",
+    "pull": "drizzle-kit pull",
+    "studio": "drizzle-kit studio"
   },
   "devDependencies": {
     "@types/bun": "latest",
@@ -18,6 +25,7 @@
   },
   "dependencies": {
     "@avenire/typescript-config": "*",
+    "dotenv": "^16.4.7",
     "drizzle-orm": "^0.40.0",
     "postgres": "^3.4.5",
     "server-only": "^0.0.1"

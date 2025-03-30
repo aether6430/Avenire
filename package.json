@@ -1,5 +1,18 @@
 {
   "name": "avenire",
+  "module": "index.ts",
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/bun": "latest",
+    "gen-env-types": "^1.3.4",
+    "turbo": "^2.4.4",
+    "typescript": "5.7.3",
+    "ultracite": "^4.1.20"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "packageManager": "bun@1.2.2",
   "private": true,
   "scripts": {
     "build": "turbo run build",
@@ -7,24 +20,14 @@
     "lint": "ultracite lint",
     "format": "ultracite format",
     "check-types": "turbo run check-types",
-    "db:migrate": "cd packages/database && bunx drizzle-kit migrate",
-    "db:generate": "cd packages/database && bunx drizzle-kit generate",
-    "db:pull": "cd packages/database && bunx drizzle-kit pull",
-    "db:studio": "cd packages/database && bunx drizzle-kit studio",
-    "auth:schema-gen": "bunx @better-auth/cli generate --output ./packages/database/schema/auth-schema.ts --config ./packages/auth/server.ts"
+    "db:migrate": "turbo run migrate --filter=\"@avenire/database\"",
+    "db:generate": "turbo run generate --filter=\"@avenire/database\"",
+    "db:pull": "turbo run pull --filter=\"@avenire/database\"",
+    "db:studio": "turbo run studio --filter=\"@avenire/database\"",
+    "db:clean": "rm -rf ./packages/database/drizzle && bun db:generate && bun db:migrate",
+    "auth:schema-gen": "bunx @better-auth/cli generate --output ./packages/database/schema/auth-schema.ts --config ./packages/auth/server.ts",
+    "clean": "git clean -xdf node_modules"
   },
-  "devDependencies": {
-    "@biomejs/biome": "^1.9.4",
-    "turbo": "^2.4.4",
-    "typescript": "5.7.3",
-    "ultracite": "^4.1.20",
-    "@types/bun": "latest"
-  },
-  "engines": {
-    "node": ">=18"
-  },
-  "packageManager": "bun@1.2.2",
-  "workspaces": ["apps/*", "packages/*"],
-  "module": "index.ts",
-  "type": "module"
+  "type": "module",
+  "workspaces": ["apps/*", "packages/*"]
 }
