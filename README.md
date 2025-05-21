@@ -72,11 +72,9 @@ Avenire was designed and built with a modern, powerful, and scalable technology 
 
 ## License
 
-© The Avenire Project Developers. All Rights Reserved.
+© 2024 The Avenire Project Developers. All Rights Reserved.
 
-The source code of Avenire is made available for educational and demonstrative purposes only. You may review, learn from, and discuss the code, but you are not granted rights to copy, modify, redistribute, or use this code for any commercial or non-commercial purposes without explicit prior written permission.
-
-This project is a reflection of an original startup application, shared to provide insights into its architecture and implementation. It is not intended for direct reuse or to be treated as a typical open-source project.
+The Avenire project source code is made available for educational and demonstrative purposes. Please see the [LICENSE](LICENSE) file for detailed terms and conditions regarding its use.
 
 ---
 
