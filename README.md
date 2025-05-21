@@ -1,3 +1,7 @@
+<p align="center">
+<img height=80 src="https://github.com/aether6430/Avenire/blob/main/Icon.png?raw=true">
+</p>
+
 # Avenire: Illuminate Your Learning & Research Journey
 
 Welcome to Avenire, a project showcasing the architecture and features of a platform designed to revolutionize how one might learn, conduct research, and create compelling educational content. Its mission was to empower users—students, educators, researchers, or lifelong learners—with intelligent, AI-driven tools to transform complex information into profound understanding. This repository serves as a look into Avenire's design and implementation.
