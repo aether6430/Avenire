@@ -1,124 +1,141 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState } from "react"
-import { cn } from "@avenire/ui/lib/utils"
-import { Button } from "@avenire/ui/components/button"
-import { Card, CardContent } from "@avenire/ui/components/button"
-import { Input } from "@avenire/ui/components/input"
-import { Label } from "@avenire/ui/components/label"
-import { toast } from "sonner"
-import { Sparkles, Lock, ArrowRight, ShieldCheck } from "lucide-react"
-import { resetPassword } from "../client"
-import { useSearchParams } from 'next/navigation'
+import { Button } from "@avenire/ui/components/button";
+import { Card, CardContent } from "@avenire/ui/components/card";
+import { Input } from "@avenire/ui/components/input";
+import { Label } from "@avenire/ui/components/label";
+import { cn } from "@avenire/ui/lib/utils";
+import { ArrowRight, Lock, Sparkles } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import type React from "react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { resetPassword } from "../client";
 
-export function ChangePasswordForm({ className, ...props }: React.ComponentProps<"div">) {
-  const [isLoading, setIsLoading] = useState(false)
-  const [newPassword, setNewPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [error, setError] = useState("")
-  const searchParams = useSearchParams()
+export function ChangePasswordForm({
+  className,
+  ...props
+}: React.ComponentProps<"div">) {
+  const [isLoading, setIsLoading] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+  const searchParams = useSearchParams();
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
+    e.preventDefault();
+    setError("");
 
     // Basic validation
     if (newPassword !== confirmPassword) {
-      setError("New passwords don't match")
-      return
+      setError("New passwords don't match");
+      return;
     }
 
     if (newPassword.length < 8) {
-      setError("Password must be at least 8 characters long")
-      return
+      setError("Password must be at least 8 characters long");
+      return;
     }
 
-    setIsLoading(true)
+    setIsLoading(true);
 
     const { error } = await resetPassword({
       newPassword,
-      token: searchParams.get("token") || ""
-    })
+      token: searchParams.get("token") || "",
+    });
     if (error) {
       const errorCode = error.message;
       toast.error("Oops! Something went wrong", {
         description: errorCode,
-      })
+      });
       return;
     }
-    setIsLoading(false)
+    setIsLoading(false);
     toast("Password updated", {
-      description: "Your password has been changed successfully. You may now close this tab"
-    })
+      description:
+        "Your password has been changed successfully. You may now close this tab",
+    });
 
     // Reset form
-    setNewPassword("")
-    setConfirmPassword("")
-  }
+    setNewPassword("");
+    setConfirmPassword("");
+  };
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card className="overflow-hidden shadow-lg fade-in border-0 bg-card/50 backdrop-blur-sm">
+      <Card className="fade-in overflow-hidden border-0 bg-card/50 shadow-lg backdrop-blur-sm">
         <CardContent className="p-0">
           <form className="p-5 md:p-6" onSubmit={handleSubmit}>
             <div className="flex flex-col gap-5">
-              <div className="flex flex-col items-center text-center space-y-2">
-                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+              <div className="flex flex-col items-center space-y-2 text-center">
+                <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                   <Sparkles className="h-6 w-6 text-primary" />
                 </div>
-                <h1 className="text-2xl font-bold">Change Password</h1>
-                <p className="text-balance text-muted-foreground">Update your account password</p>
+                <h1 className="font-bold text-2xl">Change Password</h1>
+                <p className="text-balance text-muted-foreground">
+                  Update your account password
+                </p>
               </div>
 
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="new-password" className="text-sm font-medium">
+                  <Label className="font-medium text-sm" htmlFor="new-password">
                     New Password
                   </Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
+                    <Lock className="absolute top-2.5 left-3 h-5 w-5 text-muted-foreground" />
                     <Input
+                      className="pl-10 transition-all focus:ring-2 focus:ring-primary/20"
                       id="new-password"
-                      type="password"
+                      onChange={(e) => setNewPassword(e.target.value)}
                       placeholder="Enter new password"
                       required
-                      className="pl-10 transition-all focus:ring-2 focus:ring-primary/20"
+                      type="password"
                       value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="confirm-password" className="text-sm font-medium">
+                  <Label
+                    className="font-medium text-sm"
+                    htmlFor="confirm-password"
+                  >
                     Confirm New Password
                   </Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
+                    <Lock className="absolute top-2.5 left-3 h-5 w-5 text-muted-foreground" />
                     <Input
+                      className="pl-10 transition-all focus:ring-2 focus:ring-primary/20"
                       id="confirm-password"
-                      type="password"
+                      onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Confirm new password"
                       required
-                      className="pl-10 transition-all focus:ring-2 focus:ring-primary/20"
+                      type="password"
                       value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
                     />
                   </div>
                 </div>
 
-                {error && <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
+                {error && (
+                  <div className="rounded-md bg-destructive/10 p-3 text-destructive text-sm">
+                    {error}
+                  </div>
+                )}
               </div>
 
-              <Button type="submit" className="w-full group transition-all" disabled={isLoading}>
+              <Button
+                className="group w-full transition-all"
+                disabled={isLoading}
+                type="submit"
+              >
                 {isLoading ? (
                   <div className="flex items-center justify-center">
                     <svg
-                      className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                      xmlns="http://www.w3.org/2000/svg"
+                      className="mr-3 -ml-1 h-5 w-5 animate-spin text-white"
                       fill="none"
                       viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
                     >
                       <circle
                         className="opacity-25"
@@ -127,12 +144,12 @@ export function ChangePasswordForm({ className, ...props }: React.ComponentProps
                         r="10"
                         stroke="currentColor"
                         strokeWidth="4"
-                      ></circle>
+                      />
                       <path
                         className="opacity-75"
-                        fill="currentColor"
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
+                        fill="currentColor"
+                      />
                     </svg>
                     Updating...
                   </div>
@@ -147,10 +164,9 @@ export function ChangePasswordForm({ className, ...props }: React.ComponentProps
           </form>
         </CardContent>
       </Card>
-      <div className="text-balance text-center text-xs text-muted-foreground">
+      <div className="text-balance text-center text-muted-foreground text-xs">
         Changing your password will log you out of all other devices.
       </div>
     </div>
-  )
+  );
 }
-

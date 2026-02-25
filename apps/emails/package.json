@@ -4,11 +4,11 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./dist/index.js"
   },
   "scripts": {
     "dev": "email dev -p 3001",
-    "build": "email build",
+    "build": "tsc --declaration --outDir dist",
     "lint": "biome check .",
     "check-types": "tsc --noEmit",
     "format": "biome format --write ."

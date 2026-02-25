@@ -2,8 +2,12 @@
   "extends": "@avenire/typescript-config/react-library.json",
   "compilerOptions": {
     "baseUrl": ".",
+    "jsx": "react-jsx", 
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@/components/ui/*": ["./src/components/*"],
+      "../lib/utils": ["./src/lib/utils.ts"],
+      "@/hooks/*": ["./src/hooks/*"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"]

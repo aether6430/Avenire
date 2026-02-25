@@ -2,7 +2,10 @@
   "extends": "@avenire/typescript-config/react-library.json",
   "compilerOptions": {
     "baseUrl": ".",
-    "outDir": "dist"
+    "outDir": "dist",
+    "noEmit": false,
+    "jsx": "react-jsx",
+    "declaration": true
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"]
 }
