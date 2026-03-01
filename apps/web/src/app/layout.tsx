@@ -1,6 +1,20 @@
 import type { Metadata, Viewport } from "next";
+import { Funnel_Sans } from "next/font/google";
+import localFont from "next/font/local";
 import { ServiceWorkerRegistration } from "@/components/pwa/ServiceWorkerRegistration";
 import "./globals.css";
+
+const funnelSans = Funnel_Sans({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+});
+
+const fonde = localFont({
+  src: "./fonde.ttf",
+  variable: "--font-serif",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Avenire — Think. Not just answers. Reasoning.",
@@ -32,7 +46,9 @@ export default function RootLayout({
 }>) {
   return (
     <html className="light" lang="en">
-      <body className={"font-sans antialiased"}>
+      <body
+        className={`${funnelSans.variable} ${fonde.variable} font-sans antialiased`}
+      >
         <ServiceWorkerRegistration />
         {children}
       </body>

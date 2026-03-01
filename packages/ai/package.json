@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./index.ts",
+    "./message-types": "./message-type.ts",
     "./models": "./models/index.ts",
     "./prompts": "./prompts/index.ts",
     "./tools": "./tools/index.ts"
@@ -18,6 +19,7 @@
   "dependencies": {
     "@ai-sdk/google": "latest",
     "@ai-sdk/groq": "latest",
+    "@ai-sdk/mistral": "^3.0.21",
     "@openrouter/ai-sdk-provider": "latest",
     "ai": "latest"
   },

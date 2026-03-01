@@ -14,6 +14,7 @@ declare namespace NodeJS {
     GROQ_API_KEY?: string;
     NEXT_PUBLIC_APP_URL?: string;
     NODE_ENV?: string;
+    MISTRAL_API_KEY?: string;
     OPENROUTER_API_KEY?: string;
     POLAR_ACCESS_TOKEN?: string;
     POLAR_ORGANIZATION_ID?: string;

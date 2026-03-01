@@ -1,0 +1,35 @@
+import { createResourceShareLink, userCanAccessWorkspace } from "@/lib/file-data";
+import { auth } from "@avenire/auth/server";
+import { headers } from "next/headers";
+import { NextResponse } from "next/server";
+
+export async function POST(
+  _request: Request,
+  context: { params: Promise<{ workspaceUuid: string; fileUuid: string }> },
+) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { workspaceUuid, fileUuid } = await context.params;
+  const canAccess = await userCanAccessWorkspace(session.user.id, workspaceUuid);
+  if (!canAccess) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const link = await createResourceShareLink({
+    workspaceId: workspaceUuid,
+    resourceType: "file",
+    resourceId: fileUuid,
+    createdBy: session.user.id,
+    expiresInDays: 7,
+    allowPublic: true,
+  });
+
+  const baseUrl = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+  return NextResponse.json({
+    link,
+    shareUrl: `${baseUrl}/share/${link.token}`,
+  });
+}

@@ -625,7 +625,7 @@ function ensureKatexAssets(onReady: () => void) {
     doc.head.appendChild(link);
   }
 
-  if (window.katex?.renderToString) {
+  if (typeof window.katex?.renderToString === "function") {
     onReady();
     return;
   }
@@ -829,7 +829,7 @@ function DemoWindow({
   }, [completed, partial]);
 
   useEffect(() => {
-    const markReady = () => setKatexReady(Boolean(window.katex?.renderToString));
+    const markReady = () => setKatexReady(typeof window.katex?.renderToString === "function");
     ensureKatexAssets(markReady);
     window.addEventListener("katex-ready", markReady);
     markReady();

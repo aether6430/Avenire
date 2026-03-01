@@ -12,14 +12,25 @@ import { createAuthMiddleware } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies, toNextJsHandler } from "better-auth/next-js";
 import { passkey } from "@better-auth/passkey";
+import { organization } from "better-auth/plugins/organization";
 import { username } from "better-auth/plugins/username";
 
-const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+const appUrl = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
 const emailer = new Emailer();
+const slugifyWorkspace = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+    .slice(0, 40);
+const trustedOrigins = Array.from(new Set([appUrl, "https://avenire.space"]));
 
 export const auth = betterAuth({
-  trustedOrigins: [appUrl],
+  trustedOrigins,
   database: drizzleAdapter(db, { provider: "pg", schema: authSchema }),
+  session: {
+    updateAge: 60 * 60
+  },
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,
@@ -66,7 +77,11 @@ export const auth = betterAuth({
       ? {
           google: {
             clientId: process.env.AUTH_GOOGLE_ID,
-            clientSecret: process.env.AUTH_GOOGLE_SECRET
+            clientSecret: process.env.AUTH_GOOGLE_SECRET,
+            mapProfileToUser: (profile) => ({
+              name: profile.given_name ?? profile.name,
+              username: profile.name
+            })
           }
         }
       : {}),
@@ -74,7 +89,11 @@ export const auth = betterAuth({
       ? {
           github: {
             clientId: process.env.AUTH_GITHUB_ID,
-            clientSecret: process.env.AUTH_GITHUB_SECRET
+            clientSecret: process.env.AUTH_GITHUB_SECRET,
+            mapProfileToUser: (profile) => ({
+              name: profile.name,
+              username: profile.name
+            })
           }
         }
       : {})
@@ -90,12 +109,28 @@ export const auth = betterAuth({
         subject: "Welcome to Avenire",
         html: await renderWelcomeEmail({ name: newSession.user.name ?? "there" })
       });
+
+      try {
+        const workspaceNameBase =
+          newSession.user.name ?? newSession.user.email.split("@")[0] ?? "workspace";
+        const slugBase = slugifyWorkspace(workspaceNameBase) || "workspace";
+        await auth.api.createOrganization({
+          body: {
+            userId: newSession.user.id,
+            name: `${workspaceNameBase}'s Workspace`,
+            slug: `${slugBase}-${newSession.user.id.slice(0, 6)}`
+          }
+        });
+      } catch (error) {
+        console.error("Failed to create default workspace", error);
+      }
     })
   },
   plugins: [
     username({
       usernameValidator: () => true
     }),
+    organization(),
     passkey({
       rpName: "Avenire",
       origin: appUrl
