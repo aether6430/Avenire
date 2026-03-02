@@ -1,11 +1,24 @@
 import { db } from "@avenire/database";
-import * as authSchema from "@avenire/database/auth-schema";
+import {
+  account,
+  invitation,
+  member,
+  organization as organizationTable,
+  passkey as passkeyTable,
+  session,
+  team,
+  teamMember,
+  user,
+  verification,
+} from "@avenire/database/auth-schema";
 import {
   Emailer,
   renderDeleteAccountEmail,
+  renderFileShareNotificationEmail,
   renderPasswordResetEmail,
   renderVerificationEmail,
-  renderWelcomeEmail
+  renderWelcomeEmail,
+  renderWorkspaceShareNotificationEmail
 } from "@avenire/emailer";
 import { betterAuth } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
@@ -15,7 +28,10 @@ import { passkey } from "@better-auth/passkey";
 import { organization } from "better-auth/plugins/organization";
 import { username } from "better-auth/plugins/username";
 
-const appUrl = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+const appUrl = process.env.BETTER_AUTH_URL?.trim();
+if (!appUrl) {
+  throw new Error("Missing BETTER_AUTH_URL. Set BETTER_AUTH_URL for auth server configuration.");
+}
 const emailer = new Emailer();
 const slugifyWorkspace = (value: string) =>
   value
@@ -24,10 +40,22 @@ const slugifyWorkspace = (value: string) =>
     .replace(/(^-|-$)/g, "")
     .slice(0, 40);
 const trustedOrigins = Array.from(new Set([appUrl, "https://avenire.space"]));
+const generatedBetterAuthSchema = {
+  user,
+  session,
+  account,
+  verification,
+  organization: organizationTable,
+  member,
+  invitation,
+  team,
+  teamMember,
+  passkey: passkeyTable,
+};
 
 export const auth = betterAuth({
   trustedOrigins,
-  database: drizzleAdapter(db, { provider: "pg", schema: authSchema }),
+  database: drizzleAdapter(db, { provider: "pg", schema: generatedBetterAuthSchema }),
   session: {
     updateAge: 60 * 60
   },
@@ -130,7 +158,11 @@ export const auth = betterAuth({
     username({
       usernameValidator: () => true
     }),
-    organization(),
+    organization({
+      teams: {
+        enabled: true,
+      },
+    }),
     passkey({
       rpName: "Avenire",
       origin: appUrl
@@ -145,3 +177,49 @@ export const auth = betterAuth({
 export const authRouteHandlers = toNextJsHandler(auth);
 
 export type Session = typeof auth.$Infer.Session;
+
+export async function sendFileShareEmail(input: {
+  toEmail: string;
+  fileName: string;
+  shareUrl: string;
+  sharedByName?: string;
+}) {
+  await emailer.send({
+    to: [input.toEmail],
+    subject: `${input.sharedByName ?? "Someone"} shared a file with you`,
+    html: await renderFileShareNotificationEmail({
+      fileName: input.fileName,
+      shareUrl: input.shareUrl,
+      sharedByName: input.sharedByName,
+    }),
+  });
+}
+
+export async function sendWorkspaceShareEmail(input: {
+  toEmail: string;
+  workspaceName: string;
+  workspaceUrl: string;
+  sharedByName?: string;
+}) {
+  await emailer.send({
+    to: [input.toEmail],
+    subject: `${input.sharedByName ?? "Someone"} shared a workspace with you`,
+    html: await renderWorkspaceShareNotificationEmail({
+      workspaceName: input.workspaceName,
+      workspaceUrl: input.workspaceUrl,
+      sharedByName: input.sharedByName,
+    }),
+  });
+}
+
+export async function sendSudoVerificationCodeEmail(input: {
+  toEmail: string;
+  code: string;
+  expiresInMinutes: number;
+}) {
+  await emailer.send({
+    to: [input.toEmail],
+    subject: "Your Avenire security verification code",
+    html: `<p>Use this code to confirm a sensitive settings action:</p><p style="font-size:24px;font-weight:700;letter-spacing:2px;">${input.code}</p><p>This code expires in ${input.expiresInMinutes} minutes.</p>`,
+  });
+}

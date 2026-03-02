@@ -65,6 +65,7 @@ import {
 import {
   DASHBOARD_FILES_FOCUS_SEARCH_EVENT,
   DASHBOARD_FILES_NEW_NOTE_EVENT,
+  DASHBOARD_FILES_SYNC_EVENT,
 } from "@/lib/file-events";
 import {
   type DashboardView,
@@ -187,58 +188,60 @@ function ChatListSection({
                       </Tooltip>
                     </SidebarMenuButton>
 
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        render={
-                          <SidebarMenuAction
-                            onClick={(event) => event.stopPropagation()}
-                            showOnHover
-                          />
-                        }
-                      >
-                        <MoreHorizontal className="size-4" />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-40">
-                        <DropdownMenuItem
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onStartRename(chat);
-                          }}
+                    {!chat.readOnly ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <SidebarMenuAction
+                              onClick={(event) => event.stopPropagation()}
+                              showOnHover
+                            />
+                          }
                         >
-                          <Pencil className="size-3.5" />
-                          Rename
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onTogglePin(chat.slug, !chat.pinned);
-                          }}
-                        >
-                          {chat.pinned ? (
-                            <>
-                              <PinOff className="size-3.5" />
-                              Unpin
-                            </>
-                          ) : (
-                            <>
-                              <Pin className="size-3.5" />
-                              Pin
-                            </>
-                          )}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onDelete(chat.slug);
-                          }}
-                          variant="destructive"
-                        >
-                          <Trash2 className="size-3.5" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                          <MoreHorizontal className="size-4" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-40">
+                          <DropdownMenuItem
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onStartRename(chat);
+                            }}
+                          >
+                            <Pencil className="size-3.5" />
+                            Rename
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onTogglePin(chat.slug, !chat.pinned);
+                            }}
+                          >
+                            {chat.pinned ? (
+                              <>
+                                <PinOff className="size-3.5" />
+                                Unpin
+                              </>
+                            ) : (
+                              <>
+                                <Pin className="size-3.5" />
+                                Pin
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onDelete(chat.slug);
+                            }}
+                            variant="destructive"
+                          >
+                            <Trash2 className="size-3.5" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ) : null}
                   </>
                 )}
               </SidebarMenuItem>
@@ -278,20 +281,23 @@ export function DashboardSidebar({
   const [editingTitle, setEditingTitle] = useState("");
   const [workspaceUuid, setWorkspaceUuid] = useState<string | null>(null);
   const [workspaces, setWorkspaces] = useState<
-    Array<{ workspaceId: string; rootFolderId: string; name: string }>
+    Array<{ workspaceId: string; organizationId: string; rootFolderId: string; name: string }>
   >([]);
   const [folderTree, setFolderTree] = useState<
-    Array<{ id: string; name: string; parentId: string | null }>
+    Array<{ id: string; name: string; parentId: string | null; readOnly?: boolean }>
   >([]);
   const [fileTree, setFileTree] = useState<
-    Array<{ id: string; name: string; folderId: string }>
+    Array<{ id: string; name: string; folderId: string; readOnly?: boolean }>
   >([]);
   const [treeDropFolderId, setTreeDropFolderId] = useState<string | null>(null);
   const [draggedTreeItem, setDraggedTreeItem] = useState<{
     id: string;
     kind: "file" | "folder";
   } | null>(null);
+  const [sseConnected, setSseConnected] = useState(false);
   const [slideDirection, setSlideDirection] = useState(1);
+  const treeRefreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sseRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const previousViewRef = useRef<Exclude<DashboardView, null>>("chat");
   const activeView: Exclude<DashboardView, null> = view ?? "chat";
   const currentFolderId = useMemo(() => {
@@ -440,7 +446,12 @@ export function DashboardSidebar({
         return;
       }
       const payload = (await response.json()) as {
-        workspaces?: Array<{ workspaceId: string; rootFolderId: string; name: string }>;
+        workspaces?: Array<{
+          workspaceId: string;
+          organizationId: string;
+          rootFolderId: string;
+          name: string;
+        }>;
       };
       setWorkspaces(payload.workspaces ?? []);
     } catch {
@@ -461,19 +472,33 @@ export function DashboardSidebar({
         return;
       }
       const payload = (await response.json()) as {
-        folders?: Array<{ id: string; name: string; parentId: string | null }>;
-        files?: Array<{ id: string; name: string; folderId: string }>;
+        folders?: Array<{ id: string; name: string; parentId: string | null; readOnly?: boolean }>;
+        files?: Array<{ id: string; name: string; folderId: string; readOnly?: boolean }>;
       };
       setFolderTree(payload.folders ?? []);
       setFileTree((payload.files ?? []).map((file) => ({
         id: file.id,
         name: file.name,
         folderId: file.folderId,
+        readOnly: file.readOnly,
       })));
     } catch {
       // ignore
     }
   }, []);
+
+  const refreshWorkspaceTreeDebounced = useCallback(
+    (workspaceId: string) => {
+      if (treeRefreshDebounceRef.current) {
+        clearTimeout(treeRefreshDebounceRef.current);
+      }
+
+      treeRefreshDebounceRef.current = setTimeout(() => {
+        void loadWorkspaceTree(workspaceId);
+      }, 150);
+    },
+    [loadWorkspaceTree],
+  );
 
   useEffect(() => {
     if (!pathname.startsWith("/dashboard/files")) {
@@ -489,6 +514,133 @@ export function DashboardSidebar({
     setWorkspaceUuid(currentWorkspace);
     void loadWorkspaceTree(currentWorkspace);
   }, [loadWorkspaceTree, pathname, workspaceUuid]);
+
+  useEffect(() => {
+    if (activeView !== "files" || !workspaceUuid) {
+      return;
+    }
+
+    const onFocus = () => {
+      void loadWorkspaceTree(workspaceUuid);
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void loadWorkspaceTree(workspaceUuid);
+      }
+    };
+    const onSync = (event: Event) => {
+      const detail = (event as CustomEvent<{ workspaceUuid?: string }>).detail;
+      if (!detail?.workspaceUuid || detail.workspaceUuid === workspaceUuid) {
+        refreshWorkspaceTreeDebounced(workspaceUuid);
+      }
+    };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener(DASHBOARD_FILES_SYNC_EVENT, onSync);
+
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener(DASHBOARD_FILES_SYNC_EVENT, onSync);
+    };
+  }, [activeView, loadWorkspaceTree, refreshWorkspaceTreeDebounced, workspaceUuid]);
+
+  useEffect(() => {
+    if (activeView !== "files" || !workspaceUuid) {
+      setSseConnected(false);
+      return;
+    }
+
+    let closed = false;
+    let eventSource: EventSource | null = null;
+
+    const cleanupCurrent = () => {
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+    };
+
+    const scheduleReconnect = () => {
+      if (closed) {
+        return;
+      }
+
+      if (sseRetryTimerRef.current) {
+        clearTimeout(sseRetryTimerRef.current);
+      }
+
+      sseRetryTimerRef.current = setTimeout(() => {
+        void connect();
+      }, 3000);
+    };
+
+    const connect = async () => {
+      if (closed) {
+        return;
+      }
+
+      try {
+        const tokenResponse = await fetch("/api/realtime/files-token", {
+          body: JSON.stringify({ workspaceUuid }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+        });
+
+        if (!tokenResponse.ok) {
+          setSseConnected(false);
+          scheduleReconnect();
+          return;
+        }
+
+        const payload = (await tokenResponse.json()) as { token?: string };
+        if (!payload.token) {
+          setSseConnected(false);
+          scheduleReconnect();
+          return;
+        }
+
+        cleanupCurrent();
+
+        const url = new URL("/api/realtime/files", window.location.origin);
+        url.searchParams.set("workspaceUuid", workspaceUuid);
+        url.searchParams.set("token", payload.token);
+
+        eventSource = new EventSource(url.toString());
+        eventSource.onopen = () => {
+          setSseConnected(true);
+        };
+        eventSource.onerror = () => {
+          setSseConnected(false);
+          cleanupCurrent();
+          scheduleReconnect();
+        };
+        eventSource.addEventListener("files.invalidate", () => {
+          refreshWorkspaceTreeDebounced(workspaceUuid);
+        });
+      } catch {
+        setSseConnected(false);
+        scheduleReconnect();
+      }
+    };
+
+    void connect();
+
+    return () => {
+      closed = true;
+      setSseConnected(false);
+      cleanupCurrent();
+      if (sseRetryTimerRef.current) {
+        clearTimeout(sseRetryTimerRef.current);
+        sseRetryTimerRef.current = null;
+      }
+      if (treeRefreshDebounceRef.current) {
+        clearTimeout(treeRefreshDebounceRef.current);
+        treeRefreshDebounceRef.current = null;
+      }
+    };
+  }, [activeView, refreshWorkspaceTreeDebounced, workspaceUuid]);
 
   const createChat = async () => {
     const data = await parseResponse<{ chat: ChatSummary }>(
@@ -557,11 +709,24 @@ export function DashboardSidebar({
     }
   };
 
-  const switchWorkspace = (workspace: {
+  const setActiveOrganization = async (organizationId?: string | null) => {
+    if (!organizationId) {
+      return;
+    }
+    await fetch("/api/auth/organization/set-active", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ organizationId }),
+    });
+  };
+
+  const switchWorkspace = async (workspace: {
     workspaceId: string;
+    organizationId?: string;
     rootFolderId: string;
     name: string;
   }) => {
+    await setActiveOrganization(workspace.organizationId ?? null);
     setWorkspaceUuid(workspace.workspaceId);
     setView("files");
     window.localStorage.setItem("preferredWorkspaceId", workspace.workspaceId);
@@ -577,22 +742,32 @@ export function DashboardSidebar({
       body: JSON.stringify({ name }),
     });
     if (!response.ok) {
-      return;
+      let message = "Unable to create workspace.";
+      try {
+        const payload = (await response.json()) as { error?: string };
+        if (payload.error) {
+          message = payload.error;
+        }
+      } catch {
+        // ignore parse errors
+      }
+      throw new Error(message);
     }
 
     const payload = (await response.json()) as {
       workspace?: {
         workspaceId: string;
+        organizationId: string;
         rootFolderId: string;
         name: string;
       };
     };
     if (!payload.workspace) {
-      return;
+      throw new Error("Workspace was created but could not be loaded.");
     }
 
     await loadWorkspaces();
-    switchWorkspace(payload.workspace);
+    await switchWorkspace(payload.workspace);
   };
 
   const isFolderDescendant = useCallback(
@@ -615,8 +790,16 @@ export function DashboardSidebar({
       if (!workspaceUuid) {
         return;
       }
+      const targetFolder = folderTree.find((folder) => folder.id === targetFolderId);
+      if (targetFolder?.readOnly) {
+        return;
+      }
 
       if (item.kind === "folder") {
+        const sourceFolder = folderTree.find((folder) => folder.id === item.id);
+        if (sourceFolder?.readOnly) {
+          return;
+        }
         if (item.id === targetFolderId || isFolderDescendant(item.id, targetFolderId)) {
           return;
         }
@@ -626,6 +809,10 @@ export function DashboardSidebar({
           body: JSON.stringify({ parentId: targetFolderId }),
         });
       } else {
+        const sourceFile = fileTree.find((file) => file.id === item.id);
+        if (sourceFile?.readOnly) {
+          return;
+        }
         await fetch(`/api/workspaces/${workspaceUuid}/files/${item.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -634,9 +821,14 @@ export function DashboardSidebar({
       }
 
       await loadWorkspaceTree(workspaceUuid);
+      window.dispatchEvent(
+        new CustomEvent(DASHBOARD_FILES_SYNC_EVENT, {
+          detail: { source: "sidebar", workspaceUuid, ts: Date.now() },
+        }),
+      );
       router.refresh();
     },
-    [isFolderDescendant, loadWorkspaceTree, router, workspaceUuid],
+    [fileTree, folderTree, isFolderDescendant, loadWorkspaceTree, router, workspaceUuid],
   );
 
   return (
@@ -913,7 +1105,9 @@ export function DashboardSidebar({
         <NavUser
           activeWorkspaceId={workspaceUuid}
           onCreateWorkspace={createWorkspace}
-          onSwitchWorkspace={switchWorkspace}
+          onSwitchWorkspace={(workspace) => {
+            void switchWorkspace(workspace);
+          }}
           user={user}
           workspaces={workspaces}
         />
@@ -923,8 +1117,8 @@ export function DashboardSidebar({
 }
 
 function renderWorkspaceTree(input: {
-  folders: Array<{ id: string; name: string; parentId: string | null }>;
-  files: Array<{ id: string; name: string; folderId: string }>;
+  folders: Array<{ id: string; name: string; parentId: string | null; readOnly?: boolean }>;
+  files: Array<{ id: string; name: string; folderId: string; readOnly?: boolean }>;
   treeDropFolderId: string | null;
   onDoubleOpenFolder: (folderId: string) => void;
   onDoubleOpenFile: (fileId: string, folderId: string) => void;
@@ -940,18 +1134,29 @@ function renderWorkspaceTree(input: {
     return folders.map((folder) => (
       <FileTreeFolder
         className={input.treeDropFolderId === folder.id ? "rounded-md bg-emerald-500/10" : ""}
-        draggable
+        draggable={!folder.readOnly}
         key={folder.id}
         name={folder.name}
         onDoubleClick={() => input.onDoubleOpenFolder(folder.id)}
         onDragEnd={() => input.onDragTargetChange(null)}
         onDragLeave={() => input.onDragTargetChange(null)}
         onDragOver={(event) => {
+          if (folder.readOnly) {
+            return;
+          }
           event.preventDefault();
           input.onDragTargetChange(folder.id);
         }}
-        onDragStart={() => input.onDragStart({ id: folder.id, kind: "folder" })}
+        onDragStart={() => {
+          if (folder.readOnly) {
+            return;
+          }
+          input.onDragStart({ id: folder.id, kind: "folder" });
+        }}
         onDrop={(event) => {
+          if (folder.readOnly) {
+            return;
+          }
           event.preventDefault();
           event.stopPropagation();
           input.onDropToFolder(folder.id);
@@ -964,11 +1169,16 @@ function renderWorkspaceTree(input: {
           .sort((a, b) => a.name.localeCompare(b.name))
           .map((file) => (
             <FileTreeFile
-              draggable
+              draggable={!file.readOnly}
               key={file.id}
               name={file.name}
               onDoubleClick={() => input.onDoubleOpenFile(file.id, folder.id)}
-              onDragStart={() => input.onDragStart({ id: file.id, kind: "file" })}
+              onDragStart={() => {
+                if (file.readOnly) {
+                  return;
+                }
+                input.onDragStart({ id: file.id, kind: "file" });
+              }}
               path={file.id}
             >
               <div className="flex items-center gap-1 rounded px-2 py-1 hover:bg-muted/50">

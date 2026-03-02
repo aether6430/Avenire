@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import type { UIMessage } from "@avenire/ai/message-types";
 import { auth } from "@avenire/auth/server";
 import { headers } from "next/headers";
@@ -10,6 +11,25 @@ import {
   getMessagesByChatSlugForUser,
   listChatsForUser,
 } from "@/lib/chat-data";
+import { buildPageMetadata } from "@/lib/page-metadata";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user) {
+    return buildPageMetadata({ title: "Chat" });
+  }
+
+  const { slug } = await params;
+  const chat = await getChatBySlugForUser(session.user.id, slug);
+
+  return buildPageMetadata({
+    title: chat?.title?.trim() || "Chat",
+  });
+}
 
 export default async function DashboardChatPage({
   params,
@@ -47,6 +67,7 @@ export default async function DashboardChatPage({
         chatSlug={chat.slug}
         chatTitle={chat.title}
         initialMessages={(initialMessages ?? []) as UIMessage[]}
+        isReadonly={Boolean(chat.readOnly)}
       />
     </DashboardLayout>
   );

@@ -2,6 +2,7 @@ import { createResourceShareLink, userCanAccessWorkspace } from "@/lib/file-data
 import { auth } from "@avenire/auth/server";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { resolveAppBaseUrl } from "@/lib/app-base-url";
 
 export async function POST(
   _request: Request,
@@ -27,7 +28,7 @@ export async function POST(
     allowPublic: true,
   });
 
-  const baseUrl = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+  const baseUrl = resolveAppBaseUrl(_request);
   return NextResponse.json({
     link,
     shareUrl: `${baseUrl}/share/${link.token}`,
