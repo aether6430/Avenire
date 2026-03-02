@@ -15,9 +15,12 @@ import { createResumableStreamContext } from "resumable-stream";
 import {
   deleteChatForUser,
   getChatBySlugForUser,
+  isChatOwnerForUser,
   saveMessagesForChatSlug,
   updateChatForUser,
 } from "@/lib/chat-data";
+import { consumeChatUnits } from "@/lib/billing";
+import { createApiLogger } from "@/lib/observability";
 import {
   clearActiveStreamId,
   getRedisClient,
@@ -27,6 +30,7 @@ import {
 
 const DEFAULT_CHAT_TITLE = "New Chat";
 const LOG_PREFIX = "[api/chat]";
+const DEFAULT_CHAT_TOKENS_PER_CREDIT = 4000;
 
 function logInfo(message: string, meta?: Record<string, unknown>) {
   if (meta) {
@@ -116,10 +120,62 @@ function shouldGenerateTitle(currentTitle: string, messages: UIMessage[]) {
   return currentTitle === sanitizeChatName(latestUserText);
 }
 
+function resolveChatTokensPerCredit() {
+  const raw = Number.parseInt(process.env.CHAT_TOKENS_PER_CREDIT ?? "", 10);
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return DEFAULT_CHAT_TOKENS_PER_CREDIT;
+  }
+  return raw;
+}
+
+function resolveTotalTokens(usage: {
+  totalTokens?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+}) {
+  if (typeof usage.totalTokens === "number" && Number.isFinite(usage.totalTokens)) {
+    return usage.totalTokens;
+  }
+
+  const inputTokens = typeof usage.inputTokens === "number" ? usage.inputTokens : 0;
+  const outputTokens = typeof usage.outputTokens === "number" ? usage.outputTokens : 0;
+  return inputTokens + outputTokens;
+}
+
+function getRequiredChatCredits(totalTokens: number) {
+  const tokensPerCredit = resolveChatTokensPerCredit();
+  return Math.max(1, Math.ceil(totalTokens / tokensPerCredit));
+}
+
+function getPersistedMessages(input: {
+  originalMessages: UIMessage[];
+  streamedMessages: UIMessage[];
+  responseMessage: UIMessage;
+  isContinuation: boolean;
+}) {
+  if (input.streamedMessages.length >= input.originalMessages.length) {
+    return input.streamedMessages;
+  }
+
+  if (input.isContinuation && input.originalMessages.length > 0) {
+    return [...input.originalMessages.slice(0, -1), input.responseMessage];
+  }
+
+  return [...input.originalMessages, input.responseMessage];
+}
+
 export async function POST(request: Request) {
   const session = await auth.api.getSession({ headers: await headers() });
+  const apiLogger = createApiLogger({
+    request,
+    route: "/api/chat",
+    feature: "chat",
+    userId: session?.user?.id ?? null,
+  });
+  void apiLogger.requestStarted();
 
   if (!session?.user) {
+    void apiLogger.requestFailed(401, "Unauthorized");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -134,6 +190,7 @@ export async function POST(request: Request) {
 
   const chatSlug = body.chatId?.trim();
   if (!chatSlug) {
+    void apiLogger.requestFailed(400, "Missing chatId");
     return NextResponse.json({ error: "Missing chatId" }, { status: 400 });
   }
 
@@ -148,7 +205,25 @@ export async function POST(request: Request) {
   const chat = await getChatBySlugForUser(session.user.id, chatSlug);
 
   if (!chat) {
+    void apiLogger.requestFailed(404, "Chat not found", { chatId: chatSlug });
     return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+  }
+  if (chat.readOnly || !(await isChatOwnerForUser(session.user.id, chatSlug))) {
+    void apiLogger.requestFailed(403, "Read-only chat", { chatId: chatSlug });
+    return NextResponse.json({ error: "Read-only chat" }, { status: 403 });
+  }
+
+  const initialUsage = await consumeChatUnits(session.user.id, 1);
+  if (!initialUsage.ok) {
+    const retryAfter = initialUsage.retryAfter?.toISOString() ?? null;
+    void apiLogger.rateLimited("chat", retryAfter, { chatId: chatSlug });
+    return NextResponse.json(
+      {
+        error: "Chat usage limit reached",
+        retryAfter,
+      },
+      { status: 429 },
+    );
   }
 
   await clearActiveStreamId(chatSlug);
@@ -198,6 +273,7 @@ export async function POST(request: Request) {
           model: body.selectedModel ?? body.selectedReasoningModel ?? "fermion-sprint",
           error,
         });
+        void apiLogger.requestFailed(500, error, { chatId: chatSlug });
         throw error;
       }
 
@@ -205,21 +281,78 @@ export async function POST(request: Request) {
         result.toUIMessageStream({
           originalMessages,
           generateMessageId: randomUUID,
-          onFinish: async ({ messages }) => {
+          onFinish: async ({ messages, responseMessage, isContinuation }) => {
             try {
+              const persistedMessages = getPersistedMessages({
+                originalMessages,
+                streamedMessages: messages as unknown as UIMessage[],
+                responseMessage: responseMessage as unknown as UIMessage,
+                isContinuation,
+              });
+
               logInfo("Model stream finished", {
                 chatId: chatSlug,
-                messageCount: messages.length,
+                messageCount: persistedMessages.length,
               });
               await saveMessagesForChatSlug(
                 session.user.id,
                 chatSlug,
-                messages as unknown as UIMessage[],
+                persistedMessages,
               );
               logInfo("Persisted streamed messages", {
                 chatId: chatSlug,
-                messageCount: messages.length,
+                messageCount: persistedMessages.length,
               });
+
+              try {
+                const totalUsage = await result.totalUsage;
+                const totalTokens = resolveTotalTokens(totalUsage);
+                const requiredCredits = getRequiredChatCredits(totalTokens);
+                const additionalCredits = Math.max(0, requiredCredits - 1);
+                const modelName =
+                  body.selectedModel ?? body.selectedReasoningModel ?? "fermion-sprint";
+
+                if (additionalCredits > 0) {
+                  const meteredUsage = await consumeChatUnits(session.user.id, additionalCredits);
+                  if (!meteredUsage.ok) {
+                    logInfo("Chat usage over-limit after stream completion", {
+                      chatId: chatSlug,
+                      totalTokens,
+                      requiredCredits,
+                      additionalCredits,
+                    });
+                  }
+                }
+
+                logInfo("Applied token-based chat usage", {
+                  chatId: chatSlug,
+                  totalTokens,
+                  requiredCredits,
+                  additionalCredits,
+                });
+                void apiLogger.meter("meter.chat.tokens", {
+                  chatId: chatSlug,
+                  model: modelName,
+                  inputTokens: totalUsage.inputTokens ?? null,
+                  outputTokens: totalUsage.outputTokens ?? null,
+                  totalTokens,
+                  creditsCharged: requiredCredits,
+                });
+                void apiLogger.meter("meter.chat.request", {
+                  chatId: chatSlug,
+                  model: modelName,
+                  messageCount: persistedMessages.length,
+                });
+                void apiLogger.featureUsed("chat", {
+                  chatId: chatSlug,
+                  model: modelName,
+                });
+              } catch (usageError) {
+                logError("Failed to apply token-based chat usage", {
+                  chatId: chatSlug,
+                  error: usageError,
+                });
+              }
             } catch (error) {
               logError("Failed to persist streamed chat messages", {
                 chatId: chatSlug,
@@ -263,6 +396,12 @@ export async function POST(request: Request) {
     }
   })();
 
+  void apiLogger.requestSucceeded(200, {
+    chatId: chatSlug,
+    selectedModel: body.selectedModel ?? body.selectedReasoningModel ?? "fermion-sprint",
+    messageCount: originalMessages.length,
+  });
+
   return new Response(clientBody, {
     status: baseResponse.status,
     statusText: baseResponse.statusText,
@@ -272,8 +411,16 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   const session = await auth.api.getSession({ headers: await headers() });
+  const apiLogger = createApiLogger({
+    request,
+    route: "/api/chat",
+    feature: "chat",
+    userId: session?.user?.id ?? null,
+  });
+  void apiLogger.requestStarted();
 
   if (!session?.user) {
+    void apiLogger.requestFailed(401, "Unauthorized");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -281,15 +428,19 @@ export async function DELETE(request: Request) {
   const id = searchParams.get("id");
 
   if (!id) {
+    void apiLogger.requestFailed(400, "Missing chat id");
     return NextResponse.json({ error: "Missing chat id" }, { status: 400 });
   }
 
   const deleted = await deleteChatForUser(session.user.id, id);
   if (!deleted) {
+    void apiLogger.requestFailed(404, "Chat not found", { chatId: id });
     return NextResponse.json({ error: "Chat not found" }, { status: 404 });
   }
 
   await clearActiveStreamId(id);
+  void apiLogger.featureUsed("chat.delete", { chatId: id });
+  void apiLogger.requestSucceeded(200, { chatId: id });
 
   return NextResponse.json({ ok: true });
 }

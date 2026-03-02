@@ -1,4 +1,5 @@
-import { softDeleteFileAsset, updateFileAsset } from "@/lib/file-data";
+import { isSharedFilesVirtualFolderId, softDeleteFileAsset, updateFileAsset } from "@/lib/file-data";
+import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
 import { NextResponse } from "next/server";
 import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
 
@@ -21,6 +22,9 @@ export async function PATCH(
     name?: string;
     folderId?: string;
   };
+  if (body.folderId && isSharedFilesVirtualFolderId(body.folderId, workspaceUuid)) {
+    return NextResponse.json({ error: "Cannot move items into Shared Files" }, { status: 400 });
+  }
 
   const file = await updateFileAsset(workspaceUuid, fileUuid, {
     folderId: body.folderId,
@@ -30,6 +34,16 @@ export async function PATCH(
   if (!file) {
     return NextResponse.json({ error: "File not found" }, { status: 404 });
   }
+
+  await publishFilesInvalidationEvent({
+    workspaceUuid,
+    folderId: file.folderId,
+    reason: "file.updated",
+  });
+  await publishFilesInvalidationEvent({
+    workspaceUuid,
+    reason: "tree.changed",
+  });
 
   return NextResponse.json({ file });
 }
@@ -53,6 +67,15 @@ export async function DELETE(
   if (!ok) {
     return NextResponse.json({ error: "File not found" }, { status: 404 });
   }
+
+  await publishFilesInvalidationEvent({
+    workspaceUuid,
+    reason: "file.deleted",
+  });
+  await publishFilesInvalidationEvent({
+    workspaceUuid,
+    reason: "tree.changed",
+  });
 
   return NextResponse.json({ ok: true });
 }

@@ -6,6 +6,7 @@ import {
   deleteChatForUser,
   getChatBySlugForUser,
   getMessagesByChatSlugForUser,
+  isChatOwnerForUser,
   updateChatForUser
 } from "@/lib/chat-data";
 
@@ -47,6 +48,10 @@ export async function PATCH(
   }
 
   const { slug } = await context.params;
+  const isOwner = await isChatOwnerForUser(user.id, slug);
+  if (!isOwner) {
+    return NextResponse.json({ error: "Read-only chat" }, { status: 403 });
+  }
   const body = (await request.json().catch(() => ({}))) as {
     title?: string;
     pinned?: boolean;
@@ -75,6 +80,10 @@ export async function POST(
   }
 
   const { slug } = await context.params;
+  const isOwner = await isChatOwnerForUser(user.id, slug);
+  if (!isOwner) {
+    return NextResponse.json({ error: "Read-only chat" }, { status: 403 });
+  }
   const chat = await branchChatForUser(user.id, slug);
 
   if (!chat) {
@@ -95,6 +104,10 @@ export async function DELETE(
   }
 
   const { slug } = await context.params;
+  const isOwner = await isChatOwnerForUser(user.id, slug);
+  if (!isOwner) {
+    return NextResponse.json({ error: "Read-only chat" }, { status: 403 });
+  }
   const deleted = await deleteChatForUser(user.id, slug);
 
   if (!deleted) {

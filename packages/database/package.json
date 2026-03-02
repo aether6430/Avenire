@@ -27,5 +27,8 @@
     "dotenv": "latest",
     "drizzle-kit": "latest",
     "typescript": "latest"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
   }
 }

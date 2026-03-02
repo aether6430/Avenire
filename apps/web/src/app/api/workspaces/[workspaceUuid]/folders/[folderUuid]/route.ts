@@ -1,9 +1,11 @@
 import {
   getFolderWithAncestors,
-  listFolderContents,
+  isSharedFilesVirtualFolderId,
+  listFolderContentsForUser,
   softDeleteFolder,
   updateFolder,
 } from "@/lib/file-data";
+import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
 import { NextResponse } from "next/server";
 import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
 
@@ -22,12 +24,12 @@ export async function GET(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const folder = await getFolderWithAncestors(workspaceUuid, folderUuid);
+  const folder = await getFolderWithAncestors(workspaceUuid, folderUuid, user.id);
   if (!folder) {
     return NextResponse.json({ error: "Folder not found" }, { status: 404 });
   }
 
-  const children = await listFolderContents(workspaceUuid, folderUuid);
+  const children = await listFolderContentsForUser(workspaceUuid, folderUuid, user.id);
   return NextResponse.json({
     folder: folder.folder,
     ancestors: folder.ancestors,
@@ -50,11 +52,17 @@ export async function PATCH(
   if (!canAccess) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+  if (isSharedFilesVirtualFolderId(folderUuid, workspaceUuid)) {
+    return NextResponse.json({ error: "Shared Files is read-only" }, { status: 400 });
+  }
 
   const body = (await request.json().catch(() => ({}))) as {
     name?: string;
     parentId?: string | null;
   };
+  if (body.parentId && isSharedFilesVirtualFolderId(body.parentId, workspaceUuid)) {
+    return NextResponse.json({ error: "Cannot move items into Shared Files" }, { status: 400 });
+  }
 
   const folder = await updateFolder(workspaceUuid, folderUuid, {
     name: body.name,
@@ -64,6 +72,17 @@ export async function PATCH(
   if (!folder) {
     return NextResponse.json({ error: "Folder not found" }, { status: 404 });
   }
+
+  await publishFilesInvalidationEvent({
+    workspaceUuid,
+    folderId: folder.id,
+    reason: "folder.updated",
+  });
+  await publishFilesInvalidationEvent({
+    workspaceUuid,
+    folderId: folder.parentId ?? undefined,
+    reason: "tree.changed",
+  });
 
   return NextResponse.json({ folder });
 }
@@ -82,7 +101,19 @@ export async function DELETE(
   if (!canAccess) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+  if (isSharedFilesVirtualFolderId(folderUuid, workspaceUuid)) {
+    return NextResponse.json({ error: "Shared Files is read-only" }, { status: 400 });
+  }
 
   await softDeleteFolder(workspaceUuid, folderUuid);
+  await publishFilesInvalidationEvent({
+    workspaceUuid,
+    folderId: folderUuid,
+    reason: "folder.deleted",
+  });
+  await publishFilesInvalidationEvent({
+    workspaceUuid,
+    reason: "tree.changed",
+  });
   return NextResponse.json({ ok: true });
 }

@@ -1,8 +1,9 @@
-import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { db } from "./client";
 import { member, organization, user as authUser } from "./auth-schema";
 import {
+  chatThread,
   fileAsset,
   fileFolder,
   resourceShareGrant,
@@ -17,6 +18,8 @@ export interface ExplorerFolderRecord {
   workspaceId: string;
   parentId: string | null;
   name: string;
+  isShared?: boolean;
+  readOnly?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -30,8 +33,29 @@ export interface ExplorerFileRecord {
   name: string;
   mimeType: string | null;
   sizeBytes: number;
+  isShared?: boolean;
+  readOnly?: boolean;
+  sourceWorkspaceId?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ShareRecipientSuggestion {
+  email: string;
+  name: string | null;
+  count: number;
+  lastSharedAt: string | null;
+  source: "frequent" | "workspace-member";
+}
+
+const SHARED_FILES_FOLDER_PREFIX = "__shared_files__:";
+
+function sharedFilesFolderId(workspaceId: string) {
+  return `${SHARED_FILES_FOLDER_PREFIX}${workspaceId}`;
+}
+
+export function isSharedFilesVirtualFolderId(folderId: string, workspaceId: string) {
+  return folderId === sharedFilesFolderId(workspaceId);
 }
 
 function mapFolder(row: typeof fileFolder.$inferSelect): ExplorerFolderRecord {
@@ -60,6 +84,38 @@ function mapFile(row: typeof fileAsset.$inferSelect): ExplorerFileRecord {
   };
 }
 
+async function listSharedFileRecordsForUser(userId: string) {
+  const rows = await db
+    .select({
+      file: fileAsset,
+      grantCreatedAt: resourceShareGrant.createdAt,
+    })
+    .from(resourceShareGrant)
+    .innerJoin(
+      fileAsset,
+      and(
+        eq(resourceShareGrant.resourceType, "file"),
+        sql`${resourceShareGrant.resourceId} = ${fileAsset.id}::text`,
+      ),
+    )
+    .where(
+      and(
+        eq(resourceShareGrant.granteeUserId, userId),
+        eq(resourceShareGrant.resourceType, "file"),
+        isNull(fileAsset.deletedAt),
+      ),
+    )
+    .orderBy(desc(resourceShareGrant.createdAt));
+
+  return rows.map((row) => ({
+    ...mapFile(row.file),
+    createdAt: row.grantCreatedAt.toISOString(),
+    isShared: true,
+    readOnly: true,
+    sourceWorkspaceId: row.file.workspaceId,
+  }));
+}
+
 export async function listUserOrganizationIds(userId: string): Promise<string[]> {
   const rows = await db
     .select({ organizationId: member.organizationId })
@@ -67,6 +123,243 @@ export async function listUserOrganizationIds(userId: string): Promise<string[]>
     .where(eq(member.userId, userId));
 
   return rows.map((row) => row.organizationId);
+}
+
+export async function findAuthUserByEmail(email: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedEmail) {
+    return null;
+  }
+
+  const [row] = await db
+    .select({
+      id: authUser.id,
+      email: authUser.email,
+      name: authUser.name,
+    })
+    .from(authUser)
+    .where(eq(authUser.email, normalizedEmail))
+    .limit(1);
+
+  return row
+    ? {
+        id: row.id,
+        email: row.email,
+        name: row.name ?? null,
+      }
+    : null;
+}
+
+async function getWorkspaceOrganizationId(workspaceId: string) {
+  const [ws] = await db
+    .select({ organizationId: workspace.organizationId })
+    .from(workspace)
+    .where(eq(workspace.id, workspaceId))
+    .limit(1);
+  return ws?.organizationId ?? null;
+}
+
+export async function listWorkspaceMembers(workspaceId: string) {
+  const organizationId = await getWorkspaceOrganizationId(workspaceId);
+  if (!organizationId) {
+    return [];
+  }
+
+  const rows = await db
+    .select({
+      userId: authUser.id,
+      email: authUser.email,
+      name: authUser.name,
+      role: member.role,
+      createdAt: member.createdAt,
+    })
+    .from(member)
+    .innerJoin(authUser, eq(authUser.id, member.userId))
+    .where(eq(member.organizationId, organizationId))
+    .orderBy(asc(authUser.email));
+
+  return rows.map((row) => ({
+    userId: row.userId,
+    email: row.email,
+    name: row.name ?? null,
+    role: row.role,
+    createdAt: row.createdAt.toISOString(),
+  }));
+}
+
+export async function addWorkspaceMemberByEmail(input: {
+  workspaceId: string;
+  email: string;
+  role?: "member" | "admin" | "owner";
+}) {
+  const organizationId = await getWorkspaceOrganizationId(input.workspaceId);
+  if (!organizationId) {
+    return { status: "workspace-not-found" as const };
+  }
+
+  const normalizedEmail = input.email.trim().toLowerCase();
+  if (!normalizedEmail) {
+    return { status: "invalid-email" as const };
+  }
+
+  const [targetUser] = await db
+    .select({
+      id: authUser.id,
+      email: authUser.email,
+      name: authUser.name,
+    })
+    .from(authUser)
+    .where(eq(authUser.email, normalizedEmail))
+    .limit(1);
+
+  if (!targetUser) {
+    return { status: "user-not-found" as const };
+  }
+
+  const [existingMember] = await db
+    .select({ id: member.id, role: member.role })
+    .from(member)
+    .where(and(eq(member.organizationId, organizationId), eq(member.userId, targetUser.id)))
+    .limit(1);
+
+  if (existingMember) {
+    return {
+      status: "already-member" as const,
+      user: {
+        id: targetUser.id,
+        email: targetUser.email,
+        name: targetUser.name ?? null,
+        role: existingMember.role,
+      },
+    };
+  }
+
+  const now = new Date();
+  const [created] = await db
+    .insert(member)
+    .values({
+      id: randomUUID(),
+      organizationId,
+      userId: targetUser.id,
+      role: input.role ?? "member",
+      createdAt: now,
+    })
+    .returning({ role: member.role });
+
+  return {
+    status: "added" as const,
+    user: {
+      id: targetUser.id,
+      email: targetUser.email,
+      name: targetUser.name ?? null,
+      role: created.role,
+    },
+  };
+}
+
+export async function listWorkspaceShareSuggestions(input: {
+  workspaceId: string;
+  userId: string;
+  userEmail?: string | null;
+  query?: string;
+  limit?: number;
+}) {
+  const limit = Math.max(1, Math.min(input.limit ?? 8, 20));
+  const query = input.query?.trim().toLowerCase() ?? "";
+
+  const [recentShares, members] = await Promise.all([
+    db
+      .select({
+        email: authUser.email,
+        name: authUser.name,
+        createdAt: resourceShareGrant.createdAt,
+      })
+      .from(resourceShareGrant)
+      .innerJoin(authUser, eq(authUser.id, resourceShareGrant.granteeUserId))
+      .where(
+        and(
+          eq(resourceShareGrant.workspaceId, input.workspaceId),
+          eq(resourceShareGrant.createdBy, input.userId),
+        ),
+      )
+      .orderBy(desc(resourceShareGrant.createdAt))
+      .limit(120),
+    listWorkspaceMembers(input.workspaceId),
+  ]);
+
+  const byEmail = new Map<string, ShareRecipientSuggestion>();
+
+  for (const row of recentShares) {
+    const email = row.email.toLowerCase();
+    if (!byEmail.has(email)) {
+      byEmail.set(email, {
+        email: row.email,
+        name: row.name ?? null,
+        count: 0,
+        lastSharedAt: row.createdAt.toISOString(),
+        source: "frequent",
+      });
+    }
+
+    const entry = byEmail.get(email);
+    if (!entry) {
+      continue;
+    }
+    entry.count += 1;
+    if (!entry.lastSharedAt || row.createdAt.getTime() > new Date(entry.lastSharedAt).getTime()) {
+      entry.lastSharedAt = row.createdAt.toISOString();
+    }
+  }
+
+  for (const row of members) {
+    const email = row.email.toLowerCase();
+    if (input.userEmail && email === input.userEmail.toLowerCase()) {
+      continue;
+    }
+    if (!byEmail.has(email)) {
+      byEmail.set(email, {
+        email: row.email,
+        name: row.name ?? null,
+        count: 0,
+        lastSharedAt: null,
+        source: "workspace-member",
+      });
+      continue;
+    }
+    const existing = byEmail.get(email);
+    if (!existing) {
+      continue;
+    }
+    if (!existing.name && row.name) {
+      existing.name = row.name;
+    }
+  }
+
+  const scored = Array.from(byEmail.values())
+    .filter((item) => {
+      if (!query) {
+        return true;
+      }
+      const name = item.name?.toLowerCase() ?? "";
+      return item.email.toLowerCase().includes(query) || name.includes(query);
+    })
+    .sort((a, b) => {
+      if (a.count !== b.count) {
+        return b.count - a.count;
+      }
+      if (a.lastSharedAt && b.lastSharedAt) {
+        return new Date(b.lastSharedAt).getTime() - new Date(a.lastSharedAt).getTime();
+      }
+      if (a.lastSharedAt && !b.lastSharedAt) {
+        return -1;
+      }
+      if (!a.lastSharedAt && b.lastSharedAt) {
+        return 1;
+      }
+      return a.email.localeCompare(b.email);
+    });
+
+  return scored.slice(0, limit);
 }
 
 export interface UserWorkspaceSummary {
@@ -226,6 +519,43 @@ export async function createWorkspaceForUser(userId: string, name: string) {
   } satisfies UserWorkspaceSummary;
 }
 
+export async function deleteWorkspaceForUser(userId: string, workspaceId: string) {
+  const [ws] = await db
+    .select({ organizationId: workspace.organizationId })
+    .from(workspace)
+    .where(eq(workspace.id, workspaceId))
+    .limit(1);
+
+  if (!ws) {
+    return { status: "workspace-not-found" as const };
+  }
+
+  const [membership] = await db
+    .select({ role: member.role })
+    .from(member)
+    .where(and(eq(member.organizationId, ws.organizationId), eq(member.userId, userId)))
+    .limit(1);
+
+  if (!membership) {
+    return { status: "forbidden" as const };
+  }
+
+  if (membership.role !== "owner") {
+    return { status: "not-owner" as const };
+  }
+
+  const [deleted] = await db
+    .delete(organization)
+    .where(eq(organization.id, ws.organizationId))
+    .returning({ id: organization.id });
+
+  if (!deleted) {
+    return { status: "workspace-not-found" as const };
+  }
+
+  return { status: "deleted" as const };
+}
+
 async function ensureDefaultOrganizationForUser(userId: string) {
   const [existingMembership] = await db
     .select({ organizationId: member.organizationId })
@@ -295,7 +625,51 @@ export async function userCanAccessWorkspace(userId: string, workspaceId: string
   return Boolean(membership);
 }
 
-export async function getFolderWithAncestors(workspaceId: string, folderId: string) {
+export async function getFolderWithAncestors(
+  workspaceId: string,
+  folderId: string,
+  userId?: string,
+) {
+  if (userId && isSharedFilesVirtualFolderId(folderId, workspaceId)) {
+    const sharedFiles = await listSharedFileRecordsForUser(userId);
+    if (sharedFiles.length === 0) {
+      return null;
+    }
+
+    const [root] = await db
+      .select()
+      .from(fileFolder)
+      .where(
+        and(
+          eq(fileFolder.workspaceId, workspaceId),
+          isNull(fileFolder.parentId),
+          isNull(fileFolder.deletedAt),
+        ),
+      )
+      .orderBy(asc(fileFolder.createdAt))
+      .limit(1);
+
+    if (!root) {
+      return null;
+    }
+
+    const sharedFolder: ExplorerFolderRecord = {
+      id: sharedFilesFolderId(workspaceId),
+      workspaceId,
+      parentId: root.id,
+      name: "Shared Files",
+      isShared: true,
+      readOnly: true,
+      createdAt: root.createdAt.toISOString(),
+      updatedAt: root.updatedAt.toISOString(),
+    };
+
+    return {
+      folder: sharedFolder,
+      ancestors: [mapFolder(root), sharedFolder],
+    };
+  }
+
   const [folder] = await db
     .select()
     .from(fileFolder)
@@ -347,6 +721,13 @@ export async function getFolderWithAncestors(workspaceId: string, folderId: stri
 }
 
 export async function listFolderContents(workspaceId: string, folderId: string) {
+  if (isSharedFilesVirtualFolderId(folderId, workspaceId)) {
+    return {
+      folders: [],
+      files: [],
+    };
+  }
+
   const [folders, files] = await Promise.all([
     db
       .select()
@@ -378,24 +759,126 @@ export async function listFolderContents(workspaceId: string, folderId: string) 
   };
 }
 
-export async function listWorkspaceFolders(workspaceId: string) {
+export async function listFolderContentsForUser(
+  workspaceId: string,
+  folderId: string,
+  userId: string,
+) {
+  if (isSharedFilesVirtualFolderId(folderId, workspaceId)) {
+    const sharedFiles = await listSharedFileRecordsForUser(userId);
+    return {
+      folders: [],
+      files: sharedFiles.map((file) => ({
+        ...file,
+        workspaceId,
+        folderId: sharedFilesFolderId(workspaceId),
+      })),
+    };
+  }
+
+  const base = await listFolderContents(workspaceId, folderId);
+  const [root] = await db
+    .select()
+    .from(fileFolder)
+    .where(
+      and(
+        eq(fileFolder.workspaceId, workspaceId),
+        isNull(fileFolder.parentId),
+        isNull(fileFolder.deletedAt),
+      ),
+    )
+    .orderBy(asc(fileFolder.createdAt))
+    .limit(1);
+
+  if (!root || root.id !== folderId) {
+    return base;
+  }
+
+  const sharedFiles = await listSharedFileRecordsForUser(userId);
+  if (sharedFiles.length === 0) {
+    return base;
+  }
+
+  const sharedFolder: ExplorerFolderRecord = {
+    id: sharedFilesFolderId(workspaceId),
+    workspaceId,
+    parentId: root.id,
+    name: "Shared Files",
+    isShared: true,
+    readOnly: true,
+    createdAt: root.createdAt.toISOString(),
+    updatedAt: root.updatedAt.toISOString(),
+  };
+
+  return {
+    folders: [...base.folders, sharedFolder].sort((a, b) => a.name.localeCompare(b.name)),
+    files: base.files,
+  };
+}
+
+export async function listWorkspaceFolders(workspaceId: string, userId?: string) {
   const rows = await db
     .select()
     .from(fileFolder)
     .where(and(eq(fileFolder.workspaceId, workspaceId), isNull(fileFolder.deletedAt)))
     .orderBy(asc(fileFolder.name));
 
-  return rows.map(mapFolder);
+  const folders = rows.map(mapFolder);
+  if (!userId) {
+    return folders;
+  }
+
+  const sharedFiles = await listSharedFileRecordsForUser(userId);
+  if (sharedFiles.length === 0) {
+    return folders;
+  }
+
+  const root = folders.find((folder) => folder.parentId === null);
+  if (!root) {
+    return folders;
+  }
+
+  return [
+    ...folders,
+    {
+      id: sharedFilesFolderId(workspaceId),
+      workspaceId,
+      parentId: root.id,
+      name: "Shared Files",
+      isShared: true,
+      readOnly: true,
+      createdAt: root.createdAt,
+      updatedAt: root.updatedAt,
+    } satisfies ExplorerFolderRecord,
+  ];
 }
 
-export async function listWorkspaceFiles(workspaceId: string) {
+export async function listWorkspaceFiles(workspaceId: string, userId?: string) {
   const rows = await db
     .select()
     .from(fileAsset)
     .where(and(eq(fileAsset.workspaceId, workspaceId), isNull(fileAsset.deletedAt)))
     .orderBy(asc(fileAsset.name));
 
-  return rows.map(mapFile);
+  const files = rows.map(mapFile);
+  if (!userId) {
+    return files;
+  }
+
+  const sharedFiles = await listSharedFileRecordsForUser(userId);
+  if (sharedFiles.length === 0) {
+    return files;
+  }
+
+  const sharedFolder = sharedFilesFolderId(workspaceId);
+  return [
+    ...files,
+    ...sharedFiles.map((file) => ({
+      ...file,
+      workspaceId,
+      folderId: sharedFolder,
+    })),
+  ];
 }
 
 export async function createFolder(
@@ -570,6 +1053,22 @@ export async function getFileAssetById(workspaceId: string, fileId: string) {
   return record ? mapFile(record) : null;
 }
 
+export async function getFileAssetByStorageKey(workspaceId: string, storageKey: string) {
+  const [record] = await db
+    .select()
+    .from(fileAsset)
+    .where(
+      and(
+        eq(fileAsset.workspaceId, workspaceId),
+        eq(fileAsset.storageKey, storageKey),
+        isNull(fileAsset.deletedAt),
+      ),
+    )
+    .limit(1);
+
+  return record ? mapFile(record) : null;
+}
+
 export async function softDeleteFileAsset(workspaceId: string, fileId: string) {
   const [record] = await db
     .update(fileAsset)
@@ -634,6 +1133,73 @@ export async function grantResourceToUserByEmail(input: {
   };
 }
 
+export async function grantResourceToUserId(input: {
+  workspaceId: string;
+  resourceType: ShareResourceType;
+  resourceId: string;
+  permission?: "read";
+  granteeUserId: string;
+  createdBy: string;
+}) {
+  const [grant] = await db
+    .insert(resourceShareGrant)
+    .values({
+      workspaceId: input.workspaceId,
+      resourceType: input.resourceType,
+      resourceId: input.resourceId,
+      granteeUserId: input.granteeUserId,
+      permission: input.permission ?? "read",
+      createdBy: input.createdBy,
+      createdAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: [
+        resourceShareGrant.resourceType,
+        resourceShareGrant.resourceId,
+        resourceShareGrant.granteeUserId,
+      ],
+      set: { permission: input.permission ?? "read" },
+    })
+    .returning();
+
+  return grant;
+}
+
+export async function grantAllChatsFromUserToUser(input: {
+  workspaceId: string;
+  ownerUserId: string;
+  granteeUserId: string;
+  createdBy: string;
+}) {
+  if (input.ownerUserId === input.granteeUserId) {
+    return 0;
+  }
+
+  const chats = await db
+    .select({ slug: chatThread.slug })
+    .from(chatThread)
+    .where(eq(chatThread.userId, input.ownerUserId));
+
+  if (chats.length === 0) {
+    return 0;
+  }
+
+  await Promise.all(
+    chats.map((chat) =>
+      grantResourceToUserId({
+        workspaceId: input.workspaceId,
+        resourceType: "chat",
+        resourceId: chat.slug,
+        granteeUserId: input.granteeUserId,
+        createdBy: input.createdBy,
+        permission: "read",
+      }),
+    ),
+  );
+
+  return chats.length;
+}
+
 function hashShareToken(rawToken: string) {
   return createHash("sha256").update(rawToken).digest("hex");
 }
@@ -650,6 +1216,18 @@ export async function createResourceShareLink(input: {
   const tokenHash = hashShareToken(rawToken);
   const now = Date.now();
   const expiresAt = new Date(now + (input.expiresInDays ?? 7) * 24 * 60 * 60 * 1000);
+  const [existingGrant] = await db
+    .select({ id: resourceShareGrant.id })
+    .from(resourceShareGrant)
+    .where(
+      and(
+        eq(resourceShareGrant.resourceType, input.resourceType),
+        eq(resourceShareGrant.resourceId, input.resourceId),
+      ),
+    )
+    .limit(1);
+  const hasSpecificGrants = Boolean(existingGrant);
+  const allowPublic = !hasSpecificGrants && (input.allowPublic ?? true);
 
   const [link] = await db
     .insert(resourceShareLink)
@@ -659,7 +1237,7 @@ export async function createResourceShareLink(input: {
       resourceId: input.resourceId,
       tokenHash,
       permission: "read",
-      allowPublic: input.allowPublic ?? true,
+      allowPublic,
       expiresAt,
       createdBy: input.createdBy,
       createdAt: new Date(now),
@@ -702,7 +1280,19 @@ export async function canUserAccessSharedResource(input: {
     return false;
   }
 
-  if (link.allowPublic) {
+  const [existingGrant] = await db
+    .select({ id: resourceShareGrant.id })
+    .from(resourceShareGrant)
+    .where(
+      and(
+        eq(resourceShareGrant.resourceType, link.resourceType),
+        eq(resourceShareGrant.resourceId, link.resourceId),
+      ),
+    )
+    .limit(1);
+  const hasSpecificGrants = Boolean(existingGrant);
+
+  if (!hasSpecificGrants && link.allowPublic) {
     return true;
   }
 

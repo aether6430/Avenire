@@ -16,5 +16,8 @@
     "@avenire/env-types": "workspace:*",
     "@biomejs/biome": "latest",
     "ultracite": "latest"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
   }
 }

@@ -1,0 +1,27 @@
+{
+  "name": "@avenire/backend",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc --noEmit",
+    "start": "tsx src/server.ts",
+    "lint": "biome check .",
+    "check-types": "tsc --noEmit",
+    "format": "biome format --write ."
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.14.4",
+    "hono": "^4.8.3",
+    "redis": "^5.11.0",
+    "dotenv": "latest"
+  },
+  "devDependencies": {
+    "@avenire/env-types": "workspace:*",
+    "@avenire/typescript-config": "workspace:*",
+    "@types/node": "latest",
+    "tsx": "^4.20.5",
+    "typescript": "latest"
+  }
+}

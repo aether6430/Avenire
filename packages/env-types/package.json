@@ -10,5 +10,8 @@
   ],
   "scripts": {
     "generate": "node ./src/generate-env-types.mjs"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
   }
 }

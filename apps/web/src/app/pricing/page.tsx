@@ -17,7 +17,6 @@ type Plan = {
   name: "Access" | "Core" | "Scholar";
   monthly: number;
   yearly: number;
-  credits: number;
   summary: string;
   features: string[];
   cta: string;
@@ -29,7 +28,6 @@ const plans: Plan[] = [
     name: "Access",
     monthly: 0,
     yearly: 0,
-    credits: 120,
     summary: "For curious learners getting started with reasoning-first workflows.",
     features: [
       "Core AI chat workspace",
@@ -46,7 +44,6 @@ const plans: Plan[] = [
     name: "Core",
     monthly: 5,
     yearly: 45,
-    credits: 1800,
     summary: "For daily users who want depth, continuity, and faster iteration.",
     features: [
       "Everything in Access",
@@ -65,7 +62,6 @@ const plans: Plan[] = [
     name: "Scholar",
     monthly: 15,
     yearly: 150,
-    credits: 6500,
     summary: "For high-intensity learners and research-heavy workflows.",
     features: [
       "Everything in Core",
@@ -111,11 +107,8 @@ export default function PricingPage() {
               Pricing
             </Badge>
             <h1 className="mt-4 text-4xl font-semibold tracking-tight text-foreground md:text-6xl md:leading-[1.05]">
-              Clear plans. Credit-based usage.
+              Clear plans.
             </h1>
-            <p className="mx-auto mt-5 max-w-3xl text-base leading-relaxed text-muted-foreground md:text-lg">
-              Pick a tier based on depth and monthly credits. When credits run out, usage continues at metered rates.
-            </p>
           </motion.div>
 
           <motion.div
@@ -208,7 +201,6 @@ export default function PricingPage() {
                           >
                             {monthlyEquivalent ? `$${monthlyEquivalent}/mo billed annually` : "placeholder"}
                           </p>
-                          <p className="mt-1 text-xs text-muted-foreground">{plan.credits.toLocaleString()} credits / month</p>
                         </motion.div>
                       </AnimatePresence>
                     </div>
@@ -222,11 +214,12 @@ export default function PricingPage() {
                       ))}
                     </ul>
 
-                    <Link
-                      href={{
-                        pathname: "/",
-                        query: { plan: plan.name.toLowerCase(), billing },
-                      }}
+                    <a
+                      href={
+                        plan.monthly === 0 && plan.yearly === 0
+                          ? "/register"
+                          : `/api/billing/checkout?plan=${plan.name.toLowerCase()}&billing=${billing}`
+                      }
                       className={cn(
                         buttonVariants({ size: "lg", variant: plan.featured ? "default" : "outline" }),
                         "mt-4 w-full gap-1.5"
@@ -234,7 +227,7 @@ export default function PricingPage() {
                     >
                       {plan.cta}
                       <ArrowRight className="size-3.5" />
-                    </Link>
+                    </a>
                   </CardContent>
                 </Card>
               </motion.div>

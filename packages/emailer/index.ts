@@ -1,8 +1,10 @@
 import {
   DeleteAccountConfirmation,
   EmailConfirmation,
+  FileShareNotificationEmail,
   PasswordReset,
   WelcomeEmail,
+  WorkspaceShareNotificationEmail,
 } from "@avenire/emails";
 import { type Options, render } from "@react-email/components";
 import type { ReactElement } from "react";
@@ -83,6 +85,34 @@ export function renderWelcomeEmail(input: {
     createElement(WelcomeEmail, {
       name: input.name ?? "there",
       dashboardUrl: input.dashboardUrl ?? "https://avenire.com/dashboard",
+    })
+  );
+}
+
+export function renderFileShareNotificationEmail(input: {
+  fileName: string;
+  shareUrl: string;
+  sharedByName?: string;
+}) {
+  return renderEmail(
+    createElement(FileShareNotificationEmail, {
+      fileName: input.fileName,
+      shareUrl: input.shareUrl,
+      sharedByName: input.sharedByName,
+    })
+  );
+}
+
+export function renderWorkspaceShareNotificationEmail(input: {
+  workspaceName: string;
+  workspaceUrl: string;
+  sharedByName?: string;
+}) {
+  return renderEmail(
+    createElement(WorkspaceShareNotificationEmail, {
+      workspaceName: input.workspaceName,
+      workspaceUrl: input.workspaceUrl,
+      sharedByName: input.sharedByName,
     })
   );
 }

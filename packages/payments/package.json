@@ -19,5 +19,8 @@
     "@avenire/env-types": "workspace:*",
     "@avenire/typescript-config": "workspace:*",
     "typescript": "latest"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
   }
 }

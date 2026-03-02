@@ -3,3 +3,5 @@ export * from "./welcome-user";
 export * from "./email-verification";
 export * from "./change-password";
 export * from "./account-deletion";
+export * from "./file-share-notification";
+export * from "./workspace-share-notification";
