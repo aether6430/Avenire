@@ -321,9 +321,9 @@ export function SettingsPanel({
                   const uploadedFiles = await startAvatarUpload([file]);
                   const uploaded = uploadedFiles?.[0];
                   const uploadedFile = uploaded as
-                    | { ufsUrl?: string | null; url?: string | null }
+                    | { ufsUrl?: string | null }
                     | undefined;
-                  const uploadedUrl = uploadedFile?.ufsUrl ?? uploadedFile?.url ?? null;
+                  const uploadedUrl = uploadedFile?.ufsUrl ?? null;
 
                   if (!uploadedUrl) {
                     setProfileStatus("Unable to upload avatar.");

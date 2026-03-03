@@ -144,6 +144,7 @@ export function NavUser({
                   {workspaces.map((workspace) => (
                     <DropdownMenuItem
                       key={workspace.workspaceId}
+                      onClick={() => onSwitchWorkspace?.(workspace)}
                       onSelect={() => onSwitchWorkspace?.(workspace)}
                     >
                       <Building2 className="size-4" />
@@ -161,7 +162,9 @@ export function NavUser({
 
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => router.push("/pricing" as Route)}
+                  >
                     <Sparkles />
                     Upgrade to Pro
                   </DropdownMenuItem>
@@ -169,25 +172,25 @@ export function NavUser({
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
                   <DropdownMenuItem
-                    onSelect={() => router.push("/settings?tab=account" as Route)}
+                    onClick={() => router.push("/settings?tab=account" as Route)}
                   >
                     <BadgeCheck />
                     Account
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onSelect={() => router.push("/settings?tab=billing" as Route)}
+                    onClick={() => router.push("/settings?tab=billing" as Route)}
                   >
                     <CreditCard />
                     Billing
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onSelect={() => router.push("/settings?tab=security" as Route)}
+                    onClick={() => router.push("/settings?tab=security" as Route)}
                   >
                     <Shield />
                     Security
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onSelect={() => router.push("/settings" as Route)}
+                    onClick={() => router.push("/settings" as Route)}
                   >
                     <Settings />
                     Settings
@@ -195,7 +198,7 @@ export function NavUser({
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onSelect={() => {
+                  onClick={() => {
                     void authClient.signOut().then(() => {
                       router.push("/login" as Route);
                     });

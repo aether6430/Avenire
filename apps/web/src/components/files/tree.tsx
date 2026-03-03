@@ -132,6 +132,16 @@ export const FileTreeFolder = ({
     onSelect?.(path);
   }, [onSelect, path]);
 
+  const handleItemKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        onSelect?.(path);
+      }
+    },
+    [onSelect, path]
+  );
+
   const folderContextValue = useMemo(
     () => ({ isExpanded, name, path }),
     [isExpanded, name, path]
@@ -142,23 +152,42 @@ export const FileTreeFolder = ({
       <Collapsible onOpenChange={handleOpenChange} open={isExpanded}>
         <div
           className={cn("", className)}
+          data-tree-item=""
+          data-tree-path={path}
+          onKeyDown={handleItemKeyDown}
           role="treeitem"
           tabIndex={0}
           {...props}
         >
-          <CollapsibleTrigger
+          <div
             className={cn(
-              "flex w-full items-center gap-1 rounded px-2 py-1 text-left transition-colors hover:bg-muted/50",
+              "flex w-full min-w-0 items-center gap-1 rounded px-2 py-1 text-left transition-colors hover:bg-muted/50",
               isSelected && "bg-muted"
             )}
             onClick={handleSelect}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                handleSelect();
+              }
+            }}
+            role="button"
+            tabIndex={-1}
           >
-            <ChevronRightIcon
-              className={cn(
-                "size-4 shrink-0 text-muted-foreground transition-transform",
-                isExpanded && "rotate-90"
-              )}
-            />
+            <CollapsibleTrigger
+              aria-label={isExpanded ? `Collapse ${name}` : `Expand ${name}`}
+              className="flex shrink-0 items-center justify-center rounded-sm hover:bg-muted"
+              onClick={(event) => {
+                event.stopPropagation();
+              }}
+            >
+              <ChevronRightIcon
+                className={cn(
+                  "size-4 shrink-0 text-muted-foreground transition-transform",
+                  isExpanded && "rotate-90"
+                )}
+              />
+            </CollapsibleTrigger>
             <FileTreeIcon>
               {isExpanded ? (
                 <FolderOpenIcon className="size-4 text-blue-500" />
@@ -166,10 +195,16 @@ export const FileTreeFolder = ({
                 <FolderIcon className="size-4 text-blue-500" />
               )}
             </FileTreeIcon>
-            <FileTreeName>{name}</FileTreeName>
-          </CollapsibleTrigger>
+            <FileTreeName title={name}>{name}</FileTreeName>
+          </div>
           <CollapsibleContent>
-            <div className="ml-4 border-l pl-2">{children}</div>
+            <div
+              className="ml-4 border-l pl-2"
+              data-tree-children={isExpanded ? "open" : "closed"}
+              key={`${path}-${isExpanded ? "open" : "closed"}`}
+            >
+              {children}
+            </div>
           </CollapsibleContent>
         </div>
       </Collapsible>
@@ -223,10 +258,12 @@ export const FileTreeFile = ({
     <FileTreeFileContext.Provider value={fileContextValue}>
       <div
         className={cn(
-          "flex cursor-pointer items-center gap-1 rounded px-2 py-1 transition-colors hover:bg-muted/50",
+          "flex min-w-0 cursor-pointer items-center gap-1 rounded px-2 py-1 transition-colors hover:bg-muted/50",
           isSelected && "bg-muted",
           className
         )}
+        data-tree-item=""
+        data-tree-path={path}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
         role="treeitem"
@@ -240,7 +277,7 @@ export const FileTreeFile = ({
             <FileTreeIcon>
               {icon ?? <FileIcon className="size-4 text-muted-foreground" />}
             </FileTreeIcon>
-            <FileTreeName>{name}</FileTreeName>
+            <FileTreeName title={name}>{name}</FileTreeName>
           </>
         )}
       </div>
@@ -267,7 +304,10 @@ export const FileTreeName = ({
   children,
   ...props
 }: FileTreeNameProps) => (
-  <span className={cn("truncate", className)} {...props}>
+  <span
+    className={cn("min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap", className)}
+    {...props}
+  >
     {children}
   </span>
 );

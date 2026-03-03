@@ -28,8 +28,14 @@ import {
   TooltipTrigger,
 } from "@avenire/ui/components/tooltip";
 import {
+  FileArchive,
+  FileCode2,
+  FileImage,
+  FileMusic,
   FilePlus2,
+  FileSpreadsheet,
   FileText,
+  FileVideo,
   Files,
   GitBranch,
   MessageSquare,
@@ -43,11 +49,11 @@ import {
   Trash2,
 } from "lucide-react";
 import type { Route } from "next";
-import { AnimatePresence, motion } from "motion/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   type ComponentProps,
   type ComponentType,
+  type DragEvent,
   type ReactNode,
   useCallback,
   useEffect,
@@ -261,6 +267,70 @@ async function parseResponse<T>(response: Response): Promise<T | null> {
   return (await response.json()) as T;
 }
 
+function getTreeFileIcon(name: string) {
+  const ext = name.includes(".") ? name.split(".").pop()?.toLowerCase() ?? "" : "";
+  const imageExt = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "avif", "bmp", "ico"]);
+  const videoExt = new Set(["mp4", "mov", "m4v", "webm", "ogg", "avi", "mkv"]);
+  const audioExt = new Set(["mp3", "wav", "flac", "m4a", "aac", "ogg"]);
+  const codeExt = new Set([
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "py",
+    "java",
+    "c",
+    "cpp",
+    "cs",
+    "go",
+    "rs",
+    "php",
+    "rb",
+    "json",
+    "yaml",
+    "yml",
+    "xml",
+    "html",
+    "css",
+    "scss",
+    "md",
+    "sql",
+  ]);
+  const archiveExt = new Set(["zip", "rar", "7z", "tar", "gz", "bz2", "xz"]);
+  const sheetExt = new Set(["csv", "xls", "xlsx"]);
+
+  if (imageExt.has(ext)) {
+    return <FileImage className="size-4 text-emerald-600" />;
+  }
+  if (videoExt.has(ext)) {
+    return <FileVideo className="size-4 text-violet-600" />;
+  }
+  if (audioExt.has(ext)) {
+    return <FileMusic className="size-4 text-indigo-600" />;
+  }
+  if (sheetExt.has(ext)) {
+    return <FileSpreadsheet className="size-4 text-lime-700" />;
+  }
+  if (codeExt.has(ext)) {
+    return <FileCode2 className="size-4 text-sky-600" />;
+  }
+  if (archiveExt.has(ext)) {
+    return <FileArchive className="size-4 text-amber-600" />;
+  }
+  return <FileText className="size-4 text-muted-foreground" />;
+}
+
+function getDragPreviewPixel(cacheRef: { current: HTMLImageElement | null }) {
+  if (cacheRef.current) {
+    return cacheRef.current;
+  }
+  const pixel = new Image();
+  pixel.src =
+    "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+  cacheRef.current = pixel;
+  return pixel;
+}
+
 export function DashboardSidebar({
   user,
   initialChats,
@@ -289,22 +359,27 @@ export function DashboardSidebar({
   const [fileTree, setFileTree] = useState<
     Array<{ id: string; name: string; folderId: string; readOnly?: boolean }>
   >([]);
+  const [expandedTreePaths, setExpandedTreePaths] = useState<Set<string>>(new Set());
   const [treeDropFolderId, setTreeDropFolderId] = useState<string | null>(null);
   const [draggedTreeItem, setDraggedTreeItem] = useState<{
     id: string;
     kind: "file" | "folder";
   } | null>(null);
+  const fileTreePanelRef = useRef<HTMLDivElement | null>(null);
+  const dragPreviewPixelRef = useRef<HTMLImageElement | null>(null);
   const [sseConnected, setSseConnected] = useState(false);
-  const [slideDirection, setSlideDirection] = useState(1);
   const treeRefreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sseRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const previousViewRef = useRef<Exclude<DashboardView, null>>("chat");
   const activeView: Exclude<DashboardView, null> = view ?? "chat";
   const currentFolderId = useMemo(() => {
     const match = pathname.match(/^\/dashboard\/files\/[^/]+\/folder\/([^/?#]+)/);
     return match?.[1] ?? undefined;
   }, [pathname]);
   const currentFileId = searchParams.get("file") ?? undefined;
+  const expandedTreeStorageKey = useMemo(
+    () => (workspaceUuid ? `files-tree-expanded:${workspaceUuid}` : null),
+    [workspaceUuid],
+  );
 
   useEffect(() => {
     setChats(initialChats);
@@ -329,20 +404,6 @@ export function DashboardSidebar({
       setView("chat");
     }
   }, [pathname, setView, view]);
-
-  useEffect(() => {
-    const order: Record<Exclude<DashboardView, null>, number> = {
-      chat: 0,
-      flashcards: 1,
-      files: 2,
-    };
-    const previousView = previousViewRef.current;
-    const nextDirection =
-      order[activeView] >= order[previousView] ? 1 : -1;
-
-    setSlideDirection(nextDirection);
-    previousViewRef.current = activeView;
-  }, [activeView]);
 
   useEffect(() => {
     const onChatNameUpdated = (event: Event) => {
@@ -514,6 +575,102 @@ export function DashboardSidebar({
     setWorkspaceUuid(currentWorkspace);
     void loadWorkspaceTree(currentWorkspace);
   }, [loadWorkspaceTree, pathname, workspaceUuid]);
+
+  useEffect(() => {
+    if (!expandedTreeStorageKey) {
+      return;
+    }
+
+    try {
+      const raw = window.localStorage.getItem(expandedTreeStorageKey);
+      if (!raw) {
+        return;
+      }
+      const parsed = JSON.parse(raw) as string[];
+      if (Array.isArray(parsed)) {
+        setExpandedTreePaths(new Set(parsed));
+      }
+    } catch {
+      // ignore
+    }
+  }, [expandedTreeStorageKey]);
+
+  useEffect(() => {
+    if (!expandedTreeStorageKey) {
+      return;
+    }
+    window.localStorage.setItem(
+      expandedTreeStorageKey,
+      JSON.stringify(Array.from(expandedTreePaths)),
+    );
+  }, [expandedTreePaths, expandedTreeStorageKey]);
+
+  useEffect(() => {
+    if (activeView !== "files" || folderTree.length === 0) {
+      return;
+    }
+
+    const foldersById = new Map(folderTree.map((folder) => [folder.id, folder]));
+    const nextExpanded = new Set(
+      folderTree.filter((folder) => !folder.parentId).map((folder) => folder.id),
+    );
+
+    const expandAncestors = (folderId: string) => {
+      let cursor = foldersById.get(folderId);
+      while (cursor) {
+        nextExpanded.add(cursor.id);
+        if (!cursor.parentId) {
+          break;
+        }
+        cursor = foldersById.get(cursor.parentId);
+      }
+    };
+
+    if (currentFolderId) {
+      expandAncestors(currentFolderId);
+    }
+
+    if (currentFileId) {
+      const file = fileTree.find((entry) => entry.id === currentFileId);
+      if (file?.folderId) {
+        expandAncestors(file.folderId);
+      }
+    }
+
+    setExpandedTreePaths((previous) => new Set([...previous, ...nextExpanded]));
+  }, [activeView, currentFileId, currentFolderId, fileTree, folderTree]);
+
+  useEffect(() => {
+    if (activeView !== "files") {
+      return;
+    }
+
+    const targetPath = currentFileId ?? currentFolderId;
+    if (!targetPath) {
+      return;
+    }
+
+    let cleanupTimer: ReturnType<typeof setTimeout> | null = null;
+    const timer = setTimeout(() => {
+      const panel = fileTreePanelRef.current;
+      const target = panel?.querySelector<HTMLElement>(`[data-tree-path="${targetPath}"]`);
+      if (!target) {
+        return;
+      }
+      target.scrollIntoView({ block: "nearest" });
+      target.classList.add("bg-emerald-500/10", "ring-1", "ring-emerald-400/60", "rounded");
+      cleanupTimer = setTimeout(() => {
+        target.classList.remove("bg-emerald-500/10", "ring-1", "ring-emerald-400/60", "rounded");
+      }, 900);
+    }, 180);
+
+    return () => {
+      clearTimeout(timer);
+      if (cleanupTimer) {
+        clearTimeout(cleanupTimer);
+      }
+    };
+  }, [activeView, currentFileId, currentFolderId, expandedTreePaths]);
 
   useEffect(() => {
     if (activeView !== "files" || !workspaceUuid) {
@@ -726,7 +883,11 @@ export function DashboardSidebar({
     rootFolderId: string;
     name: string;
   }) => {
-    await setActiveOrganization(workspace.organizationId ?? null);
+    try {
+      await setActiveOrganization(workspace.organizationId ?? null);
+    } catch {
+      // continue with workspace navigation even if org switch fails
+    }
     setWorkspaceUuid(workspace.workspaceId);
     setView("files");
     window.localStorage.setItem("preferredWorkspaceId", workspace.workspaceId);
@@ -834,7 +995,7 @@ export function DashboardSidebar({
   return (
     <Sidebar variant="inset" {...props}>
       <SidebarContent>
-        <TooltipProvider>
+        <TooltipProvider delay={280}>
         <SidebarGroup className="px-2 pb-1">
           <SidebarGroupLabel>Workspace</SidebarGroupLabel>
           <ExpandableTabs
@@ -855,13 +1016,11 @@ export function DashboardSidebar({
               }
 
               if (nextView === "files" && !pathname.startsWith("/dashboard/files")) {
-                setView("files");
                 void navigateToFilesRoot();
                 return;
               }
 
               if (nextView === "chat" && !pathname.startsWith("/dashboard/chats/")) {
-                setView("chat");
                 const chatSlug = activeChatSlug || chats[0]?.slug;
                 if (chatSlug) {
                   router.push(`/dashboard/chats/${chatSlug}` as Route);
@@ -877,17 +1036,8 @@ export function DashboardSidebar({
           />
         </SidebarGroup>
         <div className="relative min-h-0 flex-1 overflow-hidden">
-          <AnimatePresence custom={slideDirection} initial={false} mode="wait">
-            {activeView === "chat" ? (
-              <motion.div
-                animate={{ opacity: 1, x: 0 }}
-                className="absolute inset-0 overflow-y-auto"
-                custom={slideDirection}
-                exit={{ opacity: 0, x: slideDirection > 0 ? -18 : 18 }}
-                initial={{ opacity: 0, x: slideDirection > 0 ? 18 : -18 }}
-                key="sidebar-chat-panel"
-                transition={{ duration: 0.18, ease: "easeOut" }}
-              >
+          {activeView === "chat" ? (
+              <div className="absolute inset-0 overflow-y-auto">
                 <SidebarGroup>
                   <SidebarGroupContent>
                     <SidebarMenu>
@@ -934,7 +1084,6 @@ export function DashboardSidebar({
                   onSelect={(chatSlug) => {
                     setEditingChatSlug(null);
                     setEditingTitle("");
-                    setView("chat");
                     router.push(`/dashboard/chats/${chatSlug}` as Route);
                   }}
                   onStartRename={(chat) => {
@@ -970,7 +1119,6 @@ export function DashboardSidebar({
                   onSelect={(chatSlug) => {
                     setEditingChatSlug(null);
                     setEditingTitle("");
-                    setView("chat");
                     router.push(`/dashboard/chats/${chatSlug}` as Route);
                   }}
                   onStartRename={(chat) => {
@@ -982,17 +1130,9 @@ export function DashboardSidebar({
                   }}
                   title="Other Chats"
                 />
-              </motion.div>
+              </div>
             ) : activeView === "files" ? (
-              <motion.div
-                animate={{ opacity: 1, x: 0 }}
-                className="absolute inset-0 overflow-y-auto"
-                custom={slideDirection}
-                exit={{ opacity: 0, x: slideDirection > 0 ? -18 : 18 }}
-                initial={{ opacity: 0, x: slideDirection > 0 ? 18 : -18 }}
-                key="sidebar-files-panel"
-                transition={{ duration: 0.18, ease: "easeOut" }}
-              >
+              <div className="absolute inset-0 overflow-y-auto" ref={fileTreePanelRef}>
                 <SidebarGroup>
                   <SidebarGroupLabel>Files</SidebarGroupLabel>
                   <SidebarGroupContent>
@@ -1021,29 +1161,43 @@ export function DashboardSidebar({
                     {workspaceUuid && folderTree.length > 0 ? (
                       <FileTree
                         className="border-none bg-transparent"
-                        defaultExpanded={new Set(folderTree.filter((f) => !f.parentId).map((f) => f.id))}
+                        expanded={expandedTreePaths}
+                        onExpandedChange={setExpandedTreePaths}
+                        onSelect={(path) => {
+                          if (!workspaceUuid) {
+                            return;
+                          }
+
+                          const folder = folderTree.find((entry) => entry.id === path);
+                          if (folder) {
+                            router.push(
+                              `/dashboard/files/${workspaceUuid}/folder/${folder.id}` as Route,
+                            );
+                            return;
+                          }
+
+                          const file = fileTree.find((entry) => entry.id === path);
+                          if (file) {
+                            router.push(
+                              `/dashboard/files/${workspaceUuid}/folder/${file.folderId}?file=${file.id}` as Route,
+                            );
+                          }
+                        }}
                         selectedPath={currentFileId ?? currentFolderId}
                       >
                         {renderWorkspaceTree({
                           files: fileTree,
                           folders: folderTree,
-                          onDoubleOpenFile: (fileId, folderId) => {
-                            if (!workspaceUuid) {
-                              return;
-                            }
-                            router.push(
-                              `/dashboard/files/${workspaceUuid}/folder/${folderId}?file=${fileId}` as Route,
+                          onDragStart: (event, item) => {
+                            event.dataTransfer.effectAllowed = "move";
+                            event.dataTransfer.setData("text/plain", item.id);
+                            event.dataTransfer.setDragImage(
+                              getDragPreviewPixel(dragPreviewPixelRef),
+                              0,
+                              0,
                             );
+                            setDraggedTreeItem(item);
                           },
-                          onDoubleOpenFolder: (folderId) => {
-                            if (!workspaceUuid) {
-                              return;
-                            }
-                            router.push(
-                              `/dashboard/files/${workspaceUuid}/folder/${folderId}` as Route,
-                            );
-                          },
-                          onDragStart: (item) => setDraggedTreeItem(item),
                           onDropToFolder: (folderId) => {
                             if (!draggedTreeItem) {
                               return;
@@ -1072,17 +1226,9 @@ export function DashboardSidebar({
                     )}
                   </SidebarGroupContent>
                 </SidebarGroup>
-              </motion.div>
+              </div>
             ) : (
-              <motion.div
-                animate={{ opacity: 1, x: 0 }}
-                className="absolute inset-0 overflow-y-auto"
-                custom={slideDirection}
-                exit={{ opacity: 0, x: slideDirection > 0 ? -18 : 18 }}
-                initial={{ opacity: 0, x: slideDirection > 0 ? 18 : -18 }}
-                key={`sidebar-${activeView}-panel`}
-                transition={{ duration: 0.18, ease: "easeOut" }}
-              >
+              <div className="absolute inset-0 overflow-y-auto">
                 <SidebarGroup>
                   <SidebarGroupLabel>
                     {activeView === "flashcards" ? "Flashcards" : "Files"}
@@ -1095,9 +1241,8 @@ export function DashboardSidebar({
                     </p>
                   </SidebarGroupContent>
                 </SidebarGroup>
-              </motion.div>
+              </div>
             )}
-          </AnimatePresence>
         </div>
         </TooltipProvider>
       </SidebarContent>
@@ -1120,9 +1265,7 @@ function renderWorkspaceTree(input: {
   folders: Array<{ id: string; name: string; parentId: string | null; readOnly?: boolean }>;
   files: Array<{ id: string; name: string; folderId: string; readOnly?: boolean }>;
   treeDropFolderId: string | null;
-  onDoubleOpenFolder: (folderId: string) => void;
-  onDoubleOpenFile: (fileId: string, folderId: string) => void;
-  onDragStart: (item: { id: string; kind: "file" | "folder" }) => void;
+  onDragStart: (event: DragEvent<HTMLDivElement>, item: { id: string; kind: "file" | "folder" }) => void;
   onDropToFolder: (folderId: string) => void;
   onDragTargetChange: (folderId: string | null) => void;
 }): ReactNode {
@@ -1131,13 +1274,16 @@ function renderWorkspaceTree(input: {
       .filter((folder) => folder.parentId === parentId)
       .sort((a, b) => a.name.localeCompare(b.name));
 
-    return folders.map((folder) => (
+    return folders.map((folder, folderIndex) => (
       <FileTreeFolder
-        className={input.treeDropFolderId === folder.id ? "rounded-md bg-emerald-500/10" : ""}
+        className={
+          input.treeDropFolderId === folder.id
+            ? "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1 motion-safe:duration-150 rounded-md bg-emerald-500/10 outline outline-1 outline-emerald-400/70"
+            : "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1 motion-safe:duration-150"
+        }
         draggable={!folder.readOnly}
         key={folder.id}
         name={folder.name}
-        onDoubleClick={() => input.onDoubleOpenFolder(folder.id)}
         onDragEnd={() => input.onDragTargetChange(null)}
         onDragLeave={() => input.onDragTargetChange(null)}
         onDragOver={(event) => {
@@ -1147,11 +1293,11 @@ function renderWorkspaceTree(input: {
           event.preventDefault();
           input.onDragTargetChange(folder.id);
         }}
-        onDragStart={() => {
+        onDragStart={(event) => {
           if (folder.readOnly) {
             return;
           }
-          input.onDragStart({ id: folder.id, kind: "folder" });
+          input.onDragStart(event, { id: folder.id, kind: "folder" });
         }}
         onDrop={(event) => {
           if (folder.readOnly) {
@@ -1162,29 +1308,40 @@ function renderWorkspaceTree(input: {
           input.onDropToFolder(folder.id);
         }}
         path={folder.id}
+        style={{
+          animationDelay: `${folderIndex * 18}ms`,
+        }}
       >
         {renderChildren(folder.id)}
         {input.files
           .filter((file) => file.folderId === folder.id)
           .sort((a, b) => a.name.localeCompare(b.name))
-          .map((file) => (
+          .map((file, fileIndex) => (
             <FileTreeFile
+              className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1 motion-safe:duration-150"
               draggable={!file.readOnly}
               key={file.id}
               name={file.name}
-              onDoubleClick={() => input.onDoubleOpenFile(file.id, folder.id)}
-              onDragStart={() => {
+              onDragStart={(event) => {
                 if (file.readOnly) {
                   return;
                 }
-                input.onDragStart({ id: file.id, kind: "file" });
+                input.onDragStart(event, { id: file.id, kind: "file" });
               }}
               path={file.id}
+              style={{
+                animationDelay: `${fileIndex * 16}ms`,
+              }}
             >
-              <div className="flex items-center gap-1 rounded px-2 py-1 hover:bg-muted/50">
+              <div className="flex min-w-0 items-center gap-1 rounded px-2 py-1 hover:bg-muted/50">
                 <span className="size-4" />
-                <FileText className="size-4 text-muted-foreground" />
-                <span className="truncate text-sm">{file.name}</span>
+                {getTreeFileIcon(file.name)}
+                <span
+                  className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm"
+                  title={file.name}
+                >
+                  {file.name}
+                </span>
               </div>
             </FileTreeFile>
           ))}

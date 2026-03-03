@@ -94,6 +94,9 @@ export const fileFolder = pgTable(
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    updatedBy: text("updated_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
     deletedAt: timestamp("deleted_at"),
@@ -122,6 +125,9 @@ export const fileAsset = pgTable(
     uploadedBy: text("uploaded_by")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    updatedBy: text("updated_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
     metadata: jsonb("metadata").notNull().$type<Record<string, unknown>>().default({}),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),

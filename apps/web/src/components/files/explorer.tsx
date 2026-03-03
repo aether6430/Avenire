@@ -4,29 +4,37 @@ import { type TouchEvent, useCallback, useEffect, useMemo, useRef, useState } fr
 import {
   AlertCircle,
   ArrowLeft,
+  ArrowUpDown,
   ArrowUp,
+  CalendarDays,
   CheckCircle2,
+  FileArchive,
+  FileCode2,
+  FileImage,
+  FileMusic,
+  FileSpreadsheet,
   FileText,
+  FileVideo,
   Folder,
-  FolderOpen,
   Grid3X3,
-  ImageIcon,
   LayoutList,
-  Search,
   Share2,
   Upload,
-  Users,
+  UserRoundSearch,
   XCircle,
 } from "lucide-react";
 import {
+  FileCard,
   PdfThumbnail,
   VideoThumbnail,
 } from "@/components/files/file-card-thumbnail";
+import { StylizedSearchBar, type WorkspaceSearchItem } from "@/components/files/stylized-search-bar";
 import type { Route } from "next";
 import dynamic from "next/dynamic";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@avenire/ui/components/badge";
 import { Button } from "@avenire/ui/components/button";
+import { Checkbox } from "@avenire/ui/components/checkbox";
 import {
   Card,
   CardContent,
@@ -35,8 +43,10 @@ import {
 } from "@avenire/ui/components/card";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@avenire/ui/components/dropdown-menu";
 import {
@@ -50,10 +60,16 @@ import {
 } from "@avenire/ui/components/dialog";
 import { Input } from "@avenire/ui/components/input";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@avenire/ui/components/popover";
+import {
   Progress,
   ProgressLabel,
   ProgressValue,
 } from "@avenire/ui/components/progress";
+import { Calendar } from "@avenire/ui/components/calendar";
 import { Skeleton } from "@avenire/ui/components/skeleton";
 import { SidebarTrigger } from "@avenire/ui/components/sidebar";
 import { Spinner } from "@avenire/ui/components/spinner";
@@ -93,25 +109,36 @@ const PDFViewer = dynamic(() => import("@/components/files/pdf-viewer"), {
 });
 
 type UploadStatus = "failed" | "queued" | "uploaded" | "uploading";
+type CalendarDateRange = { from: Date | undefined; to?: Date };
+type FileKind = "archive" | "audio" | "code" | "document" | "image" | "other" | "sheet" | "video";
+const FILE_EXPLORER_VIEW_MODE_KEY = "file-explorer-view-mode";
 
 interface FolderRecord {
   id: string;
   name: string;
   parentId: string | null;
+  createdBy?: string;
+  updatedBy?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
   isShared?: boolean;
   readOnly?: boolean;
 }
 
 interface FileRecord {
   id: string;
+  folderId: string;
   name: string;
   storageUrl: string;
   mimeType: string | null;
   sizeBytes: number;
+  uploadedBy?: string;
+  updatedBy?: string | null;
   createdAt: string;
   isShared?: boolean;
   readOnly?: boolean;
   sourceWorkspaceId?: string;
+  updatedAt?: string;
 }
 
 interface UploadQueueItem {
@@ -120,6 +147,32 @@ interface UploadQueueItem {
   name: string;
   sizeLabel: string;
   status: UploadStatus;
+}
+
+interface UploadCandidate {
+  file: File;
+  relativePath?: string;
+}
+
+interface WebkitFileSystemEntry {
+  isDirectory: boolean;
+  isFile: boolean;
+  name: string;
+}
+
+interface WebkitFileSystemFileEntry extends WebkitFileSystemEntry {
+  file: (callback: (file: File) => void, errorCallback?: (error: DOMException) => void) => void;
+}
+
+interface WebkitFileSystemDirectoryReader {
+  readEntries: (
+    callback: (entries: WebkitFileSystemEntry[]) => void,
+    errorCallback?: (error: DOMException) => void,
+  ) => void;
+}
+
+interface WebkitFileSystemDirectoryEntry extends WebkitFileSystemEntry {
+  createReader: () => WebkitFileSystemDirectoryReader;
 }
 
 interface ShareSuggestion {
@@ -180,6 +233,82 @@ function detectPreviewKind(file: FileRecord) {
   };
 }
 
+function detectFileKind(file: FileRecord): FileKind {
+  const mime = file.mimeType?.toLowerCase() ?? "";
+  const ext = getExtension(file.name);
+  const imageExt = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".avif", ".bmp", ".ico"]);
+  const videoExt = new Set([".mp4", ".webm", ".ogg", ".mov", ".m4v", ".avi", ".mkv"]);
+  const audioExt = new Set([".mp3", ".wav", ".ogg", ".aac", ".m4a", ".flac"]);
+  const codeExt = new Set([
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".py",
+    ".java",
+    ".c",
+    ".cpp",
+    ".cs",
+    ".go",
+    ".rs",
+    ".php",
+    ".rb",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".xml",
+    ".html",
+    ".css",
+    ".scss",
+    ".md",
+    ".sql",
+  ]);
+  const archiveExt = new Set([".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz"]);
+  const sheetExt = new Set([".csv", ".xls", ".xlsx"]);
+
+  if (mime.startsWith("image/") || imageExt.has(ext)) {
+    return "image";
+  }
+  if (mime === "application/pdf" || ext === ".pdf") {
+    return "document";
+  }
+  if (mime.startsWith("video/") || videoExt.has(ext)) {
+    return "video";
+  }
+  if (mime.startsWith("audio/") || audioExt.has(ext)) {
+    return "audio";
+  }
+  if (sheetExt.has(ext)) {
+    return "sheet";
+  }
+  if (codeExt.has(ext)) {
+    return "code";
+  }
+  if (archiveExt.has(ext)) {
+    return "archive";
+  }
+  return "other";
+}
+
+function getFileTypeIcon(kind: FileKind, className = "size-3.5") {
+  switch (kind) {
+    case "image":
+      return <FileImage className={cn(className, "text-emerald-600")} />;
+    case "video":
+      return <FileVideo className={cn(className, "text-violet-600")} />;
+    case "audio":
+      return <FileMusic className={cn(className, "text-indigo-600")} />;
+    case "sheet":
+      return <FileSpreadsheet className={cn(className, "text-lime-700")} />;
+    case "code":
+      return <FileCode2 className={cn(className, "text-sky-600")} />;
+    case "archive":
+      return <FileArchive className={cn(className, "text-amber-600")} />;
+    default:
+      return <FileText className={cn(className, "text-muted-foreground")} />;
+  }
+}
+
 function statusMeta(status: UploadStatus) {
   switch (status) {
     case "queued":
@@ -220,10 +349,12 @@ export function FileExplorer() {
   const params = useParams<{ workspaceUuid: string; folderUuid: string }>();
   const searchParams = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const touchDragIdsRef = useRef<string[] | null>(null);
+  const dragPreviewPixelRef = useRef<HTMLImageElement | null>(null);
+  const canvasDragDepthRef = useRef(0);
   const queueFadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sseRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -232,7 +363,15 @@ export function FileExplorer() {
   const currentFolderId = params.folderUuid;
 
   const [query, setQuery] = useState("");
+  const [focusSearchSignal, setFocusSearchSignal] = useState(0);
+  const [sortBy, setSortBy] = useState<"name" | "createdAt" | "updatedAt">("name");
+  const [createdDateRange, setCreatedDateRange] = useState<CalendarDateRange | undefined>(undefined);
+  const [fileTypeFilter, setFileTypeFilter] = useState<Set<string>>(new Set());
+  const [actorMode, setActorMode] = useState<"uploadedBy" | "updatedBy">("uploadedBy");
+  const [actorFilter, setActorFilter] = useState<Set<string>>(new Set());
+  const [vectorFilteredIds, setVectorFilteredIds] = useState<Set<string> | null>(null);
   const [allFolders, setAllFolders] = useState<FolderRecord[]>([]);
+  const [allFiles, setAllFiles] = useState<FileRecord[]>([]);
   const [folders, setFolders] = useState<FolderRecord[]>([]);
   const [files, setFiles] = useState<FileRecord[]>([]);
   const [breadcrumbs, setBreadcrumbs] = useState<FolderRecord[]>([]);
@@ -251,8 +390,16 @@ export function FileExplorer() {
   const [canvasDropActive, setCanvasDropActive] = useState(false);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [draggingIds, setDraggingIds] = useState<string[]>([]);
+  const [viewMode, setViewMode] = useState<"cards" | "list">(() => {
+    if (typeof window === "undefined") {
+      return "cards";
+    }
+    const saved = window.localStorage.getItem(FILE_EXPLORER_VIEW_MODE_KEY);
+    return saved === "list" ? "list" : "cards";
+  });
   const [videoLoadFailed, setVideoLoadFailed] = useState(false);
   const [audioLoadFailed, setAudioLoadFailed] = useState(false);
+  const [mediaStreamFailed, setMediaStreamFailed] = useState(false);
   const [hoveredPreviewFileId, setHoveredPreviewFileId] = useState<string | null>(null);
   const [sseConnected, setSseConnected] = useState(false);
   const [propertiesOpen, setPropertiesOpen] = useState(false);
@@ -277,11 +424,108 @@ export function FileExplorer() {
     () => files.find((file) => file.id === selectedFileParam) ?? null,
     [files, selectedFileParam],
   );
+  const activeMediaStreamUrl = useMemo(() => {
+    if (!activeFile || !workspaceUuid) {
+      return null;
+    }
+    return `/api/workspaces/${workspaceUuid}/files/${activeFile.id}/stream`;
+  }, [activeFile, workspaceUuid]);
+  const activeMediaSrc = useMemo(() => {
+    if (!activeFile) {
+      return null;
+    }
+    if (mediaStreamFailed || !activeMediaStreamUrl) {
+      return activeFile.storageUrl;
+    }
+    return activeMediaStreamUrl;
+  }, [activeFile, activeMediaStreamUrl, mediaStreamFailed]);
   const currentFolder = useMemo(
     () => breadcrumbs[breadcrumbs.length - 1] ?? null,
     [breadcrumbs],
   );
   const isCurrentFolderReadOnly = Boolean(currentFolder?.readOnly);
+
+  const ensureDragPreviewPixel = useCallback(() => {
+    if (dragPreviewPixelRef.current) {
+      return dragPreviewPixelRef.current;
+    }
+    const pixel = new Image();
+    pixel.src =
+      "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+    dragPreviewPixelRef.current = pixel;
+    return pixel;
+  }, []);
+
+  const configureDragPreview = useCallback(
+    (event: React.DragEvent<HTMLElement>) => {
+      const pixel = ensureDragPreviewPixel();
+      event.dataTransfer.setDragImage(pixel, 0, 0);
+    },
+    [ensureDragPreviewPixel],
+  );
+
+  const searchableItems = useMemo<WorkspaceSearchItem[]>(
+    () => [
+      ...folders.map((folder) => ({
+        id: folder.id,
+        type: "folder" as const,
+        title: folder.name,
+        description: "Folder",
+        snippet: `Folder in ${breadcrumbs[breadcrumbs.length - 1]?.name ?? "workspace"}`,
+      })),
+      ...files.map((file) => ({
+        id: file.id,
+        type: "file" as const,
+        title: file.name,
+        description: file.mimeType ?? "File",
+        snippet: `${formatBytes(file.sizeBytes)} • ${file.mimeType ?? "unknown type"}`,
+      })),
+    ],
+    [breadcrumbs, files, folders],
+  );
+
+  const availableFileTypes = useMemo(() => {
+    const normalized = new Set<string>();
+    for (const file of files) {
+      const ext = getExtension(file.name).replace(".", "").toUpperCase();
+      if (ext) {
+        normalized.add(ext);
+        continue;
+      }
+      if (file.mimeType) {
+        normalized.add(file.mimeType.split("/")[1]?.toUpperCase() ?? "UNKNOWN");
+      }
+    }
+    return Array.from(normalized).sort((a, b) => a.localeCompare(b));
+  }, [files]);
+
+  const availableActors = useMemo(() => {
+    const actorIds = new Set<string>();
+    if (actorMode === "uploadedBy") {
+      for (const file of files) {
+        if (file.uploadedBy) {
+          actorIds.add(file.uploadedBy);
+        }
+      }
+      for (const folder of folders) {
+        if (folder.createdBy) {
+          actorIds.add(folder.createdBy);
+        }
+      }
+    } else {
+      for (const file of files) {
+        if (file.updatedBy) {
+          actorIds.add(file.updatedBy);
+        }
+      }
+      for (const folder of folders) {
+        if (folder.updatedBy) {
+          actorIds.add(folder.updatedBy);
+        }
+      }
+    }
+    return Array.from(actorIds).sort((a, b) => a.localeCompare(b));
+  }, [actorMode, files, folders]);
 
   const loadShareSuggestions = useCallback(
     async (query: string, onResult: (suggestions: ShareSuggestion[]) => void) => {
@@ -332,31 +576,207 @@ export function FileExplorer() {
 
   const filteredFolders = useMemo(() => {
     const term = query.trim().toLowerCase();
-    if (!term) {
-      return folders;
+    const textFiltered = term
+      ? folders.filter((folder) => folder.name.toLowerCase().includes(term))
+      : folders;
+
+    const vectorFiltered = vectorFilteredIds
+      ? textFiltered.filter((folder) => vectorFilteredIds.has(folder.id))
+      : textFiltered;
+
+    const dateFiltered = vectorFiltered.filter((folder) => {
+      if (!createdDateRange?.from && !createdDateRange?.to) {
+        return true;
+      }
+      if (!folder.createdAt) {
+        return false;
+      }
+      const createdAt = new Date(folder.createdAt).getTime();
+      if (createdDateRange?.from && createdAt < createdDateRange.from.getTime()) {
+        return false;
+      }
+      if (createdDateRange?.to && createdAt > createdDateRange.to.getTime()) {
+        return false;
+      }
+      return true;
+    });
+
+    if (actorFilter.size === 0) {
+      return dateFiltered;
     }
 
-    return folders.filter((folder) => folder.name.toLowerCase().includes(term));
-  }, [folders, query]);
+    return dateFiltered.filter((folder) =>
+      actorMode === "uploadedBy"
+        ? folder.createdBy ? actorFilter.has(folder.createdBy) : false
+        : folder.updatedBy ? actorFilter.has(folder.updatedBy) : false,
+    );
+  }, [actorFilter, actorMode, createdDateRange, folders, query, vectorFilteredIds]);
 
   const filteredFiles = useMemo(() => {
     const term = query.trim().toLowerCase();
-    if (!term) {
-      return files;
+    const textFiltered = term
+      ? files.filter((file) => file.name.toLowerCase().includes(term))
+      : files;
+
+    const vectorFiltered = vectorFilteredIds
+      ? textFiltered.filter((file) => vectorFilteredIds.has(file.id))
+      : textFiltered;
+
+    const typeFiltered =
+      fileTypeFilter.size === 0
+        ? vectorFiltered
+        : vectorFiltered.filter((file) => {
+          const ext = getExtension(file.name).replace(".", "").toUpperCase();
+          if (ext && fileTypeFilter.has(ext)) {
+            return true;
+          }
+          const mimeType = file.mimeType?.split("/")[1]?.toUpperCase();
+          return Boolean(mimeType && fileTypeFilter.has(mimeType));
+        });
+
+    const dateFiltered = typeFiltered.filter((file) => {
+      if (!createdDateRange?.from && !createdDateRange?.to) {
+        return true;
+      }
+      const createdAt = new Date(file.createdAt).getTime();
+      if (createdDateRange?.from && createdAt < createdDateRange.from.getTime()) {
+        return false;
+      }
+      if (createdDateRange?.to && createdAt > createdDateRange.to.getTime()) {
+        return false;
+      }
+      return true;
+    });
+
+    if (actorFilter.size === 0) {
+      return dateFiltered;
     }
 
-    return files.filter((file) => file.name.toLowerCase().includes(term));
-  }, [files, query]);
+    return dateFiltered.filter((file) =>
+      actorMode === "uploadedBy"
+        ? file.uploadedBy ? actorFilter.has(file.uploadedBy) : false
+        : file.updatedBy ? actorFilter.has(file.updatedBy) : false,
+    );
+  }, [
+    actorFilter,
+    actorMode,
+    createdDateRange,
+    fileTypeFilter,
+    files,
+    query,
+    vectorFilteredIds,
+  ]);
+
+  const sortedFolders = useMemo(
+    () =>
+      [...filteredFolders].sort((a, b) => {
+        if (sortBy === "name") {
+          return a.name.localeCompare(b.name);
+        }
+        const aDate = new Date(
+          sortBy === "updatedAt" ? (a.updatedAt ?? a.createdAt ?? 0) : (a.createdAt ?? 0),
+        ).getTime();
+        const bDate = new Date(
+          sortBy === "updatedAt" ? (b.updatedAt ?? b.createdAt ?? 0) : (b.createdAt ?? 0),
+        ).getTime();
+        return bDate - aDate;
+      }),
+    [filteredFolders, sortBy],
+  );
+
+  const sortedFiles = useMemo(
+    () =>
+      [...filteredFiles].sort((a, b) => {
+        if (sortBy === "name") {
+          return a.name.localeCompare(b.name);
+        }
+
+        const aDate = new Date(
+          sortBy === "updatedAt" ? (a.updatedAt ?? a.createdAt) : a.createdAt,
+        ).getTime();
+        const bDate = new Date(
+          sortBy === "updatedAt" ? (b.updatedAt ?? b.createdAt) : b.createdAt,
+        ).getTime();
+
+        return bDate - aDate;
+      }),
+    [filteredFiles, sortBy],
+  );
 
   const visibleItemIds = useMemo(
-    () => [...filteredFolders.map((folder) => folder.id), ...filteredFiles.map((file) => file.id)],
-    [filteredFiles, filteredFolders],
+    () => [...sortedFolders.map((folder) => folder.id), ...sortedFiles.map((file) => file.id)],
+    [sortedFiles, sortedFolders],
   );
 
   const uploadCount = uploadQueue.filter(
     (item) => item.status === "queued" || item.status === "uploading",
   ).length;
   const failedCount = uploadQueue.filter((item) => item.status === "failed").length;
+
+  const folderSubfolderCount = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const folder of allFolders) {
+      if (!folder.parentId) {
+        continue;
+      }
+      map.set(folder.parentId, (map.get(folder.parentId) ?? 0) + 1);
+    }
+    return map;
+  }, [allFolders]);
+
+  const folderFileCount = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const file of allFiles) {
+      map.set(file.folderId, (map.get(file.folderId) ?? 0) + 1);
+    }
+    return map;
+  }, [allFiles]);
+
+  const folderCardPreviewItems = useMemo(() => {
+    type FolderCardPreviewItem =
+      | { id: string; kind: "folder" }
+      | { id: string; kind: "file"; fileKind: ReturnType<typeof detectFileKind> };
+
+    const map = new Map<string, FolderCardPreviewItem[]>();
+
+    for (const folder of folders) {
+      const directFolders = allFolders
+        .filter((entry) => entry.parentId === folder.id)
+        .map((entry) => ({ id: entry.id, kind: "folder" as const }));
+      const directFiles = allFiles
+        .filter((entry) => entry.folderId === folder.id)
+        .map((entry) => ({ id: entry.id, kind: "file" as const, fileKind: detectFileKind(entry) }));
+
+      const topThree: FolderCardPreviewItem[] = [...directFolders, ...directFiles].slice(0, 3);
+      map.set(folder.id, topThree);
+    }
+
+    return map;
+  }, [allFiles, allFolders, folders]);
+
+  const clearAdvancedFilters = useCallback(() => {
+    setCreatedDateRange(undefined);
+    setFileTypeFilter(new Set());
+    setActorFilter(new Set());
+    setActorMode("uploadedBy");
+  }, []);
+  const hasActiveAdvancedFilters =
+    Boolean(createdDateRange?.from || createdDateRange?.to) ||
+    fileTypeFilter.size > 0 ||
+    actorFilter.size > 0;
+
+  const handleOpenOnDoubleClick = useCallback(
+    (event: React.MouseEvent<HTMLElement>, open: () => void) => {
+      if (event.detail !== 2) {
+        return;
+      }
+      if (draggingIds.length > 0) {
+        return;
+      }
+      open();
+    },
+    [draggingIds.length],
+  );
 
   const loadFolder = useCallback(async (options?: { silent?: boolean }) => {
     if (!workspaceUuid || !currentFolderId) {
@@ -405,8 +825,9 @@ export function FileExplorer() {
       if (!response.ok) {
         return;
       }
-      const payload = (await response.json()) as { folders?: FolderRecord[] };
+      const payload = (await response.json()) as { folders?: FolderRecord[]; files?: FileRecord[] };
       setAllFolders(payload.folders ?? []);
+      setAllFiles(payload.files ?? []);
     } catch {
       // ignore
     }
@@ -576,7 +997,12 @@ export function FileExplorer() {
   useEffect(() => {
     setVideoLoadFailed(false);
     setAudioLoadFailed(false);
+    setMediaStreamFailed(false);
   }, [activeFile?.id]);
+
+  useEffect(() => {
+    window.localStorage.setItem(FILE_EXPLORER_VIEW_MODE_KEY, viewMode);
+  }, [viewMode]);
 
   useEffect(() => {
     if (!activeFile) {
@@ -598,7 +1024,7 @@ export function FileExplorer() {
 
   useEffect(() => {
     const onFocusSearch = () => {
-      searchInputRef.current?.focus();
+      setFocusSearchSignal((previous) => previous + 1);
     };
 
     const onNewNote = () => {
@@ -613,6 +1039,15 @@ export function FileExplorer() {
       window.removeEventListener(DASHBOARD_FILES_FOCUS_SEARCH_EVENT, onFocusSearch);
       window.removeEventListener(DASHBOARD_FILES_NEW_NOTE_EVENT, onNewNote);
     };
+  }, []);
+
+  useEffect(() => {
+    const input = folderInputRef.current;
+    if (!input) {
+      return;
+    }
+    input.setAttribute("webkitdirectory", "");
+    input.setAttribute("directory", "");
   }, []);
 
   useEffect(() => {
@@ -704,20 +1139,94 @@ export function FileExplorer() {
     releasePreviewPrime(file.storageUrl);
   }, []);
 
+  const getDropUploadCandidates = useCallback(
+    async (event: React.DragEvent<HTMLDivElement>): Promise<UploadCandidate[]> => {
+      const items = Array.from(event.dataTransfer.items ?? []);
+      const candidates: UploadCandidate[] = [];
+
+      const readDirectoryEntries = async (
+        reader: WebkitFileSystemDirectoryReader,
+      ): Promise<WebkitFileSystemEntry[]> => {
+        const entries: WebkitFileSystemEntry[] = [];
+        while (true) {
+          const chunk = await new Promise<WebkitFileSystemEntry[]>((resolve) =>
+            reader.readEntries(resolve, () => resolve([])),
+          );
+          if (chunk.length === 0) {
+            break;
+          }
+          entries.push(...chunk);
+        }
+        return entries;
+      };
+
+      const walkEntry = async (entry: WebkitFileSystemEntry, parentPath: string) => {
+        if (entry.isFile) {
+          const fileEntry = entry as WebkitFileSystemFileEntry;
+          const file = await new Promise<File | null>((resolve) =>
+            fileEntry.file(resolve, () => resolve(null)),
+          );
+          if (!file) {
+            return;
+          }
+          const relativePath = parentPath ? `${parentPath}/${file.name}` : file.name;
+          candidates.push({ file, relativePath });
+          return;
+        }
+
+        if (entry.isDirectory) {
+          const directoryEntry = entry as WebkitFileSystemDirectoryEntry;
+          const nextPath = parentPath ? `${parentPath}/${entry.name}` : entry.name;
+          const children = await readDirectoryEntries(directoryEntry.createReader());
+          for (const child of children) {
+            await walkEntry(child, nextPath);
+          }
+        }
+      };
+
+      let usedEntryApi = false;
+      for (const item of items) {
+        const maybeEntry = (
+          item as DataTransferItem & {
+            webkitGetAsEntry?: () => WebkitFileSystemEntry | null;
+          }
+        ).webkitGetAsEntry?.();
+        if (!maybeEntry) {
+          continue;
+        }
+        usedEntryApi = true;
+        await walkEntry(maybeEntry, "");
+      }
+
+      if (usedEntryApi && candidates.length > 0) {
+        return candidates;
+      }
+
+      return Array.from(event.dataTransfer.files ?? []).map((file) => {
+        const webkitRelativePath = (file as File & { webkitRelativePath?: string }).webkitRelativePath;
+        return {
+          file,
+          relativePath: webkitRelativePath || file.name,
+        };
+      });
+    },
+    [],
+  );
+
   const queueUploads = useCallback(
-    (incomingFiles: File[]) => {
+    (incomingCandidates: UploadCandidate[]) => {
       if (
         !workspaceUuid ||
         !currentFolderId ||
-        incomingFiles.length === 0 ||
+        incomingCandidates.length === 0 ||
         isCurrentFolderReadOnly
       ) {
         return;
       }
 
-      const queueEntries = incomingFiles.map((file) => ({
+      const queueEntries = incomingCandidates.map(({ file, relativePath }) => ({
         id: crypto.randomUUID(),
-        name: file.name,
+        name: relativePath && relativePath !== file.name ? relativePath : file.name,
         sizeLabel: formatBytes(file.size),
         status: "queued" as const,
       }));
@@ -725,7 +1234,53 @@ export function FileExplorer() {
       setUploadQueue((previous) => [...queueEntries, ...previous]);
 
       void (async () => {
-        for (const [index, file] of incomingFiles.entries()) {
+        const folderLookup = new Map<string, string>();
+        for (const folder of allFolders) {
+          folderLookup.set(`${folder.parentId ?? "__root__"}::${folder.name.toLowerCase()}`, folder.id);
+        }
+
+        const ensureFolderPath = async (relativePath?: string) => {
+          if (!relativePath || !workspaceUuid) {
+            return currentFolderId;
+          }
+          const normalized = relativePath.replaceAll("\\", "/");
+          const segments = normalized.split("/").filter(Boolean);
+          if (segments.length <= 1) {
+            return currentFolderId;
+          }
+
+          let parentId = currentFolderId;
+          for (const segment of segments.slice(0, -1)) {
+            const key = `${parentId}::${segment.toLowerCase()}`;
+            const existing = folderLookup.get(key);
+            if (existing) {
+              parentId = existing;
+              continue;
+            }
+
+            const response = await fetch(`/api/workspaces/${workspaceUuid}/folders`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ parentId, name: segment }),
+            });
+            if (!response.ok) {
+              throw new Error(`Unable to create folder "${segment}"`);
+            }
+            const payload = (await response.json()) as { folder?: { id?: string } };
+            const createdId = payload.folder?.id;
+            if (!createdId) {
+              throw new Error(`Folder "${segment}" could not be created`);
+            }
+            folderLookup.set(key, createdId);
+            parentId = createdId;
+          }
+
+          return parentId;
+        };
+
+        let hasSuccessfulUpload = false;
+        for (const [index, candidate] of incomingCandidates.entries()) {
+          const file = candidate.file;
           const queueItemId = queueEntries[index]?.id;
           if (!queueItemId) {
             continue;
@@ -739,12 +1294,13 @@ export function FileExplorer() {
 
           try {
             const uploaded = (await startUpload([file]))?.[0] as
-              | { key?: string; ufsUrl?: string; url?: string; name?: string; size?: number; contentType?: string }
+              | { key?: string; ufsUrl?: string; name?: string; size?: number; contentType?: string }
               | undefined;
 
-            if (!uploaded?.key || !(uploaded.ufsUrl ?? uploaded.url)) {
+            if (!uploaded?.key || !uploaded.ufsUrl) {
               throw new Error("Upload returned no file metadata");
             }
+            const targetFolderId = await ensureFolderPath(candidate.relativePath);
 
             const registerResponse = await fetch(
               `/api/workspaces/${workspaceUuid}/files/register`,
@@ -752,9 +1308,9 @@ export function FileExplorer() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  folderId: currentFolderId,
+                  folderId: targetFolderId,
                   storageKey: uploaded.key,
-                  storageUrl: uploaded.ufsUrl ?? uploaded.url,
+                  storageUrl: uploaded.ufsUrl,
                   name: uploaded.name ?? file.name,
                   mimeType: uploaded.contentType ?? file.type,
                   sizeBytes: uploaded.size ?? file.size,
@@ -771,9 +1327,7 @@ export function FileExplorer() {
                 item.id === queueItemId ? { ...item, status: "uploaded" } : item,
               ),
             );
-
-            await loadFolder();
-            emitSync();
+            hasSuccessfulUpload = true;
           } catch (error) {
             setUploadQueue((previous) =>
               previous.map((item) =>
@@ -789,9 +1343,23 @@ export function FileExplorer() {
             );
           }
         }
+
+        if (hasSuccessfulUpload) {
+          await Promise.all([loadFolder(), loadTree()]);
+          emitSync();
+        }
       })();
     },
-    [currentFolderId, emitSync, isCurrentFolderReadOnly, loadFolder, startUpload, workspaceUuid],
+    [
+      allFolders,
+      currentFolderId,
+      emitSync,
+      isCurrentFolderReadOnly,
+      loadFolder,
+      loadTree,
+      startUpload,
+      workspaceUuid,
+    ],
   );
 
   const queueCard = (
@@ -1101,6 +1669,26 @@ export function FileExplorer() {
     [moveItemsToFolder, updateTouchDropTarget],
   );
 
+  const handleCanvasDragEnter = useCallback(() => {
+    if (isCurrentFolderReadOnly) {
+      return;
+    }
+    canvasDragDepthRef.current += 1;
+    setCanvasDropActive(true);
+    setDropTargetId(currentFolderId);
+  }, [currentFolderId, isCurrentFolderReadOnly]);
+
+  const handleCanvasDragLeave = useCallback(() => {
+    if (isCurrentFolderReadOnly) {
+      return;
+    }
+    canvasDragDepthRef.current = Math.max(0, canvasDragDepthRef.current - 1);
+    if (canvasDragDepthRef.current === 0) {
+      setCanvasDropActive(false);
+      setDropTargetId(null);
+    }
+  }, [isCurrentFolderReadOnly]);
+
   const openCreateFolderDialog = (parentId: string) => {
     setEditDialog({
       mode: "create-folder",
@@ -1260,13 +1848,13 @@ export function FileExplorer() {
         <div className="flex h-12 items-center justify-between gap-2 border-b border-border/70 bg-card/40 px-3">
           <div className="flex min-w-0 items-center gap-1 text-muted-foreground text-xs">
             <Button
-              className="size-6"
+              className="size-5"
               onClick={() => selectFile(null)}
               size="icon-xs"
               type="button"
               variant="ghost"
             >
-              <ArrowLeft />
+              <ArrowLeft className="size-3" />
             </Button>
             <span className="truncate text-foreground">{activeFile.name}</span>
           </div>
@@ -1277,9 +1865,9 @@ export function FileExplorer() {
             {!activeFile.readOnly ? (
               <Dialog>
                 <DialogTrigger
-                  render={<Button className="size-6" size="icon-xs" type="button" variant="ghost" />}
+                  render={<Button className="size-5" size="icon-xs" type="button" variant="ghost" />}
                 >
-                  <Share2 />
+                  <Share2 className="size-3" />
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-md">
                   <DialogHeader>
@@ -1365,13 +1953,13 @@ export function FileExplorer() {
               </Dialog>
             ) : null}
             <Button
-              className="size-6"
+              className="size-5"
               onClick={() => window.open(activeFile.storageUrl, "_blank", "noopener,noreferrer")}
               size="icon-xs"
               type="button"
               variant="ghost"
             >
-              <ArrowUp />
+              <ArrowUp className="size-3" />
             </Button>
           </div>
         </div>
@@ -1391,8 +1979,14 @@ export function FileExplorer() {
                 mimeType={activeFile.mimeType}
                 name={activeFile.name}
                 openedCached={isOpenedCached || getWarmState(activeFile.storageUrl) === "warm"}
-                onError={() => setVideoLoadFailed(true)}
-                src={activeFile.storageUrl}
+                onError={() => {
+                  if (!mediaStreamFailed && activeMediaStreamUrl) {
+                    setMediaStreamFailed(true);
+                    return;
+                  }
+                  setVideoLoadFailed(true);
+                }}
+                src={activeMediaSrc ?? activeFile.storageUrl}
               />
             </div>
           ) : isAudio && !audioLoadFailed ? (
@@ -1402,8 +1996,14 @@ export function FileExplorer() {
                 mimeType={activeFile.mimeType}
                 name={activeFile.name}
                 openedCached={isOpenedCached || getWarmState(activeFile.storageUrl) === "warm"}
-                onError={() => setAudioLoadFailed(true)}
-                src={activeFile.storageUrl}
+                onError={() => {
+                  if (!mediaStreamFailed && activeMediaStreamUrl) {
+                    setMediaStreamFailed(true);
+                    return;
+                  }
+                  setAudioLoadFailed(true);
+                }}
+                src={activeMediaSrc ?? activeFile.storageUrl}
               />
             </div>
           ) : isImage ? (
@@ -1461,6 +2061,12 @@ export function FileExplorer() {
               Upload file
             </DropdownMenuItem>
             <DropdownMenuItem
+              disabled={isCurrentFolderReadOnly}
+              onClick={() => folderInputRef.current?.click()}
+            >
+              Upload folder
+            </DropdownMenuItem>
+            <DropdownMenuItem
               onClick={() =>
                 window.dispatchEvent(new Event(DASHBOARD_FILES_FOCUS_SEARCH_EVENT))
               }
@@ -1487,22 +2093,18 @@ export function FileExplorer() {
       </div>
 
       <div className="border-b border-border/70 px-3 py-3">
-        <div className="relative">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <div className="pointer-events-none absolute top-1/2 left-10 -translate-y-1/2">
-            <Badge className="h-5 rounded-md px-1.5 text-[10px]" variant="secondary">
-              {breadcrumbs[breadcrumbs.length - 1]?.name ?? "Workspace"}
-            </Badge>
-          </div>
-          <Input
-            aria-label="Search files"
-            className="h-10 rounded-xl border-border/70 bg-background pl-9 sm:pl-32"
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search anything..."
-            ref={searchInputRef}
-            value={query}
-          />
-        </div>
+        <StylizedSearchBar
+          focusSignal={focusSearchSignal}
+          items={searchableItems}
+          maxWidth="max-w-none"
+          onApplyWorkspaceFilter={(itemIds) => {
+            setVectorFilteredIds(itemIds ? new Set(itemIds) : null);
+          }}
+          onSearch={(searchQuery) => {
+            setQuery(searchQuery);
+          }}
+          placeholder="Search anything..."
+        />
       </div>
 
       <input
@@ -1510,50 +2112,41 @@ export function FileExplorer() {
         multiple
         onChange={(event) => {
           const incoming = Array.from(event.target.files ?? []);
-          queueUploads(incoming);
+          queueUploads(incoming.map((file) => ({ file })));
           event.currentTarget.value = "";
         }}
         ref={fileInputRef}
+        type="file"
+      />
+      <input
+        className="sr-only"
+        multiple
+        onChange={(event) => {
+          const incoming = Array.from(event.target.files ?? []).map((file) => {
+            const webkitRelativePath = (file as File & { webkitRelativePath?: string }).webkitRelativePath;
+            return {
+              file,
+              relativePath: webkitRelativePath || file.name,
+            };
+          });
+          queueUploads(incoming);
+          event.currentTarget.value = "";
+        }}
+        ref={folderInputRef}
         type="file"
       />
 
       <div className="flex items-center justify-between px-3 py-2">
         <h2 className="font-semibold text-lg tracking-tight">Workspace</h2>
         <div className="flex items-center gap-2">
-          <Button
-            className="rounded-md"
-            disabled={breadcrumbs.length < 2}
-            onClick={() => {
-              const parent = breadcrumbs[breadcrumbs.length - 2];
-              if (parent) {
-                navigateToFolder(parent.id);
-              }
-            }}
-            size="icon-sm"
-            type="button"
-            variant="outline"
-          >
-            <ArrowUp />
-          </Button>
-          <Button
-            className="rounded-md"
-            disabled={isCurrentFolderReadOnly}
-            onClick={() => fileInputRef.current?.click()}
-            size="sm"
-            type="button"
-            variant="outline"
-          >
-            <Upload />
-            Upload
-          </Button>
           <Dialog>
             <DialogTrigger
               render={
                 <Button className="rounded-md" size="sm" type="button" variant="outline" />
               }
             >
-              <Users />
-              Share Workspace
+              <Share2 className="size-3.5" />
+              Share
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
@@ -1617,16 +2210,220 @@ export function FileExplorer() {
               ) : null}
             </DialogContent>
           </Dialog>
-          <Button className="rounded-md" size="icon-sm" type="button" variant="outline">
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2">
+        <div className="flex items-center gap-2">
+          <Button
+            className="rounded-md"
+            disabled={breadcrumbs.length < 2}
+            onClick={() => {
+              const parent = breadcrumbs[breadcrumbs.length - 2];
+              if (parent) {
+                navigateToFolder(parent.id);
+              }
+            }}
+            size="icon-sm"
+            type="button"
+            variant="outline"
+          >
+            <ArrowUp />
+          </Button>
+          <Button
+            className="rounded-md"
+            disabled={isCurrentFolderReadOnly}
+            onClick={() => fileInputRef.current?.click()}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            <Upload />
+            Upload
+          </Button>
+          <Button
+            className="rounded-md"
+            disabled={isCurrentFolderReadOnly}
+            onClick={() => folderInputRef.current?.click()}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            <Folder />
+            Folder
+          </Button>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Popover>
+            <PopoverTrigger
+              render={<Button className="rounded-md" size="sm" type="button" variant="outline" />}
+            >
+              <CalendarDays className="size-3.5" />
+              {createdDateRange?.from
+                ? createdDateRange.to
+                  ? `${createdDateRange.from.toLocaleDateString()} - ${createdDateRange.to.toLocaleDateString()}`
+                  : createdDateRange.from.toLocaleDateString()
+                : "Date created"}
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-auto p-0">
+              <Calendar
+                mode="range"
+                onSelect={setCreatedDateRange}
+                selected={createdDateRange}
+                numberOfMonths={2}
+              />
+              <div className="border-t p-2">
+                <Button
+                  className="w-full"
+                  onClick={() => setCreatedDateRange(undefined)}
+                  size="sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  Clear date
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<Button className="rounded-md" size="sm" type="button" variant="outline" />}
+            >
+              <FileText className="size-3.5" />
+              {fileTypeFilter.size > 0 ? `Type (${fileTypeFilter.size})` : "File type"}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              {availableFileTypes.length === 0 ? (
+                <DropdownMenuItem disabled>No file types</DropdownMenuItem>
+              ) : (
+                availableFileTypes.map((type) => (
+                  <DropdownMenuCheckboxItem
+                    checked={fileTypeFilter.has(type)}
+                    key={type}
+                    onCheckedChange={(checked) => {
+                      setFileTypeFilter((previous) => {
+                        const next = new Set(previous);
+                        if (checked) {
+                          next.add(type);
+                        } else {
+                          next.delete(type);
+                        }
+                        return next;
+                      });
+                    }}
+                  >
+                    {type}
+                  </DropdownMenuCheckboxItem>
+                ))
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<Button className="rounded-md" size="sm" type="button" variant="outline" />}
+            >
+              <UserRoundSearch className="size-3.5" />
+              {actorFilter.size > 0 ? `${actorMode === "uploadedBy" ? "Uploaded" : "Edited"} (${actorFilter.size})` : actorMode === "uploadedBy" ? "Uploaded by" : "Edited by"}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem
+                onClick={() => {
+                  setActorMode("uploadedBy");
+                  setActorFilter(new Set());
+                }}
+              >
+                Uploaded by
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setActorMode("updatedBy");
+                  setActorFilter(new Set());
+                }}
+              >
+                Edited by
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {availableActors.length === 0 ? (
+                <DropdownMenuItem disabled>No users</DropdownMenuItem>
+              ) : (
+                availableActors.map((actorId) => (
+                  <DropdownMenuCheckboxItem
+                    checked={actorFilter.has(actorId)}
+                    key={actorId}
+                    onCheckedChange={(checked) => {
+                      setActorFilter((previous) => {
+                        const next = new Set(previous);
+                        if (checked) {
+                          next.add(actorId);
+                        } else {
+                          next.delete(actorId);
+                        }
+                        return next;
+                      });
+                    }}
+                  >
+                    {actorId}
+                  </DropdownMenuCheckboxItem>
+                ))
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<Button className="rounded-md" size="sm" type="button" variant="outline" />}
+            >
+              <ArrowUpDown className="size-3.5" />
+              {sortBy === "name"
+                ? "Name"
+                : sortBy === "createdAt"
+                  ? "Date created"
+                  : "Date updated"}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => setSortBy("name")}>
+                Name
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortBy("createdAt")}>
+                Date created
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortBy("updatedAt")}>
+                Date updated
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button
+            className="rounded-md"
+            onClick={clearAdvancedFilters}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            Clear filters
+          </Button>
+          <Button
+            aria-label="Card view"
+            className="rounded-md"
+            onClick={() => setViewMode("cards")}
+            size="icon-sm"
+            type="button"
+            variant={viewMode === "cards" ? "secondary" : "outline"}
+          >
             <Grid3X3 />
           </Button>
-          <Button className="rounded-md" size="icon-sm" type="button" variant="outline">
+          <Button
+            aria-label="List view"
+            className="rounded-md"
+            onClick={() => setViewMode("list")}
+            size="icon-sm"
+            type="button"
+            variant={viewMode === "list" ? "secondary" : "outline"}
+          >
             <LayoutList />
           </Button>
-          <Badge variant="outline">
-            {filteredFolders.length + filteredFiles.length} items
-          </Badge>
         </div>
+        <Badge variant={hasActiveAdvancedFilters ? "secondary" : "outline"}>
+          {filteredFolders.length + filteredFiles.length} items
+        </Badge>
       </div>
 
       <div className="min-h-0 flex-1">
@@ -1639,28 +2436,38 @@ export function FileExplorer() {
                   canvasDropActive && "bg-emerald-500/5",
                 )}
                 data-drop-folder-id={isCurrentFolderReadOnly ? undefined : currentFolderId}
-                onDragLeave={() => {
-                  setCanvasDropActive(false);
-                  setDropTargetId(null);
-                }}
+                onDragEnter={handleCanvasDragEnter}
+                onDragLeave={handleCanvasDragLeave}
                 onDragOver={(event) => {
                   if (isCurrentFolderReadOnly) {
                     return;
                   }
                   event.preventDefault();
+                  const isExternalFileDrop = event.dataTransfer.types.includes("Files");
+                  event.dataTransfer.dropEffect = isExternalFileDrop ? "copy" : "move";
                   setCanvasDropActive(true);
                   setDropTargetId(currentFolderId);
                 }}
                 onDrop={(event) => {
-                  if (isCurrentFolderReadOnly) {
-                    return;
-                  }
                   event.preventDefault();
+                  canvasDragDepthRef.current = 0;
                   setCanvasDropActive(false);
                   setDropTargetId(null);
-                  const sourceIds = draggingIds.length > 0 ? draggingIds : Array.from(selection.selectedIds);
-                  void moveItemsToFolder(sourceIds, currentFolderId);
-                  setDraggingIds([]);
+                  if (isCurrentFolderReadOnly) {
+                    setDraggingIds([]);
+                    return;
+                  }
+                  void (async () => {
+                    const uploadCandidates = await getDropUploadCandidates(event);
+                    if (uploadCandidates.length > 0) {
+                      queueUploads(uploadCandidates);
+                      setDraggingIds([]);
+                      return;
+                    }
+                    const sourceIds = draggingIds.length > 0 ? draggingIds : Array.from(selection.selectedIds);
+                    await moveItemsToFolder(sourceIds, currentFolderId);
+                    setDraggingIds([]);
+                  })();
                 }}
               >
                 {loading ? (
@@ -1681,30 +2488,47 @@ export function FileExplorer() {
                     onPointerDown={selection.startDragSelection}
                     ref={gridRef}
                   >
-                    <div className="flex flex-wrap gap-3">
-                      {filteredFolders.map((folder) => (
+                    <div className={cn("flex flex-wrap gap-3", viewMode !== "cards" && "hidden")}>
+                      {sortedFolders.map((folder) => {
+                        const previewItems = folderCardPreviewItems.get(folder.id) ?? [];
+                        return (
                         <ContextMenu key={folder.id}>
                           <ContextMenuTrigger>
                             <Card
                               className={cn(
-                                "group cursor-pointer rounded-2xl border border-border/70 bg-card py-2 transition hover:border-emerald-500/35",
+                                "group relative cursor-pointer overflow-visible rounded-2xl border border-border/70 bg-card py-2 transition hover:border-emerald-500/35",
                                 selection.selectedIds.has(folder.id) && "border-emerald-500 bg-emerald-500/5",
-                                dropTargetId === folder.id && "ring-2 ring-emerald-400/70",
+                                dropTargetId === folder.id && "bg-emerald-500/10 ring-2 ring-emerald-400/70",
                               )}
-                              data-item-card="true"
+                              data-select-item="true"
                               data-drop-folder-id={folder.id}
                               draggable={!folder.readOnly}
-                              onClick={(event) => selection.handleItemClick(event, folder.id, visibleItemIds)}
-                              onDoubleClick={() => navigateToFolder(folder.id)}
+                              onClick={(event) => {
+                                selection.handleItemClick(event, folder.id, visibleItemIds);
+                                handleOpenOnDoubleClick(event, () => navigateToFolder(folder.id));
+                              }}
                               onDragEnd={() => {
+                                canvasDragDepthRef.current = 0;
+                                setCanvasDropActive(false);
                                 setDraggingIds([]);
                                 setDropTargetId(null);
+                              }}
+                              onDragEnter={(event) => {
+                                if (folder.readOnly) {
+                                  return;
+                                }
+                                event.preventDefault();
+                                setDropTargetId(folder.id);
+                              }}
+                              onDragLeave={() => {
+                                setDropTargetId((current) => (current === folder.id ? null : current));
                               }}
                               onDragOver={(event) => {
                                 if (folder.readOnly) {
                                   return;
                                 }
                                 event.preventDefault();
+                                event.dataTransfer.dropEffect = "move";
                                 setDropTargetId(folder.id);
                               }}
                               onDragStart={(event) => {
@@ -1715,15 +2539,22 @@ export function FileExplorer() {
                                 const sourceIds = selection.prepareDrag(folder.id);
                                 setDraggingIds(sourceIds);
                                 event.dataTransfer.effectAllowed = "move";
+                                configureDragPreview(event);
                                 event.dataTransfer.setData("text/plain", sourceIds.join(","));
                               }}
                               onDrop={(event) => {
-                                if (folder.readOnly) {
-                                  return;
-                                }
                                 event.preventDefault();
                                 event.stopPropagation();
+                                if (folder.readOnly) {
+                                  canvasDragDepthRef.current = 0;
+                                  setCanvasDropActive(false);
+                                  setDropTargetId(null);
+                                  setDraggingIds([]);
+                                  return;
+                                }
                                 const sourceIds = draggingIds.length > 0 ? draggingIds : Array.from(selection.selectedIds);
+                                canvasDragDepthRef.current = 0;
+                                setCanvasDropActive(false);
                                 setDropTargetId(null);
                                 void moveItemsToFolder(sourceIds, folder.id);
                                 setDraggingIds([]);
@@ -1745,16 +2576,53 @@ export function FileExplorer() {
                               }}
                               style={{ width: 160 }}
                             >
+                              <div className="absolute top-2 left-2 z-[90]">
+                                <Checkbox
+                                  checked={selection.selectedIds.has(folder.id)}
+                                  onCheckedChange={() => selection.toggleSelection(folder.id)}
+                                  onClick={(event) => event.stopPropagation()}
+                                />
+                              </div>
                               <CardContent className="space-y-3 pt-0">
-                                <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50">
-                                  <Folder className="size-10 text-emerald-600 group-hover:hidden" />
-                                  <FolderOpen className="hidden size-10 text-emerald-600 group-hover:block" />
+                                <div className="mx-auto flex h-24 w-24 items-center justify-center">
+                                  <div className="relative isolate h-[78px] w-[96px] overflow-visible transition-transform duration-200 ease-in group-hover:-translate-y-1.5">
+                                    <div className="absolute bottom-[98%] left-0 z-10 h-[10px] w-[30px] rounded-t-[5px] bg-[#457f74]" />
+                                    <div className="relative z-20 h-full w-full rounded-tr-[6px] rounded-br-[6px] rounded-bl-[6px] bg-[#457f74]">
+                                      {Array.from({ length: 3 }).map((_, index) => {
+                                        const item = previewItems[index];
+                                        const layerClass =
+                                          index === 0
+                                            ? "z-30 h-[64%] w-[70%] bg-[#dbe7e4] group-hover:-translate-y-[20%]"
+                                            : index === 1
+                                              ? "z-40 h-[58%] w-[80%] bg-[#ecf3f1] group-hover:-translate-y-[24%] delay-75"
+                                              : "z-50 h-[50%] w-[90%] bg-white group-hover:-translate-y-[30%] delay-100";
+
+                                        return (
+                                          <div
+                                            className={cn(
+                                              "absolute bottom-[10%] left-1/2 flex -translate-x-1/2 translate-y-[8%] items-center justify-center rounded-[5px] transition-transform duration-300 ease-in-out",
+                                              layerClass,
+                                            )}
+                                            key={`${folder.id}-preview-${index}`}
+                                          >
+                                            {item ? (
+                                              item.kind === "folder" ? (
+                                                <Folder className="size-3.5 text-emerald-700" />
+                                              ) : (
+                                                getFileTypeIcon(item.fileKind ?? "other", "size-3.5")
+                                              )
+                                            ) : null}
+                                          </div>
+                                        );
+                                      })}
+                                      <div className="absolute inset-0 z-[70] origin-bottom rounded-[6px] bg-[#74c2b2] transition-transform duration-300 ease-in-out group-hover:-skew-x-[14deg] group-hover:scale-y-[0.62]" />
+                                    </div>
+                                  </div>
                                 </div>
                                 <div className="space-y-1">
                                   <p className="truncate font-medium text-sm">{folder.name}</p>
                                   <p className="flex items-center gap-1.5 text-muted-foreground text-xs">
-                                    <Folder className="size-3.5 group-hover:hidden" />
-                                    <FolderOpen className="hidden size-3.5 group-hover:block" />
+                                    <Folder className="size-3.5" />
                                     <span>Folder</span>
                                   </p>
                                 </div>
@@ -1818,23 +2686,24 @@ export function FileExplorer() {
                             ) : null}
                           </ContextMenuContent>
                         </ContextMenu>
-                      ))}
+                        );
+                      })}
 
-                      {filteredFiles.map((file) => {
+                      {sortedFiles.map((file) => {
                         const { isImage, isPdf, isVideo, isAudio } = detectPreviewKind(file);
                         const openedCached = isFileOpenedCached(file.id);
                         const isWarmed = getWarmState(file.storageUrl) === "warm";
+                        const fileKind = detectFileKind(file);
+                        const fileCardType = fileKind === "sheet" ? "document" : fileKind;
                         return (
                           <ContextMenu key={file.id}>
                             <ContextMenuTrigger>
-                              <div
+                              <Card
                                 className={cn(
-                                  "group grid-card-item relative flex h-[208px] w-40 cursor-pointer flex-col gap-1.5 overflow-hidden rounded-2xl border-2 bg-card ring-2 ring-transparent transition-all hover:-translate-y-0.5",
-                                  selection.selectedIds.has(file.id)
-                                    ? "border-emerald-500/80 ring-emerald-300/60"
-                                    : "border-border/70 hover:border-emerald-500/40",
+                                  "group grid-card-item relative cursor-pointer rounded-2xl border border-border/70 bg-card py-2 transition hover:border-emerald-500/35",
+                                  selection.selectedIds.has(file.id) && "border-emerald-500 bg-emerald-500/5",
                                 )}
-                                data-item-card="true"
+                                data-select-item="true"
                                 draggable={!file.readOnly}
                                 tabIndex={0}
                                 onTouchEnd={endTouchDrag}
@@ -1845,13 +2714,17 @@ export function FileExplorer() {
                                   }
                                   beginTouchDrag(file.id);
                                 }}
-                                onClick={(event) => selection.handleItemClick(event, file.id, visibleItemIds)}
-                                onDoubleClick={() => selectFile(file.id)}
+                                onClick={(event) => {
+                                  selection.handleItemClick(event, file.id, visibleItemIds);
+                                  handleOpenOnDoubleClick(event, () => selectFile(file.id));
+                                }}
                                 onFocus={() => handlePreviewIntentStart(file)}
                                 onBlur={() => handlePreviewIntentEnd(file)}
                                 onMouseEnter={() => handlePreviewIntentStart(file)}
                                 onMouseLeave={() => handlePreviewIntentEnd(file)}
                                 onDragEnd={() => {
+                                  canvasDragDepthRef.current = 0;
+                                  setCanvasDropActive(false);
                                   setDraggingIds([]);
                                   setDropTargetId(null);
                                 }}
@@ -1863,6 +2736,7 @@ export function FileExplorer() {
                                   const sourceIds = selection.prepareDrag(file.id);
                                   setDraggingIds(sourceIds);
                                   event.dataTransfer.effectAllowed = "move";
+                                  configureDragPreview(event);
                                   event.dataTransfer.setData("text/plain", sourceIds.join(","));
                                 }}
                                 ref={(node: HTMLDivElement | null) => {
@@ -1872,79 +2746,46 @@ export function FileExplorer() {
                                   }
                                   itemRefs.current.set(file.id, node);
                                 }}
+                                style={{ width: 160 }}
                               >
-                                {/* Thumbnail — height set by image natural ratio, or fixed for others */}
-                                <div
-                                  className="relative h-28 w-full overflow-hidden rounded-t-[14px] bg-muted/50"
-                                  data-item-id={file.id}
-                                  data-item-name={file.name}
-                                  data-item-size={file.sizeBytes}
-                                  data-item-type="file"
-                                >
-                                  {isImage ? (
-                                    <img
-                                      alt={file.name}
-                                      className="block h-full w-full object-cover"
-                                      loading="lazy"
-                                      src={file.storageUrl}
-                                    />
-                                  ) : isVideo ? (
-                                    <VideoThumbnail
-                                      className="h-full w-full"
-                                      mimeType={file.mimeType}
-                                      openedCached={openedCached || isWarmed}
-                                      src={file.storageUrl}
-                                      warm={hoveredPreviewFileId === file.id}
-                                    />
-                                  ) : isPdf ? (
-                                    <PdfThumbnail
-                                      className="h-full w-full"
-                                      src={file.storageUrl}
-                                    />
-                                  ) : (
-                                    <div className="flex h-full w-full items-center justify-center bg-muted/70">
-                                      <FileText
-                                        className={cn(
-                                          "size-8",
-                                          isAudio ? "text-violet-500" : "text-sky-500",
-                                        )}
-                                      />
-                                    </div>
-                                  )}
+                                <div className="absolute top-2 left-2 z-10">
+                                  <Checkbox
+                                    checked={selection.selectedIds.has(file.id)}
+                                    onCheckedChange={() => selection.toggleSelection(file.id)}
+                                    onClick={(event) => event.stopPropagation()}
+                                  />
                                 </div>
-
-                                {/* Bottom label row */}
-                                <div className="flex items-baseline justify-between gap-2 px-1.5 pb-1.5">
-                                  <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
-                                    <div
-                                      className={cn(
-                                        "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm text-white",
-                                        isImage
-                                          ? "bg-rose-500"
-                                          : isPdf
-                                            ? "bg-amber-500"
-                                            : isVideo
-                                              ? "bg-violet-500"
-                                              : isAudio
-                                                ? "bg-indigo-500"
-                                                : "bg-sky-500",
-                                      )}
-                                    >
-                                      {isImage ? (
-                                        <ImageIcon className="size-2" />
-                                      ) : (
-                                        <FileText className="size-2" />
-                                      )}
-                                    </div>
-                                    <div className="min-w-0 flex-1 text-xs font-[450] text-foreground">
-                                      <span className="block truncate">{file.name}</span>
-                                    </div>
-                                  </div>
-                                  <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
-                                    {toUpdatedLabel(file.createdAt)}
-                                  </span>
-                                </div>
-                              </div>
+                                <CardContent className="pt-0">
+                                  <FileCard
+                                    fileType={fileCardType}
+                                    lastUpdated={new Date(file.createdAt)}
+                                    name={file.name}
+                                    previewContent={
+                                      isImage ? (
+                                        <img
+                                          alt={file.name}
+                                          className="block h-full w-full object-cover"
+                                          loading="lazy"
+                                          src={file.storageUrl}
+                                        />
+                                      ) : isVideo ? (
+                                        <VideoThumbnail
+                                          className="h-full w-full"
+                                          mimeType={file.mimeType}
+                                          openedCached={openedCached || isWarmed}
+                                          src={file.storageUrl}
+                                          warm={hoveredPreviewFileId === file.id}
+                                        />
+                                      ) : isPdf ? (
+                                        <PdfThumbnail
+                                          className="h-full w-full"
+                                          src={file.storageUrl}
+                                        />
+                                      ) : undefined
+                                    }
+                                  />
+                                </CardContent>
+                              </Card>
                             </ContextMenuTrigger>
                             <ContextMenuContent>
                               <ContextMenuItem onClick={() => selectFile(file.id)}>Open</ContextMenuItem>
@@ -2001,6 +2842,180 @@ export function FileExplorer() {
                         );
                       })}
                     </div>
+                    {viewMode === "list" ? (
+                      <div className="divide-y divide-border/70 rounded-md border border-border/70">
+                        {sortedFolders.map((folder) => (
+                          <div
+                            className={cn(
+                              "flex cursor-pointer items-center gap-3 px-3 py-2.5 transition-colors hover:bg-muted/30",
+                              selection.selectedIds.has(folder.id) && "bg-emerald-500/10",
+                              dropTargetId === folder.id && "bg-emerald-500/15 outline outline-2 outline-emerald-400/70",
+                            )}
+                            data-drop-folder-id={folder.id}
+                            data-select-item="true"
+                            draggable={!folder.readOnly}
+                            key={folder.id}
+                            onClick={(event) => {
+                              selection.handleItemClick(event, folder.id, visibleItemIds);
+                              handleOpenOnDoubleClick(event, () => navigateToFolder(folder.id));
+                            }}
+                            onDragEnd={() => {
+                              canvasDragDepthRef.current = 0;
+                              setCanvasDropActive(false);
+                              setDraggingIds([]);
+                              setDropTargetId(null);
+                            }}
+                            onDragEnter={(event) => {
+                              if (folder.readOnly) {
+                                return;
+                              }
+                              event.preventDefault();
+                              setDropTargetId(folder.id);
+                            }}
+                            onDragLeave={() => {
+                              setDropTargetId((current) => (current === folder.id ? null : current));
+                            }}
+                            onDragOver={(event) => {
+                              if (folder.readOnly) {
+                                return;
+                              }
+                              event.preventDefault();
+                              event.dataTransfer.dropEffect = "move";
+                              setDropTargetId(folder.id);
+                            }}
+                            onDragStart={(event) => {
+                              if (folder.readOnly) {
+                                event.preventDefault();
+                                return;
+                              }
+                              const sourceIds = selection.prepareDrag(folder.id);
+                              setDraggingIds(sourceIds);
+                              event.dataTransfer.effectAllowed = "move";
+                              configureDragPreview(event);
+                              event.dataTransfer.setData("text/plain", sourceIds.join(","));
+                            }}
+                            onDrop={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              if (folder.readOnly) {
+                                canvasDragDepthRef.current = 0;
+                                setCanvasDropActive(false);
+                                setDropTargetId(null);
+                                setDraggingIds([]);
+                                return;
+                              }
+                              const sourceIds = draggingIds.length > 0 ? draggingIds : Array.from(selection.selectedIds);
+                              canvasDragDepthRef.current = 0;
+                              setCanvasDropActive(false);
+                              setDropTargetId(null);
+                              void moveItemsToFolder(sourceIds, folder.id);
+                              setDraggingIds([]);
+                            }}
+                            onTouchEnd={endTouchDrag}
+                            onTouchMove={moveTouchDrag}
+                            onTouchStart={() => {
+                              if (folder.readOnly) {
+                                return;
+                              }
+                              beginTouchDrag(folder.id);
+                            }}
+                            ref={(node: HTMLDivElement | null) => {
+                              if (!node) {
+                                itemRefs.current.delete(folder.id);
+                                return;
+                              }
+                              itemRefs.current.set(folder.id, node);
+                            }}
+                          >
+                            <Checkbox
+                              checked={selection.selectedIds.has(folder.id)}
+                              onCheckedChange={() => selection.toggleSelection(folder.id)}
+                              onClick={(event) => event.stopPropagation()}
+                            />
+                            <Folder className="size-4 shrink-0 text-emerald-600" />
+                            <p className="min-w-0 flex-1 truncate font-medium text-sm">{folder.name}</p>
+                            <div className="ml-auto flex items-center gap-6 text-muted-foreground text-xs">
+                              <span className="min-w-[110px] text-right tabular-nums">
+                                {folderSubfolderCount.get(folder.id) ?? 0} folders • {folderFileCount.get(folder.id) ?? 0} files
+                              </span>
+                              <span className="min-w-[72px] text-right tabular-nums">
+                                {folder.updatedAt ? toUpdatedLabel(folder.updatedAt) : "—"}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                        {sortedFiles.map((file) => {
+                          const fileKind = detectFileKind(file);
+                          return (
+                            <div
+                              className={cn(
+                                "flex cursor-pointer items-center gap-3 px-3 py-2.5 transition-colors hover:bg-muted/30",
+                                selection.selectedIds.has(file.id) && "bg-emerald-500/10",
+                              )}
+                              data-select-item="true"
+                              draggable={!file.readOnly}
+                              key={file.id}
+                              onClick={(event) => {
+                                selection.handleItemClick(event, file.id, visibleItemIds);
+                                handleOpenOnDoubleClick(event, () => selectFile(file.id));
+                              }}
+                              onDragEnd={() => {
+                                canvasDragDepthRef.current = 0;
+                                setCanvasDropActive(false);
+                                setDraggingIds([]);
+                                setDropTargetId(null);
+                              }}
+                              onDragStart={(event) => {
+                                if (file.readOnly) {
+                                  event.preventDefault();
+                                  return;
+                                }
+                                const sourceIds = selection.prepareDrag(file.id);
+                                setDraggingIds(sourceIds);
+                                event.dataTransfer.effectAllowed = "move";
+                                configureDragPreview(event);
+                                event.dataTransfer.setData("text/plain", sourceIds.join(","));
+                              }}
+                              onTouchEnd={endTouchDrag}
+                              onTouchMove={moveTouchDrag}
+                              onTouchStart={() => {
+                                if (file.readOnly) {
+                                  return;
+                                }
+                                beginTouchDrag(file.id);
+                              }}
+                              ref={(node: HTMLDivElement | null) => {
+                                if (!node) {
+                                  itemRefs.current.delete(file.id);
+                                  return;
+                                }
+                                itemRefs.current.set(file.id, node);
+                              }}
+                            >
+                              <Checkbox
+                                checked={selection.selectedIds.has(file.id)}
+                                onCheckedChange={() => selection.toggleSelection(file.id)}
+                                onClick={(event) => event.stopPropagation()}
+                              />
+                              <div
+                                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted/60"
+                              >
+                                {getFileTypeIcon(fileKind)}
+                              </div>
+                              <p className="min-w-0 flex-1 truncate font-medium text-sm">{file.name}</p>
+                              <div className="ml-auto flex items-center gap-6 text-muted-foreground text-xs">
+                                <span className="min-w-[110px] text-right tabular-nums">
+                                  {formatBytes(file.sizeBytes)}
+                                </span>
+                                <span className="min-w-[72px] text-right tabular-nums">
+                                  {toUpdatedLabel(file.updatedAt ?? file.createdAt)}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : null}
                     {selection.selectionRect ? (
                       <div
                         className="pointer-events-none absolute z-20 rounded-md border border-emerald-400 bg-emerald-400/15"
@@ -2026,6 +3041,9 @@ export function FileExplorer() {
             </ContextMenuItem>
             <ContextMenuItem disabled={isCurrentFolderReadOnly} onClick={() => fileInputRef.current?.click()}>
               Upload file
+            </ContextMenuItem>
+            <ContextMenuItem disabled={isCurrentFolderReadOnly} onClick={() => folderInputRef.current?.click()}>
+              Upload folder
             </ContextMenuItem>
             <ContextMenuItem onClick={() => void loadFolder()}>
               Refresh

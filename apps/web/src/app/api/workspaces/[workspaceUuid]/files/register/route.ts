@@ -3,12 +3,14 @@ import {
   isSharedFilesVirtualFolderId,
   registerFileAsset,
   softDeleteFileAsset,
+  updateFileAsset,
 } from "@/lib/file-data";
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
 import { NextResponse } from "next/server";
 import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
 import { consumeUploadUnits } from "@/lib/billing";
 import { createApiLogger } from "@/lib/observability";
+import { optimizeAndReuploadVideo } from "@/lib/video-optimization";
 
 function classifyStoredFileType(mimeType: string | null) {
   if (!mimeType) {
@@ -110,6 +112,27 @@ export async function POST(
     );
   }
 
+  let storedFile = file;
+  if (storedFile.mimeType?.startsWith("video/")) {
+    const optimized = await optimizeAndReuploadVideo({
+      sourceUrl: storedFile.storageUrl,
+      sourceName: storedFile.name,
+    }).catch(() => null);
+
+    if (optimized) {
+      const updated = await updateFileAsset(workspaceUuid, storedFile.id, user.id, {
+        storageKey: optimized.storageKey,
+        storageUrl: optimized.storageUrl,
+        name: optimized.name,
+        mimeType: optimized.mimeType,
+        sizeBytes: optimized.sizeBytes,
+      });
+      if (updated) {
+        storedFile = updated;
+      }
+    }
+  }
+
   await publishFilesInvalidationEvent({
     workspaceUuid,
     folderId: body.folderId,
@@ -122,26 +145,26 @@ export async function POST(
 
   void apiLogger.meter("meter.upload.filesystem.registered", {
     workspaceUuid,
-    fileId: file.id,
-    mimeType: file.mimeType,
-    fileType: classifyStoredFileType(file.mimeType),
-    sizeBytes: file.sizeBytes,
+    fileId: storedFile.id,
+    mimeType: storedFile.mimeType,
+    fileType: classifyStoredFileType(storedFile.mimeType),
+    sizeBytes: storedFile.sizeBytes,
   });
   void apiLogger.meter("meter.upload.file_type", {
     workspaceUuid,
-    fileType: classifyStoredFileType(file.mimeType),
-    mimeType: file.mimeType,
+    fileType: classifyStoredFileType(storedFile.mimeType),
+    mimeType: storedFile.mimeType,
   });
   void apiLogger.featureUsed("workspace.filesystem.upload", {
     workspaceUuid,
-    fileId: file.id,
+    fileId: storedFile.id,
   });
   void apiLogger.requestSucceeded(201, {
     workspaceUuid,
-    fileId: file.id,
-    mimeType: file.mimeType,
-    sizeBytes: file.sizeBytes,
+    fileId: storedFile.id,
+    mimeType: storedFile.mimeType,
+    sizeBytes: storedFile.sizeBytes,
   });
 
-  return NextResponse.json({ file }, { status: 201 });
+  return NextResponse.json({ file: storedFile }, { status: 201 });
 }

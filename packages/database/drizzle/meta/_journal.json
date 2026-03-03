@@ -5,36 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1772435816954,
-      "tag": "0000_purple_golden_guardian",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1772449835014,
-      "tag": "0001_sticky_viper",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1772452528491,
-      "tag": "0003_cold_invisible_woman",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1772460000000,
-      "tag": "0004_user_settings",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1772460765001,
-      "tag": "0004_amusing_amphibian",
+      "when": 1772515597648,
+      "tag": "0000_magical_doctor_strange",
       "breakpoints": true
     }
   ]

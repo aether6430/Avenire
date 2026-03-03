@@ -42,6 +42,7 @@ import { Button } from "../components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSub,
@@ -1486,8 +1487,10 @@ function MediaPlayerSeek(props: MediaPlayerSeekProps) {
   );
  
   const seekRef = React.useRef<HTMLDivElement>(null);
+  const seekTrackRef = React.useRef<HTMLDivElement>(null);
   const tooltipRef = React.useRef<HTMLDivElement>(null);
   const justCommittedRef = React.useRef<boolean>(false);
+  const ignoreClickUntilRef = React.useRef<number>(0);
  
   const hoverTimeRef = React.useRef(0);
   const tooltipXRef = React.useRef(0);
@@ -1914,7 +1917,7 @@ function MediaPlayerSeek(props: MediaPlayerSeekProps) {
       tooltipDisabled,
     ],
   );
- 
+
   const onSeek = React.useCallback(
     (value: number | readonly number[]) => {
       const time = Array.isArray(value) ? (value[0] ?? 0) : value;
@@ -1993,6 +1996,62 @@ function MediaPlayerSeek(props: MediaPlayerSeekProps) {
       });
     },
     [dispatch, store.getState, store.setState],
+  );
+
+  const getSeekTimeFromClientX = React.useCallback(
+    (clientX: number) => {
+      const rect =
+        seekTrackRef.current?.getBoundingClientRect() ??
+        seekRef.current?.getBoundingClientRect();
+      if (!rect || rect.width <= 0) {
+        return null;
+      }
+
+      const clampedX = Math.max(rect.left, Math.min(clientX, rect.right));
+      const percent = (clampedX - rect.left) / rect.width;
+      return seekableStart + percent * (seekableEnd - seekableStart);
+    },
+    [seekableEnd, seekableStart],
+  );
+
+  const onSeekTrackPointerDown = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (isDisabled || seekableEnd <= seekableStart) {
+        return;
+      }
+
+      if (event.button !== 0) {
+        return;
+      }
+
+      const nextTime = getSeekTimeFromClientX(event.clientX);
+      if (nextTime === null) {
+        return;
+      }
+
+      ignoreClickUntilRef.current = Date.now() + 250;
+      onSeekCommit(nextTime);
+    },
+    [getSeekTimeFromClientX, isDisabled, onSeekCommit, seekableEnd, seekableStart],
+  );
+
+  const onSeekTrackClick = React.useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (isDisabled || seekableEnd <= seekableStart) {
+        return;
+      }
+
+      if (Date.now() < ignoreClickUntilRef.current) {
+        return;
+      }
+
+      const nextTime = getSeekTimeFromClientX(event.clientX);
+      if (nextTime === null) {
+        return;
+      }
+      onSeekCommit(nextTime);
+    },
+    [getSeekTimeFromClientX, isDisabled, onSeekCommit, seekableEnd, seekableStart],
   );
  
   React.useEffect(() => {
@@ -2093,8 +2152,15 @@ function MediaPlayerSeek(props: MediaPlayerSeekProps) {
         onPointerLeave={onPointerLeave}
         onPointerMove={onPointerMove}
       >
-        <SliderPrimitive.Control className="relative flex w-full touch-none items-center select-none">
-          <SliderPrimitive.Track className="relative h-1 w-full grow overflow-hidden rounded-full bg-primary/40">
+        <SliderPrimitive.Control
+          className="relative flex h-4 w-full touch-none items-center select-none"
+          onClick={onSeekTrackClick}
+          onPointerDown={onSeekTrackPointerDown}
+        >
+          <SliderPrimitive.Track
+            ref={seekTrackRef}
+            className="relative h-1 w-full grow overflow-hidden rounded-full bg-primary/40"
+          >
             <div
               data-slot="media-player-seek-buffered"
               className="absolute h-full bg-primary/70 will-change-[width]"
@@ -2945,7 +3011,9 @@ function MediaPlayerSettings(props: MediaPlayerSettingsProps) {
         container={context.portalContainer}
         className="w-56 data-[side=top]:mb-3.5"
       >
-        <DropdownMenuLabel className="sr-only">Settings</DropdownMenuLabel>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="sr-only">Settings</DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <span className="flex-1">Speed</span>

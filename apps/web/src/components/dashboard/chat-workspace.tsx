@@ -201,22 +201,22 @@ export function ChatWorkspace({
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background">
-      <header className="flex h-12 shrink-0 items-center border-b border-border/70 px-3">
+      <header className="flex h-10 shrink-0 items-center border-b border-border/70 px-2.5">
         <div className="flex w-1/3 items-center gap-2">
-          <SidebarTrigger className="h-8 w-8 rounded-md" />
+          <SidebarTrigger className="h-6 w-6 rounded-md" />
           {!isReadonly ? (
             <Button
-              className="h-8 w-8 rounded-md"
+              className="size-5 rounded-md"
               onClick={() => void createChat()}
-              size="icon-sm"
+              size="icon-xs"
               type="button"
               variant="outline"
             >
-              <Plus className="size-4" />
+              <Plus className="size-3" />
             </Button>
           ) : null}
         </div>
-        <div className="w-1/3 truncate px-3 text-center font-medium text-sm">
+        <div className="w-1/3 truncate px-2 text-center font-medium text-xs">
           {title}
         </div>
         <div className="flex w-1/3 justify-end">
@@ -225,15 +225,15 @@ export function ChatWorkspace({
             <DialogTrigger
               render={
                 <Button
-                  className="h-8 rounded-md"
-                  size="sm"
+                  className="size-5 rounded-md"
+                  size="icon-xs"
                   type="button"
                   variant="outline"
                 />
               }
             >
-              <Share2 className="size-4" />
-              Share
+              <Share2 className="size-3" />
+              <span className="sr-only">Share</span>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>

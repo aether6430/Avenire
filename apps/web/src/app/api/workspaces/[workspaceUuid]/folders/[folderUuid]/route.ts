@@ -64,7 +64,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Cannot move items into Shared Files" }, { status: 400 });
   }
 
-  const folder = await updateFolder(workspaceUuid, folderUuid, {
+  const folder = await updateFolder(workspaceUuid, folderUuid, user.id, {
     name: body.name,
     parentId: body.parentId,
   });

@@ -290,8 +290,7 @@ function PDFViewerContent({ source }: { source: string }) {
         <div className="min-h-0 flex-1 bg-muted/30">
           <Pages
             className={cn(
-              "h-full w-full overflow-y-scroll overflow-x-hidden p-4 text-foreground sm:p-6",
-              "dark:invert-[94%] dark:hue-rotate-180 dark:brightness-[80%] dark:contrast-[228%]",
+              "h-full w-full overflow-y-scroll overflow-x-hidden p-4 text-foreground sm:p-6"
             )}
           >
             <Page className="mx-auto w-fit rounded-md border border-border/40 bg-white shadow-sm">

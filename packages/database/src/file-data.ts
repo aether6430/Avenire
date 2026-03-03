@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { db } from "./client";
 import { member, organization, user as authUser } from "./auth-schema";
@@ -18,6 +18,8 @@ export interface ExplorerFolderRecord {
   workspaceId: string;
   parentId: string | null;
   name: string;
+  createdBy: string;
+  updatedBy: string | null;
   isShared?: boolean;
   readOnly?: boolean;
   createdAt: string;
@@ -33,6 +35,8 @@ export interface ExplorerFileRecord {
   name: string;
   mimeType: string | null;
   sizeBytes: number;
+  uploadedBy: string;
+  updatedBy: string | null;
   isShared?: boolean;
   readOnly?: boolean;
   sourceWorkspaceId?: string;
@@ -64,6 +68,8 @@ function mapFolder(row: typeof fileFolder.$inferSelect): ExplorerFolderRecord {
     workspaceId: row.workspaceId,
     parentId: row.parentId,
     name: row.name,
+    createdBy: row.createdBy,
+    updatedBy: row.updatedBy ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -79,6 +85,8 @@ function mapFile(row: typeof fileAsset.$inferSelect): ExplorerFileRecord {
     name: row.name,
     mimeType: row.mimeType ?? null,
     sizeBytes: row.sizeBytes,
+    uploadedBy: row.uploadedBy,
+    updatedBy: row.updatedBy ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -660,6 +668,8 @@ export async function getFolderWithAncestors(
       name: "Shared Files",
       isShared: true,
       readOnly: true,
+      createdBy: root.createdBy,
+      updatedBy: root.updatedBy,
       createdAt: root.createdAt.toISOString(),
       updatedAt: root.updatedAt.toISOString(),
     };
@@ -806,6 +816,8 @@ export async function listFolderContentsForUser(
     name: "Shared Files",
     isShared: true,
     readOnly: true,
+    createdBy: root.createdBy,
+    updatedBy: root.updatedBy,
     createdAt: root.createdAt.toISOString(),
     updatedAt: root.updatedAt.toISOString(),
   };
@@ -847,6 +859,8 @@ export async function listWorkspaceFolders(workspaceId: string, userId?: string)
       name: "Shared Files",
       isShared: true,
       readOnly: true,
+      createdBy: root.createdBy,
+      updatedBy: root.updatedBy,
       createdAt: root.createdAt,
       updatedAt: root.updatedAt,
     } satisfies ExplorerFolderRecord,
@@ -900,6 +914,7 @@ export async function createFolder(
       parentId,
       name: trimmedName,
       createdBy: userId,
+      updatedBy: userId,
       createdAt: now,
       updatedAt: now,
     })
@@ -911,6 +926,7 @@ export async function createFolder(
 export async function updateFolder(
   workspaceId: string,
   folderId: string,
+  actorUserId: string,
   updates: { name?: string; parentId?: string | null },
 ) {
   const [folder] = await db
@@ -920,6 +936,7 @@ export async function updateFolder(
         ? { name: updates.name.trim().slice(0, 160) || "Untitled Folder" }
         : {}),
       ...(typeof updates.parentId !== "undefined" ? { parentId: updates.parentId } : {}),
+      updatedBy: actorUserId,
       updatedAt: new Date(),
     })
     .where(
@@ -1002,6 +1019,7 @@ export async function registerFileAsset(
       mimeType: input.mimeType ?? null,
       sizeBytes: input.sizeBytes,
       uploadedBy: userId,
+      updatedBy: userId,
       metadata: input.metadata ?? {},
       createdAt: now,
       updatedAt: now,
@@ -1014,15 +1032,96 @@ export async function registerFileAsset(
 export async function updateFileAsset(
   workspaceId: string,
   fileId: string,
-  updates: { folderId?: string; name?: string },
+  actorUserId: string,
+  updates: {
+    folderId?: string;
+    name?: string;
+    storageKey?: string;
+    storageUrl?: string;
+    mimeType?: string | null;
+    sizeBytes?: number;
+  },
 ) {
+  const [existing] = await db
+    .select({
+      folderId: fileAsset.folderId,
+      id: fileAsset.id,
+      name: fileAsset.name,
+    })
+    .from(fileAsset)
+    .where(
+      and(
+        eq(fileAsset.id, fileId),
+        eq(fileAsset.workspaceId, workspaceId),
+        isNull(fileAsset.deletedAt),
+      ),
+    )
+    .limit(1);
+
+  if (!existing) {
+    return null;
+  }
+
+  const renameOrMoveRequested = typeof updates.name === "string" || typeof updates.folderId === "string";
+  let resolvedName = existing.name;
+
+  if (renameOrMoveRequested) {
+    const targetFolderId = updates.folderId ?? existing.folderId;
+    const requestedName = typeof updates.name === "string"
+      ? updates.name.trim().slice(0, 255) || "Untitled"
+      : existing.name;
+
+    const existingNames = await db
+      .select({ name: fileAsset.name })
+      .from(fileAsset)
+      .where(
+        and(
+          eq(fileAsset.workspaceId, workspaceId),
+          eq(fileAsset.folderId, targetFolderId),
+          isNull(fileAsset.deletedAt),
+          ne(fileAsset.id, fileId),
+        ),
+      );
+
+    const existingNameSet = new Set(existingNames.map((row) => row.name.toLowerCase()));
+
+    const dotIndex = requestedName.lastIndexOf(".");
+    const hasExtension = dotIndex > 0 && dotIndex < requestedName.length - 1;
+    const baseName = hasExtension ? requestedName.slice(0, dotIndex) : requestedName;
+    const extension = hasExtension ? requestedName.slice(dotIndex) : "";
+    const safeBaseName = baseName || "Untitled";
+
+    resolvedName = requestedName;
+    if (existingNameSet.has(requestedName.toLowerCase())) {
+      let copyIndex = 1;
+      while (copyIndex < 10_000) {
+        const suffix = ` (${copyIndex})`;
+        const maxBaseLength = Math.max(1, 255 - extension.length - suffix.length);
+        const candidateBase = safeBaseName.slice(0, maxBaseLength);
+        const candidate = `${candidateBase}${suffix}${extension}`;
+        if (!existingNameSet.has(candidate.toLowerCase())) {
+          resolvedName = candidate;
+          break;
+        }
+        copyIndex += 1;
+      }
+    }
+  }
+
   const [record] = await db
     .update(fileAsset)
     .set({
-      ...(updates.folderId ? { folderId: updates.folderId } : {}),
-      ...(typeof updates.name === "string"
-        ? { name: updates.name.trim().slice(0, 255) || "Untitled" }
+      ...(typeof updates.folderId === "string" ? { folderId: updates.folderId } : {}),
+      ...(renameOrMoveRequested ? { name: resolvedName } : {}),
+      ...(typeof updates.storageKey === "string" ? { storageKey: updates.storageKey } : {}),
+      ...(typeof updates.storageUrl === "string" ? { storageUrl: updates.storageUrl } : {}),
+      ...(Object.prototype.hasOwnProperty.call(updates, "mimeType")
+        ? { mimeType: updates.mimeType ?? null }
         : {}),
+      ...(typeof updates.sizeBytes === "number" && Number.isFinite(updates.sizeBytes)
+        ? { sizeBytes: Math.max(0, Math.round(updates.sizeBytes)) }
+        : {}),
+      updatedBy: actorUserId,
       updatedAt: new Date(),
     })
     .where(
