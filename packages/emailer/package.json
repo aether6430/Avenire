@@ -23,5 +23,8 @@
     "@avenire/typescript-config": "workspace:*",
     "@types/react": "latest",
     "typescript": "latest"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
   }
 }

@@ -2,18 +2,29 @@ import { createAuthClient } from "better-auth/react";
 import { passkeyClient } from "@better-auth/passkey/client";
 import { organizationClient, usernameClient } from "better-auth/client/plugins";
 
+export const authClient = createAuthClient({
+  baseURL: process.env.NEXT_PUBLIC_APP_URL,
+  plugins: [
+    organizationClient({
+      teams: {
+        enabled: true,
+      },
+    }),
+    passkeyClient(),
+    usernameClient(),
+  ]
+});
+
 export const {
   signIn,
   signUp,
   signOut,
   useSession,
   getSession,
-  passkey,
   $ERROR_CODES,
   sendVerificationEmail,
   linkSocial,
   updateUser,
-  useListPasskeys,
   listAccounts,
   unlinkAccount,
   listSessions,
@@ -24,7 +35,4 @@ export const {
   changePassword,
   requestPasswordReset,
   resetPassword
-} = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_APP_URL,
-  plugins: [organizationClient(), passkeyClient(), usernameClient()]
-});
+} = authClient;

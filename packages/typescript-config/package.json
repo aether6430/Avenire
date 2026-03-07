@@ -9,5 +9,8 @@
   ],
   "devDependencies": {
     "@avenire/env-types": "workspace:*"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
   }
 }

@@ -188,3 +188,85 @@ export const resourceShareLink = pgTable(
     index("resource_share_link_resource_idx").on(table.resourceType, table.resourceId),
   ],
 );
+
+export const billingCustomer = pgTable(
+  "billing_customer",
+  {
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => user.id, { onDelete: "cascade" }),
+    polarCustomerId: text("polar_customer_id").notNull().unique(),
+    email: text("email"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index("billing_customer_polar_customer_idx").on(table.polarCustomerId)],
+);
+
+export const billingSubscription = pgTable(
+  "billing_subscription",
+  {
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => user.id, { onDelete: "cascade" }),
+    plan: text("plan").notNull().default("access"),
+    status: text("status").notNull().default("inactive"),
+    polarSubscriptionId: text("polar_subscription_id"),
+    polarProductId: text("polar_product_id"),
+    currentPeriodStart: timestamp("current_period_start", { withTimezone: true }),
+    currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("billing_subscription_polar_subscription_uidx").on(table.polarSubscriptionId),
+    index("billing_subscription_status_idx").on(table.status),
+  ],
+);
+
+export const usageMeter = pgTable(
+  "usage_meter",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    meter: text("meter").notNull(),
+    fourHourCapacity: integer("four_hour_capacity").notNull(),
+    fourHourBalance: integer("four_hour_balance").notNull(),
+    fourHourRefillAt: timestamp("four_hour_refill_at", { withTimezone: true }).notNull(),
+    overageCapacity: integer("overage_capacity").notNull(),
+    overageBalance: integer("overage_balance").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("usage_meter_user_meter_uidx").on(table.userId, table.meter),
+    index("usage_meter_user_idx").on(table.userId),
+  ],
+);
+
+export const userSettings = pgTable("user_settings", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  emailReceipts: boolean("email_receipts").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const sudoChallenge = pgTable(
+  "sudo_challenge",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    codeHash: text("code_hash").notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index("sudo_challenge_user_created_idx").on(table.userId, table.createdAt)],
+);

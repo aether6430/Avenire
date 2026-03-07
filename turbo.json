@@ -23,7 +23,9 @@
         "POLAR_ACCESS_TOKEN",
         "POLAR_WEBHOOK_SECRET",
         "POLAR_ORGANIZATION_ID",
-        "UPLOADTHING_TOKEN"
+        "UPLOADTHING_TOKEN",
+        "REDIS_URL",
+        "SSE_TOKEN_SECRET"
       ]
     },
     "dev": {

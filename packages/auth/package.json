@@ -26,8 +26,8 @@
     "@avenire/database": "workspace:*",
     "@avenire/emailer": "workspace:*",
     "@avenire/ui": "workspace:*",
-    "@better-auth/passkey": "^1.4.19",
-    "better-auth": "latest",
+    "@better-auth/passkey": "1.4.21",
+    "better-auth": "1.4.21",
     "lucide-react": "^0.575.0",
     "next": "^16.1.6",
     "react": "^19.2.4",
@@ -37,7 +37,7 @@
   "devDependencies": {
     "@avenire/env-types": "workspace:*",
     "@avenire/typescript-config": "workspace:*",
-    "@better-auth/cli": "latest",
+    "@better-auth/cli": "1.4.21",
     "@types/react": "latest",
     "typescript": "latest"
   }

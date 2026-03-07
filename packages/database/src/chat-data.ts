@@ -2,7 +2,7 @@ import type { UIMessage } from "../../ai/message-type";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { db } from "./client";
-import { chatMessage, chatThread } from "./schema";
+import { chatMessage, chatThread, resourceShareGrant } from "./schema";
 
 export interface ChatSummary {
   id: string;
@@ -10,6 +10,8 @@ export interface ChatSummary {
   branching: string | null;
   title: string;
   pinned: boolean;
+  readOnly?: boolean;
+  ownerUserId?: string;
   createdAt: string;
   updatedAt: string;
   lastMessageAt: string;
@@ -44,13 +46,49 @@ const sanitizeTitle = (title?: string | null) => {
 };
 
 export async function listChatsForUser(userId: string) {
-  const threads = await db
+  const ownedThreads = await db
     .select()
     .from(chatThread)
     .where(eq(chatThread.userId, userId))
     .orderBy(desc(chatThread.pinned), desc(chatThread.lastMessageAt));
 
-  return threads.map(mapChatSummary);
+  const grantedThreads = await db
+    .select({ thread: chatThread })
+    .from(resourceShareGrant)
+    .innerJoin(chatThread, eq(chatThread.slug, resourceShareGrant.resourceId))
+    .where(
+      and(
+        eq(resourceShareGrant.resourceType, "chat"),
+        eq(resourceShareGrant.granteeUserId, userId),
+      ),
+    )
+    .orderBy(desc(chatThread.lastMessageAt));
+
+  const merged = new Map<string, ChatSummary>();
+  for (const thread of ownedThreads) {
+    merged.set(thread.slug, {
+      ...mapChatSummary(thread),
+      readOnly: false,
+      ownerUserId: thread.userId,
+    });
+  }
+  for (const row of grantedThreads) {
+    if (merged.has(row.thread.slug)) {
+      continue;
+    }
+    merged.set(row.thread.slug, {
+      ...mapChatSummary(row.thread),
+      readOnly: true,
+      ownerUserId: row.thread.userId,
+    });
+  }
+
+  return Array.from(merged.values()).sort((a, b) => {
+    if (a.pinned !== b.pinned) {
+      return a.pinned ? -1 : 1;
+    }
+    return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
+  });
 }
 
 export async function createChatForUser(userId: string, title?: string) {
@@ -130,7 +168,36 @@ export async function getChatBySlugForUser(userId: string, slug: string) {
     .where(and(eq(chatThread.userId, userId), eq(chatThread.slug, slug)))
     .limit(1);
 
-  return thread ? mapChatSummary(thread) : null;
+  if (thread) {
+    return {
+      ...mapChatSummary(thread),
+      readOnly: false,
+      ownerUserId: thread.userId,
+    };
+  }
+
+  const [granted] = await db
+    .select({ thread: chatThread })
+    .from(resourceShareGrant)
+    .innerJoin(chatThread, eq(chatThread.slug, resourceShareGrant.resourceId))
+    .where(
+      and(
+        eq(resourceShareGrant.resourceType, "chat"),
+        eq(resourceShareGrant.granteeUserId, userId),
+        eq(chatThread.slug, slug),
+      ),
+    )
+    .limit(1);
+
+  if (!granted) {
+    return null;
+  }
+
+  return {
+    ...mapChatSummary(granted.thread),
+    readOnly: true,
+    ownerUserId: granted.thread.userId,
+  };
 }
 
 export async function getChatBySlug(slug: string) {
@@ -147,23 +214,28 @@ export async function getMessagesByChatSlugForUser(
   userId: string,
   slug: string,
 ) {
-  const [thread] = await db
-    .select({ id: chatThread.id })
-    .from(chatThread)
-    .where(and(eq(chatThread.userId, userId), eq(chatThread.slug, slug)))
-    .limit(1);
-
-  if (!thread) {
+  const chat = await getChatBySlugForUser(userId, slug);
+  if (!chat) {
     return null;
   }
 
   const rows = await db
     .select()
     .from(chatMessage)
-    .where(eq(chatMessage.chatId, thread.id))
+    .where(eq(chatMessage.chatId, chat.id))
     .orderBy(asc(chatMessage.position));
 
   return rows.map((row) => row.payload as unknown as UIMessage);
+}
+
+export async function isChatOwnerForUser(userId: string, slug: string) {
+  const [thread] = await db
+    .select({ id: chatThread.id })
+    .from(chatThread)
+    .where(and(eq(chatThread.userId, userId), eq(chatThread.slug, slug)))
+    .limit(1);
+
+  return Boolean(thread);
 }
 
 export async function getMessagesByChatSlug(slug: string) {

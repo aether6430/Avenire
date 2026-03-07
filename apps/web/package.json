@@ -16,6 +16,7 @@
     "@anaralabs/lector": "^3.8.0",
     "@avenire/ai": "workspace:*",
     "@avenire/auth": "workspace:*",
+    "@avenire/observability": "workspace:*",
     "@avenire/payments": "workspace:*",
     "@avenire/storage": "workspace:*",
     "@avenire/ui": "workspace:*",

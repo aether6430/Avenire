@@ -18,8 +18,8 @@ export async function GET(
   }
 
   const [folders, files] = await Promise.all([
-    listWorkspaceFolders(workspaceUuid),
-    listWorkspaceFiles(workspaceUuid),
+    listWorkspaceFolders(workspaceUuid, user.id),
+    listWorkspaceFiles(workspaceUuid, user.id),
   ]);
   return NextResponse.json({ folders, files });
 }

@@ -5,43 +5,50 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1772030622434,
-      "tag": "0000_melodic_supernaut",
+      "when": 1772435816954,
+      "tag": "0000_purple_golden_guardian",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1772116449166,
-      "tag": "0001_ancient_mauler",
+      "when": 1772449835014,
+      "tag": "0001_sticky_viper",
       "breakpoints": true
     },
     {
       "idx": 2,
       "version": "7",
-      "when": 1772309185755,
-      "tag": "0002_stale_lady_bullseye",
+      "when": 1772452528491,
+      "tag": "0003_cold_invisible_woman",
       "breakpoints": true
     },
     {
       "idx": 3,
       "version": "7",
-      "when": 1772316000000,
-      "tag": "0003_modern_branching",
+      "when": 1772460000000,
+      "tag": "0004_user_settings",
       "breakpoints": true
     },
     {
       "idx": 4,
       "version": "7",
-      "when": 1772323842665,
-      "tag": "0004_spicy_phil_sheldon",
+      "when": 1772460765001,
+      "tag": "0004_amusing_amphibian",
       "breakpoints": true
     },
     {
       "idx": 5,
       "version": "7",
-      "when": 1772370802842,
-      "tag": "0005_workspace_files_sharing",
+      "when": 1772475000000,
+      "tag": "0005_auth_team_fk_integrity",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1772476200000,
+      "tag": "0006_team_member_created_at_not_null",
       "breakpoints": true
     }
   ]
