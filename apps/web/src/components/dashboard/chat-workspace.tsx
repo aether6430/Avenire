@@ -28,6 +28,7 @@ interface ChatWorkspaceProps {
   chatSlug: string;
   chatTitle: string;
   initialMessages: UIMessage[];
+  isReadonly?: boolean;
 }
 
 function PlaceholderCard({
@@ -54,6 +55,7 @@ export function ChatWorkspace({
   chatSlug,
   chatTitle,
   initialMessages,
+  isReadonly = false,
 }: ChatWorkspaceProps) {
   const router = useRouter();
   const view = useDashboardViewStore((state) => state.view);
@@ -276,7 +278,7 @@ export function ChatWorkspace({
         <Chat
           id={chatSlug}
           initialMessages={initialMessages}
-          isReadonly={false}
+          isReadonly={isReadonly}
           selectedModel="fermion-sprint"
           selectedReasoningModel="fermion-reasoning"
         />

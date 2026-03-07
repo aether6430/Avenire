@@ -151,7 +151,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Chat not found" }, { status: 404 });
   }
 
-  await clearActiveStreamId(chatSlug);
+  const previousStreamId = await getActiveStreamId(chatSlug);
+  if (previousStreamId) {
+    await clearActiveStreamId(chatSlug, previousStreamId);
+  }
 
   const stream = createUIMessageStream<UIMessage>({
     execute: async ({ writer }) => {
@@ -226,7 +229,7 @@ export async function POST(request: Request) {
                 error,
               });
             } finally {
-              await clearActiveStreamId(chatSlug);
+              await clearActiveStreamId(chatSlug, streamId);
               logInfo("Cleared active stream id", { chatId: chatSlug });
             }
           },
@@ -289,7 +292,10 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Chat not found" }, { status: 404 });
   }
 
-  await clearActiveStreamId(id);
+  const activeStreamId = await getActiveStreamId(id);
+  if (activeStreamId) {
+    await clearActiveStreamId(id, activeStreamId);
+  }
 
   return NextResponse.json({ ok: true });
 }
