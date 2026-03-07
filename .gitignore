@@ -8,3 +8,9 @@ dist
 .env
 .env.*
 !.env.example
+/check/
+/chat-actions.tsx
+/apps/web/*.png
+/apps/web/*.jpg
+/apps/web/*.jpeg
+/apps/web/*.webp

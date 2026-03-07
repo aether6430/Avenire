@@ -6,19 +6,22 @@ export const polar = new Polar({
   server: process.env.NODE_ENV === "production" ? "production" : "sandbox"
 });
 
-export async function handlePolarWebhook(payload: string, signature: string) {
+export async function handlePolarWebhook(
+  payload: string,
+  signature: string | null | undefined,
+) {
   const secret = process.env.POLAR_WEBHOOK_SECRET ?? "";
+  const normalizedSignature = signature?.trim();
 
-  if (!secret) {
-    return false;
+  if (!secret || !normalizedSignature) {
+    return null;
   }
 
   try {
-    validateEvent(payload, { "polar-signature": signature }, secret);
-    return true;
+    return validateEvent(payload, { "polar-signature": normalizedSignature }, secret);
   } catch (error) {
     if (error instanceof WebhookVerificationError) {
-      return false;
+      return null;
     }
     throw error;
   }

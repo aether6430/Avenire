@@ -6,12 +6,8 @@
   "exports": {
     "./styles.css": "./src/styles.css",
     "./lib/utils": "./src/lib/utils.ts",
-    "./components/button": "./src/components/button.tsx",
-    "./components/input": "./src/components/input.tsx",
-    "./components/*": "./src/components/*.tsx",
-    "./components/ui/button": "./src/components/button.tsx",
-    "./components/ui/card": "./src/components/card.tsx",
-    "./components/ui/input": "./src/components/input.tsx"
+    "./hooks/*": "./src/hooks/*.ts",
+    "./components/*": "./src/components/*.tsx"
   },
   "scripts": {
     "build": "tsc --noEmit",
@@ -25,8 +21,10 @@
     "clsx": "latest",
     "cmdk": "^1.1.1",
     "embla-carousel-react": "^8.5.2",
+    "framer-motion": "^12.34.3",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.575.0",
+    "motion": "^12.34.3",
     "next-themes": "^0.4.6",
     "react": "latest",
     "react-day-picker": "^9.6.3",
@@ -35,6 +33,7 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "latest",
     "three": "^0.183.1",
+    "usehooks-ts": "^3.1.1",
     "vaul": "^1.1.2"
   },
   "devDependencies": {

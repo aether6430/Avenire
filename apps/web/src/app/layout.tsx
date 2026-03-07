@@ -1,8 +1,17 @@
 import type { Metadata, Viewport } from "next";
+import localFont from "next/font/local";
 import { ServiceWorkerRegistration } from "@/components/pwa/ServiceWorkerRegistration";
+import { metadataBase } from "@/lib/page-metadata";
 import "./globals.css";
 
+const fonde = localFont({
+  src: "./fonde.ttf",
+  variable: "--font-serif",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
+  metadataBase,
   title: "Avenire — Think. Not just answers. Reasoning.",
   description:
     "An interactive AI reasoning and research workspace. Break down complex ideas, learn interactively, and build genuine understanding.",
@@ -13,11 +22,11 @@ export const metadata: Metadata = {
     apple: "/branding/avenire-logo-full.png",
   },
   openGraph: {
-    images: ["/branding/avenire-logo-full.png"],
+    images: ["/api/og?title=Avenire"],
   },
   twitter: {
     card: "summary_large_image",
-    images: ["/branding/avenire-logo-full.png"],
+    images: ["/api/og?title=Avenire"],
   },
 };
 
@@ -32,7 +41,13 @@ export default function RootLayout({
 }>) {
   return (
     <html className="light" lang="en">
-      <body className={"font-sans antialiased"}>
+      <body
+        className={`${fonde.variable} font-sans antialiased`}
+        style={{
+          "--font-sans":
+            'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+        } as React.CSSProperties}
+      >
         <ServiceWorkerRegistration />
         {children}
       </body>

@@ -14,9 +14,13 @@ declare namespace NodeJS {
     GROQ_API_KEY?: string;
     NEXT_PUBLIC_APP_URL?: string;
     NODE_ENV?: string;
+    MISTRAL_API_KEY?: string;
+    OLLAMA_API_KEY?: string;
+    OLLAMA_BASE_URL?: string;
     OPENROUTER_API_KEY?: string;
     POLAR_ACCESS_TOKEN?: string;
     POLAR_ORGANIZATION_ID?: string;
+    POLAR_SERVER?: string;
     POLAR_WEBHOOK_SECRET?: string;
     RESEND_API_KEY?: string;
     UPLOADTHING_TOKEN?: string;
