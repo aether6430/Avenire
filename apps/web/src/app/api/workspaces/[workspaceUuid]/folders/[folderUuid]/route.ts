@@ -2,6 +2,7 @@ import {
   getFolderWithAncestors,
   isSharedFilesVirtualFolderId,
   listFolderContentsForUser,
+  listWorkspaceMembers,
   softDeleteFolder,
   updateFolder,
 } from "@/lib/file-data";
@@ -54,6 +55,10 @@ export async function PATCH(
   }
   if (isSharedFilesVirtualFolderId(folderUuid, workspaceUuid)) {
     return NextResponse.json({ error: "Shared Files is read-only" }, { status: 400 });
+  const members = await listWorkspaceMembers(workspaceUuid);
+  const currentMember = members.find((member) => member.userId === user.id);
+  if (!currentMember || !["owner", "admin"].includes(currentMember.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const body = (await request.json().catch(() => ({}))) as {
@@ -103,6 +108,10 @@ export async function DELETE(
   }
   if (isSharedFilesVirtualFolderId(folderUuid, workspaceUuid)) {
     return NextResponse.json({ error: "Shared Files is read-only" }, { status: 400 });
+  const members = await listWorkspaceMembers(workspaceUuid);
+  const currentMember = members.find((member) => member.userId === user.id);
+  if (!currentMember || !["owner", "admin"].includes(currentMember.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   await softDeleteFolder(workspaceUuid, folderUuid);

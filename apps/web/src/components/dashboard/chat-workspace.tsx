@@ -31,11 +31,6 @@ interface ChatWorkspaceProps {
   isReadonly?: boolean;
 }
 
-interface ShareSuggestion {
-  email: string;
-  name: string | null;
-}
-
 function PlaceholderCard({
   icon: Icon,
   title,
@@ -66,7 +61,6 @@ export function ChatWorkspace({
   const view = useDashboardViewStore((state) => state.view);
   const setView = useDashboardViewStore((state) => state.setView);
   const [shareEmail, setShareEmail] = useState("");
-  const [shareSuggestions, setShareSuggestions] = useState<ShareSuggestion[]>([]);
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [shareBusy, setShareBusy] = useState(false);
   const [shareStatus, setShareStatus] = useState<string | null>(null);
@@ -96,29 +90,6 @@ export function ChatWorkspace({
       window.removeEventListener(CHAT_NAME_UPDATED_EVENT, onChatNameUpdated);
     };
   }, [chatSlug]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      void (async () => {
-        try {
-          const url = new URL(`/api/chats/${chatSlug}/share/suggestions`, window.location.origin);
-          if (shareEmail.trim()) {
-            url.searchParams.set("q", shareEmail.trim());
-          }
-          const response = await fetch(url.toString(), { cache: "no-store" });
-          if (!response.ok) {
-            setShareSuggestions([]);
-            return;
-          }
-          const payload = (await response.json()) as { suggestions?: ShareSuggestion[] };
-          setShareSuggestions(payload.suggestions ?? []);
-        } catch {
-          setShareSuggestions([]);
-        }
-      })();
-    }, 150);
-    return () => clearTimeout(timer);
-  }, [chatSlug, shareEmail]);
 
   if (view === "flashcards") {
     return (
@@ -204,23 +175,20 @@ export function ChatWorkspace({
       <header className="flex h-12 shrink-0 items-center border-b border-border/70 px-3">
         <div className="flex w-1/3 items-center gap-2">
           <SidebarTrigger className="h-8 w-8 rounded-md" />
-          {!isReadonly ? (
-            <Button
-              className="h-8 w-8 rounded-md"
-              onClick={() => void createChat()}
-              size="icon-sm"
-              type="button"
-              variant="outline"
-            >
-              <Plus className="size-4" />
-            </Button>
-          ) : null}
+          <Button
+            className="h-8 w-8 rounded-md"
+            onClick={() => void createChat()}
+            size="icon-sm"
+            type="button"
+            variant="outline"
+          >
+            <Plus className="size-4" />
+          </Button>
         </div>
         <div className="w-1/3 truncate px-3 text-center font-medium text-sm">
           {title}
         </div>
         <div className="flex w-1/3 justify-end">
-          {!isReadonly ? (
           <Dialog>
             <DialogTrigger
               render={
@@ -250,21 +218,11 @@ export function ChatWorkspace({
                 <div className="flex items-center gap-2">
                   <Input
                     id="share-email"
-                    list="chat-share-email-suggestions"
                     onChange={(event) => setShareEmail(event.target.value)}
                     placeholder="name@example.com"
                     type="email"
                     value={shareEmail}
                   />
-                  <datalist id="chat-share-email-suggestions">
-                    {shareSuggestions.map((item) => (
-                      <option
-                        key={item.email}
-                        label={item.name ? `${item.name} (${item.email})` : item.email}
-                        value={item.email}
-                      />
-                    ))}
-                  </datalist>
                   <Button
                     disabled={shareBusy}
                     onClick={() => void shareWithEmail()}
@@ -313,7 +271,6 @@ export function ChatWorkspace({
               ) : null}
             </DialogContent>
           </Dialog>
-          ) : null}
         </div>
       </header>
 

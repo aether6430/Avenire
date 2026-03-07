@@ -1,5 +1,6 @@
 import { createFolder, isSharedFilesVirtualFolderId } from "@/lib/file-data";
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
+import { listWorkspaceMembers } from "@/lib/file-data";
 import { NextResponse } from "next/server";
 import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
 
@@ -17,13 +18,18 @@ export async function POST(
   if (!canAccess) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+  const members = await listWorkspaceMembers(workspaceUuid);
+  const currentMember = members.find((member) => member.userId === user.id);
+  if (!currentMember || !["owner", "admin"].includes(currentMember.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const body = (await request.json().catch(() => ({}))) as {
-    parentId?: string;
+    parentId?: string | null;
     name?: string;
   };
 
-  if (!body.parentId || !body.name) {
+  if (typeof body.parentId === "undefined" || !body.name) {
     return NextResponse.json({ error: "Missing parentId or name" }, { status: 400 });
   }
   if (isSharedFilesVirtualFolderId(body.parentId, workspaceUuid)) {

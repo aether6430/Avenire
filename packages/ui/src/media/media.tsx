@@ -42,6 +42,7 @@ import { Button } from "../components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSub,
@@ -1435,6 +1436,8 @@ interface SeekState {
  
 interface MediaPlayerSeekProps
   extends React.ComponentProps<typeof SliderPrimitive.Root> {
+  activeRangeIndex?: number;
+  highlightRanges?: Array<{ endTime?: number; startTime: number }>;
   withTime?: boolean;
   withoutChapter?: boolean;
   withoutTooltip?: boolean;
@@ -1449,6 +1452,8 @@ interface MediaPlayerSeekProps
  
 function MediaPlayerSeek(props: MediaPlayerSeekProps) {
   const {
+    activeRangeIndex,
+    highlightRanges,
     withTime = false,
     withoutChapter = false,
     withoutTooltip = false,
@@ -1486,8 +1491,10 @@ function MediaPlayerSeek(props: MediaPlayerSeekProps) {
   );
  
   const seekRef = React.useRef<HTMLDivElement>(null);
+  const seekTrackRef = React.useRef<HTMLDivElement>(null);
   const tooltipRef = React.useRef<HTMLDivElement>(null);
   const justCommittedRef = React.useRef<boolean>(false);
+  const ignoreClickUntilRef = React.useRef<number>(0);
  
   const hoverTimeRef = React.useRef(0);
   const tooltipXRef = React.useRef(0);
@@ -1914,7 +1921,7 @@ function MediaPlayerSeek(props: MediaPlayerSeekProps) {
       tooltipDisabled,
     ],
   );
- 
+
   const onSeek = React.useCallback(
     (value: number | readonly number[]) => {
       const time = Array.isArray(value) ? (value[0] ?? 0) : value;
@@ -1994,6 +2001,65 @@ function MediaPlayerSeek(props: MediaPlayerSeekProps) {
     },
     [dispatch, store.getState, store.setState],
   );
+
+  const getSeekTimeFromClientX = React.useCallback(
+    (clientX: number) => {
+      const rect =
+        seekTrackRef.current?.getBoundingClientRect() ??
+        seekRef.current?.getBoundingClientRect();
+      if (!rect || rect.width <= 0) {
+        return null;
+      }
+
+      const clampedX = Math.max(rect.left, Math.min(clientX, rect.right));
+      const percent = (clampedX - rect.left) / rect.width;
+      return seekableStart + percent * (seekableEnd - seekableStart);
+    },
+    [seekableEnd, seekableStart],
+  );
+
+  const onSeekTrackPointerDown = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (isDisabled || seekableEnd <= seekableStart) {
+        return;
+      }
+
+      const isMousePrimaryClick =
+        event.pointerType !== "mouse" || event.button === 0;
+      if (!isMousePrimaryClick) {
+        return;
+      }
+
+      event.preventDefault();
+      const nextTime = getSeekTimeFromClientX(event.clientX);
+      if (nextTime === null) {
+        return;
+      }
+
+      ignoreClickUntilRef.current = Date.now() + 250;
+      onSeekCommit(nextTime);
+    },
+    [getSeekTimeFromClientX, isDisabled, onSeekCommit, seekableEnd, seekableStart],
+  );
+
+  const onSeekTrackClick = React.useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (isDisabled || seekableEnd <= seekableStart) {
+        return;
+      }
+
+      if (Date.now() < ignoreClickUntilRef.current) {
+        return;
+      }
+
+      const nextTime = getSeekTimeFromClientX(event.clientX);
+      if (nextTime === null) {
+        return;
+      }
+      onSeekCommit(nextTime);
+    },
+    [getSeekTimeFromClientX, isDisabled, onSeekCommit, seekableEnd, seekableStart],
+  );
  
   React.useEffect(() => {
     return () => {
@@ -2040,6 +2106,50 @@ function MediaPlayerSeek(props: MediaPlayerSeekProps) {
       );
     });
   }, [chapterCues, seekableEnd, withoutChapter]);
+
+  const retrievalRangesOverlay = React.useMemo(() => {
+    if (!(highlightRanges && highlightRanges.length > 0 && seekableEnd > 0)) {
+      return null;
+    }
+
+    return highlightRanges.map((range, index) => {
+      const start = Math.max(0, Math.min(seekableEnd, range.startTime));
+      const end =
+        typeof range.endTime === "number"
+          ? Math.max(start, Math.min(seekableEnd, range.endTime))
+          : Math.min(seekableEnd, start + 0.75);
+      const left = (start / seekableEnd) * 100;
+      const width = Math.max(0.4, ((end - start) / seekableEnd) * 100);
+      const isActive = typeof activeRangeIndex === "number" && activeRangeIndex === index;
+
+      return (
+        <button
+          aria-label={`Seek to highlighted segment ${index + 1}`}
+          className={cn(
+            "absolute top-0 h-full rounded-full border border-white/40 transition-opacity",
+            isActive ? "bg-amber-400/85 opacity-100" : "bg-amber-300/55 opacity-80"
+          )}
+          key={`retrieval-range-${index}-${start}-${end}`}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onSeekCommit(start);
+          }}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onSeekCommit(start);
+          }}
+          style={{
+            left: `${left}%`,
+            width: `${width}%`,
+            zIndex: 6,
+          }}
+          type="button"
+        />
+      );
+    });
+  }, [activeRangeIndex, highlightRanges, onSeekCommit, seekableEnd]);
  
   const spriteStyle = React.useMemo<React.CSSProperties>(() => {
     if (!thumbnail?.coords || !thumbnail?.src) {
@@ -2093,8 +2203,15 @@ function MediaPlayerSeek(props: MediaPlayerSeekProps) {
         onPointerLeave={onPointerLeave}
         onPointerMove={onPointerMove}
       >
-        <SliderPrimitive.Control className="relative flex w-full touch-none items-center select-none">
-          <SliderPrimitive.Track className="relative h-1 w-full grow overflow-hidden rounded-full bg-primary/40">
+        <SliderPrimitive.Control
+          className="relative flex h-4 w-full touch-none items-center select-none"
+          onClick={onSeekTrackClick}
+          onPointerDown={onSeekTrackPointerDown}
+        >
+          <SliderPrimitive.Track
+            ref={seekTrackRef}
+            className="relative h-1 w-full grow overflow-hidden rounded-full bg-primary/40"
+          >
             <div
               data-slot="media-player-seek-buffered"
               className="absolute h-full bg-primary/70 will-change-[width]"
@@ -2102,6 +2219,7 @@ function MediaPlayerSeek(props: MediaPlayerSeekProps) {
                 width: `${bufferedProgress * 100}%`,
               }}
             />
+            {retrievalRangesOverlay}
             <SliderPrimitive.Indicator className="absolute h-full bg-primary will-change-[width]" />
             {seekState.isHovering && seekableEnd > 0 && (
               <div
@@ -2945,7 +3063,9 @@ function MediaPlayerSettings(props: MediaPlayerSettingsProps) {
         container={context.portalContainer}
         className="w-56 data-[side=top]:mb-3.5"
       >
-        <DropdownMenuLabel className="sr-only">Settings</DropdownMenuLabel>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="sr-only">Settings</DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <span className="flex-1">Speed</span>

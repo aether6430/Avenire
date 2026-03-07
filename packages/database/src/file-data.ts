@@ -58,6 +58,14 @@ export function isSharedFilesVirtualFolderId(folderId: string, workspaceId: stri
   return folderId === sharedFilesFolderId(workspaceId);
 }
 
+export interface WorkspaceMemberRecord {
+  userId: string;
+  email: string;
+  name: string | null;
+  role: string;
+  createdAt: string;
+}
+
 function mapFolder(row: typeof fileFolder.$inferSelect): ExplorerFolderRecord {
   return {
     id: row.id,
@@ -498,19 +506,18 @@ export async function listWorkspacesForUser(userId: string): Promise<UserWorkspa
     return [];
   }
 
-  const summaries: UserWorkspaceSummary[] = [];
-  for (const membership of memberships) {
-    const ws = await ensureWorkspaceForOrganization(membership.organizationId);
-    const root = await ensureWorkspaceRootFolder(ws.id, userId);
-    summaries.push({
-      workspaceId: ws.id,
-      organizationId: ws.organizationId,
-      name: membership.organizationName,
-      rootFolderId: root.id,
-    });
-  }
-
-  return summaries;
+  return Promise.all(
+    memberships.map(async (membership) => {
+      const ws = await ensureWorkspaceForOrganization(membership.organizationId);
+      const root = await ensureWorkspaceRootFolder(ws.id, userId);
+      return {
+        workspaceId: ws.id,
+        organizationId: ws.organizationId,
+        name: membership.organizationName,
+        rootFolderId: root.id,
+      };
+    }),
+  );
 }
 
 export async function createWorkspaceForUser(userId: string, name: string) {
@@ -524,21 +531,23 @@ export async function createWorkspaceForUser(userId: string, name: string) {
   const orgId = randomUUID();
   const now = new Date();
 
-  await db.insert(organization).values({
-    id: orgId,
-    name: trimmed,
-    slug: `${slugBase}-${orgId.slice(0, 8)}`,
-    createdAt: now,
-    logo: null,
-    metadata: null,
-  });
+  await db.transaction(async (tx) => {
+    await tx.insert(organization).values({
+      id: orgId,
+      name: trimmed,
+      slug: `${slugBase}-${orgId.slice(0, 8)}`,
+      createdAt: now,
+      logo: null,
+      metadata: null,
+    });
 
-  await db.insert(member).values({
-    id: randomUUID(),
-    organizationId: orgId,
-    userId,
-    role: "owner",
-    createdAt: now,
+    await tx.insert(member).values({
+      id: randomUUID(),
+      organizationId: orgId,
+      userId,
+      role: "owner",
+      createdAt: now,
+    });
   });
 
   const ws = await ensureWorkspaceForOrganization(orgId);
@@ -618,21 +627,23 @@ async function ensureDefaultOrganizationForUser(userId: string) {
   const orgId = randomUUID();
   const now = new Date();
 
-  await db.insert(organization).values({
-    id: orgId,
-    name: `${nameBase}'s Workspace`,
-    slug: `${slugBase}-${orgId.slice(0, 8)}`,
-    createdAt: now,
-    metadata: null,
-    logo: null,
-  });
+  await db.transaction(async (tx) => {
+    await tx.insert(organization).values({
+      id: orgId,
+      name: `${nameBase}'s Workspace`,
+      slug: `${slugBase}-${orgId.slice(0, 8)}`,
+      createdAt: now,
+      metadata: null,
+      logo: null,
+    });
 
-  await db.insert(member).values({
-    id: randomUUID(),
-    organizationId: orgId,
-    userId,
-    role: "owner",
-    createdAt: now,
+    await tx.insert(member).values({
+      id: randomUUID(),
+      organizationId: orgId,
+      userId,
+      role: "owner",
+      createdAt: now,
+    });
   });
 
   return orgId;
@@ -702,7 +713,6 @@ export async function getFolderWithAncestors(
       ancestors: [mapFolder(root), sharedFolder],
     };
   }
-
   const [folder] = await db
     .select()
     .from(fileFolder)
@@ -721,8 +731,15 @@ export async function getFolderWithAncestors(
 
   const ancestors: typeof fileFolder.$inferSelect[] = [];
   let cursor: typeof fileFolder.$inferSelect | undefined = folder;
+  let depth = 0;
+  const MAX_DEPTH = 1000;
 
   while (cursor) {
+    if (depth++ >= MAX_DEPTH) {
+      throw new Error(
+        "Folder ancestry depth exceeded MAX_DEPTH (1000). Possible cycle; expected validateFolderParentId to prevent this.",
+      );
+    }
     ancestors.unshift(cursor);
     if (!cursor.parentId) {
       break;
@@ -914,9 +931,78 @@ export async function listWorkspaceFiles(workspaceId: string, userId?: string) {
   ];
 }
 
+type FolderParentValidationResult =
+  | { status: "valid"; parentId: string | null }
+  | { status: "invalid" };
+
+async function validateFolderParentId(input: {
+  workspaceId: string;
+  parentId: string | null;
+  currentFolderId?: string;
+}): Promise<FolderParentValidationResult> {
+  const { workspaceId, parentId, currentFolderId } = input;
+
+  if (parentId === null) {
+    const roots = await db
+      .select({ id: fileFolder.id })
+      .from(fileFolder)
+      .where(
+        and(
+          eq(fileFolder.workspaceId, workspaceId),
+          isNull(fileFolder.parentId),
+          isNull(fileFolder.deletedAt),
+        ),
+      )
+      .limit(2);
+
+    const hasOtherRoot = roots.some((root) => root.id !== currentFolderId);
+    if (hasOtherRoot) {
+      return { status: "invalid" };
+    }
+
+    return { status: "valid", parentId };
+  }
+
+  if (parentId === workspaceId || parentId === currentFolderId) {
+    return { status: "invalid" };
+  }
+
+  const [parentFolder] = await db
+    .select({ id: fileFolder.id })
+    .from(fileFolder)
+    .where(
+      and(
+        eq(fileFolder.id, parentId),
+        eq(fileFolder.workspaceId, workspaceId),
+        isNull(fileFolder.deletedAt),
+      ),
+    )
+    .limit(1);
+
+  if (!parentFolder) {
+    return { status: "invalid" };
+  }
+
+  if (currentFolderId) {
+    const parentWithAncestors = await getFolderWithAncestors(workspaceId, parentId);
+    if (!parentWithAncestors) {
+      return { status: "invalid" };
+    }
+
+    const createsCycle = parentWithAncestors.ancestors.some(
+      (ancestor) => ancestor.id === currentFolderId,
+    );
+    if (createsCycle) {
+      return { status: "invalid" };
+    }
+  }
+
+  return { status: "valid", parentId };
+}
+
 export async function createFolder(
   workspaceId: string,
-  parentId: string,
+  parentId: string | null,
   name: string,
   userId: string,
 ) {
@@ -925,12 +1011,20 @@ export async function createFolder(
     return null;
   }
 
+  const parentValidation = await validateFolderParentId({
+    workspaceId,
+    parentId,
+  });
+  if (parentValidation.status !== "valid") {
+    return null;
+  }
+
   const now = new Date();
   const [folder] = await db
     .insert(fileFolder)
     .values({
       workspaceId,
-      parentId,
+      parentId: parentValidation.parentId,
       name: trimmedName,
       createdBy: userId,
       createdAt: now,
@@ -946,13 +1040,26 @@ export async function updateFolder(
   folderId: string,
   updates: { name?: string; parentId?: string | null },
 ) {
+  let nextParentId: string | null | undefined;
+  if (typeof updates.parentId !== "undefined") {
+    const parentValidation = await validateFolderParentId({
+      workspaceId,
+      parentId: updates.parentId,
+      currentFolderId: folderId,
+    });
+    if (parentValidation.status !== "valid") {
+      return null;
+    }
+    nextParentId = parentValidation.parentId;
+  }
+
   const [folder] = await db
     .update(fileFolder)
     .set({
       ...(typeof updates.name === "string"
         ? { name: updates.name.trim().slice(0, 160) || "Untitled Folder" }
         : {}),
-      ...(typeof updates.parentId !== "undefined" ? { parentId: updates.parentId } : {}),
+      ...(typeof nextParentId !== "undefined" ? { parentId: nextParentId } : {}),
       updatedAt: new Date(),
     })
     .where(
@@ -989,8 +1096,15 @@ export async function softDeleteFolder(workspaceId: string, folderId: string) {
 async function collectDescendantFolderIds(workspaceId: string, rootFolderId: string) {
   const descendants: string[] = [];
   let frontier = [rootFolderId];
+  let depth = 0;
+  const MAX_DEPTH = 1000;
 
   while (frontier.length > 0) {
+    if (depth++ >= MAX_DEPTH) {
+      throw new Error(
+        "Folder descendant walk exceeded MAX_DEPTH (1000). Possible cycle; expected validateFolderParentId to prevent this.",
+      );
+    }
     const children = await db
       .select({ id: fileFolder.id })
       .from(fileFolder)
@@ -1023,6 +1137,22 @@ export async function registerFileAsset(
     metadata?: Record<string, unknown>;
   },
 ) {
+  const [folder] = await db
+    .select({ id: fileFolder.id })
+    .from(fileFolder)
+    .where(
+      and(
+        eq(fileFolder.id, input.folderId),
+        eq(fileFolder.workspaceId, workspaceId),
+        isNull(fileFolder.deletedAt),
+      ),
+    )
+    .limit(1);
+
+  if (!folder) {
+    throw new Error("Invalid folderId for workspace");
+  }
+
   const now = new Date();
   const [record] = await db
     .insert(fileAsset)
@@ -1049,6 +1179,24 @@ export async function updateFileAsset(
   fileId: string,
   updates: { folderId?: string; name?: string },
 ) {
+  if (updates.folderId) {
+    const [folder] = await db
+      .select({ id: fileFolder.id })
+      .from(fileFolder)
+      .where(
+        and(
+          eq(fileFolder.id, updates.folderId),
+          eq(fileFolder.workspaceId, workspaceId),
+          isNull(fileFolder.deletedAt),
+        ),
+      )
+      .limit(1);
+
+    if (!folder) {
+      return null;
+    }
+  }
+
   const [record] = await db
     .update(fileAsset)
     .set({
