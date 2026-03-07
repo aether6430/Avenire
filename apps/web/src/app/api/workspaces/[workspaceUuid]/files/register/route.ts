@@ -42,15 +42,20 @@ export async function POST(
     return NextResponse.json({ error: "Missing file metadata" }, { status: 400 });
   }
 
-  const file = await registerFileAsset(workspaceUuid, user.id, {
-    folderId: body.folderId,
-    storageKey: body.storageKey,
-    storageUrl: body.storageUrl,
-    name: body.name,
-    mimeType: body.mimeType,
-    sizeBytes: body.sizeBytes,
-    metadata: body.metadata,
-  });
+  let file;
+  try {
+    file = await registerFileAsset(workspaceUuid, user.id, {
+      folderId: body.folderId,
+      storageKey: body.storageKey,
+      storageUrl: body.storageUrl,
+      name: body.name,
+      mimeType: body.mimeType,
+      sizeBytes: body.sizeBytes,
+      metadata: body.metadata,
+    });
+  } catch {
+    return NextResponse.json({ error: "Invalid folder" }, { status: 400 });
+  }
 
   return NextResponse.json({ file }, { status: 201 });
 }
