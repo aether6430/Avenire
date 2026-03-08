@@ -390,13 +390,7 @@ export function FileExplorer() {
   const [canvasDropActive, setCanvasDropActive] = useState(false);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [draggingIds, setDraggingIds] = useState<string[]>([]);
-  const [viewMode, setViewMode] = useState<"cards" | "list">(() => {
-    if (typeof window === "undefined") {
-      return "cards";
-    }
-    const saved = window.localStorage.getItem(FILE_EXPLORER_VIEW_MODE_KEY);
-    return saved === "list" ? "list" : "cards";
-  });
+  const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
   const [videoLoadFailed, setVideoLoadFailed] = useState(false);
   const [audioLoadFailed, setAudioLoadFailed] = useState(false);
   const [mediaStreamFailed, setMediaStreamFailed] = useState(false);
@@ -415,6 +409,17 @@ export function FileExplorer() {
     parentId?: string;
     value: string;
   } | null>(null);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(FILE_EXPLORER_VIEW_MODE_KEY);
+      if (saved === "list") {
+        setViewMode("list");
+      }
+    } catch {
+      // ignore localStorage errors in restricted contexts
+    }
+  }, []);
 
   const { startUpload } = useUploadThing("fileExplorerUploader");
   const selection = useFileSelection({ gridRef, itemRefs });
@@ -1154,7 +1159,14 @@ export function FileExplorer() {
         reader: WebkitFileSystemDirectoryReader,
       ): Promise<WebkitFileSystemEntry[]> => {
         const entries: WebkitFileSystemEntry[] = [];
+        let iterations = 0;
+        const MAX_READ_ITERATIONS = 10_000;
         while (true) {
+          iterations += 1;
+          if (iterations > MAX_READ_ITERATIONS) {
+            console.warn("Stopped reading directory entries after max iterations");
+            break;
+          }
           const chunk = await new Promise<WebkitFileSystemEntry[]>((resolve) =>
             reader.readEntries(
               resolve,

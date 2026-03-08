@@ -288,13 +288,13 @@ export function StylizedSearchBar({
                 {results.map((result, index) => (
                   <div
                     className="
-                      group cursor-pointer rounded-2xl border border-border bg-card p-3
-                      transition-colors duration-200 hover:border-foreground/20 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-2
+                      rounded-2xl border border-border bg-card p-3
+                      transition-colors duration-200 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-2
                     "
                     key={result.id}
                     style={{ animationDelay: `${index * 60}ms` }}
                   >
-                    <h4 className="text-sm font-medium text-foreground transition-colors duration-200 group-hover:text-primary">
+                    <h4 className="text-sm font-medium text-foreground transition-colors duration-200">
                       {result.title}
                     </h4>
                     <p className="mt-1 text-xs text-muted-foreground">

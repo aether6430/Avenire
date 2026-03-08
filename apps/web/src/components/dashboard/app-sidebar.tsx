@@ -105,7 +105,7 @@ function SectionButton({
 }
 
 const imageExt = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "avif", "bmp", "ico"]);
-const videoExt = new Set(["mp4", "mov", "m4v", "webm", "ogg", "avi", "mkv"]);
+const videoExt = new Set(["mp4", "mov", "m4v", "webm", "avi", "mkv"]);
 const audioExt = new Set(["mp3", "wav", "flac", "m4a", "aac", "ogg"]);
 const codeExt = new Set([
   "ts",
@@ -612,10 +612,14 @@ export function DashboardSidebar({
     if (!expandedTreeStorageKey || hydratedTreeStorageKey !== expandedTreeStorageKey) {
       return;
     }
-    window.localStorage.setItem(
-      expandedTreeStorageKey,
-      JSON.stringify(Array.from(expandedTreePaths)),
-    );
+    try {
+      window.localStorage.setItem(
+        expandedTreeStorageKey,
+        JSON.stringify(Array.from(expandedTreePaths)),
+      );
+    } catch (error) {
+      console.error("Failed to persist expanded tree paths", error);
+    }
   }, [expandedTreePaths, expandedTreeStorageKey, hydratedTreeStorageKey]);
 
   useEffect(() => {

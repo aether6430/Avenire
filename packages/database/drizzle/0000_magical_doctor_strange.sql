@@ -8,15 +8,17 @@ CREATE TABLE "billing_customer" (
 );
 --> statement-breakpoint
 CREATE TABLE "billing_subscription" (
-	"user_id" text PRIMARY KEY NOT NULL,
-	"plan" text DEFAULT 'access' NOT NULL,
-	"status" text DEFAULT 'inactive' NOT NULL,
-	"polar_subscription_id" text,
-	"polar_product_id" text,
-	"current_period_start" timestamp with time zone,
-	"current_period_end" timestamp with time zone,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+		"user_id" text PRIMARY KEY NOT NULL,
+		"plan" text DEFAULT 'access' NOT NULL,
+		"status" text DEFAULT 'inactive' NOT NULL,
+		"polar_subscription_id" text,
+		"polar_product_id" text,
+		-- Nullable to support lifetime/indefinite access records and pre-activation rows.
+		"current_period_start" timestamp with time zone,
+		-- Nullable to support lifetime/indefinite access records and pre-activation rows.
+		"current_period_end" timestamp with time zone,
+		"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+		"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "chat_message" (
@@ -96,26 +98,31 @@ CREATE TABLE "resource_share_link" (
 );
 --> statement-breakpoint
 CREATE TABLE "sudo_challenge" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"user_id" text NOT NULL,
-	"code_hash" text NOT NULL,
-	"attempts" integer DEFAULT 0 NOT NULL,
-	"expires_at" timestamp with time zone NOT NULL,
-	"used_at" timestamp with time zone,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+		"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+		"user_id" text NOT NULL,
+		"code_hash" text NOT NULL,
+		"attempts" integer DEFAULT 0 NOT NULL,
+		"expires_at" timestamp with time zone NOT NULL,
+		"used_at" timestamp with time zone,
+		"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+		CONSTRAINT "sudo_challenge_attempts_nonnegative" CHECK ("attempts" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "usage_meter" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"user_id" text NOT NULL,
-	"meter" text NOT NULL,
-	"four_hour_capacity" integer NOT NULL,
-	"four_hour_balance" integer NOT NULL,
-	"four_hour_refill_at" timestamp with time zone NOT NULL,
-	"overage_capacity" integer NOT NULL,
-	"overage_balance" integer NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+		"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+		"user_id" text NOT NULL,
+		"meter" text NOT NULL,
+		"four_hour_capacity" integer NOT NULL,
+		"four_hour_balance" integer NOT NULL,
+		"four_hour_refill_at" timestamp with time zone NOT NULL,
+		"overage_capacity" integer NOT NULL,
+		"overage_balance" integer NOT NULL,
+		"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+		"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+		CONSTRAINT "usage_meter_four_hour_capacity_nonnegative" CHECK ("four_hour_capacity" >= 0),
+		CONSTRAINT "usage_meter_four_hour_balance_nonnegative" CHECK ("four_hour_balance" >= 0),
+		CONSTRAINT "usage_meter_overage_capacity_nonnegative" CHECK ("overage_capacity" >= 0),
+		CONSTRAINT "usage_meter_overage_balance_nonnegative" CHECK ("overage_balance" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "user_settings" (

@@ -108,7 +108,7 @@ export async function POST(
 
   const usage = await consumeUploadUnits(user.id, 1);
   if (!usage.ok) {
-    await softDeleteFileAsset(workspaceUuid, file.id);
+    await softDeleteFileAsset(workspaceUuid, file.id, user.id);
     const retryAfter = usage.retryAfter?.toISOString() ?? null;
     void apiLogger.rateLimited("upload", retryAfter, {
       workspaceUuid,

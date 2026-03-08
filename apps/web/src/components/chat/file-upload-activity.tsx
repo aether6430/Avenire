@@ -256,7 +256,7 @@ export function FileUploadActivity({
     onClearCompleted?.();
   };
 
-  const displayFiles = files.length > 0 ? files : localFiles;
+  const displayFiles = localFiles;
 
   if (!isOpen) {
     return null;

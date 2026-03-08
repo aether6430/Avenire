@@ -1084,6 +1084,7 @@ export async function createFolder(
 export async function updateFolder(
   workspaceId: string,
   folderId: string,
+  userId: string,
   updates: { name?: string; parentId?: string | null },
 ) {
   let nextParentId: string | null | undefined;
@@ -1106,6 +1107,7 @@ export async function updateFolder(
         ? { name: updates.name.trim().slice(0, 160) || "Untitled Folder" }
         : {}),
       ...(typeof nextParentId !== "undefined" ? { parentId: nextParentId } : {}),
+      updatedBy: userId,
       updatedAt: new Date(),
     })
     .where(
@@ -1120,7 +1122,7 @@ export async function updateFolder(
   return folder ? mapFolder(folder) : null;
 }
 
-export async function softDeleteFolder(workspaceId: string, folderId: string) {
+export async function softDeleteFolder(workspaceId: string, folderId: string, userId: string) {
   const now = new Date();
 
   const descendants = await collectDescendantFolderIds(workspaceId, folderId);
@@ -1128,15 +1130,29 @@ export async function softDeleteFolder(workspaceId: string, folderId: string) {
 
   await db
     .update(fileAsset)
-    .set({ deletedAt: now, updatedAt: now })
-    .where(and(eq(fileAsset.workspaceId, workspaceId), inArray(fileAsset.folderId, folderIds)));
+    .set({ deletedAt: now, updatedBy: userId, updatedAt: now })
+    .where(
+      and(
+        eq(fileAsset.workspaceId, workspaceId),
+        inArray(fileAsset.folderId, folderIds),
+        isNull(fileAsset.deletedAt),
+      ),
+    );
 
-  await db
+  const folders = await db
     .update(fileFolder)
-    .set({ deletedAt: now, updatedAt: now })
-    .where(and(eq(fileFolder.workspaceId, workspaceId), inArray(fileFolder.id, folderIds)));
+    .set({ deletedAt: now, updatedBy: userId, updatedAt: now })
+    .where(
+      and(
+        eq(fileFolder.workspaceId, workspaceId),
+        inArray(fileFolder.id, folderIds),
+        isNull(fileFolder.deletedAt),
+      ),
+    )
+    .returning();
 
-  return true;
+  const rootFolder = folders.find((folder) => folder.id === folderId);
+  return rootFolder ? mapFolder(rootFolder) : null;
 }
 
 async function collectDescendantFolderIds(workspaceId: string, rootFolderId: string) {
@@ -1335,10 +1351,11 @@ export async function getFileAssetByStorageKey(workspaceId: string, storageKey: 
   return record ? mapFile(record) : null;
 }
 
-export async function softDeleteFileAsset(workspaceId: string, fileId: string) {
+export async function softDeleteFileAsset(workspaceId: string, fileId: string, userId: string) {
+  const now = new Date();
   const [record] = await db
     .update(fileAsset)
-    .set({ deletedAt: new Date(), updatedAt: new Date() })
+    .set({ deletedAt: now, updatedBy: userId, updatedAt: now })
     .where(
       and(
         eq(fileAsset.id, fileId),
@@ -1348,7 +1365,7 @@ export async function softDeleteFileAsset(workspaceId: string, fileId: string) {
     )
     .returning();
 
-  return Boolean(record);
+  return record ? mapFile(record) : null;
 }
 
 export async function grantResourceToUserByEmail(input: {

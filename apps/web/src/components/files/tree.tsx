@@ -134,6 +134,14 @@ export const FileTreeFolder = ({
 
   const handleItemKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
+      const target = event.target as HTMLElement;
+      if (
+        event.currentTarget !== target ||
+        (target !== event.currentTarget &&
+          target.closest('button, [role="button"], [data-collapsible-trigger]'))
+      ) {
+        return;
+      }
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
         onSelect?.(path);
@@ -155,6 +163,7 @@ export const FileTreeFolder = ({
           data-tree-item=""
           data-tree-path={path}
           onKeyDown={handleItemKeyDown}
+          aria-expanded={isExpanded}
           role="treeitem"
           tabIndex={0}
           {...props}
@@ -166,7 +175,15 @@ export const FileTreeFolder = ({
             )}
             onClick={handleSelect}
             onKeyDown={(event) => {
+              const target = event.target as HTMLElement;
               event.stopPropagation();
+              if (
+                event.currentTarget !== target ||
+                (target !== event.currentTarget &&
+                  target.closest('button, [role="button"], [data-collapsible-trigger]'))
+              ) {
+                return;
+              }
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
                 handleSelect();
@@ -199,12 +216,15 @@ export const FileTreeFolder = ({
             <FileTreeName title={name}>{name}</FileTreeName>
           </div>
           <CollapsibleContent>
-            <div
-              className="ml-4 border-l pl-2"
-              data-tree-children={isExpanded ? "open" : "closed"}
-            >
-              {children}
-            </div>
+            {isExpanded ? (
+              <div
+                className="ml-4 border-l pl-2"
+                data-tree-children={isExpanded ? "open" : "closed"}
+                role="group"
+              >
+                {children}
+              </div>
+            ) : null}
           </CollapsibleContent>
         </div>
       </Collapsible>
@@ -245,7 +265,12 @@ export const FileTreeFile = ({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (e.currentTarget !== target) {
+        return;
+      }
       if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
         onSelect?.(path);
       }
     },

@@ -95,7 +95,7 @@ export function ChatWorkspace({
   }, [chatSlug]);
 
   useEffect(() => {
-    if (!isShareDialogOpen && !shareEmail.trim()) {
+    if (!isShareDialogOpen || !shareEmail.trim()) {
       setShareSuggestions([]);
       return;
     }
