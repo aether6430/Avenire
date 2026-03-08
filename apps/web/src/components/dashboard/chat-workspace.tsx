@@ -99,6 +99,7 @@ export function ChatWorkspace({
       setShareSuggestions([]);
       return;
     }
+    const controller = new AbortController();
     const timer = setTimeout(() => {
       void (async () => {
         try {
@@ -106,19 +107,33 @@ export function ChatWorkspace({
           if (shareEmail.trim()) {
             url.searchParams.set("q", shareEmail.trim());
           }
-          const response = await fetch(url.toString(), { cache: "no-store" });
+          const response = await fetch(url.toString(), {
+            cache: "no-store",
+            signal: controller.signal,
+          });
           if (!response.ok) {
+            if (controller.signal.aborted) {
+              return;
+            }
             setShareSuggestions([]);
             return;
           }
           const payload = (await response.json()) as { suggestions?: ShareSuggestion[] };
-          setShareSuggestions(payload.suggestions ?? []);
+          if (!controller.signal.aborted) {
+            setShareSuggestions(payload.suggestions ?? []);
+          }
         } catch {
+          if (controller.signal.aborted) {
+            return;
+          }
           setShareSuggestions([]);
         }
       })();
     }, 150);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [chatSlug, isShareDialogOpen, shareEmail]);
 
   if (view === "flashcards") {

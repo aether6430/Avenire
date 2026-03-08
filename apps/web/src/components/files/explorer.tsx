@@ -1156,7 +1156,13 @@ export function FileExplorer() {
         const entries: WebkitFileSystemEntry[] = [];
         while (true) {
           const chunk = await new Promise<WebkitFileSystemEntry[]>((resolve) =>
-            reader.readEntries(resolve, () => resolve([])),
+            reader.readEntries(
+              resolve,
+              (error) => {
+                console.warn("Unable to read dropped directory entries", error);
+                resolve([]);
+              },
+            ),
           );
           if (chunk.length === 0) {
             break;
@@ -1170,7 +1176,13 @@ export function FileExplorer() {
         if (entry.isFile) {
           const fileEntry = entry as WebkitFileSystemFileEntry;
           const file = await new Promise<File | null>((resolve) =>
-            fileEntry.file(resolve, () => resolve(null)),
+            fileEntry.file(
+              resolve,
+              (error) => {
+                console.warn(`Unable to read dropped file entry: ${entry.name}`, error);
+                resolve(null);
+              },
+            ),
           );
           if (!file) {
             return;
@@ -1246,42 +1258,55 @@ export function FileExplorer() {
         }
 
         const ensureFolderPath = async (relativePath?: string) => {
+          const createdIds: string[] = [];
           if (!relativePath || !workspaceUuid) {
-            return currentFolderId;
+            return { createdIds, parentId: currentFolderId };
           }
           const normalized = relativePath.replaceAll("\\", "/");
           const segments = normalized.split("/").filter(Boolean);
           if (segments.length <= 1) {
-            return currentFolderId;
+            return { createdIds, parentId: currentFolderId };
           }
 
           let parentId = currentFolderId;
-          for (const segment of segments.slice(0, -1)) {
-            const key = `${parentId}::${segment.toLowerCase()}`;
-            const existing = folderLookup.get(key);
-            if (existing) {
-              parentId = existing;
-              continue;
-            }
+          try {
+            for (const segment of segments.slice(0, -1)) {
+              const key = `${parentId}::${segment.toLowerCase()}`;
+              const existing = folderLookup.get(key);
+              if (existing) {
+                parentId = existing;
+                continue;
+              }
 
-            const response = await fetch(`/api/workspaces/${workspaceUuid}/folders`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ parentId, name: segment }),
-            });
-            if (!response.ok) {
-              throw new Error(`Unable to create folder "${segment}"`);
+              const response = await fetch(`/api/workspaces/${workspaceUuid}/folders`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ parentId, name: segment }),
+              });
+              if (!response.ok) {
+                throw new Error(`Unable to create folder "${segment}"`);
+              }
+              const payload = (await response.json()) as { folder?: { id?: string } };
+              const createdId = payload.folder?.id;
+              if (!createdId) {
+                throw new Error(`Folder "${segment}" could not be created`);
+              }
+              folderLookup.set(key, createdId);
+              createdIds.push(createdId);
+              parentId = createdId;
             }
-            const payload = (await response.json()) as { folder?: { id?: string } };
-            const createdId = payload.folder?.id;
-            if (!createdId) {
-              throw new Error(`Folder "${segment}" could not be created`);
+          } catch (error) {
+            for (const createdId of createdIds.slice().reverse()) {
+              await fetch(`/api/workspaces/${workspaceUuid}/folders/${createdId}`, {
+                method: "DELETE",
+              }).catch(() => {
+                // best effort cleanup
+              });
             }
-            folderLookup.set(key, createdId);
-            parentId = createdId;
+            throw error;
           }
 
-          return parentId;
+          return { createdIds, parentId };
         };
 
         let hasSuccessfulUpload = false;
@@ -1306,7 +1331,7 @@ export function FileExplorer() {
             if (!uploaded?.key || !uploaded.ufsUrl) {
               throw new Error("Upload returned no file metadata");
             }
-            const targetFolderId = await ensureFolderPath(candidate.relativePath);
+            const folderPath = await ensureFolderPath(candidate.relativePath);
 
             const registerResponse = await fetch(
               `/api/workspaces/${workspaceUuid}/files/register`,
@@ -1314,7 +1339,7 @@ export function FileExplorer() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  folderId: targetFolderId,
+                  folderId: folderPath.parentId,
                   storageKey: uploaded.key,
                   storageUrl: uploaded.ufsUrl,
                   name: uploaded.name ?? file.name,
@@ -1325,6 +1350,13 @@ export function FileExplorer() {
             );
 
             if (!registerResponse.ok) {
+              for (const createdId of folderPath.createdIds.slice().reverse()) {
+                await fetch(`/api/workspaces/${workspaceUuid}/folders/${createdId}`, {
+                  method: "DELETE",
+                }).catch(() => {
+                  // best effort cleanup
+                });
+              }
               throw new Error("File metadata registration failed");
             }
 

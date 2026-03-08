@@ -10,6 +10,7 @@ import {
   FileCode,
   FileImage,
   FileText,
+  FileVideo,
   Upload,
   X,
 } from "lucide-react";
@@ -31,6 +32,7 @@ interface FileUploadActivityProps {
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
   onClearCompleted?: () => void;
+  onRemoveFile?: (id: string) => void;
 }
 
 function getFileIcon(fileName: string) {
@@ -60,6 +62,9 @@ function getFileIcon(fileName: string) {
 
   if (["mp3", "wav", "aac", "flac"].includes(extension || "")) {
     return <FileAudio {...iconProps} />;
+  }
+  if (["mp4", "webm", "mov", "avi", "mkv", "m4v"].includes(extension || "")) {
+    return <FileVideo {...iconProps} />;
   }
 
   return <File {...iconProps} />;
@@ -98,7 +103,7 @@ function CircularLoader({
           strokeDasharray={circumference}
           strokeDashoffset={offset}
           strokeLinecap="round"
-          className="transition-all duration-300"
+          className="stroke-emerald-500 transition-all duration-300 dark:stroke-emerald-400"
         />
       </svg>
       <div className="absolute flex items-center justify-center">{getFileIcon(fileName)}</div>
@@ -119,8 +124,14 @@ function FileItem({
     ingesting: "Analyzing file",
   };
 
-  const fileSizeInKB = (file.size / 1024).toFixed(2);
-  const fileSizeDisplay = file.size < 1024 ? `${file.size}B` : `${fileSizeInKB}KB`;
+  const fileSizeDisplay =
+    file.size < 1024
+      ? `${file.size}B`
+      : file.size < 1024 * 1024
+        ? `${(file.size / 1024).toFixed(2)}KB`
+        : file.size < 1024 * 1024 * 1024
+          ? `${(file.size / (1024 * 1024)).toFixed(2)}MB`
+          : `${(file.size / (1024 * 1024 * 1024)).toFixed(2)}GB`;
 
   return (
     <div className="flex items-start gap-3 rounded-lg p-3 transition-colors hover:bg-white dark:hover:bg-slate-800">
@@ -133,11 +144,12 @@ function FileItem({
           </h4>
           {onRemove && (
             <button
+              aria-label={`Remove ${file.name}`}
               onClick={() => onRemove(file.id)}
               className="flex-shrink-0 text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-300"
               type="button"
             >
-              <X size={16} />
+              <X aria-hidden size={16} />
             </button>
           )}
         </div>
@@ -225,6 +237,7 @@ export function FileUploadActivity({
   isOpen = false,
   onOpenChange,
   onClearCompleted,
+  onRemoveFile,
 }: FileUploadActivityProps) {
   const isMobile = useIsMobile();
   const [localFiles, setLocalFiles] = useState<FileUploadItem[]>(files);
@@ -235,6 +248,7 @@ export function FileUploadActivity({
 
   const handleRemoveFile = (id: string) => {
     setLocalFiles((prev) => prev.filter((f) => f.id !== id));
+    onRemoveFile?.(id);
   };
 
   const handleClearCompleted = () => {
@@ -254,11 +268,12 @@ export function FileUploadActivity({
         <div className="pointer-events-auto w-full max-w-sm overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
           <div className="flex justify-end border-b border-slate-200 p-3 dark:border-slate-800">
             <button
+              aria-label="Close uploads panel"
               onClick={() => onOpenChange?.(false)}
               className="text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-300"
               type="button"
             >
-              <X size={20} />
+              <X aria-hidden size={20} />
             </button>
           </div>
           <ActivityContent
@@ -276,11 +291,12 @@ export function FileUploadActivity({
       <div className="w-96 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
         <div className="flex justify-end border-b border-slate-200 p-3 dark:border-slate-800">
           <button
+            aria-label="Close uploads panel"
             onClick={() => onOpenChange?.(false)}
             className="text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-300"
             type="button"
           >
-            <X size={20} />
+            <X aria-hidden size={20} />
           </button>
         </div>
 

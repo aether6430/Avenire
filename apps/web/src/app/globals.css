@@ -41,7 +41,7 @@
   --sidebar-border: oklch(0.9251 0.0071 88.6450);
   --sidebar-ring: oklch(0.6333 0.0309 154.9039);
   --font-sans: "Antic", ui-sans-serif, sans-serif, system-ui;
-  --font-serif: "Signifier", Georgia, serif;
+  --font-serif: "Signifier", "Georgia", serif;
   --font-mono: "JetBrains Mono", "Courier New", monospace;
   --radius: 0.35rem;
   --shadow-x: 0px;
@@ -96,7 +96,7 @@
   --sidebar-border: oklch(0.2850 0 0);
   --sidebar-ring: oklch(0.6333 0.0309 154.9039);
   --font-sans: "Antic", ui-sans-serif, sans-serif, system-ui;
-  --font-serif: "Signifier", Georgia, serif;
+  --font-serif: "Signifier", "Georgia", serif;
   --font-mono: "JetBrains Mono", "Courier New", monospace;
   --radius: 0.35rem;
   --shadow-x: 0px;

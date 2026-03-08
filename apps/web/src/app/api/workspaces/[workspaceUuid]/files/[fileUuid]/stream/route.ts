@@ -1,4 +1,4 @@
-import { getFileAssetById } from "@/lib/file-data";
+import { getFileAssetById, isTrustedStorageUrl } from "@/lib/file-data";
 import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
 
 export async function GET(
@@ -20,6 +20,9 @@ export async function GET(
   if (!file?.storageUrl) {
     return new Response("File not found", { status: 404 });
   }
+  if (!isTrustedStorageUrl(file.storageUrl)) {
+    return new Response("Invalid file source", { status: 400 });
+  }
 
   const upstreamHeaders = new Headers();
   const range = request.headers.get("range");
@@ -27,9 +30,18 @@ export async function GET(
     upstreamHeaders.set("range", range);
   }
 
+  const upstreamAbortController = new AbortController();
+  const abortUpstream = () => upstreamAbortController.abort();
+  if (request.signal.aborted) {
+    abortUpstream();
+  } else {
+    request.signal.addEventListener("abort", abortUpstream, { once: true });
+  }
+
   const upstream = await fetch(file.storageUrl, {
     headers: upstreamHeaders,
     redirect: "follow",
+    signal: upstreamAbortController.signal,
   }).catch(() => null);
 
   if (!upstream) {
@@ -43,13 +55,10 @@ export async function GET(
   const headers = new Headers();
   const passthrough = [
     "accept-ranges",
-    "cache-control",
     "content-disposition",
     "content-length",
     "content-range",
     "content-type",
-    "etag",
-    "last-modified",
   ];
 
   for (const key of passthrough) {
@@ -58,6 +67,7 @@ export async function GET(
       headers.set(key, value);
     }
   }
+  headers.set("cache-control", "private, no-store, max-age=0");
 
   return new Response(upstream.body, {
     status: upstream.status,

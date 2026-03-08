@@ -10,6 +10,7 @@ export {
   grantResourceToUserByEmail,
   grantResourceToUserId,
   isSharedFilesVirtualFolderId,
+  isTrustedStorageUrl,
   listWorkspaceMembers,
   listWorkspaceShareSuggestions,
   listFolderContents,

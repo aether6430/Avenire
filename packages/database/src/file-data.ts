@@ -49,6 +49,18 @@ export interface ShareRecipientSuggestion {
 }
 
 const SHARED_FILES_FOLDER_PREFIX = "__shared_files__:";
+const TRUSTED_STORAGE_HOST_SUFFIXES = [
+  ".utfs.io",
+  ".ufs.sh",
+  ".uploadthing.com",
+  ".uploadthing.dev",
+];
+const TRUSTED_STORAGE_HOSTS = new Set(
+  (process.env.TRUSTED_STORAGE_HOSTS ?? "")
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean),
+);
 
 function sharedFilesFolderId(workspaceId: string) {
   return `${SHARED_FILES_FOLDER_PREFIX}${workspaceId}`;
@@ -56,6 +68,40 @@ function sharedFilesFolderId(workspaceId: string) {
 
 export function isSharedFilesVirtualFolderId(folderId: string, workspaceId: string) {
   return folderId === sharedFilesFolderId(workspaceId);
+}
+
+function isTrustedStorageHostname(hostname: string) {
+  const normalized = hostname.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+  if (TRUSTED_STORAGE_HOSTS.has(normalized)) {
+    return true;
+  }
+  return TRUSTED_STORAGE_HOST_SUFFIXES.some(
+    (suffix) => normalized === suffix.slice(1) || normalized.endsWith(suffix),
+  );
+}
+
+export function normalizeTrustedStorageUrl(storageUrl: string) {
+  const parsed = new URL(storageUrl);
+  if (parsed.protocol !== "https:") {
+    throw new Error("Storage URL must use HTTPS");
+  }
+  if (!isTrustedStorageHostname(parsed.hostname)) {
+    throw new Error("Storage URL host is not allowed");
+  }
+  parsed.hash = "";
+  return parsed.toString();
+}
+
+export function isTrustedStorageUrl(storageUrl: string) {
+  try {
+    normalizeTrustedStorageUrl(storageUrl);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export interface WorkspaceMemberRecord {
@@ -1160,7 +1206,7 @@ export async function registerFileAsset(
       workspaceId,
       folderId: input.folderId,
       storageKey: input.storageKey,
-      storageUrl: input.storageUrl,
+      storageUrl: normalizeTrustedStorageUrl(input.storageUrl),
       name: input.name.slice(0, 255),
       mimeType: input.mimeType ?? null,
       sizeBytes: input.sizeBytes,
@@ -1236,7 +1282,7 @@ export async function updateFileAssetStorageMetadata(
     .update(fileAsset)
     .set({
       storageKey: updates.storageKey,
-      storageUrl: updates.storageUrl,
+      storageUrl: normalizeTrustedStorageUrl(updates.storageUrl),
       ...(typeof updates.name === "string"
         ? { name: updates.name.trim().slice(0, 255) || "Untitled" }
         : {}),

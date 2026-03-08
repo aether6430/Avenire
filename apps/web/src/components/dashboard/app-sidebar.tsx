@@ -27,6 +27,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@avenire/ui/components/tooltip";
+import { cn } from "@avenire/ui/lib/utils";
 import {
   FileArchive,
   FileCode2,
@@ -102,6 +103,36 @@ function SectionButton({
     </SidebarMenuItem>
   );
 }
+
+const imageExt = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "avif", "bmp", "ico"]);
+const videoExt = new Set(["mp4", "mov", "m4v", "webm", "ogg", "avi", "mkv"]);
+const audioExt = new Set(["mp3", "wav", "flac", "m4a", "aac", "ogg"]);
+const codeExt = new Set([
+  "ts",
+  "tsx",
+  "js",
+  "jsx",
+  "py",
+  "java",
+  "c",
+  "cpp",
+  "cs",
+  "go",
+  "rs",
+  "php",
+  "rb",
+  "json",
+  "yaml",
+  "yml",
+  "xml",
+  "html",
+  "css",
+  "scss",
+  "md",
+  "sql",
+]);
+const archiveExt = new Set(["zip", "rar", "7z", "tar", "gz", "bz2", "xz"]);
+const sheetExt = new Set(["csv", "xls", "xlsx"]);
 
 function ChatListSection({
   title,
@@ -269,35 +300,6 @@ async function parseResponse<T>(response: Response): Promise<T | null> {
 
 function getTreeFileIcon(name: string) {
   const ext = name.includes(".") ? name.split(".").pop()?.toLowerCase() ?? "" : "";
-  const imageExt = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "avif", "bmp", "ico"]);
-  const videoExt = new Set(["mp4", "mov", "m4v", "webm", "ogg", "avi", "mkv"]);
-  const audioExt = new Set(["mp3", "wav", "flac", "m4a", "aac", "ogg"]);
-  const codeExt = new Set([
-    "ts",
-    "tsx",
-    "js",
-    "jsx",
-    "py",
-    "java",
-    "c",
-    "cpp",
-    "cs",
-    "go",
-    "rs",
-    "php",
-    "rb",
-    "json",
-    "yaml",
-    "yml",
-    "xml",
-    "html",
-    "css",
-    "scss",
-    "md",
-    "sql",
-  ]);
-  const archiveExt = new Set(["zip", "rar", "7z", "tar", "gz", "bz2", "xz"]);
-  const sheetExt = new Set(["csv", "xls", "xlsx"]);
 
   if (imageExt.has(ext)) {
     return <FileImage className="size-4 text-emerald-600" />;
@@ -366,6 +368,7 @@ export function DashboardSidebar({
     id: string;
     kind: "file" | "folder";
   } | null>(null);
+  const [highlightedTreePath, setHighlightedTreePath] = useState<string | null>(null);
   const fileTreePanelRef = useRef<HTMLDivElement | null>(null);
   const dragPreviewPixelRef = useRef<HTMLImageElement | null>(null);
   const [sseConnected, setSseConnected] = useState(false);
@@ -668,14 +671,13 @@ export function DashboardSidebar({
         return;
       }
       target.scrollIntoView({ block: "nearest" });
-      target.classList.add("bg-emerald-500/10", "ring-1", "ring-emerald-400/60", "rounded");
-      cleanupTimer = setTimeout(() => {
-        target.classList.remove("bg-emerald-500/10", "ring-1", "ring-emerald-400/60", "rounded");
-      }, 900);
+      setHighlightedTreePath(targetPath);
+      cleanupTimer = setTimeout(() => setHighlightedTreePath(null), 900);
     }, 180);
 
     return () => {
       clearTimeout(timer);
+      setHighlightedTreePath(null);
       if (cleanupTimer) {
         clearTimeout(cleanupTimer);
       }
@@ -1221,6 +1223,7 @@ export function DashboardSidebar({
                             setTreeDropFolderId(null);
                           },
                           onDragTargetChange: (folderId) => setTreeDropFolderId(folderId),
+                          highlightedPath: highlightedTreePath,
                           treeDropFolderId,
                         })}
                       </FileTree>
@@ -1279,6 +1282,7 @@ function renderWorkspaceTree(input: {
   folders: Array<{ id: string; name: string; parentId: string | null; readOnly?: boolean }>;
   files: Array<{ id: string; name: string; folderId: string; readOnly?: boolean }>;
   treeDropFolderId: string | null;
+  highlightedPath: string | null;
   onDragStart: (event: DragEvent<HTMLDivElement>, item: { id: string; kind: "file" | "folder" }) => void;
   onDragEnd: () => void;
   onDropToFolder: (folderId: string) => void;
@@ -1290,11 +1294,17 @@ function renderWorkspaceTree(input: {
       .sort((a, b) => a.name.localeCompare(b.name));
 
     return folders.map((folder, folderIndex) => (
-      <FileTreeFolder
+        <FileTreeFolder
         className={
-          input.treeDropFolderId === folder.id
-            ? "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1 motion-safe:duration-150 rounded-md bg-emerald-500/10 outline outline-1 outline-emerald-400/70"
-            : "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1 motion-safe:duration-150"
+          cn(
+            "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1 motion-safe:duration-150",
+            input.treeDropFolderId === folder.id
+              ? "rounded-md bg-emerald-500/10 outline outline-1 outline-emerald-400/70"
+              : "",
+            input.highlightedPath === folder.id
+              ? "rounded bg-emerald-500/10 ring-1 ring-emerald-400/60"
+              : "",
+          )
         }
         draggable={!folder.readOnly}
         key={folder.id}
@@ -1336,7 +1346,12 @@ function renderWorkspaceTree(input: {
           .sort((a, b) => a.name.localeCompare(b.name))
           .map((file, fileIndex) => (
             <FileTreeFile
-              className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1 motion-safe:duration-150"
+              className={cn(
+                "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1 motion-safe:duration-150",
+                input.highlightedPath === file.id
+                  ? "rounded bg-emerald-500/10 ring-1 ring-emerald-400/60"
+                  : "",
+              )}
               draggable={!file.readOnly}
               key={file.id}
               name={file.name}

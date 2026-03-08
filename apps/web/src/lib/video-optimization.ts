@@ -4,6 +4,10 @@ import { mkdtemp, open, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { extname, join } from "node:path";
 
+const DOWNLOAD_TIMEOUT_MS = 60_000;
+const DOWNLOAD_MAX_BYTES = 500 * 1024 * 1024;
+const FFMPEG_TIMEOUT_MS = 3 * 60_000;
+
 interface OptimizeAndReuploadVideoInput {
   sourceUrl: string;
   sourceName: string;
@@ -189,6 +193,3 @@ export async function optimizeAndReuploadVideo(
     await rm(tempDir, { recursive: true, force: true });
   }
 }
-const DOWNLOAD_TIMEOUT_MS = 60_000;
-const DOWNLOAD_MAX_BYTES = 500 * 1024 * 1024;
-const FFMPEG_TIMEOUT_MS = 3 * 60_000;
