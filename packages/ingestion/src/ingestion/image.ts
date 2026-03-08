@@ -115,7 +115,7 @@ export const ingestImage = async (input: {
   let imageDataUrl: string | undefined;
 
   if (input.url) {
-    const imageUrl = assertSafeUrl(input.url).toString();
+    const imageUrl = (await assertSafeUrl(input.url)).toString();
     imagePart = {
       type: "image_url",
       image_url: imageUrl,

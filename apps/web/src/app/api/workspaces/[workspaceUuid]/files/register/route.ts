@@ -102,9 +102,13 @@ export async function POST(
   }
 
   const normalizedHash = normalizeSha256(body.contentHashSha256);
-  const existingByHash = normalizedHash
+  const existingByHashRaw = normalizedHash
     ? await getFileAssetByContentHash(workspaceUuid, normalizedHash)
     : null;
+  const existingByHash =
+    existingByHashRaw?.hashVerificationStatus === "verified"
+      ? existingByHashRaw
+      : null;
   const existing =
     existingByHash ??
     (await getFileAssetByStorageKey(workspaceUuid, body.storageKey));

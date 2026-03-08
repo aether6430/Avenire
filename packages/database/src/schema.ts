@@ -10,7 +10,21 @@ import {
   uuid,
   vector,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { organization, user } from "./auth-schema";
+
+const resolveEmbeddingDimensions = (): number => {
+  const parsed = Number.parseInt(
+    process.env.EMBEDDING_DIMENSIONS ??
+      process.env.COHERE_EMBEDDING_DIMENSIONS ??
+      process.env.VOYAGE_EMBEDDING_DIMENSIONS ??
+      "1024",
+    10
+  );
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1024;
+};
+
+export const ingestionEmbeddingDimensions = resolveEmbeddingDimensions();
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -405,7 +419,9 @@ export const ingestionEmbedding = pgTable(
       .notNull()
       .references(() => ingestionChunk.id, { onDelete: "cascade" }),
     model: text("model").notNull(),
-    embedding: vector("embedding", { dimensions: 1024 }).notNull(),
+    embedding: vector("embedding", {
+      dimensions: ingestionEmbeddingDimensions,
+    }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -442,6 +458,9 @@ export const ingestionJob = pgTable(
   (table) => [
     index("ingestion_job_workspace_idx").on(table.workspaceId),
     index("ingestion_job_file_idx").on(table.fileId),
+    uniqueIndex("ingestion_job_workspace_file_active_uidx")
+      .on(table.workspaceId, table.fileId)
+      .where(sql`${table.status} IN ('queued', 'running')`),
     index("ingestion_job_status_idx").on(table.status),
     index("ingestion_job_status_created_idx").on(table.status, table.createdAt),
   ]

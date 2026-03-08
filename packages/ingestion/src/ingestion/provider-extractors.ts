@@ -16,7 +16,7 @@ const fetchWithSafeRedirects = async (
   inputUrl: string | URL,
   init?: RequestInit,
 ): Promise<Response> => {
-  let currentUrl = assertSafeUrl(
+  let currentUrl = await assertSafeUrl(
     typeof inputUrl === 'string' ? inputUrl : inputUrl.toString(),
   );
 
@@ -39,7 +39,7 @@ const fetchWithSafeRedirects = async (
       throw new Error(`Too many redirects while fetching ${currentUrl.toString()}`);
     }
 
-    currentUrl = assertSafeUrl(new URL(location, currentUrl).toString());
+    currentUrl = await assertSafeUrl(new URL(location, currentUrl).toString());
   }
 
   throw new Error(`Too many redirects while fetching ${currentUrl.toString()}`);
@@ -63,12 +63,17 @@ const fetchText = async (url: string): Promise<string> => {
 
 const getOgValue = (html: string, property: string): string | null => {
   const escaped = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const pattern = new RegExp(
-    `<meta[^>]+(?:property|name)=["']${escaped}["'][^>]+content=["']([^"']+)["'][^>]*>`,
+  const metaTagPattern = new RegExp(
+    `<meta[^>]*\\b(?:property|name)=["']${escaped}["'][^>]*>`,
     'i',
   );
-  const match = html.match(pattern);
-  return match?.[1]?.trim() ?? null;
+  const metaTag = html.match(metaTagPattern)?.[0];
+  if (!metaTag) {
+    return null;
+  }
+
+  const contentMatch = metaTag.match(/\bcontent=["']([^"']+)["']/i);
+  return contentMatch?.[1]?.trim() ?? null;
 };
 
 const isSocialHost = (host: string, values: string[]): boolean => {
@@ -81,6 +86,11 @@ const extractYouTube = async (url: URL): Promise<ProviderExtracted> => {
   oembedUrl.searchParams.set('format', 'json');
 
   const response = await fetch(oembedUrl);
+  if (!response.ok) {
+    throw new Error(
+      `YouTube oEmbed request failed (${response.status} ${response.statusText})`,
+    );
+  }
   const json = (await response.json().catch(() => ({}))) as {
     title?: string;
     author_name?: string;
@@ -192,7 +202,7 @@ const extractFromOgTags = async (
 export const extractFromSupportedProvider = async (
   inputUrl: string,
 ): Promise<ProviderExtracted | null> => {
-  const url = assertSafeUrl(inputUrl);
+  const url = await assertSafeUrl(inputUrl);
   const host = url.hostname.toLowerCase();
 
   if (isSocialHost(host, ['youtube.com', 'youtu.be', 'm.youtube.com'])) {

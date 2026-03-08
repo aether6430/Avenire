@@ -214,7 +214,7 @@ function PDFViewerContent({
     const normalizeSearchText = (value: string): string =>
       value
         .replace(/\s+/g, " ")
-        .replace(/[^\x20-\x7E]/g, " ")
+        .replace(/\p{C}+/gu, " ")
         .trim();
 
     const buildSearchQueries = (): string[] => {

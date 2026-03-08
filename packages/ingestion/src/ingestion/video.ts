@@ -373,7 +373,7 @@ const headIsSafeVideoContent = async (url: URL): Promise<boolean> => {
         return false;
       }
 
-      current = assertSafeUrl(new URL(location, current).toString());
+      current = await assertSafeUrl(new URL(location, current).toString());
       continue;
     }
 
@@ -403,7 +403,7 @@ const canFallbackToLinkExtraction = (url: string): boolean => {
 
 const resolveVideoMediaSource = async (url: string): Promise<string> => {
   const providerExtracted = await extractFromSupportedProvider(url);
-  const sourceUrl = assertSafeUrl(url);
+  const sourceUrl = await assertSafeUrl(url);
   const sourceHost = sourceUrl.hostname.toLowerCase();
   const targetMedia = providerExtracted?.mediaUrls.filter((mediaUrl) =>
     isLikelyVideoFileUrl(mediaUrl)
@@ -415,7 +415,7 @@ const resolveVideoMediaSource = async (url: string): Promise<string> => {
 
   for (const mediaUrl of targetMedia) {
     try {
-      const parsedMediaUrl = assertSafeUrl(mediaUrl);
+      const parsedMediaUrl = await assertSafeUrl(mediaUrl);
       if (
         !isAllowedProviderMediaHost({
           provider: providerExtracted.provider,
@@ -476,7 +476,7 @@ export const ingestVideo = async (input: {
   const source = input.url?.trim() || `video:inline:${crypto.randomUUID()}`;
   const startedAtMs = Date.now();
   if (input.url) {
-    assertSafeUrl(input.url);
+    await assertSafeUrl(input.url);
   }
 
   let transcript = input.transcript?.trim() ?? "";

@@ -13,7 +13,8 @@ const nextConfig: NextConfig = {
     "@avenire/storage",
     "@avenire/payments",
     "@avenire/database",
-    "@avenire/emailer"
+    "@avenire/emailer",
+    "@avenire/ingestion"
   ]
 };
 

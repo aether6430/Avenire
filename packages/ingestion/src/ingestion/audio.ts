@@ -1,4 +1,5 @@
 import { withExtractedAudioFromVideoUrl } from "../utils/ffmpeg";
+import { config } from "../config";
 import { assertSafeUrl } from "../utils/safety";
 import { semanticChunkText } from "./chunking";
 import { transcribeAudio } from "./transcription";
@@ -11,7 +12,7 @@ export const ingestAudio = async (input: {
   url: string;
   title?: string;
 }): Promise<CanonicalResource> => {
-  const source = assertSafeUrl(input.url).toString();
+  const source = (await assertSafeUrl(input.url)).toString();
   let transcription: {
     text: string;
     segments: Array<{ startMs: number; endMs: number; text: string }>;
@@ -26,7 +27,11 @@ export const ingestAudio = async (input: {
           filePath: audioPath,
           mimeType,
           filename: "audio.mp3",
-        })
+        }),
+      {
+        maxBytes: config.maxAudioBytes,
+        maxDurationSeconds: config.maxAudioDurationSeconds,
+      }
     );
   } catch (error) {
     transcriptionStatus = "fallback";

@@ -462,7 +462,7 @@ export const embedMultimodal = async (
       const detail = await response.text();
       const shouldFallbackToText =
         batchHasImageContent(batch) &&
-        [400, 401, 403, 404, 415, 422, 429].includes(response.status);
+        [400, 415, 422].includes(response.status);
 
       if (!shouldFallbackToText) {
         throw new Error(

@@ -303,7 +303,7 @@ export const withExtractedAudioFromVideoUrl = async <T>(
   run: (params: { audioPath: string; mimeType: string }) => Promise<T>,
   limits?: { maxBytes?: number; maxDurationSeconds?: number }
 ): Promise<T> => {
-  const safeVideoUrl = assertSafeUrl(videoUrl).toString();
+  const safeVideoUrl = (await assertSafeUrl(videoUrl)).toString();
   return withTempDir("ingest-video-url-", async (dir) => {
     const outputPath = join(dir, "audio.mp3");
     await extractAudioToPath(safeVideoUrl, outputPath, limits);
@@ -399,7 +399,7 @@ export const extractKeyframesFromVideoUrl = async (
   videoUrl: string,
   options?: { intervalSeconds?: number; maxFrames?: number }
 ): Promise<ExtractedVideoKeyframe[]> => {
-  const safeVideoUrl = assertSafeUrl(videoUrl).toString();
+  const safeVideoUrl = (await assertSafeUrl(videoUrl)).toString();
   return withTempDir("ingest-video-url-frames-", async (dir) => {
     return extractKeyframesFromPreparedInput({
       dir,

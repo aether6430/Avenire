@@ -108,7 +108,50 @@ async function fetchRemoteText(url: string) {
     throw new Error(`Failed to fetch text source (${response.status})`);
   }
 
-  return response.text();
+  const contentLength = Number.parseInt(
+    response.headers.get("content-length") ?? "",
+    10
+  );
+  if (Number.isFinite(contentLength) && contentLength > config.maxMarkdownChars) {
+    throw new Error(
+      `Remote text exceeds max size (${contentLength} > ${config.maxMarkdownChars})`
+    );
+  }
+
+  if (!response.body) {
+    const text = await response.text();
+    if (text.length > config.maxMarkdownChars) {
+      throw new Error(
+        `Remote text exceeds max size (${text.length} > ${config.maxMarkdownChars})`
+      );
+    }
+    return text;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let out = "";
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      out += decoder.decode(value, { stream: true });
+      if (out.length > config.maxMarkdownChars) {
+        await reader.cancel();
+        throw new Error(
+          `Remote text exceeds max size (${out.length} > ${config.maxMarkdownChars})`
+        );
+      }
+    }
+
+    out += decoder.decode();
+    return out;
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 export const ingestStoredFile = async (input: {
@@ -122,6 +165,22 @@ export const ingestStoredFile = async (input: {
   const vectorStore = new PostgresVectorStore(input.workspaceId);
   const beforeStats = await vectorStore.corpusStats();
   const mime = input.mimeType?.toLowerCase() ?? "";
+  const lowerFileName = input.fileName.toLowerCase();
+  const isImageFileByName =
+    lowerFileName.endsWith(".png") ||
+    lowerFileName.endsWith(".jpg") ||
+    lowerFileName.endsWith(".jpeg") ||
+    lowerFileName.endsWith(".gif") ||
+    lowerFileName.endsWith(".webp") ||
+    lowerFileName.endsWith(".bmp") ||
+    lowerFileName.endsWith(".tiff") ||
+    lowerFileName.endsWith(".tif");
+  const isVideoFileByName =
+    lowerFileName.endsWith(".mp4") ||
+    lowerFileName.endsWith(".mov") ||
+    lowerFileName.endsWith(".webm") ||
+    lowerFileName.endsWith(".mkv") ||
+    lowerFileName.endsWith(".avi");
   const extractionStartedAt = Date.now();
 
   let resources: CanonicalResource[] = [];
@@ -130,14 +189,14 @@ export const ingestStoredFile = async (input: {
     input.fileName.toLowerCase().endsWith(".pdf")
   ) {
     resources = await ingestPdfs([input.storageUrl]);
-  } else if (mime.startsWith("image/")) {
+  } else if (mime.startsWith("image/") || isImageFileByName) {
     resources = [
       await ingestImage({
         url: input.storageUrl,
         title: input.fileName,
       }),
     ];
-  } else if (mime.startsWith("video/")) {
+  } else if (mime.startsWith("video/") || isVideoFileByName) {
     resources = [
       await ingestVideo({
         url: input.storageUrl,
@@ -146,12 +205,12 @@ export const ingestStoredFile = async (input: {
     ];
   } else if (
     mime.startsWith("audio/") ||
-    input.fileName.toLowerCase().endsWith(".mp3") ||
-    input.fileName.toLowerCase().endsWith(".wav") ||
-    input.fileName.toLowerCase().endsWith(".m4a") ||
-    input.fileName.toLowerCase().endsWith(".aac") ||
-    input.fileName.toLowerCase().endsWith(".ogg") ||
-    input.fileName.toLowerCase().endsWith(".flac")
+    lowerFileName.endsWith(".mp3") ||
+    lowerFileName.endsWith(".wav") ||
+    lowerFileName.endsWith(".m4a") ||
+    lowerFileName.endsWith(".aac") ||
+    lowerFileName.endsWith(".ogg") ||
+    lowerFileName.endsWith(".flac")
   ) {
     resources = [
       await ingestAudio({
@@ -161,8 +220,8 @@ export const ingestStoredFile = async (input: {
     ];
   } else if (
     mime.startsWith("text/") ||
-    input.fileName.toLowerCase().endsWith(".md") ||
-    input.fileName.toLowerCase().endsWith(".txt")
+    lowerFileName.endsWith(".md") ||
+    lowerFileName.endsWith(".txt")
   ) {
     const markdown = await fetchRemoteText(input.storageUrl);
     resources = [

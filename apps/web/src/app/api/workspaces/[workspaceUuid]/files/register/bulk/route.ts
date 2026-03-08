@@ -122,11 +122,15 @@ export async function POST(
         const existingByHash = normalizedHash
           ? await getFileAssetByContentHash(workspaceUuid, normalizedHash)
           : null;
+        const verifiedExistingByHash =
+          existingByHash?.hashVerificationStatus === "verified"
+            ? existingByHash
+            : null;
         const existing =
-          existingByHash ??
+          verifiedExistingByHash ??
           (await getFileAssetByStorageKey(workspaceUuid, fileInput.storageKey));
         if (existing) {
-          if (existingByHash) {
+          if (verifiedExistingByHash) {
             await deleteUploadThingFile(fileInput.storageKey, {
               workspaceUuid,
               existingFileId: existing.id,
