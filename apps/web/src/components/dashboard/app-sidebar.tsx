@@ -744,25 +744,38 @@ export function DashboardSidebar({
       return;
     }
 
-    let cleanupTimer: ReturnType<typeof setTimeout> | null = null;
-    const timer = setTimeout(() => {
+    const RETRY_DELAY_MS = 80;
+    const MAX_WAIT_MS = 1_200;
+    const startedAt = Date.now();
+    let highlightTimer: ReturnType<typeof setTimeout> | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const tryHighlightTarget = () => {
       const panel = fileTreePanelRef.current;
       const target = panel?.querySelector<HTMLElement>(
         `[data-tree-path="${targetPath}"]`
       );
       if (!target) {
+        if (Date.now() - startedAt < MAX_WAIT_MS) {
+          retryTimer = setTimeout(tryHighlightTarget, RETRY_DELAY_MS);
+        }
         return;
       }
+
       target.scrollIntoView({ block: "nearest" });
       setHighlightedTreePath(targetPath);
-      cleanupTimer = setTimeout(() => setHighlightedTreePath(null), 900);
-    }, 180);
+      highlightTimer = setTimeout(() => setHighlightedTreePath(null), 900);
+    };
+
+    retryTimer = setTimeout(tryHighlightTarget, RETRY_DELAY_MS);
 
     return () => {
-      clearTimeout(timer);
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+      }
       setHighlightedTreePath(null);
-      if (cleanupTimer) {
-        clearTimeout(cleanupTimer);
+      if (highlightTimer) {
+        clearTimeout(highlightTimer);
       }
     };
   }, [activeView, currentFileId, currentFolderId]);
