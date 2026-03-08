@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "sh -c 'tsx watch src/server.ts & tsx watch src/ingestion-worker.ts & wait'",
     "dev:ingestion": "tsx watch src/ingestion-worker.ts",
     "build": "tsc --noEmit",
-    "start": "tsx src/server.ts",
+    "start": "sh -c 'tsx src/server.ts & tsx src/ingestion-worker.ts & wait'",
     "start:ingestion": "tsx src/ingestion-worker.ts",
     "lint": "biome check .",
     "check-types": "tsc --noEmit",

@@ -1,4 +1,6 @@
 import { resolve4, resolve6 } from "node:dns/promises";
+import { request as httpRequest } from "node:http";
+import { request as httpsRequest } from "node:https";
 import { isIP } from "node:net";
 
 const PRIVATE_V4_PREFIXES = [
@@ -27,7 +29,7 @@ const PRIVATE_V4_PREFIXES = [
 
 const PRIVATE_V6_PREFIXES = ["::1", "fc", "fd", "fe80"];
 
-const isDisallowedIpHost = (host: string): boolean => {
+export const isDisallowedIpHost = (host: string): boolean => {
   const ipType = isIP(host);
   if (
     ipType === 4 &&
@@ -49,7 +51,7 @@ const isDisallowedIpHost = (host: string): boolean => {
 const normalizeHostname = (hostname: string): string =>
   hostname.toLowerCase().replace(/\.+$/g, "");
 
-const resolvePublicIps = async (hostname: string): Promise<string[]> => {
+export const resolvePublicIps = async (hostname: string): Promise<string[]> => {
   const [v4, v6] = await Promise.allSettled([
     resolve4(hostname),
     resolve6(hostname),
@@ -63,7 +65,9 @@ const resolvePublicIps = async (hostname: string): Promise<string[]> => {
   return Array.from(new Set(ips.map((ip) => normalizeHostname(ip))));
 };
 
-export const assertSafeUrl = async (value: string): Promise<URL> => {
+export const resolveSafeUrl = async (
+  value: string
+): Promise<{ url: URL; resolvedIps: string[] }> => {
   let parsed: URL;
   try {
     parsed = new URL(value);
@@ -87,18 +91,116 @@ export const assertSafeUrl = async (value: string): Promise<URL> => {
     throw new Error("Private IP URLs are not allowed for ingestion.");
   }
 
-  if (isIP(host) === 0) {
-    const resolvedIps = await resolvePublicIps(host);
-    if (resolvedIps.length === 0) {
-      throw new Error(`Unable to resolve host for ingestion: ${host}`);
-    }
-
-    if (resolvedIps.some((ip) => isDisallowedIpHost(ip))) {
-      throw new Error("Host resolves to a private or loopback IP.");
-    }
+  const resolvedIps = isIP(host) === 0 ? await resolvePublicIps(host) : [host];
+  if (resolvedIps.length === 0) {
+    throw new Error(`Unable to resolve host for ingestion: ${host}`);
   }
 
-  return parsed;
+  if (resolvedIps.some((ip) => isDisallowedIpHost(ip))) {
+    throw new Error("Host resolves to a private or loopback IP.");
+  }
+
+  return {
+    url: parsed,
+    resolvedIps,
+  };
+};
+
+export const assertSafeUrl = async (value: string): Promise<URL> => {
+  const resolved = await resolveSafeUrl(value);
+  return resolved.url;
+};
+
+const REDIRECT_STATUS_CODES = new Set([301, 302, 303, 307, 308]);
+
+const headersFromNode = (headers: Record<string, string | string[] | undefined>) =>
+  Object.entries(headers).reduce<Record<string, string>>((acc, [key, value]) => {
+    if (typeof value === "string") {
+      acc[key] = value;
+      return acc;
+    }
+    if (Array.isArray(value)) {
+      acc[key] = value.join(", ");
+    }
+    return acc;
+  }, {});
+
+const requestWithPinnedIp = async (
+  url: URL,
+  pinnedIp: string,
+  init?: RequestInit
+): Promise<Response> => {
+  if ((init?.method && init.method.toUpperCase() !== "GET") || init?.body) {
+    throw new Error("Pinned fetch helper currently supports GET requests only.");
+  }
+
+  return new Promise<Response>((resolve, reject) => {
+    const requestImpl = url.protocol === "https:" ? httpsRequest : httpRequest;
+    const req = requestImpl(
+      url,
+      {
+        method: "GET",
+        headers: init?.headers as Record<string, string> | undefined,
+        lookup: (_hostname, _options, callback) => {
+          callback(null, pinnedIp, isIP(pinnedIp));
+        },
+        servername: url.hostname,
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (chunk: Buffer | string) => {
+          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        });
+        res.on("error", reject);
+        res.on("end", () => {
+          resolve(
+            new Response(Buffer.concat(chunks), {
+              status: res.statusCode ?? 500,
+              headers: headersFromNode(res.headers),
+            })
+          );
+        });
+      }
+    );
+
+    req.on("error", reject);
+    req.end();
+  });
+};
+
+export const fetchWithPinnedIp = async (
+  input: string | URL,
+  init?: RequestInit & { maxRedirects?: number }
+): Promise<Response> => {
+  let current = typeof input === "string" ? input : input.toString();
+  const maxRedirects = Math.max(0, init?.maxRedirects ?? 5);
+  const { maxRedirects: _unused, ...requestInit } = init ?? {};
+
+  for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount += 1) {
+    const resolved = await resolveSafeUrl(current);
+    const pinnedIp = resolved.resolvedIps[0];
+    if (!pinnedIp) {
+      throw new Error(`Unable to pin destination IP for ${current}`);
+    }
+
+    const response = await requestWithPinnedIp(resolved.url, pinnedIp, requestInit);
+
+    if (!REDIRECT_STATUS_CODES.has(response.status)) {
+      return response;
+    }
+
+    const location = response.headers.get("location");
+    if (!location) {
+      throw new Error(`Redirect missing location for ${resolved.url.toString()}`);
+    }
+    if (redirectCount === maxRedirects) {
+      throw new Error(`Too many redirects while fetching ${resolved.url.toString()}`);
+    }
+
+    current = new URL(location, resolved.url).toString();
+  }
+
+  throw new Error(`Too many redirects while fetching ${current}`);
 };
 
 export const assertMaxSize = (

@@ -1,4 +1,7 @@
 import {
+  createWriteStream,
+} from "node:fs";
+import {
   mkdir,
   mkdtemp,
   readdir,
@@ -10,8 +13,10 @@ import {
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
+import { pipeline } from "node:stream/promises";
+import { Readable } from "node:stream";
 import { config } from "../config";
-import { assertSafeUrl } from "./safety";
+import { assertSafeUrl, fetchWithPinnedIp } from "./safety";
 
 const SAFE_VIDEO_EXTENSIONS = new Set([
   "avi",
@@ -254,6 +259,32 @@ const extractAudioToPath = async (
   }
 };
 
+const downloadUrlToPath = async (
+  sourceUrl: string,
+  targetPath: string
+): Promise<void> => {
+  const response = await fetchWithPinnedIp(sourceUrl, {
+    headers: {
+      accept: "video/*,audio/*;q=0.9,*/*;q=0.8",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to download media source (${response.status} ${response.statusText})`
+    );
+  }
+
+  if (!response.body) {
+    throw new Error("Media download returned an empty response body.");
+  }
+
+  await pipeline(
+    Readable.fromWeb(response.body as any),
+    createWriteStream(targetPath)
+  );
+};
+
 const readAudioOutput = async (
   outputPath: string,
   limits?: { maxBytes?: number; maxDurationSeconds?: number }
@@ -305,8 +336,10 @@ export const withExtractedAudioFromVideoUrl = async <T>(
 ): Promise<T> => {
   const safeVideoUrl = (await assertSafeUrl(videoUrl)).toString();
   return withTempDir("ingest-video-url-", async (dir) => {
+    const inputPath = join(dir, "input.mp4");
     const outputPath = join(dir, "audio.mp3");
-    await extractAudioToPath(safeVideoUrl, outputPath, limits);
+    await downloadUrlToPath(safeVideoUrl, inputPath);
+    await extractAudioToPath(inputPath, outputPath, limits);
     return run({
       audioPath: outputPath,
       mimeType: DEFAULT_AUDIO_MIME_TYPE,
@@ -401,9 +434,11 @@ export const extractKeyframesFromVideoUrl = async (
 ): Promise<ExtractedVideoKeyframe[]> => {
   const safeVideoUrl = (await assertSafeUrl(videoUrl)).toString();
   return withTempDir("ingest-video-url-frames-", async (dir) => {
+    const inputPath = join(dir, "input.mp4");
+    await downloadUrlToPath(safeVideoUrl, inputPath);
     return extractKeyframesFromPreparedInput({
       dir,
-      inputPath: safeVideoUrl,
+      inputPath,
       intervalSeconds: options?.intervalSeconds,
       maxFrames: options?.maxFrames,
     });

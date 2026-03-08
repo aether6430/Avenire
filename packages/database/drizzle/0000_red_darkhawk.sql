@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS pgvector;
+--> statement-breakpoint
 CREATE TABLE "billing_customer" (
 	"user_id" text PRIMARY KEY NOT NULL,
 	"polar_customer_id" text NOT NULL,
