@@ -91,6 +91,9 @@ importers:
       '@ai-sdk/baseten':
         specifier: ^1.0.36
         version: 1.0.36(zod@4.3.6)
+      '@basetenlabs/performance-client':
+        specifier: ^0.0.10
+        version: 0.0.10
       '@ai-sdk/mistral':
         specifier: ^3.0.21
         version: 3.0.21(zod@4.3.6)

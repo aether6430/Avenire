@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@ai-sdk/baseten": "^1.0.36",
+    "@basetenlabs/performance-client": "^0.0.10",
     "@ai-sdk/mistral": "^3.0.21",
     "@ai-sdk/react": "^3.0.107",
     "@anaralabs/lector": "^3.8.0",

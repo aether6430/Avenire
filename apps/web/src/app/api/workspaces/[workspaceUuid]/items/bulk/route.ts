@@ -37,7 +37,9 @@ type MutationResult = {
   error?: string;
 };
 
-async function deletePhysicalFileIfNeeded(storageKey: string | null | undefined) {
+async function deletePhysicalFileIfNeeded(
+  storageKey: string | null | undefined
+) {
   if (!(storageKey && process.env.UPLOADTHING_TOKEN)) {
     return;
   }
@@ -65,7 +67,9 @@ export async function POST(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const parsed = requestSchema.safeParse(await request.json().catch(() => ({})));
+  const parsed = requestSchema.safeParse(
+    await request.json().catch(() => ({}))
+  );
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
@@ -114,7 +118,11 @@ export async function POST(
           continue;
         }
 
-        const folder = await getFolderWithAncestors(workspaceUuid, item.id, user.id);
+        const folder = await getFolderWithAncestors(
+          workspaceUuid,
+          item.id,
+          user.id
+        );
         if (!folder || isSharedFilesVirtualFolderId(item.id, workspaceUuid)) {
           results.push({
             id: item.id,
@@ -125,7 +133,21 @@ export async function POST(
           continue;
         }
 
-        await softDeleteFolder(workspaceUuid, item.id);
+        const deletedFolder = await softDeleteFolder(
+          workspaceUuid,
+          item.id,
+          user.id
+        );
+        if (!deletedFolder) {
+          results.push({
+            id: item.id,
+            kind: item.kind,
+            status: "failed",
+            error: "Folder not found",
+          });
+          continue;
+        }
+
         results.push({ id: item.id, kind: item.kind, status: "ok" });
       } catch (error) {
         results.push({
@@ -140,9 +162,14 @@ export async function POST(
     for (const item of payload.items) {
       try {
         if (item.kind === "file") {
-          const updated = await updateFileAsset(workspaceUuid, item.id, user.id, {
-            folderId: payload.targetFolderId,
-          });
+          const updated = await updateFileAsset(
+            workspaceUuid,
+            item.id,
+            user.id,
+            {
+              folderId: payload.targetFolderId,
+            }
+          );
 
           if (!updated) {
             results.push({
