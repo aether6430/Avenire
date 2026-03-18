@@ -25,6 +25,11 @@ import {
   saveMessagesForChatSlug,
   updateChatForUser,
 } from "@/lib/chat-data";
+import {
+  CHAT_ICON_NAMES,
+  DEFAULT_CHAT_ICON,
+  isChatIconName,
+} from "@/lib/chat-icons";
 import { createChatTools } from "@/lib/chat-tools";
 import { resolveWorkspaceForUser } from "@/lib/file-data";
 import { normalizeMediaType } from "@/lib/media-type";
@@ -42,20 +47,14 @@ const LOG_PREFIX = "[api/chat]";
 const DEFAULT_CHAT_TOKENS_PER_CREDIT = 4000;
 const DEFAULT_CHAT_TITLE_MODEL: ApolloModelName = "apollo-sprint";
 const MODEL_TOOL_ALLOW_LIST = new Set([
-  "apollo_agent",
+  "avenire_agent",
   "file_manager_agent",
-  "create_note",
-  "update_note",
-  "read_note",
-  "read_workspace_file",
-  "list_files",
-  "get_file_summary",
-  "move_file",
-  "delete_file",
+  "note_agent",
   "generate_flashcards",
-  "render_graph",
   "get_due_cards",
   "quiz_me",
+  "visualize_read_me",
+  "show_widget",
 ]);
 
 function logInfo(message: string, meta?: Record<string, unknown>) {
@@ -167,11 +166,28 @@ function extractLatestUserText(messages: UIMessage[]) {
     return "";
   }
 
-  const textPart = latestUserMessage.parts.find((part) => part.type === "text");
-  return textPart?.type === "text" ? textPart.text.trim() : "";
+  if (latestUserMessage.parts) {
+    const textPart = latestUserMessage.parts.find(
+      (part) => part.type === "text"
+    );
+    return textPart?.type === "text" ? textPart.text.trim() : "";
+  }
+  const content =
+    typeof (latestUserMessage as { content?: unknown }).content === "string"
+      ? ((latestUserMessage as { content?: string }).content ?? "").trim()
+      : "";
+  if (content) {
+    return content;
+  }
+
+  const text =
+    typeof (latestUserMessage as { text?: unknown }).text === "string"
+      ? ((latestUserMessage as { text?: string }).text ?? "").trim()
+      : "";
+  return text;
 }
 
-async function generateChatName(
+async function generateChatMetadata(
   messages: UIMessage[],
   abortSignal?: AbortSignal
 ) {
@@ -191,14 +207,17 @@ async function generateChatName(
     const { text } = await generateText({
       model: apollo.languageModel(modelName),
       prompt: [
-        "Generate a concise, descriptive chat title based only on the user's request.",
+        "Generate a concise, descriptive chat title and a single icon choice based only on the user's request.",
         "Use 4-8 words when possible.",
         "Avoid generic labels and single-word replies.",
         "No quotes. No punctuation at the end.",
-        "Return ONLY the title text. No labels, no extra sentences, and no questions.",
+        "Pick ONE icon from this list (exact string match):",
+        CHAT_ICON_NAMES.join(", "),
+        "Return ONLY valid JSON with this shape:",
+        "{\"title\":\"...\",\"icon\":\"...\"}",
         `User message: ${latestUserText}`,
       ].join("\n"),
-      maxOutputTokens: 32,
+      maxOutputTokens: 64,
       temperature: 0.2,
       abortSignal,
     });
@@ -211,14 +230,32 @@ async function generateChatName(
         accepted: false,
         fallback,
       });
-      return fallback;
+      return { title: fallback, icon: DEFAULT_CHAT_ICON };
     }
 
-    const normalized = sanitizeChatName(text);
+    let parsedTitle: string | null = null;
+    let parsedIcon: string | null = null;
+    const trimmed = text.trim();
+    const jsonStart = trimmed.indexOf("{");
+    const jsonEnd = trimmed.lastIndexOf("}");
+    if (jsonStart >= 0 && jsonEnd > jsonStart) {
+      const candidate = trimmed.slice(jsonStart, jsonEnd + 1);
+      try {
+        const parsed = JSON.parse(candidate) as { title?: string; icon?: string };
+        parsedTitle = typeof parsed.title === "string" ? parsed.title : null;
+        parsedIcon = typeof parsed.icon === "string" ? parsed.icon : null;
+      } catch {
+        parsedTitle = null;
+        parsedIcon = null;
+      }
+    }
+
+    const normalized = parsedTitle ? sanitizeChatName(parsedTitle) : "";
     const fallback = fallbackChatNameFromText(latestUserText);
     const accepted =
-      normalized.length >= 8 ||
-      latestUserText.trim().length <= normalized.length + 4;
+      normalized.length > 0 &&
+      (normalized.length >= 8 ||
+        latestUserText.trim().length <= normalized.length + 4);
     logInfo("Generated chat title result", {
       raw: text,
       normalized,
@@ -226,26 +263,35 @@ async function generateChatName(
       fallback,
     });
 
-    if (accepted && normalized.length > 0) {
-      return normalized;
+    if (accepted) {
+      const icon = isChatIconName(parsedIcon)
+        ? parsedIcon
+        : DEFAULT_CHAT_ICON;
+      return { title: normalized, icon };
     }
 
-    return fallback;
+    return { title: fallback, icon: DEFAULT_CHAT_ICON };
   } catch (error) {
     logError("Failed to generate chat title", { error });
-    return fallbackChatNameFromText(latestUserText);
+    return {
+      title: fallbackChatNameFromText(latestUserText),
+      icon: DEFAULT_CHAT_ICON,
+    };
   }
 }
 
 function extractMessageText(message: UIMessage) {
-  return message.parts
-    .filter(
-      (part): part is Extract<typeof part, { type: "text" }> =>
-        part.type === "text"
-    )
-    .map((part) => part.text)
-    .join("\n")
-    .trim();
+  if (message.parts) {
+    return message.parts
+      .filter(
+        (part): part is Extract<typeof part, { type: "text" }> =>
+          part.type === "text"
+      )
+      .map((part) => part.text)
+      .join("\n")
+      .trim();
+  }
+  return "";
 }
 
 function resolveChatContextMaxChars() {
@@ -683,6 +729,36 @@ export async function POST(request: Request) {
       );
     }
 
+    if (originalMessages.length > 0) {
+      try {
+        await saveMessagesForChatSlug(
+          session.user.id,
+          chatSlug,
+          originalMessages,
+          workspace.workspaceId
+        );
+        logInfo("Persisted user messages before stream", {
+          chatId: chatSlug,
+          messageCount: originalMessages.length,
+        });
+      } catch (error) {
+        logError("Failed to persist user messages before stream", {
+          chatId: chatSlug,
+          error,
+        });
+        if (idempotencyRedisKey && idempotencyLockAcquired) {
+          await clearIdempotencyKey(idempotencyRedisKey);
+        }
+        void apiLogger.requestFailed(500, "Failed to save user messages", {
+          chatId: chatSlug,
+        });
+        return NextResponse.json(
+          { error: "Failed to save user messages" },
+          { status: 500 }
+        );
+      }
+    }
+
     const streamId = randomUUID();
     const previousStreamId = await getActiveStreamId(chatSlug);
     if (previousStreamId) {
@@ -704,21 +780,22 @@ export async function POST(request: Request) {
         }
 
         if (shouldGenerateTitle(chat.title, originalMessages)) {
-          const nextName = await generateChatName(
+          const nextMeta = await generateChatMetadata(
             originalMessages,
             request.signal
           );
-          if (nextName) {
+          if (nextMeta?.title) {
             logInfo("Streaming generated chat title event", {
               chatId: chatSlug,
-              nameLength: nextName.length,
+              nameLength: nextMeta.title.length,
             });
             writer.write({
               type: "data-chatName",
               transient: true,
               data: {
                 id: chatSlug,
-                name: nextName,
+                name: nextMeta.title,
+                icon: nextMeta.icon,
               },
             });
 
@@ -726,13 +803,14 @@ export async function POST(request: Request) {
               session.user.id,
               chatSlug,
               {
-                title: nextName,
+                title: nextMeta.title,
+                icon: nextMeta.icon,
               },
               workspace.workspaceId
             );
             logInfo("Persisted generated chat title", {
               chatId: chatSlug,
-              name: nextName,
+              name: nextMeta.title,
             });
           }
         }
@@ -783,6 +861,7 @@ export async function POST(request: Request) {
             messages: await convertToModelMessages(modelContextMessages, {
               tools,
             }),
+            maxOutputTokens: 10000,
             stopWhen: stepCountIs(8),
             tools: modelTools,
             abortSignal: request.signal,

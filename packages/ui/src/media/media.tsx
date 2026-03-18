@@ -684,49 +684,34 @@ function MediaPlayerImpl(props: MediaPlayerProps) {
     const mediaElement = mediaRef.current;
     if (!mediaElement) return;
 
+    const handleTimeUpdate = () => onTimeUpdate?.(mediaElement.currentTime);
+    const handleVolumeChange = () => {
+      onVolumeChange?.(mediaElement.volume);
+      onMuted?.(mediaElement.muted);
+    };
+    const handleMediaError = () => onMediaError?.(mediaElement.error);
+    const handleFullscreenChange = () =>
+      onFullscreenChange?.(!!document.fullscreenElement);
+
     if (onPlay) mediaElement.addEventListener("play", onPlay);
     if (onPause) mediaElement.addEventListener("pause", onPause);
     if (onEnded) mediaElement.addEventListener("ended", onEnded);
-    if (onTimeUpdate)
-      mediaElement.addEventListener("timeupdate", () =>
-        onTimeUpdate?.(mediaElement.currentTime)
-      );
-    if (onVolumeChange)
-      mediaElement.addEventListener("volumechange", () => {
-        onVolumeChange?.(mediaElement.volume);
-        onMuted?.(mediaElement.muted);
-      });
-    if (onMediaError)
-      mediaElement.addEventListener("error", () =>
-        onMediaError?.(mediaElement.error)
-      );
+    if (onTimeUpdate) mediaElement.addEventListener("timeupdate", handleTimeUpdate);
+    if (onVolumeChange) mediaElement.addEventListener("volumechange", handleVolumeChange);
+    if (onMediaError) mediaElement.addEventListener("error", handleMediaError);
     if (onFullscreenChange) {
-      document.addEventListener("fullscreenchange", () =>
-        onFullscreenChange?.(!!document.fullscreenElement)
-      );
+      document.addEventListener("fullscreenchange", handleFullscreenChange);
     }
 
     return () => {
       if (onPlay) mediaElement.removeEventListener("play", onPlay);
       if (onPause) mediaElement.removeEventListener("pause", onPause);
       if (onEnded) mediaElement.removeEventListener("ended", onEnded);
-      if (onTimeUpdate)
-        mediaElement.removeEventListener("timeupdate", () =>
-          onTimeUpdate?.(mediaElement.currentTime)
-        );
-      if (onVolumeChange)
-        mediaElement.removeEventListener("volumechange", () => {
-          onVolumeChange?.(mediaElement.volume);
-          onMuted?.(mediaElement.muted);
-        });
-      if (onMediaError)
-        mediaElement.removeEventListener("error", () =>
-          onMediaError?.(mediaElement.error)
-        );
+      if (onTimeUpdate) mediaElement.removeEventListener("timeupdate", handleTimeUpdate);
+      if (onVolumeChange) mediaElement.removeEventListener("volumechange", handleVolumeChange);
+      if (onMediaError) mediaElement.removeEventListener("error", handleMediaError);
       if (onFullscreenChange) {
-        document.removeEventListener("fullscreenchange", () =>
-          onFullscreenChange?.(!!document.fullscreenElement)
-        );
+        document.removeEventListener("fullscreenchange", handleFullscreenChange);
       }
       if (volumeIndicatorTimeoutRef.current) {
         clearTimeout(volumeIndicatorTimeoutRef.current);
@@ -797,7 +782,7 @@ function MediaPlayerImpl(props: MediaPlayerProps) {
         onKeyUp={onKeyUp}
         className={cn(
           "dark relative isolate flex flex-col overflow-hidden rounded-lg bg-background outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 data-disabled:pointer-events-none data-disabled:opacity-50 [&_video]:relative [&_video]:object-contain",
-          "in-[:fullscreen]:flex in-[:fullscreen]:h-full in-[:fullscreen]:max-h-screen in-[:fullscreen]:flex-col in-[:fullscreen]:justify-between data-[state=fullscreen]:[&_video]:size-full",
+          "in-[:fullscreen]:flex in-[:fullscreen]:h-full in-[:fullscreen]:max-h-screen in-[:fullscreen]:flex-col in-[:fullscreen]:justify-between data-[state=fullscreen]:[&_video]:size-full data-[state=fullscreen]:[&_video]:max-h-none",
           "**:data-slider:relative [&_[data-slider]::before]:absolute [&_[data-slider]::before]:inset-x-0 [&_[data-slider]::before]:-top-4 [&_[data-slider]::before]:-bottom-2 [&_[data-slider]::before]:z-10 [&_[data-slider]::before]:h-8 [&_[data-slider]::before]:cursor-pointer [&_[data-slider]::before]:content-[''] [&_[data-slot='media-player-seek']:not([data-hovering])::before]:cursor-default",
           "[&_video::-webkit-media-text-track-display]:top-auto! [&_video::-webkit-media-text-track-display]:bottom-[4%]! [&_video::-webkit-media-text-track-display]:mb-0! data-[state=fullscreen]:data-controls-visible:[&_video::-webkit-media-text-track-display]:bottom-[9%]! data-[state=fullscreen]:[&_video::-webkit-media-text-track-display]:bottom-[7%]! data-controls-visible:[&_video::-webkit-media-text-track-display]:bottom-[13%]!",
           className

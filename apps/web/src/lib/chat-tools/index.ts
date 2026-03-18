@@ -1,29 +1,31 @@
-import { createHash } from "node:crypto";
-import { generateText, Output, type ToolSet, tool } from "@avenire/ai";
+import {
+  generateText,
+  Output,
+  type ToolSet,
+  tool,
+} from "@avenire/ai";
 import type {
   AgentActivityAction,
   AgentActivityData,
 } from "@avenire/ai/message-types";
 import { apollo } from "@avenire/ai/models";
 import { chatToolSchemas } from "@avenire/ai/tools";
+import {
+  AVAILABLE_MODULES,
+  getGuidelines,
+} from "@avenire/ai/generative-ui/guidelines";
 import { retrieveWorkspaceChunks } from "@avenire/ingestion";
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
-import { UTApi, UTFile } from "@avenire/storage";
 import { z } from "zod";
 import {
   createFolder,
+  createWorkspaceNoteFile,
   getFileAssetById,
-  getFolderWithAncestors,
+  getNoteContent,
   isSharedFilesVirtualFolderId,
-  listFolderContentsForUser,
   listWorkspaceFiles,
   listWorkspaceFolders,
-  registerFileAsset,
-  replaceFileAssetContent,
-  softDeleteFileAsset,
-  softDeleteFolder,
-  updateFileAsset,
-  updateFolder,
+  updateNoteContent,
   userCanEditFile,
   userCanEditFolder,
 } from "@/lib/file-data";
@@ -37,10 +39,8 @@ import {
 } from "@/lib/flashcards";
 import {
   deleteIngestionDataForFile,
-  getIngestionFlagsByFileIds,
   getIngestionSummaryForFile,
 } from "@/lib/ingestion-data";
-import { deleteUploadThingFile } from "@/lib/upload-registration";
 import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
 
 const DEFAULT_SEARCH_LIMIT = 8;
@@ -223,42 +223,6 @@ function applyNoteUpdate(params: {
   );
 }
 
-async function uploadTextAsMarkdownFile(params: {
-  content: string;
-  fileName: string;
-}) {
-  const token = process.env.UPLOADTHING_TOKEN?.trim();
-  if (!token) {
-    throw new Error("UPLOADTHING_TOKEN is required to create or update notes.");
-  }
-
-  const buffer = Buffer.from(params.content, "utf8");
-  const utapi = new UTApi({ token });
-  const uploadResult = await utapi.uploadFiles(
-    new UTFile([buffer], params.fileName, { type: "text/markdown" })
-  );
-  const result = Array.isArray(uploadResult) ? uploadResult[0] : uploadResult;
-  const uploaded = result?.data;
-
-  if (
-    !uploaded ||
-    typeof uploaded.key !== "string" ||
-    typeof uploaded.ufsUrl !== "string"
-  ) {
-    throw new Error(
-      "UploadThing did not return a storage key for the markdown file."
-    );
-  }
-
-  return {
-    buffer,
-    sha256: createHash("sha256").update(buffer).digest("hex"),
-    sizeBytes: buffer.byteLength,
-    storageKey: uploaded.key,
-    storageUrl: uploaded.ufsUrl,
-  };
-}
-
 async function buildWorkspacePathMaps(
   workspaceId: string,
   userId: string
@@ -319,6 +283,18 @@ async function fetchWorkspaceFileText(
     throw new Error("Only markdown and text files can be read as notes.");
   }
 
+  if (file.isNote) {
+    const note = await getNoteContent(file.id);
+    if (note?.content == null) {
+      throw new Error("Failed to fetch note content.");
+    }
+    const text = note.content;
+    if (Buffer.byteLength(text, "utf8") > NOTE_TEXT_BYTE_LIMIT) {
+      throw new Error("The note is too large to load into chat context.");
+    }
+    return text.slice(0, Math.max(250, maxChars));
+  }
+
   const response = await fetch(file.storageUrl, { cache: "no-store" });
   if (!response.ok) {
     throw new Error(`Failed to fetch file content (${response.status}).`);
@@ -337,6 +313,100 @@ function getWorkspacePathForFile(
   maps: WorkspacePathMaps
 ) {
   return maps.filePathById.get(file.id) ?? file.name ?? "Untitled file";
+}
+
+function normalizeWorkspacePath(value: string) {
+  return value
+    .trim()
+    .replace(/^\/+|\/+$/g, "")
+    .replace(/\/{2,}/g, "/")
+    .toLowerCase();
+}
+
+function resolveFolderIdByPathHint(
+  maps: WorkspacePathMaps,
+  rootFolderId: string,
+  hint?: string
+) {
+  if (typeof hint !== "string") {
+    return null;
+  }
+
+  const normalizedHint = normalizeWorkspacePath(hint);
+  if (!normalizedHint) {
+    return rootFolderId;
+  }
+
+  for (const [folderId, folderPath] of maps.folderPathById.entries()) {
+    if (normalizeWorkspacePath(folderPath) === normalizedHint) {
+      return folderId;
+    }
+  }
+
+  if (normalizedHint.includes("/")) {
+    return null;
+  }
+
+  let matchedFolderId: string | null = null;
+  for (const [folderId, folderPath] of maps.folderPathById.entries()) {
+    const normalizedPath = normalizeWorkspacePath(folderPath);
+    if (
+      normalizedPath === normalizedHint ||
+      normalizedPath.endsWith(`/${normalizedHint}`)
+    ) {
+      if (matchedFolderId) {
+        return null;
+      }
+      matchedFolderId = folderId;
+    }
+  }
+
+  if (matchedFolderId) {
+    return matchedFolderId;
+  }
+
+  if (normalizedHint === "root" || normalizedHint === "workspace") {
+    return rootFolderId;
+  }
+
+  return null;
+}
+
+function resolveFileIdByPathHint(maps: WorkspacePathMaps, hint?: string) {
+  if (typeof hint !== "string") {
+    return null;
+  }
+
+  const normalizedHint = normalizeWorkspacePath(hint);
+  if (!normalizedHint) {
+    return null;
+  }
+
+  for (const [fileId, filePath] of maps.filePathById.entries()) {
+    if (normalizeWorkspacePath(filePath) === normalizedHint) {
+      return fileId;
+    }
+  }
+
+  if (normalizedHint.includes("/")) {
+    return null;
+  }
+
+  let matchedFileId: string | null = null;
+  for (const [fileId, filePath] of maps.filePathById.entries()) {
+    const normalizedPath = normalizeWorkspacePath(filePath);
+    if (
+      normalizedPath === normalizedHint ||
+      normalizedPath.endsWith(`/${normalizedHint}`)
+    ) {
+      if (matchedFileId) {
+        return null;
+      }
+      matchedFileId = fileId;
+    }
+  }
+
+  return matchedFileId;
 }
 
 async function readWorkspaceFileContent(params: {
@@ -784,7 +854,7 @@ async function generateFlashcardsFromSource(
   });
 
   return {
-    cardCount: result.output.cards.length,
+    cards: result.output.cards,
     setId: set.id,
     title: set.title,
   };
@@ -1031,8 +1101,19 @@ export function createChatTools(ctx: ChatToolContext): ToolSet {
       },
     }),
     file_manager_agent: tool({
-      description:
-        "Inspect workspace files before file operations such as reading, moving, or deleting. Only use when a file operation is requested or a specific workspace file is mentioned.",
+      description: `Inspect and manage workspace files and folders. Handles listing, reading, moving, deleting files, and creating/managing folders. Use when the user asks about their files, wants to organize their workspace, or needs file operations.
+
+Internal capabilities:
+- list_files: List files and folders
+- read_workspace_file: Read file content
+- get_file_summary: Get ingestion metadata
+- move_file: Move file to folder
+- delete_file: Move file to trash
+- create_folder: Create new folder
+- move_folder: Move folder
+- delete_folder: Move folder to trash
+
+The agent decides which operations to perform based on the task.`,
       inputSchema: chatToolSchemas.file_manager_agent.input,
       outputSchema: chatToolSchemas.file_manager_agent.output,
       execute: async (input) => {
@@ -1189,59 +1270,48 @@ export function createChatTools(ctx: ChatToolContext): ToolSet {
         };
       },
     }),
-    read_note: tool({
-      description:
-        "Load the full content of a markdown or text note from the workspace. Use only when the user asks to read a note or references a specific workspace file.",
-      inputSchema: chatToolSchemas.read_note.input,
-      outputSchema: chatToolSchemas.read_note.output,
+    note_agent: tool({
+      description: `Manage markdown notes in the workspace. Handles creating, reading, and updating notes. Use when the user asks about their notes or wants to create/modify notes.
+
+Internal capabilities:
+- create_note: Create new markdown note
+- read_note: Read existing note content
+- update_note: Append or replace note content (append, replace_entire, replace_section)
+
+The agent decides which operations to perform based on the task.`,
+      inputSchema: chatToolSchemas.note_agent.input,
+      outputSchema: chatToolSchemas.note_agent.output,
       execute: async (input) => {
-        const file = await getFileAssetById(ctx.workspaceId, input.fileId);
-        if (!file) {
-          throw new Error("Note not found.");
-        }
+        const maxNotes = input.maxNotes ?? 3;
+        const task = input.task.toLowerCase();
 
         const maps = await buildWorkspacePathMaps(ctx.workspaceId, ctx.userId);
-        return {
-          content: await fetchWorkspaceFileText(
-            file,
-            input.maxChars ?? DEFAULT_NOTE_MAX_CHARS
-          ),
-          fileId: file.id,
-          title: file.name,
-          updatedAt: file.updatedAt,
-          workspacePath: maps.filePathById.get(file.id) ?? file.name,
-        };
-      },
-    }),
-    read_workspace_file: tool({
-      description:
-        "Read a workspace file. Text files return full text, other files return indexed content summaries when available. Use only when the user asks to read a file or references specific workspace content.",
-      inputSchema: chatToolSchemas.read_workspace_file.input,
-      outputSchema: chatToolSchemas.read_workspace_file.output,
-      execute: async (input) => {
-        const file = await getFileAssetById(ctx.workspaceId, input.fileId);
-        if (!file) {
-          throw new Error("File not found.");
-        }
+        const allFiles = await listWorkspaceFiles(ctx.workspaceId, ctx.userId);
+        const noteFiles = allFiles.filter(isMarkdownFile);
 
-        const maps = await buildWorkspacePathMaps(ctx.workspaceId, ctx.userId);
-        return readWorkspaceFileContent({
-          workspaceId: ctx.workspaceId,
-          file,
-          maps,
-          maxChars: input.maxChars,
-        });
-      },
-    }),
-    create_note: tool({
-      description:
-        "Create a markdown note directly inside the active workspace.",
-      inputSchema: chatToolSchemas.create_note.input,
-      outputSchema: chatToolSchemas.create_note.output,
-      execute: async (input) => {
-        const targetFolderId =
-          input.folderId ??
-          (
+        let operation: "created" | "read" | "updated" | "listed" = "listed";
+        const notes: Array<{
+          contentPreview: string;
+          fileId: string;
+          tags?: string[];
+          title: string;
+          updatedAt: string;
+          wordCount: number;
+          workspacePath: string;
+        }> = [];
+
+        if (
+          task.includes("create") ||
+          task.includes("new") ||
+          task.includes("write")
+        ) {
+          operation = "created";
+          const titleMatch = input.task.match(
+            /(?:create|new|write)\s+(?:a\s+)?(?:note\s+)?(?:about\s+)?["']?([^"']+)["']?/i
+          );
+          const title = titleMatch?.[1]?.trim() || "New Note";
+
+          const targetFolderId = (
             await ensureNotesFolder({
               rootFolderId: ctx.rootFolderId,
               userId: ctx.userId,
@@ -1249,139 +1319,144 @@ export function createChatTools(ctx: ChatToolContext): ToolSet {
             })
           ).id;
 
-        const canEdit = await userCanEditFolder({
-          workspaceId: ctx.workspaceId,
-          folderId: targetFolderId,
-          userId: ctx.userId,
-        });
-        if (!canEdit) {
-          throw new Error("The destination folder is read-only.");
-        }
-
-        const content = buildNoteContent({
-          content: input.content,
-          tags: input.tags,
-          title: input.title,
-        });
-        const upload = await uploadTextAsMarkdownFile({
-          content,
-          fileName: toMarkdownFileName(input.title),
-        });
-        const file = await registerFileAsset(ctx.workspaceId, ctx.userId, {
-          contentHashSha256: upload.sha256,
-          folderId: targetFolderId,
-          hashComputedBy: "server",
-          hashVerificationStatus: "verified",
-          metadata: {
-            agentNote: true,
-            tags: input.tags ?? [],
-          },
-          mimeType: "text/markdown",
-          name: toMarkdownFileName(input.title),
-          sizeBytes: upload.sizeBytes,
-          storageKey: upload.storageKey,
-          storageUrl: upload.storageUrl,
-        });
-
-        await publishTreeMutationEvents({
-          folderId: targetFolderId,
-          reason: "file.created",
-          workspaceId: ctx.workspaceId,
-        });
-        const ingestionJob = await enqueueIngestionForFile({
-          fileId: file.id,
-          folderId: file.folderId,
-          workspaceId: ctx.workspaceId,
-        });
-        const maps = await buildWorkspacePathMaps(ctx.workspaceId, ctx.userId);
-
-        return {
-          fileId: file.id,
-          ingestionJobId: ingestionJob?.id ?? null,
-          title: file.name,
-          updatedAt: file.updatedAt,
-          workspacePath: maps.filePathById.get(file.id) ?? file.name,
-        };
-      },
-    }),
-    update_note: tool({
-      description:
-        "Append or edit a markdown note already stored in the workspace.",
-      inputSchema: chatToolSchemas.update_note.input,
-      outputSchema: chatToolSchemas.update_note.output,
-      execute: async (input) => {
-        const canEdit = await userCanEditFile({
-          workspaceId: ctx.workspaceId,
-          fileId: input.fileId,
-          userId: ctx.userId,
-        });
-        if (!canEdit) {
-          throw new Error("The note is read-only.");
-        }
-
-        const file = await getFileAssetById(ctx.workspaceId, input.fileId);
-        if (!file) {
-          throw new Error("Note not found.");
-        }
-
-        const nextContent = applyNoteUpdate({
-          content: input.content,
-          currentContent: await fetchWorkspaceFileText(file, 50_000),
-          mode: input.mode,
-          sectionHeading: input.sectionHeading,
-        });
-        const upload = await uploadTextAsMarkdownFile({
-          content: nextContent,
-          fileName: file.name,
-        });
-        const replaced = await replaceFileAssetContent(
-          ctx.workspaceId,
-          file.id,
-          ctx.userId,
-          {
-            contentHashSha256: upload.sha256,
-            hashComputedBy: "server",
-            hashVerificationStatus: "verified",
-            metadata: {
-              agentNote: true,
-            },
-            mimeType: "text/markdown",
-            sizeBytes: upload.sizeBytes,
-            storageKey: upload.storageKey,
-            storageUrl: upload.storageUrl,
+          const canEdit = await userCanEditFolder({
+            workspaceId: ctx.workspaceId,
+            folderId: targetFolderId,
+            userId: ctx.userId,
+          });
+          if (!canEdit) {
+            throw new Error("The destination folder is read-only.");
           }
-        );
 
-        if (!replaced) {
-          throw new Error("Unable to replace the note content.");
-        }
+          const content = buildNoteContent({
+            content: input.task,
+            title,
+          });
+          const file = await createWorkspaceNoteFile({
+            content,
+            folderId: targetFolderId,
+            metadata: { agentNote: true },
+            name: toMarkdownFileName(title),
+            userId: ctx.userId,
+            workspaceId: ctx.workspaceId,
+          });
 
-        await deleteIngestionDataForFile(ctx.workspaceId, file.id);
-        await publishTreeMutationEvents({
-          folderId: file.folderId,
-          reason: "file.updated",
-          workspaceId: ctx.workspaceId,
-        });
-        const ingestionJob = await enqueueIngestionForFile({
-          fileId: file.id,
-          folderId: file.folderId,
-          workspaceId: ctx.workspaceId,
-        });
-        if (
-          replaced.previousStorageKey &&
-          replaced.previousStorageKey !== upload.storageKey
+          await publishTreeMutationEvents({
+            folderId: targetFolderId,
+            reason: "file.created",
+            workspaceId: ctx.workspaceId,
+          });
+          await enqueueIngestionForFile({
+            fileId: file.id,
+            folderId: file.folderId,
+            workspaceId: ctx.workspaceId,
+          });
+
+          const newMaps = await buildWorkspacePathMaps(
+            ctx.workspaceId,
+            ctx.userId
+          );
+          notes.push({
+            contentPreview: input.task.slice(0, 500),
+            fileId: file.id,
+            title: file.name,
+            updatedAt: file.updatedAt,
+            wordCount: input.task.split(/\s+/).length,
+            workspacePath: newMaps.filePathById.get(file.id) ?? file.name,
+          });
+        } else if (
+          task.includes("read") ||
+          task.includes("show") ||
+          task.includes("what")
         ) {
-          void deleteUploadThingFile(replaced.previousStorageKey);
+          operation = "read";
+          const relevantNotes = noteFiles.slice(0, maxNotes);
+          for (const file of relevantNotes) {
+            try {
+              const content = await fetchWorkspaceFileText(file, 500);
+              notes.push({
+                contentPreview: content.slice(0, 500),
+                fileId: file.id,
+                title: file.name,
+                updatedAt: file.updatedAt,
+                wordCount: content.split(/\s+/).length,
+                workspacePath: maps.filePathById.get(file.id) ?? file.name,
+              });
+            } catch {}
+          }
+        } else if (
+          task.includes("update") ||
+          task.includes("add") ||
+          task.includes("append")
+        ) {
+          operation = "updated";
+          const noteFile = noteFiles[0];
+          if (noteFile) {
+            const canEdit = await userCanEditFile({
+              workspaceId: ctx.workspaceId,
+              fileId: noteFile.id,
+              userId: ctx.userId,
+            });
+            if (canEdit) {
+              const currentContent = await fetchWorkspaceFileText(
+                noteFile,
+                50_000
+              );
+              const nextContent = applyNoteUpdate({
+                content: input.task,
+                currentContent,
+                mode: "append",
+              });
+              const updated = await updateNoteContent({
+                fileId: noteFile.id,
+                userId: ctx.userId,
+                content: nextContent,
+              });
+              if (updated) {
+                await deleteIngestionDataForFile(ctx.workspaceId, noteFile.id);
+                await publishTreeMutationEvents({
+                  folderId: noteFile.folderId,
+                  reason: "file.updated",
+                  workspaceId: ctx.workspaceId,
+                });
+                await enqueueIngestionForFile({
+                  fileId: noteFile.id,
+                  folderId: noteFile.folderId,
+                  workspaceId: ctx.workspaceId,
+                });
+                notes.push({
+                  contentPreview: nextContent.slice(0, 500),
+                  fileId: noteFile.id,
+                  title: noteFile.name,
+                  updatedAt: updated.updatedAt.toISOString(),
+                  wordCount: nextContent.split(/\s+/).length,
+                  workspacePath: maps.filePathById.get(noteFile.id) ?? noteFile.name,
+                });
+              }
+            }
+          }
+        } else {
+          operation = "listed";
+          for (const file of noteFiles.slice(0, maxNotes)) {
+            try {
+              const content = await fetchWorkspaceFileText(file, 200);
+              notes.push({
+                contentPreview: content.slice(0, 200),
+                fileId: file.id,
+                title: file.name,
+                updatedAt: file.updatedAt,
+                wordCount: content.split(/\s+/).length,
+                workspacePath: maps.filePathById.get(file.id) ?? file.name,
+              });
+            } catch {}
+          }
         }
 
-        const maps = await buildWorkspacePathMaps(ctx.workspaceId, ctx.userId);
         return {
-          fileId: replaced.file.id,
-          ingestionJobId: ingestionJob?.id ?? null,
-          title: replaced.file.name,
-          updatedAt: replaced.file.updatedAt,
-          workspacePath:
-            maps.filePathById.get(replaced.file.id) ?? replaced.file.name,
+          notes,
+          operation,
+          summary: `${operation} ${notes.length} note(s)`,
+          task: input.task,
         };
       },
     }),
@@ -1391,355 +1466,6 @@ export function createChatTools(ctx: ChatToolContext): ToolSet {
       inputSchema: chatToolSchemas.generate_flashcards.input,
       outputSchema: chatToolSchemas.generate_flashcards.output,
       execute: async (input) => generateFlashcardsFromSource(ctx, input),
-    }),
-    render_graph: tool({
-      description:
-        "Return a matplotlib graph specification for client-side rendering.",
-      inputSchema: chatToolSchemas.render_graph.input,
-      outputSchema: chatToolSchemas.render_graph.output,
-      execute: async (input) => ({
-        caption: input.caption ?? null,
-        kind: "matplotlib" as const,
-        pythonCode: input.pythonCode,
-        title: input.title,
-      }),
-    }),
-    list_files: tool({
-      description:
-        "List files available in the active workspace. Use only when the user asks about workspace contents or a file operation requires it.",
-      inputSchema: chatToolSchemas.list_files.input,
-      outputSchema: chatToolSchemas.list_files.output,
-      execute: async (input) => {
-        const files = input.folderId
-          ? (
-              await listFolderContentsForUser(
-                ctx.workspaceId,
-                input.folderId,
-                ctx.userId
-              )
-            ).files
-          : await listWorkspaceFiles(ctx.workspaceId, ctx.userId);
-        const limit = input.limit ?? DEFAULT_FILE_LIST_LIMIT;
-        const maps = await buildWorkspacePathMaps(ctx.workspaceId, ctx.userId);
-        const visibleFiles = files.slice(0, limit);
-        const ingestionFlags = await getIngestionFlagsByFileIds(
-          ctx.workspaceId,
-          visibleFiles.map((file) => file.id)
-        );
-
-        return {
-          files: visibleFiles.map((file) => ({
-            fileId: file.id,
-            folderId: file.folderId,
-            isIngested: ingestionFlags[file.id] ?? false,
-            mimeType: file.mimeType ?? null,
-            name: file.name,
-            sizeBytes: file.sizeBytes,
-            updatedAt: file.updatedAt,
-            workspacePath: maps.filePathById.get(file.id) ?? file.name,
-          })),
-          totalFiles: files.length,
-        };
-      },
-    }),
-    move_file: tool({
-      description: "Move a file to another folder in the workspace.",
-      inputSchema: chatToolSchemas.move_file.input,
-      outputSchema: chatToolSchemas.move_file.output,
-      execute: async (input) => {
-        const canEditFile = await userCanEditFile({
-          workspaceId: ctx.workspaceId,
-          fileId: input.fileId,
-          userId: ctx.userId,
-        });
-        if (!canEditFile) {
-          throw new Error("The file is read-only.");
-        }
-
-        await ensureWritableTargetFolder(ctx, input.targetFolderId);
-
-        const file = await getFileAssetById(ctx.workspaceId, input.fileId);
-        if (!file) {
-          throw new Error("File not found.");
-        }
-
-        const maps = await buildWorkspacePathMaps(ctx.workspaceId, ctx.userId);
-        const previousWorkspacePath = getWorkspacePathForFile(file, maps);
-        const updated = await updateFileAsset(
-          ctx.workspaceId,
-          input.fileId,
-          ctx.userId,
-          {
-            folderId: input.targetFolderId,
-          }
-        );
-
-        if (!updated) {
-          throw new Error("Unable to move the file.");
-        }
-
-        const nextMaps =
-          input.targetFolderId === file.folderId
-            ? maps
-            : await buildWorkspacePathMaps(ctx.workspaceId, ctx.userId);
-
-        await publishTreeMutationEvents({
-          folderId: updated.folderId,
-          reason: "file.updated",
-          workspaceId: ctx.workspaceId,
-        });
-
-        return {
-          fileId: updated.id,
-          folderId: updated.folderId,
-          previousWorkspacePath,
-          title: updated.name,
-          updatedAt: updated.updatedAt,
-          workspacePath: getWorkspacePathForFile(updated, nextMaps),
-        };
-      },
-    }),
-    delete_file: tool({
-      description: "Move a workspace file to trash.",
-      inputSchema: chatToolSchemas.delete_file.input,
-      outputSchema: chatToolSchemas.delete_file.output,
-      execute: async (input) => {
-        const canEdit = await userCanEditFile({
-          workspaceId: ctx.workspaceId,
-          fileId: input.fileId,
-          userId: ctx.userId,
-        });
-        if (!canEdit) {
-          throw new Error("The file is read-only.");
-        }
-
-        const file = await getFileAssetById(ctx.workspaceId, input.fileId);
-        if (!file) {
-          throw new Error("File not found.");
-        }
-
-        const maps = await buildWorkspacePathMaps(ctx.workspaceId, ctx.userId);
-        const workspacePath = getWorkspacePathForFile(file, maps);
-        const deleted = await softDeleteFileAsset(
-          ctx.workspaceId,
-          input.fileId
-        );
-
-        if (!deleted) {
-          throw new Error("Unable to delete the file.");
-        }
-
-        await publishTreeMutationEvents({
-          folderId: file.folderId,
-          reason: "file.deleted",
-          workspaceId: ctx.workspaceId,
-        });
-
-        return {
-          deletedAt: new Date().toISOString(),
-          fileId: file.id,
-          title: file.name,
-          workspacePath,
-        };
-      },
-    }),
-    create_folder: tool({
-      description: "Create a new folder in the workspace.",
-      inputSchema: chatToolSchemas.create_folder.input,
-      outputSchema: chatToolSchemas.create_folder.output,
-      execute: async (input) => {
-        const targetFolderId = input.parentId ?? ctx.rootFolderId;
-
-        const canEdit = await userCanEditFolder({
-          workspaceId: ctx.workspaceId,
-          folderId: targetFolderId,
-          userId: ctx.userId,
-        });
-        if (!canEdit) {
-          throw new Error("The destination folder is read-only.");
-        }
-
-        const folder = await createFolder(
-          ctx.workspaceId,
-          input.parentId ?? ctx.rootFolderId,
-          input.name,
-          ctx.userId
-        );
-
-        if (!folder) {
-          throw new Error("Unable to create the folder.");
-        }
-
-        await publishTreeMutationEvents({
-          folderId: folder.parentId,
-          reason: "file.created",
-          workspaceId: ctx.workspaceId,
-        });
-
-        return {
-          id: folder.id,
-          name: folder.name,
-          parentId: folder.parentId,
-          workspaceId: folder.workspaceId,
-          createdAt: folder.createdAt,
-          updatedAt: folder.updatedAt,
-        };
-      },
-    }),
-    move_folder: tool({
-      description: "Move a folder to another parent folder in the workspace.",
-      inputSchema: chatToolSchemas.move_folder.input,
-      outputSchema: chatToolSchemas.move_folder.output,
-      execute: async (input) => {
-        if (input.folderId === input.targetFolderId) {
-          throw new Error("Cannot move a folder into itself.");
-        }
-
-        const canEditSource = await userCanEditFolder({
-          workspaceId: ctx.workspaceId,
-          folderId: input.folderId,
-          userId: ctx.userId,
-        });
-        if (!canEditSource) {
-          throw new Error("The source folder is read-only.");
-        }
-
-        const canEditTarget = await userCanEditFolder({
-          workspaceId: ctx.workspaceId,
-          folderId: input.targetFolderId,
-          userId: ctx.userId,
-        });
-        if (!canEditTarget) {
-          throw new Error("The destination folder is read-only.");
-        }
-
-        const folderResult = await getFolderWithAncestors(
-          ctx.workspaceId,
-          input.folderId
-        );
-        if (!folderResult) {
-          throw new Error("Folder not found.");
-        }
-
-        const folder = folderResult.folder;
-        const previousParentId = folder.parentId;
-
-        const updated = await updateFolder(
-          ctx.workspaceId,
-          input.folderId,
-          ctx.userId,
-          { parentId: input.targetFolderId }
-        );
-
-        if (!updated) {
-          throw new Error("Unable to move the folder.");
-        }
-
-        const maps = await buildWorkspacePathMaps(ctx.workspaceId, ctx.userId);
-
-        await publishTreeMutationEvents({
-          folderId: updated.parentId,
-          reason: "file.updated",
-          workspaceId: ctx.workspaceId,
-        });
-
-        return {
-          folderId: updated.id,
-          previousParentId,
-          title: updated.name,
-          updatedAt: updated.updatedAt,
-          workspacePath: maps.folderPathById?.get(updated.id) ?? updated.name,
-        };
-      },
-    }),
-    delete_folder: tool({
-      description: "Move a workspace folder and its contents to trash.",
-      inputSchema: chatToolSchemas.delete_folder.input,
-      outputSchema: chatToolSchemas.delete_folder.output,
-      execute: async (input) => {
-        const canEdit = await userCanEditFolder({
-          workspaceId: ctx.workspaceId,
-          folderId: input.folderId,
-          userId: ctx.userId,
-        });
-        if (!canEdit) {
-          throw new Error("The folder is read-only.");
-        }
-
-        const folderResult = await getFolderWithAncestors(
-          ctx.workspaceId,
-          input.folderId
-        );
-        if (!folderResult) {
-          throw new Error("Folder not found.");
-        }
-
-        const folder = folderResult.folder;
-        const maps = await buildWorkspacePathMaps(ctx.workspaceId, ctx.userId);
-        const workspacePath =
-          maps.folderPathById?.get(folder.id) ?? folder.name;
-
-        const deleted = await softDeleteFolder(ctx.workspaceId, input.folderId);
-
-        if (!deleted) {
-          throw new Error("Unable to delete the folder.");
-        }
-
-        await publishTreeMutationEvents({
-          folderId: folder.parentId,
-          reason: "file.deleted",
-          workspaceId: ctx.workspaceId,
-        });
-
-        return {
-          deletedAt: new Date().toISOString(),
-          folderId: folder.id,
-          title: folder.name,
-          workspacePath,
-        };
-      },
-    }),
-    get_file_summary: tool({
-      description:
-        "Return ingestion metadata and leading chunk previews for a specific file.",
-      inputSchema: chatToolSchemas.get_file_summary.input,
-      outputSchema: chatToolSchemas.get_file_summary.output,
-      execute: async (input) => {
-        const file = await getFileAssetById(ctx.workspaceId, input.fileId);
-        if (!file) {
-          throw new Error("File not found.");
-        }
-
-        const maps = await buildWorkspacePathMaps(ctx.workspaceId, ctx.userId);
-        const summary = await getIngestionSummaryForFile(
-          ctx.workspaceId,
-          file.id
-        );
-        const chunks = summary.resources
-          .flatMap((resource) => resource.chunks)
-          .slice(0, 5)
-          .map((chunk) => ({
-            chunkId: chunk.chunkId,
-            chunkIndex: chunk.chunkIndex,
-            content: chunk.content,
-            endMs: chunk.endMs ?? null,
-            kind: chunk.kind,
-            page: chunk.page ?? null,
-            startMs: chunk.startMs ?? null,
-          }));
-
-        return {
-          chunkCount: summary.chunkCount,
-          chunks,
-          fileId: file.id,
-          hasIngestion: summary.chunkCount > 0,
-          mimeType: file.mimeType ?? null,
-          name: file.name,
-          transcriptCueCount: summary.transcriptCues.length,
-          updatedAt: file.updatedAt,
-          workspacePath: maps.filePathById.get(file.id) ?? file.name,
-        };
-      },
     }),
     get_due_cards: tool({
       description:
@@ -1776,6 +1502,52 @@ export function createChatTools(ctx: ChatToolContext): ToolSet {
       inputSchema: chatToolSchemas.quiz_me.input,
       outputSchema: chatToolSchemas.quiz_me.output,
       execute: async (input) => generateQuizFromSource(ctx, input),
+    }),
+    visualize_read_me: tool({
+      description:
+        "Load design guidelines for widget generation. Call this before generating widgets to get detailed instructions for interactive HTML/CSS/SVG fragments.",
+      inputSchema: chatToolSchemas.visualize_read_me.input,
+      outputSchema: chatToolSchemas.visualize_read_me.output,
+      execute: async (input) => {
+        const modules = input.modules.filter((moduleName) =>
+          AVAILABLE_MODULES.includes(moduleName)
+        );
+        if (modules.length === 0) {
+          throw new Error("No valid modules provided for visualize_read_me.");
+        }
+        return {
+          content: getGuidelines(modules),
+          modules,
+        };
+      },
+    }),
+    show_widget: tool({
+      description:
+        "Render an interactive HTML/CSS/JS widget in the chat. Use for visualizations, diagrams, charts, simulations, and interactive explainers.",
+      inputSchema: chatToolSchemas.show_widget.input,
+      outputSchema: chatToolSchemas.show_widget.output,
+      execute: async (input) => {
+        if (!input.i_have_seen_read_me) {
+          throw new Error(
+            "You must call visualize_read_me before show_widget."
+          );
+        }
+
+        const isSVG = input.widget_code.trimStart().startsWith("<svg");
+        const width = input.width ?? 800;
+        const height = input.height ?? 600;
+
+        return {
+          success: true,
+          details: {
+            title: input.title,
+            width,
+            height,
+            isSVG,
+          },
+          filePath: null,
+        };
+      },
     }),
   };
 }

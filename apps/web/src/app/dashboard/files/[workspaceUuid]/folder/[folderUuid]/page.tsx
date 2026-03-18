@@ -7,10 +7,7 @@ import {
   getFolderWithAncestors,
   userCanAccessWorkspace,
 } from "@/lib/file-data";
-import { DashboardLayout } from "@/components/dashboard/shell";
 import { FileExplorer } from "@/components/files/explorer";
-import { getFacehashUrl } from "@/lib/avatar";
-import { listChatsForUser } from "@/lib/chat-data";
 import { buildPageMetadata } from "@/lib/page-metadata";
 
 export async function generateMetadata({
@@ -67,19 +64,5 @@ export default async function DashboardWorkspaceFolderPage({
     redirect("/dashboard");
   }
 
-  const chats = await listChatsForUser(session.user.id, workspaceUuid);
-
-  return (
-    <DashboardLayout
-      activeChatSlug={chats[0]?.slug ?? ""}
-      initialChats={chats}
-      user={{
-        name: session.user.name ?? "User",
-        email: session.user.email,
-        avatar: session.user.image ?? getFacehashUrl(session.user.name ?? session.user.email),
-      }}
-    >
-      <FileExplorer folderUuid={folderUuid} workspaceUuid={workspaceUuid} />
-    </DashboardLayout>
-  );
+  return <FileExplorer folderUuid={folderUuid} workspaceUuid={workspaceUuid} />;
 }

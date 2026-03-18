@@ -1,18 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import type { Route } from "next";
-import {
-  Building2,
-  Check,
-  ChevronsUpDown,
-  LogOut,
-  Mail,
-  Plus,
-  UserPlus,
-} from "lucide-react";
 import { authClient } from "@avenire/auth/client";
-import { Avatar, AvatarFallback, AvatarImage } from "@avenire/ui/components/avatar";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@avenire/ui/components/avatar";
 import { Button } from "@avenire/ui/components/button";
 import {
   Dialog,
@@ -28,7 +21,6 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
@@ -42,11 +34,22 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@avenire/ui/components/sidebar";
-import { getFacehashUrl } from "@/lib/avatar";
-import { usePrivacyMode } from "@/hooks/use-privacy-mode";
-import { useHaptics } from "@/hooks/use-haptics";
+import {
+  Building2,
+  Check,
+  ChevronsUpDown,
+  LogOut,
+  Mail,
+  Plus,
+  UserPlus,
+} from "lucide-react";
+import type { Route } from "next";
 import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { SensitiveText } from "@/components/shared/sensitive-text";
+import { useHaptics } from "@/hooks/use-haptics";
+import { usePrivacyMode } from "@/hooks/use-privacy-mode";
+import { getFacehashUrl } from "@/lib/avatar";
 
 type WorkspaceSummary = {
   workspaceId: string;
@@ -64,13 +67,15 @@ type WorkspaceInvitation = {
 };
 
 function getInitials(value: string) {
-  return value
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("") || "U";
+  return (
+    value
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("") || "U"
+  );
 }
 
 export function NavUser({
@@ -99,22 +104,33 @@ export function NavUser({
   const { isMobile } = useSidebar();
   const router = useRouter();
   const triggerHaptic = useHaptics();
-  const fallbackAvatar = getFacehashUrl(user.name || user.email);
+  const fallbackAvatar = useMemo(
+    () => getFacehashUrl(user.name || user.email),
+    [user.name, user.email]
+  );
   const privacyMode = usePrivacyMode();
   const initials = getInitials(user.name || user.email || "User");
   const [avatarSrc, setAvatarSrc] = useState(user.avatar || fallbackAvatar);
+  const [avatarErrored, setAvatarErrored] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [workspaceName, setWorkspaceName] = useState("");
   const [creatingWorkspace, setCreatingWorkspace] = useState(false);
-  const [createWorkspaceError, setCreateWorkspaceError] = useState<string | null>(null);
+  const [createWorkspaceError, setCreateWorkspaceError] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
-    setAvatarSrc(user.avatar || fallbackAvatar);
-  }, [fallbackAvatar, user.avatar]);
+    if (!avatarErrored) {
+      setAvatarSrc(user.avatar || fallbackAvatar);
+    }
+  }, [avatarErrored, fallbackAvatar, user.avatar]);
 
   const activeWorkspace = useMemo(
-    () => workspaces.find((workspace) => workspace.workspaceId === activeWorkspaceId) ?? null,
-    [activeWorkspaceId, workspaces],
+    () =>
+      workspaces.find(
+        (workspace) => workspace.workspaceId === activeWorkspaceId
+      ) ?? null,
+    [activeWorkspaceId, workspaces]
   );
 
   return (
@@ -126,18 +142,23 @@ export function NavUser({
               <DropdownMenuTrigger
                 render={
                   <SidebarMenuButton
-                    size="lg"
                     className="hit-area data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                    size="lg"
                   />
                 }
               >
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarImage
-                    src={avatarSrc}
                     alt={user.name}
-                    onError={() => setAvatarSrc(fallbackAvatar)}
+                    onError={() => {
+                      setAvatarErrored(true);
+                      setAvatarSrc(fallbackAvatar);
+                    }}
+                    src={avatarSrc}
                   />
-                  <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
+                  <AvatarFallback className="rounded-lg">
+                    {initials}
+                  </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <SensitiveText
@@ -154,9 +175,9 @@ export function NavUser({
                 <ChevronsUpDown className="ml-auto size-4" />
               </DropdownMenuTrigger>
               <DropdownMenuContent
+                align="end"
                 className="w-(--radix-dropdown-menu-trigger-width) min-w-64 rounded-lg"
                 side={isMobile ? "bottom" : "right"}
-                align="end"
                 sideOffset={4}
               >
                 <DropdownMenuGroup>
@@ -211,13 +232,20 @@ export function NavUser({
                         </DropdownMenuItem>
                       ) : (
                         invitations.map((invite) => (
-                          <div className="rounded-md border border-border/60 p-2" key={invite.id}>
-                            <p className="truncate font-medium text-xs">{invite.organizationName}</p>
+                          <div
+                            className="rounded-md border border-border/60 p-2"
+                            key={invite.id}
+                          >
+                            <p className="truncate font-medium text-xs">
+                              {invite.organizationName}
+                            </p>
                             <p className="truncate text-[11px] text-muted-foreground">
                               <SensitiveText
                                 className="truncate"
                                 privacyMode={privacyMode}
-                                value={invite.inviterName ?? invite.inviterEmail}
+                                value={
+                                  invite.inviterName ?? invite.inviterEmail
+                                }
                               />
                             </p>
                             <div className="mt-2 flex gap-2">
@@ -277,7 +305,8 @@ export function NavUser({
           <DialogHeader>
             <DialogTitle>Create workspace</DialogTitle>
             <DialogDescription>
-              Add a new workspace. You can switch between workspaces from your profile menu.
+              Add a new workspace. You can switch between workspaces from your
+              profile menu.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
@@ -327,7 +356,9 @@ export function NavUser({
                     setCreateWorkspaceError(null);
                   } catch (error) {
                     setCreateWorkspaceError(
-                      error instanceof Error ? error.message : "Unable to create workspace.",
+                      error instanceof Error
+                        ? error.message
+                        : "Unable to create workspace."
                     );
                   } finally {
                     setCreatingWorkspace(false);

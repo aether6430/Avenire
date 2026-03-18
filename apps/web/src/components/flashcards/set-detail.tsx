@@ -78,18 +78,18 @@ const STATE_LABELS: Record<FlashcardDisplayState, string> = {
 
 const STATE_STYLES: Record<FlashcardDisplayState, string> = {
   killed:
-    "border-rose-400/20 bg-rose-500/10 text-rose-200 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-200",
+    "border-rose-200/70 bg-rose-100/70 text-rose-700 dark:border-rose-400/30 dark:bg-rose-500/10 dark:text-rose-200",
   learning:
-    "border-amber-400/20 bg-amber-500/10 text-amber-200 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-200",
+    "border-amber-200/70 bg-amber-100/70 text-amber-700 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-200",
   mature:
-    "border-emerald-400/20 bg-emerald-500/10 text-emerald-200 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-200",
-  new: "border-zinc-400/20 bg-zinc-500/10 text-zinc-200 dark:border-zinc-400/20 dark:bg-zinc-500/10 dark:text-zinc-200",
+    "border-emerald-200/70 bg-emerald-100/70 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-200",
+  new: "border-zinc-200/70 bg-zinc-100/70 text-zinc-700 dark:border-zinc-400/30 dark:bg-zinc-500/10 dark:text-zinc-200",
   relearning:
-    "border-orange-400/20 bg-orange-500/10 text-orange-200 dark:border-orange-400/20 dark:bg-orange-500/10 dark:text-orange-200",
+    "border-orange-200/70 bg-orange-100/70 text-orange-700 dark:border-orange-400/30 dark:bg-orange-500/10 dark:text-orange-200",
   suspended:
-    "border-stone-400/20 bg-stone-500/10 text-stone-200 dark:border-stone-400/20 dark:bg-stone-500/10 dark:text-stone-200",
+    "border-stone-200/70 bg-stone-100/70 text-stone-700 dark:border-stone-400/30 dark:bg-stone-500/10 dark:text-stone-200",
   young:
-    "border-teal-400/20 bg-teal-500/10 text-teal-200 dark:border-teal-400/20 dark:bg-teal-500/10 dark:text-teal-200",
+    "border-teal-200/70 bg-teal-100/70 text-teal-700 dark:border-teal-400/30 dark:bg-teal-500/10 dark:text-teal-200",
 };
 
 const DAY_FORMATTER = new Intl.DateTimeFormat("en-US", {
@@ -248,7 +248,7 @@ export function FlashcardSetDetail({
   const [set, setSet] = useState(initialSet);
   const [queue, setQueue] = useState(initialQueue);
   const [search, setSearch] = useState("");
-  const [tab, setTab] = useState(queue.length > 0 ? "study" : "cards");
+  const [tab, setTab] = useState("cards");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<FlashcardCardRecord | null>(
     null
@@ -257,6 +257,7 @@ export function FlashcardSetDetail({
   const [backMarkdown, setBackMarkdown] = useState("");
   const [notesMarkdown, setNotesMarkdown] = useState("");
   const [tags, setTags] = useState("");
+  const [studyOpen, setStudyOpen] = useState(false);
   const [studyRevealed, setStudyRevealed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [calendarRange, setCalendarRange] = useState<
@@ -280,9 +281,16 @@ export function FlashcardSetDetail({
   }, [queue]);
 
   useEffect(() => {
+    if (!studyOpen) {
+      setStudyRevealed(false);
+    }
+  }, [studyOpen]);
+
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (
-        tab !== "study" ||
+        !studyOpen ||
         event.target instanceof HTMLInputElement ||
         event.target instanceof HTMLTextAreaElement
       ) {
@@ -310,7 +318,7 @@ export function FlashcardSetDetail({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [queue, studyRevealed, tab]);
+  }, [queue, studyOpen, studyRevealed]);
 
   const snapshotByCardId = new Map(
     set.cardSnapshots.map((snapshot) => [snapshot.card.id, snapshot])
@@ -329,6 +337,11 @@ export function FlashcardSetDetail({
     );
   });
   const activeCard = queue[0] ?? null;
+  useEffect(() => {
+    if (studyOpen && !activeCard) {
+      setStudyOpen(false);
+    }
+  }, [activeCard, studyOpen]);
   const reviewedToday = buildReviewedToday(set.reviewEventsToday);
   const dayStats = buildDayStats(set);
   const groupedDueCards = buildGroupedDueCards(
@@ -617,177 +630,185 @@ export function FlashcardSetDetail({
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-medium text-foreground">Review</p>
+              <Dialog onOpenChange={setStudyOpen} open={studyOpen}>
+                <DialogTrigger
+                  render={
+                    <Button disabled={!activeCard} type="button">
+                      {activeCard ? "Start review" : "No cards queued"}
+                    </Button>
+                  }
+                />
+                <DialogContent className="h-[92vh] w-[calc(100vw-1.5rem)] sm:max-w-5xl overflow-hidden p-0">
+                  <div className="flex h-full flex-col bg-background">
+                    <DialogHeader className="border-border/70 border-b px-6 py-4">
+                      <DialogTitle className="text-lg">
+                        {set.title}
+                      </DialogTitle>
+                      <DialogDescription>
+                        Press space to flip. Keys 1-4 submit Again, Hard, Good,
+                        Easy.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden px-6 py-6">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-muted-foreground text-xs">
+                        <span>
+                          Card {activeCard?.position ?? 0} ·{" "}
+                          {activeCard?.remainingDueCount ?? 0} left
+                        </span>
+                        {activeSnapshot
+                          ? stateBadge(activeSnapshot.displayState)
+                          : null}
+                      </div>
+
+                      <div className="flex-1 overflow-y-auto">
+                        {activeCard ? (
+                          <FlashcardFlipCard
+                            back={
+                              <div className="w-full space-y-5">
+                                <Markdown
+                                  className="max-w-none text-base"
+                                  content={activeCard.card.backMarkdown}
+                                  id={`study-back-${activeCard.card.id}`}
+                                  parseIncompleteMarkdown={false}
+                                />
+                                {activeCard.card.notesMarkdown ? (
+                                  <div className="rounded-md border border-border/70 bg-muted/20 p-3">
+                                    <p className="mb-2 text-[11px] text-muted-foreground">
+                                      Notes
+                                    </p>
+                                    <Markdown
+                                      className="max-w-none text-sm"
+                                      content={activeCard.card.notesMarkdown}
+                                      id={`study-notes-${activeCard.card.id}`}
+                                      parseIncompleteMarkdown={false}
+                                    />
+                                  </div>
+                                ) : null}
+                              </div>
+                            }
+                            backBodyClassName="px-10"
+                            backMeta={
+                              <div className="flex items-center justify-between gap-3">
+                                <span>
+                                  {activeSnapshot?.dueAt
+                                    ? `Due ${DATE_TIME_FORMATTER.format(
+                                        new Date(activeSnapshot.dueAt)
+                                      )}`
+                                    : "Answer"}
+                                </span>
+                                <span>{activeCard.set.title}</span>
+                              </div>
+                            }
+                            className="mx-auto w-full"
+                            flipped={studyRevealed}
+                            front={
+                              <div className="w-full">
+                                <Markdown
+                                  className="max-w-none text-center text-lg [&_p]:text-center"
+                                  content={activeCard.card.frontMarkdown}
+                                  id={`study-front-${activeCard.card.id}`}
+                                  parseIncompleteMarkdown={false}
+                                />
+                              </div>
+                            }
+                            frontBodyClassName="px-12 text-center"
+                            frontMeta={
+                              <div className="flex items-center justify-between gap-3">
+                                <span>
+                                  {activeSnapshot?.dueAt
+                                    ? `Due ${DATE_TIME_FORMATTER.format(
+                                        new Date(activeSnapshot.dueAt)
+                                      )}`
+                                    : "Ready to recall"}
+                                </span>
+                                <span>{activeCard.set.title}</span>
+                              </div>
+                            }
+                            onFlippedChange={setStudyRevealed}
+                            surfaceClassName="bg-background"
+                          />
+                        ) : (
+                          <div className="rounded-lg border border-border/70 border-dashed px-4 py-10 text-center text-muted-foreground text-xs">
+                            No cards are queued right now.
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          onClick={() => setStudyRevealed((value) => !value)}
+                          type="button"
+                          variant="outline"
+                        >
+                          {studyRevealed ? "Hide answer" : "Reveal"}
+                        </Button>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <RatingButton
+                            disabled={busy || !studyRevealed}
+                            label="1 · Again"
+                            onClick={() => submitReview("again")}
+                            tone="again"
+                          />
+                          <RatingButton
+                            disabled={busy || !studyRevealed}
+                            label="2 · Hard"
+                            onClick={() => submitReview("hard")}
+                            tone="hard"
+                          />
+                          <RatingButton
+                            disabled={busy || !studyRevealed}
+                            label="3 · Good"
+                            onClick={() => submitReview("good")}
+                            tone="good"
+                          />
+                          <RatingButton
+                            disabled={busy || !studyRevealed}
+                            label="4 · Easy"
+                            onClick={() => submitReview("easy")}
+                            tone="easy"
+                          />
+                        </div>
+                        <span className="text-muted-foreground text-xs">
+                          Space to flip · 1-4 to grade
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,16rem)]">
+            <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
+              <p className="text-muted-foreground text-xs">Ready to study</p>
+              <p className="mt-2 font-semibold text-2xl">
+                {activeCard ? activeCard.remainingDueCount + 1 : 0}
+              </p>
+              <p className="mt-2 text-muted-foreground text-xs">
+                {set.dueCount} due · {set.newCount} new
+              </p>
+            </div>
+            <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
+              <p className="text-muted-foreground text-xs">Studied today</p>
+              <p className="mt-2 font-semibold text-2xl">
+                {set.reviewCountToday}
+              </p>
+              <p className="mt-2 text-muted-foreground text-xs">
+                {set.reviewCount7d} in the last week
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
         <Tabs onValueChange={setTab} value={tab}>
           <TabsList variant="line">
-            <TabsTrigger value="study">Study</TabsTrigger>
             <TabsTrigger value="cards">Cards</TabsTrigger>
             <TabsTrigger value="insights">Insights</TabsTrigger>
           </TabsList>
-
-          <TabsContent value="study">
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(22rem,0.9fr)]">
-              <Card>
-                <CardHeader>
-                  <div>
-                    <CardTitle>Review lane</CardTitle>
-                    <CardDescription>
-                      Click the card or press space to flip. Keys 1-4 submit
-                      Again, Hard, Good, Easy.
-                    </CardDescription>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {activeCard ? (
-                    <FlashcardFlipCard
-                      back={
-                        <div className="w-full max-w-lg space-y-5">
-                          <Markdown
-                            className="max-w-none text-sm"
-                            content={activeCard.card.backMarkdown}
-                            id={`study-back-${activeCard.card.id}`}
-                            parseIncompleteMarkdown={false}
-                          />
-                          {activeCard.card.notesMarkdown ? (
-                            <div className="rounded-md border border-border/70 bg-muted/20 p-3">
-                              <p className="mb-2 text-[11px] text-muted-foreground">
-                                Notes
-                              </p>
-                              <Markdown
-                                className="max-w-none text-sm"
-                                content={activeCard.card.notesMarkdown}
-                                id={`study-notes-${activeCard.card.id}`}
-                                parseIncompleteMarkdown={false}
-                              />
-                            </div>
-                          ) : null}
-                        </div>
-                      }
-                      backBodyClassName="px-8"
-                      backMeta={
-                        <div className="flex items-center justify-between gap-3">
-                          <span>
-                            {activeSnapshot?.dueAt
-                              ? `Due ${DATE_TIME_FORMATTER.format(new Date(activeSnapshot.dueAt))}`
-                              : "Answer"}
-                          </span>
-                          {activeSnapshot
-                            ? stateBadge(activeSnapshot.displayState)
-                            : null}
-                        </div>
-                      }
-                      className="mx-auto w-full max-w-3xl"
-                      flipped={studyRevealed}
-                      front={
-                        <div className="w-full max-w-xl">
-                          <Markdown
-                            className="max-w-none text-center text-base [&_p]:text-center"
-                            content={activeCard.card.frontMarkdown}
-                            id={`study-front-${activeCard.card.id}`}
-                            parseIncompleteMarkdown={false}
-                          />
-                        </div>
-                      }
-                      frontBodyClassName="px-10 text-center"
-                      frontMeta={
-                        <div className="flex items-center justify-between gap-3">
-                          <span>
-                            Card {activeCard.position} ·{" "}
-                            {activeCard.remainingDueCount} left
-                          </span>
-                          <span>{activeCard.set.title}</span>
-                        </div>
-                      }
-                      onFlippedChange={setStudyRevealed}
-                      surfaceClassName="bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(0,0,0,0.05))]"
-                    />
-                  ) : (
-                    <div className="rounded-lg border border-border/70 border-dashed px-4 py-10 text-center text-muted-foreground text-xs">
-                      No cards are queued right now.
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <div className="grid gap-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Current card</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {activeCard ? (
-                      <>
-                        <StatusRow
-                          label="Queue position"
-                          value={`${activeCard.position}`}
-                        />
-                        <StatusRow
-                          label="State"
-                          value={
-                            activeSnapshot
-                              ? STATE_LABELS[activeSnapshot.displayState]
-                              : "New"
-                          }
-                        />
-                        <StatusRow
-                          label="Due"
-                          value={
-                            activeSnapshot?.dueAt
-                              ? DATE_TIME_FORMATTER.format(
-                                  new Date(activeSnapshot.dueAt)
-                                )
-                              : "Introduced when reviewed"
-                          }
-                        />
-                        <StatusRow
-                          label="Remaining"
-                          value={`${activeCard.remainingDueCount}`}
-                        />
-                      </>
-                    ) : (
-                      <p className="text-muted-foreground text-xs">
-                        Queue metadata appears here when a card is active.
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Recall rating</CardTitle>
-                    <CardDescription>
-                      Ratings stay visually neutral until the answer is visible.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="grid gap-2">
-                    <RatingButton
-                      disabled={busy || !studyRevealed}
-                      label="1 · Again"
-                      onClick={() => submitReview("again")}
-                      tone="again"
-                    />
-                    <RatingButton
-                      disabled={busy || !studyRevealed}
-                      label="2 · Hard"
-                      onClick={() => submitReview("hard")}
-                      tone="hard"
-                    />
-                    <RatingButton
-                      disabled={busy || !studyRevealed}
-                      label="3 · Good"
-                      onClick={() => submitReview("good")}
-                      tone="good"
-                    />
-                    <RatingButton
-                      disabled={busy || !studyRevealed}
-                      label="4 · Easy"
-                      onClick={() => submitReview("easy")}
-                      tone="easy"
-                    />
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          </TabsContent>
 
           <TabsContent value="cards">
             <Card>
@@ -1164,21 +1185,26 @@ function RatingButton({
   tone: "again" | "hard" | "good" | "easy";
 }) {
   let toneClass =
-    "border-emerald-400/30 text-emerald-200 hover:bg-emerald-500/10";
+    "border-emerald-200/70 text-emerald-700 hover:bg-emerald-200/40 dark:border-emerald-400/30 dark:text-emerald-200 dark:hover:bg-emerald-500/10";
 
   if (tone === "again") {
-    toneClass = "border-rose-400/30 text-rose-200 hover:bg-rose-500/10";
+    toneClass =
+      "border-rose-200/70 text-rose-700 hover:bg-rose-200/40 dark:border-rose-400/30 dark:text-rose-200 dark:hover:bg-rose-500/10";
   } else if (tone === "hard") {
-    toneClass = "border-orange-400/30 text-orange-200 hover:bg-orange-500/10";
+    toneClass =
+      "border-orange-200/70 text-orange-700 hover:bg-orange-200/40 dark:border-orange-400/30 dark:text-orange-200 dark:hover:bg-orange-500/10";
   } else if (tone === "good") {
-    toneClass = "border-teal-400/30 text-teal-200 hover:bg-teal-500/10";
+    toneClass =
+      "border-teal-200/70 text-teal-700 hover:bg-teal-200/40 dark:border-teal-400/30 dark:text-teal-200 dark:hover:bg-teal-500/10";
   }
 
   return (
     <Button
       className={cn(
         "justify-between border-border/70 bg-muted/15 text-foreground transition-colors",
-        disabled ? "bg-muted/10 text-muted-foreground" : toneClass
+        disabled
+          ? "border-border/40 bg-muted/10 text-muted-foreground"
+          : toneClass
       )}
       disabled={disabled}
       onClick={onClick}
@@ -1187,14 +1213,5 @@ function RatingButton({
     >
       {label}
     </Button>
-  );
-}
-
-function StatusRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/20 px-3 py-2">
-      <span className="text-muted-foreground text-xs">{label}</span>
-      <span className="font-medium text-base text-foreground">{value}</span>
-    </div>
   );
 }

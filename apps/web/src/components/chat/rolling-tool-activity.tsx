@@ -1,8 +1,8 @@
 "use client";
 
 import type { UIMessage } from "@avenire/ai/message-types";
-import { ChevronRight } from "lucide-react";
 import { motion, useSpring } from "framer-motion";
+import { ChevronRight } from "lucide-react";
 import { useEffect, useId, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -18,7 +18,24 @@ type SearchPreview = {
   query: string;
 };
 
+type FlashcardPreview = {
+  cardCount: number;
+  setId: string;
+  title: string;
+};
+
+type QuizPreview = {
+  questionCount: number;
+  setId: string;
+  title: string;
+};
+
 export type ActivityAction =
+  | {
+      error?: string;
+      kind: "error";
+      pending: boolean;
+    }
   | {
       kind: "create" | "delete" | "edit";
       path: string;
@@ -46,6 +63,18 @@ export type ActivityAction =
       pending: boolean;
       preview?: SearchPreview;
       value: string;
+    }
+  | {
+      kind: "flashcards";
+      pending: boolean;
+      preview?: FlashcardPreview;
+      value: string;
+    }
+  | {
+      kind: "quiz";
+      pending: boolean;
+      preview?: QuizPreview;
+      value: string;
     };
 
 type ExploreAction = Extract<
@@ -65,15 +94,13 @@ type ActionGroup =
   | { action: MutationAction; type: "mutation" };
 
 const ROLLING_TOOL_TYPES = new Set([
-  "tool-create_note",
-  "tool-delete_file",
-  "tool-get_file_summary",
-  "tool-list_files",
-  "tool-move_file",
-  "tool-read_note",
-  "tool-read_workspace_file",
+  "tool-avenire_agent",
+  "tool-file_manager_agent",
+  "tool-generate_flashcards",
+  "tool-get_due_cards",
+  "tool-note_agent",
+  "tool-quiz_me",
   "tool-search_materials",
-  "tool-update_note",
 ]);
 
 const EXPLORE_KINDS = new Set<ActivityAction["kind"]>([
@@ -106,32 +133,24 @@ function toPreviewContent(value: string | undefined) {
 }
 
 function toReadPreview(part: ToolPart): ReadPreview | undefined {
-  switch (part.type) {
-    case "tool-read_note":
-    case "tool-read_workspace_file":
-      if (!isOutputAvailable(part)) {
-        return undefined;
-      }
-      return {
-        content: toPreviewContent(part.output.content),
-        path: part.output.workspacePath,
-      };
-    case "tool-get_file_summary":
-      if (!isOutputAvailable(part)) {
-        return undefined;
-      }
-      return {
-        content: toPreviewContent(
-          part.output.chunks
-            .slice(0, 2)
-            .map((chunk) => chunk.content)
-            .join("\n")
-        ),
-        path: part.output.workspacePath,
-      };
-    default:
+  if (
+    part.type === "tool-avenire_agent" ||
+    part.type === "tool-file_manager_agent"
+  ) {
+    if (!(isOutputAvailable(part) && "files" in part.output)) {
       return undefined;
+    }
+    const files = Array.isArray(part.output.files) ? part.output.files : [];
+    const firstFile = files[0];
+    if (!firstFile || typeof firstFile.excerpt !== "string") {
+      return undefined;
+    }
+    return {
+      content: toPreviewContent(firstFile.excerpt),
+      path: firstFile.workspacePath,
+    };
   }
+  return undefined;
 }
 
 function toSearchPreview(part: ToolPart): SearchPreview | undefined {
@@ -149,44 +168,36 @@ function toSearchPreview(part: ToolPart): SearchPreview | undefined {
 }
 
 function toActionValue(part: ToolPart) {
-  switch (part.type) {
-    case "tool-read_note":
-    case "tool-read_workspace_file":
-      return isOutputAvailable(part)
-        ? part.output.workspacePath
-        : (part.input?.fileId ?? "note");
-    case "tool-get_file_summary":
-      return isOutputAvailable(part)
-        ? part.output.workspacePath
-        : (part.input?.fileId ?? "file");
-    case "tool-search_materials":
-      return part.input?.query ?? "search";
-    case "tool-list_files":
-      return part.input?.folderId ?? "workspace";
-    case "tool-create_note":
-      return isOutputAvailable(part)
-        ? part.output.workspacePath
-        : `${part.input?.title?.trim() || "untitled-note"}.md`;
-    case "tool-update_note":
-      return isOutputAvailable(part)
-        ? part.output.workspacePath
-        : (part.input?.fileId ?? "note");
-    case "tool-move_file":
-      return isOutputAvailable(part)
-        ? part.output.workspacePath
-        : (part.input?.workspacePathHint ?? part.input?.fileId ?? "file");
-    case "tool-delete_file":
-      return isOutputAvailable(part)
-        ? part.output.workspacePath
-        : (part.input?.workspacePathHint ?? part.input?.fileId ?? "file");
-    default:
-      return "";
+  if (
+    part.type === "tool-avenire_agent" ||
+    part.type === "tool-file_manager_agent"
+  ) {
+    if (isOutputAvailable(part) && "files" in part.output) {
+      const files = Array.isArray(part.output.files) ? part.output.files : [];
+      return files[0]?.workspacePath ?? "workspace";
+    }
+    if (part.input && "query" in part.input) {
+      return part.input.query ?? "workspace";
+    }
+    if (part.input && "task" in part.input) {
+      return part.input.task ?? "workspace";
+    }
+    return "workspace";
   }
+  if (part.type === "tool-note_agent") {
+    if (isOutputAvailable(part)) {
+      return part.output.notes[0]?.workspacePath ?? "note";
+    }
+    return part.input?.task ?? "note";
+  }
+  if (part.type === "tool-search_materials") {
+    return part.input?.query ?? "search";
+  }
+  return "";
 }
 
 function toAction(part: ToolPart): ActivityAction | null {
   if (
-    part.state === "output-error" ||
     part.state === "approval-requested" ||
     part.state === "approval-responded" ||
     !ROLLING_TOOL_TYPES.has(part.type)
@@ -194,61 +205,117 @@ function toAction(part: ToolPart): ActivityAction | null {
     return null;
   }
 
-  switch (part.type) {
-    case "tool-read_note":
-    case "tool-read_workspace_file":
-    case "tool-get_file_summary":
-      return {
-        kind: "read",
-        pending: isPending(part),
-        preview: toReadPreview(part),
-        value: toActionValue(part) || "file",
-      };
-    case "tool-search_materials":
+  if (part.state === "output-error") {
+    return {
+      error: part.errorText ?? "Unknown error",
+      kind: "error",
+      pending: false,
+    };
+  }
+
+  if (
+    part.type === "tool-avenire_agent" ||
+    part.type === "tool-file_manager_agent"
+  ) {
+    let query = "workspace";
+    if (part.input && "query" in part.input) {
+      query = part.input.query ?? "workspace";
+    } else if (part.input && "task" in part.input) {
+      query = part.input.task ?? "workspace";
+    }
+    if (part.type === "tool-avenire_agent") {
       return {
         kind: "search",
         pending: isPending(part),
         preview: toSearchPreview(part),
-        value: toActionValue(part) || "search",
+        value: query,
       };
-    case "tool-list_files":
-      return {
-        kind: "list",
-        pending: isPending(part),
-        value: toActionValue(part) || "workspace",
-      };
-    case "tool-create_note":
+    }
+    return {
+      kind: "list",
+      pending: isPending(part),
+      value: query,
+    };
+  }
+
+  if (part.type === "tool-note_agent") {
+    const operation = isOutputAvailable(part)
+      ? part.output.operation
+      : "listed";
+    const path = isOutputAvailable(part)
+      ? (part.output.notes[0]?.workspacePath ?? "note")
+      : (part.input?.task ?? "note");
+    if (operation === "created") {
       return {
         kind: "create",
-        path: toActionValue(part) || "note",
+        path,
         pending: isPending(part),
       };
-    case "tool-update_note":
+    }
+    if (operation === "updated") {
       return {
         kind: "edit",
-        path: toActionValue(part) || "note",
+        path,
         pending: isPending(part),
       };
-    case "tool-move_file":
-      return {
-        from: isOutputAvailable(part)
-          ? part.output.previousWorkspacePath
-          : (part.input?.workspacePathHint ?? part.input?.fileId ?? "file"),
-        kind: "move",
-        pending: isPending(part),
-        to: isOutputAvailable(part)
-          ? part.output.workspacePath
-          : part.input?.targetFolderPathHint,
-      };
-    case "tool-delete_file":
-      return {
-        kind: "delete",
-        path: toActionValue(part) || "file",
-        pending: isPending(part),
-      };
-    default:
-      return null;
+    }
+    return {
+      kind: "read",
+      pending: isPending(part),
+      preview: isOutputAvailable(part)
+        ? {
+            content: part.output.notes[0]?.contentPreview?.slice(0, 200) ?? "",
+            path,
+          }
+        : undefined,
+      value: path,
+    };
   }
+
+  if (part.type === "tool-search_materials") {
+    return {
+      kind: "search",
+      pending: isPending(part),
+      preview: toSearchPreview(part),
+      value: toActionValue(part) || "search",
+    };
+  }
+
+  if (part.type === "tool-generate_flashcards") {
+    return {
+      kind: "flashcards",
+      pending: isPending(part),
+      preview:
+        isOutputAvailable(part) &&
+        part.output &&
+        Array.isArray(part.output.cards)
+          ? {
+              cardCount: part.output.cards.length,
+              setId: part.output.setId,
+              title: part.output.title,
+            }
+          : undefined,
+      value: part.input?.title ?? "flashcards",
+    };
+  }
+
+  if (part.type === "tool-quiz_me") {
+    return {
+      kind: "quiz",
+      pending: isPending(part),
+      preview:
+        isOutputAvailable(part) && part.output
+          ? {
+              questionCount: part.output.questionCount,
+              setId: part.output.setId,
+              title: part.output.title,
+            }
+          : undefined,
+      value: part.input?.title ?? "quiz",
+    };
+  }
+
+  return null;
 }
 
 function labelFor(action: ExploreAction): string {
@@ -314,7 +381,12 @@ function Dot({ delay }: { delay: number }) {
       animate={{ opacity: [0.15, 0.7, 0.15] }}
       aria-hidden="true"
       className="inline-block size-[3px] rounded-full bg-current"
-      transition={{ delay, duration: 1.5, ease: "easeInOut", repeat: Infinity }}
+      transition={{
+        delay,
+        duration: 1.5,
+        ease: "easeInOut",
+        repeat: Number.POSITIVE_INFINITY,
+      }}
     />
   );
 }
@@ -369,7 +441,7 @@ function RollingWindow({ items }: { items: ExploreItem[] }) {
               key={`${item.label}-${item.value}-${index}`}
               style={{ height: ROW_HEIGHT }}
             >
-              <span className="w-14 shrink-0 text-[11px] font-semibold text-foreground/45">
+              <span className="w-14 shrink-0 font-semibold text-[11px] text-foreground/45">
                 {item.label}
               </span>
               <span className="truncate font-mono text-[11px] text-foreground/22">
@@ -416,7 +488,7 @@ function ReadPreviewPanel({
             {preview.path}
           </span>
         </div>
-        <pre className="overflow-hidden px-2.5 py-1.5 font-mono text-[10.5px] leading-[1.55] text-foreground/32">
+        <pre className="overflow-hidden px-2.5 py-1.5 font-mono text-[10.5px] text-foreground/32 leading-[1.55]">
           {lines.join("\n")}
         </pre>
       </div>
@@ -490,7 +562,7 @@ function AccordionFileRow({
       className="flex items-baseline gap-2 pl-4"
       style={{ height: ROW_HEIGHT }}
     >
-      <span className="w-14 shrink-0 text-[11px] font-semibold text-foreground/32">
+      <span className="w-14 shrink-0 font-semibold text-[11px] text-foreground/32">
         {item.label}
       </span>
       <span className="flex-1 truncate font-mono text-[11px] text-foreground/20">
@@ -615,7 +687,7 @@ function ExploreBlock({
           onClick={() => setOpen((current) => !current)}
           type="button"
         >
-          <span className="text-sm font-semibold">Explored</span>
+          <span className="font-semibold text-sm">Explored</span>
           {summary ? (
             <span className="text-[11px] text-foreground/26">{summary}</span>
           ) : null}
@@ -635,7 +707,7 @@ function ExploreBlock({
           className="flex h-7 items-center gap-2"
           role="status"
         >
-          <span className="text-sm font-semibold text-foreground/32">
+          <span className="font-semibold text-foreground/32 text-sm">
             Exploring
           </span>
           {summary ? (
@@ -654,6 +726,75 @@ function ExploreBlock({
 }
 
 function MutationBlock({ action }: { action: MutationAction }) {
+  if (action.kind === "error") {
+    return (
+      <motion.div
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-1 flex items-baseline gap-2 text-sm"
+        initial={{ opacity: 0, y: 5 }}
+        role="listitem"
+        transition={{ duration: 0.28, ease: "easeOut" }}
+      >
+        <span className="font-semibold text-destructive">Error</span>
+        <span className="font-mono text-[12px] text-destructive/80">
+          {action.error ?? "Unknown error"}
+        </span>
+        {action.pending ? (
+          <span className="font-mono text-[11px] text-foreground/28">
+            running
+            <ThinkingDots />
+          </span>
+        ) : null}
+      </motion.div>
+    );
+  }
+
+  if (action.kind === "flashcards") {
+    return (
+      <motion.div
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-1 flex items-baseline gap-2 text-sm"
+        initial={{ opacity: 0, y: 5 }}
+        role="listitem"
+        transition={{ duration: 0.28, ease: "easeOut" }}
+      >
+        <span className="font-semibold text-foreground/72">Flashcards</span>
+        <span className="font-mono text-[12px] text-foreground/62">
+          {action.value || "generating..."}
+        </span>
+        {action.pending ? (
+          <span className="font-mono text-[11px] text-foreground/28">
+            creating
+            <ThinkingDots />
+          </span>
+        ) : null}
+      </motion.div>
+    );
+  }
+
+  if (action.kind === "quiz") {
+    return (
+      <motion.div
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-1 flex items-baseline gap-2 text-sm"
+        initial={{ opacity: 0, y: 5 }}
+        role="listitem"
+        transition={{ duration: 0.28, ease: "easeOut" }}
+      >
+        <span className="font-semibold text-foreground/72">Quiz</span>
+        <span className="font-mono text-[12px] text-foreground/62">
+          {action.value || "generating..."}
+        </span>
+        {action.pending ? (
+          <span className="font-mono text-[11px] text-foreground/28">
+            creating
+            <ThinkingDots />
+          </span>
+        ) : null}
+      </motion.div>
+    );
+  }
+
   const path =
     action.kind === "move" ? (action.to ?? action.from) : action.path;
   const pathParts = path.split("/");
@@ -727,7 +868,7 @@ export function RollingAgentActivity({
   };
 
   return (
-    <div className="mb-0.5 font-mono" role="list" aria-label="Agent activity">
+    <div aria-label="Agent activity" className="mb-0.5 font-mono" role="list">
       {groups.map((group, index) => {
         if (group.type === "explore") {
           return (
@@ -778,7 +919,7 @@ export function RollingToolActivity({
   };
 
   return (
-    <div className="mb-0.5 font-mono" role="list" aria-label="Agent activity">
+    <div aria-label="Agent activity" className="mb-0.5 font-mono" role="list">
       {groups.map((group, index) => {
         if (group.type === "explore") {
           return (

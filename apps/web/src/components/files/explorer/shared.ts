@@ -1,28 +1,50 @@
 import type { VideoDeliveryRecord } from "@/lib/file-data";
+import type { ShareSuggestion } from "@/types/share";
 
 export type UploadStatus = "failed" | "queued" | "uploaded" | "uploading";
 
 export interface FolderRecord {
+  bannerUrl?: string | null;
+  createdAt?: string;
+  createdBy?: string;
+  iconColor?: string | null;
   id: string;
   name: string;
   parentId: string | null;
   isShared?: boolean;
   readOnly?: boolean;
+  updatedAt?: string;
+  updatedBy?: string | null;
 }
 
 export interface FileRecord {
+  createdAt: string;
+  folderId: string;
   id: string;
   name: string;
   storageUrl: string;
   mimeType: string | null;
   sizeBytes: number;
   videoDelivery?: VideoDeliveryRecord | null;
+  isIngested?: boolean;
   isNote?: boolean;
-  createdAt: string;
   isShared?: boolean;
   readOnly?: boolean;
   sourceWorkspaceId?: string;
+  updatedAt?: string;
+  updatedBy?: string | null;
+  uploadedBy?: string;
 }
+
+export interface WorkspaceMemberRecord {
+  email: string | null;
+  id: string | null;
+  name: string | null;
+  role: string;
+  userId: string | null;
+}
+
+export type { ShareSuggestion };
 
 export interface UploadQueueItem {
   error?: string;
@@ -92,11 +114,13 @@ export function detectPreviewKind(file: FileRecord) {
   ]);
   const videoExt = new Set([".mp4", ".webm", ".ogg", ".mov", ".m4v"]);
   const audioExt = new Set([".mp3", ".wav", ".ogg", ".aac", ".m4a", ".flac"]);
+  const markdownExt = new Set([".md", ".mdx"]);
 
   return {
     isImage: mime.startsWith("image/") || imageExt.has(ext),
     isPdf: mime === "application/pdf" || ext === ".pdf",
     isVideo: mime.startsWith("video/") || videoExt.has(ext),
     isAudio: mime.startsWith("audio/") || audioExt.has(ext),
+    isMarkdown: mime.includes("markdown") || markdownExt.has(ext),
   };
 }

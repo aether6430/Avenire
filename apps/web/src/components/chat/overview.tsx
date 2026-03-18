@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
 
-export const Overview = () => {
+export const Overview = ({ userName }: { userName?: string }) => {
   return (
     <motion.div
       animate={{ opacity: 1, y: 0 }}
@@ -10,13 +10,10 @@ export const Overview = () => {
       key="overview"
       transition={{ duration: 0.18, ease: "easeOut" }}
     >
-      <div className="mx-auto max-w-xl rounded-xl border border-border/70 bg-card px-5 py-4 text-center">
-        <p className="font-medium text-foreground text-sm">Hey There!</p>
-        <p className="mt-1 text-muted-foreground text-sm">
-          Search across uploaded material, attach files, or type{" "}
-          <span className="font-medium text-foreground">@</span> to cite a
-          workspace file.
-        </p>
+      <div className="mx-auto max-w-xl rounded-xl px-5 py-5 text-center">
+        <h1 className="whitespace-nowrap pb-2 font-bold text-4xl leading-none tracking-tight text-foreground sm:text-5xl lg:text-6xl">
+          {userName ? `Hey ${userName}!` : "hey there"}
+        </h1>
       </div>
     </motion.div>
   );

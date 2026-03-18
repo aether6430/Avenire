@@ -4,6 +4,23 @@ import localFont from "next/font/local";
 import { ServiceWorkerRegistration } from "@/components/pwa/ServiceWorkerRegistration";
 import { metadataBase } from "@/lib/page-metadata";
 import "./globals.css";
+import { Bitter, Lora, Inconsolata } from "next/font/google";
+
+const fontSans = Bitter({
+  subsets: ["latin"],
+  variable: "--font-sans",
+});
+
+const fontSerif = Lora({
+  subsets: ["latin"],
+  variable: "--font-serif",
+});
+
+const fontMono = Inconsolata({
+  subsets: ["latin"],
+  variable: "--font-mono",
+});
+
 
 const fonde = localFont({
   src: "./fonde.ttf",
@@ -43,7 +60,7 @@ export default function RootLayout({
   return (
     <html className="light" lang="en">
       <body
-        className={`${fonde.variable} font-sans antialiased`}
+        className={`${fonde.variable} font-sans antialiased ${fontSans.variable} ${fontSerif.variable} ${fontMono.variable}`}
         style={
           {
             "--font-sans":
@@ -53,7 +70,7 @@ export default function RootLayout({
       >
         <ServiceWorkerRegistration />
         {children}
-        <Toaster closeButton richColors />
+        <Toaster closeButton richColors position="top-right" />
       </body>
     </html>
   );

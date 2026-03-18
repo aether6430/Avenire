@@ -56,11 +56,13 @@ export async function PATCH(
   const body = (await request.json().catch(() => ({}))) as {
     title?: string;
     pinned?: boolean;
+    icon?: string | null;
   };
 
   const updated = await updateChatForUser(user.id, slug, {
     title: body.title,
-    pinned: body.pinned
+    pinned: body.pinned,
+    icon: body.icon,
   }, chat?.workspaceId);
 
   if (!updated) {

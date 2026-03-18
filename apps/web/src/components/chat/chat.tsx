@@ -5,12 +5,13 @@ import type { AgentActivityData, UIMessage } from "@avenire/ai/message-types";
 import { Button } from "@avenire/ui/components/button";
 import {
   DefaultChatTransport,
-  lastAssistantMessageIsCompleteWithApprovalResponses,
   type FileUIPart,
+  lastAssistantMessageIsCompleteWithApprovalResponses,
 } from "ai";
 import { ChevronDown } from "lucide-react";
 import { AnimatePresence, motion, useInView } from "motion/react";
-import { useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import {
@@ -26,8 +27,10 @@ import {
   CHAT_CREATED_EVENT,
   CHAT_NAME_UPDATED_EVENT,
   CHAT_STREAM_FINISHED_EVENT,
+  CHAT_STREAM_STATUS_EVENT,
   type ChatCreatedDetail,
   type ChatNameUpdatedDetail,
+  type ChatStreamStatusDetail,
 } from "@/lib/chat-events";
 import { normalizeMediaType } from "@/lib/media-type";
 
@@ -69,6 +72,7 @@ interface ChatProps {
   selectedModel: string;
   selectedReasoningModel: string;
   workspaceUuid: string;
+  userName?: string;
 }
 
 export function Chat({
@@ -78,13 +82,17 @@ export function Chat({
   selectedReasoningModel,
   isReadonly,
   workspaceUuid,
+  userName,
 }: ChatProps) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [chatId, setChatId] = useState(id);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [input, setInput] = useState("");
   const [agentActivity, setAgentActivity] = useState<AgentActivityData | null>(
     null
   );
+  const lastCompletedMessageIdRef = useRef<string | null>(null);
   const MAX_FILES = 3;
   const [messagesContainerRef, messagesEndRef, scroll] =
     useScrollToBottom<HTMLDivElement>();
@@ -112,7 +120,6 @@ export function Chat({
     setMessages,
     sendMessage: append,
     status,
-    stop,
     regenerate: reload,
     resumeStream,
     addToolApprovalResponse,
@@ -139,10 +146,16 @@ export function Chat({
         }
         setChatId(detail.id);
         if (
-          typeof window !== "undefined" &&
-          window.location.pathname === "/dashboard/chats"
+          pathname === "/dashboard/chats" ||
+          pathname === "/dashboard/chats/new"
         ) {
-          window.history.pushState({}, "", `/dashboard/chats/${detail.id}`);
+          router.replace(`/dashboard/chats/${detail.id}`);
+        } else if (typeof window !== "undefined") {
+          window.history.replaceState(
+            { chatId: detail.id },
+            "",
+            `/dashboard/chats/${detail.id}`
+          );
         }
         window.dispatchEvent(
           new CustomEvent<ChatCreatedDetail>(CHAT_CREATED_EVENT, {
@@ -190,6 +203,42 @@ export function Chat({
   }, [chatId, status]);
 
   useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent<ChatStreamStatusDetail>(CHAT_STREAM_STATUS_EVENT, {
+        detail: { chatId, status },
+      })
+    );
+  }, [chatId, status]);
+
+  useEffect(() => {
+    if (status !== "ready") {
+      return;
+    }
+    const lastMessage = messages.at(-1);
+    if (!lastMessage || lastMessage.role !== "assistant") {
+      return;
+    }
+    if (lastCompletedMessageIdRef.current === lastMessage.id) {
+      return;
+    }
+
+    const isTabHidden =
+      typeof document !== "undefined" && document.visibilityState !== "visible";
+    const isWindowUnfocused =
+      typeof document !== "undefined" && !document.hasFocus();
+    const isOnChatPage =
+      typeof window !== "undefined" &&
+      window.location.pathname.startsWith("/dashboard/chats");
+    const isInactive = isTabHidden || isWindowUnfocused || !isOnChatPage;
+
+    if (isInactive) {
+      toast.success("Chat response ready");
+    }
+
+    lastCompletedMessageIdRef.current = lastMessage.id;
+  }, [chatId, messages, status]);
+
+  useEffect(() => {
     if (status === "submitted") {
       setAgentActivity(null);
     }
@@ -200,10 +249,6 @@ export function Chat({
       return;
     }
     if (status === "submitted" || status === "streaming") {
-      scroll();
-      return;
-    }
-    if (status === "ready" && messages.at(-1)?.role === "assistant") {
       scroll();
     }
   }, [messages, scroll, status]);
@@ -283,23 +328,44 @@ export function Chat({
   });
 
   const isEmptyState = messages.length === 0;
+  const inputCard = (centered = false) => (
+    <div
+      className={`flex min-h-36 w-full flex-col gap-2 rounded-2xl bg-transparent p-3 pb-1 backdrop-blur-sm ${
+        centered ? "rounded-b-2xl" : "rounded-b-none"
+      }`}
+    >
+      <MultimodalInput
+        attachments={attachments}
+        centered={centered}
+        handleSubmit={handleSubmit}
+        input={input}
+        setAttachments={setAttachments}
+        setInput={setInput}
+        status={status}
+        workspaceUuid={workspaceUuid}
+      />
+    </div>
+  );
 
   return (
     <div {...getRootProps()} className="relative flex h-full min-h-0 flex-col">
-      <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col transition-all duration-300">
+      <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col bg-background transition-all duration-300">
         {!isEmptyState && (
           <Messages
             addToolApprovalResponse={addToolApprovalResponse}
             agentActivity={agentActivity}
             chatId={chatId}
             error={error}
+            isEmpty={isEmptyState}
             isReadonly={isReadonly}
             messages={messages}
             messagesContainerRef={messagesContainerRef}
             messagesEndRef={messagesEndRef}
             reload={reload}
+            sendMessage={append}
             setMessages={setMessages}
             status={status}
+            userName={userName}
             workspaceUuid={workspaceUuid}
           />
         )}
@@ -315,21 +381,11 @@ export function Chat({
                 key="composer-center"
                 transition={{ duration: 0.24, ease: "easeOut" }}
               >
-                <div className="flex w-full max-w-3xl flex-col items-center justify-center gap-6 px-3 sm:px-5">
-                  <div>
-                    <Overview />
+                <div className="flex w-full max-w-3xl flex-col items-center justify-center">
+                <div className="mb-6">
+                    <Overview userName={userName} />
                   </div>
-                  <MultimodalInput
-                    attachments={attachments}
-                    centered
-                    handleSubmit={handleSubmit}
-                    input={input}
-                    setAttachments={setAttachments}
-                    setInput={setInput}
-                    status={status}
-                    stop={stop}
-                    workspaceUuid={workspaceUuid}
-                  />
+                  {inputCard(true)}
                   {attachments.length === 0 && (
                     <SuggestedActions
                       onAction={(text) => {
@@ -340,47 +396,36 @@ export function Chat({
                 </div>
               </motion.div>
             ) : (
-              <motion.div
+              <motion.form
                 animate={{ opacity: 1, y: 0 }}
-                className="shrink-0 px-3 pb-3 sm:px-5 sm:pb-4"
+                className="relative z-30 mx-auto w-full max-w-3xl px-2 pb-2"
                 exit={{ opacity: 0, y: 12 }}
                 initial={{ opacity: 0, y: 20 }}
                 key="composer-bottom"
                 transition={{ duration: 0.22, ease: "easeOut" }}
               >
-                <div className="relative mx-auto w-full max-w-3xl">
-                  <motion.div
-                    animate={isInView ? "hidden" : "visible"}
-                    className="pointer-events-none absolute right-0 -top-11 z-10 flex justify-end"
-                    initial="hidden"
-                    transition={{ duration: 0.3, ease: "easeInOut" }}
-                    variants={{
-                      visible: { opacity: 1, y: 0 },
-                      hidden: { opacity: 0, y: 8 },
-                    }}
+                <motion.div
+                  animate={isInView ? "hidden" : "visible"}
+                  className="mb-2 flex justify-end"
+                  initial="hidden"
+                  transition={{ duration: 0.3, ease: "easeInOut" }}
+                  variants={{
+                    visible: { opacity: 1, y: 0 },
+                    hidden: { opacity: 0, y: 8 },
+                  }}
+                >
+                  <Button
+                    className="rounded-full border-border/80 bg-card/90 backdrop-blur-xs"
+                    onClick={() => scroll({ force: true })}
+                    size="icon"
+                    type="button"
+                    variant="outline"
                   >
-                    <Button
-                      className="pointer-events-auto rounded-full border-border/80 bg-card/90 backdrop-blur-xs"
-                      onClick={scroll}
-                      size="icon"
-                      type="button"
-                      variant="outline"
-                    >
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
-                  </motion.div>
-                  <MultimodalInput
-                    attachments={attachments}
-                    handleSubmit={handleSubmit}
-                    input={input}
-                    setAttachments={setAttachments}
-                    setInput={setInput}
-                    status={status}
-                    stop={stop}
-                    workspaceUuid={workspaceUuid}
-                  />
-                </div>
-              </motion.div>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </motion.div>
+                {inputCard(false)}
+              </motion.form>
             )}
           </AnimatePresence>
         )}

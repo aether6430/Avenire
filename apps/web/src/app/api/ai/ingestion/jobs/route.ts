@@ -2,6 +2,7 @@ import { scheduleIngestionJob } from "@avenire/ingestion/queue";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { listRecentIngestionJobsForWorkspace } from "@/lib/ingestion-data";
+import { getFileAssetById } from "@/lib/file-data";
 import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
 import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
 
@@ -83,9 +84,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const file = await getFileAssetById(
+    parsed.data.workspaceUuid,
+    parsed.data.fileUuid
+  );
+  if (!file) {
+    return NextResponse.json({ error: "File not found" }, { status: 404 });
+  }
+
   const job = await scheduleIngestionJob({
     workspaceId: parsed.data.workspaceUuid,
-    fileId: parsed.data.fileUuid,
+    fileId: file.id,
     sourceType: parsed.data.sourceType,
   });
 

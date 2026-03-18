@@ -27,41 +27,43 @@ const INITIAL_INTENT_VERSION: FilesUiIntentVersion = {
   goParent: 0,
 };
 
-interface FilesUiStore {
-  emitIntent: (intent: FilesUiIntent) => void;
-  emitSync: (workspaceUuid?: string | null) => void;
-  setUploadActivityOpen: (open: boolean) => void;
-  toggleUploadActivityOpen: () => void;
+interface FilesUiState {
   intentVersion: FilesUiIntentVersion;
-  uploadActivityOpen: boolean;
   sync: {
     version: number;
     workspaceUuid: string | null;
   };
+  uploadActivityOpen: boolean;
 }
 
-export const useFilesUiStore = create<FilesUiStore>()((set) => ({
+export const useFilesUiStore = create<FilesUiState>()(() => ({
   intentVersion: INITIAL_INTENT_VERSION,
   sync: {
     version: 0,
     workspaceUuid: null,
   },
   uploadActivityOpen: false,
-  emitIntent: (intent) =>
-    set((state) => ({
+}));
+
+export const filesUiActions = {
+  emitIntent: (intent: FilesUiIntent) =>
+    useFilesUiStore.setState((state) => ({
       intentVersion: {
         ...state.intentVersion,
         [intent]: state.intentVersion[intent] + 1,
       },
     })),
-  emitSync: (workspaceUuid) =>
-    set((state) => ({
+  emitSync: (workspaceUuid?: string | null) =>
+    useFilesUiStore.setState((state) => ({
       sync: {
         version: state.sync.version + 1,
         workspaceUuid: workspaceUuid ?? null,
       },
     })),
-  setUploadActivityOpen: (open) => set({ uploadActivityOpen: open }),
+  setUploadActivityOpen: (open: boolean) =>
+    useFilesUiStore.setState({ uploadActivityOpen: open }),
   toggleUploadActivityOpen: () =>
-    set((state) => ({ uploadActivityOpen: !state.uploadActivityOpen })),
-}));
+    useFilesUiStore.setState((state) => ({
+      uploadActivityOpen: !state.uploadActivityOpen,
+    })),
+};

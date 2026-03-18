@@ -30,6 +30,7 @@ type ChatUIData = DataPartsMap<{
     title: string;
   };
   chatName: {
+    icon?: string | null;
     id: string;
     name: string;
   };

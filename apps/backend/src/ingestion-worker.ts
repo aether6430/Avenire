@@ -173,13 +173,11 @@ async function processQueuedJob(queueJob: IngestionQueueJobData) {
     });
 
     stage = "persist-transcript";
-    if (result.transcriptCues.length > 0) {
-      await replaceFileTranscriptCues({
-        workspaceId: job.workspaceId,
-        fileId: job.fileId,
-        cues: result.transcriptCues,
-      });
-    }
+    await replaceFileTranscriptCues({
+      workspaceId: job.workspaceId,
+      fileId: job.fileId,
+      cues: result.transcriptCues,
+    });
 
     stage = "mark-success";
     const chunkCount = result.resources.reduce(

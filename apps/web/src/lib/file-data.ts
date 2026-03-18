@@ -18,6 +18,7 @@ export {
   createFolder,
   createResourceShareLink,
   createWorkspaceForUser,
+  createWorkspaceNoteFile,
   createWorkspaceInvitationByEmail,
   deleteIngestionDataForFile,
   deleteWorkspaceForUser,

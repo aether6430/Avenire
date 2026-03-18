@@ -1,6 +1,7 @@
 import {
   getFileAssetById,
   getFolderWithAncestors,
+  getNoteContent,
   listWorkspaceFiles,
   listWorkspaceFolders,
   userCanAccessWorkspace,
@@ -108,6 +109,14 @@ export async function POST(
         cursor = folder.parentId;
       }
       pathSegments.push(...folderSegments, sanitizeArchiveSegment(file.name));
+      if (file.isNote) {
+        const note = await getNoteContent(file.id);
+        archiveEntries[pathSegments.join("/")] = Buffer.from(
+          note?.content ?? "",
+          "utf8"
+        );
+        continue;
+      }
       archiveEntries[pathSegments.join("/")] = await fetchFileBytes(file.storageUrl);
     }
   }

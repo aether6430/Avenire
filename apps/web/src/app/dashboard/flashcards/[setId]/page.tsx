@@ -2,10 +2,7 @@ import { auth } from "@avenire/auth/server";
 import type { Route } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { DashboardLayout } from "@/components/dashboard/shell";
 import { FlashcardSetDetail } from "@/components/flashcards/set-detail";
-import { getFacehashUrl } from "@/lib/avatar";
-import { listChatsForUser } from "@/lib/chat-data";
 import { resolveWorkspaceForUser } from "@/lib/file-data";
 import {
   getFlashcardSetForUser,
@@ -36,8 +33,7 @@ export default async function DashboardFlashcardSetPage({
     redirect("/dashboard");
   }
 
-  const [chats, set, queue] = await Promise.all([
-    listChatsForUser(session.user.id, workspace.workspaceId),
+  const [set, queue] = await Promise.all([
     getFlashcardSetForUser(session.user.id, workspace.workspaceId, setId),
     listDueFlashcardsForUser({
       limit: 20,
@@ -51,19 +47,5 @@ export default async function DashboardFlashcardSetPage({
     redirect("/dashboard/flashcards" as Route);
   }
 
-  return (
-    <DashboardLayout
-      activeChatSlug={chats[0]?.slug ?? ""}
-      initialChats={chats}
-      user={{
-        name: session.user.name ?? "User",
-        email: session.user.email,
-        avatar:
-          session.user.image ??
-          getFacehashUrl(session.user.name ?? session.user.email),
-      }}
-    >
-      <FlashcardSetDetail initialQueue={queue} initialSet={set} />
-    </DashboardLayout>
-  );
+  return <FlashcardSetDetail initialQueue={queue} initialSet={set} />;
 }

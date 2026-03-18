@@ -6,7 +6,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./schema": "./src/schema.ts",
-    "./auth-schema": "./src/auth-schema.ts"
+    "./auth-schema": "./src/auth-schema.ts",
+    "./client": "./src/client.ts",
+    "./task-data": "./src/task-data.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

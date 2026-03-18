@@ -31,6 +31,7 @@ import {
   TooltipTrigger,
 } from "@avenire/ui/components/tooltip";
 import { useHotkey } from "@tanstack/react-hotkeys";
+import Fuse, { type IFuseOptions } from "fuse.js";
 import {
   FilePlus2,
   Files,
@@ -47,6 +48,7 @@ import {
   Waves,
 } from "lucide-react";
 import type { Route } from "next";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   type ComponentProps,
@@ -57,31 +59,46 @@ import {
   useRef,
   useState,
 } from "react";
+import { ChatIcon } from "@/components/chat/chat-icon";
+import { ThinkingGlyph } from "@/components/chat/thinking-indicator";
 import { NavUser } from "@/components/dashboard/nav-user";
 import { TrashDialog } from "@/components/dashboard/trash-dialog";
 import { FlashcardsSidebarPanel } from "@/components/flashcards/sidebar-panel";
 import { SettingsDialog } from "@/components/settings/settings-dialog";
 import { type TreeDataItem, TreeView } from "@/components/ui/tree-view";
+import { useHaptics } from "@/hooks/use-haptics";
 import type { ChatSummary } from "@/lib/chat-data";
 import {
   CHAT_CREATED_EVENT,
   CHAT_NAME_UPDATED_EVENT,
+  CHAT_STREAM_STATUS_EVENT,
   type ChatCreatedDetail,
   type ChatNameUpdatedDetail,
+  type ChatStreamStatusDetail,
 } from "@/lib/chat-events";
+import { isChatIconName } from "@/lib/chat-icons";
 import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
-import { useHaptics } from "@/hooks/use-haptics";
-import {
-  type DashboardView,
-  useDashboardViewStore,
-} from "@/stores/dashboardViewStore";
 import { useFilesPinsStore } from "@/stores/filesPinsStore";
-import { useFilesUiStore } from "@/stores/filesUiStore";
+import { filesUiActions, useFilesUiStore } from "@/stores/filesUiStore";
 
 interface DashboardSidebarUser {
   avatar?: string;
   email: string;
   name: string;
+}
+
+interface SidebarFolderNode {
+  id: string;
+  name: string;
+  parentId: string | null;
+  readOnly?: boolean;
+}
+
+interface SidebarFileNode {
+  folderId: string;
+  id: string;
+  name: string;
+  readOnly?: boolean;
 }
 
 function TreeIconImage({
@@ -169,6 +186,13 @@ const sheetExt = new Set(["csv", "xls", "xlsx"]);
 const DASHBOARD_FLASHCARDS_ROUTE_REGEX = /^\/dashboard\/flashcards\/([^/?#]+)/;
 const DASHBOARD_FILES_FOLDER_ROUTE_REGEX =
   /^\/dashboard\/files\/[^/]+\/folder\/([^/?#]+)/;
+const SIDEBAR_SEARCH_SCORE_MAX = 0.45;
+const SIDEBAR_SEARCH_FUSE_OPTIONS: IFuseOptions<{ name: string }> = {
+  includeScore: true,
+  ignoreLocation: true,
+  keys: ["name"],
+  threshold: 0.6,
+};
 
 function ChatListSection({
   title,
@@ -176,6 +200,7 @@ function ChatListSection({
   activeChatSlug,
   editingChatSlug,
   editingTitle,
+  pendingChatSlug,
   onEditingTitleChange,
   onStartRename,
   onFinishRename,
@@ -183,12 +208,14 @@ function ChatListSection({
   onSelect,
   onTogglePin,
   onDelete,
+  hideWhenEmpty = false,
 }: {
   title: string;
   chats: ChatSummary[];
   activeChatSlug: string;
   editingChatSlug: string | null;
   editingTitle: string;
+  pendingChatSlug: string | null;
   onEditingTitleChange: (value: string) => void;
   onStartRename: (chat: ChatSummary) => void;
   onFinishRename: (chatSlug: string) => void;
@@ -196,8 +223,12 @@ function ChatListSection({
   onSelect: (chatSlug: string) => void;
   onTogglePin: (chatSlug: string, pinned: boolean) => void;
   onDelete: (chatSlug: string) => void;
+  hideWhenEmpty?: boolean;
 }) {
   if (chats.length === 0) {
+    if (hideWhenEmpty) {
+      return null;
+    }
     return (
       <SidebarGroup>
         <SidebarGroupLabel>{title}</SidebarGroupLabel>
@@ -217,6 +248,8 @@ function ChatListSection({
         <SidebarMenu>
           {chats.map((chat) => {
             const isEditing = editingChatSlug === chat.slug;
+            const isPending = pendingChatSlug === chat.slug;
+            const iconName = isChatIconName(chat.icon) ? chat.icon : null;
 
             return (
               <SidebarMenuItem key={chat.slug}>
@@ -251,6 +284,14 @@ function ChatListSection({
                       onClick={() => onSelect(chat.slug)}
                     >
                       {chat.branching ? <GitBranch className="size-4" /> : null}
+                      {isPending ? (
+                        <ThinkingGlyph className="size-4" />
+                      ) : iconName ? (
+                        <ChatIcon
+                          className="text-muted-foreground"
+                          name={iconName}
+                        />
+                      ) : null}
                       <Tooltip>
                         <TooltipTrigger render={<span className="truncate" />}>
                           {chat.title}
@@ -443,24 +484,17 @@ function isTypingTarget(target: EventTarget | null): boolean {
 export function DashboardSidebar({
   user,
   initialChats,
-  activeChatSlug,
+  activeChatSlug: activeChatSlugProp,
   ...props
 }: ComponentProps<typeof Sidebar> & {
   user: DashboardSidebarUser;
   initialChats: ChatSummary[];
-  activeChatSlug: string;
+  activeChatSlug?: string;
 }) {
   const router = useRouter();
   const triggerHaptic = useHaptics();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const view = useDashboardViewStore((state) => state.view);
-  const setView = useDashboardViewStore((state) => state.setView);
-  const emitFilesIntent = useFilesUiStore((state) => state.emitIntent);
-  const emitFilesSync = useFilesUiStore((state) => state.emitSync);
-  const toggleUploadActivityOpen = useFilesUiStore(
-    (state) => state.toggleUploadActivityOpen
-  );
   const filesSyncVersion = useFilesUiStore((state) => state.sync.version);
   const filesSyncWorkspaceUuid = useFilesUiStore(
     (state) => state.sync.workspaceUuid
@@ -470,6 +504,7 @@ export function DashboardSidebar({
   const [filesNameSearchQuery, setFilesNameSearchQuery] = useState("");
   const [editingChatSlug, setEditingChatSlug] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
+  const [pendingChatSlug, setPendingChatSlug] = useState<string | null>(null);
   const [workspaceUuid, setWorkspaceUuid] = useState<string | null>(null);
   const [workspaces, setWorkspaces] = useState<
     Array<{
@@ -494,17 +529,8 @@ export function DashboardSidebar({
   );
   const trashOpen = useDashboardOverlayStore((state) => state.trashOpen);
   const setTrashOpen = useDashboardOverlayStore((state) => state.setTrashOpen);
-  const [folderTree, setFolderTree] = useState<
-    Array<{
-      id: string;
-      name: string;
-      parentId: string | null;
-      readOnly?: boolean;
-    }>
-  >([]);
-  const [fileTree, setFileTree] = useState<
-    Array<{ id: string; name: string; folderId: string; readOnly?: boolean }>
-  >([]);
+  const [folderTree, setFolderTree] = useState<SidebarFolderNode[]>([]);
+  const [fileTree, setFileTree] = useState<SidebarFileNode[]>([]);
   const [expandedTreePaths, setExpandedTreePaths] = useState<Set<string>>(
     new Set()
   );
@@ -518,7 +544,15 @@ export function DashboardSidebar({
   const sseRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isChatsRoute =
     pathname === "/dashboard/chats" || pathname.startsWith("/dashboard/chats/");
-  let routeView: Exclude<DashboardView, null> | null = null;
+  const activeChatSlugFromPath = useMemo(() => {
+    const match = pathname.match(/^\/dashboard\/chats\/([^/?#]+)/);
+    if (!match?.[1] || match[1] === "new") {
+      return "";
+    }
+    return match[1];
+  }, [pathname]);
+  const activeChatSlug = activeChatSlugFromPath || activeChatSlugProp || "";
+  let routeView: "chat" | "flashcards" | "files" | null = null;
   if (pathname.startsWith("/dashboard/flashcards")) {
     routeView = "flashcards";
   } else if (pathname.startsWith("/dashboard/files")) {
@@ -526,7 +560,7 @@ export function DashboardSidebar({
   } else if (isChatsRoute) {
     routeView = "chat";
   }
-  const activeView: Exclude<DashboardView, null> = routeView ?? view ?? "chat";
+  const activeView = routeView;
   const currentFlashcardSetId = useMemo(() => {
     const match = pathname.match(DASHBOARD_FLASHCARDS_ROUTE_REGEX);
     return match?.[1] ?? undefined;
@@ -570,40 +604,34 @@ export function DashboardSidebar({
   );
 
   useEffect(() => {
-    setChats(initialChats);
+    setChats((prev) => {
+      if (prev === initialChats) {
+        return prev;
+      }
+      if (
+        prev.length === initialChats.length &&
+        prev.every((chat, i) => chat.id === initialChats[i]?.id)
+      ) {
+        return prev;
+      }
+      return initialChats;
+    });
   }, [initialChats]);
 
+  const pinsRehydratedRef = useRef(false);
   useEffect(() => {
-    if (pathname.startsWith("/dashboard/flashcards")) {
-      if (view !== "flashcards") {
-        setView("flashcards");
-      }
-      return;
+    if (!pinsRehydratedRef.current) {
+      pinsRehydratedRef.current = true;
+      useFilesPinsStore.persist.rehydrate();
     }
-
-    if (pathname.startsWith("/dashboard/files")) {
-      if (view !== "files") {
-        setView("files");
-      }
-      return;
-    }
-
-    if (isChatsRoute) {
-      if (view !== "chat") {
-        setView("chat");
-      }
-      return;
-    }
-
-    if (!view) {
-      setView("chat");
-    }
-  }, [isChatsRoute, pathname, setView, view]);
+  }, []);
 
   useEffect(() => {
     const fileRouteMatch = pathname.match(/^\/dashboard\/files\/([^/]+)/);
     if (fileRouteMatch?.[1]) {
-      setWorkspaceUuid(fileRouteMatch[1]);
+      setWorkspaceUuid((prev) =>
+        prev === fileRouteMatch[1] ? prev : fileRouteMatch[1]
+      );
       if (readPreferredWorkspaceId() !== fileRouteMatch[1]) {
         window.localStorage.setItem("preferredWorkspaceId", fileRouteMatch[1]);
       }
@@ -612,7 +640,9 @@ export function DashboardSidebar({
 
     const preferredWorkspaceId = readPreferredWorkspaceId();
     if (preferredWorkspaceId) {
-      setWorkspaceUuid(preferredWorkspaceId);
+      setWorkspaceUuid((prev) =>
+        prev === preferredWorkspaceId ? prev : preferredWorkspaceId
+      );
       return;
     }
 
@@ -621,7 +651,9 @@ export function DashboardSidebar({
         null)
       : null;
     if (activeChatWorkspaceId) {
-      setWorkspaceUuid(activeChatWorkspaceId);
+      setWorkspaceUuid((prev) =>
+        prev === activeChatWorkspaceId ? prev : activeChatWorkspaceId
+      );
       return;
     }
 
@@ -629,7 +661,9 @@ export function DashboardSidebar({
       chats.find((chat) => chat.workspaceId)?.workspaceId ??
       workspaces[0]?.workspaceId ??
       null;
-    setWorkspaceUuid(fallbackWorkspaceId);
+    setWorkspaceUuid((prev) =>
+      prev === fallbackWorkspaceId ? prev : fallbackWorkspaceId
+    );
   }, [activeChatSlug, chats, pathname, workspaces]);
 
   useEffect(() => {
@@ -649,6 +683,7 @@ export function DashboardSidebar({
           {
             branching: null,
             createdAt: now,
+            icon: null,
             id: detail.id,
             lastMessageAt: now,
             pinned: false,
@@ -660,6 +695,25 @@ export function DashboardSidebar({
           ...prev,
         ];
       });
+
+      if (
+        pathname === "/dashboard/chats/new" ||
+        activeChatSlug === "new" ||
+        detail.fromId === "new"
+      ) {
+        if (
+          pathname === "/dashboard/chats" ||
+          pathname === "/dashboard/chats/new"
+        ) {
+          router.replace(`/dashboard/chats/${detail.id}` as Route);
+        } else {
+          window.history.replaceState(
+            { chatId: detail.id },
+            "",
+            `/dashboard/chats/${detail.id}`
+          );
+        }
+      }
     };
 
     const onChatNameUpdated = (event: Event) => {
@@ -674,6 +728,7 @@ export function DashboardSidebar({
             ? {
                 ...chat,
                 title: detail.name,
+                icon: detail.icon ?? chat.icon ?? null,
                 updatedAt: new Date().toISOString(),
               }
             : chat
@@ -681,16 +736,33 @@ export function DashboardSidebar({
       );
     };
 
+    const onChatStreamStatus = (event: Event) => {
+      const detail = (event as CustomEvent<ChatStreamStatusDetail>).detail;
+      if (!detail?.chatId) {
+        return;
+      }
+      if (detail.status === "submitted" || detail.status === "streaming") {
+        setPendingChatSlug(detail.chatId);
+        return;
+      }
+      if (detail.status === "ready" || detail.status === "error") {
+        setPendingChatSlug((prev) => (prev === detail.chatId ? null : prev));
+      }
+    };
+
     window.addEventListener(CHAT_CREATED_EVENT, onChatCreated);
     window.addEventListener(CHAT_NAME_UPDATED_EVENT, onChatNameUpdated);
+    window.addEventListener(CHAT_STREAM_STATUS_EVENT, onChatStreamStatus);
     return () => {
       window.removeEventListener(CHAT_CREATED_EVENT, onChatCreated);
       window.removeEventListener(CHAT_NAME_UPDATED_EVENT, onChatNameUpdated);
+      window.removeEventListener(CHAT_STREAM_STATUS_EVENT, onChatStreamStatus);
     };
-  }, [workspaceUuid]);
+  }, [activeChatSlug, pathname, router, workspaceUuid]);
 
   const sortedChats = useMemo(
-    () => [...chats].sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt)),
+    () =>
+      [...chats].sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt)),
     [chats]
   );
 
@@ -723,9 +795,64 @@ export function DashboardSidebar({
     [filteredChatNeedle, otherChats]
   );
 
+  const fileSearchNeedle = filesNameSearchQuery.trim().toLowerCase();
+  const folderFuse = useMemo(
+    () => new Fuse(folderTree, SIDEBAR_SEARCH_FUSE_OPTIONS),
+    [folderTree]
+  );
+  const fileFuse = useMemo(
+    () => new Fuse(fileTree, SIDEBAR_SEARCH_FUSE_OPTIONS),
+    [fileTree]
+  );
+  const fuzzyMatchedFolders = useMemo(() => {
+    if (!fileSearchNeedle) {
+      return folderTree;
+    }
+    const exactMatches = folderTree.filter((folder) =>
+      folder.name.toLowerCase().includes(fileSearchNeedle)
+    );
+    if (fileSearchNeedle.length < 2) {
+      return exactMatches;
+    }
+    const fuzzyMatches = folderFuse
+      .search(fileSearchNeedle)
+      .filter((result) => (result.score ?? 1) <= SIDEBAR_SEARCH_SCORE_MAX)
+      .map((result) => result.item);
+    const unique = new Map<string, SidebarFolderNode>();
+    for (const match of exactMatches) {
+      unique.set(match.id, match);
+    }
+    for (const match of fuzzyMatches) {
+      unique.set(match.id, match);
+    }
+    return Array.from(unique.values());
+  }, [fileSearchNeedle, folderFuse, folderTree]);
+  const fuzzyMatchedFiles = useMemo(() => {
+    if (!fileSearchNeedle) {
+      return fileTree;
+    }
+    const exactMatches = fileTree.filter((file) =>
+      file.name.toLowerCase().includes(fileSearchNeedle)
+    );
+    if (fileSearchNeedle.length < 2) {
+      return exactMatches;
+    }
+    const fuzzyMatches = fileFuse
+      .search(fileSearchNeedle)
+      .filter((result) => (result.score ?? 1) <= SIDEBAR_SEARCH_SCORE_MAX)
+      .map((result) => result.item);
+    const unique = new Map<string, SidebarFileNode>();
+    for (const match of exactMatches) {
+      unique.set(match.id, match);
+    }
+    for (const match of fuzzyMatches) {
+      unique.set(match.id, match);
+    }
+    return Array.from(unique.values());
+  }, [fileFuse, fileSearchNeedle, fileTree]);
+
   const filteredFileTreeState = useMemo(() => {
-    const needle = filesNameSearchQuery.trim().toLowerCase();
-    if (!needle) {
+    if (!fileSearchNeedle) {
       return {
         files: fileTree,
         folders: folderTree,
@@ -736,10 +863,7 @@ export function DashboardSidebar({
     const allowedFolderIds = new Set<string>();
     const allowedFileIds = new Set<string>();
 
-    for (const folder of folderTree) {
-      if (!folder.name.toLowerCase().includes(needle)) {
-        continue;
-      }
+    for (const folder of fuzzyMatchedFolders) {
       allowedFolderIds.add(folder.id);
       let cursor = folder.parentId;
       while (cursor) {
@@ -748,10 +872,7 @@ export function DashboardSidebar({
       }
     }
 
-    for (const file of fileTree) {
-      if (!file.name.toLowerCase().includes(needle)) {
-        continue;
-      }
+    for (const file of fuzzyMatchedFiles) {
       allowedFileIds.add(file.id);
       let cursor: string | null = file.folderId;
       while (cursor) {
@@ -764,27 +885,29 @@ export function DashboardSidebar({
       files: fileTree.filter((file) => allowedFileIds.has(file.id)),
       folders: folderTree.filter((folder) => allowedFolderIds.has(folder.id)),
     };
-  }, [fileTree, filesNameSearchQuery, folderTree]);
+  }, [
+    fileSearchNeedle,
+    fileTree,
+    folderTree,
+    fuzzyMatchedFiles,
+    fuzzyMatchedFolders,
+  ]);
   const filteredPinnedFolders = useMemo(() => {
-    const needle = filesNameSearchQuery.trim().toLowerCase();
-    if (!needle) {
+    if (!fileSearchNeedle) {
       return pinnedFolders;
     }
-    return pinnedFolders.filter((item) =>
-      item.name.toLowerCase().includes(needle)
-    );
-  }, [filesNameSearchQuery, pinnedFolders]);
+    const folderIdSet = new Set(fuzzyMatchedFolders.map((folder) => folder.id));
+    return pinnedFolders.filter((item) => folderIdSet.has(item.id));
+  }, [fileSearchNeedle, fuzzyMatchedFolders, pinnedFolders]);
   const filteredPinnedFiles = useMemo(() => {
-    const needle = filesNameSearchQuery.trim().toLowerCase();
-    if (!needle) {
+    if (!fileSearchNeedle) {
       return pinnedFiles;
     }
-    return pinnedFiles.filter((item) =>
-      item.name.toLowerCase().includes(needle)
-    );
-  }, [filesNameSearchQuery, pinnedFiles]);
+    const fileIdSet = new Set(fuzzyMatchedFiles.map((file) => file.id));
+    return pinnedFiles.filter((item) => fileIdSet.has(item.id));
+  }, [fileSearchNeedle, fuzzyMatchedFiles, pinnedFiles]);
 
-  const navigateToFilesRoot = async () => {
+  const navigateToFilesRoot = useCallback(async () => {
     try {
       const preferredWorkspaceId =
         typeof window !== "undefined"
@@ -828,7 +951,7 @@ export function DashboardSidebar({
     } catch {
       router.push("/dashboard/files" as Route);
     }
-  };
+  }, [router, workspaces]);
 
   const loadWorkspaces = useCallback(async () => {
     try {
@@ -855,6 +978,29 @@ export function DashboardSidebar({
   useEffect(() => {
     void loadWorkspaces();
   }, [loadWorkspaces]);
+
+  const activeOrgSyncRef = useRef<string | null>(null);
+  useEffect(() => {
+    const match = pathname.match(/^\/dashboard\/files\/([^/]+)/);
+    const workspaceIdFromRoute = match?.[1];
+    if (!(workspaceIdFromRoute && workspaces.length > 0)) {
+      return;
+    }
+    const targetWorkspace = workspaces.find(
+      (workspace) => workspace.workspaceId === workspaceIdFromRoute
+    );
+    if (!targetWorkspace?.organizationId) {
+      return;
+    }
+    const syncKey = `${workspaceIdFromRoute}:${targetWorkspace.organizationId}`;
+    if (activeOrgSyncRef.current === syncKey) {
+      return;
+    }
+    activeOrgSyncRef.current = syncKey;
+    void setActiveOrganization(targetWorkspace.organizationId).catch(() => {
+      activeOrgSyncRef.current = null;
+    });
+  }, [pathname, workspaces]);
 
   const loadInvitations = useCallback(async () => {
     try {
@@ -893,18 +1039,8 @@ export function DashboardSidebar({
         return;
       }
       const payload = (await response.json()) as {
-        folders?: Array<{
-          id: string;
-          name: string;
-          parentId: string | null;
-          readOnly?: boolean;
-        }>;
-        files?: Array<{
-          id: string;
-          name: string;
-          folderId: string;
-          readOnly?: boolean;
-        }>;
+        folders?: SidebarFolderNode[];
+        files?: SidebarFileNode[];
       };
       setFolderTree(payload.folders ?? []);
       setFileTree(
@@ -941,20 +1077,37 @@ export function DashboardSidebar({
     const match = pathname.match(
       /^\/dashboard\/files\/([^/]+)\/folder\/([^/]+)/
     );
-    const currentWorkspace = match?.[1] ?? workspaceUuid;
+    const currentWorkspace = match?.[1];
     if (!currentWorkspace) {
       return;
     }
 
-    setWorkspaceUuid(currentWorkspace);
-    void loadWorkspaceTree(currentWorkspace);
-  }, [loadWorkspaceTree, pathname, workspaceUuid]);
+    setWorkspaceUuid((prev) =>
+      prev === currentWorkspace ? prev : currentWorkspace
+    );
+  }, [pathname]);
 
+  const loadedWorkspaceRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!workspaceUuid) {
+      return;
+    }
+    if (loadedWorkspaceRef.current === workspaceUuid) {
+      return;
+    }
+    loadedWorkspaceRef.current = workspaceUuid;
+    void loadWorkspaceTree(workspaceUuid);
+  }, [loadWorkspaceTree, workspaceUuid]);
+
+  const prevWorkspaceUuidRef = useRef<string | null>(null);
   useEffect(() => {
     if (!expandedTreeStorageKey) {
       return;
     }
-    setExpandedTreePaths(new Set());
+    if (prevWorkspaceUuidRef.current !== expandedTreeStorageKey) {
+      prevWorkspaceUuidRef.current = expandedTreeStorageKey;
+      setExpandedTreePaths(new Set());
+    }
   }, [expandedTreeStorageKey]);
 
   useEffect(() => {
@@ -1189,8 +1342,7 @@ export function DashboardSidebar({
   }, [activeView, refreshWorkspaceTreeDebounced, workspaceUuid]);
 
   const createChat = async () => {
-    setView("chat");
-    router.push("/dashboard/chats" as Route);
+    router.push("/dashboard/chats/new" as Route);
   };
 
   const updateChat = async (
@@ -1265,7 +1417,6 @@ export function DashboardSidebar({
       return;
     }
     setWorkspaceUuid(workspace.workspaceId);
-    setView("files");
     window.localStorage.setItem("preferredWorkspaceId", workspace.workspaceId);
     router.push(
       `/dashboard/files/${workspace.workspaceId}/folder/${workspace.rootFolderId}` as Route
@@ -1405,11 +1556,10 @@ export function DashboardSidebar({
       }
 
       await loadWorkspaceTree(workspaceUuid);
-      emitFilesSync(workspaceUuid);
+      filesUiActions.emitSync(workspaceUuid);
       router.refresh();
     },
     [
-      emitFilesSync,
       fileTree,
       folderTree,
       isFolderDescendant,
@@ -1452,13 +1602,12 @@ export function DashboardSidebar({
       }
 
       await loadWorkspaceTree(workspaceUuid);
-      emitFilesSync(workspaceUuid);
+      filesUiActions.emitSync(workspaceUuid);
       router.refresh();
     },
     [
       currentFileId,
       currentFolderId,
-      emitFilesSync,
       loadWorkspaceTree,
       navigateToFilesRoot,
       router,
@@ -1503,7 +1652,7 @@ export function DashboardSidebar({
                   router.push(
                     `/dashboard/files/${workspaceUuid}/folder/${folder.id}` as Route
                   );
-                  emitFilesIntent("uploadFile");
+                  filesUiActions.emitIntent("uploadFile");
                 }}
                 size="icon-xs"
                 type="button"
@@ -1573,7 +1722,6 @@ export function DashboardSidebar({
     return attachChildren(null);
   }, [
     deleteTreeItems,
-    emitFilesIntent,
     filteredFileTreeState.files,
     filteredFileTreeState.folders,
     router,
@@ -1593,7 +1741,6 @@ export function DashboardSidebar({
         router.push("/dashboard/chats" as Route);
         return;
       }
-      setView("chat");
     },
     { ignoreInputs: true }
   );
@@ -1606,7 +1753,6 @@ export function DashboardSidebar({
         router.push("/dashboard/flashcards" as Route);
         return;
       }
-      setView("flashcards");
     },
     { ignoreInputs: true }
   );
@@ -1619,7 +1765,6 @@ export function DashboardSidebar({
         void navigateToFilesRoot();
         return;
       }
-      setView("files");
     },
     { ignoreInputs: true }
   );
@@ -1643,7 +1788,7 @@ export function DashboardSidebar({
         void navigateToFilesRoot();
         return;
       }
-      emitFilesIntent("focusSearch");
+      filesUiActions.emitIntent("focusSearch");
     },
     { ignoreInputs: true }
   );
@@ -1655,7 +1800,7 @@ export function DashboardSidebar({
       if (activeView !== "files") {
         return;
       }
-      emitFilesIntent("createFolder");
+      filesUiActions.emitIntent("createFolder");
     },
     { ignoreInputs: true }
   );
@@ -1667,7 +1812,7 @@ export function DashboardSidebar({
       if (activeView !== "files") {
         return;
       }
-      emitFilesIntent("uploadFile");
+      filesUiActions.emitIntent("uploadFile");
     },
     { ignoreInputs: true }
   );
@@ -1679,7 +1824,7 @@ export function DashboardSidebar({
       if (activeView !== "files") {
         return;
       }
-      emitFilesIntent("uploadFolder");
+      filesUiActions.emitIntent("uploadFolder");
     },
     { ignoreInputs: true }
   );
@@ -1691,7 +1836,7 @@ export function DashboardSidebar({
       if (activeView !== "files") {
         return;
       }
-      emitFilesIntent("openSelection");
+      filesUiActions.emitIntent("openSelection");
     },
     { ignoreInputs: true }
   );
@@ -1706,7 +1851,7 @@ export function DashboardSidebar({
       if (activeView !== "files") {
         return;
       }
-      emitFilesIntent("deleteSelection");
+      filesUiActions.emitIntent("deleteSelection");
     },
     { ignoreInputs: true }
   );
@@ -1721,7 +1866,7 @@ export function DashboardSidebar({
       if (activeView !== "files") {
         return;
       }
-      emitFilesIntent("goParent");
+      filesUiActions.emitIntent("goParent");
     },
     { ignoreInputs: true }
   );
@@ -1733,7 +1878,7 @@ export function DashboardSidebar({
       if (activeView !== "files") {
         return;
       }
-      emitFilesIntent("moveSelectionUp");
+      filesUiActions.emitIntent("moveSelectionUp");
     },
     { ignoreInputs: true }
   );
@@ -1745,7 +1890,7 @@ export function DashboardSidebar({
       if (activeView !== "files") {
         return;
       }
-      emitFilesIntent("newNote");
+      filesUiActions.emitIntent("newNote");
     },
     { ignoreInputs: true }
   );
@@ -1773,7 +1918,7 @@ export function DashboardSidebar({
                 if (!nextValue) {
                   return;
                 }
-                const nextView = nextValue as Exclude<DashboardView, null>;
+                const nextView = nextValue as "chat" | "flashcards" | "files";
                 if (nextView === activeView) {
                   return;
                 }
@@ -1803,8 +1948,6 @@ export function DashboardSidebar({
                   router.push("/dashboard/chats" as Route);
                   return;
                 }
-
-                setView(nextView);
               }}
               persistenceKey="dashboard-workspace-tabs"
               value={activeView}
@@ -1829,7 +1972,9 @@ export function DashboardSidebar({
                     </SidebarMenu>
                     <Input
                       className="mt-2 h-8 text-xs"
-                      onChange={(event) => setChatSearchQuery(event.target.value)}
+                      onChange={(event) =>
+                        setChatSearchQuery(event.target.value)
+                      }
                       placeholder="Search chats by title..."
                       value={chatSearchQuery}
                     />
@@ -1868,6 +2013,8 @@ export function DashboardSidebar({
                   onTogglePin={(chatSlug, pinned) => {
                     void updateChat(chatSlug, { pinned });
                   }}
+                  pendingChatSlug={pendingChatSlug}
+                  hideWhenEmpty
                   title="Pinned Chats"
                 />
 
@@ -1903,6 +2050,7 @@ export function DashboardSidebar({
                   onTogglePin={(chatSlug, pinned) => {
                     void updateChat(chatSlug, { pinned });
                   }}
+                  pendingChatSlug={pendingChatSlug}
                   title="Other Chats"
                 />
               </div>
@@ -1919,7 +2067,7 @@ export function DashboardSidebar({
                         icon={FilePlus2}
                         label="New Note"
                         onClick={() => {
-                          emitFilesIntent("newNote");
+                          filesUiActions.emitIntent("newNote");
                           void triggerHaptic("selection");
                         }}
                       />
@@ -2038,11 +2186,17 @@ export function DashboardSidebar({
                   </SidebarGroupContent>
                 </SidebarGroup>
               </div>
-            ) : (
+            ) : activeView === "flashcards" ? (
               <FlashcardsSidebarPanel
                 active={activeView === "flashcards"}
                 activeSetId={currentFlashcardSetId}
               />
+            ) : (
+              <div className="absolute inset-0 flex items-start p-4">
+                <p className="text-muted-foreground text-xs">
+                  Select Chat, Flashcards, or Files.
+                </p>
+              </div>
             )}
           </div>
         </TooltipProvider>
@@ -2067,7 +2221,7 @@ export function DashboardSidebar({
               className="hit-area h-8 w-8"
               onClick={() => {
                 void triggerHaptic("selection");
-                toggleUploadActivityOpen();
+                filesUiActions.toggleUploadActivityOpen();
               }}
               size="icon-sm"
               type="button"

@@ -29,34 +29,40 @@ import type { Route } from "next";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Chat } from "@/components/chat/chat";
+import { ChatIcon } from "@/components/chat/chat-icon";
+import { ThinkingGlyph } from "@/components/chat/thinking-indicator";
 import { EmailSuggestionInput } from "@/components/shared/email-suggestion-input";
 import {
   CHAT_NAME_UPDATED_EVENT,
+  CHAT_STREAM_STATUS_EVENT,
   type ChatNameUpdatedDetail,
+  type ChatStreamStatusDetail,
 } from "@/lib/chat-events";
-import { useDashboardViewStore } from "@/stores/dashboardViewStore";
+import { isChatIconName } from "@/lib/chat-icons";
 import { useWorkspaceHistoryStore } from "@/stores/workspaceHistoryStore";
 import type { ShareSuggestion } from "@/types/share";
 
 interface ChatWorkspaceProps {
   chatSlug: string;
   chatTitle: string;
+  chatIcon?: string | null;
   initialMessages: UIMessage[];
   isReadonly?: boolean;
   workspaceUuid: string;
+  userName?: string;
 }
 
 export function ChatWorkspace({
   chatSlug,
   chatTitle,
+  chatIcon,
   initialMessages,
   isReadonly = false,
   workspaceUuid,
+  userName,
 }: ChatWorkspaceProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const view = useDashboardViewStore((state) => state.view);
-  const setView = useDashboardViewStore((state) => state.setView);
   const recordRoute = useWorkspaceHistoryStore((state) => state.recordRoute);
   const historyEntries = useWorkspaceHistoryStore((state) => state.entries);
   const historyIndex = useWorkspaceHistoryStore((state) => state.index);
@@ -75,16 +81,16 @@ export function ChatWorkspace({
   const [shareStatus, setShareStatus] = useState<string | null>(null);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [title, setTitle] = useState(chatTitle);
-
-  useEffect(() => {
-    if (!view) {
-      setView("chat");
-    }
-  }, [setView, view]);
+  const [icon, setIcon] = useState<string | null>(chatIcon ?? null);
+  const [isPending, setIsPending] = useState(false);
 
   useEffect(() => {
     setTitle(chatTitle);
   }, [chatTitle]);
+
+  useEffect(() => {
+    setIcon(chatIcon ?? null);
+  }, [chatIcon]);
 
   const currentRoute = useMemo(() => pathname, [pathname]);
 
@@ -103,6 +109,7 @@ export function ChatWorkspace({
     setShareBusy(false);
     setShareStatus(null);
     setIsShareDialogOpen(false);
+    setIsPending(false);
   }, [chatSlug]);
 
   useEffect(() => {
@@ -115,11 +122,34 @@ export function ChatWorkspace({
         return;
       }
       setTitle(detail.name);
+      if (detail.icon) {
+        setIcon(detail.icon);
+      }
     };
 
     window.addEventListener(CHAT_NAME_UPDATED_EVENT, onChatNameUpdated);
     return () => {
       window.removeEventListener(CHAT_NAME_UPDATED_EVENT, onChatNameUpdated);
+    };
+  }, [chatSlug]);
+
+  useEffect(() => {
+    const onChatStreamStatus = (event: Event) => {
+      const detail = (event as CustomEvent<ChatStreamStatusDetail>).detail;
+      if (!detail?.chatId) {
+        return;
+      }
+      if (chatSlug !== "new" && detail.chatId !== chatSlug) {
+        return;
+      }
+      setIsPending(
+        detail.status === "submitted" || detail.status === "streaming"
+      );
+    };
+
+    window.addEventListener(CHAT_STREAM_STATUS_EVENT, onChatStreamStatus);
+    return () => {
+      window.removeEventListener(CHAT_STREAM_STATUS_EVENT, onChatStreamStatus);
     };
   }, [chatSlug]);
 
@@ -220,7 +250,7 @@ export function ChatWorkspace({
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background">
       <header className="shrink-0 border-border/70 border-b bg-background/95 backdrop-blur-xs">
-        <div className="flex min-h-12 shrink-0 flex-wrap items-center gap-2 px-4 py-2">
+        <div className="flex min-h-10 shrink-0 flex-nowrap items-center gap-2 overflow-hidden px-4 py-1.5">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <Button
               aria-label="Go back"
@@ -253,11 +283,20 @@ export function ChatWorkspace({
               <ArrowRight className="size-3.5" />
             </Button>
             <Breadcrumb className="min-w-0 flex-1">
-              <BreadcrumbList className="flex-nowrap overflow-x-auto whitespace-nowrap pr-2">
+              <BreadcrumbList className="flex-nowrap overflow-hidden whitespace-nowrap pr-2">
                 <BreadcrumbItem>
-                  <BreadcrumbPage className="inline-flex items-center gap-2">
-                    <MessageSquareText className="size-3.5 text-muted-foreground" />
-                    <span>{title}</span>
+                  <BreadcrumbPage className="inline-flex max-w-full items-center gap-1.5 overflow-hidden text-sm font-medium leading-none">
+                    {isPending ? (
+                      <ThinkingGlyph className="size-3.5" />
+                    ) : isChatIconName(icon) ? (
+                      <ChatIcon
+                        className="size-3.5 text-muted-foreground"
+                        name={icon}
+                      />
+                    ) : (
+                      <MessageSquareText className="size-3.5 text-muted-foreground" />
+                    )}
+                    <span className="min-w-0 truncate">{title}</span>
                   </BreadcrumbPage>
                 </BreadcrumbItem>
               </BreadcrumbList>
@@ -366,6 +405,7 @@ export function ChatWorkspace({
           selectedModel="apollo-apex"
           selectedReasoningModel="apollo-apex"
           workspaceUuid={workspaceUuid}
+          userName={userName}
         />
       </div>
     </div>

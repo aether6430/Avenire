@@ -1,35 +1,80 @@
 "use client";
 
-import type { UseChatHelpers } from "@ai-sdk/react";
 import type { UIMessage } from "@avenire/ai/message-types";
-import { Badge } from "@avenire/ui/components/badge";
-import { Button } from "@avenire/ui/components/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@avenire/ui/components/card";
-import { cn } from "@avenire/ui/lib/utils";
+import { ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
+import { motion } from "motion/react";
 import { type ReactNode, useState } from "react";
-import { toast } from "sonner";
-import { useMatplotlibPlot } from "@/hooks/use-matplotlib-plot";
 import {
-  RollingAgentActivity,
   type ActivityAction,
+  RollingAgentActivity,
 } from "@/components/chat/rolling-tool-activity";
+import { FlashcardFlipCard } from "@/components/flashcards/flip-card";
+import { cn } from "@/lib/utils";
 
 type ToolPart = Extract<UIMessage["parts"][number], { type: `tool-${string}` }>;
 type CompletedToolPart = Extract<ToolPart, { state: "output-available" }>;
-type DeleteToolPart = Extract<ToolPart, { type: "tool-delete_file" }>;
-type DeleteApprovalRequestedToolPart = Extract<
-  DeleteToolPart,
-  { state: "approval-requested" }
->;
-type DeleteApprovalRespondedToolPart = Extract<
-  DeleteToolPart,
-  { state: "approval-responded" }
->;
+
+function extractQueryFromPart(part: ToolPart): string {
+  if ("input" in part && part.input) {
+    if ("query" in part.input) {
+      return String((part.input as { query?: string }).query ?? "");
+    }
+    if ("task" in part.input) {
+      return String((part.input as { task?: string }).task ?? "");
+    }
+  }
+  if (part.state === "output-available" && "output" in part) {
+    if ("query" in part.output) {
+      return String((part.output as { query?: string }).query ?? "");
+    }
+    if ("task" in part.output) {
+      return String((part.output as { task?: string }).task ?? "");
+    }
+  }
+  return "";
+}
+
+function extractCitationMatches(part: ToolPart): string[] {
+  if (part.state !== "output-available" || !("citations" in part.output)) {
+    return [];
+  }
+  if (!Array.isArray(part.output.citations)) {
+    return [];
+  }
+  return part.output.citations
+    .map((citation) =>
+      typeof citation.workspacePath === "string" ? citation.workspacePath : null
+    )
+    .filter((path): path is string => Boolean(path))
+    .slice(0, 6);
+}
+
+function extractFileReadActions(part: ToolPart): ActivityAction[] {
+  if (part.state !== "output-available" || !("files" in part.output)) {
+    return [];
+  }
+  const files = Array.isArray(part.output.files) ? part.output.files : [];
+  const actions: ActivityAction[] = [];
+  for (const file of files) {
+    if (!file || typeof file.workspacePath !== "string") {
+      continue;
+    }
+    const maybeExcerpt = (file as { excerpt?: unknown }).excerpt;
+    if (typeof maybeExcerpt !== "string") {
+      continue;
+    }
+    actions.push({
+      kind: "read",
+      pending: false,
+      value: file.workspacePath,
+      preview: {
+        content: maybeExcerpt,
+        path: file.workspacePath,
+      },
+    });
+  }
+  return actions;
+}
 
 function buildAgentActionsFromToolPart(part: ToolPart): ActivityAction[] {
   if (
@@ -41,35 +86,12 @@ function buildAgentActionsFromToolPart(part: ToolPart): ActivityAction[] {
 
   const taskLabel =
     part.type === "tool-avenire_agent" ? "query" : "workspace files";
-  const query =
-    "input" in part && part.input && "query" in part.input
-      ? String((part.input as { query?: string }).query ?? "")
-      : "input" in part && part.input && "task" in part.input
-        ? String((part.input as { task?: string }).task ?? "")
-        : part.state === "output-available" && "query" in part.output
-          ? String((part.output as { query?: string }).query ?? "")
-          : part.state === "output-available" && "task" in part.output
-            ? String((part.output as { task?: string }).task ?? "")
-            : "";
-
+  const query = extractQueryFromPart(part);
   const actions: ActivityAction[] = [];
 
   if (query) {
     if (part.type === "tool-avenire_agent") {
-      const matches =
-        part.state === "output-available" &&
-        "citations" in part.output &&
-        Array.isArray(part.output.citations)
-          ? part.output.citations
-              .map((citation) =>
-                typeof citation.workspacePath === "string"
-                  ? citation.workspacePath
-                  : null
-              )
-              .filter((path): path is string => Boolean(path))
-              .slice(0, 6)
-          : [];
-
+      const matches = extractCitationMatches(part);
       actions.push({
         kind: "search",
         pending: part.state !== "output-available",
@@ -91,193 +113,189 @@ function buildAgentActionsFromToolPart(part: ToolPart): ActivityAction[] {
     }
   }
 
-  if (part.state === "output-available" && "files" in part.output) {
-    const files = Array.isArray(part.output.files) ? part.output.files : [];
-    for (const file of files) {
-      if (
-        !file ||
-        typeof file.workspacePath !== "string" ||
-        typeof file.excerpt !== "string"
-      ) {
-        continue;
-      }
-      actions.push({
-        kind: "read",
-        pending: false,
-        value: file.workspacePath,
-        preview: {
-          content: file.excerpt,
-          path: file.workspacePath,
-        },
-      });
-    }
-  }
-
+  actions.push(...extractFileReadActions(part));
   return actions;
 }
 
-function DeleteApprovalCard({
-  addToolApprovalResponse,
-  isReadonly,
-  part,
-}: {
-  addToolApprovalResponse: UseChatHelpers<UIMessage>["addToolApprovalResponse"];
-  isReadonly: boolean;
-  part: DeleteApprovalRequestedToolPart | DeleteApprovalRespondedToolPart;
-}) {
-  const [pendingDecision, setPendingDecision] = useState<boolean | null>(null);
-  const pathHint =
-    "workspacePathHint" in part.input &&
-    typeof part.input.workspacePathHint === "string"
-      ? part.input.workspacePathHint
-      : part.input.fileId;
-
-  const submitDecision = async (approved: boolean) => {
-    try {
-      setPendingDecision(approved);
-      await addToolApprovalResponse({
-        approved,
-        id: part.approval.id,
-      });
-    } catch (error) {
-      toast.error("Unable to submit approval response", {
-        description:
-          error instanceof Error ? error.message : "Unknown approval error.",
-      });
-      setPendingDecision(null);
-    }
-  };
-
-  if (part.state === "approval-responded") {
-    return (
-      <ToolCardShell title="Delete file">
-        <Badge variant={part.approval.approved ? "secondary" : "outline"}>
-          {part.approval.approved ? "Approved" : "Denied"}
-        </Badge>
-        <p className="font-mono text-xs">{pathHint}</p>
-        <p className="text-muted-foreground text-xs">
-          {part.approval.approved
-            ? "Waiting for the server to continue the tool run."
-            : "The delete action was denied and will not run."}
-        </p>
-      </ToolCardShell>
-    );
-  }
-
-  return (
-    <ToolCardShell title="Delete file">
-      <Badge variant="outline">Approval required</Badge>
-      <p className="font-mono text-xs">{pathHint}</p>
-      <p className="text-muted-foreground text-xs">
-        Deleting this file moves it to trash.
-      </p>
-      <div className="flex gap-2">
-        <Button
-          disabled={isReadonly || pendingDecision !== null}
-          onClick={() => submitDecision(true)}
-          size="sm"
-          type="button"
-        >
-          {pendingDecision === true ? "Approving..." : "Approve"}
-        </Button>
-        <Button
-          disabled={isReadonly || pendingDecision !== null}
-          onClick={() => submitDecision(false)}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          {pendingDecision === false ? "Denying..." : "Deny"}
-        </Button>
-      </div>
-    </ToolCardShell>
-  );
-}
-
-function ToolCardShell({
+export function ToolRow({
   children,
-  title,
+  label,
 }: {
   children: ReactNode;
-  title: string;
+  label: string;
 }) {
   return (
-    <Card className="w-full gap-2 border-foreground/[0.08] bg-foreground/[0.02] py-2">
-      <CardHeader className="px-3 pb-1">
-        <CardTitle className="text-[11px] font-semibold uppercase tracking-wide text-foreground/55">
-          {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2 px-3 pb-1 text-xs">
-        {children}
-      </CardContent>
-    </Card>
+    <motion.div
+      animate={{ opacity: 1, y: 0 }}
+      className="mb-1 flex items-baseline gap-2 text-sm"
+      initial={{ opacity: 0, y: 5 }}
+      transition={{ duration: 0.28, ease: "easeOut" }}
+    >
+      <span className="font-semibold text-foreground/72">{label}</span>
+      {children}
+    </motion.div>
   );
 }
 
-function ToolPending({ input, label }: { input: unknown; label: string }) {
+function ToolPending({ label }: { label: string }) {
   return (
-    <ToolCardShell title={label}>
-      <Badge variant="secondary">Running</Badge>
-      <pre className="overflow-x-auto whitespace-pre-wrap rounded-md bg-muted/70 p-3 text-xs">
-        {JSON.stringify(input, null, 2)}
-      </pre>
-    </ToolCardShell>
+    <ToolRow label={label}>
+      <span className="font-mono text-[11px] text-foreground/28">
+        running...
+      </span>
+    </ToolRow>
   );
 }
 
 function ToolError({ errorText, label }: { errorText: string; label: string }) {
   return (
-    <ToolCardShell title={label}>
-      <Badge variant="destructive">Failed</Badge>
-      <p className="text-destructive text-sm">{errorText}</p>
-    </ToolCardShell>
+    <ToolRow label={label}>
+      <span className="font-mono text-[12px] text-destructive/80">
+        {errorText}
+      </span>
+    </ToolRow>
   );
 }
 
-function GraphToolCard({
-  caption,
-  pythonCode,
+function FlashcardDeckComponent({
+  cards,
+  setId,
   title,
 }: {
-  caption: string | null;
-  pythonCode: string;
+  cards: Array<{
+    backMarkdown: string;
+    frontMarkdown: string;
+  }>;
+  setId: string;
   title: string;
 }) {
-  const plot = useMatplotlibPlot(pythonCode);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [flipped, setFlipped] = useState(false);
+
+  const currentCard = cards[currentIndex];
+  const hasMultipleCards = cards.length > 1;
+
+  const goToPrev = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1);
+      setFlipped(false);
+    }
+  };
+
+  const goToNext = () => {
+    if (currentIndex < cards.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+      setFlipped(false);
+    }
+  };
+
+  const reset = () => {
+    setCurrentIndex(0);
+    setFlipped(false);
+  };
 
   return (
-    <ToolCardShell title={title}>
-      <Badge variant="secondary">Matplotlib</Badge>
-      {plot.loading && (
-        <p className="text-muted-foreground text-sm">Rendering plot...</p>
+    <div className="mb-2 space-y-2">
+      <div className="flex items-baseline gap-2">
+        <span className="font-semibold text-foreground/72 text-sm">
+          {title}
+        </span>
+        <span className="font-mono text-[11px] text-foreground/28">
+          {cards.length} cards
+        </span>
+        <a
+          className="font-mono text-[11px] text-foreground/40 underline underline-offset-2 hover:text-foreground/60"
+          href={`/dashboard/flashcards/${setId}`}
+        >
+          open set
+        </a>
+      </div>
+
+      {cards.length > 0 ? (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between font-mono text-[11px] text-foreground/28">
+            <span>
+              Card {currentIndex + 1} of {cards.length}
+            </span>
+            <button
+              className="flex items-center gap-1 text-foreground/40 hover:text-foreground/60"
+              onClick={reset}
+              type="button"
+            >
+              <RotateCcw className="size-3" />
+              Reset
+            </button>
+          </div>
+
+          <div className="relative">
+            <FlashcardFlipCard
+              back={<MarkdownContent content={currentCard.backMarkdown} />}
+              flipped={flipped}
+              front={<MarkdownContent content={currentCard.frontMarkdown} />}
+              onFlippedChange={setFlipped}
+            />
+
+            {hasMultipleCards && (
+              <>
+                <button
+                  className="absolute top-1/2 left-2 -translate-y-1/2 rounded-full bg-background/90 p-1.5 shadow-md transition-colors hover:bg-background/100 disabled:opacity-30"
+                  disabled={currentIndex === 0}
+                  onClick={goToPrev}
+                  type="button"
+                >
+                  <ChevronLeft className="size-4" />
+                </button>
+                <button
+                  className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-background/90 p-1.5 shadow-md transition-colors hover:bg-background/100 disabled:opacity-30"
+                  disabled={currentIndex === cards.length - 1}
+                  onClick={goToNext}
+                  type="button"
+                >
+                  <ChevronRight className="size-4" />
+                </button>
+              </>
+            )}
+          </div>
+
+          {hasMultipleCards && (
+            <div className="flex justify-center gap-1">
+              {cards.map((_, index) => (
+                <button
+                  className={cn(
+                    "h-1.5 rounded-full transition-all",
+                    index === currentIndex
+                      ? "w-6 bg-primary"
+                      : "w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/50"
+                  )}
+                  key={index}
+                  onClick={() => {
+                    setCurrentIndex(index);
+                    setFlipped(false);
+                  }}
+                  type="button"
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <p className="font-mono text-[11px] text-foreground/28">
+          No cards generated
+        </p>
       )}
-      {plot.error && <p className="text-destructive text-sm">{plot.error}</p>}
-      {plot.imgUrl && (
-        <img
-          alt={title}
-          className="w-full rounded-lg border border-border/60 bg-white object-contain"
-          height={800}
-          src={plot.imgUrl}
-          width={1200}
-        />
-      )}
-      {caption ? (
-        <p className="text-muted-foreground text-xs">{caption}</p>
-      ) : null}
-      <details className="rounded-md border border-border/60 bg-muted/50 p-3">
-        <summary className="cursor-pointer font-medium text-xs">
-          Python code
-        </summary>
-        <pre className="mt-2 overflow-x-auto whitespace-pre-wrap text-xs">
-          {pythonCode}
-        </pre>
-      </details>
-    </ToolCardShell>
+    </div>
   );
 }
 
-function QuizToolCard({
+function MarkdownContent({ content }: { content: string }) {
+  return (
+    <div className="prose prose-sm dark:prose-invert max-w-none">
+      <p className="whitespace-pre-wrap">{content}</p>
+    </div>
+  );
+}
+
+function QuizToolOutput({
   questions,
   setId,
   title,
@@ -295,43 +313,48 @@ function QuizToolCard({
   const [answers, setAnswers] = useState<Record<number, number>>({});
 
   return (
-    <ToolCardShell title={title}>
-      <div className="flex items-center gap-2">
-        <Badge variant="secondary">{questions.length} questions</Badge>
+    <div className="mb-2 space-y-2">
+      <div className="flex items-baseline gap-2">
+        <span className="font-semibold text-foreground/72 text-sm">
+          {title}
+        </span>
+        <span className="font-mono text-[11px] text-foreground/28">
+          {questions.length} questions
+        </span>
         <a
-          className="text-xs underline underline-offset-4"
+          className="font-mono text-[11px] text-foreground/40 underline underline-offset-2 hover:text-foreground/60"
           href={`/dashboard/flashcards/${setId}`}
         >
-          Open study set
+          open set
         </a>
       </div>
-      <div className="space-y-4">
+      <div className="space-y-3">
         {questions.map((question, index) => {
           const selected = answers[index];
           const answered = typeof selected === "number";
           return (
             <div
-              className="rounded-lg border border-border/60 p-3"
+              className="rounded-lg border border-border/40 p-3"
               key={`${setId}-${index}`}
             >
-              <p className="mb-3 font-medium text-sm">
+              <p className="mb-2 font-medium text-sm">
                 {index + 1}. {question.frontMarkdown}
               </p>
-              <div className="grid gap-2">
+              <div className="grid gap-1.5">
                 {question.options.map((option, optionIndex) => {
                   const isCorrect = optionIndex === question.correctOptionIndex;
                   return (
                     <button
                       className={cn(
-                        "rounded-md border px-3 py-2 text-left text-sm transition-colors",
+                        "rounded-md border px-2.5 py-1.5 text-left text-sm transition-colors",
                         answered &&
                           isCorrect &&
-                          "border-emerald-500 bg-emerald-500/10",
+                          "border-emerald-500/60 bg-emerald-500/10",
                         answered &&
                           selected === optionIndex &&
                           !isCorrect &&
-                          "border-destructive bg-destructive/10",
-                        !answered && "border-border/70 hover:bg-muted/70"
+                          "border-destructive/60 bg-destructive/10",
+                        !answered && "border-border/40 hover:bg-muted/50"
                       )}
                       disabled={answered}
                       key={`${setId}-${index}-${optionIndex}`}
@@ -349,13 +372,13 @@ function QuizToolCard({
                 })}
               </div>
               {answered ? (
-                <div className="mt-3 rounded-md bg-muted/60 p-3 text-xs">
+                <div className="mt-2 rounded-md bg-muted/40 p-2 text-xs">
                   <p className="font-medium">
                     {selected === question.correctOptionIndex
                       ? "Correct"
                       : "Incorrect"}
                   </p>
-                  <p className="mt-1 text-muted-foreground">
+                  <p className="mt-0.5 text-foreground/50">
                     {question.explanation ?? question.backMarkdown}
                   </p>
                 </div>
@@ -364,19 +387,11 @@ function QuizToolCard({
           );
         })}
       </div>
-    </ToolCardShell>
+    </div>
   );
 }
 
-export function ChatToolPart({
-  addToolApprovalResponse,
-  isReadonly,
-  part,
-}: {
-  addToolApprovalResponse: UseChatHelpers<UIMessage>["addToolApprovalResponse"];
-  isReadonly: boolean;
-  part: ToolPart;
-}) {
+export function ChatToolPart({ part }: { part: ToolPart }) {
   if (
     part.type === "tool-avenire_agent" ||
     part.type === "tool-file_manager_agent"
@@ -393,240 +408,137 @@ export function ChatToolPart({
     );
   }
 
-  if (
-    part.type === "tool-delete_file" &&
-    (part.state === "approval-requested" || part.state === "approval-responded")
-  ) {
-    return (
-      <DeleteApprovalCard
-        addToolApprovalResponse={addToolApprovalResponse}
-        isReadonly={isReadonly}
-        part={part}
-      />
-    );
-  }
-
   if (part.state === "input-streaming" || part.state === "input-available") {
     return (
       <ToolPending
-        input={part.input}
         label={part.type.replace("tool-", "").replaceAll("_", " ")}
       />
     );
   }
 
   if (part.state === "output-error") {
+    const errorText = part.errorText;
     return (
       <ToolError
-        errorText={part.errorText}
+        errorText={errorText}
         label={part.type.replace("tool-", "").replaceAll("_", " ")}
       />
     );
   }
 
+
   if (part.state !== "output-available") {
     return (
-      <ToolCardShell
-        title={part.type.replace("tool-", "").replaceAll("_", " ")}
-      >
-        <Badge variant="outline">Awaiting output</Badge>
-      </ToolCardShell>
+      <ToolRow label={part.type.replace("tool-", "").replaceAll("_", " ")}>
+        <span className="font-mono text-[11px] text-foreground/28">
+          awaiting output
+        </span>
+      </ToolRow>
     );
   }
 
   const completedPart: CompletedToolPart = part;
 
   switch (completedPart.type) {
-    case "tool-create_note":
-    case "tool-update_note":
+    case "tool-note_agent":
       return (
-        <ToolCardShell title={completedPart.output.title}>
-          <Badge variant="secondary">
-            {completedPart.type === "tool-create_note"
-              ? "Note created"
-              : "Note updated"}
-          </Badge>
-          <p className="text-sm">{completedPart.output.workspacePath}</p>
-          {completedPart.output.ingestionJobId ? (
-            <p className="text-muted-foreground text-xs">
-              Ingestion job: {completedPart.output.ingestionJobId}
-            </p>
-          ) : null}
-        </ToolCardShell>
-      );
-    case "tool-read_note":
-    case "tool-read_workspace_file":
-      return (
-        <ToolCardShell
-          title={
-            completedPart.type === "tool-read_note"
-              ? completedPart.output.title
-              : completedPart.output.name
-          }
-        >
-          <Badge variant="secondary">
-            {completedPart.type === "tool-read_note"
-              ? "Loaded note"
-              : completedPart.output.readMode === "text"
-                ? "Read file"
-                : "Read indexed summary"}
-          </Badge>
-          <p className="text-muted-foreground text-xs">
-            {completedPart.output.workspacePath}
-          </p>
-          <pre className="overflow-x-auto whitespace-pre-wrap rounded-md bg-muted/70 p-3 text-xs">
-            {completedPart.output.content}
-          </pre>
-        </ToolCardShell>
+        <div className="mb-2 space-y-1">
+          <ToolRow label="Note agent">
+            <span className="font-mono text-[11px] text-foreground/28">
+              {completedPart.output.operation}{" "}
+              {completedPart.output.notes.length} note(s)
+            </span>
+          </ToolRow>
+          {completedPart.output.notes.slice(0, 3).map((note) => (
+            <div
+              className="ml-0 rounded-md border border-border/30 p-2"
+              key={note.fileId}
+            >
+              <p className="font-mono text-[10px] text-foreground/40">
+                {note.workspacePath}
+              </p>
+              <p className="mt-0.5 whitespace-pre-wrap font-mono text-[11px] text-foreground/50">
+                {note.contentPreview.slice(0, 200)}
+              </p>
+            </div>
+          ))}
+        </div>
       );
     case "tool-search_materials":
       return (
-        <ToolCardShell title="Workspace Search">
-          <Badge variant="secondary">
-            {completedPart.output.totalMatches} matches
-          </Badge>
-          <div className="space-y-3">
-            {completedPart.output.matches.slice(0, 6).map((match) => (
-              <div
-                className="rounded-md border border-border/60 p-3"
-                key={match.chunkId}
-              >
-                <p className="font-medium text-xs">{match.workspacePath}</p>
-                <p className="mt-1 whitespace-pre-wrap text-muted-foreground text-xs">
-                  {match.snippet}
-                </p>
-              </div>
-            ))}
-          </div>
-        </ToolCardShell>
-      );
-    case "tool-list_files":
-      return (
-        <ToolCardShell title="Workspace Files">
-          <Badge variant="secondary">
-            {completedPart.output.totalFiles} files
-          </Badge>
-          <div className="space-y-2">
-            {completedPart.output.files.map((file) => (
-              <div
-                className="flex items-center justify-between gap-3 text-xs"
-                key={file.fileId}
-              >
-                <span className="truncate">{file.workspacePath}</span>
-                <Badge variant={file.isIngested ? "secondary" : "outline"}>
-                  {file.isIngested ? "Indexed" : "Not indexed"}
-                </Badge>
-              </div>
-            ))}
-          </div>
-        </ToolCardShell>
-      );
-    case "tool-move_file":
-      return (
-        <ToolCardShell title={completedPart.output.title}>
-          <Badge variant="secondary">File moved</Badge>
-          <div className="space-y-1 text-xs">
-            <p className="font-mono text-muted-foreground">
-              From: {completedPart.output.previousWorkspacePath}
-            </p>
-            <p className="font-mono">{completedPart.output.workspacePath}</p>
-          </div>
-        </ToolCardShell>
-      );
-    case "tool-delete_file":
-      return (
-        <ToolCardShell title={completedPart.output.title}>
-          <Badge variant="secondary">Moved to trash</Badge>
-          <p className="font-mono text-xs">
-            {completedPart.output.workspacePath}
-          </p>
-          <p className="text-muted-foreground text-xs">
-            Deleted at {completedPart.output.deletedAt}
-          </p>
-        </ToolCardShell>
-      );
-    case "tool-get_file_summary":
-      return (
-        <ToolCardShell title={completedPart.output.name}>
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary">
-              {completedPart.output.chunkCount} chunks
-            </Badge>
-            <Badge
-              variant={
-                completedPart.output.hasIngestion ? "secondary" : "outline"
-              }
+        <div className="mb-2 space-y-1">
+          <ToolRow label="Search">
+            <span className="font-mono text-[12px] text-foreground/62">
+              {completedPart.output.query}
+            </span>
+            <span className="font-mono text-[11px] text-foreground/28">
+              {completedPart.output.totalMatches} matches
+            </span>
+          </ToolRow>
+          {completedPart.output.matches.slice(0, 4).map((match) => (
+            <div
+              className="ml-0 rounded-md border border-border/30 p-2"
+              key={match.chunkId}
             >
-              {completedPart.output.hasIngestion ? "Indexed" : "Pending"}
-            </Badge>
-          </div>
-          <p className="text-muted-foreground text-xs">
-            {completedPart.output.workspacePath}
-          </p>
-          <div className="space-y-2">
-            {completedPart.output.chunks.map((chunk) => (
-              <div
-                className="rounded-md border border-border/60 p-3"
-                key={chunk.chunkId}
-              >
-                <p className="whitespace-pre-wrap text-xs">{chunk.content}</p>
-              </div>
-            ))}
-          </div>
-        </ToolCardShell>
+              <p className="font-mono text-[10px] text-foreground/40">
+                {match.workspacePath}
+              </p>
+              <p className="mt-0.5 whitespace-pre-wrap font-mono text-[11px] text-foreground/50">
+                {match.snippet}
+              </p>
+            </div>
+          ))}
+        </div>
       );
     case "tool-generate_flashcards":
       return (
-        <ToolCardShell title={completedPart.output.title}>
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary">
-              {completedPart.output.cardCount} cards
-            </Badge>
-            <a
-              className="text-xs underline underline-offset-4"
-              href={`/dashboard/flashcards/${completedPart.output.setId}`}
-            >
-              Open set
-            </a>
-          </div>
-        </ToolCardShell>
-      );
-    case "tool-get_due_cards":
-      return (
-        <ToolCardShell title="Due Study Cards">
-          <Badge variant="secondary">
-            {completedPart.output.totalDueCount} due today
-          </Badge>
-          <div className="space-y-2">
-            {completedPart.output.dueCards.map((card) => (
-              <div
-                className="rounded-md border border-border/60 p-3 text-xs"
-                key={card.cardId}
-              >
-                <p className="font-medium">{card.setTitle}</p>
-                <p className="mt-1 text-muted-foreground">
-                  {card.frontMarkdown}
-                </p>
-              </div>
-            ))}
-          </div>
-        </ToolCardShell>
-      );
-    case "tool-render_graph":
-      return (
-        <GraphToolCard
-          caption={completedPart.output.caption ?? null}
-          pythonCode={completedPart.output.pythonCode}
+        <FlashcardDeckComponent
+          cards={completedPart.output.cards ?? []}
+          setId={completedPart.output.setId}
           title={completedPart.output.title}
         />
       );
+    case "tool-get_due_cards":
+      return (
+        <div className="mb-2 space-y-1">
+          <ToolRow label="Due cards">
+            <span className="font-mono text-[11px] text-foreground/28">
+              {completedPart.output.totalDueCount} due today
+            </span>
+          </ToolRow>
+          {completedPart.output.dueCards.slice(0, 3).map((card) => (
+            <div
+              className="ml-0 rounded-md border border-border/30 p-2"
+              key={card.cardId}
+            >
+              <p className="font-mono text-[11px] text-foreground/50">
+                {card.setTitle}
+              </p>
+              <p className="mt-0.5 font-mono text-[10px] text-foreground/40">
+                {card.frontMarkdown}
+              </p>
+            </div>
+          ))}
+        </div>
+      );
+    case "tool-show_widget":
+      return null;
     case "tool-quiz_me":
       return (
-        <QuizToolCard
+        <QuizToolOutput
           questions={completedPart.output.questions}
           setId={completedPart.output.setId}
           title={completedPart.output.title}
         />
+      );
+    case "tool-read_me":
+    case "tool-visualize_read_me":
+      return (
+        <ToolRow label="Read skill">
+          <span className="font-mono text-[11px] text-foreground/28">
+            loaded
+          </span>
+        </ToolRow>
       );
     default:
       return null;

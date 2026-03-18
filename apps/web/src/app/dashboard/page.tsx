@@ -3,11 +3,26 @@ import type { Route } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { DashboardOverview } from "@/components/dashboard/overview";
-import { DashboardLayout } from "@/components/dashboard/shell";
-import { getFacehashUrl } from "@/lib/avatar";
 import { listChatsForUser } from "@/lib/chat-data";
-import { resolveWorkspaceForUser, listWorkspaceFiles } from "@/lib/file-data";
-import { listFlashcardSetSummariesForUser } from "@/lib/flashcards";
+import { listWorkspaceFiles, resolveWorkspaceForUser } from "@/lib/file-data";
+import {
+  listFlashcardReviewCountsByDayForUser,
+  listFlashcardSetSummariesForUser,
+} from "@/lib/flashcards";
+
+const startOfUtcDay = (date: Date) =>
+  new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+  );
+
+const addUtcDays = (date: Date, days: number) =>
+  new Date(
+    Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate() + days
+    )
+  );
 
 export default async function DashboardPage() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -19,30 +34,44 @@ export default async function DashboardPage() {
   const activeOrganizationId =
     (session as { session?: { activeOrganizationId?: string | null } }).session
       ?.activeOrganizationId ?? null;
-  const workspace = await resolveWorkspaceForUser(session.user.id, activeOrganizationId);
+  const workspace = await resolveWorkspaceForUser(
+    session.user.id,
+    activeOrganizationId
+  );
   if (!workspace) {
     redirect("/dashboard/chats" as Route);
   }
 
-  const [chats, files, flashcardSets] = await Promise.all([
+  const startDate = addUtcDays(startOfUtcDay(new Date()), -29);
+  const [chats, files, flashcardSets, reviewCounts] = await Promise.all([
     listChatsForUser(session.user.id, workspace.workspaceId),
     listWorkspaceFiles(workspace.workspaceId, session.user.id),
     listFlashcardSetSummariesForUser(session.user.id, workspace.workspaceId),
+    listFlashcardReviewCountsByDayForUser(
+      session.user.id,
+      workspace.workspaceId,
+      startDate
+    ),
   ]);
 
+  const countByDay = new Map(
+    reviewCounts.map((entry) => [entry.day, entry.count])
+  );
+  const studySessions = Array.from({ length: 30 }, (_, index) => {
+    const day = addUtcDays(startDate, index).toISOString().slice(0, 10);
+    return {
+      day,
+      count: countByDay.get(day) ?? 0,
+    };
+  });
+
   return (
-    <DashboardLayout
-      activeChatSlug={chats[0]?.slug ?? ""}
-      initialChats={chats}
-      user={{
-        name: session.user.name ?? "User",
-        email: session.user.email,
-        avatar:
-          session.user.image ??
-          getFacehashUrl(session.user.name ?? session.user.email),
-      }}
-    >
-      <DashboardOverview chats={chats} files={files} flashcardSets={flashcardSets} />
-    </DashboardLayout>
+    <DashboardOverview
+      chats={chats}
+      files={files}
+      flashcardSets={flashcardSets}
+      studySessions={studySessions}
+      userName={session.user.name ?? undefined}
+    />
   );
 }

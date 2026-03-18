@@ -8,7 +8,8 @@
     "./message-types": "./message-type.ts",
     "./models": "./models/index.ts",
     "./prompts": "./prompts/index.ts",
-    "./tools": "./tools/index.ts"
+    "./tools": "./tools/index.ts",
+    "./generative-ui/guidelines": "./generative-ui/guidelines.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

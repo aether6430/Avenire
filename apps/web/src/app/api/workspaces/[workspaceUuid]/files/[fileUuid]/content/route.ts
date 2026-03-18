@@ -32,6 +32,12 @@ export async function PATCH(
   if (!existing) {
     return NextResponse.json({ error: "File not found" }, { status: 404 });
   }
+  if (existing.isNote) {
+    return NextResponse.json(
+      { error: "Use the note update route" },
+      { status: 400 }
+    );
+  }
 
   const body = (await request.json().catch(() => ({}))) as {
     storageKey?: string;
@@ -83,4 +89,3 @@ export async function PATCH(
 
   return NextResponse.json({ file: replaced.file });
 }
-

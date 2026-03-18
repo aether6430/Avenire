@@ -537,6 +537,77 @@ export async function getNoteContent(fileId: string) {
   return row ?? null;
 }
 
+export async function createWorkspaceNoteFile(input: {
+  content: string;
+  folderId: string;
+  metadata?: Record<string, unknown>;
+  name: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  const now = new Date();
+  const content = input.content ?? "";
+  const storageKey = `virtual:note:${randomUUID()}`;
+  const storageUrl = `https://utfs.io/f/${encodeURIComponent(storageKey)}`;
+  const metadata = {
+    ...(input.metadata ?? {}),
+    type: "note",
+  };
+
+  return db.transaction(async (tx) => {
+    const [folder] = await tx
+      .select({ id: fileFolder.id })
+      .from(fileFolder)
+      .where(
+        and(
+          eq(fileFolder.id, input.folderId),
+          eq(fileFolder.workspaceId, input.workspaceId),
+          isNull(fileFolder.deletedAt)
+        )
+      )
+      .limit(1);
+
+    if (!folder) {
+      throw new Error("Invalid folderId for workspace");
+    }
+
+    const [record] = await tx
+      .insert(fileAsset)
+      .values({
+        workspaceId: input.workspaceId,
+        folderId: input.folderId,
+        storageKey,
+        storageUrl,
+        name: input.name.trim().slice(0, 255) || "Untitled",
+        mimeType: "text/markdown",
+        sizeBytes: Buffer.byteLength(content, "utf8"),
+        uploadedBy: input.userId,
+        updatedBy: input.userId,
+        metadata,
+        contentHashSha256: null,
+        hashComputedBy: null,
+        hashVerificationStatus: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+
+    if (!record) {
+      throw new Error("Unable to create note");
+    }
+
+    await tx.insert(noteContent).values({
+      fileId: record.id,
+      content,
+      needsReindex: content.trim().length > 0,
+      updatedBy: input.userId,
+      updatedAt: now,
+    });
+
+    return mapFile(record);
+  });
+}
+
 export async function updateNoteContent(input: {
   fileId: string;
   userId: string;
@@ -545,6 +616,7 @@ export async function updateNoteContent(input: {
   const now = new Date();
   const trimmed = input.content ?? "";
   const shouldReindex = trimmed.trim().length > 0;
+  const sizeBytes = Buffer.byteLength(trimmed, "utf8");
   return db.transaction(async (tx) => {
     const [row] = await tx
       .insert(noteContent)
@@ -571,7 +643,7 @@ export async function updateNoteContent(input: {
 
     await tx
       .update(fileAsset)
-      .set({ updatedAt: now, updatedBy: input.userId })
+      .set({ sizeBytes, updatedAt: now, updatedBy: input.userId })
       .where(and(eq(fileAsset.id, input.fileId), isNull(fileAsset.deletedAt)));
 
     return row ?? null;

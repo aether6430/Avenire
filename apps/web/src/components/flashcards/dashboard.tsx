@@ -81,13 +81,19 @@ const STATE_LABELS: Record<FlashcardDisplayState, string> = {
 };
 
 const STATE_STYLES: Record<FlashcardDisplayState, string> = {
-  killed: "border-rose-400/20 bg-rose-500/10 text-rose-200",
-  learning: "border-amber-400/20 bg-amber-500/10 text-amber-200",
-  mature: "border-emerald-400/20 bg-emerald-500/10 text-emerald-200",
-  new: "border-zinc-400/20 bg-zinc-500/10 text-zinc-200",
-  relearning: "border-orange-400/20 bg-orange-500/10 text-orange-200",
-  suspended: "border-stone-400/20 bg-stone-500/10 text-stone-200",
-  young: "border-teal-400/20 bg-teal-500/10 text-teal-200",
+  killed:
+    "border-rose-200/70 bg-rose-100/70 text-rose-700 dark:border-rose-400/30 dark:bg-rose-500/10 dark:text-rose-200",
+  learning:
+    "border-amber-200/70 bg-amber-100/70 text-amber-700 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-200",
+  mature:
+    "border-emerald-200/70 bg-emerald-100/70 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-200",
+  new: "border-zinc-200/70 bg-zinc-100/70 text-zinc-700 dark:border-zinc-400/30 dark:bg-zinc-500/10 dark:text-zinc-200",
+  relearning:
+    "border-orange-200/70 bg-orange-100/70 text-orange-700 dark:border-orange-400/30 dark:bg-orange-500/10 dark:text-orange-200",
+  suspended:
+    "border-stone-200/70 bg-stone-100/70 text-stone-700 dark:border-stone-400/30 dark:bg-stone-500/10 dark:text-stone-200",
+  young:
+    "border-teal-200/70 bg-teal-100/70 text-teal-700 dark:border-teal-400/30 dark:bg-teal-500/10 dark:text-teal-200",
 };
 
 function startOfUtcDay(date: Date) {

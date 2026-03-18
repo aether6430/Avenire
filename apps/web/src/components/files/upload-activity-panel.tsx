@@ -2,15 +2,15 @@
 
 import { Button } from "@avenire/ui/components/button";
 import { Spinner } from "@avenire/ui/components/spinner";
-import { cn } from "@/lib/utils";
 import { AlertCircle, CheckCircle2, Waves, X, XCircle } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { useFilesUiStore } from "@/stores/filesUiStore";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 import {
   type FilesActivityItem,
   useFilesActivityStore,
 } from "@/stores/filesActivityStore";
+import { filesUiActions, useFilesUiStore } from "@/stores/filesUiStore";
 
 function statusMeta(status: FilesActivityItem["status"]) {
   switch (status) {
@@ -55,11 +55,14 @@ function statusMeta(status: FilesActivityItem["status"]) {
 
 export function UploadActivityPanel() {
   const pathname = usePathname();
-  const uploadActivityOpen = useFilesUiStore((state) => state.uploadActivityOpen);
-  const setUploadActivityOpen = useFilesUiStore((state) => state.setUploadActivityOpen);
-  const queuesByWorkspace = useFilesActivityStore((state) => state.queuesByWorkspace);
-  const replaceWorkspaceQueue = useFilesActivityStore(
-    (state) => state.replaceWorkspaceQueue
+  const uploadActivityOpen = useFilesUiStore(
+    (state) => state.uploadActivityOpen
+  );
+  const queuesByWorkspace = useFilesActivityStore(
+    (state) => state.queuesByWorkspace
+  );
+  const updateWorkspaceQueue = useFilesActivityStore(
+    (state) => state.updateWorkspaceQueue
   );
   const [isQueueVisible, setIsQueueVisible] = useState(false);
   const [isQueueDismissed, setIsQueueDismissed] = useState(false);
@@ -68,14 +71,20 @@ export function UploadActivityPanel() {
   >(null);
   const previousUploadQueueLengthRef = useRef(0);
   const queueFadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ingestionSseRetryTimerRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
 
   const workspaceFromPath = useMemo(() => {
     const match = pathname.match(/^\/dashboard\/files\/([^/]+)/);
     return match?.[1] ?? null;
   }, [pathname]);
+  const isFilesRoute = pathname.startsWith("/dashboard/files");
   useEffect(() => {
     try {
-      setPreferredWorkspaceId(window.localStorage.getItem("preferredWorkspaceId"));
+      setPreferredWorkspaceId(
+        window.localStorage.getItem("preferredWorkspaceId")
+      );
     } catch {
       setPreferredWorkspaceId(null);
     }
@@ -88,75 +97,188 @@ export function UploadActivityPanel() {
     ? (queuesByWorkspace[activeWorkspaceUuid] ?? [])
     : [];
 
-  const hydrateRecentJobs = useCallback(async () => {
-    if (!activeWorkspaceUuid) {
+  useEffect(() => {
+    if (!activeWorkspaceUuid || isFilesRoute) {
       return;
     }
 
-    try {
-      const response = await fetch(
-        `/api/ai/ingestion/jobs?workspaceUuid=${activeWorkspaceUuid}&limit=60&windowMinutes=10`,
-        { cache: "no-store" }
-      );
-      if (!response.ok) {
-        return;
-      }
+    let cancelled = false;
+    const hydrateRecentJobs = async () => {
+      try {
+        const response = await fetch(
+          `/api/ai/ingestion/jobs?workspaceUuid=${activeWorkspaceUuid}&limit=60&windowMinutes=10`,
+          { cache: "no-store" }
+        );
+        if (!(response.ok && !cancelled)) {
+          return;
+        }
 
-      const payload = (await response.json()) as {
-        jobs?: Array<{
-          id: string;
-          status: "failed" | "queued" | "running" | "succeeded";
-          fileName?: string | null;
-          fileId: string;
-        }>;
-      };
-      const jobs = payload.jobs ?? [];
-      if (jobs.length === 0) {
-        return;
-      }
+        const payload = (await response.json()) as {
+          jobs?: Array<{
+            id: string;
+            status: "failed" | "queued" | "running" | "succeeded";
+            fileName?: string | null;
+            fileId: string;
+          }>;
+        };
+        const jobs = payload.jobs ?? [];
+        if (jobs.length === 0) {
+          return;
+        }
 
-      replaceWorkspaceQueue(activeWorkspaceUuid, [
-        ...(queuesByWorkspace[activeWorkspaceUuid] ?? []).filter(
-          (item) =>
-            !item.ingestionJobId ||
-            !jobs.some((job) => job.id === item.ingestionJobId)
-        ),
-        ...jobs.map((job) => {
-          const mappedStatus: FilesActivityItem["status"] =
-            job.status === "running"
-              ? "ingesting"
-              : job.status === "succeeded"
-                ? "uploaded"
-                : job.status;
-          return {
-            id: `job:${job.id}`,
-            ingestionJobId: job.id,
-            fileId: job.fileId,
-            name: job.fileName ?? "Ingestion job",
-            sizeLabel: "—",
-            status: mappedStatus,
-          };
-        }),
-      ]);
-    } catch {
-      // ignore hydration failures
-    }
-  }, [activeWorkspaceUuid, queuesByWorkspace, replaceWorkspaceQueue]);
+        updateWorkspaceQueue(activeWorkspaceUuid, (previous) => [
+          ...previous.filter(
+            (item) =>
+              !(
+                item.ingestionJobId &&
+                jobs.some((job) => job.id === item.ingestionJobId)
+              )
+          ),
+          ...jobs.map((job) => {
+            const status: FilesActivityItem["status"] =
+              job.status === "running"
+                ? "ingesting"
+                : job.status === "succeeded"
+                  ? "uploaded"
+                  : job.status;
+            return {
+              id: `job:${job.id}`,
+              ingestionJobId: job.id,
+              fileId: job.fileId,
+              name: job.fileName ?? "Ingestion job",
+              sizeLabel: "—",
+              status,
+            };
+          }),
+        ]);
+      } catch {
+        // ignore hydration failures
+      }
+    };
+
+    void hydrateRecentJobs();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeWorkspaceUuid, isFilesRoute, updateWorkspaceQueue]);
 
   useEffect(() => {
     if (!activeWorkspaceUuid) {
       return;
     }
 
-    void hydrateRecentJobs();
-    const timer = setInterval(() => {
-      void hydrateRecentJobs();
-    }, 45_000);
+    let closed = false;
+    let eventSource: EventSource | null = null;
 
-    return () => {
-      clearInterval(timer);
+    const cleanupCurrent = () => {
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
     };
-  }, [activeWorkspaceUuid, hydrateRecentJobs]);
+
+    const scheduleReconnect = () => {
+      if (closed) {
+        return;
+      }
+      if (ingestionSseRetryTimerRef.current) {
+        clearTimeout(ingestionSseRetryTimerRef.current);
+      }
+      ingestionSseRetryTimerRef.current = setTimeout(() => {
+        void connect();
+      }, 3000);
+    };
+
+    const connect = async () => {
+      if (closed) {
+        return;
+      }
+
+      try {
+        cleanupCurrent();
+        const url = new URL(
+          "/api/ai/ingestion/jobs/events",
+          window.location.origin
+        );
+        url.searchParams.set("workspaceUuid", activeWorkspaceUuid);
+
+        eventSource = new EventSource(url.toString());
+        eventSource.onerror = () => {
+          cleanupCurrent();
+          scheduleReconnect();
+        };
+        eventSource.addEventListener("ingestion.job", (event) => {
+          const payload = JSON.parse((event as MessageEvent).data) as {
+            jobId: string;
+            eventType: string;
+            payload?: Record<string, unknown>;
+          };
+          const status: FilesActivityItem["status"] =
+            payload.eventType === "job.failed"
+              ? "failed"
+              : payload.eventType === "job.succeeded"
+                ? "uploaded"
+                : "ingesting";
+
+          updateWorkspaceQueue(activeWorkspaceUuid, (previous) => {
+            const existingIndex = previous.findIndex(
+              (item) => item.ingestionJobId === payload.jobId
+            );
+            if (existingIndex === -1) {
+              return [
+                ...previous,
+                {
+                  id: `job:${payload.jobId}`,
+                  ingestionJobId: payload.jobId,
+                  name:
+                    typeof payload.payload?.fileName === "string"
+                      ? payload.payload.fileName
+                      : "Ingestion job",
+                  sizeLabel: "—",
+                  status,
+                  error:
+                    status === "failed" &&
+                    typeof payload.payload?.error === "string"
+                      ? `Ingestion failed for this file: ${payload.payload.error}`
+                      : undefined,
+                },
+              ];
+            }
+
+            return previous.map((item, index) => {
+              if (index !== existingIndex) {
+                return item;
+              }
+              return {
+                ...item,
+                status,
+                error:
+                  status === "failed"
+                    ? typeof payload.payload?.error === "string"
+                      ? `Ingestion failed for this file: ${payload.payload.error}`
+                      : "Ingestion failed"
+                    : undefined,
+                failureCount:
+                  status === "failed" ? (item.failureCount ?? 0) + 1 : 0,
+              };
+            });
+          });
+        });
+      } catch {
+        scheduleReconnect();
+      }
+    };
+
+    void connect();
+    return () => {
+      closed = true;
+      cleanupCurrent();
+      if (ingestionSseRetryTimerRef.current) {
+        clearTimeout(ingestionSseRetryTimerRef.current);
+        ingestionSseRetryTimerRef.current = null;
+      }
+    };
+  }, [activeWorkspaceUuid, updateWorkspaceQueue]);
 
   useEffect(() => {
     if (queue.length === 0) {
@@ -259,7 +381,7 @@ export function UploadActivityPanel() {
             className="h-7 w-7"
             onClick={() => {
               setIsQueueDismissed(true);
-              setUploadActivityOpen(false);
+              filesUiActions.setUploadActivityOpen(false);
             }}
             size="icon-xs"
             type="button"
@@ -272,18 +394,25 @@ export function UploadActivityPanel() {
       </div>
       <div className="max-h-[min(24rem,70vh)] overflow-y-auto px-4 py-3">
         {queue.length === 0 ? (
-          <p className="text-muted-foreground text-xs">No upload activity yet.</p>
+          <p className="text-muted-foreground text-xs">
+            No upload activity yet.
+          </p>
         ) : (
           <div className="space-y-3">
             {queue.map((item) => {
               const meta = statusMeta(item.status);
               return (
-                <div className="space-y-2 rounded-md border border-border/50 p-2.5" key={item.id}>
+                <div
+                  className="space-y-2 rounded-md border border-border/50 p-2.5"
+                  key={item.id}
+                >
                   <div className="flex items-start gap-2">
                     <span className="mt-0.5 shrink-0">{meta.icon}</span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium text-xs">{item.name}</p>
-                      <p className="text-muted-foreground text-[11px]">
+                      <p className="truncate font-medium text-xs">
+                        {item.name}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
                         {meta.label} • {item.sizeLabel}
                       </p>
                     </div>

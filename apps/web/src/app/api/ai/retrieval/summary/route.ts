@@ -6,7 +6,7 @@ import {
 } from "@avenire/ai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getFileAssetById } from "@/lib/file-data";
+import { getFileAssetById, getNoteContent } from "@/lib/file-data";
 import { normalizeMediaType } from "@/lib/media-type";
 import { createApiLogger } from "@/lib/observability";
 import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
@@ -210,6 +210,20 @@ export async function POST(request: Request) {
     const attachedFiles = (
       await Promise.all(
         fileRecords.map(async (file) => {
+          if (file.isNote) {
+            const note = await getNoteContent(file.id);
+            if (note?.content == null) {
+              return null;
+            }
+            const bytes = Buffer.from(note.content, "utf8");
+            return {
+              type: "file" as const,
+              mediaType: "text/markdown",
+              filename: file.name,
+              data: bytes,
+            };
+          }
+
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), fetchTimeoutMs);
 

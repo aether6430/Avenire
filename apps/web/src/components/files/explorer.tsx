@@ -27,7 +27,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@avenire/ui/components/dialog";
 import {
   DropdownMenu,
@@ -43,12 +42,10 @@ import { Input } from "@avenire/ui/components/input";
 import { Label } from "@avenire/ui/components/label";
 import { Skeleton } from "@avenire/ui/components/skeleton";
 import { Spinner } from "@avenire/ui/components/spinner";
-import { FileMediaPlayer } from "@avenire/ui/media";
 import {
   ArrowDownToLine,
   ArrowLeft,
   ArrowRight,
-  ArrowUp,
   ArrowUpDown,
   Copy,
   FileArchive,
@@ -77,23 +74,13 @@ import {
   XCircle,
 } from "lucide-react";
 import type { Route } from "next";
-import dynamic from "next/dynamic";
 import {
   useParams,
   usePathname,
   useRouter,
   useSearchParams,
 } from "next/navigation";
-import {
-  type TouchEvent,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import AvenireEditor from "@/components/editor";
-import { PropertiesTable } from "@/components/editor/properties-table";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FileCard,
   PdfThumbnail,
@@ -105,23 +92,19 @@ import {
   type WorkspaceSearchItem,
   type WorkspaceSearchResult,
 } from "@/components/files/stylized-search-bar";
-import { EmailSuggestionInput } from "@/components/shared/email-suggestion-input";
 import { useFileSelection } from "@/hooks/use-file-selection";
-import type { VideoDeliveryRecord } from "@/lib/file-data";
+import { useFileDragDrop } from "@/hooks/use-file-drag-drop";
 import {
   getWarmState,
   isFileOpenedCached,
-  markFileOpened,
-  primeMediaPlayback,
-  releaseMediaPlaybackPrime,
 } from "@/lib/file-preview-cache";
 import {
-  STATUS_OPTIONS,
-  TYPE_OPTIONS,
   type FrontmatterProperties,
   parseFrontmatter,
+  STATUS_OPTIONS,
   splitFrontmatterDocument,
   stripFrontmatter,
+  TYPE_OPTIONS,
   updateContentWithFrontmatter,
 } from "@/lib/frontmatter";
 import {
@@ -131,22 +114,23 @@ import {
 import { getUploadErrorMessage } from "@/lib/upload";
 import { useUploadThing } from "@/lib/uploadthing";
 import { cn } from "@/lib/utils";
-import { useFilesPinsStore } from "@/stores/filesPinsStore";
 import { useFilesActivityStore } from "@/stores/filesActivityStore";
-import { useFilesUiStore } from "@/stores/filesUiStore";
+import { filesPinsActions, useFilesPinsStore } from "@/stores/filesPinsStore";
+import { filesUiActions, useFilesUiStore } from "@/stores/filesUiStore";
 import { useWorkspaceHistoryStore } from "@/stores/workspaceHistoryStore";
-import type { ShareSuggestion } from "@/types/share";
+import {
+  detectPreviewKind,
+  formatBytes,
+  type FileRecord,
+  type FolderRecord,
+  type ShareSuggestion,
+  type WorkspaceMemberRecord,
+  toUpdatedLabel,
+} from "@/components/files/explorer/shared";
+import { FilePreviewPanel } from "@/components/files/explorer/file-preview-panel";
+import { ShareDialog } from "@/components/files/explorer/share-dialog";
 
 const WORKSPACE_FILE_OPEN_EVENT = "workspace.file.open";
-
-const PDFViewer = dynamic(() => import("@/components/files/pdf-viewer"), {
-  loading: () => (
-    <div className="flex h-[70vh] items-center justify-center rounded-xl border border-border/70 bg-card text-sm">
-      Loading PDF...
-    </div>
-  ),
-  ssr: false,
-});
 
 type UploadStatus =
   | "failed"
@@ -165,39 +149,6 @@ type FileKind =
   | "video";
 const FILE_EXPLORER_VIEW_MODE_KEY = "file-explorer-view-mode";
 const FILE_RETRIEVAL_CONTEXT_KEY = "file-explorer-retrieval-context-v1";
-
-interface FolderRecord {
-  bannerUrl?: string | null;
-  createdAt?: string;
-  createdBy?: string;
-  iconColor?: string | null;
-  id: string;
-  isShared?: boolean;
-  name: string;
-  parentId: string | null;
-  readOnly?: boolean;
-  updatedAt?: string;
-  updatedBy?: string | null;
-}
-
-interface FileRecord {
-  createdAt: string;
-  folderId: string;
-  id: string;
-  isIngested?: boolean;
-  isNote?: boolean;
-  isShared?: boolean;
-  mimeType: string | null;
-  name: string;
-  readOnly?: boolean;
-  sizeBytes: number;
-  sourceWorkspaceId?: string;
-  storageUrl: string;
-  updatedAt?: string;
-  updatedBy?: string | null;
-  uploadedBy?: string;
-  videoDelivery?: VideoDeliveryRecord | null;
-}
 
 interface UploadQueueItem {
   contentHashSha256?: string;
@@ -258,14 +209,6 @@ interface BulkRegisterResponse {
   };
 }
 
-interface WorkspaceMemberRecord {
-  email: string | null;
-  id: string | null;
-  name: string | null;
-  role: string;
-  userId: string | null;
-}
-
 interface DedupeLookupResponse {
   results?: Array<{
     clientUploadId: string;
@@ -296,39 +239,6 @@ interface WebkitFileSystemDirectoryReader {
 
 interface WebkitFileSystemDirectoryEntry extends WebkitFileSystemEntry {
   createReader: () => WebkitFileSystemDirectoryReader;
-}
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  }
-  if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} KB`;
-  }
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function toUpdatedLabel(isoDate: string): string {
-  const timestamp = new Date(isoDate).getTime();
-  const diffMs = Date.now() - timestamp;
-  const minutes = Math.max(1, Math.floor(diffMs / (1000 * 60)));
-
-  if (minutes < 60) {
-    return `${minutes}m`;
-  }
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) {
-    return `${hours}h`;
-  }
-
-  const days = Math.floor(hours / 24);
-  if (days < 7) {
-    return `${days}d`;
-  }
-
-  const weeks = Math.floor(days / 7);
-  return `${weeks}w`;
 }
 
 const DEFAULT_FOLDER_BANNER_URL = "/images/folder-banner-default.svg";
@@ -507,31 +417,6 @@ function shouldHashForClientDedupe(file: File) {
   return file.size > 0 && file.size <= CLIENT_HASH_MAX_BYTES;
 }
 
-function detectPreviewKind(file: FileRecord) {
-  const mime = file.mimeType?.toLowerCase() ?? "";
-  const ext = getExtension(file.name);
-  const imageExt = new Set([
-    ".png",
-    ".jpg",
-    ".jpeg",
-    ".gif",
-    ".webp",
-    ".svg",
-    ".avif",
-  ]);
-  const videoExt = new Set([".mp4", ".webm", ".ogg", ".mov", ".m4v"]);
-  const audioExt = new Set([".mp3", ".wav", ".ogg", ".aac", ".m4a", ".flac"]);
-  const markdownExt = new Set([".md", ".mdx"]);
-
-  return {
-    isImage: mime.startsWith("image/") || imageExt.has(ext),
-    isPdf: mime === "application/pdf" || ext === ".pdf",
-    isVideo: mime.startsWith("video/") || videoExt.has(ext),
-    isAudio: mime.startsWith("audio/") || audioExt.has(ext),
-    isMarkdown: mime.includes("markdown") || markdownExt.has(ext),
-  };
-}
-
 function detectFileKind(file: FileRecord): FileKind {
   const mime = file.mimeType?.toLowerCase() ?? "";
   const ext = getExtension(file.name);
@@ -693,9 +578,6 @@ export function FileExplorer({
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-  const touchDragIdsRef = useRef<string[] | null>(null);
-  const dragPreviewPixelRef = useRef<HTMLImageElement | null>(null);
-  const canvasDragDepthRef = useRef(0);
   const refreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sseRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ingestionSseRetryTimerRef = useRef<ReturnType<
@@ -742,36 +624,6 @@ export function FileExplorer({
   const [files, setFiles] = useState<FileRecord[]>([]);
   const [breadcrumbs, setBreadcrumbs] = useState<FolderRecord[]>([]);
   const [loading, setLoading] = useState(false);
-  const [shareEmail, setShareEmail] = useState("");
-  const [shareSuggestions, setShareSuggestions] = useState<ShareSuggestion[]>(
-    []
-  );
-  const [shareLink, setShareLink] = useState<string | null>(null);
-  const [shareBusy, setShareBusy] = useState(false);
-  const [shareStatus, setShareStatus] = useState<string | null>(null);
-  const [fileSharePermission, setFileSharePermission] = useState<
-    "viewer" | "editor"
-  >("viewer");
-  const [workspaceShareEmail, setWorkspaceShareEmail] = useState("");
-  const [workspaceShareSuggestions, setWorkspaceShareSuggestions] = useState<
-    ShareSuggestion[]
-  >([]);
-  const [workspaceShareBusy, setWorkspaceShareBusy] = useState(false);
-  const [workspaceShareStatus, setWorkspaceShareStatus] = useState<
-    string | null
-  >(null);
-  const [folderShareEmail, setFolderShareEmail] = useState("");
-  const [folderShareSuggestions, setFolderShareSuggestions] = useState<
-    ShareSuggestion[]
-  >([]);
-  const [folderShareBusy, setFolderShareBusy] = useState(false);
-  const [folderShareLink, setFolderShareLink] = useState<string | null>(null);
-  const [folderShareStatus, setFolderShareStatus] = useState<string | null>(
-    null
-  );
-  const [folderSharePermission, setFolderSharePermission] = useState<
-    "viewer" | "editor"
-  >("viewer");
   const [workspaceMembers, setWorkspaceMembers] = useState<
     WorkspaceMemberRecord[]
   >([]);
@@ -782,13 +634,7 @@ export function FileExplorer({
   const [frontmatterStatusFilter, setFrontmatterStatusFilter] = useState("");
   const [frontmatterTypeFilter, setFrontmatterTypeFilter] = useState("");
   const [frontmatterTagFilter, setFrontmatterTagFilter] = useState("");
-  const [canvasDropActive, setCanvasDropActive] = useState(false);
-  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
-  const [draggingIds, setDraggingIds] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
-  const [videoLoadFailed, setVideoLoadFailed] = useState(false);
-  const [audioLoadFailed, setAudioLoadFailed] = useState(false);
-  const [mediaStreamFailed, setMediaStreamFailed] = useState(false);
   const [hoveredPreviewFileId, setHoveredPreviewFileId] = useState<
     string | null
   >(null);
@@ -807,20 +653,7 @@ export function FileExplorer({
     parentId?: string;
     value: string;
   } | null>(null);
-  const filePreviewScrollRef = useRef<HTMLDivElement | null>(null);
-  const [markdownLoading, setMarkdownLoading] = useState(false);
-  const [markdownError, setMarkdownError] = useState<string | null>(null);
-  const [markdownOriginal, setMarkdownOriginal] = useState("");
-  const [markdownDraft, setMarkdownDraft] = useState("");
-  const [markdownSaving, setMarkdownSaving] = useState(false);
-  const [noteSaveState, setNoteSaveState] = useState<
-    "idle" | "saving" | "saved" | "error"
-  >("idle");
   const [noteCreateBusy, setNoteCreateBusy] = useState(false);
-  const lastLoadedMarkdownFileRef = useRef<{
-    id: string;
-    content: string;
-  } | null>(null);
 
   useEffect(() => {
     try {
@@ -836,8 +669,6 @@ export function FileExplorer({
   const { startUpload } = useUploadThing("fileExplorerUploader");
   const { startUpload: startBannerUpload } = useUploadThing("imageUploader");
   const selection = useFileSelection({ gridRef, itemRefs });
-  const emitFilesIntent = useFilesUiStore((state) => state.emitIntent);
-  const emitFilesSync = useFilesUiStore((state) => state.emitSync);
   const recordRoute = useWorkspaceHistoryStore((state) => state.recordRoute);
   const historyEntries = useWorkspaceHistoryStore((state) => state.entries);
   const historyIndex = useWorkspaceHistoryStore((state) => state.index);
@@ -854,13 +685,9 @@ export function FileExplorer({
     () => pinnedByWorkspace[workspaceUuid] ?? [],
     [pinnedByWorkspace, workspaceUuid]
   );
-  const togglePinnedItem = useFilesPinsStore((state) => state.togglePinnedItem);
   const filesSyncVersion = useFilesUiStore((state) => state.sync.version);
   const filesSyncWorkspaceUuid = useFilesUiStore(
     (state) => state.sync.workspaceUuid
-  );
-  const uploadQueue = useFilesActivityStore(
-    (state) => state.queuesByWorkspace[workspaceUuid] ?? []
   );
   const updateWorkspaceQueue = useFilesActivityStore(
     (state) => state.updateWorkspaceQueue
@@ -917,6 +744,7 @@ export function FileExplorer({
     uploadFolder: 0,
   });
   const processedSyncVersionRef = useRef(0);
+  const lastRecordedRouteRef = useRef<string | null>(null);
 
   const selectedFileParam = searchParams.get("file");
   const selectedRetrievalChunkParam = searchParams.get("retrievalChunk");
@@ -929,352 +757,76 @@ export function FileExplorer({
     [files, selectedFileParam]
   );
 
-  const activeFileIsMarkdown = useMemo(() => {
-    if (!activeFile) {
-      return false;
-    }
-    return detectPreviewKind(activeFile).isMarkdown;
-  }, [activeFile]);
-
-  const activeFileIsNote = Boolean(activeFile?.isNote);
-
   const currentFolder = useMemo(
     () => breadcrumbs[breadcrumbs.length - 1] ?? null,
     [breadcrumbs]
   );
   const isCurrentFolderReadOnly = Boolean(currentFolder?.readOnly);
 
-  useEffect(() => {
-    if (!(workspaceUuid && activeFile && activeFileIsMarkdown)) {
-      setMarkdownLoading(false);
-      setMarkdownError(null);
-      setMarkdownOriginal("");
-      setMarkdownDraft("");
-      return;
-    }
-
-    if (
-      lastLoadedMarkdownFileRef.current?.id === activeFile.id &&
-      lastLoadedMarkdownFileRef.current?.content
-    ) {
-      setMarkdownLoading(false);
-      setMarkdownError(null);
-      setMarkdownOriginal(lastLoadedMarkdownFileRef.current.content);
-      setMarkdownDraft(lastLoadedMarkdownFileRef.current.content);
-      return;
-    }
-
-    let cancelled = false;
-    const controller = new AbortController();
-
-    setMarkdownLoading(true);
-    setMarkdownError(null);
-
-    fetch(`/api/workspaces/${workspaceUuid}/files/${activeFile.id}/stream`, {
-      signal: controller.signal,
-      headers: {
-        Accept: "text/markdown,text/plain,*/*",
-      },
-    })
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error(`Unable to load markdown (${response.status})`);
-        }
-        const text = await response.text();
-        if (cancelled) {
-          return;
-        }
-        setMarkdownOriginal(text);
-        setMarkdownDraft(text);
-        lastLoadedMarkdownFileRef.current = {
-          id: activeFile.id,
-          content: text,
-        };
-      })
-      .catch((error) => {
-        if (cancelled) {
-          return;
-        }
-        if ((error as { name?: string })?.name === "AbortError") {
-          return;
-        }
-        setMarkdownError(
-          error instanceof Error ? error.message : "Unable to load markdown."
-        );
-      })
-      .finally(() => {
-        if (cancelled) {
-          return;
-        }
-        setMarkdownLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [activeFile, activeFileIsMarkdown, workspaceUuid]);
-
-  const markdownBody = useMemo(
-    () => stripFrontmatter(markdownDraft),
-    [markdownDraft]
-  );
-
-  const handleMarkdownBodyChange = useCallback((nextBody: string) => {
-    setMarkdownDraft((current) => {
-      const { properties } = splitFrontmatterDocument(current);
-      return updateContentWithFrontmatter(nextBody, properties);
-    });
-  }, []);
-
-  const markdownDirty = markdownDraft !== markdownOriginal;
-
-  const saveMarkdown = useCallback(async () => {
-    if (!(workspaceUuid && activeFile && activeFileIsMarkdown)) {
-      return;
-    }
-    if (activeFile.readOnly) {
-      return;
-    }
-    if (!markdownDirty) {
-      return;
-    }
-
-    setMarkdownSaving(true);
-    try {
-      const blob = new Blob([markdownDraft], { type: "text/markdown" });
-      const file = new File([blob], activeFile.name, { type: "text/markdown" });
-      const uploaded = ((await startUpload([file])) ?? [])[0] as
-        | {
-            key?: string;
-            ufsUrl?: string;
-            url?: string;
-            size?: number;
-            contentType?: string;
-          }
-        | undefined;
-      const storageKey = uploaded?.key;
-      const storageUrl = uploaded?.ufsUrl ?? uploaded?.url;
-      if (!(storageKey && storageUrl)) {
-        throw new Error("Upload returned no file metadata");
-      }
-
-      const response = await fetch(
-        `/api/workspaces/${workspaceUuid}/files/${activeFile.id}/content`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            storageKey,
-            storageUrl,
-            sizeBytes: blob.size,
-            mimeType: "text/markdown",
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        throw new Error(payload.error ?? "Unable to save markdown.");
-      }
-
-      setMarkdownOriginal(markdownDraft);
-      if (activeFile) {
-        lastLoadedMarkdownFileRef.current = {
-          id: activeFile.id,
-          content: markdownDraft,
-        };
-      }
-    } catch (error) {
-      setMarkdownError(
-        error instanceof Error ? error.message : "Unable to save markdown."
-      );
-    } finally {
-      setMarkdownSaving(false);
-    }
-  }, [
-    activeFile,
-    activeFileIsMarkdown,
-    markdownDirty,
-    markdownDraft,
-    startUpload,
-    workspaceUuid,
-  ]);
-
-  const saveNoteDraft = useCallback(
-    async (draft: string) => {
-      if (!(activeFile && activeFileIsMarkdown && activeFileIsNote)) {
+  const createNote = useCallback(
+    async (parentId: string, name: string) => {
+      if (!workspaceUuid) {
         return;
       }
-      if (activeFile.readOnly) {
+      if (!parentId) {
+        return;
+      }
+      if (noteCreateBusy) {
+        return;
+      }
+      const trimmedName = name.trim();
+      if (!trimmedName) {
         return;
       }
 
-      setNoteSaveState("saving");
+      const fileName = /\.mdx?$/i.test(trimmedName)
+        ? trimmedName
+        : `${trimmedName}.md`;
+      const noteTitle = fileName.replace(/\.mdx?$/i, "") || "Untitled";
+
+      setNoteCreateBusy(true);
       try {
-        const response = await fetch(`/api/notes/${activeFile.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content: draft }),
-        });
+        const initialContent = `# ${noteTitle}\n`;
+        const response = await fetch(
+          `/api/workspaces/${workspaceUuid}/files/register`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              folderId: parentId,
+              name: fileName,
+              content: initialContent,
+              metadata: { type: "note" },
+            }),
+          }
+        );
 
         if (!response.ok) {
           const payload = (await response.json().catch(() => ({}))) as {
             error?: string;
           };
-          throw new Error(payload.error ?? "Unable to save note.");
+          throw new Error(payload.error ?? "Unable to create note.");
         }
 
-        setMarkdownOriginal(draft);
-        if (activeFile) {
-          lastLoadedMarkdownFileRef.current = {
-            id: activeFile.id,
-            content: draft,
-          };
+        const payload = (await response.json()) as { file?: FileRecord };
+        const created = payload.file;
+        if (created?.id) {
+          const params = new URLSearchParams();
+          params.set("file", created.id);
+          router.push(
+            `/dashboard/files/${workspaceUuid}/folder/${parentId}?${params.toString()}` as Route
+          );
         }
-        setNoteSaveState("saved");
-      } catch {
-        setNoteSaveState("error");
+      } catch (error) {
+        console.error(
+          error instanceof Error ? error.message : "Unable to create note."
+        );
+      } finally {
+        setNoteCreateBusy(false);
       }
     },
-    [activeFile, activeFileIsMarkdown, activeFileIsNote]
+    [noteCreateBusy, router, workspaceUuid]
   );
-
-  const noteSaveTimerRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (!(activeFileIsMarkdown && activeFileIsNote) || activeFile?.readOnly) {
-      setNoteSaveState("idle");
-      return;
-    }
-
-    if (!markdownDirty) {
-      return;
-    }
-
-    if (noteSaveTimerRef.current) {
-      window.clearTimeout(noteSaveTimerRef.current);
-    }
-
-    noteSaveTimerRef.current = window.setTimeout(() => {
-      void saveNoteDraft(markdownDraft);
-    }, 2000);
-
-    return () => {
-      if (noteSaveTimerRef.current) {
-        window.clearTimeout(noteSaveTimerRef.current);
-      }
-    };
-  }, [
-    activeFile?.readOnly,
-    activeFileIsMarkdown,
-    activeFileIsNote,
-    markdownDirty,
-    markdownDraft,
-    saveNoteDraft,
-  ]);
-
-  useEffect(() => {
-    setNoteSaveState("idle");
-  }, [activeFile?.id]);
-
-  useEffect(() => {
-    if (noteSaveState !== "saved" && noteSaveState !== "error") {
-      return;
-    }
-
-    const delay = noteSaveState === "saved" ? 1500 : 4000;
-    const timer = window.setTimeout(() => {
-      setNoteSaveState("idle");
-    }, delay);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [noteSaveState]);
-
-  const createNote = useCallback(async (parentId: string, name: string) => {
-    if (!workspaceUuid) {
-      return;
-    }
-    if (!parentId) {
-      return;
-    }
-    if (noteCreateBusy) {
-      return;
-    }
-    const trimmedName = name.trim();
-    if (!trimmedName) {
-      return;
-    }
-
-    const fileName = /\.mdx?$/i.test(trimmedName)
-      ? trimmedName
-      : `${trimmedName}.md`;
-    const noteTitle = fileName.replace(/\.mdx?$/i, "") || "Untitled";
-
-    setNoteCreateBusy(true);
-    try {
-      const initialContent = `# ${noteTitle}\n`;
-      const blob = new Blob([initialContent], { type: "text/markdown" });
-      const file = new File([blob], fileName, { type: "text/markdown" });
-      const uploaded = ((await startUpload([file])) ?? [])[0] as
-        | UploadResultLike
-        | undefined;
-
-      if (!(uploaded?.key && uploaded.ufsUrl)) {
-        throw new Error("Upload returned no file metadata");
-      }
-
-      const response = await fetch(
-        `/api/workspaces/${workspaceUuid}/files/register`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            folderId: parentId,
-            storageKey: uploaded.key,
-            storageUrl: uploaded.ufsUrl,
-            name: uploaded.name ?? file.name,
-            mimeType: uploaded.contentType ?? file.type,
-            sizeBytes: uploaded.size ?? file.size,
-            metadata: { type: "note" },
-            noteContent: initialContent,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        throw new Error(payload.error ?? "Unable to create note.");
-      }
-
-      const payload = (await response.json()) as { file?: FileRecord };
-      const created = payload.file;
-      if (created?.id) {
-        const params = new URLSearchParams();
-        params.set("file", created.id);
-        router.push(
-          `/dashboard/files/${workspaceUuid}/folder/${parentId}?${params.toString()}` as Route
-        );
-      }
-    } catch (error) {
-      setMarkdownError(
-        error instanceof Error ? error.message : "Unable to create note."
-      );
-    } finally {
-      setNoteCreateBusy(false);
-    }
-  }, [
-    noteCreateBusy,
-    router,
-    startUpload,
-    workspaceUuid,
-  ]);
 
   const openCreateNoteDialog = useCallback(
     (parentId: string) => {
@@ -1292,41 +844,6 @@ export function FileExplorer({
     },
     [isCurrentFolderReadOnly]
   );
-
-  const activeMediaStreamUrl = useMemo(() => {
-    if (!(activeFile && workspaceUuid)) {
-      return null;
-    }
-    return `/api/workspaces/${workspaceUuid}/files/${activeFile.id}/stream`;
-  }, [activeFile, workspaceUuid]);
-  const activeMediaSrc = useMemo(() => {
-    if (!activeMediaStreamUrl) {
-      return null;
-    }
-    return activeMediaStreamUrl;
-  }, [activeMediaStreamUrl]);
-  const activePlaybackDescriptor = useMemo(() => {
-    if (!(activeFile && activeMediaSrc)) {
-      return null;
-    }
-    return buildVideoPlaybackDescriptor({
-      fallbackUrl: activeMediaSrc,
-      mimeType: activeFile.mimeType,
-      videoDelivery: mediaStreamFailed ? null : activeFile.videoDelivery,
-    });
-  }, [activeFile, activeMediaSrc, mediaStreamFailed]);
-  const activeVideoCaptionsSrc = useMemo(() => {
-    if (!(activeFile && workspaceUuid)) {
-      return undefined;
-    }
-    const isVideo = (activeFile.mimeType ?? "")
-      .toLowerCase()
-      .startsWith("video/");
-    if (!isVideo) {
-      return undefined;
-    }
-    return `/api/workspaces/${workspaceUuid}/files/${activeFile.id}/captions.vtt`;
-  }, [activeFile, workspaceUuid]);
   const parentFolder = useMemo(
     () => breadcrumbs[breadcrumbs.length - 2] ?? null,
     [breadcrumbs]
@@ -1369,47 +886,6 @@ export function FileExplorer({
           item.id === currentPinnedItem.id
       )
     : false;
-  const activeFileRetrievalResults = useMemo(() => {
-    if (!activeFile) {
-      return [];
-    }
-    return retrievalResults.filter(
-      (result) => (result.fileId ?? result.id) === activeFile.id
-    );
-  }, [activeFile, retrievalResults]);
-  const activeRetrievalResult = useMemo(() => {
-    if (activeFileRetrievalResults.length === 0) {
-      return null;
-    }
-    if (activeRetrievalChunkId) {
-      return (
-        activeFileRetrievalResults.find(
-          (result) => result.chunkId === activeRetrievalChunkId
-        ) ?? activeFileRetrievalResults[0]
-      );
-    }
-    return activeFileRetrievalResults[0] ?? null;
-  }, [activeFileRetrievalResults, activeRetrievalChunkId]);
-
-  const ensureDragPreviewPixel = useCallback(() => {
-    if (dragPreviewPixelRef.current) {
-      return dragPreviewPixelRef.current;
-    }
-    const pixel = new Image();
-    pixel.src =
-      "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
-    dragPreviewPixelRef.current = pixel;
-    return pixel;
-  }, []);
-
-  const configureDragPreview = useCallback(
-    (event: React.DragEvent<HTMLElement>) => {
-      const pixel = ensureDragPreviewPixel();
-      event.dataTransfer.setDragImage(pixel, 0, 0);
-    },
-    [ensureDragPreviewPixel]
-  );
-
   const searchableItems = useMemo<WorkspaceSearchItem[]>(
     () => [
       ...allFolders.map((folder) => ({
@@ -1462,31 +938,6 @@ export function FileExplorer({
     },
     [workspaceUuid]
   );
-
-  useEffect(() => {
-    if (!workspaceUuid) {
-      setShareSuggestions([]);
-      return;
-    }
-    const timer = setTimeout(() => {
-      void loadShareSuggestions(shareEmail, setShareSuggestions);
-    }, 150);
-    return () => clearTimeout(timer);
-  }, [loadShareSuggestions, shareEmail, workspaceUuid]);
-
-  useEffect(() => {
-    if (!workspaceUuid) {
-      setWorkspaceShareSuggestions([]);
-      return;
-    }
-    const timer = setTimeout(() => {
-      void loadShareSuggestions(
-        workspaceShareEmail,
-        setWorkspaceShareSuggestions
-      );
-    }, 150);
-    return () => clearTimeout(timer);
-  }, [loadShareSuggestions, workspaceShareEmail, workspaceUuid]);
 
   const filteredFolders = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -1554,8 +1005,8 @@ export function FileExplorer({
                 .map((entry) => entry.trim())
                 .filter(Boolean)
             : [];
-        const hasTag = tags.some(
-          (tag) => tag.toLowerCase().includes(tagNeedle)
+        const hasTag = tags.some((tag) =>
+          tag.toLowerCase().includes(tagNeedle)
         );
         if (!hasTag) {
           return false;
@@ -1644,7 +1095,8 @@ export function FileExplorer({
     const countsByFolder = new Map<string, Map<string, number>>();
     for (const file of allFiles) {
       const kind = detectFileKind(file);
-      const byKind = countsByFolder.get(file.folderId) ?? new Map<string, number>();
+      const byKind =
+        countsByFolder.get(file.folderId) ?? new Map<string, number>();
       byKind.set(kind, (byKind.get(kind) ?? 0) + 1);
       countsByFolder.set(file.folderId, byKind);
     }
@@ -1902,8 +1354,8 @@ export function FileExplorer({
   }, [refreshData]);
 
   const emitSync = useCallback(() => {
-    emitFilesSync(workspaceUuid);
-  }, [emitFilesSync, workspaceUuid]);
+    filesUiActions.emitSync(workspaceUuid);
+  }, [workspaceUuid]);
 
   useEffect(() => {
     void loadFolder();
@@ -1913,9 +1365,12 @@ export function FileExplorer({
     void loadTree();
   }, [loadTree]);
 
+  const loadedFrontmatterFileIdsRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     if (!workspaceUuid) {
       setFrontmatterByFileId({});
+      loadedFrontmatterFileIdsRef.current = new Set();
       return;
     }
 
@@ -1932,7 +1387,9 @@ export function FileExplorer({
       return;
     }
 
-    const missing = markdownFiles.filter((file) => !frontmatterByFileId[file.id]);
+    const missing = markdownFiles.filter(
+      (file) => !loadedFrontmatterFileIdsRef.current.has(file.id)
+    );
     if (missing.length === 0) {
       return;
     }
@@ -1944,6 +1401,7 @@ export function FileExplorer({
       const loadedEntries: Array<[string, FrontmatterProperties]> = [];
 
       for (const file of missing.slice(0, 60)) {
+        loadedFrontmatterFileIdsRef.current.add(file.id);
         try {
           const response = await fetch(
             `/api/workspaces/${workspaceUuid}/files/${file.id}/stream`,
@@ -1980,7 +1438,7 @@ export function FileExplorer({
       cancelled = true;
       controller.abort();
     };
-  }, [allFiles, frontmatterByFileId, workspaceUuid]);
+  }, [allFiles, workspaceUuid]);
 
   useEffect(() => {
     if (!workspaceUuid) {
@@ -2040,6 +1498,10 @@ export function FileExplorer({
   }, [workspaceUuid]);
 
   useEffect(() => {
+    if (lastRecordedRouteRef.current === currentRoute) {
+      return;
+    }
+    lastRecordedRouteRef.current = currentRoute;
     recordRoute(currentRoute);
   }, [currentRoute, recordRoute]);
 
@@ -2300,12 +1762,6 @@ export function FileExplorer({
   }, [workspaceUuid]);
 
   useEffect(() => {
-    setVideoLoadFailed(false);
-    setAudioLoadFailed(false);
-    setMediaStreamFailed(false);
-  }, [activeFile?.id]);
-
-  useEffect(() => {
     window.localStorage.setItem(FILE_EXPLORER_VIEW_MODE_KEY, viewMode);
   }, [viewMode]);
 
@@ -2325,19 +1781,29 @@ export function FileExplorer({
         query?: string;
         results?: WorkspaceSearchResult[];
       };
+      const parsedResults = Array.isArray(parsed.results) ? parsed.results : [];
       if (typeof parsed.query === "string") {
-        setQuery("");
+        setQuery((current) => (current ? "" : current));
       }
-      if (Array.isArray(parsed.results)) {
-        setRetrievalResults(parsed.results);
-        setVectorFilteredIds(null);
-        setQuery("");
+      if (parsedResults.length > 0) {
+        setRetrievalResults((current) => {
+          if (current.length === parsedResults.length) {
+            return current;
+          }
+          return parsedResults;
+        });
+        setVectorFilteredIds((current) => (current ? null : current));
+        setQuery((current) => (current ? "" : current));
       }
       if (
         typeof parsed.activeChunkId === "string" ||
         parsed.activeChunkId === null
       ) {
-        setActiveRetrievalChunkId(parsed.activeChunkId ?? null);
+        setActiveRetrievalChunkId((current) =>
+          current === (parsed.activeChunkId ?? null)
+            ? current
+            : (parsed.activeChunkId ?? null)
+        );
       }
     } catch {
       // Ignore malformed client cache.
@@ -2359,41 +1825,13 @@ export function FileExplorer({
   }, [activeRetrievalChunkId, query, retrievalResults, workspaceUuid]);
 
   useEffect(() => {
-    if (selectedRetrievalChunkParam) {
+    if (
+      selectedRetrievalChunkParam &&
+      selectedRetrievalChunkParam !== activeRetrievalChunkId
+    ) {
       setActiveRetrievalChunkId(selectedRetrievalChunkParam);
     }
-  }, [selectedRetrievalChunkParam]);
-
-  useEffect(() => {
-    if (!activeFile) {
-      return;
-    }
-
-    markFileOpened(activeFile.id);
-    const { isAudio, isVideo } = detectPreviewKind(activeFile);
-    if (!(isAudio || isVideo)) {
-      return;
-    }
-
-    const playbackSource = isVideo
-      ? (activePlaybackDescriptor?.preferredSource ?? null)
-      : activeMediaSrc
-        ? buildProgressivePlaybackSource(activeMediaSrc, activeFile.mimeType)
-        : null;
-    if (!playbackSource) {
-      return;
-    }
-
-    void primeMediaPlayback(playbackSource, {
-      mediaType: isVideo ? "video" : "audio",
-      posterUrl: isVideo ? activePlaybackDescriptor?.posterUrl : null,
-      sizeBytes: activeFile.sizeBytes,
-      surface: "viewer",
-    });
-    return () => {
-      releaseMediaPlaybackPrime(playbackSource);
-    };
-  }, [activeFile, activeMediaSrc, activePlaybackDescriptor]);
+  }, [activeRetrievalChunkId, selectedRetrievalChunkParam]);
 
   useEffect(() => {
     const processed = processedFilesIntentVersionsRef.current;
@@ -2466,8 +1904,8 @@ export function FileExplorer({
     if (!(workspaceUuid && currentPinnedItem)) {
       return;
     }
-    togglePinnedItem(workspaceUuid, currentPinnedItem);
-  }, [currentPinnedItem, togglePinnedItem, workspaceUuid]);
+    filesPinsActions.togglePinnedItem(workspaceUuid, currentPinnedItem);
+  }, [currentPinnedItem, workspaceUuid]);
 
   const selectFile = useCallback(
     (fileId: string | null, options?: { retrievalChunkId?: string | null }) => {
@@ -2536,6 +1974,13 @@ export function FileExplorer({
       );
     },
     [allFiles, router, workspaceUuid]
+  );
+
+  const openFolderById = useCallback(
+    (folderId: string) => {
+      navigateToFolder(folderId);
+    },
+    [navigateToFolder]
   );
 
   useEffect(() => {
@@ -3579,72 +3024,20 @@ export function FileExplorer({
     ]
   );
 
-  const updateTouchDropTarget = useCallback(
-    (clientX: number, clientY: number) => {
-      const element = document.elementFromPoint(clientX, clientY);
-      const target = element?.closest<HTMLElement>("[data-drop-folder-id]");
-      const targetId = target?.dataset.dropFolderId ?? null;
-      setDropTargetId(targetId);
-      return targetId;
-    },
-    []
-  );
-
-  const beginTouchDrag = useCallback(
-    (itemId: string) => {
-      const sourceIds = selection.prepareDrag(itemId);
-      touchDragIdsRef.current = sourceIds;
-      setDraggingIds(sourceIds);
-    },
-    [selection]
-  );
-
-  const moveTouchDrag = useCallback(
-    (event: TouchEvent<HTMLDivElement>) => {
-      if (!touchDragIdsRef.current || event.touches.length === 0) {
-        return;
-      }
-      const touch = event.touches[0];
-      if (!touch) {
-        return;
-      }
-      updateTouchDropTarget(touch.clientX, touch.clientY);
-    },
-    [updateTouchDropTarget]
-  );
-
-  const endTouchDrag = useCallback(
-    (event: TouchEvent<HTMLDivElement>) => {
-      const sourceIds = touchDragIdsRef.current;
-      touchDragIdsRef.current = null;
-      setDraggingIds([]);
-
-      if (
-        !sourceIds ||
-        sourceIds.length === 0 ||
-        event.changedTouches.length === 0
-      ) {
-        setDropTargetId(null);
-        return;
-      }
-
-      const touch = event.changedTouches[0];
-      if (!touch) {
-        setDropTargetId(null);
-        return;
-      }
-
-      const targetId = updateTouchDropTarget(touch.clientX, touch.clientY);
-      if (!targetId) {
-        setDropTargetId(null);
-        return;
-      }
-
-      void moveItemsToFolder(sourceIds, targetId);
-      setDropTargetId(null);
-    },
-    [moveItemsToFolder, updateTouchDropTarget]
-  );
+  const {
+    canvasDropActive,
+    dropTargetId,
+    getCanvasDropProps,
+    getFolderDragProps,
+    getFileDragProps,
+  } = useFileDragDrop({
+    selection,
+    currentFolderId,
+    isCurrentFolderReadOnly,
+    moveItemsToFolder,
+    queueUploads,
+    getDropUploadCandidates,
+  });
 
   useEffect(() => {
     const processed = processedFilesIntentVersionsRef.current;
@@ -3732,26 +3125,6 @@ export function FileExplorer({
     visibleItemIds,
   ]);
 
-  const handleCanvasDragEnter = useCallback(() => {
-    if (isCurrentFolderReadOnly) {
-      return;
-    }
-    canvasDragDepthRef.current += 1;
-    setCanvasDropActive(true);
-    setDropTargetId(currentFolderId);
-  }, [currentFolderId, isCurrentFolderReadOnly]);
-
-  const handleCanvasDragLeave = useCallback(() => {
-    if (isCurrentFolderReadOnly) {
-      return;
-    }
-    canvasDragDepthRef.current = Math.max(0, canvasDragDepthRef.current - 1);
-    if (canvasDragDepthRef.current === 0) {
-      setCanvasDropActive(false);
-      setDropTargetId(null);
-    }
-  }, [isCurrentFolderReadOnly]);
-
   const openCreateFolderDialog = (parentId: string) => {
     setEditDialog({
       mode: "create-folder",
@@ -3800,132 +3173,6 @@ export function FileExplorer({
     setEditDialog(null);
   };
 
-  const shareActiveFileWithEmail = async () => {
-    if (
-      !(activeFile && workspaceUuid && shareEmail.trim()) ||
-      activeFile.readOnly
-    ) {
-      return;
-    }
-
-    setShareBusy(true);
-    setShareStatus(null);
-    try {
-      const response = await fetch(
-        `/api/workspaces/${workspaceUuid}/files/${activeFile.id}/share/grants`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: shareEmail.trim(),
-            permission: fileSharePermission,
-          }),
-        }
-      );
-      if (!response.ok) {
-        setShareStatus("Unable to add access.");
-        return;
-      }
-      setShareEmail("");
-      setShareStatus("Access granted.");
-    } finally {
-      setShareBusy(false);
-    }
-  };
-
-  const generateActiveFileShareLink = async () => {
-    if (!(activeFile && workspaceUuid) || activeFile.readOnly) {
-      return;
-    }
-    setShareBusy(true);
-    setShareStatus(null);
-    try {
-      const response = await fetch(
-        `/api/workspaces/${workspaceUuid}/files/${activeFile.id}/share/link`,
-        { method: "POST" }
-      );
-      if (!response.ok) {
-        setShareStatus("Unable to generate link.");
-        return;
-      }
-      const payload = (await response.json()) as { shareUrl?: string };
-      if (payload.shareUrl) {
-        setShareLink(payload.shareUrl);
-        setShareStatus("Share link generated.");
-      }
-    } finally {
-      setShareBusy(false);
-    }
-  };
-
-  const shareCurrentFolderWithEmail = async () => {
-    if (
-      !(
-        currentFolder &&
-        workspaceUuid &&
-        folderShareEmail.trim() &&
-        !isAtWorkspaceRoot
-      ) ||
-      currentFolder.readOnly
-    ) {
-      return;
-    }
-
-    setFolderShareBusy(true);
-    setFolderShareStatus(null);
-    try {
-      const response = await fetch(
-        `/api/workspaces/${workspaceUuid}/folders/${currentFolder.id}/share/grants`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: folderShareEmail.trim(),
-            permission: folderSharePermission,
-          }),
-        }
-      );
-      if (!response.ok) {
-        setFolderShareStatus("Unable to add access.");
-        return;
-      }
-      const payload = (await response.json()) as { shareUrl?: string };
-      setFolderShareEmail("");
-      setFolderShareLink(payload.shareUrl ?? null);
-      setFolderShareStatus("Access granted.");
-    } finally {
-      setFolderShareBusy(false);
-    }
-  };
-
-  const generateCurrentFolderShareLink = async () => {
-    if (
-      !(currentFolder && workspaceUuid) ||
-      isAtWorkspaceRoot ||
-      currentFolder.readOnly
-    ) {
-      return;
-    }
-    setFolderShareBusy(true);
-    setFolderShareStatus(null);
-    try {
-      const response = await fetch(
-        `/api/workspaces/${workspaceUuid}/folders/${currentFolder.id}/share/link`,
-        { method: "POST" }
-      );
-      if (!response.ok) {
-        setFolderShareStatus("Unable to generate link.");
-        return;
-      }
-      const payload = (await response.json()) as { shareUrl?: string };
-      if (payload.shareUrl) {
-        setFolderShareLink(payload.shareUrl);
-        setFolderShareStatus("Share link generated.");
-      }
-    } finally {
-      setFolderShareBusy(false);
-    }
-  };
 
   const copyFileShareLink = useCallback(
     async (file: FileRecord) => {
@@ -3947,7 +3194,6 @@ export function FileExplorer({
       }
 
       await navigator.clipboard.writeText(payload.shareUrl);
-      setShareStatus("Link copied.");
     },
     [workspaceUuid]
   );
@@ -3972,82 +3218,9 @@ export function FileExplorer({
       }
 
       await navigator.clipboard.writeText(payload.shareUrl);
-      setFolderShareStatus("Link copied.");
     },
     [workspaceUuid]
   );
-
-  const shareWorkspaceWithEmail = async () => {
-    if (!(workspaceUuid && workspaceShareEmail.trim())) {
-      return;
-    }
-    setWorkspaceShareBusy(true);
-    setWorkspaceShareStatus(null);
-    try {
-      const response = await fetch(
-        `/api/workspaces/${workspaceUuid}/share/members`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: workspaceShareEmail.trim() }),
-        }
-      );
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        setWorkspaceShareStatus(payload.error ?? "Unable to share workspace.");
-        return;
-      }
-      const payload = (await response.json()) as { status?: string };
-      setWorkspaceShareEmail("");
-      setWorkspaceShareStatus(
-        payload.status === "added"
-          ? "Workspace shared."
-          : payload.status === "invited"
-            ? "Invitation sent."
-            : "Workspace shared."
-      );
-    } finally {
-      setWorkspaceShareBusy(false);
-    }
-  };
-
-  const notifyWorkspaceTeam = async () => {
-    if (!workspaceUuid) {
-      return;
-    }
-    setWorkspaceShareBusy(true);
-    setWorkspaceShareStatus(null);
-    try {
-      const response = await fetch(
-        `/api/workspaces/${workspaceUuid}/share/team`,
-        {
-          method: "POST",
-        }
-      );
-      if (!response.ok) {
-        setWorkspaceShareStatus("Unable to notify team.");
-        return;
-      }
-      const payload = (await response.json()) as {
-        emailSentCount?: number;
-        queued?: boolean;
-        recipients?: number;
-      };
-      if (payload.queued) {
-        setWorkspaceShareStatus(
-          `Workspace notifications queued for ${payload.recipients ?? 0} teammates.`
-        );
-        return;
-      }
-      setWorkspaceShareStatus(
-        `Workspace notification sent to ${payload.emailSentCount ?? 0} teammates.`
-      );
-    } finally {
-      setWorkspaceShareBusy(false);
-    }
-  };
 
   const duplicateItem = useCallback(
     async (
@@ -4118,7 +3291,10 @@ export function FileExplorer({
 
   const downloadFileDirect = useCallback(async (file: FileRecord) => {
     try {
-      const response = await fetch(file.storageUrl);
+      const sourceUrl = file.isNote
+        ? `/api/workspaces/${workspaceUuid}/files/${file.id}/stream`
+        : file.storageUrl;
+      const response = await fetch(sourceUrl);
       if (!response.ok) {
         throw new Error("Download failed");
       }
@@ -4132,459 +3308,75 @@ export function FileExplorer({
       link.remove();
       URL.revokeObjectURL(objectUrl);
     } catch {
-      window.open(file.storageUrl, "_blank", "noopener,noreferrer");
+      const fallbackUrl = file.isNote
+        ? `/api/workspaces/${workspaceUuid}/files/${file.id}/stream`
+        : file.storageUrl;
+      window.open(fallbackUrl, "_blank", "noopener,noreferrer");
     }
-  }, []);
+  }, [workspaceUuid]);
+
+  const handleApplyWorkspaceFilter = useCallback(
+    (itemIds: string[] | null) => {
+      setVectorFilteredIds(
+        itemIds && itemIds.length > 0 ? new Set(itemIds) : null
+      );
+    },
+    []
+  );
+
+  const handleSearch = useCallback(
+    (_searchQuery: string, results: WorkspaceSearchResult[]) => {
+      setQuery("");
+      setRetrievalResults(results);
+      if (results.length === 0) {
+        setActiveRetrievalChunkId(null);
+      }
+    },
+    []
+  );
+
+  const handleSelectResult = useCallback(
+    (result: WorkspaceSearchResult) => {
+      if (result.type === "folder") {
+        setActiveRetrievalChunkId(null);
+        openFolderById(result.id);
+        return;
+      }
+      setActiveRetrievalChunkId(result.chunkId ?? null);
+      openSearchResult(result);
+    },
+    [openFolderById, openSearchResult]
+  );
 
   if (activeFile) {
-    const { isAudio, isImage, isPdf, isVideo, isMarkdown } =
-      detectPreviewKind(activeFile);
-    const isOpenedCached = isFileOpenedCached(activeFile.id);
-    const activeAudioPlaybackSource = buildProgressivePlaybackSource(
-      activeMediaSrc ?? activeFile.storageUrl,
-      activeFile.mimeType
-    );
-    const isPreferredVideoSourceWarm = activePlaybackDescriptor
-      ? getWarmState(activePlaybackDescriptor.preferredSource) === "warm"
-      : false;
-    const shouldUsePreferredVideoSource =
-      isOpenedCached || isPreferredVideoSourceWarm;
-    const activeVideoPlaybackSource = activePlaybackDescriptor
-      ? activePlaybackDescriptor.preferredSource
-      : buildProgressivePlaybackSource(
-          activeMediaSrc ?? activeFile.storageUrl,
-          activeFile.mimeType
-        );
-
     return (
-      <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background">
-        <div className="flex h-12 items-center justify-between gap-2 border-border/70 border-b bg-card/40 px-3">
-          <div className="flex min-w-0 items-center gap-1 text-muted-foreground text-xs">
-            <Button
-              className="size-5"
-              onClick={() => selectFile(null)}
-              size="icon-xs"
-              type="button"
-              variant="ghost"
-            >
-              <ArrowLeft className="size-3" />
-            </Button>
-            <span className="truncate text-foreground">{activeFile.name}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="hidden text-muted-foreground text-xs sm:inline">
-              Edited{" "}
-              {toUpdatedLabel(activeFile.updatedAt ?? activeFile.createdAt)} ago
-            </span>
-            {isMarkdown && !activeFile.readOnly && !activeFile.isNote ? (
-              <Button
-                className="h-7"
-                disabled={markdownSaving || !markdownDirty}
-                onClick={() => {
-                  void saveMarkdown();
-                }}
-                size="sm"
-                type="button"
-                variant="secondary"
-              >
-                {markdownSaving ? "Saving..." : "Save"}
-              </Button>
-            ) : null}
-            {activeFile.readOnly ? null : (
-              <Dialog>
-                <DialogTrigger
-                  render={
-                    <Button
-                      className="size-5"
-                      size="icon-xs"
-                      type="button"
-                      variant="ghost"
-                    />
-                  }
-                >
-                  <Share2 className="size-3" />
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Share file</DialogTitle>
-                    <DialogDescription>
-                      Grant viewer or editor access by email, or create a signed
-                      link.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-2">
-                    <Label htmlFor="file-share-permission">Permission</Label>
-                    <select
-                      className="h-9 w-full rounded-md border bg-background px-3 text-sm"
-                      id="file-share-permission"
-                      onChange={(event) =>
-                        setFileSharePermission(
-                          event.target.value === "editor" ? "editor" : "viewer"
-                        )
-                      }
-                      value={fileSharePermission}
-                    >
-                      <option value="viewer">Viewer (read-only)</option>
-                      <option value="editor">Editor</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="file-share-email">Add people</Label>
-                    <div className="flex items-center gap-2">
-                      <EmailSuggestionInput
-                        id="file-share-email"
-                        onFocus={() => {
-                          void loadShareSuggestions(
-                            shareEmail,
-                            setShareSuggestions
-                          );
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key !== "Enter") {
-                            return;
-                          }
-                          event.preventDefault();
-                          shareActiveFileWithEmail().catch(() => undefined);
-                        }}
-                        onValueChange={setShareEmail}
-                        placeholder="name@example.com"
-                        suggestions={shareSuggestions}
-                        value={shareEmail}
-                      />
-                      <Button
-                        disabled={shareBusy}
-                        onClick={() => {
-                          shareActiveFileWithEmail().catch(() => undefined);
-                        }}
-                        size="sm"
-                        type="button"
-                        variant="secondary"
-                      >
-                        Add
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Share link (7 days)</Label>
-                    <div className="flex items-center gap-2">
-                      <Input readOnly value={shareLink ?? ""} />
-                      <Button
-                        disabled={shareBusy}
-                        onClick={() => {
-                          void generateActiveFileShareLink();
-                        }}
-                        size="sm"
-                        type="button"
-                        variant="outline"
-                      >
-                        Generate
-                      </Button>
-                      <Button
-                        disabled={!shareLink}
-                        onClick={() => {
-                          if (!shareLink) {
-                            return;
-                          }
-                          navigator.clipboard.writeText(shareLink).catch(() => {
-                            setShareStatus("Unable to copy link.");
-                          });
-                          setShareStatus("Link copied.");
-                        }}
-                        size="sm"
-                        type="button"
-                        variant="ghost"
-                      >
-                        Copy
-                      </Button>
-                    </div>
-                  </div>
-                  {shareStatus ? (
-                    <p className="text-muted-foreground text-xs">
-                      {shareStatus}
-                    </p>
-                  ) : null}
-                </DialogContent>
-              </Dialog>
-            )}
-            <Button
-              className="size-5"
-              onClick={toggleCurrentPinnedItem}
-              size="icon-xs"
-              type="button"
-              variant={isCurrentPinned ? "secondary" : "ghost"}
-            >
-              {isCurrentPinned ? (
-                <PinOff className="size-3" />
-              ) : (
-                <Pin className="size-3" />
-              )}
-            </Button>
-            <Button
-              className="size-5"
-              onClick={() =>
-                window.open(
-                  activeFile.storageUrl,
-                  "_blank",
-                  "noopener,noreferrer"
-                )
-              }
-              size="icon-xs"
-              type="button"
-              variant="ghost"
-            >
-              <ArrowUp className="size-3" />
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    className="size-5"
-                    size="icon-xs"
-                    type="button"
-                    variant="ghost"
-                  />
-                }
-              >
-                <MoreHorizontal className="size-3" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem onClick={toggleCurrentPinnedItem}>
-                  {isCurrentPinned ? (
-                    <PinOff className="size-3.5" />
-                  ) : (
-                    <Pin className="size-3.5" />
-                  )}
-                  {isCurrentPinned ? "Unpin" : "Pin"}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    openRenameFileDialog(activeFile);
-                  }}
-                >
-                  <Pencil className="size-3.5" />
-                  Rename
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    void duplicateItem({
-                      id: activeFile.id,
-                      kind: "file",
-                      parentId: activeFile.folderId,
-                    });
-                  }}
-                >
-                  <Copy className="size-3.5" />
-                  Duplicate
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    void copyFileShareLink(activeFile);
-                  }}
-                >
-                  <Share2 className="size-3.5" />
-                  Share
-                </DropdownMenuItem>
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    <FolderInput className="size-3.5" />
-                    Move To
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent>
-                    {allFolders
-                      .filter((folder) => !folder.readOnly)
-                      .slice(0, 20)
-                      .map((folder) => (
-                        <DropdownMenuItem
-                          key={folder.id}
-                          onClick={() => {
-                            void moveFile(activeFile.id, folder.id);
-                          }}
-                        >
-                          {folder.name}
-                        </DropdownMenuItem>
-                      ))}
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-                <DropdownMenuItem
-                  onClick={() => {
-                    downloadFileDirect(activeFile);
-                  }}
-                >
-                  <ArrowDownToLine className="size-3.5" />
-                  Download
-                </DropdownMenuItem>
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    <Info className="size-3.5" />
-                    Information
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="w-72">
-                    {currentInfoEntries.map((entry) => (
-                      <div
-                        className="flex items-start justify-between gap-3 px-2 py-1.5 text-xs"
-                        key={entry.label}
-                      >
-                        <span className="text-muted-foreground">
-                          {entry.label}
-                        </span>
-                        <span className="max-w-[12rem] text-right text-foreground">
-                          {entry.value}
-                        </span>
-                      </div>
-                    ))}
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => {
-                    void deleteSelectionItems([
-                      { id: activeFile.id, kind: "file" },
-                    ]);
-                  }}
-                  variant="destructive"
-                >
-                  <Trash2 className="size-3.5" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-
-        <div
-          className="min-h-0 flex-1 overflow-auto bg-muted/25"
-          ref={filePreviewScrollRef}
-        >
-          {isMarkdown ? (
-            <div className="h-full">
-              {markdownLoading ? (
-                <div className="mx-auto flex h-[70vh] max-w-[820px] items-center justify-center p-4 text-muted-foreground text-sm">
-                  Loading markdown...
-                </div>
-              ) : markdownError ? (
-                <div className="mx-auto flex h-[70vh] max-w-[820px] flex-col items-center justify-center gap-3 p-4 text-center">
-                  <FileText className="size-8 text-muted-foreground" />
-                  <p className="text-muted-foreground text-xs">
-                    {markdownError}
-                  </p>
-                </div>
-              ) : (
-                <div className="flex h-full flex-col">
-                  <PropertiesTable
-                    content={markdownDraft}
-                    onChange={setMarkdownDraft}
-                  />
-                  <AvenireEditor
-                    defaultValue={markdownBody}
-                    key={activeFile.id}
-                    onChange={handleMarkdownBodyChange}
-                    onOpenWikiLink={(page) => {
-                      openFileById(page.id);
-                    }}
-                    saveState={activeFile.isNote ? noteSaveState : undefined}
-                    scrollContainerRef={filePreviewScrollRef}
-                    wikiPages={wikiMarkdownFiles}
-                  />
-                </div>
-              )}
-            </div>
-          ) : isPdf ? (
-            <div className="h-full p-3">
-              <PDFViewer
-                className="h-[calc(100svh-7.5rem)] max-h-none rounded-xl border border-border/70"
-                fallbackHighlightText={query}
-                highlightPage={activeRetrievalResult?.page ?? null}
-                highlightText={
-                  activeRetrievalResult?.highlightText ??
-                  activeRetrievalResult?.snippet ??
-                  query
-                }
-                source={activeFile.storageUrl}
-              />
-            </div>
-          ) : isVideo && !videoLoadFailed ? (
-            <div className="mx-auto flex h-full max-w-[1200px] items-center justify-center p-4">
-              <FileMediaPlayer
-                activeRangeIndex={
-                  activeFileRetrievalResults.findIndex(
-                    (item) => item.chunkId === activeRetrievalChunkId
-                  ) >= 0
-                    ? activeFileRetrievalResults.findIndex(
-                        (item) => item.chunkId === activeRetrievalChunkId
-                      )
-                    : null
-                }
-                captionsSrc={activeVideoCaptionsSrc}
-                kind="video"
-                name={activeFile.name}
-                onError={() => {
-                  setVideoLoadFailed(true);
-                }}
-                openedCached={shouldUsePreferredVideoSource}
-                playbackSource={activeVideoPlaybackSource}
-                posterUrl={activePlaybackDescriptor?.posterUrl}
-                retrievalRanges={activeFileRetrievalResults
-                  .filter(
-                    (item) =>
-                      typeof item.startMs === "number" &&
-                      Number.isFinite(item.startMs)
-                  )
-                  .map((item) => ({
-                    startMs: item.startMs as number,
-                    endMs: item.endMs,
-                  }))}
-                seekToMs={activeRetrievalResult?.startMs ?? null}
-              />
-            </div>
-          ) : isAudio && !audioLoadFailed ? (
-            <div className="mx-auto flex h-full max-w-[900px] items-center justify-center p-4">
-              <FileMediaPlayer
-                kind="audio"
-                name={activeFile.name}
-                onError={() => {
-                  setAudioLoadFailed(true);
-                }}
-                openedCached={
-                  isOpenedCached ||
-                  getWarmState(activeAudioPlaybackSource) === "warm"
-                }
-                playbackSource={activeAudioPlaybackSource}
-              />
-            </div>
-          ) : isImage ? (
-            <div className="mx-auto flex h-full max-w-[1200px] flex-col gap-3 p-4">
-              <div className="flex min-h-0 flex-1 items-center justify-center rounded-2xl border border-border/70 bg-white p-4">
-                <img
-                  alt={activeFile.name}
-                  className="h-auto max-h-full max-w-full rounded-md object-contain"
-                  src={activeFile.storageUrl}
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="flex h-full min-h-[55vh] flex-col items-center justify-center gap-3 rounded-md border border-border/70 bg-card p-4 text-center">
-              <FileText className="size-8 text-muted-foreground" />
-              <p className="text-muted-foreground text-xs">
-                In-app preview is unavailable for this file type.
-              </p>
-              <Button
-                onClick={() =>
-                  window.open(
-                    activeFile.storageUrl,
-                    "_blank",
-                    "noopener,noreferrer"
-                  )
-                }
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                Open in new tab
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
+      <FilePreviewPanel
+        activeFile={activeFile}
+        workspaceUuid={workspaceUuid}
+        currentFolderId={currentFolderId}
+        allFiles={allFiles}
+        allFolders={allFolders}
+        query={query}
+        retrievalResults={retrievalResults}
+        activeRetrievalChunkId={activeRetrievalChunkId}
+        selectFile={selectFile}
+        openFileById={openFileById}
+        openRenameFileDialog={openRenameFileDialog}
+        deleteSelectionItems={deleteSelectionItems}
+        moveFile={moveFile}
+        duplicateItem={duplicateItem}
+        downloadFileDirect={downloadFileDirect}
+        copyFileShareLink={copyFileShareLink}
+        downloadItemArchive={downloadItemArchive}
+        toggleCurrentPinnedItem={toggleCurrentPinnedItem}
+        isCurrentPinned={isCurrentPinned}
+        currentInfoEntries={currentInfoEntries}
+        wikiMarkdownFiles={wikiMarkdownFiles}
+        filePathById={filePathById}
+        workspaceMembers={workspaceMembers}
+        startUpload={startUpload}
+        loadShareSuggestions={loadShareSuggestions}
+      />
     );
   }
 
@@ -4655,175 +3447,13 @@ export function FileExplorer({
           </Breadcrumb>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <Dialog>
-            <DialogTrigger
-              render={
-                <Button
-                  className="rounded-md"
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                />
-              }
-            >
-              <Share2 className="size-3.5" />
-              Share
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>
-                  {isAtWorkspaceRoot ? "Share workspace" : "Share folder"}
-                </DialogTitle>
-                <DialogDescription>
-                  {isAtWorkspaceRoot
-                    ? "Add a teammate by email, or notify the whole team with a workspace link."
-                    : "Grant viewer or editor access by email, or create a signed folder link."}
-                </DialogDescription>
-              </DialogHeader>
-              {isAtWorkspaceRoot ? null : (
-                <div className="space-y-2">
-                  <Label htmlFor="folder-share-permission">Permission</Label>
-                  <select
-                    className="h-9 w-full rounded-md border bg-background px-3 text-sm"
-                    id="folder-share-permission"
-                    onChange={(event) =>
-                      setFolderSharePermission(
-                        event.target.value === "editor" ? "editor" : "viewer"
-                      )
-                    }
-                    value={folderSharePermission}
-                  >
-                    <option value="viewer">Viewer (read-only)</option>
-                    <option value="editor">Editor</option>
-                  </select>
-                </div>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="workspace-share-email">
-                  {isAtWorkspaceRoot ? "Add teammate" : "Add people"}
-                </Label>
-                <div className="flex items-center gap-2">
-                  <EmailSuggestionInput
-                    id="workspace-share-email"
-                    onFocus={() => {
-                      void loadShareSuggestions(
-                        isAtWorkspaceRoot
-                          ? workspaceShareEmail
-                          : folderShareEmail,
-                        isAtWorkspaceRoot
-                          ? setWorkspaceShareSuggestions
-                          : setFolderShareSuggestions
-                      );
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key !== "Enter") {
-                        return;
-                      }
-                      event.preventDefault();
-                      if (isAtWorkspaceRoot) {
-                        shareWorkspaceWithEmail().catch(() => undefined);
-                        return;
-                      }
-                      shareCurrentFolderWithEmail().catch(() => undefined);
-                    }}
-                    onValueChange={
-                      isAtWorkspaceRoot
-                        ? setWorkspaceShareEmail
-                        : setFolderShareEmail
-                    }
-                    placeholder="name@example.com"
-                    suggestions={
-                      isAtWorkspaceRoot
-                        ? workspaceShareSuggestions
-                        : folderShareSuggestions
-                    }
-                    value={
-                      isAtWorkspaceRoot ? workspaceShareEmail : folderShareEmail
-                    }
-                  />
-                  <Button
-                    disabled={
-                      isAtWorkspaceRoot ? workspaceShareBusy : folderShareBusy
-                    }
-                    onClick={() => {
-                      if (isAtWorkspaceRoot) {
-                        shareWorkspaceWithEmail().catch(() => undefined);
-                        return;
-                      }
-                      shareCurrentFolderWithEmail().catch(() => undefined);
-                    }}
-                    size="sm"
-                    type="button"
-                    variant="secondary"
-                  >
-                    Add
-                  </Button>
-                </div>
-              </div>
-              {isAtWorkspaceRoot ? null : (
-                <div className="space-y-2">
-                  <Label>Share link (7 days)</Label>
-                  <div className="flex items-center gap-2">
-                    <Input readOnly value={folderShareLink ?? ""} />
-                    <Button
-                      disabled={folderShareBusy}
-                      onClick={() => {
-                        void generateCurrentFolderShareLink();
-                      }}
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      Generate
-                    </Button>
-                    <Button
-                      disabled={!folderShareLink}
-                      onClick={() => {
-                        if (!folderShareLink) {
-                          return;
-                        }
-                        navigator.clipboard
-                          .writeText(folderShareLink)
-                          .catch(() => {
-                            setFolderShareStatus("Unable to copy link.");
-                          });
-                        setFolderShareStatus("Link copied.");
-                      }}
-                      size="sm"
-                      type="button"
-                      variant="ghost"
-                    >
-                      Copy
-                    </Button>
-                  </div>
-                </div>
-              )}
-              <DialogFooter>
-                {isAtWorkspaceRoot ? (
-                  <Button
-                    disabled={workspaceShareBusy}
-                    onClick={() => {
-                      void notifyWorkspaceTeam();
-                    }}
-                    type="button"
-                    variant="outline"
-                  >
-                    Notify whole team
-                  </Button>
-                ) : null}
-              </DialogFooter>
-              {isAtWorkspaceRoot && workspaceShareStatus ? (
-                <p className="text-muted-foreground text-xs">
-                  {workspaceShareStatus}
-                </p>
-              ) : null}
-              {!isAtWorkspaceRoot && folderShareStatus ? (
-                <p className="text-muted-foreground text-xs">
-                  {folderShareStatus}
-                </p>
-              ) : null}
-            </DialogContent>
-          </Dialog>
+          <ShareDialog
+            variant="folder"
+            workspaceUuid={workspaceUuid}
+            currentFolder={currentFolder}
+            isAtWorkspaceRoot={isAtWorkspaceRoot}
+            loadShareSuggestions={loadShareSuggestions}
+          />
           <Button
             className="rounded-md"
             onClick={toggleCurrentPinnedItem}
@@ -5032,23 +3662,11 @@ export function FileExplorer({
           initialResults={retrievalResults}
           items={searchableItems}
           maxWidth="max-w-none"
-          onApplyWorkspaceFilter={(itemIds) => {
-            setVectorFilteredIds(
-              itemIds && itemIds.length > 0 ? new Set(itemIds) : null
-            );
-          }}
+          onApplyWorkspaceFilter={handleApplyWorkspaceFilter}
           onOpenFileById={openFileById}
-          onSearch={(searchQuery, results) => {
-            setQuery("");
-            setRetrievalResults(results);
-            if (results.length === 0) {
-              setActiveRetrievalChunkId(null);
-            }
-          }}
-          onSelectResult={(result) => {
-            setActiveRetrievalChunkId(result.chunkId ?? null);
-            openSearchResult(result);
-          }}
+          onOpenFolderById={openFolderById}
+          onSearch={handleSearch}
+          onSelectResult={handleSelectResult}
           placeholder="Search anything..."
           selectedResultChunkId={activeRetrievalChunkId}
           workspaceUuid={workspaceUuid}
@@ -5325,46 +3943,7 @@ export function FileExplorer({
                   data-drop-folder-id={
                     isCurrentFolderReadOnly ? undefined : currentFolderId
                   }
-                  onDragEnter={handleCanvasDragEnter}
-                  onDragLeave={handleCanvasDragLeave}
-                  onDragOver={(event) => {
-                    if (isCurrentFolderReadOnly) {
-                      return;
-                    }
-                    event.preventDefault();
-                    const isExternalFileDrop =
-                      event.dataTransfer.types.includes("Files");
-                    event.dataTransfer.dropEffect = isExternalFileDrop
-                      ? "copy"
-                      : "move";
-                    setCanvasDropActive(true);
-                    setDropTargetId(currentFolderId);
-                  }}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    canvasDragDepthRef.current = 0;
-                    setCanvasDropActive(false);
-                    setDropTargetId(null);
-                    if (isCurrentFolderReadOnly) {
-                      setDraggingIds([]);
-                      return;
-                    }
-                    void (async () => {
-                      const uploadCandidates =
-                        await getDropUploadCandidates(event);
-                      if (uploadCandidates.length > 0) {
-                        queueUploads(uploadCandidates);
-                        setDraggingIds([]);
-                        return;
-                      }
-                      const sourceIds =
-                        draggingIds.length > 0
-                          ? draggingIds
-                          : Array.from(selection.selectedIds);
-                      await moveItemsToFolder(sourceIds, currentFolderId);
-                      setDraggingIds([]);
-                    })();
-                  }}
+                  {...getCanvasDropProps()}
                 >
                   {loading ? (
                     <div className="flex flex-wrap gap-3">
@@ -5411,7 +3990,10 @@ export function FileExplorer({
                                   )}
                                   data-drop-folder-id={folder.id}
                                   data-select-item="true"
-                                  draggable={!folder.readOnly}
+                                  {...getFolderDragProps(
+                                    folder.id,
+                                    folder.readOnly
+                                  )}
                                   onClick={(event) => {
                                     selection.handleItemClick(
                                       event,
@@ -5422,79 +4004,6 @@ export function FileExplorer({
                                       navigateToFolder(folder.id)
                                     );
                                   }}
-                                  onDragEnd={() => {
-                                    canvasDragDepthRef.current = 0;
-                                    setCanvasDropActive(false);
-                                    setDraggingIds([]);
-                                    setDropTargetId(null);
-                                  }}
-                                  onDragEnter={(event) => {
-                                    if (folder.readOnly) {
-                                      return;
-                                    }
-                                    event.preventDefault();
-                                    setDropTargetId(folder.id);
-                                  }}
-                                  onDragLeave={() => {
-                                    setDropTargetId((current) =>
-                                      current === folder.id ? null : current
-                                    );
-                                  }}
-                                  onDragOver={(event) => {
-                                    if (folder.readOnly) {
-                                      return;
-                                    }
-                                    event.preventDefault();
-                                    event.dataTransfer.dropEffect = "move";
-                                    setDropTargetId(folder.id);
-                                  }}
-                                  onDragStart={(event) => {
-                                    if (folder.readOnly) {
-                                      event.preventDefault();
-                                      return;
-                                    }
-                                    const sourceIds = selection.prepareDrag(
-                                      folder.id
-                                    );
-                                    setDraggingIds(sourceIds);
-                                    event.dataTransfer.effectAllowed = "move";
-                                    configureDragPreview(event);
-                                    event.dataTransfer.setData(
-                                      "text/plain",
-                                      sourceIds.join(",")
-                                    );
-                                  }}
-                                  onDrop={(event) => {
-                                    event.preventDefault();
-                                    event.stopPropagation();
-                                    if (folder.readOnly) {
-                                      canvasDragDepthRef.current = 0;
-                                      setCanvasDropActive(false);
-                                      setDropTargetId(null);
-                                      setDraggingIds([]);
-                                      return;
-                                    }
-                                    const sourceIds =
-                                      draggingIds.length > 0
-                                        ? draggingIds
-                                        : Array.from(selection.selectedIds);
-                                    canvasDragDepthRef.current = 0;
-                                    setCanvasDropActive(false);
-                                    setDropTargetId(null);
-                                    void moveItemsToFolder(
-                                      sourceIds,
-                                      folder.id
-                                    );
-                                    setDraggingIds([]);
-                                  }}
-                                  onTouchEnd={endTouchDrag}
-                                  onTouchMove={moveTouchDrag}
-                                  onTouchStart={() => {
-                                    if (folder.readOnly) {
-                                      return;
-                                    }
-                                    beginTouchDrag(folder.id);
-                                  }}
                                   ref={(node: HTMLDivElement | null) => {
                                     if (!node) {
                                       itemRefs.current.delete(folder.id);
@@ -5504,13 +4013,16 @@ export function FileExplorer({
                                   }}
                                   style={{ width: 160 }}
                                 >
-                                  <div className="absolute top-2 left-2 z-[90]">
+                                  <div className="absolute top-2 left-2 z-10">
                                     <Checkbox
                                       checked={selection.selectedIds.has(
                                         folder.id
                                       )}
-                                      onCheckedChange={() =>
-                                        selection.toggleSelection(folder.id)
+                                      onCheckedChange={(checked) =>
+                                        selection.setItemSelected(
+                                          folder.id,
+                                          checked === true
+                                        )
                                       }
                                       onClick={(event) =>
                                         event.stopPropagation()
@@ -5523,7 +4035,8 @@ export function FileExplorer({
                                       <FolderGlyph
                                         className="transition-transform duration-300 ease-out group-hover:scale-[1.03]"
                                         previewKinds={
-                                          folderPreviewKinds.get(folder.id) ?? []
+                                          folderPreviewKinds.get(folder.id) ??
+                                          []
                                         }
                                       />
                                     </div>
@@ -5720,7 +4233,7 @@ export function FileExplorer({
                                       "border border-primary bg-primary/5"
                                   )}
                                   data-select-item="true"
-                                  draggable={!file.readOnly}
+                                  {...getFileDragProps(file.id, file.readOnly)}
                                   onBlur={() => handlePreviewIntentEnd(file)}
                                   onClick={(event) => {
                                     selection.handleItemClick(
@@ -5732,28 +4245,6 @@ export function FileExplorer({
                                       selectFile(file.id)
                                     );
                                   }}
-                                  onDragEnd={() => {
-                                    canvasDragDepthRef.current = 0;
-                                    setCanvasDropActive(false);
-                                    setDraggingIds([]);
-                                    setDropTargetId(null);
-                                  }}
-                                  onDragStart={(event) => {
-                                    if (file.readOnly) {
-                                      event.preventDefault();
-                                      return;
-                                    }
-                                    const sourceIds = selection.prepareDrag(
-                                      file.id
-                                    );
-                                    setDraggingIds(sourceIds);
-                                    event.dataTransfer.effectAllowed = "move";
-                                    configureDragPreview(event);
-                                    event.dataTransfer.setData(
-                                      "text/plain",
-                                      sourceIds.join(",")
-                                    );
-                                  }}
                                   onFocus={() => handlePreviewIntentStart(file)}
                                   onMouseEnter={() =>
                                     handlePreviewIntentStart(file)
@@ -5761,14 +4252,6 @@ export function FileExplorer({
                                   onMouseLeave={() =>
                                     handlePreviewIntentEnd(file)
                                   }
-                                  onTouchEnd={endTouchDrag}
-                                  onTouchMove={moveTouchDrag}
-                                  onTouchStart={() => {
-                                    if (file.readOnly) {
-                                      return;
-                                    }
-                                    beginTouchDrag(file.id);
-                                  }}
                                   ref={(node: HTMLDivElement | null) => {
                                     if (!node) {
                                       itemRefs.current.delete(file.id);
@@ -5785,8 +4268,11 @@ export function FileExplorer({
                                       checked={selection.selectedIds.has(
                                         file.id
                                       )}
-                                      onCheckedChange={() =>
-                                        selection.toggleSelection(file.id)
+                                      onCheckedChange={(checked) =>
+                                        selection.setItemSelected(
+                                          file.id,
+                                          checked === true
+                                        )
                                       }
                                       onClick={(event) =>
                                         event.stopPropagation()
@@ -5966,7 +4452,10 @@ export function FileExplorer({
                               )}
                               data-drop-folder-id={folder.id}
                               data-select-item="true"
-                              draggable={!folder.readOnly}
+                              {...getFolderDragProps(
+                                folder.id,
+                                folder.readOnly
+                              )}
                               key={folder.id}
                               onClick={(event) => {
                                 selection.handleItemClick(
@@ -5978,76 +4467,6 @@ export function FileExplorer({
                                   navigateToFolder(folder.id)
                                 );
                               }}
-                              onDragEnd={() => {
-                                canvasDragDepthRef.current = 0;
-                                setCanvasDropActive(false);
-                                setDraggingIds([]);
-                                setDropTargetId(null);
-                              }}
-                              onDragEnter={(event) => {
-                                if (folder.readOnly) {
-                                  return;
-                                }
-                                event.preventDefault();
-                                setDropTargetId(folder.id);
-                              }}
-                              onDragLeave={() => {
-                                setDropTargetId((current) =>
-                                  current === folder.id ? null : current
-                                );
-                              }}
-                              onDragOver={(event) => {
-                                if (folder.readOnly) {
-                                  return;
-                                }
-                                event.preventDefault();
-                                event.dataTransfer.dropEffect = "move";
-                                setDropTargetId(folder.id);
-                              }}
-                              onDragStart={(event) => {
-                                if (folder.readOnly) {
-                                  event.preventDefault();
-                                  return;
-                                }
-                                const sourceIds = selection.prepareDrag(
-                                  folder.id
-                                );
-                                setDraggingIds(sourceIds);
-                                event.dataTransfer.effectAllowed = "move";
-                                configureDragPreview(event);
-                                event.dataTransfer.setData(
-                                  "text/plain",
-                                  sourceIds.join(",")
-                                );
-                              }}
-                              onDrop={(event) => {
-                                event.preventDefault();
-                                event.stopPropagation();
-                                if (folder.readOnly) {
-                                  canvasDragDepthRef.current = 0;
-                                  setCanvasDropActive(false);
-                                  setDropTargetId(null);
-                                  setDraggingIds([]);
-                                  return;
-                                }
-                                const sourceIds =
-                                  draggingIds.length > 0
-                                    ? draggingIds
-                                    : Array.from(selection.selectedIds);
-                                canvasDragDepthRef.current = 0;
-                                setCanvasDropActive(false);
-                                setDropTargetId(null);
-                                void moveItemsToFolder(sourceIds, folder.id);
-                                setDraggingIds([]);
-                              }}
-                              onTouchEnd={endTouchDrag}
-                              onTouchMove={moveTouchDrag}
-                              onTouchStart={() => {
-                                if (folder.readOnly) {
-                                  return;
-                                }
-                                beginTouchDrag(folder.id);
-                              }}
                               ref={(node: HTMLDivElement | null) => {
                                 if (!node) {
                                   itemRefs.current.delete(folder.id);
@@ -6058,14 +4477,19 @@ export function FileExplorer({
                             >
                               <Checkbox
                                 checked={selection.selectedIds.has(folder.id)}
-                                onCheckedChange={() =>
-                                  selection.toggleSelection(folder.id)
+                                onCheckedChange={(checked) =>
+                                  selection.setItemSelected(
+                                    folder.id,
+                                    checked === true
+                                  )
                                 }
                                 onClick={(event) => event.stopPropagation()}
                               />
                               <FolderGlyph
                                 compact
-                                previewKinds={folderPreviewKinds.get(folder.id) ?? []}
+                                previewKinds={
+                                  folderPreviewKinds.get(folder.id) ?? []
+                                }
                               />
                               <p className="min-w-0 flex-1 truncate font-medium text-sm">
                                 {folder.name}
@@ -6094,7 +4518,7 @@ export function FileExplorer({
                                     "bg-primary/10"
                                 )}
                                 data-select-item="true"
-                                draggable={!file.readOnly}
+                                {...getFileDragProps(file.id, file.readOnly)}
                                 key={file.id}
                                 onClick={(event) => {
                                   selection.handleItemClick(
@@ -6106,36 +4530,6 @@ export function FileExplorer({
                                     selectFile(file.id)
                                   );
                                 }}
-                                onDragEnd={() => {
-                                  canvasDragDepthRef.current = 0;
-                                  setCanvasDropActive(false);
-                                  setDraggingIds([]);
-                                  setDropTargetId(null);
-                                }}
-                                onDragStart={(event) => {
-                                  if (file.readOnly) {
-                                    event.preventDefault();
-                                    return;
-                                  }
-                                  const sourceIds = selection.prepareDrag(
-                                    file.id
-                                  );
-                                  setDraggingIds(sourceIds);
-                                  event.dataTransfer.effectAllowed = "move";
-                                  configureDragPreview(event);
-                                  event.dataTransfer.setData(
-                                    "text/plain",
-                                    sourceIds.join(",")
-                                  );
-                                }}
-                                onTouchEnd={endTouchDrag}
-                                onTouchMove={moveTouchDrag}
-                                onTouchStart={() => {
-                                  if (file.readOnly) {
-                                    return;
-                                  }
-                                  beginTouchDrag(file.id);
-                                }}
                                 ref={(node: HTMLDivElement | null) => {
                                   if (!node) {
                                     itemRefs.current.delete(file.id);
@@ -6146,8 +4540,11 @@ export function FileExplorer({
                               >
                                 <Checkbox
                                   checked={selection.selectedIds.has(file.id)}
-                                  onCheckedChange={() =>
-                                    selection.toggleSelection(file.id)
+                                  onCheckedChange={(checked) =>
+                                    selection.setItemSelected(
+                                      file.id,
+                                      checked === true
+                                    )
                                   }
                                   onClick={(event) => event.stopPropagation()}
                                 />
@@ -6273,16 +4670,16 @@ export function FileExplorer({
                 ? "Create folder"
                 : editDialog?.mode === "create-note"
                   ? "Create note"
-                : editDialog?.mode === "rename-folder"
-                  ? "Rename folder"
-                  : "Rename file"}
+                  : editDialog?.mode === "rename-folder"
+                    ? "Rename folder"
+                    : "Rename file"}
             </DialogTitle>
             <DialogDescription>
               {editDialog?.mode === "create-folder"
                 ? "Choose a name for the new folder."
                 : editDialog?.mode === "create-note"
                   ? "Choose a name for the new note."
-                : "Update the item name."}
+                  : "Update the item name."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">

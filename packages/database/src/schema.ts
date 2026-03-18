@@ -39,6 +39,7 @@ export const chatThread = pgTable(
     slug: text("slug").notNull().unique(),
     branching: text("branching"),
     title: text("title").notNull(),
+    icon: text("icon"),
     pinned: boolean("pinned").notNull().default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -735,5 +736,38 @@ export const fileTranscriptCue = pgTable(
       table.fileId
     ),
     index("file_transcript_cue_file_time_idx").on(table.fileId, table.startMs),
+  ]
+);
+
+export const task = pgTable(
+  "task",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description"),
+    status: text("status").notNull().default("pending"),
+    priority: text("priority").default("normal"),
+    dueAt: timestamp("due_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("task_workspace_user_idx").on(table.workspaceId, table.userId),
+    index("task_user_status_idx").on(table.userId, table.status),
+    index("task_user_due_idx").on(table.userId, table.dueAt),
   ]
 );

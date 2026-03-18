@@ -10,4 +10,5 @@ export * from "./ingestion-data";
 export * from "./maintenance-data";
 export * from "./schema";
 export * from "./sudo-data";
+export * from "./task-data";
 export * from "./user-settings-data";

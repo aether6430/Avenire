@@ -33,13 +33,19 @@ import {
   TYPE_OPTIONS,
   updateContentWithFrontmatter,
 } from "@/lib/frontmatter";
+import { cn } from "@/lib/utils";
 
 interface PropertiesTableProps {
   content: string;
+  className?: string;
   onChange: (newContent: string) => void;
 }
 
-export function PropertiesTable({ content, onChange }: PropertiesTableProps) {
+export function PropertiesTable({
+  content,
+  className,
+  onChange,
+}: PropertiesTableProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [properties, setProperties] = useState<FrontmatterProperties>({});
   const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -130,7 +136,13 @@ export function PropertiesTable({ content, onChange }: PropertiesTableProps) {
 
   if (existingKeys.length === 0 && availableProperties.length === 0) {
     return (
-      <div className="mb-2 border-border/50 border-b px-4 pb-2 pt-3">
+      <div
+        className={cn(
+          "mb-2 border-border/50 border-b px-4 pb-2 pt-3 sm:px-10",
+          "mx-auto max-w-[50rem]",
+          className
+        )}
+      >
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
@@ -160,7 +172,13 @@ export function PropertiesTable({ content, onChange }: PropertiesTableProps) {
   }
 
   return (
-    <div className="mb-2 border-border/50 border-b px-4 pb-2 pt-3">
+    <div
+      className={cn(
+        "mb-2 border-border/50 border-b px-4 pb-2 pt-3 sm:px-10",
+        "mx-auto max-w-[50rem]",
+        className
+      )}
+    >
       <button
         className="mb-2 flex items-center gap-1 text-muted-foreground text-xs hover:text-foreground"
         onClick={() => setIsExpanded(!isExpanded)}

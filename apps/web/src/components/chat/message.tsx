@@ -2,14 +2,6 @@
 
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { AgentActivityData, UIMessage } from "@avenire/ai/message-types";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@avenire/ui/components/card";
-import { AlertCircle } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { memo } from "react";
 import type { Attachment } from "@/components/chat/attachment";
@@ -22,42 +14,15 @@ import {
   ReasoningTrigger,
 } from "@/components/chat/reasoning";
 import {
+  type ActivityAction,
   isRollingToolPart,
   RollingAgentActivity,
   RollingToolActivity,
-  type ActivityAction,
 } from "@/components/chat/rolling-tool-activity";
 import { ThinkingIndicator } from "@/components/chat/thinking-indicator";
-import { ChatToolPart } from "@/components/chat/tool-part";
+import { ChatToolPart, ToolRow } from "@/components/chat/tool-part";
+import { WidgetRenderer } from "@/components/WidgetRenderer";
 import { cn } from "@/lib/utils";
-
-type MessageErrorType =
-  | "MODEL_ERROR"
-  | "NETWORK_ERROR"
-  | "VALIDATION_ERROR"
-  | "UNKNOWN_ERROR";
-
-const ERROR_MESSAGES: Record<MessageErrorType, string> = {
-  MODEL_ERROR:
-    "The AI model encountered an issue while processing your request.",
-  NETWORK_ERROR: "There was a problem connecting to the server.",
-  VALIDATION_ERROR: "There was an issue with the message format.",
-  UNKNOWN_ERROR: "An unexpected error occurred while processing your message.",
-};
-
-const categorizeError = (error: Error): MessageErrorType => {
-  const message = error.message.toLowerCase();
-  if (message.includes("model") || message.includes("ai")) {
-    return "MODEL_ERROR";
-  }
-  if (message.includes("network") || message.includes("connection")) {
-    return "NETWORK_ERROR";
-  }
-  if (message.includes("validation") || message.includes("format")) {
-    return "VALIDATION_ERROR";
-  }
-  return "UNKNOWN_ERROR";
-};
 
 type MessagePart = UIMessage["parts"][number];
 type ToolPart = Extract<MessagePart, { type: `tool-${string}` }>;
@@ -203,11 +168,12 @@ const PurePreviewMessage = ({
   agentActivity,
   chatId,
   message,
-  error,
+  isComplete,
   isLoading,
   isStreaming,
   setMessages: _setMessages,
   reload,
+  sendMessage,
   isReadonly,
   workspaceUuid,
 }: {
@@ -215,11 +181,12 @@ const PurePreviewMessage = ({
   agentActivity: AgentActivityData | null;
   chatId: string;
   message: UIMessage;
-  error: UseChatHelpers<UIMessage>["error"];
+  isComplete: boolean;
   isLoading: boolean;
   isStreaming: boolean;
   setMessages: UseChatHelpers<UIMessage>["setMessages"];
   reload: UseChatHelpers<UIMessage>["regenerate"];
+  sendMessage: UseChatHelpers<UIMessage>["sendMessage"];
   isReadonly: boolean;
   workspaceUuid: string;
 }) => {
@@ -251,26 +218,6 @@ const PurePreviewMessage = ({
                 Apollo
               </div>
             </div>
-          )}
-
-          {error && (
-            <Card className="w-full border-destructive/20 bg-destructive/10 text-destructive">
-              <CardHeader className="pb-2">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4" />
-                  <CardTitle className="text-base">Message Error</CardTitle>
-                </div>
-                <CardDescription className="text-destructive/80">
-                  {ERROR_MESSAGES[categorizeError(error)]}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="text-destructive/80 text-sm">
-                <p>Technical details (for support):</p>
-                <code className="mt-1 block max-w-full overflow-x-auto whitespace-pre-wrap break-words rounded bg-destructive/5 p-2 text-xs">
-                  {error.name}: {error.message}
-                </code>
-              </CardContent>
-            </Card>
           )}
 
           <div
@@ -355,6 +302,52 @@ const PurePreviewMessage = ({
                 );
               }
 
+              if (isToolPart(part) && part.type === "tool-show_widget") {
+                const input = (part as { input?: Record<string, unknown> })
+                  .input;
+                const widgetCode =
+                  typeof input?.widget_code === "string"
+                    ? input.widget_code
+                    : "";
+                const title =
+                  typeof input?.title === "string" ? input.title : null;
+                const loadingMessages = Array.isArray(input?.loading_messages)
+                  ? input?.loading_messages.filter(
+                      (message) => typeof message === "string"
+                    )
+                  : [];
+                const loadingMessage = loadingMessages.at(0) ?? "loading...";
+                const isStreamingWidget = part.state === "input-streaming";
+                const runScripts = !isStreamingWidget;
+
+                return (
+                  <div className="mb-2 space-y-2" key={key}>
+                    <ToolRow label="Widget">
+                      <span className="font-mono text-[11px] text-foreground/28">
+                        {title ?? "interactive"}
+                      </span>
+                    </ToolRow>
+                    {widgetCode ? (
+                      <WidgetRenderer
+                        html={widgetCode}
+                        isStreaming={isStreamingWidget}
+                        onOpenLink={(url) => {
+                          window.open(url, "_blank");
+                        }}
+                        onSendMessage={(text) => {
+                          sendMessage({ text });
+                        }}
+                        runScripts={runScripts}
+                      />
+                    ) : (
+                      <span className="font-mono text-[11px] text-foreground/28">
+                        {loadingMessage}
+                      </span>
+                    )}
+                  </div>
+                );
+              }
+
               if (isToolPart(part)) {
                 if (
                   (part.type === "tool-avenire_agent" ||
@@ -363,20 +356,13 @@ const PurePreviewMessage = ({
                 ) {
                   return null;
                 }
-                return (
-                  <ChatToolPart
-                    addToolApprovalResponse={addToolApprovalResponse}
-                    isReadonly={isReadonly}
-                    key={key}
-                    part={part}
-                  />
-                );
+                return <ChatToolPart key={key} part={part} />;
               }
               return null;
             })}
           </div>
 
-          {!isReadonly && message.role === "assistant" && !isLoading && (
+          {!isReadonly && message.role === "assistant" && isComplete && (
             <ChatActions
               chatId={chatId}
               message={message}
@@ -426,8 +412,8 @@ export const PreviewMessage = memo(PurePreviewMessage, (prev, next) => {
 
   return (
     prevSignature === nextSignature &&
-    prev.error?.message === next.error?.message &&
     prev.isLoading === next.isLoading &&
+    prev.isComplete === next.isComplete &&
     prev.workspaceUuid === next.workspaceUuid
   );
 });

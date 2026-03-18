@@ -224,6 +224,43 @@ const resolveIngestionStorageUrl = (
   storageKey?: string | null
 ) => assertSafeUrl(normalizeUploadThingStorageUrl(storageUrl, storageKey)).toString();
 
+async function readTextResponseWithLimit(
+  response: Response,
+  maxChars: number
+): Promise<string> {
+  const stream = response.body;
+  if (!stream) {
+    return await response.text();
+  }
+
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let content = "";
+
+  try {
+    while (content.length < maxChars) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      if (!value) {
+        continue;
+      }
+
+      content += decoder.decode(value, { stream: true });
+      if (content.length >= maxChars) {
+        break;
+      }
+    }
+  } finally {
+    void reader.cancel().catch(() => undefined);
+    reader.releaseLock();
+  }
+
+  content += decoder.decode();
+  return content.slice(0, maxChars);
+}
+
 async function fetchRemoteText(url: string) {
   const attempts = Math.max(1, config.remoteFetchMaxAttempts);
   const timeoutMs = Math.max(1000, config.remoteFetchTimeoutMs);
@@ -250,7 +287,7 @@ async function fetchRemoteText(url: string) {
         throw error;
       }
 
-      return await response.text();
+      return await readTextResponseWithLimit(response, config.maxMarkdownChars);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unknown fetch error";

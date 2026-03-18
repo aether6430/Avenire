@@ -4,12 +4,9 @@ import { auth } from "@avenire/auth/server";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { ChatWorkspace } from "@/components/dashboard/chat-workspace";
-import { DashboardLayout } from "@/components/dashboard/shell";
-import { getFacehashUrl } from "@/lib/avatar";
 import {
   getChatBySlugForUser,
   getMessagesByChatSlugForUser,
-  listChatsForUser,
 } from "@/lib/chat-data";
 import { resolveWorkspaceForUser } from "@/lib/file-data";
 import { buildPageMetadata } from "@/lib/page-metadata";
@@ -61,27 +58,18 @@ export default async function DashboardChatPage({
   if (!workspace) {
     redirect("/dashboard");
   }
-  const chats = await listChatsForUser(session.user.id, workspace.workspaceId);
 
   if (slug === "new") {
     return (
-      <DashboardLayout
-        activeChatSlug=""
-        initialChats={chats}
-        user={{
-          name: session.user.name ?? "User",
-          email: session.user.email,
-          avatar: session.user.image ?? getFacehashUrl(session.user.name ?? session.user.email),
-        }}
-      >
-        <ChatWorkspace
-          chatSlug="new"
-          chatTitle="New Chat"
-          initialMessages={[]}
-          isReadonly={false}
-          workspaceUuid={workspace.workspaceId}
-        />
-      </DashboardLayout>
+      <ChatWorkspace
+        chatSlug="new"
+        chatTitle="New Chat"
+        chatIcon={null}
+        initialMessages={[]}
+        isReadonly={false}
+        userName={session.user.name ?? undefined}
+        workspaceUuid={workspace.workspaceId}
+      />
     );
   }
 
@@ -95,22 +83,14 @@ export default async function DashboardChatPage({
   }
 
   return (
-    <DashboardLayout
-      activeChatSlug={chat.slug}
-      initialChats={chats}
-      user={{
-        name: session.user.name ?? "User",
-        email: session.user.email,
-        avatar: session.user.image ?? getFacehashUrl(session.user.name ?? session.user.email),
-      }}
-    >
-      <ChatWorkspace
-        chatSlug={chat.slug}
-        chatTitle={chat.title}
-        initialMessages={(initialMessages ?? []) as UIMessage[]}
-        isReadonly={Boolean(chat.readOnly)}
-        workspaceUuid={workspace.workspaceId}
-      />
-    </DashboardLayout>
+    <ChatWorkspace
+      chatSlug={chat.slug}
+      chatTitle={chat.title}
+      chatIcon={chat.icon ?? null}
+      initialMessages={(initialMessages ?? []) as UIMessage[]}
+      isReadonly={Boolean(chat.readOnly)}
+      userName={session.user.name ?? undefined}
+      workspaceUuid={workspace.workspaceId}
+    />
   );
 }

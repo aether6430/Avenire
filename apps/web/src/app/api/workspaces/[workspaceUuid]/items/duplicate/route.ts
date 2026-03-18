@@ -1,6 +1,8 @@
 import {
   getFileAssetById,
   getFolderWithAncestors,
+  getNoteContent,
+  createWorkspaceNoteFile,
   listWorkspaceFiles,
   listWorkspaceFolders,
   registerFileAsset,
@@ -77,6 +79,22 @@ export async function POST(
       .filter((file) => file.folderId === targetFolderId)
       .map((file) => file.name);
     const duplicateName = resolveDuplicateName(siblingNames, source.name);
+
+    if (source.isNote) {
+      const note = await getNoteContent(source.id);
+      const file = await createWorkspaceNoteFile({
+        content: note?.content ?? "",
+        folderId: targetFolderId,
+        name: duplicateName,
+        userId: user.id,
+        workspaceId: workspaceUuid,
+      });
+
+      await publishFilesInvalidationEvent({ workspaceUuid, reason: "file.created" });
+      await publishFilesInvalidationEvent({ workspaceUuid, reason: "tree.changed" });
+
+      return NextResponse.json({ file }, { status: 201 });
+    }
 
     const file = await registerFileAsset(workspaceUuid, user.id, {
       contentHashSha256: source.contentHashSha256 ?? null,
@@ -189,6 +207,17 @@ export async function POST(
     const siblingFileNames = workspaceFiles
       .filter((entry) => entry.folderId === clonedFolderId)
       .map((entry) => entry.name);
+    if (file.isNote) {
+      const note = await getNoteContent(file.id);
+      await createWorkspaceNoteFile({
+        content: note?.content ?? "",
+        folderId: clonedFolderId,
+        name: resolveDuplicateName(siblingFileNames, file.name),
+        userId: user.id,
+        workspaceId: workspaceUuid,
+      });
+      continue;
+    }
     await registerFileAsset(workspaceUuid, user.id, {
       contentHashSha256: file.contentHashSha256 ?? null,
       folderId: clonedFolderId,

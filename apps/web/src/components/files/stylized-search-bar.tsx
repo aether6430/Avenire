@@ -27,6 +27,7 @@ import {
   type CSSProperties,
   useCallback,
   useEffect,
+  memo,
   useMemo,
   useRef,
   useState,
@@ -75,6 +76,7 @@ interface StylizedSearchBarProps {
   maxWidth?: string;
   onApplyWorkspaceFilter?: (itemIds: string[] | null) => void;
   onOpenFileById?: (fileId: string) => void;
+  onOpenFolderById?: (folderId: string) => void;
   onSearch?: (query: string, results: WorkspaceSearchResult[]) => void;
   onSelectResult?: (result: WorkspaceSearchResult) => void;
   placeholder?: string;
@@ -160,6 +162,47 @@ const getResultMeta = (result: WorkspaceSearchResult) => {
 const getScoreLabel = (score: number) =>
   `${Math.min(100, Math.max(0, Math.round(score * 100)))}%`;
 
+const normalizeNeedle = (value: string) => value.trim().toLowerCase();
+
+function findFastNameMatch(
+  searchQuery: string,
+  items: WorkspaceSearchItem[],
+  filePathById?: Map<string, string>
+): WorkspaceSearchItem | null {
+  const needle = normalizeNeedle(searchQuery);
+  if (!needle) {
+    return null;
+  }
+
+  const exactTitleMatch = items.find(
+    (item) => normalizeNeedle(item.title) === needle
+  );
+  if (exactTitleMatch) {
+    return exactTitleMatch;
+  }
+
+  const exactPathMatch = items.find((item) => {
+    const path = filePathById?.get(item.id);
+    return typeof path === "string" && normalizeNeedle(path) === needle;
+  });
+  if (exactPathMatch) {
+    return exactPathMatch;
+  }
+
+  return null;
+}
+
+const toFastResult = (item: WorkspaceSearchItem): WorkspaceSearchResult => ({
+  id: item.id,
+  fileId: item.type === "file" ? item.id : null,
+  description: item.description,
+  snippet: item.snippet || "Name match",
+  title: item.title,
+  type: item.type,
+  sourceType: item.type,
+  score: 1,
+});
+
 async function runWorkspaceVectorSearchApi(
   searchQuery: string,
   workspaceUuid: string,
@@ -242,7 +285,7 @@ async function runWorkspaceVectorSearchApi(
     .slice(0, 8);
 }
 
-export function StylizedSearchBar({
+const StylizedSearchBar = memo(function StylizedSearchBar({
   items,
   workspaceUuid,
   filePathById,
@@ -250,6 +293,7 @@ export function StylizedSearchBar({
   initialResults = [],
   onSearch,
   onOpenFileById,
+  onOpenFolderById,
   onApplyWorkspaceFilter,
   onSelectResult,
   selectedResultChunkId,
@@ -392,11 +436,16 @@ export function StylizedSearchBar({
   }, [clearSummaryConversation, query]);
 
   const openResult = (result: WorkspaceSearchResult) => {
-    onSelectResult?.(result);
-    if (result.type === "file") {
-      const fileId = result.fileId ?? result.id;
-      onOpenFileById?.(fileId);
+    if (onSelectResult) {
+      onSelectResult(result);
+      return;
     }
+    if (result.type === "folder") {
+      onOpenFolderById?.(result.id);
+      return;
+    }
+    const fileId = result.fileId ?? result.id;
+    onOpenFileById?.(fileId);
   };
 
   const handleSearch = async (searchQuery: string) => {
@@ -496,13 +545,21 @@ export function StylizedSearchBar({
     handleSearch(searchQuery).catch(() => undefined);
   };
 
+  const triggerSearch = (searchQuery: string) => {
+    const fastMatch = findFastNameMatch(searchQuery, items, filePathById);
+    if (fastMatch) {
+      openResult(toFastResult(fastMatch));
+    }
+    runSearch(searchQuery);
+  };
+
   return (
     <div className="flex w-full min-w-0 items-center justify-center px-2 py-3">
       <div className={`w-full min-w-0 ${maxWidth}`} ref={containerRef}>
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            runSearch(query);
+            triggerSearch(query);
           }}
         >
           <div className="relative overflow-visible rounded-lg border border-border/70 bg-card">
@@ -538,7 +595,7 @@ export function StylizedSearchBar({
                         return;
                       }
                       event.preventDefault();
-                      runSearch(query);
+                      triggerSearch(query);
                     }}
                     onValueChange={setQuery}
                     placeholder={placeholder}
@@ -730,6 +787,7 @@ export function StylizedSearchBar({
       </div>
     </div>
   );
-}
+});
 
+export { StylizedSearchBar };
 export default StylizedSearchBar;

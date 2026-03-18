@@ -56,13 +56,13 @@ export function FolderGlyph({
         className
       )}
     >
-      <div className="absolute inset-0 rounded-[10px] bg-[var(--folder-back)] [clip-path:polygon(0%_18%,40%_18%,46%_0%,100%_0%,100%_100%,0%_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-transform duration-200 ease-out group-hover/folder:scale-[0.99]" />
+      <div className="absolute inset-0 rounded-[10px] bg-[var(--folder-back)] [clip-path:polygon(0%_18%,40%_18%,46%_0%,100%_0%,100%_100%,0%_100%)] transition-transform duration-200 ease-out group-hover/folder:scale-[0.99]" />
 
       {visibleKinds.length > 0 ? (
         <div className="pointer-events-none absolute right-[7px] bottom-[10px] z-[1] h-[58px] w-[84px]">
           {visibleKinds.map((kind, index) => (
             <div
-              className="absolute inset-0 flex justify-end rounded-[4px] bg-white p-1.5 shadow-[0_1px_3px_rgba(0,0,0,0.18)] transition-transform duration-300 [transition-timing-function:cubic-bezier(0.2,0.9,0.4,1)] group-hover/folder:-translate-y-4 group-hover/folder:-rotate-1"
+              className="absolute inset-0 flex justify-end rounded-[4px] bg-white p-1.5 transition-transform duration-300 [transition-timing-function:cubic-bezier(0.2,0.9,0.4,1)] group-hover/folder:-translate-y-4 group-hover/folder:-rotate-1"
               key={`${kind}-${index}`}
               style={{
                 transform: `translateY(${index * 3}px) rotate(${index % 2 === 0 ? -1 : 1}deg)`,
@@ -76,7 +76,7 @@ export function FolderGlyph({
         </div>
       ) : null}
 
-      <div className="absolute right-0 bottom-0 z-10 flex h-[60px] w-full origin-bottom items-end rounded-b-[10px] rounded-t-[4px] bg-gradient-to-b from-[#383838] to-[var(--folder-front)] px-2.5 pb-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_0_rgba(0,0,0,0.22),0_6px_16px_rgba(0,0,0,0.45)] transition-all duration-250 ease-out group-hover/folder:translate-y-0.5 group-hover/folder:rotate-x-[7deg] group-hover/folder:shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_10px_22px_rgba(0,0,0,0.55)]" />
+      <div className="absolute right-0 bottom-0 z-10 flex h-[60px] w-full origin-bottom items-end rounded-b-[10px] rounded-t-[4px] bg-gradient-to-b from-[#383838] to-[var(--folder-front)] px-2.5 pb-2 transition-all duration-250 ease-out group-hover/folder:translate-y-0.5 group-hover/folder:rotate-x-[7deg] " />
     </div>
   );
 }

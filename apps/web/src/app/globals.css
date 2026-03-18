@@ -73,39 +73,6 @@
   counter-reset: none;
 }
 
-.scroll-fade-frame {
-  position: relative;
-}
-
-.scroll-fade-frame::before,
-.scroll-fade-frame::after {
-  position: absolute;
-  right: 0;
-  left: 0;
-  z-index: 10;
-  height: 1rem;
-  pointer-events: none;
-  content: "";
-}
-
-.scroll-fade-top::before {
-  top: 0;
-  background: linear-gradient(
-    to bottom,
-    var(--scroll-fade-color, var(--background)),
-    transparent
-  );
-}
-
-.scroll-fade-bottom::after {
-  bottom: 0;
-  background: linear-gradient(
-    to top,
-    var(--scroll-fade-color, var(--background)),
-    transparent
-  );
-}
-
 .hit-area {
   position: relative;
 }

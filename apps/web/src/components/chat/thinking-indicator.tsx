@@ -20,6 +20,37 @@ const circleB =
 
 const words = ["Thinking", "Moonwalking", "Planning", "Refining"];
 
+export function ThinkingGlyph({ className }: { className?: string }) {
+  return (
+    <motion.svg
+      aria-hidden
+      className={cn("shrink-0 text-muted-foreground", className)}
+      fill="none"
+      height="1em"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={1.5}
+      viewBox="0 0 24 24"
+      width="1em"
+    >
+      <motion.path
+        animate={{
+          d: [circleA, infinityPath, circleB, infinityPath, circleA],
+        }}
+        transition={{
+          d: {
+            duration: 6,
+            ease: "easeInOut",
+            repeat: Infinity,
+            times: [0, 0.25, 0.5, 0.75, 1],
+          },
+        }}
+      />
+    </motion.svg>
+  );
+}
+
 export const ThinkingIndicator = forwardRef<
   HTMLDivElement,
   HTMLAttributes<HTMLDivElement>
@@ -41,32 +72,7 @@ export const ThinkingIndicator = forwardRef<
       ref={ref}
       role="status"
     >
-      <motion.svg
-        aria-hidden
-        className="shrink-0 text-muted-foreground"
-        fill="none"
-        height={20}
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={1.5}
-        viewBox="0 0 24 24"
-        width={20}
-      >
-        <motion.path
-          animate={{
-            d: [circleA, infinityPath, circleB, infinityPath, circleA],
-          }}
-          transition={{
-            d: {
-              duration: 6,
-              ease: "easeInOut",
-              repeat: Infinity,
-              times: [0, 0.25, 0.5, 0.75, 1],
-            },
-          }}
-        />
-      </motion.svg>
+      <ThinkingGlyph className="size-5" />
 
       <span className="inline-grid overflow-hidden text-[13px] font-medium">
         <span

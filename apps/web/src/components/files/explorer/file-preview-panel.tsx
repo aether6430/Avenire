@@ -1,0 +1,832 @@
+"use client";
+
+import { Button } from "@avenire/ui/components/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@avenire/ui/components/dropdown-menu";
+import { FileMediaPlayer } from "@avenire/ui/media";
+import {
+  ArrowDownToLine,
+  ArrowLeft,
+  ArrowUp,
+  Copy,
+  FileText,
+  FolderInput,
+  Info,
+  MoreHorizontal,
+  Pencil,
+  Pin,
+  PinOff,
+  Share2,
+  Trash2,
+} from "lucide-react";
+import dynamic from "next/dynamic";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import AvenireEditor from "@/components/editor";
+import { PropertiesTable } from "@/components/editor/properties-table";
+import type {
+  FileRecord,
+  FolderRecord,
+  ShareSuggestion,
+  WorkspaceMemberRecord,
+} from "@/components/files/explorer/shared";
+import {
+  detectPreviewKind,
+  toUpdatedLabel,
+} from "@/components/files/explorer/shared";
+import { ShareDialog } from "@/components/files/explorer/share-dialog";
+import type { WorkspaceSearchResult } from "@/components/files/stylized-search-bar";
+import {
+  getWarmState,
+  isFileOpenedCached,
+  markFileOpened,
+  primeMediaPlayback,
+  releaseMediaPlaybackPrime,
+} from "@/lib/file-preview-cache";
+import {
+  splitFrontmatterDocument,
+  stripFrontmatter,
+  updateContentWithFrontmatter,
+} from "@/lib/frontmatter";
+import {
+  buildProgressivePlaybackSource,
+  buildVideoPlaybackDescriptor,
+} from "@/lib/media-playback";
+
+const PDFViewer = dynamic(() => import("@/components/files/pdf-viewer"), {
+  loading: () => (
+    <div className="flex h-[70vh] items-center justify-center rounded-xl border border-border/70 bg-card text-sm">
+      Loading PDF...
+    </div>
+  ),
+  ssr: false,
+});
+
+interface FilePreviewPanelProps {
+  activeFile: FileRecord;
+  workspaceUuid: string;
+  currentFolderId: string;
+  allFiles: FileRecord[];
+  allFolders: FolderRecord[];
+  query: string;
+  retrievalResults: WorkspaceSearchResult[];
+  activeRetrievalChunkId: string | null;
+  selectFile: (fileId: string | null) => void;
+  openFileById: (fileId: string) => void;
+  openRenameFileDialog: (file: FileRecord) => void;
+  deleteSelectionItems: (items: { id: string; kind: "file" | "folder" }[]) => void;
+  moveFile: (fileId: string, targetFolderId: string) => Promise<void>;
+  duplicateItem: (item: {
+    id: string;
+    kind: "file" | "folder";
+    parentId?: string | null;
+  }) => void;
+  downloadFileDirect: (file: FileRecord) => void;
+  copyFileShareLink: (file: FileRecord) => void;
+  downloadItemArchive: (item: {
+    id: string;
+    kind: "file" | "folder";
+    name: string;
+  }) => void;
+  toggleCurrentPinnedItem: () => void;
+  isCurrentPinned: boolean;
+  currentInfoEntries: { label: string; value: string }[];
+  wikiMarkdownFiles: Array<{
+    id: string;
+    title: string;
+    excerpt: string;
+    content: string;
+  }>;
+  filePathById: Map<string, string>;
+  workspaceMembers: WorkspaceMemberRecord[];
+  startUpload: (...args: any[]) => Promise<any>;
+  loadShareSuggestions: (q: string, cb: (s: ShareSuggestion[]) => void) => void;
+}
+
+export function FilePreviewPanel({
+  activeFile,
+  workspaceUuid,
+  allFolders,
+  query,
+  retrievalResults,
+  activeRetrievalChunkId,
+  selectFile,
+  openFileById,
+  openRenameFileDialog,
+  deleteSelectionItems,
+  moveFile,
+  duplicateItem,
+  downloadFileDirect,
+  copyFileShareLink,
+  toggleCurrentPinnedItem,
+  isCurrentPinned,
+  currentInfoEntries,
+  wikiMarkdownFiles,
+  startUpload,
+  loadShareSuggestions,
+}: FilePreviewPanelProps) {
+  const filePreviewScrollRef = useRef<HTMLDivElement | null>(null);
+  const [markdownLoading, setMarkdownLoading] = useState(false);
+  const [markdownError, setMarkdownError] = useState<string | null>(null);
+  const [markdownOriginal, setMarkdownOriginal] = useState("");
+  const [markdownDraft, setMarkdownDraft] = useState("");
+  const [markdownSaving, setMarkdownSaving] = useState(false);
+  const [noteSaveState, setNoteSaveState] = useState<
+    "idle" | "saving" | "saved" | "error"
+  >("idle");
+  const [videoLoadFailed, setVideoLoadFailed] = useState(false);
+  const [audioLoadFailed, setAudioLoadFailed] = useState(false);
+  const [mediaStreamFailed, setMediaStreamFailed] = useState(false);
+  const lastLoadedMarkdownFileRef = useRef<{
+    id: string;
+    content: string;
+  } | null>(null);
+
+  const activeFileIsMarkdown = useMemo(
+    () => detectPreviewKind(activeFile).isMarkdown,
+    [activeFile]
+  );
+  const activeFileIsNote = Boolean(activeFile.isNote);
+  const activeFileSourceUrl = activeFileIsNote
+    ? `/api/workspaces/${workspaceUuid}/files/${activeFile.id}/stream`
+    : activeFile.storageUrl;
+
+  useEffect(() => {
+    if (!(workspaceUuid && activeFile && activeFileIsMarkdown)) {
+      setMarkdownLoading(false);
+      setMarkdownError(null);
+      setMarkdownOriginal("");
+      setMarkdownDraft("");
+      return;
+    }
+
+    if (
+      lastLoadedMarkdownFileRef.current?.id === activeFile.id &&
+      lastLoadedMarkdownFileRef.current?.content
+    ) {
+      setMarkdownLoading(false);
+      setMarkdownError(null);
+      setMarkdownOriginal(lastLoadedMarkdownFileRef.current.content);
+      setMarkdownDraft(lastLoadedMarkdownFileRef.current.content);
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    setMarkdownLoading(true);
+    setMarkdownError(null);
+
+    fetch(`/api/workspaces/${workspaceUuid}/files/${activeFile.id}/stream`, {
+      signal: controller.signal,
+      headers: {
+        Accept: "text/markdown,text/plain,*/*",
+      },
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`Unable to load markdown (${response.status})`);
+        }
+        const text = await response.text();
+        if (cancelled) {
+          return;
+        }
+        setMarkdownOriginal(text);
+        setMarkdownDraft(text);
+        lastLoadedMarkdownFileRef.current = {
+          id: activeFile.id,
+          content: text,
+        };
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+        if ((error as { name?: string })?.name === "AbortError") {
+          return;
+        }
+        setMarkdownError(
+          error instanceof Error ? error.message : "Unable to load markdown."
+        );
+      })
+      .finally(() => {
+        if (cancelled) {
+          return;
+        }
+        setMarkdownLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [activeFile, activeFileIsMarkdown, workspaceUuid]);
+
+  const markdownBody = useMemo(
+    () => stripFrontmatter(markdownDraft),
+    [markdownDraft]
+  );
+
+  const handleMarkdownBodyChange = useCallback((nextBody: string) => {
+    setMarkdownDraft((current) => {
+      const { properties } = splitFrontmatterDocument(current);
+      return updateContentWithFrontmatter(nextBody, properties);
+    });
+  }, []);
+
+  const markdownDirty = markdownDraft !== markdownOriginal;
+
+  const saveMarkdown = useCallback(async () => {
+    if (!(workspaceUuid && activeFile && activeFileIsMarkdown)) {
+      return;
+    }
+    if (activeFile.readOnly) {
+      return;
+    }
+    if (!markdownDirty) {
+      return;
+    }
+
+    setMarkdownSaving(true);
+    try {
+      const blob = new Blob([markdownDraft], { type: "text/markdown" });
+      const file = new File([blob], activeFile.name, { type: "text/markdown" });
+      const uploaded = ((await startUpload([file])) ?? [])[0] as
+        | {
+            key?: string;
+            ufsUrl?: string;
+            url?: string;
+            size?: number;
+            contentType?: string;
+          }
+        | undefined;
+      const storageKey = uploaded?.key;
+      const storageUrl = uploaded?.ufsUrl ?? uploaded?.url;
+      if (!(storageKey && storageUrl)) {
+        throw new Error("Upload returned no file metadata");
+      }
+
+      const response = await fetch(
+        `/api/workspaces/${workspaceUuid}/files/${activeFile.id}/content`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            storageKey,
+            storageUrl,
+            sizeBytes: blob.size,
+            mimeType: "text/markdown",
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(payload.error ?? "Unable to save markdown.");
+      }
+
+      setMarkdownOriginal(markdownDraft);
+      lastLoadedMarkdownFileRef.current = {
+        id: activeFile.id,
+        content: markdownDraft,
+      };
+    } catch (error) {
+      setMarkdownError(
+        error instanceof Error ? error.message : "Unable to save markdown."
+      );
+    } finally {
+      setMarkdownSaving(false);
+    }
+  }, [
+    activeFile,
+    activeFileIsMarkdown,
+    markdownDirty,
+    markdownDraft,
+    startUpload,
+    workspaceUuid,
+  ]);
+
+  const saveNoteDraft = useCallback(
+    async (draft: string) => {
+      if (!(activeFile && activeFileIsMarkdown && activeFileIsNote)) {
+        return;
+      }
+      if (activeFile.readOnly) {
+        return;
+      }
+
+      setNoteSaveState("saving");
+      try {
+        const response = await fetch(`/api/notes/${activeFile.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: draft }),
+        });
+
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => ({}))) as {
+            error?: string;
+          };
+          throw new Error(payload.error ?? "Unable to save note.");
+        }
+
+        setMarkdownOriginal(draft);
+        lastLoadedMarkdownFileRef.current = {
+          id: activeFile.id,
+          content: draft,
+        };
+        setNoteSaveState("saved");
+      } catch {
+        setNoteSaveState("error");
+      }
+    },
+    [activeFile, activeFileIsMarkdown, activeFileIsNote]
+  );
+
+  const noteSaveTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!(activeFileIsMarkdown && activeFileIsNote) || activeFile.readOnly) {
+      setNoteSaveState("idle");
+      return;
+    }
+
+    if (!markdownDirty) {
+      return;
+    }
+
+    if (noteSaveTimerRef.current) {
+      window.clearTimeout(noteSaveTimerRef.current);
+    }
+
+    noteSaveTimerRef.current = window.setTimeout(() => {
+      void saveNoteDraft(markdownDraft);
+    }, 2000);
+
+    return () => {
+      if (noteSaveTimerRef.current) {
+        window.clearTimeout(noteSaveTimerRef.current);
+      }
+    };
+  }, [
+    activeFile.readOnly,
+    activeFileIsMarkdown,
+    activeFileIsNote,
+    markdownDirty,
+    markdownDraft,
+    saveNoteDraft,
+  ]);
+
+  useEffect(() => {
+    setNoteSaveState("idle");
+  }, [activeFile.id]);
+
+  useEffect(() => {
+    if (noteSaveState !== "saved" && noteSaveState !== "error") {
+      return;
+    }
+
+    const delay = noteSaveState === "saved" ? 1500 : 4000;
+    const timer = window.setTimeout(() => {
+      setNoteSaveState("idle");
+    }, delay);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [noteSaveState]);
+
+  const activeMediaStreamUrl = useMemo(() => {
+    if (!(activeFile && workspaceUuid)) {
+      return null;
+    }
+    return `/api/workspaces/${workspaceUuid}/files/${activeFile.id}/stream`;
+  }, [activeFile, workspaceUuid]);
+  const activeMediaSrc = useMemo(() => {
+    if (!activeMediaStreamUrl) {
+      return null;
+    }
+    return activeMediaStreamUrl;
+  }, [activeMediaStreamUrl]);
+  const activePlaybackDescriptor = useMemo(() => {
+    if (!(activeFile && activeMediaSrc)) {
+      return null;
+    }
+    return buildVideoPlaybackDescriptor({
+      fallbackUrl: activeMediaSrc,
+      mimeType: activeFile.mimeType,
+      videoDelivery: mediaStreamFailed ? null : activeFile.videoDelivery,
+    });
+  }, [activeFile, activeMediaSrc, mediaStreamFailed]);
+  const activeVideoCaptionsSrc = useMemo(() => {
+    if (!(activeFile && workspaceUuid)) {
+      return undefined;
+    }
+    const isVideo = (activeFile.mimeType ?? "")
+      .toLowerCase()
+      .startsWith("video/");
+    if (!isVideo) {
+      return undefined;
+    }
+    return `/api/workspaces/${workspaceUuid}/files/${activeFile.id}/captions.vtt`;
+  }, [activeFile, workspaceUuid]);
+
+  const activeFileRetrievalResults = useMemo(() => {
+    return retrievalResults.filter(
+      (result) => (result.fileId ?? result.id) === activeFile.id
+    );
+  }, [activeFile, retrievalResults]);
+  const activeRetrievalResult = useMemo(() => {
+    if (activeFileRetrievalResults.length === 0) {
+      return null;
+    }
+    if (activeRetrievalChunkId) {
+      return (
+        activeFileRetrievalResults.find(
+          (result) => result.chunkId === activeRetrievalChunkId
+        ) ?? activeFileRetrievalResults[0]
+      );
+    }
+    return activeFileRetrievalResults[0] ?? null;
+  }, [activeFileRetrievalResults, activeRetrievalChunkId]);
+
+  useEffect(() => {
+    setVideoLoadFailed(false);
+    setAudioLoadFailed(false);
+    setMediaStreamFailed(false);
+  }, [activeFile.id]);
+
+  useEffect(() => {
+    markFileOpened(activeFile.id);
+    const { isAudio, isVideo } = detectPreviewKind(activeFile);
+    if (!(isAudio || isVideo)) {
+      return;
+    }
+
+    const playbackSource = isVideo
+      ? (activePlaybackDescriptor?.preferredSource ?? null)
+      : activeMediaSrc
+        ? buildProgressivePlaybackSource(activeMediaSrc, activeFile.mimeType)
+        : null;
+    if (!playbackSource) {
+      return;
+    }
+
+    void primeMediaPlayback(playbackSource, {
+      mediaType: isVideo ? "video" : "audio",
+      posterUrl: isVideo ? activePlaybackDescriptor?.posterUrl : null,
+      sizeBytes: activeFile.sizeBytes,
+      surface: "viewer",
+    });
+    return () => {
+      releaseMediaPlaybackPrime(playbackSource);
+    };
+  }, [activeFile, activeMediaSrc, activePlaybackDescriptor]);
+
+  const { isAudio, isImage, isPdf, isVideo, isMarkdown } =
+    detectPreviewKind(activeFile);
+  const isOpenedCached = isFileOpenedCached(activeFile.id);
+  const activeAudioPlaybackSource = buildProgressivePlaybackSource(
+    activeMediaSrc ?? activeFile.storageUrl,
+    activeFile.mimeType
+  );
+  const isPreferredVideoSourceWarm = activePlaybackDescriptor
+    ? getWarmState(activePlaybackDescriptor.preferredSource) === "warm"
+    : false;
+  const shouldUsePreferredVideoSource =
+    isOpenedCached || isPreferredVideoSourceWarm;
+  const activeVideoPlaybackSource = activePlaybackDescriptor
+    ? activePlaybackDescriptor.preferredSource
+    : buildProgressivePlaybackSource(
+        activeMediaSrc ?? activeFile.storageUrl,
+        activeFile.mimeType
+      );
+
+  return (
+    <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background">
+      <div className="flex h-12 items-center justify-between gap-2 border-border/70 border-b bg-card/40 px-3">
+        <div className="flex min-w-0 items-center gap-1 text-muted-foreground text-xs">
+          <Button
+            className="size-5"
+            onClick={() => selectFile(null)}
+            size="icon-xs"
+            type="button"
+            variant="ghost"
+          >
+            <ArrowLeft className="size-3" />
+          </Button>
+          <span className="truncate text-foreground">{activeFile.name}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="hidden text-muted-foreground text-xs sm:inline">
+            Edited {toUpdatedLabel(activeFile.updatedAt ?? activeFile.createdAt)}{" "}
+            ago
+          </span>
+          {isMarkdown && !activeFile.readOnly && !activeFile.isNote ? (
+            <Button
+              className="h-7"
+              disabled={markdownSaving || !markdownDirty}
+              onClick={() => {
+                void saveMarkdown();
+              }}
+              size="sm"
+              type="button"
+              variant="secondary"
+            >
+              {markdownSaving ? "Saving..." : "Save"}
+            </Button>
+          ) : null}
+          {activeFile.readOnly ? null : (
+            <ShareDialog
+              variant="file"
+              workspaceUuid={workspaceUuid}
+              activeFile={activeFile}
+              loadShareSuggestions={loadShareSuggestions}
+            />
+          )}
+          <Button
+            className="size-5"
+            onClick={toggleCurrentPinnedItem}
+            size="icon-xs"
+            type="button"
+            variant={isCurrentPinned ? "secondary" : "ghost"}
+          >
+            {isCurrentPinned ? (
+              <PinOff className="size-3" />
+            ) : (
+              <Pin className="size-3" />
+            )}
+          </Button>
+          <Button
+            className="size-5"
+            onClick={() =>
+              window.open(
+                activeFileSourceUrl,
+                "_blank",
+                "noopener,noreferrer"
+              )
+            }
+            size="icon-xs"
+            type="button"
+            variant="ghost"
+          >
+            <ArrowUp className="size-3" />
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  className="size-5"
+                  size="icon-xs"
+                  type="button"
+                  variant="ghost"
+                />
+              }
+            >
+              <MoreHorizontal className="size-3" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onClick={toggleCurrentPinnedItem}>
+                {isCurrentPinned ? (
+                  <PinOff className="size-3.5" />
+                ) : (
+                  <Pin className="size-3.5" />
+                )}
+                {isCurrentPinned ? "Unpin" : "Pin"}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  openRenameFileDialog(activeFile);
+                }}
+              >
+                <Pencil className="size-3.5" />
+                Rename
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  void duplicateItem({
+                    id: activeFile.id,
+                    kind: "file",
+                    parentId: activeFile.folderId,
+                  });
+                }}
+              >
+                <Copy className="size-3.5" />
+                Duplicate
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  void copyFileShareLink(activeFile);
+                }}
+              >
+                <Share2 className="size-3.5" />
+                Share
+              </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <FolderInput className="size-3.5" />
+                  Move To
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {allFolders
+                    .filter((folder) => !folder.readOnly)
+                    .slice(0, 20)
+                    .map((folder) => (
+                      <DropdownMenuItem
+                        key={folder.id}
+                        onClick={() => {
+                          void moveFile(activeFile.id, folder.id);
+                        }}
+                      >
+                        {folder.name}
+                      </DropdownMenuItem>
+                    ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuItem
+                onClick={() => {
+                  downloadFileDirect(activeFile);
+                }}
+              >
+                <ArrowDownToLine className="size-3.5" />
+                Download
+              </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <Info className="size-3.5" />
+                  Information
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="w-72">
+                  {currentInfoEntries.map((entry) => (
+                    <div
+                      className="flex items-start justify-between gap-3 px-2 py-1.5 text-xs"
+                      key={entry.label}
+                    >
+                      <span className="text-muted-foreground">
+                        {entry.label}
+                      </span>
+                      <span className="max-w-[12rem] text-right text-foreground">
+                        {entry.value}
+                      </span>
+                    </div>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => {
+                  void deleteSelectionItems([{ id: activeFile.id, kind: "file" }]);
+                }}
+                variant="destructive"
+              >
+                <Trash2 className="size-3.5" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      <div
+        className="min-h-0 flex-1 overflow-auto bg-muted/25"
+        ref={filePreviewScrollRef}
+      >
+        {isMarkdown ? (
+          <div className="h-full">
+            {markdownLoading ? (
+              <div className="mx-auto flex h-[70vh] max-w-[820px] items-center justify-center p-4 text-muted-foreground text-sm">
+                Loading markdown...
+              </div>
+            ) : markdownError ? (
+              <div className="mx-auto flex h-[70vh] max-w-[820px] flex-col items-center justify-center gap-3 p-4 text-center">
+                <FileText className="size-8 text-muted-foreground" />
+                <p className="text-muted-foreground text-xs">{markdownError}</p>
+              </div>
+            ) : (
+              <div className="flex h-full flex-col">
+                <PropertiesTable
+                  content={markdownDraft}
+                  onChange={setMarkdownDraft}
+                />
+                <AvenireEditor
+                  defaultValue={markdownBody}
+                  key={activeFile.id}
+                  onChange={handleMarkdownBodyChange}
+                  onOpenWikiLink={(page) => {
+                    openFileById(page.id);
+                  }}
+                  saveState={activeFile.isNote ? noteSaveState : undefined}
+                  scrollContainerRef={filePreviewScrollRef}
+                  wikiPages={wikiMarkdownFiles}
+                />
+              </div>
+            )}
+          </div>
+        ) : isPdf ? (
+          <div className="h-full p-3">
+            <PDFViewer
+              className="h-[calc(100svh-7.5rem)] max-h-none rounded-xl border border-border/70"
+              fallbackHighlightText={query}
+              highlightPage={activeRetrievalResult?.page ?? null}
+              highlightText={
+                activeRetrievalResult?.highlightText ??
+                activeRetrievalResult?.snippet ??
+                query
+              }
+              source={activeFile.storageUrl}
+            />
+          </div>
+        ) : isVideo && !videoLoadFailed ? (
+          <div className="mx-auto flex h-full max-w-[1200px] items-center justify-center p-4">
+            <FileMediaPlayer
+              activeRangeIndex={
+                activeFileRetrievalResults.findIndex(
+                  (item) => item.chunkId === activeRetrievalChunkId
+                ) >= 0
+                  ? activeFileRetrievalResults.findIndex(
+                      (item) => item.chunkId === activeRetrievalChunkId
+                    )
+                  : null
+              }
+              captionsSrc={activeVideoCaptionsSrc}
+              kind="video"
+              name={activeFile.name}
+              onError={() => {
+                setVideoLoadFailed(true);
+              }}
+              openedCached={shouldUsePreferredVideoSource}
+              playbackSource={activeVideoPlaybackSource}
+              posterUrl={activePlaybackDescriptor?.posterUrl}
+              retrievalRanges={activeFileRetrievalResults
+                .filter(
+                  (item) =>
+                    typeof item.startMs === "number" &&
+                    Number.isFinite(item.startMs)
+                )
+                .map((item) => ({
+                  startMs: item.startMs as number,
+                  endMs: item.endMs,
+                }))}
+              seekToMs={activeRetrievalResult?.startMs ?? null}
+            />
+          </div>
+        ) : isAudio && !audioLoadFailed ? (
+          <div className="mx-auto flex h-full max-w-[900px] items-center justify-center p-4">
+            <FileMediaPlayer
+              kind="audio"
+              name={activeFile.name}
+              onError={() => {
+                setAudioLoadFailed(true);
+              }}
+              openedCached={
+                isOpenedCached ||
+                getWarmState(activeAudioPlaybackSource) === "warm"
+              }
+              playbackSource={activeAudioPlaybackSource}
+            />
+          </div>
+        ) : isImage ? (
+          <div className="mx-auto flex h-full max-w-[1200px] flex-col gap-3 p-4">
+            <div className="flex min-h-0 flex-1 items-center justify-center rounded-2xl border border-border/70 bg-white p-4">
+              <img
+                alt={activeFile.name}
+                className="h-auto max-h-full max-w-full rounded-md object-contain"
+                src={activeFile.storageUrl}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="flex h-full min-h-[55vh] flex-col items-center justify-center gap-3 rounded-md border border-border/70 bg-card p-4 text-center">
+            <FileText className="size-8 text-muted-foreground" />
+            <p className="text-muted-foreground text-xs">
+              In-app preview is unavailable for this file type.
+            </p>
+            <Button
+              onClick={() =>
+                window.open(
+                  activeFile.storageUrl,
+                  "_blank",
+                  "noopener,noreferrer"
+                )
+              }
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              Open in new tab
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

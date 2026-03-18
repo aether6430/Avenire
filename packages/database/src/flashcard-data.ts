@@ -1,4 +1,14 @@
-import { and, desc, eq, gte, inArray, isNull } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  lte,
+  sql,
+} from "drizzle-orm";
 import { member } from "./auth-schema";
 import { db } from "./client";
 import {
@@ -75,6 +85,18 @@ export interface FlashcardReviewStateRecord {
   suspended: boolean;
   updatedAt: string;
   userId: string;
+}
+
+export interface FlashcardReviewCountByDayRecord {
+  count: number;
+  day: string;
+}
+
+export interface FlashcardDueCountByDayRecord {
+  day: string;
+  dueCount: number;
+  setId: string;
+  setTitle: string;
 }
 
 export interface FlashcardReviewLogRecord {
@@ -474,6 +496,90 @@ function listReviewEventsForSetIdsSince(
       )
     )
     .orderBy(desc(flashcardReviewLog.reviewedAt));
+}
+
+export async function listFlashcardReviewCountsByDayForUser(
+  userId: string,
+  workspaceId: string,
+  since: Date
+): Promise<FlashcardReviewCountByDayRecord[]> {
+  if (!(await workspaceAccessibleByUser(userId, workspaceId))) {
+    return [];
+  }
+
+  const dayColumn = sql<string>`to_char(date_trunc('day', ${flashcardReviewLog.reviewedAt} AT TIME ZONE 'UTC'), 'YYYY-MM-DD')`;
+
+  const rows = await db
+    .select({
+      day: dayColumn,
+      count: sql<number>`count(*)`,
+    })
+    .from(flashcardReviewLog)
+    .innerJoin(
+      flashcardCard,
+      eq(flashcardCard.id, flashcardReviewLog.flashcardId)
+    )
+    .innerJoin(flashcardSet, eq(flashcardSet.id, flashcardCard.setId))
+    .where(
+      and(
+        eq(flashcardReviewLog.userId, userId),
+        eq(flashcardSet.workspaceId, workspaceId),
+        gte(flashcardReviewLog.reviewedAt, since)
+      )
+    )
+    .groupBy(dayColumn)
+    .orderBy(asc(dayColumn));
+
+  return rows.map((row) => ({
+    count: row.count ?? 0,
+    day: row.day,
+  }));
+}
+
+export async function listFlashcardDueCountsByDayForUser(
+  userId: string,
+  workspaceId: string,
+  from: Date,
+  to: Date
+): Promise<FlashcardDueCountByDayRecord[]> {
+  if (!(await workspaceAccessibleByUser(userId, workspaceId))) {
+    return [];
+  }
+
+  const dayColumn = sql<string>`to_char(date_trunc('day', ${flashcardReviewState.dueAt} AT TIME ZONE 'UTC'), 'YYYY-MM-DD')`;
+
+  const rows = await db
+    .select({
+      day: dayColumn,
+      setId: flashcardSet.id,
+      setTitle: flashcardSet.title,
+      dueCount: sql<number>`count(*)::int`,
+    })
+    .from(flashcardReviewState)
+    .innerJoin(
+      flashcardCard,
+      eq(flashcardCard.id, flashcardReviewState.flashcardId)
+    )
+    .innerJoin(flashcardSet, eq(flashcardSet.id, flashcardCard.setId))
+    .where(
+      and(
+        eq(flashcardReviewState.userId, userId),
+        eq(flashcardReviewState.suspended, false),
+        eq(flashcardSet.workspaceId, workspaceId),
+        gte(flashcardReviewState.dueAt, from),
+        lte(flashcardReviewState.dueAt, to),
+        isNull(flashcardCard.archivedAt)
+      )
+    )
+    .groupBy(dayColumn, flashcardSet.id, flashcardSet.title)
+    .orderBy(asc(dayColumn), asc(flashcardSet.title));
+
+  return rows.map((row) => ({
+    day: row.day,
+    dueCount: row.dueCount ?? 0,
+    setId: row.setId,
+    setTitle: row.setTitle,
+  }));
 }
 
 function resolveFlashcardDisplayState(
@@ -1264,6 +1370,7 @@ export async function listDueFlashcardsForUser(input: {
 export async function reviewFlashcardForUser(input: {
   cardId: string;
   rating: FlashcardRating;
+  answerText?: string | null;
   userId: string;
   workspaceId: string;
 }) {
@@ -1363,6 +1470,7 @@ export async function reviewFlashcardForUser(input: {
         dueAt: scheduled.reviewLog.dueAt,
         lastElapsedDays: scheduled.reviewLog.lastElapsedDays,
         learningSteps: scheduled.reviewLog.learningSteps,
+        answerText: input.answerText ?? null,
       },
       nextDifficulty: scheduled.nextState.difficulty,
       nextStability: scheduled.nextState.stability,

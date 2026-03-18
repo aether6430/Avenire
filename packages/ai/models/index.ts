@@ -45,7 +45,7 @@ const cohere = createCohere({
 });
 
 const ollama = createOllama({
-  baseURL: "https://ollama.com/api",
+  baseURL: "https://ollama.com",
   headers:{
     "Authorization": `Bearer ${process.env.OLLAMA_API_KEY}`
   }
@@ -53,7 +53,7 @@ const ollama = createOllama({
 
 export const apollo = customProvider({
   languageModels: {
-    "apollo-sprint": ollama("qwen3.5"),
+    "apollo-sprint": mistral("mistral-small-latest"),
     "apollo-apex": baseten("moonshotai/Kimi-K2.5"),
     "apollo-core": gemini("gemini-3-flash-preview"),
     "apollo-agent": baseten("zai-org/GLM-5"),

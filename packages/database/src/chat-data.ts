@@ -10,6 +10,7 @@ export interface ChatSummary {
   slug: string;
   branching: string | null;
   title: string;
+  icon: string | null;
   pinned: boolean;
   workspaceId: string | null;
   readOnly?: boolean;
@@ -26,6 +27,7 @@ type ChatSummaryRecord = Pick<
   | "slug"
   | "branching"
   | "title"
+  | "icon"
   | "pinned"
   | "workspaceId"
   | "createdAt"
@@ -38,6 +40,7 @@ const mapChatSummary = (thread: ChatSummaryRecord): ChatSummary => ({
   slug: thread.slug,
   branching: thread.branching ?? null,
   title: thread.title,
+  icon: thread.icon ?? null,
   pinned: thread.pinned,
   workspaceId: thread.workspaceId ?? null,
   createdAt: thread.createdAt.toISOString(),
@@ -409,15 +412,17 @@ export async function getMessagesByChatSlug(slug: string) {
 export async function updateChatForUser(
   userId: string,
   slug: string,
-  updates: { title?: string; pinned?: boolean },
+  updates: { title?: string; pinned?: boolean; icon?: string | null },
   workspaceId?: string | null,
 ) {
   const nextTitle = updates.title ? sanitizeTitle(updates.title) : undefined;
+  const nextIcon = updates.icon === undefined ? undefined : updates.icon;
 
   const [thread] = await db
     .update(chatThread)
     .set({
       ...(nextTitle ? { title: nextTitle } : {}),
+      ...(nextIcon !== undefined ? { icon: nextIcon } : {}),
       ...(typeof updates.pinned === "boolean"
         ? { pinned: updates.pinned }
         : {}),

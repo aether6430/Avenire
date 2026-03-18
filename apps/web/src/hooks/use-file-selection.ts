@@ -32,6 +32,19 @@ export function useFileSelection({ gridRef, itemRefs }: UseFileSelectionOptions)
     setSelectionAnchorId(itemId);
   }, []);
 
+  const setItemSelected = useCallback((itemId: string, selected: boolean) => {
+    setSelectedIds((previous) => {
+      const next = new Set(previous);
+      if (selected) {
+        next.add(itemId);
+      } else {
+        next.delete(itemId);
+      }
+      return next;
+    });
+    setSelectionAnchorId(itemId);
+  }, []);
+
   const setSelection = useCallback((itemIds: string[], anchorId?: string | null) => {
     setSelectedIds(new Set(itemIds));
     setSelectionAnchorId(anchorId ?? itemIds[0] ?? null);
@@ -165,6 +178,7 @@ export function useFileSelection({ gridRef, itemRefs }: UseFileSelectionOptions)
     selectionRect,
     clearSelection,
     setSelection,
+    setItemSelected,
     toggleSelection,
     startDragSelection,
     handleItemClick,

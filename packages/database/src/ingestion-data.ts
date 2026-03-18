@@ -890,7 +890,9 @@ export async function retrieveWorkspaceChunks(input: {
     FROM ingestion_embedding e
     INNER JOIN ingestion_chunk c ON c.id = e.chunk_id
     INNER JOIN ingestion_resource r ON r.id = c.resource_id
+    LEFT JOIN file_asset f ON f.id = r.file_id
     WHERE ${whereClause}
+      AND (r.file_id IS NULL OR f.deleted_at IS NULL)
     ORDER BY e.embedding <=> ${vectorLiteral}::vector
     LIMIT ${Math.max(1, input.limit)}
   `);

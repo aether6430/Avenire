@@ -14,7 +14,7 @@ import {
   ArrowUpIcon,
   FileTextIcon,
   PaperclipIcon,
-  StopCircle,
+  Loader2,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import type React from "react";
@@ -202,7 +202,6 @@ function PureMultimodalInput({
   input,
   setInput,
   status,
-  stop,
   attachments,
   setAttachments,
   handleSubmit,
@@ -213,7 +212,6 @@ function PureMultimodalInput({
   input: string;
   setInput: (input: string) => void;
   status: UseChatHelpers<UIMessage>["status"];
-  stop: UseChatHelpers<UIMessage>["stop"];
   attachments: Attachment[];
   setAttachments: Dispatch<SetStateAction<Attachment[]>>;
   handleSubmit: (
@@ -948,7 +946,6 @@ function PureMultimodalInput({
             <SendButton
               canSend={canSend}
               status={status}
-              stop={stop}
               submitForm={runSubmitForm}
             />
           </div>
@@ -998,28 +995,23 @@ function PureSendButton({
   submitForm,
   canSend,
   status,
-  stop,
 }: {
   submitForm: () => void;
   canSend: boolean;
   status: UseChatHelpers<UIMessage>["status"];
-  stop: UseChatHelpers<UIMessage>["stop"];
 }) {
   if (status === "submitted" || status === "streaming") {
     return (
       <Button
-        aria-label="Stop generation"
-        className="h-9 w-9 rounded-full bg-rose-500/90 text-white hover:bg-rose-500 sm:h-8 sm:w-8"
+        aria-label="Generating response"
+        className="h-9 w-9 rounded-full bg-muted text-muted-foreground sm:h-8 sm:w-8"
         data-testid="loading-button"
-        onClick={(event) => {
-          event.preventDefault();
-          stop();
-        }}
+        disabled
         size="icon"
         type="button"
-        variant="destructive"
+        variant="ghost"
       >
-        <StopCircle className="h-4 w-4" />
+        <Loader2 className="h-4 w-4 animate-spin" />
       </Button>
     );
   }

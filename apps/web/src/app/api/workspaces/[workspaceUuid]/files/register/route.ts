@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import {
   isSharedFilesVirtualFolderId,
-  updateNoteContent,
+  createWorkspaceNoteFile,
   userCanEditFolder,
 } from "@/lib/file-data";
 import { createApiLogger } from "@/lib/observability";
+import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
 import { registerWorkspaceUploadedFile } from "@/lib/upload-registration";
 import { scheduleAsyncVideoDeliveryOptimization } from "@/lib/video-delivery";
 import { getSessionUser } from "@/lib/workspace";
@@ -54,21 +55,18 @@ export async function POST(
 
   const body = (await request.json().catch(() => ({}))) as {
     folderId?: string;
+    content?: string;
     storageKey?: string;
     storageUrl?: string;
     name?: string;
     mimeType?: string | null;
     sizeBytes?: number;
     metadata?: Record<string, unknown>;
-    noteContent?: string | null;
     contentHashSha256?: string | null;
     hashComputedBy?: "client" | "server" | null;
   };
 
-  if (
-    !(body.folderId && body.storageKey && body.storageUrl && body.name) ||
-    typeof body.sizeBytes !== "number"
-  ) {
+  if (!body.folderId) {
     void apiLogger.requestFailed(400, "Missing file metadata", {
       workspaceUuid,
     });
@@ -77,6 +75,7 @@ export async function POST(
       { status: 400 }
     );
   }
+
   if (isSharedFilesVirtualFolderId(body.folderId, workspaceUuid)) {
     void apiLogger.requestFailed(400, "Cannot create items in Shared Files", {
       workspaceUuid,
@@ -98,8 +97,84 @@ export async function POST(
 
   const nextMetadata = {
     ...(body.metadata ?? {}),
-    ...(typeof body.noteContent === "string" ? { type: "note" } : {}),
   };
+
+  if (typeof body.content === "string") {
+    if (!body.name) {
+      void apiLogger.requestFailed(400, "Missing note metadata", {
+        workspaceUuid,
+      });
+      return NextResponse.json(
+        { error: "Missing note metadata" },
+        { status: 400 }
+      );
+    }
+
+    const file = await createWorkspaceNoteFile({
+      workspaceId: workspaceUuid,
+      userId: user.id,
+      folderId: body.folderId,
+      name: body.name,
+      content: body.content,
+      metadata: nextMetadata,
+    });
+
+    await publishFilesInvalidationEvent({
+      workspaceUuid,
+      folderId: body.folderId,
+      reason: "file.created",
+    });
+    await publishFilesInvalidationEvent({
+      workspaceUuid,
+      reason: "tree.changed",
+    });
+
+    void apiLogger.meter("meter.upload.filesystem.registered", {
+      workspaceUuid,
+      fileId: file.id,
+      mimeType: file.mimeType,
+      fileType: classifyStoredFileType(file.mimeType),
+      sizeBytes: file.sizeBytes,
+    });
+    void apiLogger.meter("meter.upload.file_type", {
+      workspaceUuid,
+      fileType: classifyStoredFileType(file.mimeType),
+      mimeType: file.mimeType,
+    });
+    void apiLogger.featureUsed("workspace.filesystem.upload", {
+      workspaceUuid,
+      fileId: file.id,
+    });
+    void apiLogger.requestSucceeded(201, {
+      workspaceUuid,
+      fileId: file.id,
+      deduplicated: false,
+      mimeType: file.mimeType,
+      sizeBytes: file.sizeBytes,
+    });
+
+    return NextResponse.json(
+      {
+        file,
+        ingestionJob: null,
+        deduplicated: false,
+      },
+      { status: 201 }
+    );
+  }
+
+  if (
+    !(body.folderId && body.storageKey && body.storageUrl && body.name) ||
+    typeof body.sizeBytes !== "number"
+  ) {
+    void apiLogger.requestFailed(400, "Missing file metadata", {
+      workspaceUuid,
+    });
+    return NextResponse.json(
+      { error: "Missing file metadata" },
+      { status: 400 }
+    );
+  }
 
   let registrationResult: Awaited<
     ReturnType<typeof registerWorkspaceUploadedFile>
@@ -144,14 +219,6 @@ export async function POST(
 
   const storedFile = registrationResult.file;
   const ingestionJob = registrationResult.ingestionJob;
-
-  if (typeof body.noteContent === "string") {
-    await updateNoteContent({
-      fileId: storedFile.id,
-      userId: user.id,
-      content: body.noteContent,
-    });
-  }
 
   if (
     registrationResult.status === "created" &&
