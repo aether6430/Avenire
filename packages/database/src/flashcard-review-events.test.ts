@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   createFlashcardReviewCommittedEvent,
+  deriveFlashcardReviewLearningActions,
   emitFlashcardReviewEvent,
   extractFlashcardSourceTaxonomy,
   subscribeFlashcardReviewEvents,
@@ -124,5 +125,131 @@ describe("flashcard-review-events", () => {
     unsubscribe();
     emitFlashcardReviewEvent(event);
     expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it("creates a misconception signal after two consecutive again reviews", () => {
+    const event = createFlashcardReviewCommittedEvent({
+      card: {
+        backMarkdown: "Back",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        frontMarkdown: "Front",
+        id: "card-3",
+        kind: "flashcard",
+        notesMarkdown: null,
+        ordinal: 1,
+        payload: {},
+        setId: "set-3",
+        source: {
+          concept: "Reaction rate",
+          subject: "Chemistry",
+          topic: "Kinetics",
+        },
+        tags: [],
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+      nextState: "learning",
+      previousState: "learning",
+      rating: "again",
+      reviewedAt: new Date("2026-01-02T12:00:00.000Z"),
+      set: {
+        id: "set-3",
+        sourceType: "manual",
+        title: "Chemistry deck",
+        workspaceId: "workspace-1",
+      },
+      stability: null,
+      userId: "user-1",
+      workspaceId: "workspace-1",
+    });
+
+    expect(
+      deriveFlashcardReviewLearningActions({
+        event,
+        recentCardRatings: ["again", "again"],
+        recentConceptRatings: ["again", "again", "again"],
+      })
+    ).toEqual({
+      mastery: {
+        concept: "Reaction rate",
+        reviewedAt: "2026-01-02T12:00:00.000Z",
+        subject: "Chemistry",
+        topic: "Kinetics",
+        userId: "user-1",
+        workspaceId: "workspace-1",
+      },
+      misconception: {
+        confidence: 0.6,
+        concept: "Reaction rate",
+        reason: "Repeated again reviews on the same card",
+        source: "fsrs_signal",
+        subject: "Chemistry",
+        topic: "Kinetics",
+        userId: "user-1",
+        workspaceId: "workspace-1",
+      },
+      resolveMisconception: null,
+    });
+  });
+
+  it("resolves misconceptions after three consecutive good or easy reviews", () => {
+    const event = createFlashcardReviewCommittedEvent({
+      card: {
+        backMarkdown: "Back",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        frontMarkdown: "Front",
+        id: "card-4",
+        kind: "flashcard",
+        notesMarkdown: null,
+        ordinal: 1,
+        payload: {},
+        setId: "set-4",
+        source: {
+          concept: "Reaction rate",
+          subject: "Chemistry",
+          topic: "Kinetics",
+        },
+        tags: [],
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+      nextState: "review",
+      previousState: "review",
+      rating: "good",
+      reviewedAt: new Date("2026-01-03T12:00:00.000Z"),
+      set: {
+        id: "set-4",
+        sourceType: "manual",
+        title: "Chemistry deck",
+        workspaceId: "workspace-1",
+      },
+      stability: 12.5,
+      userId: "user-1",
+      workspaceId: "workspace-1",
+    });
+
+    expect(
+      deriveFlashcardReviewLearningActions({
+        event,
+        recentCardRatings: ["good", "good"],
+        recentConceptRatings: ["good", "easy", "good"],
+      })
+    ).toEqual({
+      mastery: {
+        concept: "Reaction rate",
+        reviewedAt: "2026-01-03T12:00:00.000Z",
+        subject: "Chemistry",
+        topic: "Kinetics",
+        userId: "user-1",
+        workspaceId: "workspace-1",
+      },
+      misconception: null,
+      resolveMisconception: {
+        concept: "Reaction rate",
+        reviewedAt: "2026-01-03T12:00:00.000Z",
+        subject: "Chemistry",
+        topic: "Kinetics",
+        userId: "user-1",
+        workspaceId: "workspace-1",
+      },
+    });
   });
 });

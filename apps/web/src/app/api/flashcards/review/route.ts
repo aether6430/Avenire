@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { reviewFlashcardForUser } from "@/lib/flashcards";
+import "@/lib/learning-automation";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
 
 export async function POST(request: Request) {

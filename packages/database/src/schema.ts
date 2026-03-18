@@ -467,6 +467,106 @@ export const flashcardReviewLog = pgTable(
   ]
 );
 
+export const misconception = pgTable(
+  "misconception",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    subject: text("subject").notNull(),
+    topic: text("topic").notNull(),
+    concept: text("concept").notNull(),
+    reason: text("reason").notNull(),
+    source: text("source").notNull().default("review"),
+    confidence: real("confidence").notNull().default(0),
+    evidenceCount: integer("evidence_count").notNull().default(1),
+    active: boolean("active").notNull().default(true),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("misconception_workspace_user_subject_topic_concept_uidx").on(
+      table.workspaceId,
+      table.userId,
+      table.subject,
+      table.topic,
+      table.concept
+    ),
+    index("misconception_user_active_idx").on(
+      table.userId,
+      table.active,
+      table.lastSeenAt
+    ),
+    index("misconception_workspace_subject_active_idx").on(
+      table.workspaceId,
+      table.subject,
+      table.active
+    ),
+  ]
+);
+
+export const conceptMastery = pgTable(
+  "concept_mastery",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    subject: text("subject").notNull(),
+    topic: text("topic").notNull(),
+    concept: text("concept").notNull(),
+    score: real("score").notNull().default(0),
+    reviewCount: integer("review_count").notNull().default(0),
+    positiveReviewCount: integer("positive_review_count").notNull().default(0),
+    negativeReviewCount: integer("negative_review_count").notNull().default(0),
+    activeMisconceptionCount: integer("active_misconception_count")
+      .notNull()
+      .default(0),
+    lastReviewedAt: timestamp("last_reviewed_at", { withTimezone: true }),
+    lastMisconceptionAt: timestamp("last_misconception_at", {
+      withTimezone: true,
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("concept_mastery_workspace_user_subject_topic_concept_uidx").on(
+      table.workspaceId,
+      table.userId,
+      table.subject,
+      table.topic,
+      table.concept
+    ),
+    index("concept_mastery_user_subject_idx").on(table.userId, table.subject),
+    index("concept_mastery_workspace_subject_idx").on(
+      table.workspaceId,
+      table.subject
+    ),
+  ]
+);
+
 export const billingCustomer = pgTable(
   "billing_customer",
   {

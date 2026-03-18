@@ -35,6 +35,7 @@ import {
   getActiveMisconceptionContext,
 } from "@/lib/chat-tools";
 import { resolveWorkspaceForUser } from "@/lib/file-data";
+import "@/lib/learning-automation";
 import { normalizeMediaType } from "@/lib/media-type";
 import { createApiLogger } from "@/lib/observability";
 import { detectSubjectFromText } from "@/lib/subject-detection";

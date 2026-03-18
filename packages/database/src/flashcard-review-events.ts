@@ -32,6 +32,32 @@ export interface FlashcardReviewCommittedEvent {
   workspaceId: string;
 }
 
+export interface FlashcardMisconceptionSignal {
+  confidence: number;
+  concept: string;
+  reason: string;
+  source: "fsrs_signal";
+  subject: string | null;
+  topic: string | null;
+  userId: string;
+  workspaceId: string;
+}
+
+export interface FlashcardMasteryRecomputeSignal {
+  concept: string;
+  topic: string | null;
+  subject: string | null;
+  reviewedAt: string;
+  userId: string;
+  workspaceId: string;
+}
+
+export interface FlashcardReviewLearningActions {
+  misconception: FlashcardMisconceptionSignal | null;
+  mastery: FlashcardMasteryRecomputeSignal | null;
+  resolveMisconception: FlashcardMasteryRecomputeSignal | null;
+}
+
 export type FlashcardReviewEventListener = (
   event: FlashcardReviewCommittedEvent
 ) => void | Promise<void>;
@@ -104,6 +130,71 @@ export function createFlashcardReviewCommittedEvent(input: {
     topic: taxonomy.topic,
     userId: input.userId,
     workspaceId: input.workspaceId,
+  };
+}
+
+function isAgainStreak(ratings: FlashcardRating[]) {
+  const [first, second] = ratings;
+  return first === "again" && second === "again";
+}
+
+function isPositiveRating(rating: FlashcardRating) {
+  return rating === "good" || rating === "easy";
+}
+
+export function deriveFlashcardReviewLearningActions(input: {
+  event: FlashcardReviewCommittedEvent;
+  recentCardRatings: FlashcardRating[];
+  recentConceptRatings: FlashcardRating[];
+}): FlashcardReviewLearningActions {
+  const hasCanonicalTaxonomy = Boolean(
+    input.event.concept && input.event.subject && input.event.topic
+  );
+  const mastery = hasCanonicalTaxonomy
+    ? {
+        concept: input.event.concept as string,
+        topic: input.event.topic,
+        subject: input.event.subject,
+        reviewedAt: input.event.reviewedAt,
+        userId: input.event.userId,
+        workspaceId: input.event.workspaceId,
+      }
+    : null;
+
+  const misconception =
+    hasCanonicalTaxonomy &&
+    input.event.rating === "again" &&
+    isAgainStreak(input.recentCardRatings)
+      ? {
+          confidence: 0.6,
+          concept: input.event.concept as string,
+          reason: "Repeated again reviews on the same card",
+          source: "fsrs_signal" as const,
+          subject: input.event.subject,
+          topic: input.event.topic,
+          userId: input.event.userId,
+          workspaceId: input.event.workspaceId,
+        }
+      : null;
+
+  const resolveMisconception =
+    hasCanonicalTaxonomy &&
+    input.recentConceptRatings.length >= 3 &&
+    input.recentConceptRatings.slice(0, 3).every(isPositiveRating)
+      ? {
+          concept: input.event.concept as string,
+          topic: input.event.topic,
+          subject: input.event.subject,
+          reviewedAt: input.event.reviewedAt,
+          userId: input.event.userId,
+          workspaceId: input.event.workspaceId,
+        }
+      : null;
+
+  return {
+    mastery,
+    misconception,
+    resolveMisconception,
   };
 }
 
