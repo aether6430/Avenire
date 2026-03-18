@@ -122,6 +122,14 @@ function parseDayKey(dayKey: string) {
   return new Date(`${dayKey}T00:00:00.000Z`);
 }
 
+function readTaxonomyField(
+  source: Record<string, unknown>,
+  key: "subject" | "topic" | "concept"
+) {
+  const value = source[key];
+  return typeof value === "string" ? value : "";
+}
+
 function rangeLabel(range: CalendarRangeValue | undefined) {
   const resolved = resolveRange(range);
   return `${DAY_FORMATTER.format(resolved.from)} - ${DAY_FORMATTER.format(resolved.to)}`;
@@ -256,6 +264,9 @@ export function FlashcardSetDetail({
   const [frontMarkdown, setFrontMarkdown] = useState("");
   const [backMarkdown, setBackMarkdown] = useState("");
   const [notesMarkdown, setNotesMarkdown] = useState("");
+  const [subject, setSubject] = useState("");
+  const [topic, setTopic] = useState("");
+  const [concept, setConcept] = useState("");
   const [tags, setTags] = useState("");
   const [studyOpen, setStudyOpen] = useState(false);
   const [studyRevealed, setStudyRevealed] = useState(false);
@@ -388,6 +399,9 @@ export function FlashcardSetDetail({
     setFrontMarkdown(card?.frontMarkdown ?? "");
     setBackMarkdown(card?.backMarkdown ?? "");
     setNotesMarkdown(card?.notesMarkdown ?? "");
+    setSubject(card ? readTaxonomyField(card.source, "subject") : "");
+    setTopic(card ? readTaxonomyField(card.source, "topic") : "");
+    setConcept(card ? readTaxonomyField(card.source, "concept") : "");
     setTags(card?.tags.join(", ") ?? "");
     setEditorOpen(true);
   };
@@ -399,6 +413,12 @@ export function FlashcardSetDetail({
         backMarkdown,
         frontMarkdown,
         notesMarkdown,
+        source: {
+          ...(editingCard?.source ?? {}),
+          concept,
+          subject,
+          topic,
+        },
         tags: tags
           .split(",")
           .map((entry) => entry.trim())
@@ -589,6 +609,35 @@ export function FlashcardSetDetail({
                         />
                       </div>
                       <div className="space-y-1.5">
+                        <Label htmlFor="flashcard-subject">Subject</Label>
+                        <Input
+                          id="flashcard-subject"
+                          onChange={(event) => setSubject(event.target.value)}
+                          placeholder="Chemistry"
+                          value={subject}
+                        />
+                      </div>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="flashcard-topic">Topic</Label>
+                          <Input
+                            id="flashcard-topic"
+                            onChange={(event) => setTopic(event.target.value)}
+                            placeholder="Thermodynamics"
+                            value={topic}
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="flashcard-concept">Concept</Label>
+                          <Input
+                            id="flashcard-concept"
+                            onChange={(event) => setConcept(event.target.value)}
+                            placeholder="Gibbs free energy"
+                            value={concept}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
                         <Label htmlFor="flashcard-tags">Tags</Label>
                         <Input
                           id="flashcard-tags"
@@ -601,7 +650,12 @@ export function FlashcardSetDetail({
                     <DialogFooter>
                       <Button
                         disabled={
-                          busy || !frontMarkdown.trim() || !backMarkdown.trim()
+                          busy ||
+                          !frontMarkdown.trim() ||
+                          !backMarkdown.trim() ||
+                          !subject.trim() ||
+                          !topic.trim() ||
+                          !concept.trim()
                         }
                         onClick={saveCard}
                         type="button"

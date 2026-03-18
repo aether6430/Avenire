@@ -60,6 +60,12 @@ const FILE_MANAGER_LIST_LIMIT = 120;
 const FILE_MANAGER_MAX_FILE_CHARS = 5000;
 const FILE_MANAGER_MAX_OUTPUT_TOKENS = 260;
 
+type FlashcardTaxonomy = {
+  concept: string;
+  subject: string;
+  topic: string;
+};
+
 type ChatToolContext = {
   agentActivityId: string;
   chatSlug: string;
@@ -75,6 +81,52 @@ type WorkspacePathMaps = {
   filePathById: Map<string, string>;
   folderPathById: Map<string, string>;
 };
+
+function formatCitationLocation(match: {
+  endMs?: number | null;
+  page?: number | null;
+  startMs?: number | null;
+}) {
+  if (typeof match.page === "number") {
+    return ` p.${match.page}`;
+  }
+
+  if (typeof match.startMs === "number") {
+    const startSeconds = Math.max(0, Math.floor(match.startMs / 1000));
+    const startMinutes = Math.floor(startSeconds / 60);
+    const remainingSeconds = startSeconds % 60;
+
+    if (typeof match.endMs === "number") {
+      const endSeconds = Math.max(0, Math.floor(match.endMs / 1000));
+      const endMinutes = Math.floor(endSeconds / 60);
+      const remainingEndSeconds = endSeconds % 60;
+      return ` ${startMinutes}:${String(remainingSeconds).padStart(2, "0")}-${endMinutes}:${String(remainingEndSeconds).padStart(2, "0")}`;
+    }
+
+    return ` ${startMinutes}:${String(remainingSeconds).padStart(2, "0")}`;
+  }
+
+  return "";
+}
+
+function buildCitationMarkdown(
+  citations: Array<{
+    endMs?: number | null;
+    fileId: string | null;
+    page?: number | null;
+    startMs?: number | null;
+    workspacePath: string;
+  }>
+) {
+  return citations
+    .filter((citation) => Boolean(citation.fileId))
+    .slice(0, 3)
+    .map((citation) => {
+      const label = `${citation.workspacePath}${formatCitationLocation(citation)}`;
+      return `[${label}](workspace-file://${citation.fileId})`;
+    })
+    .join(", ");
+}
 
 const flashcardGenerationSchema = z.object({
   cards: z
@@ -221,6 +273,78 @@ function applyNoteUpdate(params: {
       .join("\n")
       .trimEnd() + "\n"
   );
+}
+
+function sanitizeTaxonomyLabel(value: string, maxLength: number) {
+  return value.replace(/\s+/g, " ").trim().slice(0, maxLength);
+}
+
+function inferFlashcardTaxonomy(input: {
+  query?: string;
+  sourceText: string;
+  title: string;
+}): FlashcardTaxonomy {
+  const haystack = `${input.title} ${input.query ?? ""} ${input.sourceText}`
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, " ");
+
+  const subjectMatchers: Array<{ keywords: string[]; subject: string }> = [
+    {
+      keywords: ["physics", "quantum", "mechanics", "thermodynamics"],
+      subject: "physics",
+    },
+    {
+      keywords: ["chemistry", "molecule", "reaction", "organic", "gibbs"],
+      subject: "chemistry",
+    },
+    {
+      keywords: ["biology", "cell", "gene", "genetics", "evolution"],
+      subject: "biology",
+    },
+    {
+      keywords: ["calculus", "algebra", "geometry", "statistics", "probability"],
+      subject: "mathematics",
+    },
+    {
+      keywords: ["history", "war", "revolution", "empire", "civilization"],
+      subject: "history",
+    },
+    {
+      keywords: ["economics", "market", "inflation", "finance", "trade"],
+      subject: "economics",
+    },
+    {
+      keywords: ["computer", "algorithm", "database", "network", "programming"],
+      subject: "computer science",
+    },
+    {
+      keywords: ["psychology", "behavior", "memory", "cognition", "emotion"],
+      subject: "psychology",
+    },
+    {
+      keywords: ["law", "contract", "tort", "liability", "statute"],
+      subject: "law",
+    },
+  ];
+
+  const matchedSubject =
+    subjectMatchers.find((entry) =>
+      entry.keywords.some((keyword) => haystack.includes(keyword))
+    )?.subject ?? "general studies";
+
+  const topicSource =
+    input.query?.trim() || input.title.trim() || input.sourceText.trim();
+  const topic = sanitizeTaxonomyLabel(topicSource || matchedSubject, 120);
+  const concept = sanitizeTaxonomyLabel(
+    topicSource || `${matchedSubject} core concept`,
+    180
+  );
+
+  return {
+    concept,
+    subject: matchedSubject,
+    topic,
+  };
 }
 
 async function buildWorkspacePathMaps(
@@ -780,7 +904,7 @@ async function createStudySetWithCards(params: {
     kind: FlashcardCardKind;
     notesMarkdown?: string | null;
     payload?: Record<string, unknown>;
-    source?: Record<string, unknown>;
+    source: Record<string, unknown>;
     tags?: string[];
   }>;
   chatSlug: string;
@@ -823,6 +947,11 @@ async function generateFlashcardsFromSource(
   input: z.infer<typeof chatToolSchemas.generate_flashcards.input>
 ) {
   const source = await resolveStudySource(ctx, input);
+  const taxonomy = inferFlashcardTaxonomy({
+    query: input.query,
+    sourceText: source.content,
+    title: input.title ?? source.title,
+  });
   const result = await generateText({
     model: apollo.languageModel("apollo-core"),
     output: Output.object({ schema: flashcardGenerationSchema }),
@@ -841,6 +970,7 @@ async function generateFlashcardsFromSource(
       ...card,
       kind: "flashcard" as const,
       source: {
+        ...taxonomy,
         sourceFileId: input.fileId ?? null,
         sourceIndex: index,
         sourceQuery: input.query ?? null,
@@ -865,6 +995,11 @@ async function generateQuizFromSource(
   input: z.infer<typeof chatToolSchemas.quiz_me.input>
 ) {
   const source = await resolveStudySource(ctx, input);
+  const taxonomy = inferFlashcardTaxonomy({
+    query: input.query,
+    sourceText: source.content,
+    title: input.title ?? source.title,
+  });
   const result = await generateText({
     model: apollo.languageModel("apollo-core"),
     output: Output.object({ schema: quizGenerationSchema }),
@@ -879,25 +1014,26 @@ async function generateQuizFromSource(
   });
 
   const questions = result.output.questions.map((question, index) => ({
-    ...question,
-    explanation: question.explanation ?? null,
-  }));
+      ...question,
+      explanation: question.explanation ?? null,
+    }));
 
   const set = await createStudySetWithCards({
-    cards: questions.map((question, index) => ({
-      backMarkdown: question.backMarkdown,
-      frontMarkdown: question.frontMarkdown,
-      kind: "multiple_choice_quiz" as const,
-      payload: {
-        correctOptionIndex: question.correctOptionIndex,
-        explanation: question.explanation ?? null,
-        options: question.options,
-      },
-      source: {
-        sourceFileId: input.fileId ?? null,
-        sourceIndex: index,
-        sourceQuery: input.query ?? null,
-      },
+      cards: questions.map((question, index) => ({
+        backMarkdown: question.backMarkdown,
+        frontMarkdown: question.frontMarkdown,
+        kind: "multiple_choice_quiz" as const,
+        payload: {
+          correctOptionIndex: question.correctOptionIndex,
+          explanation: question.explanation ?? null,
+          options: question.options,
+        },
+        source: {
+          ...taxonomy,
+          sourceFileId: input.fileId ?? null,
+          sourceIndex: index,
+          sourceQuery: input.query ?? null,
+        },
       tags: question.tags ?? input.tags ?? [],
     })),
     chatSlug: ctx.chatSlug,
@@ -931,6 +1067,7 @@ export function createChatTools(ctx: ChatToolContext): ToolSet {
         });
 
         return {
+          citationMarkdown: buildCitationMarkdown(matches),
           matches,
           query: input.query,
           totalMatches: matches.length,
@@ -1092,6 +1229,7 @@ export function createChatTools(ctx: ChatToolContext): ToolSet {
         emitAgentActivityUpdate(ctx, activityActions, "done");
 
         return {
+          citationMarkdown: buildCitationMarkdown(matches),
           citations: matches.slice(0, maxMatches),
           context: context || "No relevant workspace content found.",
           files,

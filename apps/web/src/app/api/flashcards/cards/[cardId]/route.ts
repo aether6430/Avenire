@@ -1,3 +1,4 @@
+import { assertFlashcardTaxonomy } from "@avenire/database";
 import { NextResponse } from "next/server";
 import {
   archiveFlashcardCardForUser,
@@ -18,15 +19,34 @@ export async function PATCH(
     backMarkdown?: string;
     frontMarkdown?: string;
     notesMarkdown?: string | null;
+    source?: Record<string, unknown>;
     tags?: string[];
   };
   const { cardId } = await context.params;
+
+  let taxonomy: ReturnType<typeof assertFlashcardTaxonomy> | null = null;
+  try {
+    taxonomy = assertFlashcardTaxonomy(body.source, "flashcard update");
+  } catch {
+    return NextResponse.json(
+      {
+        error:
+          "source with subject, topic, and concept is required for flashcard update",
+      },
+      { status: 400 }
+    );
+  }
+  const source = {
+    ...(body.source ?? {}),
+    ...(taxonomy ?? {}),
+  };
 
   const card = await updateFlashcardCardForUser({
     backMarkdown: body.backMarkdown,
     cardId,
     frontMarkdown: body.frontMarkdown,
     notesMarkdown: body.notesMarkdown,
+    source,
     tags: body.tags,
     userId: ctx.user.id,
     workspaceId: ctx.workspace.workspaceId,

@@ -34,6 +34,7 @@ import { createChatTools } from "@/lib/chat-tools";
 import { resolveWorkspaceForUser } from "@/lib/file-data";
 import { normalizeMediaType } from "@/lib/media-type";
 import { createApiLogger } from "@/lib/observability";
+import { detectSubjectFromText } from "@/lib/subject-detection";
 import {
   clearActiveStreamId,
   getActiveStreamId,
@@ -46,6 +47,7 @@ const DEFAULT_CHAT_TITLE = "New Chat";
 const LOG_PREFIX = "[api/chat]";
 const DEFAULT_CHAT_TOKENS_PER_CREDIT = 4000;
 const DEFAULT_CHAT_TITLE_MODEL: ApolloModelName = "apollo-sprint";
+const WHITESPACE_PATTERN = /\s+/g;
 const MODEL_TOOL_ALLOW_LIST = new Set([
   "avenire_agent",
   "file_manager_agent",
@@ -95,7 +97,9 @@ function sanitizeChatName(value: string) {
 }
 
 function fallbackChatNameFromText(value: string) {
-  const normalized = sanitizeChatName(value.split(/\s+/).slice(0, 6).join(" "));
+  const normalized = sanitizeChatName(
+    value.split(WHITESPACE_PATTERN).slice(0, 6).join(" ")
+  );
 
   return normalized.length > 0 ? normalized : DEFAULT_CHAT_TITLE;
 }
@@ -185,6 +189,31 @@ function extractLatestUserText(messages: UIMessage[]) {
       ? ((latestUserMessage as { text?: string }).text ?? "").trim()
       : "";
   return text;
+}
+
+function buildSubjectDetectionText(input: {
+  context?: string;
+  messages: UIMessage[];
+}) {
+  const parts = [extractLatestUserText(input.messages), input.context?.trim()]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => value.trim());
+
+  return parts.join("\n\n");
+}
+
+function buildDetectedSubjectContext(
+  detection: ReturnType<typeof detectSubjectFromText>
+) {
+  if (!(detection.subject && detection.confidence >= 0.5)) {
+    return null;
+  }
+
+  return [
+    `Detected session subject: ${detection.subject}.`,
+    `Confidence: ${detection.confidence.toFixed(2)} via ${detection.source}.`,
+    "Treat this as soft context, not a hard constraint.",
+  ].join(" ");
 }
 
 async function generateChatMetadata(
@@ -528,13 +557,13 @@ export async function POST(request: Request) {
     feature: "chat",
     userId: session?.user?.id ?? null,
   });
-  void apiLogger.requestStarted();
+  apiLogger.requestStarted();
   let idempotencyRedisKey: string | null = null;
   let idempotencyLockAcquired = false;
 
   try {
     if (!session?.user) {
-      void apiLogger.requestFailed(401, "Unauthorized");
+      apiLogger.requestFailed(401, "Unauthorized");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -546,7 +575,7 @@ export async function POST(request: Request) {
       activeOrganizationId
     );
     if (!workspace) {
-      void apiLogger.requestFailed(404, "Workspace not found");
+      apiLogger.requestFailed(404, "Workspace not found");
       return NextResponse.json(
         { error: "Workspace not found" },
         { status: 404 }
@@ -564,7 +593,7 @@ export async function POST(request: Request) {
 
     let chatSlug: string = body.chatId?.trim() ?? "";
     if (!chatSlug) {
-      void apiLogger.requestFailed(400, "Missing chatId");
+      apiLogger.requestFailed(400, "Missing chatId");
       return NextResponse.json({ error: "Missing chatId" }, { status: 400 });
     }
     const idempotencyHeader = request.headers.get("idempotency-key")?.trim();
@@ -573,12 +602,19 @@ export async function POST(request: Request) {
       normalizeMessageFileMediaTypes(body.messages ?? [])
     );
     const modelContextMessages = trimMessagesForModelContext(originalMessages);
+    const subjectDetection = detectSubjectFromText(
+      buildSubjectDetectionText({
+        context: body.context,
+        messages: originalMessages,
+      })
+    );
     logInfo("Incoming chat request", {
       chatId: body.chatId ?? null,
       selectedModel: body.selectedModel ?? null,
       selectedReasoningModel: body.selectedReasoningModel ?? null,
       messageCount: originalMessages.length,
       modelContextCount: modelContextMessages.length,
+      subjectDetection,
     });
 
     type ExistingChat = NonNullable<
@@ -598,7 +634,7 @@ export async function POST(request: Request) {
 
         const state = await getIdempotencyState(idempotencyRedisKey);
         if (state) {
-          void apiLogger.requestFailed(409, "Duplicate request", {
+          apiLogger.requestFailed(409, "Duplicate request", {
             chatId: chatSlug,
             idempotencyKey: idempotencyHeader,
           });
@@ -614,7 +650,7 @@ export async function POST(request: Request) {
         idempotencyLockAcquired =
           await tryAcquireIdempotencyLock(idempotencyRedisKey);
         if (!idempotencyLockAcquired) {
-          void apiLogger.requestFailed(409, "Request in progress", {
+          apiLogger.requestFailed(409, "Request in progress", {
             chatId: chatSlug,
             idempotencyKey: idempotencyHeader,
           });
@@ -644,7 +680,7 @@ export async function POST(request: Request) {
       );
 
       if (!chat) {
-        void apiLogger.requestFailed(404, "Chat not found", {
+        apiLogger.requestFailed(404, "Chat not found", {
           chatId: chatSlug,
         });
         return NextResponse.json({ error: "Chat not found" }, { status: 404 });
@@ -657,14 +693,14 @@ export async function POST(request: Request) {
           workspace.workspaceId
         ))
       ) {
-        void apiLogger.requestFailed(403, "Read-only chat", {
+        apiLogger.requestFailed(403, "Read-only chat", {
           chatId: chatSlug,
         });
         return NextResponse.json({ error: "Read-only chat" }, { status: 403 });
       }
     }
     if (!chat) {
-      void apiLogger.requestFailed(500, "Unable to resolve chat", {
+      apiLogger.requestFailed(500, "Unable to resolve chat", {
         chatId: chatSlug,
       });
       return NextResponse.json(
@@ -683,7 +719,7 @@ export async function POST(request: Request) {
 
       const state = await getIdempotencyState(idempotencyRedisKey);
       if (state) {
-        void apiLogger.requestFailed(409, "Duplicate request", {
+        apiLogger.requestFailed(409, "Duplicate request", {
           chatId: chatSlug,
           idempotencyKey: idempotencyHeader,
         });
@@ -699,7 +735,7 @@ export async function POST(request: Request) {
       idempotencyLockAcquired =
         await tryAcquireIdempotencyLock(idempotencyRedisKey);
       if (!idempotencyLockAcquired) {
-        void apiLogger.requestFailed(409, "Request in progress", {
+        apiLogger.requestFailed(409, "Request in progress", {
           chatId: chatSlug,
           idempotencyKey: idempotencyHeader,
         });
@@ -716,7 +752,7 @@ export async function POST(request: Request) {
     const initialUsage = await consumeChatUnits(session.user.id, 1);
     if (!initialUsage.ok) {
       const retryAfter = initialUsage.retryAfter?.toISOString() ?? null;
-      void apiLogger.rateLimited("chat", retryAfter, { chatId: chatSlug });
+      apiLogger.rateLimited("chat", retryAfter, { chatId: chatSlug });
       if (idempotencyRedisKey && idempotencyLockAcquired) {
         await clearIdempotencyKey(idempotencyRedisKey);
       }
@@ -749,7 +785,7 @@ export async function POST(request: Request) {
         if (idempotencyRedisKey && idempotencyLockAcquired) {
           await clearIdempotencyKey(idempotencyRedisKey);
         }
-        void apiLogger.requestFailed(500, "Failed to save user messages", {
+        apiLogger.requestFailed(500, "Failed to save user messages", {
           chatId: chatSlug,
         });
         return NextResponse.json(
@@ -821,8 +857,11 @@ export async function POST(request: Request) {
             body.selectedModel ?? body.selectedReasoningModel ?? "apollo-apex",
         });
 
-        let result: ReturnType<typeof streamText<any, any>>;
-        const mergedContext = [body.context?.trim()]
+        let result: Awaited<ReturnType<typeof streamText>>;
+        const mergedContext = [
+          body.context?.trim(),
+          buildDetectedSubjectContext(subjectDetection),
+        ]
           .filter((value) => Boolean(value))
           .join("\n\n");
         const agentActivityId = randomUUID();
@@ -861,7 +900,7 @@ export async function POST(request: Request) {
             messages: await convertToModelMessages(modelContextMessages, {
               tools,
             }),
-            maxOutputTokens: 10000,
+            maxOutputTokens: 10_000,
             stopWhen: stepCountIs(8),
             tools: modelTools,
             abortSignal: request.signal,
@@ -896,7 +935,7 @@ export async function POST(request: Request) {
               "apollo-apex",
             error,
           });
-          void apiLogger.requestFailed(500, error, { chatId: chatSlug });
+          apiLogger.requestFailed(500, error, { chatId: chatSlug });
           throw error;
         }
 
@@ -968,7 +1007,7 @@ export async function POST(request: Request) {
                     requiredCredits,
                     additionalCredits,
                   });
-                  void apiLogger.meter("meter.chat.tokens", {
+                  apiLogger.meter("meter.chat.tokens", {
                     chatId: chatSlug,
                     model: modelName,
                     inputTokens: totalUsage.inputTokens ?? null,
@@ -976,12 +1015,12 @@ export async function POST(request: Request) {
                     totalTokens,
                     creditsCharged: requiredCredits,
                   });
-                  void apiLogger.meter("meter.chat.request", {
+                  apiLogger.meter("meter.chat.request", {
                     chatId: chatSlug,
                     model: modelName,
                     messageCount: persistedMessages.length,
                   });
-                  void apiLogger.featureUsed("chat", {
+                  apiLogger.featureUsed("chat", {
                     chatId: chatSlug,
                     model: modelName,
                   });
@@ -1041,7 +1080,7 @@ export async function POST(request: Request) {
       }
     })();
 
-    void apiLogger.requestSucceeded(200, {
+    apiLogger.requestSucceeded(200, {
       chatId: chatSlug,
       selectedModel:
         body.selectedModel ?? body.selectedReasoningModel ?? "apollo-apex",
@@ -1068,7 +1107,7 @@ export async function POST(request: Request) {
     if (idempotencyRedisKey && idempotencyLockAcquired) {
       await clearIdempotencyKey(idempotencyRedisKey);
     }
-    void apiLogger.requestFailed(500, error);
+    apiLogger.requestFailed(500, error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -1084,11 +1123,11 @@ export async function DELETE(request: Request) {
     feature: "chat",
     userId: session?.user?.id ?? null,
   });
-  void apiLogger.requestStarted();
+  apiLogger.requestStarted();
 
   try {
     if (!session?.user) {
-      void apiLogger.requestFailed(401, "Unauthorized");
+      apiLogger.requestFailed(401, "Unauthorized");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -1096,7 +1135,7 @@ export async function DELETE(request: Request) {
     const id = searchParams.get("id");
 
     if (!id) {
-      void apiLogger.requestFailed(400, "Missing chat id");
+      apiLogger.requestFailed(400, "Missing chat id");
       return NextResponse.json({ error: "Missing chat id" }, { status: 400 });
     }
 
@@ -1108,7 +1147,7 @@ export async function DELETE(request: Request) {
       activeOrganizationId
     );
     if (!workspace) {
-      void apiLogger.requestFailed(404, "Workspace not found");
+      apiLogger.requestFailed(404, "Workspace not found");
       return NextResponse.json(
         { error: "Workspace not found" },
         { status: 404 }
@@ -1121,7 +1160,7 @@ export async function DELETE(request: Request) {
       workspace.workspaceId
     );
     if (!deleted) {
-      void apiLogger.requestFailed(404, "Chat not found", { chatId: id });
+      apiLogger.requestFailed(404, "Chat not found", { chatId: id });
       return NextResponse.json({ error: "Chat not found" }, { status: 404 });
     }
 
@@ -1129,13 +1168,13 @@ export async function DELETE(request: Request) {
     if (activeStreamId) {
       await clearActiveStreamId(id, activeStreamId);
     }
-    void apiLogger.featureUsed("chat.delete", { chatId: id });
-    void apiLogger.requestSucceeded(200, { chatId: id });
+    apiLogger.featureUsed("chat.delete", { chatId: id });
+    apiLogger.requestSucceeded(200, { chatId: id });
 
     return NextResponse.json({ ok: true });
   } catch (error) {
     logError("Unhandled chat DELETE error", { error: formatError(error) });
-    void apiLogger.requestFailed(500, error);
+    apiLogger.requestFailed(500, error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

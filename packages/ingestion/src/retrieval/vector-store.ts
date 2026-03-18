@@ -1,35 +1,50 @@
-export type VectorSearchFilter = {
-  sourceType?: 'pdf' | 'image' | 'video' | 'audio' | 'markdown' | 'link';
+export interface VectorSearchFilter {
   provider?: string;
-};
+  sourceType?: "pdf" | "image" | "video" | "audio" | "markdown" | "link";
+}
 
-export type VectorSearchResult = {
-  resourceId: string;
-  fileId: string | null;
-  sourceType: 'pdf' | 'image' | 'video' | 'audio' | 'markdown' | 'link';
-  source: string;
-  provider: string | null;
-  title: string | null;
+export interface SearchOptions {
+  filter?: VectorSearchFilter;
+  limit: number;
+}
+
+export interface VectorSearchResult {
   chunkId: string;
   chunkIndex: number;
-  page: number | null;
-  startMs: number | null;
-  endMs: number | null;
   content: string;
-  score: number;
+  endMs: number | null;
+  fileId: string | null;
   metadata: Record<string, unknown>;
-};
+  page: number | null;
+  provider: string | null;
+  resourceId: string;
+  score: number;
+  source: string;
+  sourceType: "pdf" | "image" | "video" | "audio" | "markdown" | "link";
+  startMs: number | null;
+  title: string | null;
+}
 
-export type CorpusStats = {
-  resources: number;
+export interface CorpusStats {
   chunks: number;
   embeddings: number;
-};
+  resources: number;
+}
 
 export interface VectorStore {
+  corpusStats(): Promise<CorpusStats>;
+  getAdjacentChunks(input: {
+    after?: number;
+    before?: number;
+    chunkIndex: number;
+    resourceId: string;
+  }): Promise<VectorSearchResult[]>;
   search(
     queryEmbedding: number[],
-    options: { limit: number; filter?: VectorSearchFilter },
+    options: SearchOptions
   ): Promise<VectorSearchResult[]>;
-  corpusStats(): Promise<CorpusStats>;
+  searchLexical(
+    query: string,
+    options: SearchOptions
+  ): Promise<VectorSearchResult[]>;
 }

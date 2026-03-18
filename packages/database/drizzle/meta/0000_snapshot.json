@@ -1995,6 +1995,13 @@
           "primaryKey": false,
           "notNull": true
         },
+        "search_vector": {
+          "name": "search_vector",
+          "type": "tsvector",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''::tsvector"
+        },
         "page": {
           "name": "page",
           "type": "integer",
@@ -2042,6 +2049,21 @@
           "isUnique": false,
           "concurrently": false,
           "method": "btree",
+          "with": {}
+        },
+        "ingestion_chunk_search_vector_idx": {
+          "name": "ingestion_chunk_search_vector_idx",
+          "columns": [
+            {
+              "expression": "search_vector",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gin",
           "with": {}
         },
         "ingestion_chunk_resource_order_uidx": {

@@ -3,6 +3,7 @@ import { createClient, type RedisClientType } from "redis";
 
 const redisUrl = process.env.REDIS_URL;
 const DEFAULT_TTL_SECONDS = 45;
+const RETRIEVAL_CACHE_VERSION = "v2";
 
 let client: RedisClientType | null = null;
 
@@ -70,7 +71,7 @@ export function createRetrievalCacheKey(input: {
     )
     .digest("hex");
 
-  return `retrieval:query:${input.workspaceUuid}:${hash}`;
+  return `retrieval:query:${RETRIEVAL_CACHE_VERSION}:${input.workspaceUuid}:${hash}`;
 }
 
 export async function getCachedRetrievalResult<T>(key: string): Promise<T | null> {

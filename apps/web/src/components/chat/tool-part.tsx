@@ -531,7 +531,6 @@ export function ChatToolPart({ part }: { part: ToolPart }) {
           title={completedPart.output.title}
         />
       );
-    case "tool-read_me":
     case "tool-visualize_read_me":
       return (
         <ToolRow label="Read skill">

@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@avenire/ui/components/table";
-import { CheckIcon, CopyIcon } from "lucide-react";
+import { CheckIcon, CopyIcon, FileTextIcon } from "lucide-react";
 import {
   type ComponentPropsWithoutRef,
   memo,
@@ -371,7 +371,7 @@ const MemoizedMarkdown = memo(
                 return (
                   <a
                     className={cn(
-                      "inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 font-mono text-[11px] font-medium text-foreground no-underline hover:bg-muted/80",
+                      "inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-muted/60 px-2.5 py-1 font-mono text-[11px] font-medium text-foreground no-underline hover:bg-muted",
                       className
                     )}
                     {...(props as React.AnchorHTMLAttributes<HTMLAnchorElement>)}
@@ -390,8 +390,11 @@ const MemoizedMarkdown = memo(
                       );
                     }}
                   >
-                    <span className="inline-block h-1.5 w-1.5 rounded-[3px] bg-primary" />
-                    {children}
+                    <FileTextIcon className="size-3.5 text-primary" />
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      Source
+                    </span>
+                    <span>{children}</span>
                   </a>
                 );
               }

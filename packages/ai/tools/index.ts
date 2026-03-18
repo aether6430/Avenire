@@ -69,6 +69,7 @@ export const chatToolSchemas = {
       sourceType: sourceTypeSchema,
     }),
     output: z.object({
+      citationMarkdown: z.string(),
       matches: z.array(citationSchema),
       query: z.string(),
       totalMatches: z.number().int(),
@@ -81,6 +82,7 @@ export const chatToolSchemas = {
       query: z.string().min(1),
     }),
     output: z.object({
+      citationMarkdown: z.string(),
       citations: z.array(citationSchema),
       context: z.string(),
       files: z.array(agentFilePreviewSchema),

@@ -1,5 +1,7 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
+  customType,
   index,
   integer,
   jsonb,
@@ -25,6 +27,12 @@ const resolveEmbeddingDimensions = (): number => {
 };
 
 export const ingestionEmbeddingDimensions = resolveEmbeddingDimensions();
+
+const tsvector = customType<{ data: string; driverData: string }>({
+  dataType() {
+    return "tsvector";
+  },
+});
 
 export const chatThread = pgTable(
   "chat_thread",
@@ -615,6 +623,9 @@ export const ingestionChunk = pgTable(
     chunkIndex: integer("chunk_index").notNull(),
     kind: text("kind").notNull().default("generic"),
     content: text("content").notNull(),
+    searchVector: tsvector("search_vector")
+      .notNull()
+      .default(sql`''::tsvector`),
     page: integer("page"),
     startMs: integer("start_ms"),
     endMs: integer("end_ms"),
@@ -628,6 +639,7 @@ export const ingestionChunk = pgTable(
   },
   (table) => [
     index("ingestion_chunk_resource_idx").on(table.resourceId),
+    index("ingestion_chunk_search_vector_idx").using("gin", table.searchVector),
     uniqueIndex("ingestion_chunk_resource_order_uidx").on(
       table.resourceId,
       table.chunkIndex

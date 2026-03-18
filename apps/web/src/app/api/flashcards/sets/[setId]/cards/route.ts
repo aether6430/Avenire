@@ -1,3 +1,4 @@
+import { assertFlashcardTaxonomy } from "@avenire/database";
 import { NextResponse } from "next/server";
 import { createFlashcardCardForUser } from "@/lib/flashcards";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
@@ -27,12 +28,29 @@ export async function POST(
     );
   }
 
+  let taxonomy: ReturnType<typeof assertFlashcardTaxonomy> | null = null;
+  try {
+    taxonomy = assertFlashcardTaxonomy(body.source, "flashcard creation");
+  } catch {
+    return NextResponse.json(
+      {
+        error:
+          "source with subject, topic, and concept is required for flashcard creation",
+      },
+      { status: 400 }
+    );
+  }
+  const source = {
+    ...(body.source ?? {}),
+    ...(taxonomy ?? {}),
+  };
+
   const card = await createFlashcardCardForUser({
     backMarkdown: body.backMarkdown,
     frontMarkdown: body.frontMarkdown,
     notesMarkdown: body.notesMarkdown,
     setId,
-    source: body.source,
+    source,
     tags: body.tags,
     userId: ctx.user.id,
     workspaceId: ctx.workspace.workspaceId,

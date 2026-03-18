@@ -57,7 +57,7 @@ export const apollo = customProvider({
     "apollo-apex": baseten("moonshotai/Kimi-K2.5"),
     "apollo-core": gemini("gemini-3-flash-preview"),
     "apollo-agent": baseten("zai-org/GLM-5"),
-    "apollo-tiny": mistral("pixtral-large-latest"),
+    "apollo-tiny": mistral("ministral-3b-2512"),
   },
   embeddingModels: {},
   rerankingModels: {

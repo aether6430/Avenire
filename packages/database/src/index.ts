@@ -5,6 +5,7 @@ export * from "./chat-data";
 export * from "./client";
 export * from "./file-data";
 export * from "./flashcard-data";
+export * from "./flashcard-review-events";
 export type { FlashcardRating } from "./flashcard-fsrs";
 export * from "./ingestion-data";
 export * from "./maintenance-data";

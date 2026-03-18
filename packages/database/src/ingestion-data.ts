@@ -12,16 +12,38 @@ import {
 import { db } from "./client";
 import {
   fileAsset,
-  noteContent,
   fileTranscriptCue,
   ingestionChunk,
   ingestionEmbedding,
   ingestionJob,
   ingestionJobEvent,
   ingestionResource,
+  noteContent,
 } from "./schema";
 
 export type IngestionJobStatus = "queued" | "running" | "succeeded" | "failed";
+
+export interface IngestionChunkSearchRecord {
+  chunkId: string;
+  chunkIndex: number;
+  content: string;
+  endMs: number | null;
+  fileId: string | null;
+  metadata: Record<string, unknown>;
+  page: number | null;
+  provider: string | null;
+  resourceId: string;
+  score: number;
+  source: string;
+  sourceType: string;
+  startMs: number | null;
+  title: string | null;
+}
+
+export interface IngestionChunkVectorSearchRecord
+  extends IngestionChunkSearchRecord {
+  embedding: number[];
+}
 
 export interface IngestionJobRecord {
   attempts: number;
@@ -41,6 +63,7 @@ const DEFAULT_DB_INSERT_BATCH_SIZE = 200;
 const MAX_DB_INSERT_BATCH_SIZE = 200;
 const PG_INT4_MAX = 2_147_483_647;
 const PG_INT4_MIN = -2_147_483_648;
+const DEFAULT_TEXT_SEARCH_CONFIG = "english";
 
 const splitIntoBatches = <T>(values: T[], batchSize: number): T[][] => {
   if (values.length === 0) {
@@ -53,6 +76,58 @@ const splitIntoBatches = <T>(values: T[], batchSize: number): T[][] => {
     out.push(values.slice(i, i + safeBatchSize));
   }
   return out;
+};
+
+const buildSearchPredicates = (input: {
+  workspaceId: string;
+  sourceType?: string;
+  provider?: string;
+}) => {
+  return [
+    sql`r.workspace_id = ${input.workspaceId}::uuid`,
+    input.sourceType ? sql`r.source_type = ${input.sourceType}` : undefined,
+    input.provider ? sql`r.provider = ${input.provider}` : undefined,
+  ].filter(Boolean);
+};
+
+const buildSearchWhereClause = (input: {
+  workspaceId: string;
+  sourceType?: string;
+  provider?: string;
+}) => {
+  const predicates = buildSearchPredicates(input);
+  return predicates.length > 0
+    ? sql.join(
+        predicates as [ReturnType<typeof sql>, ...ReturnType<typeof sql>[]],
+        sql` AND `
+      )
+    : sql`TRUE`;
+};
+
+const buildChunkSearchText = (chunk: {
+  content: string;
+  kind: string;
+  metadata?: Record<string, unknown>;
+}) => {
+  const metadata = chunk.metadata ?? {};
+  const parts: string[] = [chunk.kind, chunk.content];
+
+  for (const key of ["source", "provider", "topic", "modality"] as const) {
+    const value = metadata[key];
+    if (typeof value === "string" && value.trim()) {
+      parts.push(value.trim());
+    }
+  }
+
+  if (Array.isArray(metadata.prerequisites)) {
+    for (const item of metadata.prerequisites) {
+      if (typeof item === "string" && item.trim()) {
+        parts.push(item.trim());
+      }
+    }
+  }
+
+  return parts.filter(Boolean).join(" ");
 };
 
 function mapJobRow(row: typeof ingestionJob.$inferSelect): IngestionJobRecord {
@@ -77,7 +152,7 @@ export async function enqueueIngestionJob(input: {
   sourceType?: string | null;
 }) {
   const now = new Date();
-  return db.transaction(async (tx) => {
+  return await db.transaction(async (tx) => {
     const [existing] = await tx
       .select()
       .from(ingestionJob)
@@ -132,7 +207,7 @@ export async function beginIngestionJob(input: {
 }) {
   const now = new Date();
 
-  return db.transaction(async (tx) => {
+  return await db.transaction(async (tx) => {
     const [updated] = await tx
       .update(ingestionJob)
       .set({
@@ -176,7 +251,7 @@ export async function listQueuedIngestionJobs(limit = 200) {
     .from(ingestionJob)
     .where(eq(ingestionJob.status, "queued"))
     .orderBy(asc(ingestionJob.createdAt))
-    .limit(Math.max(1, Math.min(1_000, limit)));
+    .limit(Math.max(1, Math.min(1000, limit)));
 
   return rows.map(mapJobRow);
 }
@@ -463,8 +538,7 @@ export async function getFileForIngestion(workspaceId: string, fileId: string) {
 
   const metadata = (row.file_asset.metadata ?? {}) as Record<string, unknown>;
   const isNote =
-    typeof metadata.type === "string" &&
-    metadata.type.toLowerCase() === "note";
+    typeof metadata.type === "string" && metadata.type.toLowerCase() === "note";
 
   return {
     id: row.file_asset.id,
@@ -490,7 +564,7 @@ export async function upsertIngestionResource(input: {
 }) {
   const now = new Date();
 
-  return db.transaction(async (tx) => {
+  return await db.transaction(async (tx) => {
     const [existing] = await tx
       .select({ id: ingestionResource.id })
       .from(ingestionResource)
@@ -601,6 +675,9 @@ export async function insertIngestionChunks(input: {
             chunkIndex: chunk.chunkIndex,
             kind: chunk.kind,
             content: chunk.content,
+            searchVector: sql`to_tsvector(${DEFAULT_TEXT_SEARCH_CONFIG}, ${buildChunkSearchText(
+              chunk
+            )})`,
             page: toNullableInt(chunk.page),
             startMs: toNullableInt(chunk.startMs),
             endMs: toNullableInt(chunk.endMs),
@@ -811,48 +888,53 @@ export async function getIngestionSummaryForFile(
   };
 }
 
+const mapSearchRow = (row: {
+  resourceId: string;
+  sourceType: string;
+  source: string;
+  fileId: string | null;
+  provider: string | null;
+  title: string | null;
+  chunkId: string;
+  chunkIndex: number;
+  page: number | null;
+  startMs: number | null;
+  endMs: number | null;
+  content: string;
+  metadata: Record<string, unknown>;
+  score: number;
+}) => ({
+  resourceId: String(row.resourceId),
+  sourceType: String(row.sourceType),
+  source: String(row.source),
+  fileId: (row.fileId as string | null) ?? null,
+  provider: (row.provider as string | null) ?? null,
+  title: (row.title as string | null) ?? null,
+  chunkId: String(row.chunkId),
+  chunkIndex: Number(row.chunkIndex),
+  page: row.page === null ? null : Number(row.page),
+  startMs: row.startMs === null ? null : Number(row.startMs),
+  endMs: row.endMs === null ? null : Number(row.endMs),
+  content: String(row.content),
+  metadata: (row.metadata as Record<string, unknown>) ?? {},
+  score: Number(row.score) || 0,
+});
+
 export async function retrieveWorkspaceChunks(input: {
   workspaceId: string;
   queryEmbedding: number[];
   limit: number;
   sourceType?: string;
   provider?: string;
-}): Promise<
-  Array<{
-    resourceId: string;
-    sourceType: string;
-    source: string;
-    fileId: string | null;
-    provider: string | null;
-    title: string | null;
-    chunkId: string;
-    chunkIndex: number;
-    page: number | null;
-    startMs: number | null;
-    endMs: number | null;
-    content: string;
-    metadata: Record<string, unknown>;
-    score: number;
-    embedding: number[];
-  }>
-> {
-  const vectorLiteral = `[${input.queryEmbedding.map((value) => Number(value).toString()).join(",")}]`;
-  const predicates = [
-    sql`r.workspace_id = ${input.workspaceId}::uuid`,
-    input.sourceType ? sql`r.source_type = ${input.sourceType}` : undefined,
-    input.provider ? sql`r.provider = ${input.provider}` : undefined,
-  ].filter(Boolean);
-
-  const whereClause =
-    predicates.length > 0
-      ? sql.join(
-          predicates as [
-            ReturnType<typeof sql>,
-            ...Array<ReturnType<typeof sql>>,
-          ],
-          sql` AND `
-        )
-      : sql`TRUE`;
+}): Promise<IngestionChunkVectorSearchRecord[]> {
+  const vectorLiteral = `[${input.queryEmbedding
+    .map((value) => Number(value).toString())
+    .join(",")}]`;
+  const whereClause = buildSearchWhereClause({
+    workspaceId: input.workspaceId,
+    sourceType: input.sourceType,
+    provider: input.provider,
+  });
 
   const rows = await db.execute(sql<{
     resourceId: string;
@@ -897,7 +979,37 @@ export async function retrieveWorkspaceChunks(input: {
     LIMIT ${Math.max(1, input.limit)}
   `);
 
-  return rows.rows as Array<{
+  const typedRows = rows.rows as (Parameters<typeof mapSearchRow>[0] & {
+    embedding: number[];
+  })[];
+
+  return typedRows.map(
+    (row): IngestionChunkVectorSearchRecord => ({
+      ...mapSearchRow(row as Parameters<typeof mapSearchRow>[0]),
+      embedding: (row.embedding as number[] | undefined) ?? [],
+    })
+  );
+}
+
+export async function retrieveWorkspaceChunksLexical(input: {
+  workspaceId: string;
+  query: string;
+  limit: number;
+  sourceType?: string;
+  provider?: string;
+}): Promise<IngestionChunkSearchRecord[]> {
+  const query = input.query.trim();
+  if (!query) {
+    return [];
+  }
+
+  const whereClause = buildSearchWhereClause({
+    workspaceId: input.workspaceId,
+    sourceType: input.sourceType,
+    provider: input.provider,
+  });
+
+  const rows = await db.execute(sql<{
     resourceId: string;
     sourceType: string;
     source: string;
@@ -912,6 +1024,96 @@ export async function retrieveWorkspaceChunks(input: {
     content: string;
     metadata: Record<string, unknown>;
     score: number;
-    embedding: number[];
-  }>;
+  }>`
+    WITH search_query AS (
+      SELECT websearch_to_tsquery(${DEFAULT_TEXT_SEARCH_CONFIG}, ${query}) AS ts_query
+    )
+    SELECT
+      r.id AS "resourceId",
+      r.source_type AS "sourceType",
+      r.source AS "source",
+      r.file_id AS "fileId",
+      r.provider AS "provider",
+      r.title AS "title",
+      c.id AS "chunkId",
+      c.chunk_index AS "chunkIndex",
+      c.page AS "page",
+      c.start_ms AS "startMs",
+      c.end_ms AS "endMs",
+      c.content AS "content",
+      c.metadata AS "metadata",
+      ts_rank_cd(c.search_vector, search_query.ts_query) AS "score"
+    FROM search_query
+    INNER JOIN ingestion_chunk c ON c.search_vector @@ search_query.ts_query
+    INNER JOIN ingestion_resource r ON r.id = c.resource_id
+    LEFT JOIN file_asset f ON f.id = r.file_id
+    WHERE ${whereClause}
+      AND (r.file_id IS NULL OR f.deleted_at IS NULL)
+    ORDER BY "score" DESC, c.chunk_index ASC
+    LIMIT ${Math.max(1, input.limit)}
+  `);
+
+  const typedRows = rows.rows as Parameters<typeof mapSearchRow>[0][];
+
+  return typedRows.map(mapSearchRow) satisfies IngestionChunkSearchRecord[];
+}
+
+export async function retrieveAdjacentChunksForResource(input: {
+  workspaceId: string;
+  resourceId: string;
+  chunkIndex: number;
+  before?: number;
+  after?: number;
+}): Promise<IngestionChunkSearchRecord[]> {
+  const before = Math.max(0, input.before ?? 0);
+  const after = Math.max(0, input.after ?? 0);
+  if (before === 0 && after === 0) {
+    return [];
+  }
+
+  const rows = await db.execute(sql<{
+    resourceId: string;
+    sourceType: string;
+    source: string;
+    fileId: string | null;
+    provider: string | null;
+    title: string | null;
+    chunkId: string;
+    chunkIndex: number;
+    page: number | null;
+    startMs: number | null;
+    endMs: number | null;
+    content: string;
+    metadata: Record<string, unknown>;
+    score: number;
+  }>`
+    SELECT
+      r.id AS "resourceId",
+      r.source_type AS "sourceType",
+      r.source AS "source",
+      r.file_id AS "fileId",
+      r.provider AS "provider",
+      r.title AS "title",
+      c.id AS "chunkId",
+      c.chunk_index AS "chunkIndex",
+      c.page AS "page",
+      c.start_ms AS "startMs",
+      c.end_ms AS "endMs",
+      c.content AS "content",
+      c.metadata AS "metadata",
+      0::float AS "score"
+    FROM ingestion_chunk c
+    INNER JOIN ingestion_resource r ON r.id = c.resource_id
+    LEFT JOIN file_asset f ON f.id = r.file_id
+    WHERE r.workspace_id = ${input.workspaceId}::uuid
+      AND r.id = ${input.resourceId}::uuid
+      AND c.chunk_index BETWEEN ${input.chunkIndex - before} AND ${input.chunkIndex + after}
+      AND c.chunk_index <> ${input.chunkIndex}
+      AND (r.file_id IS NULL OR f.deleted_at IS NULL)
+    ORDER BY c.chunk_index ASC
+  `);
+
+  const typedRows = rows.rows as Parameters<typeof mapSearchRow>[0][];
+
+  return typedRows.map(mapSearchRow) satisfies IngestionChunkSearchRecord[];
 }

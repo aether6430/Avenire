@@ -19,6 +19,10 @@ import {
   type PersistedFlashcardSchedulerState,
 } from "./flashcard-fsrs";
 import {
+  createFlashcardReviewCommittedEvent,
+  emitFlashcardReviewEvent,
+} from "./flashcard-review-events";
+import {
   flashcardCard,
   flashcardReviewLog,
   flashcardReviewState,
@@ -30,6 +34,11 @@ import {
 export type FlashcardSourceType = "manual" | "ai-generated";
 export type FlashcardCardKind = "flashcard" | "multiple_choice_quiz";
 export type FlashcardEnrollmentStatus = "active" | "paused";
+export interface FlashcardTaxonomy {
+  concept: string;
+  subject: string;
+  topic: string;
+}
 export type FlashcardDisplayState =
   | "new"
   | "learning"
@@ -202,6 +211,67 @@ function sanitizeTags(value: string[] | undefined | null) {
     .map((tag) => tag.trim())
     .filter(Boolean)
     .slice(0, 12);
+}
+
+function sanitizeTaxonomyField(
+  value: unknown,
+  fieldName: keyof FlashcardTaxonomy
+) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  return trimmed.slice(0, fieldName === "concept" ? 180 : 120);
+}
+
+export function normalizeFlashcardTaxonomy(
+  value: unknown
+): FlashcardTaxonomy | null {
+  if (!(value && typeof value === "object" && !Array.isArray(value))) {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const subject = sanitizeTaxonomyField(record.subject, "subject");
+  const topic = sanitizeTaxonomyField(record.topic, "topic");
+  const concept = sanitizeTaxonomyField(record.concept, "concept");
+
+  if (!(subject && topic && concept)) {
+    return null;
+  }
+
+  return { concept, subject, topic };
+}
+
+export function assertFlashcardTaxonomy(
+  value: unknown,
+  context: string
+): FlashcardTaxonomy {
+  const taxonomy = normalizeFlashcardTaxonomy(value);
+  if (!taxonomy) {
+    throw new Error(
+      `Missing canonical flashcard taxonomy for ${context}: subject, topic, and concept are required.`
+    );
+  }
+
+  return taxonomy;
+}
+
+function buildFlashcardSource(
+  source: Record<string, unknown> | undefined | null,
+  taxonomy: FlashcardTaxonomy
+) {
+  return {
+    ...(source ?? {}),
+    concept: taxonomy.concept,
+    subject: taxonomy.subject,
+    topic: taxonomy.topic,
+  };
 }
 
 function sanitizeCardPayload(
@@ -1072,7 +1142,7 @@ export async function createFlashcardCardForUser(input: {
   notesMarkdown?: string | null;
   payload?: Record<string, unknown>;
   setId: string;
-  source?: Record<string, unknown>;
+  source: Record<string, unknown>;
   tags?: string[];
   userId: string;
   workspaceId: string;
@@ -1100,6 +1170,10 @@ export async function createFlashcardCardForUser(input: {
 
   const now = new Date();
   const kind = sanitizeCardKind(input.kind);
+  const taxonomy = assertFlashcardTaxonomy(
+    input.source,
+    "flashcard creation"
+  );
   const [created] = await db
     .insert(flashcardCard)
     .values({
@@ -1112,7 +1186,7 @@ export async function createFlashcardCardForUser(input: {
       ordinal: (lastCard?.ordinal ?? 0) + 1,
       payload: sanitizeCardPayload(kind, input.payload),
       setId: input.setId,
-      source: input.source ?? {},
+      source: buildFlashcardSource(input.source, taxonomy),
       tags: sanitizeTags(input.tags),
       updatedAt: now,
       updatedBy: input.userId,
@@ -1134,6 +1208,7 @@ export async function updateFlashcardCardForUser(input: {
   kind?: FlashcardCardKind;
   notesMarkdown?: string | null;
   payload?: Record<string, unknown>;
+  source: Record<string, unknown>;
   tags?: string[];
   userId: string;
   workspaceId: string;
@@ -1148,6 +1223,10 @@ export async function updateFlashcardCardForUser(input: {
   }
 
   const kind = sanitizeCardKind(input.kind ?? existing.card.kind);
+  const taxonomy = assertFlashcardTaxonomy(
+    input.source,
+    "flashcard update"
+  );
   const [updated] = await db
     .update(flashcardCard)
     .set({
@@ -1164,6 +1243,13 @@ export async function updateFlashcardCardForUser(input: {
       ...(typeof input.payload !== "undefined"
         ? { payload: sanitizeCardPayload(kind, input.payload) }
         : {}),
+      source: buildFlashcardSource(
+        {
+          ...existing.card.source,
+          ...input.source,
+        },
+        taxonomy
+      ),
       ...(Array.isArray(input.tags) ? { tags: sanitizeTags(input.tags) } : {}),
       updatedAt: new Date(),
       updatedBy: input.userId,
@@ -1385,7 +1471,7 @@ export async function reviewFlashcardForUser(input: {
 
   const reviewedAt = new Date();
 
-  const updatedState = await db.transaction(async (tx) => {
+  const reviewResult = await db.transaction(async (tx) => {
     const [currentState] = await tx
       .select()
       .from(flashcardReviewState)
@@ -1484,8 +1570,32 @@ export async function reviewFlashcardForUser(input: {
       userId: input.userId,
     });
 
-    return mapReviewState(nextState);
+    return {
+      nextState: mapReviewState(nextState),
+      previousState: currentState ?? null,
+    };
   });
+
+  emitFlashcardReviewEvent(
+    createFlashcardReviewCommittedEvent({
+      card: mapCard(access.card),
+      nextState: reviewResult.nextState.state as FlashcardReviewStateName,
+      previousState: reviewResult.previousState
+        ? (reviewResult.previousState.state as FlashcardReviewStateName)
+        : null,
+      rating: input.rating,
+      reviewedAt,
+      set: {
+        id: access.set.id,
+        sourceType: access.set.sourceType as FlashcardSourceType,
+        title: access.set.title,
+        workspaceId: access.set.workspaceId,
+      },
+      stability: reviewResult.nextState.stability,
+      userId: input.userId,
+      workspaceId: input.workspaceId,
+    })
+  );
 
   const [nextCard] = await listDueFlashcardsForUser({
     limit: 1,
@@ -1501,6 +1611,6 @@ export async function reviewFlashcardForUser(input: {
       input.userId,
       input.workspaceId
     ),
-    updatedState,
+    updatedState: reviewResult.nextState,
   };
 }
