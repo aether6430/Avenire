@@ -1314,7 +1314,7 @@ export function FileExplorer({
       mobileLongPressTimerRef.current = setTimeout(() => {
         mobileSuppressClickRef.current = itemId;
         selection.setItemSelected(itemId, true);
-        triggerHaptic("selection").catch(() => undefined);
+        triggerHaptic("selection");
         cancel();
       }, MOBILE_LONG_PRESS_DELAY_MS);
       window.addEventListener("pointerup", cancel);
@@ -1341,11 +1341,11 @@ export function FileExplorer({
 
       if (selection.selectedCount > 0 || options?.toggleOnly) {
         selection.toggleSelection(itemId);
-        triggerHaptic("selection").catch(() => undefined);
+        triggerHaptic("selection");
         return;
       }
 
-      triggerHaptic("success").catch(() => undefined);
+      triggerHaptic("success");
       openItem();
     },
     [selection, triggerHaptic]
@@ -1369,7 +1369,7 @@ export function FileExplorer({
 
       clearMobileLongPressTimer();
       mobileLongPressTimerRef.current = setTimeout(() => {
-        triggerHaptic("selection").catch(() => undefined);
+        triggerHaptic("selection");
         setMobileCreateMenuOpen(true);
       }, MOBILE_LONG_PRESS_DELAY_MS);
 
@@ -4989,7 +4989,7 @@ export function FileExplorer({
                     );
                   }
                 }
-                triggerHaptic("success").catch(() => undefined);
+                triggerHaptic("success");
                 setMobileConfirmAction(null);
               }}
               type="button"
