@@ -119,6 +119,10 @@ import { useHaptics } from "@/hooks/use-haptics";
 import { useFilesActivityStore } from "@/stores/filesActivityStore";
 import { filesPinsActions, useFilesPinsStore } from "@/stores/filesPinsStore";
 import { filesUiActions, useFilesUiStore } from "@/stores/filesUiStore";
+import {
+  readWorkspaceTreeCache,
+  writeWorkspaceTreeCache,
+} from "@/lib/workspace-tree-cache";
 import { useWorkspaceHistoryStore } from "@/stores/workspaceHistoryStore";
 import {
   detectPreviewKind,
@@ -1430,6 +1434,14 @@ export function FileExplorer({
       return;
     }
 
+    const cached = readWorkspaceTreeCache<FolderRecord, FileRecord>(
+      workspaceUuid
+    );
+    if (cached) {
+      setAllFolders(cached.folders);
+      setAllFiles(cached.files);
+    }
+
     try {
       const response = await fetch(`/api/workspaces/${workspaceUuid}/tree`, {
         cache: "no-store",
@@ -1443,6 +1455,10 @@ export function FileExplorer({
       };
       setAllFolders(payload.folders ?? []);
       setAllFiles(payload.files ?? []);
+      writeWorkspaceTreeCache<FolderRecord, FileRecord>(workspaceUuid, {
+        files: payload.files ?? [],
+        folders: payload.folders ?? [],
+      });
     } catch {
       // ignore
     }
@@ -2011,6 +2027,9 @@ export function FileExplorer({
         return;
       }
 
+      router.prefetch(
+        `/workspace/files/${workspaceUuid}/folder/${folderId}` as Route
+      );
       router.push(
         `/workspace/files/${workspaceUuid}/folder/${folderId}` as Route
       );
@@ -2048,6 +2067,7 @@ export function FileExplorer({
         ? `/workspace/files/${workspaceUuid}/folder/${currentFolderId}?${query}`
         : `/workspace/files/${workspaceUuid}/folder/${currentFolderId}`;
 
+      router.prefetch(target as Route);
       router.replace(target as Route);
     },
     [currentFolderId, router, searchParams, workspaceUuid]
@@ -2069,9 +2089,10 @@ export function FileExplorer({
         params.set("retrievalChunk", result.chunkId);
       }
 
-      router.push(
-        `/workspace/files/${workspaceUuid}/folder/${targetFolderId}?${params.toString()}` as Route
-      );
+      const targetRoute =
+        `/workspace/files/${workspaceUuid}/folder/${targetFolderId}?${params.toString()}` as Route;
+      router.prefetch(targetRoute);
+      router.push(targetRoute);
     },
     [allFiles, currentFolderId, router, workspaceUuid]
   );
@@ -2087,9 +2108,10 @@ export function FileExplorer({
       }
       const params = new URLSearchParams();
       params.set("file", fileId);
-      router.push(
-        `/workspace/files/${workspaceUuid}/folder/${targetFile.folderId}?${params.toString()}` as Route
-      );
+      const targetRoute =
+        `/workspace/files/${workspaceUuid}/folder/${targetFile.folderId}?${params.toString()}` as Route;
+      router.prefetch(targetRoute);
+      router.push(targetRoute);
     },
     [allFiles, router, workspaceUuid]
   );

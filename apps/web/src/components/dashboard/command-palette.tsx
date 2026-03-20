@@ -375,6 +375,9 @@ export function CommandPalette() {
     if (!workspaceUuid) {
       return;
     }
+    router.prefetch(
+      `/workspace/files/${workspaceUuid}/folder/${folderId}` as Route
+    );
     startTransition(() => {
       router.push(
         `/workspace/files/${workspaceUuid}/folder/${folderId}` as Route
@@ -392,6 +395,7 @@ export function CommandPalette() {
       return;
     }
     if (!folderId) {
+      router.prefetch(`/workspace/files/${workspaceUuid}` as Route);
       startTransition(() => {
         router.push(`/workspace/files/${workspaceUuid}` as Route);
       });
@@ -405,10 +409,12 @@ export function CommandPalette() {
       params.set("retrievalChunk", options.retrievalChunkId);
     }
 
+    const targetRoute =
+      `/workspace/files/${workspaceUuid}/folder/${folderId}?${params.toString()}` as Route;
+    router.prefetch(targetRoute);
+
     startTransition(() => {
-      router.push(
-        `/workspace/files/${workspaceUuid}/folder/${folderId}?${params.toString()}` as Route
-      );
+      router.push(targetRoute);
     });
     setFileOpen(false);
   };
@@ -537,11 +543,11 @@ export function CommandPalette() {
   return (
     <>
       <CommandDialog
-        className="max-w-5xl"
+        className="sm:max-w-6xl lg:max-w-[88rem]"
         open={generalOpen}
         onOpenChange={setGeneralOpen}
       >
-        <Command className="min-h-[30rem]">
+        <Command className="min-h-[34rem]">
           <CommandInput
             placeholder="Search commands..."
             value={generalQuery}
@@ -609,11 +615,11 @@ export function CommandPalette() {
       </CommandDialog>
 
       <CommandDialog
-        className="max-w-5xl"
+        className="sm:max-w-6xl lg:max-w-[88rem]"
         open={fileOpen}
         onOpenChange={setFileOpen}
       >
-        <Command className="min-h-[30rem]" shouldFilter={false}>
+        <Command className="min-h-[34rem]" shouldFilter={false}>
           <CommandInput
             placeholder="Search files, folders, or content..."
             value={fileQuery}

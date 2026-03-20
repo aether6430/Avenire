@@ -299,7 +299,7 @@ const StylizedSearchBar = memo(function StylizedSearchBar({
   selectedResultChunkId,
   focusSignal,
   placeholder = "Search anything...",
-  maxWidth = "max-w-2xl",
+  maxWidth = "max-w-5xl",
 }: StylizedSearchBarProps) {
   const [query, setQuery] = useState(initialQuery);
   const [isSearching, setIsSearching] = useState(false);

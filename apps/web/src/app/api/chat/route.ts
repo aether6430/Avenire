@@ -6,6 +6,7 @@ import {
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
+  Output,
   generateText,
   smoothStream,
   stepCountIs,
@@ -16,10 +17,7 @@ import { auth } from "@avenire/auth/server";
 import { headers } from "next/headers";
 import { after, NextResponse } from "next/server";
 import { createResumableStreamContext } from "resumable-stream";
-import {
-  getLatestSessionSummaryForChat,
-  getRecentRelevantSessionSummary,
-} from "@avenire/database";
+import { z } from "zod";
 import { consumeChatUnits } from "@/lib/billing";
 import {
   createChatForUser,
@@ -45,6 +43,8 @@ import { normalizeMediaType } from "@/lib/media-type";
 import { createApiLogger } from "@/lib/observability";
 import {
   buildRecentSessionSummaryContext,
+  getLatestSessionSummaryForChat,
+  getRecentRelevantSessionSummary,
   getWorkspaceSubjectSummary,
   persistSessionSummaryForCompletedTurn,
 } from "@/lib/session-summaries";
@@ -62,6 +62,12 @@ const LOG_PREFIX = "[api/chat]";
 const DEFAULT_CHAT_TOKENS_PER_CREDIT = 4000;
 const DEFAULT_CHAT_TITLE_MODEL: ApolloModelName = "apollo-sprint";
 const WHITESPACE_PATTERN = /\s+/g;
+const DEFAULT_THINKING_MESSAGES = [
+  "Thinking through the details",
+  "Checking the shape of the answer",
+  "Putting the pieces together",
+  "Finishing the last pass",
+];
 const MODEL_TOOL_ALLOW_LIST = new Set([
   "avenire_agent",
   "file_manager_agent",
@@ -126,6 +132,10 @@ function fallbackChatNameFromText(value: string) {
   );
 
   return normalized.length > 0 ? normalized : DEFAULT_CHAT_TITLE;
+}
+
+function normalizeThinkingMessage(value: string) {
+  return value.replace(/\s+/g, " ").trim().slice(0, 80);
 }
 
 const SESSION_CLOSE_KEY_PREFIX = "chat:session-close:";
@@ -347,6 +357,52 @@ async function generateChatMetadata(
       title: fallbackChatNameFromText(latestUserText),
       icon: DEFAULT_CHAT_ICON,
     };
+  }
+}
+
+const thinkingMessagesSchema = z.object({
+  messages: z.array(z.string().min(1)).min(3).max(4),
+});
+
+async function generateChatThinkingMessages(
+  messages: UIMessage[],
+  abortSignal?: AbortSignal
+) {
+  const latestUserText = extractLatestUserText(messages);
+  if (!latestUserText) {
+    return null;
+  }
+
+  try {
+    const modelName = resolveChatTitleModel();
+    const { output } = await generateText({
+      model: apollo.languageModel(modelName),
+      output: Output.object({ schema: thinkingMessagesSchema }),
+      prompt: [
+        "Generate 3 or 4 short loading messages for a live chat thinking animation.",
+        "The messages should sound like the assistant is actively working.",
+        "Keep each message short and concrete.",
+        "Avoid quotes and punctuation at the end.",
+        "Return only valid JSON with this shape:",
+        "{\"messages\":[\"...\",\"...\",\"...\",\"...\"]}",
+        `User message: ${latestUserText}`,
+      ].join("\n"),
+      maxOutputTokens: 96,
+      temperature: 0.7,
+      abortSignal,
+    });
+
+    const normalized = output.messages
+      .map(normalizeThinkingMessage)
+      .filter(Boolean)
+      .slice(0, 4);
+
+    return normalized.length > 0 ? normalized : DEFAULT_THINKING_MESSAGES;
+  } catch (error) {
+    logWarn("Failed to generate thinking messages; using fallback", {
+      error: formatError(error),
+    });
+    return DEFAULT_THINKING_MESSAGES;
   }
 }
 
@@ -974,6 +1030,11 @@ export async function POST(request: Request) {
 
     const stream = createUIMessageStream<UIMessage>({
       execute: async ({ writer }) => {
+        const thinkingMessagesPromise = generateChatThinkingMessages(
+          originalMessages,
+          request.signal
+        );
+
         if (chatCreatedFromNew) {
           writer.write({
             type: "data-chatCreated",
@@ -1020,6 +1081,18 @@ export async function POST(request: Request) {
               name: nextMeta.title,
             });
           }
+        }
+
+        const nextThinkingMessages = await thinkingMessagesPromise;
+        if (nextThinkingMessages?.length) {
+          writer.write({
+            type: "data-thinkingMessages",
+            transient: true,
+            data: {
+              id: chatSlug,
+              messages: nextThinkingMessages,
+            },
+          });
         }
 
         const selectedModel = body.selectedModel ?? "apollo-apex";

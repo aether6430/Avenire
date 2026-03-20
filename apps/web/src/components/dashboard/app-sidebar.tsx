@@ -78,6 +78,10 @@ import {
   type ChatStreamStatusDetail,
 } from "@/lib/chat-events";
 import { isChatIconName } from "@/lib/chat-icons";
+import {
+  readWorkspaceTreeCache,
+  writeWorkspaceTreeCache,
+} from "@/lib/workspace-tree-cache";
 import { commandPaletteActions } from "@/stores/commandPaletteStore";
 import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
 import { useFilesPinsStore } from "@/stores/filesPinsStore";
@@ -1208,6 +1212,14 @@ export function DashboardSidebar({
   }, [loadInvitations]);
 
   const loadWorkspaceTree = useCallback(async (workspaceId: string) => {
+    const cached = readWorkspaceTreeCache<SidebarFolderNode, SidebarFileNode>(
+      workspaceId
+    );
+    if (cached) {
+      setFolderTree(cached.folders);
+      setFileTree(cached.files);
+    }
+
     try {
       const response = await fetch(`/api/workspaces/${workspaceId}/tree`, {
         cache: "no-store",
@@ -1228,6 +1240,10 @@ export function DashboardSidebar({
           readOnly: file.readOnly,
         }))
       );
+      writeWorkspaceTreeCache<SidebarFolderNode, SidebarFileNode>(workspaceId, {
+        files: payload.files ?? [],
+        folders: payload.folders ?? [],
+      });
     } catch {
       // ignore
     }
@@ -1816,6 +1832,9 @@ export function DashboardSidebar({
         openIcon: TreeFolderOpenIcon,
         selectedIcon: TreeFolderOpenIcon,
         onClick: () => {
+          router.prefetch(
+            `/workspace/files/${workspaceUuid}/folder/${folder.id}` as Route
+          );
           router.push(
             `/workspace/files/${workspaceUuid}/folder/${folder.id}` as Route
           );
@@ -1826,6 +1845,9 @@ export function DashboardSidebar({
               <Button
                 onClick={(event) => {
                   event.stopPropagation();
+                  router.prefetch(
+                    `/workspace/files/${workspaceUuid}/folder/${folder.id}` as Route
+                  );
                   router.push(
                     `/workspace/files/${workspaceUuid}/folder/${folder.id}` as Route
                   );
@@ -1869,6 +1891,9 @@ export function DashboardSidebar({
         draggable: !file.readOnly,
         icon: FileIcon,
         onClick: () => {
+          router.prefetch(
+            `/workspace/files/${workspaceUuid}/folder/${file.folderId}?file=${file.id}` as Route
+          );
           router.push(
             `/workspace/files/${workspaceUuid}/folder/${file.folderId}?file=${file.id}` as Route
           );
@@ -2320,12 +2345,15 @@ export function DashboardSidebar({
                         <SidebarMenu>
                           {filteredPinnedFolders.map((item) => (
                             <SidebarMenuItem key={`pinned-folder-${item.id}`}>
-                              <SidebarMenuButton
-                                onClick={() => {
-                                  navigate(
-                                    `/workspace/files/${item.workspaceId}/folder/${item.id}` as Route
-                                  );
-                                }}
+                          <SidebarMenuButton
+                            onClick={() => {
+                              router.prefetch(
+                                `/workspace/files/${item.workspaceId}/folder/${item.id}` as Route
+                              );
+                              navigate(
+                                `/workspace/files/${item.workspaceId}/folder/${item.id}` as Route
+                              );
+                            }}
                               >
                                 <Pin className="size-4" />
                                 <span className="truncate">{item.name}</span>
@@ -2335,14 +2363,17 @@ export function DashboardSidebar({
                           {filteredPinnedFiles.map((item) => (
                             <SidebarMenuItem key={`pinned-file-${item.id}`}>
                               <SidebarMenuButton
-                                onClick={() => {
-                                  if (!item.folderId) {
-                                    return;
-                                  }
-                                  navigate(
-                                    `/workspace/files/${item.workspaceId}/folder/${item.folderId}?file=${item.id}` as Route
-                                  );
-                                }}
+                              onClick={() => {
+                                if (!item.folderId) {
+                                  return;
+                                }
+                                router.prefetch(
+                                  `/workspace/files/${item.workspaceId}/folder/${item.folderId}?file=${item.id}` as Route
+                                );
+                                navigate(
+                                  `/workspace/files/${item.workspaceId}/folder/${item.folderId}?file=${item.id}` as Route
+                                );
+                              }}
                               >
                                 <Pin className="size-4" />
                                 <span className="truncate">{item.name}</span>

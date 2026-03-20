@@ -224,6 +224,7 @@ function PureMultimodalInput({
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const latestInputRef = useRef(input);
   const hasHydratedInputRef = useRef(false);
   const uploadingIdsRef = useRef(new Set<string>());
   const [workspaceFiles, setWorkspaceFiles] = useState<
@@ -365,6 +366,7 @@ function PureMultimodalInput({
   );
 
   useEffect(() => {
+    latestInputRef.current = input;
     if (!textareaRef.current) {
       return;
     }
@@ -597,6 +599,7 @@ function PureMultimodalInput({
       const nextInput = `${input.slice(0, mentionTrigger.rangeStart)}${replacement}${input.slice(mentionTrigger.rangeEnd)}`;
       const nextCursor = mentionTrigger.rangeStart + replacement.length;
 
+      latestInputRef.current = nextInput;
       setInput(nextInput);
       setDismissedMentionKey(null);
 
@@ -667,10 +670,12 @@ function PureMultimodalInput({
       return;
     }
 
-    const inputValue = input;
+    const inputValue =
+      textareaRef.current?.value ?? latestInputRef.current ?? input;
     const attachmentsToSubmit = completedAttachments;
 
     setAttachments([]);
+    latestInputRef.current = "";
     setInput("");
     setLocalStorageInput("");
     resetHeight();
@@ -892,8 +897,10 @@ function PureMultimodalInput({
             data-testid="multimodal-input"
             enterKeyHint="enter"
             onChange={(event) => {
+              const nextValue = event.target.value;
               setDismissedMentionKey(null);
-              setInput(event.target.value);
+              latestInputRef.current = nextValue;
+              setInput(nextValue);
               updateTextareaSelection(
                 event.target.selectionStart ?? 0,
                 event.target.selectionEnd ?? 0
