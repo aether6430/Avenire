@@ -17,10 +17,10 @@ export default async function DashboardFilesPage() {
   const workspace = await resolveWorkspaceForUser(session.user.id, activeOrganizationId);
 
   if (!workspace) {
-    redirect("/dashboard");
+    redirect("/workspace" as Route);
   }
 
   redirect(
-    `/dashboard/files/${workspace.workspaceId}/folder/${workspace.rootFolderId}` as Route,
+    `/workspace/files/${workspace.workspaceId}/folder/${workspace.rootFolderId}` as Route,
   );
 }

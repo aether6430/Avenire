@@ -1,4 +1,5 @@
 import { auth } from "@avenire/auth/server";
+import type { Route } from "next";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -112,7 +113,7 @@ export default async function SharedResourcePage({
         </div>
         <Link
           className="mt-4 inline-flex h-10 items-center justify-center rounded-md border px-4 text-sm"
-          href="/dashboard"
+          href={"/workspace" as Route}
         >
           Open dashboard
         </Link>

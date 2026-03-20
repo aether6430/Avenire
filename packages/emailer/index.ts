@@ -84,7 +84,7 @@ export function renderWelcomeEmail(input: {
   return renderEmail(
     createElement(WelcomeEmail, {
       name: input.name ?? "there",
-      dashboardUrl: input.dashboardUrl ?? "https://avenire.com/dashboard",
+      dashboardUrl: input.dashboardUrl ?? "https://avenire.com/workspace",
     })
   );
 }

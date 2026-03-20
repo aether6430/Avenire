@@ -1,3 +1,4 @@
+import type { Route } from "next";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -43,7 +44,7 @@ export default async function DesktopCallbackPage({
         </p>
       </div>
       <div>
-        <Link className="underline" href="/dashboard">
+        <Link className="underline" href={"/workspace" as Route}>
           Continue to dashboard
         </Link>
       </div>

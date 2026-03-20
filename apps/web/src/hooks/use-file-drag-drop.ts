@@ -10,6 +10,7 @@ interface UseFileDragDropOptions {
   selection: ReturnType<typeof useFileSelection>;
   currentFolderId: string;
   isCurrentFolderReadOnly: boolean;
+  enableTouchDrag?: boolean;
   moveItemsToFolder: (ids: string[], targetFolderId: string) => Promise<void>;
   queueUploads: (candidates: UploadCandidate[]) => void;
   getDropUploadCandidates: (
@@ -21,6 +22,7 @@ export function useFileDragDrop({
   selection,
   currentFolderId,
   isCurrentFolderReadOnly,
+  enableTouchDrag = true,
   moveItemsToFolder,
   queueUploads,
   getDropUploadCandidates,
@@ -88,11 +90,14 @@ export function useFileDragDrop({
 
   const beginTouchDrag = useCallback(
     (itemId: string) => {
+      if (!enableTouchDrag) {
+        return;
+      }
       const sourceIds = selection.prepareDrag(itemId);
       touchDragIdsRef.current = sourceIds;
       setDraggingIds(sourceIds);
     },
-    [selection]
+    [enableTouchDrag, selection]
   );
 
   const moveTouchDrag = useCallback(
@@ -241,19 +246,24 @@ export function useFileDragDrop({
           void moveItemsToFolder(sourceIds, folderId);
           setDraggingIds([]);
         },
-        onTouchEnd: endTouchDrag,
-        onTouchMove: moveTouchDrag,
-        onTouchStart: () => {
-          if (readOnly) {
-            return;
-          }
-          beginTouchDrag(folderId);
-        },
+        ...(enableTouchDrag
+          ? {
+              onTouchEnd: endTouchDrag,
+              onTouchMove: moveTouchDrag,
+              onTouchStart: () => {
+                if (readOnly) {
+                  return;
+                }
+                beginTouchDrag(folderId);
+              },
+            }
+          : {}),
       };
     },
     [
       beginTouchDrag,
       configureDragPreview,
+      enableTouchDrag,
       draggingIds,
       endTouchDrag,
       moveItemsToFolder,
@@ -279,19 +289,24 @@ export function useFileDragDrop({
           configureDragPreview(event);
           event.dataTransfer.setData("text/plain", sourceIds.join(","));
         },
-        onTouchEnd: endTouchDrag,
-        onTouchMove: moveTouchDrag,
-        onTouchStart: () => {
-          if (readOnly) {
-            return;
-          }
-          beginTouchDrag(fileId);
-        },
+        ...(enableTouchDrag
+          ? {
+              onTouchEnd: endTouchDrag,
+              onTouchMove: moveTouchDrag,
+              onTouchStart: () => {
+                if (readOnly) {
+                  return;
+                }
+                beginTouchDrag(fileId);
+              },
+            }
+          : {}),
       };
     },
     [
       beginTouchDrag,
       configureDragPreview,
+      enableTouchDrag,
       endTouchDrag,
       moveTouchDrag,
       resetDragState,

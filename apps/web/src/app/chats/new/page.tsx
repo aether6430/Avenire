@@ -1,4 +1,5 @@
 import { auth } from "@avenire/auth/server";
+import type { Route } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -8,5 +9,5 @@ export default async function ChatsNewPage() {
     redirect("/login");
   }
 
-  redirect("/dashboard/chats");
+  redirect("/workspace/chats" as Route);
 }

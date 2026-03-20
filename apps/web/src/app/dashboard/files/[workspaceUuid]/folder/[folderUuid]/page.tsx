@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Route } from "next";
 import { auth } from "@avenire/auth/server";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -61,7 +61,7 @@ export default async function DashboardWorkspaceFolderPage({
   const canAccess = await userCanAccessWorkspace(session.user.id, workspaceUuid);
 
   if (!canAccess) {
-    redirect("/dashboard");
+    redirect("/workspace" as Route);
   }
 
   return <FileExplorer folderUuid={folderUuid} workspaceUuid={workspaceUuid} />;

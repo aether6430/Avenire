@@ -53,7 +53,7 @@ export function ChatActions({
       return;
     }
 
-    router.push(`/dashboard/chats/${data.chat.slug}` as Route);
+    router.push(`/workspace/chats/${data.chat.slug}` as Route);
     router.refresh();
   };
 

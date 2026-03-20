@@ -27,7 +27,10 @@ const here = fileURLToPath(new URL(".", import.meta.url));
 loadEnv({ path: resolve(here, "../.env") });
 loadEnv({ path: resolve(here, "../../../.env"), override: false });
 
-const port = Number.parseInt(process.env.INGESTION_WORKER_PORT ?? "3010", 10);
+const port = Number.parseInt(
+  process.env.PORT ?? process.env.INGESTION_WORKER_PORT ?? "3010",
+  10
+);
 const workerConcurrency = Math.max(
   1,
   Number.parseInt(process.env.INGESTION_WORKER_CONCURRENCY ?? "3", 10)

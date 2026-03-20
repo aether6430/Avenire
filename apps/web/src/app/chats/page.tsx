@@ -9,5 +9,5 @@ export default async function ChatsPage() {
     redirect("/login");
   }
 
-  redirect("/dashboard/chats" as Route);
+  redirect("/workspace/chats" as Route);
 }

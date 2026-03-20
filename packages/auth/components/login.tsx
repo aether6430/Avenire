@@ -61,7 +61,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
     const { data, error } = await signIn.email({
       email: email,
       password: password,
-      callbackURL: "/dashboard"
+      callbackURL: "/workspace"
     })
     if (error) {
       const errorMessage = getErrorMessage(error.code || "");
@@ -183,7 +183,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
             onClick={() => {
               signIn.social({
                 provider: "google",
-                callbackURL: "/dashboard"
+                callbackURL: "/workspace"
               })
             }}
           >
@@ -199,7 +199,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
             onClick={() => {
               signIn.social({
                 provider: "github",
-                callbackURL: "/dashboard"
+                callbackURL: "/workspace"
               })
             }}
           >

@@ -2,46 +2,22 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 import { StringEnum } from "@mariozechner/pi-ai";
 import { Text } from "@mariozechner/pi-tui";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
 import { getGuidelines, AVAILABLE_MODULES } from "./guidelines.js";
 
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const GLIMPSE_PATH = join(__dirname, "../../../node_modules/glimpseui/src/glimpse.mjs");
-
 // Shell HTML with a root container — used for streaming.
-// Content is injected via win.send() JS eval, not setHTML(), to avoid full-page flashes.
 function shellHTML(): string {
   return `<!DOCTYPE html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <style>
 *{box-sizing:border-box}
 body{margin:0;padding:1rem;font-family:var(--font-sans,system-ui,-apple-system,sans-serif);background:#1a1a1a;color:#e0e0e0;}
-@keyframes _fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
 </style>
 </head><body><div id="root"></div>
 <script>
-  window._morphReady = false;
-  window._pending = null;
   window._setContent = function(html) {
-    if (!window._morphReady) { window._pending = html; return; }
     var root = document.getElementById('root');
-    var target = document.createElement('div');
-    target.id = 'root';
-    target.innerHTML = html;
-    morphdom(root, target, {
-      onBeforeElUpdated: function(from, to) {
-        if (from.isEqualNode(to)) return false;
-        return true;
-      },
-      onNodeAdded: function(node) {
-        if (node.nodeType === 1 && node.tagName !== 'STYLE' && node.tagName !== 'SCRIPT') {
-          node.style.animation = '_fadeIn 0.3s ease both';
-        }
-        return node;
-      }
-    });
+    if (!root) return;
+    root.innerHTML = html;
   };
   window._runScripts = function() {
     document.querySelectorAll('#root script').forEach(function(old) {
@@ -51,8 +27,6 @@ body{margin:0;padding:1rem;font-family:var(--font-sans,system-ui,-apple-system,s
     });
   };
 </script>
-<script src="https://cdn.jsdelivr.net/npm/morphdom@2.7.4/dist/morphdom-umd.min.js"
-  onload="window._morphReady=true;if(window._pending){window._setContent(window._pending);window._pending=null;}"></script>
 </body></html>`;
 }
 
@@ -82,7 +56,7 @@ export default function (pi: ExtensionAPI) {
   // Lazy-load glimpse module
   async function getGlimpse() {
     if (!glimpseModule) {
-      glimpseModule = await import(GLIMPSE_PATH);
+      glimpseModule = await import("../../../node_modules/glimpseui/src/glimpse.mjs");
     }
     return glimpseModule;
   }
@@ -152,12 +126,10 @@ export default function (pi: ExtensionAPI) {
             streaming.window.on("ready", () => {
               if (!streaming) return;
               streaming.ready = true;
-              // Inject the content we've accumulated so far
               const escaped = escapeJS(streaming.lastHTML);
               streaming.window.send(`window._setContent('${escaped}')`);
             });
           } else if (streaming.ready) {
-            // Update content via JS — no full page replace
             const escaped = escapeJS(streaming.lastHTML);
             streaming.window.send(`window._setContent('${escaped}')`);
           }
@@ -195,7 +167,7 @@ export default function (pi: ExtensionAPI) {
     promptGuidelines: [
       "Call visualize_read_me once before your first show_widget call to load design guidelines.",
       "Do NOT mention the read_me call to the user — call it silently, then proceed directly to building the widget.",
-      "Pick the modules that match your use case: interactive, chart, mockup, art, diagram.",
+      "Pick the modules that match your use case: interactive, chart, mockup, art, diagram, physics.",
     ],
     parameters: Type.Object({
       modules: Type.Array(

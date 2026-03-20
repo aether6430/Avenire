@@ -15,10 +15,7 @@ const nextConfig: NextConfig = {
     "@avenire/database",
     "@avenire/emailer",
     "@avenire/ingestion"
-  ],
-  typescript: {
-    ignoreBuildErrors: true,
-  }
+  ]
 };
 
 export default nextConfig;

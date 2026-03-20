@@ -1,4 +1,5 @@
 import { auth } from "@avenire/auth/server";
+import type { Route } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { ChatWorkspace } from "@/components/dashboard/chat-workspace";
@@ -19,7 +20,7 @@ export default async function DashboardChatsIndexPage() {
     activeOrganizationId
   );
   if (!workspace) {
-    redirect("/dashboard");
+    redirect("/workspace" as Route);
   }
 
   return (
@@ -27,6 +28,7 @@ export default async function DashboardChatsIndexPage() {
       chatSlug="new"
       chatTitle="New Chat"
       initialMessages={[]}
+      initialPrompt={null}
       isReadonly={false}
       userName={session.user.name ?? undefined}
       workspaceUuid={workspace.workspaceId}

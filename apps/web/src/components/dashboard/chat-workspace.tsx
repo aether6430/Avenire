@@ -18,23 +18,19 @@ import {
 } from "@avenire/ui/components/dialog";
 import { Input } from "@avenire/ui/components/input";
 import { Label } from "@avenire/ui/components/label";
-import {
-  ArrowLeft,
-  ArrowRight,
-  Link2,
-  MessageSquareText,
-  Share2,
-} from "lucide-react";
-import type { Route } from "next";
-import { usePathname, useRouter } from "next/navigation";
+import { Link2, MessageSquareText, Share2 } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Chat } from "@/components/chat/chat";
 import { ChatIcon } from "@/components/chat/chat-icon";
 import { ThinkingGlyph } from "@/components/chat/thinking-indicator";
+import { WorkspaceHeader } from "@/components/dashboard/workspace-header";
 import { EmailSuggestionInput } from "@/components/shared/email-suggestion-input";
 import {
+  CHAT_CREATED_EVENT,
   CHAT_NAME_UPDATED_EVENT,
   CHAT_STREAM_STATUS_EVENT,
+  type ChatCreatedDetail,
   type ChatNameUpdatedDetail,
   type ChatStreamStatusDetail,
 } from "@/lib/chat-events";
@@ -47,6 +43,7 @@ interface ChatWorkspaceProps {
   chatTitle: string;
   chatIcon?: string | null;
   initialMessages: UIMessage[];
+  initialPrompt?: string | null;
   isReadonly?: boolean;
   workspaceUuid: string;
   userName?: string;
@@ -57,21 +54,14 @@ export function ChatWorkspace({
   chatTitle,
   chatIcon,
   initialMessages,
+  initialPrompt,
   isReadonly = false,
   workspaceUuid,
   userName,
 }: ChatWorkspaceProps) {
-  const router = useRouter();
   const pathname = usePathname();
   const recordRoute = useWorkspaceHistoryStore((state) => state.recordRoute);
-  const historyEntries = useWorkspaceHistoryStore((state) => state.entries);
-  const historyIndex = useWorkspaceHistoryStore((state) => state.index);
-  const backRoute =
-    historyIndex > 0 ? (historyEntries[historyIndex - 1] ?? null) : null;
-  const forwardRoute =
-    historyIndex >= 0 && historyIndex < historyEntries.length - 1
-      ? (historyEntries[historyIndex + 1] ?? null)
-      : null;
+  const [activeChatSlug, setActiveChatSlug] = useState(chatSlug);
   const [shareEmail, setShareEmail] = useState("");
   const [shareSuggestions, setShareSuggestions] = useState<ShareSuggestion[]>(
     []
@@ -92,7 +82,35 @@ export function ChatWorkspace({
     setIcon(chatIcon ?? null);
   }, [chatIcon]);
 
-  const currentRoute = useMemo(() => pathname, [pathname]);
+  useEffect(() => {
+    setActiveChatSlug(chatSlug);
+  }, [chatSlug]);
+
+  useEffect(() => {
+    const onChatCreated = (event: Event) => {
+      const detail = (event as CustomEvent<ChatCreatedDetail>).detail;
+      if (!(detail?.id && detail?.fromId)) {
+        return;
+      }
+      if (chatSlug !== "new" && detail.fromId !== chatSlug) {
+        return;
+      }
+      setActiveChatSlug(detail.id);
+    };
+
+    window.addEventListener(CHAT_CREATED_EVENT, onChatCreated);
+    return () => {
+      window.removeEventListener(CHAT_CREATED_EVENT, onChatCreated);
+    };
+  }, [chatSlug]);
+
+  const currentChatSlug = activeChatSlug;
+  const currentRoute = useMemo(() => {
+    if (pathname === "/workspace/chats/new" && currentChatSlug !== "new") {
+      return `/workspace/chats/${currentChatSlug}`;
+    }
+    return pathname;
+  }, [currentChatSlug, pathname]);
 
   useEffect(() => {
     recordRoute(currentRoute);
@@ -110,7 +128,7 @@ export function ChatWorkspace({
     setShareStatus(null);
     setIsShareDialogOpen(false);
     setIsPending(false);
-  }, [chatSlug]);
+  }, [currentChatSlug]);
 
   useEffect(() => {
     const onChatNameUpdated = (event: Event) => {
@@ -118,7 +136,7 @@ export function ChatWorkspace({
       if (!(detail?.id && detail?.name)) {
         return;
       }
-      if (chatSlug !== "new" && detail.id !== chatSlug) {
+      if (currentChatSlug !== "new" && detail.id !== currentChatSlug) {
         return;
       }
       setTitle(detail.name);
@@ -131,7 +149,7 @@ export function ChatWorkspace({
     return () => {
       window.removeEventListener(CHAT_NAME_UPDATED_EVENT, onChatNameUpdated);
     };
-  }, [chatSlug]);
+  }, [currentChatSlug]);
 
   useEffect(() => {
     const onChatStreamStatus = (event: Event) => {
@@ -139,7 +157,7 @@ export function ChatWorkspace({
       if (!detail?.chatId) {
         return;
       }
-      if (chatSlug !== "new" && detail.chatId !== chatSlug) {
+      if (currentChatSlug !== "new" && detail.chatId !== currentChatSlug) {
         return;
       }
       setIsPending(
@@ -151,10 +169,10 @@ export function ChatWorkspace({
     return () => {
       window.removeEventListener(CHAT_STREAM_STATUS_EVENT, onChatStreamStatus);
     };
-  }, [chatSlug]);
+  }, [currentChatSlug]);
 
   useEffect(() => {
-    if (chatSlug === "new") {
+    if (currentChatSlug === "new") {
       setShareSuggestions([]);
       return;
     }
@@ -163,7 +181,7 @@ export function ChatWorkspace({
       const loadSuggestions = async () => {
         try {
           const url = new URL(
-            `/api/chats/${chatSlug}/share/suggestions`,
+            `/api/chats/${currentChatSlug}/share/suggestions`,
             window.location.origin
           );
           if (shareEmail.trim()) {
@@ -199,7 +217,7 @@ export function ChatWorkspace({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [chatSlug, isShareDialogOpen, shareEmail]);
+  }, [currentChatSlug, isShareDialogOpen, shareEmail]);
 
   const shareWithEmail = async () => {
     const email = shareEmail.trim();
@@ -210,7 +228,7 @@ export function ChatWorkspace({
     setShareBusy(true);
     setShareStatus(null);
     try {
-      const response = await fetch(`/api/chats/${chatSlug}/share/grants`, {
+      const response = await fetch(`/api/chats/${currentChatSlug}/share/grants`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
@@ -230,7 +248,7 @@ export function ChatWorkspace({
     setShareBusy(true);
     setShareStatus(null);
     try {
-      const response = await fetch(`/api/chats/${chatSlug}/share/link`, {
+      const response = await fetch(`/api/chats/${currentChatSlug}/share/link`, {
         method: "POST",
       });
       if (!response.ok) {
@@ -249,161 +267,126 @@ export function ChatWorkspace({
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background">
-      <header className="shrink-0 border-border/70 border-b bg-background/95 backdrop-blur-xs">
-        <div className="flex min-h-10 shrink-0 flex-nowrap items-center gap-2 overflow-hidden px-4 py-1.5">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <Button
-              aria-label="Go back"
-              className="rounded-md"
-              disabled={!backRoute}
-              onClick={() => {
-                if (backRoute) {
-                  router.push(backRoute as Route);
+      <WorkspaceHeader
+        actions={
+          isReadonly || currentChatSlug === "new" ? null : (
+            <Dialog>
+              <DialogTrigger
+                render={
+                  <Button
+                    className="rounded-md"
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  />
                 }
-              }}
-              size="icon-xs"
-              type="button"
-              variant="outline"
-            >
-              <ArrowLeft className="size-3.5" />
-            </Button>
-            <Button
-              aria-label="Go forward"
-              className="rounded-md"
-              disabled={!forwardRoute}
-              onClick={() => {
-                if (forwardRoute) {
-                  router.push(forwardRoute as Route);
-                }
-              }}
-              size="icon-xs"
-              type="button"
-              variant="outline"
-            >
-              <ArrowRight className="size-3.5" />
-            </Button>
-            <Breadcrumb className="min-w-0 flex-1">
-              <BreadcrumbList className="flex-nowrap overflow-hidden whitespace-nowrap pr-2">
-                <BreadcrumbItem>
-                  <BreadcrumbPage className="inline-flex max-w-full items-center gap-1.5 overflow-hidden text-sm font-medium leading-none">
-                    {isPending ? (
-                      <ThinkingGlyph className="size-3.5" />
-                    ) : isChatIconName(icon) ? (
-                      <ChatIcon
-                        className="size-3.5 text-muted-foreground"
-                        name={icon}
-                      />
-                    ) : (
-                      <MessageSquareText className="size-3.5 text-muted-foreground" />
-                    )}
-                    <span className="min-w-0 truncate">{title}</span>
-                  </BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-          </div>
-          <div className="flex items-center gap-2">
-            {isReadonly || chatSlug === "new" ? null : (
-              <Dialog>
-                <DialogTrigger
-                  render={
+              >
+                <Share2 className="size-3.5" />
+                Share
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Share chat</DialogTitle>
+                  <DialogDescription>
+                    Grant read-only access by email or create a signed link.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-2">
+                  <Label htmlFor="share-email">Add people</Label>
+                  <div className="flex items-center gap-2">
+                    <EmailSuggestionInput
+                      id="share-email"
+                      onValueChange={setShareEmail}
+                      placeholder="name@example.com"
+                      suggestions={shareSuggestions}
+                      value={shareEmail}
+                    />
                     <Button
-                      className="rounded-md"
+                      disabled={shareBusy}
+                      onClick={() => {
+                        shareWithEmail().catch(() => undefined);
+                      }}
+                      size="sm"
+                      type="button"
+                      variant="secondary"
+                    >
+                      Add
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Share link (7 days)</Label>
+                  <div className="flex items-center gap-2">
+                    <Input readOnly value={shareLink ?? ""} />
+                    <Button
+                      disabled={shareBusy}
+                      onClick={() => {
+                        generateShareLink().catch(() => undefined);
+                      }}
                       size="sm"
                       type="button"
                       variant="outline"
-                    />
-                  }
-                >
-                  <Share2 className="size-3.5" />
-                  Share
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Share chat</DialogTitle>
-                    <DialogDescription>
-                      Grant read-only access by email or create a signed link.
-                    </DialogDescription>
-                  </DialogHeader>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="share-email">Add people</Label>
-                    <div className="flex items-center gap-2">
-                      <EmailSuggestionInput
-                        id="share-email"
-                        onValueChange={setShareEmail}
-                        placeholder="name@example.com"
-                        suggestions={shareSuggestions}
-                        value={shareEmail}
-                      />
-                      <Button
-                        disabled={shareBusy}
-                        onClick={() => {
-                          shareWithEmail().catch(() => undefined);
-                        }}
-                        size="sm"
-                        type="button"
-                        variant="secondary"
-                      >
-                        Add
-                      </Button>
-                    </div>
+                    >
+                      <Link2 className="size-4" />
+                      Generate
+                    </Button>
+                    <Button
+                      disabled={!shareLink}
+                      onClick={() => {
+                        if (!shareLink) {
+                          return;
+                        }
+                        navigator.clipboard.writeText(shareLink).catch(() => {
+                          setShareStatus("Unable to copy link.");
+                        });
+                        setShareStatus("Link copied.");
+                      }}
+                      size="sm"
+                      type="button"
+                      variant="ghost"
+                    >
+                      Copy
+                    </Button>
                   </div>
-
-                  <div className="space-y-2">
-                    <Label>Share link (7 days)</Label>
-                    <div className="flex items-center gap-2">
-                      <Input readOnly value={shareLink ?? ""} />
-                      <Button
-                        disabled={shareBusy}
-                        onClick={() => {
-                          generateShareLink().catch(() => undefined);
-                        }}
-                        size="sm"
-                        type="button"
-                        variant="outline"
-                      >
-                        <Link2 className="size-4" />
-                        Generate
-                      </Button>
-                      <Button
-                        disabled={!shareLink}
-                        onClick={() => {
-                          if (!shareLink) {
-                            return;
-                          }
-                          navigator.clipboard.writeText(shareLink).catch(() => {
-                            setShareStatus("Unable to copy link.");
-                          });
-                          setShareStatus("Link copied.");
-                        }}
-                        size="sm"
-                        type="button"
-                        variant="ghost"
-                      >
-                        Copy
-                      </Button>
-                    </div>
-                  </div>
-                  {shareStatus ? (
-                    <p className="text-muted-foreground text-xs">
-                      {shareStatus}
-                    </p>
-                  ) : null}
-                </DialogContent>
-              </Dialog>
-            )}
-          </div>
-        </div>
-      </header>
+                </div>
+                {shareStatus ? (
+                  <p className="text-muted-foreground text-xs">{shareStatus}</p>
+                ) : null}
+              </DialogContent>
+            </Dialog>
+          )
+        }
+      >
+        <Breadcrumb className="min-w-0 flex-1">
+          <BreadcrumbList className="flex-nowrap overflow-hidden whitespace-nowrap pr-2">
+            <BreadcrumbItem>
+              <BreadcrumbPage className="inline-flex max-w-full items-center gap-1.5 overflow-hidden text-sm font-medium leading-none">
+                {isPending ? (
+                  <ThinkingGlyph className="size-3.5" />
+                ) : isChatIconName(icon) ? (
+                  <ChatIcon
+                    className="hidden size-3.5 text-muted-foreground sm:inline-flex"
+                    name={icon}
+                  />
+                ) : (
+                  <MessageSquareText className="hidden size-3.5 text-muted-foreground sm:inline-flex" />
+                )}
+                <span className="min-w-0 truncate">{title}</span>
+              </BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+      </WorkspaceHeader>
 
       <div className="min-h-0 flex-1 overflow-hidden">
         <Chat
           id={chatSlug}
           initialMessages={initialMessages}
+          initialPrompt={initialPrompt}
           isReadonly={isReadonly}
           selectedModel="apollo-apex"
-          selectedReasoningModel="apollo-apex"
           workspaceUuid={workspaceUuid}
           userName={userName}
         />

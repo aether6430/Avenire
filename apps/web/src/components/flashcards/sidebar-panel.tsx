@@ -92,7 +92,7 @@ export function FlashcardsSidebarPanel({
       setTitle("");
       setDescription("");
       startTransition(() => {
-        router.push(`/dashboard/flashcards/${setId}` as Route);
+        router.push(`/workspace/flashcards/${setId}` as Route);
       });
     } finally {
       setBusy(false);
@@ -166,11 +166,11 @@ export function FlashcardsSidebarPanel({
                 onClick={() => {
                   if (reviewTarget) {
                     router.push(
-                      `/dashboard/flashcards/${reviewTarget.id}` as Route
+                      `/workspace/flashcards/${reviewTarget.id}` as Route
                     );
                     return;
                   }
-                  router.push("/dashboard/flashcards" as Route);
+                  router.push("/workspace/flashcards" as Route);
                 }}
               >
                 <BookOpenCheck className="size-4" />
@@ -180,7 +180,7 @@ export function FlashcardsSidebarPanel({
 
             <SidebarMenuItem>
               <SidebarMenuButton
-                onClick={() => router.push("/dashboard/flashcards" as Route)}
+                onClick={() => router.push("/workspace/flashcards" as Route)}
               >
                 <MessageSquareDashed className="size-4" />
                 <span>Import From Chat</span>
@@ -210,7 +210,7 @@ export function FlashcardsSidebarPanel({
                   <SidebarMenuButton
                     isActive={activeSetId === set.id}
                     onClick={() =>
-                      router.push(`/dashboard/flashcards/${set.id}` as Route)
+                      router.push(`/workspace/flashcards/${set.id}` as Route)
                     }
                   >
                     <SparklineChip due={set.dueCount} newCount={set.newCount} />

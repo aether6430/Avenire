@@ -111,6 +111,8 @@ const BLOCK_MATH_INPUT_REGEX = /^\$\$([\s\S]+)\$\$$/;
 const LATEX_TOKEN_REGEX =
   /(%.*$|\\[A-Za-z]+|\\.|[{}[\]()]|[_^&]|(?:\d+\.\d+|\d+))/gm;
 const WIKI_LINK_REGEX = /\[\[([^[\]]+)\]\]/g;
+const WORKSPACE_FILE_LINK_REGEX = /^workspace-file:\/\/(.+)$/i;
+const WORKSPACE_FILE_OPEN_EVENT = "workspace.file.open";
 const TEXT_COLORS = [
   { name: "Default", value: null },
   { name: "Slate", value: "#475569" },
@@ -604,6 +606,37 @@ function getWikiHref(title: string, pages: WikiPage[]) {
   const slug = page?.id ?? slugifyWikiTitle(title);
 
   return `wiki:${slug}`;
+}
+
+function getWorkspaceFileIdFromHref(href: string | null) {
+  if (!href) {
+    return null;
+  }
+
+  const match = href.match(WORKSPACE_FILE_LINK_REGEX);
+  if (!match) {
+    return null;
+  }
+
+  return match[1]?.trim() || null;
+}
+
+function openWorkspaceFileById(fileId: string) {
+  window.dispatchEvent(
+    new CustomEvent(WORKSPACE_FILE_OPEN_EVENT, {
+      detail: { fileId },
+    })
+  );
+}
+
+function getEventTargetElement(target: EventTarget | null) {
+  if (target instanceof Element) {
+    return target;
+  }
+  if (target instanceof Node) {
+    return target.parentElement;
+  }
+  return null;
 }
 
 function normalizeWikiSyntax(markdown: string, pages: WikiPage[]) {
@@ -1957,11 +1990,22 @@ export default function AvenireEditor({
           "tiptap scribe-surface min-h-[100dvh] px-4 py-8 outline-none sm:px-10 sm:py-10",
       },
       handleClick(_view, _pos, event) {
-        const target = event.target as HTMLElement | null;
+        const target = getEventTargetElement(event.target);
         const anchor = target?.closest(
-          "a[href^='wiki:'], a[href^='/wiki/']"
+          "a[href^='workspace-file://'], a[href^='wiki:'], a[href^='/wiki/']"
         ) as HTMLAnchorElement | null;
-        if (!(anchor && onOpenWikiLink)) {
+        if (!anchor) {
+          return false;
+        }
+
+        const fileId = getWorkspaceFileIdFromHref(anchor.getAttribute("href"));
+        if (fileId) {
+          event.preventDefault();
+          openWorkspaceFileById(fileId);
+          return true;
+        }
+
+        if (!onOpenWikiLink) {
           return false;
         }
         const page = resolveWikiPageFromHref(anchor.getAttribute("href"));

@@ -12,7 +12,7 @@ export function APOLLO_PROMPT(userName?: string | null, context?: string) {
     "If the context includes active misconceptions, treat them as private learning guidance and correct them when relevant without calling attention to the hidden context.",
     "Use file_manager_agent to inspect and manage workspace files (listing, reading, moving, deleting) only when a file operation is requested.",
     "Use note_agent to create, read, or update markdown notes when the user asks about their notes.",
-    "Use log_misconception when the user explicitly states a durable misunderstanding or when the conversation clearly reveals a repeated concept-level misconception.",
+    "Use log_misconception when the user explicitly states a durable misunderstanding, repeatedly demonstrates the same mistaken mental model, or the conversation clearly reveals a concept-level misconception.",
     "Only generate flashcards or quizzes when the user explicitly asks for them or provides study material for that purpose.",
     "Use show_widget for visualizations, diagrams, charts, and interactive explainers. Call visualize_read_me first (with appropriate modules) to load widget creation instructions, then set i_have_seen_read_me: true in show_widget calls.",
     "After any tool calls finish, always provide a final user-visible response summarizing the outcome; never end the response with only tool output.",
@@ -58,25 +58,38 @@ export function RETRIEVAL_SUMMARY_PROMPT(input: {
   ].join("\n\n");
 }
 
-export function RETRIEVAL_MATCH_VALIDATOR_PROMPT(input: {
-  query: string;
-  answer: string;
-  snippets: string[];
+const WORKSPACE_FILE_CITATION_PATTERN = /workspace-file:\/\/([A-Za-z0-9_-]+)/g;
+
+export function extractWorkspaceFileCitationIds(text: string) {
+  const seen = new Set<string>();
+  const ids: string[] = [];
+
+  for (const match of text.matchAll(WORKSPACE_FILE_CITATION_PATTERN)) {
+    const fileId = match[1]?.trim();
+    if (!fileId || seen.has(fileId)) {
+      continue;
+    }
+
+    seen.add(fileId);
+    ids.push(fileId);
+  }
+
+  return ids;
+}
+
+export function validateWorkspaceFileCitations(input: {
+  allowedFileIds: Iterable<string>;
+  text: string;
 }) {
-  return [
-    "Evaluate if the candidate answer actually addresses the user query and is supported by the provided snippets.",
-    "Return ONLY JSON with this exact shape:",
-    '{"matched": boolean, "confidence": number, "reason": string}',
-    "Rules:",
-    "- matched=true only if answer directly responds to the query intent.",
-    "- matched=false if answer is generic, tangential, or unsupported by snippets.",
-    "- confidence must be between 0 and 1.",
-    "- reason must be one short sentence.",
-    `Query: ${input.query}`,
-    `Candidate answer: ${input.answer}`,
-    "Snippets:",
-    input.snippets
-      .map((snippet, index) => `(${index + 1}) ${snippet}`)
-      .join("\n"),
-  ].join("\n\n");
+  const allowedIds = new Set(
+    Array.from(input.allowedFileIds, (fileId) => fileId.trim()).filter(Boolean)
+  );
+  const citedFileIds = extractWorkspaceFileCitationIds(input.text);
+  const invalidFileIds = citedFileIds.filter((fileId) => !allowedIds.has(fileId));
+
+  return {
+    citedFileIds,
+    invalidFileIds,
+    valid: invalidFileIds.length === 0,
+  };
 }

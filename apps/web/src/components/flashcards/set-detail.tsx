@@ -49,22 +49,28 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
-import { useDeferredValue, useEffect, useState } from "react";
+import { useDeferredValue, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Markdown } from "@/components/chat/markdown";
 import { FlashcardFlipCard } from "@/components/flashcards/flip-card";
+import { WorkspaceHeader } from "@/components/dashboard/workspace-header";
 import type {
   FlashcardCardRecord,
   FlashcardDisplayState,
   FlashcardReviewEventRecord,
   FlashcardReviewQueueItem,
   FlashcardSetRecord,
+  FlashcardTaxonomy,
 } from "@/lib/flashcards";
+import { useWorkspaceHistoryStore } from "@/stores/workspaceHistoryStore";
 
 type Rating = "again" | "hard" | "good" | "easy";
 interface CalendarRangeValue {
   from: Date | undefined;
   to?: Date;
 }
+
+const REVIEW_ADVANCE_DELAY_MS = 500;
 
 const STATE_LABELS: Record<FlashcardDisplayState, string> = {
   killed: "Killed",
@@ -245,14 +251,28 @@ function buildGroupedDueCards(
     }));
 }
 
+function buildDrillQuery(filters: FlashcardTaxonomy[]) {
+  const params = new URLSearchParams();
+  for (const filter of filters) {
+    params.append("drill", JSON.stringify(filter));
+  }
+  return params.toString();
+}
+
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: This screen intentionally co-locates review, enrollment, editing, and calendar flows.
 export function FlashcardSetDetail({
+  initialDrillFilters,
   initialQueue,
   initialSet,
+  initialStudyOpen = false,
 }: {
+  initialDrillFilters: FlashcardTaxonomy[];
   initialQueue: FlashcardReviewQueueItem[];
   initialSet: FlashcardSetRecord;
+  initialStudyOpen?: boolean;
 }) {
+  const pathname = usePathname();
+  const recordRoute = useWorkspaceHistoryStore((state) => state.recordRoute);
   const [set, setSet] = useState(initialSet);
   const [queue, setQueue] = useState(initialQueue);
   const [search, setSearch] = useState("");
@@ -271,12 +291,20 @@ export function FlashcardSetDetail({
   const [studyOpen, setStudyOpen] = useState(false);
   const [studyRevealed, setStudyRevealed] = useState(false);
   const [busy, setBusy] = useState(false);
+  const reviewAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+
+  useEffect(() => {
+    recordRoute(pathname);
+  }, [pathname, recordRoute]);
   const [calendarRange, setCalendarRange] = useState<
     CalendarRangeValue | undefined
   >({
     from: startOfUtcDay(new Date()),
     to: addUtcDays(startOfUtcDay(new Date()), 13),
   });
+  const [drillFilters, setDrillFilters] = useState(initialDrillFilters);
   const deferredSearch = useDeferredValue(search);
 
   useEffect(() => {
@@ -288,8 +316,18 @@ export function FlashcardSetDetail({
   }, [initialQueue]);
 
   useEffect(() => {
+    setDrillFilters(initialDrillFilters);
+  }, [initialDrillFilters]);
+
+  useEffect(() => {
     setStudyRevealed(false);
   }, [queue]);
+
+  useEffect(() => {
+    if (initialStudyOpen && queue.length > 0) {
+      setStudyOpen(true);
+    }
+  }, [initialStudyOpen, queue.length]);
 
   useEffect(() => {
     if (!studyOpen) {
@@ -297,6 +335,13 @@ export function FlashcardSetDetail({
     }
   }, [studyOpen]);
 
+  useEffect(() => {
+    return () => {
+      if (reviewAdvanceTimerRef.current) {
+        clearTimeout(reviewAdvanceTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -378,8 +423,19 @@ export function FlashcardSetDetail({
   };
 
   const loadQueue = async () => {
+    const query = new URLSearchParams({
+      limit: "20",
+      setId: set.id,
+    });
+    const drillQuery = buildDrillQuery(drillFilters);
+    if (drillQuery) {
+      for (const [key, value] of new URLSearchParams(drillQuery).entries()) {
+        query.append(key, value);
+      }
+    }
+
     const response = await fetch(
-      `/api/flashcards/review/queue?setId=${set.id}&limit=20`,
+      `/api/flashcards/review/queue?${query.toString()}`,
       {
         cache: "no-store",
       }
@@ -492,8 +548,12 @@ export function FlashcardSetDetail({
     if (!current) {
       return;
     }
+    if (reviewAdvanceTimerRef.current) {
+      return;
+    }
 
     setBusy(true);
+    let shouldAdvance = false;
     try {
       const response = await fetch("/api/flashcards/review", {
         body: JSON.stringify({
@@ -507,15 +567,36 @@ export function FlashcardSetDetail({
         return;
       }
 
-      await Promise.all([loadSet(), loadQueue()]);
+      shouldAdvance = true;
+      setStudyRevealed(false);
+      reviewAdvanceTimerRef.current = setTimeout(async () => {
+        try {
+          await Promise.all([loadSet(), loadQueue()]);
+        } finally {
+          reviewAdvanceTimerRef.current = null;
+          setBusy(false);
+        }
+      }, REVIEW_ADVANCE_DELAY_MS);
     } finally {
-      setBusy(false);
+      if (!shouldAdvance) {
+        setBusy(false);
+      }
     }
   };
 
   return (
     <div className="h-full overflow-y-auto bg-background">
-      <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 md:px-6">
+      <div className="mx-auto flex w-full max-w-none flex-col gap-4 px-4 py-4 md:px-6">
+        <WorkspaceHeader>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-foreground">
+              Flashcards
+            </p>
+            <p className="truncate text-xs text-muted-foreground">
+              {set.title}
+            </p>
+          </div>
+        </WorkspaceHeader>
         <Card>
           <CardHeader className="gap-3 border-border/70 border-b pb-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -527,9 +608,6 @@ export function FlashcardSetDetail({
                       : "Manual set"}
                   </Badge>
                   <Badge className="rounded-sm" variant="outline">
-                    {set.cardCount} cards
-                  </Badge>
-                  <Badge className="rounded-sm" variant="outline">
                     {set.stateCounts.killed} killed
                   </Badge>
                 </div>
@@ -539,6 +617,27 @@ export function FlashcardSetDetail({
                     {set.description ?? "No description set for this deck."}
                   </CardDescription>
                 </div>
+                {drillFilters.length > 0 ? (
+                  <div className="rounded-lg border border-amber-200/80 bg-amber-50/80 px-3 py-2 text-xs dark:border-amber-400/20 dark:bg-amber-500/10">
+                    <p className="font-medium text-amber-900 dark:text-amber-100">
+                      Drill session
+                    </p>
+                    <p className="mt-1 text-amber-700 dark:text-amber-200">
+                      Review is limited to canonical matches for these concepts.
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {drillFilters.map((filter) => (
+                        <Badge
+                          className="rounded-full border-amber-300/80 bg-background/80 text-[11px] text-amber-900 dark:border-amber-400/20 dark:bg-background/20 dark:text-amber-100"
+                          key={`${filter.subject}:${filter.topic}:${filter.concept}`}
+                          variant="outline"
+                        >
+                          {filter.concept}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
               <div className="flex flex-wrap gap-2">
@@ -564,7 +663,7 @@ export function FlashcardSetDetail({
                     <Plus className="size-4" />
                     Add Card
                   </DialogTrigger>
-                  <DialogContent className="max-w-3xl">
+                  <DialogContent largeWidth className="max-w-3xl">
                     <DialogHeader>
                       <DialogTitle>
                         {editingCard ? "Edit card" : "Add card"}
@@ -687,21 +786,39 @@ export function FlashcardSetDetail({
         <Card>
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm font-medium text-foreground">Review</p>
-              <Dialog onOpenChange={setStudyOpen} open={studyOpen}>
-                <DialogTrigger
-                  render={
-                    <Button disabled={!activeCard} type="button">
-                      {activeCard ? "Start review" : "No cards queued"}
-                    </Button>
-                  }
-                />
-                <DialogContent className="h-[92vh] w-[calc(100vw-1.5rem)] sm:max-w-5xl overflow-hidden p-0">
+              <p className="font-medium text-foreground text-sm">Review</p>
+            </div>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,16rem)]">
+            <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
+              <p className="text-muted-foreground text-xs">Ready to study</p>
+              <p className="mt-2 font-semibold text-2xl">
+                {activeCard ? activeCard.remainingDueCount + 1 : 0}
+              </p>
+              <p className="mt-2 text-muted-foreground text-xs">
+                {set.dueCount} due · {set.newCount} new
+              </p>
+            </div>
+            <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
+              <p className="text-muted-foreground text-xs">Studied today</p>
+              <p className="mt-2 font-semibold text-2xl">
+                {set.reviewCountToday}
+              </p>
+              <p className="mt-2 text-muted-foreground text-xs">
+                {set.reviewCount7d} in the last week
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Dialog onOpenChange={setStudyOpen} open={studyOpen}>
+          <DialogContent
+                  largeWidth
+                  className="h-[92vh] w-[calc(100vw-1.5rem)] overflow-hidden p-0"
+                >
                   <div className="flex h-full flex-col bg-background">
                     <DialogHeader className="border-border/70 border-b px-6 py-4">
-                      <DialogTitle className="text-lg">
-                        {set.title}
-                      </DialogTitle>
+                      <DialogTitle className="text-lg">{set.title}</DialogTitle>
                       <DialogDescription>
                         Press space to flip. Keys 1-4 submit Again, Hard, Good,
                         Easy.
@@ -718,7 +835,7 @@ export function FlashcardSetDetail({
                           : null}
                       </div>
 
-                      <div className="flex-1 overflow-y-auto">
+                      <div className="flex flex-1 items-center justify-center overflow-y-auto py-2">
                         {activeCard ? (
                           <FlashcardFlipCard
                             back={
@@ -757,7 +874,7 @@ export function FlashcardSetDetail({
                                 <span>{activeCard.set.title}</span>
                               </div>
                             }
-                            className="mx-auto w-full"
+                            className="w-full max-w-4xl"
                             flipped={studyRevealed}
                             front={
                               <div className="w-full">
@@ -783,7 +900,7 @@ export function FlashcardSetDetail({
                               </div>
                             }
                             onFlippedChange={setStudyRevealed}
-                            surfaceClassName="bg-background"
+                            surfaceClassName="border-0 bg-background shadow-[0_18px_50px_rgba(0,0,0,0.14)]"
                           />
                         ) : (
                           <div className="rounded-lg border border-border/70 border-dashed px-4 py-10 text-center text-muted-foreground text-xs">
@@ -832,37 +949,24 @@ export function FlashcardSetDetail({
                       </div>
                     </div>
                   </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,16rem)]">
-            <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
-              <p className="text-muted-foreground text-xs">Ready to study</p>
-              <p className="mt-2 font-semibold text-2xl">
-                {activeCard ? activeCard.remainingDueCount + 1 : 0}
-              </p>
-              <p className="mt-2 text-muted-foreground text-xs">
-                {set.dueCount} due · {set.newCount} new
-              </p>
-            </div>
-            <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
-              <p className="text-muted-foreground text-xs">Studied today</p>
-              <p className="mt-2 font-semibold text-2xl">
-                {set.reviewCountToday}
-              </p>
-              <p className="mt-2 text-muted-foreground text-xs">
-                {set.reviewCount7d} in the last week
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+          </DialogContent>
+        </Dialog>
 
         <Tabs onValueChange={setTab} value={tab}>
-          <TabsList variant="line">
-            <TabsTrigger value="cards">Cards</TabsTrigger>
-            <TabsTrigger value="insights">Insights</TabsTrigger>
-          </TabsList>
+          <div className="flex items-center justify-between gap-3">
+            <TabsList variant="line">
+              <TabsTrigger value="cards">Cards</TabsTrigger>
+              <TabsTrigger value="insights">Insights</TabsTrigger>
+            </TabsList>
+            <Button
+              disabled={!activeCard}
+              onClick={() => setStudyOpen(true)}
+              type="button"
+              variant="outline"
+            >
+              {activeCard ? "Start review" : "No cards queued"}
+            </Button>
+          </div>
 
           <TabsContent value="cards">
             <Card>

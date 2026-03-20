@@ -8,6 +8,7 @@ import type { Route } from "next"
 import { AvenireMark } from "@/components/branding/AvenireMark"
 import { cn } from "@/lib/utils"
 import { Button } from "@avenire/ui/components/button"
+import { useSession } from "@avenire/auth/client"
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -21,6 +22,7 @@ import { MenuIcon, XIcon } from "lucide-react"
 
 const SIGN_UP_HREF = "/register"
 const SIGN_IN_HREF = "/login"
+const APP_HREF = "/workspace"
 
 const highlightedBlog = {
   title: "Introducing Avenire: Think Deeper, Not Just Faster",
@@ -79,6 +81,8 @@ const mobileLinks = [
 export function Navbar() {
   const [scrolled, setScrolled] = React.useState(false)
   const [mobileOpen, setMobileOpen] = React.useState(false)
+  const { data: session } = useSession()
+  const isSignedIn = Boolean(session?.user)
 
   React.useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20)
@@ -185,23 +189,36 @@ export function Navbar() {
           </div>
 
           <div className="hidden items-center gap-1.5 md:flex">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="rounded-full px-3 text-xs"
-              nativeButton={false}
-              render={<Link href={SIGN_IN_HREF} />}
-            >
-              Log in
-            </Button>
-            <Button
-              size="sm"
-              className="rounded-full px-3 text-xs"
-              nativeButton={false}
-              render={<Link href={SIGN_UP_HREF} />}
-            >
-              Sign Up
-            </Button>
+            {isSignedIn ? (
+              <Button
+                size="sm"
+                className="rounded-full px-3 text-xs"
+                nativeButton={false}
+                render={<Link href={APP_HREF as Route} />}
+              >
+                Go to app
+              </Button>
+            ) : (
+              <>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="rounded-full px-3 text-xs"
+                  nativeButton={false}
+                  render={<Link href={SIGN_IN_HREF} />}
+                >
+                  Log in
+                </Button>
+                <Button
+                  size="sm"
+                  className="rounded-full px-3 text-xs"
+                  nativeButton={false}
+                  render={<Link href={SIGN_UP_HREF} />}
+                >
+                  Sign Up
+                </Button>
+              </>
+            )}
           </div>
 
           <div className="mobile-only">
@@ -263,25 +280,39 @@ export function Navbar() {
         </div>
 
         <div className="flex flex-col gap-3 px-6 pb-8">
-          <Button
-            variant="outline"
-            size="lg"
-            className="w-full rounded-full"
-            onClick={() => setMobileOpen(false)}
-            nativeButton={false}
-            render={<Link href={SIGN_UP_HREF} />}
-          >
-            Log in
-          </Button>
-          <Button
-            size="lg"
-            className="w-full rounded-full"
-            onClick={() => setMobileOpen(false)}
-            nativeButton={false}
-            render={<Link href={SIGN_UP_HREF} />}
-          >
-            Sign Up
-          </Button>
+          {isSignedIn ? (
+              <Button
+                size="lg"
+                className="w-full rounded-full"
+                onClick={() => setMobileOpen(false)}
+                nativeButton={false}
+                render={<Link href={APP_HREF as Route} />}
+              >
+                Go to app
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                size="lg"
+                className="w-full rounded-full"
+                onClick={() => setMobileOpen(false)}
+                nativeButton={false}
+                render={<Link href={SIGN_IN_HREF} />}
+              >
+                Log in
+              </Button>
+              <Button
+                size="lg"
+                className="w-full rounded-full"
+                onClick={() => setMobileOpen(false)}
+                nativeButton={false}
+                render={<Link href={SIGN_UP_HREF} />}
+              >
+                Sign Up
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </>

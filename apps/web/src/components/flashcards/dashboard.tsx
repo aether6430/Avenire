@@ -39,14 +39,16 @@ import {
   Sparkles,
 } from "lucide-react";
 import type { Route } from "next";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { startTransition, useEffect, useState } from "react";
+import { WorkspaceHeader } from "@/components/dashboard/workspace-header";
 import type {
   FlashcardCardSnapshot,
   FlashcardDashboardRecord,
   FlashcardDisplayState,
   FlashcardReviewEventRecord,
 } from "@/lib/flashcards";
+import { useWorkspaceHistoryStore } from "@/stores/workspaceHistoryStore";
 
 interface CalendarRangeValue {
   from: Date | undefined;
@@ -235,6 +237,8 @@ export function FlashcardsDashboard({
   initialDashboard: FlashcardDashboardRecord;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const recordRoute = useWorkspaceHistoryStore((state) => state.recordRoute);
   const [dashboard] = useState(initialDashboard);
   const [createOpen, setCreateOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -310,6 +314,10 @@ export function FlashcardsDashboard({
   const workloadTotal = Math.max(workloadHandled + dashboard.dueCount, 1);
   const workloadPercent = Math.round((workloadHandled / workloadTotal) * 100);
 
+  useEffect(() => {
+    recordRoute(pathname);
+  }, [pathname, recordRoute]);
+
   const createSet = async () => {
     setBusy(true);
     setCreateStatus(null);
@@ -349,7 +357,7 @@ export function FlashcardsDashboard({
       setTags("");
       setCreateStatus(null);
       startTransition(() => {
-        router.push(`/dashboard/flashcards/${setId}` as Route);
+        router.push(`/workspace/flashcards/${setId}` as Route);
       });
     } finally {
       setBusy(false);
@@ -358,7 +366,95 @@ export function FlashcardsDashboard({
 
   return (
     <div className="h-full overflow-y-auto bg-background">
-      <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 md:px-6">
+      <div className="mx-auto flex w-full max-w-none flex-col gap-4 px-4 py-4 md:px-6">
+        <WorkspaceHeader
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                disabled={!reviewTarget}
+                onClick={() => {
+                  if (!reviewTarget) {
+                    return;
+                  }
+                  router.push(
+                    `/workspace/flashcards/${reviewTarget.id}` as Route
+                  );
+                }}
+                type="button"
+              >
+                <BookOpenCheck className="size-4" />
+                Go to deck
+              </Button>
+              <Dialog onOpenChange={setCreateOpen} open={createOpen}>
+                <DialogTrigger render={<Button variant="outline" />}>
+                  <Plus className="size-4" />
+                  New Set
+                </DialogTrigger>
+                <DialogContent className="max-w-xl">
+                  <DialogHeader>
+                    <DialogTitle>Create set</DialogTitle>
+                    <DialogDescription>
+                      Shared sets stay at workspace scope. Review history stays
+                      personal.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="flashcards-set-title">Title</Label>
+                      <Input
+                        id="flashcards-set-title"
+                        onChange={(event) => setTitle(event.target.value)}
+                        placeholder="Control systems"
+                        value={title}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="flashcards-set-description">
+                        Description
+                      </Label>
+                      <Textarea
+                        id="flashcards-set-description"
+                        onChange={(event) => setDescription(event.target.value)}
+                        placeholder="Feedback, stability, and state-space revision"
+                        value={description}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="flashcards-set-tags">Tags</Label>
+                      <Input
+                        id="flashcards-set-tags"
+                        onChange={(event) => setTags(event.target.value)}
+                        placeholder="signals, controls, exam-2"
+                        value={tags}
+                      />
+                    </div>
+                  </div>
+                  {createStatus ? (
+                    <p className="text-muted-foreground text-xs">
+                      {createStatus}
+                    </p>
+                  ) : null}
+                  <DialogFooter>
+                    <Button
+                      disabled={busy || !title.trim()}
+                      onClick={createSet}
+                      type="button"
+                    >
+                      Create
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+          }
+        >
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-foreground">
+              Flashcards
+            </p>
+          </div>
+        </WorkspaceHeader>
+
         <section className="flex flex-wrap items-center justify-between gap-3 border-border/70 border-b pb-4">
           <div className="space-y-1">
             <h1 className="font-medium text-base text-foreground">
@@ -368,83 +464,6 @@ export function FlashcardsDashboard({
               Select a deck, check what is coming up, then jump straight into
               review.
             </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              disabled={!reviewTarget}
-              onClick={() => {
-                if (!reviewTarget) {
-                  return;
-                }
-                router.push(
-                  `/dashboard/flashcards/${reviewTarget.id}` as Route
-                );
-              }}
-              type="button"
-            >
-              <BookOpenCheck className="size-4" />
-              Review Due
-            </Button>
-            <Dialog onOpenChange={setCreateOpen} open={createOpen}>
-              <DialogTrigger render={<Button variant="outline" />}>
-                <Plus className="size-4" />
-                New Set
-              </DialogTrigger>
-              <DialogContent className="max-w-xl">
-                <DialogHeader>
-                  <DialogTitle>Create set</DialogTitle>
-                  <DialogDescription>
-                    Shared sets stay at workspace scope. Review history stays
-                    personal.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="flashcards-set-title">Title</Label>
-                    <Input
-                      id="flashcards-set-title"
-                      onChange={(event) => setTitle(event.target.value)}
-                      placeholder="Control systems"
-                      value={title}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="flashcards-set-description">
-                      Description
-                    </Label>
-                    <Textarea
-                      id="flashcards-set-description"
-                      onChange={(event) => setDescription(event.target.value)}
-                      placeholder="Feedback, stability, and state-space revision"
-                      value={description}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="flashcards-set-tags">Tags</Label>
-                    <Input
-                      id="flashcards-set-tags"
-                      onChange={(event) => setTags(event.target.value)}
-                      placeholder="signals, controls, exam-2"
-                      value={tags}
-                    />
-                  </div>
-                </div>
-                {createStatus ? (
-                  <p className="text-muted-foreground text-xs">
-                    {createStatus}
-                  </p>
-                ) : null}
-                <DialogFooter>
-                  <Button
-                    disabled={busy || !title.trim()}
-                    onClick={createSet}
-                    type="button"
-                  >
-                    Create
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
           </div>
         </section>
 
@@ -608,7 +627,7 @@ export function FlashcardsDashboard({
                       <Button
                         onClick={() =>
                           router.push(
-                            `/dashboard/flashcards/${selectedSet.id}` as Route
+                            `/workspace/flashcards/${selectedSet.id}` as Route
                           )
                         }
                         type="button"
@@ -619,12 +638,12 @@ export function FlashcardsDashboard({
                       <Button
                         onClick={() =>
                           router.push(
-                            `/dashboard/flashcards/${selectedSet.id}` as Route
+                            `/workspace/flashcards/${selectedSet.id}` as Route
                           )
                         }
                         type="button"
                       >
-                        Review
+                        Go to deck
                         <ArrowRight className="size-4" />
                       </Button>
                     </div>

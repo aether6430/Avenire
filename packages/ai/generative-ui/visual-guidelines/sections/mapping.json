@@ -40,5 +40,12 @@
     "Color palette",
     "SVG setup",
     "Diagram types"
+  ],
+  "physics": [
+    "_preamble",
+    "Modules",
+    "Core Design System",
+    "When nothing fits",
+    "Physics Simulation Module"
   ]
 }

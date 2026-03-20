@@ -171,6 +171,14 @@ export interface FlashcardReviewQueueItem {
   set: Pick<FlashcardSetSummary, "id" | "sourceType" | "title">;
 }
 
+export interface ListDueFlashcardsForUserInput {
+  limit?: number;
+  setId?: string;
+  taxonomyFilters?: FlashcardTaxonomy[];
+  userId: string;
+  workspaceId: string;
+}
+
 export interface FlashcardDashboardRecord {
   cardSnapshots: FlashcardCardSnapshot[];
   dueCount: number;
@@ -1341,18 +1349,27 @@ export async function upsertFlashcardSetEnrollmentForUser(input: {
   return mapEnrollment(enrollment);
 }
 
-export async function listDueFlashcardsForUser(input: {
-  limit?: number;
-  setId?: string;
-  userId: string;
-  workspaceId: string;
-}) {
+export async function listDueFlashcardsForUser(
+  input: ListDueFlashcardsForUserInput
+) {
   const hydrated = await hydrateSetSummaries(
     input.userId,
     input.workspaceId,
     input.setId
   );
   const limit = Math.max(1, Math.min(input.limit ?? 20, 100));
+  const taxonomyFilters =
+    input.taxonomyFilters?.map((filter, index) =>
+      assertFlashcardTaxonomy(filter, `queue taxonomy filter ${index + 1}`)
+    ) ?? [];
+  const filterKeys =
+    taxonomyFilters.length > 0
+      ? new Set(
+          taxonomyFilters.map(
+            (filter) => `${filter.subject}::${filter.topic}::${filter.concept}`
+          )
+        )
+      : null;
   const setsById = new Map<string, FlashcardSetSummary>();
   for (const summary of hydrated.summaries) {
     setsById.set(summary.id, summary);
@@ -1378,6 +1395,18 @@ export async function listDueFlashcardsForUser(input: {
   }> = [];
 
   for (const card of hydrated.cards) {
+    if (filterKeys) {
+      const taxonomy = normalizeFlashcardTaxonomy(card.source);
+      if (
+        !taxonomy ||
+        !filterKeys.has(
+          `${taxonomy.subject}::${taxonomy.topic}::${taxonomy.concept}`
+        )
+      ) {
+        continue;
+      }
+    }
+
     const set = setsById.get(card.setId);
     const enrollment = enrollmentBySetId.get(card.setId);
     if (!(set && enrollment?.status === "active")) {

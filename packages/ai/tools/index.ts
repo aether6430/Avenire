@@ -74,6 +74,13 @@ const misconceptionSchema = z.object({
   workspaceId: z.string(),
 });
 
+const misconceptionScopeSchema = z.object({
+  concept: z.string().min(1).optional(),
+  limit: z.number().int().min(1).max(50).optional(),
+  subject: z.string().min(1).optional(),
+  topic: z.string().min(1).optional(),
+});
+
 export const chatToolSchemas = {
   search_materials: {
     input: z.object({
@@ -209,6 +216,69 @@ export const chatToolSchemas = {
       summary: z.string(),
     }),
   },
+  list_misconceptions: {
+    input: misconceptionScopeSchema,
+    output: z.object({
+      count: z.number().int(),
+      misconceptions: z.array(misconceptionSchema),
+      summary: z.string(),
+    }),
+  },
+  resolve_misconception: {
+    input: z.object({
+      concept: z.string().min(1),
+      subject: z.string().min(1),
+      topic: z.string().min(1),
+    }),
+    output: z.object({
+      remainingActiveCount: z.number().int(),
+      resolvedCount: z.number().int(),
+      summary: z.string(),
+    }),
+  },
+  clear_misconception: {
+    input: z.object({
+      concept: z.string().min(1),
+      subject: z.string().min(1),
+      topic: z.string().min(1),
+    }),
+    output: z.object({
+      remainingActiveCount: z.number().int(),
+      resolvedCount: z.number().int(),
+      summary: z.string(),
+    }),
+  },
+  improve_misconception: {
+    input: z.object({
+      concept: z.string().min(1),
+      decay: z.number().min(0).max(0.5).optional(),
+      resolveThreshold: z.number().min(0).max(0.9).optional(),
+      subject: z.string().min(1),
+      topic: z.string().min(1),
+    }),
+    output: z.object({
+      improvedCount: z.number().int(),
+      remainingActiveCount: z.number().int(),
+      resolvedCount: z.number().int(),
+      summary: z.string(),
+    }),
+  },
+  generate_flashcards_from_misconception: {
+    input: z.object({
+      count: z.number().int().min(1).max(24).optional(),
+      concept: z.string().min(1),
+      reason: z.string().min(1),
+      subject: z.string().min(1),
+      tags: z.array(z.string()).max(12).optional(),
+      topic: z.string().min(1),
+      title: z.string().min(1).optional(),
+    }),
+    output: z.object({
+      cards: z.array(flashcardSchema),
+      setId: z.string(),
+      title: z.string(),
+    }),
+  },
   show_widget: {
     input: z
       .object({
@@ -271,6 +341,26 @@ export const chatTools = {
   log_misconception: tool({
     inputSchema: chatToolSchemas.log_misconception.input,
     outputSchema: chatToolSchemas.log_misconception.output,
+  }),
+  list_misconceptions: tool({
+    inputSchema: chatToolSchemas.list_misconceptions.input,
+    outputSchema: chatToolSchemas.list_misconceptions.output,
+  }),
+  resolve_misconception: tool({
+    inputSchema: chatToolSchemas.resolve_misconception.input,
+    outputSchema: chatToolSchemas.resolve_misconception.output,
+  }),
+  clear_misconception: tool({
+    inputSchema: chatToolSchemas.clear_misconception.input,
+    outputSchema: chatToolSchemas.clear_misconception.output,
+  }),
+  improve_misconception: tool({
+    inputSchema: chatToolSchemas.improve_misconception.input,
+    outputSchema: chatToolSchemas.improve_misconception.output,
+  }),
+  generate_flashcards_from_misconception: tool({
+    inputSchema: chatToolSchemas.generate_flashcards_from_misconception.input,
+    outputSchema: chatToolSchemas.generate_flashcards_from_misconception.output,
   }),
   show_widget: tool({
     inputSchema: chatToolSchemas.show_widget.input,

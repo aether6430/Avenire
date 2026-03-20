@@ -2,13 +2,18 @@ import { auth } from "@avenire/auth/server";
 import type { Route } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { DashboardOverview } from "@/components/dashboard/overview";
-import { listChatsForUser } from "@/lib/chat-data";
-import { listWorkspaceFiles, resolveWorkspaceForUser } from "@/lib/file-data";
+import { DashboardHome } from "@/components/dashboard/dashboard-home";
+import { resolveWorkspaceForUser } from "@/lib/file-data";
 import {
+  type ConceptMasteryRecord,
+  type ConceptMasterySubjectRecord,
+  getConceptMasteryDashboardData,
+  getFlashcardDashboardForUser,
   listFlashcardReviewCountsByDayForUser,
   listFlashcardSetSummariesForUser,
+  resolveWeakestConceptDrillTarget,
 } from "@/lib/flashcards";
+import { getActiveMisconceptions } from "@/lib/learning-data";
 
 const startOfUtcDay = (date: Date) =>
   new Date(
@@ -24,7 +29,11 @@ const addUtcDays = (date: Date, days: number) =>
     )
   );
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await auth.api.getSession({ headers: await headers() });
 
   if (!session?.user) {
@@ -39,18 +48,71 @@ export default async function DashboardPage() {
     activeOrganizationId
   );
   if (!workspace) {
-    redirect("/dashboard/chats" as Route);
+    redirect("/workspace/chats" as Route);
   }
 
+  const query = await searchParams;
+  const requestedSubject =
+    typeof query.subject === "string" ? query.subject : undefined;
   const startDate = addUtcDays(startOfUtcDay(new Date()), -29);
-  const [chats, files, flashcardSets, reviewCounts] = await Promise.all([
-    listChatsForUser(session.user.id, workspace.workspaceId),
-    listWorkspaceFiles(workspace.workspaceId, session.user.id),
+  const emptyMastery: {
+    concepts: ConceptMasteryRecord[];
+    selectedSubject: null,
+    subjects: ConceptMasterySubjectRecord[];
+    weakestConcepts: ConceptMasteryRecord[];
+  } = {
+    concepts: [],
+    selectedSubject: null,
+    subjects: [],
+    weakestConcepts: [],
+  };
+  const [
+    flashcardSets,
+    reviewCounts,
+    mastery,
+    activeMisconceptions,
+    flashcardDashboard,
+  ] = await Promise.all([
     listFlashcardSetSummariesForUser(session.user.id, workspace.workspaceId),
     listFlashcardReviewCountsByDayForUser(
       session.user.id,
       workspace.workspaceId,
       startDate
+    ),
+    getConceptMasteryDashboardData(
+      session.user.id,
+      workspace.workspaceId,
+      requestedSubject
+    ).catch((error) => {
+      console.error("[dashboard] Failed to load concept mastery data", {
+        error,
+        userId: session.user.id,
+        workspaceId: workspace.workspaceId,
+      });
+      return emptyMastery;
+      }),
+    getActiveMisconceptions({
+      limit: 12,
+      userId: session.user.id,
+      workspaceId: workspace.workspaceId,
+      subject: requestedSubject,
+    }).catch((error) => {
+      console.error("[dashboard] Failed to load active misconceptions", {
+        error,
+        userId: session.user.id,
+        workspaceId: workspace.workspaceId,
+      });
+      return [];
+    }),
+    getFlashcardDashboardForUser(session.user.id, workspace.workspaceId).catch(
+      (error) => {
+        console.error("[dashboard] Failed to load flashcard dashboard data", {
+          error,
+          userId: session.user.id,
+          workspaceId: workspace.workspaceId,
+        });
+        return null;
+      }
     ),
   ]);
 
@@ -64,14 +126,26 @@ export default async function DashboardPage() {
       count: countByDay.get(day) ?? 0,
     };
   });
+  const weakestDrillTarget = flashcardDashboard
+    ? resolveWeakestConceptDrillTarget(
+        flashcardDashboard,
+        mastery.weakestConcepts
+      )
+    : null;
 
   return (
-    <DashboardOverview
-      chats={chats}
-      files={files}
+    <DashboardHome
+      chats={[]}
+      files={[]}
       flashcardSets={flashcardSets}
+      activeMisconceptions={activeMisconceptions}
+      masteryConcepts={mastery.concepts}
+      masterySelectedSubject={mastery.selectedSubject}
+      masterySubjects={mastery.subjects}
       studySessions={studySessions}
       userName={session.user.name ?? undefined}
+      weakestConcepts={mastery.weakestConcepts}
+      weakestDrillTarget={weakestDrillTarget}
     />
   );
 }

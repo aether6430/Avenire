@@ -24,27 +24,11 @@
       "purpose": "any maskable"
     }
   ],
-  "screenshots": [
-    {
-      "src": "/screenshot-desktop.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "Avenire Desktop Interface"
-    },
-    {
-      "src": "/screenshot-mobile.png",
-      "sizes": "390x844",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Avenire Mobile Interface"
-    }
-  ],
   "shortcuts": [
     {
       "name": "New Chat",
       "short_name": "Chat",
-      "description": "Start a new conversation with Fermion",
+      "description": "Start a new conversation with Apollo",
       "url": "/chat",
       "icons": [
         {

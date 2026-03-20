@@ -368,6 +368,9 @@ const MemoizedMarkdown = memo(
 
               if (isWorkspaceFileLink) {
                 const fileId = href.replace("workspace-file://", "").trim();
+                const workspaceFileHref = fileId
+                  ? `workspace-file://${fileId}`
+                  : href;
                 return (
                   <a
                     className={cn(
@@ -375,9 +378,9 @@ const MemoizedMarkdown = memo(
                       className
                     )}
                     {...(props as React.AnchorHTMLAttributes<HTMLAnchorElement>)}
+                    href={workspaceFileHref}
                     rel="noreferrer"
                     target="_self"
-                    href="#"
                     onClick={(event) => {
                       event.preventDefault();
                       if (!fileId) {

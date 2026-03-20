@@ -1,21 +1,42 @@
 import { generateText, Output } from "@avenire/ai";
 import type { UIMessage } from "@avenire/ai/message-types";
 import { apollo } from "@avenire/ai/models";
+import { normalizeSubjectLabel } from "@/lib/subject-detection";
 import {
   createSessionSummary,
   getLatestSessionSummaryForChat,
+  getLatestSessionSummaryForWorkspace,
   getRecentRelevantSessionSummary,
   listSessionSummariesForUser,
+  upsertMisconception,
   type SessionSummaryRecord,
 } from "@avenire/database";
 import { z } from "zod";
 
 const DEFAULT_SESSION_INACTIVITY_WINDOW_MS = 30 * 60 * 1000;
-const SUMMARY_MODEL = "apollo-core";
+// Keep the session-summary pass cheap; this is the truncation/summarization step,
+// not the primary response generation path.
+const SUMMARY_MODEL = "apollo-sprint";
+const MAX_SUMMARY_LIST_ITEMS = 12;
+const MAX_MISCONCEPTION_CANDIDATES = 3;
+const MIN_AUTOMATIC_MISCONCEPTION_CONFIDENCE = 0.8;
+
+const misconceptionCandidateSchema = z.object({
+  confidence: z.number().min(0).max(1),
+  concept: z.string().min(1).max(180),
+  reason: z.string().min(1).max(600),
+  subject: z.string().min(1).max(120),
+  topic: z.string().min(1).max(120),
+});
 
 const summaryOutputSchema = z.object({
-  conceptsCovered: z.array(z.string().min(1)).max(8),
-  misconceptionsDetected: z.array(z.string().min(1)).max(8),
+  conceptsCovered: z.array(z.string().min(1)).max(MAX_SUMMARY_LIST_ITEMS),
+  misconceptionsDetected: z.array(z.string().min(1)).max(MAX_SUMMARY_LIST_ITEMS),
+  misconceptionCandidates: z
+    .array(misconceptionCandidateSchema)
+    .max(MAX_MISCONCEPTION_CANDIDATES),
+  subject: z.string().min(1).max(120).nullable(),
+  subjectConfidence: z.number().min(0).max(1).nullable(),
   summaryText: z.string().min(1).max(1200),
 });
 
@@ -118,7 +139,54 @@ function extractMisconceptions(messages: UIMessage[]) {
         })
       )
     )
-  ).slice(0, 8);
+  ).slice(0, MAX_SUMMARY_LIST_ITEMS);
+}
+
+async function persistAutomaticMisconceptions(input: {
+  candidates: z.infer<typeof misconceptionCandidateSchema>[];
+  endedAt: Date;
+  userId: string;
+  workspaceId: string;
+}) {
+  const seen = new Set<string>();
+  const eligibleCandidates = input.candidates.filter((candidate) => {
+    if (candidate.confidence < MIN_AUTOMATIC_MISCONCEPTION_CONFIDENCE) {
+      return false;
+    }
+
+    const key = [
+      candidate.subject.trim().toLowerCase(),
+      candidate.topic.trim().toLowerCase(),
+      candidate.concept.trim().toLowerCase(),
+    ].join("::");
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+
+  if (eligibleCandidates.length === 0) {
+    return;
+  }
+
+  await Promise.allSettled(
+    eligibleCandidates.map((candidate) =>
+      upsertMisconception({
+        confidence: candidate.confidence,
+        concept: candidate.concept,
+        reason: candidate.reason,
+        source: "auto",
+        subject: candidate.subject,
+        topic: candidate.topic,
+        userId: input.userId,
+        workspaceId: input.workspaceId,
+        observedAt: input.endedAt,
+      })
+    )
+  );
 }
 
 function buildTranscript(messages: UIMessage[]) {
@@ -165,7 +233,18 @@ export function resolveSessionWindow(input: {
   latestUserPosition: number;
   previousLastMessageAt: Date | null;
   requestStartedAt: Date;
+  forceNewSessionBoundary?: boolean;
 }) {
+  if (input.forceNewSessionBoundary) {
+    return {
+      shouldCreateNewSummary: true,
+      startPosition: input.latestSummary
+        ? Math.max(0, input.latestSummary.endPosition + 1)
+        : 0,
+      summaryId: null,
+    } satisfies SessionWindow;
+  }
+
   const inactivityWindowMs = DEFAULT_SESSION_INACTIVITY_WINDOW_MS;
   const inactiveForMs = input.previousLastMessageAt
     ? input.requestStartedAt.getTime() - input.previousLastMessageAt.getTime()
@@ -200,9 +279,11 @@ export async function persistSessionSummaryForCompletedTurn(input: {
   latestSummary: SessionSummaryRecord | null;
   latestUserPosition: number;
   messages: UIMessage[];
+  forceNewSessionBoundary?: boolean;
   previousLastMessageAt: Date | null;
   requestStartedAt: Date;
   subject?: string | null;
+  subjectConfidence?: number | null;
   userId: string;
   workspaceId: string;
 }) {
@@ -211,6 +292,7 @@ export async function persistSessionSummaryForCompletedTurn(input: {
     latestUserPosition: input.latestUserPosition,
     previousLastMessageAt: input.previousLastMessageAt,
     requestStartedAt: input.requestStartedAt,
+    forceNewSessionBoundary: input.forceNewSessionBoundary,
   });
   const boundedMessages = input.messages.slice(window.startPosition);
 
@@ -229,14 +311,28 @@ export async function persistSessionSummaryForCompletedTurn(input: {
       "Summarize this completed tutoring session window.",
       "Return concise, factual output only.",
       "Focus on concepts covered, misconceptions explicitly surfaced, and the learning outcome.",
-      `Detected subject: ${normalizeText(input.subject) || "unknown"}`,
+      "Also identify the primary academic subject and a confidence score between 0 and 1.",
+      "Also infer up to three concept-level misconception candidates if the user's wording, reasoning, or repeated confusion shows a durable misunderstanding.",
+      "Be conservative. Only include a candidate when the evidence is strong enough that it should be remembered for future tutoring.",
       `Flashcards created during this window: ${flashcardsCreated}`,
       misconceptionsDetected.length > 0
         ? `Misconceptions already detected by tools: ${misconceptionsDetected.join(", ")}`
         : "Misconceptions already detected by tools: none",
+      "For subject, use an established subject label such as Mathematics, Physics, Chemistry, Biology, Computer Science, History, Literature, or Economics.",
+      "If the subject is mixed or unclear, still return the dominant subject with a lower confidence score.",
+      "For misconceptionCandidates, return objects with concept, subject, topic, reason, and confidence.",
       "Session transcript:",
       transcript,
     ].join("\n\n"),
+  });
+
+  const detectedSubject = normalizeSubjectLabel(result.output.subject);
+
+  await persistAutomaticMisconceptions({
+    candidates: result.output.misconceptionCandidates,
+    endedAt: input.endedAt,
+    userId: input.userId,
+    workspaceId: input.workspaceId,
   });
 
   return createSessionSummary({
@@ -251,17 +347,45 @@ export async function persistSessionSummaryForCompletedTurn(input: {
         ...misconceptionsDetected,
         ...result.output.misconceptionsDetected,
       ])
-    ).slice(0, 8),
+    ).slice(0, MAX_SUMMARY_LIST_ITEMS),
+    subject: detectedSubject,
+    subjectConfidence: result.output.subjectConfidence ?? null,
     startedAt:
       window.shouldCreateNewSummary || !input.latestSummary
         ? input.requestStartedAt
         : new Date(input.latestSummary.startedAt),
     startPosition: window.startPosition,
-    subject: input.subject ?? null,
     summaryText: result.output.summaryText,
     userId: input.userId,
     workspaceId: input.workspaceId,
   });
+}
+
+export async function getWorkspaceSubjectSummary(input: {
+  userId: string;
+  workspaceId: string;
+}): Promise<SessionSummaryRecord | null> {
+  const summaries = await listSessionSummariesForUser({
+    userId: input.userId,
+    workspaceId: input.workspaceId,
+    limit: 2,
+  });
+
+  const latest = summaries[0] ?? null;
+  if (!latest) {
+    return null;
+  }
+
+  if ((latest.subjectConfidence ?? 0) >= 0.5) {
+    return latest;
+  }
+
+  const fallback = summaries[1] ?? null;
+  if (fallback?.subject) {
+    return fallback;
+  }
+
+  return latest.subject ? latest : null;
 }
 
 export function buildRecentSessionSummaryContext(
@@ -298,6 +422,7 @@ export function buildRecentSessionSummaryContext(
 
 export {
   getLatestSessionSummaryForChat,
+  getLatestSessionSummaryForWorkspace,
   getRecentRelevantSessionSummary,
   listSessionSummariesForUser,
 };

@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "bun --bun next dev --port 3000",
     "build": "next build",
-    "start": "bun --bun next start",
+    "start": "next start -p $PORT",
     "lint": "biome check .",
     "check-types": "tsc --noEmit",
     "format": "biome format --write ."

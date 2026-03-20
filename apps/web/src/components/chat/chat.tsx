@@ -10,7 +10,6 @@ import {
 } from "ai";
 import { ChevronDown } from "lucide-react";
 import { AnimatePresence, motion, useInView } from "motion/react";
-import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
@@ -28,6 +27,7 @@ import {
   CHAT_NAME_UPDATED_EVENT,
   CHAT_STREAM_FINISHED_EVENT,
   CHAT_STREAM_STATUS_EVENT,
+  type ChatThinkingMessagesDetail,
   type ChatCreatedDetail,
   type ChatNameUpdatedDetail,
   type ChatStreamStatusDetail,
@@ -68,9 +68,9 @@ const categorizeError = (error: Error): ChatErrorType => {
 interface ChatProps {
   id: string;
   initialMessages: UIMessage[];
+  initialPrompt?: string | null;
   isReadonly: boolean;
   selectedModel: string;
-  selectedReasoningModel: string;
   workspaceUuid: string;
   userName?: string;
 }
@@ -78,21 +78,22 @@ interface ChatProps {
 export function Chat({
   id,
   initialMessages,
+  initialPrompt,
   selectedModel,
-  selectedReasoningModel,
   isReadonly,
   workspaceUuid,
   userName,
 }: ChatProps) {
-  const router = useRouter();
-  const pathname = usePathname();
   const [chatId, setChatId] = useState(id);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [input, setInput] = useState("");
   const [agentActivity, setAgentActivity] = useState<AgentActivityData | null>(
     null
   );
+  const [thinkingMessages, setThinkingMessages] = useState<string[]>([]);
   const lastCompletedMessageIdRef = useRef<string | null>(null);
+  const pendingChatRouteRef = useRef<string | null>(null);
+  const autoPromptSentRef = useRef<string | null>(null);
   const MAX_FILES = 3;
   const [messagesContainerRef, messagesEndRef, scroll] =
     useScrollToBottom<HTMLDivElement>();
@@ -113,6 +114,7 @@ export function Chat({
     setAttachments([]);
     setInput("");
     setAgentActivity(null);
+    setThinkingMessages([]);
   }, [id]);
 
   const {
@@ -131,7 +133,6 @@ export function Chat({
       body: {
         chatId,
         selectedModel,
-        selectedReasoningModel,
       },
     }),
     experimental_throttle: 100,
@@ -145,18 +146,7 @@ export function Chat({
           return;
         }
         setChatId(detail.id);
-        if (
-          pathname === "/dashboard/chats" ||
-          pathname === "/dashboard/chats/new"
-        ) {
-          router.replace(`/dashboard/chats/${detail.id}`);
-        } else if (typeof window !== "undefined") {
-          window.history.replaceState(
-            { chatId: detail.id },
-            "",
-            `/dashboard/chats/${detail.id}`
-          );
-        }
+        pendingChatRouteRef.current = detail.id;
         window.dispatchEvent(
           new CustomEvent<ChatCreatedDetail>(CHAT_CREATED_EVENT, {
             detail,
@@ -178,6 +168,17 @@ export function Chat({
         return;
       }
 
+      if (dataPart.type === "data-thinkingMessages") {
+        const detail = dataPart.data as ChatThinkingMessagesDetail;
+        if (!(detail?.id && Array.isArray(detail.messages))) {
+          return;
+        }
+        setThinkingMessages(
+          detail.messages.filter((message) => typeof message === "string")
+        );
+        return;
+      }
+
       if (dataPart.type === "data-agent_activity") {
         setAgentActivity(dataPart.data as AgentActivityData);
       }
@@ -190,6 +191,47 @@ export function Chat({
     }
     resumeStream().catch(() => undefined);
   }, [id, resumeStream]);
+
+  useEffect(() => {
+    if (id !== "new") {
+      autoPromptSentRef.current = null;
+      return;
+    }
+    const prompt = initialPrompt?.trim();
+    if (!prompt || autoPromptSentRef.current === prompt) {
+      return;
+    }
+    if (status !== "ready" || messages.length > 0) {
+      return;
+    }
+
+    autoPromptSentRef.current = prompt;
+    append({ text: prompt }).catch(() => {
+      autoPromptSentRef.current = null;
+    });
+  }, [append, id, initialPrompt, messages.length, status]);
+
+  useEffect(() => {
+    if (status !== "ready") {
+      return;
+    }
+    if (!pendingChatRouteRef.current) {
+      return;
+    }
+    const nextChatId = pendingChatRouteRef.current;
+    const timer = window.setTimeout(() => {
+      window.history.replaceState(
+        { chatId: nextChatId },
+        "",
+        `/workspace/chats/${nextChatId}`
+      );
+      pendingChatRouteRef.current = null;
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [status]);
 
   useEffect(() => {
     if (status !== "ready") {
@@ -214,6 +256,7 @@ export function Chat({
     if (status !== "ready") {
       return;
     }
+    setThinkingMessages([]);
     const lastMessage = messages.at(-1);
     if (!lastMessage || lastMessage.role !== "assistant") {
       return;
@@ -228,7 +271,7 @@ export function Chat({
       typeof document !== "undefined" && !document.hasFocus();
     const isOnChatPage =
       typeof window !== "undefined" &&
-      window.location.pathname.startsWith("/dashboard/chats");
+      window.location.pathname.startsWith("/workspace/chats");
     const isInactive = isTabHidden || isWindowUnfocused || !isOnChatPage;
 
     if (isInactive) {
@@ -364,6 +407,7 @@ export function Chat({
             reload={reload}
             sendMessage={append}
             setMessages={setMessages}
+            thinkingMessages={thinkingMessages}
             status={status}
             userName={userName}
             workspaceUuid={workspaceUuid}

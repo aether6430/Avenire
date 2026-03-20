@@ -1,4 +1,5 @@
 import { auth } from "@avenire/auth/server";
+import type { Route } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { FlashcardsDashboard } from "@/components/flashcards/dashboard";
@@ -21,7 +22,7 @@ export default async function DashboardFlashcardsPage() {
   );
 
   if (!workspace) {
-    redirect("/dashboard");
+    redirect("/workspace" as Route);
   }
 
   const dashboard = await getFlashcardDashboardForUser(
@@ -30,7 +31,7 @@ export default async function DashboardFlashcardsPage() {
   );
 
   if (!dashboard) {
-    redirect("/dashboard");
+    redirect("/workspace" as Route);
   }
 
   return <FlashcardsDashboard initialDashboard={dashboard} />;

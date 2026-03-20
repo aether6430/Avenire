@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { hasSessionCookie } from "@avenire/auth/middleware";
 
-const protectedRoutes = ["/dashboard", "/settings", "/chat", "/chats"];
+const protectedRoutes = ["/workspace", "/settings", "/chat", "/chats"];
 const publicRoutes = ["/login", "/register"];
 
 function isProtectedRoute(pathname: string) {
@@ -16,26 +17,14 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  let session: { user?: unknown } | null = null;
-  try {
-    const response = await fetch(new URL("/api/auth/get-session", request.nextUrl.origin), {
-      headers: {
-        cookie: request.headers.get("cookie") ?? ""
-      }
-    });
-    if (response.ok) {
-      session = await response.json();
-    }
-  } catch {
-    session = null;
-  }
   const pathname = request.nextUrl.pathname;
+  const sessionCookie = hasSessionCookie(request);
 
-  if (isPublicRoute(pathname) && session?.user) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+  if (isPublicRoute(pathname) && sessionCookie) {
+    return NextResponse.redirect(new URL("/workspace", request.url));
   }
 
-  if (isProtectedRoute(pathname) && !session?.user) {
+  if (isProtectedRoute(pathname) && !sessionCookie) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
@@ -44,7 +33,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/dashboard/:path*",
+    "/workspace/:path*",
     "/settings/:path*",
     "/chat/:path*",
     "/chats/:path*",

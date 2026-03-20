@@ -114,6 +114,7 @@ export const sessionSummary = pgTable(
       .notNull()
       .references(() => chatThread.id, { onDelete: "cascade" }),
     subject: text("subject"),
+    subjectConfidence: real("subject_confidence"),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
     endedAt: timestamp("ended_at", { withTimezone: true }).notNull(),
     startPosition: integer("start_position").notNull().default(0),

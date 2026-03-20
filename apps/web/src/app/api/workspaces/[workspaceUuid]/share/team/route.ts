@@ -65,8 +65,8 @@ export async function POST(
   const rootFolderId = summary?.rootFolderId ?? "";
   const baseUrl = resolveAppBaseUrl(request);
   const workspaceUrl = rootFolderId
-    ? `${baseUrl}/dashboard/files/${workspaceUuid}/folder/${rootFolderId}`
-    : `${baseUrl}/dashboard/files`;
+    ? `${baseUrl}/workspace/files/${workspaceUuid}/folder/${rootFolderId}`
+    : `${baseUrl}/workspace/files`;
 
   const recipients = members
     .map((member) => ({

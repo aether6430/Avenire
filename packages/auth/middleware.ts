@@ -1,17 +1,11 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { getSessionCookie } from "better-auth/cookies";
 
-const isProtectedRoute = (request: NextRequest) => request.nextUrl.pathname.startsWith("/dashboard");
+const isProtectedRoute = (request: NextRequest) => request.nextUrl.pathname.startsWith("/workspace");
 
 export const authMiddleware = async (request: NextRequest) => {
-  const url = new URL("/api/auth/get-session", request.nextUrl.origin);
-  const response = await fetch(url, {
-    headers: {
-      cookie: request.headers.get("cookie") ?? ""
-    }
-  });
-
-  const session = await response.json();
+  const session = hasSessionCookie(request);
 
   if (isProtectedRoute(request) && !session) {
     return NextResponse.redirect(new URL("/login", request.url));
@@ -19,3 +13,7 @@ export const authMiddleware = async (request: NextRequest) => {
 
   return NextResponse.next();
 };
+
+export function hasSessionCookie(request: Request | Headers) {
+  return Boolean(getSessionCookie(request));
+}

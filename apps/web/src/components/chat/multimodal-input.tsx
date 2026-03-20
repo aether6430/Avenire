@@ -884,9 +884,9 @@ function PureMultimodalInput({
           )}
 
           <Textarea
-            autoFocus
-            className={cn(
-              "max-h-[calc(24dvh)] min-h-16 resize-none overflow-visible border-none! bg-transparent! px-0! pb-2 text-base shadow-none! ring-0! focus-visible:border-transparent! focus-visible:ring-0! [&::-webkit-scrollbar-thumb]:bg-background",
+          autoFocus
+          className={cn(
+              "max-h-[calc(24dvh)] min-h-16 resize-none overflow-visible border-none! bg-transparent! px-0! pb-2 text-[17px] leading-7 shadow-none! ring-0! focus-visible:border-transparent! focus-visible:ring-0! [&::-webkit-scrollbar-thumb]:bg-background",
               className
             )}
             data-testid="multimodal-input"
@@ -934,7 +934,7 @@ function PureMultimodalInput({
           />
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 border-border/70 border-t px-2.5 pt-2.5 pb-2.5 sm:flex-nowrap sm:gap-0 sm:px-3 sm:pt-3 sm:pb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-2.5 pt-2.5 pb-2.5 sm:flex-nowrap sm:gap-0 sm:px-3 sm:pt-3 sm:pb-3">
           <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <AttachmentsButton
               onClick={() => fileInputRef.current?.click()}

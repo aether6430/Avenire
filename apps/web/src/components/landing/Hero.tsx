@@ -4,9 +4,11 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Calligraph } from "calligraph";
 import Image from "next/image";
+import type { Route } from "next";
 import Link from "next/link";
 import { buttonVariants } from "@avenire/ui/components/button";
 import { Badge } from "@avenire/ui/components/badge";
+import { useSession } from "@avenire/auth/client";
 
 /* ── Types ── */
 interface ChatMessage {
@@ -1166,6 +1168,8 @@ function DemoWindow({
 export function Hero() {
   const [sessionState, setSessionState] = useState<Session[]>(sessions);
   const [activeId, setActiveId] = useState(sessions[0].id);
+  const { data: session } = useSession();
+  const isSignedIn = Boolean(session?.user);
   const active = sessionState.find((s) => s.id === activeId) ?? sessionState[0];
   const inProgress = sessionState.filter((s) => s.status === "in-progress");
   const readyForReview = sessionState.filter((s) => s.status !== "in-progress");
@@ -1220,8 +1224,11 @@ export function Hero() {
               An interactive AI workspace that breaks down complex ideas step by step and builds genuine understanding.
             </p>
             <div className="flex items-center gap-2">
-              <Link href="/register" className={buttonVariants({ size: "lg" })}>
-                Get started free
+              <Link
+                href={(isSignedIn ? "/workspace" : "/register") as Route}
+                className={buttonVariants({ size: "lg" })}
+              >
+                {isSignedIn ? "Go to app" : "Get started free"}
               </Link>
             </div>
           </motion.div>
@@ -1236,8 +1243,11 @@ export function Hero() {
               {/* Window chrome */}
               <div className="flex items-center justify-between px-4 py-2 bg-muted/50 border-b border-border">
                 <span className="text-[11px] self-middle text-foreground font-medium">Avenire</span>
-                <Link href="/register" className="text-[10px] text-primary font-medium cursor-pointer hover:underline">
-                  Get Avenire
+                <Link
+                  href={(isSignedIn ? "/workspace" : "/register") as Route}
+                  className="text-[10px] text-primary font-medium cursor-pointer hover:underline"
+                >
+                  {isSignedIn ? "Go to app" : "Get Avenire"}
                 </Link>
               </div>
 

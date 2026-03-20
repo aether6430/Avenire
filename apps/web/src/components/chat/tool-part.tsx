@@ -205,7 +205,7 @@ function FlashcardDeckComponent({
         </span>
         <a
           className="font-mono text-[11px] text-foreground/40 underline underline-offset-2 hover:text-foreground/60"
-          href={`/dashboard/flashcards/${setId}`}
+          href={`/workspace/flashcards/${setId}`}
         >
           open set
         </a>
@@ -323,7 +323,7 @@ function QuizToolOutput({
         </span>
         <a
           className="font-mono text-[11px] text-foreground/40 underline underline-offset-2 hover:text-foreground/60"
-          href={`/dashboard/flashcards/${setId}`}
+          href={`/workspace/flashcards/${setId}`}
         >
           open set
         </a>

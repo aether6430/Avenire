@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import {
   forwardRef,
   useEffect,
+  useMemo,
   useState,
   type HTMLAttributes,
 } from "react";
@@ -18,7 +19,7 @@ const infinityPath =
 const circleB =
   "M 12 16 C 14.21 16 16 14.21 16 12 C 16 9.79 14.21 8 12 8 C 9.79 8 8 9.79 8 12 C 8 14.21 9.79 16 12 16 Z";
 
-const words = ["Thinking", "Moonwalking", "Planning", "Refining"];
+const fallbackMessages = ["Thinking", "Moonwalking", "Planning", "Refining"];
 
 export function ThinkingGlyph({ className }: { className?: string }) {
   return (
@@ -53,17 +54,43 @@ export function ThinkingGlyph({ className }: { className?: string }) {
 
 export const ThinkingIndicator = forwardRef<
   HTMLDivElement,
-  HTMLAttributes<HTMLDivElement>
->(function ThinkingIndicator({ className, ...props }, ref) {
+  HTMLAttributes<HTMLDivElement> & { messages?: string[] }
+>(function ThinkingIndicator({ className, messages, ...props }, ref) {
   const [index, setIndex] = useState(0);
+  const resolvedMessages = useMemo(() => {
+    const nextMessages = (messages ?? [])
+      .map((message) => message.trim())
+      .filter(Boolean)
+      .slice(0, 4);
+
+    return nextMessages.length > 0 ? nextMessages : fallbackMessages;
+  }, [messages]);
+
+  const longestMessage = useMemo(
+    () =>
+      resolvedMessages.reduce((longest, word) =>
+        longest.length >= word.length ? longest : word
+      ),
+    [resolvedMessages]
+  );
+
+  const resolvedMessagesKey = resolvedMessages.join("\u0000");
 
   useEffect(() => {
+    setIndex(0);
+  }, [resolvedMessagesKey]);
+
+  useEffect(() => {
+    if (resolvedMessages.length <= 1) {
+      return;
+    }
+
     const interval = window.setInterval(() => {
-      setIndex((current) => (current + 1) % words.length);
+      setIndex((current) => (current + 1) % resolvedMessages.length);
     }, 4000);
 
     return () => window.clearInterval(interval);
-  }, []);
+  }, [resolvedMessages.length]);
 
   return (
     <div
@@ -79,9 +106,7 @@ export const ThinkingIndicator = forwardRef<
           aria-hidden="true"
           className="shimmer-text invisible col-start-1 row-start-1"
         >
-          {words.reduce((longest, word) =>
-            longest.length >= word.length ? longest : word
-          )}
+          {longestMessage}
         </span>
         <AnimatePresence initial={false} mode="popLayout">
           <motion.span
@@ -97,9 +122,9 @@ export const ThinkingIndicator = forwardRef<
               y: "-80%",
             }}
             initial={{ opacity: 0, y: "80%" }}
-            key={words[index]}
+            key={resolvedMessages[index]}
           >
-            {words[index]}
+            {resolvedMessages[index]}
           </motion.span>
         </AnimatePresence>
       </span>

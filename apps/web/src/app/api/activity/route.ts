@@ -37,7 +37,7 @@ export async function GET(request: Request) {
       type: "chat",
       action: isNew ? "created" : "updated",
       title: chat.title,
-      href: `/dashboard/chats/${chat.slug}`,
+      href: `/workspace/chats/${chat.slug}`,
       createdAt: chat.updatedAt,
     });
   }
@@ -54,7 +54,7 @@ export async function GET(request: Request) {
       type: isNote ? "note" : "file",
       action: isNew ? "created" : "updated",
       title: file.name,
-      href: `/dashboard/files/${file.workspaceId}/folder/${file.folderId}?file=${file.id}`,
+      href: `/workspace/files/${file.workspaceId}/folder/${file.folderId}?file=${file.id}`,
       createdAt: file.updatedAt,
     });
   }

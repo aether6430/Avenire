@@ -23,3 +23,8 @@ export interface ChatCreatedDetail {
   id: string;
   title: string;
 }
+
+export interface ChatThinkingMessagesDetail {
+  id: string;
+  messages: string[];
+}

@@ -44,6 +44,9 @@ import {
 import {
   getActiveMisconceptions,
   type MisconceptionRecord,
+  improveMisconceptionsForConcept,
+  recomputeConceptMastery,
+  resolveMisconceptionsForConcept,
   upsertMisconception,
 } from "@/lib/learning-data";
 import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
@@ -113,6 +116,16 @@ function buildMisconceptionContext(misconceptions: MisconceptionRecord[]) {
     "Active learning misconceptions:",
     ...lines,
     "Use this as private tutoring context. Correct these misunderstandings when relevant, but do not mention that this context was injected unless the user asks.",
+  ].join("\n");
+}
+
+function buildMisconceptionStudySource(misconception: MisconceptionRecord) {
+  return [
+    `Concept: ${misconception.concept}`,
+    `Subject: ${misconception.subject}`,
+    `Topic: ${misconception.topic}`,
+    `Misconception: ${misconception.reason}`,
+    "Create flashcards that confront the wrong model directly, then replace it with the correct reasoning.",
   ].join("\n");
 }
 
@@ -1066,6 +1079,157 @@ async function generateFlashcardsFromSource(
   };
 }
 
+async function generateFlashcardsFromMisconception(
+  ctx: ChatToolContext,
+  input: z.infer<
+    typeof chatToolSchemas.generate_flashcards_from_misconception.input
+  >
+) {
+  const misconceptions = await getActiveMisconceptions({
+    concept: input.concept,
+    subject: input.subject,
+    topic: input.topic,
+    userId: ctx.userId,
+    workspaceId: ctx.workspaceId,
+  });
+  const misconception =
+    misconceptions[0] ??
+    ({
+      active: true,
+      confidence: 0.85,
+      concept: input.concept,
+      createdAt: new Date().toISOString(),
+      evidenceCount: 0,
+      firstSeenAt: new Date().toISOString(),
+      id: "draft",
+      lastSeenAt: new Date().toISOString(),
+      reason: input.reason,
+      resolvedAt: null,
+      source: "manual",
+      subject: input.subject,
+      topic: input.topic,
+      updatedAt: new Date().toISOString(),
+      userId: ctx.userId,
+      workspaceId: ctx.workspaceId,
+    } satisfies MisconceptionRecord);
+
+  const sourceText = buildMisconceptionStudySource(misconception);
+  const generated = await generateFlashcardsFromSource(ctx, {
+    count: input.count,
+    sourceText,
+    tags: input.tags,
+    title: input.title ?? `${misconception.concept} correction`,
+  });
+
+  return generated;
+}
+
+async function listMisconceptionsForTool(
+  ctx: ChatToolContext,
+  input: z.infer<typeof chatToolSchemas.list_misconceptions.input>
+) {
+  const misconceptions = await getActiveMisconceptions({
+    concept: input.concept,
+    limit: input.limit,
+    subject: input.subject,
+    topic: input.topic,
+    userId: ctx.userId,
+    workspaceId: ctx.workspaceId,
+  });
+
+  return {
+    count: misconceptions.length,
+    misconceptions: misconceptions.map(mapMisconceptionForTool),
+    summary:
+      misconceptions.length > 0
+        ? `Found ${misconceptions.length} active misconception(s).`
+        : "No active misconceptions found.",
+  };
+}
+
+async function resolveMisconceptionForTool(
+  ctx: ChatToolContext,
+  input: z.infer<typeof chatToolSchemas.resolve_misconception.input>
+) {
+  const resolved = await resolveMisconceptionsForConcept({
+    concept: input.concept,
+    subject: input.subject,
+    topic: input.topic,
+    userId: ctx.userId,
+    workspaceId: ctx.workspaceId,
+  });
+
+  await recomputeConceptMastery({
+    concept: input.concept,
+    reviewedAt: new Date(),
+    subject: input.subject,
+    topic: input.topic,
+    userId: ctx.userId,
+    workspaceId: ctx.workspaceId,
+  });
+
+  const remaining = await getActiveMisconceptions({
+    concept: input.concept,
+    subject: input.subject,
+    topic: input.topic,
+    userId: ctx.userId,
+    workspaceId: ctx.workspaceId,
+  });
+
+  return {
+    remainingActiveCount: remaining.length,
+    resolvedCount: resolved.length,
+    summary:
+      resolved.length > 0
+        ? `Resolved ${resolved.length} misconception(s).`
+        : "No active misconception matched that concept.",
+  };
+}
+
+async function improveMisconceptionForTool(
+  ctx: ChatToolContext,
+  input: z.infer<typeof chatToolSchemas.improve_misconception.input>
+) {
+  const improved = await improveMisconceptionsForConcept({
+    concept: input.concept,
+    decay: input.decay,
+    resolveThreshold: input.resolveThreshold,
+    subject: input.subject,
+    topic: input.topic,
+    userId: ctx.userId,
+    workspaceId: ctx.workspaceId,
+  });
+
+  await recomputeConceptMastery({
+    concept: input.concept,
+    reviewedAt: new Date(),
+    subject: input.subject,
+    topic: input.topic,
+    userId: ctx.userId,
+    workspaceId: ctx.workspaceId,
+  });
+
+  const remaining = await getActiveMisconceptions({
+    concept: input.concept,
+    subject: input.subject,
+    topic: input.topic,
+    userId: ctx.userId,
+    workspaceId: ctx.workspaceId,
+  });
+
+  const resolvedCount = improved.filter((item) => !item.active).length;
+
+  return {
+    improvedCount: improved.length,
+    remainingActiveCount: remaining.length,
+    resolvedCount,
+    summary:
+      improved.length > 0
+        ? `Improved ${improved.length} misconception(s).`
+        : "No active misconception matched that concept.",
+  };
+}
+
 async function generateQuizFromSource(
   ctx: ChatToolContext,
   input: z.infer<typeof chatToolSchemas.quiz_me.input>
@@ -1676,7 +1840,7 @@ The agent decides which operations to perform based on the task.`,
     }),
     log_misconception: tool({
       description:
-        "Record a misconception the user explicitly reports or the conversation establishes with high confidence. Use when the user is repeatedly confused about a concept and the response should retain that learning context.",
+        "Record a misconception the user explicitly reports or the conversation establishes with high confidence. Use when the user is repeatedly confused about a concept, keeps applying the wrong model, or the response should retain that learning context.",
       inputSchema: chatToolSchemas.log_misconception.input,
       outputSchema: chatToolSchemas.log_misconception.output,
       execute: async (input) => {
@@ -1705,12 +1869,49 @@ The agent decides which operations to perform based on the task.`,
         };
       },
     }),
+    list_misconceptions: tool({
+      description:
+        "List the current active misconceptions in the workspace. Use this before deciding whether to reinforce, resolve, or generate study material.",
+      inputSchema: chatToolSchemas.list_misconceptions.input,
+      outputSchema: chatToolSchemas.list_misconceptions.output,
+      execute: async (input) => listMisconceptionsForTool(ctx, input),
+    }),
+    resolve_misconception: tool({
+      description:
+        "Mark a misconception as resolved after the user demonstrates understanding. Use after a correct explanation or a clean review streak.",
+      inputSchema: chatToolSchemas.resolve_misconception.input,
+      outputSchema: chatToolSchemas.resolve_misconception.output,
+      execute: async (input) => resolveMisconceptionForTool(ctx, input),
+    }),
+    clear_misconception: tool({
+      description:
+        "Clear a misconception once it has been fully corrected. This is the explicit version of resolve_misconception.",
+      inputSchema: chatToolSchemas.clear_misconception.input,
+      outputSchema: chatToolSchemas.clear_misconception.output,
+      execute: async (input) => resolveMisconceptionForTool(ctx, input),
+    }),
+    improve_misconception: tool({
+      description:
+        "List the current misconception first, then reduce the confidence of an active misconception after the user shows partial improvement.",
+      inputSchema: chatToolSchemas.improve_misconception.input,
+      outputSchema: chatToolSchemas.improve_misconception.output,
+      execute: async (input) => improveMisconceptionForTool(ctx, input),
+    }),
     generate_flashcards: tool({
       description:
         "Generate a persisted flashcard deck from a file, search query, or provided source text. Use only when the user explicitly asks for flashcards or study cards.",
       inputSchema: chatToolSchemas.generate_flashcards.input,
       outputSchema: chatToolSchemas.generate_flashcards.output,
       execute: async (input) => generateFlashcardsFromSource(ctx, input),
+    }),
+    generate_flashcards_from_misconception: tool({
+      description:
+        "Generate a flashcard deck from an active misconception so the user can train the correct model directly.",
+      inputSchema:
+        chatToolSchemas.generate_flashcards_from_misconception.input,
+      outputSchema:
+        chatToolSchemas.generate_flashcards_from_misconception.output,
+      execute: async (input) => generateFlashcardsFromMisconception(ctx, input),
     }),
     get_due_cards: tool({
       description:

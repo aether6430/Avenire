@@ -250,7 +250,7 @@ export function RegisterForm({ className, ...props }: React.ComponentProps<"div"
                 onClick={() => {
                   signIn.social({
                     provider: "google",
-                    callbackURL: "/dashboard"
+                    callbackURL: "/workspace"
                   })
                 }}
               >
@@ -264,7 +264,7 @@ export function RegisterForm({ className, ...props }: React.ComponentProps<"div"
                 onClick={() => {
                   signIn.social({
                     provider: "github",
-                    callbackURL: "/dashboard"
+                    callbackURL: "/workspace"
                   })
                 }}
               >

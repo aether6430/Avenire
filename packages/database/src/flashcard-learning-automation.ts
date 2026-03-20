@@ -6,6 +6,7 @@ import {
 import {
   listRecentCardRatings,
   listRecentConceptRatings,
+  improveMisconceptionsForConcept,
   recomputeConceptMastery,
   resolveMisconceptionsForConcept,
   upsertMisconception,
@@ -53,6 +54,17 @@ async function handleFlashcardReviewEvent(
       topic: actions.misconception.topic ?? event.topic,
       userId: actions.misconception.userId,
       workspaceId: actions.misconception.workspaceId,
+    });
+  }
+
+  if (event.rating === "good" || event.rating === "easy") {
+    await improveMisconceptionsForConcept({
+      concept: event.concept,
+      observedAt: new Date(event.reviewedAt),
+      subject: event.subject ?? undefined,
+      topic: event.topic ?? undefined,
+      userId: event.userId,
+      workspaceId: event.workspaceId,
     });
   }
 

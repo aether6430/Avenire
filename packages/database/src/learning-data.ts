@@ -17,7 +17,7 @@ import {
 } from "./schema";
 import type { FlashcardRating } from "./flashcard-fsrs";
 
-export type MisconceptionSource = "manual" | "review" | "tool";
+export type MisconceptionSource = "manual" | "review" | "tool" | "auto";
 
 export interface MisconceptionRecord {
   active: boolean;
@@ -56,6 +56,15 @@ export interface ConceptMasteryRecord {
   workspaceId: string;
 }
 
+export interface ConceptMasterySubjectRecord {
+  activeMisconceptionCount: number;
+  averageScore: number;
+  conceptCount: number;
+  lastReviewedAt: string | null;
+  reviewCount: number;
+  subject: string;
+}
+
 export interface UpsertMisconceptionInput {
   confidence?: number;
   concept: string;
@@ -77,9 +86,33 @@ export interface GetActiveMisconceptionsInput {
   workspaceId?: string | null;
 }
 
+export interface GetMisconceptionByIdInput {
+  id: string;
+  userId: string;
+  workspaceId?: string | null;
+}
+
 export interface ResolveMisconceptionsForConceptInput {
   concept: string;
   resolvedAt?: Date;
+  subject?: string;
+  topic?: string;
+  userId: string;
+  workspaceId?: string | null;
+}
+
+export interface ResolveMisconceptionByIdInput {
+  id: string;
+  resolvedAt?: Date;
+  userId: string;
+  workspaceId?: string | null;
+}
+
+export interface ImproveMisconceptionForConceptInput {
+  concept: string;
+  decay?: number;
+  observedAt?: Date;
+  resolveThreshold?: number;
   subject?: string;
   topic?: string;
   userId: string;
@@ -137,6 +170,12 @@ export interface GetMasteryBySubjectInput {
 export interface GetWeakestConceptsInput {
   limit?: number;
   subject?: string;
+  userId: string;
+  workspaceId?: string | null;
+}
+
+export interface ListMasterySubjectsForUserInput {
+  limit?: number;
   userId: string;
   workspaceId?: string | null;
 }
@@ -235,6 +274,27 @@ const mapMasteryRow = (
   updatedAt: row.updatedAt.toISOString(),
   userId: row.userId,
   workspaceId: row.workspaceId,
+});
+
+const mapMasterySubjectRow = (row: {
+  activeMisconceptionCount: number | null;
+  averageScore: number | null;
+  conceptCount: number | null;
+  lastReviewedAt: Date | string | null;
+  reviewCount: number | null;
+  subject: string;
+}): ConceptMasterySubjectRecord => ({
+  activeMisconceptionCount: Number(row.activeMisconceptionCount ?? 0),
+  averageScore: Number(row.averageScore ?? 0),
+  conceptCount: Number(row.conceptCount ?? 0),
+  lastReviewedAt:
+    row.lastReviewedAt instanceof Date
+      ? row.lastReviewedAt.toISOString()
+      : typeof row.lastReviewedAt === "string"
+        ? row.lastReviewedAt
+        : null,
+  reviewCount: Number(row.reviewCount ?? 0),
+  subject: row.subject,
 });
 
 const taxonomyFieldExpression = (
@@ -355,6 +415,26 @@ export async function getActiveMisconceptions(
   return rows.map(mapMisconceptionRow);
 }
 
+export async function getMisconceptionById(
+  input: GetMisconceptionByIdInput
+): Promise<MisconceptionRecord | null> {
+  const [row] = await db
+    .select()
+    .from(misconception)
+    .where(
+      and(
+        eq(misconception.id, input.id),
+        eq(misconception.userId, input.userId),
+        input.workspaceId
+          ? eq(misconception.workspaceId, input.workspaceId)
+          : undefined
+      )
+    )
+    .limit(1);
+
+  return row ? mapMisconceptionRow(row) : null;
+}
+
 export async function resolveMisconceptionsForConcept(
   input: ResolveMisconceptionsForConceptInput
 ): Promise<MisconceptionRecord[]> {
@@ -380,6 +460,71 @@ export async function resolveMisconceptionsForConcept(
         subject ? eq(misconception.subject, subject) : undefined,
         topic ? eq(misconception.topic, topic) : undefined,
         eq(misconception.concept, concept)
+      )
+    )
+    .returning();
+
+  return rows.map(mapMisconceptionRow);
+}
+
+export async function resolveMisconceptionById(
+  input: ResolveMisconceptionByIdInput
+): Promise<MisconceptionRecord | null> {
+  const resolvedAt = input.resolvedAt ?? new Date();
+  const [row] = await db
+    .update(misconception)
+    .set({
+      active: false,
+      resolvedAt,
+      updatedAt: resolvedAt,
+    })
+    .where(
+      and(
+        eq(misconception.id, input.id),
+        eq(misconception.userId, input.userId),
+        input.workspaceId
+          ? eq(misconception.workspaceId, input.workspaceId)
+          : undefined
+      )
+    )
+    .returning();
+
+  return row ? mapMisconceptionRow(row) : null;
+}
+
+export async function improveMisconceptionsForConcept(
+  input: ImproveMisconceptionForConceptInput
+): Promise<MisconceptionRecord[]> {
+  const concept = normalizeRequiredText(input.concept, "concept");
+  const subject = normalizeText(input.subject, 120);
+  const topic = normalizeText(input.topic, 120);
+  const decayRaw = typeof input.decay === "number" ? input.decay : 0.08;
+  const decay = Math.min(0.5, Math.max(0.02, decayRaw));
+  const resolveThresholdRaw =
+    typeof input.resolveThreshold === "number" ? input.resolveThreshold : 0.2;
+  const resolveThreshold = Math.min(0.9, Math.max(0, resolveThresholdRaw));
+  const observedAt = input.observedAt ?? new Date();
+
+  const nextConfidence = sql<number>`greatest(0, ${misconception.confidence} - ${decay})`;
+
+  const rows = await db
+    .update(misconception)
+    .set({
+      confidence: nextConfidence,
+      active: sql<boolean>`case when ${nextConfidence} <= ${resolveThreshold} then false else ${misconception.active} end`,
+      resolvedAt: sql<Date | null>`case when ${nextConfidence} <= ${resolveThreshold} then ${observedAt} else ${misconception.resolvedAt} end`,
+      updatedAt: observedAt,
+    })
+    .where(
+      and(
+        eq(misconception.userId, input.userId),
+        input.workspaceId
+          ? eq(misconception.workspaceId, input.workspaceId)
+          : undefined,
+        eq(misconception.active, true),
+        eq(misconception.concept, concept),
+        subject ? eq(misconception.subject, subject) : undefined,
+        topic ? eq(misconception.topic, topic) : undefined
       )
     )
     .returning();
@@ -490,6 +635,7 @@ export async function listRecentConceptRatings(
 
 function normalizeMasteryScore(params: {
   activeMisconceptionCount: number;
+  activeMisconceptionScore: number;
   averageStability: number;
   negativeReviewCount: number;
   positiveReviewCount: number;
@@ -512,19 +658,22 @@ function normalizeMasteryScore(params: {
       ? Math.min(0.3, params.negativeReviewCount / params.reviewCount / 2)
       : 0;
   const misconceptionPenalty = Math.min(
-    0.35,
-    params.activeMisconceptionCount * 0.08
+    0.5,
+    Math.max(
+      params.activeMisconceptionCount * 0.06,
+      params.activeMisconceptionScore * 0.12
+    )
   );
 
   return Number(
     Math.max(
       0,
-      Math.min(
-        1,
-        stabilityComponent * 0.6 +
-          performanceComponent * 0.4 -
-          negativePenalty -
-          misconceptionPenalty
+        Math.min(
+          1,
+          stabilityComponent * 0.55 +
+            performanceComponent * 0.35 -
+            negativePenalty -
+            misconceptionPenalty
       )
     ).toFixed(4)
   );
@@ -595,6 +744,10 @@ export async function recomputeConceptMastery(
   const positiveReviewCount = Number(reviewRow?.positiveReviewCount ?? 0);
   const negativeReviewCount = Number(reviewRow?.negativeReviewCount ?? 0);
   const activeMisconceptionCount = activeMisconceptions.length;
+  const activeMisconceptionScore = activeMisconceptions.reduce(
+    (total, misconception) => total + Math.max(0, misconception.confidence),
+    0
+  );
   const lastMisconceptionAt =
     activeMisconceptions[0]?.updatedAt != null
       ? new Date(activeMisconceptions[0].updatedAt)
@@ -614,6 +767,7 @@ export async function recomputeConceptMastery(
     reviewCount,
     score: normalizeMasteryScore({
       activeMisconceptionCount,
+      activeMisconceptionScore,
       averageStability,
       negativeReviewCount,
       positiveReviewCount,
@@ -756,4 +910,39 @@ export async function getWeakestConcepts(
     .limit(Math.max(1, input.limit ?? DEFAULT_MASTERY_LIMIT));
 
   return rows.map(mapMasteryRow);
+}
+
+export async function listMasterySubjectsForUser(
+  input: ListMasterySubjectsForUserInput
+): Promise<ConceptMasterySubjectRecord[]> {
+  const limit = Math.max(1, input.limit ?? DEFAULT_MASTERY_LIMIT);
+
+  const rows = await db
+    .select({
+      activeMisconceptionCount:
+        sql<number>`sum(${conceptMastery.activeMisconceptionCount})`,
+      averageScore: sql<number>`avg(${conceptMastery.score})`,
+      conceptCount: sql<number>`count(*)`,
+      lastReviewedAt: sql<Date | null>`max(${conceptMastery.lastReviewedAt})`,
+      reviewCount: sql<number>`sum(${conceptMastery.reviewCount})`,
+      subject: conceptMastery.subject,
+    })
+    .from(conceptMastery)
+    .where(
+      and(
+        eq(conceptMastery.userId, input.userId),
+        input.workspaceId
+          ? eq(conceptMastery.workspaceId, input.workspaceId)
+          : undefined
+      )
+    )
+    .groupBy(conceptMastery.subject)
+    .orderBy(
+      asc(sql<number>`avg(${conceptMastery.score})`),
+      desc(sql<number>`count(*)`),
+      asc(conceptMastery.subject)
+    )
+    .limit(limit);
+
+  return rows.map(mapMasterySubjectRow);
 }

@@ -9,7 +9,7 @@ import {
 } from "@avenire/ui/components/card";
 import { AlertCircle } from "lucide-react";
 import { memo, type RefObject } from "react";
-import { PreviewMessage, ThinkingMessage } from "@/components/chat/message";
+import { PreviewMessage } from "@/components/chat/message";
 import { Overview } from "@/components/chat/overview";
 
 interface MessagesProps {
@@ -25,6 +25,7 @@ interface MessagesProps {
   reload: UseChatHelpers<UIMessage>["regenerate"];
   sendMessage: UseChatHelpers<UIMessage>["sendMessage"];
   setMessages: UseChatHelpers<UIMessage>["setMessages"];
+  thinkingMessages: string[];
   status: UseChatHelpers<UIMessage>["status"];
   workspaceUuid: string;
   userName?: string;
@@ -68,6 +69,7 @@ function PureMessages({
   reload,
   sendMessage,
   setMessages,
+  thinkingMessages,
   isReadonly,
   workspaceUuid,
   userName,
@@ -130,14 +132,11 @@ function PureMessages({
               reload={reload}
               sendMessage={sendMessage}
               setMessages={setMessages}
+              thinkingMessages={thinkingMessages}
               workspaceUuid={workspaceUuid}
             />
           );
         })}
-
-        {status === "submitted" &&
-          messages.length > 0 &&
-          messages.at(-1)?.role === "user" && <ThinkingMessage />}
 
         <div className="min-h-6 min-w-6 shrink-0" ref={messagesEndRef} />
       </div>
@@ -149,10 +148,7 @@ export const Messages = memo(PureMessages, (prevProps, nextProps) => {
   if (nextProps.status === "streaming") {
     return false;
   }
-  if (
-    prevProps.status !== nextProps.status &&
-    (prevProps.status === "submitted" || nextProps.status === "submitted")
-  ) {
+  if (prevProps.status !== nextProps.status) {
     return false;
   }
   const prevMessages = prevProps.messages;
@@ -190,6 +186,12 @@ export const Messages = memo(PureMessages, (prevProps, nextProps) => {
     }
   }
   if (prevProps.workspaceUuid !== nextProps.workspaceUuid) {
+    return false;
+  }
+  if (
+    prevProps.thinkingMessages.join("\u0000") !==
+    nextProps.thinkingMessages.join("\u0000")
+  ) {
     return false;
   }
   return true;

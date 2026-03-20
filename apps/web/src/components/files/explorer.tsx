@@ -114,6 +114,8 @@ import {
 import { getUploadErrorMessage } from "@/lib/upload";
 import { useUploadThing } from "@/lib/uploadthing";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useHaptics } from "@/hooks/use-haptics";
 import { useFilesActivityStore } from "@/stores/filesActivityStore";
 import { filesPinsActions, useFilesPinsStore } from "@/stores/filesPinsStore";
 import { filesUiActions, useFilesUiStore } from "@/stores/filesUiStore";
@@ -129,8 +131,10 @@ import {
 } from "@/components/files/explorer/shared";
 import { FilePreviewPanel } from "@/components/files/explorer/file-preview-panel";
 import { ShareDialog } from "@/components/files/explorer/share-dialog";
+import { SidebarTrigger } from "@avenire/ui/components/sidebar";
 
 const WORKSPACE_FILE_OPEN_EVENT = "workspace.file.open";
+const MOBILE_LONG_PRESS_DELAY_MS = 450;
 
 type UploadStatus =
   | "failed"
@@ -578,6 +582,10 @@ export function FileExplorer({
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const mobileLongPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  const mobileSuppressClickRef = useRef<string | null>(null);
   const refreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sseRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ingestionSseRetryTimerRef = useRef<ReturnType<
@@ -654,6 +662,10 @@ export function FileExplorer({
     value: string;
   } | null>(null);
   const [noteCreateBusy, setNoteCreateBusy] = useState(false);
+  const [mobileCreateMenuOpen, setMobileCreateMenuOpen] = useState(false);
+  const [mobileConfirmAction, setMobileConfirmAction] = useState<
+    "delete" | "move" | null
+  >(null);
 
   useEffect(() => {
     try {
@@ -665,10 +677,12 @@ export function FileExplorer({
       // ignore localStorage errors in restricted contexts
     }
   }, []);
+  const isMobile = useIsMobile();
 
   const { startUpload } = useUploadThing("fileExplorerUploader");
   const { startUpload: startBannerUpload } = useUploadThing("imageUploader");
   const selection = useFileSelection({ gridRef, itemRefs });
+  const triggerHaptic = useHaptics();
   const recordRoute = useWorkspaceHistoryStore((state) => state.recordRoute);
   const historyEntries = useWorkspaceHistoryStore((state) => state.entries);
   const historyIndex = useWorkspaceHistoryStore((state) => state.index);
@@ -814,7 +828,7 @@ export function FileExplorer({
           const params = new URLSearchParams();
           params.set("file", created.id);
           router.push(
-            `/dashboard/files/${workspaceUuid}/folder/${parentId}?${params.toString()}` as Route
+            `/workspace/files/${workspaceUuid}/folder/${parentId}?${params.toString()}` as Route
           );
         }
       } catch (error) {
@@ -1277,6 +1291,102 @@ export function FileExplorer({
     []
   );
 
+  const clearMobileLongPressTimer = useCallback(() => {
+    if (mobileLongPressTimerRef.current) {
+      clearTimeout(mobileLongPressTimerRef.current);
+      mobileLongPressTimerRef.current = null;
+    }
+  }, []);
+
+  const beginMobileItemLongPress = useCallback(
+    (itemId: string) => {
+      if (!isMobile) {
+        return;
+      }
+
+      clearMobileLongPressTimer();
+      const cancel = () => {
+        clearMobileLongPressTimer();
+        window.removeEventListener("pointerup", cancel);
+        window.removeEventListener("pointercancel", cancel);
+        window.removeEventListener("scroll", cancel, true);
+      };
+      mobileLongPressTimerRef.current = setTimeout(() => {
+        mobileSuppressClickRef.current = itemId;
+        selection.setItemSelected(itemId, true);
+        triggerHaptic("selection").catch(() => undefined);
+        cancel();
+      }, MOBILE_LONG_PRESS_DELAY_MS);
+      window.addEventListener("pointerup", cancel);
+      window.addEventListener("pointercancel", cancel);
+      window.addEventListener("scroll", cancel, true);
+    },
+    [clearMobileLongPressTimer, isMobile, selection, triggerHaptic]
+  );
+
+  const handleMobileItemPointerUp = useCallback(() => {
+    clearMobileLongPressTimer();
+  }, [clearMobileLongPressTimer]);
+
+  const handleMobileItemClick = useCallback(
+    (
+      itemId: string,
+      openItem: () => void,
+      options?: { toggleOnly?: boolean }
+    ) => {
+      if (mobileSuppressClickRef.current === itemId) {
+        mobileSuppressClickRef.current = null;
+        return;
+      }
+
+      if (selection.selectedCount > 0 || options?.toggleOnly) {
+        selection.toggleSelection(itemId);
+        triggerHaptic("selection").catch(() => undefined);
+        return;
+      }
+
+      triggerHaptic("success").catch(() => undefined);
+      openItem();
+    },
+    [selection, triggerHaptic]
+  );
+
+  const handleMobileCanvasPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (!isMobile || event.pointerType !== "touch" || event.button !== 0) {
+        selection.startDragSelection(event);
+        return;
+      }
+
+      const target = event.target as HTMLElement;
+      if (target.closest("[data-select-item='true']")) {
+        return;
+      }
+
+      if (target.closest("button, input, a, textarea, select, label")) {
+        return;
+      }
+
+      clearMobileLongPressTimer();
+      mobileLongPressTimerRef.current = setTimeout(() => {
+        triggerHaptic("selection").catch(() => undefined);
+        setMobileCreateMenuOpen(true);
+      }, MOBILE_LONG_PRESS_DELAY_MS);
+
+      const cancel = () => {
+        clearMobileLongPressTimer();
+        window.removeEventListener("pointerup", cancel);
+        window.removeEventListener("pointercancel", cancel);
+        window.removeEventListener("scroll", cancel, true);
+      };
+
+      window.addEventListener("pointerup", cancel);
+      window.addEventListener("pointercancel", cancel);
+      window.addEventListener("scroll", cancel, true);
+    },
+    [clearMobileLongPressTimer, isMobile, selection, triggerHaptic]
+  );
+
   const loadFolder = useCallback(
     async (options?: { silent?: boolean }) => {
       if (!(workspaceUuid && currentFolderId)) {
@@ -1364,6 +1474,14 @@ export function FileExplorer({
   useEffect(() => {
     void loadTree();
   }, [loadTree]);
+
+  useEffect(() => {
+    return () => {
+      if (mobileLongPressTimerRef.current) {
+        clearTimeout(mobileLongPressTimerRef.current);
+      }
+    };
+  }, []);
 
   const loadedFrontmatterFileIdsRef = useRef<Set<string>>(new Set());
 
@@ -1894,7 +2012,7 @@ export function FileExplorer({
       }
 
       router.push(
-        `/dashboard/files/${workspaceUuid}/folder/${folderId}` as Route
+        `/workspace/files/${workspaceUuid}/folder/${folderId}` as Route
       );
     },
     [router, workspaceUuid]
@@ -1927,8 +2045,8 @@ export function FileExplorer({
 
       const query = params.toString();
       const target = query.length
-        ? `/dashboard/files/${workspaceUuid}/folder/${currentFolderId}?${query}`
-        : `/dashboard/files/${workspaceUuid}/folder/${currentFolderId}`;
+        ? `/workspace/files/${workspaceUuid}/folder/${currentFolderId}?${query}`
+        : `/workspace/files/${workspaceUuid}/folder/${currentFolderId}`;
 
       router.replace(target as Route);
     },
@@ -1952,7 +2070,7 @@ export function FileExplorer({
       }
 
       router.push(
-        `/dashboard/files/${workspaceUuid}/folder/${targetFolderId}?${params.toString()}` as Route
+        `/workspace/files/${workspaceUuid}/folder/${targetFolderId}?${params.toString()}` as Route
       );
     },
     [allFiles, currentFolderId, router, workspaceUuid]
@@ -1970,7 +2088,7 @@ export function FileExplorer({
       const params = new URLSearchParams();
       params.set("file", fileId);
       router.push(
-        `/dashboard/files/${workspaceUuid}/folder/${targetFile.folderId}?${params.toString()}` as Route
+        `/workspace/files/${workspaceUuid}/folder/${targetFile.folderId}?${params.toString()}` as Route
       );
     },
     [allFiles, router, workspaceUuid]
@@ -3031,6 +3149,7 @@ export function FileExplorer({
     getFolderDragProps,
     getFileDragProps,
   } = useFileDragDrop({
+    enableTouchDrag: !isMobile,
     selection,
     currentFolderId,
     isCurrentFolderReadOnly,
@@ -3384,6 +3503,7 @@ export function FileExplorer({
     <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background text-foreground">
       <div className="flex min-h-12 shrink-0 flex-wrap items-center gap-2 px-4 pt-3 pb-1">
         <div className="flex min-w-0 flex-1 items-center gap-2">
+          <SidebarTrigger className="rounded-md md:hidden" />
           <Button
             aria-label="Go back"
             className="rounded-md"
@@ -3401,7 +3521,7 @@ export function FileExplorer({
           </Button>
           <Button
             aria-label="Go forward"
-            className="rounded-md"
+            className="hidden rounded-md sm:inline-flex"
             disabled={!forwardRoute}
             onClick={() => {
               if (forwardRoute) {
@@ -3414,6 +3534,21 @@ export function FileExplorer({
           >
             <ArrowRight className="size-3.5" />
           </Button>
+          <Button
+            aria-label="Go home"
+            className="hidden rounded-md sm:inline-flex"
+            disabled={pathname === "/workspace"}
+            onClick={() => {
+              if (pathname !== "/workspace") {
+                router.push("/workspace" as Route);
+              }
+            }}
+            size="icon-xs"
+            type="button"
+            variant="outline"
+          >
+            <House className="size-3.5" />
+          </Button>
           <Breadcrumb className="min-w-0 flex-1">
             <BreadcrumbList className="flex-nowrap overflow-x-auto whitespace-nowrap pr-2">
               {breadcrumbs.map((crumb, index) => {
@@ -3423,7 +3558,7 @@ export function FileExplorer({
                   <BreadcrumbItem key={crumb.id}>
                     {isLast ? (
                       <BreadcrumbPage className="inline-flex items-center gap-2">
-                        <Icon className="size-3.5 text-muted-foreground" />
+                        <Icon className="hidden size-3.5 text-muted-foreground sm:inline-flex" />
                         <span>{crumb.name}</span>
                       </BreadcrumbPage>
                     ) : (
@@ -3435,7 +3570,7 @@ export function FileExplorer({
                           navigateToFolder(crumb.id);
                         }}
                       >
-                        <Icon className="size-3.5 text-muted-foreground" />
+                        <Icon className="hidden size-3.5 text-muted-foreground sm:inline-flex" />
                         <span>{crumb.name}</span>
                       </BreadcrumbLink>
                     )}
@@ -3617,7 +3752,7 @@ export function FileExplorer({
       <div className="px-4 pt-0 pb-4">
         {currentFolder ? (
           <ContextMenu>
-            <ContextMenuTrigger>
+            <ContextMenuTrigger {...({ disabled: isMobile } as any)}>
               <div className="relative -mx-4 mb-3 h-44 w-[calc(100%+2rem)] overflow-hidden">
                 <img
                   alt={`${currentFolder.name} banner`}
@@ -3712,7 +3847,7 @@ export function FileExplorer({
         type="file"
       />
 
-      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-24 md:pb-0">
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 pb-4">
           <div className="flex min-w-0 items-center gap-2">
             {!isAtWorkspaceRoot && parentFolder ? (
@@ -3933,13 +4068,25 @@ export function FileExplorer({
 
         <div className="min-h-0 flex-1">
           <ContextMenu>
-            <ContextMenuTrigger>
-              <div className="h-full overflow-auto [scrollbar-color:color-mix(in_oklab,var(--color-border),transparent_30%)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border/70 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-2">
+            <ContextMenuTrigger {...({ disabled: isMobile } as any)}>
+              <div
+                className="h-full overflow-auto [scrollbar-color:color-mix(in_oklab,var(--color-border),transparent_30%)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border/70 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-2"
+                onContextMenu={(event) => {
+                  if (isMobile) {
+                    event.preventDefault();
+                  }
+                }}
+              >
                 <div
                   className={cn(
                     "relative min-h-full px-3 pb-3",
                     canvasDropActive && "bg-primary/5"
                   )}
+                  onContextMenu={(event) => {
+                    if (isMobile) {
+                      event.preventDefault();
+                    }
+                  }}
                   data-drop-folder-id={
                     isCurrentFolderReadOnly ? undefined : currentFolderId
                   }
@@ -3963,7 +4110,7 @@ export function FileExplorer({
                   ) : (
                     <div
                       className="relative min-h-[calc(100vh-14rem)]"
-                      onPointerDown={selection.startDragSelection}
+                      onPointerDown={handleMobileCanvasPointerDown}
                       ref={gridRef}
                     >
                       <div
@@ -3979,7 +4126,7 @@ export function FileExplorer({
                               : "";
                           return (
                             <ContextMenu key={folder.id}>
-                              <ContextMenuTrigger>
+                              <ContextMenuTrigger {...({ disabled: isMobile } as any)}>
                                 <Card
                                   className={cn(
                                     "group relative cursor-pointer overflow-hidden rounded-2xl border border-transparent bg-transparent p-2 ring-0 transition",
@@ -3994,7 +4141,18 @@ export function FileExplorer({
                                     folder.id,
                                     folder.readOnly
                                   )}
+                                  onContextMenu={(event) => {
+                                    if (isMobile) {
+                                      event.preventDefault();
+                                    }
+                                  }}
                                   onClick={(event) => {
+                                    if (isMobile) {
+                                      handleMobileItemClick(folder.id, () =>
+                                        navigateToFolder(folder.id)
+                                      );
+                                      return;
+                                    }
                                     selection.handleItemClick(
                                       event,
                                       folder.id,
@@ -4004,6 +4162,13 @@ export function FileExplorer({
                                       navigateToFolder(folder.id)
                                     );
                                   }}
+                                  onPointerDown={(event) => {
+                                    if (isMobile && event.pointerType === "touch") {
+                                      beginMobileItemLongPress(folder.id);
+                                    }
+                                  }}
+                                  onPointerUp={handleMobileItemPointerUp}
+                                  onPointerCancel={handleMobileItemPointerUp}
                                   ref={(node: HTMLDivElement | null) => {
                                     if (!node) {
                                       itemRefs.current.delete(folder.id);
@@ -4225,7 +4390,7 @@ export function FileExplorer({
                             fileKind === "sheet" ? "document" : fileKind;
                           return (
                             <ContextMenu key={file.id}>
-                              <ContextMenuTrigger>
+                              <ContextMenuTrigger {...({ disabled: isMobile } as any)}>
                                 <Card
                                   className={cn(
                                     "group grid-card-item relative cursor-pointer overflow-hidden rounded-2xl border border-transparent bg-transparent p-2 ring-0 transition",
@@ -4234,8 +4399,19 @@ export function FileExplorer({
                                   )}
                                   data-select-item="true"
                                   {...getFileDragProps(file.id, file.readOnly)}
+                                  onContextMenu={(event) => {
+                                    if (isMobile) {
+                                      event.preventDefault();
+                                    }
+                                  }}
                                   onBlur={() => handlePreviewIntentEnd(file)}
                                   onClick={(event) => {
+                                    if (isMobile) {
+                                      handleMobileItemClick(file.id, () =>
+                                        selectFile(file.id)
+                                      );
+                                      return;
+                                    }
                                     selection.handleItemClick(
                                       event,
                                       file.id,
@@ -4245,6 +4421,13 @@ export function FileExplorer({
                                       selectFile(file.id)
                                     );
                                   }}
+                                  onPointerDown={(event) => {
+                                    if (isMobile && event.pointerType === "touch") {
+                                      beginMobileItemLongPress(file.id);
+                                    }
+                                  }}
+                                  onPointerUp={handleMobileItemPointerUp}
+                                  onPointerCancel={handleMobileItemPointerUp}
                                   onFocus={() => handlePreviewIntentStart(file)}
                                   onMouseEnter={() =>
                                     handlePreviewIntentStart(file)
@@ -4456,8 +4639,19 @@ export function FileExplorer({
                                 folder.id,
                                 folder.readOnly
                               )}
+                              onContextMenu={(event) => {
+                                if (isMobile) {
+                                  event.preventDefault();
+                                }
+                              }}
                               key={folder.id}
                               onClick={(event) => {
+                                if (isMobile) {
+                                  handleMobileItemClick(folder.id, () =>
+                                    navigateToFolder(folder.id)
+                                  );
+                                  return;
+                                }
                                 selection.handleItemClick(
                                   event,
                                   folder.id,
@@ -4467,6 +4661,13 @@ export function FileExplorer({
                                   navigateToFolder(folder.id)
                                 );
                               }}
+                              onPointerDown={(event) => {
+                                if (isMobile && event.pointerType === "touch") {
+                                  beginMobileItemLongPress(folder.id);
+                                }
+                              }}
+                              onPointerUp={handleMobileItemPointerUp}
+                              onPointerCancel={handleMobileItemPointerUp}
                               ref={(node: HTMLDivElement | null) => {
                                 if (!node) {
                                   itemRefs.current.delete(folder.id);
@@ -4519,8 +4720,19 @@ export function FileExplorer({
                                 )}
                                 data-select-item="true"
                                 {...getFileDragProps(file.id, file.readOnly)}
+                                onContextMenu={(event) => {
+                                  if (isMobile) {
+                                    event.preventDefault();
+                                  }
+                                }}
                                 key={file.id}
                                 onClick={(event) => {
+                                  if (isMobile) {
+                                    handleMobileItemClick(file.id, () =>
+                                      selectFile(file.id)
+                                    );
+                                    return;
+                                  }
                                   selection.handleItemClick(
                                     event,
                                     file.id,
@@ -4530,6 +4742,13 @@ export function FileExplorer({
                                     selectFile(file.id)
                                   );
                                 }}
+                                onPointerDown={(event) => {
+                                  if (isMobile && event.pointerType === "touch") {
+                                    beginMobileItemLongPress(file.id);
+                                  }
+                                }}
+                                onPointerUp={handleMobileItemPointerUp}
+                                onPointerCancel={handleMobileItemPointerUp}
                                 ref={(node: HTMLDivElement | null) => {
                                   if (!node) {
                                     itemRefs.current.delete(file.id);
@@ -4624,6 +4843,163 @@ export function FileExplorer({
           </ContextMenu>
         </div>
       </div>
+
+      {selection.selectedCount > 0 ? (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/70 bg-background/95 px-4 py-3 backdrop-blur-sm md:hidden">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="mr-auto">
+              <p className="font-medium text-sm">
+                {selection.selectedCount} selected
+              </p>
+              <p className="text-muted-foreground text-xs">
+                Move or delete the selected items.
+              </p>
+            </div>
+            <Button
+              disabled={!breadcrumbs[breadcrumbs.length - 2]?.id}
+              onClick={() => setMobileConfirmAction("move")}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              Move up
+            </Button>
+            <Button
+              onClick={() => setMobileConfirmAction("delete")}
+              size="sm"
+              type="button"
+              variant="destructive"
+            >
+              Delete
+            </Button>
+            <Button
+              onClick={() => selection.clearSelection()}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              Clear
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      <Dialog
+        onOpenChange={setMobileCreateMenuOpen}
+        open={mobileCreateMenuOpen}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create</DialogTitle>
+            <DialogDescription>
+              Choose what you want to create in this folder.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2">
+            <Button
+              disabled={isCurrentFolderReadOnly}
+              onClick={() => {
+                setMobileCreateMenuOpen(false);
+                openCreateNoteDialog(currentFolderId);
+              }}
+              type="button"
+              variant="outline"
+            >
+              <FileText className="size-4" />
+              New note
+            </Button>
+            <Button
+              disabled={isCurrentFolderReadOnly}
+              onClick={() => {
+                setMobileCreateMenuOpen(false);
+                openCreateFolderDialog(currentFolderId);
+              }}
+              type="button"
+              variant="outline"
+            >
+              <Folder className="size-4" />
+              New folder
+            </Button>
+            <Button
+              disabled={isCurrentFolderReadOnly}
+              onClick={() => {
+                setMobileCreateMenuOpen(false);
+                fileInputRef.current?.click();
+              }}
+              type="button"
+              variant="outline"
+            >
+              <Upload className="size-4" />
+              Upload file
+            </Button>
+            <Button
+              disabled={isCurrentFolderReadOnly}
+              onClick={() => {
+                setMobileCreateMenuOpen(false);
+                folderInputRef.current?.click();
+              }}
+              type="button"
+              variant="outline"
+            >
+              <FilePlus2 className="size-4" />
+              Upload folder
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setMobileConfirmAction(null);
+          }
+        }}
+        open={mobileConfirmAction !== null}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {mobileConfirmAction === "delete" ? "Delete items" : "Move items"}
+            </DialogTitle>
+            <DialogDescription>
+              {mobileConfirmAction === "delete"
+                ? "This will remove the selected items."
+                : "This will move the selected items up one folder."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              onClick={() => setMobileConfirmAction(null)}
+              type="button"
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                const items = resolveSelectedActionItems();
+                if (mobileConfirmAction === "delete") {
+                  void deleteSelectionItems(items);
+                } else {
+                  const parentFolderId = breadcrumbs[breadcrumbs.length - 2]?.id;
+                  if (parentFolderId) {
+                    void moveItemsToFolder(
+                      Array.from(selection.selectedIds),
+                      parentFolderId
+                    );
+                  }
+                }
+                triggerHaptic("success").catch(() => undefined);
+                setMobileConfirmAction(null);
+              }}
+              type="button"
+              variant={mobileConfirmAction === "delete" ? "destructive" : "default"}
+            >
+              Confirm
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog onOpenChange={setPropertiesOpen} open={propertiesOpen}>
         <DialogContent className="sm:max-w-md">

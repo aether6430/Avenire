@@ -2,12 +2,15 @@
 
 import { useRef, useEffect, useCallback, useState } from "react";
 import { motion, useInView } from "framer-motion";
+import type { Route } from "next";
 import Link from "next/link";
 import { Button } from "@avenire/ui/components/button";
+import { useSession } from "@avenire/auth/client";
 
 /* ── Conway's Game of Life ── */
 const CELL_SIZE = 12;
 const SIGN_UP_HREF = "/register";
+const APP_HREF = "/workspace";
 
 function useGameOfLife(width: number, height: number) {
   const cols = Math.floor(width / CELL_SIZE);
@@ -130,6 +133,8 @@ function ConwayCanvas() {
 export function CTA() {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "-80px" });
+  const { data: session } = useSession();
+  const isSignedIn = Boolean(session?.user);
 
   return (
     <section className="py-24 px-4" ref={ref}>
@@ -152,8 +157,12 @@ export function CTA() {
               Join a community of thinkers building real understanding, one reasoning step at a time.
             </p>
 
-            <Button size="lg" nativeButton={false} render={<Link href={SIGN_UP_HREF} />}>
-              Join Avenire
+            <Button
+              size="lg"
+              nativeButton={false}
+              render={<Link href={(isSignedIn ? APP_HREF : SIGN_UP_HREF) as Route} />}
+            >
+              {isSignedIn ? "Go to app" : "Join Avenire"}
             </Button>
 
             <p className="text-xs text-muted-foreground/50 mt-4">

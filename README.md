@@ -16,7 +16,7 @@ This Avenire project is organized as a **Turborepo** monorepo. This structure wa
 
 These are demonstrative applications showcasing how the Avenire vision could be realized:
 
--   **`web`**: The `web` application, built with Next.js, demonstrates how a user might interact with Fermion (the platform's AI assistant), engage with courses, and manage a dashboard. It showcases features like an advanced chat interface, user authentication, and file uploading, illustrating a suite of tools designed for deep learning and research.
+-   **`web`**: The `web` application, built with Next.js, demonstrates how a user might interact with Apollo (the platform's AI assistant), engage with courses, and manage a dashboard. It showcases features like an advanced chat interface, user authentication, and file uploading, illustrating a suite of tools designed for deep learning and research.
     *   [Learn more about the design of `apps/web`](apps/web/README.md)
 
 -   **`emails`**: This application manages email templates using React Email. It demonstrates how communications—from welcome messages to important notifications—could be handled in a clear, consistent, and engaging manner.
@@ -26,7 +26,7 @@ These are demonstrative applications showcasing how the Avenire vision could be 
 
 These packages represent the foundational building blocks and shared logic designed for the Avenire platform:
 
--   **`@avenire/ai`**: This package was the engine for **Fermion**, Avenire's primary AI assistant. It's designed to manage various language models, employ sophisticated prompting strategies, and equip an AI with advanced tools like deep research capabilities and automated course generation.
+-   **`@avenire/ai`**: This package was the engine for **Apollo**, Avenire's primary AI assistant. It's designed to manage various language models, employ sophisticated prompting strategies, and equip an AI with advanced tools like deep research capabilities and automated course generation.
     *   [Dive into the architecture of `@avenire/ai`](packages/ai/README.md)
 
 -   **`@avenire/auth`**: Designed to provide robust and flexible authentication. It demonstrates support for email/password, social logins (Google, GitHub), and modern passkey (WebAuthn) authentication, showing how user accounts could be secured and made accessible.
@@ -67,7 +67,7 @@ Avenire was designed and built with a modern, powerful, and scalable technology 
 -   **Drizzle ORM & PostgreSQL**: For our database layer, providing type-safe database access.
 -   **AI / Machine Learning**:
     -   Vercel AI SDK: For integrating and managing AI model interactions.
-    -   Various model providers (Google Gemini/Gemma, OpenRouter, Groq) to power Fermion.
+    -   Various model providers (Google Gemini/Gemma, OpenRouter, Groq) to power Apollo.
 -   **Tailwind CSS**: For utility-first CSS styling, enabling rapid UI development.
 -   **Shadcn UI**: Methodology for building our component library, based on Radix UI primitives.
 -   **Resend**: For sending transactional emails.

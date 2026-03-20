@@ -34,6 +34,10 @@ type ChatUIData = DataPartsMap<{
     id: string;
     name: string;
   };
+  thinkingMessages: {
+    id: string;
+    messages: string[];
+  };
   plan: {
     id: string;
     task: {

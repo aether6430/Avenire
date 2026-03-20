@@ -5,6 +5,7 @@ Call read_me again with the modules parameter to load detailed guidance:
 - `interactive` — interactive explainers with controls
 - `chart` — charts and data analysis (includes Chart.js)
 - `art` — illustration and generative art
+- `physics` — physics simulations, motion, forces, energy, and time-evolving systems
 Pick the closest fit. The module includes all relevant design guidance.
 
 **Complexity budget — hard limits:**

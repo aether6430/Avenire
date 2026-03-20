@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { UIMessage } from "@avenire/ai/message-types";
 import { auth } from "@avenire/auth/server";
+import type { Route } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { ChatWorkspace } from "@/components/dashboard/chat-workspace";
@@ -41,8 +42,10 @@ export async function generateMetadata({
 
 export default async function DashboardChatPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const session = await auth.api.getSession({ headers: await headers() });
 
@@ -51,12 +54,15 @@ export default async function DashboardChatPage({
   }
 
   const { slug } = await params;
+  const query = await searchParams;
+  const initialPrompt =
+    typeof query.prompt === "string" ? query.prompt.trim() : "";
   const activeOrganizationId =
     (session as { session?: { activeOrganizationId?: string | null } }).session
       ?.activeOrganizationId ?? null;
   const workspace = await resolveWorkspaceForUser(session.user.id, activeOrganizationId);
   if (!workspace) {
-    redirect("/dashboard");
+    redirect("/workspace" as Route);
   }
 
   if (slug === "new") {
@@ -66,6 +72,7 @@ export default async function DashboardChatPage({
         chatTitle="New Chat"
         chatIcon={null}
         initialMessages={[]}
+        initialPrompt={initialPrompt || null}
         isReadonly={false}
         userName={session.user.name ?? undefined}
         workspaceUuid={workspace.workspaceId}
@@ -79,7 +86,7 @@ export default async function DashboardChatPage({
   ]);
 
   if (!chat) {
-    redirect("/dashboard");
+    redirect("/workspace" as Route);
   }
 
   return (
@@ -88,6 +95,7 @@ export default async function DashboardChatPage({
       chatTitle={chat.title}
       chatIcon={chat.icon ?? null}
       initialMessages={(initialMessages ?? []) as UIMessage[]}
+      initialPrompt={null}
       isReadonly={Boolean(chat.readOnly)}
       userName={session.user.name ?? undefined}
       workspaceUuid={workspace.workspaceId}

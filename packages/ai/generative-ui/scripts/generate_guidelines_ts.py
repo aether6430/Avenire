@@ -19,6 +19,7 @@ LABEL_TO_FILE = {
     "Diagram types": "diagram_types.md",
     "Charts (Chart.js)": "charts_chart_js.md",
     "Art and illustration": "art_and_illustration.md",
+    "Physics Simulation Module": "phys_sim.md",
 }
 
 

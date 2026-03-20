@@ -48,7 +48,18 @@ export function DashboardTaskManager() {
         setLoading(false);
       }
     };
-    loadTasks().catch(() => undefined);
+
+    const refresh = () => {
+      setLoading(true);
+      loadTasks().catch(() => undefined);
+    };
+
+    window.addEventListener("dashboard.tasks.refresh", refresh);
+    refresh();
+
+    return () => {
+      window.removeEventListener("dashboard.tasks.refresh", refresh);
+    };
   }, []);
 
   const sortedTasks = useMemo(

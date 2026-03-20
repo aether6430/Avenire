@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, or } from "drizzle-orm";
+import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { db } from "./client";
 import { sessionSummary } from "./schema";
 
@@ -14,6 +14,7 @@ export interface SessionSummaryRecord {
   startedAt: string;
   startPosition: number;
   subject: string | null;
+  subjectConfidence: number | null;
   summaryText: string;
   updatedAt: string;
   userId: string;
@@ -31,6 +32,7 @@ export interface CreateSessionSummaryInput {
   startPosition: number;
   endPosition: number;
   subject?: string | null;
+  subjectConfidence?: number | null;
   summaryText: string;
   userId: string;
   workspaceId: string;
@@ -51,6 +53,22 @@ export interface GetRecentRelevantSessionSummaryInput {
 }
 
 const DEFAULT_SESSION_SUMMARY_LIMIT = 20;
+const SESSION_SUMMARY_RELATION = "session_summaries";
+
+function isMissingSessionSummarySchemaError(error: unknown) {
+  const message =
+    error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+
+  return (
+    message.includes(SESSION_SUMMARY_RELATION) &&
+    (message.includes("does not exist") ||
+      message.includes("no such table") ||
+      message.includes("unknown relation") ||
+      message.includes("unknown table") ||
+      message.includes("column") ||
+      message.includes("relation"))
+  );
+}
 
 function normalizeText(value: unknown, maxLength: number) {
   if (typeof value !== "string") {
@@ -96,6 +114,22 @@ function normalizeCount(value: number, fieldName: string) {
   return Math.trunc(value);
 }
 
+function normalizeScore(value: number | null | undefined, fieldName: string) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (!Number.isFinite(value) || value < 0 || value > 1) {
+    throw new Error(`Invalid ${fieldName}.`);
+  }
+
+  return value;
+}
+
+function normalizedSubjectExpression(column: typeof sessionSummary.subject) {
+  return sql<string>`regexp_replace(lower(coalesce(${column}, '')), '[_\\s]+', ' ', 'g')`;
+}
+
 const mapSessionSummaryRow = (
   row: typeof sessionSummary.$inferSelect
 ): SessionSummaryRecord => ({
@@ -112,6 +146,7 @@ const mapSessionSummaryRow = (
   startedAt: row.startedAt.toISOString(),
   startPosition: row.startPosition,
   subject: row.subject ?? null,
+  subjectConfidence: row.subjectConfidence ?? null,
   summaryText: row.summaryText,
   updatedAt: row.updatedAt.toISOString(),
   userId: row.userId,
@@ -120,7 +155,7 @@ const mapSessionSummaryRow = (
 
 export async function createSessionSummary(
   input: CreateSessionSummaryInput
-): Promise<SessionSummaryRecord> {
+): Promise<SessionSummaryRecord | null> {
   const now = new Date();
   const values = {
     id: input.id,
@@ -128,6 +163,10 @@ export async function createSessionSummary(
     userId: input.userId,
     chatId: normalizeRequiredText(input.chatId, "chatId", 120),
     subject: normalizeText(input.subject, 120),
+    subjectConfidence: normalizeScore(
+      input.subjectConfidence,
+      "subjectConfidence"
+    ),
     startedAt: input.startedAt,
     endedAt: input.endedAt,
     startPosition: normalizePosition(input.startPosition, "startPosition"),
@@ -145,65 +184,122 @@ export async function createSessionSummary(
     updatedAt: now,
   };
 
-  const [row] = await db
-    .insert(sessionSummary)
-    .values(values)
-    .onConflictDoUpdate({
-      target: sessionSummary.id,
-      set: {
-        subject: values.subject,
-        startedAt: values.startedAt,
-        endedAt: values.endedAt,
-        startPosition: values.startPosition,
-        endPosition: values.endPosition,
-        conceptsCovered: values.conceptsCovered,
-        misconceptionsDetected: values.misconceptionsDetected,
-        flashcardsCreated: values.flashcardsCreated,
-        summaryText: values.summaryText,
-        updatedAt: now,
-      },
-    })
-    .returning();
+  try {
+    const [row] = await db
+      .insert(sessionSummary)
+      .values(values)
+      .onConflictDoUpdate({
+        target: sessionSummary.id,
+        set: {
+          subject: values.subject,
+          subjectConfidence: values.subjectConfidence,
+          startedAt: values.startedAt,
+          endedAt: values.endedAt,
+          startPosition: values.startPosition,
+          endPosition: values.endPosition,
+          conceptsCovered: values.conceptsCovered,
+          misconceptionsDetected: values.misconceptionsDetected,
+          flashcardsCreated: values.flashcardsCreated,
+          summaryText: values.summaryText,
+          updatedAt: now,
+        },
+      })
+      .returning();
 
-  if (!row) {
-    throw new Error("Failed to create session summary.");
+    if (!row) {
+      throw new Error("Failed to create session summary.");
+    }
+
+    return mapSessionSummaryRow(row);
+  } catch (error) {
+    if (isMissingSessionSummarySchemaError(error)) {
+      console.warn(
+        "[database] session_summaries schema is missing; skipping session summary write"
+      );
+      return null;
+    }
+
+    throw error;
   }
-
-  return mapSessionSummaryRow(row);
 }
 
 export async function listSessionSummariesForUser(
   input: ListSessionSummariesForUserInput
 ): Promise<SessionSummaryRecord[]> {
-  const rows = await db
-    .select()
-    .from(sessionSummary)
-    .where(
-      and(
-        eq(sessionSummary.userId, input.userId),
-        input.workspaceId
-          ? eq(sessionSummary.workspaceId, input.workspaceId)
-          : undefined,
-        input.chatId ? eq(sessionSummary.chatId, input.chatId) : undefined
+  try {
+    const rows = await db
+      .select()
+      .from(sessionSummary)
+      .where(
+        and(
+          eq(sessionSummary.userId, input.userId),
+          input.workspaceId
+            ? eq(sessionSummary.workspaceId, input.workspaceId)
+            : undefined,
+          input.chatId ? eq(sessionSummary.chatId, input.chatId) : undefined
+        )
       )
-    )
-    .orderBy(desc(sessionSummary.endedAt), desc(sessionSummary.createdAt))
-    .limit(Math.max(1, input.limit ?? DEFAULT_SESSION_SUMMARY_LIMIT));
+      .orderBy(desc(sessionSummary.endedAt), desc(sessionSummary.createdAt))
+      .limit(Math.max(1, input.limit ?? DEFAULT_SESSION_SUMMARY_LIMIT));
 
-  return rows.map(mapSessionSummaryRow);
+    return rows.map(mapSessionSummaryRow);
+  } catch (error) {
+    if (isMissingSessionSummarySchemaError(error)) {
+      return [];
+    }
+
+    throw error;
+  }
 }
 
 export async function getLatestSessionSummaryForChat(
   chatId: string
 ): Promise<SessionSummaryRecord | null> {
-  const [row] = await db
-    .select()
-    .from(sessionSummary)
-    .where(eq(sessionSummary.chatId, normalizeRequiredText(chatId, "chatId", 120)))
-    .orderBy(desc(sessionSummary.endedAt), desc(sessionSummary.createdAt))
-    .limit(1);
+  try {
+    const [row] = await db
+      .select()
+      .from(sessionSummary)
+      .where(
+        eq(sessionSummary.chatId, normalizeRequiredText(chatId, "chatId", 120))
+      )
+      .orderBy(desc(sessionSummary.endedAt), desc(sessionSummary.createdAt))
+      .limit(1);
 
-  return row ? mapSessionSummaryRow(row) : null;
+    return row ? mapSessionSummaryRow(row) : null;
+  } catch (error) {
+    if (isMissingSessionSummarySchemaError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+export async function getLatestSessionSummaryForWorkspace(input: {
+  userId: string;
+  workspaceId: string;
+}): Promise<SessionSummaryRecord | null> {
+  try {
+    const [row] = await db
+      .select()
+      .from(sessionSummary)
+      .where(
+        and(
+          eq(sessionSummary.userId, input.userId),
+          eq(sessionSummary.workspaceId, input.workspaceId)
+        )
+      )
+      .orderBy(desc(sessionSummary.endedAt), desc(sessionSummary.createdAt))
+      .limit(1);
+
+    return row ? mapSessionSummaryRow(row) : null;
+  } catch (error) {
+    if (isMissingSessionSummarySchemaError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
 }
 
 export async function getRecentRelevantSessionSummary(
@@ -211,26 +307,37 @@ export async function getRecentRelevantSessionSummary(
 ): Promise<SessionSummaryRecord | null> {
   const normalizedSubject = normalizeText(input.subject, 120);
 
-  const [row] = await db
-    .select()
-    .from(sessionSummary)
-    .where(
-      and(
-        eq(sessionSummary.userId, input.userId),
-        input.workspaceId
-          ? eq(sessionSummary.workspaceId, input.workspaceId)
-          : undefined,
-        input.chatId ? eq(sessionSummary.chatId, input.chatId) : undefined,
-        normalizedSubject
-          ? or(
-              eq(sessionSummary.subject, normalizedSubject),
-              ilike(sessionSummary.summaryText, `%${normalizedSubject}%`)
-            )
-          : undefined
+  try {
+    const [row] = await db
+      .select()
+      .from(sessionSummary)
+      .where(
+        and(
+          eq(sessionSummary.userId, input.userId),
+          input.workspaceId
+            ? eq(sessionSummary.workspaceId, input.workspaceId)
+            : undefined,
+          input.chatId ? eq(sessionSummary.chatId, input.chatId) : undefined,
+          normalizedSubject
+            ? or(
+                eq(
+                  normalizedSubjectExpression(sessionSummary.subject),
+                  normalizedSubject.toLowerCase().replace(/[_\s]+/g, " ")
+                ),
+                ilike(sessionSummary.summaryText, `%${normalizedSubject}%`)
+              )
+            : undefined
+        )
       )
-    )
-    .orderBy(desc(sessionSummary.endedAt), desc(sessionSummary.createdAt))
-    .limit(1);
+      .orderBy(desc(sessionSummary.endedAt), desc(sessionSummary.createdAt))
+      .limit(1);
 
-  return row ? mapSessionSummaryRow(row) : null;
+    return row ? mapSessionSummaryRow(row) : null;
+  } catch (error) {
+    if (isMissingSessionSummarySchemaError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
 }

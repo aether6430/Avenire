@@ -3,6 +3,7 @@ import {
   apollo,
   generateText,
   streamText,
+  validateWorkspaceFileCitations,
 } from "@avenire/ai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -53,6 +54,24 @@ function summaryResponse(summary: string, stream?: boolean) {
 function toPositiveInt(value: string | undefined, fallback: number): number {
   const parsed = Number.parseInt(value ?? "", 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function flagInvalidCitations(input: {
+  allowedFileIds: string[];
+  text: string;
+}) {
+  const validation = validateWorkspaceFileCitations({
+    allowedFileIds: input.allowedFileIds,
+    text: input.text,
+  });
+
+  if (!validation.valid) {
+    console.warn("[api/retrieval/summary] Invalid workspace-file citations", {
+      invalidFileIds: validation.invalidFileIds,
+    });
+  }
+
+  return validation;
 }
 
 export async function POST(request: Request) {
@@ -309,6 +328,12 @@ export async function POST(request: Request) {
         ],
         temperature: 0.2,
         maxOutputTokens: 220,
+        onFinish: ({ text }) => {
+          flagInvalidCitations({
+            allowedFileIds: fileIds,
+            text,
+          });
+        },
       });
 
       void apiLogger.requestSucceeded(200, {
@@ -348,6 +373,10 @@ export async function POST(request: Request) {
     });
     const generationLatencyMs = Math.round(performance.now() - generationStartedAt);
     const summary = text.trim() || FALLBACK_SUMMARY;
+    flagInvalidCitations({
+      allowedFileIds: fileIds,
+      text: summary,
+    });
 
     void apiLogger.requestSucceeded(200, {
       workspaceUuid: parsed.data.workspaceUuid,
