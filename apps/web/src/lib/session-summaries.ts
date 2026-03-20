@@ -1,17 +1,14 @@
 import { generateText, Output } from "@avenire/ai";
 import type { UIMessage } from "@avenire/ai/message-types";
 import { apollo } from "@avenire/ai/models";
-import { normalizeSubjectLabel } from "@/lib/subject-detection";
 import {
   createSessionSummary,
-  getLatestSessionSummaryForChat,
-  getLatestSessionSummaryForWorkspace,
-  getRecentRelevantSessionSummary,
   listSessionSummariesForUser,
-  upsertMisconception,
   type SessionSummaryRecord,
+  upsertMisconception,
 } from "@avenire/database";
 import { z } from "zod";
+import { normalizeSubjectLabel } from "@/lib/subject-detection";
 
 const DEFAULT_SESSION_INACTIVITY_WINDOW_MS = 30 * 60 * 1000;
 // Keep the session-summary pass cheap; this is the truncation/summarization step,
@@ -20,24 +17,30 @@ const SUMMARY_MODEL = "apollo-sprint";
 const MAX_SUMMARY_LIST_ITEMS = 12;
 const MAX_MISCONCEPTION_CANDIDATES = 3;
 const MIN_AUTOMATIC_MISCONCEPTION_CONFIDENCE = 0.8;
+const MAX_MISCONCEPTION_CONCEPT_LENGTH = 180;
+const MAX_MISCONCEPTION_REASON_LENGTH = 600;
+const MAX_MISCONCEPTION_SUBJECT_LENGTH = 120;
+const MAX_MISCONCEPTION_TOPIC_LENGTH = 120;
 
 const misconceptionCandidateSchema = z.object({
   confidence: z.number().min(0).max(1),
-  concept: z.string().min(1).max(180),
-  reason: z.string().min(1).max(600),
-  subject: z.string().min(1).max(120),
-  topic: z.string().min(1).max(120),
+  concept: z.string().min(1),
+  reason: z.string().min(1),
+  subject: z.string().min(1),
+  topic: z.string().min(1),
 });
 
 const summaryOutputSchema = z.object({
   conceptsCovered: z.array(z.string().min(1)).max(MAX_SUMMARY_LIST_ITEMS),
-  misconceptionsDetected: z.array(z.string().min(1)).max(MAX_SUMMARY_LIST_ITEMS),
+  misconceptionsDetected: z
+    .array(z.string().min(1))
+    .max(MAX_SUMMARY_LIST_ITEMS),
   misconceptionCandidates: z
     .array(misconceptionCandidateSchema)
     .max(MAX_MISCONCEPTION_CANDIDATES),
-  subject: z.string().min(1).max(120).nullable(),
+  subject: z.string().min(1).nullable(),
   subjectConfidence: z.number().min(0).max(1).nullable(),
-  summaryText: z.string().min(1).max(1200),
+  summaryText: z.string().min(1),
 });
 
 type ToolPart = Extract<UIMessage["parts"][number], { type: `tool-${string}` }>;
@@ -50,6 +53,39 @@ export interface SessionWindow {
 
 function normalizeText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeBoundedText(value: string, maxLength: number) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error("Expected non-empty text.");
+  }
+
+  return trimmed.slice(0, maxLength);
+}
+
+function normalizeMisconceptionCandidate(
+  candidate: z.infer<typeof misconceptionCandidateSchema>
+) {
+  return {
+    confidence: Math.min(1, Math.max(0, candidate.confidence)),
+    concept: normalizeBoundedText(
+      candidate.concept,
+      MAX_MISCONCEPTION_CONCEPT_LENGTH
+    ),
+    reason: normalizeBoundedText(
+      candidate.reason,
+      MAX_MISCONCEPTION_REASON_LENGTH
+    ),
+    subject: normalizeBoundedText(
+      candidate.subject,
+      MAX_MISCONCEPTION_SUBJECT_LENGTH
+    ),
+    topic: normalizeBoundedText(
+      candidate.topic,
+      MAX_MISCONCEPTION_TOPIC_LENGTH
+    ),
+  };
 }
 
 function extractMessageText(message: UIMessage) {
@@ -320,6 +356,7 @@ export async function persistSessionSummaryForCompletedTurn(input: {
         : "Misconceptions already detected by tools: none",
       "For subject, use an established subject label such as Mathematics, Physics, Chemistry, Biology, Computer Science, History, Literature, or Economics.",
       "If the subject is mixed or unclear, still return the dominant subject with a lower confidence score.",
+      "For misconceptionCandidates, keep concept labels short and specific, ideally under 180 characters, and keep subject/topic labels concise.",
       "For misconceptionCandidates, return objects with concept, subject, topic, reason, and confidence.",
       "Session transcript:",
       transcript,
@@ -327,9 +364,12 @@ export async function persistSessionSummaryForCompletedTurn(input: {
   });
 
   const detectedSubject = normalizeSubjectLabel(result.output.subject);
+  const normalizedCandidates = result.output.misconceptionCandidates.map(
+    normalizeMisconceptionCandidate
+  );
 
   await persistAutomaticMisconceptions({
-    candidates: result.output.misconceptionCandidates,
+    candidates: normalizedCandidates,
     endedAt: input.endedAt,
     userId: input.userId,
     workspaceId: input.workspaceId,
@@ -419,10 +459,3 @@ export function buildRecentSessionSummaryContext(
     .filter(Boolean)
     .join(" ");
 }
-
-export {
-  getLatestSessionSummaryForChat,
-  getLatestSessionSummaryForWorkspace,
-  getRecentRelevantSessionSummary,
-  listSessionSummariesForUser,
-};

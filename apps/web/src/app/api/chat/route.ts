@@ -16,6 +16,10 @@ import { auth } from "@avenire/auth/server";
 import { headers } from "next/headers";
 import { after, NextResponse } from "next/server";
 import { createResumableStreamContext } from "resumable-stream";
+import {
+  getLatestSessionSummaryForChat,
+  getRecentRelevantSessionSummary,
+} from "@avenire/database";
 import { consumeChatUnits } from "@/lib/billing";
 import {
   createChatForUser,
@@ -41,8 +45,6 @@ import { normalizeMediaType } from "@/lib/media-type";
 import { createApiLogger } from "@/lib/observability";
 import {
   buildRecentSessionSummaryContext,
-  getLatestSessionSummaryForChat,
-  getRecentRelevantSessionSummary,
   getWorkspaceSubjectSummary,
   persistSessionSummaryForCompletedTurn,
 } from "@/lib/session-summaries";

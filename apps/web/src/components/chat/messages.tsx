@@ -26,8 +26,8 @@ interface MessagesProps {
   sendMessage: UseChatHelpers<UIMessage>["sendMessage"];
   setMessages: UseChatHelpers<UIMessage>["setMessages"];
   status: UseChatHelpers<UIMessage>["status"];
-  workspaceUuid: string;
   userName?: string;
+  workspaceUuid: string;
 }
 
 type MessageErrorType =
@@ -58,6 +58,31 @@ const categorizeError = (error: Error): MessageErrorType => {
   return "UNKNOWN_ERROR";
 };
 
+const getMessageSignature = (message: UIMessage) => {
+  const lastPart = message.parts?.at(-1);
+  return [
+    message.id,
+    message.role,
+    message.parts?.length ?? 0,
+    lastPart?.type ?? "",
+    lastPart && "text" in lastPart ? (lastPart.text ?? "") : "",
+    lastPart && "state" in lastPart ? (lastPart.state ?? "") : "",
+  ].join("|");
+};
+
+const haveMessagesChanged = (
+  prevMessages: UseChatHelpers<UIMessage>["messages"],
+  nextMessages: UseChatHelpers<UIMessage>["messages"]
+) => {
+  if (prevMessages.length !== nextMessages.length) {
+    return true;
+  }
+  return prevMessages.some(
+    (message, index) =>
+      getMessageSignature(message) !== getMessageSignature(nextMessages[index])
+  );
+};
+
 function PureMessages({
   addToolApprovalResponse,
   agentActivity,
@@ -75,10 +100,16 @@ function PureMessages({
   messagesEndRef,
   isEmpty,
 }: MessagesProps) {
+  const isCenteredEmptyState = isEmpty && messages.length === 0;
+
   return (
     <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div
-        className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-y-contain px-2 pt-24 pb-8 md:px-0 md:pt-5 md:pb-6"
+        className={
+          isCenteredEmptyState
+            ? "relative flex h-full min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-y-contain px-2 py-8 md:px-0 md:py-10"
+            : "relative flex h-full min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-y-contain px-2 pt-24 pb-8 md:px-0 md:pt-5 md:pb-6"
+        }
         ref={messagesContainerRef}
       >
         {error && (
@@ -100,7 +131,11 @@ function PureMessages({
             </CardContent>
           </Card>
         )}
-        {isEmpty && <Overview userName={userName} />}
+        {isEmpty && (
+          <div className="flex flex-1 items-center justify-center">
+            <Overview userName={userName} />
+          </div>
+        )}
 
         {messages.map((message, index) => {
           const isLast = messages.length - 1 === index;
@@ -148,42 +183,8 @@ export const Messages = memo(PureMessages, (prevProps, nextProps) => {
   if (prevProps.status !== nextProps.status) {
     return false;
   }
-  const prevMessages = prevProps.messages;
-  const nextMessages = nextProps.messages;
-  if (prevMessages.length !== nextMessages.length) {
-    return false;
-  }
-  for (let index = 0; index < nextMessages.length; index += 1) {
-    const prevMessage = prevMessages[index];
-    const nextMessage = nextMessages[index];
-    const prevParts = prevMessage.parts ?? [];
-    const nextParts = nextMessage.parts ?? [];
-    const prevLast = prevParts.at(-1);
-    const nextLast = nextParts.at(-1);
-
-    const prevSignature = [
-      prevMessage.id,
-      prevMessage.role,
-      prevParts.length,
-      prevLast?.type ?? "",
-      prevLast && "text" in prevLast ? (prevLast.text ?? "") : "",
-      prevLast && "state" in prevLast ? (prevLast.state ?? "") : "",
-    ].join("|");
-    const nextSignature = [
-      nextMessage.id,
-      nextMessage.role,
-      nextParts.length,
-      nextLast?.type ?? "",
-      nextLast && "text" in nextLast ? (nextLast.text ?? "") : "",
-      nextLast && "state" in nextLast ? (nextLast.state ?? "") : "",
-    ].join("|");
-
-    if (prevSignature !== nextSignature) {
-      return false;
-    }
-  }
   if (prevProps.workspaceUuid !== nextProps.workspaceUuid) {
     return false;
   }
-  return true;
+  return !haveMessagesChanged(prevProps.messages, nextProps.messages);
 });

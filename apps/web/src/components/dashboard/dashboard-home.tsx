@@ -340,7 +340,7 @@ export function DashboardHome({
           />
         </div>
 
-        <div className="grid w-full gap-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+        <div className="grid w-full gap-2 sm:grid-cols-2 md:grid-cols-3 lg:auto-cols-fr lg:grid-flow-col lg:grid-cols-none">
           <div className="flex min-w-0">
             <QuickCaptureDialog
               initialKind="task"
@@ -433,13 +433,13 @@ export function DashboardHome({
         </div>
 
         <div className="rounded-xl border border-border/70 bg-muted/20 px-4 py-4">
-          <p className="text-muted-foreground text-sm">
+          <p className="text-center text-muted-foreground text-sm">
             Hey {userName ?? "there"}! Welcome back!
           </p>
         </div>
 
-        <div className="grid items-stretch gap-4 xl:grid-cols-[minmax(18rem,0.92fr)_minmax(0,1.08fr)]">
-          <Card className="flex h-full min-h-[34rem] flex-col overflow-hidden">
+        <div className="grid items-stretch gap-4 xl:grid-cols-[minmax(16rem,0.6fr)_minmax(0,1.4fr)]">
+          <Card className="flex h-full min-h-[30rem] flex-col overflow-hidden">
             <CardContent className="min-h-0 flex-1 overflow-y-auto pt-4">
               <Tabs className="space-y-4" defaultValue="tasks">
                 <TabsList className="grid w-full grid-cols-2">

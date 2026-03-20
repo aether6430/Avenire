@@ -11,7 +11,7 @@ export const Overview = ({ userName }: { userName?: string }) => {
       transition={{ duration: 0.18, ease: "easeOut" }}
     >
       <div className="mx-auto max-w-xl rounded-xl px-5 py-5 text-center">
-        <h1 className="whitespace-nowrap pb-2 font-bold text-4xl leading-none tracking-tight text-foreground sm:text-5xl lg:text-6xl">
+        <h1 className="whitespace-nowrap pb-2 font-bold text-4xl text-foreground leading-none tracking-tight sm:text-5xl lg:text-6xl">
           {userName ? `Hey ${userName}!` : "hey there"}
         </h1>
       </div>

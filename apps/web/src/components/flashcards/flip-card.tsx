@@ -39,7 +39,7 @@ export function FlashcardFlipCard({
       >
         <div
           className={cn(
-            "relative h-full min-h-[22rem] rounded-xl border border-border/80 bg-card shadow-[0_18px_50px_rgba(0,0,0,0.22)] transition-transform duration-500 [transform-style:preserve-3d]",
+            "relative h-full min-h-[22rem] rounded-[1.5rem] border border-border/70 bg-card/95 transition-transform duration-500 [transform-style:preserve-3d]",
             surfaceClassName,
             flipped && "[transform:rotateY(180deg)]"
           )}
@@ -77,7 +77,7 @@ function CardFace({
   return (
     <div
       className={cn(
-        "absolute inset-0 flex h-full flex-col justify-between gap-6 rounded-xl bg-card px-5 py-5 [backface-visibility:hidden]",
+        "absolute inset-0 flex h-full flex-col justify-between gap-6 rounded-[1.5rem] bg-card px-5 py-5 [backface-visibility:hidden]",
         reverse && "[backface-visibility:hidden]",
         className
       )}

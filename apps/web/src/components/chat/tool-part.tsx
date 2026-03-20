@@ -1,14 +1,13 @@
 "use client";
 
 import type { UIMessage } from "@avenire/ai/message-types";
-import { ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
 import { motion } from "motion/react";
 import { type ReactNode, useState } from "react";
 import {
   type ActivityAction,
   RollingAgentActivity,
 } from "@/components/chat/rolling-tool-activity";
-import { FlashcardFlipCard } from "@/components/flashcards/flip-card";
+import { FlashcardDeckStack } from "@/components/flashcards/deck-stack";
 import { cn } from "@/lib/utils";
 
 type ToolPart = Extract<UIMessage["parts"][number], { type: `tool-${string}` }>;
@@ -169,120 +168,34 @@ function FlashcardDeckComponent({
   setId: string;
   title: string;
 }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [flipped, setFlipped] = useState(false);
+  if (cards.length === 0) {
+    return (
+      <p className="font-mono text-[11px] text-foreground/28">
+        No cards generated
+      </p>
+    );
+  }
 
-  const currentCard = cards[currentIndex];
-  const hasMultipleCards = cards.length > 1;
-
-  const goToPrev = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-      setFlipped(false);
-    }
-  };
-
-  const goToNext = () => {
-    if (currentIndex < cards.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-      setFlipped(false);
-    }
-  };
-
-  const reset = () => {
-    setCurrentIndex(0);
-    setFlipped(false);
-  };
+  const deckCards = cards.map((card, index) => ({
+    back: <MarkdownContent content={card.backMarkdown} />,
+    front: <MarkdownContent content={card.frontMarkdown} />,
+    id: `${setId}:${index}:${card.frontMarkdown.slice(
+      0,
+      24
+    )}:${card.backMarkdown.slice(0, 24)}`,
+    title,
+  }));
 
   return (
-    <div className="mb-2 space-y-2">
-      <div className="flex items-baseline gap-2">
-        <span className="font-semibold text-foreground/72 text-sm">
-          {title}
-        </span>
-        <span className="font-mono text-[11px] text-foreground/28">
-          {cards.length} cards
-        </span>
-        <a
-          className="font-mono text-[11px] text-foreground/40 underline underline-offset-2 hover:text-foreground/60"
-          href={`/workspace/flashcards/${setId}`}
-        >
-          open set
-        </a>
-      </div>
-
-      {cards.length > 0 ? (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between font-mono text-[11px] text-foreground/28">
-            <span>
-              Card {currentIndex + 1} of {cards.length}
-            </span>
-            <button
-              className="flex items-center gap-1 text-foreground/40 hover:text-foreground/60"
-              onClick={reset}
-              type="button"
-            >
-              <RotateCcw className="size-3" />
-              Reset
-            </button>
-          </div>
-
-          <div className="relative">
-            <FlashcardFlipCard
-              back={<MarkdownContent content={currentCard.backMarkdown} />}
-              flipped={flipped}
-              front={<MarkdownContent content={currentCard.frontMarkdown} />}
-              onFlippedChange={setFlipped}
-            />
-
-            {hasMultipleCards && (
-              <>
-                <button
-                  className="absolute top-1/2 left-2 -translate-y-1/2 rounded-full bg-background/90 p-1.5 shadow-md transition-colors hover:bg-background/100 disabled:opacity-30"
-                  disabled={currentIndex === 0}
-                  onClick={goToPrev}
-                  type="button"
-                >
-                  <ChevronLeft className="size-4" />
-                </button>
-                <button
-                  className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-background/90 p-1.5 shadow-md transition-colors hover:bg-background/100 disabled:opacity-30"
-                  disabled={currentIndex === cards.length - 1}
-                  onClick={goToNext}
-                  type="button"
-                >
-                  <ChevronRight className="size-4" />
-                </button>
-              </>
-            )}
-          </div>
-
-          {hasMultipleCards && (
-            <div className="flex justify-center gap-1">
-              {cards.map((_, index) => (
-                <button
-                  className={cn(
-                    "h-1.5 rounded-full transition-all",
-                    index === currentIndex
-                      ? "w-6 bg-primary"
-                      : "w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/50"
-                  )}
-                  key={index}
-                  onClick={() => {
-                    setCurrentIndex(index);
-                    setFlipped(false);
-                  }}
-                  type="button"
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      ) : (
-        <p className="font-mono text-[11px] text-foreground/28">
-          No cards generated
-        </p>
-      )}
+    <div className="mb-2">
+      <FlashcardDeckStack
+        autoAdvanceMs={3800}
+        cards={deckCards}
+        className="max-w-[28rem]"
+        deckLabel={title}
+        showCounter
+        showDeckLabel
+      />
     </div>
   );
 }
@@ -425,7 +338,6 @@ export function ChatToolPart({ part }: { part: ToolPart }) {
       />
     );
   }
-
 
   if (part.state !== "output-available") {
     return (

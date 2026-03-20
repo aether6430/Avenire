@@ -49,7 +49,6 @@ import {
   Waves,
 } from "lucide-react";
 import type { Route } from "next";
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   type ComponentProps,
@@ -79,8 +78,8 @@ import {
   type ChatStreamStatusDetail,
 } from "@/lib/chat-events";
 import { isChatIconName } from "@/lib/chat-icons";
-import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
 import { commandPaletteActions } from "@/stores/commandPaletteStore";
+import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
 import { useFilesPinsStore } from "@/stores/filesPinsStore";
 import { filesUiActions, useFilesUiStore } from "@/stores/filesUiStore";
 
@@ -571,7 +570,7 @@ export function DashboardSidebar({
   const sessionCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
-  let routeView: "chat" | "flashcards" | "files" | null = null;
+  let routeView: "chat" | "flashcards" | "files" | "workspace" | null = null;
   if (pathname.startsWith("/workspace/flashcards")) {
     routeView = "flashcards";
   } else if (pathname.startsWith("/workspace/files")) {
@@ -579,9 +578,10 @@ export function DashboardSidebar({
   } else if (isChatsRoute) {
     routeView = "chat";
   } else if (pathname === "/workspace") {
-    routeView = "chat";
+    routeView = "workspace";
   }
   const activeView = routeView;
+  const activeTabValue = activeView === "workspace" ? null : activeView;
   const closeMobileSidebar = useCallback(() => {
     setOpenMobile(false);
   }, [setOpenMobile]);
@@ -2095,7 +2095,10 @@ export function DashboardSidebar({
                 if (!nextValue) {
                   return;
                 }
-                const nextView = nextValue as "chat" | "flashcards" | "files";
+                const nextView = nextValue as
+                  | "chat"
+                  | "flashcards"
+                  | "files";
                 if (nextView === activeView) {
                   return;
                 }
@@ -2131,11 +2134,54 @@ export function DashboardSidebar({
                 }
               }}
               persistenceKey="dashboard-workspace-tabs"
-              value={activeView}
+              value={activeTabValue}
             />
           </SidebarGroup>
           <div className="relative min-h-0 flex-1 overflow-hidden">
-            {activeView === "chat" ? (
+            {activeView === "workspace" ? (
+              <div className="absolute inset-0 overflow-y-auto px-2 py-2">
+                <SidebarGroup>
+                  <SidebarGroupLabel>Workspace Home</SidebarGroupLabel>
+                  <SidebarGroupContent>
+                    <p className="px-2 pb-2 text-muted-foreground text-xs leading-relaxed">
+                      Pick a surface to continue. This home view keeps the
+                      workspace shell visible without pretending to be chat.
+                    </p>
+                    <SidebarMenu>
+                      <SectionButton
+                        icon={MessageSquare}
+                        label="Open Chat"
+                        onClick={() => {
+                          const chatSlug = activeChatSlug || chats[0]?.slug;
+                          closeMobileSidebar();
+                          if (chatSlug) {
+                            navigate(`/workspace/chats/${chatSlug}` as Route);
+                            return;
+                          }
+                          navigate("/workspace/chats" as Route);
+                        }}
+                      />
+                      <SectionButton
+                        icon={Sparkles}
+                        label="Open Flashcards"
+                        onClick={() => {
+                          closeMobileSidebar();
+                          navigate("/workspace/flashcards" as Route);
+                        }}
+                      />
+                      <SectionButton
+                        icon={Files}
+                        label="Open Files"
+                        onClick={() => {
+                          closeMobileSidebar();
+                          void navigateToFilesRoot();
+                        }}
+                      />
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </SidebarGroup>
+              </div>
+            ) : activeView === "chat" ? (
               <div className="absolute inset-0 overflow-y-auto">
                 <SidebarGroup>
                   <SidebarGroupContent>
@@ -2167,6 +2213,7 @@ export function DashboardSidebar({
                   chats={filteredPinnedChats}
                   editingChatSlug={editingChatSlug}
                   editingTitle={editingTitle}
+                  hideWhenEmpty
                   onCancelRename={() => {
                     setEditingChatSlug(null);
                     setEditingTitle("");
@@ -2195,7 +2242,6 @@ export function DashboardSidebar({
                     void updateChat(chatSlug, { pinned });
                   }}
                   pendingChatSlug={pendingChatSlug}
-                  hideWhenEmpty
                   title="Pinned Chats"
                 />
 

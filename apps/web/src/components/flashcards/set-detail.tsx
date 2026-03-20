@@ -2,7 +2,6 @@
 
 import { Badge } from "@avenire/ui/components/badge";
 import { Button } from "@avenire/ui/components/button";
-import { Calendar, CalendarDayButton } from "@avenire/ui/components/calendar";
 import {
   Card,
   CardContent,
@@ -30,34 +29,18 @@ import {
   TableHeader,
   TableRow,
 } from "@avenire/ui/components/table";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@avenire/ui/components/tabs";
 import { Textarea } from "@avenire/ui/components/textarea";
 import { cn } from "@avenire/ui/lib/utils";
-import {
-  BookOpenCheck,
-  CalendarRange,
-  Clock3,
-  Layers3,
-  Pause,
-  Pencil,
-  Plus,
-  Sparkles,
-  Trash2,
-} from "lucide-react";
-import { useDeferredValue, useEffect, useRef, useState } from "react";
+import { BookOpenCheck, Pause, Pencil, Plus, Trash2 } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { useDeferredValue, useEffect, useRef, useState } from "react";
 import { Markdown } from "@/components/chat/markdown";
-import { FlashcardFlipCard } from "@/components/flashcards/flip-card";
 import { WorkspaceHeader } from "@/components/dashboard/workspace-header";
+import { FlashcardDeckStack } from "@/components/flashcards/deck-stack";
 import type {
   FlashcardCardRecord,
   FlashcardDisplayState,
-  FlashcardReviewEventRecord,
+  FlashcardEnrollmentStatus,
   FlashcardReviewQueueItem,
   FlashcardSetRecord,
   FlashcardTaxonomy,
@@ -65,11 +48,6 @@ import type {
 import { useWorkspaceHistoryStore } from "@/stores/workspaceHistoryStore";
 
 type Rating = "again" | "hard" | "good" | "easy";
-interface CalendarRangeValue {
-  from: Date | undefined;
-  to?: Date;
-}
-
 const REVIEW_ADVANCE_DELAY_MS = 500;
 
 const STATE_LABELS: Record<FlashcardDisplayState, string> = {
@@ -98,70 +76,12 @@ const STATE_STYLES: Record<FlashcardDisplayState, string> = {
     "border-teal-200/70 bg-teal-100/70 text-teal-700 dark:border-teal-400/30 dark:bg-teal-500/10 dark:text-teal-200",
 };
 
-const DAY_FORMATTER = new Intl.DateTimeFormat("en-US", {
-  day: "numeric",
-  month: "short",
-});
-
-const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("en-US", {
-  day: "numeric",
-  hour: "numeric",
-  minute: "2-digit",
-  month: "short",
-});
-
-function startOfUtcDay(date: Date) {
-  return new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
-  );
-}
-
-function addUtcDays(date: Date, days: number) {
-  return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
-}
-
-function toDayKey(date: Date) {
-  return startOfUtcDay(date).toISOString().slice(0, 10);
-}
-
-function parseDayKey(dayKey: string) {
-  return new Date(`${dayKey}T00:00:00.000Z`);
-}
-
 function readTaxonomyField(
   source: Record<string, unknown>,
   key: "subject" | "topic" | "concept"
 ) {
   const value = source[key];
   return typeof value === "string" ? value : "";
-}
-
-function rangeLabel(range: CalendarRangeValue | undefined) {
-  const resolved = resolveRange(range);
-  return `${DAY_FORMATTER.format(resolved.from)} - ${DAY_FORMATTER.format(resolved.to)}`;
-}
-
-function resolveRange(range: CalendarRangeValue | undefined) {
-  const fallbackFrom = startOfUtcDay(new Date());
-  const from = startOfUtcDay(range?.from ?? fallbackFrom);
-  const to = startOfUtcDay(range?.to ?? range?.from ?? addUtcDays(from, 13));
-
-  return {
-    from: from.getTime() <= to.getTime() ? from : to,
-    to: from.getTime() <= to.getTime() ? to : from,
-  };
-}
-
-function buildReviewedToday(events: FlashcardReviewEventRecord[]) {
-  const latestByCard = new Map<string, FlashcardReviewEventRecord>();
-
-  for (const event of events) {
-    if (!latestByCard.has(event.flashcardId)) {
-      latestByCard.set(event.flashcardId, event);
-    }
-  }
-
-  return Array.from(latestByCard.values());
 }
 
 function stateBadge(state: FlashcardDisplayState) {
@@ -177,80 +97,6 @@ function stateBadge(state: FlashcardDisplayState) {
   );
 }
 
-function buildDayStats(set: FlashcardSetRecord) {
-  const stats = new Map<string, { due: number; studied: number }>();
-
-  for (const snapshot of set.cardSnapshots) {
-    if (
-      !snapshot.dueAt ||
-      snapshot.displayState === "killed" ||
-      snapshot.displayState === "suspended"
-    ) {
-      continue;
-    }
-
-    const dayKey = toDayKey(new Date(snapshot.dueAt));
-    const existing = stats.get(dayKey) ?? { due: 0, studied: 0 };
-    existing.due += 1;
-    stats.set(dayKey, existing);
-  }
-
-  for (const event of set.reviewEventsToday) {
-    const dayKey = toDayKey(new Date(event.reviewedAt));
-    const existing = stats.get(dayKey) ?? { due: 0, studied: 0 };
-    existing.studied += 1;
-    stats.set(dayKey, existing);
-  }
-
-  return stats;
-}
-
-function buildGroupedDueCards(
-  set: FlashcardSetRecord,
-  range: { from: Date; to: Date }
-) {
-  const groups = new Map<string, (typeof set.cardSnapshots)[number][]>();
-
-  for (const snapshot of set.cardSnapshots) {
-    if (
-      !snapshot.dueAt ||
-      snapshot.displayState === "killed" ||
-      snapshot.displayState === "suspended"
-    ) {
-      continue;
-    }
-
-    const dueDay = startOfUtcDay(new Date(snapshot.dueAt));
-    if (
-      dueDay.getTime() < range.from.getTime() ||
-      dueDay.getTime() > range.to.getTime()
-    ) {
-      continue;
-    }
-
-    const dayKey = toDayKey(dueDay);
-    const existing = groups.get(dayKey) ?? [];
-    existing.push(snapshot);
-    groups.set(dayKey, existing);
-  }
-
-  return Array.from(groups.entries())
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([dayKey, cards]) => ({
-      dayKey,
-      cards: cards.slice().sort((left, right) => {
-        const dueDiff =
-          new Date(left.dueAt ?? 0).getTime() -
-          new Date(right.dueAt ?? 0).getTime();
-        if (dueDiff !== 0) {
-          return dueDiff;
-        }
-
-        return left.card.ordinal - right.card.ordinal;
-      }),
-    }));
-}
-
 function buildDrillQuery(filters: FlashcardTaxonomy[]) {
   const params = new URLSearchParams();
   for (const filter of filters) {
@@ -259,7 +105,21 @@ function buildDrillQuery(filters: FlashcardTaxonomy[]) {
   return params.toString();
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: This screen intentionally co-locates review, enrollment, editing, and calendar flows.
+function getEnrollmentLabel(
+  status: FlashcardEnrollmentStatus | null | undefined
+) {
+  if (status === "active") {
+    return "Study active";
+  }
+
+  if (status === "paused") {
+    return "Paused";
+  }
+
+  return "Not enrolled";
+}
+
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: This screen intentionally co-locates review, enrollment, editing, and card bank flows.
 export function FlashcardSetDetail({
   initialDrillFilters,
   initialQueue,
@@ -276,7 +136,6 @@ export function FlashcardSetDetail({
   const [set, setSet] = useState(initialSet);
   const [queue, setQueue] = useState(initialQueue);
   const [search, setSearch] = useState("");
-  const [tab, setTab] = useState("cards");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<FlashcardCardRecord | null>(
     null
@@ -298,12 +157,6 @@ export function FlashcardSetDetail({
   useEffect(() => {
     recordRoute(pathname);
   }, [pathname, recordRoute]);
-  const [calendarRange, setCalendarRange] = useState<
-    CalendarRangeValue | undefined
-  >({
-    from: startOfUtcDay(new Date()),
-    to: addUtcDays(startOfUtcDay(new Date()), 13),
-  });
   const [drillFilters, setDrillFilters] = useState(initialDrillFilters);
   const deferredSearch = useDeferredValue(search);
 
@@ -398,15 +251,11 @@ export function FlashcardSetDetail({
       setStudyOpen(false);
     }
   }, [activeCard, studyOpen]);
-  const reviewedToday = buildReviewedToday(set.reviewEventsToday);
-  const dayStats = buildDayStats(set);
-  const groupedDueCards = buildGroupedDueCards(
-    set,
-    resolveRange(calendarRange)
-  );
   const activeSnapshot = activeCard
     ? (snapshotByCardId.get(activeCard.card.id) ?? null)
     : null;
+  const setEnrollmentLabel = getEnrollmentLabel(set.enrollment?.status);
+  const reviewSummary = `${set.dueCount} due · ${set.newCount} new · ${set.reviewCountToday} studied today`;
 
   const loadSet = async () => {
     const response = await fetch(`/api/flashcards/sets/${set.id}`, {
@@ -589,15 +438,15 @@ export function FlashcardSetDetail({
       <div className="mx-auto flex w-full max-w-none flex-col gap-4 px-4 py-4 md:px-6">
         <WorkspaceHeader>
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-foreground">
+            <p className="truncate font-medium text-foreground text-sm">
               Flashcards
             </p>
-            <p className="truncate text-xs text-muted-foreground">
+            <p className="truncate text-muted-foreground text-xs">
               {set.title}
             </p>
           </div>
         </WorkspaceHeader>
-        <Card>
+        <Card className="shadow-none">
           <CardHeader className="gap-3 border-border/70 border-b pb-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="space-y-1.5">
@@ -663,7 +512,7 @@ export function FlashcardSetDetail({
                     <Plus className="size-4" />
                     Add Card
                   </DialogTrigger>
-                  <DialogContent largeWidth className="max-w-3xl">
+                  <DialogContent className="max-w-3xl" largeWidth>
                     <DialogHeader>
                       <DialogTitle>
                         {editingCard ? "Edit card" : "Add card"}
@@ -767,197 +616,14 @@ export function FlashcardSetDetail({
               </div>
             </div>
           </CardHeader>
-          <CardContent className="grid gap-3 md:grid-cols-4">
-            <MetricCard icon={Clock3} label="Due" value={set.dueCount} />
-            <MetricCard icon={Sparkles} label="New" value={set.newCount} />
-            <MetricCard
-              icon={BookOpenCheck}
-              label="Studied today"
-              value={set.reviewCountToday}
-            />
-            <MetricCard
-              icon={Layers3}
-              label="Last 7 days"
-              value={set.reviewCount7d}
-            />
-          </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <div className="flex flex-wrap items-center justify-between gap-3">
+        <Card className="shadow-none">
+          <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
               <p className="font-medium text-foreground text-sm">Review</p>
+              <p className="text-muted-foreground text-xs">{reviewSummary}</p>
             </div>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,16rem)]">
-            <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
-              <p className="text-muted-foreground text-xs">Ready to study</p>
-              <p className="mt-2 font-semibold text-2xl">
-                {activeCard ? activeCard.remainingDueCount + 1 : 0}
-              </p>
-              <p className="mt-2 text-muted-foreground text-xs">
-                {set.dueCount} due · {set.newCount} new
-              </p>
-            </div>
-            <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
-              <p className="text-muted-foreground text-xs">Studied today</p>
-              <p className="mt-2 font-semibold text-2xl">
-                {set.reviewCountToday}
-              </p>
-              <p className="mt-2 text-muted-foreground text-xs">
-                {set.reviewCount7d} in the last week
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Dialog onOpenChange={setStudyOpen} open={studyOpen}>
-          <DialogContent
-                  largeWidth
-                  className="h-[92vh] w-[calc(100vw-1.5rem)] overflow-hidden p-0"
-                >
-                  <div className="flex h-full flex-col bg-background">
-                    <DialogHeader className="border-border/70 border-b px-6 py-4">
-                      <DialogTitle className="text-lg">{set.title}</DialogTitle>
-                      <DialogDescription>
-                        Press space to flip. Keys 1-4 submit Again, Hard, Good,
-                        Easy.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden px-6 py-6">
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-muted-foreground text-xs">
-                        <span>
-                          Card {activeCard?.position ?? 0} ·{" "}
-                          {activeCard?.remainingDueCount ?? 0} left
-                        </span>
-                        {activeSnapshot
-                          ? stateBadge(activeSnapshot.displayState)
-                          : null}
-                      </div>
-
-                      <div className="flex flex-1 items-center justify-center overflow-y-auto py-2">
-                        {activeCard ? (
-                          <FlashcardFlipCard
-                            back={
-                              <div className="w-full space-y-5">
-                                <Markdown
-                                  className="max-w-none text-base"
-                                  content={activeCard.card.backMarkdown}
-                                  id={`study-back-${activeCard.card.id}`}
-                                  parseIncompleteMarkdown={false}
-                                />
-                                {activeCard.card.notesMarkdown ? (
-                                  <div className="rounded-md border border-border/70 bg-muted/20 p-3">
-                                    <p className="mb-2 text-[11px] text-muted-foreground">
-                                      Notes
-                                    </p>
-                                    <Markdown
-                                      className="max-w-none text-sm"
-                                      content={activeCard.card.notesMarkdown}
-                                      id={`study-notes-${activeCard.card.id}`}
-                                      parseIncompleteMarkdown={false}
-                                    />
-                                  </div>
-                                ) : null}
-                              </div>
-                            }
-                            backBodyClassName="px-10"
-                            backMeta={
-                              <div className="flex items-center justify-between gap-3">
-                                <span>
-                                  {activeSnapshot?.dueAt
-                                    ? `Due ${DATE_TIME_FORMATTER.format(
-                                        new Date(activeSnapshot.dueAt)
-                                      )}`
-                                    : "Answer"}
-                                </span>
-                                <span>{activeCard.set.title}</span>
-                              </div>
-                            }
-                            className="w-full max-w-4xl"
-                            flipped={studyRevealed}
-                            front={
-                              <div className="w-full">
-                                <Markdown
-                                  className="max-w-none text-center text-lg [&_p]:text-center"
-                                  content={activeCard.card.frontMarkdown}
-                                  id={`study-front-${activeCard.card.id}`}
-                                  parseIncompleteMarkdown={false}
-                                />
-                              </div>
-                            }
-                            frontBodyClassName="px-12 text-center"
-                            frontMeta={
-                              <div className="flex items-center justify-between gap-3">
-                                <span>
-                                  {activeSnapshot?.dueAt
-                                    ? `Due ${DATE_TIME_FORMATTER.format(
-                                        new Date(activeSnapshot.dueAt)
-                                      )}`
-                                    : "Ready to recall"}
-                                </span>
-                                <span>{activeCard.set.title}</span>
-                              </div>
-                            }
-                            onFlippedChange={setStudyRevealed}
-                            surfaceClassName="border-0 bg-background shadow-[0_18px_50px_rgba(0,0,0,0.14)]"
-                          />
-                        ) : (
-                          <div className="rounded-lg border border-border/70 border-dashed px-4 py-10 text-center text-muted-foreground text-xs">
-                            No cards are queued right now.
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Button
-                          onClick={() => setStudyRevealed((value) => !value)}
-                          type="button"
-                          variant="outline"
-                        >
-                          {studyRevealed ? "Hide answer" : "Reveal"}
-                        </Button>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <RatingButton
-                            disabled={busy || !studyRevealed}
-                            label="1 · Again"
-                            onClick={() => submitReview("again")}
-                            tone="again"
-                          />
-                          <RatingButton
-                            disabled={busy || !studyRevealed}
-                            label="2 · Hard"
-                            onClick={() => submitReview("hard")}
-                            tone="hard"
-                          />
-                          <RatingButton
-                            disabled={busy || !studyRevealed}
-                            label="3 · Good"
-                            onClick={() => submitReview("good")}
-                            tone="good"
-                          />
-                          <RatingButton
-                            disabled={busy || !studyRevealed}
-                            label="4 · Easy"
-                            onClick={() => submitReview("easy")}
-                            tone="easy"
-                          />
-                        </div>
-                        <span className="text-muted-foreground text-xs">
-                          Space to flip · 1-4 to grade
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-          </DialogContent>
-        </Dialog>
-
-        <Tabs onValueChange={setTab} value={tab}>
-          <div className="flex items-center justify-between gap-3">
-            <TabsList variant="line">
-              <TabsTrigger value="cards">Cards</TabsTrigger>
-              <TabsTrigger value="insights">Insights</TabsTrigger>
-            </TabsList>
             <Button
               disabled={!activeCard}
               onClick={() => setStudyOpen(true)}
@@ -966,368 +632,294 @@ export function FlashcardSetDetail({
             >
               {activeCard ? "Start review" : "No cards queued"}
             </Button>
+          </CardContent>
+        </Card>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl border border-border/45 bg-muted/10 px-4 py-3">
+            <p className="text-[11px] text-muted-foreground uppercase tracking-[0.18em]">
+              Deck profile
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Badge className="rounded-sm" variant="outline">
+                {set.sourceType === "ai-generated" ? "AI-generated" : "Manual"}
+              </Badge>
+              <Badge className="rounded-sm" variant="outline">
+                {setEnrollmentLabel}
+              </Badge>
+              <Badge className="rounded-sm" variant="outline">
+                {set.cardCount} cards
+              </Badge>
+            </div>
+            <p className="mt-3 text-muted-foreground text-xs">
+              {set.stateCounts.killed} killed ·{" "}
+              {set.stateCounts.learning + set.stateCounts.relearning} in
+              progress
+            </p>
           </div>
+          <div className="rounded-2xl border border-border/45 bg-muted/10 px-4 py-3">
+            <p className="text-[11px] text-muted-foreground uppercase tracking-[0.18em]">
+              Study context
+            </p>
+            <div className="mt-3 space-y-2 text-muted-foreground text-xs">
+              <p>{set.reviewCountToday} studied today</p>
+              <p>{set.reviewCount7d} reviews in the last 7 days</p>
+              <p>
+                {set.lastStudiedAt
+                  ? `Last studied ${new Date(set.lastStudiedAt).toLocaleDateString()}`
+                  : "Not studied yet"}
+              </p>
+              <p>Updated {new Date(set.updatedAt).toLocaleDateString()}</p>
+            </div>
+          </div>
+        </div>
 
-          <TabsContent value="cards">
-            <Card>
-              <CardHeader>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <CardTitle>Card bank</CardTitle>
-                    <CardDescription>
-                      Search, edit, or kill cards. State and due metadata
-                      reflect your personal scheduler state.
-                    </CardDescription>
-                  </div>
-                  <Input
-                    className="max-w-xs"
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search front, back, notes, or tags"
-                    value={search}
-                  />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[30rem] rounded-lg border border-border/70">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Card</TableHead>
-                        <TableHead>State</TableHead>
-                        <TableHead>Due</TableHead>
-                        <TableHead>Tags</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredCards.map((card) => {
-                        const snapshot = snapshotByCardId.get(card.id) ?? null;
-
-                        return (
-                          <TableRow key={card.id}>
-                            <TableCell className="align-top">
-                              <div className="space-y-2">
-                                <p className="line-clamp-2 text-foreground text-sm">
-                                  {card.frontMarkdown}
-                                </p>
-                                <p className="line-clamp-2 text-muted-foreground text-xs">
-                                  {card.backMarkdown}
-                                </p>
-                              </div>
-                            </TableCell>
-                            <TableCell className="align-top">
-                              {snapshot
-                                ? stateBadge(snapshot.displayState)
-                                : null}
-                            </TableCell>
-                            <TableCell className="align-top text-muted-foreground text-xs">
-                              {snapshot?.dueAt
-                                ? DATE_TIME_FORMATTER.format(
-                                    new Date(snapshot.dueAt)
-                                  )
-                                : "Not scheduled"}
-                            </TableCell>
-                            <TableCell className="align-top">
-                              <div className="flex flex-wrap gap-1.5">
-                                {card.tags.length > 0 ? (
-                                  card.tags.map((tag) => (
-                                    <Badge
-                                      className="rounded-sm"
-                                      key={tag}
-                                      variant="outline"
-                                    >
-                                      {tag}
-                                    </Badge>
-                                  ))
-                                ) : (
-                                  <span className="text-muted-foreground text-xs">
-                                    No tags
-                                  </span>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell className="align-top">
-                              <div className="flex gap-2">
-                                <Button
-                                  onClick={() => openEditor(card)}
-                                  size="icon-sm"
-                                  type="button"
-                                  variant="outline"
-                                >
-                                  <Pencil className="size-3.5" />
-                                </Button>
-                                <Button
-                                  onClick={() => archiveCard(card.id)}
-                                  size="icon-sm"
-                                  type="button"
-                                  variant="ghost"
-                                >
-                                  <Trash2 className="size-3.5" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="insights">
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(22rem,0.92fr)]">
-              <Card>
-                <CardHeader>
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <CardTitle>Schedule view</CardTitle>
-                      <CardDescription>
-                        The calendar marks upcoming due cards and today&apos;s
-                        study activity for this set.
-                      </CardDescription>
+        <Dialog onOpenChange={setStudyOpen} open={studyOpen}>
+          <DialogContent
+            className="h-[100dvh] w-full overflow-hidden border-border/60 bg-background p-0 sm:h-[92vh] sm:w-[min(44rem,calc(100vw-1.5rem))]"
+            largeWidth
+          >
+            <div className="relative flex h-full flex-col overflow-hidden bg-background">
+              <DialogHeader className="relative border-border/10 border-b px-4 py-4 sm:px-6 sm:py-5">
+                <div className="flex flex-wrap items-start justify-between gap-3 sm:gap-4">
+                  <div className="min-w-0 space-y-2">
+                    <span className="inline-flex items-center rounded-full border border-border/40 bg-background/75 px-3 py-1 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.24em] backdrop-blur">
+                      Review Session
+                    </span>
+                    <div className="space-y-1">
+                      <DialogTitle className="text-xl tracking-tight sm:text-2xl md:text-[2rem]">
+                        {set.title}
+                      </DialogTitle>
+                      <DialogDescription className="max-w-xl text-sm leading-snug">
+                        Press space to flip. Use 1-4 to submit Again, Hard,
+                        Good, or Easy.
+                      </DialogDescription>
                     </div>
-                    <Badge className="rounded-sm" variant="outline">
-                      <CalendarRange className="mr-1 size-3.5" />
-                      {rangeLabel(calendarRange)}
-                    </Badge>
                   </div>
-                </CardHeader>
-                <CardContent className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.9fr)]">
-                  <div className="overflow-x-auto rounded-lg border border-border/70">
-                    <Calendar
-                      className="min-w-[38rem]"
-                      components={{
-                        DayButton: (props) => {
-                          const stats = dayStats.get(toDayKey(props.day.date));
+                  <div className="hidden rounded-[1.25rem] border border-border/40 bg-background/75 px-4 py-3 text-right backdrop-blur sm:block">
+                    <p className="text-[11px] text-muted-foreground uppercase tracking-[0.22em]">
+                      Session
+                    </p>
+                    <p className="mt-1 font-medium text-foreground text-xl">
+                      {activeCard
+                        ? `${activeCard.position}/${queue.length}`
+                        : "0/0"}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {activeCard
+                        ? `${activeCard.remainingDueCount ?? 0} left`
+                        : "No cards queued"}
+                    </p>
+                  </div>
+                </div>
+              </DialogHeader>
 
-                          return (
-                            <CalendarDayButton
-                              {...props}
-                              className="items-start px-1.5 py-1"
-                            >
-                              <span>{props.day.date.getUTCDate()}</span>
-                              {stats ? (
-                                <span className="mt-auto flex w-full items-end justify-between gap-1 text-[10px] leading-none">
-                                  <span
-                                    className={cn(
-                                      "rounded-sm px-1 py-0.5",
-                                      stats.due > 0
-                                        ? "bg-primary/15 text-primary"
-                                        : "bg-transparent text-transparent"
-                                    )}
-                                  >
-                                    {stats.due > 0 ? stats.due : "0"}
-                                  </span>
-                                  {stats.studied > 0 ? (
-                                    <span className="text-muted-foreground">
-                                      {stats.studied}s
-                                    </span>
-                                  ) : null}
-                                </span>
+              <div className="relative flex min-h-0 flex-1 flex-col gap-3 px-3 py-3 sm:gap-4 sm:px-4 sm:py-4 md:px-6 md:py-6">
+                <div className="flex flex-1 items-center justify-center overflow-y-auto py-2">
+                  {activeCard ? (
+                    <div className="w-full max-w-[22rem] rounded-[1.75rem] border border-border/40 bg-white/70 p-3 backdrop-blur-sm sm:max-w-[27rem] sm:p-4 md:p-5 dark:bg-slate-950/45">
+                      <FlashcardDeckStack
+                        cards={queue.map((item) => ({
+                          back: (
+                            <div className="w-full space-y-5">
+                              <Markdown
+                                className="max-w-none text-base"
+                                content={item.card.backMarkdown}
+                                id={`study-back-${item.card.id}`}
+                                parseIncompleteMarkdown={false}
+                              />
+                              {item.card.notesMarkdown ? (
+                                <div className="rounded-2xl border border-border/60 bg-background/75 p-3">
+                                  <p className="mb-2 text-[11px] text-muted-foreground uppercase tracking-[0.18em]">
+                                    Notes
+                                  </p>
+                                  <Markdown
+                                    className="max-w-none text-sm"
+                                    content={item.card.notesMarkdown}
+                                    id={`study-notes-${item.card.id}`}
+                                    parseIncompleteMarkdown={false}
+                                  />
+                                </div>
                               ) : null}
-                            </CalendarDayButton>
-                          );
-                        },
-                      }}
-                      mode="range"
-                      numberOfMonths={2}
-                      onSelect={setCalendarRange}
-                      selected={calendarRange}
+                            </div>
+                          ),
+                          front: (
+                            <div className="w-full">
+                              <Markdown
+                                className="max-w-none text-center text-lg [&_p]:text-center"
+                                content={item.card.frontMarkdown}
+                                id={`study-front-${item.card.id}`}
+                                parseIncompleteMarkdown={false}
+                              />
+                            </div>
+                          ),
+                          id: item.card.id,
+                          title: item.set.title,
+                          meta:
+                            item === activeCard && activeSnapshot?.dueAt
+                              ? "Due now"
+                              : "Ready to recall",
+                        }))}
+                        className="w-full max-w-none"
+                        flipped={studyRevealed}
+                        onFlippedChange={setStudyRevealed}
+                        showCounter={false}
+                        showDeckLabel={false}
+                      />
+                    </div>
+                  ) : (
+                    <div className="rounded-[1.5rem] border border-border/40 border-dashed bg-background/70 px-5 py-10 text-center text-muted-foreground text-xs backdrop-blur-sm">
+                      No cards are queued right now.
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-[1.5rem] border border-border/40 bg-background/75 p-3 backdrop-blur-sm md:p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <Button
+                      className="rounded-full"
+                      onClick={() => setStudyRevealed((value) => !value)}
+                      type="button"
+                      variant="outline"
+                    >
+                      {studyRevealed ? "Hide answer" : "Reveal answer"}
+                    </Button>
+                    <span className="hidden text-muted-foreground text-xs sm:inline">
+                      Space to flip · 1-4 to grade
+                    </span>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-4">
+                    <RatingButton
+                      disabled={busy || !studyRevealed}
+                      label="1 · Again"
+                      onClick={() => submitReview("again")}
+                      tone="again"
+                    />
+                    <RatingButton
+                      disabled={busy || !studyRevealed}
+                      label="2 · Hard"
+                      onClick={() => submitReview("hard")}
+                      tone="hard"
+                    />
+                    <RatingButton
+                      disabled={busy || !studyRevealed}
+                      label="3 · Good"
+                      onClick={() => submitReview("good")}
+                      tone="good"
+                    />
+                    <RatingButton
+                      disabled={busy || !studyRevealed}
+                      label="4 · Easy"
+                      onClick={() => submitReview("easy")}
+                      tone="easy"
                     />
                   </div>
-
-                  <ScrollArea className="h-[25rem] rounded-lg border border-border/70">
-                    <div className="space-y-3 p-3">
-                      {groupedDueCards.length === 0 ? (
-                        <div className="rounded-lg border border-border/70 border-dashed px-4 py-8 text-center text-muted-foreground text-xs">
-                          No scheduled cards in this range.
-                        </div>
-                      ) : (
-                        groupedDueCards.map(({ dayKey, cards }) => (
-                          <div className="space-y-2" key={dayKey}>
-                            <div className="flex items-center justify-between">
-                              <p className="font-medium text-foreground text-sm">
-                                {DAY_FORMATTER.format(parseDayKey(dayKey))}
-                              </p>
-                              <span className="text-[11px] text-muted-foreground">
-                                {cards.length} due
-                              </span>
-                            </div>
-                            <div className="space-y-2">
-                              {cards.map((snapshot) => (
-                                <div
-                                  className="rounded-lg border border-border/70 bg-muted/20 px-3 py-3"
-                                  key={snapshot.card.id}
-                                >
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div className="min-w-0">
-                                      <p className="line-clamp-2 text-foreground text-sm">
-                                        {snapshot.card.frontMarkdown}
-                                      </p>
-                                      <p className="text-[11px] text-muted-foreground">
-                                        {snapshot.dueAt
-                                          ? DATE_TIME_FORMATTER.format(
-                                              new Date(snapshot.dueAt)
-                                            )
-                                          : "Not scheduled"}
-                                      </p>
-                                    </div>
-                                    {stateBadge(snapshot.displayState)}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </ScrollArea>
-                </CardContent>
-              </Card>
-
-              <div className="grid gap-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>State counts</CardTitle>
-                  </CardHeader>
-                  <CardContent className="grid gap-2">
-                    {(
-                      Object.entries(set.stateCounts) as [
-                        FlashcardDisplayState,
-                        number,
-                      ][]
-                    ).map(([state, count]) => (
-                      <div
-                        className={cn(
-                          "flex items-center justify-between rounded-lg border px-3 py-2",
-                          count > 0
-                            ? "border-border/70 bg-muted/20"
-                            : "border-border/40 bg-transparent opacity-55"
-                        )}
-                        key={state}
-                      >
-                        <span className="flex items-center gap-2">
-                          {stateBadge(state)}
-                          <span className="text-muted-foreground text-xs">
-                            {STATE_LABELS[state]}
-                          </span>
-                        </span>
-                        <span className="font-medium text-foreground text-sm">
-                          {count}
-                        </span>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Studied today</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ScrollArea className="h-[12rem] rounded-lg border border-border/70">
-                      <div className="space-y-2 p-3">
-                        {reviewedToday.length === 0 ? (
-                          <div className="rounded-lg border border-border/70 border-dashed px-4 py-8 text-center text-muted-foreground text-xs">
-                            No cards reviewed from this set today.
-                          </div>
-                        ) : (
-                          reviewedToday.map((event) => (
-                            <div
-                              className="rounded-lg border border-border/70 bg-muted/20 px-3 py-3"
-                              key={event.id}
-                            >
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                  <p className="line-clamp-2 text-foreground text-sm">
-                                    {event.card.frontMarkdown}
-                                  </p>
-                                  <p className="text-[11px] text-muted-foreground">
-                                    {DATE_TIME_FORMATTER.format(
-                                      new Date(event.reviewedAt)
-                                    )}
-                                  </p>
-                                </div>
-                                <Badge
-                                  className="rounded-sm capitalize"
-                                  variant="outline"
-                                >
-                                  {event.rating}
-                                </Badge>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </ScrollArea>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Recent reviews</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {set.recentReviews.length === 0 ? (
-                      <p className="text-muted-foreground text-xs">
-                        No review history yet for this set.
-                      </p>
-                    ) : (
-                      set.recentReviews.map((review) => (
-                        <div
-                          className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/20 px-3 py-2"
-                          key={review.id}
-                        >
-                          <div>
-                            <p className="font-medium text-foreground capitalize">
-                              {review.rating}
-                            </p>
-                            <p className="text-[11px] text-muted-foreground">
-                              {DATE_TIME_FORMATTER.format(
-                                new Date(review.reviewedAt)
-                              )}
-                            </p>
-                          </div>
-                          <Badge className="rounded-sm" variant="outline">
-                            {review.previousState ?? "new"} → {review.nextState}
-                          </Badge>
-                        </div>
-                      ))
-                    )}
-                  </CardContent>
-                </Card>
+                </div>
               </div>
             </div>
-          </TabsContent>
-        </Tabs>
+          </DialogContent>
+        </Dialog>
+
+        <Card className="shadow-none">
+          <CardHeader className="pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <CardTitle>Card bank</CardTitle>
+                <CardDescription>Search, edit, or kill cards.</CardDescription>
+              </div>
+              <Input
+                className="max-w-xs"
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search front, back, notes, or tags"
+                value={search}
+              />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[30rem] rounded-lg border border-border/70">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Card</TableHead>
+                    <TableHead>State</TableHead>
+                    <TableHead>Due</TableHead>
+                    <TableHead>Tags</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredCards.map((card) => {
+                    const snapshot = snapshotByCardId.get(card.id) ?? null;
+
+                    return (
+                      <TableRow key={card.id}>
+                        <TableCell className="align-top">
+                          <div className="space-y-2">
+                            <p className="line-clamp-2 text-foreground text-sm">
+                              {card.frontMarkdown}
+                            </p>
+                            <p className="line-clamp-2 text-muted-foreground text-xs">
+                              {card.backMarkdown}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="align-top">
+                          {snapshot ? stateBadge(snapshot.displayState) : null}
+                        </TableCell>
+                        <TableCell className="align-top text-muted-foreground text-xs">
+                          {snapshot?.dueAt
+                            ? new Date(snapshot.dueAt).toLocaleString()
+                            : "Not scheduled"}
+                        </TableCell>
+                        <TableCell className="align-top">
+                          <div className="flex flex-wrap gap-1.5">
+                            {card.tags.length > 0 ? (
+                              card.tags.map((tag) => (
+                                <Badge
+                                  className="rounded-sm"
+                                  key={tag}
+                                  variant="outline"
+                                >
+                                  {tag}
+                                </Badge>
+                              ))
+                            ) : (
+                              <span className="text-muted-foreground text-xs">
+                                No tags
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="align-top">
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={() => openEditor(card)}
+                              size="icon-sm"
+                              type="button"
+                              variant="outline"
+                            >
+                              <Pencil className="size-3.5" />
+                            </Button>
+                            <Button
+                              onClick={() => archiveCard(card.id)}
+                              size="icon-sm"
+                              type="button"
+                              variant="ghost"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          </CardContent>
+        </Card>
       </div>
     </div>
-  );
-}
-
-function MetricCard({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: typeof Clock3;
-  label: string;
-  value: number;
-}) {
-  return (
-    <Card size="sm">
-      <CardContent className="flex items-center gap-3">
-        <div className="flex size-8 items-center justify-center rounded-md border border-border/70 bg-muted/25">
-          <Icon className="size-4 text-muted-foreground" />
-        </div>
-        <div className="space-y-0.5">
-          <p className="text-[11px] text-muted-foreground">{label}</p>
-          <p className="font-medium text-foreground text-lg">{value}</p>
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -1359,7 +951,7 @@ function RatingButton({
   return (
     <Button
       className={cn(
-        "justify-between border-border/70 bg-muted/15 text-foreground transition-colors",
+        "h-auto min-h-10 flex-col items-start justify-center rounded-[1.1rem] border px-3 py-2 text-left text-xs leading-tight transition-colors sm:min-h-12 sm:px-4 sm:py-3 sm:text-sm",
         disabled
           ? "border-border/40 bg-muted/10 text-muted-foreground"
           : toneClass
