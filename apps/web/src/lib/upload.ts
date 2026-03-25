@@ -41,11 +41,11 @@ export const router = {
     url: file.ufsUrl,
   })),
   fileExplorerUploader: storage({
-    image: { maxFileSize: "32MB", maxFileCount: 10 },
-    pdf: { maxFileSize: "64MB", maxFileCount: 10 },
-    text: { maxFileSize: "16MB", maxFileCount: 10 },
-    blob: { maxFileSize: "64MB", maxFileCount: 10 },
-    video: { maxFileSize: "256MB", maxFileCount: 5 },
+    image: { maxFileSize: "32MB", maxFileCount: 300 },
+    pdf: { maxFileSize: "128MB", maxFileCount: 300 },
+    text: { maxFileSize: "16MB", maxFileCount: 300 },
+    blob: { maxFileSize: "64MB", maxFileCount: 300 },
+    video: { maxFileSize: "256MB", maxFileCount: 300 },
   }).onUploadComplete(async ({ file }) => ({
     key: file.key,
     name: file.name,

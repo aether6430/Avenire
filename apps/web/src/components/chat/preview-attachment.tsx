@@ -1,6 +1,5 @@
 "use client";
 
-import { Badge } from "@avenire/ui/components/badge";
 import { Button } from "@avenire/ui/components/button";
 import {
   Dialog,
@@ -98,6 +97,9 @@ const playbackDescriptorCache = new Map<
   MediaPlaybackDescriptor | Promise<MediaPlaybackDescriptor | null> | null
 >();
 
+const attachmentPreviewDialogClassName =
+  "h-[100dvh] w-screen max-w-none rounded-none border-0 p-0 sm:h-[92vh] sm:w-[96vw] sm:max-w-[1200px] sm:rounded-xl sm:border lg:max-w-[1280px]";
+
 async function fetchWorkspacePlaybackDescriptor(
   workspaceUuid: string,
   workspaceFileId: string
@@ -189,7 +191,7 @@ function InlineVideoPreview({
         // Browser may require a gesture.
       }
     };
-    void startPlayback();
+    startPlayback().catch(() => undefined);
 
     return () => {
       video.pause();
@@ -217,7 +219,7 @@ export function PreviewAttachment({
 }: {
   attachment: Partial<Attachment>;
   onRemove?: (attachmentId: string) => void;
-  variant?: "composer" | "default";
+  variant?: "composer" | "default" | "tag";
   workspaceUuid?: string;
 }) {
   const {
@@ -238,6 +240,11 @@ export function PreviewAttachment({
     useState<MediaPlaybackDescriptor | null>(null);
   const [textPreview, setTextPreview] = useState<string | null>(null);
   const [isLoadingText, setIsLoadingText] = useState(false);
+  const workspaceStreamUrl =
+    source === "workspace" && workspaceUuid && workspaceFileId
+      ? `/api/workspaces/${workspaceUuid}/files/${workspaceFileId}/stream`
+      : null;
+  const previewUrl = workspaceStreamUrl ?? url;
 
   const fileSize = useMemo(() => {
     const resolvedSize = file?.size ?? sizeBytes;
@@ -259,9 +266,9 @@ export function PreviewAttachment({
           contentType?.startsWith("video") ||
           contentType === "application/pdf" ||
           isCodeLike(contentType, name)) &&
-          url
+          previewUrl
       ),
-    [contentType, name, status, url]
+    [contentType, name, previewUrl, status]
   );
 
   useEffect(() => {
@@ -273,20 +280,25 @@ export function PreviewAttachment({
       workspaceUuid &&
       workspaceFileId
     ) {
-      void fetchWorkspacePlaybackDescriptor(
-        workspaceUuid,
-        workspaceFileId
-      ).then((descriptor) => {
-        setPlaybackDescriptor(
-          descriptor ??
-            ({
-              fallbackSource: buildProgressivePlaybackSource(url, contentType),
-              posterUrl: null,
-              preferredSource: buildProgressivePlaybackSource(url, contentType),
-              status: "ready",
-            } satisfies MediaPlaybackDescriptor)
-        );
-      });
+      fetchWorkspacePlaybackDescriptor(workspaceUuid, workspaceFileId).then(
+        (descriptor) => {
+          setPlaybackDescriptor(
+            descriptor ??
+              ({
+                fallbackSource: buildProgressivePlaybackSource(
+                  url,
+                  contentType
+                ),
+                posterUrl: null,
+                preferredSource: buildProgressivePlaybackSource(
+                  url,
+                  contentType
+                ),
+                status: "ready",
+              } satisfies MediaPlaybackDescriptor)
+          );
+        }
+      );
       return;
     }
 
@@ -306,18 +318,21 @@ export function PreviewAttachment({
 
   useEffect(() => {
     if (
-      !(contentType?.startsWith("video") && playbackDescriptor) ||
-      !(isHovered || isModalOpen)
+      !(
+        contentType?.startsWith("video") &&
+        playbackDescriptor &&
+        (isHovered || isModalOpen)
+      )
     ) {
       return;
     }
 
-    void primeMediaPlayback(playbackDescriptor.preferredSource, {
+    primeMediaPlayback(playbackDescriptor.preferredSource, {
       mediaType: "video",
       posterUrl: playbackDescriptor.posterUrl,
       sizeBytes,
       surface: "attachment",
-    });
+    }).catch(() => undefined);
     return () => {
       releaseMediaPlaybackPrime(playbackDescriptor.preferredSource);
     };
@@ -325,7 +340,7 @@ export function PreviewAttachment({
 
   const loadTextPreview = async () => {
     if (
-      !url ||
+      !previewUrl ||
       status !== "completed" ||
       !isCodeLike(contentType, name) ||
       textPreview ||
@@ -338,8 +353,21 @@ export function PreviewAttachment({
     try {
       if (file) {
         setTextPreview(await file.text());
+      } else if (source === "workspace" && workspaceUuid && workspaceFileId) {
+        const response = await fetch(
+          `/api/workspaces/${workspaceUuid}/files/${workspaceFileId}/stream`,
+          {
+            headers: {
+              Accept: "text/plain,text/markdown,text/*,*/*",
+            },
+          }
+        );
+        if (!response.ok) {
+          throw new Error(`Failed to load preview: ${response.status}`);
+        }
+        setTextPreview(await response.text());
       } else {
-        const response = await fetch(url);
+        const response = await fetch(previewUrl);
         if (!response.ok) {
           throw new Error(`Failed to load preview: ${response.status}`);
         }
@@ -433,6 +461,21 @@ export function PreviewAttachment({
     );
   };
 
+  const renderPillIcon = () => {
+    const isBusy = status === "uploading" || status === "pending";
+
+    return (
+      <div className="relative flex h-5 w-5 shrink-0 items-center justify-center text-muted-foreground">
+        <File className="h-4 w-4" />
+        {isBusy ? (
+          <span className="absolute -right-0.5 -bottom-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-background">
+            <LoaderIcon className="h-2.5 w-2.5 animate-spin text-muted-foreground" />
+          </span>
+        ) : null}
+      </div>
+    );
+  };
+
   const renderHoverPreview = () => {
     if (contentType?.startsWith("image") && url && status === "completed") {
       return (
@@ -486,21 +529,29 @@ export function PreviewAttachment({
   };
 
   const renderModalContent = () => {
-    if (contentType?.startsWith("image") && url && status === "completed") {
+    if (
+      contentType?.startsWith("image") &&
+      previewUrl &&
+      status === "completed"
+    ) {
       return (
         <div className="flex justify-center">
           <img
             alt={name ?? "Full preview"}
             className="max-h-[70vh] max-w-full rounded-md object-contain"
             height={720}
-            src={url}
+            src={previewUrl}
             width={1024}
           />
         </div>
       );
     }
 
-    if (contentType?.startsWith("video") && url && status === "completed") {
+    if (
+      contentType?.startsWith("video") &&
+      previewUrl &&
+      status === "completed"
+    ) {
       return (
         <div className="flex justify-center">
           {playbackDescriptor ? (
@@ -516,7 +567,7 @@ export function PreviewAttachment({
             <video
               className="max-h-[70vh] max-w-full rounded-md object-contain"
               controls
-              src={url}
+              src={previewUrl}
             >
               <track kind="captions" />
             </video>
@@ -525,12 +576,16 @@ export function PreviewAttachment({
       );
     }
 
-    if (contentType === "application/pdf" && url && status === "completed") {
-      if (url.startsWith("blob:")) {
+    if (
+      contentType === "application/pdf" &&
+      previewUrl &&
+      status === "completed"
+    ) {
+      if (previewUrl.startsWith("blob:")) {
         return (
           <iframe
             className="h-[75vh] w-full rounded-md border"
-            src={url}
+            src={previewUrl}
             title={name ?? "PDF preview"}
           />
         );
@@ -538,7 +593,7 @@ export function PreviewAttachment({
 
       return (
         <div className="h-[75vh]">
-          <PDFViewer className="h-full w-full" source={url} />
+          <PDFViewer className="h-full w-full" source={previewUrl} />
         </div>
       );
     }
@@ -569,25 +624,7 @@ export function PreviewAttachment({
     );
   };
 
-  const statusBadgeLabel =
-    status === "uploading"
-      ? "Uploading"
-      : status === "pending"
-        ? "Queued"
-        : status === "failed"
-          ? "Failed"
-          : source === "workspace"
-            ? "Workspace"
-            : null;
-
   if (variant === "composer") {
-    const isVisualPreview =
-      status === "completed" &&
-      Boolean(
-        url &&
-          (contentType?.startsWith("image") || contentType?.startsWith("video"))
-      );
-
     return (
       <TooltipProvider delay={280}>
         <motion.div
@@ -603,113 +640,47 @@ export function PreviewAttachment({
                 <Button
                   aria-label={name ?? "Attachment"}
                   className={cn(
-                    "relative h-auto overflow-hidden border border-border/80 bg-background text-left transition-colors hover:border-border",
-                    isVisualPreview
-                      ? "h-16 w-16 rounded-lg"
-                      : "flex h-16 min-w-0 max-w-[240px] items-center gap-3 rounded-xl px-3 pr-10"
+                    "relative flex h-7 min-w-0 max-w-[240px] items-center gap-1.5 overflow-hidden rounded-md border border-border/80 bg-background px-2.5 pr-7 text-left transition-colors hover:bg-muted"
                   )}
+                  onBlur={() => setIsHovered(false)}
                   onClick={() => {
-                    if (!canPreview) {
-                      return;
-                    }
                     setIsModalOpen(true);
-                    loadTextPreview().catch(() => undefined);
+                    if (canPreview) {
+                      loadTextPreview().catch(() => undefined);
+                    }
                   }}
+                  onFocus={() => setIsHovered(true)}
                   onMouseEnter={() => {
                     setIsHovered(true);
                     loadTextPreview().catch(() => undefined);
                   }}
                   onMouseLeave={() => setIsHovered(false)}
-                  onFocus={() => setIsHovered(true)}
-                  onBlur={() => setIsHovered(false)}
                   type="button"
                   variant="ghost"
                 />
               }
             >
-              <>
-                {statusBadgeLabel ? (
-                  <Badge
-                    className={cn(
-                      "pointer-events-none absolute left-1.5 top-1.5 z-10 h-5 rounded-md border px-1.5 text-[10px] shadow-sm backdrop-blur-xs",
-                      status === "failed"
-                        ? "border-destructive/20 bg-destructive/10 text-destructive"
-                        : "border-border/70 bg-background/88 text-foreground/75"
-                    )}
-                    variant="outline"
-                  >
-                    {statusBadgeLabel}
-                  </Badge>
-                ) : null}
+              {renderPillIcon()}
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium text-[12px] text-foreground leading-none">
+                  {name ?? "Unnamed file"}
+                </p>
+              </div>
 
-                {isVisualPreview ? (
-                  <>
-                    {contentType?.startsWith("video") ? (
-                      playbackDescriptor?.posterUrl ? (
-                        <img
-                          alt={name ?? "Attachment preview"}
-                          className="h-full w-full object-cover"
-                          height={64}
-                          src={playbackDescriptor.posterUrl}
-                          width={64}
-                        />
-                      ) : (
-                        <video
-                          className="h-full w-full object-cover"
-                          muted
-                          src={url}
-                        />
-                      )
-                    ) : (
-                      <img
-                        alt={name ?? "Attachment preview"}
-                        className="h-full w-full object-cover"
-                        height={64}
-                        src={url}
-                        width={64}
-                      />
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-muted/40">
-                      {isCodeLike(contentType, name) ? (
-                        <FileCode2 className="h-4 w-4 text-emerald-700 dark:text-emerald-300" />
-                      ) : (
-                        <File className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium text-[13px] leading-5 text-foreground">
-                        {name ?? "Unnamed file"}
-                      </p>
-                      <p className="truncate text-[11px] leading-4 text-muted-foreground">
-                        {errorMessage || fileSize || source === "workspace"
-                          ? errorMessage || fileSize || "Workspace file"
-                          : "Attachment"}
-                      </p>
-                    </div>
-                    {(status === "uploading" || status === "pending") && (
-                      <LoaderIcon className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
-                    )}
-                  </>
-                )}
-
-                {onRemove && id ? (
-                  <Button
-                    className="absolute right-1.5 top-1.5 z-10 h-6 w-6 rounded-full border border-border/70 bg-background/88 opacity-100 shadow-sm hover:bg-background"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onRemove(id);
-                    }}
-                    size="icon"
-                    type="button"
-                    variant="ghost"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                ) : null}
-              </>
+              {onRemove && id ? (
+                <Button
+                  className="absolute top-1/2 right-1 z-10 h-4.5 w-4.5 -translate-y-1/2 rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onRemove(id);
+                  }}
+                  size="icon"
+                  type="button"
+                  variant="ghost"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </Button>
+              ) : null}
             </TooltipTrigger>
 
             <TooltipContent className="p-2" side="top">
@@ -740,8 +711,84 @@ export function PreviewAttachment({
             }}
             open={isModalOpen}
           >
-            <DialogContent className="max-w-4xl">
-              <DialogHeader>
+            <DialogContent className={attachmentPreviewDialogClassName}>
+              <div className="flex h-full flex-col overflow-hidden bg-background sm:rounded-xl">
+                <DialogHeader className="border-border/60 border-b px-4 py-4 sm:px-6">
+                  <DialogTitle className="flex items-center gap-2">
+                    {renderThumbnail()}
+                    <span className="max-w-75 truncate">
+                      {name ?? "Attachment"}
+                    </span>
+                    {fileSize && (
+                      <span className="text-muted-foreground text-sm">
+                        ({fileSize})
+                      </span>
+                    )}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">
+                  {renderModalContent()}
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </motion.div>
+      </TooltipProvider>
+    );
+  }
+
+  if (variant === "tag") {
+    return (
+      <motion.div
+        animate={{ opacity: 1, scale: 1 }}
+        className="group relative inline-flex max-w-full"
+        exit={{ opacity: 0, scale: 0.92 }}
+        initial={{ opacity: 0, scale: 0.92 }}
+        transition={{ duration: 0.18 }}
+      >
+        <Button
+          aria-label={name ?? "Attachment"}
+          className="flex h-6 min-w-0 max-w-[240px] items-center gap-1.5 rounded-md border border-border/80 bg-muted px-2 text-xs text-foreground hover:bg-muted/90"
+          onClick={() => {
+            setIsModalOpen(true);
+            if (canPreview) {
+              loadTextPreview().catch(() => undefined);
+            }
+          }}
+          type="button"
+          variant="ghost"
+        >
+          <File className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <span className="truncate">{name ?? "Unnamed file"}</span>
+        </Button>
+
+        {onRemove && id ? (
+          <Button
+            className="-top-1 -right-1 absolute z-10 h-4 w-4 rounded-full border border-border bg-background text-muted-foreground hover:text-foreground"
+            onClick={(event) => {
+              event.stopPropagation();
+              onRemove(id);
+            }}
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <X className="h-2.5 w-2.5" />
+          </Button>
+        ) : null}
+
+        <Dialog
+          onOpenChange={(nextOpen) => {
+            setIsModalOpen(nextOpen);
+            if (!nextOpen) {
+              setIsHovered(false);
+            }
+          }}
+          open={isModalOpen}
+        >
+          <DialogContent className={attachmentPreviewDialogClassName}>
+            <div className="flex h-full flex-col overflow-hidden bg-background sm:rounded-xl">
+              <DialogHeader className="border-border/60 border-b px-4 py-4 sm:px-6">
                 <DialogTitle className="flex items-center gap-2">
                   {renderThumbnail()}
                   <span className="max-w-75 truncate">
@@ -754,11 +801,13 @@ export function PreviewAttachment({
                   )}
                 </DialogTitle>
               </DialogHeader>
-              <div className="mt-4">{renderModalContent()}</div>
-            </DialogContent>
-          </Dialog>
-        </motion.div>
-      </TooltipProvider>
+              <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">
+                {renderModalContent()}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </motion.div>
     );
   }
 
@@ -776,43 +825,34 @@ export function PreviewAttachment({
             render={
               <Button
                 aria-label={name ?? "Open attachment preview"}
-                className={`rounded-lg border border-border bg-card p-3 py-1 transition-colors hover:bg-accent/50 ${
+                className={`rounded-full border border-border bg-secondary px-3 py-2 transition-colors hover:bg-muted ${
                   canPreview ? "cursor-pointer" : ""
                 }`}
+                onBlur={() => setIsHovered(false)}
                 onClick={() => {
-                  if (!canPreview) {
-                    return;
-                  }
                   setIsModalOpen(true);
-                  loadTextPreview().catch(() => undefined);
+                  if (canPreview) {
+                    loadTextPreview().catch(() => undefined);
+                  }
                 }}
+                onFocus={() => setIsHovered(true)}
                 onMouseEnter={() => {
                   setIsHovered(true);
                   loadTextPreview().catch(() => undefined);
                 }}
                 onMouseLeave={() => setIsHovered(false)}
-                onFocus={() => setIsHovered(true)}
-                onBlur={() => setIsHovered(false)}
                 size="default"
                 type="button"
                 variant="ghost"
               />
             }
           >
-            <div className="flex items-center gap-3">
-              <div className="shrink-0">{renderThumbnail()}</div>
+            <div className="flex items-center gap-2.5">
+              <div className="shrink-0">{renderPillIcon()}</div>
               <div className="min-w-0 flex-1">
-                <p className="truncate font-medium text-foreground text-sm">
+                <p className="truncate font-medium text-foreground text-sm leading-none">
                   {name ?? "Unnamed file"}
                 </p>
-                {fileSize && (
-                  <p className="text-muted-foreground text-xs">{fileSize}</p>
-                )}
-                {status && status !== "completed" && (
-                  <p className="text-muted-foreground text-xs capitalize">
-                    {status}
-                  </p>
-                )}
                 {errorMessage && (
                   <p className="truncate text-destructive text-xs">
                     {errorMessage}
@@ -851,21 +891,25 @@ export function PreviewAttachment({
           }}
           open={isModalOpen}
         >
-          <DialogContent className="max-w-4xl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                {renderThumbnail()}
-                <span className="max-w-75 truncate">
-                  {name ?? "Attachment"}
-                </span>
-                {fileSize && (
-                  <span className="text-muted-foreground text-sm">
-                    ({fileSize})
+          <DialogContent className={attachmentPreviewDialogClassName}>
+            <div className="flex h-full flex-col overflow-hidden bg-background sm:rounded-xl">
+              <DialogHeader className="border-border/60 border-b px-4 py-4 sm:px-6">
+                <DialogTitle className="flex items-center gap-2">
+                  {renderThumbnail()}
+                  <span className="max-w-75 truncate">
+                    {name ?? "Attachment"}
                   </span>
-                )}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="mt-4">{renderModalContent()}</div>
+                  {fileSize && (
+                    <span className="text-muted-foreground text-sm">
+                      ({fileSize})
+                    </span>
+                  )}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">
+                {renderModalContent()}
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
       </motion.div>

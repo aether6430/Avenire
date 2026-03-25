@@ -4,7 +4,8 @@
     "baseUrl": ".",
     "paths": {
       "@/content/*": ["./content/*"],
-      "@/*": ["./src/*", "./*"]
+      "@/*": ["./src/*", "./*"],
+      "@avenire/emailer": ["../../packages/emailer/index.ts"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

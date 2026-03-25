@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { Suspense, useEffect } from "react";
 import { DashboardSidebar } from "@/components/dashboard/app-sidebar";
 import { CommandPalette } from "@/components/dashboard/command-palette";
+import { WorkspaceHeader } from "@/components/dashboard/workspace-header";
 import { QuickCaptureHost } from "@/components/dashboard/quick-capture-host";
 import { WorkspaceRealtimeBridge } from "@/components/dashboard/workspace-realtime-bridge";
 import { UploadActivityPanel } from "@/components/files/upload-activity-panel";
@@ -56,6 +57,7 @@ export function DashboardLayout({
         workspaceUuid={activeWorkspace?.workspaceId ?? null}
       />
       <SidebarInset className="relative min-h-0 overflow-hidden bg-background md:peer-data-[variant=inset]:mb-0">
+        <WorkspaceHeader />
         <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
         <QuickCaptureHost />
         <CommandPalette />

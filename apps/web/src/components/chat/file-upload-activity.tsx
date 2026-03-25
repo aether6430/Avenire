@@ -1,6 +1,10 @@
 "use client";
 
 import { Button } from "@avenire/ui/components/button";
+import {
+  Drawer,
+  DrawerContent,
+} from "@avenire/ui/components/drawer";
 import { Progress } from "@avenire/ui/components/progress";
 import {
   File,
@@ -275,59 +279,23 @@ export function FileUploadActivity({
 
   if (isMobile) {
     return (
-      <div className="pointer-events-none fixed inset-0 z-50 flex items-end justify-center px-4 pb-4">
-        <div
-          className="pointer-events-auto w-full max-w-sm overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900"
-          onClick={() => {}}
-        >
-          <div className="flex justify-end border-slate-200 border-b p-3 dark:border-slate-800">
-            <Button
-              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-              onClick={() => onOpenChange?.(false)}
-              size="icon-sm"
-              type="button"
-              variant="ghost"
-            >
-              <X size={20} />
-            </Button>
-          </div>
-
-          <div className="max-h-96 overflow-y-auto p-2">
-            {displayFiles.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
-                <Upload className="h-8 w-8 text-slate-300 dark:text-slate-700" />
-                <p className="text-slate-500 text-sm dark:text-slate-400">
-                  No files uploaded yet
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-1">
-                {displayFiles.map((file) => (
-                  <FileItem
-                    file={file}
-                    key={file.id}
-                    onRemove={handleRemoveFile}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-
-          {completedCount > 0 && (
-            <div className="border-slate-200 border-t bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950">
-              <Button
-                className="px-0 text-slate-600 text-xs hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-50"
-                onClick={handleClearCompleted}
-                size="sm"
-                type="button"
-                variant="ghost"
-              >
-                Clear completed
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
+      <Drawer
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            onOpenChange?.(false);
+          }
+        }}
+        open={isOpen}
+      >
+        <DrawerContent className="p-0">
+          <ActivityContent
+            completedCount={completedCount}
+            files={displayFiles}
+            onClearCompleted={handleClearCompleted}
+            onRemoveFile={handleRemoveFile}
+          />
+        </DrawerContent>
+      </Drawer>
     );
   }
 

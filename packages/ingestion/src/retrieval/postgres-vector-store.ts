@@ -6,6 +6,7 @@ import {
   retrieveAdjacentChunksForResource,
   retrieveWorkspaceChunks,
   retrieveWorkspaceChunksLexical,
+  retrieveWorkspaceChunksTrigram,
 } from "@avenire/database";
 import { eq, sql } from "drizzle-orm";
 import type {
@@ -27,6 +28,7 @@ function mapSearchResult(
     title: (row.title as string | null) ?? null,
     chunkId: String(row.chunkId),
     chunkIndex: Number(row.chunkIndex),
+    contentHash: (row.contentHash as string | null) ?? null,
     page: row.page === null ? null : Number(row.page),
     startMs: row.startMs === null ? null : Number(row.startMs),
     endMs: row.endMs === null ? null : Number(row.endMs),
@@ -79,6 +81,38 @@ export class PostgresVectorStore implements VectorStore {
       title: (row.title as string | null) ?? null,
       chunkId: String(row.chunkId),
       chunkIndex: Number(row.chunkIndex),
+      contentHash: (row.contentHash as string | null) ?? null,
+      page: row.page === null ? null : Number(row.page),
+      startMs: row.startMs === null ? null : Number(row.startMs),
+      endMs: row.endMs === null ? null : Number(row.endMs),
+      content: String(row.content),
+      metadata: (row.metadata as Record<string, unknown>) ?? {},
+      score: Number(row.score) || 0,
+    }));
+  }
+
+  async searchTrigram(
+    query: string,
+    options: SearchOptions
+  ): Promise<VectorSearchResult[]> {
+    const rows = await retrieveWorkspaceChunksTrigram({
+      workspaceId: this.workspaceId,
+      query,
+      limit: options.limit,
+      sourceType: options.filter?.sourceType,
+      provider: options.filter?.provider,
+    });
+
+    return rows.map((row) => ({
+      resourceId: String(row.resourceId),
+      fileId: (row.fileId as string | null) ?? null,
+      sourceType: row.sourceType as VectorSearchResult["sourceType"],
+      source: String(row.source),
+      provider: (row.provider as string | null) ?? null,
+      title: (row.title as string | null) ?? null,
+      chunkId: String(row.chunkId),
+      chunkIndex: Number(row.chunkIndex),
+      contentHash: (row.contentHash as string | null) ?? null,
       page: row.page === null ? null : Number(row.page),
       startMs: row.startMs === null ? null : Number(row.startMs),
       endMs: row.endMs === null ? null : Number(row.endMs),
@@ -111,6 +145,7 @@ export class PostgresVectorStore implements VectorStore {
       title: (row.title as string | null) ?? null,
       chunkId: String(row.chunkId),
       chunkIndex: Number(row.chunkIndex),
+      contentHash: (row.contentHash as string | null) ?? null,
       page: row.page === null ? null : Number(row.page),
       startMs: row.startMs === null ? null : Number(row.startMs),
       endMs: row.endMs === null ? null : Number(row.endMs),

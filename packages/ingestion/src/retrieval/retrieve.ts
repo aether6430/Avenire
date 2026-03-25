@@ -24,6 +24,9 @@ const NOISY_TEXT_PATTERN =
 const FRAGMENT_START_PATTERN = /^[a-z0-9,;:)\]-]/;
 const FRAGMENT_END_PATTERN = /[.!?]["')\]]?$/;
 const NON_TOKEN_CHAR_PATTERN = /[^a-z0-9\s]/g;
+const QUOTED_PHRASE_PATTERN = /"([^"\n]{3,})"/;
+const SYMBOL_HEAVY_PATTERN = /[^\w\s]/;
+const CODE_IDENTIFIER_PATTERN = /\b(?:[A-Z0-9]+_[A-Z0-9_]+|[a-z]+[A-Z][A-Za-z0-9]*)\b/;
 
 type FusionCandidate = VectorSearchResult & {
   fusionScore: number;
@@ -197,6 +200,24 @@ const exactPhraseScore = (query: string, content: string): number => {
   }
 
   return content.toLowerCase().includes(normalizedQuery) ? 1 : 0;
+};
+
+const extractTrigramQuery = (query: string): string | null => {
+  const normalized = normalizeWhitespace(query);
+  if (normalized.length < 3) {
+    return null;
+  }
+
+  const quoted = normalized.match(QUOTED_PHRASE_PATTERN)?.[1]?.trim();
+  if (quoted && quoted.length >= 3) {
+    return quoted;
+  }
+
+  if (SYMBOL_HEAVY_PATTERN.test(normalized) || CODE_IDENTIFIER_PATTERN.test(normalized)) {
+    return normalized;
+  }
+
+  return null;
 };
 
 const isLikelyNoisyText = (content: string): boolean => {
@@ -514,9 +535,13 @@ const searchForQuery = async (params: {
     },
   };
 
-  const [baseCandidates, lexicalCandidates] = await Promise.all([
+  const trigramQuery = extractTrigramQuery(params.query);
+  const [baseCandidates, lexicalCandidates, trigramCandidates] = await Promise.all([
     params.vectorStore.search(params.queryEmbedding, searchOptions),
     params.vectorStore.searchLexical(params.query, searchOptions),
+    trigramQuery
+      ? params.vectorStore.searchTrigram(trigramQuery, searchOptions)
+      : Promise.resolve([]),
   ]);
 
   const visualIntent = hasVisualIntent(params.query);
@@ -545,6 +570,7 @@ const searchForQuery = async (params: {
   return fuseCandidatesByRrf([
     baseCandidates,
     lexicalCandidates,
+    trigramCandidates,
     ...modalityCandidateLists,
   ]).sort((a, b) => b.fusionScore - a.fusionScore);
 };

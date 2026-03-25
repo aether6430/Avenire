@@ -144,10 +144,20 @@ Use this module for simulations where motion over time is the point: orbits, pen
 
 ### Canvas rules
 - Size the canvas to the available space and scene, then scale by `devicePixelRatio` for crisp rendering.
+- **CRITICAL: Reactive Theming**: Use a helper to sync colors from CSS variables on every frame to handle theme switches mid-simulation:
+  ```javascript
+  let colors = {};
+  function updateTheme() {
+    const style = getComputedStyle(document.documentElement);
+    colors.text = style.getPropertyValue('--color-text-default').trim() || '#37352f';
+    colors.bg = style.getPropertyValue('--color-bg-default').trim() || '#ffffff';
+    colors.primary = style.getPropertyValue('--primary').trim() || '#abcfff';
+  }
+  // Call updateTheme() on init and optionally inside the draw loop if theme can change
+  ```
 - Use `ResizeObserver` to reflow cleanly.
 - Use `IntersectionObserver` or an equivalent visibility check to pause animation off-screen.
 - Keep drawing code in CSS pixels after scaling the context.
-- Use CSS variables for colors wherever possible.
 - Draw the primary object, then supporting annotations, then labels.
 - Avoid decorative effects that make the sim harder to read mid-stream.
 

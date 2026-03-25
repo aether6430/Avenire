@@ -66,187 +66,106 @@ svg .leader { fill: none; stroke: var(--muted-foreground); stroke-width: 0.5px; 
 svg .node { cursor: pointer; }
 svg .node:hover { opacity: 0.75; }
 
-/* ── SVG color ramps (light mode: 50 fill + 600 stroke + 800/600 text) ── */
+/* ── SVG color ramps (using Notion semantic CSS variables) ── */
 svg .c-purple > rect,
 svg .c-purple > circle,
 svg .c-purple > ellipse,
 svg rect.c-purple,
 svg circle.c-purple,
-svg ellipse.c-purple { fill: #EEEDFE; stroke: #534AB7; }
+svg ellipse.c-purple { fill: var(--color-bg-purple); stroke: var(--color-pill-purple); }
 svg .c-purple > .t,
-svg .c-purple > .th { fill: #3C3489; }
-svg .c-purple > .ts { fill: #534AB7; }
+svg .c-purple > .th { fill: var(--color-text-purple); }
+svg .c-purple > .ts { fill: var(--color-text-purple); opacity: 0.8; }
 
 svg .c-teal > rect,
 svg .c-teal > circle,
 svg .c-teal > ellipse,
 svg rect.c-teal,
 svg circle.c-teal,
-svg ellipse.c-teal { fill: #E1F5EE; stroke: #0F6E56; }
+svg ellipse.c-teal { fill: var(--color-bg-green); stroke: var(--color-pill-green); }
 svg .c-teal > .t,
-svg .c-teal > .th { fill: #085041; }
-svg .c-teal > .ts { fill: #0F6E56; }
+svg .c-teal > .th { fill: var(--color-text-green); }
+svg .c-teal > .ts { fill: var(--color-text-green); opacity: 0.8; }
 
 svg .c-coral > rect,
 svg .c-coral > circle,
 svg .c-coral > ellipse,
 svg rect.c-coral,
 svg circle.c-coral,
-svg ellipse.c-coral { fill: #FAECE7; stroke: #993C1D; }
+svg ellipse.c-coral { fill: var(--color-bg-orange); stroke: var(--color-pill-orange); }
 svg .c-coral > .t,
-svg .c-coral > .th { fill: #712B13; }
-svg .c-coral > .ts { fill: #993C1D; }
+svg .c-coral > .th { fill: var(--color-text-orange); }
+svg .c-coral > .ts { fill: var(--color-text-orange); opacity: 0.8; }
 
 svg .c-pink > rect,
 svg .c-pink > circle,
 svg .c-pink > ellipse,
 svg rect.c-pink,
 svg circle.c-pink,
-svg ellipse.c-pink { fill: #FBEAF0; stroke: #993556; }
+svg ellipse.c-pink { fill: var(--color-bg-pink); stroke: var(--color-pill-pink); }
 svg .c-pink > .t,
-svg .c-pink > .th { fill: #72243E; }
-svg .c-pink > .ts { fill: #993556; }
+svg .c-pink > .th { fill: var(--color-text-pink); }
+svg .c-pink > .ts { fill: var(--color-text-pink); opacity: 0.8; }
 
 svg .c-gray > rect,
 svg .c-gray > circle,
 svg .c-gray > ellipse,
 svg rect.c-gray,
 svg circle.c-gray,
-svg ellipse.c-gray { fill: #F1EFE8; stroke: #5F5E5A; }
+svg ellipse.c-gray { fill: var(--color-bg-gray); stroke: var(--color-pill-gray); }
 svg .c-gray > .t,
-svg .c-gray > .th { fill: #444441; }
-svg .c-gray > .ts { fill: #5F5E5A; }
+svg .c-gray > .th { fill: var(--color-text-gray); }
+svg .c-gray > .ts { fill: var(--color-text-gray); opacity: 0.8; }
 
 svg .c-blue > rect,
 svg .c-blue > circle,
 svg .c-blue > ellipse,
 svg rect.c-blue,
 svg circle.c-blue,
-svg ellipse.c-blue { fill: #E6F1FB; stroke: #185FA5; }
+svg ellipse.c-blue { fill: var(--color-bg-blue); stroke: var(--color-pill-blue); }
 svg .c-blue > .t,
-svg .c-blue > .th { fill: #0C447C; }
-svg .c-blue > .ts { fill: #185FA5; }
+svg .c-blue > .th { fill: var(--color-text-blue); }
+svg .c-blue > .ts { fill: var(--color-text-blue); opacity: 0.8; }
 
 svg .c-green > rect,
 svg .c-green > circle,
 svg .c-green > ellipse,
 svg rect.c-green,
 svg circle.c-green,
-svg ellipse.c-green { fill: #EAF3DE; stroke: #3B6D11; }
+svg ellipse.c-green { fill: var(--color-bg-green); stroke: var(--color-pill-green); }
 svg .c-green > .t,
-svg .c-green > .th { fill: #27500A; }
-svg .c-green > .ts { fill: #3B6D11; }
+svg .c-green > .th { fill: var(--color-text-green); }
+svg .c-green > .ts { fill: var(--color-text-green); opacity: 0.8; }
 
 svg .c-amber > rect,
 svg .c-amber > circle,
 svg .c-amber > ellipse,
 svg rect.c-amber,
 svg circle.c-amber,
-svg ellipse.c-amber { fill: #FAEEDA; stroke: #854F0B; }
+svg ellipse.c-amber { fill: var(--color-bg-yellow); stroke: var(--color-pill-yellow); }
 svg .c-amber > .t,
-svg .c-amber > .th { fill: #633806; }
-svg .c-amber > .ts { fill: #854F0B; }
+svg .c-amber > .th { fill: var(--color-text-yellow); }
+svg .c-amber > .ts { fill: var(--color-text-yellow); opacity: 0.8; }
 
 svg .c-red > rect,
 svg .c-red > circle,
 svg .c-red > ellipse,
 svg rect.c-red,
 svg circle.c-red,
-svg ellipse.c-red { fill: #FCEBEB; stroke: #A32D2D; }
+svg ellipse.c-red { fill: var(--color-bg-red); stroke: var(--color-pill-red); }
 svg .c-red > .t,
-svg .c-red > .th { fill: #791F1F; }
-svg .c-red > .ts { fill: #A32D2D; }
+svg .c-red > .th { fill: var(--color-text-red); }
+svg .c-red > .ts { fill: var(--color-text-red); opacity: 0.8; }
 
-/* ── SVG color ramps (dark mode: 800 fill + 200 stroke + 100/200 text) ── */
-html.dark svg .c-purple > rect,
-html.dark svg .c-purple > circle,
-html.dark svg .c-purple > ellipse,
-html.dark svg rect.c-purple,
-html.dark svg circle.c-purple,
-html.dark svg ellipse.c-purple { fill: #3C3489; stroke: #AFA9EC; }
-html.dark svg .c-purple > .t,
-html.dark svg .c-purple > .th { fill: #CECBF6; }
-html.dark svg .c-purple > .ts { fill: #AFA9EC; }
-
-html.dark svg .c-teal > rect,
-html.dark svg .c-teal > circle,
-html.dark svg .c-teal > ellipse,
-html.dark svg rect.c-teal,
-html.dark svg circle.c-teal,
-html.dark svg ellipse.c-teal { fill: #085041; stroke: #5DCAA5; }
-html.dark svg .c-teal > .t,
-html.dark svg .c-teal > .th { fill: #9FE1CB; }
-html.dark svg .c-teal > .ts { fill: #5DCAA5; }
-
-html.dark svg .c-coral > rect,
-html.dark svg .c-coral > circle,
-html.dark svg .c-coral > ellipse,
-html.dark svg rect.c-coral,
-html.dark svg circle.c-coral,
-html.dark svg ellipse.c-coral { fill: #712B13; stroke: #F0997B; }
-html.dark svg .c-coral > .t,
-html.dark svg .c-coral > .th { fill: #F5C4B3; }
-html.dark svg .c-coral > .ts { fill: #F0997B; }
-
-html.dark svg .c-pink > rect,
-html.dark svg .c-pink > circle,
-html.dark svg .c-pink > ellipse,
-html.dark svg rect.c-pink,
-html.dark svg circle.c-pink,
-html.dark svg ellipse.c-pink { fill: #72243E; stroke: #ED93B1; }
-html.dark svg .c-pink > .t,
-html.dark svg .c-pink > .th { fill: #F4C0D1; }
-html.dark svg .c-pink > .ts { fill: #ED93B1; }
-
-html.dark svg .c-gray > rect,
-html.dark svg .c-gray > circle,
-html.dark svg .c-gray > ellipse,
-html.dark svg rect.c-gray,
-html.dark svg circle.c-gray,
-html.dark svg ellipse.c-gray { fill: #444441; stroke: #B4B2A9; }
-html.dark svg .c-gray > .t,
-html.dark svg .c-gray > .th { fill: #D3D1C7; }
-html.dark svg .c-gray > .ts { fill: #B4B2A9; }
-
-html.dark svg .c-blue > rect,
-html.dark svg .c-blue > circle,
-html.dark svg .c-blue > ellipse,
-html.dark svg rect.c-blue,
-html.dark svg circle.c-blue,
-html.dark svg ellipse.c-blue { fill: #0C447C; stroke: #85B7EB; }
-html.dark svg .c-blue > .t,
-html.dark svg .c-blue > .th { fill: #B5D4F4; }
-html.dark svg .c-blue > .ts { fill: #85B7EB; }
-
-html.dark svg .c-green > rect,
-html.dark svg .c-green > circle,
-html.dark svg .c-green > ellipse,
-html.dark svg rect.c-green,
-html.dark svg circle.c-green,
-html.dark svg ellipse.c-green { fill: #27500A; stroke: #97C459; }
-html.dark svg .c-green > .t,
-html.dark svg .c-green > .th { fill: #C0DD97; }
-html.dark svg .c-green > .ts { fill: #97C459; }
-
-html.dark svg .c-amber > rect,
-html.dark svg .c-amber > circle,
-html.dark svg .c-amber > ellipse,
-html.dark svg rect.c-amber,
-html.dark svg circle.c-amber,
-html.dark svg ellipse.c-amber { fill: #633806; stroke: #EF9F27; }
-html.dark svg .c-amber > .t,
-html.dark svg .c-amber > .th { fill: #FAC775; }
-html.dark svg .c-amber > .ts { fill: #EF9F27; }
-
-html.dark svg .c-red > rect,
-html.dark svg .c-red > circle,
-html.dark svg .c-red > ellipse,
-html.dark svg rect.c-red,
-html.dark svg circle.c-red,
-html.dark svg ellipse.c-red { fill: #791F1F; stroke: #F09595; }
-html.dark svg .c-red > .t,
-html.dark svg .c-red > .th { fill: #F7C1C1; }
-html.dark svg .c-red > .ts { fill: #F09595; }
+svg .c-black > rect,
+svg .c-black > circle,
+svg .c-black > ellipse,
+svg rect.c-black,
+svg circle.c-black,
+svg ellipse.c-black { fill: var(--foreground); stroke: var(--border); }
+svg .c-black > .t,
+svg .c-black > .th { fill: var(--background); }
+svg .c-black > .ts { fill: var(--background); opacity: 0.8; }
 `;
 
 // ---------------------------------------------------------------------------
@@ -593,9 +512,16 @@ export function WidgetRenderer({
       className={`relative w-full overflow-visible rounded-lg border border-border ${className}`}
     >
       {isStreaming && (
-        <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
-          <div className="absolute inset-0 animate-pulse bg-muted/20" />
-          <div className="absolute -left-1/2 top-0 h-full w-[200%] animate-[shimmer_1.4s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-muted/30 to-transparent" />
+        <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden rounded-lg bg-background/5 backdrop-blur-[0.5px]">
+          <div
+            className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-foreground/5 to-transparent"
+            style={{ animation: "shimmer 2.5s infinite linear" }}
+          />
+          <style>{`
+            @keyframes shimmer {
+              100% { transform: translateX(100%); }
+            }
+          `}</style>
         </div>
       )}
       <iframe

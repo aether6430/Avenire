@@ -9,7 +9,9 @@ import { toast } from "sonner";
 
 function extractText(message: UIMessage) {
   return message.parts
-    .filter((part): part is { type: "text"; text: string } => part.type === "text")
+    .filter(
+      (part): part is { type: "text"; text: string } => part.type === "text"
+    )
     .map((part) => part.text)
     .join("\n")
     .trim();
@@ -22,7 +24,7 @@ export function ChatActions({
 }: {
   chatId: string;
   message: UIMessage;
-  onRegenerate?: () => void;
+  onRegenerate?: (messageId: string) => void;
 }) {
   const router = useRouter();
 
@@ -80,7 +82,9 @@ export function ChatActions({
       {onRegenerate && message.role === "assistant" && (
         <Button
           className="h-9 w-9"
-          onClick={onRegenerate}
+          onClick={() => {
+            onRegenerate(message.id);
+          }}
           size="icon"
           type="button"
           variant="ghost"

@@ -1,6 +1,6 @@
 "use client";
 
-import { authClient, useSession } from "@avenire/auth/client";
+import { signOut, useSession } from "@avenire/auth/client";
 import {
   Avatar,
   AvatarFallback,
@@ -43,6 +43,7 @@ import {
   Plus,
   UserPlus,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { SensitiveText } from "@/components/shared/sensitive-text";
 import { useHaptics } from "@/hooks/use-haptics";
@@ -100,6 +101,7 @@ export function NavUser({
   onDeclineInvitation?: (invitationId: string) => Promise<void> | void;
 }) {
   const { data: session } = useSession();
+  const router = useRouter();
   const resolvedUser = user ?? (session?.user
     ? {
         avatar: session.user.image ?? undefined,
@@ -110,7 +112,7 @@ export function NavUser({
         email: "signed-out@local",
         name: "Account",
       });
-  const { isMobile } = useSidebar();
+  const { closeMobileSidebar, isMobile } = useSidebar();
   const triggerHaptic = useHaptics();
   const fallbackAvatar = useMemo(
     () => getFacehashUrl(resolvedUser.name || resolvedUser.email),
@@ -125,17 +127,26 @@ export function NavUser({
   const [createOpen, setCreateOpen] = useState(false);
   const [workspaceName, setWorkspaceName] = useState("");
   const [creatingWorkspace, setCreatingWorkspace] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [createWorkspaceError, setCreateWorkspaceError] = useState<
     string | null
   >(null);
 
   const handleSignOut = async () => {
+    if (signingOut) {
+      return;
+    }
+
+    setSigningOut(true);
+    closeMobileSidebar();
     try {
-      await authClient.signOut();
+      await signOut();
     } catch (error) {
       console.error("Failed to sign out", error);
     } finally {
-      window.location.assign("/login");
+      router.replace("/login");
+      router.refresh();
+      window.location.replace("/login");
     }
   };
 
@@ -301,13 +312,14 @@ export function NavUser({
 
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onSelect={() => {
+                  disabled={signingOut}
+                  onClick={() => {
                     void triggerHaptic("selection");
                     void handleSignOut();
                   }}
                 >
                   <LogOut />
-                  Log out
+                  {signingOut ? "Signing out..." : "Log out"}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

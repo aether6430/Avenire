@@ -21,8 +21,7 @@ import {
   useState,
 } from "react";
 import type { Route } from "next";
-import { useRouter } from "next/navigation";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -49,6 +48,10 @@ const TRAILING_NEWLINE_REGEX = /\n$/;
 const CODE_THEME_LIGHT = "github-light-default";
 const CODE_THEME_DARK = "github-dark-default";
 const highlightedCodeCache = new Map<string, string>();
+const workspaceRouteCache = new Map<string, Route | null>();
+const WORKSPACE_FILE_PROTOCOL_REGEX = /^workspace-file:\/\/(.+)$/;
+const WORKSPACE_FILE_LINK_REGEX =
+  /\[([^\]]+)\]\((workspace-file:\/\/[^)\s][^)]*?)\)/g;
 
 function extractCodeLanguage(className?: string) {
   const match = className?.match(CODE_LANGUAGE_REGEX);
@@ -75,6 +78,113 @@ function resolveBundledLanguage(language: string): BundledLanguage | null {
 
 function buildHighlightCacheKey(code: string, language: BundledLanguage) {
   return `${language}:${code}`;
+}
+
+function normalizeWorkspaceFileLinks(content: string) {
+  return content.replace(WORKSPACE_FILE_LINK_REGEX, (_match, label, rawUrl) => {
+    const normalizedUrl = rawUrl.replace(
+      WORKSPACE_FILE_PROTOCOL_REGEX,
+      (_prefixMatch, rawPath) => `workspace-file://${encodeURI(rawPath)}`
+    );
+    return `[${label}](${normalizedUrl})`;
+  });
+}
+
+function WorkspaceFileLink({
+  children,
+  className,
+  href,
+  onClick,
+  workspaceUuid,
+  ...props
+}: ComponentPropsWithoutRef<"a"> & {
+  workspaceUuid?: string;
+}) {
+  const normalizedHref = typeof href === "string" ? href.trim() : "";
+  const fileIdentifier = normalizedHref.startsWith("workspace-file://")
+    ? decodeURIComponent(normalizedHref.replace("workspace-file://", "").trim())
+    : "";
+  const cacheKey =
+    workspaceUuid && fileIdentifier
+      ? `${workspaceUuid}:${fileIdentifier}`
+      : undefined;
+  const [resolvedRoute, setResolvedRoute] = useState<Route | null>(() =>
+    cacheKey ? (workspaceRouteCache.get(cacheKey) ?? null) : null
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!workspaceUuid || !fileIdentifier || !cacheKey) {
+      setResolvedRoute(null);
+      return;
+    }
+
+    const cachedRoute = workspaceRouteCache.get(cacheKey);
+    if (cachedRoute !== undefined) {
+      setResolvedRoute(cachedRoute);
+      return;
+    }
+
+    resolveWorkspaceFileRoute(workspaceUuid, fileIdentifier)
+      .then((route) => {
+        if (!cancelled) {
+          workspaceRouteCache.set(cacheKey, route);
+          setResolvedRoute(route);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          workspaceRouteCache.set(cacheKey, null);
+          setResolvedRoute(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cacheKey, fileIdentifier, workspaceUuid]);
+
+  return (
+    <a
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-muted/60 px-2.5 py-1 font-mono text-[11px] font-medium text-foreground no-underline hover:bg-muted",
+        !resolvedRoute && "cursor-default opacity-80",
+        className
+      )}
+      {...props}
+      href={resolvedRoute ?? "#"}
+      onClick={(event) => {
+        onClick?.(event);
+        if (event.defaultPrevented) {
+          return;
+        }
+        if (!resolvedRoute) {
+          event.preventDefault();
+          if (!workspaceUuid || !fileIdentifier || !cacheKey) {
+            return;
+          }
+          resolveWorkspaceFileRoute(workspaceUuid, fileIdentifier)
+            .then((route) => {
+              workspaceRouteCache.set(cacheKey, route);
+              setResolvedRoute(route);
+              if (route) {
+                window.location.assign(route);
+              }
+            })
+            .catch(() => undefined);
+        }
+      }}
+      rel="noreferrer"
+      target="_self"
+    >
+      <FileTextIcon className="size-3.5 text-primary" />
+      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+        Source
+      </span>
+      <span>{children}</span>
+    </a>
+  );
 }
 
 function MarkdownCodeBlock({
@@ -244,11 +354,13 @@ const MemoizedMarkdown = memo(
     textSize = "default",
     workspaceUuid,
   }: Omit<MarkdownProps, "id">) => {
-    const router = useRouter();
-    const normalized = useMemo(
-      () => (parseIncompleteMarkdown ? remend(content) : content),
-      [content, parseIncompleteMarkdown]
-    );
+    const normalized = useMemo(() => {
+      const contentWithWorkspaceLinks = normalizeWorkspaceFileLinks(content);
+      return parseIncompleteMarkdown &&
+        !contentWithWorkspaceLinks.includes("workspace-file://")
+        ? remend(contentWithWorkspaceLinks)
+        : contentWithWorkspaceLinks;
+    }, [content, parseIncompleteMarkdown]);
 
     const sizeClasses =
       textSize === "small"
@@ -282,6 +394,12 @@ const MemoizedMarkdown = memo(
         <ReactMarkdown
           remarkPlugins={[remarkGfm, remarkMath]}
           rehypePlugins={[rehypeKatex]}
+          urlTransform={(url) => {
+            if (url.startsWith("workspace-file://")) {
+              return url;
+            }
+            return defaultUrlTransform(url);
+          }}
           components={{
             code: CodeRenderer,
             ol: ({ children, className, ...props }: any) => (
@@ -371,45 +489,15 @@ const MemoizedMarkdown = memo(
               const isWorkspaceFileLink = href.startsWith("workspace-file://");
 
               if (isWorkspaceFileLink) {
-                const fileId = href.replace("workspace-file://", "").trim();
-                const workspaceFileHref = fileId
-                  ? `workspace-file://${fileId}`
-                  : href;
                 return (
-                  <a
-                    className={cn(
-                      "inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-muted/60 px-2.5 py-1 font-mono text-[11px] font-medium text-foreground no-underline hover:bg-muted",
-                      className
-                    )}
+                  <WorkspaceFileLink
+                    className={className}
+                    href={href}
+                    workspaceUuid={workspaceUuid}
                     {...(props as React.AnchorHTMLAttributes<HTMLAnchorElement>)}
-                    href={workspaceFileHref}
-                    rel="noreferrer"
-                    target="_self"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      if (!fileId) {
-                        return;
-                      }
-                      if (!workspaceUuid) {
-                        return;
-                      }
-
-                      void resolveWorkspaceFileRoute(workspaceUuid, fileId).then(
-                        (route) => {
-                          if (!route) {
-                            return;
-                          }
-                          router.push(route as Route);
-                        }
-                      );
-                    }}
                   >
-                    <FileTextIcon className="size-3.5 text-primary" />
-                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                      Source
-                    </span>
-                    <span>{children}</span>
-                  </a>
+                    {children}
+                  </WorkspaceFileLink>
                 );
               }
 

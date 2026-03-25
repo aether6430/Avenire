@@ -11,7 +11,6 @@ import {
   normalizeFrontmatterProperties,
   normalizePageMetadataState,
 } from "@/lib/frontmatter";
-import { listWorkspaceMembers } from "@/lib/file-data";
 import { NextResponse } from "next/server";
 import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
 
@@ -63,12 +62,6 @@ export async function PATCH(
   if (!canEdit) {
     return NextResponse.json({ error: "Read-only file" }, { status: 403 });
   }
-  const members = await listWorkspaceMembers(workspaceUuid);
-  const currentMember = members.find((member) => member.userId === user.id);
-  if (!currentMember || !["owner", "admin"].includes(currentMember.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
   const body = (await request.json().catch(() => ({}))) as {
     name?: string;
     folderId?: string;
@@ -138,12 +131,6 @@ export async function DELETE(
   if (!canEdit) {
     return NextResponse.json({ error: "Read-only file" }, { status: 403 });
   }
-  const members = await listWorkspaceMembers(workspaceUuid);
-  const currentMember = members.find((member) => member.userId === user.id);
-  if (!currentMember || !["owner", "admin"].includes(currentMember.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
   const existing = await getFileAssetById(workspaceUuid, fileUuid);
   if (!existing) {
     return NextResponse.json({ error: "File not found" }, { status: 404 });

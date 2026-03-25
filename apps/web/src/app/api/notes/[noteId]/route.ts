@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
+import { scheduleIngestionJob } from "@avenire/ingestion/queue";
 import {
   deleteIngestionDataForFile,
   getFileAssetById,
-  getNoteContent,
   getWorkspaceIdForFile,
   updateFileAsset,
   updateNoteContent,
@@ -12,9 +12,10 @@ import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
 import {
   normalizeFrontmatterProperties,
   normalizePageMetadataState,
-  resolvePageDocument,
 } from "@/lib/frontmatter";
 import { getSessionUser } from "@/lib/workspace";
+
+const NOTE_REINDEX_DEBOUNCE_MS = 3000;
 
 export async function PATCH(
   request: Request,
@@ -48,8 +49,6 @@ export async function PATCH(
     return NextResponse.json({ error: "Not a note" }, { status: 400 });
   }
 
-  const currentNote = await getNoteContent(noteId);
-
   const body = (await request.json().catch(() => ({}))) as {
     content?: string;
     page?: {
@@ -57,42 +56,15 @@ export async function PATCH(
       icon?: string | null;
       properties?: Record<string, unknown>;
     };
-    updatedAt?: string;
   };
   const hasContent = typeof body.content === "string";
   const hasPage = body.page !== undefined;
-  const expectedUpdatedAt =
-    typeof body.updatedAt === "string" && body.updatedAt.trim().length > 0
-      ? body.updatedAt
-      : null;
-
-  if (
-    expectedUpdatedAt &&
-    currentNote?.updatedAt &&
-    currentNote.updatedAt.toISOString() !== expectedUpdatedAt
-  ) {
-    return NextResponse.json(
-      {
-        content: currentNote.content,
-        error: "The note changed on another device. Reload before saving.",
-        page: file.page ?? null,
-        updatedAt: currentNote.updatedAt.toISOString(),
-      },
-      { status: 409 }
-    );
-  }
 
   if (!(hasContent || hasPage)) {
     return NextResponse.json({ error: "Invalid note update" }, { status: 400 });
   }
 
-  const resolvedDocument = hasContent
-    ? resolvePageDocument({
-        content: body.content ?? "",
-        page: file.page ?? null,
-      })
-    : null;
-  const nextContent = resolvedDocument?.body;
+  const nextContent = hasContent ? body.content ?? "" : undefined;
   const trimmed = nextContent?.trim() ?? "";
   const nextPage = hasPage
     ? normalizePageMetadataState({
@@ -100,14 +72,15 @@ export async function PATCH(
         ...body.page,
         properties:
           body.page?.properties === undefined
-            ? file.page?.properties ?? resolvedDocument?.page.properties ?? {}
+            ? file.page?.properties ?? {}
             : normalizeFrontmatterProperties(body.page.properties),
       })
-    : resolvedDocument?.page ?? null;
+    : file.page ?? null;
 
   const [updatedNote, updatedFile] = await Promise.all([
     hasContent
       ? updateNoteContent({
+          baseContent: nextContent ?? "",
           fileId: noteId,
           userId: user.id,
           content: nextContent ?? "",
@@ -134,6 +107,13 @@ export async function PATCH(
 
   if (hasContent && !trimmed) {
     await deleteIngestionDataForFile(workspaceId, noteId);
+  } else if (hasContent) {
+    await scheduleIngestionJob({
+      workspaceId,
+      fileId: noteId,
+      sourceType: "markdown",
+      delayMs: NOTE_REINDEX_DEBOUNCE_MS,
+    });
   }
 
   await publishFilesInvalidationEvent({

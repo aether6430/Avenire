@@ -10,7 +10,7 @@ function Card({
   return (
     <div
       className={cn(
-        "group/card flex flex-col gap-4 overflow-hidden rounded-2xl border border-border/35 bg-card/90 py-4 text-card-foreground text-xs/relaxed shadow-[0_1px_0_rgba(255,255,255,0.03),0_16px_34px_-30px_rgba(0,0,0,0.52)] backdrop-blur-sm has-[>img:first-child]:pt-0 data-[size=sm]:gap-3 data-[size=sm]:py-3 *:[img:first-child]:rounded-t-2xl *:[img:last-child]:rounded-b-2xl",
+        "group/card flex flex-col gap-4 overflow-hidden rounded-2xl border border-border/35 bg-card py-4 text-card-foreground text-xs/relaxed shadow-none has-[>img:first-child]:pt-0 data-[size=sm]:gap-3 data-[size=sm]:py-3 *:[img:first-child]:rounded-t-2xl *:[img:last-child]:rounded-b-2xl",
         className
       )}
       data-size={size}

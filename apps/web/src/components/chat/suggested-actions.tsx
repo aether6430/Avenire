@@ -55,10 +55,12 @@ function PureSuggestedActions({ onAction }: SuggestedActionsProps) {
             type="button"
             variant="outline"
           >
-            <span className="font-medium">{suggestedAction.title}</span>
-            <span className="truncate text-muted-foreground/80">
-              {" "}
-              - {suggestedAction.label}
+            <span className="block min-w-0">
+              <span className="font-medium">{suggestedAction.title}</span>
+              <span className="text-muted-foreground/80 lowercase">
+                {" "}
+                - {suggestedAction.label}
+              </span>
             </span>
           </Button>
         </motion.div>

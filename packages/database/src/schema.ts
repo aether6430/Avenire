@@ -100,6 +100,35 @@ export const workspace = pgTable(
   ]
 );
 
+export const workspacePropertyRegistry = pgTable(
+  "workspace_property_registry",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    type: text("type").notNull(),
+    options: jsonb("options").notNull().$type<string[]>().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("workspace_property_registry_workspace_key_uidx").on(
+      table.workspaceId,
+      table.key
+    ),
+    index("workspace_property_registry_workspace_idx").on(table.workspaceId),
+  ]
+);
+
 export const sessionSummary = pgTable(
   "session_summaries",
   {
@@ -238,6 +267,8 @@ export const noteContent = pgTable(
       .primaryKey()
       .references(() => fileAsset.id, { onDelete: "cascade" }),
     content: text("content").notNull().default(""),
+    baseContent: text("base_content").notNull().default(""),
+    version: integer("version").notNull().default(0),
     needsReindex: boolean("needs_reindex").notNull().default(false),
     lastIndexedAt: timestamp("last_indexed_at", { withTimezone: true }),
     updatedBy: text("updated_by").references(() => user.id, {
@@ -773,6 +804,7 @@ export const ingestionChunk = pgTable(
     chunkIndex: integer("chunk_index").notNull(),
     kind: text("kind").notNull().default("generic"),
     content: text("content").notNull(),
+    contentHash: text("content_hash"),
     searchVector: tsvector("search_vector")
       .notNull()
       .default(sql`''::tsvector`),
@@ -786,9 +818,16 @@ export const ingestionChunk = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
+    ingestedAt: timestamp("ingested_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
   (table) => [
     index("ingestion_chunk_resource_idx").on(table.resourceId),
+    index("ingestion_chunk_resource_hash_idx").on(
+      table.resourceId,
+      table.contentHash
+    ),
     index("ingestion_chunk_search_vector_idx").using("gin", table.searchVector),
     uniqueIndex("ingestion_chunk_resource_order_uidx").on(
       table.resourceId,
@@ -805,7 +844,9 @@ export const ingestionEmbedding = pgTable(
       .notNull()
       .references(() => ingestionChunk.id, { onDelete: "cascade" }),
     model: text("model").notNull(),
-    embedding: vector("embedding", { dimensions: 1024 }).notNull(),
+    embedding: vector("embedding", {
+      dimensions: ingestionEmbeddingDimensions,
+    }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

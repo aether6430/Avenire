@@ -142,11 +142,13 @@ interface PopoverPos {
 function DayPopover({
   dayKey: dk,
   items,
+  tasks,
   pos,
   onClose,
 }: {
   dayKey: string;
   items: RevisionItem[];
+  tasks: UpcomingTask[];
   pos: PopoverPos;
   onClose: () => void;
 }) {
@@ -238,6 +240,31 @@ function DayPopover({
             </div>
           </motion.div>
         ))}
+        {tasks.length > 0 ? (
+          <div className="border-border/70 border-t px-3 pt-2 pb-1">
+            <p className="mb-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+              Tasks
+            </p>
+            <div className="flex flex-col gap-1">
+              {tasks.map((task) => (
+                <div
+                  className="flex items-start gap-2 rounded-lg bg-secondary/40 px-2 py-1.5"
+                  key={task.id}
+                >
+                  <ListTodo className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-foreground text-xs font-medium">
+                      {task.title}
+                    </p>
+                    <p className="mt-0.5 text-muted-foreground text-[10px]">
+                      {task.dueAt ? formatTaskDue(task.dueAt) : "No due date"}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
     </motion.div>
   );
@@ -247,6 +274,7 @@ function DayCell({
   day,
   dayKey: dk,
   items,
+  tasks,
   isToday,
   isActive,
   onClick,
@@ -255,28 +283,32 @@ function DayCell({
   day: number;
   dayKey: string;
   items: RevisionItem[];
+  tasks: UpcomingTask[];
   isToday: boolean;
   isActive: boolean;
   onClick: (e: React.MouseEvent<HTMLButtonElement>, key: string) => void;
   tall?: boolean;
 }) {
   const hasItems = items.length > 0;
+  const hasTasks = tasks.length > 0;
   const shown = items.slice(0, tall ? 5 : 2);
   const overflow = items.length - shown.length;
+  const shownTasks = tasks.slice(0, tall ? 3 : 1);
+  const taskOverflow = tasks.length - shownTasks.length;
 
   return (
     <button
       className={cn(
         "relative flex w-full select-none flex-col gap-1.5 rounded-lg border p-2 text-left transition-colors duration-150",
-        tall ? "min-h-[180px]" : "min-h-[84px]",
-        hasItems ? "cursor-pointer" : "cursor-default",
+        tall ? "min-h-[190px]" : "min-h-[108px]",
+        hasItems || hasTasks ? "cursor-pointer" : "cursor-default",
         isActive && "border-primary/50 bg-primary/5",
         !isActive && isToday && "border-primary/30 bg-primary/[0.04]",
         !(isActive || isToday) && "border-border bg-card hover:bg-muted/50",
-        !hasItems && "opacity-50"
+        !(hasItems || hasTasks) && "opacity-50"
       )}
-      disabled={!hasItems}
-      onClick={(e) => hasItems && onClick(e, dk)}
+      disabled={!(hasItems || hasTasks)}
+      onClick={(e) => (hasItems || hasTasks) && onClick(e, dk)}
       type="button"
     >
       <div className="flex items-center gap-1.5">
@@ -300,7 +332,7 @@ function DayCell({
         )}
       </div>
 
-      {hasItems && (
+      {(hasItems || hasTasks) && (
         <div className="flex w-full flex-col gap-1">
           {shown.map((item) => (
             <div
@@ -321,6 +353,26 @@ function DayCell({
               +{overflow} more
             </span>
           )}
+          {shownTasks.length > 0 ? (
+            <div className="mt-1 flex flex-col gap-1">
+              {shownTasks.map((task) => (
+                <div
+                  className="flex items-center gap-1.5 rounded-[5px] bg-amber-500/10 px-1.5 py-0.5"
+                  key={task.id}
+                >
+                  <ListTodo className="h-2.5 w-2.5 shrink-0 text-amber-600" />
+                  <span className="min-w-0 flex-1 truncate text-[11px] text-foreground">
+                    {task.title}
+                  </span>
+                </div>
+              ))}
+              {taskOverflow > 0 && (
+                <span className="pl-0.5 text-[10px] text-muted-foreground">
+                  +{taskOverflow} more tasks
+                </span>
+              )}
+            </div>
+          ) : null}
         </div>
       )}
     </button>
@@ -331,6 +383,7 @@ function MonthGrid({
   curYear,
   curMonth,
   data,
+  tasksByDay,
   activeKey,
   todayKey,
   onDayClick,
@@ -338,6 +391,7 @@ function MonthGrid({
   curYear: number;
   curMonth: number;
   data: RevisionData;
+  tasksByDay: Record<string, UpcomingTask[]>;
   activeKey: string | null;
   todayKey: string;
   onDayClick: (e: React.MouseEvent<HTMLButtonElement>, key: string) => void;
@@ -384,6 +438,11 @@ function MonthGrid({
                 data[dateKeyUtc(new Date(Date.UTC(curYear, curMonth, day)))] ??
                 []
               }
+              tasks={
+                tasksByDay[
+                  dateKeyUtc(new Date(Date.UTC(curYear, curMonth, day)))
+                ] ?? []
+              }
               key={day}
               onClick={onDayClick}
             />
@@ -397,12 +456,14 @@ function MonthGrid({
 function WeekGrid({
   weekStart,
   data,
+  tasksByDay,
   activeKey,
   todayKey,
   onDayClick,
 }: {
   weekStart: Date;
   data: RevisionData;
+  tasksByDay: Record<string, UpcomingTask[]>;
   activeKey: string | null;
   todayKey: string;
   onDayClick: (e: React.MouseEvent<HTMLButtonElement>, key: string) => void;
@@ -431,6 +492,7 @@ function WeekGrid({
               isActive={activeKey === k}
               isToday={k === todayKey}
               items={data[k] ?? []}
+              tasks={tasksByDay[k] ?? []}
               key={k}
               onClick={onDayClick}
               tall
@@ -626,45 +688,57 @@ export function StudentCalendar() {
         .slice(0, 6),
     [upcomingTasks]
   );
+  const tasksByDay = useMemo(() => {
+    return upcomingTasks.reduce<Record<string, UpcomingTask[]>>((acc, task) => {
+      if (!task.dueAt) {
+        return acc;
+      }
+      const key = dateKeyUtc(new Date(task.dueAt));
+      const next = acc[key] ?? [];
+      next.push(task);
+      acc[key] = next;
+      return acc;
+    }, {});
+  }, [upcomingTasks]);
 
   const jumpToTaskManager = () => {
     const element = document.getElementById("task-manager");
     element?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  let upcomingTasksContent: React.ReactNode;
+  let taskFeedContent: React.ReactNode;
   if (tasksLoading) {
-    upcomingTasksContent = (
-      <div className="rounded-lg border border-border/70 border-dashed px-3 py-4 text-muted-foreground text-xs">
+    taskFeedContent = (
+      <div className="w-full rounded-lg border border-border/70 border-dashed px-3 py-4 text-xs text-muted-foreground">
         Loading upcoming tasks...
       </div>
     );
   } else if (tasksError) {
-    upcomingTasksContent = (
-      <div className="rounded-lg border border-border/70 border-dashed px-3 py-4 text-muted-foreground text-xs">
+    taskFeedContent = (
+      <div className="w-full rounded-lg border border-border/70 border-dashed px-3 py-4 text-xs text-muted-foreground">
         {tasksError}
       </div>
     );
   } else if (sortedUpcomingTasks.length === 0) {
-    upcomingTasksContent = (
-      <div className="rounded-lg border border-border/70 border-dashed px-3 py-4 text-muted-foreground text-xs">
+    taskFeedContent = (
+      <div className="w-full rounded-lg border border-border/70 border-dashed px-3 py-4 text-xs text-muted-foreground">
         No upcoming tasks yet.
       </div>
     );
   } else {
-    upcomingTasksContent = sortedUpcomingTasks.map((task) => (
+    taskFeedContent = sortedUpcomingTasks.map((task) => (
       <button
-        className="w-full rounded-lg border border-border/70 bg-muted/20 px-3 py-3 text-left transition-colors hover:bg-muted/40"
+        className="min-w-[12.5rem] flex-1 rounded-lg border border-border/70 bg-muted/20 px-3 py-3 text-left transition-colors hover:bg-muted/40 sm:min-w-[14rem]"
         key={task.id}
         onClick={jumpToTaskManager}
         type="button"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="truncate font-medium text-foreground text-sm">
+            <p className="truncate text-sm font-medium text-foreground">
               {task.title}
             </p>
-            <p className="mt-1 line-clamp-2 text-muted-foreground text-xs">
+            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
               {task.description?.trim()
                 ? task.description
                 : "Open the task manager to add details or change the date."}
@@ -823,7 +897,7 @@ export function StudentCalendar() {
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
+      <div className="space-y-4">
         <div className="min-w-0 space-y-3">
           {loading ? (
             <div className="text-muted-foreground text-xs">
@@ -862,6 +936,7 @@ export function StudentCalendar() {
                     curMonth={curMonth}
                     curYear={curYear}
                     data={data}
+                    tasksByDay={tasksByDay}
                     onDayClick={handleDayClick}
                     todayKey={todayKey}
                   />
@@ -869,6 +944,7 @@ export function StudentCalendar() {
                   <WeekGrid
                     activeKey={activeKey}
                     data={data}
+                    tasksByDay={tasksByDay}
                     onDayClick={handleDayClick}
                     todayKey={todayKey}
                     weekStart={weekStart}
@@ -879,7 +955,7 @@ export function StudentCalendar() {
           </div>
         </div>
 
-        <aside className="rounded-xl border border-border/70 bg-background p-3">
+        <div className="rounded-xl border border-border/70 bg-background p-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="flex items-center gap-2 font-medium text-foreground text-sm">
@@ -887,7 +963,8 @@ export function StudentCalendar() {
                 Upcoming tasks
               </p>
               <p className="mt-1 text-muted-foreground text-xs">
-                Tasks with dates show up here so they stay visible.
+                Due tasks are embedded into the calendar. This feed stays in the
+                same view.
               </p>
             </div>
             <Button
@@ -901,8 +978,10 @@ export function StudentCalendar() {
             </Button>
           </div>
 
-          <div className="mt-3 space-y-2">{upcomingTasksContent}</div>
-        </aside>
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+            {taskFeedContent}
+          </div>
+        </div>
       </div>
 
       <AnimatePresence>
@@ -910,6 +989,7 @@ export function StudentCalendar() {
           <DayPopover
             dayKey={activeKey}
             items={activeItems}
+            tasks={tasksByDay[activeKey] ?? []}
             onClose={() => setActiveKey(null)}
             pos={popoverPos}
           />

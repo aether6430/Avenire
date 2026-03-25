@@ -1,31 +1,29 @@
 "use client";
 
-import type { Route } from "next";
-import { usePathname, useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, House } from "lucide-react";
 import { Button } from "@avenire/ui/components/button";
 import { SidebarTrigger } from "@avenire/ui/components/sidebar";
 import { cn } from "@avenire/ui/lib/utils";
-import type { ReactNode } from "react";
+import { ArrowLeft, ArrowRight, House } from "lucide-react";
+import type { Route } from "next";
+import { usePathname, useRouter } from "next/navigation";
+import { useHeaderStore } from "@/stores/header-store";
 import { useWorkspaceHistoryStore } from "@/stores/workspaceHistoryStore";
 
 interface WorkspaceHeaderProps {
-  actions?: ReactNode;
   className?: string;
-  leadingIcon?: ReactNode;
   homeHref?: string;
-  children?: ReactNode;
 }
 
 export function WorkspaceHeader({
-  actions,
   className,
-  children,
-  leadingIcon,
   homeHref = "/workspace",
 }: WorkspaceHeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const leadingIcon = useHeaderStore((state) => state.leadingIcon);
+  const breadcrumbs = useHeaderStore((state) => state.breadcrumbs);
+  const actions = useHeaderStore((state) => state.actions);
+  const title = useHeaderStore((state) => state.title);
   const historyEntries = useWorkspaceHistoryStore((state) => state.entries);
   const historyIndex = useWorkspaceHistoryStore((state) => state.index);
 
@@ -40,66 +38,41 @@ export function WorkspaceHeader({
   return (
     <header
       className={cn(
-        "sticky top-0 z-30 shrink-0 border-border/70 border-b bg-background/95 backdrop-blur-sm",
+        "sticky top-0 z-30 shrink-0 border-border/40 border-b bg-background",
         className
       )}
     >
-      <div className="flex min-h-12 shrink-0 flex-wrap items-center gap-2 px-4 py-2">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <SidebarTrigger className="rounded-md" />
-          {leadingIcon ? (
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background text-muted-foreground">
-              {leadingIcon}
-            </div>
-          ) : null}
-          <Button
-            aria-label="Go back"
-            className="rounded-md"
-            disabled={!backRoute}
-            onClick={() => {
-              if (backRoute) {
-                router.push(backRoute as Route);
-              }
-            }}
-            size="icon-xs"
-            type="button"
-            variant="outline"
-          >
-            <ArrowLeft className="size-3.5" />
-          </Button>
-          <Button
-            aria-label="Go forward"
-            className="hidden rounded-md sm:inline-flex"
-            disabled={!forwardRoute}
-            onClick={() => {
-              if (forwardRoute) {
-                router.push(forwardRoute as Route);
-              }
-            }}
-            size="icon-xs"
-            type="button"
-            variant="outline"
-          >
-            <ArrowRight className="size-3.5" />
-          </Button>
-          <Button
-            aria-label="Go home"
-            className="hidden rounded-md sm:inline-flex"
-            disabled={isHome}
-            onClick={() => {
-              if (!isHome) {
-                router.push(homeHref as Route);
-              }
-            }}
-            size="icon-xs"
-            type="button"
-            variant="outline"
-          >
-            <House className="size-3.5" />
-          </Button>
-          <div className="min-w-0 flex-1">{children}</div>
+      <div className="flex min-h-14 shrink-0 flex-wrap items-start gap-1.5 px-3 py-2 sm:flex-nowrap sm:items-center sm:px-4">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+          <SidebarTrigger className="size-7 rounded-sm border border-border/60 bg-background text-muted-foreground shadow-sm hover:bg-secondary" />
+          <div className="hidden size-6 shrink-0 items-center justify-center text-muted-foreground sm:flex">
+            {leadingIcon ?? (
+              <div
+                className="flex size-6 shrink-0 items-center justify-center text-muted-foreground empty:hidden"
+                id="workspace-header-leading-icon"
+              />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            {breadcrumbs ?? (
+              <div className="min-w-0 flex-1" id="workspace-header-breadcrumbs">
+                {title ? (
+                  <h1 className="truncate font-medium text-sm text-foreground">
+                    {title}
+                  </h1>
+                ) : null}
+              </div>
+            )}
+          </div>
         </div>
-        {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
+        <div className="flex w-full min-w-0 justify-end overflow-x-auto no-scrollbar sm:w-auto">
+          {actions ?? (
+            <div
+              className="flex items-center gap-1.5 empty:hidden"
+              id="workspace-header-actions"
+            />
+          )}
+        </div>
       </div>
     </header>
   );

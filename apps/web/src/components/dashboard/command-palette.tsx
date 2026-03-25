@@ -45,48 +45,6 @@ type PaletteItem = {
   folderId?: string;
 };
 
-function FilePickerPreview() {
-  return (
-    <div className="flex h-full flex-col gap-3 border-border/60 bg-muted/10 p-4">
-      <div>
-        <p className="font-medium text-foreground text-sm">Preview</p>
-        <p className="mt-1 text-muted-foreground text-xs">
-          Static file preview for the current search results.
-        </p>
-      </div>
-
-      <div className="flex min-h-0 flex-1 flex-col rounded-xl border border-border/70 bg-background p-3">
-        <div className="flex items-center gap-2">
-          <div className="flex size-8 items-center justify-center rounded-lg border border-border/70 bg-muted/40">
-            <FileText className="size-4 text-muted-foreground" />
-          </div>
-          <div className="min-w-0">
-            <p className="truncate font-medium text-foreground text-sm">
-              Selected file
-            </p>
-            <p className="truncate text-muted-foreground text-xs">
-              Preview details appear here.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-4 grid gap-2">
-          <div className="h-32 rounded-lg border border-dashed border-border/70 bg-muted/20" />
-          <div className="space-y-2">
-            <div className="h-3 w-2/3 rounded-full bg-muted" />
-            <div className="h-3 w-5/6 rounded-full bg-muted/80" />
-            <div className="h-3 w-3/5 rounded-full bg-muted/70" />
-          </div>
-        </div>
-
-        <div className="mt-auto pt-4 text-muted-foreground text-xs">
-          Use the list on the left to open a file or folder.
-        </div>
-      </div>
-    </div>
-  );
-}
-
 const FILE_FUSE_OPTIONS = {
   includeScore: true,
   ignoreLocation: true,
@@ -159,6 +117,7 @@ export function CommandPalette() {
 
   const [generalQuery, setGeneralQuery] = useState("");
   const [fileQuery, setFileQuery] = useState("");
+  const [debouncedFileQuery, setDebouncedFileQuery] = useState("");
   const [retrievalResults, setRetrievalResults] = useState<WorkspaceSearchResult[]>([]);
   const [isRetrieving, setIsRetrieving] = useState(false);
 
@@ -208,9 +167,20 @@ export function CommandPalette() {
       return;
     }
     setFileQuery("");
+    setDebouncedFileQuery("");
     setRetrievalResults([]);
     setIsRetrieving(false);
   }, [fileOpen]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedFileQuery(fileQuery);
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [fileQuery]);
 
   const folderById = useMemo(
     () => new Map(folders.map((folder) => [folder.id, folder])),
@@ -293,7 +263,7 @@ export function CommandPalette() {
 
   const fuse = useMemo(() => new Fuse(searchItems, FILE_FUSE_OPTIONS), [searchItems]);
 
-  const trimmedFileQuery = fileQuery.trim();
+  const trimmedFileQuery = debouncedFileQuery.trim();
 
   const fuzzyResults = useMemo(() => {
     if (!trimmedFileQuery) {
@@ -704,8 +674,8 @@ export function CommandPalette() {
             value={fileQuery}
             onValueChange={setFileQuery}
           />
-          <div className="grid min-h-0 flex-1 grid-cols-1 border-t border-border/60 lg:grid-cols-[minmax(0,1fr)_18rem]">
-            <div className="min-h-0 border-border/60 lg:border-r">
+          <div className="grid min-h-0 flex-1 grid-cols-1 border-t border-border/60">
+            <div className="min-h-0">
               <CommandList className="max-h-none min-h-0">
                 {!workspaceUuid ? (
                   <CommandEmpty>Open a workspace to search files.</CommandEmpty>
@@ -810,9 +780,6 @@ export function CommandPalette() {
                   </>
                 )}
               </CommandList>
-            </div>
-            <div className="hidden min-h-0 lg:block">
-              <FilePickerPreview />
             </div>
           </div>
         </Command>

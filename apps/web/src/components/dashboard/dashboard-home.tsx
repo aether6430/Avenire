@@ -3,11 +3,13 @@
 import { Badge } from "@avenire/ui/components/badge";
 import { Button } from "@avenire/ui/components/button";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@avenire/ui/components/card";
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@avenire/ui/components/empty";
 import {
   Dialog,
   DialogContent,
@@ -36,7 +38,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { startTransition, useEffect, useMemo, useState } from "react";
 import { QuickCaptureDialog } from "@/components/dashboard/quick-capture-dialog";
-import { WorkspaceHeader } from "@/components/dashboard/workspace-header";
+import { HeaderBreadcrumbs } from "@/components/dashboard/header-portal";
 import type { ChatSummary } from "@/lib/chat-data";
 import type { ExplorerFileRecord } from "@/lib/file-data";
 import type {
@@ -60,7 +62,7 @@ const DashboardTaskManager = dynamic(
     })),
   {
     loading: () => (
-      <div className="rounded-lg border border-border/70 bg-background px-4 py-10 text-center text-muted-foreground text-sm">
+      <div className="rounded-md bg-secondary/50 px-4 py-10 text-center text-muted-foreground text-sm">
         Loading tasks...
       </div>
     ),
@@ -74,7 +76,7 @@ const StudentCalendar = dynamic(
     })),
   {
     loading: () => (
-      <div className="rounded-lg border border-border/70 bg-background px-4 py-10 text-center text-muted-foreground text-sm">
+      <div className="rounded-md bg-secondary/50 px-4 py-10 text-center text-muted-foreground text-sm">
         Loading calendar...
       </div>
     ),
@@ -206,7 +208,7 @@ function UpcomingFlashcardList({
 
   if (orderedSets.length === 0) {
     return (
-      <div className="rounded-lg border border-border/70 border-dashed px-4 py-10 text-center text-muted-foreground text-sm">
+      <div className="rounded-md bg-secondary/50 px-4 py-10 text-center text-muted-foreground text-sm">
         Nothing is waiting right now.
       </div>
     );
@@ -216,7 +218,7 @@ function UpcomingFlashcardList({
     <div className="space-y-2">
       {orderedSets.map((set) => (
         <button
-          className="flex w-full items-start justify-between gap-3 rounded-lg border border-border/70 bg-background px-3 py-3 text-left transition-colors hover:bg-muted/40"
+          className="flex w-full cursor-pointer items-start justify-between gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-secondary"
           key={set.id}
           onClick={() => onStartReview(set.id)}
           type="button"
@@ -326,20 +328,20 @@ export function DashboardHome({
   let activityContent: React.ReactNode;
   if (loadingActivities) {
     activityContent = (
-      <div className="rounded-lg border border-border/70 bg-background px-4 py-10 text-center text-muted-foreground text-sm">
+      <div className="rounded-md bg-secondary/50 px-4 py-10 text-center text-muted-foreground text-sm">
         Loading activity...
       </div>
     );
   } else if (activities.length === 0) {
     activityContent = (
-      <div className="rounded-lg border border-border/70 bg-background px-4 py-10 text-center text-muted-foreground text-sm">
+      <div className="rounded-md bg-secondary/50 px-4 py-10 text-center text-muted-foreground text-sm">
         No recent activity.
       </div>
     );
   } else {
     activityContent = activities.slice(0, 6).map((event) => (
       <Link
-        className="flex items-center gap-3 rounded-lg border border-border/70 bg-background px-3 py-3 transition-colors hover:bg-muted/40"
+        className="flex items-center gap-3 rounded-md px-3 py-2.5 transition-colors hover:bg-secondary"
         href={event.href as Route}
         key={event.id}
       >
@@ -359,127 +361,116 @@ export function DashboardHome({
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-background">
-      <div className="mx-auto flex w-full max-w-none flex-col gap-5 px-4 py-4 md:px-6">
-        <WorkspaceHeader className="-mx-4 md:-mx-6">
+    <div className="h-full overflow-x-hidden overflow-y-auto bg-background">
+      <div className="flex w-full flex-col gap-4 px-4 py-4 md:px-6 lg:px-8">
+        <HeaderBreadcrumbs>
           <div className="min-w-0">
-            <p className="truncate font-medium text-foreground text-sm">
-              Desktop
-            </p>
+            <p className="truncate text-muted-foreground text-sm">Desktop</p>
           </div>
-        </WorkspaceHeader>
+        </HeaderBreadcrumbs>
 
-        <div className="-mx-4 overflow-hidden border-border/70 border-y md:-mx-6">
+        <div className="-mx-6 overflow-hidden rounded-none md:-mx-12 lg:-mx-16">
           <img
             alt="Workspace banner"
-            className="h-36 w-full object-cover md:h-48"
-            height={192}
+            className="h-28 w-full object-cover md:h-40"
+            height={160}
             src="/images/folder-banner-default.svg"
             width={2400}
           />
         </div>
 
-        <div className="grid w-full gap-2 sm:grid-cols-2 md:grid-cols-3 lg:auto-cols-fr lg:grid-flow-col lg:grid-cols-none">
-          <div className="flex min-w-0">
-            <QuickCaptureDialog
-              initialKind="task"
-              trigger={
-                <Button
-                  className="h-10 w-full justify-start px-3 text-sm"
-                  type="button"
-                  variant="outline"
-                >
-                  <Plus className="size-3.5" />
-                  Task
-                </Button>
-              }
-            />
-          </div>
+        <div className="flex flex-wrap gap-1.5">
+          <QuickCaptureDialog
+            initialKind="task"
+            trigger={
+              <Button
+                className="h-8 gap-1.5 rounded-sm px-2.5 text-muted-foreground text-sm"
+                type="button"
+                variant="ghost"
+              >
+                <Plus className="size-3.5" />
+                Task
+              </Button>
+            }
+          />
 
-          <div className="flex min-w-0">
-            <QuickCaptureDialog
-              initialKind="note"
-              trigger={
-                <Button
-                  className="h-10 w-full justify-start px-3 text-sm"
-                  type="button"
-                  variant="outline"
-                >
-                  <FileText className="size-3.5" />
-                  Note
-                </Button>
-              }
-            />
-          </div>
+          <QuickCaptureDialog
+            initialKind="note"
+            trigger={
+              <Button
+                className="h-8 gap-1.5 rounded-sm px-2.5 text-muted-foreground text-sm"
+                type="button"
+                variant="ghost"
+              >
+                <FileText className="size-3.5" />
+                Note
+              </Button>
+            }
+          />
 
-          <div className="flex min-w-0">
-            <QuickCaptureDialog
-              initialKind="misconception"
-              trigger={
-                <Button
-                  className="h-10 w-full justify-start px-3 text-sm"
-                  type="button"
-                  variant="outline"
-                >
-                  <TriangleAlert className="size-3.5" />
-                  Misconception
-                </Button>
-              }
-            />
-          </div>
+          <QuickCaptureDialog
+            initialKind="misconception"
+            trigger={
+              <Button
+                className="h-8 gap-1.5 rounded-sm px-2.5 text-muted-foreground text-sm"
+                type="button"
+                variant="ghost"
+              >
+                <TriangleAlert className="size-3.5" />
+                Misconception
+              </Button>
+            }
+          />
 
-          <div className="flex min-w-0">
-            <Button
-              className="h-10 w-full justify-start px-3 text-sm"
-              onClick={() => {
-                router.push("/workspace/chats" as Route);
-              }}
-              type="button"
-              variant="outline"
-            >
-              <MessageSquareText className="size-3.5" />
-              Chat
-            </Button>
-          </div>
+          <Button
+            className="h-8 gap-1.5 rounded-sm px-2.5 text-muted-foreground text-sm"
+            onClick={() => {
+              router.push("/workspace/chats" as Route);
+            }}
+            type="button"
+            variant="ghost"
+          >
+            <MessageSquareText className="size-3.5" />
+            Chat
+          </Button>
 
-          <div className="flex min-w-0">
-            <Button
-              className="h-10 w-full justify-start px-3 text-sm"
-              onClick={() => {
-                router.push("/workspace/flashcards" as Route);
-              }}
-              type="button"
-              variant="outline"
-            >
-              <BookOpenCheck className="size-3.5" />
-              Flashcards
-            </Button>
-          </div>
+          <Button
+            className="h-8 gap-1.5 rounded-sm px-2.5 text-muted-foreground text-sm"
+            onClick={() => {
+              router.push("/workspace/flashcards" as Route);
+            }}
+            type="button"
+            variant="ghost"
+          >
+            <BookOpenCheck className="size-3.5" />
+            Flashcards
+          </Button>
 
-          <div className="flex min-w-0">
-            <Button
-              className="h-10 w-full justify-start px-3 text-sm"
-              onClick={() => {
-                router.push("/workspace/files" as Route);
-              }}
-              type="button"
-              variant="outline"
-            >
-              <Files className="size-3.5" />
-              Files
-            </Button>
-          </div>
+          <Button
+            className="h-8 gap-1.5 rounded-sm px-2.5 text-muted-foreground text-sm"
+            onClick={() => {
+              router.push("/workspace/files" as Route);
+            }}
+            type="button"
+            variant="ghost"
+          >
+            <Files className="size-3.5" />
+            Files
+          </Button>
         </div>
 
-        <div className="rounded-xl border border-border/70 bg-muted/20 px-4 py-4">
-          <p className="text-center text-muted-foreground text-sm">
-            Hey {userName ?? "there"}! Welcome back!
+        <div className="mt-2 min-w-0">
+          <h1 className="truncate text-3xl font-bold tracking-tight text-foreground">
+            Hey {userName ?? "there"}
+          </h1>
+          <p className="mt-1 truncate text-muted-foreground text-sm">
+            Welcome back to your workspace.
           </p>
         </div>
 
-        <div className="grid items-stretch gap-4 xl:grid-cols-[minmax(16rem,0.6fr)_minmax(0,1.4fr)]">
-          <Card className="flex h-full min-h-[30rem] flex-col overflow-hidden">
-            <CardContent className="min-h-0 flex-1 overflow-y-auto pt-4">
+        <div className="mt-4 grid items-stretch gap-6 xl:grid-cols-[minmax(16rem,0.6fr)_minmax(0,1.4fr)]">
+          <div className="flex h-[24rem] flex-col overflow-hidden sm:h-[27rem] xl:h-[30rem]">
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
               <Tabs
                 className="space-y-4"
                 onValueChange={(value) => {
@@ -502,11 +493,11 @@ export function DashboardHome({
                   {activityContent}
                 </TabsContent>
               </Tabs>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card className="flex h-full min-h-[34rem] flex-col overflow-hidden">
-            <CardContent className="min-h-0 flex-1 overflow-y-auto pt-4">
+          <div className="flex h-[28rem] flex-col overflow-hidden sm:h-[31rem] xl:h-[34rem]">
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
               <Tabs
                 className="space-y-4"
                 onValueChange={(value) => {
@@ -530,9 +521,20 @@ export function DashboardHome({
 
                 <TabsContent className="space-y-3" value="weak-points">
                   {weakPointGroups.length === 0 ? (
-                    <div className="rounded-lg border border-border/70 border-dashed px-4 py-10 text-center text-muted-foreground text-sm">
-                      No weak points yet.
-                    </div>
+                    <Empty className="min-h-[12rem]">
+                      <EmptyHeader>
+                        <EmptyMedia variant="icon">
+                          <BookOpenCheck className="size-4" />
+                        </EmptyMedia>
+                        <EmptyTitle>No weak points yet</EmptyTitle>
+                      </EmptyHeader>
+                      <EmptyContent>
+                        <EmptyDescription>
+                          As you study and capture misconceptions, the weakest
+                          areas will surface here with drill paths.
+                        </EmptyDescription>
+                      </EmptyContent>
+                    </Empty>
                   ) : (
                     weakPointGroups.slice(0, 6).map((group) => {
                       const drillConcepts = group.concepts
@@ -549,7 +551,7 @@ export function DashboardHome({
 
                       return (
                         <div
-                          className="rounded-xl border border-border/70 bg-background p-4"
+                          className="rounded-md bg-secondary/40 p-4"
                           key={`${group.subject}:${group.topic}`}
                         >
                           <div className="flex items-start justify-between gap-3">
@@ -568,7 +570,7 @@ export function DashboardHome({
                           <div className="mt-3 flex flex-wrap gap-2">
                             {group.concepts.slice(0, 4).map((concept) => (
                               <span
-                                className="rounded-md border border-border/70 bg-muted/20 px-2 py-1 text-foreground text-xs"
+                                className="rounded-sm bg-secondary px-2 py-1 text-foreground text-xs"
                                 key={`${concept.subject}:${concept.topic}:${concept.concept}`}
                               >
                                 {concept.concept}
@@ -598,13 +600,24 @@ export function DashboardHome({
 
                 <TabsContent className="space-y-3" value="misconceptions">
                   {activeMisconceptions.length === 0 ? (
-                    <div className="rounded-lg border border-border/70 border-dashed px-4 py-10 text-center text-muted-foreground text-sm">
-                      No active misconceptions.
-                    </div>
+                    <Empty className="min-h-[12rem]">
+                      <EmptyHeader>
+                        <EmptyMedia variant="icon">
+                          <TriangleAlert className="size-4" />
+                        </EmptyMedia>
+                        <EmptyTitle>No misconceptions active</EmptyTitle>
+                      </EmptyHeader>
+                      <EmptyContent>
+                        <EmptyDescription>
+                          When a misconception is detected it will appear here
+                          with the option to review, improve, or clear it.
+                        </EmptyDescription>
+                      </EmptyContent>
+                    </Empty>
                   ) : (
                     activeMisconceptions.slice(0, 8).map((misconception) => (
                       <button
-                        className="w-full rounded-xl border border-border/70 bg-background px-4 py-4 text-left transition-colors hover:bg-muted/40"
+                        className="w-full cursor-pointer rounded-md px-4 py-3 text-left transition-colors hover:bg-secondary"
                         key={misconception.id}
                         onClick={() => setSelectedMisconception(misconception)}
                         type="button"
@@ -637,18 +650,16 @@ export function DashboardHome({
                   />
                 </TabsContent>
               </Tabs>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
 
-        <Card className="overflow-hidden">
-          <CardHeader className="border-border/70 border-b pb-3">
-            <CardTitle className="text-sm">Student calendar</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-4">
-            <StudentCalendar />
-          </CardContent>
-        </Card>
+        <div className="mt-2">
+          <h2 className="mb-3 text-sm font-medium text-foreground">
+            Student calendar
+          </h2>
+          <StudentCalendar />
+        </div>
       </div>
 
       <Dialog

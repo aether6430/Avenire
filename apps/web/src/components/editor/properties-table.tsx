@@ -1,14 +1,8 @@
 "use client";
 
 import { Button } from "@avenire/ui/components/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@avenire/ui/components/dropdown-menu";
-import { Input } from "@avenire/ui/components/input";
 import { Checkbox } from "@avenire/ui/components/checkbox";
+import { Input } from "@avenire/ui/components/input";
 import {
   Select,
   SelectContent,
@@ -17,130 +11,184 @@ import {
   SelectValue,
 } from "@avenire/ui/components/select";
 import {
-  ChevronDown as ChevronDownIcon,
+  ChevronDown,
   ChevronRight,
   Plus,
   Trash2,
 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
-  COMMON_PROPERTIES,
+  createEmptyProperty,
+  formatPropertyValue,
+  normalizePropertyOptions,
+  PROPERTY_TYPE_LABELS,
+  type FilePropertyType,
   type FrontmatterProperties,
-  formatValue,
-  PRIORITY_OPTIONS,
-  parseValue,
-  STATUS_OPTIONS,
-  TYPE_OPTIONS,
+  setPropertyValue,
+  type WorkspacePropertyDefinition,
 } from "@/lib/frontmatter";
 import { cn } from "@/lib/utils";
 
 interface PropertiesTableProps {
   className?: string;
+  definitions?: WorkspacePropertyDefinition[];
+  disabled?: boolean;
   onChange: (properties: FrontmatterProperties) => void;
+  onDefinitionsChange?: (definitions: WorkspacePropertyDefinition[]) => void;
   properties: FrontmatterProperties;
 }
 
+const PROPERTY_TYPES: FilePropertyType[] = [
+  "text",
+  "number",
+  "checkbox",
+  "date",
+  "select",
+  "multi_select",
+];
+
 export function PropertiesTable({
   className,
+  definitions = [],
+  disabled = false,
   onChange,
+  onDefinitionsChange,
   properties,
 }: PropertiesTableProps) {
   const [isExpanded, setIsExpanded] = useState(true);
-  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [newKey, setNewKey] = useState("");
+  const [newType, setNewType] = useState<FilePropertyType>("text");
 
-  const handlePropertyChange = useCallback(
-    (key: string, value: string, type?: string) => {
-      onChange({
-        ...properties,
-        [key]: parseValue(value, type),
-      });
-    },
-    [onChange, properties]
+  const definitionByKey = useMemo(
+    () => new Map(definitions.map((definition) => [definition.key, definition])),
+    [definitions]
   );
 
-  const handleAddProperty = useCallback(
-    (key: string) => {
-      const prop = COMMON_PROPERTIES.find((p) => p.key === key);
-      if (!prop) {
+  const syncDefinition = useCallback(
+    (key: string, type: FilePropertyType, options: string[] = []) => {
+      if (!onDefinitionsChange) {
         return;
       }
 
-      onChange({
-        ...properties,
-        [key]: prop.type === "array" ? [] : "",
-      });
-      setEditingKey(key);
+      const trimmedKey = key.trim();
+      if (!trimmedKey) {
+        return;
+      }
+
+      const nextOptions = normalizePropertyOptions(options);
+      const nextDefinitions = [...definitions];
+      const existingIndex = nextDefinitions.findIndex(
+        (definition) => definition.key === trimmedKey
+      );
+
+      if (existingIndex >= 0) {
+        nextDefinitions[existingIndex] = {
+          ...nextDefinitions[existingIndex],
+          key: trimmedKey,
+          options:
+            type === "select" || type === "multi_select"
+              ? normalizePropertyOptions([
+                  ...nextDefinitions[existingIndex]!.options,
+                  ...nextOptions,
+                ])
+              : [],
+          type,
+        };
+      } else {
+        nextDefinitions.push({
+          key: trimmedKey,
+          options:
+            type === "select" || type === "multi_select" ? nextOptions : [],
+          type,
+        });
+      }
+
+      onDefinitionsChange(
+        nextDefinitions.sort((left, right) => left.key.localeCompare(right.key))
+      );
     },
-    [onChange, properties]
+    [definitions, onDefinitionsChange]
   );
+
+  const handleAddProperty = useCallback(() => {
+    const trimmedKey = newKey.trim();
+    if (!(trimmedKey && !properties[trimmedKey])) {
+      return;
+    }
+
+    onChange({
+      ...properties,
+      [trimmedKey]: createEmptyProperty(newType),
+    });
+    syncDefinition(trimmedKey, newType);
+    setNewKey("");
+    setNewType("text");
+  }, [newKey, newType, onChange, properties, syncDefinition]);
 
   const handleDeleteProperty = useCallback(
     (key: string) => {
-      const { [key]: _, ...newProperties } = properties;
-      onChange(newProperties);
+      const { [key]: _removed, ...rest } = properties;
+      onChange(rest);
     },
     [onChange, properties]
   );
 
-  const existingKeys = Object.keys(properties);
-  const availableProperties = COMMON_PROPERTIES.filter(
-    (p) => !existingKeys.includes(p.key)
+  const handleRenameProperty = useCallback(
+    (key: string, nextKey: string) => {
+      const trimmedKey = nextKey.trim();
+      if (!(trimmedKey && trimmedKey !== key && !properties[trimmedKey])) {
+        return;
+      }
+
+      const nextEntries = Object.entries(properties).map(([entryKey, value]) =>
+        entryKey === key ? ([trimmedKey, value] as const) : ([entryKey, value] as const)
+      );
+      onChange(Object.fromEntries(nextEntries));
+
+      const definition = definitionByKey.get(key);
+      if (definition && onDefinitionsChange) {
+        onDefinitionsChange(
+          definitions
+            .map((entry) =>
+              entry.key === key ? { ...entry, key: trimmedKey } : entry
+            )
+            .sort((left, right) => left.key.localeCompare(right.key))
+        );
+      }
+    },
+    [
+      definitionByKey,
+      definitions,
+      onChange,
+      onDefinitionsChange,
+      properties,
+    ]
   );
 
-  const getPropertyType = (key: string): string => {
-    const prop = COMMON_PROPERTIES.find((p) => p.key === key);
-    return prop?.type || "string";
-  };
+  const handlePropertyValueChange = useCallback(
+    (key: string, nextValue: unknown) => {
+      const property = properties[key];
+      if (!property) {
+        return;
+      }
 
-  const getSelectOptions = (key: string): string[] => {
-    if (key === "status") {
-      return STATUS_OPTIONS;
-    }
-    if (key === "type") {
-      return TYPE_OPTIONS;
-    }
-    if (key === "priority") {
-      return PRIORITY_OPTIONS;
-    }
-    return [];
-  };
+      const nextProperty = setPropertyValue(property, nextValue);
+      onChange({
+        ...properties,
+        [key]: nextProperty,
+      });
 
-  if (existingKeys.length === 0 && availableProperties.length === 0) {
-    return (
-      <div
-        className={cn(
-          "mb-2 border-border/50 border-b px-4 pb-2 pt-3 sm:px-10",
-          "mx-auto max-w-[50rem]",
-          className
-        )}
-      >
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                className="text-muted-foreground"
-                size="sm"
-                variant="ghost"
-              />
-            }
-          >
-            <Plus className="mr-1 h-3 w-3" />
-            Add properties
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            {COMMON_PROPERTIES.map((prop) => (
-              <DropdownMenuItem
-                key={prop.key}
-                onClick={() => handleAddProperty(prop.key)}
-              >
-                {prop.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    );
-  }
+      if (nextProperty.type === "select" && nextProperty.value) {
+        syncDefinition(key, nextProperty.type, [nextProperty.value]);
+      }
+      if (nextProperty.type === "multi_select") {
+        syncDefinition(key, nextProperty.type, nextProperty.value);
+      }
+    },
+    [onChange, properties, syncDefinition]
+  );
+
+  const entries = Object.entries(properties);
 
   return (
     <div
@@ -152,104 +200,147 @@ export function PropertiesTable({
     >
       <button
         className="mb-2 flex items-center gap-1 text-muted-foreground text-xs hover:text-foreground"
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={() => setIsExpanded((current) => !current)}
+        type="button"
       >
         {isExpanded ? (
-          <ChevronDownIcon className="h-3 w-3" />
+          <ChevronDown className="h-3 w-3" />
         ) : (
           <ChevronRight className="h-3 w-3" />
         )}
-        Properties {isExpanded && `(${existingKeys.length})`}
+        Properties {isExpanded ? `(${entries.length})` : ""}
       </button>
 
-      {isExpanded && (
-        <div className="space-y-1">
-          {existingKeys.map((key) => (
-            <div className="flex items-center gap-2 text-sm" key={key}>
-              <span className="w-24 shrink-0 truncate text-muted-foreground">
-                {key}
-              </span>
-              {getPropertyType(key) === "boolean" ? (
-                <Checkbox
-                  checked={String(properties[key] ?? "").toLowerCase() === "true"}
-                  onCheckedChange={(checked) =>
-                    handlePropertyChange(
-                      key,
-                      checked === true ? "true" : "false",
-                      "boolean"
-                    )
-                  }
-                />
-              ) : editingKey === key || getSelectOptions(key).length === 0 ? (
-                <Input
-                  autoFocus
-                  className="h-6 text-xs"
-                  onBlur={() => setEditingKey(null)}
-                  onChange={(e) =>
-                    handlePropertyChange(
-                      key,
-                      e.target.value,
-                      getPropertyType(key)
-                    )
-                  }
-                  value={formatValue(properties[key])}
-                />
-              ) : (
-                <Select
-                  onValueChange={(value) =>
-                    handlePropertyChange(key, value ?? "", getPropertyType(key))
-                  }
-                  value={String(properties[key] ?? "")}
-                >
-                  <SelectTrigger className="h-6 flex-1 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getSelectOptions(key).map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              <Button
-                className="h-5 w-5 text-muted-foreground hover:text-destructive"
-                onClick={() => handleDeleteProperty(key)}
-                size="icon"
-                variant="ghost"
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
+      {isExpanded ? (
+        <div className="space-y-2">
+          {entries.length === 0 ? (
+            <div className="text-muted-foreground text-xs">
+              No properties on this file.
             </div>
-          ))}
+          ) : null}
 
-          <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                className="mt-1 text-muted-foreground text-xs"
-                size="sm"
-                variant="ghost"
-              />
-            }
-          >
-            <Plus className="mr-1 h-3 w-3" />
-            Add property
-          </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              {availableProperties.map((prop) => (
-                <DropdownMenuItem
-                  key={prop.key}
-                  onClick={() => handleAddProperty(prop.key)}
+          {entries.map(([key, property]) => {
+            const definition = definitionByKey.get(key);
+            const options =
+              property.type === "select" || property.type === "multi_select"
+                ? normalizePropertyOptions([
+                    ...(definition?.options ?? []),
+                    ...(property.type === "select" && property.value
+                      ? [property.value]
+                      : []),
+                    ...(property.type === "multi_select" ? property.value : []),
+                  ])
+                : [];
+
+            return (
+              <div className="grid grid-cols-[minmax(0,11rem)_8rem_minmax(0,1fr)_2rem] items-center gap-2 text-sm" key={key}>
+                <Input
+                  className="h-8 text-xs"
+                  defaultValue={key}
+                  disabled={disabled}
+                  onBlur={(event) =>
+                    handleRenameProperty(key, event.currentTarget.value)
+                  }
+                />
+                <div className="rounded-md border border-border/70 px-2 py-1 text-[11px] text-muted-foreground">
+                  {PROPERTY_TYPE_LABELS[property.type]}
+                </div>
+                {property.type === "checkbox" ? (
+                  <div className="flex h-8 items-center rounded-md border border-border/70 px-3">
+                    <Checkbox
+                      checked={property.value}
+                      disabled={disabled}
+                      onCheckedChange={(checked) =>
+                        handlePropertyValueChange(key, checked === true)
+                      }
+                    />
+                  </div>
+                ) : property.type === "select" ? (
+                  <Select
+                    disabled={disabled}
+                    onValueChange={(value) => handlePropertyValueChange(key, value)}
+                    value={property.value ?? ""}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Select value" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {options.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    className="h-8 text-xs"
+                    disabled={disabled}
+                    onChange={(event) =>
+                      handlePropertyValueChange(key, event.currentTarget.value)
+                    }
+                    placeholder={
+                      property.type === "multi_select"
+                        ? "comma, separated, values"
+                        : property.type === "date"
+                          ? "YYYY-MM-DD"
+                          : "Value"
+                    }
+                    value={formatPropertyValue(property)}
+                  />
+                )}
+                <Button
+                  className="h-8 w-8"
+                  disabled={disabled}
+                  onClick={() => handleDeleteProperty(key)}
+                  size="icon"
+                  type="button"
+                  variant="ghost"
                 >
-                  {prop.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            );
+          })}
+
+          <div className="grid grid-cols-[minmax(0,11rem)_8rem_1fr] items-center gap-2 pt-1">
+            <Input
+              className="h-8 text-xs"
+              disabled={disabled}
+              onChange={(event) => setNewKey(event.currentTarget.value)}
+              placeholder="New property"
+              value={newKey}
+            />
+            <Select
+              disabled={disabled}
+              onValueChange={(value) => setNewType(value as FilePropertyType)}
+              value={newType}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PROPERTY_TYPES.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {PROPERTY_TYPE_LABELS[type]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              className="justify-start"
+              disabled={disabled || !newKey.trim()}
+              onClick={handleAddProperty}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              <Plus className="mr-1 h-3 w-3" />
+              Add property
+            </Button>
+          </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

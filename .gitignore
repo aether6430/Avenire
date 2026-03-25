@@ -17,3 +17,5 @@ dist
 Ingestion/
 
 drizzle/
+!packages/database/drizzle/
+!packages/database/drizzle/**

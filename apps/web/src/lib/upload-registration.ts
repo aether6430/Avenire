@@ -1,6 +1,12 @@
+import { createHash } from "node:crypto";
+import matter from "gray-matter";
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
-import { UTApi } from "@avenire/storage";
+import { UTApi, UTFile } from "@avenire/storage";
 import { consumeUploadUnits } from "@/lib/billing";
+import {
+  normalizeFrontmatterProperties,
+  type PageMetadataState,
+} from "@/lib/frontmatter";
 import {
   getFileAssetByContentHash,
   getFileAssetByStorageKey,
@@ -114,6 +120,162 @@ function normalizeUploadThingStorageUrl(
   }
 }
 
+function inferFrontmatterProperty(value: unknown) {
+  if (typeof value === "boolean") {
+    return { type: "checkbox" as const, value };
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return { type: "number" as const, value };
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return { type: "date" as const, value: trimmed };
+    }
+    return { type: "text" as const, value: trimmed };
+  }
+  if (
+    Array.isArray(value) &&
+    value.every((entry) => typeof entry === "string" && entry.trim().length > 0)
+  ) {
+    return {
+      type: "multi_select" as const,
+      value: value.map((entry) => entry.trim()),
+    };
+  }
+  return null;
+}
+
+async function normalizeMarkdownUpload(input: {
+  contentHashSha256?: string | null;
+  metadata?: Record<string, unknown>;
+  mimeType: string | null;
+  name: string;
+  sizeBytes: number;
+  storageKey: string;
+  storageUrl: string;
+}) {
+  const mime = input.mimeType?.toLowerCase() ?? "";
+  const isMarkdown =
+    mime === "text/markdown" ||
+    input.name.toLowerCase().endsWith(".md") ||
+    input.name.toLowerCase().endsWith(".mdx");
+
+  if (!isMarkdown) {
+    return {
+      contentHashSha256: input.contentHashSha256 ?? null,
+      metadata: input.metadata,
+      sizeBytes: input.sizeBytes,
+      storageKey: input.storageKey,
+      storageUrl: input.storageUrl,
+    };
+  }
+
+  const response = await fetch(input.storageUrl, { cache: "no-store" });
+  if (!response.ok) {
+    return {
+      contentHashSha256: input.contentHashSha256 ?? null,
+      metadata: input.metadata,
+      sizeBytes: input.sizeBytes,
+      storageKey: input.storageKey,
+      storageUrl: input.storageUrl,
+    };
+  }
+
+  const originalText = await response.text();
+  const parsed = matter(originalText);
+  const extractedProperties = Object.fromEntries(
+    Object.entries(parsed.data ?? {})
+      .map(([key, value]) => {
+        const normalized = inferFrontmatterProperty(value);
+        return normalized ? ([key.trim(), normalized] as const) : null;
+      })
+      .filter(
+        (
+          entry
+        ): entry is readonly [
+          string,
+          ReturnType<typeof inferFrontmatterProperty> extends infer T
+            ? Exclude<T, null>
+            : never,
+        ] => Boolean(entry)
+      )
+  );
+
+  if (Object.keys(extractedProperties).length === 0) {
+    return {
+      contentHashSha256: input.contentHashSha256 ?? null,
+      metadata: input.metadata,
+      sizeBytes: input.sizeBytes,
+      storageKey: input.storageKey,
+      storageUrl: input.storageUrl,
+    };
+  }
+
+  const normalizedPage = {
+    bannerUrl: null,
+    icon: null,
+    properties: normalizeFrontmatterProperties(extractedProperties),
+  } satisfies PageMetadataState;
+  const currentMetadata = input.metadata ?? {};
+  const currentPage =
+    currentMetadata.page &&
+    typeof currentMetadata.page === "object" &&
+    !Array.isArray(currentMetadata.page)
+      ? (currentMetadata.page as Record<string, unknown>)
+      : {};
+  const mergedMetadata = {
+    ...currentMetadata,
+    page: {
+      ...currentPage,
+      properties: {
+        ...((currentPage.properties as Record<string, unknown> | undefined) ?? {}),
+        ...normalizedPage.properties,
+      },
+    },
+  };
+
+  const cleanedText = parsed.content.replace(/^\n+/, "");
+  if (!process.env.UPLOADTHING_TOKEN) {
+    return {
+      contentHashSha256: createHash("sha256").update(cleanedText).digest("hex"),
+      metadata: mergedMetadata,
+      sizeBytes: Buffer.byteLength(cleanedText, "utf8"),
+      storageKey: input.storageKey,
+      storageUrl: input.storageUrl,
+    };
+  }
+
+  const utapi = new UTApi({ token: process.env.UPLOADTHING_TOKEN });
+  const result = await utapi.uploadFiles(
+    new UTFile([Buffer.from(cleanedText, "utf8")], input.name, {
+      type: input.mimeType ?? "text/markdown",
+    })
+  );
+  const uploaded = Array.isArray(result) ? result[0]?.data : result.data;
+
+  if (
+    !uploaded ||
+    typeof uploaded.key !== "string" ||
+    typeof uploaded.ufsUrl !== "string"
+  ) {
+    throw new Error("Failed to upload normalized markdown file.");
+  }
+
+  await deleteUploadThingFile(input.storageKey);
+
+  return {
+    contentHashSha256: createHash("sha256").update(cleanedText).digest("hex"),
+    metadata: mergedMetadata,
+    sizeBytes: Buffer.byteLength(cleanedText, "utf8"),
+    storageKey: uploaded.key,
+    storageUrl: uploaded.ufsUrl,
+  };
+}
+
 export async function deleteUploadThingFile(
   storageKey: string | null | undefined
 ) {
@@ -133,20 +295,36 @@ export async function registerWorkspaceUploadedFile(
   input: UploadRegistrationInput
 ): Promise<UploadRegistrationResult> {
   const dedupeMode = input.dedupeMode ?? "allow";
-  const normalizedHash = normalizeSha256(input.contentHashSha256);
   const resolvedMimeType = resolveMimeType({
     mimeType: input.mimeType,
     name: input.name,
   });
+  const normalizedUpload = await normalizeMarkdownUpload({
+    contentHashSha256: input.contentHashSha256,
+    metadata: input.metadata,
+    mimeType: resolvedMimeType,
+    name: input.name,
+    sizeBytes: input.sizeBytes,
+    storageKey: input.storageKey,
+    storageUrl: normalizeUploadThingStorageUrl(input.storageUrl, input.storageKey),
+  });
+  const normalizedHash = normalizeSha256(normalizedUpload.contentHashSha256);
 
   if (dedupeMode !== "skip") {
     const existingByHash = normalizedHash
       ? await getFileAssetByContentHash(input.workspaceUuid, normalizedHash)
       : null;
+    const existingByNormalizedStorage =
+      normalizedUpload.storageKey !== input.storageKey
+        ? await getFileAssetByStorageKey(
+            input.workspaceUuid,
+            normalizedUpload.storageKey
+          )
+        : null;
     const existing =
       existingByHash ??
+      existingByNormalizedStorage ??
       (await getFileAssetByStorageKey(input.workspaceUuid, input.storageKey));
-
     if (existing) {
       const hasSucceeded = await hasSuccessfulIngestionForFile(
         input.workspaceUuid,
@@ -208,15 +386,12 @@ export async function registerWorkspaceUploadedFile(
 
   const file = await registerFileAsset(input.workspaceUuid, input.userId, {
     folderId: input.folderId,
-    storageKey: input.storageKey,
-    storageUrl: normalizeUploadThingStorageUrl(
-      input.storageUrl,
-      input.storageKey
-    ),
+    storageKey: normalizedUpload.storageKey,
+    storageUrl: normalizedUpload.storageUrl,
     name: input.name,
     mimeType: resolvedMimeType,
-    sizeBytes: input.sizeBytes,
-    metadata: input.metadata,
+    sizeBytes: normalizedUpload.sizeBytes,
+    metadata: normalizedUpload.metadata,
     contentHashSha256: normalizedHash,
     hashComputedBy: normalizedHash ? (input.hashComputedBy ?? "client") : null,
     hashVerificationStatus: normalizedHash ? "pending" : null,

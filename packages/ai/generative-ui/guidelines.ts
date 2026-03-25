@@ -163,19 +163,23 @@ Before placing text in a box, check: does (text width + 2×padding) fit the cont
 **No rotated text**. \`<defs>\` may contain the arrow marker, a \`<clipPath>\`, and — in illustrative diagrams only — a single \`<linearGradient>\`. Nothing else: no filters, no patterns, no extra markers.`,
   "Color palette": `## Color palette
 
-9 color ramps, each with 7 stops from lightest to darkest. 50 = lightest fill, 100-200 = light fills, 400 = mid tones, 600 = strong/border, 800-900 = text on light fills.
+## Color palette
 
-| Class | Ramp | 50 (lightest) | 100 | 200 | 400 | 600 | 800 | 900 (darkest) |
-|-------|------|------|-----|-----|-----|-----|-----|------|
-| \`c-purple\` | Purple | #EEEDFE | #CECBF6 | #AFA9EC | #7F77DD | #534AB7 | #3C3489 | #26215C |
-| \`c-teal\` | Teal | #E1F5EE | #9FE1CB | #5DCAA5 | #1D9E75 | #0F6E56 | #085041 | #04342C |
-| \`c-coral\` | Coral | #FAECE7 | #F5C4B3 | #F0997B | #D85A30 | #993C1D | #712B13 | #4A1B0C |
-| \`c-pink\` | Pink | #FBEAF0 | #F4C0D1 | #ED93B1 | #D4537E | #993556 | #72243E | #4B1528 |
-| \`c-gray\` | Gray | #F1EFE8 | #D3D1C7 | #B4B2A9 | #888780 | #5F5E5A | #444441 | #2C2C2A |
-| \`c-blue\` | Blue | #E6F1FB | #B5D4F4 | #85B7EB | #378ADD | #185FA5 | #0C447C | #042C53 |
-| \`c-green\` | Green | #EAF3DE | #C0DD97 | #97C459 | #639922 | #3B6D11 | #27500A | #173404 |
-| \`c-amber\` | Amber | #FAEEDA | #FAC775 | #EF9F27 | #BA7517 | #854F0B | #633806 | #412402 |
-| \`c-red\` | Red | #FCEBEB | #F7C1C1 | #F09595 | #E24B4A | #A32D2D | #791F1F | #501313 |
+We use a Notion-inspired semantic color palette. Instead of picking raw hex codes for fills and strokes, **you must exclusively use the predefined semantic CSS classes** which automatically adapt perfectly to both light and dark mode.
+
+### Pre-built Semantic SVG Classes
+
+| Class | Ramp | Semantic Use |
+|-------|------|--------------|
+| \`c-purple\` | Purple | General categories, abstract concepts |
+| \`c-teal\` | Teal | General categories, outcomes |
+| \`c-pink\` | Pink | General categories |
+| \`c-blue\` | Blue | Informational, primary actions |
+| \`c-green\` | Green | Success states, organic physical properties |
+| \`c-amber\` | Amber | Warning states, heat/energy |
+| \`c-red\` | Red | Danger/Error states, extreme heat |
+| \`c-coral\` | Coral | General categories, pathogens |
+| \`c-gray\` | Gray | Neutral/structural nodes (start, end, generic steps) |
 
 **How to assign colors**: Color should encode meaning, not sequence. Don't cycle through colors like a rainbow (step 1 = blue, step 2 = amber, step 3 = red...). Instead:
 - Group nodes by **category** — all nodes of the same type share one color. E.g. in a vaccine diagram: all immune cells = purple, all pathogens = coral, all outcomes = teal.
@@ -184,12 +188,12 @@ Before placing text in a box, check: does (text width + 2×padding) fit the cont
 - Use **2-3 colors per diagram**, not 6+. More colors = more visual noise. A diagram with gray + purple + teal is cleaner than one using every ramp.
 - **Prefer purple, teal, coral, pink** for general diagram categories. Reserve blue, green, amber, and red for cases where the node genuinely represents an informational, success, warning, or error concept — those colors carry strong semantic connotations from UI conventions. (Exception: illustrative diagrams may use blue/amber/red freely when they map to physical properties like temperature or pressure.)
 
-**Text on colored backgrounds:** Always use the 800 or 900 stop from the same ramp as the fill. Never use black, gray, or --color-text-primary on colored fills. **When a box has both a title and a subtitle, they must be two different stops** — title darker (800 in light mode, 100 in dark), subtitle lighter (600 in light, 200 in dark). Same stop for both reads flat; the weight difference alone isn't enough. For example, text on Blue 50 (#E6F1FB) must use Blue 800 (#0C447C) or 900 (#042C53), not black. This applies to SVG text elements inside colored rects, and to HTML badges, pills, and labels with colored backgrounds.
+### Using Colors
 
-**Light/dark mode quick pick** — use only stops from the table, never off-table hex values:
-- **Light mode**: 50 fill + 600 stroke + **800 title / 600 subtitle**
-- **Dark mode**: 800 fill + 200 stroke + **100 title / 200 subtitle**
-- Apply \`c-{ramp}\` to a \`<g>\` wrapping shape+text, or directly to a \`<rect>\`/\`<circle>\`/\`<ellipse>\`. Never to \`<path>\` — paths don't get ramp fill. For colored connector strokes use inline \`stroke="#..."\` (any mid-ramp hex works in both modes). Dark mode is automatic for ramp classes. Available: c-gray, c-blue, c-red, c-amber, c-green, c-teal, c-purple, c-coral, c-pink.
+- **In SVG:** Apply \`c-{ramp}\` to a \`<g>\` wrapping shape+text, or directly to a \`<rect>\`/\`<circle>\`/\`<ellipse>\`. Never to \`<path>\` — paths don't get ramp fill. For colored connector strokes use inline \`stroke="var(--color-border-...)"\` variables. Dark mode is automatic for ramp classes. Available: c-gray, c-blue, c-red, c-amber, c-green, c-teal, c-purple, c-coral, c-pink.
+- **In CSS/HTML:** Use the matching CSS variables: \`var(--color-bg-{ramp})\`, \`var(--color-border-{ramp})\`, \`var(--color-text-{ramp})\`, and \`var(--color-pill-{ramp})\`.
+
+The WidgetRenderer maps \`c-{ramp}\` to \`var(--color-pill-{ramp})\` for the stroke, and \`var(--color-bg-{ramp})\` for the fill. Therefore, simply applying the class is enough. You never need to worry about creating your own light/dark mode color logic!
 
 For status/semantic meaning in UI (success, warning, danger) use CSS variables. For categorical coloring in both diagrams and UI, use these ramps.
 `,
@@ -772,33 +776,100 @@ Use this module for simulations where motion over time is the point: orbits, pen
 
 ### Layout
 - Put the main canvas on top.
-- Put a bottom row beneath it split into two columns.
+- Put the explanation and controls beneath the canvas.
+- Stack those sections vertically on mobile.
+- Split them into two columns on wider screens.
 - Left bottom column: a short explanation, one or two sentences max.
 - Right bottom column: sliders, toggles, buttons, and live readouts.
 - Use a second canvas only when the system genuinely benefits from a companion view such as phase space or energy.
 
 ### Canonical layout
 \`\`\`html
-<div style="display:flex;flex-direction:column;gap:16px;padding:1rem 0;">
-  <div style="height:clamp(320px,55vh,560px);min-width:0;">
-    <canvas id="sim" style="width:100%;height:100%;display:block;border-radius:8px;background:var(--color-background-secondary);"></canvas>
+<div class="phys-sim-layout">
+  <div class="phys-sim-canvas">
+    <canvas id="sim"></canvas>
   </div>
 
-  <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,360px);gap:24px;align-items:start;">
-    <div style="display:flex;flex-direction:column;gap:10px;">
-      <h2 style="margin:0;font-size:22px;font-weight:500;line-height:1.2;color:var(--color-text-primary);">
-        Title
-      </h2>
-      <p style="margin:0;font-size:14px;line-height:1.65;color:var(--color-text-secondary);">
-        Short explanation.
-      </p>
+  <div class="phys-sim-bottom">
+    <div class="phys-sim-copy">
+      <h2>Title</h2>
+      <p>Short explanation.</p>
     </div>
 
-    <div style="background:var(--color-background-secondary);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:14px;">
+    <div class="phys-sim-controls">
       <!-- sliders, toggles, buttons, readouts -->
     </div>
   </div>
 </div>
+<style>
+  .phys-sim-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 1rem 0;
+  }
+
+  .phys-sim-canvas {
+    height: clamp(320px, 55vh, 560px);
+    min-width: 0;
+  }
+
+  .phys-sim-canvas canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    border-radius: 8px;
+    background: var(--color-background-secondary);
+  }
+
+  .phys-sim-bottom {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+
+  .phys-sim-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .phys-sim-copy h2 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--color-text-primary);
+  }
+
+  .phys-sim-copy p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--color-text-secondary);
+  }
+
+  .phys-sim-controls {
+    background: var(--color-background-secondary);
+    border-radius: 8px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  @media (min-width: 720px) {
+    .phys-sim-layout {
+      gap: 20px;
+    }
+
+    .phys-sim-bottom {
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+      gap: 24px;
+    }
+  }
+</style>
 \`\`\`
 
 ### Control rules

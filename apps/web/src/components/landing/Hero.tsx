@@ -1225,10 +1225,10 @@ export function Hero() {
             </p>
             <div className="flex items-center gap-2">
               <Link
-                href={(isSignedIn ? "/workspace" : "/register") as Route}
+                href={(isSignedIn ? "/workspace" : "/waitlist") as Route}
                 className={buttonVariants({ size: "lg" })}
               >
-                {isSignedIn ? "Go to app" : "Get started free"}
+                {isSignedIn ? "Go to app" : "Join waitlist"}
               </Link>
             </div>
           </motion.div>
@@ -1244,7 +1244,7 @@ export function Hero() {
               <div className="flex items-center justify-between px-4 py-2 bg-muted/50 border-b border-border">
                 <span className="text-[11px] self-middle text-foreground font-medium">Avenire</span>
                 <Link
-                  href={(isSignedIn ? "/workspace" : "/register") as Route}
+                  href={(isSignedIn ? "/workspace" : "/waitlist") as Route}
                   className="text-[10px] text-primary font-medium cursor-pointer hover:underline"
                 >
                   {isSignedIn ? "Go to app" : "Get Avenire"}

@@ -1,6 +1,10 @@
+import { createHash } from "node:crypto";
 import {
+  deleteIngestionChunksByIds,
   insertIngestionChunks,
   insertIngestionEmbeddings,
+  listIngestionChunksForResource,
+  updateIngestionChunkPositions,
   upsertIngestionResource,
 } from "@avenire/database";
 import { config } from "../config";
@@ -10,6 +14,76 @@ import {
   textToMultimodalInput,
 } from "./embeddings";
 import type { CanonicalResource } from "./types";
+
+const NOTE_CHUNK_STRATEGY_VERSION = "note-v1";
+
+const normalizeChunkText = (value: string): string =>
+  value.trim().replace(/\r\n/g, "\n").replace(/\u00A0/g, " ").normalize("NFC");
+
+const hashChunkContent = (value: string): string =>
+  createHash("sha256")
+    .update(`${NOTE_CHUNK_STRATEGY_VERSION}:${normalizeChunkText(value)}`, "utf8")
+    .digest("hex");
+
+type StoredChunk = {
+  id: string;
+  chunkIndex: number;
+  contentHash: string | null;
+};
+
+type IncomingChunk = CanonicalResource["chunks"][number] & {
+  contentHash: string;
+};
+
+const diffNoteChunks = (stored: StoredChunk[], incoming: IncomingChunk[]) => {
+  const matchedStoredIds = new Set<string>();
+  const toInsert: IncomingChunk[] = [];
+  const toMove: Array<{ id: string; chunkIndex: number }> = [];
+
+  const storedByHash = new Map<string, StoredChunk[]>();
+  for (const chunk of stored) {
+    if (!chunk.contentHash) {
+      continue;
+    }
+    const list = storedByHash.get(chunk.contentHash) ?? [];
+    list.push(chunk);
+    storedByHash.set(chunk.contentHash, list);
+  }
+
+  for (const chunk of incoming) {
+    const candidates = storedByHash.get(chunk.contentHash) ?? [];
+    const exact = candidates.find(
+      (candidate) =>
+        !matchedStoredIds.has(candidate.id) &&
+        candidate.chunkIndex === chunk.chunkIndex
+    );
+    const reused =
+      exact ??
+      candidates.find((candidate) => !matchedStoredIds.has(candidate.id)) ??
+      null;
+
+    if (!reused) {
+      toInsert.push(chunk);
+      continue;
+    }
+
+    matchedStoredIds.add(reused.id);
+    if (reused.chunkIndex !== chunk.chunkIndex) {
+      toMove.push({ id: reused.id, chunkIndex: chunk.chunkIndex });
+    }
+  }
+
+  const toDelete = stored
+    .filter((chunk) => !matchedStoredIds.has(chunk.id))
+    .map((chunk) => chunk.id);
+
+  return { toInsert, toMove, toDelete };
+};
+
+const isIncrementalNoteResource = (
+  resource: CanonicalResource,
+  fileId: string | null
+): boolean => resource.sourceType === "markdown" && Boolean(fileId) && resource.source.startsWith("note:");
 
 const splitIntoBatches = <T>(values: T[], batchSize: number): T[][] => {
   if (values.length === 0) {
@@ -103,7 +177,91 @@ export const persistCanonicalResource = async (
     provider: resource.provider,
     title: resource.title,
     metadata: resource.metadata ?? {},
+    preserveChunks: isIncrementalNoteResource(resource, fileId),
   });
+
+  if (isIncrementalNoteResource(resource, fileId)) {
+    const incomingChunks = resource.chunks.map((chunk) => ({
+      ...chunk,
+      contentHash: hashChunkContent(chunk.content),
+    }));
+    const storedChunks = await listIngestionChunksForResource(resourceId);
+    const diff = diffNoteChunks(storedChunks, incomingChunks);
+
+    await deleteIngestionChunksByIds(diff.toDelete);
+    await updateIngestionChunkPositions({ rows: diff.toMove });
+
+    const insertedChunkRows = await insertIngestionChunks({
+      resourceId,
+      chunks: diff.toInsert.map((chunk) => ({
+        chunkIndex: chunk.chunkIndex,
+        kind: chunk.kind,
+        content: chunk.content,
+        contentHash: chunk.contentHash,
+        page: chunk.metadata.page,
+        startMs: chunk.metadata.startMs,
+        endMs: chunk.metadata.endMs,
+        metadata: {
+          sourceType: chunk.metadata.sourceType,
+          source: chunk.metadata.source,
+          provider: chunk.metadata.provider,
+          topic: chunk.metadata.topic,
+          difficulty: chunk.metadata.difficulty,
+          prerequisites: chunk.metadata.prerequisites,
+          modality: chunk.metadata.modality,
+          ...(chunk.metadata.extra ?? {}),
+        },
+      })),
+    });
+
+    if (insertedChunkRows.length > 0) {
+      const chunkByIndex = new Map(
+        insertedChunkRows.map((row) => [row.chunkIndex, row])
+      );
+      const insertedChunks = incomingChunks.filter((chunk) =>
+        diff.toInsert.some((candidate) => candidate.chunkIndex === chunk.chunkIndex)
+      );
+      const batches = splitIntoBatches(
+        insertedChunks,
+        config.ingestionEmbedBatchSize
+      );
+
+      await runWithConcurrency(
+        batches,
+        config.ingestionEmbedConcurrency,
+        async (batch) => {
+          const { model, embeddings: vectors } = await embedMultimodal(
+            batch.map(chunkToEmbeddingInput)
+          );
+
+          const rows = batch.map((chunk, index) => {
+            const row = chunkByIndex.get(chunk.chunkIndex);
+            const vector = vectors[index];
+            if (!row || !vector) {
+              throw new Error(
+                `Missing incremental note embedding for chunkIndex=${chunk.chunkIndex}`
+              );
+            }
+
+            return {
+              chunkId: row.id,
+              model,
+              embedding: vector,
+            };
+          });
+
+          for (const dbBatch of splitIntoBatches(rows, config.ingestionDbBatchSize)) {
+            await insertIngestionEmbeddings({ rows: dbBatch });
+          }
+        }
+      );
+    }
+
+    return {
+      resourceId,
+      chunks: resource.chunks.length,
+    };
+  }
 
   const insertedChunkRows = await insertIngestionChunks({
     resourceId,
@@ -111,6 +269,7 @@ export const persistCanonicalResource = async (
       chunkIndex: chunk.chunkIndex,
       kind: chunk.kind,
       content: chunk.content,
+      contentHash: null,
       page: chunk.metadata.page,
       startMs: chunk.metadata.startMs,
       endMs: chunk.metadata.endMs,

@@ -16,6 +16,7 @@ import {
   fileTranscriptCue,
   ingestionChunk,
   ingestionEmbedding,
+  ingestionEmbeddingDimensions,
   ingestionJob,
   ingestionJobEvent,
   ingestionResource,
@@ -28,6 +29,7 @@ export interface IngestionChunkSearchRecord {
   chunkId: string;
   chunkIndex: number;
   content: string;
+  contentHash: string | null;
   endMs: number | null;
   fileId: string | null;
   metadata: Record<string, unknown>;
@@ -580,6 +582,7 @@ export async function upsertIngestionResource(input: {
   provider?: string | null;
   title?: string | null;
   metadata?: Record<string, unknown>;
+  preserveChunks?: boolean;
 }) {
   const now = new Date();
 
@@ -613,9 +616,11 @@ export async function upsertIngestionResource(input: {
         throw new Error("Failed to update ingestion resource.");
       }
 
-      await tx
-        .delete(ingestionChunk)
-        .where(eq(ingestionChunk.resourceId, updated.id));
+      if (!input.preserveChunks) {
+        await tx
+          .delete(ingestionChunk)
+          .where(eq(ingestionChunk.resourceId, updated.id));
+      }
       return updated.id;
     }
 
@@ -648,10 +653,12 @@ export async function insertIngestionChunks(input: {
     chunkIndex: number;
     kind: string;
     content: string;
+    contentHash?: string | null;
     page?: number;
     startMs?: number;
     endMs?: number;
     metadata?: Record<string, unknown>;
+    ingestedAt?: Date;
   }>;
 }) {
   if (input.chunks.length === 0) {
@@ -694,6 +701,7 @@ export async function insertIngestionChunks(input: {
             chunkIndex: chunk.chunkIndex,
             kind: chunk.kind,
             content: chunk.content,
+            contentHash: chunk.contentHash ?? null,
             searchVector: sql`to_tsvector(${DEFAULT_TEXT_SEARCH_CONFIG}, ${buildChunkSearchText(
               chunk
             )})`,
@@ -701,6 +709,7 @@ export async function insertIngestionChunks(input: {
             startMs: toNullableInt(chunk.startMs),
             endMs: toNullableInt(chunk.endMs),
             metadata: chunk.metadata ?? {},
+            ingestedAt: chunk.ingestedAt ?? new Date(),
           }))
         )
         .returning({
@@ -745,6 +754,58 @@ export async function insertIngestionEmbeddings(input: {
       embedding: row.embedding,
     }))
   );
+}
+
+export async function listIngestionChunksForResource(resourceId: string) {
+  return await db
+    .select({
+      id: ingestionChunk.id,
+      chunkIndex: ingestionChunk.chunkIndex,
+      contentHash: ingestionChunk.contentHash,
+    })
+    .from(ingestionChunk)
+    .where(eq(ingestionChunk.resourceId, resourceId))
+    .orderBy(asc(ingestionChunk.chunkIndex));
+}
+
+export async function updateIngestionChunkPositions(input: {
+  rows: Array<{ id: string; chunkIndex: number }>;
+}) {
+  if (input.rows.length === 0) {
+    return;
+  }
+
+  const now = new Date();
+  await db.transaction(async (tx) => {
+    for (const [offset, row] of input.rows.entries()) {
+      await tx
+        .update(ingestionChunk)
+        .set({
+          chunkIndex: -(offset + 1),
+          ingestedAt: now,
+        })
+        .where(eq(ingestionChunk.id, row.id));
+    }
+
+    for (const row of input.rows) {
+      await tx
+        .update(ingestionChunk)
+        .set({
+          chunkIndex: row.chunkIndex,
+          ingestedAt: now,
+        })
+        .where(eq(ingestionChunk.id, row.id));
+    }
+  });
+}
+
+export async function deleteIngestionChunksByIds(chunkIds: string[]) {
+  const ids = Array.from(new Set(chunkIds.filter(Boolean)));
+  if (ids.length === 0) {
+    return;
+  }
+
+  await db.delete(ingestionChunk).where(inArray(ingestionChunk.id, ids));
 }
 
 export async function replaceFileTranscriptCues(input: {
@@ -916,6 +977,7 @@ const mapSearchRow = (row: {
   title: string | null;
   chunkId: string;
   chunkIndex: number;
+  contentHash?: string | null;
   page: number | null;
   startMs: number | null;
   endMs: number | null;
@@ -931,6 +993,7 @@ const mapSearchRow = (row: {
   title: (row.title as string | null) ?? null,
   chunkId: String(row.chunkId),
   chunkIndex: Number(row.chunkIndex),
+  contentHash: (row.contentHash as string | null) ?? null,
   page: row.page === null ? null : Number(row.page),
   startMs: row.startMs === null ? null : Number(row.startMs),
   endMs: row.endMs === null ? null : Number(row.endMs),
@@ -946,6 +1009,16 @@ export async function retrieveWorkspaceChunks(input: {
   sourceType?: string;
   provider?: string;
 }): Promise<IngestionChunkVectorSearchRecord[]> {
+  if (input.queryEmbedding.length !== ingestionEmbeddingDimensions) {
+    throw new Error(
+      `Query embedding has ${input.queryEmbedding.length} dimensions, but this database is configured for ${ingestionEmbeddingDimensions}.`
+    );
+  }
+
+  if (input.queryEmbedding.some((value) => !Number.isFinite(value))) {
+    throw new Error("Query embedding contains a non-finite value.");
+  }
+
   const vectorLiteral = `[${input.queryEmbedding
     .map((value) => Number(value).toString())
     .join(",")}]`;
@@ -964,6 +1037,7 @@ export async function retrieveWorkspaceChunks(input: {
     title: string | null;
     chunkId: string;
     chunkIndex: number;
+    contentHash: string | null;
     page: number | null;
     startMs: number | null;
     endMs: number | null;
@@ -981,6 +1055,7 @@ export async function retrieveWorkspaceChunks(input: {
       r.title AS "title",
       c.id AS "chunkId",
       c.chunk_index AS "chunkIndex",
+      c.content_hash AS "contentHash",
       c.page AS "page",
       c.start_ms AS "startMs",
       c.end_ms AS "endMs",
@@ -1037,6 +1112,7 @@ export async function retrieveWorkspaceChunksLexical(input: {
     title: string | null;
     chunkId: string;
     chunkIndex: number;
+    contentHash: string | null;
     page: number | null;
     startMs: number | null;
     endMs: number | null;
@@ -1056,6 +1132,7 @@ export async function retrieveWorkspaceChunksLexical(input: {
       r.title AS "title",
       c.id AS "chunkId",
       c.chunk_index AS "chunkIndex",
+      c.content_hash AS "contentHash",
       c.page AS "page",
       c.start_ms AS "startMs",
       c.end_ms AS "endMs",
@@ -1099,6 +1176,7 @@ export async function retrieveAdjacentChunksForResource(input: {
     title: string | null;
     chunkId: string;
     chunkIndex: number;
+    contentHash: string | null;
     page: number | null;
     startMs: number | null;
     endMs: number | null;
@@ -1115,6 +1193,7 @@ export async function retrieveAdjacentChunksForResource(input: {
       r.title AS "title",
       c.id AS "chunkId",
       c.chunk_index AS "chunkIndex",
+      c.content_hash AS "contentHash",
       c.page AS "page",
       c.start_ms AS "startMs",
       c.end_ms AS "endMs",
@@ -1134,5 +1213,74 @@ export async function retrieveAdjacentChunksForResource(input: {
 
   const typedRows = rows.rows as Parameters<typeof mapSearchRow>[0][];
 
+  return typedRows.map(mapSearchRow) satisfies IngestionChunkSearchRecord[];
+}
+
+export async function retrieveWorkspaceChunksTrigram(input: {
+  workspaceId: string;
+  query: string;
+  limit: number;
+  sourceType?: string;
+  provider?: string;
+}): Promise<IngestionChunkSearchRecord[]> {
+  const query = input.query.trim();
+  if (query.length < 3) {
+    return [];
+  }
+
+  const whereClause = buildSearchWhereClause({
+    workspaceId: input.workspaceId,
+    sourceType: input.sourceType,
+    provider: input.provider,
+  });
+  const pattern = `%${query.replace(/[%_]/g, "\\$&")}%`;
+
+  const rows = await db.execute(sql<{
+    resourceId: string;
+    sourceType: string;
+    source: string;
+    fileId: string | null;
+    provider: string | null;
+    title: string | null;
+    chunkId: string;
+    chunkIndex: number;
+    contentHash: string | null;
+    page: number | null;
+    startMs: number | null;
+    endMs: number | null;
+    content: string;
+    metadata: Record<string, unknown>;
+    score: number;
+  }>`
+    SELECT
+      r.id AS "resourceId",
+      r.source_type AS "sourceType",
+      r.source AS "source",
+      r.file_id AS "fileId",
+      r.provider AS "provider",
+      r.title AS "title",
+      c.id AS "chunkId",
+      c.chunk_index AS "chunkIndex",
+      c.content_hash AS "contentHash",
+      c.page AS "page",
+      c.start_ms AS "startMs",
+      c.end_ms AS "endMs",
+      c.content AS "content",
+      c.metadata AS "metadata",
+      CASE
+        WHEN lower(c.content) LIKE lower(${pattern}) ESCAPE '\\' THEN 1
+        ELSE 0
+      END + similarity(c.content, ${query}) AS "score"
+    FROM ingestion_chunk c
+    INNER JOIN ingestion_resource r ON r.id = c.resource_id
+    LEFT JOIN file_asset f ON f.id = r.file_id
+    WHERE ${whereClause}
+      AND (r.file_id IS NULL OR f.deleted_at IS NULL)
+      AND c.content ILIKE ${pattern} ESCAPE '\\'
+    ORDER BY "score" DESC, c.chunk_index ASC
+    LIMIT ${Math.max(1, input.limit)}
+  `);
+
+  const typedRows = rows.rows as Parameters<typeof mapSearchRow>[0][];
   return typedRows.map(mapSearchRow) satisfies IngestionChunkSearchRecord[];
 }

@@ -1,9 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import type { Route } from "next";
-import { Avatar, AvatarFallback, AvatarImage } from "@avenire/ui/components/avatar";
+import {
+  authClient,
+  linkSocial,
+  listAccounts,
+  revokeOtherSessions,
+  unlinkAccount,
+  updateUser,
+  useSession,
+} from "@avenire/auth/client";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@avenire/ui/components/avatar";
 import { Badge } from "@avenire/ui/components/badge";
 import { Button } from "@avenire/ui/components/button";
 import {
@@ -15,38 +25,36 @@ import {
   DialogTitle,
 } from "@avenire/ui/components/dialog";
 import { Input } from "@avenire/ui/components/input";
-import { Progress } from "@avenire/ui/components/progress";
 import { Switch } from "@avenire/ui/components/switch";
-import {
-  authClient,
-  linkSocial,
-  listAccounts,
-  revokeOtherSessions,
-  unlinkAccount,
-  updateUser,
-  useSession,
-} from "@avenire/auth/client";
-import { getFacehashUrl } from "@/lib/avatar";
-import { PRIVACY_MODE_STORAGE_KEY } from "@/lib/privacy-mode";
-import { useUploadThing } from "@/lib/uploadthing";
-import { cn } from "@/lib/utils";
-import { SensitiveText } from "@/components/shared/sensitive-text";
+import type { LucideIcon } from "lucide-react";
 import {
   Building2,
   Camera,
   Check,
   CreditCard,
   Database,
+  FileText,
+  Folder,
   Github,
   Globe,
+  HardDrive,
   Key,
-  SlidersHorizontal,
   Shield,
+  SlidersHorizontal,
   TriangleAlert,
   Unlink,
   User,
   Users,
 } from "lucide-react";
+import type { Route } from "next";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useTheme } from "next-themes";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { SensitiveText } from "@/components/shared/sensitive-text";
+import { getFacehashUrl } from "@/lib/avatar";
+import { PRIVACY_MODE_STORAGE_KEY } from "@/lib/privacy-mode";
+import { useUploadThing } from "@/lib/uploadthing";
+import { cn } from "@/lib/utils";
 
 type WorkspaceSummary = {
   workspaceId: string;
@@ -61,6 +69,15 @@ type WorkspaceMember = {
   email: string | null;
   name: string | null;
   role: string;
+};
+
+type WorkspaceUsage = {
+  fileCount: number;
+  folderCount: number;
+  indexedFileCount: number;
+  memberCount: number;
+  pendingIngestionCount: number;
+  totalSizeBytes: number;
 };
 
 type AccountEntry = {
@@ -96,6 +113,29 @@ type BillingUsage = {
   };
 };
 
+type PolarCustomerState = {
+  customer?: {
+    email?: string | null;
+    name?: string | null;
+  } | null;
+  subscriptions?: Array<{
+    id?: string;
+    status?: string;
+    product?: {
+      name?: string | null;
+    } | null;
+  }>;
+  benefits?: Array<{
+    id?: string;
+    name?: string | null;
+  }>;
+  meters?: Array<{
+    id?: string;
+    name?: string | null;
+    balance?: number | null;
+  }>;
+};
+
 type UserSettings = {
   emailReceipts: boolean;
 };
@@ -107,15 +147,19 @@ const tabs = [
   { key: "data", label: "Data", icon: Database },
   { key: "billing", label: "Billing", icon: CreditCard },
   { key: "security", label: "Security", icon: Shield },
-  { key: "shortcuts", label: "Keyboard Shortcuts", icon: Key, mobileHidden: true },
+  {
+    key: "shortcuts",
+    label: "Keyboard Shortcuts",
+    icon: Key,
+    mobileHidden: true,
+  },
 ] as const;
 
 type TabKey = (typeof tabs)[number]["key"];
 
 const KEYBOARD_SHORTCUTS = [
   { label: "Command Palette", keys: ["Ctrl", "Shift", "P"] },
-  { label: "Open Files", keys: ["Ctrl", "P"] },
-  { label: "Search", keys: ["Ctrl", "K"] },
+  { label: "Open Files", keys: ["Ctrl", "K"] },
   { label: "New Chat", keys: ["Ctrl", "Shift", "O"] },
   { label: "Toggle Sidebar", keys: ["Ctrl", "B"] },
   { label: "Open Model Picker", keys: ["Ctrl", "/"] },
@@ -127,6 +171,19 @@ const PLAN_LABELS: Record<string, string> = {
   core: "Core Plan",
   scholar: "Scholar Plan",
 };
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+  if (bytes < 1024 * 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
 export function SettingsPanel({
   initialWorkspaces,
   tabMode = "url",
@@ -139,12 +196,17 @@ export function SettingsPanel({
   const { data: session } = useSession();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { setTheme, theme } = useTheme();
   const [localTab, setLocalTab] = useState<TabKey>(initialTab);
-  const validTabSet = useMemo(() => new Set<TabKey>(tabs.map((tab) => tab.key)), []);
+  const validTabSet = useMemo(
+    () => new Set<TabKey>(tabs.map((tab) => tab.key)),
+    []
+  );
   const tabFromQuery = searchParams.get("tab");
-  const currentTab = tabMode === "url" && tabFromQuery && validTabSet.has(tabFromQuery as TabKey)
-    ? (tabFromQuery as TabKey)
-    : localTab;
+  const currentTab =
+    tabMode === "url" && tabFromQuery && validTabSet.has(tabFromQuery as TabKey)
+      ? (tabFromQuery as TabKey)
+      : localTab;
 
   // Profile state
   const [profileName, setProfileName] = useState(session?.user?.name ?? "");
@@ -164,7 +226,14 @@ export function SettingsPanel({
   // Billing
   const [billingUsage, setBillingUsage] = useState<BillingUsage | null>(null);
   const [billingStatus, setBillingStatus] = useState<string | null>(null);
-  const [preferencesStatus, setPreferencesStatus] = useState<string | null>(null);
+  const [polarCustomerState, setPolarCustomerState] =
+    useState<PolarCustomerState | null>(null);
+  const [polarCustomerStatus, setPolarCustomerStatus] = useState<string | null>(
+    null
+  );
+  const [preferencesStatus, setPreferencesStatus] = useState<string | null>(
+    null
+  );
   const [emailReceipts, setEmailReceipts] = useState(true);
   const [privacyMode, setPrivacyMode] = useState(false);
   const [sessionsStatus, setSessionsStatus] = useState<string | null>(null);
@@ -175,8 +244,18 @@ export function SettingsPanel({
 
   // Workspaces
   const [workspaces, setWorkspaces] = useState(initialWorkspaces ?? []);
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState(initialWorkspaces?.[0]?.workspaceId ?? "");
-  const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMember[]>([]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState(
+    initialWorkspaces?.[0]?.workspaceId ?? ""
+  );
+  const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMember[]>(
+    []
+  );
+  const [workspaceUsage, setWorkspaceUsage] = useState<WorkspaceUsage | null>(
+    null
+  );
+  const [workspaceUsageStatus, setWorkspaceUsageStatus] = useState<
+    string | null
+  >(null);
   const [workspaceEmail, setWorkspaceEmail] = useState("");
   const [workspaceStatus, setWorkspaceStatus] = useState<string | null>(null);
   const [workspaceName, setWorkspaceName] = useState("");
@@ -201,18 +280,23 @@ export function SettingsPanel({
   }, [session?.user?.image, session?.user?.name]);
 
   useEffect(() => {
-    const src = session?.user?.image ?? getFacehashUrl(session?.user?.name ?? session?.user?.email ?? "");
+    const src =
+      session?.user?.image ??
+      getFacehashUrl(session?.user?.name ?? session?.user?.email ?? "");
     setAvatarPreview(src);
   }, [session?.user?.image, session?.user?.name, session?.user?.email]);
 
   const selectedWorkspace = useMemo(
     () => workspaces.find((w) => w.workspaceId === activeWorkspaceId) ?? null,
-    [activeWorkspaceId, workspaces],
+    [activeWorkspaceId, workspaces]
   );
 
   const refreshAccounts = async () => {
     const result = await listAccounts();
-    setAccounts(((result as { data?: AccountEntry[] | null }).data ?? []) as AccountEntry[]);
+    setAccounts(
+      ((result as { data?: AccountEntry[] | null }).data ??
+        []) as AccountEntry[]
+    );
   };
 
   const refreshBillingUsage = async (showLoading = false) => {
@@ -233,9 +317,37 @@ export function SettingsPanel({
     }
   };
 
+  const refreshPolarCustomerState = async () => {
+    const customerState = (authClient as any)?.customer?.state as
+      | undefined
+      | (() => Promise<{ data?: PolarCustomerState | null; error?: unknown }>);
+
+    if (!customerState) {
+      setPolarCustomerState(null);
+      setPolarCustomerStatus("Polar billing is unavailable.");
+      return;
+    }
+
+    setPolarCustomerStatus("Loading billing details...");
+    try {
+      const result = await customerState();
+      setPolarCustomerState(result.data ?? null);
+      setPolarCustomerStatus(null);
+    } catch (error) {
+      console.error("[settings] failed to load Polar customer state", error);
+      setPolarCustomerState(null);
+      setPolarCustomerStatus("Unable to load billing details.");
+    }
+  };
+
   const refreshPasskeys = async () => {
-    const response = await fetch("/api/auth/passkey/list-user-passkeys", { cache: "no-store" });
-    if (!response.ok) { setPasskeys([]); return; }
+    const response = await fetch("/api/auth/passkey/list-user-passkeys", {
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      setPasskeys([]);
+      return;
+    }
     const payload = (await response.json()) as PasskeyEntry[];
     setPasskeys(Array.isArray(payload) ? payload : []);
   };
@@ -253,16 +365,51 @@ export function SettingsPanel({
   };
 
   const refreshMembers = async (workspaceId: string) => {
-    const response = await fetch(`/api/workspaces/${workspaceId}/share/members`, { cache: "no-store" });
-    if (!response.ok) { setWorkspaceMembers([]); return; }
+    const response = await fetch(
+      `/api/workspaces/${workspaceId}/share/members`,
+      { cache: "no-store" }
+    );
+    if (!response.ok) {
+      setWorkspaceMembers([]);
+      return;
+    }
     const payload = (await response.json()) as { members?: WorkspaceMember[] };
     setWorkspaceMembers(payload.members ?? []);
   };
 
+  const refreshWorkspaceUsage = async (
+    workspaceId: string,
+    showLoading = false
+  ) => {
+    if (showLoading) {
+      setWorkspaceUsageStatus("Loading workspace stats...");
+    }
+
+    const response = await fetch(`/api/workspaces/${workspaceId}/usage`, {
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      setWorkspaceUsage(null);
+      setWorkspaceUsageStatus("Unable to load workspace stats.");
+      return;
+    }
+
+    const payload = (await response.json()) as { usage?: WorkspaceUsage };
+    setWorkspaceUsage(payload.usage ?? null);
+    if (showLoading) {
+      setWorkspaceUsageStatus(null);
+    }
+  };
+
   const refreshWorkspaces = async () => {
     const response = await fetch("/api/workspaces/list", { cache: "no-store" });
-    if (!response.ok) return;
-    const payload = (await response.json()) as { workspaces?: WorkspaceSummary[] };
+    if (!response.ok) {
+      return;
+    }
+    const payload = (await response.json()) as {
+      workspaces?: WorkspaceSummary[];
+    };
     setWorkspaces(payload.workspaces ?? []);
     if (!activeWorkspaceId && payload.workspaces?.[0]) {
       setActiveWorkspaceId(payload.workspaces[0].workspaceId);
@@ -291,11 +438,15 @@ export function SettingsPanel({
       name: profileName.trim() || undefined,
       image: (nextImage ?? profileImage).trim() || undefined,
     });
-    setProfileStatus(result.error ? "Unable to update profile." : "Profile updated.");
+    setProfileStatus(
+      result.error ? "Unable to update profile." : "Profile updated."
+    );
     return !result.error;
   };
 
-  const handleAvatarFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarFileChange = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0];
     event.target.value = "";
 
@@ -329,7 +480,10 @@ export function SettingsPanel({
     }
   };
 
-  const requestSudoForAction = (actionLabel: string, action: () => Promise<void>) => {
+  const requestSudoForAction = (
+    actionLabel: string,
+    action: () => Promise<void>
+  ) => {
     pendingSudoActionRef.current = action;
     setSudoActionLabel(actionLabel);
     setSudoCode("");
@@ -347,8 +501,14 @@ export function SettingsPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "request" }),
       });
-      const payload = (await response.json().catch(() => ({}))) as { error?: string };
-      setSudoStatus(response.ok ? "Verification code sent to your email." : (payload.error ?? "Unable to send code."));
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+      setSudoStatus(
+        response.ok
+          ? "Verification code sent to your email."
+          : (payload.error ?? "Unable to send code.")
+      );
     } finally {
       setSudoRequestingCode(false);
     }
@@ -366,7 +526,9 @@ export function SettingsPanel({
       });
 
       if (!response.ok) {
-        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        const payload = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
         setSudoActive(false);
         setSudoStatus(payload.error ?? "Invalid or expired code.");
         return;
@@ -390,12 +552,28 @@ export function SettingsPanel({
   };
 
   useEffect(() => {
-    if (currentTab === "account" || currentTab === "billing") void refreshAccounts();
-    if (currentTab === "billing") void refreshBillingUsage(true);
-    if (currentTab === "billing") void refreshUserSettings();
-    if (currentTab === "security") void refreshPasskeys();
-    if (currentTab === "security" || currentTab === "workspace") void refreshSudoStatus();
-    if (currentTab === "workspace" && activeWorkspaceId) void refreshMembers(activeWorkspaceId);
+    if (currentTab === "account" || currentTab === "billing") {
+      void refreshAccounts();
+    }
+    if (currentTab === "billing") {
+      void refreshBillingUsage(true);
+    }
+    if (currentTab === "billing") {
+      void refreshPolarCustomerState();
+    }
+    if (currentTab === "billing") {
+      void refreshUserSettings();
+    }
+    if (currentTab === "security") {
+      void refreshPasskeys();
+    }
+    if (currentTab === "security" || currentTab === "workspace") {
+      void refreshSudoStatus();
+    }
+    if (currentTab === "workspace" && activeWorkspaceId) {
+      void refreshMembers(activeWorkspaceId);
+      void refreshWorkspaceUsage(activeWorkspaceId, true);
+    }
   }, [activeWorkspaceId, currentTab]);
 
   useEffect(() => {
@@ -442,12 +620,28 @@ export function SettingsPanel({
     router.replace(`/settings?${params.toString()}` as Route);
   };
 
-  const planLabel = billingUsage ? (PLAN_LABELS[billingUsage.plan] ?? "Free Plan") : "Free Plan";
-  const mobileTabs = tabs.filter((tab) => !("mobileHidden" in tab && tab.mobileHidden));
-  const hasPaidPlan = billingUsage?.plan === "core" || billingUsage?.plan === "scholar";
+  const planLabel = billingUsage
+    ? (PLAN_LABELS[billingUsage.plan] ?? "Free Plan")
+    : "Free Plan";
+  const mobileTabs = tabs.filter(
+    (tab) => !("mobileHidden" in tab && tab.mobileHidden)
+  );
+  const hasPaidPlan =
+    billingUsage?.plan === "core" || billingUsage?.plan === "scholar";
+  const currentUserEmail = session?.user?.email?.toLowerCase() ?? null;
+  const selectedWorkspaceInitial = (
+    selectedWorkspace?.name?.trim().charAt(0) || "A"
+  ).toUpperCase();
+  const selectedWorkspaceMemberCount =
+    workspaceUsage?.memberCount ?? workspaceMembers.length;
 
-  const displayAvatar = avatarPreview || profileImage || getFacehashUrl(profileName || session?.user?.email || "");
-  const fallbackInitials = (profileName || session?.user?.name || "U").slice(0, 2).toUpperCase();
+  const displayAvatar =
+    avatarPreview ||
+    profileImage ||
+    getFacehashUrl(profileName || session?.user?.email || "");
+  const fallbackInitials = (profileName || session?.user?.name || "U")
+    .slice(0, 2)
+    .toUpperCase();
 
   const handleManageBilling = async () => {
     if (!hasPaidPlan) {
@@ -456,14 +650,30 @@ export function SettingsPanel({
     }
 
     setBillingStatus("Opening billing portal...");
+    const portal = (authClient as any)?.customer?.portal as
+      | undefined
+      | (() => Promise<unknown>);
+
+    if (portal) {
+      try {
+        await portal();
+        return;
+      } catch (error) {
+        console.error("[settings] failed to open Polar portal", error);
+      }
+    }
+
     const response = await fetch("/api/billing/portal", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ returnPath: "/settings?tab=billing" }),
     });
-    const payload = (await response.json().catch(() => ({}))) as { error?: string; url?: string };
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+      url?: string;
+    };
 
-    if (!response.ok || !payload.url) {
+    if (!(response.ok && payload.url)) {
       setBillingStatus(payload.error ?? "Unable to open billing portal.");
       return;
     }
@@ -483,7 +693,9 @@ export function SettingsPanel({
     }
 
     if (!response.ok) {
-      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
       setDangerStatus(payload.error ?? "Unable to delete account.");
       return;
     }
@@ -497,24 +709,34 @@ export function SettingsPanel({
     }
 
     setWorkspaceStatus("Deleting workspace...");
-    const response = await fetch(`/api/workspaces/${selectedWorkspace.workspaceId}`, {
-      method: "DELETE",
-    });
+    const response = await fetch(
+      `/api/workspaces/${selectedWorkspace.workspaceId}`,
+      {
+        method: "DELETE",
+      }
+    );
 
     if (response.status === 403) {
       setSudoActive(false);
       setWorkspaceStatus("Verification required.");
-      requestSudoForAction(`delete ${selectedWorkspace.name}`, runDeleteWorkspace);
+      requestSudoForAction(
+        `delete ${selectedWorkspace.name}`,
+        runDeleteWorkspace
+      );
       return;
     }
 
     if (!response.ok) {
-      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
       setWorkspaceStatus(payload.error ?? "Unable to delete workspace.");
       return;
     }
 
-    const payload = (await response.json()) as { workspaces?: WorkspaceSummary[] };
+    const payload = (await response.json()) as {
+      workspaces?: WorkspaceSummary[];
+    };
     const nextWorkspaces = payload.workspaces ?? [];
     setWorkspaces(nextWorkspaces);
     setWorkspaceDeleteConfirm("");
@@ -527,7 +749,7 @@ export function SettingsPanel({
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-background sm:rounded-xl md:flex-row">
       {/* ─── Left Settings Navigation ─────────────────────────────── */}
-      <aside className="hidden w-72 shrink-0 flex-col border-r border-border/60 bg-sidebar p-4 md:flex">
+      <aside className="hidden w-72 shrink-0 flex-col border-border/60 border-r bg-sidebar p-4 md:flex">
         <div className="mb-4">
           <h2 className="font-semibold text-xl">Settings</h2>
         </div>
@@ -535,22 +757,26 @@ export function SettingsPanel({
         <div className="space-y-2">
           <p className="px-2 text-muted-foreground text-xs">Account</p>
           <Button
-            onClick={() => setTab("account")}
             className={[
               "h-auto w-full justify-start gap-2 px-2 py-2 text-left text-sm transition-colors",
-              currentTab === "account" ? "bg-muted font-medium hover:bg-muted" : "hover:bg-muted/70",
+              currentTab === "account"
+                ? "bg-muted font-medium hover:bg-muted"
+                : "hover:bg-muted/70",
             ].join(" ")}
+            onClick={() => setTab("account")}
             variant="ghost"
           >
             <User className="h-4 w-4" />
             Account
           </Button>
           <Button
-            onClick={() => setTab("preferences")}
             className={[
               "h-auto w-full justify-start gap-2 px-2 py-2 text-left text-sm transition-colors",
-              currentTab === "preferences" ? "bg-muted font-medium hover:bg-muted" : "hover:bg-muted/70",
+              currentTab === "preferences"
+                ? "bg-muted font-medium hover:bg-muted"
+                : "hover:bg-muted/70",
             ].join(" ")}
+            onClick={() => setTab("preferences")}
             variant="ghost"
           >
             <SlidersHorizontal className="h-4 w-4" />
@@ -561,55 +787,65 @@ export function SettingsPanel({
         <div className="mt-5 space-y-2">
           <p className="px-2 text-muted-foreground text-xs">Workspace</p>
           <Button
-            onClick={() => setTab("workspace")}
             className={[
               "h-auto w-full justify-start gap-2 px-2 py-2 text-left text-sm transition-colors",
-              currentTab === "workspace" ? "bg-muted font-medium hover:bg-muted" : "hover:bg-muted/70",
+              currentTab === "workspace"
+                ? "bg-muted font-medium hover:bg-muted"
+                : "hover:bg-muted/70",
             ].join(" ")}
+            onClick={() => setTab("workspace")}
             variant="ghost"
           >
             <Building2 className="h-4 w-4" />
             Workspace
           </Button>
           <Button
-            onClick={() => setTab("data")}
             className={[
               "h-auto w-full justify-start gap-2 px-2 py-2 text-left text-sm transition-colors",
-              currentTab === "data" ? "bg-muted font-medium hover:bg-muted" : "hover:bg-muted/70",
+              currentTab === "data"
+                ? "bg-muted font-medium hover:bg-muted"
+                : "hover:bg-muted/70",
             ].join(" ")}
+            onClick={() => setTab("data")}
             variant="ghost"
           >
             <Database className="h-4 w-4" />
             Data
           </Button>
           <Button
-            onClick={() => setTab("billing")}
             className={[
               "h-auto w-full justify-start gap-2 px-2 py-2 text-left text-sm transition-colors",
-              currentTab === "billing" ? "bg-muted font-medium hover:bg-muted" : "hover:bg-muted/70",
+              currentTab === "billing"
+                ? "bg-muted font-medium hover:bg-muted"
+                : "hover:bg-muted/70",
             ].join(" ")}
+            onClick={() => setTab("billing")}
             variant="ghost"
           >
             <CreditCard className="h-4 w-4" />
             Billing
           </Button>
           <Button
-            onClick={() => setTab("security")}
             className={[
               "h-auto w-full justify-start gap-2 px-2 py-2 text-left text-sm transition-colors",
-              currentTab === "security" ? "bg-muted font-medium hover:bg-muted" : "hover:bg-muted/70",
+              currentTab === "security"
+                ? "bg-muted font-medium hover:bg-muted"
+                : "hover:bg-muted/70",
             ].join(" ")}
+            onClick={() => setTab("security")}
             variant="ghost"
           >
             <Shield className="h-4 w-4" />
             Security
           </Button>
           <Button
-            onClick={() => setTab("shortcuts")}
             className={[
               "h-auto w-full justify-start gap-2 px-2 py-2 text-left text-sm transition-colors",
-              currentTab === "shortcuts" ? "bg-muted font-medium hover:bg-muted" : "hover:bg-muted/70",
+              currentTab === "shortcuts"
+                ? "bg-muted font-medium hover:bg-muted"
+                : "hover:bg-muted/70",
             ].join(" ")}
+            onClick={() => setTab("shortcuts")}
             variant="ghost"
           >
             <Key className="h-4 w-4" />
@@ -621,20 +857,20 @@ export function SettingsPanel({
       {/* ─── Right Content Area ───────────────────────────────────── */}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* Mobile: compact profile header */}
-        <div className="flex items-center gap-3 border-b border-border/60 px-4 py-3 md:hidden">
+        <div className="flex items-center gap-3 border-border/60 border-b px-4 py-3 md:hidden">
           <Avatar className="h-9 w-9">
-            <AvatarImage src={displayAvatar} alt={profileName} />
+            <AvatarImage alt={profileName} src={displayAvatar} />
             <AvatarFallback>{fallbackInitials}</AvatarFallback>
           </Avatar>
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium">
+            <p className="truncate font-medium text-sm">
               <SensitiveText
                 className="max-w-full"
                 privacyMode={privacyMode}
                 value={session?.user?.name || "User"}
               />
             </p>
-            <p className="truncate text-xs text-muted-foreground">
+            <p className="truncate text-muted-foreground text-xs">
               <SensitiveText
                 className="max-w-full"
                 privacyMode={privacyMode}
@@ -642,43 +878,49 @@ export function SettingsPanel({
               />
             </p>
           </div>
-          <Badge variant="secondary" className="ml-auto shrink-0 text-xs">{planLabel}</Badge>
+          <Badge className="ml-auto shrink-0 text-xs" variant="secondary">
+            {planLabel}
+          </Badge>
         </div>
 
         {/* Tab nav */}
-        <div className="no-scrollbar flex shrink-0 gap-2 overflow-x-auto border-b border-border/60 px-4 py-3 md:hidden">
+        <div className="no-scrollbar flex shrink-0 gap-2 overflow-x-auto border-border/60 border-b px-4 py-3 md:hidden">
           {mobileTabs.map((tab) => {
             const Icon = tab.icon;
             return (
-            <Button
-              key={tab.key}
-              onClick={() => setTab(tab.key)}
-              className={[
-                "h-9 shrink-0 gap-1.5 rounded-full px-3 text-xs font-medium transition-colors",
-                currentTab === tab.key
-                  ? "bg-foreground text-background"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted",
-              ].join(" ")}
-              type="button"
-              variant="ghost"
-            >
-              <Icon className="h-3.5 w-3.5" />
-              <span>{tab.label}</span>
-            </Button>
+              <Button
+                className={[
+                  "h-9 shrink-0 gap-1.5 rounded-full px-3 font-medium text-xs transition-colors",
+                  currentTab === tab.key
+                    ? "bg-foreground text-background"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                ].join(" ")}
+                key={tab.key}
+                onClick={() => setTab(tab.key)}
+                type="button"
+                variant="ghost"
+              >
+                <Icon className="h-3.5 w-3.5" />
+                <span>{tab.label}</span>
+              </Button>
             );
           })}
         </div>
 
         {/* Tab content */}
         <div className="flex-1 space-y-6 overflow-y-auto px-4 py-5 md:space-y-8 md:px-8 md:py-6">
-
           {/* ── Account Tab ── */}
           {currentTab === "account" ? (
             <>
-              <Section title="Profile" description="Update your display name and avatar.">
-                <div className="space-y-3 max-w-md">
+              <Section
+                description="Update your display name and avatar."
+                title="Profile"
+              >
+                <div className="max-w-md space-y-3">
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Display Name</label>
+                    <label className="font-medium text-muted-foreground text-xs">
+                      Display Name
+                    </label>
                     <Input
                       onChange={(e) => setProfileName(e.target.value)}
                       placeholder="Your name"
@@ -688,13 +930,14 @@ export function SettingsPanel({
                   <div className="rounded-lg border border-border/60 bg-card p-4">
                     <div className="flex items-center gap-3">
                       <Avatar className="h-14 w-14">
-                        <AvatarImage src={displayAvatar} alt={profileName} />
+                        <AvatarImage alt={profileName} src={displayAvatar} />
                         <AvatarFallback>{fallbackInitials}</AvatarFallback>
                       </Avatar>
                       <div className="min-w-0">
-                        <p className="text-sm font-medium">Profile photo</p>
-                        <p className="text-xs text-muted-foreground">
-                          Upload an image and we will save the CDN URL to your account automatically.
+                        <p className="font-medium text-sm">Profile photo</p>
+                        <p className="text-muted-foreground text-xs">
+                          Upload an image and we will save the CDN URL to your
+                          account automatically.
                         </p>
                       </div>
                     </div>
@@ -719,38 +962,49 @@ export function SettingsPanel({
                     </div>
                   </div>
                   <Button
-                    size="sm"
                     disabled={isSavingProfile || isUploadingAvatar}
                     onClick={() => {
                       void saveProfile();
                     }}
+                    size="sm"
                     type="button"
                   >
                     Save Changes
                   </Button>
-                  {profileStatus ? <p className="text-xs text-muted-foreground">{profileStatus}</p> : null}
+                  {profileStatus ? (
+                    <p className="text-muted-foreground text-xs">
+                      {profileStatus}
+                    </p>
+                  ) : null}
                 </div>
               </Section>
 
               <Divider />
 
-              <Section title="Connected Providers" description="Link your Google or GitHub account for social sign-in.">
+              <Section
+                description="Link your Google or GitHub account for social sign-in."
+                title="Connected Providers"
+              >
                 <div className="space-y-3">
                   <div className="flex flex-wrap gap-2">
                     <Button
+                      onClick={() => {
+                        void linkSocial({ provider: "google" });
+                      }}
                       size="sm"
-                      variant="outline"
-                      onClick={() => { void linkSocial({ provider: "google" }); }}
                       type="button"
+                      variant="outline"
                     >
                       <Globe className="mr-2 h-4 w-4" />
                       Connect Google
                     </Button>
                     <Button
+                      onClick={() => {
+                        void linkSocial({ provider: "github" });
+                      }}
                       size="sm"
-                      variant="outline"
-                      onClick={() => { void linkSocial({ provider: "github" }); }}
                       type="button"
+                      variant="outline"
                     >
                       <Github className="mr-2 h-4 w-4" />
                       Connect GitHub
@@ -758,34 +1012,50 @@ export function SettingsPanel({
                   </div>
                   <div className="space-y-2">
                     {accounts.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">No linked accounts yet.</p>
+                      <p className="text-muted-foreground text-xs">
+                        No linked accounts yet.
+                      </p>
                     ) : (
                       accounts.map((account) => (
                         <div
                           className="flex items-center justify-between rounded-lg border border-border/60 bg-card px-3 py-2"
-                          key={account.id ?? `${account.providerId}-${account.accountId}`}
+                          key={
+                            account.id ??
+                            `${account.providerId}-${account.accountId}`
+                          }
                         >
                           <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-xs">{account.providerId ?? "email"}</Badge>
+                            <Badge className="text-xs" variant="outline">
+                              {account.providerId ?? "email"}
+                            </Badge>
                             <SensitiveText
-                              className="max-w-[180px] text-xs text-muted-foreground"
+                              className="max-w-[180px] text-muted-foreground text-xs"
                               privacyMode={privacyMode}
                               value={account.accountId ?? account.id}
                             />
                           </div>
                           <Button
-                            size="sm"
-                            variant="ghost"
-                            type="button"
                             onClick={() => {
                               const providerId = account.providerId;
-                              if (!providerId) return;
+                              if (!providerId) {
+                                return;
+                              }
                               void (async () => {
-                                const result = await unlinkAccount({ accountId: account.accountId ?? "", providerId });
-                                setAccountsStatus(result.error ? "Unable to unlink account." : "Account unlinked.");
+                                const result = await unlinkAccount({
+                                  accountId: account.accountId ?? "",
+                                  providerId,
+                                });
+                                setAccountsStatus(
+                                  result.error
+                                    ? "Unable to unlink account."
+                                    : "Account unlinked."
+                                );
                                 await refreshAccounts();
                               })();
                             }}
+                            size="sm"
+                            type="button"
+                            variant="ghost"
                           >
                             <Unlink className="h-3.5 w-3.5" />
                           </Button>
@@ -793,7 +1063,11 @@ export function SettingsPanel({
                       ))
                     )}
                   </div>
-                  {accountsStatus ? <p className="text-xs text-muted-foreground">{accountsStatus}</p> : null}
+                  {accountsStatus ? (
+                    <p className="text-muted-foreground text-xs">
+                      {accountsStatus}
+                    </p>
+                  ) : null}
                 </div>
               </Section>
             </>
@@ -802,50 +1076,57 @@ export function SettingsPanel({
           {/* ── Billing Tab ── */}
           {currentTab === "billing" ? (
             <>
-              <Section title="Choose Your Plan" description="">
+              <Section description="" title="Choose Your Plan">
                 <div className="grid gap-4 sm:grid-cols-3">
                   <PlanCard
-                    name="Free"
-                    price="$0/month"
-                    features={["Small monthly limits for basic usage", "Basic models only"]}
                     current={!billingUsage || billingUsage.plan === "access"}
+                    features={[
+                      "Small monthly limits for basic usage",
+                      "Basic models only",
+                    ]}
+                    name="Free"
                     onUpgrade={null}
+                    price="$0/month"
                   />
                   <PlanCard
-                    name="Core"
-                    price="$8/month"
+                    current={billingUsage?.plan === "core"}
                     features={[
                       "Expanded monthly limits for more flexibility",
                       "Access to all models",
                       "File uploads and web search",
                     ]}
-                    popular
-                    current={billingUsage?.plan === "core"}
+                    name="Core"
                     onUpgrade={() => router.push("/pricing" as Route)}
+                    popular
+                    price="$8/month"
                   />
                   <PlanCard
-                    name="Scholar"
-                    price="$50/month"
+                    current={billingUsage?.plan === "scholar"}
                     features={[
                       "Over 10× Core limits for power users",
                       "Includes everything in Core",
                       "Priority support",
                     ]}
-                    current={billingUsage?.plan === "scholar"}
+                    name="Scholar"
                     onUpgrade={() => router.push("/pricing" as Route)}
+                    price="$50/month"
                   />
                 </div>
-                {billingStatus ? <p className="text-xs text-muted-foreground mt-2">{billingStatus}</p> : null}
+                {billingStatus ? (
+                  <p className="mt-2 text-muted-foreground text-xs">
+                    {billingStatus}
+                  </p>
+                ) : null}
               </Section>
 
               <Divider />
 
-              <Section title="Billing Preferences" description="">
+              <Section description="" title="Billing Preferences">
                 <div className="space-y-1">
                   <ToggleRow
-                    label="Email me receipts"
-                    description="Send receipts to your account email when a payment succeeds."
                     checked={emailReceipts}
+                    description="Send receipts to your account email when a payment succeeds."
+                    label="Email me receipts"
                     onCheckedChange={(nextValue) => {
                       const previous = emailReceipts;
                       setEmailReceipts(nextValue);
@@ -866,25 +1147,111 @@ export function SettingsPanel({
                     }}
                   />
                   {preferencesStatus ? (
-                    <p className="text-xs text-muted-foreground mt-2">{preferencesStatus}</p>
+                    <p className="mt-2 text-muted-foreground text-xs">
+                      {preferencesStatus}
+                    </p>
                   ) : null}
                 </div>
               </Section>
 
               <Divider />
 
-              <Section title="Manage Subscription" description="">
+              <Section description="" title="Manage Subscription">
                 <Button
-                  variant="outline"
-                  size="sm"
                   onClick={() => {
                     void handleManageBilling();
                   }}
+                  size="sm"
                   type="button"
+                  variant="outline"
                 >
                   {hasPaidPlan ? "Manage Billing & Invoices" : "View Plans"}
                 </Button>
-                {billingStatus ? <p className="mt-2 text-xs text-muted-foreground">{billingStatus}</p> : null}
+                {billingStatus ? (
+                  <p className="mt-2 text-muted-foreground text-xs">
+                    {billingStatus}
+                  </p>
+                ) : null}
+              </Section>
+
+              <Divider />
+
+              <Section
+                description="Better Auth now exposes your Polar customer directly from the session."
+                title="Polar Account"
+              >
+                <div className="max-w-3xl space-y-3 rounded-2xl border border-border/60 bg-card p-4">
+                  {polarCustomerState ? (
+                    <>
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="rounded-xl border border-border/60 bg-background/70 p-3">
+                          <p className="text-muted-foreground text-xs">
+                            Subscriptions
+                          </p>
+                          <p className="mt-1 font-semibold text-lg">
+                            {polarCustomerState.subscriptions?.length ?? 0}
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-border/60 bg-background/70 p-3">
+                          <p className="text-muted-foreground text-xs">
+                            Benefits
+                          </p>
+                          <p className="mt-1 font-semibold text-lg">
+                            {polarCustomerState.benefits?.length ?? 0}
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-border/60 bg-background/70 p-3">
+                          <p className="text-muted-foreground text-xs">
+                            Meters
+                          </p>
+                          <p className="mt-1 font-semibold text-lg">
+                            {polarCustomerState.meters?.length ?? 0}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <p className="text-muted-foreground">
+                          {polarCustomerState.customer?.email ??
+                            session?.user?.email ??
+                            "Your Polar customer"}
+                        </p>
+                        <div className="space-y-2">
+                          {polarCustomerState.subscriptions?.length ? (
+                            polarCustomerState.subscriptions.map(
+                              (subscription) => (
+                                <div
+                                  className="flex items-center justify-between rounded-xl border border-border/60 bg-background/70 px-3 py-2"
+                                  key={
+                                    subscription.id ??
+                                    `${subscription.status}-${subscription.product?.name}`
+                                  }
+                                >
+                                  <div className="min-w-0">
+                                    <p className="truncate font-medium">
+                                      {subscription.product?.name ??
+                                        "Subscription"}
+                                    </p>
+                                    <p className="text-muted-foreground text-xs">
+                                      {subscription.status ?? "unknown status"}
+                                    </p>
+                                  </div>
+                                </div>
+                              )
+                            )
+                          ) : (
+                            <p className="text-muted-foreground text-xs">
+                              No active Polar subscriptions yet.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-muted-foreground text-sm">
+                      {polarCustomerStatus ?? "Loading billing details..."}
+                    </p>
+                  )}
+                </div>
               </Section>
             </>
           ) : null}
@@ -893,14 +1260,14 @@ export function SettingsPanel({
           {currentTab === "security" ? (
             <>
               <Section
-                title="Sensitive Actions"
                 description="Protected actions will prompt for a 6-digit verification code and stay approved for 12 hours."
+                title="Sensitive Actions"
               >
-                <div className="space-y-3 max-w-md rounded-lg border border-border/60 bg-card p-4">
+                <div className="max-w-md space-y-3 rounded-lg border border-border/60 bg-card p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-sm font-medium">Sudo verification</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="font-medium text-sm">Sudo verification</p>
+                      <p className="text-muted-foreground text-xs">
                         {sudoActive
                           ? "Verified for this browser session."
                           : "You will only be prompted when you start a protected action."}
@@ -910,78 +1277,115 @@ export function SettingsPanel({
                       {sudoActive ? "Active" : "Inactive"}
                     </Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-muted-foreground text-xs">
                     {sudoActive
                       ? "Your current sudo session is valid for up to 12 hours."
                       : "Deleting your account or a workspace will open a verification dialog automatically."}
                   </p>
                   <Button
                     disabled={sudoActive}
+                    onClick={() => {
+                      requestSudoForAction(
+                        "verify this session",
+                        async () => {}
+                      );
+                    }}
                     size="sm"
                     type="button"
                     variant="outline"
-                    onClick={() => {
-                      requestSudoForAction("verify this session", async () => {});
-                    }}
                   >
                     {sudoActive ? "Verification Active" : "Verify Now"}
                   </Button>
-                  {sudoStatus ? <p className="text-xs text-muted-foreground">{sudoStatus}</p> : null}
+                  {sudoStatus ? (
+                    <p className="text-muted-foreground text-xs">
+                      {sudoStatus}
+                    </p>
+                  ) : null}
                 </div>
               </Section>
 
               <Divider />
 
-              <Section title="Passkeys" description="Add or remove passkeys for passwordless sign-in.">
+              <Section
+                description="Add or remove passkeys for passwordless sign-in."
+                title="Passkeys"
+              >
                 <div className="space-y-3">
                   <Button
-                    size="sm"
-                    variant="outline"
-                    type="button"
                     onClick={() => {
                       void (async () => {
                         setPasskeysStatus("Adding passkey...");
-                        const addPasskey = (authClient as any)?.passkey?.addPasskey as
-                          | ((opts?: { name?: string }) => Promise<{ error: unknown }>)
+                        const addPasskey = (authClient as any)?.passkey
+                          ?.addPasskey as
+                          | ((opts?: {
+                              name?: string;
+                            }) => Promise<{ error: unknown }>)
                           | undefined;
-                        if (!addPasskey) { setPasskeysStatus("Passkey client is unavailable."); return; }
-                        const result = await addPasskey({ name: "Avenire Passkey" });
-                        setPasskeysStatus(result?.error ? "Unable to add passkey." : "Passkey added.");
+                        if (!addPasskey) {
+                          setPasskeysStatus("Passkey client is unavailable.");
+                          return;
+                        }
+                        const result = await addPasskey({
+                          name: "Avenire Passkey",
+                        });
+                        setPasskeysStatus(
+                          result?.error
+                            ? "Unable to add passkey."
+                            : "Passkey added."
+                        );
                         await refreshPasskeys();
                       })();
                     }}
+                    size="sm"
+                    type="button"
+                    variant="outline"
                   >
                     <Key className="mr-2 h-4 w-4" />
                     Add Passkey
                   </Button>
                   <div className="space-y-2">
                     {passkeys.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">No passkeys registered.</p>
+                      <p className="text-muted-foreground text-xs">
+                        No passkeys registered.
+                      </p>
                     ) : (
                       passkeys.map((passkey) => (
                         <div
-                          key={passkey.id}
                           className="flex items-center justify-between rounded-lg border border-border/60 bg-card px-3 py-2"
+                          key={passkey.id}
                         >
                           <div>
-                            <p className="text-sm font-medium">{passkey.name ?? "Passkey"}</p>
-                            <p className="text-xs text-muted-foreground">{passkey.deviceType ?? "Unknown device"}</p>
+                            <p className="font-medium text-sm">
+                              {passkey.name ?? "Passkey"}
+                            </p>
+                            <p className="text-muted-foreground text-xs">
+                              {passkey.deviceType ?? "Unknown device"}
+                            </p>
                           </div>
                           <Button
-                            size="sm"
-                            variant="ghost"
-                            type="button"
                             onClick={() => {
                               void (async () => {
-                                const response = await fetch("/api/auth/passkey/delete-passkey", {
-                                  method: "POST",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ id: passkey.id }),
-                                });
-                                setPasskeysStatus(response.ok ? "Passkey removed." : "Unable to remove passkey.");
+                                const response = await fetch(
+                                  "/api/auth/passkey/delete-passkey",
+                                  {
+                                    method: "POST",
+                                    headers: {
+                                      "Content-Type": "application/json",
+                                    },
+                                    body: JSON.stringify({ id: passkey.id }),
+                                  }
+                                );
+                                setPasskeysStatus(
+                                  response.ok
+                                    ? "Passkey removed."
+                                    : "Unable to remove passkey."
+                                );
                                 await refreshPasskeys();
                               })();
                             }}
+                            size="sm"
+                            type="button"
+                            variant="ghost"
                           >
                             Remove
                           </Button>
@@ -989,63 +1393,93 @@ export function SettingsPanel({
                       ))
                     )}
                   </div>
-                  {passkeysStatus ? <p className="text-xs text-muted-foreground">{passkeysStatus}</p> : null}
+                  {passkeysStatus ? (
+                    <p className="text-muted-foreground text-xs">
+                      {passkeysStatus}
+                    </p>
+                  ) : null}
                 </div>
               </Section>
 
               <Divider />
 
-              <Section title="Active Sessions" description="Manage and sign out from other devices that are currently logged in to your account.">
+              <Section
+                description="Manage and sign out from other devices that are currently logged in to your account."
+                title="Active Sessions"
+              >
                 <Button
-                  size="sm"
-                  variant="outline"
-                  type="button"
                   onClick={() => {
                     void (async () => {
                       setSessionsStatus("Signing out other devices...");
                       const result = await revokeOtherSessions();
-                      setSessionsStatus(result.error ? "Unable to sign out other devices." : "Signed out from other devices.");
+                      setSessionsStatus(
+                        result.error
+                          ? "Unable to sign out other devices."
+                          : "Signed out from other devices."
+                      );
                     })();
                   }}
+                  size="sm"
+                  type="button"
+                  variant="outline"
                 >
                   <Shield className="mr-2 h-4 w-4" />
                   Sign Out Other Devices
                 </Button>
-                {sessionsStatus ? <p className="text-xs text-muted-foreground">{sessionsStatus}</p> : null}
+                {sessionsStatus ? (
+                  <p className="text-muted-foreground text-xs">
+                    {sessionsStatus}
+                  </p>
+                ) : null}
               </Section>
 
               <Divider />
 
-              <Section title="Danger Zone" description="Permanently delete your account. This action cannot be undone.">
-                <div className="max-w-md rounded-lg border border-red-500/40 bg-red-500/5 p-4 space-y-3">
+              <Section
+                description="Permanently delete your account. This action cannot be undone."
+                title="Danger Zone"
+              >
+                <div className="max-w-md space-y-3 rounded-lg border border-red-500/40 bg-red-500/5 p-4">
                   <div className="flex items-start gap-2 text-red-600">
                     <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
                     <p className="text-xs">
-                      Type <span className="font-semibold">DELETE MY ACCOUNT</span>. If needed, we will prompt for verification after you click delete.
+                      Type{" "}
+                      <span className="font-semibold">DELETE MY ACCOUNT</span>.
+                      If needed, we will prompt for verification after you click
+                      delete.
                     </p>
                   </div>
                   <Input
-                    value={accountDeleteConfirm}
                     onChange={(e) => setAccountDeleteConfirm(e.target.value)}
                     placeholder="DELETE MY ACCOUNT"
+                    value={accountDeleteConfirm}
                   />
                   <Button
-                    size="sm"
-                    type="button"
-                    disabled={accountDeleteConfirm.trim() !== "DELETE MY ACCOUNT"}
                     className="bg-red-600 text-white hover:bg-red-700"
+                    disabled={
+                      accountDeleteConfirm.trim() !== "DELETE MY ACCOUNT"
+                    }
                     onClick={() => {
                       if (!sudoActive) {
-                        requestSudoForAction("delete your account", runDeleteAccount);
+                        requestSudoForAction(
+                          "delete your account",
+                          runDeleteAccount
+                        );
                         return;
                       }
                       void runDeleteAccount();
                     }}
+                    size="sm"
+                    type="button"
                   >
                     Delete Account
                   </Button>
                 </div>
-                {dangerStatus ? <p className="text-xs text-muted-foreground">{dangerStatus}</p> : null}
+                {dangerStatus ? (
+                  <p className="text-muted-foreground text-xs">
+                    {dangerStatus}
+                  </p>
+                ) : null}
               </Section>
             </>
           ) : null}
@@ -1053,12 +1487,15 @@ export function SettingsPanel({
           {/* ── Preferences Tab ── */}
           {currentTab === "preferences" ? (
             <>
-              <Section title="Preferences" description="Control your account defaults and behavior.">
+              <Section
+                description="Control your account defaults and behavior."
+                title="Preferences"
+              >
                 <div className="space-y-1">
                   <ToggleRow
-                    label="Email me receipts"
-                    description="Send receipts to your account email when a payment succeeds."
                     checked={emailReceipts}
+                    description="Send receipts to your account email when a payment succeeds."
+                    label="Email me receipts"
                     onCheckedChange={(nextValue) => {
                       const previous = emailReceipts;
                       setEmailReceipts(nextValue);
@@ -1087,8 +1524,66 @@ export function SettingsPanel({
                     }}
                   />
                   {preferencesStatus ? (
-                    <p className="mt-2 text-xs text-muted-foreground">{preferencesStatus}</p>
+                    <p className="mt-2 text-muted-foreground text-xs">
+                      {preferencesStatus}
+                    </p>
                   ) : null}
+                </div>
+              </Section>
+
+              <Divider />
+
+              <Section
+                description="Select a light or dark theme for your workspace."
+                title="Appearance"
+              >
+                <div className="grid max-w-md grid-cols-3 gap-3">
+                  <button
+                    className={cn(
+                      "flex flex-col items-center gap-2 rounded-lg border-2 p-3 text-sm transition-colors hover:bg-muted/50",
+                      theme === "light"
+                        ? "border-primary bg-primary/5"
+                        : "border-border/60"
+                    )}
+                    onClick={() => setTheme("light")}
+                    type="button"
+                  >
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f3f4f6]">
+                      <div className="h-5 w-5 rounded-full bg-white shadow-sm" />
+                    </div>
+                    <span className="font-medium">Light</span>
+                  </button>
+                  <button
+                    className={cn(
+                      "flex flex-col items-center gap-2 rounded-lg border-2 p-3 text-sm transition-colors hover:bg-muted/50",
+                      theme === "dark"
+                        ? "border-primary bg-primary/5"
+                        : "border-border/60"
+                    )}
+                    onClick={() => setTheme("dark")}
+                    type="button"
+                  >
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1f2937]">
+                      <div className="h-5 w-5 rounded-full bg-slate-900 shadow-sm" />
+                    </div>
+                    <span className="font-medium">Dark</span>
+                  </button>
+                  <button
+                    className={cn(
+                      "flex flex-col items-center gap-2 rounded-lg border-2 p-3 text-sm transition-colors hover:bg-muted/50",
+                      theme === "system"
+                        ? "border-primary bg-primary/5"
+                        : "border-border/60"
+                    )}
+                    onClick={() => setTheme("system")}
+                    type="button"
+                  >
+                    <div className="flex h-10 w-10 overflow-hidden rounded-full bg-[#f3f4f6]">
+                      <div className="h-full w-1/2 bg-[#f3f4f6]" />
+                      <div className="h-full w-1/2 bg-[#1f2937]" />
+                    </div>
+                    <span className="font-medium">System</span>
+                  </button>
                 </div>
               </Section>
             </>
@@ -1097,8 +1592,310 @@ export function SettingsPanel({
           {/* ── Workspace Tab ── */}
           {currentTab === "workspace" ? (
             <>
-              <Section title="Your Workspaces" description="Create and switch between workspaces.">
-                <div className="max-w-md space-y-3">
+              <Section
+                description="Workspace identity, storage, and member access in one place."
+                title="Current workspace"
+              >
+                <div className="rounded-3xl border border-border/60 bg-card p-5 shadow-sm">
+                  <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="flex min-w-0 items-center gap-4">
+                      <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-muted font-semibold text-foreground text-lg">
+                        {selectedWorkspaceInitial}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-medium text-muted-foreground text-xs uppercase tracking-[0.22em]">
+                          Name &amp; Icon
+                        </p>
+                        <h3 className="truncate font-semibold text-2xl leading-none">
+                          {selectedWorkspace?.name ?? "Workspace"}
+                        </h3>
+                        <p className="mt-2 truncate text-muted-foreground text-sm">
+                          {selectedWorkspace
+                            ? `${selectedWorkspace.organizationId} · ${selectedWorkspace.rootFolderId}`
+                            : "Select a workspace to inspect its storage and members."}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge
+                        className="rounded-full px-3 py-1 text-xs"
+                        variant="secondary"
+                      >
+                        {workspaceUsage
+                          ? `${workspaceUsage.fileCount.toLocaleString()} files`
+                          : "Loading files..."}
+                      </Badge>
+                      <Badge
+                        className="rounded-full px-3 py-1 text-xs"
+                        variant="outline"
+                      >
+                        {selectedWorkspace
+                          ? `${selectedWorkspaceMemberCount.toLocaleString()} member${selectedWorkspaceMemberCount === 1 ? "" : "s"}`
+                          : "No workspace"}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="font-medium text-sm">Workspace stats</p>
+                      <p className="text-muted-foreground text-xs">
+                        {workspaceUsageStatus ?? "Live workspace totals"}
+                      </p>
+                    </div>
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      <UsageStatCard
+                        description="Total bytes stored across workspace files."
+                        icon={HardDrive}
+                        label="Storage Used"
+                        value={
+                          workspaceUsage
+                            ? formatBytes(workspaceUsage.totalSizeBytes)
+                            : "Loading..."
+                        }
+                      />
+                      <UsageStatCard
+                        description="File records available in this workspace."
+                        icon={FileText}
+                        label="Files"
+                        value={
+                          workspaceUsage
+                            ? workspaceUsage.fileCount.toLocaleString()
+                            : "Loading..."
+                        }
+                      />
+                      <UsageStatCard
+                        description="Nested folders in the workspace tree."
+                        icon={Folder}
+                        label="Folders"
+                        value={
+                          workspaceUsage
+                            ? workspaceUsage.folderCount.toLocaleString()
+                            : "Loading..."
+                        }
+                      />
+                      <UsageStatCard
+                        description={
+                          workspaceUsage
+                            ? `${workspaceUsage.pendingIngestionCount.toLocaleString()} pending ingestion`
+                            : "Waiting for ingestion status."
+                        }
+                        icon={Users}
+                        label="Indexed"
+                        value={
+                          workspaceUsage
+                            ? workspaceUsage.indexedFileCount.toLocaleString()
+                            : "Loading..."
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-6">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-medium text-sm">Members</p>
+                      <Badge
+                        className="rounded-full px-3 py-1 text-xs"
+                        variant="outline"
+                      >
+                        {selectedWorkspace
+                          ? `${selectedWorkspaceMemberCount} total`
+                          : "0 members"}
+                      </Badge>
+                    </div>
+
+                    <div className="mt-3 overflow-hidden rounded-2xl border border-border/60">
+                      <div className="grid grid-cols-[minmax(0,1.5fr)_minmax(110px,0.8fr)_minmax(0,1.6fr)_minmax(90px,0.8fr)_auto] bg-muted/50 px-4 py-3 font-medium text-muted-foreground text-xs">
+                        <span>User</span>
+                        <span>Role</span>
+                        <span>Email</span>
+                        <span>Date added</span>
+                        <span className="text-right">Action</span>
+                      </div>
+                      <div className="divide-y divide-border/60">
+                        {workspaceMembers.length === 0 ? (
+                          <div className="px-4 py-6 text-muted-foreground text-sm">
+                            No members found.
+                          </div>
+                        ) : (
+                          workspaceMembers.map((member, index) => {
+                            const memberKey =
+                              member.id ??
+                              member.email ??
+                              member.userId ??
+                              `member-${index}`;
+                            const isCurrentUser =
+                              Boolean(currentUserEmail) &&
+                              member.email?.toLowerCase() === currentUserEmail;
+                            const isOwner =
+                              member.role.toLowerCase() === "owner";
+
+                            return (
+                              <div
+                                className="grid grid-cols-[minmax(0,1.5fr)_minmax(110px,0.8fr)_minmax(0,1.6fr)_minmax(90px,0.8fr)_auto] items-center gap-3 px-4 py-3 text-sm"
+                                key={memberKey}
+                              >
+                                <div className="min-w-0">
+                                  <p className="truncate font-medium">
+                                    <SensitiveText
+                                      className="max-w-[220px]"
+                                      privacyMode={privacyMode}
+                                      value={
+                                        member.name ??
+                                        member.email ??
+                                        "Unknown user"
+                                      }
+                                    />
+                                  </p>
+                                </div>
+                                <span className="text-muted-foreground capitalize">
+                                  {member.role}
+                                </span>
+                                <p className="truncate text-muted-foreground">
+                                  <SensitiveText
+                                    className="max-w-[260px]"
+                                    privacyMode={privacyMode}
+                                    value={member.email ?? "—"}
+                                  />
+                                </p>
+                                <span className="text-muted-foreground">—</span>
+                                <div className="flex justify-end">
+                                  {isOwner || isCurrentUser ? (
+                                    <Badge
+                                      className="rounded-full px-3 py-1 text-xs"
+                                      variant="outline"
+                                    >
+                                      You
+                                    </Badge>
+                                  ) : (
+                                    <Button
+                                      onClick={() => {
+                                        if (
+                                          !(
+                                            selectedWorkspace &&
+                                            (member.id ?? member.email)
+                                          )
+                                        ) {
+                                          return;
+                                        }
+                                        void (async () => {
+                                          const response = await fetch(
+                                            `/api/workspaces/${selectedWorkspace.workspaceId}/share/members`,
+                                            {
+                                              method: "DELETE",
+                                              headers: {
+                                                "Content-Type":
+                                                  "application/json",
+                                              },
+                                              body: JSON.stringify({
+                                                memberIdOrEmail:
+                                                  member.id ?? member.email,
+                                              }),
+                                            }
+                                          );
+                                          setWorkspaceStatus(
+                                            response.ok
+                                              ? "Member removed."
+                                              : "Unable to remove member."
+                                          );
+                                          if (response.ok) {
+                                            await refreshMembers(
+                                              selectedWorkspace.workspaceId
+                                            );
+                                            await refreshWorkspaceUsage(
+                                              selectedWorkspace.workspaceId
+                                            );
+                                          }
+                                        })();
+                                      }}
+                                      size="xs"
+                                      type="button"
+                                      variant="ghost"
+                                    >
+                                      Remove
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                      <Input
+                        onChange={(e) => setWorkspaceEmail(e.target.value)}
+                        placeholder="teammate@example.com"
+                        value={workspaceEmail}
+                      />
+                      <Button
+                        disabled={
+                          isInvitingMember ||
+                          !selectedWorkspace ||
+                          !workspaceEmail.trim()
+                        }
+                        onClick={() => {
+                          if (!selectedWorkspace) {
+                            return;
+                          }
+                          void (async () => {
+                            setIsInvitingMember(true);
+                            try {
+                              const response = await fetch(
+                                `/api/workspaces/${selectedWorkspace.workspaceId}/share/members`,
+                                {
+                                  method: "POST",
+                                  headers: {
+                                    "Content-Type": "application/json",
+                                  },
+                                  body: JSON.stringify({
+                                    email: workspaceEmail.trim(),
+                                  }),
+                                }
+                              );
+                              setWorkspaceStatus(
+                                response.ok
+                                  ? "Member added."
+                                  : "Unable to add member."
+                              );
+                              if (response.ok) {
+                                setWorkspaceEmail("");
+                                await refreshMembers(
+                                  selectedWorkspace.workspaceId
+                                );
+                                await refreshWorkspaceUsage(
+                                  selectedWorkspace.workspaceId
+                                );
+                              }
+                            } finally {
+                              setIsInvitingMember(false);
+                            }
+                          })();
+                        }}
+                        size="sm"
+                        type="button"
+                      >
+                        Add member
+                      </Button>
+                    </div>
+
+                    {workspaceStatus ? (
+                      <p className="mt-2 text-muted-foreground text-xs">
+                        {workspaceStatus}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              </Section>
+
+              <Divider />
+
+              <Section
+                description="Create and switch between workspaces."
+                title="Workspaces"
+              >
+                <div className="max-w-2xl space-y-4">
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <Input
                       onChange={(e) => setWorkspaceName(e.target.value)}
@@ -1106,9 +1903,7 @@ export function SettingsPanel({
                       value={workspaceName}
                     />
                     <Button
-                      size="sm"
                       disabled={isCreatingWorkspace || !workspaceName.trim()}
-                      type="button"
                       onClick={() => {
                         void (async () => {
                           setIsCreatingWorkspace(true);
@@ -1116,9 +1911,14 @@ export function SettingsPanel({
                             const response = await fetch("/api/workspaces", {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ name: workspaceName.trim() }),
+                              body: JSON.stringify({
+                                name: workspaceName.trim(),
+                              }),
                             });
-                            if (!response.ok) { setWorkspaceStatus("Unable to create workspace."); return; }
+                            if (!response.ok) {
+                              setWorkspaceStatus("Unable to create workspace.");
+                              return;
+                            }
                             setWorkspaceStatus("Workspace created.");
                             setWorkspaceName("");
                             await refreshWorkspaces();
@@ -1127,29 +1927,37 @@ export function SettingsPanel({
                           }
                         })();
                       }}
+                      size="sm"
+                      type="button"
                     >
                       Create
                     </Button>
                   </div>
+
                   <div className="space-y-2">
                     {workspaces.map((workspace) => (
                       <Button
-                        key={workspace.workspaceId}
                         className={[
-                          "h-auto w-full justify-start gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors hover:bg-muted",
+                          "h-auto w-full justify-start gap-3 rounded-xl border px-4 py-3 text-left text-sm transition-colors hover:bg-muted",
                           workspace.workspaceId === activeWorkspaceId
                             ? "border-primary bg-accent/40"
                             : "border-border/60 bg-card",
                         ].join(" ")}
+                        key={workspace.workspaceId}
+                        onClick={() => {
+                          setActiveWorkspaceId(workspace.workspaceId);
+                          setWorkspaceStatus(null);
+                        }}
                         type="button"
                         variant="ghost"
-                        onClick={() => { setActiveWorkspaceId(workspace.workspaceId); setWorkspaceStatus(null); }}
                       >
                         <Users className="h-4 w-4 shrink-0 text-muted-foreground" />
-                        <span className="flex-1 truncate">{workspace.name}</span>
-                        {workspace.workspaceId === activeWorkspaceId && (
+                        <span className="flex-1 truncate">
+                          {workspace.name}
+                        </span>
+                        {workspace.workspaceId === activeWorkspaceId ? (
                           <Check className="h-4 w-4 text-primary" />
-                        )}
+                        ) : null}
                       </Button>
                     ))}
                   </div>
@@ -1159,137 +1967,45 @@ export function SettingsPanel({
               <Divider />
 
               <Section
-                title="Workspace Members"
-                description={`Add or remove people from ${selectedWorkspace?.name ?? "this workspace"}.`}
-              >
-                <div className="max-w-md space-y-3">
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <Input
-                      onChange={(e) => setWorkspaceEmail(e.target.value)}
-                      placeholder="teammate@example.com"
-                      value={workspaceEmail}
-                    />
-                    <Button
-                      size="sm"
-                      disabled={isInvitingMember || !selectedWorkspace || !workspaceEmail.trim()}
-                      type="button"
-                      onClick={() => {
-                        if (!selectedWorkspace) return;
-                        void (async () => {
-                          setIsInvitingMember(true);
-                          try {
-                            const response = await fetch(`/api/workspaces/${selectedWorkspace.workspaceId}/share/members`, {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ email: workspaceEmail.trim() }),
-                            });
-                            setWorkspaceStatus(response.ok ? "Member added." : "Unable to add member.");
-                            if (response.ok) { setWorkspaceEmail(""); await refreshMembers(selectedWorkspace.workspaceId); }
-                          } finally {
-                            setIsInvitingMember(false);
-                          }
-                        })();
-                      }}
-                    >
-                      Invite
-                    </Button>
-                  </div>
-                  <div className="space-y-2">
-                    {workspaceMembers.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">No members found.</p>
-                    ) : (
-                      workspaceMembers.map((member, index) => (
-                        <div
-                          key={member.id ?? member.email ?? member.userId ?? `member-${index}`}
-                          className="flex items-center justify-between rounded-lg border border-border/60 bg-card px-3 py-2"
-                        >
-                          <div>
-                            <p className="text-sm font-medium">
-                              <SensitiveText
-                                className="max-w-[220px]"
-                                privacyMode={privacyMode}
-                                value={member.name ?? member.email ?? "Unknown user"}
-                              />
-                            </p>
-                            <p className="text-xs text-muted-foreground capitalize">{member.role}</p>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            type="button"
-                            onClick={() => {
-                              if (!selectedWorkspace || !(member.id ?? member.email)) return;
-                              void (async () => {
-                                const response = await fetch(`/api/workspaces/${selectedWorkspace.workspaceId}/share/members`, {
-                                  method: "DELETE",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ memberIdOrEmail: member.id ?? member.email }),
-                                });
-                                setWorkspaceStatus(response.ok ? "Member removed." : "Unable to remove member.");
-                                if (response.ok) await refreshMembers(selectedWorkspace.workspaceId);
-                              })();
-                            }}
-                          >
-                            Remove
-                          </Button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={!selectedWorkspace}
-                    type="button"
-                    onClick={() => {
-                      if (!selectedWorkspace) return;
-                      void (async () => {
-                        const response = await fetch(`/api/workspaces/${selectedWorkspace.workspaceId}/share/team`, { method: "POST" });
-                        setWorkspaceStatus(response.ok ? "Workspace shared with team." : "Unable to share with team.");
-                      })();
-                    }}
-                  >
-                    Share workspace with whole team
-                  </Button>
-                  {workspaceStatus ? <p className="text-xs text-muted-foreground">{workspaceStatus}</p> : null}
-                </div>
-              </Section>
-
-              <Divider />
-
-              <Section
-                title="Workspace Danger Zone"
                 description="Delete the selected workspace and all associated files, shares, and access."
+                title="Workspace Danger Zone"
               >
-                <div className="max-w-md rounded-lg border border-red-500/40 bg-red-500/5 p-4 space-y-3">
+                <div className="max-w-md space-y-3 rounded-lg border border-red-500/40 bg-red-500/5 p-4">
                   <div className="flex items-start gap-2 text-red-600">
                     <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
                     <p className="text-xs">
-                      Type the workspace name exactly. If verification is needed, we will prompt you after you continue.
+                      Type the workspace name exactly. If verification is
+                      needed, we will prompt you after you continue.
                     </p>
                   </div>
                   <Input
-                    value={workspaceDeleteConfirm}
+                    disabled={!selectedWorkspace}
                     onChange={(e) => setWorkspaceDeleteConfirm(e.target.value)}
                     placeholder={selectedWorkspace?.name ?? "Workspace name"}
-                    disabled={!selectedWorkspace}
+                    value={workspaceDeleteConfirm}
                   />
                   <Button
-                    size="sm"
-                    type="button"
                     className="bg-red-600 text-white hover:bg-red-700"
                     disabled={
-                      !selectedWorkspace
-                      || workspaceDeleteConfirm.trim() !== (selectedWorkspace?.name ?? "")
+                      !selectedWorkspace ||
+                      workspaceDeleteConfirm.trim() !==
+                        (selectedWorkspace?.name ?? "")
                     }
                     onClick={() => {
-                      if (!selectedWorkspace) return;
+                      if (!selectedWorkspace) {
+                        return;
+                      }
                       if (!sudoActive) {
-                        requestSudoForAction(`delete ${selectedWorkspace.name}`, runDeleteWorkspace);
+                        requestSudoForAction(
+                          `delete ${selectedWorkspace.name}`,
+                          runDeleteWorkspace
+                        );
                         return;
                       }
                       void runDeleteWorkspace();
                     }}
+                    size="sm"
+                    type="button"
                   >
                     Delete Workspace
                   </Button>
@@ -1301,10 +2017,14 @@ export function SettingsPanel({
           {/* ── Data Tab ── */}
           {currentTab === "data" ? (
             <>
-              <Section title="Data Retention" description="How workspace data is retained and cleaned up.">
+              <Section
+                description="How workspace data is retained and cleaned up."
+                title="Data Retention"
+              >
                 <div className="max-w-md space-y-2">
-                  <p className="text-sm text-muted-foreground">
-                    Deleted files and folders are moved to Trash and retained for 30 days before permanent cleanup.
+                  <p className="text-muted-foreground text-sm">
+                    Deleted files and folders are moved to Trash and retained
+                    for 30 days before permanent cleanup.
                   </p>
                 </div>
               </Section>
@@ -1314,19 +2034,22 @@ export function SettingsPanel({
           {/* ── Keyboard Shortcuts Tab ── */}
           {currentTab === "shortcuts" ? (
             <>
-              <Section title="Keyboard Shortcuts" description="Implemented shortcuts available in Avenire.">
+              <Section
+                description="Implemented shortcuts available in Avenire."
+                title="Keyboard Shortcuts"
+              >
                 <div className="max-w-xl space-y-2">
                   {KEYBOARD_SHORTCUTS.map((shortcut) => (
                     <div
-                      key={shortcut.label}
                       className="flex items-center justify-between rounded-lg border border-border/60 bg-card px-3 py-2"
+                      key={shortcut.label}
                     >
                       <span className="text-sm">{shortcut.label}</span>
                       <div className="flex items-center gap-1">
                         {shortcut.keys.map((key) => (
                           <kbd
+                            className="inline-flex items-center justify-center rounded border border-border/80 bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground leading-none"
                             key={`${shortcut.label}-${key}`}
-                            className="inline-flex items-center justify-center rounded border border-border/80 bg-muted px-1.5 py-0.5 font-mono text-[10px] leading-none text-muted-foreground"
                           >
                             {key}
                           </kbd>
@@ -1371,11 +2094,15 @@ export function SettingsPanel({
               className="text-center tracking-[0.35em]"
               inputMode="numeric"
               maxLength={6}
-              onChange={(event) => setSudoCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+              onChange={(event) =>
+                setSudoCode(event.target.value.replace(/\D/g, "").slice(0, 6))
+              }
               placeholder="123456"
               value={sudoCode}
             />
-            {sudoStatus ? <p className="text-xs text-muted-foreground">{sudoStatus}</p> : null}
+            {sudoStatus ? (
+              <p className="text-muted-foreground text-xs">{sudoStatus}</p>
+            ) : null}
           </div>
 
           <DialogFooter className="gap-2 sm:justify-between">
@@ -1419,8 +2146,10 @@ function Section({
   return (
     <div className="space-y-3">
       <div>
-        <h2 className="text-lg font-semibold">{title}</h2>
-        {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
+        <h2 className="font-semibold text-lg">{title}</h2>
+        {description ? (
+          <p className="text-muted-foreground text-sm">{description}</p>
+        ) : null}
       </div>
       {children}
     </div>
@@ -1428,7 +2157,34 @@ function Section({
 }
 
 function Divider() {
-  return <div className="border-t border-border/40" />;
+  return <div className="border-border/40 border-t" />;
+}
+
+function UsageStatCard({
+  icon: Icon,
+  label,
+  value,
+  description,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-border/60 bg-background/70 p-4">
+      <div className="flex items-start gap-3">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border/60 bg-muted/70 text-foreground">
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-medium text-foreground text-sm">{label}</p>
+          <p className="mt-3 font-semibold text-xl tracking-tight">{value}</p>
+          <p className="mt-2 text-muted-foreground text-xs">{description}</p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function ToggleRow({
@@ -1445,8 +2201,8 @@ function ToggleRow({
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
-        <p className="text-sm font-medium">{label}</p>
-        <p className="text-xs text-muted-foreground">{description}</p>
+        <p className="font-medium text-sm">{label}</p>
+        <p className="text-muted-foreground text-xs">{description}</p>
       </div>
       <Switch checked={checked} onCheckedChange={onCheckedChange} />
     </div>
@@ -1471,33 +2227,40 @@ function PlanCard({
   return (
     <div
       className={[
-        "relative flex flex-col rounded-xl border p-5 gap-4 transition-all",
+        "relative flex flex-col gap-4 rounded-xl border p-5 transition-all",
         popular
           ? "border-primary/60 bg-primary/5 shadow-sm"
           : "border-border/60 bg-card",
       ].join(" ")}
     >
       {popular ? (
-        <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-0.5 text-[11px] font-semibold text-primary-foreground">
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-0.5 font-semibold text-[11px] text-primary-foreground">
           Most Popular
         </span>
       ) : null}
       <div>
         <p className="font-bold text-base">{name}</p>
-        <p className="text-xs text-muted-foreground mt-0.5">{price}</p>
+        <p className="mt-0.5 text-muted-foreground text-xs">{price}</p>
       </div>
       <ul className="flex-1 space-y-1.5">
         {features.map((f) => (
-          <li key={f} className="flex items-start gap-2 text-xs text-muted-foreground">
+          <li
+            className="flex items-start gap-2 text-muted-foreground text-xs"
+            key={f}
+          >
             <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
             <span>{f}</span>
           </li>
         ))}
       </ul>
       {current ? (
-        <Button size="sm" variant="outline" disabled className="w-full">Current Plan</Button>
+        <Button className="w-full" disabled size="sm" variant="outline">
+          Current Plan
+        </Button>
       ) : (
-        <Button size="sm" onClick={onUpgrade ?? undefined} className="w-full">Upgrade</Button>
+        <Button className="w-full" onClick={onUpgrade ?? undefined} size="sm">
+          Upgrade
+        </Button>
       )}
     </div>
   );

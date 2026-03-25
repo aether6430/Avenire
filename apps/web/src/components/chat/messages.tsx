@@ -11,9 +11,9 @@ import { AlertCircle } from "lucide-react";
 import { memo, type RefObject } from "react";
 import { PreviewMessage } from "@/components/chat/message";
 import { Overview } from "@/components/chat/overview";
+import { getChatErrorMessage } from "@/lib/chat-errors";
 
 interface MessagesProps {
-  addToolApprovalResponse: UseChatHelpers<UIMessage>["addToolApprovalResponse"];
   agentActivity: AgentActivityData | null;
   chatId: string;
   error: UseChatHelpers<UIMessage>["error"];
@@ -22,41 +22,12 @@ interface MessagesProps {
   messages: UseChatHelpers<UIMessage>["messages"];
   messagesContainerRef: RefObject<HTMLDivElement | null>;
   messagesEndRef: RefObject<HTMLDivElement | null>;
-  reload: UseChatHelpers<UIMessage>["regenerate"];
+  onRegenerate: (messageId: string) => void;
   sendMessage: UseChatHelpers<UIMessage>["sendMessage"];
-  setMessages: UseChatHelpers<UIMessage>["setMessages"];
   status: UseChatHelpers<UIMessage>["status"];
   userName?: string;
   workspaceUuid: string;
 }
-
-type MessageErrorType =
-  | "MODEL_ERROR"
-  | "NETWORK_ERROR"
-  | "VALIDATION_ERROR"
-  | "UNKNOWN_ERROR";
-
-const ERROR_MESSAGES: Record<MessageErrorType, string> = {
-  MODEL_ERROR:
-    "The AI model encountered an issue while processing your request.",
-  NETWORK_ERROR: "There was a problem connecting to the server.",
-  VALIDATION_ERROR: "There was an issue with the message format.",
-  UNKNOWN_ERROR: "An unexpected error occurred while processing your message.",
-};
-
-const categorizeError = (error: Error): MessageErrorType => {
-  const message = error.message.toLowerCase();
-  if (message.includes("model") || message.includes("ai")) {
-    return "MODEL_ERROR";
-  }
-  if (message.includes("network") || message.includes("connection")) {
-    return "NETWORK_ERROR";
-  }
-  if (message.includes("validation") || message.includes("format")) {
-    return "VALIDATION_ERROR";
-  }
-  return "UNKNOWN_ERROR";
-};
 
 const getMessageSignature = (message: UIMessage) => {
   const lastPart = message.parts?.at(-1);
@@ -84,15 +55,13 @@ const haveMessagesChanged = (
 };
 
 function PureMessages({
-  addToolApprovalResponse,
   agentActivity,
   chatId,
   status,
   messages,
   error,
-  reload,
+  onRegenerate,
   sendMessage,
-  setMessages,
   isReadonly,
   workspaceUuid,
   userName,
@@ -120,14 +89,11 @@ function PureMessages({
                 <CardTitle className="text-base">Message Error</CardTitle>
               </div>
               <CardDescription className="text-destructive/80">
-                {ERROR_MESSAGES[categorizeError(error)]}
+                {getChatErrorMessage(error)}
               </CardDescription>
             </CardHeader>
             <CardContent className="text-destructive/80 text-sm">
-              <p>Technical details (for support):</p>
-              <code className="mt-1 block max-w-full overflow-x-auto whitespace-pre-wrap break-words rounded bg-destructive/5 p-2 text-xs">
-                {error.name}: {error.message}
-              </code>
+              <p>If the issue repeats, try again or contact support.</p>
             </CardContent>
           </Card>
         )}
@@ -153,18 +119,15 @@ function PureMessages({
 
           return (
             <PreviewMessage
-              addToolApprovalResponse={addToolApprovalResponse}
               agentActivity={showAgentActivity}
               chatId={chatId}
               isComplete={isComplete}
-              isLoading={isLoading}
               isReadonly={isReadonly}
               isStreaming={isLoading}
               key={message.id}
               message={message}
-              reload={reload}
+              onRegenerate={onRegenerate}
               sendMessage={sendMessage}
-              setMessages={setMessages}
               workspaceUuid={workspaceUuid}
             />
           );

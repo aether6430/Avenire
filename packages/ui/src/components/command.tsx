@@ -19,11 +19,13 @@ import { SearchIcon, CheckIcon } from "lucide-react"
 
 function Command({
   className,
+  loop = true,
   ...props
 }: React.ComponentProps<typeof CommandPrimitive>) {
   return (
     <CommandPrimitive
       data-slot="command"
+      loop={loop}
       className={cn(
         "bg-popover text-popover-foreground rounded-xl p-2 flex size-full flex-col overflow-hidden",
         className

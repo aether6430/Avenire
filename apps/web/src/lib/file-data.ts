@@ -43,6 +43,7 @@ export {
   listWorkspaceFiles,
   listWorkspaceFolders,
   listWorkspaceMembers,
+  listWorkspacePropertyRegistry,
   listWorkspaceShareSuggestions,
   listWorkspacesForUser,
   markNoteReindexed,

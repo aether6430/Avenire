@@ -25,6 +25,7 @@ import {
   noteContent,
   resourceShareGrant,
   resourceShareLink,
+  workspacePropertyRegistry,
   workspace,
 } from "./schema";
 
@@ -72,13 +73,45 @@ export interface ExplorerFileRecord {
 }
 
 export interface FilePageProperties {
-  [key: string]: string | number | boolean | string[] | null;
+  [key: string]: FilePropertyRecord;
 }
+
+export type FilePropertyType =
+  | "checkbox"
+  | "date"
+  | "multi_select"
+  | "number"
+  | "select"
+  | "text";
+
+interface BaseFilePropertyRecord<T extends FilePropertyType, TValue> {
+  type: T;
+  value: TValue;
+}
+
+export type FilePropertyRecord =
+  | BaseFilePropertyRecord<"checkbox", boolean>
+  | BaseFilePropertyRecord<"date", string | null>
+  | BaseFilePropertyRecord<"multi_select", string[]>
+  | BaseFilePropertyRecord<"number", number | null>
+  | BaseFilePropertyRecord<"select", string | null>
+  | BaseFilePropertyRecord<"text", string | null>;
 
 export interface FilePageRecord {
   bannerUrl: string | null;
   icon: string | null;
   properties: FilePageProperties;
+}
+
+export interface WorkspacePropertyRegistryRecord {
+  createdAt: string;
+  id: string;
+  key: string;
+  lastUsedAt: string;
+  options: string[];
+  type: FilePropertyType;
+  updatedAt: string;
+  workspaceId: string;
 }
 
 export type VideoDeliveryStatus = "failed" | "pending" | "ready";
@@ -288,6 +321,67 @@ function asStringArray(value: unknown) {
   return items.length > 0 ? items : null;
 }
 
+function normalizePropertyKey(value: string) {
+  return value.trim();
+}
+
+function isFilePropertyType(value: unknown): value is FilePropertyType {
+  return (
+    value === "checkbox" ||
+    value === "date" ||
+    value === "multi_select" ||
+    value === "number" ||
+    value === "select" ||
+    value === "text"
+  );
+}
+
+function normalizeSelectOptions(value: unknown) {
+  return Array.from(new Set(asStringArray(value) ?? [])).sort((a, b) =>
+    a.localeCompare(b)
+  );
+}
+
+function normalizeFilePropertyRecord(value: unknown): FilePropertyRecord | null {
+  const record = asObjectRecord(value);
+  if (!record || !isFilePropertyType(record.type)) {
+    return null;
+  }
+
+  switch (record.type) {
+    case "checkbox":
+      return {
+        type: "checkbox",
+        value: record.value === true,
+      };
+    case "date":
+      return {
+        type: "date",
+        value: asNullableString(record.value),
+      };
+    case "multi_select":
+      return {
+        type: "multi_select",
+        value: asStringArray(record.value) ?? [],
+      };
+    case "number":
+      return {
+        type: "number",
+        value: asNullableFiniteNumber(record.value),
+      };
+    case "select":
+      return {
+        type: "select",
+        value: asNullableString(record.value),
+      };
+    case "text":
+      return {
+        type: "text",
+        value: asNullableString(record.value),
+      };
+  }
+}
+
 function normalizePageProperties(value: unknown): FilePageProperties {
   if (!(value && typeof value === "object" && !Array.isArray(value))) {
     return {};
@@ -295,32 +389,18 @@ function normalizePageProperties(value: unknown): FilePageProperties {
 
   const entries = Object.entries(value as Record<string, unknown>)
     .map(([key, entry]) => {
-      if (!key.trim()) {
+      const normalizedKey = normalizePropertyKey(key);
+      if (!normalizedKey) {
         return null;
       }
-      if (entry === null) {
-        return [key.trim(), null] as const;
-      }
-      if (
-        typeof entry === "string" ||
-        typeof entry === "number" ||
-        typeof entry === "boolean"
-      ) {
-        return [key.trim(), entry] as const;
-      }
-      const values = asStringArray(entry);
-      if (!values) {
+      const property = normalizeFilePropertyRecord(entry);
+      if (!property) {
         return null;
       }
-      return [key.trim(), values] as const;
+      return [normalizedKey, property] as const;
     })
     .filter(
-      (
-        entry
-      ): entry is readonly [
-        string,
-        string | number | boolean | string[] | null,
-      ] => Boolean(entry)
+      (entry): entry is readonly [string, FilePropertyRecord] => Boolean(entry)
     );
 
   return Object.fromEntries(entries);
@@ -519,6 +599,109 @@ export function mapVideoDeliveryRecord(
   };
 }
 
+function collectPropertyRegistryEntries(
+  workspaceId: string,
+  properties: FilePageProperties
+) {
+  const now = new Date();
+  return Object.entries(properties)
+    .map(([key, property]) => {
+      const normalizedKey = normalizePropertyKey(key);
+      if (!normalizedKey) {
+        return null;
+      }
+      const options =
+        property.type === "multi_select"
+          ? property.value
+          : property.type === "select" && property.value
+            ? [property.value]
+            : [];
+
+      return {
+        workspaceId,
+        key: normalizedKey,
+        type: property.type,
+        options: normalizeSelectOptions(options),
+        createdAt: now,
+        updatedAt: now,
+        lastUsedAt: now,
+      };
+    })
+    .filter(
+      (
+        entry
+      ): entry is {
+        createdAt: Date;
+        key: string;
+        lastUsedAt: Date;
+        options: string[];
+        type: FilePropertyType;
+        updatedAt: Date;
+        workspaceId: string;
+      } => Boolean(entry)
+    );
+}
+
+function mapWorkspacePropertyRegistry(
+  row: typeof workspacePropertyRegistry.$inferSelect
+): WorkspacePropertyRegistryRecord {
+  return {
+    createdAt: row.createdAt.toISOString(),
+    id: row.id,
+    key: row.key,
+    lastUsedAt: row.lastUsedAt.toISOString(),
+    options: normalizeSelectOptions(row.options),
+    type: row.type as FilePropertyType,
+    updatedAt: row.updatedAt.toISOString(),
+    workspaceId: row.workspaceId,
+  };
+}
+
+async function syncWorkspacePropertyRegistry(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  workspaceId: string,
+  properties: FilePageProperties
+) {
+  const entries = collectPropertyRegistryEntries(workspaceId, properties);
+  for (const entry of entries) {
+    const [existing] = await tx
+      .select()
+      .from(workspacePropertyRegistry)
+      .where(
+        and(
+          eq(workspacePropertyRegistry.workspaceId, workspaceId),
+          eq(workspacePropertyRegistry.key, entry.key)
+        )
+      )
+      .limit(1);
+
+    if (!existing) {
+      await tx.insert(workspacePropertyRegistry).values(entry);
+      continue;
+    }
+
+    if (existing.type !== entry.type) {
+      throw new Error(
+        `Property "${entry.key}" already exists with type "${existing.type}".`
+      );
+    }
+
+    const mergedOptions = normalizeSelectOptions([
+      ...normalizeSelectOptions(existing.options),
+      ...entry.options,
+    ]);
+
+    await tx
+      .update(workspacePropertyRegistry)
+      .set({
+        options: mergedOptions,
+        updatedAt: entry.updatedAt,
+        lastUsedAt: entry.lastUsedAt,
+      })
+      .where(eq(workspacePropertyRegistry.id, existing.id));
+  }
+}
+
 export function listVideoDeliveryStorageKeys(
   videoDelivery: VideoDeliveryRecord | null | undefined
 ) {
@@ -591,9 +774,11 @@ export async function getWorkspaceIdForFile(fileId: string) {
 export async function getNoteContent(fileId: string) {
   const [row] = await db
     .select({
+      baseContent: noteContent.baseContent,
       content: noteContent.content,
       needsReindex: noteContent.needsReindex,
       updatedAt: noteContent.updatedAt,
+      version: noteContent.version,
     })
     .from(noteContent)
     .where(eq(noteContent.fileId, fileId))
@@ -603,6 +788,7 @@ export async function getNoteContent(fileId: string) {
 }
 
 export async function createWorkspaceNoteFile(input: {
+  baseContent?: string;
   content: string;
   folderId: string;
   metadata?: Record<string, unknown>;
@@ -612,6 +798,7 @@ export async function createWorkspaceNoteFile(input: {
 }) {
   const now = new Date();
   const content = input.content ?? "";
+  const baseContent = input.baseContent ?? content;
   const storageKey = `virtual:note:${randomUUID()}`;
   const storageUrl = `https://utfs.io/f/${encodeURIComponent(storageKey)}`;
   const metadata = {
@@ -663,47 +850,66 @@ export async function createWorkspaceNoteFile(input: {
 
     await tx.insert(noteContent).values({
       fileId: record.id,
+      baseContent,
       content,
       needsReindex: content.trim().length > 0,
       updatedBy: input.userId,
       updatedAt: now,
+      version: 0,
     });
+
+    const page = mapFilePageRecord(asObjectRecord(metadata)?.page);
+    if (page) {
+      await syncWorkspacePropertyRegistry(
+        tx,
+        input.workspaceId,
+        page.properties
+      );
+    }
 
     return mapFile(record);
   });
 }
 
 export async function updateNoteContent(input: {
+  baseContent?: string;
   fileId: string;
   userId: string;
   content: string;
+  version?: number;
 }) {
   const now = new Date();
   const trimmed = input.content ?? "";
+  const baseContent = input.baseContent ?? trimmed;
   const shouldReindex = trimmed.trim().length > 0;
   const sizeBytes = Buffer.byteLength(trimmed, "utf8");
   return db.transaction(async (tx) => {
     const [row] = await tx
       .insert(noteContent)
       .values({
+        baseContent,
         fileId: input.fileId,
         content: trimmed,
         needsReindex: shouldReindex,
         updatedBy: input.userId,
         updatedAt: now,
+        version: input.version ?? 0,
       })
       .onConflictDoUpdate({
         target: noteContent.fileId,
         set: {
+          baseContent,
           content: trimmed,
           needsReindex: shouldReindex,
           updatedBy: input.userId,
           updatedAt: now,
+          ...(typeof input.version === "number" ? { version: input.version } : {}),
         },
       })
       .returning({
         fileId: noteContent.fileId,
         updatedAt: noteContent.updatedAt,
+        version: noteContent.version,
       });
 
     await tx
@@ -2144,28 +2350,35 @@ export async function registerFileAsset(
   }
 
   const now = new Date();
-  const [record] = await db
-    .insert(fileAsset)
-    .values({
-      workspaceId,
-      folderId: input.folderId,
-      storageKey: input.storageKey,
-      storageUrl: normalizeTrustedStorageUrl(input.storageUrl),
-      name: input.name.slice(0, 255),
-      mimeType: input.mimeType ?? null,
-      sizeBytes: input.sizeBytes,
-      uploadedBy: userId,
-      updatedBy: userId,
-      metadata: input.metadata ?? {},
-      contentHashSha256: input.contentHashSha256 ?? null,
-      hashComputedBy: input.hashComputedBy ?? null,
-      hashVerificationStatus: input.hashVerificationStatus ?? null,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .returning();
+  return db.transaction(async (tx) => {
+    const [record] = await tx
+      .insert(fileAsset)
+      .values({
+        workspaceId,
+        folderId: input.folderId,
+        storageKey: input.storageKey,
+        storageUrl: normalizeTrustedStorageUrl(input.storageUrl),
+        name: input.name.slice(0, 255),
+        mimeType: input.mimeType ?? null,
+        sizeBytes: input.sizeBytes,
+        uploadedBy: userId,
+        updatedBy: userId,
+        metadata: input.metadata ?? {},
+        contentHashSha256: input.contentHashSha256 ?? null,
+        hashComputedBy: input.hashComputedBy ?? null,
+        hashVerificationStatus: input.hashVerificationStatus ?? null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
 
-  return mapFile(record);
+    const page = mapFilePageRecord(asObjectRecord(input.metadata)?.page);
+    if (page) {
+      await syncWorkspacePropertyRegistry(tx, workspaceId, page.properties);
+    }
+
+    return mapFile(record);
+  });
 }
 
 export async function updateFileAsset(
@@ -2220,27 +2433,34 @@ export async function updateFileAsset(
     };
   }
 
-  const [record] = await db
-    .update(fileAsset)
-    .set({
-      ...(updates.folderId ? { folderId: updates.folderId } : {}),
-      ...(typeof updates.name === "string"
-        ? { name: updates.name.trim().slice(0, 255) || "Untitled" }
-        : {}),
-      ...(nextMetadata ? { metadata: nextMetadata } : {}),
-      updatedBy: userId,
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(fileAsset.id, fileId),
-        eq(fileAsset.workspaceId, workspaceId),
-        isNull(fileAsset.deletedAt)
+  return db.transaction(async (tx) => {
+    const [record] = await tx
+      .update(fileAsset)
+      .set({
+        ...(updates.folderId ? { folderId: updates.folderId } : {}),
+        ...(typeof updates.name === "string"
+          ? { name: updates.name.trim().slice(0, 255) || "Untitled" }
+          : {}),
+        ...(nextMetadata ? { metadata: nextMetadata } : {}),
+        updatedBy: userId,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(fileAsset.id, fileId),
+          eq(fileAsset.workspaceId, workspaceId),
+          isNull(fileAsset.deletedAt)
+        )
       )
-    )
-    .returning();
+      .returning();
 
-  return record ? mapFile(record) : null;
+    const page = mapFilePageRecord(nextMetadata?.page);
+    if (record && page) {
+      await syncWorkspacePropertyRegistry(tx, workspaceId, page.properties);
+    }
+
+    return record ? mapFile(record) : null;
+  });
 }
 
 export async function updateFileAssetStorageMetadata(
@@ -2326,23 +2546,30 @@ export async function updateFileAssetMetadata(
   userId: string,
   updates: { metadata: Record<string, unknown> }
 ) {
-  const [record] = await db
-    .update(fileAsset)
-    .set({
-      metadata: updates.metadata,
-      updatedBy: userId,
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(fileAsset.id, fileId),
-        eq(fileAsset.workspaceId, workspaceId),
-        isNull(fileAsset.deletedAt)
+  return db.transaction(async (tx) => {
+    const [record] = await tx
+      .update(fileAsset)
+      .set({
+        metadata: updates.metadata,
+        updatedBy: userId,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(fileAsset.id, fileId),
+          eq(fileAsset.workspaceId, workspaceId),
+          isNull(fileAsset.deletedAt)
+        )
       )
-    )
-    .returning();
+      .returning();
 
-  return record ? mapFile(record) : null;
+    const page = mapFilePageRecord(updates.metadata.page);
+    if (record && page) {
+      await syncWorkspacePropertyRegistry(tx, workspaceId, page.properties);
+    }
+
+    return record ? mapFile(record) : null;
+  });
 }
 
 export async function replaceFileAssetContent(
@@ -2385,43 +2612,64 @@ export async function replaceFileAssetContent(
     ...(updates.metadata ?? {}),
   };
 
-  const [record] = await db
-    .update(fileAsset)
-    .set({
-      contentHashSha256: updates.contentHashSha256 ?? null,
-      hashComputedBy: updates.hashComputedBy ?? null,
-      hashVerificationStatus: updates.hashVerificationStatus ?? null,
-      metadata: nextMetadata,
-      mimeType: updates.mimeType ?? null,
-      optimizedMimeType: null,
-      optimizedName: null,
-      optimizedSizeBytes: null,
-      optimizedStorageKey: null,
-      optimizedStorageUrl: null,
-      sizeBytes: updates.sizeBytes,
-      storageKey: updates.storageKey,
-      storageUrl: normalizeTrustedStorageUrl(updates.storageUrl),
-      updatedAt: new Date(),
-      updatedBy: userId,
-    })
-    .where(
-      and(
-        eq(fileAsset.id, fileId),
-        eq(fileAsset.workspaceId, workspaceId),
-        isNull(fileAsset.deletedAt)
+  return db.transaction(async (tx) => {
+    const [record] = await tx
+      .update(fileAsset)
+      .set({
+        contentHashSha256: updates.contentHashSha256 ?? null,
+        hashComputedBy: updates.hashComputedBy ?? null,
+        hashVerificationStatus: updates.hashVerificationStatus ?? null,
+        metadata: nextMetadata,
+        mimeType: updates.mimeType ?? null,
+        optimizedMimeType: null,
+        optimizedName: null,
+        optimizedSizeBytes: null,
+        optimizedStorageKey: null,
+        optimizedStorageUrl: null,
+        sizeBytes: updates.sizeBytes,
+        storageKey: updates.storageKey,
+        storageUrl: normalizeTrustedStorageUrl(updates.storageUrl),
+        updatedAt: new Date(),
+        updatedBy: userId,
+      })
+      .where(
+        and(
+          eq(fileAsset.id, fileId),
+          eq(fileAsset.workspaceId, workspaceId),
+          isNull(fileAsset.deletedAt)
+        )
       )
+      .returning();
+
+    if (!record) {
+      return null;
+    }
+
+    const page = mapFilePageRecord(nextMetadata.page);
+    if (page) {
+      await syncWorkspacePropertyRegistry(tx, workspaceId, page.properties);
+    }
+
+    return {
+      file: mapFile(record),
+      previousStorageKey: existing.storageKey,
+      previousStorageUrl: existing.storageUrl,
+    };
+  });
+}
+
+export async function listWorkspacePropertyRegistry(workspaceId: string) {
+  const rows = await db
+    .select()
+    .from(workspacePropertyRegistry)
+    .where(eq(workspacePropertyRegistry.workspaceId, workspaceId))
+    .orderBy(asc(workspacePropertyRegistry.key));
+
+  return rows
+    .filter((row): row is typeof workspacePropertyRegistry.$inferSelect =>
+      isFilePropertyType(row.type)
     )
-    .returning();
-
-  if (!record) {
-    return null;
-  }
-
-  return {
-    file: mapFile(record),
-    previousStorageKey: existing.storageKey,
-    previousStorageUrl: existing.storageUrl,
-  };
+    .map(mapWorkspacePropertyRegistry);
 }
 
 export async function getFileAssetById(workspaceId: string, fileId: string) {

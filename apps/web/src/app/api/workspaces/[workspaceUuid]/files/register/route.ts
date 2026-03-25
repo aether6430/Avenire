@@ -115,6 +115,7 @@ export async function POST(
       userId: user.id,
       folderId: body.folderId,
       name: body.name,
+      baseContent: body.content,
       content: body.content,
       metadata: nextMetadata,
     });

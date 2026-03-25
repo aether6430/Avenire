@@ -3,6 +3,14 @@
 import { Badge } from "@avenire/ui/components/badge";
 import { Button } from "@avenire/ui/components/button";
 import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@avenire/ui/components/empty";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -275,9 +283,23 @@ export function FlashcardsSidebarPanel({
             value={searchQuery}
           />
           {filteredSets.length === 0 ? (
-            <p className="px-2 py-1 text-muted-foreground text-xs">
-              {sets.length === 0 ? "No sets yet." : "No matching sets."}
-            </p>
+            <Empty className="min-h-[8.5rem] rounded-2xl border-border/50 bg-background/60 px-3 py-4">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <BookOpenCheck className="size-4" />
+                </EmptyMedia>
+                <EmptyTitle className="text-xs">
+                  {sets.length === 0 ? "No sets yet" : "No matching sets"}
+                </EmptyTitle>
+              </EmptyHeader>
+              <EmptyContent className="max-w-none">
+                <EmptyDescription className="text-[11px] leading-relaxed">
+                  {sets.length === 0
+                    ? "Create a flashcard set or import one from a chat to start studying."
+                    : "Try a shorter search or clear the filters to reveal more sets."}
+                </EmptyDescription>
+              </EmptyContent>
+            </Empty>
           ) : (
             <SidebarMenu>
               {filteredSets.map((set) => (

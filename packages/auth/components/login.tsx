@@ -1,89 +1,179 @@
 "use client"
 
 import type React from "react"
+import Image from "next/image"
 import { useEffect, useState } from "react"
-import Link from "next/link"
-import { cn } from "@avenire/ui/lib/utils"
 import { Button } from "@avenire/ui/components/button"
-import { Card, CardContent } from "@avenire/ui/components/card"
 import { Input } from "@avenire/ui/components/input"
 import { Label } from "@avenire/ui/components/label"
 import { toast } from "sonner"
-import { Sparkles, Mail, Lock, ArrowRight } from "lucide-react"
-import { signIn, sendVerificationEmail, requestPasswordReset } from "../client"
+import { Mail, Lock, ArrowRight } from "lucide-react"
+import { authClient, requestPasswordReset, signIn } from "../client"
+import { getErrorMessage } from "../error_codes"
+import { getWaitlistErrorDetails } from "../waitlist-shared"
 import { GithubIcon, GoogleIcon, LoadingIcon, PasskeyIcon } from "./icons"
 import { z } from "zod"
-import { getErrorMessage } from "../error_codes"
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address").nonempty("Email is required"),
   password: z.string().min(8, "Password must be at least 8 characters long").nonempty("Password is required"),
 })
 
-export function LoginForm({ className, ...props }: React.ComponentProps<"div">) {
+export function LoginForm({
+  className,
+  initialEmail = "",
+  initialError,
+  ...props
+}: React.ComponentProps<"div"> & {
+  initialEmail?: string
+  initialError?: string | null
+}) {
   const [isLoading, setIsLoading] = useState(false)
-  const [email, setEmail] = useState("")
+  const [isJoiningWaitlist, setIsJoiningWaitlist] = useState(false)
+  const [email, setEmail] = useState(initialEmail)
   const [password, setPassword] = useState("")
   const [errors, setErrors] = useState<{
-    email: string | undefined;
-    password: string | undefined;
+    email: string | undefined
+    password: string | undefined
   } | undefined>(undefined)
+  const [waitlistMessage, setWaitlistMessage] = useState<string | null>(null)
+  const [canJoinWaitlist, setCanJoinWaitlist] = useState(false)
+  const lastLoginMethod = authClient.getLastUsedLoginMethod()
 
   useEffect(() => {
-    if (!PublicKeyCredential.isConditionalMediationAvailable ||
-      !PublicKeyCredential.isConditionalMediationAvailable()) {
-      return;
+    if (
+      !PublicKeyCredential.isConditionalMediationAvailable ||
+      !PublicKeyCredential.isConditionalMediationAvailable()
+    ) {
+      return
     }
 
     signIn.passkey({ autoFill: true })
-  }, []);
+  }, [])
+
+  useEffect(() => {
+    const details = getWaitlistErrorDetails(initialError)
+
+    setWaitlistMessage(details?.message ?? null)
+    setCanJoinWaitlist(details?.canJoinWaitlist ?? false)
+  }, [initialError])
+
+  const resetWaitlistFeedback = () => {
+    setWaitlistMessage(null)
+    setCanJoinWaitlist(false)
+  }
+
+  const getErrorCallbackURL = () => {
+    const params = new URLSearchParams()
+    if (email.trim()) {
+      params.set("email", email.trim())
+    }
+
+    const query = params.toString()
+    return query ? `/login?${query}` : "/login"
+  }
+
+  const handleJoinWaitlist = async () => {
+    const trimmedEmail = email.trim()
+    if (!trimmedEmail) {
+      setErrors({ email: "Email is required", password: undefined })
+      return
+    }
+
+    setIsJoiningWaitlist(true)
+    try {
+      const response = await fetch("/api/waitlist/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: trimmedEmail }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Unable to join the waitlist.")
+      }
+
+      const payload = (await response.json()) as {
+        status?: "pending" | "approved" | "registered"
+      }
+
+      const nextMessage =
+        payload.status === "approved" || payload.status === "registered"
+          ? "This email already has access."
+          : "You're on the waitlist now. We’ll email you when access opens."
+
+      setWaitlistMessage(nextMessage)
+      setCanJoinWaitlist(false)
+      toast("You're on the waitlist", {
+        description: `We saved ${trimmedEmail} for access.`,
+      })
+    } catch (error) {
+      toast.error("Oops! Something went wrong", {
+        description: error instanceof Error ? error.message : "Unable to join the waitlist.",
+      })
+    } finally {
+      setIsJoiningWaitlist(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    setErrors(undefined) // Reset errors
-    const formData = {
-      email,
-      password,
-    }
+    setErrors(undefined)
+    resetWaitlistFeedback()
 
-    const result = loginSchema.safeParse(formData)
+    const result = loginSchema.safeParse({ email, password })
     if (!result.success) {
-      const formattedErrors = result.error.format();
+      const formattedErrors = result.error.format()
       setErrors({
         email: formattedErrors.email?._errors.join(", "),
         password: formattedErrors.password?._errors.join(", "),
-      });
+      })
       setIsLoading(false)
       return
     }
 
-    const { data, error } = await signIn.email({
-      email: email,
-      password: password,
-      callbackURL: "/workspace"
+    const { error } = await signIn.email({
+      email,
+      password,
+      callbackURL: "/workspace",
     })
+
     if (error) {
-      const errorMessage = getErrorMessage(error.code || "");
+      const errorMessage = getErrorMessage(error.code || "", error.message)
       if (errorMessage.source === "email") {
-        setErrors({ email: errorMessage.userMessage, password: undefined });
+        setErrors({ email: errorMessage.userMessage, password: undefined })
       }
+
+      const details =
+        getWaitlistErrorDetails(error.code?.toLowerCase()) ??
+        getWaitlistErrorDetails(error.message?.toLowerCase())
+      if (details) {
+        setWaitlistMessage(details.message)
+        setCanJoinWaitlist(details.canJoinWaitlist)
+      }
+
       toast.error("Oops! Something went wrong", {
         description: errorMessage.userMessage,
-      });
-      setIsLoading(false);
-      return;
+      })
+      setIsLoading(false)
+      return
     }
 
-    setIsLoading(false);
+    setIsLoading(false)
   }
 
   return (
     <form className="p-5 md:p-6" onSubmit={handleSubmit}>
       <div className="flex flex-col gap-5">
         <div className="flex flex-col items-center text-center space-y-2">
-          <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
-            <Sparkles className="h-6 w-6 text-primary" />
+          <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+            <Image
+              alt="Avenire"
+              className="h-7 w-7"
+              height={28}
+              src="/branding/avenire-logo-mark.svg"
+              width={28}
+            />
           </div>
           <h1 className="text-2xl font-bold">Welcome back</h1>
           <p className="text-balance text-muted-foreground">Login to your Avenire account</p>
@@ -103,11 +193,33 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
                 required
                 className="pl-10 transition-all focus:ring-2 focus:ring-primary/20"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(event) => {
+                  setEmail(event.target.value)
+                  if (waitlistMessage || canJoinWaitlist) {
+                    resetWaitlistFeedback()
+                  }
+                }}
                 autoComplete="email webauthn"
               />
-              {errors?.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+              {errors?.email ? <p className="text-red-500 text-xs mt-1">{errors.email}</p> : null}
             </div>
+            {waitlistMessage ? (
+              <p className="text-xs text-muted-foreground">{waitlistMessage}</p>
+            ) : null}
+            {canJoinWaitlist ? (
+              <Button
+                className="w-full sm:w-auto"
+                disabled={isJoiningWaitlist}
+                onClick={() => {
+                  void handleJoinWaitlist()
+                }}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                {isJoiningWaitlist ? "Joining waitlist..." : "Join waitlist"}
+              </Button>
+            ) : null}
           </div>
 
           <div className="space-y-2">
@@ -115,29 +227,37 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
               <Label htmlFor="password" className="text-sm font-medium">
                 Password
               </Label>
-              <Button variant="link" type="button" onClick={async () => {
-                if (!email) {
-                  setErrors({ email: "Email is required", password: undefined })
-                  return
-                }
-                const { error } = await requestPasswordReset({
-                  email,
-                  redirectTo: "/change-password"
-                })
-                if (error) {
-                  const errorMessage = getErrorMessage(error.code || "");
-                  if (errorMessage.source === "email") {
-                    setErrors({ email: errorMessage.userMessage, password: undefined });
+              <Button
+                variant="link"
+                type="button"
+                onClick={async () => {
+                  if (!email) {
+                    setErrors({ email: "Email is required", password: undefined })
+                    return
                   }
-                  toast.error("Oops! Something went wrong", {
-                    description: errorMessage.userMessage,
-                  });
-                  return
-                }
-                toast("Check your mail!", {
-                  description: `We have just sent an email to ${email}. Proceed from the link in the mail`
-                })
-              }} className="text-sm text-primary hover:text-primary/80 transition-all">
+
+                  const { error } = await requestPasswordReset({
+                    email,
+                    redirectTo: "/change-password",
+                  })
+
+                  if (error) {
+                    const errorMessage = getErrorMessage(error.code || "", error.message)
+                    if (errorMessage.source === "email") {
+                      setErrors({ email: errorMessage.userMessage, password: undefined })
+                    }
+                    toast.error("Oops! Something went wrong", {
+                      description: errorMessage.userMessage,
+                    })
+                    return
+                  }
+
+                  toast("Check your mail!", {
+                    description: `We have just sent an email to ${email}. Proceed from the link in the mail`,
+                  })
+                }}
+                className="text-sm text-primary hover:text-primary/80 transition-all"
+              >
                 Forgot password?
               </Button>
             </div>
@@ -149,10 +269,10 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
                 required
                 className="pl-10 transition-all focus:ring-2 focus:ring-primary/20"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(event) => setPassword(event.target.value)}
                 autoComplete="current-password webauthn"
               />
-              {errors?.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
+              {errors?.password ? <p className="text-red-500 text-xs mt-1">{errors.password}</p> : null}
             </div>
           </div>
         </div>
@@ -177,64 +297,75 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
 
         <div className="grid grid-cols-3 gap-4">
           <Button
-            variant="outline"
+            variant={lastLoginMethod === "google" ? "default" : "outline"}
             className="w-full justify-center transition-all"
             type="button"
             onClick={() => {
               signIn.social({
                 provider: "google",
-                callbackURL: "/workspace"
+                callbackURL: "/workspace",
+                errorCallbackURL: getErrorCallbackURL(),
               })
             }}
           >
             <span className="inline-flex h-4 w-4 items-center justify-center">
               <GoogleIcon />
             </span>
+            {lastLoginMethod === "google" ? <span className="sr-only">Last used</span> : null}
             <span className="sr-only">Login with Google</span>
           </Button>
           <Button
-            variant="outline"
+            variant={lastLoginMethod === "github" ? "default" : "outline"}
             className="w-full justify-center transition-all"
             type="button"
             onClick={() => {
               signIn.social({
                 provider: "github",
-                callbackURL: "/workspace"
+                callbackURL: "/workspace",
+                errorCallbackURL: getErrorCallbackURL(),
               })
             }}
           >
             <span className="inline-flex h-4 w-4 items-center justify-center">
               <GithubIcon />
             </span>
+            {lastLoginMethod === "github" ? <span className="sr-only">Last used</span> : null}
             <span className="sr-only">Login with Github</span>
           </Button>
           <Button
-            variant="outline"
+            variant={lastLoginMethod === "passkey" ? "default" : "outline"}
             className="w-full justify-center transition-all"
             type="button"
             onClick={async () => {
+              resetWaitlistFeedback()
               const data = await signIn.passkey()
-              if (data && data.error) {
-                const errorCode = data.error.message;
+              if (data?.error) {
+                const errorCode =
+                  typeof (data.error as { code?: unknown }).code === "string"
+                    ? (data.error as { code: string }).code
+                    : ""
+                const errorMessage = getErrorMessage(errorCode, data.error.message)
+                const details =
+                  getWaitlistErrorDetails(errorCode.toLowerCase()) ??
+                  getWaitlistErrorDetails(data.error.message?.toLowerCase())
+
+                if (details) {
+                  setWaitlistMessage(details.message)
+                  setCanJoinWaitlist(details.canJoinWaitlist)
+                }
+
                 toast.error("Oops! Something went wrong", {
-                  description: errorCode,
+                  description: errorMessage.userMessage,
                 })
-                return;
               }
             }}
           >
             <span className="inline-flex h-4 w-4 items-center justify-center">
               <PasskeyIcon />
             </span>
+            {lastLoginMethod === "passkey" ? <span className="sr-only">Last used</span> : null}
             <span className="sr-only">Login with Passkey</span>
           </Button>
-        </div>
-
-        <div className="text-center text-sm">
-          Don&apos;t have an account?{" "}
-          <Link href="/register" className="text-primary hover:text-primary/80 transition-colors font-medium">
-            Sign up
-          </Link>
         </div>
       </div>
     </form>

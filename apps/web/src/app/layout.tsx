@@ -1,12 +1,13 @@
 import { Toaster } from "@avenire/ui/components/sonner";
 import type { Metadata, Viewport } from "next";
+import { Inconsolata, Inter, Lora } from "next/font/google";
 import localFont from "next/font/local";
 import { ServiceWorkerRegistration } from "@/components/pwa/ServiceWorkerRegistration";
+import { ThemeProvider } from "@/components/theme-provider";
 import { metadataBase } from "@/lib/page-metadata";
 import "./globals.css";
-import { Bitter, Lora, Inconsolata } from "next/font/google";
 
-const fontSans = Bitter({
+const fontSans = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
 });
@@ -20,7 +21,6 @@ const fontMono = Inconsolata({
   subsets: ["latin"],
   variable: "--font-mono",
 });
-
 
 const fonde = localFont({
   src: "./fonde.ttf",
@@ -49,7 +49,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#94acd1",
+  themeColor: "#abcfff",
 };
 
 export default function RootLayout({
@@ -58,19 +58,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html className="light" lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
-        className={`${fonde.variable} font-sans antialiased ${fontSans.variable} ${fontSerif.variable} ${fontMono.variable}`}
+        className={`${fonde.variable} theme-color-transitions font-sans antialiased ${fontSans.variable} ${fontSerif.variable} ${fontMono.variable}`}
         style={
           {
             "--font-sans":
-              'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+              '"Inter", ui-sans-serif, -apple-system, "Segoe UI", sans-serif',
           } as React.CSSProperties
         }
       >
-        <ServiceWorkerRegistration />
-        {children}
-        <Toaster closeButton richColors position="top-right" />
+        <ThemeProvider>
+          <ServiceWorkerRegistration />
+          {children}
+          <Toaster closeButton position="top-right" richColors />
+        </ThemeProvider>
       </body>
     </html>
   );

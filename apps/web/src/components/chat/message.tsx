@@ -26,7 +26,11 @@ import { cn } from "@/lib/utils";
 type MessagePart = UIMessage["parts"][number];
 type ToolPart = Extract<MessagePart, { type: `tool-${string}` }>;
 type AgentActivityPart = Extract<MessagePart, { type: "data-agent_activity" }>;
-type RenderBlock = { index: number; part: MessagePart; type: "part" };
+interface RenderBlock {
+  index: number;
+  part: MessagePart;
+  type: "part";
+}
 
 const isReasoningPart = (part: MessagePart) =>
   part.type === "reasoning" ||
@@ -171,28 +175,22 @@ const toAttachment = (part: MessagePart): Partial<Attachment> | null => {
 };
 
 const PurePreviewMessage = ({
-  addToolApprovalResponse,
   agentActivity,
   chatId,
   message,
   isComplete,
-  isLoading,
   isStreaming,
-  setMessages: _setMessages,
-  reload,
+  onRegenerate,
   sendMessage,
   isReadonly,
   workspaceUuid,
 }: {
-  addToolApprovalResponse: UseChatHelpers<UIMessage>["addToolApprovalResponse"];
   agentActivity: AgentActivityData | null;
   chatId: string;
   message: UIMessage;
   isComplete: boolean;
-  isLoading: boolean;
   isStreaming: boolean;
-  setMessages: UseChatHelpers<UIMessage>["setMessages"];
-  reload: UseChatHelpers<UIMessage>["regenerate"];
+  onRegenerate: (messageId: string) => void;
   sendMessage: UseChatHelpers<UIMessage>["sendMessage"];
   isReadonly: boolean;
   workspaceUuid: string;
@@ -221,7 +219,7 @@ const PurePreviewMessage = ({
         <div className="flex w-full flex-col gap-3 group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-[80%]">
           {message.role === "assistant" && (
             <div className="flex flex-row items-center gap-2">
-              <div className="flex flex-col gap-4 text-muted-foreground text-xs uppercase tracking-[0.18em]">
+              <div className="flex flex-col gap-4 text-muted-foreground text-[11px] uppercase tracking-[0.15em]">
                 Apollo
               </div>
             </div>
@@ -279,7 +277,7 @@ const PurePreviewMessage = ({
                     key={key}
                   >
                     <ReasoningTrigger />
-                    <ReasoningContent>
+                    <ReasoningContent workspaceUuid={workspaceUuid}>
                       {getReasoningText(part)}
                     </ReasoningContent>
                   </Reasoning>
@@ -293,12 +291,12 @@ const PurePreviewMessage = ({
                       className={cn(
                         "flex w-full flex-col gap-4",
                         message.role === "user" &&
-                          "group relative rounded-2xl rounded-br-sm border border-border/80 bg-secondary px-4 py-3 text-secondary-foreground"
+                          "group relative rounded-lg bg-secondary px-4 py-3 text-secondary-foreground"
                       )}
                       data-testid="message-content"
                     >
                       {message.role === "user" ? (
-                        <p className="text-[15px] leading-6">
+                        <p className="text-sm leading-6 sm:text-[15px]">
                           {part.text ?? ""}
                         </p>
                       ) : (
@@ -378,11 +376,7 @@ const PurePreviewMessage = ({
               chatId={chatId}
               message={message}
               onRegenerate={
-                message.role === "assistant"
-                  ? () => {
-                      reload();
-                    }
-                  : undefined
+                message.role === "assistant" ? onRegenerate : undefined
               }
             />
           )}
@@ -423,8 +417,7 @@ export const PreviewMessage = memo(PurePreviewMessage, (prev, next) => {
 
   return (
     prevSignature === nextSignature &&
-  prev.isLoading === next.isLoading &&
-  prev.isComplete === next.isComplete &&
-  prev.workspaceUuid === next.workspaceUuid
-);
+    prev.isComplete === next.isComplete &&
+    prev.workspaceUuid === next.workspaceUuid
+  );
 });

@@ -24,6 +24,21 @@ export const user = pgTable("user", {
   displayUsername: text("display_username"),
 });
 
+export const waitlist = pgTable(
+  "waitlist",
+  {
+    id: text("id").primaryKey(),
+    email: text("email").notNull().unique(),
+    status: text("status").default("pending").notNull(),
+    requestedAt: timestamp("requested_at").defaultNow().notNull(),
+    processedAt: timestamp("processed_at"),
+  },
+  (table) => [
+    index("waitlist_email_idx").on(table.email),
+    index("waitlist_status_idx").on(table.status),
+  ],
+);
+
 export const session = pgTable(
   "session",
   {

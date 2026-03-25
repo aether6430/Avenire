@@ -2,4 +2,5 @@
 buildCommand = "if [ \"$APP_ROLE\" = \"web\" ]; then pnpm --filter @avenire/web build; else pnpm --filter @avenire/backend build; fi"
 
 [deploy]
+preDeployCommand = "if [ \"$APP_ROLE\" = \"web\" ]; then pnpm db:migrate; fi"
 startCommand = "if [ \"$APP_ROLE\" = \"web\" ]; then pnpm --filter @avenire/web start; else pnpm --filter @avenire/backend start:ingestion; fi"

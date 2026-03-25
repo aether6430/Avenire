@@ -3,6 +3,14 @@
 import { Button } from "@avenire/ui/components/button";
 import { Card, CardContent, CardHeader } from "@avenire/ui/components/card";
 import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@avenire/ui/components/empty";
+import {
   CalendarDays,
   CheckCircle2,
   Circle,
@@ -186,16 +194,27 @@ export function DashboardTaskManager() {
         {errorMessage && (
           <p className="text-destructive text-xs">{errorMessage}</p>
         )}
-        <div className="space-y-1">
+          <div className="space-y-1">
           {loading && (
             <div className="text-muted-foreground text-xs">
               Loading tasks...
             </div>
           )}
           {!loading && sortedTasks.length === 0 && (
-            <div className="rounded-md border border-border/70 border-dashed bg-muted/20 px-3 py-4 text-muted-foreground text-xs">
-              No tasks yet.
-            </div>
+            <Empty className="min-h-[11rem]">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Sparkles className="size-4" />
+                </EmptyMedia>
+                <EmptyTitle>No tasks yet</EmptyTitle>
+              </EmptyHeader>
+              <EmptyContent>
+                <EmptyDescription>
+                  Capture a task and it will show up here with its due date,
+                  completion state, and quick edit controls.
+                </EmptyDescription>
+              </EmptyContent>
+            </Empty>
           )}
           {!loading &&
             displayTasks.length > 0 &&

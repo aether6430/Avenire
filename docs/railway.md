@@ -23,6 +23,26 @@ Railway services keep variables scoped per service, so each service needs its ow
 - Build: `pnpm --filter @avenire/web build`
 - Start: `pnpm --filter @avenire/web start`
 - Public domain: generate one in Railway networking settings
+- Deploy runs `pnpm db:migrate` in `preDeployCommand` for the `web` service so schema changes, including auth tables like `waitlist`, are applied before the app starts.
+
+## Approving Waitlist Users
+
+Waitlist approvals are handled through the maintenance route in the web app:
+
+- `GET /api/maintenance/waitlist` lists `pending` and `approved` waitlist entries
+- `POST /api/maintenance/waitlist` approves an email address and sends the approval email
+
+Both endpoints require `Authorization: Bearer <MAINTENANCE_CRON_TOKEN>`.
+
+Example:
+
+```bash
+curl -X POST \
+  https://<your-web-domain>/api/maintenance/waitlist \
+  -H "Authorization: Bearer $MAINTENANCE_CRON_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"person@example.com"}'
+```
 
 ### Backend service
 

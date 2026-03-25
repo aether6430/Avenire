@@ -3,12 +3,13 @@
 import { Badge } from "@avenire/ui/components/badge";
 import { Button } from "@avenire/ui/components/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@avenire/ui/components/card";
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@avenire/ui/components/empty";
 import {
   Dialog,
   DialogContent,
@@ -28,7 +29,7 @@ import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { startTransition, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { WorkspaceHeader } from "@/components/dashboard/workspace-header";
+import { HeaderActions, HeaderBreadcrumbs, HeaderLeadingIcon } from "@/components/dashboard/header-portal";
 import type { FlashcardDashboardRecord } from "@/lib/flashcards";
 import { useWorkspaceHistoryStore } from "@/stores/workspaceHistoryStore";
 
@@ -214,10 +215,11 @@ export function FlashcardsDashboard({
 
   return (
     <div className="h-full overflow-y-auto bg-background">
-      <div className="mx-auto flex w-full max-w-none flex-col gap-4 px-4 py-4 md:px-6">
-        <WorkspaceHeader
-          leadingIcon={<BookOpenCheck className="size-3.5" />}
-          actions={
+      <div className="flex w-full flex-col gap-4 px-4 py-4 md:px-6 lg:px-8">
+        <HeaderLeadingIcon>
+          <BookOpenCheck className="size-3.5" />
+        </HeaderLeadingIcon>
+        <HeaderActions>
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 disabled={!reviewTarget}
@@ -295,18 +297,18 @@ export function FlashcardsDashboard({
                 </DialogContent>
               </Dialog>
             </div>
-          }
-        >
+        </HeaderActions>
+        <HeaderBreadcrumbs>
           <div className="min-w-0">
             <p className="truncate font-medium text-foreground text-sm">
               Flashcards
             </p>
           </div>
-        </WorkspaceHeader>
+        </HeaderBreadcrumbs>
 
-        <section className="flex flex-wrap items-center justify-between gap-3 border-border/70 border-b pb-4">
+        <section className="flex flex-wrap items-center justify-between gap-3 border-border/40 border-b pb-4">
           <div className="space-y-1">
-            <h1 className="font-medium text-base text-foreground">
+            <h1 className="font-semibold text-xl tracking-tight text-foreground">
               Flashcards
             </h1>
             <p className="text-muted-foreground text-xs">
@@ -320,7 +322,7 @@ export function FlashcardsDashboard({
           {generationLoading ? (
             <motion.div
               animate={{ opacity: 1, y: 0 }}
-              className="rounded-3xl border border-border/70 bg-background p-5 shadow-sm shadow-black/5"
+              className="rounded-md bg-secondary/50 p-5"
               initial={{ opacity: 0, y: 10 }}
               key="flashcard-generation"
             >
@@ -337,14 +339,14 @@ export function FlashcardsDashboard({
                     land directly in the flashcards.
                   </p>
                 </div>
-                <div className="rounded-full border border-border/70 bg-muted/20 px-3 py-1 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                <div className="rounded-full bg-secondary px-3 py-1 text-xs uppercase tracking-[0.15em] text-muted-foreground">
                   Loading
                 </div>
               </div>
               <div className="mt-5 grid gap-3 md:grid-cols-3">
                 {["Generate", "Create", "Open"].map((label, index) => (
                   <div
-                    className="rounded-2xl border border-border/70 bg-muted/10 px-3 py-3"
+                    className="rounded-md bg-secondary/40 px-3 py-3"
                     key={label}
                   >
                     <motion.div
@@ -373,32 +375,40 @@ export function FlashcardsDashboard({
 
         <motion.div
           animate={{ opacity: 1, y: 0 }}
-          className="grid gap-4 xl:grid-cols-[minmax(18rem,0.88fr)_minmax(0,1.12fr)]"
+          className="grid gap-6 xl:grid-cols-[minmax(18rem,0.88fr)_minmax(0,1.12fr)]"
           initial={{ opacity: 0, y: 8 }}
           transition={{ duration: 0.22, ease: "easeOut" }}
         >
-          <Card className="shadow-none">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm">Decks</CardTitle>
-              <CardDescription>
+          <div className="min-w-0">
+              <h2 className="text-sm font-medium text-foreground">Decks</h2>
+              <p className="text-muted-foreground text-xs">
                 Pick a deck and jump into review.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="min-h-0">
+              </p>
               <ScrollArea className="max-h-[16rem]">
                 <div className="space-y-2 p-1">
                   {orderedSets.length === 0 ? (
-                    <div className="rounded-2xl border border-border/45 border-dashed px-4 py-8 text-center text-muted-foreground text-xs">
-                      No flashcard sets yet.
-                    </div>
+                    <Empty className="min-h-[10rem]">
+                      <EmptyHeader>
+                        <EmptyMedia variant="icon">
+                          <BookOpenCheck className="size-4" />
+                        </EmptyMedia>
+                        <EmptyTitle>No flashcard sets yet</EmptyTitle>
+                      </EmptyHeader>
+                      <EmptyContent>
+                        <EmptyDescription>
+                          Create a set, or let the AI generate one from a
+                          misconception or study prompt.
+                        </EmptyDescription>
+                      </EmptyContent>
+                    </Empty>
                   ) : (
                     orderedSets.map((set) => {
                       const isSelected = set.id === selectedSetId;
                       return (
                         <button
                           className={cn(
-                            "flex w-full items-start justify-between gap-3 rounded-2xl border border-border/45 bg-background/80 px-3 py-3 text-left transition-colors hover:bg-muted/20",
-                            isSelected && "border-border/70 bg-muted/20"
+                            "flex w-full cursor-pointer items-start justify-between gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-secondary",
+                            isSelected && "bg-secondary"
                           )}
                           key={set.id}
                           onClick={() => setSelectedSetId(set.id)}
@@ -427,21 +437,20 @@ export function FlashcardsDashboard({
                   )}
                 </div>
               </ScrollArea>
-            </CardContent>
-          </Card>
+          </div>
 
-          <Card className="shadow-none">
+          <div className="min-w-0">
             {selectedSet ? (
-              <>
-                <CardHeader className="pb-3">
+                <div>
+                <div className="pb-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 space-y-1">
-                      <CardTitle className="truncate text-base">
+                      <h2 className="truncate text-base font-medium text-foreground">
                         {selectedSet.title}
-                      </CardTitle>
-                      <CardDescription className="line-clamp-2">
+                      </h2>
+                      <p className="line-clamp-2 text-muted-foreground text-sm">
                         {selectedSet.description ?? "No description yet."}
-                      </CardDescription>
+                      </p>
                     </div>
                     {selectedSet.dueCount > 0 ? (
                       <Badge className="rounded-sm" variant="outline">
@@ -449,11 +458,11 @@ export function FlashcardsDashboard({
                       </Badge>
                     ) : null}
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
+                </div>
+                <div className="space-y-4">
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-2xl border border-border/45 bg-muted/10 px-4 py-3">
-                      <p className="text-[11px] text-muted-foreground uppercase tracking-[0.18em]">
+                    <div className="rounded-md bg-secondary/40 px-4 py-3">
+                      <p className="text-[11px] text-muted-foreground uppercase tracking-[0.15em]">
                         Deck profile
                       </p>
                       <div className="mt-3 flex flex-wrap gap-2">
@@ -494,7 +503,7 @@ export function FlashcardsDashboard({
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-[11px] text-muted-foreground uppercase tracking-[0.18em]">
+                      <p className="text-[11px] text-muted-foreground uppercase tracking-[0.15em]">
                         Quick cards
                       </p>
                       <p className="text-[11px] text-muted-foreground">
@@ -509,7 +518,7 @@ export function FlashcardsDashboard({
                       ) : (
                         selectedSnapshots.slice(0, 3).map((snapshot) => (
                           <div
-                            className="rounded-2xl border border-border/45 bg-background/70 px-3 py-3"
+                            className="rounded-md bg-secondary/40 px-3 py-3"
                             key={snapshot.card.id}
                           >
                             <div className="flex items-start justify-between gap-3">
@@ -559,14 +568,14 @@ export function FlashcardsDashboard({
                       Go
                     </Button>
                   </div>
-                </CardContent>
-              </>
+                </div>
+                </div>
             ) : (
-              <CardContent className="px-4 py-8 text-center text-muted-foreground text-xs">
+              <div className="px-4 py-8 text-center text-muted-foreground text-xs">
                 Nothing to show yet.
-              </CardContent>
+              </div>
             )}
-          </Card>
+          </div>
         </motion.div>
       </div>
     </div>

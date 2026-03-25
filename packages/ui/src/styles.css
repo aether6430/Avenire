@@ -4,103 +4,209 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ── Notion-esque Light Theme ── */
 :root {
-  --background: var(--color-white);
-  --foreground: var(--color-neutral-800);
-  --card: var(--color-white);
-  --card-foreground: var(--color-neutral-800);
-  --popover: var(--color-white);
-  --popover-foreground: var(--color-neutral-800);
-  --primary: oklch(0.8227 0.0879 266.67);
-  --primary-foreground: color-mix(
-    in srgb,
-    var(--color-neutral-950) 95%,
-    var(--color-white)
-  );
-  --secondary: --alpha(var(--color-black) / 4%);
-  --secondary-foreground: var(--color-neutral-800);
-  --muted: --alpha(var(--color-black) / 4%);
-  --muted-foreground: color-mix(
-    in srgb,
-    var(--color-neutral-600) 92%,
-    var(--color-black)
-  );
-  --accent: --alpha(var(--color-black) / 4%);
-  --accent-foreground: var(--color-neutral-800);
-  --destructive: var(--color-red-500);
-  --destructive-foreground: var(--color-red-700);
-  --border: --alpha(var(--color-black) / 6%);
-  --input: --alpha(var(--color-black) / 10%);
-  --ring: oklch(0.488 0.217 264);
-  --info: var(--color-blue-500);
-  --info-foreground: var(--color-blue-700);
-  --success: var(--color-emerald-500);
-  --success-foreground: var(--color-emerald-700);
-  --warning: var(--color-amber-500);
-  --warning-foreground: var(--color-amber-700);
-  --chart-1: oklch(0.6333 0.0309 154.9039);
-  --chart-2: oklch(0.7209 0.0489 120.9474);
-  --chart-3: oklch(0.6744 0.0427 136.011);
-  --chart-4: oklch(0.551 0.0234 264.3637);
-  --chart-5: oklch(0.9251 0.0071 88.645);
-  --sidebar: color-mix(in srgb, var(--background) 98%, var(--color-white));
-  --sidebar-foreground: var(--color-neutral-800);
-  --sidebar-primary: oklch(0.488 0.217 264);
-  --sidebar-primary-foreground: var(--color-white);
-  --sidebar-accent: --alpha(var(--color-black) / 4%);
-  --sidebar-accent-foreground: var(--color-neutral-800);
-  --sidebar-border: --alpha(var(--color-black) / 8%);
-  --sidebar-ring: oklch(0.488 0.217 264);
-  --font-sans: Antic, ui-sans-serif, sans-serif, system-ui;
-  --font-serif: Signifier, Georgia, serif;
-  --font-mono: JetBrains Mono, Courier New, monospace;
-  --radius: 0.625rem;
+  /* Core surfaces */
+  --background: #FFFFFF;
+  --foreground: #37352F;
+  --card: #FFFFFF;
+  --card-foreground: #37352F;
+  --popover: #FFFFFF;
+  --popover-foreground: #37352F;
+
+  /* Branding accent */
+  --primary: #abcfff;
+  --primary-foreground: #1B2733;
+
+  /* Neutrals: Pushed to #FAFAFA to be closer to #FFFFFF background */
+  --secondary: #FAFAFA;
+  --secondary-foreground: #37352F;
+  --muted: #FAFAFA;
+  --muted-foreground: #9B9A97;
+  --accent: #FAFAFA;
+  --accent-foreground: #37352F;
+
+  /* Semantic */
+  --destructive: #E03E3E;
+  --destructive-foreground: #FFFFFF;
+
+  /* Borders */
+  --border: rgba(55, 53, 47, 0.09);
+  --input: rgba(55, 53, 47, 0.12);
+  --ring: #abcfff;
+
+  /* Status */
+  --info: #0B6E99;
+  --info-foreground: #0B6E99;
+  --success: #0F7B6C;
+  --success-foreground: #0F7B6C;
+  --warning: #DFAB01;
+  --warning-foreground: #DFAB01;
+
+  /* Charts */
+  --chart-1: #0F7B6C;
+  --chart-2: #0B6E99;
+  --chart-3: #6940A5;
+  --chart-4: #D9730D;
+  --chart-5: #DFAB01;
+
+  /* Sidebar */
+  --sidebar: #FAFAFA;
+  --sidebar-foreground: #37352F;
+  --sidebar-primary: #abcfff;
+  --sidebar-primary-foreground: #1B2733;
+  --sidebar-accent: rgba(0, 0, 0, 0.04);
+  --sidebar-accent-foreground: #37352F;
+  --sidebar-border: rgba(55, 53, 47, 0.09);
+  --sidebar-ring: #abcfff;
+
+  /* Typography */
+  --font-sans: "Inter", ui-sans-serif, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: "Lora", Georgia, serif;
+  --font-mono: "SFMono-Regular", "Menlo", "Consolas", monospace;
+
+  /* Radii — compact Notion style */
+  --radius: 0.375rem;
+
   --tracking-normal: 0em;
   --spacing: 0.25rem;
+
+  /* Notion semantic palette – light */
+  --color-text-default: #37352F;
+  --color-bg-default: #FFFFFF;
+  --color-pill-default: rgba(206, 205, 202, 0.5);
+
+  --color-text-gray: #9B9A97;
+  --color-bg-gray: #EBECED;
+  --color-pill-gray: rgba(155, 154, 151, 0.4);
+
+  --color-text-brown: #64473A;
+  --color-bg-brown: #E9E5E3;
+  --color-pill-brown: rgba(140, 46, 0, 0.2);
+
+  --color-text-orange: #D9730D;
+  --color-bg-orange: #FAEBDD;
+  --color-pill-orange: rgba(245, 93, 0, 0.2);
+
+  --color-text-yellow: #DFAB01;
+  --color-bg-yellow: #FBF3DB;
+  --color-pill-yellow: rgba(233, 168, 0, 0.2);
+
+  --color-text-green: #0F7B6C;
+  --color-bg-green: #DDEDEA;
+  --color-pill-green: rgba(0, 135, 107, 0.2);
+
+  --color-text-blue: #0B6E99;
+  --color-bg-blue: #DDEBF1;
+  --color-pill-blue: rgba(0, 120, 223, 0.2);
+
+  --color-text-purple: #6940A5;
+  --color-bg-purple: #EAE4F2;
+  --color-pill-purple: rgba(103, 36, 222, 0.2);
+
+  --color-text-pink: #AD1A72;
+  --color-bg-pink: #F4DFEB;
+  --color-pill-pink: rgba(221, 0, 129, 0.2);
+
+  --color-text-red: #E03E3E;
+  --color-bg-red: #FBE4E4;
+  --color-pill-red: rgba(255, 0, 26, 0.2);
 }
 
+/* ── Notion-esque Dark Theme ── */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.974 0 0);
-  --card: oklch(0.195 0 0);
-  --card-foreground: oklch(0.974 0 0);
-  --popover: oklch(0.2 0 0);
-  --popover-foreground: oklch(0.974 0 0);
-  --primary: oklch(0.8227 0.0879 266.6725);
-  --primary-foreground: oklch(0 0 0);
-  --secondary: oklch(0.225 0 0);
-  --secondary-foreground: oklch(0.9702 0 0);
-  --muted: oklch(0.225 0 0);
-  --muted-foreground: oklch(0.822 0 0);
-  --accent: oklch(0.4654 0.0462 267.3695);
-  --accent-foreground: oklch(0.8607 0 0);
-  --destructive: oklch(0.6368 0.2078 25.3313);
-  --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.285 0 0);
-  --input: oklch(0.23 0 0);
-  --ring: oklch(0.6884 0.0602 268.3801);
-  --sidebar-foreground: oklch(0.9702 0 0);
-  --sidebar-primary: oklch(0.8227 0.0879 266.6725);
-  --sidebar-primary-foreground: oklch(0 0 0);
-  --sidebar-accent: oklch(0.196 0 0);
-  --sidebar-accent-foreground: oklch(0.9702 0 0);
-  --sidebar-border: oklch(0.255 0 0);
-  --sidebar-ring: oklch(0.6884 0.0602 268.3801);
-  --info: var(--color-blue-500);
-  --info-foreground: var(--color-blue-400);
-  --success: var(--color-emerald-500);
-  --success-foreground: var(--color-emerald-400);
-  --warning: var(--color-amber-500);
-  --warning-foreground: var(--color-amber-400);
-  --chart-1: oklch(0.6333 0.0309 154.9039);
-  --chart-2: oklch(0.7209 0.0489 120.9474);
-  --chart-3: oklch(0.6744 0.0427 136.011);
-  --chart-4: oklch(0.551 0.0234 264.3637);
-  --chart-5: oklch(0.5096 0.0289 152.346);
-  --font-sans: Antic, ui-sans-serif, sans-serif, system-ui;
-  --font-serif: Signifier, Georgia, serif;
-  --font-mono: JetBrains Mono, Courier New, monospace;
-  --radius: 0.35rem;
+  --background: #191919;
+  --foreground: rgba(255, 255, 255, 0.9);
+  --card: #202020;
+  --card-foreground: rgba(255, 255, 255, 0.9);
+  --popover: #252525;
+  --popover-foreground: rgba(255, 255, 255, 0.9);
+
+  --primary: #abcfff;
+  --primary-foreground: #191919;
+
+  --secondary: #222222;
+  --secondary-foreground: rgba(255, 255, 255, 0.8);
+  --muted: #222222;
+  --muted-foreground: rgba(255, 255, 255, 0.45);
+  --accent: #222222;
+  --accent-foreground: rgba(255, 255, 255, 0.8);
+
+  --destructive: #FF7369;
+  --destructive-foreground: #191919;
+
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.1);
+  --ring: #abcfff;
+
+  --info: #529CCA;
+  --info-foreground: #529CCA;
+  --success: #4DAB9A;
+  --success-foreground: #4DAB9A;
+  --warning: #FFDC49;
+  --warning-foreground: #FFDC49;
+
+  --chart-1: #4DAB9A;
+  --chart-2: #529CCA;
+  --chart-3: #9A6DD7;
+  --chart-4: #FFA344;
+  --chart-5: #FFDC49;
+
+  --sidebar: #191919;
+  --sidebar-foreground: rgba(255, 255, 255, 0.8);
+  --sidebar-primary: #abcfff;
+  --sidebar-primary-foreground: #191919;
+  --sidebar-accent: rgba(255, 255, 255, 0.04);
+  --sidebar-accent-foreground: rgba(255, 255, 255, 0.8);
+  --sidebar-border: rgba(255, 255, 255, 0.06);
+  --sidebar-ring: #abcfff;
+
+  --font-sans: "Inter", ui-sans-serif, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: "Lora", Georgia, serif;
+  --font-mono: "SFMono-Regular", "Menlo", "Consolas", monospace;
+
+  --radius: 0.375rem;
+
+  /* Notion semantic palette – dark */
+  --color-text-default: rgba(255, 255, 255, 0.9);
+  --color-bg-default: #2F3437;
+  --color-pill-default: rgba(206, 205, 202, 0.5);
+
+  --color-text-gray: rgba(151, 154, 155, 0.95);
+  --color-bg-gray: #454B4E;
+  --color-pill-gray: rgba(151, 154, 155, 0.5);
+
+  --color-text-brown: #937264;
+  --color-bg-brown: #434040;
+  --color-pill-brown: rgba(147, 114, 100, 0.5);
+
+  --color-text-orange: #FFA344;
+  --color-bg-orange: #594A3A;
+  --color-pill-orange: rgba(255, 163, 68, 0.5);
+
+  --color-text-yellow: #FFDC49;
+  --color-bg-yellow: #59563B;
+  --color-pill-yellow: rgba(255, 220, 73, 0.5);
+
+  --color-text-green: #4DAB9A;
+  --color-bg-green: #354C4B;
+  --color-pill-green: rgba(77, 171, 154, 0.5);
+
+  --color-text-blue: #529CCA;
+  --color-bg-blue: #364954;
+  --color-pill-blue: rgba(82, 156, 202, 0.5);
+
+  --color-text-purple: #9A6DD7;
+  --color-bg-purple: #443F57;
+  --color-pill-purple: rgba(154, 109, 215, 0.5);
+
+  --color-text-pink: #E255A1;
+  --color-bg-pink: #533B4C;
+  --color-pill-pink: rgba(226, 85, 161, 0.5);
+
+  --color-text-red: #FF7369;
+  --color-bg-red: #594141;
+  --color-pill-red: rgba(255, 115, 105, 0.5);
 }
 
 @theme inline {
@@ -147,9 +253,9 @@
   --font-mono: var(--font-mono);
   --font-serif: var(--font-serif);
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
@@ -165,20 +271,31 @@
   }
 }
 
+/* ── Scrollbar (Notion-thin) ── */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 }
 
-/* Track */
 ::-webkit-scrollbar-track {
-  @apply bg-background;
+  background: transparent;
 }
 
-/* Handle */
 ::-webkit-scrollbar-thumb {
-  @apply bg-muted;
-  @apply rounded-full;
+  background: rgba(55, 53, 47, 0.16);
+  border-radius: 20px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(55, 53, 47, 0.3);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .text-grad {

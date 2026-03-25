@@ -8,6 +8,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@avenire/ui/components/dropdown-menu";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@avenire/ui/components/empty";
 import { ExpandableTabs } from "@avenire/ui/components/expandable-tabs";
 import { Input } from "@avenire/ui/components/input";
 import {
@@ -17,12 +25,10 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarTrigger,
   useSidebar,
 } from "@avenire/ui/components/sidebar";
 import {
@@ -53,8 +59,8 @@ import {
   type ComponentProps,
   type ComponentType,
   startTransition,
-  useDeferredValue,
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -74,9 +80,6 @@ import {
   type ChatStreamStatusDetail,
 } from "@/lib/chat-events";
 import { isChatIconName } from "@/lib/chat-icons";
-import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
-import { useFilesPinsStore } from "@/stores/filesPinsStore";
-import { filesUiActions } from "@/stores/filesUiStore";
 import {
   readCachedChats,
   readCachedWorkspaces,
@@ -87,6 +90,11 @@ import {
   warmDashboardBackground,
   warmWorkspaceSurface,
 } from "@/lib/dashboard-warmup";
+import { commandPaletteActions } from "@/stores/commandPaletteStore";
+import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
+import { useFilesPinsStore } from "@/stores/filesPinsStore";
+import { filesUiActions } from "@/stores/filesUiStore";
+import { useWorkspaceHistoryStore } from "@/stores/workspaceHistoryStore";
 
 const FlashcardsSidebarPanel = dynamic(
   () =>
@@ -136,20 +144,57 @@ interface DashboardSidebarUser {
 
 function SectionButton({
   icon: Icon,
+  description,
   label,
+  size = "default",
   onClick,
 }: {
   icon: ComponentType<{ className?: string }>;
+  description?: string;
   label: string;
+  size?: "default" | "lg";
   onClick?: () => void;
 }) {
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton onClick={onClick}>
+      <SidebarMenuButton onClick={onClick} size={size}>
         <Icon className="size-4" />
-        <span>{label}</span>
+        <div className="min-w-0 flex-1 text-left">
+          <p className="truncate text-xs">{label}</p>
+          {description ? (
+            <p className="truncate text-[10px] text-muted-foreground">
+              {description}
+            </p>
+          ) : null}
+        </div>
       </SidebarMenuButton>
     </SidebarMenuItem>
+  );
+}
+
+function SidebarEmptyState({
+  description,
+  icon: Icon,
+  title,
+}: {
+  description: string;
+  icon: ComponentType<{ className?: string }>;
+  title: string;
+}) {
+  return (
+    <Empty className="min-h-[7.5rem] rounded-2xl border-border/50 bg-background/60 px-3 py-4">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <Icon className="size-4" />
+        </EmptyMedia>
+        <EmptyTitle className="text-xs">{title}</EmptyTitle>
+      </EmptyHeader>
+      <EmptyContent className="max-w-none">
+        <EmptyDescription className="text-[11px] leading-relaxed">
+          {description}
+        </EmptyDescription>
+      </EmptyContent>
+    </Empty>
   );
 }
 
@@ -196,9 +241,11 @@ function ChatListSection({
       <SidebarGroup>
         <SidebarGroupLabel>{title}</SidebarGroupLabel>
         <SidebarGroupContent>
-          <p className="px-2 py-1 text-muted-foreground text-xs">
-            No chats yet.
-          </p>
+          <SidebarEmptyState
+            description="New chats will appear here once you start a conversation."
+            icon={MessageSquare}
+            title="No chats yet"
+          />
         </SidebarGroupContent>
       </SidebarGroup>
     );
@@ -407,10 +454,11 @@ export function DashboardSidebar({
   activeChatSlug?: string;
 }) {
   const router = useRouter();
-  const { setOpenMobile } = useSidebar();
+  const { isMobile, setOpenMobile } = useSidebar();
   const triggerHaptic = useHaptics();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const historyEntries = useWorkspaceHistoryStore((state) => state.entries);
   const [chats, setChats] = useState<ChatSummary[]>(
     () =>
       (activeWorkspace?.workspaceId
@@ -523,6 +571,20 @@ export function DashboardSidebar({
   const closeMobileSidebar = useCallback(() => {
     setOpenMobile(false);
   }, [setOpenMobile]);
+  const openOverlayAfterCollapse = useCallback(
+    (openOverlay: () => void) => {
+      if (!isMobile) {
+        openOverlay();
+        return;
+      }
+
+      closeMobileSidebar();
+      requestAnimationFrame(() => {
+        requestAnimationFrame(openOverlay);
+      });
+    },
+    [closeMobileSidebar, isMobile]
+  );
   const navigate = useCallback(
     (href: Route) => {
       startTransition(() => {
@@ -553,9 +615,7 @@ export function DashboardSidebar({
 
       if (section === "flashcards") {
         router.prefetch("/workspace/flashcards" as Route);
-        import("@/components/flashcards/sidebar-panel").catch(
-          () => undefined
-        );
+        import("@/components/flashcards/sidebar-panel").catch(() => undefined);
         warmWorkspaceSurface("flashcards", {
           rootFolderId: activeWorkspace?.rootFolderId ?? null,
           workspaceUuid,
@@ -821,12 +881,8 @@ export function DashboardSidebar({
       import("@/components/dashboard/sidebar-files-panel").catch(
         () => undefined
       );
-      import("@/components/flashcards/sidebar-panel").catch(
-        () => undefined
-      );
-      import("@/components/settings/settings-dialog").catch(
-        () => undefined
-      );
+      import("@/components/flashcards/sidebar-panel").catch(() => undefined);
+      import("@/components/settings/settings-dialog").catch(() => undefined);
       import("@/components/dashboard/task-manager").catch(() => undefined);
       import("@/components/student-calendar").catch(() => undefined);
       warmDashboardBackground({
@@ -882,6 +938,13 @@ export function DashboardSidebar({
       return;
     }
 
+    if (activeWorkspace?.workspaceId) {
+      setWorkspaceUuid((prev) =>
+        prev === activeWorkspace.workspaceId ? prev : activeWorkspace.workspaceId
+      );
+      return;
+    }
+
     const preferredWorkspaceId = readPreferredWorkspaceId();
     if (preferredWorkspaceId) {
       setWorkspaceUuid((prev) =>
@@ -922,6 +985,13 @@ export function DashboardSidebar({
       return;
     }
 
+    if (activeWorkspace?.workspaceId) {
+      setWorkspaceUuid((prev) =>
+        prev === activeWorkspace.workspaceId ? prev : activeWorkspace.workspaceId
+      );
+      return;
+    }
+
     const preferredWorkspaceId = readPreferredWorkspaceId();
     if (!preferredWorkspaceId) {
       return;
@@ -939,10 +1009,7 @@ export function DashboardSidebar({
     }
 
     setWorkspaceUuid(preferredWorkspace.workspaceId);
-    navigate(
-      `/workspace/files/${preferredWorkspace.workspaceId}/folder/${preferredWorkspace.rootFolderId}` as Route
-    );
-  }, [navigate, pathname, workspaces, workspaceUuid]);
+  }, [activeWorkspace?.workspaceId, pathname, workspaces, workspaceUuid]);
 
   useEffect(() => {
     const onChatCreated = (event: Event) => {
@@ -1467,7 +1534,7 @@ export function DashboardSidebar({
         void navigateToFilesRoot();
         return;
       }
-      filesUiActions.emitIntent("focusSearch");
+      commandPaletteActions.openFiles();
     },
     { ignoreInputs: true }
   );
@@ -1576,11 +1643,6 @@ export function DashboardSidebar({
 
   return (
     <Sidebar variant="inset" {...props}>
-      <SidebarHeader className="pb-0">
-        <div className="flex items-center justify-end px-2 pt-1">
-          <SidebarTrigger className="hit-area rounded-md" />
-        </div>
-      </SidebarHeader>
       <SidebarContent>
         <TooltipProvider delay={280}>
           <SidebarGroup className="px-2 pb-1">
@@ -1593,6 +1655,11 @@ export function DashboardSidebar({
                 { value: "flashcards", label: "Flashcards", icon: Sparkles },
                 { value: "files", label: "Files", icon: Files },
               ]}
+              onItemHover={(item) => {
+                warmWorkspaceSection(
+                  item.value as "chat" | "flashcards" | "files"
+                );
+              }}
               onValueChange={(nextValue) => {
                 if (!nextValue) {
                   return;
@@ -1633,11 +1700,6 @@ export function DashboardSidebar({
                   navigate("/workspace/chats" as Route);
                   return;
                 }
-              }}
-              onItemHover={(item) => {
-                warmWorkspaceSection(
-                  item.value as "chat" | "flashcards" | "files"
-                );
               }}
               persistenceKey="dashboard-workspace-tabs"
               value={activeTabValue}
@@ -1839,9 +1901,11 @@ export function DashboardSidebar({
               </>
             ) : (
               <div className="absolute inset-0 flex items-start p-4">
-                <p className="text-muted-foreground text-xs">
-                  Select Chat, Flashcards, or Files.
-                </p>
+                <SidebarEmptyState
+                  description="Pick a workspace surface above to load its actions, shortcuts, and context."
+                  icon={Sparkles}
+                  title="Choose a surface"
+                />
               </div>
             )}
           </div>
@@ -1854,8 +1918,7 @@ export function DashboardSidebar({
               className="hit-area h-8 w-8"
               onClick={() => {
                 void triggerHaptic("selection");
-                closeMobileSidebar();
-                setTrashOpen(true);
+                openOverlayAfterCollapse(() => setTrashOpen(true));
               }}
               size="icon-sm"
               type="button"
@@ -1868,8 +1931,9 @@ export function DashboardSidebar({
               className="hit-area h-8 w-8"
               onClick={() => {
                 void triggerHaptic("selection");
-                closeMobileSidebar();
-                filesUiActions.toggleUploadActivityOpen();
+                openOverlayAfterCollapse(() => {
+                  filesUiActions.toggleUploadActivityOpen();
+                });
               }}
               size="icon-sm"
               type="button"
@@ -1879,10 +1943,10 @@ export function DashboardSidebar({
               <span className="sr-only">Open upload activity</span>
             </Button>
             <Button
+              id="dashboard-settings-trigger"
               className="hit-area h-8 w-8"
               onClick={() => {
                 void triggerHaptic("selection");
-                closeMobileSidebar();
                 setSettingsOpen(true);
               }}
               size="icon-sm"
@@ -1911,7 +1975,10 @@ export function DashboardSidebar({
           workspaces={workspaces}
         />
         {settingsOpen ? (
-          <SettingsDialog onOpenChange={setSettingsOpen} open={settingsOpen} />
+          <SettingsDialog
+            onOpenChange={setSettingsOpen}
+            open={settingsOpen}
+          />
         ) : null}
         {trashOpen ? (
           <TrashDialog

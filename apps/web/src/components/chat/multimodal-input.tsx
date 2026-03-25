@@ -37,6 +37,7 @@ import {
   revokeAttachmentUrl,
 } from "@/components/chat/attachment";
 import { PreviewAttachment } from "@/components/chat/preview-attachment";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { getUploadErrorMessage } from "@/lib/upload";
 import { useUploadThing } from "@/lib/uploadthing";
 import { cn } from "@/lib/utils";
@@ -224,6 +225,7 @@ function PureMultimodalInput({
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mentionItemRefs = useRef<Array<HTMLDivElement | null>>([]);
   const latestInputRef = useRef(input);
   const hasHydratedInputRef = useRef(false);
   const uploadingIdsRef = useRef(new Set<string>());
@@ -240,6 +242,7 @@ function PureMultimodalInput({
     null
   );
   const { width } = useWindowSize();
+  const isMobile = useIsMobile();
   const MAX_FILES = 3;
   const [localStorageInput, setLocalStorageInput] = useLocalStorage(
     "chat-input",
@@ -398,6 +401,7 @@ function PureMultimodalInput({
   useEffect(() => {
     if (!isMentionMenuOpen) {
       setHighlightedMentionIndex(0);
+      mentionItemRefs.current = [];
       return;
     }
 
@@ -408,6 +412,21 @@ function PureMultimodalInput({
       return Math.min(previous, mentionSuggestions.length - 1);
     });
   }, [isMentionMenuOpen, mentionSuggestions.length]);
+
+  useEffect(() => {
+    if (!isMentionMenuOpen || mentionSuggestions.length === 0) {
+      return;
+    }
+
+    const activeItem = mentionItemRefs.current[highlightedMentionIndex];
+    if (!activeItem) {
+      return;
+    }
+
+    activeItem.scrollIntoView({
+      block: "nearest",
+    });
+  }, [highlightedMentionIndex, isMentionMenuOpen, mentionSuggestions.length]);
 
   useEffect(() => {
     let cancelled = false;
@@ -778,8 +797,9 @@ function PureMultimodalInput({
       }
 
       if (
-        (event.metaKey || event.ctrlKey) &&
+        !isMobile &&
         event.key === "Enter" &&
+        !event.shiftKey &&
         !event.nativeEvent.isComposing
       ) {
         event.preventDefault();
@@ -788,13 +808,13 @@ function PureMultimodalInput({
         }
       }
     },
-    [canSend, handleMentionKeyDown, runSubmitForm]
+    [canSend, handleMentionKeyDown, isMobile, runSubmitForm]
   );
 
   return (
     <div
       className={cn(
-        "group relative flex h-full w-full grow flex-col overflow-visible rounded-xl border border-border/80 bg-card transition-colors duration-200 focus-within:border-ring/45 focus-within:shadow-[0_0_0_1px_color-mix(in_srgb,var(--ring)_18%,transparent)]",
+        "group relative flex h-full w-full grow flex-col overflow-visible rounded-lg border border-border bg-secondary transition-colors duration-200 focus-within:bg-secondary focus-within:ring-1 focus-within:ring-ring/30",
         centered ? "min-h-32" : "min-h-28"
       )}
     >
@@ -807,37 +827,34 @@ function PureMultimodalInput({
         type="file"
       />
 
-      <AnimatePresence>
-        {attachments.length > 0 && (
-          <motion.div
-            animate={{ opacity: 1, height: "auto" }}
-            className="mb-1 flex flex-wrap gap-2 px-3 pt-3 sm:px-4 sm:pt-4"
-            exit={{ opacity: 0, height: 0 }}
-            initial={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2, ease: "easeInOut" }}
-          >
-            {attachments.map((attachment) => (
-              <PreviewAttachment
-                attachment={attachment}
-                key={attachment.id}
-                onRemove={removeAttachment}
-                variant="composer"
-                workspaceUuid={workspaceUuid}
-              />
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <div className="relative px-3 pt-3.5 pb-2 sm:px-4 sm:pt-4">
+        <AnimatePresence initial={false}>
+          {attachments.length > 0 ? (
+            <motion.div
+              animate={{ height: "auto", opacity: 1, y: 0 }}
+              className="overflow-hidden px-0.5 pb-2.5"
+              exit={{ height: 0, opacity: 0, y: -8 }}
+              initial={{ height: 0, opacity: 0, y: -8 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+            >
+              <div className="flex flex-wrap items-center gap-1.5">
+                {attachments.map((attachment) => (
+                  <PreviewAttachment
+                    attachment={attachment}
+                    key={attachment.id}
+                    onRemove={removeAttachment}
+                    variant="composer"
+                    workspaceUuid={workspaceUuid}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
 
-      <div
-        className={cn(
-          "relative px-3 pb-2 sm:px-4",
-          attachments.length > 0 ? "pt-0" : "pt-3.5 sm:pt-4"
-        )}
-      >
         <div className="relative">
           {isMentionMenuOpen && (
-            <div className="absolute inset-x-0 bottom-full z-20 mb-2 px-1">
+            <div className="pointer-events-none absolute inset-x-[3px] bottom-full -z-10 mb-[-10px]">
               <Command>
                 <div
                   className="scroll-fade-frame scroll-fade-top scroll-fade-bottom relative"
@@ -847,7 +864,7 @@ function PureMultimodalInput({
                     } as React.CSSProperties
                   }
                 >
-                  <div className="relative overflow-hidden rounded-xl border border-border/80 bg-popover/96 backdrop-blur-xs">
+                  <div className="pointer-events-auto relative overflow-hidden rounded-[20px] bg-secondary shadow-xl">
                     <CommandList className="max-h-64">
                       {mentionSuggestions.map((file, index) => (
                         <CommandItem
@@ -858,6 +875,9 @@ function PureMultimodalInput({
                               "bg-accent text-accent-foreground"
                           )}
                           key={file.id}
+                          ref={(node) => {
+                            mentionItemRefs.current[index] = node;
+                          }}
                           onMouseDown={(event) => {
                             event.preventDefault();
                           }}
@@ -888,58 +908,65 @@ function PureMultimodalInput({
             </div>
           )}
 
-          <Textarea
-            autoFocus
-            className={cn(
-              "max-h-[calc(24dvh)] min-h-16 resize-none overflow-visible border-none! bg-transparent! px-0! pb-2 text-[17px] leading-7 shadow-none! ring-0! focus-visible:border-transparent! focus-visible:ring-0! [&::-webkit-scrollbar-thumb]:bg-background",
-              className
-            )}
-            data-testid="multimodal-input"
-            enterKeyHint="enter"
-            onChange={(event) => {
-              const nextValue = event.target.value;
-              setDismissedMentionKey(null);
-              latestInputRef.current = nextValue;
-              setInput(nextValue);
-              updateTextareaSelection(
-                event.target.selectionStart ?? 0,
-                event.target.selectionEnd ?? 0
-              );
-            }}
-            onClick={() => {
-              updateTextareaSelection();
-            }}
-            onKeyDown={handleTextareaKeyDown}
-            onKeyUp={() => {
-              updateTextareaSelection();
-            }}
-            onPaste={(event) => {
-              const pastedFiles: File[] = [];
-              for (const item of Array.from(event.clipboardData.items)) {
-                if (item.kind !== "file" || !item.type.startsWith("image/")) {
-                  continue;
-                }
-                const file = item.getAsFile();
-                if (file) {
-                  pastedFiles.push(file);
-                }
-              }
+          <div className="relative z-10 rounded-[22px] bg-secondary">
+            <div className="flex min-h-16 items-start">
+              <Textarea
+                autoFocus
+                className={cn(
+                  "relative z-10 min-h-16 min-w-[14rem] flex-1 resize-none overflow-visible border-none! bg-transparent! px-0! pb-2 text-[17px] leading-7 shadow-none! ring-0! focus-visible:border-transparent! focus-visible:ring-0! [&::-webkit-scrollbar-thumb]:bg-background",
+                  className
+                )}
+                data-testid="multimodal-input"
+                enterKeyHint={isMobile ? "enter" : "send"}
+                onChange={(event) => {
+                  const nextValue = event.target.value;
+                  setDismissedMentionKey(null);
+                  latestInputRef.current = nextValue;
+                  setInput(nextValue);
+                  updateTextareaSelection(
+                    event.target.selectionStart ?? 0,
+                    event.target.selectionEnd ?? 0
+                  );
+                }}
+                onClick={() => {
+                  updateTextareaSelection();
+                }}
+                onKeyDown={handleTextareaKeyDown}
+                onKeyUp={() => {
+                  updateTextareaSelection();
+                }}
+                onPaste={(event) => {
+                  const pastedFiles: File[] = [];
+                  for (const item of Array.from(event.clipboardData.items)) {
+                    if (
+                      item.kind !== "file" ||
+                      !item.type.startsWith("image/")
+                    ) {
+                      continue;
+                    }
+                    const file = item.getAsFile();
+                    if (file) {
+                      pastedFiles.push(file);
+                    }
+                  }
 
-              if (pastedFiles.length > 0) {
-                enqueueFiles(pastedFiles);
-                toast.success(
-                  `Added ${pastedFiles.length} pasted image${pastedFiles.length > 1 ? "s" : ""}.`
-                );
-              }
-            }}
-            onSelect={() => {
-              updateTextareaSelection();
-            }}
-            placeholder="Ask anything or type @ to attach a workspace file"
-            ref={textareaRef}
-            rows={2}
-            value={input}
-          />
+                  if (pastedFiles.length > 0) {
+                    enqueueFiles(pastedFiles);
+                    toast.success(
+                      `Added ${pastedFiles.length} pasted image${pastedFiles.length > 1 ? "s" : ""}.`
+                    );
+                  }
+                }}
+                onSelect={() => {
+                  updateTextareaSelection();
+                }}
+                placeholder="Ask anything or type @ to attach a workspace file"
+                ref={textareaRef}
+                rows={2}
+                value={input}
+              />
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-nowrap items-center justify-between gap-2 px-2.5 pt-2.5 pb-2.5 sm:gap-0 sm:px-3 sm:pt-3 sm:pb-3">

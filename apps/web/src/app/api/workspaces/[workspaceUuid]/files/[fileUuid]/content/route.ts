@@ -6,6 +6,7 @@ import {
   userCanEditFile,
 } from "@/lib/file-data";
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
+import { normalizePageMetadataState } from "@/lib/frontmatter";
 import { deleteUploadThingFile } from "@/lib/upload-registration";
 import { getSessionUser } from "@/lib/workspace";
 
@@ -40,10 +41,15 @@ export async function PATCH(
   }
 
   const body = (await request.json().catch(() => ({}))) as {
+    mimeType?: string | null;
+    page?: {
+      bannerUrl?: string | null;
+      icon?: string | null;
+      properties?: Record<string, unknown>;
+    };
+    sizeBytes?: number;
     storageKey?: string;
     storageUrl?: string;
-    sizeBytes?: number;
-    mimeType?: string | null;
   };
 
   const storageKey = String(body.storageKey ?? "").trim();
@@ -59,11 +65,15 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid file source" }, { status: 400 });
   }
 
+  const nextPage =
+    body.page === undefined ? undefined : normalizePageMetadataState(body.page);
+
   const replaced = await replaceFileAssetContent(workspaceUuid, fileUuid, user.id, {
     storageKey,
     storageUrl,
     sizeBytes,
     mimeType,
+    metadata: nextPage === undefined ? undefined : { page: nextPage },
     hashComputedBy: null,
     hashVerificationStatus: null,
     contentHashSha256: null,

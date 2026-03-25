@@ -97,6 +97,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
   type RefObject,
+  memo,
   useEffect,
   useMemo,
   useRef,
@@ -117,20 +118,27 @@ const WIKI_LINK_REGEX = /\[\[([^[\]]+)\]\]/g;
 const WORKSPACE_FILE_LINK_REGEX = /^workspace-file:\/\/(.+)$/i;
 const TEXT_COLORS = [
   { name: "Default", value: null },
-  { name: "Slate", value: "#475569" },
-  { name: "Red", value: "#b91c1c" },
-  { name: "Orange", value: "#c2410c" },
-  { name: "Green", value: "#166534" },
-  { name: "Blue", value: "#1d4ed8" },
-  { name: "Purple", value: "#6d28d9" },
+  { name: "Gray", value: "#9B9A97" },
+  { name: "Brown", value: "#64473A" },
+  { name: "Orange", value: "#D9730D" },
+  { name: "Yellow", value: "#DFAB01" },
+  { name: "Green", value: "#0F7B6C" },
+  { name: "Blue", value: "#0B6E99" },
+  { name: "Purple", value: "#6940A5" },
+  { name: "Pink", value: "#AD1A72" },
+  { name: "Red", value: "#E03E3E" },
 ] as const;
 const BG_COLORS = [
   { name: "Default", value: null },
-  { name: "Yellow", value: "#fde68a" },
-  { name: "Green", value: "#bbf7d0" },
-  { name: "Blue", value: "#bfdbfe" },
-  { name: "Pink", value: "#fbcfe8" },
-  { name: "Gray", value: "#e5e7eb" },
+  { name: "Gray", value: "#EBECED" },
+  { name: "Brown", value: "#E9E5E3" },
+  { name: "Orange", value: "#FAEBDD" },
+  { name: "Yellow", value: "#FBF3DB" },
+  { name: "Green", value: "#DDEDEA" },
+  { name: "Blue", value: "#DDEBF1" },
+  { name: "Purple", value: "#EAE4F2" },
+  { name: "Pink", value: "#F4DFEB" },
+  { name: "Red", value: "#FBE4E4" },
 ] as const;
 
 type SlashMatch = {
@@ -1774,7 +1782,7 @@ function ImagePopover({
   );
 }
 
-export default function AvenireEditor({
+function AvenireEditor({
   defaultValue,
   onChange,
   scrollContainerRef,
@@ -3346,3 +3354,5 @@ export default function AvenireEditor({
     </>
   );
 }
+
+export default memo(AvenireEditor);

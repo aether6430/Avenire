@@ -9,7 +9,6 @@ import { useSession } from "@avenire/auth/client";
 
 /* ── Conway's Game of Life ── */
 const CELL_SIZE = 12;
-const SIGN_UP_HREF = "/register";
 const APP_HREF = "/workspace";
 
 function useGameOfLife(width: number, height: number) {
@@ -124,7 +123,7 @@ function ConwayCanvas() {
     <div ref={containerRef} className="bg-sidebar absolute inset-0 overflow-hidden pointer-events-none">
       <canvas ref={canvasRef} className="w-full h-full" />
       <div className="absolute inset-0 bg-background/35" />
-      <div className="absolute inset-0 shadow-[inset_0_0_72px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_0_120px_rgba(0,0,0,0.22)]" />
+      <div className="absolute inset-0 shadow-[inset_0_0_72px_rgba(0,0,0,0.1)]" />
     </div>
   );
 }
@@ -160,9 +159,9 @@ export function CTA() {
             <Button
               size="lg"
               nativeButton={false}
-              render={<Link href={(isSignedIn ? APP_HREF : SIGN_UP_HREF) as Route} />}
+              render={<Link href={(isSignedIn ? APP_HREF : "/waitlist") as Route} />}
             >
-              {isSignedIn ? "Go to app" : "Join Avenire"}
+              {isSignedIn ? "Go to app" : "Join waitlist"}
             </Button>
 
             <p className="text-xs text-muted-foreground/50 mt-4">

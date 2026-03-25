@@ -25,7 +25,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Chat } from "@/components/chat/chat";
 import { ChatIcon } from "@/components/chat/chat-icon";
 import { ThinkingGlyph } from "@/components/chat/thinking-indicator";
-import { WorkspaceHeader } from "@/components/dashboard/workspace-header";
+import { HeaderActions, HeaderBreadcrumbs, HeaderLeadingIcon } from "@/components/dashboard/header-portal";
 import { EmailSuggestionInput } from "@/components/shared/email-suggestion-input";
 import {
   CHAT_CREATED_EVENT,
@@ -75,8 +75,21 @@ export function ChatWorkspace({
   const [title, setTitle] = useState(chatTitle);
   const [icon, setIcon] = useState<string | null>(chatIcon ?? null);
   const [isPending, setIsPending] = useState(false);
-  const [resolvedInitialMessages, setResolvedInitialMessages] =
-    useState(initialMessages);
+  const [resolvedInitialMessages, setResolvedInitialMessages] = useState<UIMessage[]>(() => {
+    if (initialMessages.length > 0) return initialMessages;
+    return chatMessageHandoffActions.consume(chatSlug) ?? initialMessages;
+  });
+  const [prevChatSlug, setPrevChatSlug] = useState(chatSlug);
+
+  if (chatSlug !== prevChatSlug) {
+    setPrevChatSlug(chatSlug);
+    if (initialMessages.length > 0) {
+      setResolvedInitialMessages(initialMessages);
+    } else {
+      const pending = chatMessageHandoffActions.consume(chatSlug);
+      setResolvedInitialMessages(pending ?? initialMessages);
+    }
+  }
 
   useEffect(() => {
     setTitle(chatTitle);
@@ -90,20 +103,6 @@ export function ChatWorkspace({
     setActiveChatSlug(chatSlug);
   }, [chatSlug]);
 
-  useEffect(() => {
-    if (initialMessages.length > 0) {
-      setResolvedInitialMessages(initialMessages);
-      return;
-    }
-
-    const pendingMessages = chatMessageHandoffActions.consume(chatSlug);
-    if (pendingMessages && pendingMessages.length > 0) {
-      setResolvedInitialMessages(pendingMessages);
-      return;
-    }
-
-    setResolvedInitialMessages(initialMessages);
-  }, [chatSlug, initialMessages]);
 
   useEffect(() => {
     const onChatCreated = (event: Event) => {
@@ -286,9 +285,8 @@ export function ChatWorkspace({
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background">
-      <WorkspaceHeader
-        actions={
-          isReadonly || currentChatSlug === "new" ? null : (
+      <HeaderActions>
+          {isReadonly || currentChatSlug === "new" ? null : (
             <Dialog>
               <DialogTrigger
                 render={
@@ -375,9 +373,9 @@ export function ChatWorkspace({
                 ) : null}
               </DialogContent>
             </Dialog>
-          )
-        }
-      >
+          )}
+      </HeaderActions>
+      <HeaderBreadcrumbs>
         <Breadcrumb className="min-w-0 flex-1">
           <BreadcrumbList className="flex-nowrap overflow-hidden whitespace-nowrap pr-2">
             <BreadcrumbItem>
@@ -397,7 +395,7 @@ export function ChatWorkspace({
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
-      </WorkspaceHeader>
+      </HeaderBreadcrumbs>
 
       <div className="min-h-0 flex-1 overflow-hidden">
         <motion.div

@@ -9,10 +9,10 @@
   color: var(--foreground);
   font-family: var(--font-sans), Inter, sans-serif;
   font-size: 1rem;
-  line-height: 1.65rem;
+  line-height: 1.75rem;
   caret-color: var(--foreground);
   margin-inline: auto;
-  max-width: min(100%, 50rem);
+  max-width: min(100%, 45rem);
 }
 
 .scribe-surface > *:first-child {
@@ -31,34 +31,31 @@
 .scribe-surface h1,
 .scribe-surface h2,
 .scribe-surface h3 {
-  margin-top: 1.45rem;
-  margin-bottom: 0.45rem;
-  line-height: 1.2;
+  margin-top: 2rem;
+  margin-bottom: 0.25rem;
+  line-height: 1.25;
   color: var(--foreground);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
 }
 
 .scribe-surface h1 {
   scroll-margin-top: 5rem;
-  font-size: 2.2rem;
-  font-weight: 800;
+  font-size: 1.875rem;
+  font-weight: 700;
   text-wrap: balance;
 }
 
 .scribe-surface h2 {
   scroll-margin-top: 5rem;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 0.25rem;
-  font-size: 1.65rem;
+  font-size: 1.5rem;
   font-weight: 600;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.01em;
 }
 
 .scribe-surface h3 {
   scroll-margin-top: 5rem;
-  font-size: 1.35rem;
+  font-size: 1.25rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
 }
 
 .scribe-surface ul,
@@ -221,10 +218,10 @@
 }
 
 .scribe-surface code {
-  border-radius: 0.45rem;
-  background: color-mix(in oklch, var(--muted) 88%, white 12%);
+  border-radius: 0.25rem;
+  background: var(--secondary);
   color: var(--foreground);
-  padding: 0.12rem 0.38rem;
+  padding: 0.1rem 0.35rem;
   font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.88em;
 }
@@ -232,9 +229,8 @@
 .scribe-surface pre {
   margin: 1rem 0;
   overflow-x: auto;
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
-  background: var(--card);
+  border-radius: 0.375rem;
+  background: var(--secondary);
   padding: 1rem 1.1rem;
   color: var(--foreground);
 }
@@ -289,10 +285,10 @@
 }
 
 .scribe-surface mark {
-  border-radius: 0.32rem;
-  background: color-mix(in oklch, var(--accent) 72%, #f6ce45 28%);
+  border-radius: 0.2rem;
+  background: var(--color-bg-yellow);
   color: inherit;
-  padding: 0.08em 0.2em;
+  padding: 0.05em 0.2em;
 }
 
 .scribe-surface hr {
@@ -303,13 +299,9 @@
 }
 
 .scribe-surface a {
-  color: var(--primary);
+  color: var(--foreground);
   text-decoration-line: underline;
-  text-decoration-color: color-mix(
-    in oklch,
-    var(--primary) 65%,
-    transparent 35%
-  );
+  text-decoration-color: var(--muted-foreground);
   text-underline-offset: 0.18rem;
 }
 
@@ -486,13 +478,12 @@
   right: 0.75rem;
   bottom: 0.75rem;
   z-index: 90;
-  border-radius: 0.5rem;
-  border: 1px solid var(--border);
+  border-radius: 0.375rem;
   background: var(--popover);
-  padding: 0.4rem 0.6rem;
+  padding: 0.35rem 0.55rem;
   font-size: 0.75rem;
   color: var(--popover-foreground);
-  box-shadow: 0 8px 24px color-mix(in oklch, black 12%, transparent 88%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .scribe-autosave-badge[data-state="saving"] {

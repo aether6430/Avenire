@@ -1,10 +1,27 @@
 "use client";
 
 import { Button } from "@avenire/ui/components/button";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@avenire/ui/components/drawer";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@avenire/ui/components/empty";
 import { Spinner } from "@avenire/ui/components/spinner";
 import { AlertCircle, CheckCircle2, Waves, X, XCircle } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import {
   type FilesActivityItem,
@@ -55,8 +72,151 @@ function statusMeta(status: FilesActivityItem["status"]) {
   }
 }
 
+function UploadActivityBody({
+  completedCount,
+  failedCount,
+  onClearCompleted,
+  onClose,
+  queue,
+  uploadCount,
+  useDrawerClose = false,
+}: {
+  completedCount: number;
+  failedCount: number;
+  onClearCompleted?: () => void;
+  onClose?: () => void;
+  queue: FilesActivityItem[];
+  uploadCount: number;
+  useDrawerClose?: boolean;
+}) {
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="border-border/70 border-b px-4 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-medium text-sm">Upload activity</p>
+            <p className="text-muted-foreground text-xs">
+              {queue.length === 0
+                ? "No recent uploads"
+                : `${queue.length} item${queue.length === 1 ? "" : "s"} in this session`}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-background px-2 py-0.5 text-[11px]">
+              <Waves className="size-3" />
+              {uploadCount} active
+            </span>
+            {failedCount > 0 ? (
+              <span className="rounded-full border border-destructive/50 bg-destructive/10 px-2 py-0.5 text-[11px] text-destructive">
+                {failedCount} failed
+              </span>
+            ) : null}
+            {onClose && useDrawerClose ? (
+              <DrawerClose asChild>
+                <Button
+                  className="h-7 w-7"
+                  size="icon-xs"
+                  type="button"
+                  variant="ghost"
+                >
+                  <X className="size-3.5" />
+                  <span className="sr-only">Close upload activity</span>
+                </Button>
+              </DrawerClose>
+            ) : null}
+            {onClose && !useDrawerClose ? (
+              <Button
+                className="h-7 w-7"
+                onClick={onClose}
+                size="icon-xs"
+                type="button"
+                variant="ghost"
+              >
+                <X className="size-3.5" />
+                <span className="sr-only">Close upload activity</span>
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+        {queue.length === 0 ? (
+          <Empty className="min-h-[12rem] px-4 py-6">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Waves className="size-4" />
+              </EmptyMedia>
+              <EmptyTitle>No activity yet</EmptyTitle>
+              <EmptyDescription>
+                Upload something to keep track of progress, ingestion, and any
+                failures in one place.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        ) : (
+          <div className="space-y-3">
+            {queue.map((item) => {
+              const meta = statusMeta(item.status);
+              return (
+                <div
+                  className="space-y-2 rounded-2xl border border-border/70 bg-background/70 p-3 shadow-sm"
+                  key={item.id}
+                >
+                  <div className="flex items-start gap-2">
+                    <span className="mt-0.5 shrink-0">{meta.icon}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-xs">
+                        {item.name}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {meta.label} • {item.sizeLabel}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className={cn(
+                        "h-full transition-all duration-300",
+                        item.status === "failed"
+                          ? "bg-destructive"
+                          : item.status === "uploaded"
+                            ? "bg-emerald-500"
+                            : "bg-primary"
+                      )}
+                      style={{ width: `${meta.progress}%` }}
+                    />
+                  </div>
+                  {item.error ? (
+                    <p className="text-[11px] text-destructive">{item.error}</p>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {completedCount > 0 ? (
+        <div className="border-border/70 border-t bg-muted/20 px-4 py-3">
+          <Button
+            className="px-0 text-xs text-muted-foreground hover:text-foreground"
+            onClick={onClearCompleted}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            Clear completed
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 export function UploadActivityPanel() {
   const pathname = usePathname();
+  const isMobile = useIsMobile();
   const uploadActivityOpen = useFilesUiStore(
     (state) => state.uploadActivityOpen
   );
@@ -364,6 +524,54 @@ export function UploadActivityPanel() {
       item.status === "ingesting"
   ).length;
   const failedCount = queue.filter((item) => item.status === "failed").length;
+  const completedCount = queue.filter((item) => item.status === "uploaded").length;
+
+  const handleClose = () => {
+    setIsQueueDismissed(true);
+    filesUiActions.setUploadActivityOpen(false);
+  };
+
+  const handleClearCompleted = () => {
+    if (!activeWorkspaceUuid) {
+      return;
+    }
+
+    updateWorkspaceQueue(activeWorkspaceUuid, (previous) =>
+      previous.filter((item) => item.status !== "uploaded")
+    );
+  };
+
+  if (isMobile) {
+    return (
+      <Drawer
+        onOpenChange={(open) => {
+          if (!open) {
+            handleClose();
+          }
+        }}
+        open={isQueueVisible}
+      >
+        <DrawerContent className="p-0">
+          <DrawerHeader className="border-border/70 border-b pb-4 text-left">
+            <DrawerTitle>Upload activity</DrawerTitle>
+            <DrawerDescription>
+              Track uploads, ingestion, and failures without leaving the
+              workspace.
+            </DrawerDescription>
+          </DrawerHeader>
+          <UploadActivityBody
+            completedCount={completedCount}
+            failedCount={failedCount}
+            onClearCompleted={handleClearCompleted}
+            onClose={handleClose}
+            queue={queue}
+            uploadCount={uploadCount}
+            useDrawerClose
+          />
+        </DrawerContent>
+      </Drawer>
+    );
+  }
 
   return (
     <div
@@ -374,87 +582,14 @@ export function UploadActivityPanel() {
           : "pointer-events-none translate-y-3 opacity-0"
       )}
     >
-      <div className="flex items-center justify-between border-border/70 border-b px-4 py-3">
-        <div className="min-w-0">
-          <p className="font-medium text-sm">Upload activity</p>
-          <p className="text-muted-foreground text-xs">
-            {queue.length === 0
-              ? "No recent uploads"
-              : `${queue.length} item${queue.length === 1 ? "" : "s"} in this session`}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1 rounded-full border border-border/70 px-2 py-0.5 text-[11px]">
-            <Waves className="size-3" />
-            {uploadCount} active
-          </span>
-          {failedCount > 0 ? (
-            <span className="rounded-full border border-destructive/50 bg-destructive/10 px-2 py-0.5 text-[11px] text-destructive">
-              {failedCount} failed
-            </span>
-          ) : null}
-          <Button
-            className="h-7 w-7"
-            onClick={() => {
-              setIsQueueDismissed(true);
-              filesUiActions.setUploadActivityOpen(false);
-            }}
-            size="icon-xs"
-            type="button"
-            variant="ghost"
-          >
-            <X className="size-3.5" />
-            <span className="sr-only">Close upload activity</span>
-          </Button>
-        </div>
-      </div>
-      <div className="max-h-[min(24rem,70vh)] overflow-y-auto px-4 py-3">
-        {queue.length === 0 ? (
-          <p className="text-muted-foreground text-xs">
-            No upload activity yet.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {queue.map((item) => {
-              const meta = statusMeta(item.status);
-              return (
-                <div
-                  className="space-y-2 rounded-md border border-border/50 p-2.5"
-                  key={item.id}
-                >
-                  <div className="flex items-start gap-2">
-                    <span className="mt-0.5 shrink-0">{meta.icon}</span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium text-xs">
-                        {item.name}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {meta.label} • {item.sizeLabel}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className={cn(
-                        "h-full transition-all duration-300",
-                        item.status === "failed"
-                          ? "bg-destructive"
-                          : item.status === "uploaded"
-                            ? "bg-emerald-500"
-                            : "bg-primary"
-                      )}
-                      style={{ width: `${meta.progress}%` }}
-                    />
-                  </div>
-                  {item.error ? (
-                    <p className="text-[11px] text-destructive">{item.error}</p>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      <UploadActivityBody
+        completedCount={completedCount}
+        failedCount={failedCount}
+        onClearCompleted={handleClearCompleted}
+        onClose={handleClose}
+        queue={queue}
+        uploadCount={uploadCount}
+      />
     </div>
   );
 }

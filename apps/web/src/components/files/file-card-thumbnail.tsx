@@ -1,6 +1,9 @@
 "use client";
 
-import { useMediaPlaybackSource, type MediaPlaybackSource } from "@avenire/ui/media";
+import {
+  type MediaPlaybackSource,
+  useMediaPlaybackSource,
+} from "@avenire/ui/media";
 import { FileCode2, FileText } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -10,10 +13,21 @@ import {
 } from "@/lib/file-preview-cache";
 import { cn } from "@/lib/utils";
 
-type FileCardType = "archive" | "audio" | "code" | "document" | "image" | "other" | "video";
+type FileCardType =
+  | "archive"
+  | "audio"
+  | "code"
+  | "document"
+  | "image"
+  | "other"
+  | "video";
 
 interface FileCardProps {
   className?: string;
+  details?: Array<{
+    label: string;
+    value: string;
+  }>;
   fileType: FileCardType;
   lastUpdated: Date;
   name: string;
@@ -73,14 +87,17 @@ function getFileIcon(fileType: FileCardType): React.ReactNode {
       alt=""
       aria-hidden="true"
       className="h-4 w-4"
+      height={16}
       loading="lazy"
       src={iconByType[fileType]}
+      width={16}
     />
   );
 }
 
 export function FileCard({
   className = "",
+  details = [],
   fileType,
   lastUpdated,
   name,
@@ -98,47 +115,84 @@ export function FileCard({
     };
   }, [lastUpdated]);
   const hasPreview = Boolean(previewContent || previewUrl);
+  let previewBody: React.ReactNode = null;
+
+  if (previewContent) {
+    previewBody = (
+      <div className="h-full w-auto max-w-full overflow-hidden rounded-lg border border-border/50 bg-card/60 p-1 [&_canvas]:h-full [&_canvas]:w-auto [&_canvas]:rounded-md [&_img]:h-full [&_img]:w-auto [&_img]:rounded-md [&_img]:object-contain [&_video]:h-full [&_video]:w-auto [&_video]:rounded-md [&_video]:object-contain">
+        {previewContent}
+      </div>
+    );
+  } else if (previewUrl) {
+    previewBody = (
+      <div className="h-full w-auto max-w-full overflow-hidden rounded-lg border border-border/50 bg-card/60 p-1">
+        <img
+          alt={name}
+          className="h-full w-auto max-w-full rounded-md object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+          height={168}
+          src={previewUrl}
+          width={224}
+        />
+      </div>
+    );
+  } else {
+    previewBody = (
+      <div className="flex h-full w-full flex-col items-center justify-center text-neutral-400 transition-colors group-hover:text-neutral-300">
+        <div className="h-8 w-8 opacity-60">{getFileIcon(fileType)}</div>
+      </div>
+    );
+  }
 
   return (
-    <div className={cn("inline-flex w-full max-w-full flex-col items-center gap-2 overflow-hidden", className)}>
+    <div
+      className={cn(
+        "inline-flex w-full max-w-full flex-col items-center gap-2 overflow-hidden",
+        className
+      )}
+    >
       <div
         className={cn(
           "group relative flex w-full min-w-0 items-center justify-center overflow-hidden rounded-xl border border-border/45 bg-muted/70 p-1.5",
-          hasPreview ? "h-28" : "h-28 aspect-[4/3]"
+          hasPreview ? "h-28" : "aspect-[4/3] h-28"
         )}
       >
-        {previewContent ? (
-          <div className="h-full w-auto max-w-full overflow-hidden rounded-lg border border-border/50 bg-card/60 p-1 [&_canvas]:h-full [&_canvas]:w-auto [&_canvas]:rounded-md [&_img]:h-full [&_img]:w-auto [&_img]:rounded-md [&_img]:object-contain [&_video]:h-full [&_video]:w-auto [&_video]:rounded-md [&_video]:object-contain">
-            {previewContent}
-          </div>
-        ) : previewUrl ? (
-          <div className="h-full w-auto max-w-full overflow-hidden rounded-lg border border-border/50 bg-card/60 p-1">
-            <img
-              alt={name}
-              className="h-full w-auto max-w-full rounded-md object-contain transition-transform duration-300 group-hover:scale-[1.02]"
-              src={previewUrl}
-            />
-          </div>
-        ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center text-neutral-400 transition-colors group-hover:text-neutral-300">
-            <div className="h-8 w-8 opacity-60">{getFileIcon(fileType)}</div>
-          </div>
-        )}
+        {previewBody}
         {hasPreview ? (
           <div className="pointer-events-none absolute inset-0 bg-black opacity-0 transition-opacity duration-300 group-hover:opacity-10" />
         ) : null}
       </div>
       <div className="flex w-full min-w-0 max-w-full items-center justify-between gap-2">
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <span className="shrink-0 text-muted-foreground">{getFileIcon(fileType)}</span>
-          <span className="min-w-0 flex-1 truncate font-medium text-sm" title={name}>
+          <span className="shrink-0 text-muted-foreground">
+            {getFileIcon(fileType)}
+          </span>
+          <span
+            className="min-w-0 flex-1 truncate font-medium text-sm"
+            title={name}
+          >
             {name}
           </span>
         </div>
-        <span className="shrink-0 tabular-nums text-muted-foreground text-xs">
+        <span className="shrink-0 text-muted-foreground text-xs tabular-nums">
           {timeAgo}
         </span>
       </div>
+      {details.length > 0 ? (
+        <div className="flex w-full min-w-0 flex-wrap gap-1.5">
+          {details.map((detail) => (
+            <span
+              className="inline-flex max-w-full items-center gap-1 rounded-full border border-border/50 bg-background/75 px-2 py-0.5 text-[10px] text-muted-foreground leading-none"
+              key={`${detail.label}:${detail.value}`}
+              title={`${detail.label}: ${detail.value}`}
+            >
+              <span className="shrink-0 font-medium text-foreground/75">
+                {detail.label}
+              </span>
+              <span className="min-w-0 truncate">{detail.value}</span>
+            </span>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -186,14 +240,18 @@ export function VideoThumbnail({
       return;
     }
 
-    void primeMediaPlayback(playbackSource, {
+    primeMediaPlayback(playbackSource, {
       mediaType: "video",
       posterUrl,
       sizeBytes,
       surface: "thumbnail",
-    }).then(() => {
-      setResolvedPlaybackSource(resolveCachedPlaybackSource(playbackSource));
-    });
+    })
+      .then(() => {
+        setResolvedPlaybackSource(resolveCachedPlaybackSource(playbackSource));
+      })
+      .catch(() => {
+        // Ignore warmup failures for thumbnails.
+      });
 
     return () => {
       releaseMediaPlaybackPrime(playbackSource);
@@ -202,8 +260,12 @@ export function VideoThumbnail({
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
-    if (!warm && !openedCached) return;
+    if (!video) {
+      return;
+    }
+    if (!(warm || openedCached)) {
+      return;
+    }
     // Seek to first frame once metadata is ready.
     const onMeta = () => {
       video.currentTime = 0;
@@ -234,7 +296,9 @@ export function VideoThumbnail({
       }
     };
 
-    void startPlayback();
+    startPlayback().catch(() => {
+      // Ignore playback bootstrap failures for thumbnails.
+    });
 
     return () => {
       video.pause();
@@ -244,7 +308,12 @@ export function VideoThumbnail({
 
   if (failed) {
     return (
-      <div className={cn("flex h-full w-auto items-center justify-center bg-muted/70", className)}>
+      <div
+        className={cn(
+          "flex h-full w-auto items-center justify-center bg-muted/70",
+          className
+        )}
+      >
         <FileText className="size-8 text-violet-500" />
       </div>
     );
@@ -255,8 +324,8 @@ export function VideoThumbnail({
       className={cn("h-full w-auto object-contain", className)}
       muted
       onError={() => setFailed(true)}
-      poster={posterUrl ?? undefined}
       playsInline
+      poster={posterUrl ?? undefined}
       preload={warm || openedCached || playOnHover ? "auto" : "none"}
       ref={videoRef}
     />
@@ -281,23 +350,38 @@ export function PdfThumbnail({
   useEffect(() => {
     let cancelled = false;
 
+    async function loadPdfPage() {
+      const pdfjsLib = await import("pdfjs-dist");
+      pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+        "pdfjs-dist/build/pdf.worker.mjs",
+        import.meta.url
+      ).toString();
+
+      const pdf = await pdfjsLib.getDocument({ url: src, verbosity: 0 })
+        .promise;
+      if (cancelled) {
+        return null;
+      }
+
+      const page = await pdf.getPage(1);
+      if (cancelled) {
+        return null;
+      }
+
+      return page;
+    }
+
     async function render() {
       try {
-        const pdfjsLib = await import("pdfjs-dist");
-        // Set worker (same as the full viewer)
-        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-          "pdfjs-dist/build/pdf.worker.mjs",
-          import.meta.url,
-        ).toString();
-
-        const pdf = await pdfjsLib.getDocument({ url: src, verbosity: 0 }).promise;
-        if (cancelled) return;
-
-        const page = await pdf.getPage(1);
-        if (cancelled) return;
+        const page = await loadPdfPage();
+        if (!page) {
+          return;
+        }
 
         const canvas = canvasRef.current;
-        if (!canvas) return;
+        if (!canvas) {
+          return;
+        }
 
         // Render at 1.5× for a crisper thumbnail
         const scale = 1.5;
@@ -306,16 +390,26 @@ export function PdfThumbnail({
         canvas.height = viewport.height;
 
         const ctx = canvas.getContext("2d");
-        if (!ctx) return;
+        if (!ctx) {
+          return;
+        }
 
         await page.render({ canvas, canvasContext: ctx, viewport }).promise;
-        if (!cancelled) setReady(true);
+        if (!cancelled) {
+          setReady(true);
+        }
       } catch {
-        if (!cancelled) setFailed(true);
+        if (!cancelled) {
+          setFailed(true);
+        }
       }
     }
 
-    void render();
+    render().catch(() => {
+      if (!cancelled) {
+        setFailed(true);
+      }
+    });
     return () => {
       cancelled = true;
     };
@@ -323,7 +417,12 @@ export function PdfThumbnail({
 
   if (failed) {
     return (
-      <div className={cn("flex h-full w-auto items-center justify-center bg-muted/70", className)}>
+      <div
+        className={cn(
+          "flex h-full w-auto items-center justify-center bg-muted/70",
+          className
+        )}
+      >
         <FileText className="size-8 text-rose-500" />
       </div>
     );

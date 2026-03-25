@@ -12,6 +12,7 @@ export interface VectorSearchResult {
   chunkId: string;
   chunkIndex: number;
   content: string;
+  contentHash: string | null;
   endMs: number | null;
   fileId: string | null;
   metadata: Record<string, unknown>;
@@ -44,6 +45,10 @@ export interface VectorStore {
     options: SearchOptions
   ): Promise<VectorSearchResult[]>;
   searchLexical(
+    query: string,
+    options: SearchOptions
+  ): Promise<VectorSearchResult[]>;
+  searchTrigram(
     query: string,
     options: SearchOptions
   ): Promise<VectorSearchResult[]>;

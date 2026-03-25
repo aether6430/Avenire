@@ -23,7 +23,7 @@ const columns = [
 
 const socialLinks = [
   { label: "Discord", href: "https://discord.gg/avenire", icon: MessageCircle },
-  { label: "GitHub", href: "https://github.com/aether6430", icon: Github },
+  { label: "GitHub", href: "https://github.com/thedamod/Avenire", icon: Github },
   { label: "Email", href: "mailto:support@avenire.space", icon: Mail },
 ] as const;
 

@@ -83,6 +83,7 @@ export async function POST(
     if (source.isNote) {
       const note = await getNoteContent(source.id);
       const file = await createWorkspaceNoteFile({
+        baseContent: note?.content ?? "",
         content: note?.content ?? "",
         folderId: targetFolderId,
         name: duplicateName,
@@ -210,6 +211,7 @@ export async function POST(
     if (file.isNote) {
       const note = await getNoteContent(file.id);
       await createWorkspaceNoteFile({
+        baseContent: note?.content ?? "",
         content: note?.content ?? "",
         folderId: clonedFolderId,
         name: resolveDuplicateName(siblingFileNames, file.name),

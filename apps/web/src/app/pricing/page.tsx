@@ -19,6 +19,7 @@ import {
 import { useState } from "react";
 import { Footer } from "@/components/landing/Footer";
 import { Navbar } from "@/components/landing/Navbar";
+import { authClient } from "@avenire/auth/client";
 import { cn } from "@/lib/utils";
 
 type BillingPeriod = "monthly" | "yearly";
@@ -177,6 +178,8 @@ export default function PricingPage() {
               billing === "yearly" && plan.yearly > 0
                 ? (plan.yearly / 12).toFixed(2)
                 : null;
+            const checkoutSlug = `${plan.name.toLowerCase()}-${billing}`;
+            const isFreePlan = plan.monthly === 0 && plan.yearly === 0;
 
             return (
               <motion.div
@@ -257,23 +260,45 @@ export default function PricingPage() {
                       ))}
                     </ul>
 
-                    <a
-                      className={cn(
-                        buttonVariants({
-                          size: "lg",
-                          variant: plan.featured ? "default" : "outline",
-                        }),
-                        "mt-4 w-full gap-1.5"
-                      )}
-                      href={
-                        plan.monthly === 0 && plan.yearly === 0
-                          ? "/register"
-                          : `/api/billing/checkout?plan=${plan.name.toLowerCase()}&billing=${billing}`
-                      }
-                    >
-                      {plan.cta}
-                      <ArrowRight className="size-3.5" />
-                    </a>
+                    {isFreePlan ? (
+                      <a
+                        className={cn(
+                          buttonVariants({
+                            size: "lg",
+                            variant: "outline",
+                          }),
+                          "mt-4 w-full gap-1.5"
+                        )}
+                        href="/waitlist"
+                      >
+                        {plan.cta}
+                        <ArrowRight className="size-3.5" />
+                      </a>
+                    ) : (
+                      <Button
+                        className={cn("mt-4 w-full gap-1.5", plan.featured ? "" : "")}
+                        onClick={() => {
+                          void (async () => {
+                            try {
+                              await authClient.checkout({
+                                slug: checkoutSlug,
+                              });
+                            } catch (error) {
+                              console.error("[pricing] Better Auth checkout failed", error);
+                              window.location.assign(
+                                `/api/billing/checkout?plan=${plan.name.toLowerCase()}&billing=${billing}`
+                              );
+                            }
+                          })();
+                        }}
+                        size="lg"
+                        type="button"
+                        variant={plan.featured ? "default" : "outline"}
+                      >
+                        {plan.cta}
+                        <ArrowRight className="size-3.5" />
+                      </Button>
+                    )}
                   </CardContent>
                 </Card>
               </motion.div>

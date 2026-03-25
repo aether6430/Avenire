@@ -30,8 +30,10 @@ import {
 } from "@avenire/ui/components/dialog";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
@@ -67,6 +69,7 @@ import {
   Pin,
   PinOff,
   Plus,
+  RotateCcw,
   Share2,
   SlidersHorizontal,
   Trash2,
@@ -82,6 +85,7 @@ import {
 } from "next/navigation";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   FileCard,
   PdfThumbnail,
@@ -97,18 +101,17 @@ import { useFileSelection } from "@/hooks/use-file-selection";
 import { useFileDragDrop } from "@/hooks/use-file-drag-drop";
 import { getWarmState, isFileOpenedCached } from "@/lib/file-preview-cache";
 import {
+  formatPropertyValue,
   type FrontmatterProperties,
-  parseFrontmatter,
-  STATUS_OPTIONS,
-  splitFrontmatterDocument,
-  stripFrontmatter,
-  TYPE_OPTIONS,
-  updateContentWithFrontmatter,
+  normalizePropertyDefinitions,
+  type FilePropertyValue,
+  type WorkspacePropertyDefinition,
 } from "@/lib/frontmatter";
 import {
   buildProgressivePlaybackSource,
   buildVideoPlaybackDescriptor,
 } from "@/lib/media-playback";
+import { requestUploadPreflight } from "@/lib/upload-preflight";
 import { getUploadErrorMessage } from "@/lib/upload";
 import { useUploadThing } from "@/lib/uploadthing";
 import { cn } from "@/lib/utils";
@@ -141,6 +144,7 @@ import {
 import { FilePreviewPanel } from "@/components/files/explorer/file-preview-panel";
 import { ShareDialog } from "@/components/files/explorer/share-dialog";
 import { SidebarTrigger } from "@avenire/ui/components/sidebar";
+import { useHeaderStore } from "@/stores/header-store";
 
 const WORKSPACE_FILE_OPEN_EVENT = "workspace.file.open";
 const MOBILE_LONG_PRESS_DELAY_MS = 450;
@@ -161,7 +165,43 @@ type FileKind =
   | "sheet"
   | "video";
 const FILE_EXPLORER_VIEW_MODE_KEY = "file-explorer-view-mode";
+const FILE_CARD_FIELD_STORAGE_PREFIX = "file-explorer-card-fields:v1:";
+const MAX_VISIBLE_CARD_PROPERTIES = 4;
+const DEFAULT_VISIBLE_CARD_PROPERTIES = 3;
 const FILE_RETRIEVAL_CONTEXT_KEY = "file-explorer-retrieval-context-v1";
+
+type PropertyFilterOperator =
+  | "contains"
+  | "contains_all"
+  | "contains_any"
+  | "contains_none"
+  | "eq"
+  | "gt"
+  | "gte"
+  | "is_empty"
+  | "is_false"
+  | "is_not"
+  | "is_not_empty"
+  | "is_true"
+  | "lt"
+  | "lte";
+
+interface PropertyFilterState {
+  id: string;
+  key: string;
+  operator: PropertyFilterOperator;
+  type: WorkspacePropertyDefinition["type"];
+  value: string;
+}
+
+type SortState =
+  | { direction: "asc" | "desc"; key: "createdAt" | "name" | "updatedAt"; kind: "builtin" }
+  | {
+      direction: "asc" | "desc";
+      key: string;
+      kind: "property";
+      type: WorkspacePropertyDefinition["type"];
+    };
 
 interface UploadQueueItem {
   contentHashSha256?: string;
@@ -179,6 +219,112 @@ interface UploadQueueItem {
 interface UploadCandidate {
   file: File;
   relativePath?: string;
+}
+
+function getFileProperties(file: FileRecord): FrontmatterProperties {
+  return file.page?.properties ?? {};
+}
+
+function formatCardPropertyValue(property: FilePropertyValue) {
+  if (property.type === "checkbox") {
+    return property.value ? "Yes" : "No";
+  }
+
+  return formatPropertyValue(property);
+}
+
+function mergePropertyDefinitions(
+  files: FileRecord[],
+  definitions: WorkspacePropertyDefinition[]
+) {
+  const merged = new Map<string, WorkspacePropertyDefinition>(
+    definitions.map((definition) => [definition.key, definition])
+  );
+
+  for (const file of files) {
+    for (const [key, property] of Object.entries(getFileProperties(file))) {
+      const existing = merged.get(key);
+      const options =
+        property.type === "multi_select"
+          ? property.value
+          : property.type === "select" && property.value
+            ? [property.value]
+            : [];
+      if (!existing) {
+        merged.set(key, {
+          key,
+          options,
+          type: property.type,
+        });
+        continue;
+      }
+
+      merged.set(key, {
+        ...existing,
+        options: Array.from(new Set([...existing.options, ...options])).sort(
+          (left, right) => left.localeCompare(right)
+        ),
+      });
+    }
+  }
+
+  return Array.from(merged.values()).sort((left, right) =>
+    left.key.localeCompare(right.key)
+  );
+}
+
+function getOperatorsForType(type: WorkspacePropertyDefinition["type"]) {
+  switch (type) {
+    case "checkbox":
+      return ["is_true", "is_false"] as const;
+    case "date":
+    case "number":
+      return ["eq", "gt", "gte", "lt", "lte", "is_empty"] as const;
+    case "multi_select":
+      return [
+        "contains_any",
+        "contains_all",
+        "contains_none",
+        "is_empty",
+      ] as const;
+    case "select":
+      return ["eq", "is_not", "is_empty"] as const;
+    case "text":
+      return ["contains", "eq", "is_empty", "is_not_empty"] as const;
+  }
+}
+
+function getOperatorLabel(operator: PropertyFilterOperator) {
+  switch (operator) {
+    case "contains":
+      return "contains";
+    case "contains_all":
+      return "contains all";
+    case "contains_any":
+      return "contains any";
+    case "contains_none":
+      return "contains none";
+    case "eq":
+      return "is";
+    case "gt":
+      return ">";
+    case "gte":
+      return ">=";
+    case "is_empty":
+      return "is empty";
+    case "is_false":
+      return "is false";
+    case "is_not":
+      return "is not";
+    case "is_not_empty":
+      return "is not empty";
+    case "is_true":
+      return "is true";
+    case "lt":
+      return "<";
+    case "lte":
+      return "<=";
+  }
 }
 
 type BulkItemKind = "file" | "folder";
@@ -630,9 +776,11 @@ export function FileExplorer({
 
   const [query, setQuery] = useState("");
   const [focusSearchSignal, setFocusSearchSignal] = useState(0);
-  const [sortBy, setSortBy] = useState<"name" | "createdAt" | "updatedAt">(
-    "name"
-  );
+  const [sortState, setSortState] = useState<SortState>({
+    direction: "asc",
+    key: "name",
+    kind: "builtin",
+  });
   const [vectorFilteredIds, setVectorFilteredIds] =
     useState<Set<string> | null>(null);
   const [retrievalResults, setRetrievalResults] = useState<
@@ -651,12 +799,11 @@ export function FileExplorer({
     WorkspaceMemberRecord[]
   >([]);
   const [workspaceName, setWorkspaceName] = useState("Workspace");
-  const [frontmatterByFileId, setFrontmatterByFileId] = useState<
-    Record<string, FrontmatterProperties>
-  >({});
-  const [frontmatterStatusFilter, setFrontmatterStatusFilter] = useState("");
-  const [frontmatterTypeFilter, setFrontmatterTypeFilter] = useState("");
-  const [frontmatterTagFilter, setFrontmatterTagFilter] = useState("");
+  const [propertyDefinitions, setPropertyDefinitions] = useState<
+    WorkspacePropertyDefinition[]
+  >([]);
+  const [cardPropertyKeys, setCardPropertyKeys] = useState<string[]>([]);
+  const [propertyFilters, setPropertyFilters] = useState<PropertyFilterState[]>([]);
   const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
   const [hoveredPreviewFileId, setHoveredPreviewFileId] = useState<
     string | null
@@ -681,6 +828,8 @@ export function FileExplorer({
   const [mobileConfirmAction, setMobileConfirmAction] = useState<
     "delete" | "move" | null
   >(null);
+  const loadedPropertyRegistryWorkspaceRef = useRef<string | null>(null);
+  const loadedCardPropertySelectionRef = useRef(false);
 
   useEffect(() => {
     try {
@@ -934,6 +1083,82 @@ export function FileExplorer({
     ],
     [allFiles, allFolders]
   );
+  const availablePropertyDefinitions = useMemo(
+    () => mergePropertyDefinitions(allFiles, propertyDefinitions),
+    [allFiles, propertyDefinitions]
+  );
+  const propertyDefinitionByKey = useMemo(
+    () =>
+      new Map(
+        availablePropertyDefinitions.map((definition) => [definition.key, definition])
+      ),
+    [availablePropertyDefinitions]
+  );
+  const cardPropertyStorageKey = useMemo(
+    () =>
+      workspaceUuid
+        ? `${FILE_CARD_FIELD_STORAGE_PREFIX}${workspaceUuid}`
+        : null,
+    [workspaceUuid]
+  );
+  const selectedCardPropertyDefinitions = useMemo(() => {
+    const selectedKeys = new Set(cardPropertyKeys);
+    return availablePropertyDefinitions
+      .filter((definition) => selectedKeys.has(definition.key))
+      .slice(0, MAX_VISIBLE_CARD_PROPERTIES);
+  }, [availablePropertyDefinitions, cardPropertyKeys]);
+
+  useEffect(() => {
+    loadedCardPropertySelectionRef.current = false;
+    setCardPropertyKeys([]);
+  }, [workspaceUuid]);
+
+  useEffect(() => {
+    if (!cardPropertyStorageKey || availablePropertyDefinitions.length === 0) {
+      return;
+    }
+
+    const validKeys = new Set(
+      availablePropertyDefinitions.map((definition) => definition.key)
+    );
+
+    try {
+      const raw = window.localStorage.getItem(cardPropertyStorageKey);
+      const parsed = raw ? (JSON.parse(raw) as unknown) : null;
+      if (Array.isArray(parsed)) {
+        const next = parsed
+          .filter((entry): entry is string => typeof entry === "string")
+          .map((entry) => entry.trim())
+          .filter((entry) => entry.length > 0 && validKeys.has(entry))
+          .slice(0, MAX_VISIBLE_CARD_PROPERTIES);
+        if (next.length > 0) {
+          setCardPropertyKeys(next);
+          loadedCardPropertySelectionRef.current = true;
+          return;
+        }
+      }
+    } catch {
+      // Ignore invalid persisted state and fall back to defaults.
+    }
+
+    setCardPropertyKeys(
+      availablePropertyDefinitions
+        .slice(0, DEFAULT_VISIBLE_CARD_PROPERTIES)
+        .map((definition) => definition.key)
+    );
+    loadedCardPropertySelectionRef.current = true;
+  }, [availablePropertyDefinitions, cardPropertyStorageKey]);
+
+  useEffect(() => {
+    if (!cardPropertyStorageKey || !loadedCardPropertySelectionRef.current) {
+      return;
+    }
+
+    window.localStorage.setItem(
+      cardPropertyStorageKey,
+      JSON.stringify(cardPropertyKeys)
+    );
+  }, [cardPropertyKeys, cardPropertyStorageKey]);
 
   const loadShareSuggestions = useCallback(
     async (
@@ -983,9 +1208,6 @@ export function FileExplorer({
 
   const filteredFiles = useMemo(() => {
     const term = query.trim().toLowerCase();
-    const statusNeedle = frontmatterStatusFilter.trim().toLowerCase();
-    const typeNeedle = frontmatterTypeFilter.trim().toLowerCase();
-    const tagNeedle = frontmatterTagFilter.trim().toLowerCase();
     const activeVectorIds =
       vectorFilteredIds && vectorFilteredIds.size > 0
         ? vectorFilteredIds
@@ -995,61 +1217,101 @@ export function FileExplorer({
       : term
         ? files.filter((file) => file.name.toLowerCase().includes(term))
         : files;
-    if (!(statusNeedle || typeNeedle || tagNeedle)) {
+    if (propertyFilters.length === 0) {
       return base;
     }
 
     return base.filter((file) => {
-      const frontmatter = file.page?.properties ?? frontmatterByFileId[file.id];
-      if (!frontmatter) {
-        return false;
-      }
+      const properties = getFileProperties(file);
 
-      if (statusNeedle) {
-        const statusValue =
-          typeof frontmatter.status === "string"
-            ? frontmatter.status.toLowerCase()
-            : "";
-        if (statusValue !== statusNeedle) {
-          return false;
+      return propertyFilters.every((filter) => {
+        const property = properties[filter.key];
+        if (!property) {
+          return filter.operator === "is_empty";
         }
-      }
 
-      if (typeNeedle) {
-        const typeValue =
-          typeof frontmatter.type === "string"
-            ? frontmatter.type.toLowerCase()
-            : "";
-        if (typeValue !== typeNeedle) {
-          return false;
+        const needle = filter.value.trim().toLowerCase();
+        switch (property.type) {
+          case "checkbox":
+            return filter.operator === "is_true"
+              ? property.value
+              : !property.value;
+          case "date":
+          case "text":
+          case "select": {
+            const value = String(property.value ?? "").toLowerCase();
+            switch (filter.operator) {
+              case "contains":
+                return value.includes(needle);
+              case "eq":
+                return value === needle;
+              case "gt":
+                return value > needle;
+              case "gte":
+                return value >= needle;
+              case "is_empty":
+                return value.length === 0;
+              case "is_not":
+                return value !== needle;
+              case "is_not_empty":
+                return value.length > 0;
+              case "lt":
+                return value < needle;
+              case "lte":
+                return value <= needle;
+              default:
+                return true;
+            }
+          }
+          case "number": {
+            const value = property.value;
+            const operand = Number(filter.value);
+            if (filter.operator === "is_empty") {
+              return value === null;
+            }
+            if (value === null || !Number.isFinite(operand)) {
+              return false;
+            }
+            switch (filter.operator) {
+              case "eq":
+                return value === operand;
+              case "gt":
+                return value > operand;
+              case "gte":
+                return value >= operand;
+              case "lt":
+                return value < operand;
+              case "lte":
+                return value <= operand;
+              default:
+                return false;
+            }
+          }
+          case "multi_select": {
+            const values = property.value.map((entry) => entry.toLowerCase());
+            const needles = filter.value
+              .split(",")
+              .map((entry) => entry.trim().toLowerCase())
+              .filter(Boolean);
+            switch (filter.operator) {
+              case "contains_any":
+                return needles.some((entry) => values.includes(entry));
+              case "contains_all":
+                return needles.every((entry) => values.includes(entry));
+              case "contains_none":
+                return needles.every((entry) => !values.includes(entry));
+              case "is_empty":
+                return values.length === 0;
+              default:
+                return true;
+            }
+          }
         }
-      }
-
-      if (tagNeedle) {
-        const tags = Array.isArray(frontmatter.tags)
-          ? frontmatter.tags
-          : typeof frontmatter.tags === "string"
-            ? frontmatter.tags
-                .split(",")
-                .map((entry) => entry.trim())
-                .filter(Boolean)
-            : [];
-        const hasTag = tags.some((tag) =>
-          tag.toLowerCase().includes(tagNeedle)
-        );
-        if (!hasTag) {
-          return false;
-        }
-      }
-
-      return true;
+      });
     });
   }, [
     files,
-    frontmatterByFileId,
-    frontmatterStatusFilter,
-    frontmatterTagFilter,
-    frontmatterTypeFilter,
+    propertyFilters,
     query,
     vectorFilteredIds,
   ]);
@@ -1057,41 +1319,70 @@ export function FileExplorer({
   const sortedFolders = useMemo(
     () =>
       [...filteredFolders].sort((a, b) => {
-        if (sortBy === "name") {
+        if (sortState.kind === "builtin" && sortState.key === "name") {
           return a.name.localeCompare(b.name);
         }
         const aDate = new Date(
-          sortBy === "updatedAt"
+          sortState.kind === "builtin" && sortState.key === "updatedAt"
             ? (a.updatedAt ?? a.createdAt ?? 0)
             : (a.createdAt ?? 0)
         ).getTime();
         const bDate = new Date(
-          sortBy === "updatedAt"
+          sortState.kind === "builtin" && sortState.key === "updatedAt"
             ? (b.updatedAt ?? b.createdAt ?? 0)
             : (b.createdAt ?? 0)
         ).getTime();
-        return bDate - aDate;
+        return sortState.direction === "asc" ? aDate - bDate : bDate - aDate;
       }),
-    [filteredFolders, sortBy]
+    [filteredFolders, sortState]
   );
 
   const sortedFiles = useMemo(
     () =>
       [...filteredFiles].sort((a, b) => {
-        if (sortBy === "name") {
-          return a.name.localeCompare(b.name);
+        if (sortState.kind === "builtin") {
+          if (sortState.key === "name") {
+            return sortState.direction === "asc"
+              ? a.name.localeCompare(b.name)
+              : b.name.localeCompare(a.name);
+          }
+
+          const aDate = new Date(
+            sortState.key === "updatedAt" ? (a.updatedAt ?? a.createdAt) : a.createdAt
+          ).getTime();
+          const bDate = new Date(
+            sortState.key === "updatedAt" ? (b.updatedAt ?? b.createdAt) : b.createdAt
+          ).getTime();
+
+          return sortState.direction === "asc" ? aDate - bDate : bDate - aDate;
         }
 
-        const aDate = new Date(
-          sortBy === "updatedAt" ? (a.updatedAt ?? a.createdAt) : a.createdAt
-        ).getTime();
-        const bDate = new Date(
-          sortBy === "updatedAt" ? (b.updatedAt ?? b.createdAt) : b.createdAt
-        ).getTime();
+        const left = getFileProperties(a)[sortState.key];
+        const right = getFileProperties(b)[sortState.key];
+        if (!(left || right)) {
+          return a.name.localeCompare(b.name);
+        }
+        if (!left) {
+          return 1;
+        }
+        if (!right) {
+          return -1;
+        }
 
-        return bDate - aDate;
+        const leftValue = formatPropertyValue(left).toLowerCase();
+        const rightValue = formatPropertyValue(right).toLowerCase();
+        const compare =
+          left.type === "number" && right.type === "number"
+            ? (left.value ?? Number.POSITIVE_INFINITY) -
+              (right.value ?? Number.POSITIVE_INFINITY)
+            : leftValue.localeCompare(rightValue);
+
+        if (compare === 0) {
+          return a.name.localeCompare(b.name);
+        }
+        return sortState.direction === "asc" ? compare : compare * -1;
       }),
-    [filteredFiles, sortBy]
+    [filteredFiles, sortState]
   );
 
   const visibleItemIds = useMemo(
@@ -1555,88 +1846,46 @@ export function FileExplorer({
     };
   }, []);
 
-  const loadedFrontmatterFileIdsRef = useRef<Set<string>>(new Set());
-
   useEffect(() => {
     if (!workspaceUuid) {
-      setFrontmatterByFileId({});
-      loadedFrontmatterFileIdsRef.current = new Set();
+      setPropertyDefinitions([]);
+      loadedPropertyRegistryWorkspaceRef.current = null;
+      return;
+    }
+    if (loadedPropertyRegistryWorkspaceRef.current === workspaceUuid) {
       return;
     }
 
-    const markdownFiles = allFiles.filter((file) => {
-      if (file.isNote) {
-        return true;
-      }
-      const preview = detectPreviewKind(file);
-      return preview.isMarkdown;
-    });
-
-    if (markdownFiles.length === 0) {
-      setFrontmatterByFileId({});
-      return;
-    }
-
-    const missing = markdownFiles.filter(
-      (file) => !loadedFrontmatterFileIdsRef.current.has(file.id)
-    );
-    if (missing.length === 0) {
-      return;
-    }
-
-    const controller = new AbortController();
     let cancelled = false;
-
+    loadedPropertyRegistryWorkspaceRef.current = workspaceUuid;
     void (async () => {
-      const loadedEntries: Array<[string, FrontmatterProperties]> = [];
-
-      for (const file of missing.slice(0, 60)) {
-        loadedFrontmatterFileIdsRef.current.add(file.id);
-        const pageProperties =
-          file.page?.properties && Object.keys(file.page.properties).length > 0
-            ? file.page.properties
-            : null;
-        if (pageProperties) {
-          loadedEntries.push([file.id, pageProperties]);
-          continue;
-        }
-        try {
-          const response = await fetch(
-            `/api/workspaces/${workspaceUuid}/files/${file.id}/stream`,
-            {
-              headers: { Accept: "text/markdown,text/plain,*/*" },
-              signal: controller.signal,
-            }
-          );
-          if (!response.ok) {
-            continue;
+      try {
+        const response = await fetch(
+          `/api/workspaces/${workspaceUuid}/property-registry`,
+          {
+            cache: "no-store",
           }
-          const text = await response.text();
-          const parsed = parseFrontmatter(text);
-          loadedEntries.push([file.id, parsed.properties]);
-        } catch {
-          // ignore partial frontmatter probe failures
+        );
+        if (!response.ok || cancelled) {
+          return;
+        }
+        const payload = (await response.json()) as { properties?: unknown };
+        const normalized = normalizePropertyDefinitions(payload.properties);
+        if (cancelled) {
+          return;
+        }
+        setPropertyDefinitions(normalized);
+      } catch {
+        if (!cancelled) {
+          setPropertyDefinitions([]);
         }
       }
-
-      if (cancelled || loadedEntries.length === 0) {
-        return;
-      }
-
-      setFrontmatterByFileId((previous) => {
-        const next = { ...previous };
-        for (const [fileId, properties] of loadedEntries) {
-          next[fileId] = properties;
-        }
-        return next;
-      });
     })();
 
     return () => {
       cancelled = true;
-      controller.abort();
     };
-  }, [allFiles, workspaceUuid]);
+  }, [workspaceUuid]);
 
   useEffect(() => {
     if (!workspaceUuid) {
@@ -2626,6 +2875,11 @@ export function FileExplorer({
 
           const createdFoldersForCandidate: CreatedFolder[] = [];
           try {
+            await requestUploadPreflight({
+              file: entry.candidate.file,
+              folderId: currentFolderId,
+              workspaceUuid,
+            });
             const uploaded = ((await startUpload([entry.candidate.file])) ??
               [])[0] as UploadResultLike | undefined;
             if (!(uploaded?.key && uploaded.ufsUrl)) {
@@ -2836,6 +3090,35 @@ export function FileExplorer({
       startUpload,
       workspaceUuid,
     ]
+  );
+
+  const hardReingestFile = useCallback(
+    async (file: FileRecord) => {
+      if (!workspaceUuid || file.readOnly) {
+        return;
+      }
+
+      const response = await fetch(
+        `/api/workspaces/${workspaceUuid}/files/${file.id}/reingest`,
+        {
+          method: "POST",
+        }
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+
+      if (!response.ok) {
+        const message = payload.error ?? "Unable to re-ingest file.";
+        toast.error(message);
+        throw new Error(message);
+      }
+
+      toast.success("File queued for hard re-ingestion.");
+      await Promise.all([loadFolder({ silent: true }), loadTree()]);
+      emitSync();
+    },
+    [emitSync, loadFolder, loadTree, workspaceUuid]
   );
 
   const createFolder = useCallback(
@@ -3575,6 +3858,252 @@ export function FileExplorer({
     [openFolderById, openSearchResult]
   );
 
+  const setHeaderContext = useHeaderStore(
+    (state) => state.setHeaderContext
+  );
+  const resetHeaderContext = useHeaderStore(
+    (state) => state.resetHeaderContext
+  );
+  useEffect(() => {
+    if (activeFile) {
+      return;
+    }
+
+    setHeaderContext({
+      title: currentLocationTitle,
+      leadingIcon: (
+        <div className="flex size-6 items-center justify-center text-muted-foreground">
+          {currentFolder ? <Folder className="size-4" /> : null}
+        </div>
+      ),
+      breadcrumbs: (
+        <Breadcrumb className="min-w-0 flex-1">
+          <BreadcrumbList className="flex-nowrap overflow-x-auto whitespace-nowrap pr-2">
+            {breadcrumbs.map((crumb, index) => {
+              const isLast = index === breadcrumbs.length - 1;
+              const Icon = index === 0 ? House : Folder;
+              return (
+                <BreadcrumbItem key={crumb.id}>
+                  {isLast ? (
+                    <BreadcrumbPage className="inline-flex items-center gap-2">
+                      <Icon className="hidden size-3.5 text-muted-foreground sm:inline-flex" />
+                      <span>{crumb.name}</span>
+                    </BreadcrumbPage>
+                  ) : (
+                    <BreadcrumbLink
+                      className="inline-flex items-center gap-2"
+                      href="#"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        navigateToFolder(crumb.id);
+                      }}
+                    >
+                      <Icon className="hidden size-3.5 text-muted-foreground sm:inline-flex" />
+                      <span>{crumb.name}</span>
+                    </BreadcrumbLink>
+                  )}
+                  {isLast ? null : <BreadcrumbSeparator />}
+                </BreadcrumbItem>
+              );
+            })}
+          </BreadcrumbList>
+        </Breadcrumb>
+      ),
+      actions: (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <ShareDialog
+            variant="folder"
+            workspaceUuid={workspaceUuid}
+            currentFolder={currentFolder}
+            isAtWorkspaceRoot={isAtWorkspaceRoot}
+            loadShareSuggestions={loadShareSuggestions}
+          />
+          <Button
+            className="rounded-md"
+            onClick={toggleCurrentPinnedItem}
+            size="sm"
+            type="button"
+            variant={isCurrentPinned ? "secondary" : "outline"}
+          >
+            {isCurrentPinned ? (
+              <PinOff className="size-3.5" />
+            ) : (
+              <Pin className="size-3.5" />
+            )}
+            {isCurrentPinned ? "Unpin" : "Pin"}
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  aria-label="More actions"
+                  className="rounded-md"
+                  size="icon-sm"
+                  type="button"
+                  variant="outline"
+                />
+              }
+            >
+              <MoreHorizontal className="size-3.5" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onClick={toggleCurrentPinnedItem}>
+                {isCurrentPinned ? (
+                  <PinOff className="size-3.5" />
+                ) : (
+                  <Pin className="size-3.5" />
+                )}
+                {isCurrentPinned ? "Unpin" : "Pin"}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={isAtWorkspaceRoot || !currentFolder}
+                onClick={() => {
+                  if (currentFolder) {
+                    openRenameFolderDialog(currentFolder);
+                  }
+                }}
+              >
+                <Pencil className="size-3.5" />
+                Rename
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={isAtWorkspaceRoot || !currentFolder}
+                onClick={() => {
+                  if (currentFolder) {
+                    void duplicateItem({
+                      id: currentFolder.id,
+                      kind: "folder",
+                      parentId: currentFolder.parentId,
+                    });
+                  }
+                }}
+              >
+                <Copy className="size-3.5" />
+                Duplicate
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={isAtWorkspaceRoot || !currentFolder}
+                onClick={() => {
+                  if (currentFolder) {
+                    void copyFolderShareLink(currentFolder);
+                  }
+                }}
+              >
+                <Share2 className="size-3.5" />
+                Share
+              </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger
+                  disabled={isAtWorkspaceRoot || !currentFolder}
+                >
+                  <FolderInput className="size-3.5" />
+                  Move To
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {allFolders
+                    .filter(
+                      (folder) =>
+                        currentFolder &&
+                        folder.id !== currentFolder.id &&
+                        !folder.readOnly
+                    )
+                    .slice(0, 20)
+                    .map((folder) => (
+                      <DropdownMenuItem
+                        key={folder.id}
+                        onClick={() => {
+                          if (currentFolder) {
+                            void moveFolder(currentFolder.id, folder.id);
+                          }
+                        }}
+                      >
+                        {folder.name}
+                      </DropdownMenuItem>
+                    ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuItem
+                disabled={isAtWorkspaceRoot || !currentFolder}
+                onClick={() => {
+                  if (currentFolder) {
+                    void downloadItemArchive({
+                      id: currentFolder.id,
+                      kind: "folder",
+                      name: currentFolder.name,
+                    });
+                  }
+                }}
+              >
+                <ArrowDownToLine className="size-3.5" />
+                Download (as Zip)
+              </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <Info className="size-3.5" />
+                  Information
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="w-72">
+                  {currentInfoEntries.map((entry) => (
+                    <div
+                      className="flex items-start justify-between gap-3 px-2 py-1.5 text-xs"
+                      key={entry.label}
+                    >
+                      <span className="text-muted-foreground">
+                        {entry.label}
+                      </span>
+                      <span className="max-w-[12rem] text-right text-foreground">
+                        {entry.value}
+                      </span>
+                    </div>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                disabled={isAtWorkspaceRoot || !currentFolder}
+                onClick={() => {
+                  if (currentFolder) {
+                    void deleteSelectionItems([
+                      { id: currentFolder.id, kind: "folder" },
+                    ]);
+                  }
+                }}
+                variant="destructive"
+              >
+                <Trash2 className="size-3.5" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      ),
+    });
+
+    return () => {
+      resetHeaderContext();
+    };
+  }, [
+    activeFile,
+    allFolders,
+    breadcrumbs,
+    copyFolderShareLink,
+    currentFolder,
+    currentInfoEntries,
+    deleteSelectionItems,
+    downloadItemArchive,
+    duplicateItem,
+    isAtWorkspaceRoot,
+    isCurrentPinned,
+    loadShareSuggestions,
+    moveFolder,
+    navigateToFolder,
+    openRenameFolderDialog,
+    resetHeaderContext,
+    setHeaderContext,
+    toggleCurrentPinnedItem,
+    workspaceUuid,
+  ]);
+
   if (activeFile) {
     return (
       <FilePreviewPanel
@@ -3600,6 +4129,9 @@ export function FileExplorer({
         currentInfoEntries={currentInfoEntries}
         wikiMarkdownFiles={wikiMarkdownFiles}
         filePathById={filePathById}
+        hardReingestFile={hardReingestFile}
+        propertyDefinitions={availablePropertyDefinitions}
+        setPropertyDefinitions={setPropertyDefinitions}
         workspaceMembers={workspaceMembers}
         startBannerUpload={startBannerUpload}
         startUpload={startUpload}
@@ -3610,256 +4142,6 @@ export function FileExplorer({
 
   return (
     <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background text-foreground">
-      <div className="sticky top-0 z-30 shrink-0 border-border/70 border-b bg-background/95 backdrop-blur-sm">
-        <div className="flex min-h-12 shrink-0 flex-wrap items-center gap-2 px-4 py-2">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <SidebarTrigger className="rounded-md md:hidden" />
-            <Button
-              aria-label="Go back"
-              className="rounded-md"
-              disabled={!backRoute}
-              onClick={() => {
-                if (backRoute) {
-                  router.push(backRoute as Route);
-                }
-              }}
-              size="icon-xs"
-              type="button"
-              variant="outline"
-            >
-              <ArrowLeft className="size-3.5" />
-            </Button>
-            <Button
-              aria-label="Go forward"
-              className="hidden rounded-md sm:inline-flex"
-              disabled={!forwardRoute}
-              onClick={() => {
-                if (forwardRoute) {
-                  router.push(forwardRoute as Route);
-                }
-              }}
-              size="icon-xs"
-              type="button"
-              variant="outline"
-            >
-              <ArrowRight className="size-3.5" />
-            </Button>
-            <Button
-              aria-label="Go home"
-              className="hidden rounded-md sm:inline-flex"
-              disabled={pathname === "/workspace"}
-              onClick={() => {
-                if (pathname !== "/workspace") {
-                  router.push("/workspace" as Route);
-                }
-              }}
-              size="icon-xs"
-              type="button"
-              variant="outline"
-            >
-              <House className="size-3.5" />
-            </Button>
-            <Breadcrumb className="min-w-0 flex-1">
-              <BreadcrumbList className="flex-nowrap overflow-x-auto whitespace-nowrap pr-2">
-                {breadcrumbs.map((crumb, index) => {
-                  const isLast = index === breadcrumbs.length - 1;
-                  const Icon = index === 0 ? House : Folder;
-                  return (
-                    <BreadcrumbItem key={crumb.id}>
-                      {isLast ? (
-                        <BreadcrumbPage className="inline-flex items-center gap-2">
-                          <Icon className="hidden size-3.5 text-muted-foreground sm:inline-flex" />
-                          <span>{crumb.name}</span>
-                        </BreadcrumbPage>
-                      ) : (
-                        <BreadcrumbLink
-                          className="inline-flex items-center gap-2"
-                          href="#"
-                          onClick={(event) => {
-                            event.preventDefault();
-                            navigateToFolder(crumb.id);
-                          }}
-                        >
-                          <Icon className="hidden size-3.5 text-muted-foreground sm:inline-flex" />
-                          <span>{crumb.name}</span>
-                        </BreadcrumbLink>
-                      )}
-                      {isLast ? null : <BreadcrumbSeparator />}
-                    </BreadcrumbItem>
-                  );
-                })}
-              </BreadcrumbList>
-            </Breadcrumb>
-          </div>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <ShareDialog
-              variant="folder"
-              workspaceUuid={workspaceUuid}
-              currentFolder={currentFolder}
-              isAtWorkspaceRoot={isAtWorkspaceRoot}
-              loadShareSuggestions={loadShareSuggestions}
-            />
-            <Button
-              className="rounded-md"
-              onClick={toggleCurrentPinnedItem}
-              size="sm"
-              type="button"
-              variant={isCurrentPinned ? "secondary" : "outline"}
-            >
-              {isCurrentPinned ? (
-                <PinOff className="size-3.5" />
-              ) : (
-                <Pin className="size-3.5" />
-              )}
-              {isCurrentPinned ? "Unpin" : "Pin"}
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    aria-label="More actions"
-                    className="rounded-md"
-                    size="icon-sm"
-                    type="button"
-                    variant="outline"
-                  />
-                }
-              >
-                <MoreHorizontal className="size-3.5" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem onClick={toggleCurrentPinnedItem}>
-                  {isCurrentPinned ? (
-                    <PinOff className="size-3.5" />
-                  ) : (
-                    <Pin className="size-3.5" />
-                  )}
-                  {isCurrentPinned ? "Unpin" : "Pin"}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={isAtWorkspaceRoot || !currentFolder}
-                  onClick={() => {
-                    if (currentFolder) {
-                      openRenameFolderDialog(currentFolder);
-                    }
-                  }}
-                >
-                  <Pencil className="size-3.5" />
-                  Rename
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={isAtWorkspaceRoot || !currentFolder}
-                  onClick={() => {
-                    if (currentFolder) {
-                      void duplicateItem({
-                        id: currentFolder.id,
-                        kind: "folder",
-                        parentId: currentFolder.parentId,
-                      });
-                    }
-                  }}
-                >
-                  <Copy className="size-3.5" />
-                  Duplicate
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={isAtWorkspaceRoot || !currentFolder}
-                  onClick={() => {
-                    if (currentFolder) {
-                      void copyFolderShareLink(currentFolder);
-                    }
-                  }}
-                >
-                  <Share2 className="size-3.5" />
-                  Share
-                </DropdownMenuItem>
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger
-                    disabled={isAtWorkspaceRoot || !currentFolder}
-                  >
-                    <FolderInput className="size-3.5" />
-                    Move To
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent>
-                    {allFolders
-                      .filter(
-                        (folder) =>
-                          currentFolder &&
-                          folder.id !== currentFolder.id &&
-                          !folder.readOnly
-                      )
-                      .slice(0, 20)
-                      .map((folder) => (
-                        <DropdownMenuItem
-                          key={folder.id}
-                          onClick={() => {
-                            if (currentFolder) {
-                              void moveFolder(currentFolder.id, folder.id);
-                            }
-                          }}
-                        >
-                          {folder.name}
-                        </DropdownMenuItem>
-                      ))}
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-                <DropdownMenuItem
-                  disabled={isAtWorkspaceRoot || !currentFolder}
-                  onClick={() => {
-                    if (currentFolder) {
-                      void downloadItemArchive({
-                        id: currentFolder.id,
-                        kind: "folder",
-                        name: currentFolder.name,
-                      });
-                    }
-                  }}
-                >
-                  <ArrowDownToLine className="size-3.5" />
-                  Download (as Zip)
-                </DropdownMenuItem>
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    <Info className="size-3.5" />
-                    Information
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="w-72">
-                    {currentInfoEntries.map((entry) => (
-                      <div
-                        className="flex items-start justify-between gap-3 px-2 py-1.5 text-xs"
-                        key={entry.label}
-                      >
-                        <span className="text-muted-foreground">
-                          {entry.label}
-                        </span>
-                        <span className="max-w-[12rem] text-right text-foreground">
-                          {entry.value}
-                        </span>
-                      </div>
-                    ))}
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  disabled={isAtWorkspaceRoot || !currentFolder}
-                  onClick={() => {
-                    if (currentFolder) {
-                      void deleteSelectionItems([
-                        { id: currentFolder.id, kind: "folder" },
-                      ]);
-                    }
-                  }}
-                  variant="destructive"
-                >
-                  <Trash2 className="size-3.5" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-      </div>
-
       <div className="px-4 pt-0 pb-4">
         {currentFolder ? (
           <ContextMenu>
@@ -4053,64 +4335,153 @@ export function FileExplorer({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-72 rounded-2xl p-3">
                 <div className="space-y-3">
-                  <div className="space-y-1">
-                    <Label className="text-[11px] text-muted-foreground">
-                      Status
-                    </Label>
-                    <select
-                      className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs"
-                      onChange={(event) =>
-                        setFrontmatterStatusFilter(event.target.value)
-                      }
-                      value={frontmatterStatusFilter}
-                    >
-                      <option value="">Any status</option>
-                      {STATUS_OPTIONS.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[11px] text-muted-foreground">
-                      Type
-                    </Label>
-                    <select
-                      className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs"
-                      onChange={(event) =>
-                        setFrontmatterTypeFilter(event.target.value)
-                      }
-                      value={frontmatterTypeFilter}
-                    >
-                      <option value="">Any type</option>
-                      {TYPE_OPTIONS.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[11px] text-muted-foreground">
-                      Tag contains
-                    </Label>
-                    <Input
-                      className="h-9 text-xs"
-                      onChange={(event) =>
-                        setFrontmatterTagFilter(event.target.value)
-                      }
-                      placeholder="exam, math, ..."
-                      value={frontmatterTagFilter}
-                    />
-                  </div>
+                  {propertyFilters.map((filter) => {
+                    const definition = propertyDefinitionByKey.get(filter.key);
+                    const options = definition?.options ?? [];
+                    return (
+                      <div className="space-y-1 rounded-xl border border-border/60 p-2" key={filter.id}>
+                        <div className="grid grid-cols-2 gap-2">
+                          <select
+                            className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs"
+                            onChange={(event) => {
+                              const nextKey = event.target.value;
+                              const nextDefinition = propertyDefinitionByKey.get(nextKey);
+                              if (!nextDefinition) {
+                                return;
+                              }
+                              setPropertyFilters((current) =>
+                                current.map((entry) =>
+                                  entry.id === filter.id
+                                    ? {
+                                        ...entry,
+                                        key: nextKey,
+                                        operator: getOperatorsForType(nextDefinition.type)[0],
+                                        type: nextDefinition.type,
+                                        value: "",
+                                      }
+                                    : entry
+                                )
+                              );
+                            }}
+                            value={filter.key}
+                          >
+                            {availablePropertyDefinitions.map((option) => (
+                              <option key={option.key} value={option.key}>
+                                {option.key}
+                              </option>
+                            ))}
+                          </select>
+                          <select
+                            className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs"
+                            onChange={(event) =>
+                              setPropertyFilters((current) =>
+                                current.map((entry) =>
+                                  entry.id === filter.id
+                                    ? {
+                                        ...entry,
+                                        operator: event.target.value as PropertyFilterOperator,
+                                      }
+                                    : entry
+                                )
+                              )
+                            }
+                            value={filter.operator}
+                          >
+                            {getOperatorsForType(filter.type).map((option) => (
+                              <option key={option} value={option}>
+                                {getOperatorLabel(option)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        {filter.operator === "is_empty" ||
+                        filter.operator === "is_true" ||
+                        filter.operator === "is_false" ||
+                        filter.operator === "is_not_empty" ? null : definition?.type === "select" ? (
+                          <select
+                            className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs"
+                            onChange={(event) =>
+                              setPropertyFilters((current) =>
+                                current.map((entry) =>
+                                  entry.id === filter.id
+                                    ? { ...entry, value: event.target.value }
+                                    : entry
+                                )
+                              )
+                            }
+                            value={filter.value}
+                          >
+                            <option value="">Select value</option>
+                            {options.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <Input
+                            className="h-9 text-xs"
+                            onChange={(event) =>
+                              setPropertyFilters((current) =>
+                                current.map((entry) =>
+                                  entry.id === filter.id
+                                    ? { ...entry, value: event.target.value }
+                                    : entry
+                                )
+                              )
+                            }
+                            placeholder={
+                              definition?.type === "multi_select"
+                                ? "comma, separated, values"
+                                : "Value"
+                            }
+                            value={filter.value}
+                          />
+                        )}
+                        <Button
+                          className="w-full"
+                          onClick={() =>
+                            setPropertyFilters((current) =>
+                              current.filter((entry) => entry.id !== filter.id)
+                            )
+                          }
+                          size="sm"
+                          type="button"
+                          variant="ghost"
+                        >
+                          Remove filter
+                        </Button>
+                      </div>
+                    );
+                  })}
                   <Button
                     className="w-full"
+                    disabled={availablePropertyDefinitions.length === 0}
                     onClick={() => {
-                      setFrontmatterStatusFilter("");
-                      setFrontmatterTypeFilter("");
-                      setFrontmatterTagFilter("");
+                      const nextDefinition = availablePropertyDefinitions[0];
+                      if (!nextDefinition) {
+                        return;
+                      }
+                      setPropertyFilters((current) => [
+                        ...current,
+                        {
+                          id: crypto.randomUUID(),
+                          key: nextDefinition.key,
+                          operator: getOperatorsForType(nextDefinition.type)[0],
+                          type: nextDefinition.type,
+                          value: "",
+                        },
+                      ]);
                     }}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    Add filter
+                  </Button>
+                  <Button
+                    className="w-full"
+                    onClick={() => setPropertyFilters([])}
                     size="sm"
                     type="button"
                     variant="ghost"
@@ -4136,34 +4507,133 @@ export function FileExplorer({
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="end"
-                className="w-56 rounded-2xl p-1.5"
+                className="w-64 rounded-2xl p-2"
               >
+                <div className="space-y-2">
+                  <select
+                    className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs"
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      if (value === "name" || value === "createdAt" || value === "updatedAt") {
+                        setSortState((current) => ({
+                          direction: current.direction,
+                          key: value,
+                          kind: "builtin",
+                        }));
+                        return;
+                      }
+
+                      const definition = propertyDefinitionByKey.get(value);
+                      if (!definition) {
+                        return;
+                      }
+                      setSortState((current) => ({
+                        direction: current.direction,
+                        key: definition.key,
+                        kind: "property",
+                        type: definition.type,
+                      }));
+                    }}
+                    value={sortState.key}
+                  >
+                    <option value="name">Name</option>
+                    <option value="createdAt">Date created</option>
+                    <option value="updatedAt">Date updated</option>
+                    {availablePropertyDefinitions.map((definition) => (
+                      <option key={definition.key} value={definition.key}>
+                        {definition.key}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs"
+                    onChange={(event) =>
+                      setSortState((current) => ({
+                        ...current,
+                        direction: event.target.value as "asc" | "desc",
+                      }))
+                    }
+                    value={sortState.direction}
+                  >
+                    <option value="asc">Ascending</option>
+                    <option value="desc">Descending</option>
+                  </select>
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    className="rounded-md"
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  />
+                }
+              >
+                <SlidersHorizontal className="size-3.5" />
+                Card fields
+                <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                  {selectedCardPropertyDefinitions.length}/{MAX_VISIBLE_CARD_PROPERTIES}
+                </span>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-72 rounded-2xl p-2">
+                <DropdownMenuLabel>Visible card fields</DropdownMenuLabel>
+                <div className="space-y-1">
+                  {availablePropertyDefinitions.length === 0 ? (
+                    <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                      No workspace properties yet.
+                    </div>
+                  ) : (
+                    availablePropertyDefinitions.map((definition) => {
+                      const checked = cardPropertyKeys.includes(definition.key);
+                      const atLimit =
+                        selectedCardPropertyDefinitions.length >=
+                        MAX_VISIBLE_CARD_PROPERTIES;
+                      return (
+                        <DropdownMenuCheckboxItem
+                          checked={checked}
+                          disabled={!checked && atLimit}
+                          key={definition.key}
+                          onCheckedChange={(nextChecked) => {
+                            setCardPropertyKeys((current) => {
+                              if (nextChecked === true) {
+                                if (current.includes(definition.key)) {
+                                  return current;
+                                }
+                                if (current.length >= MAX_VISIBLE_CARD_PROPERTIES) {
+                                  return current;
+                                }
+                                return [...current, definition.key];
+                              }
+
+                              return current.filter(
+                                (key) => key !== definition.key
+                              );
+                            });
+                          }}
+                        >
+                          <span className="truncate">{definition.key}</span>
+                        </DropdownMenuCheckboxItem>
+                      );
+                    })
+                  )}
+                </div>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  className={
-                    sortBy === "name" ? "bg-primary/10 text-primary" : ""
-                  }
-                  onClick={() => setSortBy("name")}
+                  onClick={() => {
+                    setCardPropertyKeys(
+                      availablePropertyDefinitions
+                        .slice(0, DEFAULT_VISIBLE_CARD_PROPERTIES)
+                        .map((definition) => definition.key)
+                    );
+                  }}
                 >
-                  <FileText className="size-3.5" />
-                  Sort by name
+                  Reset to defaults
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  className={
-                    sortBy === "createdAt" ? "bg-primary/10 text-primary" : ""
-                  }
-                  onClick={() => setSortBy("createdAt")}
-                >
-                  <ArrowUpDown className="size-3.5" />
-                  Sort by date created
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className={
-                    sortBy === "updatedAt" ? "bg-primary/10 text-primary" : ""
-                  }
-                  onClick={() => setSortBy("updatedAt")}
-                >
-                  <ArrowUpDown className="size-3.5" />
-                  Sort by date updated
+                <DropdownMenuItem onClick={() => setCardPropertyKeys([])}>
+                  Clear all
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -4504,6 +4974,31 @@ export function FileExplorer({
                         {sortedFiles.map((file) => {
                           const { isImage, isPdf, isVideo, isAudio } =
                             detectPreviewKind(file);
+                          const fileProperties = getFileProperties(file);
+                          const fileCardDetails = selectedCardPropertyDefinitions
+                            .map((definition) => {
+                              const property =
+                                fileProperties[definition.key];
+                              if (!property) {
+                                return null;
+                              }
+
+                              const value = formatCardPropertyValue(property);
+                              if (!value) {
+                                return null;
+                              }
+
+                              return {
+                                label: definition.key,
+                                value,
+                              };
+                            })
+                            .filter(
+                              (
+                                entry
+                              ): entry is { label: string; value: string } =>
+                                Boolean(entry)
+                            );
                           const videoPlaybackDescriptor = isVideo
                             ? buildVideoPlaybackDescriptor({
                                 fallbackUrl: file.storageUrl,
@@ -4601,6 +5096,7 @@ export function FileExplorer({
                                   </div>
                                   <CardContent className="px-0 pt-0">
                                     <FileCard
+                                      details={fileCardDetails}
                                       fileType={fileCardType}
                                       lastUpdated={
                                         new Date(
@@ -4723,6 +5219,14 @@ export function FileExplorer({
                                       <ArrowDownToLine className="size-3.5" />
                                       Download
                                     </ContextMenuItem>
+                                    <ContextMenuItem
+                                      onClick={() => {
+                                        void hardReingestFile(file);
+                                      }}
+                                    >
+                                      <RotateCcw className="size-3.5" />
+                                      Hard Re-ingest
+                                    </ContextMenuItem>
                                   </>
                                 )}
                                 <ContextMenuItem
@@ -4760,7 +5264,7 @@ export function FileExplorer({
                         })}
                       </div>
                       {viewMode === "list" ? (
-                        <div className="divide-y divide-border/70 rounded-xl border border-border/70">
+                        <div className="divide-y divide-border/40 rounded-md bg-secondary/30">
                           {sortedFolders.map((folder) => (
                             <div
                               className={cn(
@@ -4987,7 +5491,7 @@ export function FileExplorer({
       </div>
 
       {selection.selectedCount > 0 ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/70 bg-background/95 px-4 py-3 backdrop-blur-sm md:hidden">
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/40 bg-background px-4 py-3 md:hidden">
           <div className="flex flex-wrap items-center gap-2">
             <div className="mr-auto">
               <p className="font-medium text-sm">

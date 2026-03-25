@@ -9,8 +9,8 @@ import {
   lastAssistantMessageIsCompleteWithApprovalResponses,
 } from "ai";
 import { ChevronDown } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useInView } from "motion/react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
@@ -23,6 +23,7 @@ import { MultimodalInput } from "@/components/chat/multimodal-input";
 import { Overview } from "@/components/chat/overview";
 import { SuggestedActions } from "@/components/chat/suggested-actions";
 import { useScrollToBottom } from "@/components/chat/use-scroll-to-bottom";
+import { getChatErrorMessage } from "@/lib/chat-errors";
 import {
   CHAT_CREATED_EVENT,
   CHAT_NAME_UPDATED_EVENT,
@@ -34,37 +35,6 @@ import {
 } from "@/lib/chat-events";
 import { normalizeMediaType } from "@/lib/media-type";
 import { chatMessageHandoffActions } from "@/stores/chat-message-handoff-store";
-
-type ChatErrorType =
-  | "NETWORK_ERROR"
-  | "MODEL_ERROR"
-  | "VALIDATION_ERROR"
-  | "UNKNOWN_ERROR";
-
-const ERROR_MESSAGES: Record<ChatErrorType, string> = {
-  NETWORK_ERROR:
-    "Unable to connect to the server. Please check your internet connection and try again.",
-  MODEL_ERROR:
-    "The AI model is currently experiencing issues. Please try again in a few moments.",
-  VALIDATION_ERROR:
-    "There was an issue with your request. Please check your input and try again.",
-  UNKNOWN_ERROR:
-    "Something went wrong. Please try again or contact support if the issue persists.",
-};
-
-const categorizeError = (error: Error): ChatErrorType => {
-  const message = error.message.toLowerCase();
-  if (error.name === "NetworkError" || message.includes("network")) {
-    return "NETWORK_ERROR";
-  }
-  if (message.includes("model") || message.includes("ai")) {
-    return "MODEL_ERROR";
-  }
-  if (message.includes("validation") || message.includes("invalid")) {
-    return "VALIDATION_ERROR";
-  }
-  return "UNKNOWN_ERROR";
-};
 
 interface ChatProps {
   id: string;
@@ -104,8 +74,7 @@ export function Chat({
   });
 
   const handleError = useCallback((error: Error) => {
-    const errorType = categorizeError(error);
-    toast.error(ERROR_MESSAGES[errorType], {
+    toast.error(getChatErrorMessage(error), {
       description: "If this issue persists, please contact support.",
       duration: 5000,
     });
@@ -123,9 +92,7 @@ export function Chat({
     setMessages,
     sendMessage: append,
     status,
-    regenerate: reload,
     resumeStream,
-    addToolApprovalResponse,
     error,
   } = useChat<UIMessage>({
     id: chatId,
@@ -286,6 +253,74 @@ export function Chat({
     }
   }, [messages, scroll, status]);
 
+  const regenerateFromMessage = useCallback(
+    async (assistantMessageId: string) => {
+      if (status === "submitted" || status === "streaming") {
+        return;
+      }
+
+      const targetIndex = messages.findIndex(
+        (message) => message.id === assistantMessageId
+      );
+      if (targetIndex <= 0 || messages[targetIndex]?.role !== "assistant") {
+        return;
+      }
+
+      let userIndex = targetIndex - 1;
+      while (userIndex >= 0 && messages[userIndex]?.role !== "user") {
+        userIndex -= 1;
+      }
+      if (userIndex < 0) {
+        return;
+      }
+
+      const userMessage = messages[userIndex];
+      const userText = userMessage.parts
+        .filter(
+          (
+            part
+          ): part is Extract<
+            (typeof userMessage.parts)[number],
+            { type: "text"; text: string }
+          > => part.type === "text"
+        )
+        .map((part) => part.text)
+        .join("\n")
+        .trim();
+      const userFiles: FileUIPart[] = userMessage.parts
+        .filter(
+          (
+            part
+          ): part is Extract<
+            (typeof userMessage.parts)[number],
+            { type: "file"; url: string }
+          > => part.type === "file" && typeof part.url === "string"
+        )
+        .map((part) => ({
+          type: "file",
+          filename: part.filename,
+          mediaType: part.mediaType,
+          url: part.url,
+        }));
+
+      const preservedMessages = messages.slice(0, userIndex);
+      setMessages(preservedMessages);
+
+      try {
+        await append({
+          text: userText,
+          ...(userFiles.length > 0 ? { files: userFiles } : {}),
+        });
+      } catch (error) {
+        setMessages(messages);
+        handleError(
+          error instanceof Error ? error : new Error("Failed to regenerate")
+        );
+      }
+    },
+    [append, handleError, messages, setMessages, status]
+  );
+
   const handleSubmit = async (inputValue: string, files: Attachment[]) => {
     const localFileParts: FileUIPart[] = files
       .filter((attachment) => attachment.source === "local")
@@ -360,7 +395,11 @@ export function Chat({
     noKeyboard: true,
   });
 
-  const isEmptyState = messages.length === 0;
+  const isEmptyState =
+    messages.length === 0 &&
+    !pendingChatRouteRef.current &&
+    status !== "submitted" &&
+    status !== "streaming";
   const inputCard = (centered = false) => (
     <div
       className={`flex min-h-36 w-full flex-col gap-2 rounded-2xl bg-transparent p-3 pb-1 backdrop-blur-sm ${
@@ -385,7 +424,6 @@ export function Chat({
       <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col bg-background transition-all duration-300">
         {!isEmptyState && (
           <Messages
-            addToolApprovalResponse={addToolApprovalResponse}
             agentActivity={agentActivity}
             chatId={chatId}
             error={error}
@@ -394,9 +432,8 @@ export function Chat({
             messages={messages}
             messagesContainerRef={messagesContainerRef}
             messagesEndRef={messagesEndRef}
-            reload={reload}
+            onRegenerate={regenerateFromMessage}
             sendMessage={append}
-            setMessages={setMessages}
             status={status}
             userName={userName}
             workspaceUuid={workspaceUuid}

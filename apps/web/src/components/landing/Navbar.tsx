@@ -20,7 +20,7 @@ import {
 } from "@avenire/ui/components/navigation-menu"
 import { MenuIcon, XIcon } from "lucide-react"
 
-const SIGN_UP_HREF = "/register"
+const SIGN_UP_HREF = "/waitlist"
 const SIGN_IN_HREF = "/login"
 const APP_HREF = "/workspace"
 
@@ -213,9 +213,9 @@ export function Navbar() {
                   size="sm"
                   className="rounded-full px-3 text-xs"
                   nativeButton={false}
-                  render={<Link href={SIGN_UP_HREF} />}
+                  render={<Link href={SIGN_UP_HREF as Route} />}
                 >
-                  Sign Up
+                  Join waitlist
                 </Button>
               </>
             )}
@@ -307,9 +307,9 @@ export function Navbar() {
                 className="w-full rounded-full"
                 onClick={() => setMobileOpen(false)}
                 nativeButton={false}
-                render={<Link href={SIGN_UP_HREF} />}
+                render={<Link href={SIGN_UP_HREF as Route} />}
               >
-                Sign Up
+                Join waitlist
               </Button>
             </>
           )}

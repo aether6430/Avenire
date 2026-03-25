@@ -75,6 +75,7 @@ export async function scheduleIngestionJob(input: {
   workspaceId: string;
   fileId: string;
   sourceType?: string | null;
+  delayMs?: number;
 }): Promise<IngestionJobRecord> {
   const job = await enqueueIngestionJob(input);
 
@@ -84,6 +85,7 @@ export async function scheduleIngestionJob(input: {
         workspaceId: job.workspaceId,
         fileId: job.fileId,
         jobId: job.id,
+        delayMs: input.delayMs,
       });
     } catch (error) {
       console.error("ingestion.queue.enqueue_failed", {

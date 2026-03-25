@@ -1,13 +1,13 @@
-import { Navbar } from "@/components/landing/Navbar";
-import { Hero } from "@/components/landing/Hero";
-import { MeetApollo } from "@/components/landing/MeetApollo";
-import { HowItWorks } from "@/components/landing/HowItWorks";
 import { CTA } from "@/components/landing/CTA";
 import { Footer } from "@/components/landing/Footer";
+import { Hero } from "@/components/landing/Hero";
+import { HowItWorks } from "@/components/landing/HowItWorks";
+import { MeetApollo } from "@/components/landing/MeetApollo";
+import { Navbar } from "@/components/landing/Navbar";
 
 export default function Page() {
   return (
-    <main className="min-h-screen">
+    <main className="landing-light-scope min-h-screen bg-background text-foreground">
       <Navbar />
       <Hero />
       <HowItWorks />

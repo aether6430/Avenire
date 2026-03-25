@@ -1,4 +1,5 @@
 import { $ERROR_CODES } from "./client";
+import { WAITLIST_ERROR_NONE, WAITLIST_ERROR_PENDING } from "./waitlist-shared";
 
 export const ERROR_CODES = new Map(
   Object.entries({
@@ -22,6 +23,15 @@ export const ERROR_CODES = new Map(
     },
     EMAIL_NOT_VERIFIED: {
       email: ["Please verify your email. Check your inbox."],
+    },
+    EMAIL_NOT_ON_WAITLIST: {
+      email: ["This email is on the waitlist, but it has not been approved yet."],
+    },
+    WAITLIST_NOT_FOUND: {
+      email: ["This email does not have access yet."],
+    },
+    WAITLIST_PENDING: {
+      email: ["This email is on the waitlist, but it has not been approved yet."],
     },
     USER_ALREADY_EXISTS: {
       email: ["You already have an account. Try logging in."],
@@ -62,6 +72,18 @@ type ErrorTypes = Partial<
     userMessage: string,
     source: string
   }
+  EMAIL_NOT_ON_WAITLIST: {
+    userMessage: string;
+    source: string;
+  };
+  WAITLIST_NOT_FOUND: {
+    userMessage: string;
+    source: string;
+  };
+  WAITLIST_PENDING: {
+    userMessage: string;
+    source: string;
+  }
 };
 
 const errorCodes = {
@@ -95,6 +117,18 @@ const errorCodes = {
   },
   EMAIL_NOT_VERIFIED: {
     userMessage: "Please verify your email by checking your inbox.",
+    source: "email"
+  },
+  EMAIL_NOT_ON_WAITLIST: {
+    userMessage: "This email is on the waitlist, but it has not been approved yet.",
+    source: "email"
+  },
+  WAITLIST_NOT_FOUND: {
+    userMessage: "This email does not have access yet.",
+    source: "email"
+  },
+  WAITLIST_PENDING: {
+    userMessage: "This email is on the waitlist, but it has not been approved yet.",
     source: "email"
   },
   FAILED_TO_CREATE_SESSION: {
@@ -167,7 +201,24 @@ const errorCodes = {
   }
 } satisfies ErrorTypes;
 
-export const getErrorMessage = (code: string) => {
+export const getErrorMessage = (code: string, message?: string) => {
+  const normalizedMessage = message?.toLowerCase() ?? "";
+  if (
+    normalizedMessage.includes("waitlist") ||
+    normalizedMessage.includes("approved yet") ||
+    normalizedMessage.includes("not been approved")
+  ) {
+    return {
+      userMessage: "This email is on the waitlist, but it has not been approved yet.",
+      source: "email",
+    };
+  }
+  if (code === WAITLIST_ERROR_NONE.toUpperCase()) {
+    return errorCodes.WAITLIST_NOT_FOUND;
+  }
+  if (code === WAITLIST_ERROR_PENDING.toUpperCase()) {
+    return errorCodes.WAITLIST_PENDING;
+  }
   if (code in errorCodes) {
     return errorCodes[code as keyof typeof errorCodes];
   }

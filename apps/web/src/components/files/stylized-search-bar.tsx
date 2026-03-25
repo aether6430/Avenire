@@ -662,6 +662,7 @@ const StylizedSearchBar = memo(function StylizedSearchBar({
                                 content={aiSummary}
                                 id={`retrieval-summary-${query}`}
                                 textSize="small"
+                                workspaceUuid={workspaceUuid}
                               />
                             ) : (
                               <p className="text-muted-foreground text-sm leading-6">

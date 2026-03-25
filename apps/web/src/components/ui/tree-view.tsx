@@ -1,28 +1,28 @@
 "use client";
 
-import type { HTMLAttributes, ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronRight, File, Folder, FolderOpen } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@avenire/ui/components/collapsible";
+import { ChevronRight, File, Folder, FolderOpen } from "lucide-react";
+import type { HTMLAttributes, ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export interface TreeDataItem {
-  id: string;
-  name: string;
-  icon?: React.ComponentType<{ className?: string }>;
-  selectedIcon?: React.ComponentType<{ className?: string }>;
-  openIcon?: React.ComponentType<{ className?: string }>;
-  children?: TreeDataItem[];
   actions?: ReactNode;
-  onClick?: () => void;
+  children?: TreeDataItem[];
+  className?: string;
+  disabled?: boolean;
   draggable?: boolean;
   droppable?: boolean;
-  disabled?: boolean;
-  className?: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  id: string;
+  name: string;
+  onClick?: () => void;
+  openIcon?: React.ComponentType<{ className?: string }>;
+  selectedIcon?: React.ComponentType<{ className?: string }>;
 }
 
 export interface TreeRenderItemParams {
@@ -112,7 +112,9 @@ export function TreeView({
       return;
     }
     const next = new Set(initialExpandedItemIds ?? []);
-    setExpandedItemIds((current) => (areSetsEqual(current, next) ? current : next));
+    setExpandedItemIds((current) =>
+      areSetsEqual(current, next) ? current : next
+    );
   }, [expandAll, initialExpandedItemIds]);
 
   useEffect(() => {
@@ -122,25 +124,20 @@ export function TreeView({
     setExpandedItemIds(new Set(Array.from(itemMap.keys())));
   }, [expandAll, itemMap]);
 
-  const updateExpanded = useCallback(
-    (next: Set<string>) => {
-      setExpandedItemIds(next);
-      onExpandedChange?.(Array.from(next));
-    },
-    [onExpandedChange]
-  );
-
   const toggleExpanded = useCallback(
     (itemId: string) => {
-      updateExpanded(
-        new Set(
-          expandedItemIds.has(itemId)
-            ? Array.from(expandedItemIds).filter((id) => id !== itemId)
-            : [...expandedItemIds, itemId]
-        )
-      );
+      setExpandedItemIds((current) => {
+        const next = new Set(current);
+        if (next.has(itemId)) {
+          next.delete(itemId);
+        } else {
+          next.add(itemId);
+        }
+        onExpandedChange?.(Array.from(next));
+        return next;
+      });
     },
-    [expandedItemIds, updateExpanded]
+    [onExpandedChange]
   );
 
   const handleSelect = useCallback(
@@ -162,11 +159,15 @@ export function TreeView({
       const isSelected = selectedItemId === item.id;
       const isDropTarget = dropTargetItemId === item.id;
 
+      let fallbackIcon = DefaultLeafIcon;
+      if (hasChildren) {
+        fallbackIcon = isExpanded ? DEFAULT_OPEN_ICON : DefaultNodeIcon;
+      }
       const Icon =
         (isSelected && item.selectedIcon) ||
         (isExpanded && item.openIcon) ||
         item.icon ||
-        (hasChildren ? (isExpanded ? DEFAULT_OPEN_ICON : DefaultNodeIcon) : DefaultLeafIcon);
+        fallbackIcon;
 
       const content = renderItem?.({
         depth,
@@ -176,13 +177,18 @@ export function TreeView({
       });
 
       return (
-        <Collapsible key={item.id} onOpenChange={() => toggleExpanded(item.id)} open={isExpanded}>
-          <div className={cn(item.className)} data-tree-id={item.id}>
+        <Collapsible
+          key={item.id}
+          onOpenChange={() => toggleExpanded(item.id)}
+          open={isExpanded}
+        >
+          <div className={cn("min-w-0", item.className)} data-tree-id={item.id}>
             <div
               className={cn(
-                "group/tree-row flex items-center gap-2 rounded-xl px-2 py-1.5 transition-colors",
+                "group/tree-row flex w-full min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 transition-colors",
                 "hover:bg-primary/6",
-                isSelected && "bg-primary/10 text-primary ring-1 ring-primary/20",
+                isSelected &&
+                  "bg-primary/10 text-primary ring-1 ring-primary/20",
                 isDropTarget && "bg-primary/12 ring-1 ring-primary/30",
                 item.disabled && "pointer-events-none opacity-50"
               )}
@@ -198,7 +204,13 @@ export function TreeView({
                 );
               }}
               onDragOver={(event) => {
-                if (!(item.droppable && draggedItemId && draggedItemId !== item.id)) {
+                if (
+                  !(
+                    item.droppable &&
+                    draggedItemId &&
+                    draggedItemId !== item.id
+                  )
+                ) {
                   return;
                 }
                 event.preventDefault();
@@ -211,13 +223,33 @@ export function TreeView({
                 setDraggedItemId(item.id);
               }}
               onDrop={(event) => {
-                if (!(item.droppable && draggedItemId && draggedItemId !== item.id)) {
+                if (
+                  !(
+                    item.droppable &&
+                    draggedItemId &&
+                    draggedItemId !== item.id
+                  )
+                ) {
                   return;
                 }
                 event.preventDefault();
                 onMoveItem?.(draggedItemId, item.id);
                 setDraggedItemId(null);
                 setDropTargetItemId(null);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  handleSelect(item);
+                }
+                if (hasChildren && event.key === "ArrowRight" && !isExpanded) {
+                  event.preventDefault();
+                  toggleExpanded(item.id);
+                }
+                if (hasChildren && event.key === "ArrowLeft" && isExpanded) {
+                  event.preventDefault();
+                  toggleExpanded(item.id);
+                }
               }}
               role="treeitem"
               style={{ paddingLeft: `${depth * 12 + 8}px` }}
@@ -231,24 +263,31 @@ export function TreeView({
                   }}
                 >
                   <ChevronRight
-                    className={cn("size-3.5 transition-transform", isExpanded && "rotate-90")}
+                    className={cn(
+                      "size-3.5 transition-transform",
+                      isExpanded && "rotate-90"
+                    )}
                   />
                 </CollapsibleTrigger>
               ) : (
                 <span className="size-5 shrink-0" />
               )}
               <Icon className="size-4 shrink-0" />
-              <span className="min-w-0 flex-1 truncate text-sm">{item.name}</span>
+              <span className="min-w-0 flex-1 truncate text-sm">
+                {item.name}
+              </span>
               {content}
               {item.actions ? (
-                <div className="flex items-center gap-1 opacity-0 transition-opacity group-focus-within/tree-row:opacity-100 group-hover/tree-row:opacity-100">
+                <div className="ml-auto flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-focus-within/tree-row:opacity-100 group-hover/tree-row:opacity-100">
                   {item.actions}
                 </div>
               ) : null}
             </div>
             {hasChildren ? (
-              <CollapsibleContent className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-1 overflow-hidden">
-                <div className="space-y-1 pt-1">{item.children?.map((child) => renderNode(child, depth + 1))}</div>
+              <CollapsibleContent className="motion-safe:fade-in-0 motion-safe:slide-in-from-top-1 data-closed:fade-out-0 data-closed:slide-out-to-top-1 overflow-hidden data-closed:animate-out motion-safe:animate-in">
+                <div className="min-w-0 space-y-1 pt-1">
+                  {item.children?.map((child) => renderNode(child, depth + 1))}
+                </div>
               </CollapsibleContent>
             ) : null}
           </div>

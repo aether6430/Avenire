@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { getUserUsageOverview } from "@/lib/billing";
 import { userCanEditFolder } from "@/lib/file-data";
 import { createApiLogger } from "@/lib/observability";
-import { createUploadSession } from "@/lib/upload-session-store";
 import { normalizeSha256 } from "@/lib/upload-registration";
+import { createUploadSession } from "@/lib/upload-session-store";
 import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
 
 const createSessionSchema = z.object({
@@ -16,7 +17,10 @@ const createSessionSchema = z.object({
 });
 
 function resolveRecommendedPartSize() {
-  const parsed = Number.parseInt(process.env.UPLOAD_SESSION_MAX_PART_BYTES ?? "", 10);
+  const parsed = Number.parseInt(
+    process.env.UPLOAD_SESSION_MAX_PART_BYTES ?? "",
+    10
+  );
   if (!Number.isFinite(parsed) || parsed <= 0) {
     return 16 * 1024 * 1024;
   }
@@ -31,10 +35,10 @@ export async function POST(request: Request) {
     feature: "uploads",
     userId: user?.id ?? null,
   });
-  void apiLogger.requestStarted();
+  apiLogger.requestStarted();
 
   if (!user) {
-    void apiLogger.requestFailed(401, "Unauthorized");
+    apiLogger.requestFailed(401, "Unauthorized");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -42,7 +46,7 @@ export async function POST(request: Request) {
     await request.json().catch(() => ({}))
   );
   if (!parsed.success) {
-    void apiLogger.requestFailed(400, "Invalid payload");
+    apiLogger.requestFailed(400, "Invalid payload");
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
@@ -51,7 +55,7 @@ export async function POST(request: Request) {
     parsed.data.workspaceUuid
   );
   if (!canAccess) {
-    void apiLogger.requestFailed(403, "Forbidden", {
+    apiLogger.requestFailed(403, "Forbidden", {
       workspaceUuid: parsed.data.workspaceUuid,
     });
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -63,8 +67,20 @@ export async function POST(request: Request) {
     userId: user.id,
   });
   if (!canEdit) {
-    void apiLogger.requestFailed(403, "Read-only folder");
+    apiLogger.requestFailed(403, "Read-only folder");
     return NextResponse.json({ error: "Read-only folder" }, { status: 403 });
+  }
+
+  const usage = await getUserUsageOverview(user.id);
+  if (usage.upload.totalBalance < 1) {
+    apiLogger.requestFailed(429, "Upload usage limit reached", {
+      workspaceUuid: parsed.data.workspaceUuid,
+      folderId: parsed.data.folderId,
+    });
+    return NextResponse.json(
+      { error: "Upload usage limit reached" },
+      { status: 429 }
+    );
   }
 
   const session = await createUploadSession({
@@ -77,7 +93,7 @@ export async function POST(request: Request) {
     checksumSha256: normalizeSha256(parsed.data.checksumSha256),
   });
 
-  void apiLogger.requestSucceeded(201, {
+  apiLogger.requestSucceeded(201, {
     workspaceUuid: session.workspaceUuid,
     sessionId: session.id,
     folderId: session.folderId,

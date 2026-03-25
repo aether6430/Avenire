@@ -26,11 +26,11 @@ export interface QuickCaptureTaskValues {
 
 interface QuickCaptureDialogProps {
   initialKind?: CaptureKind;
+  onOpenChange?: (open: boolean) => void;
+  open?: boolean;
   taskId?: string;
   taskMode?: "create" | "edit";
   taskValues?: QuickCaptureTaskValues;
-  onOpenChange?: (open: boolean) => void;
-  open?: boolean;
   trigger: ReactElement;
 }
 
@@ -59,6 +59,37 @@ function resetMisconceptionState() {
     subject: "",
     topic: "",
   };
+}
+
+function pad(value: number) {
+  return String(value).padStart(2, "0");
+}
+
+function toDateTimeLocalValue(isoValue: string | null | undefined) {
+  if (!isoValue) {
+    return "";
+  }
+
+  const date = new Date(isoValue);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function toIsoFromDateTimeLocalValue(value: string) {
+  if (!value.trim()) {
+    return null;
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
 export function QuickCaptureDialog({
@@ -104,8 +135,12 @@ export function QuickCaptureDialog({
     if (resolvedOpen) {
       if (kind === "task") {
         setTask(
-          taskValues ??
-            (taskMode === "edit" ? resetTaskState() : resetTaskState())
+          taskValues
+            ? {
+                ...taskValues,
+                dueAt: toDateTimeLocalValue(taskValues.dueAt),
+              }
+            : resetTaskState()
         );
       }
       return;
@@ -142,7 +177,7 @@ export function QuickCaptureDialog({
       if (nextKind === "task") {
         const payload = {
           description: task.description.trim(),
-          dueAt: task.dueAt || null,
+          dueAt: toIsoFromDateTimeLocalValue(task.dueAt),
           title: task.title.trim(),
         };
 

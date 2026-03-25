@@ -36,6 +36,41 @@
       "when": 1774058001452,
       "tag": "0004_task_commitment_inbox",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1774256538864,
+      "tag": "0005_careful_spirit",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1774257943642,
+      "tag": "0006_drop_waitlist_user_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1774300000000,
+      "tag": "0007_workspace_property_registry",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1774310000000,
+      "tag": "0008_note_content_yjs_state",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1774313600000,
+      "tag": "0009_note_content_diff_sync",
+      "breakpoints": true
     }
   ]
 }

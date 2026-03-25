@@ -3,13 +3,6 @@
 import { Badge } from "@avenire/ui/components/badge";
 import { Button } from "@avenire/ui/components/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@avenire/ui/components/card";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -36,7 +29,7 @@ import { usePathname } from "next/navigation";
 import { motion } from "motion/react";
 import { useDeferredValue, useEffect, useRef, useState } from "react";
 import { Markdown } from "@/components/chat/markdown";
-import { WorkspaceHeader } from "@/components/dashboard/workspace-header";
+import { HeaderBreadcrumbs, HeaderLeadingIcon } from "@/components/dashboard/header-portal";
 import { FlashcardDeckStack } from "@/components/flashcards/deck-stack";
 import type {
   FlashcardCardRecord,
@@ -436,24 +429,27 @@ export function FlashcardSetDetail({
 
   return (
     <div className="h-full overflow-y-auto bg-background">
-      <div className="mx-auto flex w-full max-w-none flex-col gap-4 px-4 py-4 md:px-6">
-        <WorkspaceHeader leadingIcon={<BookOpenCheck className="size-3.5" />}>
+      <div className="flex w-full flex-col gap-4 px-4 py-4 md:px-6 lg:px-8">
+        <HeaderLeadingIcon>
+          <BookOpenCheck className="size-3.5" />
+        </HeaderLeadingIcon>
+        <HeaderBreadcrumbs>
           <div className="min-w-0">
-            <p className="truncate font-medium text-foreground text-sm">
+            <p className="truncate text-muted-foreground text-sm">
               Flashcards
             </p>
             <p className="truncate text-muted-foreground text-xs">
               {set.title}
             </p>
           </div>
-        </WorkspaceHeader>
+        </HeaderBreadcrumbs>
         <motion.div
           animate={{ opacity: 1, y: 0 }}
           initial={{ opacity: 0, y: 8 }}
           transition={{ duration: 0.22, ease: "easeOut" }}
         >
-          <Card className="shadow-none">
-          <CardHeader className="gap-3 border-border/70 border-b pb-4">
+          <div>
+          <div className="gap-3 border-border/40 border-b pb-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="space-y-1.5">
                 <div className="flex flex-wrap items-center gap-2">
@@ -467,10 +463,10 @@ export function FlashcardSetDetail({
                   </Badge>
                 </div>
                 <div>
-                  <CardTitle>{set.title}</CardTitle>
-                  <CardDescription>
+                  <h1 className="text-xl font-semibold tracking-tight">{set.title}</h1>
+                  <p className="text-muted-foreground text-sm">
                     {set.description ?? "No description set for this deck."}
-                  </CardDescription>
+                  </p>
                 </div>
                 {drillFilters.length > 0 ? (
                   <div className="rounded-lg border border-amber-200/80 bg-amber-50/80 px-3 py-2 text-xs dark:border-amber-400/20 dark:bg-amber-500/10">
@@ -621,11 +617,10 @@ export function FlashcardSetDetail({
                 </Dialog>
               </div>
             </div>
-          </CardHeader>
-        </Card>
+          </div>
+        </div>
 
-        <Card className="shadow-none">
-          <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
               <p className="font-medium text-foreground text-sm">Review</p>
               <p className="text-muted-foreground text-xs">{reviewSummary}</p>
@@ -638,12 +633,11 @@ export function FlashcardSetDetail({
             >
               {activeCard ? "Start review" : "No cards queued"}
             </Button>
-          </CardContent>
-        </Card>
+        </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-2xl border border-border/45 bg-muted/10 px-4 py-3">
-            <p className="text-[11px] text-muted-foreground uppercase tracking-[0.18em]">
+            <div className="rounded-md bg-secondary/40 px-4 py-3">
+              <p className="text-[11px] text-muted-foreground uppercase tracking-[0.15em]">
               Deck profile
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -662,9 +656,9 @@ export function FlashcardSetDetail({
               {set.stateCounts.learning + set.stateCounts.relearning} in
               progress
             </p>
-          </div>
-          <div className="rounded-2xl border border-border/45 bg-muted/10 px-4 py-3">
-            <p className="text-[11px] text-muted-foreground uppercase tracking-[0.18em]">
+            </div>
+            <div className="rounded-md bg-secondary/40 px-4 py-3">
+              <p className="text-[11px] text-muted-foreground uppercase tracking-[0.15em]">
               Study context
             </p>
             <div className="mt-3 space-y-2 text-muted-foreground text-xs">
@@ -822,12 +816,12 @@ export function FlashcardSetDetail({
           </DialogContent>
         </Dialog>
 
-        <Card className="shadow-none">
-          <CardHeader className="pb-3">
+        <div className="mt-4 min-w-0">
+          <div className="pb-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <CardTitle>Card bank</CardTitle>
-                <CardDescription>Search, edit, or kill cards.</CardDescription>
+                <h2 className="text-sm font-medium text-foreground">Card bank</h2>
+                <p className="text-muted-foreground text-xs">Search, edit, or kill cards.</p>
               </div>
               <Input
                 className="max-w-xs"
@@ -836,9 +830,9 @@ export function FlashcardSetDetail({
                 value={search}
               />
             </div>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-[30rem] rounded-lg border border-border/70">
+          </div>
+          <div className="min-w-0">
+            <ScrollArea className="h-[30rem] w-full rounded-md">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -918,8 +912,8 @@ export function FlashcardSetDetail({
                 </TableBody>
               </Table>
             </ScrollArea>
-          </CardContent>
-          </Card>
+          </div>
+          </div>
         </motion.div>
       </div>
     </div>

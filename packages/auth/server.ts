@@ -14,6 +14,7 @@ import {
   renderDeleteAccountEmail,
   renderFileShareNotificationEmail,
   renderPasswordResetEmail,
+  renderSecurityVerificationCodeEmail,
   renderVerificationEmail,
   renderWelcomeEmail,
   renderWorkspaceShareNotificationEmail
@@ -22,9 +23,12 @@ import { betterAuth } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies, toNextJsHandler } from "better-auth/next-js";
+import { lastLoginMethod, organization } from "better-auth/plugins";
+import { checkout, polar, portal } from "@polar-sh/better-auth";
+import { Polar } from "@polar-sh/sdk";
 import { passkey } from "@better-auth/passkey";
-import { organization } from "better-auth/plugins/organization";
 import { username } from "better-auth/plugins/username";
+import { waitlistPlugin } from "./waitlist";
 
 const appUrl = process.env.BETTER_AUTH_URL?.trim();
 if (!appUrl) {
@@ -39,6 +43,44 @@ const emailer = new Emailer();
 const trustedOrigins = Array.from(
   new Set([appUrl, ...trustedOriginsFromEnv]),
 );
+const polarAccessToken = process.env.POLAR_ACCESS_TOKEN?.trim();
+const polarServer = process.env.POLAR_SERVER === "production" ? "production" : "sandbox";
+const polarClient = polarAccessToken
+  ? new Polar({
+      accessToken: polarAccessToken,
+      server: polarServer,
+    })
+  : null;
+const polarCheckoutProducts = [
+  {
+    env: "POLAR_PRODUCT_ID_CORE_MONTHLY",
+    slug: "core-monthly",
+  },
+  {
+    env: "POLAR_PRODUCT_ID_CORE_YEARLY",
+    slug: "core-yearly",
+  },
+  {
+    env: "POLAR_PRODUCT_ID_SCHOLAR_MONTHLY",
+    slug: "scholar-monthly",
+  },
+  {
+    env: "POLAR_PRODUCT_ID_SCHOLAR_YEARLY",
+    slug: "scholar-yearly",
+  },
+]
+  .map((product) => {
+    const productId = process.env[product.env]?.trim();
+    if (!productId) {
+      return null;
+    }
+
+    return {
+      productId,
+      slug: product.slug,
+    };
+  })
+  .filter((product): product is { productId: string; slug: string } => Boolean(product));
 const generatedBetterAuthSchema = {
   user,
   session,
@@ -120,8 +162,8 @@ export const auth = betterAuth({
               username: profile.name
             })
           }
-        }
-      : {})
+      }
+    : {})
   },
   hooks: {
     after: createAuthMiddleware(async (ctx) => {
@@ -148,6 +190,28 @@ export const auth = betterAuth({
     })
   },
   plugins: [
+    lastLoginMethod(),
+    waitlistPlugin(),
+    ...(polarClient
+      ? [
+          polar({
+            client: polarClient,
+            createCustomerOnSignUp: true,
+            use: [
+              portal(),
+              ...(polarCheckoutProducts.length
+                ? [
+                    checkout({
+                      products: polarCheckoutProducts,
+                      authenticatedUsersOnly: true,
+                      successUrl: "/settings?tab=billing&checkout=success",
+                    }),
+                  ]
+                : []),
+            ],
+          }),
+        ]
+      : []),
     username({
       usernameValidator: () => true
     }),
@@ -159,7 +223,8 @@ export const auth = betterAuth({
     nextCookies()
   ],
   onAPIError: {
-    throw: false
+    throw: false,
+    errorURL: `${appUrl.replace(/\/$/, "")}/login`,
   }
 });
 
@@ -209,6 +274,9 @@ export async function sendSudoVerificationCodeEmail(input: {
   await emailer.send({
     to: [input.toEmail],
     subject: "Your Avenire security verification code",
-    html: `<p>Use this code to confirm a sensitive settings action:</p><p style="font-size:24px;font-weight:700;letter-spacing:2px;">${input.code}</p><p>This code expires in ${input.expiresInMinutes} minutes.</p>`,
+    html: await renderSecurityVerificationCodeEmail({
+      code: input.code,
+      expiresInMinutes: input.expiresInMinutes,
+    }),
   });
 }

@@ -25,6 +25,7 @@ import {
   isSharedFilesVirtualFolderId,
   listWorkspaceFiles,
   listWorkspaceFolders,
+  updateFileAsset,
   updateNoteContent,
   userCanEditFile,
   userCanEditFolder,
@@ -294,17 +295,115 @@ function isMarkdownFile(file: ExplorerFileLike) {
 
 function buildNoteContent(params: {
   content: string;
-  tags?: string[];
   title: string;
 }) {
   const normalizedContent = params.content.trim();
-  const tags = (params.tags ?? []).map((tag) => tag.trim()).filter(Boolean);
-  const frontMatterLines = [`title: ${params.title}`];
-  if (tags.length > 0) {
-    frontMatterLines.push(`tags: [${tags.join(", ")}]`);
+  return `# ${params.title}\n\n${normalizedContent}\n`;
+}
+
+function normalizeTagList(tags: string[]) {
+  return Array.from(
+    new Set(tags.map((tag) => tag.trim()).filter(Boolean))
+  ).slice(0, 24);
+}
+
+function getFileTags(file: ExplorerFileLike) {
+  const property = file.page?.properties?.tags;
+  if (!(property && property.type === "multi_select")) {
+    return [];
   }
-  const frontMatter = `---\n${frontMatterLines.join("\n")}\n---\n\n`;
-  return `${frontMatter}${normalizedContent}\n`;
+  return normalizeTagList(property.value);
+}
+
+function extractTagDirective(task: string):
+  | { action: "add"; tags: string[] }
+  | { action: "remove"; tags: string[] }
+  | { action: "replace"; tags: string[] }
+  | null {
+  const clearMatch = task.match(/\bclear\s+tags?\b/i);
+  if (clearMatch) {
+    return { action: "replace", tags: [] };
+  }
+
+  const replaceMatch =
+    task.match(/\btags?\s*:\s*([^\n]+)/i) ??
+    task.match(/\b(?:set|update|change)\s+tags?\s+(?:to|as)\s+([^\n]+)/i);
+  if (replaceMatch?.[1]) {
+    return {
+      action: "replace",
+      tags: normalizeTagList(
+        replaceMatch[1]
+          .split(/[,\n]/)
+          .map((entry) => entry.replace(/^and\s+/i, "").trim())
+      ),
+    };
+  }
+
+  const addMatch = task.match(/\badd\s+tags?\s+([^\n]+)/i);
+  if (addMatch?.[1]) {
+    return {
+      action: "add",
+      tags: normalizeTagList(addMatch[1].split(/[,\n]/)),
+    };
+  }
+
+  const removeMatch = task.match(/\bremove\s+tags?\s+([^\n]+)/i);
+  if (removeMatch?.[1]) {
+    return {
+      action: "remove",
+      tags: normalizeTagList(removeMatch[1].split(/[,\n]/)),
+    };
+  }
+
+  return null;
+}
+
+async function updateFileTags(params: {
+  file: ExplorerFileLike;
+  tagDirective: ReturnType<typeof extractTagDirective>;
+  userId: string;
+  workspaceId: string;
+}) {
+  if (!params.tagDirective) {
+    return params.file;
+  }
+
+  const currentTags = getFileTags(params.file);
+  const directive = params.tagDirective;
+  const nextTags =
+    directive.action === "replace"
+      ? directive.tags
+      : directive.action === "add"
+        ? normalizeTagList([...currentTags, ...directive.tags])
+        : currentTags.filter((tag) => !directive.tags.includes(tag));
+
+  const currentPage = params.file.page ?? {
+    bannerUrl: null,
+    icon: null,
+    properties: {},
+  };
+
+  const nextFile = await updateFileAsset(
+    params.workspaceId,
+    params.file.id,
+    params.userId,
+    {
+      metadata: {
+        page: {
+          ...currentPage,
+          properties: {
+            ...currentPage.properties,
+            tags: {
+              type: "multi_select",
+              value: nextTags,
+            },
+          },
+        },
+      },
+    }
+  );
+
+  return nextFile ?? params.file;
 }
 
 function applyNoteUpdate(params: {
@@ -1655,6 +1754,7 @@ Internal capabilities:
 - create_note: Create new markdown note
 - read_note: Read existing note content
 - update_note: Append or replace note content (append, replace_entire, replace_section)
+- update_tags: Read and update note tags stored in file properties
 
 The agent decides which operations to perform based on the task.`,
       inputSchema: chatToolSchemas.note_agent.input,
@@ -1684,6 +1784,7 @@ The agent decides which operations to perform based on the task.`,
           task.includes("write")
         ) {
           operation = "created";
+          const tagDirective = extractTagDirective(input.task);
           const titleMatch = input.task.match(
             /(?:create|new|write)\s+(?:a\s+)?(?:note\s+)?(?:about\s+)?["']?([^"']+)["']?/i
           );
@@ -1711,9 +1812,26 @@ The agent decides which operations to perform based on the task.`,
             title,
           });
           const file = await createWorkspaceNoteFile({
+            baseContent: content,
             content,
             folderId: targetFolderId,
-            metadata: { agentNote: true },
+            metadata: {
+              agentNote: true,
+              ...(tagDirective && tagDirective.tags.length > 0
+                ? {
+                    page: {
+                      bannerUrl: null,
+                      icon: null,
+                      properties: {
+                        tags: {
+                          type: "multi_select",
+                          value: tagDirective.tags,
+                        },
+                      },
+                    },
+                  }
+                : {}),
+            },
             name: toMarkdownFileName(title),
             userId: ctx.userId,
             workspaceId: ctx.workspaceId,
@@ -1737,6 +1855,7 @@ The agent decides which operations to perform based on the task.`,
           notes.push({
             contentPreview: input.task.slice(0, 500),
             fileId: file.id,
+            tags: getFileTags(file),
             title: file.name,
             updatedAt: file.updatedAt,
             wordCount: input.task.split(/\s+/).length,
@@ -1755,6 +1874,7 @@ The agent decides which operations to perform based on the task.`,
               notes.push({
                 contentPreview: content.slice(0, 500),
                 fileId: file.id,
+                tags: getFileTags(file),
                 title: file.name,
                 updatedAt: file.updatedAt,
                 wordCount: content.split(/\s+/).length,
@@ -1770,6 +1890,7 @@ The agent decides which operations to perform based on the task.`,
           operation = "updated";
           const noteFile = noteFiles[0];
           if (noteFile) {
+            const tagDirective = extractTagDirective(input.task);
             const canEdit = await userCanEditFile({
               workspaceId: ctx.workspaceId,
               fileId: noteFile.id,
@@ -1786,11 +1907,18 @@ The agent decides which operations to perform based on the task.`,
                 mode: "append",
               });
               const updated = await updateNoteContent({
+                baseContent: currentContent,
                 fileId: noteFile.id,
                 userId: ctx.userId,
                 content: nextContent,
               });
               if (updated) {
+                const fileWithTags = await updateFileTags({
+                  file: noteFile,
+                  tagDirective,
+                  userId: ctx.userId,
+                  workspaceId: ctx.workspaceId,
+                });
                 await deleteIngestionDataForFile(ctx.workspaceId, noteFile.id);
                 await publishTreeMutationEvents({
                   folderId: noteFile.folderId,
@@ -1805,6 +1933,7 @@ The agent decides which operations to perform based on the task.`,
                 notes.push({
                   contentPreview: nextContent.slice(0, 500),
                   fileId: noteFile.id,
+                  tags: getFileTags(fileWithTags),
                   title: noteFile.name,
                   updatedAt: updated.updatedAt.toISOString(),
                   wordCount: nextContent.split(/\s+/).length,
@@ -1821,6 +1950,7 @@ The agent decides which operations to perform based on the task.`,
               notes.push({
                 contentPreview: content.slice(0, 200),
                 fileId: file.id,
+                tags: getFileTags(file),
                 title: file.name,
                 updatedAt: file.updatedAt,
                 wordCount: content.split(/\s+/).length,
