@@ -1,5 +1,6 @@
 import {
   getFolderWithAncestors,
+  getNoteContent,
   isSharedFilesVirtualFolderId,
   listFolderContentsForUser,
   listWorkspaceMembers,
@@ -42,6 +43,15 @@ export async function GET(
     workspaceUuid,
     (children.files ?? []).map((file) => file.id)
   );
+  const noteContentByFileId = new Map<string, string | null>();
+  await Promise.all(
+    (children.files ?? [])
+      .filter((file) => file.isNote)
+      .map(async (file) => {
+        const note = await getNoteContent(file.id);
+        noteContentByFileId.set(file.id, note?.content ?? null);
+      })
+  );
   return NextResponse.json({
     folder: folder.folder,
     ancestors: folder.ancestors,
@@ -49,6 +59,7 @@ export async function GET(
     files: (children.files ?? []).map((file) => ({
       ...file,
       isIngested: ingestionFlags[file.id] ?? false,
+      noteContent: noteContentByFileId.get(file.id) ?? null,
     })),
   });
 }

@@ -1,6 +1,13 @@
 "use client";
 
 import { Button } from "@avenire/ui/components/button";
+import { ButtonGroup } from "@avenire/ui/components/button-group";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@avenire/ui/components/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,39 +23,46 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@avenire/ui/components/popover";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@avenire/ui/components/tabs";
 import { FileMediaPlayer } from "@avenire/ui/media";
 import {
   ArrowDownToLine,
-  ArrowLeft,
   ArrowUp,
-  Copy,
   ChevronDown,
-  FileText,
+  Copy,
   FileImage,
+  FileText,
   FolderInput,
   Info,
   MoreHorizontal,
   Pencil,
   Pin,
   PinOff,
-  SlidersHorizontal,
   RotateCcw,
   Share2,
+  SlidersHorizontal,
   Trash2,
+  WandSparkles,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import {
   type ChangeEvent,
   useCallback,
   useEffect,
-  useMemo,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import { toast } from "sonner";
 import AvenireEditor from "@/components/editor";
 import { PropertiesTable } from "@/components/editor/properties-table";
+import { CircleToAiSearchOverlay } from "@/components/files/circle-to-ai-search-overlay";
+import { ShareDialog } from "@/components/files/explorer/share-dialog";
 import type {
   FileRecord,
   FolderRecord,
@@ -59,7 +73,6 @@ import {
   detectPreviewKind,
   toUpdatedLabel,
 } from "@/components/files/explorer/shared";
-import { ShareDialog } from "@/components/files/explorer/share-dialog";
 import type { WorkspaceSearchResult } from "@/components/files/stylized-search-bar";
 import {
   getWarmState,
@@ -84,7 +97,10 @@ import {
   readWorkspaceMarkdownCache,
   writeWorkspaceMarkdownCache,
 } from "@/lib/workspace-markdown-cache";
+import { cn } from "@/lib/utils";
 import { useHeaderStore } from "@/stores/header-store";
+import { useSearchParams } from "next/navigation";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const PDFViewer = dynamic(() => import("@/components/files/pdf-viewer"), {
   loading: () => (
@@ -95,6 +111,37 @@ const PDFViewer = dynamic(() => import("@/components/files/pdf-viewer"), {
   ssr: false,
 });
 
+const DEFAULT_NOTE_COVER_URL = "/images/folder-banner-default.svg";
+
+function createGradientBannerDataUrl(from: string, to: string) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 420" preserveAspectRatio="none"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="${from}"/><stop offset="100%" stop-color="${to}"/></linearGradient></defs><rect width="1600" height="420" fill="url(#g)"/></svg>`;
+
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+const NOTE_COVER_GALLERY = [
+  {
+    label: "Default",
+    url: DEFAULT_NOTE_COVER_URL,
+  },
+  {
+    label: "Warm",
+    url: createGradientBannerDataUrl("#ef5350", "#f6c453"),
+  },
+  {
+    label: "Ocean",
+    url: createGradientBannerDataUrl("#2f95ca", "#3bb1dc"),
+  },
+  {
+    label: "Paper",
+    url: createGradientBannerDataUrl("#e8d8cc", "#f4ecde"),
+  },
+  {
+    label: "Mint",
+    url: createGradientBannerDataUrl("#5abfc0", "#93d1c0"),
+  },
+] as const;
+
 interface FilePreviewPanelProps {
   activeFile: FileRecord;
   activeRetrievalChunkId: string | null;
@@ -103,7 +150,9 @@ interface FilePreviewPanelProps {
   copyFileShareLink: (file: FileRecord) => void;
   currentFolderId: string;
   currentInfoEntries: { label: string; value: string }[];
-  deleteSelectionItems: (items: { id: string; kind: "file" | "folder" }[]) => void;
+  deleteSelectionItems: (
+    items: { id: string; kind: "file" | "folder" }[]
+  ) => void;
   downloadFileDirect: (file: FileRecord) => void;
   downloadItemArchive: (item: {
     id: string;
@@ -122,9 +171,11 @@ interface FilePreviewPanelProps {
   moveFile: (fileId: string, targetFolderId: string) => Promise<void>;
   openFileById: (fileId: string) => void;
   openRenameFileDialog: (file: FileRecord) => void;
+  propertyDefinitions: WorkspacePropertyDefinition[];
   query: string;
   retrievalResults: WorkspaceSearchResult[];
   selectFile: (fileId: string | null) => void;
+  setPropertyDefinitions: (definitions: WorkspacePropertyDefinition[]) => void;
   startBannerUpload: (files: File[], input?: unknown) => Promise<unknown>;
   startUpload: (files: File[], input?: unknown) => Promise<unknown>;
   toggleCurrentPinnedItem: () => void;
@@ -135,8 +186,6 @@ interface FilePreviewPanelProps {
     content: string;
   }>;
   workspaceMembers: WorkspaceMemberRecord[];
-  propertyDefinitions: WorkspacePropertyDefinition[];
-  setPropertyDefinitions: (definitions: WorkspacePropertyDefinition[]) => void;
   workspaceUuid: string;
 }
 
@@ -189,14 +238,21 @@ export function FilePreviewPanel({
   const [loadedMarkdownFileId, setLoadedMarkdownFileId] = useState<
     string | null
   >(null);
+  const [circleToAiEnabled, setCircleToAiEnabled] = useState(false);
   const [videoLoadFailed, setVideoLoadFailed] = useState(false);
   const [audioLoadFailed, setAudioLoadFailed] = useState(false);
   const [mediaStreamFailed, setMediaStreamFailed] = useState(false);
   const [propertiesOpen, setPropertiesOpen] = useState(false);
+  const [noteCoverPickerTab, setNoteCoverPickerTab] = useState<
+    "gallery" | "link" | "upload"
+  >("gallery");
+  const [noteCoverLinkDraft, setNoteCoverLinkDraft] = useState("");
   const noteBannerInputRef = useRef<HTMLInputElement | null>(null);
   const noteSyncDebounceRef = useRef<number | null>(null);
   const noteSyncInFlightRef = useRef(false);
   const noteSyncQueuedRef = useRef(false);
+  const searchParams = useSearchParams();
+  const isMobile = useIsMobile();
 
   const activeFileIsMarkdown = useMemo(
     () => detectPreviewKind(activeFile).isMarkdown,
@@ -216,6 +272,10 @@ export function FilePreviewPanel({
   );
   const activeFileUpdatedAt = activeFile.updatedAt ?? null;
   const activeFilePropertyCount = Object.keys(notePage.properties).length;
+  const noteDisplayTitle = useMemo(
+    () => activeFile.name.replace(/\.mdx?$/i, ""),
+    [activeFile.name]
+  );
   const cachedMarkdown = useMemo(
     () =>
       workspaceUuid && activeFileIsMarkdown
@@ -260,15 +320,15 @@ export function FilePreviewPanel({
       return;
     }
 
-      setLoadedMarkdownFileId(null);
-      setMarkdownLoading(true);
-      setMarkdownError(null);
-      setMarkdownOriginal("");
-      setMarkdownDraft("");
-      setNoteBaseContent("");
-      setNotePage(activePageFromFile);
-      setNotePageOriginal(activePageFromFile);
-      setNoteRemoteUpdatedAt(activeFileUpdatedAt);
+    setLoadedMarkdownFileId(null);
+    setMarkdownLoading(true);
+    setMarkdownError(null);
+    setMarkdownOriginal("");
+    setMarkdownDraft("");
+    setNoteBaseContent("");
+    setNotePage(activePageFromFile);
+    setNotePageOriginal(activePageFromFile);
+    setNoteRemoteUpdatedAt(activeFileUpdatedAt);
   }, [
     activeFile.id,
     activeFileIsMarkdown,
@@ -341,11 +401,7 @@ export function FilePreviewPanel({
         window.clearTimeout(noteSyncDebounceRef.current);
       }
     };
-  }, [
-    activeFile.id,
-    activeFileIsNote,
-    workspaceUuid,
-  ]);
+  }, [activeFile.id, activeFileIsNote, workspaceUuid]);
 
   useEffect(() => {
     if (!(workspaceUuid && activeFileIsMarkdown)) {
@@ -693,10 +749,7 @@ export function FilePreviewPanel({
   ]);
 
   useEffect(() => {
-    if (
-      activeFile.readOnly ||
-      (activeFileIsMarkdown && !activeFileIsNote)
-    ) {
+    if (activeFile.readOnly || (activeFileIsMarkdown && !activeFileIsNote)) {
       return;
     }
 
@@ -733,6 +786,10 @@ export function FilePreviewPanel({
   }, [activeFile.id]);
 
   useEffect(() => {
+    setCircleToAiEnabled(false);
+  }, [activeFile.id]);
+
+  useEffect(() => {
     if (noteSaveState !== "saved" && noteSaveState !== "error") {
       return;
     }
@@ -751,6 +808,25 @@ export function FilePreviewPanel({
     notePage.bannerUrl?.trim() && notePage.bannerUrl.trim().length > 0
       ? notePage.bannerUrl.trim()
       : null;
+
+  useEffect(() => {
+    setNoteCoverLinkDraft(noteBannerUrl ?? "");
+  }, [noteBannerUrl]);
+
+  const setNoteCoverUrl = useCallback((url: string | null) => {
+    setNotePage((current) => ({
+      ...current,
+      bannerUrl: url,
+    }));
+  }, []);
+
+  const applyDefaultNoteCover = useCallback(() => {
+    if (!activeFileIsNote || activeFile.readOnly) {
+      return;
+    }
+
+    setNoteCoverUrl(DEFAULT_NOTE_COVER_URL);
+  }, [activeFile.readOnly, activeFileIsNote, setNoteCoverUrl]);
 
   const triggerNoteBannerPicker = useCallback(() => {
     if (!activeFileIsNote || activeFile.readOnly || noteBannerUploadBusy) {
@@ -785,10 +861,7 @@ export function FilePreviewPanel({
           throw new Error("Upload returned no file metadata");
         }
 
-        setNotePage((current) => ({
-          ...current,
-          bannerUrl: uploadedUrl,
-        }));
+        setNoteCoverUrl(uploadedUrl);
       } catch (error) {
         setMarkdownError(
           error instanceof Error ? error.message : "Unable to upload banner."
@@ -797,7 +870,7 @@ export function FilePreviewPanel({
         setNoteBannerUploadBusy(false);
       }
     },
-    [activeFile.readOnly, activeFileIsNote, startBannerUpload]
+    [activeFile.readOnly, activeFileIsNote, setNoteCoverUrl, startBannerUpload]
   );
 
   const activeMediaStreamUrl = useMemo(() => {
@@ -906,12 +979,18 @@ export function FilePreviewPanel({
         activeFile.mimeType
       );
 
-  const setHeaderContext = useHeaderStore(
-    (state) => state.setHeaderContext
-  );
+  const setHeaderContext = useHeaderStore((state) => state.setHeaderContext);
   const resetHeaderContext = useHeaderStore(
     (state) => state.resetHeaderContext
   );
+  useEffect(() => {
+    if (searchParams.get("circleToAi") === "1") {
+      const { isPdf, isImage, isVideo } = detectPreviewKind(activeFile);
+      if (isPdf || isImage || isVideo) {
+        setCircleToAiEnabled(true);
+      }
+    }
+  }, [activeFile, searchParams]);
   useEffect(() => {
     setHeaderContext({
       title: activeFile.name,
@@ -930,189 +1009,311 @@ export function FilePreviewPanel({
       actions: (
         <div className="flex flex-wrap items-center justify-end gap-2">
           <span className="hidden text-muted-foreground text-xs sm:inline">
-            Edited {toUpdatedLabel(activeFile.updatedAt ?? activeFile.createdAt)}{" "}
-            ago
+            Edited{" "}
+            {toUpdatedLabel(activeFile.updatedAt ?? activeFile.createdAt)} ago
           </span>
-          {isMarkdown && !activeFile.readOnly && !activeFile.isNote ? (
-            <Button
-              className="h-7"
-              disabled={markdownSaving}
-              onClick={() => {
-                void saveMarkdown();
-              }}
-              size="sm"
-              type="button"
-              variant="secondary"
-            >
-              {markdownSaving ? "Saving..." : "Save"}
-            </Button>
-          ) : null}
-          {activeFile.readOnly ? null : (
-            <ShareDialog
-              activeFile={activeFile}
-              loadShareSuggestions={loadShareSuggestions}
-              variant="file"
-              workspaceUuid={workspaceUuid}
-            />
-          )}
-          <Button
-            className="size-5"
-            onClick={toggleCurrentPinnedItem}
-            size="icon-xs"
-            type="button"
-            variant={isCurrentPinned ? "secondary" : "ghost"}
-          >
-            {isCurrentPinned ? (
-              <PinOff className="size-3" />
-            ) : (
-              <Pin className="size-3" />
-            )}
-          </Button>
-          <Button
-            className="size-5"
-            onClick={() =>
-              window.open(activeFileSourceUrl, "_blank", "noopener,noreferrer")
-            }
-            size="icon-xs"
-            type="button"
-            variant="ghost"
-          >
-            <ArrowUp className="size-3" />
-          </Button>
-          <Popover open={propertiesOpen} onOpenChange={setPropertiesOpen}>
-            <PopoverTrigger
-              render={
+          {isMobile ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    className="h-9 w-9 rounded-md border border-border/60 bg-background text-foreground shadow-sm hover:bg-muted/70"
+                    size="icon"
+                    type="button"
+                    variant="ghost"
+                  />
+                }
+              >
+                <MoreHorizontal className="size-3.5" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-56 border border-border/60 bg-background shadow-md"
+              >
+                {isMarkdown && !activeFile.readOnly && !activeFile.isNote ? (
+                  <DropdownMenuItem
+                    disabled={markdownSaving}
+                    onClick={() => {
+                      void saveMarkdown();
+                    }}
+                  >
+                    <FileText className="size-3.5" />
+                    {markdownSaving ? "Saving..." : "Save"}
+                  </DropdownMenuItem>
+                ) : null}
+                {isPdf || isImage || isVideo ? (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setCircleToAiEnabled((current) => !current);
+                    }}
+                  >
+                    <WandSparkles className="size-3.5" />
+                    {circleToAiEnabled ? "Stop Circle to AI" : "Circle to AI"}
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuItem onClick={toggleCurrentPinnedItem}>
+                  {isCurrentPinned ? (
+                    <PinOff className="size-3.5" />
+                  ) : (
+                    <Pin className="size-3.5" />
+                  )}
+                  {isCurrentPinned ? "Unpin" : "Pin"}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setPropertiesOpen(true)}>
+                  <SlidersHorizontal className="size-3.5" />
+                  Properties
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() =>
+                    window.open(activeFileSourceUrl, "_blank", "noopener,noreferrer")
+                  }
+                >
+                  <ArrowUp className="size-3.5" />
+                  Open in new tab
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    openRenameFileDialog(activeFile);
+                  }}
+                >
+                  <Pencil className="size-3.5" />
+                  Rename
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    void duplicateItem({
+                      id: activeFile.id,
+                      kind: "file",
+                      parentId: activeFile.folderId,
+                    });
+                  }}
+                >
+                  <Copy className="size-3.5" />
+                  Duplicate
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    void copyFileShareLink(activeFile);
+                  }}
+                >
+                  <Share2 className="size-3.5" />
+                  Share
+                </DropdownMenuItem>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <FolderInput className="size-3.5" />
+                    Move To
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="w-56 border border-border/60 bg-background shadow-md">
+                    {allFolders
+                      .filter((folder) => !folder.readOnly)
+                      .slice(0, 20)
+                      .map((folder) => (
+                        <DropdownMenuItem
+                          key={folder.id}
+                          onClick={() => {
+                            void moveFile(activeFile.id, folder.id);
+                          }}
+                        >
+                          {folder.name}
+                        </DropdownMenuItem>
+                      ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuItem
+                  onClick={() => {
+                    downloadFileDirect(activeFile);
+                  }}
+                >
+                  <ArrowDownToLine className="size-3.5" />
+                  Download
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    void hardReingestFile(activeFile);
+                  }}
+                >
+                  <RotateCcw className="size-3.5" />
+                  Hard Re-ingest
+                </DropdownMenuItem>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <Info className="size-3.5" />
+                    Metadata
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="w-56 border border-border/60 bg-background shadow-md">
+                    <div className="px-2 pt-1 pb-1 text-[10px] text-muted-foreground uppercase tracking-[0.18em]">
+                      Info
+                    </div>
+                    {currentInfoEntries.map((entry) => (
+                      <div
+                        className="flex items-start justify-between gap-3 px-2 py-1.5 text-xs"
+                        key={entry.label}
+                      >
+                        <span className="text-muted-foreground">
+                          {entry.label}
+                        </span>
+                        <span className="max-w-[12rem] text-right text-foreground">
+                          {entry.value}
+                        </span>
+                      </div>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    void deleteSelectionItems([
+                      { id: activeFile.id, kind: "file" },
+                    ]);
+                  }}
+                  variant="destructive"
+                >
+                  <Trash2 className="size-3.5" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <ButtonGroup className="items-center divide-x divide-border/60 overflow-hidden rounded-md border border-border/60 bg-background shadow-sm">
+              {isMarkdown && !activeFile.readOnly && !activeFile.isNote ? (
                 <Button
-                  className="h-7 gap-1.5 px-2"
+                  className="h-9 rounded-none border-0 bg-transparent px-3 text-xs shadow-none hover:bg-muted/70"
+                  disabled={markdownSaving}
+                  onClick={() => {
+                    void saveMarkdown();
+                  }}
                   size="sm"
                   type="button"
-                  variant="secondary"
-                />
-              }
-            >
-              <SlidersHorizontal className="size-3" />
-              <span>Properties</span>
-              {activeFilePropertyCount > 0 ? (
-                <span className="rounded-full bg-background/70 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                  {activeFilePropertyCount}
-                </span>
+                  variant="ghost"
+                >
+                  {markdownSaving ? "Saving..." : "Save"}
+                </Button>
               ) : null}
-              <ChevronDown className="size-3 opacity-60" />
-            </PopoverTrigger>
-            <PopoverContent
-              align="end"
-              className="w-[28rem] max-w-[calc(100vw-1rem)] overflow-hidden p-0"
-            >
-              <div className="border-border/60 border-b px-4 py-3">
-                <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                  Properties
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Edit the file's frontmatter directly from the header.
-                </p>
-              </div>
-              <div className="max-h-[60vh] overflow-y-auto p-3">
-                {activeFileIsNote ? (
-                  <div className="mb-4 rounded-xl border border-border/70 bg-muted/20 p-3">
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <div>
-                        <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                          Banner
-                        </div>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Add or replace the page banner for this note.
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          className="h-7 px-2"
-                          disabled={activeFile.readOnly || noteBannerUploadBusy}
-                          onClick={triggerNoteBannerPicker}
-                          size="sm"
-                          type="button"
-                          variant="secondary"
-                        >
-                          <FileImage className="mr-1 size-3.5" />
-                          {noteBannerUploadBusy ? "Uploading..." : "Change"}
-                        </Button>
-                        <Button
-                          className="h-7 px-2"
-                          disabled={
-                            activeFile.readOnly ||
-                            noteBannerUploadBusy ||
-                            !noteBannerUrl
-                          }
-                          onClick={() => {
-                            setNotePage((current) => ({
-                              ...current,
-                              bannerUrl: null,
-                            }));
-                          }}
-                          size="sm"
-                          type="button"
-                          variant="outline"
-                        >
-                          Reset
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="overflow-hidden rounded-lg border border-border/70 bg-background">
-                      {noteBannerUrl ? (
-                        <img
-                          alt={`${activeFile.name} banner`}
-                          className="h-28 w-full object-cover"
-                          height={280}
-                          loading="lazy"
-                          src={noteBannerUrl}
-                          width={1200}
-                        />
-                      ) : (
-                        <div className="flex h-28 items-center justify-center bg-[#d8d1c5] text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                          No banner set
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : null}
-                <PropertiesTable
-                  className="mx-0 mb-0 max-w-none border-0 px-0 pb-0 pt-0 sm:px-0"
-                  definitions={propertyDefinitions}
-                  disabled={activeFile.readOnly}
-                  onDefinitionsChange={setPropertyDefinitions}
-                  onChange={(properties) => {
-                    setNotePage((current) => ({
-                      ...current,
-                      properties,
-                    }));
-                  }}
-                  properties={notePage.properties}
-                />
-                {activeFileIsNote ? (
-                  <input
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleNoteBannerInputChange}
-                    ref={noteBannerInputRef}
-                    type="file"
-                  />
-                ) : null}
-              </div>
-            </PopoverContent>
-          </Popover>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
+              {isPdf || isImage || isVideo ? (
                 <Button
-                  className="size-5"
-                  size="icon-xs"
+                  className="h-9 rounded-none border-0 bg-transparent px-3 text-xs shadow-none hover:bg-muted/70"
+                  onClick={() => {
+                    setCircleToAiEnabled((current) => !current);
+                  }}
+                  size="sm"
                   type="button"
                   variant="ghost"
+                >
+                  <WandSparkles className="size-3.5" />
+                  {circleToAiEnabled ? "Searching" : "Circle to AI"}
+                </Button>
+              ) : null}
+              {activeFile.readOnly ? null : (
+                <ShareDialog
+                  activeFile={activeFile}
+                  compact
+                  loadShareSuggestions={loadShareSuggestions}
+                  segmented
+                  variant="file"
+                  workspaceUuid={workspaceUuid}
                 />
-              }
-            >
-              <MoreHorizontal className="size-3" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+              )}
+              <Button
+                className={cn(
+                  "h-9 w-9 rounded-none border-0 bg-transparent shadow-none hover:bg-muted/70",
+                  isCurrentPinned && "bg-secondary"
+                )}
+                onClick={toggleCurrentPinnedItem}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                {isCurrentPinned ? (
+                  <PinOff className="size-3" />
+                ) : (
+                  <Pin className="size-3" />
+                )}
+              </Button>
+              <Button
+                className="h-9 w-9 rounded-none border-0 bg-transparent shadow-none hover:bg-muted/70"
+                onClick={() =>
+                  window.open(activeFileSourceUrl, "_blank", "noopener,noreferrer")
+                }
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <ArrowUp className="size-3" />
+              </Button>
+              <Popover onOpenChange={setPropertiesOpen} open={propertiesOpen}>
+                <PopoverTrigger
+                  render={
+                    <Button
+                      className="h-9 rounded-none border-0 bg-transparent px-3 text-xs shadow-none hover:bg-muted/70"
+                      size="sm"
+                      type="button"
+                      variant="ghost"
+                    />
+                  }
+                >
+                  <SlidersHorizontal className="size-3" />
+                  <span>Properties</span>
+                  {activeFilePropertyCount > 0 ? (
+                    <span className="rounded-full bg-background/70 px-1.5 py-0.5 font-medium text-[10px] text-muted-foreground">
+                      {activeFilePropertyCount}
+                    </span>
+                  ) : null}
+                  <ChevronDown className="size-3 opacity-60" />
+                </PopoverTrigger>
+                <PopoverContent
+                  align="end"
+                  className="w-[28rem] max-w-[calc(100vw-1rem)] overflow-hidden rounded-lg border border-border/60 bg-background p-0 shadow-md"
+                >
+                  <div className="border-border/60 border-b bg-background px-4 py-3">
+                    <div className="flex items-center gap-2 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.16em]">
+                      <SlidersHorizontal className="size-3" />
+                      Properties
+                    </div>
+                  </div>
+                  <div className="max-h-[60vh] overflow-y-auto p-3.5">
+                    <PropertiesTable
+                      className="mx-0 mb-0 max-w-none border-0 px-0 pt-0 pb-0 sm:px-0"
+                      definitions={propertyDefinitions}
+                      disabled={activeFile.readOnly}
+                      onChange={(properties) => {
+                        setNotePage((current) => ({
+                          ...current,
+                          properties,
+                        }));
+                      }}
+                      onDefinitionsChange={setPropertyDefinitions}
+                      properties={notePage.properties}
+                    />
+                    {activeFileIsNote ? (
+                      <input
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleNoteBannerInputChange}
+                        ref={noteBannerInputRef}
+                        type="file"
+                      />
+                    ) : null}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      className="h-9 w-9 rounded-none border-0 bg-transparent shadow-none hover:bg-muted/70"
+                      size="icon"
+                      type="button"
+                      variant="ghost"
+                    />
+                  }
+                >
+                  <MoreHorizontal className="size-3" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="w-52 border border-border/60 bg-background shadow-md"
+                >
               <DropdownMenuItem onClick={toggleCurrentPinnedItem}>
                 {isCurrentPinned ? (
                   <PinOff className="size-3.5" />
@@ -1154,7 +1355,7 @@ export function FilePreviewPanel({
                   <FolderInput className="size-3.5" />
                   Move To
                 </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
+                <DropdownMenuSubContent className="w-56 border border-border/60 bg-background shadow-md">
                   {allFolders
                     .filter((folder) => !folder.readOnly)
                     .slice(0, 20)
@@ -1191,8 +1392,8 @@ export function FilePreviewPanel({
                   <Info className="size-3.5" />
                   Metadata
                 </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-72">
-                  <div className="px-2 pt-1 pb-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                <DropdownMenuSubContent className="w-56 border border-border/60 bg-background shadow-md">
+                  <div className="px-2 pt-1 pb-1 text-[10px] text-muted-foreground uppercase tracking-[0.18em]">
                     Info
                   </div>
                   {currentInfoEntries.map((entry) => (
@@ -1222,8 +1423,10 @@ export function FilePreviewPanel({
                 <Trash2 className="size-3.5" />
                 Delete
               </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </ButtonGroup>
+          )}
         </div>
       ),
     });
@@ -1265,10 +1468,50 @@ export function FilePreviewPanel({
     triggerNoteBannerPicker,
     toggleCurrentPinnedItem,
     workspaceUuid,
+    circleToAiEnabled,
+    isImage,
+    isPdf,
+    isVideo,
   ]);
 
   return (
     <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background">
+      {isMobile ? (
+        <Dialog onOpenChange={setPropertiesOpen} open={propertiesOpen}>
+          <DialogContent className="max-h-[85vh] max-w-[calc(100vw-1rem)] overflow-hidden rounded-lg border border-border/60 bg-background p-0 shadow-md sm:max-w-[26rem]">
+            <DialogHeader className="border-b border-border/60 px-4 py-3">
+              <DialogTitle className="flex items-center gap-2 font-medium text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                <SlidersHorizontal className="size-3" />
+                Properties
+              </DialogTitle>
+            </DialogHeader>
+            <div className="max-h-[70vh] overflow-y-auto p-3.5">
+              <PropertiesTable
+                className="mx-0 mb-0 max-w-none border-0 px-0 pt-0 pb-0 sm:px-0"
+                definitions={propertyDefinitions}
+                disabled={activeFile.readOnly}
+                onChange={(properties) => {
+                  setNotePage((current) => ({
+                    ...current,
+                    properties,
+                  }));
+                }}
+                onDefinitionsChange={setPropertyDefinitions}
+                properties={notePage.properties}
+              />
+              {activeFileIsNote ? (
+                <input
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleNoteBannerInputChange}
+                  ref={noteBannerInputRef}
+                  type="file"
+                />
+              ) : null}
+            </div>
+          </DialogContent>
+        </Dialog>
+      ) : null}
       {isMarkdown ? (
         <div
           className="min-h-0 flex-1 overflow-auto bg-muted/25"
@@ -1287,19 +1530,221 @@ export function FilePreviewPanel({
             ) : (
               <div className="flex h-full flex-col">
                 {activeFileIsNote ? (
-                  <div className="border-border/50 border-b bg-background">
-                    <div className="group relative w-full overflow-hidden border-b border-border/60 bg-muted/30">
-                      {noteBannerUrl ? (
+                  <div className="bg-background">
+                    {noteBannerUrl ? (
+                      <div className="group/banner relative w-full overflow-hidden border-border/60 bg-muted/30">
+                        <div className="absolute inset-0 border-border/60 sm:border-y" />
                         <img
-                          alt={`${activeFile.name} banner`}
-                          className="h-52 w-full object-cover"
+                          alt={`${activeFile.name} cover`}
+                          className="h-32 w-full object-cover sm:h-40"
                           loading="lazy"
                           src={noteBannerUrl}
                         />
-                      ) : (
-                        <div className="h-52 w-full bg-[#d8d1c5]" />
+                        <div className="pointer-events-none absolute top-3 right-3 opacity-0 transition-opacity duration-150 group-hover/banner:opacity-100 group-focus-within/banner:opacity-100">
+                          <div className="pointer-events-auto">
+                            <ButtonGroup className="divide-x divide-border/60 overflow-hidden rounded-md border border-border/60 bg-background/95 shadow-sm backdrop-blur-0">
+                              <Popover>
+                                <PopoverTrigger
+                                  render={
+                                    <Button
+                                      className="h-8 rounded-none border-0 bg-transparent px-3 text-xs font-medium text-foreground shadow-none hover:bg-muted/70"
+                                      size="sm"
+                                      type="button"
+                                      variant="ghost"
+                                    />
+                                  }
+                                >
+                                  Change
+                                </PopoverTrigger>
+                                <PopoverContent
+                                  align="end"
+                                  className="w-[min(32rem,calc(100vw-1rem))] rounded-lg border border-border/60 bg-background p-0 shadow-md"
+                                  sideOffset={8}
+                                >
+                                  <div className="flex items-center justify-between border-border/60 border-b px-3 py-2">
+                                    <Tabs
+                                      onValueChange={(value) =>
+                                        setNoteCoverPickerTab(
+                                          value as "gallery" | "link" | "upload"
+                                        )
+                                      }
+                                      value={noteCoverPickerTab}
+                                    >
+                                      <TabsList className="h-8 rounded-none bg-transparent p-0">
+                                        <TabsTrigger
+                                          className="rounded-none px-2.5 text-xs data-active:border-b-border data-active:border-b"
+                                          value="gallery"
+                                        >
+                                          Gallery
+                                        </TabsTrigger>
+                                        <TabsTrigger
+                                          className="rounded-none px-2.5 text-xs data-active:border-b-border data-active:border-b"
+                                          value="upload"
+                                        >
+                                          Upload
+                                        </TabsTrigger>
+                                        <TabsTrigger
+                                          className="rounded-none px-2.5 text-xs data-active:border-b-border data-active:border-b"
+                                          value="link"
+                                        >
+                                          Link
+                                        </TabsTrigger>
+                                      </TabsList>
+                                    </Tabs>
+                                    <Button
+                                      className="h-7 rounded-md px-2 text-xs text-muted-foreground hover:text-destructive"
+                                      disabled={activeFile.readOnly || !noteBannerUrl}
+                                      onClick={() => setNoteCoverUrl(null)}
+                                      size="sm"
+                                      type="button"
+                                      variant="ghost"
+                                    >
+                                      Remove
+                                    </Button>
+                                  </div>
+                                  <div className="p-3">
+                                    {noteCoverPickerTab === "gallery" ? (
+                                      <div className="space-y-3">
+                                        <p className="font-medium text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
+                                          Color & Gradient
+                                        </p>
+                                        <div className="grid grid-cols-4 gap-2">
+                                          {NOTE_COVER_GALLERY.map((option) => (
+                                            <button
+                                              className={cn(
+                                                "h-16 overflow-hidden rounded-md border border-border/60 transition hover:opacity-90",
+                                                noteBannerUrl === option.url
+                                                  ? "ring-1 ring-foreground/40"
+                                                  : ""
+                                              )}
+                                              key={option.label}
+                                              onClick={() =>
+                                                setNoteCoverUrl(option.url)
+                                              }
+                                              type="button"
+                                            >
+                                              <img
+                                                alt={option.label}
+                                                className="h-full w-full object-cover"
+                                                loading="lazy"
+                                                src={option.url}
+                                              />
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    ) : null}
+                                    {noteCoverPickerTab === "upload" ? (
+                                      <div className="flex min-h-32 items-center justify-center rounded-md border border-dashed border-border/70 bg-muted/20">
+                                        <Button
+                                          className="h-8 rounded-md px-3 text-xs"
+                                          disabled={
+                                            activeFile.readOnly ||
+                                            noteBannerUploadBusy
+                                          }
+                                          onClick={triggerNoteBannerPicker}
+                                          size="sm"
+                                          type="button"
+                                          variant="secondary"
+                                        >
+                                          {noteBannerUploadBusy
+                                            ? "Uploading..."
+                                            : "Upload image"}
+                                        </Button>
+                                      </div>
+                                    ) : null}
+                                    {noteCoverPickerTab === "link" ? (
+                                      <div className="space-y-3">
+                                        <input
+                                          className="h-8 w-full rounded-md border border-border/60 bg-background px-2.5 text-xs text-foreground outline-none transition focus:border-foreground/30"
+                                          onChange={(event) =>
+                                            setNoteCoverLinkDraft(
+                                              event.currentTarget.value
+                                            )
+                                          }
+                                          onKeyDown={(event) => {
+                                            if (event.key !== "Enter") {
+                                              return;
+                                            }
+
+                                            event.preventDefault();
+                                            const nextUrl =
+                                              noteCoverLinkDraft.trim();
+                                            if (!nextUrl) {
+                                              return;
+                                            }
+
+                                            setNoteCoverUrl(nextUrl);
+                                          }}
+                                          placeholder="https://example.com/cover.png"
+                                          value={noteCoverLinkDraft}
+                                        />
+                                        <div className="flex justify-end">
+                                          <Button
+                                            className="h-8 rounded-md px-3 text-xs"
+                                            disabled={
+                                              activeFile.readOnly ||
+                                              noteCoverLinkDraft.trim().length ===
+                                                0
+                                            }
+                                            onClick={() =>
+                                              setNoteCoverUrl(
+                                                noteCoverLinkDraft.trim()
+                                              )
+                                            }
+                                            size="sm"
+                                            type="button"
+                                          >
+                                            Apply cover
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
+                              <Button
+                                className="h-8 rounded-none border-0 bg-transparent px-3 text-xs font-medium text-foreground shadow-none hover:bg-muted/70"
+                                disabled={activeFile.readOnly || noteBannerUploadBusy}
+                                onClick={triggerNoteBannerPicker}
+                                size="sm"
+                                type="button"
+                                variant="ghost"
+                              >
+                                {noteBannerUploadBusy ? "Uploading..." : "Upload"}
+                              </Button>
+                              <Button
+                                className="h-8 w-8 rounded-none border-0 bg-transparent text-foreground shadow-none hover:bg-muted/70"
+                                disabled={activeFile.readOnly || !noteBannerUrl}
+                                onClick={applyDefaultNoteCover}
+                                size="icon"
+                                type="button"
+                                variant="ghost"
+                              >
+                                <ArrowDownToLine className="size-3.5" />
+                              </Button>
+                            </ButtonGroup>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                    <div className="mx-auto flex w-full max-w-[820px] flex-col gap-4 px-4 py-4 sm:px-8">
+                      {noteBannerUrl ? null : (
+                        <Button
+                          className="h-7 justify-start gap-2 self-start rounded-md border-0 bg-transparent px-0 text-xs font-medium text-muted-foreground shadow-none hover:bg-transparent hover:text-foreground"
+                          disabled={activeFile.readOnly}
+                          onClick={applyDefaultNoteCover}
+                          size="sm"
+                          type="button"
+                          variant="ghost"
+                        >
+                          <FileImage className="size-3.5" />
+                          Add cover
+                        </Button>
                       )}
-                      <div className="absolute inset-0 bg-black/5" />
+                      <h1 className="truncate font-semibold text-4xl tracking-[-0.04em] text-foreground sm:text-5xl">
+                        {noteDisplayTitle}
+                      </h1>
                     </div>
                   </div>
                 ) : null}
@@ -1312,8 +1757,8 @@ export function FilePreviewPanel({
                   }}
                   saveState={activeFile.isNote ? noteSaveState : undefined}
                   scrollContainerRef={filePreviewScrollRef}
-                  workspaceUuid={workspaceUuid}
                   wikiPages={wikiMarkdownFiles}
+                  workspaceUuid={workspaceUuid}
                 />
               </div>
             )}
@@ -1321,53 +1766,69 @@ export function FilePreviewPanel({
         </div>
       ) : isPdf ? (
         <div className="min-h-0 flex-1 overflow-hidden bg-muted/25">
-          <PDFViewer
-            className="h-full min-h-0 rounded-none border-0 sm:rounded-xl sm:border sm:border-border/70"
-            key={`${activeFile.id}:${activeRetrievalChunkId ?? activeRetrievalResult?.page ?? "base"}`}
-            fallbackHighlightText={query}
-            highlightPage={activeRetrievalResult?.page ?? null}
-            highlightText={
-              activeRetrievalResult?.highlightText ??
-              activeRetrievalResult?.snippet ??
-              query
-            }
-            source={activeFile.storageUrl}
-          />
+          <CircleToAiSearchOverlay
+            enabled={circleToAiEnabled}
+            fileKind="pdf"
+            fileName={activeFile.name}
+            onEnabledChange={setCircleToAiEnabled}
+            workspaceUuid={workspaceUuid}
+          >
+            <PDFViewer
+              className="h-full min-h-0 rounded-none border-0 sm:rounded-xl sm:border sm:border-border/70"
+              fallbackHighlightText={query}
+              highlightPage={activeRetrievalResult?.page ?? null}
+              highlightText={
+                activeRetrievalResult?.highlightText ??
+                activeRetrievalResult?.snippet ??
+                query
+              }
+              key={`${activeFile.id}:${activeRetrievalChunkId ?? activeRetrievalResult?.page ?? "base"}`}
+              source={activeFile.storageUrl}
+            />
+          </CircleToAiSearchOverlay>
         </div>
       ) : isVideo && !videoLoadFailed ? (
         <div className="flex min-h-0 flex-1 overflow-hidden bg-muted/25">
           <div className="mx-auto flex h-full min-h-0 max-w-[1200px] items-center justify-center p-0 sm:p-4">
-            <FileMediaPlayer
-              activeRangeIndex={
-                activeFileRetrievalResults.findIndex(
-                  (item) => item.chunkId === activeRetrievalChunkId
-                ) >= 0
-                  ? activeFileRetrievalResults.findIndex(
-                      (item) => item.chunkId === activeRetrievalChunkId
-                    )
-                  : null
-              }
-              captionsSrc={activeVideoCaptionsSrc}
-              kind="video"
-              name={activeFile.name}
-              onError={() => {
-                setVideoLoadFailed(true);
-              }}
-              openedCached={shouldUsePreferredVideoSource}
-              playbackSource={activeVideoPlaybackSource}
-              posterUrl={activePlaybackDescriptor?.posterUrl}
-              retrievalRanges={activeFileRetrievalResults
-                .filter(
-                  (item) =>
-                    typeof item.startMs === "number" &&
-                    Number.isFinite(item.startMs)
-                )
-                .map((item) => ({
-                  startMs: item.startMs as number,
-                  endMs: item.endMs,
-                }))}
-              seekToMs={activeRetrievalResult?.startMs ?? null}
-            />
+            <CircleToAiSearchOverlay
+              enabled={circleToAiEnabled}
+              fileKind="video"
+              fileName={activeFile.name}
+              onEnabledChange={setCircleToAiEnabled}
+              workspaceUuid={workspaceUuid}
+            >
+              <FileMediaPlayer
+                activeRangeIndex={
+                  activeFileRetrievalResults.findIndex(
+                    (item) => item.chunkId === activeRetrievalChunkId
+                  ) >= 0
+                    ? activeFileRetrievalResults.findIndex(
+                        (item) => item.chunkId === activeRetrievalChunkId
+                      )
+                    : null
+                }
+                captionsSrc={activeVideoCaptionsSrc}
+                kind="video"
+                name={activeFile.name}
+                onError={() => {
+                  setVideoLoadFailed(true);
+                }}
+                openedCached={shouldUsePreferredVideoSource}
+                playbackSource={activeVideoPlaybackSource}
+                posterUrl={activePlaybackDescriptor?.posterUrl}
+                retrievalRanges={activeFileRetrievalResults
+                  .filter(
+                    (item) =>
+                      typeof item.startMs === "number" &&
+                      Number.isFinite(item.startMs)
+                  )
+                  .map((item) => ({
+                    startMs: item.startMs as number,
+                    endMs: item.endMs,
+                  }))}
+                seekToMs={activeRetrievalResult?.startMs ?? null}
+              />
+            </CircleToAiSearchOverlay>
           </div>
         </div>
       ) : isAudio && !audioLoadFailed ? (
@@ -1390,13 +1851,21 @@ export function FilePreviewPanel({
       ) : isImage ? (
         <div className="flex min-h-0 flex-1 overflow-hidden bg-muted/25">
           <div className="mx-auto flex h-full min-h-0 max-w-[1200px] flex-col gap-3 p-0 sm:p-4">
-            <div className="flex min-h-0 flex-1 items-center justify-center rounded-none border-0 bg-white p-0 sm:rounded-2xl sm:border sm:border-border/70 sm:p-4">
-              <img
-                alt={activeFile.name}
-                className="h-auto max-h-full max-w-full rounded-md object-contain"
-                src={activeFile.storageUrl}
-              />
-            </div>
+            <CircleToAiSearchOverlay
+              enabled={circleToAiEnabled}
+              fileKind="image"
+              fileName={activeFile.name}
+              onEnabledChange={setCircleToAiEnabled}
+              workspaceUuid={workspaceUuid}
+            >
+              <div className="flex min-h-0 flex-1 items-center justify-center rounded-none border-0 bg-white p-0 sm:rounded-2xl sm:border sm:border-border/70 sm:p-4">
+                <img
+                  alt={activeFile.name}
+                  className="h-auto max-h-full max-w-full rounded-md object-contain"
+                  src={activeFile.storageUrl}
+                />
+              </div>
+            </CircleToAiSearchOverlay>
           </div>
         </div>
       ) : (
@@ -1408,7 +1877,11 @@ export function FilePreviewPanel({
             </p>
             <Button
               onClick={() =>
-                window.open(activeFile.storageUrl, "_blank", "noopener,noreferrer")
+                window.open(
+                  activeFile.storageUrl,
+                  "_blank",
+                  "noopener,noreferrer"
+                )
               }
               size="sm"
               type="button"

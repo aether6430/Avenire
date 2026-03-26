@@ -20,6 +20,7 @@ export interface FolderRecord {
 
 export interface FileRecord {
   createdAt: string;
+  noteContent?: string | null;
   metadata?: Record<string, unknown>;
   folderId: string;
   id: string;

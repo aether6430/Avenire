@@ -6,6 +6,10 @@ interface HeaderState {
   breadcrumbs: ReactNode | null;
   leadingIcon: ReactNode | null;
   title: string | null;
+  setActions: (actions: ReactNode | null) => void;
+  setBreadcrumbs: (breadcrumbs: ReactNode | null) => void;
+  setLeadingIcon: (leadingIcon: ReactNode | null) => void;
+  setTitle: (title: string | null) => void;
   setHeaderContext: (context: {
     actions?: ReactNode | null;
     breadcrumbs?: ReactNode | null;
@@ -28,6 +32,13 @@ export const useHeaderStore = create<HeaderState>((set) => ({
   breadcrumbs: null,
   leadingIcon: null,
   title: null,
+  setActions: (actions) => set(() => ({ actions })),
+  setBreadcrumbs: (breadcrumbs) => set(() => ({ breadcrumbs })),
+  setLeadingIcon: (leadingIcon) => set(() => ({ leadingIcon })),
+  setTitle: (title) => {
+    applyHeaderTitle(title);
+    set(() => ({ title }));
+  },
   setHeaderContext: (context) =>
     set((state) => {
       const nextTitle =

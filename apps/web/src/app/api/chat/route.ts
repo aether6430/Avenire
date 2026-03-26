@@ -76,6 +76,7 @@ const MODEL_TOOL_ALLOW_LIST = new Set([
   "get_due_cards",
   "log_misconception",
   "quiz_me",
+  "search_materials",
   "visualize_read_me",
   "show_widget",
 ]);
@@ -681,7 +682,11 @@ export async function POST(request: Request) {
 
     const body = (await request.json().catch(() => ({}))) as {
       kind?: "session-close";
+      ephemeral?: boolean;
       messages?: UIMessage[];
+      selectionBase64?: string | null;
+      selectionMediaType?: string | null;
+      workspaceUuid?: string;
       selectedModel?: ApolloModelName;
       chatId?: string;
       sessionId?: string;
@@ -789,6 +794,128 @@ export async function POST(request: Request) {
       });
 
       return NextResponse.json({ ok: true }, { status: 202 });
+    }
+
+    if (body.ephemeral) {
+      const originalMessages = normalizeMessageFileMediaTypes(
+        body.messages ?? []
+      );
+
+      const initialUsage = await consumeChatUnits(session.user.id, 1);
+      if (!initialUsage.ok) {
+        const retryAfter = initialUsage.retryAfter?.toISOString() ?? null;
+        apiLogger.rateLimited("chat", retryAfter, { chatId: "ephemeral" });
+        return NextResponse.json(
+          {
+            error: "Chat usage limit reached",
+            retryAfter,
+          },
+          { status: 429 }
+        );
+      }
+
+      const selectedModel = body.selectedModel ?? "apollo-core";
+      try {
+        const selectionBase64 = body.selectionBase64?.trim() ?? "";
+        if (!selectionBase64) {
+          apiLogger.requestFailed(400, "Missing selection image");
+          return NextResponse.json(
+            { error: "Missing selection image" },
+            { status: 400 }
+          );
+        }
+
+        const selectionMediaType =
+          body.selectionMediaType?.trim() ?? "image/png";
+        const selectionBuffer = Buffer.from(selectionBase64, "base64");
+        const latestUserText = extractLatestUserText(originalMessages);
+        const haloTools = createChatTools({
+          agentActivityId: randomUUID(),
+          chatSlug: `halo-ephemeral:${randomUUID()}`,
+          emitAgentActivity: () => undefined,
+          rootFolderId: workspace.rootFolderId,
+          userId: session.user.id,
+          workspaceId: workspace.workspaceId,
+        });
+        const retrievalTools = {
+          avenire_agent: haloTools.avenire_agent,
+          search_materials: haloTools.search_materials,
+        };
+        const priorMessages = await convertToModelMessages(
+          originalMessages.slice(0, -1),
+          {
+            tools: retrievalTools,
+          }
+        );
+        const selectionPrompt = latestUserText.trim()
+          ? [
+              "Answer the user's question about the selected crop directly.",
+              "Use the screenshot as evidence.",
+              "Be specific and avoid overexplaining unless the user asks for detail.",
+            ].join(" ")
+          : [
+              "Inspect the selected crop and describe what is visible.",
+              "Call out text, objects, and UI details that matter.",
+              "Be concise and specific.",
+            ].join(" ");
+        const haloSystemPrompt = [
+          "You are Halo, Avenire's workspace search assistant.",
+          "Treat the selected image as the immediate visual context.",
+          "When the user asks a follow-up, continue the conversation and use the workspace search tools when needed.",
+          "Use avenire_agent for broader workspace retrieval and search_materials for direct file search.",
+          "When workspace tools return citations or citationMarkdown, cite workspace-derived claims in your final answer.",
+          "Use the exact citation format [workspace/path.ext](workspace-file://<fileId>).",
+          "Do not invent file IDs or paths.",
+          "If the target is ambiguous, ask a brief clarification instead of guessing.",
+        ].join(" ");
+        const result = streamText({
+          model: apollo.languageModel(selectedModel),
+          system: haloSystemPrompt,
+          messages: [
+            ...priorMessages,
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: selectionPrompt,
+                },
+                {
+                  type: "image",
+                  image: selectionBuffer,
+                  mediaType: selectionMediaType,
+                },
+              ],
+            },
+          ],
+          tools: pickModelTools(retrievalTools),
+          maxOutputTokens: 2048,
+          temperature: 0.2,
+          abortSignal: request.signal,
+          experimental_transform: smoothStream({ chunking: "word" }),
+        });
+
+        apiLogger.requestSucceeded(200, {
+          chatId: "ephemeral",
+          selectedModel,
+        });
+
+        return result.toUIMessageStreamResponse({
+          originalMessages,
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        });
+      } catch (error) {
+        apiLogger.requestFailed(500, error, {
+          chatId: "ephemeral",
+          selectedModel,
+        });
+        return NextResponse.json(
+          { error: "Failed to inspect selection" },
+          { status: 500 }
+        );
+      }
     }
 
     let chatSlug: string = body.chatId?.trim() ?? "";

@@ -233,62 +233,21 @@ export function PropertiesTable({
                 : [];
 
             return (
-              <div className="grid grid-cols-[minmax(0,11rem)_8rem_minmax(0,1fr)_2rem] items-center gap-2 text-sm" key={key}>
+              <div
+                className="grid grid-cols-[minmax(0,1fr)_7.5rem_2rem] items-center gap-2 text-sm lg:grid-cols-[minmax(0,11rem)_8rem_minmax(0,1fr)_2rem]"
+                key={key}
+              >
                 <Input
-                  className="h-8 text-xs"
+                  className="h-8 min-w-0 text-xs"
                   defaultValue={key}
                   disabled={disabled}
                   onBlur={(event) =>
                     handleRenameProperty(key, event.currentTarget.value)
                   }
                 />
-                <div className="rounded-md border border-border/70 px-2 py-1 text-[11px] text-muted-foreground">
+                <div className="min-w-0 truncate rounded-md border border-border/70 px-2 py-1 text-[11px] text-muted-foreground">
                   {PROPERTY_TYPE_LABELS[property.type]}
                 </div>
-                {property.type === "checkbox" ? (
-                  <div className="flex h-8 items-center rounded-md border border-border/70 px-3">
-                    <Checkbox
-                      checked={property.value}
-                      disabled={disabled}
-                      onCheckedChange={(checked) =>
-                        handlePropertyValueChange(key, checked === true)
-                      }
-                    />
-                  </div>
-                ) : property.type === "select" ? (
-                  <Select
-                    disabled={disabled}
-                    onValueChange={(value) => handlePropertyValueChange(key, value)}
-                    value={property.value ?? ""}
-                  >
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder="Select value" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {options.map((option) => (
-                        <SelectItem key={option} value={option}>
-                          {option}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Input
-                    className="h-8 text-xs"
-                    disabled={disabled}
-                    onChange={(event) =>
-                      handlePropertyValueChange(key, event.currentTarget.value)
-                    }
-                    placeholder={
-                      property.type === "multi_select"
-                        ? "comma, separated, values"
-                        : property.type === "date"
-                          ? "YYYY-MM-DD"
-                          : "Value"
-                    }
-                    value={formatPropertyValue(property)}
-                  />
-                )}
                 <Button
                   className="h-8 w-8"
                   disabled={disabled}
@@ -299,13 +258,61 @@ export function PropertiesTable({
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
+                <div className="col-span-3 min-w-0 lg:col-span-1">
+                  {property.type === "checkbox" ? (
+                    <div className="flex h-8 items-center rounded-md border border-border/70 px-3">
+                      <Checkbox
+                        checked={property.value}
+                        disabled={disabled}
+                        onCheckedChange={(checked) =>
+                          handlePropertyValueChange(key, checked === true)
+                        }
+                      />
+                    </div>
+                  ) : property.type === "select" ? (
+                    <Select
+                      disabled={disabled}
+                      onValueChange={(value) =>
+                        handlePropertyValueChange(key, value)
+                      }
+                      value={property.value ?? ""}
+                    >
+                      <SelectTrigger className="h-8 min-w-0 text-xs">
+                        <SelectValue placeholder="Select value" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {options.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      className="h-8 min-w-0 text-xs"
+                      disabled={disabled}
+                      onChange={(event) =>
+                        handlePropertyValueChange(key, event.currentTarget.value)
+                      }
+                      placeholder={
+                        property.type === "multi_select"
+                          ? "comma, separated, values"
+                          : property.type === "date"
+                            ? "YYYY-MM-DD"
+                            : "Value"
+                      }
+                      value={formatPropertyValue(property)}
+                    />
+                  )}
+                </div>
               </div>
             );
           })}
 
-          <div className="grid grid-cols-[minmax(0,11rem)_8rem_1fr] items-center gap-2 pt-1">
+          <div className="grid grid-cols-[minmax(0,1fr)_4rem] items-center gap-2 pt-1 lg:grid-cols-[minmax(0,11rem)_8rem_1fr]">
             <Input
-              className="h-8 text-xs"
+              className="h-8 min-w-0 text-xs"
               disabled={disabled}
               onChange={(event) => setNewKey(event.currentTarget.value)}
               placeholder="New property"
@@ -316,7 +323,7 @@ export function PropertiesTable({
               onValueChange={(value) => setNewType(value as FilePropertyType)}
               value={newType}
             >
-              <SelectTrigger className="h-8 text-xs">
+              <SelectTrigger className="h-8 min-w-0 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -328,7 +335,7 @@ export function PropertiesTable({
               </SelectContent>
             </Select>
             <Button
-              className="justify-start"
+              className="col-span-2 justify-start lg:col-span-1"
               disabled={disabled || !newKey.trim()}
               onClick={handleAddProperty}
               size="sm"

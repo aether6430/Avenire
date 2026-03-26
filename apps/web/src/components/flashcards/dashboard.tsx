@@ -30,6 +30,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { startTransition, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { HeaderActions, HeaderBreadcrumbs, HeaderLeadingIcon } from "@/components/dashboard/header-portal";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { FlashcardDashboardRecord } from "@/lib/flashcards";
 import { useWorkspaceHistoryStore } from "@/stores/workspaceHistoryStore";
 
@@ -65,6 +66,7 @@ export function FlashcardsDashboard({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const isMobile = useIsMobile();
   const recordRoute = useWorkspaceHistoryStore((state) => state.recordRoute);
   const [dashboard] = useState(initialDashboard);
   const [createOpen, setCreateOpen] = useState(false);
@@ -384,8 +386,8 @@ export function FlashcardsDashboard({
               <p className="text-muted-foreground text-xs">
                 Pick a deck and jump into review.
               </p>
-              <ScrollArea className="max-h-[16rem]">
-                <div className="space-y-2 p-1">
+              {isMobile ? (
+                <div className="space-y-2">
                   {orderedSets.length === 0 ? (
                     <Empty className="min-h-[10rem]">
                       <EmptyHeader>
@@ -436,7 +438,61 @@ export function FlashcardsDashboard({
                     })
                   )}
                 </div>
-              </ScrollArea>
+              ) : (
+                <ScrollArea className="max-h-[16rem]">
+                  <div className="space-y-2 p-1">
+                    {orderedSets.length === 0 ? (
+                      <Empty className="min-h-[10rem]">
+                        <EmptyHeader>
+                          <EmptyMedia variant="icon">
+                            <BookOpenCheck className="size-4" />
+                          </EmptyMedia>
+                          <EmptyTitle>No flashcard sets yet</EmptyTitle>
+                        </EmptyHeader>
+                        <EmptyContent>
+                          <EmptyDescription>
+                            Create a set, or let the AI generate one from a
+                            misconception or study prompt.
+                          </EmptyDescription>
+                        </EmptyContent>
+                      </Empty>
+                    ) : (
+                      orderedSets.map((set) => {
+                        const isSelected = set.id === selectedSetId;
+                        return (
+                          <button
+                            className={cn(
+                              "flex w-full cursor-pointer items-start justify-between gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-secondary",
+                              isSelected && "bg-secondary"
+                            )}
+                            key={set.id}
+                            onClick={() => setSelectedSetId(set.id)}
+                            type="button"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-foreground text-sm">
+                                {set.title}
+                              </p>
+                              <p className="mt-1 text-[11px] text-muted-foreground">
+                                {set.dueCount + set.newCount} ready ·{" "}
+                                {set.cardCount} cards
+                              </p>
+                            </div>
+                            {set.dueCount > 0 ? (
+                              <Badge
+                                className="shrink-0 rounded-sm"
+                                variant="outline"
+                              >
+                                {set.dueCount} due
+                              </Badge>
+                            ) : null}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </ScrollArea>
+              )}
           </div>
 
           <div className="min-w-0">

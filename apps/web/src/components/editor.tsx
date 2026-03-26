@@ -1734,49 +1734,55 @@ function ImagePopover({
 
   return (
     <div
-      className="fixed z-[90] w-[min(26rem,calc(100vw-1.25rem))] rounded-lg border border-border bg-popover p-2.5 shadow-black/10 shadow-lg"
+      className="fixed z-[90] w-[min(28rem,calc(100vw-1.25rem))] rounded-lg border border-border/60 bg-popover p-0 shadow-black/10 shadow-lg"
       ref={popoverRef}
       style={style ?? undefined}
     >
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <p className="font-medium text-popover-foreground text-sm">Image</p>
-        <div className="rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-          URL
+      <div className="border-border/60 border-b px-3 py-2">
+        <div className="flex items-center gap-3 text-xs">
+          <span className="font-medium text-muted-foreground">Gallery</span>
+          <span className="font-medium text-muted-foreground">Upload</span>
+          <span className="border-b border-border pb-1 font-medium text-popover-foreground">
+            Link
+          </span>
+          <span className="font-medium text-muted-foreground">Unsplash</span>
         </div>
       </div>
-      <input
-        className="h-8 w-full rounded-md border border-border bg-card px-2 text-foreground text-xs outline-none"
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => {
-          if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-            e.preventDefault();
-            onSave();
-          } else if (e.key === "Escape") {
-            e.preventDefault();
-            onCancel();
-          }
-        }}
-        placeholder="https://example.com/image.png"
-        value={value.src}
-      />
-      <div className="mt-2 flex justify-end gap-2">
-        <Button
-          onClick={onCancel}
-          onMouseDown={(e) => e.preventDefault()}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          Cancel
-        </Button>
-        <Button
-          onClick={onSave}
-          onMouseDown={(e) => e.preventDefault()}
-          size="sm"
-          type="button"
-        >
-          Insert
-        </Button>
+      <div className="space-y-3 p-3">
+        <input
+          className="h-8 w-full rounded-md border border-border/60 bg-card px-2.5 text-foreground text-xs outline-none transition focus:border-foreground/30"
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+              e.preventDefault();
+              onSave();
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              onCancel();
+            }
+          }}
+          placeholder="https://example.com/image.png"
+          value={value.src}
+        />
+        <div className="flex justify-end gap-2">
+          <Button
+            onClick={onCancel}
+            onMouseDown={(e) => e.preventDefault()}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={onSave}
+            onMouseDown={(e) => e.preventDefault()}
+            size="sm"
+            type="button"
+          >
+            Insert
+          </Button>
+        </div>
       </div>
     </div>
   );

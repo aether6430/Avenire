@@ -4,15 +4,12 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
 import { createMistral } from "@ai-sdk/mistral";
 import { customProvider } from "ai";
-import { createOllama } from "ai-sdk-ollama";
 
 const APOLLO_MODEL_SPRINT = "apollo-sprint";
 const APOLLO_MODEL_CORE = "apollo-core";
 const APOLLO_MODEL_APEX = "apollo-apex";
 const APOLLO_MODEL_AGENT = "apollo-agent";
 const APOLLO_MODEL_TINY = "apollo-tiny";
-const APOLLO_RERANKING_MODEL = "apollo-reranking";
-const APOLLO_TRANSCRIPTION_MODEL = "apollo-transcript";
 
 export const APOLLO_INGESTION_MISTRAL_OCR_MODEL = "mistral-ocr-latest";
 export const APOLLO_INGESTION_MISTRAL_IMAGE_DESCRIPTION_MODEL =
@@ -42,13 +39,6 @@ export const gemini = createGoogleGenerativeAI({
 });
 const cohere = createCohere({
   apiKey: process.env.COHERE_API_KEY,
-});
-
-const ollama = createOllama({
-  baseURL: "https://ollama.com",
-  headers:{
-    "Authorization": `Bearer ${process.env.OLLAMA_API_KEY}`
-  }
 });
 
 export const apollo = customProvider({

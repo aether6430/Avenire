@@ -23,6 +23,8 @@ import type {
 
 interface ShareDialogProps {
   variant: "file" | "folder";
+  compact?: boolean;
+  segmented?: boolean;
   workspaceUuid: string;
   activeFile?: FileRecord | null;
   currentFolder?: FolderRecord | null;
@@ -32,6 +34,8 @@ interface ShareDialogProps {
 
 export function ShareDialog({
   variant,
+  compact = false,
+  segmented = false,
   workspaceUuid,
   activeFile,
   currentFolder,
@@ -317,7 +321,18 @@ export function ShareDialog({
       <Dialog>
         <DialogTrigger
           render={
-            <Button className="size-5" size="icon-xs" type="button" variant="ghost" />
+            <Button
+              className={
+                segmented
+                  ? "h-9 w-9 rounded-none border-0 bg-transparent shadow-none"
+                  : compact
+                    ? "h-7 w-7"
+                    : "size-5"
+              }
+              size="icon-xs"
+              type="button"
+              variant={segmented ? "ghost" : "ghost"}
+            />
           }
         >
           <Share2 className="size-3" />
@@ -424,10 +439,21 @@ export function ShareDialog({
     <Dialog>
       <DialogTrigger
         render={
-          <Button className="rounded-md" size="sm" type="button" variant="outline" />
+          <Button
+            className={
+              segmented
+                ? "h-9 rounded-none border-0 bg-transparent px-3 text-xs shadow-none"
+                : compact
+                ? "h-7 gap-1.5 rounded-md px-2 text-xs"
+                : "rounded-md"
+            }
+            size="sm"
+            type="button"
+            variant="outline"
+          />
         }
       >
-        <Share2 className="size-3.5" />
+        <Share2 className={compact ? "size-3" : "size-3.5"} />
         Share
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">

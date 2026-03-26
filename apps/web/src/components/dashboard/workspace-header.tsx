@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@avenire/ui/components/button";
+import { ButtonGroup } from "@avenire/ui/components/button-group";
 import { SidebarTrigger } from "@avenire/ui/components/sidebar";
 import { cn } from "@avenire/ui/lib/utils";
 import { ArrowLeft, ArrowRight, House } from "lucide-react";
@@ -35,6 +36,11 @@ export function WorkspaceHeader({
       : null;
   const isHome = pathname === homeHref;
 
+  const segmentedGroupClass =
+    "self-center divide-x divide-border/60 overflow-hidden rounded-md border border-border/60 bg-background shadow-sm";
+  const segmentedIconButtonClass =
+    "size-10 rounded-none border-0 bg-transparent text-foreground shadow-none hover:bg-muted/70 disabled:bg-transparent";
+
   return (
     <header
       className={cn(
@@ -42,9 +48,54 @@ export function WorkspaceHeader({
         className
       )}
     >
-      <div className="flex min-h-14 shrink-0 flex-wrap items-start gap-1.5 px-3 py-2 sm:flex-nowrap sm:items-center sm:px-4">
+      <div className="flex min-h-14 shrink-0 items-center gap-1.5 px-3 py-2 sm:px-4">
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
-          <SidebarTrigger className="size-7 rounded-sm border border-border/60 bg-background text-muted-foreground shadow-sm hover:bg-secondary" />
+          <ButtonGroup className={segmentedGroupClass}>
+            <Button
+              aria-label="Go back"
+              className={segmentedIconButtonClass}
+              disabled={!backRoute}
+              onClick={() => {
+                if (backRoute) {
+                  router.push(backRoute as Route);
+                }
+              }}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <ArrowLeft className="size-3.5" />
+            </Button>
+            <Button
+              aria-label="Go forward"
+              className={segmentedIconButtonClass}
+              disabled={!forwardRoute}
+              onClick={() => {
+                if (forwardRoute) {
+                  router.push(forwardRoute as Route);
+                }
+              }}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <ArrowRight className="size-3.5" />
+            </Button>
+            <Button
+              aria-label="Go home"
+              className={segmentedIconButtonClass}
+              disabled={isHome}
+              onClick={() => {
+                router.push(homeHref as Route);
+              }}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <House className="size-3.5" />
+            </Button>
+          </ButtonGroup>
+          <SidebarTrigger className="self-center size-10 rounded-md border border-border/60 bg-background text-muted-foreground shadow-sm hover:bg-muted/70" />
           <div className="hidden size-6 shrink-0 items-center justify-center text-muted-foreground sm:flex">
             {leadingIcon ?? (
               <div
@@ -66,12 +117,7 @@ export function WorkspaceHeader({
           </div>
         </div>
         <div className="flex w-full min-w-0 justify-end overflow-x-auto no-scrollbar sm:w-auto">
-          {actions ?? (
-            <div
-              className="flex items-center gap-1.5 empty:hidden"
-              id="workspace-header-actions"
-            />
-          )}
+          {actions}
         </div>
       </div>
     </header>

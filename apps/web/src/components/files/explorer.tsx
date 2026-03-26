@@ -32,8 +32,9 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuGroup,
   DropdownMenuLabel,
+  DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
@@ -41,15 +42,21 @@ import {
   DropdownMenuTrigger,
 } from "@avenire/ui/components/dropdown-menu";
 import { Input } from "@avenire/ui/components/input";
-import { Label } from "@avenire/ui/components/label";
+import { ButtonGroup } from "@avenire/ui/components/button-group";
 import { Skeleton } from "@avenire/ui/components/skeleton";
 import { Spinner } from "@avenire/ui/components/spinner";
+import {
+  Filters as PropertyFilters,
+  type Filter,
+  type FilterFieldConfig,
+} from "@avenire/ui/components/filters";
 import {
   ArrowDownToLine,
   ArrowLeft,
   ArrowRight,
   ArrowUpDown,
   Copy,
+  Check,
   FileArchive,
   FileAudio2,
   FileCode2,
@@ -74,8 +81,11 @@ import {
   SlidersHorizontal,
   Trash2,
   Upload,
+  X,
   XCircle,
+  WandSparkles,
 } from "lucide-react";
+import { motion } from "motion/react";
 import type { Route } from "next";
 import {
   useParams,
@@ -83,11 +93,22 @@ import {
   useRouter,
   useSearchParams,
 } from "next/navigation";
-import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { FilePreviewPanel } from "@/components/files/explorer/file-preview-panel";
+import { ShareDialog } from "@/components/files/explorer/share-dialog";
+import {
+  detectPreviewKind,
+  type FileRecord,
+  type FolderRecord,
+  formatBytes,
+  type ShareSuggestion,
+  toUpdatedLabel,
+  type WorkspaceMemberRecord,
+} from "@/components/files/explorer/shared";
 import {
   FileCard,
+  MarkdownThumbnail,
   PdfThumbnail,
   VideoThumbnail,
 } from "@/components/files/file-card-thumbnail";
@@ -97,54 +118,43 @@ import {
   type WorkspaceSearchItem,
   type WorkspaceSearchResult,
 } from "@/components/files/stylized-search-bar";
-import { useFileSelection } from "@/hooks/use-file-selection";
 import { useFileDragDrop } from "@/hooks/use-file-drag-drop";
+import { useFileSelection } from "@/hooks/use-file-selection";
+import { useHaptics } from "@/hooks/use-haptics";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { readCachedWorkspaces } from "@/lib/dashboard-browser-cache";
 import { getWarmState, isFileOpenedCached } from "@/lib/file-preview-cache";
 import {
-  formatPropertyValue,
-  type FrontmatterProperties,
-  normalizePropertyDefinitions,
   type FilePropertyValue,
+  type FrontmatterProperties,
+  formatPropertyValue,
+  normalizePropertyDefinitions,
   type WorkspacePropertyDefinition,
 } from "@/lib/frontmatter";
 import {
   buildProgressivePlaybackSource,
   buildVideoPlaybackDescriptor,
 } from "@/lib/media-playback";
-import { requestUploadPreflight } from "@/lib/upload-preflight";
 import { getUploadErrorMessage } from "@/lib/upload";
+import { requestUploadPreflight } from "@/lib/upload-preflight";
 import { useUploadThing } from "@/lib/uploadthing";
 import { cn } from "@/lib/utils";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { useHaptics } from "@/hooks/use-haptics";
-import { useFilesActivityStore } from "@/stores/filesActivityStore";
-import { filesPinsActions, useFilesPinsStore } from "@/stores/filesPinsStore";
-import { filesUiActions, useFilesUiStore } from "@/stores/filesUiStore";
-import {
-  readWorkspaceTreeCache,
-  writeWorkspaceTreeCache,
-} from "@/lib/workspace-tree-cache";
 import {
   invalidateWorkspaceFolderCache,
   readWorkspaceFolderCache,
   writeWorkspaceFolderCache,
 } from "@/lib/workspace-folder-cache";
 import { invalidateWorkspaceMarkdownCache } from "@/lib/workspace-markdown-cache";
-import { readCachedWorkspaces } from "@/lib/dashboard-browser-cache";
-import { useWorkspaceHistoryStore } from "@/stores/workspaceHistoryStore";
 import {
-  detectPreviewKind,
-  formatBytes,
-  type FileRecord,
-  type FolderRecord,
-  type ShareSuggestion,
-  type WorkspaceMemberRecord,
-  toUpdatedLabel,
-} from "@/components/files/explorer/shared";
-import { FilePreviewPanel } from "@/components/files/explorer/file-preview-panel";
-import { ShareDialog } from "@/components/files/explorer/share-dialog";
-import { SidebarTrigger } from "@avenire/ui/components/sidebar";
+  readWorkspaceTreeCache,
+  writeWorkspaceTreeCache,
+} from "@/lib/workspace-tree-cache";
+import { useFilesActivityStore } from "@/stores/filesActivityStore";
+import { filesPinsActions, useFilesPinsStore } from "@/stores/filesPinsStore";
+import { filesUiActions, useFilesUiStore } from "@/stores/filesUiStore";
 import { useHeaderStore } from "@/stores/header-store";
+import { useWorkspaceHistoryStore } from "@/stores/workspaceHistoryStore";
+import { ScrollArea } from "@avenire/ui/components/scroll-area";
 
 const WORKSPACE_FILE_OPEN_EVENT = "workspace.file.open";
 const MOBILE_LONG_PRESS_DELAY_MS = 450;
@@ -169,6 +179,13 @@ const FILE_CARD_FIELD_STORAGE_PREFIX = "file-explorer-card-fields:v1:";
 const MAX_VISIBLE_CARD_PROPERTIES = 4;
 const DEFAULT_VISIBLE_CARD_PROPERTIES = 3;
 const FILE_RETRIEVAL_CONTEXT_KEY = "file-explorer-retrieval-context-v1";
+const COMPACT_MENU_SURFACE_CLASS = "border border-border/60 shadow-md";
+const HEADER_SEGMENTED_GROUP_CLASS =
+  "items-center divide-x divide-border/60 overflow-hidden rounded-md border border-border/60 bg-background shadow-sm";
+const HEADER_SEGMENT_BUTTON_CLASS =
+  "h-9 rounded-none border-0 bg-transparent px-3 text-xs text-foreground shadow-none hover:bg-muted/70 disabled:bg-transparent";
+const HEADER_SEGMENT_ICON_BUTTON_CLASS =
+  "h-9 w-9 rounded-none border-0 bg-transparent text-foreground shadow-none hover:bg-muted/70 disabled:bg-transparent";
 
 type PropertyFilterOperator =
   | "contains"
@@ -195,7 +212,11 @@ interface PropertyFilterState {
 }
 
 type SortState =
-  | { direction: "asc" | "desc"; key: "createdAt" | "name" | "updatedAt"; kind: "builtin" }
+  | {
+      direction: "asc" | "desc";
+      key: "createdAt" | "name" | "updatedAt";
+      kind: "builtin";
+    }
   | {
       direction: "asc" | "desc";
       key: string;
@@ -325,6 +346,383 @@ function getOperatorLabel(operator: PropertyFilterOperator) {
     case "lte":
       return "<=";
   }
+}
+
+function getPropertyFilterOperators(
+  type: WorkspacePropertyDefinition["type"]
+): { label: string; value: PropertyFilterOperator }[] {
+  switch (type) {
+    case "checkbox":
+      return [
+        { label: "is true", value: "is_true" },
+        { label: "is false", value: "is_false" },
+      ];
+    case "date":
+    case "number":
+      return [
+        { label: "is", value: "eq" },
+        { label: "greater than", value: "gt" },
+        { label: "greater than or equal", value: "gte" },
+        { label: "less than", value: "lt" },
+        { label: "less than or equal", value: "lte" },
+        { label: "is empty", value: "is_empty" },
+      ];
+    case "multi_select":
+      return [
+        { label: "contains any", value: "contains_any" },
+        { label: "contains all", value: "contains_all" },
+        { label: "contains none", value: "contains_none" },
+        { label: "is empty", value: "is_empty" },
+      ];
+    case "select":
+      return [
+        { label: "is", value: "eq" },
+        { label: "is not", value: "is_not" },
+        { label: "is empty", value: "is_empty" },
+      ];
+    case "text":
+      return [
+        { label: "contains", value: "contains" },
+        { label: "is", value: "eq" },
+        { label: "is empty", value: "is_empty" },
+        { label: "is not empty", value: "is_not_empty" },
+      ];
+  }
+}
+
+function getPropertyFilterFieldType(
+  type: WorkspacePropertyDefinition["type"]
+): "custom" | "multiselect" | "select" | "text" {
+  switch (type) {
+    case "checkbox":
+      return "custom";
+    case "multi_select":
+      return "multiselect";
+    case "select":
+      return "select";
+    case "date":
+    case "number":
+    case "text":
+      return "text";
+  }
+}
+
+interface MobileActionsPopoverProps {
+  detail: string;
+  folders: FolderRecord[];
+  kind: "file" | "folder";
+  name: string;
+  onCircleToAi?: () => void;
+  onDelete: () => void;
+  onDownload: () => void;
+  onDuplicate: () => void;
+  onHardReingest?: () => void;
+  onMetadata: () => void;
+  onMoveTo: (folderId: string) => void;
+  onOpenProperties: () => void;
+  onRename: () => void;
+  onShare: () => void;
+  onTogglePin: () => void;
+  pinned: boolean;
+  readOnly: boolean;
+  targetId: string;
+}
+
+function MobileActionsPopover({
+  detail,
+  folders,
+  kind,
+  name,
+  onCircleToAi,
+  onDelete,
+  onDownload,
+  onDuplicate,
+  onHardReingest,
+  onMetadata,
+  onMoveTo,
+  onOpenProperties,
+  onRename,
+  onShare,
+  onTogglePin,
+  pinned,
+  readOnly,
+  targetId,
+}: MobileActionsPopoverProps) {
+  const canEdit = !readOnly;
+  const moveTargets = useMemo(
+    () =>
+      folders.filter((folder) => {
+        if (kind === "folder") {
+          return folder.id !== targetId && !folder.readOnly;
+        }
+        return !folder.readOnly;
+      }),
+    [folders, kind, targetId]
+  );
+
+  const actionRowClass =
+    "gap-2 text-xs";
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            aria-label={`More actions for ${name}`}
+            className="h-7 w-7 shrink-0 rounded-md border border-border/60 bg-background text-muted-foreground shadow-sm hover:bg-muted/70"
+            size="icon-sm"
+            type="button"
+            variant="outline"
+          />
+        }
+      >
+        <MoreHorizontal className="size-3.5" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        className={cn("w-56 bg-background", COMPACT_MENU_SURFACE_CLASS)}
+      >
+        {onCircleToAi ? (
+          <DropdownMenuItem
+            onClick={onCircleToAi}
+          >
+            <WandSparkles className="size-3.5" />
+            Circle to AI
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className={actionRowClass}>
+            <Info className="size-3.5" />
+            Properties
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent
+            className={cn("w-56 bg-background", COMPACT_MENU_SURFACE_CLASS)}
+          >
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="px-2 py-1.5 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                {name}
+              </DropdownMenuLabel>
+            </DropdownMenuGroup>
+            <div className="space-y-1 px-2 pb-2 text-xs">
+              <div className="flex items-start justify-between gap-3">
+                <span className="text-muted-foreground">Type</span>
+                <span className="text-right text-foreground">
+                  {kind === "file" ? "File" : "Folder"}
+                </span>
+              </div>
+              <div className="flex items-start justify-between gap-3">
+                <span className="text-muted-foreground">ID</span>
+                <span className="max-w-32 truncate text-right text-foreground">
+                  {targetId}
+                </span>
+              </div>
+              {detail ? (
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-muted-foreground">Detail</span>
+                  <span className="max-w-32 text-right text-foreground">
+                    {detail}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={onOpenProperties}
+            >
+              <SlidersHorizontal className="size-3.5" />
+              Metadata
+            </DropdownMenuItem>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        {canEdit ? (
+          <>
+            <DropdownMenuItem
+              onClick={onTogglePin}
+            >
+              {pinned ? (
+                <PinOff className="size-3.5" />
+              ) : (
+                <Pin className="size-3.5" />
+              )}
+              {pinned ? "Unpin" : "Pin"}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={onRename}
+            >
+              <Pencil className="size-3.5" />
+              Rename
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={onDuplicate}
+            >
+              <Copy className="size-3.5" />
+              Duplicate
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={onShare}
+            >
+              <Share2 className="size-3.5" />
+              Share
+            </DropdownMenuItem>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger className={actionRowClass}>
+                <FolderInput className="size-3.5" />
+                Move to
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent
+                className={cn("w-56 bg-background", COMPACT_MENU_SURFACE_CLASS)}
+              >
+                <ScrollArea className="max-h-48">
+                  <div className="p-1">
+                    {moveTargets.length === 0 ? (
+                      <div className="px-2 py-2 text-center text-muted-foreground text-xs">
+                        No destinations available
+                      </div>
+                    ) : (
+                      moveTargets.map((folder) => (
+                        <DropdownMenuItem
+                          key={folder.id}
+                          onClick={() => {
+                            onMoveTo(folder.id);
+                          }}
+                        >
+                          {folder.name}
+                        </DropdownMenuItem>
+                      ))
+                    )}
+                  </div>
+                </ScrollArea>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuItem
+              onClick={onDownload}
+            >
+              <ArrowDownToLine className="size-3.5" />
+              Download
+            </DropdownMenuItem>
+            {onHardReingest ? (
+              <DropdownMenuItem
+                onClick={onHardReingest}
+              >
+                <RotateCcw className="size-3.5" />
+                Hard Re-ingest
+              </DropdownMenuItem>
+            ) : null}
+          </>
+        ) : null}
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className={actionRowClass}>
+            <Info className="size-3.5" />
+            Metadata
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent
+            className={cn("w-56 bg-background", COMPACT_MENU_SURFACE_CLASS)}
+          >
+            <div className="space-y-1 px-2 py-2 text-xs">
+              <div className="flex items-start justify-between gap-3">
+                <span className="text-muted-foreground">Type</span>
+                <span className="text-right text-foreground">
+                  {kind === "file" ? "File" : "Folder"}
+                </span>
+              </div>
+              <div className="flex items-start justify-between gap-3">
+                <span className="text-muted-foreground">ID</span>
+                <span className="max-w-32 truncate text-right text-foreground">
+                  {targetId}
+                </span>
+              </div>
+              {detail ? (
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-muted-foreground">Detail</span>
+                  <span className="max-w-32 text-right text-foreground">
+                    {detail}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        <DropdownMenuItem
+          onClick={onMetadata}
+        >
+          <SlidersHorizontal className="size-3.5" />
+          Properties
+        </DropdownMenuItem>
+        {!readOnly ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+            onClick={onDelete}
+              variant="destructive"
+            >
+              <Trash2 className="size-3.5" />
+              Delete
+            </DropdownMenuItem>
+          </>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function serializePropertyFilters(
+  filters: PropertyFilterState[]
+): Filter<string>[] {
+  return filters.map((filter) => ({
+    id: filter.id,
+    field: filter.key,
+    operator: filter.operator,
+    values:
+      filter.operator === "is_empty" || filter.operator === "is_not_empty"
+        ? []
+        : filter.value
+          ? filter.type === "multi_select"
+            ? filter.value
+                .split(",")
+                .map((entry) => entry.trim())
+                .filter(Boolean)
+            : [filter.value]
+          : [],
+  }))
+}
+
+function deserializePropertyFilters(
+  filters: Filter<string>[],
+  propertyDefinitionByKey: Map<string, WorkspacePropertyDefinition>
+): PropertyFilterState[] {
+  return filters.map((filter) => {
+    const definition = propertyDefinitionByKey.get(filter.field);
+    return {
+      id: filter.id,
+      key: filter.field,
+      operator: filter.operator as PropertyFilterOperator,
+      type: definition?.type ?? "text",
+      value:
+        filter.values.length > 1
+          ? filter.values.join(", ")
+          : filter.values[0] ?? "",
+    };
+  });
+}
+
+function getSortFieldLabel(sortState: SortState) {
+  switch (sortState.kind) {
+    case "builtin":
+      switch (sortState.key) {
+        case "name":
+          return "Name";
+        case "createdAt":
+          return "Created";
+        case "updatedAt":
+          return "Updated";
+      }
+    case "property":
+      return sortState.key;
+  }
+}
+
+function getSortDirectionLabel(direction: SortState["direction"]) {
+  return direction === "asc" ? "Asc" : "Desc";
 }
 
 type BulkItemKind = "file" | "folder";
@@ -803,7 +1201,10 @@ export function FileExplorer({
     WorkspacePropertyDefinition[]
   >([]);
   const [cardPropertyKeys, setCardPropertyKeys] = useState<string[]>([]);
-  const [propertyFilters, setPropertyFilters] = useState<PropertyFilterState[]>([]);
+  const [cardFieldQuery, setCardFieldQuery] = useState("");
+  const [propertyFilters, setPropertyFilters] = useState<PropertyFilterState[]>(
+    []
+  );
   const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
   const [hoveredPreviewFileId, setHoveredPreviewFileId] = useState<
     string | null
@@ -1090,9 +1491,56 @@ export function FileExplorer({
   const propertyDefinitionByKey = useMemo(
     () =>
       new Map(
-        availablePropertyDefinitions.map((definition) => [definition.key, definition])
+        availablePropertyDefinitions.map((definition) => [
+          definition.key,
+          definition,
+        ])
       ),
     [availablePropertyDefinitions]
+  );
+  const propertyFilterFields = useMemo<FilterFieldConfig<string>[]>(
+    () =>
+      availablePropertyDefinitions.map((definition) => ({
+        key: definition.key,
+        label: definition.key,
+        options: definition.options.map((option) => ({
+          label: option,
+          value: option,
+        })),
+        operators: getPropertyFilterOperators(definition.type),
+        type: getPropertyFilterFieldType(definition.type),
+        customRenderer:
+          definition.type === "checkbox"
+            ? ({ operator }) => (
+                <span className="text-muted-foreground">
+                  {operator === "is_true" ? "True" : "False"}
+                </span>
+              )
+            : undefined,
+        defaultOperator:
+          definition.type === "checkbox"
+            ? "is_true"
+            : definition.type === "text"
+              ? "contains"
+              : definition.type === "number" || definition.type === "date"
+                ? "eq"
+                : definition.type === "multi_select"
+                  ? "contains_any"
+                  : "eq",
+      })),
+    [availablePropertyDefinitions]
+  );
+  const propertyFiltersForUi = useMemo(
+    () => serializePropertyFilters(propertyFilters),
+    [propertyFilters]
+  );
+  const handlePropertyFiltersChange = useCallback(
+    (nextFilters: Filter<string>[]) => {
+      setPropertyFilters(
+        deserializePropertyFilters(nextFilters, propertyDefinitionByKey)
+      );
+    },
+    [propertyDefinitionByKey]
   );
   const cardPropertyStorageKey = useMemo(
     () =>
@@ -1107,6 +1555,16 @@ export function FileExplorer({
       .filter((definition) => selectedKeys.has(definition.key))
       .slice(0, MAX_VISIBLE_CARD_PROPERTIES);
   }, [availablePropertyDefinitions, cardPropertyKeys]);
+  const filteredAvailablePropertyDefinitions = useMemo(() => {
+    const normalizedQuery = cardFieldQuery.trim().toLowerCase();
+    if (!normalizedQuery) {
+      return availablePropertyDefinitions;
+    }
+
+    return availablePropertyDefinitions.filter((definition) =>
+      definition.key.toLowerCase().includes(normalizedQuery)
+    );
+  }, [availablePropertyDefinitions, cardFieldQuery]);
 
   useEffect(() => {
     loadedCardPropertySelectionRef.current = false;
@@ -1150,7 +1608,7 @@ export function FileExplorer({
   }, [availablePropertyDefinitions, cardPropertyStorageKey]);
 
   useEffect(() => {
-    if (!cardPropertyStorageKey || !loadedCardPropertySelectionRef.current) {
+    if (!(cardPropertyStorageKey && loadedCardPropertySelectionRef.current)) {
       return;
     }
 
@@ -1309,12 +1767,7 @@ export function FileExplorer({
         }
       });
     });
-  }, [
-    files,
-    propertyFilters,
-    query,
-    vectorFilteredIds,
-  ]);
+  }, [files, propertyFilters, query, vectorFilteredIds]);
 
   const sortedFolders = useMemo(
     () =>
@@ -1348,10 +1801,14 @@ export function FileExplorer({
           }
 
           const aDate = new Date(
-            sortState.key === "updatedAt" ? (a.updatedAt ?? a.createdAt) : a.createdAt
+            sortState.key === "updatedAt"
+              ? (a.updatedAt ?? a.createdAt)
+              : a.createdAt
           ).getTime();
           const bDate = new Date(
-            sortState.key === "updatedAt" ? (b.updatedAt ?? b.createdAt) : b.createdAt
+            sortState.key === "updatedAt"
+              ? (b.updatedAt ?? b.createdAt)
+              : b.createdAt
           ).getTime();
 
           return sortState.direction === "asc" ? aDate - bDate : bDate - aDate;
@@ -1711,7 +2168,7 @@ export function FileExplorer({
         setBreadcrumbs(cached.ancestors);
       }
 
-      if (!silent && !cached) {
+      if (!(silent || cached)) {
         setLoading(true);
       }
       try {
@@ -1747,7 +2204,7 @@ export function FileExplorer({
           }
         );
       } finally {
-        if (!silent && !cached) {
+        if (!(silent || cached)) {
           setLoading(false);
         }
       }
@@ -2381,7 +2838,13 @@ export function FileExplorer({
   }, [currentPinnedItem, workspaceUuid]);
 
   const selectFile = useCallback(
-    (fileId: string | null, options?: { retrievalChunkId?: string | null }) => {
+    (
+      fileId: string | null,
+      options?: {
+        circleToAi?: boolean;
+        retrievalChunkId?: string | null;
+      }
+    ) => {
       if (!(workspaceUuid && currentFolderId)) {
         return;
       }
@@ -2396,6 +2859,11 @@ export function FileExplorer({
         params.set("retrievalChunk", options.retrievalChunkId);
       } else if (options?.retrievalChunkId === null) {
         params.delete("retrievalChunk");
+      }
+      if (options?.circleToAi) {
+        params.set("circleToAi", "1");
+      } else {
+        params.delete("circleToAi");
       }
 
       const query = params.toString();
@@ -2477,6 +2945,34 @@ export function FileExplorer({
       );
     };
   }, [openFileById]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
+      ) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      const isSearchShortcut =
+        (!(event.metaKey || event.ctrlKey || event.altKey) && key === "/") ||
+        ((event.metaKey || event.ctrlKey) && !event.altKey && key === "k");
+
+      if (!isSearchShortcut) {
+        return;
+      }
+
+      event.preventDefault();
+      setFocusSearchSignal((value) => value + 1);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const handlePreviewIntentStart = useCallback((file: FileRecord) => {
     const { isAudio, isVideo } = detectPreviewKind(file);
@@ -3858,9 +4354,7 @@ export function FileExplorer({
     [openFolderById, openSearchResult]
   );
 
-  const setHeaderContext = useHeaderStore(
-    (state) => state.setHeaderContext
-  );
+  const setHeaderContext = useHeaderStore((state) => state.setHeaderContext);
   const resetHeaderContext = useHeaderStore(
     (state) => state.resetHeaderContext
   );
@@ -3910,43 +4404,25 @@ export function FileExplorer({
         </Breadcrumb>
       ),
       actions: (
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <ShareDialog
-            variant="folder"
-            workspaceUuid={workspaceUuid}
-            currentFolder={currentFolder}
-            isAtWorkspaceRoot={isAtWorkspaceRoot}
-            loadShareSuggestions={loadShareSuggestions}
-          />
-          <Button
-            className="rounded-md"
-            onClick={toggleCurrentPinnedItem}
-            size="sm"
-            type="button"
-            variant={isCurrentPinned ? "secondary" : "outline"}
-          >
-            {isCurrentPinned ? (
-              <PinOff className="size-3.5" />
-            ) : (
-              <Pin className="size-3.5" />
-            )}
-            {isCurrentPinned ? "Unpin" : "Pin"}
-          </Button>
+        isMobile ? (
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
                 <Button
-                  aria-label="More actions"
-                  className="rounded-md"
-                  size="icon-sm"
+                  aria-label="Workspace actions"
+                  className="h-9 w-9 rounded-md border border-border/60 bg-background text-foreground shadow-sm hover:bg-muted/70"
+                  size="icon"
                   type="button"
-                  variant="outline"
+                  variant="ghost"
                 />
               }
             >
               <MoreHorizontal className="size-3.5" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent
+              align="end"
+              className={cn("w-56 bg-background", COMPACT_MENU_SURFACE_CLASS)}
+            >
               <DropdownMenuItem onClick={toggleCurrentPinnedItem}>
                 {isCurrentPinned ? (
                   <PinOff className="size-3.5" />
@@ -3954,6 +4430,23 @@ export function FileExplorer({
                   <Pin className="size-3.5" />
                 )}
                 {isCurrentPinned ? "Unpin" : "Pin"}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={isAtWorkspaceRoot || !currentFolder}
+                onClick={() => {
+                  if (currentFolder) {
+                    setPropertiesItem({
+                      detail: "Folder",
+                      id: currentFolder.id,
+                      kind: "folder",
+                      name: currentFolder.name,
+                    });
+                    setPropertiesOpen(true);
+                  }
+                }}
+              >
+                <SlidersHorizontal className="size-3.5" />
+                Properties
               </DropdownMenuItem>
               <DropdownMenuItem
                 disabled={isAtWorkspaceRoot || !currentFolder}
@@ -3999,7 +4492,12 @@ export function FileExplorer({
                   <FolderInput className="size-3.5" />
                   Move To
                 </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
+                <DropdownMenuSubContent
+                  className={cn(
+                    "w-56 bg-background",
+                    COMPACT_MENU_SURFACE_CLASS
+                  )}
+                >
                   {allFolders
                     .filter(
                       (folder) =>
@@ -4035,14 +4533,19 @@ export function FileExplorer({
                 }}
               >
                 <ArrowDownToLine className="size-3.5" />
-                Download (as Zip)
+                Download
               </DropdownMenuItem>
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
                   <Info className="size-3.5" />
-                  Information
+                  Metadata
                 </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-72">
+                <DropdownMenuSubContent
+                  className={cn(
+                    "w-56 bg-background",
+                    COMPACT_MENU_SURFACE_CLASS
+                  )}
+                >
                   {currentInfoEntries.map((entry) => (
                     <div
                       className="flex items-start justify-between gap-3 px-2 py-1.5 text-xs"
@@ -4075,7 +4578,206 @@ export function FileExplorer({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
+        ) : (
+          <ButtonGroup className={HEADER_SEGMENTED_GROUP_CLASS}>
+            <ShareDialog
+              currentFolder={currentFolder}
+              compact
+              isAtWorkspaceRoot={isAtWorkspaceRoot}
+              loadShareSuggestions={loadShareSuggestions}
+              segmented
+              variant="folder"
+              workspaceUuid={workspaceUuid}
+            />
+            <Button
+              className={HEADER_SEGMENT_BUTTON_CLASS}
+              onClick={toggleCurrentPinnedItem}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              {isCurrentPinned ? (
+                <PinOff className="size-3.5" />
+              ) : (
+                <Pin className="size-3.5" />
+              )}
+              {isCurrentPinned ? "Unpin" : "Pin"}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    aria-label="More actions"
+                    className={HEADER_SEGMENT_ICON_BUTTON_CLASS}
+                    size="icon"
+                    type="button"
+                    variant="ghost"
+                  />
+                }
+              >
+                <MoreHorizontal className="size-3.5" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className={cn("w-52 bg-background", COMPACT_MENU_SURFACE_CLASS)}
+              >
+                <DropdownMenuItem onClick={toggleCurrentPinnedItem}>
+                  {isCurrentPinned ? (
+                    <PinOff className="size-3.5" />
+                  ) : (
+                    <Pin className="size-3.5" />
+                  )}
+                  {isCurrentPinned ? "Unpin" : "Pin"}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={isAtWorkspaceRoot || !currentFolder}
+                  onClick={() => {
+                    if (currentFolder) {
+                      setPropertiesItem({
+                        detail: "Folder",
+                        id: currentFolder.id,
+                        kind: "folder",
+                        name: currentFolder.name,
+                      });
+                      setPropertiesOpen(true);
+                    }
+                  }}
+                >
+                  <SlidersHorizontal className="size-3.5" />
+                  Properties
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={isAtWorkspaceRoot || !currentFolder}
+                  onClick={() => {
+                    if (currentFolder) {
+                      openRenameFolderDialog(currentFolder);
+                    }
+                  }}
+                >
+                  <Pencil className="size-3.5" />
+                  Rename
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={isAtWorkspaceRoot || !currentFolder}
+                  onClick={() => {
+                    if (currentFolder) {
+                      void duplicateItem({
+                        id: currentFolder.id,
+                        kind: "folder",
+                        parentId: currentFolder.parentId,
+                      });
+                    }
+                  }}
+                >
+                  <Copy className="size-3.5" />
+                  Duplicate
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={isAtWorkspaceRoot || !currentFolder}
+                  onClick={() => {
+                    if (currentFolder) {
+                      void copyFolderShareLink(currentFolder);
+                    }
+                  }}
+                >
+                  <Share2 className="size-3.5" />
+                  Share
+                </DropdownMenuItem>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger
+                    disabled={isAtWorkspaceRoot || !currentFolder}
+                  >
+                    <FolderInput className="size-3.5" />
+                    Move To
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent
+                    className={cn(
+                      "w-56 bg-background",
+                      COMPACT_MENU_SURFACE_CLASS
+                    )}
+                  >
+                    {allFolders
+                      .filter(
+                        (folder) =>
+                          currentFolder &&
+                          folder.id !== currentFolder.id &&
+                          !folder.readOnly
+                      )
+                      .slice(0, 20)
+                      .map((folder) => (
+                        <DropdownMenuItem
+                          key={folder.id}
+                          onClick={() => {
+                            if (currentFolder) {
+                              void moveFolder(currentFolder.id, folder.id);
+                            }
+                          }}
+                        >
+                          {folder.name}
+                        </DropdownMenuItem>
+                      ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuItem
+                  disabled={isAtWorkspaceRoot || !currentFolder}
+                  onClick={() => {
+                    if (currentFolder) {
+                      void downloadItemArchive({
+                        id: currentFolder.id,
+                        kind: "folder",
+                        name: currentFolder.name,
+                      });
+                    }
+                  }}
+                >
+                  <ArrowDownToLine className="size-3.5" />
+                  Download
+                </DropdownMenuItem>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <Info className="size-3.5" />
+                    Metadata
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent
+                    className={cn(
+                      "w-56 bg-background",
+                      COMPACT_MENU_SURFACE_CLASS
+                    )}
+                  >
+                    {currentInfoEntries.map((entry) => (
+                      <div
+                        className="flex items-start justify-between gap-3 px-2 py-1.5 text-xs"
+                        key={entry.label}
+                      >
+                        <span className="text-muted-foreground">
+                          {entry.label}
+                        </span>
+                        <span className="max-w-[12rem] text-right text-foreground">
+                          {entry.value}
+                        </span>
+                      </div>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  disabled={isAtWorkspaceRoot || !currentFolder}
+                  onClick={() => {
+                    if (currentFolder) {
+                      void deleteSelectionItems([
+                        { id: currentFolder.id, kind: "folder" },
+                      ]);
+                    }
+                  }}
+                  variant="destructive"
+                >
+                  <Trash2 className="size-3.5" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </ButtonGroup>
+        )
       ),
     });
 
@@ -4108,34 +4810,34 @@ export function FileExplorer({
     return (
       <FilePreviewPanel
         activeFile={activeFile}
-        workspaceUuid={workspaceUuid}
-        currentFolderId={currentFolderId}
+        activeRetrievalChunkId={activeRetrievalChunkId}
         allFiles={allFiles}
         allFolders={allFolders}
-        query={query}
-        retrievalResults={retrievalResults}
-        activeRetrievalChunkId={activeRetrievalChunkId}
-        selectFile={selectFile}
-        openFileById={openFileById}
-        openRenameFileDialog={openRenameFileDialog}
-        deleteSelectionItems={deleteSelectionItems}
-        moveFile={moveFile}
-        duplicateItem={duplicateItem}
-        downloadFileDirect={downloadFileDirect}
         copyFileShareLink={copyFileShareLink}
-        downloadItemArchive={downloadItemArchive}
-        toggleCurrentPinnedItem={toggleCurrentPinnedItem}
-        isCurrentPinned={isCurrentPinned}
+        currentFolderId={currentFolderId}
         currentInfoEntries={currentInfoEntries}
-        wikiMarkdownFiles={wikiMarkdownFiles}
+        deleteSelectionItems={deleteSelectionItems}
+        downloadFileDirect={downloadFileDirect}
+        downloadItemArchive={downloadItemArchive}
+        duplicateItem={duplicateItem}
         filePathById={filePathById}
         hardReingestFile={hardReingestFile}
+        isCurrentPinned={isCurrentPinned}
+        loadShareSuggestions={loadShareSuggestions}
+        moveFile={moveFile}
+        openFileById={openFileById}
+        openRenameFileDialog={openRenameFileDialog}
         propertyDefinitions={availablePropertyDefinitions}
+        query={query}
+        retrievalResults={retrievalResults}
+        selectFile={selectFile}
         setPropertyDefinitions={setPropertyDefinitions}
-        workspaceMembers={workspaceMembers}
         startBannerUpload={startBannerUpload}
         startUpload={startUpload}
-        loadShareSuggestions={loadShareSuggestions}
+        toggleCurrentPinnedItem={toggleCurrentPinnedItem}
+        wikiMarkdownFiles={wikiMarkdownFiles}
+        workspaceMembers={workspaceMembers}
+        workspaceUuid={workspaceUuid}
       />
     );
   }
@@ -4161,7 +4863,7 @@ export function FileExplorer({
                 ) : null}
               </div>
             </ContextMenuTrigger>
-            <ContextMenuContent>
+            <ContextMenuContent className={COMPACT_MENU_SURFACE_CLASS}>
               <ContextMenuItem
                 disabled={Boolean(currentFolder.readOnly) || bannerUploadBusy}
                 onClick={() => triggerBannerPicker(currentFolder.id)}
@@ -4285,7 +4987,10 @@ export function FileExplorer({
                 >
                   <Plus className="size-3.5" />
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-44">
+                <DropdownMenuContent
+                  align="start"
+                  className={cn("w-44", COMPACT_MENU_SURFACE_CLASS)}
+                >
                   <DropdownMenuItem
                     disabled={isCurrentFolderReadOnly}
                     onClick={() => openCreateNoteDialog(currentFolderId)}
@@ -4319,183 +5024,27 @@ export function FileExplorer({
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <PropertyFilters
+              fields={propertyFilterFields}
+              filters={propertyFiltersForUi}
+              onChange={handlePropertyFiltersChange}
+              size="sm"
+              trigger={
+                <Button
+                  className="h-7 rounded-md px-2 text-xs"
+                  size="sm"
+                  variant="outline"
+                >
+                  <SlidersHorizontal className="size-3.5" />
+                  Filters
+                </Button>
+              }
+            />
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
                   <Button
-                    className="rounded-md"
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                  />
-                }
-              >
-                <SlidersHorizontal className="size-3.5" />
-                Filters
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-72 rounded-2xl p-3">
-                <div className="space-y-3">
-                  {propertyFilters.map((filter) => {
-                    const definition = propertyDefinitionByKey.get(filter.key);
-                    const options = definition?.options ?? [];
-                    return (
-                      <div className="space-y-1 rounded-xl border border-border/60 p-2" key={filter.id}>
-                        <div className="grid grid-cols-2 gap-2">
-                          <select
-                            className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs"
-                            onChange={(event) => {
-                              const nextKey = event.target.value;
-                              const nextDefinition = propertyDefinitionByKey.get(nextKey);
-                              if (!nextDefinition) {
-                                return;
-                              }
-                              setPropertyFilters((current) =>
-                                current.map((entry) =>
-                                  entry.id === filter.id
-                                    ? {
-                                        ...entry,
-                                        key: nextKey,
-                                        operator: getOperatorsForType(nextDefinition.type)[0],
-                                        type: nextDefinition.type,
-                                        value: "",
-                                      }
-                                    : entry
-                                )
-                              );
-                            }}
-                            value={filter.key}
-                          >
-                            {availablePropertyDefinitions.map((option) => (
-                              <option key={option.key} value={option.key}>
-                                {option.key}
-                              </option>
-                            ))}
-                          </select>
-                          <select
-                            className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs"
-                            onChange={(event) =>
-                              setPropertyFilters((current) =>
-                                current.map((entry) =>
-                                  entry.id === filter.id
-                                    ? {
-                                        ...entry,
-                                        operator: event.target.value as PropertyFilterOperator,
-                                      }
-                                    : entry
-                                )
-                              )
-                            }
-                            value={filter.operator}
-                          >
-                            {getOperatorsForType(filter.type).map((option) => (
-                              <option key={option} value={option}>
-                                {getOperatorLabel(option)}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        {filter.operator === "is_empty" ||
-                        filter.operator === "is_true" ||
-                        filter.operator === "is_false" ||
-                        filter.operator === "is_not_empty" ? null : definition?.type === "select" ? (
-                          <select
-                            className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs"
-                            onChange={(event) =>
-                              setPropertyFilters((current) =>
-                                current.map((entry) =>
-                                  entry.id === filter.id
-                                    ? { ...entry, value: event.target.value }
-                                    : entry
-                                )
-                              )
-                            }
-                            value={filter.value}
-                          >
-                            <option value="">Select value</option>
-                            {options.map((option) => (
-                              <option key={option} value={option}>
-                                {option}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <Input
-                            className="h-9 text-xs"
-                            onChange={(event) =>
-                              setPropertyFilters((current) =>
-                                current.map((entry) =>
-                                  entry.id === filter.id
-                                    ? { ...entry, value: event.target.value }
-                                    : entry
-                                )
-                              )
-                            }
-                            placeholder={
-                              definition?.type === "multi_select"
-                                ? "comma, separated, values"
-                                : "Value"
-                            }
-                            value={filter.value}
-                          />
-                        )}
-                        <Button
-                          className="w-full"
-                          onClick={() =>
-                            setPropertyFilters((current) =>
-                              current.filter((entry) => entry.id !== filter.id)
-                            )
-                          }
-                          size="sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          Remove filter
-                        </Button>
-                      </div>
-                    );
-                  })}
-                  <Button
-                    className="w-full"
-                    disabled={availablePropertyDefinitions.length === 0}
-                    onClick={() => {
-                      const nextDefinition = availablePropertyDefinitions[0];
-                      if (!nextDefinition) {
-                        return;
-                      }
-                      setPropertyFilters((current) => [
-                        ...current,
-                        {
-                          id: crypto.randomUUID(),
-                          key: nextDefinition.key,
-                          operator: getOperatorsForType(nextDefinition.type)[0],
-                          type: nextDefinition.type,
-                          value: "",
-                        },
-                      ]);
-                    }}
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                  >
-                    Add filter
-                  </Button>
-                  <Button
-                    className="w-full"
-                    onClick={() => setPropertyFilters([])}
-                    size="sm"
-                    type="button"
-                    variant="ghost"
-                  >
-                    Clear filters
-                  </Button>
-                </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    className="rounded-md"
+                    className="h-7 rounded-md px-2 text-xs"
                     size="sm"
                     type="button"
                     variant="outline"
@@ -4503,69 +5052,110 @@ export function FileExplorer({
                 }
               >
                 <ArrowUpDown className="size-3.5" />
-                Sorting
+                {getSortFieldLabel(sortState)} · {getSortDirectionLabel(sortState.direction)}
               </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="w-64 rounded-2xl p-2"
-              >
-                <div className="space-y-2">
-                  <select
-                    className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs"
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      if (value === "name" || value === "createdAt" || value === "updatedAt") {
-                        setSortState((current) => ({
-                          direction: current.direction,
-                          key: value,
-                          kind: "builtin",
-                        }));
-                        return;
-                      }
-
-                      const definition = propertyDefinitionByKey.get(value);
-                      if (!definition) {
-                        return;
-                      }
-                      setSortState((current) => ({
-                        direction: current.direction,
-                        key: definition.key,
-                        kind: "property",
-                        type: definition.type,
-                      }));
-                    }}
-                    value={sortState.key}
-                  >
-                    <option value="name">Name</option>
-                    <option value="createdAt">Date created</option>
-                    <option value="updatedAt">Date updated</option>
+            <DropdownMenuContent
+              align="end"
+              className={cn("w-[220px] bg-background", COMPACT_MENU_SURFACE_CLASS)}
+            >
+                <ScrollArea className="max-h-72">
+                  <div className="p-1">
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="px-2 py-1.5 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                    Sort options
+                  </DropdownMenuLabel>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                {[
+                  { key: "name", label: "Name" },
+                  { key: "createdAt", label: "Date created" },
+                  { key: "updatedAt", label: "Date updated" },
+                ].map((option) => (
+                  <DropdownMenuSub key={option.key}>
+                    <DropdownMenuSubTrigger>
+                      <ArrowUpDown className="size-3.5" />
+                      {option.label}
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent
+                      className={cn("w-44 bg-background", COMPACT_MENU_SURFACE_CLASS)}
+                    >
+                      {(["asc", "desc"] as const).map((direction) => (
+                        <DropdownMenuItem
+                          key={direction}
+                          onClick={() =>
+                            setSortState({
+                              direction,
+                              key: option.key as "createdAt" | "name" | "updatedAt",
+                              kind: "builtin",
+                            })
+                          }
+                        >
+                          <span className="flex-1">
+                            {direction === "asc" ? "Ascending" : "Descending"}
+                          </span>
+                          {sortState.kind === "builtin" &&
+                          sortState.key === option.key &&
+                          sortState.direction === direction ? (
+                            <Check className="size-3.5" />
+                          ) : null}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                ))}
+                {availablePropertyDefinitions.length > 0 ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuGroup>
+                      <DropdownMenuLabel className="px-2 py-1.5 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                        Properties
+                      </DropdownMenuLabel>
+                    </DropdownMenuGroup>
                     {availablePropertyDefinitions.map((definition) => (
-                      <option key={definition.key} value={definition.key}>
-                        {definition.key}
-                      </option>
+                      <DropdownMenuSub key={definition.key}>
+                        <DropdownMenuSubTrigger>
+                          <ArrowUpDown className="size-3.5" />
+                          {definition.key}
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent
+                          className={cn("w-44 bg-background", COMPACT_MENU_SURFACE_CLASS)}
+                        >
+                          {(["asc", "desc"] as const).map((direction) => (
+                            <DropdownMenuItem
+                              key={direction}
+                              onClick={() =>
+                                setSortState({
+                                  direction,
+                                  key: definition.key,
+                                  kind: "property",
+                                  type: definition.type,
+                                })
+                              }
+                            >
+                              <span className="flex-1">
+                                {direction === "asc" ? "Ascending" : "Descending"}
+                              </span>
+                              {sortState.kind === "property" &&
+                              sortState.key === definition.key &&
+                              sortState.direction === direction ? (
+                                <Check className="size-3.5" />
+                              ) : null}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
                     ))}
-                  </select>
-                  <select
-                    className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs"
-                    onChange={(event) =>
-                      setSortState((current) => ({
-                        ...current,
-                        direction: event.target.value as "asc" | "desc",
-                      }))
-                    }
-                    value={sortState.direction}
-                  >
-                    <option value="asc">Ascending</option>
-                    <option value="desc">Descending</option>
-                  </select>
-                </div>
+                  </>
+                ) : null}
+                  </div>
+                </ScrollArea>
               </DropdownMenuContent>
             </DropdownMenu>
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
                   <Button
-                    className="rounded-md"
+                    className="h-7 rounded-md px-2 text-xs"
                     size="sm"
                     type="button"
                     variant="outline"
@@ -4575,51 +5165,110 @@ export function FileExplorer({
                 <SlidersHorizontal className="size-3.5" />
                 Card fields
                 <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                  {selectedCardPropertyDefinitions.length}/{MAX_VISIBLE_CARD_PROPERTIES}
+                  {selectedCardPropertyDefinitions.length}/
+                  {MAX_VISIBLE_CARD_PROPERTIES}
                 </span>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-72 rounded-2xl p-2">
-                <DropdownMenuLabel>Visible card fields</DropdownMenuLabel>
-                <div className="space-y-1">
-                  {availablePropertyDefinitions.length === 0 ? (
-                    <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                      No workspace properties yet.
-                    </div>
-                  ) : (
-                    availablePropertyDefinitions.map((definition) => {
-                      const checked = cardPropertyKeys.includes(definition.key);
-                      const atLimit =
-                        selectedCardPropertyDefinitions.length >=
-                        MAX_VISIBLE_CARD_PROPERTIES;
-                      return (
+              <DropdownMenuContent
+                align="end"
+                className={cn("w-[220px] bg-background", COMPACT_MENU_SURFACE_CLASS)}
+              >
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="flex items-center justify-between gap-3 px-2 py-1.5 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                    <span>Visible card fields</span>
+                    <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] normal-case">
+                      {selectedCardPropertyDefinitions.length}/{MAX_VISIBLE_CARD_PROPERTIES}
+                    </span>
+                  </DropdownMenuLabel>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                {selectedCardPropertyDefinitions.length > 0 ? (
+                  <ScrollArea className="max-h-40">
+                    <div className="p-1">
+                      {selectedCardPropertyDefinitions.map((definition) => (
                         <DropdownMenuCheckboxItem
-                          checked={checked}
-                          disabled={!checked && atLimit}
+                          checked
                           key={definition.key}
-                          onCheckedChange={(nextChecked) => {
-                            setCardPropertyKeys((current) => {
-                              if (nextChecked === true) {
-                                if (current.includes(definition.key)) {
-                                  return current;
-                                }
-                                if (current.length >= MAX_VISIBLE_CARD_PROPERTIES) {
-                                  return current;
-                                }
-                                return [...current, definition.key];
-                              }
-
-                              return current.filter(
-                                (key) => key !== definition.key
-                              );
-                            });
-                          }}
+                          onCheckedChange={() =>
+                            setCardPropertyKeys((current) =>
+                              current.filter((key) => key !== definition.key)
+                            )
+                          }
                         >
-                          <span className="truncate">{definition.key}</span>
+                          {definition.key}
                         </DropdownMenuCheckboxItem>
-                      );
-                    })
-                  )}
-                </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                ) : (
+                  <div className="px-2 py-2 text-xs text-muted-foreground">
+                    No visible fields selected.
+                  </div>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <Plus className="size-3.5" />
+                    Add field
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent
+                    className={cn("w-[220px] bg-background p-0", COMPACT_MENU_SURFACE_CLASS)}
+                  >
+                    <div className="border-b border-border/60 p-2">
+                      <Input
+                        className="h-8 border-0 bg-transparent px-2 text-xs shadow-none"
+                        onChange={(event) => setCardFieldQuery(event.target.value)}
+                        placeholder="Search fields..."
+                        value={cardFieldQuery}
+                      />
+                    </div>
+                    <ScrollArea className="max-h-56">
+                      <div className="p-1">
+                        {filteredAvailablePropertyDefinitions.length === 0 ? (
+                          <div className="px-2 py-2 text-xs text-muted-foreground">
+                            No matching fields.
+                          </div>
+                        ) : (
+                          filteredAvailablePropertyDefinitions.map((definition) => {
+                            const checked = cardPropertyKeys.includes(definition.key);
+                            const atLimit =
+                              selectedCardPropertyDefinitions.length >=
+                                MAX_VISIBLE_CARD_PROPERTIES && !checked;
+
+                            return (
+                              <DropdownMenuCheckboxItem
+                                checked={checked}
+                                disabled={atLimit}
+                                key={definition.key}
+                                onCheckedChange={(nextChecked) => {
+                                  setCardPropertyKeys((current) => {
+                                    if (nextChecked) {
+                                      if (current.includes(definition.key)) {
+                                        return current;
+                                      }
+                                      if (
+                                        current.length >= MAX_VISIBLE_CARD_PROPERTIES
+                                      ) {
+                                        return current;
+                                      }
+                                      return [...current, definition.key];
+                                    }
+
+                                    return current.filter(
+                                      (key) => key !== definition.key
+                                    );
+                                  });
+                                }}
+                              >
+                                {definition.key}
+                              </DropdownMenuCheckboxItem>
+                            );
+                          })
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={() => {
@@ -4630,33 +5279,46 @@ export function FileExplorer({
                     );
                   }}
                 >
-                  Reset to defaults
+                  <RotateCcw className="size-3.5" />
+                  Reset
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setCardPropertyKeys([])}>
-                  Clear all
+                <DropdownMenuItem
+                  disabled={cardPropertyKeys.length === 0}
+                  onClick={() => setCardPropertyKeys([])}
+                >
+                  <X className="size-3.5" />
+                  Clear
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button
-              aria-label="Card view"
-              className="rounded-md"
-              onClick={() => setViewMode("cards")}
-              size="icon-sm"
-              type="button"
-              variant={viewMode === "cards" ? "secondary" : "outline"}
-            >
-              <Grid3X3 className="size-3.5" />
-            </Button>
-            <Button
-              aria-label="List view"
-              className="rounded-md"
-              onClick={() => setViewMode("list")}
-              size="icon-sm"
-              type="button"
-              variant={viewMode === "list" ? "secondary" : "outline"}
-            >
-              <LayoutList className="size-3.5" />
-            </Button>
+            <ButtonGroup className={HEADER_SEGMENTED_GROUP_CLASS}>
+              <Button
+                aria-label="Card view"
+                className={cn(
+                  HEADER_SEGMENT_ICON_BUTTON_CLASS,
+                  viewMode === "cards" && "bg-secondary"
+                )}
+                onClick={() => setViewMode("cards")}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <Grid3X3 className="size-3.5" />
+              </Button>
+              <Button
+                aria-label="List view"
+                className={cn(
+                  HEADER_SEGMENT_ICON_BUTTON_CLASS,
+                  viewMode === "list" && "bg-secondary"
+                )}
+                onClick={() => setViewMode("list")}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <LayoutList className="size-3.5" />
+              </Button>
+            </ButtonGroup>
           </div>
         </div>
 
@@ -4664,7 +5326,7 @@ export function FileExplorer({
           <ContextMenu>
             <ContextMenuTrigger {...({ disabled: isMobile } as any)}>
               <div
-                className="h-full overflow-auto [scrollbar-color:color-mix(in_oklab,var(--color-border),transparent_30%)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border/70 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-2"
+                className="h-full overflow-visible"
                 onContextMenu={(event) => {
                   if (isMobile) {
                     event.preventDefault();
@@ -4676,14 +5338,14 @@ export function FileExplorer({
                     "relative min-h-full px-3 pb-3",
                     canvasDropActive && "bg-primary/5"
                   )}
+                  data-drop-folder-id={
+                    isCurrentFolderReadOnly ? undefined : currentFolderId
+                  }
                   onContextMenu={(event) => {
                     if (isMobile) {
                       event.preventDefault();
                     }
                   }}
-                  data-drop-folder-id={
-                    isCurrentFolderReadOnly ? undefined : currentFolderId
-                  }
                   {...getCanvasDropProps()}
                 >
                   {loading ? (
@@ -4706,9 +5368,9 @@ export function FileExplorer({
                       animate={{ opacity: 1, y: 0 }}
                       className="relative min-h-[calc(100vh-14rem)]"
                       initial={{ opacity: 0, y: 8 }}
-                      transition={{ duration: 0.22, ease: "easeOut" }}
                       onPointerDown={handleMobileCanvasPointerDown}
                       ref={gridRef}
+                      transition={{ duration: 0.22, ease: "easeOut" }}
                     >
                       <div
                         className={cn(
@@ -4740,11 +5402,6 @@ export function FileExplorer({
                                     folder.id,
                                     folder.readOnly
                                   )}
-                                  onContextMenu={(event) => {
-                                    if (isMobile) {
-                                      event.preventDefault();
-                                    }
-                                  }}
                                   onClick={(event) => {
                                     if (isMobile) {
                                       handleMobileItemClick(folder.id, () =>
@@ -4761,6 +5418,12 @@ export function FileExplorer({
                                       navigateToFolder(folder.id)
                                     );
                                   }}
+                                  onContextMenu={(event) => {
+                                    if (isMobile) {
+                                      event.preventDefault();
+                                    }
+                                  }}
+                                  onPointerCancel={handleMobileItemPointerUp}
                                   onPointerDown={(event) => {
                                     if (
                                       isMobile &&
@@ -4770,7 +5433,6 @@ export function FileExplorer({
                                     }
                                   }}
                                   onPointerUp={handleMobileItemPointerUp}
-                                  onPointerCancel={handleMobileItemPointerUp}
                                   ref={(node: HTMLDivElement | null) => {
                                     if (!node) {
                                       itemRefs.current.delete(folder.id);
@@ -4826,7 +5488,9 @@ export function FileExplorer({
                                   </CardContent>
                                 </Card>
                               </ContextMenuTrigger>
-                              <ContextMenuContent>
+                              <ContextMenuContent
+                                className={COMPACT_MENU_SURFACE_CLASS}
+                              >
                                 <ContextMenuItem
                                   onClick={() => navigateToFolder(folder.id)}
                                 >
@@ -4895,7 +5559,9 @@ export function FileExplorer({
                                         <FolderInput className="size-3.5" />
                                         Move to
                                       </ContextMenuSubTrigger>
-                                      <ContextMenuSubContent>
+                                      <ContextMenuSubContent
+                                        className={COMPACT_MENU_SURFACE_CLASS}
+                                      >
                                         {allFolders
                                           .filter(
                                             (target) =>
@@ -4972,33 +5638,33 @@ export function FileExplorer({
                         })}
 
                         {sortedFiles.map((file) => {
-                          const { isImage, isPdf, isVideo, isAudio } =
+                          const { isImage, isMarkdown, isPdf, isVideo, isAudio } =
                             detectPreviewKind(file);
                           const fileProperties = getFileProperties(file);
-                          const fileCardDetails = selectedCardPropertyDefinitions
-                            .map((definition) => {
-                              const property =
-                                fileProperties[definition.key];
-                              if (!property) {
-                                return null;
-                              }
+                          const fileCardDetails =
+                            selectedCardPropertyDefinitions
+                              .map((definition) => {
+                                const property = fileProperties[definition.key];
+                                if (!property) {
+                                  return null;
+                                }
 
-                              const value = formatCardPropertyValue(property);
-                              if (!value) {
-                                return null;
-                              }
+                                const value = formatCardPropertyValue(property);
+                                if (!value) {
+                                  return null;
+                                }
 
-                              return {
-                                label: definition.key,
-                                value,
-                              };
-                            })
-                            .filter(
-                              (
-                                entry
-                              ): entry is { label: string; value: string } =>
-                                Boolean(entry)
-                            );
+                                return {
+                                  label: definition.key,
+                                  value,
+                                };
+                              })
+                              .filter(
+                                (
+                                  entry
+                                ): entry is { label: string; value: string } =>
+                                  Boolean(entry)
+                              );
                           const videoPlaybackDescriptor = isVideo
                             ? buildVideoPlaybackDescriptor({
                                 fallbackUrl: file.storageUrl,
@@ -5028,11 +5694,6 @@ export function FileExplorer({
                                   )}
                                   data-select-item="true"
                                   {...getFileDragProps(file.id, file.readOnly)}
-                                  onContextMenu={(event) => {
-                                    if (isMobile) {
-                                      event.preventDefault();
-                                    }
-                                  }}
                                   onBlur={() => handlePreviewIntentEnd(file)}
                                   onClick={(event) => {
                                     if (isMobile) {
@@ -5050,6 +5711,19 @@ export function FileExplorer({
                                       selectFile(file.id)
                                     );
                                   }}
+                                  onContextMenu={(event) => {
+                                    if (isMobile) {
+                                      event.preventDefault();
+                                    }
+                                  }}
+                                  onFocus={() => handlePreviewIntentStart(file)}
+                                  onMouseEnter={() =>
+                                    handlePreviewIntentStart(file)
+                                  }
+                                  onMouseLeave={() =>
+                                    handlePreviewIntentEnd(file)
+                                  }
+                                  onPointerCancel={handleMobileItemPointerUp}
                                   onPointerDown={(event) => {
                                     if (
                                       isMobile &&
@@ -5059,14 +5733,6 @@ export function FileExplorer({
                                     }
                                   }}
                                   onPointerUp={handleMobileItemPointerUp}
-                                  onPointerCancel={handleMobileItemPointerUp}
-                                  onFocus={() => handlePreviewIntentStart(file)}
-                                  onMouseEnter={() =>
-                                    handlePreviewIntentStart(file)
-                                  }
-                                  onMouseLeave={() =>
-                                    handlePreviewIntentEnd(file)
-                                  }
                                   ref={(node: HTMLDivElement | null) => {
                                     if (!node) {
                                       itemRefs.current.delete(file.id);
@@ -5094,7 +5760,7 @@ export function FileExplorer({
                                       }
                                     />
                                   </div>
-                                  <CardContent className="px-0 pt-0">
+                                <CardContent className="px-0 pt-0">
                                     <FileCard
                                       details={fileCardDetails}
                                       fileType={fileCardType}
@@ -5136,6 +5802,12 @@ export function FileExplorer({
                                               hoveredPreviewFileId === file.id
                                             }
                                           />
+                                        ) : isMarkdown ? (
+                                          <MarkdownThumbnail
+                                            className="h-full w-full"
+                                            content={file.noteContent ?? null}
+                                            workspaceUuid={workspaceUuid}
+                                          />
                                         ) : isPdf ? (
                                           <PdfThumbnail
                                             className="h-full w-auto rounded-md"
@@ -5147,7 +5819,9 @@ export function FileExplorer({
                                   </CardContent>
                                 </Card>
                               </ContextMenuTrigger>
-                              <ContextMenuContent>
+                              <ContextMenuContent
+                                className={COMPACT_MENU_SURFACE_CLASS}
+                              >
                                 <ContextMenuItem
                                   onClick={() => selectFile(file.id)}
                                 >
@@ -5187,7 +5861,9 @@ export function FileExplorer({
                                         <FolderInput className="size-3.5" />
                                         Move to
                                       </ContextMenuSubTrigger>
-                                      <ContextMenuSubContent>
+                                      <ContextMenuSubContent
+                                        className={COMPACT_MENU_SURFACE_CLASS}
+                                      >
                                         {allFolders
                                           .filter((target) => !target.readOnly)
                                           .slice(0, 20)
@@ -5265,7 +5941,7 @@ export function FileExplorer({
                       </div>
                       {viewMode === "list" ? (
                         <div className="divide-y divide-border/40 rounded-md bg-secondary/30">
-                          {sortedFolders.map((folder) => (
+                        {sortedFolders.map((folder) => (
                             <div
                               className={cn(
                                 "flex cursor-pointer items-center gap-3 px-3 py-2.5 transition-colors hover:bg-muted/30",
@@ -5280,11 +5956,6 @@ export function FileExplorer({
                                 folder.id,
                                 folder.readOnly
                               )}
-                              onContextMenu={(event) => {
-                                if (isMobile) {
-                                  event.preventDefault();
-                                }
-                              }}
                               key={folder.id}
                               onClick={(event) => {
                                 if (isMobile) {
@@ -5302,13 +5973,18 @@ export function FileExplorer({
                                   navigateToFolder(folder.id)
                                 );
                               }}
+                              onContextMenu={(event) => {
+                                if (isMobile) {
+                                  event.preventDefault();
+                                }
+                              }}
+                              onPointerCancel={handleMobileItemPointerUp}
                               onPointerDown={(event) => {
                                 if (isMobile && event.pointerType === "touch") {
                                   beginMobileItemLongPress(folder.id);
                                 }
                               }}
                               onPointerUp={handleMobileItemPointerUp}
-                              onPointerCancel={handleMobileItemPointerUp}
                               ref={(node: HTMLDivElement | null) => {
                                 if (!node) {
                                   itemRefs.current.delete(folder.id);
@@ -5317,43 +5993,153 @@ export function FileExplorer({
                                 itemRefs.current.set(folder.id, node);
                               }}
                             >
-                              <Checkbox
-                                checked={selection.selectedIds.has(folder.id)}
-                                onCheckedChange={(checked) =>
-                                  selection.setItemSelected(
-                                    folder.id,
-                                    checked === true
-                                  )
-                                }
-                                onClick={(event) => event.stopPropagation()}
-                              />
-                              <FolderGlyph
-                                compact
-                                previewKinds={
-                                  folderPreviewKinds.get(folder.id) ?? []
-                                }
-                              />
-                              <p className="min-w-0 flex-1 truncate font-medium text-sm">
-                                {folder.name}
-                              </p>
-                              <div className="ml-auto flex items-center gap-6 text-muted-foreground text-xs">
-                                <span className="min-w-[110px] text-right tabular-nums">
-                                  {folderSubfolderCount.get(folder.id) ?? 0}{" "}
-                                  folders •{" "}
-                                  {folderFileCount.get(folder.id) ?? 0} files
-                                </span>
-                                <span className="min-w-[72px] text-right tabular-nums">
-                                  {folder.updatedAt
-                                    ? toUpdatedLabel(folder.updatedAt)
-                                    : "—"}
-                                </span>
-                              </div>
+                              {isMobile ? (
+                                <>
+                                  <FolderGlyph
+                                    compact
+                                    previewKinds={
+                                      folderPreviewKinds.get(folder.id) ?? []
+                                    }
+                                  />
+                                  <p className="min-w-0 flex-1 truncate font-medium text-sm">
+                                    {folder.name}
+                                  </p>
+                                  <MobileActionsPopover
+                                    detail={`Folder • ${folderSubfolderCount.get(folder.id) ?? 0} folders • ${folderFileCount.get(folder.id) ?? 0} files`}
+                                    folders={allFolders}
+                                    kind="folder"
+                                    name={folder.name}
+                                    onDelete={() => {
+                                      void deleteSelectionItems([
+                                        { id: folder.id, kind: "folder" },
+                                      ]);
+                                    }}
+                                    onDownload={() => {
+                                      void downloadItemArchive({
+                                        id: folder.id,
+                                        kind: "folder",
+                                        name: folder.name,
+                                      });
+                                    }}
+                                    onDuplicate={() => {
+                                      void duplicateItem({
+                                        id: folder.id,
+                                        kind: "folder",
+                                        parentId: folder.parentId,
+                                      });
+                                    }}
+                                    onMetadata={() => {
+                                      setPropertiesItem({
+                                        kind: "folder",
+                                        id: folder.id,
+                                        name: folder.name,
+                                        detail: "Folder",
+                                      });
+                                      setPropertiesOpen(true);
+                                    }}
+                                    onMoveTo={(targetId) => {
+                                      void moveFolder(folder.id, targetId);
+                                    }}
+                                    onOpenProperties={() => {
+                                      setPropertiesItem({
+                                        kind: "folder",
+                                        id: folder.id,
+                                        name: folder.name,
+                                        detail: "Folder",
+                                      });
+                                      setPropertiesOpen(true);
+                                    }}
+                                    onRename={() => openRenameFolderDialog(folder)}
+                                    onShare={() => {
+                                      void copyFolderShareLink(folder);
+                                    }}
+                                    onTogglePin={() => {
+                                      filesPinsActions.togglePinnedItem(
+                                        workspaceUuid,
+                                        {
+                                          folderId: folder.parentId,
+                                          id: folder.id,
+                                          kind: "folder",
+                                          name: folder.name,
+                                          workspaceId: workspaceUuid,
+                                        }
+                                      );
+                                    }}
+                                    pinned={Boolean(
+                                      filesPinsActions.isPinned(
+                                        workspaceUuid,
+                                        "folder",
+                                        folder.id
+                                      )
+                                    )}
+                                    readOnly={Boolean(folder.readOnly)}
+                                    targetId={folder.id}
+                                  />
+                                </>
+                              ) : (
+                                <>
+                                  <Checkbox
+                                    checked={selection.selectedIds.has(folder.id)}
+                                    onCheckedChange={(checked) =>
+                                      selection.setItemSelected(
+                                        folder.id,
+                                        checked === true
+                                      )
+                                    }
+                                    onClick={(event) => event.stopPropagation()}
+                                  />
+                                  <FolderGlyph
+                                    compact
+                                    previewKinds={
+                                      folderPreviewKinds.get(folder.id) ?? []
+                                    }
+                                  />
+                                  <p className="min-w-0 flex-1 truncate font-medium text-sm">
+                                    {folder.name}
+                                  </p>
+                                  <div className="ml-auto flex items-center gap-6 text-muted-foreground text-xs">
+                                    <span className="min-w-[110px] text-right tabular-nums">
+                                      {folderSubfolderCount.get(folder.id) ?? 0}{" "}
+                                      folders •{" "}
+                                      {folderFileCount.get(folder.id) ?? 0} files
+                                    </span>
+                                    <span className="min-w-[72px] text-right tabular-nums">
+                                      {folder.updatedAt
+                                        ? toUpdatedLabel(folder.updatedAt)
+                                        : "—"}
+                                    </span>
+                                  </div>
+                                </>
+                              )}
                             </div>
                           ))}
-                          {sortedFiles.map((file) => {
-                            const fileKind = detectFileKind(file);
-                            return (
-                              <div
+                        {sortedFiles.map((file) => {
+                          const fileKind = detectFileKind(file);
+                          const previewKind = detectPreviewKind(file);
+                          const fileProperties = getFileProperties(file);
+                          const mobilePropertyEntries =
+                            selectedCardPropertyDefinitions
+                              .map((definition) => {
+                                const property = fileProperties[definition.key];
+                                const value =
+                                  property &&
+                                  formatCardPropertyValue(property);
+                                if (!value) {
+                                  return null;
+                                }
+                                return {
+                                  key: definition.key,
+                                  value,
+                                };
+                              })
+                              .filter(
+                                (
+                                  entry
+                                ): entry is { key: string; value: string } =>
+                                  Boolean(entry)
+                              );
+                          return (
+                            <div
                                 className={cn(
                                   "flex cursor-pointer items-center gap-3 px-3 py-2.5 transition-colors hover:bg-muted/30",
                                   selection.selectedIds.has(file.id) &&
@@ -5361,11 +6147,6 @@ export function FileExplorer({
                                 )}
                                 data-select-item="true"
                                 {...getFileDragProps(file.id, file.readOnly)}
-                                onContextMenu={(event) => {
-                                  if (isMobile) {
-                                    event.preventDefault();
-                                  }
-                                }}
                                 key={file.id}
                                 onClick={(event) => {
                                   if (isMobile) {
@@ -5383,6 +6164,12 @@ export function FileExplorer({
                                     selectFile(file.id)
                                   );
                                 }}
+                                onContextMenu={(event) => {
+                                  if (isMobile) {
+                                    event.preventDefault();
+                                  }
+                                }}
+                                onPointerCancel={handleMobileItemPointerUp}
                                 onPointerDown={(event) => {
                                   if (
                                     isMobile &&
@@ -5392,7 +6179,6 @@ export function FileExplorer({
                                   }
                                 }}
                                 onPointerUp={handleMobileItemPointerUp}
-                                onPointerCancel={handleMobileItemPointerUp}
                                 ref={(node: HTMLDivElement | null) => {
                                   if (!node) {
                                     itemRefs.current.delete(file.id);
@@ -5401,34 +6187,173 @@ export function FileExplorer({
                                   itemRefs.current.set(file.id, node);
                                 }}
                               >
-                                <Checkbox
-                                  checked={selection.selectedIds.has(file.id)}
-                                  onCheckedChange={(checked) =>
-                                    selection.setItemSelected(
-                                      file.id,
-                                      checked === true
-                                    )
-                                  }
-                                  onClick={(event) => event.stopPropagation()}
-                                />
-                                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted/60">
-                                  {getFileTypeIcon(fileKind)}
-                                </div>
-                                <div className="flex min-w-0 flex-1 items-center gap-2">
-                                  <p className="min-w-0 flex-1 truncate font-medium text-sm">
-                                    {file.name}
-                                  </p>
-                                </div>
-                                <div className="ml-auto flex items-center gap-6 text-muted-foreground text-xs">
-                                  <span className="min-w-[110px] text-right tabular-nums">
-                                    {formatBytes(file.sizeBytes)}
-                                  </span>
-                                  <span className="min-w-[72px] text-right tabular-nums">
-                                    {toUpdatedLabel(
-                                      file.updatedAt ?? file.createdAt
-                                    )}
-                                  </span>
-                                </div>
+                                {isMobile ? (
+                                  <>
+                                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted/60">
+                                      {getFileTypeIcon(fileKind)}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="min-w-0 truncate font-medium text-sm">
+                                        {file.name}
+                                      </p>
+                                    </div>
+                                    <MobileActionsPopover
+                                      detail={`${formatBytes(file.sizeBytes)} • ${file.mimeType ?? "unknown"} • ${file.isIngested ? "Ingested" : "Pending"}`}
+                                      folders={allFolders}
+                                      kind="file"
+                                      name={file.name}
+                                      onCircleToAi={
+                                        previewKind.isPdf ||
+                                        previewKind.isImage ||
+                                        previewKind.isVideo
+                                          ? () =>
+                                              selectFile(file.id, {
+                                                circleToAi: true,
+                                              })
+                                          : undefined
+                                      }
+                                      onDelete={() => {
+                                        const items = resolveContextActionItems(
+                                          file.id,
+                                          "file"
+                                        );
+                                        void deleteSelectionItems(items);
+                                      }}
+                                      onDownload={() => {
+                                        downloadFileDirect(file);
+                                      }}
+                                      onDuplicate={() => {
+                                        void duplicateItem({
+                                          id: file.id,
+                                          kind: "file",
+                                          parentId: file.folderId,
+                                        });
+                                      }}
+                                      onHardReingest={() => {
+                                        void hardReingestFile(file);
+                                      }}
+                                      onMetadata={() => {
+                                        setPropertiesItem({
+                                          kind: "file",
+                                          id: file.id,
+                                          name: file.name,
+                                          detail: `${formatBytes(file.sizeBytes)} • ${file.mimeType ?? "unknown"} • ${file.isIngested ? "Ingested" : "Pending"}`,
+                                        });
+                                        setPropertiesOpen(true);
+                                      }}
+                                      onMoveTo={(targetId) => {
+                                        const items = resolveContextActionItems(
+                                          file.id,
+                                          "file"
+                                        );
+                                        void moveItemsToFolder(
+                                          items.map((item) => item.id),
+                                          targetId
+                                        );
+                                      }}
+                                      onOpenProperties={() => {
+                                        setPropertiesItem({
+                                          kind: "file",
+                                          id: file.id,
+                                          name: file.name,
+                                          detail: `${formatBytes(file.sizeBytes)} • ${file.mimeType ?? "unknown"} • ${file.isIngested ? "Ingested" : "Pending"}`,
+                                          });
+                                          setPropertiesOpen(true);
+                                        }}
+                                      onRename={() => openRenameFileDialog(file)}
+                                      onShare={() => {
+                                        void copyFileShareLink(file);
+                                      }}
+                                      onTogglePin={() => {
+                                        filesPinsActions.togglePinnedItem(
+                                          workspaceUuid,
+                                          {
+                                            folderId: file.folderId,
+                                            id: file.id,
+                                            kind: "file",
+                                            name: file.name,
+                                            workspaceId: workspaceUuid,
+                                          }
+                                        );
+                                      }}
+                                      pinned={Boolean(
+                                        filesPinsActions.isPinned(
+                                          workspaceUuid,
+                                          "file",
+                                          file.id
+                                        )
+                                      )}
+                                      readOnly={Boolean(file.readOnly)}
+                                      targetId={file.id}
+                                    />
+                                  </>
+                                ) : (
+                                  <>
+                                    <Checkbox
+                                      checked={selection.selectedIds.has(file.id)}
+                                      onCheckedChange={(checked) =>
+                                        selection.setItemSelected(
+                                          file.id,
+                                          checked === true
+                                        )
+                                      }
+                                      onClick={(event) => event.stopPropagation()}
+                                    />
+                                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted/60">
+                                      {getFileTypeIcon(fileKind)}
+                                    </div>
+                                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                                      <p className="min-w-0 truncate font-medium text-sm">
+                                        {file.name}
+                                      </p>
+                                    </div>
+                                    <div className="ml-auto flex items-start gap-4 text-muted-foreground text-xs">
+                                      <div className="flex flex-col items-end gap-1">
+                                        <span className="min-w-[110px] text-right tabular-nums">
+                                          {formatBytes(file.sizeBytes)}
+                                        </span>
+                                        <span className="min-w-[72px] text-right tabular-nums">
+                                          {toUpdatedLabel(
+                                            file.updatedAt ?? file.createdAt
+                                          )}
+                                        </span>
+                                      </div>
+                                      {selectedCardPropertyDefinitions.length > 0 ? (
+                                        <div className="flex max-w-[22rem] flex-wrap justify-end gap-1.5">
+                                          {selectedCardPropertyDefinitions.map(
+                                            (definition) => {
+                                              const property =
+                                                fileProperties[definition.key];
+                                              const value =
+                                                property &&
+                                                formatCardPropertyValue(
+                                                  property
+                                                );
+                                              if (!value) {
+                                                return null;
+                                              }
+
+                                              return (
+                                                <span
+                                                  className="inline-flex max-w-full items-center gap-1 rounded-md border border-border/50 bg-background/75 px-2 py-0.5 text-[10px] leading-none text-muted-foreground"
+                                                  key={definition.key}
+                                                  title={`${definition.key}: ${value}`}
+                                                >
+                                                  <span className="shrink-0 font-medium text-foreground/75">
+                                                    {definition.key}
+                                                  </span>
+                                                  <span className="min-w-0 truncate">
+                                                    {value}
+                                                  </span>
+                                                </span>
+                                              );
+                                            }
+                                          )}
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  </>
+                                )}
                               </div>
                             );
                           })}
@@ -5450,8 +6375,10 @@ export function FileExplorer({
                 </div>
               </div>
             </ContextMenuTrigger>
-            {!isMobile ? (
-              <ContextMenuContent>
+            {isMobile ? null : (
+              <ContextMenuContent
+                className={COMPACT_MENU_SURFACE_CLASS}
+              >
                 <ContextMenuItem
                   disabled={isCurrentFolderReadOnly}
                   onClick={() => openCreateNoteDialog(currentFolderId)}
@@ -5485,13 +6412,13 @@ export function FileExplorer({
                   Refresh
                 </ContextMenuItem>
               </ContextMenuContent>
-            ) : null}
+            )}
           </ContextMenu>
         </div>
       </div>
 
       {selection.selectedCount > 0 ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/40 bg-background px-4 py-3 md:hidden">
+        <div className="fixed inset-x-0 bottom-0 z-30 border-border/40 border-t bg-background px-4 py-3 md:hidden">
           <div className="flex flex-wrap items-center gap-2">
             <div className="mr-auto">
               <p className="font-medium text-sm">
@@ -5651,7 +6578,7 @@ export function FileExplorer({
       </Dialog>
 
       <Dialog onOpenChange={setPropertiesOpen} open={propertiesOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Properties</DialogTitle>
             <DialogDescription>
@@ -5659,20 +6586,31 @@ export function FileExplorer({
             </DialogDescription>
           </DialogHeader>
           {propertiesItem ? (
-            <div className="space-y-2 rounded-md border p-3 text-sm">
-              <p>
-                <span className="font-medium">Name:</span> {propertiesItem.name}
+            <div className="space-y-1.5 rounded-lg border border-border/60 bg-background p-3 text-xs text-foreground">
+              <p className="flex gap-1.5">
+                <span className="min-w-14 font-medium text-muted-foreground">
+                  Name
+                </span>
+                <span className="truncate">{propertiesItem.name}</span>
               </p>
-              <p>
-                <span className="font-medium">Type:</span> {propertiesItem.kind}
+              <p className="flex gap-1.5">
+                <span className="min-w-14 font-medium text-muted-foreground">
+                  Type
+                </span>
+                <span>{propertiesItem.kind}</span>
               </p>
-              <p>
-                <span className="font-medium">ID:</span> {propertiesItem.id}
+              <p className="flex gap-1.5">
+                <span className="min-w-14 font-medium text-muted-foreground">
+                  ID
+                </span>
+                <span className="break-all">{propertiesItem.id}</span>
               </p>
               {propertiesItem.detail ? (
-                <p>
-                  <span className="font-medium">Detail:</span>{" "}
-                  {propertiesItem.detail}
+                <p className="flex gap-1.5">
+                  <span className="min-w-14 font-medium text-muted-foreground">
+                    Detail
+                  </span>
+                  <span className="break-words">{propertiesItem.detail}</span>
                 </p>
               ) : null}
             </div>

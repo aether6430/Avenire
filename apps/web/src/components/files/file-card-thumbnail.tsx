@@ -6,6 +6,7 @@ import {
 } from "@avenire/ui/media";
 import { FileCode2, FileText } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Markdown } from "@/components/chat/markdown";
 import {
   primeMediaPlayback,
   releaseMediaPlaybackPrime,
@@ -33,6 +34,13 @@ interface FileCardProps {
   name: string;
   previewContent?: React.ReactNode;
   previewUrl?: string;
+}
+
+interface MarkdownThumbnailProps {
+  className?: string;
+  content?: string | null;
+  id?: string;
+  workspaceUuid?: string;
 }
 
 function formatTimeAgo(date: Date): string {
@@ -193,6 +201,48 @@ export function FileCard({
           ))}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+export function MarkdownThumbnail({
+  className,
+  content,
+  id,
+  workspaceUuid,
+}: MarkdownThumbnailProps) {
+  const markdownIdRef = useRef(
+    `markdown-thumbnail-${crypto.randomUUID()}`
+  );
+
+  const markdownContent =
+    typeof content === "string" && content.trim().length > 0
+      ? content
+      : null;
+
+  return (
+    <div
+      className={cn(
+        "flex h-full w-full items-start justify-start overflow-hidden rounded-md border border-border/50 bg-background p-2 text-[8px] leading-none",
+        className
+      )}
+    >
+      {markdownContent ? (
+        <div className="origin-top-left scale-[0.62] transform-gpu">
+          <Markdown
+            className="max-w-none break-words text-foreground [&_p]:my-0 [&_h1]:mt-0 [&_h1]:mb-0 [&_h2]:mt-0 [&_h2]:mb-0 [&_h3]:mt-0 [&_h3]:mb-0 [&_h4]:mt-0 [&_h4]:mb-0 [&_h5]:mt-0 [&_h5]:mb-0 [&_h6]:mt-0 [&_h6]:mb-0 [&_li]:py-0 [&_ol]:my-0 [&_ul]:my-0 [&_pre]:my-0"
+            content={markdownContent}
+            id={id ?? markdownIdRef.current}
+            parseIncompleteMarkdown={false}
+            textSize="small"
+            workspaceUuid={workspaceUuid}
+          />
+        </div>
+      ) : (
+        <div className="flex h-full w-full items-center justify-center rounded-md border border-dashed border-border/60 bg-muted/30 text-muted-foreground">
+          <FileCode2 className="size-4" aria-hidden="true" />
+        </div>
+      )}
     </div>
   );
 }
