@@ -76,10 +76,12 @@ export default async function DashboardPage({
   return (
     <DashboardHome
       activeMisconceptions={activeMisconceptions}
+      currentUserId={session.user.id}
       flashcardSets={flashcardSets}
       userName={session.user.name ?? undefined}
       weakestConcepts={weakestConcepts}
       weakestDrillTarget={weakestDrillTarget}
+      workspaceId={workspace.workspaceId}
     />
   );
 }

@@ -22,6 +22,7 @@ export default async function DashboardLayout({
           user={
             context.session?.user
               ? {
+                  id: context.session.user.id,
                   avatar: context.session.user.image ?? undefined,
                   email: context.session.user.email,
                   name: context.session.user.name ?? context.session.user.email,

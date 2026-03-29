@@ -3,6 +3,13 @@ import {
   listTasksForUser,
 } from "@avenire/database/task-data";
 import { NextResponse } from "next/server";
+import {
+  createTaskListCacheKey,
+  getCachedTaskList,
+  getTaskListCacheVersion,
+  invalidateTaskListCache,
+  setCachedTaskList,
+} from "@/lib/tasks-cache";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
 
 export async function GET(request: Request) {
@@ -18,17 +25,46 @@ export async function GET(request: Request) {
     | "completed"
     | null;
   const includeCompleted = searchParams.get("includeCompleted") === "true";
+  const assigneeUserId = searchParams.get("assigneeUserId");
   const dueBefore = searchParams.get("dueBefore");
   const limit = searchParams.get("limit");
+  const parsedLimit = limit ? Number.parseInt(limit, 10) : undefined;
+
+  const version = await getTaskListCacheVersion(
+    ctx.workspace.workspaceId,
+    ctx.user.id
+  );
+  const cacheKey = createTaskListCacheKey({
+    assigneeUserId: assigneeUserId ?? undefined,
+    dueBefore: dueBefore ?? undefined,
+    includeCompleted: includeCompleted || status === "completed",
+    limit: parsedLimit,
+    status: status ?? undefined,
+    userId: ctx.user.id,
+    version,
+    workspaceUuid: ctx.workspace.workspaceId,
+  });
+  const cached = await getCachedTaskList<{ tasks: unknown[] }>(cacheKey);
+  if (cached) {
+    return NextResponse.json(cached, {
+      headers: { "x-tasks-cache": "hit" },
+    });
+  }
 
   const tasks = await listTasksForUser(ctx.user.id, ctx.workspace.workspaceId, {
     status: status ?? undefined,
+    assigneeUserId: assigneeUserId ?? undefined,
     includeCompleted: includeCompleted || status === "completed",
     dueBefore: dueBefore ? new Date(dueBefore) : undefined,
-    limit: limit ? Number.parseInt(limit, 10) : undefined,
+    limit: parsedLimit,
   });
 
-  return NextResponse.json({ tasks });
+  await setCachedTaskList(cacheKey, { tasks });
+
+  return NextResponse.json(
+    { tasks },
+    { headers: { "x-tasks-cache": "miss" } }
+  );
 }
 
 export async function POST(request: Request) {
@@ -38,6 +74,7 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json().catch(() => ({}))) as {
+    assigneeUserId?: string | null;
     title?: string;
     description?: string | null;
     status?: "pending" | "in_progress" | "completed";
@@ -49,13 +86,32 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Title is required" }, { status: 400 });
   }
 
-  const task = await createTaskForUser(ctx.user.id, ctx.workspace.workspaceId, {
-    title: body.title.trim(),
-    description: body.description ?? null,
-    status: body.status ?? "pending",
-    priority: body.priority ?? "normal",
-    dueAt: body.dueAt ? new Date(body.dueAt) : null,
-  });
+  try {
+    const task = await createTaskForUser(
+      ctx.user.id,
+      ctx.workspace.workspaceId,
+      {
+        assigneeUserId: body.assigneeUserId ?? ctx.user.id,
+        title: body.title.trim(),
+        description: body.description ?? null,
+        status: body.status ?? "pending",
+        priority: body.priority ?? "normal",
+        dueAt: body.dueAt ? new Date(body.dueAt) : null,
+      }
+    );
 
-  return NextResponse.json({ task }, { status: 201 });
+    await invalidateTaskListCache(ctx.workspace.workspaceId, ctx.user.id);
+
+    return NextResponse.json({ task }, { status: 201 });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to create task.",
+      },
+      { status: 400 }
+    );
+  }
 }

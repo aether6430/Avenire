@@ -12,15 +12,17 @@ import {
   CommandShortcut,
 } from "@avenire/ui/components/command";
 import { Spinner } from "@avenire/ui/components/spinner";
+import type { Icon } from "@phosphor-icons/react";
 import {
   Building as Building2,
+  ClockCounterClockwise,
   FilePlus as FilePlus2,
   FileText,
   Folder,
   FolderPlus,
+  ListChecks,
   ChatText as MessageSquareText,
   Moon,
-  MagnifyingGlass as Search,
   Gear as Settings,
   Sparkle as Sparkles,
   Sun,
@@ -37,9 +39,17 @@ import {
   useEffect,
   useMemo,
   useState,
+  useSyncExternalStore,
 } from "react";
 import type { WorkspaceSearchResult } from "@/components/files/stylized-search-bar";
 import { warmWorkspaceSurface } from "@/lib/dashboard-warmup";
+import {
+  getTaskStoreSnapshot,
+  primeWorkspaceTaskStore,
+  reloadWorkspaceTasks,
+  subscribeToTaskStore,
+} from "@/lib/task-client-store";
+import { formatTaskDueDate } from "@/lib/tasks";
 import {
   commandPaletteActions,
   useCommandPaletteStore,
@@ -50,13 +60,24 @@ import { quickCaptureActions } from "@/stores/quickCaptureStore";
 
 type PaletteItemType = "file" | "folder";
 
-type PaletteItem = {
+interface PaletteItem {
+  folderId?: string;
   id: string;
   name: string;
   path: string;
   type: PaletteItemType;
-  folderId?: string;
-};
+}
+
+interface PaletteCommandItem {
+  description: string;
+  group: "General" | "Create";
+  icon: Icon;
+  key: string;
+  label: string;
+  onSelect: () => void;
+  searchTerms: string[];
+  shortcut?: string;
+}
 
 const FILE_FUSE_OPTIONS = {
   includeScore: true,
@@ -195,7 +216,18 @@ function shouldIgnoreGlobalHotkey(event: KeyboardEvent): boolean {
   );
 }
 
-export function CommandPalette() {
+function commandMatches(item: PaletteCommandItem, needle: string) {
+  const haystack = [item.label, item.description, ...item.searchTerms]
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes(needle);
+}
+
+export function CommandPalette({
+  workspaceUuid: activeWorkspaceUuid,
+}: {
+  workspaceUuid?: string;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -206,24 +238,36 @@ export function CommandPalette() {
     (state) => state.setSettingsTab
   );
   const { resolvedTheme, setTheme } = useTheme();
+  const open = useCommandPaletteStore((state) => state.open);
   const workspaceUuid = useCommandPaletteStore((state) => state.workspaceUuid);
   const folders = useCommandPaletteStore((state) => state.folders);
   const files = useCommandPaletteStore((state) => state.files);
-  const generalOpen = useCommandPaletteStore((state) => state.generalOpen);
-  const fileOpen = useCommandPaletteStore((state) => state.fileOpen);
+  const recentFileIdsByWorkspace = useCommandPaletteStore(
+    (state) => state.recentFileIdsByWorkspace
+  );
+  const { tasks: cachedTasks } = useSyncExternalStore(
+    subscribeToTaskStore,
+    getTaskStoreSnapshot,
+    getTaskStoreSnapshot
+  );
 
-  const [generalQuery, setGeneralQuery] = useState("");
-  const [fileQuery, setFileQuery] = useState("");
-  const [debouncedFileQuery, setDebouncedFileQuery] = useState("");
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [pendingRoute, setPendingRoute] = useState<string | null>(null);
+  const resolvedWorkspaceUuid = activeWorkspaceUuid ?? workspaceUuid ?? null;
+
   const currentRoute = useMemo(() => {
-    const query = searchParams.toString();
-    return query ? `${pathname}?${query}` : pathname;
+    const nextQuery = searchParams.toString();
+    return nextQuery ? `${pathname}?${nextQuery}` : pathname;
   }, [pathname, searchParams]);
 
   useEffect(() => {
+    useCommandPaletteStore.persist.rehydrate();
+  }, []);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey)) {
+      if (!(event.metaKey || event.ctrlKey) || !event.shiftKey) {
         return;
       }
 
@@ -231,22 +275,13 @@ export function CommandPalette() {
         return;
       }
 
-      const key = event.key.toLowerCase();
-      const wantsGeneral = event.shiftKey && key === "p";
-      const wantsFiles = !event.shiftKey && key === "k";
-      if (!(wantsGeneral || wantsFiles)) {
+      if (event.key.toLowerCase() !== "p") {
         return;
       }
 
       event.preventDefault();
       event.stopPropagation();
-
-      if (wantsGeneral) {
-        commandPaletteActions.openGeneral();
-        return;
-      }
-
-      commandPaletteActions.openFiles();
+      commandPaletteActions.open();
     };
 
     window.addEventListener("keydown", handleKeyDown, true);
@@ -256,20 +291,14 @@ export function CommandPalette() {
   }, []);
 
   useEffect(() => {
-    if (generalOpen) {
+    if (open) {
       return;
     }
-    setGeneralQuery("");
-  }, [generalOpen]);
 
-  useEffect(() => {
-    if (fileOpen) {
-      return;
-    }
-    setFileQuery("");
-    setDebouncedFileQuery("");
+    setQuery("");
+    setDebouncedQuery("");
     setPendingRoute(null);
-  }, [fileOpen]);
+  }, [open]);
 
   useEffect(() => {
     if (!pendingRoute || currentRoute !== pendingRoute) {
@@ -282,13 +311,38 @@ export function CommandPalette() {
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      setDebouncedFileQuery(fileQuery);
+      setDebouncedQuery(query);
     }, 250);
 
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [fileQuery]);
+  }, [query]);
+
+  useEffect(() => {
+    if (!(open && resolvedWorkspaceUuid)) {
+      return;
+    }
+
+    primeWorkspaceTaskStore(resolvedWorkspaceUuid);
+    void reloadWorkspaceTasks(resolvedWorkspaceUuid, { background: true });
+  }, [open, resolvedWorkspaceUuid]);
+
+  const currentFilesRouteMatch = pathname.match(FILES_ROUTE_PATTERN);
+  const currentFilesWorkspaceUuid = currentFilesRouteMatch?.[1] ?? null;
+  const currentFilesFolderId = currentFilesRouteMatch?.[2] ?? null;
+  const activeFileId = searchParams.get("file");
+
+  useEffect(() => {
+    if (!(currentFilesWorkspaceUuid && activeFileId)) {
+      return;
+    }
+
+    commandPaletteActions.recordRecentFile(
+      currentFilesWorkspaceUuid,
+      activeFileId
+    );
+  }, [activeFileId, currentFilesWorkspaceUuid]);
 
   const folderById = useMemo(
     () => new Map(folders.map((folder) => [folder.id, folder])),
@@ -302,28 +356,35 @@ export function CommandPalette() {
       if (!folderId) {
         return "";
       }
+
       const cached = cache.get(folderId);
       if (cached !== undefined) {
         return cached;
       }
+
       const segments: string[] = [];
       const seen = new Set<string>();
       let cursor: string | null = folderId;
+
       while (cursor) {
         if (seen.has(cursor)) {
           break;
         }
+
         seen.add(cursor);
         const folder = folderById.get(cursor);
         if (!folder) {
           break;
         }
+
         if (folder.parentId === null) {
           break;
         }
+
         segments.push(folder.name);
         cursor = folder.parentId;
       }
+
       const resolved = segments.reverse().join("/");
       cache.set(folderId, resolved);
       return resolved;
@@ -337,28 +398,44 @@ export function CommandPalette() {
     return map;
   }, [folderById, folders]);
 
-  const fileItems = useMemo<PaletteItem[]>(() => {
-    return files.map((file) => {
-      const folderPath = folderPathById.get(file.folderId) ?? "";
-      const fullPath = folderPath ? `${folderPath}/${file.name}` : file.name;
-      return {
-        id: file.id,
-        name: file.name,
-        path: fullPath,
-        type: "file",
-        folderId: file.folderId,
-      };
-    });
-  }, [files, folderPathById]);
+  const fileItems = useMemo<PaletteItem[]>(
+    () =>
+      files.map((file) => {
+        const folderPath = folderPathById.get(file.folderId) ?? "";
+        const fullPath = folderPath ? `${folderPath}/${file.name}` : file.name;
+        return {
+          folderId: file.folderId,
+          id: file.id,
+          name: file.name,
+          path: fullPath,
+          type: "file",
+        };
+      }),
+    [files, folderPathById]
+  );
 
-  const folderItems = useMemo<PaletteItem[]>(() => {
-    return folders.map((folder) => ({
-      id: folder.id,
-      name: folder.name,
-      path: folderPathById.get(folder.id) ?? folder.name,
-      type: "folder",
-    }));
-  }, [folders, folderPathById]);
+  const folderItems = useMemo<PaletteItem[]>(
+    () =>
+      folders.map((folder) => ({
+        id: folder.id,
+        name: folder.name,
+        path: folderPathById.get(folder.id) ?? folder.name,
+        type: "folder",
+      })),
+    [folders, folderPathById]
+  );
+
+  const recentItems = useMemo(() => {
+    if (!workspaceUuid) {
+      return [];
+    }
+
+    const recentIds = recentFileIdsByWorkspace[workspaceUuid] ?? [];
+    const fileById = new Map(fileItems.map((file) => [file.id, file]));
+    return recentIds
+      .map((fileId) => fileById.get(fileId))
+      .filter((item): item is PaletteItem => Boolean(item));
+  }, [fileItems, recentFileIdsByWorkspace, workspaceUuid]);
 
   const searchItems = useMemo(
     () => [...fileItems, ...folderItems],
@@ -370,18 +447,269 @@ export function CommandPalette() {
     [searchItems]
   );
 
-  const trimmedFileQuery = debouncedFileQuery.trim();
+  const rootFolderId = useMemo(() => {
+    const rootFolder = folders.find((folder) => folder.parentId === null);
+    return rootFolder?.id ?? null;
+  }, [folders]);
+
+  const workspaceTasks = useMemo(
+    () =>
+      cachedTasks
+        .filter((task) => task.workspaceId === resolvedWorkspaceUuid)
+        .slice(0, 8),
+    [cachedTasks, resolvedWorkspaceUuid]
+  );
+
+  const openFilesRoute = useCallback(() => {
+    const targetRoute =
+      workspaceUuid && rootFolderId
+        ? (`/workspace/files/${workspaceUuid}/folder/${rootFolderId}` as Route)
+        : workspaceUuid
+          ? (`/workspace/files/${workspaceUuid}` as Route)
+          : ("/workspace/files" as Route);
+
+    router.prefetch(targetRoute);
+    setPendingRoute(targetRoute);
+
+    startTransition(() => {
+      if (currentRoute === targetRoute) {
+        commandPaletteActions.close();
+        return;
+      }
+
+      router.push(targetRoute);
+    });
+  }, [currentRoute, rootFolderId, router, workspaceUuid]);
+
+  const handleFileIntent = useCallback(
+    (intent: Parameters<typeof filesUiActions.emitIntent>[0]) => {
+      filesUiActions.emitIntent(intent);
+      openFilesRoute();
+    },
+    [openFilesRoute]
+  );
+
+  const openSettings = useCallback(
+    (
+      tab?:
+        | "account"
+        | "preferences"
+        | "workspace"
+        | "data"
+        | "billing"
+        | "security"
+        | "shortcuts"
+    ) => {
+      setSettingsTab(tab ?? null);
+      setSettingsOpen(true);
+      commandPaletteActions.close();
+    },
+    [setSettingsOpen, setSettingsTab]
+  );
+
+  const toggleTheme = useCallback(() => {
+    setTheme(resolvedTheme === "dark" ? "light" : "dark");
+    commandPaletteActions.close();
+  }, [resolvedTheme, setTheme]);
+
+  const commandItems = useMemo<PaletteCommandItem[]>(
+    () => [
+      {
+        key: "settings",
+        label: "Settings",
+        description: "Open workspace settings",
+        icon: Settings,
+        group: "General",
+        searchTerms: ["preferences", "workspace settings", "account"],
+        onSelect: () => {
+          openSettings();
+        },
+      },
+      {
+        key: "toggle-theme",
+        label: "Toggle light/dark mode",
+        description: `Switch to ${resolvedTheme === "dark" ? "light" : "dark"} mode.`,
+        icon: resolvedTheme === "dark" ? Sun : Moon,
+        group: "General",
+        searchTerms: ["theme", "appearance", "mode"],
+        onSelect: () => {
+          toggleTheme();
+        },
+      },
+      {
+        key: "manage-workspace",
+        label: "Manage workspace",
+        description: "Open the workspace files manager",
+        icon: Folder,
+        group: "General",
+        searchTerms: ["files", "explorer", "folders", "workspace"],
+        onSelect: () => {
+          openFilesRoute();
+        },
+      },
+      {
+        key: "open-tasks",
+        label: "Open Tasks",
+        description: "Open the dedicated task workspace",
+        icon: ListChecks,
+        group: "General",
+        searchTerms: ["tasks", "todo", "planner", "upcoming"],
+        shortcut: "Ctrl+3",
+        onSelect: () => {
+          startTransition(() => {
+            router.push("/workspace/tasks" as Route);
+          });
+          commandPaletteActions.close();
+        },
+      },
+      {
+        key: "change-workspace",
+        label: "Change workspace",
+        description: "Open the workspace switcher",
+        icon: Building2,
+        group: "General",
+        searchTerms: ["switch workspace", "workspace list", "team"],
+        onSelect: () => {
+          openSettings("workspace");
+        },
+      },
+      {
+        key: "new-chat",
+        label: "New Method",
+        description: "Start a new method thread",
+        icon: MessageSquareText,
+        group: "Create",
+        searchTerms: ["chat", "thread", "method"],
+        shortcut: "Ctrl+N",
+        onSelect: () => {
+          startTransition(() => {
+            router.push("/workspace/chats/new" as Route);
+          });
+          commandPaletteActions.close();
+        },
+      },
+      {
+        key: "new-task",
+        label: "New Task",
+        description: "Capture a task and push it into the calendar",
+        icon: FilePlus2,
+        group: "Create",
+        searchTerms: ["todo", "capture", "task"],
+        shortcut: "Ctrl+Shift+T",
+        onSelect: () => {
+          quickCaptureActions.open("task");
+          commandPaletteActions.close();
+        },
+      },
+      {
+        key: "new-misconception",
+        label: "New Misconception",
+        description: "Record a misconception for later review",
+        icon: TriangleAlert,
+        group: "Create",
+        searchTerms: ["mistake", "note", "review"],
+        shortcut: "Ctrl+Shift+M",
+        onSelect: () => {
+          quickCaptureActions.open("misconception");
+          commandPaletteActions.close();
+        },
+      },
+      {
+        key: "new-flashcard",
+        label: "New Flashcard Set",
+        description: "Create a workspace flashcard set",
+        icon: Sparkles,
+        group: "Create",
+        searchTerms: ["study", "cards", "flashcards"],
+        onSelect: () => {
+          startTransition(() => {
+            router.push("/workspace/flashcards?create=1" as Route);
+          });
+          commandPaletteActions.close();
+        },
+      },
+      {
+        key: "new-note",
+        label: "Create new note",
+        description: "Create a workspace note",
+        icon: FileText,
+        group: "Create",
+        searchTerms: ["note", "document", "markdown"],
+        shortcut: "Ctrl+Shift+O",
+        onSelect: () => {
+          handleFileIntent("newNote");
+        },
+      },
+      {
+        key: "new-file",
+        label: "Upload File",
+        description: "Add a new file to the workspace",
+        icon: FilePlus2,
+        group: "Create",
+        searchTerms: ["upload", "import", "file"],
+        shortcut: "Ctrl+U",
+        onSelect: () => {
+          handleFileIntent("uploadFile");
+        },
+      },
+      {
+        key: "new-folder",
+        label: "Create new folder",
+        description: "Create a folder in the workspace",
+        icon: FolderPlus,
+        group: "Create",
+        searchTerms: ["folder", "directory", "workspace"],
+        shortcut: "Ctrl+Shift+N",
+        onSelect: () => {
+          handleFileIntent("createFolder");
+        },
+      },
+    ],
+    [
+      handleFileIntent,
+      openFilesRoute,
+      openSettings,
+      resolvedTheme,
+      router,
+      toggleTheme,
+    ]
+  );
+
+  const trimmedQuery = debouncedQuery.trim().toLowerCase();
+
+  const filteredCommands = useMemo(() => {
+    if (!trimmedQuery) {
+      return {
+        create: commandItems.filter((item) => item.group === "Create"),
+        general: commandItems.filter((item) => item.group === "General"),
+      };
+    }
+
+    const matches = commandItems.filter((item) =>
+      commandMatches(item, trimmedQuery)
+    );
+    return {
+      create: matches.filter((item) => item.group === "Create"),
+      general: matches.filter((item) => item.group === "General"),
+    };
+  }, [commandItems, trimmedQuery]);
+
+  const hasCommandMatches =
+    filteredCommands.general.length > 0 || filteredCommands.create.length > 0;
+  const shouldSearchFiles =
+    Boolean(workspaceUuid) && Boolean(trimmedQuery) && !hasCommandMatches;
 
   const fuzzyResults = useMemo(() => {
-    if (!trimmedFileQuery) {
+    if (!shouldSearchFiles) {
       return [];
     }
+
     return fuse
-      .search(trimmedFileQuery)
+      .search(trimmedQuery)
       .filter((result) => (result.score ?? 1) <= FILE_FUSE_OPTIONS.threshold)
       .slice(0, FILE_RESULTS_LIMIT)
       .map((result) => result.item);
-  }, [fuse, trimmedFileQuery]);
+  }, [fuse, shouldSearchFiles, trimmedQuery]);
 
   const fileSearchFingerprint = useMemo(
     () =>
@@ -393,10 +721,10 @@ export function CommandPalette() {
 
   const retrievalQuery = useQuery({
     queryFn: ({ signal }) =>
-      workspaceUuid && trimmedFileQuery
+      workspaceUuid && trimmedQuery
         ? queryWorkspaceRetrieval({
             files,
-            query: trimmedFileQuery,
+            query: trimmedQuery,
             signal,
             workspaceUuid,
           })
@@ -405,28 +733,20 @@ export function CommandPalette() {
       "command-palette",
       "retrieval",
       workspaceUuid,
-      trimmedFileQuery,
+      trimmedQuery,
       fileSearchFingerprint,
     ],
-    enabled: Boolean(
-      fileOpen && workspaceUuid && trimmedFileQuery && fuzzyResults.length === 0
-    ),
+    enabled: Boolean(open && shouldSearchFiles && fuzzyResults.length === 0),
   });
 
   const retrievalResults =
-    fuzzyResults.length > 0 ? [] : (retrievalQuery.data ?? []);
+    fuzzyResults.length > 0 || hasCommandMatches
+      ? []
+      : (retrievalQuery.data ?? []);
   const isRetrieving = retrievalQuery.isFetching;
 
-  const currentFilesRouteMatch = pathname.match(FILES_ROUTE_PATTERN);
-  const currentFilesWorkspaceUuid = currentFilesRouteMatch?.[1] ?? null;
-  const currentFilesFolderId = currentFilesRouteMatch?.[2] ?? null;
-  const rootFolderId = useMemo(() => {
-    const rootFolder = folders.find((folder) => folder.parentId === null);
-    return rootFolder?.id ?? null;
-  }, [folders]);
-
   useEffect(() => {
-    if (!(fileOpen && workspaceUuid)) {
+    if (!(open && workspaceUuid)) {
       return;
     }
 
@@ -446,39 +766,69 @@ export function CommandPalette() {
   }, [
     currentFilesFolderId,
     currentFilesWorkspaceUuid,
-    fileOpen,
+    open,
     rootFolderId,
     router,
     workspaceUuid,
   ]);
 
-  const openSearchResult = useCallback(
-    (result: WorkspaceSearchResult) => {
+  const handleOpenFolder = useCallback(
+    (folderId: string) => {
       if (!workspaceUuid) {
         return;
       }
 
-      const targetFileId = result.fileId ?? result.id;
-      const targetFile = files.find((file) => file.id === targetFileId);
-      const targetFolderId = targetFile?.folderId ?? currentFilesFolderId;
+      const targetRoute =
+        `/workspace/files/${workspaceUuid}/folder/${folderId}` as Route;
+      router.prefetch(targetRoute);
+      setPendingRoute(targetRoute);
 
-      const params = new URLSearchParams();
-      params.set("file", targetFileId);
-      if (result.chunkId) {
-        params.set("retrievalChunk", result.chunkId);
+      startTransition(() => {
+        router.push(targetRoute);
+      });
+    },
+    [router, workspaceUuid]
+  );
+
+  const handleOpenFile = useCallback(
+    (
+      fileId: string,
+      folderId: string | undefined,
+      options?: { retrievalChunkId?: string | null }
+    ) => {
+      if (!workspaceUuid) {
+        return;
       }
 
-      const targetRoute = targetFolderId
-        ? (`/workspace/files/${workspaceUuid}/folder/${targetFolderId}?${params.toString()}` as Route)
-        : (`/workspace/files/${workspaceUuid}?${params.toString()}` as Route);
+      commandPaletteActions.recordRecentFile(workspaceUuid, fileId);
 
+      if (!folderId) {
+        const fallbackRoute = rootFolderId
+          ? (`/workspace/files/${workspaceUuid}/folder/${rootFolderId}` as Route)
+          : (`/workspace/files/${workspaceUuid}` as Route);
+        router.prefetch(fallbackRoute);
+        setPendingRoute(fallbackRoute);
+        startTransition(() => {
+          router.push(fallbackRoute);
+        });
+        return;
+      }
+
+      const params = new URLSearchParams();
+      params.set("file", fileId);
+      if (options?.retrievalChunkId) {
+        params.set("retrievalChunk", options.retrievalChunkId);
+      }
+
+      const targetRoute =
+        `/workspace/files/${workspaceUuid}/folder/${folderId}?${params.toString()}` as Route;
       router.prefetch(targetRoute);
       setPendingRoute(targetRoute);
 
       startTransition(() => {
         if (
           currentFilesWorkspaceUuid === workspaceUuid &&
-          currentFilesFolderId === targetFolderId
+          currentFilesFolderId === folderId
         ) {
           router.replace(targetRoute);
         } else {
@@ -489,469 +839,283 @@ export function CommandPalette() {
     [
       currentFilesFolderId,
       currentFilesWorkspaceUuid,
-      files,
+      rootFolderId,
       router,
       workspaceUuid,
     ]
   );
 
-  const openFilesRoute = () => {
-    if (pathname.startsWith("/workspace/files")) {
-      return;
-    }
-    const targetRoute =
-      workspaceUuid && rootFolderId
-        ? (`/workspace/files/${workspaceUuid}/folder/${rootFolderId}` as Route)
-        : ("/workspace/files" as Route);
-    startTransition(() => {
-      router.push(targetRoute);
-    });
-  };
-
-  const handleFileIntent = (
-    intent: Parameters<typeof filesUiActions.emitIntent>[0]
-  ) => {
-    filesUiActions.emitIntent(intent);
-    openFilesRoute();
-  };
-
-  const handleOpenFolder = (folderId: string) => {
-    if (!workspaceUuid) {
-      return;
-    }
-    router.prefetch(
-      `/workspace/files/${workspaceUuid}/folder/${folderId}` as Route
-    );
-    commandPaletteActions.close();
-    startTransition(() => {
-      router.push(
-        `/workspace/files/${workspaceUuid}/folder/${folderId}` as Route
-      );
-    });
-  };
-
-  const handleOpenFile = (
-    fileId: string,
-    folderId: string | undefined,
-    options?: { retrievalChunkId?: string | null }
-  ) => {
-    if (!workspaceUuid) {
-      return;
-    }
-    if (!folderId) {
-      const fallbackRoute = rootFolderId
-        ? (`/workspace/files/${workspaceUuid}/folder/${rootFolderId}` as Route)
-        : (`/workspace/files/${workspaceUuid}` as Route);
-      router.prefetch(fallbackRoute);
-      commandPaletteActions.close();
-      startTransition(() => {
-        router.push(fallbackRoute);
-      });
-      return;
-    }
-
-    const params = new URLSearchParams();
-    params.set("file", fileId);
-    if (options?.retrievalChunkId) {
-      params.set("retrievalChunk", options.retrievalChunkId);
-    }
-
-    const targetRoute =
-      `/workspace/files/${workspaceUuid}/folder/${folderId}?${params.toString()}` as Route;
-    router.prefetch(targetRoute);
-    setPendingRoute(targetRoute);
-
-    startTransition(() => {
-      if (
-        currentFilesWorkspaceUuid === workspaceUuid &&
-        currentFilesFolderId === folderId
-      ) {
-        router.replace(targetRoute);
-      } else {
-        router.push(targetRoute);
+  const openSearchResult = useCallback(
+    (result: WorkspaceSearchResult) => {
+      if (!workspaceUuid) {
+        return;
       }
-    });
-  };
 
-  const openSettings = (
-    tab?:
-      | "account"
-      | "preferences"
-      | "workspace"
-      | "data"
-      | "billing"
-      | "security"
-      | "shortcuts"
-  ) => {
-    setSettingsTab(tab ?? null);
-    setSettingsOpen(true);
-    commandPaletteActions.close();
-  };
+      const targetFileId = result.fileId ?? result.id;
+      const targetFile = files.find((file) => file.id === targetFileId);
+      const targetFolderId = targetFile?.folderId ?? currentFilesFolderId ?? undefined;
 
-  const toggleTheme = () => {
-    setTheme(resolvedTheme === "dark" ? "light" : "dark");
-    commandPaletteActions.close();
-  };
+      handleOpenFile(targetFileId, targetFolderId, {
+        retrievalChunkId: result.chunkId ?? null,
+      });
+    },
+    [currentFilesFolderId, files, handleOpenFile, workspaceUuid]
+  );
 
-  const generalItems = [
-    {
-      key: "settings",
-      label: "Settings",
-      description: "Open workspace settings",
-      icon: Settings,
-      onSelect: () => {
-        openSettings();
-      },
-    },
-    {
-      key: "toggle-theme",
-      label: "Toggle light/dark mode",
-      description: `Switch to ${resolvedTheme === "dark" ? "light" : "dark"} mode.`,
-      icon: resolvedTheme === "dark" ? Sun : Moon,
-      onSelect: () => {
-        toggleTheme();
-      },
-    },
-    {
-      key: "manage-workspace",
-      label: "Manage workspace",
-      description: "Open the workspace files manager",
-      icon: Folder,
-      onSelect: () => {
-        openFilesRoute();
-        commandPaletteActions.close();
-      },
-    },
-    {
-      key: "change-workspace",
-      label: "Change workspace",
-      description: "Open the workspace switcher",
-      icon: Building2,
-      onSelect: () => {
-        openSettings("workspace");
-      },
-    },
-    {
-      key: "search",
-      label: "Search",
-      description: "Search files and workspace content",
-      icon: Search,
-      shortcut: "Ctrl+K",
-      onSelect: () => {
-        commandPaletteActions.openFiles();
-      },
-    },
-  ];
-
-  const createItems = [
-    {
-      key: "new-chat",
-      label: "New Method",
-      description: "Start a new method thread",
-      icon: MessageSquareText,
-      shortcut: "Ctrl+N",
-      onSelect: () => {
-        startTransition(() => {
-          router.push("/workspace/chats/new" as Route);
-        });
-        commandPaletteActions.close();
-      },
-    },
-    {
-      key: "new-task",
-      label: "New Task",
-      description: "Capture a task and push it into the calendar",
-      icon: FilePlus2,
-      shortcut: "Ctrl+Shift+T",
-      onSelect: () => {
-        quickCaptureActions.open("task");
-        commandPaletteActions.close();
-      },
-    },
-    {
-      key: "new-misconception",
-      label: "New Misconception",
-      description: "Record a misconception for later review",
-      icon: TriangleAlert,
-      shortcut: "Ctrl+Shift+M",
-      onSelect: () => {
-        quickCaptureActions.open("misconception");
-        commandPaletteActions.close();
-      },
-    },
-    {
-      key: "new-flashcard",
-      label: "New Flashcard Set",
-      description: "Create a workspace flashcard set",
-      icon: Sparkles,
-      onSelect: () => {
-        startTransition(() => {
-          router.push("/workspace/flashcards?create=1" as Route);
-        });
-        commandPaletteActions.close();
-      },
-    },
-    {
-      key: "new-note",
-      label: "Create new note",
-      description: "Create a workspace note",
-      icon: FileText,
-      shortcut: "Ctrl+Shift+O",
-      onSelect: () => {
-        handleFileIntent("newNote");
-        commandPaletteActions.close();
-      },
-    },
-    {
-      key: "new-file",
-      label: "Upload File",
-      description: "Add a new file to the workspace",
-      icon: FilePlus2,
-      shortcut: "Ctrl+U",
-      onSelect: () => {
-        handleFileIntent("uploadFile");
-        commandPaletteActions.close();
-      },
-    },
-    {
-      key: "new-folder",
-      label: "Create new folder",
-      description: "Create a folder in the workspace",
-      icon: FolderPlus,
-      shortcut: "Ctrl+Shift+N",
-      onSelect: () => {
-        handleFileIntent("createFolder");
-        commandPaletteActions.close();
-      },
-    },
-  ];
-
-  const filteredGeneralItems = (() => {
-    const needle = generalQuery.trim().toLowerCase();
-    if (!needle) {
-      return { general: generalItems, create: createItems };
-    }
-    const match = (value: { label: string; description: string }) =>
-      value.label.toLowerCase().includes(needle) ||
-      value.description.toLowerCase().includes(needle);
-    return {
-      general: generalItems.filter(match),
-      create: createItems.filter(match),
-    };
-  })();
-  return (
+  const renderCommandGroups = () => (
     <>
-      <CommandDialog
-        className="sm:max-w-6xl lg:max-w-[88rem]"
-        onOpenChange={(open) => {
-          if (!open) {
-            commandPaletteActions.close();
-            return;
-          }
-          commandPaletteActions.openGeneral();
-        }}
-        open={generalOpen}
-      >
-        <Command className="min-h-[34rem]">
-          <CommandInput
-            onValueChange={setGeneralQuery}
-            placeholder="Search commands..."
-            value={generalQuery}
-          />
-          <CommandList>
-            {filteredGeneralItems.general.length === 0 &&
-            filteredGeneralItems.create.length === 0 ? (
-              <CommandEmpty>No commands found.</CommandEmpty>
-            ) : (
-              <>
-                {filteredGeneralItems.general.length > 0 ? (
-                  <CommandGroup heading="General">
-                    {filteredGeneralItems.general.map((item) => (
-                      <CommandItem
-                        key={item.key}
-                        onSelect={() => item.onSelect()}
-                      >
-                        <item.icon className="size-3.5 text-muted-foreground" />
-                        <div className="min-w-0">
-                          <p className="font-medium text-foreground text-xs">
-                            {item.label}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground">
-                            {item.description}
-                          </p>
-                        </div>
-                        {item.shortcut ? (
-                          <CommandShortcut>{item.shortcut}</CommandShortcut>
-                        ) : null}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                ) : null}
-                {filteredGeneralItems.create.length > 0 ? (
-                  <>
-                    <CommandSeparator />
-                    <CommandGroup heading="Create">
-                      {filteredGeneralItems.create.map((item) => (
+      {filteredCommands.general.length > 0 ? (
+        <CommandGroup heading="General">
+          {filteredCommands.general.map((item) => (
+            <CommandItem
+              key={item.key}
+              onSelect={() => item.onSelect()}
+              value={[item.label, item.description, ...item.searchTerms].join(
+                " "
+              )}
+            >
+              <item.icon className="size-3.5 text-muted-foreground" />
+              <div className="min-w-0">
+                <p className="font-medium text-foreground text-xs">
+                  {item.label}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {item.description}
+                </p>
+              </div>
+              {item.shortcut ? (
+                <CommandShortcut>{item.shortcut}</CommandShortcut>
+              ) : null}
+            </CommandItem>
+          ))}
+        </CommandGroup>
+      ) : null}
+      {filteredCommands.general.length > 0 &&
+      filteredCommands.create.length > 0 ? (
+        <CommandSeparator />
+      ) : null}
+      {filteredCommands.create.length > 0 ? (
+        <CommandGroup heading="Create">
+          {filteredCommands.create.map((item) => (
+            <CommandItem
+              key={item.key}
+              onSelect={() => item.onSelect()}
+              value={[item.label, item.description, ...item.searchTerms].join(
+                " "
+              )}
+            >
+              <item.icon className="size-3.5 text-muted-foreground" />
+              <div className="min-w-0">
+                <p className="font-medium text-foreground text-xs">
+                  {item.label}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {item.description}
+                </p>
+              </div>
+              {item.shortcut ? (
+                <CommandShortcut>{item.shortcut}</CommandShortcut>
+              ) : null}
+            </CommandItem>
+          ))}
+        </CommandGroup>
+      ) : null}
+    </>
+  );
+
+  return (
+    <CommandDialog
+      className="sm:max-w-6xl lg:max-w-[88rem]"
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          commandPaletteActions.close();
+          return;
+        }
+
+        commandPaletteActions.open();
+      }}
+      open={open}
+    >
+      <Command className="min-h-[34rem] p-0" shouldFilter={false}>
+        <CommandInput
+          onValueChange={setQuery}
+          placeholder="Run a command, open a file, or search workspace content..."
+          value={query}
+        />
+        {pendingRoute ? (
+          <div className="flex items-center gap-2 border-border/60 border-t px-4 py-3 text-muted-foreground text-xs">
+            <Spinner className="size-3.5" />
+            Opening selection...
+          </div>
+        ) : null}
+        <div className="grid min-h-0 flex-1 grid-cols-1 border-border/60 border-t">
+          <div className="min-h-0">
+            <CommandList className="max-h-none min-h-0">
+              {!trimmedQuery ? (
+                <>
+                  {workspaceTasks.length > 0 ? (
+                    <CommandGroup heading="Upcoming tasks">
+                      {workspaceTasks.map((task) => (
                         <CommandItem
-                          key={item.key}
-                          onSelect={() => item.onSelect()}
+                          key={`task-${task.id}`}
+                          onSelect={() => {
+                            startTransition(() => {
+                              router.push(
+                                `/workspace/tasks?task=${task.id}` as Route
+                              );
+                            });
+                            commandPaletteActions.close();
+                          }}
+                          value={`${task.title} ${task.description ?? ""} ${task.assignee?.name ?? ""} task`}
                         >
-                          <item.icon className="size-3.5 text-muted-foreground" />
+                          <ListChecks className="size-3.5 text-muted-foreground" />
                           <div className="min-w-0">
-                            <p className="font-medium text-foreground text-xs">
-                              {item.label}
+                            <p className="truncate font-medium text-foreground text-xs">
+                              {task.title}
                             </p>
-                            <p className="text-[11px] text-muted-foreground">
-                              {item.description}
+                            <p className="truncate text-[11px] text-muted-foreground">
+                              {formatTaskDueDate(task.dueAt)}
+                              {task.assignee?.name ? ` • ${task.assignee.name}` : ""}
                             </p>
                           </div>
-                          {item.shortcut ? (
-                            <CommandShortcut>{item.shortcut}</CommandShortcut>
-                          ) : null}
                         </CommandItem>
                       ))}
                     </CommandGroup>
-                  </>
-                ) : null}
-              </>
-            )}
-          </CommandList>
-        </Command>
-      </CommandDialog>
+                  ) : null}
+                  {workspaceTasks.length > 0 ? <CommandSeparator /> : null}
+                  {recentItems.length > 0 ? (
+                    <CommandGroup heading="Recent files">
+                      {recentItems.map((item) => (
+                        <CommandItem
+                          key={`recent-${item.id}`}
+                          onSelect={() => {
+                            handleOpenFile(item.id, item.folderId);
+                          }}
+                          value={`${item.name} ${item.path} recent`}
+                        >
+                          <ClockCounterClockwise className="size-3.5 text-muted-foreground" />
+                          <div className="min-w-0">
+                            <p className="truncate font-medium text-foreground text-xs">
+                              {item.name}
+                            </p>
+                            <p className="truncate text-[11px] text-muted-foreground">
+                              {item.path}
+                            </p>
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  ) : null}
+                  {recentItems.length > 0 ? <CommandSeparator /> : null}
+                  {renderCommandGroups()}
+                </>
+              ) : hasCommandMatches ? (
+                renderCommandGroups()
+              ) : workspaceUuid ? (
+                <>
+                  {fuzzyResults.length > 0 ? (
+                    <CommandGroup heading="Files and folders">
+                      {fuzzyResults.map((item) => (
+                        <CommandItem
+                          key={`${item.type}-${item.id}`}
+                          onSelect={() => {
+                            if (item.type === "folder") {
+                              handleOpenFolder(item.id);
+                              return;
+                            }
 
-      <CommandDialog
-        className="sm:max-w-6xl lg:max-w-[88rem]"
-        onOpenChange={(open) => {
-          if (!open) {
-            commandPaletteActions.close();
-            return;
-          }
-          commandPaletteActions.openFiles();
-        }}
-        open={fileOpen}
-      >
-        <Command className="min-h-[34rem] p-0" shouldFilter={false}>
-          <CommandInput
-            onValueChange={setFileQuery}
-            placeholder="Search manage items, folders, or content..."
-            value={fileQuery}
-          />
-          {pendingRoute ? (
-            <div className="flex items-center gap-2 border-border/60 border-t px-4 py-3 text-muted-foreground text-xs">
-              <Spinner className="size-3.5" />
-              Opening selection...
-            </div>
-          ) : null}
-          <div className="grid min-h-0 flex-1 grid-cols-1 border-border/60 border-t">
-            <div className="min-h-0">
-              <CommandList className="max-h-none min-h-0">
-                {workspaceUuid ? (
-                  <>
-                    {fuzzyResults.length > 0 ? (
-                      <CommandGroup heading="Manage and folders">
-                        {fuzzyResults.map((item) => (
+                            handleOpenFile(item.id, item.folderId);
+                          }}
+                          value={`${item.name} ${item.path} ${item.type}`}
+                        >
+                          {item.type === "folder" ? (
+                            <Folder className="size-3.5 text-muted-foreground" />
+                          ) : (
+                            <FileText className="size-3.5 text-muted-foreground" />
+                          )}
+                          <div className="min-w-0">
+                            <p className="truncate font-medium text-foreground text-xs">
+                              {item.name}
+                            </p>
+                            <p className="truncate text-[11px] text-muted-foreground">
+                              {item.path}
+                            </p>
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  ) : null}
+
+                  {fuzzyResults.length === 0 &&
+                  (isRetrieving || retrievalResults.length > 0) ? (
+                    <CommandGroup heading="Content search">
+                      {isRetrieving ? (
+                        <CommandItem
+                          disabled
+                          value="searching workspace content"
+                        >
+                          <Spinner className="size-3.5" />
+                          <span className="text-muted-foreground text-xs">
+                            Searching workspace content...
+                          </span>
+                        </CommandItem>
+                      ) : null}
+                      {retrievalResults.map((result) => {
+                        const file = files.find(
+                          (entry) => entry.id === result.id
+                        );
+                        const folderPath = file
+                          ? (folderPathById.get(file.folderId) ?? "")
+                          : "";
+                        const filePath = file
+                          ? folderPath
+                            ? `${folderPath}/${file.name}`
+                            : file.name
+                          : result.title;
+
+                        return (
                           <CommandItem
-                            key={`${item.type}-${item.id}`}
+                            key={`retrieval-${result.id}-${result.chunkId ?? "main"}`}
                             onSelect={() => {
-                              if (item.type === "folder") {
-                                handleOpenFolder(item.id);
-                              } else {
-                                handleOpenFile(item.id, item.folderId);
-                              }
+                              openSearchResult(result);
                             }}
+                            value={`${result.title} ${filePath} ${result.snippet}`}
                           >
-                            {item.type === "folder" ? (
-                              <Folder className="size-3.5 text-muted-foreground" />
-                            ) : (
-                              <FileText className="size-3.5 text-muted-foreground" />
-                            )}
+                            <FileText className="size-3.5 text-muted-foreground" />
                             <div className="min-w-0">
                               <p className="truncate font-medium text-foreground text-xs">
-                                {item.name}
+                                {result.title}
                               </p>
                               <p className="truncate text-[11px] text-muted-foreground">
-                                {item.path}
+                                {filePath}
+                              </p>
+                              <p className="truncate text-[11px] text-muted-foreground">
+                                {result.snippet}
                               </p>
                             </div>
                           </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    ) : null}
+                        );
+                      })}
+                    </CommandGroup>
+                  ) : null}
 
-                    {fuzzyResults.length === 0 &&
-                    (isRetrieving || retrievalResults.length > 0) ? (
-                      <>
-                        <CommandSeparator />
-                        <CommandGroup heading="Content search">
-                          {isRetrieving ? (
-                            <CommandItem disabled>
-                              <Spinner className="size-3.5" />
-                              <span className="text-muted-foreground text-xs">
-                                Searching workspace content...
-                              </span>
-                            </CommandItem>
-                          ) : null}
-                          {retrievalResults.map((result) => {
-                            const file = files.find(
-                              (entry) => entry.id === result.id
-                            );
-                            const folderPath = file
-                              ? (folderPathById.get(file.folderId) ?? "")
-                              : "";
-                            const filePath = file
-                              ? folderPath
-                                ? `${folderPath}/${file.name}`
-                                : file.name
-                              : result.title;
-                            return (
-                              <CommandItem
-                                key={`retrieval-${result.id}-${result.chunkId ?? "main"}`}
-                                onSelect={() => {
-                                  openSearchResult(result);
-                                }}
-                              >
-                                <Search className="size-3.5 text-muted-foreground" />
-                                <div className="min-w-0">
-                                  <p className="truncate font-medium text-foreground text-xs">
-                                    {result.title}
-                                  </p>
-                                  <p className="truncate text-[11px] text-muted-foreground">
-                                    {filePath}
-                                  </p>
-                                  <p className="truncate text-[11px] text-muted-foreground">
-                                    {result.snippet}
-                                  </p>
-                                </div>
-                              </CommandItem>
-                            );
-                          })}
-                        </CommandGroup>
-                      </>
-                    ) : null}
-
-                    {trimmedFileQuery &&
-                    fuzzyResults.length === 0 &&
-                    !isRetrieving &&
-                    retrievalResults.length === 0 ? (
-                      <CommandEmpty>No matches found.</CommandEmpty>
-                    ) : null}
-
-                    {trimmedFileQuery ? null : (
-                      <CommandEmpty>
-                        Type a file name, path, or topic to search.
-                      </CommandEmpty>
-                    )}
-                  </>
-                ) : (
-                  <CommandEmpty>
-                    Open a workspace to search manage items.
-                  </CommandEmpty>
-                )}
-              </CommandList>
-            </div>
+                  {fuzzyResults.length === 0 &&
+                  !isRetrieving &&
+                  retrievalResults.length === 0 ? (
+                    <CommandEmpty>
+                      No matching commands, files, or content found.
+                    </CommandEmpty>
+                  ) : null}
+                </>
+              ) : (
+                <CommandEmpty>
+                  No matching commands found. Open a workspace to search files.
+                </CommandEmpty>
+              )}
+            </CommandList>
           </div>
-        </Command>
-      </CommandDialog>
-    </>
+        </div>
+      </Command>
+    </CommandDialog>
   );
 }

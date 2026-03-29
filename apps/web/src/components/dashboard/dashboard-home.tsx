@@ -63,10 +63,12 @@ const StudentCalendar = dynamic(
 
 interface DashboardHomeProps {
   activeMisconceptions: MisconceptionRecord[];
+  currentUserId: string;
   flashcardSets: FlashcardSetSummary[];
   userName?: string;
   weakestConcepts: ConceptMasteryRecord[];
   weakestDrillTarget: ConceptDrillTarget | null;
+  workspaceId: string;
 }
 
 interface ActivityEvent {
@@ -211,10 +213,12 @@ function UpcomingFlashcardList({
 
 export function DashboardHome({
   activeMisconceptions,
+  currentUserId,
   flashcardSets,
   userName,
   weakestConcepts,
   weakestDrillTarget,
+  workspaceId,
 }: DashboardHomeProps) {
   const router = useRouter();
   const recordRoute = useWorkspaceHistoryStore((state) => state.recordRoute);
@@ -342,7 +346,9 @@ export function DashboardHome({
 
         <div className="flex flex-wrap gap-1.5">
           <QuickCaptureDialog
+            currentUserId={currentUserId}
             initialKind="task"
+            workspaceUuid={workspaceId}
             trigger={
               <Button
                 className="h-8 gap-1.5 rounded-sm px-2.5 text-muted-foreground text-sm"
@@ -447,7 +453,10 @@ export function DashboardHome({
                 </TabsList>
 
                 <TabsContent value="tasks">
-                  <DashboardTaskManager />
+                  <DashboardTaskManager
+                    currentUserId={currentUserId}
+                    workspaceId={workspaceId}
+                  />
                 </TabsContent>
 
                 <TabsContent className="space-y-2" value="activity">

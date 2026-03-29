@@ -5,6 +5,7 @@ import { createWorkspaceNoteFile } from "@/lib/file-data";
 import { ensureNotesFolder } from "@/lib/quick-capture";
 import { upsertMisconception } from "@/lib/learning-data";
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
+import { invalidateTaskListCache } from "@/lib/tasks-cache";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
 
 type CaptureKind = "task" | "note" | "misconception";
@@ -20,6 +21,7 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json().catch(() => ({}))) as {
+    assigneeUserId?: unknown;
     confidence?: unknown;
     content?: unknown;
     description?: unknown;
@@ -43,17 +45,40 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Task title is required" }, { status: 400 });
     }
 
-    const task = await createTaskForUser(ctx.user.id, ctx.workspace.workspaceId, {
-      description:
-        typeof body.description === "string" ? body.description.trim() || null : null,
-      dueAt:
-        typeof body.dueAt === "string" && body.dueAt.trim().length > 0
-          ? new Date(body.dueAt)
-          : null,
-      title,
-    });
+    try {
+      const task = await createTaskForUser(
+        ctx.user.id,
+        ctx.workspace.workspaceId,
+        {
+          assigneeUserId:
+            typeof body.assigneeUserId === "string" &&
+            body.assigneeUserId.trim().length > 0
+              ? body.assigneeUserId.trim()
+              : ctx.user.id,
+          description:
+            typeof body.description === "string"
+              ? body.description.trim() || null
+              : null,
+          dueAt:
+            typeof body.dueAt === "string" && body.dueAt.trim().length > 0
+              ? new Date(body.dueAt)
+              : null,
+          title,
+        }
+      );
 
-    return NextResponse.json({ kind, task }, { status: 201 });
+      await invalidateTaskListCache(ctx.workspace.workspaceId, ctx.user.id);
+
+      return NextResponse.json({ kind, task }, { status: 201 });
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Unable to capture task.",
+        },
+        { status: 400 }
+      );
+    }
   }
 
   if (kind === "note") {

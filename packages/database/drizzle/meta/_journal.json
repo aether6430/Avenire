@@ -71,6 +71,13 @@
       "when": 1774313600000,
       "tag": "0009_note_content_diff_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1774722000000,
+      "tag": "0011_task_assignee_workspace_surface",
+      "breakpoints": true
     }
   ]
 }

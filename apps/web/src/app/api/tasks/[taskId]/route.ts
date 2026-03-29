@@ -4,6 +4,7 @@ import {
   updateTaskForUser,
 } from "@avenire/database/task-data";
 import { NextResponse } from "next/server";
+import { invalidateTaskListCache } from "@/lib/tasks-cache";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
 
 interface RouteParams {
@@ -23,6 +24,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
 
+  await invalidateTaskListCache(ctx.workspace.workspaceId, ctx.user.id);
+
   return NextResponse.json({ task });
 }
 
@@ -34,6 +37,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
   const { taskId } = await params;
   const body = (await request.json().catch(() => ({}))) as {
+    assigneeUserId?: string | null;
     title?: string;
     description?: string | null;
     status?: "pending" | "in_progress" | "completed";
@@ -50,13 +54,27 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     dueAtValue = undefined;
   }
 
-  const task = await updateTaskForUser(ctx.user.id, taskId, {
-    title: body.title,
-    description: body.description,
-    status: body.status,
-    priority: body.priority,
-    dueAt: dueAtValue,
-  });
+  let task;
+  try {
+    task = await updateTaskForUser(ctx.user.id, taskId, {
+      assigneeUserId: body.assigneeUserId,
+      title: body.title,
+      description: body.description,
+      status: body.status,
+      priority: body.priority,
+      dueAt: dueAtValue,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to update task.",
+      },
+      { status: 400 }
+    );
+  }
 
   if (!task) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
@@ -77,6 +95,8 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
   if (!deleted) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
+
+  await invalidateTaskListCache(ctx.workspace.workspaceId, ctx.user.id);
 
   return NextResponse.json({ success: true });
 }

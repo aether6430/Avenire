@@ -2,6 +2,7 @@
 
 import type { ChatSummary } from "@/lib/chat-data";
 import type { FlashcardSetSummary } from "@/lib/flashcards";
+import type { WorkspaceTask } from "@/lib/tasks";
 import { readBrowserCache, writeBrowserCache } from "@/lib/browser-cache";
 
 interface CachedListPayload<T> {
@@ -51,6 +52,34 @@ function isFlashcardSetSummary(value: unknown): value is FlashcardSetSummary {
     typeof record.title === "string" &&
     typeof record.createdAt === "string" &&
     typeof record.updatedAt === "string"
+  );
+}
+
+function isTaskSummary(value: unknown): value is WorkspaceTask {
+  if (!(value && typeof value === "object" && !Array.isArray(value))) {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  const assignee = record.assignee;
+  const validAssignee =
+    assignee === null ||
+    assignee === undefined ||
+    (typeof assignee === "object" &&
+      !Array.isArray(assignee) &&
+      typeof (assignee as { userId?: unknown }).userId === "string" &&
+      typeof (assignee as { email?: unknown }).email === "string");
+
+  return (
+    typeof record.id === "string" &&
+    typeof record.workspaceId === "string" &&
+    typeof record.userId === "string" &&
+    typeof record.title === "string" &&
+    typeof record.status === "string" &&
+    typeof record.createdBy === "string" &&
+    typeof record.createdAt === "string" &&
+    typeof record.updatedAt === "string" &&
+    validAssignee
   );
 }
 
@@ -106,6 +135,23 @@ export function writeCachedFlashcardSets(
     items: sets,
     workspaceUuid,
   } satisfies CachedListPayload<FlashcardSetSummary>);
+}
+
+export function readCachedTasks(workspaceUuid: string) {
+  const payload = readBrowserCache(
+    cacheKey("tasks", workspaceUuid),
+    (value): value is CachedListPayload<WorkspaceTask> =>
+      isCachedListPayload(value, isTaskSummary)
+  );
+  return payload?.items ?? null;
+}
+
+export function writeCachedTasks(workspaceUuid: string, tasks: WorkspaceTask[]) {
+  writeBrowserCache(cacheKey("tasks", workspaceUuid), {
+    cachedAt: Date.now(),
+    items: tasks,
+    workspaceUuid,
+  } satisfies CachedListPayload<WorkspaceTask>);
 }
 
 export function readCachedWorkspaces() {

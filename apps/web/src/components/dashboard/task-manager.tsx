@@ -3,129 +3,54 @@
 import { Button } from "@avenire/ui/components/button";
 import { Card, CardContent, CardHeader } from "@avenire/ui/components/card";
 import {
-  Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle, } from "@avenire/ui/components/empty";
-import {
-  CalendarDots as CalendarDays, CheckCircle as CheckCircle2, Circle, Pencil, Sparkle as Sparkles, Trash as Trash2 } from "@phosphor-icons/react"
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@avenire/ui/components/empty";
+import { Spinner } from "@avenire/ui/components/spinner";
+import { CalendarDots as CalendarDays, CheckCircle as CheckCircle2, Circle, Pencil, Sparkle as Sparkles, Trash as Trash2 } from "@phosphor-icons/react";
 import { LazyMotion, domAnimation, m } from "framer-motion";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { Spinner } from "@avenire/ui/components/spinner";
 import { QuickCaptureDialog } from "@/components/dashboard/quick-capture-dialog";
+import { subscribeToTaskStore, getTaskStoreSnapshot, patchWorkspaceTask, primeWorkspaceTaskStore, reloadWorkspaceTasks, removeWorkspaceTask, setWorkspaceTaskError, upsertWorkspaceTask } from "@/lib/task-client-store";
+import type { WorkspaceTask } from "@/lib/tasks";
+import { TASKS_REFRESH_EVENT } from "@/lib/tasks";
 import { cn } from "@/lib/utils";
 
-interface TaskRecord {
-  description: string | null;
-  dueAt: string | null;
-  id: string;
-  status: "pending" | "in_progress" | "completed";
-  title: string;
-}
-
-interface TaskStoreSnapshot {
-  errorMessage: string | null;
-  loading: boolean;
-  tasks: TaskRecord[];
-}
-
-const TASKS_ENDPOINT = "/api/tasks?limit=12&includeCompleted=true";
-const TASKS_REFRESH_EVENT = "dashboard.tasks.refresh";
-
-let taskStoreSnapshot: TaskStoreSnapshot = {
-  errorMessage: null,
-  loading: true,
-  tasks: [],
-};
-let taskStoreRequest: Promise<void> | null = null;
-let taskStoreHasLoaded = false;
-const taskStoreListeners = new Set<() => void>();
-
-function emitTaskStore() {
-  for (const listener of taskStoreListeners) {
-    listener();
-  }
-}
-
-function updateTaskStore(
-  updater:
-    | TaskStoreSnapshot
-    | ((current: TaskStoreSnapshot) => TaskStoreSnapshot)
-) {
-  taskStoreSnapshot =
-    typeof updater === "function" ? updater(taskStoreSnapshot) : updater;
-  emitTaskStore();
-}
-
-function reloadTaskStore() {
-  if (taskStoreRequest) {
-    return taskStoreRequest;
-  }
-
-  if (!taskStoreHasLoaded) {
-    updateTaskStore((current) => ({ ...current, loading: true }));
-  }
-
-  taskStoreRequest = (async () => {
-    try {
-      const response = await fetch(TASKS_ENDPOINT);
-      if (!response.ok) {
-        throw new Error("Failed to load tasks.");
-      }
-
-      const data = (await response.json()) as { tasks: TaskRecord[] };
-      taskStoreHasLoaded = true;
-      updateTaskStore({
-        errorMessage: null,
-        loading: false,
-        tasks: data.tasks,
-      });
-    } catch {
-      updateTaskStore((current) => ({
-        ...current,
-        errorMessage: "Could not load tasks right now.",
-        loading: false,
-      }));
-    } finally {
-      taskStoreRequest = null;
-    }
-  })();
-
-  return taskStoreRequest;
-}
-
-function subscribeToTaskStore(listener: () => void) {
-  taskStoreListeners.add(listener);
-  return () => {
-    taskStoreListeners.delete(listener);
-  };
-}
-
-export function DashboardTaskManager() {
-  const [editingTask, setEditingTask] = useState<TaskRecord | null>(null);
+export function DashboardTaskManager({
+  currentUserId,
+  workspaceId,
+}: {
+  currentUserId: string;
+  workspaceId: string;
+}) {
+  const [editingTask, setEditingTask] = useState<WorkspaceTask | null>(null);
   const { errorMessage, loading, tasks } = useSyncExternalStore(
     subscribeToTaskStore,
-    () => taskStoreSnapshot,
-    () => taskStoreSnapshot
+    getTaskStoreSnapshot,
+    getTaskStoreSnapshot
   );
 
-  const notifyTaskRefresh = () => {
-    window.dispatchEvent(new Event(TASKS_REFRESH_EVENT));
-  };
-
   useEffect(() => {
+    primeWorkspaceTaskStore(workspaceId);
+    void reloadWorkspaceTasks(workspaceId);
+
     const refresh = () => {
-      reloadTaskStore().catch(() => undefined);
+      void reloadWorkspaceTasks(workspaceId, { background: true });
     };
 
     window.addEventListener(TASKS_REFRESH_EVENT, refresh);
-    refresh();
-
     return () => {
       window.removeEventListener(TASKS_REFRESH_EVENT, refresh);
     };
-  }, []);
+  }, [workspaceId]);
 
   const sortedTasks = useMemo(
     () =>
-      [...tasks].sort((left, right) => {
+      tasks.filter((task) => task.workspaceId === workspaceId).sort((left, right) => {
         if (left.status === "completed" && right.status !== "completed") {
           return -1;
         }
@@ -145,75 +70,66 @@ export function DashboardTaskManager() {
         }
         return 0;
       }),
-    [tasks]
+    [tasks, workspaceId]
   );
 
   const pendingCount = sortedTasks.filter(
     (task) => task.status !== "completed"
   ).length;
 
-  const handleToggleTask = async (taskId: string) => {
-    const task = tasks.find((item) => item.id === taskId);
-    if (!task) {
-      return;
-    }
+  const handleToggleTask = async (task: WorkspaceTask) => {
+    const previousTask = task;
+    const previousStatus = task.status;
+    const nextStatus = previousStatus === "completed" ? "pending" : "completed";
 
-    const newStatus = task.status === "completed" ? "pending" : "completed";
-    updateTaskStore((current) => ({
+    patchWorkspaceTask(workspaceId, task.id, (current) => ({
       ...current,
-      errorMessage: null,
-      tasks: current.tasks.map((item) =>
-        item.id === taskId ? { ...item, status: newStatus } : item
-      ),
+      completedAt:
+        nextStatus === "completed"
+          ? new Date().toISOString()
+          : null,
+      status: nextStatus,
     }));
 
     try {
-      const response = await fetch(`/api/tasks/${taskId}`, {
+      const response = await fetch(`/api/tasks/${task.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: nextStatus }),
       });
-      if (!response.ok) {
-        throw new Error("Failed to update task.");
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        task?: WorkspaceTask;
+      };
+      if (!response.ok || !payload.task) {
+        throw new Error(payload.error ?? "Failed to update task.");
       }
-      notifyTaskRefresh();
-    } catch {
-      updateTaskStore((current) => ({
-        ...current,
-        errorMessage: "Could not update that task.",
-        tasks: current.tasks.map((item) =>
-          item.id === taskId ? { ...item, status: task.status } : item
-        ),
-      }));
+      patchWorkspaceTask(workspaceId, task.id, () => payload.task as WorkspaceTask);
+      void reloadWorkspaceTasks(workspaceId, { background: true });
+    } catch (error) {
+      upsertWorkspaceTask(workspaceId, previousTask);
+      setWorkspaceTaskError(
+        error instanceof Error ? error.message : "Could not update that task."
+      );
     }
   };
 
-  const handleDeleteTask = async (taskId: string) => {
-    const task = tasks.find((item) => item.id === taskId);
-    if (!task) {
-      return;
-    }
-
-    updateTaskStore((current) => ({
-      ...current,
-      errorMessage: null,
-      tasks: current.tasks.filter((item) => item.id !== taskId),
-    }));
+  const handleDeleteTask = async (task: WorkspaceTask) => {
+    removeWorkspaceTask(workspaceId, task.id);
 
     try {
-      const response = await fetch(`/api/tasks/${taskId}`, {
+      const response = await fetch(`/api/tasks/${task.id}`, {
         method: "DELETE",
       });
       if (!response.ok) {
         throw new Error("Failed to delete task.");
       }
-      notifyTaskRefresh();
-    } catch {
-      updateTaskStore((current) => ({
-        ...current,
-        errorMessage: "Could not delete that task.",
-        tasks: [...current.tasks, task],
-      }));
+      void reloadWorkspaceTasks(workspaceId, { background: true });
+    } catch (error) {
+      upsertWorkspaceTask(workspaceId, task);
+      setWorkspaceTaskError(
+        error instanceof Error ? error.message : "Could not delete that task."
+      );
     }
   };
 
@@ -254,7 +170,7 @@ export function DashboardTaskManager() {
           <p className="text-destructive text-xs">{errorMessage}</p>
         )}
         <div className="space-y-1">
-          {loading && (
+          {loading && sortedTasks.length === 0 && (
             <div className="inline-flex items-center gap-2 text-muted-foreground text-xs">
               <Spinner className="size-3.5" />
               Loading tasks...
@@ -276,8 +192,7 @@ export function DashboardTaskManager() {
               </EmptyContent>
             </Empty>
           )}
-          {!loading &&
-            displayTasks.length > 0 &&
+          {displayTasks.length > 0 &&
             displayTasks.map((task) => {
               const isCompleted = task.status === "completed";
               return (
@@ -301,7 +216,7 @@ export function DashboardTaskManager() {
                           isCompleted && "text-muted-foreground"
                         )}
                         layout
-                        onClick={() => handleToggleTask(task.id)}
+                        onClick={() => void handleToggleTask(task)}
                         type="button"
                       >
                         <m.span
@@ -347,7 +262,7 @@ export function DashboardTaskManager() {
                       className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-destructive"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleDeleteTask(task.id);
+                        void handleDeleteTask(task);
                       }}
                       type="button"
                     >
@@ -359,6 +274,7 @@ export function DashboardTaskManager() {
             })}
         </div>
         <QuickCaptureDialog
+          currentUserId={currentUserId}
           initialKind="task"
           onOpenChange={(open) => {
             if (!open) {
@@ -371,8 +287,10 @@ export function DashboardTaskManager() {
           taskValues={
             editingTask
               ? {
+                  assigneeUserId: editingTask.assigneeUserId ?? currentUserId,
                   description: editingTask.description ?? "",
                   dueAt: editingTask.dueAt ?? "",
+                  priority: editingTask.priority ?? "normal",
                   title: editingTask.title,
                 }
               : undefined
@@ -382,6 +300,7 @@ export function DashboardTaskManager() {
               Edit task
             </Button>
           }
+          workspaceUuid={workspaceId}
         />
       </CardContent>
     </Card>

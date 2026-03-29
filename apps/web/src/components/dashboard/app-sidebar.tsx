@@ -14,7 +14,7 @@ import {
 import { Spinner } from "@avenire/ui/components/spinner";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import {
-  Files, GitBranch, Chat as MessageSquare, DotsThree as MoreHorizontal, Pencil, PushPin as Pin, PushPinSlash as PinOff, PlusCircle, Gear as Settings, Sparkle as Sparkles, Trash as Trash2, Waves } from "@phosphor-icons/react"
+  Files, GitBranch, Chat as MessageSquare, DotsThree as MoreHorizontal, Pencil, PushPin as Pin, PushPinSlash as PinOff, PlusCircle, Gear as Settings, Sparkle as Sparkles, Trash as Trash2, Waves, ListChecks } from "@phosphor-icons/react"
 import type { Route } from "next";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -515,9 +515,11 @@ export function DashboardSidebar({
   const sessionCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
-  let routeView: "chat" | "flashcards" | "files" | "workspace" | null = null;
+  let routeView: "chat" | "flashcards" | "files" | "tasks" | "workspace" | null = null;
   if (pathname.startsWith("/workspace/flashcards")) {
     routeView = "flashcards";
+  } else if (pathname.startsWith("/workspace/tasks")) {
+    routeView = "tasks";
   } else if (pathname.startsWith("/workspace/files")) {
     routeView = "files";
   } else if (isChatsRoute) {
@@ -528,7 +530,7 @@ export function DashboardSidebar({
   const activeView = routeView;
   const activeTabValue = activeView === "workspace" ? null : activeView;
   const [mountedViews, setMountedViews] = useState<
-    Set<"chat" | "flashcards" | "files">
+    Set<"chat" | "flashcards" | "files" | "tasks">
   >(() =>
     activeView && activeView !== "workspace" ? new Set([activeView]) : new Set()
   );
@@ -612,7 +614,7 @@ export function DashboardSidebar({
     null;
 
   const warmWorkspaceSection = useCallback(
-    (section: "chat" | "flashcards" | "files") => {
+    (section: "chat" | "flashcards" | "files" | "tasks") => {
       if (section === "chat") {
         router.prefetch(primaryChatRoute);
         warmWorkspaceSurface("chat", {
@@ -629,6 +631,11 @@ export function DashboardSidebar({
           rootFolderId: activeWorkspace?.rootFolderId ?? null,
           workspaceUuid,
         }).catch(() => undefined);
+        return;
+      }
+
+      if (section === "tasks") {
+        router.prefetch("/workspace/tasks" as Route);
         return;
       }
 
@@ -1439,6 +1446,18 @@ export function DashboardSidebar({
     "Mod+3",
     (event) => {
       event.preventDefault();
+      if (!pathname.startsWith("/workspace/tasks")) {
+        navigate("/workspace/tasks" as Route);
+        return;
+      }
+    },
+    { ignoreInputs: true }
+  );
+
+  useHotkey(
+    "Mod+4",
+    (event) => {
+      event.preventDefault();
       if (!pathname.startsWith("/workspace/files")) {
         void navigateToFilesRoot();
         return;
@@ -1459,14 +1478,10 @@ export function DashboardSidebar({
   );
 
   useHotkey(
-    "Mod+K",
+    "Mod+Shift+P",
     (event) => {
       event.preventDefault();
-      if (activeView !== "files") {
-        void navigateToFilesRoot();
-        return;
-      }
-      commandPaletteActions.openFiles();
+      commandPaletteActions.open();
     },
     { ignoreInputs: true }
   );
@@ -1585,18 +1600,19 @@ export function DashboardSidebar({
               items={[
                 { value: "chat", label: "Method", icon: MessageSquare },
                 { value: "flashcards", label: "Mindset", icon: Sparkles },
+                { value: "tasks", label: "Tasks", icon: ListChecks },
                 { value: "files", label: "Manage", icon: Files },
               ]}
               onItemHover={(item) => {
                 warmWorkspaceSection(
-                  item.value as "chat" | "flashcards" | "files"
+                  item.value as "chat" | "flashcards" | "files" | "tasks"
                 );
               }}
               onValueChange={(nextValue) => {
                 if (!nextValue) {
                   return;
                 }
-                const nextView = nextValue as "chat" | "flashcards" | "files";
+                const nextView = nextValue as "chat" | "flashcards" | "files" | "tasks";
                 if (nextView === activeView) {
                   return;
                 }
@@ -1618,6 +1634,15 @@ export function DashboardSidebar({
                 ) {
                   closeMobileSidebar();
                   navigate("/workspace/flashcards" as Route);
+                  return;
+                }
+
+                if (
+                  nextView === "tasks" &&
+                  !pathname.startsWith("/workspace/tasks")
+                ) {
+                  closeMobileSidebar();
+                  navigate("/workspace/tasks" as Route);
                   return;
                 }
 
@@ -1675,6 +1700,35 @@ export function DashboardSidebar({
                         onClick={() => {
                           closeMobileSidebar();
                           void navigateToFilesRoot();
+                        }}
+                      />
+                      <SectionButton
+                        icon={ListChecks}
+                        label="Open Tasks"
+                        onClick={() => {
+                          closeMobileSidebar();
+                          navigate("/workspace/tasks" as Route);
+                        }}
+                      />
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </SidebarGroup>
+              </div>
+            ) : activeView === "tasks" ? (
+              <div className="absolute inset-0 overflow-y-auto px-2 py-2">
+                <SidebarGroup>
+                  <SidebarGroupLabel>Tasks</SidebarGroupLabel>
+                  <SidebarGroupContent>
+                    <p className="px-2 pb-2 text-muted-foreground text-xs leading-relaxed">
+                      Open the task workspace for assignment, scheduling, and inline detail editing.
+                    </p>
+                    <SidebarMenu>
+                      <SectionButton
+                        icon={ListChecks}
+                        label="Open Tasks"
+                        onClick={() => {
+                          closeMobileSidebar();
+                          navigate("/workspace/tasks" as Route);
                         }}
                       />
                     </SidebarMenu>

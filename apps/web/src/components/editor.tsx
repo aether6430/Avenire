@@ -3262,16 +3262,10 @@ function AvenireEditor({
     const handleKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey) {
         const key = event.key.toLowerCase();
-        if (key === "k" && !event.shiftKey) {
-          event.preventDefault();
-          event.stopPropagation();
-          commandPaletteActions.openFiles();
-          return;
-        }
         if (key === "p" && event.shiftKey) {
           event.preventDefault();
           event.stopPropagation();
-          commandPaletteActions.openGeneral();
+          commandPaletteActions.open();
           return;
         }
       }

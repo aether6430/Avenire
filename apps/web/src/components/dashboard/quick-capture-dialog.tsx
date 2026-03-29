@@ -5,20 +5,33 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, } from "@avenire/ui/components/dialog";
 import { Input } from "@avenire/ui/components/input";
 import { Label } from "@avenire/ui/components/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@avenire/ui/components/select";
 import { Textarea } from "@avenire/ui/components/textarea";
 import { SpinnerGap as Loader2, Plus, Warning as TriangleAlert } from "@phosphor-icons/react"
 import { useRouter } from "next/navigation";
 import { type ReactElement, useEffect, useMemo, useState } from "react";
+import { TaskAssigneePicker } from "@/components/tasks/task-assignee-picker";
+import type { WorkspaceMemberOption } from "@/lib/tasks";
+import { dispatchTasksRefresh } from "@/lib/tasks";
 
 export type CaptureKind = "task" | "note" | "misconception";
 
 export interface QuickCaptureTaskValues {
+  assigneeUserId?: string;
   description: string;
   dueAt: string;
+  priority?: "low" | "normal" | "high";
   title: string;
 }
 
 interface QuickCaptureDialogProps {
+  currentUserId?: string;
   initialKind?: CaptureKind;
   onOpenChange?: (open: boolean) => void;
   open?: boolean;
@@ -26,14 +39,17 @@ interface QuickCaptureDialogProps {
   taskMode?: "create" | "edit";
   taskValues?: QuickCaptureTaskValues;
   trigger: ReactElement;
+  workspaceUuid?: string;
 }
 
 const defaultConfidence = "0.85";
 
 function resetTaskState() {
   return {
+    assigneeUserId: "",
     description: "",
     dueAt: "",
+    priority: "normal" as "low" | "normal" | "high",
     title: "",
   };
 }
@@ -87,6 +103,7 @@ function toIsoFromDateTimeLocalValue(value: string) {
 }
 
 export function QuickCaptureDialog({
+  currentUserId,
   initialKind = "task",
   taskId,
   taskMode = "create",
@@ -94,11 +111,14 @@ export function QuickCaptureDialog({
   onOpenChange,
   open,
   trigger,
+  workspaceUuid,
 }: QuickCaptureDialogProps) {
   const router = useRouter();
   const [internalOpen, setInternalOpen] = useState(false);
   const [busyKind, setBusyKind] = useState<CaptureKind | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [members, setMembers] = useState<WorkspaceMemberOption[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
   const [task, setTask] = useState(resetTaskState);
   const [note, setNote] = useState(resetNoteState);
   const [misconception, setMisconception] = useState(resetMisconceptionState);
@@ -131,10 +151,15 @@ export function QuickCaptureDialog({
         setTask(
           taskValues
             ? {
+                assigneeUserId: taskValues.assigneeUserId ?? currentUserId ?? "",
                 ...taskValues,
                 dueAt: toDateTimeLocalValue(taskValues.dueAt),
+                priority: taskValues.priority ?? "normal",
               }
-            : resetTaskState()
+            : {
+                ...resetTaskState(),
+                assigneeUserId: currentUserId ?? "",
+              }
         );
       }
       return;
@@ -145,7 +170,39 @@ export function QuickCaptureDialog({
     setTask(resetTaskState());
     setNote(resetNoteState());
     setMisconception(resetMisconceptionState());
-  }, [kind, resolvedOpen, taskMode, taskValues]);
+  }, [currentUserId, kind, resolvedOpen, taskMode, taskValues]);
+
+  useEffect(() => {
+    if (!resolvedOpen || kind !== "task" || !workspaceUuid) {
+      return;
+    }
+
+    const loadMembers = async () => {
+      setLoadingMembers(true);
+      try {
+        const response = await fetch(
+          `/api/workspaces/${workspaceUuid}/share/members`,
+          {
+            cache: "no-store",
+          }
+        );
+        if (!response.ok) {
+          throw new Error("Unable to load workspace members.");
+        }
+
+        const payload = (await response.json()) as {
+          members?: WorkspaceMemberOption[];
+        };
+        setMembers(payload.members ?? []);
+      } catch {
+        setMembers([]);
+      } finally {
+        setLoadingMembers(false);
+      }
+    };
+
+    void loadMembers();
+  }, [kind, resolvedOpen, workspaceUuid]);
 
   const submitLabel = useMemo(() => {
     if (busyKind === kind) {
@@ -170,8 +227,10 @@ export function QuickCaptureDialog({
       let response: Response;
       if (nextKind === "task") {
         const payload = {
+          assigneeUserId: task.assigneeUserId || currentUserId || undefined,
           description: task.description.trim(),
           dueAt: toIsoFromDateTimeLocalValue(task.dueAt),
+          priority: task.priority,
           title: task.title.trim(),
         };
 
@@ -223,7 +282,7 @@ export function QuickCaptureDialog({
       }
 
       if (nextKind === "task") {
-        window.dispatchEvent(new Event("dashboard.tasks.refresh"));
+        dispatchTasksRefresh();
       } else {
         router.refresh();
       }
@@ -287,19 +346,53 @@ export function QuickCaptureDialog({
                 />
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="quick-task-due">Due</Label>
-              <Input
-                id="quick-task-due"
-                onChange={(event) =>
-                  setTask((prev) => ({ ...prev, dueAt: event.target.value }))
-                }
-                type="datetime-local"
-                value={task.dueAt}
-              />
-              <p className="text-muted-foreground text-xs">
-                Optional. Leave blank if it is just a capture.
-              </p>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>Assignee</Label>
+                <TaskAssigneePicker
+                  disabled={loadingMembers || members.length === 0}
+                  members={members}
+                  onChange={(assigneeUserId) =>
+                    setTask((prev) => ({ ...prev, assigneeUserId }))
+                  }
+                  value={task.assigneeUserId}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Priority</Label>
+                <Select
+                  onValueChange={(value) =>
+                    setTask((prev) => ({
+                      ...prev,
+                      priority: value as "low" | "normal" | "high",
+                    }))
+                  }
+                  value={task.priority}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Priority" />
+                  </SelectTrigger>
+                  <SelectContent align="start">
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="normal">Normal</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="quick-task-due">Due</Label>
+                <Input
+                  id="quick-task-due"
+                  onChange={(event) =>
+                    setTask((prev) => ({ ...prev, dueAt: event.target.value }))
+                  }
+                  type="datetime-local"
+                  value={task.dueAt}
+                />
+                <p className="text-muted-foreground text-xs">
+                  Optional. Leave blank if it is just a capture.
+                </p>
+              </div>
             </div>
           </div>
         ) : null}

@@ -11,12 +11,19 @@ function HiddenTrigger() {
   return <Button className="sr-only" tabIndex={-1} type="button" />;
 }
 
-export function QuickCaptureHost() {
+export function QuickCaptureHost({
+  currentUserId,
+  workspaceUuid,
+}: {
+  currentUserId?: string;
+  workspaceUuid?: string;
+}) {
   const kind = useQuickCaptureStore((state) => state.kind);
 
   return (
     <>
       <QuickCaptureDialog
+        currentUserId={currentUserId}
         initialKind="task"
         onOpenChange={(open) => {
           if (!open) {
@@ -25,6 +32,7 @@ export function QuickCaptureHost() {
         }}
         open={kind === "task"}
         trigger={<HiddenTrigger />}
+        workspaceUuid={workspaceUuid}
       />
       <QuickCaptureDialog
         initialKind="note"

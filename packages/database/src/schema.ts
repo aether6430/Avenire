@@ -952,6 +952,9 @@ export const task = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    assigneeUserId: text("assignee_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
     title: text("title").notNull(),
     description: text("description"),
     status: text("status").notNull().default("pending"),
@@ -972,5 +975,15 @@ export const task = pgTable(
     index("task_workspace_user_idx").on(table.workspaceId, table.userId),
     index("task_user_status_idx").on(table.userId, table.status),
     index("task_user_due_idx").on(table.userId, table.dueAt),
+    index("task_workspace_assignee_status_idx").on(
+      table.workspaceId,
+      table.assigneeUserId,
+      table.status
+    ),
+    index("task_workspace_due_status_idx").on(
+      table.workspaceId,
+      table.dueAt,
+      table.status
+    ),
   ]
 );

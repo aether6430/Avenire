@@ -75,6 +75,7 @@ interface DashboardLayoutProps {
     name: string;
   }>;
   user?: {
+    id: string;
     name: string;
     email: string;
     avatar?: string;
@@ -163,8 +164,13 @@ export function DashboardLayout({
         <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
         {deferredReady ? (
           <>
-            <DeferredQuickCaptureHost />
-            <DeferredCommandPalette />
+            <DeferredQuickCaptureHost
+              currentUserId={user?.id}
+              workspaceUuid={activeWorkspace?.workspaceId}
+            />
+            <DeferredCommandPalette
+              workspaceUuid={activeWorkspace?.workspaceId}
+            />
             <DeferredUploadActivityPanel />
           </>
         ) : null}

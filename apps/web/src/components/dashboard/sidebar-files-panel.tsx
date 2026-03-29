@@ -363,8 +363,6 @@ export function FilesSidebarPanel({
 
   useEffect(() => {
     commandPaletteActions.setFileIndex({
-      fileOpen: false,
-      generalOpen: false,
       workspaceUuid,
       folders: folderTree,
       files: fileTree,
