@@ -20,10 +20,12 @@ Railway services keep variables scoped per service, so each service needs its ow
 
 ### Web service
 
-- Build: `pnpm --filter @avenire/web build`
+- Build: `pnpm build`
 - Start: `pnpm --filter @avenire/web start`
 - Public domain: generate one in Railway networking settings
 - Deploy runs `pnpm db:migrate` in `preDeployCommand` for the `web` service so schema changes, including auth tables like `waitlist`, are applied before the app starts.
+
+`pnpm build` runs the root `prebuild` hook first, which regenerates `packages/ai/skills/skills.ts` before Turbo starts the workspace build graph.
 
 ## Approving Waitlist Users
 

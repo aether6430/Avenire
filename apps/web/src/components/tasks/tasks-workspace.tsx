@@ -8,6 +8,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { startTransition, useDeferredValue, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { HeaderActions, HeaderBreadcrumbs, HeaderLeadingIcon } from "@/components/dashboard/header-portal";
 import { TaskFilters } from "@/components/tasks/task-filters";
+import { TaskKanbanPane } from "@/components/tasks/task-kanban-pane";
 import { TaskListPane } from "@/components/tasks/task-list-pane";
 import { TaskMobileSheet } from "@/components/tasks/task-mobile-sheet";
 import {
@@ -15,6 +16,7 @@ import {
   type TaskEditorDraft,
   type TaskGrouping,
   type TaskStatusFilter,
+  type TaskViewMode,
 } from "@/components/tasks/types";
 import {
   getTaskGroupLabel,
@@ -41,6 +43,7 @@ function buildTaskPayload(draft: TaskEditorDraft) {
     description: draft.description.trim() || null,
     dueAt: draft.dueAt ? new Date(draft.dueAt).toISOString() : null,
     priority: draft.priority,
+    resources: draft.resources,
     status: draft.status,
     title: draft.title.trim(),
   };
@@ -52,8 +55,9 @@ function sameDraft(left: TaskEditorDraft | null, right: TaskEditorDraft | null) 
 
 function buildStatusGroups(tasks: WorkspaceTask[]) {
   const buckets = [
-    { key: "in_progress", label: getTaskGroupLabel("in_progress"), tasks: [] as WorkspaceTask[] },
-    { key: "pending", label: getTaskGroupLabel("pending"), tasks: [] as WorkspaceTask[] },
+    { key: "planned", label: getTaskGroupLabel("planned"), tasks: [] as WorkspaceTask[] },
+    { key: "drafting", label: getTaskGroupLabel("drafting"), tasks: [] as WorkspaceTask[] },
+    { key: "polishing", label: getTaskGroupLabel("polishing"), tasks: [] as WorkspaceTask[] },
     { key: "completed", label: getTaskGroupLabel("completed"), tasks: [] as WorkspaceTask[] },
   ];
 
@@ -116,7 +120,7 @@ export function TasksWorkspace({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const recordRoute = useWorkspaceHistoryStore((state) => state.recordRoute);
-  const { errorMessage, loading, tasks: allTasks } = useSyncExternalStore(
+  const { loading, tasks: allTasks } = useSyncExternalStore(
     subscribeToTaskStore,
     getTaskStoreSnapshot,
     getTaskStoreSnapshot
@@ -127,11 +131,14 @@ export function TasksWorkspace({
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>("all");
   const [assigneeFilter, setAssigneeFilter] = useState("all");
   const [grouping, setGrouping] = useState<TaskGrouping>("status");
+  const [viewMode, setViewMode] = useState<TaskViewMode>("list");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [mode, setMode] = useState<"create" | "edit" | "idle">("idle");
   const [draft, setDraft] = useState<TaskEditorDraft | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  const [dropStatus, setDropStatus] = useState<WorkspaceTask["status"] | null>(null);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const tasks = useMemo(
     () => allTasks.filter((task) => task.workspaceId === workspaceId),
@@ -241,6 +248,10 @@ export function TasksWorkspace({
     () => (grouping === "due" ? buildDueGroups(filteredTasks) : buildStatusGroups(filteredTasks)),
     [filteredTasks, grouping]
   );
+  const kanbanGroups = useMemo(
+    () => buildStatusGroups(filteredTasks),
+    [filteredTasks]
+  );
 
   const syncTaskParam = (taskId: string | null) => {
     const nextParams = new URLSearchParams(searchParams.toString());
@@ -290,6 +301,41 @@ export function TasksWorkspace({
 
   const handleReset = () => {
     setDraft(baselineDraft);
+  };
+
+  const moveTaskStatus = async (
+    task: WorkspaceTask,
+    nextStatus: WorkspaceTask["status"]
+  ) => {
+    const previous = task;
+
+    patchWorkspaceTask(workspaceId, task.id, (current) => ({
+      ...current,
+      completedAt: nextStatus === "completed" ? new Date().toISOString() : null,
+      status: nextStatus,
+    }));
+
+    try {
+      const response = await fetch(`/api/tasks/${task.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        task?: WorkspaceTask;
+      };
+      if (!response.ok || !payload.task) {
+        throw new Error(payload.error ?? "Unable to update task.");
+      }
+      upsertWorkspaceTask(workspaceId, payload.task);
+      void reloadWorkspaceTasks(workspaceId, { background: true });
+    } catch (error) {
+      upsertWorkspaceTask(workspaceId, previous);
+      setWorkspaceTaskError(
+        error instanceof Error ? error.message : "Unable to update task."
+      );
+    }
   };
 
   const handleSave = async () => {
@@ -361,37 +407,37 @@ export function TasksWorkspace({
   };
 
   const toggleTaskComplete = async (task: WorkspaceTask) => {
-    const previous = task;
-    const nextStatus = task.status === "completed" ? "pending" : "completed";
+    await moveTaskStatus(
+      task,
+      task.status === "completed" ? "planned" : "completed"
+    );
+  };
 
-    patchWorkspaceTask(workspaceId, task.id, (current) => ({
-      ...current,
-      completedAt:
-        nextStatus === "completed" ? new Date().toISOString() : null,
-      status: nextStatus,
-    }));
+  const handleDragStartTask = (taskId: string) => {
+    setDraggedTaskId(taskId);
+  };
 
-    try {
-      const response = await fetch(`/api/tasks/${task.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: nextStatus }),
-      });
-      const payload = (await response.json().catch(() => ({}))) as {
-        error?: string;
-        task?: WorkspaceTask;
-      };
-      if (!response.ok || !payload.task) {
-        throw new Error(payload.error ?? "Unable to update task.");
-      }
-      upsertWorkspaceTask(workspaceId, payload.task);
-      void reloadWorkspaceTasks(workspaceId, { background: true });
-    } catch (error) {
-      upsertWorkspaceTask(workspaceId, previous);
-      setWorkspaceTaskError(
-        error instanceof Error ? error.message : "Unable to update task."
-      );
+  const handleDragEndTask = () => {
+    setDraggedTaskId(null);
+    setDropStatus(null);
+  };
+
+  const handleDropStatus = async (
+    taskId: string,
+    nextStatus: WorkspaceTask["status"]
+  ) => {
+    const task = tasks.find((entry) => entry.id === taskId);
+    if (!task) {
+      return;
     }
+
+    setDropStatus(null);
+    setDraggedTaskId(null);
+    if (task.status === nextStatus) {
+      return;
+    }
+
+    await moveTaskStatus(task, nextStatus);
   };
 
   const headerActions = (
@@ -425,12 +471,6 @@ export function TasksWorkspace({
           </p>
         </div>
 
-        {errorMessage ? (
-          <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-destructive text-xs">
-            {errorMessage}
-          </div>
-        ) : null}
-
         <div className="min-h-0 flex-1 overflow-hidden border-t border-border/70">
           <TaskFilters
             assigneeFilter={assigneeFilter}
@@ -440,17 +480,37 @@ export function TasksWorkspace({
             onGroupingChange={setGrouping}
             onSearchQueryChange={setSearchQuery}
             onStatusFilterChange={setStatusFilter}
+            onViewModeChange={setViewMode}
             searchQuery={searchQuery}
             statusFilter={statusFilter}
+            viewMode={viewMode}
           />
           {loading && tasks.length === 0 ? (
             <div className="flex min-h-[18rem] items-center justify-center text-muted-foreground text-sm">
               <Spinner className="mr-2 size-4" />
               Loading tasks...
             </div>
+          ) : viewMode === "kanban" ? (
+          <TaskKanbanPane
+            draggedTaskId={draggedTaskId}
+            dropStatus={dropStatus}
+            groups={kanbanGroups}
+            onDragEndTask={handleDragEndTask}
+            onDragStartTask={handleDragStartTask}
+            onDragTargetChange={setDropStatus}
+            onDropStatus={handleDropStatus}
+            onSelectTask={handleSelectTask}
+            onToggleComplete={toggleTaskComplete}
+            selectedTaskId={selectedTaskId}
+          />
           ) : (
             <TaskListPane
+              draggedTaskId={draggedTaskId}
               groups={groupedTasks}
+              onDragEndTask={handleDragEndTask}
+              onDragStartTask={handleDragStartTask}
+              onDragTargetChange={setDropStatus}
+              onDropStatus={handleDropStatus}
               onSelectTask={handleSelectTask}
               onToggleComplete={toggleTaskComplete}
               selectedTaskId={selectedTaskId}
@@ -492,6 +552,7 @@ export function TasksWorkspace({
             void toggleTaskComplete(selectedTask);
           }
         }}
+        workspaceUuid={workspaceId}
         task={selectedTask}
       />
     </div>

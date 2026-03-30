@@ -22,6 +22,7 @@ import { Spinner } from "@avenire/ui/components/spinner";
 import { CalendarDots, FlagBanner, Trash } from "@phosphor-icons/react";
 import { TaskAssigneePicker } from "@/components/tasks/task-assignee-picker";
 import { TaskEmptyState } from "@/components/tasks/task-empty-state";
+import { TaskResourcePicker } from "@/components/tasks/task-resource-picker";
 import type { TaskEditorDraft } from "@/components/tasks/types";
 import type { WorkspaceMemberOption, WorkspaceTask } from "@/lib/tasks";
 import {
@@ -41,6 +42,7 @@ export function TaskDetailPane({
   onReset,
   onSave,
   onToggleComplete,
+  workspaceUuid,
   task,
 }: {
   draft: TaskEditorDraft | null;
@@ -53,6 +55,7 @@ export function TaskDetailPane({
   onReset: () => void;
   onSave: () => void;
   onToggleComplete: () => void;
+  workspaceUuid: string;
   task: WorkspaceTask | null;
 }) {
   if (mode === "idle" || !draft) {
@@ -97,15 +100,27 @@ export function TaskDetailPane({
             value={draft.title}
           />
         </div>
+        <div className="space-y-1.5">
+          <Label>Assignee</Label>
+          <TaskAssigneePicker
+            members={members}
+            onChange={(assigneeUserId, selectedAssignee) =>
+              onDraftChange({ assigneeUserId, selectedAssignee: selectedAssignee ?? null })
+            }
+            selectedAssignee={draft.selectedAssignee ?? task?.assignee ?? null}
+            value={draft.assigneeUserId}
+            workspaceUuid={workspaceUuid}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Resources</Label>
+          <TaskResourcePicker
+            onChange={(resources) => onDraftChange({ resources })}
+            value={draft.resources}
+            workspaceUuid={workspaceUuid}
+          />
+        </div>
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label>Assignee</Label>
-            <TaskAssigneePicker
-              members={members}
-              onChange={(assigneeUserId) => onDraftChange({ assigneeUserId })}
-              value={draft.assigneeUserId}
-            />
-          </div>
           <div className="space-y-1.5">
             <Label htmlFor="task-due">Due</Label>
             <Input
@@ -129,8 +144,9 @@ export function TaskDetailPane({
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent align="start">
-                <SelectItem value="pending">To do</SelectItem>
-                <SelectItem value="in_progress">In progress</SelectItem>
+                <SelectItem value="planned">Planned</SelectItem>
+                <SelectItem value="drafting">Drafting</SelectItem>
+                <SelectItem value="polishing">Polishing</SelectItem>
                 <SelectItem value="completed">Completed</SelectItem>
               </SelectContent>
             </Select>

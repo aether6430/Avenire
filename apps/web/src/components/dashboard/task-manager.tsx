@@ -28,7 +28,7 @@ export function DashboardTaskManager({
   workspaceId: string;
 }) {
   const [editingTask, setEditingTask] = useState<WorkspaceTask | null>(null);
-  const { errorMessage, loading, tasks } = useSyncExternalStore(
+  const { loading, tasks } = useSyncExternalStore(
     subscribeToTaskStore,
     getTaskStoreSnapshot,
     getTaskStoreSnapshot
@@ -80,7 +80,7 @@ export function DashboardTaskManager({
   const handleToggleTask = async (task: WorkspaceTask) => {
     const previousTask = task;
     const previousStatus = task.status;
-    const nextStatus = previousStatus === "completed" ? "pending" : "completed";
+    const nextStatus = previousStatus === "completed" ? "planned" : "completed";
 
     patchWorkspaceTask(workspaceId, task.id, (current) => ({
       ...current,
@@ -137,9 +137,7 @@ export function DashboardTaskManager({
     const completedTasks = sortedTasks.filter(
       (task) => task.status === "completed"
     );
-    const nonCompletedTasks = sortedTasks.filter(
-      (task) => task.status !== "completed"
-    );
+    const nonCompletedTasks = sortedTasks.filter((task) => task.status !== "completed");
 
     if (sortedTasks.length > 10 && completedTasks.length > 0) {
       return nonCompletedTasks.slice(0, 10);
@@ -166,9 +164,6 @@ export function DashboardTaskManager({
         </div>
       </CardHeader>
       <CardContent className="max-h-[22rem] space-y-3 overflow-auto">
-        {errorMessage && (
-          <p className="text-destructive text-xs">{errorMessage}</p>
-        )}
         <div className="space-y-1">
           {loading && sortedTasks.length === 0 && (
             <div className="inline-flex items-center gap-2 text-muted-foreground text-xs">
@@ -288,6 +283,7 @@ export function DashboardTaskManager({
             editingTask
               ? {
                   assigneeUserId: editingTask.assigneeUserId ?? currentUserId,
+                  selectedAssignee: editingTask.assignee ?? null,
                   description: editingTask.description ?? "",
                   dueAt: editingTask.dueAt ?? "",
                   priority: editingTask.priority ?? "normal",

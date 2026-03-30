@@ -437,190 +437,197 @@ export function DashboardHome({
 
         <div className="mt-3 grid items-stretch gap-6 xl:grid-cols-[minmax(16rem,0.6fr)_minmax(0,1.4fr)]">
           <div className="flex h-[20rem] flex-col overflow-hidden sm:h-[23rem] xl:h-[26rem]">
-            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-              <Tabs
-                className="space-y-4"
-                onValueChange={(value) => {
-                  if (value === "tasks" || value === "activity") {
-                    dashboardUiActions.setHomeTab(value);
-                  }
-                }}
-                value={homeTab}
-              >
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="tasks">Tasks</TabsTrigger>
-                  <TabsTrigger value="activity">Activity</TabsTrigger>
-                </TabsList>
+            <Tabs
+              className="flex h-full min-h-0 flex-col space-y-4"
+              onValueChange={(value) => {
+                if (value === "tasks" || value === "activity") {
+                  dashboardUiActions.setHomeTab(value);
+                }
+              }}
+              value={homeTab}
+            >
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="tasks">Tasks</TabsTrigger>
+                <TabsTrigger value="activity">Activity</TabsTrigger>
+              </TabsList>
 
-                <TabsContent value="tasks">
-                  <DashboardTaskManager
-                    currentUserId={currentUserId}
-                    workspaceId={workspaceId}
-                  />
-                </TabsContent>
+              <TabsContent className="min-h-0" value="tasks">
+                <DashboardTaskManager
+                  currentUserId={currentUserId}
+                  workspaceId={workspaceId}
+                />
+              </TabsContent>
 
-                <TabsContent className="space-y-2" value="activity">
-                  {activityContent}
-                </TabsContent>
-              </Tabs>
-            </div>
+              <TabsContent className="min-h-0 flex-1" value="activity">
+                <div className="h-full min-h-0 overflow-y-auto pr-1">
+                  <div className="space-y-2">{activityContent}</div>
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
 
           <div className="flex h-[24rem] flex-col overflow-hidden sm:h-[27rem] xl:h-[30rem]">
-            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-              <Tabs
-                className="space-y-4"
-                onValueChange={(value) => {
-                  if (
-                    value === "weak-points" ||
-                    value === "misconceptions" ||
-                    value === "upcoming"
-                  ) {
-                    dashboardUiActions.setInsightsTab(value);
-                  }
-                }}
-                value={insightsTab}
-              >
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="weak-points">Weak points</TabsTrigger>
-                  <TabsTrigger value="misconceptions">
-                    Misconceptions
-                  </TabsTrigger>
-                  <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-                </TabsList>
+            <Tabs
+              className="flex h-full min-h-0 flex-col space-y-4"
+              onValueChange={(value) => {
+                if (
+                  value === "weak-points" ||
+                  value === "misconceptions" ||
+                  value === "upcoming"
+                ) {
+                  dashboardUiActions.setInsightsTab(value);
+                }
+              }}
+              value={insightsTab}
+            >
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="weak-points">Weak points</TabsTrigger>
+                <TabsTrigger value="misconceptions">Misconceptions</TabsTrigger>
+                <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
+              </TabsList>
 
-                <TabsContent className="space-y-3" value="weak-points">
-                  {weakPointGroups.length === 0 ? (
-                    <Empty className="min-h-[12rem]">
-                      <EmptyHeader>
-                        <EmptyMedia variant="icon">
-                          <BookOpenCheck className="size-4" />
-                        </EmptyMedia>
-                        <EmptyTitle>No weak points yet</EmptyTitle>
-                      </EmptyHeader>
-                      <EmptyContent>
-                        <EmptyDescription>
-                          As you study and capture misconceptions, the weakest
-                          areas will surface here with drill paths.
-                        </EmptyDescription>
-                      </EmptyContent>
-                    </Empty>
-                  ) : (
-                    weakPointGroups.slice(0, 6).map((group) => {
-                      const drillConcepts = group.concepts
-                        .slice(0, 3)
-                        .map((concept) => ({
-                          concept: concept.concept,
-                          subject: concept.subject,
-                          topic: concept.topic,
-                        }));
-                      const drillHref =
-                        weakestDrillTarget && drillConcepts.length > 0
-                          ? `/workspace/flashcards/${weakestDrillTarget.setId}?${buildDrillQuery(drillConcepts)}&study=1`
-                          : null;
+              <TabsContent className="min-h-0 flex-1" value="weak-points">
+                <div className="h-full min-h-0 overflow-y-auto pr-1">
+                  <div className="space-y-3">
+                    {weakPointGroups.length === 0 ? (
+                      <Empty className="min-h-[12rem]">
+                        <EmptyHeader>
+                          <EmptyMedia variant="icon">
+                            <BookOpenCheck className="size-4" />
+                          </EmptyMedia>
+                          <EmptyTitle>No weak points yet</EmptyTitle>
+                        </EmptyHeader>
+                        <EmptyContent>
+                          <EmptyDescription>
+                            As you study and capture misconceptions, the
+                            weakest areas will surface here with drill paths.
+                          </EmptyDescription>
+                        </EmptyContent>
+                      </Empty>
+                    ) : (
+                      weakPointGroups.slice(0, 6).map((group) => {
+                        const drillConcepts = group.concepts
+                          .slice(0, 3)
+                          .map((concept) => ({
+                            concept: concept.concept,
+                            subject: concept.subject,
+                            topic: concept.topic,
+                          }));
+                        const drillHref =
+                          weakestDrillTarget && drillConcepts.length > 0
+                            ? `/workspace/flashcards/${weakestDrillTarget.setId}?${buildDrillQuery(drillConcepts)}&study=1`
+                            : null;
 
-                      return (
-                        <div
-                          className="rounded-md bg-secondary/40 p-4"
-                          key={`${group.subject}:${group.topic}`}
+                        return (
+                          <div
+                            className="rounded-md bg-secondary/40 p-4"
+                            key={`${group.subject}:${group.topic}`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="truncate font-medium text-foreground text-sm">
+                                  {group.topic}
+                                </p>
+                                <p className="mt-1 text-muted-foreground text-xs">
+                                  {group.subject}
+                                </p>
+                              </div>
+                              <Badge className="rounded-sm" variant="outline">
+                                {group.misconceptionCount} misconceptions
+                              </Badge>
+                            </div>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {group.concepts.slice(0, 4).map((concept) => (
+                                <span
+                                  className="rounded-sm bg-secondary px-2 py-1 text-foreground text-xs"
+                                  key={`${concept.subject}:${concept.topic}:${concept.concept}`}
+                                >
+                                  {concept.concept}
+                                </span>
+                              ))}
+                            </div>
+                            <div className="mt-4 flex justify-end">
+                              {drillHref ? (
+                                <Link
+                                  className="inline-flex items-center gap-1 text-foreground text-xs"
+                                  href={drillHref as Route}
+                                >
+                                  Drill
+                                  <ArrowRight className="size-3.5" />
+                                </Link>
+                              ) : (
+                                <span className="text-muted-foreground text-xs">
+                                  No drill available
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent className="min-h-0 flex-1" value="misconceptions">
+                <div className="h-full min-h-0 overflow-y-auto pr-1">
+                  <div className="space-y-3">
+                    {activeMisconceptions.length === 0 ? (
+                      <Empty className="min-h-[12rem]">
+                        <EmptyHeader>
+                          <EmptyMedia variant="icon">
+                            <TriangleAlert className="size-4" />
+                          </EmptyMedia>
+                          <EmptyTitle>No misconceptions active</EmptyTitle>
+                        </EmptyHeader>
+                        <EmptyContent>
+                          <EmptyDescription>
+                            When a misconception is detected it will appear
+                            here with the option to review, improve, or clear
+                            it.
+                          </EmptyDescription>
+                        </EmptyContent>
+                      </Empty>
+                    ) : (
+                      activeMisconceptions.slice(0, 8).map((misconception) => (
+                        <button
+                          className="w-full cursor-pointer rounded-md px-4 py-3 text-left transition-colors hover:bg-secondary"
+                          key={misconception.id}
+                          onClick={() => setSelectedMisconception(misconception)}
+                          type="button"
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <p className="truncate font-medium text-foreground text-sm">
-                                {group.topic}
+                                {misconception.concept}
                               </p>
                               <p className="mt-1 text-muted-foreground text-xs">
-                                {group.subject}
+                                {misconception.subject} / {misconception.topic}
                               </p>
                             </div>
                             <Badge className="rounded-sm" variant="outline">
-                              {group.misconceptionCount} misconceptions
+                              {Math.round(misconception.confidence * 100)}%
                             </Badge>
                           </div>
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {group.concepts.slice(0, 4).map((concept) => (
-                              <span
-                                className="rounded-sm bg-secondary px-2 py-1 text-foreground text-xs"
-                                key={`${concept.subject}:${concept.topic}:${concept.concept}`}
-                              >
-                                {concept.concept}
-                              </span>
-                            ))}
-                          </div>
-                          <div className="mt-4 flex justify-end">
-                            {drillHref ? (
-                              <Link
-                                className="inline-flex items-center gap-1 text-foreground text-xs"
-                                href={drillHref as Route}
-                              >
-                                Drill
-                                <ArrowRight className="size-3.5" />
-                              </Link>
-                            ) : (
-                              <span className="text-muted-foreground text-xs">
-                                No drill available
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </TabsContent>
+                          <p className="mt-2 line-clamp-2 text-muted-foreground text-xs">
+                            {misconception.reason}
+                          </p>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </TabsContent>
 
-                <TabsContent className="space-y-3" value="misconceptions">
-                  {activeMisconceptions.length === 0 ? (
-                    <Empty className="min-h-[12rem]">
-                      <EmptyHeader>
-                        <EmptyMedia variant="icon">
-                          <TriangleAlert className="size-4" />
-                        </EmptyMedia>
-                        <EmptyTitle>No misconceptions active</EmptyTitle>
-                      </EmptyHeader>
-                      <EmptyContent>
-                        <EmptyDescription>
-                          When a misconception is detected it will appear here
-                          with the option to review, improve, or clear it.
-                        </EmptyDescription>
-                      </EmptyContent>
-                    </Empty>
-                  ) : (
-                    activeMisconceptions.slice(0, 8).map((misconception) => (
-                      <button
-                        className="w-full cursor-pointer rounded-md px-4 py-3 text-left transition-colors hover:bg-secondary"
-                        key={misconception.id}
-                        onClick={() => setSelectedMisconception(misconception)}
-                        type="button"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate font-medium text-foreground text-sm">
-                              {misconception.concept}
-                            </p>
-                            <p className="mt-1 text-muted-foreground text-xs">
-                              {misconception.subject} / {misconception.topic}
-                            </p>
-                          </div>
-                          <Badge className="rounded-sm" variant="outline">
-                            {Math.round(misconception.confidence * 100)}%
-                          </Badge>
-                        </div>
-                        <p className="mt-2 line-clamp-2 text-muted-foreground text-xs">
-                          {misconception.reason}
-                        </p>
-                      </button>
-                    ))
-                  )}
-                </TabsContent>
-
-                <TabsContent className="space-y-3" value="upcoming">
+              <TabsContent className="min-h-0 flex-1" value="upcoming">
+                <div className="h-full min-h-0 overflow-y-auto pr-1">
                   <UpcomingFlashcardList
                     flashcardSets={flashcardSets}
                     onStartReview={startReview}
                   />
-                </TabsContent>
-              </Tabs>
-            </div>
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
 

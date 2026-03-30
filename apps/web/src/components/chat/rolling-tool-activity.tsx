@@ -1,9 +1,25 @@
 "use client";
 
 import type { UIMessage } from "@avenire/ai/message-types";
+import { Collapsible } from "@avenire/ui/components/collapsible";
+import {
+  CaretRight as ChevronRight,
+  CaretDown as ChevronDown,
+} from "@phosphor-icons/react";
 import { motion, useSpring } from "framer-motion";
-import { CaretRight as ChevronRight } from "@phosphor-icons/react";
-import { useEffect, useId, useMemo, useState } from "react";
+import {
+  type ComponentProps,
+  type ReactNode,
+  createContext,
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { cn } from "@/lib/utils";
 
 type ToolPart = Extract<UIMessage["parts"][number], { type: `tool-${string}` }>;
@@ -16,6 +32,12 @@ type ReadPreview = {
 type SearchPreview = {
   matches: string[];
   query: string;
+};
+
+type NotePreview = {
+  noteCount: number;
+  operation: "created" | "listed" | "read" | "updated";
+  title?: string;
 };
 
 type FlashcardPreview = {
@@ -62,6 +84,12 @@ export type ActivityAction =
       kind: "search";
       pending: boolean;
       preview?: SearchPreview;
+      value: string;
+    }
+  | {
+      kind: "notes";
+      pending: boolean;
+      preview?: NotePreview;
       value: string;
     }
   | {
@@ -167,6 +195,18 @@ function toSearchPreview(part: ToolPart): SearchPreview | undefined {
   };
 }
 
+function toNotePreview(part: ToolPart): NotePreview | undefined {
+  if (part.type !== "tool-note_agent" || !isOutputAvailable(part)) {
+    return undefined;
+  }
+
+  return {
+    noteCount: Array.isArray(part.output.notes) ? part.output.notes.length : 0,
+    operation: part.output.operation,
+    title: part.output.notes[0]?.title,
+  };
+}
+
 function toActionValue(part: ToolPart) {
   if (
     part.type === "tool-avenire_agent" ||
@@ -242,26 +282,21 @@ function toAction(part: ToolPart): ActivityAction | null {
     const operation = isOutputAvailable(part)
       ? part.output.operation
       : "listed";
+    const pending = isPending(part);
     const path = isOutputAvailable(part)
       ? (part.output.notes[0]?.workspacePath ?? "note")
       : (part.input?.task ?? "note");
-    if (operation === "created") {
+    if (pending || operation === "created" || operation === "updated") {
       return {
-        kind: "create",
-        path,
-        pending: isPending(part),
-      };
-    }
-    if (operation === "updated") {
-      return {
-        kind: "edit",
-        path,
-        pending: isPending(part),
+        kind: "notes",
+        pending,
+        preview: toNotePreview(part),
+        value: path,
       };
     }
     return {
       kind: "read",
-      pending: isPending(part),
+      pending,
       preview: isOutputAvailable(part)
         ? {
             content: part.output.notes[0]?.contentPreview?.slice(0, 200) ?? "",
@@ -391,7 +426,7 @@ function Dot({ delay }: { delay: number }) {
   );
 }
 
-function ThinkingDots() {
+export function ThinkingDots() {
   return (
     <span
       aria-hidden="true"
@@ -401,6 +436,513 @@ function ThinkingDots() {
       <Dot delay={0.25} />
       <Dot delay={0.5} />
     </span>
+  );
+}
+
+interface ReasoningContextValue {
+  isStreaming: boolean;
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
+  duration: number | undefined;
+}
+
+const ReasoningContext = createContext<ReasoningContextValue | null>(null);
+
+type ControllableStateOptions<T> = {
+  prop?: T;
+  defaultProp: T;
+  onChange?: (value: T) => void;
+};
+
+const useControllableState = <T,>({
+  prop,
+  defaultProp,
+  onChange,
+}: ControllableStateOptions<T>) => {
+  const [uncontrolled, setUncontrolled] = useState<T>(defaultProp);
+
+  const isControlled = prop !== undefined;
+  const value = isControlled ? (prop as T) : uncontrolled;
+
+  const setValue = useCallback(
+    (next: T | ((previous: T) => T)) => {
+      const nextValue =
+        typeof next === "function" ? (next as (previous: T) => T)(value) : next;
+
+      if (!isControlled) {
+        setUncontrolled(nextValue);
+      }
+
+      if (nextValue !== value) {
+        onChange?.(nextValue);
+      }
+    },
+    [isControlled, onChange, value]
+  );
+
+  return [value, setValue] as const;
+};
+
+export const useReasoning = () => {
+  const context = useContext(ReasoningContext);
+  if (!context) {
+    throw new Error("Reasoning components must be used within Reasoning");
+  }
+  return context;
+};
+
+export type ReasoningProps = ComponentProps<typeof Collapsible> & {
+  isStreaming?: boolean;
+  open?: boolean;
+  defaultOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  duration?: number;
+};
+
+const AUTO_CLOSE_DELAY = 1000;
+const MS_IN_S = 1000;
+
+export const Reasoning = memo(
+  ({
+    className,
+    isStreaming = false,
+    open,
+    defaultOpen,
+    onOpenChange,
+    duration: durationProp,
+    children,
+    ...props
+  }: ReasoningProps) => {
+    const resolvedDefaultOpen = defaultOpen ?? isStreaming;
+    const isExplicitlyClosed = defaultOpen === false;
+
+    const [isOpen, setIsOpen] = useControllableState<boolean>({
+      defaultProp: resolvedDefaultOpen,
+      onChange: onOpenChange,
+      prop: open,
+    });
+    const [duration, setDuration] = useControllableState<number | undefined>({
+      defaultProp: undefined,
+      prop: durationProp,
+    });
+
+    const hasEverStreamedRef = useRef(isStreaming);
+    const [hasAutoClosed, setHasAutoClosed] = useState(false);
+    const startTimeRef = useRef<number | null>(null);
+
+    useEffect(() => {
+      if (isStreaming) {
+        hasEverStreamedRef.current = true;
+        if (startTimeRef.current === null) {
+          startTimeRef.current = Date.now();
+        }
+      } else if (startTimeRef.current !== null) {
+        setDuration(Math.ceil((Date.now() - startTimeRef.current) / MS_IN_S));
+        startTimeRef.current = null;
+      }
+    }, [isStreaming, setDuration]);
+
+    useEffect(() => {
+      if (isStreaming && !isOpen && !isExplicitlyClosed) {
+        setIsOpen(true);
+      }
+    }, [isStreaming, isOpen, setIsOpen, isExplicitlyClosed]);
+
+    useEffect(() => {
+      if (
+        hasEverStreamedRef.current &&
+        !isStreaming &&
+        isOpen &&
+        !hasAutoClosed
+      ) {
+        const timer = setTimeout(() => {
+          setIsOpen(false);
+          setHasAutoClosed(true);
+        }, AUTO_CLOSE_DELAY);
+
+        return () => clearTimeout(timer);
+      }
+    }, [isStreaming, isOpen, setIsOpen, hasAutoClosed]);
+
+    const handleOpenChange = useCallback(
+      (newOpen: boolean) => {
+        setIsOpen(newOpen);
+      },
+      [setIsOpen]
+    );
+
+    const contextValue = useMemo(
+      () => ({ duration, isOpen, isStreaming, setIsOpen }),
+      [duration, isOpen, isStreaming, setIsOpen]
+    );
+
+    return (
+      <ReasoningContext.Provider value={contextValue}>
+        <Collapsible
+          className={cn("not-prose mb-4", className)}
+          onOpenChange={handleOpenChange}
+          open={isOpen}
+          {...props}
+        >
+          {children}
+        </Collapsible>
+      </ReasoningContext.Provider>
+    );
+  }
+);
+
+export type ReasoningTriggerProps = ComponentProps<"div"> & {
+  getThinkingMessage?: (isStreaming: boolean, duration?: number) => ReactNode;
+};
+
+export const ReasoningTrigger = memo(
+  ({
+    className,
+    children,
+    getThinkingMessage,
+    ...props
+  }: ReasoningTriggerProps) => {
+    const { isStreaming, duration } = useReasoning();
+    const detail = getThinkingMessage
+      ? getThinkingMessage(isStreaming, duration)
+      : isStreaming || duration === 0
+        ? "thinking..."
+        : duration === undefined
+          ? "for a few seconds"
+          : `took ${duration} seconds`;
+
+    return (
+      <div
+        className={cn(
+          "flex items-center gap-2 text-sm text-foreground/60",
+          className
+        )}
+        {...props}
+      >
+        {children ?? (
+          <>
+            <span className="font-semibold text-foreground/72">Reasoning</span>
+            <span className="text-[12px] text-foreground/35">{detail}</span>
+            {isStreaming ? <ThinkingDots /> : null}
+          </>
+        )}
+      </div>
+    );
+  }
+);
+
+export type ReasoningContentProps = ComponentProps<"div"> & {
+  children: string;
+  workspaceUuid?: string;
+};
+
+export const ReasoningContent = memo(
+  ({ className, children, ...props }: ReasoningContentProps) => {
+    const lines = children
+      .split("\n")
+      .map((line) => line.trimEnd())
+      .filter((line) => line.length > 0);
+
+    return (
+      <div
+        className={cn("relative mt-[3px]", className)}
+        style={{ height: WINDOW_HEIGHT, overflow: "hidden" }}
+        {...props}
+      >
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 z-10"
+          style={{
+            background:
+              "linear-gradient(to bottom, hsl(var(--background)) 15%, transparent 100%)",
+            height: ROW_HEIGHT * 1.4,
+          }}
+        />
+        <motion.div
+          animate={{
+            y:
+              lines.length > VISIBLE_ROWS
+                ? -(lines.length - VISIBLE_ROWS) * ROW_HEIGHT
+                : 0,
+          }}
+          initial={false}
+          transition={{
+            damping: 20,
+            mass: 0.5,
+            stiffness: 160,
+          }}
+          style={{ willChange: "transform" }}
+        >
+          {lines.map((line, index) => (
+            <div
+              className="flex items-baseline gap-2 pl-4"
+              key={`${index}-${line}`}
+              style={{ height: ROW_HEIGHT }}
+            >
+              <span className="truncate font-mono text-[11px] text-foreground/22 whitespace-pre-wrap break-words">
+                {line}
+              </span>
+            </div>
+          ))}
+        </motion.div>
+      </div>
+    );
+  }
+);
+
+export type ReasoningActionProps = {
+  content: string;
+  isStreaming: boolean;
+  workspaceUuid?: string;
+  className?: string;
+};
+
+export function ReasoningAction({
+  className,
+  content,
+  isStreaming,
+  workspaceUuid,
+}: ReasoningActionProps) {
+  if (!content) {
+    return null;
+  }
+
+  return (
+    <ReasoningBlock
+      className={className}
+      content={content}
+      isStreaming={isStreaming}
+      workspaceUuid={workspaceUuid}
+    />
+  );
+}
+
+function ReasoningPanel({
+  content,
+  open,
+  workspaceUuid,
+}: {
+  content: string;
+  open: boolean;
+  workspaceUuid?: string;
+}) {
+  return (
+    <motion.div
+      animate={{ height: open ? "auto" : 0, opacity: open ? 1 : 0 }}
+      initial={false}
+      role="region"
+      style={{ overflow: "hidden" }}
+      transition={{ duration: 0.36, ease: [0.4, 0, 0.2, 1] }}
+    >
+      <ReasoningContent workspaceUuid={workspaceUuid}>
+        {content}
+      </ReasoningContent>
+    </motion.div>
+  );
+}
+
+function ReasoningBlock({
+  className,
+  content,
+  isStreaming,
+  workspaceUuid,
+}: ReasoningActionProps) {
+  const [open, setOpen] = useState(false);
+  const triggerId = useId();
+  const panelId = useId();
+  const summary = isStreaming
+    ? "thinking..."
+    : content.length > 0
+      ? "ready"
+      : "";
+
+  useEffect(() => {
+    if (isStreaming) {
+      setOpen(true);
+      return;
+    }
+    setOpen(false);
+  }, [isStreaming]);
+
+  return (
+    <div className={cn("mb-0.5", className)}>
+      {isStreaming ? (
+        <div
+          aria-label={`Reasoning: ${summary || "starting"}`}
+          aria-live="polite"
+          className="flex h-7 items-center gap-2"
+          role="status"
+        >
+          <span className="font-semibold text-foreground/32 text-sm">
+            Reasoning
+          </span>
+          {summary ? (
+            <span aria-hidden="true" className="text-[11px] text-foreground/26">
+              {summary}
+            </span>
+          ) : null}
+          <ThinkingDots />
+        </div>
+      ) : (
+        <button
+          aria-controls={panelId}
+          aria-expanded={open}
+          className={cn(
+            "group flex h-7 w-full items-center gap-2 rounded-sm text-left",
+            "text-foreground/52 transition-colors duration-200 hover:text-foreground/72",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+          )}
+          id={triggerId}
+          onClick={() => setOpen((current) => !current)}
+          type="button"
+        >
+          <span className="font-semibold text-sm">Reasoning</span>
+          {summary ? (
+            <span className="text-[11px] text-foreground/26">{summary}</span>
+          ) : null}
+          <motion.span
+            animate={{ rotate: open ? 180 : 0 }}
+            aria-hidden="true"
+            className="ml-0.5 text-foreground/22 transition-colors duration-200 group-hover:text-foreground/42"
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+          >
+            <ChevronRight className="size-3 rotate-90" strokeWidth={2} />
+          </motion.span>
+        </button>
+      )}
+
+      {content ? (
+        <ReasoningPanel
+          content={content}
+          open={isStreaming || open}
+          workspaceUuid={workspaceUuid}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+export function RollingStatusHeader({
+  children,
+  className,
+  done,
+  interactive = true,
+  onClick,
+  open,
+  summary,
+  title,
+}: {
+  children?: ReactNode;
+  className?: string;
+  done: boolean;
+  interactive?: boolean;
+  onClick?: () => void;
+  open?: boolean;
+  summary?: ReactNode;
+  title: string;
+}) {
+  if (!done) {
+    return (
+      <div
+        aria-label={`${title}: ${typeof summary === "string" ? summary : "running"}`}
+        aria-live="polite"
+        className={cn("flex h-7 items-center gap-2", className)}
+        role="status"
+      >
+        <span className="font-semibold text-foreground/32 text-sm">
+          {title}
+        </span>
+        {summary ? (
+          <span aria-hidden="true" className="text-[11px] text-foreground/26">
+            {summary}
+          </span>
+        ) : null}
+        <ThinkingDots />
+        {children}
+      </div>
+    );
+  }
+
+  if (!interactive) {
+    return (
+      <div
+        className={cn(
+          "group flex h-7 w-full items-center gap-2 rounded-sm text-left text-foreground/52",
+          className
+        )}
+      >
+        <span className="font-semibold text-sm">{title}</span>
+        {summary ? (
+          <span className="text-[11px] text-foreground/26">{summary}</span>
+        ) : null}
+        <motion.span
+          animate={{ rotate: open ? 180 : 0 }}
+          aria-hidden="true"
+          className="ml-0.5 text-foreground/22"
+          transition={{ duration: 0.25, ease: "easeInOut" }}
+        >
+          <ChevronDown className="size-3" strokeWidth={2} />
+        </motion.span>
+        {children}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      aria-expanded={open}
+      className={cn(
+        "group flex h-7 w-full items-center gap-2 rounded-sm text-left",
+        "text-foreground/52 transition-colors duration-200 hover:text-foreground/72",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+        className
+      )}
+      onClick={onClick}
+      type="button"
+    >
+      <span className="font-semibold text-sm">{title}</span>
+      {summary ? (
+        <span className="text-[11px] text-foreground/26">{summary}</span>
+      ) : null}
+      <motion.span
+        animate={{ rotate: open ? 180 : 0 }}
+        aria-hidden="true"
+        className="ml-0.5 text-foreground/22 transition-colors duration-200 group-hover:text-foreground/42"
+        transition={{ duration: 0.25, ease: "easeInOut" }}
+      >
+        <ChevronDown className="size-3" strokeWidth={2} />
+      </motion.span>
+      {children}
+    </button>
+  );
+}
+
+export function RollingPreviewPanel({
+  children,
+  className,
+  open,
+}: {
+  children: ReactNode;
+  className?: string;
+  open: boolean;
+}) {
+  return (
+    <motion.div
+      animate={{ height: open ? "auto" : 0, opacity: open ? 1 : 0 }}
+      initial={false}
+      style={{ overflow: "hidden" }}
+      transition={{ duration: 0.36, ease: [0.4, 0, 0.2, 1] }}
+    >
+      <div
+        className={cn(
+          "mt-[3px] overflow-hidden rounded border border-foreground/[0.07] bg-foreground/[0.025]",
+          className
+        )}
+      >
+        {children}
+      </div>
+    </motion.div>
   );
 }
 
@@ -760,7 +1302,7 @@ function MutationBlock({ action }: { action: MutationAction }) {
       >
         <span className="font-semibold text-foreground/72">Mindset</span>
         <span className="font-mono text-[12px] text-foreground/62">
-          {action.value || "generating..."}
+          {action.preview?.title || action.value || "flashcards"}
         </span>
         {action.pending ? (
           <span className="font-mono text-[11px] text-foreground/28">
@@ -768,6 +1310,45 @@ function MutationBlock({ action }: { action: MutationAction }) {
             <ThinkingDots />
           </span>
         ) : null}
+      </motion.div>
+    );
+  }
+
+  if (action.kind === "notes") {
+    const summary = action.preview
+      ? `${action.preview.noteCount} note${action.preview.noteCount === 1 ? "" : "s"} ${action.preview.operation}`
+      : null;
+    return (
+      <motion.div
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-1 overflow-hidden rounded-xl border border-foreground/[0.08] bg-foreground/[0.03]"
+        initial={{ opacity: 0, y: 5 }}
+        role="listitem"
+        transition={{ duration: 0.28, ease: "easeOut" }}
+      >
+        <div className="flex min-h-16 items-center justify-between gap-3 px-3 py-2.5">
+          <div className="min-w-0">
+            <p className="truncate text-[15px] text-foreground/72">
+              {action.pending ? "Generating notes" : "Notes updated"}
+            </p>
+            <p className="truncate font-semibold text-base text-foreground">
+              {action.preview?.title || action.value || "Workspace notes"}
+            </p>
+            {summary ? (
+              <p className="mt-0.5 font-mono text-[11px] text-foreground/35">
+                {summary}
+              </p>
+            ) : null}
+          </div>
+          {action.pending ? (
+            <div className="shrink-0 border-l border-foreground/[0.08] pl-3">
+              <span className="font-mono text-[11px] text-foreground/42">
+                writing
+                <ThinkingDots />
+              </span>
+            </div>
+          ) : null}
+        </div>
       </motion.div>
     );
   }

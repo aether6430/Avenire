@@ -3,6 +3,8 @@ import type { TaskPriority, TaskRecord, TaskStatus } from "@avenire/database/tas
 export type WorkspaceTask = TaskRecord;
 export type WorkspaceTaskStatus = TaskStatus;
 export type WorkspaceTaskPriority = TaskPriority;
+export type WorkspaceTaskResourceLink = WorkspaceTask["resources"][number];
+export type WorkspaceTaskResourceType = WorkspaceTaskResourceLink["resourceType"];
 
 export interface WorkspaceMemberOption {
   avatar?: string | null;
@@ -10,6 +12,14 @@ export interface WorkspaceMemberOption {
   name: string | null;
   role?: string | null;
   userId: string | null;
+}
+
+export interface WorkspaceTaskResourceOption extends Record<string, unknown> {
+  href: string;
+  resourceId: string;
+  resourceType: WorkspaceTaskResourceType;
+  subtitle: string | null;
+  title: string;
 }
 
 export const TASKS_REFRESH_EVENT = "dashboard.tasks.refresh";
@@ -24,12 +34,16 @@ export function dispatchTasksRefresh() {
 
 export function getTaskStatusLabel(status: WorkspaceTaskStatus) {
   switch (status) {
-    case "in_progress":
-      return "In progress";
+    case "drafting":
+      return "Drafting";
+    case "polishing":
+      return "Polishing";
     case "completed":
       return "Completed";
+    case "planned":
+      return "Planned";
     default:
-      return "To do";
+      return "Planned";
   }
 }
 
@@ -52,6 +66,20 @@ export function getTaskPriorityRank(priority: WorkspaceTaskPriority | null) {
       return 1;
     default:
       return 0;
+  }
+}
+
+export function getTaskResourceTypeLabel(
+  resourceType: WorkspaceTaskResourceType
+) {
+  switch (resourceType) {
+    case "chat":
+      return "Method";
+    case "folder":
+      return "Folder";
+    case "file":
+    default:
+      return "File";
   }
 }
 
@@ -82,13 +110,25 @@ export function getTaskInitials(name: string | null, email: string | null) {
 }
 
 export function getTaskGroupLabel(
-  group: "completed" | "in_progress" | "pending" | "overdue" | "today" | "upcoming" | "no_date"
+  group:
+    | "completed"
+    | "drafting"
+    | "planned"
+    | "polishing"
+    | "overdue"
+    | "today"
+    | "upcoming"
+    | "no_date"
 ) {
   switch (group) {
     case "completed":
       return "Completed";
-    case "in_progress":
-      return "In progress";
+    case "drafting":
+      return "Drafting";
+    case "polishing":
+      return "Polishing";
+    case "planned":
+      return "Planned";
     case "overdue":
       return "Overdue";
     case "today":
@@ -98,6 +138,6 @@ export function getTaskGroupLabel(
     case "no_date":
       return "No date";
     default:
-      return "To do";
+      return "Planned";
   }
 }

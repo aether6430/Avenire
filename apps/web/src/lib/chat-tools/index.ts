@@ -1,9 +1,4 @@
-import {
-  generateText,
-  Output,
-  type ToolSet,
-  tool,
-} from "@avenire/ai";
+import { generateText, Output, type ToolSet, tool } from "@avenire/ai";
 import type {
   AgentActivityAction,
   AgentActivityData,
@@ -11,9 +6,10 @@ import type {
 import { apollo } from "@avenire/ai/models";
 import { chatToolSchemas } from "@avenire/ai/tools";
 import {
-  AVAILABLE_MODULES,
-  getGuidelines,
-} from "@avenire/ai/generative-ui/guidelines";
+  AVAILABLE_STUDY_SKILLS,
+  AVAILABLE_VISUAL_SKILLS,
+  loadSkills,
+} from "@avenire/ai/skills";
 import { retrieveWorkspaceChunks } from "@avenire/ingestion";
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
 import { z } from "zod";
@@ -109,10 +105,12 @@ function buildMisconceptionContext(misconceptions: MisconceptionRecord[]) {
     return null;
   }
 
-  const lines = misconceptions.slice(0, MISCONCEPTION_CONTEXT_LIMIT).map(
-    (misconception, index) =>
-      `${index + 1}. ${misconception.concept} [${misconception.subject} / ${misconception.topic}] - ${misconception.reason} (confidence ${misconception.confidence.toFixed(2)})`
-  );
+  const lines = misconceptions
+    .slice(0, MISCONCEPTION_CONTEXT_LIMIT)
+    .map(
+      (misconception, index) =>
+        `${index + 1}. ${misconception.concept} [${misconception.subject} / ${misconception.topic}] - ${misconception.reason} (confidence ${misconception.confidence.toFixed(2)})`
+    );
 
   return [
     "Active learning misconceptions:",
@@ -294,10 +292,7 @@ function isMarkdownFile(file: ExplorerFileLike) {
   );
 }
 
-function buildNoteContent(params: {
-  content: string;
-  title: string;
-}) {
+function buildNoteContent(params: { content: string; title: string }) {
   const normalizedContent = params.content.trim();
   return `# ${params.title}\n\n${normalizedContent}\n`;
 }
@@ -316,7 +311,9 @@ function getFileTags(file: ExplorerFileLike) {
   return normalizeTagList(property.value);
 }
 
-function extractTagDirective(task: string):
+function extractTagDirective(
+  task: string
+):
   | { action: "add"; tags: string[] }
   | { action: "remove"; tags: string[] }
   | { action: "replace"; tags: string[] }
@@ -491,7 +488,13 @@ function inferFlashcardTaxonomy(input: {
       subject: "biology",
     },
     {
-      keywords: ["calculus", "algebra", "geometry", "statistics", "probability"],
+      keywords: [
+        "calculus",
+        "algebra",
+        "geometry",
+        "statistics",
+        "probability",
+      ],
       subject: "mathematics",
     },
     {
@@ -600,13 +603,16 @@ async function fetchWorkspaceFileText(
     const note = await getNoteContent(file.id);
     const text =
       note?.content ??
-      (await fetch(file.storageUrl, { cache: "no-store" })
-        .then(async (response) => {
+      (await fetch(file.storageUrl, { cache: "no-store" }).then(
+        async (response) => {
           if (!response.ok) {
-            throw new Error(`Failed to fetch file content (${response.status}).`);
+            throw new Error(
+              `Failed to fetch file content (${response.status}).`
+            );
           }
           return response.text();
-        }));
+        }
+      ));
     if (Buffer.byteLength(text, "utf8") > NOTE_TEXT_BYTE_LIMIT) {
       throw new Error("The note is too large to load into chat context.");
     }
@@ -1359,26 +1365,26 @@ async function generateQuizFromSource(
   });
 
   const questions = result.output.questions.map((question, index) => ({
-      ...question,
-      explanation: question.explanation ?? null,
-    }));
+    ...question,
+    explanation: question.explanation ?? null,
+  }));
 
   const set = await createStudySetWithCards({
-      cards: questions.map((question, index) => ({
-        backMarkdown: question.backMarkdown,
-        frontMarkdown: question.frontMarkdown,
-        kind: "multiple_choice_quiz" as const,
-        payload: {
-          correctOptionIndex: question.correctOptionIndex,
-          explanation: question.explanation ?? null,
-          options: question.options,
-        },
-        source: {
-          ...taxonomy,
-          sourceFileId: input.fileId ?? null,
-          sourceIndex: index,
-          sourceQuery: input.query ?? null,
-        },
+    cards: questions.map((question, index) => ({
+      backMarkdown: question.backMarkdown,
+      frontMarkdown: question.frontMarkdown,
+      kind: "multiple_choice_quiz" as const,
+      payload: {
+        correctOptionIndex: question.correctOptionIndex,
+        explanation: question.explanation ?? null,
+        options: question.options,
+      },
+      source: {
+        ...taxonomy,
+        sourceFileId: input.fileId ?? null,
+        sourceIndex: index,
+        sourceQuery: input.query ?? null,
+      },
       tags: question.tags ?? input.tags ?? [],
     })),
     chatSlug: ctx.chatSlug,
@@ -1943,7 +1949,8 @@ The agent decides which operations to perform based on the task.`,
                   title: noteFile.name,
                   updatedAt: updated.updatedAt.toISOString(),
                   wordCount: nextContent.split(/\s+/).length,
-                  workspacePath: maps.filePathById.get(noteFile.id) ?? noteFile.name,
+                  workspacePath:
+                    maps.filePathById.get(noteFile.id) ?? noteFile.name,
                 });
               }
             }
@@ -2043,8 +2050,7 @@ The agent decides which operations to perform based on the task.`,
     generate_flashcards_from_misconception: tool({
       description:
         "Generate a flashcard deck from an active misconception so the user can train the correct model directly.",
-      inputSchema:
-        chatToolSchemas.generate_flashcards_from_misconception.input,
+      inputSchema: chatToolSchemas.generate_flashcards_from_misconception.input,
       outputSchema:
         chatToolSchemas.generate_flashcards_from_misconception.output,
       execute: async (input) => generateFlashcardsFromMisconception(ctx, input),
@@ -2085,20 +2091,42 @@ The agent decides which operations to perform based on the task.`,
       outputSchema: chatToolSchemas.quiz_me.output,
       execute: async (input) => generateQuizFromSource(ctx, input),
     }),
+    load_skill: tool({
+      description:
+        "Load a study-guideline skill into context. Use this before acting on structured study tasks like explanations, summaries, notes, flashcards, or quizzes.",
+      inputSchema: chatToolSchemas.load_skill.input,
+      outputSchema: chatToolSchemas.load_skill.output,
+      execute: async (input) => {
+        const skills = input.skills.filter((skillName) =>
+          AVAILABLE_STUDY_SKILLS.includes(
+            skillName as (typeof AVAILABLE_STUDY_SKILLS)[number]
+          )
+        );
+        if (skills.length === 0) {
+          throw new Error("No valid skills provided for load_skill.");
+        }
+        return {
+          content: loadSkills(skills),
+          skills,
+        };
+      },
+    }),
     visualize_read_me: tool({
       description:
-        "Load design guidelines for widget generation. Call this before generating widgets to get detailed instructions for interactive HTML/CSS/SVG fragments.",
+        "Load visualization guidelines for widget generation. Call this before generating widgets to get detailed instructions for interactive HTML/CSS/SVG fragments.",
       inputSchema: chatToolSchemas.visualize_read_me.input,
       outputSchema: chatToolSchemas.visualize_read_me.output,
       execute: async (input) => {
         const modules = input.modules.filter((moduleName) =>
-          AVAILABLE_MODULES.includes(moduleName)
+          AVAILABLE_VISUAL_SKILLS.includes(
+            moduleName as (typeof AVAILABLE_VISUAL_SKILLS)[number]
+          )
         );
         if (modules.length === 0) {
           throw new Error("No valid modules provided for visualize_read_me.");
         }
         return {
-          content: getGuidelines(modules),
+          content: loadSkills(modules),
           modules,
         };
       },

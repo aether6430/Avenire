@@ -134,12 +134,12 @@ export async function POST(
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ workspaceUuid: string }> },
 ) {
   const user = await getSessionUser();
   const apiLogger = createApiLogger({
-    request: _request,
+    request,
     route: "/api/workspaces/[workspaceUuid]/share/members",
     feature: "workspace-sharing",
     userId: user?.id ?? null,
@@ -180,20 +180,65 @@ export async function GET(
     id?: string | null;
     role?: string | null;
     userId?: string | null;
-    user?: { id?: string | null; email?: string | null; name?: string | null } | null;
+    user?: {
+      id?: string | null;
+      email?: string | null;
+      image?: string | null;
+      name?: string | null;
+    } | null;
   }>;
 
-  void apiLogger.featureUsed("workspace.sharing.members.listed", { workspaceUuid });
-  void apiLogger.requestSucceeded(200, { workspaceUuid, memberCount: members.length });
+  const query = request.url ? new URL(request.url).searchParams.get("q") ?? "" : "";
+  const normalizedQuery = query.trim().toLowerCase();
 
-  return NextResponse.json({
-    members: members.map((member) => ({
+  const mappedMembers = members
+    .map((member) => ({
       id: member.id ?? null,
       userId: member.userId ?? member.user?.id ?? null,
       email: member.user?.email ?? null,
       name: member.user?.name ?? null,
+      avatar: member.user?.image ?? null,
       role: member.role ?? "member",
-    })),
+    }))
+    .filter((member) => {
+      if (!normalizedQuery) {
+        return true;
+      }
+
+      return [member.name ?? "", member.email ?? "", member.userId ?? ""]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedQuery);
+    });
+
+  if (
+    normalizedQuery &&
+    !mappedMembers.some(
+      (member) =>
+        [member.name ?? "", member.email ?? "", member.userId ?? ""]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedQuery)
+    )
+  ) {
+    const fallbackUser = await findAuthUserByEmail(normalizedQuery);
+    if (fallbackUser) {
+      mappedMembers.unshift({
+        avatar: null,
+        email: fallbackUser.email ?? null,
+        id: null,
+        name: fallbackUser.name ?? null,
+        role: "external",
+        userId: fallbackUser.id,
+      });
+    }
+  }
+
+  void apiLogger.featureUsed("workspace.sharing.members.listed", { workspaceUuid });
+  void apiLogger.requestSucceeded(200, { workspaceUuid, memberCount: mappedMembers.length });
+
+  return NextResponse.json({
+    members: mappedMembers,
   });
 }
 

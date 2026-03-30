@@ -8,10 +8,12 @@
     "./message-types": "./message-type.ts",
     "./models": "./models/index.ts",
     "./prompts": "./prompts/index.ts",
+    "./skills": "./skills/index.ts",
     "./tools": "./tools/index.ts",
-    "./generative-ui/guidelines": "./generative-ui/guidelines.ts"
+    "./visual-guidelines/guidelines": "./skills/sections/visual-guidelines/guidelines.ts"
   },
   "scripts": {
+    "prebuild": "bun ./skills/scripts/generator.ts",
     "build": "tsc --noEmit",
     "lint": "biome check .",
     "check-types": "tsc --noEmit",
@@ -20,6 +22,7 @@
   "dependencies": {
     "@ai-sdk/baseten": "^1.0.36",
     "@ai-sdk/cohere": "^3.0.25",
+    "@ai-sdk/fireworks": "^2.0.42",
     "@ai-sdk/google": "latest",
     "@ai-sdk/groq": "latest",
     "@ai-sdk/mistral": "^3.0.21",

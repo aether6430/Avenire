@@ -1,0 +1,51 @@
+{
+  "art": [
+    "preamble",
+    "modules",
+    "core-design-system",
+    "when-nothing-fits",
+    "svg-setup",
+    "art-and-illustration"
+  ],
+  "mockup": [
+    "preamble",
+    "modules",
+    "core-design-system",
+    "when-nothing-fits",
+    "ui-components",
+    "color-palette"
+  ],
+  "interactive": [
+    "preamble",
+    "modules",
+    "core-design-system",
+    "when-nothing-fits",
+    "ui-components",
+    "color-palette"
+  ],
+  "chart": [
+    "preamble",
+    "modules",
+    "core-design-system",
+    "when-nothing-fits",
+    "ui-components",
+    "color-palette",
+    "charts-chart-js"
+  ],
+  "diagram": [
+    "preamble",
+    "modules",
+    "core-design-system",
+    "when-nothing-fits",
+    "color-palette",
+    "svg-setup",
+    "diagram-types"
+  ],
+  "physics": [
+    "preamble",
+    "modules",
+    "core-design-system",
+    "when-nothing-fits",
+    "phys-sim"
+  ]
+}

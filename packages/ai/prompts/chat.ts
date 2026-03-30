@@ -22,9 +22,11 @@ export function APOLLO_PROMPT(
     "Use log_misconception only when the user explicitly states a durable misunderstanding, repeatedly demonstrates the same mistaken mental model, or clearly says they are wrong and need the concept corrected.",
     "Do not use log_misconception for ordinary questions, feature checks, single clarifications, or neutral exploratory requests.",
     "Only generate flashcards or quizzes when the user explicitly asks for them or provides study material for that purpose.",
+    "When a request clearly matches a study-guideline skill, call load_skill first to fetch the matching instructions into context before acting.",
+    "Study-oriented skills available through load_skill include `concept-explainer`, `summary-generator`, `study-notes-creator`, `flashcard-creator`, and `quiz-creator`.",
     allowVisualizations
-      ? "Use show_widget for visualizations, diagrams, charts, and interactive explainers. Call visualize_read_me first (with appropriate modules) to load widget creation instructions, then set i_have_seen_read_me: true in show_widget calls."
-      : "Do not use show_widget or visualize_read_me in this conversation.",
+      ? "Use show_widget for visualizations, diagrams, charts, and interactive explainers. Call visualize_read_me first with the relevant visual modules (`diagram`, `mockup`, `interactive`, `chart`, `art`, `physics`) to load widget creation instructions, then set i_have_seen_read_me: true in show_widget calls."
+      : "Do not use show_widget or visualize_read_me in this conversation. You may still use load_skill for study-guideline skills when helpful.",
     "After any tool calls finish, always provide a final user-visible response summarizing the outcome; never end the response with only tool output.",
     "If the target is ambiguous, ask instead of guessing.",
     context ? `Context:\n${context}` : "",
@@ -95,7 +97,9 @@ export function validateWorkspaceFileCitations(input: {
     Array.from(input.allowedFileIds, (fileId) => fileId.trim()).filter(Boolean)
   );
   const citedFileIds = extractWorkspaceFileCitationIds(input.text);
-  const invalidFileIds = citedFileIds.filter((fileId) => !allowedIds.has(fileId));
+  const invalidFileIds = citedFileIds.filter(
+    (fileId) => !allowedIds.has(fileId)
+  );
 
   return {
     citedFileIds,

@@ -447,9 +447,17 @@ export function ChatToolPart({ part }: { part: ToolPart }) {
           title={completedPart.output.title}
         />
       );
+    case "tool-load_skill":
+      return (
+        <ToolRow label="Loaded skill">
+          <span className="font-mono text-[11px] text-foreground/28">
+            loaded
+          </span>
+        </ToolRow>
+      );
     case "tool-visualize_read_me":
       return (
-        <ToolRow label="Read skill">
+        <ToolRow label="Loaded visual guide">
           <span className="font-mono text-[11px] text-foreground/28">
             loaded
           </span>

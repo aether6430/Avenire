@@ -4169,7 +4169,7 @@ export function FileExplorer({
       if (result?.summary?.failed) {
         const failedCount = result.summary.failed;
         const total = result.summary.total ?? writableItems.length;
-        window.alert(`Deleted ${total - failedCount} of ${total} item(s).`);
+        toast.success(`Deleted ${total - failedCount} of ${total} item(s).`);
       }
 
       await Promise.all([loadFolder(), loadTree()]);

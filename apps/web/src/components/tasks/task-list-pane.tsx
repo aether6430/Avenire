@@ -7,12 +7,22 @@ import { TaskListRow } from "@/components/tasks/task-list-row";
 import type { WorkspaceTask } from "@/lib/tasks";
 
 export function TaskListPane({
+  draggedTaskId,
   groups,
+  onDragEndTask,
+  onDragStartTask,
+  onDropStatus,
+  onDragTargetChange,
   onSelectTask,
   onToggleComplete,
   selectedTaskId,
 }: {
+  draggedTaskId: string | null;
   groups: Array<{ key: string; label: string; tasks: WorkspaceTask[] }>;
+  onDragEndTask: () => void;
+  onDragStartTask: (taskId: string) => void;
+  onDropStatus: (taskId: string, status: WorkspaceTask["status"]) => void;
+  onDragTargetChange: (status: WorkspaceTask["status"] | null) => void;
   onSelectTask: (taskId: string) => void;
   onToggleComplete: (task: WorkspaceTask) => void;
   selectedTaskId: string | null;
@@ -39,10 +49,30 @@ export function TaskListPane({
                   {group.tasks.length}
                 </span>
               </div>
-              <div className={cn("space-y-1")}>
+              <div
+                className={cn(
+                  "space-y-1 rounded-xl border border-dashed border-transparent p-1 transition-colors",
+                  draggedTaskId ? "hover:border-border/70" : ""
+                )}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  onDragTargetChange(group.key as WorkspaceTask["status"]);
+                }}
+                onDragLeave={() => onDragTargetChange(null)}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const taskId = event.dataTransfer.getData("text/task-id");
+                  if (taskId) {
+                    onDropStatus(taskId, group.key as WorkspaceTask["status"]);
+                  }
+                }}
+              >
                 {group.tasks.map((task) => (
                   <TaskListRow
+                    draggable
                     key={task.id}
+                    onDragEnd={onDragEndTask}
+                    onDragStart={onDragStartTask}
                     onSelect={() => onSelectTask(task.id)}
                     onToggleComplete={() => onToggleComplete(task)}
                     selected={selectedTaskId === task.id}

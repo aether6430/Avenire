@@ -2,16 +2,27 @@ import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, isNull, lte, or } from "drizzle-orm";
 import { member, user } from "./auth-schema";
 import { db } from "./client";
+import { listChatsForUser } from "./chat-data";
+import { listWorkspaceFiles, listWorkspaceFolders } from "./file-data";
 import { task, workspace } from "./schema";
 
-export type TaskStatus = "pending" | "in_progress" | "completed";
+export type TaskStatus = "planned" | "drafting" | "polishing" | "completed";
 export type TaskPriority = "low" | "normal" | "high";
+export type TaskResourceType = "file" | "folder" | "chat";
 
 export interface TaskAssignee {
   avatar: string | null;
   email: string;
   name: string | null;
   userId: string;
+}
+
+export interface TaskResourceLink extends Record<string, unknown> {
+  href: string;
+  resourceId: string;
+  resourceType: TaskResourceType;
+  subtitle: string | null;
+  title: string;
 }
 
 export interface TaskRecord {
@@ -24,6 +35,7 @@ export interface TaskRecord {
   dueAt: string | null;
   id: string;
   priority: TaskPriority | null;
+  resources: TaskResourceLink[];
   status: TaskStatus;
   title: string;
   updatedAt: string;
@@ -35,7 +47,44 @@ type TaskRow = typeof task.$inferSelect & {
   assigneeAvatar: string | null;
   assigneeEmail: string | null;
   assigneeName: string | null;
+  resources: unknown;
 };
+
+function normalizeTaskStatus(status: string | null): TaskStatus {
+  switch (status) {
+    case "drafting":
+    case "polishing":
+    case "completed":
+    case "planned":
+      return status;
+    case "in_progress":
+      return "drafting";
+    default:
+      return "planned";
+  }
+}
+
+function normalizeTaskResources(resources: unknown): TaskResourceLink[] {
+  if (!Array.isArray(resources)) {
+    return [];
+  }
+
+  return resources.filter((resource): resource is TaskResourceLink => {
+    if (!(resource && typeof resource === "object" && !Array.isArray(resource))) {
+      return false;
+    }
+
+    const record = resource as Record<string, unknown>;
+    return (
+      (record.resourceType === "file" ||
+        record.resourceType === "folder" ||
+        record.resourceType === "chat") &&
+      typeof record.resourceId === "string" &&
+      typeof record.title === "string" &&
+      typeof record.href === "string"
+    );
+  });
+}
 
 const mapTask = (row: TaskRow): TaskRecord => {
   const assignee =
@@ -56,10 +105,11 @@ const mapTask = (row: TaskRow): TaskRecord => {
     assigneeUserId: row.assigneeUserId ?? null,
     title: row.title,
     description: row.description ?? null,
-    status: row.status as TaskStatus,
+    status: normalizeTaskStatus(row.status),
     priority: (row.priority as TaskPriority) ?? null,
     dueAt: row.dueAt?.toISOString() ?? null,
     completedAt: row.completedAt?.toISOString() ?? null,
+    resources: normalizeTaskResources(row.resources),
     createdBy: row.createdBy,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -78,6 +128,7 @@ function buildTaskSelection() {
     priority: task.priority,
     dueAt: task.dueAt,
     completedAt: task.completedAt,
+    resources: task.resources,
     createdBy: task.createdBy,
     createdAt: task.createdAt,
     updatedAt: task.updatedAt,
@@ -91,7 +142,7 @@ async function resolveAssignableUser(
   workspaceId: string,
   assigneeUserId: string
 ): Promise<TaskAssignee | null> {
-  const [row] = await db
+  const [workspaceMember] = await db
     .select({
       avatar: user.image,
       email: user.email,
@@ -104,14 +155,100 @@ async function resolveAssignableUser(
     .where(and(eq(workspace.id, workspaceId), eq(member.userId, assigneeUserId)))
     .limit(1);
 
-  return row
+  if (workspaceMember) {
+    return {
+      avatar: workspaceMember.avatar,
+      email: workspaceMember.email,
+      name: workspaceMember.name,
+      userId: workspaceMember.userId,
+    };
+  }
+
+  const [directUser] = await db
+    .select({
+      avatar: user.image,
+      email: user.email,
+      name: user.name,
+      userId: user.id,
+    })
+    .from(user)
+    .where(eq(user.id, assigneeUserId))
+    .limit(1);
+
+  return directUser
     ? {
-        avatar: row.avatar,
-        email: row.email,
-        name: row.name,
-        userId: row.userId,
+        avatar: directUser.avatar,
+        email: directUser.email,
+        name: directUser.name,
+        userId: directUser.userId,
       }
     : null;
+}
+
+async function resolveTaskResources(input: {
+  resources?: TaskResourceLink[] | null;
+  userId: string;
+  workspaceId: string;
+}): Promise<TaskResourceLink[]> {
+  if (!input.resources || input.resources.length === 0) {
+    return [];
+  }
+
+  const [files, folders, chats] = await Promise.all([
+    listWorkspaceFiles(input.workspaceId, input.userId),
+    listWorkspaceFolders(input.workspaceId, input.userId),
+    listChatsForUser(input.userId, input.workspaceId),
+  ]);
+
+  const fileMap = new Map(
+    files.map((file) => [
+      `file:${file.id}`,
+      {
+        href: `/workspace/files/${input.workspaceId}/folder/${file.folderId}?file=${file.id}`,
+        resourceId: file.id,
+        resourceType: "file" as const,
+        subtitle: null,
+        title: file.name,
+      },
+    ])
+  );
+
+  const folderMap = new Map(
+    folders.map((folder) => [
+      `folder:${folder.id}`,
+      {
+        href: `/workspace/files/${input.workspaceId}/folder/${folder.id}`,
+        resourceId: folder.id,
+        resourceType: "folder" as const,
+        subtitle: "Folder",
+        title: folder.name,
+      },
+    ])
+  );
+
+  const chatMap = new Map(
+    chats.map((chat) => [
+      `chat:${chat.slug}`,
+      {
+        href: `/workspace/chats/${chat.slug}`,
+        resourceId: chat.slug,
+        resourceType: "chat" as const,
+        subtitle: "Method",
+        title: chat.title,
+      },
+    ])
+  );
+
+  const resolved: TaskResourceLink[] = [];
+  for (const resource of input.resources) {
+    const key = `${resource.resourceType}:${resource.resourceId}`;
+    const match = fileMap.get(key) ?? folderMap.get(key) ?? chatMap.get(key);
+    if (match) {
+      resolved.push(match);
+    }
+  }
+
+  return resolved;
 }
 
 export async function listTasksForUser(
@@ -137,20 +274,18 @@ export async function listTasksForUser(
   if (options?.status) {
     conditions.push(eq(task.status, options.status));
   } else if (!options?.includeCompleted) {
-    const pendingOrInProgress = or(
-      eq(task.status, "pending"),
-      eq(task.status, "in_progress")
+    const activeStatuses = or(
+      eq(task.status, "planned"),
+      eq(task.status, "drafting"),
+      eq(task.status, "polishing")
     );
-    if (pendingOrInProgress) {
-      conditions.push(pendingOrInProgress);
+    if (activeStatuses) {
+      conditions.push(activeStatuses);
     }
   }
 
   if (options?.dueBefore) {
-    const dueOrNull = or(
-      isNull(task.dueAt),
-      lte(task.dueAt, options.dueBefore)
-    );
+    const dueOrNull = or(isNull(task.dueAt), lte(task.dueAt, options.dueBefore));
     if (dueOrNull) {
       conditions.push(dueOrNull);
     }
@@ -182,7 +317,11 @@ export async function listTasksDueToday(
       and(
         eq(task.userId, userId),
         workspaceId ? eq(task.workspaceId, workspaceId) : undefined,
-        or(eq(task.status, "pending"), eq(task.status, "in_progress")),
+        or(
+          eq(task.status, "planned"),
+          eq(task.status, "drafting"),
+          eq(task.status, "polishing")
+        ),
         or(isNull(task.dueAt), lte(task.dueAt, today))
       )
     )
@@ -215,14 +354,21 @@ export async function createTaskForUser(
     status?: TaskStatus;
     priority?: TaskPriority;
     dueAt?: Date | null;
+    resources?: TaskResourceLink[] | null;
   }
 ): Promise<TaskRecord> {
   const now = new Date();
   const assigneeUserId = data.assigneeUserId ?? userId;
   const assignee = await resolveAssignableUser(workspaceId, assigneeUserId);
   if (!assignee) {
-    throw new Error("Assignee must belong to the current workspace.");
+    throw new Error("Assignee must be a valid user.");
   }
+
+  const resolvedResources = await resolveTaskResources({
+    resources: data.resources ?? null,
+    userId,
+    workspaceId,
+  });
 
   const [row] = await db
     .insert(task)
@@ -233,9 +379,10 @@ export async function createTaskForUser(
       assigneeUserId: assignee.userId,
       title: data.title,
       description: data.description ?? null,
-      status: data.status ?? "pending",
+      status: data.status ?? "planned",
       priority: data.priority ?? "normal",
       dueAt: data.dueAt ?? null,
+      resources: resolvedResources,
       createdBy: userId,
       createdAt: now,
       updatedAt: now,
@@ -260,6 +407,7 @@ export async function updateTaskForUser(
     status?: TaskStatus;
     priority?: TaskPriority;
     dueAt?: Date | null;
+    resources?: TaskResourceLink[] | null;
   }
 ): Promise<TaskRecord | null> {
   const existingTask = await db
@@ -305,9 +453,16 @@ export async function updateTaskForUser(
       nextAssigneeUserId
     );
     if (!assignee) {
-      throw new Error("Assignee must belong to the current workspace.");
+      throw new Error("Assignee must be a valid user.");
     }
     updateData.assigneeUserId = assignee.userId;
+  }
+  if (updates.resources !== undefined) {
+    updateData.resources = await resolveTaskResources({
+      resources: updates.resources ?? null,
+      userId,
+      workspaceId: currentTask.workspaceId,
+    });
   }
 
   const [row] = await db
@@ -342,7 +497,11 @@ export async function countPendingTasksForUser(
       and(
         eq(task.userId, userId),
         workspaceId ? eq(task.workspaceId, workspaceId) : undefined,
-        or(eq(task.status, "pending"), eq(task.status, "in_progress"))
+        or(
+          eq(task.status, "planned"),
+          eq(task.status, "drafting"),
+          eq(task.status, "polishing")
+        )
       )
     );
 

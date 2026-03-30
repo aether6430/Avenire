@@ -78,6 +78,13 @@
       "when": 1774722000000,
       "tag": "0011_task_assignee_workspace_surface",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1774730000000,
+      "tag": "0012_task_kanban_resources",
+      "breakpoints": true
     }
   ]
 }

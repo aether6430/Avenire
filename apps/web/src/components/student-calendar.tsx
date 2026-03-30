@@ -525,8 +525,6 @@ export function StudentCalendar() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [upcomingTasks, setUpcomingTasks] = useState<UpcomingTask[]>([]);
-  const [tasksLoading, setTasksLoading] = useState(false);
-  const [tasksError, setTasksError] = useState<string | null>(null);
   const [isActive, setIsActive] = useState(false);
   const [dir, setDir] = useState<1 | -1>(1);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -540,30 +538,16 @@ export function StudentCalendar() {
         return tasksRequestRef.current;
       }
 
-      const showLoading = !background && !tasksLoadedRef.current;
-      if (showLoading) {
-        setTasksLoading(true);
-        setTasksError(null);
-      }
-
       tasksRequestRef.current = (async () => {
         try {
           const nextTasks = await fetchUpcomingTasks();
           tasksLoadedRef.current = true;
           setUpcomingTasks(nextTasks);
-          setTasksError(null);
-        } catch (err) {
-          if (showLoading || !tasksLoadedRef.current) {
-            setTasksError(
-              err instanceof Error
-                ? err.message
-                : "Unable to load upcoming tasks."
-            );
+        } catch {
+          if (!background && !tasksLoadedRef.current) {
+            setUpcomingTasks([]);
           }
         } finally {
-          if (showLoading) {
-            setTasksLoading(false);
-          }
           tasksRequestRef.current = null;
         }
       })();
@@ -688,27 +672,6 @@ export function StudentCalendar() {
   }, [curMonth, curYear, data, mode, weekStart]);
 
   const activeItems = activeKey ? (data[activeKey] ?? []) : [];
-  const sortedUpcomingTasks = useMemo(
-    () =>
-      upcomingTasks
-        .slice()
-        .sort((left, right) => {
-          if (left.dueAt && right.dueAt) {
-            return (
-              new Date(left.dueAt).getTime() - new Date(right.dueAt).getTime()
-            );
-          }
-          if (left.dueAt) {
-            return -1;
-          }
-          if (right.dueAt) {
-            return 1;
-          }
-          return left.title.localeCompare(right.title);
-        })
-        .slice(0, 6),
-    [upcomingTasks]
-  );
   const tasksByDay = useMemo(() => {
     return upcomingTasks.reduce<Record<string, UpcomingTask[]>>((acc, task) => {
       if (!task.dueAt) {
@@ -721,58 +684,6 @@ export function StudentCalendar() {
       return acc;
     }, {});
   }, [upcomingTasks]);
-
-  const jumpToTaskManager = () => {
-    const element = document.getElementById("task-manager");
-    element?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
-  let taskFeedContent: React.ReactNode;
-  if (tasksLoading) {
-    taskFeedContent = (
-      <div className="inline-flex w-full items-center gap-2 rounded-lg border border-border/70 border-dashed px-3 py-4 text-xs text-muted-foreground">
-        <Spinner className="size-3.5" />
-        Loading upcoming tasks...
-      </div>
-    );
-  } else if (tasksError) {
-    taskFeedContent = (
-      <div className="w-full rounded-lg border border-border/70 border-dashed px-3 py-4 text-xs text-muted-foreground">
-        {tasksError}
-      </div>
-    );
-  } else if (sortedUpcomingTasks.length === 0) {
-    taskFeedContent = (
-      <div className="w-full rounded-lg border border-border/70 border-dashed px-3 py-4 text-xs text-muted-foreground">
-        No upcoming tasks yet.
-      </div>
-    );
-  } else {
-    taskFeedContent = sortedUpcomingTasks.map((task) => (
-      <button
-        className="min-w-[12.5rem] flex-1 rounded-lg border border-border/70 bg-muted/20 px-3 py-3 text-left transition-colors hover:bg-muted/40 sm:min-w-[14rem]"
-        key={task.id}
-        onClick={jumpToTaskManager}
-        type="button"
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-foreground">
-              {task.title}
-            </p>
-            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-              {task.description?.trim()
-                ? task.description
-                : "Open the task manager to add details or change the date."}
-            </p>
-          </div>
-          <Badge className="shrink-0 rounded-sm" variant="outline">
-            {formatTaskDue(task.dueAt)}
-          </Badge>
-        </div>
-      </button>
-    ));
-  }
 
   const handleDayClick = (
     e: React.MouseEvent<HTMLButtonElement>,
@@ -978,33 +889,6 @@ export function StudentCalendar() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-border/70 bg-background p-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="flex items-center gap-2 font-medium text-foreground text-sm">
-                <ListTodo className="size-4 text-muted-foreground" />
-                Upcoming tasks
-              </p>
-              <p className="mt-1 text-muted-foreground text-xs">
-                Due tasks are embedded into the calendar. This feed stays in the
-                same view.
-              </p>
-            </div>
-            <Button
-              className="shrink-0"
-              onClick={jumpToTaskManager}
-              size="sm"
-              type="button"
-              variant="ghost"
-            >
-              Manage
-            </Button>
-          </div>
-
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-            {taskFeedContent}
-          </div>
-        </div>
       </div>
 
       <AnimatePresence>

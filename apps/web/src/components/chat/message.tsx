@@ -2,30 +2,42 @@
 
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { AgentActivityData, UIMessage } from "@avenire/ai/message-types";
+import { buttonVariants } from "@avenire/ui/components/button";
 import { AnimatePresence, motion } from "motion/react";
-import { memo } from "react";
+import { ArrowSquareOut } from "@phosphor-icons/react";
+import { memo, useEffect, useMemo, useState } from "react";
 import type { Attachment } from "@/components/chat/attachment";
 import { ChatActions } from "@/components/chat/chat-actions";
 import { Markdown } from "@/components/chat/markdown";
 import { PreviewAttachment } from "@/components/chat/preview-attachment";
 import {
-  Reasoning,
-  ReasoningContent,
-  ReasoningTrigger,
-} from "@/components/chat/reasoning";
-import {
   type ActivityAction,
   isRollingToolPart,
   RollingAgentActivity,
+  ReasoningAction,
   RollingToolActivity,
 } from "@/components/chat/rolling-tool-activity";
 import { ChatToolPart, ToolRow } from "@/components/chat/tool-part";
 import { WidgetRenderer } from "@/components/WidgetRenderer";
+import { resolveWorkspaceFileRoute } from "@/lib/workspace-file-navigation";
 import { cn } from "@/lib/utils";
 
 type MessagePart = UIMessage["parts"][number];
 type ToolPart = Extract<MessagePart, { type: `tool-${string}` }>;
 type AgentActivityPart = Extract<MessagePart, { type: "data-agent_activity" }>;
+type CompletedToolPart = Extract<ToolPart, { state: "output-available" }>;
+type FlashcardToolOutput = {
+  cards?: Array<unknown>;
+  setId: string;
+  title: string;
+};
+type NoteToolOutput = {
+  notes?: Array<{
+    fileId: string;
+    title?: string;
+    workspacePath: string;
+  }>;
+};
 interface RenderBlock {
   index: number;
   part: MessagePart;
@@ -61,6 +73,43 @@ const getReasoningText = (part: MessagePart) => {
 
 const isToolPart = (part: MessagePart): part is ToolPart =>
   part.type.startsWith("tool-");
+
+function isTransientPart(part: MessagePart) {
+  return "transient" in part && part.transient === true;
+}
+
+function getPartIdentity(part: MessagePart) {
+  if (isReasoningPart(part)) {
+    return "reasoning";
+  }
+
+  if (isToolPart(part)) {
+    const toolCallId =
+      "toolCallId" in part && typeof part.toolCallId === "string"
+        ? part.toolCallId
+        : null;
+    return toolCallId ? `${part.type}:${toolCallId}` : part.type;
+  }
+
+  return null;
+}
+
+function preferTransientParts(parts: MessagePart[]) {
+  const transientKeys = new Set(
+    parts.filter(isTransientPart).map(getPartIdentity).filter(Boolean)
+  );
+
+  return parts.filter((part) => {
+    const identity = getPartIdentity(part);
+    if (!identity) {
+      return true;
+    }
+    if (isTransientPart(part)) {
+      return true;
+    }
+    return !transientKeys.has(identity);
+  });
+}
 
 const groupRenderableBlocks = (parts: MessagePart[]): RenderBlock[] =>
   parts.map((part, index) => ({ index, part, type: "part" }));
@@ -162,6 +211,144 @@ function AnimatedMarkdown({
   return <Markdown content={content} id={id} workspaceUuid={workspaceUuid} />;
 }
 
+function GeneratedArtifacts({
+  parts,
+  workspaceUuid,
+}: {
+  parts: ToolPart[];
+  workspaceUuid: string;
+}) {
+  const generatedFlashcards = useMemo(
+    () =>
+      parts
+        .filter(
+          (part): part is CompletedToolPart =>
+            part.type === "tool-generate_flashcards" &&
+            part.state === "output-available"
+        )
+        .map((part) => {
+          const output = part.output as FlashcardToolOutput;
+          return {
+            cardCount: Array.isArray(output.cards) ? output.cards.length : 0,
+            setId: output.setId,
+            title: output.title,
+          };
+        })
+        .filter((item) => item.cardCount > 0),
+    [parts]
+  );
+
+  const generatedNotes = useMemo(
+    () =>
+      parts
+        .filter(
+          (part): part is CompletedToolPart =>
+            part.type === "tool-note_agent" && part.state === "output-available"
+        )
+        .flatMap((part) => {
+          const output = part.output as NoteToolOutput;
+          return Array.isArray(output.notes)
+            ? output.notes
+                .map((note) => ({
+                  fileId: note.fileId,
+                  title: note.title,
+                  workspacePath: note.workspacePath,
+                }))
+                .filter((note) => typeof note.fileId === "string")
+            : [];
+        }),
+    [parts]
+  );
+
+  const [noteRoutes, setNoteRoutes] = useState<Record<string, string | null>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const missingRoutes = generatedNotes.filter(
+      (note) => noteRoutes[note.fileId] === undefined
+    );
+    if (missingRoutes.length === 0 || !workspaceUuid) {
+      return;
+    }
+
+    for (const note of missingRoutes) {
+      void resolveWorkspaceFileRoute(workspaceUuid, note.fileId)
+        .then((route) => {
+          if (cancelled) {
+            return;
+          }
+          setNoteRoutes((current) => ({
+            ...current,
+            [note.fileId]: route,
+          }));
+        })
+        .catch(() => {
+          if (cancelled) {
+            return;
+          }
+          setNoteRoutes((current) => ({
+            ...current,
+            [note.fileId]: null,
+          }));
+        });
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [generatedNotes, noteRoutes, workspaceUuid]);
+
+  if (generatedNotes.length === 0 && generatedFlashcards.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {generatedFlashcards.map((deck) => (
+        <a
+          className={cn(
+            buttonVariants({ size: "sm", variant: "outline" }),
+            "gap-1.5"
+          )}
+          href={`/workspace/flashcards/${deck.setId}`}
+          key={deck.setId}
+        >
+          <span>Open flashcards</span>
+          <span className="max-w-[18rem] truncate text-foreground/70">
+            {deck.title}
+          </span>
+          <span className="text-foreground/40">({deck.cardCount})</span>
+          <ArrowSquareOut className="size-3.5" />
+        </a>
+      ))}
+      {generatedNotes.map((note) => {
+        const route = noteRoutes[note.fileId];
+        if (!route) {
+          return null;
+        }
+
+        return (
+          <a
+            className={cn(
+              buttonVariants({ size: "sm", variant: "outline" }),
+              "gap-1.5"
+            )}
+            href={route}
+            key={note.fileId}
+          >
+            <span>Open note</span>
+            <span className="max-w-[18rem] truncate text-foreground/70">
+              {note.title ?? note.workspacePath}
+            </span>
+            <ArrowSquareOut className="size-3.5" />
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
 const toAttachment = (part: MessagePart): Partial<Attachment> | null => {
   if (part.type !== "file" || !part.url) {
     return null;
@@ -195,7 +382,7 @@ const PurePreviewMessage = ({
   isReadonly: boolean;
   workspaceUuid: string;
 }) => {
-  const parts = message.parts ?? [];
+  const parts = preferTransientParts(message.parts ?? []);
   const fileParts = parts.filter((part) => part.type === "file");
   const { agentActivityParts, remainingParts, rollingToolParts } =
     splitMessageParts(parts);
@@ -271,16 +458,12 @@ const PurePreviewMessage = ({
 
               if (isReasoningPart(part)) {
                 return (
-                  <Reasoning
-                    className="w-full"
+                  <ReasoningAction
+                    content={getReasoningText(part)}
                     isStreaming={isStreaming}
                     key={key}
-                  >
-                    <ReasoningTrigger />
-                    <ReasoningContent workspaceUuid={workspaceUuid}>
-                      {getReasoningText(part)}
-                    </ReasoningContent>
-                  </Reasoning>
+                    workspaceUuid={workspaceUuid}
+                  />
                 );
               }
 
@@ -369,6 +552,13 @@ const PurePreviewMessage = ({
               }
               return null;
             })}
+
+            {message.role === "assistant" ? (
+              <GeneratedArtifacts
+                parts={rollingToolParts}
+                workspaceUuid={workspaceUuid}
+              />
+            ) : null}
           </div>
 
           {!isReadonly && message.role === "assistant" && isComplete && (

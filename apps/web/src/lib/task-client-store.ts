@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import { readCachedTasks, writeCachedTasks } from "@/lib/dashboard-browser-cache";
 import type { WorkspaceTask } from "@/lib/tasks";
 
@@ -50,10 +51,24 @@ export function getTaskStoreSnapshot() {
 
 export function sortWorkspaceTasks(tasks: WorkspaceTask[]) {
   return tasks.slice().sort((left, right) => {
-    const leftCompleted = left.status === "completed" ? 1 : 0;
-    const rightCompleted = right.status === "completed" ? 1 : 0;
-    if (leftCompleted !== rightCompleted) {
-      return leftCompleted - rightCompleted;
+    const statusRank = (status: WorkspaceTask["status"]) => {
+      switch (status) {
+        case "planned":
+          return 0;
+        case "drafting":
+          return 1;
+        case "polishing":
+          return 2;
+        case "completed":
+        default:
+          return 3;
+      }
+    };
+
+    const leftStatus = statusRank(left.status);
+    const rightStatus = statusRank(right.status);
+    if (leftStatus !== rightStatus) {
+      return leftStatus - rightStatus;
     }
 
     const leftDue = left.dueAt
@@ -138,14 +153,16 @@ export async function reloadWorkspaceTasks(
         workspaceUuid,
       });
     } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Could not load tasks right now.";
       updateTaskStore((current) => ({
         ...current,
-        errorMessage:
-          error instanceof Error
-            ? error.message
-            : "Could not load tasks right now.",
+        errorMessage,
         loading: false,
       }));
+      toast.error(errorMessage);
     } finally {
       taskStoreRequest = null;
     }
@@ -204,4 +221,7 @@ export function removeWorkspaceTask(workspaceUuid: string, taskId: string) {
 
 export function setWorkspaceTaskError(errorMessage: string | null) {
   updateTaskStore((current) => ({ ...current, errorMessage }));
+  if (errorMessage) {
+    toast.error(errorMessage);
+  }
 }

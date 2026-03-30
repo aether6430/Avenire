@@ -4,7 +4,6 @@ import { FlashcardSetDetail } from "@/components/flashcards/set-detail";
 import {
   type FlashcardTaxonomy,
   getFlashcardSetForUser,
-  listDueFlashcardsForUser,
 } from "@/lib/flashcards";
 import { buildPageMetadata } from "@/lib/page-metadata";
 import { requireWorkspaceRouteContext } from "@/lib/workspace-route-context";
@@ -68,16 +67,11 @@ export default async function DashboardFlashcardSetPage({
     query.review === "1" ||
     query.review === "true";
 
-  const [set, queue] = await Promise.all([
-    getFlashcardSetForUser(session.user.id, workspace.workspaceId, setId),
-    listDueFlashcardsForUser({
-      limit: 20,
-      setId,
-      taxonomyFilters: drillFilters.length > 0 ? drillFilters : undefined,
-      userId: session.user.id,
-      workspaceId: workspace.workspaceId,
-    }),
-  ]);
+  const set = await getFlashcardSetForUser(
+    session.user.id,
+    workspace.workspaceId,
+    setId
+  );
 
   if (!set) {
     redirect("/workspace/flashcards" as Route);
@@ -86,7 +80,6 @@ export default async function DashboardFlashcardSetPage({
   return (
     <FlashcardSetDetail
       initialDrillFilters={drillFilters}
-      initialQueue={queue}
       initialSet={set}
       initialStudyOpen={autoStudy}
       key={set.id}

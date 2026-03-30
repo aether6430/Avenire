@@ -78,6 +78,7 @@ const MODEL_TOOL_ALLOW_LIST = new Set([
   "quiz_me",
   "search_materials",
   "visualize_read_me",
+  "load_skill",
   "show_widget",
 ]);
 
@@ -295,7 +296,7 @@ async function generateChatMetadata(
         "Pick ONE icon from this list (exact string match):",
         CHAT_ICON_NAMES.join(", "),
         "Return ONLY valid JSON with this shape:",
-        "{\"title\":\"...\",\"icon\":\"...\"}",
+        '{"title":"...","icon":"..."}',
         `User message: ${latestUserText}`,
       ].join("\n"),
       maxOutputTokens: 64,
@@ -322,7 +323,10 @@ async function generateChatMetadata(
     if (jsonStart >= 0 && jsonEnd > jsonStart) {
       const candidate = trimmed.slice(jsonStart, jsonEnd + 1);
       try {
-        const parsed = JSON.parse(candidate) as { title?: string; icon?: string };
+        const parsed = JSON.parse(candidate) as {
+          title?: string;
+          icon?: string;
+        };
         parsedTitle = typeof parsed.title === "string" ? parsed.title : null;
         parsedIcon = typeof parsed.icon === "string" ? parsed.icon : null;
       } catch {
@@ -345,9 +349,7 @@ async function generateChatMetadata(
     });
 
     if (accepted) {
-      const icon = isChatIconName(parsedIcon)
-        ? parsedIcon
-        : DEFAULT_CHAT_ICON;
+      const icon = isChatIconName(parsedIcon) ? parsedIcon : DEFAULT_CHAT_ICON;
       return { title: normalized, icon };
     }
 
@@ -385,7 +387,7 @@ async function generateChatThinkingMessages(
         "Keep each message short and concrete.",
         "Avoid quotes and punctuation at the end.",
         "Return only valid JSON with this shape:",
-        "{\"messages\":[\"...\",\"...\",\"...\",\"...\"]}",
+        '{"messages":["...","...","...","..."]}',
         `User message: ${latestUserText}`,
       ].join("\n"),
       maxOutputTokens: 96,
@@ -757,10 +759,13 @@ export async function POST(request: Request) {
 
       const latestSummary = await getLatestSessionSummaryForChat(chat.id).catch(
         (error) => {
-          logWarn("Failed to load latest session summary; continuing without it", {
-            chatId,
-            error: formatError(error),
-          });
+          logWarn(
+            "Failed to load latest session summary; continuing without it",
+            {
+              chatId,
+              error: formatError(error),
+            }
+          );
           return null;
         }
       );
@@ -1033,10 +1038,13 @@ export async function POST(request: Request) {
       userId: session.user.id,
       workspaceId: workspace.workspaceId,
     }).catch((error) => {
-      logWarn("Failed to load workspace subject summary; continuing without it", {
-        chatId: chat.id,
-        error: formatError(error),
-      });
+      logWarn(
+        "Failed to load workspace subject summary; continuing without it",
+        {
+          chatId: chat.id,
+          error: formatError(error),
+        }
+      );
       return null;
     });
     const resolvedSubject = normalizeSubjectLabel(
@@ -1050,24 +1058,23 @@ export async function POST(request: Request) {
       workspaceSubjectSummary,
       resolvedSubject,
     });
-    const recentRelevantSummary =
-      resolvedSubject
-        ? await getRecentRelevantSessionSummary({
-            subject: resolvedSubject,
-            userId: session.user.id,
-            workspaceId: workspace.workspaceId,
-          }).catch((error) => {
-            logWarn(
-              "Failed to load recent relevant session summary; continuing without it",
-              {
-                chatId: chat.id,
-                error: formatError(error),
-                subject: resolvedSubject,
-              }
-            );
-            return null;
-          })
-        : null;
+    const recentRelevantSummary = resolvedSubject
+      ? await getRecentRelevantSessionSummary({
+          subject: resolvedSubject,
+          userId: session.user.id,
+          workspaceId: workspace.workspaceId,
+        }).catch((error) => {
+          logWarn(
+            "Failed to load recent relevant session summary; continuing without it",
+            {
+              chatId: chat.id,
+              error: formatError(error),
+              subject: resolvedSubject,
+            }
+          );
+          return null;
+        })
+      : null;
 
     if (idempotencyHeader && !idempotencyRedisKey) {
       idempotencyRedisKey = buildChatIdempotencyRedisKey({
@@ -1288,10 +1295,10 @@ export async function POST(request: Request) {
             stopWhen: stepCountIs(8),
             tools: modelTools,
             abortSignal: request.signal,
-          experimental_transform: smoothStream({
-            delayInMs: null,
-            chunking: "word",
-          }),
+            experimental_transform: smoothStream({
+              delayInMs: null,
+              chunking: "word",
+            }),
             onChunk: async ({ chunk }) => {
               try {
                 if (chunk.type === "tool-call") {

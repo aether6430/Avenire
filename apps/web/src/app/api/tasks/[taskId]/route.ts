@@ -40,7 +40,14 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     assigneeUserId?: string | null;
     title?: string;
     description?: string | null;
-    status?: "pending" | "in_progress" | "completed";
+    resources?: Array<{
+      href: string;
+      resourceId: string;
+      resourceType: "file" | "folder" | "chat";
+      subtitle: string | null;
+      title: string;
+    }>;
+    status?: "planned" | "drafting" | "polishing" | "completed";
     priority?: "low" | "normal" | "high";
     dueAt?: string | null;
   };
@@ -63,6 +70,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       status: body.status,
       priority: body.priority,
       dueAt: dueAtValue,
+      resources: body.resources,
     });
   } catch (error) {
     return NextResponse.json(
@@ -79,6 +87,8 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   if (!task) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
+
+  await invalidateTaskListCache(ctx.workspace.workspaceId, ctx.user.id);
 
   return NextResponse.json({ task });
 }

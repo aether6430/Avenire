@@ -20,8 +20,9 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status") as
-    | "pending"
-    | "in_progress"
+    | "planned"
+    | "drafting"
+    | "polishing"
     | "completed"
     | null;
   const includeCompleted = searchParams.get("includeCompleted") === "true";
@@ -77,7 +78,14 @@ export async function POST(request: Request) {
     assigneeUserId?: string | null;
     title?: string;
     description?: string | null;
-    status?: "pending" | "in_progress" | "completed";
+    resources?: Array<{
+      href: string;
+      resourceId: string;
+      resourceType: "file" | "folder" | "chat";
+      subtitle: string | null;
+      title: string;
+    }>;
+    status?: "planned" | "drafting" | "polishing" | "completed";
     priority?: "low" | "normal" | "high";
     dueAt?: string | null;
   };
@@ -94,9 +102,10 @@ export async function POST(request: Request) {
         assigneeUserId: body.assigneeUserId ?? ctx.user.id,
         title: body.title.trim(),
         description: body.description ?? null,
-        status: body.status ?? "pending",
+        status: body.status ?? "planned",
         priority: body.priority ?? "normal",
         dueAt: body.dueAt ? new Date(body.dueAt) : null,
+        resources: body.resources ?? [],
       }
     );
 

@@ -2,11 +2,18 @@
 
 import { Avatar, AvatarFallback, AvatarImage } from "@avenire/ui/components/avatar";
 import { Button } from "@avenire/ui/components/button";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@avenire/ui/components/command";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@avenire/ui/components/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@avenire/ui/components/popover";
 import { cn } from "@avenire/ui/lib/utils";
 import { CaretUpDown, Check } from "@phosphor-icons/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { WorkspaceMemberOption } from "@/lib/tasks";
 import { getTaskInitials } from "@/lib/tasks";
 
@@ -24,15 +31,20 @@ export function TaskAssigneePicker({
   disabled = false,
   members,
   onChange,
+  selectedAssignee,
   value,
+  workspaceUuid,
 }: {
   disabled?: boolean;
   members: WorkspaceMemberOption[];
-  onChange: (value: string) => void;
+  onChange: (value: string, member?: WorkspaceMemberOption) => void;
+  selectedAssignee?: WorkspaceMemberOption | null;
   value: string;
+  workspaceUuid?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [remoteMembers, setRemoteMembers] = useState<WorkspaceMemberOption[]>([]);
 
   const normalizedMembers = useMemo(
     () =>
@@ -43,21 +55,62 @@ export function TaskAssigneePicker({
     [members]
   );
 
-  const selectedMember = useMemo(
-    () => normalizedMembers.find((member) => member.userId === value) ?? null,
-    [normalizedMembers, value]
-  );
-
-  const filteredMembers = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    if (!needle) {
-      return normalizedMembers;
+  useEffect(() => {
+    if (!open) {
+      return;
     }
 
-    return normalizedMembers.filter((member) =>
-      getMemberSearchValue(member).includes(needle)
-    );
-  }, [normalizedMembers, query]);
+    if (!workspaceUuid) {
+      setRemoteMembers(normalizedMembers);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      void fetch(
+        `/api/workspaces/${workspaceUuid}/share/members?q=${encodeURIComponent(query.trim())}`,
+        {
+          cache: "no-store",
+          signal: controller.signal,
+        }
+      )
+        .then(async (response) => {
+          if (!response.ok) {
+            throw new Error("Unable to load workspace members.");
+          }
+
+          const payload = (await response.json()) as {
+            members?: WorkspaceMemberOption[];
+          };
+          setRemoteMembers(payload.members ?? []);
+        })
+        .catch(() => {
+          setRemoteMembers(normalizedMembers);
+        });
+    }, 120);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeoutId);
+    };
+  }, [normalizedMembers, open, query, workspaceUuid]);
+
+  const availableMembers = query.trim() ? remoteMembers : normalizedMembers;
+  const resolvedMembers = useMemo(
+    () =>
+      (workspaceUuid && remoteMembers.length > 0 ? remoteMembers : availableMembers).filter(
+        (
+          member
+        ): member is WorkspaceMemberOption & { userId: string } =>
+          typeof member.userId === "string" && member.userId.length > 0
+      ),
+    [availableMembers, remoteMembers, workspaceUuid]
+  );
+  const selectedMember =
+    selectedAssignee ??
+    [...resolvedMembers, ...normalizedMembers].find(
+      (member) => member.userId === value
+    ) ?? null;
 
   const selectedLabel = selectedMember ? getMemberLabel(selectedMember) : "Assign to";
 
@@ -67,12 +120,13 @@ export function TaskAssigneePicker({
         setOpen(nextOpen);
         if (!nextOpen) {
           setQuery("");
+          setRemoteMembers([]);
         }
       }}
       open={open}
     >
       <PopoverTrigger
-        disabled={disabled || normalizedMembers.length === 0}
+        disabled={disabled || (!workspaceUuid && normalizedMembers.length === 0)}
         render={
           <Button
             className={cn(
@@ -98,7 +152,7 @@ export function TaskAssigneePicker({
           <span className="min-w-0 text-left">
             <span className="block truncate text-sm">{selectedLabel}</span>
             <span className="block truncate text-[11px] text-muted-foreground">
-              {selectedMember?.email ?? "Search workspace members or email"}
+              Search workspace members or email
             </span>
           </span>
         </span>
@@ -118,13 +172,13 @@ export function TaskAssigneePicker({
           <CommandList className="max-h-72">
             <CommandEmpty>No workspace member matches that search.</CommandEmpty>
             <CommandGroup heading="Workspace members">
-              {filteredMembers.map((member) => {
+              {resolvedMembers.map((member) => {
                 const label = getMemberLabel(member);
                 return (
                   <CommandItem
                     key={member.userId}
                     onSelect={() => {
-                      onChange(member.userId);
+                      onChange(member.userId, member);
                       setOpen(false);
                     }}
                     value={getMemberSearchValue(member)}

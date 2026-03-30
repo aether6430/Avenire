@@ -1,6 +1,6 @@
 import { type InferUITools, tool } from "ai";
 import { z } from "zod";
-import { AVAILABLE_MODULES } from "../generative-ui/guidelines";
+import { AVAILABLE_STUDY_SKILLS, AVAILABLE_VISUAL_SKILLS } from "../skills";
 
 const sourceTypeSchema = z
   .enum(["pdf", "image", "video", "audio", "markdown", "link"])
@@ -191,10 +191,29 @@ export const chatToolSchemas = {
       title: z.string(),
     }),
   },
+  load_skill: {
+    input: z.object({
+      skills: z
+        .array(
+          z.enum(
+            AVAILABLE_STUDY_SKILLS as unknown as [string, ...string[]]
+          )
+        )
+        .min(1),
+    }),
+    output: z.object({
+      content: z.string(),
+      skills: z.array(z.string()),
+    }),
+  },
   visualize_read_me: {
     input: z.object({
       modules: z
-        .array(z.enum(AVAILABLE_MODULES as [string, ...string[]]))
+        .array(
+          z.enum(
+            AVAILABLE_VISUAL_SKILLS as unknown as [string, ...string[]]
+          )
+        )
         .min(1),
     }),
     output: z.object({
@@ -333,6 +352,10 @@ export const chatTools = {
   quiz_me: tool({
     inputSchema: chatToolSchemas.quiz_me.input,
     outputSchema: chatToolSchemas.quiz_me.output,
+  }),
+  load_skill: tool({
+    inputSchema: chatToolSchemas.load_skill.input,
+    outputSchema: chatToolSchemas.load_skill.output,
   }),
   visualize_read_me: tool({
     inputSchema: chatToolSchemas.visualize_read_me.input,

@@ -51,6 +51,41 @@ function buildCssVarBlock(vars: Record<string, string>): string {
   return `:root {\n${declarations}\n}`;
 }
 
+function buildCanvasThemeBlock(isDark: boolean): string {
+  const canvasVars = isDark
+    ? {
+        "--canvas-background": "var(--background)",
+        "--canvas-surface": "var(--card)",
+        "--canvas-text": "var(--foreground)",
+        "--canvas-muted": "var(--muted-foreground)",
+        "--canvas-border": "var(--border)",
+        "--canvas-primary": "var(--primary)",
+        "--canvas-primary-foreground": "var(--primary-foreground)",
+        "--canvas-accent": "var(--secondary)",
+        "--canvas-accent-foreground": "var(--secondary-foreground)",
+        "--canvas-grid": "color-mix(in oklch, var(--foreground), transparent 88%)",
+        "--canvas-grid-strong": "color-mix(in oklch, var(--foreground), transparent 80%)",
+      }
+    : {
+        "--canvas-background": "var(--background)",
+        "--canvas-surface": "var(--card)",
+        "--canvas-text": "var(--foreground)",
+        "--canvas-muted": "var(--muted-foreground)",
+        "--canvas-border": "var(--border)",
+        "--canvas-primary": "var(--primary)",
+        "--canvas-primary-foreground": "var(--primary-foreground)",
+        "--canvas-accent": "var(--secondary)",
+        "--canvas-accent-foreground": "var(--secondary-foreground)",
+        "--canvas-grid": "color-mix(in oklch, var(--foreground), transparent 92%)",
+        "--canvas-grid-strong": "color-mix(in oklch, var(--foreground), transparent 84%)",
+      };
+
+  const declarations = Object.entries(canvasVars)
+    .map(([k, v]) => `  ${k}: ${v};`)
+    .join("\n");
+  return `:root {\n${declarations}\n}`;
+}
+
 // ---------------------------------------------------------------------------
 // SVG pre-built classes
 // These mirror the classes documented in REFERENCE.md so SVG widgets work
@@ -182,9 +217,13 @@ function buildIframeDocument(cssVarBlock: string, isDark: boolean): string {
 /* ── Base reset ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+:root {
+  color-scheme: light dark;
+}
+
 html, body {
-  background: var(--card);
-  color: var(--foreground);
+  background: var(--canvas-background, var(--card));
+  color: var(--canvas-text, var(--foreground));
   font-family: var(--font-sans, system-ui, sans-serif);
   font-size: 14px;
   line-height: 1.6;
@@ -296,6 +335,9 @@ ${SVG_CLASSES}
 <style id="avenire-css-vars">
 ${cssVarBlock}
 </style>
+<style id="avenire-canvas-vars">
+${buildCanvasThemeBlock(isDark)}
+</style>
 </head>
 <body>
 <div id="root"></div>
@@ -370,7 +412,29 @@ window._runScripts = function() {
 window._applyCssVars = function(cssText) {
   var style = document.getElementById('avenire-css-vars');
   if (style) style.textContent = cssText;
+  window.avenireTheme = window._readTheme();
+  window.dispatchEvent(new Event('avenire:themechange'));
 };
+
+window._readTheme = function() {
+  var rootStyle = getComputedStyle(document.documentElement);
+  return {
+    mode: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
+    background: rootStyle.getPropertyValue('--canvas-background').trim() || rootStyle.getPropertyValue('--background').trim() || '#ffffff',
+    surface: rootStyle.getPropertyValue('--canvas-surface').trim() || rootStyle.getPropertyValue('--card').trim() || '#ffffff',
+    text: rootStyle.getPropertyValue('--canvas-text').trim() || rootStyle.getPropertyValue('--foreground').trim() || '#37352f',
+    muted: rootStyle.getPropertyValue('--canvas-muted').trim() || rootStyle.getPropertyValue('--muted-foreground').trim() || '#9b9a97',
+    border: rootStyle.getPropertyValue('--canvas-border').trim() || rootStyle.getPropertyValue('--border').trim() || 'rgba(55, 53, 47, 0.09)',
+    primary: rootStyle.getPropertyValue('--canvas-primary').trim() || rootStyle.getPropertyValue('--primary').trim() || '#abcfff',
+    primaryForeground: rootStyle.getPropertyValue('--canvas-primary-foreground').trim() || rootStyle.getPropertyValue('--primary-foreground').trim() || '#1b2733',
+    accent: rootStyle.getPropertyValue('--canvas-accent').trim() || rootStyle.getPropertyValue('--secondary').trim() || '#fafafa',
+    accentForeground: rootStyle.getPropertyValue('--canvas-accent-foreground').trim() || rootStyle.getPropertyValue('--secondary-foreground').trim() || '#37352f',
+    grid: rootStyle.getPropertyValue('--canvas-grid').trim() || 'rgba(0,0,0,0.08)',
+    gridStrong: rootStyle.getPropertyValue('--canvas-grid-strong').trim() || 'rgba(0,0,0,0.16)',
+  };
+};
+
+window.avenireTheme = window._readTheme();
 
 window.addEventListener('message', function(event) {
   var data = event.data || {};

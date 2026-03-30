@@ -936,7 +936,10 @@ export function CommandPalette({
       }}
       open={open}
     >
-      <Command className="min-h-[34rem] p-0" shouldFilter={false}>
+      <Command
+        className="h-[min(34rem,calc(100dvh-4rem))] min-h-0 p-0"
+        shouldFilter={false}
+      >
         <CommandInput
           onValueChange={setQuery}
           placeholder="Run a command, open a file, or search workspace content..."

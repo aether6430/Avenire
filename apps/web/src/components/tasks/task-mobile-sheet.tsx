@@ -24,6 +24,7 @@ export function TaskMobileSheet({
   onReset,
   onSave,
   onToggleComplete,
+  workspaceUuid,
   task,
 }: {
   draft: TaskEditorDraft | null;
@@ -38,6 +39,7 @@ export function TaskMobileSheet({
   onReset: () => void;
   onSave: () => void;
   onToggleComplete: () => void;
+  workspaceUuid: string;
   task: WorkspaceTask | null;
 }) {
   return (
@@ -67,6 +69,7 @@ export function TaskMobileSheet({
               onReset={onReset}
               onSave={onSave}
               onToggleComplete={onToggleComplete}
+              workspaceUuid={workspaceUuid}
               task={task}
             />
           </div>

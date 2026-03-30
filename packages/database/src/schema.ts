@@ -957,10 +957,14 @@ export const task = pgTable(
     }),
     title: text("title").notNull(),
     description: text("description"),
-    status: text("status").notNull().default("pending"),
+    status: text("status").notNull().default("planned"),
     priority: text("priority").default("normal"),
     dueAt: timestamp("due_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
+    resources: jsonb("resources")
+      .notNull()
+      .$type<Array<Record<string, unknown>>>()
+      .default([]),
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),

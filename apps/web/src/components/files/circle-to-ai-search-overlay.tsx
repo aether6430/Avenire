@@ -374,7 +374,7 @@ function SearchPopover({
   return (
     <motion.div
       animate={{ height: isExpanded ? expandedHeight : 136, opacity: 1 }}
-      className="fixed z-40 w-[min(24rem,calc(100%-1rem))] overflow-hidden rounded-xl border border-border bg-card shadow-lg"
+      className="fixed z-40 flex w-[min(24rem,calc(100%-1rem))] overflow-hidden rounded-xl border border-border bg-card shadow-lg flex flex-col"
       initial={{ opacity: 0, height: 0 }}
       onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => event.stopPropagation()}
@@ -419,7 +419,7 @@ function SearchPopover({
         </Button>
       </div>
 
-      <div className="flex h-full min-h-0 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col">
         {showTranscript ? (
           <ScrollArea className="min-h-0 flex-1 bg-card px-3 py-3">
             <div className="space-y-2 pr-2">

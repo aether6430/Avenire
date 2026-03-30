@@ -17,6 +17,7 @@ import { SpinnerGap as Loader2, Plus, Warning as TriangleAlert } from "@phosphor
 import { useRouter } from "next/navigation";
 import { type ReactElement, useEffect, useMemo, useState } from "react";
 import { TaskAssigneePicker } from "@/components/tasks/task-assignee-picker";
+import { TaskResourcePicker } from "@/components/tasks/task-resource-picker";
 import type { WorkspaceMemberOption } from "@/lib/tasks";
 import { dispatchTasksRefresh } from "@/lib/tasks";
 
@@ -24,9 +25,17 @@ export type CaptureKind = "task" | "note" | "misconception";
 
 export interface QuickCaptureTaskValues {
   assigneeUserId?: string;
+  selectedAssignee?: WorkspaceMemberOption | null;
   description: string;
   dueAt: string;
   priority?: "low" | "normal" | "high";
+  resources?: Array<{
+    href: string;
+    resourceId: string;
+    resourceType: "file" | "folder" | "chat";
+    subtitle: string | null;
+    title: string;
+  }>;
   title: string;
 }
 
@@ -47,9 +56,11 @@ const defaultConfidence = "0.85";
 function resetTaskState() {
   return {
     assigneeUserId: "",
+    selectedAssignee: null as WorkspaceMemberOption | null,
     description: "",
     dueAt: "",
     priority: "normal" as "low" | "normal" | "high",
+    resources: [] as QuickCaptureTaskValues["resources"],
     title: "",
   };
 }
@@ -150,15 +161,18 @@ export function QuickCaptureDialog({
       if (kind === "task") {
         setTask(
           taskValues
-            ? {
+              ? {
                 assigneeUserId: taskValues.assigneeUserId ?? currentUserId ?? "",
                 ...taskValues,
                 dueAt: toDateTimeLocalValue(taskValues.dueAt),
                 priority: taskValues.priority ?? "normal",
+                resources: taskValues.resources ?? [],
+                selectedAssignee: taskValues.selectedAssignee ?? null,
               }
             : {
                 ...resetTaskState(),
                 assigneeUserId: currentUserId ?? "",
+                resources: [],
               }
         );
       }
@@ -231,6 +245,7 @@ export function QuickCaptureDialog({
           description: task.description.trim(),
           dueAt: toIsoFromDateTimeLocalValue(task.dueAt),
           priority: task.priority,
+          resources: task.resources ?? [],
           title: task.title.trim(),
         };
 
@@ -352,10 +367,16 @@ export function QuickCaptureDialog({
                 <TaskAssigneePicker
                   disabled={loadingMembers || members.length === 0}
                   members={members}
-                  onChange={(assigneeUserId) =>
-                    setTask((prev) => ({ ...prev, assigneeUserId }))
+                  onChange={(assigneeUserId, selectedAssignee) =>
+                    setTask((prev) => ({
+                      ...prev,
+                      assigneeUserId,
+                      selectedAssignee: selectedAssignee ?? null,
+                    }))
                   }
+                  selectedAssignee={task.selectedAssignee ?? null}
                   value={task.assigneeUserId}
+                  workspaceUuid={workspaceUuid}
                 />
               </div>
               <div className="space-y-1.5">
@@ -393,6 +414,18 @@ export function QuickCaptureDialog({
                   Optional. Leave blank if it is just a capture.
                 </p>
               </div>
+              {workspaceUuid ? (
+                <div className="space-y-1.5">
+                  <Label>Resources</Label>
+                  <TaskResourcePicker
+                    onChange={(resources) =>
+                      setTask((prev) => ({ ...prev, resources }))
+                    }
+                    value={task.resources ?? []}
+                    workspaceUuid={workspaceUuid}
+                  />
+                </div>
+              ) : null}
             </div>
           </div>
         ) : null}

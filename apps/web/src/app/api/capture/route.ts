@@ -26,6 +26,13 @@ export async function POST(request: Request) {
     content?: unknown;
     description?: unknown;
     dueAt?: unknown;
+    resources?: Array<{
+      href: string;
+      resourceId: string;
+      resourceType: "file" | "folder" | "chat";
+      subtitle: string | null;
+      title: string;
+    }>;
     kind?: unknown;
     concept?: unknown;
     reason?: unknown;
@@ -63,6 +70,7 @@ export async function POST(request: Request) {
             typeof body.dueAt === "string" && body.dueAt.trim().length > 0
               ? new Date(body.dueAt)
               : null,
+          resources: Array.isArray(body.resources) ? body.resources : [],
           title,
         }
       );

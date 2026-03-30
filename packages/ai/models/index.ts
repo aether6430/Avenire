@@ -1,5 +1,6 @@
 import { createBaseten } from "@ai-sdk/baseten";
 import { createCohere } from "@ai-sdk/cohere";
+import { createFireworks } from "@ai-sdk/fireworks";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
 import { createMistral } from "@ai-sdk/mistral";
@@ -31,8 +32,8 @@ const mistral = createMistral({
 const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
 });
-const baseten = createBaseten({
-  apiKey: process.env.BASETEN_API_KEY,
+const fireworks = createFireworks({
+  apiKey: process.env.FIREWORKS_API_KEY,
 });
 export const gemini = createGoogleGenerativeAI({
   apiKey: process.env.GEMINI_API_KEY,
@@ -44,9 +45,9 @@ const cohere = createCohere({
 export const apollo = customProvider({
   languageModels: {
     "apollo-sprint": mistral("mistral-small-latest"),
-    "apollo-apex": baseten("moonshotai/Kimi-K2.5"),
+    "apollo-apex": fireworks("accounts/fireworks/models/kimi-k2p5"),
     "apollo-core": gemini("gemini-3-flash-preview"),
-    "apollo-agent": baseten("zai-org/GLM-5"),
+    "apollo-agent": fireworks("accounts/fireworks/models/glm-5"),
     "apollo-tiny": mistral("ministral-3b-2512"),
   },
   embeddingModels: {},
