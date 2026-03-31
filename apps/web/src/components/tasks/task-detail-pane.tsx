@@ -70,7 +70,7 @@ export function TaskDetailPane({
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-w-0 flex-col overflow-x-hidden">
       <div className="border-border/70 border-b px-6 py-4">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
@@ -90,7 +90,7 @@ export function TaskDetailPane({
           ) : null}
         </div>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4 sm:px-6">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-6">
         <div className="space-y-1.5">
           <Label htmlFor="task-title">Title</Label>
           <Input
@@ -233,7 +233,7 @@ export function TaskDetailPane({
           </div>
         ) : null}
       </div>
-      <div className="border-border/70 sticky bottom-0 flex flex-col gap-2 border-t bg-background px-4 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-6">
+      <div className="border-border/70 sticky bottom-0 flex min-w-0 flex-col gap-2 border-t bg-background px-4 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-6">
         <Button
           className="sm:order-1"
           disabled={!isDirty || isSaving}

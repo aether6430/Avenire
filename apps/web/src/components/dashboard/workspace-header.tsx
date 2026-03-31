@@ -117,20 +117,20 @@ export function WorkspaceHeader({
               )}
             </div>
           </div>
+          <div className="min-w-0 flex-1 sm:hidden">
+            {breadcrumbs ?? (
+              <div className="min-w-0 overflow-hidden" id="workspace-header-breadcrumbs">
+                {title ? (
+                  <h1 className="truncate font-medium text-sm leading-tight text-foreground">
+                    {title}
+                  </h1>
+                ) : null}
+              </div>
+            )}
+          </div>
           <div className="ml-auto flex min-w-0 items-center justify-end overflow-x-auto no-scrollbar sm:hidden">
             {actions}
           </div>
-        </div>
-        <div className="min-w-0 overflow-hidden sm:hidden">
-          {breadcrumbs ?? (
-            <div className="min-w-0 overflow-hidden" id="workspace-header-breadcrumbs">
-              {title ? (
-                <h1 className="block truncate font-medium text-sm leading-tight text-foreground">
-                  {title}
-                </h1>
-              ) : null}
-            </div>
-          )}
         </div>
         <div className="hidden min-w-0 justify-end overflow-x-auto no-scrollbar sm:flex sm:w-auto">
           {actions}

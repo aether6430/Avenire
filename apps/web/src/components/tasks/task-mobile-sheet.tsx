@@ -45,10 +45,10 @@ export function TaskMobileSheet({
   return (
     <Sheet onOpenChange={onOpenChange} open={isOpen}>
       <SheetContent
-        className="h-[100dvh] w-screen max-w-none overflow-hidden rounded-none border-0 p-0 sm:inset-y-4 sm:right-4 sm:h-[calc(100dvh-2rem)] sm:w-[min(52rem,calc(100vw-2rem))] sm:rounded-2xl sm:border sm:border-border/70 sm:shadow-2xl"
+        className="h-[100dvh] w-[100dvw] max-w-[100dvw] overflow-hidden overscroll-contain rounded-none border-0 p-0 sm:inset-y-4 sm:right-4 sm:h-[calc(100dvh-2rem)] sm:w-[min(52rem,calc(100vw-2rem))] sm:max-w-[min(52rem,calc(100vw-2rem))] sm:rounded-2xl sm:border sm:border-border/70 sm:shadow-2xl"
         side="right"
       >
-        <div className="flex h-full min-h-0 flex-col">
+        <div className="flex h-full min-h-0 min-w-0 flex-col">
           <SheetHeader className="border-border/70 border-b px-4 py-4 sm:px-6">
             <SheetTitle>
               {mode === "create" ? "New task" : "Task details"}
@@ -57,7 +57,7 @@ export function TaskMobileSheet({
               Keep the editor lightweight and precise on small screens.
             </SheetDescription>
           </SheetHeader>
-          <div className="min-h-0 flex-1">
+          <div className="min-h-0 min-w-0 flex-1">
             <TaskDetailPane
               draft={draft}
               isDirty={isDirty}
