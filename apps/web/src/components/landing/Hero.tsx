@@ -1267,14 +1267,17 @@ export function Hero() {
             transition={{ duration: 0.5 }}
           >
             <h1 className="text-4xl md:text-5xl font-bold tracking-tight leading-[1.1] mb-5">
-              <span className="text-foreground inline-flex items-center">
+              <span className="text-foreground block">
+                AI learning workspace
+              </span>
+              <span className="mt-2 text-foreground inline-flex items-center text-3xl md:text-4xl">
                 <Calligraph animation="snappy">
                   {CALLIGRAPH_TEXTS[calligraphIndex]}
                 </Calligraph>
               </span>
             </h1>
             <p className="text-sm text-muted-foreground leading-relaxed max-w-sm mb-6">
-              An interactive AI workspace that breaks down complex ideas step by step and builds genuine understanding.
+              Upload notes, ask harder questions, and turn complex topics into interactive study paths, connected concepts, and durable understanding.
             </p>
             <div className="flex items-center gap-2">
               <Link

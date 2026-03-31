@@ -3,6 +3,7 @@ import { FlashcardSetPageClient } from "@/components/flashcards/set-detail-page"
 import { buildPageMetadata } from "@/lib/page-metadata";
 
 export const metadata: Metadata = buildPageMetadata({
+  noIndex: true,
   title: "Mindset",
 });
 

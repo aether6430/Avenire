@@ -1,1 +1,3 @@
-export { default } from "../dashboard/loading";
+export default function WorkspaceLoading() {
+  return null;
+}

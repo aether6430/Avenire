@@ -4,6 +4,7 @@ import { buildPageMetadata } from "@/lib/page-metadata";
 
 export const dynamic = "force-dynamic";
 export const metadata = buildPageMetadata({
+  noIndex: true,
   title: "Desktop Sign-In Callback",
 });
 
@@ -49,7 +50,7 @@ export default async function DesktopCallbackPage({
       </div>
       <div>
         <Link className="underline" href={"/workspace" as Route}>
-          Continue to dashboard
+          Continue to workspace
         </Link>
       </div>
     </main>

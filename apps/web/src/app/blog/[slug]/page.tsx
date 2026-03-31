@@ -9,6 +9,7 @@ import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { Calendar, Clock, ArrowLeft, Tag } from "@phosphor-icons/react/ssr"
+import { metadataBase } from "@/lib/page-metadata";
 
 export async function generateStaticParams() {
   const slugs = getAllSlugs();
@@ -19,9 +20,65 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const post = getPostBySlug(slug);
   if (!post) return {};
+  const canonical = `/blog/${slug}`;
+  const image = post.coverImage
+    ? new URL(post.coverImage, metadataBase).toString()
+    : new URL(`/api/og?title=${encodeURIComponent(post.title)}`, metadataBase).toString();
+
   return {
-    title: `${post.title} — Avenire Blog`,
+    alternates: {
+      canonical,
+    },
+    authors: [{ name: post.author }],
     description: post.description,
+    openGraph: {
+      description: post.description,
+      images: [image],
+      publishedTime: post.date,
+      title: post.title,
+      type: "article",
+      url: canonical,
+    },
+    title: `${post.title} | Avenire Blog`,
+    twitter: {
+      card: "summary_large_image",
+      description: post.description,
+      images: [image],
+      title: `${post.title} | Avenire Blog`,
+    },
+  };
+}
+
+function buildArticleSchema(slug: string) {
+  const post = getPostBySlug(slug);
+  if (!post) return null;
+
+  const canonical = new URL(`/blog/${slug}`, metadataBase).toString();
+  const image = post.coverImage
+    ? new URL(post.coverImage, metadataBase).toString()
+    : new URL(`/api/og?title=${encodeURIComponent(post.title)}`, metadataBase).toString();
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    author: {
+      "@type": "Person",
+      name: post.author,
+    },
+    datePublished: post.date,
+    description: post.description,
+    headline: post.title,
+    image: [image],
+    mainEntityOfPage: canonical,
+    publisher: {
+      "@type": "Organization",
+      logo: {
+        "@type": "ImageObject",
+        url: new URL("/branding/avenire-logo-full.png", metadataBase).toString(),
+      },
+      name: "Avenire",
+    },
+    url: canonical,
   };
 }
 
@@ -112,11 +169,18 @@ const mdxComponents = {
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const post = getPostBySlug(slug);
+  const articleSchema = buildArticleSchema(slug);
 
   if (!post) notFound();
 
   return (
     <main className="min-h-screen">
+      {articleSchema ? (
+        <script
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
+          type="application/ld+json"
+        />
+      ) : null}
       <Navbar />
 
       <article className="pt-32 pb-24 px-4">

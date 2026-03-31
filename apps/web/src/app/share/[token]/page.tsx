@@ -14,6 +14,7 @@ import {
 import { buildPageMetadata } from "@/lib/page-metadata";
 
 export const metadata = buildPageMetadata({
+  noIndex: true,
   title: "Shared resource",
 });
 
@@ -120,7 +121,7 @@ export default async function SharedResourcePage({
           className="mt-4 inline-flex h-10 items-center justify-center rounded-md border px-4 text-sm"
           href={"/workspace" as Route}
         >
-          Open dashboard
+          Open workspace
         </Link>
       </main>
     );

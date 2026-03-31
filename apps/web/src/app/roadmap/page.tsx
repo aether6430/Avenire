@@ -3,11 +3,14 @@ import type { RoadmapGroup, RoadmapItem } from "@/lib/roadmap";
 import { Navbar } from "@/components/landing/Navbar";
 import { Footer } from "@/components/landing/Footer";
 import { CheckCircle as CheckCircle2, Circle, SpinnerGap as Loader2, ArrowSquareOut as ExternalLink } from "@phosphor-icons/react/ssr"
+import { buildPageMetadata } from "@/lib/page-metadata";
 
-export const metadata = {
-  title: "Roadmap — Avenire",
-  description: "See what we're building next. The public roadmap for Avenire.",
-};
+export const metadata = buildPageMetadata({
+  description:
+    "See what Avenire is building next across AI learning, study workflows, and collaborative research.",
+  path: "/roadmap",
+  title: "Roadmap",
+});
 
 const statusConfig = {
   planned: {

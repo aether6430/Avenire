@@ -2,6 +2,13 @@ import Link from "next/link"
 import { LoginForm } from "@avenire/auth/components/login"
 import { Card, CardContent } from "@avenire/ui/components/card"
 import { ShaderWave } from "@avenire/ui/components/shader"
+import { buildPageMetadata } from "@/lib/page-metadata"
+
+export const metadata = buildPageMetadata({
+  noIndex: true,
+  path: "/login",
+  title: "Log in",
+})
 
 function getSingleValue(value: string | string[] | undefined) {
   return typeof value === "string" ? value : undefined
@@ -32,7 +39,7 @@ export default async function LoginPage({
             </CardContent>
           </Card>
           <div className="text-balance text-center text-xs text-muted-foreground [&_a]:underline [&_a]:underline-offset-4 hover:[&_a]:text-primary">
-            By clicking continue, you agree to our <Link href="/about">Terms of Service</Link> and <Link href="/privacy">Privacy Policy</Link>.
+            By clicking continue, you agree to our <Link href="/terms">Terms of Service</Link> and <Link href="/privacy">Privacy Policy</Link>.
           </div>
         </div>
       </div>

@@ -4,11 +4,14 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Navbar } from "@/components/landing/Navbar";
 import { Footer } from "@/components/landing/Footer";
+import { buildPageMetadata } from "@/lib/page-metadata";
 
-export const metadata = {
-  title: "Privacy Policy — Avenire",
-  description: "Avenire privacy policy and data handling practices.",
-};
+export const metadata = buildPageMetadata({
+  description:
+    "Read Avenire's privacy policy and data handling practices for the AI learning workspace.",
+  path: "/privacy",
+  title: "Privacy Policy",
+});
 
 const mdxComponents = {
   h1: ({

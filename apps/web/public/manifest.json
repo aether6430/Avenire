@@ -1,7 +1,7 @@
 {
   "name": "Avenire - AI Learning Platform",
   "short_name": "Avenire",
-  "description": "Illuminate Your Learning & Research Journey with AI",
+  "description": "An AI learning workspace for deep study, research, and interactive understanding.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f7f5f1",
@@ -27,9 +27,9 @@
   "shortcuts": [
     {
       "name": "New Method",
-      "short_name": "Method",
-      "description": "Start a new method with Apollo",
-      "url": "/chat",
+      "short_name": "New Chat",
+      "description": "Start a new workspace chat with Apollo",
+      "url": "/workspace/chats/new",
       "icons": [
         {
           "src": "/branding/avenire-logo-full.png",

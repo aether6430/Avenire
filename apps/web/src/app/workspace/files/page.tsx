@@ -1,13 +1,19 @@
-import type { Metadata } from "next";
+import type { Route } from "next";
+import { redirect } from "next/navigation";
 import { buildPageMetadata } from "@/lib/page-metadata";
+import { requireWorkspaceRouteContext } from "@/lib/workspace-route-context";
 
-export const metadata: Metadata = buildPageMetadata({
+export const metadata = buildPageMetadata({
+  noIndex: true,
   title: "Files",
 });
 
 export default async function WorkspaceFilesPage() {
-  const { default: DashboardFilesPage } = await import(
-    "../../dashboard/files/page"
+  const { workspace } = await requireWorkspaceRouteContext(
+    "/workspace" as Route
   );
-  return DashboardFilesPage();
+
+  redirect(
+    `/workspace/files/${workspace.workspaceId}/folder/${workspace.rootFolderId}` as Route
+  );
 }

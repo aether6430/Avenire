@@ -5,8 +5,10 @@ import Link from "next/link";
 import { buildPageMetadata } from "@/lib/page-metadata";
 
 export const metadata = buildPageMetadata({
+  description:
+    "Join the Avenire waitlist for early access to an AI learning workspace built for deep study and research.",
+  path: "/waitlist",
   title: "Join the waitlist",
-  description: "Get early access to Avenire.",
 });
 
 export default function WaitlistPage() {

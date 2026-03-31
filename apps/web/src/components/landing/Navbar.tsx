@@ -25,11 +25,11 @@ const SIGN_IN_HREF = "/login"
 const APP_HREF = "/workspace"
 
 const highlightedBlog = {
-  title: "Introducing Avenire: Think Deeper, Not Just Faster",
+  title: "Introducing Avenire: Interactive AI Learning That Builds Understanding",
   href: "/blog/introducing-avenire",
   description:
-    "Why we built Avenire and how we think AI should scaffold reasoning, not replace it.",
-  image: "/blog/introducing-avenire.svg",
+    "Why we built Avenire and how interactive AI study can deepen understanding instead of shortcutting it.",
+  image: "/blog/interactive-learning.jpeg",
 } as const
 
 const productLinks = [

@@ -6,11 +6,14 @@ import Link from "next/link";
 import Image from "next/image";
 import type { Route } from "next";
 import { Calendar, Clock, Tag, ArrowRight } from "@phosphor-icons/react/ssr"
+import { buildPageMetadata } from "@/lib/page-metadata";
 
-export const metadata = {
-  title: "Blog — Avenire",
-  description: "Thoughts on AI, reasoning, and the future of thinking from the Avenire team.",
-};
+export const metadata = buildPageMetadata({
+  description:
+    "Read Avenire articles on AI learning, interactive study, research workflows, and building real understanding.",
+  path: "/blog",
+  title: "Blog",
+});
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {

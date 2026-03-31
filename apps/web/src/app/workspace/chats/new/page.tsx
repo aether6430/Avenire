@@ -6,6 +6,7 @@ import { resolveWorkspaceForUser } from "@/lib/file-data";
 import { buildPageMetadata } from "@/lib/page-metadata";
 
 export const metadata = buildPageMetadata({
+  noIndex: true,
   title: "New Method",
 });
 

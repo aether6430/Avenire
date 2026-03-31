@@ -1,10 +1,13 @@
 import { Footer } from "@/components/landing/Footer";
 import { Navbar } from "@/components/landing/Navbar";
+import { buildPageMetadata } from "@/lib/page-metadata";
 
-export const metadata = {
-  title: "Terms — Avenire",
-  description: "Avenire terms of service.",
-};
+export const metadata = buildPageMetadata({
+  description:
+    "Read the Avenire terms of service for using the AI learning and research workspace.",
+  path: "/terms",
+  title: "Terms of Service",
+});
 
 const sections = [
   {

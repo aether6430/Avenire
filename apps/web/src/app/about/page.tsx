@@ -4,11 +4,14 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Navbar } from "@/components/landing/Navbar";
 import { Footer } from "@/components/landing/Footer";
+import { buildPageMetadata } from "@/lib/page-metadata";
 
-export const metadata = {
-  title: "About — Avenire",
-  description: "Avenire vision and mission.",
-};
+export const metadata = buildPageMetadata({
+  description:
+    "Learn what Avenire is building and why we think AI should deepen understanding instead of replacing it.",
+  path: "/about",
+  title: "About",
+});
 
 const mdxComponents = {
   h1: ({

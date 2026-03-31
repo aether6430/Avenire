@@ -30,20 +30,34 @@ const fonde = localFont({
 
 export const metadata: Metadata = {
   metadataBase,
-  title: "Avenire — Think. Not just answers. Reasoning.",
+  title: {
+    default: "Avenire",
+    template: "%s",
+  },
   description:
-    "An interactive AI reasoning and research workspace. Break down complex ideas, learn interactively, and build genuine understanding.",
+    "Avenire is an AI learning workspace for deep study, research, and interactive reasoning. Upload notes, ask better questions, and turn complexity into understanding.",
   manifest: "/manifest.json",
   icons: {
-    icon: "/favicon.ico",
-    shortcut: "/favicon.ico",
+    icon: [
+      { type: "image/svg+xml", url: "/favicon.svg" },
+      { type: "image/png", url: "/branding/avenire-logo-full.png" },
+    ],
+    shortcut: "/favicon.svg",
     apple: "/branding/avenire-logo-full.png",
   },
   openGraph: {
+    description:
+      "Avenire is an AI learning workspace for deep study, research, and interactive reasoning. Upload notes, ask better questions, and turn complexity into understanding.",
+    siteName: "Avenire",
+    title: "Avenire",
+    type: "website",
     images: ["/api/og?title=Avenire"],
   },
   twitter: {
     card: "summary_large_image",
+    description:
+      "Avenire is an AI learning workspace for deep study, research, and interactive reasoning.",
+    title: "Avenire",
     images: ["/api/og?title=Avenire"],
   },
 };
