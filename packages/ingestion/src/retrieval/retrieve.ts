@@ -7,6 +7,7 @@ import {
   textToMultimodalInput,
 } from "../ingestion/embeddings";
 import { expandQuery } from "./query-expansion";
+import { getLearnerSignalBoosts } from "./learner-signals";
 import type { VectorSearchResult, VectorStore } from "./vector-store";
 
 const RETRIEVAL_CONTEXT_TOKEN_BUDGET = 2400;
@@ -495,6 +496,7 @@ const scoreRetrievedCandidate = (
   params: {
     audioIntent: boolean;
     documentIntent: boolean;
+    learnerBoost: number;
     normalizedQuery: string;
     preferredSourceTypes: Set<
       "pdf" | "image" | "video" | "audio" | "markdown" | "link"
@@ -510,6 +512,7 @@ const scoreRetrievedCandidate = (
     normalizedQuery: params.normalizedQuery,
     visualIntent: params.visualIntent,
   });
+  nextScore *= params.learnerBoost;
 
   return {
     ...candidate,
@@ -580,6 +583,8 @@ export const retrieveRelevantChunks = async (
   query: string,
   options?: {
     limit?: number;
+    userId?: string;
+    workspaceId?: string;
     sourceType?: "pdf" | "image" | "video" | "audio" | "markdown" | "link";
     provider?: string;
   }
@@ -622,11 +627,11 @@ export const retrieveRelevantChunks = async (
     limit * config.retrievalCandidateMultiplier
   );
 
-  const expandedQueries = await expandQuery(normalizedQuery);
-  const searchQueries = dedupeQueries([
-    normalizedQuery,
-    ...expandedQueries,
-  ]).slice(0, 5);
+  const expandedQuery = await expandQuery(normalizedQuery);
+  const searchQueries = dedupeQueries([normalizedQuery, expandedQuery ?? ""]).slice(
+    0,
+    2
+  );
 
   const { embeddings } = await embedMultimodal(
     searchQueries.map((value) => textToMultimodalInput(value)),
@@ -658,6 +663,14 @@ export const retrieveRelevantChunks = async (
     ),
     MAX_RESOURCE_DIVERSITY
   );
+  const learnerSignalBoosts =
+    options?.userId && options.workspaceId
+      ? await getLearnerSignalBoosts({
+          candidates: mergedCandidates,
+          userId: options.userId,
+          workspaceId: options.workspaceId,
+        })
+      : new Map<string, { boost: number }>();
 
   const sortedCandidates: FusionCandidate[] = mergedCandidates
     .filter(
@@ -669,6 +682,7 @@ export const retrieveRelevantChunks = async (
       scoreRetrievedCandidate(candidate, {
         audioIntent,
         documentIntent,
+        learnerBoost: learnerSignalBoosts.get(candidate.chunkId)?.boost ?? 1,
         normalizedQuery,
         preferredSourceTypes,
         sourceType: options?.sourceType,
@@ -781,8 +795,7 @@ export const retrieveRelevantChunks = async (
       contextTokenCount: assembled.tokenCount,
       contextTruncated: assembled.truncated,
       event: "retrieval",
-      expandedQueryCount: expandedQueries.length,
-      expandedQueries,
+      expandedQuery,
       latencyMs,
       corpus,
       candidateCount: sortedCandidates.length,
@@ -796,6 +809,9 @@ export const retrieveRelevantChunks = async (
         (total, results) => total + results.length,
         0
       ),
+      learnerBoostedCandidateCount: Array.from(learnerSignalBoosts.values()).filter(
+        (signal) => signal.boost !== 1
+      ).length,
       queryCount: searchQueries.length,
       rerankCandidateCount: rerankCandidates.length,
       resultCount: assembled.results.length,

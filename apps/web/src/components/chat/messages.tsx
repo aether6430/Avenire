@@ -78,8 +78,8 @@ function PureMessages({
       <div
         className={
           isCenteredEmptyState
-            ? "relative flex h-full min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-y-contain px-2 py-8 md:px-0 md:py-10"
-            : "relative flex h-full min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-y-contain px-2 pt-24 pb-8 md:px-0 md:pt-5 md:pb-6"
+            ? "relative flex h-full min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-y-contain no-scrollbar px-2 py-8 md:px-0 md:py-10"
+            : "relative flex h-full min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-y-contain no-scrollbar px-2 pt-24 pb-8 md:px-0 md:pt-5 md:pb-6"
         }
         ref={messagesContainerRef}
       >

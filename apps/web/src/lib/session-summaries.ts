@@ -147,6 +147,8 @@ function summarizeToolPart(
     }
     case "tool-log_misconception":
       return normalizeText(part.output.summary);
+    case "tool-web_search":
+      return `Searched the web for "${normalizeText(part.output.query)}" and found ${part.output.totalResults} results.`;
     case "tool-search_materials":
       return `Searched study materials for "${normalizeText(part.output.query)}" and found ${part.output.totalMatches} matches.`;
     case "tool-avenire_agent":

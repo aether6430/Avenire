@@ -50,6 +50,7 @@ import type {
   FlashcardSetRecord,
   FlashcardTaxonomy,
 } from "@/lib/flashcards";
+import { writeCachedFlashcardSet } from "@/lib/flashcard-browser-cache";
 import { useWorkspaceHistoryStore } from "@/stores/workspaceHistoryStore";
 
 type Rating = "again" | "hard" | "good" | "easy";
@@ -213,6 +214,17 @@ export function FlashcardSetDetail({
       }
     };
   }, []);
+
+  useEffect(() => {
+    setSet(initialSet);
+    writeCachedFlashcardSet(initialSet);
+  }, [initialSet]);
+
+  useEffect(() => {
+    const nextQueue = initialQueue ?? [];
+    setQueue(nextQueue);
+    setQueueLoaded(nextQueue.length > 0);
+  }, [initialQueue]);
 
   const snapshotByCardId = useMemo(
     () =>
@@ -380,6 +392,7 @@ export function FlashcardSetDetail({
     const payload = (await response.json()) as { set?: FlashcardSetRecord };
     if (payload.set) {
       setSet(payload.set);
+      writeCachedFlashcardSet(payload.set);
     }
   };
 

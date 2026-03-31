@@ -1,7 +1,6 @@
 import { type ApolloModelName, apollo, generateText } from "@avenire/ai";
 
 const QUERY_EXPANSION_MODEL: ApolloModelName = "apollo-tiny";
-const MAX_EXPANSIONS = 5;
 const CODE_FENCE_START_PATTERN = /^```(?:json|text)?\s*/i;
 const CODE_FENCE_END_PATTERN = /\s*```$/i;
 
@@ -16,74 +15,28 @@ function stripCodeFences(value: string) {
     .trim();
 }
 
-export function parseQueryExpansions(value: string): string[] {
-  const normalizedValue = stripCodeFences(value);
-  if (!normalizedValue) {
-    return [];
-  }
-
-  const parsedCandidates = (() => {
-    try {
-      const parsed = JSON.parse(normalizedValue) as unknown;
-      if (Array.isArray(parsed)) {
-        return parsed;
-      }
-    } catch {
-      // Fall through to line parsing.
-    }
-
-    return normalizedValue.split(/\r?\n+/g);
-  })();
-
-  const seen = new Set<string>();
-  const out: string[] = [];
-
-  for (const candidate of parsedCandidates) {
-    if (typeof candidate !== "string") {
-      continue;
-    }
-
-    const normalized = normalizeExpansion(
-      candidate.replace(/^(?:[-*•]|\d+[.)])\s*/g, "")
-    );
-    if (!normalized || seen.has(normalized.toLowerCase())) {
-      continue;
-    }
-
-    seen.add(normalized.toLowerCase());
-    out.push(normalized);
-
-    if (out.length >= MAX_EXPANSIONS) {
-      break;
-    }
-  }
-
-  return out;
-}
-
-export async function expandQuery(query: string): Promise<string[]> {
+export async function expandQuery(query: string): Promise<string | null> {
   const normalizedQuery = normalizeExpansion(query);
   if (!normalizedQuery) {
-    return [];
+    return null;
   }
 
   const { text } = await generateText({
     model: apollo.languageModel(QUERY_EXPANSION_MODEL),
-    prompt: [
-      "Generate alternate search phrasings for the user query.",
-      "Return only JSON: an array of 3 to 5 short search queries.",
-      "Rules:",
-      "- Keep each phrase concise.",
-      "- Preserve the same intent.",
-      "- Do not add explanations or numbering.",
-      "- Do not repeat the original query verbatim.",
-      `Query: ${normalizedQuery}`,
-    ].join("\n"),
+    system:
+      "Expand this student query into a full academic search phrase. Output only the expanded query, nothing else.",
+    prompt: normalizedQuery,
     temperature: 0.2,
-    maxOutputTokens: 128,
+    maxOutputTokens: 64,
   });
 
-  return parseQueryExpansions(text).filter(
-    (candidate) => candidate.toLowerCase() !== normalizedQuery.toLowerCase()
+  const expanded = normalizeExpansion(
+    stripCodeFences(text).replace(/^(?:[-*•]|\d+[.)])\s*/g, "")
   );
+
+  if (!expanded || expanded.toLowerCase() === normalizedQuery.toLowerCase()) {
+    return null;
+  }
+
+  return expanded;
 }

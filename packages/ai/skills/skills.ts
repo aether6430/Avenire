@@ -51,6 +51,7 @@ These rules apply to ALL use cases.
 - **Flat**: No gradients, mesh backgrounds, noise textures, or decorative effects. Clean flat surfaces.
 - **Compact**: Show the essential inline. Explain the rest in text.
 - **Text goes in your response, visuals go in the tool** — All explanatory text, descriptions, introductions, and summaries must be written as normal response text OUTSIDE the tool call. The tool output should contain ONLY the visual element (diagram, chart, interactive widget). Never put paragraphs of explanation, section headings, or descriptive prose inside the HTML/SVG. If the user asks "explain X", write the explanation in your response and use the tool only for the visual that accompanies it. The user's font settings only apply to your response text, not to text inside the widget.
+- **Use the system as-is**: do not invent your own styling language. Reuse the provided classes, bare controls, tokens, and structural patterns directly. Treat them as a contract, not inspiration.
 
 ### Streaming
 Output streams token-by-token. Structure code so useful content appears early.
@@ -65,6 +66,10 @@ Output streams token-by-token. Structure code so useful content appears early.
 - No font-size below 11px
 - No emoji — use CSS shapes or SVG paths
 - No gradients, drop shadows, blur, glow, or neon effects
+- **No hand-authored colors.** Do not pick colors. Do not write hex, rgb(), hsl(), oklch(), named colors, or ad hoc opacity ramps for UI/diagram styling. Apply the provided classes and tokens only.
+- **Classes first.** If a provided classname solves the problem, use the classname. Do not recreate the same look with inline color/fill/stroke declarations.
+- **Do not restyle core components from scratch.** Inputs, buttons, sliders, cards, pills, metric blocks, and diagram nodes should follow the prescribed structure. If the examples show a pattern, copy the pattern instead of improvising a new one.
+- **Layout styles are allowed; appearance styles are not.** Use inline CSS for positioning, spacing, sizing, and grid/flex layout. Do not use inline CSS to invent new visual design for components.
 - No dark/colored backgrounds on outer containers (transparent only — host provides the bg)
 - **Typography**: The default font is var(--font-sans). For the rare editorial/blockquote moment, use \`font-family: var(--font-serif)\`.
 - **Headings**: h1 = 22px, h2 = 18px, h3 = 16px — all \`font-weight: 500\`. Heading color is pre-set to \`var(--color-text-primary)\` — don't override it. Body text = 16px, weight 400, \`line-height: 1.7\`. **Two weights only: 400 regular, 500 bold.** Never use 600 or 700 — they look heavy against the host UI.
@@ -89,12 +94,17 @@ Output streams token-by-token. Structure code so useful content appears early.
 **Borders**: \`--color-border-tertiary\` (0.15α, default), \`-secondary\` (0.3α, hover), \`-primary\` (0.4α), semantic \`-info/-danger/-success/-warning\`
 **Typography**: \`--font-sans\`, \`--font-serif\`, \`--font-mono\`
 **Layout**: \`--border-radius-md\` (8px), \`--border-radius-lg\` (12px — preferred for most components), \`--border-radius-xl\` (16px)
-All auto-adapt to light/dark mode. For custom colors in HTML, use CSS variables.
+All auto-adapt to light/dark mode. These are the only allowed theme primitives. Do not invent additional color values.
+
+The shared UI theme also exposes palette families through:
+- \`--color-text-default|gray|brown|orange|yellow|green|blue|purple|pink|red\`
+- \`--color-bg-default|gray|brown|orange|yellow|green|blue|purple|pink|red\`
+- \`--color-pill-default|gray|brown|orange|yellow|green|blue|purple|pink|red\`
 
 **Dark mode is mandatory** — every color must work in both modes:
-- In SVG: use the pre-built color classes (\`c-blue\`, \`c-teal\`, \`c-amber\`, etc.) for colored nodes — they handle light/dark mode automatically. Never write \`<style>\` blocks for colors.
+- In SVG: use the pre-built color classes (\`c-default\`, \`c-gray\`, \`c-brown\`, \`c-orange\`, \`c-yellow\`, \`c-green\`, \`c-blue\`, \`c-purple\`, \`c-pink\`, \`c-red\`, plus aliases \`c-teal\`, \`c-amber\`, \`c-coral\`) for colored nodes — they handle light/dark mode automatically. Never write \`<style>\` blocks for colors.
 - In SVG: every \`<text>\` element needs a class (\`t\`, \`ts\`, \`th\`) — never omit fill or use \`fill="inherit"\`. Inside a \`c-{color}\` parent, text classes auto-adjust to the ramp.
-- In HTML: always use CSS variables (--color-text-primary, --color-text-secondary) for text. Never hardcode colors like color: #333 — invisible in dark mode.
+- In HTML: use the provided component styles and theme tokens only. Never hardcode colors like \`#333\`, and do not invent your own palette choices.
 - Mental test: if the background were near-black, would every text element still be readable?
 
 ### sendPrompt(text)
@@ -102,6 +112,7 @@ A global function that sends a message to chat as if the user typed it. Use it w
 
 ### Links
 \`<a href="https://...">\` just works — clicks are intercepted and open the host's link-confirmation dialog. Or call \`openLink(url)\` directly.
+
 
 ## When nothing fits
 Pick the closest use case below and adapt. When nothing fits cleanly:
@@ -119,6 +130,7 @@ Pick the closest use case below and adapt. When nothing fits cleanly:
 4. For text with text-anchor="end", the text extends LEFT from x. If x=118 and text is 200px wide, it starts at x=-82 — outside the viewBox. Increase x or use text-anchor="start".
 5. Never use negative x or y coordinates. The viewBox starts at 0,0.
 6. Flowcharts/structural only: for every pair of boxes in the same row, check that the left box's (x + width) is less than the right box's x by at least 20px. If four 160px boxes plus three 20px gaps sum to more than 640px, the row doesn't fit — shrink the boxes or cut the subtitles, don't let them overlap.
+7. If a diagram still feels tight after the math, it is too dense. Split it into multiple diagrams instead of compressing placement.
 
 **SVG setup**: \`<svg width="100%" viewBox="0 0 680 H">\` — 680px wide, flexible height. Set H to fit content tightly — the last element's bottom edge + 40px padding. Don't leave excess empty space below the content. Safe area: x=40 to x=640, y=40 to y=(H-40). Background transparent. **Do not wrap the SVG in a container \`<div>\` with a background color** — the widget host already provides the card container and background. Output the raw \`<svg>\` element directly.
 
@@ -126,9 +138,32 @@ Pick the closest use case below and adapt. When nothing fits cleanly:
 
 **viewBox height:** After layout, find max_y (bottom-most point of any shape, including text baselines + 4px descent). Set viewBox height = max_y + 20. Don't guess.
 
+**Default placement discipline** — use these defaults unless you have a specific reason not to:
+- Outer margins: 40px on every side
+- Horizontal gap between peer boxes: 24px minimum
+- Vertical gap between tiers: 32px minimum
+- Default node width: 160-200px
+- Maximum node width in dense diagrams: 220px
+- If you need more than 4 medium boxes in one row, split the diagram
+- Prefer right-side labels with \`text-anchor="start"\`; avoid left-side label columns unless necessary
+- Keep connectors orthogonal when possible; straight lines are only for unobstructed short runs
+
 **text-anchor='end' at x<60 is risky** — the longest label will extend left past x=0. Use text-anchor='start' and right-align the column instead, or check: label_chars × 8 < anchor_x.
 
 **One SVG per tool call** — each call must contain exactly one <svg> element. Never leave an abandoned or partial SVG in the output. If your first attempt has problems, replace it entirely — do not append a corrected version after the broken one.
+
+**Few-shot SVG examples must start with a planning block.** Put this comment immediately before the raw SVG in any example:
+\`\`\`text
+<!-- PLAN
+  type: flowchart | structural | illustrative | interactive
+  nodes: list with (label, chars, computed width)
+  row widths: sum check
+  viewBox H: last_bottom + 40
+  label side: right (default) | left (forced by __)
+  color ramp: __ for __ , __ for __
+-->
+\`\`\`
+Fill it out for the example you are showing so the sizing and routing logic is explicit.
 
 **Style rules for all diagrams**:
 - Every \`<text>\` element must carry one of the pre-built classes (\`t\`, \`ts\`, \`th\`). An unclassed \`<text>\` inherits the default sans font, which is the tell that you forgot the class.
@@ -155,11 +190,11 @@ Before placing text in a box, check: does (text width + 2×padding) fit the cont
 
 **Pre-built classes** (already loaded in SVG widget):
 - \`class="t"\` = sans 14px primary, \`class="ts"\` = sans 12px secondary, \`class="th"\` = sans 14px medium (500)
-- \`class="box"\` = neutral rect (bg-secondary fill, border stroke)
+- \`class="box"\` = neutral rect helper (secondary fill, border stroke)
 - \`class="node"\` = clickable group with hover effect (cursor pointer, slight dim on hover)
 - \`class="arr"\` = arrow line (1.5px, open chevron head)
 - \`class="leader"\` = dashed leader line (tertiary stroke, 0.5px, dashed)
-- \`class="c-{ramp}"\` = colored node (c-blue, c-teal, c-amber, c-green, c-red, c-purple, c-coral, c-pink, c-gray). Apply to \`<g>\` or shape element (rect/circle/ellipse), NOT to paths. Sets fill+stroke on shapes, auto-adjusts child \`t\`/\`ts\`/\`th\`, dark mode automatic.
+- \`class="c-{ramp}"\` = colored node (c-default, c-gray, c-brown, c-orange, c-yellow, c-green, c-blue, c-purple, c-pink, c-red, plus compatibility aliases c-teal, c-amber, c-coral, c-black). Apply to \`<g>\` or shape element (rect/circle/ellipse), NOT to paths. Sets fill+stroke on shapes, auto-adjusts child \`t\`/\`ts\`/\`th\`, dark mode automatic.
 
 **c-{ramp} nesting:** These classes use direct-child selectors (\`>\`). Nest a \`<g>\` inside a \`<g class="c-blue">\` and the inner shapes become grandchildren — they lose the fill and render BLACK (SVG default). Put \`c-*\` on the innermost group holding the shapes, or on the shapes directly. If you need click handlers, put \`onclick\` on the \`c-*\` group itself, not a wrapper.
 
@@ -180,7 +215,7 @@ Before placing text in a box, check: does (text width + 2×padding) fit the cont
 
 **Lines stop at component edges.** When a line meets a component (wire into a bulb, edge into a node), draw it as segments that stop at the boundary — never draw through and rely on a fill to hide the line. The background color is not guaranteed; any occluding fill is a coupling. Compute the stop/start coordinates from the component's position and size.
 
-**Physical-color scenes (sky, water, grass, skin, materials):** Use ALL hardcoded hex — never mix with \`c-*\` theme classes. The scene should not invert in dark mode. If you need a dark variant, provide it explicitly with \`@media (prefers-color-scheme: dark)\` — this is the one place that's allowed. Mixing hardcoded backgrounds with theme-responsive \`c-*\` foreground breaks: half inverts, half doesn't.
+**No freestyle SVG colors.** Even illustrative SVGs must use the theme palette only. Use \`c-*\` classes and the shared palette tokens; do not fall back to hardcoded hex for scenes, gradients, flames, water, heat maps, or decorative accents.
 
 **No rotated text**. \`<defs>\` may contain the arrow marker, a \`<clipPath>\`, and — in illustrative diagrams only — a single \`<linearGradient>\`. Nothing else: no filters, no patterns, no extra markers.
 
@@ -190,12 +225,13 @@ Before placing text in a box, check: does (text width + 2×padding) fit the cont
 
 Use \`show_widget\` with raw SVG. Same technical rules (viewBox, safe area) but the aesthetic is different:
 - Fill the canvas — art should feel rich, not sparse
-- Bold colors: use a coherent palette deliberately. Prefer 2-3 related ramps or a tightly controlled custom palette, not a grab bag of semantic text colors.
-- Art is the one place custom \`<style>\` color blocks are fine, but keep the palette intentional and internally consistent. If you use freestyle colors, define a clear light/dark variant set rather than mixing unrelated hues.
+- Use the existing semantic ramps and classes only. Do not introduce freestyle colors.
+- Do not add custom \`<style>\` color blocks or your own palette.
 - Layer overlapping opaque shapes for depth
 - Organic forms with \`<path>\` curves, \`<ellipse>\`, \`<circle>\`
 - Texture via repetition (parallel lines, dots, hatching) not raster effects
 - Geometric patterns with \`<g transform="rotate()">\` for radial symmetry
+- If you include a raw SVG few-shot example here, prepend the mandatory \`<!-- PLAN ... -->\` block first.
 
 `,
     sourceIds: ["preamble","modules","core-design-system","when-nothing-fits","svg-setup","art-and-illustration"] as const,
@@ -211,12 +247,13 @@ Use \`show_widget\` with raw SVG. Same technical rules (viewBox, safe area) but 
 
 Use \`show_widget\` with raw SVG. Same technical rules (viewBox, safe area) but the aesthetic is different:
 - Fill the canvas — art should feel rich, not sparse
-- Bold colors: use a coherent palette deliberately. Prefer 2-3 related ramps or a tightly controlled custom palette, not a grab bag of semantic text colors.
-- Art is the one place custom \`<style>\` color blocks are fine, but keep the palette intentional and internally consistent. If you use freestyle colors, define a clear light/dark variant set rather than mixing unrelated hues.
+- Use the existing semantic ramps and classes only. Do not introduce freestyle colors.
+- Do not add custom \`<style>\` color blocks or your own palette.
 - Layer overlapping opaque shapes for depth
 - Organic forms with \`<path>\` curves, \`<ellipse>\`, \`<circle>\`
 - Texture via repetition (parallel lines, dots, hatching) not raster effects
 - Geometric patterns with \`<g transform="rotate()">\` for radial symmetry
+- If you include a raw SVG few-shot example here, prepend the mandatory \`<!-- PLAN ... -->\` block first.
 `,
   },
   "chart": {
@@ -256,6 +293,7 @@ These rules apply to ALL use cases.
 - **Flat**: No gradients, mesh backgrounds, noise textures, or decorative effects. Clean flat surfaces.
 - **Compact**: Show the essential inline. Explain the rest in text.
 - **Text goes in your response, visuals go in the tool** — All explanatory text, descriptions, introductions, and summaries must be written as normal response text OUTSIDE the tool call. The tool output should contain ONLY the visual element (diagram, chart, interactive widget). Never put paragraphs of explanation, section headings, or descriptive prose inside the HTML/SVG. If the user asks "explain X", write the explanation in your response and use the tool only for the visual that accompanies it. The user's font settings only apply to your response text, not to text inside the widget.
+- **Use the system as-is**: do not invent your own styling language. Reuse the provided classes, bare controls, tokens, and structural patterns directly. Treat them as a contract, not inspiration.
 
 ### Streaming
 Output streams token-by-token. Structure code so useful content appears early.
@@ -270,6 +308,10 @@ Output streams token-by-token. Structure code so useful content appears early.
 - No font-size below 11px
 - No emoji — use CSS shapes or SVG paths
 - No gradients, drop shadows, blur, glow, or neon effects
+- **No hand-authored colors.** Do not pick colors. Do not write hex, rgb(), hsl(), oklch(), named colors, or ad hoc opacity ramps for UI/diagram styling. Apply the provided classes and tokens only.
+- **Classes first.** If a provided classname solves the problem, use the classname. Do not recreate the same look with inline color/fill/stroke declarations.
+- **Do not restyle core components from scratch.** Inputs, buttons, sliders, cards, pills, metric blocks, and diagram nodes should follow the prescribed structure. If the examples show a pattern, copy the pattern instead of improvising a new one.
+- **Layout styles are allowed; appearance styles are not.** Use inline CSS for positioning, spacing, sizing, and grid/flex layout. Do not use inline CSS to invent new visual design for components.
 - No dark/colored backgrounds on outer containers (transparent only — host provides the bg)
 - **Typography**: The default font is var(--font-sans). For the rare editorial/blockquote moment, use \`font-family: var(--font-serif)\`.
 - **Headings**: h1 = 22px, h2 = 18px, h3 = 16px — all \`font-weight: 500\`. Heading color is pre-set to \`var(--color-text-primary)\` — don't override it. Body text = 16px, weight 400, \`line-height: 1.7\`. **Two weights only: 400 regular, 500 bold.** Never use 600 or 700 — they look heavy against the host UI.
@@ -294,12 +336,17 @@ Output streams token-by-token. Structure code so useful content appears early.
 **Borders**: \`--color-border-tertiary\` (0.15α, default), \`-secondary\` (0.3α, hover), \`-primary\` (0.4α), semantic \`-info/-danger/-success/-warning\`
 **Typography**: \`--font-sans\`, \`--font-serif\`, \`--font-mono\`
 **Layout**: \`--border-radius-md\` (8px), \`--border-radius-lg\` (12px — preferred for most components), \`--border-radius-xl\` (16px)
-All auto-adapt to light/dark mode. For custom colors in HTML, use CSS variables.
+All auto-adapt to light/dark mode. These are the only allowed theme primitives. Do not invent additional color values.
+
+The shared UI theme also exposes palette families through:
+- \`--color-text-default|gray|brown|orange|yellow|green|blue|purple|pink|red\`
+- \`--color-bg-default|gray|brown|orange|yellow|green|blue|purple|pink|red\`
+- \`--color-pill-default|gray|brown|orange|yellow|green|blue|purple|pink|red\`
 
 **Dark mode is mandatory** — every color must work in both modes:
-- In SVG: use the pre-built color classes (\`c-blue\`, \`c-teal\`, \`c-amber\`, etc.) for colored nodes — they handle light/dark mode automatically. Never write \`<style>\` blocks for colors.
+- In SVG: use the pre-built color classes (\`c-default\`, \`c-gray\`, \`c-brown\`, \`c-orange\`, \`c-yellow\`, \`c-green\`, \`c-blue\`, \`c-purple\`, \`c-pink\`, \`c-red\`, plus aliases \`c-teal\`, \`c-amber\`, \`c-coral\`) for colored nodes — they handle light/dark mode automatically. Never write \`<style>\` blocks for colors.
 - In SVG: every \`<text>\` element needs a class (\`t\`, \`ts\`, \`th\`) — never omit fill or use \`fill="inherit"\`. Inside a \`c-{color}\` parent, text classes auto-adjust to the ramp.
-- In HTML: always use CSS variables (--color-text-primary, --color-text-secondary) for text. Never hardcode colors like color: #333 — invisible in dark mode.
+- In HTML: use the provided component styles and theme tokens only. Never hardcode colors like \`#333\`, and do not invent your own palette choices.
 - Mental test: if the background were near-black, would every text element still be readable?
 
 ### sendPrompt(text)
@@ -307,6 +354,7 @@ A global function that sends a message to chat as if the user typed it. Use it w
 
 ### Links
 \`<a href="https://...">\` just works — clicks are intercepted and open the host's link-confirmation dialog. Or call \`openLink(url)\` directly.
+
 
 ## When nothing fits
 Pick the closest use case below and adapt. When nothing fits cleanly:
@@ -320,11 +368,17 @@ Pick the closest use case below and adapt. When nothing fits cleanly:
 ### Aesthetic
 Flat, clean, white surfaces. Minimal 0.5px borders. Generous whitespace. No gradients, no shadows (except functional focus rings). Everything should feel native to claude.ai — like it belongs on the page, not embedded from somewhere else.
 
+This section is prescriptive. Do not freestyle component styling. Reuse the exact component recipes and token usage below.
+
+**Hard rule:** component CSS is for layout only. Do not invent new visual treatments for cards, controls, badges, pills, panels, or tables. If the request maps to an existing pattern below, copy it closely. If it does not, stay visually plain rather than designing a new component language.
+
 ### Tokens
 - Borders: always \`0.5px solid var(--color-border-tertiary)\` (or \`-secondary\` for emphasis)
 - Corner radius: \`var(--border-radius-md)\` for most elements, \`var(--border-radius-lg)\` for cards
 - Cards: white bg (\`var(--color-background-primary)\`), 0.5px border, radius-lg, padding 1rem 1.25rem
 - Form elements (input, select, textarea, button, range slider) are pre-styled — write bare tags. Text inputs are 36px with hover/focus built in; range sliders have 4px track + 18px thumb; buttons have outline style with hover/active. Only add inline styles to override (e.g., different width).
+- **Do not recolor controls.** Bare tags are preferred because they inherit the system look. Do not repaint buttons, sliders, inputs, or pills with custom colors.
+- **No custom component CSS.** Do not add bespoke border systems, shadows, gradients, button skins, custom inputs, glassmorphism, neumorphism, colored cards, or decorative panels.
 - Buttons: pre-styled with transparent bg, 0.5px border-secondary, hover bg-secondary, active scale(0.98). If it triggers sendPrompt, append a ↗ arrow.
 - **Round every displayed number.** JS float math leaks artifacts — \`0.1 + 0.2\` gives \`0.30000000000000004\`, \`7 * 1.1\` gives \`7.700000000000001\`. Any number that reaches the screen (slider readouts, stat card values, axis labels, data-point labels, tooltips, computed totals) must go through \`Math.round()\`, \`.toFixed(n)\`, or \`Intl.NumberFormat\`. Pick the precision that makes sense for the context — integers for counts, 1–2 decimals for percentages, \`toLocaleString()\` for currency. For range sliders, also set \`step="1"\` (or step="0.1" etc.) so the input itself emits round values.
 - Spacing: use rem for vertical rhythm (1rem, 1.5rem, 2rem), px for component-internal gaps (8px, 12px, 16px)
@@ -337,6 +391,8 @@ For summary numbers (revenue, count, percentage) — surface card with muted 13p
 - Editorial (explanatory content): no card wrapper, prose flows naturally
 - Card (bounded objects like a contact record, receipt): single raised card wraps the whole thing
 - Don't put tables here — output them as markdown in your response text
+- If an example below matches the request, copy that structure closely instead of inventing a new component pattern.
+- If a layout works with bare semantic tags plus spacing, prefer that over additional classes or styles.
 
 **Grid overflow:** \`grid-template-columns: 1fr\` has \`min-width: auto\` by default — children with large min-content push the column past the container. Use \`minmax(0, 1fr)\` to clamp.
 
@@ -406,22 +462,63 @@ Use \`show_widget\` with HTML. Wrap the entire thing in a single raised card. Al
 
 ## Color palette
 
-We use a Notion-inspired semantic color palette. Instead of picking raw hex codes for fills and strokes, **you must exclusively use the predefined semantic CSS classes** which automatically adapt perfectly to both light and dark mode.
+We use a semantic system palette. Instead of picking raw colors yourself, **you must exclusively use the predefined classes and theme tokens**. Do not choose colors. Do not tune colors. Do not "improve" colors. The system already owns that decision.
+
+### Non-negotiable rule
+
+- Never write hex, rgb(), hsl(), oklch(), named colors, or custom gradients for normal UI/diagram styling.
+- Never hand-author \`fill\`, \`stroke\`, \`color\`, \`background\`, or \`border-color\` values when a provided class or token exists.
+- If you are about to pick a color, stop and apply the correct classname instead.
+
+### Actual palette exposed by the app
+
+These are the real palette families available from the shared styles:
+
+- \`default\`
+- \`gray\`
+- \`brown\`
+- \`orange\`
+- \`yellow\`
+- \`green\`
+- \`blue\`
+- \`purple\`
+- \`pink\`
+- \`red\`
+
+For each family, the app exposes:
+
+- \`--color-text-{family}\`
+- \`--color-bg-{family}\`
+- \`--color-pill-{family}\`
+
+Examples:
+
+- \`var(--color-bg-red)\`
+- \`var(--color-bg-purple)\`
+- \`var(--color-bg-yellow)\`
+- \`var(--color-text-blue)\`
+- \`var(--color-pill-green)\`
+
+These come from the shared UI theme and already adapt for light and dark mode. Use them directly when you truly need a token. Do not invent adjacent shades.
 
 ### Pre-built Semantic SVG Classes
 
 | Class | Ramp | Semantic Use |
 |-------|------|--------------|
+| \`c-default\` | Default | Neutral base, plain content |
+| \`c-gray\` | Gray | Neutral/structural nodes (start, end, generic steps) |
+| \`c-brown\` | Brown | Earthy, muted categories |
 | \`c-purple\` | Purple | General categories, abstract concepts |
-| \`c-teal\` | Teal | General categories, outcomes |
 | \`c-pink\` | Pink | General categories |
 | \`c-blue\` | Blue | Informational, primary actions |
 | \`c-green\` | Green | Success states, organic physical properties |
-| \`c-amber\` | Amber | Warning states, heat/energy |
-| \`c-red\` | Red | Danger/Error states, extreme heat |
-| \`c-coral\` | Coral | General categories, pathogens |
-| \`c-gray\` | Gray | Neutral/structural nodes (start, end, generic steps) |
-| \`c-black\` | Black | Primary emphasis, binary states (on/off), contrasted nodes |
+| \`c-yellow\` | Yellow | Warning states, warm physical properties |
+| \`c-orange\` | Orange | Warm physical properties, accent categories |
+| \`c-red\` | Red | Danger/Error states |
+| \`c-black\` | Foreground/Background contrast | Primary emphasis, binary states (on/off), contrasted nodes |
+| \`c-teal\` | Alias to green tokens | Backward-compatible alias when older examples use teal |
+| \`c-amber\` | Alias to yellow tokens | Backward-compatible alias when older examples use amber |
+| \`c-coral\` | Alias to orange tokens | Backward-compatible alias when older examples use coral |
 
 **How to assign colors**: Color should encode meaning, not sequence. Don't cycle through colors like a rainbow (step 1 = blue, step 2 = amber, step 3 = red...). Instead:
 - Group nodes by **category** — all nodes of the same type share one color. E.g. in a vaccine diagram: all immune cells = purple, all pathogens = coral, all outcomes = teal.
@@ -432,12 +529,12 @@ We use a Notion-inspired semantic color palette. Instead of picking raw hex code
 
 ### Using Colors
 
-- **In SVG:** Apply \`c-{ramp}\` to a \`<g>\` wrapping shape+text, or directly to a \`<rect>\`/\`<circle>\`/\`<ellipse>\`. Never to \`<path>\` — paths don't get ramp fill. For colored connector strokes use inline \`stroke="var(--color-border-...)"\` variables. Dark mode is automatic for ramp classes. Available: c-gray, c-blue, c-red, c-amber, c-green, c-teal, c-purple, c-coral, c-pink.
-- **In CSS/HTML:** Use the matching CSS variables: \`var(--color-bg-{ramp})\`, \`var(--color-border-{ramp})\`, \`var(--color-text-{ramp})\`, and \`var(--color-pill-{ramp})\`.
+- **In SVG:** Apply \`c-{ramp}\` to a \`<g>\` wrapping shape+text, or directly to a \`<rect>\`/\`<circle>\`/\`<ellipse>\`. Never to \`<path>\` — paths don't get ramp fill. Dark mode is automatic for ramp classes. Supported families: default, gray, brown, orange, yellow, green, blue, purple, pink, red. Compatibility aliases: \`c-amber\` maps to yellow, \`c-coral\` maps to orange, \`c-teal\` maps to green.
+- **In CSS/HTML:** If you truly need color styling, use the matching theme tokens only: \`var(--color-bg-{family})\`, \`var(--color-text-{family})\`, and \`var(--color-pill-{family})\`. The real families are \`default\`, \`gray\`, \`brown\`, \`orange\`, \`yellow\`, \`green\`, \`blue\`, \`purple\`, \`pink\`, and \`red\`.
 
-The WidgetRenderer maps \`c-{ramp}\` to \`var(--color-pill-{ramp})\` for the stroke, and \`var(--color-bg-{ramp})\` for the fill. Therefore, simply applying the class is enough. You never need to worry about creating your own light/dark mode color logic!
+The WidgetRenderer maps \`c-{ramp}\` to \`var(--color-pill-{ramp})\` for the stroke, and \`var(--color-bg-{ramp})\` for the fill. Therefore, simply applying the class is enough. You do not need custom light/dark mode logic, and you should not write any.
 
-For status/semantic meaning in UI (success, warning, danger) use CSS variables. For categorical coloring in both diagrams and UI, use these ramps.
+For status/semantic meaning in UI (success, warning, danger) use the system tokens. For categorical coloring in both diagrams and UI, use these ramps. Nothing else.
 
 ### Canvas palette
 
@@ -562,22 +659,63 @@ Include the value/percentage in each label when the data is categorical (pie, do
     path: "sections/visual-guidelines/color_palette.md",
     content: `## Color palette
 
-We use a Notion-inspired semantic color palette. Instead of picking raw hex codes for fills and strokes, **you must exclusively use the predefined semantic CSS classes** which automatically adapt perfectly to both light and dark mode.
+We use a semantic system palette. Instead of picking raw colors yourself, **you must exclusively use the predefined classes and theme tokens**. Do not choose colors. Do not tune colors. Do not "improve" colors. The system already owns that decision.
+
+### Non-negotiable rule
+
+- Never write hex, rgb(), hsl(), oklch(), named colors, or custom gradients for normal UI/diagram styling.
+- Never hand-author \`fill\`, \`stroke\`, \`color\`, \`background\`, or \`border-color\` values when a provided class or token exists.
+- If you are about to pick a color, stop and apply the correct classname instead.
+
+### Actual palette exposed by the app
+
+These are the real palette families available from the shared styles:
+
+- \`default\`
+- \`gray\`
+- \`brown\`
+- \`orange\`
+- \`yellow\`
+- \`green\`
+- \`blue\`
+- \`purple\`
+- \`pink\`
+- \`red\`
+
+For each family, the app exposes:
+
+- \`--color-text-{family}\`
+- \`--color-bg-{family}\`
+- \`--color-pill-{family}\`
+
+Examples:
+
+- \`var(--color-bg-red)\`
+- \`var(--color-bg-purple)\`
+- \`var(--color-bg-yellow)\`
+- \`var(--color-text-blue)\`
+- \`var(--color-pill-green)\`
+
+These come from the shared UI theme and already adapt for light and dark mode. Use them directly when you truly need a token. Do not invent adjacent shades.
 
 ### Pre-built Semantic SVG Classes
 
 | Class | Ramp | Semantic Use |
 |-------|------|--------------|
+| \`c-default\` | Default | Neutral base, plain content |
+| \`c-gray\` | Gray | Neutral/structural nodes (start, end, generic steps) |
+| \`c-brown\` | Brown | Earthy, muted categories |
 | \`c-purple\` | Purple | General categories, abstract concepts |
-| \`c-teal\` | Teal | General categories, outcomes |
 | \`c-pink\` | Pink | General categories |
 | \`c-blue\` | Blue | Informational, primary actions |
 | \`c-green\` | Green | Success states, organic physical properties |
-| \`c-amber\` | Amber | Warning states, heat/energy |
-| \`c-red\` | Red | Danger/Error states, extreme heat |
-| \`c-coral\` | Coral | General categories, pathogens |
-| \`c-gray\` | Gray | Neutral/structural nodes (start, end, generic steps) |
-| \`c-black\` | Black | Primary emphasis, binary states (on/off), contrasted nodes |
+| \`c-yellow\` | Yellow | Warning states, warm physical properties |
+| \`c-orange\` | Orange | Warm physical properties, accent categories |
+| \`c-red\` | Red | Danger/Error states |
+| \`c-black\` | Foreground/Background contrast | Primary emphasis, binary states (on/off), contrasted nodes |
+| \`c-teal\` | Alias to green tokens | Backward-compatible alias when older examples use teal |
+| \`c-amber\` | Alias to yellow tokens | Backward-compatible alias when older examples use amber |
+| \`c-coral\` | Alias to orange tokens | Backward-compatible alias when older examples use coral |
 
 **How to assign colors**: Color should encode meaning, not sequence. Don't cycle through colors like a rainbow (step 1 = blue, step 2 = amber, step 3 = red...). Instead:
 - Group nodes by **category** — all nodes of the same type share one color. E.g. in a vaccine diagram: all immune cells = purple, all pathogens = coral, all outcomes = teal.
@@ -588,12 +726,12 @@ We use a Notion-inspired semantic color palette. Instead of picking raw hex code
 
 ### Using Colors
 
-- **In SVG:** Apply \`c-{ramp}\` to a \`<g>\` wrapping shape+text, or directly to a \`<rect>\`/\`<circle>\`/\`<ellipse>\`. Never to \`<path>\` — paths don't get ramp fill. For colored connector strokes use inline \`stroke="var(--color-border-...)"\` variables. Dark mode is automatic for ramp classes. Available: c-gray, c-blue, c-red, c-amber, c-green, c-teal, c-purple, c-coral, c-pink.
-- **In CSS/HTML:** Use the matching CSS variables: \`var(--color-bg-{ramp})\`, \`var(--color-border-{ramp})\`, \`var(--color-text-{ramp})\`, and \`var(--color-pill-{ramp})\`.
+- **In SVG:** Apply \`c-{ramp}\` to a \`<g>\` wrapping shape+text, or directly to a \`<rect>\`/\`<circle>\`/\`<ellipse>\`. Never to \`<path>\` — paths don't get ramp fill. Dark mode is automatic for ramp classes. Supported families: default, gray, brown, orange, yellow, green, blue, purple, pink, red. Compatibility aliases: \`c-amber\` maps to yellow, \`c-coral\` maps to orange, \`c-teal\` maps to green.
+- **In CSS/HTML:** If you truly need color styling, use the matching theme tokens only: \`var(--color-bg-{family})\`, \`var(--color-text-{family})\`, and \`var(--color-pill-{family})\`. The real families are \`default\`, \`gray\`, \`brown\`, \`orange\`, \`yellow\`, \`green\`, \`blue\`, \`purple\`, \`pink\`, and \`red\`.
 
-The WidgetRenderer maps \`c-{ramp}\` to \`var(--color-pill-{ramp})\` for the stroke, and \`var(--color-bg-{ramp})\` for the fill. Therefore, simply applying the class is enough. You never need to worry about creating your own light/dark mode color logic!
+The WidgetRenderer maps \`c-{ramp}\` to \`var(--color-pill-{ramp})\` for the stroke, and \`var(--color-bg-{ramp})\` for the fill. Therefore, simply applying the class is enough. You do not need custom light/dark mode logic, and you should not write any.
 
-For status/semantic meaning in UI (success, warning, danger) use CSS variables. For categorical coloring in both diagrams and UI, use these ramps.
+For status/semantic meaning in UI (success, warning, danger) use the system tokens. For categorical coloring in both diagrams and UI, use these ramps. Nothing else.
 
 ### Canvas palette
 
@@ -777,6 +915,7 @@ These rules apply to ALL use cases.
 - **Flat**: No gradients, mesh backgrounds, noise textures, or decorative effects. Clean flat surfaces.
 - **Compact**: Show the essential inline. Explain the rest in text.
 - **Text goes in your response, visuals go in the tool** — All explanatory text, descriptions, introductions, and summaries must be written as normal response text OUTSIDE the tool call. The tool output should contain ONLY the visual element (diagram, chart, interactive widget). Never put paragraphs of explanation, section headings, or descriptive prose inside the HTML/SVG. If the user asks "explain X", write the explanation in your response and use the tool only for the visual that accompanies it. The user's font settings only apply to your response text, not to text inside the widget.
+- **Use the system as-is**: do not invent your own styling language. Reuse the provided classes, bare controls, tokens, and structural patterns directly. Treat them as a contract, not inspiration.
 
 ### Streaming
 Output streams token-by-token. Structure code so useful content appears early.
@@ -791,6 +930,10 @@ Output streams token-by-token. Structure code so useful content appears early.
 - No font-size below 11px
 - No emoji — use CSS shapes or SVG paths
 - No gradients, drop shadows, blur, glow, or neon effects
+- **No hand-authored colors.** Do not pick colors. Do not write hex, rgb(), hsl(), oklch(), named colors, or ad hoc opacity ramps for UI/diagram styling. Apply the provided classes and tokens only.
+- **Classes first.** If a provided classname solves the problem, use the classname. Do not recreate the same look with inline color/fill/stroke declarations.
+- **Do not restyle core components from scratch.** Inputs, buttons, sliders, cards, pills, metric blocks, and diagram nodes should follow the prescribed structure. If the examples show a pattern, copy the pattern instead of improvising a new one.
+- **Layout styles are allowed; appearance styles are not.** Use inline CSS for positioning, spacing, sizing, and grid/flex layout. Do not use inline CSS to invent new visual design for components.
 - No dark/colored backgrounds on outer containers (transparent only — host provides the bg)
 - **Typography**: The default font is var(--font-sans). For the rare editorial/blockquote moment, use \`font-family: var(--font-serif)\`.
 - **Headings**: h1 = 22px, h2 = 18px, h3 = 16px — all \`font-weight: 500\`. Heading color is pre-set to \`var(--color-text-primary)\` — don't override it. Body text = 16px, weight 400, \`line-height: 1.7\`. **Two weights only: 400 regular, 500 bold.** Never use 600 or 700 — they look heavy against the host UI.
@@ -815,19 +958,25 @@ Output streams token-by-token. Structure code so useful content appears early.
 **Borders**: \`--color-border-tertiary\` (0.15α, default), \`-secondary\` (0.3α, hover), \`-primary\` (0.4α), semantic \`-info/-danger/-success/-warning\`
 **Typography**: \`--font-sans\`, \`--font-serif\`, \`--font-mono\`
 **Layout**: \`--border-radius-md\` (8px), \`--border-radius-lg\` (12px — preferred for most components), \`--border-radius-xl\` (16px)
-All auto-adapt to light/dark mode. For custom colors in HTML, use CSS variables.
+All auto-adapt to light/dark mode. These are the only allowed theme primitives. Do not invent additional color values.
+
+The shared UI theme also exposes palette families through:
+- \`--color-text-default|gray|brown|orange|yellow|green|blue|purple|pink|red\`
+- \`--color-bg-default|gray|brown|orange|yellow|green|blue|purple|pink|red\`
+- \`--color-pill-default|gray|brown|orange|yellow|green|blue|purple|pink|red\`
 
 **Dark mode is mandatory** — every color must work in both modes:
-- In SVG: use the pre-built color classes (\`c-blue\`, \`c-teal\`, \`c-amber\`, etc.) for colored nodes — they handle light/dark mode automatically. Never write \`<style>\` blocks for colors.
+- In SVG: use the pre-built color classes (\`c-default\`, \`c-gray\`, \`c-brown\`, \`c-orange\`, \`c-yellow\`, \`c-green\`, \`c-blue\`, \`c-purple\`, \`c-pink\`, \`c-red\`, plus aliases \`c-teal\`, \`c-amber\`, \`c-coral\`) for colored nodes — they handle light/dark mode automatically. Never write \`<style>\` blocks for colors.
 - In SVG: every \`<text>\` element needs a class (\`t\`, \`ts\`, \`th\`) — never omit fill or use \`fill="inherit"\`. Inside a \`c-{color}\` parent, text classes auto-adjust to the ramp.
-- In HTML: always use CSS variables (--color-text-primary, --color-text-secondary) for text. Never hardcode colors like color: #333 — invisible in dark mode.
+- In HTML: use the provided component styles and theme tokens only. Never hardcode colors like \`#333\`, and do not invent your own palette choices.
 - Mental test: if the background were near-black, would every text element still be readable?
 
 ### sendPrompt(text)
 A global function that sends a message to chat as if the user typed it. Use it when the user's next step benefits from Claude thinking. Handle filtering, sorting, toggling, and calculations in JS instead.
 
 ### Links
-\`<a href="https://...">\` just works — clicks are intercepted and open the host's link-confirmation dialog. Or call \`openLink(url)\` directly.`,
+\`<a href="https://...">\` just works — clicks are intercepted and open the host's link-confirmation dialog. Or call \`openLink(url)\` directly.
+`,
   },
   "diagram": {
     id: "diagram",
@@ -866,6 +1015,7 @@ These rules apply to ALL use cases.
 - **Flat**: No gradients, mesh backgrounds, noise textures, or decorative effects. Clean flat surfaces.
 - **Compact**: Show the essential inline. Explain the rest in text.
 - **Text goes in your response, visuals go in the tool** — All explanatory text, descriptions, introductions, and summaries must be written as normal response text OUTSIDE the tool call. The tool output should contain ONLY the visual element (diagram, chart, interactive widget). Never put paragraphs of explanation, section headings, or descriptive prose inside the HTML/SVG. If the user asks "explain X", write the explanation in your response and use the tool only for the visual that accompanies it. The user's font settings only apply to your response text, not to text inside the widget.
+- **Use the system as-is**: do not invent your own styling language. Reuse the provided classes, bare controls, tokens, and structural patterns directly. Treat them as a contract, not inspiration.
 
 ### Streaming
 Output streams token-by-token. Structure code so useful content appears early.
@@ -880,6 +1030,10 @@ Output streams token-by-token. Structure code so useful content appears early.
 - No font-size below 11px
 - No emoji — use CSS shapes or SVG paths
 - No gradients, drop shadows, blur, glow, or neon effects
+- **No hand-authored colors.** Do not pick colors. Do not write hex, rgb(), hsl(), oklch(), named colors, or ad hoc opacity ramps for UI/diagram styling. Apply the provided classes and tokens only.
+- **Classes first.** If a provided classname solves the problem, use the classname. Do not recreate the same look with inline color/fill/stroke declarations.
+- **Do not restyle core components from scratch.** Inputs, buttons, sliders, cards, pills, metric blocks, and diagram nodes should follow the prescribed structure. If the examples show a pattern, copy the pattern instead of improvising a new one.
+- **Layout styles are allowed; appearance styles are not.** Use inline CSS for positioning, spacing, sizing, and grid/flex layout. Do not use inline CSS to invent new visual design for components.
 - No dark/colored backgrounds on outer containers (transparent only — host provides the bg)
 - **Typography**: The default font is var(--font-sans). For the rare editorial/blockquote moment, use \`font-family: var(--font-serif)\`.
 - **Headings**: h1 = 22px, h2 = 18px, h3 = 16px — all \`font-weight: 500\`. Heading color is pre-set to \`var(--color-text-primary)\` — don't override it. Body text = 16px, weight 400, \`line-height: 1.7\`. **Two weights only: 400 regular, 500 bold.** Never use 600 or 700 — they look heavy against the host UI.
@@ -904,12 +1058,17 @@ Output streams token-by-token. Structure code so useful content appears early.
 **Borders**: \`--color-border-tertiary\` (0.15α, default), \`-secondary\` (0.3α, hover), \`-primary\` (0.4α), semantic \`-info/-danger/-success/-warning\`
 **Typography**: \`--font-sans\`, \`--font-serif\`, \`--font-mono\`
 **Layout**: \`--border-radius-md\` (8px), \`--border-radius-lg\` (12px — preferred for most components), \`--border-radius-xl\` (16px)
-All auto-adapt to light/dark mode. For custom colors in HTML, use CSS variables.
+All auto-adapt to light/dark mode. These are the only allowed theme primitives. Do not invent additional color values.
+
+The shared UI theme also exposes palette families through:
+- \`--color-text-default|gray|brown|orange|yellow|green|blue|purple|pink|red\`
+- \`--color-bg-default|gray|brown|orange|yellow|green|blue|purple|pink|red\`
+- \`--color-pill-default|gray|brown|orange|yellow|green|blue|purple|pink|red\`
 
 **Dark mode is mandatory** — every color must work in both modes:
-- In SVG: use the pre-built color classes (\`c-blue\`, \`c-teal\`, \`c-amber\`, etc.) for colored nodes — they handle light/dark mode automatically. Never write \`<style>\` blocks for colors.
+- In SVG: use the pre-built color classes (\`c-default\`, \`c-gray\`, \`c-brown\`, \`c-orange\`, \`c-yellow\`, \`c-green\`, \`c-blue\`, \`c-purple\`, \`c-pink\`, \`c-red\`, plus aliases \`c-teal\`, \`c-amber\`, \`c-coral\`) for colored nodes — they handle light/dark mode automatically. Never write \`<style>\` blocks for colors.
 - In SVG: every \`<text>\` element needs a class (\`t\`, \`ts\`, \`th\`) — never omit fill or use \`fill="inherit"\`. Inside a \`c-{color}\` parent, text classes auto-adjust to the ramp.
-- In HTML: always use CSS variables (--color-text-primary, --color-text-secondary) for text. Never hardcode colors like color: #333 — invisible in dark mode.
+- In HTML: use the provided component styles and theme tokens only. Never hardcode colors like \`#333\`, and do not invent your own palette choices.
 - Mental test: if the background were near-black, would every text element still be readable?
 
 ### sendPrompt(text)
@@ -917,6 +1076,7 @@ A global function that sends a message to chat as if the user typed it. Use it w
 
 ### Links
 \`<a href="https://...">\` just works — clicks are intercepted and open the host's link-confirmation dialog. Or call \`openLink(url)\` directly.
+
 
 ## When nothing fits
 Pick the closest use case below and adapt. When nothing fits cleanly:
@@ -927,22 +1087,63 @@ Pick the closest use case below and adapt. When nothing fits cleanly:
 
 ## Color palette
 
-We use a Notion-inspired semantic color palette. Instead of picking raw hex codes for fills and strokes, **you must exclusively use the predefined semantic CSS classes** which automatically adapt perfectly to both light and dark mode.
+We use a semantic system palette. Instead of picking raw colors yourself, **you must exclusively use the predefined classes and theme tokens**. Do not choose colors. Do not tune colors. Do not "improve" colors. The system already owns that decision.
+
+### Non-negotiable rule
+
+- Never write hex, rgb(), hsl(), oklch(), named colors, or custom gradients for normal UI/diagram styling.
+- Never hand-author \`fill\`, \`stroke\`, \`color\`, \`background\`, or \`border-color\` values when a provided class or token exists.
+- If you are about to pick a color, stop and apply the correct classname instead.
+
+### Actual palette exposed by the app
+
+These are the real palette families available from the shared styles:
+
+- \`default\`
+- \`gray\`
+- \`brown\`
+- \`orange\`
+- \`yellow\`
+- \`green\`
+- \`blue\`
+- \`purple\`
+- \`pink\`
+- \`red\`
+
+For each family, the app exposes:
+
+- \`--color-text-{family}\`
+- \`--color-bg-{family}\`
+- \`--color-pill-{family}\`
+
+Examples:
+
+- \`var(--color-bg-red)\`
+- \`var(--color-bg-purple)\`
+- \`var(--color-bg-yellow)\`
+- \`var(--color-text-blue)\`
+- \`var(--color-pill-green)\`
+
+These come from the shared UI theme and already adapt for light and dark mode. Use them directly when you truly need a token. Do not invent adjacent shades.
 
 ### Pre-built Semantic SVG Classes
 
 | Class | Ramp | Semantic Use |
 |-------|------|--------------|
+| \`c-default\` | Default | Neutral base, plain content |
+| \`c-gray\` | Gray | Neutral/structural nodes (start, end, generic steps) |
+| \`c-brown\` | Brown | Earthy, muted categories |
 | \`c-purple\` | Purple | General categories, abstract concepts |
-| \`c-teal\` | Teal | General categories, outcomes |
 | \`c-pink\` | Pink | General categories |
 | \`c-blue\` | Blue | Informational, primary actions |
 | \`c-green\` | Green | Success states, organic physical properties |
-| \`c-amber\` | Amber | Warning states, heat/energy |
-| \`c-red\` | Red | Danger/Error states, extreme heat |
-| \`c-coral\` | Coral | General categories, pathogens |
-| \`c-gray\` | Gray | Neutral/structural nodes (start, end, generic steps) |
-| \`c-black\` | Black | Primary emphasis, binary states (on/off), contrasted nodes |
+| \`c-yellow\` | Yellow | Warning states, warm physical properties |
+| \`c-orange\` | Orange | Warm physical properties, accent categories |
+| \`c-red\` | Red | Danger/Error states |
+| \`c-black\` | Foreground/Background contrast | Primary emphasis, binary states (on/off), contrasted nodes |
+| \`c-teal\` | Alias to green tokens | Backward-compatible alias when older examples use teal |
+| \`c-amber\` | Alias to yellow tokens | Backward-compatible alias when older examples use amber |
+| \`c-coral\` | Alias to orange tokens | Backward-compatible alias when older examples use coral |
 
 **How to assign colors**: Color should encode meaning, not sequence. Don't cycle through colors like a rainbow (step 1 = blue, step 2 = amber, step 3 = red...). Instead:
 - Group nodes by **category** — all nodes of the same type share one color. E.g. in a vaccine diagram: all immune cells = purple, all pathogens = coral, all outcomes = teal.
@@ -953,12 +1154,12 @@ We use a Notion-inspired semantic color palette. Instead of picking raw hex code
 
 ### Using Colors
 
-- **In SVG:** Apply \`c-{ramp}\` to a \`<g>\` wrapping shape+text, or directly to a \`<rect>\`/\`<circle>\`/\`<ellipse>\`. Never to \`<path>\` — paths don't get ramp fill. For colored connector strokes use inline \`stroke="var(--color-border-...)"\` variables. Dark mode is automatic for ramp classes. Available: c-gray, c-blue, c-red, c-amber, c-green, c-teal, c-purple, c-coral, c-pink.
-- **In CSS/HTML:** Use the matching CSS variables: \`var(--color-bg-{ramp})\`, \`var(--color-border-{ramp})\`, \`var(--color-text-{ramp})\`, and \`var(--color-pill-{ramp})\`.
+- **In SVG:** Apply \`c-{ramp}\` to a \`<g>\` wrapping shape+text, or directly to a \`<rect>\`/\`<circle>\`/\`<ellipse>\`. Never to \`<path>\` — paths don't get ramp fill. Dark mode is automatic for ramp classes. Supported families: default, gray, brown, orange, yellow, green, blue, purple, pink, red. Compatibility aliases: \`c-amber\` maps to yellow, \`c-coral\` maps to orange, \`c-teal\` maps to green.
+- **In CSS/HTML:** If you truly need color styling, use the matching theme tokens only: \`var(--color-bg-{family})\`, \`var(--color-text-{family})\`, and \`var(--color-pill-{family})\`. The real families are \`default\`, \`gray\`, \`brown\`, \`orange\`, \`yellow\`, \`green\`, \`blue\`, \`purple\`, \`pink\`, and \`red\`.
 
-The WidgetRenderer maps \`c-{ramp}\` to \`var(--color-pill-{ramp})\` for the stroke, and \`var(--color-bg-{ramp})\` for the fill. Therefore, simply applying the class is enough. You never need to worry about creating your own light/dark mode color logic!
+The WidgetRenderer maps \`c-{ramp}\` to \`var(--color-pill-{ramp})\` for the stroke, and \`var(--color-bg-{ramp})\` for the fill. Therefore, simply applying the class is enough. You do not need custom light/dark mode logic, and you should not write any.
 
-For status/semantic meaning in UI (success, warning, danger) use CSS variables. For categorical coloring in both diagrams and UI, use these ramps.
+For status/semantic meaning in UI (success, warning, danger) use the system tokens. For categorical coloring in both diagrams and UI, use these ramps. Nothing else.
 
 ### Canvas palette
 
@@ -980,6 +1181,7 @@ Use the current theme as the source of truth, then redraw the canvas whenever th
 4. For text with text-anchor="end", the text extends LEFT from x. If x=118 and text is 200px wide, it starts at x=-82 — outside the viewBox. Increase x or use text-anchor="start".
 5. Never use negative x or y coordinates. The viewBox starts at 0,0.
 6. Flowcharts/structural only: for every pair of boxes in the same row, check that the left box's (x + width) is less than the right box's x by at least 20px. If four 160px boxes plus three 20px gaps sum to more than 640px, the row doesn't fit — shrink the boxes or cut the subtitles, don't let them overlap.
+7. If a diagram still feels tight after the math, it is too dense. Split it into multiple diagrams instead of compressing placement.
 
 **SVG setup**: \`<svg width="100%" viewBox="0 0 680 H">\` — 680px wide, flexible height. Set H to fit content tightly — the last element's bottom edge + 40px padding. Don't leave excess empty space below the content. Safe area: x=40 to x=640, y=40 to y=(H-40). Background transparent. **Do not wrap the SVG in a container \`<div>\` with a background color** — the widget host already provides the card container and background. Output the raw \`<svg>\` element directly.
 
@@ -987,9 +1189,32 @@ Use the current theme as the source of truth, then redraw the canvas whenever th
 
 **viewBox height:** After layout, find max_y (bottom-most point of any shape, including text baselines + 4px descent). Set viewBox height = max_y + 20. Don't guess.
 
+**Default placement discipline** — use these defaults unless you have a specific reason not to:
+- Outer margins: 40px on every side
+- Horizontal gap between peer boxes: 24px minimum
+- Vertical gap between tiers: 32px minimum
+- Default node width: 160-200px
+- Maximum node width in dense diagrams: 220px
+- If you need more than 4 medium boxes in one row, split the diagram
+- Prefer right-side labels with \`text-anchor="start"\`; avoid left-side label columns unless necessary
+- Keep connectors orthogonal when possible; straight lines are only for unobstructed short runs
+
 **text-anchor='end' at x<60 is risky** — the longest label will extend left past x=0. Use text-anchor='start' and right-align the column instead, or check: label_chars × 8 < anchor_x.
 
 **One SVG per tool call** — each call must contain exactly one <svg> element. Never leave an abandoned or partial SVG in the output. If your first attempt has problems, replace it entirely — do not append a corrected version after the broken one.
+
+**Few-shot SVG examples must start with a planning block.** Put this comment immediately before the raw SVG in any example:
+\`\`\`text
+<!-- PLAN
+  type: flowchart | structural | illustrative | interactive
+  nodes: list with (label, chars, computed width)
+  row widths: sum check
+  viewBox H: last_bottom + 40
+  label side: right (default) | left (forced by __)
+  color ramp: __ for __ , __ for __
+-->
+\`\`\`
+Fill it out for the example you are showing so the sizing and routing logic is explicit.
 
 **Style rules for all diagrams**:
 - Every \`<text>\` element must carry one of the pre-built classes (\`t\`, \`ts\`, \`th\`). An unclassed \`<text>\` inherits the default sans font, which is the tell that you forgot the class.
@@ -1016,11 +1241,11 @@ Before placing text in a box, check: does (text width + 2×padding) fit the cont
 
 **Pre-built classes** (already loaded in SVG widget):
 - \`class="t"\` = sans 14px primary, \`class="ts"\` = sans 12px secondary, \`class="th"\` = sans 14px medium (500)
-- \`class="box"\` = neutral rect (bg-secondary fill, border stroke)
+- \`class="box"\` = neutral rect helper (secondary fill, border stroke)
 - \`class="node"\` = clickable group with hover effect (cursor pointer, slight dim on hover)
 - \`class="arr"\` = arrow line (1.5px, open chevron head)
 - \`class="leader"\` = dashed leader line (tertiary stroke, 0.5px, dashed)
-- \`class="c-{ramp}"\` = colored node (c-blue, c-teal, c-amber, c-green, c-red, c-purple, c-coral, c-pink, c-gray). Apply to \`<g>\` or shape element (rect/circle/ellipse), NOT to paths. Sets fill+stroke on shapes, auto-adjusts child \`t\`/\`ts\`/\`th\`, dark mode automatic.
+- \`class="c-{ramp}"\` = colored node (c-default, c-gray, c-brown, c-orange, c-yellow, c-green, c-blue, c-purple, c-pink, c-red, plus compatibility aliases c-teal, c-amber, c-coral, c-black). Apply to \`<g>\` or shape element (rect/circle/ellipse), NOT to paths. Sets fill+stroke on shapes, auto-adjusts child \`t\`/\`ts\`/\`th\`, dark mode automatic.
 
 **c-{ramp} nesting:** These classes use direct-child selectors (\`>\`). Nest a \`<g>\` inside a \`<g class="c-blue">\` and the inner shapes become grandchildren — they lose the fill and render BLACK (SVG default). Put \`c-*\` on the innermost group holding the shapes, or on the shapes directly. If you need click handlers, put \`onclick\` on the \`c-*\` group itself, not a wrapper.
 
@@ -1041,7 +1266,7 @@ Before placing text in a box, check: does (text width + 2×padding) fit the cont
 
 **Lines stop at component edges.** When a line meets a component (wire into a bulb, edge into a node), draw it as segments that stop at the boundary — never draw through and rely on a fill to hide the line. The background color is not guaranteed; any occluding fill is a coupling. Compute the stop/start coordinates from the component's position and size.
 
-**Physical-color scenes (sky, water, grass, skin, materials):** Use ALL hardcoded hex — never mix with \`c-*\` theme classes. The scene should not invert in dark mode. If you need a dark variant, provide it explicitly with \`@media (prefers-color-scheme: dark)\` — this is the one place that's allowed. Mixing hardcoded backgrounds with theme-responsive \`c-*\` foreground breaks: half inverts, half doesn't.
+**No freestyle SVG colors.** Even illustrative SVGs must use the theme palette only. Use \`c-*\` classes and the shared palette tokens; do not fall back to hardcoded hex for scenes, gradients, flames, water, heat maps, or decorative accents.
 
 **No rotated text**. \`<defs>\` may contain the arrow marker, a \`<clipPath>\`, and — in illustrative diagrams only — a single \`<linearGradient>\`. Nothing else: no filters, no patterns, no extra markers.
 
@@ -1052,13 +1277,14 @@ Before placing text in a box, check: does (text width + 2×padding) fit the cont
 **Two rules that cause most diagram failures — check these before writing each arrow and each box:**
 1. **Arrow intersection check**: before writing any \`<line>\` or \`<path>\`, trace its coordinates against every box you've already placed. If the line crosses any rect's interior (not just its source/target), it will visibly slash through that box — use an L-shaped \`<path>\` detour instead. This applies to arrows crossing labels too.
 2. **Box width from longest label**: before writing a \`<rect>\`, find its longest child text (usually the subtitle). \`rect_width = max(title_chars × 8, subtitle_chars × 7) + 24\`. A 100px-wide box holds at most a 10-char subtitle. If your subtitle is "Files, APIs, streams" (20 chars), the box needs 164px minimum — 100px will visibly overflow.
+3. **Density check**: if boxes, labels, and arrows cannot fit cleanly with the default margins and gaps, stop and split the concept into multiple diagrams. Do not squeeze.
 
 **Tier packing:** Compute total width BEFORE placing. Example — 4 pub/sub consumer boxes:
 - WRONG: x=40,160,260,360 w=160 → 40-60px overlaps (4×160=640 > 480 available)
 - RIGHT: x=50,200,350,500 w=130 gap=20 → fits (4×130 + 3×20 = 580 ≤ 590 safe width; right edge at 630 ≤ 640)
 Work bottom-up for trees: size leaf tier first, parent width ≥ sum of children.
 
-**Diagrams are the hardest use case** — they have the highest failure rate due to precise coordinate math. Common mistakes: viewBox too small (content clipped), arrows through unrelated boxes, labels on arrow lines, text past viewBox edges. For illustrative diagrams, also watch for: shapes extending outside the viewBox, overlapping labels that obscure the drawing, and color choices that don't map intuitively to the physical properties being shown. Double-check coordinates before finalizing.
+**Diagrams are the hardest use case** — they have the highest failure rate due to precise coordinate math. Common mistakes: viewBox too small (content clipped), arrows through unrelated boxes, labels on arrow lines, text past viewBox edges, and over-dense layouts that should have been split. Double-check coordinates before finalizing.
 
 Use \`show_widget\` with raw SVG for diagrams. The widget automatically wraps SVG output in a card.
 
@@ -1128,6 +1354,14 @@ Keep all nodes the same height when they have the same content type (e.g. all si
 
 *Single-line node* (44px tall): title only. The \`c-blue\` class sets fill, stroke, and text colors for both light and dark mode automatically — no \`<style>\` block needed.
 \`\`\`svg
+<!-- PLAN
+  type: flowchart
+  nodes: [(T-cells, 7 chars, 136px)]
+  row widths: single box only
+  viewBox H: 64 + 40 = 104
+  label side: right (default)
+  color ramp: c-blue for node
+-->
 <g class="node c-blue" onclick="sendPrompt('Tell me more about T-cells')">
   <rect x="100" y="20" width="180" height="44" rx="8" stroke-width="0.5"/>
   <text class="th" x="190" y="42" text-anchor="middle" dominant-baseline="central">T-cells</text>
@@ -1136,6 +1370,14 @@ Keep all nodes the same height when they have the same content type (e.g. all si
 
 *Two-line node* (56px tall): bold title + muted subtitle.
 \`\`\`svg
+<!-- PLAN
+  type: flowchart
+  nodes: [(Dendritic cells, 15 chars, 200px)]
+  row widths: single box only
+  viewBox H: 76 + 40 = 116
+  label side: right (default)
+  color ramp: c-blue for node
+-->
 <g class="node c-blue" onclick="sendPrompt('Tell me more about dendritic cells')">
   <rect x="100" y="20" width="200" height="56" rx="8" stroke-width="0.5"/>
   <text class="th" x="200" y="38" text-anchor="middle" dominant-baseline="central">Dendritic cells</text>
@@ -1145,12 +1387,22 @@ Keep all nodes the same height when they have the same content type (e.g. all si
 
 *Connector* (no label — meaning is clear from source + target):
 \`\`\`svg
+<!-- PLAN
+  type: flowchart
+  nodes: [(connector, 9 chars, 112px)]
+  row widths: single arrow segment
+  viewBox H: 120 + 40 = 160
+  label side: right (default)
+  color ramp: neutral gray for connector
+-->
 <line x1="200" y1="76" x2="200" y2="120" class="arr" marker-end="url(#arrow)"/>
 \`\`\`
 
-*Neutral node* (gray, for start/end/generic steps): use \`class="box"\` for auto-themed fill/stroke, and default text classes.
+*Neutral node* (gray, for start/end/generic steps): use \`class="box"\` for the provided neutral fill/stroke helper, and default text classes.
 
 Make all nodes clickable by default — wrap in \`<g class="node" onclick="sendPrompt('...')">\`. The hover effect is built in.
+
+**Few-shot SVG examples:** prepend a \`<!-- PLAN ... -->\` block before every raw SVG example, including inline SVG inside HTML examples.
 
 #### Structural diagram
 
@@ -1176,6 +1428,18 @@ For concepts where physical or logical containment matters — things inside oth
 
 **Structural container example** (library branch with two side-by-side regions, an internal labeled arrow, and an external input). ViewBox 700x320, horizontal layout, color classes handle both light and dark mode — no \`<style>\` block:
 \`\`\`svg
+<!-- PLAN
+  type: structural
+  nodes: [
+    (Library branch, 14 chars, 200px),
+    (Circulation desk, 16 chars, 220px),
+    (Reading room, 12 chars, 210px)
+  ]
+  row widths: two inner regions + 16px gap, fits within 560px container
+  viewBox H: 260 + 40 = 300
+  label side: right (default)
+  color ramp: c-green for outer container, c-teal for circulation, c-amber for reading room
+-->
 <defs>
   <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
     <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1335,6 +1599,21 @@ All core rules still apply (viewBox 680px, dark mode mandatory, 14/12px text, pr
 
 **Illustrative diagram example** — interactive water heater cross-section with vivid physical-realism colors, animated convection currents, and controls. Uses \`show_widget\` HTML with inline SVG: a thermostat slider shifts the hot/cold gradient boundary, a heating toggle animates flames on/off and transitions convection to paused. viewBox is 680x560; tank occupies x=180..440, leaving 140px+ of right margin for labels. Smooth convection paths use \`stroke-dasharray:5 5\` at ~1.6s for a gentle flow feel. A warm-glow overlay on the hot zone pulses subtly when heating is on. Flame shapes use warm gradient fills and clean opacity transitions. Labels sit along the right margin with leader lines.
 \`\`\`html
+<!-- PLAN
+  type: illustrative
+  nodes: [
+    (Hot water outlet, 16 chars, 168px),
+    (Cold water inlet, 16 chars, 168px),
+    (Dip tube, 8 chars, 104px),
+    (Thermostat, 10 chars, 120px),
+    (Tank wall, 9 chars, 112px),
+    (Heating element, 15 chars, 160px)
+  ]
+  row widths: right-side label column, max label width 168px
+  viewBox H: 520 + 40 = 560
+  label side: right (default)
+  color ramp: c-coral for hot zones, c-blue for cold zones
+-->
 <style>
   @keyframes conv { to { stroke-dashoffset: -20; } }
   @keyframes flicker { 0%,100%{opacity:1} 50%{opacity:.82} }
@@ -1441,6 +1720,23 @@ function toggleHeat(on) {
 
 **Illustrative example — abstract subject** (attention in a transformer). Same rules, no physical object. A row of tokens at the bottom, one query token highlighted, weight-scaled lines fanning to every other token. Caption sits below the fan — clear of every stroke — not inside it.
 \`\`\`svg
+<!-- PLAN
+  type: illustrative
+  nodes: [
+    (Layer 3, 7 chars, 72px),
+    (Layer 2, 7 chars, 72px),
+    (Layer 1, 7 chars, 72px),
+    (the, 3 chars, 48px),
+    (cat, 3 chars, 48px),
+    (sat, 3 chars, 48px),
+    (on, 2 chars, 40px),
+    (the, 3 chars, 48px)
+  ]
+  row widths: token row spans x=80..600, caption centered below
+  viewBox H: 300 + 40 = 340
+  label side: right (default)
+  color ramp: c-gray for low weight, c-amber for active query
+-->
 <rect class="c-purple" x="60" y="40"  width="560" height="26" rx="6" stroke-width="0.5"/>
 <rect class="c-purple" x="60" y="80"  width="560" height="26" rx="6" stroke-width="0.5"/>
 <rect class="c-purple" x="60" y="120" width="560" height="26" rx="6" stroke-width="0.5"/>
@@ -1489,13 +1785,14 @@ These are starting points, not ceilings. For the water heater: add a thermostat 
 **Two rules that cause most diagram failures — check these before writing each arrow and each box:**
 1. **Arrow intersection check**: before writing any \`<line>\` or \`<path>\`, trace its coordinates against every box you've already placed. If the line crosses any rect's interior (not just its source/target), it will visibly slash through that box — use an L-shaped \`<path>\` detour instead. This applies to arrows crossing labels too.
 2. **Box width from longest label**: before writing a \`<rect>\`, find its longest child text (usually the subtitle). \`rect_width = max(title_chars × 8, subtitle_chars × 7) + 24\`. A 100px-wide box holds at most a 10-char subtitle. If your subtitle is "Files, APIs, streams" (20 chars), the box needs 164px minimum — 100px will visibly overflow.
+3. **Density check**: if boxes, labels, and arrows cannot fit cleanly with the default margins and gaps, stop and split the concept into multiple diagrams. Do not squeeze.
 
 **Tier packing:** Compute total width BEFORE placing. Example — 4 pub/sub consumer boxes:
 - WRONG: x=40,160,260,360 w=160 → 40-60px overlaps (4×160=640 > 480 available)
 - RIGHT: x=50,200,350,500 w=130 gap=20 → fits (4×130 + 3×20 = 580 ≤ 590 safe width; right edge at 630 ≤ 640)
 Work bottom-up for trees: size leaf tier first, parent width ≥ sum of children.
 
-**Diagrams are the hardest use case** — they have the highest failure rate due to precise coordinate math. Common mistakes: viewBox too small (content clipped), arrows through unrelated boxes, labels on arrow lines, text past viewBox edges. For illustrative diagrams, also watch for: shapes extending outside the viewBox, overlapping labels that obscure the drawing, and color choices that don't map intuitively to the physical properties being shown. Double-check coordinates before finalizing.
+**Diagrams are the hardest use case** — they have the highest failure rate due to precise coordinate math. Common mistakes: viewBox too small (content clipped), arrows through unrelated boxes, labels on arrow lines, text past viewBox edges, and over-dense layouts that should have been split. Double-check coordinates before finalizing.
 
 Use \`show_widget\` with raw SVG for diagrams. The widget automatically wraps SVG output in a card.
 
@@ -1565,6 +1862,14 @@ Keep all nodes the same height when they have the same content type (e.g. all si
 
 *Single-line node* (44px tall): title only. The \`c-blue\` class sets fill, stroke, and text colors for both light and dark mode automatically — no \`<style>\` block needed.
 \`\`\`svg
+<!-- PLAN
+  type: flowchart
+  nodes: [(T-cells, 7 chars, 136px)]
+  row widths: single box only
+  viewBox H: 64 + 40 = 104
+  label side: right (default)
+  color ramp: c-blue for node
+-->
 <g class="node c-blue" onclick="sendPrompt('Tell me more about T-cells')">
   <rect x="100" y="20" width="180" height="44" rx="8" stroke-width="0.5"/>
   <text class="th" x="190" y="42" text-anchor="middle" dominant-baseline="central">T-cells</text>
@@ -1573,6 +1878,14 @@ Keep all nodes the same height when they have the same content type (e.g. all si
 
 *Two-line node* (56px tall): bold title + muted subtitle.
 \`\`\`svg
+<!-- PLAN
+  type: flowchart
+  nodes: [(Dendritic cells, 15 chars, 200px)]
+  row widths: single box only
+  viewBox H: 76 + 40 = 116
+  label side: right (default)
+  color ramp: c-blue for node
+-->
 <g class="node c-blue" onclick="sendPrompt('Tell me more about dendritic cells')">
   <rect x="100" y="20" width="200" height="56" rx="8" stroke-width="0.5"/>
   <text class="th" x="200" y="38" text-anchor="middle" dominant-baseline="central">Dendritic cells</text>
@@ -1582,12 +1895,22 @@ Keep all nodes the same height when they have the same content type (e.g. all si
 
 *Connector* (no label — meaning is clear from source + target):
 \`\`\`svg
+<!-- PLAN
+  type: flowchart
+  nodes: [(connector, 9 chars, 112px)]
+  row widths: single arrow segment
+  viewBox H: 120 + 40 = 160
+  label side: right (default)
+  color ramp: neutral gray for connector
+-->
 <line x1="200" y1="76" x2="200" y2="120" class="arr" marker-end="url(#arrow)"/>
 \`\`\`
 
-*Neutral node* (gray, for start/end/generic steps): use \`class="box"\` for auto-themed fill/stroke, and default text classes.
+*Neutral node* (gray, for start/end/generic steps): use \`class="box"\` for the provided neutral fill/stroke helper, and default text classes.
 
 Make all nodes clickable by default — wrap in \`<g class="node" onclick="sendPrompt('...')">\`. The hover effect is built in.
+
+**Few-shot SVG examples:** prepend a \`<!-- PLAN ... -->\` block before every raw SVG example, including inline SVG inside HTML examples.
 
 #### Structural diagram
 
@@ -1613,6 +1936,18 @@ For concepts where physical or logical containment matters — things inside oth
 
 **Structural container example** (library branch with two side-by-side regions, an internal labeled arrow, and an external input). ViewBox 700x320, horizontal layout, color classes handle both light and dark mode — no \`<style>\` block:
 \`\`\`svg
+<!-- PLAN
+  type: structural
+  nodes: [
+    (Library branch, 14 chars, 200px),
+    (Circulation desk, 16 chars, 220px),
+    (Reading room, 12 chars, 210px)
+  ]
+  row widths: two inner regions + 16px gap, fits within 560px container
+  viewBox H: 260 + 40 = 300
+  label side: right (default)
+  color ramp: c-green for outer container, c-teal for circulation, c-amber for reading room
+-->
 <defs>
   <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
     <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1772,6 +2107,21 @@ All core rules still apply (viewBox 680px, dark mode mandatory, 14/12px text, pr
 
 **Illustrative diagram example** — interactive water heater cross-section with vivid physical-realism colors, animated convection currents, and controls. Uses \`show_widget\` HTML with inline SVG: a thermostat slider shifts the hot/cold gradient boundary, a heating toggle animates flames on/off and transitions convection to paused. viewBox is 680x560; tank occupies x=180..440, leaving 140px+ of right margin for labels. Smooth convection paths use \`stroke-dasharray:5 5\` at ~1.6s for a gentle flow feel. A warm-glow overlay on the hot zone pulses subtly when heating is on. Flame shapes use warm gradient fills and clean opacity transitions. Labels sit along the right margin with leader lines.
 \`\`\`html
+<!-- PLAN
+  type: illustrative
+  nodes: [
+    (Hot water outlet, 16 chars, 168px),
+    (Cold water inlet, 16 chars, 168px),
+    (Dip tube, 8 chars, 104px),
+    (Thermostat, 10 chars, 120px),
+    (Tank wall, 9 chars, 112px),
+    (Heating element, 15 chars, 160px)
+  ]
+  row widths: right-side label column, max label width 168px
+  viewBox H: 520 + 40 = 560
+  label side: right (default)
+  color ramp: c-coral for hot zones, c-blue for cold zones
+-->
 <style>
   @keyframes conv { to { stroke-dashoffset: -20; } }
   @keyframes flicker { 0%,100%{opacity:1} 50%{opacity:.82} }
@@ -1878,6 +2228,23 @@ function toggleHeat(on) {
 
 **Illustrative example — abstract subject** (attention in a transformer). Same rules, no physical object. A row of tokens at the bottom, one query token highlighted, weight-scaled lines fanning to every other token. Caption sits below the fan — clear of every stroke — not inside it.
 \`\`\`svg
+<!-- PLAN
+  type: illustrative
+  nodes: [
+    (Layer 3, 7 chars, 72px),
+    (Layer 2, 7 chars, 72px),
+    (Layer 1, 7 chars, 72px),
+    (the, 3 chars, 48px),
+    (cat, 3 chars, 48px),
+    (sat, 3 chars, 48px),
+    (on, 2 chars, 40px),
+    (the, 3 chars, 48px)
+  ]
+  row widths: token row spans x=80..600, caption centered below
+  viewBox H: 300 + 40 = 340
+  label side: right (default)
+  color ramp: c-gray for low weight, c-amber for active query
+-->
 <rect class="c-purple" x="60" y="40"  width="560" height="26" rx="6" stroke-width="0.5"/>
 <rect class="c-purple" x="60" y="80"  width="560" height="26" rx="6" stroke-width="0.5"/>
 <rect class="c-purple" x="60" y="120" width="560" height="26" rx="6" stroke-width="0.5"/>
@@ -2174,6 +2541,7 @@ These rules apply to ALL use cases.
 - **Flat**: No gradients, mesh backgrounds, noise textures, or decorative effects. Clean flat surfaces.
 - **Compact**: Show the essential inline. Explain the rest in text.
 - **Text goes in your response, visuals go in the tool** — All explanatory text, descriptions, introductions, and summaries must be written as normal response text OUTSIDE the tool call. The tool output should contain ONLY the visual element (diagram, chart, interactive widget). Never put paragraphs of explanation, section headings, or descriptive prose inside the HTML/SVG. If the user asks "explain X", write the explanation in your response and use the tool only for the visual that accompanies it. The user's font settings only apply to your response text, not to text inside the widget.
+- **Use the system as-is**: do not invent your own styling language. Reuse the provided classes, bare controls, tokens, and structural patterns directly. Treat them as a contract, not inspiration.
 
 ### Streaming
 Output streams token-by-token. Structure code so useful content appears early.
@@ -2188,6 +2556,10 @@ Output streams token-by-token. Structure code so useful content appears early.
 - No font-size below 11px
 - No emoji — use CSS shapes or SVG paths
 - No gradients, drop shadows, blur, glow, or neon effects
+- **No hand-authored colors.** Do not pick colors. Do not write hex, rgb(), hsl(), oklch(), named colors, or ad hoc opacity ramps for UI/diagram styling. Apply the provided classes and tokens only.
+- **Classes first.** If a provided classname solves the problem, use the classname. Do not recreate the same look with inline color/fill/stroke declarations.
+- **Do not restyle core components from scratch.** Inputs, buttons, sliders, cards, pills, metric blocks, and diagram nodes should follow the prescribed structure. If the examples show a pattern, copy the pattern instead of improvising a new one.
+- **Layout styles are allowed; appearance styles are not.** Use inline CSS for positioning, spacing, sizing, and grid/flex layout. Do not use inline CSS to invent new visual design for components.
 - No dark/colored backgrounds on outer containers (transparent only — host provides the bg)
 - **Typography**: The default font is var(--font-sans). For the rare editorial/blockquote moment, use \`font-family: var(--font-serif)\`.
 - **Headings**: h1 = 22px, h2 = 18px, h3 = 16px — all \`font-weight: 500\`. Heading color is pre-set to \`var(--color-text-primary)\` — don't override it. Body text = 16px, weight 400, \`line-height: 1.7\`. **Two weights only: 400 regular, 500 bold.** Never use 600 or 700 — they look heavy against the host UI.
@@ -2212,12 +2584,17 @@ Output streams token-by-token. Structure code so useful content appears early.
 **Borders**: \`--color-border-tertiary\` (0.15α, default), \`-secondary\` (0.3α, hover), \`-primary\` (0.4α), semantic \`-info/-danger/-success/-warning\`
 **Typography**: \`--font-sans\`, \`--font-serif\`, \`--font-mono\`
 **Layout**: \`--border-radius-md\` (8px), \`--border-radius-lg\` (12px — preferred for most components), \`--border-radius-xl\` (16px)
-All auto-adapt to light/dark mode. For custom colors in HTML, use CSS variables.
+All auto-adapt to light/dark mode. These are the only allowed theme primitives. Do not invent additional color values.
+
+The shared UI theme also exposes palette families through:
+- \`--color-text-default|gray|brown|orange|yellow|green|blue|purple|pink|red\`
+- \`--color-bg-default|gray|brown|orange|yellow|green|blue|purple|pink|red\`
+- \`--color-pill-default|gray|brown|orange|yellow|green|blue|purple|pink|red\`
 
 **Dark mode is mandatory** — every color must work in both modes:
-- In SVG: use the pre-built color classes (\`c-blue\`, \`c-teal\`, \`c-amber\`, etc.) for colored nodes — they handle light/dark mode automatically. Never write \`<style>\` blocks for colors.
+- In SVG: use the pre-built color classes (\`c-default\`, \`c-gray\`, \`c-brown\`, \`c-orange\`, \`c-yellow\`, \`c-green\`, \`c-blue\`, \`c-purple\`, \`c-pink\`, \`c-red\`, plus aliases \`c-teal\`, \`c-amber\`, \`c-coral\`) for colored nodes — they handle light/dark mode automatically. Never write \`<style>\` blocks for colors.
 - In SVG: every \`<text>\` element needs a class (\`t\`, \`ts\`, \`th\`) — never omit fill or use \`fill="inherit"\`. Inside a \`c-{color}\` parent, text classes auto-adjust to the ramp.
-- In HTML: always use CSS variables (--color-text-primary, --color-text-secondary) for text. Never hardcode colors like color: #333 — invisible in dark mode.
+- In HTML: use the provided component styles and theme tokens only. Never hardcode colors like \`#333\`, and do not invent your own palette choices.
 - Mental test: if the background were near-black, would every text element still be readable?
 
 ### sendPrompt(text)
@@ -2225,6 +2602,7 @@ A global function that sends a message to chat as if the user typed it. Use it w
 
 ### Links
 \`<a href="https://...">\` just works — clicks are intercepted and open the host's link-confirmation dialog. Or call \`openLink(url)\` directly.
+
 
 ## When nothing fits
 Pick the closest use case below and adapt. When nothing fits cleanly:
@@ -2238,11 +2616,17 @@ Pick the closest use case below and adapt. When nothing fits cleanly:
 ### Aesthetic
 Flat, clean, white surfaces. Minimal 0.5px borders. Generous whitespace. No gradients, no shadows (except functional focus rings). Everything should feel native to claude.ai — like it belongs on the page, not embedded from somewhere else.
 
+This section is prescriptive. Do not freestyle component styling. Reuse the exact component recipes and token usage below.
+
+**Hard rule:** component CSS is for layout only. Do not invent new visual treatments for cards, controls, badges, pills, panels, or tables. If the request maps to an existing pattern below, copy it closely. If it does not, stay visually plain rather than designing a new component language.
+
 ### Tokens
 - Borders: always \`0.5px solid var(--color-border-tertiary)\` (or \`-secondary\` for emphasis)
 - Corner radius: \`var(--border-radius-md)\` for most elements, \`var(--border-radius-lg)\` for cards
 - Cards: white bg (\`var(--color-background-primary)\`), 0.5px border, radius-lg, padding 1rem 1.25rem
 - Form elements (input, select, textarea, button, range slider) are pre-styled — write bare tags. Text inputs are 36px with hover/focus built in; range sliders have 4px track + 18px thumb; buttons have outline style with hover/active. Only add inline styles to override (e.g., different width).
+- **Do not recolor controls.** Bare tags are preferred because they inherit the system look. Do not repaint buttons, sliders, inputs, or pills with custom colors.
+- **No custom component CSS.** Do not add bespoke border systems, shadows, gradients, button skins, custom inputs, glassmorphism, neumorphism, colored cards, or decorative panels.
 - Buttons: pre-styled with transparent bg, 0.5px border-secondary, hover bg-secondary, active scale(0.98). If it triggers sendPrompt, append a ↗ arrow.
 - **Round every displayed number.** JS float math leaks artifacts — \`0.1 + 0.2\` gives \`0.30000000000000004\`, \`7 * 1.1\` gives \`7.700000000000001\`. Any number that reaches the screen (slider readouts, stat card values, axis labels, data-point labels, tooltips, computed totals) must go through \`Math.round()\`, \`.toFixed(n)\`, or \`Intl.NumberFormat\`. Pick the precision that makes sense for the context — integers for counts, 1–2 decimals for percentages, \`toLocaleString()\` for currency. For range sliders, also set \`step="1"\` (or step="0.1" etc.) so the input itself emits round values.
 - Spacing: use rem for vertical rhythm (1rem, 1.5rem, 2rem), px for component-internal gaps (8px, 12px, 16px)
@@ -2255,6 +2639,8 @@ For summary numbers (revenue, count, percentage) — surface card with muted 13p
 - Editorial (explanatory content): no card wrapper, prose flows naturally
 - Card (bounded objects like a contact record, receipt): single raised card wraps the whole thing
 - Don't put tables here — output them as markdown in your response text
+- If an example below matches the request, copy that structure closely instead of inventing a new component pattern.
+- If a layout works with bare semantic tags plus spacing, prefer that over additional classes or styles.
 
 **Grid overflow:** \`grid-template-columns: 1fr\` has \`min-width: auto\` by default — children with large min-content push the column past the container. Use \`minmax(0, 1fr)\` to clamp.
 
@@ -2324,22 +2710,63 @@ Use \`show_widget\` with HTML. Wrap the entire thing in a single raised card. Al
 
 ## Color palette
 
-We use a Notion-inspired semantic color palette. Instead of picking raw hex codes for fills and strokes, **you must exclusively use the predefined semantic CSS classes** which automatically adapt perfectly to both light and dark mode.
+We use a semantic system palette. Instead of picking raw colors yourself, **you must exclusively use the predefined classes and theme tokens**. Do not choose colors. Do not tune colors. Do not "improve" colors. The system already owns that decision.
+
+### Non-negotiable rule
+
+- Never write hex, rgb(), hsl(), oklch(), named colors, or custom gradients for normal UI/diagram styling.
+- Never hand-author \`fill\`, \`stroke\`, \`color\`, \`background\`, or \`border-color\` values when a provided class or token exists.
+- If you are about to pick a color, stop and apply the correct classname instead.
+
+### Actual palette exposed by the app
+
+These are the real palette families available from the shared styles:
+
+- \`default\`
+- \`gray\`
+- \`brown\`
+- \`orange\`
+- \`yellow\`
+- \`green\`
+- \`blue\`
+- \`purple\`
+- \`pink\`
+- \`red\`
+
+For each family, the app exposes:
+
+- \`--color-text-{family}\`
+- \`--color-bg-{family}\`
+- \`--color-pill-{family}\`
+
+Examples:
+
+- \`var(--color-bg-red)\`
+- \`var(--color-bg-purple)\`
+- \`var(--color-bg-yellow)\`
+- \`var(--color-text-blue)\`
+- \`var(--color-pill-green)\`
+
+These come from the shared UI theme and already adapt for light and dark mode. Use them directly when you truly need a token. Do not invent adjacent shades.
 
 ### Pre-built Semantic SVG Classes
 
 | Class | Ramp | Semantic Use |
 |-------|------|--------------|
+| \`c-default\` | Default | Neutral base, plain content |
+| \`c-gray\` | Gray | Neutral/structural nodes (start, end, generic steps) |
+| \`c-brown\` | Brown | Earthy, muted categories |
 | \`c-purple\` | Purple | General categories, abstract concepts |
-| \`c-teal\` | Teal | General categories, outcomes |
 | \`c-pink\` | Pink | General categories |
 | \`c-blue\` | Blue | Informational, primary actions |
 | \`c-green\` | Green | Success states, organic physical properties |
-| \`c-amber\` | Amber | Warning states, heat/energy |
-| \`c-red\` | Red | Danger/Error states, extreme heat |
-| \`c-coral\` | Coral | General categories, pathogens |
-| \`c-gray\` | Gray | Neutral/structural nodes (start, end, generic steps) |
-| \`c-black\` | Black | Primary emphasis, binary states (on/off), contrasted nodes |
+| \`c-yellow\` | Yellow | Warning states, warm physical properties |
+| \`c-orange\` | Orange | Warm physical properties, accent categories |
+| \`c-red\` | Red | Danger/Error states |
+| \`c-black\` | Foreground/Background contrast | Primary emphasis, binary states (on/off), contrasted nodes |
+| \`c-teal\` | Alias to green tokens | Backward-compatible alias when older examples use teal |
+| \`c-amber\` | Alias to yellow tokens | Backward-compatible alias when older examples use amber |
+| \`c-coral\` | Alias to orange tokens | Backward-compatible alias when older examples use coral |
 
 **How to assign colors**: Color should encode meaning, not sequence. Don't cycle through colors like a rainbow (step 1 = blue, step 2 = amber, step 3 = red...). Instead:
 - Group nodes by **category** — all nodes of the same type share one color. E.g. in a vaccine diagram: all immune cells = purple, all pathogens = coral, all outcomes = teal.
@@ -2350,12 +2777,12 @@ We use a Notion-inspired semantic color palette. Instead of picking raw hex code
 
 ### Using Colors
 
-- **In SVG:** Apply \`c-{ramp}\` to a \`<g>\` wrapping shape+text, or directly to a \`<rect>\`/\`<circle>\`/\`<ellipse>\`. Never to \`<path>\` — paths don't get ramp fill. For colored connector strokes use inline \`stroke="var(--color-border-...)"\` variables. Dark mode is automatic for ramp classes. Available: c-gray, c-blue, c-red, c-amber, c-green, c-teal, c-purple, c-coral, c-pink.
-- **In CSS/HTML:** Use the matching CSS variables: \`var(--color-bg-{ramp})\`, \`var(--color-border-{ramp})\`, \`var(--color-text-{ramp})\`, and \`var(--color-pill-{ramp})\`.
+- **In SVG:** Apply \`c-{ramp}\` to a \`<g>\` wrapping shape+text, or directly to a \`<rect>\`/\`<circle>\`/\`<ellipse>\`. Never to \`<path>\` — paths don't get ramp fill. Dark mode is automatic for ramp classes. Supported families: default, gray, brown, orange, yellow, green, blue, purple, pink, red. Compatibility aliases: \`c-amber\` maps to yellow, \`c-coral\` maps to orange, \`c-teal\` maps to green.
+- **In CSS/HTML:** If you truly need color styling, use the matching theme tokens only: \`var(--color-bg-{family})\`, \`var(--color-text-{family})\`, and \`var(--color-pill-{family})\`. The real families are \`default\`, \`gray\`, \`brown\`, \`orange\`, \`yellow\`, \`green\`, \`blue\`, \`purple\`, \`pink\`, and \`red\`.
 
-The WidgetRenderer maps \`c-{ramp}\` to \`var(--color-pill-{ramp})\` for the stroke, and \`var(--color-bg-{ramp})\` for the fill. Therefore, simply applying the class is enough. You never need to worry about creating your own light/dark mode color logic!
+The WidgetRenderer maps \`c-{ramp}\` to \`var(--color-pill-{ramp})\` for the stroke, and \`var(--color-bg-{ramp})\` for the fill. Therefore, simply applying the class is enough. You do not need custom light/dark mode logic, and you should not write any.
 
-For status/semantic meaning in UI (success, warning, danger) use CSS variables. For categorical coloring in both diagrams and UI, use these ramps.
+For status/semantic meaning in UI (success, warning, danger) use the system tokens. For categorical coloring in both diagrams and UI, use these ramps. Nothing else.
 
 ### Canvas palette
 
@@ -2407,6 +2834,7 @@ These rules apply to ALL use cases.
 - **Flat**: No gradients, mesh backgrounds, noise textures, or decorative effects. Clean flat surfaces.
 - **Compact**: Show the essential inline. Explain the rest in text.
 - **Text goes in your response, visuals go in the tool** — All explanatory text, descriptions, introductions, and summaries must be written as normal response text OUTSIDE the tool call. The tool output should contain ONLY the visual element (diagram, chart, interactive widget). Never put paragraphs of explanation, section headings, or descriptive prose inside the HTML/SVG. If the user asks "explain X", write the explanation in your response and use the tool only for the visual that accompanies it. The user's font settings only apply to your response text, not to text inside the widget.
+- **Use the system as-is**: do not invent your own styling language. Reuse the provided classes, bare controls, tokens, and structural patterns directly. Treat them as a contract, not inspiration.
 
 ### Streaming
 Output streams token-by-token. Structure code so useful content appears early.
@@ -2421,6 +2849,10 @@ Output streams token-by-token. Structure code so useful content appears early.
 - No font-size below 11px
 - No emoji — use CSS shapes or SVG paths
 - No gradients, drop shadows, blur, glow, or neon effects
+- **No hand-authored colors.** Do not pick colors. Do not write hex, rgb(), hsl(), oklch(), named colors, or ad hoc opacity ramps for UI/diagram styling. Apply the provided classes and tokens only.
+- **Classes first.** If a provided classname solves the problem, use the classname. Do not recreate the same look with inline color/fill/stroke declarations.
+- **Do not restyle core components from scratch.** Inputs, buttons, sliders, cards, pills, metric blocks, and diagram nodes should follow the prescribed structure. If the examples show a pattern, copy the pattern instead of improvising a new one.
+- **Layout styles are allowed; appearance styles are not.** Use inline CSS for positioning, spacing, sizing, and grid/flex layout. Do not use inline CSS to invent new visual design for components.
 - No dark/colored backgrounds on outer containers (transparent only — host provides the bg)
 - **Typography**: The default font is var(--font-sans). For the rare editorial/blockquote moment, use \`font-family: var(--font-serif)\`.
 - **Headings**: h1 = 22px, h2 = 18px, h3 = 16px — all \`font-weight: 500\`. Heading color is pre-set to \`var(--color-text-primary)\` — don't override it. Body text = 16px, weight 400, \`line-height: 1.7\`. **Two weights only: 400 regular, 500 bold.** Never use 600 or 700 — they look heavy against the host UI.
@@ -2445,12 +2877,17 @@ Output streams token-by-token. Structure code so useful content appears early.
 **Borders**: \`--color-border-tertiary\` (0.15α, default), \`-secondary\` (0.3α, hover), \`-primary\` (0.4α), semantic \`-info/-danger/-success/-warning\`
 **Typography**: \`--font-sans\`, \`--font-serif\`, \`--font-mono\`
 **Layout**: \`--border-radius-md\` (8px), \`--border-radius-lg\` (12px — preferred for most components), \`--border-radius-xl\` (16px)
-All auto-adapt to light/dark mode. For custom colors in HTML, use CSS variables.
+All auto-adapt to light/dark mode. These are the only allowed theme primitives. Do not invent additional color values.
+
+The shared UI theme also exposes palette families through:
+- \`--color-text-default|gray|brown|orange|yellow|green|blue|purple|pink|red\`
+- \`--color-bg-default|gray|brown|orange|yellow|green|blue|purple|pink|red\`
+- \`--color-pill-default|gray|brown|orange|yellow|green|blue|purple|pink|red\`
 
 **Dark mode is mandatory** — every color must work in both modes:
-- In SVG: use the pre-built color classes (\`c-blue\`, \`c-teal\`, \`c-amber\`, etc.) for colored nodes — they handle light/dark mode automatically. Never write \`<style>\` blocks for colors.
+- In SVG: use the pre-built color classes (\`c-default\`, \`c-gray\`, \`c-brown\`, \`c-orange\`, \`c-yellow\`, \`c-green\`, \`c-blue\`, \`c-purple\`, \`c-pink\`, \`c-red\`, plus aliases \`c-teal\`, \`c-amber\`, \`c-coral\`) for colored nodes — they handle light/dark mode automatically. Never write \`<style>\` blocks for colors.
 - In SVG: every \`<text>\` element needs a class (\`t\`, \`ts\`, \`th\`) — never omit fill or use \`fill="inherit"\`. Inside a \`c-{color}\` parent, text classes auto-adjust to the ramp.
-- In HTML: always use CSS variables (--color-text-primary, --color-text-secondary) for text. Never hardcode colors like color: #333 — invisible in dark mode.
+- In HTML: use the provided component styles and theme tokens only. Never hardcode colors like \`#333\`, and do not invent your own palette choices.
 - Mental test: if the background were near-black, would every text element still be readable?
 
 ### sendPrompt(text)
@@ -2458,6 +2895,7 @@ A global function that sends a message to chat as if the user typed it. Use it w
 
 ### Links
 \`<a href="https://...">\` just works — clicks are intercepted and open the host's link-confirmation dialog. Or call \`openLink(url)\` directly.
+
 
 ## When nothing fits
 Pick the closest use case below and adapt. When nothing fits cleanly:
@@ -2471,11 +2909,17 @@ Pick the closest use case below and adapt. When nothing fits cleanly:
 ### Aesthetic
 Flat, clean, white surfaces. Minimal 0.5px borders. Generous whitespace. No gradients, no shadows (except functional focus rings). Everything should feel native to claude.ai — like it belongs on the page, not embedded from somewhere else.
 
+This section is prescriptive. Do not freestyle component styling. Reuse the exact component recipes and token usage below.
+
+**Hard rule:** component CSS is for layout only. Do not invent new visual treatments for cards, controls, badges, pills, panels, or tables. If the request maps to an existing pattern below, copy it closely. If it does not, stay visually plain rather than designing a new component language.
+
 ### Tokens
 - Borders: always \`0.5px solid var(--color-border-tertiary)\` (or \`-secondary\` for emphasis)
 - Corner radius: \`var(--border-radius-md)\` for most elements, \`var(--border-radius-lg)\` for cards
 - Cards: white bg (\`var(--color-background-primary)\`), 0.5px border, radius-lg, padding 1rem 1.25rem
 - Form elements (input, select, textarea, button, range slider) are pre-styled — write bare tags. Text inputs are 36px with hover/focus built in; range sliders have 4px track + 18px thumb; buttons have outline style with hover/active. Only add inline styles to override (e.g., different width).
+- **Do not recolor controls.** Bare tags are preferred because they inherit the system look. Do not repaint buttons, sliders, inputs, or pills with custom colors.
+- **No custom component CSS.** Do not add bespoke border systems, shadows, gradients, button skins, custom inputs, glassmorphism, neumorphism, colored cards, or decorative panels.
 - Buttons: pre-styled with transparent bg, 0.5px border-secondary, hover bg-secondary, active scale(0.98). If it triggers sendPrompt, append a ↗ arrow.
 - **Round every displayed number.** JS float math leaks artifacts — \`0.1 + 0.2\` gives \`0.30000000000000004\`, \`7 * 1.1\` gives \`7.700000000000001\`. Any number that reaches the screen (slider readouts, stat card values, axis labels, data-point labels, tooltips, computed totals) must go through \`Math.round()\`, \`.toFixed(n)\`, or \`Intl.NumberFormat\`. Pick the precision that makes sense for the context — integers for counts, 1–2 decimals for percentages, \`toLocaleString()\` for currency. For range sliders, also set \`step="1"\` (or step="0.1" etc.) so the input itself emits round values.
 - Spacing: use rem for vertical rhythm (1rem, 1.5rem, 2rem), px for component-internal gaps (8px, 12px, 16px)
@@ -2488,6 +2932,8 @@ For summary numbers (revenue, count, percentage) — surface card with muted 13p
 - Editorial (explanatory content): no card wrapper, prose flows naturally
 - Card (bounded objects like a contact record, receipt): single raised card wraps the whole thing
 - Don't put tables here — output them as markdown in your response text
+- If an example below matches the request, copy that structure closely instead of inventing a new component pattern.
+- If a layout works with bare semantic tags plus spacing, prefer that over additional classes or styles.
 
 **Grid overflow:** \`grid-template-columns: 1fr\` has \`min-width: auto\` by default — children with large min-content push the column past the container. Use \`minmax(0, 1fr)\` to clamp.
 
@@ -2557,22 +3003,63 @@ Use \`show_widget\` with HTML. Wrap the entire thing in a single raised card. Al
 
 ## Color palette
 
-We use a Notion-inspired semantic color palette. Instead of picking raw hex codes for fills and strokes, **you must exclusively use the predefined semantic CSS classes** which automatically adapt perfectly to both light and dark mode.
+We use a semantic system palette. Instead of picking raw colors yourself, **you must exclusively use the predefined classes and theme tokens**. Do not choose colors. Do not tune colors. Do not "improve" colors. The system already owns that decision.
+
+### Non-negotiable rule
+
+- Never write hex, rgb(), hsl(), oklch(), named colors, or custom gradients for normal UI/diagram styling.
+- Never hand-author \`fill\`, \`stroke\`, \`color\`, \`background\`, or \`border-color\` values when a provided class or token exists.
+- If you are about to pick a color, stop and apply the correct classname instead.
+
+### Actual palette exposed by the app
+
+These are the real palette families available from the shared styles:
+
+- \`default\`
+- \`gray\`
+- \`brown\`
+- \`orange\`
+- \`yellow\`
+- \`green\`
+- \`blue\`
+- \`purple\`
+- \`pink\`
+- \`red\`
+
+For each family, the app exposes:
+
+- \`--color-text-{family}\`
+- \`--color-bg-{family}\`
+- \`--color-pill-{family}\`
+
+Examples:
+
+- \`var(--color-bg-red)\`
+- \`var(--color-bg-purple)\`
+- \`var(--color-bg-yellow)\`
+- \`var(--color-text-blue)\`
+- \`var(--color-pill-green)\`
+
+These come from the shared UI theme and already adapt for light and dark mode. Use them directly when you truly need a token. Do not invent adjacent shades.
 
 ### Pre-built Semantic SVG Classes
 
 | Class | Ramp | Semantic Use |
 |-------|------|--------------|
+| \`c-default\` | Default | Neutral base, plain content |
+| \`c-gray\` | Gray | Neutral/structural nodes (start, end, generic steps) |
+| \`c-brown\` | Brown | Earthy, muted categories |
 | \`c-purple\` | Purple | General categories, abstract concepts |
-| \`c-teal\` | Teal | General categories, outcomes |
 | \`c-pink\` | Pink | General categories |
 | \`c-blue\` | Blue | Informational, primary actions |
 | \`c-green\` | Green | Success states, organic physical properties |
-| \`c-amber\` | Amber | Warning states, heat/energy |
-| \`c-red\` | Red | Danger/Error states, extreme heat |
-| \`c-coral\` | Coral | General categories, pathogens |
-| \`c-gray\` | Gray | Neutral/structural nodes (start, end, generic steps) |
-| \`c-black\` | Black | Primary emphasis, binary states (on/off), contrasted nodes |
+| \`c-yellow\` | Yellow | Warning states, warm physical properties |
+| \`c-orange\` | Orange | Warm physical properties, accent categories |
+| \`c-red\` | Red | Danger/Error states |
+| \`c-black\` | Foreground/Background contrast | Primary emphasis, binary states (on/off), contrasted nodes |
+| \`c-teal\` | Alias to green tokens | Backward-compatible alias when older examples use teal |
+| \`c-amber\` | Alias to yellow tokens | Backward-compatible alias when older examples use amber |
+| \`c-coral\` | Alias to orange tokens | Backward-compatible alias when older examples use coral |
 
 **How to assign colors**: Color should encode meaning, not sequence. Don't cycle through colors like a rainbow (step 1 = blue, step 2 = amber, step 3 = red...). Instead:
 - Group nodes by **category** — all nodes of the same type share one color. E.g. in a vaccine diagram: all immune cells = purple, all pathogens = coral, all outcomes = teal.
@@ -2583,12 +3070,12 @@ We use a Notion-inspired semantic color palette. Instead of picking raw hex code
 
 ### Using Colors
 
-- **In SVG:** Apply \`c-{ramp}\` to a \`<g>\` wrapping shape+text, or directly to a \`<rect>\`/\`<circle>\`/\`<ellipse>\`. Never to \`<path>\` — paths don't get ramp fill. For colored connector strokes use inline \`stroke="var(--color-border-...)"\` variables. Dark mode is automatic for ramp classes. Available: c-gray, c-blue, c-red, c-amber, c-green, c-teal, c-purple, c-coral, c-pink.
-- **In CSS/HTML:** Use the matching CSS variables: \`var(--color-bg-{ramp})\`, \`var(--color-border-{ramp})\`, \`var(--color-text-{ramp})\`, and \`var(--color-pill-{ramp})\`.
+- **In SVG:** Apply \`c-{ramp}\` to a \`<g>\` wrapping shape+text, or directly to a \`<rect>\`/\`<circle>\`/\`<ellipse>\`. Never to \`<path>\` — paths don't get ramp fill. Dark mode is automatic for ramp classes. Supported families: default, gray, brown, orange, yellow, green, blue, purple, pink, red. Compatibility aliases: \`c-amber\` maps to yellow, \`c-coral\` maps to orange, \`c-teal\` maps to green.
+- **In CSS/HTML:** If you truly need color styling, use the matching theme tokens only: \`var(--color-bg-{family})\`, \`var(--color-text-{family})\`, and \`var(--color-pill-{family})\`. The real families are \`default\`, \`gray\`, \`brown\`, \`orange\`, \`yellow\`, \`green\`, \`blue\`, \`purple\`, \`pink\`, and \`red\`.
 
-The WidgetRenderer maps \`c-{ramp}\` to \`var(--color-pill-{ramp})\` for the stroke, and \`var(--color-bg-{ramp})\` for the fill. Therefore, simply applying the class is enough. You never need to worry about creating your own light/dark mode color logic!
+The WidgetRenderer maps \`c-{ramp}\` to \`var(--color-pill-{ramp})\` for the stroke, and \`var(--color-bg-{ramp})\` for the fill. Therefore, simply applying the class is enough. You do not need custom light/dark mode logic, and you should not write any.
 
-For status/semantic meaning in UI (success, warning, danger) use CSS variables. For categorical coloring in both diagrams and UI, use these ramps.
+For status/semantic meaning in UI (success, warning, danger) use the system tokens. For categorical coloring in both diagrams and UI, use these ramps. Nothing else.
 
 ### Canvas palette
 
@@ -2892,6 +3379,7 @@ These rules apply to ALL use cases.
 - **Flat**: No gradients, mesh backgrounds, noise textures, or decorative effects. Clean flat surfaces.
 - **Compact**: Show the essential inline. Explain the rest in text.
 - **Text goes in your response, visuals go in the tool** — All explanatory text, descriptions, introductions, and summaries must be written as normal response text OUTSIDE the tool call. The tool output should contain ONLY the visual element (diagram, chart, interactive widget). Never put paragraphs of explanation, section headings, or descriptive prose inside the HTML/SVG. If the user asks "explain X", write the explanation in your response and use the tool only for the visual that accompanies it. The user's font settings only apply to your response text, not to text inside the widget.
+- **Use the system as-is**: do not invent your own styling language. Reuse the provided classes, bare controls, tokens, and structural patterns directly. Treat them as a contract, not inspiration.
 
 ### Streaming
 Output streams token-by-token. Structure code so useful content appears early.
@@ -2906,6 +3394,10 @@ Output streams token-by-token. Structure code so useful content appears early.
 - No font-size below 11px
 - No emoji — use CSS shapes or SVG paths
 - No gradients, drop shadows, blur, glow, or neon effects
+- **No hand-authored colors.** Do not pick colors. Do not write hex, rgb(), hsl(), oklch(), named colors, or ad hoc opacity ramps for UI/diagram styling. Apply the provided classes and tokens only.
+- **Classes first.** If a provided classname solves the problem, use the classname. Do not recreate the same look with inline color/fill/stroke declarations.
+- **Do not restyle core components from scratch.** Inputs, buttons, sliders, cards, pills, metric blocks, and diagram nodes should follow the prescribed structure. If the examples show a pattern, copy the pattern instead of improvising a new one.
+- **Layout styles are allowed; appearance styles are not.** Use inline CSS for positioning, spacing, sizing, and grid/flex layout. Do not use inline CSS to invent new visual design for components.
 - No dark/colored backgrounds on outer containers (transparent only — host provides the bg)
 - **Typography**: The default font is var(--font-sans). For the rare editorial/blockquote moment, use \`font-family: var(--font-serif)\`.
 - **Headings**: h1 = 22px, h2 = 18px, h3 = 16px — all \`font-weight: 500\`. Heading color is pre-set to \`var(--color-text-primary)\` — don't override it. Body text = 16px, weight 400, \`line-height: 1.7\`. **Two weights only: 400 regular, 500 bold.** Never use 600 or 700 — they look heavy against the host UI.
@@ -2930,12 +3422,17 @@ Output streams token-by-token. Structure code so useful content appears early.
 **Borders**: \`--color-border-tertiary\` (0.15α, default), \`-secondary\` (0.3α, hover), \`-primary\` (0.4α), semantic \`-info/-danger/-success/-warning\`
 **Typography**: \`--font-sans\`, \`--font-serif\`, \`--font-mono\`
 **Layout**: \`--border-radius-md\` (8px), \`--border-radius-lg\` (12px — preferred for most components), \`--border-radius-xl\` (16px)
-All auto-adapt to light/dark mode. For custom colors in HTML, use CSS variables.
+All auto-adapt to light/dark mode. These are the only allowed theme primitives. Do not invent additional color values.
+
+The shared UI theme also exposes palette families through:
+- \`--color-text-default|gray|brown|orange|yellow|green|blue|purple|pink|red\`
+- \`--color-bg-default|gray|brown|orange|yellow|green|blue|purple|pink|red\`
+- \`--color-pill-default|gray|brown|orange|yellow|green|blue|purple|pink|red\`
 
 **Dark mode is mandatory** — every color must work in both modes:
-- In SVG: use the pre-built color classes (\`c-blue\`, \`c-teal\`, \`c-amber\`, etc.) for colored nodes — they handle light/dark mode automatically. Never write \`<style>\` blocks for colors.
+- In SVG: use the pre-built color classes (\`c-default\`, \`c-gray\`, \`c-brown\`, \`c-orange\`, \`c-yellow\`, \`c-green\`, \`c-blue\`, \`c-purple\`, \`c-pink\`, \`c-red\`, plus aliases \`c-teal\`, \`c-amber\`, \`c-coral\`) for colored nodes — they handle light/dark mode automatically. Never write \`<style>\` blocks for colors.
 - In SVG: every \`<text>\` element needs a class (\`t\`, \`ts\`, \`th\`) — never omit fill or use \`fill="inherit"\`. Inside a \`c-{color}\` parent, text classes auto-adjust to the ramp.
-- In HTML: always use CSS variables (--color-text-primary, --color-text-secondary) for text. Never hardcode colors like color: #333 — invisible in dark mode.
+- In HTML: use the provided component styles and theme tokens only. Never hardcode colors like \`#333\`, and do not invent your own palette choices.
 - Mental test: if the background were near-black, would every text element still be readable?
 
 ### sendPrompt(text)
@@ -2943,6 +3440,7 @@ A global function that sends a message to chat as if the user typed it. Use it w
 
 ### Links
 \`<a href="https://...">\` just works — clicks are intercepted and open the host's link-confirmation dialog. Or call \`openLink(url)\` directly.
+
 
 ## When nothing fits
 Pick the closest use case below and adapt. When nothing fits cleanly:
@@ -3832,6 +4330,7 @@ Use consistent formatting:
 4. For text with text-anchor="end", the text extends LEFT from x. If x=118 and text is 200px wide, it starts at x=-82 — outside the viewBox. Increase x or use text-anchor="start".
 5. Never use negative x or y coordinates. The viewBox starts at 0,0.
 6. Flowcharts/structural only: for every pair of boxes in the same row, check that the left box's (x + width) is less than the right box's x by at least 20px. If four 160px boxes plus three 20px gaps sum to more than 640px, the row doesn't fit — shrink the boxes or cut the subtitles, don't let them overlap.
+7. If a diagram still feels tight after the math, it is too dense. Split it into multiple diagrams instead of compressing placement.
 
 **SVG setup**: \`<svg width="100%" viewBox="0 0 680 H">\` — 680px wide, flexible height. Set H to fit content tightly — the last element's bottom edge + 40px padding. Don't leave excess empty space below the content. Safe area: x=40 to x=640, y=40 to y=(H-40). Background transparent. **Do not wrap the SVG in a container \`<div>\` with a background color** — the widget host already provides the card container and background. Output the raw \`<svg>\` element directly.
 
@@ -3839,9 +4338,32 @@ Use consistent formatting:
 
 **viewBox height:** After layout, find max_y (bottom-most point of any shape, including text baselines + 4px descent). Set viewBox height = max_y + 20. Don't guess.
 
+**Default placement discipline** — use these defaults unless you have a specific reason not to:
+- Outer margins: 40px on every side
+- Horizontal gap between peer boxes: 24px minimum
+- Vertical gap between tiers: 32px minimum
+- Default node width: 160-200px
+- Maximum node width in dense diagrams: 220px
+- If you need more than 4 medium boxes in one row, split the diagram
+- Prefer right-side labels with \`text-anchor="start"\`; avoid left-side label columns unless necessary
+- Keep connectors orthogonal when possible; straight lines are only for unobstructed short runs
+
 **text-anchor='end' at x<60 is risky** — the longest label will extend left past x=0. Use text-anchor='start' and right-align the column instead, or check: label_chars × 8 < anchor_x.
 
 **One SVG per tool call** — each call must contain exactly one <svg> element. Never leave an abandoned or partial SVG in the output. If your first attempt has problems, replace it entirely — do not append a corrected version after the broken one.
+
+**Few-shot SVG examples must start with a planning block.** Put this comment immediately before the raw SVG in any example:
+\`\`\`text
+<!-- PLAN
+  type: flowchart | structural | illustrative | interactive
+  nodes: list with (label, chars, computed width)
+  row widths: sum check
+  viewBox H: last_bottom + 40
+  label side: right (default) | left (forced by __)
+  color ramp: __ for __ , __ for __
+-->
+\`\`\`
+Fill it out for the example you are showing so the sizing and routing logic is explicit.
 
 **Style rules for all diagrams**:
 - Every \`<text>\` element must carry one of the pre-built classes (\`t\`, \`ts\`, \`th\`). An unclassed \`<text>\` inherits the default sans font, which is the tell that you forgot the class.
@@ -3868,11 +4390,11 @@ Before placing text in a box, check: does (text width + 2×padding) fit the cont
 
 **Pre-built classes** (already loaded in SVG widget):
 - \`class="t"\` = sans 14px primary, \`class="ts"\` = sans 12px secondary, \`class="th"\` = sans 14px medium (500)
-- \`class="box"\` = neutral rect (bg-secondary fill, border stroke)
+- \`class="box"\` = neutral rect helper (secondary fill, border stroke)
 - \`class="node"\` = clickable group with hover effect (cursor pointer, slight dim on hover)
 - \`class="arr"\` = arrow line (1.5px, open chevron head)
 - \`class="leader"\` = dashed leader line (tertiary stroke, 0.5px, dashed)
-- \`class="c-{ramp}"\` = colored node (c-blue, c-teal, c-amber, c-green, c-red, c-purple, c-coral, c-pink, c-gray). Apply to \`<g>\` or shape element (rect/circle/ellipse), NOT to paths. Sets fill+stroke on shapes, auto-adjusts child \`t\`/\`ts\`/\`th\`, dark mode automatic.
+- \`class="c-{ramp}"\` = colored node (c-default, c-gray, c-brown, c-orange, c-yellow, c-green, c-blue, c-purple, c-pink, c-red, plus compatibility aliases c-teal, c-amber, c-coral, c-black). Apply to \`<g>\` or shape element (rect/circle/ellipse), NOT to paths. Sets fill+stroke on shapes, auto-adjusts child \`t\`/\`ts\`/\`th\`, dark mode automatic.
 
 **c-{ramp} nesting:** These classes use direct-child selectors (\`>\`). Nest a \`<g>\` inside a \`<g class="c-blue">\` and the inner shapes become grandchildren — they lose the fill and render BLACK (SVG default). Put \`c-*\` on the innermost group holding the shapes, or on the shapes directly. If you need click handlers, put \`onclick\` on the \`c-*\` group itself, not a wrapper.
 
@@ -3893,7 +4415,7 @@ Before placing text in a box, check: does (text width + 2×padding) fit the cont
 
 **Lines stop at component edges.** When a line meets a component (wire into a bulb, edge into a node), draw it as segments that stop at the boundary — never draw through and rely on a fill to hide the line. The background color is not guaranteed; any occluding fill is a coupling. Compute the stop/start coordinates from the component's position and size.
 
-**Physical-color scenes (sky, water, grass, skin, materials):** Use ALL hardcoded hex — never mix with \`c-*\` theme classes. The scene should not invert in dark mode. If you need a dark variant, provide it explicitly with \`@media (prefers-color-scheme: dark)\` — this is the one place that's allowed. Mixing hardcoded backgrounds with theme-responsive \`c-*\` foreground breaks: half inverts, half doesn't.
+**No freestyle SVG colors.** Even illustrative SVGs must use the theme palette only. Use \`c-*\` classes and the shared palette tokens; do not fall back to hardcoded hex for scenes, gradients, flames, water, heat maps, or decorative accents.
 
 **No rotated text**. \`<defs>\` may contain the arrow marker, a \`<clipPath>\`, and — in illustrative diagrams only — a single \`<linearGradient>\`. Nothing else: no filters, no patterns, no extra markers.
 `,
@@ -3909,11 +4431,17 @@ Before placing text in a box, check: does (text width + 2×padding) fit the cont
 ### Aesthetic
 Flat, clean, white surfaces. Minimal 0.5px borders. Generous whitespace. No gradients, no shadows (except functional focus rings). Everything should feel native to claude.ai — like it belongs on the page, not embedded from somewhere else.
 
+This section is prescriptive. Do not freestyle component styling. Reuse the exact component recipes and token usage below.
+
+**Hard rule:** component CSS is for layout only. Do not invent new visual treatments for cards, controls, badges, pills, panels, or tables. If the request maps to an existing pattern below, copy it closely. If it does not, stay visually plain rather than designing a new component language.
+
 ### Tokens
 - Borders: always \`0.5px solid var(--color-border-tertiary)\` (or \`-secondary\` for emphasis)
 - Corner radius: \`var(--border-radius-md)\` for most elements, \`var(--border-radius-lg)\` for cards
 - Cards: white bg (\`var(--color-background-primary)\`), 0.5px border, radius-lg, padding 1rem 1.25rem
 - Form elements (input, select, textarea, button, range slider) are pre-styled — write bare tags. Text inputs are 36px with hover/focus built in; range sliders have 4px track + 18px thumb; buttons have outline style with hover/active. Only add inline styles to override (e.g., different width).
+- **Do not recolor controls.** Bare tags are preferred because they inherit the system look. Do not repaint buttons, sliders, inputs, or pills with custom colors.
+- **No custom component CSS.** Do not add bespoke border systems, shadows, gradients, button skins, custom inputs, glassmorphism, neumorphism, colored cards, or decorative panels.
 - Buttons: pre-styled with transparent bg, 0.5px border-secondary, hover bg-secondary, active scale(0.98). If it triggers sendPrompt, append a ↗ arrow.
 - **Round every displayed number.** JS float math leaks artifacts — \`0.1 + 0.2\` gives \`0.30000000000000004\`, \`7 * 1.1\` gives \`7.700000000000001\`. Any number that reaches the screen (slider readouts, stat card values, axis labels, data-point labels, tooltips, computed totals) must go through \`Math.round()\`, \`.toFixed(n)\`, or \`Intl.NumberFormat\`. Pick the precision that makes sense for the context — integers for counts, 1–2 decimals for percentages, \`toLocaleString()\` for currency. For range sliders, also set \`step="1"\` (or step="0.1" etc.) so the input itself emits round values.
 - Spacing: use rem for vertical rhythm (1rem, 1.5rem, 2rem), px for component-internal gaps (8px, 12px, 16px)
@@ -3926,6 +4454,8 @@ For summary numbers (revenue, count, percentage) — surface card with muted 13p
 - Editorial (explanatory content): no card wrapper, prose flows naturally
 - Card (bounded objects like a contact record, receipt): single raised card wraps the whole thing
 - Don't put tables here — output them as markdown in your response text
+- If an example below matches the request, copy that structure closely instead of inventing a new component pattern.
+- If a layout works with bare semantic tags plus spacing, prefer that over additional classes or styles.
 
 **Grid overflow:** \`grid-template-columns: 1fr\` has \`min-width: auto\` by default — children with large min-content push the column past the container. Use \`minmax(0, 1fr)\` to clamp.
 

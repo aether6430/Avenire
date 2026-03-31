@@ -53,6 +53,7 @@ function cleanupMemoryCache() {
 }
 
 export function createRetrievalCacheKey(input: {
+  userId?: string;
   workspaceUuid: string;
   query: string;
   limit?: number;
@@ -62,6 +63,7 @@ export function createRetrievalCacheKey(input: {
   const hash = createHash("sha256")
     .update(
       JSON.stringify({
+        userId: input.userId ?? null,
         workspaceUuid: input.workspaceUuid,
         query: input.query.trim().toLowerCase(),
         limit: input.limit ?? null,

@@ -5175,7 +5175,7 @@ export function FileExplorer({
         type="file"
       />
 
-      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-24 md:pb-0">
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden no-scrollbar pb-24 md:pb-0">
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 pb-4">
           <div className="flex min-w-0 items-center gap-2">
             {!isAtWorkspaceRoot && parentFolder ? (

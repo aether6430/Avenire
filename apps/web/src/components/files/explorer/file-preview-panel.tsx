@@ -1329,7 +1329,7 @@ export function FilePreviewPanel({
       </Dialog>
       {isMarkdown ? (
         <div
-          className="min-h-0 flex-1 overflow-auto"
+          className="min-h-0 flex-1 overflow-auto no-scrollbar"
           ref={filePreviewScrollRef}
         >
           <div className="h-full">

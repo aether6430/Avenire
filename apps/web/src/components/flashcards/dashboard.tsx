@@ -3,21 +3,39 @@
 import { Badge } from "@avenire/ui/components/badge";
 import { Button } from "@avenire/ui/components/button";
 import {
-  Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle, } from "@avenire/ui/components/empty";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@avenire/ui/components/dialog";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, } from "@avenire/ui/components/dialog";
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@avenire/ui/components/empty";
 import { Input } from "@avenire/ui/components/input";
 import { Label } from "@avenire/ui/components/label";
 import { ScrollArea } from "@avenire/ui/components/scroll-area";
 import { Textarea } from "@avenire/ui/components/textarea";
 import { cn } from "@avenire/ui/lib/utils";
-import { BookOpenText as BookOpenCheck, Plus } from "@phosphor-icons/react"
+import { BookOpenText as BookOpenCheck, Plus } from "@phosphor-icons/react";
+import { AnimatePresence, motion } from "motion/react";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
-import { HeaderActions, HeaderBreadcrumbs, HeaderLeadingIcon } from "@/components/dashboard/header-portal";
+import {
+  HeaderActions,
+  HeaderBreadcrumbs,
+  HeaderLeadingIcon,
+} from "@/components/dashboard/header-portal";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { prefetchFlashcardSet } from "@/lib/flashcard-browser-cache";
 import type { FlashcardDashboardRecord } from "@/lib/flashcards";
 import { useWorkspaceHistoryStore } from "@/stores/workspaceHistoryStore";
 
@@ -70,6 +88,8 @@ function getEnrollmentLabel(
 
   return "Not enrolled";
 }
+
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: This screen intentionally co-locates generation, deck selection, and deck summary controls.
 export function FlashcardsDashboard({
   generationRequest,
   initialDashboard,
@@ -107,13 +127,15 @@ export function FlashcardsDashboard({
         }
 
         return (
-          new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
+          new Date(right.updatedAt).getTime() -
+          new Date(left.updatedAt).getTime()
         );
       }),
     [dashboard.sets]
   );
   const reviewTarget = useMemo(
-    () => orderedSets.find((set) => set.dueCount > 0 || set.newCount > 0) ?? null,
+    () =>
+      orderedSets.find((set) => set.dueCount > 0 || set.newCount > 0) ?? null,
     [orderedSets]
   );
   const [selectedSetId, setSelectedSetId] = useState<string | null>(
@@ -132,13 +154,15 @@ export function FlashcardsDashboard({
   }, [orderedSets, reviewTarget, selectedSetId]);
 
   const selectedSet = useMemo(
-    () => orderedSets.find((candidate) => candidate.id === selectedSetId) ?? null,
+    () =>
+      orderedSets.find((candidate) => candidate.id === selectedSetId) ?? null,
     [orderedSets, selectedSetId]
   );
   const selectedSnapshots = useMemo(
-    () => dashboard.cardSnapshots.filter(
-      (snapshot) => snapshot.card.setId === selectedSetId
-    ),
+    () =>
+      dashboard.cardSnapshots.filter(
+        (snapshot) => snapshot.card.setId === selectedSetId
+      ),
     [dashboard.cardSnapshots, selectedSetId]
   );
   const headerLeadingIcon = useMemo(
@@ -174,7 +198,7 @@ export function FlashcardsDashboard({
     setGenerationLoading(true);
     setGenerationError(null);
 
-    void (async () => {
+    const runGeneration = async () => {
       try {
         const setId = await generateOnboardingSet(generationRequest);
         startTransition(() => {
@@ -186,7 +210,9 @@ export function FlashcardsDashboard({
         );
         setGenerationLoading(false);
       }
-    })();
+    };
+
+    runGeneration().catch(() => undefined);
   }, [generationRequest, router]);
 
   const createSet = async () => {
@@ -238,95 +264,91 @@ export function FlashcardsDashboard({
   return (
     <div className="h-full overflow-y-auto bg-background">
       <div className="flex w-full flex-col gap-4 px-4 py-4 md:px-6 lg:px-8">
-        <HeaderLeadingIcon>
-          {headerLeadingIcon}
-        </HeaderLeadingIcon>
+        <HeaderLeadingIcon>{headerLeadingIcon}</HeaderLeadingIcon>
         <HeaderActions>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                disabled={!reviewTarget}
-                onClick={() => {
-                  if (!reviewTarget) {
-                    return;
-                  }
-                  router.push(
-                    `/workspace/flashcards/${reviewTarget.id}` as Route
-                  );
-                }}
-                type="button"
-              >
-                <BookOpenCheck className="size-4" />
-                Go to deck
-              </Button>
-              <Dialog onOpenChange={setCreateOpen} open={createOpen}>
-                <DialogTrigger render={<Button variant="outline" />}>
-                  <Plus className="size-4" />
-                  New Set
-                </DialogTrigger>
-                <DialogContent className="max-w-xl">
-                  <DialogHeader>
-                    <DialogTitle>Create set</DialogTitle>
-                    <DialogDescription>
-                      Shared sets stay at workspace scope. Review history stays
-                      personal.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-3">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="flashcards-set-title">Title</Label>
-                      <Input
-                        id="flashcards-set-title"
-                        onChange={(event) => setTitle(event.target.value)}
-                        placeholder="Control systems"
-                        value={title}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="flashcards-set-description">
-                        Description
-                      </Label>
-                      <Textarea
-                        id="flashcards-set-description"
-                        onChange={(event) => setDescription(event.target.value)}
-                        placeholder="Feedback, stability, and state-space revision"
-                        value={description}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="flashcards-set-tags">Tags</Label>
-                      <Input
-                        id="flashcards-set-tags"
-                        onChange={(event) => setTags(event.target.value)}
-                        placeholder="signals, controls, exam-2"
-                        value={tags}
-                      />
-                    </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              disabled={!reviewTarget}
+              onClick={() => {
+                if (!reviewTarget) {
+                  return;
+                }
+                router.push(
+                  `/workspace/flashcards/${reviewTarget.id}` as Route
+                );
+              }}
+              type="button"
+            >
+              <BookOpenCheck className="size-4" />
+              Go to deck
+            </Button>
+            <Dialog onOpenChange={setCreateOpen} open={createOpen}>
+              <DialogTrigger render={<Button variant="outline" />}>
+                <Plus className="size-4" />
+                New Set
+              </DialogTrigger>
+              <DialogContent className="max-w-xl">
+                <DialogHeader>
+                  <DialogTitle>Create set</DialogTitle>
+                  <DialogDescription>
+                    Shared sets stay at workspace scope. Review history stays
+                    personal.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="flashcards-set-title">Title</Label>
+                    <Input
+                      id="flashcards-set-title"
+                      onChange={(event) => setTitle(event.target.value)}
+                      placeholder="Control systems"
+                      value={title}
+                    />
                   </div>
-                  {createStatus ? (
-                    <p className="text-muted-foreground text-xs">
-                      {createStatus}
-                    </p>
-                  ) : null}
-                  <DialogFooter>
-                    <Button
-                      disabled={busy || !title.trim()}
-                      onClick={createSet}
-                      type="button"
-                    >
-                      Create
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="flashcards-set-description">
+                      Description
+                    </Label>
+                    <Textarea
+                      id="flashcards-set-description"
+                      onChange={(event) => setDescription(event.target.value)}
+                      placeholder="Feedback, stability, and state-space revision"
+                      value={description}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="flashcards-set-tags">Tags</Label>
+                    <Input
+                      id="flashcards-set-tags"
+                      onChange={(event) => setTags(event.target.value)}
+                      placeholder="signals, controls, exam-2"
+                      value={tags}
+                    />
+                  </div>
+                </div>
+                {createStatus ? (
+                  <p className="text-muted-foreground text-xs">
+                    {createStatus}
+                  </p>
+                ) : null}
+                <DialogFooter>
+                  <Button
+                    disabled={busy || !title.trim()}
+                    onClick={createSet}
+                    type="button"
+                  >
+                    Create
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </HeaderActions>
-        <HeaderBreadcrumbs>
-          {headerBreadcrumbs}
-        </HeaderBreadcrumbs>
+        <HeaderBreadcrumbs>{headerBreadcrumbs}</HeaderBreadcrumbs>
 
         <section className="flex flex-wrap items-center justify-between gap-3 border-border/40 border-b pb-4">
           <div className="space-y-1">
-            <h1 className="font-semibold text-xl tracking-tight text-foreground">
+            <h1 className="font-semibold text-foreground text-xl tracking-tight">
               Mindset
             </h1>
             <p className="text-muted-foreground text-xs">
@@ -346,18 +368,18 @@ export function FlashcardsDashboard({
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-1">
-                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                  <p className="text-muted-foreground text-xs uppercase tracking-[0.18em]">
                     Generating mindset
                   </p>
-                  <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                  <h2 className="font-semibold text-foreground text-lg tracking-tight">
                     Building your deck from onboarding
                   </h2>
-                  <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+                  <p className="max-w-2xl text-muted-foreground text-sm leading-6">
                     The set is being generated now. Once it is ready, you will
                     land directly in the mindset view.
                   </p>
                 </div>
-                <div className="rounded-full bg-secondary px-3 py-1 text-xs uppercase tracking-[0.15em] text-muted-foreground">
+                <div className="rounded-full bg-secondary px-3 py-1 text-muted-foreground text-xs uppercase tracking-[0.15em]">
                   Loading
                 </div>
               </div>
@@ -376,7 +398,7 @@ export function FlashcardsDashboard({
                         delay: index * 0.12,
                       }}
                     />
-                    <p className="mt-3 text-sm font-medium text-foreground">
+                    <p className="mt-3 font-medium text-foreground text-sm">
                       {label}
                     </p>
                   </div>
@@ -386,7 +408,7 @@ export function FlashcardsDashboard({
           ) : null}
         </AnimatePresence>
         {generationError ? (
-          <div className="rounded-2xl border border-border/70 bg-background p-4 text-sm text-muted-foreground">
+          <div className="rounded-2xl border border-border/70 bg-background p-4 text-muted-foreground text-sm">
             {generationError}
           </div>
         ) : null}
@@ -398,12 +420,71 @@ export function FlashcardsDashboard({
           transition={{ duration: 0.22, ease: "easeOut" }}
         >
           <div className="min-w-0">
-              <h2 className="text-sm font-medium text-foreground">Decks</h2>
-              <p className="text-muted-foreground text-xs">
-                Pick a deck and jump into review.
-              </p>
-              {isMobile ? (
-                <div className="space-y-2">
+            <h2 className="font-medium text-foreground text-sm">Decks</h2>
+            <p className="text-muted-foreground text-xs">
+              Pick a deck and jump into review.
+            </p>
+            {isMobile ? (
+              <div className="space-y-2">
+                {orderedSets.length === 0 ? (
+                  <Empty className="min-h-[10rem]">
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon">
+                        <BookOpenCheck className="size-4" />
+                      </EmptyMedia>
+                      <EmptyTitle>No flashcard sets yet</EmptyTitle>
+                    </EmptyHeader>
+                    <EmptyContent>
+                      <EmptyDescription>
+                        Create a set, or let the AI generate one from a
+                        misconception or study prompt.
+                      </EmptyDescription>
+                    </EmptyContent>
+                  </Empty>
+                ) : (
+                  orderedSets.map((set) => {
+                    const isSelected = set.id === selectedSetId;
+                    return (
+                      <button
+                        className={cn(
+                          "flex w-full cursor-pointer items-start justify-between gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-secondary",
+                          isSelected && "bg-secondary"
+                        )}
+                        key={set.id}
+                        onClick={() => setSelectedSetId(set.id)}
+                        onFocus={() => {
+                          prefetchFlashcardSet(set.id).catch(() => undefined);
+                        }}
+                        onMouseEnter={() => {
+                          prefetchFlashcardSet(set.id).catch(() => undefined);
+                        }}
+                        type="button"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-foreground text-sm">
+                            {set.title}
+                          </p>
+                          <p className="mt-1 text-[11px] text-muted-foreground">
+                            {set.dueCount + set.newCount} ready ·{" "}
+                            {set.cardCount} cards
+                          </p>
+                        </div>
+                        {set.dueCount > 0 ? (
+                          <Badge
+                            className="shrink-0 rounded-sm"
+                            variant="outline"
+                          >
+                            {set.dueCount} due
+                          </Badge>
+                        ) : null}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            ) : (
+              <ScrollArea className="max-h-[16rem]">
+                <div className="space-y-2 p-1">
                   {orderedSets.length === 0 ? (
                     <Empty className="min-h-[10rem]">
                       <EmptyHeader>
@@ -430,6 +511,12 @@ export function FlashcardsDashboard({
                           )}
                           key={set.id}
                           onClick={() => setSelectedSetId(set.id)}
+                          onFocus={() => {
+                            prefetchFlashcardSet(set.id).catch(() => undefined);
+                          }}
+                          onMouseEnter={() => {
+                            prefetchFlashcardSet(set.id).catch(() => undefined);
+                          }}
                           type="button"
                         >
                           <div className="min-w-0">
@@ -454,70 +541,17 @@ export function FlashcardsDashboard({
                     })
                   )}
                 </div>
-              ) : (
-                <ScrollArea className="max-h-[16rem]">
-                  <div className="space-y-2 p-1">
-                    {orderedSets.length === 0 ? (
-                      <Empty className="min-h-[10rem]">
-                        <EmptyHeader>
-                          <EmptyMedia variant="icon">
-                            <BookOpenCheck className="size-4" />
-                          </EmptyMedia>
-                          <EmptyTitle>No flashcard sets yet</EmptyTitle>
-                        </EmptyHeader>
-                        <EmptyContent>
-                          <EmptyDescription>
-                            Create a set, or let the AI generate one from a
-                            misconception or study prompt.
-                          </EmptyDescription>
-                        </EmptyContent>
-                      </Empty>
-                    ) : (
-                      orderedSets.map((set) => {
-                        const isSelected = set.id === selectedSetId;
-                        return (
-                          <button
-                            className={cn(
-                              "flex w-full cursor-pointer items-start justify-between gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-secondary",
-                              isSelected && "bg-secondary"
-                            )}
-                            key={set.id}
-                            onClick={() => setSelectedSetId(set.id)}
-                            type="button"
-                          >
-                            <div className="min-w-0">
-                              <p className="truncate text-foreground text-sm">
-                                {set.title}
-                              </p>
-                              <p className="mt-1 text-[11px] text-muted-foreground">
-                                {set.dueCount + set.newCount} ready ·{" "}
-                                {set.cardCount} cards
-                              </p>
-                            </div>
-                            {set.dueCount > 0 ? (
-                              <Badge
-                                className="shrink-0 rounded-sm"
-                                variant="outline"
-                              >
-                                {set.dueCount} due
-                              </Badge>
-                            ) : null}
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-                </ScrollArea>
-              )}
+              </ScrollArea>
+            )}
           </div>
 
           <div className="min-w-0">
             {selectedSet ? (
-                <div>
+              <div>
                 <div className="pb-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 space-y-1">
-                      <h2 className="truncate text-base font-medium text-foreground">
+                      <h2 className="truncate font-medium text-base text-foreground">
                         {selectedSet.title}
                       </h2>
                       <p className="line-clamp-2 text-muted-foreground text-sm">
@@ -624,6 +658,11 @@ export function FlashcardsDashboard({
                           `/workspace/flashcards/${selectedSet.id}` as Route
                         )
                       }
+                      onMouseEnter={() => {
+                        prefetchFlashcardSet(selectedSet.id).catch(
+                          () => undefined
+                        );
+                      }}
                       type="button"
                     >
                       Open deck
@@ -634,6 +673,11 @@ export function FlashcardsDashboard({
                           `/workspace/flashcards/${selectedSet.id}` as Route
                         )
                       }
+                      onMouseEnter={() => {
+                        prefetchFlashcardSet(selectedSet.id).catch(
+                          () => undefined
+                        );
+                      }}
                       type="button"
                       variant="outline"
                     >
@@ -641,7 +685,7 @@ export function FlashcardsDashboard({
                     </Button>
                   </div>
                 </div>
-                </div>
+              </div>
             ) : (
               <div className="px-4 py-8 text-center text-muted-foreground text-xs">
                 Nothing to show yet.

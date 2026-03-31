@@ -3,31 +3,55 @@
 import { Badge } from "@avenire/ui/components/badge";
 import { Button } from "@avenire/ui/components/button";
 import {
-  Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle, } from "@avenire/ui/components/empty";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@avenire/ui/components/dialog";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, } from "@avenire/ui/components/dialog";
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@avenire/ui/components/empty";
 import { Input } from "@avenire/ui/components/input";
 import { Label } from "@avenire/ui/components/label";
 import {
-  SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, } from "@avenire/ui/components/sidebar";
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from "@avenire/ui/components/sidebar";
 import { Textarea } from "@avenire/ui/components/textarea";
-import { BookOpenText as BookOpenCheck, ChatCenteredText as MessageSquareDashed, PlusCircle } from "@phosphor-icons/react"
+import {
+  BookOpenText as BookOpenCheck,
+  ChatCenteredText as MessageSquareDashed,
+  PlusCircle,
+} from "@phosphor-icons/react";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import {
-  useCallback,
   startTransition,
+  useCallback,
   useDeferredValue,
   useEffect,
-  useRef,
   useMemo,
+  useRef,
   useState,
 } from "react";
-import type { FlashcardSetSummary } from "@/lib/flashcards";
 import {
   readCachedFlashcardSets,
   writeCachedFlashcardSets,
 } from "@/lib/dashboard-browser-cache";
+import { prefetchFlashcardSet } from "@/lib/flashcard-browser-cache";
+import type { FlashcardSetSummary } from "@/lib/flashcards";
 
 export function FlashcardsSidebarPanel({
   active,
@@ -41,7 +65,7 @@ export function FlashcardsSidebarPanel({
   const router = useRouter();
   const setsWorkspaceRef = useRef<string | null>(workspaceUuid ?? null);
   const [sets, setSets] = useState<FlashcardSetSummary[]>(() =>
-    workspaceUuid ? readCachedFlashcardSets(workspaceUuid) ?? [] : []
+    workspaceUuid ? (readCachedFlashcardSets(workspaceUuid) ?? []) : []
   );
   const [createOpen, setCreateOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -106,10 +130,12 @@ export function FlashcardsSidebarPanel({
 
   useEffect(() => {
     const onWorkspaceInvalidated = (event: Event) => {
-      const detail = (event as CustomEvent<{
-        kind?: string;
-        workspaceUuid?: string;
-      }>).detail;
+      const detail = (
+        event as CustomEvent<{
+          kind?: string;
+          workspaceUuid?: string;
+        }>
+      ).detail;
       if (!detail?.workspaceUuid || detail.workspaceUuid !== workspaceUuid) {
         return;
       }
@@ -117,7 +143,7 @@ export function FlashcardsSidebarPanel({
         return;
       }
 
-      void loadSets().catch(() => undefined);
+      loadSets().catch(() => undefined);
     };
 
     window.addEventListener(
@@ -236,6 +262,20 @@ export function FlashcardsSidebarPanel({
                   }
                   router.push("/workspace/flashcards" as Route);
                 }}
+                onFocus={() => {
+                  if (reviewTarget) {
+                    prefetchFlashcardSet(reviewTarget.id).catch(
+                      () => undefined
+                    );
+                  }
+                }}
+                onMouseEnter={() => {
+                  if (reviewTarget) {
+                    prefetchFlashcardSet(reviewTarget.id).catch(
+                      () => undefined
+                    );
+                  }
+                }}
               >
                 <BookOpenCheck className="size-4" />
                 <span>Review Due</span>
@@ -290,6 +330,12 @@ export function FlashcardsSidebarPanel({
                     onClick={() =>
                       router.push(`/workspace/flashcards/${set.id}` as Route)
                     }
+                    onFocus={() => {
+                      prefetchFlashcardSet(set.id).catch(() => undefined);
+                    }}
+                    onMouseEnter={() => {
+                      prefetchFlashcardSet(set.id).catch(() => undefined);
+                    }}
                   >
                     <SparklineChip due={set.dueCount} newCount={set.newCount} />
                     <span className="truncate">{set.title}</span>

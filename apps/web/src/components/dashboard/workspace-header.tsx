@@ -39,7 +39,7 @@ export function WorkspaceHeader({
   const segmentedGroupClass =
     "self-center divide-x divide-border/60 overflow-hidden rounded-md border border-border/60 bg-background shadow-sm";
   const segmentedIconButtonClass =
-    "size-10 rounded-none border-0 bg-transparent text-foreground shadow-none hover:bg-muted/70 disabled:bg-transparent";
+    "size-8 rounded-none border-0 bg-transparent text-foreground shadow-none hover:bg-muted/70 disabled:bg-transparent sm:size-10";
 
   return (
     <header
@@ -48,7 +48,7 @@ export function WorkspaceHeader({
         className
       )}
     >
-      <div className="flex min-h-14 shrink-0 flex-col gap-2 px-3 py-2 sm:flex-row sm:items-center sm:gap-1.5 sm:px-4">
+      <div className="flex min-h-12 shrink-0 flex-col gap-1.5 px-2 py-1.5 sm:min-h-14 sm:flex-row sm:items-center sm:gap-1.5 sm:px-4">
         <div className="flex min-w-0 items-center gap-1.5 sm:flex-1">
           <ButtonGroup className={segmentedGroupClass}>
             <Button
@@ -95,7 +95,7 @@ export function WorkspaceHeader({
               <House className="size-3.5" />
             </Button>
           </ButtonGroup>
-          <SidebarTrigger className="self-center size-10 rounded-md border border-border/60 bg-background text-muted-foreground shadow-sm hover:bg-muted/70" />
+          <SidebarTrigger className="self-center size-8 rounded-md border border-border/60 bg-background text-muted-foreground shadow-sm hover:bg-muted/70 sm:size-10" />
           <div className="hidden min-w-0 flex-1 items-center gap-1.5 sm:flex">
             <div className="hidden size-6 shrink-0 items-center justify-center text-muted-foreground sm:flex">
               {leadingIcon ?? (
@@ -121,11 +121,11 @@ export function WorkspaceHeader({
             {actions}
           </div>
         </div>
-        <div className="min-w-0 sm:hidden">
+        <div className="min-w-0 overflow-hidden sm:hidden">
           {breadcrumbs ?? (
-            <div className="min-w-0" id="workspace-header-breadcrumbs">
+            <div className="min-w-0 overflow-hidden" id="workspace-header-breadcrumbs">
               {title ? (
-                <h1 className="truncate font-medium text-sm text-foreground">
+                <h1 className="block truncate font-medium text-sm leading-tight text-foreground">
                   {title}
                 </h1>
               ) : null}

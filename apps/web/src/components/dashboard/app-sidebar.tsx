@@ -21,7 +21,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   type ComponentProps,
   type ComponentType,
-  startTransition,
   useCallback,
   useDeferredValue,
   useEffect,
@@ -472,6 +471,7 @@ export function DashboardSidebar({
   const [activeChatSlugOverride, setActiveChatSlugOverride] = useState<
     string | null
   >(null);
+  const pendingCreatedChatRef = useRef<ChatSummary | null>(null);
   const [workspaceUuid, setWorkspaceUuid] = useState<string | null>(
     activeWorkspace?.workspaceId ?? null
   );
@@ -603,9 +603,7 @@ export function DashboardSidebar({
   );
   const navigate = useCallback(
     (href: Route) => {
-      startTransition(() => {
-        router.push(href);
-      });
+      router.push(href);
     },
     [router]
   );
@@ -1000,40 +998,25 @@ export function DashboardSidebar({
         return;
       }
 
-      setChats((prev) => {
-        if (prev.some((chat) => chat.slug === detail.id)) {
-          return prev;
-        }
-
-        const now = new Date().toISOString();
-        return [
-          {
-            branching: null,
-            createdAt: now,
-            icon: null,
-            id: detail.id,
-            lastMessageAt: now,
-            pinned: false,
-            slug: detail.id,
-            title: detail.title,
-            updatedAt: now,
-            workspaceId: workspaceUuid,
-          },
-          ...prev,
-        ];
-      });
-
       if (
         pathname === "/workspace/chats/new" ||
         activeChatSlug === "new" ||
         detail.fromId === "new"
       ) {
+        pendingCreatedChatRef.current = {
+          branching: null,
+          createdAt: new Date().toISOString(),
+          icon: null,
+          id: detail.id,
+          lastMessageAt: new Date().toISOString(),
+          pinned: false,
+          slug: detail.id,
+          title: detail.title,
+          updatedAt: new Date().toISOString(),
+          workspaceId: workspaceUuid,
+        };
         setActiveChatSlugOverride(detail.id);
-        window.history.replaceState(
-          { chatId: detail.id },
-          "",
-          `/workspace/chats/${detail.id}`
-        );
+        router.replace(`/workspace/chats/${detail.id}` as Route);
       }
     };
 
@@ -1041,6 +1024,15 @@ export function DashboardSidebar({
       const detail = (event as CustomEvent<ChatNameUpdatedDetail>).detail;
       if (!(detail?.id && detail?.name)) {
         return;
+      }
+
+      if (pendingCreatedChatRef.current?.slug === detail.id) {
+        pendingCreatedChatRef.current = {
+          ...pendingCreatedChatRef.current,
+          icon: detail.icon ?? pendingCreatedChatRef.current.icon ?? null,
+          title: detail.name,
+          updatedAt: new Date().toISOString(),
+        };
       }
 
       setChats((prev) =>
@@ -1067,7 +1059,24 @@ export function DashboardSidebar({
         return;
       }
       if (detail.status === "ready" || detail.status === "error") {
+        if (detail.status === "ready") {
+          const pendingCreatedChat = pendingCreatedChatRef.current;
+          if (pendingCreatedChat?.slug === detail.chatId) {
+            setChats((prev) => {
+              if (prev.some((chat) => chat.slug === pendingCreatedChat.slug)) {
+                return prev;
+              }
+              return [pendingCreatedChat, ...prev];
+            });
+          }
+        }
+        if (detail.status === "error") {
+          pendingCreatedChatRef.current = null;
+        }
         setPendingChatSlug((prev) => (prev === detail.chatId ? null : prev));
+        if (detail.status === "ready") {
+          pendingCreatedChatRef.current = null;
+        }
       }
     };
 
@@ -1321,11 +1330,8 @@ export function DashboardSidebar({
     setChats(remaining);
 
     if (activeChatSlug === chatSlug) {
-      if (remaining.length > 0) {
-        navigate(`/workspace/chats/${remaining[0].slug}` as Route);
-      } else {
-        await createChat();
-      }
+      setActiveChatSlugOverride(null);
+      navigate("/workspace/chats/new" as Route);
       router.refresh();
     }
   };

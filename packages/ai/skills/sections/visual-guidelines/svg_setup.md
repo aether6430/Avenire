@@ -7,6 +7,7 @@
 4. For text with text-anchor="end", the text extends LEFT from x. If x=118 and text is 200px wide, it starts at x=-82 — outside the viewBox. Increase x or use text-anchor="start".
 5. Never use negative x or y coordinates. The viewBox starts at 0,0.
 6. Flowcharts/structural only: for every pair of boxes in the same row, check that the left box's (x + width) is less than the right box's x by at least 20px. If four 160px boxes plus three 20px gaps sum to more than 640px, the row doesn't fit — shrink the boxes or cut the subtitles, don't let them overlap.
+7. If a diagram still feels tight after the math, it is too dense. Split it into multiple diagrams instead of compressing placement.
 
 **SVG setup**: `<svg width="100%" viewBox="0 0 680 H">` — 680px wide, flexible height. Set H to fit content tightly — the last element's bottom edge + 40px padding. Don't leave excess empty space below the content. Safe area: x=40 to x=640, y=40 to y=(H-40). Background transparent. **Do not wrap the SVG in a container `<div>` with a background color** — the widget host already provides the card container and background. Output the raw `<svg>` element directly.
 
@@ -14,9 +15,32 @@
 
 **viewBox height:** After layout, find max_y (bottom-most point of any shape, including text baselines + 4px descent). Set viewBox height = max_y + 20. Don't guess.
 
+**Default placement discipline** — use these defaults unless you have a specific reason not to:
+- Outer margins: 40px on every side
+- Horizontal gap between peer boxes: 24px minimum
+- Vertical gap between tiers: 32px minimum
+- Default node width: 160-200px
+- Maximum node width in dense diagrams: 220px
+- If you need more than 4 medium boxes in one row, split the diagram
+- Prefer right-side labels with `text-anchor="start"`; avoid left-side label columns unless necessary
+- Keep connectors orthogonal when possible; straight lines are only for unobstructed short runs
+
 **text-anchor='end' at x<60 is risky** — the longest label will extend left past x=0. Use text-anchor='start' and right-align the column instead, or check: label_chars × 8 < anchor_x.
 
 **One SVG per tool call** — each call must contain exactly one <svg> element. Never leave an abandoned or partial SVG in the output. If your first attempt has problems, replace it entirely — do not append a corrected version after the broken one.
+
+**Few-shot SVG examples must start with a planning block.** Put this comment immediately before the raw SVG in any example:
+```text
+<!-- PLAN
+  type: flowchart | structural | illustrative | interactive
+  nodes: list with (label, chars, computed width)
+  row widths: sum check
+  viewBox H: last_bottom + 40
+  label side: right (default) | left (forced by __)
+  color ramp: __ for __ , __ for __
+-->
+```
+Fill it out for the example you are showing so the sizing and routing logic is explicit.
 
 **Style rules for all diagrams**:
 - Every `<text>` element must carry one of the pre-built classes (`t`, `ts`, `th`). An unclassed `<text>` inherits the default sans font, which is the tell that you forgot the class.
@@ -43,11 +67,11 @@ Before placing text in a box, check: does (text width + 2×padding) fit the cont
 
 **Pre-built classes** (already loaded in SVG widget):
 - `class="t"` = sans 14px primary, `class="ts"` = sans 12px secondary, `class="th"` = sans 14px medium (500)
-- `class="box"` = neutral rect (bg-secondary fill, border stroke)
+- `class="box"` = neutral rect helper (secondary fill, border stroke)
 - `class="node"` = clickable group with hover effect (cursor pointer, slight dim on hover)
 - `class="arr"` = arrow line (1.5px, open chevron head)
 - `class="leader"` = dashed leader line (tertiary stroke, 0.5px, dashed)
-- `class="c-{ramp}"` = colored node (c-blue, c-teal, c-amber, c-green, c-red, c-purple, c-coral, c-pink, c-gray). Apply to `<g>` or shape element (rect/circle/ellipse), NOT to paths. Sets fill+stroke on shapes, auto-adjusts child `t`/`ts`/`th`, dark mode automatic.
+- `class="c-{ramp}"` = colored node (c-default, c-gray, c-brown, c-orange, c-yellow, c-green, c-blue, c-purple, c-pink, c-red, plus compatibility aliases c-teal, c-amber, c-coral, c-black). Apply to `<g>` or shape element (rect/circle/ellipse), NOT to paths. Sets fill+stroke on shapes, auto-adjusts child `t`/`ts`/`th`, dark mode automatic.
 
 **c-{ramp} nesting:** These classes use direct-child selectors (`>`). Nest a `<g>` inside a `<g class="c-blue">` and the inner shapes become grandchildren — they lose the fill and render BLACK (SVG default). Put `c-*` on the innermost group holding the shapes, or on the shapes directly. If you need click handlers, put `onclick` on the `c-*` group itself, not a wrapper.
 
@@ -68,6 +92,6 @@ Before placing text in a box, check: does (text width + 2×padding) fit the cont
 
 **Lines stop at component edges.** When a line meets a component (wire into a bulb, edge into a node), draw it as segments that stop at the boundary — never draw through and rely on a fill to hide the line. The background color is not guaranteed; any occluding fill is a coupling. Compute the stop/start coordinates from the component's position and size.
 
-**Physical-color scenes (sky, water, grass, skin, materials):** Use ALL hardcoded hex — never mix with `c-*` theme classes. The scene should not invert in dark mode. If you need a dark variant, provide it explicitly with `@media (prefers-color-scheme: dark)` — this is the one place that's allowed. Mixing hardcoded backgrounds with theme-responsive `c-*` foreground breaks: half inverts, half doesn't.
+**No freestyle SVG colors.** Even illustrative SVGs must use the theme palette only. Use `c-*` classes and the shared palette tokens; do not fall back to hardcoded hex for scenes, gradients, flames, water, heat maps, or decorative accents.
 
 **No rotated text**. `<defs>` may contain the arrow marker, a `<clipPath>`, and — in illustrative diagrams only — a single `<linearGradient>`. Nothing else: no filters, no patterns, no extra markers.

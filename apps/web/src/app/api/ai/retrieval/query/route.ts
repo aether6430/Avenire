@@ -53,6 +53,7 @@ export async function POST(request: Request) {
     }
 
     const cacheKey = createRetrievalCacheKey({
+      userId: user.id,
       workspaceUuid: parsed.data.workspaceUuid,
       query: parsed.data.query,
       limit: parsed.data.limit,
@@ -72,6 +73,7 @@ export async function POST(request: Request) {
 
     const result = await retrieveWorkspaceChunks({
       workspaceId: parsed.data.workspaceUuid,
+      userId: user.id,
       query: parsed.data.query,
       limit: parsed.data.limit,
       sourceType: parsed.data.sourceType,

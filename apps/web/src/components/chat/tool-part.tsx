@@ -406,6 +406,40 @@ export function ChatToolPart({ part }: { part: ToolPart }) {
           ))}
         </div>
       );
+    case "tool-web_search":
+      return (
+        <div className="mb-2 space-y-1">
+          <ToolRow label="Web search">
+            <span className="font-mono text-[12px] text-foreground/62">
+              {completedPart.output.query}
+            </span>
+            <span className="font-mono text-[11px] text-foreground/28">
+              {completedPart.output.totalResults} results
+            </span>
+          </ToolRow>
+          {typeof completedPart.output.answer === "string" &&
+          completedPart.output.answer.length > 0 ? (
+            <div className="ml-0 rounded-md border border-border/30 p-2">
+              <p className="whitespace-pre-wrap font-mono text-[11px] text-foreground/50">
+                {completedPart.output.answer}
+              </p>
+            </div>
+          ) : null}
+          {completedPart.output.results.slice(0, 4).map((result) => (
+            <div
+              className="ml-0 rounded-md border border-border/30 p-2"
+              key={result.url}
+            >
+              <p className="font-mono text-[10px] text-foreground/40">
+                {result.title}
+              </p>
+              <p className="mt-0.5 whitespace-pre-wrap font-mono text-[11px] text-foreground/50">
+                {result.content}
+              </p>
+            </div>
+          ))}
+        </div>
+      );
     case "tool-generate_flashcards":
       return (
         <FlashcardDeckComponent

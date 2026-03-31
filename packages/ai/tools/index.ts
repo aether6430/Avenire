@@ -61,6 +61,15 @@ const notePreviewSchema = z.object({
   workspacePath: z.string(),
 });
 
+const webSearchResultSchema = z.object({
+  content: z.string(),
+  favicon: z.string().optional(),
+  publishedDate: z.string().optional(),
+  score: z.number(),
+  title: z.string(),
+  url: z.string().url(),
+});
+
 const misconceptionSchema = z.object({
   confidence: z.number().min(0).max(1),
   concept: z.string(),
@@ -82,6 +91,20 @@ const misconceptionScopeSchema = z.object({
 });
 
 export const chatToolSchemas = {
+  web_search: {
+    input: z.object({
+      includeAnswer: z.boolean().optional(),
+      maxResults: z.number().int().min(1).max(10).optional(),
+      query: z.string().min(1),
+      topic: z.enum(["general", "news", "finance"]).optional(),
+    }),
+    output: z.object({
+      answer: z.string().optional(),
+      query: z.string(),
+      results: z.array(webSearchResultSchema),
+      totalResults: z.number().int(),
+    }),
+  },
   search_materials: {
     input: z.object({
       limit: z.number().int().min(1).max(20).optional(),
@@ -319,12 +342,17 @@ export const chatToolSchemas = {
           isSVG: z.boolean(),
         })
         .optional(),
+      widget_code: z.string().optional(),
       filePath: z.string().nullable().optional(),
     }),
   },
 } as const;
 
 export const chatTools = {
+  web_search: tool({
+    inputSchema: chatToolSchemas.web_search.input,
+    outputSchema: chatToolSchemas.web_search.output,
+  }),
   search_materials: tool({
     inputSchema: chatToolSchemas.search_materials.input,
     outputSchema: chatToolSchemas.search_materials.output,

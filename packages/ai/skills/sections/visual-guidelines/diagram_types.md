@@ -4,13 +4,14 @@
 **Two rules that cause most diagram failures — check these before writing each arrow and each box:**
 1. **Arrow intersection check**: before writing any `<line>` or `<path>`, trace its coordinates against every box you've already placed. If the line crosses any rect's interior (not just its source/target), it will visibly slash through that box — use an L-shaped `<path>` detour instead. This applies to arrows crossing labels too.
 2. **Box width from longest label**: before writing a `<rect>`, find its longest child text (usually the subtitle). `rect_width = max(title_chars × 8, subtitle_chars × 7) + 24`. A 100px-wide box holds at most a 10-char subtitle. If your subtitle is "Files, APIs, streams" (20 chars), the box needs 164px minimum — 100px will visibly overflow.
+3. **Density check**: if boxes, labels, and arrows cannot fit cleanly with the default margins and gaps, stop and split the concept into multiple diagrams. Do not squeeze.
 
 **Tier packing:** Compute total width BEFORE placing. Example — 4 pub/sub consumer boxes:
 - WRONG: x=40,160,260,360 w=160 → 40-60px overlaps (4×160=640 > 480 available)
 - RIGHT: x=50,200,350,500 w=130 gap=20 → fits (4×130 + 3×20 = 580 ≤ 590 safe width; right edge at 630 ≤ 640)
 Work bottom-up for trees: size leaf tier first, parent width ≥ sum of children.
 
-**Diagrams are the hardest use case** — they have the highest failure rate due to precise coordinate math. Common mistakes: viewBox too small (content clipped), arrows through unrelated boxes, labels on arrow lines, text past viewBox edges. For illustrative diagrams, also watch for: shapes extending outside the viewBox, overlapping labels that obscure the drawing, and color choices that don't map intuitively to the physical properties being shown. Double-check coordinates before finalizing.
+**Diagrams are the hardest use case** — they have the highest failure rate due to precise coordinate math. Common mistakes: viewBox too small (content clipped), arrows through unrelated boxes, labels on arrow lines, text past viewBox edges, and over-dense layouts that should have been split. Double-check coordinates before finalizing.
 
 Use `show_widget` with raw SVG for diagrams. The widget automatically wraps SVG output in a card.
 
@@ -80,6 +81,14 @@ Keep all nodes the same height when they have the same content type (e.g. all si
 
 *Single-line node* (44px tall): title only. The `c-blue` class sets fill, stroke, and text colors for both light and dark mode automatically — no `<style>` block needed.
 ```svg
+<!-- PLAN
+  type: flowchart
+  nodes: [(T-cells, 7 chars, 136px)]
+  row widths: single box only
+  viewBox H: 64 + 40 = 104
+  label side: right (default)
+  color ramp: c-blue for node
+-->
 <g class="node c-blue" onclick="sendPrompt('Tell me more about T-cells')">
   <rect x="100" y="20" width="180" height="44" rx="8" stroke-width="0.5"/>
   <text class="th" x="190" y="42" text-anchor="middle" dominant-baseline="central">T-cells</text>
@@ -88,6 +97,14 @@ Keep all nodes the same height when they have the same content type (e.g. all si
 
 *Two-line node* (56px tall): bold title + muted subtitle.
 ```svg
+<!-- PLAN
+  type: flowchart
+  nodes: [(Dendritic cells, 15 chars, 200px)]
+  row widths: single box only
+  viewBox H: 76 + 40 = 116
+  label side: right (default)
+  color ramp: c-blue for node
+-->
 <g class="node c-blue" onclick="sendPrompt('Tell me more about dendritic cells')">
   <rect x="100" y="20" width="200" height="56" rx="8" stroke-width="0.5"/>
   <text class="th" x="200" y="38" text-anchor="middle" dominant-baseline="central">Dendritic cells</text>
@@ -97,12 +114,22 @@ Keep all nodes the same height when they have the same content type (e.g. all si
 
 *Connector* (no label — meaning is clear from source + target):
 ```svg
+<!-- PLAN
+  type: flowchart
+  nodes: [(connector, 9 chars, 112px)]
+  row widths: single arrow segment
+  viewBox H: 120 + 40 = 160
+  label side: right (default)
+  color ramp: neutral gray for connector
+-->
 <line x1="200" y1="76" x2="200" y2="120" class="arr" marker-end="url(#arrow)"/>
 ```
 
-*Neutral node* (gray, for start/end/generic steps): use `class="box"` for auto-themed fill/stroke, and default text classes.
+*Neutral node* (gray, for start/end/generic steps): use `class="box"` for the provided neutral fill/stroke helper, and default text classes.
 
 Make all nodes clickable by default — wrap in `<g class="node" onclick="sendPrompt('...')">`. The hover effect is built in.
+
+**Few-shot SVG examples:** prepend a `<!-- PLAN ... -->` block before every raw SVG example, including inline SVG inside HTML examples.
 
 #### Structural diagram
 
@@ -128,6 +155,18 @@ For concepts where physical or logical containment matters — things inside oth
 
 **Structural container example** (library branch with two side-by-side regions, an internal labeled arrow, and an external input). ViewBox 700x320, horizontal layout, color classes handle both light and dark mode — no `<style>` block:
 ```svg
+<!-- PLAN
+  type: structural
+  nodes: [
+    (Library branch, 14 chars, 200px),
+    (Circulation desk, 16 chars, 220px),
+    (Reading room, 12 chars, 210px)
+  ]
+  row widths: two inner regions + 16px gap, fits within 560px container
+  viewBox H: 260 + 40 = 300
+  label side: right (default)
+  color ramp: c-green for outer container, c-teal for circulation, c-amber for reading room
+-->
 <defs>
   <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
     <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -287,6 +326,21 @@ All core rules still apply (viewBox 680px, dark mode mandatory, 14/12px text, pr
 
 **Illustrative diagram example** — interactive water heater cross-section with vivid physical-realism colors, animated convection currents, and controls. Uses `show_widget` HTML with inline SVG: a thermostat slider shifts the hot/cold gradient boundary, a heating toggle animates flames on/off and transitions convection to paused. viewBox is 680x560; tank occupies x=180..440, leaving 140px+ of right margin for labels. Smooth convection paths use `stroke-dasharray:5 5` at ~1.6s for a gentle flow feel. A warm-glow overlay on the hot zone pulses subtly when heating is on. Flame shapes use warm gradient fills and clean opacity transitions. Labels sit along the right margin with leader lines.
 ```html
+<!-- PLAN
+  type: illustrative
+  nodes: [
+    (Hot water outlet, 16 chars, 168px),
+    (Cold water inlet, 16 chars, 168px),
+    (Dip tube, 8 chars, 104px),
+    (Thermostat, 10 chars, 120px),
+    (Tank wall, 9 chars, 112px),
+    (Heating element, 15 chars, 160px)
+  ]
+  row widths: right-side label column, max label width 168px
+  viewBox H: 520 + 40 = 560
+  label side: right (default)
+  color ramp: c-coral for hot zones, c-blue for cold zones
+-->
 <style>
   @keyframes conv { to { stroke-dashoffset: -20; } }
   @keyframes flicker { 0%,100%{opacity:1} 50%{opacity:.82} }
@@ -393,6 +447,23 @@ function toggleHeat(on) {
 
 **Illustrative example — abstract subject** (attention in a transformer). Same rules, no physical object. A row of tokens at the bottom, one query token highlighted, weight-scaled lines fanning to every other token. Caption sits below the fan — clear of every stroke — not inside it.
 ```svg
+<!-- PLAN
+  type: illustrative
+  nodes: [
+    (Layer 3, 7 chars, 72px),
+    (Layer 2, 7 chars, 72px),
+    (Layer 1, 7 chars, 72px),
+    (the, 3 chars, 48px),
+    (cat, 3 chars, 48px),
+    (sat, 3 chars, 48px),
+    (on, 2 chars, 40px),
+    (the, 3 chars, 48px)
+  ]
+  row widths: token row spans x=80..600, caption centered below
+  viewBox H: 300 + 40 = 340
+  label side: right (default)
+  color ramp: c-gray for low weight, c-amber for active query
+-->
 <rect class="c-purple" x="60" y="40"  width="560" height="26" rx="6" stroke-width="0.5"/>
 <rect class="c-purple" x="60" y="80"  width="560" height="26" rx="6" stroke-width="0.5"/>
 <rect class="c-purple" x="60" y="120" width="560" height="26" rx="6" stroke-width="0.5"/>

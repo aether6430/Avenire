@@ -7,6 +7,7 @@ These rules apply to ALL use cases.
 - **Flat**: No gradients, mesh backgrounds, noise textures, or decorative effects. Clean flat surfaces.
 - **Compact**: Show the essential inline. Explain the rest in text.
 - **Text goes in your response, visuals go in the tool** — All explanatory text, descriptions, introductions, and summaries must be written as normal response text OUTSIDE the tool call. The tool output should contain ONLY the visual element (diagram, chart, interactive widget). Never put paragraphs of explanation, section headings, or descriptive prose inside the HTML/SVG. If the user asks "explain X", write the explanation in your response and use the tool only for the visual that accompanies it. The user's font settings only apply to your response text, not to text inside the widget.
+- **Use the system as-is**: do not invent your own styling language. Reuse the provided classes, bare controls, tokens, and structural patterns directly. Treat them as a contract, not inspiration.
 
 ### Streaming
 Output streams token-by-token. Structure code so useful content appears early.
@@ -21,6 +22,10 @@ Output streams token-by-token. Structure code so useful content appears early.
 - No font-size below 11px
 - No emoji — use CSS shapes or SVG paths
 - No gradients, drop shadows, blur, glow, or neon effects
+- **No hand-authored colors.** Do not pick colors. Do not write hex, rgb(), hsl(), oklch(), named colors, or ad hoc opacity ramps for UI/diagram styling. Apply the provided classes and tokens only.
+- **Classes first.** If a provided classname solves the problem, use the classname. Do not recreate the same look with inline color/fill/stroke declarations.
+- **Do not restyle core components from scratch.** Inputs, buttons, sliders, cards, pills, metric blocks, and diagram nodes should follow the prescribed structure. If the examples show a pattern, copy the pattern instead of improvising a new one.
+- **Layout styles are allowed; appearance styles are not.** Use inline CSS for positioning, spacing, sizing, and grid/flex layout. Do not use inline CSS to invent new visual design for components.
 - No dark/colored backgrounds on outer containers (transparent only — host provides the bg)
 - **Typography**: The default font is var(--font-sans). For the rare editorial/blockquote moment, use `font-family: var(--font-serif)`.
 - **Headings**: h1 = 22px, h2 = 18px, h3 = 16px — all `font-weight: 500`. Heading color is pre-set to `var(--color-text-primary)` — don't override it. Body text = 16px, weight 400, `line-height: 1.7`. **Two weights only: 400 regular, 500 bold.** Never use 600 or 700 — they look heavy against the host UI.
@@ -45,12 +50,17 @@ Output streams token-by-token. Structure code so useful content appears early.
 **Borders**: `--color-border-tertiary` (0.15α, default), `-secondary` (0.3α, hover), `-primary` (0.4α), semantic `-info/-danger/-success/-warning`
 **Typography**: `--font-sans`, `--font-serif`, `--font-mono`
 **Layout**: `--border-radius-md` (8px), `--border-radius-lg` (12px — preferred for most components), `--border-radius-xl` (16px)
-All auto-adapt to light/dark mode. For custom colors in HTML, use CSS variables.
+All auto-adapt to light/dark mode. These are the only allowed theme primitives. Do not invent additional color values.
+
+The shared UI theme also exposes palette families through:
+- `--color-text-default|gray|brown|orange|yellow|green|blue|purple|pink|red`
+- `--color-bg-default|gray|brown|orange|yellow|green|blue|purple|pink|red`
+- `--color-pill-default|gray|brown|orange|yellow|green|blue|purple|pink|red`
 
 **Dark mode is mandatory** — every color must work in both modes:
-- In SVG: use the pre-built color classes (`c-blue`, `c-teal`, `c-amber`, etc.) for colored nodes — they handle light/dark mode automatically. Never write `<style>` blocks for colors.
+- In SVG: use the pre-built color classes (`c-default`, `c-gray`, `c-brown`, `c-orange`, `c-yellow`, `c-green`, `c-blue`, `c-purple`, `c-pink`, `c-red`, plus aliases `c-teal`, `c-amber`, `c-coral`) for colored nodes — they handle light/dark mode automatically. Never write `<style>` blocks for colors.
 - In SVG: every `<text>` element needs a class (`t`, `ts`, `th`) — never omit fill or use `fill="inherit"`. Inside a `c-{color}` parent, text classes auto-adjust to the ramp.
-- In HTML: always use CSS variables (--color-text-primary, --color-text-secondary) for text. Never hardcode colors like color: #333 — invisible in dark mode.
+- In HTML: use the provided component styles and theme tokens only. Never hardcode colors like `#333`, and do not invent your own palette choices.
 - Mental test: if the background were near-black, would every text element still be readable?
 
 ### sendPrompt(text)

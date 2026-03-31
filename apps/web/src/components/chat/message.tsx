@@ -497,12 +497,23 @@ const PurePreviewMessage = ({
               if (isToolPart(part) && part.type === "tool-show_widget") {
                 const input = (part as { input?: Record<string, unknown> })
                   .input;
+                const output = (part as { output?: Record<string, unknown> })
+                  .output;
                 const widgetCode =
                   typeof input?.widget_code === "string"
                     ? input.widget_code
+                    : typeof output?.widget_code === "string"
+                      ? output.widget_code
                     : "";
                 const title =
-                  typeof input?.title === "string" ? input.title : null;
+                  typeof input?.title === "string"
+                    ? input.title
+                    : typeof output?.details === "object" &&
+                        output.details !== null &&
+                        typeof (output.details as { title?: unknown }).title ===
+                          "string"
+                      ? (output.details as { title: string }).title
+                      : null;
                 const loadingMessages = Array.isArray(input?.loading_messages)
                   ? input?.loading_messages.filter(
                       (message) => typeof message === "string"

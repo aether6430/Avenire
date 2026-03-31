@@ -12,6 +12,7 @@ import {
 } from "@avenire/ai/skills";
 import { retrieveWorkspaceChunks } from "@avenire/ingestion";
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
+import { tavily } from "@tavily/core";
 import { z } from "zod";
 import {
   createFolder,
@@ -50,6 +51,7 @@ import {
 import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
 
 const DEFAULT_SEARCH_LIMIT = 8;
+const DEFAULT_WEB_SEARCH_LIMIT = 5;
 const DEFAULT_FILE_LIST_LIMIT = 50;
 const DEFAULT_DUE_CARD_LIMIT = 5;
 const DEFAULT_NOTE_MAX_CHARS = 16_000;
@@ -835,6 +837,7 @@ async function resolveWorkspaceSearchMatches(params: {
 }) {
   const result = await retrieveWorkspaceChunks({
     workspaceId: params.workspaceId,
+    userId: params.userId,
     query: params.query,
     limit: params.limit,
     sourceType: params.sourceType,
@@ -1077,6 +1080,7 @@ async function resolveStudySource(
 
   const result = await retrieveWorkspaceChunks({
     workspaceId: ctx.workspaceId,
+    userId: ctx.userId,
     query,
     limit: STUDY_QUERY_MATCH_LIMIT,
   });
@@ -1401,8 +1405,47 @@ async function generateQuizFromSource(
   };
 }
 
+async function runWebSearch(
+  input: z.infer<typeof chatToolSchemas.web_search.input>
+) {
+  const apiKey = process.env.TAVILY_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error("TAVILY_API_KEY is required for web_search.");
+  }
+
+  const client = tavily({ apiKey });
+  const response = await client.search(input.query, {
+    includeAnswer: input.includeAnswer ?? true,
+    includeFavicon: true,
+    maxResults: input.maxResults ?? DEFAULT_WEB_SEARCH_LIMIT,
+    searchDepth: "advanced",
+    topic: input.topic ?? "general",
+  });
+
+  return {
+    answer: response.answer?.trim() || undefined,
+    query: response.query,
+    results: response.results.map((result) => ({
+      content: result.content,
+      favicon: result.favicon,
+      publishedDate: result.publishedDate,
+      score: result.score,
+      title: result.title,
+      url: result.url,
+    })),
+    totalResults: response.results.length,
+  };
+}
+
 export function createChatTools(ctx: ChatToolContext): ToolSet {
   return {
+    web_search: tool({
+      description:
+        "Search the public web with Tavily and return relevant sources. Use when the user asks for current events, recent facts, external sources, or information outside the workspace.",
+      inputSchema: chatToolSchemas.web_search.input,
+      outputSchema: chatToolSchemas.web_search.output,
+      execute: runWebSearch,
+    }),
     search_materials: tool({
       description:
         "Semantic search over workspace materials with file citations. Use only when the user asks about their files/workspace or requests a workspace search.",
@@ -2155,6 +2198,7 @@ The agent decides which operations to perform based on the task.`,
             height,
             isSVG,
           },
+          widget_code: input.widget_code,
           filePath: null,
         };
       },

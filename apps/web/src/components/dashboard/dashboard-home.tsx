@@ -3,21 +3,44 @@
 import { Badge } from "@avenire/ui/components/badge";
 import { Button } from "@avenire/ui/components/button";
 import {
-  Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle, } from "@avenire/ui/components/empty";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@avenire/ui/components/dialog";
 import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, } from "@avenire/ui/components/dialog";
-import {
-  Tabs, TabsContent, TabsList, TabsTrigger, } from "@avenire/ui/components/tabs";
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@avenire/ui/components/empty";
 import { Spinner } from "@avenire/ui/components/spinner";
 import {
-  ArrowRight, BookOpenText as BookOpenCheck, Files, FileText, ChatText as MessageSquareText, Plus, Warning as TriangleAlert } from "@phosphor-icons/react"
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@avenire/ui/components/tabs";
+import {
+  ArrowRight,
+  BookOpenText as BookOpenCheck,
+  Files,
+  FileText,
+  ChatText as MessageSquareText,
+  Plus,
+  Warning as TriangleAlert,
+} from "@phosphor-icons/react";
 import type { Route } from "next";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
 import { startTransition, useEffect, useMemo, useState } from "react";
-import { QuickCaptureDialog } from "@/components/dashboard/quick-capture-dialog";
 import { HeaderBreadcrumbs } from "@/components/dashboard/header-portal";
+import { QuickCaptureDialog } from "@/components/dashboard/quick-capture-dialog";
+import { prefetchFlashcardSet } from "@/lib/flashcard-browser-cache";
 import type {
   ConceptDrillTarget,
   ConceptMasteryRecord,
@@ -192,6 +215,12 @@ function UpcomingFlashcardList({
           className="flex w-full cursor-pointer items-start justify-between gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-secondary"
           key={set.id}
           onClick={() => onStartReview(set.id)}
+          onFocus={() => {
+            prefetchFlashcardSet(set.id).catch(() => undefined);
+          }}
+          onMouseEnter={() => {
+            prefetchFlashcardSet(set.id).catch(() => undefined);
+          }}
           type="button"
         >
           <div className="min-w-0">
@@ -284,6 +313,7 @@ export function DashboardHome({
   };
 
   const startReview = (setId: string) => {
+    prefetchFlashcardSet(setId).catch(() => undefined);
     startTransition(() => {
       router.push(`/workspace/flashcards/${setId}?study=1` as Route);
     });
@@ -326,7 +356,7 @@ export function DashboardHome({
   }
 
   return (
-    <div className="h-full overflow-x-hidden overflow-y-auto bg-background">
+    <div className="h-full overflow-y-auto overflow-x-hidden bg-background">
       <div className="flex w-full flex-col gap-4 px-4 py-4 md:px-6 lg:px-8">
         <HeaderBreadcrumbs>
           <div className="min-w-0">
@@ -348,7 +378,6 @@ export function DashboardHome({
           <QuickCaptureDialog
             currentUserId={currentUserId}
             initialKind="task"
-            workspaceUuid={workspaceId}
             trigger={
               <Button
                 className="h-8 gap-1.5 rounded-sm px-2.5 text-muted-foreground text-sm"
@@ -359,6 +388,7 @@ export function DashboardHome({
                 Task
               </Button>
             }
+            workspaceUuid={workspaceId}
           />
 
           <QuickCaptureDialog
@@ -406,6 +436,9 @@ export function DashboardHome({
             onClick={() => {
               router.push("/workspace/flashcards" as Route);
             }}
+            onMouseEnter={() => {
+              router.prefetch("/workspace/flashcards" as Route);
+            }}
             type="button"
             variant="ghost"
           >
@@ -427,7 +460,7 @@ export function DashboardHome({
         </div>
 
         <div className="mt-2 min-w-0">
-          <h1 className="truncate text-3xl font-bold tracking-tight text-foreground">
+          <h1 className="truncate font-bold text-3xl text-foreground tracking-tight">
             Hey {userName ?? "there"}
           </h1>
           <p className="mt-1 truncate text-muted-foreground text-sm">
@@ -499,8 +532,8 @@ export function DashboardHome({
                         </EmptyHeader>
                         <EmptyContent>
                           <EmptyDescription>
-                            As you study and capture misconceptions, the
-                            weakest areas will surface here with drill paths.
+                            As you study and capture misconceptions, the weakest
+                            areas will surface here with drill paths.
                           </EmptyDescription>
                         </EmptyContent>
                       </Empty>
@@ -551,6 +584,13 @@ export function DashboardHome({
                                 <Link
                                   className="inline-flex items-center gap-1 text-foreground text-xs"
                                   href={drillHref as Route}
+                                  onMouseEnter={() => {
+                                    if (weakestDrillTarget) {
+                                      prefetchFlashcardSet(
+                                        weakestDrillTarget.setId
+                                      ).catch(() => undefined);
+                                    }
+                                  }}
                                 >
                                   Drill
                                   <ArrowRight className="size-3.5" />
@@ -582,9 +622,8 @@ export function DashboardHome({
                         </EmptyHeader>
                         <EmptyContent>
                           <EmptyDescription>
-                            When a misconception is detected it will appear
-                            here with the option to review, improve, or clear
-                            it.
+                            When a misconception is detected it will appear here
+                            with the option to review, improve, or clear it.
                           </EmptyDescription>
                         </EmptyContent>
                       </Empty>
@@ -593,7 +632,9 @@ export function DashboardHome({
                         <button
                           className="w-full cursor-pointer rounded-md px-4 py-3 text-left transition-colors hover:bg-secondary"
                           key={misconception.id}
-                          onClick={() => setSelectedMisconception(misconception)}
+                          onClick={() =>
+                            setSelectedMisconception(misconception)
+                          }
                           type="button"
                         >
                           <div className="flex items-start justify-between gap-3">
@@ -632,7 +673,7 @@ export function DashboardHome({
         </div>
 
         <div className="mt-0">
-          <h2 className="mb-3 text-sm font-medium text-foreground">
+          <h2 className="mb-3 font-medium text-foreground text-sm">
             Student calendar
           </h2>
           <StudentCalendar />

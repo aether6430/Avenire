@@ -1,5 +1,5 @@
 [build]
-buildCommand = "if [ \"$APP_ROLE\" = \"web\" ]; then pnpm --filter @avenire/web build; else pnpm --filter @avenire/backend build; fi"
+buildCommand = "pnpm --filter @avenire/ai prebuild && if [ \"$APP_ROLE\" = \"web\" ]; then pnpm --filter @avenire/web build; else pnpm --filter @avenire/backend build; fi"
 
 [deploy]
 preDeployCommand = "if [ \"$APP_ROLE\" = \"web\" ]; then pnpm db:migrate; fi"

@@ -158,8 +158,6 @@ export interface FlashcardSetRecord extends FlashcardSetSummary {
   cardSnapshots: FlashcardCardSnapshot[];
   cards: FlashcardCardRecord[];
   enrollment: FlashcardSetEnrollmentRecord | null;
-  recentReviews: FlashcardReviewLogRecord[];
-  reviewEventsToday: FlashcardReviewEventRecord[];
   stateCounts: FlashcardStateCounts;
 }
 
@@ -185,7 +183,6 @@ export interface FlashcardDashboardRecord {
   newCount: number;
   reviewCount7d: number;
   reviewCountToday: number;
-  reviewEventsToday: FlashcardReviewEventRecord[];
   sets: FlashcardSetSummary[];
   stateCounts: FlashcardStateCounts;
 }
@@ -961,10 +958,8 @@ export async function getFlashcardSetForUser(
     return null;
   }
 
-  const [allCards, recentReviews, reviewEventsToday] = await Promise.all([
+  const [allCards] = await Promise.all([
     listCardsForSetIds([setId], { includeArchived: true }),
-    listRecentReviewLogsForSet(userId, setId, 12),
-    listReviewEventsForSetIdsSince(userId, [setId], startOfDay()),
   ]);
 
   return {
@@ -974,8 +969,6 @@ export async function getFlashcardSetForUser(
       mapCardSnapshot(card, hydrated.reviewStates.get(card.id) ?? null)
     ),
     enrollment: row.enrollment ? mapEnrollment(row.enrollment) : null,
-    recentReviews: recentReviews.map((entry) => mapReviewLog(entry.log)),
-    reviewEventsToday: reviewEventsToday.map(mapReviewEvent),
     stateCounts: buildStateCounts(allCards, hydrated.reviewStates),
   };
 }
@@ -990,9 +983,8 @@ export async function getFlashcardDashboardForUser(
 
   const hydrated = await hydrateSetSummaries(userId, workspaceId);
   const setIds = hydrated.summaries.map((summary) => summary.id);
-  const [allCards, reviewEventsToday] = await Promise.all([
+  const [allCards] = await Promise.all([
     listCardsForSetIds(setIds, { includeArchived: true }),
-    listReviewEventsForSetIdsSince(userId, setIds, startOfDay()),
   ]);
 
   return {
@@ -1015,7 +1007,6 @@ export async function getFlashcardDashboardForUser(
       (total, set) => total + set.reviewCountToday,
       0
     ),
-    reviewEventsToday: reviewEventsToday.map(mapReviewEvent),
     sets: hydrated.summaries,
     stateCounts: buildStateCounts(allCards, hydrated.reviewStates),
   };

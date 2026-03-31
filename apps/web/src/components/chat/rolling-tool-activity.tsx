@@ -128,6 +128,7 @@ const ROLLING_TOOL_TYPES = new Set([
   "tool-get_due_cards",
   "tool-note_agent",
   "tool-quiz_me",
+  "tool-web_search",
   "tool-search_materials",
 ]);
 
@@ -182,15 +183,24 @@ function toReadPreview(part: ToolPart): ReadPreview | undefined {
 }
 
 function toSearchPreview(part: ToolPart): SearchPreview | undefined {
-  if (part.type !== "tool-search_materials" || !isOutputAvailable(part)) {
+  if (
+    (part.type !== "tool-search_materials" && part.type !== "tool-web_search") ||
+    !isOutputAvailable(part)
+  ) {
     return undefined;
   }
 
   return {
-    matches: part.output.matches
-      .map((match) => match.workspacePath)
-      .filter(Boolean)
-      .slice(0, 6),
+    matches:
+      part.type === "tool-search_materials"
+        ? part.output.matches
+            .map((match) => match.workspacePath)
+            .filter(Boolean)
+            .slice(0, 6)
+        : part.output.results
+            .map((result) => result.title || result.url)
+            .filter(Boolean)
+            .slice(0, 6),
     query: part.output.query,
   };
 }
@@ -230,7 +240,7 @@ function toActionValue(part: ToolPart) {
     }
     return part.input?.task ?? "note";
   }
-  if (part.type === "tool-search_materials") {
+  if (part.type === "tool-search_materials" || part.type === "tool-web_search") {
     return part.input?.query ?? "search";
   }
   return "";
@@ -307,7 +317,7 @@ function toAction(part: ToolPart): ActivityAction | null {
     };
   }
 
-  if (part.type === "tool-search_materials") {
+  if (part.type === "tool-search_materials" || part.type === "tool-web_search") {
     return {
       kind: "search",
       pending: isPending(part),
@@ -650,7 +660,7 @@ export const ReasoningContent = memo(
         {...props}
       >
         <div
-          className="pointer-events-none absolute inset-x-0 top-0 z-10"
+          className="pointer-events-none absolute inset-x-0 top-0 z-0"
           style={{
             background:
               "linear-gradient(to bottom, hsl(var(--background)) 15%, transparent 100%)",
@@ -658,6 +668,7 @@ export const ReasoningContent = memo(
           }}
         />
         <motion.div
+          className="relative z-10"
           animate={{
             y:
               lines.length > VISIBLE_ROWS
@@ -678,7 +689,7 @@ export const ReasoningContent = memo(
               key={`${index}-${line}`}
               style={{ height: ROW_HEIGHT }}
             >
-              <span className="truncate font-mono text-[11px] text-foreground/22 whitespace-pre-wrap break-words">
+              <span className="truncate font-mono text-[11px] text-foreground/40 whitespace-pre-wrap break-words">
                 {line}
               </span>
             </div>

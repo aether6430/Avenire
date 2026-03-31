@@ -8,6 +8,7 @@ export { ingestStoredFile };
 
 export async function retrieveWorkspaceChunks(input: {
   workspaceId: string;
+  userId?: string;
   query: string;
   limit?: number;
   sourceType?: "pdf" | "image" | "video" | "audio" | "markdown" | "link";
@@ -16,6 +17,8 @@ export async function retrieveWorkspaceChunks(input: {
   const vectorStore = new PostgresVectorStore(input.workspaceId);
   return retrieveRelevantChunks(vectorStore, input.query, {
     limit: input.limit,
+    userId: input.userId,
+    workspaceId: input.workspaceId,
     sourceType: input.sourceType,
     provider: input.provider,
   });

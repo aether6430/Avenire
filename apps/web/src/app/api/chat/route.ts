@@ -41,6 +41,7 @@ import { resolveWorkspaceForUser } from "@/lib/file-data";
 import "@/lib/learning-automation";
 import { normalizeMediaType } from "@/lib/media-type";
 import { createApiLogger } from "@/lib/observability";
+import { buildStudentProfileContext } from "@/lib/student-profile";
 import {
   buildRecentSessionSummaryContext,
   getLatestSessionSummaryForChat,
@@ -76,6 +77,7 @@ const MODEL_TOOL_ALLOW_LIST = new Set([
   "get_due_cards",
   "log_misconception",
   "quiz_me",
+  "web_search",
   "search_materials",
   "visualize_read_me",
   "load_skill",
@@ -1273,13 +1275,17 @@ export async function POST(request: Request) {
           userId: session.user.id,
           workspaceId: workspace.workspaceId,
         });
+        const studentProfileContext = await buildStudentProfileContext({
+          userId: session.user.id,
+          workspaceId: workspace.workspaceId,
+        });
 
         try {
           result = streamText({
             model: apollo.languageModel(selectedModel),
             system: APOLLO_PROMPT(
               body.userName ?? session.user.name ?? undefined,
-              [mergedContext, activeMisconceptionContext]
+              [mergedContext, studentProfileContext, activeMisconceptionContext]
                 .filter((value) => Boolean(value))
                 .join("\n\n") || undefined
             ),

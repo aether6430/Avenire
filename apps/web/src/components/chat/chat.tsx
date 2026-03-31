@@ -9,7 +9,6 @@ import { CaretDown as ChevronDown } from "@phosphor-icons/react"
 import { AnimatePresence, motion, useInView } from "motion/react";
 import { useRouter } from "next/navigation";
 import {
-  startTransition,
   useCallback,
   useEffect,
   useRef,
@@ -272,9 +271,7 @@ export function Chat({
     const nextChatId = pendingChatRouteRef.current;
 
     primeNewChatHandoff(nextChatId);
-    startTransition(() => {
-      router.replace(`/workspace/chats/${nextChatId}`);
-    });
+    router.replace(`/workspace/chats/${nextChatId}`);
     pendingChatRouteRef.current = null;
     pendingNewChatMessagesRef.current = null;
   }, [chatId, primeNewChatHandoff, router]);
