@@ -6,9 +6,9 @@ import { cn } from "../lib/utils"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuPortal, DropdownMenuRadioGroup, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, } from "@/components/ui/dropdown-menu"
 import { CheckIcon } from "@phosphor-icons/react"
 
-function Menubar({ className, ...props }: MenuPrimitive.Props) {
+function Menubar({ className, ...props }: React.ComponentProps<"div">) {
   return (
-    <MenuPrimitive
+    <div
       data-slot="menubar"
       className={cn("bg-background h-9 rounded-lg border p-1 flex items-center", className)}
       {...props}

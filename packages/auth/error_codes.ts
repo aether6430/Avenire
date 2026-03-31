@@ -61,7 +61,7 @@ export const ERROR_CODES = new Map(
 
 type ErrorTypes = Partial<
   Record<
-    keyof typeof $ERROR_CODES,
+    string,
     {
       userMessage: string;
       source: string

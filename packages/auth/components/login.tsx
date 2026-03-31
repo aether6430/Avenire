@@ -344,10 +344,15 @@ export function LoginForm({
                   typeof (data.error as { code?: unknown }).code === "string"
                     ? (data.error as { code: string }).code
                     : ""
-                const errorMessage = getErrorMessage(errorCode, data.error.message)
+                const rawErrorMessage = data.error.message
+                const errorMessageText =
+                  typeof rawErrorMessage === "string"
+                    ? rawErrorMessage
+                    : rawErrorMessage?.message
+                const errorMessage = getErrorMessage(errorCode, errorMessageText)
                 const details =
                   getWaitlistErrorDetails(errorCode.toLowerCase()) ??
-                  getWaitlistErrorDetails(data.error.message?.toLowerCase())
+                  getWaitlistErrorDetails(errorMessageText?.toLowerCase())
 
                 if (details) {
                   setWaitlistMessage(details.message)
