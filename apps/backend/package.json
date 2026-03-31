@@ -16,9 +16,9 @@
   "dependencies": {
     "@avenire/database": "workspace:*",
     "@avenire/ingestion": "workspace:*",
-    "@hono/node-server": "^1.14.4",
-    "hono": "^4.8.3",
+    "@hono/node-server": "^1.19.12",
     "dotenv": "latest",
+    "hono": "^4.12.9",
     "redis": "^5.11.0",
     "tsx": "^4.20.5"
   },

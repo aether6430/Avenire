@@ -35,7 +35,7 @@
     "react-dom": "latest",
     "react-resizable-panels": "^3.0.2",
     "recharts": "^2.15.1",
-    "shadcn": "^3.8.5",
+    "shadcn": "^4.1.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "latest",
     "tailwindcss": "^4.2.1",

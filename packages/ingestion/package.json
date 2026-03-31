@@ -21,7 +21,7 @@
     "@mistralai/mistralai": "^1.14.1",
     "@tavily/core": "^0.7.2",
     "abso-ai": "^0.0.9",
-    "ai": "^6.0.105",
+    "ai": "^6.0.141",
     "bullmq": "^5.70.4",
     "drizzle-orm": "^0.45.1",
     "pdfjs-dist": "^5.4.624",

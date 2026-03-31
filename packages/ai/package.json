@@ -27,7 +27,7 @@
     "@ai-sdk/groq": "latest",
     "@ai-sdk/mistral": "^3.0.21",
     "@openrouter/ai-sdk-provider": "latest",
-    "ai": "^6.0.116",
+    "ai": "^6.0.141",
     "ai-sdk-ollama": "^3.8.0",
     "zod": "^4.3.6"
   },
