@@ -6,7 +6,7 @@ import { Button } from "@avenire/ui/components/button";
 import {
   DefaultChatTransport, type FileUIPart, lastAssistantMessageIsCompleteWithApprovalResponses, } from "ai";
 import { CaretDown as ChevronDown } from "@phosphor-icons/react"
-import { AnimatePresence, motion, useInView } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import {
   useCallback,
@@ -111,11 +111,6 @@ export function Chat({
   const pendingChatRouteRef = useRef<string | null>(null);
   const autoPromptSentRef = useRef<string | null>(null);
   const MAX_FILES = 3;
-  const [messagesContainerRef, messagesEndRef, scroll] =
-    useScrollToBottom<HTMLDivElement>();
-  const isInView = useInView(messagesEndRef, {
-    root: messagesContainerRef,
-  });
 
   const handleError = useCallback((error: Error) => {
     toast.error(getChatErrorMessage(error), {
@@ -179,6 +174,20 @@ export function Chat({
       }
     },
   });
+  const {
+    containerRef: messagesContainerRef,
+    endRef: messagesEndRef,
+    isAutoScrollEnabled,
+    reenableAutoScroll,
+    resetForNewMessage,
+    scrollLatestUserMessageIntoPosition,
+  } = useScrollToBottom<HTMLDivElement>({
+    isStreaming: status === "streaming",
+  });
+  const lastUserMessageIdRef = useRef<string | null>(
+    [...initialMessages].reverse().find((message) => message.role === "user")?.id ??
+      null
+  );
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -317,13 +326,26 @@ export function Chat({
   }, [status]);
 
   useEffect(() => {
-    if (messages.length === 0) {
+    const latestUserMessage =
+      [...messages].reverse().find((message) => message.role === "user") ?? null;
+
+    if (!latestUserMessage) {
       return;
     }
-    if (status === "submitted" || status === "streaming") {
-      scroll();
+
+    if (latestUserMessage.id === lastUserMessageIdRef.current) {
+      return;
     }
-  }, [messages, scroll, status]);
+
+    lastUserMessageIdRef.current = latestUserMessage.id;
+    resetForNewMessage();
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        scrollLatestUserMessageIntoPosition("smooth");
+      });
+    });
+  }, [messages, resetForNewMessage, scrollLatestUserMessageIntoPosition]);
 
   const regenerateFromMessage = useCallback(
     async (assistantMessageId: string) => {
@@ -547,8 +569,8 @@ export function Chat({
                 transition={{ duration: 0.22, ease: "easeOut" }}
               >
                 <motion.div
-                  animate={isInView ? "hidden" : "visible"}
-                  className="mb-2 flex justify-end"
+                  animate={isAutoScrollEnabled ? "hidden" : "visible"}
+                  className="pointer-events-none absolute right-4 bottom-[calc(100%+0.75rem)] z-20 flex justify-end"
                   initial="hidden"
                   transition={{ duration: 0.3, ease: "easeInOut" }}
                   variants={{
@@ -557,9 +579,9 @@ export function Chat({
                   }}
                 >
                   <Button
-                    className="rounded-full border-border/80 bg-card/90 backdrop-blur-xs"
-                    onClick={() => scroll({ force: true })}
-                    size="icon"
+                    className="pointer-events-auto h-10 min-w-10 rounded-full border-border/80 bg-card/90 px-3 backdrop-blur-xs"
+                    onClick={() => reenableAutoScroll("smooth")}
+                    size="sm"
                     type="button"
                     variant="outline"
                   >

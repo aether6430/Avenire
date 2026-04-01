@@ -1,22 +1,71 @@
-import { useCallback, useEffect, useRef, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 
-const BOTTOM_THRESHOLD_PX = 40;
+const FOLLOW_EASING = 0.12;
+const MANUAL_SCROLL_GRACE_MS = 1200;
+const USER_MESSAGE_TOP_RATIO = 0.22;
 
-function isNearBottom(element: HTMLElement) {
-  const remaining = element.scrollHeight - element.scrollTop - element.clientHeight;
-  return remaining <= BOTTOM_THRESHOLD_PX;
+function getLatestUserMessage(container: HTMLElement) {
+  const userMessages = container.querySelectorAll<HTMLElement>(
+    '[data-role="user"][data-message-id]'
+  );
+  return userMessages.item(userMessages.length - 1) ?? null;
 }
 
-export function useScrollToBottom<T extends HTMLElement>(): [
-  RefObject<T | null>,
-  RefObject<T | null>,
-  (options?: { behavior?: ScrollBehavior; force?: boolean }) => void,
-] {
+function getBottomScrollTop(container: HTMLElement) {
+  return Math.max(0, container.scrollHeight - container.clientHeight);
+}
+
+export function useScrollToBottom<T extends HTMLElement>(options: {
+  isStreaming: boolean;
+}): {
+  containerRef: RefObject<T | null>;
+  endRef: RefObject<T | null>;
+  isAutoScrollEnabled: boolean;
+  reenableAutoScroll: (behavior?: ScrollBehavior) => void;
+  resetForNewMessage: () => void;
+  scrollLatestUserMessageIntoPosition: (behavior?: ScrollBehavior) => void;
+} {
+  const { isStreaming } = options;
   const containerRef = useRef<T>(null);
   const endRef = useRef<T>(null);
-  const shouldAutoScrollRef = useRef(true);
   const observedContainerRef = useRef<T | null>(null);
   const detachListenerRef = useRef<(() => void) | null>(null);
+  const followFrameRef = useRef<number | null>(null);
+  const programmaticScrollUntilRef = useRef(0);
+  const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true);
+  const isAutoScrollEnabledRef = useRef(isAutoScrollEnabled);
+
+  useEffect(() => {
+    isAutoScrollEnabledRef.current = isAutoScrollEnabled;
+  }, [isAutoScrollEnabled]);
+
+  const markProgrammaticScroll = useCallback(() => {
+    programmaticScrollUntilRef.current = Date.now() + MANUAL_SCROLL_GRACE_MS;
+  }, []);
+
+  const disableAutoScroll = useCallback(() => {
+    if (!isAutoScrollEnabledRef.current) {
+      return;
+    }
+
+    isAutoScrollEnabledRef.current = false;
+    setIsAutoScrollEnabled(false);
+  }, []);
+
+  const enableAutoScroll = useCallback(() => {
+    if (isAutoScrollEnabledRef.current) {
+      return;
+    }
+
+    isAutoScrollEnabledRef.current = true;
+    setIsAutoScrollEnabled(true);
+  }, []);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -34,14 +83,38 @@ export function useScrollToBottom<T extends HTMLElement>(): [
       return;
     }
 
-    const onScroll = () => {
-      shouldAutoScrollRef.current = isNearBottom(container);
+    const onManualIntent = () => {
+      if (Date.now() < programmaticScrollUntilRef.current) {
+        return;
+      }
+
+      disableAutoScroll();
     };
 
-    container.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.key === "ArrowDown" ||
+        event.key === "ArrowUp" ||
+        event.key === "PageDown" ||
+        event.key === "PageUp" ||
+        event.key === "Home" ||
+        event.key === "End" ||
+        event.key === " "
+      ) {
+        onManualIntent();
+      }
+    };
+
+    container.addEventListener("wheel", onManualIntent, { passive: true });
+    container.addEventListener("touchmove", onManualIntent, { passive: true });
+    container.addEventListener("scroll", onManualIntent, { passive: true });
+    container.addEventListener("keydown", onKeyDown);
+
     detachListenerRef.current = () => {
-      container.removeEventListener("scroll", onScroll);
+      container.removeEventListener("wheel", onManualIntent);
+      container.removeEventListener("touchmove", onManualIntent);
+      container.removeEventListener("scroll", onManualIntent);
+      container.removeEventListener("keydown", onKeyDown);
     };
   });
 
@@ -51,30 +124,114 @@ export function useScrollToBottom<T extends HTMLElement>(): [
         detachListenerRef.current();
         detachListenerRef.current = null;
       }
+      if (followFrameRef.current !== null) {
+        cancelAnimationFrame(followFrameRef.current);
+        followFrameRef.current = null;
+      }
       observedContainerRef.current = null;
     };
   }, []);
 
-  const scroll = useCallback((options?: { behavior?: ScrollBehavior; force?: boolean }) => {
-    const behavior = options?.behavior ?? "smooth";
-    const force = options?.force ?? false;
-    if (!(force || shouldAutoScrollRef.current)) {
-      return;
-    }
+  const scrollLatestUserMessageIntoPosition = useCallback(
+    (behavior: ScrollBehavior = "smooth") => {
+      const container = containerRef.current;
+      if (!container) {
+        return;
+      }
 
-    const container = containerRef.current;
-    const end = endRef.current;
-    if (container) {
+      const latestUserMessage = getLatestUserMessage(container);
+      if (!latestUserMessage) {
+        return;
+      }
+
+      const containerRect = container.getBoundingClientRect();
+      const messageRect = latestUserMessage.getBoundingClientRect();
+      const targetOffset =
+        Math.min(container.clientHeight, window.innerHeight) *
+        USER_MESSAGE_TOP_RATIO;
+      const nextTop =
+        container.scrollTop +
+        (messageRect.top - containerRect.top) -
+        targetOffset;
+
+      markProgrammaticScroll();
       container.scrollTo({
-        top: container.scrollHeight,
+        top: Math.max(0, nextTop),
         behavior,
       });
+    },
+    [markProgrammaticScroll]
+  );
+
+  const reenableAutoScroll = useCallback(
+    (behavior: ScrollBehavior = "smooth") => {
+      const container = containerRef.current;
+      const end = endRef.current;
+
+      enableAutoScroll();
+      markProgrammaticScroll();
+
+      if (container) {
+        container.scrollTo({
+          top: getBottomScrollTop(container),
+          behavior,
+        });
+        return;
+      }
+
+      end?.scrollIntoView({ behavior, block: "nearest" });
+    },
+    [enableAutoScroll, markProgrammaticScroll]
+  );
+
+  const resetForNewMessage = useCallback(() => {
+    enableAutoScroll();
+  }, [enableAutoScroll]);
+
+  useEffect(() => {
+    if (!isStreaming || !isAutoScrollEnabled) {
+      if (followFrameRef.current !== null) {
+        cancelAnimationFrame(followFrameRef.current);
+        followFrameRef.current = null;
+      }
       return;
     }
-    if (end) {
-      end.scrollIntoView({ behavior, block: "nearest" });
-    }
-  }, []);
 
-  return [containerRef, endRef, scroll];
+    const tick = () => {
+      const container = containerRef.current;
+      if (!container || !isAutoScrollEnabledRef.current) {
+        followFrameRef.current = null;
+        return;
+      }
+
+      const targetBottom = getBottomScrollTop(container);
+      const nextTop =
+        container.scrollTop + (targetBottom - container.scrollTop) * FOLLOW_EASING;
+
+      if (Math.abs(targetBottom - container.scrollTop) > 0.5) {
+        markProgrammaticScroll();
+        container.scrollTop = nextTop;
+      }
+
+      followFrameRef.current = requestAnimationFrame(tick);
+    };
+
+    followFrameRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      if (followFrameRef.current !== null) {
+        cancelAnimationFrame(followFrameRef.current);
+        followFrameRef.current = null;
+      }
+    };
+  }, [isAutoScrollEnabled, isStreaming, markProgrammaticScroll]);
+
+  return {
+    containerRef,
+    endRef,
+    isAutoScrollEnabled,
+    reenableAutoScroll,
+    resetForNewMessage,
+    scrollLatestUserMessageIntoPosition,
+  };
 }

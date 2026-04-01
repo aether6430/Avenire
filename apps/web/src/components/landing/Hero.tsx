@@ -1186,6 +1186,8 @@ function DemoWindow({
                     width={760}
                     height={460}
                     className="w-full rounded border border-border/70 bg-background object-cover"
+                    priority
+                    sizes="(max-width: 768px) calc(100vw - 3rem), (max-width: 1280px) 42vw, 760px"
                   />
                   <p className="text-[9px] text-muted-foreground leading-relaxed">{docView.artifacts.plot.caption}</p>
                 </div>

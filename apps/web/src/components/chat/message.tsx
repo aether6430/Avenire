@@ -398,6 +398,7 @@ const PurePreviewMessage = ({
         className={cn("group/message mx-auto w-full max-w-3xl px-4", {
           "justify-self-end": message.role === "user",
         })}
+        data-message-id={message.id}
         data-role={message.role}
         data-testid={`message-${message.role}`}
         initial={{ y: 5, opacity: 0 }}

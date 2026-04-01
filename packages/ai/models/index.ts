@@ -4,6 +4,7 @@ import { createFireworks } from "@ai-sdk/fireworks";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
 import { createMistral } from "@ai-sdk/mistral";
+import { openrouter } from "@openrouter/ai-sdk-provider";
 import { customProvider } from "ai";
 
 const APOLLO_MODEL_SPRINT = "apollo-sprint";
