@@ -18,7 +18,7 @@ const DEFAULT_SESSION_INACTIVITY_WINDOW_MS = 30 * 60 * 1000;
 const SUMMARY_MODEL = "apollo-sprint";
 const MAX_SUMMARY_LIST_ITEMS = 12;
 const MAX_MISCONCEPTION_CANDIDATES = 3;
-const MIN_AUTOMATIC_MISCONCEPTION_CONFIDENCE = 0.92;
+const MIN_AUTOMATIC_MISCONCEPTION_CONFIDENCE = 0.78;
 const MAX_MISCONCEPTION_CONCEPT_LENGTH = 180;
 const MAX_MISCONCEPTION_REASON_LENGTH = 600;
 const MAX_MISCONCEPTION_SUBJECT_LENGTH = 120;
@@ -114,8 +114,14 @@ function extractUserTranscript(messages: UIMessage[]) {
 const STRONG_MISCONCEPTION_SIGNAL_PATTERN =
   /\b(i (?:don't|do not) understand|i'?m confused|i am confused|i thought|i assumed|i was wrong|i keep thinking|i keep getting|wrong model|wrong idea|mistaken|misunderstood|mistake|why isn't|why doesn't|does that mean|so that means|so .*? right)\b/i;
 
-function hasStrongMisconceptionEvidence(transcript: string) {
-  return STRONG_MISCONCEPTION_SIGNAL_PATTERN.test(transcript);
+const LEARNING_GAP_OPENING_PATTERN =
+  /\b(could you explain|can you explain|explain\b.*\b(setup|concept|mechanism|process)|how does\b.*\baffect\b|what happens if|how would\b.*\bchange\b|why does\b.*\bhappen\b|what is the effect of)\b/i;
+
+function hasMisconceptionEvidence(transcript: string) {
+  return (
+    STRONG_MISCONCEPTION_SIGNAL_PATTERN.test(transcript) ||
+    LEARNING_GAP_OPENING_PATTERN.test(transcript)
+  );
 }
 
 function isCompletedToolPart(
@@ -205,7 +211,7 @@ async function persistAutomaticMisconceptions(input: {
   userId: string;
   workspaceId: string;
 }) {
-  if (!hasStrongMisconceptionEvidence(input.userTranscript)) {
+  if (!hasMisconceptionEvidence(input.userTranscript)) {
     return;
   }
 
@@ -374,8 +380,8 @@ export async function persistSessionSummaryForCompletedTurn(input: {
       "Return concise, factual output only.",
       "Focus on concepts covered, misconceptions explicitly surfaced, and the learning outcome.",
       "Also identify the primary academic subject and a confidence score between 0 and 1.",
-      "Also infer up to three concept-level misconception candidates only when the user explicitly expresses confusion, states a wrong model, or repeatedly shows the same durable misunderstanding.",
-      "Be very conservative. Do not infer a misconception from a normal question, a feature check, a single clarification, or general curiosity.",
+      "Also infer up to three concept-level misconception candidates when the user clearly expresses confusion, states or implies a wrong mental model, repeats the same mistaken assumption, draws an incorrect conclusion that persists across the exchange, or opens with a foundational concept question that signals a learning gap such as asking to explain a setup, mechanism, or how changing one variable affects another.",
+      "Stay selective. Do not infer a misconception from a normal feature check, casual curiosity, or a single minor clarification unless the exchange indicates a real conceptual gap worth tracking.",
       `Flashcards created during this window: ${flashcardsCreated}`,
       misconceptionsDetected.length > 0
         ? `Misconceptions already detected by tools: ${misconceptionsDetected.join(", ")}`

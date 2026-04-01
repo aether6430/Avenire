@@ -22,9 +22,9 @@ export function getRoadmapGroups(): RoadmapGroup[] {
 
   const groups: RoadmapGroup[] = [
     {
-      label: "Planned",
-      status: "planned",
-      items: items.filter((i) => i.status === "planned"),
+      label: "Shipped",
+      status: "shipped",
+      items: items.filter((i) => i.status === "shipped"),
     },
     {
       label: "In Progress",
@@ -32,9 +32,9 @@ export function getRoadmapGroups(): RoadmapGroup[] {
       items: items.filter((i) => i.status === "in-progress"),
     },
     {
-      label: "Shipped",
-      status: "shipped",
-      items: items.filter((i) => i.status === "shipped"),
+      label: "Planned",
+      status: "planned",
+      items: items.filter((i) => i.status === "planned"),
     },
   ];
 

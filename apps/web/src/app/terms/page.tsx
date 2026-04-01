@@ -35,7 +35,7 @@ const sections = [
 export default function TermsPage() {
   return (
     <main
-      className="min-h-screen bg-background text-foreground"
+      className="landing-light-scope min-h-screen bg-background text-foreground"
       id="page-content"
     >
       <Navbar />

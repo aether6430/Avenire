@@ -2,8 +2,9 @@ import { Toaster } from "@avenire/ui/components/sonner";
 import type { Metadata, Viewport } from "next";
 import { Inconsolata, Inter, Lora } from "next/font/google";
 import localFont from "next/font/local";
+import Script from "next/script";
 import { ServiceWorkerRegistration } from "@/components/pwa/ServiceWorkerRegistration";
-import { ThemeProvider } from "@/components/theme-provider";
+import { PublicThemeReset } from "@/components/public-theme-reset";
 import { metadataBase } from "@/lib/page-metadata";
 import "./globals.css";
 
@@ -82,11 +83,32 @@ export default function RootLayout({
           } as React.CSSProperties
         }
       >
-        <ThemeProvider>
-          <ServiceWorkerRegistration />
-          {children}
-          <Toaster closeButton position="top-right" richColors />
-        </ThemeProvider>
+        <Script
+          id="public-theme-bootstrap"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function () {
+                try {
+                  var isWorkspace = window.location.pathname.startsWith('/workspace');
+                  var root = document.documentElement;
+                  if (isWorkspace) {
+                    root.classList.remove('landing-light-scope');
+                    return;
+                  }
+                  root.classList.add('landing-light-scope');
+                  root.classList.remove('dark');
+                  root.removeAttribute('data-theme');
+                  root.style.colorScheme = 'light';
+                } catch (error) {}
+              })();
+            `,
+          }}
+        />
+        <PublicThemeReset />
+        <ServiceWorkerRegistration />
+        {children}
+        <Toaster closeButton position="top-right" richColors />
       </body>
     </html>
   );

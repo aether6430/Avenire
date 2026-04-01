@@ -1,5 +1,6 @@
 import { AppQueryProvider } from "@/components/query-provider";
 import { DashboardLayout as DashboardShellLayout } from "@/components/dashboard/shell";
+import { ThemeProvider } from "@/components/theme-provider";
 import { listWorkspacesForUser } from "@/lib/file-data";
 import { getWorkspaceRouteContext } from "@/lib/workspace-route-context";
 
@@ -14,25 +15,27 @@ export default async function WorkspaceLayout({
     : [];
 
   return (
-    <main className="h-svh overflow-hidden bg-background text-foreground">
-      <AppQueryProvider>
-        <DashboardShellLayout
-          activeWorkspace={context.workspace}
-          initialWorkspaces={initialWorkspaces}
-          user={
-            context.session?.user
-              ? {
-                  id: context.session.user.id,
-                  avatar: context.session.user.image ?? undefined,
-                  email: context.session.user.email,
-                  name: context.session.user.name ?? context.session.user.email,
-                }
-              : undefined
-          }
-        >
-          {children}
-        </DashboardShellLayout>
-      </AppQueryProvider>
-    </main>
+    <ThemeProvider>
+      <main className="h-svh overflow-hidden bg-background text-foreground">
+        <AppQueryProvider>
+          <DashboardShellLayout
+            activeWorkspace={context.workspace}
+            initialWorkspaces={initialWorkspaces}
+            user={
+              context.session?.user
+                ? {
+                    id: context.session.user.id,
+                    avatar: context.session.user.image ?? undefined,
+                    email: context.session.user.email,
+                    name: context.session.user.name ?? context.session.user.email,
+                  }
+                : undefined
+            }
+          >
+            {children}
+          </DashboardShellLayout>
+        </AppQueryProvider>
+      </main>
+    </ThemeProvider>
   );
 }

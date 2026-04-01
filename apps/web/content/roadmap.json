@@ -1,72 +1,149 @@
 [
   {
     "id": "ai-workspace",
-    "title": "AI Reasoning Workspace",
-    "description": "A persistent, interactive workspace for deep research and multi-step AI reasoning.",
-    "status": "in-progress",
+    "title": "AI Workspace",
+    "description": "The persistent workspace for prompts, notes, files, and multi-step AI reasoning.",
+    "status": "shipped",
     "category": "Core Product"
   },
   {
     "id": "collaborative-sessions",
-    "title": "Collaborative Research Sessions",
-    "description": "Share your reasoning sessions with teammates for real-time collaborative thinking.",
-    "status": "in-progress",
+    "title": "Collaborative Sessions",
+    "description": "Shared sessions for real-time collaboration on the same line of reasoning.",
+    "status": "shipped",
     "category": "Collaboration"
   },
   {
     "id": "knowledge-graph",
     "title": "Knowledge Graph View",
-    "description": "Visualize connections between ideas and past research sessions.",
-    "status": "planned",
+    "description": "Visualize links between ideas, files, and prior sessions.",
+    "status": "in-progress",
     "category": "Core Product"
   },
   {
     "id": "citation-engine",
-    "title": "Citation & Source Engine",
-    "description": "Automatic citation tracking with linked evidence for every claim in a session.",
-    "status": "planned",
+    "title": "Citation Engine",
+    "description": "Automatic source tracking with linked evidence for every claim.",
+    "status": "shipped",
     "category": "Research"
   },
   {
     "id": "pdf-uploads",
-    "title": "PDF & Document Upload",
-    "description": "Upload PDFs, papers, and documents to ground AI reasoning in your own sources.",
-    "status": "in-progress",
+    "title": "File Ingestion",
+    "description": "Upload PDFs, documents, and files to ground reasoning in your own material.",
+    "status": "shipped",
     "category": "Research"
   },
   {
     "id": "reasoning-history",
-    "title": "Reasoning History & Versioning",
-    "description": "Browse and restore previous reasoning states like version control for your thinking.",
-    "status": "planned",
+    "title": "Note Editor",
+    "description": "A focused editor for drafting, revising, and organizing notes inside the workspace.",
+    "status": "shipped",
     "category": "Core Product"
   },
   {
     "id": "custom-models",
-    "title": "Bring Your Own Model",
-    "description": "Connect your own LLM API keys (OpenAI, Anthropic, Gemini) for flexible usage.",
+    "title": "Bring your own model",
+    "description": "Connect your own model provider keys and switch without changing the workflow.",
     "status": "planned",
     "category": "Integrations"
   },
   {
     "id": "web-search",
-    "title": "Live Web Search Grounding",
-    "description": "Augment AI reasoning with live, cited web results for up-to-date information.",
+    "title": "Web Search",
+    "description": "Live, cited web search for current information and external grounding.",
     "status": "shipped",
     "category": "Research"
   },
   {
-    "id": "markdown-export",
-    "title": "Markdown & PDF Export",
-    "description": "Export your reasoning sessions as clean, structured Markdown or PDF documents.",
+    "id": "flashcards-srs",
+    "title": "Flashcards with SRS",
+    "description": "Generate spaced-repetition flashcards from notes and study material.",
     "status": "shipped",
     "category": "Core Product"
   },
   {
     "id": "mobile-app",
     "title": "Mobile App",
-    "description": "A native mobile experience for reviewing and continuing sessions on the go.",
+    "description": "A native mobile experience for reviewing and continuing work on the go.",
     "status": "planned",
     "category": "Platform"
+  },
+  {
+    "id": "native-app",
+    "title": "Native App",
+    "description": "A dedicated native desktop and mobile app for a faster, more integrated experience.",
+    "status": "planned",
+    "category": "Platform"
+  },
+  {
+    "id": "api-integrations",
+    "title": "API / Integrations",
+    "description": "Connect Notion, Google Drive, and other external sources directly into Avenire.",
+    "status": "in-progress",
+    "category": "Integrations"
+  },
+  {
+    "id": "rl-embedding-model",
+    "title": "RL Embedding Model",
+    "description": "A retrieval model tuned on usage signals to improve relevance and ranking.",
+    "status": "planned",
+    "category": "Infrastructure"
+  },
+  {
+    "id": "link-ingestion",
+    "title": "Link Ingestion",
+    "description": "Import URLs and linked pages so external sources can become part of a workspace.",
+    "status": "in-progress",
+    "category": "Research"
+  },
+  {
+    "id": "student-knowledge-profile",
+    "title": "Student Knowledge Profile",
+    "description": "Personalize retrieval using mastery signals so the system can boost what matters most.",
+    "status": "in-progress",
+    "category": "Core Product"
+  },
+  {
+    "id": "clip-to-avenire",
+    "title": "Clip to Avenire",
+    "description": "A browser extension for sending highlighted web content directly into Avenire.",
+    "status": "in-progress",
+    "category": "Integrations"
+  },
+  {
+    "id": "misconception-engine",
+    "title": "Misconception Engine",
+    "description": "Identify likely misunderstandings and surface corrections before they become sticky.",
+    "status": "shipped",
+    "category": "Learning"
+  },
+  {
+    "id": "visualization-tools",
+    "title": "Visualization Tools",
+    "description": "Graphs, charts, and diagramming tools for turning complex ideas into something visible.",
+    "status": "shipped",
+    "category": "Core Product"
+  },
+  {
+    "id": "circle-to-ai",
+    "title": "Circle to AI (Halo)",
+    "description": "A quick capture flow for circling content and turning it into an AI prompt or task.",
+    "status": "shipped",
+    "category": "Capture"
+  },
+  {
+    "id": "hybrid-search",
+    "title": "Hybrid Search Improvements",
+    "description": "Query rewriting and retrieval upgrades that make workspace search more accurate.",
+    "status": "shipped",
+    "category": "Research"
+  },
+  {
+    "id": "task-management",
+    "title": "Task Management",
+    "description": "Track work, follow-ups, and study tasks without leaving the workspace.",
+    "status": "shipped",
+    "category": "Productivity"
   }
 ]

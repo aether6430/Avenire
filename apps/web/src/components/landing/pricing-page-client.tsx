@@ -227,13 +227,13 @@ export function PricingPageClient() {
   const [billing, setBilling] = useState<BillingPeriod>("monthly");
 
   return (
-    <main className="min-h-screen">
+    <main className="landing-light-scope min-h-screen bg-background text-foreground">
       <Navbar />
 
       <section className="relative overflow-hidden px-4 pt-32 pb-12">
         <div className="pointer-events-none absolute inset-0 -z-10">
-          <div className="absolute inset-x-0 top-0 h-72 bg-[radial-gradient(ellipse_at_top,var(--muted),transparent_72%)] opacity-60 dark:opacity-25" />
-          <div className="absolute top-16 left-1/2 h-72 w-[42rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,var(--foreground),transparent_68%)] opacity-[0.03] blur-3xl dark:opacity-[0.06]" />
+          <div className="absolute inset-x-0 top-0 h-72 bg-[radial-gradient(ellipse_at_top,var(--muted),transparent_72%)] opacity-60" />
+          <div className="absolute top-16 left-1/2 h-72 w-[42rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,var(--foreground),transparent_68%)] opacity-[0.03] blur-3xl" />
         </div>
 
         <div className="mx-auto max-w-6xl text-center">

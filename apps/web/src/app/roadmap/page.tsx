@@ -121,7 +121,7 @@ export default function RoadmapPage() {
   const groups = getRoadmapGroups();
 
   return (
-    <main className="min-h-screen">
+    <main className="landing-light-scope min-h-screen bg-background text-foreground">
       <Navbar />
 
       {/* Hero */}

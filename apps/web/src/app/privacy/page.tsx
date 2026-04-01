@@ -70,7 +70,7 @@ export default function PrivacyPage() {
   const source = fs.readFileSync(policyPath, "utf-8");
 
   return (
-    <main className="min-h-screen">
+    <main className="landing-light-scope min-h-screen bg-background text-foreground">
       <Navbar />
 
       <section className="pt-32 pb-24 px-4">

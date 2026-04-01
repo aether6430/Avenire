@@ -12,7 +12,7 @@ export const metadata = buildPageMetadata({
 
 export default function RegisterPage() {
   return (
-    <div className="flex min-h-screen flex-1 items-center justify-center p-4 md:p-8">
+    <div className="landing-light-scope flex min-h-screen flex-1 items-center justify-center p-4 md:p-8">
       <div className="w-full max-w-sm md:max-w-3xl">
         <div className="flex flex-col gap-6">
           <Card className="overflow-hidden rounded-3xl border-0 bg-card/50 shadow-lg backdrop-blur-sm">
