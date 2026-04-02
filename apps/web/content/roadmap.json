@@ -107,8 +107,8 @@
   {
     "id": "clip-to-avenire",
     "title": "Clip to Avenire",
-    "description": "A browser extension for sending highlighted web content directly into Avenire.",
-    "status": "in-progress",
+    "description": "A browser extension for clipping highlights and extracted web content directly into workspace notes.",
+    "status": "shipped",
     "category": "Integrations"
   },
   {

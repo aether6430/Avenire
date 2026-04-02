@@ -3,6 +3,7 @@ export * from "./auth-schema";
 export * from "./billing-data";
 export * from "./chat-data";
 export * from "./client";
+export * from "./extension-data";
 export * from "./file-data";
 export * from "./flashcard-data";
 export * from "./flashcard-learning-automation";

@@ -823,8 +823,8 @@ export async function createWorkspaceNoteFile(input: {
   const storageKey = `virtual:note:${randomUUID()}`;
   const storageUrl = `https://utfs.io/f/${encodeURIComponent(storageKey)}`;
   const metadata = {
-    ...(input.metadata ?? {}),
     type: "note",
+    ...(input.metadata ?? {}),
   };
 
   return db.transaction(async (tx) => {

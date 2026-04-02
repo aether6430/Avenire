@@ -66,6 +66,11 @@
       "sourceType": "github",
       "computedHash": "7e297aaf887e11fdc03e52bdbf44974e161e8f7c393170ced7dc66cace4f6d46"
     },
+    "uncodixfy": {
+      "source": "cyxzdev/Uncodixfy",
+      "sourceType": "github",
+      "computedHash": "deac2e88f3fc4a66aa95c77b509b5d22c189dfdb87caa24d3db85516f4600776"
+    },
     "vercel-react-best-practices": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",

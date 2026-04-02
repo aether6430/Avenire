@@ -23,6 +23,7 @@ export default async function LoginPage({
   const initialError =
     getSingleValue(query.error) ?? getSingleValue(query.error_description) ?? null
   const initialEmail = getSingleValue(query.email) ?? ""
+  const callbackURL = getSingleValue(query.callbackURL) ?? "/workspace"
 
   return (
     <div className="landing-light-scope flex min-h-screen flex-1 items-center justify-center p-4 md:p-8">
@@ -30,7 +31,11 @@ export default async function LoginPage({
         <div className="flex flex-col gap-6">
           <Card className="overflow-hidden rounded-3xl border-0 bg-card/50 shadow-lg backdrop-blur-sm">
             <CardContent className="grid p-0 md:grid-cols-2">
-              <LoginForm initialEmail={initialEmail} initialError={initialError} />
+              <LoginForm
+                callbackURL={callbackURL}
+                initialEmail={initialEmail}
+                initialError={initialError}
+              />
               <div className="relative hidden overflow-hidden bg-muted md:block">
                 <div className="absolute inset-0 h-full w-full">
                   <ShaderWave />

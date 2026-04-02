@@ -8,6 +8,7 @@ declare namespace NodeJS {
     AXIOM_TOKEN?: string;
     BASETEN_API_KEY?: string;
     BETTER_AUTH_SECRET?: string;
+    BETTER_AUTH_EXTENSION_ORIGINS?: string;
     BETTER_AUTH_TRUSTED_ORIGINS?: string;
     BETTER_AUTH_URL?: string;
     CHAT_TOKENS_PER_CREDIT?: string;

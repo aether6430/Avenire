@@ -34,14 +34,56 @@ const appUrl = process.env.BETTER_AUTH_URL?.trim();
 if (!appUrl) {
   throw new Error("Missing BETTER_AUTH_URL. Set BETTER_AUTH_URL for auth server configuration.");
 }
-const trustedOriginsFromEnv =
-  process.env.BETTER_AUTH_TRUSTED_ORIGINS
+const EXTENSION_PROTOCOLS = new Set(["chrome-extension:", "moz-extension:"]);
+
+function parseOriginList(value?: string) {
+  return value
     ?.split(",")
-    .map((value) => value.trim())
+    .map((origin) => origin.trim())
     .filter(Boolean) ?? [];
+}
+
+function isBrowserExtensionOrigin(origin: string | null | undefined): origin is string {
+  if (!origin) {
+    return false;
+  }
+
+  try {
+    return EXTENSION_PROTOCOLS.has(new URL(origin).protocol);
+  } catch {
+    return false;
+  }
+}
+
+function getRequestOrigin(request: unknown) {
+  const headers =
+    request && typeof request === "object" && "headers" in request
+      ? Reflect.get(request, "headers")
+      : null;
+
+  if (!headers) {
+    return null;
+  }
+
+  if (typeof Headers !== "undefined" && headers instanceof Headers) {
+    return headers.get("origin");
+  }
+
+  if (typeof headers === "object" && headers !== null) {
+    const originHeader =
+      Reflect.get(headers, "origin") ?? Reflect.get(headers, "Origin");
+
+    return typeof originHeader === "string" ? originHeader : null;
+  }
+
+  return null;
+}
+
+const trustedOriginsFromEnv = parseOriginList(process.env.BETTER_AUTH_TRUSTED_ORIGINS);
+const extensionOriginsFromEnv = parseOriginList(process.env.BETTER_AUTH_EXTENSION_ORIGINS);
 const emailer = new Emailer();
 const trustedOrigins = Array.from(
-  new Set([appUrl, ...trustedOriginsFromEnv]),
+  new Set([appUrl, ...trustedOriginsFromEnv, ...extensionOriginsFromEnv]),
 );
 const polarAccessToken = process.env.POLAR_ACCESS_TOKEN?.trim();
 const polarServer = process.env.POLAR_SERVER === "production" ? "production" : "sandbox";
@@ -93,7 +135,15 @@ const generatedBetterAuthSchema = {
 };
 
 export const auth = betterAuth({
-  trustedOrigins,
+  trustedOrigins: async (request) => {
+    const requestOrigin = getRequestOrigin(request);
+
+    if (process.env.NODE_ENV !== "production" && isBrowserExtensionOrigin(requestOrigin)) {
+      return Array.from(new Set([...trustedOrigins, requestOrigin]));
+    }
+
+    return trustedOrigins;
+  },
   database: drizzleAdapter(db, { provider: "pg", schema: generatedBetterAuthSchema }),
   session: {
     updateAge: 60 * 60

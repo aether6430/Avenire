@@ -10,14 +10,25 @@ export const metadata = buildPageMetadata({
   title: "Create account",
 })
 
-export default function RegisterPage() {
+function getSingleValue(value: string | string[] | undefined) {
+  return typeof value === "string" ? value : undefined
+}
+
+export default async function RegisterPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const query = await searchParams
+  const callbackURL = getSingleValue(query.callbackURL) ?? "/workspace"
+
   return (
     <div className="landing-light-scope flex min-h-screen flex-1 items-center justify-center p-4 md:p-8">
       <div className="w-full max-w-sm md:max-w-3xl">
         <div className="flex flex-col gap-6">
           <Card className="overflow-hidden rounded-3xl border-0 bg-card/50 shadow-lg backdrop-blur-sm">
             <CardContent className="grid p-0 md:grid-cols-2">
-              <RegisterForm />
+              <RegisterForm callbackURL={callbackURL} />
               <div className="relative hidden overflow-hidden bg-muted md:block">
                 <div className="absolute inset-0 h-full w-full">
                   <ShaderWave />

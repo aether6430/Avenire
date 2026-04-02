@@ -1,0 +1,16 @@
+{
+  "name": "@avenire/extension",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node ./scripts/build.mjs",
+    "dev": "node ./scripts/build.mjs --watch",
+    "lint": "biome check .",
+    "format": "biome format --write ."
+  },
+  "dependencies": {
+    "defuddle": "^0.15.0",
+    "esbuild": "^0.27.5"
+  }
+}

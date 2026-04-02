@@ -35,7 +35,13 @@ const registerSchema = z
     path: ["confirmPassword"],
   })
 
-export function RegisterForm({ className, ...props }: React.ComponentProps<"div">) {
+export function RegisterForm({
+  callbackURL = "/workspace",
+  className,
+  ...props
+}: React.ComponentProps<"div"> & {
+  callbackURL?: string
+}) {
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [email, setEmail] = useState("")
@@ -56,6 +62,9 @@ export function RegisterForm({ className, ...props }: React.ComponentProps<"div"
     const params = new URLSearchParams()
     if (email.trim()) {
       params.set("email", email.trim())
+    }
+    if (callbackURL && callbackURL !== "/workspace") {
+      params.set("callbackURL", callbackURL)
     }
 
     const query = params.toString()
@@ -89,6 +98,7 @@ export function RegisterForm({ className, ...props }: React.ComponentProps<"div"
 
     const { error } = await signUp.email({
       email,
+      callbackURL,
       name: displayname,
       password,
       username,
@@ -286,7 +296,7 @@ export function RegisterForm({ className, ...props }: React.ComponentProps<"div"
                 onClick={() => {
                   signIn.social({
                     provider: "google",
-                    callbackURL: "/workspace",
+                    callbackURL,
                     errorCallbackURL: getErrorCallbackURL(),
                   })
                 }}
@@ -302,7 +312,7 @@ export function RegisterForm({ className, ...props }: React.ComponentProps<"div"
                 onClick={() => {
                   signIn.social({
                     provider: "github",
-                    callbackURL: "/workspace",
+                    callbackURL,
                     errorCallbackURL: getErrorCallbackURL(),
                   })
                 }}
@@ -315,7 +325,10 @@ export function RegisterForm({ className, ...props }: React.ComponentProps<"div"
 
             <div className="text-center text-sm">
               Already have an account?{" "}
-              <Link href="/login" className="text-primary hover:text-primary/80 transition-colors font-medium">
+              <Link
+                href={callbackURL === "/workspace" ? "/login" : `/login?callbackURL=${encodeURIComponent(callbackURL)}`}
+                className="text-primary hover:text-primary/80 transition-colors font-medium"
+              >
                 Login
               </Link>
             </div>

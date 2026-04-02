@@ -20,11 +20,13 @@ const loginSchema = z.object({
 })
 
 export function LoginForm({
+  callbackURL = "/workspace",
   className,
   initialEmail = "",
   initialError,
   ...props
 }: React.ComponentProps<"div"> & {
+  callbackURL?: string
   initialEmail?: string
   initialError?: string | null
 }) {
@@ -48,8 +50,8 @@ export function LoginForm({
       return
     }
 
-    signIn.passkey({ autoFill: true })
-  }, [])
+    signIn.passkey({ autoFill: true, callbackURL })
+  }, [callbackURL])
 
   useEffect(() => {
     const details = getWaitlistErrorDetails(initialError)
@@ -67,6 +69,9 @@ export function LoginForm({
     const params = new URLSearchParams()
     if (email.trim()) {
       params.set("email", email.trim())
+    }
+    if (callbackURL && callbackURL !== "/workspace") {
+      params.set("callbackURL", callbackURL)
     }
 
     const query = params.toString()
@@ -135,7 +140,7 @@ export function LoginForm({
     const { error } = await signIn.email({
       email,
       password,
-      callbackURL: "/workspace",
+      callbackURL,
     })
 
     if (error) {
@@ -303,7 +308,7 @@ export function LoginForm({
             onClick={() => {
               signIn.social({
                 provider: "google",
-                callbackURL: "/workspace",
+                callbackURL,
                 errorCallbackURL: getErrorCallbackURL(),
               })
             }}
@@ -321,7 +326,7 @@ export function LoginForm({
             onClick={() => {
               signIn.social({
                 provider: "github",
-                callbackURL: "/workspace",
+                callbackURL,
                 errorCallbackURL: getErrorCallbackURL(),
               })
             }}
@@ -338,7 +343,10 @@ export function LoginForm({
             type="button"
             onClick={async () => {
               resetWaitlistFeedback()
-              const data = await signIn.passkey()
+              const data = await signIn.passkey({
+                callbackURL,
+                errorCallbackURL: getErrorCallbackURL(),
+              })
               if (data?.error) {
                 const errorCode =
                   typeof (data.error as { code?: unknown }).code === "string"

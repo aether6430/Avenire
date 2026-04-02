@@ -260,6 +260,41 @@ export const fileAsset = pgTable(
   ]
 );
 
+export const extensionDestinationPreset = pgTable(
+  "extension_destination_preset",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    folderId: uuid("folder_id")
+      .notNull()
+      .references(() => fileFolder.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    workspaceName: text("workspace_name").notNull(),
+    folderName: text("folder_name").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("extension_destination_preset_user_updated_idx").on(
+      table.userId,
+      table.updatedAt
+    ),
+    index("extension_destination_preset_workspace_idx").on(table.workspaceId),
+  ]
+);
+
 export const noteContent = pgTable(
   "note_content",
   {

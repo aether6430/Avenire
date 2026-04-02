@@ -85,6 +85,13 @@
       "when": 1774730000000,
       "tag": "0012_task_kanban_resources",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1775000000000,
+      "tag": "0013_extension_destination_presets",
+      "breakpoints": true
     }
   ]
 }

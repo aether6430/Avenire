@@ -72,6 +72,7 @@ Set these on `web`:
 - `BETTER_AUTH_URL=https://<your-web-domain>`
 - `BETTER_AUTH_SECRET=<strong-random-secret>`
 - `BETTER_AUTH_TRUSTED_ORIGINS=https://<your-web-domain>`
+- `BETTER_AUTH_EXTENSION_ORIGINS=chrome-extension://<your-extension-id>`
 
 Recommended for the full app:
 
