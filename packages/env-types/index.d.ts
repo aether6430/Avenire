@@ -4,6 +4,8 @@ declare namespace NodeJS {
     AUTH_GITHUB_SECRET?: string;
     AUTH_GOOGLE_ID?: string;
     AUTH_GOOGLE_SECRET?: string;
+    AUTH_NOTION_ID?: string;
+    AUTH_NOTION_SECRET?: string;
     AXIOM_DATASET?: string;
     AXIOM_TOKEN?: string;
     BASETEN_API_KEY?: string;
@@ -49,6 +51,8 @@ declare namespace NodeJS {
     MUX_TOKEN_ID?: string;
     MUX_TOKEN_SECRET?: string;
     NEXT_PUBLIC_APP_URL?: string;
+    NEXT_PUBLIC_GOOGLE_PICKER_API_KEY?: string;
+    NEXT_PUBLIC_GOOGLE_PICKER_APP_ID?: string;
     NEXT_PUBLIC_UPLOAD_DEDUPE_HASH_MAX_BYTES?: string;
     NEXT_PUBLIC_UPLOAD_PREUPLOAD_DEDUPE?: string;
     NODE_ENV?: string;

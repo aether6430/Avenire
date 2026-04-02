@@ -2,6 +2,8 @@
 
 import { SidebarInset, SidebarProvider } from "@avenire/ui/components/sidebar";
 import dynamic from "next/dynamic";
+import type { Route } from "next";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { Suspense, useEffect, useState } from "react";
 import { DashboardSidebar } from "@/components/dashboard/app-sidebar";
@@ -90,6 +92,9 @@ export function DashboardLayout({
   children,
 }: DashboardLayoutProps) {
   const [deferredReady, setDeferredReady] = useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const settingsOpen = useDashboardOverlayStore((state) => state.settingsOpen);
   const settingsTab = useDashboardOverlayStore((state) => state.settingsTab);
   const setSettingsOpen = useDashboardOverlayStore(
@@ -104,6 +109,34 @@ export function DashboardLayout({
   useEffect(() => {
     useDashboardUiStore.persist.rehydrate();
   }, []);
+
+  useEffect(() => {
+    const overlay = searchParams.get("overlay");
+    if (overlay !== "settings") {
+      return;
+    }
+
+    const requestedTab = searchParams.get("settingsTab");
+    const validTab =
+      requestedTab === "account" ||
+      requestedTab === "preferences" ||
+      requestedTab === "workspace" ||
+      requestedTab === "data" ||
+      requestedTab === "billing" ||
+      requestedTab === "security" ||
+      requestedTab === "shortcuts"
+        ? requestedTab
+        : "account";
+
+    setSettingsTab(validTab);
+    setSettingsOpen(true);
+
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.delete("overlay");
+    nextParams.delete("settingsTab");
+    const nextQuery = nextParams.toString();
+    router.replace((nextQuery ? `${pathname}?${nextQuery}` : pathname) as Route);
+  }, [pathname, router, searchParams, setSettingsOpen, setSettingsTab]);
 
   useEffect(() => {
     const documentElement = document.documentElement;

@@ -22,6 +22,7 @@ import { Spinner } from "@avenire/ui/components/spinner";
 import { CalendarDots, FlagBanner, Trash } from "@phosphor-icons/react";
 import { TaskAssigneePicker } from "@/components/tasks/task-assignee-picker";
 import { TaskEmptyState } from "@/components/tasks/task-empty-state";
+import { TaskDueDatePicker } from "@/components/tasks/task-due-date-picker";
 import { TaskResourcePicker } from "@/components/tasks/task-resource-picker";
 import type { TaskEditorDraft } from "@/components/tasks/types";
 import type { WorkspaceMemberOption, WorkspaceTask } from "@/lib/tasks";
@@ -123,10 +124,9 @@ export function TaskDetailPane({
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="task-due">Due</Label>
-            <Input
+            <TaskDueDatePicker
               id="task-due"
-              onChange={(event) => onDraftChange({ dueAt: event.target.value })}
-              type="datetime-local"
+              onChange={(dueAt) => onDraftChange({ dueAt })}
               value={draft.dueAt}
             />
           </div>

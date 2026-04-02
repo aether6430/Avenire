@@ -1,4 +1,5 @@
 export * from "./account-data";
+export * from "./auth-account-data";
 export * from "./auth-schema";
 export * from "./billing-data";
 export * from "./chat-data";

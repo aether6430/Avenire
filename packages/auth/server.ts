@@ -186,19 +186,29 @@ export const auth = betterAuth({
     accountLinking: {
       enabled: true,
       allowDifferentEmails: true,
-      trustedProviders: ["google", "github"]
+      trustedProviders: ["google", "github", "notion"]
     }
   },
   socialProviders: {
     ...(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET
       ? {
           google: {
+            accessType: "offline",
             clientId: process.env.AUTH_GOOGLE_ID,
             clientSecret: process.env.AUTH_GOOGLE_SECRET,
+            prompt: "select_account consent",
             mapProfileToUser: (profile) => ({
               name: profile.given_name ?? profile.name,
               username: profile.name
             })
+          }
+        }
+      : {}),
+    ...(process.env.AUTH_NOTION_ID && process.env.AUTH_NOTION_SECRET
+      ? {
+          notion: {
+            clientId: process.env.AUTH_NOTION_ID,
+            clientSecret: process.env.AUTH_NOTION_SECRET,
           }
         }
       : {}),

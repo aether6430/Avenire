@@ -19,3 +19,5 @@ Ingestion/
 drizzle/
 !packages/database/drizzle/
 !packages/database/drizzle/**
+
+context

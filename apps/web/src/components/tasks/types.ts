@@ -51,7 +51,19 @@ function pad(value: number) {
 }
 
 export function toDateTimeLocalValue(isoValue: string) {
-  const date = new Date(isoValue);
+  const trimmedValue = isoValue.trim();
+  if (!trimmedValue) {
+    return "";
+  }
+
+  const dateOnlyMatch = trimmedValue.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dateOnlyMatch) {
+    const [, year, month, day] = dateOnlyMatch;
+    const date = new Date(Number(year), Number(month) - 1, Number(day), 23, 59);
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
+  const date = new Date(trimmedValue);
   if (Number.isNaN(date.getTime())) {
     return "";
   }

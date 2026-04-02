@@ -17,6 +17,7 @@ import { SpinnerGap as Loader2, Plus, Warning as TriangleAlert } from "@phosphor
 import { useRouter } from "next/navigation";
 import { type ReactElement, useEffect, useMemo, useState } from "react";
 import { TaskAssigneePicker } from "@/components/tasks/task-assignee-picker";
+import { TaskDueDatePicker } from "@/components/tasks/task-due-date-picker";
 import { TaskResourcePicker } from "@/components/tasks/task-resource-picker";
 import type { WorkspaceMemberOption } from "@/lib/tasks";
 import { dispatchTasksRefresh } from "@/lib/tasks";
@@ -87,21 +88,24 @@ function pad(value: number) {
 }
 
 function toDateTimeLocalValue(isoValue: string | null | undefined) {
-  if (!isoValue) {
+  if (!isoValue?.trim()) {
     return "";
   }
 
-  const date = new Date(isoValue);
+  const trimmedValue = isoValue.trim();
+  const dateOnlyMatch = trimmedValue.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dateOnlyMatch) {
+    const [, year, month, day] = dateOnlyMatch;
+    const date = new Date(Number(year), Number(month) - 1, Number(day), 23, 59);
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
+  const date = new Date(trimmedValue);
   if (Number.isNaN(date.getTime())) {
     return "";
   }
 
-  const year = date.getFullYear();
-  const month = pad(date.getMonth() + 1);
-  const day = pad(date.getDate());
-  const hours = pad(date.getHours());
-  const minutes = pad(date.getMinutes());
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function toIsoFromDateTimeLocalValue(value: string) {
@@ -402,16 +406,16 @@ export function QuickCaptureDialog({
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="quick-task-due">Due</Label>
-                <Input
+                <TaskDueDatePicker
                   id="quick-task-due"
-                  onChange={(event) =>
-                    setTask((prev) => ({ ...prev, dueAt: event.target.value }))
+                  onChange={(dueAt) =>
+                    setTask((prev) => ({ ...prev, dueAt }))
                   }
-                  type="datetime-local"
                   value={task.dueAt}
                 />
                 <p className="text-muted-foreground text-xs">
-                  Optional. Leave blank if it is just a capture.
+                  Optional. Pick a date and it will be logged for 11:59 PM by
+                  default.
                 </p>
               </div>
               {workspaceUuid ? (

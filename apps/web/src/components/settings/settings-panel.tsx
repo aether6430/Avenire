@@ -23,6 +23,7 @@ import { useTheme } from "next-themes";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ComponentType, type ReactNode, type SVGProps } from "react";
 import { SensitiveText } from "@/components/shared/sensitive-text";
+import { DataImportsSection } from "@/components/settings/data-imports-section";
 import { getFacehashUrl } from "@/lib/avatar";
 import {
   DEFAULT_NOTE_TEMPLATE,
@@ -2467,6 +2468,15 @@ export function SettingsPanel({
           {/* ── Data Tab ── */}
           {currentTab === "data" ? (
             <>
+              <Section
+                description="Connect external sources and import them through the existing note and upload pipelines."
+                title="Data Imports"
+              >
+                <DataImportsSection workspaces={workspaces} />
+              </Section>
+
+              <Divider />
+
               <Section
                 description="How workspace data is retained and cleaned up."
                 title="Data Retention"
