@@ -3,10 +3,18 @@
 ## Build
 
 ```bash
-pnpm --filter @avenire/extension build
+pnpm --filter @avenire/extension build:chrome
 ```
 
-The output is written to `apps/extension/dist`.
+Chrome output is written to `apps/extension/dist/chrome`.
+
+For Firefox:
+
+```bash
+pnpm --filter @avenire/extension build:firefox
+```
+
+Firefox output is written to `apps/extension/dist/firefox`.
 
 By default the extension talks to:
 
@@ -16,10 +24,11 @@ By default the extension talks to:
 Override those allowed backend origins at build time with:
 
 ```bash
-AVENIRE_EXTENSION_APP_ORIGINS="https://avenire.space,http://localhost:3000" pnpm --filter @avenire/extension build
+AVENIRE_EXTENSION_APP_ORIGINS="https://avenire.space,http://localhost:3000" pnpm --filter @avenire/extension build:chrome
 ```
 
-Load `apps/extension/dist` as an unpacked extension in Chrome.
+Load `apps/extension/dist/chrome` as an unpacked extension in Chrome.
+Load `apps/extension/dist/firefox/manifest.json` in Firefox via `about:debugging`.
 
 ## Better Auth
 

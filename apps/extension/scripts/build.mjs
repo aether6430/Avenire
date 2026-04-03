@@ -7,9 +7,11 @@ import { build as esbuild } from "esbuild";
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(currentDir, "..");
 const srcDir = join(rootDir, "src");
-const distDir = join(rootDir, "dist");
 const webBrandingDir = resolve(rootDir, "..", "web", "public", "branding");
 const isWatch = process.argv.includes("--watch");
+const targetArg = process.argv.find((value) => value.startsWith("--target="));
+const buildTarget = targetArg?.split("=", 2)[1] === "firefox" ? "firefox" : "chrome";
+const distDir = join(rootDir, "dist", buildTarget);
 
 const appOrigins = (process.env.AVENIRE_EXTENSION_APP_ORIGINS ??
   "https://avenire.space,http://localhost:3000")
@@ -69,6 +71,15 @@ async function copySource() {
         run_at: "document_idle",
       },
     ],
+    ...(buildTarget === "firefox"
+      ? {
+          browser_specific_settings: {
+            gecko: {
+              id: "avenire-web-clipper@avenire.space",
+            },
+          },
+        }
+      : {}),
   };
 
   await writeFile(
@@ -89,7 +100,7 @@ async function bundleScripts() {
     bundle: true,
     format: "iife",
     platform: "browser",
-    target: "chrome120",
+    target: buildTarget === "firefox" ? "firefox120" : "chrome120",
     outdir: distDir,
     sourcemap: false,
     logLevel: "silent",

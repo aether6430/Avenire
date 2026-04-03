@@ -1,5 +1,6 @@
 import Defuddle from "defuddle";
 import { createMarkdownContent } from "defuddle/full";
+import { detectNativeAsset } from "./shared.js";
 
 const HIGHLIGHT_NAME = "avenire-clipper";
 const HIGHLIGHT_PREFIX = "avenire:highlights:";
@@ -188,19 +189,29 @@ async function getPageMetadata() {
   const getMeta = (name) =>
     document.querySelector(`meta[name="${name}"], meta[property="${name}"]`)?.content?.trim() ?? "";
 
-  const extracted = await extractPageWithDefuddle();
+  const nativeAsset = detectNativeAsset({
+    contentType: document.contentType ?? "",
+    title: document.title.trim() || window.location.hostname,
+    url: window.location.href,
+  });
+  const extracted = nativeAsset ? null : await extractPageWithDefuddle();
   const articleRoot =
-    document.querySelector("main article") ||
-    document.querySelector("article") ||
-    document.querySelector("main") ||
-    document.body;
-  const fallbackArticleText = articleRoot?.innerText?.replace(/\n{3,}/g, "\n\n").trim() ?? "";
+    nativeAsset
+      ? null
+      : document.querySelector("main article") ||
+        document.querySelector("article") ||
+        document.querySelector("main") ||
+        document.body;
+  const fallbackArticleText = nativeAsset
+    ? ""
+    : articleRoot?.innerText?.replace(/\n{3,}/g, "\n\n").trim() ?? "";
 
   return {
-    articleText:
-      extracted?.contentMarkdown?.trim() ||
-      extracted?.content?.trim() ||
-      fallbackArticleText,
+    articleText: nativeAsset
+      ? ""
+      : extracted?.contentMarkdown?.trim() ||
+        extracted?.content?.trim() ||
+        fallbackArticleText,
     byline: extracted?.author?.trim() || getMeta("author"),
     publishedAt:
       extracted?.published?.trim() ||
@@ -209,7 +220,12 @@ async function getPageMetadata() {
       "",
     selectionText: window.getSelection()?.toString().trim() ?? "",
     siteName: extracted?.site?.trim() || getMeta("og:site_name") || window.location.hostname,
-    title: extracted?.title?.trim() || document.title.trim() || window.location.hostname,
+    title:
+      nativeAsset?.name ||
+      extracted?.title?.trim() ||
+      document.title.trim() ||
+      window.location.hostname,
+    nativeAsset,
     url: normalizeUrl(window.location.href),
   };
 }
@@ -299,6 +315,7 @@ async function getClipContext() {
     })),
     page: {
       byline: metadata.byline || null,
+      nativeAsset: metadata.nativeAsset || null,
       publishedAt: metadata.publishedAt || null,
       siteName: metadata.siteName || null,
       title: metadata.title,

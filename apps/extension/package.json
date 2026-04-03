@@ -4,8 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node ./scripts/build.mjs",
-    "dev": "node ./scripts/build.mjs --watch",
+    "build": "pnpm run build:chrome",
+    "build:chrome": "node ./scripts/build.mjs --target=chrome",
+    "build:firefox": "node ./scripts/build.mjs --target=firefox",
+    "dev": "pnpm run dev:chrome",
+    "dev:chrome": "node ./scripts/build.mjs --target=chrome --watch",
+    "dev:firefox": "node ./scripts/build.mjs --target=firefox --watch",
     "lint": "biome check .",
     "format": "biome format --write ."
   },

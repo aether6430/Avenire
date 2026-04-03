@@ -41,6 +41,7 @@ export const router = {
     url: file.ufsUrl,
   })),
   fileExplorerUploader: storage({
+    audio: { maxFileSize: "64MB", maxFileCount: 300 },
     image: { maxFileSize: "32MB", maxFileCount: 300 },
     pdf: { maxFileSize: "128MB", maxFileCount: 300 },
     text: { maxFileSize: "16MB", maxFileCount: 300 },

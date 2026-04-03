@@ -9,6 +9,148 @@ export const DEFAULT_CLIP_SETTINGS = {
   includeSourceProperties: true,
 };
 
+const NATIVE_ASSET_EXTENSIONS = {
+  audio: [".aac", ".flac", ".m4a", ".mid", ".midi", ".mp3", ".oga", ".ogg", ".wav", ".weba"],
+  image: [".avif", ".bmp", ".gif", ".heic", ".heif", ".jpeg", ".jpg", ".png", ".svg", ".webp"],
+  pdf: [".pdf"],
+  video: [".3gp", ".avi", ".m4v", ".mov", ".mp4", ".mpeg", ".mpg", ".webm", ".wmv"],
+};
+
+const NATIVE_ASSET_DEFAULT_EXTENSIONS = {
+  audio: "mp3",
+  image: "jpg",
+  pdf: "pdf",
+  video: "mp4",
+};
+
+function normalizeMimeType(value) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .split(";")[0]
+    .trim();
+}
+
+function getPathname(value) {
+  try {
+    return new URL(String(value ?? "")).pathname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function hasNativeAssetExtension(pathname, kind) {
+  return (
+    NATIVE_ASSET_EXTENSIONS[kind]?.some((extension) => pathname.endsWith(extension)) ??
+    false
+  );
+}
+
+function sanitizeFileName(value) {
+  return String(value ?? "")
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, " ")
+    .replace(/^\.+/, "")
+    .trim();
+}
+
+function ensureExtension(fileName, kind, mimeType) {
+  const sanitized = sanitizeFileName(fileName);
+  if (/\.[a-z0-9]{1,8}$/i.test(sanitized)) {
+    return sanitized;
+  }
+
+  const extensionFromMime = {
+    "audio/aac": "aac",
+    "audio/flac": "flac",
+    "audio/midi": "mid",
+    "audio/mpeg": "mp3",
+    "audio/ogg": "ogg",
+    "audio/wav": "wav",
+    "audio/webm": "weba",
+    "image/avif": "avif",
+    "image/bmp": "bmp",
+    "image/gif": "gif",
+    "image/heic": "heic",
+    "image/heif": "heif",
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/svg+xml": "svg",
+    "image/webp": "webp",
+    "video/3gpp": "3gp",
+    "video/avi": "avi",
+    "video/mp4": "mp4",
+    "video/mpeg": "mpeg",
+    "video/quicktime": "mov",
+    "video/webm": "webm",
+    "video/x-ms-wmv": "wmv",
+  }[mimeType] ?? NATIVE_ASSET_DEFAULT_EXTENSIONS[kind];
+
+  return `${sanitized || "file"}.${extensionFromMime}`;
+}
+
+function inferNativeAssetKind(value) {
+  const pathname = getPathname(value?.url ?? value);
+  const mimeType = normalizeMimeType(value?.mimeType);
+
+  if (mimeType === "application/pdf" || hasNativeAssetExtension(pathname, "pdf")) {
+    return "pdf";
+  }
+  if (mimeType.startsWith("image/") || hasNativeAssetExtension(pathname, "image")) {
+    return "image";
+  }
+  if (mimeType.startsWith("video/") || hasNativeAssetExtension(pathname, "video")) {
+    return "video";
+  }
+  if (mimeType.startsWith("audio/") || hasNativeAssetExtension(pathname, "audio")) {
+    return "audio";
+  }
+
+  return null;
+}
+
+function deriveNativeAssetName(url, kind, title, mimeType) {
+  const pathname = getPathname(url);
+  const lastSegment = pathname.split("/").filter(Boolean).pop() ?? "";
+  const fromUrl = lastSegment ? decodeURIComponent(lastSegment) : "";
+  const baseName = sanitizeFileName(
+    fromUrl ||
+      title ||
+      {
+        audio: "audio",
+        image: "image",
+        pdf: "document",
+        video: "video",
+      }[kind]
+  );
+
+  return ensureExtension(baseName, kind, mimeType);
+}
+
+export function detectNativeAsset({ contentType, title, url }) {
+  const sourceUrl = String(url ?? "").trim();
+  if (!sourceUrl) {
+    return null;
+  }
+
+  const mimeType = normalizeMimeType(contentType);
+  const kind =
+    inferNativeAssetKind({ mimeType, url: sourceUrl }) ??
+    inferNativeAssetKind({ mimeType: "", url: sourceUrl });
+
+  if (!kind) {
+    return null;
+  }
+
+  return {
+    kind,
+    mimeType: mimeType || (kind === "pdf" ? "application/pdf" : "application/octet-stream"),
+    name: deriveNativeAssetName(sourceUrl, kind, title, mimeType),
+    sourceUrl,
+  };
+}
+
 export function normalizeOrigin(value) {
   const normalized = String(value ?? "").trim().replace(/\/+$/, "");
   return normalized || DEFAULT_APP_ORIGIN;
@@ -107,6 +249,10 @@ export async function readErrorMessage(response, fallback) {
 }
 
 export function deriveSourceMode(context) {
+  if (context.page?.nativeAsset) {
+    return "native-file";
+  }
+
   if (context.highlights.length > 0) {
     return "highlights";
   }
@@ -169,7 +315,11 @@ export function buildClipPageProperties(context, capturedAt, settings) {
   const sourceMode = deriveSourceMode(context);
 
   if (settings.includeCaptureProperties) {
-    addSelectProperty(properties, "Clip Type", "web-clip");
+    addSelectProperty(
+      properties,
+      "Clip Type",
+      context.page?.nativeAsset ? "native-file" : "web-clip"
+    );
     addSelectProperty(properties, "Source Mode", sourceMode);
     addTextProperty(properties, "Captured At", capturedAt);
   }
@@ -196,6 +346,16 @@ export function buildClipRegisterPayload({
   const fallback = buildClipMarkdown(context, title);
   const capturedAt = new Date().toISOString();
   const properties = buildClipPageProperties(context, capturedAt, settings);
+  const sourceMetadata = {
+    byline: context.page.byline ?? null,
+    capturedAt,
+    kind: "web-clip",
+    publishedAt: context.page.publishedAt ?? null,
+    siteName: context.page.siteName ?? null,
+    sourceMode: deriveSourceMode(context),
+    title: context.page.title,
+    url: context.page.url,
+  };
 
   return {
     body: {
@@ -204,16 +364,7 @@ export function buildClipRegisterPayload({
       metadata: {
         type: "note",
         quickCapture: true,
-        source: {
-          byline: context.page.byline ?? null,
-          capturedAt,
-          kind: "web-clip",
-          publishedAt: context.page.publishedAt ?? null,
-          siteName: context.page.siteName ?? null,
-          sourceMode: deriveSourceMode(context),
-          title: context.page.title,
-          url: context.page.url,
-        },
+        source: sourceMetadata,
         page: {
           bannerUrl: null,
           icon: null,

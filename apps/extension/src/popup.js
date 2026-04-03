@@ -4,7 +4,7 @@ import {
   buildClipMarkdown,
   buildClipPageProperties,
   buildClipRegisterPayload,
-  deriveSourceMode,
+  detectNativeAsset,
   formatPropertyValue,
   getStoredAppOrigin,
   getStoredClipSettings,
@@ -61,6 +61,157 @@ function activeTab() {
       resolve(tab);
     });
   });
+}
+
+async function buildNativeAssetContext(tab) {
+  const nativeAsset = detectNativeAsset({
+    contentType: tab?.contentType ?? "",
+    title: tab?.title ?? "",
+    url: tab?.url ?? "",
+  });
+
+  if (!nativeAsset) {
+    return null;
+  }
+
+  let siteName = null;
+  try {
+    siteName = new URL(nativeAsset.sourceUrl).hostname || null;
+  } catch {
+    siteName = null;
+  }
+
+  return {
+    articleText: "",
+    highlights: [],
+    page: {
+      byline: null,
+      nativeAsset,
+      publishedAt: null,
+      siteName,
+      title: nativeAsset.name,
+      url: nativeAsset.sourceUrl,
+    },
+    selectionText: "",
+  };
+}
+
+async function readNativeAssetFile(nativeAsset) {
+  const response = await fetch(nativeAsset.sourceUrl, {
+    cache: "no-store",
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Unable to download the native file.");
+  }
+
+  const contentType = response.headers.get("content-type")?.trim() || nativeAsset.mimeType;
+  if (contentType?.startsWith("text/html")) {
+    throw new Error("The current page does not look like a native media file.");
+  }
+
+  const blob = await response.blob();
+  return new File([blob], nativeAsset.name, {
+    type: blob.type || contentType || nativeAsset.mimeType || "application/octet-stream",
+  });
+}
+
+function buildNativeUploadMetadata(context, capturedAt) {
+  const properties = buildClipPageProperties(context, capturedAt, state.settings);
+
+  return {
+    type: "note",
+    quickCapture: true,
+    source: {
+      byline: context.page.byline ?? null,
+      capturedAt,
+      kind: "native-file",
+      mimeType: context.page.nativeAsset?.mimeType ?? null,
+      nativeAssetKind: context.page.nativeAsset?.kind ?? null,
+      nativeAssetName: context.page.nativeAsset?.name ?? null,
+      publishedAt: context.page.publishedAt ?? null,
+      siteName: context.page.siteName ?? null,
+      sourceMode: "native-file",
+      sourceUrl: context.page.nativeAsset?.sourceUrl ?? context.page.url,
+      title: context.page.title,
+      url: context.page.url,
+    },
+    page: {
+      bannerUrl: null,
+      icon: null,
+      properties,
+    },
+  };
+}
+
+function createPartNumbers(sizeBytes, partSizeBytes) {
+  const partCount = Math.max(1, Math.ceil(sizeBytes / partSizeBytes));
+  return Array.from({ length: partCount }, (_value, index) => index + 1);
+}
+
+async function createUploadSession(nativeFile, destination) {
+  const response = await api(state.appOrigin, "/api/uploads/sessions", {
+    body: JSON.stringify({
+      folderId: destination.folderId,
+      mimeType: nativeFile.type || null,
+      name: nativeFile.name,
+      sizeBytes: nativeFile.size,
+      workspaceUuid: destination.workspaceId,
+    }),
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, "Unable to prepare upload."));
+  }
+
+  return response.json();
+}
+
+async function requestSessionParts(sessionId, partNumbers) {
+  const response = await api(state.appOrigin, `/api/uploads/sessions/${sessionId}/parts`, {
+    body: JSON.stringify({ partNumbers }),
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, "Unable to prepare upload parts."));
+  }
+
+  return response.json();
+}
+
+async function uploadSessionPart(uploadUrl, blob) {
+  const response = await fetch(uploadUrl, {
+    body: blob,
+    credentials: "include",
+    method: "PUT",
+  });
+
+  if (!response.ok) {
+    throw new Error("Unable to upload a native file part.");
+  }
+}
+
+async function completeUploadSession(sessionId, nativeFile, metadata, partNumbers) {
+  const response = await api(state.appOrigin, `/api/uploads/sessions/${sessionId}/complete`, {
+    body: JSON.stringify({
+      metadata,
+      mimeType: nativeFile.type || null,
+      multipart: {
+        partNumbers,
+      },
+      sizeBytes: nativeFile.size,
+    }),
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, "Unable to finalize upload."));
+  }
+
+  return response.json();
 }
 
 function isInjectableTabUrl(url) {
@@ -243,7 +394,9 @@ function renderClipDraft() {
     els.noteTitle.value = state.sourceContext.page.title;
   }
 
-  if (!els.noteContent.value.trim()) {
+  if (state.sourceContext.page.nativeAsset) {
+    els.noteContent.value = "";
+  } else if (!els.noteContent.value.trim()) {
     const draft = buildClipMarkdown(state.sourceContext, els.noteTitle.value);
     els.noteContent.value = draft.content;
   }
@@ -303,12 +456,25 @@ async function refreshContext(resetDraft = true) {
 
     if (resetDraft) {
       els.noteTitle.value = context?.page?.title ?? "";
-      const draft = context ? buildClipMarkdown(context, els.noteTitle.value) : null;
-      els.noteContent.value = draft?.content ?? "";
+      els.noteContent.value = context?.page?.nativeAsset
+        ? ""
+        : buildClipMarkdown(context, els.noteTitle.value).content;
     }
 
     renderClipDraft();
   } catch (error) {
+    const tab = await activeTab().catch(() => null);
+    const fallbackContext = tab ? await buildNativeAssetContext(tab) : null;
+    if (fallbackContext) {
+      state.sourceContext = fallbackContext;
+      if (resetDraft) {
+        els.noteTitle.value = fallbackContext.page.title;
+        els.noteContent.value = "";
+      }
+      renderClipDraft();
+      return;
+    }
+
     setResult(
       error?.message ?? "Unable to communicate with the active tab. Try a normal web page.",
       "error"
@@ -362,6 +528,46 @@ async function clipNow() {
   await refreshContext(false);
   if (!state.sourceContext) {
     setResult("No clip context available.", "error");
+    return;
+  }
+
+  if (state.sourceContext.page.nativeAsset) {
+    const nativeFile = await readNativeAssetFile(state.sourceContext.page.nativeAsset);
+    if (nativeFile.size <= 0) {
+      setResult("The native file is empty.", "error");
+      return;
+    }
+
+    const sessionPayload = await createUploadSession(nativeFile, destination);
+    const partSizeBytes =
+      sessionPayload?.multipart?.recommendedPartSizeBytes ?? 16 * 1024 * 1024;
+    const partNumbers = createPartNumbers(nativeFile.size, partSizeBytes);
+    const partsPayload = await requestSessionParts(
+      sessionPayload.session.id,
+      partNumbers
+    );
+    const parts = Array.isArray(partsPayload.parts) ? partsPayload.parts : [];
+    if (parts.length !== partNumbers.length) {
+      setResult("The upload session did not return the expected parts.", "error");
+      return;
+    }
+
+    for (const part of parts) {
+      const partNumber = part.partNumber;
+      const start = (partNumber - 1) * partSizeBytes;
+      const end = Math.min(nativeFile.size, start + partSizeBytes);
+      const chunk = nativeFile.slice(start, end);
+      await uploadSessionPart(part.uploadUrl, chunk);
+    }
+
+    await completeUploadSession(
+      sessionPayload.session.id,
+      nativeFile,
+      buildNativeUploadMetadata(state.sourceContext, new Date().toISOString()),
+      partNumbers
+    );
+
+    setResult("Native file uploaded into Avenire.", "success");
     return;
   }
 
