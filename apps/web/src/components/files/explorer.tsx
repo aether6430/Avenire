@@ -53,6 +53,7 @@ import {
 } from "@avenire/ui/components/filters";
 import {
   DownloadSimple as ArrowDownToLine,
+  ArrowClockwise as RotateCw,
   ArrowLeft,
   ArrowRight,
   ArrowsDownUp as ArrowUpDown,
@@ -198,6 +199,9 @@ const MAX_VISIBLE_CARD_PROPERTIES = 4;
 const DEFAULT_VISIBLE_CARD_PROPERTIES = 3;
 const FILE_RETRIEVAL_CONTEXT_KEY = "file-explorer-retrieval-context-v1";
 const COMPACT_MENU_SURFACE_CLASS = "border border-border/60 shadow-md";
+const FILE_OPERATION_HISTORY_TOAST_ID = "files-operation-history";
+const ITEM_ACTION_TARGET_SELECTOR =
+  "[data-item-actions='true'], [data-selection-control='true'], button, a, input, textarea, select, label";
 const HEADER_SEGMENTED_GROUP_CLASS =
   "items-center divide-x divide-border/60 overflow-hidden rounded-md border border-border/60 bg-background shadow-sm";
 const HEADER_SEGMENT_BUTTON_CLASS =
@@ -808,6 +812,34 @@ interface BulkMutationResponse {
   };
 }
 
+interface TrashMutationResponse {
+  results?: Array<{
+    id: string;
+    kind: BulkItemKind;
+    ok: boolean;
+  }>;
+}
+
+interface FileMutationHistoryItem {
+  id: string;
+  kind: BulkItemKind;
+}
+
+interface MoveMutationHistoryItem extends FileMutationHistoryItem {
+  fromFolderId: string;
+  toFolderId: string;
+}
+
+type FileMutationHistoryEntry =
+  | {
+      operation: "delete";
+      items: FileMutationHistoryItem[];
+    }
+  | {
+      operation: "move";
+      items: MoveMutationHistoryItem[];
+    };
+
 interface UploadResultLike {
   contentType?: string;
   key?: string;
@@ -878,6 +910,97 @@ interface WebkitFileSystemDirectoryEntry extends WebkitFileSystemEntry {
 }
 
 const DEFAULT_FOLDER_BANNER_URL = "/images/folder-banner-default.svg";
+
+function getMutationHistoryItemKey(item: FileMutationHistoryItem) {
+  return `${item.kind}:${item.id}`;
+}
+
+function getSuccessfulBulkMutationKeys(response: BulkMutationResponse | null) {
+  return new Set(
+    (response?.results ?? [])
+      .filter((result) => result.status === "ok")
+      .map((result) => getMutationHistoryItemKey(result))
+  );
+}
+
+function getSuccessfulTrashMutationKeys(response: TrashMutationResponse | null) {
+  return new Set(
+    (response?.results ?? [])
+      .filter((result) => result.ok)
+      .map((result) => getMutationHistoryItemKey(result))
+  );
+}
+
+function countMutationHistoryItems(entry: FileMutationHistoryEntry) {
+  return entry.items.length;
+}
+
+function filterMutationHistoryEntry(
+  entry: FileMutationHistoryEntry,
+  keys: Set<string>
+): FileMutationHistoryEntry | null {
+  const items = entry.items.filter((item) => keys.has(getMutationHistoryItemKey(item)));
+  if (items.length === 0) {
+    return null;
+  }
+
+  if (entry.operation === "delete") {
+    return {
+      operation: "delete",
+      items,
+    };
+  }
+
+  return {
+    operation: "move",
+    items: items as MoveMutationHistoryItem[],
+  };
+}
+
+function subtractMutationHistoryKeys(
+  entry: FileMutationHistoryEntry,
+  keysToRemove: Set<string>
+) {
+  const remainingKeys = new Set(
+    entry.items
+      .map((item) => getMutationHistoryItemKey(item))
+      .filter((key) => !keysToRemove.has(key))
+  );
+  return filterMutationHistoryEntry(entry, remainingKeys);
+}
+
+function formatMutationItemCount(count: number, totalCount = count) {
+  if (totalCount !== count) {
+    return `${count} of ${totalCount} items`;
+  }
+
+  return `${count} item${count === 1 ? "" : "s"}`;
+}
+
+function describeMutationHistoryEntry(
+  entry: FileMutationHistoryEntry,
+  mode: "normal" | "redo" | "undo",
+  count = countMutationHistoryItems(entry),
+  totalCount = count
+) {
+  const itemCount = formatMutationItemCount(count, totalCount);
+
+  if (mode === "undo") {
+    return entry.operation === "delete"
+      ? `Undid delete of ${itemCount}.`
+      : `Undid move of ${itemCount}.`;
+  }
+
+  if (mode === "redo") {
+    return entry.operation === "delete"
+      ? `Redid delete of ${itemCount}.`
+      : `Redid move of ${itemCount}.`;
+  }
+
+  return entry.operation === "delete"
+    ? `Deleted ${itemCount}.`
+    : `Moved ${itemCount}.`;
+}
 
 function rgbToHex(value: number): string {
   return Math.max(0, Math.min(255, Math.round(value)))
@@ -1214,6 +1337,10 @@ export function FileExplorer({
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const contextActionIdsRef = useRef<{
+    itemId: string;
+    ids: string[];
+  } | null>(null);
   const mobileLongPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
@@ -1320,9 +1447,17 @@ export function FileExplorer({
   const [mobileConfirmAction, setMobileConfirmAction] = useState<
     "delete" | "move" | null
   >(null);
+  const [fileOperationHistoryState, setFileOperationHistoryState] = useState({
+    redoCount: 0,
+    undoCount: 0,
+  });
+  const [fileOperationHistoryBusy, setFileOperationHistoryBusy] =
+    useState(false);
   const loadedPropertyRegistryWorkspaceRef = useRef<string | null>(null);
   const loadedCardPropertySelectionRef = useRef(false);
   const noteTemplatesHydratedRef = useRef(false);
+  const undoFileOperationHistoryRef = useRef<FileMutationHistoryEntry[]>([]);
+  const redoFileOperationHistoryRef = useRef<FileMutationHistoryEntry[]>([]);
 
   const isMobile = useIsMobile();
   const currentUser = useUserStore((state) => state.user);
@@ -1397,6 +1532,12 @@ export function FileExplorer({
   const goParentIntentVersion = useFilesUiStore(
     (state) => state.intentVersion.goParent
   );
+  const undoMutationIntentVersion = useFilesUiStore(
+    (state) => state.intentVersion.undoMutation
+  );
+  const redoMutationIntentVersion = useFilesUiStore(
+    (state) => state.intentVersion.redoMutation
+  );
   const processedFilesIntentVersionsRef = useRef({
     createFolder: 0,
     deleteSelection: 0,
@@ -1405,6 +1546,8 @@ export function FileExplorer({
     moveSelectionUp: 0,
     newNote: 0,
     openSelection: 0,
+    redoMutation: 0,
+    undoMutation: 0,
     uploadFile: 0,
     uploadFolder: 0,
   });
@@ -1427,6 +1570,8 @@ export function FileExplorer({
     [breadcrumbs]
   );
   const isCurrentFolderReadOnly = Boolean(currentFolder?.readOnly);
+  const canUndoFileOperation = fileOperationHistoryState.undoCount > 0;
+  const canRedoFileOperation = fileOperationHistoryState.redoCount > 0;
 
   const createNote = useCallback(
     async (parentId: string, name: string, templateId?: string) => {
@@ -2304,6 +2449,10 @@ export function FileExplorer({
 
   const handleOpenOnDoubleClick = useCallback(
     (event: React.MouseEvent<HTMLElement>, open: () => void) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest(ITEM_ACTION_TARGET_SELECTOR)) {
+        return;
+      }
       if (event.detail !== 2) {
         return;
       }
@@ -2360,7 +2509,8 @@ export function FileExplorer({
         return;
       }
 
-      if (selection.selectedCount > 0 || options?.toggleOnly) {
+      const currentSelectedCount = selection.getSelectedIds().size;
+      if (currentSelectedCount > 0 || options?.toggleOnly) {
         selection.toggleSelection(itemId);
         triggerHaptic("selection");
         return;
@@ -2370,6 +2520,41 @@ export function FileExplorer({
       openItem();
     },
     [selection, triggerHaptic]
+  );
+
+  const handleItemContextMenu = useCallback(
+    (event: React.MouseEvent<HTMLElement>, itemId: string) => {
+      if (isMobile) {
+        event.preventDefault();
+        return;
+      }
+
+      const currentSelected = selection.getSelectedIds();
+      const ids = currentSelected.has(itemId)
+        ? Array.from(currentSelected)
+        : [itemId];
+      contextActionIdsRef.current = { itemId, ids };
+
+      if (!currentSelected.has(itemId)) {
+        selection.setSelection([itemId], itemId);
+      }
+    },
+    [isMobile, selection]
+  );
+
+  const shouldIgnoreItemClick = useCallback(
+    (event: React.MouseEvent<HTMLElement>) => {
+      const target = event.target as HTMLElement | null;
+      return Boolean(target?.closest(ITEM_ACTION_TARGET_SELECTOR));
+    },
+    []
+  );
+
+  const stopItemSelectionEvent = useCallback(
+    (event: React.SyntheticEvent<HTMLElement>) => {
+      event.stopPropagation();
+    },
+    []
   );
 
   const handleMobileCanvasPointerDown = useCallback(
@@ -3167,6 +3352,33 @@ export function FileExplorer({
         return;
       }
 
+      if (
+        event.key === "Enter" &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        !event.shiftKey
+      ) {
+        const selectedIds = selection.getSelectedIds();
+        const orderedSelection = visibleItemIds.filter((id) =>
+          selectedIds.has(id)
+        );
+        if (orderedSelection.length === 1) {
+          event.preventDefault();
+          const selectedId = orderedSelection[0];
+          const folder = allFolders.find((entry) => entry.id === selectedId);
+          if (folder) {
+            navigateToFolder(folder.id);
+            return;
+          }
+          const file = allFiles.find((entry) => entry.id === selectedId);
+          if (file) {
+            openFileById(file.id);
+            return;
+          }
+        }
+      }
+
       const key = event.key.toLowerCase();
       const isSearchShortcut =
         (!(event.metaKey || event.ctrlKey || event.altKey) && key === "/") ||
@@ -3182,7 +3394,14 @@ export function FileExplorer({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [
+    allFiles,
+    allFolders,
+    navigateToFolder,
+    openFileById,
+    selection,
+    visibleItemIds,
+  ]);
 
   const handlePreviewIntentStart = useCallback((file: FileRecord) => {
     const { isAudio, isVideo } = detectPreviewKind(file);
@@ -3843,6 +4062,57 @@ export function FileExplorer({
     [emitSync, loadFolder, loadTree, workspaceUuid]
   );
 
+  const hardReingestSelectionItems = useCallback(
+    async (items: Array<{ id: string; kind: BulkItemKind }>) => {
+      if (!workspaceUuid) {
+        return;
+      }
+
+      const filesToReingest = items
+        .filter((item) => item.kind === "file")
+        .map((item) => allFiles.find((entry) => entry.id === item.id))
+        .filter((file): file is FileRecord => Boolean(file && !file.readOnly));
+
+      if (filesToReingest.length === 0) {
+        return;
+      }
+
+      let succeeded = 0;
+
+      for (const file of filesToReingest) {
+        const response = await fetch(
+          `/api/workspaces/${workspaceUuid}/files/${file.id}/reingest`,
+          {
+            method: "POST",
+          }
+        );
+        const payload = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+
+        if (!response.ok) {
+          toast.error(payload.error ?? "Unable to re-ingest file.");
+          continue;
+        }
+
+        succeeded += 1;
+      }
+
+      if (succeeded === 0) {
+        return;
+      }
+
+      toast.success(
+        succeeded === 1
+          ? "File queued for hard re-ingestion."
+          : `${succeeded} files queued for hard re-ingestion.`
+      );
+      await Promise.all([loadFolder({ silent: true }), loadTree()]);
+      emitSync();
+    },
+    [allFiles, emitSync, loadFolder, loadTree, workspaceUuid]
+  );
+
   const createFolder = useCallback(
     async (parentId: string, name: string) => {
       if (!workspaceUuid) {
@@ -4032,15 +4302,41 @@ export function FileExplorer({
         }
         cursor = byId.get(cursor.parentId);
       }
-      await fetch(`/api/workspaces/${workspaceUuid}/folders/${folderId}`, {
+      const response = await fetch(`/api/workspaces/${workspaceUuid}/folders/${folderId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ parentId: targetFolderId }),
       });
+      if (!response.ok) {
+        throw new Error("Unable to move folder.");
+      }
+      if (folder?.parentId) {
+        pushMutationHistoryEntry(
+          {
+            operation: "move",
+            items: [
+              {
+                id: folder.id,
+                kind: "folder",
+                fromFolderId: folder.parentId,
+                toFolderId: targetFolderId,
+              },
+            ],
+          },
+          1
+        );
+      }
       await Promise.all([loadFolder(), loadTree()]);
       emitSync();
     },
-    [allFolders, emitSync, loadFolder, loadTree, workspaceUuid]
+    [
+      allFolders,
+      emitSync,
+      loadFolder,
+      loadTree,
+      pushMutationHistoryEntry,
+      workspaceUuid,
+    ]
   );
 
   const moveFile = useCallback(
@@ -4048,22 +4344,52 @@ export function FileExplorer({
       if (!workspaceUuid) {
         return;
       }
-      const file = files.find((entry) => entry.id === fileId);
+      const file = allFiles.find((entry) => entry.id === fileId);
       const targetFolder = allFolders.find(
         (entry) => entry.id === targetFolderId
       );
       if (file?.readOnly || targetFolder?.readOnly) {
         return;
       }
-      await fetch(`/api/workspaces/${workspaceUuid}/files/${fileId}`, {
+      if (file?.folderId === targetFolderId) {
+        return;
+      }
+      const response = await fetch(`/api/workspaces/${workspaceUuid}/files/${fileId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ folderId: targetFolderId }),
       });
-      await loadFolder();
+      if (!response.ok) {
+        throw new Error("Unable to move file.");
+      }
+      if (file?.folderId) {
+        pushMutationHistoryEntry(
+          {
+            operation: "move",
+            items: [
+              {
+                id: file.id,
+                kind: "file",
+                fromFolderId: file.folderId,
+                toFolderId: targetFolderId,
+              },
+            ],
+          },
+          1
+        );
+      }
+      await Promise.all([loadFolder(), loadTree()]);
       emitSync();
     },
-    [allFolders, emitSync, files, loadFolder, workspaceUuid]
+    [
+      allFiles,
+      allFolders,
+      emitSync,
+      loadFolder,
+      loadTree,
+      pushMutationHistoryEntry,
+      workspaceUuid,
+    ]
   );
 
   const resolveItemKind = useCallback(
@@ -4081,9 +4407,19 @@ export function FileExplorer({
 
   const resolveContextActionItems = useCallback(
     (itemId: string, fallbackKind: BulkItemKind) => {
-      const actionIds = selection.selectedIds.has(itemId)
-        ? Array.from(selection.selectedIds)
-        : [itemId];
+      const snapshottedIds =
+        contextActionIdsRef.current?.itemId === itemId
+          ? contextActionIdsRef.current.ids
+          : null;
+      if (snapshottedIds) {
+        contextActionIdsRef.current = null;
+      }
+      const currentSelectedIds = selection.getSelectedIds();
+      const actionIds =
+        snapshottedIds ??
+        (currentSelectedIds.has(itemId)
+          ? Array.from(currentSelectedIds)
+          : [itemId]);
 
       return actionIds
         .map((id) => ({
@@ -4099,11 +4435,11 @@ export function FileExplorer({
           } => Boolean(item.kind)
         );
     },
-    [resolveItemKind, selection.selectedIds]
+    [resolveItemKind, selection]
   );
 
   const resolveSelectedActionItems = useCallback(() => {
-    return Array.from(selection.selectedIds)
+    return Array.from(selection.getSelectedIds())
       .map((id) => {
         const kind = resolveItemKind(id);
         return kind ? { id, kind } : null;
@@ -4116,7 +4452,7 @@ export function FileExplorer({
           kind: BulkItemKind;
         } => Boolean(item)
       );
-  }, [resolveItemKind, selection.selectedIds]);
+  }, [resolveItemKind, selection]);
 
   const runBulkMutation = useCallback(
     async (payload: {
@@ -4138,13 +4474,203 @@ export function FileExplorer({
       );
 
       if (!response.ok) {
-        throw new Error("Bulk operation failed");
+        const payload = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(payload.error ?? "Bulk operation failed");
       }
 
       return (await response.json()) as BulkMutationResponse;
     },
     [workspaceUuid]
   );
+
+  const syncFileOperationHistoryState = useCallback(() => {
+    setFileOperationHistoryState({
+      redoCount: redoFileOperationHistoryRef.current.length,
+      undoCount: undoFileOperationHistoryRef.current.length,
+    });
+  }, []);
+
+  async function refreshExplorerAfterMutation() {
+    await Promise.all([loadFolder(), loadTree()]);
+    emitSync();
+    selection.clearSelection();
+  }
+
+  async function restoreItemsFromTrash(items: FileMutationHistoryItem[]) {
+    if (!(workspaceUuid && items.length > 0)) {
+      return null;
+    }
+
+    const response = await fetch(`/api/workspaces/${workspaceUuid}/trash`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        operation: "restore",
+        items,
+      }),
+    });
+
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+      throw new Error(payload.error ?? "Unable to restore items from trash.");
+    }
+
+    return (await response.json()) as TrashMutationResponse;
+  }
+
+  async function runMoveHistoryMutation(
+    items: MoveMutationHistoryItem[],
+    mode: "redo" | "undo"
+  ) {
+    const itemsByTargetFolderId = new Map<
+      string,
+      Array<{ id: string; kind: BulkItemKind }>
+    >();
+
+    for (const item of items) {
+      const targetFolderId =
+        mode === "undo" ? item.fromFolderId : item.toFolderId;
+      const existing = itemsByTargetFolderId.get(targetFolderId) ?? [];
+      existing.push({ id: item.id, kind: item.kind });
+      itemsByTargetFolderId.set(targetFolderId, existing);
+    }
+
+    const successfulKeys = new Set<string>();
+
+    for (const [targetFolderId, groupedItems] of itemsByTargetFolderId.entries()) {
+      const result = await runBulkMutation({
+        operation: "move",
+        targetFolderId,
+        items: groupedItems,
+      });
+
+      for (const key of getSuccessfulBulkMutationKeys(result)) {
+        successfulKeys.add(key);
+      }
+    }
+
+    return successfulKeys;
+  }
+
+  function pushMutationHistoryEntry(
+    entry: FileMutationHistoryEntry,
+    totalCount = countMutationHistoryItems(entry)
+  ) {
+    undoFileOperationHistoryRef.current.push(entry);
+    redoFileOperationHistoryRef.current = [];
+    syncFileOperationHistoryState();
+
+    const successfulCount = countMutationHistoryItems(entry);
+    toast.success(
+      describeMutationHistoryEntry(entry, "normal", successfulCount, totalCount),
+      {
+        action: {
+          label: "Undo",
+          onClick: () => {
+            void undoLatestFileOperation();
+          },
+        },
+        id: FILE_OPERATION_HISTORY_TOAST_ID,
+      }
+    );
+  }
+
+  async function applyFileOperationHistory(mode: "redo" | "undo") {
+    if (fileOperationHistoryBusy) {
+      return;
+    }
+
+    const sourceStack =
+      mode === "undo"
+        ? undoFileOperationHistoryRef.current
+        : redoFileOperationHistoryRef.current;
+    const targetStack =
+      mode === "undo"
+        ? redoFileOperationHistoryRef.current
+        : undoFileOperationHistoryRef.current;
+    const entry = sourceStack[sourceStack.length - 1];
+
+    if (!entry) {
+      return;
+    }
+
+    setFileOperationHistoryBusy(true);
+
+    try {
+      const totalCount = countMutationHistoryItems(entry);
+      const successfulKeys =
+        entry.operation === "delete"
+          ? mode === "undo"
+            ? getSuccessfulTrashMutationKeys(
+                await restoreItemsFromTrash(entry.items)
+              )
+            : getSuccessfulBulkMutationKeys(
+                await runBulkMutation({
+                  operation: "delete",
+                  items: entry.items,
+                })
+              )
+          : await runMoveHistoryMutation(entry.items, mode);
+
+      if (successfulKeys.size === 0) {
+        throw new Error(
+          mode === "undo"
+            ? "Unable to undo the last file operation."
+            : "Unable to redo the last file operation."
+        );
+      }
+
+      const successfulEntry = filterMutationHistoryEntry(entry, successfulKeys);
+      const failedEntry = subtractMutationHistoryKeys(entry, successfulKeys);
+
+      sourceStack.pop();
+      if (failedEntry) {
+        sourceStack.push(failedEntry);
+      }
+      if (successfulEntry) {
+        targetStack.push(successfulEntry);
+      }
+      syncFileOperationHistoryState();
+
+      await refreshExplorerAfterMutation();
+
+      if (successfulEntry) {
+        toast.success(
+          describeMutationHistoryEntry(
+            successfulEntry,
+            mode,
+            countMutationHistoryItems(successfulEntry),
+            totalCount
+          ),
+          {
+            id: FILE_OPERATION_HISTORY_TOAST_ID,
+          }
+        );
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : mode === "undo"
+            ? "Unable to undo the last file operation."
+            : "Unable to redo the last file operation."
+      );
+    } finally {
+      setFileOperationHistoryBusy(false);
+    }
+  }
+
+  async function undoLatestFileOperation() {
+    await applyFileOperationHistory("undo");
+  }
+
+  async function redoLatestFileOperation() {
+    await applyFileOperationHistory("redo");
+  }
 
   const deleteSelectionItems = useCallback(
     async (items: Array<{ id: string; kind: BulkItemKind }>) => {
@@ -4165,23 +4691,31 @@ export function FileExplorer({
         operation: "delete",
         items: writableItems,
       });
+      const successfulKeys = getSuccessfulBulkMutationKeys(result);
+      const successfulItems = writableItems.filter((item) =>
+        successfulKeys.has(getMutationHistoryItemKey(item))
+      );
+      const totalCount = result?.summary?.total ?? writableItems.length;
 
-      if (result?.summary?.failed) {
-        const failedCount = result.summary.failed;
-        const total = result.summary.total ?? writableItems.length;
-        toast.success(`Deleted ${total - failedCount} of ${total} item(s).`);
+      if (successfulItems.length > 0) {
+        pushMutationHistoryEntry(
+          {
+            operation: "delete",
+            items: successfulItems,
+          },
+          totalCount
+        );
+      } else {
+        toast.error("Unable to delete the selected items.");
       }
 
-      await Promise.all([loadFolder(), loadTree()]);
-      emitSync();
-      selection.clearSelection();
+      await refreshExplorerAfterMutation();
     },
     [
       allFiles,
       allFolders,
-      emitSync,
-      loadFolder,
-      loadTree,
+      pushMutationHistoryEntry,
+      refreshExplorerAfterMutation,
       runBulkMutation,
       selection,
     ]
@@ -4235,21 +4769,64 @@ export function FileExplorer({
         return;
       }
 
-      await runBulkMutation({
+      const moveHistoryItems = items
+        .map((item) => {
+          if (item.kind === "folder") {
+            const folder = allFolders.find((entry) => entry.id === item.id);
+            if (!folder?.parentId) {
+              return null;
+            }
+            return {
+              id: item.id,
+              kind: item.kind,
+              fromFolderId: folder.parentId,
+              toFolderId: targetFolderId,
+            } satisfies MoveMutationHistoryItem;
+          }
+
+          const file = allFiles.find((entry) => entry.id === item.id);
+          if (!file?.folderId) {
+            return null;
+          }
+          return {
+            id: item.id,
+            kind: item.kind,
+            fromFolderId: file.folderId,
+            toFolderId: targetFolderId,
+          } satisfies MoveMutationHistoryItem;
+        })
+        .filter((item): item is MoveMutationHistoryItem => Boolean(item));
+
+      const result = await runBulkMutation({
         operation: "move",
         targetFolderId,
         items,
       });
-      await Promise.all([loadFolder(), loadTree()]);
-      emitSync();
-      selection.clearSelection();
+      const successfulKeys = getSuccessfulBulkMutationKeys(result);
+      const successfulItems = moveHistoryItems.filter((item) =>
+        successfulKeys.has(getMutationHistoryItemKey(item))
+      );
+      const totalCount = result?.summary?.total ?? items.length;
+
+      if (successfulItems.length > 0) {
+        pushMutationHistoryEntry(
+          {
+            operation: "move",
+            items: successfulItems,
+          },
+          totalCount
+        );
+      } else {
+        toast.error("Unable to move the selected items.");
+      }
+
+      await refreshExplorerAfterMutation();
     },
     [
       allFiles,
       allFolders,
-      emitSync,
-      loadFolder,
-      loadTree,
+      pushMutationHistoryEntry,
+      refreshExplorerAfterMutation,
       resolveItemKind,
       runBulkMutation,
       selection,
@@ -4277,7 +4854,7 @@ export function FileExplorer({
 
     const openSelectedItem = () => {
       const orderedSelection = visibleItemIds.filter((id) =>
-        selection.selectedIds.has(id)
+        selection.getSelectedIds().has(id)
       );
       const firstSelectedId = orderedSelection[0];
       if (!firstSelectedId) {
@@ -4290,7 +4867,7 @@ export function FileExplorer({
       }
       const file = allFiles.find((entry) => entry.id === firstSelectedId);
       if (file) {
-        selectFile(file.id);
+        openFileById(file.id);
       }
     };
 
@@ -4307,7 +4884,7 @@ export function FileExplorer({
       if (!parentFolderId) {
         return;
       }
-      const selectedIds = Array.from(selection.selectedIds);
+      const selectedIds = Array.from(selection.getSelectedIds());
       if (selectedIds.length === 0) {
         return;
       }
@@ -4320,6 +4897,14 @@ export function FileExplorer({
         return;
       }
       navigateToFolder(parentFolderId);
+    };
+
+    const undoFileOperation = () => {
+      void undoLatestFileOperation();
+    };
+
+    const redoFileOperation = () => {
+      void redoLatestFileOperation();
     };
 
     if (openSelectionIntentVersion > processed.openSelection) {
@@ -4341,6 +4926,16 @@ export function FileExplorer({
       processed.goParent = goParentIntentVersion;
       goParentFolder();
     }
+
+    if (undoMutationIntentVersion > processed.undoMutation) {
+      processed.undoMutation = undoMutationIntentVersion;
+      undoFileOperation();
+    }
+
+    if (redoMutationIntentVersion > processed.redoMutation) {
+      processed.redoMutation = redoMutationIntentVersion;
+      redoFileOperation();
+    }
   }, [
     allFiles,
     allFolders,
@@ -4353,8 +4948,12 @@ export function FileExplorer({
     navigateToFolder,
     openSelectionIntentVersion,
     resolveSelectedActionItems,
-    selectFile,
-    selection.selectedIds,
+    redoMutationIntentVersion,
+    redoLatestFileOperation,
+    undoLatestFileOperation,
+    undoMutationIntentVersion,
+    openFileById,
+    selection,
     visibleItemIds,
   ]);
 
@@ -4491,6 +5090,55 @@ export function FileExplorer({
     [emitSync, loadFolder, loadTree, workspaceUuid]
   );
 
+  const duplicateSelectionItems = useCallback(
+    async (items: Array<{ id: string; kind: BulkItemKind }>) => {
+      if (!workspaceUuid) {
+        return;
+      }
+
+      const writableItems = items.filter((item) => {
+        if (item.kind === "folder") {
+          const folder = allFolders.find((entry) => entry.id === item.id);
+          return !folder?.readOnly;
+        }
+        const file = allFiles.find((entry) => entry.id === item.id);
+        return !file?.readOnly;
+      });
+
+      if (writableItems.length === 0) {
+        return;
+      }
+
+      let succeeded = 0;
+
+      for (const item of writableItems) {
+        const response = await fetch(
+          `/api/workspaces/${workspaceUuid}/items/duplicate`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id: item.id,
+              kind: item.kind,
+            }),
+          }
+        );
+
+        if (response.ok) {
+          succeeded += 1;
+        }
+      }
+
+      if (succeeded === 0) {
+        return;
+      }
+
+      await Promise.all([loadFolder(), loadTree()]);
+      emitSync();
+    },
+    [allFiles, allFolders, emitSync, loadFolder, loadTree, workspaceUuid]
+  );
+
   const downloadItemArchive = useCallback(
     async (item: { id: string; kind: "file" | "folder"; name: string }) => {
       if (!workspaceUuid) {
@@ -4517,6 +5165,40 @@ export function FileExplorer({
       const link = document.createElement("a");
       link.href = objectUrl;
       link.download = `${item.name}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    },
+    [workspaceUuid]
+  );
+
+  const downloadSelectionArchive = useCallback(
+    async (
+      items: Array<{ id: string; kind: BulkItemKind }>,
+      fallbackName = "selection"
+    ) => {
+      if (!(workspaceUuid && items.length > 0)) {
+        return;
+      }
+
+      const response = await fetch(
+        `/api/workspaces/${workspaceUuid}/items/archive`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items }),
+        }
+      );
+      if (!response.ok) {
+        return;
+      }
+
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = `${fallbackName}.zip`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -4554,6 +5236,49 @@ export function FileExplorer({
       }
     },
     [workspaceUuid]
+  );
+
+  const deleteContextActionItems = useCallback(
+    (itemId: string, fallbackKind: BulkItemKind) => {
+      const items = resolveContextActionItems(itemId, fallbackKind);
+      void deleteSelectionItems(items);
+    },
+    [deleteSelectionItems, resolveContextActionItems]
+  );
+
+  const duplicateContextActionItems = useCallback(
+    (itemId: string, fallbackKind: BulkItemKind) => {
+      const items = resolveContextActionItems(itemId, fallbackKind);
+      void duplicateSelectionItems(items);
+    },
+    [duplicateSelectionItems, resolveContextActionItems]
+  );
+
+  const moveContextActionItemsToFolder = useCallback(
+    (itemId: string, fallbackKind: BulkItemKind, targetFolderId: string) => {
+      const items = resolveContextActionItems(itemId, fallbackKind);
+      void moveItemsToFolder(
+        items.map((item) => item.id),
+        targetFolderId
+      );
+    },
+    [moveItemsToFolder, resolveContextActionItems]
+  );
+
+  const downloadContextActionItems = useCallback(
+    (itemId: string, fallbackKind: BulkItemKind, fallbackName: string) => {
+      const items = resolveContextActionItems(itemId, fallbackKind);
+      void downloadSelectionArchive(items, fallbackName);
+    },
+    [downloadSelectionArchive, resolveContextActionItems]
+  );
+
+  const hardReingestContextActionItems = useCallback(
+    (itemId: string) => {
+      const items = resolveContextActionItems(itemId, "file");
+      void hardReingestSelectionItems(items);
+    },
+    [hardReingestSelectionItems, resolveContextActionItems]
   );
 
   const handleApplyWorkspaceFilter = useCallback((itemIds: string[] | null) => {
@@ -5048,15 +5773,14 @@ export function FileExplorer({
           copyFileShareLink={copyFileShareLink}
           currentFolderId={currentFolderId}
           currentInfoEntries={currentInfoEntries}
-          deleteSelectionItems={deleteSelectionItems}
-          downloadFileDirect={downloadFileDirect}
-          downloadItemArchive={downloadItemArchive}
-          duplicateItem={duplicateItem}
+          deleteContextActionItems={deleteContextActionItems}
+          downloadContextActionItems={downloadContextActionItems}
+          duplicateContextActionItems={duplicateContextActionItems}
           filePathById={filePathById}
-          hardReingestFile={hardReingestFile}
+          hardReingestContextActionItems={hardReingestContextActionItems}
           isCurrentPinned={isCurrentPinned}
           loadShareSuggestions={loadShareSuggestions}
-          moveFile={moveFile}
+          moveContextActionItemsToFolder={moveContextActionItemsToFolder}
           openFileById={openFileById}
           openRenameFileDialog={openRenameFileDialog}
           propertyDefinitions={availablePropertyDefinitions}
@@ -5077,7 +5801,7 @@ export function FileExplorer({
   return (
     <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background text-foreground">
       <div className="px-4 pt-0 pb-4">
-        {currentFolder ? (
+        {currentFolder && !isMobile ? (
           <ContextMenu>
             <ContextMenuTrigger {...({ disabled: isMobile } as any)}>
               <div className="relative -mx-4 mb-3 h-44 w-[calc(100%+2rem)] overflow-hidden">
@@ -5190,6 +5914,34 @@ export function FileExplorer({
                 <ArrowLeft className="size-3.5" />
               </Button>
             ) : null}
+            <Button
+              aria-label="Undo last file operation"
+              className="rounded-md"
+              disabled={!canUndoFileOperation || fileOperationHistoryBusy}
+              onClick={() => {
+                void undoLatestFileOperation();
+              }}
+              size="icon-sm"
+              title="Undo (Cmd/Ctrl+Z)"
+              type="button"
+              variant="outline"
+            >
+              <RotateCcw className="size-3.5" />
+            </Button>
+            <Button
+              aria-label="Redo last file operation"
+              className="rounded-md"
+              disabled={!canRedoFileOperation || fileOperationHistoryBusy}
+              onClick={() => {
+                void redoLatestFileOperation();
+              }}
+              size="icon-sm"
+              title="Redo (Cmd/Ctrl+Shift+Z)"
+              type="button"
+              variant="outline"
+            >
+              <RotateCw className="size-3.5" />
+            </Button>
             <div className="min-w-0">
               <h2 className="truncate font-semibold text-[1.9rem] tracking-tight">
                 {currentLocationTitle}
@@ -5599,7 +6351,8 @@ export function FileExplorer({
                 <div
                   className={cn(
                     "relative min-h-full px-3 pb-3",
-                    canvasDropActive && "bg-primary/5"
+                    canvasDropActive &&
+                      "rounded-2xl border-2 border-primary/50 bg-primary/15 shadow-[inset_0_0_0_1px_rgba(59,130,246,0.2)]"
                   )}
                   data-drop-folder-id={
                     isCurrentFolderReadOnly ? undefined : currentFolderId
@@ -5657,7 +6410,7 @@ export function FileExplorer({
                                     selection.selectedIds.has(folder.id) &&
                                       "border border-primary bg-primary/5",
                                     dropTargetId === folder.id &&
-                                      "bg-primary/10 ring-2 ring-primary/30"
+                                      "border-primary/80 bg-primary/20 ring-2 ring-primary/60 shadow-[0_0_0_1px_rgba(59,130,246,0.25)]"
                                   )}
                                   data-drop-folder-id={folder.id}
                                   data-select-item="true"
@@ -5666,6 +6419,9 @@ export function FileExplorer({
                                     folder.readOnly
                                   )}
                                   onClick={(event) => {
+                                    if (shouldIgnoreItemClick(event)) {
+                                      return;
+                                    }
                                     if (isMobile) {
                                       handleMobileItemClick(folder.id, () =>
                                         navigateToFolder(folder.id)
@@ -5681,13 +6437,20 @@ export function FileExplorer({
                                       navigateToFolder(folder.id)
                                     );
                                   }}
-                                  onContextMenu={(event) => {
-                                    if (isMobile) {
-                                      event.preventDefault();
-                                    }
-                                  }}
+                                  onContextMenu={(event) =>
+                                    handleItemContextMenu(event, folder.id)
+                                  }
                                   onPointerCancel={handleMobileItemPointerUp}
                                   onPointerDown={(event) => {
+                                    const target =
+                                      event.target as HTMLElement | null;
+                                    if (
+                                      target?.closest(
+                                        ITEM_ACTION_TARGET_SELECTOR
+                                      )
+                                    ) {
+                                      return;
+                                    }
                                     if (
                                       isMobile &&
                                       event.pointerType === "touch"
@@ -5705,19 +6468,23 @@ export function FileExplorer({
                                   }}
                                   style={{ width: 160 }}
                                 >
-                                  <div className="absolute top-2 left-2 z-10">
+                                  <div
+                                    className="absolute top-2 left-2 z-20 rounded-md bg-background/90 p-1 shadow-sm backdrop-blur-sm"
+                                    data-selection-control="true"
+                                    onPointerDownCapture={
+                                      stopItemSelectionEvent
+                                    }
+                                    onMouseDownCapture={
+                                      stopItemSelectionEvent
+                                    }
+                                    onClickCapture={stopItemSelectionEvent}
+                                  >
                                     <Checkbox
                                       checked={selection.selectedIds.has(
                                         folder.id
                                       )}
-                                      onCheckedChange={(checked) =>
-                                        selection.setItemSelected(
-                                          folder.id,
-                                          checked === true
-                                        )
-                                      }
-                                      onClick={(event) =>
-                                        event.stopPropagation()
+                                      onCheckedChange={() =>
+                                        selection.toggleSelection(folder.id)
                                       }
                                     />
                                   </div>
@@ -5772,11 +6539,10 @@ export function FileExplorer({
                                     </ContextMenuItem>
                                     <ContextMenuItem
                                       onClick={() => {
-                                        void duplicateItem({
-                                          id: folder.id,
-                                          kind: "folder",
-                                          parentId: folder.parentId,
-                                        });
+                                        duplicateContextActionItems(
+                                          folder.id,
+                                          "folder"
+                                        );
                                       }}
                                     >
                                       <Copy className="size-3.5" />
@@ -5836,13 +6602,9 @@ export function FileExplorer({
                                             <ContextMenuItem
                                               key={target.id}
                                               onClick={() => {
-                                                const items =
-                                                  resolveContextActionItems(
-                                                    folder.id,
-                                                    "folder"
-                                                  );
-                                                void moveItemsToFolder(
-                                                  items.map((item) => item.id),
+                                                moveContextActionItemsToFolder(
+                                                  folder.id,
+                                                  "folder",
                                                   target.id
                                                 );
                                               }}
@@ -5854,11 +6616,11 @@ export function FileExplorer({
                                     </ContextMenuSub>
                                     <ContextMenuItem
                                       onClick={() => {
-                                        void downloadItemArchive({
-                                          id: folder.id,
-                                          kind: "folder",
-                                          name: folder.name,
-                                        });
+                                        downloadContextActionItems(
+                                          folder.id,
+                                          "folder",
+                                          folder.name
+                                        );
                                       }}
                                     >
                                       <ArrowDownToLine className="size-3.5" />
@@ -5883,11 +6645,10 @@ export function FileExplorer({
                                 {folder.readOnly ? null : (
                                   <ContextMenuItem
                                     onClick={() => {
-                                      const items = resolveContextActionItems(
+                                      deleteContextActionItems(
                                         folder.id,
                                         "folder"
                                       );
-                                      void deleteSelectionItems(items);
                                     }}
                                     variant="destructive"
                                   >
@@ -5964,6 +6725,9 @@ export function FileExplorer({
                                   {...getFileDragProps(file.id, file.readOnly)}
                                   onBlur={() => handlePreviewIntentEnd(file)}
                                   onClick={(event) => {
+                                    if (shouldIgnoreItemClick(event)) {
+                                      return;
+                                    }
                                     if (isMobile) {
                                       handleMobileItemClick(file.id, () =>
                                         selectFile(file.id)
@@ -5979,11 +6743,9 @@ export function FileExplorer({
                                       selectFile(file.id)
                                     );
                                   }}
-                                  onContextMenu={(event) => {
-                                    if (isMobile) {
-                                      event.preventDefault();
-                                    }
-                                  }}
+                                  onContextMenu={(event) =>
+                                    handleItemContextMenu(event, file.id)
+                                  }
                                   onFocus={() => handlePreviewIntentStart(file)}
                                   onMouseEnter={() =>
                                     handlePreviewIntentStart(file)
@@ -5993,6 +6755,15 @@ export function FileExplorer({
                                   }
                                   onPointerCancel={handleMobileItemPointerUp}
                                   onPointerDown={(event) => {
+                                    const target =
+                                      event.target as HTMLElement | null;
+                                    if (
+                                      target?.closest(
+                                        ITEM_ACTION_TARGET_SELECTOR
+                                      )
+                                    ) {
+                                      return;
+                                    }
                                     if (
                                       isMobile &&
                                       event.pointerType === "touch"
@@ -6011,7 +6782,17 @@ export function FileExplorer({
                                   style={{ width: 160 }}
                                   tabIndex={0}
                                 >
-                                  <div className="absolute top-2 left-2 z-10">
+                                  <div
+                                    className="absolute top-2 left-2 z-20 rounded-md bg-background/90 p-1 shadow-sm backdrop-blur-sm"
+                                    data-selection-control="true"
+                                    onPointerDownCapture={
+                                      stopItemSelectionEvent
+                                    }
+                                    onMouseDownCapture={
+                                      stopItemSelectionEvent
+                                    }
+                                    onClickCapture={stopItemSelectionEvent}
+                                  >
                                     <Checkbox
                                       aria-label={`Select file ${file.name}`}
                                       checked={selection.selectedIds.has(
@@ -6022,9 +6803,6 @@ export function FileExplorer({
                                           file.id,
                                           checked === true
                                         )
-                                      }
-                                      onClick={(event) =>
-                                        event.stopPropagation()
                                       }
                                     />
                                   </div>
@@ -6105,11 +6883,10 @@ export function FileExplorer({
                                     </ContextMenuItem>
                                     <ContextMenuItem
                                       onClick={() => {
-                                        void duplicateItem({
-                                          id: file.id,
-                                          kind: "file",
-                                          parentId: file.folderId,
-                                        });
+                                        duplicateContextActionItems(
+                                          file.id,
+                                          "file"
+                                        );
                                       }}
                                     >
                                       <Copy className="size-3.5" />
@@ -6138,13 +6915,9 @@ export function FileExplorer({
                                             <ContextMenuItem
                                               key={target.id}
                                               onClick={() => {
-                                                const items =
-                                                  resolveContextActionItems(
-                                                    file.id,
-                                                    "file"
-                                                  );
-                                                void moveItemsToFolder(
-                                                  items.map((item) => item.id),
+                                                moveContextActionItemsToFolder(
+                                                  file.id,
+                                                  "file",
                                                   target.id
                                                 );
                                               }}
@@ -6156,7 +6929,11 @@ export function FileExplorer({
                                     </ContextMenuSub>
                                     <ContextMenuItem
                                       onClick={() => {
-                                        downloadFileDirect(file);
+                                        downloadContextActionItems(
+                                          file.id,
+                                          "file",
+                                          file.name
+                                        );
                                       }}
                                     >
                                       <ArrowDownToLine className="size-3.5" />
@@ -6164,7 +6941,7 @@ export function FileExplorer({
                                     </ContextMenuItem>
                                     <ContextMenuItem
                                       onClick={() => {
-                                        void hardReingestFile(file);
+                                        hardReingestContextActionItems(file.id);
                                       }}
                                     >
                                       <RotateCcw className="size-3.5" />
@@ -6189,11 +6966,10 @@ export function FileExplorer({
                                 {file.readOnly ? null : (
                                   <ContextMenuItem
                                     onClick={() => {
-                                      const items = resolveContextActionItems(
+                                      deleteContextActionItems(
                                         file.id,
                                         "file"
                                       );
-                                      void deleteSelectionItems(items);
                                     }}
                                     variant="destructive"
                                   >
@@ -6215,7 +6991,7 @@ export function FileExplorer({
                                 selection.selectedIds.has(folder.id) &&
                                   "bg-primary/10",
                                 dropTargetId === folder.id &&
-                                  "bg-primary/15 outline outline-2 outline-primary/30"
+                                  "bg-primary/20 outline outline-2 outline-primary/60"
                               )}
                               data-drop-folder-id={folder.id}
                               data-select-item="true"
@@ -6225,6 +7001,9 @@ export function FileExplorer({
                               )}
                               key={folder.id}
                               onClick={(event) => {
+                                if (shouldIgnoreItemClick(event)) {
+                                  return;
+                                }
                                 if (isMobile) {
                                   handleMobileItemClick(folder.id, () =>
                                     navigateToFolder(folder.id)
@@ -6240,13 +7019,18 @@ export function FileExplorer({
                                   navigateToFolder(folder.id)
                                 );
                               }}
-                              onContextMenu={(event) => {
-                                if (isMobile) {
-                                  event.preventDefault();
-                                }
-                              }}
+                              onContextMenu={(event) =>
+                                handleItemContextMenu(event, folder.id)
+                              }
                               onPointerCancel={handleMobileItemPointerUp}
                               onPointerDown={(event) => {
+                                const target =
+                                  event.target as HTMLElement | null;
+                                if (
+                                  target?.closest(ITEM_ACTION_TARGET_SELECTOR)
+                                ) {
+                                  return;
+                                }
                                 if (isMobile && event.pointerType === "touch") {
                                   beginMobileItemLongPress(folder.id);
                                 }
@@ -6277,23 +7061,23 @@ export function FileExplorer({
                                     kind="folder"
                                     name={folder.name}
                                     onDelete={() => {
-                                      void deleteSelectionItems([
-                                        { id: folder.id, kind: "folder" },
-                                      ]);
+                                      deleteContextActionItems(
+                                        folder.id,
+                                        "folder"
+                                      );
                                     }}
                                     onDownload={() => {
-                                      void downloadItemArchive({
-                                        id: folder.id,
-                                        kind: "folder",
-                                        name: folder.name,
-                                      });
+                                      downloadContextActionItems(
+                                        folder.id,
+                                        "folder",
+                                        folder.name
+                                      );
                                     }}
                                     onDuplicate={() => {
-                                      void duplicateItem({
-                                        id: folder.id,
-                                        kind: "folder",
-                                        parentId: folder.parentId,
-                                      });
+                                      duplicateContextActionItems(
+                                        folder.id,
+                                        "folder"
+                                      );
                                     }}
                                     onMetadata={() => {
                                       setPropertiesItem({
@@ -6305,7 +7089,11 @@ export function FileExplorer({
                                       setPropertiesOpen(true);
                                     }}
                                     onMoveTo={(targetId) => {
-                                      void moveFolder(folder.id, targetId);
+                                      moveContextActionItemsToFolder(
+                                        folder.id,
+                                        "folder",
+                                        targetId
+                                      );
                                     }}
                                     onOpenProperties={() => {
                                       setPropertiesItem({
@@ -6347,18 +7135,26 @@ export function FileExplorer({
                                 </>
                               ) : (
                                 <>
-                                  <Checkbox
-                                    checked={selection.selectedIds.has(
-                                      folder.id
-                                    )}
-                                    onCheckedChange={(checked) =>
-                                      selection.setItemSelected(
-                                        folder.id,
-                                        checked === true
-                                      )
+                                  <div
+                                    className="relative z-10 flex shrink-0"
+                                    data-selection-control="true"
+                                    onPointerDownCapture={
+                                      stopItemSelectionEvent
                                     }
-                                    onClick={(event) => event.stopPropagation()}
-                                  />
+                                    onMouseDownCapture={
+                                      stopItemSelectionEvent
+                                    }
+                                    onClickCapture={stopItemSelectionEvent}
+                                  >
+                                    <Checkbox
+                                      checked={selection.selectedIds.has(
+                                        folder.id
+                                      )}
+                                      onCheckedChange={() =>
+                                        selection.toggleSelection(folder.id)
+                                      }
+                                    />
+                                  </div>
                                   <FolderGlyph
                                     compact
                                     previewKinds={
@@ -6422,6 +7218,9 @@ export function FileExplorer({
                                 {...getFileDragProps(file.id, file.readOnly)}
                                 key={file.id}
                                 onClick={(event) => {
+                                  if (shouldIgnoreItemClick(event)) {
+                                    return;
+                                  }
                                   if (isMobile) {
                                     handleMobileItemClick(file.id, () =>
                                       selectFile(file.id)
@@ -6437,13 +7236,18 @@ export function FileExplorer({
                                     selectFile(file.id)
                                   );
                                 }}
-                                onContextMenu={(event) => {
-                                  if (isMobile) {
-                                    event.preventDefault();
-                                  }
-                                }}
+                                onContextMenu={(event) =>
+                                  handleItemContextMenu(event, file.id)
+                                }
                                 onPointerCancel={handleMobileItemPointerUp}
                                 onPointerDown={(event) => {
+                                  const target =
+                                    event.target as HTMLElement | null;
+                                  if (
+                                    target?.closest(ITEM_ACTION_TARGET_SELECTOR)
+                                  ) {
+                                    return;
+                                  }
                                   if (
                                     isMobile &&
                                     event.pointerType === "touch"
@@ -6486,24 +7290,26 @@ export function FileExplorer({
                                           : undefined
                                       }
                                       onDelete={() => {
-                                        const items = resolveContextActionItems(
+                                        deleteContextActionItems(
                                           file.id,
                                           "file"
                                         );
-                                        void deleteSelectionItems(items);
                                       }}
                                       onDownload={() => {
-                                        downloadFileDirect(file);
+                                        downloadContextActionItems(
+                                          file.id,
+                                          "file",
+                                          file.name
+                                        );
                                       }}
                                       onDuplicate={() => {
-                                        void duplicateItem({
-                                          id: file.id,
-                                          kind: "file",
-                                          parentId: file.folderId,
-                                        });
+                                        duplicateContextActionItems(
+                                          file.id,
+                                          "file"
+                                        );
                                       }}
                                       onHardReingest={() => {
-                                        void hardReingestFile(file);
+                                        hardReingestContextActionItems(file.id);
                                       }}
                                       onMetadata={() => {
                                         setPropertiesItem({
@@ -6515,12 +7321,9 @@ export function FileExplorer({
                                         setPropertiesOpen(true);
                                       }}
                                       onMoveTo={(targetId) => {
-                                        const items = resolveContextActionItems(
+                                        moveContextActionItemsToFolder(
                                           file.id,
-                                          "file"
-                                        );
-                                        void moveItemsToFolder(
-                                          items.map((item) => item.id),
+                                          "file",
                                           targetId
                                         );
                                       }}
@@ -6564,20 +7367,29 @@ export function FileExplorer({
                                   </>
                                 ) : (
                                   <>
-                                    <Checkbox
-                                      checked={selection.selectedIds.has(
-                                        file.id
-                                      )}
-                                      onCheckedChange={(checked) =>
-                                        selection.setItemSelected(
-                                          file.id,
-                                          checked === true
-                                        )
+                                    <div
+                                      className="relative z-10 flex shrink-0"
+                                      data-selection-control="true"
+                                      onPointerDownCapture={
+                                        stopItemSelectionEvent
                                       }
-                                      onClick={(event) =>
-                                        event.stopPropagation()
+                                      onMouseDownCapture={
+                                        stopItemSelectionEvent
                                       }
-                                    />
+                                      onClickCapture={stopItemSelectionEvent}
+                                    >
+                                      <Checkbox
+                                        checked={selection.selectedIds.has(
+                                          file.id
+                                        )}
+                                        onCheckedChange={(checked) =>
+                                          selection.setItemSelected(
+                                            file.id,
+                                            checked === true
+                                          )
+                                        }
+                                      />
+                                    </div>
                                     <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted/60">
                                       {getFileTypeIcon(fileKind)}
                                     </div>
@@ -6836,7 +7648,7 @@ export function FileExplorer({
                     breadcrumbs[breadcrumbs.length - 2]?.id;
                   if (parentFolderId) {
                     void moveItemsToFolder(
-                      Array.from(selection.selectedIds),
+                      Array.from(selection.getSelectedIds()),
                       parentFolderId
                     );
                   }

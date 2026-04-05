@@ -1219,7 +1219,7 @@ export function SettingsPanel({
                       value={profileName}
                     />
                   </div>
-                  <div className="rounded-lg border border-border/60 bg-card p-4">
+                  <div className="space-y-4">
                     <div className="flex items-center gap-3">
                       <Avatar className="h-14 w-14">
                         <AvatarImage alt={profileName} src={displayAvatar} />
@@ -1310,10 +1310,10 @@ export function SettingsPanel({
                     ) : (
                       accounts.map((account) => (
                         <div
-                          className="flex items-center justify-between rounded-lg border border-border/60 bg-card px-3 py-2"
-                          key={
-                            account.id ??
-                            `${account.providerId}-${account.accountId}`
+                        className="flex items-center justify-between px-0 py-1.5"
+                        key={
+                          account.id ??
+                          `${account.providerId}-${account.accountId}`
                           }
                         >
                           <div className="flex items-center gap-2">
@@ -1481,11 +1481,11 @@ export function SettingsPanel({
                 description="Better Auth now exposes your Polar customer directly from the session."
                 title="Polar Account"
               >
-                <div className="max-w-3xl space-y-3 rounded-2xl border border-border/60 bg-card p-4">
+                <div className="max-w-3xl space-y-3">
                   {polarCustomerState ? (
                     <>
                       <div className="grid gap-3 sm:grid-cols-3">
-                        <div className="rounded-xl border border-border/60 bg-background/70 p-3">
+                        <div className="p-0">
                           <p className="text-muted-foreground text-xs">
                             Subscriptions
                           </p>
@@ -1493,7 +1493,7 @@ export function SettingsPanel({
                             {polarCustomerState.subscriptions?.length ?? 0}
                           </p>
                         </div>
-                        <div className="rounded-xl border border-border/60 bg-background/70 p-3">
+                        <div className="p-0">
                           <p className="text-muted-foreground text-xs">
                             Benefits
                           </p>
@@ -1501,7 +1501,7 @@ export function SettingsPanel({
                             {polarCustomerState.benefits?.length ?? 0}
                           </p>
                         </div>
-                        <div className="rounded-xl border border-border/60 bg-background/70 p-3">
+                        <div className="p-0">
                           <p className="text-muted-foreground text-xs">
                             Meters
                           </p>
@@ -1521,7 +1521,7 @@ export function SettingsPanel({
                             polarCustomerState.subscriptions.map(
                               (subscription) => (
                                 <div
-                                  className="flex items-center justify-between rounded-xl border border-border/60 bg-background/70 px-3 py-2"
+                                  className="flex items-center justify-between px-0 py-1.5"
                                   key={
                                     subscription.id ??
                                     `${subscription.status}-${subscription.product?.name}`
@@ -1572,7 +1572,7 @@ export function SettingsPanel({
                 description="Protected actions will prompt for a 6-digit verification code and stay approved for 12 hours."
                 title="Sensitive Actions"
               >
-                <div className="max-w-md space-y-3 rounded-lg border border-border/60 bg-card p-4">
+                <div className="max-w-md space-y-3">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="font-medium text-sm">Sudo verification</p>
@@ -1659,10 +1659,7 @@ export function SettingsPanel({
                       </p>
                     ) : (
                       passkeys.map((passkey) => (
-                        <div
-                          className="flex items-center justify-between rounded-lg border border-border/60 bg-card px-3 py-2"
-                          key={passkey.id}
-                        >
+                        <div className="flex items-center justify-between px-0 py-1.5" key={passkey.id}>
                           <div>
                             <p className="font-medium text-sm">
                               {passkey.name ?? "Passkey"}
@@ -1748,7 +1745,7 @@ export function SettingsPanel({
                 description="Permanently delete your account. This action cannot be undone."
                 title="Danger Zone"
               >
-                <div className="max-w-md space-y-3 rounded-lg border border-red-500/40 bg-red-500/5 p-4">
+                <div className="max-w-md space-y-3">
                   <div className="flex items-start gap-2 text-red-600">
                     <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
                     <p className="text-xs">
@@ -1908,7 +1905,7 @@ export function SettingsPanel({
                 description="Workspace identity, storage, and member access in one place."
                 title="Current workspace"
               >
-                <div className="rounded-3xl border border-border/60 bg-card p-5 shadow-sm">
+                <div className="space-y-6">
                   <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                     <div className="flex min-w-0 items-start gap-4">
                       <Avatar className="size-14 shrink-0 rounded-2xl">
@@ -1921,8 +1918,8 @@ export function SettingsPanel({
                         </AvatarFallback>
                       </Avatar>
                       <div className="min-w-0">
-                        <p className="font-medium text-muted-foreground text-xs uppercase tracking-[0.22em]">
-                          Name &amp; Icon
+                        <p className="font-medium text-muted-foreground text-xs">
+                          Workspace identity
                         </p>
                         <h3 className="truncate font-semibold text-2xl leading-none">
                           {selectedWorkspace?.name ?? "Workspace"}
@@ -1980,7 +1977,7 @@ export function SettingsPanel({
                     </div>
                   </div>
 
-                  <div className="mt-6 space-y-3">
+                  <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <p className="font-medium text-sm">Workspace stats</p>
                       <p className="inline-flex items-center gap-2 text-muted-foreground text-xs">
@@ -1990,7 +1987,7 @@ export function SettingsPanel({
                         {workspaceUsageStatus ?? "Live workspace totals"}
                       </p>
                     </div>
-                    <div className="grid gap-4 lg:grid-cols-2">
+                    <div className="grid gap-4 sm:grid-cols-2">
                       <UsageStatCard
                         description="Total bytes stored across workspace files."
                         icon={HardDrive}
@@ -2078,10 +2075,7 @@ export function SettingsPanel({
                     </div>
                     <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                       {noteTemplates.map((template) => (
-                        <div
-                          className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
-                          key={template.id}
-                        >
+                        <div className="space-y-3 p-0" key={template.id}>
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <p className="truncate font-medium text-sm">
@@ -2155,8 +2149,8 @@ export function SettingsPanel({
                       </Badge>
                     </div>
 
-                    <div className="mt-3 overflow-hidden rounded-2xl border border-border/60">
-                      <div className="grid grid-cols-[minmax(0,1.5fr)_minmax(110px,0.8fr)_minmax(0,1.6fr)_minmax(90px,0.8fr)_auto] bg-muted/50 px-4 py-3 font-medium text-muted-foreground text-xs">
+                      <div className="mt-3">
+                        <div className="grid grid-cols-[minmax(0,1.5fr)_minmax(110px,0.8fr)_minmax(0,1.6fr)_minmax(90px,0.8fr)_auto] px-0 py-0 font-medium text-muted-foreground text-xs">
                         <span>User</span>
                         <span>Role</span>
                         <span>Email</span>
@@ -2182,10 +2176,7 @@ export function SettingsPanel({
                               member.role.toLowerCase() === "owner";
 
                             return (
-                              <div
-                                className="grid grid-cols-[minmax(0,1.5fr)_minmax(110px,0.8fr)_minmax(0,1.6fr)_minmax(90px,0.8fr)_auto] items-center gap-3 px-4 py-3 text-sm"
-                                key={memberKey}
-                              >
+                              <div className="grid grid-cols-[minmax(0,1.5fr)_minmax(110px,0.8fr)_minmax(0,1.6fr)_minmax(90px,0.8fr)_auto] items-center gap-3 px-0 py-2 text-sm" key={memberKey}>
                                 <div className="min-w-0">
                                   <p className="truncate font-medium">
                                     <SensitiveText
@@ -2389,10 +2380,10 @@ export function SettingsPanel({
                     {workspaces.map((workspace) => (
                       <Button
                         className={[
-                          "h-auto w-full justify-start gap-3 rounded-xl border px-4 py-3 text-left text-sm transition-colors hover:bg-muted",
+                          "h-auto w-full justify-start gap-3 px-0 py-2 text-left text-sm transition-colors hover:bg-transparent",
                           workspace.workspaceId === activeWorkspaceId
-                            ? "border-primary bg-accent/40"
-                            : "border-border/60 bg-card",
+                            ? "font-medium text-foreground"
+                            : "text-muted-foreground hover:text-foreground",
                         ].join(" ")}
                         key={workspace.workspaceId}
                         onClick={() => {
@@ -2421,7 +2412,7 @@ export function SettingsPanel({
                 description="Delete the selected workspace and all associated files, shares, and access."
                 title="Workspace Danger Zone"
               >
-                <div className="max-w-md space-y-3 rounded-lg border border-red-500/40 bg-red-500/5 p-4">
+                <div className="max-w-md space-y-3">
                   <div className="flex items-start gap-2 text-red-600">
                     <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
                     <p className="text-xs">
@@ -2501,7 +2492,7 @@ export function SettingsPanel({
                 <div className="max-w-xl space-y-2">
                   {KEYBOARD_SHORTCUTS.map((shortcut) => (
                     <div
-                      className="flex items-center justify-between rounded-lg border border-border/60 bg-card px-3 py-2"
+                      className="flex items-center justify-between px-0 py-1.5"
                       key={shortcut.label}
                     >
                       <span className="text-sm">{shortcut.label}</span>
@@ -2796,9 +2787,9 @@ function UsageStatCard({
   description: string;
 }) {
   return (
-    <div className="rounded-2xl border border-border/60 bg-background/70 p-4">
+    <div className="p-0">
       <div className="flex items-start gap-3">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border/60 bg-muted/70 text-foreground">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted/70 text-foreground">
           <Icon className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1">
@@ -2823,7 +2814,7 @@ function ToggleRow({
   onCheckedChange: (v: boolean) => void;
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 px-0 py-2 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
         <p className="font-medium text-sm">{label}</p>
         <p className="text-muted-foreground text-xs">{description}</p>
@@ -2851,14 +2842,12 @@ function PlanCard({
   return (
     <div
       className={[
-        "relative flex flex-col gap-4 rounded-xl border p-5 transition-all",
-        popular
-          ? "border-primary/60 bg-primary/5 shadow-sm"
-          : "border-border/60 bg-card",
+        "relative flex flex-col gap-4 py-1 transition-all",
+        popular ? "text-foreground" : "text-muted-foreground",
       ].join(" ")}
     >
       {popular ? (
-        <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-0.5 font-semibold text-[11px] text-primary-foreground">
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-transparent px-3 py-0.5 font-semibold text-[11px] text-primary">
           Most Popular
         </span>
       ) : null}

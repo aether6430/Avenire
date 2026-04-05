@@ -18,13 +18,13 @@ export async function GET(_request: Request, { params }: RouteParams) {
   }
 
   const { taskId } = await params;
-  const task = await getTaskForUser(ctx.user.id, taskId);
+  const task = await getTaskForUser(ctx.workspace.workspaceId, taskId);
 
   if (!task) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
 
-  await invalidateTaskListCache(ctx.workspace.workspaceId, ctx.user.id);
+  await invalidateTaskListCache(ctx.workspace.workspaceId);
 
   return NextResponse.json({ task });
 }
@@ -63,7 +63,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
   let task;
   try {
-    task = await updateTaskForUser(ctx.user.id, taskId, {
+    task = await updateTaskForUser(ctx.workspace.workspaceId, taskId, {
       assigneeUserId: body.assigneeUserId,
       title: body.title,
       description: body.description,
@@ -88,7 +88,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
 
-  await invalidateTaskListCache(ctx.workspace.workspaceId, ctx.user.id);
+  await invalidateTaskListCache(ctx.workspace.workspaceId);
 
   return NextResponse.json({ task });
 }
@@ -100,13 +100,13 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
   }
 
   const { taskId } = await params;
-  const deleted = await deleteTaskForUser(ctx.user.id, taskId);
+  const deleted = await deleteTaskForUser(ctx.workspace.workspaceId, taskId);
 
   if (!deleted) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
 
-  await invalidateTaskListCache(ctx.workspace.workspaceId, ctx.user.id);
+  await invalidateTaskListCache(ctx.workspace.workspaceId);
 
   return NextResponse.json({ success: true });
 }

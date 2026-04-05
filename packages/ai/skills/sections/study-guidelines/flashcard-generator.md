@@ -208,10 +208,11 @@ When creating multiple cards from a topic:
 ---
  
 ## Quality Checklist
- 
+
 - [ ] Each card tests ONE piece of information
 - [ ] Cards can be answered in <10 seconds
 - [ ] No ambiguous questions with multiple valid answers
 - [ ] Mnemonics added for difficult items
 - [ ] Cards are context-independent (understandable alone)
 - [ ] Cloze deletions used where appropriate
+- [ ] Any equations use `$...$` or `$$...$$` formatting, never ```latex fences

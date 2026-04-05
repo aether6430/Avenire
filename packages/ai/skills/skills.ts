@@ -889,7 +889,7 @@ Think of [concept] like [familiar thing]. Just as [familiar thing does X], [conc
 ---
  
 ## Quality Checklist
- 
+
 - [ ] Opens with simple one-liner
 - [ ] Includes relatable analogy
 - [ ] Provides 2-3 examples at different scales
@@ -897,7 +897,7 @@ Think of [concept] like [familiar thing]. Just as [familiar thing does X], [conc
 - [ ] Builds from simple to complex
 - [ ] Uses consistent terminology
 - [ ] Connects to related concepts
-
+- [ ] Any equations are written inline with \`$...$\` or display with \`$$...$$\`, never fenced as \`\`\`latex
 `,
   },
   "core-design-system": {
@@ -2495,13 +2495,14 @@ When creating multiple cards from a topic:
 ---
  
 ## Quality Checklist
- 
+
 - [ ] Each card tests ONE piece of information
 - [ ] Cards can be answered in <10 seconds
 - [ ] No ambiguous questions with multiple valid answers
 - [ ] Mnemonics added for difficult items
 - [ ] Cards are context-independent (understandable alone)
 - [ ] Cloze deletions used where appropriate
+- [ ] Any equations use \`$...$\` or \`$$...$$\` formatting, never \`\`\`latex fences
 `,
   },
   "interactive": {
@@ -3826,14 +3827,14 @@ C) [Explanation why correct and why others are wrong]
 ---
  
 ## Step 5: Quality Checklist
- 
+
 - [ ] Questions test understanding, not just memorization
 - [ ] MCQ distractors are plausible (not obviously wrong)
 - [ ] Difficulty is appropriate for stated level
 - [ ] Answer explanations clarify misconceptions
 - [ ] Questions cover breadth of source material
 - [ ] No ambiguous wording or trick questions
-
+- [ ] Formulas and equations are rendered inline with \`$...$\` or display with \`$$...$$\`, never fenced as \`\`\`latex
 `,
   },
   "study-notes-creator": {
@@ -3861,7 +3862,9 @@ flowchart LR
     D --> E[Add Diagrams + Examples]
     E --> F[Build Index]
 \`\`\`
- 
+
+When notes include equations, keep them in normal markdown with \`$...$\` or \`$$...$$\`. Never use fenced \`\`\`latex blocks.
+
 ---
  
 ## Step 1: Understand the Source
@@ -4305,14 +4308,14 @@ Use consistent formatting:
 ---
  
 ## Quality Checklist
- 
+
 - [ ] Captures all main ideas
 - [ ] Maintains logical structure
 - [ ] Uses own words (not copy-paste)
 - [ ] Key terms are highlighted
 - [ ] Readable without original source
 - [ ] Appropriate length for purpose
-
+- [ ] Any math is written with \`$...$\` or \`$$...$$\`, not \`\`\`latex fences
 `,
   },
   "svg-setup": {

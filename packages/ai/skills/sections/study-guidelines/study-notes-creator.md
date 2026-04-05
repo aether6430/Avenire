@@ -17,7 +17,9 @@ flowchart LR
     D --> E[Add Diagrams + Examples]
     E --> F[Build Index]
 ```
- 
+
+When notes include equations, keep them in normal markdown with `$...$` or `$$...$$`. Never use fenced ```latex blocks.
+
 ---
  
 ## Step 1: Understand the Source

@@ -496,8 +496,8 @@ export function Chat({
     status !== "streaming";
   const inputCard = (centered = false) => (
     <div
-      className={`flex min-h-36 w-full flex-col gap-2 rounded-2xl bg-transparent p-3 pb-1 backdrop-blur-sm ${
-        centered ? "rounded-b-2xl" : "rounded-b-none"
+      className={`flex w-full flex-col gap-1.5 rounded-[28px] bg-transparent p-1.5 sm:min-h-28 sm:gap-2 sm:rounded-2xl sm:p-3 sm:pb-1 sm:backdrop-blur-sm ${
+        centered ? "sm:rounded-b-2xl" : "sm:rounded-b-none"
       }`}
     >
       <MultimodalInput
@@ -539,7 +539,7 @@ export function Chat({
             {isEmptyState ? (
               <motion.div
                 animate={{ opacity: 1, y: 0 }}
-                className="absolute inset-0 z-30 flex items-center justify-center px-2 pb-20"
+                className="absolute inset-0 z-30 flex items-center justify-center px-3 pb-16 sm:px-2 sm:pb-20"
                 exit={{ opacity: 0, y: 16 }}
                 initial={{ opacity: 0, y: 24 }}
                 key="composer-center"
@@ -562,7 +562,7 @@ export function Chat({
             ) : (
               <motion.form
                 animate={{ opacity: 1, y: 0 }}
-                className="relative z-30 mx-auto w-full max-w-3xl px-2 pb-2"
+                className="relative z-30 mx-auto w-full max-w-3xl px-1.5 pb-2 sm:px-2"
                 exit={{ opacity: 0, y: 12 }}
                 initial={{ opacity: 0, y: 20 }}
                 key="composer-bottom"
@@ -570,7 +570,7 @@ export function Chat({
               >
                 <motion.div
                   animate={isAutoScrollEnabled ? "hidden" : "visible"}
-                  className="pointer-events-none absolute right-4 bottom-[calc(100%+0.75rem)] z-20 flex justify-end"
+                  className="pointer-events-none absolute right-3 bottom-[calc(100%+0.5rem)] z-20 flex justify-end sm:right-4 sm:bottom-[calc(100%+0.75rem)]"
                   initial="hidden"
                   transition={{ duration: 0.3, ease: "easeInOut" }}
                   variants={{
@@ -579,7 +579,7 @@ export function Chat({
                   }}
                 >
                   <Button
-                    className="pointer-events-auto h-10 min-w-10 rounded-full border-border/80 bg-card/90 px-3 backdrop-blur-xs"
+                    className="pointer-events-auto h-9 min-w-9 rounded-full border-border/80 bg-card/90 px-2.5 backdrop-blur-xs sm:h-10 sm:min-w-10 sm:px-3"
                     onClick={() => reenableAutoScroll("smooth")}
                     size="sm"
                     type="button"

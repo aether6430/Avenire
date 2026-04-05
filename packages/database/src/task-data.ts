@@ -252,8 +252,7 @@ async function resolveTaskResources(input: {
 }
 
 export async function listTasksForUser(
-  userId: string,
-  workspaceId?: string | null,
+  workspaceId: string,
   options?: {
     assigneeUserId?: string;
     status?: TaskStatus;
@@ -262,11 +261,8 @@ export async function listTasksForUser(
     limit?: number;
   }
 ): Promise<TaskRecord[]> {
-  const conditions = [eq(task.userId, userId)];
+  const conditions = [eq(task.workspaceId, workspaceId)];
 
-  if (workspaceId) {
-    conditions.push(eq(task.workspaceId, workspaceId));
-  }
   if (options?.assigneeUserId) {
     conditions.push(eq(task.assigneeUserId, options.assigneeUserId));
   }
@@ -303,8 +299,7 @@ export async function listTasksForUser(
 }
 
 export async function listTasksDueToday(
-  userId: string,
-  workspaceId?: string | null
+  workspaceId: string
 ): Promise<TaskRecord[]> {
   const today = new Date();
   today.setHours(23, 59, 59, 999);
@@ -315,8 +310,7 @@ export async function listTasksDueToday(
     .leftJoin(user, eq(user.id, task.assigneeUserId))
     .where(
       and(
-        eq(task.userId, userId),
-        workspaceId ? eq(task.workspaceId, workspaceId) : undefined,
+        eq(task.workspaceId, workspaceId),
         or(
           eq(task.status, "planned"),
           eq(task.status, "drafting"),
@@ -331,14 +325,14 @@ export async function listTasksDueToday(
 }
 
 export async function getTaskForUser(
-  userId: string,
+  workspaceId: string,
   taskId: string
 ): Promise<TaskRecord | null> {
   const [row] = await db
     .select(buildTaskSelection())
     .from(task)
     .leftJoin(user, eq(user.id, task.assigneeUserId))
-    .where(and(eq(task.id, taskId), eq(task.userId, userId)))
+    .where(and(eq(task.id, taskId), eq(task.workspaceId, workspaceId)))
     .limit(1);
 
   return row ? mapTask(row) : null;
@@ -389,7 +383,7 @@ export async function createTaskForUser(
     })
     .returning();
 
-  return getTaskForUser(userId, row.id).then((taskRecord) => {
+  return getTaskForUser(workspaceId, row.id).then((taskRecord) => {
     if (!taskRecord) {
       throw new Error("Task was created but could not be loaded.");
     }
@@ -398,7 +392,7 @@ export async function createTaskForUser(
 }
 
 export async function updateTaskForUser(
-  userId: string,
+  workspaceId: string,
   taskId: string,
   updates: {
     assigneeUserId?: string | null;
@@ -411,9 +405,9 @@ export async function updateTaskForUser(
   }
 ): Promise<TaskRecord | null> {
   const existingTask = await db
-    .select({ workspaceId: task.workspaceId })
+    .select({ createdBy: task.createdBy, workspaceId: task.workspaceId })
     .from(task)
-    .where(and(eq(task.id, taskId), eq(task.userId, userId)))
+    .where(and(eq(task.id, taskId), eq(task.workspaceId, workspaceId)))
     .limit(1);
 
   const currentTask = existingTask[0];
@@ -447,20 +441,24 @@ export async function updateTaskForUser(
     updateData.dueAt = updates.dueAt;
   }
   if (updates.assigneeUserId !== undefined) {
-    const nextAssigneeUserId = updates.assigneeUserId ?? userId;
-    const assignee = await resolveAssignableUser(
-      currentTask.workspaceId,
-      nextAssigneeUserId
-    );
-    if (!assignee) {
-      throw new Error("Assignee must be a valid user.");
+    const nextAssigneeUserId = updates.assigneeUserId;
+    if (!nextAssigneeUserId) {
+      updateData.assigneeUserId = null;
+    } else {
+      const assignee = await resolveAssignableUser(
+        currentTask.workspaceId,
+        nextAssigneeUserId
+      );
+      if (!assignee) {
+        throw new Error("Assignee must be a valid user.");
+      }
+      updateData.assigneeUserId = assignee.userId;
     }
-    updateData.assigneeUserId = assignee.userId;
   }
   if (updates.resources !== undefined) {
     updateData.resources = await resolveTaskResources({
       resources: updates.resources ?? null,
-      userId,
+      userId: currentTask.createdBy,
       workspaceId: currentTask.workspaceId,
     });
   }
@@ -468,35 +466,33 @@ export async function updateTaskForUser(
   const [row] = await db
     .update(task)
     .set(updateData)
-    .where(and(eq(task.id, taskId), eq(task.userId, userId)))
+    .where(and(eq(task.id, taskId), eq(task.workspaceId, workspaceId)))
     .returning();
 
-  return row ? getTaskForUser(userId, row.id) : null;
+  return row ? getTaskForUser(workspaceId, row.id) : null;
 }
 
 export async function deleteTaskForUser(
-  userId: string,
+  workspaceId: string,
   taskId: string
 ): Promise<boolean> {
   const [deleted] = await db
     .delete(task)
-    .where(and(eq(task.id, taskId), eq(task.userId, userId)))
+    .where(and(eq(task.id, taskId), eq(task.workspaceId, workspaceId)))
     .returning();
 
   return Boolean(deleted);
 }
 
 export async function countPendingTasksForUser(
-  userId: string,
-  workspaceId?: string | null
+  workspaceId: string
 ): Promise<number> {
   const rows = await db
     .select({ id: task.id })
     .from(task)
     .where(
       and(
-        eq(task.userId, userId),
-        workspaceId ? eq(task.workspaceId, workspaceId) : undefined,
+        eq(task.workspaceId, workspaceId),
         or(
           eq(task.status, "planned"),
           eq(task.status, "drafting"),

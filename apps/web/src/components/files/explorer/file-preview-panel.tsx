@@ -63,6 +63,7 @@ import AvenireEditor from "@/components/editor";
 import { PropertiesTable } from "@/components/editor/properties-table";
 import { CircleToAiSearchOverlay } from "@/components/files/circle-to-ai-search-overlay";
 import { ShareDialog } from "@/components/files/explorer/share-dialog";
+import { PanPinchImageViewer } from "@/components/files/pan-pinch-image-viewer";
 import type {
   FileRecord,
   FolderRecord,
@@ -194,25 +195,25 @@ interface FilePreviewPanelProps {
   copyFileShareLink: (file: FileRecord) => void;
   currentFolderId: string;
   currentInfoEntries: { label: string; value: string }[];
-  deleteSelectionItems: (
-    items: { id: string; kind: "file" | "folder" }[]
+  deleteContextActionItems: (itemId: string, kind: "file" | "folder") => void;
+  downloadContextActionItems: (
+    itemId: string,
+    kind: "file" | "folder",
+    fallbackName: string
   ) => void;
-  downloadFileDirect: (file: FileRecord) => void;
-  downloadItemArchive: (item: {
-    id: string;
-    kind: "file" | "folder";
-    name: string;
-  }) => void;
-  duplicateItem: (item: {
-    id: string;
-    kind: "file" | "folder";
-    parentId?: string | null;
-  }) => void;
+  duplicateContextActionItems: (
+    itemId: string,
+    kind: "file" | "folder"
+  ) => void;
   filePathById: Map<string, string>;
-  hardReingestFile: (file: FileRecord) => Promise<void>;
+  hardReingestContextActionItems: (itemId: string) => void;
   isCurrentPinned: boolean;
   loadShareSuggestions: (q: string, cb: (s: ShareSuggestion[]) => void) => void;
-  moveFile: (fileId: string, targetFolderId: string) => Promise<void>;
+  moveContextActionItemsToFolder: (
+    itemId: string,
+    kind: "file" | "folder",
+    targetFolderId: string
+  ) => void;
   openFileById: (fileId: string) => void;
   openRenameFileDialog: (file: FileRecord) => void;
   propertyDefinitions: WorkspacePropertyDefinition[];
@@ -242,12 +243,12 @@ export function FilePreviewPanel({
   selectFile,
   openFileById,
   openRenameFileDialog,
-  deleteSelectionItems,
-  moveFile,
-  duplicateItem,
-  downloadFileDirect,
+  deleteContextActionItems,
+  moveContextActionItemsToFolder,
+  duplicateContextActionItems,
+  downloadContextActionItems,
   copyFileShareLink,
-  hardReingestFile,
+  hardReingestContextActionItems,
   toggleCurrentPinnedItem,
   isCurrentPinned,
   currentInfoEntries,
@@ -939,11 +940,7 @@ export function FilePreviewPanel({
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => {
-                    void duplicateItem({
-                      id: activeFile.id,
-                      kind: "file",
-                      parentId: activeFile.folderId,
-                    });
+                    duplicateContextActionItems(activeFile.id, "file");
                   }}
                 >
                   <Copy className="size-3.5" />
@@ -970,7 +967,11 @@ export function FilePreviewPanel({
                         <DropdownMenuItem
                           key={folder.id}
                           onClick={() => {
-                            void moveFile(activeFile.id, folder.id);
+                            moveContextActionItemsToFolder(
+                              activeFile.id,
+                              "file",
+                              folder.id
+                            );
                           }}
                         >
                           {folder.name}
@@ -980,7 +981,11 @@ export function FilePreviewPanel({
                 </DropdownMenuSub>
                 <DropdownMenuItem
                   onClick={() => {
-                    downloadFileDirect(activeFile);
+                    downloadContextActionItems(
+                      activeFile.id,
+                      "file",
+                      activeFile.name
+                    );
                   }}
                 >
                   <ArrowDownToLine className="size-3.5" />
@@ -988,7 +993,7 @@ export function FilePreviewPanel({
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => {
-                    void hardReingestFile(activeFile);
+                    hardReingestContextActionItems(activeFile.id);
                   }}
                 >
                   <RotateCcw className="size-3.5" />
@@ -1021,9 +1026,7 @@ export function FilePreviewPanel({
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={() => {
-                    void deleteSelectionItems([
-                      { id: activeFile.id, kind: "file" },
-                    ]);
+                    deleteContextActionItems(activeFile.id, "file");
                   }}
                   variant="destructive"
                 >
@@ -1150,11 +1153,7 @@ export function FilePreviewPanel({
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => {
-                      void duplicateItem({
-                        id: activeFile.id,
-                        kind: "file",
-                        parentId: activeFile.folderId,
-                      });
+                      duplicateContextActionItems(activeFile.id, "file");
                     }}
                   >
                     <Copy className="size-3.5" />
@@ -1181,7 +1180,11 @@ export function FilePreviewPanel({
                           <DropdownMenuItem
                             key={folder.id}
                             onClick={() => {
-                              void moveFile(activeFile.id, folder.id);
+                              moveContextActionItemsToFolder(
+                                activeFile.id,
+                                "file",
+                                folder.id
+                              );
                             }}
                           >
                             {folder.name}
@@ -1191,7 +1194,11 @@ export function FilePreviewPanel({
                   </DropdownMenuSub>
                   <DropdownMenuItem
                     onClick={() => {
-                      downloadFileDirect(activeFile);
+                      downloadContextActionItems(
+                        activeFile.id,
+                        "file",
+                        activeFile.name
+                      );
                     }}
                   >
                     <ArrowDownToLine className="size-3.5" />
@@ -1199,7 +1206,7 @@ export function FilePreviewPanel({
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => {
-                      void hardReingestFile(activeFile);
+                      hardReingestContextActionItems(activeFile.id);
                     }}
                   >
                     <RotateCcw className="size-3.5" />
@@ -1232,9 +1239,7 @@ export function FilePreviewPanel({
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={() => {
-                      void deleteSelectionItems([
-                        { id: activeFile.id, kind: "file" },
-                      ]);
+                      deleteContextActionItems(activeFile.id, "file");
                     }}
                     variant="destructive"
                   >
@@ -1264,8 +1269,6 @@ export function FilePreviewPanel({
     activeFilePropertyCount,
     currentInfoEntries,
     copyFileShareLink,
-    deleteSelectionItems,
-    downloadFileDirect,
     isCurrentPinned,
     isMarkdown,
     loadShareSuggestions,
@@ -1275,7 +1278,6 @@ export function FilePreviewPanel({
     propertiesOpen,
     propertyDefinitions,
     handleNoteBannerInputChange,
-    moveFile,
     openRenameFileDialog,
     resetHeaderContext,
     setPropertyDefinitions,
@@ -1695,7 +1697,7 @@ export function FilePreviewPanel({
         </div>
       ) : isImage ? (
         <div className="flex min-h-0 flex-1 overflow-hidden">
-          <div className="mx-auto flex h-full min-h-0 max-w-[1200px] flex-col gap-3 p-0 sm:p-4">
+          <div className="mx-auto flex h-full min-h-0 w-full max-w-[1360px] flex-col gap-3 p-0 sm:p-4">
             <CircleToAiSearchOverlay
               enabled={circleToAiEnabled}
               fileKind="image"
@@ -1703,16 +1705,10 @@ export function FilePreviewPanel({
               onEnabledChange={setCircleToAiEnabled}
               workspaceUuid={workspaceUuid}
             >
-              <div className="flex min-h-0 flex-1 items-center justify-center rounded-none border-0 bg-white p-0 sm:rounded-2xl sm:border sm:border-border/70 sm:p-4">
-                <Image
+              <div className="w-full">
+                <PanPinchImageViewer
                   alt={activeFile.name}
-                  className="h-auto max-h-full max-w-full rounded-md object-contain"
-                  height={1200}
-                  loader={passthroughImageLoader}
-                  sizes="100vw"
-                  src={activeFile.storageUrl}
-                  unoptimized
-                  width={1600}
+                  src={activeFileSourceUrl}
                 />
               </div>
             </CircleToAiSearchOverlay>

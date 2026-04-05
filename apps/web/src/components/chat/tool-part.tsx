@@ -10,6 +10,40 @@ import {
 import { FlashcardDeckStack } from "@/components/flashcards/deck-stack";
 import { cn } from "@/lib/utils";
 
+// Tool types that should be completely hidden from the UI
+const HIDDEN_TOOL_TYPES = new Set([
+  "tool-ingestion_job",
+  "tool-ingest_file",
+  "tool-background_task",
+  "tool-system_call",
+  "tool-internal",
+]);
+
+// Human-readable labels for known tool types
+const TOOL_LABELS: Record<string, string> = {
+  "tool-note_agent": "Notes",
+  "tool-search_materials": "Search",
+  "tool-web_search": "Web search",
+  "tool-generate_flashcards": "Flashcards",
+  "tool-get_due_cards": "Due cards",
+  "tool-quiz_me": "Quiz",
+  "tool-load_skill": "Skill",
+  "tool-visualize_read_me": "Visual guide",
+  "tool-show_widget": "Widget",
+  "tool-avenire_agent": "Research",
+  "tool-file_manager_agent": "Files",
+};
+
+function getToolLabel(toolType: string): string {
+  return (
+    TOOL_LABELS[toolType] ??
+    toolType
+      .replace(/^tool-/, "")
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase())
+  );
+}
+
 type ToolPart = Extract<UIMessage["parts"][number], { type: `tool-${string}` }>;
 type CompletedToolPart = Extract<ToolPart, { state: "output-available" }>;
 
@@ -309,6 +343,11 @@ function QuizToolOutput({
 }
 
 export function ChatToolPart({ part }: { part: ToolPart }) {
+  // Suppress internal/infrastructure tools entirely
+  if (HIDDEN_TOOL_TYPES.has(part.type)) {
+    return null;
+  }
+
   if (
     part.type === "tool-avenire_agent" ||
     part.type === "tool-file_manager_agent"
@@ -328,24 +367,33 @@ export function ChatToolPart({ part }: { part: ToolPart }) {
   if (part.state === "input-streaming" || part.state === "input-available") {
     return (
       <ToolPending
-        label={part.type.replace("tool-", "").replaceAll("_", " ")}
+        label={getToolLabel(part.type)}
       />
     );
   }
 
   if (part.state === "output-error") {
+    // Don't surface errors for tools not in the known set — these are
+    // likely infrastructure/background tool failures not relevant to the user.
+    if (!TOOL_LABELS[part.type]) {
+      return null;
+    }
     const errorText = part.errorText;
     return (
       <ToolError
         errorText={errorText}
-        label={part.type.replace("tool-", "").replaceAll("_", " ")}
+        label={getToolLabel(part.type)}
       />
     );
   }
 
   if (part.state !== "output-available") {
+    // Don't show awaiting state for unknown tools
+    if (!TOOL_LABELS[part.type]) {
+      return null;
+    }
     return (
-      <ToolRow label={part.type.replace("tool-", "").replaceAll("_", " ")}>
+      <ToolRow label={getToolLabel(part.type)}>
         <span className="font-mono text-[11px] text-foreground/28">
           awaiting output
         </span>
@@ -359,7 +407,7 @@ export function ChatToolPart({ part }: { part: ToolPart }) {
     case "tool-note_agent":
       return (
         <div className="mb-2 space-y-1">
-          <ToolRow label="Note agent">
+          <ToolRow label="Notes">
             <span className="font-mono text-[11px] text-foreground/28">
               {completedPart.output.operation}{" "}
               {completedPart.output.notes.length} note(s)

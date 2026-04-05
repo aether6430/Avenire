@@ -139,11 +139,11 @@ C) [Explanation why correct and why others are wrong]
 ---
  
 ## Step 5: Quality Checklist
- 
+
 - [ ] Questions test understanding, not just memorization
 - [ ] MCQ distractors are plausible (not obviously wrong)
 - [ ] Difficulty is appropriate for stated level
 - [ ] Answer explanations clarify misconceptions
 - [ ] Questions cover breadth of source material
 - [ ] No ambiguous wording or trick questions
-
+- [ ] Formulas and equations are rendered inline with `$...$` or display with `$$...$$`, never fenced as ```latex

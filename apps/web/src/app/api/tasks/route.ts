@@ -32,8 +32,7 @@ export async function GET(request: Request) {
   const parsedLimit = limit ? Number.parseInt(limit, 10) : undefined;
 
   const version = await getTaskListCacheVersion(
-    ctx.workspace.workspaceId,
-    ctx.user.id
+    ctx.workspace.workspaceId
   );
   const cacheKey = createTaskListCacheKey({
     assigneeUserId: assigneeUserId ?? undefined,
@@ -41,7 +40,6 @@ export async function GET(request: Request) {
     includeCompleted: includeCompleted || status === "completed",
     limit: parsedLimit,
     status: status ?? undefined,
-    userId: ctx.user.id,
     version,
     workspaceUuid: ctx.workspace.workspaceId,
   });
@@ -52,7 +50,7 @@ export async function GET(request: Request) {
     });
   }
 
-  const tasks = await listTasksForUser(ctx.user.id, ctx.workspace.workspaceId, {
+  const tasks = await listTasksForUser(ctx.workspace.workspaceId, {
     status: status ?? undefined,
     assigneeUserId: assigneeUserId ?? undefined,
     includeCompleted: includeCompleted || status === "completed",
@@ -109,7 +107,7 @@ export async function POST(request: Request) {
       }
     );
 
-    await invalidateTaskListCache(ctx.workspace.workspaceId, ctx.user.id);
+    await invalidateTaskListCache(ctx.workspace.workspaceId);
 
     return NextResponse.json({ task }, { status: 201 });
   } catch (error) {

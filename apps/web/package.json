@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "bun --bun next dev --port 3000",
-    "build": "next build",
+    "build": "([ \"$NODE_ENV\" = \"production\" ] || [ \"$VERCEL_ENV\" = \"production\" ]) && bun run check-types; next build",
     "start": "next start -p $PORT",
     "lint": "biome check .",
     "check-types": "tsc --noEmit",

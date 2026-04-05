@@ -28,6 +28,9 @@
       "effect": "3.20.0",
       "hono": "4.12.9",
       "picomatch": "4.0.4"
+    },
+    "patchedDependencies": {
+      "@anaralabs/lector@3.8.0": "patches/@anaralabs__lector@3.8.0.patch"
     }
   }
 }

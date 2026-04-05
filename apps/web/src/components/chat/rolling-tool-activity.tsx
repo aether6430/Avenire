@@ -655,8 +655,11 @@ export const ReasoningContent = memo(
 
     return (
       <div
-        className={cn("relative mt-[3px]", className)}
-        style={{ height: WINDOW_HEIGHT, overflow: "hidden" }}
+        className={cn(
+          "relative mt-[3px] overflow-hidden",
+          className
+        )}
+        style={{ height: WINDOW_HEIGHT }}
         {...props}
       >
         <div
@@ -667,8 +670,16 @@ export const ReasoningContent = memo(
             height: ROW_HEIGHT * 1.4,
           }}
         />
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-0"
+          style={{
+            background:
+              "linear-gradient(to top, hsl(var(--background)) 15%, transparent 100%)",
+            height: ROW_HEIGHT * 1.4,
+          }}
+        />
         <motion.div
-          className="relative z-10"
+          className="relative z-10 font-mono text-[11px] text-foreground/40"
           animate={{
             y:
               lines.length > VISIBLE_ROWS
@@ -685,11 +696,11 @@ export const ReasoningContent = memo(
         >
           {lines.map((line, index) => (
             <div
-              className="flex items-baseline gap-2 pl-4"
+              className="flex items-start gap-2 pl-4"
               key={`${index}-${line}`}
-              style={{ height: ROW_HEIGHT }}
+              style={{ minHeight: ROW_HEIGHT }}
             >
-              <span className="truncate font-mono text-[11px] text-foreground/40 whitespace-pre-wrap break-words">
+              <span className="whitespace-pre-wrap break-words leading-5">
                 {line}
               </span>
             </div>

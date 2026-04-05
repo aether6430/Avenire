@@ -8,10 +8,10 @@ import {
 import {
   FileMediaPlayer, type MediaPlaybackSource, useMediaPlaybackSource, } from "@avenire/ui/media";
 import { Spinner } from "@avenire/ui/components/spinner";
-import { File, FileCode as FileCode2, SpinnerGap as LoaderIcon, X } from "@phosphor-icons/react"
-import { motion } from "motion/react";
+import { File, FileCode as FileCode2, MagnifyingGlassMinus, MagnifyingGlassPlus, SpinnerGap as LoaderIcon, X } from "@phosphor-icons/react"
+import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Attachment } from "@/components/chat/attachment";
 import {
@@ -24,6 +24,289 @@ import {
   type MediaPlaybackDescriptor,
 } from "@/lib/media-playback";
 import { cn } from "@/lib/utils";
+
+// ─── Pan/Pinch Image Viewer ───────────────────────────────────────────────────
+
+const MIN_SCALE = 1;
+const MAX_SCALE = 5;
+const ZOOM_STEP = 0.5;
+const DOUBLE_TAP_ZOOM = 2.5;
+
+function PanPinchImageViewer({
+  src,
+  alt,
+}: {
+  src: string;
+  alt: string;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const [isPanning, setIsPanning] = useState(false);
+
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const springX = useSpring(x, { stiffness: 300, damping: 35, mass: 0.6 });
+  const springY = useSpring(y, { stiffness: 300, damping: 35, mass: 0.6 });
+
+  // Pointer tracking refs (supports touch + mouse)
+  const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
+  const activePointersRef = useRef<Map<number, PointerEvent>>(new Map());
+  const lastPinchDistRef = useRef<number | null>(null);
+  const lastTapTimeRef = useRef<number>(0);
+  const lastTapPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  const clampPosition = useCallback(
+    (nextX: number, nextY: number, currentScale: number) => {
+      const container = containerRef.current;
+      if (!container) return { x: nextX, y: nextY };
+
+      const { width, height } = container.getBoundingClientRect();
+      const maxX = Math.max(0, (width * currentScale - width) / 2);
+      const maxY = Math.max(0, (height * currentScale - height) / 2);
+
+      return {
+        x: Math.max(-maxX, Math.min(maxX, nextX)),
+        y: Math.max(-maxY, Math.min(maxY, nextY)),
+      };
+    },
+    []
+  );
+
+  const resetView = useCallback(() => {
+    setScale(1);
+    x.set(0);
+    y.set(0);
+  }, [x, y]);
+
+  const zoomTo = useCallback(
+    (nextScale: number, focalX?: number, focalY?: number) => {
+      const container = containerRef.current;
+      if (!container) return;
+
+      const clamped = Math.max(MIN_SCALE, Math.min(MAX_SCALE, nextScale));
+      const { width, height } = container.getBoundingClientRect();
+      const cx = focalX ?? width / 2;
+      const cy = focalY ?? height / 2;
+
+      // Adjust pan so zoom is centered on focal point
+      const prevScale = scale;
+      const scaleDelta = clamped / prevScale;
+      const nextX = (x.get() - (cx - width / 2)) * scaleDelta + (cx - width / 2);
+      const nextY = (y.get() - (cy - height / 2)) * scaleDelta + (cy - height / 2);
+      const clamped2 = clampPosition(nextX, nextY, clamped);
+
+      setScale(clamped);
+      x.set(clamped2.x);
+      y.set(clamped2.y);
+    },
+    [scale, x, y, clampPosition]
+  );
+
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      e.currentTarget.setPointerCapture(e.pointerId);
+      activePointersRef.current.set(e.pointerId, e.nativeEvent);
+
+      if (activePointersRef.current.size === 1) {
+        lastPointerRef.current = { x: e.clientX, y: e.clientY };
+        setIsPanning(true);
+
+        // Double-tap detection
+        const now = Date.now();
+        const dx = Math.abs(e.clientX - lastTapPosRef.current.x);
+        const dy = Math.abs(e.clientY - lastTapPosRef.current.y);
+        if (now - lastTapTimeRef.current < 300 && dx < 20 && dy < 20) {
+          // Double tap
+          const container = containerRef.current;
+          if (!container) return;
+          const rect = container.getBoundingClientRect();
+          const focalX = e.clientX - rect.left;
+          const focalY = e.clientY - rect.top;
+          if (scale > 1) {
+            resetView();
+          } else {
+            zoomTo(DOUBLE_TAP_ZOOM, focalX, focalY);
+          }
+          lastTapTimeRef.current = 0;
+          return;
+        }
+        lastTapTimeRef.current = now;
+        lastTapPosRef.current = { x: e.clientX, y: e.clientY };
+        lastPinchDistRef.current = null;
+      } else if (activePointersRef.current.size === 2) {
+        // Starting pinch
+        setIsPanning(false);
+        lastPointerRef.current = null;
+        const pointers = Array.from(activePointersRef.current.values());
+        const [p1, p2] = pointers;
+        if (p1 && p2) {
+          const dist = Math.hypot(p2.clientX - p1.clientX, p2.clientY - p1.clientY);
+          lastPinchDistRef.current = dist;
+        }
+      }
+    },
+    [scale, resetView, zoomTo]
+  );
+
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      activePointersRef.current.set(e.pointerId, e.nativeEvent);
+
+      if (activePointersRef.current.size === 2) {
+        // Pinch zoom
+        const pointers = Array.from(activePointersRef.current.values());
+        const [p1, p2] = pointers;
+        if (!p1 || !p2) return;
+
+        const dist = Math.hypot(p2.clientX - p1.clientX, p2.clientY - p1.clientY);
+        const lastDist = lastPinchDistRef.current;
+        if (lastDist !== null) {
+          const container = containerRef.current;
+          if (!container) return;
+          const rect = container.getBoundingClientRect();
+          const midX = (p1.clientX + p2.clientX) / 2 - rect.left;
+          const midY = (p1.clientY + p2.clientY) / 2 - rect.top;
+          const nextScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale * (dist / lastDist)));
+          zoomTo(nextScale, midX, midY);
+        }
+        lastPinchDistRef.current = dist;
+        return;
+      }
+
+      if (activePointersRef.current.size === 1 && lastPointerRef.current && scale > 1) {
+        // Pan
+        const dx = e.clientX - lastPointerRef.current.x;
+        const dy = e.clientY - lastPointerRef.current.y;
+        const clamped = clampPosition(x.get() + dx, y.get() + dy, scale);
+        x.set(clamped.x);
+        y.set(clamped.y);
+        lastPointerRef.current = { x: e.clientX, y: e.clientY };
+      }
+    },
+    [scale, x, y, clampPosition, zoomTo]
+  );
+
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      activePointersRef.current.delete(e.pointerId);
+      lastPinchDistRef.current = null;
+
+      if (activePointersRef.current.size === 0) {
+        setIsPanning(false);
+        lastPointerRef.current = null;
+      } else if (activePointersRef.current.size === 1) {
+        // One finger remaining, update last pointer
+        const remaining = Array.from(activePointersRef.current.values())[0];
+        if (remaining) lastPointerRef.current = { x: remaining.clientX, y: remaining.clientY };
+      }
+    },
+    []
+  );
+
+  const handleWheel = useCallback(
+    (e: React.WheelEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      const container = containerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const focalX = e.clientX - rect.left;
+      const focalY = e.clientY - rect.top;
+      const delta = e.deltaY > 0 ? -0.15 : 0.15;
+      zoomTo(scale + delta * scale, focalX, focalY);
+    },
+    [scale, zoomTo]
+  );
+
+  // Reset position when scale returns to 1
+  useEffect(() => {
+    if (scale <= 1) {
+      x.set(0);
+      y.set(0);
+    }
+  }, [scale, x, y]);
+
+  const scalePercent = Math.round(scale * 100);
+
+  return (
+    <div className="flex h-full flex-col">
+      {/* Toolbar */}
+      <div className="flex items-center justify-center gap-2 border-b border-foreground/[0.06] py-2">
+        <Button
+          className="size-7 text-muted-foreground hover:text-foreground"
+          disabled={scale <= MIN_SCALE}
+          onClick={() => zoomTo(scale - ZOOM_STEP)}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <MagnifyingGlassMinus className="size-3.5" />
+        </Button>
+        <button
+          className="min-w-[3.5rem] rounded px-2 py-0.5 text-center font-mono text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          onClick={resetView}
+          type="button"
+        >
+          {scalePercent}%
+        </button>
+        <Button
+          className="size-7 text-muted-foreground hover:text-foreground"
+          disabled={scale >= MAX_SCALE}
+          onClick={() => zoomTo(scale + ZOOM_STEP)}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <MagnifyingGlassPlus className="size-3.5" />
+        </Button>
+        {scale > 1 && (
+          <Button
+            className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+            onClick={resetView}
+            type="button"
+            variant="ghost"
+          >
+            Reset
+          </Button>
+        )}
+      </div>
+
+      {/* Viewer */}
+      <div
+        className={cn(
+          "relative flex min-h-0 flex-1 items-center justify-center overflow-hidden",
+          scale > 1 ? "cursor-grab" : "cursor-default",
+          isPanning && scale > 1 ? "cursor-grabbing" : ""
+        )}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        onWheel={handleWheel}
+        ref={containerRef}
+        style={{ touchAction: "none", userSelect: "none" }}
+      >
+        <motion.img
+          alt={alt}
+          className="max-h-full max-w-full rounded object-contain"
+          draggable={false}
+          src={src}
+          style={{
+            scale,
+            x: springX,
+            y: springY,
+            willChange: "transform",
+          }}
+          transition={{ type: "spring", stiffness: 300, damping: 35 }}
+        />
+        {scale === 1 && (
+          <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/40 px-2.5 py-1 text-[10px] text-white backdrop-blur-sm opacity-60">
+            Pinch or scroll to zoom · Double-tap to zoom in
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 const PDFViewer = dynamic(() => import("@/components/files/pdf-viewer"), {
   ssr: false,
@@ -521,22 +804,16 @@ export function PreviewAttachment({
     return null;
   };
 
+  const isImagePreview =
+    contentType?.startsWith("image") && previewUrl && status === "completed";
+
   const renderModalContent = () => {
-    if (
-      contentType?.startsWith("image") &&
-      previewUrl &&
-      status === "completed"
-    ) {
+    if (isImagePreview && previewUrl) {
       return (
-        <div className="flex justify-center">
-          <img
-            alt={name ?? "Full preview"}
-            className="max-h-[70vh] max-w-full rounded-md object-contain"
-            height={720}
-            src={previewUrl}
-            width={1024}
-          />
-        </div>
+        <PanPinchImageViewer
+          alt={name ?? "Image preview"}
+          src={previewUrl}
+        />
       );
     }
 
@@ -720,7 +997,7 @@ export function PreviewAttachment({
                     )}
                   </DialogTitle>
                 </DialogHeader>
-                <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">
+                <div className={cn("min-h-0 flex-1", isImagePreview ? "overflow-hidden" : "overflow-auto p-4 sm:p-6")}>
                   {renderModalContent()}
                 </div>
               </div>

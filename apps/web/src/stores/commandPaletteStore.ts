@@ -17,17 +17,22 @@ export interface CommandPaletteFileNode {
   readOnly?: boolean;
 }
 
-interface CommandPaletteState {
+export interface CommandPaletteWorkspaceIndex {
   files: CommandPaletteFileNode[];
   folders: CommandPaletteFolderNode[];
+  rootFolderId?: string | null;
+  workspaceName?: string;
+}
+
+interface CommandPaletteState {
+  fileIndexByWorkspace: Record<string, CommandPaletteWorkspaceIndex>;
   open: boolean;
   recentFileIdsByWorkspace: Record<string, string[]>;
   workspaceUuid: string | null;
 }
 
 const INITIAL_STATE: CommandPaletteState = {
-  files: [],
-  folders: [],
+  fileIndexByWorkspace: {},
   open: false,
   recentFileIdsByWorkspace: {},
   workspaceUuid: null,
@@ -57,13 +62,29 @@ export const commandPaletteActions = {
       open: true,
     }),
   setFileIndex: (
-    next: Pick<CommandPaletteState, "workspaceUuid" | "folders" | "files">
+    next: {
+      files: CommandPaletteFileNode[];
+      folders: CommandPaletteFolderNode[];
+      rootFolderId?: string | null;
+      workspaceName?: string;
+      workspaceUuid: string | null;
+    }
   ) =>
     useCommandPaletteStore.setState((state) => ({
       ...state,
       workspaceUuid: next.workspaceUuid,
-      folders: next.folders,
-      files: next.files,
+      fileIndexByWorkspace:
+        next.workspaceUuid
+          ? {
+              ...state.fileIndexByWorkspace,
+              [next.workspaceUuid]: {
+                files: next.files,
+                folders: next.folders,
+                rootFolderId: next.rootFolderId ?? null,
+                workspaceName: next.workspaceName,
+              },
+            }
+          : state.fileIndexByWorkspace,
     })),
   recordRecentFile: (workspaceId: string, fileId: string) =>
     useCommandPaletteStore.setState((state) => {

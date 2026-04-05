@@ -11,7 +11,9 @@ export type FilesUiIntent =
   | "openSelection"
   | "deleteSelection"
   | "moveSelectionUp"
-  | "goParent";
+  | "goParent"
+  | "undoMutation"
+  | "redoMutation";
 
 type FilesUiIntentVersion = Record<FilesUiIntent, number>;
 
@@ -25,6 +27,8 @@ const INITIAL_INTENT_VERSION: FilesUiIntentVersion = {
   deleteSelection: 0,
   moveSelectionUp: 0,
   goParent: 0,
+  undoMutation: 0,
+  redoMutation: 0,
 };
 
 interface FilesUiState {

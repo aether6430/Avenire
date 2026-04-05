@@ -11,19 +11,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@avenire/ui/components/select";
-import { Separator } from "@avenire/ui/components/separator";
 import { Spinner } from "@avenire/ui/components/spinner";
 import {
   ArrowClockwise as Refresh,
+  ArrowLeft,
   CheckCircle,
   DownloadSimple as Download,
   Folder,
   Globe,
   Link as LinkIcon,
+  Warning,
+  WifiHigh,
+  WifiX,
 } from "@phosphor-icons/react";
 import { linkSocial } from "@avenire/auth/client";
 import { useEffect, useMemo, useState } from "react";
 import { GOOGLE_IMPORT_SCOPES } from "@/lib/imports-shared";
+import { cn } from "@/lib/utils";
 
 type WorkspaceSummary = {
   logo: string | null;
@@ -70,6 +74,8 @@ type FolderOption = {
   readOnly: boolean;
 };
 
+type SelectedSource = "google" | "notion" | null;
+
 declare global {
   interface Window {
     gapi?: {
@@ -108,17 +114,14 @@ declare global {
   }
 }
 
-function ProviderBadge({ status }: { status: ImportProviderStatus }) {
-  if (!status.configured) {
-    return <Badge variant="secondary">Not configured</Badge>;
-  }
-  if (!status.connected) {
-    return <Badge variant="secondary">Not connected</Badge>;
+function StatusIcon({ status }: { status: ImportProviderStatus }) {
+  if (!status.configured || !status.connected) {
+    return <WifiX className="size-3.5 text-muted-foreground" />;
   }
   if (!status.ready) {
-    return <Badge variant="outline">Reconnect required</Badge>;
+    return <Warning className="size-3.5 text-amber-500" />;
   }
-  return <Badge variant="default">Ready</Badge>;
+  return <WifiHigh className="size-3.5 text-emerald-500" />;
 }
 
 function formatTimestamp(value: string) {
@@ -252,6 +255,101 @@ async function ensureGooglePickerLoaded() {
   });
 }
 
+// ─── Source Card ──────────────────────────────────────────────────────────────
+
+function SourceCard({
+  icon: Icon,
+  label,
+  hint,
+  status,
+  onSelect,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  hint: string;
+  status: ImportProviderStatus | null;
+  onSelect: () => void;
+}) {
+  const isReady = status?.ready;
+  const needsReconnect = status?.connected && !status.ready;
+
+  return (
+    <button
+      className={cn(
+        "group flex w-full flex-col gap-2 px-0 py-2 text-left transition-colors duration-200",
+        "hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+      )}
+      onClick={onSelect}
+      type="button"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2.5">
+          <div className="flex size-8 items-center justify-center rounded-lg bg-muted/40">
+            <Icon className="size-4 text-foreground/70" />
+          </div>
+          <div>
+            <p className="font-medium text-sm">{label}</p>
+            <p className="text-muted-foreground text-xs">{hint}</p>
+          </div>
+        </div>
+
+        {status && (
+          <div className="flex items-center gap-1.5 rounded-full px-2 py-0.5">
+            <StatusIcon status={status} />
+            <span className="text-[11px] text-muted-foreground">
+              {isReady ? "Ready" : needsReconnect ? "Reconnect" : "Not linked"}
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-end">
+        <span className="text-muted-foreground text-xs transition-colors group-hover:text-foreground">
+          Select →
+        </span>
+      </div>
+    </button>
+  );
+}
+
+// ─── Step 1: Source Picker ─────────────────────────────────────────────────────
+
+function Step1SourcePicker({
+  googleStatus,
+  notionStatus,
+  onSelect,
+}: {
+  googleStatus: ImportProviderStatus | null;
+  notionStatus: ImportProviderStatus | null;
+  onSelect: (source: "google" | "notion") => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <p className="text-muted-foreground text-xs">
+        Choose a source to import from
+      </p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <SourceCard
+          hint="Files, Docs, Sheets"
+          icon={Globe}
+          label="Google Drive"
+          onSelect={() => onSelect("google")}
+          status={googleStatus}
+        />
+        <SourceCard
+          hint="Pages, databases"
+          icon={Folder}
+          label="Notion"
+          onSelect={() => onSelect("notion")}
+          status={notionStatus}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
 export function DataImportsSection({
   workspaces,
 }: {
@@ -284,6 +382,9 @@ export function DataImportsSection({
   );
   const [driveImporting, setDriveImporting] = useState(false);
   const [driveImportStatus, setDriveImportStatus] = useState<string | null>(null);
+
+  // Two-step flow state
+  const [selectedSource, setSelectedSource] = useState<SelectedSource>(null);
 
   const pickerApiKey = process.env.NEXT_PUBLIC_GOOGLE_PICKER_API_KEY?.trim() ?? "";
   const pickerAppId = process.env.NEXT_PUBLIC_GOOGLE_PICKER_APP_ID?.trim() ?? "";
@@ -416,6 +517,15 @@ export function DataImportsSection({
     () => folderOptions.find((entry) => entry.id === destinationFolderId) ?? null,
     [destinationFolderId, folderOptions],
   );
+  const selectedWorkspace = useMemo(
+    () =>
+      workspaces.find((entry) => entry.workspaceId === destinationWorkspaceId) ?? null,
+    [destinationWorkspaceId, workspaces],
+  );
+  const destinationSummaryLabel =
+    `${selectedWorkspace?.name ?? destination?.workspaceName ?? "Workspace"} / ${
+      selectedFolder?.path ?? destination?.folderName ?? "Folder"
+    }`;
 
   const toggleNotionPage = (pageId: string) => {
     setSelectedNotionPageIds((current) =>
@@ -703,171 +813,53 @@ export function DataImportsSection({
     }
   };
 
-  return (
-    <div className="max-w-5xl space-y-4">
-      <section className="overflow-hidden rounded-lg border border-border/60 bg-card">
-        <div className="flex items-center justify-between gap-3 px-4 py-3">
-          <div>
-            <p className="font-medium text-sm">Data imports</p>
-            <p className="text-muted-foreground text-xs">
-              Link a source, choose a folder, import.
-            </p>
+  // ─── Render Step 2: Google Drive ─────────────────────────────────────────────
+  const renderGoogleStep = () => {
+    const status = googleStatus;
+    const isConnected = status?.connected;
+    const isReady = status?.ready;
+
+    return (
+      <div className="space-y-5">
+        {/* Source status */}
+        <div className="flex items-start gap-3">
+          <div className="flex size-8 items-center justify-center rounded-lg bg-muted/40">
+            <Globe className="size-4 text-foreground/70" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <p className="font-medium text-sm">Google Drive</p>
+              <div className="flex items-center gap-1.5 rounded-full px-2 py-0.5">
+                <StatusIcon status={status ?? { accountId: null, configured: false, connected: false, hasRefreshToken: false, hasUsableAccessToken: false, ready: false, scopes: [] }} />
+                <span className="text-[11px] text-muted-foreground">
+                  {isReady ? "Ready" : isConnected ? "Reconnect required" : "Not linked"}
+                </span>
+              </div>
+            </div>
+            {status?.accountId && (
+              <p className="mt-0.5 text-muted-foreground text-xs">{status.accountId}</p>
+            )}
+            {(driveImportStatus) && (
+              <p className="mt-1 text-muted-foreground text-xs">{driveImportStatus}</p>
+            )}
           </div>
           <Button
-            onClick={() => {
-              void loadOverview();
-            }}
+            disabled={!status?.configured}
+            onClick={() => void connectGoogleDrive()}
             size="sm"
             type="button"
-            variant="outline"
+            variant={isReady ? "outline" : "default"}
           >
-            {overviewLoading ? (
-              <Spinner className="mr-2 size-3.5" />
-            ) : (
-              <Refresh className="mr-2 size-3.5" />
-            )}
-            Refresh
+            <LinkIcon className="size-3.5" />
+            {isConnected ? "Reconnect" : "Connect"}
           </Button>
         </div>
 
-        <Separator />
-
-        <div className="grid lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-          <div className="min-w-0">
-            <div className="px-4 py-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <Globe className="size-4" />
-                    <p className="font-medium text-sm">Google Drive</p>
-                  </div>
-                  <p className="mt-1 truncate text-muted-foreground text-xs">
-                    {driveImportStatus ?? getProviderSummary(googleStatus)}
-                  </p>
-                </div>
-                <ProviderBadge
-                  status={
-                    googleStatus ?? {
-                      accountId: null,
-                      configured: false,
-                    connected: false,
-                    hasRefreshToken: false,
-                    hasUsableAccessToken: false,
-                    ready: false,
-                    scopes: [],
-                  }
-                  }
-                />
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Button
-                  disabled={!googleStatus?.configured}
-                  onClick={() => {
-                    void connectGoogleDrive();
-                  }}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  <LinkIcon className="mr-2 size-3.5" />
-                  {googleStatus?.connected ? "Reconnect" : "Connect"}
-                </Button>
-                <Button
-                  disabled={
-                    driveImporting ||
-                    !googleStatus?.ready ||
-                    !hasSelectedDestination
-                  }
-                  onClick={() => {
-                    void openGooglePicker();
-                  }}
-                  size="sm"
-                  type="button"
-                >
-                  {driveImporting ? (
-                    <Spinner className="mr-2 size-3.5" />
-                  ) : (
-                    <Download className="mr-2 size-3.5" />
-                  )}
-                  Import from Drive
-                </Button>
-              </div>
-              {!driveImportStatus && googleImportBlockedReason ? (
-                <p className="mt-2 text-muted-foreground text-xs">
-                  {googleImportBlockedReason}
-                </p>
-              ) : null}
-            </div>
-
-            <Separator />
-
-            <div className="px-4 py-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <Folder className="size-4" />
-                    <p className="font-medium text-sm">Notion</p>
-                  </div>
-                  <p className="mt-1 truncate text-muted-foreground text-xs">
-                    {notionImportStatus ?? getProviderSummary(notionStatus)}
-                  </p>
-                </div>
-                <ProviderBadge
-                  status={
-                    notionStatus ?? {
-                      accountId: null,
-                      configured: false,
-                    connected: false,
-                    hasRefreshToken: false,
-                    hasUsableAccessToken: false,
-                    ready: false,
-                    scopes: [],
-                  }
-                  }
-                />
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Button
-                  disabled={!notionStatus?.configured}
-                  onClick={() => {
-                    void connectNotion();
-                  }}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  <LinkIcon className="mr-2 size-3.5" />
-                  {notionStatus?.connected ? "Reconnect" : "Connect"}
-                </Button>
-                <Button
-                  disabled={notionLoading || !notionStatus?.ready}
-                  onClick={() => {
-                    void loadNotionPages();
-                  }}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  {notionLoading ? (
-                    <Spinner className="mr-2 size-3.5" />
-                  ) : (
-                    <Refresh className="mr-2 size-3.5" />
-                  )}
-                  Load pages
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-border/60 border-t px-4 py-4 lg:border-t-0 lg:border-l">
-            <div className="flex items-center justify-between gap-3">
-              <p className="font-medium text-sm">Destination</p>
-              {destination ? (
-                <Badge variant="outline">Saved</Badge>
-              ) : null}
-            </div>
-
-            <div className="mt-3 space-y-3">
+        {/* Destination (only show when source is connected) */}
+        {isReady && (
+          <div className="space-y-3">
+            <p className="font-medium text-xs text-foreground/70">Destination</p>
+            <div className="space-y-2">
               <div className="space-y-1.5">
                 <p className="text-muted-foreground text-xs">Workspace</p>
                 <Select
@@ -878,7 +870,9 @@ export function DataImportsSection({
                   value={destinationWorkspaceId}
                 >
                   <SelectTrigger className="h-9 w-full border-border bg-background px-3 text-sm">
-                    <SelectValue placeholder="Select workspace" />
+                    <SelectValue placeholder="Select workspace">
+                      {selectedWorkspace?.name}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent align="start">
                     {workspaces.map((workspace) => (
@@ -904,7 +898,9 @@ export function DataImportsSection({
                   value={destinationFolderId}
                 >
                   <SelectTrigger className="h-9 w-full border-border bg-background px-3 text-sm">
-                    <SelectValue placeholder="Select folder" />
+                    <SelectValue placeholder="Select folder">
+                      {selectedFolder?.path}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent align="start">
                     {folderOptions.map((folder) => (
@@ -921,7 +917,7 @@ export function DataImportsSection({
                 </Select>
               </div>
 
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center justify-between gap-3 pt-1">
                 <div className="min-w-0 text-muted-foreground text-xs">
                   {folderLoading ? (
                     <span className="inline-flex items-center gap-2">
@@ -929,10 +925,10 @@ export function DataImportsSection({
                       Loading folders
                     </span>
                   ) : destination ? (
-                    <span className="inline-flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5">
                       <CheckCircle className="size-3.5 text-emerald-600" />
                       <span className="truncate">
-                        {destination.workspaceName} / {destination.folderName}
+                        {destinationSummaryLabel}
                       </span>
                     </span>
                   ) : hasSelectedDestination ? (
@@ -941,135 +937,328 @@ export function DataImportsSection({
                     "No folder selected"
                   )}
                 </div>
-
-                <Button
-                  disabled={
-                    folderLoading ||
-                    !destinationWorkspaceId ||
-                    !destinationFolderId ||
-                    selectedFolder?.readOnly
-                  }
-                  onClick={() => {
-                    void saveDestination();
-                  }}
-                  size="sm"
-                  type="button"
-                >
-                  Save
-                </Button>
+                {destinationStatus && (
+                  <p className="text-muted-foreground text-xs">{destinationStatus}</p>
+                )}
               </div>
-
-              {destinationStatus ? (
-                <p className="text-muted-foreground text-xs">{destinationStatus}</p>
-              ) : null}
             </div>
           </div>
-        </div>
+        )}
 
-        {overviewStatus ? (
-          <>
-            <Separator />
-            <div className="px-4 py-2 text-muted-foreground text-xs">
-              {overviewStatus}
-            </div>
-          </>
-        ) : null}
-      </section>
-
-      <section className="overflow-hidden rounded-lg border border-border/60 bg-card">
-        <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <p className="font-medium text-sm">Notion pages</p>
-            <p className="text-muted-foreground text-xs">
-              {notionPages.length === 0
-                ? "No pages loaded"
-                : `${selectedPagesCount} selected · ${notionPages.length} available`}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
+        {/* Import action */}
+        <div className="flex items-center justify-between gap-3 border-t border-border/50 pt-4">
+          {googleImportBlockedReason && !isReady && (
+            <p className="text-muted-foreground text-xs">{googleImportBlockedReason}</p>
+          )}
+          <div className="ml-auto">
             <Button
-              disabled={notionLoading || !notionStatus?.ready}
-              onClick={() => {
-                void loadNotionPages();
-              }}
+              disabled={Boolean(googleImportBlockedReason)}
+              onClick={() => void openGooglePicker()}
               size="sm"
               type="button"
-              variant="outline"
             >
-              {notionLoading ? (
-                <Spinner className="mr-2 size-3.5" />
+              {driveImporting ? (
+                <Spinner className="size-3.5" />
               ) : (
-                <Refresh className="mr-2 size-3.5" />
+                <Download className="size-3.5" />
               )}
-              Reload
+              Import from Drive
             </Button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ─── Render Step 2: Notion ────────────────────────────────────────────────────
+  const renderNotionStep = () => {
+    const status = notionStatus;
+    const isConnected = status?.connected;
+    const isReady = status?.ready;
+
+    return (
+      <div className="space-y-5 px-4 py-4">
+        {/* Source status */}
+        <div className="flex items-start gap-3">
+          <div className="flex size-8 items-center justify-center rounded-lg bg-muted/40">
+            <Folder className="size-4 text-foreground/70" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <p className="font-medium text-sm">Notion</p>
+              <div className="flex items-center gap-1.5 rounded-full px-2 py-0.5">
+                <StatusIcon status={status ?? { accountId: null, configured: false, connected: false, hasRefreshToken: false, hasUsableAccessToken: false, ready: false, scopes: [] }} />
+                <span className="text-[11px] text-muted-foreground">
+                  {isReady ? "Ready" : isConnected ? "Reconnect required" : "Not linked"}
+                </span>
+              </div>
+            </div>
+            {status?.accountId && (
+              <p className="mt-0.5 text-muted-foreground text-xs">{status.accountId}</p>
+            )}
+            {notionImportStatus && (
+              <p className="mt-1 text-muted-foreground text-xs">{notionImportStatus}</p>
+            )}
+          </div>
+          <Button
+            disabled={!status?.configured}
+            onClick={() => void connectNotion()}
+            size="sm"
+            type="button"
+            variant={isReady ? "outline" : "default"}
+          >
+            <LinkIcon className="size-3.5" />
+            {isConnected ? "Reconnect" : "Connect"}
+          </Button>
+        </div>
+
+        {/* Pages picker (grouped with source) */}
+        {isReady && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="font-medium text-xs text-foreground/70">
+                Pages{notionPages.length > 0 ? ` · ${selectedPagesCount} of ${notionPages.length} selected` : ""}
+              </p>
+              <Button
+                disabled={notionLoading || !isReady}
+                onClick={() => void loadNotionPages()}
+                size="sm"
+                type="button"
+                variant="ghost"
+              >
+                {notionLoading ? (
+                  <Spinner className="size-3.5" />
+                ) : (
+                  <Refresh className="size-3.5" />
+                )}
+                {notionPages.length > 0 ? "Reload" : "Load pages"}
+              </Button>
+            </div>
+
+            {notionPages.length > 0 ? (
+              <ScrollArea className="max-h-56 rounded-xl border border-border/60">
+                <div className="divide-y divide-border/60">
+                  {notionPages.map((page) => {
+                    const checked = selectedNotionPageIds.includes(page.id);
+                    return (
+                      <label
+                        className="flex cursor-pointer items-start gap-3 px-3.5 py-3 transition-colors hover:bg-muted/20"
+                        key={page.id}
+                      >
+                        <Checkbox
+                          checked={checked}
+                          className="mt-0.5"
+                          onCheckedChange={() => toggleNotionPage(page.id)}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="truncate font-medium text-sm">{page.title}</p>
+                            <span className="shrink-0 text-muted-foreground text-xs">
+                              {formatTimestamp(page.lastEditedTime)}
+                            </span>
+                          </div>
+                          {page.url ? (
+                            <a
+                              className="mt-0.5 inline-flex text-muted-foreground text-xs underline-offset-4 hover:text-foreground hover:underline"
+                              href={page.url}
+                              rel="noreferrer"
+                              target="_blank"
+                            >
+                              Open in Notion
+                            </a>
+                          ) : null}
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            ) : (
+              <div className="rounded-xl border border-border/60 px-4 py-8 text-center text-muted-foreground text-sm">
+                Load pages from Notion to start a selection.
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Destination */}
+        {isReady && (
+          <div className="space-y-3">
+            <p className="font-medium text-xs text-foreground/70">Destination</p>
+            <div className="space-y-2">
+              <div className="space-y-1.5">
+                <p className="text-muted-foreground text-xs">Workspace</p>
+                <Select
+                  onValueChange={(value) => {
+                    setDestinationWorkspaceId(value ?? "");
+                    setDestinationStatus(null);
+                  }}
+                  value={destinationWorkspaceId}
+                >
+                  <SelectTrigger className="h-9 w-full border-border bg-background px-3 text-sm">
+                    <SelectValue placeholder="Select workspace">
+                      {selectedWorkspace?.name}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent align="start">
+                    {workspaces.map((workspace) => (
+                      <SelectItem
+                        key={workspace.workspaceId}
+                        value={workspace.workspaceId}
+                      >
+                        {workspace.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <p className="text-muted-foreground text-xs">Folder</p>
+                <Select
+                  disabled={folderLoading || folderOptions.length === 0}
+                  onValueChange={(value) => {
+                    setDestinationFolderId(value ?? "");
+                    setDestinationStatus(null);
+                  }}
+                  value={destinationFolderId}
+                >
+                  <SelectTrigger className="h-9 w-full border-border bg-background px-3 text-sm">
+                    <SelectValue placeholder="Select folder">
+                      {selectedFolder?.path}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent align="start">
+                    {folderOptions.map((folder) => (
+                      <SelectItem
+                        disabled={folder.readOnly}
+                        key={folder.id}
+                        value={folder.id}
+                      >
+                        {folder.path}
+                        {folder.readOnly ? " (read-only)" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center justify-between gap-3 pt-1">
+                <div className="min-w-0 text-muted-foreground text-xs">
+                  {folderLoading ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Spinner className="size-3.5" />
+                      Loading folders
+                    </span>
+                  ) : destination ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <CheckCircle className="size-3.5 text-emerald-600" />
+                      <span className="truncate">
+                        {destinationSummaryLabel}
+                      </span>
+                    </span>
+                  ) : hasSelectedDestination ? (
+                    "Will save on import"
+                  ) : (
+                    "No folder selected"
+                  )}
+                </div>
+                {destinationStatus && (
+                  <p className="text-muted-foreground text-xs">{destinationStatus}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Import action */}
+        {isReady && (
+          <div className="flex items-center justify-end gap-3 pt-2">
             <Button
               disabled={
                 notionImporting ||
                 selectedPagesCount === 0 ||
                 !hasSelectedDestination
               }
-              onClick={() => {
-                void importSelectedNotionPages();
-              }}
+              onClick={() => void importSelectedNotionPages()}
               size="sm"
               type="button"
             >
               {notionImporting ? (
-                <Spinner className="mr-2 size-3.5" />
+                <Spinner className="size-3.5" />
               ) : (
-                <Download className="mr-2 size-3.5" />
+                <Download className="size-3.5" />
               )}
-              Import selected
+              Import {selectedPagesCount > 0 ? `${selectedPagesCount} page${selectedPagesCount === 1 ? "" : "s"}` : "selected"}
             </Button>
           </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="max-w-3xl space-y-6">
+      <section className="space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            {selectedSource && (
+              <Button
+                className="size-7 text-muted-foreground"
+                onClick={() => setSelectedSource(null)}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <ArrowLeft className="size-3.5" />
+              </Button>
+            )}
+            <div>
+              <p className="font-medium text-sm">
+                {selectedSource === "google"
+                  ? "Google Drive"
+                  : selectedSource === "notion"
+                    ? "Notion"
+                    : "Import data"}
+              </p>
+              {!selectedSource && (
+                <p className="text-muted-foreground text-xs">
+                  {overviewLoading ? "Loading..." : "Select a source to get started"}
+                </p>
+              )}
+            </div>
+          </div>
+          <Button
+            onClick={() => void loadOverview()}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            {overviewLoading ? (
+              <Spinner className="size-3.5" />
+            ) : (
+              <Refresh className="size-3.5" />
+            )}
+          </Button>
         </div>
 
-        <Separator />
-
-        {notionPages.length === 0 ? (
-          <div className="px-4 py-10 text-center text-muted-foreground text-sm">
-            Load pages from Notion to start a selection.
-          </div>
+        {/* Step router */}
+        {!selectedSource ? (
+          <Step1SourcePicker
+            googleStatus={googleStatus}
+            notionStatus={notionStatus}
+            onSelect={setSelectedSource}
+          />
+        ) : selectedSource === "google" ? (
+          renderGoogleStep()
         ) : (
-          <ScrollArea className="max-h-[24rem]">
-            <div className="divide-y divide-border/60">
-              {notionPages.map((page) => {
-                const checked = selectedNotionPageIds.includes(page.id);
-                return (
-                  <label
-                    className="flex cursor-pointer items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/20"
-                    key={page.id}
-                  >
-                    <Checkbox
-                      checked={checked}
-                      className="mt-0.5"
-                      onCheckedChange={() => toggleNotionPage(page.id)}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-3">
-                        <p className="truncate font-medium text-sm">{page.title}</p>
-                        <span className="shrink-0 text-muted-foreground text-xs">
-                          {formatTimestamp(page.lastEditedTime)}
-                        </span>
-                      </div>
-                      {page.url ? (
-                        <a
-                          className="mt-1 inline-flex text-muted-foreground text-xs underline-offset-4 hover:text-foreground hover:underline"
-                          href={page.url}
-                          rel="noreferrer"
-                          target="_blank"
-                        >
-                          Open in Notion
-                        </a>
-                      ) : null}
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
-          </ScrollArea>
+          renderNotionStep()
         )}
+
+        {overviewStatus ? (
+          <div className="text-muted-foreground text-xs">{overviewStatus}</div>
+        ) : null}
       </section>
     </div>
   );

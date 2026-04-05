@@ -75,7 +75,7 @@ export async function POST(request: Request) {
         }
       );
 
-      await invalidateTaskListCache(ctx.workspace.workspaceId, ctx.user.id);
+      await invalidateTaskListCache(ctx.workspace.workspaceId);
 
       return NextResponse.json({ kind, task }, { status: 201 });
     } catch (error) {

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 function intersects(a: DOMRect, b: DOMRect): boolean {
   return !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
@@ -13,14 +13,34 @@ export function useFileSelection({ gridRef, itemRefs }: UseFileSelectionOptions)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectionAnchorId, setSelectionAnchorId] = useState<string | null>(null);
   const [selectionRect, setSelectionRect] = useState<DOMRect | null>(null);
+  const selectedIdsRef = useRef<Set<string>>(new Set());
+  const selectionAnchorIdRef = useRef<string | null>(null);
+
+  const updateSelectedIds = useCallback(
+    (updater: Set<string> | ((current: Set<string>) => Set<string>)) => {
+      const current = selectedIdsRef.current;
+      const next = typeof updater === "function" ? updater(current) : updater;
+      selectedIdsRef.current = next;
+      setSelectedIds(next);
+    },
+    []
+  );
 
   const clearSelection = useCallback(() => {
-    setSelectedIds(new Set());
+    const next = new Set<string>();
+    selectedIdsRef.current = next;
+    setSelectedIds(next);
+    selectionAnchorIdRef.current = null;
     setSelectionAnchorId(null);
   }, []);
 
+  const setAnchor = useCallback((itemId: string | null) => {
+    selectionAnchorIdRef.current = itemId;
+    setSelectionAnchorId(itemId);
+  }, []);
+
   const toggleSelection = useCallback((itemId: string) => {
-    setSelectedIds((previous) => {
+    updateSelectedIds((previous) => {
       const next = new Set(previous);
       if (next.has(itemId)) {
         next.delete(itemId);
@@ -29,11 +49,11 @@ export function useFileSelection({ gridRef, itemRefs }: UseFileSelectionOptions)
       }
       return next;
     });
-    setSelectionAnchorId(itemId);
-  }, []);
+    setAnchor(itemId);
+  }, [setAnchor, updateSelectedIds]);
 
   const setItemSelected = useCallback((itemId: string, selected: boolean) => {
-    setSelectedIds((previous) => {
+    updateSelectedIds((previous) => {
       const next = new Set(previous);
       if (selected) {
         next.add(itemId);
@@ -42,13 +62,15 @@ export function useFileSelection({ gridRef, itemRefs }: UseFileSelectionOptions)
       }
       return next;
     });
-    setSelectionAnchorId(itemId);
-  }, []);
+    setAnchor(itemId);
+  }, [setAnchor, updateSelectedIds]);
 
   const setSelection = useCallback((itemIds: string[], anchorId?: string | null) => {
-    setSelectedIds(new Set(itemIds));
-    setSelectionAnchorId(anchorId ?? itemIds[0] ?? null);
-  }, []);
+    const next = new Set(itemIds);
+    selectedIdsRef.current = next;
+    setSelectedIds(next);
+    setAnchor(anchorId ?? itemIds[0] ?? null);
+  }, [setAnchor]);
 
   const startDragSelection = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
@@ -110,7 +132,7 @@ export function useFileSelection({ gridRef, itemRefs }: UseFileSelectionOptions)
           }
         });
 
-        setSelectedIds(selected);
+        updateSelectedIds(selected);
       };
 
       const handleUp = () => {
@@ -125,16 +147,20 @@ export function useFileSelection({ gridRef, itemRefs }: UseFileSelectionOptions)
       window.addEventListener("pointermove", handleMove);
       window.addEventListener("pointerup", handleUp);
     },
-    [clearSelection, gridRef, itemRefs],
+    [clearSelection, gridRef, itemRefs, updateSelectedIds],
   );
 
   const handleItemClick = useCallback(
     (event: React.MouseEvent<HTMLDivElement>, itemId: string, visibleItemIds: string[]) => {
       const isMultiToggle = event.metaKey || event.ctrlKey;
       const isRangeSelect = event.shiftKey;
+      const currentSelectedIds = selectedIdsRef.current;
 
       if (isRangeSelect) {
-        const anchorId = selectionAnchorId ?? selectedIds.values().next().value ?? itemId;
+        const anchorId =
+          selectionAnchorIdRef.current ??
+          currentSelectedIds.values().next().value ??
+          itemId;
         const anchorIndex = visibleItemIds.indexOf(anchorId);
         const targetIndex = visibleItemIds.indexOf(itemId);
 
@@ -146,7 +172,7 @@ export function useFileSelection({ gridRef, itemRefs }: UseFileSelectionOptions)
         const [start, end] =
           anchorIndex < targetIndex ? [anchorIndex, targetIndex] : [targetIndex, anchorIndex];
         const range = visibleItemIds.slice(start, end + 1);
-        setSelectedIds(new Set(range));
+        setSelection(range, anchorId);
         return;
       }
 
@@ -157,24 +183,32 @@ export function useFileSelection({ gridRef, itemRefs }: UseFileSelectionOptions)
 
       setSelection([itemId], itemId);
     },
-    [selectedIds, selectionAnchorId, setSelection, toggleSelection],
+    [setSelection, toggleSelection],
   );
 
   const prepareDrag = useCallback(
     (itemId: string) => {
-      const sourceIds = selectedIds.has(itemId) ? Array.from(selectedIds) : [itemId];
-      setSelectedIds(new Set(sourceIds));
-      if (!selectedIds.has(itemId)) {
-        setSelectionAnchorId(itemId);
+      const currentSelectedIds = selectedIdsRef.current;
+      const sourceIds = currentSelectedIds.has(itemId)
+        ? Array.from(currentSelectedIds)
+        : [itemId];
+      const next = new Set(sourceIds);
+      selectedIdsRef.current = next;
+      setSelectedIds(next);
+      if (!currentSelectedIds.has(itemId)) {
+        setAnchor(itemId);
       }
       return sourceIds;
     },
-    [selectedIds],
+    [setAnchor],
   );
+
+  const getSelectedIds = useCallback(() => selectedIdsRef.current, []);
 
   return {
     selectedIds,
     selectedCount: selectedIds.size,
+    getSelectedIds,
     selectionRect,
     clearSelection,
     setSelection,

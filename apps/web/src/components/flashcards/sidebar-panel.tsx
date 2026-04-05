@@ -40,7 +40,6 @@ import { useRouter } from "next/navigation";
 import {
   startTransition,
   useCallback,
-  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -52,6 +51,7 @@ import {
 } from "@/lib/dashboard-browser-cache";
 import { prefetchFlashcardSet } from "@/lib/flashcard-browser-cache";
 import type { FlashcardSetSummary } from "@/lib/flashcards";
+import { commandPaletteActions } from "@/stores/commandPaletteStore";
 
 export function FlashcardsSidebarPanel({
   active,
@@ -70,9 +70,7 @@ export function FlashcardsSidebarPanel({
   const [createOpen, setCreateOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
   const [busy, setBusy] = useState(false);
-  const deferredSearchQuery = useDeferredValue(searchQuery);
 
   const loadSets = useCallback(
     async (signal?: AbortSignal) => {
@@ -191,13 +189,7 @@ export function FlashcardsSidebarPanel({
 
   const reviewTarget =
     sets.find((set) => set.dueCount > 0 || set.newCount > 0) ?? null;
-  const filteredSets = useMemo(() => {
-    const needle = deferredSearchQuery.trim().toLowerCase();
-    if (!needle) {
-      return sets;
-    }
-    return sets.filter((set) => set.title.toLowerCase().includes(needle));
-  }, [deferredSearchQuery, sets]);
+  const filteredSets = sets;
 
   return (
     <div className="absolute inset-0 overflow-y-auto">
@@ -297,12 +289,19 @@ export function FlashcardsSidebarPanel({
       <SidebarGroup className="min-h-0 flex-1">
         <SidebarGroupLabel>Sets</SidebarGroupLabel>
         <SidebarGroupContent>
-          <Input
-            className="mb-2 h-8 text-xs"
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search sets by name..."
-            value={searchQuery}
-          />
+          <SidebarMenuItem>
+            <Button
+              className="mb-2 h-8 w-full justify-start gap-2 px-2 text-left text-xs text-muted-foreground"
+              onClick={() => {
+                commandPaletteActions.open();
+              }}
+              type="button"
+              variant="ghost"
+            >
+              <BookOpenCheck className="size-4" />
+              Search sets in palette
+            </Button>
+          </SidebarMenuItem>
           {filteredSets.length === 0 ? (
             <Empty className="min-h-[8.5rem] rounded-2xl border-border/50 bg-background/60 px-3 py-4">
               <EmptyHeader>

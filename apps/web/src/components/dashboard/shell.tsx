@@ -223,6 +223,7 @@ export function DashboardLayout({
               workspaceUuid={activeWorkspace?.workspaceId}
             />
             <DeferredCommandPalette
+              workspaces={initialWorkspaces}
               workspaceUuid={activeWorkspace?.workspaceId}
             />
             <DeferredUploadActivityPanel />

@@ -360,14 +360,19 @@ export function FilesSidebarPanel({
       ),
     [fileTree, pinnedItems]
   );
+  const rootFolderId = useMemo(
+    () => folderTree.find((folder) => folder.parentId === null)?.id ?? null,
+    [folderTree]
+  );
 
   useEffect(() => {
     commandPaletteActions.setFileIndex({
       workspaceUuid,
       folders: folderTree,
       files: fileTree,
+      rootFolderId: rootFolderId ?? null,
     });
-  }, [fileTree, folderTree, workspaceUuid]);
+  }, [fileTree, folderTree, rootFolderId, workspaceUuid]);
 
   const loadWorkspaceTree = useCallback(async (workspaceId: string) => {
     const cached = readWorkspaceTreeCache<SidebarFolderNode, SidebarFileNode>(
@@ -1034,12 +1039,19 @@ export function FilesSidebarPanel({
               }}
             />
           </SidebarMenu>
-          <Input
-            className="mt-2 h-8 text-xs"
-            onChange={(event) => setFilesNameSearchQuery(event.target.value)}
-            placeholder="Search items by name..."
-            value={filesNameSearchQuery}
-          />
+          <SidebarMenuItem>
+            <Button
+              className="mt-2 h-8 w-full justify-start gap-2 px-2 text-left text-xs text-muted-foreground"
+              onClick={() => {
+                commandPaletteActions.open();
+              }}
+              type="button"
+              variant="ghost"
+            >
+              <Files className="size-4" />
+              Search workspace in palette
+            </Button>
+          </SidebarMenuItem>
         </SidebarGroupContent>
       </SidebarGroup>
 

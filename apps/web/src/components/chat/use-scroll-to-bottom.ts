@@ -6,9 +6,10 @@ import {
   type RefObject,
 } from "react";
 
-const FOLLOW_EASING = 0.12;
-const MANUAL_SCROLL_GRACE_MS = 1200;
-const USER_MESSAGE_TOP_RATIO = 0.22;
+const FOLLOW_EASING = 0.18;
+const MANUAL_SCROLL_GRACE_MS = 900;
+const USER_MESSAGE_TOP_OFFSET_PX = 72;
+const AUTO_SCROLL_RESUME_THRESHOLD_PX = 64;
 
 function getLatestUserMessage(container: HTMLElement) {
   const userMessages = container.querySelectorAll<HTMLElement>(
@@ -19,6 +20,13 @@ function getLatestUserMessage(container: HTMLElement) {
 
 function getBottomScrollTop(container: HTMLElement) {
   return Math.max(0, container.scrollHeight - container.clientHeight);
+}
+
+function isNearBottom(container: HTMLElement) {
+  return (
+    getBottomScrollTop(container) - container.scrollTop <=
+    AUTO_SCROLL_RESUME_THRESHOLD_PX
+  );
 }
 
 export function useScrollToBottom<T extends HTMLElement>(options: {
@@ -88,6 +96,11 @@ export function useScrollToBottom<T extends HTMLElement>(options: {
         return;
       }
 
+      if (isNearBottom(container)) {
+        enableAutoScroll();
+        return;
+      }
+
       disableAutoScroll();
     };
 
@@ -139,19 +152,20 @@ export function useScrollToBottom<T extends HTMLElement>(options: {
         return;
       }
 
-      const latestUserMessage = getLatestUserMessage(container);
-      if (!latestUserMessage) {
-        return;
-      }
+    const latestUserMessage = getLatestUserMessage(container);
+    if (!latestUserMessage) {
+      return;
+    }
 
-      const containerRect = container.getBoundingClientRect();
-      const messageRect = latestUserMessage.getBoundingClientRect();
-      const targetOffset =
-        Math.min(container.clientHeight, window.innerHeight) *
-        USER_MESSAGE_TOP_RATIO;
-      const nextTop =
-        container.scrollTop +
-        (messageRect.top - containerRect.top) -
+    const containerRect = container.getBoundingClientRect();
+    const messageRect = latestUserMessage.getBoundingClientRect();
+    const targetOffset = Math.min(
+      USER_MESSAGE_TOP_OFFSET_PX,
+      Math.max(48, Math.min(container.clientHeight, window.innerHeight) * 0.1)
+    );
+    const nextTop =
+      container.scrollTop +
+      (messageRect.top - containerRect.top) -
         targetOffset;
 
       markProgrammaticScroll();

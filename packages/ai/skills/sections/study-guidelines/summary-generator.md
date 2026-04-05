@@ -138,11 +138,11 @@ Use consistent formatting:
 ---
  
 ## Quality Checklist
- 
+
 - [ ] Captures all main ideas
 - [ ] Maintains logical structure
 - [ ] Uses own words (not copy-paste)
 - [ ] Key terms are highlighted
 - [ ] Readable without original source
 - [ ] Appropriate length for purpose
-
+- [ ] Any math is written with `$...$` or `$$...$$`, not ```latex fences

@@ -137,7 +137,7 @@ Think of [concept] like [familiar thing]. Just as [familiar thing does X], [conc
 ---
  
 ## Quality Checklist
- 
+
 - [ ] Opens with simple one-liner
 - [ ] Includes relatable analogy
 - [ ] Provides 2-3 examples at different scales
@@ -145,4 +145,4 @@ Think of [concept] like [familiar thing]. Just as [familiar thing does X], [conc
 - [ ] Builds from simple to complex
 - [ ] Uses consistent terminology
 - [ ] Connects to related concepts
-
+- [ ] Any equations are written inline with `$...$` or display with `$$...$$`, never fenced as ```latex

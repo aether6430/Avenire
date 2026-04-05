@@ -55,15 +55,14 @@ function cleanupMemoryCache() {
   }
 }
 
-function versionKey(workspaceUuid: string, userId: string) {
-  return `tasks:list:${TASK_CACHE_VERSION}:version:${workspaceUuid}:${userId}`;
+function versionKey(workspaceUuid: string) {
+  return `tasks:list:${TASK_CACHE_VERSION}:version:${workspaceUuid}`;
 }
 
 export async function getTaskListCacheVersion(
-  workspaceUuid: string,
-  userId: string
+  workspaceUuid: string
 ) {
-  const key = versionKey(workspaceUuid, userId);
+  const key = versionKey(workspaceUuid);
   const redis = await getRedisClient();
   if (redis) {
     const existing = await redis.get(key);
@@ -85,11 +84,10 @@ export async function getTaskListCacheVersion(
 }
 
 export async function invalidateTaskListCache(
-  workspaceUuid: string,
-  userId: string
+  workspaceUuid: string
 ) {
   const next = Date.now().toString();
-  const key = versionKey(workspaceUuid, userId);
+  const key = versionKey(workspaceUuid);
   const redis = await getRedisClient();
   if (redis) {
     await redis.set(key, next, { EX: 60 * 60 * 24 });
@@ -104,7 +102,6 @@ export function createTaskListCacheKey(input: {
   includeCompleted?: boolean;
   limit?: number;
   status?: string;
-  userId: string;
   version: string;
   workspaceUuid: string;
 }) {
@@ -120,7 +117,7 @@ export function createTaskListCacheKey(input: {
     )
     .digest("hex");
 
-  return `tasks:list:${TASK_CACHE_VERSION}:${input.workspaceUuid}:${input.userId}:${input.version}:${hash}`;
+  return `tasks:list:${TASK_CACHE_VERSION}:${input.workspaceUuid}:${input.version}:${hash}`;
 }
 
 export async function getCachedTaskList<T>(key: string): Promise<T | null> {

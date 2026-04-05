@@ -641,7 +641,7 @@ function PureMultimodalInput({
     if (!textareaRef.current) {
       return;
     }
-    textareaRef.current.style.height = "98px";
+    textareaRef.current.style.height = "auto";
   };
 
   const submitForm = useCallback(async () => {
@@ -783,8 +783,8 @@ function PureMultimodalInput({
   return (
     <div
       className={cn(
-        "group relative flex h-full w-full grow flex-col overflow-visible rounded-lg border border-border bg-secondary transition-colors duration-200 focus-within:bg-secondary focus-within:ring-1 focus-within:ring-ring/30",
-        centered ? "min-h-32" : "min-h-28"
+        "group relative flex w-full grow flex-col overflow-visible rounded-[26px] border border-border/80 bg-secondary/95 transition-colors duration-200 focus-within:ring-1 focus-within:ring-ring/30",
+        centered ? "min-h-12 sm:min-h-32" : "min-h-12 sm:min-h-28"
       )}
     >
       <input
@@ -796,7 +796,7 @@ function PureMultimodalInput({
         type="file"
       />
 
-      <div className="relative px-3 pt-3.5 pb-2 sm:px-4 sm:pt-4">
+      <div className="relative px-1.5 py-1.5 sm:px-4 sm:pt-4 sm:pb-3">
         <AnimatePresence initial={false}>
           {attachments.length > 0 ? (
             <motion.div
@@ -806,7 +806,7 @@ function PureMultimodalInput({
               initial={{ height: 0, opacity: 0, y: -8 }}
               transition={{ duration: 0.18, ease: "easeOut" }}
             >
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-1 pt-1">
                 {attachments.map((attachment) => (
                   <PreviewAttachment
                     attachment={attachment}
@@ -877,12 +877,12 @@ function PureMultimodalInput({
             </div>
           )}
 
-          <div className="relative z-10 rounded-[22px] bg-secondary">
-            <div className="flex min-h-16 items-start">
+          <div className="relative z-10 flex flex-row items-end rounded-[20px] bg-secondary sm:block sm:rounded-2xl">
+            <div className="flex min-h-10 flex-1 min-w-0 items-center sm:min-h-16 sm:items-start">
               <Textarea
                 autoFocus
                 className={cn(
-                  "relative z-10 min-h-16 min-w-[14rem] flex-1 resize-none overflow-visible border-none! bg-transparent! px-0! pb-2 text-[17px] leading-7 shadow-none! ring-0! focus-visible:border-transparent! focus-visible:ring-0! [&::-webkit-scrollbar-thumb]:bg-background",
+                  "relative z-10 min-h-10 flex-1 min-w-0 resize-none overflow-hidden border-none! bg-transparent! px-1 pl-2 py-2 text-[16px] leading-6 shadow-none! ring-0! focus-visible:border-transparent! focus-visible:ring-0! sm:min-h-16 sm:overflow-visible sm:px-0 sm:pl-0 sm:py-2 sm:text-[17px] sm:leading-7 [&::-webkit-scrollbar-thumb]:bg-background",
                   className
                 )}
                 data-testid="multimodal-input"
@@ -930,29 +930,39 @@ function PureMultimodalInput({
                 onSelect={() => {
                   updateTextareaSelection();
                 }}
-                placeholder="Ask anything or type @ to attach a workspace file"
+                placeholder={
+                  isMobile
+                    ? "Ask anything..."
+                    : "Ask anything or type @ to attach a workspace file"
+                }
                 ref={textareaRef}
-                rows={2}
+                rows={1}
                 value={input}
               />
             </div>
-          </div>
-        </div>
 
-        <div className="flex flex-nowrap items-center justify-between gap-2 px-2.5 pt-2.5 pb-2.5 sm:gap-0 sm:px-3 sm:pt-3 sm:pb-3">
-          <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <AttachmentsButton
-              onClick={() => fileInputRef.current?.click()}
-              status={status}
-            />
-          </div>
+            <div className="flex shrink-0 flex-nowrap items-center justify-between gap-1.5 sm:px-1.5 sm:pt-3">
+              <div className="hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex">
+                <AttachmentsButton
+                  onClick={() => fileInputRef.current?.click()}
+                  status={status}
+                />
+              </div>
 
-          <div className="flex shrink-0 items-center gap-2">
-            <SendButton
-              canSend={canSend}
-              status={status}
-              submitForm={runSubmitForm}
-            />
+              <div className="flex shrink-0 items-center gap-1 pb-1 pr-1 sm:gap-2 sm:pb-0 sm:pr-0">
+                <div className="-mr-1 sm:hidden">
+                  <AttachmentsButton
+                    onClick={() => fileInputRef.current?.click()}
+                    status={status}
+                  />
+                </div>
+                <SendButton
+                  canSend={canSend}
+                  status={status}
+                  submitForm={runSubmitForm}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>

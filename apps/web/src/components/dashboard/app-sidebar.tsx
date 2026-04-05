@@ -22,7 +22,6 @@ import {
   type ComponentProps,
   type ComponentType,
   useCallback,
-  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -471,7 +470,6 @@ export function DashboardSidebar({
         ? readCachedChats(activeWorkspace.workspaceId)
         : null) ?? initialChats
   );
-  const [chatSearchQuery, setChatSearchQuery] = useState("");
   const [editingChatSlug, setEditingChatSlug] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [pendingChatSlug, setPendingChatSlug] = useState<string | null>(null);
@@ -522,7 +520,6 @@ export function DashboardSidebar({
   const chatsWorkspaceRef = useRef<string | null>(
     activeWorkspace?.workspaceId ?? null
   );
-  const deferredChatSearchQuery = useDeferredValue(chatSearchQuery);
   const sessionCloseRef = useRef<{
     chatId: string;
     sent: boolean;
@@ -997,6 +994,14 @@ export function DashboardSidebar({
   }, [routeWorkspaceUuid]);
 
   useEffect(() => {
+    if (!derivedWorkspaceUuid || routeWorkspaceUuid || readPreferredWorkspaceId()) {
+      return;
+    }
+
+    window.localStorage.setItem("preferredWorkspaceId", derivedWorkspaceUuid);
+  }, [derivedWorkspaceUuid, routeWorkspaceUuid]);
+
+  useEffect(() => {
     const onChatCreated = (event: Event) => {
       const detail = (event as CustomEvent<ChatCreatedDetail>).detail;
       if (!(detail?.id && detail?.title)) {
@@ -1110,27 +1115,8 @@ export function DashboardSidebar({
     () => sortedChats.filter((chat) => !chat.pinned),
     [sortedChats]
   );
-  const filteredChatNeedleDeferred = deferredChatSearchQuery
-    .trim()
-    .toLowerCase();
-  const filteredPinnedChats = useMemo(
-    () =>
-      pinnedChats.filter((chat) =>
-        filteredChatNeedleDeferred
-          ? chat.title.toLowerCase().includes(filteredChatNeedleDeferred)
-          : true
-      ),
-    [filteredChatNeedleDeferred, pinnedChats]
-  );
-  const filteredOtherChats = useMemo(
-    () =>
-      otherChats.filter((chat) =>
-        filteredChatNeedleDeferred
-          ? chat.title.toLowerCase().includes(filteredChatNeedleDeferred)
-          : true
-      ),
-    [filteredChatNeedleDeferred, otherChats]
-  );
+  const filteredPinnedChats = pinnedChats;
+  const filteredOtherChats = otherChats;
 
   const navigateToFilesRoot = useCallback(async () => {
     try {
@@ -1589,6 +1575,51 @@ export function DashboardSidebar({
   );
 
   useHotkey(
+    "Mod+Z",
+    (event) => {
+      if (isTypingTarget(event.target)) {
+        return;
+      }
+      event.preventDefault();
+      if (activeView !== "files") {
+        return;
+      }
+      filesUiActions.emitIntent("undoMutation");
+    },
+    { ignoreInputs: true }
+  );
+
+  useHotkey(
+    "Mod+Shift+Z",
+    (event) => {
+      if (isTypingTarget(event.target)) {
+        return;
+      }
+      event.preventDefault();
+      if (activeView !== "files") {
+        return;
+      }
+      filesUiActions.emitIntent("redoMutation");
+    },
+    { ignoreInputs: true }
+  );
+
+  useHotkey(
+    "Mod+Y",
+    (event) => {
+      if (isTypingTarget(event.target)) {
+        return;
+      }
+      event.preventDefault();
+      if (activeView !== "files") {
+        return;
+      }
+      filesUiActions.emitIntent("redoMutation");
+    },
+    { ignoreInputs: true }
+  );
+
+  useHotkey(
     "Alt+ArrowLeft",
     (event) => {
       if (isTypingTarget(event.target)) {
@@ -1786,15 +1817,20 @@ export function DashboardSidebar({
                             void createChat();
                           }}
                         />
+                        <SidebarMenuItem>
+                          <Button
+                            className="hit-area mt-2 h-8 w-full justify-start gap-2 px-2 text-left text-xs text-muted-foreground"
+                            onClick={() => {
+                              commandPaletteActions.open();
+                            }}
+                            type="button"
+                            variant="ghost"
+                          >
+                            <MessageSquare className="size-4" />
+                            Search methods in palette
+                          </Button>
+                        </SidebarMenuItem>
                       </SidebarMenu>
-                        <Input
-                        className="mt-2 h-8 text-xs"
-                        onChange={(event) =>
-                          setChatSearchQuery(event.target.value)
-                        }
-                        placeholder="Search methods by title..."
-                        value={chatSearchQuery}
-                      />
                     </SidebarGroupContent>
                   </SidebarGroup>
 

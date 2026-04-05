@@ -57,8 +57,16 @@ import {
 import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
 import { filesUiActions } from "@/stores/filesUiStore";
 import { quickCaptureActions } from "@/stores/quickCaptureStore";
+import { readCachedChats, readCachedFlashcardSets } from "@/lib/dashboard-browser-cache";
+import type { ChatSummary } from "@/lib/chat-data";
+import type { FlashcardSetSummary } from "@/lib/flashcards";
+import {
+  readWorkspaceTreeCache,
+  writeWorkspaceTreeCache,
+} from "@/lib/workspace-tree-cache";
 
 type PaletteItemType = "file" | "folder";
+type PaletteSearchType = "chat" | "flashcard";
 
 interface PaletteItem {
   folderId?: string;
@@ -66,6 +74,17 @@ interface PaletteItem {
   name: string;
   path: string;
   type: PaletteItemType;
+  workspaceName: string;
+  workspaceUuid: string;
+}
+
+interface PaletteSearchItem {
+  description: string;
+  id: string;
+  label: string;
+  meta: string;
+  path: string;
+  type: PaletteSearchType;
 }
 
 interface PaletteCommandItem {
@@ -82,12 +101,91 @@ interface PaletteCommandItem {
 const FILE_FUSE_OPTIONS = {
   includeScore: true,
   ignoreLocation: true,
-  keys: ["name", "path"],
+  keys: ["name", "path", "workspaceName"],
   threshold: 0.45,
 };
 
 const FILE_RESULTS_LIMIT = 8;
 const FILES_ROUTE_PATTERN = /^\/workspace\/files\/([^/]+)\/folder\/([^/?#]+)$/;
+
+type WorkspaceSummary = {
+  logo?: string | null;
+  name: string;
+  organizationId: string;
+  rootFolderId: string;
+  workspaceId: string;
+};
+
+type WorkspaceTreePayload = {
+  files?: Array<{
+    folderId: string;
+    id: string;
+    name: string;
+    readOnly?: boolean;
+  }>;
+  folders?: Array<{
+    id: string;
+    name: string;
+    parentId: string | null;
+    readOnly?: boolean;
+  }>;
+};
+
+async function hydrateWorkspaceIndex(workspace: WorkspaceSummary) {
+  const cached = readWorkspaceTreeCache<
+    {
+      id: string;
+      name: string;
+      parentId: string | null;
+      readOnly?: boolean;
+    },
+    {
+      folderId: string;
+      id: string;
+      name: string;
+      readOnly?: boolean;
+    }
+  >(workspace.workspaceId);
+
+  if (cached) {
+    commandPaletteActions.setFileIndex({
+      workspaceUuid: workspace.workspaceId,
+      workspaceName: workspace.name,
+      rootFolderId: workspace.rootFolderId,
+      folders: cached.folders,
+      files: cached.files,
+    });
+  }
+
+  const response = await fetch(`/api/workspaces/${workspace.workspaceId}/tree`, {
+    cache: "no-store",
+  }).catch(() => null);
+
+  if (!response?.ok) {
+    return;
+  }
+
+  const payload = (await response.json()) as WorkspaceTreePayload;
+  const folders = payload.folders ?? [];
+  const files = (payload.files ?? []).map((file) => ({
+    folderId: file.folderId,
+    id: file.id,
+    name: file.name,
+    readOnly: file.readOnly,
+  }));
+
+  writeWorkspaceTreeCache(workspace.workspaceId, {
+    files,
+    folders,
+  });
+  commandPaletteActions.setFileIndex({
+    workspaceUuid: workspace.workspaceId,
+    workspaceName: workspace.name,
+    rootFolderId: workspace.rootFolderId,
+    folders,
+    files,
+  });
+}
 
 async function queryWorkspaceRetrieval(input: {
   files: Array<{
@@ -203,16 +301,11 @@ function isTypingTarget(target: EventTarget | null): boolean {
 }
 
 function shouldIgnoreGlobalHotkey(event: KeyboardEvent): boolean {
-  const editableSelector =
-    'input, textarea, select, [contenteditable="true"], [contenteditable=""]';
   const activeElement = document.activeElement;
 
   return (
     isTypingTarget(event.target) ||
-    (activeElement instanceof HTMLElement &&
-      (activeElement.matches(editableSelector) ||
-        activeElement.closest(editableSelector) !== null)) ||
-    event.defaultPrevented
+    isTypingTarget(activeElement)
   );
 }
 
@@ -223,10 +316,16 @@ function commandMatches(item: PaletteCommandItem, needle: string) {
   return haystack.includes(needle);
 }
 
+function matchesNeedle(value: string, needle: string) {
+  return value.toLowerCase().includes(needle);
+}
+
 export function CommandPalette({
   workspaceUuid: activeWorkspaceUuid,
+  workspaces = [],
 }: {
   workspaceUuid?: string;
+  workspaces?: WorkspaceSummary[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -240,8 +339,9 @@ export function CommandPalette({
   const { resolvedTheme, setTheme } = useTheme();
   const open = useCommandPaletteStore((state) => state.open);
   const workspaceUuid = useCommandPaletteStore((state) => state.workspaceUuid);
-  const folders = useCommandPaletteStore((state) => state.folders);
-  const files = useCommandPaletteStore((state) => state.files);
+  const fileIndexByWorkspace = useCommandPaletteStore(
+    (state) => state.fileIndexByWorkspace
+  );
   const recentFileIdsByWorkspace = useCommandPaletteStore(
     (state) => state.recentFileIdsByWorkspace
   );
@@ -344,98 +444,125 @@ export function CommandPalette({
     );
   }, [activeFileId, currentFilesWorkspaceUuid]);
 
-  const folderById = useMemo(
-    () => new Map(folders.map((folder) => [folder.id, folder])),
-    [folders]
-  );
-
-  const folderPathById = useMemo(() => {
-    const cache = new Map<string, string>();
-
-    const resolvePath = (folderId: string | null): string => {
-      if (!folderId) {
-        return "";
-      }
-
-      const cached = cache.get(folderId);
-      if (cached !== undefined) {
-        return cached;
-      }
-
-      const segments: string[] = [];
-      const seen = new Set<string>();
-      let cursor: string | null = folderId;
-
-      while (cursor) {
-        if (seen.has(cursor)) {
-          break;
-        }
-
-        seen.add(cursor);
-        const folder = folderById.get(cursor);
-        if (!folder) {
-          break;
-        }
-
-        if (folder.parentId === null) {
-          break;
-        }
-
-        segments.push(folder.name);
-        cursor = folder.parentId;
-      }
-
-      const resolved = segments.reverse().join("/");
-      cache.set(folderId, resolved);
-      return resolved;
-    };
-
-    const map = new Map<string, string>();
-    for (const folder of folders) {
-      const path = resolvePath(folder.id);
-      map.set(folder.id, path || folder.name);
+  useEffect(() => {
+    if (!open) {
+      return;
     }
-    return map;
-  }, [folderById, folders]);
 
-  const fileItems = useMemo<PaletteItem[]>(
-    () =>
-      files.map((file) => {
+    for (const workspace of workspaces) {
+      const existingIndex = fileIndexByWorkspace[workspace.workspaceId];
+      if (existingIndex?.files.length || existingIndex?.folders.length) {
+        continue;
+      }
+      void hydrateWorkspaceIndex(workspace);
+    }
+  }, [fileIndexByWorkspace, open, workspaces]);
+
+  const workspaceItems = useMemo(() => {
+    const folderPathMaps = new Map<string, Map<string, string>>();
+    const files: PaletteItem[] = [];
+    const folders: PaletteItem[] = [];
+
+    for (const workspace of workspaces) {
+      const index = fileIndexByWorkspace[workspace.workspaceId];
+      if (!index) {
+        continue;
+      }
+
+      const folderById = new Map(index.folders.map((folder) => [folder.id, folder]));
+      const cache = new Map<string, string>();
+      const resolvePath = (folderId: string | null): string => {
+        if (!folderId) {
+          return "";
+        }
+
+        const cached = cache.get(folderId);
+        if (cached !== undefined) {
+          return cached;
+        }
+
+        const segments: string[] = [];
+        const seen = new Set<string>();
+        let cursor: string | null = folderId;
+
+        while (cursor) {
+          if (seen.has(cursor)) {
+            break;
+          }
+          seen.add(cursor);
+          const folder = folderById.get(cursor);
+          if (!folder) {
+            break;
+          }
+          if (folder.parentId === null) {
+            break;
+          }
+          segments.push(folder.name);
+          cursor = folder.parentId;
+        }
+
+        const resolved = segments.reverse().join("/");
+        cache.set(folderId, resolved);
+        return resolved;
+      };
+
+      const folderPathById = new Map<string, string>();
+      for (const folder of index.folders) {
+        const path = resolvePath(folder.id);
+        folderPathById.set(folder.id, path || folder.name);
+        folders.push({
+          id: folder.id,
+          name: folder.name,
+          path: path || folder.name,
+          type: "folder",
+          workspaceName: workspace.name,
+          workspaceUuid: workspace.workspaceId,
+        });
+      }
+
+      folderPathMaps.set(workspace.workspaceId, folderPathById);
+
+      for (const file of index.files) {
         const folderPath = folderPathById.get(file.folderId) ?? "";
-        const fullPath = folderPath ? `${folderPath}/${file.name}` : file.name;
-        return {
+        files.push({
           folderId: file.folderId,
           id: file.id,
           name: file.name,
-          path: fullPath,
+          path: folderPath ? `${folderPath}/${file.name}` : file.name,
           type: "file",
-        };
-      }),
-    [files, folderPathById]
-  );
-
-  const folderItems = useMemo<PaletteItem[]>(
-    () =>
-      folders.map((folder) => ({
-        id: folder.id,
-        name: folder.name,
-        path: folderPathById.get(folder.id) ?? folder.name,
-        type: "folder",
-      })),
-    [folders, folderPathById]
-  );
-
-  const recentItems = useMemo(() => {
-    if (!workspaceUuid) {
-      return [];
+          workspaceName: workspace.name,
+          workspaceUuid: workspace.workspaceId,
+        });
+      }
     }
 
-    const recentIds = recentFileIdsByWorkspace[workspaceUuid] ?? [];
-    const fileById = new Map(fileItems.map((file) => [file.id, file]));
-    return recentIds
-      .map((fileId) => fileById.get(fileId))
-      .filter((item): item is PaletteItem => Boolean(item));
-  }, [fileItems, recentFileIdsByWorkspace, workspaceUuid]);
+    return { files, folderPathMaps, folders };
+  }, [fileIndexByWorkspace, workspaces]);
+
+  const fileItems = workspaceItems.files;
+  const folderItems = workspaceItems.folders;
+
+  const recentItems = useMemo(() => {
+    const targetWorkspaceIds = resolvedWorkspaceUuid
+      ? [resolvedWorkspaceUuid]
+      : workspaces.map((workspace) => workspace.workspaceId);
+    const fileByWorkspaceAndId = new Map(
+      fileItems.map((file) => [`${file.workspaceUuid}:${file.id}`, file])
+    );
+    const items: PaletteItem[] = [];
+
+    for (const targetWorkspaceId of targetWorkspaceIds) {
+      const recentIds = recentFileIdsByWorkspace[targetWorkspaceId] ?? [];
+      for (const fileId of recentIds) {
+        const item = fileByWorkspaceAndId.get(`${targetWorkspaceId}:${fileId}`);
+        if (item) {
+          items.push(item);
+        }
+      }
+    }
+
+    return items.slice(0, 8);
+  }, [fileItems, recentFileIdsByWorkspace, resolvedWorkspaceUuid, workspaces]);
 
   const searchItems = useMemo(
     () => [...fileItems, ...folderItems],
@@ -447,11 +574,6 @@ export function CommandPalette({
     [searchItems]
   );
 
-  const rootFolderId = useMemo(() => {
-    const rootFolder = folders.find((folder) => folder.parentId === null);
-    return rootFolder?.id ?? null;
-  }, [folders]);
-
   const workspaceTasks = useMemo(
     () =>
       cachedTasks
@@ -459,13 +581,27 @@ export function CommandPalette({
         .slice(0, 8),
     [cachedTasks, resolvedWorkspaceUuid]
   );
+  const cachedChats = useMemo<ChatSummary[]>(
+    () => (resolvedWorkspaceUuid ? readCachedChats(resolvedWorkspaceUuid) ?? [] : []),
+    [resolvedWorkspaceUuid]
+  );
+  const cachedFlashcardSets = useMemo<FlashcardSetSummary[]>(
+    () =>
+      resolvedWorkspaceUuid
+        ? readCachedFlashcardSets(resolvedWorkspaceUuid) ?? []
+        : [],
+    [resolvedWorkspaceUuid]
+  );
 
   const openFilesRoute = useCallback(() => {
+    const targetWorkspace = workspaces.find(
+      (entry) => entry.workspaceId === resolvedWorkspaceUuid
+    );
     const targetRoute =
-      workspaceUuid && rootFolderId
-        ? (`/workspace/files/${workspaceUuid}/folder/${rootFolderId}` as Route)
-        : workspaceUuid
-          ? (`/workspace/files/${workspaceUuid}` as Route)
+      targetWorkspace?.workspaceId && targetWorkspace.rootFolderId
+        ? (`/workspace/files/${targetWorkspace.workspaceId}/folder/${targetWorkspace.rootFolderId}` as Route)
+        : targetWorkspace?.workspaceId
+          ? (`/workspace/files/${targetWorkspace.workspaceId}` as Route)
           : ("/workspace/files" as Route);
 
     router.prefetch(targetRoute);
@@ -479,7 +615,7 @@ export function CommandPalette({
 
       router.push(targetRoute);
     });
-  }, [currentRoute, rootFolderId, router, workspaceUuid]);
+  }, [currentRoute, resolvedWorkspaceUuid, router, workspaces]);
 
   const handleFileIntent = useCallback(
     (intent: Parameters<typeof filesUiActions.emitIntent>[0]) => {
@@ -676,9 +812,10 @@ export function CommandPalette({
   );
 
   const trimmedQuery = debouncedQuery.trim().toLowerCase();
+  const searchQuery = trimmedQuery;
 
   const filteredCommands = useMemo(() => {
-    if (!trimmedQuery) {
+    if (!searchQuery) {
       return {
         create: commandItems.filter((item) => item.group === "Create"),
         general: commandItems.filter((item) => item.group === "General"),
@@ -686,18 +823,60 @@ export function CommandPalette({
     }
 
     const matches = commandItems.filter((item) =>
-      commandMatches(item, trimmedQuery)
+      commandMatches(item, searchQuery)
     );
     return {
       create: matches.filter((item) => item.group === "Create"),
       general: matches.filter((item) => item.group === "General"),
     };
-  }, [commandItems, trimmedQuery]);
+  }, [commandItems, searchQuery]);
 
   const hasCommandMatches =
     filteredCommands.general.length > 0 || filteredCommands.create.length > 0;
+  const chatResults = useMemo<PaletteSearchItem[]>(() => {
+    if (!searchQuery) {
+      return [];
+    }
+
+    return cachedChats
+      .filter((chat) =>
+        matchesNeedle(`${chat.title} ${chat.slug} ${chat.workspaceId}`, searchQuery)
+      )
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+      .slice(0, 8)
+      .map((chat) => ({
+        description: chat.slug,
+        id: chat.id,
+        label: chat.title,
+        meta: new Date(chat.updatedAt).toLocaleDateString(),
+        path: `/workspace/chats/${chat.slug}`,
+        type: "chat",
+      }));
+  }, [cachedChats, searchQuery]);
+  const flashcardResults = useMemo<PaletteSearchItem[]>(() => {
+    if (!searchQuery) {
+      return [];
+    }
+
+    return cachedFlashcardSets
+      .filter((set) => matchesNeedle(`${set.title} ${set.id}`, searchQuery))
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+      .slice(0, 8)
+      .map((set) => ({
+        description: `${set.dueCount} due · ${set.newCount} new`,
+        id: set.id,
+        label: set.title,
+        meta: new Date(set.updatedAt).toLocaleDateString(),
+        path: `/workspace/flashcards/${set.id}`,
+        type: "flashcard",
+      }));
+  }, [cachedFlashcardSets, searchQuery]);
   const shouldSearchFiles =
-    Boolean(workspaceUuid) && Boolean(trimmedQuery) && !hasCommandMatches;
+    Boolean(searchQuery) &&
+    !hasCommandMatches &&
+    chatResults.length === 0 &&
+    flashcardResults.length === 0 &&
+    searchItems.length > 0;
 
   const fuzzyResults = useMemo(() => {
     if (!shouldSearchFiles) {
@@ -705,38 +884,52 @@ export function CommandPalette({
     }
 
     return fuse
-      .search(trimmedQuery)
+      .search(searchQuery)
       .filter((result) => (result.score ?? 1) <= FILE_FUSE_OPTIONS.threshold)
       .slice(0, FILE_RESULTS_LIMIT)
       .map((result) => result.item);
-  }, [fuse, shouldSearchFiles, trimmedQuery]);
+  }, [fuse, searchQuery, shouldSearchFiles]);
 
   const fileSearchFingerprint = useMemo(
     () =>
-      files
-        .map((file) => `${file.id}:${file.name}:${file.folderId ?? ""}`)
+      fileItems
+        .map(
+          (file) =>
+            `${file.workspaceUuid}:${file.id}:${file.name}:${file.folderId ?? ""}`
+        )
         .join("\u0001"),
-    [files]
+    [fileItems]
   );
 
   const retrievalQuery = useQuery({
     queryFn: ({ signal }) =>
-      workspaceUuid && trimmedQuery
+      resolvedWorkspaceUuid && searchQuery
         ? queryWorkspaceRetrieval({
-            files,
-            query: trimmedQuery,
+            files: fileItems
+              .filter((file) => file.workspaceUuid === resolvedWorkspaceUuid)
+              .map((file) => ({
+                folderId: file.folderId,
+                id: file.id,
+                name: file.name,
+              })),
+            query: searchQuery,
             signal,
-            workspaceUuid,
+            workspaceUuid: resolvedWorkspaceUuid,
           })
         : Promise.resolve([]),
     queryKey: [
       "command-palette",
       "retrieval",
-      workspaceUuid,
-      trimmedQuery,
+      resolvedWorkspaceUuid,
+      searchQuery,
       fileSearchFingerprint,
     ],
-    enabled: Boolean(open && shouldSearchFiles && fuzzyResults.length === 0),
+    enabled: Boolean(
+      open &&
+        shouldSearchFiles &&
+        fuzzyResults.length === 0 &&
+        resolvedWorkspaceUuid
+    ),
   });
 
   const retrievalResults =
@@ -746,40 +939,39 @@ export function CommandPalette({
   const isRetrieving = retrievalQuery.isFetching;
 
   useEffect(() => {
-    if (!(open && workspaceUuid)) {
+    if (!(open && resolvedWorkspaceUuid)) {
       return;
     }
 
+    const currentWorkspace = workspaces.find(
+      (entry) => entry.workspaceId === resolvedWorkspaceUuid
+    );
     const targetRoute =
-      currentFilesWorkspaceUuid === workspaceUuid && currentFilesFolderId
-        ? (`/workspace/files/${workspaceUuid}/folder/${currentFilesFolderId}` as Route)
-        : rootFolderId
-          ? (`/workspace/files/${workspaceUuid}/folder/${rootFolderId}` as Route)
-          : (`/workspace/files/${workspaceUuid}` as Route);
+      currentFilesWorkspaceUuid === resolvedWorkspaceUuid && currentFilesFolderId
+        ? (`/workspace/files/${resolvedWorkspaceUuid}/folder/${currentFilesFolderId}` as Route)
+        : currentWorkspace?.rootFolderId
+          ? (`/workspace/files/${resolvedWorkspaceUuid}/folder/${currentWorkspace.rootFolderId}` as Route)
+          : (`/workspace/files/${resolvedWorkspaceUuid}` as Route);
 
     router.prefetch(targetRoute);
     warmWorkspaceSurface("files", {
       currentFolderId: currentFilesFolderId,
-      rootFolderId,
-      workspaceUuid,
+      rootFolderId: currentWorkspace?.rootFolderId ?? null,
+      workspaceUuid: resolvedWorkspaceUuid,
     }).catch(() => undefined);
   }, [
     currentFilesFolderId,
     currentFilesWorkspaceUuid,
     open,
-    rootFolderId,
+    resolvedWorkspaceUuid,
     router,
-    workspaceUuid,
+    workspaces,
   ]);
 
   const handleOpenFolder = useCallback(
-    (folderId: string) => {
-      if (!workspaceUuid) {
-        return;
-      }
-
+    (item: PaletteItem) => {
       const targetRoute =
-        `/workspace/files/${workspaceUuid}/folder/${folderId}` as Route;
+        `/workspace/files/${item.workspaceUuid}/folder/${item.id}` as Route;
       router.prefetch(targetRoute);
       setPendingRoute(targetRoute);
 
@@ -787,25 +979,23 @@ export function CommandPalette({
         router.push(targetRoute);
       });
     },
-    [router, workspaceUuid]
+    [router]
   );
 
   const handleOpenFile = useCallback(
     (
+      workspaceId: string,
       fileId: string,
       folderId: string | undefined,
       options?: { retrievalChunkId?: string | null }
     ) => {
-      if (!workspaceUuid) {
-        return;
-      }
-
-      commandPaletteActions.recordRecentFile(workspaceUuid, fileId);
+      commandPaletteActions.recordRecentFile(workspaceId, fileId);
+      const workspace = workspaces.find((entry) => entry.workspaceId === workspaceId);
 
       if (!folderId) {
-        const fallbackRoute = rootFolderId
-          ? (`/workspace/files/${workspaceUuid}/folder/${rootFolderId}` as Route)
-          : (`/workspace/files/${workspaceUuid}` as Route);
+        const fallbackRoute = workspace?.rootFolderId
+          ? (`/workspace/files/${workspaceId}/folder/${workspace.rootFolderId}` as Route)
+          : (`/workspace/files/${workspaceId}` as Route);
         router.prefetch(fallbackRoute);
         setPendingRoute(fallbackRoute);
         startTransition(() => {
@@ -821,13 +1011,13 @@ export function CommandPalette({
       }
 
       const targetRoute =
-        `/workspace/files/${workspaceUuid}/folder/${folderId}?${params.toString()}` as Route;
+        `/workspace/files/${workspaceId}/folder/${folderId}?${params.toString()}` as Route;
       router.prefetch(targetRoute);
       setPendingRoute(targetRoute);
 
       startTransition(() => {
         if (
-          currentFilesWorkspaceUuid === workspaceUuid &&
+          currentFilesWorkspaceUuid === workspaceId &&
           currentFilesFolderId === folderId
         ) {
           router.replace(targetRoute);
@@ -839,27 +1029,29 @@ export function CommandPalette({
     [
       currentFilesFolderId,
       currentFilesWorkspaceUuid,
-      rootFolderId,
       router,
-      workspaceUuid,
+      workspaces,
     ]
   );
 
   const openSearchResult = useCallback(
     (result: WorkspaceSearchResult) => {
-      if (!workspaceUuid) {
+      if (!resolvedWorkspaceUuid) {
         return;
       }
 
       const targetFileId = result.fileId ?? result.id;
-      const targetFile = files.find((file) => file.id === targetFileId);
+      const targetFile = fileItems.find(
+        (file) =>
+          file.workspaceUuid === resolvedWorkspaceUuid && file.id === targetFileId
+      );
       const targetFolderId = targetFile?.folderId ?? currentFilesFolderId ?? undefined;
 
-      handleOpenFile(targetFileId, targetFolderId, {
+      handleOpenFile(resolvedWorkspaceUuid, targetFileId, targetFolderId, {
         retrievalChunkId: result.chunkId ?? null,
       });
     },
-    [currentFilesFolderId, files, handleOpenFile, workspaceUuid]
+    [currentFilesFolderId, fileItems, handleOpenFile, resolvedWorkspaceUuid]
   );
 
   const renderCommandGroups = () => (
@@ -954,7 +1146,7 @@ export function CommandPalette({
         <div className="grid min-h-0 flex-1 grid-cols-1 border-border/60 border-t">
           <div className="min-h-0">
             <CommandList className="max-h-none min-h-0">
-              {!trimmedQuery ? (
+              {!searchQuery ? (
                 <>
                   {workspaceTasks.length > 0 ? (
                     <CommandGroup heading="Upcoming tasks">
@@ -992,7 +1184,11 @@ export function CommandPalette({
                         <CommandItem
                           key={`recent-${item.id}`}
                           onSelect={() => {
-                            handleOpenFile(item.id, item.folderId);
+                            handleOpenFile(
+                              item.workspaceUuid,
+                              item.id,
+                              item.folderId
+                            );
                           }}
                           value={`${item.name} ${item.path} recent`}
                         >
@@ -1010,12 +1206,150 @@ export function CommandPalette({
                     </CommandGroup>
                   ) : null}
                   {recentItems.length > 0 ? <CommandSeparator /> : null}
+                  {cachedChats.length > 0 ? (
+                    <>
+                      <CommandGroup heading="Recent chats">
+                        {cachedChats
+                          .slice()
+                          .sort((left, right) =>
+                            right.updatedAt.localeCompare(left.updatedAt)
+                          )
+                          .slice(0, 6)
+                          .map((chat) => (
+                            <CommandItem
+                              key={`recent-chat-${chat.slug}`}
+                              onSelect={() => {
+                                startTransition(() => {
+                                  router.push(
+                                    `/workspace/chats/${chat.slug}` as Route
+                                  );
+                                });
+                                commandPaletteActions.close();
+                              }}
+                              value={`${chat.title} ${chat.slug} chat`}
+                            >
+                              <MessageSquareText className="size-3.5 text-muted-foreground" />
+                              <div className="min-w-0">
+                                <p className="truncate font-medium text-foreground text-xs">
+                                  {chat.title}
+                                </p>
+                                <p className="truncate text-[11px] text-muted-foreground">
+                                  {chat.slug}
+                                </p>
+                              </div>
+                            </CommandItem>
+                          ))}
+                      </CommandGroup>
+                      <CommandSeparator />
+                    </>
+                  ) : null}
+                  {cachedFlashcardSets.length > 0 ? (
+                    <>
+                      <CommandGroup heading="Recent flashcards">
+                        {cachedFlashcardSets
+                          .slice()
+                          .sort((left, right) =>
+                            right.updatedAt.localeCompare(left.updatedAt)
+                          )
+                          .slice(0, 6)
+                          .map((set) => (
+                            <CommandItem
+                              key={`recent-flashcard-${set.id}`}
+                              onSelect={() => {
+                                startTransition(() => {
+                                  router.push(
+                                    `/workspace/flashcards/${set.id}` as Route
+                                  );
+                                });
+                                commandPaletteActions.close();
+                              }}
+                              value={`${set.title} ${set.id} flashcard`}
+                            >
+                              <Sparkles className="size-3.5 text-muted-foreground" />
+                              <div className="min-w-0">
+                                <p className="truncate font-medium text-foreground text-xs">
+                                  {set.title}
+                                </p>
+                                <p className="truncate text-[11px] text-muted-foreground">
+                                  {set.dueCount + set.newCount} ready
+                                </p>
+                              </div>
+                            </CommandItem>
+                          ))}
+                      </CommandGroup>
+                      <CommandSeparator />
+                    </>
+                  ) : null}
                   {renderCommandGroups()}
                 </>
               ) : hasCommandMatches ? (
                 renderCommandGroups()
-              ) : workspaceUuid ? (
+              ) : searchItems.length > 0 || resolvedWorkspaceUuid ? (
                 <>
+                  {chatResults.length > 0 ? (
+                    <CommandGroup heading="Chats">
+                      {chatResults.map((chat) => (
+                        <CommandItem
+                          key={`chat-${chat.id}`}
+                          onSelect={() => {
+                            startTransition(() => {
+                              router.push(chat.path as Route);
+                            });
+                            commandPaletteActions.close();
+                          }}
+                          value={`${chat.label} ${chat.description} chat`}
+                        >
+                          <MessageSquareText className="size-3.5 text-muted-foreground" />
+                          <div className="min-w-0">
+                            <p className="truncate font-medium text-foreground text-xs">
+                              {chat.label}
+                            </p>
+                            <p className="truncate text-[11px] text-muted-foreground">
+                              {chat.description}
+                            </p>
+                          </div>
+                          <span className="text-[11px] text-muted-foreground">
+                            {chat.meta}
+                          </span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  ) : null}
+                  {flashcardResults.length > 0 ? (
+                    <>
+                      {chatResults.length > 0 ? <CommandSeparator /> : null}
+                      <CommandGroup heading="Flashcards">
+                        {flashcardResults.map((set) => (
+                          <CommandItem
+                            key={`flashcard-${set.id}`}
+                            onSelect={() => {
+                              startTransition(() => {
+                                router.push(set.path as Route);
+                              });
+                              commandPaletteActions.close();
+                            }}
+                            value={`${set.label} ${set.description} flashcard`}
+                          >
+                            <Sparkles className="size-3.5 text-muted-foreground" />
+                            <div className="min-w-0">
+                              <p className="truncate font-medium text-foreground text-xs">
+                                {set.label}
+                              </p>
+                              <p className="truncate text-[11px] text-muted-foreground">
+                                {set.description}
+                              </p>
+                            </div>
+                            <span className="text-[11px] text-muted-foreground">
+                              {set.meta}
+                            </span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                      {fuzzyResults.length > 0 || isRetrieving || retrievalResults.length > 0 ? (
+                        <CommandSeparator />
+                      ) : null}
+                    </>
+                  ) : null}
                   {fuzzyResults.length > 0 ? (
                     <CommandGroup heading="Files and folders">
                       {fuzzyResults.map((item) => (
@@ -1023,13 +1357,13 @@ export function CommandPalette({
                           key={`${item.type}-${item.id}`}
                           onSelect={() => {
                             if (item.type === "folder") {
-                              handleOpenFolder(item.id);
+                              handleOpenFolder(item);
                               return;
                             }
 
-                            handleOpenFile(item.id, item.folderId);
+                            handleOpenFile(item.workspaceUuid, item.id, item.folderId);
                           }}
-                          value={`${item.name} ${item.path} ${item.type}`}
+                          value={`${item.workspaceName} ${item.name} ${item.path} ${item.type}`}
                         >
                           {item.type === "folder" ? (
                             <Folder className="size-3.5 text-muted-foreground" />
@@ -1042,6 +1376,9 @@ export function CommandPalette({
                             </p>
                             <p className="truncate text-[11px] text-muted-foreground">
                               {item.path}
+                            </p>
+                            <p className="truncate text-[11px] text-muted-foreground">
+                              {item.workspaceName}
                             </p>
                           </div>
                         </CommandItem>
@@ -1064,11 +1401,15 @@ export function CommandPalette({
                         </CommandItem>
                       ) : null}
                       {retrievalResults.map((result) => {
-                        const file = files.find(
-                          (entry) => entry.id === result.id
+                        const file = fileItems.find(
+                          (entry) =>
+                            entry.workspaceUuid === resolvedWorkspaceUuid &&
+                            entry.id === result.id
                         );
                         const folderPath = file
-                          ? (folderPathById.get(file.folderId) ?? "")
+                          ? (workspaceItems.folderPathMaps
+                              .get(file.workspaceUuid)
+                              ?.get(file.folderId ?? "") ?? "")
                           : "";
                         const filePath = file
                           ? folderPath
@@ -1112,7 +1453,7 @@ export function CommandPalette({
                 </>
               ) : (
                 <CommandEmpty>
-                  No matching commands found. Open a workspace to search files.
+                  No matching commands found. Workspace files are still indexing.
                 </CommandEmpty>
               )}
             </CommandList>

@@ -158,11 +158,20 @@ export function useFileDragDrop({
         event.preventDefault();
         const isExternalFileDrop = event.dataTransfer.types.includes("Files");
         event.dataTransfer.dropEffect = isExternalFileDrop ? "copy" : "move";
-        setCanvasDropActive(true);
-        setDropTargetId(currentFolderId);
+        const target = (event.target as HTMLElement | null)?.closest<HTMLElement>(
+          "[data-drop-folder-id]"
+        );
+        const targetFolderId = target?.dataset.dropFolderId ?? currentFolderId;
+        setCanvasDropActive(targetFolderId === currentFolderId);
+        setDropTargetId(targetFolderId);
       },
       onDrop: (event: DragEvent<HTMLDivElement>) => {
         event.preventDefault();
+        const target = (event.target as HTMLElement | null)?.closest<HTMLElement>(
+          "[data-drop-folder-id]"
+        );
+        const targetFolderId =
+          target?.dataset.dropFolderId ?? dropTargetId ?? currentFolderId;
         resetDragState();
         if (isCurrentFolderReadOnly) {
           setDraggingIds([]);
@@ -178,13 +187,14 @@ export function useFileDragDrop({
           const sourceIds =
             draggingIds.length > 0
               ? draggingIds
-              : Array.from(selection.selectedIds);
-          await moveItemsToFolder(sourceIds, currentFolderId);
+              : Array.from(selection.getSelectedIds());
+          await moveItemsToFolder(sourceIds, targetFolderId);
           setDraggingIds([]);
         })();
       },
     };
   }, [
+    dropTargetId,
     currentFolderId,
     draggingIds,
     getDropUploadCandidates,
@@ -194,7 +204,7 @@ export function useFileDragDrop({
     moveItemsToFolder,
     queueUploads,
     resetDragState,
-    selection.selectedIds,
+    selection,
   ]);
 
   const getFolderDragProps = useCallback(
@@ -207,6 +217,7 @@ export function useFileDragDrop({
             return;
           }
           event.preventDefault();
+          setCanvasDropActive(false);
           setDropTargetId(folderId);
         },
         onDragLeave: () => {
@@ -218,6 +229,7 @@ export function useFileDragDrop({
           }
           event.preventDefault();
           event.dataTransfer.dropEffect = "move";
+          setCanvasDropActive(false);
           setDropTargetId(folderId);
         },
         onDragStart: (event: DragEvent<HTMLElement>) => {
@@ -241,7 +253,7 @@ export function useFileDragDrop({
           const sourceIds =
             draggingIds.length > 0
               ? draggingIds
-              : Array.from(selection.selectedIds);
+              : Array.from(selection.getSelectedIds());
           resetDragState();
           void moveItemsToFolder(sourceIds, folderId);
           setDraggingIds([]);

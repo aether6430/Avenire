@@ -101,26 +101,26 @@ function getIngestionErrorMessage(
     return undefined;
   }
 
-  if (!payload) {
-    return "Ingestion failed";
+  if (typeof payload?.error === "string") {
+    // Keep error concise and avoid redundant "Ingestion failed" prefixes
+    return payload.error.length > 60
+      ? `${payload.error.substring(0, 60)}...`
+      : payload.error;
   }
 
-  if (typeof payload.error === "string") {
-    return `Ingestion failed for this file: ${payload.error}`;
-  }
-
-  return "Ingestion failed";
+  return "Failed to process file";
 }
 
 function createIngestionQueueItem(input: {
   jobId: string;
   status: FilesActivityItem["status"];
+  fileName: string;
 }): FilesActivityItem {
   return {
     error: undefined,
     id: `job:${input.jobId}`,
     ingestionJobId: input.jobId,
-    name: "Ingestion job",
+    name: input.fileName,
     sizeLabel: "—",
     status: input.status,
   };
@@ -392,13 +392,15 @@ export function UploadActivityPanel() {
             jobs.some((job) => job.id === item.ingestionJobId)
           )
       ),
-      ...jobs.map((job) => {
+      ...jobs
+        .filter((job) => Boolean(job.fileName))
+        .map((job) => {
         const status = mapRecentJobStatus(job.status);
         return {
           id: `job:${job.id}`,
           ingestionJobId: job.id,
           fileId: job.fileId,
-          name: job.fileName ?? "Ingestion job",
+          name: job.fileName as string,
           sizeLabel: "—",
           status,
         };
@@ -480,9 +482,13 @@ export function UploadActivityPanel() {
               (item) => item.ingestionJobId === payload.jobId
             );
             if (existingIndex === -1) {
+              const fileName = payload.payload?.fileName;
+              if (typeof fileName !== "string" || !fileName) {
+                return previous;
+              }
               return [
                 ...previous,
-                createIngestionQueueItem({ jobId: payload.jobId, status }),
+                createIngestionQueueItem({ jobId: payload.jobId, status, fileName }),
               ];
             }
 
