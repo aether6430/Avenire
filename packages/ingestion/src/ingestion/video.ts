@@ -37,10 +37,10 @@ const stripControlChars = (value: string): string =>
     .replace(/\uFFFD/g, ' ')
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, ' ');
 
-const sanitizeLooseText = (value: string): string =>
+export const sanitizeLooseText = (value: string): string =>
   stripControlChars(value).replace(/\s+/g, ' ').trim();
 
-const cleanTranscriptText = (value: string): string => {
+export const cleanTranscriptText = (value: string): string => {
   const normalized = stripControlChars(value).replace(/\s+/g, ' ').trim();
 
   if (!normalized) {
@@ -75,7 +75,7 @@ const cleanTranscriptText = (value: string): string => {
   return cleanedWords.join(' ').trim();
 };
 
-const splitTranscriptByTime = (
+export const splitTranscriptByTime = (
   transcript: string,
   transcriptSegments?: TranscriptSegment[],
 ): Array<{ startMs: number; endMs: number; text: string }> => {
@@ -150,7 +150,7 @@ const splitTranscriptByTime = (
   return windows;
 };
 
-const buildVideoResource = (params: {
+export const buildVideoResource = (params: {
   source: string;
   title?: string;
   transcript: string;
@@ -307,7 +307,7 @@ const buildVideoResource = (params: {
   };
 };
 
-const isLowQualityTranscript = (text: string): boolean => {
+export const isLowQualityTranscript = (text: string): boolean => {
   const cleaned = cleanTranscriptText(text);
   if (!cleaned) {
     return true;
@@ -337,10 +337,10 @@ const isLowQualityTranscript = (text: string): boolean => {
   );
 };
 
-const isDirectMediaUrl = (url: string): boolean =>
+export const isDirectMediaUrl = (url: string): boolean =>
   /\.(mp4|mov|mkv|webm|avi|m4v|mp3|wav|m4a|aac|ogg|flac)(\?|#|$)/i.test(url);
 
-const canFallbackToLinkExtraction = (url: string): boolean => {
+export const canFallbackToLinkExtraction = (url: string): boolean => {
   try {
     const parsed = new URL(url);
     if (!/^https?:$/.test(parsed.protocol)) {

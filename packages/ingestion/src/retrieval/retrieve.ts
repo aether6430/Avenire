@@ -58,7 +58,7 @@ const truncateToTokenBudget = (value: string, tokenBudget: number): string => {
   return `${safeSlice.trimEnd()}\n[truncated]`;
 };
 
-const dedupeQueries = (values: string[]): string[] => {
+export const dedupeQueries = (values: string[]): string[] => {
   const seen = new Set<string>();
   const out: string[] = [];
 
@@ -80,7 +80,7 @@ const dedupeQueries = (values: string[]): string[] => {
   return out;
 };
 
-const diversifyByResource = <T extends { resourceId: string }>(
+export const diversifyByResource = <T extends { resourceId: string }>(
   rows: T[],
   maxPerResource: number
 ): T[] => {
@@ -100,7 +100,7 @@ const diversifyByResource = <T extends { resourceId: string }>(
   return out;
 };
 
-const fuseCandidatesByRrf = (
+export const fuseCandidatesByRrf = (
   candidateLists: VectorSearchResult[][]
 ): Array<VectorSearchResult & { fusionScore: number }> => {
   const merged = new Map<
@@ -152,7 +152,7 @@ const hasAudioIntent = (query: string): boolean =>
 const hasDocumentIntent = (query: string): boolean =>
   DOCUMENT_INTENT_PATTERN.test(query);
 
-const getPreferredSourceTypes = (intent: {
+export const getPreferredSourceTypes = (intent: {
   visual: boolean;
   audio: boolean;
   document: boolean;
@@ -181,7 +181,7 @@ const tokenize = (value: string): string[] =>
     .split(TOKEN_SPLIT_PATTERN)
     .filter((token) => token.length > 2);
 
-const lexicalOverlapScore = (query: string, content: string): number => {
+export const lexicalOverlapScore = (query: string, content: string): number => {
   const queryTokens = tokenize(query);
   if (queryTokens.length === 0) {
     return 0;
@@ -194,7 +194,7 @@ const lexicalOverlapScore = (query: string, content: string): number => {
   return matched / queryTokens.length;
 };
 
-const exactPhraseScore = (query: string, content: string): number => {
+export const exactPhraseScore = (query: string, content: string): number => {
   const normalizedQuery = query.trim().toLowerCase();
   if (normalizedQuery.length < 5) {
     return 0;
@@ -203,7 +203,7 @@ const exactPhraseScore = (query: string, content: string): number => {
   return content.toLowerCase().includes(normalizedQuery) ? 1 : 0;
 };
 
-const extractTrigramQuery = (query: string): string | null => {
+export const extractTrigramQuery = (query: string): string | null => {
   const normalized = normalizeWhitespace(query);
   if (normalized.length < 3) {
     return null;
@@ -221,7 +221,7 @@ const extractTrigramQuery = (query: string): string | null => {
   return null;
 };
 
-const isLikelyNoisyText = (content: string): boolean => {
+export const isLikelyNoisyText = (content: string): boolean => {
   const normalized = normalizeWhitespace(content);
   if (!normalized) {
     return true;
@@ -235,7 +235,7 @@ const isLikelyNoisyText = (content: string): boolean => {
   return printable.length / normalized.length < 0.8;
 };
 
-const formatDuration = (milliseconds: number): string => {
+export const formatDuration = (milliseconds: number): string => {
   const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -248,7 +248,7 @@ const formatDuration = (milliseconds: number): string => {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 };
 
-const formatChunkLocation = (candidate: VectorSearchResult): string[] => {
+export const formatChunkLocation = (candidate: VectorSearchResult): string[] => {
   const parts: string[] = [];
 
   if (candidate.page != null) {
@@ -273,7 +273,7 @@ const formatChunkLocation = (candidate: VectorSearchResult): string[] => {
   return parts;
 };
 
-const formatChunkHeader = (candidate: VectorSearchResult): string => {
+export const formatChunkHeader = (candidate: VectorSearchResult): string => {
   const title =
     normalizeWhitespace(candidate.title ?? "") ||
     normalizeWhitespace(candidate.source) ||
@@ -285,7 +285,7 @@ const formatChunkHeader = (candidate: VectorSearchResult): string => {
     : `[${title}]`;
 };
 
-const isFragmentaryChunk = (content: string): boolean => {
+export const isFragmentaryChunk = (content: string): boolean => {
   const normalized = normalizeWhitespace(content);
   if (normalized.length < 120) {
     return false;
@@ -297,7 +297,7 @@ const isFragmentaryChunk = (content: string): boolean => {
   return startsMidSentence || endsMidSentence;
 };
 
-const buildChunkContext = (chunks: VectorSearchResult[]): string =>
+export const buildChunkContext = (chunks: VectorSearchResult[]): string =>
   chunks
     .map(
       (chunk) =>
@@ -324,7 +324,7 @@ const expandWithAdjacentChunks = (
   );
 };
 
-const buildContextAwareResults = (
+export const buildContextAwareResults = (
   reranked: RankedCandidate[],
   adjacentByChunkId: Map<string, VectorSearchResult[]>,
   tokenBudget: number
@@ -382,7 +382,7 @@ const buildContextAwareResults = (
   };
 };
 
-const applyModalityScoreAdjustments = (
+export const applyModalityScoreAdjustments = (
   score: number,
   candidate: VectorSearchResult,
   params: {
@@ -441,7 +441,7 @@ const applyModalityScoreAdjustments = (
   return nextScore;
 };
 
-const applyHeuristicScoreAdjustments = (
+export const applyHeuristicScoreAdjustments = (
   score: number,
   candidate: VectorSearchResult,
   params: {
