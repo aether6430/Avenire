@@ -78,9 +78,9 @@
   },
   {
     "id": "api-integrations",
-    "title": "API / Integrations",
+    "title": "Integrations",
     "description": "Connect Notion, Google Drive, and other external sources directly into Avenire.",
-    "status": "in-progress",
+    "status": "shipped",
     "category": "Integrations"
   },
   {

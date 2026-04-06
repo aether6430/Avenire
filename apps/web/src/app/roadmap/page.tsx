@@ -2,7 +2,12 @@ import { getRoadmapGroups } from "@/lib/roadmap";
 import type { RoadmapGroup, RoadmapItem } from "@/lib/roadmap";
 import { Navbar } from "@/components/landing/Navbar";
 import { Footer } from "@/components/landing/Footer";
-import { CheckCircle as CheckCircle2, Circle, SpinnerGap as Loader2, ArrowSquareOut as ExternalLink } from "@phosphor-icons/react/ssr"
+import {
+  CheckCircle as CheckCircle2,
+  Circle,
+  SpinnerGap as Loader2,
+  ArrowSquareOut as ExternalLink,
+} from "@phosphor-icons/react/ssr";
 import { buildPageMetadata } from "@/lib/page-metadata";
 
 export const metadata = buildPageMetadata({
@@ -59,7 +64,9 @@ function RoadmapCard({ item }: { item: RoadmapItem }) {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-1.5">
-            <h3 className="text-sm font-medium text-foreground leading-snug">{item.title}</h3>
+            <h3 className="text-sm font-medium text-foreground leading-snug">
+              {item.title}
+            </h3>
             {item.link && (
               <a
                 href={item.link}
@@ -73,7 +80,9 @@ function RoadmapCard({ item }: { item: RoadmapItem }) {
             )}
           </div>
 
-          <p className="text-xs text-muted-foreground leading-relaxed">{item.description}</p>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            {item.description}
+          </p>
 
           {item.category && (
             <div className="mt-3">
@@ -96,21 +105,26 @@ function RoadmapColumn({ group }: { group: RoadmapGroup }) {
       {/* Column header */}
       <div className="flex items-center gap-2.5 pb-4 border-b border-border">
         <div className={`size-2 rounded-full ${cfg.dotColor}`} />
-        <h2 className="text-sm font-semibold text-foreground">
-          {group.label}
-        </h2>
-        <span className={`ml-auto text-xs font-medium px-2 py-0.5 rounded-full ${cfg.badgeBg} ${cfg.badgeText}`}>
+        <h2 className="text-sm font-semibold text-foreground">{group.label}</h2>
+        <span
+          className={`ml-auto text-xs font-medium px-2 py-0.5 rounded-full ${cfg.badgeBg} ${cfg.badgeText}`}
+        >
           {group.items.length}
         </span>
       </div>
 
       {/* Cards */}
-      <div className="flex flex-col gap-3">
+      <div
+        className="flex flex-col gap-3 overflow-y-auto pr-1"
+        style={{ maxHeight: "calc(4 * 88px + 3 * 12px)" }}
+      >
         {group.items.map((item) => (
           <RoadmapCard key={item.id} item={item} />
         ))}
         {group.items.length === 0 && (
-          <p className="text-xs text-muted-foreground/50 text-center py-6">Nothing here yet.</p>
+          <p className="text-xs text-muted-foreground/50 text-center py-6">
+            Nothing here yet.
+          </p>
         )}
       </div>
     </div>
@@ -138,7 +152,8 @@ export default function RoadmapPage() {
                 What &apos;s Coming Next
               </h1>
               <p className="text-lg text-muted-foreground max-w-xl leading-relaxed">
-                A transparent look at what we&apos;re building. We update this as our plans evolve.
+                A transparent look at what we&apos;re building. We update this
+                as our plans evolve.
               </p>
             </div>
           </div>
