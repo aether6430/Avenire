@@ -52,7 +52,7 @@ function TextEraser() {
         {/* Jargon text */}
         <div className="absolute inset-x-8 md:inset-x-12 flex items-center justify-center pointer-events-none">
           <motion.p
-            className="text-sm md:text-base text-muted-foreground/90 leading-relaxed font-mono text-center"
+            className="text-sm md:text-base text-muted-foreground leading-relaxed font-mono text-center"
             animate={{
               opacity: isSimplified ? 0 : 0.7,
               filter: isSimplified ? "blur(6px)" : "blur(0px)",
@@ -93,12 +93,12 @@ function TextEraser() {
             }}
             transition={{ duration: 0.3 }}
           />
-          <span className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-wider">
+          <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
             {isSimplified ? "First principles applied" : "Jargon detected"}
           </span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-[9px] font-mono text-muted-foreground/30">
+          <span className="text-[9px] font-mono text-muted-foreground">
             {pairIndex + 1}/{textPairs.length}
           </span>
           <motion.button
@@ -106,7 +106,7 @@ function TextEraser() {
             disabled={isSimplified}
             className={`text-[11px] font-medium px-4 py-1.5 rounded-lg border transition-all duration-200 ${isSimplified
               ? "border-border/40 text-muted-foreground/30 cursor-default"
-              : "border-primary/40 text-primary bg-primary/10 hover:bg-primary/15 hover:shadow-[0_0_12px_var(--primary)] cursor-pointer"
+              : "border-primary/40 text-primary bg-primary hover:bg-primary/15 hover:shadow-[0_0_12px_var(--primary)] cursor-pointer"
               }`}
             whileHover={!isSimplified ? { scale: 1.04 } : {}}
             whileTap={!isSimplified ? { scale: 0.96 } : {}}

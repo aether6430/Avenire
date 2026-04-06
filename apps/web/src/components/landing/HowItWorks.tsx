@@ -307,7 +307,7 @@ function DriveVisual() {
                 className="flex items-center gap-2"
               >
                 <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]" />
-                <span className="text-[9px] font-mono text-muted-foreground/50 uppercase tracking-wider">
+                <span className="text-[9px] font-mono text-muted-foreground uppercase tracking-wider">
                   {isExpanded ? "3 concepts extracted · 3 flashcards ready" : "All files indexed"}
                 </span>
               </motion.div>
@@ -455,9 +455,6 @@ export function HowItWorks() {
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight mt-3 text-foreground mb-2">
             How it works
           </h2>
-          <p className="text-sm text-muted-foreground/70 max-w-xl">
-            Scroll through three phases. The section stays pinned while each phase activates the next interactive state.
-          </p>
         </motion.div>
 
         <div className="hidden md:block" ref={sequenceRef} style={{ height: `${features.length * 90}vh` }}>
@@ -475,9 +472,6 @@ export function HowItWorks() {
                 <h2 className="text-3xl md:text-4xl font-bold tracking-tight mt-3 text-foreground mb-2">
                   How it works
                 </h2>
-                <p className="text-sm text-muted-foreground/70 max-w-xl">
-                  Scroll through three phases. The section stays pinned while each phase activates the next interactive state.
-                </p>
               </motion.div>
 
               <motion.div
@@ -486,7 +480,7 @@ export function HowItWorks() {
                 animate={{ opacity: [0.45, 1, 0.45] }}
                 transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
               >
-                <span className="text-[9px] font-mono uppercase tracking-[0.24em] text-muted-foreground/55">
+                <span className="text-[9px] font-mono uppercase tracking-[0.24em] text-muted-foreground">
                   Scroll
                 </span>
                 <motion.svg

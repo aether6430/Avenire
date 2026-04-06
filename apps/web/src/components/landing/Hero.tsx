@@ -64,7 +64,10 @@ interface Session {
   thinkingTime: string;
   thinkingSteps: string[];
   fileRef?: { name: string; changes: string };
-  question?: { title: string; options: { id: number; label: string; selected: boolean }[] };
+  question?: {
+    title: string;
+    options: { id: number; label: string; selected: boolean }[];
+  };
   docTitle: string;
   docBreadcrumb: string;
   docSections: { heading: string; text: string }[];
@@ -97,11 +100,76 @@ declare global {
 const CALLIGRAPH_TEXTS = ["Collect.", "Think.", "Learn."] as const;
 
 /* ── Icons ── */
-const SearchIcon = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>;
-const CardsIcon = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>;
-const QuizIcon = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>;
-const PlotIcon = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>;
-const FileIcon = <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>;
+const SearchIcon = (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+  >
+    <circle cx="11" cy="11" r="8" />
+    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+  </svg>
+);
+const CardsIcon = (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+  >
+    <rect x="2" y="3" width="20" height="14" rx="2" />
+    <line x1="8" y1="21" x2="16" y2="21" />
+    <line x1="12" y1="17" x2="12" y2="21" />
+  </svg>
+);
+const QuizIcon = (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+  >
+    <circle cx="12" cy="12" r="10" />
+    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+    <line x1="12" y1="17" x2="12.01" y2="17" />
+  </svg>
+);
+const PlotIcon = (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+  >
+    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+  </svg>
+);
+const FileIcon = (
+  <svg
+    width="10"
+    height="10"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <polyline points="14 2 14 8 20 8" />
+  </svg>
+);
 
 /* ── Session Data ── */
 const sessions: Session[] = [
@@ -125,26 +193,35 @@ const sessions: Session[] = [
       },
       {
         role: "ai",
-        text:
-          "Scanning your notes and aligning them with core linear algebra intuition...",
+        text: "Scanning your notes and aligning them with core linear algebra intuition...",
       },
       {
         role: "ai",
-        text:
-          "Self-attention represents each token with Query (Q), Key (K), and Value (V) vectors. Relevance is computed via $QK^T$ and scaled by $\\sqrt{d_k}$ to stabilize gradients.",
+        text: "Self-attention represents each token with Query (Q), Key (K), and Value (V) vectors. Relevance is computed via $QK^T$ and scaled by $\\sqrt{d_k}$ to stabilize gradients.",
       },
       {
         role: "ai",
-        text:
-          'From your notes: "Attention lets each token selectively focus on the most informative tokens in the sequence."',
+        text: 'From your notes: "Attention lets each token selectively focus on the most informative tokens in the sequence."',
       },
     ],
     question: {
       title: "How should we deepen this?",
       options: [
-        { id: 1, label: "Derive the attention equation step by step", selected: false },
-        { id: 2, label: "Relate attention to dot-product similarity", selected: false },
-        { id: 3, label: "Full derivation + geometric intuition", selected: true },
+        {
+          id: 1,
+          label: "Derive the attention equation step by step",
+          selected: false,
+        },
+        {
+          id: 2,
+          label: "Relate attention to dot-product similarity",
+          selected: false,
+        },
+        {
+          id: 3,
+          label: "Full derivation + geometric intuition",
+          selected: true,
+        },
       ],
     },
     followUps: [
@@ -153,14 +230,14 @@ const sessions: Session[] = [
         response: [
           {
             role: "ai",
-            text:
-              "$$Attention(Q,K,V)=softmax\\left(\\frac{QK^T}{\\sqrt{d_k}}\\right)\\cdot V$$\n\n1. $QK^T$ gives similarity scores\n2. divide by $\\sqrt{d_k}$ for variance control\n3. softmax turns scores into attention weights\n4. weighted sum with $V$ gives contextual embeddings",
+            text: "$$Attention(Q,K,V)=softmax\\left(\\frac{QK^T}{\\sqrt{d_k}}\\right)\\cdot V$$\n\n1. $QK^T$ gives similarity scores\n2. divide by $\\sqrt{d_k}$ for variance control\n3. softmax turns scores into attention weights\n4. weighted sum with $V$ gives contextual embeddings",
             tag: "Deep Reasoning",
           },
         ],
         streamFlashcards: [
           {
-            front: "$$Attention(Q,K,V)=softmax\\left(\\frac{QK^T}{\\sqrt{d_k}}\\right)V$$",
+            front:
+              "$$Attention(Q,K,V)=softmax\\left(\\frac{QK^T}{\\sqrt{d_k}}\\right)V$$",
             back: "Core attention equation combining similarity, normalization, and weighted values.",
             interval: "4d",
           },
@@ -169,7 +246,8 @@ const sessions: Session[] = [
           plot: {
             src: "/matplot/transformer-attention-light.svg",
             alt: "Transformer attention concentration across layers",
-            caption: "Attention heads specialize across layers with stronger long-range signal in deeper blocks.",
+            caption:
+              "Attention heads specialize across layers with stronger long-range signal in deeper blocks.",
           },
         },
         docSections: [
@@ -188,8 +266,7 @@ const sessions: Session[] = [
         response: [
           {
             role: "ai",
-            text:
-              "Dot product Q·K measures cosine-aligned similarity in embedding space. Higher alignment ⇒ higher attention weight ⇒ stronger contextual influence.",
+            text: "Dot product Q·K measures cosine-aligned similarity in embedding space. Higher alignment ⇒ higher attention weight ⇒ stronger contextual influence.",
             tag: "Concept Linking",
           },
         ],
@@ -197,7 +274,8 @@ const sessions: Session[] = [
           plot: {
             src: "/matplot/transformer-attention-light.svg",
             alt: "Transformer attention specialization graph",
-            caption: "Geometric alignment improves as head attention sharpens layer by layer.",
+            caption:
+              "Geometric alignment improves as head attention sharpens layer by layer.",
           },
         },
       },
@@ -207,13 +285,11 @@ const sessions: Session[] = [
     docSections: [
       {
         heading: "Self-Attention Core Idea",
-        text:
-          "Each token computes relevance with every other token, enabling dynamic context-dependent representations.",
+        text: "Each token computes relevance with every other token, enabling dynamic context-dependent representations.",
       },
       {
         heading: "Scaling Insight",
-        text:
-          "Dividing by √dₖ prevents large dot-product magnitudes that would saturate softmax and harm gradients.",
+        text: "Dividing by √dₖ prevents large dot-product magnitudes that would saturate softmax and harm gradients.",
       },
     ],
     docTasks: [
@@ -225,7 +301,8 @@ const sessions: Session[] = [
       plot: {
         src: "/matplot/transformer-attention-light.svg",
         alt: "Transformer attention head concentration graph",
-        caption: "Attention distribution evolves from diffuse to focused representations.",
+        caption:
+          "Attention distribution evolves from diffuse to focused representations.",
       },
     },
   },
@@ -250,18 +327,15 @@ const sessions: Session[] = [
       },
       {
         role: "ai",
-        text:
-          "Extracting standard integrals and organizing by solving strategy...",
+        text: "Extracting standard integrals and organizing by solving strategy...",
       },
       {
         role: "ai",
-        text:
-          "Generated 18 flashcards grouped into substitution, by-parts, and special integrals.",
+        text: "Generated 18 flashcards grouped into substitution, by-parts, and special integrals.",
       },
       {
         role: "ai",
-        text:
-          "Card 1 — Q: $\\int sin(ax)\\,dx$\nA: $-\\frac{cos(ax)}{a}+C$\n\nCard 2 — Q: $\\int e^{ax}\\,dx$\nA: $\\frac{e^{ax}}{a}+C$\n\nCard 3 — Q: $\\int \\frac{1}{x^2+a^2}\\,dx$\nA: $\\frac{1}{a}tan^{-1}(x/a)+C$",
+        text: "Card 1 — Q: $\\int sin(ax)\\,dx$\nA: $-\\frac{cos(ax)}{a}+C$\n\nCard 2 — Q: $\\int e^{ax}\\,dx$\nA: $\\frac{e^{ax}}{a}+C$\n\nCard 3 — Q: $\\int \\frac{1}{x^2+a^2}\\,dx$\nA: $\\frac{1}{a}tan^{-1}(x/a)+C$",
       },
     ],
     followUps: [
@@ -270,8 +344,7 @@ const sessions: Session[] = [
         response: [
           {
             role: "ai",
-            text:
-              "Upgrading to application-based recall:\n\nQ: Evaluate ∫ x e^{x} dx\nA: Use integration by parts → (x−1)e^{x} + C",
+            text: "Upgrading to application-based recall:\n\nQ: Evaluate ∫ x e^{x} dx\nA: Use integration by parts → (x−1)e^{x} + C",
             tag: "Deep Tutor",
           },
         ],
@@ -294,8 +367,7 @@ const sessions: Session[] = [
         response: [
           {
             role: "ai",
-            text:
-              "Reorganized cards:\n• Direct standard forms\n• Trig substitution\n• Integration by parts\n• Partial fractions",
+            text: "Reorganized cards:\n• Direct standard forms\n• Trig substitution\n• Integration by parts\n• Partial fractions",
             tag: "Organization",
           },
         ],
@@ -319,8 +391,7 @@ const sessions: Session[] = [
     docSections: [
       {
         heading: "Coverage",
-        text:
-          "Standard integrals, inverse trig forms, exponential integrals, and by-parts identities.",
+        text: "Standard integrals, inverse trig forms, exponential integrals, and by-parts identities.",
       },
     ],
     docTasks: [
@@ -363,13 +434,11 @@ const sessions: Session[] = [
       },
       {
         role: "ai",
-        text:
-          "Starting adaptive quiz — questions will target conceptual weak spots dynamically.",
+        text: "Starting adaptive quiz — questions will target conceptual weak spots dynamically.",
       },
       {
         role: "ai",
-        text:
-          "Q1: What does the Heisenberg Uncertainty Principle imply?\n\n  1. Energy is discrete\n  2. Position and momentum cannot both be precisely determined\n  3. Light behaves as both wave and particle\n  4. Wavefunctions collapse on observation",
+        text: "Q1: What does the Heisenberg Uncertainty Principle imply?\n\n  1. Energy is discrete\n  2. Position and momentum cannot both be precisely determined\n  3. Light behaves as both wave and particle\n  4. Wavefunctions collapse on observation",
       },
     ],
     followUps: [
@@ -378,8 +447,7 @@ const sessions: Session[] = [
         response: [
           {
             role: "ai",
-            text:
-              "Correct. $$\\Delta x\\Delta p \\geq \\hbar/2$$\n\nIncreasing precision in position increases uncertainty in momentum.\n\nQ2: What does $$|\\psi(x,t)|^2$$ represent physically?",
+            text: "Correct. $$\\Delta x\\Delta p \\geq \\hbar/2$$\n\nIncreasing precision in position increases uncertainty in momentum.\n\nQ2: What does $$|\\psi(x,t)|^2$$ represent physically?",
             tag: "Adaptive Quiz",
           },
         ],
@@ -389,8 +457,7 @@ const sessions: Session[] = [
         response: [
           {
             role: "ai",
-            text:
-              "1 → Planck’s quantization.\n3 → Wave-particle duality.\n4 → Measurement postulate in Copenhagen interpretation.",
+            text: "1 → Planck’s quantization.\n3 → Wave-particle duality.\n4 → Measurement postulate in Copenhagen interpretation.",
             tag: "Concept Clarification",
           },
         ],
@@ -401,13 +468,11 @@ const sessions: Session[] = [
     docSections: [
       {
         heading: "Topics Covered",
-        text:
-          "Uncertainty principle, wavefunctions, measurement interpretation, and quantum states.",
+        text: "Uncertainty principle, wavefunctions, measurement interpretation, and quantum states.",
       },
       {
         heading: "Performance Insight",
-        text:
-          "Strong conceptual clarity overall. Weakness detected in tunneling and superposition problems.",
+        text: "Strong conceptual clarity overall. Weakness detected in tunneling and superposition problems.",
       },
     ],
     docTasks: [
@@ -425,7 +490,8 @@ const sessions: Session[] = [
           "$\\nabla^2\\psi=0$",
         ],
         correctIndex: 1,
-        explanation: "The lower bound is set by $\\hbar/2$ and links position and momentum uncertainty.",
+        explanation:
+          "The lower bound is set by $\\hbar/2$ and links position and momentum uncertainty.",
       },
     },
   },
@@ -446,18 +512,15 @@ const sessions: Session[] = [
     messages: [
       {
         role: "user",
-        text:
-          "Plot the trajectory of a projectile for different launch angles",
+        text: "Plot the trajectory of a projectile for different launch angles",
       },
       {
         role: "ai",
-        text:
-          "Using equations $$x=u\\,cos\\theta\\,t$$ and $$y=u\\,sin\\theta\\,t-\\frac{1}{2}gt^2$$ to simulate motion...",
+        text: "Using equations $$x=u\\,cos\\theta\\,t$$ and $$y=u\\,sin\\theta\\,t-\\frac{1}{2}gt^2$$ to simulate motion...",
       },
       {
         role: "ai",
-        text:
-          "Generated trajectory curves for θ = 15°, 30°, 45°, 60°.\n\n• Maximum range at 45°\n• Higher angles → greater height, shorter range\n• Symmetry observed for complementary angles (30° & 60°)",
+        text: "Generated trajectory curves for θ = 15°, 30°, 45°, 60°.\n\n• Maximum range at 45°\n• Higher angles → greater height, shorter range\n• Symmetry observed for complementary angles (30° & 60°)",
       },
     ],
     followUps: [
@@ -466,8 +529,7 @@ const sessions: Session[] = [
         response: [
           {
             role: "ai",
-            text:
-              "Included drag force F_d = kv². Trajectory becomes asymmetric with reduced range and lower peak height.",
+            text: "Included drag force F_d = kv². Trajectory becomes asymmetric with reduced range and lower peak height.",
             tag: "Physics Analysis",
           },
         ],
@@ -477,8 +539,7 @@ const sessions: Session[] = [
         response: [
           {
             role: "ai",
-            text:
-              "Plotted R(θ) = (u² sin2θ)/g. Peak observed at θ = 45°, confirming theoretical maximum range.",
+            text: "Plotted R(θ) = (u² sin2θ)/g. Peak observed at θ = 45°, confirming theoretical maximum range.",
             tag: "Derivation Insight",
           },
         ],
@@ -489,13 +550,11 @@ const sessions: Session[] = [
     docSections: [
       {
         heading: "Equations Used",
-        text:
-          "$$x=u\\,cos\\theta\\,t$$\n$$y=u\\,sin\\theta\\,t-\\frac{1}{2}gt^2$$\n$$R=\\frac{u^2 sin(2\\theta)}{g}$$",
+        text: "$$x=u\\,cos\\theta\\,t$$\n$$y=u\\,sin\\theta\\,t-\\frac{1}{2}gt^2$$\n$$R=\\frac{u^2 sin(2\\theta)}{g}$$",
       },
       {
         heading: "Key Insight",
-        text:
-          "Complementary angles yield equal ranges, while 45° maximizes horizontal displacement.",
+        text: "Complementary angles yield equal ranges, while 45° maximizes horizontal displacement.",
       },
     ],
     docTasks: [
@@ -523,8 +582,13 @@ function getInitialDocView(session: Session): DocView {
   };
 }
 
-function getFollowUpDocView(session: Session, label: string, resultText: string): DocView {
-  const firstLine = resultText.split("\n").find(Boolean)?.trim() ?? "Update applied.";
+function getFollowUpDocView(
+  session: Session,
+  label: string,
+  resultText: string
+): DocView {
+  const firstLine =
+    resultText.split("\n").find(Boolean)?.trim() ?? "Update applied.";
   const workspaceName = session.docBreadcrumb.split(" > ")[0] ?? "Workspace";
 
   return {
@@ -535,16 +599,18 @@ function getFollowUpDocView(session: Session, label: string, resultText: string)
       { heading: "Updated Result", text: firstLine },
       ...session.docSections.slice(0, 1),
     ],
-    tasks: [
-      `Review "${label}" output`,
-      ...session.docTasks.slice(0, 2),
-    ],
+    tasks: [`Review "${label}" output`, ...session.docTasks.slice(0, 2)],
     artifacts: session.artifacts,
   };
 }
 
-function getFollowUpDocViewFromAction(session: Session, followUp: FollowUp): DocView {
-  const firstLine = followUp.response[0]?.text.split("\n").find(Boolean)?.trim() ?? "Update applied.";
+function getFollowUpDocViewFromAction(
+  session: Session,
+  followUp: FollowUp
+): DocView {
+  const firstLine =
+    followUp.response[0]?.text.split("\n").find(Boolean)?.trim() ??
+    "Update applied.";
   const workspaceName = session.docBreadcrumb.split(" > ")[0] ?? "Workspace";
 
   return {
@@ -649,9 +715,12 @@ function useStreamer(messages: ChatMessage[], speed = 12, enabled = true) {
     completed: messages.slice(0, activeVisibleCount),
     partial: !isDone
       ? {
-        ...messages[activeVisibleCount],
-        text: messages[activeVisibleCount].role === "user" ? messages[activeVisibleCount].text : activeCurrentText,
-      }
+          ...messages[activeVisibleCount],
+          text:
+            messages[activeVisibleCount].role === "user"
+              ? messages[activeVisibleCount].text
+              : activeCurrentText,
+        }
       : null,
     isDone,
   };
@@ -676,7 +745,9 @@ function ensureKatexAssets(onReady: () => void) {
     return;
   }
 
-  const existingScript = doc.getElementById(KATEX_SCRIPT_ID) as HTMLScriptElement | null;
+  const existingScript = doc.getElementById(
+    KATEX_SCRIPT_ID
+  ) as HTMLScriptElement | null;
   if (existingScript) {
     const handleLoad = () => onReady();
     existingScript.addEventListener("load", handleLoad, { once: true });
@@ -685,7 +756,8 @@ function ensureKatexAssets(onReady: () => void) {
 
   const katexScript = doc.createElement("script");
   katexScript.id = KATEX_SCRIPT_ID;
-  katexScript.src = "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js";
+  katexScript.src =
+    "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js";
   katexScript.defer = true;
   katexScript.onload = () => {
     window.dispatchEvent(new Event("katex-ready"));
@@ -731,7 +803,13 @@ function renderPlainText(text: string, keyPrefix: string) {
   ));
 }
 
-function LatexText({ text, katexReady }: { text: string; katexReady: boolean }) {
+function LatexText({
+  text,
+  katexReady,
+}: {
+  text: string;
+  katexReady: boolean;
+}) {
   const chunks = splitLatexChunks(text);
 
   return (
@@ -750,7 +828,11 @@ function LatexText({ text, katexReady }: { text: string; katexReady: boolean }) 
           return (
             <span
               key={`math-fallback-${i}`}
-              className={chunk.display ? "block font-mono text-[10px] my-1" : "font-mono text-[10px]"}
+              className={
+                chunk.display
+                  ? "block font-mono text-[10px] my-1"
+                  : "font-mono text-[10px]"
+              }
             >
               {chunk.display ? `$$${chunk.value}$$` : `$${chunk.value}$`}
             </span>
@@ -765,7 +847,11 @@ function LatexText({ text, katexReady }: { text: string; katexReady: boolean }) 
         return (
           <span
             key={`math-${i}`}
-            className={chunk.display ? "block my-1 overflow-x-auto" : "inline-block align-middle"}
+            className={
+              chunk.display
+                ? "block my-1 overflow-x-auto"
+                : "inline-block align-middle"
+            }
             dangerouslySetInnerHTML={{ __html: html }}
           />
         );
@@ -774,7 +860,13 @@ function LatexText({ text, katexReady }: { text: string; katexReady: boolean }) 
   );
 }
 
-function ChatFlashcard({ card, katexReady }: { card: FlashcardArtifact; katexReady: boolean }) {
+function ChatFlashcard({
+  card,
+  katexReady,
+}: {
+  card: FlashcardArtifact;
+  katexReady: boolean;
+}) {
   const [flipped, setFlipped] = useState(false);
 
   return (
@@ -788,7 +880,12 @@ function ChatFlashcard({ card, katexReady }: { card: FlashcardArtifact; katexRea
         type="button"
         className="relative w-full aspect-[4/3] cursor-pointer"
         animate={{ rotateY: flipped ? 180 : 0 }}
-        transition={{ duration: 0.65, type: "spring", stiffness: 105, damping: 16 }}
+        transition={{
+          duration: 0.65,
+          type: "spring",
+          stiffness: 105,
+          damping: 16,
+        }}
         style={{ transformStyle: "preserve-3d" }}
         onClick={() => setFlipped((v) => !v)}
       >
@@ -797,24 +894,34 @@ function ChatFlashcard({ card, katexReady }: { card: FlashcardArtifact; katexRea
           style={{ backfaceVisibility: "hidden" }}
         >
           <div className="flex items-center justify-between">
-            <Badge variant="outline" className="text-[8px] h-4">Question</Badge>
-            <span className="text-[8px] font-mono text-primary">{card.interval}</span>
+            <Badge variant="outline" className="text-[8px] h-4">
+              Question
+            </Badge>
+            <span className="text-[8px] font-mono text-primary">
+              {card.interval}
+            </span>
           </div>
           <div className="text-[11px] text-foreground leading-relaxed">
             <LatexText text={card.front} katexReady={katexReady} />
           </div>
-          <span className="text-[8px] text-muted-foreground/70">Click to flip</span>
+          <span className="text-[8px] text-muted-foreground/70">
+            Click to flip
+          </span>
         </div>
 
         <div
-          className="absolute inset-0 rounded-xl bg-card border border-primary/25 p-4 flex flex-col justify-between"
+          className="absolute inset-0 rounded-xl bg-card border border-primary p-4 flex flex-col justify-between"
           style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
         >
-          <Badge variant="secondary" className="text-[8px] h-4 w-fit">Answer</Badge>
+          <Badge variant="secondary" className="text-[8px] h-4 w-fit">
+            Answer
+          </Badge>
           <div className="text-[11px] text-muted-foreground leading-relaxed">
             <LatexText text={card.back} katexReady={katexReady} />
           </div>
-          <span className="text-[8px] text-muted-foreground/70">Click to flip back</span>
+          <span className="text-[8px] text-muted-foreground/70">
+            Click to flip back
+          </span>
         </div>
       </m.button>
     </m.div>
@@ -822,7 +929,15 @@ function ChatFlashcard({ card, katexReady }: { card: FlashcardArtifact; katexRea
 }
 
 /* ── Message Bubble ── */
-function Msg({ msg, isStreaming = false, katexReady }: { msg: ChatMessage; isStreaming?: boolean; katexReady: boolean }) {
+function Msg({
+  msg,
+  isStreaming = false,
+  katexReady,
+}: {
+  msg: ChatMessage;
+  isStreaming?: boolean;
+  katexReady: boolean;
+}) {
   const isUser = msg.role === "user";
 
   if (msg.flashcard) {
@@ -835,13 +950,20 @@ function Msg({ msg, isStreaming = false, katexReady }: { msg: ChatMessage; isStr
 
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-      <div className={`max-w-[92%] rounded-md px-3 py-2 text-[11px] leading-relaxed whitespace-pre-wrap ${isUser && "bg-primary/10 text-foreground border border-primary/20"
-        }`}>
+      <div
+        className={`max-w-[92%] rounded-md px-3 py-2 text-[11px] leading-relaxed whitespace-pre-wrap ${
+          isUser && "bg-primary/10 text-foreground border border-primary/20"
+        }`}
+      >
         {msg.tag && (
-          <Badge variant="secondary" className="text-[8px] mb-1 mr-1 h-4">{msg.tag}</Badge>
+          <Badge variant="secondary" className="text-[8px] mb-1 mr-1 h-4">
+            {msg.tag}
+          </Badge>
         )}
         <LatexText text={msg.text} katexReady={katexReady} />
-        {isStreaming && <span className="inline-block w-[1.5px] h-3 bg-primary ml-0.5 animate-pulse" />}
+        {isStreaming && (
+          <span className="inline-block w-[1.5px] h-3 bg-primary ml-0.5 animate-pulse" />
+        )}
       </div>
     </div>
   );
@@ -858,12 +980,18 @@ function DemoWindow({
   const [messages, setMessages] = useState<ChatMessage[]>(session.messages);
   const [question, setQuestion] = useState(session.question);
   const [followUps, setFollowUps] = useState(session.followUps);
-  const [docView, setDocView] = useState<DocView>(() => getInitialDocView(session));
+  const [docView, setDocView] = useState<DocView>(() =>
+    getInitialDocView(session)
+  );
   const [docFlashcardIndex, setDocFlashcardIndex] = useState(0);
   const [katexReady, setKatexReady] = useState(false);
 
   const shouldStream = session.status === "in-progress";
-  const { completed, partial, isDone } = useStreamer(messages, 12, shouldStream);
+  const { completed, partial, isDone } = useStreamer(
+    messages,
+    12,
+    shouldStream
+  );
   const chatRef = useRef<HTMLDivElement>(null);
   const pendingTimersRef = useRef<number[]>([]);
   const hasPromotedRef = useRef(false);
@@ -876,7 +1004,8 @@ function DemoWindow({
   }, [completed, partial]);
 
   useEffect(() => {
-    const markReady = () => setKatexReady(typeof window.katex?.renderToString === "function");
+    const markReady = () =>
+      setKatexReady(typeof window.katex?.renderToString === "function");
     ensureKatexAssets(markReady);
     window.addEventListener("katex-ready", markReady);
     markReady();
@@ -907,21 +1036,24 @@ function DemoWindow({
 
   const handleOptionClick = (optId: number) => {
     if (!question) return;
-    const selectedOpt = question.options.find(o => o.id === optId)!;
+    const selectedOpt = question.options.find((o) => o.id === optId)!;
 
     // Briefly show visual selection
     setQuestion({
       ...question,
-      options: question.options.map(o => ({ ...o, selected: o.id === optId }))
+      options: question.options.map((o) => ({
+        ...o,
+        selected: o.id === optId,
+      })),
     });
 
     // Simulate following the option
     setTimeout(() => {
       const responseText = `I've updated the workspace with the changes requested for "${selectedOpt.label}". The relevant files and plots are now available in your sidebar.`;
-      setMessages(prev => [
+      setMessages((prev) => [
         ...prev,
         { role: "user", text: selectedOpt.label },
-        { role: "ai", text: responseText }
+        { role: "ai", text: responseText },
       ]);
       setDocView(getFollowUpDocView(session, selectedOpt.label, responseText));
       setDocFlashcardIndex(0);
@@ -935,10 +1067,10 @@ function DemoWindow({
       ...fu.response,
     ];
 
-    setMessages(prev => [
+    setMessages((prev) => [
       ...prev,
       { role: "user", text: fu.label },
-      ...fu.response
+      ...fu.response,
     ]);
     const nextDocView = getFollowUpDocViewFromAction(session, fu);
 
@@ -954,7 +1086,7 @@ function DemoWindow({
 
     setDocView(nextDocView);
     setDocFlashcardIndex(0);
-    setFollowUps(prev => prev.filter(f => f.label !== fu.label));
+    setFollowUps((prev) => prev.filter((f) => f.label !== fu.label));
 
     if (fu.streamFlashcards && fu.streamFlashcards.length > 0) {
       const delay = estimateStreamDuration(streamedMessages) + 120;
@@ -977,9 +1109,11 @@ function DemoWindow({
   const [docRoot, ...docRest] = docView.breadcrumb.split(" > ");
   const docLeaf = docRest.join(" > ");
   const docCards = docView.artifacts?.flashcards ?? [];
-  const activeDocCardIndex = docCards.length > 0
-    ? ((docFlashcardIndex % docCards.length) + docCards.length) % docCards.length
-    : 0;
+  const activeDocCardIndex =
+    docCards.length > 0
+      ? ((docFlashcardIndex % docCards.length) + docCards.length) %
+        docCards.length
+      : 0;
 
   return (
     <div className="flex min-h-[460px] overflow-x-auto">
@@ -987,14 +1121,23 @@ function DemoWindow({
       <div className="flex-1 lg:flex-none lg:w-[500px] shrink-0 flex flex-col min-w-[320px]">
         {/* Chat header */}
         <div className="px-4 py-2 border-b border-border flex items-center justify-between">
-          <span className="text-xs font-semibold text-foreground truncate">{session.name.replace("...", "")}</span>
+          <span className="text-xs font-semibold text-foreground truncate">
+            {session.name.replace("...", "")}
+          </span>
           <Badge variant="outline" className="text-[8px] h-4">
-            {session.status === "in-progress" ? "In Progress" : session.status === "done" ? "Done" : "Review"}
+            {session.status === "in-progress"
+              ? "In Progress"
+              : session.status === "done"
+                ? "Done"
+                : "Review"}
           </Badge>
         </div>
 
         {/* Messages */}
-        <div ref={chatRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-2 min-h-0">
+        <div
+          ref={chatRef}
+          className="flex-1 overflow-y-auto px-4 py-3 space-y-2 min-h-0"
+        >
           {completed.map((message) => (
             <m.div
               key={`${message.role}-${message.tag ?? "message"}-${message.text || message.flashcard?.front || "empty"}`}
@@ -1006,55 +1149,105 @@ function DemoWindow({
             </m.div>
           ))}
           {partial && (
-            <m.div key="partial" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <m.div
+              key="partial"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+            >
               <Msg msg={partial} isStreaming katexReady={katexReady} />
             </m.div>
           )}
 
           {/* Thinking steps + file ref (after first AI message) */}
           {completed.length >= 2 && (
-            <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+            <m.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.1 }}
+              className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground"
+            >
               <span>Thought {session.thinkingTime}</span>
               {session.thinkingSteps.map((step) => (
-                <span key={step} className="text-muted-foreground/60">· {step}</span>
+                <span key={step} className="text-muted-foreground/60">
+                  · {step}
+                </span>
               ))}
             </m.div>
           )}
           {completed.length >= 2 && session.fileRef && (
-            <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
+            <m.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.15 }}
               className="flex items-center gap-1.5 bg-muted/30 border border-border rounded px-2.5 py-1.5 w-fit"
             >
               <span className="text-primary">{FileIcon}</span>
-              <span className="text-[10px] text-primary font-medium">{session.fileRef.name}</span>
-              <span className="text-[10px] text-muted-foreground">{session.fileRef.changes}</span>
+              <span className="text-[10px] text-primary font-medium">
+                {session.fileRef.name}
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                {session.fileRef.changes}
+              </span>
             </m.div>
           )}
 
           {/* Questions */}
           {isDone && question && (
-            <m.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+            <m.div
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
               className="space-y-2 pt-1"
             >
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-muted-foreground font-medium">Questions</span>
+                <span className="text-[10px] text-muted-foreground font-medium">
+                  Questions
+                </span>
                 <div className="flex gap-0.5">
-                  <button className="text-muted-foreground/40 hover:text-muted-foreground"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /></svg></button>
-                  <button className="text-muted-foreground/40 hover:text-muted-foreground"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg></button>
+                  <button className="text-muted-foreground/40 hover:text-muted-foreground">
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <polyline points="15 18 9 12 15 6" />
+                    </svg>
+                  </button>
+                  <button className="text-muted-foreground/40 hover:text-muted-foreground">
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                  </button>
                 </div>
               </div>
-              <p className="text-[11px] font-semibold text-foreground/90">{question.title}</p>
+              <p className="text-[11px] font-semibold text-foreground/90">
+                {question.title}
+              </p>
               <div className="space-y-1">
                 {question.options.map((opt) => (
                   <button
                     key={opt.id}
                     type="button"
                     onClick={() => handleOptionClick(opt.id)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-md border text-[11px] cursor-pointer transition-all ${opt.selected
-                      ? "border-primary/30 bg-primary/5 text-foreground"
-                      : "border-border text-muted-foreground hover:border-primary/20"
-                      }`}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-md border text-[11px] cursor-pointer transition-all ${
+                      opt.selected
+                        ? "border-primary/30 bg-primary/5 text-foreground"
+                        : "border-border text-muted-foreground hover:border-primary/20"
+                    }`}
                   >
-                    <span className="font-mono text-primary/70 text-[10px]">{opt.id}</span>
+                    <span className="font-mono text-primary/70 text-[10px]">
+                      {opt.id}
+                    </span>
                     {opt.label}
                   </button>
                 ))}
@@ -1064,9 +1257,16 @@ function DemoWindow({
 
           {/* Follow-up buttons */}
           {isDone && !question && followUps.length > 0 && (
-            <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="pt-1 space-y-1">
+            <m.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="pt-1 space-y-1"
+            >
               {followUps.map((fu) => (
-                <button key={fu.label} onClick={() => handleFollowUpClick(fu)}
+                <button
+                  key={fu.label}
+                  onClick={() => handleFollowUpClick(fu)}
                   className="block w-full text-left text-[11px] text-muted-foreground hover:text-foreground px-3 py-2 rounded-md border border-border hover:border-primary/20 hover:bg-primary/5 transition-all"
                 >
                   {fu.label}
@@ -1079,9 +1279,13 @@ function DemoWindow({
         {/* Input bar */}
         <div className="px-4 py-2 border-t border-border">
           <div className="flex items-center bg-muted/20 border border-border rounded-md px-3 py-1.5">
-            <span className="text-[11px] text-muted-foreground/40 flex-1">Add a follow-up...</span>
+            <span className="text-[11px] text-muted-foreground/40 flex-1">
+              Add a follow-up...
+            </span>
             <div className="flex items-center gap-2">
-              <span className="text-[9px] text-muted-foreground/40">Apollo 1</span>
+              <span className="text-[9px] text-muted-foreground/40">
+                Apollo 1
+              </span>
             </div>
           </div>
         </div>
@@ -1096,7 +1300,9 @@ function DemoWindow({
             <span className="text-foreground/80 font-medium">{docLeaf}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[9px] text-muted-foreground/40">Apollo 1</span>
+            <span className="text-[9px] text-muted-foreground/40">
+              Apollo 1
+            </span>
           </div>
         </div>
 
@@ -1106,80 +1312,115 @@ function DemoWindow({
 
           {docView.sections.map((sec) => (
             <div key={sec.heading}>
-              <h4 className="text-[10px] font-semibold text-foreground/70 mb-1">{sec.heading}</h4>
+              <h4 className="text-[10px] font-semibold text-foreground/70 mb-1">
+                {sec.heading}
+              </h4>
               <div className="text-[10px] text-muted-foreground leading-relaxed whitespace-pre-wrap">
                 <LatexText text={sec.text} katexReady={katexReady} />
               </div>
             </div>
           ))}
 
-          {(docView.artifacts?.flashcards || docView.artifacts?.quiz || docView.artifacts?.plot) && (
+          {(docView.artifacts?.flashcards ||
+            docView.artifacts?.quiz ||
+            docView.artifacts?.plot) && (
             <div className="space-y-3">
-              <h4 className="text-[10px] font-semibold text-foreground/70">Study Artifacts</h4>
+              <h4 className="text-[10px] font-semibold text-foreground/70">
+                Study Artifacts
+              </h4>
 
-              {docView.artifacts?.flashcards && docView.artifacts.flashcards.length > 0 && (
-                <div className="space-y-2">
-                  <div className="rounded-md border border-border bg-card/70 p-2">
-                    <ChatFlashcard card={docCards[activeDocCardIndex]} katexReady={katexReady} />
+              {docView.artifacts?.flashcards &&
+                docView.artifacts.flashcards.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="rounded-md border border-border bg-card/70 p-2">
+                      <ChatFlashcard
+                        card={docCards[activeDocCardIndex]}
+                        katexReady={katexReady}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => setDocFlashcardIndex((i) => i - 1)}
+                        className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground hover:border-primary/20 transition-colors disabled:opacity-40"
+                        disabled={docCards.length <= 1}
+                      >
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                        Prev
+                      </button>
+                      <span className="text-[9px] font-mono text-muted-foreground">
+                        {activeDocCardIndex + 1} / {docCards.length}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setDocFlashcardIndex((i) => i + 1)}
+                        className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground hover:border-primary/20 transition-colors disabled:opacity-40"
+                        disabled={docCards.length <= 1}
+                      >
+                        Next
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <polyline points="9 18 15 12 9 6" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={() => setDocFlashcardIndex((i) => i - 1)}
-                      className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground hover:border-primary/20 transition-colors disabled:opacity-40"
-                      disabled={docCards.length <= 1}
-                    >
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polyline points="15 18 9 12 15 6" />
-                      </svg>
-                      Prev
-                    </button>
-                    <span className="text-[9px] font-mono text-muted-foreground">
-                      {activeDocCardIndex + 1} / {docCards.length}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setDocFlashcardIndex((i) => i + 1)}
-                      className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground hover:border-primary/20 transition-colors disabled:opacity-40"
-                      disabled={docCards.length <= 1}
-                    >
-                      Next
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polyline points="9 18 15 12 9 6" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              )}
+                )}
 
               {docView.artifacts?.quiz && (
                 <div className="rounded-md border border-border bg-card/70 p-2.5 space-y-2">
-                  <span className="text-[8px] uppercase tracking-wide text-muted-foreground">Quiz Check</span>
+                  <span className="text-[8px] uppercase tracking-wide text-muted-foreground">
+                    Quiz Check
+                  </span>
                   <div className="text-[10px] text-foreground/90 leading-relaxed">
-                    <LatexText text={docView.artifacts.quiz.question} katexReady={katexReady} />
+                    <LatexText
+                      text={docView.artifacts.quiz.question}
+                      katexReady={katexReady}
+                    />
                   </div>
                   <div className="space-y-1">
                     {docView.artifacts.quiz.options.map((opt, i) => (
                       <div
                         key={opt}
-                        className={`rounded px-2 py-1 text-[10px] border ${i === docView.artifacts?.quiz?.correctIndex
-                          ? "border-primary/30 bg-primary/10 text-foreground"
-                          : "border-border text-muted-foreground"
-                          }`}
+                        className={`rounded px-2 py-1 text-[10px] border ${
+                          i === docView.artifacts?.quiz?.correctIndex
+                            ? "border-primary/30 bg-primary/10 text-foreground"
+                            : "border-border text-muted-foreground"
+                        }`}
                       >
                         <LatexText text={opt} katexReady={katexReady} />
                       </div>
                     ))}
                   </div>
                   <div className="text-[10px] text-muted-foreground leading-relaxed">
-                    <LatexText text={docView.artifacts.quiz.explanation} katexReady={katexReady} />
+                    <LatexText
+                      text={docView.artifacts.quiz.explanation}
+                      katexReady={katexReady}
+                    />
                   </div>
                 </div>
               )}
 
               {docView.artifacts?.plot && (
                 <div className="rounded-md border border-border bg-card/70 p-2.5 space-y-2">
-                  <span className="text-[8px] uppercase tracking-wide text-muted-foreground">Plot Preview</span>
+                  <span className="text-[8px] uppercase tracking-wide text-muted-foreground">
+                    Plot Preview
+                  </span>
                   <Image
                     src={docView.artifacts.plot.src}
                     alt={docView.artifacts.plot.alt}
@@ -1189,7 +1430,9 @@ function DemoWindow({
                     priority
                     sizes="(max-width: 768px) calc(100vw - 3rem), (max-width: 1280px) 42vw, 760px"
                   />
-                  <p className="text-[9px] text-muted-foreground leading-relaxed">{docView.artifacts.plot.caption}</p>
+                  <p className="text-[9px] text-muted-foreground leading-relaxed">
+                    {docView.artifacts.plot.caption}
+                  </p>
                 </div>
               )}
             </div>
@@ -1197,12 +1440,16 @@ function DemoWindow({
 
           {docView.tasks.length > 0 && (
             <div>
-              <h4 className="text-[10px] font-semibold text-foreground/70 mb-2">{docView.tasks.length} Tasks</h4>
+              <h4 className="text-[10px] font-semibold text-foreground/70 mb-2">
+                {docView.tasks.length} Tasks
+              </h4>
               <div className="space-y-2">
                 {docView.tasks.map((task) => (
                   <div key={task} className="flex items-start gap-2">
                     <div className="w-3.5 h-3.5 rounded-full border border-border mt-0.5 flex-shrink-0" />
-                    <span className="text-[10px] text-muted-foreground leading-relaxed">{task}</span>
+                    <span className="text-[10px] text-muted-foreground leading-relaxed">
+                      {task}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -1237,11 +1484,11 @@ export function Hero() {
       prev.map((session) =>
         session.id === id && session.status === "in-progress"
           ? {
-            ...session,
-            status: "done",
-            statusLabel: "Completed",
-            timeAgo: "now",
-          }
+              ...session,
+              status: "done",
+              statusLabel: "Completed",
+              timeAgo: "now",
+            }
           : session
       )
     );
@@ -1259,29 +1506,25 @@ export function Hero() {
 
   return (
     <LazyMotion features={domAnimation}>
-      <section className="pt-28 pb-20">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.3fr] xl:grid-cols-[1fr_1.4fr] gap-6 lg:gap-10 items-center min-h-[480px]">
-          {/* Left: Copy */}
+      <section className="pt-20 pb-16">
+        {/* Headline section - stacked above widget */}
+        <div className="max-w-3xl mx-auto px-6 mb-12">
           <m.div
-            initial={{ opacity: 0, x: -16 }}
-            animate={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, y: -16 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <h1 className="text-4xl md:text-5xl font-bold tracking-tight leading-[1.1] mb-5">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1] mb-5">
               <span className="text-foreground block">
                 AI learning workspace
               </span>
-              <span className="mt-2 text-foreground inline-flex items-center text-3xl md:text-4xl">
+              <span className="mt-2 text-foreground inline-flex items-center text-3xl md:text-4xl lg:text-5xl">
                 <Calligraph animation="snappy">
                   {CALLIGRAPH_TEXTS[calligraphIndex]}
                 </Calligraph>
               </span>
             </h1>
-            <p className="text-sm text-muted-foreground leading-relaxed max-w-sm mb-6">
-              Upload notes, ask harder questions, and turn complex topics into interactive study paths, connected concepts, and durable understanding.
-            </p>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <Link
                 href={(isSignedIn ? "/workspace" : "/waitlist") as Route}
                 className={buttonVariants({ size: "lg" })}
@@ -1290,65 +1533,116 @@ export function Hero() {
               </Link>
             </div>
           </m.div>
+        </div>
 
-          {/* Right: Cursor-style Demo Window */}
+        <div className="relative">
+          <div
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-[0.08] saturate-150"
+            style={{ backgroundImage: `url('/avenire-wallpaper.jpg')` }}
+          />
           <m.div
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.15 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="relative max-w-5xl mx-auto px-4 sm:px-6 pb-16"
           >
-            <div className="rounded-xl border border-border overflow-hidden bg-card shadow-xl">
+            <div className="rounded-2xl border border-border/50 overflow-hidden bg-card backdrop-blur-xl shadow-2xl shadow-black/10">
               {/* Window chrome */}
-              <div className="flex items-center justify-between px-4 py-2 bg-muted/50 border-b border-border">
-                <span className="text-[11px] self-middle text-foreground font-medium">Avenire</span>
+              <div className="flex items-center justify-between px-5 py-3 bg-muted/40 border-b border-border/50">
+                <div className="flex items-center gap-3">
+                  <div className="flex gap-1.5">
+                    <div className="w-3 h-3 rounded-full bg-red-500" />
+                    <div className="w-3 h-3 rounded-full bg-yellow-500" />
+                    <div className="w-3 h-3 rounded-full bg-green-500" />
+                  </div>
+                  <span className="text-[12px] text-foreground font-medium ml-2">
+                    Avenire
+                  </span>
+                </div>
                 <Link
                   href={(isSignedIn ? "/workspace" : "/waitlist") as Route}
-                  className="text-[10px] text-primary font-medium cursor-pointer hover:underline"
+                  className="text-[11px] text-primary font-medium cursor-pointer hover:underline"
                 >
                   {isSignedIn ? "Go to app" : "Get Avenire"}
                 </Link>
               </div>
 
-              <div className="flex  h-[600px]">
-                {/* Sidebar — Cursor style */}
-                <div className="hidden md:flex flex-col w-[185px] border-r border-border bg-muted/10">
+              <div className="flex h-[580px]">
+                {/* Sidebar */}
+                <div className="hidden md:flex flex-col w-[200px] border-r border-border/50 bg-muted/5">
                   {/* In progress */}
-                  <div className="px-3 py-2 border-b border-border">
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                  <div className="px-4 py-3 border-b border-border/50">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
                       In Progress {inProgress.length}
                     </span>
                   </div>
-                  {inProgress.map(s => (
-                    <button key={s.id} onClick={() => handleSessionClick(s.id)}
-                      className={`w-full text-left px-3 py-2.5 transition-all border-l-2 ${s.id === activeId ? "border-l-primary bg-primary/5" : "border-l-transparent hover:bg-muted/30"
-                        }`}
+                  {inProgress.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => handleSessionClick(s.id)}
+                      className={`w-full text-left px-4 py-3 transition-all border-l-2 ${
+                        s.id === activeId
+                          ? "border-l-primary bg-primary/5"
+                          : "border-l-transparent hover:bg-muted/30"
+                      }`}
                     >
                       <div className="flex items-center gap-2">
-                        <span className={s.id === activeId ? "text-primary" : "text-muted-foreground/60"}>{s.icon}</span>
-                        <span className={`text-[11px] truncate ${s.id === activeId ? "text-foreground font-medium" : "text-foreground/60"}`}>{s.name}</span>
-                        <span className="text-[9px] text-muted-foreground/40 ml-auto flex-shrink-0">{s.timeAgo}</span>
+                        <span
+                          className={
+                            s.id === activeId
+                              ? "text-primary"
+                              : "text-muted-foreground/60"
+                          }
+                        >
+                          {s.icon}
+                        </span>
+                        <span
+                          className={`text-[11px] truncate ${s.id === activeId ? "text-foreground font-medium" : "text-foreground/60"}`}
+                        >
+                          {s.name}
+                        </span>
                       </div>
-                      <p className="text-[9px] text-muted-foreground truncate pl-[22px] mt-0.5">{s.statusLabel}</p>
+                      <p className="text-[9px] text-muted-foreground truncate mt-1 pl-[22px]">
+                        {s.statusLabel}
+                      </p>
                     </button>
                   ))}
 
                   {/* Ready for review */}
-                  <div className="px-3 py-2 border-t border-b border-border">
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
-                      Ready for Review {readyForReview.length}
+                  <div className="px-4 py-3 border-t border-b border-border/50">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                      Review {readyForReview.length}
                     </span>
                   </div>
-                  {readyForReview.map(s => (
-                    <button key={s.id} onClick={() => handleSessionClick(s.id)}
-                      className={`w-full text-left px-3 py-2.5 transition-all border-l-2 ${s.id === activeId ? "border-l-primary bg-primary/5" : "border-l-transparent hover:bg-muted/30"
-                        }`}
+                  {readyForReview.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => handleSessionClick(s.id)}
+                      className={`w-full text-left px-4 py-3 transition-all border-l-2 ${
+                        s.id === activeId
+                          ? "border-l-primary bg-primary/5"
+                          : "border-l-transparent hover:bg-muted/30"
+                      }`}
                     >
                       <div className="flex items-center gap-2">
-                        <span className={s.id === activeId ? "text-primary" : "text-muted-foreground/60"}>{s.icon}</span>
-                        <span className={`text-[11px] truncate ${s.id === activeId ? "text-foreground font-medium" : "text-foreground/60"}`}>{s.name}</span>
-                        <span className="text-[9px] text-muted-foreground/40 ml-auto flex-shrink-0">{s.timeAgo}</span>
+                        <span
+                          className={
+                            s.id === activeId
+                              ? "text-primary"
+                              : "text-muted-foreground/60"
+                          }
+                        >
+                          {s.icon}
+                        </span>
+                        <span
+                          className={`text-[11px] truncate ${s.id === activeId ? "text-foreground font-medium" : "text-foreground/60"}`}
+                        >
+                          {s.name}
+                        </span>
                       </div>
-                      <p className="text-[9px] text-muted-foreground truncate pl-[22px] mt-0.5">{s.statusLabel}</p>
+                      <p className="text-[9px] text-muted-foreground truncate mt-1 pl-[22px]">
+                        {s.statusLabel}
+                      </p>
                     </button>
                   ))}
                 </div>
@@ -1363,7 +1657,10 @@ export function Hero() {
                     transition={{ duration: 0.15 }}
                     className="flex-1 flex min-w-0"
                   >
-                    <DemoWindow session={active} onStreamComplete={handleStreamComplete} />
+                    <DemoWindow
+                      session={active}
+                      onStreamComplete={handleStreamComplete}
+                    />
                   </m.div>
                 </AnimatePresence>
               </div>
@@ -1382,7 +1679,6 @@ export function Hero() {
           <span className="text-primary font-bold">builders</span>, and{" "}
           <span className="text-primary font-bold">curious minds</span>.
         </m.p>
-      </div>
       </section>
     </LazyMotion>
   );
