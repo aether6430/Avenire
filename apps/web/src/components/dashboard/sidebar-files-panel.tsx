@@ -212,30 +212,12 @@ function createFilesRealtimeConnection({
     }
 
     try {
-      const tokenResponse = await fetch("/api/realtime/files-token", {
-        body: JSON.stringify({ workspaceUuid }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      });
-
-      if (!tokenResponse.ok) {
-        onConnectedChange(false);
-        scheduleReconnect();
-        return;
-      }
-
-      const payload = (await tokenResponse.json()) as { token?: string };
-      if (!payload.token) {
-        onConnectedChange(false);
-        scheduleReconnect();
-        return;
-      }
-
       cleanupCurrent();
 
-      const url = new URL("/api/realtime/files", window.location.origin);
+      const url = new URL("/api/realtime/events", window.location.origin);
+      url.searchParams.set("eventType", "files.invalidate");
+      url.searchParams.set("limit", "100");
       url.searchParams.set("workspaceUuid", workspaceUuid);
-      url.searchParams.set("token", payload.token);
 
       eventSource = new EventSource(url.toString());
       eventSource.onopen = () => {
@@ -527,28 +509,6 @@ export function FilesSidebarPanel({
       clearTimeout(timer);
     };
   }, [currentFileId, currentFolderId, fileTree.length, folderTree.length]);
-
-  useEffect(() => {
-    if (!workspaceUuid) {
-      return;
-    }
-
-    const onFocus = () => {
-      loadWorkspaceTree(workspaceUuid).catch(() => undefined);
-    };
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") {
-        loadWorkspaceTree(workspaceUuid).catch(() => undefined);
-      }
-    };
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVisibility);
-
-    return () => {
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [loadWorkspaceTree, workspaceUuid]);
 
   useEffect(() => {
     if (!workspaceUuid || filesSyncVersion === 0) {

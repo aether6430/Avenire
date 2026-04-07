@@ -1,22 +1,17 @@
-import type { Route } from "next";
-import { TasksWorkspace } from "@/components/tasks/tasks-workspace";
+import { Suspense } from "react";
+import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
+import { WorkspaceTasksPageClient } from "@/components/tasks/workspace-tasks-page-client";
 import { buildPageMetadata } from "@/lib/page-metadata";
-import { requireWorkspaceRouteContext } from "@/lib/workspace-route-context";
 
 export const metadata = buildPageMetadata({
   noIndex: true,
   title: "Tasks",
 });
 
-export default async function WorkspaceTasksPage() {
-  const { session, workspace } = await requireWorkspaceRouteContext(
-    "/workspace" as Route
-  );
-
+export default function WorkspaceTasksPage() {
   return (
-    <TasksWorkspace
-      currentUserId={session.user.id}
-      workspaceId={workspace.workspaceId}
-    />
+    <Suspense fallback={<WorkspaceRoutePlaceholder label="Loading tasks..." />}>
+      <WorkspaceTasksPageClient />
+    </Suspense>
   );
 }

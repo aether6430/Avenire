@@ -110,10 +110,16 @@ function buildDueGroups(tasks: WorkspaceTask[]) {
 }
 
 export function TasksWorkspace({
+  currentUserAvatar,
+  currentUserEmail,
   currentUserId,
+  currentUserName,
   workspaceId,
 }: {
+  currentUserAvatar?: string;
+  currentUserEmail?: string;
   currentUserId: string;
+  currentUserName?: string;
   workspaceId: string;
 }) {
   const router = useRouter();
@@ -125,8 +131,14 @@ export function TasksWorkspace({
     getTaskStoreSnapshot,
     getTaskStoreSnapshot
   );
-  const [members, setMembers] = useState<WorkspaceMemberOption[]>([]);
-  const [loadingMembers, setLoadingMembers] = useState(true);
+  const [members] = useState<WorkspaceMemberOption[]>(() => [
+    {
+      avatar: currentUserAvatar ?? null,
+      email: currentUserEmail ?? null,
+      name: currentUserName ?? null,
+      userId: currentUserId,
+    },
+  ]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>("all");
   const [assigneeFilter, setAssigneeFilter] = useState("all");
@@ -186,31 +198,6 @@ export function TasksWorkspace({
     setMode("edit");
     setSheetOpen(true);
   }, [searchParams]);
-
-  useEffect(() => {
-    const loadMembers = async () => {
-      setLoadingMembers(true);
-      try {
-        const response = await fetch(
-          `/api/workspaces/${workspaceId}/share/members`,
-          { cache: "no-store" }
-        );
-        if (!response.ok) {
-          throw new Error("Could not load workspace members.");
-        }
-        const payload = (await response.json()) as {
-          members?: WorkspaceMemberOption[];
-        };
-        setMembers(payload.members ?? []);
-      } catch {
-        setMembers([]);
-      } finally {
-        setLoadingMembers(false);
-      }
-    };
-
-    void loadMembers();
-  }, [workspaceId]);
 
   useEffect(() => {
     if (mode !== "edit" || !selectedTask) {
@@ -523,7 +510,7 @@ export function TasksWorkspace({
         draft={draft}
         isDirty={isDirty}
         isOpen={sheetOpen && mode !== "idle"}
-        isSaving={isSaving || loadingMembers}
+        isSaving={isSaving}
         members={members}
         mode={mode}
         onDelete={handleDelete}

@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
-type WorkspaceInvalidationKind = "chat" | "flashcards";
+type WorkspaceInvalidationKind = "chat" | "files" | "flashcards";
 
 interface WorkspaceInvalidationDetail {
   kind: WorkspaceInvalidationKind;
@@ -85,6 +85,9 @@ export function WorkspaceRealtimeBridge({
           }
         };
 
+        eventSource.addEventListener("files.invalidate", () =>
+          handleInvalidate("files")
+        );
         eventSource.addEventListener("chat.invalidate", () =>
           handleInvalidate("chat")
         );
