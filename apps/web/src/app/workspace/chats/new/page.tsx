@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { WorkspaceChatNewPageClient } from "@/components/dashboard/workspace-chat-new-page-client";
+import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
 import { buildPageMetadata } from "@/lib/page-metadata";
 
 export const metadata = buildPageMetadata({
@@ -7,5 +9,9 @@ export const metadata = buildPageMetadata({
 });
 
 export default function WorkspaceChatsNewPage() {
-  return <WorkspaceChatNewPageClient allowPrompt />;
+  return (
+    <Suspense fallback={<WorkspaceRoutePlaceholder label="Loading method..." />}>
+      <WorkspaceChatNewPageClient allowPrompt />
+    </Suspense>
+  );
 }

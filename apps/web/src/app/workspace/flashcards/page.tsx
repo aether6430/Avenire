@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
 import { WorkspaceFlashcardsPageClient } from "@/components/flashcards/workspace-flashcards-page-client";
 import { buildPageMetadata } from "@/lib/page-metadata";
 
@@ -7,5 +9,9 @@ export const metadata = buildPageMetadata({
 });
 
 export default function WorkspaceFlashcardsPage() {
-  return <WorkspaceFlashcardsPageClient />;
+  return (
+    <Suspense fallback={<WorkspaceRoutePlaceholder label="Loading flashcards..." />}>
+      <WorkspaceFlashcardsPageClient />
+    </Suspense>
+  );
 }

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { LoginPageClient } from "@/components/auth/login-page-client";
 import { buildPageMetadata } from "@/lib/page-metadata";
 
@@ -8,5 +9,9 @@ export const metadata = buildPageMetadata({
 });
 
 export default function LoginPage() {
-  return <LoginPageClient />;
+  return (
+    <Suspense fallback={null}>
+      <LoginPageClient />
+    </Suspense>
+  );
 }

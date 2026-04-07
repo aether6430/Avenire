@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { RegisterPageClient } from "@/components/auth/register-page-client";
 import { buildPageMetadata } from "@/lib/page-metadata";
 
@@ -8,5 +9,9 @@ export const metadata = buildPageMetadata({
 });
 
 export default function RegisterPage() {
-  return <RegisterPageClient />;
+  return (
+    <Suspense fallback={null}>
+      <RegisterPageClient />
+    </Suspense>
+  );
 }
