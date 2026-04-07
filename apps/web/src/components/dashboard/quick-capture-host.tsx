@@ -12,10 +12,16 @@ function HiddenTrigger() {
 }
 
 export function QuickCaptureHost({
+  currentUserAvatar,
+  currentUserEmail,
   currentUserId,
+  currentUserName,
   workspaceUuid,
 }: {
+  currentUserAvatar?: string;
+  currentUserEmail?: string;
   currentUserId?: string;
+  currentUserName?: string;
   workspaceUuid?: string;
 }) {
   const kind = useQuickCaptureStore((state) => state.kind);
@@ -23,7 +29,10 @@ export function QuickCaptureHost({
   return (
     <>
       <QuickCaptureDialog
+        currentUserAvatar={currentUserAvatar}
+        currentUserEmail={currentUserEmail}
         currentUserId={currentUserId}
+        currentUserName={currentUserName}
         initialKind="task"
         onOpenChange={(open) => {
           if (!open) {

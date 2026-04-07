@@ -245,39 +245,6 @@ async function loadWorkspaceName(workspaceUuid: string) {
   );
 }
 
-async function loadWorkspaceShareMembers(workspaceUuid: string) {
-  const response = await fetch(
-    `/api/workspaces/${workspaceUuid}/share/members`,
-    {
-      cache: "no-store",
-    }
-  );
-
-  if (!response.ok) {
-    return [];
-  }
-
-  const payload = (await response.json()) as {
-    members?: WorkspaceMemberRecord[];
-  };
-  return payload.members ?? [];
-}
-
-async function createWorkspaceFilesRealtimeToken(workspaceUuid: string) {
-  const response = await fetch("/api/realtime/files-token", {
-    body: JSON.stringify({ workspaceUuid }),
-    headers: { "Content-Type": "application/json" },
-    method: "POST",
-  });
-
-  if (!response.ok) {
-    return null;
-  }
-
-  const payload = (await response.json()) as { token?: string };
-  return payload.token ?? null;
-}
-
 type PropertyFilterOperator =
   | "contains"
   | "contains_all"
@@ -2807,21 +2774,6 @@ export function FileExplorer({
   }, [workspaceUuid]);
 
   useEffect(() => {
-    if (!workspaceUuid) {
-      return;
-    }
-
-    void (async () => {
-      try {
-        const members = await loadWorkspaceShareMembers(workspaceUuid);
-        setWorkspaceMembers(members);
-      } catch {
-        // ignore
-      }
-    })();
-  }, [workspaceUuid]);
-
-  useEffect(() => {
     if (lastRecordedRouteRef.current === currentRoute) {
       return;
     }
@@ -2907,18 +2859,12 @@ export function FileExplorer({
       }
 
       try {
-        const token = await createWorkspaceFilesRealtimeToken(workspaceUuid);
-        if (!token) {
-          setSseConnected(false);
-          scheduleReconnect();
-          return;
-        }
-
         cleanupCurrent();
 
-        const url = new URL("/api/realtime/files", window.location.origin);
+        const url = new URL("/api/realtime/events", window.location.origin);
+        url.searchParams.set("eventType", "files.invalidate");
+        url.searchParams.set("limit", "100");
         url.searchParams.set("workspaceUuid", workspaceUuid);
-        url.searchParams.set("token", token);
 
         eventSource = new EventSource(url.toString());
         eventSource.onopen = () => {

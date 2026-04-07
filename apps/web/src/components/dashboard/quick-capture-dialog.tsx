@@ -41,7 +41,10 @@ export interface QuickCaptureTaskValues {
 }
 
 interface QuickCaptureDialogProps {
+  currentUserAvatar?: string;
+  currentUserEmail?: string;
   currentUserId?: string;
+  currentUserName?: string;
   initialKind?: CaptureKind;
   onOpenChange?: (open: boolean) => void;
   open?: boolean;
@@ -118,7 +121,10 @@ function toIsoFromDateTimeLocalValue(value: string) {
 }
 
 export function QuickCaptureDialog({
+  currentUserAvatar,
+  currentUserEmail,
   currentUserId,
+  currentUserName,
   initialKind = "task",
   taskId,
   taskMode = "create",
@@ -132,8 +138,18 @@ export function QuickCaptureDialog({
   const [internalOpen, setInternalOpen] = useState(false);
   const [busyKind, setBusyKind] = useState<CaptureKind | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [members, setMembers] = useState<WorkspaceMemberOption[]>([]);
-  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [members] = useState<WorkspaceMemberOption[]>(() =>
+    currentUserId
+      ? [
+          {
+            avatar: currentUserAvatar ?? null,
+            email: currentUserEmail ?? null,
+            name: currentUserName ?? null,
+            userId: currentUserId,
+          },
+        ]
+      : []
+  );
   const [task, setTask] = useState(resetTaskState);
   const [note, setNote] = useState(resetNoteState);
   const [misconception, setMisconception] = useState(resetMisconceptionState);
@@ -189,38 +205,6 @@ export function QuickCaptureDialog({
     setNote(resetNoteState());
     setMisconception(resetMisconceptionState());
   }, [currentUserId, kind, resolvedOpen, taskMode, taskValues]);
-
-  useEffect(() => {
-    if (!resolvedOpen || kind !== "task" || !workspaceUuid) {
-      return;
-    }
-
-    const loadMembers = async () => {
-      setLoadingMembers(true);
-      try {
-        const response = await fetch(
-          `/api/workspaces/${workspaceUuid}/share/members`,
-          {
-            cache: "no-store",
-          }
-        );
-        if (!response.ok) {
-          throw new Error("Unable to load workspace members.");
-        }
-
-        const payload = (await response.json()) as {
-          members?: WorkspaceMemberOption[];
-        };
-        setMembers(payload.members ?? []);
-      } catch {
-        setMembers([]);
-      } finally {
-        setLoadingMembers(false);
-      }
-    };
-
-    void loadMembers();
-  }, [kind, resolvedOpen, workspaceUuid]);
 
   const submitLabel = useMemo(() => {
     if (busyKind === kind) {
@@ -369,7 +353,7 @@ export function QuickCaptureDialog({
               <div className="space-y-1.5">
                 <Label>Assignee</Label>
                 <TaskAssigneePicker
-                  disabled={loadingMembers || members.length === 0}
+                  disabled={members.length === 0}
                   members={members}
                   onChange={(assigneeUserId, selectedAssignee) =>
                     setTask((prev) => ({

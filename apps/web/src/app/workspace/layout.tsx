@@ -1,41 +1,11 @@
-import { AppQueryProvider } from "@/components/query-provider";
-import { DashboardLayout as DashboardShellLayout } from "@/components/dashboard/shell";
-import { ThemeProvider } from "@/components/theme-provider";
-import { listWorkspacesForUser } from "@/lib/file-data";
-import { getWorkspaceRouteContext } from "@/lib/workspace-route-context";
+import { WorkspaceLayoutShell } from "@/components/dashboard/workspace-layout-shell";
 
-export default async function WorkspaceLayout({
+export default function WorkspaceLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const context = await getWorkspaceRouteContext();
-  const initialWorkspaces = context.session?.user
-    ? await listWorkspacesForUser(context.session.user.id)
-    : [];
-
   return (
-    <ThemeProvider>
-      <main className="h-svh overflow-hidden bg-background text-foreground">
-        <AppQueryProvider>
-          <DashboardShellLayout
-            activeWorkspace={context.workspace}
-            initialWorkspaces={initialWorkspaces}
-            user={
-              context.session?.user
-                ? {
-                    id: context.session.user.id,
-                    avatar: context.session.user.image ?? undefined,
-                    email: context.session.user.email,
-                    name: context.session.user.name ?? context.session.user.email,
-                  }
-                : undefined
-            }
-          >
-            {children}
-          </DashboardShellLayout>
-        </AppQueryProvider>
-      </main>
-    </ThemeProvider>
+    <WorkspaceLayoutShell>{children}</WorkspaceLayoutShell>
   );
 }

@@ -219,7 +219,10 @@ export function DashboardLayout({
         {deferredReady ? (
           <>
             <DeferredQuickCaptureHost
+              currentUserAvatar={user?.avatar}
+              currentUserEmail={user?.email}
               currentUserId={user?.id}
+              currentUserName={user?.name}
               workspaceUuid={activeWorkspace?.workspaceId}
             />
             <DeferredCommandPalette
