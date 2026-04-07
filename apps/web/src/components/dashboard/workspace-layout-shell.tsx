@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { DashboardLayout as DashboardShellLayout } from "@/components/dashboard/shell";
 import { WorkspaceBootstrapProvider, useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
@@ -27,22 +27,24 @@ function WorkspaceLayoutFrame({
   }
 
   return (
-    <DashboardShellLayout
-      activeWorkspace={workspace}
-      initialWorkspaces={workspaces}
-      user={
-        user
-          ? {
-              avatar: user.image ?? undefined,
-              email: user.email,
-              id: user.id,
-              name: user.name ?? user.email,
-            }
-          : undefined
-      }
-    >
-      {children}
-    </DashboardShellLayout>
+    <Suspense fallback={<WorkspaceRoutePlaceholder label="Loading workspace..." />}>
+      <DashboardShellLayout
+        activeWorkspace={workspace}
+        initialWorkspaces={workspaces}
+        user={
+          user
+            ? {
+                avatar: user.image ?? undefined,
+                email: user.email,
+                id: user.id,
+                name: user.name ?? user.email,
+              }
+            : undefined
+        }
+      >
+        {children}
+      </DashboardShellLayout>
+    </Suspense>
   );
 }
 
