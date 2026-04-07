@@ -659,14 +659,11 @@ export function FilesSidebarPanel({
         });
       }
       filesUiActions.emitSync(workspaceUuid);
-      router.refresh();
     },
     [
       fileTree,
       folderTree,
       isFolderDescendant,
-      loadWorkspaceTree,
-      router,
       workspaceUuid,
     ]
   );
@@ -744,14 +741,11 @@ export function FilesSidebarPanel({
         folders: nextFolders,
       });
       filesUiActions.emitSync(workspaceUuid);
-      router.refresh();
     },
     [
       currentFileId,
       currentFolderId,
-      loadWorkspaceTree,
       navigateToFilesRoot,
-      router,
       workspaceUuid,
     ]
   );

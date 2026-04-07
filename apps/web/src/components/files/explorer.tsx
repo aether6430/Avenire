@@ -2782,28 +2782,6 @@ export function FileExplorer({
   }, [currentRoute, recordRoute]);
 
   useEffect(() => {
-    if (!(workspaceUuid && currentFolderId)) {
-      return;
-    }
-
-    const onFocus = () => {
-      refreshData();
-    };
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") {
-        refreshData();
-      }
-    };
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVisibility);
-
-    return () => {
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [currentFolderId, refreshData, workspaceUuid]);
-
-  useEffect(() => {
     if (!(workspaceUuid && currentFolderId) || filesSyncVersion === 0) {
       return;
     }
