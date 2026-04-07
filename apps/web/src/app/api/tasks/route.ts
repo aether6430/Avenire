@@ -12,6 +12,10 @@ import {
 } from "@/lib/tasks-cache";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
 export async function GET(request: Request) {
   const ctx = await getWorkspaceContextForUser();
   if (!ctx) {

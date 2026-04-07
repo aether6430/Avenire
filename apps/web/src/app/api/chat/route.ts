@@ -84,6 +84,10 @@ const MODEL_TOOL_ALLOW_LIST = new Set([
   "show_widget",
 ]);
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 300;
+
 function logInfo(message: string, meta?: Record<string, unknown>) {
   if (meta) {
     console.info(`${LOG_PREFIX} ${message}`, meta);
@@ -1173,10 +1177,17 @@ export async function POST(request: Request) {
 
     const stream = createUIMessageStream<UIMessage>({
       execute: async ({ writer }) => {
+        const shouldGenerateChatTitle = shouldGenerateTitle(
+          chat.title,
+          originalMessages
+        );
         const thinkingMessagesPromise = generateChatThinkingMessages(
           originalMessages,
           request.signal
         );
+        const chatMetadataPromise = shouldGenerateChatTitle
+          ? generateChatMetadata(originalMessages, request.signal)
+          : Promise.resolve(null);
 
         if (chatCreatedFromNew) {
           writer.write({
@@ -1190,40 +1201,35 @@ export async function POST(request: Request) {
           });
         }
 
-        if (shouldGenerateTitle(chat.title, originalMessages)) {
-          const nextMeta = await generateChatMetadata(
-            originalMessages,
-            request.signal
-          );
-          if (nextMeta?.title) {
-            logInfo("Streaming generated chat title event", {
-              chatId: chatSlug,
-              nameLength: nextMeta.title.length,
-            });
-            writer.write({
-              type: "data-chatName",
-              transient: true,
-              data: {
-                id: chatSlug,
-                name: nextMeta.title,
-                icon: nextMeta.icon,
-              },
-            });
-
-            await updateChatForUser(
-              session.user.id,
-              chatSlug,
-              {
-                title: nextMeta.title,
-                icon: nextMeta.icon,
-              },
-              workspace.workspaceId
-            );
-            logInfo("Persisted generated chat title", {
-              chatId: chatSlug,
+        const nextMeta = await chatMetadataPromise;
+        if (nextMeta?.title) {
+          logInfo("Streaming generated chat title event", {
+            chatId: chatSlug,
+            nameLength: nextMeta.title.length,
+          });
+          writer.write({
+            type: "data-chatName",
+            transient: true,
+            data: {
+              id: chatSlug,
               name: nextMeta.title,
-            });
-          }
+              icon: nextMeta.icon,
+            },
+          });
+
+          await updateChatForUser(
+            session.user.id,
+            chatSlug,
+            {
+              title: nextMeta.title,
+              icon: nextMeta.icon,
+            },
+            workspace.workspaceId
+          );
+          logInfo("Persisted generated chat title", {
+            chatId: chatSlug,
+            name: nextMeta.title,
+          });
         }
 
         const nextThinkingMessages = await thinkingMessagesPromise;
@@ -1270,15 +1276,22 @@ export async function POST(request: Request) {
           workspaceId: workspace.workspaceId,
         });
         const modelTools = pickModelTools(tools);
-        const activeMisconceptionContext = await getActiveMisconceptionContext({
-          subject: resolvedSubject,
-          userId: session.user.id,
-          workspaceId: workspace.workspaceId,
+        const modelMessagesPromise = convertToModelMessages(modelContextMessages, {
+          tools,
         });
-        const studentProfileContext = await buildStudentProfileContext({
-          userId: session.user.id,
-          workspaceId: workspace.workspaceId,
-        });
+        const [modelMessages, activeMisconceptionContext, studentProfileContext] =
+          await Promise.all([
+            modelMessagesPromise,
+            getActiveMisconceptionContext({
+              subject: resolvedSubject,
+              userId: session.user.id,
+              workspaceId: workspace.workspaceId,
+            }),
+            buildStudentProfileContext({
+              userId: session.user.id,
+              workspaceId: workspace.workspaceId,
+            }),
+          ]);
 
         try {
           result = streamText({
@@ -1294,9 +1307,7 @@ export async function POST(request: Request) {
                 reasoning: true, // This enables the extraction of thinking tokens
               },
             },
-            messages: await convertToModelMessages(modelContextMessages, {
-              tools,
-            }),
+            messages: modelMessages,
             maxOutputTokens: 10_000,
             stopWhen: stepCountIs(8),
             tools: modelTools,
