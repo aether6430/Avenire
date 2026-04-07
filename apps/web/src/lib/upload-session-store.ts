@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { createClient, type RedisClientType } from "redis";
+import type { RedisClientType } from "redis";
+import { ensureManagedRedisClient } from "@/lib/redis-client";
 
 export type UploadSessionStatus =
   | "created"
@@ -57,17 +58,11 @@ async function getRedisClient() {
     return null;
   }
 
-  if (!client) {
-    client = createClient({ url: redisUrl });
-    client.on("error", (error) => {
-      console.error("Redis error in upload-session-store", error);
-    });
-  }
-
-  if (!client.isOpen) {
-    await client.connect();
-  }
-
+  client = await ensureManagedRedisClient(
+    client,
+    redisUrl,
+    "upload-session-store"
+  );
   return client;
 }
 

@@ -1,5 +1,10 @@
-import { createClient, type RedisClientType } from "redis";
+import type { RedisClientType } from "redis";
 import { publishWorkspaceStreamEvent } from "./workspace-event-stream";
+import {
+  createManagedRedisClient,
+  ensureManagedRedisClient,
+  isExpectedRedisConnectionError,
+} from "@/lib/redis-client";
 
 export type FilesInvalidationReason =
   | "file.created"
@@ -18,7 +23,7 @@ interface FilesInvalidationPayload {
 }
 
 const redisUrl = process.env.REDIS_URL;
-type PublisherClient = ReturnType<typeof createClient>;
+type PublisherClient = RedisClientType;
 
 let publisher: PublisherClient | null = null;
 let publisherInitPromise: Promise<PublisherClient> | null = null;
@@ -34,13 +39,20 @@ async function getPublisher() {
 
   if (!publisher && !publisherInitPromise) {
     publisherInitPromise = (async () => {
-      const client = createClient({ url: redisUrl });
-      client.on("error", (error) => {
-        console.error("Redis publisher error in files-realtime-publisher", error);
-      });
-      await client.connect();
-      publisher = client;
-      return client;
+      const client = createManagedRedisClient(
+        redisUrl,
+        "files-realtime-publisher"
+      );
+      const connected = await ensureManagedRedisClient(
+        client,
+        redisUrl,
+        "files-realtime-publisher"
+      );
+      if (!connected) {
+        throw new Error("Redis publisher initialization failed");
+      }
+      publisher = connected;
+      return connected;
     })().catch((error) => {
       publisherInitPromise = null;
       throw error;
@@ -71,6 +83,9 @@ export async function createFilesRealtimeSubscriber(workspaceUuid: string) {
   const subscriber = base.duplicate();
 
   subscriber.on("error", (error) => {
+    if (isExpectedRedisConnectionError(error)) {
+      return;
+    }
     console.error("Redis subscriber error in files-realtime-publisher", error);
   });
 

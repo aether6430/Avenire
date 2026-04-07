@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { createClient, type RedisClientType } from "redis";
+import type { RedisClientType } from "redis";
+import { ensureManagedRedisClient } from "@/lib/redis-client";
 
 const redisUrl = process.env.REDIS_URL;
 const DEFAULT_TTL_SECONDS = 60;
@@ -32,17 +33,7 @@ async function getRedisClient() {
     return null;
   }
 
-  if (!client) {
-    client = createClient({ url: redisUrl });
-    client.on("error", (error) => {
-      console.error("Redis error in tasks-cache", error);
-    });
-  }
-
-  if (!client.isOpen) {
-    await client.connect();
-  }
-
+  client = await ensureManagedRedisClient(client, redisUrl, "tasks-cache");
   return client;
 }
 

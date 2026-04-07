@@ -1,4 +1,5 @@
-import { createClient, type RedisClientType } from "redis";
+import type { RedisClientType } from "redis";
+import { ensureManagedRedisClient } from "@/lib/redis-client";
 
 const redisUrl = process.env.REDIS_URL;
 const ACTIVE_STREAM_KEY_PREFIX = "chat-active-stream:";
@@ -15,15 +16,13 @@ export async function getRedisClient() {
     throw new Error("REDIS_URL is not configured");
   }
 
+  redisClient = await ensureManagedRedisClient(
+    redisClient,
+    redisUrl,
+    "chat-stream-store"
+  );
   if (!redisClient) {
-    redisClient = createClient({ url: redisUrl });
-    redisClient.on("error", (error) => {
-      console.error("Redis client error in chat-stream-store", error);
-    });
-  }
-
-  if (!redisClient.isOpen) {
-    await redisClient.connect();
+    throw new Error("Redis client initialization failed");
   }
 
   return redisClient;
@@ -34,15 +33,13 @@ export async function getRedisSubscriber() {
     throw new Error("REDIS_URL is not configured");
   }
 
+  redisSubscriber = await ensureManagedRedisClient(
+    redisSubscriber,
+    redisUrl,
+    "chat-stream-store"
+  );
   if (!redisSubscriber) {
-    redisSubscriber = createClient({ url: redisUrl });
-    redisSubscriber.on("error", (error) => {
-      console.error("Redis subscriber error in chat-stream-store", error);
-    });
-  }
-
-  if (!redisSubscriber.isOpen) {
-    await redisSubscriber.connect();
+    throw new Error("Redis subscriber initialization failed");
   }
 
   return redisSubscriber;

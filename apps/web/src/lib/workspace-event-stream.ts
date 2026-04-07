@@ -1,4 +1,9 @@
-import { createClient, type RedisClientType } from "redis";
+import type { RedisClientType } from "redis";
+import {
+  createManagedRedisClient,
+  ensureManagedRedisClient,
+  isExpectedRedisConnectionError,
+} from "@/lib/redis-client";
 
 export interface WorkspaceStreamEvent {
   payload: Record<string, unknown>;
@@ -81,15 +86,13 @@ async function getPublisherClient() {
     throw new Error("REDIS_URL is not configured");
   }
 
+  publisher = await ensureManagedRedisClient(
+    publisher,
+    redisUrl,
+    "workspace-event-stream"
+  );
   if (!publisher) {
-    publisher = createClient({ url: redisUrl });
-    publisher.on("error", (error) => {
-      console.error("Redis publisher error in workspace-event-stream", error);
-    });
-  }
-
-  if (!publisher.isOpen) {
-    await publisher.connect();
+    throw new Error("Redis publisher initialization failed");
   }
 
   return publisher;
@@ -110,7 +113,19 @@ export async function publishWorkspaceStreamEvent(input: {
     return null;
   }
 
-  const client = await getPublisherClient();
+  let client: RedisClientType;
+  try {
+    client = await getPublisherClient();
+  } catch (error) {
+    if (!isExpectedRedisConnectionError(error)) {
+      console.error("Failed to initialize workspace stream publisher", {
+        workspaceUuid: input.workspaceUuid,
+        type: input.type,
+        error,
+      });
+    }
+    return null;
+  }
   const maxLen = toPositiveInt(
     process.env.WORKSPACE_EVENTS_STREAM_MAXLEN,
     DEFAULT_MAX_LEN
@@ -163,7 +178,18 @@ export async function listWorkspaceStreamEvents(input: {
     return [] as WorkspaceStreamEvent[];
   }
 
-  const client = await getPublisherClient();
+  let client: RedisClientType;
+  try {
+    client = await getPublisherClient();
+  } catch (error) {
+    if (!isExpectedRedisConnectionError(error)) {
+      console.error("Failed to initialize workspace stream publisher", {
+        workspaceUuid: input.workspaceUuid,
+        error,
+      });
+    }
+    return [] as WorkspaceStreamEvent[];
+  }
   const streamKey = getStreamKey(input.workspaceUuid);
   const limit = Math.min(500, Math.max(1, input.limit ?? 200));
   const start = input.afterStreamId ? `(${input.afterStreamId}` : "-";
@@ -211,14 +237,19 @@ export async function waitForWorkspaceStreamEvents(input: {
   );
   const limit = Math.min(200, Math.max(1, input.limit ?? 100));
   const after = input.afterStreamId ?? "$";
-  const client = (await getPublisherClient()).duplicate();
-
-  client.on("error", (error) => {
-    console.error("Redis subscriber error in workspace-event-stream", error);
-  });
-
-  if (!client.isOpen) {
-    await client.connect();
+  const client = createManagedRedisClient(redisUrl, "workspace-event-stream");
+  if (!client.isOpen || !client.isReady) {
+    try {
+      await client.connect();
+    } catch (error) {
+      if (!isExpectedRedisConnectionError(error)) {
+        console.error("Failed to connect workspace stream subscriber", {
+          workspaceUuid: input.workspaceUuid,
+          error,
+        });
+      }
+      return [] as WorkspaceStreamEvent[];
+    }
   }
 
   try {
@@ -251,14 +282,16 @@ export async function waitForWorkspaceStreamEvents(input: {
       .map((entry) => toWorkspaceEvent(input.workspaceUuid, entry))
       .filter((event): event is WorkspaceStreamEvent => Boolean(event));
   } catch (error) {
-    console.error("Failed to wait for workspace stream events", {
-      workspaceUuid: input.workspaceUuid,
-      error,
-    });
+    if (!isExpectedRedisConnectionError(error)) {
+      console.error("Failed to wait for workspace stream events", {
+        workspaceUuid: input.workspaceUuid,
+        error,
+      });
+    }
     return [];
   } finally {
     try {
-      await client.quit();
+      await client.disconnect();
     } catch {
       // ignore
     }
