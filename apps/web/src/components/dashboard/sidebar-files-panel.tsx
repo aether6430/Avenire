@@ -3,9 +3,21 @@
 import { Button } from "@avenire/ui/components/button";
 import { Input } from "@avenire/ui/components/input";
 import {
-  SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, } from "@avenire/ui/components/sidebar";
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from "@avenire/ui/components/sidebar";
 import Fuse, { type IFuseOptions } from "fuse.js";
-import { FilePlus as FilePlus2, Files, PushPin as Pin, Trash as Trash2 } from "@phosphor-icons/react"
+import {
+  FilePlus as FilePlus2,
+  Files,
+  PushPin as Pin,
+  Trash as Trash2,
+  MagnifyingGlass,
+} from "@phosphor-icons/react";
 import type { Route } from "next";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -231,9 +243,9 @@ function createFilesRealtimeConnection({
       eventSource.addEventListener("files.invalidate", (event) => {
         const detail = (() => {
           try {
-            return JSON.parse((event as MessageEvent<string>).data) as
-              | FilesInvalidationEventPayload
-              | null;
+            return JSON.parse(
+              (event as MessageEvent<string>).data
+            ) as FilesInvalidationEventPayload | null;
           } catch {
             return null;
           }
@@ -636,12 +648,7 @@ export function FilesSidebarPanel({
       }
       filesUiActions.emitSync(workspaceUuid);
     },
-    [
-      fileTree,
-      folderTree,
-      isFolderDescendant,
-      workspaceUuid,
-    ]
+    [fileTree, folderTree, isFolderDescendant, workspaceUuid]
   );
 
   const deleteTreeItems = useCallback(
@@ -679,7 +686,8 @@ export function FilesSidebarPanel({
       const folderIdsToRemove = new Set<string>();
       const childFoldersByParent = new Map<string | null, string[]>();
       for (const folder of folderTree) {
-        const siblings = childFoldersByParent.get(folder.parentId ?? null) ?? [];
+        const siblings =
+          childFoldersByParent.get(folder.parentId ?? null) ?? [];
         siblings.push(folder.id);
         childFoldersByParent.set(folder.parentId ?? null, siblings);
       }
@@ -706,7 +714,8 @@ export function FilesSidebarPanel({
           !items.some(
             (item) =>
               (item.kind === "file" && item.id === file.id) ||
-              (item.kind === "folder" && folderIdsToRemove.has(file.folderId ?? ""))
+              (item.kind === "folder" &&
+                folderIdsToRemove.has(file.folderId ?? ""))
           )
       );
 
@@ -718,12 +727,7 @@ export function FilesSidebarPanel({
       });
       filesUiActions.emitSync(workspaceUuid);
     },
-    [
-      currentFileId,
-      currentFolderId,
-      navigateToFilesRoot,
-      workspaceUuid,
-    ]
+    [currentFileId, currentFolderId, navigateToFilesRoot, workspaceUuid]
   );
 
   const fileSearchNeedle = filesNameSearchQuery.trim().toLowerCase();
@@ -955,9 +959,36 @@ export function FilesSidebarPanel({
       ref={fileTreePanelRef}
     >
       <SidebarGroup>
-        <SidebarGroupLabel>
-          {sseConnected ? "Manage Live" : "Manage"}
-        </SidebarGroupLabel>
+        <div className="flex items-center justify-between gap-2">
+          <SidebarGroupLabel>
+            {sseConnected ? "Manage Live" : "Manage"}
+          </SidebarGroupLabel>
+          <div className="flex items-center gap-1">
+            <Button
+              className="h-7 w-7 rounded-md border border-border/60 bg-background/60 p-0 text-muted-foreground shadow-none hover:bg-muted"
+              onClick={() => {
+                commandPaletteActions.open();
+              }}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <MagnifyingGlass className="size-3.5" />
+            </Button>
+            <Button
+              className="h-7 w-7 rounded-md border border-border/60 bg-background/60 p-0 text-muted-foreground shadow-none hover:bg-muted"
+              onClick={() => {
+                filesUiActions.emitIntent("newNote");
+                triggerHaptic("selection");
+              }}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <FilePlus2 className="size-3.5" />
+            </Button>
+          </div>
+        </div>
         <SidebarGroupContent>
           <SidebarMenu>
             <SectionButton
@@ -969,19 +1000,12 @@ export function FilesSidebarPanel({
               }}
             />
           </SidebarMenu>
-          <SidebarMenuItem>
-            <Button
-              className="mt-2 h-8 w-full justify-start gap-2 px-2 text-left text-xs text-muted-foreground"
-              onClick={() => {
-                commandPaletteActions.open();
-              }}
-              type="button"
-              variant="ghost"
-            >
-              <Files className="size-4" />
-              Search workspace in palette
-            </Button>
-          </SidebarMenuItem>
+          <Input
+            className="mt-2 h-8"
+            onChange={(event) => setFilesNameSearchQuery(event.target.value)}
+            placeholder="Search files and folders..."
+            value={filesNameSearchQuery}
+          />
         </SidebarGroupContent>
       </SidebarGroup>
 

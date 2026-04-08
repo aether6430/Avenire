@@ -3,11 +3,13 @@ import type { Route } from "next";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { SharedResourceActions } from "@/components/files/shared-resource-actions";
 import { getMessagesByChatSlug } from "@/lib/chat-data";
 import {
   canUserAccessSharedResource,
   getFileAssetById,
   getFolderWithAncestors,
+  listWorkspacesForUser,
   listFolderContents,
   resolveResourceShareLink,
 } from "@/lib/file-data";
@@ -32,6 +34,9 @@ export default async function SharedResourcePage({
 
   if (link.resourceType === "file") {
     const session = await auth.api.getSession({ headers: await headers() });
+    const workspaces = session?.user?.id
+      ? await listWorkspacesForUser(session.user.id)
+      : [];
     const hasAccess = await canUserAccessSharedResource({
       link,
       userId: session?.user?.id,
@@ -67,6 +72,11 @@ export default async function SharedResourcePage({
         >
           Open file
         </a>
+        <SharedResourceActions
+          resourceLabel="file"
+          token={token}
+          workspaces={workspaces}
+        />
       </main>
     );
   }
@@ -100,15 +110,23 @@ export default async function SharedResourcePage({
         <h1 className="mb-4 font-semibold text-2xl">Shared method</h1>
         <div className="space-y-3 rounded-lg border bg-card p-4">
           {messages.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No messages available.</p>
+            <p className="text-muted-foreground text-sm">
+              No messages available.
+            </p>
           ) : (
             messages.map((message) => {
               const textPart = message.parts.find(
-                (part): part is { text: string; type: "text" } => part.type === "text",
+                (part): part is { text: string; type: "text" } =>
+                  part.type === "text"
               );
               return (
-                <div className="rounded-md border bg-background p-3" key={message.id}>
-                  <p className="mb-1 text-muted-foreground text-xs uppercase">{message.role}</p>
+                <div
+                  className="rounded-md border bg-background p-3"
+                  key={message.id}
+                >
+                  <p className="mb-1 text-muted-foreground text-xs uppercase">
+                    {message.role}
+                  </p>
                   <p className="whitespace-pre-wrap text-sm">
                     {textPart?.text ?? "[non-text content]"}
                   </p>
@@ -129,6 +147,9 @@ export default async function SharedResourcePage({
 
   if (link.resourceType === "folder") {
     const session = await auth.api.getSession({ headers: await headers() });
+    const workspaces = session?.user?.id
+      ? await listWorkspacesForUser(session.user.id)
+      : [];
     const hasAccess = await canUserAccessSharedResource({
       link,
       userId: session?.user?.id,
@@ -149,16 +170,24 @@ export default async function SharedResourcePage({
       );
     }
 
-    const folder = await getFolderWithAncestors(link.workspaceId, link.resourceId);
+    const folder = await getFolderWithAncestors(
+      link.workspaceId,
+      link.resourceId
+    );
     if (!folder?.folder) {
       notFound();
     }
-    const children = await listFolderContents(link.workspaceId, link.resourceId);
+    const children = await listFolderContents(
+      link.workspaceId,
+      link.resourceId
+    );
 
     return (
       <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col p-6">
         <h1 className="mb-2 font-semibold text-2xl">Shared folder</h1>
-        <p className="mb-4 text-muted-foreground text-sm">{folder.folder.name}</p>
+        <p className="mb-4 text-muted-foreground text-sm">
+          {folder.folder.name}
+        </p>
         <div className="rounded-lg border bg-card p-4">
           <p className="font-medium text-sm">Folders</p>
           {children.folders.length === 0 ? (
@@ -190,6 +219,11 @@ export default async function SharedResourcePage({
             </ul>
           )}
         </div>
+        <SharedResourceActions
+          resourceLabel="folder"
+          token={token}
+          workspaces={workspaces}
+        />
       </main>
     );
   }

@@ -45,6 +45,7 @@ export {
   createFlashcardCardForUser,
   createFlashcardSetForUser,
   getFlashcardSetForUser,
+  normalizeFlashcardTaxonomy,
   reviewFlashcardForUser,
   updateFlashcardCardForUser,
   updateFlashcardSetForUser,

@@ -33,8 +33,10 @@ import {
   createFlashcardCardForUser,
   createFlashcardSetForUser,
   type FlashcardCardKind,
+  getFlashcardSetForUser,
   getFlashcardDashboardForUser,
   listDueFlashcardsForUser,
+  normalizeFlashcardTaxonomy,
 } from "@/lib/flashcards";
 import {
   deleteIngestionDataForFile,
@@ -100,6 +102,52 @@ function normalizeMisconceptionSubjectKey(value: string) {
     value.replace(/[_-]+/g, " "),
     80
   ).toLowerCase();
+}
+
+function normalizeStudyMatchKey(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildTopicKey(taxonomy: Pick<FlashcardTaxonomy, "subject" | "topic">) {
+  return [
+    normalizeStudyMatchKey(taxonomy.subject),
+    normalizeStudyMatchKey(taxonomy.topic),
+  ].join("::");
+}
+
+function matchesTaxonomyScope(
+  taxonomy: FlashcardTaxonomy,
+  scope: Partial<FlashcardTaxonomy>
+) {
+  if (
+    scope.subject &&
+    normalizeStudyMatchKey(taxonomy.subject) !==
+      normalizeStudyMatchKey(scope.subject)
+  ) {
+    return false;
+  }
+
+  if (
+    scope.topic &&
+    normalizeStudyMatchKey(taxonomy.topic) !== normalizeStudyMatchKey(scope.topic)
+  ) {
+    return false;
+  }
+
+  if (
+    scope.concept &&
+    normalizeStudyMatchKey(taxonomy.concept) !==
+      normalizeStudyMatchKey(scope.concept)
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 function buildMisconceptionContext(misconceptions: MisconceptionRecord[]) {
@@ -1116,13 +1164,93 @@ async function createStudySetWithCards(params: {
   userId: string;
   workspaceId: string;
 }) {
-  const set = await createFlashcardSetForUser({
-    sourceChatSlug: params.chatSlug,
-    sourceType: "ai-generated",
-    title: params.title,
-    userId: params.userId,
-    workspaceId: params.workspaceId,
-  });
+  const firstTaxonomy = normalizeFlashcardTaxonomy(params.cards[0]?.source);
+  if (!firstTaxonomy) {
+    throw new Error("Generated study cards are missing taxonomy metadata.");
+  }
+
+  const dashboard = await getFlashcardDashboardForUser(
+    params.userId,
+    params.workspaceId
+  );
+  const targetTopicKey = buildTopicKey(firstTaxonomy);
+  const titleKey = normalizeStudyMatchKey(params.title);
+  const topicMatches = new Map<
+    string,
+    { matchCount: number; updatedAt: number; titleKey: string }
+  >();
+
+  for (const snapshot of dashboard?.cardSnapshots ?? []) {
+    if (snapshot.archivedAt) {
+      continue;
+    }
+
+    const taxonomy = normalizeFlashcardTaxonomy(snapshot.card.source);
+    if (!taxonomy || buildTopicKey(taxonomy) !== targetTopicKey) {
+      continue;
+    }
+
+    const existing = topicMatches.get(snapshot.card.setId) ?? {
+      matchCount: 0,
+      titleKey:
+        normalizeStudyMatchKey(
+          dashboard?.sets.find((set) => set.id === snapshot.card.setId)?.title ??
+            ""
+        ) ?? "",
+      updatedAt: 0,
+    };
+    existing.matchCount += 1;
+    existing.updatedAt = Math.max(
+      existing.updatedAt,
+      Date.parse(snapshot.card.updatedAt)
+    );
+    topicMatches.set(snapshot.card.setId, existing);
+  }
+
+  let targetSetId =
+    Array.from(topicMatches.entries())
+      .sort((left, right) => {
+        if (left[1].matchCount !== right[1].matchCount) {
+          return right[1].matchCount - left[1].matchCount;
+        }
+
+        if (left[1].titleKey === titleKey && right[1].titleKey !== titleKey) {
+          return -1;
+        }
+
+        if (right[1].titleKey === titleKey && left[1].titleKey !== titleKey) {
+          return 1;
+        }
+
+        return right[1].updatedAt - left[1].updatedAt;
+      })
+      .at(0)?.[0] ?? null;
+
+  if (!targetSetId && dashboard) {
+    targetSetId =
+      dashboard.sets.find(
+        (set) => normalizeStudyMatchKey(set.title) === titleKey
+      )?.id ?? null;
+  }
+
+  let set =
+    typeof targetSetId === "string"
+      ? await getFlashcardSetForUser(
+          params.userId,
+          params.workspaceId,
+          targetSetId
+        )
+      : null;
+
+  if (!set) {
+    set = await createFlashcardSetForUser({
+      sourceChatSlug: params.chatSlug,
+      sourceType: "ai-generated",
+      title: params.title,
+      userId: params.userId,
+      workspaceId: params.workspaceId,
+    });
+  }
 
   if (!set) {
     throw new Error("Unable to create the study set.");
@@ -1143,7 +1271,10 @@ async function createStudySetWithCards(params: {
     });
   }
 
-  return set;
+  return (
+    (await getFlashcardSetForUser(params.userId, params.workspaceId, set.id)) ??
+    set
+  );
 }
 
 async function generateFlashcardsFromSource(
@@ -2100,21 +2231,50 @@ The agent decides which operations to perform based on the task.`,
     }),
     get_due_cards: tool({
       description:
-        "Show how many study cards are due and preview the next due items. Use only when the user asks about due cards or study progress.",
+        "Show how many study cards are due and preview the next due items. Use when the user asks about due cards or study progress, and also when the user is clearly struggling with a topic and you want to check whether relevant cards are due.",
       inputSchema: chatToolSchemas.get_due_cards.input,
       outputSchema: chatToolSchemas.get_due_cards.output,
       execute: async (input) => {
         const [dashboard, dueCards] = await Promise.all([
           getFlashcardDashboardForUser(ctx.userId, ctx.workspaceId),
           listDueFlashcardsForUser({
-            limit: input.limit ?? DEFAULT_DUE_CARD_LIMIT,
+            limit: 100,
             userId: ctx.userId,
             workspaceId: ctx.workspaceId,
           }),
         ]);
 
+        const hasScope = Boolean(input.subject || input.topic || input.concept);
+        const matchingCardIds = hasScope
+          ? new Set(
+              (dashboard?.cardSnapshots ?? [])
+                .filter((snapshot) => {
+                  const taxonomy = normalizeFlashcardTaxonomy(
+                    snapshot.card.source
+                  );
+                  return Boolean(
+                    taxonomy &&
+                      matchesTaxonomyScope(taxonomy, {
+                        concept: input.concept,
+                        subject: input.subject,
+                        topic: input.topic,
+                      })
+                  );
+                })
+                .map((snapshot) => snapshot.card.id)
+            )
+          : null;
+        const filteredDueCards =
+          matchingCardIds && hasScope
+            ? dueCards.filter((entry) => matchingCardIds.has(entry.card.id))
+            : dueCards;
+        const previewDueCards = filteredDueCards.slice(
+          0,
+          input.limit ?? DEFAULT_DUE_CARD_LIMIT
+        );
+
         return {
-          dueCards: dueCards.map((entry) => ({
+          dueCards: previewDueCards.map((entry) => ({
             cardId: entry.card.id,
             dueAt: entry.reviewState?.dueAt ?? null,
             frontMarkdown: entry.card.frontMarkdown,
@@ -2123,7 +2283,9 @@ The agent decides which operations to perform based on the task.`,
             setId: entry.set.id,
             setTitle: entry.set.title,
           })),
-          totalDueCount: dashboard?.dueCount ?? 0,
+          totalDueCount: hasScope
+            ? filteredDueCards.length
+            : dashboard?.dueCount ?? 0,
         };
       },
     }),

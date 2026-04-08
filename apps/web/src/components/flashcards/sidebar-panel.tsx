@@ -33,6 +33,7 @@ import { Textarea } from "@avenire/ui/components/textarea";
 import {
   BookOpenText as BookOpenCheck,
   ChatCenteredText as MessageSquareDashed,
+  MagnifyingGlass,
   PlusCircle,
 } from "@phosphor-icons/react";
 import type { Route } from "next";
@@ -70,6 +71,7 @@ export function FlashcardsSidebarPanel({
   const [createOpen, setCreateOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [busy, setBusy] = useState(false);
 
   const loadSets = useCallback(
@@ -189,60 +191,91 @@ export function FlashcardsSidebarPanel({
 
   const reviewTarget =
     sets.find((set) => set.dueCount > 0 || set.newCount > 0) ?? null;
-  const filteredSets = sets;
+  const filteredSets = useMemo(() => {
+    const needle = searchQuery.trim().toLowerCase();
+    if (!needle) {
+      return sets;
+    }
+
+    return sets.filter((set) =>
+      `${set.title} ${set.description ?? ""} ${set.tags.join(" ")}`
+        .toLowerCase()
+        .includes(needle)
+    );
+  }, [searchQuery, sets]);
 
   return (
     <div className="absolute inset-0 overflow-y-auto">
       <SidebarGroup>
-        <SidebarGroupLabel>Mindset</SidebarGroupLabel>
+        <div className="flex items-center justify-between gap-2">
+          <SidebarGroupLabel>Mindset</SidebarGroupLabel>
+          <div className="flex items-center gap-1">
+            <Button
+              className="h-7 w-7 rounded-md border border-border/60 bg-background/60 p-0 text-muted-foreground shadow-none hover:bg-muted"
+              onClick={() => {
+                commandPaletteActions.open();
+              }}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <MagnifyingGlass className="size-3.5" />
+            </Button>
+            <Dialog onOpenChange={setCreateOpen} open={createOpen}>
+              <DialogTrigger
+                render={
+                  <Button
+                    className="h-7 w-7 rounded-md border border-border/60 bg-background/60 p-0 text-muted-foreground shadow-none hover:bg-muted"
+                    size="icon"
+                    type="button"
+                    variant="ghost"
+                  />
+                }
+              >
+                <PlusCircle className="size-3.5" />
+              </DialogTrigger>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Create Set</DialogTitle>
+                  <DialogDescription>
+                    Create a workspace-level mindset set.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="flashcards-sidebar-title">Title</Label>
+                    <Input
+                      id="flashcards-sidebar-title"
+                      onChange={(event) => setTitle(event.target.value)}
+                      value={title}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="flashcards-sidebar-description">
+                      Description
+                    </Label>
+                    <Textarea
+                      id="flashcards-sidebar-description"
+                      onChange={(event) => setDescription(event.target.value)}
+                      value={description}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    disabled={busy || !title.trim()}
+                    onClick={createSet}
+                    type="button"
+                  >
+                    Create
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
         <SidebarGroupContent>
           <SidebarMenu>
-            <SidebarMenuItem>
-              <Dialog onOpenChange={setCreateOpen} open={createOpen}>
-                <DialogTrigger render={<SidebarMenuButton />}>
-                  <PlusCircle className="size-4" />
-                  <span>New Set</span>
-                </DialogTrigger>
-                <DialogContent className="max-w-lg">
-                  <DialogHeader>
-                    <DialogTitle>Create Set</DialogTitle>
-                    <DialogDescription>
-                      Create a workspace-level mindset set.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-3">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="flashcards-sidebar-title">Title</Label>
-                      <Input
-                        id="flashcards-sidebar-title"
-                        onChange={(event) => setTitle(event.target.value)}
-                        value={title}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="flashcards-sidebar-description">
-                        Description
-                      </Label>
-                      <Textarea
-                        id="flashcards-sidebar-description"
-                        onChange={(event) => setDescription(event.target.value)}
-                        value={description}
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      disabled={busy || !title.trim()}
-                      onClick={createSet}
-                      type="button"
-                    >
-                      Create
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </SidebarMenuItem>
-
             <SidebarMenuItem>
               <SidebarMenuButton
                 onClick={() => {
@@ -287,21 +320,27 @@ export function FlashcardsSidebarPanel({
       </SidebarGroup>
 
       <SidebarGroup className="min-h-0 flex-1">
-        <SidebarGroupLabel>Sets</SidebarGroupLabel>
+        <div className="flex items-center justify-between gap-2">
+          <SidebarGroupLabel>Sets</SidebarGroupLabel>
+          <Button
+            className="h-7 w-7 rounded-md border border-border/60 bg-background/60 p-0 text-muted-foreground shadow-none hover:bg-muted"
+            onClick={() => {
+              commandPaletteActions.open();
+            }}
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <MagnifyingGlass className="size-3.5" />
+          </Button>
+        </div>
         <SidebarGroupContent>
-          <SidebarMenuItem>
-            <Button
-              className="mb-2 h-8 w-full justify-start gap-2 px-2 text-left text-xs text-muted-foreground"
-              onClick={() => {
-                commandPaletteActions.open();
-              }}
-              type="button"
-              variant="ghost"
-            >
-              <BookOpenCheck className="size-4" />
-              Search sets in palette
-            </Button>
-          </SidebarMenuItem>
+          <Input
+            className="mb-2 h-8"
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search sets..."
+            value={searchQuery}
+          />
           {filteredSets.length === 0 ? (
             <Empty className="min-h-[8.5rem] rounded-2xl border-border/50 bg-background/60 px-3 py-4">
               <EmptyHeader>

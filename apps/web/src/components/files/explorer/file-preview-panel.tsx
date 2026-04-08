@@ -192,7 +192,7 @@ interface FilePreviewPanelProps {
   activeRetrievalChunkId: string | null;
   allFiles: FileRecord[];
   allFolders: FolderRecord[];
-  copyFileShareLink: (file: FileRecord) => void;
+  openFileShareDialog: (file: FileRecord) => void;
   currentFolderId: string;
   currentInfoEntries: { label: string; value: string }[];
   deleteContextActionItems: (itemId: string, kind: "file" | "folder") => void;
@@ -247,7 +247,7 @@ export function FilePreviewPanel({
   moveContextActionItemsToFolder,
   duplicateContextActionItems,
   downloadContextActionItems,
-  copyFileShareLink,
+  openFileShareDialog,
   hardReingestContextActionItems,
   toggleCurrentPinnedItem,
   isCurrentPinned,
@@ -948,7 +948,7 @@ export function FilePreviewPanel({
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => {
-                    void copyFileShareLink(activeFile);
+                    openFileShareDialog(activeFile);
                   }}
                 >
                   <Share2 className="size-3.5" />
@@ -1161,7 +1161,7 @@ export function FilePreviewPanel({
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => {
-                      void copyFileShareLink(activeFile);
+                      openFileShareDialog(activeFile);
                     }}
                   >
                     <Share2 className="size-3.5" />
@@ -1268,7 +1268,7 @@ export function FilePreviewPanel({
     allFolders,
     activeFilePropertyCount,
     currentInfoEntries,
-    copyFileShareLink,
+    openFileShareDialog,
     isCurrentPinned,
     isMarkdown,
     loadShareSuggestions,

@@ -1,5 +1,7 @@
 "use client";
 
+import { Button } from "@avenire/ui/components/button";
+import { Input } from "@avenire/ui/components/input";
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -8,9 +10,9 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@avenire/ui/components/sidebar";
-import { ListChecks } from "@phosphor-icons/react";
+import { ListChecks, MagnifyingGlass, Plus } from "@phosphor-icons/react";
 import type { Route } from "next";
-import { useSyncExternalStore } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { formatTaskDueDate, getTaskStatusLabel } from "@/lib/tasks";
 import {
   getTaskStoreSnapshot,
@@ -46,6 +48,7 @@ export function SidebarTaskPreview({
   closeMobileSidebar: () => void;
   navigate: (href: Route) => void;
 }) {
+  const [searchQuery, setSearchQuery] = useState("");
   const { tasks: sidebarTasks } = useSyncExternalStore(
     subscribeToTaskStore,
     getTaskStoreSnapshot,
@@ -55,12 +58,27 @@ export function SidebarTaskPreview({
   const now = new Date();
   const endOfToday = new Date();
   endOfToday.setHours(23, 59, 59, 999);
-  const visibleTasks = sortWorkspaceTasks(
-    sidebarTasks.filter(
-      (task) =>
-        task.workspaceId === activeWorkspaceId && task.status !== "completed"
-    )
-  );
+  const visibleTasks = useMemo(() => {
+    const needle = searchQuery.trim().toLowerCase();
+    return sortWorkspaceTasks(
+      sidebarTasks.filter((task) => {
+        if (
+          task.workspaceId !== activeWorkspaceId ||
+          task.status === "completed"
+        ) {
+          return false;
+        }
+
+        if (!needle) {
+          return true;
+        }
+
+        return `${task.title} ${task.description ?? ""} ${task.assignee?.name ?? ""}`
+          .toLowerCase()
+          .includes(needle);
+      })
+    );
+  }, [activeWorkspaceId, searchQuery, sidebarTasks]);
   const dueTasks = visibleTasks.filter(
     (task) => task.dueAt && new Date(task.dueAt) <= endOfToday
   );
@@ -68,10 +86,7 @@ export function SidebarTaskPreview({
     task.dueAt ? new Date(task.dueAt) > now : false
   );
 
-  const renderTaskItems = (
-    tasks: typeof visibleTasks,
-    emptyLabel: string
-  ) =>
+  const renderTaskItems = (tasks: typeof visibleTasks, emptyLabel: string) =>
     tasks.length > 0 ? (
       <SidebarMenu className="space-y-1">
         {tasks.slice(0, 6).map((task) => (
@@ -110,12 +125,36 @@ export function SidebarTaskPreview({
   return (
     <div className="absolute inset-0 overflow-y-auto px-2 py-2">
       <SidebarGroup>
-        <SidebarGroupLabel>Tasks</SidebarGroupLabel>
+        <div className="flex items-center justify-between gap-2">
+          <SidebarGroupLabel>Tasks</SidebarGroupLabel>
+          <div className="flex items-center gap-1">
+            <Button
+              className="h-7 w-7 rounded-md border border-border/60 bg-background/60 p-0 text-muted-foreground shadow-none hover:bg-muted"
+              onClick={() => {
+                closeMobileSidebar();
+                navigate("/workspace/tasks" as Route);
+              }}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <MagnifyingGlass className="size-3.5" />
+            </Button>
+            <Button
+              className="h-7 w-7 rounded-md border border-border/60 bg-background/60 p-0 text-muted-foreground shadow-none hover:bg-muted"
+              onClick={() => {
+                closeMobileSidebar();
+                navigate("/workspace/tasks" as Route);
+              }}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <Plus className="size-3.5" />
+            </Button>
+          </div>
+        </div>
         <SidebarGroupContent>
-          <p className="px-2 pb-2 text-muted-foreground text-xs leading-relaxed">
-            Open the task workspace for assignment, scheduling, and inline detail
-            editing.
-          </p>
           <SidebarMenu>
             <SectionButton
               label="Open Tasks"
@@ -125,6 +164,12 @@ export function SidebarTaskPreview({
               }}
             />
           </SidebarMenu>
+          <Input
+            className="mt-2 h-8"
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search tasks..."
+            value={searchQuery}
+          />
           <SidebarGroup className="mt-3">
             <SidebarGroupLabel>Due tasks</SidebarGroupLabel>
             <SidebarGroupContent>

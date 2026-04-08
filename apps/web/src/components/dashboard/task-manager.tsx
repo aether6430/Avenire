@@ -153,13 +153,9 @@ export function DashboardTaskManager({
             <p className="font-medium text-foreground text-sm">
               Today&apos;s Tasks
             </p>
-            <p className="text-muted-foreground text-xs">
-              Tap to mark complete, edit, or delete below.
-            </p>
           </div>
           <div className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-muted-foreground text-xs">
-            <Sparkles className="h-3.5 w-3.5" />
-            {pendingCount} active
+            {pendingCount} pending
           </div>
         </div>
       </CardHeader>

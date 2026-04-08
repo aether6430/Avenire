@@ -1536,10 +1536,7 @@ export function Hero() {
         </div>
 
         <div className="relative">
-          <div
-            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-[0.08] saturate-150"
-            style={{ backgroundImage: `url('/avenire-wallpaper.jpg')` }}
-          />
+          <div className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-[0.08] saturate-150" />
           <m.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}

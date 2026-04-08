@@ -2,25 +2,66 @@
 
 import { Button } from "@avenire/ui/components/button";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, } from "@avenire/ui/components/dropdown-menu";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@avenire/ui/components/dropdown-menu";
 import {
-  Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle, } from "@avenire/ui/components/empty";
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@avenire/ui/components/empty";
 import { ExpandableTabs } from "@avenire/ui/components/expandable-tabs";
 import { Input } from "@avenire/ui/components/input";
 import {
-  Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuAction, SidebarMenuButton, SidebarMenuItem, useSidebar, } from "@avenire/ui/components/sidebar";
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuAction,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  useSidebar,
+} from "@avenire/ui/components/sidebar";
 import {
-  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, } from "@avenire/ui/components/tooltip";
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@avenire/ui/components/tooltip";
 import { Spinner } from "@avenire/ui/components/spinner";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import {
-  Files, GitBranch, Chat as MessageSquare, DotsThree as MoreHorizontal, Pencil, PushPin as Pin, PushPinSlash as PinOff, PlusCircle, Gear as Settings, Sparkle as Sparkles, Trash as Trash2, Waves, ListChecks } from "@phosphor-icons/react"
+  Files,
+  GitBranch,
+  Chat as MessageSquare,
+  DotsThree as MoreHorizontal,
+  Pencil,
+  PushPin as Pin,
+  PushPinSlash as PinOff,
+  PlusCircle,
+  Gear as Settings,
+  Sparkle as Sparkles,
+  Trash as Trash2,
+  Waves,
+  ListChecks,
+  MagnifyingGlass,
+} from "@phosphor-icons/react";
 import type { Route } from "next";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   type ComponentProps,
   type ComponentType,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -55,7 +96,10 @@ import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
 import { useFilesPinsStore } from "@/stores/filesPinsStore";
 import { filesUiActions } from "@/stores/filesUiStore";
 import { useWorkspaceHistoryStore } from "@/stores/workspaceHistoryStore";
-import { primeWorkspaceTaskStore, reloadWorkspaceTasks } from "@/lib/task-client-store";
+import {
+  primeWorkspaceTaskStore,
+  reloadWorkspaceTasks,
+} from "@/lib/task-client-store";
 
 const FlashcardsSidebarPanel = dynamic(
   () =>
@@ -200,6 +244,52 @@ function SidebarEmptyState({
         </EmptyDescription>
       </EmptyContent>
     </Empty>
+  );
+}
+
+function SectionHeader({
+  actions,
+  title,
+}: {
+  actions?: ReactNode;
+  title: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <SidebarGroupLabel>{title}</SidebarGroupLabel>
+      {actions ? (
+        <div className="flex items-center gap-1">{actions}</div>
+      ) : null}
+    </div>
+  );
+}
+
+function SectionIconAction({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  onClick?: () => void;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            className="h-7 w-7 rounded-md border border-border/60 bg-background/60 p-0 text-muted-foreground shadow-none hover:bg-muted"
+            onClick={onClick}
+            size="icon"
+            type="button"
+            variant="ghost"
+          />
+        }
+      >
+        <Icon className="size-3.5" />
+      </TooltipTrigger>
+      <TooltipContent side="top">{label}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -472,6 +562,7 @@ export function DashboardSidebar({
   );
   const [editingChatSlug, setEditingChatSlug] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
+  const [chatSearchQuery, setChatSearchQuery] = useState("");
   const [pendingChatSlug, setPendingChatSlug] = useState<string | null>(null);
   const [activeChatSlugOverride, setActiveChatSlugOverride] = useState<
     string | null
@@ -528,7 +619,13 @@ export function DashboardSidebar({
   const sessionCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
-  let routeView: "chat" | "flashcards" | "files" | "tasks" | "workspace" | null = null;
+  let routeView:
+    | "chat"
+    | "flashcards"
+    | "files"
+    | "tasks"
+    | "workspace"
+    | null = null;
   if (pathname.startsWith("/workspace/flashcards")) {
     routeView = "flashcards";
   } else if (pathname.startsWith("/workspace/tasks")) {
@@ -581,7 +678,9 @@ export function DashboardSidebar({
     }
 
     primeWorkspaceTaskStore(activeWorkspace.workspaceId);
-    void reloadWorkspaceTasks(activeWorkspace.workspaceId, { background: true });
+    void reloadWorkspaceTasks(activeWorkspace.workspaceId, {
+      background: true,
+    });
   }, [activeView, activeWorkspace?.workspaceId]);
   const closeMobileSidebar = useCallback(() => {
     setOpenMobile(false);
@@ -994,7 +1093,11 @@ export function DashboardSidebar({
   }, [routeWorkspaceUuid]);
 
   useEffect(() => {
-    if (!derivedWorkspaceUuid || routeWorkspaceUuid || readPreferredWorkspaceId()) {
+    if (
+      !derivedWorkspaceUuid ||
+      routeWorkspaceUuid ||
+      readPreferredWorkspaceId()
+    ) {
       return;
     }
 
@@ -1115,8 +1218,25 @@ export function DashboardSidebar({
     () => sortedChats.filter((chat) => !chat.pinned),
     [sortedChats]
   );
-  const filteredPinnedChats = pinnedChats;
-  const filteredOtherChats = otherChats;
+  const chatSearchNeedle = chatSearchQuery.trim().toLowerCase();
+  const filteredPinnedChats = useMemo(
+    () =>
+      pinnedChats.filter((chat) =>
+        !chatSearchNeedle
+          ? true
+          : chat.title.toLowerCase().includes(chatSearchNeedle)
+      ),
+    [chatSearchNeedle, pinnedChats]
+  );
+  const filteredOtherChats = useMemo(
+    () =>
+      otherChats.filter((chat) =>
+        !chatSearchNeedle
+          ? true
+          : chat.title.toLowerCase().includes(chatSearchNeedle)
+      ),
+    [chatSearchNeedle, otherChats]
+  );
 
   const navigateToFilesRoot = useCallback(async () => {
     try {
@@ -1682,7 +1802,11 @@ export function DashboardSidebar({
                 if (!nextValue) {
                   return;
                 }
-                const nextView = nextValue as "chat" | "flashcards" | "files" | "tasks";
+                const nextView = nextValue as
+                  | "chat"
+                  | "flashcards"
+                  | "files"
+                  | "tasks";
                 if (nextView === activeView) {
                   return;
                 }
@@ -1738,10 +1862,6 @@ export function DashboardSidebar({
                 <SidebarGroup>
                   <SidebarGroupLabel>Workspace Home</SidebarGroupLabel>
                   <SidebarGroupContent>
-                      <p className="px-2 pb-2 text-muted-foreground text-xs leading-relaxed">
-                      Pick a surface to continue. This home view keeps the
-                      workspace shell visible without pretending to be Method.
-                    </p>
                     <SidebarMenu>
                       <SectionButton
                         icon={MessageSquare}
@@ -1806,31 +1926,38 @@ export function DashboardSidebar({
                 >
                   <SidebarGroup>
                     <SidebarGroupContent>
-                      <SidebarMenu>
-                        <SectionButton
-                          icon={PlusCircle}
-                          label="New Method"
-                          onClick={() => {
-                            void triggerHaptic("selection");
-                            setEditingChatSlug(null);
-                            setEditingTitle("");
-                            void createChat();
-                          }}
-                        />
-                        <SidebarMenuItem>
-                          <Button
-                            className="hit-area mt-2 h-8 w-full justify-start gap-2 px-2 text-left text-xs text-muted-foreground"
-                            onClick={() => {
-                              commandPaletteActions.open();
-                            }}
-                            type="button"
-                            variant="ghost"
-                          >
-                            <MessageSquare className="size-4" />
-                            Search methods in palette
-                          </Button>
-                        </SidebarMenuItem>
-                      </SidebarMenu>
+                      <SectionHeader
+                        actions={
+                          <>
+                            <SectionIconAction
+                              icon={MagnifyingGlass}
+                              label="Search methods"
+                              onClick={() => {
+                                commandPaletteActions.open();
+                              }}
+                            />
+                            <SectionIconAction
+                              icon={PlusCircle}
+                              label="New method"
+                              onClick={() => {
+                                void triggerHaptic("selection");
+                                setEditingChatSlug(null);
+                                setEditingTitle("");
+                                void createChat();
+                              }}
+                            />
+                          </>
+                        }
+                        title="Methods"
+                      />
+                      <Input
+                        className="mt-2 h-8"
+                        onChange={(event) =>
+                          setChatSearchQuery(event.target.value)
+                        }
+                        placeholder="Search methods..."
+                        value={chatSearchQuery}
+                      />
                     </SidebarGroupContent>
                   </SidebarGroup>
 

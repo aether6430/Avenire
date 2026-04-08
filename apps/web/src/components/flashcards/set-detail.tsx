@@ -32,7 +32,8 @@ import {
   Trash as Trash2,
 } from "@phosphor-icons/react";
 import { motion } from "motion/react";
-import { usePathname } from "next/navigation";
+import type { Route } from "next";
+import { usePathname, useRouter } from "next/navigation";
 import {
   useCallback,
   useDeferredValue,
@@ -229,7 +230,9 @@ function StudyCardFace({
         <div
           className={cn(
             "mx-auto flex w-full max-w-[34rem] flex-col gap-4",
-            align === "center" ? "min-h-full justify-center" : "min-h-fit justify-start"
+            align === "center"
+              ? "min-h-full justify-center"
+              : "min-h-fit justify-start"
           )}
         >
           <Markdown
@@ -273,14 +276,20 @@ export function FlashcardSetDetail({
   initialSet: FlashcardSetRecord;
   initialStudyOpen?: boolean;
 }) {
+  const router = useRouter();
   const pathname = usePathname();
   const recordRoute = useWorkspaceHistoryStore((state) => state.recordRoute);
   const [set, setSet] = useState(initialSet);
   const [studyDeck, setStudyDeck] = useState(initialQueue ?? []);
   const [search, setSearch] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
+  const [setMetadataEditorOpen, setSetMetadataEditorOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<FlashcardCardRecord | null>(
     null
+  );
+  const [setTitle, setSetTitle] = useState(initialSet.title);
+  const [setDescription, setSetDescription] = useState(
+    initialSet.description ?? ""
   );
   const [frontMarkdown, setFrontMarkdown] = useState("");
   const [backMarkdown, setBackMarkdown] = useState("");
@@ -324,6 +333,8 @@ export function FlashcardSetDetail({
 
   useEffect(() => {
     setSet(initialSet);
+    setSetTitle(initialSet.title);
+    setSetDescription(initialSet.description ?? "");
     writeCachedFlashcardSet(initialSet);
   }, [initialSet]);
 
@@ -448,25 +459,28 @@ export function FlashcardSetDetail({
   } else if (activeCard) {
     studySessionContent = (
       <div className="mx-auto flex w-full max-w-3xl items-center flex-col gap-8">
-          <div className="flex items-end justify-between w-full gap-4 px-0.5">
-            <div className="min-w-0">
-              <p className="font-medium text-[0.68rem] text-muted-foreground uppercase tracking-[0.22em]">
-                Review Progress
-              </p>
-              <p className="mt-1 font-medium text-sm tabular-nums">
-                {studyProgress.current}/{studyProgress.total}
-              </p>
-            </div>
-            <div className="w-full max-w-44">
-              <div className="h-1.5 overflow-hidden rounded-full bg-secondary/80">
-                <div
-                  className="h-full rounded-full bg-primary transition-[width] duration-200"
-                  style={{ width: `${studyProgress.percentage}%` }}
-                />
-              </div>
+        <div className="flex items-end justify-between w-full gap-4 px-0.5">
+          <div className="min-w-0">
+            <p className="font-medium text-[0.68rem] text-muted-foreground uppercase tracking-[0.22em]">
+              Review Progress
+            </p>
+            <p className="mt-1 font-medium text-sm tabular-nums">
+              {studyProgress.current}/{studyProgress.total}
+            </p>
+          </div>
+          <div className="w-full max-w-44">
+            <div className="h-1.5 overflow-hidden rounded-full bg-secondary/80">
+              <div
+                className="h-full rounded-full bg-primary transition-[width] duration-200"
+                style={{ width: `${studyProgress.percentage}%` }}
+              />
             </div>
           </div>
-          <FlashcardArray deck={reviewDeckCards} flipArrayHook={reviewArrayHook} />
+        </div>
+        <FlashcardArray
+          deck={reviewDeckCards}
+          flipArrayHook={reviewArrayHook}
+        />
       </div>
     );
   }
@@ -482,9 +496,54 @@ export function FlashcardSetDetail({
     const payload = (await response.json()) as { set?: FlashcardSetRecord };
     if (payload.set) {
       setSet(payload.set);
+      setSetTitle(payload.set.title);
+      setSetDescription(payload.set.description ?? "");
       writeCachedFlashcardSet(payload.set);
     }
   }, [set.id]);
+
+  const saveSet = async () => {
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/flashcards/sets/${set.id}`, {
+        body: JSON.stringify({
+          description: setDescription,
+          title: setTitle,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "PATCH",
+      });
+      if (!response.ok) {
+        return;
+      }
+
+      setSetMetadataEditorOpen(false);
+      await loadSet();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deleteSet = async () => {
+    if (!window.confirm(`Delete "${set.title}"? This will archive the set.`)) {
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/flashcards/sets/${set.id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        return;
+      }
+
+      router.push("/workspace/flashcards" as Route);
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const loadStudySession = useCallback(async () => {
     setStudyStatus("loading");
@@ -785,6 +844,56 @@ export function FlashcardSetDetail({
                 </div>
 
                 <div className="flex flex-wrap gap-2">
+                  <Dialog
+                    onOpenChange={setSetMetadataEditorOpen}
+                    open={setMetadataEditorOpen}
+                  >
+                    <DialogTrigger render={<Button variant="outline" />}>
+                      <Pencil className="size-4" />
+                      Edit set
+                    </DialogTrigger>
+                    <DialogContent className="max-w-xl">
+                      <DialogHeader>
+                        <DialogTitle>Edit set</DialogTitle>
+                        <DialogDescription>
+                          Update the title and description for this set.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-3">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="flashcard-set-title">Title</Label>
+                          <Input
+                            id="flashcard-set-title"
+                            onChange={(event) =>
+                              setSetTitle(event.target.value)
+                            }
+                            value={setTitle}
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="flashcard-set-description">
+                            Description
+                          </Label>
+                          <Textarea
+                            id="flashcard-set-description"
+                            onChange={(event) =>
+                              setSetDescription(event.target.value)
+                            }
+                            value={setDescription}
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button
+                          disabled={busy || !setTitle.trim()}
+                          onClick={saveSet}
+                          type="button"
+                        >
+                          Save
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                   <Button
                     onClick={toggleEnrollment}
                     type="button"
@@ -910,6 +1019,15 @@ export function FlashcardSetDetail({
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
+                  <Button
+                    disabled={busy}
+                    onClick={deleteSet}
+                    type="button"
+                    variant="outline"
+                  >
+                    <Trash2 className="size-4" />
+                    Delete set
+                  </Button>
                 </div>
               </div>
             </div>

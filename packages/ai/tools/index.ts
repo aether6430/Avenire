@@ -182,7 +182,10 @@ export const chatToolSchemas = {
   },
   get_due_cards: {
     input: z.object({
+      concept: z.string().min(1).optional(),
       limit: z.number().int().min(1).max(20).optional(),
+      subject: z.string().min(1).optional(),
+      topic: z.string().min(1).optional(),
     }),
     output: z.object({
       dueCards: z.array(dueCardSchema),

@@ -43,7 +43,6 @@ import {
 } from "@avenire/ui/components/dropdown-menu";
 import { Input } from "@avenire/ui/components/input";
 import { ButtonGroup } from "@avenire/ui/components/button-group";
-import { Skeleton } from "@avenire/ui/components/skeleton";
 import { Spinner } from "@avenire/ui/components/spinner";
 import { Textarea } from "@avenire/ui/components/textarea";
 import {
@@ -890,7 +889,9 @@ function getSuccessfulBulkMutationKeys(response: BulkMutationResponse | null) {
   );
 }
 
-function getSuccessfulTrashMutationKeys(response: TrashMutationResponse | null) {
+function getSuccessfulTrashMutationKeys(
+  response: TrashMutationResponse | null
+) {
   return new Set(
     (response?.results ?? [])
       .filter((result) => result.ok)
@@ -906,7 +907,9 @@ function filterMutationHistoryEntry(
   entry: FileMutationHistoryEntry,
   keys: Set<string>
 ): FileMutationHistoryEntry | null {
-  const items = entry.items.filter((item) => keys.has(getMutationHistoryItemKey(item)));
+  const items = entry.items.filter((item) =>
+    keys.has(getMutationHistoryItemKey(item))
+  );
   if (items.length === 0) {
     return null;
   }
@@ -1400,6 +1403,13 @@ export function FileExplorer({
     templateId?: string;
     value: string;
   } | null>(null);
+  const [shareTargetFile, setShareTargetFile] = useState<FileRecord | null>(
+    null
+  );
+  const [shareTargetFolder, setShareTargetFolder] =
+    useState<FolderRecord | null>(null);
+  const [fileShareDialogOpen, setFileShareDialogOpen] = useState(false);
+  const [folderShareDialogOpen, setFolderShareDialogOpen] = useState(false);
   const [noteTemplates, setNoteTemplates] = useState<NoteTemplate[]>([]);
   const [recentTemplateIds, setRecentTemplateIds] = useState<string[]>([]);
   const [noteTemplateEditorOpen, setNoteTemplateEditorOpen] = useState(false);
@@ -4201,11 +4211,14 @@ export function FileExplorer({
         }
         cursor = byId.get(cursor.parentId);
       }
-      const response = await fetch(`/api/workspaces/${workspaceUuid}/folders/${folderId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ parentId: targetFolderId }),
-      });
+      const response = await fetch(
+        `/api/workspaces/${workspaceUuid}/folders/${folderId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ parentId: targetFolderId }),
+        }
+      );
       if (!response.ok) {
         throw new Error("Unable to move folder.");
       }
@@ -4253,11 +4266,14 @@ export function FileExplorer({
       if (file?.folderId === targetFolderId) {
         return;
       }
-      const response = await fetch(`/api/workspaces/${workspaceUuid}/files/${fileId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ folderId: targetFolderId }),
-      });
+      const response = await fetch(
+        `/api/workspaces/${workspaceUuid}/files/${fileId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ folderId: targetFolderId }),
+        }
+      );
       if (!response.ok) {
         throw new Error("Unable to move file.");
       }
@@ -4440,7 +4456,10 @@ export function FileExplorer({
 
     const successfulKeys = new Set<string>();
 
-    for (const [targetFolderId, groupedItems] of itemsByTargetFolderId.entries()) {
+    for (const [
+      targetFolderId,
+      groupedItems,
+    ] of itemsByTargetFolderId.entries()) {
       const result = await runBulkMutation({
         operation: "move",
         targetFolderId,
@@ -4465,7 +4484,12 @@ export function FileExplorer({
 
     const successfulCount = countMutationHistoryItems(entry);
     toast.success(
-      describeMutationHistoryEntry(entry, "normal", successfulCount, totalCount),
+      describeMutationHistoryEntry(
+        entry,
+        "normal",
+        successfulCount,
+        totalCount
+      ),
       {
         action: {
           label: "Undo",
@@ -4908,53 +4932,23 @@ export function FileExplorer({
     setEditDialog(null);
   };
 
-  const copyFileShareLink = useCallback(
-    async (file: FileRecord) => {
-      if (!workspaceUuid || file.readOnly) {
-        return;
-      }
+  const openFileShareDialog = useCallback((file: FileRecord) => {
+    if (file.readOnly) {
+      return;
+    }
 
-      const response = await fetch(
-        `/api/workspaces/${workspaceUuid}/files/${file.id}/share/link`,
-        { method: "POST" }
-      );
-      if (!response.ok) {
-        return;
-      }
+    setShareTargetFile(file);
+    setFileShareDialogOpen(true);
+  }, []);
 
-      const payload = (await response.json()) as { shareUrl?: string };
-      if (!payload.shareUrl) {
-        return;
-      }
+  const openFolderShareDialog = useCallback((folder: FolderRecord) => {
+    if (folder.readOnly) {
+      return;
+    }
 
-      await navigator.clipboard.writeText(payload.shareUrl);
-    },
-    [workspaceUuid]
-  );
-
-  const copyFolderShareLink = useCallback(
-    async (folder: FolderRecord) => {
-      if (!workspaceUuid || folder.readOnly) {
-        return;
-      }
-
-      const response = await fetch(
-        `/api/workspaces/${workspaceUuid}/folders/${folder.id}/share/link`,
-        { method: "POST" }
-      );
-      if (!response.ok) {
-        return;
-      }
-
-      const payload = (await response.json()) as { shareUrl?: string };
-      if (!payload.shareUrl) {
-        return;
-      }
-
-      await navigator.clipboard.writeText(payload.shareUrl);
-    },
-    [workspaceUuid]
-  );
+    setShareTargetFolder(folder);
+    setFolderShareDialogOpen(true);
+  }, []);
 
   const duplicateItem = useCallback(
     async (
@@ -5333,7 +5327,7 @@ export function FileExplorer({
               disabled={isAtWorkspaceRoot || !currentFolder}
               onClick={() => {
                 if (currentFolder) {
-                  void copyFolderShareLink(currentFolder);
+                  openFolderShareDialog(currentFolder);
                 }
               }}
             >
@@ -5523,7 +5517,7 @@ export function FileExplorer({
                 disabled={isAtWorkspaceRoot || !currentFolder}
                 onClick={() => {
                   if (currentFolder) {
-                    void copyFolderShareLink(currentFolder);
+                    openFolderShareDialog(currentFolder);
                   }
                 }}
               >
@@ -5634,7 +5628,7 @@ export function FileExplorer({
     activeFile,
     allFolders,
     breadcrumbs,
-    copyFolderShareLink,
+    openFolderShareDialog,
     currentFolder,
     currentInfoEntries,
     deleteSelectionItems,
@@ -5664,41 +5658,99 @@ export function FileExplorer({
           </div>
         }
       >
-        <FilePreviewPanel
-          activeFile={activeFile}
-          activeRetrievalChunkId={activeRetrievalChunkId}
-          allFiles={allFiles}
-          allFolders={allFolders}
-          copyFileShareLink={copyFileShareLink}
-          currentFolderId={currentFolderId}
-          currentInfoEntries={currentInfoEntries}
-          deleteContextActionItems={deleteContextActionItems}
-          downloadContextActionItems={downloadContextActionItems}
-          duplicateContextActionItems={duplicateContextActionItems}
-          filePathById={filePathById}
-          hardReingestContextActionItems={hardReingestContextActionItems}
-          isCurrentPinned={isCurrentPinned}
-          loadShareSuggestions={loadShareSuggestions}
-          moveContextActionItemsToFolder={moveContextActionItemsToFolder}
-          openFileById={openFileById}
-          openRenameFileDialog={openRenameFileDialog}
-          propertyDefinitions={availablePropertyDefinitions}
-          query={query}
-          retrievalResults={retrievalResults}
-          selectFile={selectFile}
-          setPropertyDefinitions={setPropertyDefinitions}
-          startBannerUpload={startBannerUpload}
-          toggleCurrentPinnedItem={toggleCurrentPinnedItem}
-          wikiMarkdownFiles={wikiMarkdownFiles}
-          workspaceMembers={workspaceMembers}
-          workspaceUuid={workspaceUuid}
-        />
+        <>
+          <ShareDialog
+            activeFile={shareTargetFile}
+            hideTrigger
+            loadShareSuggestions={loadShareSuggestions}
+            onOpenChange={(open) => {
+              setFileShareDialogOpen(open);
+              if (!open) {
+                setShareTargetFile(null);
+              }
+            }}
+            open={fileShareDialogOpen}
+            variant="file"
+            workspaceUuid={workspaceUuid}
+          />
+          <ShareDialog
+            currentFolder={shareTargetFolder}
+            hideTrigger
+            loadShareSuggestions={loadShareSuggestions}
+            onOpenChange={(open) => {
+              setFolderShareDialogOpen(open);
+              if (!open) {
+                setShareTargetFolder(null);
+              }
+            }}
+            open={folderShareDialogOpen}
+            variant="folder"
+            workspaceUuid={workspaceUuid}
+          />
+          <FilePreviewPanel
+            activeFile={activeFile}
+            activeRetrievalChunkId={activeRetrievalChunkId}
+            allFiles={allFiles}
+            allFolders={allFolders}
+            openFileShareDialog={openFileShareDialog}
+            currentFolderId={currentFolderId}
+            currentInfoEntries={currentInfoEntries}
+            deleteContextActionItems={deleteContextActionItems}
+            downloadContextActionItems={downloadContextActionItems}
+            duplicateContextActionItems={duplicateContextActionItems}
+            filePathById={filePathById}
+            hardReingestContextActionItems={hardReingestContextActionItems}
+            isCurrentPinned={isCurrentPinned}
+            loadShareSuggestions={loadShareSuggestions}
+            moveContextActionItemsToFolder={moveContextActionItemsToFolder}
+            openFileById={openFileById}
+            openRenameFileDialog={openRenameFileDialog}
+            propertyDefinitions={availablePropertyDefinitions}
+            query={query}
+            retrievalResults={retrievalResults}
+            selectFile={selectFile}
+            setPropertyDefinitions={setPropertyDefinitions}
+            startBannerUpload={startBannerUpload}
+            toggleCurrentPinnedItem={toggleCurrentPinnedItem}
+            wikiMarkdownFiles={wikiMarkdownFiles}
+            workspaceMembers={workspaceMembers}
+            workspaceUuid={workspaceUuid}
+          />
+        </>
       </Suspense>
     );
   }
 
   return (
     <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background text-foreground">
+      <ShareDialog
+        activeFile={shareTargetFile}
+        hideTrigger
+        loadShareSuggestions={loadShareSuggestions}
+        onOpenChange={(open) => {
+          setFileShareDialogOpen(open);
+          if (!open) {
+            setShareTargetFile(null);
+          }
+        }}
+        open={fileShareDialogOpen}
+        variant="file"
+        workspaceUuid={workspaceUuid}
+      />
+      <ShareDialog
+        currentFolder={shareTargetFolder}
+        hideTrigger
+        loadShareSuggestions={loadShareSuggestions}
+        onOpenChange={(open) => {
+          setFolderShareDialogOpen(open);
+          if (!open) {
+            setShareTargetFolder(null);
+          }
+        }}
+        open={folderShareDialogOpen}
+        variant="folder"
+        workspaceUuid={workspaceUuid}
+      />
       <div className="px-4 pt-0 pb-4">
         {currentFolder && !isMobile ? (
           <ContextMenu>
@@ -6264,19 +6316,11 @@ export function FileExplorer({
                   {...getCanvasDropProps()}
                 >
                   {loading ? (
-                    <div className="flex flex-wrap gap-3">
-                      {Array.from({ length: 10 }).map((_, index) => (
-                        <Card
-                          className="rounded-2xl bg-transparent p-2 ring-0"
-                          key={index}
-                          style={{ width: 160 }}
-                        >
-                          <CardContent className="space-y-2 px-0 pt-0">
-                            <Skeleton className="aspect-[4/3] h-28 rounded-md" />
-                            <Skeleton className="h-4 w-40" />
-                          </CardContent>
-                        </Card>
-                      ))}
+                    <div className="flex min-h-[16rem] items-center justify-center rounded-2xl border border-border/60 bg-muted/10">
+                      <div className="inline-flex items-center gap-2 text-muted-foreground text-sm">
+                        <Spinner className="size-4" />
+                        Loading files...
+                      </div>
                     </div>
                   ) : (
                     <motion.div
@@ -6373,9 +6417,7 @@ export function FileExplorer({
                                     onPointerDownCapture={
                                       stopItemSelectionEvent
                                     }
-                                    onMouseDownCapture={
-                                      stopItemSelectionEvent
-                                    }
+                                    onMouseDownCapture={stopItemSelectionEvent}
                                     onClickCapture={stopItemSelectionEvent}
                                   >
                                     <Checkbox
@@ -6449,7 +6491,7 @@ export function FileExplorer({
                                     </ContextMenuItem>
                                     <ContextMenuItem
                                       onClick={() => {
-                                        void copyFolderShareLink(folder);
+                                        openFolderShareDialog(folder);
                                       }}
                                     >
                                       <Share2 className="size-3.5" />
@@ -6687,9 +6729,7 @@ export function FileExplorer({
                                     onPointerDownCapture={
                                       stopItemSelectionEvent
                                     }
-                                    onMouseDownCapture={
-                                      stopItemSelectionEvent
-                                    }
+                                    onMouseDownCapture={stopItemSelectionEvent}
                                     onClickCapture={stopItemSelectionEvent}
                                   >
                                     <Checkbox
@@ -6793,7 +6833,7 @@ export function FileExplorer({
                                     </ContextMenuItem>
                                     <ContextMenuItem
                                       onClick={() => {
-                                        void copyFileShareLink(file);
+                                        openFileShareDialog(file);
                                       }}
                                     >
                                       <Share2 className="size-3.5" />
@@ -6865,10 +6905,7 @@ export function FileExplorer({
                                 {file.readOnly ? null : (
                                   <ContextMenuItem
                                     onClick={() => {
-                                      deleteContextActionItems(
-                                        file.id,
-                                        "file"
-                                      );
+                                      deleteContextActionItems(file.id, "file");
                                     }}
                                     variant="destructive"
                                   >
@@ -7007,7 +7044,7 @@ export function FileExplorer({
                                       openRenameFolderDialog(folder)
                                     }
                                     onShare={() => {
-                                      void copyFolderShareLink(folder);
+                                      openFolderShareDialog(folder);
                                     }}
                                     onTogglePin={() => {
                                       filesPinsActions.togglePinnedItem(
@@ -7040,9 +7077,7 @@ export function FileExplorer({
                                     onPointerDownCapture={
                                       stopItemSelectionEvent
                                     }
-                                    onMouseDownCapture={
-                                      stopItemSelectionEvent
-                                    }
+                                    onMouseDownCapture={stopItemSelectionEvent}
                                     onClickCapture={stopItemSelectionEvent}
                                   >
                                     <Checkbox
@@ -7239,7 +7274,7 @@ export function FileExplorer({
                                         openRenameFileDialog(file)
                                       }
                                       onShare={() => {
-                                        void copyFileShareLink(file);
+                                        openFileShareDialog(file);
                                       }}
                                       onTogglePin={() => {
                                         filesPinsActions.togglePinnedItem(

@@ -2,10 +2,17 @@
 
 import { Button } from "@avenire/ui/components/button";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, } from "@avenire/ui/components/dialog";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@avenire/ui/components/dialog";
 import { Input } from "@avenire/ui/components/input";
 import { Label } from "@avenire/ui/components/label";
-import { ShareNetwork as Share2 } from "@phosphor-icons/react"
+import { ShareNetwork as Share2 } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { EmailSuggestionInput } from "@/components/shared/email-suggestion-input";
 import type {
@@ -18,6 +25,9 @@ interface ShareDialogProps {
   variant: "file" | "folder";
   compact?: boolean;
   segmented?: boolean;
+  hideTrigger?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   workspaceUuid: string;
   activeFile?: FileRecord | null;
   currentFolder?: FolderRecord | null;
@@ -29,6 +39,9 @@ export function ShareDialog({
   variant,
   compact = false,
   segmented = false,
+  hideTrigger = false,
+  open,
+  onOpenChange,
   workspaceUuid,
   activeFile,
   currentFolder,
@@ -36,7 +49,9 @@ export function ShareDialog({
   loadShareSuggestions,
 }: ShareDialogProps) {
   const [shareEmail, setShareEmail] = useState("");
-  const [shareSuggestions, setShareSuggestions] = useState<ShareSuggestion[]>([]);
+  const [shareSuggestions, setShareSuggestions] = useState<ShareSuggestion[]>(
+    []
+  );
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [shareBusy, setShareBusy] = useState(false);
   const [shareStatus, setShareStatus] = useState<string | null>(null);
@@ -81,7 +96,10 @@ export function ShareDialog({
       return;
     }
     const timer = setTimeout(() => {
-      void loadShareSuggestions(workspaceShareEmail, setWorkspaceShareSuggestions);
+      void loadShareSuggestions(
+        workspaceShareEmail,
+        setWorkspaceShareSuggestions
+      );
     }, 150);
     return () => clearTimeout(timer);
   }, [loadShareSuggestions, workspaceShareEmail, variant, workspaceUuid]);
@@ -138,7 +156,11 @@ export function ShareDialog({
   };
 
   const generateActiveFileShareLink = async () => {
-    if (variant !== "file" || !(activeFile && workspaceUuid) || activeFile.readOnly) {
+    if (
+      variant !== "file" ||
+      !(activeFile && workspaceUuid) ||
+      activeFile.readOnly
+    ) {
       return;
     }
     setShareBusy(true);
@@ -234,7 +256,10 @@ export function ShareDialog({
   };
 
   const shareWorkspaceWithEmail = async () => {
-    if (variant !== "folder" || !(workspaceUuid && workspaceShareEmail.trim())) {
+    if (
+      variant !== "folder" ||
+      !(workspaceUuid && workspaceShareEmail.trim())
+    ) {
       return;
     }
     setWorkspaceShareBusy(true);
@@ -311,25 +336,27 @@ export function ShareDialog({
     }
 
     return (
-      <Dialog>
-        <DialogTrigger
-          render={
-            <Button
-              className={
-                segmented
-                  ? "h-9 w-9 rounded-none border-0 bg-transparent shadow-none"
-                  : compact
-                    ? "h-7 w-7"
-                    : "size-5"
-              }
-              size="icon-xs"
-              type="button"
-              variant={segmented ? "ghost" : "ghost"}
-            />
-          }
-        >
-          <Share2 className="size-3" />
-        </DialogTrigger>
+      <Dialog onOpenChange={onOpenChange} open={open}>
+        {hideTrigger ? null : (
+          <DialogTrigger
+            render={
+              <Button
+                className={
+                  segmented
+                    ? "h-9 w-9 rounded-none border-0 bg-transparent shadow-none"
+                    : compact
+                      ? "h-7 w-7"
+                      : "size-5"
+                }
+                size="icon-xs"
+                type="button"
+                variant={segmented ? "ghost" : "ghost"}
+              />
+            }
+          >
+            <Share2 className="size-3" />
+          </DialogTrigger>
+        )}
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Share file</DialogTitle>
@@ -429,26 +456,28 @@ export function ShareDialog({
   }
 
   return (
-    <Dialog>
-      <DialogTrigger
-        render={
-          <Button
-            className={
-              segmented
-                ? "h-9 rounded-none border-0 bg-transparent px-3 text-xs shadow-none"
-                : compact
-                ? "h-7 gap-1.5 rounded-md px-2 text-xs"
-                : "rounded-md"
-            }
-            size="sm"
-            type="button"
-            variant="outline"
-          />
-        }
-      >
-        <Share2 className={compact ? "size-3" : "size-3.5"} />
-        Share
-      </DialogTrigger>
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      {hideTrigger ? null : (
+        <DialogTrigger
+          render={
+            <Button
+              className={
+                segmented
+                  ? "h-9 rounded-none border-0 bg-transparent px-3 text-xs shadow-none"
+                  : compact
+                    ? "h-7 gap-1.5 rounded-md px-2 text-xs"
+                    : "rounded-md"
+              }
+              size="sm"
+              type="button"
+              variant="outline"
+            />
+          }
+        >
+          <Share2 className={compact ? "size-3" : "size-3.5"} />
+          Share
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
@@ -516,7 +545,9 @@ export function ShareDialog({
               value={isAtWorkspaceRoot ? workspaceShareEmail : folderShareEmail}
             />
             <Button
-              disabled={isAtWorkspaceRoot ? workspaceShareBusy : folderShareBusy}
+              disabled={
+                isAtWorkspaceRoot ? workspaceShareBusy : folderShareBusy
+              }
               onClick={() => {
                 if (isAtWorkspaceRoot) {
                   shareWorkspaceWithEmail().catch(() => undefined);
@@ -583,7 +614,9 @@ export function ShareDialog({
           ) : null}
         </DialogFooter>
         {isAtWorkspaceRoot && workspaceShareStatus ? (
-          <p className="text-muted-foreground text-xs">{workspaceShareStatus}</p>
+          <p className="text-muted-foreground text-xs">
+            {workspaceShareStatus}
+          </p>
         ) : null}
         {!isAtWorkspaceRoot && folderShareStatus ? (
           <p className="text-muted-foreground text-xs">{folderShareStatus}</p>
