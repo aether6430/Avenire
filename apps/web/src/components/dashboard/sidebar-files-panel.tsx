@@ -292,10 +292,6 @@ export function FilesSidebarPanel({
 }) {
   const router = useRouter();
   const triggerHaptic = useHaptics();
-  const filesSyncVersion = useFilesUiStore((state) => state.sync.version);
-  const filesSyncWorkspaceUuid = useFilesUiStore(
-    (state) => state.sync.workspaceUuid
-  );
   const pinnedByWorkspace = useFilesPinsStore(
     (state) => state.pinnedByWorkspace
   );
@@ -308,7 +304,6 @@ export function FilesSidebarPanel({
   const [sseConnected, setSseConnected] = useState(false);
   const fileTreePanelRef = useRef<HTMLDivElement | null>(null);
   const lastTreeRevealTargetRef = useRef<string | null>(null);
-  const processedSyncVersionRef = useRef(0);
   const treeRefreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
@@ -509,25 +504,6 @@ export function FilesSidebarPanel({
       clearTimeout(timer);
     };
   }, [currentFileId, currentFolderId, fileTree.length, folderTree.length]);
-
-  useEffect(() => {
-    if (!workspaceUuid || filesSyncVersion === 0) {
-      return;
-    }
-    if (filesSyncWorkspaceUuid && filesSyncWorkspaceUuid !== workspaceUuid) {
-      return;
-    }
-    if (filesSyncVersion <= processedSyncVersionRef.current) {
-      return;
-    }
-    processedSyncVersionRef.current = filesSyncVersion;
-    refreshWorkspaceTreeDebounced(workspaceUuid);
-  }, [
-    filesSyncVersion,
-    filesSyncWorkspaceUuid,
-    refreshWorkspaceTreeDebounced,
-    workspaceUuid,
-  ]);
 
   useEffect(() => {
     if (!workspaceUuid) {

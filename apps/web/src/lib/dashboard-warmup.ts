@@ -8,8 +8,6 @@ import {
   writeCachedWorkspaces,
 } from "@/lib/dashboard-browser-cache";
 import type { FlashcardSetSummary } from "@/lib/flashcards";
-import { writeWorkspaceFolderCache } from "@/lib/workspace-folder-cache";
-import { writeWorkspaceTreeCache } from "@/lib/workspace-tree-cache";
 
 interface CachedWorkspaceSummary {
   name: string;
@@ -105,68 +103,16 @@ function warmFlashcardSets(workspaceUuid: string) {
   });
 }
 
-function warmWorkspaceTree(workspaceUuid: string) {
-  return rememberWarmup(`tree:${workspaceUuid}`, async () => {
-    const payload = await fetchJson<{
-      files?: unknown[];
-      folders?: unknown[];
-    }>(`/api/workspaces/${workspaceUuid}/tree`);
-
-    if (!(payload?.files && payload?.folders)) {
-      return;
-    }
-
-    writeWorkspaceTreeCache(workspaceUuid, {
-      files: payload.files,
-      folders: payload.folders,
-    });
-  });
-}
-
-function warmWorkspaceFolder(
-  workspaceUuid: string,
-  folderId: string | null | undefined
-) {
-  if (!folderId) {
-    return;
-  }
-
-  return rememberWarmup(`folder:${workspaceUuid}:${folderId}`, async () => {
-    const payload = await fetchJson<{
-      ancestors?: unknown[];
-      files?: unknown[];
-      folders?: unknown[];
-    }>(`/api/workspaces/${workspaceUuid}/folders/${folderId}`);
-
-    if (!(payload?.ancestors && payload?.files && payload?.folders)) {
-      return;
-    }
-
-    writeWorkspaceFolderCache(workspaceUuid, folderId, {
-      ancestors: payload.ancestors,
-      files: payload.files,
-      folders: payload.folders,
-    });
-  });
-}
-
 export async function warmDashboardBackground(context: WarmupContext) {
   if (!canWarmBackground()) {
     return;
   }
 
-  const { workspaceUuid, rootFolderId, currentFolderId } = context;
+  const { workspaceUuid } = context;
   await Promise.allSettled([
     warmWorkspacesList(),
     workspaceUuid ? warmChats(workspaceUuid) : Promise.resolve(),
     workspaceUuid ? warmFlashcardSets(workspaceUuid) : Promise.resolve(),
-    workspaceUuid ? warmWorkspaceTree(workspaceUuid) : Promise.resolve(),
-    workspaceUuid
-      ? warmWorkspaceFolder(workspaceUuid, currentFolderId)
-      : Promise.resolve(),
-    workspaceUuid
-      ? warmWorkspaceFolder(workspaceUuid, rootFolderId)
-      : Promise.resolve(),
   ]);
 }
 
@@ -178,7 +124,7 @@ export async function warmWorkspaceSurface(
     return;
   }
 
-  const { currentFolderId, rootFolderId, workspaceUuid } = context;
+  const { workspaceUuid } = context;
 
   if (surface === "chat") {
     await Promise.allSettled([
@@ -196,16 +142,7 @@ export async function warmWorkspaceSurface(
     return;
   }
 
-  await Promise.allSettled([
-    warmWorkspacesList(),
-    workspaceUuid ? warmWorkspaceTree(workspaceUuid) : Promise.resolve(),
-    workspaceUuid
-      ? warmWorkspaceFolder(workspaceUuid, currentFolderId)
-      : Promise.resolve(),
-    workspaceUuid
-      ? warmWorkspaceFolder(workspaceUuid, rootFolderId)
-      : Promise.resolve(),
-  ]);
+  await Promise.allSettled([warmWorkspacesList()]);
 }
 
 export function warmDashboardRoutes(router: {

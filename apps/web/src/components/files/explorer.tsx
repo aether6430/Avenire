@@ -1452,10 +1452,6 @@ export function FileExplorer({
     () => pinnedByWorkspace[workspaceUuid] ?? [],
     [pinnedByWorkspace, workspaceUuid]
   );
-  const filesSyncVersion = useFilesUiStore((state) => state.sync.version);
-  const filesSyncWorkspaceUuid = useFilesUiStore(
-    (state) => state.sync.workspaceUuid
-  );
   const updateWorkspaceQueue = useFilesActivityStore(
     (state) => state.updateWorkspaceQueue
   );
@@ -1518,7 +1514,6 @@ export function FileExplorer({
     uploadFile: 0,
     uploadFolder: 0,
   });
-  const processedSyncVersionRef = useRef(0);
   const lastRecordedRouteRef = useRef<string | null>(null);
 
   const selectedFileParam = searchParams.get("file");
@@ -2780,26 +2775,6 @@ export function FileExplorer({
     lastRecordedRouteRef.current = currentRoute;
     recordRoute(currentRoute);
   }, [currentRoute, recordRoute]);
-
-  useEffect(() => {
-    if (!(workspaceUuid && currentFolderId) || filesSyncVersion === 0) {
-      return;
-    }
-    if (filesSyncWorkspaceUuid && filesSyncWorkspaceUuid !== workspaceUuid) {
-      return;
-    }
-    if (filesSyncVersion <= processedSyncVersionRef.current) {
-      return;
-    }
-    processedSyncVersionRef.current = filesSyncVersion;
-    refreshDataDebounced();
-  }, [
-    currentFolderId,
-    filesSyncVersion,
-    filesSyncWorkspaceUuid,
-    refreshDataDebounced,
-    workspaceUuid,
-  ]);
 
   useEffect(() => {
     if (!workspaceUuid) {
