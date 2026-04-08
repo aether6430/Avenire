@@ -132,7 +132,6 @@ function getEnrollmentLabel(
   return "Not enrolled";
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: This screen intentionally co-locates review, enrollment, editing, and card bank flows.
 export function FlashcardSetDetail({
   initialDrillFilters,
   initialQueue,
@@ -868,33 +867,11 @@ export function FlashcardSetDetail({
                 <DialogHeader className="relative border-border/10 border-b px-4 py-4 sm:px-6 sm:py-5">
                   <div className="flex flex-wrap items-start justify-between gap-3 sm:gap-4">
                     <div className="min-w-0 space-y-2">
-                      <span className="inline-flex items-center rounded-full border border-border/40 bg-background/75 px-3 py-1 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.24em] backdrop-blur">
-                        Review Session
-                      </span>
-                      <div className="space-y-1">
+                      <div className="space-y-1 pt-8">
                         <DialogTitle className="text-xl tracking-tight sm:text-2xl md:text-[2rem]">
                           {set.title}
                         </DialogTitle>
-                        <DialogDescription className="max-w-xl text-sm leading-snug">
-                          Press space to flip. Use 1-4 to submit Again, Hard,
-                          Good, or Easy.
-                        </DialogDescription>
                       </div>
-                    </div>
-                    <div className="hidden rounded-[1.25rem] border border-border/40 bg-background/75 px-4 py-3 text-right backdrop-blur sm:block">
-                      <p className="text-[11px] text-muted-foreground uppercase tracking-[0.22em]">
-                        Session
-                      </p>
-                      <p className="mt-1 font-medium text-foreground text-xl">
-                        {activeCard
-                          ? `${activeCard.position}/${queue.length}`
-                          : "0/0"}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {activeCard
-                          ? `${activeCard.remainingDueCount ?? 0} left`
-                          : "No cards queued"}
-                      </p>
                     </div>
                   </div>
                 </DialogHeader>
