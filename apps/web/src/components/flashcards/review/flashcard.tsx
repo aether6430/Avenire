@@ -7,9 +7,12 @@ import {
   useId,
 } from "react";
 import { Markdown } from "@/components/chat/markdown";
-import { type UseFlashcard, useFlashcard } from "@/hooks/use-flashcard";
+import {
+  type FlashcardFlipDirection,
+  type UseFlashcard,
+  useFlashcard,
+} from "@/hooks/use-flashcard";
 import { cn } from "@/lib/utils";
-import styles from "./react-quizlet-flashcard.module.scss";
 
 export interface FlashcardSide {
   className?: string;
@@ -27,6 +30,20 @@ export interface ReviewFlashcard {
 export interface FlashcardProps extends ReviewFlashcard {
   flipHook?: UseFlashcard;
 }
+
+const FLIPPED_TRANSFORMS: Record<FlashcardFlipDirection, string> = {
+  bt: "[transform:rotateX(180deg)]",
+  ltr: "[transform:rotateY(180deg)]",
+  rtl: "[transform:rotateY(-180deg)]",
+  tb: "[transform:rotateX(-180deg)]",
+};
+
+const BACK_TRANSFORMS: Record<FlashcardFlipDirection, string> = {
+  bt: "[transform:rotateX(180deg)]",
+  ltr: "[transform:rotateY(180deg)]",
+  rtl: "[transform:rotateY(-180deg)]",
+  tb: "[transform:rotateX(-180deg)]",
+};
 
 function CardFaceContent({
   content,
@@ -66,7 +83,7 @@ export function Flashcard({
   const localFlipHook = flipHook ?? useFlashcard({});
   const isFlipped = localFlipHook.state === "back";
 
-  let flipType: "auto" | "disable" | "manual" = "auto";
+  let flipType = "auto";
   if (localFlipHook.disableFlip) {
     flipType = "disable";
   } else if (localFlipHook.manualFlip) {
@@ -89,16 +106,21 @@ export function Flashcard({
   };
 
   return (
-    <div className={styles["flashcard-wrapper"]} style={style}>
+    <div
+      className="relative h-full w-full overflow-hidden rounded-[1.5rem] [perspective:1000px]"
+      style={style}
+    >
       {/* biome-ignore lint/a11y/useSemanticElements: This surface needs block layout and rich markdown content while remaining keyboard-operable. */}
       <div
         aria-label={`Flashcard, currently showing ${isFlipped ? "back" : "front"} side`}
         aria-live="polite"
         aria-pressed={isFlipped}
         className={cn(
-          styles.flashcard,
+          "absolute inset-0 rounded-[1.5rem] outline-none transition-transform duration-[450ms] ease-[cubic-bezier(0.22,1,0.36,1)] [transform-style:preserve-3d]",
           !(localFlipHook.disableFlip || localFlipHook.manualFlip) &&
             "cursor-pointer",
+          localFlipHook.disableFlip && "cursor-not-allowed opacity-85",
+          isFlipped && FLIPPED_TRANSFORMS[localFlipHook.flipDirection],
           className
         )}
         data-dir={localFlipHook.flipDirection}
@@ -114,17 +136,16 @@ export function Flashcard({
           className={front.className}
           content={front.html}
           contentIdPrefix="flashcard-front"
-          faceClassName={styles.flashcard__front}
-          flipType={flipType}
           style={front.style}
         />
         <CardFace
           ariaHidden={!isFlipped}
-          className={back.className}
+          className={cn(
+            BACK_TRANSFORMS[localFlipHook.flipDirection],
+            back.className
+          )}
           content={back.html}
           contentIdPrefix="flashcard-back"
-          faceClassName={styles.flashcard__back}
-          flipType={flipType}
           style={back.style}
         />
       </div>
@@ -137,37 +158,29 @@ function CardFace({
   className,
   content,
   contentIdPrefix,
-  faceClassName,
-  flipType,
   style,
 }: {
   ariaHidden: boolean;
   className?: string;
   content: ReactNode | string;
   contentIdPrefix: string;
-  faceClassName: string;
-  flipType: "auto" | "disable" | "manual";
   style?: CSSProperties;
 }) {
   return (
     <div
       aria-hidden={ariaHidden}
-      className={faceClassName}
-      data-flip-type={flipType}
+      className={cn(
+        "absolute inset-0 flex h-full w-full overflow-hidden rounded-[1.5rem] border border-border/50 bg-card/95 p-6 text-card-foreground shadow-[0_0_2.5rem_0_rgba(55,53,47,0.12)] [backface-visibility:hidden] sm:p-8 md:p-10 dark:shadow-[0_0_2.5rem_0_rgba(0,0,0,0.28)]",
+        className
+      )}
       style={style}
     >
-      <div className={cn(styles["flashcard__face-shell"], className)}>
-        <div className={styles["flashcard__face-content"]}>
-          <CardFaceContent
-            className={
-              typeof content === "string"
-                ? styles.flashcard__markdown
-                : undefined
-            }
-            content={content}
-            idPrefix={contentIdPrefix}
-          />
-        </div>
+      <div className="flex min-h-0 w-full flex-1 items-center justify-center overflow-auto">
+        <CardFaceContent
+          className={typeof content === "string" ? "w-full" : undefined}
+          content={content}
+          idPrefix={contentIdPrefix}
+        />
       </div>
     </div>
   );
