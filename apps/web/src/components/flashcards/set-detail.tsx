@@ -222,14 +222,19 @@ function StudyCardFace({
       ref={containerRef}
     >
       <div
-        className="study-card-face-content w-full min-w-0 overflow-y-auto overflow-x-hidden px-5 py-5 sm:px-6 sm:py-6"
+        className="w-full min-w-0 overflow-y-auto overflow-x-hidden px-5 py-5 sm:px-6 sm:py-6"
         ref={contentRef}
         style={{ fontSize }}
       >
-        <div className="mx-auto flex min-h-full w-full max-w-[34rem] flex-col justify-center gap-4">
+        <div
+          className={cn(
+            "mx-auto flex w-full max-w-[34rem] flex-col gap-4",
+            align === "center" ? "min-h-full justify-center" : "min-h-fit justify-start"
+          )}
+        >
           <Markdown
             className={cn(
-              "study-card-markdown max-w-none text-card-foreground text-inherit leading-[1.6] [&_ol]:text-inherit [&_p]:text-inherit [&_strong]:text-inherit [&_ul]:text-inherit",
+              "max-w-none text-card-foreground text-inherit leading-[1.6] [&_ol]:text-inherit [&_p]:text-inherit [&_strong]:text-inherit [&_ul]:text-inherit [&_pre.shiki]:rounded-xl [&_pre.shiki]:border [&_pre.shiki]:border-border [&_pre.shiki]:bg-secondary [&_code:not(pre_code)]:rounded-md [&_code:not(pre_code)]:border [&_code:not(pre_code)]:border-border [&_code:not(pre_code)]:bg-secondary [&_code:not(pre_code)]:px-1.5 [&_code:not(pre_code)]:py-0.5",
               align === "center" &&
                 "text-balance text-center [&_li]:text-left [&_p]:text-center"
             )}
@@ -243,7 +248,7 @@ function StudyCardFace({
                 Notes
               </p>
               <Markdown
-                className="study-card-markdown max-w-none text-[0.92em] text-card-foreground leading-[1.6]"
+                className="max-w-none text-[0.92em] text-card-foreground leading-[1.6] [&_pre.shiki]:rounded-xl [&_pre.shiki]:border [&_pre.shiki]:border-border [&_pre.shiki]:bg-secondary [&_code:not(pre_code)]:rounded-md [&_code:not(pre_code)]:border [&_code:not(pre_code)]:border-border [&_code:not(pre_code)]:bg-secondary [&_code:not(pre_code)]:px-1.5 [&_code:not(pre_code)]:py-0.5"
                 content={notes}
                 id={`${id}-notes`}
                 parseIncompleteMarkdown={false}
@@ -358,9 +363,10 @@ export function FlashcardSetDetail({
       );
     });
   }, [deferredSearch, set.cards]);
-  const reviewDeckCards = useMemo<IFlashcard[]>(
+  const reviewDeckCards = useMemo<Array<IFlashcard & { id: string }>>(
     () =>
       studyDeck.map((item) => ({
+        id: item.card.id,
         back: {
           html: (
             <div data-side="back" key={`study-back-face-${item.card.id}`}>
@@ -372,12 +378,7 @@ export function FlashcardSetDetail({
               />
             </div>
           ),
-          style: {
-            overflow: "hidden",
-          },
         },
-        className:
-          "study-flashcard rounded-[1.25rem] border border-border/70 bg-card text-card-foreground shadow-[0_20px_45px_-24px_rgba(15,23,42,0.38)]",
         front: {
           html: (
             <div data-side="front" key={`study-front-face-${item.card.id}`}>
@@ -388,9 +389,6 @@ export function FlashcardSetDetail({
               />
             </div>
           ),
-          style: {
-            overflow: "hidden",
-          },
         },
       })),
     [studyDeck]
@@ -407,7 +405,6 @@ export function FlashcardSetDetail({
   const flipReviewCard = reviewArrayHook.flipHook.flip;
   const resetReviewCardState = reviewArrayHook.flipHook.resetCardState;
   const setReviewCardIndex = reviewArrayHook.setCurrentCard;
-
   const setEnrollmentLabel = getEnrollmentLabel(set.enrollment?.status);
   const reviewSummary = `${set.dueCount} due · ${set.newCount} new · ${set.reviewCountToday} studied today`;
   const studyProgress = useMemo(() => {
@@ -450,9 +447,8 @@ export function FlashcardSetDetail({
     );
   } else if (activeCard) {
     studySessionContent = (
-      <div className="study-flashcard-stage w-full max-w-[22rem] sm:max-w-[32rem] md:max-w-[40rem]">
-        <div className="flex flex-col gap-3">
-          <div className="flex items-end justify-between gap-4 px-0.5">
+      <div className="mx-auto flex w-full max-w-3xl items-center flex-col gap-8">
+          <div className="flex items-end justify-between w-full gap-4 px-0.5">
             <div className="min-w-0">
               <p className="font-medium text-[0.68rem] text-muted-foreground uppercase tracking-[0.22em]">
                 Review Progress
@@ -470,17 +466,7 @@ export function FlashcardSetDetail({
               </div>
             </div>
           </div>
-          <FlashcardArray
-            className={cn(
-              "!w-full",
-              "[&_.flashcard-array__controls]:!hidden",
-              "[&_.flashcard-array__progress-bar]:!hidden"
-            )}
-            deck={reviewDeckCards}
-            flipArrayHook={reviewArrayHook}
-            style={{ width: "100%" }}
-          />
-        </div>
+          <FlashcardArray deck={reviewDeckCards} flipArrayHook={reviewArrayHook} />
       </div>
     );
   }
@@ -543,6 +529,7 @@ export function FlashcardSetDetail({
       setStudySessionReviewed(0);
       setStudyIndex(0);
       resetReviewCardState();
+      setReviewCardIndex(0);
       setStudyError("Unable to load this review session right now.");
       setStudyStatus("error");
     }
@@ -1032,7 +1019,7 @@ export function FlashcardSetDetail({
                 </DialogHeader>
 
                 <div className="relative flex min-h-0 flex-1 flex-col gap-2.5 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-4 md:px-5 md:py-4">
-                  <div className="flex min-h-0 flex-1 items-start justify-center overflow-y-auto py-1">
+                  <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden py-1">
                     {studySessionContent}
                   </div>
 
