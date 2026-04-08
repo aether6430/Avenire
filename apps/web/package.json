@@ -73,6 +73,7 @@
     "react-dom": "latest",
     "react-dropzone": "^15.0.0",
     "react-markdown": "^10.1.0",
+    "react-quizlet-flashcard": "4.0.22",
     "reading-time": "^1.5.0",
     "redis": "^5.11.0",
     "rehype-katex": "^7.0.1",

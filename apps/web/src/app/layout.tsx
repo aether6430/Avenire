@@ -3,10 +3,11 @@ import type { Metadata, Viewport } from "next";
 import { Inconsolata, Inter, Lora } from "next/font/google";
 import localFont from "next/font/local";
 import Script from "next/script";
-import { ServiceWorkerRegistration } from "@/components/pwa/ServiceWorkerRegistration";
 import { PublicThemeReset } from "@/components/public-theme-reset";
+import { ServiceWorkerRegistration } from "@/components/pwa/ServiceWorkerRegistration";
 import { metadataBase } from "@/lib/page-metadata";
 import "./globals.css";
+import "react-quizlet-flashcard/dist/index.css";
 
 const fontSans = Inter({
   subsets: ["latin"],
@@ -84,8 +85,6 @@ export default function RootLayout({
         }
       >
         <Script
-          id="public-theme-bootstrap"
-          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `
               (function () {
@@ -104,6 +103,8 @@ export default function RootLayout({
               })();
             `,
           }}
+          id="public-theme-bootstrap"
+          strategy="beforeInteractive"
         />
         <PublicThemeReset />
         <ServiceWorkerRegistration />

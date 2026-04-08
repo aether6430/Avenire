@@ -41,14 +41,16 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  FlashcardArray,
+  type IFlashcard,
+  useFlashcardArray,
+} from "react-quizlet-flashcard";
 import { Markdown } from "@/components/chat/markdown";
 import {
   HeaderBreadcrumbs,
   HeaderLeadingIcon,
 } from "@/components/dashboard/header-portal";
-import type { ReviewFlashcard } from "@/components/flashcards/review/flashcard";
-import { FlashcardArray } from "@/components/flashcards/review/flashcard-array";
-import { useFlashcardArray } from "@/hooks/use-flashcard-array";
 import { writeCachedFlashcardSet } from "@/lib/flashcard-browser-cache";
 import type {
   FlashcardCardRecord,
@@ -61,7 +63,19 @@ import type {
 import { useWorkspaceHistoryStore } from "@/stores/workspaceHistoryStore";
 
 type Rating = "again" | "hard" | "good" | "easy";
-const REVIEW_ADVANCE_DELAY_MS = 500;
+type StudyStatus = "idle" | "loading" | "ready" | "error";
+const RATING_STYLES: Record<Rating, string> = {
+  again:
+    "border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-300 hover:bg-rose-100 dark:border-rose-400/30 dark:bg-rose-500/10 dark:text-rose-200 dark:hover:border-rose-300/45 dark:hover:bg-rose-500/16",
+  easy: "border-sky-200 bg-sky-50 text-sky-700 hover:border-sky-300 hover:bg-sky-100 dark:border-sky-400/30 dark:bg-sky-500/10 dark:text-sky-200 dark:hover:border-sky-300/45 dark:hover:bg-sky-500/16",
+  good: "border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-200 dark:hover:border-emerald-300/45 dark:hover:bg-emerald-500/16",
+  hard: "border-amber-200 bg-amber-50 text-amber-700 hover:border-amber-300 hover:bg-amber-100 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-200 dark:hover:border-amber-300/45 dark:hover:bg-amber-500/16",
+};
+
+const FRONT_FACE_MAX_FONT_SIZE = 18;
+const FRONT_FACE_MIN_FONT_SIZE = 12;
+const BACK_FACE_MAX_FONT_SIZE = 15;
+const BACK_FACE_MIN_FONT_SIZE = 11;
 
 const STATE_LABELS: Record<FlashcardDisplayState, string> = {
   killed: "Killed",
@@ -132,6 +146,117 @@ function getEnrollmentLabel(
   return "Not enrolled";
 }
 
+function StudyCardFace({
+  align = "center",
+  content,
+  id,
+  notes,
+}: {
+  align?: "center" | "left";
+  content: string;
+  id: string;
+  notes?: string | null;
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const [fontSize, setFontSize] = useState(
+    align === "center" ? FRONT_FACE_MAX_FONT_SIZE : BACK_FACE_MAX_FONT_SIZE
+  );
+
+  useEffect(() => {
+    const container = containerRef.current;
+    const contentNode = contentRef.current;
+    if (!(container && contentNode)) {
+      return;
+    }
+
+    let frame = 0;
+    let observer: ResizeObserver | null = null;
+    const maxFontSize =
+      align === "center" ? FRONT_FACE_MAX_FONT_SIZE : BACK_FACE_MAX_FONT_SIZE;
+    const minFontSize =
+      align === "center" ? FRONT_FACE_MIN_FONT_SIZE : BACK_FACE_MIN_FONT_SIZE;
+
+    const fitContent = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const nextSize = (() => {
+          for (let size = maxFontSize; size >= minFontSize; size -= 1) {
+            contentNode.style.fontSize = `${size}px`;
+            if (
+              contentNode.scrollHeight <= container.clientHeight &&
+              contentNode.scrollWidth <= container.clientWidth
+            ) {
+              return size;
+            }
+          }
+
+          return minFontSize;
+        })();
+
+        contentNode.style.fontSize = `${nextSize}px`;
+        setFontSize((current) => (current === nextSize ? current : nextSize));
+      });
+    };
+
+    fitContent();
+
+    if (typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(fitContent);
+      observer.observe(container);
+      observer.observe(contentNode);
+    }
+
+    return () => {
+      cancelAnimationFrame(frame);
+      observer?.disconnect();
+    };
+  }, [align, content, id, notes]);
+
+  return (
+    <div
+      className={cn(
+        "flex h-full min-h-0 w-full min-w-0 overflow-hidden",
+        align === "center" ? "items-center justify-center" : "items-stretch"
+      )}
+      ref={containerRef}
+    >
+      <div
+        className="study-card-face-content w-full min-w-0 overflow-y-auto overflow-x-hidden px-5 py-5 sm:px-6 sm:py-6"
+        ref={contentRef}
+        style={{ fontSize }}
+      >
+        <div className="mx-auto flex min-h-full w-full max-w-[34rem] flex-col justify-center gap-4">
+          <Markdown
+            className={cn(
+              "study-card-markdown max-w-none text-card-foreground text-inherit leading-[1.6] [&_ol]:text-inherit [&_p]:text-inherit [&_strong]:text-inherit [&_ul]:text-inherit",
+              align === "center" &&
+                "text-balance text-center [&_li]:text-left [&_p]:text-center"
+            )}
+            content={content}
+            id={id}
+            parseIncompleteMarkdown={false}
+          />
+          {notes ? (
+            <div className="rounded-md border border-border/70 bg-muted/50 px-3 py-3">
+              <p className="mb-2 font-medium text-[0.65rem] text-muted-foreground uppercase tracking-[0.18em]">
+                Notes
+              </p>
+              <Markdown
+                className="study-card-markdown max-w-none text-[0.92em] text-card-foreground leading-[1.6]"
+                content={notes}
+                id={`${id}-notes`}
+                parseIncompleteMarkdown={false}
+              />
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: existing page component; study flow is kept local to avoid refetch churn
 export function FlashcardSetDetail({
   initialDrillFilters,
   initialQueue,
@@ -146,7 +271,7 @@ export function FlashcardSetDetail({
   const pathname = usePathname();
   const recordRoute = useWorkspaceHistoryStore((state) => state.recordRoute);
   const [set, setSet] = useState(initialSet);
-  const [queue, setQueue] = useState(initialQueue ?? []);
+  const [studyDeck, setStudyDeck] = useState(initialQueue ?? []);
   const [search, setSearch] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<FlashcardCardRecord | null>(
@@ -162,23 +287,16 @@ export function FlashcardSetDetail({
   const [studyOpen, setStudyOpen] = useState(initialStudyOpen);
   const [studyRevealed, setStudyRevealed] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [queueLoading, setQueueLoading] = useState(false);
-  const [queueLoaded, setQueueLoaded] = useState(
-    (initialQueue ?? []).length > 0
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const [studyStatus, setStudyStatus] = useState<StudyStatus>(
+    (initialQueue ?? []).length > 0 ? "ready" : "idle"
   );
+  const [studyError, setStudyError] = useState<string | null>(null);
+  const [studyIndex, setStudyIndex] = useState(0);
   const [studySessionTotal, setStudySessionTotal] = useState(
     (initialQueue ?? []).length
   );
   const [studySessionReviewed, setStudySessionReviewed] = useState(0);
-  const reviewAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null
-  );
-  const queueRef = useRef(queue);
-  const studyOpenRef = useRef(studyOpen);
-  const studyRevealedRef = useRef(studyRevealed);
-  const submitReviewRef = useRef<(rating: Rating) => Promise<void>>(
-    async () => undefined
-  );
 
   useEffect(() => {
     recordRoute(pathname);
@@ -200,43 +318,22 @@ export function FlashcardSetDetail({
   );
 
   useEffect(() => {
-    if (!studyOpen) {
-      setStudyRevealed(false);
-    }
-  }, [studyOpen]);
-
-  useEffect(() => {
-    queueRef.current = queue;
-  }, [queue]);
-
-  useEffect(() => {
-    studyOpenRef.current = studyOpen;
-  }, [studyOpen]);
-
-  useEffect(() => {
-    studyRevealedRef.current = studyRevealed;
-  }, [studyRevealed]);
-
-  useEffect(() => {
-    return () => {
-      if (reviewAdvanceTimerRef.current) {
-        clearTimeout(reviewAdvanceTimerRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
     setSet(initialSet);
     writeCachedFlashcardSet(initialSet);
   }, [initialSet]);
 
   useEffect(() => {
+    if (studyOpen) {
+      return;
+    }
+
     const nextQueue = initialQueue ?? [];
-    setQueue(nextQueue);
-    setQueueLoaded(nextQueue.length > 0);
+    setStudyDeck(nextQueue);
+    setStudyStatus(nextQueue.length > 0 ? "ready" : "idle");
     setStudySessionTotal(nextQueue.length);
     setStudySessionReviewed(0);
-  }, [initialQueue]);
+    setStudyIndex(0);
+  }, [initialQueue, studyOpen]);
 
   const snapshotByCardId = useMemo(
     () =>
@@ -245,12 +342,7 @@ export function FlashcardSetDetail({
       ),
     [set.cardSnapshots]
   );
-  const activeCard = queue[0] ?? null;
-  useEffect(() => {
-    if (studyOpen && queueLoaded && !queueLoading && !activeCard) {
-      setStudyOpen(false);
-    }
-  }, [activeCard, queueLoaded, queueLoading, studyOpen]);
+  const activeCard = studyDeck[studyIndex] ?? null;
   const filteredCards = useMemo(() => {
     const needle = deferredSearch.trim().toLowerCase();
     if (!needle) {
@@ -266,142 +358,129 @@ export function FlashcardSetDetail({
       );
     });
   }, [deferredSearch, set.cards]);
-  const reviewDeckCards = useMemo<ReviewFlashcard[]>(
+  const reviewDeckCards = useMemo<IFlashcard[]>(
     () =>
-      queue.map((item) => ({
+      studyDeck.map((item) => ({
         back: {
-          className: "items-center",
           html: (
-            <div className="w-full space-y-5 text-left">
-              <Markdown
-                className="max-w-none text-base"
+            <div data-side="back" key={`study-back-face-${item.card.id}`}>
+              <StudyCardFace
+                align="left"
                 content={item.card.backMarkdown}
                 id={`study-back-${item.card.id}`}
-                parseIncompleteMarkdown={false}
+                notes={item.card.notesMarkdown}
               />
-              {item.card.notesMarkdown ? (
-                <div className="rounded-2xl border border-border/60 bg-background/75 p-3">
-                  <p className="mb-2 text-[11px] text-muted-foreground uppercase tracking-[0.18em]">
-                    Notes
-                  </p>
-                  <Markdown
-                    className="max-w-none text-sm"
-                    content={item.card.notesMarkdown}
-                    id={`study-notes-${item.card.id}`}
-                    parseIncompleteMarkdown={false}
-                  />
-                </div>
-              ) : null}
             </div>
           ),
+          style: {
+            overflow: "hidden",
+          },
         },
         className:
-          "rounded-[1.6rem] border-border/45 bg-card/95 shadow-[0_0_2.5rem_0_rgba(15,23,42,0.16)]",
+          "study-flashcard rounded-[1.25rem] border border-border/70 bg-card text-card-foreground shadow-[0_20px_45px_-24px_rgba(15,23,42,0.38)]",
         front: {
-          className: "items-center",
-          html: item.card.frontMarkdown,
+          html: (
+            <div data-side="front" key={`study-front-face-${item.card.id}`}>
+              <StudyCardFace
+                align="center"
+                content={item.card.frontMarkdown}
+                id={`study-front-${item.card.id}`}
+              />
+            </div>
+          ),
+          style: {
+            overflow: "hidden",
+          },
         },
       })),
-    [queue]
+    [studyDeck]
   );
   const reviewArrayHook = useFlashcardArray({
     deckLength: reviewDeckCards.length,
+    flipDirection: "rtl",
+    onCardChange: (cardIndex) => setStudyIndex(cardIndex),
     onFlip: (_cardIndex, state) => setStudyRevealed(state === "back"),
     showControls: false,
-    showCount: true,
-    showProgressBar: true,
+    showCount: false,
+    showProgressBar: false,
   });
   const flipReviewCard = reviewArrayHook.flipHook.flip;
   const resetReviewCardState = reviewArrayHook.flipHook.resetCardState;
   const setReviewCardIndex = reviewArrayHook.setCurrentCard;
 
-  useEffect(() => {
-    if (!studyOpen) {
-      resetReviewCardState();
-    }
-  }, [resetReviewCardState, studyOpen]);
-
-  useEffect(() => {
-    setReviewCardIndex(0);
-    resetReviewCardState();
-    setStudyRevealed(false);
-  }, [queue, resetReviewCardState, setReviewCardIndex]);
-
-  useEffect(() => {
-    if (!studyOpen || queueLoading || queueLoaded) {
-      return;
-    }
-
-    loadQueue().catch(() => undefined);
-  }, [queueLoaded, queueLoading, studyOpen]);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (
-        !studyOpenRef.current ||
-        event.target instanceof HTMLInputElement ||
-        event.target instanceof HTMLTextAreaElement
-      ) {
-        return;
-      }
-
-      if (event.code === "Space") {
-        event.preventDefault();
-        flipReviewCard(studyRevealedRef.current ? "front" : "back");
-      }
-
-      const ratingMap: Record<string, Rating> = {
-        Digit1: "again",
-        Digit2: "hard",
-        Digit3: "good",
-        Digit4: "easy",
-      };
-
-      const rating = ratingMap[event.code];
-      if (rating && studyRevealedRef.current && queueRef.current[0]) {
-        event.preventDefault();
-        submitReviewRef.current(rating).catch(() => undefined);
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [flipReviewCard]);
   const setEnrollmentLabel = getEnrollmentLabel(set.enrollment?.status);
   const reviewSummary = `${set.dueCount} due · ${set.newCount} new · ${set.reviewCountToday} studied today`;
   const studyProgress = useMemo(() => {
-    const total = Math.max(studySessionTotal, queue.length);
-    const current = activeCard
-      ? Math.min(studySessionReviewed + 1, Math.max(total, 1))
-      : total;
+    const total = studySessionTotal;
+    const current = total > 0 ? Math.min(studyIndex + 1, total) : 0;
 
     return {
       current,
-      percentage: total > 0 ? Math.round((current / total) * 100) : 0,
+      percentage:
+        total > 0 ? Math.round((studySessionReviewed / total) * 100) : 0,
       total,
     };
-  }, [activeCard, queue.length, studySessionReviewed, studySessionTotal]);
+  }, [studyIndex, studySessionReviewed, studySessionTotal]);
   let studySessionContent = (
-    <div className="rounded-[1.5rem] border border-border/40 border-dashed bg-background/70 px-5 py-10 text-center text-muted-foreground text-xs backdrop-blur-sm">
+    <div className="rounded-[1.25rem] border border-border/50 border-dashed bg-muted/20 px-5 py-10 text-center text-muted-foreground text-xs">
       No cards are queued right now.
     </div>
   );
 
-  if (queueLoading) {
+  if (studyStatus === "loading") {
     studySessionContent = (
-      <div className="rounded-[1.5rem] border border-border/40 bg-background/70 px-5 py-10 text-center text-muted-foreground text-xs backdrop-blur-sm">
+      <div className="rounded-[1.25rem] border border-border/50 bg-muted/20 px-5 py-10 text-center text-muted-foreground text-xs">
         Loading review queue…
+      </div>
+    );
+  } else if (studyStatus === "error") {
+    studySessionContent = (
+      <div className="rounded-[1.25rem] border border-rose-300/70 bg-rose-50 px-5 py-10 text-center text-rose-700 text-xs dark:border-rose-500/25 dark:bg-rose-500/10 dark:text-rose-200">
+        {studyError ?? "Unable to start the review session."}
+      </div>
+    );
+  } else if (studySessionTotal > 0 && !activeCard) {
+    studySessionContent = (
+      <div className="rounded-[1.25rem] border border-border/50 bg-muted/20 px-5 py-10 text-center">
+        <p className="font-medium text-sm">Session complete</p>
+        <p className="mt-2 text-muted-foreground text-xs">
+          You reviewed all {studySessionTotal} cards in this session.
+        </p>
       </div>
     );
   } else if (activeCard) {
     studySessionContent = (
-      <div className="w-full max-w-[22rem] rounded-[1.75rem] border border-border/40 bg-card/70 p-3 backdrop-blur-sm sm:max-w-[27rem] sm:p-4 md:max-w-[35rem] md:p-5">
-        <FlashcardArray
-          className="w-full"
-          deck={reviewDeckCards}
-          flipArrayHook={reviewArrayHook}
-          progressBar={studyProgress}
-        />
+      <div className="study-flashcard-stage w-full max-w-[22rem] sm:max-w-[32rem] md:max-w-[40rem]">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-end justify-between gap-4 px-0.5">
+            <div className="min-w-0">
+              <p className="font-medium text-[0.68rem] text-muted-foreground uppercase tracking-[0.22em]">
+                Review Progress
+              </p>
+              <p className="mt-1 font-medium text-sm tabular-nums">
+                {studyProgress.current}/{studyProgress.total}
+              </p>
+            </div>
+            <div className="w-full max-w-44">
+              <div className="h-1.5 overflow-hidden rounded-full bg-secondary/80">
+                <div
+                  className="h-full rounded-full bg-primary transition-[width] duration-200"
+                  style={{ width: `${studyProgress.percentage}%` }}
+                />
+              </div>
+            </div>
+          </div>
+          <FlashcardArray
+            className={cn(
+              "!w-full",
+              "[&_.flashcard-array__controls]:!hidden",
+              "[&_.flashcard-array__progress-bar]:!hidden"
+            )}
+            deck={reviewDeckCards}
+            flipArrayHook={reviewArrayHook}
+            style={{ width: "100%" }}
+          />
+        </div>
       </div>
     );
   }
@@ -421,50 +500,61 @@ export function FlashcardSetDetail({
     }
   }, [set.id]);
 
-  const loadQueue = useCallback(
-    async (options?: { resetSession?: boolean }) => {
-      const resetSession = options?.resetSession ?? false;
-      setQueueLoading(true);
-      try {
-        const query = new URLSearchParams({
-          limit: "20",
-          setId: set.id,
-        });
-        const drillQuery = buildDrillQuery(drillFilters);
-        if (drillQuery) {
-          for (const [key, value] of new URLSearchParams(
-            drillQuery
-          ).entries()) {
-            query.append(key, value);
-          }
+  const loadStudySession = useCallback(async () => {
+    setStudyStatus("loading");
+    setStudyError(null);
+    try {
+      const query = new URLSearchParams({
+        limit: "100",
+        setId: set.id,
+      });
+      const drillQuery = buildDrillQuery(drillFilters);
+      if (drillQuery) {
+        for (const [key, value] of new URLSearchParams(drillQuery).entries()) {
+          query.append(key, value);
         }
-
-        const response = await fetch(
-          `/api/flashcards/review/queue?${query.toString()}`,
-          {
-            cache: "no-store",
-          }
-        );
-        if (!response.ok) {
-          return;
-        }
-
-        const payload = (await response.json()) as {
-          queue?: FlashcardReviewQueueItem[];
-        };
-        const nextQueue = payload.queue ?? [];
-        setQueue(nextQueue);
-        setQueueLoaded(true);
-        if (resetSession) {
-          setStudySessionTotal(nextQueue.length);
-          setStudySessionReviewed(0);
-        }
-      } finally {
-        setQueueLoading(false);
       }
-    },
-    [drillFilters, set.id]
-  );
+
+      const response = await fetch(
+        `/api/flashcards/review/queue?${query.toString()}`,
+        {
+          cache: "no-store",
+        }
+      );
+      if (!response.ok) {
+        throw new Error("Failed to load review queue");
+      }
+
+      const payload = (await response.json()) as {
+        queue?: FlashcardReviewQueueItem[];
+      };
+      const nextDeck = payload.queue ?? [];
+      setStudyDeck(nextDeck);
+      setStudySessionTotal(nextDeck.length);
+      setStudySessionReviewed(0);
+      setStudyIndex(0);
+      setStudyRevealed(false);
+      resetReviewCardState();
+      setReviewCardIndex(0);
+      setStudyStatus("ready");
+    } catch {
+      setStudyDeck([]);
+      setStudySessionTotal(0);
+      setStudySessionReviewed(0);
+      setStudyIndex(0);
+      resetReviewCardState();
+      setStudyError("Unable to load this review session right now.");
+      setStudyStatus("error");
+    }
+  }, [drillFilters, resetReviewCardState, set.id, setReviewCardIndex]);
+
+  useEffect(() => {
+    if (!studyOpen) {
+      return;
+    }
+
+    loadStudySession().catch(() => undefined);
+  }, [loadStudySession, studyOpen]);
 
   const openEditor = (card?: FlashcardCardRecord) => {
     setEditingCard(card ?? null);
@@ -513,7 +603,10 @@ export function FlashcardSetDetail({
 
       setEditorOpen(false);
       setEditingCard(null);
-      await Promise.all([loadSet(), loadQueue({ resetSession: true })]);
+      await Promise.all([
+        loadSet(),
+        studyOpen ? loadStudySession() : Promise.resolve(),
+      ]);
     } finally {
       setBusy(false);
     }
@@ -529,7 +622,10 @@ export function FlashcardSetDetail({
         return;
       }
 
-      await Promise.all([loadSet(), loadQueue({ resetSession: true })]);
+      await Promise.all([
+        loadSet(),
+        studyOpen ? loadStudySession() : Promise.resolve(),
+      ]);
     } finally {
       setBusy(false);
     }
@@ -553,7 +649,10 @@ export function FlashcardSetDetail({
         return;
       }
 
-      await Promise.all([loadSet(), loadQueue({ resetSession: true })]);
+      await Promise.all([
+        loadSet(),
+        studyOpen ? loadStudySession() : Promise.resolve(),
+      ]);
     } finally {
       setBusy(false);
     }
@@ -561,53 +660,86 @@ export function FlashcardSetDetail({
 
   const submitReview = useCallback(
     async (rating: Rating) => {
-      const current = queue[0];
-      if (!current) {
-        return;
-      }
-      if (reviewAdvanceTimerRef.current) {
+      if (!(activeCard && !reviewBusy)) {
         return;
       }
 
-      setBusy(true);
-      let shouldAdvance = false;
+      setReviewBusy(true);
+      setStudyError(null);
       try {
         const response = await fetch("/api/flashcards/review", {
           body: JSON.stringify({
-            cardId: current.card.id,
+            cardId: activeCard.card.id,
             rating,
           }),
           headers: { "Content-Type": "application/json" },
           method: "POST",
         });
         if (!response.ok) {
-          return;
+          throw new Error("Failed to submit review");
         }
 
-        shouldAdvance = true;
         setStudySessionReviewed((value) => value + 1);
         setStudyRevealed(false);
         resetReviewCardState();
-        reviewAdvanceTimerRef.current = setTimeout(async () => {
-          try {
-            await Promise.all([loadSet(), loadQueue()]);
-          } finally {
-            reviewAdvanceTimerRef.current = null;
-            setBusy(false);
-          }
-        }, REVIEW_ADVANCE_DELAY_MS);
-      } finally {
-        if (!shouldAdvance) {
-          setBusy(false);
+        if (studyIndex < studyDeck.length - 1) {
+          reviewArrayHook.nextCard();
+        } else {
+          setStudyIndex(studyDeck.length);
         }
+
+        if (studyIndex >= studyDeck.length - 1) {
+          await loadSet();
+        }
+      } catch {
+        setStudyError("We couldn't record that rating. Try again.");
+      } finally {
+        setReviewBusy(false);
       }
     },
-    [loadQueue, loadSet, queue, resetReviewCardState]
+    [
+      activeCard,
+      loadSet,
+      resetReviewCardState,
+      reviewArrayHook,
+      reviewBusy,
+      studyDeck.length,
+      studyIndex,
+    ]
   );
 
   useEffect(() => {
-    submitReviewRef.current = submitReview;
-  }, [submitReview]);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        !studyOpen ||
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+
+      if (event.code === "Space") {
+        event.preventDefault();
+        flipReviewCard(studyRevealed ? "front" : "back");
+      }
+
+      const ratingMap: Record<string, Rating> = {
+        Digit1: "again",
+        Digit2: "hard",
+        Digit3: "good",
+        Digit4: "easy",
+      };
+
+      const rating = ratingMap[event.code];
+      if (rating && studyRevealed && activeCard) {
+        event.preventDefault();
+        submitReview(rating).catch(() => undefined);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [activeCard, flipReviewCard, studyOpen, studyRevealed, submitReview]);
 
   return (
     <div className="h-full overflow-y-auto bg-background">
@@ -804,8 +936,12 @@ export function FlashcardSetDetail({
             <Button
               disabled={set.dueCount + set.newCount <= 0}
               onClick={() => {
-                setQueue([]);
-                setQueueLoaded(false);
+                setStudyDeck([]);
+                setStudyStatus("loading");
+                setStudyError(null);
+                setStudySessionReviewed(0);
+                setStudySessionTotal(0);
+                setStudyIndex(0);
                 setStudyOpen(true);
               }}
               type="button"
@@ -858,33 +994,53 @@ export function FlashcardSetDetail({
             </div>
           </div>
 
-          <Dialog onOpenChange={setStudyOpen} open={studyOpen}>
+          <Dialog
+            onOpenChange={(open) => {
+              setStudyOpen(open);
+              if (!open) {
+                resetReviewCardState();
+                setReviewCardIndex(0);
+                setStudyRevealed(false);
+                setStudyIndex(0);
+                setStudyStatus(studyDeck.length > 0 ? "ready" : "idle");
+                if (studySessionReviewed > 0) {
+                  loadSet().catch(() => undefined);
+                }
+              }
+            }}
+            open={studyOpen}
+          >
             <DialogContent
-              className="h-[100dvh] w-full overflow-hidden border-border/60 bg-background p-0 sm:h-[92vh] sm:w-[min(44rem,calc(100vw-1.5rem))]"
+              className="h-[100dvh] w-full overflow-hidden border-border/60 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.05),transparent_42%),var(--background)] p-0 sm:h-[88vh] sm:w-[min(42rem,calc(100vw-1.5rem))]"
               largeWidth
             >
               <div className="relative flex h-full flex-col overflow-hidden bg-background">
-                <DialogHeader className="relative border-border/10 border-b px-4 py-4 sm:px-6 sm:py-5">
-                  <div className="flex flex-wrap items-start justify-between gap-3 sm:gap-4">
-                    <div className="min-w-0 space-y-2">
-                      <div className="space-y-1 pt-8">
-                        <DialogTitle className="text-xl tracking-tight sm:text-2xl md:text-[2rem]">
-                          {set.title}
-                        </DialogTitle>
-                      </div>
+                <DialogHeader className="border-border/20 border-b px-4 py-2.5 sm:px-5 sm:py-4">
+                  <div className="space-y-1.5 pr-8">
+                    <p className="font-medium text-[0.7rem] text-muted-foreground uppercase tracking-[0.24em]">
+                      Mindset Session
+                    </p>
+                    <div className="space-y-0.5">
+                      <DialogTitle className="text-balance pr-2 font-semibold text-lg tracking-tight sm:text-[1.85rem]">
+                        {set.title}
+                      </DialogTitle>
+                      <p className="text-muted-foreground text-xs sm:text-sm">
+                        Tap the card to flip. Tap a rating to advance.
+                      </p>
                     </div>
                   </div>
                 </DialogHeader>
 
-                <div className="relative flex min-h-0 flex-1 flex-col gap-3 px-3 py-3 sm:gap-4 sm:px-4 sm:py-4 md:px-6 md:py-6">
-                  <div className="flex flex-1 items-center justify-center overflow-y-auto py-2">
+                <div className="relative flex min-h-0 flex-1 flex-col gap-2.5 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-4 md:px-5 md:py-4">
+                  <div className="flex min-h-0 flex-1 items-start justify-center overflow-y-auto py-1">
                     {studySessionContent}
                   </div>
 
-                  <div className="rounded-[1.5rem] border border-border/40 bg-background/75 p-3 backdrop-blur-sm md:p-4">
+                  <div className="space-y-1.5 px-0.5 pb-0.5">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <Button
-                        className="rounded-full"
+                        className="h-6 rounded-md px-2.5 text-xs"
+                        disabled={!activeCard}
                         onClick={() =>
                           flipReviewCard(studyRevealed ? "front" : "back")
                         }
@@ -897,26 +1053,35 @@ export function FlashcardSetDetail({
                         Space to flip · 1-4 to grade
                       </span>
                     </div>
-                    <div className="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-4">
+                    {studyError ? (
+                      <p className="text-rose-600 text-xs dark:text-rose-300">
+                        {studyError}
+                      </p>
+                    ) : null}
+                    <div className="grid grid-cols-2 gap-1.5 md:grid-cols-4">
                       <RatingButton
-                        disabled={busy || !studyRevealed}
+                        disabled={reviewBusy || !studyRevealed || !activeCard}
                         label="1 · Again"
                         onClick={() => submitReview("again")}
+                        rating="again"
                       />
                       <RatingButton
-                        disabled={busy || !studyRevealed}
+                        disabled={reviewBusy || !studyRevealed || !activeCard}
                         label="2 · Hard"
                         onClick={() => submitReview("hard")}
+                        rating="hard"
                       />
                       <RatingButton
-                        disabled={busy || !studyRevealed}
+                        disabled={reviewBusy || !studyRevealed || !activeCard}
                         label="3 · Good"
                         onClick={() => submitReview("good")}
+                        rating="good"
                       />
                       <RatingButton
-                        disabled={busy || !studyRevealed}
+                        disabled={reviewBusy || !studyRevealed || !activeCard}
                         label="4 · Easy"
                         onClick={() => submitReview("easy")}
+                        rating="easy"
                       />
                     </div>
                   </div>
@@ -1039,19 +1204,24 @@ function RatingButton({
   disabled,
   label,
   onClick,
+  rating,
 }: {
   disabled?: boolean;
   label: string;
   onClick: () => void;
+  rating: Rating;
 }) {
   return (
     <Button
       className={cn(
-        "h-auto min-h-10 flex-col items-start justify-center rounded-[1.1rem] border border-border/70 bg-background px-3 py-2 text-left text-foreground text-xs leading-tight transition-colors hover:bg-muted/20 sm:min-h-12 sm:px-4 sm:py-3 sm:text-sm",
-        disabled && "bg-muted/10 text-muted-foreground hover:bg-muted/10"
+        "h-7 justify-start rounded-md border px-2.5 font-medium text-[0.72rem] tracking-tight transition-colors sm:justify-center",
+        RATING_STYLES[rating],
+        disabled &&
+          "border-border/70 bg-muted/30 text-muted-foreground hover:border-border/70 hover:bg-muted/30"
       )}
       disabled={disabled}
       onClick={onClick}
+      size="sm"
       type="button"
       variant="outline"
     >

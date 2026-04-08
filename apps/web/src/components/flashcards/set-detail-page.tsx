@@ -70,10 +70,6 @@ function LoadingShell({ setId }: { setId: string }) {
         <h1 className="mt-2 font-semibold text-2xl tracking-tight">
           Opening deck {setId}
         </h1>
-        <p className="mt-2 text-muted-foreground text-sm">
-          The deck data is loading on the client so cached decks can open
-          instantly.
-        </p>
         <div className="mt-6 space-y-3">
           <div className="h-5 w-1/2 animate-pulse rounded-full bg-muted" />
           <div className="h-32 animate-pulse rounded-2xl bg-muted/70" />
