@@ -33,7 +33,14 @@ import {
 } from "@phosphor-icons/react";
 import { motion } from "motion/react";
 import { usePathname } from "next/navigation";
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Markdown } from "@/components/chat/markdown";
 import {
   HeaderBreadcrumbs,
@@ -42,6 +49,7 @@ import {
 import type { ReviewFlashcard } from "@/components/flashcards/review/flashcard";
 import { FlashcardArray } from "@/components/flashcards/review/flashcard-array";
 import { useFlashcardArray } from "@/hooks/use-flashcard-array";
+import { writeCachedFlashcardSet } from "@/lib/flashcard-browser-cache";
 import type {
   FlashcardCardRecord,
   FlashcardDisplayState,
@@ -50,7 +58,6 @@ import type {
   FlashcardSetRecord,
   FlashcardTaxonomy,
 } from "@/lib/flashcards";
-import { writeCachedFlashcardSet } from "@/lib/flashcard-browser-cache";
 import { useWorkspaceHistoryStore } from "@/stores/workspaceHistoryStore";
 
 type Rating = "again" | "hard" | "good" | "easy";
@@ -160,6 +167,10 @@ export function FlashcardSetDetail({
   const [queueLoaded, setQueueLoaded] = useState(
     (initialQueue ?? []).length > 0
   );
+  const [studySessionTotal, setStudySessionTotal] = useState(
+    (initialQueue ?? []).length
+  );
+  const [studySessionReviewed, setStudySessionReviewed] = useState(0);
   const reviewAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
@@ -224,6 +235,8 @@ export function FlashcardSetDetail({
     const nextQueue = initialQueue ?? [];
     setQueue(nextQueue);
     setQueueLoaded(nextQueue.length > 0);
+    setStudySessionTotal(nextQueue.length);
+    setStudySessionReviewed(0);
   }, [initialQueue]);
 
   const snapshotByCardId = useMemo(
@@ -357,6 +370,18 @@ export function FlashcardSetDetail({
   }, [flipReviewCard]);
   const setEnrollmentLabel = getEnrollmentLabel(set.enrollment?.status);
   const reviewSummary = `${set.dueCount} due · ${set.newCount} new · ${set.reviewCountToday} studied today`;
+  const studyProgress = useMemo(() => {
+    const total = Math.max(studySessionTotal, queue.length);
+    const current = activeCard
+      ? Math.min(studySessionReviewed + 1, Math.max(total, 1))
+      : total;
+
+    return {
+      current,
+      percentage: total > 0 ? Math.round((current / total) * 100) : 0,
+      total,
+    };
+  }, [activeCard, queue.length, studySessionReviewed, studySessionTotal]);
   let studySessionContent = (
     <div className="rounded-[1.5rem] border border-border/40 border-dashed bg-background/70 px-5 py-10 text-center text-muted-foreground text-xs backdrop-blur-sm">
       No cards are queued right now.
@@ -376,12 +401,13 @@ export function FlashcardSetDetail({
           className="w-full"
           deck={reviewDeckCards}
           flipArrayHook={reviewArrayHook}
+          progressBar={studyProgress}
         />
       </div>
     );
   }
 
-  const loadSet = async () => {
+  const loadSet = useCallback(async () => {
     const response = await fetch(`/api/flashcards/sets/${set.id}`, {
       cache: "no-store",
     });
@@ -394,41 +420,52 @@ export function FlashcardSetDetail({
       setSet(payload.set);
       writeCachedFlashcardSet(payload.set);
     }
-  };
+  }, [set.id]);
 
-  const loadQueue = async () => {
-    setQueueLoading(true);
-    try {
-      const query = new URLSearchParams({
-        limit: "20",
-        setId: set.id,
-      });
-      const drillQuery = buildDrillQuery(drillFilters);
-      if (drillQuery) {
-        for (const [key, value] of new URLSearchParams(drillQuery).entries()) {
-          query.append(key, value);
+  const loadQueue = useCallback(
+    async (options?: { resetSession?: boolean }) => {
+      const resetSession = options?.resetSession ?? false;
+      setQueueLoading(true);
+      try {
+        const query = new URLSearchParams({
+          limit: "20",
+          setId: set.id,
+        });
+        const drillQuery = buildDrillQuery(drillFilters);
+        if (drillQuery) {
+          for (const [key, value] of new URLSearchParams(
+            drillQuery
+          ).entries()) {
+            query.append(key, value);
+          }
         }
-      }
 
-      const response = await fetch(
-        `/api/flashcards/review/queue?${query.toString()}`,
-        {
-          cache: "no-store",
+        const response = await fetch(
+          `/api/flashcards/review/queue?${query.toString()}`,
+          {
+            cache: "no-store",
+          }
+        );
+        if (!response.ok) {
+          return;
         }
-      );
-      if (!response.ok) {
-        return;
-      }
 
-      const payload = (await response.json()) as {
-        queue?: FlashcardReviewQueueItem[];
-      };
-      setQueue(payload.queue ?? []);
-      setQueueLoaded(true);
-    } finally {
-      setQueueLoading(false);
-    }
-  };
+        const payload = (await response.json()) as {
+          queue?: FlashcardReviewQueueItem[];
+        };
+        const nextQueue = payload.queue ?? [];
+        setQueue(nextQueue);
+        setQueueLoaded(true);
+        if (resetSession) {
+          setStudySessionTotal(nextQueue.length);
+          setStudySessionReviewed(0);
+        }
+      } finally {
+        setQueueLoading(false);
+      }
+    },
+    [drillFilters, set.id]
+  );
 
   const openEditor = (card?: FlashcardCardRecord) => {
     setEditingCard(card ?? null);
@@ -477,7 +514,7 @@ export function FlashcardSetDetail({
 
       setEditorOpen(false);
       setEditingCard(null);
-      await Promise.all([loadSet(), loadQueue()]);
+      await Promise.all([loadSet(), loadQueue({ resetSession: true })]);
     } finally {
       setBusy(false);
     }
@@ -493,7 +530,7 @@ export function FlashcardSetDetail({
         return;
       }
 
-      await Promise.all([loadSet(), loadQueue()]);
+      await Promise.all([loadSet(), loadQueue({ resetSession: true })]);
     } finally {
       setBusy(false);
     }
@@ -517,53 +554,57 @@ export function FlashcardSetDetail({
         return;
       }
 
-      await Promise.all([loadSet(), loadQueue()]);
+      await Promise.all([loadSet(), loadQueue({ resetSession: true })]);
     } finally {
       setBusy(false);
     }
   };
 
-  const submitReview = async (rating: Rating) => {
-    const current = queue[0];
-    if (!current) {
-      return;
-    }
-    if (reviewAdvanceTimerRef.current) {
-      return;
-    }
-
-    setBusy(true);
-    let shouldAdvance = false;
-    try {
-      const response = await fetch("/api/flashcards/review", {
-        body: JSON.stringify({
-          cardId: current.card.id,
-          rating,
-        }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      });
-      if (!response.ok) {
+  const submitReview = useCallback(
+    async (rating: Rating) => {
+      const current = queue[0];
+      if (!current) {
+        return;
+      }
+      if (reviewAdvanceTimerRef.current) {
         return;
       }
 
-      shouldAdvance = true;
-      setStudyRevealed(false);
-      resetReviewCardState();
-      reviewAdvanceTimerRef.current = setTimeout(async () => {
-        try {
-          await Promise.all([loadSet(), loadQueue()]);
-        } finally {
-          reviewAdvanceTimerRef.current = null;
+      setBusy(true);
+      let shouldAdvance = false;
+      try {
+        const response = await fetch("/api/flashcards/review", {
+          body: JSON.stringify({
+            cardId: current.card.id,
+            rating,
+          }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+        });
+        if (!response.ok) {
+          return;
+        }
+
+        shouldAdvance = true;
+        setStudySessionReviewed((value) => value + 1);
+        setStudyRevealed(false);
+        resetReviewCardState();
+        reviewAdvanceTimerRef.current = setTimeout(async () => {
+          try {
+            await Promise.all([loadSet(), loadQueue()]);
+          } finally {
+            reviewAdvanceTimerRef.current = null;
+            setBusy(false);
+          }
+        }, REVIEW_ADVANCE_DELAY_MS);
+      } finally {
+        if (!shouldAdvance) {
           setBusy(false);
         }
-      }, REVIEW_ADVANCE_DELAY_MS);
-    } finally {
-      if (!shouldAdvance) {
-        setBusy(false);
       }
-    }
-  };
+    },
+    [loadQueue, loadSet, queue, resetReviewCardState]
+  );
 
   useEffect(() => {
     submitReviewRef.current = submitReview;

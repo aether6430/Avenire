@@ -4,9 +4,7 @@ import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
-  useEffect,
   useId,
-  useState,
 } from "react";
 import { Markdown } from "@/components/chat/markdown";
 import {
@@ -82,21 +80,8 @@ export function Flashcard({
   front,
   back,
 }: FlashcardProps) {
-  const [isFlipped, setIsFlipped] = useState(
-    flipHook ? flipHook.state === "back" : false
-  );
-
-  const defaultFlipHook = useFlashcard({
-    onFlip: (state) => {
-      setIsFlipped(state === "back");
-    },
-  });
-
-  const localFlipHook = flipHook ?? defaultFlipHook;
-
-  useEffect(() => {
-    setIsFlipped(localFlipHook.state === "back");
-  }, [localFlipHook, localFlipHook.state]);
+  const localFlipHook = flipHook ?? useFlashcard({});
+  const isFlipped = localFlipHook.state === "back";
 
   let flipType = "auto";
   if (localFlipHook.disableFlip) {
@@ -121,7 +106,10 @@ export function Flashcard({
   };
 
   return (
-    <div className="relative h-full w-full [perspective:1000px]" style={style}>
+    <div
+      className="relative h-full w-full overflow-hidden rounded-[1.5rem] [perspective:1000px]"
+      style={style}
+    >
       {/* biome-ignore lint/a11y/useSemanticElements: This surface needs block layout and rich markdown content while remaining keyboard-operable. */}
       <div
         aria-label={`Flashcard, currently showing ${isFlipped ? "back" : "front"} side`}

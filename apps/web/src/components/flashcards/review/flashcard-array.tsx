@@ -21,6 +21,11 @@ export interface FlashcardArrayProps {
   className?: string;
   deck: ReviewFlashcard[];
   flipArrayHook?: UseFlashcardArray;
+  progressBar?: {
+    current: number;
+    percentage: number;
+    total: number;
+  };
 }
 
 function SiblingCard({ direction }: { direction: "left" | "right" }) {
@@ -34,7 +39,7 @@ function SiblingCard({ direction }: { direction: "left" | "right" }) {
           : "[transform:translateX(10%)_rotateY(-10deg)_translateZ(0)]"
       )}
     >
-      <div className="h-full rounded-[1.5rem] border border-border/35 bg-background/40 shadow-none" />
+      <div className="h-full w-full rounded-[1.5rem] border border-border/35 bg-background/40 shadow-none" />
     </div>
   );
 }
@@ -43,11 +48,13 @@ export function FlashcardArray({
   deck,
   className,
   flipArrayHook,
+  progressBar,
 }: FlashcardArrayProps) {
   const temporaryFlipArrayHook = useFlashcardArray({
     deckLength: deck.length,
   });
   const localFlipArrayHook = flipArrayHook ?? temporaryFlipArrayHook;
+  const resolvedProgressBar = progressBar ?? localFlipArrayHook.progressBar;
 
   if (deck.length === 0 || localFlipArrayHook.cardsInDisplay[1] === -1) {
     return null;
@@ -58,9 +65,9 @@ export function FlashcardArray({
   return (
     <div className={cn("flex w-full flex-col gap-4", className)}>
       <section
-        aria-label={`Flashcard ${localFlipArrayHook.currentCard + 1} of ${localFlipArrayHook.deckLength}`}
+        aria-label={`Flashcard ${resolvedProgressBar.current} of ${resolvedProgressBar.total}`}
         aria-live="polite"
-        className="relative h-[22rem] w-full [perspective:1000px] sm:h-[24rem] md:h-[26rem]"
+        className="relative h-[22rem] w-full overflow-hidden [perspective:1000px] sm:h-[24rem] md:h-[26rem]"
       >
         {localFlipArrayHook.cardsInDisplay[0] !== -1 ? (
           <SiblingCard direction="left" />
@@ -72,6 +79,7 @@ export function FlashcardArray({
             className={activeCard.className}
             flipHook={localFlipArrayHook.flipHook}
             front={activeCard.front}
+            key={localFlipArrayHook.cardsInDisplay[1]}
             style={activeCard.style}
           />
         </div>
@@ -82,15 +90,12 @@ export function FlashcardArray({
       </section>
 
       {localFlipArrayHook.showProgressBar ? (
-        <Progress
-          className="gap-2"
-          value={localFlipArrayHook.progressBar.percentage}
-        >
+        <Progress className="gap-2" value={resolvedProgressBar.percentage}>
           <div className="flex w-full items-center justify-between gap-3 text-[11px] text-muted-foreground uppercase tracking-[0.18em]">
             <ProgressLabel>Review Progress</ProgressLabel>
             <ProgressValue>
               {() =>
-                `${localFlipArrayHook.progressBar.current}/${localFlipArrayHook.progressBar.total}`
+                `${resolvedProgressBar.current}/${resolvedProgressBar.total}`
               }
             </ProgressValue>
           </div>
@@ -114,7 +119,7 @@ export function FlashcardArray({
 
           {localFlipArrayHook.showCount ? (
             <span className="min-w-16 text-center font-medium text-sm tabular-nums">
-              {localFlipArrayHook.currentCard + 1}/{deck.length}
+              {resolvedProgressBar.current}/{resolvedProgressBar.total}
             </span>
           ) : null}
 

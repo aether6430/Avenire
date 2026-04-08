@@ -1,6 +1,13 @@
 "use client";
 
-import { startTransition, useEffect, useMemo, useState } from "react";
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { FlashcardSetDetail } from "@/components/flashcards/set-detail";
 import {
   readCachedFlashcardSet,
@@ -8,6 +15,17 @@ import {
   writeCachedFlashcardSet,
 } from "@/lib/flashcard-browser-cache";
 import type { FlashcardSetRecord, FlashcardTaxonomy } from "@/lib/flashcards";
+
+function hasMatchingVersion(
+  current: FlashcardSetRecord | null,
+  next: FlashcardSetRecord
+) {
+  return current?.id === next.id && current.updatedAt === next.updatedAt;
+}
+
+function readDeckError(status: number) {
+  return status === 404 ? "Deck not found." : "Unable to load deck.";
+}
 
 function parseDrillFilters(rawDrill: string | string[] | undefined) {
   const values: string[] = [];
@@ -86,38 +104,52 @@ export function FlashcardSetPageClient({
   const [set, setSet] = useState<FlashcardSetRecord | null>(cachedSet);
   const [loading, setLoading] = useState(() => cachedSet === null);
   const [error, setError] = useState<string | null>(null);
+  const loadedSetIdRef = useRef(cachedSet?.id ?? null);
 
-  useEffect(() => {
-    let cancelled = false;
-    const controller = new AbortController();
+  const applySet = useCallback((nextSet: FlashcardSetRecord) => {
+    loadedSetIdRef.current = nextSet.id;
+    writeCachedFlashcardSet(nextSet);
+    startTransition(() => {
+      setSet((current) =>
+        hasMatchingVersion(current, nextSet) ? current : nextSet
+      );
+      setLoading(false);
+      setError(null);
+    });
+  }, []);
 
-    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: This loader intentionally handles cache hydration, revalidation, and invalidation in one place.
-    const loadSet = async () => {
+  const loadSet = useCallback(
+    async (options?: { force?: boolean }) => {
+      const force = options?.force ?? false;
       const cached = readCachedFlashcardSet(setId);
+
       startTransition(() => {
-        setSet(cached);
-        setLoading(cached === null);
+        if (cached) {
+          setSet((current) =>
+            hasMatchingVersion(current, cached) ? current : cached
+          );
+        }
+        setLoading(cached === null && !loadedSetIdRef.current);
         setError(null);
       });
+
+      if (cached && !force) {
+        loadedSetIdRef.current = cached.id;
+        return;
+      }
 
       try {
         const response = await fetch(`/api/flashcards/sets/${setId}`, {
           cache: "no-store",
-          signal: controller.signal,
         });
 
         if (!response.ok) {
-          if (!cancelled) {
-            if (response.status === 404) {
-              removeCachedFlashcardSet(setId);
-            }
-            setError(
-              response.status === 404
-                ? "Deck not found."
-                : "Unable to load deck."
-            );
-            setLoading(false);
+          if (response.status === 404) {
+            removeCachedFlashcardSet(setId);
           }
+
+          setError(readDeckError(response.status));
+          setLoading(false);
           return;
         }
 
@@ -125,22 +157,12 @@ export function FlashcardSetPageClient({
           set?: FlashcardSetRecord;
         };
 
-        if (!payload.set || cancelled) {
+        if (!payload.set) {
           return;
         }
 
-        const nextSet = payload.set;
-        writeCachedFlashcardSet(nextSet);
-        startTransition(() => {
-          setSet(nextSet);
-          setLoading(false);
-          setError(null);
-        });
+        applySet(payload.set);
       } catch (fetchError) {
-        if (cancelled || controller.signal.aborted) {
-          return;
-        }
-
         setError(
           fetchError instanceof Error
             ? fetchError.message
@@ -148,8 +170,11 @@ export function FlashcardSetPageClient({
         );
         setLoading(false);
       }
-    };
+    },
+    [applySet, setId]
+  );
 
+  useEffect(() => {
     loadSet().catch(() => undefined);
 
     const onInvalidated = (event: Event) => {
@@ -163,7 +188,7 @@ export function FlashcardSetPageClient({
         return;
       }
 
-      loadSet().catch(() => undefined);
+      loadSet({ force: true }).catch(() => undefined);
     };
 
     window.addEventListener(
@@ -172,14 +197,12 @@ export function FlashcardSetPageClient({
     );
 
     return () => {
-      cancelled = true;
-      controller.abort();
       window.removeEventListener(
         "avenire:workspace-data-invalidated",
         onInvalidated
       );
     };
-  }, [setId]);
+  }, [loadSet]);
 
   if (loading && !set) {
     return <LoadingShell setId={setId} />;

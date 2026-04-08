@@ -50,11 +50,11 @@ export function WorkspaceRealtimeBridge({
         clearTimeout(retryTimerRef.current);
       }
       retryTimerRef.current = setTimeout(() => {
-        void connect();
+        connect();
       }, 3000);
     };
 
-    const connect = async () => {
+    const connect = () => {
       if (closed) {
         return;
       }
@@ -75,14 +75,15 @@ export function WorkspaceRealtimeBridge({
 
           if (
             kind === "chat" &&
-            (pathname.startsWith("/workspace/chats") || pathname === "/workspace")
+            (pathname.startsWith("/workspace/chats") ||
+              pathname === "/workspace")
           ) {
             router.refresh();
           }
 
-          if (kind === "flashcards" && pathname.startsWith("/workspace/flashcards")) {
-            router.refresh();
-          }
+          // Flashcard screens already handle this via client-side invalidation.
+          // Avoid forcing an RSC refresh on every review mutation, which causes
+          // duplicate deck fetches and a full remount of the study UI.
         };
 
         eventSource.addEventListener("files.invalidate", () =>
@@ -99,7 +100,7 @@ export function WorkspaceRealtimeBridge({
       }
     };
 
-    void connect();
+    connect();
 
     return () => {
       closed = true;
