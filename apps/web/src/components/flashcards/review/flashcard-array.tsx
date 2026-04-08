@@ -7,6 +7,7 @@ import {
   ProgressValue,
 } from "@avenire/ui/components/progress";
 import { ArrowLeft, ArrowRight } from "@phosphor-icons/react";
+import type { CSSProperties } from "react";
 import {
   Flashcard,
   type ReviewFlashcard,
@@ -16,6 +17,7 @@ import {
   useFlashcardArray,
 } from "@/hooks/use-flashcard-array";
 import { cn } from "@/lib/utils";
+import styles from "./react-quizlet-flashcard.module.scss";
 
 export interface FlashcardArrayProps {
   className?: string;
@@ -26,22 +28,11 @@ export interface FlashcardArrayProps {
     percentage: number;
     total: number;
   };
+  style?: CSSProperties;
 }
 
-function SiblingCard({ direction }: { direction: "left" | "right" }) {
-  return (
-    <div
-      aria-hidden="true"
-      className={cn(
-        "pointer-events-none absolute inset-x-0 top-0 h-full opacity-0 transition-all duration-200",
-        direction === "left"
-          ? "[transform:translateX(-10%)_rotateY(10deg)_translateZ(0)]"
-          : "[transform:translateX(10%)_rotateY(-10deg)_translateZ(0)]"
-      )}
-    >
-      <div className="h-full w-full rounded-[1.5rem] border border-border/35 bg-background/40 shadow-none" />
-    </div>
-  );
+function SiblingCard() {
+  return <Flashcard back={{ html: <></> }} front={{ html: <></> }} />;
 }
 
 export function FlashcardArray({
@@ -49,6 +40,7 @@ export function FlashcardArray({
   className,
   flipArrayHook,
   progressBar,
+  style,
 }: FlashcardArrayProps) {
   const temporaryFlipArrayHook = useFlashcardArray({
     deckLength: deck.length,
@@ -63,30 +55,30 @@ export function FlashcardArray({
   const activeCard = deck[localFlipArrayHook.cardsInDisplay[1]];
 
   return (
-    <div className={cn("flex w-full flex-col gap-4", className)}>
+    <div
+      className={cn(styles["flashcard-array-wrapper"], className)}
+      style={style}
+    >
       <section
         aria-label={`Flashcard ${resolvedProgressBar.current} of ${resolvedProgressBar.total}`}
         aria-live="polite"
-        className="relative h-[22rem] w-full overflow-hidden [perspective:1000px] sm:h-[24rem] md:h-[26rem]"
+        className={cn(
+          styles["flashcard-array"],
+          "h-[22rem] sm:h-[24rem] md:h-[26rem]"
+        )}
       >
-        {localFlipArrayHook.cardsInDisplay[0] !== -1 ? (
-          <SiblingCard direction="left" />
-        ) : null}
+        {localFlipArrayHook.cardsInDisplay[0] !== -1 ? <SiblingCard /> : null}
 
-        <div className="absolute inset-0 z-10">
-          <Flashcard
-            back={activeCard.back}
-            className={activeCard.className}
-            flipHook={localFlipArrayHook.flipHook}
-            front={activeCard.front}
-            key={localFlipArrayHook.cardsInDisplay[1]}
-            style={activeCard.style}
-          />
-        </div>
+        <Flashcard
+          back={activeCard.back}
+          className={activeCard.className}
+          flipHook={localFlipArrayHook.flipHook}
+          front={activeCard.front}
+          key={localFlipArrayHook.cardsInDisplay[1]}
+          style={activeCard.style}
+        />
 
-        {localFlipArrayHook.cardsInDisplay[2] !== -1 ? (
-          <SiblingCard direction="right" />
-        ) : null}
+        {localFlipArrayHook.cardsInDisplay[2] !== -1 ? <SiblingCard /> : null}
       </section>
 
       {localFlipArrayHook.showProgressBar ? (
