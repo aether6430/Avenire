@@ -17,7 +17,6 @@ import {
   useFlashcardArray,
 } from "@/hooks/use-flashcard-array";
 import { cn } from "@/lib/utils";
-import styles from "./react-quizlet-flashcard.module.scss";
 
 export interface FlashcardArrayProps {
   className?: string;
@@ -56,15 +55,41 @@ export function FlashcardArray({
 
   return (
     <div
-      className={cn(styles["flashcard-array-wrapper"], className)}
+      className={cn(
+        "flashcard-array-wrapper flex w-full flex-col items-center justify-center gap-[15px]",
+        className
+      )}
       style={style}
     >
       <section
         aria-label={`Flashcard ${resolvedProgressBar.current} of ${resolvedProgressBar.total}`}
         aria-live="polite"
         className={cn(
-          styles["flashcard-array"],
-          "h-[22rem] sm:h-[24rem] md:h-[26rem]"
+          "flashcard-array relative flex h-[22rem] w-full flex-row items-center justify-center overflow-hidden [perspective:1000px] sm:h-[24rem] md:h-[26rem]",
+          "[&>.flashcard-wrapper:nth-child(1)]:pointer-events-none",
+          "[&>.flashcard-wrapper:nth-child(1)]:z-[5]",
+          "[&>.flashcard-wrapper:nth-child(1)]:w-0",
+          "[&>.flashcard-wrapper:nth-child(1)]:bg-transparent",
+          "[&>.flashcard-wrapper:nth-child(1)]:opacity-0",
+          "[&>.flashcard-wrapper:nth-child(1)]:shadow-none",
+          "[&>.flashcard-wrapper:nth-child(1)]:[transform-style:preserve-3d]",
+          "[&>.flashcard-wrapper:nth-child(1)]:[transform:translateX(-10%)_rotateY(10deg)_translateZ(0)_!important]",
+          "[&>.flashcard-wrapper:nth-child(3)]:pointer-events-none",
+          "[&>.flashcard-wrapper:nth-child(3)]:z-[5]",
+          "[&>.flashcard-wrapper:nth-child(3)]:w-0",
+          "[&>.flashcard-wrapper:nth-child(3)]:bg-transparent",
+          "[&>.flashcard-wrapper:nth-child(3)]:opacity-0",
+          "[&>.flashcard-wrapper:nth-child(3)]:shadow-none",
+          "[&>.flashcard-wrapper:nth-child(3)]:[transform-style:preserve-3d]",
+          "[&>.flashcard-wrapper:nth-child(3)]:[transform:translateX(10%)_rotateY(-10deg)_translateZ(0)_!important]",
+          "[&>.flashcard-wrapper:nth-child(2)]:z-[6]",
+          "[&>.flashcard-wrapper:nth-child(2)]:bg-transparent",
+          "[&>.flashcard-wrapper:nth-child(2)]:shadow-none",
+          "[&>.flashcard-wrapper:nth-child(2)]:[transform-style:preserve-3d]",
+          "[&>.flashcard-wrapper:nth-child(1)_.flashcard-front]:hidden",
+          "[&>.flashcard-wrapper:nth-child(1)_.flashcard-back]:hidden",
+          "[&>.flashcard-wrapper:nth-child(3)_.flashcard-front]:hidden",
+          "[&>.flashcard-wrapper:nth-child(3)_.flashcard-back]:hidden"
         )}
       >
         {localFlipArrayHook.cardsInDisplay[0] !== -1 ? <SiblingCard /> : null}

@@ -27,16 +27,6 @@ export async function GET(
     return NextResponse.json({ error: "Set not found" }, { status: 404 });
   }
 
-  void publishWorkspaceStreamEvent({
-    workspaceUuid: ctx.workspace.workspaceId,
-    type: "flashcards.invalidate",
-    payload: {
-      action: "updated",
-      setId: set.id,
-      workspaceUuid: ctx.workspace.workspaceId,
-    },
-  });
-
   return NextResponse.json({ set });
 }
 
@@ -67,6 +57,16 @@ export async function PATCH(
   if (!set) {
     return NextResponse.json({ error: "Set not found" }, { status: 404 });
   }
+
+  void publishWorkspaceStreamEvent({
+    workspaceUuid: ctx.workspace.workspaceId,
+    type: "flashcards.invalidate",
+    payload: {
+      action: "updated",
+      setId: set.id,
+      workspaceUuid: ctx.workspace.workspaceId,
+    },
+  });
 
   return NextResponse.json({ set });
 }

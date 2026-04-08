@@ -9,7 +9,6 @@ import {
 import { Markdown } from "@/components/chat/markdown";
 import { type UseFlashcard, useFlashcard } from "@/hooks/use-flashcard";
 import { cn } from "@/lib/utils";
-import styles from "./react-quizlet-flashcard.module.scss";
 
 export interface FlashcardSide {
   className?: string;
@@ -89,14 +88,31 @@ export function Flashcard({
   };
 
   return (
-    <div className={styles["flashcard-wrapper"]} style={style}>
+    <div
+      className={cn(
+        "flashcard-wrapper bottom-[10%] clear-left h-full w-full rounded-[16px]",
+        "[perspective:1000px] [transform:none_!important]",
+        "[--back-bg:#ffffff] [--box-shadow:0_0_2.5rem_0_rgba(0,0,0,0.16)] [--front-bg:#ffffff]"
+      )}
+      style={style}
+    >
       {/* biome-ignore lint/a11y/useSemanticElements: This surface needs block layout and rich markdown content while remaining keyboard-operable. */}
       <div
         aria-label={`Flashcard, currently showing ${isFlipped ? "back" : "front"} side`}
         aria-live="polite"
         aria-pressed={isFlipped}
         className={cn(
-          styles.flashcard,
+          "absolute top-0 left-0 h-full w-full rounded-[inherit] bg-transparent",
+          "transition-[transform,opacity] duration-[450ms] [transform-style:preserve-3d]",
+          "[&_*]:box-border",
+          "[&[data-flip=true][data-dir=rtl]]:[transform:rotateY(-180deg)_!important]",
+          "[&[data-flip=true][data-dir=ltr]]:[transform:rotateY(180deg)_!important]",
+          "[&[data-flip=true][data-dir=tb]]:[transform:rotateX(-180deg)_!important]",
+          "[&[data-flip=true][data-dir=bt]]:[transform:rotateX(180deg)_!important]",
+          "[&[data-dir=rtl]_.flashcard-back]:[transform:rotateY(-180deg)_!important]",
+          "[&[data-dir=ltr]_.flashcard-back]:[transform:rotateY(180deg)_!important]",
+          "[&[data-dir=tb]_.flashcard-back]:[transform:rotateX(-180deg)_!important]",
+          "[&[data-dir=bt]_.flashcard-back]:[transform:rotateX(180deg)_!important]",
           !(localFlipHook.disableFlip || localFlipHook.manualFlip) &&
             "cursor-pointer",
           className
@@ -114,7 +130,7 @@ export function Flashcard({
           className={front.className}
           content={front.html}
           contentIdPrefix="flashcard-front"
-          faceClassName={styles.flashcard__front}
+          faceClassName="flashcard-front bg-[var(--front-bg)]"
           flipType={flipType}
           style={front.style}
         />
@@ -123,7 +139,7 @@ export function Flashcard({
           className={back.className}
           content={back.html}
           contentIdPrefix="flashcard-back"
-          faceClassName={styles.flashcard__back}
+          faceClassName="flashcard-back bg-[var(--back-bg)]"
           flipType={flipType}
           style={back.style}
         />
@@ -152,16 +168,27 @@ function CardFace({
   return (
     <div
       aria-hidden={ariaHidden}
-      className={faceClassName}
+      className={cn(
+        "absolute top-0 left-0 h-full w-full overflow-hidden rounded-[inherit] text-[#111827]",
+        "shadow-[var(--box-shadow)] [backface-visibility:hidden]",
+        "data-[flip-type=auto]:cursor-pointer data-[flip-type=disable]:cursor-not-allowed data-[flip-type=manual]:cursor-auto",
+        faceClassName
+      )}
       data-flip-type={flipType}
       style={style}
     >
-      <div className={cn(styles["flashcard__face-shell"], className)}>
-        <div className={styles["flashcard__face-content"]}>
+      <div
+        className={cn(
+          "flex h-full w-full items-center justify-center overflow-hidden rounded-[inherit] border p-6",
+          "border-border/50 bg-card text-card-foreground sm:p-8 md:p-10",
+          className
+        )}
+      >
+        <div className="flex h-full min-h-0 w-full flex-1 items-center justify-center overflow-auto">
           <CardFaceContent
             className={
               typeof content === "string"
-                ? styles.flashcard__markdown
+                ? "w-full max-w-none text-balance text-center text-base leading-relaxed [&_p]:text-center"
                 : undefined
             }
             content={content}
