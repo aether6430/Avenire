@@ -2852,7 +2852,7 @@ function PlanCard({
         </span>
       ) : null}
       <div>
-        <p className="font-bold text-base">{name}</p>
+        <p className="font-semibold text-base">{name}</p>
         <p className="mt-0.5 text-muted-foreground text-xs">{price}</p>
       </div>
       <ul className="flex-1 space-y-1.5">

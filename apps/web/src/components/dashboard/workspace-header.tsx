@@ -46,7 +46,7 @@ export function WorkspaceHeader({
       {/* Desktop header — solid, sticky */}
       <header
         className={cn(
-          "sticky top-0 z-30 hidden shrink-0 border-border/40 border-b bg-background sm:block",
+          "sticky top-0 z-30 hidden shrink-0 border-border/40 border-b bg-background/80 backdrop-blur-xl sm:block",
           className
         )}
       >

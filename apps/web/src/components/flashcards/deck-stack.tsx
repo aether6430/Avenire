@@ -114,7 +114,7 @@ export function FlashcardDeckStack({
             </p>
           </div>
           {showCounter ? (
-            <Badge className="rounded-sm" variant="outline">
+            <Badge className="rounded-md" variant="outline">
               {currentCard.title ?? "Current"}
             </Badge>
           ) : null}
@@ -136,7 +136,7 @@ export function FlashcardDeckStack({
               key={card.id}
               transition={deckSpring}
             >
-              <div className="overflow-hidden rounded-[1.45rem] border border-border/45 bg-card/80 p-5">
+              <div className="overflow-hidden rounded-xl border border-border/45 bg-card/80 p-5">
                 <div className="space-y-2">
                   <p className="line-clamp-2 text-foreground text-sm">
                     {card.title ?? "Flashcard"}

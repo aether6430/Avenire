@@ -217,7 +217,7 @@ function DriveVisual() {
               <div className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg bg-card/80 border transition-all duration-500 ${shouldExpand ? "border-primary/30 bg-primary/[0.03]" : "border-border/60"
                 }`}>
                 <div className="w-8 h-8 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                  <span className="text-[8px] font-bold font-mono text-primary tracking-wider">{file.type}</span>
+                  <span className="text-[8px] font-semibold font-mono text-primary tracking-wider">{file.type}</span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[11px] font-medium text-foreground truncate">{file.name}</p>
@@ -237,9 +237,9 @@ function DriveVisual() {
                       key="done"
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
-                      className="w-3.5 h-3.5 rounded-full bg-green-500/20 flex items-center justify-center"
+                      className="w-3.5 h-3.5 rounded-full bg-success/20 flex items-center justify-center"
                     >
-                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="oklch(0.72 0.17 142)" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>
+                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -306,7 +306,7 @@ function DriveVisual() {
                 animate={{ opacity: 1, y: 0 }}
                 className="flex items-center gap-2"
               >
-                <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]" />
+                <div className="w-1.5 h-1.5 rounded-full bg-success shadow-[0_0_6px_var(--success)]" />
                 <span className="text-[9px] font-mono text-muted-foreground uppercase tracking-wider">
                   {isExpanded ? "3 concepts extracted · 3 flashcards ready" : "All files indexed"}
                 </span>
@@ -405,7 +405,7 @@ function FlashcardsVisual() {
 
 function Visualizer({ activeIndex }: { activeIndex: number }) {
   return (
-    <div className="relative w-full aspect-square md:aspect-[4/3] rounded-2xl bg-background border border-border overflow-hidden flex items-center justify-center shadow-lg">
+    <div className="relative w-full aspect-square md:aspect-[4/3] rounded-xl bg-background border border-border overflow-hidden flex items-center justify-center shadow-lg">
       {/* Subtle noise texture */}
       <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E\")", backgroundSize: "128px" }} />
       {/* Radial accent */}
@@ -452,7 +452,7 @@ export function HowItWorks() {
           <span className="text-xs text-primary font-medium tracking-wider font-mono">
             {"{ How it works }"}
           </span>
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight mt-3 text-foreground mb-2">
+          <h2 className="text-3xl md:text-4xl font-semibold tracking-tight mt-3 text-foreground mb-2">
             How it works
           </h2>
         </motion.div>
@@ -469,7 +469,7 @@ export function HowItWorks() {
                 <span className="text-xs text-primary font-medium tracking-wider font-mono">
                   {"{ How it works }"}
                 </span>
-                <h2 className="text-3xl md:text-4xl font-bold tracking-tight mt-3 text-foreground mb-2">
+                <h2 className="text-3xl md:text-4xl font-semibold tracking-tight mt-3 text-foreground mb-2">
                   How it works
                 </h2>
               </motion.div>
@@ -568,7 +568,7 @@ export function HowItWorks() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.3 }}
               transition={{ duration: 0.45, ease: "easeOut" }}
-              className="rounded-2xl border border-border/80 bg-card/55 p-5"
+              className="rounded-xl border border-border/80 bg-card/55 p-5"
             >
               <div className="flex items-center gap-3">
                 <div className="text-primary">{feature.icon}</div>

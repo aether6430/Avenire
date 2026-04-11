@@ -471,7 +471,7 @@ export function FlashcardsDashboard({
                         </div>
                         {set.dueCount > 0 ? (
                           <Badge
-                            className="shrink-0 rounded-sm"
+                            className="shrink-0 rounded-md"
                             variant="outline"
                           >
                             {set.dueCount} due
@@ -530,7 +530,7 @@ export function FlashcardsDashboard({
                           </div>
                           {set.dueCount > 0 ? (
                             <Badge
-                              className="shrink-0 rounded-sm"
+                              className="shrink-0 rounded-md"
                               variant="outline"
                             >
                               {set.dueCount} due
@@ -559,7 +559,7 @@ export function FlashcardsDashboard({
                       </p>
                     </div>
                     {selectedSet.dueCount > 0 ? (
-                      <Badge className="rounded-sm" variant="outline">
+                      <Badge className="rounded-md" variant="outline">
                         {selectedSet.dueCount} due
                       </Badge>
                     ) : null}
@@ -572,15 +572,15 @@ export function FlashcardsDashboard({
                         Deck profile
                       </p>
                       <div className="mt-3 flex flex-wrap gap-2">
-                        <Badge className="rounded-sm" variant="outline">
+                        <Badge className="rounded-md" variant="outline">
                           {selectedSet.sourceType === "ai-generated"
                             ? "AI-generated"
                             : "Manual"}
                         </Badge>
-                        <Badge className="rounded-sm" variant="outline">
+                        <Badge className="rounded-md" variant="outline">
                           {getEnrollmentLabel(selectedSet.enrollmentStatus)}
                         </Badge>
-                        <Badge className="rounded-sm" variant="outline">
+                        <Badge className="rounded-md" variant="outline">
                           {selectedSet.cardCount} cards
                         </Badge>
                       </div>
@@ -639,7 +639,7 @@ export function FlashcardsDashboard({
                                 </p>
                               </div>
                               <Badge
-                                className="shrink-0 rounded-sm"
+                                className="shrink-0 rounded-md"
                                 variant="outline"
                               >
                                 {snapshot.displayState}

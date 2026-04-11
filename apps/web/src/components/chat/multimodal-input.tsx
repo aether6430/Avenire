@@ -783,7 +783,7 @@ function PureMultimodalInput({
   return (
     <div
       className={cn(
-        "group relative flex w-full grow flex-col overflow-visible rounded-[26px] border border-border/80 bg-secondary/95 transition-colors duration-200 focus-within:ring-1 focus-within:ring-ring/30",
+        "group relative flex w-full grow flex-col overflow-visible rounded-2xl border border-border/80 bg-secondary/95 transition-colors duration-200 focus-within:ring-1 focus-within:ring-ring/30",
         centered ? "min-h-12 sm:min-h-32" : "min-h-12 sm:min-h-28"
       )}
     >
@@ -833,7 +833,7 @@ function PureMultimodalInput({
                     } as React.CSSProperties
                   }
                 >
-                  <div className="pointer-events-auto relative overflow-hidden rounded-[20px] bg-secondary shadow-xl">
+                  <div className="pointer-events-auto relative overflow-hidden rounded-xl bg-secondary shadow-xl">
                     <CommandList className="max-h-64">
                       {mentionSuggestions.map((file, index) => (
                         <CommandItem
@@ -877,7 +877,7 @@ function PureMultimodalInput({
             </div>
           )}
 
-          <div className="relative z-10 flex flex-row items-end rounded-[20px] bg-secondary sm:block sm:rounded-2xl">
+          <div className="relative z-10 flex flex-row items-end rounded-xl bg-secondary sm:block sm:rounded-xl">
             <div className="flex min-h-10 flex-1 min-w-0 items-center sm:min-h-16 sm:items-start">
               <Textarea
                 autoFocus

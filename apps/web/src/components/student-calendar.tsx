@@ -331,7 +331,7 @@ function DayCell({
         </span>
         {isToday && (
           <Badge
-            className="h-4 rounded-sm border-primary/20 bg-primary/10 px-1.5 font-medium text-[9px] text-primary"
+            className="h-4 rounded-md border-primary/20 bg-primary/10 px-1.5 font-medium text-[9px] text-primary"
             variant="secondary"
           >
             today
@@ -343,7 +343,7 @@ function DayCell({
         <div className="flex w-full flex-col gap-1">
           {shown.map((item) => (
             <div
-              className="flex items-center gap-1.5 rounded-[5px] bg-muted/40 px-1.5 py-0.5"
+              className="flex items-center gap-1.5 rounded-md bg-muted/40 px-1.5 py-0.5"
               key={item.id}
             >
               <BookOpen className="h-2.5 w-2.5 shrink-0 text-muted-foreground" />
@@ -364,7 +364,7 @@ function DayCell({
             <div className="mt-1 flex flex-col gap-1">
               {shownTasks.map((task) => (
                 <div
-                  className="flex items-center gap-1.5 rounded-[5px] bg-amber-500/10 px-1.5 py-0.5"
+                  className="flex items-center gap-1.5 rounded-md bg-amber-500/10 px-1.5 py-0.5"
                   key={task.id}
                 >
                   <ListTodo className="h-2.5 w-2.5 shrink-0 text-amber-600" />

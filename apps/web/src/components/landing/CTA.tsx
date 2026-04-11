@@ -137,7 +137,7 @@ export function CTA() {
 
   return (
     <section className="py-24 px-4" ref={ref}>
-      <div className="relative max-w-7xl mx-auto rounded-2xl border border-border bg-card overflow-hidden">
+      <div className="relative max-w-7xl mx-auto rounded-xl border border-border bg-card overflow-hidden">
         <ConwayCanvas />
 
         <div className="relative z-10 max-w-2xl mx-auto px-8 py-24 text-center">
@@ -146,7 +146,7 @@ export function CTA() {
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.5 }}
           >
-            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4 text-foreground">
+            <h2 className="text-3xl md:text-4xl font-semibold tracking-tight mb-4 text-foreground">
               Stop memorizing.
               <br />
               <span className="text-primary">Start understanding.</span>

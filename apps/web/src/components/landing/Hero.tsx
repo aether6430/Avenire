@@ -1308,7 +1308,7 @@ function DemoWindow({
 
         {/* Doc content */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-          <h3 className="text-sm font-bold text-foreground">{docView.title}</h3>
+          <h3 className="text-sm font-semibold text-foreground">{docView.title}</h3>
 
           {docView.sections.map((sec) => (
             <div key={sec.heading}>
@@ -1514,7 +1514,7 @@ export function Hero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1] mb-5">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight leading-[1.1] mb-5">
               <span className="text-foreground block">
                 AI learning workspace
               </span>
@@ -1543,7 +1543,7 @@ export function Hero() {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="relative max-w-5xl mx-auto px-4 sm:px-6 pb-16"
           >
-            <div className="rounded-2xl border border-border/50 overflow-hidden bg-card backdrop-blur-xl shadow-2xl shadow-black/10">
+            <div className="rounded-xl border border-border/50 overflow-hidden bg-card backdrop-blur-xl shadow-2xl shadow-black/10">
               {/* Window chrome */}
               <div className="flex items-center justify-between px-5 py-3 bg-muted/40 border-b border-border/50">
                 <div className="flex items-center gap-3">
@@ -1672,9 +1672,9 @@ export function Hero() {
           transition={{ duration: 0.5, delay: 0.7 }}
           className="text-center text-2xl font-medium text-muted-foreground mt-24"
         >
-          Built for <span className="text-primary font-bold">thinkers</span>,{" "}
-          <span className="text-primary font-bold">builders</span>, and{" "}
-          <span className="text-primary font-bold">curious minds</span>.
+          Built for <span className="text-primary font-semibold">thinkers</span>,{" "}
+          <span className="text-primary font-semibold">builders</span>, and{" "}
+          <span className="text-primary font-semibold">curious minds</span>.
         </m.p>
       </section>
     </LazyMotion>

@@ -61,7 +61,7 @@ const DashboardTaskManager = dynamic(
     })),
   {
     loading: () => (
-      <div className="flex items-center justify-center gap-2 rounded-md bg-secondary/50 px-4 py-10 text-center text-muted-foreground text-sm">
+      <div className="flex items-center justify-center gap-2 rounded-lg bg-secondary/50 px-4 py-10 text-center text-muted-foreground text-sm">
         <Spinner className="size-4" />
         Loading tasks...
       </div>
@@ -76,7 +76,7 @@ const StudentCalendar = dynamic(
     })),
   {
     loading: () => (
-      <div className="flex items-center justify-center gap-2 rounded-md bg-secondary/50 px-4 py-10 text-center text-muted-foreground text-sm">
+      <div className="flex items-center justify-center gap-2 rounded-lg bg-secondary/50 px-4 py-10 text-center text-muted-foreground text-sm">
         <Spinner className="size-4" />
         Loading calendar...
       </div>
@@ -202,7 +202,7 @@ function UpcomingFlashcardList({
 
   if (orderedSets.length === 0) {
     return (
-      <div className="rounded-md bg-secondary/50 px-4 py-10 text-center text-muted-foreground text-sm">
+      <div className="rounded-lg bg-secondary/50 px-4 py-10 text-center text-muted-foreground text-sm">
         Nothing is waiting right now.
       </div>
     );
@@ -212,7 +212,7 @@ function UpcomingFlashcardList({
     <div className="space-y-2">
       {orderedSets.map((set) => (
         <button
-          className="flex w-full cursor-pointer items-start justify-between gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-secondary"
+          className="flex w-full cursor-pointer items-start justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-secondary"
           key={set.id}
           onClick={() => onStartReview(set.id)}
           onFocus={() => {
@@ -231,7 +231,7 @@ function UpcomingFlashcardList({
               {set.dueCount + set.newCount} cards ready
             </p>
           </div>
-          <Badge className="shrink-0 rounded-sm" variant="outline">
+          <Badge className="shrink-0 rounded-md" variant="outline">
             Start
           </Badge>
         </button>
@@ -322,21 +322,21 @@ export function DashboardHome({
   let activityContent: React.ReactNode;
   if (loadingActivities) {
     activityContent = (
-      <div className="flex items-center justify-center gap-2 rounded-md bg-secondary/50 px-4 py-10 text-center text-muted-foreground text-sm">
+      <div className="flex items-center justify-center gap-2 rounded-lg bg-secondary/50 px-4 py-10 text-center text-muted-foreground text-sm">
         <Spinner className="size-4" />
         Loading activity...
       </div>
     );
   } else if (activities.length === 0) {
     activityContent = (
-      <div className="rounded-md bg-secondary/50 px-4 py-10 text-center text-muted-foreground text-sm">
+      <div className="rounded-lg bg-secondary/50 px-4 py-10 text-center text-muted-foreground text-sm">
         No recent activity.
       </div>
     );
   } else {
     activityContent = activities.slice(0, 6).map((event) => (
       <Link
-        className="flex items-center gap-3 rounded-md px-3 py-2.5 transition-colors hover:bg-secondary"
+        className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-secondary"
         href={event.href as Route}
         key={event.id}
       >
@@ -380,7 +380,7 @@ export function DashboardHome({
             initialKind="task"
             trigger={
               <Button
-                className="h-8 gap-1.5 rounded-sm px-2.5 text-muted-foreground text-sm"
+                className="h-8 gap-1.5 rounded-md px-2.5 text-muted-foreground text-sm"
                 type="button"
                 variant="ghost"
               >
@@ -395,7 +395,7 @@ export function DashboardHome({
             initialKind="note"
             trigger={
               <Button
-                className="h-8 gap-1.5 rounded-sm px-2.5 text-muted-foreground text-sm"
+                className="h-8 gap-1.5 rounded-md px-2.5 text-muted-foreground text-sm"
                 type="button"
                 variant="ghost"
               >
@@ -409,7 +409,7 @@ export function DashboardHome({
             initialKind="misconception"
             trigger={
               <Button
-                className="h-8 gap-1.5 rounded-sm px-2.5 text-muted-foreground text-sm"
+                className="h-8 gap-1.5 rounded-md px-2.5 text-muted-foreground text-sm"
                 type="button"
                 variant="ghost"
               >
@@ -420,7 +420,7 @@ export function DashboardHome({
           />
 
           <Button
-            className="h-8 gap-1.5 rounded-sm px-2.5 text-muted-foreground text-sm"
+            className="h-8 gap-1.5 rounded-md px-2.5 text-muted-foreground text-sm"
             onClick={() => {
               router.push("/workspace/chats" as Route);
             }}
@@ -432,7 +432,7 @@ export function DashboardHome({
           </Button>
 
           <Button
-            className="h-8 gap-1.5 rounded-sm px-2.5 text-muted-foreground text-sm"
+            className="h-8 gap-1.5 rounded-md px-2.5 text-muted-foreground text-sm"
             onClick={() => {
               router.push("/workspace/flashcards" as Route);
             }}
@@ -447,7 +447,7 @@ export function DashboardHome({
           </Button>
 
           <Button
-            className="h-8 gap-1.5 rounded-sm px-2.5 text-muted-foreground text-sm"
+            className="h-8 gap-1.5 rounded-md px-2.5 text-muted-foreground text-sm"
             onClick={() => {
               router.push("/workspace/files" as Route);
             }}
@@ -460,7 +460,7 @@ export function DashboardHome({
         </div>
 
         <div className="mt-2 min-w-0">
-          <h1 className="truncate font-bold text-3xl text-foreground tracking-tight">
+          <h1 className="truncate font-semibold text-3xl text-foreground tracking-tight">
             Hey {userName ?? "there"}
           </h1>
           <p className="mt-1 truncate text-muted-foreground text-sm">
@@ -553,7 +553,7 @@ export function DashboardHome({
 
                         return (
                           <div
-                            className="rounded-md bg-secondary/40 p-4"
+                            className="rounded-lg bg-secondary/40 p-4"
                             key={`${group.subject}:${group.topic}`}
                           >
                             <div className="flex items-start justify-between gap-3">
@@ -565,14 +565,14 @@ export function DashboardHome({
                                   {group.subject}
                                 </p>
                               </div>
-                              <Badge className="rounded-sm" variant="outline">
+                              <Badge className="rounded-md" variant="outline">
                                 {group.misconceptionCount} misconceptions
                               </Badge>
                             </div>
                             <div className="mt-3 flex flex-wrap gap-2">
                               {group.concepts.slice(0, 4).map((concept) => (
                                 <span
-                                  className="rounded-sm bg-secondary px-2 py-1 text-foreground text-xs"
+                                  className="rounded-md bg-secondary px-2 py-1 text-foreground text-xs"
                                   key={`${concept.subject}:${concept.topic}:${concept.concept}`}
                                 >
                                   {concept.concept}
@@ -630,7 +630,7 @@ export function DashboardHome({
                     ) : (
                       activeMisconceptions.slice(0, 8).map((misconception) => (
                         <button
-                          className="w-full cursor-pointer rounded-md px-4 py-3 text-left transition-colors hover:bg-secondary"
+                          className="w-full cursor-pointer rounded-lg px-4 py-3 text-left transition-colors hover:bg-secondary"
                           key={misconception.id}
                           onClick={() =>
                             setSelectedMisconception(misconception)
@@ -646,7 +646,7 @@ export function DashboardHome({
                                 {misconception.subject} / {misconception.topic}
                               </p>
                             </div>
-                            <Badge className="rounded-sm" variant="outline">
+                            <Badge className="rounded-md" variant="outline">
                               {Math.round(misconception.confidence * 100)}%
                             </Badge>
                           </div>
@@ -703,11 +703,11 @@ export function DashboardHome({
                   {selectedMisconception.reason}
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <Badge className="rounded-sm" variant="outline">
+                  <Badge className="rounded-md" variant="outline">
                     Confidence{" "}
                     {Math.round(selectedMisconception.confidence * 100)}%
                   </Badge>
-                  <Badge className="rounded-sm" variant="outline">
+                  <Badge className="rounded-md" variant="outline">
                     {selectedMisconception.source}
                   </Badge>
                 </div>

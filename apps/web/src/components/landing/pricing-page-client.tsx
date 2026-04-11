@@ -127,7 +127,7 @@ function PricingPlanCard({
     >
       <Card
         className={cn(
-          "h-full rounded-2xl border bg-card p-2",
+          "h-full rounded-xl border bg-card p-2",
           plan.featured
             ? "border-primary/35 shadow-lg shadow-primary/8"
             : "border-border/80"
@@ -236,7 +236,7 @@ export function PricingPageClient() {
           <div className="absolute top-16 left-1/2 h-72 w-[42rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,var(--foreground),transparent_68%)] opacity-[0.03] blur-3xl" />
         </div>
 
-        <div className="mx-auto max-w-6xl text-center">
+        <div className="mx-auto max-w-7xl text-center">
           <motion.div
             initial={{ opacity: 0, y: 14 }}
             transition={{ duration: 0.4 }}
@@ -297,7 +297,7 @@ export function PricingPageClient() {
       </section>
 
       <section className="px-4 pb-8">
-        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 lg:grid-cols-3">
           {plans.map((plan, index) => (
             <PricingPlanCard
               billing={billing}
@@ -311,7 +311,7 @@ export function PricingPageClient() {
 
       <section className="px-4 pb-24">
         <motion.div
-          className="mx-auto grid max-w-6xl grid-cols-1 gap-3 md:grid-cols-3"
+          className="mx-auto grid max-w-7xl grid-cols-1 gap-3 md:grid-cols-3"
           initial={{ opacity: 0, y: 10 }}
           transition={{ duration: 0.35 }}
           viewport={{ once: true, amount: 0.3 }}

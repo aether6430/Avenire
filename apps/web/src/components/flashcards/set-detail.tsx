@@ -116,7 +116,7 @@ function stateBadge(state: FlashcardDisplayState) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-sm border px-2 py-0.5 font-medium text-[11px]",
+        "inline-flex items-center rounded-md border px-2 py-0.5 font-medium text-[11px]",
         STATE_STYLES[state]
       )}
     >
@@ -430,26 +430,26 @@ export function FlashcardSetDetail({
     };
   }, [studyIndex, studySessionReviewed, studySessionTotal]);
   let studySessionContent = (
-    <div className="rounded-[1.25rem] border border-border/50 border-dashed bg-muted/20 px-5 py-10 text-center text-muted-foreground text-xs">
+    <div className="rounded-xl border border-border/50 border-dashed bg-muted/20 px-5 py-10 text-center text-muted-foreground text-xs">
       No cards are queued right now.
     </div>
   );
 
   if (studyStatus === "loading") {
     studySessionContent = (
-      <div className="rounded-[1.25rem] border border-border/50 bg-muted/20 px-5 py-10 text-center text-muted-foreground text-xs">
+      <div className="rounded-xl border border-border/50 bg-muted/20 px-5 py-10 text-center text-muted-foreground text-xs">
         Loading review queue…
       </div>
     );
   } else if (studyStatus === "error") {
     studySessionContent = (
-      <div className="rounded-[1.25rem] border border-rose-300/70 bg-rose-50 px-5 py-10 text-center text-rose-700 text-xs dark:border-rose-500/25 dark:bg-rose-500/10 dark:text-rose-200">
+      <div className="rounded-xl border border-rose-300/70 bg-rose-50 px-5 py-10 text-center text-rose-700 text-xs dark:border-rose-500/25 dark:bg-rose-500/10 dark:text-rose-200">
         {studyError ?? "Unable to start the review session."}
       </div>
     );
   } else if (studySessionTotal > 0 && !activeCard) {
     studySessionContent = (
-      <div className="rounded-[1.25rem] border border-border/50 bg-muted/20 px-5 py-10 text-center">
+      <div className="rounded-xl border border-border/50 bg-muted/20 px-5 py-10 text-center">
         <p className="font-medium text-sm">Session complete</p>
         <p className="mt-2 text-muted-foreground text-xs">
           You reviewed all {studySessionTotal} cards in this session.
@@ -802,12 +802,12 @@ export function FlashcardSetDetail({
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge className="rounded-sm" variant="outline">
+                    <Badge className="rounded-md" variant="outline">
                       {set.sourceType === "ai-generated"
                         ? "AI-generated set"
                         : "Manual set"}
                     </Badge>
-                    <Badge className="rounded-sm" variant="outline">
+                    <Badge className="rounded-md" variant="outline">
                       {set.stateCounts.killed} killed
                     </Badge>
                   </div>
@@ -1064,15 +1064,15 @@ export function FlashcardSetDetail({
                 Deck profile
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <Badge className="rounded-sm" variant="outline">
+                <Badge className="rounded-md" variant="outline">
                   {set.sourceType === "ai-generated"
                     ? "AI-generated"
                     : "Manual"}
                 </Badge>
-                <Badge className="rounded-sm" variant="outline">
+                <Badge className="rounded-md" variant="outline">
                   {setEnrollmentLabel}
                 </Badge>
-                <Badge className="rounded-sm" variant="outline">
+                <Badge className="rounded-md" variant="outline">
                   {set.cardCount} cards
                 </Badge>
               </div>
@@ -1257,7 +1257,7 @@ export function FlashcardSetDetail({
                               {card.tags.length > 0 ? (
                                 card.tags.map((tag) => (
                                   <Badge
-                                    className="rounded-sm"
+                                    className="rounded-md"
                                     key={tag}
                                     variant="outline"
                                   >

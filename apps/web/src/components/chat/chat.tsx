@@ -496,7 +496,7 @@ export function Chat({
     status !== "streaming";
   const inputCard = (centered = false) => (
     <div
-      className={`flex w-full flex-col gap-1.5 rounded-[28px] bg-transparent p-1.5 sm:min-h-28 sm:gap-2 sm:rounded-2xl sm:p-3 sm:pb-1 sm:backdrop-blur-sm ${
+      className={`flex w-full flex-col gap-1.5 rounded-2xl bg-transparent p-1.5 sm:min-h-28 sm:gap-2 sm:rounded-2xl sm:p-3 sm:pb-1 sm:backdrop-blur-sm ${
         centered ? "sm:rounded-b-2xl" : "sm:rounded-b-none"
       }`}
     >

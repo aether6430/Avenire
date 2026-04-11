@@ -42,7 +42,7 @@ function TextEraser() {
   const pair = textPairs[pairIndex];
 
   return (
-    <div className="relative w-full aspect-square md:aspect-[4/3] rounded-2xl border border-border bg-background overflow-hidden flex flex-col shadow-lg">
+    <div className="relative w-full aspect-square md:aspect-[4/3] rounded-xl border border-border bg-background overflow-hidden flex flex-col shadow-lg">
       {/* Subtle noise texture */}
       <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E\")", backgroundSize: "128px" }} />
       {/* Radial accent */}
@@ -66,7 +66,7 @@ function TextEraser() {
         {/* Simplified text */}
         <div className="absolute inset-x-8 md:inset-x-12 flex items-center justify-center pointer-events-none">
           <motion.p
-            className="text-xl md:text-2xl lg:text-3xl font-bold text-foreground leading-snug text-center font-serif"
+            className="text-xl md:text-2xl lg:text-3xl font-semibold text-foreground leading-snug text-center font-serif"
             animate={{
               opacity: isSimplified ? 1 : 0,
               filter: isSimplified ? "blur(0px)" : "blur(6px)",
@@ -148,7 +148,7 @@ export function MeetApollo() {
             <span className="text-xs text-primary font-medium tracking-wider font-mono">
               {"{ Your AI Tutor }"}
             </span>
-            <h2 className="text-3xl md:text-5xl font-bold tracking-tight mt-3 mb-2 text-foreground">
+            <h2 className="text-3xl md:text-5xl font-semibold tracking-tight mt-3 mb-2 text-foreground">
               Meet Apollo
             </h2>
             <p className="text-xl md:text-2xl text-muted-foreground mb-6 font-serif italic">

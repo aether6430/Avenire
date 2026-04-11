@@ -15,65 +15,51 @@
     outline-color, caret-color, accent-color;
 }
 
+/*
+ * Force light theme on the landing page regardless of system/user preference.
+ * Only the tokens that .dark overrides need to be reset here.
+ * Core surface + accent + semantic + sidebar tokens are reset to their :root
+ * (light) values so the landing page always renders in light mode.
+ */
 .landing-light-scope {
-  --background: #ffffff;
-  --foreground: #37352f;
-  --card: #ffffff;
-  --card-foreground: #37352f;
-  --popover: #ffffff;
-  --popover-foreground: #37352f;
+  color-scheme: light;
+
+  --background: #FFFFFF;
+  --foreground: #37352F;
+  --card: #FFFFFF;
+  --card-foreground: #37352F;
+  --popover: #FFFFFF;
+  --popover-foreground: #37352F;
+
   --primary: #abcfff;
-  --primary-foreground: #1b2733;
-  --secondary: #fafafa;
-  --secondary-foreground: #37352f;
-  --muted: #fafafa;
-  --muted-foreground: #9b9a97;
-  --accent: #fafafa;
-  --accent-foreground: #37352f;
-  --destructive: #e03e3e;
-  --destructive-foreground: #ffffff;
+  --primary-foreground: #1B2733;
+
+  --secondary: #FAFAFA;
+  --secondary-foreground: #37352F;
+  --muted: #FAFAFA;
+  --muted-foreground: #9B9A97;
+  --accent: #FAFAFA;
+  --accent-foreground: #37352F;
+
+  --destructive: #E03E3E;
+  --destructive-foreground: #FFFFFF;
+
   --border: rgba(55, 53, 47, 0.09);
   --input: rgba(55, 53, 47, 0.12);
   --ring: #abcfff;
-  --sidebar: #fafafa;
-  --sidebar-foreground: #37352f;
+
+  --info: #0B6E99;
+  --success: #0F7B6C;
+  --warning: #DFAB01;
+
+  --sidebar: #FAFAFA;
+  --sidebar-foreground: #37352F;
   --sidebar-primary: #abcfff;
-  --sidebar-primary-foreground: #1b2733;
+  --sidebar-primary-foreground: #1B2733;
   --sidebar-accent: rgba(0, 0, 0, 0.04);
-  --sidebar-accent-foreground: #37352f;
+  --sidebar-accent-foreground: #37352F;
   --sidebar-border: rgba(55, 53, 47, 0.09);
   --sidebar-ring: #abcfff;
-  --color-text-default: #37352f;
-  --color-bg-default: #ffffff;
-  --color-pill-default: rgba(206, 205, 202, 0.5);
-  --color-text-gray: #9b9a97;
-  --color-bg-gray: #ebeced;
-  --color-pill-gray: rgba(155, 154, 151, 0.4);
-  --color-text-brown: #64473a;
-  --color-bg-brown: #e9e5e3;
-  --color-pill-brown: rgba(140, 46, 0, 0.2);
-  --color-text-orange: #d9730d;
-  --color-bg-orange: #faebdd;
-  --color-pill-orange: rgba(245, 93, 0, 0.2);
-  --color-text-yellow: #dfab01;
-  --color-bg-yellow: #fbf3db;
-  --color-pill-yellow: rgba(233, 168, 0, 0.2);
-  --color-text-green: #0f7b6c;
-  --color-bg-green: #ddedea;
-  --color-pill-green: rgba(0, 135, 107, 0.2);
-  --color-text-blue: #0b6e99;
-  --color-bg-blue: #ddebf1;
-  --color-pill-blue: rgba(0, 120, 223, 0.2);
-  --color-text-purple: #6940a5;
-  --color-bg-purple: #eae4f2;
-  --color-pill-purple: rgba(103, 36, 222, 0.2);
-  --color-text-pink: #ad1a72;
-  --color-bg-pink: #f4dfeb;
-  --color-pill-pink: rgba(221, 0, 129, 0.2);
-  --color-text-red: #e03e3e;
-  --color-bg-red: #fbe4e4;
-  --color-pill-red: rgba(255, 0, 26, 0.2);
-  color-scheme: light;
 }
 
 /* ── Chat markdown code blocks ── */

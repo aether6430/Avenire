@@ -347,10 +347,10 @@ function WelcomeStep() {
           key={item.label}
           transition={{ delay: 0.06 + index * 0.06, duration: 0.24, ease: "easeOut" }}
         >
-          <span className="mt-0.5 text-[#f4a259]">{item.icon}</span>
+          <span className="mt-0.5 text-amber-500">{item.icon}</span>
           <div>
-            <p className="text-sm font-medium leading-none text-white">{item.label}</p>
-            <p className="mt-1 text-xs leading-relaxed text-white/65">{item.desc}</p>
+            <p className="text-sm font-medium leading-none text-foreground">{item.label}</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{item.desc}</p>
           </div>
         </motion.div>
       ))}
@@ -460,7 +460,7 @@ function UploadStep({
                         : "Working through the upload pipeline.")}
                   </p>
                 </div>
-                <Badge className="rounded-sm" variant="outline">
+                <Badge className="rounded-md" variant="outline">
                   {uploadPhase === "done"
                     ? "Ready"
                     : uploadPhase === "uploading"
@@ -617,7 +617,7 @@ function MisconceptionsStep({
                 The deck stays in onboarding, stored locally, and can be reviewed without leaving this flow.
               </p>
             </div>
-            <Badge className="rounded-sm" variant="outline">
+            <Badge className="rounded-md" variant="outline">
               {generationStatus === "loading"
                 ? "Generating"
                 : generatedCards.length > 0
@@ -716,7 +716,7 @@ function ReviewLoopStep({
                 <motion.div
                   animate={{ height: `${counts[index] * 6}px` }}
                   className={cn(
-                    "w-full rounded-sm",
+                    "w-full rounded-md",
                     index === 0 ? "bg-foreground/70" : "bg-foreground/20"
                   )}
                   initial={{ height: 0 }}
@@ -1164,7 +1164,7 @@ export function OnboardingModal({
   return (
     <Dialog open={open} onOpenChange={() => undefined}>
       <DialogContent
-        className="h-[100dvh] w-[min(100vw-1rem,78rem)] max-w-none overflow-hidden rounded-[2rem] border border-[#2f2d2a] bg-[#161616] p-0 shadow-[0_50px_120px_-60px_rgba(0,0,0,0.75)] sm:h-[92vh] sm:w-[min(100vw-2rem,78rem)]"
+        className="h-[100dvh] w-[min(100vw-1rem,78rem)] max-w-none overflow-hidden rounded-2xl border border-border/70 bg-background p-0 shadow-[0_50px_120px_-60px_rgba(0,0,0,0.75)] sm:h-[92vh] sm:w-[min(100vw-2rem,78rem)]"
         largeWidth
         showCloseButton={false}
       >
@@ -1177,47 +1177,47 @@ export function OnboardingModal({
           type="file"
         />
 
-        <div className="grid h-full min-h-0 bg-[#161616] lg:grid-cols-[minmax(280px,0.44fr)_minmax(0,0.56fr)]">
-          <aside className="flex min-h-0 flex-col justify-between border-[#2f2d2a] border-b px-5 py-5 text-white lg:border-r lg:border-b-0 lg:px-8 lg:py-8">
+        <div className="grid h-full min-h-0 lg:grid-cols-[minmax(280px,0.44fr)_minmax(0,0.56fr)]">
+          <aside className="flex min-h-0 flex-col justify-between border-border/70 border-b px-5 py-5 lg:border-r lg:border-b-0 lg:px-8 lg:py-8 bg-muted/20">
             <div className="space-y-6">
               <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/45">
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground/60">
                   Onboarding
                 </p>
-                <h2 className="max-w-sm font-mono text-4xl leading-none tracking-tight text-white">
+                <h2 className="max-w-sm font-mono text-4xl leading-none tracking-tight text-foreground">
                   Q&amp;A agents
                 </h2>
-                <p className="max-w-sm text-sm leading-6 text-white/62">
+                <p className="max-w-sm text-sm leading-6 text-muted-foreground">
                   Answers repeat questions using your workspace, files, misconceptions, and connected study tools.
                 </p>
               </div>
 
-              <div className="rounded-[2rem] border border-white/10 bg-white/4 p-5">
-                <div className="rounded-[1.6rem] bg-[#8c5931] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+              <div className="rounded-2xl border border-border/40 bg-card p-5">
+                <div className="rounded-xl bg-muted p-5">
                   {step.id === "welcome" ? (
-                    <div className="space-y-6 rounded-[1.45rem] bg-[#181818] p-5 text-white">
+                    <div className="space-y-6 rounded-xl bg-card border border-border/40 p-5 text-foreground">
                       <div className="space-y-1">
                         <p className="font-semibold text-lg">Jason</p>
-                        <p className="max-w-[14rem] text-base leading-6 text-white/88">
+                        <p className="max-w-[14rem] text-base leading-6 text-muted-foreground">
                           Where should I start if my weak point is electric flux?
                         </p>
                       </div>
-                      <div className="space-y-1 border-white/8 border-t pt-4">
+                      <div className="space-y-1 border-border/40 border-t pt-4">
                         <p className="font-semibold text-base">Apollo workspace assistant</p>
-                        <p className="max-w-[15rem] text-base leading-6 text-white/84">
+                        <p className="max-w-[15rem] text-base leading-6 text-muted-foreground">
                           Start with the misconception probe, then review the first due deck and land in the calendar.
                         </p>
                       </div>
                     </div>
                   ) : (
-                    <div className="rounded-[1.45rem] bg-[#181818] p-5 text-white">
-                      <p className="text-xs uppercase tracking-[0.2em] text-white/45">
+                    <div className="rounded-xl bg-card border border-border/40 p-5 text-foreground">
+                      <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                         Step {step.step}
                       </p>
                       <p className="mt-3 font-mono text-3xl leading-none">
                         {step.title}
                       </p>
-                      <p className="mt-4 text-sm leading-6 text-white/68">
+                      <p className="mt-4 text-sm leading-6 text-muted-foreground">
                         {step.subtitle}
                       </p>
                     </div>
@@ -1228,32 +1228,32 @@ export function OnboardingModal({
               {stepDotNavigator}
             </div>
 
-            <div className="hidden items-center gap-2 text-white/45 text-sm lg:flex">
-              <span className="block size-2 rounded-full bg-white/70" />
-              <span className="block size-2 rounded-full bg-white/25" />
-              <span className="block size-2 rounded-full bg-white/25" />
+            <div className="hidden items-center gap-2 text-muted-foreground/40 text-sm lg:flex">
+              <span className="block size-2 rounded-full bg-foreground/40" />
+              <span className="block size-2 rounded-full bg-foreground/10" />
+              <span className="block size-2 rounded-full bg-foreground/10" />
             </div>
           </aside>
 
-          <div className="flex min-h-0 flex-col bg-[#f7f4ed]">
-            <header className="flex items-start justify-between gap-4 border-[#e4dccd] border-b px-4 py-4 sm:px-6">
+          <div className="flex min-h-0 flex-col bg-background">
+            <header className="flex items-start justify-between gap-4 border-border/70 border-b px-4 py-4 sm:px-6">
               <div className="min-w-0 space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge className="rounded-full bg-[#ece6da] text-[#5a5347]" variant="secondary">
+                  <Badge className="rounded-full bg-secondary text-secondary-foreground" variant="secondary">
                     {step.tag}
                   </Badge>
-                  <span className="text-xs uppercase tracking-[0.18em] text-[#8a8274]">
+                  <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                     Step {step.step}
                   </span>
                 </div>
-                <h3 className="font-mono text-3xl leading-none text-[#1f2833]">
+                <h3 className="font-mono text-3xl leading-none text-foreground">
                   {step.title}
                 </h3>
-                <p className="max-w-2xl text-sm leading-6 text-[#6f695d]">
+                <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
                   {step.note}
                 </p>
               </div>
-              <div className="hidden shrink-0 rounded-full border border-[#dad1c0] px-3 py-1 text-xs uppercase tracking-[0.18em] text-[#7f7769] sm:block">
+              <div className="hidden shrink-0 rounded-full border border-border/70 px-3 py-1 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:block">
                 {step.skippable ? "Optional" : "Required"}
               </div>
             </header>
@@ -1309,7 +1309,7 @@ export function OnboardingModal({
               </AnimatePresence>
             </div>
 
-            <footer className="border-[#e4dccd] border-t bg-[#f7f4ed]/96 px-4 py-4 backdrop-blur sm:px-6">
+            <footer className="border-border/70 border-t bg-background/96 px-4 py-4 backdrop-blur sm:px-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <Button
                 disabled={activeStepIndex === 0}
