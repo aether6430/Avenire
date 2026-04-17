@@ -145,10 +145,13 @@ export async function POST(request: Request) {
   const misconception = await upsertMisconception({
     confidence,
     concept,
+    evidenceClass: "manual",
     reason,
     source: "manual",
+    sourceSessionId: null,
     subject,
     topic,
+    status: "confirmed",
     userId: ctx.user.id,
     workspaceId: ctx.workspace.workspaceId,
   });

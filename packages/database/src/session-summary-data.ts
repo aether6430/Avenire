@@ -252,6 +252,28 @@ export async function listSessionSummariesForUser(
   }
 }
 
+export async function listSessionSummariesForWorkspace(input: {
+  limit?: number;
+  workspaceId: string;
+}): Promise<SessionSummaryRecord[]> {
+  try {
+    const rows = await db
+      .select()
+      .from(sessionSummary)
+      .where(eq(sessionSummary.workspaceId, input.workspaceId))
+      .orderBy(desc(sessionSummary.endedAt), desc(sessionSummary.createdAt))
+      .limit(Math.max(1, input.limit ?? DEFAULT_SESSION_SUMMARY_LIMIT));
+
+    return rows.map(mapSessionSummaryRow);
+  } catch (error) {
+    if (isMissingSessionSummarySchemaError(error)) {
+      return [];
+    }
+
+    throw error;
+  }
+}
+
 export async function getLatestSessionSummaryForChat(
   chatId: string
 ): Promise<SessionSummaryRecord | null> {

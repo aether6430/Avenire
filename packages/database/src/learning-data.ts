@@ -1,11 +1,5 @@
-import {
-  and,
-  asc,
-  desc,
-  eq,
-  gte,
-  sql,
-} from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { logInfo } from "@avenire/observability";
 import { db } from "./client";
 import {
   conceptMastery,
@@ -18,20 +12,37 @@ import {
 import type { FlashcardRating } from "./flashcard-fsrs";
 
 export type MisconceptionSource = "manual" | "review" | "tool" | "auto";
+export type MisconceptionStatus =
+  | "candidate"
+  | "confirmed"
+  | "decayed"
+  | "resolved";
+export type MisconceptionEvidenceClass =
+  | "manual"
+  | "review"
+  | "session"
+  | "tool";
 
 export interface MisconceptionRecord {
   active: boolean;
+  decayedAt: string | null;
   confidence: number;
   concept: string;
   createdAt: string;
   evidenceCount: number;
+  evidenceClass: string;
+  evidenceRootId: string | null;
+  evidenceSpan: unknown | null;
   firstSeenAt: string;
   id: string;
   lastSeenAt: string;
+  promotedAt: string | null;
   reason: string;
   resolvedAt: string | null;
   source: string;
+  sourceSessionId: string | null;
   subject: string;
+  status: MisconceptionStatus;
   topic: string;
   updatedAt: string;
   userId: string;
@@ -68,10 +79,15 @@ export interface ConceptMasterySubjectRecord {
 export interface UpsertMisconceptionInput {
   confidence?: number;
   concept: string;
+  evidenceClass?: MisconceptionEvidenceClass | string;
+  evidenceRootId?: string | null;
+  evidenceSpan?: Record<string, unknown> | null;
   reason: string;
   source?: MisconceptionSource | string;
+  sourceSessionId?: string | null;
   subject: string;
   topic: string;
+  status?: MisconceptionStatus;
   userId: string;
   workspaceId: string;
   observedAt?: Date;
@@ -192,6 +208,7 @@ export interface RecomputeConceptMasteryInput {
 const DEFAULT_ACTIVE_MISCONCEPTION_LIMIT = 50;
 const DEFAULT_MASTERY_LIMIT = 200;
 const DEFAULT_RECENT_RATING_LIMIT = 100;
+const MISCONCEPTION_PROMOTION_EVIDENCE_THRESHOLD = 2;
 
 const normalizeText = (value: unknown, maxLength: number): string | null => {
   if (typeof value !== "string") {
@@ -235,21 +252,108 @@ const normalizeCount = (value: number | undefined | null) => {
   return Math.max(0, Math.trunc(value));
 };
 
+const MISCONCEPTION_STATUSES = new Set<MisconceptionStatus>([
+  "candidate",
+  "confirmed",
+  "decayed",
+  "resolved",
+]);
+
+const MISCONCEPTION_EVIDENCE_CLASSES = new Set<MisconceptionEvidenceClass>([
+  "manual",
+  "review",
+  "session",
+  "tool",
+]);
+
+const normalizeMisconceptionStatus = (value: unknown) => {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return MISCONCEPTION_STATUSES.has(normalized as MisconceptionStatus)
+    ? (normalized as MisconceptionStatus)
+    : null;
+};
+
+const normalizeMisconceptionEvidenceClass = (value: unknown) => {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return MISCONCEPTION_EVIDENCE_CLASSES.has(
+    normalized as MisconceptionEvidenceClass
+  )
+    ? (normalized as MisconceptionEvidenceClass)
+    : null;
+};
+
+const resolveMisconceptionStatusFromSource = (source: string | undefined) => {
+  const normalized = source?.trim().toLowerCase() ?? "";
+  if (
+    normalized === "manual" ||
+    normalized === "chat_tool" ||
+    normalized === "tool"
+  ) {
+    return "confirmed" as const;
+  }
+
+  return "candidate" as const;
+};
+
+const resolveMisconceptionEvidenceClass = (source: string | undefined) => {
+  const normalized = source?.trim().toLowerCase() ?? "";
+  if (normalized === "manual" || normalized === "chat_tool") {
+    return "manual" as const;
+  }
+
+  if (normalized === "review" || normalized === "fsrs_signal") {
+    return "review" as const;
+  }
+
+  if (normalized === "tool") {
+    return "tool" as const;
+  }
+
+  return "session" as const;
+};
+
+const getMisconceptionEvidenceRoot = (input: {
+  evidenceRootId?: string | null;
+  sourceSessionId?: string | null;
+}) => input.evidenceRootId ?? input.sourceSessionId ?? null;
+
+const normalizeNullableJson = (
+  value: unknown
+): Record<string, unknown> | null =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+
 const mapMisconceptionRow = (
   row: typeof misconception.$inferSelect
 ): MisconceptionRecord => ({
-  active: row.active,
+  active: row.status === "confirmed",
+  decayedAt: row.decayedAt?.toISOString() ?? null,
   confidence: row.confidence,
   concept: row.concept,
   createdAt: row.createdAt.toISOString(),
   evidenceCount: row.evidenceCount,
+  evidenceClass: row.evidenceClass,
+  evidenceRootId: row.evidenceRootId,
+  evidenceSpan: normalizeNullableJson(row.evidenceSpan),
   firstSeenAt: row.firstSeenAt.toISOString(),
   id: row.id,
   lastSeenAt: row.lastSeenAt.toISOString(),
+  promotedAt: row.promotedAt?.toISOString() ?? null,
   reason: row.reason,
   resolvedAt: row.resolvedAt?.toISOString() ?? null,
   source: row.source,
+  sourceSessionId: row.sourceSessionId,
   subject: row.subject,
+  status: row.status as MisconceptionStatus,
   topic: row.topic,
   updatedAt: row.updatedAt.toISOString(),
   userId: row.userId,
@@ -297,9 +401,7 @@ const mapMasterySubjectRow = (row: {
   subject: row.subject,
 });
 
-const taxonomyFieldExpression = (
-  field: "subject" | "topic" | "concept"
-) => {
+const taxonomyFieldExpression = (field: "subject" | "topic" | "concept") => {
   switch (field) {
     case "subject":
       return sql<string>`coalesce(${flashcardCard.source} ->> 'subject', ${flashcardCard.source} -> 'taxonomy' ->> 'subject')`;
@@ -337,52 +439,157 @@ export async function upsertMisconception(
   const concept = normalizeRequiredText(input.concept, "concept");
   const reason = normalizeRequiredText(input.reason, "reason", 600);
   const confidence = normalizeScore(input.confidence);
+  const source = input.source ?? "review";
+  const evidenceClass =
+    normalizeMisconceptionEvidenceClass(input.evidenceClass) ??
+    resolveMisconceptionEvidenceClass(source);
+  const requestedStatus = normalizeMisconceptionStatus(input.status);
+  const sourceStatus = resolveMisconceptionStatusFromSource(source);
 
-  const values = {
+  const [existing] = await db
+    .select()
+    .from(misconception)
+    .where(
+      and(
+        eq(misconception.workspaceId, input.workspaceId),
+        eq(misconception.userId, input.userId),
+        eq(misconception.subject, subject),
+        eq(misconception.topic, topic),
+        eq(misconception.concept, concept)
+      )
+    )
+    .limit(1);
+
+  const nextEvidenceRoot = getMisconceptionEvidenceRoot({
+    evidenceRootId: input.evidenceRootId ?? null,
+    sourceSessionId: input.sourceSessionId ?? null,
+  });
+  const previousEvidenceRoot = getMisconceptionEvidenceRoot({
+    evidenceRootId: existing?.evidenceRootId ?? null,
+    sourceSessionId: existing?.sourceSessionId ?? null,
+  });
+  const promotesFromIndependentEvidence =
+    !requestedStatus &&
+    existing?.status !== "confirmed" &&
+    sourceStatus === "candidate" &&
+    existing !== undefined &&
+    existing !== null &&
+    nextEvidenceRoot !== null &&
+    previousEvidenceRoot !== null &&
+    nextEvidenceRoot !== previousEvidenceRoot &&
+    (existing.evidenceCount ?? 0) + 1 >= MISCONCEPTION_PROMOTION_EVIDENCE_THRESHOLD;
+  const nextStatus: MisconceptionStatus =
+    requestedStatus ??
+    (existing?.status === "confirmed"
+      ? "confirmed"
+      : sourceStatus === "confirmed"
+        ? "confirmed"
+        : promotesFromIndependentEvidence
+          ? "confirmed"
+          : "candidate");
+  const nextActive = nextStatus === "confirmed";
+  const promotedAt =
+    nextStatus === "confirmed"
+      ? existing?.promotedAt ?? now
+      : existing?.promotedAt ?? null;
+  const nextEvidenceRootId = input.evidenceRootId ?? existing?.evidenceRootId ?? null;
+  const nextEvidenceSpan = input.evidenceSpan ?? existing?.evidenceSpan ?? null;
+  const nextSourceSessionId = input.sourceSessionId ?? existing?.sourceSessionId ?? null;
+
+  const nextValues = {
     workspaceId: input.workspaceId,
     userId: input.userId,
     subject,
     topic,
     concept,
     reason,
-    source: input.source ?? "review",
+    source,
+    status: nextStatus,
+    evidenceClass,
+    evidenceRootId: nextEvidenceRootId,
+    evidenceSpan: nextEvidenceSpan,
+    sourceSessionId: nextSourceSessionId,
     confidence: confidence ?? 0,
-    active: true,
+    active: nextActive,
+    firstSeenAt: existing?.firstSeenAt ?? now,
     lastSeenAt: now,
+    promotedAt,
+    decayedAt: nextStatus === "decayed" ? now : null,
     resolvedAt: null,
     updatedAt: now,
+    evidenceCount: (existing?.evidenceCount ?? 0) + 1,
   };
 
-  const [row] = await db
-    .insert(misconception)
-    .values(values)
-    .onConflictDoUpdate({
-      target: [
-        misconception.workspaceId,
-        misconception.userId,
-        misconception.subject,
-        misconception.topic,
-        misconception.concept,
-      ],
-      set: {
-        active: true,
-        confidence:
-          confidence === null
-            ? misconception.confidence
-            : sql`greatest(${misconception.confidence}, ${confidence})`,
-        evidenceCount: sql`${misconception.evidenceCount} + 1`,
-        lastSeenAt: now,
-        reason,
-        resolvedAt: null,
-        source: input.source ?? "review",
-        updatedAt: now,
-      },
-    })
-    .returning();
+  const row = existing
+    ? (
+        await db
+          .update(misconception)
+          .set({
+            active: nextValues.active,
+            confidence:
+              confidence === null
+                ? existing.confidence
+                : Math.max(existing.confidence, confidence),
+            concept,
+            decayedAt: nextValues.decayedAt,
+            evidenceClass: nextValues.evidenceClass,
+            evidenceCount: nextValues.evidenceCount,
+            evidenceRootId: nextValues.evidenceRootId,
+            evidenceSpan: nextValues.evidenceSpan,
+            lastSeenAt: nextValues.lastSeenAt,
+            promotedAt: nextValues.promotedAt,
+            reason,
+            resolvedAt: null,
+            source,
+            sourceSessionId: nextValues.sourceSessionId,
+            status: nextValues.status,
+            subject,
+            topic,
+            updatedAt: nextValues.updatedAt,
+          })
+          .where(eq(misconception.id, existing.id))
+          .returning()
+      )[0] ?? null
+    : (
+        await db
+          .insert(misconception)
+          .values(nextValues)
+          .returning()
+      )[0] ?? null;
 
   if (!row) {
     throw new Error("Failed to upsert misconception.");
   }
+
+  logInfo({
+    eventName:
+      !existing
+        ? nextStatus === "confirmed"
+          ? "misconception.candidate.promoted"
+          : "misconception.candidate.created"
+        : nextStatus === "confirmed" && existing.status !== "confirmed"
+          ? "misconception.candidate.promoted"
+          : nextStatus === "confirmed"
+            ? "misconception.confirmed.reinforced"
+            : "misconception.candidate.reinforced",
+    payload: {
+      active: row.active,
+      confidence: row.confidence,
+      concept: row.concept,
+      evidenceCount: row.evidenceCount,
+      evidenceClass: row.evidenceClass,
+      firstSeenAt: row.firstSeenAt.toISOString(),
+      promotedAt: row.promotedAt?.toISOString() ?? null,
+      resolvedAt: row.resolvedAt?.toISOString() ?? null,
+      source: row.source,
+      status: row.status,
+      subject: row.subject,
+      topic: row.topic,
+      updatedAt: row.updatedAt.toISOString(),
+      userId: row.userId,
+      workspaceId: row.workspaceId,
+    },
+  });
 
   return mapMisconceptionRow(row);
 }
@@ -403,7 +610,7 @@ export async function getActiveMisconceptions(
         input.workspaceId
           ? eq(misconception.workspaceId, input.workspaceId)
           : undefined,
-        eq(misconception.active, true),
+        eq(misconception.status, "confirmed"),
         subject ? eq(misconception.subject, subject) : undefined,
         topic ? eq(misconception.topic, topic) : undefined,
         concept ? eq(misconception.concept, concept) : undefined
@@ -447,6 +654,7 @@ export async function resolveMisconceptionsForConcept(
     .update(misconception)
     .set({
       active: false,
+      status: "resolved",
       resolvedAt,
       updatedAt: resolvedAt,
     })
@@ -456,13 +664,27 @@ export async function resolveMisconceptionsForConcept(
         input.workspaceId
           ? eq(misconception.workspaceId, input.workspaceId)
           : undefined,
-        eq(misconception.active, true),
+        inArray(misconception.status, ["candidate", "confirmed"]),
         subject ? eq(misconception.subject, subject) : undefined,
         topic ? eq(misconception.topic, topic) : undefined,
         eq(misconception.concept, concept)
       )
     )
     .returning();
+
+  if (rows.length > 0) {
+    logInfo({
+      eventName: "misconception.state.resolved",
+      payload: {
+        concept,
+        count: rows.length,
+        subject: subject ?? null,
+        topic: topic ?? null,
+        userId: input.userId,
+        workspaceId: input.workspaceId ?? null,
+      },
+    });
+  }
 
   return rows.map(mapMisconceptionRow);
 }
@@ -475,6 +697,7 @@ export async function resolveMisconceptionById(
     .update(misconception)
     .set({
       active: false,
+      status: "resolved",
       resolvedAt,
       updatedAt: resolvedAt,
     })
@@ -488,6 +711,20 @@ export async function resolveMisconceptionById(
       )
     )
     .returning();
+
+  if (row) {
+    logInfo({
+      eventName: "misconception.state.resolved",
+      payload: {
+        concept: row.concept,
+        count: 1,
+        subject: row.subject,
+        topic: row.topic,
+        userId: row.userId,
+        workspaceId: row.workspaceId,
+      },
+    });
+  }
 
   return row ? mapMisconceptionRow(row) : null;
 }
@@ -511,8 +748,9 @@ export async function improveMisconceptionsForConcept(
     .update(misconception)
     .set({
       confidence: nextConfidence,
-      active: sql<boolean>`case when ${nextConfidence} <= ${resolveThreshold} then false else ${misconception.active} end`,
-      resolvedAt: sql<Date | null>`case when ${nextConfidence} <= ${resolveThreshold} then ${observedAt} else ${misconception.resolvedAt} end`,
+      active: sql<boolean>`case when ${nextConfidence} <= ${resolveThreshold} then false else ${misconception.status} = 'confirmed' end`,
+      decayedAt: sql<Date | null>`case when ${nextConfidence} <= ${resolveThreshold} then ${observedAt} else ${misconception.decayedAt} end`,
+      status: sql<string>`case when ${nextConfidence} <= ${resolveThreshold} then 'decayed' else ${misconception.status} end`,
       updatedAt: observedAt,
     })
     .where(
@@ -521,13 +759,30 @@ export async function improveMisconceptionsForConcept(
         input.workspaceId
           ? eq(misconception.workspaceId, input.workspaceId)
           : undefined,
-        eq(misconception.active, true),
+        inArray(misconception.status, ["candidate", "confirmed"]),
         eq(misconception.concept, concept),
         subject ? eq(misconception.subject, subject) : undefined,
         topic ? eq(misconception.topic, topic) : undefined
       )
     )
     .returning();
+
+  if (rows.length > 0) {
+    logInfo({
+      eventName: "misconception.state.decayed",
+      payload: {
+        confidenceFloor: resolveThreshold,
+        count: rows.length,
+        concept,
+        decay,
+        resolvedCount: rows.filter((row) => row.status === "decayed").length,
+        subject: subject ?? null,
+        topic: topic ?? null,
+        userId: input.userId,
+        workspaceId: input.workspaceId ?? null,
+      },
+    });
+  }
 
   return rows.map(mapMisconceptionRow);
 }
@@ -668,12 +923,12 @@ function normalizeMasteryScore(params: {
   return Number(
     Math.max(
       0,
-        Math.min(
-          1,
-          stabilityComponent * 0.55 +
-            performanceComponent * 0.35 -
-            negativePenalty -
-            misconceptionPenalty
+      Math.min(
+        1,
+        stabilityComponent * 0.55 +
+          performanceComponent * 0.35 -
+          negativePenalty -
+          misconceptionPenalty
       )
     ).toFixed(4)
   );
@@ -689,10 +944,8 @@ export async function recomputeConceptMastery(
   const reviewStats = await db
     .select({
       lastReviewedAt: sql<Date | null>`max(${flashcardReviewLog.reviewedAt})`,
-      negativeReviewCount:
-        sql<number>`count(*) filter (where ${flashcardReviewLog.rating} = 'again')`,
-      positiveReviewCount:
-        sql<number>`count(*) filter (where ${flashcardReviewLog.rating} in ('good', 'easy'))`,
+      negativeReviewCount: sql<number>`count(*) filter (where ${flashcardReviewLog.rating} = 'again')`,
+      positiveReviewCount: sql<number>`count(*) filter (where ${flashcardReviewLog.rating} in ('good', 'easy'))`,
       reviewCount: sql<number>`count(*)`,
     })
     .from(flashcardReviewLog)
@@ -711,7 +964,9 @@ export async function recomputeConceptMastery(
 
   const stabilityRows = await db
     .select({
-      averageStability: sql<number | null>`avg(${flashcardReviewState.stability})`,
+      averageStability: sql<
+        number | null
+      >`avg(${flashcardReviewState.stability})`,
     })
     .from(flashcardReviewState)
     .innerJoin(
@@ -737,9 +992,7 @@ export async function recomputeConceptMastery(
   });
 
   const [reviewRow] = reviewStats;
-  const averageStability = Number(
-    stabilityRows[0]?.averageStability ?? 0
-  );
+  const averageStability = Number(stabilityRows[0]?.averageStability ?? 0);
   const reviewCount = Number(reviewRow?.reviewCount ?? 0);
   const positiveReviewCount = Number(reviewRow?.positiveReviewCount ?? 0);
   const negativeReviewCount = Number(reviewRow?.negativeReviewCount ?? 0);
@@ -825,12 +1078,8 @@ export async function updateMastery(
       set: {
         ...(score === null ? {} : { score }),
         ...(reviewCount === null ? {} : { reviewCount }),
-        ...(positiveReviewCount === null
-          ? {}
-          : { positiveReviewCount }),
-        ...(negativeReviewCount === null
-          ? {}
-          : { negativeReviewCount }),
+        ...(positiveReviewCount === null ? {} : { positiveReviewCount }),
+        ...(negativeReviewCount === null ? {} : { negativeReviewCount }),
         ...(activeMisconceptionCount === null
           ? {}
           : { activeMisconceptionCount }),
@@ -919,8 +1168,7 @@ export async function listMasterySubjectsForUser(
 
   const rows = await db
     .select({
-      activeMisconceptionCount:
-        sql<number>`sum(${conceptMastery.activeMisconceptionCount})`,
+      activeMisconceptionCount: sql<number>`sum(${conceptMastery.activeMisconceptionCount})`,
       averageScore: sql<number>`avg(${conceptMastery.score})`,
       conceptCount: sql<number>`count(*)`,
       lastReviewedAt: sql<Date | null>`max(${conceptMastery.lastReviewedAt})`,

@@ -1,18 +1,14 @@
-import { retrieveWorkspaceChunks } from "@avenire/ingestion";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createApiLogger } from "@/lib/observability";
-import {
-  createRetrievalCacheKey,
-  getCachedRetrievalResult,
-  setCachedRetrievalResult,
-} from "@/lib/retrieval-cache";
+import { retrieveWorkspaceChunksShared } from "@/lib/retrieval-service";
 import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
 
 const querySchema = z.object({
   workspaceUuid: z.string().uuid(),
   query: z.string().min(1),
   limit: z.number().int().positive().max(50).optional(),
+  mode: z.enum(["auto", "fast", "full"]).optional(),
   sourceType: z
     .enum(["pdf", "image", "video", "audio", "markdown", "link"])
     .optional(),
@@ -27,17 +23,19 @@ export async function POST(request: Request) {
     feature: "retrieval",
     userId: user?.id ?? null,
   });
-  void apiLogger.requestStarted();
+  apiLogger.requestStarted();
 
   try {
     if (!user) {
-      void apiLogger.requestFailed(401, "Unauthorized");
+      apiLogger.requestFailed(401, "Unauthorized");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const parsed = querySchema.safeParse(await request.json().catch(() => ({})));
+    const parsed = querySchema.safeParse(
+      await request.json().catch(() => ({}))
+    );
     if (!parsed.success) {
-      void apiLogger.requestFailed(400, "Invalid payload");
+      apiLogger.requestFailed(400, "Invalid payload");
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
 
@@ -46,56 +44,36 @@ export async function POST(request: Request) {
       parsed.data.workspaceUuid
     );
     if (!canAccess) {
-      void apiLogger.requestFailed(403, "Forbidden", {
+      apiLogger.requestFailed(403, "Forbidden", {
         workspaceUuid: parsed.data.workspaceUuid,
       });
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const cacheKey = createRetrievalCacheKey({
-      userId: user.id,
-      workspaceUuid: parsed.data.workspaceUuid,
-      query: parsed.data.query,
+    const result = await retrieveWorkspaceChunksShared({
       limit: parsed.data.limit,
-      sourceType: parsed.data.sourceType,
+      mode: parsed.data.mode,
+      origin: "api",
       provider: parsed.data.provider,
-    });
-    const cached = await getCachedRetrievalResult<unknown>(cacheKey);
-    if (cached) {
-      void apiLogger.requestSucceeded(200, {
-        workspaceUuid: parsed.data.workspaceUuid,
-        cache: "hit",
-      });
-      return NextResponse.json(cached, {
-        headers: { "x-rag-cache": "hit" },
-      });
-    }
-
-    const result = await retrieveWorkspaceChunks({
+      query: parsed.data.query,
+      sourceType: parsed.data.sourceType,
+      userId: user.id,
       workspaceId: parsed.data.workspaceUuid,
-      userId: user.id,
-      query: parsed.data.query,
-      limit: parsed.data.limit,
-      sourceType: parsed.data.sourceType,
-      provider: parsed.data.provider,
     });
-    await setCachedRetrievalResult(cacheKey, result);
-
-    void apiLogger.requestSucceeded(200, {
+    apiLogger.requestSucceeded(200, {
       workspaceUuid: parsed.data.workspaceUuid,
-      cache: "miss",
-      resultCount: Array.isArray((result as { results?: unknown[] }).results)
-        ? ((result as { results: unknown[] }).results.length)
-        : null,
+      cache: result.cache,
+      latencyMs: result.latencyMs,
+      resultCount: result.results.length,
     });
     return NextResponse.json(result, {
-      headers: { "x-rag-cache": "miss" },
+      headers: { "x-rag-cache": result.cache },
     });
   } catch (error) {
-    void apiLogger.requestFailed(500, error);
+    apiLogger.requestFailed(500, error);
     return NextResponse.json(
       { error: "Failed to query retrieval index" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

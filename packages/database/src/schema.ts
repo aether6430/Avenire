@@ -595,9 +595,16 @@ export const misconception = pgTable(
     concept: text("concept").notNull(),
     reason: text("reason").notNull(),
     source: text("source").notNull().default("review"),
+    status: text("status").notNull().default("candidate"),
+    evidenceClass: text("evidence_class").notNull().default("session"),
+    evidenceRootId: text("evidence_root_id"),
+    evidenceSpan: jsonb("evidence_span").$type<Record<string, unknown> | null>(),
+    sourceSessionId: text("source_session_id"),
+    promotedAt: timestamp("promoted_at", { withTimezone: true }),
+    decayedAt: timestamp("decayed_at", { withTimezone: true }),
     confidence: real("confidence").notNull().default(0),
     evidenceCount: integer("evidence_count").notNull().default(1),
-    active: boolean("active").notNull().default(true),
+    active: boolean("active").notNull().default(false),
     firstSeenAt: timestamp("first_seen_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -625,10 +632,21 @@ export const misconception = pgTable(
       table.active,
       table.lastSeenAt
     ),
+    index("misconception_user_status_idx").on(
+      table.userId,
+      table.status,
+      table.lastSeenAt
+    ),
     index("misconception_workspace_subject_active_idx").on(
       table.workspaceId,
       table.subject,
       table.active
+    ),
+    index("misconception_workspace_subject_topic_status_idx").on(
+      table.workspaceId,
+      table.subject,
+      table.topic,
+      table.status
     ),
   ]
 );

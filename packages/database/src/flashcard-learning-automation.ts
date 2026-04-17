@@ -47,11 +47,15 @@ async function handleFlashcardReviewEvent(
     await upsertMisconception({
       confidence: actions.misconception.confidence,
       concept: actions.misconception.concept,
+      evidenceClass: "review",
+      evidenceRootId: event.card.id,
       observedAt: new Date(actions.mastery?.reviewedAt ?? event.reviewedAt),
       reason: actions.misconception.reason,
       source: actions.misconception.source,
+      sourceSessionId: null,
       subject: actions.misconception.subject ?? event.subject,
       topic: actions.misconception.topic ?? event.topic,
+      status: "candidate",
       userId: actions.misconception.userId,
       workspaceId: actions.misconception.workspaceId,
     });

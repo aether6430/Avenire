@@ -108,6 +108,7 @@ export const chatToolSchemas = {
   search_materials: {
     input: z.object({
       limit: z.number().int().min(1).max(20).optional(),
+      mode: z.enum(["auto", "fast", "full"]).optional(),
       query: z.string().min(1),
       sourceType: sourceTypeSchema,
     }),

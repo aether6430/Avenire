@@ -20,6 +20,7 @@ import {
 import { serve } from "@hono/node-server";
 import { config as loadEnv } from "dotenv";
 import { Hono } from "hono";
+import { triggerRetrievalWarmup } from "./retrieval-warmup";
 import { publishWorkspaceStreamEvent } from "./workspace-event-stream";
 
 // Prefer backend-local env; keep repo root as fallback.
@@ -207,6 +208,20 @@ async function processQueuedJob(queueJob: IngestionQueueJobData) {
     if (file.isNote) {
       await markNoteReindexed(file.id);
     }
+
+    void triggerRetrievalWarmup({
+      chunkCount,
+      fileId: job.fileId,
+      jobId: job.id,
+      resourceCount: result.resources.length,
+      workspaceId: job.workspaceId,
+    }).catch((error) => {
+      console.warn("ingestion.worker.retrieval_warmup_failed", {
+        error: error instanceof Error ? error.message : "Unknown warmup failure",
+        jobId: job.id,
+        workspaceId: job.workspaceId,
+      });
+    });
 
     lastError = null;
     lastJobDurationMs = Date.now() - startedAtMs;

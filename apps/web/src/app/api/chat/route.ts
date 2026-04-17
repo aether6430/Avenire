@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import {
   APOLLO_PROMPT,
   type ApolloModelName,
+  type PromptMemoryBlock,
   apollo,
   convertToModelMessages,
   createUIMessageStream,
@@ -43,13 +44,18 @@ import { normalizeMediaType } from "@/lib/media-type";
 import { createApiLogger } from "@/lib/observability";
 import { buildStudentProfileContext } from "@/lib/student-profile";
 import {
-  buildRecentSessionSummaryContext,
   getLatestSessionSummaryForChat,
   getRecentRelevantSessionSummary,
+} from "@avenire/database";
+import {
+  buildRecentSessionSummaryContext,
   getWorkspaceSubjectSummary,
   persistSessionSummaryForCompletedTurn,
 } from "@/lib/session-summaries";
-import { normalizeSubjectLabel } from "@/lib/subject-detection";
+import {
+  inferTopicLabel,
+  normalizeSubjectLabel,
+} from "@/lib/subject-detection";
 import {
   clearActiveStreamId,
   getActiveStreamId,
@@ -275,6 +281,68 @@ function buildDetectedSubjectContext(subject: string | null) {
     `Detected session subject: ${subject}.`,
     "Treat this as soft context, not a hard constraint.",
   ].join(" ");
+}
+
+function buildPromptMemoryBlocks(input: {
+  misconceptionsContext: string | null;
+  sessionSummaryContext: string | null;
+  studentProfileContext: string | null;
+  subject: string | null;
+  topic: string | null;
+}): PromptMemoryBlock[] {
+  const blocks: PromptMemoryBlock[] = [];
+
+  if (input.subject) {
+    blocks.push({
+      content:
+        buildDetectedSubjectContext(input.subject) ??
+        `Detected session subject: ${input.subject}.`,
+      freshness: "current",
+      kind: "subject",
+      scope: {
+        subject: input.subject,
+        topic: input.topic,
+      },
+    });
+  }
+
+  if (input.sessionSummaryContext) {
+    blocks.push({
+      content: input.sessionSummaryContext,
+      freshness: "recent",
+      kind: "session-summary",
+      scope: {
+        subject: input.subject,
+        topic: input.topic,
+      },
+    });
+  }
+
+  if (input.studentProfileContext) {
+    blocks.push({
+      content: input.studentProfileContext,
+      freshness: "historical",
+      kind: "student-profile",
+      scope: {
+        subject: input.subject,
+        topic: input.topic,
+      },
+    });
+  }
+
+  if (input.misconceptionsContext) {
+    blocks.push({
+      content: input.misconceptionsContext,
+      freshness: "historical",
+      kind: "misconception",
+      scope: {
+        subject: input.subject,
+        topic: input.topic,
+      },
+    });
+  }
+
+  return blocks;
 }
 
 async function generateChatMetadata(
@@ -710,7 +778,6 @@ export async function POST(request: Request) {
       sessionId?: string;
       status?: string;
       userName?: string;
-      context?: string;
     };
 
     if (body.kind === "session-close") {
@@ -1058,6 +1125,7 @@ export async function POST(request: Request) {
     const resolvedSubject = normalizeSubjectLabel(
       workspaceSubjectSummary?.subject ?? null
     );
+    const latestUserText = extractLatestUserText(originalMessages);
     logInfo("Incoming chat request", {
       chatId: body.chatId ?? null,
       selectedModel: body.selectedModel ?? null,
@@ -1083,6 +1151,12 @@ export async function POST(request: Request) {
           return null;
         })
       : null;
+    const resolvedTopic = inferTopicLabel(
+      [latestUserText, recentRelevantSummary?.summaryText]
+        .filter((value) => typeof value === "string" && value.trim().length > 0)
+        .join("\n\n"),
+      resolvedSubject
+    );
 
     if (idempotencyHeader && !idempotencyRedisKey) {
       idempotencyRedisKey = buildChatIdempotencyRedisKey({
@@ -1253,13 +1327,6 @@ export async function POST(request: Request) {
         });
 
         let result: Awaited<ReturnType<typeof streamText>>;
-        const mergedContext = [
-          body.context?.trim(),
-          buildDetectedSubjectContext(resolvedSubject),
-          buildRecentSessionSummaryContext(recentRelevantSummary),
-        ]
-          .filter((value) => Boolean(value))
-          .join("\n\n");
         const agentActivityId = randomUUID();
         const emitAgentActivity = (data: AgentActivityData) => {
           writer.write({
@@ -1286,23 +1353,33 @@ export async function POST(request: Request) {
             modelMessagesPromise,
             getActiveMisconceptionContext({
               subject: resolvedSubject,
+              topic: resolvedTopic,
               userId: session.user.id,
               workspaceId: workspace.workspaceId,
             }),
             buildStudentProfileContext({
+              subject: resolvedSubject,
+              topic: resolvedTopic,
               userId: session.user.id,
               workspaceId: workspace.workspaceId,
             }),
           ]);
+        const promptMemoryBlocks = buildPromptMemoryBlocks({
+          misconceptionsContext: activeMisconceptionContext,
+          sessionSummaryContext: buildRecentSessionSummaryContext(
+            recentRelevantSummary
+          ),
+          studentProfileContext,
+          subject: resolvedSubject,
+          topic: resolvedTopic,
+        });
 
         try {
           result = streamText({
             model: apollo.languageModel(selectedModel),
             system: APOLLO_PROMPT(
               body.userName ?? session.user.name ?? undefined,
-              [mergedContext, studentProfileContext, activeMisconceptionContext]
-                .filter((value) => Boolean(value))
-                .join("\n\n") || undefined
+              promptMemoryBlocks.length > 0 ? promptMemoryBlocks : undefined
             ),
             providerOptions: {
               baseten: {

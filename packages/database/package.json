@@ -20,6 +20,7 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
+    "@avenire/observability": "workspace:*",
     "drizzle-orm": "latest",
     "pg": "latest",
     "ts-fsrs": "^5.2.3"

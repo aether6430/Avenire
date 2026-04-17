@@ -3,12 +3,11 @@ import type { UIMessage } from "@avenire/ai/message-types";
 import { apollo } from "@avenire/ai/models";
 import {
   createSessionSummary,
-  getLatestSessionSummaryForChat,
-  getRecentRelevantSessionSummary,
   listSessionSummariesForUser,
   type SessionSummaryRecord,
   upsertMisconception,
 } from "@avenire/database";
+import { logInfo } from "@avenire/observability";
 import { z } from "zod";
 import { normalizeSubjectLabel } from "@/lib/subject-detection";
 
@@ -46,6 +45,11 @@ const summaryOutputSchema = z.object({
 });
 
 type ToolPart = Extract<UIMessage["parts"][number], { type: `tool-${string}` }>;
+
+type ConfusionSignals = {
+  detected: boolean;
+  reasons: string[];
+};
 
 export interface SessionWindow {
   shouldCreateNewSummary: boolean;
@@ -117,11 +121,21 @@ const STRONG_MISCONCEPTION_SIGNAL_PATTERN =
 const LEARNING_GAP_OPENING_PATTERN =
   /\b(could you explain|can you explain|explain\b.*\b(setup|concept|mechanism|process)|how does\b.*\baffect\b|what happens if|how would\b.*\bchange\b|why does\b.*\bhappen\b|what is the effect of)\b/i;
 
-function hasMisconceptionEvidence(transcript: string) {
-  return (
-    STRONG_MISCONCEPTION_SIGNAL_PATTERN.test(transcript) ||
-    LEARNING_GAP_OPENING_PATTERN.test(transcript)
-  );
+function detectConfusionSignals(transcript: string): ConfusionSignals {
+  const reasons: string[] = [];
+
+  if (STRONG_MISCONCEPTION_SIGNAL_PATTERN.test(transcript)) {
+    reasons.push("strong_misconception_language");
+  }
+
+  if (LEARNING_GAP_OPENING_PATTERN.test(transcript)) {
+    reasons.push("learning_gap_opening");
+  }
+
+  return {
+    detected: reasons.length > 0,
+    reasons,
+  };
 }
 
 function isCompletedToolPart(
@@ -207,17 +221,46 @@ function extractMisconceptions(messages: UIMessage[]) {
 async function persistAutomaticMisconceptions(input: {
   candidates: z.infer<typeof misconceptionCandidateSchema>[];
   endedAt: Date;
+  confusionSignals: ConfusionSignals;
+  sourceSessionId: string;
   userTranscript: string;
   userId: string;
   workspaceId: string;
 }) {
-  if (!hasMisconceptionEvidence(input.userTranscript)) {
+  if (!input.confusionSignals.detected) {
     return;
+  }
+
+  for (const candidate of input.candidates) {
+    logInfo({
+      eventName: "misconception.candidate.created",
+      payload: {
+        confidence: candidate.confidence,
+        concept: candidate.concept,
+        subject: candidate.subject,
+        topic: candidate.topic,
+        userId: input.userId,
+        workspaceId: input.workspaceId,
+      },
+    });
   }
 
   const seen = new Set<string>();
   const eligibleCandidates = input.candidates.filter((candidate) => {
     if (candidate.confidence < MIN_AUTOMATIC_MISCONCEPTION_CONFIDENCE) {
+      logInfo({
+        eventName: "misconception.candidate.rejected",
+        payload: {
+          confidence: candidate.confidence,
+          concept: candidate.concept,
+          reason: "below_confidence_threshold",
+          subject: candidate.subject,
+          threshold: MIN_AUTOMATIC_MISCONCEPTION_CONFIDENCE,
+          topic: candidate.topic,
+          userId: input.userId,
+          workspaceId: input.workspaceId,
+        },
+      });
       return false;
     }
 
@@ -228,6 +271,18 @@ async function persistAutomaticMisconceptions(input: {
     ].join("::");
 
     if (seen.has(key)) {
+      logInfo({
+        eventName: "misconception.candidate.rejected",
+        payload: {
+          confidence: candidate.confidence,
+          concept: candidate.concept,
+          reason: "duplicate_candidate",
+          subject: candidate.subject,
+          topic: candidate.topic,
+          userId: input.userId,
+          workspaceId: input.workspaceId,
+        },
+      });
       return false;
     }
 
@@ -244,10 +299,14 @@ async function persistAutomaticMisconceptions(input: {
       upsertMisconception({
         confidence: candidate.confidence,
         concept: candidate.concept,
+        evidenceClass: "session",
+        evidenceRootId: input.sourceSessionId,
         reason: candidate.reason,
         source: "auto",
+        sourceSessionId: input.sourceSessionId,
         subject: candidate.subject,
         topic: candidate.topic,
+        status: "candidate",
         userId: input.userId,
         workspaceId: input.workspaceId,
         observedAt: input.endedAt,
@@ -371,6 +430,19 @@ export async function persistSessionSummaryForCompletedTurn(input: {
   const userTranscript = extractUserTranscript(boundedMessages);
   const flashcardsCreated = extractFlashcardsCreated(boundedMessages);
   const misconceptionsDetected = extractMisconceptions(boundedMessages);
+  const confusionSignals = detectConfusionSignals(userTranscript);
+
+  if (confusionSignals.detected) {
+    logInfo({
+      eventName: "misconception.stage1.detected",
+      payload: {
+        reasons: confusionSignals.reasons,
+        transcriptLength: userTranscript.length,
+        userId: input.userId,
+        workspaceId: input.workspaceId,
+      },
+    });
+  }
 
   const result = await generateText({
     model: apollo.languageModel(SUMMARY_MODEL),
@@ -382,6 +454,9 @@ export async function persistSessionSummaryForCompletedTurn(input: {
       "Also identify the primary academic subject and a confidence score between 0 and 1.",
       "Also infer up to three concept-level misconception candidates when the user clearly expresses confusion, states or implies a wrong mental model, repeats the same mistaken assumption, draws an incorrect conclusion that persists across the exchange, or opens with a foundational concept question that signals a learning gap such as asking to explain a setup, mechanism, or how changing one variable affects another.",
       "Stay selective. Do not infer a misconception from a normal feature check, casual curiosity, or a single minor clarification unless the exchange indicates a real conceptual gap worth tracking.",
+      confusionSignals.detected
+        ? `Confusion detection stage: detected. Reasons: ${confusionSignals.reasons.join(", ")}. Verify only concrete wrong models with concept grounding.`
+        : "Confusion detection stage: no strong signal. Return an empty misconceptionCandidates array unless the transcript clearly contains a durable wrong model.",
       `Flashcards created during this window: ${flashcardsCreated}`,
       misconceptionsDetected.length > 0
         ? `Misconceptions already detected by tools: ${misconceptionsDetected.join(", ")}`
@@ -400,9 +475,22 @@ export async function persistSessionSummaryForCompletedTurn(input: {
     normalizeMisconceptionCandidate
   );
 
+  if (confusionSignals.detected) {
+    logInfo({
+      eventName: "misconception.stage2.verified",
+      payload: {
+        candidateCount: normalizedCandidates.length,
+        userId: input.userId,
+        workspaceId: input.workspaceId,
+      },
+    });
+  }
+
   await persistAutomaticMisconceptions({
     candidates: normalizedCandidates,
     endedAt: input.endedAt,
+    confusionSignals,
+    sourceSessionId: input.chatId,
     userTranscript,
     userId: input.userId,
     workspaceId: input.workspaceId,
@@ -492,8 +580,3 @@ export function buildRecentSessionSummaryContext(
     .filter(Boolean)
     .join(" ");
 }
-
-export {
-  getLatestSessionSummaryForChat,
-  getRecentRelevantSessionSummary,
-};

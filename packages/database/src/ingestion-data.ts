@@ -539,6 +539,18 @@ export async function listIngestionEventsForWorkspace(input: {
   }));
 }
 
+export async function getWorkspaceCorpusFingerprintMarker(workspaceId: string) {
+  const [row] = await db
+    .select({
+      corpusFingerprint: sql<string>`md5(coalesce(string_agg(concat('id=', ${ingestionResource.id}, '|file=', coalesce(${ingestionResource.fileId}::text, ''), '|sourceType=', ${ingestionResource.sourceType}, '|source=', ${ingestionResource.source}, '|provider=', coalesce(${ingestionResource.provider}, ''), '|title=', coalesce(${ingestionResource.title}, ''), '|updatedAt=', ${ingestionResource.updatedAt}), '||' order by ${ingestionResource.id}), ''))`,
+      resourceCount: sql<number>`count(*)`,
+    })
+    .from(ingestionResource)
+    .where(eq(ingestionResource.workspaceId, workspaceId));
+
+  return Number(row?.resourceCount ?? 0) > 0 ? row?.corpusFingerprint ?? null : null;
+}
+
 export async function getFileForIngestion(workspaceId: string, fileId: string) {
   const [row] = await db
     .select()

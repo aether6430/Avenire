@@ -60,6 +60,7 @@ import {
   isLikelyNoisyText,
   lexicalOverlapScore,
   retrieveRelevantChunks,
+  retrieveRelevantChunksAdaptive,
 } from "./retrieve";
 
 const makeCandidate = (
@@ -449,5 +450,54 @@ describe("retrieveRelevantChunks", () => {
       rerankScore: 0.77,
     });
     expect(getAdjacentChunks).not.toHaveBeenCalled();
+  });
+
+  it("can route ordinary auto queries without source hints onto the fast path", async () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(1);
+    try {
+      mocks.expandQuery.mockResolvedValue(null);
+      mocks.embedMultimodal.mockResolvedValue({
+        embeddings: [[0.9, 0.8]],
+      });
+      mocks.rerank.mockResolvedValue({
+        ranking: [{ originalIndex: 0, score: 0.99 }],
+      });
+
+      const candidate = makeCandidate({
+        chunkId: "fast-1",
+        resourceId: "res-fast",
+        sourceType: "pdf",
+        title: "Water cycle lesson",
+        content: "A detailed explanation of the water cycle process.",
+        score: 0.99,
+      });
+
+      const vectorStore: VectorStore = {
+        corpusStats: vi.fn(async () => ({
+          chunks: 1,
+          embeddings: 1,
+          resources: 1,
+        })),
+        getAdjacentChunks: vi.fn(async () => []),
+        search: vi.fn(async () => [candidate]),
+        searchLexical: vi.fn(async () => []),
+        searchTrigram: vi.fn(async () => []),
+      };
+
+      const result = await retrieveRelevantChunksAdaptive(
+        vectorStore,
+        "explain the complete water cycle process",
+        {
+          limit: 1,
+          userId: "user-1",
+          workspaceId: "workspace-1",
+        }
+      );
+
+      expect(result.path).toBe("fast");
+      expect(result.ambiguityReasons).not.toContain("no_source_hint");
+    } finally {
+      randomSpy.mockRestore();
+    }
   });
 });

@@ -19,6 +19,7 @@
     "@ai-sdk/groq": "^3.0.26",
     "@avenire/ai": "workspace:*",
     "@avenire/database": "workspace:*",
+    "@avenire/observability": "workspace:*",
     "@mistralai/mistralai": "^1.14.1",
     "@tavily/core": "^0.7.2",
     "abso-ai": "^0.0.9",

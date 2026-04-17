@@ -10,7 +10,6 @@ import {
   AVAILABLE_VISUAL_SKILLS,
   loadSkills,
 } from "@avenire/ai/skills";
-import { retrieveWorkspaceChunks } from "@avenire/ingestion";
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
 import { tavily } from "@tavily/core";
 import { z } from "zod";
@@ -42,6 +41,7 @@ import {
   deleteIngestionDataForFile,
   getIngestionSummaryForFile,
 } from "@/lib/ingestion-data";
+import { logInfo } from "@avenire/observability";
 import {
   getActiveMisconceptions,
   type MisconceptionRecord,
@@ -51,6 +51,7 @@ import {
   upsertMisconception,
 } from "@/lib/learning-data";
 import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
+import { retrieveWorkspaceChunksShared } from "@/lib/retrieval-service";
 
 const DEFAULT_SEARCH_LIMIT = 8;
 const DEFAULT_WEB_SEARCH_LIMIT = 5;
@@ -134,7 +135,8 @@ function matchesTaxonomyScope(
 
   if (
     scope.topic &&
-    normalizeStudyMatchKey(taxonomy.topic) !== normalizeStudyMatchKey(scope.topic)
+    normalizeStudyMatchKey(taxonomy.topic) !==
+      normalizeStudyMatchKey(scope.topic)
   ) {
     return false;
   }
@@ -181,16 +183,20 @@ function buildMisconceptionStudySource(misconception: MisconceptionRecord) {
 
 export async function getActiveMisconceptionContext(params: {
   subject?: string | null;
+  topic?: string | null;
   userId: string;
   workspaceId: string;
 }) {
   const subject = params.subject?.trim();
-  if (!subject) {
+  const topic = params.topic?.trim();
+  if (!(subject && topic)) {
     return null;
   }
 
   const misconceptions = await getActiveMisconceptions({
     limit: 24,
+    subject,
+    topic,
     userId: params.userId,
     workspaceId: params.workspaceId,
   });
@@ -202,6 +208,19 @@ export async function getActiveMisconceptionContext(params: {
     )
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
     .slice(0, MISCONCEPTION_CONTEXT_LIMIT);
+
+  if (active.length > 0) {
+    logInfo({
+      eventName: "misconception.confirmed.injected",
+      payload: {
+        activeCount: active.length,
+        subject,
+        topic,
+        userId: params.userId,
+        workspaceId: params.workspaceId,
+      },
+    });
+  }
 
   return buildMisconceptionContext(active);
 }
@@ -855,7 +874,7 @@ async function publishTreeMutationEvents(input: {
 
 function mapSearchResultsToCitations(params: {
   maps: WorkspacePathMaps;
-  results: Awaited<ReturnType<typeof retrieveWorkspaceChunks>>["results"];
+  results: Awaited<ReturnType<typeof retrieveWorkspaceChunksShared>>["results"];
 }) {
   return params.results.map((match) => ({
     chunkId: match.chunkId,
@@ -879,16 +898,19 @@ async function resolveWorkspaceSearchMatches(params: {
   userId: string;
   query: string;
   limit: number;
+  mode?: z.infer<typeof chatToolSchemas.search_materials.input>["mode"];
   sourceType?: z.infer<
     typeof chatToolSchemas.search_materials.input
   >["sourceType"];
 }) {
-  const result = await retrieveWorkspaceChunks({
-    workspaceId: params.workspaceId,
-    userId: params.userId,
+  const result = await retrieveWorkspaceChunksShared({
     query: params.query,
     limit: params.limit,
+    mode: params.mode,
+    origin: "chat",
     sourceType: params.sourceType,
+    userId: params.userId,
+    workspaceId: params.workspaceId,
   });
   const maps = await buildWorkspacePathMaps(params.workspaceId, params.userId);
   const matches = mapSearchResultsToCitations({
@@ -1126,11 +1148,12 @@ async function resolveStudySource(
     throw new Error("A study source is required.");
   }
 
-  const result = await retrieveWorkspaceChunks({
-    workspaceId: ctx.workspaceId,
-    userId: ctx.userId,
+  const result = await retrieveWorkspaceChunksShared({
     query,
     limit: STUDY_QUERY_MATCH_LIMIT,
+    origin: "chat",
+    userId: ctx.userId,
+    workspaceId: ctx.workspaceId,
   });
 
   const content = result.results
@@ -1194,8 +1217,8 @@ async function createStudySetWithCards(params: {
       matchCount: 0,
       titleKey:
         normalizeStudyMatchKey(
-          dashboard?.sets.find((set) => set.id === snapshot.card.setId)?.title ??
-            ""
+          dashboard?.sets.find((set) => set.id === snapshot.card.setId)
+            ?.title ?? ""
         ) ?? "",
       updatedAt: 0,
     };
@@ -1342,17 +1365,24 @@ async function generateFlashcardsFromMisconception(
     misconceptions[0] ??
     ({
       active: true,
+      decayedAt: null,
       confidence: 0.85,
       concept: input.concept,
       createdAt: new Date().toISOString(),
       evidenceCount: 0,
+      evidenceClass: "manual",
+      evidenceRootId: null,
+      evidenceSpan: null,
       firstSeenAt: new Date().toISOString(),
       id: "draft",
       lastSeenAt: new Date().toISOString(),
+      promotedAt: new Date().toISOString(),
       reason: input.reason,
       resolvedAt: null,
       source: "manual",
+      sourceSessionId: null,
       subject: input.subject,
+      status: "confirmed",
       topic: input.topic,
       updatedAt: new Date().toISOString(),
       userId: ctx.userId,
@@ -1588,6 +1618,7 @@ export function createChatTools(ctx: ChatToolContext): ToolSet {
           userId: ctx.userId,
           query: input.query,
           limit: input.limit ?? DEFAULT_SEARCH_LIMIT,
+          mode: input.mode ?? "auto",
           sourceType: input.sourceType,
         });
 
@@ -2164,10 +2195,13 @@ The agent decides which operations to perform based on the task.`,
         const misconception = await upsertMisconception({
           confidence: input.confidence,
           concept: input.concept,
+          evidenceClass: "manual",
           reason: input.reason,
           source: "chat_tool",
+          sourceSessionId: ctx.chatSlug,
           subject: input.subject,
           topic: input.topic,
+          status: "confirmed",
           userId: ctx.userId,
           workspaceId: ctx.workspaceId,
         });
@@ -2285,7 +2319,7 @@ The agent decides which operations to perform based on the task.`,
           })),
           totalDueCount: hasScope
             ? filteredDueCards.length
-            : dashboard?.dueCount ?? 0,
+            : (dashboard?.dueCount ?? 0),
         };
       },
     }),

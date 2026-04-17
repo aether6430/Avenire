@@ -92,6 +92,13 @@
       "when": 1775000000000,
       "tag": "0013_extension_destination_presets",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1775100000000,
+      "tag": "0014_misconception_prompt_memory_boundary_hnsw",
+      "breakpoints": true
     }
   ]
 }

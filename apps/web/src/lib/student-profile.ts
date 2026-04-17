@@ -39,17 +39,26 @@ function averageSessionLengthMins(
 }
 
 export async function buildStudentProfileContext(input: {
+  subject?: string | null;
+  topic?: string | null;
   userId: string;
   workspaceId: string;
 }): Promise<string | null> {
+  const shouldScopeMisconceptions = Boolean(
+    input.subject?.trim() && input.topic?.trim()
+  );
   const [dashboard, subjects, misconceptions, summaries] = await Promise.all([
     getFlashcardDashboardForUser(input.userId, input.workspaceId),
     listMasterySubjectsForUser(input.userId, input.workspaceId, 8),
-    getActiveMisconceptions({
-      limit: 6,
-      userId: input.userId,
-      workspaceId: input.workspaceId,
-    }),
+    shouldScopeMisconceptions
+      ? getActiveMisconceptions({
+          limit: 6,
+          subject: input.subject ?? undefined,
+          topic: input.topic ?? undefined,
+          userId: input.userId,
+          workspaceId: input.workspaceId,
+        })
+      : Promise.resolve([] as Awaited<ReturnType<typeof getActiveMisconceptions>>),
     listSessionSummariesForUser({
       limit: 12,
       userId: input.userId,

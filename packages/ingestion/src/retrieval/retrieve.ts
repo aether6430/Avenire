@@ -1,5 +1,6 @@
 import { apollo } from "@avenire/ai";
 import { rerank } from "ai";
+import { logInfo, logWarn, safeError } from "@avenire/observability";
 import { config } from "../config";
 import {
   embedMultimodal,
@@ -11,6 +12,9 @@ import { getLearnerSignalBoosts } from "./learner-signals";
 import type { VectorSearchResult, VectorStore } from "./vector-store";
 
 const RETRIEVAL_CONTEXT_TOKEN_BUDGET = 2400;
+const FAST_PATH_CONTEXT_TOKEN_BUDGET = 1200;
+const FAST_PATH_CONFIDENCE_THRESHOLD = 0.82;
+const DEFAULT_CALIBRATION_SHADOW_SAMPLE_RATE = 0.15;
 const MAX_RESOURCE_DIVERSITY = 3;
 
 const VISUAL_INTENT_PATTERN =
@@ -27,7 +31,8 @@ const FRAGMENT_END_PATTERN = /[.!?]["')\]]?$/;
 const NON_TOKEN_CHAR_PATTERN = /[^a-z0-9\s]/g;
 const QUOTED_PHRASE_PATTERN = /"([^"\n]{3,})"/;
 const SYMBOL_HEAVY_PATTERN = /[^\w\s]/;
-const CODE_IDENTIFIER_PATTERN = /\b(?:[A-Z0-9]+_[A-Z0-9_]+|[a-z]+[A-Z][A-Za-z0-9]*)\b/;
+const CODE_IDENTIFIER_PATTERN =
+  /\b(?:[A-Z0-9]+_[A-Z0-9_]+|[a-z]+[A-Z][A-Za-z0-9]*)\b/;
 
 type FusionCandidate = VectorSearchResult & {
   fusionScore: number;
@@ -38,8 +43,94 @@ type RankedCandidate = VectorSearchResult & {
   rerankScore: number;
 };
 
-const normalizeWhitespace = (value: string): string =>
+type RetrievedCandidate = VectorSearchResult & {
+  content: string;
+  fusionScore?: number;
+  rerankScore: number;
+};
+
+type RetrievalPathResult = {
+  ambiguityReasons: string[];
+  confidence: number;
+  context: string;
+  corpus: Awaited<ReturnType<VectorStore["corpusStats"]>> | null;
+  latencyMs: number;
+  path: "fast" | "slow";
+  results: Array<{
+    resourceId: string;
+    fileId: string | null;
+    sourceType: "pdf" | "image" | "video" | "audio" | "markdown" | "link";
+    source: string;
+    provider: string | null;
+    title: string | null;
+    chunkId: string;
+    chunkIndex: number;
+    page: number | null;
+    startMs: number | null;
+    endMs: number | null;
+    content: string;
+    score: number;
+    rerankScore: number;
+    metadata: Record<string, unknown>;
+  }>;
+  calibration?: {
+    citationAgreement: number;
+    fastCandidateCount: number;
+    fastLatencyMs: number;
+    thresholdDecisions: Array<{ threshold: number; wouldTakeFast: boolean }>;
+    topKOverlap: number;
+    slowCandidateCount: number;
+    slowLatencyMs: number;
+  };
+  decision: RetrievalDecisionTelemetry;
+};
+
+export interface RetrievalDecisionTelemetry {
+  ambiguityReasons: string[];
+  candidateCount: number;
+  confidenceScore: number;
+  contextTokenBudget: number;
+  contextTokenCount: number;
+  contextTruncated: boolean;
+  corpus: Awaited<ReturnType<VectorStore["corpusStats"]>>;
+  expansionUsed: boolean;
+  fusionCandidateCount: number;
+  intent: {
+    audio: boolean;
+    document: boolean;
+    visual: boolean;
+  };
+  latencyMs: number;
+  lexicalCandidateCount: number;
+  learnerBoostedCandidateCount: number;
+  queryCount: number;
+  queryShape: {
+    charCount: number;
+    hasCodeIdentifier: boolean;
+    hasQuestionMark: boolean;
+    hasQuotedPhrase: boolean;
+    provider: string | null;
+    searchQueryCount: number;
+    sourceType: "pdf" | "image" | "video" | "audio" | "markdown" | "link" | null;
+    tokenCount: number;
+  };
+  rerankCandidateCount: number;
+  rerankFallbackUsed: boolean;
+  rerankUsed: boolean;
+  resultCount: number;
+  resultSourceTypeMix: Record<string, number>;
+  sourceTypeBreakdown: Record<string, number>;
+  topRerankScore: number;
+  topResultSourceType: "pdf" | "image" | "video" | "audio" | "markdown" | "link" | null;
+  userId: string | null;
+  workspaceId: string | null;
+}
+
+export const normalizeRetrievalQuery = (value: string): string =>
   value.replace(/\s+/g, " ").trim();
+
+const countQueryTokens = (value: string): number =>
+  normalizeRetrievalQuery(value).split(TOKEN_SPLIT_PATTERN).filter(Boolean).length;
 
 const estimateTokens = (value: string): number =>
   Math.max(1, Math.ceil(value.length / 4));
@@ -63,7 +154,7 @@ export const dedupeQueries = (values: string[]): string[] => {
   const out: string[] = [];
 
   for (const value of values) {
-    const normalized = normalizeWhitespace(value);
+    const normalized = normalizeRetrievalQuery(value);
     if (!normalized) {
       continue;
     }
@@ -204,7 +295,7 @@ export const exactPhraseScore = (query: string, content: string): number => {
 };
 
 export const extractTrigramQuery = (query: string): string | null => {
-  const normalized = normalizeWhitespace(query);
+  const normalized = normalizeRetrievalQuery(query);
   if (normalized.length < 3) {
     return null;
   }
@@ -214,7 +305,10 @@ export const extractTrigramQuery = (query: string): string | null => {
     return quoted;
   }
 
-  if (SYMBOL_HEAVY_PATTERN.test(normalized) || CODE_IDENTIFIER_PATTERN.test(normalized)) {
+  if (
+    SYMBOL_HEAVY_PATTERN.test(normalized) ||
+    CODE_IDENTIFIER_PATTERN.test(normalized)
+  ) {
     return normalized;
   }
 
@@ -222,7 +316,7 @@ export const extractTrigramQuery = (query: string): string | null => {
 };
 
 export const isLikelyNoisyText = (content: string): boolean => {
-  const normalized = normalizeWhitespace(content);
+  const normalized = normalizeRetrievalQuery(content);
   if (!normalized) {
     return true;
   }
@@ -248,7 +342,9 @@ export const formatDuration = (milliseconds: number): string => {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 };
 
-export const formatChunkLocation = (candidate: VectorSearchResult): string[] => {
+export const formatChunkLocation = (
+  candidate: VectorSearchResult
+): string[] => {
   const parts: string[] = [];
 
   if (candidate.page != null) {
@@ -275,8 +371,8 @@ export const formatChunkLocation = (candidate: VectorSearchResult): string[] => 
 
 export const formatChunkHeader = (candidate: VectorSearchResult): string => {
   const title =
-    normalizeWhitespace(candidate.title ?? "") ||
-    normalizeWhitespace(candidate.source) ||
+    normalizeRetrievalQuery(candidate.title ?? "") ||
+    normalizeRetrievalQuery(candidate.source) ||
     "Retrieved chunk";
   const location = formatChunkLocation(candidate);
 
@@ -286,7 +382,7 @@ export const formatChunkHeader = (candidate: VectorSearchResult): string => {
 };
 
 export const isFragmentaryChunk = (content: string): boolean => {
-  const normalized = normalizeWhitespace(content);
+  const normalized = normalizeRetrievalQuery(content);
   if (normalized.length < 120) {
     return false;
   }
@@ -301,7 +397,7 @@ export const buildChunkContext = (chunks: VectorSearchResult[]): string =>
   chunks
     .map(
       (chunk) =>
-        `${formatChunkHeader(chunk)}\n${normalizeWhitespace(chunk.content)}`
+        `${formatChunkHeader(chunk)}\n${normalizeRetrievalQuery(chunk.content)}`
     )
     .join("\n\n")
     .trim();
@@ -325,16 +421,16 @@ const expandWithAdjacentChunks = (
 };
 
 export const buildContextAwareResults = (
-  reranked: RankedCandidate[],
+  reranked: RetrievedCandidate[],
   adjacentByChunkId: Map<string, VectorSearchResult[]>,
   tokenBudget: number
 ): {
   context: string;
-  results: RankedCandidate[];
+  results: RetrievedCandidate[];
   tokenCount: number;
   truncated: boolean;
 } => {
-  const results: RankedCandidate[] = [];
+  const results: RetrievedCandidate[] = [];
   let tokenCount = 0;
   let truncated = false;
 
@@ -381,6 +477,147 @@ export const buildContextAwareResults = (
     truncated,
   };
 };
+
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: telemetry assembly is intentionally centralized here.
+function buildRetrievalDecisionTelemetry(input: {
+  audioIntent: boolean;
+  assembled: {
+    results: RetrievedCandidate[];
+    tokenCount: number;
+    truncated: boolean;
+  };
+  corpus: Awaited<ReturnType<VectorStore["corpusStats"]>>;
+  documentIntent: boolean;
+  expandedQuery: string | null;
+  latencyMs: number;
+  learnerSignalBoosts: Map<string, { boost: number }>;
+  mergedCandidates: FusionCandidate[];
+  normalizedQuery: string;
+  options?: {
+    provider?: string;
+    sourceType?: "pdf" | "image" | "video" | "audio" | "markdown" | "link";
+    userId?: string;
+    workspaceId?: string;
+  };
+  querySearchResults: Array<VectorSearchResult[]>;
+  queryCount: number;
+  rerankCandidates: FusionCandidate[];
+  rerankFallbackUsed: boolean;
+  reranked: RetrievedCandidate[];
+  sortedCandidates: FusionCandidate[];
+  visualIntent: boolean;
+}): RetrievalDecisionTelemetry {
+  const queryTokenCount = countQueryTokens(input.normalizedQuery);
+  const expansionUsed =
+    typeof input.expandedQuery === "string" &&
+    normalizeRetrievalQuery(input.expandedQuery) !== input.normalizedQuery;
+  const topRerankScore = input.reranked[0]?.rerankScore ?? 0;
+  const secondRerankScore = input.reranked[1]?.rerankScore ?? 0;
+  const ambiguityReasons = Array.from(
+    new Set(
+      [
+        queryTokenCount > 0 && queryTokenCount < 4 ? "short_query" : null,
+        queryTokenCount > 0 &&
+        queryTokenCount < 6 &&
+        !input.normalizedQuery.includes('"') &&
+        !CODE_IDENTIFIER_PATTERN.test(input.normalizedQuery)
+          ? "weak_anchor"
+          : null,
+        Number(input.audioIntent) +
+          Number(input.documentIntent) +
+          Number(input.visualIntent) >
+        1
+          ? "mixed_intent"
+          : null,
+        expansionUsed ? "query_expanded" : null,
+        input.reranked.length > 1 && topRerankScore - secondRerankScore < 0.06
+          ? "low_score_margin"
+          : null,
+        input.assembled.truncated ? "context_truncated" : null,
+      ].filter((value): value is string => Boolean(value))
+    )
+  );
+  const confidenceScore = Number(
+    Math.max(
+      0,
+      Math.min(
+        1,
+        0.45 +
+          Math.min(0.25, Math.max(0, topRerankScore) * 0.35) +
+          Math.min(
+            0.15,
+            Math.max(0, topRerankScore - secondRerankScore) * 0.8
+          ) +
+          (queryTokenCount >= 6 ? 0.05 : 0) +
+          (input.normalizedQuery.includes('"') ||
+          CODE_IDENTIFIER_PATTERN.test(input.normalizedQuery)
+            ? 0.06
+            : 0) +
+          (input.options?.sourceType ? 0.04 : 0) +
+          (expansionUsed ? -0.04 : 0) -
+          ambiguityReasons.length * 0.05
+      )
+    ).toFixed(3)
+  );
+  const resultSourceTypeMix = input.assembled.results.reduce<
+    Record<string, number>
+  >((acc, candidate) => {
+    acc[candidate.sourceType] = (acc[candidate.sourceType] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  return {
+    candidateCount: input.sortedCandidates.length,
+    confidenceScore,
+    contextTokenBudget: RETRIEVAL_CONTEXT_TOKEN_BUDGET,
+    contextTokenCount: input.assembled.tokenCount,
+    contextTruncated: input.assembled.truncated,
+    corpus: input.corpus,
+    expansionUsed,
+    fusionCandidateCount: input.mergedCandidates.length,
+    intent: {
+      audio: input.audioIntent,
+      document: input.documentIntent,
+      visual: input.visualIntent,
+    },
+    latencyMs: input.latencyMs,
+    lexicalCandidateCount: input.querySearchResults.reduce(
+      (total, results) => total + results.length,
+      0
+    ),
+    learnerBoostedCandidateCount: Array.from(
+      input.learnerSignalBoosts.values()
+    ).filter((signal) => signal.boost !== 1).length,
+    queryCount: input.queryCount,
+    queryShape: {
+      charCount: input.normalizedQuery.length,
+      hasCodeIdentifier: CODE_IDENTIFIER_PATTERN.test(input.normalizedQuery),
+      hasQuestionMark: input.normalizedQuery.includes("?"),
+      hasQuotedPhrase: input.normalizedQuery.includes('"'),
+      provider: input.options?.provider ?? null,
+      searchQueryCount: input.queryCount,
+      sourceType: input.options?.sourceType ?? null,
+      tokenCount: queryTokenCount,
+    },
+    rerankCandidateCount: input.rerankCandidates.length,
+    rerankFallbackUsed: input.rerankFallbackUsed,
+    rerankUsed: input.rerankCandidates.length > 0,
+    resultCount: input.assembled.results.length,
+    resultSourceTypeMix,
+    sourceTypeBreakdown: input.sortedCandidates.reduce<Record<string, number>>(
+      (acc, candidate) => {
+        acc[candidate.sourceType] = (acc[candidate.sourceType] ?? 0) + 1;
+        return acc;
+      },
+      {}
+    ),
+    topRerankScore,
+    topResultSourceType: input.assembled.results[0]?.sourceType ?? null,
+    ambiguityReasons,
+    userId: input.options?.userId ?? null,
+    workspaceId: input.options?.workspaceId ?? null,
+  };
+}
 
 export const applyModalityScoreAdjustments = (
   score: number,
@@ -539,13 +776,14 @@ const searchForQuery = async (params: {
   };
 
   const trigramQuery = extractTrigramQuery(params.query);
-  const [baseCandidates, lexicalCandidates, trigramCandidates] = await Promise.all([
-    params.vectorStore.search(params.queryEmbedding, searchOptions),
-    params.vectorStore.searchLexical(params.query, searchOptions),
-    trigramQuery
-      ? params.vectorStore.searchTrigram(trigramQuery, searchOptions)
-      : Promise.resolve([]),
-  ]);
+  const [baseCandidates, lexicalCandidates, trigramCandidates] =
+    await Promise.all([
+      params.vectorStore.search(params.queryEmbedding, searchOptions),
+      params.vectorStore.searchLexical(params.query, searchOptions),
+      trigramQuery
+        ? params.vectorStore.searchTrigram(trigramQuery, searchOptions)
+        : Promise.resolve([]),
+    ]);
 
   const visualIntent = hasVisualIntent(params.query);
   const audioIntent = hasAudioIntent(params.query);
@@ -587,11 +825,13 @@ export const retrieveRelevantChunks = async (
     workspaceId?: string;
     sourceType?: "pdf" | "image" | "video" | "audio" | "markdown" | "link";
     provider?: string;
+    corpus?: Awaited<ReturnType<VectorStore["corpusStats"]>>;
   }
 ): Promise<{
   context: string;
   corpus: Awaited<ReturnType<VectorStore["corpusStats"]>>;
   latencyMs: number;
+  decision: RetrievalDecisionTelemetry;
   results: Array<{
     resourceId: string;
     fileId: string | null;
@@ -611,7 +851,7 @@ export const retrieveRelevantChunks = async (
   }>;
 }> => {
   const start = performance.now();
-  const normalizedQuery = normalizeWhitespace(query);
+  const normalizedQuery = normalizeRetrievalQuery(query);
   const visualIntent = hasVisualIntent(normalizedQuery);
   const audioIntent = hasAudioIntent(normalizedQuery);
   const documentIntent = hasDocumentIntent(normalizedQuery);
@@ -628,10 +868,10 @@ export const retrieveRelevantChunks = async (
   );
 
   const expandedQuery = await expandQuery(normalizedQuery);
-  const searchQueries = dedupeQueries([normalizedQuery, expandedQuery ?? ""]).slice(
-    0,
-    2
-  );
+  const searchQueries = dedupeQueries([
+    normalizedQuery,
+    expandedQuery ?? "",
+  ]).slice(0, 2);
 
   const { embeddings } = await embedMultimodal(
     searchQueries.map((value) => textToMultimodalInput(value)),
@@ -717,6 +957,7 @@ export const retrieveRelevantChunks = async (
       candidate.fusionScore,
     ])
   );
+  let rerankFallbackUsed = false;
 
   const reranked = await rerank({
     model: apollo.rerankingModel("apollo-reranking"),
@@ -735,6 +976,7 @@ export const retrieveRelevantChunks = async (
       }))
     )
     .catch(async (error) => {
+      rerankFallbackUsed = true;
       const fallback = await rerankByCohereWithQueryEmbedding(
         embeddings[0] ?? [],
         rerankCandidates,
@@ -748,13 +990,13 @@ export const retrieveRelevantChunks = async (
         }));
       }
 
-      console.warn(
-        JSON.stringify({
-          event: "retrieval_rerank_fallback",
-          message:
-            error instanceof Error ? error.message : "Unknown rerank error",
-        })
-      );
+      logWarn({
+        eventName: "retrieval.rerank_fallback",
+        payload: {
+          candidateCount: rerankCandidates.length,
+          error: safeError(error),
+        },
+      });
 
       return rerankCandidates.slice(0, limit).map((candidate) => ({
         ...candidate,
@@ -786,49 +1028,406 @@ export const retrieveRelevantChunks = async (
     adjacentByChunkId,
     RETRIEVAL_CONTEXT_TOKEN_BUDGET
   );
-  const corpus = await vectorStore.corpusStats();
+  const corpus =
+    options?.corpus ?? (await vectorStore.corpusStats());
 
   const latencyMs = Math.round(performance.now() - start);
-  console.log(
-    JSON.stringify({
-      contextTokenBudget: RETRIEVAL_CONTEXT_TOKEN_BUDGET,
-      contextTokenCount: assembled.tokenCount,
-      contextTruncated: assembled.truncated,
-      event: "retrieval",
-      expandedQuery,
-      latencyMs,
-      corpus,
-      candidateCount: sortedCandidates.length,
-      fusionCandidateCount: mergedCandidates.length,
-      intent: {
-        audio: audioIntent,
-        document: documentIntent,
-        visual: visualIntent,
-      },
-      lexicalCandidateCount: querySearchResults.reduce(
-        (total, results) => total + results.length,
-        0
-      ),
-      learnerBoostedCandidateCount: Array.from(learnerSignalBoosts.values()).filter(
-        (signal) => signal.boost !== 1
-      ).length,
-      queryCount: searchQueries.length,
-      rerankCandidateCount: rerankCandidates.length,
-      resultCount: assembled.results.length,
-      sourceTypeBreakdown: sortedCandidates.reduce<Record<string, number>>(
-        (acc, candidate) => {
-          acc[candidate.sourceType] = (acc[candidate.sourceType] ?? 0) + 1;
-          return acc;
-        },
-        {}
-      ),
-    })
-  );
+  const telemetry = buildRetrievalDecisionTelemetry({
+    audioIntent,
+    assembled,
+    corpus,
+    documentIntent,
+    expandedQuery,
+    latencyMs,
+    learnerSignalBoosts,
+    mergedCandidates,
+    normalizedQuery,
+    options,
+    queryCount: searchQueries.length,
+    querySearchResults,
+    rerankCandidates,
+    rerankFallbackUsed,
+    reranked,
+    sortedCandidates,
+    visualIntent,
+  });
+
+  logInfo({
+    eventName: "retrieval.decision",
+    payload: telemetry as unknown as Record<string, unknown>,
+  });
 
   return {
     context: assembled.context,
+    decision: telemetry,
     latencyMs,
     corpus,
     results: assembled.results,
+  };
+};
+
+function buildQueryResultPreview(params: {
+  audioIntent: boolean;
+  limit: number;
+  normalizedQuery: string;
+  options?: {
+    provider?: string;
+    sourceType?: "pdf" | "image" | "video" | "audio" | "markdown" | "link";
+    userId?: string;
+    workspaceId?: string;
+  };
+  queryCandidates: Array<VectorSearchResult & { fusionScore: number }>;
+  queryCount: number;
+  visualIntent: boolean;
+}) {
+  const scoredCandidates = params.queryCandidates
+    .filter(
+      (candidate) =>
+        candidate.score >= config.retrievalMinScore ||
+        candidate.fusionScore >= 0.01
+    )
+    .map((candidate) =>
+      scoreRetrievedCandidate(candidate, {
+        audioIntent: params.audioIntent,
+        documentIntent: hasDocumentIntent(params.normalizedQuery),
+        learnerBoost: 1,
+        normalizedQuery: params.normalizedQuery,
+        preferredSourceTypes: getPreferredSourceTypes({
+          audio: params.audioIntent,
+          document: hasDocumentIntent(params.normalizedQuery),
+          visual: params.visualIntent,
+        }),
+        sourceType: params.options?.sourceType,
+        visualIntent: params.visualIntent,
+      })
+    )
+    .sort((a, b) => b.score - a.score);
+
+  const reranked = scoredCandidates.slice(0, params.limit).map((candidate) => ({
+    ...candidate,
+    rerankScore: candidate.score,
+  }));
+  const assembled = buildContextAwareResults(
+    reranked,
+    new Map(),
+    FAST_PATH_CONTEXT_TOKEN_BUDGET
+  );
+  const telemetry = buildRetrievalDecisionTelemetry({
+    audioIntent: params.audioIntent,
+    assembled,
+    corpus: {
+      chunks: 0,
+      embeddings: 0,
+      resources: 0,
+    },
+    documentIntent: hasDocumentIntent(params.normalizedQuery),
+    expandedQuery: null,
+    latencyMs: 0,
+    learnerSignalBoosts: new Map(),
+    mergedCandidates: params.queryCandidates,
+    normalizedQuery: params.normalizedQuery,
+    options: params.options,
+    queryCount: params.queryCount,
+    querySearchResults: [params.queryCandidates],
+    rerankCandidates: [],
+    rerankFallbackUsed: false,
+    reranked,
+    sortedCandidates: scoredCandidates,
+    visualIntent: params.visualIntent,
+  });
+
+  return {
+    assembled,
+    decision: telemetry,
+    results: assembled.results,
+    scoredCandidates,
+  };
+}
+
+function compareResultOrders(
+  left: Array<{ chunkId: string }>,
+  right: Array<{ chunkId: string }>,
+  limit: number
+) {
+  const boundedLimit = Math.max(1, limit);
+  const leftIds = left.slice(0, boundedLimit).map((result) => result.chunkId);
+  const rightIds = right.slice(0, boundedLimit).map((result) => result.chunkId);
+  const leftSet = new Set(leftIds);
+  const rightSet = new Set(rightIds);
+  const overlap = Array.from(leftSet).filter((id) => rightSet.has(id)).length;
+  const orderedMatches = leftIds.filter(
+    (id, index) => rightIds[index] === id
+  ).length;
+
+  return {
+    citationAgreement: leftIds.length > 0 ? orderedMatches / leftIds.length : 0,
+    topKOverlap: leftIds.length > 0 ? overlap / leftIds.length : 0,
+  };
+}
+
+function classifyQueryType(input: {
+  audioIntent: boolean;
+  documentIntent: boolean;
+  normalizedQuery: string;
+  queryShape: {
+    hasCodeIdentifier: boolean;
+    hasQuestionMark: boolean;
+  };
+  visualIntent: boolean;
+}) {
+  if (input.queryShape.hasCodeIdentifier) {
+    return "code";
+  }
+
+  if (input.visualIntent) {
+    return "visual";
+  }
+
+  if (input.audioIntent) {
+    return "audio";
+  }
+
+  if (input.documentIntent) {
+    return "document";
+  }
+
+  if (input.queryShape.hasQuestionMark || input.normalizedQuery.includes("?")) {
+    return "question";
+  }
+
+  return "general";
+}
+
+function getCalibrationShadowSampleRate() {
+  const parsed = Number.parseFloat(
+    process.env.RETRIEVAL_SHADOW_SAMPLE_RATE ?? ""
+  );
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return DEFAULT_CALIBRATION_SHADOW_SAMPLE_RATE;
+  }
+
+  return Math.min(1, parsed);
+}
+
+function shouldRunCalibrationShadow() {
+  return Math.random() < getCalibrationShadowSampleRate();
+}
+
+async function logCalibrationShadow(input: {
+  audioIntent: boolean;
+  confidence: number;
+  fastLatencyMs: number;
+  fastPreview: {
+    results: Array<{ chunkId: string }>;
+    scoredCandidates: FusionCandidate[];
+  };
+  normalizedQuery: string;
+  options?: {
+    provider?: string;
+    sourceType?: "pdf" | "image" | "video" | "audio" | "markdown" | "link";
+    userId?: string;
+    workspaceId?: string;
+  };
+  routeReasons: string[];
+  slowLatencyMs: number;
+  slowResult: {
+    decision: RetrievalDecisionTelemetry;
+    results: Array<{ chunkId: string }>;
+  };
+  thresholdConfidence: number;
+  visualIntent: boolean;
+}) {
+  const topFastScore = input.fastPreview.scoredCandidates[0]?.score ?? 0;
+  const secondFastScore = input.fastPreview.scoredCandidates[1]?.score ?? 0;
+  const calibration = {
+    ...compareResultOrders(
+      input.fastPreview.results,
+      input.slowResult.results,
+      Math.max(1, input.fastPreview.results.length)
+    ),
+    fastCandidateCount: input.fastPreview.scoredCandidates.length,
+    fastLatencyMs: input.fastLatencyMs,
+    topFastScore,
+    topFastScoreMargin: topFastScore - secondFastScore,
+    slowCandidateCount: input.slowResult.decision.candidateCount,
+    slowLatencyMs: input.slowLatencyMs,
+    thresholdDecisions: [0.6, 0.7, 0.8, 0.85, 0.9].map((threshold) => ({
+      threshold,
+      wouldTakeFast:
+        input.thresholdConfidence >= threshold && input.routeReasons.length === 0,
+    })),
+  };
+
+  logInfo({
+    eventName: "retrieval.calibration.shadow",
+    payload: {
+      audioIntent: input.audioIntent,
+      calibration,
+      confidence: input.confidence,
+      expandedQueryUsed: input.slowResult.decision.expansionUsed,
+      failureCluster: classifyQueryType({
+        audioIntent: input.audioIntent,
+        documentIntent: input.slowResult.decision.intent.document,
+        normalizedQuery: input.normalizedQuery,
+        queryShape: input.slowResult.decision.queryShape,
+        visualIntent: input.visualIntent,
+      }),
+      path:
+        input.thresholdConfidence >= FAST_PATH_CONFIDENCE_THRESHOLD
+          ? "fast"
+          : "slow",
+      queryShape: input.slowResult.decision.queryShape,
+      routeReasons: input.routeReasons,
+      visualIntent: input.visualIntent,
+      workspaceId: input.options?.workspaceId ?? null,
+    } as Record<string, unknown>,
+  });
+
+  return calibration;
+}
+
+export const retrieveRelevantChunksAdaptive = async (
+  vectorStore: VectorStore,
+  query: string,
+  options?: {
+    limit?: number;
+    mode?: "auto" | "fast" | "full";
+    provider?: string;
+    sourceType?: "pdf" | "image" | "video" | "audio" | "markdown" | "link";
+    userId?: string;
+    workspaceId?: string;
+  }
+): Promise<RetrievalPathResult> => {
+  const start = performance.now();
+  const normalizedQuery = normalizeRetrievalQuery(query);
+  const visualIntent = hasVisualIntent(normalizedQuery);
+  const audioIntent = hasAudioIntent(normalizedQuery);
+  const documentIntent = hasDocumentIntent(normalizedQuery);
+  const limit = options?.limit ?? config.retrievalDefaultLimit;
+  const candidateLimit = Math.max(
+    limit,
+    limit * config.retrievalCandidateMultiplier
+  );
+
+  const [fastEmbedding] = (
+    await embedMultimodal([textToMultimodalInput(normalizedQuery)], {
+      inputType: "search_query",
+    })
+  ).embeddings;
+  if (!fastEmbedding) {
+    throw new Error("Failed to compute query embedding.");
+  }
+
+  const fastQueryCandidates = await searchForQuery({
+    candidateLimit,
+    options,
+    query: normalizedQuery,
+    queryEmbedding: fastEmbedding,
+    vectorStore,
+  });
+  const fastPreview = buildQueryResultPreview({
+    audioIntent,
+    limit,
+    normalizedQuery,
+    options,
+    queryCandidates: fastQueryCandidates,
+    queryCount: 1,
+    visualIntent,
+  });
+  const routeReasons = fastPreview.decision.ambiguityReasons;
+  const confidence = fastPreview.decision.confidenceScore;
+  const shouldUseFast =
+    options?.mode === "fast"
+      ? true
+      : options?.mode === "full"
+        ? false
+        : confidence >= FAST_PATH_CONFIDENCE_THRESHOLD && routeReasons.length === 0;
+  const fastLatencyMs = Math.round(performance.now() - start);
+
+  if (shouldUseFast) {
+    if (options?.mode !== "full" && shouldRunCalibrationShadow()) {
+      void (async () => {
+        try {
+          const shadowStart = performance.now();
+          const slowResult = await retrieveRelevantChunks(
+            vectorStore,
+            normalizedQuery,
+            {
+              limit,
+              provider: options?.provider,
+              sourceType: options?.sourceType,
+              userId: options?.userId,
+              workspaceId: options?.workspaceId,
+            }
+          );
+          await logCalibrationShadow({
+            audioIntent,
+            confidence,
+            fastLatencyMs,
+            fastPreview,
+            normalizedQuery,
+            options,
+            routeReasons,
+            slowLatencyMs: Math.round(performance.now() - shadowStart),
+            slowResult,
+            thresholdConfidence: confidence,
+            visualIntent,
+          });
+        } catch (error) {
+          logWarn({
+            eventName: "retrieval.calibration.shadow_failed",
+            payload: {
+              error: safeError(error),
+              workspaceId: options?.workspaceId ?? null,
+            },
+          });
+        }
+      })();
+    }
+
+    return {
+      ambiguityReasons: routeReasons,
+      confidence,
+      context: fastPreview.assembled.context,
+      corpus: null,
+      decision: fastPreview.decision,
+      latencyMs: fastLatencyMs,
+      path: "fast",
+      results: fastPreview.results,
+    };
+  }
+
+  const slowResult = await retrieveRelevantChunks(vectorStore, normalizedQuery, {
+    limit,
+    provider: options?.provider,
+    sourceType: options?.sourceType,
+    userId: options?.userId,
+    workspaceId: options?.workspaceId,
+  });
+  const slowLatencyMs = Math.round(performance.now() - start);
+  const calibration = await logCalibrationShadow({
+    audioIntent,
+    confidence,
+    fastLatencyMs,
+    fastPreview,
+    normalizedQuery,
+    options,
+    routeReasons,
+    slowLatencyMs,
+    slowResult,
+    thresholdConfidence: confidence,
+    visualIntent,
+  });
+
+  return {
+    ambiguityReasons: routeReasons,
+    confidence,
+    context: slowResult.context,
+    corpus: slowResult.corpus,
+    calibration,
+    decision: slowResult.decision,
+    latencyMs: slowLatencyMs,
+    path: "slow",
+    results: slowResult.results,
   };
 };
