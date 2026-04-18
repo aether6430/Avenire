@@ -4,6 +4,7 @@ import { apollo } from "@avenire/ai/models";
 import {
   createSessionSummary,
   listSessionSummariesForUser,
+  recomputeConceptMastery,
   type SessionSummaryRecord,
   upsertMisconception,
 } from "@avenire/database";
@@ -17,11 +18,13 @@ const DEFAULT_SESSION_INACTIVITY_WINDOW_MS = 30 * 60 * 1000;
 const SUMMARY_MODEL = "apollo-sprint";
 const MAX_SUMMARY_LIST_ITEMS = 12;
 const MAX_MISCONCEPTION_CANDIDATES = 3;
-const MIN_AUTOMATIC_MISCONCEPTION_CONFIDENCE = 0.78;
+const MIN_AUTOMATIC_MISCONCEPTION_CONFIDENCE = 0.58;
 const MAX_MISCONCEPTION_CONCEPT_LENGTH = 180;
 const MAX_MISCONCEPTION_REASON_LENGTH = 600;
 const MAX_MISCONCEPTION_SUBJECT_LENGTH = 120;
 const MAX_MISCONCEPTION_TOPIC_LENGTH = 120;
+const SUMMARY_META_LINE_PATTERN =
+  /^(the user\b|the assistant\b|i should\b|i need to\b|let me\b|this is (?:a|an)\b|based on\b|given the phrasing\b|\*\*key\b|key (?:requirements|findings|constraints|considerations)\b)/i;
 
 const misconceptionCandidateSchema = z.object({
   confidence: z.number().min(0).max(1),
@@ -33,12 +36,14 @@ const misconceptionCandidateSchema = z.object({
 
 const summaryOutputSchema = z.object({
   conceptsCovered: z.array(z.string().min(1)).max(MAX_SUMMARY_LIST_ITEMS),
+  memoryRelevance: z.enum(["learning", "non_learning"]),
   misconceptionsDetected: z
     .array(z.string().min(1))
     .max(MAX_SUMMARY_LIST_ITEMS),
   misconceptionCandidates: z
     .array(misconceptionCandidateSchema)
     .max(MAX_MISCONCEPTION_CANDIDATES),
+  relevanceReason: z.string().min(1),
   subject: z.string().min(1).nullable(),
   subjectConfidence: z.number().min(0).max(1).nullable(),
   summaryText: z.string().min(1),
@@ -94,13 +99,45 @@ function normalizeMisconceptionCandidate(
   };
 }
 
-function extractMessageText(message: UIMessage) {
+function sanitizeAssistantSummaryText(value: string) {
+  const lines = value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length === 0) {
+    return "";
+  }
+
+  let firstContentIndex = 0;
+  while (
+    firstContentIndex < lines.length &&
+    SUMMARY_META_LINE_PATTERN.test(lines[firstContentIndex] ?? "")
+  ) {
+    firstContentIndex += 1;
+  }
+
+  return lines
+    .slice(firstContentIndex)
+    .filter((line) => !SUMMARY_META_LINE_PATTERN.test(line))
+    .join("\n")
+    .trim();
+}
+
+function extractMessageText(
+  message: UIMessage,
+  options?: { forSummary?: boolean }
+) {
   return message.parts
     .filter(
       (part): part is Extract<typeof part, { type: "text" }> =>
         part.type === "text"
     )
-    .map((part) => part.text.trim())
+    .map((part) =>
+      options?.forSummary && message.role === "assistant"
+        ? sanitizeAssistantSummaryText(part.text)
+        : part.text.trim()
+    )
     .filter(Boolean)
     .join("\n")
     .trim();
@@ -109,7 +146,7 @@ function extractMessageText(message: UIMessage) {
 function extractUserTranscript(messages: UIMessage[]) {
   return messages
     .filter((message) => message.role === "user")
-    .map(extractMessageText)
+    .map((message) => extractMessageText(message))
     .filter(Boolean)
     .join("\n")
     .trim();
@@ -221,16 +258,10 @@ function extractMisconceptions(messages: UIMessage[]) {
 async function persistAutomaticMisconceptions(input: {
   candidates: z.infer<typeof misconceptionCandidateSchema>[];
   endedAt: Date;
-  confusionSignals: ConfusionSignals;
-  sourceSessionId: string;
-  userTranscript: string;
+  sourceSummaryId: string;
   userId: string;
   workspaceId: string;
 }) {
-  if (!input.confusionSignals.detected) {
-    return;
-  }
-
   for (const candidate of input.candidates) {
     logInfo({
       eventName: "misconception.candidate.created",
@@ -294,16 +325,16 @@ async function persistAutomaticMisconceptions(input: {
     return;
   }
 
-  await Promise.allSettled(
+  const results = await Promise.allSettled(
     eligibleCandidates.map((candidate) =>
       upsertMisconception({
         confidence: candidate.confidence,
         concept: candidate.concept,
         evidenceClass: "session",
-        evidenceRootId: input.sourceSessionId,
+        evidenceRootId: input.sourceSummaryId,
         reason: candidate.reason,
         source: "auto",
-        sourceSessionId: input.sourceSessionId,
+        sourceSessionId: input.sourceSummaryId,
         subject: candidate.subject,
         topic: candidate.topic,
         status: "candidate",
@@ -313,13 +344,31 @@ async function persistAutomaticMisconceptions(input: {
       })
     )
   );
+
+  await Promise.allSettled(
+    results.flatMap((result) => {
+      if (result.status !== "fulfilled" || result.value.status !== "confirmed") {
+        return [];
+      }
+
+      return [
+        recomputeConceptMastery({
+          concept: result.value.concept,
+          subject: result.value.subject,
+          topic: result.value.topic,
+          userId: result.value.userId,
+          workspaceId: result.value.workspaceId,
+        }),
+      ];
+    })
+  );
 }
 
 function buildTranscript(messages: UIMessage[]) {
   return messages
     .map((message, index) => {
       const role = message.role.toUpperCase();
-      const text = extractMessageText(message);
+      const text = extractMessageText(message, { forSummary: true });
       const toolLines = message.parts
         .filter(isCompletedToolPart)
         .map(summarizeToolPart)
@@ -335,11 +384,11 @@ function buildTranscript(messages: UIMessage[]) {
 function isTrivialSession(messages: UIMessage[]) {
   const userTexts = messages
     .filter((message) => message.role === "user")
-    .map(extractMessageText)
+    .map((message) => extractMessageText(message))
     .filter(Boolean);
   const assistantTexts = messages
     .filter((message) => message.role === "assistant")
-    .map(extractMessageText)
+    .map((message) => extractMessageText(message, { forSummary: true }))
     .filter(Boolean);
   const toolCount = messages.flatMap((message) =>
     message.parts.filter(isCompletedToolPart)
@@ -432,6 +481,10 @@ export async function persistSessionSummaryForCompletedTurn(input: {
   const misconceptionsDetected = extractMisconceptions(boundedMessages);
   const confusionSignals = detectConfusionSignals(userTranscript);
 
+  if (!transcript) {
+    return null;
+  }
+
   if (confusionSignals.detected) {
     logInfo({
       eventName: "misconception.stage1.detected",
@@ -448,11 +501,15 @@ export async function persistSessionSummaryForCompletedTurn(input: {
     model: apollo.languageModel(SUMMARY_MODEL),
     output: Output.object({ schema: summaryOutputSchema }),
     prompt: [
-      "Summarize this completed tutoring session window.",
+      "Classify and summarize this completed chat session window for learning memory.",
       "Return concise, factual output only.",
-      "Focus on concepts covered, misconceptions explicitly surfaced, and the learning outcome.",
-      "Also identify the primary academic subject and a confidence score between 0 and 1.",
-      "Also infer up to three concept-level misconception candidates when the user clearly expresses confusion, states or implies a wrong mental model, repeats the same mistaken assumption, draws an incorrect conclusion that persists across the exchange, or opens with a foundational concept question that signals a learning gap such as asking to explain a setup, mechanism, or how changing one variable affects another.",
+      "First decide whether this window is genuinely learning-relevant or non-learning.",
+      "Use non_learning for shopping, file navigation, operational requests, ambiguous utility lookups, greetings, admin chatter, or generic support help.",
+      "Only use learning when the exchange is meaningfully about study, tutoring, conceptual understanding, or skill-building.",
+      "If memoryRelevance is non_learning, return subject as null, subjectConfidence as null, empty conceptsCovered, empty misconceptionsDetected, empty misconceptionCandidates, and a short summary explaining why it was skipped.",
+      "If memoryRelevance is learning, focus on concepts covered, misconceptions explicitly surfaced, and the learning outcome.",
+      "Only identify an academic subject when memoryRelevance is learning.",
+      "Only infer up to three concept-level misconception candidates when the user clearly expresses confusion, states or implies a wrong mental model, repeats the same mistaken assumption, or draws an incorrect conclusion that persists across the exchange.",
       "Stay selective. Do not infer a misconception from a normal feature check, casual curiosity, or a single minor clarification unless the exchange indicates a real conceptual gap worth tracking.",
       confusionSignals.detected
         ? `Confusion detection stage: detected. Reasons: ${confusionSignals.reasons.join(", ")}. Verify only concrete wrong models with concept grounding.`
@@ -462,7 +519,6 @@ export async function persistSessionSummaryForCompletedTurn(input: {
         ? `Misconceptions already detected by tools: ${misconceptionsDetected.join(", ")}`
         : "Misconceptions already detected by tools: none",
       "For subject, use an established subject label such as Mathematics, Physics, Chemistry, Biology, Computer Science, History, Literature, or Economics.",
-      "If the subject is mixed or unclear, still return the dominant subject with a lower confidence score.",
       "For misconceptionCandidates, keep concept labels short and specific, ideally under 180 characters, and keep subject/topic labels concise.",
       "For misconceptionCandidates, return objects with concept, subject, topic, reason, and confidence.",
       "Session transcript:",
@@ -474,29 +530,35 @@ export async function persistSessionSummaryForCompletedTurn(input: {
   const normalizedCandidates = result.output.misconceptionCandidates.map(
     normalizeMisconceptionCandidate
   );
+  const shouldPersistLearningMemory = result.output.memoryRelevance === "learning";
 
   if (confusionSignals.detected) {
     logInfo({
       eventName: "misconception.stage2.verified",
       payload: {
         candidateCount: normalizedCandidates.length,
+        memoryRelevance: result.output.memoryRelevance,
+        relevanceReason: result.output.relevanceReason,
         userId: input.userId,
         workspaceId: input.workspaceId,
       },
     });
   }
 
-  await persistAutomaticMisconceptions({
-    candidates: normalizedCandidates,
-    endedAt: input.endedAt,
-    confusionSignals,
-    sourceSessionId: input.chatId,
-    userTranscript,
-    userId: input.userId,
-    workspaceId: input.workspaceId,
-  });
+  if (!shouldPersistLearningMemory) {
+    logInfo({
+      eventName: "session_summary.memory.skipped",
+      payload: {
+        chatId: input.chatId,
+        reason: result.output.relevanceReason,
+        userId: input.userId,
+        workspaceId: input.workspaceId,
+      },
+    });
+    return null;
+  }
 
-  return createSessionSummary({
+  const summary = await createSessionSummary({
     chatId: input.chatId,
     conceptsCovered: result.output.conceptsCovered,
     endedAt: input.endedAt,
@@ -520,6 +582,18 @@ export async function persistSessionSummaryForCompletedTurn(input: {
     userId: input.userId,
     workspaceId: input.workspaceId,
   });
+
+  if (summary) {
+    await persistAutomaticMisconceptions({
+      candidates: normalizedCandidates,
+      endedAt: input.endedAt,
+      sourceSummaryId: summary.id,
+      userId: input.userId,
+      workspaceId: input.workspaceId,
+    });
+  }
+
+  return summary;
 }
 
 export async function getWorkspaceSubjectSummary(input: {

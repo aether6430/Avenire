@@ -13,6 +13,7 @@ import {
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
 import { tavily } from "@tavily/core";
 import { z } from "zod";
+import { canonicalizeLearningTaxonomy } from "@avenire/database";
 import {
   createFolder,
   createWorkspaceNoteFile,
@@ -601,11 +602,18 @@ function inferFlashcardTaxonomy(input: {
     180
   );
 
-  return {
-    concept,
-    subject: matchedSubject,
-    topic,
-  };
+  return (
+    canonicalizeLearningTaxonomy({
+      concept,
+      subject: matchedSubject,
+      text: [input.title, input.query ?? "", input.sourceText].join(" "),
+      topic,
+    }) ?? {
+      concept,
+      subject: matchedSubject,
+      topic,
+    }
+  );
 }
 
 async function buildWorkspacePathMaps(
@@ -1437,7 +1445,6 @@ async function resolveMisconceptionForTool(
 
   await recomputeConceptMastery({
     concept: input.concept,
-    reviewedAt: new Date(),
     subject: input.subject,
     topic: input.topic,
     userId: ctx.userId,
@@ -1478,7 +1485,6 @@ async function improveMisconceptionForTool(
 
   await recomputeConceptMastery({
     concept: input.concept,
-    reviewedAt: new Date(),
     subject: input.subject,
     topic: input.topic,
     userId: ctx.userId,

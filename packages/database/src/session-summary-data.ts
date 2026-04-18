@@ -1,6 +1,7 @@
 import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { db } from "./client";
 import { sessionSummary } from "./schema";
+import { canonicalizeSubjectLabel } from "./learning-taxonomy";
 
 export interface SessionSummaryRecord {
   chatId: string;
@@ -162,7 +163,7 @@ export async function createSessionSummary(
     workspaceId: input.workspaceId,
     userId: input.userId,
     chatId: normalizeRequiredText(input.chatId, "chatId", 120),
-    subject: normalizeText(input.subject, 120),
+    subject: canonicalizeSubjectLabel(normalizeText(input.subject, 120)),
     subjectConfidence: normalizeScore(
       input.subjectConfidence,
       "subjectConfidence"

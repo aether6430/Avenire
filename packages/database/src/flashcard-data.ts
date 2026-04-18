@@ -30,6 +30,7 @@ import {
   flashcardSetEnrollment,
   workspace,
 } from "./schema";
+import { canonicalizeLearningTaxonomy } from "./learning-taxonomy";
 
 export type FlashcardSourceType = "manual" | "ai-generated";
 export type FlashcardCardKind = "flashcard" | "multiple_choice_quiz";
@@ -250,7 +251,12 @@ export function normalizeFlashcardTaxonomy(
     return null;
   }
 
-  return { concept, subject, topic };
+  return canonicalizeLearningTaxonomy({
+    concept,
+    subject,
+    text: [subject, topic, concept].join(" "),
+    topic,
+  });
 }
 
 export function assertFlashcardTaxonomy(

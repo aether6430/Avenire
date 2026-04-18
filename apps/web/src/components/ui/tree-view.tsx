@@ -3,7 +3,7 @@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger, } from "@avenire/ui/components/collapsible";
 import { CaretRight as ChevronRight, File, Folder, FolderOpen } from "@phosphor-icons/react"
 import type { HTMLAttributes, ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export interface TreeDataItem {
@@ -96,21 +96,29 @@ export function TreeView({
   });
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [dropTargetItemId, setDropTargetItemId] = useState<string | null>(null);
+  const lastExpandedRef = useRef<string[] | null>(null);
 
   useEffect(() => {
-    setSelectedItemId((current) =>
-      current === initialSelectedItemId ? current : initialSelectedItemId
-    );
+    if (initialSelectedItemId === undefined) {
+      return;
+    }
+    setSelectedItemId(initialSelectedItemId);
   }, [initialSelectedItemId]);
 
   useEffect(() => {
     if (expandAll) {
       return;
     }
-    const next = new Set(initialExpandedItemIds ?? []);
-    setExpandedItemIds((current) =>
-      areSetsEqual(current, next) ? current : next
-    );
+    if (!initialExpandedItemIds) {
+      return;
+    }
+    const next = new Set(initialExpandedItemIds);
+    setExpandedItemIds((current) => {
+      if (areSetsEqual(current, next)) {
+        return current;
+      }
+      return next;
+    });
   }, [expandAll, initialExpandedItemIds]);
 
   useEffect(() => {
@@ -129,9 +137,15 @@ export function TreeView({
         } else {
           next.add(itemId);
         }
-        onExpandedChange?.(Array.from(next));
+        const nextArray = Array.from(next);
+        lastExpandedRef.current = nextArray;
         return next;
       });
+      setTimeout(() => {
+        if (lastExpandedRef.current) {
+          onExpandedChange?.(lastExpandedRef.current);
+        }
+      }, 0);
     },
     [onExpandedChange]
   );
@@ -175,7 +189,11 @@ export function TreeView({
       return (
         <Collapsible
           key={item.id}
-          onOpenChange={() => toggleExpanded(item.id)}
+          onOpenChange={(open) => {
+            if (open !== expandedItemIds.has(item.id)) {
+              toggleExpanded(item.id);
+            }
+          }}
           open={isExpanded}
         >
           <div className={cn("min-w-0", item.className)} data-tree-id={item.id}>

@@ -8,8 +8,10 @@ import {
   flashcardReviewState,
   flashcardSet,
   misconception,
+  misconceptionEvidence,
 } from "./schema";
 import type { FlashcardRating } from "./flashcard-fsrs";
+import { canonicalizeLearningTaxonomy, canonicalizeSubjectLabel } from "./learning-taxonomy";
 
 export type MisconceptionSource = "manual" | "review" | "tool" | "auto";
 export type MisconceptionStatus =
@@ -208,7 +210,8 @@ export interface RecomputeConceptMasteryInput {
 const DEFAULT_ACTIVE_MISCONCEPTION_LIMIT = 50;
 const DEFAULT_MASTERY_LIMIT = 200;
 const DEFAULT_RECENT_RATING_LIMIT = 100;
-const MISCONCEPTION_PROMOTION_EVIDENCE_THRESHOLD = 2;
+const MISCONCEPTION_PROMOTION_EVIDENCE_THRESHOLD = 3;
+const MISCONCEPTION_PROMOTION_LOOKBACK_MS = 45 * 24 * 60 * 60 * 1000;
 
 const normalizeText = (value: unknown, maxLength: number): string | null => {
   if (typeof value !== "string") {
@@ -251,6 +254,45 @@ const normalizeCount = (value: number | undefined | null) => {
 
   return Math.max(0, Math.trunc(value));
 };
+
+function normalizeCanonicalSubject(
+  value: unknown,
+  fieldName = "subject"
+): string | null {
+  const normalized = normalizeText(value, 120);
+  if (!normalized) {
+    return null;
+  }
+
+  const canonical = canonicalizeSubjectLabel(normalized);
+  if (!canonical) {
+    throw new Error(`Missing required field: ${fieldName}.`);
+  }
+
+  return canonical;
+}
+
+function normalizeCanonicalTaxonomy(input: {
+  concept?: unknown;
+  subject?: unknown;
+  topic?: unknown;
+}) {
+  const subject = normalizeText(input.subject, 120);
+  const topic = normalizeText(input.topic, 120);
+  const concept = normalizeText(input.concept, 180);
+  const taxonomy = canonicalizeLearningTaxonomy({
+    concept,
+    subject,
+    text: [subject, topic, concept].filter(Boolean).join(" "),
+    topic,
+  });
+
+  return {
+    concept: taxonomy?.concept ?? concept,
+    subject: taxonomy?.subject ?? canonicalizeSubjectLabel(subject ?? null),
+    topic: taxonomy?.topic ?? topic,
+  };
+}
 
 const MISCONCEPTION_STATUSES = new Set<MisconceptionStatus>([
   "candidate",
@@ -324,6 +366,24 @@ const getMisconceptionEvidenceRoot = (input: {
   evidenceRootId?: string | null;
   sourceSessionId?: string | null;
 }) => input.evidenceRootId ?? input.sourceSessionId ?? null;
+
+function buildMisconceptionEvidenceKey(input: {
+  evidenceClass: string;
+  evidenceRootId?: string | null;
+  source: string;
+  sourceSessionId?: string | null;
+}) {
+  const root = getMisconceptionEvidenceRoot(input);
+  if (root) {
+    return `${input.evidenceClass}:${root}`;
+  }
+
+  if (input.sourceSessionId) {
+    return `${input.evidenceClass}:session:${input.sourceSessionId}`;
+  }
+
+  return `${input.evidenceClass}:source:${input.source}`;
+}
 
 const normalizeNullableJson = (
   value: unknown
@@ -434,9 +494,17 @@ export async function upsertMisconception(
   input: UpsertMisconceptionInput
 ): Promise<MisconceptionRecord> {
   const now = input.observedAt ?? new Date();
-  const subject = normalizeRequiredText(input.subject, "subject");
-  const topic = normalizeRequiredText(input.topic, "topic");
-  const concept = normalizeRequiredText(input.concept, "concept");
+  const taxonomy = normalizeCanonicalTaxonomy({
+    concept: input.concept,
+    subject: input.subject,
+    topic: input.topic,
+  });
+  const subject = taxonomy.subject;
+  const topic = taxonomy.topic;
+  const concept = taxonomy.concept;
+  if (!(subject && topic && concept)) {
+    throw new Error("Missing required taxonomy fields.");
+  }
   const reason = normalizeRequiredText(input.reason, "reason", 600);
   const confidence = normalizeScore(input.confidence);
   const source = input.source ?? "review";
@@ -446,116 +514,172 @@ export async function upsertMisconception(
   const requestedStatus = normalizeMisconceptionStatus(input.status);
   const sourceStatus = resolveMisconceptionStatusFromSource(source);
 
-  const [existing] = await db
-    .select()
-    .from(misconception)
-    .where(
-      and(
-        eq(misconception.workspaceId, input.workspaceId),
-        eq(misconception.userId, input.userId),
-        eq(misconception.subject, subject),
-        eq(misconception.topic, topic),
-        eq(misconception.concept, concept)
-      )
-    )
-    .limit(1);
-
-  const nextEvidenceRoot = getMisconceptionEvidenceRoot({
-    evidenceRootId: input.evidenceRootId ?? null,
-    sourceSessionId: input.sourceSessionId ?? null,
-  });
-  const previousEvidenceRoot = getMisconceptionEvidenceRoot({
-    evidenceRootId: existing?.evidenceRootId ?? null,
-    sourceSessionId: existing?.sourceSessionId ?? null,
-  });
-  const promotesFromIndependentEvidence =
-    !requestedStatus &&
-    existing?.status !== "confirmed" &&
-    sourceStatus === "candidate" &&
-    existing !== undefined &&
-    existing !== null &&
-    nextEvidenceRoot !== null &&
-    previousEvidenceRoot !== null &&
-    nextEvidenceRoot !== previousEvidenceRoot &&
-    (existing.evidenceCount ?? 0) + 1 >= MISCONCEPTION_PROMOTION_EVIDENCE_THRESHOLD;
-  const nextStatus: MisconceptionStatus =
-    requestedStatus ??
-    (existing?.status === "confirmed"
-      ? "confirmed"
-      : sourceStatus === "confirmed"
-        ? "confirmed"
-        : promotesFromIndependentEvidence
-          ? "confirmed"
-          : "candidate");
-  const nextActive = nextStatus === "confirmed";
-  const promotedAt =
-    nextStatus === "confirmed"
-      ? existing?.promotedAt ?? now
-      : existing?.promotedAt ?? null;
-  const nextEvidenceRootId = input.evidenceRootId ?? existing?.evidenceRootId ?? null;
-  const nextEvidenceSpan = input.evidenceSpan ?? existing?.evidenceSpan ?? null;
-  const nextSourceSessionId = input.sourceSessionId ?? existing?.sourceSessionId ?? null;
-
-  const nextValues = {
-    workspaceId: input.workspaceId,
-    userId: input.userId,
-    subject,
-    topic,
-    concept,
-    reason,
-    source,
-    status: nextStatus,
+  const evidenceRootId = input.evidenceRootId ?? null;
+  const sourceSessionId = input.sourceSessionId ?? null;
+  const evidenceKey = buildMisconceptionEvidenceKey({
     evidenceClass,
-    evidenceRootId: nextEvidenceRootId,
-    evidenceSpan: nextEvidenceSpan,
-    sourceSessionId: nextSourceSessionId,
-    confidence: confidence ?? 0,
-    active: nextActive,
-    firstSeenAt: existing?.firstSeenAt ?? now,
-    lastSeenAt: now,
-    promotedAt,
-    decayedAt: nextStatus === "decayed" ? now : null,
-    resolvedAt: null,
-    updatedAt: now,
-    evidenceCount: (existing?.evidenceCount ?? 0) + 1,
-  };
+    evidenceRootId,
+    source,
+    sourceSessionId,
+  });
+  const evidenceCutoff = new Date(now.getTime() - MISCONCEPTION_PROMOTION_LOOKBACK_MS);
 
-  const row = existing
-    ? (
-        await db
-          .update(misconception)
-          .set({
-            active: nextValues.active,
-            confidence:
-              confidence === null
-                ? existing.confidence
-                : Math.max(existing.confidence, confidence),
+  const {
+    created,
+    insertedEvidence,
+    previousStatus,
+    row,
+  } = await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(misconception)
+      .where(
+        and(
+          eq(misconception.workspaceId, input.workspaceId),
+          eq(misconception.userId, input.userId),
+          eq(misconception.subject, subject),
+          eq(misconception.topic, topic),
+          eq(misconception.concept, concept)
+        )
+      )
+      .limit(1);
+
+    const baseStatus: MisconceptionStatus =
+      requestedStatus ??
+      (existing?.status === "confirmed" || sourceStatus === "confirmed"
+        ? "confirmed"
+        : "candidate");
+
+    const persisted =
+      existing ??
+      (
+        await tx
+          .insert(misconception)
+          .values({
+            active: baseStatus === "confirmed",
+            confidence: confidence ?? 0,
             concept,
-            decayedAt: nextValues.decayedAt,
-            evidenceClass: nextValues.evidenceClass,
-            evidenceCount: nextValues.evidenceCount,
-            evidenceRootId: nextValues.evidenceRootId,
-            evidenceSpan: nextValues.evidenceSpan,
-            lastSeenAt: nextValues.lastSeenAt,
-            promotedAt: nextValues.promotedAt,
+            decayedAt: null,
+            evidenceClass,
+            evidenceCount: 0,
+            evidenceRootId,
+            evidenceSpan: input.evidenceSpan ?? null,
+            firstSeenAt: now,
+            lastSeenAt: now,
+            promotedAt: baseStatus === "confirmed" ? now : null,
             reason,
             resolvedAt: null,
             source,
-            sourceSessionId: nextValues.sourceSessionId,
-            status: nextValues.status,
+            sourceSessionId,
+            status: baseStatus,
             subject,
             topic,
-            updatedAt: nextValues.updatedAt,
+            updatedAt: now,
+            userId: input.userId,
+            workspaceId: input.workspaceId,
           })
-          .where(eq(misconception.id, existing.id))
           .returning()
-      )[0] ?? null
-    : (
-        await db
-          .insert(misconception)
-          .values(nextValues)
-          .returning()
-      )[0] ?? null;
+      )[0];
+
+    if (!persisted) {
+      throw new Error("Failed to upsert misconception.");
+    }
+
+    const insertedEvidence =
+      (
+        await tx
+          .insert(misconceptionEvidence)
+          .values({
+            confidence: confidence ?? 0,
+            evidenceClass,
+            evidenceKey,
+            evidenceRootId,
+            evidenceSpan: input.evidenceSpan ?? null,
+            misconceptionId: persisted.id,
+            observedAt: now,
+            sourceSessionId,
+            userId: input.userId,
+            workspaceId: input.workspaceId,
+          })
+          .onConflictDoNothing()
+          .returning({ id: misconceptionEvidence.id })
+      ).length > 0;
+
+    const [evidenceStats] = await tx
+      .select({
+        distinctEvidenceClassCount:
+          sql<number>`count(distinct ${misconceptionEvidence.evidenceClass})`,
+        distinctEvidenceRootCount: sql<number>`count(distinct coalesce(${misconceptionEvidence.evidenceRootId}, ${misconceptionEvidence.sourceSessionId}, ${misconceptionEvidence.evidenceKey}))`,
+      })
+      .from(misconceptionEvidence)
+      .where(
+        and(
+          eq(misconceptionEvidence.misconceptionId, persisted.id),
+          gte(misconceptionEvidence.observedAt, evidenceCutoff)
+        )
+      );
+
+    const distinctEvidenceRootCount = Number(
+      evidenceStats?.distinctEvidenceRootCount ?? 0
+    );
+    const promotesFromIndependentEvidence =
+      !requestedStatus &&
+      persisted.status !== "confirmed" &&
+      sourceStatus === "candidate" &&
+      distinctEvidenceRootCount >= MISCONCEPTION_PROMOTION_EVIDENCE_THRESHOLD;
+    const nextStatus: MisconceptionStatus =
+      requestedStatus ??
+      (persisted.status === "confirmed"
+        ? "confirmed"
+        : sourceStatus === "confirmed"
+          ? "confirmed"
+          : promotesFromIndependentEvidence
+            ? "confirmed"
+            : "candidate");
+    const nextConfidence =
+      confidence === null
+        ? persisted.confidence
+        : Math.max(persisted.confidence, confidence);
+
+    const [updated] = await tx
+      .update(misconception)
+      .set({
+        active: nextStatus === "confirmed",
+        confidence: nextConfidence,
+        concept,
+        decayedAt: null,
+        evidenceClass,
+        evidenceCount: distinctEvidenceRootCount,
+        evidenceRootId,
+        evidenceSpan: input.evidenceSpan ?? persisted.evidenceSpan ?? null,
+        lastSeenAt: now,
+        promotedAt:
+          nextStatus === "confirmed"
+            ? persisted.promotedAt ?? now
+            : persisted.promotedAt ?? null,
+        reason,
+        resolvedAt: null,
+        source,
+        sourceSessionId,
+        status: nextStatus,
+        subject,
+        topic,
+        updatedAt: now,
+      })
+      .where(eq(misconception.id, persisted.id))
+      .returning();
+
+    if (!updated) {
+      throw new Error("Failed to upsert misconception.");
+    }
+
+    return {
+      created: !existing,
+      insertedEvidence,
+      previousStatus: existing?.status ?? null,
+      row: updated,
+    };
+  });
 
   if (!row) {
     throw new Error("Failed to upsert misconception.");
@@ -563,15 +687,17 @@ export async function upsertMisconception(
 
   logInfo({
     eventName:
-      !existing
-        ? nextStatus === "confirmed"
+      created
+        ? row.status === "confirmed"
           ? "misconception.candidate.promoted"
           : "misconception.candidate.created"
-        : nextStatus === "confirmed" && existing.status !== "confirmed"
+        : row.status === "confirmed" && previousStatus !== "confirmed"
           ? "misconception.candidate.promoted"
-          : nextStatus === "confirmed"
+          : row.status === "confirmed" && insertedEvidence
             ? "misconception.confirmed.reinforced"
-            : "misconception.candidate.reinforced",
+            : insertedEvidence
+              ? "misconception.candidate.reinforced"
+              : "misconception.candidate.duplicate_ignored",
     payload: {
       active: row.active,
       confidence: row.confidence,
@@ -597,9 +723,14 @@ export async function upsertMisconception(
 export async function getActiveMisconceptions(
   input: GetActiveMisconceptionsInput
 ): Promise<MisconceptionRecord[]> {
-  const subject = normalizeText(input.subject, 120);
-  const topic = normalizeText(input.topic, 120);
-  const concept = normalizeText(input.concept, 180);
+  const taxonomy = normalizeCanonicalTaxonomy({
+    concept: input.concept,
+    subject: input.subject,
+    topic: input.topic,
+  });
+  const subject = taxonomy.subject ?? null;
+  const topic = taxonomy.topic ?? null;
+  const concept = taxonomy.concept ?? null;
 
   const rows = await db
     .select()
@@ -646,9 +777,17 @@ export async function resolveMisconceptionsForConcept(
   input: ResolveMisconceptionsForConceptInput
 ): Promise<MisconceptionRecord[]> {
   const resolvedAt = input.resolvedAt ?? new Date();
-  const subject = normalizeText(input.subject, 120);
-  const topic = normalizeText(input.topic, 120);
-  const concept = normalizeRequiredText(input.concept, "concept");
+  const taxonomy = normalizeCanonicalTaxonomy({
+    concept: input.concept,
+    subject: input.subject,
+    topic: input.topic,
+  });
+  const subject = taxonomy.subject ?? null;
+  const topic = taxonomy.topic ?? null;
+  const concept = taxonomy.concept;
+  if (!concept) {
+    throw new Error("Missing required field: concept.");
+  }
 
   const rows = await db
     .update(misconception)
@@ -732,9 +871,17 @@ export async function resolveMisconceptionById(
 export async function improveMisconceptionsForConcept(
   input: ImproveMisconceptionForConceptInput
 ): Promise<MisconceptionRecord[]> {
-  const concept = normalizeRequiredText(input.concept, "concept");
-  const subject = normalizeText(input.subject, 120);
-  const topic = normalizeText(input.topic, 120);
+  const taxonomy = normalizeCanonicalTaxonomy({
+    concept: input.concept,
+    subject: input.subject,
+    topic: input.topic,
+  });
+  const concept = taxonomy.concept;
+  const subject = taxonomy.subject ?? null;
+  const topic = taxonomy.topic ?? null;
+  if (!concept) {
+    throw new Error("Missing required field: concept.");
+  }
   const decayRaw = typeof input.decay === "number" ? input.decay : 0.08;
   const decay = Math.min(0.5, Math.max(0.02, decayRaw));
   const resolveThresholdRaw =
@@ -790,9 +937,17 @@ export async function improveMisconceptionsForConcept(
 export async function countRecentConsecutiveRatings(
   input: CountRecentConsecutiveRatingsInput
 ): Promise<number> {
-  const subject = normalizeText(input.subject, 120);
-  const topic = normalizeText(input.topic, 120);
-  const concept = normalizeRequiredText(input.concept, "concept");
+  const taxonomy = normalizeCanonicalTaxonomy({
+    concept: input.concept,
+    subject: input.subject,
+    topic: input.topic,
+  });
+  const subject = taxonomy.subject ?? null;
+  const topic = taxonomy.topic ?? null;
+  const concept = taxonomy.concept;
+  if (!concept) {
+    throw new Error("Missing required field: concept.");
+  }
   const rows = await db
     .select({
       rating: flashcardReviewLog.rating,
@@ -855,9 +1010,17 @@ export async function listRecentCardRatings(
 export async function listRecentConceptRatings(
   input: ListRecentConceptRatingsInput
 ): Promise<FlashcardRating[]> {
-  const subject = normalizeText(input.subject, 120);
-  const topic = normalizeText(input.topic, 120);
-  const concept = normalizeRequiredText(input.concept, "concept");
+  const taxonomy = normalizeCanonicalTaxonomy({
+    concept: input.concept,
+    subject: input.subject,
+    topic: input.topic,
+  });
+  const subject = taxonomy.subject ?? null;
+  const topic = taxonomy.topic ?? null;
+  const concept = taxonomy.concept;
+  if (!concept) {
+    throw new Error("Missing required field: concept.");
+  }
 
   const rows = await db
     .select({
@@ -937,9 +1100,17 @@ function normalizeMasteryScore(params: {
 export async function recomputeConceptMastery(
   input: RecomputeConceptMasteryInput
 ): Promise<ConceptMasteryRecord> {
-  const concept = normalizeRequiredText(input.concept, "concept");
-  const subject = normalizeRequiredText(input.subject, "subject");
-  const topic = normalizeRequiredText(input.topic, "topic");
+  const taxonomy = normalizeCanonicalTaxonomy({
+    concept: input.concept,
+    subject: input.subject,
+    topic: input.topic,
+  });
+  const concept = taxonomy.concept;
+  const subject = taxonomy.subject;
+  const topic = taxonomy.topic;
+  if (!(subject && topic && concept)) {
+    throw new Error("Missing required taxonomy fields.");
+  }
 
   const reviewStats = await db
     .select({
@@ -1037,9 +1208,17 @@ export async function updateMastery(
   input: UpdateMasteryInput
 ): Promise<ConceptMasteryRecord> {
   const now = new Date();
-  const subject = normalizeRequiredText(input.subject, "subject");
-  const topic = normalizeRequiredText(input.topic, "topic");
-  const concept = normalizeRequiredText(input.concept, "concept");
+  const taxonomy = normalizeCanonicalTaxonomy({
+    concept: input.concept,
+    subject: input.subject,
+    topic: input.topic,
+  });
+  const subject = taxonomy.subject;
+  const topic = taxonomy.topic;
+  const concept = taxonomy.concept;
+  if (!(subject && topic && concept)) {
+    throw new Error("Missing required taxonomy fields.");
+  }
   const score = normalizeScore(input.score);
   const reviewCount = normalizeCount(input.reviewCount);
   const positiveReviewCount = normalizeCount(input.positiveReviewCount);
@@ -1104,16 +1283,18 @@ export async function updateMastery(
 export async function getMasteryBySubject(
   input: GetMasteryBySubjectInput
 ): Promise<ConceptMasteryRecord[]> {
+  const subject = normalizeCanonicalSubject(input.subject);
+  if (!subject) {
+    throw new Error("Missing required field: subject.");
+  }
+
   const rows = await db
     .select()
     .from(conceptMastery)
     .where(
       and(
         eq(conceptMastery.userId, input.userId),
-        eq(
-          conceptMastery.subject,
-          normalizeRequiredText(input.subject, "subject")
-        ),
+        eq(conceptMastery.subject, subject),
         input.workspaceId
           ? eq(conceptMastery.workspaceId, input.workspaceId)
           : undefined
@@ -1134,7 +1315,7 @@ export async function getWeakestConcepts(
   input: GetWeakestConceptsInput
 ): Promise<ConceptMasteryRecord[]> {
   const subject = input.subject
-    ? normalizeRequiredText(input.subject, "subject")
+    ? normalizeCanonicalSubject(input.subject)
     : null;
 
   const rows = await db

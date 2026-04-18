@@ -99,6 +99,13 @@
       "when": 1775100000000,
       "tag": "0014_misconception_prompt_memory_boundary_hnsw",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1776495000000,
+      "tag": "0015_learning_memory_signal_hardening",
+      "breakpoints": true
     }
   ]
 }

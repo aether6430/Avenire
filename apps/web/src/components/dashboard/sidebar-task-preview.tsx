@@ -165,7 +165,7 @@ export function SidebarTaskPreview({
             />
           </SidebarMenu>
           <Input
-            className="mt-2 h-8"
+            className="mt-2 h-8 hidden"
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder="Search tasks..."
             value={searchQuery}

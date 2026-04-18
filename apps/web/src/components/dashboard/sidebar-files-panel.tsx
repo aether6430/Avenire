@@ -1000,12 +1000,6 @@ export function FilesSidebarPanel({
               }}
             />
           </SidebarMenu>
-          <Input
-            className="mt-2 h-8"
-            onChange={(event) => setFilesNameSearchQuery(event.target.value)}
-            placeholder="Search files and folders..."
-            value={filesNameSearchQuery}
-          />
         </SidebarGroupContent>
       </SidebarGroup>
 
@@ -1051,7 +1045,7 @@ export function FilesSidebarPanel({
             </SidebarGroupContent>
           </>
         ) : null}
-        <SidebarGroupLabel>File Tree</SidebarGroupLabel>
+        <SidebarGroupLabel>Your Files</SidebarGroupLabel>
         <SidebarGroupContent className="min-h-0">
           {workspaceUuid && folderTree.length > 0 ? (
             <div className="h-full min-w-0 overflow-y-auto pr-1">

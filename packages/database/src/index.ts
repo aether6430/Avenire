@@ -12,6 +12,7 @@ export * from "./flashcard-review-events";
 export type { FlashcardRating } from "./flashcard-fsrs";
 export * from "./learning-data";
 export * from "./ingestion-data";
+export * from "./learning-taxonomy";
 export * from "./maintenance-data";
 export * from "./waitlist-data";
 export * from "./session-summary-data";

@@ -111,9 +111,9 @@
 }
 
 .dark {
-  --background: #191919;
+  --background: #141414;
   --foreground: rgba(255, 255, 255, 0.9);
-  --card: #202020;
+  --card: #181818;
   --card-foreground: rgba(255, 255, 255, 0.9);
   --popover: #252525;
   --popover-foreground: rgba(255, 255, 255, 0.9);
@@ -121,18 +121,18 @@
   --primary: #abcfff;
   --primary-foreground: #191919;
 
-  --secondary: #222222;
+  --secondary: #181818;
   --secondary-foreground: rgba(255, 255, 255, 0.8);
-  --muted: #222222;
+  --muted: #181818;
   --muted-foreground: rgba(255, 255, 255, 0.45);
-  --accent: #222222;
+  --accent: #181818;
   --accent-foreground: rgba(255, 255, 255, 0.8);
 
   --destructive: #FF7369;
   --destructive-foreground: #191919;
 
-  --border: rgba(255, 255, 255, 0.08);
-  --input: rgba(255, 255, 255, 0.1);
+  --border: #202020;
+  --input: #202020;
   --ring: #abcfff;
 
   --info: #529CCA;
@@ -148,13 +148,13 @@
   --chart-4: #FFA344;
   --chart-5: #FFDC49;
 
-  --sidebar: #191919;
+  --sidebar: #141414;
   --sidebar-foreground: rgba(255, 255, 255, 0.8);
   --sidebar-primary: #abcfff;
   --sidebar-primary-foreground: #191919;
   --sidebar-accent: rgba(255, 255, 255, 0.04);
   --sidebar-accent-foreground: rgba(255, 255, 255, 0.8);
-  --sidebar-border: rgba(255, 255, 255, 0.06);
+  --sidebar-border: #202020;
   --sidebar-ring: #abcfff;
 
   --font-sans: "Inter", ui-sans-serif, -apple-system, "Segoe UI", sans-serif;

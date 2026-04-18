@@ -158,7 +158,6 @@ export async function POST(request: Request) {
 
   await recomputeConceptMastery({
     concept,
-    reviewedAt: new Date(),
     subject,
     topic,
     userId: ctx.user.id,

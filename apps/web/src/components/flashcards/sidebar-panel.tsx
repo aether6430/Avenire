@@ -336,7 +336,7 @@ export function FlashcardsSidebarPanel({
         </div>
         <SidebarGroupContent>
           <Input
-            className="mb-2 h-8"
+            className="mb-2 h-8 hidden"
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder="Search sets..."
             value={searchQuery}

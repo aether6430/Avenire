@@ -651,6 +651,47 @@ export const misconception = pgTable(
   ]
 );
 
+export const misconceptionEvidence = pgTable(
+  "misconception_evidence",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    misconceptionId: uuid("misconception_id")
+      .notNull()
+      .references(() => misconception.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    evidenceKey: text("evidence_key").notNull(),
+    evidenceClass: text("evidence_class").notNull().default("session"),
+    evidenceRootId: text("evidence_root_id"),
+    sourceSessionId: text("source_session_id"),
+    confidence: real("confidence").notNull().default(0),
+    evidenceSpan: jsonb("evidence_span").$type<Record<string, unknown> | null>(),
+    observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("misconception_evidence_misconception_key_uidx").on(
+      table.misconceptionId,
+      table.evidenceKey
+    ),
+    index("misconception_evidence_misconception_observed_idx").on(
+      table.misconceptionId,
+      table.observedAt
+    ),
+    index("misconception_evidence_workspace_user_observed_idx").on(
+      table.workspaceId,
+      table.userId,
+      table.observedAt
+    ),
+  ]
+);
+
 export const conceptMastery = pgTable(
   "concept_mastery",
   {

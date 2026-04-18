@@ -2,6 +2,7 @@ import type {
   FlashcardCardRecord,
   FlashcardSourceType,
 } from "./flashcard-data";
+import { normalizeFlashcardTaxonomy } from "./flashcard-data";
 import type { FlashcardRating, FlashcardReviewStateName } from "./flashcard-fsrs";
 
 export interface FlashcardSourceTaxonomy {
@@ -97,10 +98,16 @@ function readTaxonomyField(
 export function extractFlashcardSourceTaxonomy(
   source: Record<string, unknown> | null | undefined
 ): FlashcardSourceTaxonomy {
-  return {
+  const normalized = normalizeFlashcardTaxonomy({
     concept: readTaxonomyField(source, "concept"),
     subject: readTaxonomyField(source, "subject"),
     topic: readTaxonomyField(source, "topic"),
+  });
+
+  return {
+    concept: normalized?.concept ?? null,
+    subject: normalized?.subject ?? null,
+    topic: normalized?.topic ?? null,
   };
 }
 

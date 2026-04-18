@@ -1951,7 +1951,7 @@ export function DashboardSidebar({
                         title="Methods"
                       />
                       <Input
-                        className="mt-2 h-8"
+                        className="mt-2 h-8 hidden"
                         onChange={(event) =>
                           setChatSearchQuery(event.target.value)
                         }

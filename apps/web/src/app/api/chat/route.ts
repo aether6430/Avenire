@@ -1109,6 +1109,8 @@ export async function POST(request: Request) {
       );
     }
 
+    const requestStartedAt = new Date();
+
     const workspaceSubjectSummary = await getWorkspaceSubjectSummary({
       userId: session.user.id,
       workspaceId: workspace.workspaceId,
@@ -1462,6 +1464,42 @@ export async function POST(request: Request) {
                   chatId: chatSlug,
                   messageCount: persistedMessages.length,
                 });
+
+                try {
+                  const latestSummary = await getLatestSessionSummaryForChat(
+                    chat.id
+                  ).catch(() => null);
+                  const latestUserPosition = Math.max(
+                    0,
+                    persistedMessages
+                      .map((message, index) =>
+                        message.role === "user" ? index : -1
+                      )
+                      .reduce(
+                        (highest, index) => Math.max(highest, index),
+                        -1
+                      )
+                  );
+
+                  await persistSessionSummaryForCompletedTurn({
+                    chatId: chat.id,
+                    endedAt: new Date(),
+                    latestSummary,
+                    latestUserPosition,
+                    messages: persistedMessages,
+                    previousLastMessageAt: chat.lastMessageAt
+                      ? new Date(chat.lastMessageAt)
+                      : null,
+                    requestStartedAt,
+                    userId: session.user.id,
+                    workspaceId: workspace.workspaceId,
+                  });
+                } catch (summaryError) {
+                  logError("Failed to persist session summary after stream", {
+                    chatId: chatSlug,
+                    error: summaryError,
+                  });
+                }
 
                 try {
                   const totalUsage = await result.totalUsage;

@@ -45,7 +45,7 @@ export function TaskFilters({
         </TabsList>
       </Tabs>
       <Input
-        className="h-8 flex-1 text-xs"
+        className="h-8 flex-1 text-xs hidden"
         onChange={(event) => onSearchQueryChange(event.target.value)}
         placeholder="Search tasks..."
         value={searchQuery}
