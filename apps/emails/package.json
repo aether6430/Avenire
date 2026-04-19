@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./emails/index.ts"
   },
   "scripts": {
     "dev": "email dev -p 3001",
@@ -16,12 +16,14 @@
   "dependencies": {
     "@react-email/components": "latest",
     "@react-email/render": "latest",
+    "@react-email/tailwind": "latest",
     "react": "latest",
     "react-email": "latest"
   },
   "devDependencies": {
     "@avenire/env-types": "workspace:*",
     "@avenire/typescript-config": "workspace:*",
+    "@react-email/preview-server": "5.2.10",
     "@types/react": "latest",
     "typescript": "5.9.3"
   }

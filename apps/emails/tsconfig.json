@@ -7,5 +7,5 @@
     "jsx": "react-jsx",
     "declaration": true
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"]
+  "include": ["emails/**/*.ts", "emails/**/*.tsx"]
 }
