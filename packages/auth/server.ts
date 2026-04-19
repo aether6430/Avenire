@@ -225,29 +225,34 @@ export const auth = betterAuth({
       }
     : {})
   },
-  hooks: {
-    after: createAuthMiddleware(async (ctx) => {
-      if (!ctx.path.includes("sign-up")) return;
-      const newSession = ctx.context.newSession;
-      if (!newSession) return;
-
-      await emailer.send({
-        to: [newSession.user.email],
-        subject: "Welcome to Avenire",
-        html: await renderWelcomeEmail({ name: newSession.user.name ?? "there" })
-      });
-
-      try {
-        const workspaceNameBase =
-          newSession.user.name ?? newSession.user.email.split("@")[0] ?? "workspace";
-        await createWorkspaceForUser(
-          newSession.user.id,
-          `${workspaceNameBase}'s Workspace`
-        );
-      } catch (error) {
-        console.error("Failed to create default workspace", error);
-      }
-    })
+  databasseHooks: {
+    user: {
+      create: {
+        after: async (user) => {
+          try {
+            const html = await renderWelcomeEmail({ companyName: user.name ?? "there" });
+            console.log("[auth] rendered welcome email", { email: user.email });
+            await emailer.send({
+              to: [user.email],
+              subject: "Welcome to Avenire",
+              html,
+            });
+          } catch (error) {
+              console.error("[auth] failed to send welcome email", { error, email: user.email });
+          }
+          try {
+            const workspaceNameBase =
+              user.name ?? user.email.split("@")[0] ?? "workspace";
+            await createWorkspaceForUser(
+              user.id,
+              `${workspaceNameBase}'s Workspace`
+            );
+          } catch (error) {
+            console.error("Failed to create default workspace", error);
+          }
+        }
+      } 
+    }
   },
   plugins: [
     lastLoginMethod(),
