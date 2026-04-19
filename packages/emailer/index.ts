@@ -1,8 +1,8 @@
 import {
+  ActivationEmail,
   DeleteAccountConfirmation,
-  EmailConfirmation,
   FileShareNotificationEmail,
-  PasswordReset,
+  PasswordResetEmail,
   SecurityVerificationCodeEmail,
   WaitlistApprovalEmail,
   WaitlistWelcomeEmail,
@@ -49,9 +49,9 @@ export function renderVerificationEmail(input: {
   confirmationLink: string;
 }) {
   return renderEmail(
-    createElement(EmailConfirmation, {
-      name: input.name ?? "there",
-      confirmationLink: input.confirmationLink,
+    createElement(ActivationEmail, {
+      companyName: "Avenire",
+      url: input.confirmationLink,
     })
   );
 }
@@ -61,9 +61,9 @@ export function renderPasswordResetEmail(input: {
   resetLink: string;
 }) {
   return renderEmail(
-    createElement(PasswordReset, {
-      name: input.name ?? "there",
-      resetLink: input.resetLink,
+    createElement(PasswordResetEmail, {
+      companyName: "Avenire",
+      url: input.resetLink,
     })
   );
 }
@@ -74,20 +74,20 @@ export function renderDeleteAccountEmail(input: {
 }) {
   return renderEmail(
     createElement(DeleteAccountConfirmation, {
-      name: input.name ?? "there",
-      confirmationLink: input.confirmationLink,
+      companyName: "Avenire",
+      url: input.confirmationLink,
     })
   );
 }
 
 export function renderWelcomeEmail(input: {
-  name?: string;
+  companyName?: string;
   dashboardUrl?: string;
 }) {
   return renderEmail(
     createElement(WelcomeEmail, {
-      name: input.name ?? "there",
-      dashboardUrl: input.dashboardUrl ?? "https://avenire.com/workspace",
+      companyName: input.companyName ?? "Avenire",
+      url: input.dashboardUrl ?? "https://avenire.space/",
     })
   );
 }
@@ -99,6 +99,7 @@ export function renderFileShareNotificationEmail(input: {
 }) {
   return renderEmail(
     createElement(FileShareNotificationEmail, {
+      companyName: "Avenire",
       fileName: input.fileName,
       shareUrl: input.shareUrl,
       sharedByName: input.sharedByName,
@@ -113,6 +114,7 @@ export function renderWorkspaceShareNotificationEmail(input: {
 }) {
   return renderEmail(
     createElement(WorkspaceShareNotificationEmail, {
+      companyName: "Avenire",
       workspaceName: input.workspaceName,
       workspaceUrl: input.workspaceUrl,
       sharedByName: input.sharedByName,
@@ -138,6 +140,7 @@ export function renderWaitlistWelcomeEmail(input: {
 }) {
   return renderEmail(
     createElement(WaitlistWelcomeEmail, {
+      companyName: "Avenire",
       email: input.email,
       loginUrl: input.loginUrl,
     })
@@ -150,6 +153,7 @@ export function renderWaitlistApprovalEmail(input: {
 }) {
   return renderEmail(
     createElement(WaitlistApprovalEmail, {
+      companyName: "Avenire",
       name: input.name,
       loginUrl: input.loginUrl,
     })

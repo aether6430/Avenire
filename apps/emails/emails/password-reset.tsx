@@ -22,7 +22,7 @@ interface PasswordResetEmailProps {
   url: string;
 }
 
-export const PasswordResetEmail = ({
+export const PasswordReset = ({
   companyName,
   url,
 }: PasswordResetEmailProps) => (
@@ -78,9 +78,10 @@ export const PasswordResetEmail = ({
   </Tailwind>
 );
 
-PasswordResetEmail.PreviewProps = {
+PasswordReset.PreviewProps = {
   companyName: 'Avenire',
   url: 'https://avenire.space/',
 } satisfies PasswordResetEmailProps;
 
+export const PasswordResetEmail = PasswordReset;
 export default PasswordResetEmail;
