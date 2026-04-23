@@ -7,21 +7,22 @@ import { ArrowLeft, ArrowRight, House } from "@phosphor-icons/react";
 import type { Route } from "next";
 import { usePanePathname, usePaneRouter } from "@/lib/workspace-panes";
 import { usePaneHeaderStore } from "@/stores/header-store";
-import {
-  usePaneWorkspaceHistoryStore,
-} from "@/stores/workspaceHistoryStore";
+import { usePaneWorkspaceHistoryStore } from "@/stores/workspaceHistoryStore";
+import type { ReactNode } from "react";
 
 interface WorkspaceHeaderProps {
   className?: string;
   compact?: boolean;
   homeHref?: string;
   paneId?: string;
+  trailingActions?: ReactNode;
 }
 
 export function WorkspaceHeader({
   className,
   compact = false,
   homeHref = "/workspace",
+  trailingActions,
   paneId: _paneId,
 }: WorkspaceHeaderProps) {
   const router = usePaneRouter();
@@ -139,6 +140,7 @@ export function WorkspaceHeader({
           </div>
           <div className="hidden min-w-0 items-center justify-end gap-1 overflow-x-auto no-scrollbar sm:flex sm:w-auto">
             {actions}
+            {trailingActions}
           </div>
         </div>
       </header>
@@ -178,6 +180,7 @@ export function WorkspaceHeader({
 
           <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {actions}
+            {trailingActions}
           </div>
         </div>
       </header>

@@ -42,12 +42,9 @@ import {
   hasWorkspacePaneDragHref,
   WorkspacePaneInteractionBoundary,
   WorkspacePaneProvider,
-  usePanePathname,
-  usePaneRouter,
 } from "@/lib/workspace-panes";
 import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
-import { usePaneHeaderStore, useHeaderStore } from "@/stores/header-store";
-import { usePaneWorkspaceHistoryStore } from "@/stores/workspaceHistoryStore";
+import { useHeaderStore } from "@/stores/header-store";
 import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
 import type { Route } from "next";
 
@@ -112,7 +109,7 @@ function WorkspacePaneScene({
   );
 }
 
-function CompactPaneHeader({
+function PaneActionsMenu({
   onClose,
   onSplitHorizontal,
   onSplitVertical,
@@ -123,113 +120,74 @@ function CompactPaneHeader({
   onSplitVertical: () => void;
   showClose: boolean;
 }) {
-  const router = usePaneRouter();
-  const pathname = usePanePathname();
-  const title = usePaneHeaderStore((state) => state.title);
-  const actions = usePaneHeaderStore((state) => state.actions);
-  const historyEntries = usePaneWorkspaceHistoryStore((state) => state.entries);
-  const historyIndex = usePaneWorkspaceHistoryStore((state) => state.index);
-  const backRoute =
-    historyIndex > 0 ? (historyEntries[historyIndex - 1] ?? null) : null;
-  const forwardRoute =
-    historyIndex >= 0 && historyIndex < historyEntries.length - 1
-      ? (historyEntries[historyIndex + 1] ?? null)
-      : null;
-
   return (
-    <div className="flex h-11 min-w-0 items-center gap-2.5 px-3">
-      <div className="flex shrink-0 items-center rounded-lg border border-border/60 bg-background/85 p-0.5">
-        <Button
-          aria-label="Go back"
-          className="size-7 rounded-md border-0 shadow-none"
-          disabled={!backRoute}
-          onClick={() => {
-            if (backRoute) {
-              router.push(backRoute as Route);
-            }
-          }}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <span className="text-xs">←</span>
-        </Button>
-        <Button
-          aria-label="Go home"
-          className="size-7 rounded-md border-0 shadow-none"
-          disabled={pathname === "/workspace"}
-          onClick={() => {
-            router.push("/workspace");
-          }}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <span className="text-xs">⌂</span>
-        </Button>
-        <Button
-          aria-label="Go forward"
-          className="size-7 rounded-md border-0 shadow-none"
-          disabled={!forwardRoute}
-          onClick={() => {
-            if (forwardRoute) {
-              router.push(forwardRoute as Route);
-            }
-          }}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <span className="text-xs">→</span>
-        </Button>
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-[12.5px] font-semibold leading-5 text-foreground">
-          {title || "Workspace"}
-        </div>
-      </div>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          className="inline-flex"
-          render={
-            <Button
-              aria-label="Pane options"
-              className="size-7 shrink-0 rounded-md text-muted-foreground"
-              size="icon"
-              type="button"
-              variant="ghost"
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        className="inline-flex"
+        render={
+          <Button
+            aria-label="Pane options"
+            className="size-7 shrink-0 rounded-md text-muted-foreground"
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <DotsThree className="size-4" />
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="end" className="w-56 rounded-xl p-1.5">
+        <DropdownMenuItem onClick={onSplitHorizontal}>
+          <Columns className="mr-2 size-4" />
+          Split right
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onSplitVertical}>
+          <Rows className="mr-2 size-4" />
+          Split down
+        </DropdownMenuItem>
+        {showClose ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={onClose}
             >
-              <DotsThree className="size-4" />
-            </Button>
-          }
-        />
-        <DropdownMenuContent align="end" className="w-56 rounded-xl p-1.5">
-          <DropdownMenuItem onClick={onSplitHorizontal}>
-            <Columns className="mr-2 size-4" />
-            Split right
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onSplitVertical}>
-            <Rows className="mr-2 size-4" />
-            Split down
-          </DropdownMenuItem>
-          {actions ? (
-            <>
-              <DropdownMenuSeparator />
-              <div className="px-1 py-1">{actions}</div>
-            </>
-          ) : null}
-          {showClose ? (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={onClose}>
               <X className="mr-2 size-4" />
               Close pane
-              </DropdownMenuItem>
-            </>
-          ) : null}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+            </DropdownMenuItem>
+          </>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function PaneHeader({
+  onClose,
+  onSplitHorizontal,
+  onSplitVertical,
+  showClose,
+}: {
+  onClose: () => void;
+  onSplitHorizontal: () => void;
+  onSplitVertical: () => void;
+  showClose: boolean;
+}) {
+  const trailingActions = (
+    <PaneActionsMenu
+      onClose={onClose}
+      onSplitHorizontal={onSplitHorizontal}
+      onSplitVertical={onSplitVertical}
+      showClose={showClose}
+    />
+  );
+
+  return (
+    <WorkspaceHeader
+      className="border-b-0"
+      compact
+      trailingActions={trailingActions}
+    />
   );
 }
 
@@ -462,7 +420,7 @@ export function WorkspacePaneRenderer() {
                             </div>
                           ) : null}
                           {isMultiPane ? (
-                            <CompactPaneHeader
+                            <PaneHeader
                               onClose={() => closePane(pane.id)}
                               onSplitHorizontal={() =>
                                 openPane(

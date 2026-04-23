@@ -1176,7 +1176,7 @@ export function DashboardSidebar({
           workspaceId: workspaceUuid,
         };
         setActiveChatSlugOverride(detail.id);
-        router.replace(`/workspace/chats/${detail.id}` as Route);
+        navigate(`/workspace/chats/${detail.id}` as Route);
       }
     };
 
