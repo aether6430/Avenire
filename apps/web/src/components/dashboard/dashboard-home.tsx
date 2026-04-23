@@ -52,7 +52,7 @@ import {
   dashboardUiActions,
   useDashboardUiStore,
 } from "@/stores/dashboardUiStore";
-import { useWorkspaceHistoryStore } from "@/stores/workspaceHistoryStore";
+import { usePaneWorkspaceHistoryActions } from "@/stores/workspaceHistoryStore";
 
 const DashboardTaskManager = dynamic(
   () =>
@@ -250,7 +250,7 @@ export function DashboardHome({
   workspaceId,
 }: DashboardHomeProps) {
   const router = useRouter();
-  const recordRoute = useWorkspaceHistoryStore((state) => state.recordRoute);
+  const { recordRoute } = usePaneWorkspaceHistoryActions();
   const homeTab = useDashboardUiStore((state) => state.homeTab);
   const insightsTab = useDashboardUiStore((state) => state.insightsTab);
   const [activities, setActivities] = useState<ActivityEvent[]>([]);

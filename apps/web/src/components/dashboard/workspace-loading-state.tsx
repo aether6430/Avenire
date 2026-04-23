@@ -1,6 +1,7 @@
 "use client";
 
-import { Spinner } from "@avenire/ui/components/spinner";
+import { ChatSpinner } from "@/components/chat/spinner";
+import { cn } from "@/lib/utils";
 
 export function WorkspaceLoadingState({
   compact = false,
@@ -11,18 +12,23 @@ export function WorkspaceLoadingState({
 }) {
   if (compact) {
     return (
-      <div className="flex items-center justify-center gap-2 rounded-lg bg-secondary/40 px-4 py-8 text-muted-foreground text-sm">
-        <Spinner className="size-4" />
-        {label}
+      <div className="flex items-center justify-center rounded-lg bg-secondary/40 px-4 py-8">
+        <ChatSpinner
+          className="px-0 py-0"
+          messages={[label]}
+        />
       </div>
     );
   }
 
   return (
     <div className="flex h-full min-h-0 flex-1 items-center justify-center px-4">
-      <div className="inline-flex items-center gap-2 rounded-lg bg-secondary/40 px-4 py-3 text-muted-foreground text-sm">
-          <Spinner className="size-4" />
-          {label}
+      <div
+        className={cn(
+          "inline-flex items-center rounded-lg bg-secondary/40 px-4 py-3"
+        )}
+      >
+        <ChatSpinner className="px-0 py-0" messages={[label]} />
       </div>
     </div>
   );

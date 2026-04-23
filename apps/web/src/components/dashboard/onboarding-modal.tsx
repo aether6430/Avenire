@@ -13,6 +13,7 @@ import type { FlashcardSetSummary } from "@/lib/flashcards";
 import type { MisconceptionRecord } from "@/lib/learning-data";
 import { StudentCalendar } from "@/components/student-calendar";
 import { FlashcardDeckStack } from "@/components/flashcards/deck-stack";
+import { getUploadErrorMessage } from "@/lib/upload";
 import { useUploadThing } from "@/lib/uploadthing";
 import { requestUploadPreflight } from "@/lib/upload-preflight";
 import { useRouter } from "next/navigation";
@@ -1047,9 +1048,7 @@ export function OnboardingModal({
       }, 600);
     } catch (error) {
       setUploadPhase("failed");
-      setUploadMessage(
-        error instanceof Error ? error.message : "Upload failed."
-      );
+      setUploadMessage(getUploadErrorMessage(error));
     }
   };
 

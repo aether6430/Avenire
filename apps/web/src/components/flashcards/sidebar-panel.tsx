@@ -37,9 +37,9 @@ import {
   PlusCircle,
 } from "@phosphor-icons/react";
 import type { Route } from "next";
-import { useRouter } from "next/navigation";
 import {
   startTransition,
+  type MouseEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -52,7 +52,12 @@ import {
 } from "@/lib/dashboard-browser-cache";
 import { prefetchFlashcardSet } from "@/lib/flashcard-browser-cache";
 import type { FlashcardSetSummary } from "@/lib/flashcards";
+import {
+  setWorkspacePaneDragData,
+  useWorkspaceSurfaceNavigation,
+} from "@/lib/workspace-panes";
 import { commandPaletteActions } from "@/stores/commandPaletteStore";
+import { useSidebar } from "@avenire/ui/components/sidebar";
 
 export function FlashcardsSidebarPanel({
   active,
@@ -63,7 +68,10 @@ export function FlashcardsSidebarPanel({
   activeSetId?: string;
   workspaceUuid?: string | null;
 }) {
-  const router = useRouter();
+  const { isMobile } = useSidebar();
+  const { navigate } = useWorkspaceSurfaceNavigation({
+    panesEnabled: !isMobile,
+  });
   const setsWorkspaceRef = useRef<string | null>(workspaceUuid ?? null);
   const [sets, setSets] = useState<FlashcardSetSummary[]>(() =>
     workspaceUuid ? (readCachedFlashcardSets(workspaceUuid) ?? []) : []
@@ -182,12 +190,42 @@ export function FlashcardsSidebarPanel({
       setTitle("");
       setDescription("");
       startTransition(() => {
-        router.push(`/workspace/flashcards/${setId}` as Route);
+        navigate(`/workspace/flashcards/${setId}` as Route);
       });
     } finally {
       setBusy(false);
     }
   };
+
+  const navigateToFlashcards = useCallback(
+    (href: Route, options?: { openInNewPane?: boolean }) => {
+      navigate(href, options);
+    },
+    [navigate]
+  );
+
+  const handlePaneIntent = useCallback(
+    (event: MouseEvent<HTMLElement>, href: Route) => {
+      if (isMobile) {
+        return false;
+      }
+
+      if (event.type === "contextmenu") {
+        event.preventDefault();
+        navigateToFlashcards(href, { openInNewPane: true });
+        return true;
+      }
+
+      if (event.altKey) {
+        event.preventDefault();
+        navigateToFlashcards(href, { openInNewPane: true });
+        return true;
+      }
+
+      return false;
+    },
+    [isMobile, navigateToFlashcards]
+  );
 
   const reviewTarget =
     sets.find((set) => set.dueCount > 0 || set.newCount > 0) ?? null;
@@ -278,14 +316,25 @@ export function FlashcardsSidebarPanel({
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton
-                onClick={() => {
-                  if (reviewTarget) {
-                    router.push(
-                      `/workspace/flashcards/${reviewTarget.id}` as Route
-                    );
+                draggable
+                onClick={(event) => {
+                  const href = reviewTarget
+                    ? (`/workspace/flashcards/${reviewTarget.id}` as Route)
+                    : ("/workspace/flashcards" as Route);
+                  if (handlePaneIntent(event, href)) {
                     return;
                   }
-                  router.push("/workspace/flashcards" as Route);
+                  if (reviewTarget) {
+                    navigateToFlashcards(href);
+                    return;
+                  }
+                  navigateToFlashcards(href);
+                }}
+                onContextMenu={(event) => {
+                  const href = reviewTarget
+                    ? (`/workspace/flashcards/${reviewTarget.id}` as Route)
+                    : ("/workspace/flashcards" as Route);
+                  handlePaneIntent(event, href);
                 }}
                 onFocus={() => {
                   if (reviewTarget) {
@@ -293,6 +342,12 @@ export function FlashcardsSidebarPanel({
                       () => undefined
                     );
                   }
+                }}
+                onDragStart={(event) => {
+                  const href = reviewTarget
+                    ? (`/workspace/flashcards/${reviewTarget.id}` as Route)
+                    : ("/workspace/flashcards" as Route);
+                  setWorkspacePaneDragData(event.dataTransfer, href);
                 }}
                 onMouseEnter={() => {
                   if (reviewTarget) {
@@ -309,7 +364,24 @@ export function FlashcardsSidebarPanel({
 
             <SidebarMenuItem>
               <SidebarMenuButton
-                onClick={() => router.push("/workspace/flashcards" as Route)}
+                draggable
+                onClick={(event) => {
+                  if (
+                    handlePaneIntent(event, "/workspace/flashcards" as Route)
+                  ) {
+                    return;
+                  }
+                  navigateToFlashcards("/workspace/flashcards" as Route);
+                }}
+                onContextMenu={(event) => {
+                  handlePaneIntent(event, "/workspace/flashcards" as Route);
+                }}
+                onDragStart={(event) => {
+                  setWorkspacePaneDragData(
+                    event.dataTransfer,
+                    "/workspace/flashcards" as Route
+                  );
+                }}
               >
                 <MessageSquareDashed className="size-4" />
                 <span>Import From Method</span>
@@ -364,15 +436,32 @@ export function FlashcardsSidebarPanel({
               {filteredSets.map((set) => (
                 <SidebarMenuItem key={set.id}>
                   <SidebarMenuButton
+                    draggable
                     isActive={activeSetId === set.id}
-                    onClick={() =>
-                      router.push(`/workspace/flashcards/${set.id}` as Route)
-                    }
+                    onClick={(event) => {
+                      const href = `/workspace/flashcards/${set.id}` as Route;
+                      if (handlePaneIntent(event, href)) {
+                        return;
+                      }
+                      navigateToFlashcards(href);
+                    }}
+                    onContextMenu={(event) => {
+                      handlePaneIntent(
+                        event,
+                        `/workspace/flashcards/${set.id}` as Route
+                      );
+                    }}
                     onFocus={() => {
                       prefetchFlashcardSet(set.id).catch(() => undefined);
                     }}
                     onMouseEnter={() => {
                       prefetchFlashcardSet(set.id).catch(() => undefined);
+                    }}
+                    onDragStart={(event) => {
+                      setWorkspacePaneDragData(
+                        event.dataTransfer,
+                        `/workspace/flashcards/${set.id}` as Route
+                      );
                     }}
                   >
                     <SparklineChip due={set.dueCount} newCount={set.newCount} />

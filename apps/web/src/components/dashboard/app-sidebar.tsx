@@ -61,6 +61,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   type ComponentProps,
   type ComponentType,
+  type MouseEvent,
   type ReactNode,
   useCallback,
   useEffect,
@@ -69,7 +70,7 @@ import {
   useState,
 } from "react";
 import { ChatIcon } from "@/components/chat/chat-icon";
-import { ThinkingGlyph } from "@/components/chat/thinking-indicator";
+import { ChatSpinnerGlyph } from "@/components/chat/spinner";
 import { useHaptics } from "@/hooks/use-haptics";
 import type { ChatSummary } from "@/lib/chat-data";
 import {
@@ -88,6 +89,10 @@ import {
   writeCachedWorkspaces,
 } from "@/lib/dashboard-browser-cache";
 import {
+  setWorkspacePaneDragData,
+  useWorkspaceSurfaceNavigation,
+} from "@/lib/workspace-panes";
+import {
   warmDashboardBackground,
   warmWorkspaceSurface,
 } from "@/lib/dashboard-warmup";
@@ -95,7 +100,6 @@ import { commandPaletteActions } from "@/stores/commandPaletteStore";
 import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
 import { useFilesPinsStore } from "@/stores/filesPinsStore";
 import { filesUiActions } from "@/stores/filesUiStore";
-import { useWorkspaceHistoryStore } from "@/stores/workspaceHistoryStore";
 import {
   primeWorkspaceTaskStore,
   reloadWorkspaceTasks,
@@ -192,21 +196,37 @@ async function sendChatSessionClose(payload: {
 }
 
 function SectionButton({
+  dragHref,
   icon: Icon,
   description,
   label,
   size = "default",
   onClick,
+  onContextMenu,
 }: {
+  dragHref?: Route;
   icon: ComponentType<{ className?: string }>;
   description?: string;
   label: string;
   size?: "default" | "lg";
-  onClick?: () => void;
+  onClick?: (event: MouseEvent<HTMLButtonElement>) => void;
+  onContextMenu?: (event: MouseEvent<HTMLButtonElement>) => void;
 }) {
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton onClick={onClick} size={size}>
+      <SidebarMenuButton
+        draggable={Boolean(dragHref)}
+        onClick={onClick}
+        onContextMenu={onContextMenu}
+        onDragStart={(event) => {
+          if (!dragHref) {
+            return;
+          }
+
+          setWorkspacePaneDragData(event.dataTransfer, dragHref);
+        }}
+        size={size}
+      >
         <Icon className="size-4" />
         <div className="min-w-0 flex-1 text-left">
           <p className="truncate text-xs">{label}</p>
@@ -309,6 +329,7 @@ function ChatListSection({
   onFinishRename,
   onCancelRename,
   onSelect,
+  onSelectInNewPane,
   onTogglePin,
   onDelete,
   hideWhenEmpty = false,
@@ -324,6 +345,7 @@ function ChatListSection({
   onFinishRename: (chatSlug: string) => void;
   onCancelRename: () => void;
   onSelect: (chatSlug: string) => void;
+  onSelectInNewPane?: (chatSlug: string) => void;
   onTogglePin: (chatSlug: string, pinned: boolean) => void;
   onDelete: (chatSlug: string) => void;
   hideWhenEmpty?: boolean;
@@ -385,12 +407,30 @@ function ChatListSection({
                 ) : (
                   <>
                     <SidebarMenuButton
+                      draggable
                       isActive={activeChatSlug === chat.slug}
-                      onClick={() => onSelect(chat.slug)}
+                      onClick={(event) => {
+                        if (event.altKey) {
+                          event.preventDefault();
+                          onSelectInNewPane?.(chat.slug);
+                          return;
+                        }
+                        onSelect(chat.slug);
+                      }}
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+                        onSelectInNewPane?.(chat.slug);
+                      }}
+                      onDragStart={(event) => {
+                        setWorkspacePaneDragData(
+                          event.dataTransfer,
+                          `/workspace/chats/${chat.slug}` as Route
+                        );
+                      }}
                     >
                       {chat.branching ? <GitBranch className="size-4" /> : null}
                       {isPending ? (
-                        <ThinkingGlyph className="size-4" />
+                        <ChatSpinnerGlyph className="size-4" />
                       ) : iconName ? (
                         <ChatIcon
                           className="text-muted-foreground"
@@ -550,10 +590,12 @@ export function DashboardSidebar({
 }) {
   const router = useRouter();
   const { isMobile, setOpenMobile } = useSidebar();
+  const { navigate } = useWorkspaceSurfaceNavigation({
+    panesEnabled: !isMobile,
+  });
   const triggerHaptic = useHaptics();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const historyEntries = useWorkspaceHistoryStore((state) => state.entries);
   const [chats, setChats] = useState<ChatSummary[]>(
     () =>
       (activeWorkspace?.workspaceId
@@ -638,11 +680,22 @@ export function DashboardSidebar({
     routeView = "workspace";
   }
   const activeView = routeView;
-  const activeTabValue = activeView === "workspace" ? null : activeView;
+  const [desktopSidebarView, setDesktopSidebarView] = useState<
+    "chat" | "flashcards" | "files" | "tasks" | "workspace"
+  >(() => routeView ?? "workspace");
+  useEffect(() => {
+    if (isMobile) {
+      setDesktopSidebarView(routeView ?? "workspace");
+    }
+  }, [isMobile, routeView]);
+  const sidebarView = isMobile ? activeView : desktopSidebarView;
+  const activeTabValue = sidebarView === "workspace" ? null : sidebarView;
   const [mountedViews, setMountedViews] = useState<
     Set<"chat" | "flashcards" | "files" | "tasks">
   >(() =>
-    activeView && activeView !== "workspace" ? new Set([activeView]) : new Set()
+    sidebarView && sidebarView !== "workspace"
+      ? new Set([sidebarView])
+      : new Set()
   );
   const [deferredStartupReady, setDeferredStartupReady] = useState(false);
   const primaryChatRoute = useMemo<Route>(() => {
@@ -698,12 +751,6 @@ export function DashboardSidebar({
       });
     },
     [closeMobileSidebar, isMobile]
-  );
-  const navigate = useCallback(
-    (href: Route) => {
-      router.push(href);
-    },
-    [router]
   );
   const currentFlashcardSetId = useMemo(() => {
     const match = pathname.match(DASHBOARD_FLASHCARDS_ROUTE_REGEX);
@@ -779,23 +826,23 @@ export function DashboardSidebar({
 
   useEffect(() => {
     if (
-      !activeView ||
-      activeView === "workspace" ||
-      mountedViews.has(activeView)
+      !sidebarView ||
+      sidebarView === "workspace" ||
+      mountedViews.has(sidebarView)
     ) {
       return;
     }
 
     setMountedViews((previous) => {
-      if (previous.has(activeView)) {
+      if (previous.has(sidebarView)) {
         return previous;
       }
 
       const next = new Set(previous);
-      next.add(activeView);
+      next.add(sidebarView);
       return next;
     });
-  }, [activeView, mountedViews]);
+  }, [mountedViews, sidebarView]);
 
   useEffect(() => {
     if (initialChats.length === 0) {
@@ -1238,7 +1285,9 @@ export function DashboardSidebar({
     [chatSearchNeedle, otherChats]
   );
 
-  const navigateToFilesRoot = useCallback(async () => {
+  const navigateToFilesRoot = useCallback(async (options?: {
+    openInNewPane?: boolean;
+  }) => {
     try {
       const preferredWorkspaceId =
         typeof window !== "undefined"
@@ -1262,15 +1311,16 @@ export function DashboardSidebar({
         workspaces[0];
 
       if (targetWorkspace) {
-        router.push(
-          `/workspace/files/${targetWorkspace.workspaceId}/folder/${targetWorkspace.rootFolderId}` as Route
+        navigate(
+          `/workspace/files/${targetWorkspace.workspaceId}/folder/${targetWorkspace.rootFolderId}` as Route,
+          options
         );
         return;
       }
 
       const response = await fetch("/api/workspaces", { cache: "no-store" });
       if (!response.ok) {
-        router.push("/workspace/files" as Route);
+        navigate("/workspace/files" as Route, options);
         return;
       }
 
@@ -1280,17 +1330,18 @@ export function DashboardSidebar({
       };
 
       if (payload.workspaceUuid && payload.rootFolderUuid) {
-        router.push(
-          `/workspace/files/${payload.workspaceUuid}/folder/${payload.rootFolderUuid}` as Route
+        navigate(
+          `/workspace/files/${payload.workspaceUuid}/folder/${payload.rootFolderUuid}` as Route,
+          options
         );
         return;
       }
 
-      router.push("/workspace/files" as Route);
+      navigate("/workspace/files" as Route, options);
     } catch {
-      router.push("/workspace/files" as Route);
+      navigate("/workspace/files" as Route, options);
     }
-  }, [activeWorkspace, router, workspaces]);
+  }, [activeWorkspace, navigate, workspaces]);
 
   const loadWorkspaces = useCallback(async () => {
     try {
@@ -1798,6 +1849,59 @@ export function DashboardSidebar({
                   item.value as "chat" | "flashcards" | "files" | "tasks"
                 );
               }}
+              onItemClick={(item, event) => {
+                const nextView = item.value as
+                  | "chat"
+                  | "flashcards"
+                  | "files"
+                  | "tasks";
+
+                if (!isMobile) {
+                  setDesktopSidebarView(nextView);
+                }
+
+                if (event.altKey && !isMobile) {
+                  event.preventDefault();
+                  if (nextView === "chat") {
+                    navigate("/workspace/chats/new" as Route, {
+                      openInNewPane: true,
+                    });
+                    return;
+                  }
+                  if (nextView === "tasks") {
+                    navigate("/workspace/tasks" as Route, {
+                      openInNewPane: true,
+                    });
+                  }
+                }
+              }}
+              onItemContextMenu={(item, event) => {
+                if (isMobile) {
+                  return;
+                }
+
+                const nextView = item.value as
+                  | "chat"
+                  | "flashcards"
+                  | "files"
+                  | "tasks";
+                setDesktopSidebarView(nextView);
+
+                if (nextView === "chat") {
+                  event.preventDefault();
+                  navigate("/workspace/chats/new" as Route, {
+                    openInNewPane: true,
+                  });
+                  return;
+                }
+
+                if (nextView === "tasks") {
+                  event.preventDefault();
+                  navigate("/workspace/tasks" as Route, {
+                    openInNewPane: true,
+                  });
+                }
+              }}
               onValueChange={(nextValue) => {
                 if (!nextValue) {
                   return;
@@ -1807,7 +1911,15 @@ export function DashboardSidebar({
                   | "flashcards"
                   | "files"
                   | "tasks";
-                if (nextView === activeView) {
+                if (!isMobile) {
+                  setDesktopSidebarView(nextView);
+                }
+
+                if (!isMobile && (nextView === "flashcards" || nextView === "files")) {
+                  return;
+                }
+
+                if (nextView === activeView && nextView !== "chat") {
                   return;
                 }
 
@@ -1841,14 +1953,8 @@ export function DashboardSidebar({
                 }
 
                 if (nextView === "chat" && !isChatsRoute) {
-                  const chatSlug = activeChatSlug || chats[0]?.slug;
-                  if (chatSlug) {
-                    closeMobileSidebar();
-                    navigate(`/workspace/chats/${chatSlug}` as Route);
-                    return;
-                  }
                   closeMobileSidebar();
-                  navigate("/workspace/chats" as Route);
+                  navigate("/workspace/chats/new" as Route);
                   return;
                 }
               }}
@@ -1857,67 +1963,124 @@ export function DashboardSidebar({
             />
           </SidebarGroup>
           <div className="relative min-h-0 flex-1 overflow-hidden">
-            {activeView === "workspace" ? (
+            {sidebarView === "workspace" ? (
               <div className="absolute inset-0 overflow-y-auto px-2 py-2">
                 <SidebarGroup>
                   <SidebarGroupLabel>Workspace Home</SidebarGroupLabel>
                   <SidebarGroupContent>
                     <SidebarMenu>
                       <SectionButton
+                        dragHref={"/workspace/chats/new" as Route}
                         icon={MessageSquare}
                         label="Open Method"
-                        onClick={() => {
-                          const chatSlug = activeChatSlug || chats[0]?.slug;
+                        onClick={(event) => {
                           closeMobileSidebar();
-                          if (chatSlug) {
-                            navigate(`/workspace/chats/${chatSlug}` as Route);
+                          navigate("/workspace/chats/new" as Route, {
+                            openInNewPane: !isMobile && event.altKey,
+                          });
+                        }}
+                        onContextMenu={(event) => {
+                          if (isMobile) {
                             return;
                           }
-                          navigate("/workspace/chats" as Route);
+                          event.preventDefault();
+                          navigate("/workspace/chats/new" as Route, {
+                            openInNewPane: true,
+                          });
                         }}
                       />
                       <SectionButton
+                        dragHref={"/workspace/flashcards" as Route}
                         icon={Sparkles}
                         label="Open Mindset"
-                        onClick={() => {
+                        onClick={(event) => {
                           closeMobileSidebar();
-                          navigate("/workspace/flashcards" as Route);
+                          if (!isMobile) {
+                            setDesktopSidebarView("flashcards");
+                            navigate("/workspace/flashcards" as Route, {
+                              openInNewPane: event.altKey,
+                            });
+                            return;
+                          }
+                          navigate("/workspace/flashcards" as Route, {
+                            openInNewPane: false,
+                          });
+                        }}
+                        onContextMenu={(event) => {
+                          if (isMobile) {
+                            return;
+                          }
+                          event.preventDefault();
+                          setDesktopSidebarView("flashcards");
+                          navigate("/workspace/flashcards" as Route, {
+                            openInNewPane: true,
+                          });
                         }}
                       />
                       <SectionButton
+                        dragHref={primaryFilesRoute}
                         icon={Files}
                         label="Open Manage"
-                        onClick={() => {
+                        onClick={(event) => {
                           closeMobileSidebar();
-                          void navigateToFilesRoot();
+                          if (!isMobile) {
+                            setDesktopSidebarView("files");
+                            void navigateToFilesRoot({
+                              openInNewPane: event.altKey,
+                            });
+                            return;
+                          }
+                          void navigateToFilesRoot({
+                            openInNewPane: false,
+                          });
+                        }}
+                        onContextMenu={(event) => {
+                          if (isMobile) {
+                            return;
+                          }
+                          event.preventDefault();
+                          setDesktopSidebarView("files");
+                          void navigateToFilesRoot({ openInNewPane: true });
                         }}
                       />
                       <SectionButton
+                        dragHref={"/workspace/tasks" as Route}
                         icon={ListChecks}
                         label="Open Tasks"
-                        onClick={() => {
+                        onClick={(event) => {
                           closeMobileSidebar();
-                          navigate("/workspace/tasks" as Route);
+                          navigate("/workspace/tasks" as Route, {
+                            openInNewPane: !isMobile && event.altKey,
+                          });
+                        }}
+                        onContextMenu={(event) => {
+                          if (isMobile) {
+                            return;
+                          }
+                          event.preventDefault();
+                          navigate("/workspace/tasks" as Route, {
+                            openInNewPane: true,
+                          });
                         }}
                       />
                     </SidebarMenu>
                   </SidebarGroupContent>
                 </SidebarGroup>
               </div>
-            ) : activeView === "tasks" ? (
+            ) : sidebarView === "tasks" ? (
               <DeferredSidebarTaskPreview
                 activeWorkspaceId={activeWorkspace?.workspaceId}
                 closeMobileSidebar={closeMobileSidebar}
                 navigate={navigate}
               />
-            ) : activeView ? (
+            ) : sidebarView ? (
               <>
                 <div
-                  aria-hidden={activeView !== "chat"}
+                  aria-hidden={sidebarView !== "chat"}
                   className={
                     mountedViews.has("chat")
                       ? `absolute inset-0 overflow-y-auto ${
-                          activeView === "chat"
+                          sidebarView === "chat"
                             ? ""
                             : "pointer-events-none hidden"
                         }`
@@ -1987,6 +2150,13 @@ export function DashboardSidebar({
                       setEditingTitle("");
                       navigate(`/workspace/chats/${chatSlug}` as Route);
                     }}
+                    onSelectInNewPane={(chatSlug) => {
+                      setEditingChatSlug(null);
+                      setEditingTitle("");
+                      navigate(`/workspace/chats/${chatSlug}` as Route, {
+                        openInNewPane: true,
+                      });
+                    }}
                     onStartRename={(chat) => {
                       setEditingChatSlug(chat.slug);
                       setEditingTitle(chat.title);
@@ -2023,6 +2193,13 @@ export function DashboardSidebar({
                       setEditingTitle("");
                       navigate(`/workspace/chats/${chatSlug}` as Route);
                     }}
+                    onSelectInNewPane={(chatSlug) => {
+                      setEditingChatSlug(null);
+                      setEditingTitle("");
+                      navigate(`/workspace/chats/${chatSlug}` as Route, {
+                        openInNewPane: true,
+                      });
+                    }}
                     onStartRename={(chat) => {
                       setEditingChatSlug(chat.slug);
                       setEditingTitle(chat.title);
@@ -2035,11 +2212,11 @@ export function DashboardSidebar({
                   />
                 </div>
                 <div
-                  aria-hidden={activeView !== "files"}
+                  aria-hidden={sidebarView !== "files"}
                   className={
                     mountedViews.has("files")
                       ? `absolute inset-0 ${
-                          activeView === "files"
+                          sidebarView === "files"
                             ? ""
                             : "pointer-events-none hidden"
                         }`
@@ -2054,11 +2231,11 @@ export function DashboardSidebar({
                   />
                 </div>
                 <div
-                  aria-hidden={activeView !== "flashcards"}
+                  aria-hidden={sidebarView !== "flashcards"}
                   className={
                     mountedViews.has("flashcards")
                       ? `absolute inset-0 ${
-                          activeView === "flashcards"
+                          sidebarView === "flashcards"
                             ? ""
                             : "pointer-events-none hidden"
                         }`
@@ -2066,7 +2243,7 @@ export function DashboardSidebar({
                   }
                 >
                   <FlashcardsSidebarPanel
-                    active={activeView === "flashcards"}
+                    active={sidebarView === "flashcards"}
                     activeSetId={currentFlashcardSetId}
                     workspaceUuid={workspaceUuid}
                   />

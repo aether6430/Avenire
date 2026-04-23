@@ -33,7 +33,7 @@ import {
 } from "@phosphor-icons/react";
 import { motion } from "motion/react";
 import type { Route } from "next";
-import { usePathname, useRouter } from "next/navigation";
+import { usePanePathname, usePaneRouter } from "@/lib/workspace-panes";
 import {
   useCallback,
   useDeferredValue,
@@ -61,7 +61,7 @@ import type {
   FlashcardSetRecord,
   FlashcardTaxonomy,
 } from "@/lib/flashcards";
-import { useWorkspaceHistoryStore } from "@/stores/workspaceHistoryStore";
+import { usePaneWorkspaceHistoryActions } from "@/stores/workspaceHistoryStore";
 
 type Rating = "again" | "hard" | "good" | "easy";
 type StudyStatus = "idle" | "loading" | "ready" | "error";
@@ -276,9 +276,9 @@ export function FlashcardSetDetail({
   initialSet: FlashcardSetRecord;
   initialStudyOpen?: boolean;
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const recordRoute = useWorkspaceHistoryStore((state) => state.recordRoute);
+  const router = usePaneRouter();
+  const pathname = usePanePathname();
+  const { recordRoute } = usePaneWorkspaceHistoryActions();
   const [set, setSet] = useState(initialSet);
   const [studyDeck, setStudyDeck] = useState(initialQueue ?? []);
   const [search, setSearch] = useState("");
@@ -1116,7 +1116,7 @@ export function FlashcardSetDetail({
             open={studyOpen}
           >
             <DialogContent
-              className="h-[100dvh] w-full overflow-hidden border-border/60 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.05),transparent_42%),var(--background)] p-0 sm:h-[88vh] sm:w-[min(42rem,calc(100vw-1.5rem))]"
+              className="h-[100dvh] w-full overflow-hidden border-border/60 p-0 sm:h-[88vh] sm:w-[min(42rem,calc(100vw-1.5rem))]"
               largeWidth
             >
               <div className="relative flex h-full flex-col overflow-hidden bg-background">

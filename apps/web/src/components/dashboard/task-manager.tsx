@@ -49,27 +49,47 @@ export function DashboardTaskManager({
   }, [workspaceId]);
 
   const sortedTasks = useMemo(
-    () =>
-      tasks.filter((task) => task.workspaceId === workspaceId).sort((left, right) => {
-        if (left.status === "completed" && right.status !== "completed") {
-          return -1;
-        }
-        if (left.status !== "completed" && right.status === "completed") {
-          return 1;
-        }
-        if (left.dueAt && right.dueAt) {
-          return (
-            new Date(left.dueAt).getTime() - new Date(right.dueAt).getTime()
-          );
-        }
-        if (left.dueAt) {
-          return -1;
-        }
-        if (right.dueAt) {
-          return 1;
-        }
-        return 0;
-      }),
+    () => {
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      const endOfToday = new Date();
+      endOfToday.setHours(23, 59, 59, 999);
+
+      return tasks
+        .filter((task) => {
+          if (task.workspaceId !== workspaceId) {
+            return false;
+          }
+
+          // Dashboard widget should only show tasks due today.
+          if (!task.dueAt) {
+            return false;
+          }
+
+          const due = new Date(task.dueAt);
+          return due >= startOfToday && due <= endOfToday;
+        })
+        .sort((left, right) => {
+          if (left.status === "completed" && right.status !== "completed") {
+            return -1;
+          }
+          if (left.status !== "completed" && right.status === "completed") {
+            return 1;
+          }
+          if (left.dueAt && right.dueAt) {
+            return (
+              new Date(left.dueAt).getTime() - new Date(right.dueAt).getTime()
+            );
+          }
+          if (left.dueAt) {
+            return -1;
+          }
+          if (right.dueAt) {
+            return 1;
+          }
+          return 0;
+        });
+    },
     [tasks, workspaceId]
   );
 
@@ -173,12 +193,12 @@ export function DashboardTaskManager({
                 <EmptyMedia variant="icon">
                   <Sparkles className="size-4" />
                 </EmptyMedia>
-                <EmptyTitle>No tasks yet</EmptyTitle>
+                <EmptyTitle>No tasks due today</EmptyTitle>
               </EmptyHeader>
               <EmptyContent>
                 <EmptyDescription>
-                  Capture a task and it will show up here with its due date,
-                  completion state, and quick edit controls.
+                  Capture a task with a due date of today and it will show up
+                  here with quick edit and completion controls.
                 </EmptyDescription>
               </EmptyContent>
             </Empty>

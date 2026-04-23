@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "@avenire/ui/components/button";
-import { Input } from "@avenire/ui/components/input";
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -9,20 +8,21 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@avenire/ui/components/sidebar";
-import Fuse, { type IFuseOptions } from "fuse.js";
 import {
   FilePlus as FilePlus2,
   Files,
+  MagnifyingGlass,
   PushPin as Pin,
   Trash as Trash2,
-  MagnifyingGlass,
 } from "@phosphor-icons/react";
+import Fuse, { type IFuseOptions } from "fuse.js";
 import type { Route } from "next";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import {
   type ComponentType,
+  type MouseEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -31,13 +31,15 @@ import {
 } from "react";
 import { type TreeDataItem, TreeView } from "@/components/ui/tree-view";
 import { useHaptics } from "@/hooks/use-haptics";
+import { useWorkspaceSurfaceNavigation } from "@/lib/workspace-panes";
+import { setWorkspacePaneDragData } from "@/lib/workspace-panes";
 import { cn } from "@/lib/utils";
+import { invalidateWorkspaceFolderCache } from "@/lib/workspace-folder-cache";
+import { invalidateWorkspaceMarkdownCache } from "@/lib/workspace-markdown-cache";
 import {
   readWorkspaceTreeCache,
   writeWorkspaceTreeCache,
 } from "@/lib/workspace-tree-cache";
-import { invalidateWorkspaceFolderCache } from "@/lib/workspace-folder-cache";
-import { invalidateWorkspaceMarkdownCache } from "@/lib/workspace-markdown-cache";
 import {
   type CommandPaletteFileNode,
   type CommandPaletteFolderNode,
@@ -47,7 +49,7 @@ import {
   type PinnedExplorerItem,
   useFilesPinsStore,
 } from "@/stores/filesPinsStore";
-import { filesUiActions, useFilesUiStore } from "@/stores/filesUiStore";
+import { filesUiActions } from "@/stores/filesUiStore";
 
 interface SidebarFolderNode extends CommandPaletteFolderNode {}
 
@@ -214,11 +216,11 @@ function createFilesRealtimeConnection({
 
     clearRetryTimer();
     retryTimer = setTimeout(() => {
-      connect().catch(() => undefined);
+      connect();
     }, 3000);
   };
 
-  const connect = async () => {
+  const connect = () => {
     if (closed) {
       return;
     }
@@ -261,7 +263,7 @@ function createFilesRealtimeConnection({
 
   return {
     start() {
-      connect().catch(() => undefined);
+      connect();
     },
     stop() {
       closed = true;
@@ -273,17 +275,32 @@ function createFilesRealtimeConnection({
 }
 
 function SectionButton({
+  dragHref,
   icon: Icon,
   label,
   onClick,
+  onContextMenu,
 }: {
+  dragHref?: Route;
   icon: ComponentType<{ className?: string }>;
   label: string;
-  onClick?: () => void;
+  onClick?: (event: MouseEvent<HTMLButtonElement>) => void;
+  onContextMenu?: (event: MouseEvent<HTMLButtonElement>) => void;
 }) {
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton onClick={onClick}>
+      <SidebarMenuButton
+        draggable={Boolean(dragHref)}
+        onClick={onClick}
+        onContextMenu={onContextMenu}
+        onDragStart={(event) => {
+          if (!dragHref) {
+            return;
+          }
+
+          setWorkspacePaneDragData(event.dataTransfer, dragHref);
+        }}
+      >
         <Icon className="size-4" />
         <span>{label}</span>
       </SidebarMenuButton>
@@ -299,15 +316,18 @@ export function FilesSidebarPanel({
 }: {
   currentFileId?: string;
   currentFolderId?: string;
-  navigateToFilesRoot: () => Promise<void>;
+  navigateToFilesRoot: (options?: { openInNewPane?: boolean }) => Promise<void>;
   workspaceUuid: string | null;
 }) {
-  const router = useRouter();
+  const { isMobile } = useSidebar();
+  const { navigate } = useWorkspaceSurfaceNavigation({
+    panesEnabled: !isMobile,
+  });
   const triggerHaptic = useHaptics();
   const pinnedByWorkspace = useFilesPinsStore(
     (state) => state.pinnedByWorkspace
   );
-  const [filesNameSearchQuery, setFilesNameSearchQuery] = useState("");
+  const [filesNameSearchQuery] = useState("");
   const [folderTree, setFolderTree] = useState<SidebarFolderNode[]>([]);
   const [fileTree, setFileTree] = useState<SidebarFileNode[]>([]);
   const [expandedTreePaths, setExpandedTreePaths] = useState<Set<string>>(
@@ -316,8 +336,32 @@ export function FilesSidebarPanel({
   const [sseConnected, setSseConnected] = useState(false);
   const fileTreePanelRef = useRef<HTMLDivElement | null>(null);
   const lastTreeRevealTargetRef = useRef<string | null>(null);
+  const lastAutoExpandedTargetRef = useRef<string | null>(null);
   const treeRefreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
+  );
+
+  const handlePaneIntent = useCallback(
+    (event: MouseEvent<HTMLElement>, href: Route) => {
+      if (isMobile) {
+        return false;
+      }
+
+      if (event.type === "contextmenu") {
+        event.preventDefault();
+        navigate(href, { openInNewPane: true });
+        return true;
+      }
+
+      if (event.altKey) {
+        event.preventDefault();
+        navigate(href, { openInNewPane: true });
+        return true;
+      }
+
+      return false;
+    },
+    [isMobile, navigate]
   );
   const loadedWorkspaceRef = useRef<string | null>(null);
   const prevWorkspaceUuidRef = useRef<string | null>(null);
@@ -431,7 +475,17 @@ export function FilesSidebarPanel({
     }
     if (prevWorkspaceUuidRef.current !== expandedTreeStorageKey) {
       prevWorkspaceUuidRef.current = expandedTreeStorageKey;
-      setExpandedTreePaths(new Set());
+      const storedValue = window.localStorage.getItem(expandedTreeStorageKey);
+      if (!storedValue) {
+        setExpandedTreePaths(new Set());
+        return;
+      }
+      try {
+        const parsed = JSON.parse(storedValue) as string[];
+        setExpandedTreePaths(new Set(parsed));
+      } catch {
+        setExpandedTreePaths(new Set());
+      }
     }
   }, [expandedTreeStorageKey]);
 
@@ -450,13 +504,42 @@ export function FilesSidebarPanel({
       return;
     }
 
-    const foldersById = new Map(
-      folderTree.map((folder) => [folder.id, folder])
-    );
     const nextExpanded = new Set(
       folderTree.filter((folder) => !folder.parentId).map((folder) => folder.id)
     );
 
+    setExpandedTreePaths((previous) => {
+      const merged = new Set([...previous, ...nextExpanded]);
+      if (
+        merged.size === previous.size &&
+        Array.from(previous).every((id) => merged.has(id))
+      ) {
+        return previous;
+      }
+      return merged;
+    });
+  }, [folderTree]);
+
+  useEffect(() => {
+    if (folderTree.length === 0 || !workspaceUuid) {
+      return;
+    }
+
+    const targetId = currentFileId ?? currentFolderId;
+    if (!targetId) {
+      lastAutoExpandedTargetRef.current = null;
+      return;
+    }
+
+    const targetKey = `${workspaceUuid}:${targetId}`;
+    if (lastAutoExpandedTargetRef.current === targetKey) {
+      return;
+    }
+
+    const foldersById = new Map(
+      folderTree.map((folder) => [folder.id, folder])
+    );
+    const nextExpanded = new Set<string>();
     const expandAncestors = (folderId: string) => {
       let cursor = foldersById.get(folderId);
       while (cursor) {
@@ -469,27 +552,21 @@ export function FilesSidebarPanel({
     };
 
     if (currentFolderId) {
+      if (!foldersById.has(currentFolderId)) {
+        return;
+      }
       expandAncestors(currentFolderId);
-    }
-
-    if (currentFileId) {
+    } else if (currentFileId) {
       const file = fileTree.find((entry) => entry.id === currentFileId);
-      if (file?.folderId) {
-        expandAncestors(file.folderId);
+      if (!file?.folderId) {
+        return;
       }
+      expandAncestors(file.folderId);
     }
 
-    setExpandedTreePaths((previous) => {
-      const merged = new Set([...previous, ...nextExpanded]);
-      if (
-        merged.size === previous.size &&
-        Array.from(previous).every((id) => merged.has(id))
-      ) {
-        return previous;
-      }
-      return merged;
-    });
-  }, [currentFileId, currentFolderId, fileTree, folderTree]);
+    lastAutoExpandedTargetRef.current = targetKey;
+    setExpandedTreePaths((previous) => new Set([...previous, ...nextExpanded]));
+  }, [currentFileId, currentFolderId, fileTree, folderTree, workspaceUuid]);
 
   useEffect(() => {
     const targetPath = currentFileId ?? currentFolderId;
@@ -547,20 +624,18 @@ export function FilesSidebarPanel({
     (folderId: string, routeWorkspaceUuid: string) => {
       const href =
         `/workspace/files/${routeWorkspaceUuid}/folder/${folderId}` as Route;
-      router.prefetch(href);
-      router.push(href);
+      navigate(href);
     },
-    [router]
+    [navigate]
   );
 
   const navigateToFile = useCallback(
     (fileId: string, folderId: string, routeWorkspaceUuid: string) => {
       const href =
         `/workspace/files/${routeWorkspaceUuid}/folder/${folderId}?file=${fileId}` as Route;
-      router.prefetch(href);
-      router.push(href);
+      navigate(href);
     },
-    [router]
+    [navigate]
   );
 
   const isFolderDescendant = useCallback(
@@ -901,6 +976,12 @@ export function FilesSidebarPanel({
         onClick: () => {
           navigateToFolder(folder.id, workspaceUuid);
         },
+        onContextMenu: () => {
+          navigate(
+            `/workspace/files/${workspaceUuid}/folder/${folder.id}` as Route,
+            { openInNewPane: true }
+          );
+        },
         openIcon: TreeFolderOpenIcon,
         selectedIcon: TreeFolderOpenIcon,
       };
@@ -933,6 +1014,12 @@ export function FilesSidebarPanel({
         name: file.name,
         onClick: () => {
           navigateToFile(file.id, file.folderId, workspaceUuid);
+        },
+        onContextMenu: () => {
+          navigate(
+            `/workspace/files/${workspaceUuid}/folder/${file.folderId}?file=${file.id}` as Route,
+            { openInNewPane: true }
+          );
         },
       });
     }
@@ -1013,8 +1100,26 @@ export function FilesSidebarPanel({
                 {filteredPinnedFolders.map((item) => (
                   <SidebarMenuItem key={`pinned-folder-${item.id}`}>
                     <SidebarMenuButton
-                      onClick={() => {
+                      draggable
+                      onClick={(event) => {
+                        const href =
+                          `/workspace/files/${item.workspaceId}/folder/${item.id}` as Route;
+                        if (handlePaneIntent(event, href)) {
+                          return;
+                        }
                         navigateToFolder(item.id, item.workspaceId);
+                      }}
+                      onContextMenu={(event) => {
+                        handlePaneIntent(
+                          event,
+                          `/workspace/files/${item.workspaceId}/folder/${item.id}` as Route
+                        );
+                      }}
+                      onDragStart={(event) => {
+                        setWorkspacePaneDragData(
+                          event.dataTransfer,
+                          `/workspace/files/${item.workspaceId}/folder/${item.id}` as Route
+                        );
                       }}
                     >
                       <Pin className="size-4" />
@@ -1025,14 +1130,39 @@ export function FilesSidebarPanel({
                 {filteredPinnedFiles.map((item) => (
                   <SidebarMenuItem key={`pinned-file-${item.id}`}>
                     <SidebarMenuButton
-                      onClick={() => {
+                      draggable={Boolean(item.folderId)}
+                      onClick={(event) => {
                         if (!item.folderId) {
+                          return;
+                        }
+                        const href =
+                          `/workspace/files/${item.workspaceId}/folder/${item.folderId}?file=${item.id}` as Route;
+                        if (handlePaneIntent(event, href)) {
                           return;
                         }
                         navigateToFile(
                           item.id,
                           item.folderId,
                           item.workspaceId
+                        );
+                      }}
+                      onContextMenu={(event) => {
+                        if (!item.folderId) {
+                          return;
+                        }
+                        handlePaneIntent(
+                          event,
+                          `/workspace/files/${item.workspaceId}/folder/${item.folderId}?file=${item.id}` as Route
+                        );
+                      }}
+                      onDragStart={(event) => {
+                        if (!item.folderId) {
+                          return;
+                        }
+
+                        setWorkspacePaneDragData(
+                          event.dataTransfer,
+                          `/workspace/files/${item.workspaceId}/folder/${item.folderId}?file=${item.id}` as Route
                         );
                       }}
                     >
@@ -1052,8 +1182,7 @@ export function FilesSidebarPanel({
               <TreeView
                 className="min-w-0 rounded-xl"
                 data={sidebarTreeData}
-                initialExpandedItemIds={expandedTreePathIds}
-                initialSelectedItemId={currentFileId ?? currentFolderId}
+                expandedItemIds={expandedTreePathIds}
                 onExpandedChange={(itemIds) => {
                   setExpandedTreePaths(new Set(itemIds));
                 }}
@@ -1078,20 +1207,33 @@ export function FilesSidebarPanel({
                     ).catch(() => undefined);
                   }
                 }}
-                onSelectChange={(item) => {
-                  if (!item) {
-                    return;
-                  }
-                  item.onClick?.();
-                }}
+                selectedItemId={currentFileId ?? currentFolderId}
               />
             </div>
           ) : (
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  onClick={() => {
+                  draggable
+                  onClick={(event) => {
+                    if (
+                      handlePaneIntent(
+                        event,
+                        "/workspace/files" as Route
+                      )
+                    ) {
+                      return;
+                    }
                     navigateToFilesRoot().catch(() => undefined);
+                  }}
+                  onContextMenu={(event) => {
+                    handlePaneIntent(event, "/workspace/files" as Route);
+                  }}
+                  onDragStart={(event) => {
+                    setWorkspacePaneDragData(
+                      event.dataTransfer,
+                      "/workspace/files" as Route
+                    );
                   }}
                 >
                   <Files className="size-4" />

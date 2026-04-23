@@ -2,31 +2,36 @@
 
 import { Button } from "@avenire/ui/components/button";
 import { ButtonGroup } from "@avenire/ui/components/button-group";
-import { SidebarTrigger } from "@avenire/ui/components/sidebar";
 import { cn } from "@avenire/ui/lib/utils";
 import { ArrowLeft, ArrowRight, House } from "@phosphor-icons/react";
 import type { Route } from "next";
-import { usePathname, useRouter } from "next/navigation";
-import { useHeaderStore } from "@/stores/header-store";
-import { useWorkspaceHistoryStore } from "@/stores/workspaceHistoryStore";
+import { usePanePathname, usePaneRouter } from "@/lib/workspace-panes";
+import { usePaneHeaderStore } from "@/stores/header-store";
+import {
+  usePaneWorkspaceHistoryStore,
+} from "@/stores/workspaceHistoryStore";
 
 interface WorkspaceHeaderProps {
   className?: string;
+  compact?: boolean;
   homeHref?: string;
+  paneId?: string;
 }
 
 export function WorkspaceHeader({
   className,
+  compact = false,
   homeHref = "/workspace",
+  paneId: _paneId,
 }: WorkspaceHeaderProps) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const leadingIcon = useHeaderStore((state) => state.leadingIcon);
-  const breadcrumbs = useHeaderStore((state) => state.breadcrumbs);
-  const actions = useHeaderStore((state) => state.actions);
-  const title = useHeaderStore((state) => state.title);
-  const historyEntries = useWorkspaceHistoryStore((state) => state.entries);
-  const historyIndex = useWorkspaceHistoryStore((state) => state.index);
+  const router = usePaneRouter();
+  const pathname = usePanePathname();
+  const leadingIcon = usePaneHeaderStore((state) => state.leadingIcon);
+  const breadcrumbs = usePaneHeaderStore((state) => state.breadcrumbs);
+  const actions = usePaneHeaderStore((state) => state.actions);
+  const title = usePaneHeaderStore((state) => state.title);
+  const historyEntries = usePaneWorkspaceHistoryStore((state) => state.entries);
+  const historyIndex = usePaneWorkspaceHistoryStore((state) => state.index);
 
   const backRoute =
     historyIndex > 0 ? (historyEntries[historyIndex - 1] ?? null) : null;
@@ -39,19 +44,25 @@ export function WorkspaceHeader({
   const segmentedGroupClass =
     "self-center divide-x divide-border/60 overflow-hidden rounded-md border border-border/60 bg-background shadow-sm";
   const segmentedIconButtonClass =
-    "size-8 rounded-none border-0 bg-transparent text-foreground shadow-none hover:bg-muted/70 disabled:bg-transparent sm:size-10";
+    "size-7 rounded-none border-0 bg-transparent text-foreground shadow-none hover:bg-muted/70 disabled:bg-transparent";
+  const shouldUseCompactDesktop = compact;
 
   return (
     <>
       {/* Desktop header — solid, sticky */}
       <header
         className={cn(
-          "sticky top-0 z-30 hidden shrink-0 border-border/40 border-b bg-background/80 backdrop-blur-xl sm:block",
+          "w-full sticky top-0 z-30 hidden shrink-0 border-border/40 border-b bg-background/80 backdrop-blur-xl sm:block",
           className
         )}
       >
-        <div className="flex min-h-14 shrink-0 flex-row items-center gap-1.5 px-4">
-          <div className="flex min-w-0 flex-1 items-center gap-1.5">
+        <div
+          className={cn(
+            "w-full flex shrink-0 flex-row items-center px-3",
+            shouldUseCompactDesktop ? "min-h-10 gap-1.5" : "min-h-11 gap-1"
+          )}
+        >
+          <div className="flex min-w-0 flex-1 items-center gap-1">
             <ButtonGroup className={segmentedGroupClass}>
               <Button
                 aria-label="Go back"
@@ -69,6 +80,19 @@ export function WorkspaceHeader({
                 <ArrowLeft className="size-3.5" />
               </Button>
               <Button
+                aria-label="Go home"
+                className={segmentedIconButtonClass}
+                disabled={isHome}
+                onClick={() => {
+                  router.push(homeHref as Route);
+                }}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <House className="size-3.5" />
+              </Button>
+              <Button
                 aria-label="Go forward"
                 className={segmentedIconButtonClass}
                 disabled={!forwardRoute}
@@ -83,26 +107,12 @@ export function WorkspaceHeader({
               >
                 <ArrowRight className="size-3.5" />
               </Button>
-              <Button
-                aria-label="Go home"
-                className={segmentedIconButtonClass}
-                disabled={isHome}
-                onClick={() => {
-                  router.push(homeHref as Route);
-                }}
-                size="icon"
-                type="button"
-                variant="ghost"
-              >
-                <House className="size-3.5" />
-              </Button>
             </ButtonGroup>
-            <SidebarTrigger className="self-center size-10 rounded-md border border-border/60 bg-background text-muted-foreground shadow-sm hover:bg-muted/70" />
-            <div className="hidden min-w-0 flex-1 items-center gap-1.5 sm:flex">
-              <div className="hidden size-6 shrink-0 items-center justify-center text-muted-foreground sm:flex">
+            <div className="hidden min-w-0 flex-1 items-center gap-1 sm:flex">
+              <div className="hidden size-5 shrink-0 items-center justify-center text-muted-foreground sm:flex">
                 {leadingIcon ?? (
                   <div
-                    className="flex size-6 shrink-0 items-center justify-center text-muted-foreground empty:hidden"
+                    className="flex size-5 shrink-0 items-center justify-center text-muted-foreground empty:hidden"
                     id="workspace-header-leading-icon"
                   />
                 )}
@@ -111,7 +121,14 @@ export function WorkspaceHeader({
                 {breadcrumbs ?? (
                   <div className="min-w-0 flex-1" id="workspace-header-breadcrumbs">
                     {title ? (
-                      <h1 className="truncate font-medium text-sm text-foreground">
+                      <h1
+                        className={cn(
+                          "truncate font-medium text-foreground",
+                          shouldUseCompactDesktop
+                            ? "text-xs leading-4"
+                            : "text-[13px] leading-5"
+                        )}
+                      >
                         {title}
                       </h1>
                     ) : null}
@@ -120,7 +137,7 @@ export function WorkspaceHeader({
               </div>
             </div>
           </div>
-          <div className="hidden min-w-0 justify-end overflow-x-auto no-scrollbar sm:flex sm:w-auto">
+          <div className="hidden min-w-0 items-center justify-end gap-1 overflow-x-auto no-scrollbar sm:flex sm:w-auto">
             {actions}
           </div>
         </div>
@@ -144,14 +161,12 @@ export function WorkspaceHeader({
         />
 
         {/* Content */}
-        <div className="relative flex h-12 items-center gap-2 px-3">
-          <SidebarTrigger className="size-8 shrink-0 rounded-md border border-white/10 bg-white/5 text-muted-foreground shadow-none hover:bg-white/10 hover:text-foreground" />
-
+        <div className="relative flex h-10 items-center gap-1.5 px-3">
           <div className="min-w-0 flex-1 overflow-hidden text-center">
             {breadcrumbs ?? (
               <div id="workspace-header-breadcrumbs">
                 {title ? (
-                  <h1 className="truncate font-medium text-sm text-foreground">
+                  <h1 className="truncate font-medium text-[13px] leading-5 text-foreground">
                     {title}
                   </h1>
                 ) : (
@@ -168,7 +183,7 @@ export function WorkspaceHeader({
       </header>
 
       {/* Mobile header spacer so content doesn't hide behind fixed header */}
-      <div className="h-12 shrink-0 sm:hidden" />
+      <div className="h-10 shrink-0 sm:hidden" />
     </>
   );
 }

@@ -2,10 +2,10 @@
 
 import { useEffect } from "react";
 import type { ReactNode } from "react";
-import { useHeaderStore } from "@/stores/header-store";
+import { usePaneHeaderActions } from "@/stores/header-store";
 
 export function HeaderActions({ children }: { children: ReactNode }) {
-  const setActions = useHeaderStore((state) => state.setActions);
+  const { setActions } = usePaneHeaderActions();
   useEffect(() => {
     setActions(children);
     return () => {
@@ -16,7 +16,7 @@ export function HeaderActions({ children }: { children: ReactNode }) {
 }
 
 export function HeaderBreadcrumbs({ children }: { children: ReactNode }) {
-  const setBreadcrumbs = useHeaderStore((state) => state.setBreadcrumbs);
+  const { setBreadcrumbs } = usePaneHeaderActions();
   useEffect(() => {
     setBreadcrumbs(children);
     return () => {
@@ -27,7 +27,7 @@ export function HeaderBreadcrumbs({ children }: { children: ReactNode }) {
 }
 
 export function HeaderLeadingIcon({ children }: { children: ReactNode }) {
-  const setLeadingIcon = useHeaderStore((state) => state.setLeadingIcon);
+  const { setLeadingIcon } = usePaneHeaderActions();
   useEffect(() => {
     setLeadingIcon(children);
     return () => {

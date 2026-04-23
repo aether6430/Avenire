@@ -1,12 +1,12 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useSearchParams } from "next/navigation";
 import { DashboardHome } from "@/components/dashboard/dashboard-home";
 import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
 import type { ConceptDrillTarget, ConceptMasteryRecord, FlashcardSetSummary } from "@/lib/flashcards";
 import type { MisconceptionRecord } from "@/lib/learning-data";
+import { usePaneSearchParams } from "@/lib/workspace-panes";
 
 interface WorkspaceOverviewPayload {
   activeMisconceptions: MisconceptionRecord[];
@@ -34,7 +34,7 @@ async function loadWorkspaceOverview(subject?: string | null, signal?: AbortSign
 }
 
 export function WorkspaceOverviewPageClient() {
-  const searchParams = useSearchParams();
+  const searchParams = usePaneSearchParams();
   const { status, user, workspace } = useWorkspaceBootstrap();
   const requestedSubject = searchParams.get("subject");
   const overviewQuery = useQuery({

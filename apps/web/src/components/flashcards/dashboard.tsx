@@ -27,7 +27,6 @@ import { cn } from "@avenire/ui/lib/utils";
 import { BookOpenText as BookOpenCheck, Plus } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "motion/react";
 import type { Route } from "next";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import {
   HeaderActions,
@@ -35,9 +34,10 @@ import {
   HeaderLeadingIcon,
 } from "@/components/dashboard/header-portal";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { usePanePathname, usePaneRouter, usePaneSearchParams } from "@/lib/workspace-panes";
 import { prefetchFlashcardSet } from "@/lib/flashcard-browser-cache";
 import type { FlashcardDashboardRecord } from "@/lib/flashcards";
-import { useWorkspaceHistoryStore } from "@/stores/workspaceHistoryStore";
+import { usePaneWorkspaceHistoryActions } from "@/stores/workspaceHistoryStore";
 
 interface FlashcardGenerationRequest {
   concept: string;
@@ -97,11 +97,11 @@ export function FlashcardsDashboard({
   generationRequest: FlashcardGenerationRequest | null;
   initialDashboard: FlashcardDashboardRecord;
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const router = usePaneRouter();
+  const pathname = usePanePathname();
+  const searchParams = usePaneSearchParams();
   const isMobile = useIsMobile();
-  const recordRoute = useWorkspaceHistoryStore((state) => state.recordRoute);
+  const { recordRoute } = usePaneWorkspaceHistoryActions();
   const [dashboard] = useState(initialDashboard);
   const [createOpen, setCreateOpen] = useState(false);
   const [title, setTitle] = useState("");

@@ -4,9 +4,9 @@ import { Button } from "@avenire/ui/components/button";
 import { Spinner } from "@avenire/ui/components/spinner";
 import { ListChecks, Plus } from "@phosphor-icons/react";
 import type { Route } from "next";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { startTransition, useDeferredValue, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { HeaderActions, HeaderBreadcrumbs, HeaderLeadingIcon } from "@/components/dashboard/header-portal";
+import { usePanePathname, usePaneRouter, usePaneSearchParams } from "@/lib/workspace-panes";
 import { TaskFilters } from "@/components/tasks/task-filters";
 import { TaskKanbanPane } from "@/components/tasks/task-kanban-pane";
 import { TaskListPane } from "@/components/tasks/task-list-pane";
@@ -35,7 +35,7 @@ import {
   subscribeToTaskStore,
   upsertWorkspaceTask,
 } from "@/lib/task-client-store";
-import { useWorkspaceHistoryStore } from "@/stores/workspaceHistoryStore";
+import { usePaneWorkspaceHistoryActions } from "@/stores/workspaceHistoryStore";
 
 function buildTaskPayload(draft: TaskEditorDraft) {
   return {
@@ -122,10 +122,10 @@ export function TasksWorkspace({
   currentUserName?: string;
   workspaceId: string;
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const recordRoute = useWorkspaceHistoryStore((state) => state.recordRoute);
+  const router = usePaneRouter();
+  const pathname = usePanePathname();
+  const searchParams = usePaneSearchParams();
+  const { recordRoute } = usePaneWorkspaceHistoryActions();
   const { loading, tasks: allTasks } = useSyncExternalStore(
     subscribeToTaskStore,
     getTaskStoreSnapshot,
@@ -350,10 +350,18 @@ export function TasksWorkspace({
 
       const savedTask = payload.task;
       upsertWorkspaceTask(workspaceId, savedTask);
-      setSelectedTaskId(savedTask.id);
-      setMode("edit");
-      setDraft(createTaskDraft(currentUserId, savedTask));
-      syncTaskParam(savedTask.id);
+      if (mode === "create") {
+        setSelectedTaskId(null);
+        setMode("idle");
+        setDraft(null);
+        setSheetOpen(false);
+        syncTaskParam(null);
+      } else {
+        setSelectedTaskId(savedTask.id);
+        setMode("edit");
+        setDraft(createTaskDraft(currentUserId, savedTask));
+        syncTaskParam(savedTask.id);
+      }
       void reloadWorkspaceTasks(workspaceId, { background: true });
     } catch (error) {
       setWorkspaceTaskError(

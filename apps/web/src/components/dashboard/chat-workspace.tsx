@@ -20,11 +20,10 @@ import { Input } from "@avenire/ui/components/input";
 import { Label } from "@avenire/ui/components/label";
 import { ChatText as MessageSquareText, LinkSimple as Link2, ShareNetwork as Share2 } from "@phosphor-icons/react";
 import { motion } from "motion/react";
-import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Chat } from "@/components/chat/chat";
 import { ChatIcon } from "@/components/chat/chat-icon";
-import { ThinkingGlyph } from "@/components/chat/thinking-indicator";
+import { ChatSpinnerGlyph } from "@/components/chat/spinner";
 import {
   HeaderActions,
   HeaderBreadcrumbs,
@@ -39,9 +38,10 @@ import {
   type ChatStreamStatusDetail,
 } from "@/lib/chat-events";
 import { isChatIconName } from "@/lib/chat-icons";
+import { usePanePathname } from "@/lib/workspace-panes";
 import { chatMessageHandoffActions } from "@/stores/chat-message-handoff-store";
 import { useChatMessageHandoffStore } from "@/stores/chat-message-handoff-store";
-import { useWorkspaceHistoryStore } from "@/stores/workspaceHistoryStore";
+import { usePaneWorkspaceHistoryActions } from "@/stores/workspaceHistoryStore";
 import type { ShareSuggestion } from "@/types/share";
 import { useQuery } from "@tanstack/react-query"
 
@@ -94,8 +94,8 @@ export function ChatWorkspace({
   workspaceUuid,
   userName,
 }: ChatWorkspaceProps) {
-  const pathname = usePathname();
-  const recordRoute = useWorkspaceHistoryStore((state) => state.recordRoute);
+  const pathname = usePanePathname();
+  const { recordRoute } = usePaneWorkspaceHistoryActions();
   const [activeChatSlug, setActiveChatSlug] = useState(chatSlug);
   const [shareEmail, setShareEmail] = useState("");
   const [shareLink, setShareLink] = useState<string | null>(null);
@@ -181,7 +181,7 @@ export function ChatWorkspace({
     <MessageSquareText className="hidden size-3.5 text-muted-foreground sm:inline-flex" />
   );
   if (isPending) {
-    headerIcon = <ThinkingGlyph className="size-3.5" />;
+    headerIcon = <ChatSpinnerGlyph className="size-3.5" />;
   } else if (isChatIconName(icon)) {
     headerIcon = (
       <ChatIcon
@@ -201,9 +201,6 @@ export function ChatWorkspace({
     recordRoute(currentRoute);
   }, [currentRoute, recordRoute]);
 
-  useEffect(() => {
-    document.title = `${title} — Avenire`;
-  }, [title]);
 
   useEffect(() => {
     const onChatNameUpdated = (event: Event) => {

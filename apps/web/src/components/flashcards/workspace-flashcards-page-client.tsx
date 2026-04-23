@@ -2,11 +2,11 @@
 
 import type { FlashcardDashboardRecord } from "@/lib/flashcards";
 import { useQuery } from "@tanstack/react-query";
-import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
 import { FlashcardsDashboard } from "@/components/flashcards/dashboard";
 import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
+import { usePaneRouter, usePaneSearchParams } from "@/lib/workspace-panes";
 
 interface FlashcardsDashboardPayload {
   dashboard: FlashcardDashboardRecord;
@@ -39,8 +39,8 @@ async function loadFlashcardsDashboard(signal?: AbortSignal) {
 }
 
 export function WorkspaceFlashcardsPageClient() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+  const router = usePaneRouter();
+  const searchParams = usePaneSearchParams();
   const { status, user, workspace } = useWorkspaceBootstrap();
   const dashboardQuery = useQuery({
     enabled: status === "ready" && Boolean(user?.id && workspace?.workspaceId),

@@ -7,7 +7,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { Suspense, useEffect, useState } from "react";
 import { DashboardSidebar } from "@/components/dashboard/app-sidebar";
-import { WorkspaceHeader } from "@/components/dashboard/workspace-header";
+import { WorkspacePaneRenderer } from "@/components/dashboard/workspace-pane-renderer";
 import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
 import { useDashboardUiStore } from "@/stores/dashboardUiStore";
 
@@ -89,7 +89,7 @@ export function DashboardLayout({
   activeChatSlug,
   activeWorkspace,
   initialWorkspaces,
-  children,
+  children: _children,
 }: DashboardLayoutProps) {
   const [deferredReady, setDeferredReady] = useState(false);
   const pathname = usePathname();
@@ -214,8 +214,9 @@ export function DashboardLayout({
         />
       ) : null}
       <SidebarInset className="relative min-h-0 overflow-hidden bg-background md:peer-data-[variant=inset]:mb-0">
-        <WorkspaceHeader />
-        <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <WorkspacePaneRenderer />
+        </div>
         {deferredReady ? (
           <>
             <DeferredQuickCaptureHost

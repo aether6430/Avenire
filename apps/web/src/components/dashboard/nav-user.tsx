@@ -75,7 +75,7 @@ export function NavUser({
     email: "signed-out@local",
     name: "Account",
   };
-  const { closeMobileSidebar, isMobile } = useSidebar();
+  const { isMobile, setOpenMobile } = useSidebar();
   const triggerHaptic = useHaptics();
   const fallbackAvatar = useMemo(
     () => getFacehashUrl(resolvedUser.name || resolvedUser.email),
@@ -98,7 +98,7 @@ export function NavUser({
     }
 
     setSigningOut(true);
-    closeMobileSidebar();
+    setOpenMobile(false);
     try {
       await signOut();
     } catch (error) {

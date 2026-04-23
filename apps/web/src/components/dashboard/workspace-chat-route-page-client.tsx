@@ -2,11 +2,11 @@
 
 import type { UIMessage } from "@avenire/ai/message-types";
 import { useQuery } from "@tanstack/react-query";
-import { useParams, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { ChatWorkspace } from "@/components/dashboard/chat-workspace";
 import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
+import { usePanePathname, usePaneRouter } from "@/lib/workspace-panes";
 
 interface ChatRoutePayload {
   chat?: {
@@ -35,11 +35,11 @@ async function loadChatRoute(slug: string, signal?: AbortSignal) {
   return (await response.json()) as ChatRoutePayload;
 }
 
-export function WorkspaceChatRoutePageClient() {
-  const params = useParams<{ slug: string }>();
-  const router = useRouter();
+export function WorkspaceChatRoutePageClient({ slug: slugProp }: { slug?: string }) {
+  const pathname = usePanePathname();
+  const router = usePaneRouter();
   const { status, user, workspace } = useWorkspaceBootstrap();
-  const slug = typeof params.slug === "string" ? params.slug : "new";
+  const slug = slugProp ?? pathname.match(/^\/workspace\/chats\/([^/?#]+)/)?.[1] ?? "new";
   const chatQuery = useQuery({
     enabled:
       status === "ready" && Boolean(user?.id && workspace?.workspaceId) && slug !== "new",
