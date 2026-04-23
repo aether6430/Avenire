@@ -22,15 +22,18 @@
     "bun": ">=1.0.0"
   },
   "pnpm": {
+    "patchedDependencies": {
+      "@anaralabs/lector@3.8.0": "patches/@anaralabs__lector@3.8.0.patch"
+    },
     "overrides": {
       "@hono/node-server": "1.19.12",
       "axios": "1.13.6",
       "effect": "3.20.0",
       "hono": "4.12.9",
       "picomatch": "4.0.4"
-    },
-    "patchedDependencies": {
-      "@anaralabs/lector@3.8.0": "patches/@anaralabs__lector@3.8.0.patch"
     }
+  },
+  "dependencies": {
+    "vercel": "^51.7.0"
   }
 }

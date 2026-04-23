@@ -1,5 +1,3 @@
 packages:
   - "apps/*"
   - "packages/*"
-patchedDependencies:
-  '@anaralabs/lector@3.8.0': patches/@anaralabs__lector@3.8.0.patch

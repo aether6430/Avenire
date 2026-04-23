@@ -21,3 +21,6 @@ drizzle/
 !packages/database/drizzle/**
 
 context
+
+.vercel
+.env*.local
