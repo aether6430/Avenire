@@ -102,28 +102,41 @@ async function readMarkdownEntries() {
 
   const entries: SkillEntry[] = [];
 
-  for (const section of sections) {
-    const sectionDir = path.join(SECTIONS_DIR, section);
-    const fileEntries = (await readdir(sectionDir, { withFileTypes: true }))
-      .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
-      .sort((left, right) => left.name.localeCompare(right.name));
+  async function walkMarkdownFiles(section: SkillSection, dir: string) {
+    const dirEntries = (await readdir(dir, { withFileTypes: true })).sort(
+      (left, right) => left.name.localeCompare(right.name)
+    );
 
-    for (const fileEntry of fileEntries) {
-      const filePath = path.join(sectionDir, fileEntry.name);
-      const raw = await readFile(filePath, "utf8");
+    for (const entry of dirEntries) {
+      const entryPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walkMarkdownFiles(section, entryPath);
+        continue;
+      }
+
+      if (!entry.isFile() || !entry.name.endsWith(".md")) {
+        continue;
+      }
+
+      const raw = await readFile(entryPath, "utf8");
       const parsed = parseFrontmatter(raw);
-      const fallbackId = toKebabCase(fileEntry.name);
+      const fallbackId = toKebabCase(entry.name);
       const id = parsed.attributes.name?.trim() || fallbackId;
 
       entries.push({
         content: raw,
         description: parsed.attributes.description?.trim() ?? null,
         id,
-        path: toPosixPath(path.relative(ROOT_DIR, filePath)),
+        path: toPosixPath(path.relative(ROOT_DIR, entryPath)),
         section,
         title: extractTitle(parsed.body, id),
       });
     }
+  }
+
+  for (const section of sections) {
+    const sectionDir = path.join(SECTIONS_DIR, section);
+    await walkMarkdownFiles(section, sectionDir);
   }
 
   return entries;

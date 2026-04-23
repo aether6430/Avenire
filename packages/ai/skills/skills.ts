@@ -256,6 +256,33 @@ Use \`show_widget\` with raw SVG. Same technical rules (viewBox, safe area) but 
 - If you include a raw SVG few-shot example here, prepend the mandatory \`<!-- PLAN ... -->\` block first.
 `,
   },
+  "auto-llm-example": {
+    id: "auto-llm-example",
+    title: "Autonomous LLM Research Agent Flow",
+    description: "Reference example showing an autonomous LLM research agent flowchart.",
+    section: "study-guidelines",
+    path: "sections/study-guidelines/examples/auto-llm.md",
+    content: `---
+name: auto-llm-example
+description: Reference example showing an autonomous LLM research agent flowchart.
+---
+
+# Autonomous LLM Research Agent Flow
+
+A multi-section flowchart showing Karpathy's autoresearch framework: human-agent handoff, the autonomous experiment loop with keep/discard decision branching, and the modifiable training pipeline.
+
+## Reference Patterns
+
+- Three-section layout
+- Neutral dashed containers for loops and pipelines
+- Decision branching with convergence
+- Loop-back arrow for repetition
+- Semantic color for outcomes
+- Highlighted training step
+- Horizontal pipeline flow
+
+`,
+  },
   "chart": {
     id: "chart",
     title: "Chart",
@@ -2279,6 +2306,32 @@ Note what's *not* here: no boxes labelled "multi-head attention", no arrows labe
 These are starting points, not ceilings. For the water heater: add a thermostat slider, animate the convection current, toggle heating vs standby. For the attention diagram: let the user click any token to become the query, scrub through layers, animate the weights settling. The goal is always to *show* how the thing works, not just *label* it.
 `,
   },
+  "electricity-grid-flow-example": {
+    id: "electricity-grid-flow-example",
+    title: "Electricity Grid: Generation to Consumption",
+    description: "Reference example showing power generation to consumption flow layout.",
+    section: "study-guidelines",
+    path: "sections/study-guidelines/examples/electricity-grid-flow.md",
+    content: `---
+name: electricity-grid-flow-example
+description: Reference example showing power generation to consumption flow layout.
+---
+
+# Electricity Grid: Generation to Consumption
+
+A left-to-right flow diagram showing electricity from generation sources through transmission and distribution networks to end consumers.
+
+## Reference Patterns
+
+- Multi-stage horizontal flow
+- Stage dividers
+- Voltage level hierarchy
+- Smart grid data overlay
+- Capacity labels
+- Multiple source convergence
+
+`,
+  },
   "flashcard-creator": {
     id: "flashcard-creator",
     title: "Flashcard Creator",
@@ -3837,6 +3890,57 @@ C) [Explanation why correct and why others are wrong]
 - [ ] Formulas and equations are rendered inline with \`$...$\` or display with \`$$...$$\`, never fenced as \`\`\`latex
 `,
   },
+  "smartphone-layer-anatomy-example": {
+    id: "smartphone-layer-anatomy-example",
+    title: "Smartphone Layer Anatomy",
+    description: "Reference example showing a layered structural diagram.",
+    section: "study-guidelines",
+    path: "sections/study-guidelines/examples/smartphone-layer-anatomy.md",
+    content: `---
+name: smartphone-layer-anatomy-example
+description: Reference example showing a layered structural diagram.
+---
+
+# Smartphone Layer Anatomy
+
+A structural example for showing layered device anatomy, internal modules, and how those layers relate to external inputs and outputs.
+
+## Reference Patterns
+
+- Nested structural containers
+- Layered internal regions
+- Boundary labels
+- Input/output arrows
+- Compact hierarchy
+
+`,
+  },
+  "sn2-reaction-mechanism-example": {
+    id: "sn2-reaction-mechanism-example",
+    title: "SN2 Reaction Mechanism",
+    description: "Reference example showing an SN2 chemistry mechanism diagram.",
+    section: "study-guidelines",
+    path: "sections/study-guidelines/examples/sn2-reaction-mechanism.md",
+    content: `---
+name: sn2-reaction-mechanism-example
+description: Reference example showing an SN2 chemistry mechanism diagram.
+---
+
+# SN2 Reaction Mechanism
+
+A chemistry diagram showing the bimolecular nucleophilic substitution mechanism between hydroxide ion and methyl bromide.
+
+## Reference Patterns
+
+- Molecular structures
+- Electron movement arrows
+- Transition state notation
+- Stereochemistry notation
+- Energy profile diagram
+- Annotation boxes
+
+`,
+  },
   "study-notes-creator": {
     id: "study-notes-creator",
     title: "Study Notes Creator",
@@ -4543,7 +4647,7 @@ Pick the closest use case below and adapt. When nothing fits cleanly:
 
 export type SkillId = keyof typeof SKILL_MAP;
 
-export const AVAILABLE_STUDY_SKILLS = ["concept-explainer","flashcard-creator","quiz-creator","study-notes-creator","summary-generator"] as const;
+export const AVAILABLE_STUDY_SKILLS = ["auto-llm-example","concept-explainer","electricity-grid-flow-example","flashcard-creator","quiz-creator","smartphone-layer-anatomy-example","sn2-reaction-mechanism-example","study-notes-creator","summary-generator"] as const;
 
 export const AVAILABLE_VISUAL_SKILLS = ["art","chart","diagram","interactive","mockup","physics"] as const;
 
