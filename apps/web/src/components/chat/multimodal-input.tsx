@@ -270,8 +270,8 @@ function PureMultimodalInput({
     workspaceUuid;
 
   const { startUpload } = useUploadThing("chatAttachmentUploader", {
-    onUploadError: () => {
-      toast.error(ERROR_MESSAGES.UPLOAD_ERROR);
+    onUploadError: (error) => {
+      toast.error(getUploadErrorMessage(error));
     },
   });
 

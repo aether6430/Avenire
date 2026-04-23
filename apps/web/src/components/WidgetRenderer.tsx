@@ -431,6 +431,20 @@ window.openLink = function(url) {
 /* ── Morphdom render pipeline ── */
 window._morphReady = false;
 window._pending = null;
+window._waitForLayout = async function() {
+  if (document.fonts && document.fonts.ready) {
+    try {
+      await document.fonts.ready;
+    } catch (error) {
+      // Ignore font loading failures; layout still needs to continue.
+    }
+  }
+  await new Promise(function(resolve) {
+    window.requestAnimationFrame(function() {
+      window.requestAnimationFrame(resolve);
+    });
+  });
+};
 window._setContent = function(html, runScripts) {
   if (!window._morphReady) {
     window._pending = { html: html, runScripts: !!runScripts };
@@ -454,40 +468,43 @@ window._setContent = function(html, runScripts) {
   });
   if (runScripts) {
     window._runScripts();
+  } else {
+    reportHeight();
   }
 };
-window._runScripts = function() {
+window._runScripts = async function() {
+  await window._waitForLayout();
   var scripts = Array.prototype.slice.call(document.querySelectorAll('#root script'));
-  return (async function() {
-    for (var i = 0; i < scripts.length; i += 1) {
-      var old = scripts[i];
-      var s = document.createElement('script');
-      Array.from(old.attributes || []).forEach(function(attr) {
-        s.setAttribute(attr.name, attr.value);
-      });
-      if (!old.hasAttribute('async') && !old.hasAttribute('defer') && old.type !== 'module') {
-        s.async = false;
-      }
-      var parent = old.parentNode;
-      if (!parent) continue;
-      parent.replaceChild(s, old);
-
-      if (s.src) {
-        await new Promise(function(resolve) {
-          s.addEventListener('load', resolve, { once: true });
-          s.addEventListener('error', resolve, { once: true });
-        });
-      } else {
-        s.textContent = old.textContent;
-      }
+  for (var i = 0; i < scripts.length; i += 1) {
+    var old = scripts[i];
+    var s = document.createElement('script');
+    Array.from(old.attributes || []).forEach(function(attr) {
+      s.setAttribute(attr.name, attr.value);
+    });
+    if (!old.hasAttribute('async') && !old.hasAttribute('defer') && old.type !== 'module') {
+      s.async = false;
     }
-  })();
+    var parent = old.parentNode;
+    if (!parent) continue;
+    parent.replaceChild(s, old);
+
+    if (s.src) {
+      await new Promise(function(resolve) {
+        s.addEventListener('load', resolve, { once: true });
+        s.addEventListener('error', resolve, { once: true });
+      });
+    } else {
+      s.textContent = old.textContent;
+    }
+  }
+  reportHeight();
 };
 window._applyCssVars = function(cssText) {
   var style = document.getElementById('avenire-css-vars');
   if (style) style.textContent = cssText;
   window.avenireTheme = window._readTheme();
   window.dispatchEvent(new Event('avenire:themechange'));
+  reportHeight();
 };
 
 window._readTheme = function() {
@@ -524,13 +541,19 @@ window.addEventListener('message', function(event) {
 
 /* ── Auto-resize: tell parent our scroll height ── */
 function reportHeight() {
-  const h = document.documentElement.scrollHeight;
+  const root = document.getElementById('root');
+  if (!root) return;
+  const bodyStyle = getComputedStyle(document.body);
+  const paddingY =
+    parseFloat(bodyStyle.paddingTop || '0') + parseFloat(bodyStyle.paddingBottom || '0');
+  const h = Math.ceil(root.scrollHeight + paddingY);
   window.parent.postMessage({ type: 'avenire:resize', height: h }, '*');
 }
 
 const ro = new ResizeObserver(reportHeight);
-ro.observe(document.body);
+ro.observe(document.getElementById('root') || document.body);
 reportHeight();
+window.addEventListener('resize', reportHeight);
 
 /* ── Intercept <a> clicks ── */
 document.addEventListener('click', function(e) {
@@ -647,7 +670,7 @@ export function WidgetRenderer({
   return (
     <div
       ref={containerRef}
-      className={`relative w-full overflow-visible rounded-lg border border-border bg-card ${className}`}
+      className={`relative w-full overflow-visible rounded-lg bg-card ${className}`}
     >
       {isStreaming && (
         <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden rounded-lg bg-background/5 backdrop-blur-[0.5px]">

@@ -48,7 +48,6 @@ import {
 } from "@phosphor-icons/react";
 import dynamic from "next/dynamic";
 import Image, { type ImageLoader } from "next/image";
-import { useSearchParams } from "next/navigation";
 import {
   type ChangeEvent,
   useCallback,
@@ -98,8 +97,9 @@ import {
   writeWorkspaceMarkdownCache,
 } from "@/lib/workspace-markdown-cache";
 import { getMarkdownDisplayTitle } from "@/lib/markdown-title";
+import { usePaneSearchParams } from "@/lib/workspace-panes";
 import { cn } from "@/lib/utils";
-import { useHeaderStore } from "@/stores/header-store";
+import { usePaneHeaderActions } from "@/stores/header-store";
 import { useUserStore } from "@/stores/userStore";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -223,7 +223,7 @@ interface FilePreviewPanelProps {
   setPropertyDefinitions: (definitions: WorkspacePropertyDefinition[]) => void;
   startBannerUpload: (files: File[], input?: unknown) => Promise<unknown>;
   toggleCurrentPinnedItem: () => void;
-  wikiMarkdownFiles: Array<{
+  wikiLinkableFiles: Array<{
     id: string;
     title: string;
     excerpt: string;
@@ -252,7 +252,7 @@ export function FilePreviewPanel({
   toggleCurrentPinnedItem,
   isCurrentPinned,
   currentInfoEntries,
-  wikiMarkdownFiles,
+  wikiLinkableFiles,
   startBannerUpload,
   loadShareSuggestions,
   propertyDefinitions,
@@ -294,7 +294,7 @@ export function FilePreviewPanel({
   const noteSyncDebounceRef = useRef<number | null>(null);
   const noteSyncInFlightRef = useRef(false);
   const noteSyncQueuedRef = useRef(false);
-  const searchParams = useSearchParams();
+  const searchParams = usePaneSearchParams();
   const isMobile = useIsMobile();
   const currentUser = useUserStore((state) => state.user);
   const circleToAiParam = searchParams.get("circleToAi");
@@ -323,7 +323,6 @@ export function FilePreviewPanel({
       noteDisplayTitle,
     [markdownDraft, noteDisplayTitle]
   );
-  const previewMarkdownTitle = markdownDisplayTitle;
   const cachedMarkdown = useMemo(
     () =>
       workspaceUuid && activeFileIsMarkdown
@@ -835,10 +834,7 @@ export function FilePreviewPanel({
         activeFile.mimeType
       );
 
-  const setHeaderContext = useHeaderStore((state) => state.setHeaderContext);
-  const resetHeaderContext = useHeaderStore(
-    (state) => state.resetHeaderContext
-  );
+  const { resetHeaderContext, setHeaderContext } = usePaneHeaderActions();
   useEffect(() => {
     if (circleToAiParam === "1") {
       const { isPdf, isImage, isVideo } = detectPreviewKind(activeFile);
@@ -1404,12 +1400,6 @@ export function FilePreviewPanel({
                                         </TabsTrigger>
                                         <TabsTrigger
                                           className="rounded-none px-2.5 text-xs data-active:border-b-border data-active:border-b"
-                                          value="upload"
-                                        >
-                                          Upload
-                                        </TabsTrigger>
-                                        <TabsTrigger
-                                          className="rounded-none px-2.5 text-xs data-active:border-b-border data-active:border-b"
                                           value="link"
                                         >
                                           Link
@@ -1580,11 +1570,6 @@ export function FilePreviewPanel({
                     </div>
                   </div>
                 ) : null}
-                <div className="mx-auto flex w-full max-w-[820px] flex-col gap-4 px-4 py-4 sm:px-8">
-                  <h1 className="truncate font-semibold text-4xl tracking-[-0.04em] text-foreground sm:text-5xl">
-                    {previewMarkdownTitle}
-                  </h1>
-                </div>
                 <AvenireEditor
                   createdBy={
                     currentUser?.name?.trim() ||
@@ -1603,7 +1588,7 @@ export function FilePreviewPanel({
                   }}
                   saveState={activeFileIsMarkdown ? noteSaveState : undefined}
                   scrollContainerRef={filePreviewScrollRef}
-                  wikiPages={wikiMarkdownFiles}
+                  wikiPages={wikiLinkableFiles}
                   workspaceUuid={workspaceUuid}
                 />
               </div>

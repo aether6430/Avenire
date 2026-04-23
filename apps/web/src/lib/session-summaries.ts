@@ -2,6 +2,7 @@ import { generateText, Output } from "@avenire/ai";
 import type { UIMessage } from "@avenire/ai/message-types";
 import { apollo } from "@avenire/ai/models";
 import {
+  canonicalizeLearningTaxonomy,
   createSessionSummary,
   listSessionSummariesForUser,
   recomputeConceptMastery,
@@ -10,7 +11,7 @@ import {
 } from "@avenire/database";
 import { logInfo } from "@avenire/observability";
 import { z } from "zod";
-import { normalizeSubjectLabel } from "@/lib/subject-detection";
+import { inferTopicLabel, normalizeSubjectLabel } from "@/lib/subject-detection";
 
 const DEFAULT_SESSION_INACTIVITY_WINDOW_MS = 30 * 60 * 1000;
 // Keep the session-summary pass cheap; this is the truncation/summarization step,
@@ -76,26 +77,48 @@ function normalizeBoundedText(value: string, maxLength: number) {
 }
 
 function normalizeMisconceptionCandidate(
-  candidate: z.infer<typeof misconceptionCandidateSchema>
+  candidate: z.infer<typeof misconceptionCandidateSchema>,
+  context?: {
+    sessionSubject?: string | null;
+    transcript?: string;
+  }
 ) {
+  const boundedConcept = normalizeBoundedText(
+    candidate.concept,
+    MAX_MISCONCEPTION_CONCEPT_LENGTH
+  );
+  const boundedReason = normalizeBoundedText(
+    candidate.reason,
+    MAX_MISCONCEPTION_REASON_LENGTH
+  );
+  const boundedSubject = normalizeBoundedText(
+    candidate.subject,
+    MAX_MISCONCEPTION_SUBJECT_LENGTH
+  );
+  const boundedTopic = normalizeBoundedText(
+    candidate.topic,
+    MAX_MISCONCEPTION_TOPIC_LENGTH
+  );
+  const sessionSubject = normalizeSubjectLabel(context?.sessionSubject ?? null);
+  const inferredTopic = sessionSubject
+    ? inferTopicLabel(
+        [boundedConcept, boundedReason, context?.transcript ?? ""].join("\n"),
+        sessionSubject
+      )
+    : null;
+  const canonical = canonicalizeLearningTaxonomy({
+    concept: boundedConcept,
+    subject: sessionSubject ?? boundedSubject,
+    text: [boundedConcept, boundedReason, context?.transcript ?? ""].join("\n"),
+    topic: inferredTopic ?? boundedTopic,
+  });
+
   return {
     confidence: Math.min(1, Math.max(0, candidate.confidence)),
-    concept: normalizeBoundedText(
-      candidate.concept,
-      MAX_MISCONCEPTION_CONCEPT_LENGTH
-    ),
-    reason: normalizeBoundedText(
-      candidate.reason,
-      MAX_MISCONCEPTION_REASON_LENGTH
-    ),
-    subject: normalizeBoundedText(
-      candidate.subject,
-      MAX_MISCONCEPTION_SUBJECT_LENGTH
-    ),
-    topic: normalizeBoundedText(
-      candidate.topic,
-      MAX_MISCONCEPTION_TOPIC_LENGTH
-    ),
+    concept: canonical?.concept ?? boundedConcept,
+    reason: boundedReason,
+    subject: canonical?.subject ?? sessionSubject ?? boundedSubject,
+    topic: canonical?.topic ?? inferredTopic ?? boundedTopic,
   };
 }
 
@@ -528,7 +551,11 @@ export async function persistSessionSummaryForCompletedTurn(input: {
 
   const detectedSubject = normalizeSubjectLabel(result.output.subject);
   const normalizedCandidates = result.output.misconceptionCandidates.map(
-    normalizeMisconceptionCandidate
+    (candidate) =>
+      normalizeMisconceptionCandidate(candidate, {
+        sessionSubject: detectedSubject,
+        transcript,
+      })
   );
   const shouldPersistLearningMemory = result.output.memoryRelevance === "learning";
 

@@ -1,12 +1,21 @@
 "use client";
 
 import type { UIMessage } from "@avenire/ai/message-types";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@avenire/ui/components/card";
 import { motion } from "motion/react";
 import { type ReactNode, useMemo, useState } from "react";
 import {
   type ActivityAction,
   RollingAgentActivity,
 } from "@/components/chat/rolling-tool-activity";
+import { ChatSpinnerGlyph } from "@/components/chat/spinner";
 import { FlashcardDeckStack } from "@/components/flashcards/deck-stack";
 import { cn } from "@/lib/utils";
 
@@ -177,6 +186,36 @@ function ToolPending({ label }: { label: string }) {
         running...
       </span>
     </ToolRow>
+  );
+}
+
+function ToolPendingCard({
+  description,
+  label,
+  title,
+}: {
+  description: string;
+  label: string;
+  title: string;
+}) {
+  return (
+    <Card className="mb-2 max-w-[28rem] border-border/40 bg-card/90" size="sm">
+      <CardHeader className="gap-0.5">
+        <CardTitle className="text-sm">{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+        <CardAction>
+          <div className="inline-flex items-center gap-2 text-muted-foreground">
+            <span className="font-mono text-[11px]">{label}</span>
+            <ChatSpinnerGlyph className="size-4" />
+          </div>
+        </CardAction>
+      </CardHeader>
+      <CardContent>
+        <div className="rounded-lg border border-border/35 bg-muted/30 px-3 py-2 font-mono text-[11px] text-foreground/48">
+          {title}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -365,6 +404,26 @@ export function ChatToolPart({ part }: { part: ToolPart }) {
   }
 
   if (part.state === "input-streaming" || part.state === "input-available") {
+    if (part.type === "tool-note_agent") {
+      return (
+        <ToolPendingCard
+          description="Creating or updating workspace notes."
+          label="writing"
+          title={part.input?.task ?? "Workspace notes"}
+        />
+      );
+    }
+
+    if (part.type === "tool-generate_flashcards") {
+      return (
+        <ToolPendingCard
+          description="Generating a flashcard set from the current context."
+          label="creating"
+          title={part.input?.title ?? "Flashcards"}
+        />
+      );
+    }
+
     return (
       <ToolPending
         label={getToolLabel(part.type)}

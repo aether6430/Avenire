@@ -1,9 +1,18 @@
 "use client";
 
-import { Collapsible, CollapsibleContent, CollapsibleTrigger, } from "@avenire/ui/components/collapsible";
-import { CaretRight as ChevronRight, File, Folder, FolderOpen } from "@phosphor-icons/react"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@avenire/ui/components/collapsible";
+import {
+  CaretRight as ChevronRight,
+  File,
+  Folder,
+  FolderOpen,
+} from "@phosphor-icons/react";
 import type { HTMLAttributes, ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export interface TreeDataItem {
@@ -17,6 +26,7 @@ export interface TreeDataItem {
   id: string;
   name: string;
   onClick?: () => void;
+  onContextMenu?: () => void;
   openIcon?: React.ComponentType<{ className?: string }>;
   selectedIcon?: React.ComponentType<{ className?: string }>;
 }
@@ -30,8 +40,9 @@ export interface TreeRenderItemParams {
 
 type TreeProps = HTMLAttributes<HTMLDivElement> & {
   data: TreeDataItem[] | TreeDataItem;
-  initialSelectedItemId?: string;
+  expandedItemIds?: string[];
   initialExpandedItemIds?: string[];
+  initialSelectedItemId?: string;
   onExpandedChange?: (itemIds: string[]) => void;
   onMoveItem?: (draggedItemId: string, targetItemId: string) => void;
   onSelectChange?: (item: TreeDataItem | undefined) => void;
@@ -39,6 +50,7 @@ type TreeProps = HTMLAttributes<HTMLDivElement> & {
   expandAll?: boolean;
   defaultNodeIcon?: React.ComponentType<{ className?: string }>;
   defaultLeafIcon?: React.ComponentType<{ className?: string }>;
+  selectedItemId?: string;
 };
 
 const DEFAULT_NODE_ICON = Folder;
@@ -69,6 +81,7 @@ function areSetsEqual(left: Set<string>, right: Set<string>) {
 export function TreeView({
   className,
   data,
+  expandedItemIds: controlledExpandedItemIds,
   initialSelectedItemId,
   initialExpandedItemIds,
   onExpandedChange,
@@ -78,6 +91,7 @@ export function TreeView({
   expandAll = false,
   defaultLeafIcon: DefaultLeafIcon = DEFAULT_LEAF_ICON,
   defaultNodeIcon: DefaultNodeIcon = DEFAULT_NODE_ICON,
+  selectedItemId: controlledSelectedItemId,
   ...props
 }: TreeProps) {
   const items = useMemo(() => (Array.isArray(data) ? data : [data]), [data]);
@@ -87,67 +101,82 @@ export function TreeView({
     return map;
   }, [items]);
 
-  const [selectedItemId, setSelectedItemId] = useState(initialSelectedItemId);
-  const [expandedItemIds, setExpandedItemIds] = useState<Set<string>>(() => {
+  const [uncontrolledSelectedItemId, setUncontrolledSelectedItemId] = useState(
+    initialSelectedItemId
+  );
+  const [uncontrolledExpandedItemIds, setUncontrolledExpandedItemIds] =
+    useState<Set<string>>(() => {
+      if (controlledExpandedItemIds) {
+        return new Set(controlledExpandedItemIds);
+      }
+      if (expandAll) {
+        return new Set(Array.from(itemMap.keys()));
+      }
+      return new Set(initialExpandedItemIds ?? []);
+    });
+  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
+  const [dropTargetItemId, setDropTargetItemId] = useState<string | null>(null);
+
+  const expandedItemIds = useMemo(() => {
+    if (controlledExpandedItemIds) {
+      return new Set(controlledExpandedItemIds);
+    }
     if (expandAll) {
       return new Set(Array.from(itemMap.keys()));
     }
-    return new Set(initialExpandedItemIds ?? []);
-  });
-  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
-  const [dropTargetItemId, setDropTargetItemId] = useState<string | null>(null);
-  const lastExpandedRef = useRef<string[] | null>(null);
+    return uncontrolledExpandedItemIds;
+  }, [
+    controlledExpandedItemIds,
+    expandAll,
+    itemMap,
+    uncontrolledExpandedItemIds,
+  ]);
+  const selectedItemId = controlledSelectedItemId ?? uncontrolledSelectedItemId;
 
   useEffect(() => {
-    if (initialSelectedItemId === undefined) {
+    if (
+      controlledSelectedItemId !== undefined ||
+      initialSelectedItemId === undefined
+    ) {
       return;
     }
-    setSelectedItemId(initialSelectedItemId);
-  }, [initialSelectedItemId]);
+    setUncontrolledSelectedItemId(initialSelectedItemId);
+  }, [controlledSelectedItemId, initialSelectedItemId]);
 
   useEffect(() => {
-    if (expandAll) {
-      return;
-    }
-    if (!initialExpandedItemIds) {
+    if (controlledExpandedItemIds || expandAll || !initialExpandedItemIds) {
       return;
     }
     const next = new Set(initialExpandedItemIds);
-    setExpandedItemIds((current) => {
+    setUncontrolledExpandedItemIds((current) => {
       if (areSetsEqual(current, next)) {
         return current;
       }
       return next;
     });
-  }, [expandAll, initialExpandedItemIds]);
+  }, [controlledExpandedItemIds, expandAll, initialExpandedItemIds]);
 
   useEffect(() => {
-    if (!expandAll) {
+    if (!expandAll || controlledExpandedItemIds) {
       return;
     }
-    setExpandedItemIds(new Set(Array.from(itemMap.keys())));
-  }, [expandAll, itemMap]);
+    setUncontrolledExpandedItemIds(new Set(Array.from(itemMap.keys())));
+  }, [controlledExpandedItemIds, expandAll, itemMap]);
 
   const toggleExpanded = useCallback(
     (itemId: string) => {
-      setExpandedItemIds((current) => {
-        const next = new Set(current);
-        if (next.has(itemId)) {
-          next.delete(itemId);
-        } else {
-          next.add(itemId);
-        }
-        const nextArray = Array.from(next);
-        lastExpandedRef.current = nextArray;
-        return next;
-      });
-      setTimeout(() => {
-        if (lastExpandedRef.current) {
-          onExpandedChange?.(lastExpandedRef.current);
-        }
-      }, 0);
+      const next = new Set(expandedItemIds);
+      if (next.has(itemId)) {
+        next.delete(itemId);
+      } else {
+        next.add(itemId);
+      }
+      if (!controlledExpandedItemIds) {
+        setUncontrolledExpandedItemIds(next);
+      }
+      onExpandedChange?.(Array.from(next));
     },
-    [onExpandedChange]
+    [controlledExpandedItemIds, expandedItemIds, onExpandedChange]
   );
 
   const handleSelect = useCallback(
@@ -155,11 +184,16 @@ export function TreeView({
       if (item.disabled) {
         return;
       }
-      setSelectedItemId(item.id);
+      if (controlledSelectedItemId === undefined) {
+        setUncontrolledSelectedItemId(item.id);
+      }
+      if (onSelectChange) {
+        onSelectChange(item);
+        return;
+      }
       item.onClick?.();
-      onSelectChange?.(item);
     },
-    [onSelectChange]
+    [controlledSelectedItemId, onSelectChange]
   );
 
   const renderNode = useCallback(
@@ -208,6 +242,10 @@ export function TreeView({
               )}
               draggable={item.draggable}
               onClick={() => handleSelect(item)}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                item.onContextMenu?.();
+              }}
               onDragEnd={() => {
                 setDraggedItemId(null);
                 setDropTargetItemId(null);

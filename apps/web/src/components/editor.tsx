@@ -589,9 +589,61 @@ const MermaidDiagramExtension = TiptapNode.create({
       const wrapper = document.createElement("div");
       wrapper.className = "mermaid-diagram-wrapper";
       wrapper.setAttribute("data-type", "mermaid-diagram");
+      const toolbar = document.createElement("div");
+      toolbar.className = "mermaid-diagram-toolbar";
+      const viewport = document.createElement("div");
+      viewport.className = "mermaid-diagram-viewport";
+      viewport.tabIndex = 0;
       const container = document.createElement("div");
       container.className = "mermaid-diagram-container";
-      wrapper.appendChild(container);
+      viewport.appendChild(container);
+      wrapper.append(toolbar, viewport);
+
+      let scale = 1;
+      let offsetX = 0;
+      let offsetY = 0;
+      let pointerId: number | null = null;
+      let lastPointerX = 0;
+      let lastPointerY = 0;
+
+      const applyTransform = () => {
+        container.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+      };
+
+      const panBy = (deltaX: number, deltaY: number) => {
+        offsetX += deltaX;
+        offsetY += deltaY;
+        applyTransform();
+      };
+
+      const setScale = (nextScale: number) => {
+        scale = clamp(nextScale, 0.5, 3);
+        applyTransform();
+      };
+
+      const resetView = () => {
+        scale = 1;
+        offsetX = 0;
+        offsetY = 0;
+        applyTransform();
+      };
+
+      const buildToolbarButton = (label: string, onClick: () => void) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = label;
+        button.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onClick();
+        });
+        toolbar.appendChild(button);
+        return button;
+      };
+
+      buildToolbarButton("−", () => setScale(scale - 0.15));
+      buildToolbarButton("+", () => setScale(scale + 0.15));
+      buildToolbarButton("Reset", resetView);
 
       let mounted = true;
       const renderDiagram = () => {
@@ -617,6 +669,8 @@ const MermaidDiagramExtension = TiptapNode.create({
             container.appendChild(pre);
           }
         }
+
+        applyTransform();
       };
 
       renderDiagram();
@@ -637,6 +691,81 @@ const MermaidDiagramExtension = TiptapNode.create({
         wrapper.style.cursor = "pointer";
       }
 
+      const handlePointerDown = (event: PointerEvent) => {
+        if (event.target instanceof HTMLButtonElement) {
+          return;
+        }
+
+        pointerId = event.pointerId;
+        lastPointerX = event.clientX;
+        lastPointerY = event.clientY;
+        viewport.setPointerCapture(event.pointerId);
+      };
+
+      const handlePointerMove = (event: PointerEvent) => {
+        if (pointerId !== event.pointerId) {
+          return;
+        }
+
+        panBy(event.clientX - lastPointerX, event.clientY - lastPointerY);
+        lastPointerX = event.clientX;
+        lastPointerY = event.clientY;
+      };
+
+      const handlePointerUp = (event: PointerEvent) => {
+        if (pointerId !== event.pointerId) {
+          return;
+        }
+
+        pointerId = null;
+        if (viewport.hasPointerCapture(event.pointerId)) {
+          viewport.releasePointerCapture(event.pointerId);
+        }
+      };
+
+      const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+        switch (event.key) {
+          case "ArrowUp":
+            event.preventDefault();
+            panBy(0, -24);
+            return;
+          case "ArrowDown":
+            event.preventDefault();
+            panBy(0, 24);
+            return;
+          case "ArrowLeft":
+            event.preventDefault();
+            panBy(-24, 0);
+            return;
+          case "ArrowRight":
+            event.preventDefault();
+            panBy(24, 0);
+            return;
+          case "+":
+          case "=":
+            event.preventDefault();
+            setScale(scale + 0.15);
+            return;
+          case "-":
+          case "_":
+            event.preventDefault();
+            setScale(scale - 0.15);
+            return;
+          case "0":
+            event.preventDefault();
+            resetView();
+            return;
+          default:
+            return;
+        }
+      };
+
+      viewport.addEventListener("pointerdown", handlePointerDown);
+      viewport.addEventListener("pointermove", handlePointerMove);
+      viewport.addEventListener("pointerup", handlePointerUp);
+      viewport.addEventListener("pointercancel", handlePointerUp);
+      viewport.addEventListener("keydown", handleKeyDown);
+
       return {
         dom: wrapper,
         update: (updatedNode) => {
@@ -650,6 +779,11 @@ const MermaidDiagramExtension = TiptapNode.create({
         destroy: () => {
           mounted = false;
           wrapper.removeEventListener("click", handleClick);
+          viewport.removeEventListener("pointerdown", handlePointerDown);
+          viewport.removeEventListener("pointermove", handlePointerMove);
+          viewport.removeEventListener("pointerup", handlePointerUp);
+          viewport.removeEventListener("pointercancel", handlePointerUp);
+          viewport.removeEventListener("keydown", handleKeyDown);
         },
       };
     };
@@ -1334,6 +1468,8 @@ function CodeBlockOverlayControls({
       rect: DOMRect;
     }>
   >([]);
+  const [hoveredBlockPos, setHoveredBlockPos] = useState<number | null>(null);
+  const [activeBlockPos, setActiveBlockPos] = useState<number | null>(null);
 
   useEffect(() => {
     const updateBlocks = () => {
@@ -1379,54 +1515,113 @@ function CodeBlockOverlayControls({
     };
   }, [editor]);
 
+  useEffect(() => {
+    const updateActiveBlock = () => {
+      const { from } = editor.state.selection;
+      let nextActive: number | null = null;
+
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name !== "codeBlock") {
+          return;
+        }
+
+        if (from >= pos && from <= pos + node.nodeSize) {
+          nextActive = pos;
+        }
+      });
+
+      setActiveBlockPos(nextActive);
+    };
+
+    updateActiveBlock();
+    editor.on("selectionUpdate", updateActiveBlock);
+    editor.on("transaction", updateActiveBlock);
+
+    return () => {
+      editor.off("selectionUpdate", updateActiveBlock);
+      editor.off("transaction", updateActiveBlock);
+    };
+  }, [editor]);
+
+  useEffect(() => {
+    const cleanups: Array<() => void> = [];
+
+    blocks.forEach((block) => {
+      const dom = editor.view.nodeDOM(block.pos);
+      if (!(dom instanceof HTMLElement)) {
+        return;
+      }
+
+      const handleEnter = () => setHoveredBlockPos(block.pos);
+      const handleLeave = () =>
+        setHoveredBlockPos((current) => (current === block.pos ? null : current));
+
+      dom.addEventListener("pointerenter", handleEnter);
+      dom.addEventListener("pointerleave", handleLeave);
+      cleanups.push(() => {
+        dom.removeEventListener("pointerenter", handleEnter);
+        dom.removeEventListener("pointerleave", handleLeave);
+      });
+    });
+
+    return () => {
+      cleanups.forEach((cleanup) => cleanup());
+    };
+  }, [blocks, editor]);
+
   return (
     <>
-      {blocks.map((block) => (
-        <div
-          className="fixed z-[82]"
-          key={block.pos}
-          style={{
-            left: Math.max(VIEWPORT_PADDING, block.rect.right - 176),
-            top: block.rect.top + 8,
-          }}
-        >
-          <div className="flex items-center gap-1 rounded-md border border-border bg-popover/96 p-1 shadow-md backdrop-blur">
-            <Select
-              onValueChange={(value) => {
-                editor
-                  .chain()
-                  .focus()
-                  .setTextSelection(block.pos + 1)
-                  .updateAttributes("codeBlock", {
-                    language: value === "plaintext" ? null : value,
-                  })
-                  .run();
-              }}
-              value={block.language}
-            >
-              <SelectTrigger className="h-7 min-w-28 border-border bg-background px-2 text-xs">
-                <SelectValue placeholder="plaintext" />
-              </SelectTrigger>
-              <SelectContent>
-                {languages.map((language) => (
-                  <SelectItem key={language} value={language}>
-                    {language}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              onClick={() => onCopy(block.pos)}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              <Copy className="h-3.5 w-3.5" />
-              Copy
-            </Button>
+      {blocks
+        .filter(
+          (block) =>
+            block.pos === activeBlockPos || block.pos === hoveredBlockPos
+        )
+        .map((block) => (
+          <div
+            className="fixed z-[82]"
+            key={block.pos}
+            style={{
+              left: Math.max(VIEWPORT_PADDING, block.rect.right - 176),
+              top: block.rect.top + 8,
+            }}
+          >
+            <div className="flex items-center gap-1 rounded-md border border-border bg-popover/96 p-1 shadow-md backdrop-blur">
+              <Select
+                onValueChange={(value) => {
+                  editor
+                    .chain()
+                    .focus()
+                    .setTextSelection(block.pos + 1)
+                    .updateAttributes("codeBlock", {
+                      language: value === "plaintext" ? null : value,
+                    })
+                    .run();
+                }}
+                value={block.language}
+              >
+                <SelectTrigger className="h-7 min-w-28 border-border bg-background px-2 text-xs">
+                  <SelectValue placeholder="plaintext" />
+                </SelectTrigger>
+                <SelectContent>
+                  {languages.map((language) => (
+                    <SelectItem key={language} value={language}>
+                      {language}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                onClick={() => onCopy(block.pos)}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <Copy className="h-3.5 w-3.5" />
+                Copy
+              </Button>
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
     </>
   );
 }
@@ -2306,7 +2501,6 @@ function AvenireEditor({
     original: string;
   } | null>(null);
   const [inlineNotice, setInlineNotice] = useState<string | null>(null);
-  const [wikiPreview, setWikiPreview] = useState<WikiPreviewState | null>(null);
   const [tableContextMenu, setTableContextMenu] = useState<{
     open: boolean;
     x: number;
@@ -2317,8 +2511,6 @@ function AvenireEditor({
   );
   const [recentTemplateIds, setRecentTemplateIds] = useState<string[]>([]);
   const tableContextMenuRef = useRef<HTMLDivElement | null>(null);
-  const wikiPreviewCardRef = useRef<HTMLDivElement | null>(null);
-  const wikiPreviewAbortRef = useRef<AbortController | null>(null);
   const { startUpload: startImageUpload } = useUploadThing("imageUploader");
 
   const resolveWikiPageFromHref = (href: string | null) => {
@@ -2712,174 +2904,6 @@ function AvenireEditor({
     setImageUploadError(null);
     setImageUploadBusy(false);
   }, [imagePopover]);
-
-  useEffect(() => {
-    if (!editor) {
-      return;
-    }
-
-    const dom = editor.view.dom;
-    const scrollTarget = getScrollTarget(scrollContainerRef);
-    let activeAnchor: HTMLAnchorElement | null = null;
-
-    const clearPreview = () => {
-      activeAnchor = null;
-      wikiPreviewAbortRef.current?.abort();
-      wikiPreviewAbortRef.current = null;
-      setWikiPreview(null);
-    };
-
-    const repositionPreview = () => {
-      if (!activeAnchor) {
-        return;
-      }
-
-      const anchorRect = activeAnchor.getBoundingClientRect();
-      const cardRect =
-        wikiPreviewCardRef.current?.getBoundingClientRect() ?? null;
-      const nextPlacement = getWikiPreviewPlacement(anchorRect, cardRect);
-
-      setWikiPreview((current) => {
-        if (!current || current.anchorEl !== activeAnchor) {
-          return current;
-        }
-
-        const samePosition =
-          Math.abs(current.rect.left - anchorRect.left) < 1 &&
-          Math.abs(current.rect.top - anchorRect.top) < 1 &&
-          Math.abs(current.rect.width - anchorRect.width) < 1 &&
-          Math.abs(current.rect.height - anchorRect.height) < 1 &&
-          current.placement === nextPlacement.placement;
-
-        if (samePosition) {
-          return current;
-        }
-
-        return {
-          ...current,
-          left: nextPlacement.left,
-          placement: nextPlacement.placement,
-          top: nextPlacement.top,
-          rect: anchorRect,
-        };
-      });
-    };
-
-    const attachPreview = (anchor: HTMLAnchorElement, page: WikiPage) => {
-      activeAnchor = anchor;
-      wikiPreviewAbortRef.current?.abort();
-      const controller = new AbortController();
-      wikiPreviewAbortRef.current = controller;
-
-      const immediateContent = stripMarkdownFrontmatter(page.content).trim();
-      const anchorRect = anchor.getBoundingClientRect();
-      const placement = getWikiPreviewPlacement(anchorRect, null);
-      setWikiPreview({
-        anchorEl: anchor,
-        content: immediateContent || null,
-        left: placement.left,
-        loading: !immediateContent,
-        page,
-        placement: placement.placement,
-        top: placement.top,
-        rect: anchorRect,
-      });
-      window.requestAnimationFrame(repositionPreview);
-
-      if (immediateContent) {
-        return;
-      }
-
-      void loadWikiPreviewMarkdown({
-        pageId: page.id,
-        signal: controller.signal,
-      })
-        .then((markdown) => {
-          if (markdown === null) {
-            throw new Error("Unable to load preview.");
-          }
-          const content = stripMarkdownFrontmatter(markdown);
-          setWikiPreview((current) => {
-            if (!current || current.anchorEl !== anchor) {
-              return current;
-            }
-            return {
-              ...current,
-              content: content.trim() ? content : null,
-              loading: false,
-            };
-          });
-          window.requestAnimationFrame(repositionPreview);
-        })
-        .catch((error) => {
-          if ((error as { name?: string } | null)?.name === "AbortError") {
-            return;
-          }
-          setWikiPreview((current) => {
-            if (!current || current.anchorEl !== anchor) {
-              return current;
-            }
-            return {
-              ...current,
-              loading: false,
-            };
-          });
-          window.requestAnimationFrame(repositionPreview);
-        });
-    };
-
-    const handlePointerOver = (event: PointerEvent) => {
-      const target = getEventTargetElement(event.target);
-      const anchor = target?.closest(
-        "a[href^='workspace-file://'], a[href^='wiki:'], a[href^='/wiki/']"
-      ) as HTMLAnchorElement | null;
-
-      if (!anchor) {
-        return;
-      }
-
-      const page = resolveWikiPageFromHref(anchor.getAttribute("href"));
-      if (!page) {
-        clearPreview();
-        return;
-      }
-
-      if (activeAnchor === anchor && wikiPreview?.page.id === page.id) {
-        return;
-      }
-
-      attachPreview(anchor, page);
-      repositionPreview();
-    };
-
-    const handlePointerLeave = (event: PointerEvent) => {
-      const nextTarget = getEventTargetElement(event.relatedTarget);
-      if (
-        nextTarget &&
-        (dom.contains(nextTarget) ||
-          wikiPreviewCardRef.current?.contains(nextTarget))
-      ) {
-        return;
-      }
-      clearPreview();
-    };
-
-    dom.addEventListener("pointerover", handlePointerOver);
-    dom.addEventListener("pointerleave", handlePointerLeave);
-    scrollTarget.addEventListener("scroll", repositionPreview, {
-      passive: true,
-    });
-    window.addEventListener("resize", repositionPreview);
-
-    return () => {
-      dom.removeEventListener("pointerover", handlePointerOver);
-      dom.removeEventListener("pointerleave", handlePointerLeave);
-      scrollTarget.removeEventListener("scroll", repositionPreview);
-      window.removeEventListener("resize", repositionPreview);
-      wikiPreviewAbortRef.current?.abort();
-      wikiPreviewAbortRef.current = null;
-    };
-  }, [editor, scrollContainerRef, wikiPreview?.page.id]);
 
   const slashCommands = useMemo<SlashCommand[]>(() => {
     if (!editor) {
@@ -4021,61 +4045,6 @@ function AvenireEditor({
                 </button>
               );
             })}
-          </div>
-        ) : null}
-
-        {wikiPreview ? (
-          <div
-            className="fixed z-[90] w-80 overflow-hidden rounded-xl border border-border/70 bg-popover shadow-[0_24px_80px_rgba(0,0,0,0.22)]"
-            ref={wikiPreviewCardRef}
-            style={{ left: wikiPreview.left, top: wikiPreview.top }}
-          >
-            <div className="flex items-center justify-between gap-2 border-border/60 border-b bg-muted/40 px-3 py-2">
-              <div className="min-w-0">
-                <p className="truncate font-medium text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                  Note preview
-                </p>
-                <p className="truncate text-sm font-medium text-popover-foreground">
-                  {wikiPreview.page.title}
-                </p>
-              </div>
-              <Button
-                className="h-8 shrink-0 gap-1.5 px-2.5 text-xs"
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  openWikiPage(wikiPreview.page);
-                }}
-                onMouseDown={(event) => event.preventDefault()}
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                Open
-                <ArrowUpRight className="size-3.5" />
-              </Button>
-            </div>
-            <div className="max-h-72 overflow-y-auto px-3 py-3">
-              {wikiPreview.loading && !wikiPreview.content ? (
-                <p className="inline-flex items-center gap-2 text-muted-foreground text-xs">
-                  <Spinner className="size-3.5" />
-                  Loading preview...
-                </p>
-              ) : wikiPreview.content ? (
-                <MarkdownRenderer
-                  className="max-w-none"
-                  content={wikiPreview.content}
-                  id={`wiki-preview-${wikiPreview.page.id}`}
-                  parseIncompleteMarkdown
-                  textSize="small"
-                  workspaceUuid={workspaceUuid}
-                />
-              ) : (
-                <p className="text-muted-foreground text-xs">
-                  No preview content available.
-                </p>
-              )}
-            </div>
           </div>
         ) : null}
 

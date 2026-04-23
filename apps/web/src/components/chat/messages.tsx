@@ -23,7 +23,6 @@ interface MessagesProps {
   isReadonly: boolean;
   messages: UseChatHelpers<UIMessage>["messages"];
   messagesContainerRef: RefObject<HTMLDivElement | null>;
-  messagesEndRef: RefObject<HTMLDivElement | null>;
   onRegenerate: (messageId: string) => void;
   sendMessage: UseChatHelpers<UIMessage>["sendMessage"];
   status: UseChatHelpers<UIMessage>["status"];
@@ -68,7 +67,6 @@ function PureMessages({
   workspaceUuid,
   userName,
   messagesContainerRef,
-  messagesEndRef,
   isEmpty,
 }: MessagesProps) {
   const isCenteredEmptyState = isEmpty && messages.length === 0;
@@ -78,8 +76,8 @@ function PureMessages({
       <div
         className={
           isCenteredEmptyState
-            ? "relative flex h-full min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-y-contain no-scrollbar px-3 py-6 sm:px-0 sm:py-10"
-            : "relative flex h-full min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-y-contain no-scrollbar px-3 pt-16 pb-6 sm:px-0 sm:pt-6 sm:pb-6"
+            ? "relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-y-contain no-scrollbar px-3 py-6 sm:px-0 sm:py-10"
+            : "relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-y-contain no-scrollbar px-3 pt-16 pb-6 sm:px-0 sm:pt-6 sm:pb-6"
         }
         ref={messagesContainerRef}
       >
@@ -105,37 +103,38 @@ function PureMessages({
           </div>
         )}
 
-        {messages.map((message, index) => {
-          const isLast = messages.length - 1 === index;
-          const isLoading = status === "streaming" && isLast;
-          const showAgentActivity =
-            isLoading && message.role === "assistant" ? agentActivity : null;
-          const lastPart = message.parts?.at(-1);
-          const lastPartDone =
-            !(lastPart && "state" in lastPart) ||
-            (lastPart as { state?: string }).state !== "input-streaming";
-          const isComplete =
-            message.role !== "assistant"
-              ? true
-              : lastPartDone && !isLoading && status !== "submitted";
+        <div className="w-full">
+          {messages.map((message, index) => {
+            const isLast = messages.length - 1 === index;
+            const isLoading = status === "streaming" && isLast;
+            const showAgentActivity =
+              isLoading && message.role === "assistant" ? agentActivity : null;
+            const lastPart = message.parts?.at(-1);
+            const lastPartDone =
+              !(lastPart && "state" in lastPart) ||
+              (lastPart as { state?: string }).state !== "input-streaming";
+            const isComplete =
+              message.role !== "assistant"
+                ? true
+                : lastPartDone && !isLoading && status !== "submitted";
 
-          return (
-            <PreviewMessage
-              agentActivity={showAgentActivity}
-              chatId={chatId}
-              isComplete={isComplete}
-              isReadonly={isReadonly}
-              isStreaming={isLoading}
-              key={message.id}
-              message={message}
-              onRegenerate={onRegenerate}
-              sendMessage={sendMessage}
-              workspaceUuid={workspaceUuid}
-            />
-          );
-        })}
-
-        <div className="min-h-6 min-w-6 shrink-0" ref={messagesEndRef} />
+            return (
+              <div className={isLast ? undefined : "pb-6"} key={message.id}>
+                <PreviewMessage
+                  agentActivity={showAgentActivity}
+                  chatId={chatId}
+                  isComplete={isComplete}
+                  isReadonly={isReadonly}
+                  isStreaming={isLoading}
+                  message={message}
+                  onRegenerate={onRegenerate}
+                  sendMessage={sendMessage}
+                  workspaceUuid={workspaceUuid}
+                />
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

@@ -89,12 +89,6 @@ import {
 import { motion } from "motion/react";
 import type { Route } from "next";
 import {
-  useParams,
-  usePathname,
-  useRouter,
-  useSearchParams,
-} from "next/navigation";
-import {
   Suspense,
   useCallback,
   useEffect,
@@ -130,6 +124,11 @@ import { useFileDragDrop } from "@/hooks/use-file-drag-drop";
 import { useFileSelection } from "@/hooks/use-file-selection";
 import { useHaptics } from "@/hooks/use-haptics";
 import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  usePanePathname,
+  usePaneRouter,
+  usePaneSearchParams,
+} from "@/lib/workspace-panes";
 import { readCachedWorkspaces } from "@/lib/dashboard-browser-cache";
 import { getWarmState, isFileOpenedCached } from "@/lib/file-preview-cache";
 import {
@@ -165,13 +164,16 @@ import {
   readWorkspaceTreeCache,
   writeWorkspaceTreeCache,
 } from "@/lib/workspace-tree-cache";
+import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
 import { useFilesActivityStore } from "@/stores/filesActivityStore";
 import { filesPinsActions, useFilesPinsStore } from "@/stores/filesPinsStore";
 import { filesUiActions, useFilesUiStore } from "@/stores/filesUiStore";
-import { useHeaderStore } from "@/stores/header-store";
-import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
+import { usePaneHeaderActions } from "@/stores/header-store";
 import { useUserStore } from "@/stores/userStore";
-import { useWorkspaceHistoryStore } from "@/stores/workspaceHistoryStore";
+import {
+  usePaneWorkspaceHistoryActions,
+  usePaneWorkspaceHistoryStore,
+} from "@/stores/workspaceHistoryStore";
 import { ScrollArea } from "@avenire/ui/components/scroll-area";
 
 const WORKSPACE_FILE_OPEN_EVENT = "workspace.file.open";
@@ -1037,6 +1039,31 @@ function getExtension(name: string) {
   return index >= 0 ? name.slice(index).toLowerCase() : "";
 }
 
+function getDownloadFileName(contentDisposition: string | null) {
+  if (!contentDisposition) {
+    return null;
+  }
+
+  const utf8Match = contentDisposition.match(
+    /filename\*=UTF-8''([^;]+)(?:;|$)/i
+  );
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1]);
+    } catch {
+      return utf8Match[1];
+    }
+  }
+
+  const quotedMatch = contentDisposition.match(/filename="([^"]+)"/i);
+  if (quotedMatch?.[1]) {
+    return quotedMatch[1];
+  }
+
+  const bareMatch = contentDisposition.match(/filename=([^;]+)/i);
+  return bareMatch?.[1]?.trim() ?? null;
+}
+
 function chunkArray<T>(values: T[], chunkSize: number): T[][] {
   const out: T[][] = [];
   const safeChunkSize = Math.max(1, Math.floor(chunkSize));
@@ -1295,13 +1322,9 @@ export function FileExplorer({
   folderUuid: folderUuidFromPage,
   workspaceUuid: workspaceUuidFromPage,
 }: FileExplorerProps = {}) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const params = useParams<{
-    folderUuid?: string | string[];
-    workspaceUuid?: string | string[];
-  }>();
-  const searchParams = useSearchParams();
+  const router = usePaneRouter();
+  const pathname = usePanePathname();
+  const searchParams = usePaneSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
@@ -1321,23 +1344,18 @@ export function FileExplorer({
     typeof setTimeout
   > | null>(null);
 
-  const workspaceUuidParam = params?.workspaceUuid;
-  const folderUuidParam = params?.folderUuid;
+  const routeMatch = pathname.match(/^\/workspace\/files\/([^/]+)\/folder\/([^/?#]+)/);
+  const workspaceUuidParam = routeMatch?.[1];
+  const folderUuidParam = routeMatch?.[2];
   const workspaceUuid = useMemo(() => {
     if (workspaceUuidFromPage) {
       return workspaceUuidFromPage;
-    }
-    if (Array.isArray(workspaceUuidParam)) {
-      return workspaceUuidParam[0] ?? "";
     }
     return workspaceUuidParam ?? "";
   }, [workspaceUuidFromPage, workspaceUuidParam]);
   const currentFolderId = useMemo(() => {
     if (folderUuidFromPage) {
       return folderUuidFromPage;
-    }
-    if (Array.isArray(folderUuidParam)) {
-      return folderUuidParam[0] ?? "";
     }
     return folderUuidParam ?? "";
   }, [folderUuidFromPage, folderUuidParam]);
@@ -1363,6 +1381,7 @@ export function FileExplorer({
   const [files, setFiles] = useState<FileRecord[]>([]);
   const [breadcrumbs, setBreadcrumbs] = useState<FolderRecord[]>([]);
   const [loading, setLoading] = useState(false);
+  const [downloadStatus, setDownloadStatus] = useState<string | null>(null);
   const [workspaceMembers, setWorkspaceMembers] = useState<
     WorkspaceMemberRecord[]
   >([]);
@@ -1446,9 +1465,9 @@ export function FileExplorer({
   const { startUpload: startBannerUpload } = useUploadThing("imageUploader");
   const selection = useFileSelection({ gridRef, itemRefs });
   const triggerHaptic = useHaptics();
-  const recordRoute = useWorkspaceHistoryStore((state) => state.recordRoute);
-  const historyEntries = useWorkspaceHistoryStore((state) => state.entries);
-  const historyIndex = useWorkspaceHistoryStore((state) => state.index);
+  const { recordRoute } = usePaneWorkspaceHistoryActions();
+  const historyEntries = usePaneWorkspaceHistoryStore((state) => state.entries);
+  const historyIndex = usePaneWorkspaceHistoryStore((state) => state.index);
   const backRoute =
     historyIndex > 0 ? (historyEntries[historyIndex - 1] ?? null) : null;
   const forwardRoute =
@@ -2311,20 +2330,18 @@ export function FileExplorer({
     return map;
   }, [allFiles, allFolders]);
 
-  const wikiMarkdownFiles = useMemo(() => {
-    const markdownExt = new Set([".md", ".mdx"]);
+  const wikiLinkableFiles = useMemo(() => {
     return allFiles
-      .filter((file) => {
-        const ext = getExtension(file.name);
-        const mime = file.mimeType?.toLowerCase() ?? "";
-        return mime.includes("markdown") || markdownExt.has(ext);
-      })
       .map((file) => {
-        const title = file.name.replace(/\.(md|mdx)$/i, "");
         const path = filePathById.get(file.id);
+        const ext = getExtension(file.name);
+        const isMarkdown =
+          (file.mimeType?.toLowerCase() ?? "").includes("markdown") ||
+          ext === ".md" ||
+          ext === ".mdx";
         return {
           id: file.id,
-          title,
+          title: isMarkdown ? file.name.replace(/\.(md|mdx)$/i, "") : file.name,
           excerpt: path ?? file.name,
           content: "",
         };
@@ -5034,36 +5051,43 @@ export function FileExplorer({
 
   const downloadItemArchive = useCallback(
     async (item: { id: string; kind: "file" | "folder"; name: string }) => {
-      if (!workspaceUuid) {
+      if (!workspaceUuid || downloadStatus) {
         return;
       }
 
-      const response = await fetch(
-        `/api/workspaces/${workspaceUuid}/items/archive`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: item.id,
-            kind: item.kind,
-          }),
+      setDownloadStatus(`Preparing ${item.name}`);
+      try {
+        const response = await fetch(
+          `/api/workspaces/${workspaceUuid}/items/archive`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id: item.id,
+              kind: item.kind,
+            }),
+          }
+        );
+        if (!response.ok) {
+          return;
         }
-      );
-      if (!response.ok) {
-        return;
-      }
 
-      const blob = await response.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = objectUrl;
-      link.download = `${item.name}.zip`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(objectUrl);
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download =
+          getDownloadFileName(response.headers.get("content-disposition")) ??
+          item.name;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(objectUrl);
+      } finally {
+        setDownloadStatus(null);
+      }
     },
-    [workspaceUuid]
+    [downloadStatus, workspaceUuid]
   );
 
   const downloadSelectionArchive = useCallback(
@@ -5071,33 +5095,40 @@ export function FileExplorer({
       items: Array<{ id: string; kind: BulkItemKind }>,
       fallbackName = "selection"
     ) => {
-      if (!(workspaceUuid && items.length > 0)) {
+      if (!(workspaceUuid && items.length > 0) || downloadStatus) {
         return;
       }
 
-      const response = await fetch(
-        `/api/workspaces/${workspaceUuid}/items/archive`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ items }),
+      setDownloadStatus(`Preparing ${fallbackName}`);
+      try {
+        const response = await fetch(
+          `/api/workspaces/${workspaceUuid}/items/archive`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ items }),
+          }
+        );
+        if (!response.ok) {
+          return;
         }
-      );
-      if (!response.ok) {
-        return;
-      }
 
-      const blob = await response.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = objectUrl;
-      link.download = `${fallbackName}.zip`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(objectUrl);
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download =
+          getDownloadFileName(response.headers.get("content-disposition")) ??
+          `${fallbackName}.zip`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(objectUrl);
+      } finally {
+        setDownloadStatus(null);
+      }
     },
-    [workspaceUuid]
+    [downloadStatus, workspaceUuid]
   );
 
   const downloadFileDirect = useCallback(
@@ -5204,10 +5235,7 @@ export function FileExplorer({
     [openFolderById, openSearchResult]
   );
 
-  const setHeaderContext = useHeaderStore((state) => state.setHeaderContext);
-  const resetHeaderContext = useHeaderStore(
-    (state) => state.resetHeaderContext
-  );
+  const { resetHeaderContext, setHeaderContext } = usePaneHeaderActions();
   useEffect(() => {
     if (activeFile) {
       return;
@@ -5712,7 +5740,7 @@ export function FileExplorer({
             setPropertyDefinitions={setPropertyDefinitions}
             startBannerUpload={startBannerUpload}
             toggleCurrentPinnedItem={toggleCurrentPinnedItem}
-            wikiMarkdownFiles={wikiMarkdownFiles}
+            wikiLinkableFiles={wikiLinkableFiles}
             workspaceMembers={workspaceMembers}
             workspaceUuid={workspaceUuid}
           />
@@ -6315,6 +6343,21 @@ export function FileExplorer({
                   }}
                   {...getCanvasDropProps()}
                 >
+                  {downloadStatus ? (
+                    <div className="pointer-events-none absolute right-4 top-4 z-20">
+                      <div className="inline-flex max-w-[24rem] items-center gap-2 rounded-full border border-border/70 bg-background/95 px-3 py-2 text-sm shadow-lg backdrop-blur">
+                        <Spinner className="size-4" />
+                        <div className="min-w-0">
+                          <p className="font-medium text-xs">
+                            Preparing download
+                          </p>
+                          <p className="truncate text-muted-foreground text-[11px]">
+                            {downloadStatus}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
                   {loading ? (
                     <div className="flex min-h-[16rem] items-center justify-center rounded-2xl border border-border/60 bg-muted/10">
                       <div className="inline-flex items-center gap-2 text-muted-foreground text-sm">

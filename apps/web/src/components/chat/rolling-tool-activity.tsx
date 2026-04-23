@@ -3,15 +3,15 @@
 import type { UIMessage } from "@avenire/ai/message-types";
 import { Collapsible } from "@avenire/ui/components/collapsible";
 import {
-  CaretRight as ChevronRight,
   CaretDown as ChevronDown,
+  CaretRight as ChevronRight,
 } from "@phosphor-icons/react";
 import { motion, useSpring } from "framer-motion";
 import {
   type ComponentProps,
-  type ReactNode,
   createContext,
   memo,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
@@ -20,6 +20,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { Shimmer } from "@/components/chat/shimmer";
 import { cn } from "@/lib/utils";
 
 type ToolPart = Extract<UIMessage["parts"][number], { type: `tool-${string}` }>;
@@ -184,7 +185,8 @@ function toReadPreview(part: ToolPart): ReadPreview | undefined {
 
 function toSearchPreview(part: ToolPart): SearchPreview | undefined {
   if (
-    (part.type !== "tool-search_materials" && part.type !== "tool-web_search") ||
+    (part.type !== "tool-search_materials" &&
+      part.type !== "tool-web_search") ||
     !isOutputAvailable(part)
   ) {
     return undefined;
@@ -240,7 +242,10 @@ function toActionValue(part: ToolPart) {
     }
     return part.input?.task ?? "note";
   }
-  if (part.type === "tool-search_materials" || part.type === "tool-web_search") {
+  if (
+    part.type === "tool-search_materials" ||
+    part.type === "tool-web_search"
+  ) {
     return part.input?.query ?? "search";
   }
   return "";
@@ -317,7 +322,10 @@ function toAction(part: ToolPart): ActivityAction | null {
     };
   }
 
-  if (part.type === "tool-search_materials" || part.type === "tool-web_search") {
+  if (
+    part.type === "tool-search_materials" ||
+    part.type === "tool-web_search"
+  ) {
     return {
       kind: "search",
       pending: isPending(part),
@@ -450,10 +458,10 @@ export function ThinkingDots() {
 }
 
 interface ReasoningContextValue {
-  isStreaming: boolean;
-  isOpen: boolean;
-  setIsOpen: (open: boolean) => void;
   duration: number | undefined;
+  isOpen: boolean;
+  isStreaming: boolean;
+  setIsOpen: (open: boolean) => void;
 }
 
 const ReasoningContext = createContext<ReasoningContextValue | null>(null);
@@ -655,10 +663,7 @@ export const ReasoningContent = memo(
 
     return (
       <div
-        className={cn(
-          "relative mt-[3px] overflow-hidden",
-          className
-        )}
+        className={cn("relative mt-[3px] overflow-hidden", className)}
         style={{ height: WINDOW_HEIGHT }}
         {...props}
       >
@@ -794,9 +799,9 @@ function ReasoningBlock({
           className="flex h-7 items-center gap-2"
           role="status"
         >
-          <span className="font-semibold text-foreground/32 text-sm">
+          <Shimmer as="span" className="font-semibold text-foreground text-sm">
             Reasoning
-          </span>
+          </Shimmer>
           {summary ? (
             <span aria-hidden="true" className="text-[11px] text-foreground/26">
               {summary}
@@ -871,9 +876,9 @@ export function RollingStatusHeader({
         className={cn("flex h-7 items-center gap-2", className)}
         role="status"
       >
-        <span className="font-semibold text-foreground/32 text-sm">
+        <Shimmer as="span" className="text-sm font-semibold text-foreground">
           {title}
-        </span>
+        </Shimmer>
         {summary ? (
           <span aria-hidden="true" className="text-[11px] text-foreground/26">
             {summary}
@@ -1271,9 +1276,9 @@ function ExploreBlock({
           className="flex h-7 items-center gap-2"
           role="status"
         >
-          <span className="font-semibold text-foreground/32 text-sm">
+          <Shimmer as="span" className="text-sm font-semibold text-foreground">
             Exploring
-          </span>
+          </Shimmer>
           {summary ? (
             <span aria-hidden="true" className="text-[11px] text-foreground/26">
               {summary}
@@ -1340,6 +1345,7 @@ function MutationBlock({ action }: { action: MutationAction }) {
     const summary = action.preview
       ? `${action.preview.noteCount} note${action.preview.noteCount === 1 ? "" : "s"} ${action.preview.operation}`
       : null;
+
     return (
       <motion.div
         animate={{ opacity: 1, y: 0 }}

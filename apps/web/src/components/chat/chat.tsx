@@ -176,11 +176,9 @@ export function Chat({
   });
   const {
     containerRef: messagesContainerRef,
-    endRef: messagesEndRef,
+    followIfNeeded,
     isAutoScrollEnabled,
     reenableAutoScroll,
-    resetForNewMessage,
-    scrollLatestUserMessageIntoPosition,
   } = useScrollToBottom<HTMLDivElement>({
     isStreaming: status === "streaming",
   });
@@ -338,14 +336,16 @@ export function Chat({
     }
 
     lastUserMessageIdRef.current = latestUserMessage.id;
-    resetForNewMessage();
+    reenableAutoScroll("smooth");
+  }, [messages, reenableAutoScroll]);
 
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        scrollLatestUserMessageIntoPosition("smooth");
-      });
-    });
-  }, [messages, resetForNewMessage, scrollLatestUserMessageIntoPosition]);
+  useEffect(() => {
+    if (messages.length === 0) {
+      return;
+    }
+
+    followIfNeeded(status === "submitted" ? "smooth" : "auto");
+  }, [followIfNeeded, messages, status]);
 
   const regenerateFromMessage = useCallback(
     async (assistantMessageId: string) => {
@@ -525,7 +525,6 @@ export function Chat({
             isReadonly={isReadonly}
             messages={messages}
             messagesContainerRef={messagesContainerRef}
-            messagesEndRef={messagesEndRef}
             onRegenerate={regenerateFromMessage}
             sendMessage={sendMessage}
             status={status}

@@ -268,7 +268,7 @@ export function PanPinchImageViewer({
   return (
     <div
       ref={containerRef}
-      className="group relative flex min-h-[62vh] w-full items-center justify-center overflow-hidden rounded-none border-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.98),_rgba(244,244,245,0.92)_44%,_rgba(228,228,231,0.86)_100%)] overscroll-none select-none touch-none sm:min-h-[68vh] sm:rounded-2xl sm:border sm:border-border/60"
+      className="group relative flex min-h-[62vh] w-full items-center justify-center overflow-hidden rounded-none border-0 overscroll-none select-none touch-none sm:min-h-[68vh] sm:rounded-2xl sm:border sm:border-border/60"
       onDoubleClick={() => {
         if (transformRef.current.scale > 1) {
           resetView();
@@ -292,9 +292,7 @@ export function PanPinchImageViewer({
         touchAction: "none",
       }}
     >
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.28),transparent_45%,rgba(24,24,27,0.06))]" />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white/55 to-transparent" />
-
       <div
         className={cn(
           "flex h-full w-full items-center justify-center px-4 py-5 transition-opacity sm:px-8 sm:py-8",

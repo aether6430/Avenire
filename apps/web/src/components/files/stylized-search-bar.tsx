@@ -18,7 +18,7 @@ import {
   useState,
 } from "react";
 import { Markdown } from "@/components/chat/markdown";
-import { ThinkingIndicator } from "@/components/chat/thinking-indicator";
+import { ChatSpinner } from "@/components/chat/spinner";
 import { cn } from "@/lib/utils";
 
 export interface WorkspaceSearchItem {
@@ -608,7 +608,7 @@ const StylizedSearchBar = memo(function StylizedSearchBar({
                       </span>
                       {isSearching || isSummaryStreaming ? (
                         <div className="inline-flex items-center gap-1.5">
-                          <ThinkingIndicator
+                          <ChatSpinner
                             className="px-0 py-0"
                             messages={["Retrieving", "Summarizing"]}
                           />
@@ -655,7 +655,7 @@ const StylizedSearchBar = memo(function StylizedSearchBar({
                             ) : (
                               <div className="text-muted-foreground">
                                 {isSearching ? (
-                                  <ThinkingIndicator
+                                  <ChatSpinner
                                     className="-mx-2 -my-1 px-0 py-0"
                                     messages={[
                                       "Searching indexed content",

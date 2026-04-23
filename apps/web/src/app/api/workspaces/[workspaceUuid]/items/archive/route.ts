@@ -22,6 +22,22 @@ function sanitizeArchiveSegment(value: string) {
   return value.replace(/[\\/:*?"<>|]+/g, "-").trim() || "untitled";
 }
 
+function createDownloadResponse(input: {
+  bytes: Uint8Array;
+  contentType: string;
+  fileName: string;
+}) {
+  const escapedFileName = input.fileName.replace(/"/g, '\\"');
+  const encodedFileName = encodeURIComponent(input.fileName);
+
+  return new NextResponse(Buffer.from(input.bytes), {
+    headers: {
+      "Content-Disposition": `attachment; filename="${escapedFileName}"; filename*=UTF-8''${encodedFileName}`,
+      "Content-Type": input.contentType,
+    },
+  });
+}
+
 async function fetchFileBytes(url: string) {
   const response = await fetch(url);
   if (!response.ok) {
@@ -59,6 +75,41 @@ async function buildFileArchiveEntry(
     entryName: fileName,
     fileName,
     bytes: await fetchFileBytes(file.storageUrl),
+  };
+}
+
+async function buildSingleFileDownload(
+  workspaceUuid: string,
+  fileId: string
+): Promise<{
+  bytes: Uint8Array;
+  contentType: string;
+  fileName: string;
+} | null> {
+  const file = await getFileAssetById(workspaceUuid, fileId);
+  if (!file) {
+    return null;
+  }
+
+  if (isMarkdownFileRecord(file)) {
+    const note = await getNoteContent(file.id);
+    const content =
+      note?.content ??
+      (await fetch(file.storageUrl)
+        .then((response) => (response.ok ? response.text() : ""))
+        .catch(() => ""));
+
+    return {
+      bytes: Buffer.from(content, "utf8"),
+      contentType: "text/markdown; charset=utf-8",
+      fileName: file.name,
+    };
+  }
+
+  return {
+    bytes: await fetchFileBytes(file.storageUrl),
+    contentType: file.mimeType ?? "application/octet-stream",
+    fileName: file.name,
   };
 }
 
@@ -133,6 +184,18 @@ export async function POST(
   const archiveEntries: Record<string, Uint8Array> = {};
   const archiveName =
     requestedItems.length === 1 ? "archive" : "selection";
+
+  if (requestedItems.length === 1 && requestedItems[0]?.kind === "file") {
+    const singleFile = await buildSingleFileDownload(
+      workspaceUuid,
+      requestedItems[0].id
+    );
+    if (!singleFile) {
+      return NextResponse.json({ error: "File not found" }, { status: 404 });
+    }
+
+    return createDownloadResponse(singleFile);
+  }
 
   const includesFolder = requestedItems.some((item) => item.kind === "folder");
   const [workspaceFolders, workspaceFiles] = includesFolder
@@ -214,12 +277,9 @@ export async function POST(
 
   const zipBytes = zipSync(archiveEntries, { level: 0 });
   const archiveFileName = `${archiveName}.zip`;
-  const escapedArchiveFileName = archiveFileName.replace(/"/g, '\\"');
-  const encodedArchiveFileName = encodeURIComponent(archiveFileName);
-  return new NextResponse(Buffer.from(zipBytes), {
-    headers: {
-      "Content-Disposition": `attachment; filename="${escapedArchiveFileName}"; filename*=UTF-8''${encodedArchiveFileName}`,
-      "Content-Type": "application/zip",
-    },
+  return createDownloadResponse({
+    bytes: zipBytes,
+    contentType: "application/zip",
+    fileName: archiveFileName,
   });
 }

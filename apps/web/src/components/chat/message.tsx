@@ -114,6 +114,18 @@ function preferTransientParts(parts: MessagePart[]) {
 const groupRenderableBlocks = (parts: MessagePart[]): RenderBlock[] =>
   parts.map((part, index) => ({ index, part, type: "part" }));
 
+const isReasoningPartStreaming = (
+  part: MessagePart,
+  parts: MessagePart[],
+  isStreaming: boolean
+) => {
+  if (!isStreaming) {
+    return false;
+  }
+
+  return parts.indexOf(part) === parts.length - 1;
+};
+
 const splitMessageParts = (parts: MessagePart[]) => {
   const rollingToolParts: ToolPart[] = [];
   const agentActivityParts: AgentActivityPart[] = [];
@@ -133,6 +145,11 @@ const splitMessageParts = (parts: MessagePart[]) => {
 
   return { agentActivityParts, remainingParts, rollingToolParts };
 };
+
+const TOOL_ACTIVITY_AGENT_TYPES = new Set([
+  "tool-avenire_agent",
+  "tool-file_manager_agent",
+]);
 
 const toAgentActivityActions = (
   activity: AgentActivityData | undefined
@@ -389,6 +406,12 @@ const PurePreviewMessage = ({
   const latestAgentActivity =
     agentActivity ?? (agentActivityParts.at(-1)?.data as AgentActivityData);
   const agentActions = toAgentActivityActions(latestAgentActivity);
+  const visibleRollingToolParts =
+    agentActions.length > 0
+      ? rollingToolParts.filter(
+          (part) => !TOOL_ACTIVITY_AGENT_TYPES.has(part.type)
+        )
+      : rollingToolParts;
   const renderBlocks = groupRenderableBlocks(remainingParts);
 
   return (
@@ -404,7 +427,7 @@ const PurePreviewMessage = ({
         initial={{ y: 5, opacity: 0 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
       >
-        <div className="flex w-full flex-col gap-3 group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-[80%]">
+        <div className="flex w-full flex-col gap-2.5 group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-[80%]">
           {message.role === "assistant" && (
             <div className="flex flex-row items-center gap-2">
               <div className="flex flex-col gap-4 text-muted-foreground text-[11px] uppercase tracking-[0.15em]">
@@ -415,7 +438,7 @@ const PurePreviewMessage = ({
 
           <div
             className={cn(
-              "flex w-full flex-col gap-4",
+              "flex w-full flex-col gap-3",
               message.role === "user" && "items-end"
             )}
           >
@@ -425,11 +448,11 @@ const PurePreviewMessage = ({
                 isStreaming={latestAgentActivity?.status === "running"}
               />
             )}
-            {rollingToolParts.length > 0 && (
+            {visibleRollingToolParts.length > 0 && (
               <RollingToolActivity
                 isStreaming={isStreaming}
                 key={`message-${message.id}-tool-activity`}
-                parts={rollingToolParts}
+                parts={visibleRollingToolParts}
               />
             )}
             {fileParts.length > 0 && (
@@ -461,7 +484,11 @@ const PurePreviewMessage = ({
                 return (
                   <ReasoningAction
                     content={getReasoningText(part)}
-                    isStreaming={isStreaming}
+                    isStreaming={isReasoningPartStreaming(
+                      part,
+                      parts,
+                      isStreaming
+                    )}
                     key={key}
                     workspaceUuid={workspaceUuid}
                   />
@@ -567,7 +594,7 @@ const PurePreviewMessage = ({
 
             {message.role === "assistant" ? (
               <GeneratedArtifacts
-                parts={rollingToolParts}
+                parts={visibleRollingToolParts}
                 workspaceUuid={workspaceUuid}
               />
             ) : null}
