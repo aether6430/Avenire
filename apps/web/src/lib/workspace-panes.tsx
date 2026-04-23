@@ -163,6 +163,10 @@ export function useCurrentWorkspacePane() {
   return context;
 }
 
+export function useOptionalCurrentWorkspacePane() {
+  return useContext(WorkspacePaneContext);
+}
+
 export function usePanePathname() {
   return useCurrentWorkspacePane().route.pathname;
 }

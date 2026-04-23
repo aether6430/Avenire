@@ -124,11 +124,16 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { Markdown as MarkdownRenderer } from "@/components/chat/markdown";
+import { NoteWidgetExtension } from "@/components/editor/note-widget-extension";
 import "../editor.css";
 import {
   isMarkdownNoteTemplateTargetEmpty,
   renderMarkdownNoteTemplate,
 } from "@/lib/markdown-note-template";
+import {
+  NOTE_WIDGET_INSERT_EVENT,
+  type NoteWidgetPayload,
+} from "@/lib/note-widgets";
 import {
   getDefaultNoteTemplates,
   getRecentNoteTemplateStorageKey,
@@ -137,7 +142,9 @@ import {
 } from "@/lib/note-templates";
 import { resolveWorkspaceFileRoute } from "@/lib/workspace-file-navigation";
 import { useUploadThing } from "@/lib/uploadthing";
+import { useOptionalCurrentWorkspacePane } from "@/lib/workspace-panes";
 import { commandPaletteActions } from "@/stores/commandPaletteStore";
+import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
 const lowlight = createLowlight(common);
 const MENU_OFFSET = 10;
 const VIEWPORT_PADDING = 12;
@@ -461,6 +468,11 @@ const MERMAID_DEFAULT = `graph LR
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     deleteMermaidDiagram: (options: { pos: number }) => ReturnType;
+    insertNoteWidget: (options: {
+      html: string;
+      pos?: number;
+      title?: string | null;
+    }) => ReturnType;
     insertMermaidDiagram: (options: {
       code?: string;
       pos?: number;
@@ -2512,6 +2524,8 @@ function AvenireEditor({
   const [recentTemplateIds, setRecentTemplateIds] = useState<string[]>([]);
   const tableContextMenuRef = useRef<HTMLDivElement | null>(null);
   const { startUpload: startImageUpload } = useUploadThing("imageUploader");
+  const currentPane = useOptionalCurrentWorkspacePane();
+  const activePaneId = useWorkspacePaneStore((state) => state.activePaneId);
 
   const resolveWikiPageFromHref = (href: string | null) => {
     if (!href) {
@@ -2684,6 +2698,7 @@ function AvenireEditor({
           });
         },
       }),
+      NoteWidgetExtension,
     ],
     content: normalizedDefaultValue,
     contentType: "markdown",
@@ -2904,6 +2919,36 @@ function AvenireEditor({
     setImageUploadError(null);
     setImageUploadBusy(false);
   }, [imagePopover]);
+
+  useEffect(() => {
+    if (!editor) {
+      return;
+    }
+    if (currentPane && currentPane.paneId !== activePaneId) {
+      return;
+    }
+
+    const handleInsertWidget = (event: Event) => {
+      const detail = (event as CustomEvent<NoteWidgetPayload>).detail;
+      if (!detail?.html?.trim()) {
+        return;
+      }
+
+      editor
+        .chain()
+        .focus()
+        .insertNoteWidget({
+          html: detail.html,
+          title: detail.title ?? null,
+        })
+        .run();
+    };
+
+    window.addEventListener(NOTE_WIDGET_INSERT_EVENT, handleInsertWidget);
+    return () => {
+      window.removeEventListener(NOTE_WIDGET_INSERT_EVENT, handleInsertWidget);
+    };
+  }, [activePaneId, currentPane, editor]);
 
   const slashCommands = useMemo<SlashCommand[]>(() => {
     if (!editor) {

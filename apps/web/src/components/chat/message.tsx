@@ -2,9 +2,9 @@
 
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { AgentActivityData, UIMessage } from "@avenire/ai/message-types";
-import { buttonVariants } from "@avenire/ui/components/button";
+import { Button, buttonVariants } from "@avenire/ui/components/button";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowSquareOut } from "@phosphor-icons/react";
+import { ArrowSquareOut, PlusCircle } from "@phosphor-icons/react";
 import { memo, useEffect, useMemo, useState } from "react";
 import type { Attachment } from "@/components/chat/attachment";
 import { ChatActions } from "@/components/chat/chat-actions";
@@ -19,6 +19,7 @@ import {
 } from "@/components/chat/rolling-tool-activity";
 import { ChatToolPart, ToolRow } from "@/components/chat/tool-part";
 import { WidgetRenderer } from "@/components/WidgetRenderer";
+import { dispatchNoteWidgetInsertion } from "@/lib/note-widgets";
 import { resolveWorkspaceFileRoute } from "@/lib/workspace-file-navigation";
 import { cn } from "@/lib/utils";
 
@@ -554,9 +555,28 @@ const PurePreviewMessage = ({
                 return (
                   <div className="mb-2 space-y-2" key={key}>
                     <ToolRow label="Widget">
-                      <span className="font-mono text-[11px] text-foreground/28">
-                        {title ?? "interactive"}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[11px] text-foreground/28">
+                          {title ?? "interactive"}
+                        </span>
+                        {widgetCode && !isStreamingWidget ? (
+                          <Button
+                            className="h-7 rounded-full px-3 text-[11px]"
+                            onClick={() => {
+                              dispatchNoteWidgetInsertion({
+                                html: widgetCode,
+                                title,
+                              });
+                            }}
+                            size="sm"
+                            type="button"
+                            variant="outline"
+                          >
+                            <PlusCircle className="mr-1 size-3.5" />
+                            Add to note
+                          </Button>
+                        ) : null}
+                      </div>
                     </ToolRow>
                     {widgetCode ? (
                       <WidgetRenderer
