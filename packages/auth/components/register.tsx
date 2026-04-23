@@ -3,7 +3,7 @@
 import type React from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useSyncExternalStore } from "react"
 import { Button } from "@avenire/ui/components/button"
 import { Input } from "@avenire/ui/components/input"
 import { Label } from "@avenire/ui/components/label"
@@ -13,6 +13,57 @@ import { toast } from "sonner"
 import { z } from "zod"
 import { GithubIcon, GoogleIcon, LoadingIcon } from "./icons"
 import { getErrorMessage } from "../error_codes"
+
+const VERIFICATION_RESEND_COOLDOWN_SECONDS = 60
+const VERIFICATION_EMAIL_STORAGE_KEY = "auth:verification-email"
+
+const clockSubscribers = new Set<() => void>()
+let clockInterval: number | null = null
+
+function subscribeToClock(callback: () => void) {
+  clockSubscribers.add(callback)
+
+  if (!clockInterval) {
+    clockInterval = window.setInterval(() => {
+      clockSubscribers.forEach((subscriber) => subscriber())
+    }, 1000)
+  }
+
+  return () => {
+    clockSubscribers.delete(callback)
+
+    if (!clockSubscribers.size && clockInterval) {
+      window.clearInterval(clockInterval)
+      clockInterval = null
+    }
+  }
+}
+
+function useClockNow() {
+  return useSyncExternalStore(subscribeToClock, () => Date.now(), () => 0)
+}
+
+function getVerificationCooldownStorageKey(email: string) {
+  return `auth:verification-resend-cooldown:${email}`
+}
+
+function readStoredVerificationCooldown(email: string) {
+  if (typeof window === "undefined") {
+    return null
+  }
+
+  const storedDeadline = window.localStorage.getItem(getVerificationCooldownStorageKey(email))
+  if (!storedDeadline) {
+    return null
+  }
+
+  const parsedDeadline = Number.parseInt(storedDeadline, 10)
+  if (!Number.isFinite(parsedDeadline) || parsedDeadline <= Date.now()) {
+    return null
+  }
+
+  return parsedDeadline
+}
 
 const registerSchema = z
   .object({
@@ -45,10 +96,24 @@ export function RegisterForm({
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [email, setEmail] = useState("")
+  const [verificationEmail, setVerificationEmail] = useState(() => {
+    if (typeof window === "undefined") {
+      return ""
+    }
+
+    return window.localStorage.getItem(VERIFICATION_EMAIL_STORAGE_KEY) ?? ""
+  })
   const [username, setUsername] = useState("")
   const [displayname, setDisplayName] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [resendAvailableAt, setResendAvailableAt] = useState<number | null>(() => {
+    const storedEmail =
+      typeof window === "undefined" ? "" : window.localStorage.getItem(VERIFICATION_EMAIL_STORAGE_KEY) ?? ""
+
+    return storedEmail ? readStoredVerificationCooldown(storedEmail) : null
+  })
+  const [isResendingVerificationEmail, setIsResendingVerificationEmail] = useState(false)
   const [errors, setErrors] = useState<{
     email: string | undefined
     username: string | undefined
@@ -57,6 +122,29 @@ export function RegisterForm({
     displayname?: string | undefined
   } | undefined>(undefined)
   const lastLoginMethod = authClient.getLastUsedLoginMethod()
+  const clockNow = useClockNow()
+  const submittedVerificationEmail = verificationEmail.trim().toLowerCase()
+  const resendCooldownSecondsRemaining = resendAvailableAt
+    ? Math.max(0, Math.ceil((resendAvailableAt - clockNow) / 1000))
+    : 0
+  const canResendVerificationEmail =
+    isSubmitted &&
+    Boolean(submittedVerificationEmail) &&
+    !isResendingVerificationEmail &&
+    resendCooldownSecondsRemaining === 0
+
+  const startVerificationResendCooldown = (emailAddress: string) => {
+    const normalizedEmail = emailAddress.trim().toLowerCase()
+    if (!normalizedEmail) {
+      return
+    }
+
+    const deadline = Date.now() + VERIFICATION_RESEND_COOLDOWN_SECONDS * 1000
+    setVerificationEmail(normalizedEmail)
+    setResendAvailableAt(deadline)
+    window.localStorage.setItem(VERIFICATION_EMAIL_STORAGE_KEY, normalizedEmail)
+    window.localStorage.setItem(getVerificationCooldownStorageKey(normalizedEmail), String(deadline))
+  }
 
   const getErrorCallbackURL = () => {
     const params = new URLSearchParams()
@@ -130,7 +218,10 @@ export function RegisterForm({
     }
 
     setIsLoading(false)
+    const normalizedEmail = email.trim().toLowerCase()
+    setVerificationEmail(normalizedEmail)
     setIsSubmitted(true)
+    startVerificationResendCooldown(normalizedEmail)
   }
 
   return (
@@ -360,14 +451,41 @@ export function RegisterForm({
             </div>
             <Button
               className="mt-4 transition-all hover:bg-primary/90 group"
-              onClick={() => {
-                sendVerificationEmail({
-                  email,
-                })
+              type="button"
+              disabled={!canResendVerificationEmail}
+              onClick={async () => {
+                if (!canResendVerificationEmail) {
+                  return
+                }
+
+                setIsResendingVerificationEmail(true)
+                try {
+                  const { error } = await sendVerificationEmail({
+                    email: verificationEmail || email,
+                  })
+
+                  if (error) {
+                    toast.error("Oops! Something went wrong", {
+                      description: getErrorMessage(error.code || "", error.message).userMessage,
+                    })
+                    return
+                  }
+
+                  startVerificationResendCooldown(verificationEmail || email)
+                  toast.success("Verification email sent", {
+                    description: "Check your inbox for a fresh verification link.",
+                  })
+                } finally {
+                  setIsResendingVerificationEmail(false)
+                }
               }}
             >
               <div className="flex items-center">
-                Resend verification email
+                {isResendingVerificationEmail
+                  ? "Sending..."
+                  : resendCooldownSecondsRemaining > 0
+                    ? `Resend available in ${resendCooldownSecondsRemaining}s`
+                    : "Resend verification email"}
                 <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
               </div>
             </Button>
