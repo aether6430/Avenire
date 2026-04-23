@@ -23,6 +23,7 @@ import {
   type DragEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -47,6 +48,8 @@ import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstra
 import { useHeaderStore } from "@/stores/header-store";
 import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
 import type { Route } from "next";
+
+const COMPACT_PANE_WIDTH = 900;
 
 function WorkspacePaneScene({
   paneId,
@@ -163,11 +166,13 @@ function PaneActionsMenu({
 }
 
 function PaneHeader({
+  compact,
   onClose,
   onSplitHorizontal,
   onSplitVertical,
   showClose,
 }: {
+  compact: boolean;
   onClose: () => void;
   onSplitHorizontal: () => void;
   onSplitVertical: () => void;
@@ -185,9 +190,140 @@ function PaneHeader({
   return (
     <WorkspaceHeader
       className="border-b-0"
-      compact
+      compact={compact}
       trailingActions={trailingActions}
     />
+  );
+}
+
+function WorkspacePaneSurface({
+  isActive,
+  isMultiPane,
+  onClose,
+  onDragEnd,
+  onDragStart,
+  onDrop,
+  onDragOver,
+  onFocus,
+  onSplitHorizontal,
+  onSplitVertical,
+  pane,
+}: {
+  isActive: boolean;
+  isMultiPane: boolean;
+  onClose: () => void;
+  onDragEnd: () => void;
+  onDragStart: () => void;
+  onDrop: (event: DragEvent<HTMLDivElement>) => void;
+  onDragOver: (event: DragEvent<HTMLDivElement>) => void;
+  onFocus: () => void;
+  onSplitHorizontal: () => void;
+  onSplitVertical: () => void;
+  pane: {
+    id: string;
+    route: {
+      pathname: string;
+      search: string;
+    };
+    rowId: string;
+    size: number;
+  };
+}) {
+  const surfaceRef = useRef<HTMLDivElement | null>(null);
+  const [width, setWidth] = useState(0);
+
+  useLayoutEffect(() => {
+    const element = surfaceRef.current;
+    if (!element) {
+      return;
+    }
+
+    const updateWidth = () => {
+      setWidth(element.getBoundingClientRect().width);
+    };
+
+    updateWidth();
+
+    if (typeof ResizeObserver === "undefined") {
+      return () => undefined;
+    }
+
+    const observer = new ResizeObserver(() => {
+      updateWidth();
+    });
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  const isCompact = width > 0 && width < COMPACT_PANE_WIDTH;
+
+  return (
+    <div
+      className="min-w-0"
+      ref={surfaceRef}
+      style={{ width: `${pane.size}%` }}
+    >
+      <WorkspacePaneProvider
+        isActive={isActive}
+        isCompact={isCompact}
+        paneId={pane.id}
+        route={pane.route}
+      >
+        <div
+          className={cn(
+            "flex h-full min-w-0 flex-col overflow-hidden border-r border-border/70 bg-background",
+            isActive ? "ring-1 ring-inset ring-border/90" : "ring-0"
+          )}
+          onClick={onFocus}
+          onDragOver={onDragOver}
+          onDrop={onDrop}
+        >
+          <div className="flex items-center border-b border-border/60">
+            {isMultiPane ? (
+              <div
+                className="flex h-11 shrink-0 cursor-grab items-center pl-2 pr-1 text-muted-foreground active:cursor-grabbing"
+                draggable
+                onDragEnd={onDragEnd}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                }}
+                onDragStart={onDragStart}
+                onDrop={onDrop}
+              >
+                <DotsSixVertical className="size-4" />
+              </div>
+            ) : null}
+            {isMultiPane ? (
+              <PaneHeader
+                compact={isCompact}
+                onClose={onClose}
+                onSplitHorizontal={onSplitHorizontal}
+                onSplitVertical={onSplitVertical}
+                showClose={isMultiPane}
+              />
+            ) : (
+              <WorkspaceHeader
+                className="border-b-0"
+                compact={isCompact}
+                paneId={pane.id}
+              />
+            )}
+          </div>
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <WorkspacePaneInteractionBoundary>
+              <WorkspacePaneScene
+                paneId={pane.id}
+                pathname={pane.route.pathname}
+                search={pane.route.search}
+              />
+            </WorkspacePaneInteractionBoundary>
+          </div>
+        </div>
+      </WorkspacePaneProvider>
+    </div>
   );
 }
 
@@ -344,11 +480,17 @@ export function WorkspacePaneRenderer() {
     return (
       <WorkspacePaneProvider
         isActive
+        isCompact
         paneId={mobilePaneId}
         route={browserRoute}
       >
         <div className="flex h-full min-w-0 flex-col bg-background">
-          <WorkspaceHeader className="border-b border-border/60" paneId={mobilePaneId} />
+          <WorkspaceHeader
+            className="border-b border-border/60"
+            compact
+            overlay
+            paneId={mobilePaneId}
+          />
           <div className="min-h-0 flex-1 overflow-hidden">
             <WorkspacePaneInteractionBoundary>
               <WorkspacePaneScene
@@ -367,111 +509,94 @@ export function WorkspacePaneRenderer() {
     <div className="flex h-full w-full flex-col bg-background" ref={containerRef}>
       {rows.map((row, rowIndex) => {
         const rowPanes = panes.filter((pane) => pane.rowId === row.id);
+        const rowDropTargetId = rowPanes[0]?.id ?? null;
         return (
           <div className="min-h-0" key={row.id} style={{ height: `${row.size}%` }}>
-            <div className="flex h-full min-w-0">
+            <div
+              className="flex h-full min-w-0"
+              onDragOver={(event) => {
+                if (
+                  rowDropTargetId &&
+                  (hasWorkspacePaneDragHref(event.dataTransfer) || draggedPaneId)
+                ) {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = draggedPaneId
+                    ? "move"
+                    : "copy";
+                }
+              }}
+              onDrop={(event) => {
+                if (rowDropTargetId) {
+                  handlePaneDrop(event, rowDropTargetId);
+                }
+              }}
+            >
               {rowPanes.map((pane, paneIndex) => {
                 const isActive = pane.id === activePaneId;
                 const isMultiPane = panes.length > 1;
                 return (
-                  <WorkspacePaneProvider
-                    isActive={isActive}
-                    key={pane.id}
-                    paneId={pane.id}
-                    route={pane.route}
-                  >
-                    <div className="min-w-0" style={{ width: `${pane.size}%` }}>
-                      <div
-                        className={cn(
-                          "flex h-full min-w-0 flex-col overflow-hidden border-r border-border/70 bg-background",
-                          isActive ? "ring-1 ring-inset ring-border/90" : "ring-0"
-                        )}
-                        onClick={() => focusPane(pane.id)}
-                        onDragOver={(event) => {
-                          if (
-                            hasWorkspacePaneDragHref(event.dataTransfer) ||
-                            draggedPaneId
-                          ) {
-                            event.preventDefault();
-                            event.dataTransfer.dropEffect = draggedPaneId
-                              ? "move"
-                              : "copy";
-                          }
-                        }}
-                        onDrop={(event) => handlePaneDrop(event, pane.id)}
-                      >
-                        <div className="flex items-center border-b border-border/60">
-                          {isMultiPane ? (
-                            <div
-                              className="w-full flex h-11 shrink-0 cursor-grab items-center pl-2 pr-1 text-muted-foreground active:cursor-grabbing"
-                              draggable
-                              onDragEnd={() => {
-                                setDraggedPaneId(null);
-                              }}
-                              onDragOver={(event) => {
-                                event.preventDefault();
-                              }}
-                              onDragStart={() => {
-                                setDraggedPaneId(pane.id);
-                              }}
-                              onDrop={(event) => handlePaneDrop(event, pane.id)}
-                            >
-                              <DotsSixVertical className="size-4" />
-                            </div>
-                          ) : null}
-                          {isMultiPane ? (
-                            <PaneHeader
-                              onClose={() => closePane(pane.id)}
-                              onSplitHorizontal={() =>
-                                openPane(
-                                  `${pane.route.pathname}${pane.route.search}`,
-                                  {
-                                    sourcePaneId: pane.id,
-                                    splitDirection: "horizontal",
-                                  }
-                                )
-                              }
-                              onSplitVertical={() =>
-                                openPane(
-                                  `${pane.route.pathname}${pane.route.search}`,
-                                  {
-                                    sourcePaneId: pane.id,
-                                    splitDirection: "vertical",
-                                  }
-                                )
-                              }
-                              showClose={isMultiPane}
-                            />
-                          ) : (
-                            <WorkspaceHeader className="border-b-0" paneId={pane.id} />
-                          )}
-                        </div>
-                        <div className="min-h-0 flex-1 overflow-hidden">
-                          <WorkspacePaneInteractionBoundary>
-                            <WorkspacePaneScene
-                              paneId={pane.id}
-                              pathname={pane.route.pathname}
-                              search={pane.route.search}
-                            />
-                          </WorkspacePaneInteractionBoundary>
-                        </div>
-                      </div>
-                    </div>
+                  <div className="flex min-w-0" key={pane.id}>
+                    <WorkspacePaneSurface
+                      isActive={isActive}
+                      isMultiPane={isMultiPane}
+                      onClose={() => closePane(pane.id)}
+                      onDragEnd={() => {
+                        setDraggedPaneId(null);
+                      }}
+                      onDragStart={() => {
+                        setDraggedPaneId(pane.id);
+                      }}
+                      onDragOver={(event) => {
+                        if (
+                          hasWorkspacePaneDragHref(event.dataTransfer) ||
+                          draggedPaneId
+                        ) {
+                          event.preventDefault();
+                          event.dataTransfer.dropEffect = draggedPaneId
+                            ? "move"
+                            : "copy";
+                        }
+                      }}
+                      onDrop={(event) => {
+                        event.stopPropagation();
+                        handlePaneDrop(event, pane.id);
+                      }}
+                      onFocus={() => focusPane(pane.id)}
+                      onSplitHorizontal={() =>
+                        openPane(`${pane.route.pathname}${pane.route.search}`, {
+                          sourcePaneId: pane.id,
+                          splitDirection: "horizontal",
+                        })
+                      }
+                      onSplitVertical={() =>
+                        openPane(`${pane.route.pathname}${pane.route.search}`, {
+                          sourcePaneId: pane.id,
+                          splitDirection: "vertical",
+                        })
+                      }
+                      pane={pane}
+                    />
                     {paneIndex < rowPanes.length - 1 ? (
                       <div
-                        className="relative z-10 w-3 shrink-0 cursor-col-resize bg-border/35 transition-colors hover:bg-border/75"
-                        key={`${pane.id}-resize`}
+                        aria-hidden="true"
+                        className="relative z-20 w-3 shrink-0 cursor-col-resize bg-border/35 transition-colors hover:bg-border/75"
                         onPointerDown={(event) => {
                           event.preventDefault();
-                          startResize("pane", row.id, paneIndex, event.clientX, event.clientY);
+                          startResize(
+                            "pane",
+                            row.id,
+                            paneIndex,
+                            event.clientX,
+                            event.clientY
+                          );
                         }}
                       >
                         <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/70">
-                          <ArrowsOutCardinal className="size-3.5 rotate-45" />
+                          <ArrowsSplit className="size-3.5" />
                         </div>
                       </div>
                     ) : null}
-                  </WorkspacePaneProvider>
+                  </div>
                 );
               })}
             </div>

@@ -3,6 +3,13 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { AgentActivityData, UIMessage } from "@avenire/ai/message-types";
 import { Button, buttonVariants } from "@avenire/ui/components/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@avenire/ui/components/dialog";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowSquareOut, PlusCircle } from "@phosphor-icons/react";
 import { memo, useEffect, useMemo, useState } from "react";
@@ -22,6 +29,8 @@ import { WidgetRenderer } from "@/components/WidgetRenderer";
 import { dispatchNoteWidgetInsertion } from "@/lib/note-widgets";
 import { resolveWorkspaceFileRoute } from "@/lib/workspace-file-navigation";
 import { cn } from "@/lib/utils";
+import { useHeaderStore } from "@/stores/header-store";
+import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
 
 type MessagePart = UIMessage["parts"][number];
 type ToolPart = Extract<MessagePart, { type: `tool-${string}` }>;
@@ -39,6 +48,7 @@ type NoteToolOutput = {
     workspacePath: string;
   }>;
 };
+type NoteWidgetPayload = Parameters<typeof dispatchNoteWidgetInsertion>[0];
 interface RenderBlock {
   index: number;
   part: MessagePart;
@@ -414,6 +424,57 @@ const PurePreviewMessage = ({
         )
       : rollingToolParts;
   const renderBlocks = groupRenderableBlocks(remainingParts);
+  const panes = useWorkspacePaneStore((state) => state.panes);
+  const focusPane = useWorkspacePaneStore((state) => state.focusPane);
+  const activePaneId = useWorkspacePaneStore((state) => state.activePaneId);
+  const paneHeaders = useHeaderStore((state) => state.byPane);
+  const [noteInsertDialogOpen, setNoteInsertDialogOpen] = useState(false);
+  const [pendingNoteWidget, setPendingNoteWidget] = useState<NoteWidgetPayload | null>(
+    null
+  );
+  const noteTargets = useMemo(
+    () =>
+      panes
+        .filter((pane) => pane.route.pathname.startsWith("/workspace/files"))
+        .sort((left, right) => {
+          if (left.id === activePaneId) {
+            return -1;
+          }
+          if (right.id === activePaneId) {
+            return 1;
+          }
+          return left.id.localeCompare(right.id);
+        })
+        .map((pane) => {
+          const title = paneHeaders[pane.id]?.title?.trim();
+          const routeLabel = pane.route.pathname.replace("/workspace/files/", "");
+          return {
+            id: pane.id,
+            label: title || routeLabel || "Files pane",
+            route: `${pane.route.pathname}${pane.route.search}`,
+          };
+        }),
+    [activePaneId, paneHeaders, panes]
+  );
+
+  const openNoteInsertDialog = (payload: NoteWidgetPayload) => {
+    setPendingNoteWidget(payload);
+    setNoteInsertDialogOpen(true);
+  };
+
+  const insertIntoNoteTarget = (paneId: string) => {
+    if (!pendingNoteWidget) {
+      return;
+    }
+
+    focusPane(paneId);
+    const payload = pendingNoteWidget;
+    setPendingNoteWidget(null);
+    setNoteInsertDialogOpen(false);
+    window.requestAnimationFrame(() => {
+      dispatchNoteWidgetInsertion(payload);
+    });
+  };
 
   return (
     <AnimatePresence>
@@ -563,7 +624,7 @@ const PurePreviewMessage = ({
                           <Button
                             className="h-7 rounded-full px-3 text-[11px]"
                             onClick={() => {
-                              dispatchNoteWidgetInsertion({
+                              openNoteInsertDialog({
                                 html: widgetCode,
                                 title,
                               });
@@ -630,6 +691,48 @@ const PurePreviewMessage = ({
             />
           )}
         </div>
+        <Dialog
+          onOpenChange={(open) => {
+            setNoteInsertDialogOpen(open);
+            if (!open) {
+              setPendingNoteWidget(null);
+            }
+          }}
+          open={noteInsertDialogOpen}
+        >
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Add to note</DialogTitle>
+              <DialogDescription>
+                Choose which open note pane should receive this widget.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex max-h-[50vh] flex-col gap-2 overflow-y-auto">
+              {noteTargets.length > 0 ? (
+                noteTargets.map((target) => (
+                  <Button
+                    className="justify-start gap-3"
+                    key={target.id}
+                    onClick={() => insertIntoNoteTarget(target.id)}
+                    type="button"
+                    variant={target.id === activePaneId ? "default" : "outline"}
+                  >
+                    <span className="min-w-0 flex-1 truncate text-left">
+                      {target.label}
+                    </span>
+                    <span className="text-muted-foreground text-xs">
+                      {target.id === activePaneId ? "Active" : "Open"}
+                    </span>
+                  </Button>
+                ))
+              ) : (
+                <div className="rounded-lg border border-dashed border-border/60 px-4 py-5 text-muted-foreground text-sm">
+                  Open a file pane first, then try adding the widget again.
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </motion.div>
     </AnimatePresence>
   );

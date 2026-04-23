@@ -1,6 +1,6 @@
 "use client";
 
 export {
-  ChatSpinner as ThinkingIndicator,
-  ChatSpinnerGlyph as ThinkingGlyph,
-} from "@/components/chat/spinner";
+  ThinkingIndicator,
+  SpinnerGlyph as ThinkingGlyph,
+} from "@avenire/ui/components/spinner";

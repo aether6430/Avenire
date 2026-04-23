@@ -97,11 +97,13 @@ import {
   writeWorkspaceMarkdownCache,
 } from "@/lib/workspace-markdown-cache";
 import { getMarkdownDisplayTitle } from "@/lib/markdown-title";
-import { usePaneSearchParams } from "@/lib/workspace-panes";
+import {
+  useCurrentWorkspacePaneCompact,
+  usePaneSearchParams,
+} from "@/lib/workspace-panes";
 import { cn } from "@/lib/utils";
 import { usePaneHeaderActions } from "@/stores/header-store";
 import { useUserStore } from "@/stores/userStore";
-import { useIsMobile } from "@/hooks/use-mobile";
 
 const PDFViewer = dynamic(() => import("@/components/files/pdf-viewer"), {
   loading: () => (
@@ -295,7 +297,7 @@ export function FilePreviewPanel({
   const noteSyncInFlightRef = useRef(false);
   const noteSyncQueuedRef = useRef(false);
   const searchParams = usePaneSearchParams();
-  const isMobile = useIsMobile();
+  const isMobile = useCurrentWorkspacePaneCompact();
   const currentUser = useUserStore((state) => state.user);
   const circleToAiParam = searchParams.get("circleToAi");
 
@@ -859,7 +861,7 @@ export function FilePreviewPanel({
         </div>
       ),
       actions: (
-        <div className="flex flex-wrap items-center justify-end gap-2">
+        <div className="flex min-w-0 flex-nowrap items-center justify-end gap-2">
           <span className="hidden text-muted-foreground text-xs sm:inline">
             Edited{" "}
             {toUpdatedLabel(activeFile.updatedAt ?? activeFile.createdAt)} ago

@@ -123,11 +123,11 @@ import {
 import { useFileDragDrop } from "@/hooks/use-file-drag-drop";
 import { useFileSelection } from "@/hooks/use-file-selection";
 import { useHaptics } from "@/hooks/use-haptics";
-import { useIsMobile } from "@/hooks/use-mobile";
 import {
   usePanePathname,
   usePaneRouter,
   usePaneSearchParams,
+  useCurrentWorkspacePaneCompact,
 } from "@/lib/workspace-panes";
 import { readCachedWorkspaces } from "@/lib/dashboard-browser-cache";
 import { getWarmState, isFileOpenedCached } from "@/lib/file-preview-cache";
@@ -1455,7 +1455,7 @@ export function FileExplorer({
   const undoFileOperationHistoryRef = useRef<FileMutationHistoryEntry[]>([]);
   const redoFileOperationHistoryRef = useRef<FileMutationHistoryEntry[]>([]);
 
-  const isMobile = useIsMobile();
+  const isMobile = useCurrentWorkspacePaneCompact();
   const currentUser = useUserStore((state) => state.user);
   const setSettingsOpen = useDashboardOverlayStore(
     (state) => state.setSettingsOpen

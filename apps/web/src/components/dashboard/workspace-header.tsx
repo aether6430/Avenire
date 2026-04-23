@@ -14,6 +14,7 @@ interface WorkspaceHeaderProps {
   className?: string;
   compact?: boolean;
   homeHref?: string;
+  overlay?: boolean;
   paneId?: string;
   trailingActions?: ReactNode;
 }
@@ -22,6 +23,7 @@ export function WorkspaceHeader({
   className,
   compact = false,
   homeHref = "/workspace",
+  overlay = false,
   trailingActions,
   paneId: _paneId,
 }: WorkspaceHeaderProps) {
@@ -48,12 +50,11 @@ export function WorkspaceHeader({
     "size-7 rounded-none border-0 bg-transparent text-foreground shadow-none hover:bg-muted/70 disabled:bg-transparent";
   const shouldUseCompactDesktop = compact;
 
-  return (
-    <>
-      {/* Desktop header — solid, sticky */}
+  if (!compact) {
+    return (
       <header
         className={cn(
-          "w-full sticky top-0 z-30 hidden shrink-0 border-border/40 border-b bg-background/80 backdrop-blur-xl sm:block",
+          "w-full sticky top-0 z-30 shrink-0 border-border/40 border-b bg-background/80 backdrop-blur-xl",
           className
         )}
       >
@@ -109,8 +110,8 @@ export function WorkspaceHeader({
                 <ArrowRight className="size-3.5" />
               </Button>
             </ButtonGroup>
-            <div className="hidden min-w-0 flex-1 items-center gap-1 sm:flex">
-              <div className="hidden size-5 shrink-0 items-center justify-center text-muted-foreground sm:flex">
+            <div className="flex min-w-0 flex-1 items-center gap-1">
+              <div className="flex size-5 shrink-0 items-center justify-center text-muted-foreground">
                 {leadingIcon ?? (
                   <div
                     className="flex size-5 shrink-0 items-center justify-center text-muted-foreground empty:hidden"
@@ -138,22 +139,32 @@ export function WorkspaceHeader({
               </div>
             </div>
           </div>
-          <div className="hidden min-w-0 items-center justify-end gap-1 overflow-x-auto no-scrollbar sm:flex sm:w-auto">
-            {actions}
-            {trailingActions}
+          <div className="flex min-w-0 flex-1 items-center justify-end gap-1 overflow-x-auto no-scrollbar">
+            <div className="flex min-w-0 items-center justify-end gap-1">
+              {actions}
+            </div>
+            {trailingActions ? (
+              <div className="shrink-0">
+                {trailingActions}
+              </div>
+            ) : null}
           </div>
         </div>
       </header>
+    );
+  }
 
-      {/* Mobile header — blurred overlay floating at top */}
+  const isOverlayCompact = overlay;
+
+  return (
+    <>
       <header
         className={cn(
-          "fixed top-0 left-0 right-0 z-40 sm:hidden",
+          isOverlayCompact ? "fixed top-0 left-0 right-0 z-40" : "sticky top-0 z-40",
           className
         )}
-        style={{ paddingTop: "env(safe-area-inset-top)" }}
+        style={isOverlayCompact ? { paddingTop: "env(safe-area-inset-top)" } : undefined}
       >
-        {/* Blur + gradient backdrop */}
         <div
           className="absolute inset-0 border-border/20 border-b bg-background/45 backdrop-blur-2xl"
           style={{
@@ -162,7 +173,6 @@ export function WorkspaceHeader({
           }}
         />
 
-        {/* Content */}
         <div className="relative flex h-10 items-center gap-1.5 px-3">
           <div className="min-w-0 flex-1 overflow-hidden text-center">
             {breadcrumbs ?? (
@@ -184,9 +194,7 @@ export function WorkspaceHeader({
           </div>
         </div>
       </header>
-
-      {/* Mobile header spacer so content doesn't hide behind fixed header */}
-      <div className="h-10 shrink-0 sm:hidden" />
+      {isOverlayCompact ? <div className="h-10 shrink-0" /> : null}
     </>
   );
 }

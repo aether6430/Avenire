@@ -30,8 +30,8 @@ import {
   revokeAttachmentUrl,
 } from "@/components/chat/attachment";
 import { PreviewAttachment } from "@/components/chat/preview-attachment";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { getUploadErrorMessage } from "@/lib/upload";
+import { useCurrentWorkspacePaneCompact } from "@/lib/workspace-panes";
 import { useUploadThing } from "@/lib/uploadthing";
 import { cn } from "@/lib/utils";
 
@@ -254,7 +254,7 @@ function PureMultimodalInput({
     null
   );
   const { width } = useWindowSize();
-  const isMobile = useIsMobile();
+  const isMobile = useCurrentWorkspacePaneCompact();
   const MAX_FILES = 3;
   const [localStorageInput, setLocalStorageInput] = useLocalStorage(
     "chat-input",

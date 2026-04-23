@@ -683,12 +683,16 @@ export function DashboardSidebar({
   const [desktopSidebarView, setDesktopSidebarView] = useState<
     "chat" | "flashcards" | "files" | "tasks" | "workspace"
   >(() => routeView ?? "workspace");
+  const [mobileSidebarView, setMobileSidebarView] = useState<
+    "chat" | "flashcards" | "files" | "tasks" | "workspace"
+  >(() => routeView ?? "workspace");
   useEffect(() => {
+    setDesktopSidebarView(routeView ?? "workspace");
     if (isMobile) {
-      setDesktopSidebarView(routeView ?? "workspace");
+      setMobileSidebarView(routeView ?? "workspace");
     }
   }, [isMobile, routeView]);
-  const sidebarView = isMobile ? activeView : desktopSidebarView;
+  const sidebarView = isMobile ? mobileSidebarView : desktopSidebarView;
   const activeTabValue = sidebarView === "workspace" ? null : sidebarView;
   const [mountedViews, setMountedViews] = useState<
     Set<"chat" | "flashcards" | "files" | "tasks">
@@ -1849,7 +1853,7 @@ export function DashboardSidebar({
                   item.value as "chat" | "flashcards" | "files" | "tasks"
                 );
               }}
-              onItemClick={(item, event) => {
+              onItemClick={(item, _event) => {
                 const nextView = item.value as
                   | "chat"
                   | "flashcards"
@@ -1858,24 +1862,11 @@ export function DashboardSidebar({
 
                 if (!isMobile) {
                   setDesktopSidebarView(nextView);
-                }
-
-                if (event.altKey && !isMobile) {
-                  event.preventDefault();
-                  if (nextView === "chat") {
-                    navigate("/workspace/chats/new" as Route, {
-                      openInNewPane: true,
-                    });
-                    return;
-                  }
-                  if (nextView === "tasks") {
-                    navigate("/workspace/tasks" as Route, {
-                      openInNewPane: true,
-                    });
-                  }
+                } else {
+                  setMobileSidebarView(nextView);
                 }
               }}
-              onItemContextMenu={(item, event) => {
+              onItemContextMenu={(item, _event) => {
                 if (isMobile) {
                   return;
                 }
@@ -1885,21 +1876,10 @@ export function DashboardSidebar({
                   | "flashcards"
                   | "files"
                   | "tasks";
-                setDesktopSidebarView(nextView);
-
-                if (nextView === "chat") {
-                  event.preventDefault();
-                  navigate("/workspace/chats/new" as Route, {
-                    openInNewPane: true,
-                  });
-                  return;
-                }
-
-                if (nextView === "tasks") {
-                  event.preventDefault();
-                  navigate("/workspace/tasks" as Route, {
-                    openInNewPane: true,
-                  });
+                if (isMobile) {
+                  setMobileSidebarView(nextView);
+                } else {
+                  setDesktopSidebarView(nextView);
                 }
               }}
               onValueChange={(nextValue) => {
@@ -1911,51 +1891,10 @@ export function DashboardSidebar({
                   | "flashcards"
                   | "files"
                   | "tasks";
-                if (!isMobile) {
+                if (isMobile) {
+                  setMobileSidebarView(nextView);
+                } else {
                   setDesktopSidebarView(nextView);
-                }
-
-                if (!isMobile && (nextView === "flashcards" || nextView === "files")) {
-                  return;
-                }
-
-                if (nextView === activeView && nextView !== "chat") {
-                  return;
-                }
-
-                warmWorkspaceSection(nextView);
-
-                if (
-                  nextView === "files" &&
-                  !pathname.startsWith("/workspace/files")
-                ) {
-                  closeMobileSidebar();
-                  void navigateToFilesRoot();
-                  return;
-                }
-
-                if (
-                  nextView === "flashcards" &&
-                  !pathname.startsWith("/workspace/flashcards")
-                ) {
-                  closeMobileSidebar();
-                  navigate("/workspace/flashcards" as Route);
-                  return;
-                }
-
-                if (
-                  nextView === "tasks" &&
-                  !pathname.startsWith("/workspace/tasks")
-                ) {
-                  closeMobileSidebar();
-                  navigate("/workspace/tasks" as Route);
-                  return;
-                }
-
-                if (nextView === "chat" && !isChatsRoute) {
-                  closeMobileSidebar();
-                  navigate("/workspace/chats/new" as Route);
-                  return;
                 }
               }}
               persistenceKey="dashboard-workspace-tabs"

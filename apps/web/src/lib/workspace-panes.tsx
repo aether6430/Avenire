@@ -32,6 +32,7 @@ const WORKSPACE_PANE_DRAG_MIME = "application/x-avenire-workspace-pane-link";
 
 interface WorkspacePaneContextValue {
   isActive: boolean;
+  isCompact: boolean;
   paneId: string;
   route: WorkspacePaneRouteState;
 }
@@ -139,13 +140,14 @@ function navigatePane(
 
 export function WorkspacePaneProvider({
   children,
+  isCompact,
   isActive,
   paneId,
   route,
 }: PropsWithChildren<WorkspacePaneContextValue>) {
   const value = useMemo(
-    () => ({ isActive, paneId, route }),
-    [isActive, paneId, route]
+    () => ({ isActive, isCompact, paneId, route }),
+    [isActive, isCompact, paneId, route]
   );
 
   return (
@@ -161,6 +163,10 @@ export function useCurrentWorkspacePane() {
     throw new Error("useCurrentWorkspacePane must be used within a pane.");
   }
   return context;
+}
+
+export function useCurrentWorkspacePaneCompact() {
+  return useCurrentWorkspacePane().isCompact;
 }
 
 export function useOptionalCurrentWorkspacePane() {

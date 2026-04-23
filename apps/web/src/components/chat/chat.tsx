@@ -23,7 +23,6 @@ import {
 import { Messages } from "@/components/chat/messages";
 import { MultimodalInput } from "@/components/chat/multimodal-input";
 import { Overview } from "@/components/chat/overview";
-import { SuggestedActions } from "@/components/chat/suggested-actions";
 import { useScrollToBottom } from "@/components/chat/use-scroll-to-bottom";
 import { getChatErrorMessage } from "@/lib/chat-errors";
 import {
@@ -549,13 +548,6 @@ export function Chat({
                     <Overview userName={userName} />
                   </div>
                   {inputCard(true)}
-                  {attachments.length === 0 && (
-                    <SuggestedActions
-                      onAction={(text) => {
-                        sendMessage({ text });
-                      }}
-                    />
-                  )}
                 </div>
               </motion.div>
             ) : (

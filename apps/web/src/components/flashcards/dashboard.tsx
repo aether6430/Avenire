@@ -33,8 +33,12 @@ import {
   HeaderBreadcrumbs,
   HeaderLeadingIcon,
 } from "@/components/dashboard/header-portal";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { usePanePathname, usePaneRouter, usePaneSearchParams } from "@/lib/workspace-panes";
+import {
+  useCurrentWorkspacePaneCompact,
+  usePanePathname,
+  usePaneRouter,
+  usePaneSearchParams,
+} from "@/lib/workspace-panes";
 import { prefetchFlashcardSet } from "@/lib/flashcard-browser-cache";
 import type { FlashcardDashboardRecord } from "@/lib/flashcards";
 import { usePaneWorkspaceHistoryActions } from "@/stores/workspaceHistoryStore";
@@ -100,7 +104,7 @@ export function FlashcardsDashboard({
   const router = usePaneRouter();
   const pathname = usePanePathname();
   const searchParams = usePaneSearchParams();
-  const isMobile = useIsMobile();
+  const isMobile = useCurrentWorkspacePaneCompact();
   const { recordRoute } = usePaneWorkspaceHistoryActions();
   const [dashboard] = useState(initialDashboard);
   const [createOpen, setCreateOpen] = useState(false);
