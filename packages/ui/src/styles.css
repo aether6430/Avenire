@@ -69,6 +69,20 @@
   --tracking-normal: 0em;
   --spacing: 0.25rem;
 
+  /* Spacing scale - cursor */
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-5: 1.25rem;
+  --spacing-6: 1.5rem;
+  --spacing-7: 1.75rem;
+  --spacing-8: 2rem;
+  --spacing-9: 2.25rem;
+  --spacing-10: 2.5rem;
+  --spacing-11: 2.75rem;
+  --spacing-12: 3rem;
+
   --color-text-default: #37352F;
   --color-bg-default: #FFFFFF;
   --color-pill-default: rgba(206, 205, 202, 0.5);
@@ -161,7 +175,21 @@
   --font-serif: "Lora", Georgia, serif;
   --font-mono: "SFMono-Regular", "Menlo", "Consolas", monospace;
 
-  --radius: 0.375rem;
+  --radius: 0.5rem;
+
+  /* Spacing scale - cursor */
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-5: 1.25rem;
+  --spacing-6: 1.5rem;
+  --spacing-7: 1.75rem;
+  --spacing-8: 2rem;
+  --spacing-9: 2.25rem;
+  --spacing-10: 2.5rem;
+  --spacing-11: 2.75rem;
+  --spacing-12: 3rem;
 
   --color-text-default: rgba(255, 255, 255, 0.9);
   --color-bg-default: #2F3437;
@@ -248,13 +276,31 @@
   --font-mono: var(--font-mono);
   --font-serif: var(--font-serif);
 
-  --radius-sm: calc(var(--radius) - 2px);
-  --radius-md: var(--radius);
-  --radius-lg: calc(var(--radius) + 2px);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
-  --radius-4xl: calc(var(--radius) + 16px);
+  /* Spacing - cursor scale in rems */
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-5: 1.25rem;
+  --spacing-6: 1.5rem;
+  --spacing-7: 1.75rem;
+  --spacing-8: 2rem;
+  --spacing-9: 2.25rem;
+  --spacing-10: 2.5rem;
+  --spacing-11: 2.75rem;
+  --spacing-12: 3rem;
+  --spacing-14: 3.5rem;
+  --spacing-16: 4rem;
+  --spacing-20: 5rem;
+
+  /* Border radius - cursor scale */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 0.875rem;
+  --radius-3xl: 1rem;
+  --radius-full: 9999px;
 }
 
 @layer base {
@@ -281,7 +327,7 @@
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(228, 228, 228, 0.14);
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -289,14 +335,7 @@
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.22);
-}
-
-.text-grad {
-  color: transparent;
-  background-image: linear-gradient(to right, var(--chart-1), var(--primary));
-  -webkit-background-clip: text;
-  background-clip: text;
+  background: rgba(228, 228, 228, 0.22);
 }
 
 /* Utility: hide on desktop (md: 768px+) — bypasses Tailwind v4 specificity */

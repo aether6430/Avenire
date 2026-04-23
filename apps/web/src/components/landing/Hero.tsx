@@ -1515,14 +1515,7 @@ export function Hero() {
             transition={{ duration: 0.5 }}
           >
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight leading-[1.1] mb-5">
-              <span className="text-foreground block">
-                AI learning workspace
-              </span>
-              <span className="mt-2 text-foreground inline-flex items-center text-3xl md:text-4xl lg:text-5xl">
-                <Calligraph animation="snappy">
-                  {CALLIGRAPH_TEXTS[calligraphIndex]}
-                </Calligraph>
-              </span>
+              The AI learning workspace that thinks with you.
             </h1>
             <div className="flex items-center gap-3">
               <Link

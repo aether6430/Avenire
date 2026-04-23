@@ -17,6 +17,14 @@ type ExpandableTabsProps = {
   value?: string | null
   defaultValue?: string | null
   onValueChange?: (value: string | null) => void
+  onItemClick?: (
+    item: ExpandableTabItem,
+    event: React.MouseEvent<HTMLButtonElement>
+  ) => void
+  onItemContextMenu?: (
+    item: ExpandableTabItem,
+    event: React.MouseEvent<HTMLButtonElement>
+  ) => void
   onItemHover?: (item: ExpandableTabItem) => void
   allowDeselect?: boolean
   className?: string
@@ -43,6 +51,8 @@ export function ExpandableTabs({
   value,
   defaultValue = null,
   onValueChange,
+  onItemClick,
+  onItemContextMenu,
   onItemHover,
   allowDeselect = true,
   className,
@@ -150,7 +160,16 @@ export function ExpandableTabs({
             id={`expandable-tab-${item.value}`}
             tabIndex={isSelected || (currentValue === null && index === 0) ? 0 : -1}
             disabled={item.disabled}
-            onClick={() => onSelect(item.value)}
+            onClick={(event) => {
+              onItemClick?.(item, event)
+              if (event.defaultPrevented) {
+                return
+              }
+              onSelect(item.value)
+            }}
+            onContextMenu={(event) => {
+              onItemContextMenu?.(item, event)
+            }}
             onFocus={() => onItemHover?.(item)}
             onMouseEnter={() => onItemHover?.(item)}
             onKeyDown={(event) => onKeyDown(event, index)}

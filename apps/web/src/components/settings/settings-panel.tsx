@@ -32,6 +32,7 @@ import {
   type NoteTemplate,
 } from "@/lib/note-templates";
 import { PRIVACY_MODE_STORAGE_KEY } from "@/lib/privacy-mode";
+import { getUploadErrorMessage } from "@/lib/upload";
 import { useUploadThing } from "@/lib/uploadthing";
 import { cn } from "@/lib/utils";
 
@@ -150,7 +151,7 @@ const tabs = [
 type TabKey = (typeof tabs)[number]["key"];
 
 const KEYBOARD_SHORTCUTS = [
-  { label: "Command Palette", keys: ["Ctrl", "Shift", "P"] },
+  { label: "Command Palette", keys: ["Ctrl", "Shift", "K"] },
   { label: "Open Manage", keys: ["Ctrl", "K"] },
   { label: "New Method", keys: ["Ctrl", "Shift", "O"] },
   { label: "Toggle Sidebar", keys: ["Ctrl", "B"] },
@@ -507,6 +508,8 @@ export function SettingsPanel({
       if (saved) {
         setProfileStatus("Avatar uploaded and saved.");
       }
+    } catch (error) {
+      setProfileStatus(getUploadErrorMessage(error));
     } finally {
       setAvatarUploading(false);
     }
@@ -570,6 +573,8 @@ export function SettingsPanel({
 
       setWorkspaceIconDraft(uploadedUrl);
       await saveWorkspaceIcon(uploadedUrl);
+    } catch (error) {
+      setWorkspaceIconStatus(getUploadErrorMessage(error));
     } finally {
       setWorkspaceIconUploading(false);
     }
@@ -601,6 +606,8 @@ export function SettingsPanel({
 
       setNoteTemplateBannerUrl(uploadedUrl);
       setNoteTemplateBannerStatus("Banner uploaded.");
+    } catch (error) {
+      setNoteTemplateBannerStatus(getUploadErrorMessage(error));
     } finally {
       setNoteTemplateBannerUploading(false);
     }

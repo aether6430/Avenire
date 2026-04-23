@@ -147,9 +147,7 @@ export function CTA() {
             transition={{ duration: 0.5 }}
           >
             <h2 className="text-3xl md:text-4xl font-semibold tracking-tight mb-4 text-foreground">
-              Stop memorizing.
-              <br />
-              <span className="text-primary">Start understanding.</span>
+              Start building real understanding
             </h2>
 
             <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed mb-8">

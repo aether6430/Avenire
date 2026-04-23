@@ -10,6 +10,7 @@ const features = [
     title: "A Drive that actually remembers",
     description:
       "Upload PDFs, notes, and videos — Avenire reads, indexes, and interconnects your content. Ask questions across all sources, trace where you learned something, and discover hidden connections.",
+    heading: "A Drive that actually remembers",
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
         <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
@@ -21,6 +22,7 @@ const features = [
     title: "Compound interest for your brain",
     description:
       "Every concept connects to what you already know. Avenire builds a knowledge graph that compounds over time — revisiting a topic brings back all linked context, reasoning chains, and insights.",
+    heading: "Compound interest for your brain",
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
         <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
@@ -32,6 +34,7 @@ const features = [
     title: "Interactivity",
     description:
       "Click into any reasoning step to explore \"why.\" Branch into tangents. Every interaction deepens your understanding graph and adapts to how you learn.",
+    heading: "Interactivity",
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
         <rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" />
@@ -470,7 +473,7 @@ export function HowItWorks() {
                   {"{ How it works }"}
                 </span>
                 <h2 className="text-3xl md:text-4xl font-semibold tracking-tight mt-3 text-foreground mb-2">
-                  How it works
+                  How Avenire works
                 </h2>
               </motion.div>
 
@@ -536,7 +539,7 @@ export function HowItWorks() {
                             </p>
                           </div>
                           <h3 className={`text-base font-medium mt-2 transition-colors duration-300 ${isActive ? "text-foreground" : "text-muted-foreground"}`}>
-                            {feature.title}
+                            {feature.heading}
                           </h3>
                           <p className={`text-sm leading-relaxed mt-2 transition-colors duration-300 ${isActive ? "text-muted-foreground" : "text-muted-foreground/75"}`}>
                             {feature.description}
@@ -576,7 +579,7 @@ export function HowItWorks() {
                   Step {(index + 1).toString().padStart(2, "0")}
                 </p>
               </div>
-              <h3 className="text-xl font-semibold mt-3 text-foreground">{feature.title}</h3>
+              <h3 className="text-xl font-semibold mt-3 text-foreground">{feature.heading}</h3>
               <p className="text-sm leading-relaxed text-muted-foreground mt-2">
                 {feature.description}
               </p>

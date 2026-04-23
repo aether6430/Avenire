@@ -2,19 +2,6 @@
 
 @source "../../../**/*.{js,ts,jsx,tsx}";
 @source "../../../../packages/**/*.{js,ts,jsx,tsx}";
-
-/* ── Theme behavior ── */
-.theme-color-transitions,
-.theme-color-transitions *,
-.theme-color-transitions *::before,
-.theme-color-transitions *::after {
-  transition-timing-function: ease;
-  transition-duration: 220ms;
-  transition-property:
-    color, background-color, border-color, text-decoration-color, fill, stroke,
-    outline-color, caret-color, accent-color;
-}
-
 /*
  * Force light theme on the landing page regardless of system/user preference.
  * Only the tokens that .dark overrides need to be reset here.
@@ -22,47 +9,46 @@
  * (light) values so the landing page always renders in light mode.
  */
 .landing-light-scope {
-  color-scheme: light;
-
-  --background: #FFFFFF;
-  --foreground: #37352F;
-  --card: #FFFFFF;
-  --card-foreground: #37352F;
-  --popover: #FFFFFF;
-  --popover-foreground: #37352F;
+  --background: #ffffff;
+  --foreground: #37352f;
+  --card: #ffffff;
+  --card-foreground: #37352f;
+  --popover: #ffffff;
+  --popover-foreground: #37352f;
 
   --primary: #abcfff;
-  --primary-foreground: #1B2733;
+  --primary-foreground: #1b2733;
 
-  --secondary: #FAFAFA;
-  --secondary-foreground: #37352F;
-  --muted: #FAFAFA;
-  --muted-foreground: #9B9A97;
-  --accent: #FAFAFA;
-  --accent-foreground: #37352F;
+  --secondary: #fafafa;
+  --secondary-foreground: #37352f;
+  --muted: #fafafa;
+  --muted-foreground: #9b9a97;
+  --accent: #fafafa;
+  --accent-foreground: #37352f;
 
-  --destructive: #E03E3E;
-  --destructive-foreground: #FFFFFF;
+  --destructive: #e03e3e;
+  --destructive-foreground: #ffffff;
 
   --border: rgba(55, 53, 47, 0.09);
   --input: rgba(55, 53, 47, 0.12);
   --ring: #abcfff;
 
-  --info: #0B6E99;
-  --success: #0F7B6C;
-  --warning: #DFAB01;
+  --info: #0b6e99;
+  --success: #0f7b6c;
+  --warning: #dfab01;
 
-  --sidebar: #FAFAFA;
-  --sidebar-foreground: #37352F;
+  --sidebar: #fafafa;
+  --sidebar-foreground: #37352f;
   --sidebar-primary: #abcfff;
-  --sidebar-primary-foreground: #1B2733;
+  --sidebar-primary-foreground: #1b2733;
   --sidebar-accent: rgba(0, 0, 0, 0.04);
-  --sidebar-accent-foreground: #37352F;
+  --sidebar-accent-foreground: #37352f;
   --sidebar-border: rgba(55, 53, 47, 0.09);
   --sidebar-ring: #abcfff;
+  color-scheme: light;
 }
 
-/* ── Chat markdown code blocks ── */
+/* App-specific chat markdown chrome */
 .chat-markdown-codeblock {
   position: relative;
   margin-block: 0.75rem;
@@ -130,7 +116,7 @@
   counter-reset: none;
 }
 
-/* ── Hit area utility ── */
+/* Utility helpers not covered by the shared UI stylesheet */
 .hit-area {
   position: relative;
 }
@@ -141,7 +127,7 @@
   content: "";
 }
 
-/* ── Mobile input zoom prevention ── */
+/* iOS input zoom prevention */
 @media (max-width: 767px) {
   input,
   textarea,
@@ -149,3 +135,4 @@
     font-size: 16px !important;
   }
 }
+

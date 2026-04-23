@@ -1,12 +1,12 @@
 "use client";
 
 import { useRef, useEffect, forwardRef, type HTMLAttributes } from "react";
-import type { IconComponent } from "@/lib/icon-context";
+import type { IconComponent } from "../lib/icon-context";
 import { motion, AnimatePresence } from "framer-motion";
-import { useDropdown } from "@/components/dropdown";
-import { cn } from "@/lib/utils";
-import { fontWeights } from "@/lib/font-weight";
-import { useShape } from "@/lib/shape-context";
+import { useDropdown } from "./dropdown";
+import { cn } from "../lib/utils";
+import { fontWeights } from "../lib/font-weight";
+import { useShape } from "../lib/shape-context";
 
 interface MenuItemProps extends HTMLAttributes<HTMLDivElement> {
   icon: IconComponent;

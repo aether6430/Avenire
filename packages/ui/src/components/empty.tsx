@@ -7,7 +7,7 @@ function Empty({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="empty"
       className={cn(
-        "relative flex w-full min-w-0 flex-1 flex-col items-center justify-center overflow-hidden rounded-[1.5rem] border border-border/60 border-dashed bg-gradient-to-b from-background via-background to-muted/20 px-6 py-8 text-center text-balance ring-1 ring-inset ring-border/20",
+        "relative flex w-full min-w-0 flex-1 flex-col items-center justify-center overflow-hidden rounded-[1.5rem] border border-border/60 border-dashed px-6 py-8 text-center text-balance ring-1 ring-inset ring-border/20",
         className
       )}
       {...props}

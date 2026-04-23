@@ -46,9 +46,6 @@ function FeaturedPostCard({ post }: { post: PostMeta }) {
           <div className="relative -mx-8 -mt-8 md:-mx-10 md:-mt-10 mb-6 md:mb-8 h-44 md:h-52 border-b border-border/70 bg-gradient-to-br from-primary/10 via-secondary/40 to-accent/30" />
         )}
 
-        {/* Subtle gradient accent */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent pointer-events-none" />
-        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/3 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative">
           <div className="flex flex-wrap gap-2 mb-5">

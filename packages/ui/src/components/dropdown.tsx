@@ -11,10 +11,10 @@ import {
   type HTMLAttributes,
 } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "@/lib/utils";
-import { springs } from "@/lib/springs";
-import { useProximityHover } from "@/hooks/use-proximity-hover";
-import { useShape } from "@/lib/shape-context";
+import { cn } from "../lib/utils";
+import { springs } from "../lib/springs";
+import { useProximityHover } from "../hooks/use-proximity-hover";
+import { useShape } from "../lib/shape-context";
 
 interface DropdownContextValue {
   registerItem: (index: number, element: HTMLElement | null) => void;
