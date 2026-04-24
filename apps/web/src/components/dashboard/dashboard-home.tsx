@@ -41,6 +41,9 @@ import { startTransition, useEffect, useMemo, useState } from "react";
 import { HeaderBreadcrumbs } from "@/components/dashboard/header-portal";
 import { QuickCaptureDialog } from "@/components/dashboard/quick-capture-dialog";
 import { prefetchFlashcardSet } from "@/lib/flashcard-browser-cache";
+import {
+  useWorkspacePaneNavigation,
+} from "@/lib/workspace-panes";
 import type {
   ConceptDrillTarget,
   ConceptMasteryRecord,
@@ -250,6 +253,7 @@ export function DashboardHome({
   workspaceId,
 }: DashboardHomeProps) {
   const router = useRouter();
+  const { navigate } = useWorkspacePaneNavigation();
   const { recordRoute } = usePaneWorkspaceHistoryActions();
   const homeTab = useDashboardUiStore((state) => state.homeTab);
   const insightsTab = useDashboardUiStore((state) => state.insightsTab);
@@ -315,7 +319,7 @@ export function DashboardHome({
   const startReview = (setId: string) => {
     prefetchFlashcardSet(setId).catch(() => undefined);
     startTransition(() => {
-      router.push(`/workspace/flashcards/${setId}?study=1` as Route);
+      navigate(`/workspace/flashcards/${setId}?study=1`);
     });
   };
 
@@ -422,7 +426,7 @@ export function DashboardHome({
           <Button
             className="h-8 gap-1.5 rounded-md px-2.5 text-muted-foreground text-sm"
             onClick={() => {
-              router.push("/workspace/chats" as Route);
+              navigate("/workspace/chats");
             }}
             type="button"
             variant="ghost"
@@ -434,10 +438,7 @@ export function DashboardHome({
           <Button
             className="h-8 gap-1.5 rounded-md px-2.5 text-muted-foreground text-sm"
             onClick={() => {
-              router.push("/workspace/flashcards" as Route);
-            }}
-            onMouseEnter={() => {
-              router.prefetch("/workspace/flashcards" as Route);
+              navigate("/workspace/flashcards");
             }}
             type="button"
             variant="ghost"
@@ -449,7 +450,7 @@ export function DashboardHome({
           <Button
             className="h-8 gap-1.5 rounded-md px-2.5 text-muted-foreground text-sm"
             onClick={() => {
-              router.push("/workspace/files" as Route);
+              navigate("/workspace/files");
             }}
             type="button"
             variant="ghost"
@@ -717,8 +718,8 @@ export function DashboardHome({
                       const prompt = promptForMisconception(
                         selectedMisconception
                       );
-                      router.push(
-                        `/workspace/chats/new?prompt=${prompt}` as Route
+                      navigate(
+                        `/workspace/chats/new?prompt=${prompt}`
                       );
                     }}
                     type="button"
@@ -729,8 +730,8 @@ export function DashboardHome({
                   <Button
                     onClick={() => {
                       const prompt = promptForFlashcards(selectedMisconception);
-                      router.push(
-                        `/workspace/chats/new?prompt=${prompt}` as Route
+                      navigate(
+                        `/workspace/chats/new?prompt=${prompt}`
                       );
                     }}
                     type="button"

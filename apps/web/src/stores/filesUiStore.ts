@@ -5,6 +5,7 @@ import { create } from "zustand";
 export type FilesUiIntent =
   | "focusSearch"
   | "newNote"
+  | "importLink"
   | "uploadFile"
   | "uploadFolder"
   | "createFolder"
@@ -20,6 +21,7 @@ type FilesUiIntentVersion = Record<FilesUiIntent, number>;
 const INITIAL_INTENT_VERSION: FilesUiIntentVersion = {
   focusSearch: 0,
   newNote: 0,
+  importLink: 0,
   uploadFile: 0,
   uploadFolder: 0,
   createFolder: 0,

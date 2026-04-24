@@ -25,7 +25,6 @@ function createShimmerStyle(spread: number): CSSProperties {
     backgroundSize: "250% 100%",
     backgroundClip: "text",
     WebkitBackgroundClip: "text",
-    WebkitTextFillColor: "transparent",
   } as CSSProperties;
 }
 
@@ -48,19 +47,25 @@ const ShimmerComponent = ({
   );
 
   return (
-    <MotionComponent
-      animate={{ backgroundPosition: "0% center" }}
-      className={cn("relative inline-block text-transparent", className)}
-      initial={{ backgroundPosition: "100% center" }}
-      style={createShimmerStyle(dynamicSpread)}
-      transition={{
-        duration,
-        ease: "linear",
-        repeat: Number.POSITIVE_INFINITY,
-      }}
-    >
-      {children}
-    </MotionComponent>
+    <span className={cn("relative inline-block align-baseline", className)}>
+      <span aria-hidden="true" className="text-foreground/60">
+        {children}
+      </span>
+      <MotionComponent
+        aria-hidden="true"
+        animate={{ backgroundPosition: "0% center" }}
+        className="absolute inset-0 text-transparent"
+        initial={{ backgroundPosition: "100% center" }}
+        style={createShimmerStyle(dynamicSpread)}
+        transition={{
+          duration,
+          ease: "linear",
+          repeat: Number.POSITIVE_INFINITY,
+        }}
+      >
+        {children}
+      </MotionComponent>
+    </span>
   );
 };
 

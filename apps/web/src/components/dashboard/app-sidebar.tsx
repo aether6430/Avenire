@@ -1833,6 +1833,18 @@ export function DashboardSidebar({
     { ignoreInputs: true }
   );
 
+  useHotkey(
+    "Mod+Shift+L",
+    (event) => {
+      event.preventDefault();
+      if (activeView !== "files") {
+        return;
+      }
+      filesUiActions.emitIntent("importLink");
+    },
+    { ignoreInputs: true }
+  );
+
   return (
     <Sidebar variant="inset" {...props}>
       <SidebarContent>

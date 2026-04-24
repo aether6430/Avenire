@@ -6,7 +6,7 @@ import {
   useEffect,
   useMemo,
   useState,
-  type ComponentProps,
+  type ComponentPropsWithoutRef,
   type HTMLAttributes,
 } from "react";
 
@@ -23,7 +23,7 @@ const circleB =
 
 const fallbackMessages = ["Thinking", "Moonwalking", "Planning", "Refining"];
 
-type SpinnerGlyphProps = ComponentProps<"svg">;
+type SpinnerGlyphProps = ComponentPropsWithoutRef<typeof motion.svg>;
 
 export const SpinnerGlyph = forwardRef<SVGSVGElement, SpinnerGlyphProps>(
   function SpinnerGlyph({ className, ...props }, ref) {

@@ -20,6 +20,7 @@ import {
   FileText,
   Folder,
   FolderPlus,
+  LinkSimple,
   ListChecks,
   ChatText as MessageSquareText,
   Moon,
@@ -782,6 +783,18 @@ export function CommandPalette({
         shortcut: "Ctrl+Shift+O",
         onSelect: () => {
           handleFileIntent("newNote");
+        },
+      },
+      {
+        key: "import-link",
+        label: "Import link",
+        description: "Save and ingest a link resource",
+        icon: LinkSimple,
+        group: "Create",
+        searchTerms: ["link", "url", "web", "article"],
+        shortcut: "Ctrl+Shift+L",
+        onSelect: () => {
+          handleFileIntent("importLink");
         },
       },
       {

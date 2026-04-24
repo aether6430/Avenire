@@ -33,6 +33,7 @@ import {
   CaretDown as ChevronDown,
   Copy,
   FileImage,
+  LinkSimple,
   FileText,
   FolderPlus as FolderInput,
   Info,
@@ -119,6 +120,37 @@ const PDFViewer = dynamic(() => import("@/components/files/pdf-viewer"), {
 
 const DEFAULT_NOTE_COVER_URL = "/images/folder-banner-default.svg";
 const passthroughImageLoader: ImageLoader = ({ src }) => src;
+
+function normalizeFilePageIcon(icon: string | null | undefined) {
+  if (typeof icon !== "string") {
+    return null;
+  }
+
+  const trimmed = icon.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://") ||
+    trimmed.startsWith("/") ||
+    trimmed.startsWith("data:image/")
+  ) {
+    return trimmed;
+  }
+
+  return trimmed.slice(0, 8);
+}
+
+function isRenderableIconUrl(icon: string) {
+  return (
+    icon.startsWith("http://") ||
+    icon.startsWith("https://") ||
+    icon.startsWith("/") ||
+    icon.startsWith("data:image/")
+  );
+}
 
 interface NoteSyncLoadResponse {
   markdown?: string;
@@ -302,8 +334,21 @@ export function FilePreviewPanel({
   const circleToAiParam = searchParams.get("circleToAi");
 
   const activeFileIsMarkdown = detectPreviewKind(activeFile).isMarkdown;
+  const activeCustomIcon = normalizeFilePageIcon(activeFile.page?.icon);
+  const activeLinkSourceUrl =
+    activeFile.metadata &&
+    typeof activeFile.metadata === "object" &&
+    !Array.isArray(activeFile.metadata) &&
+    activeFile.metadata.link &&
+    typeof activeFile.metadata.link === "object" &&
+    !Array.isArray(activeFile.metadata.link) &&
+    typeof (activeFile.metadata.link as Record<string, unknown>).sourceUrl ===
+      "string"
+      ? ((activeFile.metadata.link as Record<string, unknown>).sourceUrl as string)
+      : null;
   const activeFileSourceUrl = activeFileIsMarkdown
-    ? `/api/workspaces/${workspaceUuid}/files/${activeFile.id}/stream`
+    ? activeLinkSourceUrl ??
+      `/api/workspaces/${workspaceUuid}/files/${activeFile.id}/stream`
     : activeFile.storageUrl;
   const activePageFromFile = useMemo(
     () => normalizePageMetadataState(activeFile.page),
@@ -850,7 +895,26 @@ export function FilePreviewPanel({
       title: activeFileIsMarkdown ? markdownDisplayTitle : activeFile.name,
       leadingIcon: (
         <div className="flex size-6 items-center justify-center text-muted-foreground">
-          <FileText className="size-4" />
+          {activeCustomIcon ? (
+            isRenderableIconUrl(activeCustomIcon) ? (
+              <span className="inline-flex size-5 items-center justify-center overflow-hidden rounded-[3px] bg-muted">
+                <img
+                  alt=""
+                  className="size-full object-cover"
+                  draggable={false}
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  src={activeCustomIcon}
+                />
+              </span>
+            ) : (
+              <span className="text-base leading-none">{activeCustomIcon}</span>
+            )
+          ) : activeLinkSourceUrl ? (
+            <LinkSimple className="size-4" />
+          ) : (
+            <FileText className="size-4" />
+          )}
         </div>
       ),
       breadcrumbs: (
@@ -1261,8 +1325,10 @@ export function FilePreviewPanel({
     activeFile.createdAt,
     activeFile.folderId,
     activeFile.id,
+    activeCustomIcon,
     activeFile.name,
     activeFile.readOnly,
+    activeLinkSourceUrl,
     allFolders,
     activeFilePropertyCount,
     currentInfoEntries,

@@ -13,10 +13,13 @@ CREATE TABLE IF NOT EXISTS "misconception_evidence" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+ALTER TABLE "misconception_evidence" DROP CONSTRAINT IF EXISTS "misconception_evidence_misconception_id_misconception_id_fk";
 ALTER TABLE "misconception_evidence" ADD CONSTRAINT "misconception_evidence_misconception_id_misconception_id_fk" FOREIGN KEY ("misconception_id") REFERENCES "public"."misconception"("id") ON DELETE cascade ON UPDATE no action;
 --> statement-breakpoint
+ALTER TABLE "misconception_evidence" DROP CONSTRAINT IF EXISTS "misconception_evidence_workspace_id_workspace_id_fk";
 ALTER TABLE "misconception_evidence" ADD CONSTRAINT "misconception_evidence_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;
 --> statement-breakpoint
+ALTER TABLE "misconception_evidence" DROP CONSTRAINT IF EXISTS "misconception_evidence_user_id_user_id_fk";
 ALTER TABLE "misconception_evidence" ADD CONSTRAINT "misconception_evidence_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
 --> statement-breakpoint
 CREATE UNIQUE INDEX IF NOT EXISTS "misconception_evidence_misconception_key_uidx" ON "misconception_evidence" USING btree ("misconception_id","evidence_key");

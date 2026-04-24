@@ -332,6 +332,7 @@ async function fetchRemoteText(url: string) {
 export const ingestStoredFile = async (input: {
   workspaceId: string;
   fileId: string;
+  sourceType?: string | null;
   storageUrl: string;
   storageKey?: string | null;
   fileName: string;
@@ -350,9 +351,39 @@ export const ingestStoredFile = async (input: {
     input.storageKey
   );
   const extractionStartedAt = Date.now();
+  const metadata = input.metadata ?? {};
+  const linkMetadata =
+    metadata.link &&
+    typeof metadata.link === "object" &&
+    !Array.isArray(metadata.link)
+      ? (metadata.link as Record<string, unknown>)
+      : null;
+  const metadataType =
+    typeof metadata.type === "string" ? metadata.type.trim().toLowerCase() : "";
+  const metadataResourceType =
+    typeof metadata.resourceType === "string"
+      ? metadata.resourceType.trim().toLowerCase()
+      : "";
+  const explicitSourceType =
+    typeof input.sourceType === "string"
+      ? input.sourceType.trim().toLowerCase()
+      : "";
+  const linkSourceUrl =
+    typeof linkMetadata?.sourceUrl === "string" &&
+    linkMetadata.sourceUrl.trim().length > 0
+      ? assertSafeUrl(linkMetadata.sourceUrl.trim()).toString()
+      : null;
+  const shouldIngestAsLink =
+    explicitSourceType === "link" ||
+    ((metadataType === "link-resource" ||
+      metadataType === "link-note" ||
+      metadataResourceType === "link-resource") &&
+      Boolean(linkSourceUrl));
 
   let resources: CanonicalResource[] = [];
-  if (typeof input.content === "string") {
+  if (shouldIngestAsLink && linkSourceUrl) {
+    resources = [await ingestLink(linkSourceUrl)];
+  } else if (typeof input.content === "string") {
     resources = [
       ingestMarkdown({
         markdown: input.content.slice(0, config.maxMarkdownChars),

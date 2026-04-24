@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./link": "./src/ingestion/link.ts",
     "./queue": "./src/queue.ts",
     "./types": "./src/ingestion/types.ts"
   },
@@ -21,6 +22,8 @@
     "@avenire/database": "workspace:*",
     "@avenire/observability": "workspace:*",
     "@mistralai/mistralai": "^1.14.1",
+    "defuddle": "^0.15.0",
+    "linkedom": "^0.18.12",
     "@tavily/core": "^0.7.2",
     "abso-ai": "^0.0.9",
     "ai": "^6.0.141",

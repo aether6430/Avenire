@@ -13,6 +13,7 @@ import {
 import {
   FilePlus as FilePlus2,
   Files,
+  LinkSimple,
   MagnifyingGlass,
   PushPin as Pin,
   Trash as Trash2,
@@ -1083,6 +1084,14 @@ export function FilesSidebarPanel({
               label="New Note"
               onClick={() => {
                 filesUiActions.emitIntent("newNote");
+                triggerHaptic("selection");
+              }}
+            />
+            <SectionButton
+              icon={LinkSimple}
+              label="Import Link"
+              onClick={() => {
+                filesUiActions.emitIntent("importLink");
                 triggerHaptic("selection");
               }}
             />

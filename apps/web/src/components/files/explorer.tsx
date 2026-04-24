@@ -64,6 +64,7 @@ import {
   FileImage,
   FilePlus as FilePlus2,
   FileXls as FileSpreadsheet,
+  LinkSimple,
   FileText,
   FileVideo,
   Folder,
@@ -1313,6 +1314,81 @@ function getFileTypeIcon(kind: FileKind, className = "size-3.5") {
   }
 }
 
+function normalizeFilePageIcon(icon: string | null | undefined) {
+  if (typeof icon !== "string") {
+    return null;
+  }
+
+  const trimmed = icon.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://") ||
+    trimmed.startsWith("/") ||
+    trimmed.startsWith("data:image/")
+  ) {
+    return trimmed;
+  }
+
+  return trimmed.slice(0, 8);
+}
+
+function isRenderableIconUrl(icon: string) {
+  return (
+    icon.startsWith("http://") ||
+    icon.startsWith("https://") ||
+    icon.startsWith("/") ||
+    icon.startsWith("data:image/")
+  );
+}
+
+function getFileVisualIcon(
+  file: Pick<FileRecord, "page">,
+  kind: FileKind,
+  className = "size-3.5"
+) {
+  const customIcon = normalizeFilePageIcon(file.page?.icon);
+  if (customIcon) {
+    if (isRenderableIconUrl(customIcon)) {
+      return (
+        <span
+          aria-hidden="true"
+          className={cn(
+            "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-[3px] bg-muted",
+            className
+          )}
+        >
+          <img
+            alt=""
+            className="size-full object-cover"
+            draggable={false}
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            src={customIcon}
+          />
+        </span>
+      );
+    }
+
+    return (
+      <span
+        aria-hidden="true"
+        className={cn(
+          "inline-flex shrink-0 items-center justify-center font-medium leading-none text-sm",
+          className
+        )}
+      >
+        {customIcon}
+      </span>
+    );
+  }
+
+  return getFileTypeIcon(kind, className);
+}
+
 interface FileExplorerProps {
   folderUuid?: string;
   workspaceUuid?: string;
@@ -1439,6 +1515,12 @@ export function FileExplorer({
     name: "",
   });
   const [noteCreateBusy, setNoteCreateBusy] = useState(false);
+  const [linkImportDialog, setLinkImportDialog] = useState<{
+    folderId: string;
+    name: string;
+    url: string;
+  } | null>(null);
+  const [linkImportBusy, setLinkImportBusy] = useState(false);
   const [mobileCreateMenuOpen, setMobileCreateMenuOpen] = useState(false);
   const [mobileConfirmAction, setMobileConfirmAction] = useState<
     "delete" | "move" | null
@@ -1503,6 +1585,9 @@ export function FileExplorer({
   const newNoteIntentVersion = useFilesUiStore(
     (state) => state.intentVersion.newNote
   );
+  const importLinkIntentVersion = useFilesUiStore(
+    (state) => state.intentVersion.importLink
+  );
   const uploadFileIntentVersion = useFilesUiStore(
     (state) => state.intentVersion.uploadFile
   );
@@ -1535,6 +1620,7 @@ export function FileExplorer({
     deleteSelection: 0,
     focusSearch: 0,
     goParent: 0,
+    importLink: 0,
     moveSelectionUp: 0,
     newNote: 0,
     openSelection: 0,
@@ -1662,6 +1748,68 @@ export function FileExplorer({
     },
     [isCurrentFolderReadOnly]
   );
+
+  const openImportLinkDialog = useCallback(
+    (parentId: string) => {
+      if (!parentId || isCurrentFolderReadOnly) {
+        return;
+      }
+
+      setLinkImportDialog({
+        folderId: parentId,
+        name: "",
+        url: "",
+      });
+    },
+    [isCurrentFolderReadOnly]
+  );
+
+  const importLinkAsResource = useCallback(async () => {
+    if (!(workspaceUuid && linkImportDialog)) {
+      return;
+    }
+
+    const normalizedUrl = linkImportDialog.url.trim();
+    if (!normalizedUrl || linkImportBusy) {
+      return;
+    }
+
+    setLinkImportBusy(true);
+    try {
+      const response = await fetch(`/api/workspaces/${workspaceUuid}/links`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          folderId: linkImportDialog.folderId,
+          name: linkImportDialog.name,
+          url: normalizedUrl,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        file?: FileRecord;
+      };
+      if (!response.ok || !payload.file?.id) {
+        throw new Error(payload.error ?? "Unable to import link.");
+      }
+
+      const targetFolderId = linkImportDialog.folderId;
+      setLinkImportDialog(null);
+      toast.success("Link saved and queued for ingestion.");
+      const params = new URLSearchParams();
+      params.set("file", payload.file.id);
+      router.push(
+        `/workspace/files/${workspaceUuid}/folder/${targetFolderId}?${params.toString()}` as Route
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Unable to import link."
+      );
+    } finally {
+      setLinkImportBusy(false);
+    }
+  }, [linkImportBusy, linkImportDialog, router, workspaceUuid]);
 
   useEffect(() => {
     noteTemplatesHydratedRef.current = false;
@@ -3094,6 +3242,11 @@ export function FileExplorer({
       openCreateNoteDialog(currentFolderId);
     }
 
+    if (importLinkIntentVersion > processed.importLink) {
+      processed.importLink = importLinkIntentVersion;
+      openImportLinkDialog(currentFolderId);
+    }
+
     if (uploadFileIntentVersion > processed.uploadFile) {
       processed.uploadFile = uploadFileIntentVersion;
       fileInputRef.current?.click();
@@ -3119,8 +3272,10 @@ export function FileExplorer({
     createFolderIntentVersion,
     currentFolderId,
     focusSearchIntentVersion,
+    importLinkIntentVersion,
     isCurrentFolderReadOnly,
     newNoteIntentVersion,
+    openImportLinkDialog,
     openCreateNoteDialog,
     uploadFileIntentVersion,
     uploadFolderIntentVersion,
@@ -5963,6 +6118,13 @@ export function FileExplorer({
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     disabled={isCurrentFolderReadOnly}
+                    onClick={() => openImportLinkDialog(currentFolderId)}
+                  >
+                    <LinkSimple className="size-3.5" />
+                    Import link
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={isCurrentFolderReadOnly}
                     onClick={() => openCreateFolderDialog(currentFolderId)}
                   >
                     <Folder className="size-3.5" />
@@ -6796,7 +6958,11 @@ export function FileExplorer({
                                           file.updatedAt ?? file.createdAt
                                         )
                                       }
-                                      name={file.name}
+                                      name={
+                                        normalizeFilePageIcon(file.page?.icon)
+                                          ? `${normalizeFilePageIcon(file.page?.icon)} ${file.name}`
+                                          : file.name
+                                      }
                                       previewContent={
                                         isImage ? (
                                           <img
@@ -7243,7 +7409,7 @@ export function FileExplorer({
                                 {isMobile ? (
                                   <>
                                     <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted/60">
-                                      {getFileTypeIcon(fileKind)}
+                                      {getFileVisualIcon(file, fileKind)}
                                     </div>
                                     <div className="min-w-0 flex-1">
                                       <p className="min-w-0 truncate font-medium text-sm">
@@ -7367,7 +7533,7 @@ export function FileExplorer({
                                       />
                                     </div>
                                     <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted/60">
-                                      {getFileTypeIcon(fileKind)}
+                                      {getFileVisualIcon(file, fileKind)}
                                     </div>
                                     <div className="flex min-w-0 flex-1 flex-col gap-1">
                                       <p className="min-w-0 truncate font-medium text-sm">
@@ -7451,6 +7617,13 @@ export function FileExplorer({
                 >
                   <FileText className="size-3.5" />
                   New note
+                </ContextMenuItem>
+                <ContextMenuItem
+                  disabled={isCurrentFolderReadOnly}
+                  onClick={() => openImportLinkDialog(currentFolderId)}
+                >
+                  <LinkSimple className="size-3.5" />
+                  Import link
                 </ContextMenuItem>
                 <ContextMenuItem
                   disabled={isCurrentFolderReadOnly}
@@ -7546,6 +7719,18 @@ export function FileExplorer({
             >
               <FileText className="size-4" />
               New note
+            </Button>
+            <Button
+              disabled={isCurrentFolderReadOnly}
+              onClick={() => {
+                setMobileCreateMenuOpen(false);
+                openImportLinkDialog(currentFolderId);
+              }}
+              type="button"
+              variant="outline"
+            >
+              <LinkSimple className="size-4" />
+              Import link
             </Button>
             <Button
               disabled={isCurrentFolderReadOnly}
@@ -7753,6 +7938,93 @@ export function FileExplorer({
               type="button"
             >
               Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        onOpenChange={(open) => {
+          if (!open && !linkImportBusy) {
+            setLinkImportDialog(null);
+          }
+        }}
+        open={Boolean(linkImportDialog)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Import link</DialogTitle>
+            <DialogDescription>
+              Save the URL as a workspace resource, then run the existing link
+              extractor during ingestion.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="font-medium text-sm" htmlFor="link-import-url">
+                URL
+              </label>
+              <Input
+                autoFocus
+                id="link-import-url"
+                onChange={(event) => {
+                  if (!linkImportDialog) {
+                    return;
+                  }
+                  setLinkImportDialog({
+                    ...linkImportDialog,
+                    url: event.target.value,
+                  });
+                }}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" || !linkImportDialog?.url.trim()) {
+                    return;
+                  }
+                  event.preventDefault();
+                  void importLinkAsResource();
+                }}
+                placeholder="https://example.com/article"
+                value={linkImportDialog?.url ?? ""}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="font-medium text-sm" htmlFor="link-import-name">
+                Name
+              </label>
+              <Input
+                id="link-import-name"
+                onChange={(event) => {
+                  if (!linkImportDialog) {
+                    return;
+                  }
+                  setLinkImportDialog({
+                    ...linkImportDialog,
+                    name: event.target.value,
+                  });
+                }}
+                placeholder="Optional title"
+                value={linkImportDialog?.name ?? ""}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              disabled={linkImportBusy}
+              onClick={() => setLinkImportDialog(null)}
+              type="button"
+              variant="ghost"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={!linkImportDialog?.url.trim() || linkImportBusy}
+              onClick={() => {
+                void importLinkAsResource();
+              }}
+              type="button"
+            >
+              {linkImportBusy ? <Spinner className="size-4" /> : null}
+              Save link
             </Button>
           </DialogFooter>
         </DialogContent>

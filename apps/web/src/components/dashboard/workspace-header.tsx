@@ -64,7 +64,7 @@ export function WorkspaceHeader({
             shouldUseCompactDesktop ? "min-h-10 gap-1.5" : "min-h-11 gap-1"
           )}
         >
-          <div className="flex min-w-0 flex-1 items-center gap-1">
+          <div className="flex min-w-0 w-full items-center gap-1">
             <ButtonGroup className={segmentedGroupClass}>
               <Button
                 aria-label="Go back"
@@ -110,7 +110,7 @@ export function WorkspaceHeader({
                 <ArrowRight className="size-3.5" />
               </Button>
             </ButtonGroup>
-            <div className="flex min-w-0 flex-1 items-center gap-1">
+            <div className="flex min-w-0 w-full items-center gap-1">
               <div className="flex size-5 shrink-0 items-center justify-center text-muted-foreground">
                 {leadingIcon ?? (
                   <div
@@ -139,7 +139,7 @@ export function WorkspaceHeader({
               </div>
             </div>
           </div>
-          <div className="flex min-w-0 flex-1 items-center justify-end gap-1 overflow-x-auto no-scrollbar">
+          <div className="flex min-w-0 w-full pr-4 items-center justify-end gap-1 overflow-x-auto no-scrollbar">
             <div className="flex min-w-0 items-center justify-end gap-1">
               {actions}
             </div>
@@ -160,7 +160,7 @@ export function WorkspaceHeader({
     <>
       <header
         className={cn(
-          isOverlayCompact ? "fixed top-0 left-0 right-0 z-40" : "sticky top-0 z-40",
+          isOverlayCompact ? "w-full fixed top-0 left-0 right-0 z-40" : "w-full sticky top-0 z-40",
           className
         )}
         style={isOverlayCompact ? { paddingTop: "env(safe-area-inset-top)" } : undefined}

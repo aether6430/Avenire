@@ -163,6 +163,7 @@ async function processQueuedJob(queueJob: IngestionQueueJobData) {
     const result = await ingestStoredFile({
       workspaceId: job.workspaceId,
       fileId: job.fileId,
+      sourceType: job.sourceType,
       storageUrl: file.storageUrl,
       storageKey: file.storageKey,
       fileName: file.name,

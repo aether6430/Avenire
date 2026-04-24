@@ -112,86 +112,47 @@ function WorkspacePaneScene({
   );
 }
 
-function PaneActionsMenu({
-  onClose,
-  onSplitHorizontal,
-  onSplitVertical,
-  showClose,
-}: {
-  onClose: () => void;
-  onSplitHorizontal: () => void;
-  onSplitVertical: () => void;
-  showClose: boolean;
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        className="inline-flex"
-        render={
-          <Button
-            aria-label="Pane options"
-            className="size-7 shrink-0 rounded-md text-muted-foreground"
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <DotsThree className="size-4" />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end" className="w-56 rounded-xl p-1.5">
-        <DropdownMenuItem onClick={onSplitHorizontal}>
-          <Columns className="mr-2 size-4" />
-          Split right
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={onSplitVertical}>
-          <Rows className="mr-2 size-4" />
-          Split down
-        </DropdownMenuItem>
-        {showClose ? (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              onClick={onClose}
-            >
-              <X className="mr-2 size-4" />
-              Close pane
-            </DropdownMenuItem>
-          </>
-        ) : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
 function PaneHeader({
   compact,
-  onClose,
   onSplitHorizontal,
   onSplitVertical,
-  showClose,
 }: {
   compact: boolean;
-  onClose: () => void;
   onSplitHorizontal: () => void;
   onSplitVertical: () => void;
-  showClose: boolean;
 }) {
-  const trailingActions = (
-    <PaneActionsMenu
-      onClose={onClose}
-      onSplitHorizontal={onSplitHorizontal}
-      onSplitVertical={onSplitVertical}
-      showClose={showClose}
-    />
-  );
-
   return (
     <WorkspaceHeader
       className="border-b-0"
       compact={compact}
-      trailingActions={trailingActions}
+      trailingActions={
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            className="inline-flex"
+            render={
+              <Button
+                aria-label="Split pane"
+                className="size-7 shrink-0 rounded-md text-muted-foreground"
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <ArrowsSplit className="size-4" />
+              </Button>
+            }
+          />
+          <DropdownMenuContent align="end" className="w-56 rounded-xl p-1.5">
+            <DropdownMenuItem onClick={onSplitHorizontal}>
+              <Columns className="mr-2 size-4" />
+              Split right
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onSplitVertical}>
+              <Rows className="mr-2 size-4" />
+              Split down
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      }
     />
   );
 }
@@ -262,9 +223,8 @@ function WorkspacePaneSurface({
 
   return (
     <div
-      className="min-w-0"
+      className="min-w-0 w-full"
       ref={surfaceRef}
-      style={{ width: `${pane.size}%` }}
     >
       <WorkspacePaneProvider
         isActive={isActive}
@@ -283,26 +243,42 @@ function WorkspacePaneSurface({
         >
           <div className="flex items-center border-b border-border/60">
             {isMultiPane ? (
-              <div
-                className="flex h-11 shrink-0 cursor-grab items-center pl-2 pr-1 text-muted-foreground active:cursor-grabbing"
-                draggable
-                onDragEnd={onDragEnd}
-                onDragOver={(event) => {
-                  event.preventDefault();
-                }}
-                onDragStart={onDragStart}
-                onDrop={onDrop}
-              >
-                <DotsSixVertical className="size-4" />
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <button
+                      className="flex h-11 shrink-0 cursor-pointer items-center pl-2 pr-1 text-muted-foreground hover:text-foreground"
+                      type="button"
+                    >
+                      <DotsSixVertical className="size-4" />
+                    </button>
+                  }
+                />
+                <DropdownMenuContent align="start" className="w-48 rounded-xl p-1.5">
+                  <DropdownMenuItem onClick={onSplitHorizontal}>
+                    <Columns className="mr-2 size-4" />
+                    Split right
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onSplitVertical}>
+                    <Rows className="mr-2 size-4" />
+                    Split down
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={onClose}
+                  >
+                    <X className="mr-2 size-4" />
+                    Close pane
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : null}
             {isMultiPane ? (
               <PaneHeader
                 compact={isCompact}
-                onClose={onClose}
                 onSplitHorizontal={onSplitHorizontal}
                 onSplitVertical={onSplitVertical}
-                showClose={isMultiPane}
               />
             ) : (
               <WorkspaceHeader
@@ -535,7 +511,11 @@ export function WorkspacePaneRenderer() {
                 const isActive = pane.id === activePaneId;
                 const isMultiPane = panes.length > 1;
                 return (
-                  <div className="flex min-w-0" key={pane.id}>
+                  <div
+                    className="flex min-w-0 shrink-0"
+                    key={pane.id}
+                    style={{ width: `${pane.size}%` }}
+                  >
                     <WorkspacePaneSurface
                       isActive={isActive}
                       isMultiPane={isMultiPane}
@@ -563,13 +543,13 @@ export function WorkspacePaneRenderer() {
                       }}
                       onFocus={() => focusPane(pane.id)}
                       onSplitHorizontal={() =>
-                        openPane(`${pane.route.pathname}${pane.route.search}`, {
+                        openPane("/workspace", {
                           sourcePaneId: pane.id,
                           splitDirection: "horizontal",
                         })
                       }
                       onSplitVertical={() =>
-                        openPane(`${pane.route.pathname}${pane.route.search}`, {
+                        openPane("/workspace", {
                           sourcePaneId: pane.id,
                           splitDirection: "vertical",
                         })
