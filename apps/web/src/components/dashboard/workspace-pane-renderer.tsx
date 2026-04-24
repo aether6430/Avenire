@@ -1,15 +1,11 @@
 "use client";
 
 import {
-  ArrowsOutCardinal,
   ArrowsSplit,
   Columns,
-  DotsThree,
-  DotsSixVertical,
-  Rows,
+  DotsThree as MoreHorizontal,
   X,
 } from "@phosphor-icons/react";
-import { Button } from "@avenire/ui/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,6 +17,7 @@ import { cn } from "@avenire/ui/lib/utils";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   type DragEvent,
+  type ReactNode,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -47,9 +44,62 @@ import {
 import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
 import { useHeaderStore } from "@/stores/header-store";
 import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
-import type { Route } from "next";
 
 const COMPACT_PANE_WIDTH = 900;
+type PaneDropRegion = "center" | "left" | "right";
+
+function createTransparentDragImage() {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  const pixel = document.createElement("canvas");
+  pixel.width = 1;
+  pixel.height = 1;
+  return pixel;
+}
+
+function isInteractiveHeaderTarget(target: EventTarget | null) {
+  return (
+    target instanceof HTMLElement &&
+    Boolean(target.closest("button, a, input, select, textarea, [role='menuitem']"))
+  );
+}
+
+function getPaneDropRegion(
+  event: DragEvent<HTMLElement>,
+  bounds: DOMRect
+): PaneDropRegion {
+  const x = (event.clientX - bounds.left) / Math.max(bounds.width, 1);
+  if (x <= 0.22) {
+    return "left";
+  }
+  if (x >= 0.78) {
+    return "right";
+  }
+
+  return "center";
+}
+
+function getPaneSplitDirection() {
+  return "horizontal" as const;
+}
+
+function getPaneSplitPlacement(region: PaneDropRegion) {
+  return region === "left" ? "before" : "after";
+}
+
+function getDropIndicatorStyle(region: PaneDropRegion) {
+  switch (region) {
+    case "left":
+      return { height: "calc(100% - 1rem)", inset: "0.5rem auto 0.5rem 0.5rem", width: "0.35rem" };
+    case "right":
+      return { height: "calc(100% - 1rem)", inset: "0.5rem 0.5rem 0.5rem auto", width: "0.35rem" };
+    case "center":
+    default:
+      return { height: "calc(100% - 1rem)", inset: "0.5rem", width: "calc(100% - 1rem)" };
+  }
+}
 
 function WorkspacePaneScene({
   paneId,
@@ -114,72 +164,50 @@ function WorkspacePaneScene({
 
 function PaneHeader({
   compact,
-  onSplitHorizontal,
-  onSplitVertical,
+  paneId,
+  trailingActions,
 }: {
   compact: boolean;
-  onSplitHorizontal: () => void;
-  onSplitVertical: () => void;
+  paneId: string;
+  trailingActions?: ReactNode;
 }) {
   return (
     <WorkspaceHeader
       className="border-b-0"
       compact={compact}
-      trailingActions={
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            className="inline-flex"
-            render={
-              <Button
-                aria-label="Split pane"
-                className="size-7 shrink-0 rounded-md text-muted-foreground"
-                size="icon"
-                type="button"
-                variant="ghost"
-              >
-                <ArrowsSplit className="size-4" />
-              </Button>
-            }
-          />
-          <DropdownMenuContent align="end" className="w-56 rounded-xl p-1.5">
-            <DropdownMenuItem onClick={onSplitHorizontal}>
-              <Columns className="mr-2 size-4" />
-              Split right
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onSplitVertical}>
-              <Rows className="mr-2 size-4" />
-              Split down
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      }
+      paneId={paneId}
+      trailingActions={trailingActions ?? null}
     />
   );
 }
 
 function WorkspacePaneSurface({
+  dropRegion,
   isActive,
+  isDragging,
   isMultiPane,
   onClose,
   onDragEnd,
   onDragStart,
   onDrop,
   onDragOver,
+  onDragLeave,
   onFocus,
   onSplitHorizontal,
-  onSplitVertical,
   pane,
 }: {
+  dropRegion: PaneDropRegion | null;
   isActive: boolean;
+  isDragging: boolean;
   isMultiPane: boolean;
   onClose: () => void;
   onDragEnd: () => void;
-  onDragStart: () => void;
+  onDragStart: (event: DragEvent<HTMLDivElement>) => void;
   onDrop: (event: DragEvent<HTMLDivElement>) => void;
   onDragOver: (event: DragEvent<HTMLDivElement>) => void;
+  onDragLeave: () => void;
   onFocus: () => void;
   onSplitHorizontal: () => void;
-  onSplitVertical: () => void;
   pane: {
     id: string;
     route: {
@@ -220,6 +248,36 @@ function WorkspacePaneSurface({
   }, []);
 
   const isCompact = width > 0 && width < COMPACT_PANE_WIDTH;
+  const showPaneMenuInHeader = !pane.route.pathname.startsWith("/workspace/files/");
+  const paneMenu = isMultiPane ? (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <button
+            aria-label="Pane actions"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border/60 bg-background text-muted-foreground shadow-sm transition hover:bg-muted/70 hover:text-foreground"
+            type="button"
+          />
+        }
+      >
+        <MoreHorizontal className="size-4" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48 rounded-xl p-1.5">
+        <DropdownMenuItem onClick={onSplitHorizontal}>
+          <Columns className="mr-2 size-4" />
+          Split pane
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          className="text-destructive focus:text-destructive"
+          onClick={onClose}
+        >
+          <X className="mr-2 size-4" />
+          Close pane
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  ) : null;
 
   return (
     <div
@@ -234,57 +292,43 @@ function WorkspacePaneSurface({
       >
         <div
           className={cn(
-            "flex h-full min-w-0 flex-col overflow-hidden border-r border-border/70 bg-background",
-            isActive ? "ring-1 ring-inset ring-border/90" : "ring-0"
+            "relative flex h-full min-w-0 flex-col overflow-hidden border-r border-border/70 bg-background transition-[opacity,transform,box-shadow] duration-200 ease-out",
+            isActive ? "ring-1 ring-inset ring-border/90" : "ring-0",
+            isDragging && "opacity-45"
           )}
           onClick={onFocus}
+          onDragLeave={onDragLeave}
           onDragOver={onDragOver}
           onDrop={onDrop}
         >
-          <div className="flex items-center border-b border-border/60">
-            {isMultiPane ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <button
-                      className="flex h-11 shrink-0 cursor-pointer items-center pl-2 pr-1 text-muted-foreground hover:text-foreground"
-                      type="button"
-                    >
-                      <DotsSixVertical className="size-4" />
-                    </button>
-                  }
-                />
-                <DropdownMenuContent align="start" className="w-48 rounded-xl p-1.5">
-                  <DropdownMenuItem onClick={onSplitHorizontal}>
-                    <Columns className="mr-2 size-4" />
-                    Split right
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={onSplitVertical}>
-                    <Rows className="mr-2 size-4" />
-                    Split down
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="text-destructive focus:text-destructive"
-                    onClick={onClose}
-                  >
-                    <X className="mr-2 size-4" />
-                    Close pane
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : null}
+          <div
+            className={cn(
+              "min-w-0",
+              isMultiPane &&
+                "cursor-grab select-none active:cursor-grabbing"
+            )}
+            draggable={isMultiPane}
+            onDragEnd={onDragEnd}
+            onDragStart={(event) => {
+              if (isInteractiveHeaderTarget(event.target)) {
+                event.preventDefault();
+                return;
+              }
+              onDragStart(event);
+            }}
+          >
             {isMultiPane ? (
               <PaneHeader
                 compact={isCompact}
-                onSplitHorizontal={onSplitHorizontal}
-                onSplitVertical={onSplitVertical}
+                paneId={pane.id}
+                trailingActions={showPaneMenuInHeader ? paneMenu : null}
               />
             ) : (
               <WorkspaceHeader
                 className="border-b-0"
                 compact={isCompact}
                 paneId={pane.id}
+                trailingActions={showPaneMenuInHeader ? paneMenu : null}
               />
             )}
           </div>
@@ -297,6 +341,19 @@ function WorkspacePaneSurface({
               />
             </WorkspacePaneInteractionBoundary>
           </div>
+          {dropRegion ? (
+            <div className="pointer-events-none absolute inset-0 z-30 p-2">
+              <div
+                className={cn(
+                  "absolute shadow-[0_0_0_1px_rgba(59,130,246,0.22),0_12px_28px_rgba(59,130,246,0.22)]",
+                  dropRegion === "center"
+                    ? "rounded-2xl border border-primary/35 bg-primary/10"
+                    : "rounded-full bg-primary/85"
+                )}
+                style={getDropIndicatorStyle(dropRegion)}
+              />
+            </div>
+          ) : null}
         </div>
       </WorkspacePaneProvider>
     </div>
@@ -317,18 +374,22 @@ export function WorkspacePaneRenderer() {
   const closePane = useWorkspacePaneStore((state) => state.closePane);
   const focusPane = useWorkspacePaneStore((state) => state.focusPane);
   const openPane = useWorkspacePaneStore((state) => state.openPane);
+  const movePaneToSplit = useWorkspacePaneStore((state) => state.movePaneToSplit);
   const reorderPanes = useWorkspacePaneStore((state) => state.reorderPanes);
-  const rows = useWorkspacePaneStore((state) => state.rows);
   const setPaneSizes = useWorkspacePaneStore((state) => state.setPaneSizes);
-  const setRowSizes = useWorkspacePaneStore((state) => state.setRowSizes);
   const syncActivePaneFromBrowser = useWorkspacePaneStore(
     (state) => state.syncActivePaneFromBrowser
   );
   const setPaneRoute = useWorkspacePaneStore((state) => state.setPaneRoute);
   const setActiveHeaderPaneId = useHeaderStore((state) => state.setActivePaneId);
   const [draggedPaneId, setDraggedPaneId] = useState<string | null>(null);
+  const [dropPreview, setDropPreview] = useState<{
+    paneId: string;
+    region: PaneDropRegion;
+  } | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const pendingBrowserSyncRef = useRef<string | null>(null);
+  const dragGhostImageRef = useRef<HTMLCanvasElement | null>(null);
 
   const browserRoute = useMemo(
     () => buildRouteState(
@@ -374,32 +435,28 @@ export function WorkspacePaneRenderer() {
     setActiveHeaderPaneId(activePaneId);
   }, [activePaneId, setActiveHeaderPaneId]);
 
+  useEffect(() => {
+    dragGhostImageRef.current = createTransparentDragImage();
+  }, []);
+
   const startResize = useCallback(
-    (
-      kind: "row" | "pane",
-      targetId: string,
-      index: number,
-      startClientX: number,
-      startClientY: number
-    ) => {
+    (targetId: string, index: number, startClientX: number) => {
       const container = containerRef.current;
       if (!container) {
         return;
       }
 
-      const startingSizes =
-        kind === "row"
-          ? rows.map((row) => row.size)
-          : panes.filter((pane) => pane.rowId === targetId).map((pane) => pane.size);
+      const startingSizes = panes
+        .filter((pane) => pane.rowId === targetId)
+        .map((pane) => pane.size);
       const bounds = container.getBoundingClientRect();
-      const containerSize = kind === "row" ? bounds.height : bounds.width;
+      const containerSize = bounds.width;
       if (containerSize <= 0) {
         return;
       }
 
       const handlePointerMove = (event: PointerEvent) => {
-        const delta =
-          kind === "row" ? event.clientY - startClientY : event.clientX - startClientX;
+        const delta = event.clientX - startClientX;
         const deltaPercent = (delta / containerSize) * 100;
         const leftSize = Math.max(20, startingSizes[index]! + deltaPercent);
         const rightSize = Math.max(20, startingSizes[index + 1]! - deltaPercent);
@@ -409,11 +466,7 @@ export function WorkspacePaneRenderer() {
         const nextSizes = [...startingSizes];
         nextSizes[index] = fixedLeft;
         nextSizes[index + 1] = fixedRight;
-        if (kind === "row") {
-          setRowSizes(nextSizes);
-        } else {
-          setPaneSizes(targetId, nextSizes);
-        }
+        setPaneSizes(targetId, nextSizes);
       };
 
       const handlePointerUp = () => {
@@ -424,27 +477,53 @@ export function WorkspacePaneRenderer() {
       window.addEventListener("pointermove", handlePointerMove);
       window.addEventListener("pointerup", handlePointerUp, { once: true });
     },
-    [panes, rows, setPaneSizes, setRowSizes]
+    [panes, setPaneSizes]
   );
 
   const handlePaneDrop = useCallback(
     (event: DragEvent<HTMLDivElement>, targetPaneId: string) => {
+      const targetBounds = event.currentTarget.getBoundingClientRect();
+      const region = getPaneDropRegion(event, targetBounds);
       const droppedHref = getWorkspacePaneDragHref(event.dataTransfer);
       if (droppedHref) {
         event.preventDefault();
-        focusPane(targetPaneId);
-        setPaneRoute(targetPaneId, buildRouteState(droppedHref));
+        if (region === "center") {
+          focusPane(targetPaneId);
+          setPaneRoute(targetPaneId, buildRouteState(droppedHref));
+        } else {
+          openPane(droppedHref, {
+            sourcePaneId: targetPaneId,
+            splitDirection: getPaneSplitDirection(),
+            splitPlacement: getPaneSplitPlacement(region),
+          });
+        }
         setDraggedPaneId(null);
+        setDropPreview(null);
         return;
       }
 
       if (draggedPaneId && draggedPaneId !== targetPaneId) {
         event.preventDefault();
-        reorderPanes(draggedPaneId, targetPaneId);
+        if (region === "center") {
+          reorderPanes(draggedPaneId, targetPaneId);
+        } else {
+          movePaneToSplit(draggedPaneId, targetPaneId, {
+            splitDirection: getPaneSplitDirection(),
+            splitPlacement: getPaneSplitPlacement(region),
+          });
+        }
         setDraggedPaneId(null);
+        setDropPreview(null);
       }
     },
-    [draggedPaneId, focusPane, reorderPanes, setPaneRoute]
+    [
+      draggedPaneId,
+      focusPane,
+      movePaneToSplit,
+      openPane,
+      reorderPanes,
+      setPaneRoute,
+    ]
   );
 
   if (!workspace || panes.length === 0) {
@@ -481,122 +560,113 @@ export function WorkspacePaneRenderer() {
     );
   }
 
+  const rowPanes = panes;
+  const rowDropTargetId = rowPanes[0]?.id ?? null;
+
   return (
     <div className="flex h-full w-full flex-col bg-background" ref={containerRef}>
-      {rows.map((row, rowIndex) => {
-        const rowPanes = panes.filter((pane) => pane.rowId === row.id);
-        const rowDropTargetId = rowPanes[0]?.id ?? null;
-        return (
-          <div className="min-h-0" key={row.id} style={{ height: `${row.size}%` }}>
+      <div
+        className="flex h-full min-w-0"
+        onDragOver={(event) => {
+          if (
+            rowDropTargetId &&
+            (hasWorkspacePaneDragHref(event.dataTransfer) || draggedPaneId)
+          ) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = draggedPaneId ? "move" : "copy";
+          }
+        }}
+        onDrop={(event) => {
+          if (rowDropTargetId) {
+            handlePaneDrop(event, rowDropTargetId);
+          }
+        }}
+      >
+        {rowPanes.map((pane, paneIndex) => {
+          const isActive = pane.id === activePaneId;
+          const isMultiPane = panes.length > 1;
+          return (
             <div
-              className="flex h-full min-w-0"
-              onDragOver={(event) => {
-                if (
-                  rowDropTargetId &&
-                  (hasWorkspacePaneDragHref(event.dataTransfer) || draggedPaneId)
-                ) {
-                  event.preventDefault();
-                  event.dataTransfer.dropEffect = draggedPaneId
-                    ? "move"
-                    : "copy";
-                }
-              }}
-              onDrop={(event) => {
-                if (rowDropTargetId) {
-                  handlePaneDrop(event, rowDropTargetId);
-                }
-              }}
+              className="flex min-w-0 shrink-0"
+              key={pane.id}
+              style={{ width: `${pane.size}%` }}
             >
-              {rowPanes.map((pane, paneIndex) => {
-                const isActive = pane.id === activePaneId;
-                const isMultiPane = panes.length > 1;
-                return (
-                  <div
-                    className="flex min-w-0 shrink-0"
-                    key={pane.id}
-                    style={{ width: `${pane.size}%` }}
-                  >
-                    <WorkspacePaneSurface
-                      isActive={isActive}
-                      isMultiPane={isMultiPane}
-                      onClose={() => closePane(pane.id)}
-                      onDragEnd={() => {
-                        setDraggedPaneId(null);
-                      }}
-                      onDragStart={() => {
-                        setDraggedPaneId(pane.id);
-                      }}
-                      onDragOver={(event) => {
-                        if (
-                          hasWorkspacePaneDragHref(event.dataTransfer) ||
-                          draggedPaneId
-                        ) {
-                          event.preventDefault();
-                          event.dataTransfer.dropEffect = draggedPaneId
-                            ? "move"
-                            : "copy";
-                        }
-                      }}
-                      onDrop={(event) => {
-                        event.stopPropagation();
-                        handlePaneDrop(event, pane.id);
-                      }}
-                      onFocus={() => focusPane(pane.id)}
-                      onSplitHorizontal={() =>
-                        openPane("/workspace", {
-                          sourcePaneId: pane.id,
-                          splitDirection: "horizontal",
-                        })
-                      }
-                      onSplitVertical={() =>
-                        openPane("/workspace", {
-                          sourcePaneId: pane.id,
-                          splitDirection: "vertical",
-                        })
-                      }
-                      pane={pane}
-                    />
-                    {paneIndex < rowPanes.length - 1 ? (
-                      <div
-                        aria-hidden="true"
-                        className="relative z-20 w-3 shrink-0 cursor-col-resize bg-border/35 transition-colors hover:bg-border/75"
-                        onPointerDown={(event) => {
-                          event.preventDefault();
-                          startResize(
-                            "pane",
-                            row.id,
-                            paneIndex,
-                            event.clientX,
-                            event.clientY
-                          );
-                        }}
-                      >
-                        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/70">
-                          <ArrowsSplit className="size-3.5" />
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-            {rowIndex < rows.length - 1 ? (
-              <div
-                className="relative z-10 h-3 shrink-0 cursor-row-resize bg-border/35 transition-colors hover:bg-border/75"
-                key={`${row.id}-row-resize`}
-                onPointerDown={(event) => {
-                  event.preventDefault();
-                  startResize("row", row.id, rowIndex, event.clientX, event.clientY);
+              <WorkspacePaneSurface
+                isActive={isActive}
+                isDragging={pane.id === draggedPaneId}
+                isMultiPane={isMultiPane}
+                dropRegion={
+                  dropPreview?.paneId === pane.id ? dropPreview.region : null
+                }
+                onClose={() => closePane(pane.id)}
+                onDragEnd={() => {
+                  setDraggedPaneId(null);
+                  setDropPreview(null);
                 }}
-              >
-                <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/70">
-                  <ArrowsSplit className="size-3.5 rotate-90" />
+                onDragStart={(event) => {
+                  const dragImage = dragGhostImageRef.current;
+                  if (dragImage) {
+                    event.dataTransfer.setDragImage(dragImage, 0, 0);
+                  }
+                  event.dataTransfer.effectAllowed = "move";
+                  setDraggedPaneId(pane.id);
+                }}
+                onDragLeave={() => {
+                  setDropPreview((current) =>
+                    current?.paneId === pane.id ? null : current
+                  );
+                }}
+                onDragOver={(event) => {
+                  if (hasWorkspacePaneDragHref(event.dataTransfer) || draggedPaneId) {
+                    event.preventDefault();
+                    if (draggedPaneId === pane.id) {
+                      setDropPreview((current) =>
+                        current?.paneId === pane.id ? null : current
+                      );
+                      return;
+                    }
+                    event.dataTransfer.dropEffect = draggedPaneId ? "move" : "copy";
+                    setDropPreview({
+                      paneId: pane.id,
+                      region: getPaneDropRegion(
+                        event,
+                        event.currentTarget.getBoundingClientRect()
+                      ),
+                    });
+                  }
+                }}
+                onDrop={(event) => {
+                  event.stopPropagation();
+                  handlePaneDrop(event, pane.id);
+                }}
+                onFocus={() => focusPane(pane.id)}
+                onSplitHorizontal={() =>
+                  openPane("/workspace", {
+                    sourcePaneId: pane.id,
+                    splitDirection: "horizontal",
+                    splitPlacement: "after",
+                  })
+                }
+                pane={pane}
+              />
+              {paneIndex < rowPanes.length - 1 ? (
+                <div
+                  aria-hidden="true"
+                  className="relative z-20 w-3 shrink-0 cursor-col-resize bg-border/35 transition-colors hover:bg-border/75"
+                  onPointerDown={(event) => {
+                    event.preventDefault();
+                    startResize(rowPanes[0]!.rowId, paneIndex, event.clientX);
+                  }}
+                >
+                  <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/70">
+                    <ArrowsSplit className="size-3.5" />
+                  </div>
                 </div>
-              </div>
-            ) : null}
-          </div>
-        );
-      })}
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -1187,9 +1187,9 @@ export function FilesSidebarPanel({
         <SidebarGroupLabel>Your Files</SidebarGroupLabel>
         <SidebarGroupContent className="min-h-0">
           {workspaceUuid && folderTree.length > 0 ? (
-            <div className="h-full min-w-0 overflow-y-auto pr-1">
+            <div className="h-full min-w-0 pr-1">
               <TreeView
-                className="min-w-0 rounded-xl"
+                className="h-full min-w-0 rounded-xl overflow-y-auto"
                 data={sidebarTreeData}
                 expandedItemIds={expandedTreePathIds}
                 onExpandedChange={(itemIds) => {

@@ -1,5 +1,4 @@
 import Defuddle from "defuddle";
-import { createMarkdownContent } from "defuddle/full";
 import { detectNativeAsset } from "./shared.js";
 
 const HIGHLIGHT_NAME = "avenire-clipper";
@@ -168,13 +167,13 @@ async function extractPageWithDefuddle() {
     );
     const defuddle = new Defuddle(clonedDocument, {
       url: currentUrl,
+      markdown: true,
       useAsync: false,
     });
     const extracted = defuddle.parse();
-    const markdownContent = createMarkdownContent(extracted.content, currentUrl);
     cachedExtraction = {
       ...extracted,
-      contentMarkdown: markdownContent,
+      contentMarkdown: extracted.content.trim(),
     };
     cachedExtractionUrl = currentUrl;
     return cachedExtraction;

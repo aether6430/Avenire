@@ -39,6 +39,7 @@ import {
 } from "@avenire/ui/components/tooltip";
 import { Spinner } from "@avenire/ui/components/spinner";
 import { useHotkey } from "@tanstack/react-hotkeys";
+import { measureElement, useVirtualizer } from "@tanstack/react-virtual";
 import {
   Files,
   GitBranch,
@@ -318,12 +319,9 @@ const DASHBOARD_FILES_FOLDER_ROUTE_REGEX =
   /^\/workspace\/files\/[^/]+\/folder\/([^/?#]+)/;
 
 function ChatListSection({
-  title,
-  chats,
   activeChatSlug,
   editingChatSlug,
   editingTitle,
-  pendingChatSlug,
   onEditingTitleChange,
   onStartRename,
   onFinishRename,
@@ -332,14 +330,13 @@ function ChatListSection({
   onSelectInNewPane,
   onTogglePin,
   onDelete,
-  hideWhenEmpty = false,
+  pendingChatSlug,
+  pinnedChats,
+  otherChats,
 }: {
-  title: string;
-  chats: ChatSummary[];
   activeChatSlug: string;
   editingChatSlug: string | null;
   editingTitle: string;
-  pendingChatSlug: string | null;
   onEditingTitleChange: (value: string) => void;
   onStartRename: (chat: ChatSummary) => void;
   onFinishRename: (chatSlug: string) => void;
@@ -348,15 +345,49 @@ function ChatListSection({
   onSelectInNewPane?: (chatSlug: string) => void;
   onTogglePin: (chatSlug: string, pinned: boolean) => void;
   onDelete: (chatSlug: string) => void;
-  hideWhenEmpty?: boolean;
+  pendingChatSlug: string | null;
+  pinnedChats: ChatSummary[];
+  otherChats: ChatSummary[];
 }) {
-  if (chats.length === 0) {
-    if (hideWhenEmpty) {
-      return null;
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const rows = useMemo<
+    Array<
+      | { key: string; type: "header"; title: string }
+      | { chat: ChatSummary; key: string; type: "chat" }
+    >
+  >(() => {
+    const nextRows: Array<
+      | { key: string; type: "header"; title: string }
+      | { chat: ChatSummary; key: string; type: "chat" }
+    > = [];
+
+    if (pinnedChats.length > 0) {
+      nextRows.push({ key: "header-pinned", title: "Pinned Chats", type: "header" });
+      for (const chat of pinnedChats) {
+        nextRows.push({ chat, key: `chat-${chat.slug}`, type: "chat" });
+      }
     }
+
+    nextRows.push({ key: "header-other", title: "Other Chats", type: "header" });
+    for (const chat of otherChats) {
+      nextRows.push({ chat, key: `chat-${chat.slug}`, type: "chat" });
+    }
+
+    return nextRows;
+  }, [otherChats, pinnedChats]);
+
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    estimateSize: (index) => (rows[index]?.type === "header" ? 32 : 38),
+    getScrollElement: () => scrollRef.current,
+    measureElement,
+    overscan: 8,
+  });
+
+  if (pinnedChats.length === 0 && otherChats.length === 0) {
     return (
       <SidebarGroup>
-        <SidebarGroupLabel>{title}</SidebarGroupLabel>
+        <SidebarGroupLabel>Chats</SidebarGroupLabel>
         <SidebarGroupContent>
           <SidebarEmptyState
             description="New chats will appear here once you start a conversation."
@@ -369,148 +400,217 @@ function ChatListSection({
   }
 
   return (
-    <SidebarGroup>
-      <SidebarGroupLabel>{title}</SidebarGroupLabel>
-      <SidebarGroupContent>
-        <SidebarMenu>
-          {chats.map((chat) => {
-            const isEditing = editingChatSlug === chat.slug;
-            const isPending = pendingChatSlug === chat.slug;
-            const iconName = isChatIconName(chat.icon) ? chat.icon : null;
+    <div className="min-h-0 flex-1 overflow-hidden">
+      <div className="h-full overflow-y-auto px-2 pb-2" ref={scrollRef}>
+        <div
+          className="relative w-full"
+          style={{ height: `${virtualizer.getTotalSize()}px` }}
+        >
+          {virtualizer.getVirtualItems().map((virtualItem) => {
+            const row = rows[virtualItem.index];
+            if (!row) {
+              return null;
+            }
 
             return (
-              <SidebarMenuItem key={chat.slug}>
-                {isEditing ? (
-                  <form
-                    className="px-2"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      onFinishRename(chat.slug);
-                    }}
-                  >
-                    <Input
-                      autoFocus
-                      className="h-7 text-xs"
-                      onBlur={() => onFinishRename(chat.slug)}
-                      onChange={(event) =>
-                        onEditingTitleChange(event.target.value)
-                      }
-                      onKeyDown={(event) => {
-                        if (event.key === "Escape") {
-                          event.preventDefault();
-                          onCancelRename();
-                        }
-                      }}
-                      value={editingTitle}
-                    />
-                  </form>
+              <div
+                data-index={virtualItem.index}
+                key={virtualItem.key}
+                ref={virtualizer.measureElement}
+                style={{
+                  left: 0,
+                  position: "absolute",
+                  top: 0,
+                  transform: `translateY(${virtualItem.start}px)`,
+                  width: "100%",
+                }}
+              >
+                {row.type === "header" ? (
+                  <div className="px-2 pb-1 pt-2">
+                    <SidebarGroupLabel>{row.title}</SidebarGroupLabel>
+                  </div>
                 ) : (
-                  <>
-                    <SidebarMenuButton
-                      draggable
-                      isActive={activeChatSlug === chat.slug}
-                      onClick={(event) => {
-                        if (event.altKey) {
-                          event.preventDefault();
-                          onSelectInNewPane?.(chat.slug);
-                          return;
-                        }
-                        onSelect(chat.slug);
-                      }}
-                      onContextMenu={(event) => {
-                        event.preventDefault();
-                        onSelectInNewPane?.(chat.slug);
-                      }}
-                      onDragStart={(event) => {
-                        setWorkspacePaneDragData(
-                          event.dataTransfer,
-                          `/workspace/chats/${chat.slug}` as Route
-                        );
-                      }}
-                    >
-                      {chat.branching ? <GitBranch className="size-4" /> : null}
-                      {isPending ? (
-                        <ChatSpinnerGlyph className="size-4" />
-                      ) : iconName ? (
-                        <ChatIcon
-                          className="text-muted-foreground"
-                          name={iconName}
-                        />
-                      ) : null}
-                      <Tooltip>
-                        <TooltipTrigger render={<span className="truncate" />}>
-                          {chat.title}
-                        </TooltipTrigger>
-                        <TooltipContent side="top">
-                          <span className="max-w-72 break-words">
-                            {chat.title}
-                          </span>
-                        </TooltipContent>
-                      </Tooltip>
-                    </SidebarMenuButton>
-
-                    {chat.readOnly ? null : (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          render={
-                            <SidebarMenuAction
-                              onClick={(event) => event.stopPropagation()}
-                              showOnHover
-                            />
-                          }
-                        >
-                          <MoreHorizontal className="size-4" />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-40">
-                          <DropdownMenuItem
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              onStartRename(chat);
-                            }}
-                          >
-                            <Pencil className="size-3.5" />
-                            Rename
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              onTogglePin(chat.slug, !chat.pinned);
-                            }}
-                          >
-                            {chat.pinned ? (
-                              <>
-                                <PinOff className="size-3.5" />
-                                Unpin
-                              </>
-                            ) : (
-                              <>
-                                <Pin className="size-3.5" />
-                                Pin
-                              </>
-                            )}
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              onDelete(chat.slug);
-                            }}
-                            variant="destructive"
-                          >
-                            <Trash2 className="size-3.5" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </>
+                  <SidebarMenu>
+                    <ChatListItem
+                      activeChatSlug={activeChatSlug}
+                      chat={row.chat}
+                      editingChatSlug={editingChatSlug}
+                      editingTitle={editingTitle}
+                      onCancelRename={onCancelRename}
+                      onDelete={onDelete}
+                      onEditingTitleChange={onEditingTitleChange}
+                      onFinishRename={onFinishRename}
+                      onSelect={onSelect}
+                      onSelectInNewPane={onSelectInNewPane}
+                      onStartRename={onStartRename}
+                      onTogglePin={onTogglePin}
+                      pendingChatSlug={pendingChatSlug}
+                    />
+                  </SidebarMenu>
                 )}
-              </SidebarMenuItem>
+              </div>
             );
           })}
-        </SidebarMenu>
-      </SidebarGroupContent>
-    </SidebarGroup>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChatListItem({
+  activeChatSlug,
+  chat,
+  editingChatSlug,
+  editingTitle,
+  pendingChatSlug,
+  onEditingTitleChange,
+  onStartRename,
+  onFinishRename,
+  onCancelRename,
+  onSelect,
+  onSelectInNewPane,
+  onTogglePin,
+  onDelete,
+}: {
+  activeChatSlug: string;
+  chat: ChatSummary;
+  editingChatSlug: string | null;
+  editingTitle: string;
+  pendingChatSlug: string | null;
+  onEditingTitleChange: (value: string) => void;
+  onStartRename: (chat: ChatSummary) => void;
+  onFinishRename: (chatSlug: string) => void;
+  onCancelRename: () => void;
+  onSelect: (chatSlug: string) => void;
+  onSelectInNewPane?: (chatSlug: string) => void;
+  onTogglePin: (chatSlug: string, pinned: boolean) => void;
+  onDelete: (chatSlug: string) => void;
+}) {
+  const isEditing = editingChatSlug === chat.slug;
+  const isPending = pendingChatSlug === chat.slug;
+  const iconName = isChatIconName(chat.icon) ? chat.icon : null;
+
+  return (
+    <SidebarMenuItem key={chat.slug}>
+      {isEditing ? (
+        <form
+          className="px-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onFinishRename(chat.slug);
+          }}
+        >
+          <Input
+            autoFocus
+            className="h-7 text-xs"
+            onBlur={() => onFinishRename(chat.slug)}
+            onChange={(event) => onEditingTitleChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                onCancelRename();
+              }
+            }}
+            value={editingTitle}
+          />
+        </form>
+      ) : (
+        <>
+          <SidebarMenuButton
+            draggable
+            isActive={activeChatSlug === chat.slug}
+            onClick={(event) => {
+              if (event.altKey) {
+                event.preventDefault();
+                onSelectInNewPane?.(chat.slug);
+                return;
+              }
+              onSelect(chat.slug);
+            }}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              onSelectInNewPane?.(chat.slug);
+            }}
+            onDragStart={(event) => {
+              setWorkspacePaneDragData(
+                event.dataTransfer,
+                `/workspace/chats/${chat.slug}` as Route
+              );
+            }}
+          >
+            {chat.branching ? <GitBranch className="size-4" /> : null}
+            {isPending ? (
+              <ChatSpinnerGlyph className="size-4" />
+            ) : iconName ? (
+              <ChatIcon className="text-muted-foreground" name={iconName} />
+            ) : null}
+            <Tooltip>
+              <TooltipTrigger render={<span className="truncate" />}>
+                {chat.title}
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <span className="max-w-72 break-words">{chat.title}</span>
+              </TooltipContent>
+            </Tooltip>
+          </SidebarMenuButton>
+
+          {chat.readOnly ? null : (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <SidebarMenuAction
+                    onClick={(event) => event.stopPropagation()}
+                    showOnHover
+                  />
+                }
+              >
+                <MoreHorizontal className="size-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onStartRename(chat);
+                  }}
+                >
+                  <Pencil className="size-3.5" />
+                  Rename
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onTogglePin(chat.slug, !chat.pinned);
+                  }}
+                >
+                  {chat.pinned ? (
+                    <>
+                      <PinOff className="size-3.5" />
+                      Unpin
+                    </>
+                  ) : (
+                    <>
+                      <Pin className="size-3.5" />
+                      Pin
+                    </>
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDelete(chat.slug);
+                  }}
+                  variant="destructive"
+                >
+                  <Trash2 className="size-3.5" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </>
+      )}
+    </SidebarMenuItem>
   );
 }
 
@@ -2077,51 +2177,6 @@ export function DashboardSidebar({
 
                   <ChatListSection
                     activeChatSlug={activeChatSlug}
-                    chats={filteredPinnedChats}
-                    editingChatSlug={editingChatSlug}
-                    editingTitle={editingTitle}
-                    hideWhenEmpty
-                    onCancelRename={() => {
-                      setEditingChatSlug(null);
-                      setEditingTitle("");
-                    }}
-                    onDelete={(chatSlug) => {
-                      setEditingChatSlug(null);
-                      setEditingTitle("");
-                      void deleteChat(chatSlug);
-                    }}
-                    onEditingTitleChange={setEditingTitle}
-                    onFinishRename={(chatSlug) => {
-                      void updateChat(chatSlug, { title: editingTitle });
-                      setEditingChatSlug(null);
-                      setEditingTitle("");
-                    }}
-                    onSelect={(chatSlug) => {
-                      setEditingChatSlug(null);
-                      setEditingTitle("");
-                      navigate(`/workspace/chats/${chatSlug}` as Route);
-                    }}
-                    onSelectInNewPane={(chatSlug) => {
-                      setEditingChatSlug(null);
-                      setEditingTitle("");
-                      navigate(`/workspace/chats/${chatSlug}` as Route, {
-                        openInNewPane: true,
-                      });
-                    }}
-                    onStartRename={(chat) => {
-                      setEditingChatSlug(chat.slug);
-                      setEditingTitle(chat.title);
-                    }}
-                    onTogglePin={(chatSlug, pinned) => {
-                      void updateChat(chatSlug, { pinned });
-                    }}
-                    pendingChatSlug={pendingChatSlug}
-                    title="Pinned Chats"
-                  />
-
-                  <ChatListSection
-                    activeChatSlug={activeChatSlug}
-                    chats={filteredOtherChats}
                     editingChatSlug={editingChatSlug}
                     editingTitle={editingTitle}
                     onCancelRename={() => {
@@ -2158,8 +2213,9 @@ export function DashboardSidebar({
                     onTogglePin={(chatSlug, pinned) => {
                       void updateChat(chatSlug, { pinned });
                     }}
+                    otherChats={filteredOtherChats}
                     pendingChatSlug={pendingChatSlug}
-                    title="Other Chats"
+                    pinnedChats={filteredPinnedChats}
                   />
                 </div>
                 <div

@@ -11,10 +11,12 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@avenire/ui/components/command";
+import { Kbd, KbdGroup } from "@avenire/ui/components/kbd";
 import { Spinner } from "@avenire/ui/components/spinner";
 import type { Icon } from "@phosphor-icons/react";
 import {
   Building as Building2,
+  CaretRight as ChevronRight,
   ClockCounterClockwise,
   FilePlus as FilePlus2,
   FileText,
@@ -323,6 +325,17 @@ function commandMatches(item: PaletteCommandItem, needle: string) {
 function matchesNeedle(value: string, needle: string) {
   return value.toLowerCase().includes(needle);
 }
+
+const PALETTE_GROUP_CLASS =
+  "overflow-hidden px-1 py-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-muted-foreground/60 [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider";
+
+const PALETTE_ITEM_CLASS =
+  "group relative flex cursor-pointer select-none items-start gap-3 rounded px-2.5 py-2 text-sm outline-none data-[selected=true]:bg-primary/15 data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 hover:bg-primary/10 transition-colors duration-100";
+
+const PALETTE_ICON_CLASS = "mt-0.5 size-4 shrink-0 text-muted-foreground/70";
+
+const PALETTE_CHEVRON_CLASS =
+  "mt-0.5 ml-auto size-3.5 shrink-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100 text-muted-foreground/50";
 
 export function CommandPalette({
   workspaceUuid: activeWorkspaceUuid,
@@ -1081,27 +1094,31 @@ export function CommandPalette({
   const renderCommandGroups = () => (
     <>
       {filteredCommands.general.length > 0 ? (
-        <CommandGroup heading="General">
+        <CommandGroup className={PALETTE_GROUP_CLASS} heading="General">
           {filteredCommands.general.map((item) => (
             <CommandItem
+              className={PALETTE_ITEM_CLASS}
               key={item.key}
               onSelect={() => item.onSelect()}
               value={[item.label, item.description, ...item.searchTerms].join(
                 " "
               )}
             >
-              <item.icon className="size-3.5 text-muted-foreground" />
+              <item.icon className={PALETTE_ICON_CLASS} />
               <div className="min-w-0">
-                <p className="font-medium text-foreground text-xs">
+                <p className="font-medium text-foreground/90 text-sm">
                   {item.label}
                 </p>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-muted-foreground/60 text-xs">
                   {item.description}
                 </p>
               </div>
               {item.shortcut ? (
-                <CommandShortcut>{item.shortcut}</CommandShortcut>
+                <CommandShortcut className="mt-0.5 text-muted-foreground/50 tracking-normal">
+                  {item.shortcut}
+                </CommandShortcut>
               ) : null}
+              <ChevronRight className={PALETTE_CHEVRON_CLASS} />
             </CommandItem>
           ))}
         </CommandGroup>
@@ -1111,27 +1128,31 @@ export function CommandPalette({
         <CommandSeparator />
       ) : null}
       {filteredCommands.create.length > 0 ? (
-        <CommandGroup heading="Create">
+        <CommandGroup className={PALETTE_GROUP_CLASS} heading="Create">
           {filteredCommands.create.map((item) => (
             <CommandItem
+              className={PALETTE_ITEM_CLASS}
               key={item.key}
               onSelect={() => item.onSelect()}
               value={[item.label, item.description, ...item.searchTerms].join(
                 " "
               )}
             >
-              <item.icon className="size-3.5 text-muted-foreground" />
+              <item.icon className={PALETTE_ICON_CLASS} />
               <div className="min-w-0">
-                <p className="font-medium text-foreground text-xs">
+                <p className="font-medium text-foreground/90 text-sm">
                   {item.label}
                 </p>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-muted-foreground/60 text-xs">
                   {item.description}
                 </p>
               </div>
               {item.shortcut ? (
-                <CommandShortcut>{item.shortcut}</CommandShortcut>
+                <CommandShortcut className="mt-0.5 text-muted-foreground/50 tracking-normal">
+                  {item.shortcut}
+                </CommandShortcut>
               ) : null}
+              <ChevronRight className={PALETTE_CHEVRON_CLASS} />
             </CommandItem>
           ))}
         </CommandGroup>
@@ -1141,7 +1162,9 @@ export function CommandPalette({
 
   return (
     <CommandDialog
-      className="sm:max-w-xl md:max-w-2xl lg:max-w-3xl"
+      className="overflow-hidden border-border/70 bg-card/95 p-0 shadow-2xl shadow-black/20 backdrop-blur-xl sm:max-w-5xl"
+      description="Search commands, projects, and threads..."
+      largeWidth
       onOpenChange={(nextOpen) => {
         if (!nextOpen) {
           commandPaletteActions.close();
@@ -1151,34 +1174,40 @@ export function CommandPalette({
         commandPaletteActions.open();
       }}
       open={open}
+      showCloseButton={false}
+      title="Command Palette"
     >
       <Command
-        className="h-[min(34rem,calc(100dvh-4rem))] min-h-0 p-0"
+        className="h-[min(34rem,calc(100dvh-4rem))] min-h-0 rounded-none border-0 bg-transparent p-0 shadow-none"
         shouldFilter={false}
       >
-        <CommandInput
-          onValueChange={setQuery}
-          placeholder="Run a command, open a file, or search workspace content..."
-          value={query}
-        />
+        <div className="border-border/70 border-b bg-secondary/65 px-4 py-1.5">
+          <CommandInput
+            className="border-0 bg-transparent px-0 text-sm placeholder:text-muted-foreground/55 focus-visible:outline-none focus-visible:ring-0"
+            onValueChange={setQuery}
+            placeholder="Run a command, open a file, or search workspace content..."
+            value={query}
+          />
+        </div>
         {pendingRoute ? (
-          <div className="flex items-center gap-2 border-border/60 border-t px-4 py-3 text-muted-foreground text-xs">
+          <div className="flex items-center gap-2 border-border/70 border-t bg-secondary/50 px-4 py-3 text-muted-foreground/70 text-xs">
             <Spinner className="size-3.5" />
             Opening selection...
           </div>
         ) : null}
-        <div className="grid min-h-0 flex-1 grid-cols-1 border-border/60 border-t">
+        <div className="grid min-h-0 flex-1 grid-cols-1 border-border/70 border-t bg-background/10">
           <div className="min-h-0">
-            <CommandList className="max-h-none min-h-0">
+            <CommandList className="max-h-96 min-h-0 rounded-lg overflow-y-auto scrollbar-thin scrollbar-thumb-muted scrollbar-track-background">
               {searchQuery ? (
                 hasCommandMatches ? (
                   renderCommandGroups()
                 ) : searchItems.length > 0 || resolvedWorkspaceUuid ? (
                   <>
                     {chatResults.length > 0 ? (
-                      <CommandGroup heading="Chats">
+                      <CommandGroup className={PALETTE_GROUP_CLASS} heading="Chats">
                         {chatResults.map((chat) => (
                           <CommandItem
+                            className={PALETTE_ITEM_CLASS}
                             key={`chat-${chat.id}`}
                             onSelect={() => {
                               startTransition(() => {
@@ -1188,16 +1217,16 @@ export function CommandPalette({
                             }}
                             value={`${chat.label} ${chat.description} chat`}
                           >
-                            <MessageSquareText className="size-3.5 text-muted-foreground" />
+                            <MessageSquareText className={PALETTE_ICON_CLASS} />
                             <div className="min-w-0">
-                              <p className="truncate font-medium text-foreground text-xs">
+                              <p className="truncate font-medium text-foreground/90 text-sm">
                                 {chat.label}
                               </p>
-                              <p className="truncate text-[11px] text-muted-foreground">
+                              <p className="truncate text-muted-foreground/60 text-xs">
                                 {chat.description}
                               </p>
                             </div>
-                            <span className="text-[11px] text-muted-foreground">
+                            <span className="mt-0.5 shrink-0 text-muted-foreground/50 text-xs whitespace-nowrap">
                               {chat.meta}
                             </span>
                           </CommandItem>
@@ -1207,9 +1236,10 @@ export function CommandPalette({
                     {flashcardResults.length > 0 ? (
                       <>
                         {chatResults.length > 0 ? <CommandSeparator /> : null}
-                        <CommandGroup heading="Flashcards">
+                        <CommandGroup className={PALETTE_GROUP_CLASS} heading="Flashcards">
                           {flashcardResults.map((set) => (
                             <CommandItem
+                              className={PALETTE_ITEM_CLASS}
                               key={`flashcard-${set.id}`}
                               onSelect={() => {
                                 startTransition(() => {
@@ -1219,16 +1249,16 @@ export function CommandPalette({
                               }}
                               value={`${set.label} ${set.description} flashcard`}
                             >
-                              <Sparkles className="size-3.5 text-muted-foreground" />
+                              <Sparkles className={PALETTE_ICON_CLASS} />
                               <div className="min-w-0">
-                                <p className="truncate font-medium text-foreground text-xs">
+                                <p className="truncate font-medium text-foreground/90 text-sm">
                                   {set.label}
                                 </p>
-                                <p className="truncate text-[11px] text-muted-foreground">
+                                <p className="truncate text-muted-foreground/60 text-xs">
                                   {set.description}
                                 </p>
                               </div>
-                              <span className="text-[11px] text-muted-foreground">
+                              <span className="mt-0.5 shrink-0 text-muted-foreground/50 text-xs whitespace-nowrap">
                                 {set.meta}
                               </span>
                             </CommandItem>
@@ -1242,9 +1272,10 @@ export function CommandPalette({
                       </>
                     ) : null}
                     {fuzzyResults.length > 0 ? (
-                      <CommandGroup heading="Files and folders">
+                      <CommandGroup className={PALETTE_GROUP_CLASS} heading="Files and folders">
                         {fuzzyResults.map((item) => (
                           <CommandItem
+                            className={PALETTE_ITEM_CLASS}
                             key={`${item.type}-${item.id}`}
                             onSelect={() => {
                               if (item.type === "folder") {
@@ -1261,21 +1292,22 @@ export function CommandPalette({
                             value={`${item.workspaceName} ${item.name} ${item.path} ${item.type}`}
                           >
                             {item.type === "folder" ? (
-                              <Folder className="size-3.5 text-muted-foreground" />
+                              <Folder className={PALETTE_ICON_CLASS} />
                             ) : (
-                              <FileText className="size-3.5 text-muted-foreground" />
+                              <FileText className={PALETTE_ICON_CLASS} />
                             )}
                             <div className="min-w-0">
-                              <p className="truncate font-medium text-foreground text-xs">
+                              <p className="truncate font-medium text-foreground/90 text-sm">
                                 {item.name}
                               </p>
-                              <p className="truncate text-[11px] text-muted-foreground">
+                              <p className="truncate text-muted-foreground/60 text-xs">
                                 {item.path}
                               </p>
-                              <p className="truncate text-[11px] text-muted-foreground">
+                              <p className="truncate text-muted-foreground/50 text-xs">
                                 {item.workspaceName}
                               </p>
                             </div>
+                            <ChevronRight className={PALETTE_CHEVRON_CLASS} />
                           </CommandItem>
                         ))}
                       </CommandGroup>
@@ -1283,14 +1315,15 @@ export function CommandPalette({
 
                     {fuzzyResults.length === 0 &&
                     (isRetrieving || retrievalResults.length > 0) ? (
-                      <CommandGroup heading="Content search">
+                      <CommandGroup className={PALETTE_GROUP_CLASS} heading="Content search">
                         {isRetrieving ? (
                           <CommandItem
+                            className={PALETTE_ITEM_CLASS}
                             disabled
                             value="searching workspace content"
                           >
-                            <Spinner className="size-3.5" />
-                            <span className="text-muted-foreground text-xs">
+                            <Spinner className={PALETTE_ICON_CLASS} />
+                            <span className="text-muted-foreground/60 text-sm">
                               Searching workspace content...
                             </span>
                           </CommandItem>
@@ -1314,24 +1347,26 @@ export function CommandPalette({
 
                           return (
                             <CommandItem
+                              className={PALETTE_ITEM_CLASS}
                               key={`retrieval-${result.id}-${result.chunkId ?? "main"}`}
                               onSelect={() => {
                                 openSearchResult(result);
                               }}
                               value={`${result.title} ${filePath} ${result.snippet}`}
                             >
-                              <FileText className="size-3.5 text-muted-foreground" />
+                              <FileText className={PALETTE_ICON_CLASS} />
                               <div className="min-w-0">
-                                <p className="truncate font-medium text-foreground text-xs">
+                                <p className="truncate font-medium text-foreground/90 text-sm">
                                   {result.title}
                                 </p>
-                                <p className="truncate text-[11px] text-muted-foreground">
+                                <p className="truncate text-muted-foreground/60 text-xs">
                                   {filePath}
                                 </p>
-                                <p className="truncate text-[11px] text-muted-foreground">
+                                <p className="truncate text-muted-foreground/50 text-xs">
                                   {result.snippet}
                                 </p>
                               </div>
+                              <ChevronRight className={PALETTE_CHEVRON_CLASS} />
                             </CommandItem>
                           );
                         })}
@@ -1341,13 +1376,13 @@ export function CommandPalette({
                     {fuzzyResults.length === 0 &&
                     !isRetrieving &&
                     retrievalResults.length === 0 ? (
-                      <CommandEmpty>
+                      <CommandEmpty className="py-8 text-center text-muted-foreground/70 text-sm">
                         No matching commands, files, or content found.
                       </CommandEmpty>
                     ) : null}
                   </>
                 ) : (
-                  <CommandEmpty>
+                  <CommandEmpty className="py-8 text-center text-muted-foreground/70 text-sm">
                     No matching commands found. Workspace files are still
                     indexing.
                   </CommandEmpty>
@@ -1355,9 +1390,10 @@ export function CommandPalette({
               ) : (
                 <>
                   {workspaceTasks.length > 0 ? (
-                    <CommandGroup heading="Upcoming tasks">
+                    <CommandGroup className={PALETTE_GROUP_CLASS} heading="Upcoming tasks">
                       {workspaceTasks.map((task) => (
                         <CommandItem
+                          className={PALETTE_ITEM_CLASS}
                           key={`task-${task.id}`}
                           onSelect={() => {
                             startTransition(() => {
@@ -1369,27 +1405,29 @@ export function CommandPalette({
                           }}
                           value={`${task.title} ${task.description ?? ""} ${task.assignee?.name ?? ""} task`}
                         >
-                          <ListChecks className="size-3.5 text-muted-foreground" />
+                          <ListChecks className={PALETTE_ICON_CLASS} />
                           <div className="min-w-0">
-                            <p className="truncate font-medium text-foreground text-xs">
+                            <p className="truncate font-medium text-foreground/90 text-sm">
                               {task.title}
                             </p>
-                            <p className="truncate text-[11px] text-muted-foreground">
+                            <p className="truncate text-muted-foreground/60 text-xs">
                               {formatTaskDueDate(task.dueAt)}
                               {task.assignee?.name
                                 ? ` • ${task.assignee.name}`
                                 : ""}
                             </p>
                           </div>
+                          <ChevronRight className={PALETTE_CHEVRON_CLASS} />
                         </CommandItem>
                       ))}
                     </CommandGroup>
                   ) : null}
                   {workspaceTasks.length > 0 ? <CommandSeparator /> : null}
                   {recentItems.length > 0 ? (
-                    <CommandGroup heading="Recent files">
+                    <CommandGroup className={PALETTE_GROUP_CLASS} heading="Recent files">
                       {recentItems.map((item) => (
                         <CommandItem
+                          className={PALETTE_ITEM_CLASS}
                           key={`recent-${item.id}`}
                           onSelect={() => {
                             handleOpenFile(
@@ -1400,15 +1438,16 @@ export function CommandPalette({
                           }}
                           value={`${item.name} ${item.path} recent`}
                         >
-                          <ClockCounterClockwise className="size-3.5 text-muted-foreground" />
+                          <ClockCounterClockwise className={PALETTE_ICON_CLASS} />
                           <div className="min-w-0">
-                            <p className="truncate font-medium text-foreground text-xs">
+                            <p className="truncate font-medium text-foreground/90 text-sm">
                               {item.name}
                             </p>
-                            <p className="truncate text-[11px] text-muted-foreground">
+                            <p className="truncate text-muted-foreground/60 text-xs">
                               {item.path}
                             </p>
                           </div>
+                          <ChevronRight className={PALETTE_CHEVRON_CLASS} />
                         </CommandItem>
                       ))}
                     </CommandGroup>
@@ -1416,7 +1455,7 @@ export function CommandPalette({
                   {recentItems.length > 0 ? <CommandSeparator /> : null}
                   {cachedChats.length > 0 ? (
                     <>
-                      <CommandGroup heading="Recent chats">
+                      <CommandGroup className={PALETTE_GROUP_CLASS} heading="Recent chats">
                         {cachedChats
                           .slice()
                           .sort((left, right) =>
@@ -1425,6 +1464,7 @@ export function CommandPalette({
                           .slice(0, 6)
                           .map((chat) => (
                             <CommandItem
+                              className={PALETTE_ITEM_CLASS}
                               key={`recent-chat-${chat.slug}`}
                               onSelect={() => {
                                 startTransition(() => {
@@ -1436,15 +1476,16 @@ export function CommandPalette({
                               }}
                               value={`${chat.title} ${chat.slug} chat`}
                             >
-                              <MessageSquareText className="size-3.5 text-muted-foreground" />
+                              <MessageSquareText className={PALETTE_ICON_CLASS} />
                               <div className="min-w-0">
-                                <p className="truncate font-medium text-foreground text-xs">
+                                <p className="truncate font-medium text-foreground/90 text-sm">
                                   {chat.title}
                                 </p>
-                                <p className="truncate text-[11px] text-muted-foreground">
+                                <p className="truncate text-muted-foreground/60 text-xs">
                                   {chat.slug}
                                 </p>
                               </div>
+                              <ChevronRight className={PALETTE_CHEVRON_CLASS} />
                             </CommandItem>
                           ))}
                       </CommandGroup>
@@ -1453,7 +1494,7 @@ export function CommandPalette({
                   ) : null}
                   {cachedFlashcardSets.length > 0 ? (
                     <>
-                      <CommandGroup heading="Recent flashcards">
+                      <CommandGroup className={PALETTE_GROUP_CLASS} heading="Recent flashcards">
                         {cachedFlashcardSets
                           .slice()
                           .sort((left, right) =>
@@ -1462,6 +1503,7 @@ export function CommandPalette({
                           .slice(0, 6)
                           .map((set) => (
                             <CommandItem
+                              className={PALETTE_ITEM_CLASS}
                               key={`recent-flashcard-${set.id}`}
                               onSelect={() => {
                                 startTransition(() => {
@@ -1473,15 +1515,16 @@ export function CommandPalette({
                               }}
                               value={`${set.title} ${set.id} flashcard`}
                             >
-                              <Sparkles className="size-3.5 text-muted-foreground" />
+                              <Sparkles className={PALETTE_ICON_CLASS} />
                               <div className="min-w-0">
-                                <p className="truncate font-medium text-foreground text-xs">
+                                <p className="truncate font-medium text-foreground/90 text-sm">
                                   {set.title}
                                 </p>
-                                <p className="truncate text-[11px] text-muted-foreground">
+                                <p className="truncate text-muted-foreground/60 text-xs">
                                   {set.dueCount + set.newCount} ready
                                 </p>
                               </div>
+                              <ChevronRight className={PALETTE_CHEVRON_CLASS} />
                             </CommandItem>
                           ))}
                       </CommandGroup>
@@ -1492,6 +1535,25 @@ export function CommandPalette({
                 </>
               )}
             </CommandList>
+          </div>
+        </div>
+        <div className="border-border/70 border-t bg-secondary/60 px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-muted-foreground/70 text-xs">
+            <div className="flex items-center gap-2">
+              <KbdGroup>
+                <Kbd className="px-2 py-1 text-xs">↑</Kbd>
+                <Kbd className="px-2 py-1 text-xs">↓</Kbd>
+              </KbdGroup>
+              <span className="text-muted-foreground/60">Navigate</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Kbd className="px-2 py-1 text-xs">Enter</Kbd>
+              <span className="text-muted-foreground/60">Select</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Kbd className="px-2 py-1 text-xs">Esc</Kbd>
+              <span className="text-muted-foreground/60">Close</span>
+            </div>
           </div>
         </div>
       </Command>

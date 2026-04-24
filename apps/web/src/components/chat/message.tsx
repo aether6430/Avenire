@@ -393,9 +393,11 @@ const PurePreviewMessage = ({
   agentActivity,
   chatId,
   message,
+  isActiveReply,
   isComplete,
   isStreaming,
   onRegenerate,
+  replyMinHeight,
   sendMessage,
   isReadonly,
   workspaceUuid,
@@ -403,9 +405,11 @@ const PurePreviewMessage = ({
   agentActivity: AgentActivityData | null;
   chatId: string;
   message: UIMessage;
+  isActiveReply?: boolean;
   isComplete: boolean;
   isStreaming: boolean;
   onRegenerate: (messageId: string) => void;
+  replyMinHeight?: string;
   sendMessage: UseChatHelpers<UIMessage>["sendMessage"];
   isReadonly: boolean;
   workspaceUuid: string;
@@ -489,7 +493,14 @@ const PurePreviewMessage = ({
         initial={{ y: 5, opacity: 0 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
       >
-        <div className="flex w-full flex-col gap-2.5 group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-[80%]">
+        <div
+          className="flex w-full flex-col gap-2.5 group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-[80%]"
+          style={
+            message.role === "assistant" && isActiveReply && replyMinHeight
+              ? { minHeight: replyMinHeight }
+              : undefined
+          }
+        >
           {message.role === "assistant" && (
             <div className="flex flex-row items-center gap-2">
               <div className="flex flex-col gap-4 text-muted-foreground text-[11px] uppercase tracking-[0.15em]">
@@ -769,7 +780,9 @@ export const PreviewMessage = memo(PurePreviewMessage, (prev, next) => {
 
   return (
     prevSignature === nextSignature &&
+    prev.isActiveReply === next.isActiveReply &&
     prev.isComplete === next.isComplete &&
+    prev.replyMinHeight === next.replyMinHeight &&
     prev.workspaceUuid === next.workspaceUuid
   );
 });

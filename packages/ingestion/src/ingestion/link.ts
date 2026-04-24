@@ -1,5 +1,4 @@
 import Defuddle from "defuddle";
-import { createMarkdownContent } from "defuddle/full";
 import { parseHTML } from "linkedom";
 import { tavily } from "@tavily/core";
 import { config } from "../config";
@@ -183,10 +182,11 @@ const extractDefuddleContent = async (
     const { document } = parseHTML(html);
     const defuddle = new Defuddle(document, {
       url: url.toString(),
+      markdown: true,
       useAsync: false,
     });
     const extracted = defuddle.parse();
-    const content = createMarkdownContent(extracted.content, url.toString()).trim();
+    const content = extracted.content.trim();
     if (!content) {
       return null;
     }

@@ -122,7 +122,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { useRouter } from "next/navigation";
 import { Markdown as MarkdownRenderer } from "@/components/chat/markdown";
 import { NoteWidgetExtension } from "@/components/editor/note-widget-extension";
 import "../editor.css";
@@ -142,7 +141,10 @@ import {
 } from "@/lib/note-templates";
 import { resolveWorkspaceFileRoute } from "@/lib/workspace-file-navigation";
 import { useUploadThing } from "@/lib/uploadthing";
-import { useOptionalCurrentWorkspacePane } from "@/lib/workspace-panes";
+import {
+  useOptionalCurrentWorkspacePane,
+  usePaneRouter,
+} from "@/lib/workspace-panes";
 import { commandPaletteActions } from "@/stores/commandPaletteStore";
 import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
 const lowlight = createLowlight(common);
@@ -2460,7 +2462,7 @@ function AvenireEditor({
   workspaceUuid,
 }: AvenireEditorProps) {
   const slashCommandsRef = useRef<SlashCommand[]>([]);
-  const router = useRouter();
+  const router = usePaneRouter();
   const wikiPagesRef = useRef<WikiPage[]>([]);
   const allWikiPagesRef = useRef<WikiPage[]>(wikiPages);
   const activeSlashIndexRef = useRef(0);

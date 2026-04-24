@@ -30,7 +30,7 @@ import { Spinner } from "@avenire/ui/components/spinner";
 import {
   DownloadSimple as ArrowDownToLine,
   ArrowUp,
-  CaretDown as ChevronDown,
+  Columns as Columns3,
   Copy,
   FileImage,
   LinkSimple,
@@ -42,10 +42,12 @@ import {
   PushPin as Pin,
   PushPinSlash as PinOff,
   ArrowCounterClockwise as RotateCcw,
+  Rows as Rows3,
   ShareNetwork as Share2,
   SlidersHorizontal,
   Trash as Trash2,
   MagicWand as WandSparkles,
+  X,
 } from "@phosphor-icons/react";
 import dynamic from "next/dynamic";
 import Image, { type ImageLoader } from "next/image";
@@ -62,12 +64,10 @@ import { toast } from "sonner";
 import AvenireEditor from "@/components/editor";
 import { PropertiesTable } from "@/components/editor/properties-table";
 import { CircleToAiSearchOverlay } from "@/components/files/circle-to-ai-search-overlay";
-import { ShareDialog } from "@/components/files/explorer/share-dialog";
 import { PanPinchImageViewer } from "@/components/files/pan-pinch-image-viewer";
 import type {
   FileRecord,
   FolderRecord,
-  ShareSuggestion,
   WorkspaceMemberRecord,
 } from "@/components/files/explorer/shared";
 import {
@@ -99,12 +99,13 @@ import {
 } from "@/lib/workspace-markdown-cache";
 import { getMarkdownDisplayTitle } from "@/lib/markdown-title";
 import {
-  useCurrentWorkspacePaneCompact,
+  useCurrentWorkspacePane,
   usePaneSearchParams,
 } from "@/lib/workspace-panes";
 import { cn } from "@/lib/utils";
 import { usePaneHeaderActions } from "@/stores/header-store";
 import { useUserStore } from "@/stores/userStore";
+import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
 
 const PDFViewer = dynamic(() => import("@/components/files/pdf-viewer"), {
   loading: () => (
@@ -242,7 +243,6 @@ interface FilePreviewPanelProps {
   filePathById: Map<string, string>;
   hardReingestContextActionItems: (itemId: string) => void;
   isCurrentPinned: boolean;
-  loadShareSuggestions: (q: string, cb: (s: ShareSuggestion[]) => void) => void;
   moveContextActionItemsToFolder: (
     itemId: string,
     kind: "file" | "folder",
@@ -288,7 +288,6 @@ export function FilePreviewPanel({
   currentInfoEntries,
   wikiLinkableFiles,
   startBannerUpload,
-  loadShareSuggestions,
   propertyDefinitions,
   setPropertyDefinitions,
 }: FilePreviewPanelProps) {
@@ -329,9 +328,13 @@ export function FilePreviewPanel({
   const noteSyncInFlightRef = useRef(false);
   const noteSyncQueuedRef = useRef(false);
   const searchParams = usePaneSearchParams();
-  const isMobile = useCurrentWorkspacePaneCompact();
+  const { paneId } = useCurrentWorkspacePane();
+  const closePane = useWorkspacePaneStore((state) => state.closePane);
+  const openPane = useWorkspacePaneStore((state) => state.openPane);
+  const paneCount = useWorkspacePaneStore((state) => state.panes.length);
   const currentUser = useUserStore((state) => state.user);
   const circleToAiParam = searchParams.get("circleToAi");
+  const canClosePane = paneCount > 1;
 
   const activeFileIsMarkdown = detectPreviewKind(activeFile).isMarkdown;
   const activeCustomIcon = normalizeFilePageIcon(activeFile.page?.icon);
@@ -358,8 +361,11 @@ export function FilePreviewPanel({
       JSON.stringify(activeFile.page?.properties ?? {}),
     ]
   );
+  const activePageFromFileRef = useRef(activePageFromFile);
+  useEffect(() => {
+    activePageFromFileRef.current = activePageFromFile;
+  }, [activePageFromFile]);
   const activeFileUpdatedAt = activeFile.updatedAt ?? null;
-  const activeFilePropertyCount = Object.keys(notePage.properties).length;
   const noteDisplayTitle = useMemo(
     () => activeFile.name.replace(/\.mdx?$/i, ""),
     [activeFile.name]
@@ -376,6 +382,13 @@ export function FilePreviewPanel({
         ? readWorkspaceMarkdownCache(workspaceUuid, activeFile.id)
         : null,
     [activeFile.id, activeFileIsMarkdown, workspaceUuid]
+  );
+  const matchingCachedMarkdown = useMemo(
+    () =>
+      cachedMarkdown && cachedMarkdown.updatedAt === activeFileUpdatedAt
+        ? cachedMarkdown
+        : null,
+    [activeFileUpdatedAt, cachedMarkdown]
   );
 
   useLayoutEffect(() => {
@@ -397,21 +410,18 @@ export function FilePreviewPanel({
       return;
     }
 
-    const cached =
-      cachedMarkdown && cachedMarkdown.updatedAt === activeFileUpdatedAt
-        ? cachedMarkdown
-        : null;
-
-    if (cached) {
-      setMarkdownLoading(activeFileIsMarkdown);
+    if (matchingCachedMarkdown) {
+      setMarkdownLoading(false);
       setMarkdownError(null);
-      setMarkdownOriginal(cached.body);
-      setMarkdownDraft(cached.body);
-      setNoteBaseContent(cached.body);
-      setNotePage(cached.page);
-      setNotePageOriginal(cached.page);
-      setNoteCoverLinkDraft(cached.page.bannerUrl?.trim() ?? "");
-      setNoteRemoteUpdatedAt(cached.updatedAt ?? activeFileUpdatedAt);
+      setMarkdownOriginal(matchingCachedMarkdown.body);
+      setMarkdownDraft(matchingCachedMarkdown.body);
+      setNoteBaseContent(matchingCachedMarkdown.body);
+      setNotePage(matchingCachedMarkdown.page);
+      setNotePageOriginal(matchingCachedMarkdown.page);
+      setNoteCoverLinkDraft(matchingCachedMarkdown.page.bannerUrl?.trim() ?? "");
+      setNoteRemoteUpdatedAt(
+        matchingCachedMarkdown.updatedAt ?? activeFileUpdatedAt
+      );
       setLoadedMarkdownFileId(activeFile.id);
       return;
     }
@@ -431,7 +441,7 @@ export function FilePreviewPanel({
     activeFileIsMarkdown,
     activePageFromFile,
     activeFileUpdatedAt,
-    cachedMarkdown,
+    matchingCachedMarkdown,
     loadedMarkdownFileId,
     workspaceUuid,
   ]);
@@ -443,8 +453,12 @@ export function FilePreviewPanel({
 
     let cancelled = false;
     const controller = new AbortController();
+    const hasWarmMarkdown =
+      loadedMarkdownFileId === activeFile.id || Boolean(matchingCachedMarkdown);
 
-    setMarkdownLoading(true);
+    if (!hasWarmMarkdown) {
+      setMarkdownLoading(true);
+    }
     setMarkdownError(null);
 
     loadMarkdownNote(activeFile.id, controller.signal)
@@ -457,12 +471,14 @@ export function FilePreviewPanel({
         setMarkdownDraft(markdown);
         setNoteBaseContent(markdown);
         setNoteRemoteUpdatedAt(payload.updatedAt ?? null);
-        setNoteCoverLinkDraft(activePageFromFile.bannerUrl?.trim() ?? "");
+        setNoteCoverLinkDraft(
+          activePageFromFileRef.current.bannerUrl?.trim() ?? ""
+        );
         setLoadedMarkdownFileId(activeFile.id);
         writeWorkspaceMarkdownCache(workspaceUuid, activeFile.id, {
           body: markdown,
           content: markdown,
-          page: activePageFromFile,
+          page: activePageFromFileRef.current,
           updatedAt: payload.updatedAt ?? null,
         });
       })
@@ -487,7 +503,13 @@ export function FilePreviewPanel({
         window.clearTimeout(noteSyncDebounceRef.current);
       }
     };
-  }, [activeFile.id, activeFileIsMarkdown, activePageFromFile, workspaceUuid]);
+  }, [
+    activeFile.id,
+    activeFileIsMarkdown,
+    loadedMarkdownFileId,
+    matchingCachedMarkdown,
+    workspaceUuid,
+  ]);
 
   useEffect(() => {
     setPropertiesOpen(false);
@@ -930,24 +952,23 @@ export function FilePreviewPanel({
             Edited{" "}
             {toUpdatedLabel(activeFile.updatedAt ?? activeFile.createdAt)} ago
           </span>
-          {isMobile ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    className="h-9 w-9 rounded-md border border-border/60 bg-background text-foreground shadow-sm hover:bg-muted/70"
-                    size="icon"
-                    type="button"
-                    variant="ghost"
-                  />
-                }
-              >
-                <MoreHorizontal className="size-3.5" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="w-56 border border-border/60 bg-background shadow-md"
-              >
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  className="h-9 w-9 rounded-md border border-border/60 bg-background text-foreground shadow-sm hover:bg-muted/70"
+                  size="icon"
+                  type="button"
+                  variant="ghost"
+                />
+              }
+            >
+              <MoreHorizontal className="size-3.5" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-56 border border-border/60 bg-background shadow-md"
+            >
                 {isPdf || isImage || isVideo ? (
                   <DropdownMenuItem
                     onClick={() => {
@@ -1061,6 +1082,38 @@ export function FilePreviewPanel({
                   <RotateCcw className="size-3.5" />
                   Hard Re-ingest
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() =>
+                    openPane("/workspace", {
+                      sourcePaneId: paneId,
+                      splitDirection: "horizontal",
+                      splitPlacement: "after",
+                    })
+                  }
+                >
+                  <Columns3 className="size-3.5" />
+                  Split right
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() =>
+                    openPane("/workspace", {
+                      sourcePaneId: paneId,
+                      splitDirection: "vertical",
+                      splitPlacement: "after",
+                    })
+                  }
+                >
+                  <Rows3 className="size-3.5" />
+                  Split down
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={!canClosePane}
+                  onClick={() => closePane(paneId)}
+                >
+                  <X className="size-3.5" />
+                  Close pane
+                </DropdownMenuItem>
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
                     <Info className="size-3.5" />
@@ -1095,223 +1148,8 @@ export function FilePreviewPanel({
                   <Trash2 className="size-3.5" />
                   Delete
                 </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <ButtonGroup className="items-center divide-x divide-border/60 overflow-hidden rounded-md border border-border/60 bg-background shadow-sm">
-              {isPdf || isImage || isVideo ? (
-                <Button
-                  className="h-9 rounded-none border-0 bg-transparent px-3 text-xs shadow-none hover:bg-muted/70"
-                  onClick={() => {
-                    setCircleToAiEnabled((current) => !current);
-                  }}
-                  size="sm"
-                  type="button"
-                  variant="ghost"
-                >
-                  <WandSparkles className="size-3.5" />
-                  {circleToAiEnabled ? "Searching" : "Circle to AI"}
-                </Button>
-              ) : null}
-              {activeFile.readOnly ? null : (
-                <ShareDialog
-                  activeFile={activeFile}
-                  compact
-                  loadShareSuggestions={loadShareSuggestions}
-                  segmented
-                  variant="file"
-                  workspaceUuid={workspaceUuid}
-                />
-              )}
-              <Button
-                className={cn(
-                  "h-9 w-9 rounded-none border-0 bg-transparent shadow-none hover:bg-muted/70",
-                  isCurrentPinned && "bg-secondary"
-                )}
-                onClick={toggleCurrentPinnedItem}
-                size="icon"
-                type="button"
-                variant="ghost"
-              >
-                {isCurrentPinned ? (
-                  <PinOff className="size-3" />
-                ) : (
-                  <Pin className="size-3" />
-                )}
-              </Button>
-              <Button
-                className="h-9 w-9 rounded-none border-0 bg-transparent shadow-none hover:bg-muted/70"
-                onClick={() =>
-                  window.open(
-                    activeFileSourceUrl,
-                    "_blank",
-                    "noopener,noreferrer"
-                  )
-                }
-                size="icon"
-                type="button"
-                variant="ghost"
-              >
-                <ArrowUp className="size-3" />
-              </Button>
-              <Button
-                className="h-9 rounded-none border-0 bg-transparent px-3 text-xs shadow-none hover:bg-muted/70"
-                onClick={() => setPropertiesOpen(true)}
-                size="sm"
-                type="button"
-                variant="ghost"
-              >
-                <SlidersHorizontal className="size-3" />
-                <span>Properties</span>
-                {activeFilePropertyCount > 0 ? (
-                  <span className="rounded-full bg-background/70 px-1.5 py-0.5 font-medium text-[10px] text-muted-foreground">
-                    {activeFilePropertyCount}
-                  </span>
-                ) : null}
-                <ChevronDown className="size-3 opacity-60" />
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <Button
-                      className="h-9 w-9 rounded-none border-0 bg-transparent shadow-none hover:bg-muted/70"
-                      size="icon"
-                      type="button"
-                      variant="ghost"
-                    />
-                  }
-                >
-                  <MoreHorizontal className="size-3" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="end"
-                  className="w-52 border border-border/60 bg-background shadow-md"
-                >
-                  {isPdf ? (
-                    <DropdownMenuCheckboxItem
-                      checked={pdfInvertColors}
-                      onCheckedChange={(checked) => {
-                        setPdfInvertColors(checked === true);
-                      }}
-                    >
-                      PDF dark mode
-                    </DropdownMenuCheckboxItem>
-                  ) : null}
-                  <DropdownMenuItem onClick={toggleCurrentPinnedItem}>
-                    {isCurrentPinned ? (
-                      <PinOff className="size-3.5" />
-                    ) : (
-                      <Pin className="size-3.5" />
-                    )}
-                    {isCurrentPinned ? "Unpin" : "Pin"}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      openRenameFileDialog(activeFile);
-                    }}
-                  >
-                    <Pencil className="size-3.5" />
-                    Rename
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      duplicateContextActionItems(activeFile.id, "file");
-                    }}
-                  >
-                    <Copy className="size-3.5" />
-                    Duplicate
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      openFileShareDialog(activeFile);
-                    }}
-                  >
-                    <Share2 className="size-3.5" />
-                    Share
-                  </DropdownMenuItem>
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>
-                      <FolderInput className="size-3.5" />
-                      Move To
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent className="w-56 border border-border/60 bg-background shadow-md">
-                      {allFolders
-                        .filter((folder) => !folder.readOnly)
-                        .slice(0, 20)
-                        .map((folder) => (
-                          <DropdownMenuItem
-                            key={folder.id}
-                            onClick={() => {
-                              moveContextActionItemsToFolder(
-                                activeFile.id,
-                                "file",
-                                folder.id
-                              );
-                            }}
-                          >
-                            {folder.name}
-                          </DropdownMenuItem>
-                        ))}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      downloadContextActionItems(
-                        activeFile.id,
-                        "file",
-                        activeFile.name
-                      );
-                    }}
-                  >
-                    <ArrowDownToLine className="size-3.5" />
-                    Download
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      hardReingestContextActionItems(activeFile.id);
-                    }}
-                  >
-                    <RotateCcw className="size-3.5" />
-                    Hard Re-ingest
-                  </DropdownMenuItem>
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>
-                      <Info className="size-3.5" />
-                      Metadata
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent className="w-56 border border-border/60 bg-background shadow-md">
-                      <div className="px-2 pt-1 pb-1 text-[10px] text-muted-foreground uppercase tracking-[0.18em]">
-                        Info
-                      </div>
-                      {currentInfoEntries.map((entry) => (
-                        <div
-                          className="flex items-start justify-between gap-3 px-2 py-1.5 text-xs"
-                          key={entry.label}
-                        >
-                          <span className="text-muted-foreground">
-                            {entry.label}
-                          </span>
-                          <span className="max-w-[12rem] text-right text-foreground">
-                            {entry.value}
-                          </span>
-                        </div>
-                      ))}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => {
-                      deleteContextActionItems(activeFile.id, "file");
-                    }}
-                    variant="destructive"
-                  >
-                    <Trash2 className="size-3.5" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </ButtonGroup>
-          )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ),
     });
@@ -1330,12 +1168,12 @@ export function FilePreviewPanel({
     activeFile.readOnly,
     activeLinkSourceUrl,
     allFolders,
-    activeFilePropertyCount,
     currentInfoEntries,
     openFileShareDialog,
+    closePane,
+    canClosePane,
     isCurrentPinned,
     isMarkdown,
-    loadShareSuggestions,
     noteBannerUploadBusy,
     noteBannerUrl,
     notePage,
@@ -1348,6 +1186,8 @@ export function FilePreviewPanel({
     setHeaderContext,
     triggerNoteBannerPicker,
     toggleCurrentPinnedItem,
+    openPane,
+    paneId,
     workspaceUuid,
     circleToAiEnabled,
     isImage,

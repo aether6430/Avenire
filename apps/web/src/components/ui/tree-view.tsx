@@ -1,18 +1,14 @@
 "use client";
 
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@avenire/ui/components/collapsible";
-import {
   CaretRight as ChevronRight,
   File,
   Folder,
   FolderOpen,
 } from "@phosphor-icons/react";
+import { measureElement, useVirtualizer } from "@tanstack/react-virtual";
 import type { HTMLAttributes, ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export interface TreeDataItem {
@@ -56,6 +52,12 @@ type TreeProps = HTMLAttributes<HTMLDivElement> & {
 const DEFAULT_NODE_ICON = Folder;
 const DEFAULT_OPEN_ICON = FolderOpen;
 const DEFAULT_LEAF_ICON = File;
+const TREE_ROW_ESTIMATE = 38;
+
+interface VisibleTreeItem {
+  depth: number;
+  item: TreeDataItem;
+}
 
 function flattenTree(items: TreeDataItem[], map: Map<string, TreeDataItem>) {
   for (const item of items) {
@@ -78,6 +80,21 @@ function areSetsEqual(left: Set<string>, right: Set<string>) {
   return true;
 }
 
+function flattenVisibleTree(
+  items: TreeDataItem[],
+  expandedItemIds: Set<string>,
+  depth = 0,
+  visibleItems: VisibleTreeItem[] = []
+) {
+  for (const item of items) {
+    visibleItems.push({ depth, item });
+    if (item.children?.length && expandedItemIds.has(item.id)) {
+      flattenVisibleTree(item.children, expandedItemIds, depth + 1, visibleItems);
+    }
+  }
+  return visibleItems;
+}
+
 export function TreeView({
   className,
   data,
@@ -95,6 +112,7 @@ export function TreeView({
   ...props
 }: TreeProps) {
   const items = useMemo(() => (Array.isArray(data) ? data : [data]), [data]);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const itemMap = useMemo(() => {
     const map = new Map<string, TreeDataItem>();
     flattenTree(items, map);
@@ -131,6 +149,10 @@ export function TreeView({
     itemMap,
     uncontrolledExpandedItemIds,
   ]);
+  const visibleItems = useMemo(
+    () => flattenVisibleTree(items, expandedItemIds),
+    [expandedItemIds, items]
+  );
   const selectedItemId = controlledSelectedItemId ?? uncontrolledSelectedItemId;
 
   useEffect(() => {
@@ -196,8 +218,17 @@ export function TreeView({
     [controlledSelectedItemId, onSelectChange]
   );
 
-  const renderNode = useCallback(
-    (item: TreeDataItem, depth: number) => {
+  const virtualizer = useVirtualizer({
+    count: visibleItems.length,
+    estimateSize: () => TREE_ROW_ESTIMATE,
+    getScrollElement: () => containerRef.current,
+    measureElement,
+    overscan: 8,
+  });
+  const virtualItems = virtualizer.getVirtualItems();
+
+  const renderRow = useCallback(
+    ({ item, depth }: VisibleTreeItem) => {
       const hasChildren = Boolean(item.children?.length);
       const isExpanded = expandedItemIds.has(item.id);
       const isSelected = selectedItemId === item.id;
@@ -221,129 +252,113 @@ export function TreeView({
       });
 
       return (
-        <Collapsible
-          key={item.id}
-          onOpenChange={(open) => {
-            if (open !== expandedItemIds.has(item.id)) {
-              toggleExpanded(item.id);
-            }
-          }}
-          open={isExpanded}
-        >
-          <div className={cn("min-w-0", item.className)} data-tree-id={item.id}>
-            <div
-              className={cn(
-                "group/tree-row flex w-full min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 transition-colors",
-                "hover:bg-primary/6",
-                isSelected &&
-                  "bg-primary/10 text-primary ring-1 ring-primary/20",
-                isDropTarget && "bg-primary/12 ring-1 ring-primary/30",
-                item.disabled && "pointer-events-none opacity-50"
-              )}
-              draggable={item.draggable}
-              onClick={() => handleSelect(item)}
-              onContextMenu={(event) => {
+        <div className={cn("min-w-0", item.className)} data-tree-id={item.id}>
+          <div
+            aria-expanded={hasChildren ? isExpanded : undefined}
+            className={cn(
+              "group/tree-row flex w-full min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 transition-colors",
+              "hover:bg-primary/6",
+              isSelected &&
+                "bg-primary/10 text-primary ring-1 ring-primary/20",
+              isDropTarget && "bg-primary/12 ring-1 ring-primary/30",
+              item.disabled && "pointer-events-none opacity-50"
+            )}
+            draggable={item.draggable}
+            onClick={() => handleSelect(item)}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              item.onContextMenu?.();
+            }}
+            onDragEnd={() => {
+              setDraggedItemId(null);
+              setDropTargetItemId(null);
+            }}
+            onDragLeave={() => {
+              setDropTargetItemId((current) =>
+                current === item.id ? null : current
+              );
+            }}
+            onDragOver={(event) => {
+              if (
+                !(
+                  item.droppable &&
+                  draggedItemId &&
+                  draggedItemId !== item.id
+                )
+              ) {
+                return;
+              }
+              event.preventDefault();
+              setDropTargetItemId(item.id);
+            }}
+            onDragStart={() => {
+              if (!item.draggable) {
+                return;
+              }
+              setDraggedItemId(item.id);
+            }}
+            onDrop={(event) => {
+              if (
+                !(
+                  item.droppable &&
+                  draggedItemId &&
+                  draggedItemId !== item.id
+                )
+              ) {
+                return;
+              }
+              event.preventDefault();
+              onMoveItem?.(draggedItemId, item.id);
+              setDraggedItemId(null);
+              setDropTargetItemId(null);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
-                item.onContextMenu?.();
-              }}
-              onDragEnd={() => {
-                setDraggedItemId(null);
-                setDropTargetItemId(null);
-              }}
-              onDragLeave={() => {
-                setDropTargetItemId((current) =>
-                  current === item.id ? null : current
-                );
-              }}
-              onDragOver={(event) => {
-                if (
-                  !(
-                    item.droppable &&
-                    draggedItemId &&
-                    draggedItemId !== item.id
-                  )
-                ) {
-                  return;
-                }
+                handleSelect(item);
+              }
+              if (hasChildren && event.key === "ArrowRight" && !isExpanded) {
                 event.preventDefault();
-                setDropTargetItemId(item.id);
-              }}
-              onDragStart={() => {
-                if (!item.draggable) {
-                  return;
-                }
-                setDraggedItemId(item.id);
-              }}
-              onDrop={(event) => {
-                if (
-                  !(
-                    item.droppable &&
-                    draggedItemId &&
-                    draggedItemId !== item.id
-                  )
-                ) {
-                  return;
-                }
+                toggleExpanded(item.id);
+              }
+              if (hasChildren && event.key === "ArrowLeft" && isExpanded) {
                 event.preventDefault();
-                onMoveItem?.(draggedItemId, item.id);
-                setDraggedItemId(null);
-                setDropTargetItemId(null);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  handleSelect(item);
-                }
-                if (hasChildren && event.key === "ArrowRight" && !isExpanded) {
-                  event.preventDefault();
-                  toggleExpanded(item.id);
-                }
-                if (hasChildren && event.key === "ArrowLeft" && isExpanded) {
-                  event.preventDefault();
-                  toggleExpanded(item.id);
-                }
-              }}
-              role="treeitem"
-              style={{ paddingLeft: `${depth * 12 + 8}px` }}
-              tabIndex={0}
-            >
-              {hasChildren ? (
-                <CollapsibleTrigger
-                  className="inline-flex size-5 shrink-0 items-center justify-center rounded-md hover:bg-primary/8"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                  }}
-                >
-                  <ChevronRight
-                    className={cn(
-                      "size-3.5 transition-transform",
-                      isExpanded && "rotate-90"
-                    )}
-                  />
-                </CollapsibleTrigger>
-              ) : (
-                <span className="size-5 shrink-0" />
-              )}
-              <Icon className="size-4 shrink-0" />
-              <span className="min-w-0 flex-1 truncate text-sm">
-                {item.name}
-              </span>
-              {content}
-              {item.actions ? (
-                <div className="ml-auto flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-focus-within/tree-row:opacity-100 group-hover/tree-row:opacity-100">
-                  {item.actions}
-                </div>
-              ) : null}
-            </div>
+                toggleExpanded(item.id);
+              }
+            }}
+            role="treeitem"
+            style={{ paddingLeft: `${depth * 12 + 8}px` }}
+            tabIndex={0}
+          >
             {hasChildren ? (
-              <CollapsibleContent className="motion-safe:fade-in-0 motion-safe:slide-in-from-top-1 data-closed:fade-out-0 data-closed:slide-out-to-top-1 overflow-hidden data-closed:animate-out motion-safe:animate-in">
-                <div className="min-w-0 space-y-1 pt-1">
-                  {item.children?.map((child) => renderNode(child, depth + 1))}
-                </div>
-              </CollapsibleContent>
+              <button
+                className="inline-flex size-5 shrink-0 items-center justify-center rounded-md hover:bg-primary/8"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  toggleExpanded(item.id);
+                }}
+                type="button"
+              >
+                <ChevronRight
+                  className={cn(
+                    "size-3.5 transition-transform",
+                    isExpanded && "rotate-90"
+                  )}
+                />
+              </button>
+            ) : (
+              <span className="size-5 shrink-0" />
+            )}
+            <Icon className="size-4 shrink-0" />
+            <span className="min-w-0 flex-1 truncate text-sm">{item.name}</span>
+            {content}
+            {item.actions ? (
+              <div className="ml-auto flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-focus-within/tree-row:opacity-100 group-hover/tree-row:opacity-100">
+                {item.actions}
+              </div>
             ) : null}
           </div>
-        </Collapsible>
+        </div>
       );
     },
     [
@@ -361,8 +376,33 @@ export function TreeView({
   );
 
   return (
-    <div className={cn("space-y-1", className)} role="tree" {...props}>
-      {items.map((item) => renderNode(item, 0))}
+    <div
+      className={cn("min-h-0 overflow-auto", className)}
+      ref={containerRef}
+      role="tree"
+      {...props}
+    >
+      <div
+        className="relative w-full"
+        style={{ height: `${virtualizer.getTotalSize()}px` }}
+      >
+        {virtualItems.map((virtualItem) => (
+          <div
+            data-index={virtualItem.index}
+            key={virtualItem.key}
+            ref={virtualizer.measureElement}
+            style={{
+              left: 0,
+              position: "absolute",
+              top: 0,
+              transform: `translateY(${virtualItem.start}px)`,
+              width: "100%",
+            }}
+          >
+            {renderRow(visibleItems[virtualItem.index] as VisibleTreeItem)}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

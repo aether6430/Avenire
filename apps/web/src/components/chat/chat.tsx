@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -23,7 +24,7 @@ import {
 import { Messages } from "@/components/chat/messages";
 import { MultimodalInput } from "@/components/chat/multimodal-input";
 import { Overview } from "@/components/chat/overview";
-import { useScrollToBottom } from "@/components/chat/use-scroll-to-bottom";
+import { useChatScroll } from "@/components/chat/use-chat-scroll";
 import { getChatErrorMessage } from "@/lib/chat-errors";
 import {
   CHAT_CREATED_EVENT,
@@ -50,6 +51,7 @@ interface ChatProps {
 type SendMessageInput = Parameters<UseChatHelpers<UIMessage>["sendMessage"]>[0];
 type SendMessageOptions =
   Parameters<UseChatHelpers<UIMessage>["sendMessage"]>[1];
+const ACTIVE_REPLY_MIN_HEIGHT = "calc(100dvh - 250px)";
 
 function createOptimisticUserMessage(
   message: SendMessageInput
@@ -173,18 +175,48 @@ export function Chat({
       }
     },
   });
+  const displayedMessages = useMemo(() => {
+    const lastMessage = messages.at(-1);
+    if (!(status === "submitted" && lastMessage?.role === "user")) {
+      return messages;
+    }
+
+    return [
+      ...messages,
+      {
+        id: `assistant-draft-${lastMessage.id}`,
+        role: "assistant",
+        parts: [{ type: "text", text: "" }],
+      } as UIMessage,
+    ];
+  }, [messages, status]);
   const {
+    bottomSpacerHeight,
     containerRef: messagesContainerRef,
+    contentRef: messagesContentRef,
     followIfNeeded,
     isAutoScrollEnabled,
     reenableAutoScroll,
-  } = useScrollToBottom<HTMLDivElement>({
+  } = useChatScroll({
     isStreaming: status === "streaming",
+    latestUserMessageId:
+      [...messages].reverse().find((message) => message.role === "user")?.id ??
+      null,
+    messageCount: displayedMessages.length,
   });
-  const lastUserMessageIdRef = useRef<string | null>(
-    [...initialMessages].reverse().find((message) => message.role === "user")?.id ??
-      null
-  );
+  const activeReplyMessageId = useMemo(() => {
+    for (let index = displayedMessages.length - 1; index >= 0; index -= 1) {
+      const message = displayedMessages[index];
+      if (message?.role === "assistant") {
+        return message.id;
+      }
+      if (message?.role === "user") {
+        break;
+      }
+    }
+
+    return null;
+  }, [displayedMessages]);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -323,28 +355,12 @@ export function Chat({
   }, [status]);
 
   useEffect(() => {
-    const latestUserMessage =
-      [...messages].reverse().find((message) => message.role === "user") ?? null;
-
-    if (!latestUserMessage) {
-      return;
-    }
-
-    if (latestUserMessage.id === lastUserMessageIdRef.current) {
-      return;
-    }
-
-    lastUserMessageIdRef.current = latestUserMessage.id;
-    reenableAutoScroll("smooth");
-  }, [messages, reenableAutoScroll]);
-
-  useEffect(() => {
-    if (messages.length === 0) {
+    if (displayedMessages.length === 0) {
       return;
     }
 
     followIfNeeded(status === "submitted" ? "smooth" : "auto");
-  }, [followIfNeeded, messages, status]);
+  }, [displayedMessages, followIfNeeded, status]);
 
   const regenerateFromMessage = useCallback(
     async (assistantMessageId: string) => {
@@ -517,14 +533,18 @@ export function Chat({
       <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col bg-background transition-all duration-300">
         {!isEmptyState && (
           <Messages
+            activeReplyMessageId={activeReplyMessageId}
             agentActivity={agentActivity}
+            bottomSpacerHeight={bottomSpacerHeight}
             chatId={chatId}
             error={error}
             isEmpty={isEmptyState}
             isReadonly={isReadonly}
-            messages={messages}
+            messages={displayedMessages}
             messagesContainerRef={messagesContainerRef}
+            messagesContentRef={messagesContentRef}
             onRegenerate={regenerateFromMessage}
+            replyMinHeight={ACTIVE_REPLY_MIN_HEIGHT}
             sendMessage={sendMessage}
             status={status}
             userName={userName}
