@@ -2230,12 +2230,15 @@ export function DashboardSidebar({
                       : "hidden"
                   }
                 >
-                  <DeferredFilesSidebarPanel
-                    currentFileId={currentFileId}
-                    currentFolderId={currentFolderId}
-                    navigateToFilesRoot={navigateToFilesRoot}
-                    workspaceUuid={workspaceUuid}
-                  />
+                  {sidebarView === "files" ? (
+                    <DeferredFilesSidebarPanel
+                      currentFileId={currentFileId}
+                      currentFolderId={currentFolderId}
+                      key={`${workspaceUuid ?? "no-workspace"}:${currentFolderId ?? "root"}:${currentFileId ?? "no-file"}`}
+                      navigateToFilesRoot={navigateToFilesRoot}
+                      workspaceUuid={workspaceUuid}
+                    />
+                  ) : null}
                 </div>
                 <div
                   aria-hidden={sidebarView !== "flashcards"}

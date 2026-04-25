@@ -28,6 +28,7 @@ import {
 import { FlashcardSetPageClient } from "@/components/flashcards/set-detail-page";
 import { WorkspaceFlashcardsPageClient } from "@/components/flashcards/workspace-flashcards-page-client";
 import { WorkspaceFolderRoutePageClient } from "@/components/files/workspace-folder-route-page-client";
+import { WorkspaceFilesRootPageClient } from "@/components/files/workspace-files-root-page-client";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
 import { WorkspaceHeader } from "@/components/dashboard/workspace-header";
 import { WorkspaceOverviewPageClient } from "@/components/dashboard/workspace-overview-page-client";
@@ -125,6 +126,15 @@ function WorkspacePaneScene({
 
   if (pathname === "/workspace/flashcards") {
     return <WorkspaceFlashcardsPageClient />;
+  }
+
+  const filesRootMatch = pathname.match(/^\/workspace\/files(?:\/([^/?#]+))?$/);
+  if (pathname === "/workspace/files" || filesRootMatch?.[1]) {
+    return (
+      <WorkspaceFilesRootPageClient
+        preferredWorkspaceUuid={filesRootMatch?.[1] ?? undefined}
+      />
+    );
   }
 
   const chatMatch = pathname.match(/^\/workspace\/chats\/([^/?#]+)$/);
@@ -265,7 +275,7 @@ function WorkspacePaneSurface({
       <DropdownMenuContent align="end" className="w-48 rounded-xl p-1.5">
         <DropdownMenuItem onClick={onSplitHorizontal}>
           <Columns className="mr-2 size-4" />
-          Split pane
+          Split right
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
@@ -439,7 +449,7 @@ export function WorkspacePaneRenderer() {
     dragGhostImageRef.current = createTransparentDragImage();
   }, []);
 
-  const startResize = useCallback(
+  const startPaneResize = useCallback(
     (targetId: string, index: number, startClientX: number) => {
       const container = containerRef.current;
       if (!container) {
@@ -655,7 +665,7 @@ export function WorkspacePaneRenderer() {
                   className="relative z-20 w-3 shrink-0 cursor-col-resize bg-border/35 transition-colors hover:bg-border/75"
                   onPointerDown={(event) => {
                     event.preventDefault();
-                    startResize(rowPanes[0]!.rowId, paneIndex, event.clientX);
+                    startPaneResize(rowPanes[0]!.rowId, paneIndex, event.clientX);
                   }}
                 >
                   <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/70">

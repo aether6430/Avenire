@@ -378,7 +378,7 @@ export function DashboardHome({
           />
         </div>
 
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex w-full justify-around flex-wrap gap-1.5">
           <QuickCaptureDialog
             currentUserId={currentUserId}
             initialKind="task"
@@ -515,7 +515,7 @@ export function DashboardHome({
               value={insightsTab}
             >
               <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="weak-points">Weak points</TabsTrigger>
+                <TabsTrigger value="weak-points">Recent concepts</TabsTrigger>
                 <TabsTrigger value="misconceptions">Misconceptions</TabsTrigger>
                 <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
               </TabsList>
@@ -529,12 +529,12 @@ export function DashboardHome({
                           <EmptyMedia variant="icon">
                             <BookOpenCheck className="size-4" />
                           </EmptyMedia>
-                          <EmptyTitle>No weak points yet</EmptyTitle>
+                          <EmptyTitle>No recent concepts yet</EmptyTitle>
                         </EmptyHeader>
                         <EmptyContent>
                           <EmptyDescription>
-                            As you study and capture misconceptions, the weakest
-                            areas will surface here with drill paths.
+                            Concepts you recently struggled with or revisited
+                            will surface here with drill paths.
                           </EmptyDescription>
                         </EmptyContent>
                       </Empty>

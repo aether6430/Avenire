@@ -20,11 +20,11 @@ import { toast } from "sonner";
 import {
   type Attachment,
   createLocalAttachment,
-} from "@/components/chat/attachment";
-import { Messages } from "@/components/chat/messages";
-import { MultimodalInput } from "@/components/chat/multimodal-input";
-import { Overview } from "@/components/chat/overview";
-import { useChatScroll } from "@/components/chat/use-chat-scroll";
+} from "./attachment";
+import { Messages } from "./messages";
+import { MultimodalInput } from "./multimodal-input";
+import { Overview } from "./overview";
+import { useChatScroll } from "./use-chat-scroll";
 import { getChatErrorMessage } from "@/lib/chat-errors";
 import {
   CHAT_CREATED_EVENT,

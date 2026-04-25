@@ -1,4 +1,4 @@
-import { createWorkspaceForUser, db } from "@avenire/database";
+import { createWorkspaceForUser, createWorkspaceNoteFile, db } from "@avenire/database";
 import {
   account,
   invitation,
@@ -134,6 +134,35 @@ const generatedBetterAuthSchema = {
   passkey: passkeyTable,
 };
 
+function buildWelcomeWorkspaceNote(input: {
+  firstName?: string | null;
+  workspaceName: string;
+}) {
+  const name = input.firstName?.trim() || "there";
+
+  return `# Welcome to Avenire
+
+Hi ${name},
+
+Your workspace **${input.workspaceName}** is ready.
+
+## Start here
+
+- Use **Manage** to organize files, notes, and folders.
+- Open **Method** to ask questions, study material, and work with Apollo.
+- Use **Mindset** to review flashcards and reinforce concepts over time.
+- Use **Tasks** to turn what you are learning into an execution plan.
+
+## Good first moves
+
+1. Upload a file or create a note.
+2. Ask Apollo to explain, summarize, or quiz you on it.
+3. Review the concepts that come back in your dashboard.
+
+This note lives in your workspace so you always have a starting point.
+`;
+}
+
 export const auth = betterAuth({
   trustedOrigins: async (request) => {
     const requestOrigin = getRequestOrigin(request);
@@ -243,10 +272,20 @@ export const auth = betterAuth({
           try {
             const workspaceNameBase =
               user.name ?? user.email.split("@")[0] ?? "workspace";
-            await createWorkspaceForUser(
+            const workspace = await createWorkspaceForUser(
               user.id,
               `${workspaceNameBase}'s Workspace`
             );
+            await createWorkspaceNoteFile({
+              content: buildWelcomeWorkspaceNote({
+                firstName: user.name,
+                workspaceName: workspace.name,
+              }),
+              folderId: workspace.rootFolderId,
+              name: "Welcome to Avenire.md",
+              userId: user.id,
+              workspaceId: workspace.workspaceId,
+            });
           } catch (error) {
             console.error("Failed to create default workspace", error);
           }

@@ -106,29 +106,6 @@ type BillingUsage = {
   };
 };
 
-type PolarCustomerState = {
-  customer?: {
-    email?: string | null;
-    name?: string | null;
-  } | null;
-  subscriptions?: Array<{
-    id?: string;
-    status?: string;
-    product?: {
-      name?: string | null;
-    } | null;
-  }>;
-  benefits?: Array<{
-    id?: string;
-    name?: string | null;
-  }>;
-  meters?: Array<{
-    id?: string;
-    name?: string | null;
-    balance?: number | null;
-  }>;
-};
-
 type UserSettings = {
   emailReceipts: boolean;
 };
@@ -177,6 +154,27 @@ function formatBytes(bytes: number) {
   }
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
+
+function formatCredits(value: number) {
+  return new Intl.NumberFormat("en-US").format(Math.max(0, Math.round(value)));
+}
+
+function formatRefillAt(value: string | null) {
+  if (!value) {
+    return "No scheduled refill";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "No scheduled refill";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
 export function SettingsPanel({
   initialWorkspaces,
   initialWorkspaceId,
@@ -221,11 +219,6 @@ export function SettingsPanel({
   // Billing
   const [billingUsage, setBillingUsage] = useState<BillingUsage | null>(null);
   const [billingStatus, setBillingStatus] = useState<string | null>(null);
-  const [polarCustomerState, setPolarCustomerState] =
-    useState<PolarCustomerState | null>(null);
-  const [polarCustomerStatus, setPolarCustomerStatus] = useState<string | null>(
-    null
-  );
   const [preferencesStatus, setPreferencesStatus] = useState<string | null>(
     null
   );
@@ -347,29 +340,6 @@ export function SettingsPanel({
     setBillingUsage(payload.usage ?? null);
     if (showLoading) {
       setBillingStatus(null);
-    }
-  };
-
-  const refreshPolarCustomerState = async () => {
-    const customerState = (authClient as any)?.customer?.state as
-      | undefined
-      | (() => Promise<{ data?: PolarCustomerState | null; error?: unknown }>);
-
-    if (!customerState) {
-      setPolarCustomerState(null);
-      setPolarCustomerStatus("Polar billing is unavailable.");
-      return;
-    }
-
-    setPolarCustomerStatus("Loading billing details...");
-    try {
-      const result = await customerState();
-      setPolarCustomerState(result.data ?? null);
-      setPolarCustomerStatus(null);
-    } catch (error) {
-      console.error("[settings] failed to load Polar customer state", error);
-      setPolarCustomerState(null);
-      setPolarCustomerStatus("Unable to load billing details.");
     }
   };
 
@@ -706,7 +676,6 @@ export function SettingsPanel({
     }
     billingLoadedRef.current = true;
     refreshBillingUsage(true).catch(() => undefined);
-    refreshPolarCustomerState().catch(() => undefined);
     refreshUserSettings().catch(() => undefined);
   }, [currentTab]);
 
@@ -919,14 +888,36 @@ export function SettingsPanel({
     router.replace(`/settings?${params.toString()}` as Route);
   };
 
-  const planLabel = billingUsage
-    ? (PLAN_LABELS[billingUsage.plan] ?? "Free Plan")
-    : "Free Plan";
   const mobileTabs = tabs.filter(
     (tab) => !("mobileHidden" in tab && tab.mobileHidden)
   );
   const hasPaidPlan =
     billingUsage?.plan === "core" || billingUsage?.plan === "scholar";
+  const currentPlanLabel = billingUsage
+    ? (PLAN_LABELS[billingUsage.plan] ?? "Free Plan")
+    : "Loading plan";
+  const billingMeters = billingUsage
+    ? [
+        {
+          label: "Total credits",
+          remaining: billingUsage.combined.totalBalance,
+          total: billingUsage.combined.totalCapacity,
+          refillAt: billingUsage.chat.refillAt ?? billingUsage.upload.refillAt,
+        },
+        {
+          label: "Chat credits",
+          remaining: billingUsage.chat.totalBalance,
+          total: billingUsage.chat.totalCapacity,
+          refillAt: billingUsage.chat.refillAt,
+        },
+        {
+          label: "Upload credits",
+          remaining: billingUsage.upload.totalBalance,
+          total: billingUsage.upload.totalCapacity,
+          refillAt: billingUsage.upload.refillAt,
+        },
+      ]
+    : [];
   const currentUserEmail = session?.user?.email?.toLowerCase() ?? null;
   const selectedWorkspaceInitial = (
     selectedWorkspace?.name?.trim().charAt(0) || "A"
@@ -1178,7 +1169,7 @@ export function SettingsPanel({
             </p>
           </div>
           <Badge className="ml-auto shrink-0 text-xs" variant="secondary">
-            {planLabel}
+            {currentPlanLabel}
           </Badge>
         </div>
 
@@ -1375,10 +1366,51 @@ export function SettingsPanel({
           {/* ── Billing Tab ── */}
           {currentTab === "billing" ? (
             <>
+              <Section description="" title="Current Plan">
+                <div className="grid gap-3 sm:grid-cols-4">
+                  <div className="rounded-xl border border-border/60 bg-background/60 p-4">
+                    <p className="text-muted-foreground text-xs">Plan</p>
+                    <p className="mt-1 font-semibold text-base">
+                      {currentPlanLabel}
+                    </p>
+                  </div>
+                  {billingMeters.map((meter) => (
+                    <div
+                      className="rounded-xl border border-border/60 bg-background/60 p-4"
+                      key={meter.label}
+                    >
+                      <p className="text-muted-foreground text-xs">
+                        {meter.label}
+                      </p>
+                      <p className="mt-1 font-semibold text-base">
+                        {formatCredits(meter.remaining)}
+                        <span className="font-normal text-muted-foreground text-xs">
+                          {" "}
+                          / {formatCredits(meter.total)}
+                        </span>
+                      </p>
+                      <p className="mt-1 text-muted-foreground text-xs">
+                        Refills {formatRefillAt(meter.refillAt)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                {billingStatus ? (
+                  <p className="mt-2 inline-flex items-center gap-2 text-muted-foreground text-xs">
+                    {billingStatus.startsWith("Loading") ? (
+                      <Spinner className="size-3.5" />
+                    ) : null}
+                    {billingStatus}
+                  </p>
+                ) : null}
+              </Section>
+
+              <Divider />
+
               <Section description="" title="Choose Your Plan">
                 <div className="grid gap-4 sm:grid-cols-3">
                   <PlanCard
-                    current={!billingUsage || billingUsage.plan === "access"}
+                    current={billingUsage?.plan === "access"}
                     features={[
                       "Small monthly limits for basic usage",
                       "Basic models only",
@@ -1411,14 +1443,6 @@ export function SettingsPanel({
                     price="$50/month"
                   />
                 </div>
-                {billingStatus ? (
-                  <p className="mt-2 inline-flex items-center gap-2 text-muted-foreground text-xs">
-                    {billingStatus.startsWith("Loading") ? (
-                      <Spinner className="size-3.5" />
-                    ) : null}
-                    {billingStatus}
-                  </p>
-                ) : null}
               </Section>
 
               <Divider />
@@ -1480,94 +1504,6 @@ export function SettingsPanel({
                     {billingStatus}
                   </p>
                 ) : null}
-              </Section>
-
-              <Divider />
-
-              <Section
-                description="Better Auth now exposes your Polar customer directly from the session."
-                title="Polar Account"
-              >
-                <div className="max-w-3xl space-y-3">
-                  {polarCustomerState ? (
-                    <>
-                      <div className="grid gap-3 sm:grid-cols-3">
-                        <div className="p-0">
-                          <p className="text-muted-foreground text-xs">
-                            Subscriptions
-                          </p>
-                          <p className="mt-1 font-semibold text-lg">
-                            {polarCustomerState.subscriptions?.length ?? 0}
-                          </p>
-                        </div>
-                        <div className="p-0">
-                          <p className="text-muted-foreground text-xs">
-                            Benefits
-                          </p>
-                          <p className="mt-1 font-semibold text-lg">
-                            {polarCustomerState.benefits?.length ?? 0}
-                          </p>
-                        </div>
-                        <div className="p-0">
-                          <p className="text-muted-foreground text-xs">
-                            Meters
-                          </p>
-                          <p className="mt-1 font-semibold text-lg">
-                            {polarCustomerState.meters?.length ?? 0}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="space-y-2 text-sm">
-                        <p className="text-muted-foreground">
-                          {polarCustomerState.customer?.email ??
-                            session?.user?.email ??
-                            "Your Polar customer"}
-                        </p>
-                        <div className="space-y-2">
-                          {polarCustomerState.subscriptions?.length ? (
-                            polarCustomerState.subscriptions.map(
-                              (subscription) => (
-                                <div
-                                  className="flex items-center justify-between px-0 py-1.5"
-                                  key={
-                                    subscription.id ??
-                                    `${subscription.status}-${subscription.product?.name}`
-                                  }
-                                >
-                                  <div className="min-w-0">
-                                    <p className="truncate font-medium">
-                                      {subscription.product?.name ??
-                                        "Subscription"}
-                                    </p>
-                                    <p className="text-muted-foreground text-xs">
-                                      {subscription.status ?? "unknown status"}
-                                    </p>
-                                  </div>
-                                </div>
-                              )
-                            )
-                          ) : (
-                            <p className="text-muted-foreground text-xs">
-                              No active Polar subscriptions yet.
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </>
-                  ) : polarCustomerStatus ? (
-                    <p className="inline-flex items-center gap-2 text-muted-foreground text-sm">
-                      {polarCustomerStatus.startsWith("Loading") ? (
-                        <Spinner className="size-4" />
-                      ) : null}
-                      {polarCustomerStatus}
-                    </p>
-                  ) : (
-                    <p className="inline-flex items-center gap-2 text-muted-foreground text-sm">
-                      <Spinner className="size-4" />
-                      Loading billing details...
-                    </p>
-                  )}
-                </div>
               </Section>
             </>
           ) : null}

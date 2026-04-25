@@ -174,6 +174,53 @@ export function WorkspaceHeader({
         />
 
         <div className="relative flex h-10 items-center gap-1.5 px-3">
+          <div className="flex shrink-0 items-center gap-1">
+            <ButtonGroup className={segmentedGroupClass}>
+              <Button
+                aria-label="Go back"
+                className={segmentedIconButtonClass}
+                disabled={!backRoute}
+                onClick={() => {
+                  if (backRoute) {
+                    router.push(backRoute as Route);
+                  }
+                }}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <ArrowLeft className="size-3.5" />
+              </Button>
+              <Button
+                aria-label="Go home"
+                className={segmentedIconButtonClass}
+                disabled={isHome}
+                onClick={() => {
+                  router.push(homeHref as Route);
+                }}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <House className="size-3.5" />
+              </Button>
+              <Button
+                aria-label="Go forward"
+                className={segmentedIconButtonClass}
+                disabled={!forwardRoute}
+                onClick={() => {
+                  if (forwardRoute) {
+                    router.push(forwardRoute as Route);
+                  }
+                }}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <ArrowRight className="size-3.5" />
+              </Button>
+            </ButtonGroup>
+          </div>
           <div className="min-w-0 flex-1 overflow-hidden text-center">
             {breadcrumbs ?? (
               <div id="workspace-header-breadcrumbs">

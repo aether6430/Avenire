@@ -6,19 +6,31 @@ import { useEffect } from "react";
 import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
 
-export function WorkspaceFilesRootPageClient() {
+export function WorkspaceFilesRootPageClient({
+  preferredWorkspaceUuid,
+}: {
+  preferredWorkspaceUuid?: string;
+}) {
   const router = useRouter();
-  const { status, workspace } = useWorkspaceBootstrap();
+  const { workspace } = useWorkspaceBootstrap();
 
   useEffect(() => {
     if (!workspace?.workspaceId || !workspace.rootFolderId) {
       return;
     }
 
+    const targetWorkspaceUuid =
+      preferredWorkspaceUuid?.trim() || workspace.workspaceId;
+
     router.replace(
-      `/workspace/files/${workspace.workspaceId}/folder/${workspace.rootFolderId}` as Route
+      `/workspace/files/${targetWorkspaceUuid}/folder/${workspace.rootFolderId}` as Route
     );
-  }, [router, workspace?.rootFolderId, workspace?.workspaceId]);
+  }, [
+    preferredWorkspaceUuid,
+    router,
+    workspace?.rootFolderId,
+    workspace?.workspaceId,
+  ]);
 
   return <WorkspaceRoutePlaceholder label="Opening files..." />;
 }

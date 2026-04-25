@@ -107,7 +107,7 @@ export function buildGreeting(
         ]
       : [
           "Your workspace is ready.",
-          "Tasks, weak points, and reviews are lined up.",
+          "Tasks, recent concepts, and reviews are lined up.",
           `Time to ${verb} your priorities.`,
         ];
 
