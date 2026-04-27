@@ -373,7 +373,7 @@ export function DashboardHome({
             alt="Workspace banner"
             className="h-28 w-full object-cover md:h-40"
             height={160}
-            src="/images/folder-banner-default.svg"
+            src="/images/banners/banner1.png"
             width={2400}
           />
         </div>

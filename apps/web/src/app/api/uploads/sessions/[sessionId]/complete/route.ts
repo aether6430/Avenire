@@ -1,10 +1,11 @@
 import { UTApi, UTFile } from "@avenire/storage";
+import { openAsBlob } from "node:fs";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { userCanEditFolder } from "@/lib/file-data";
 import { createApiLogger } from "@/lib/observability";
 import {
-  assembleMultipartParts,
+  assembleMultipartPartsToFile,
   clearMultipartParts,
 } from "@/lib/upload-multipart-store";
 import {
@@ -61,7 +62,7 @@ async function uploadMultipartAsSingleObject(input: {
     });
   }
 
-  const assembled = await assembleMultipartParts(input.sessionId);
+  const assembled = await assembleMultipartPartsToFile(input.sessionId);
   if (
     Array.isArray(input.expectedPartNumbers) &&
     input.expectedPartNumbers.length > 0
@@ -81,8 +82,11 @@ async function uploadMultipartAsSingleObject(input: {
     }
   }
   const utapi = new UTApi({ token: process.env.UPLOADTHING_TOKEN });
+  const assembledBlob = await openAsBlob(assembled.path, {
+    type: input.mimeType ?? undefined,
+  });
   const uploadResult = await utapi.uploadFiles(
-    new UTFile([assembled.buffer], input.name, {
+    new UTFile([assembledBlob], input.name, {
       type: input.mimeType ?? undefined,
     })
   );
@@ -112,6 +116,7 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ sessionId: string }> }
 ) {
+  const requestStartedAt = Date.now();
   const user = await getSessionUser();
   const apiLogger = createApiLogger({
     request,
@@ -160,12 +165,17 @@ export async function POST(
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
+  const sessionStartedAt = new Date(session.createdAt).getTime();
+
   if (session.result?.fileId) {
     void apiLogger.requestSucceeded(200, {
+      completionDurationMs: Date.now() - requestStartedAt,
       workspaceUuid: session.workspaceUuid,
       sessionId: session.id,
       fileId: session.result.fileId,
       idempotentReplay: true,
+      sessionUploadDurationMs: Math.max(0, Date.now() - sessionStartedAt),
+      sizeBytes: session.upload?.sizeBytes ?? session.sizeBytes,
     });
     return NextResponse.json(
       {
@@ -313,12 +323,24 @@ export async function POST(
     await clearMultipartParts(sessionId);
 
     void apiLogger.requestSucceeded(200, {
+      completionDurationMs: Date.now() - requestStartedAt,
       workspaceUuid: session.workspaceUuid,
       sessionId: session.id,
       fileId: result.file.id,
       ingestionJobId: result.ingestionJob?.id ?? null,
       deduplicated: result.status === "deduplicated",
       multipartPartCount: multipartPartCount || undefined,
+      sessionUploadDurationMs: Math.max(0, Date.now() - sessionStartedAt),
+      sizeBytes,
+    });
+    void apiLogger.info("upload.session.completed", {
+      completionDurationMs: Date.now() - requestStartedAt,
+      deduplicated: result.status === "deduplicated",
+      multipartPartCount: multipartPartCount || undefined,
+      sessionId: session.id,
+      sessionUploadDurationMs: Math.max(0, Date.now() - sessionStartedAt),
+      sizeBytes,
+      workspaceUuid: session.workspaceUuid,
     });
     return NextResponse.json(
       {
@@ -363,9 +385,12 @@ export async function POST(
         ?.retryAfter ?? null;
 
     void apiLogger.requestFailed(isRateLimit ? 429 : 500, error, {
+      completionDurationMs: Date.now() - requestStartedAt,
       workspaceUuid: session.workspaceUuid,
       sessionId: session.id,
       retryAfter,
+      sessionUploadDurationMs: Math.max(0, Date.now() - sessionStartedAt),
+      sizeBytes: sizeBytes ?? null,
     });
     return NextResponse.json(
       {

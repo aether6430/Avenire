@@ -1,6 +1,5 @@
 import {
   type ExplorerFileRecord,
-  listVideoDeliveryStorageKeys,
   updateFileAssetStorageMetadata,
   type VideoDeliveryRecord,
 } from "@/lib/file-data";
@@ -15,7 +14,6 @@ import {
   hasMuxVideoCredentials,
   type MuxAsset,
 } from "@/lib/mux-video";
-import { deleteUploadThingFile } from "@/lib/upload-registration";
 import { optimizeAndReuploadVideo } from "@/lib/video-optimization";
 
 const MUX_POLL_INTERVAL_MS = Math.max(
@@ -227,20 +225,7 @@ async function runLegacyVideoOptimization(input: {
   );
 
   if (!updated) {
-    const cleanupKeys = Array.from(
-      new Set([
-        optimized.progressive.storageKey,
-        ...listVideoDeliveryStorageKeys(optimized.videoDelivery),
-      ])
-    );
-    await Promise.all(
-      cleanupKeys.map((storageKey) => deleteUploadThingFile(storageKey))
-    );
     return;
-  }
-
-  if (optimized.progressive.storageKey !== file.storageKey) {
-    await deleteUploadThingFile(file.storageKey);
   }
 
   await publishFilesInvalidationEvent({
@@ -283,7 +268,20 @@ async function runMuxVideoDelivery(input: {
     videoDelivery: initialVideoDelivery,
   });
 
-  if (createdAsset.status === "ready" || createdAsset.status === "errored") {
+  if (initialVideoDelivery.status === "ready") {
+    await publishFilesInvalidationEvent({
+      workspaceUuid,
+      folderId: file.folderId,
+      reason: "file.updated",
+    });
+    await publishFilesInvalidationEvent({
+      workspaceUuid,
+      reason: "tree.changed",
+    });
+    return;
+  }
+
+  if (initialVideoDelivery.status === "failed") {
     return;
   }
 

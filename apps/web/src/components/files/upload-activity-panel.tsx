@@ -19,6 +19,8 @@ import {
 import { filesUiActions, useFilesUiStore } from "@/stores/filesUiStore";
 
 const WORKSPACE_FILES_ROUTE_REGEX = /^\/workspace\/files\/([^/]+)/;
+const DESKTOP_PANEL_MAX_HEIGHT_CLASS = "max-h-[min(70vh,42rem)]";
+const MOBILE_PANEL_MAX_HEIGHT_CLASS = "max-h-[85svh]";
 
 interface IngestionJobEvent {
   eventType: string;
@@ -199,7 +201,7 @@ function UploadActivityBody({
   useDrawerClose?: boolean;
 }) {
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <div className="border-border/70 border-b px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
@@ -613,7 +615,7 @@ export function UploadActivityPanel() {
         }}
         open={isQueueVisible}
       >
-        <DrawerContent className="p-0">
+        <DrawerContent className={cn("flex min-h-0 flex-col p-0", MOBILE_PANEL_MAX_HEIGHT_CLASS)}>
           <DrawerHeader className="border-border/70 border-b pb-4 text-left">
             <DrawerTitle>Upload activity</DrawerTitle>
             <DrawerDescription>
@@ -638,7 +640,8 @@ export function UploadActivityPanel() {
   return (
     <div
       className={cn(
-        "fixed right-4 bottom-4 z-40 w-[22rem] overflow-hidden rounded-lg border border-border/70 bg-background transition-all duration-300",
+        "fixed right-4 bottom-4 z-40 flex min-h-0 w-[22rem] flex-col overflow-hidden rounded-lg border border-border/70 bg-background transition-all duration-300",
+        DESKTOP_PANEL_MAX_HEIGHT_CLASS,
         isQueueVisible
           ? "translate-y-0 opacity-100"
           : "pointer-events-none translate-y-3 opacity-0"

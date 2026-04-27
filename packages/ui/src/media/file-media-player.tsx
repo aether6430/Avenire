@@ -238,15 +238,15 @@ export function FileMediaPlayer({
     <MediaPlayer
       autoHide
       className={cn(
-        "w-full rounded-2xl border border-border/70 bg-card shadow-sm",
+        "min-h-0 w-full overflow-hidden rounded-none border border-border/70 bg-card shadow-sm",
         className
       )}
       label={name}
     >
-      <div className="relative w-full bg-black">
+      <div className="relative flex min-h-0 flex-1 w-full items-center justify-center bg-black">
         <MediaPlayerVideo
           autoPlay
-          className="h-auto max-h-[70vh] w-full bg-black object-contain"
+          className="h-full w-full bg-black object-contain"
           key={
             playbackSource.kind === "hls"
               ? playbackSource.manifestUrl

@@ -1,7 +1,11 @@
 import { createHash } from "node:crypto";
-import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { createReadStream, createWriteStream } from "node:fs";
+import { mkdir, readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
+import type { ReadableStream as NodeReadableStream } from "node:stream/web";
 
 const ROOT_DIR =
   process.env.UPLOAD_SESSION_PARTS_DIR ??
@@ -27,20 +31,42 @@ function getPartPath(sessionId: string, partNumber: number) {
 export async function writeMultipartPart(input: {
   sessionId: string;
   partNumber: number;
-  bytes: Uint8Array;
+  maxBytes: number;
+  stream: ReadableStream<Uint8Array>;
 }) {
   const dir = getSessionDirectory(input.sessionId);
   const partPath = getPartPath(input.sessionId, input.partNumber);
   await mkdir(dir, { recursive: true });
-  await writeFile(partPath, input.bytes);
 
-  const checksum = createHash("sha256")
-    .update(input.bytes)
-    .digest("hex");
+  const checksum = createHash("sha256");
+  let sizeBytes = 0;
+  const source = Readable.fromWeb(
+    input.stream as NodeReadableStream<Uint8Array>
+  );
+  source.on("data", (chunk: Buffer) => {
+    sizeBytes += chunk.byteLength;
+    if (sizeBytes > input.maxBytes) {
+      source.destroy(
+        Object.assign(new Error("Part too large"), {
+          code: "UPLOAD_PART_TOO_LARGE",
+        })
+      );
+      return;
+    }
+    checksum.update(chunk);
+  });
+
+  try {
+    await pipeline(source, createWriteStream(partPath));
+  } catch (error) {
+    await rm(partPath, { force: true });
+    throw error;
+  }
+
   return {
-    etag: checksum,
+    etag: checksum.digest("hex"),
     partNumber: toSafePartNumber(input.partNumber),
-    sizeBytes: input.bytes.byteLength,
+    sizeBytes,
   };
 }
 
@@ -77,23 +103,51 @@ export async function listMultipartParts(sessionId: string) {
   return parts.filter((part): part is NonNullable<typeof part> => Boolean(part));
 }
 
-export async function assembleMultipartParts(sessionId: string) {
+export async function assembleMultipartPartsToFile(sessionId: string) {
   const parts = await listMultipartParts(sessionId);
   if (parts.length === 0) {
     throw new Error("No uploaded multipart parts found.");
   }
 
-  const buffers = await Promise.all(parts.map((part) => readFile(part.path)));
-  const totalSize = buffers.reduce((sum, buffer) => sum + buffer.byteLength, 0);
-  const merged = Buffer.concat(buffers, totalSize);
-  const checksumSha256 = createHash("sha256").update(merged).digest("hex");
+  const dir = getSessionDirectory(sessionId);
+  const assembledPath = join(dir, "assembled.upload");
+  const checksum = createHash("sha256");
+  let totalSizeBytes = 0;
+  const destination = createWriteStream(assembledPath);
+
+  try {
+    for (const part of parts) {
+      await pipeline(
+        createReadStream(part.path).on("data", (chunk: Buffer) => {
+          totalSizeBytes += chunk.byteLength;
+          checksum.update(chunk);
+        }),
+        destination,
+        { end: false }
+      );
+    }
+  } catch (error) {
+    destination.destroy();
+    await rm(assembledPath, { force: true });
+    throw error;
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    destination.end((error?: Error | null) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
 
   return {
-    buffer: merged,
-    checksumSha256,
+    checksumSha256: checksum.digest("hex"),
+    path: assembledPath,
     partNumbers: parts.map((part) => part.partNumber),
     partCount: parts.length,
-    totalSizeBytes: merged.byteLength,
+    totalSizeBytes,
   };
 }
 

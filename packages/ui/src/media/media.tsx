@@ -1,6 +1,28 @@
 "use client";
 
-import { Warning as AlertTriangleIcon, SubtitlesSlash as CaptionsOffIcon, CheckIcon, DownloadIcon, FastForwardIcon, SpinnerGap as Loader2Icon, ArrowsOutSimple as Maximize2Icon, ArrowsInSimple as Minimize2Icon, PauseIcon, PictureInPicture as PictureInPicture2Icon, PictureInPictureIcon, PlayIcon, ArrowCounterClockwise as RefreshCcwIcon, RepeatIcon, RewindIcon, ArrowCounterClockwise as RotateCcwIcon, Gear as SettingsIcon, SubtitlesIcon, SpeakerSimpleLow as Volume1Icon, SpeakerSimpleHigh as Volume2Icon, SpeakerSimpleSlash as VolumeXIcon } from "@phosphor-icons/react"
+import {
+  Warning as AlertTriangleIcon,
+  SubtitlesSlash as CaptionsOffIcon,
+  CheckIcon,
+  DownloadIcon,
+  FastForwardIcon,
+  SpinnerGap as Loader2Icon,
+  ArrowsOutSimple as Maximize2Icon,
+  ArrowsInSimple as Minimize2Icon,
+  PauseIcon,
+  PictureInPicture as PictureInPicture2Icon,
+  PictureInPictureIcon,
+  PlayIcon,
+  ArrowCounterClockwise as RefreshCcwIcon,
+  RepeatIcon,
+  RewindIcon,
+  ArrowCounterClockwise as RotateCcwIcon,
+  Gear as SettingsIcon,
+  SubtitlesIcon,
+  SpeakerSimpleLow as Volume1Icon,
+  SpeakerSimpleHigh as Volume2Icon,
+  SpeakerSimpleSlash as VolumeXIcon,
+} from "@phosphor-icons/react";
 import {
   MediaActionTypes,
   MediaProvider,
@@ -674,8 +696,10 @@ function MediaPlayerImpl(props: MediaPlayerProps) {
     if (onPlay) mediaElement.addEventListener("play", onPlay);
     if (onPause) mediaElement.addEventListener("pause", onPause);
     if (onEnded) mediaElement.addEventListener("ended", onEnded);
-    if (onTimeUpdate) mediaElement.addEventListener("timeupdate", handleTimeUpdate);
-    if (onVolumeChange) mediaElement.addEventListener("volumechange", handleVolumeChange);
+    if (onTimeUpdate)
+      mediaElement.addEventListener("timeupdate", handleTimeUpdate);
+    if (onVolumeChange)
+      mediaElement.addEventListener("volumechange", handleVolumeChange);
     if (onMediaError) mediaElement.addEventListener("error", handleMediaError);
     if (onFullscreenChange) {
       document.addEventListener("fullscreenchange", handleFullscreenChange);
@@ -685,11 +709,17 @@ function MediaPlayerImpl(props: MediaPlayerProps) {
       if (onPlay) mediaElement.removeEventListener("play", onPlay);
       if (onPause) mediaElement.removeEventListener("pause", onPause);
       if (onEnded) mediaElement.removeEventListener("ended", onEnded);
-      if (onTimeUpdate) mediaElement.removeEventListener("timeupdate", handleTimeUpdate);
-      if (onVolumeChange) mediaElement.removeEventListener("volumechange", handleVolumeChange);
-      if (onMediaError) mediaElement.removeEventListener("error", handleMediaError);
+      if (onTimeUpdate)
+        mediaElement.removeEventListener("timeupdate", handleTimeUpdate);
+      if (onVolumeChange)
+        mediaElement.removeEventListener("volumechange", handleVolumeChange);
+      if (onMediaError)
+        mediaElement.removeEventListener("error", handleMediaError);
       if (onFullscreenChange) {
-        document.removeEventListener("fullscreenchange", handleFullscreenChange);
+        document.removeEventListener(
+          "fullscreenchange",
+          handleFullscreenChange
+        );
       }
       if (volumeIndicatorTimeoutRef.current) {
         clearTimeout(volumeIndicatorTimeoutRef.current);
@@ -759,9 +789,9 @@ function MediaPlayerImpl(props: MediaPlayerProps) {
         onKeyDown={onKeyDown}
         onKeyUp={onKeyUp}
         className={cn(
-          "dark relative isolate flex flex-col overflow-hidden rounded-lg bg-background outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 data-disabled:pointer-events-none data-disabled:opacity-50 [&_video]:relative [&_video]:object-contain",
+          "dark relative isolate flex flex-col overflow-hidden bg-background outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 data-disabled:pointer-events-none data-disabled:opacity-50 [&_video]:relative [&_video]:object-contain",
           "in-[:fullscreen]:flex in-[:fullscreen]:h-full in-[:fullscreen]:max-h-screen in-[:fullscreen]:flex-col in-[:fullscreen]:justify-between data-[state=fullscreen]:[&_video]:size-full data-[state=fullscreen]:[&_video]:max-h-none",
-          "**:data-slider:relative [&_[data-slider]::before]:absolute [&_[data-slider]::before]:inset-x-0 [&_[data-slider]::before]:-top-4 [&_[data-slider]::before]:-bottom-2 [&_[data-slider]::before]:z-10 [&_[data-slider]::before]:h-8 [&_[data-slider]::before]:cursor-pointer [&_[data-slider]::before]:content-[''] [&_[data-slot='media-player-seek']:not([data-hovering])::before]:cursor-default",
+          "**:data-slider:relative [&_[data-slider]::before]:pointer-events-none [&_[data-slider]::before]:absolute [&_[data-slider]::before]:inset-x-0 [&_[data-slider]::before]:-top-4 [&_[data-slider]::before]:-bottom-2 [&_[data-slider]::before]:z-10 [&_[data-slider]::before]:h-8 [&_[data-slider]::before]:cursor-pointer [&_[data-slider]::before]:content-[''] [&_[data-slot='media-player-seek']:not([data-hovering])::before]:cursor-default",
           "[&_video::-webkit-media-text-track-display]:top-auto! [&_video::-webkit-media-text-track-display]:bottom-[4%]! [&_video::-webkit-media-text-track-display]:mb-0! data-[state=fullscreen]:data-controls-visible:[&_video::-webkit-media-text-track-display]:bottom-[9%]! data-[state=fullscreen]:[&_video::-webkit-media-text-track-display]:bottom-[7%]! data-controls-visible:[&_video::-webkit-media-text-track-display]:bottom-[13%]!",
           className
         )}
@@ -2120,7 +2150,7 @@ function MediaPlayerSeek(props: MediaPlayerSeekProps) {
           "relative flex w-full touch-none select-none items-center data-disabled:pointer-events-none data-disabled:opacity-50",
           className
         )}
-        value={[displayValue]}
+        value={displayValue}
         onValueChange={onSeek}
         onValueCommitted={onSeekCommit}
         onPointerEnter={onPointerEnter}
@@ -2360,7 +2390,7 @@ function MediaPlayerVolume(props: MediaPlayerVolumeProps) {
           className
         )}
         disabled={isDisabled}
-        value={[effectiveVolume]}
+        value={effectiveVolume}
         onValueChange={onVolumeChange}
         onValueCommitted={onVolumeCommit}
       >

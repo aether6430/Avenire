@@ -194,6 +194,30 @@ async function uploadSessionPart(uploadUrl, blob) {
   }
 }
 
+async function uploadSessionPartsConcurrently(parts, nativeFile, partSizeBytes) {
+  const maxParallelUploads = 4;
+  let cursor = 0;
+
+  async function runWorker() {
+    while (cursor < parts.length) {
+      const part = parts[cursor];
+      cursor += 1;
+      const partNumber = part.partNumber;
+      const start = (partNumber - 1) * partSizeBytes;
+      const end = Math.min(nativeFile.size, start + partSizeBytes);
+      const chunk = nativeFile.slice(start, end);
+      await uploadSessionPart(part.uploadUrl, chunk);
+    }
+  }
+
+  await Promise.all(
+    Array.from(
+      { length: Math.min(maxParallelUploads, Math.max(1, parts.length)) },
+      () => runWorker()
+    )
+  );
+}
+
 async function completeUploadSession(sessionId, nativeFile, metadata, partNumbers) {
   const response = await api(state.appOrigin, `/api/uploads/sessions/${sessionId}/complete`, {
     body: JSON.stringify({
@@ -552,13 +576,7 @@ async function clipNow() {
       return;
     }
 
-    for (const part of parts) {
-      const partNumber = part.partNumber;
-      const start = (partNumber - 1) * partSizeBytes;
-      const end = Math.min(nativeFile.size, start + partSizeBytes);
-      const chunk = nativeFile.slice(start, end);
-      await uploadSessionPart(part.uploadUrl, chunk);
-    }
+    await uploadSessionPartsConcurrently(parts, nativeFile, partSizeBytes);
 
     await completeUploadSession(
       sessionPayload.session.id,

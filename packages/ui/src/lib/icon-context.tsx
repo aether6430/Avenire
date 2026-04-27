@@ -2,25 +2,24 @@
 
 import {
   createContext,
-  useContext,
-  useState,
+  type ReactNode,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
-  type ReactNode,
+  useState,
 } from "react";
 
 import {
-  iconMap,
-  iconLibraryOrder,
+  type IconComponent,
   type IconLibrary,
   type IconName,
-  type IconComponent,
+  iconLibraryOrder,
+  iconMap,
 } from "@/lib/icon-map";
 
 // Re-export types for consumers
-export type { IconComponent, IconName, IconLibrary } from "@/lib/icon-map";
-export { iconLibraryOrder, iconLibraryLabels } from "@/lib/icon-map";
+export type { IconComponent, IconLibrary, IconName } from "@/lib/icon-map";
 
 interface IconContextValue {
   iconLibrary: IconLibrary;
@@ -35,38 +34,43 @@ const IconContext = createContext<IconContextValue | null>(null);
  */
 function useIconLibrary() {
   const ctx = useContext(IconContext);
-  if (!ctx) throw new Error("useIconLibrary must be used within an IconProvider");
+  if (!ctx) {
+    throw new Error("useIconLibrary must be used within an IconProvider");
+  }
   return ctx;
 }
 
 /**
  * Returns a single icon component for the given name.
- * Falls back to Lucide if no provider is present.
+ * Falls back to Phosphor if no provider is present.
  */
 function useIcon(name: IconName): IconComponent {
   const ctx = useContext(IconContext);
-  if (!ctx) return iconMap.lucide[name];
+  if (!ctx) {
+    return iconMap.phosphor[name];
+  }
   return iconMap[ctx.iconLibrary][name];
 }
 
 /**
  * Returns the full icon map for the current library.
- * Falls back to Lucide if no provider is present.
+ * Falls back to Phosphor if no provider is present.
  */
 function useIcons(): Record<IconName, IconComponent> {
   const ctx = useContext(IconContext);
-  const lib = ctx?.iconLibrary ?? "lucide";
+  const lib = ctx?.iconLibrary ?? "phosphor";
   return useMemo(() => iconMap[lib], [lib]);
 }
 
 function IconProvider({
   children,
-  defaultLibrary = "lucide",
+  defaultLibrary = "phosphor",
 }: {
   children: ReactNode;
   defaultLibrary?: IconLibrary;
 }) {
-  const [iconLibrary, setIconLibraryState] = useState<IconLibrary>(defaultLibrary);
+  const [iconLibrary, setIconLibraryState] =
+    useState<IconLibrary>(defaultLibrary);
 
   const setIconLibrary = useCallback((next: IconLibrary) => {
     setIconLibraryState(next);
@@ -75,10 +79,20 @@ function IconProvider({
   // Global keyboard shortcut: I to cycle icon library
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "i" && e.key !== "I") return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key !== "i" && e.key !== "I") {
+        return;
+      }
+      if (e.metaKey || e.ctrlKey || e.altKey) {
+        return;
+      }
       const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) return;
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        (e.target as HTMLElement)?.isContentEditable
+      ) {
+        return;
+      }
       e.preventDefault();
       setIconLibraryState((prev) => {
         const idx = iconLibraryOrder.indexOf(prev);

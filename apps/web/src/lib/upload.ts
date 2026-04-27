@@ -57,7 +57,7 @@ export const router = {
     pdf: { maxFileSize: "128MB", maxFileCount: 300 },
     text: { maxFileSize: "16MB", maxFileCount: 300 },
     blob: { maxFileSize: "64MB", maxFileCount: 300 },
-    video: { maxFileSize: "256MB", maxFileCount: 300 },
+    video: { maxFileSize: "1GB", maxFileCount: 300 },
   }).onUploadComplete(async ({ file }) => ({
     key: file.key,
     name: file.name,

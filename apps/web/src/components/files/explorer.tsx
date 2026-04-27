@@ -888,7 +888,7 @@ interface WebkitFileSystemDirectoryEntry extends WebkitFileSystemEntry {
   createReader: () => WebkitFileSystemDirectoryReader;
 }
 
-const DEFAULT_FOLDER_BANNER_URL = "/images/folder-banner-default.svg";
+const DEFAULT_FOLDER_BANNER_URL = "/images/banners/banner1.png";
 
 function getMutationHistoryItemKey(item: FileMutationHistoryItem) {
   return `${item.kind}:${item.id}`;
@@ -5616,18 +5616,6 @@ export function FileExplorer({
             >
               <Columns className="size-3.5" />
               Split right
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() =>
-                openPane("/workspace", {
-                  sourcePaneId: paneId,
-                  splitDirection: "vertical",
-                  splitPlacement: "after",
-                })
-              }
-            >
-              <Rows className="size-3.5" />
-              Split down
             </DropdownMenuItem>
             <DropdownMenuItem
               disabled={!canClosePane}

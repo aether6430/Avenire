@@ -50,14 +50,12 @@ export async function GET(request: Request) {
   const windowMs = (parsed.data.windowMinutes ?? 10) * 60 * 1000;
 
   const filtered = jobs.filter((job) => {
-    if (job.status === "failed" || job.status === "queued" || job.status === "running") {
+    if (job.status === "queued" || job.status === "running") {
       return true;
     }
-    if (job.status === "succeeded") {
-      const updatedAt = new Date(job.updatedAt).getTime();
-      return Number.isFinite(updatedAt) && now - updatedAt <= windowMs;
-    }
-    return false;
+
+    const updatedAt = new Date(job.updatedAt).getTime();
+    return Number.isFinite(updatedAt) && now - updatedAt <= windowMs;
   });
 
   return NextResponse.json({ jobs: filtered });

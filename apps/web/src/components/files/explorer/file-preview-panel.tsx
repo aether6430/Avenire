@@ -119,7 +119,7 @@ const PDFViewer = dynamic(() => import("@/components/files/pdf-viewer"), {
   ssr: false,
 });
 
-const DEFAULT_NOTE_COVER_URL = "/images/folder-banner-default.svg";
+const DEFAULT_NOTE_COVER_URL = "/images/banners/banner1.png";
 const passthroughImageLoader: ImageLoader = ({ src }) => src;
 
 function normalizeFilePageIcon(icon: string | null | undefined) {
@@ -1096,18 +1096,6 @@ export function FilePreviewPanel({
                   Split right
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() =>
-                    openPane("/workspace", {
-                      sourcePaneId: paneId,
-                      splitDirection: "vertical",
-                      splitPlacement: "after",
-                    })
-                  }
-                >
-                  <Rows3 className="size-3.5" />
-                  Split down
-                </DropdownMenuItem>
-                <DropdownMenuItem
                   disabled={!canClosePane}
                   onClick={() => closePane(paneId)}
                 >
@@ -1529,7 +1517,7 @@ export function FilePreviewPanel({
         </div>
       ) : isVideo && !videoLoadFailed ? (
         <div className="flex min-h-0 flex-1 overflow-hidden">
-          <div className="mx-auto flex h-full min-h-0 max-w-[1200px] items-center justify-center p-0 sm:p-4">
+          <div className="mx-auto flex h-full min-h-0 w-full items-center justify-center p-0 sm:p-4">
             <CircleToAiSearchOverlay
               enabled={circleToAiEnabled}
               fileKind="video"
@@ -1573,7 +1561,7 @@ export function FilePreviewPanel({
         </div>
       ) : isAudio && !audioLoadFailed ? (
         <div className="flex min-h-0 flex-1 overflow-hidden">
-          <div className="mx-auto flex h-full min-h-0 max-w-[900px] items-center justify-center p-0 sm:p-4">
+          <div className="mx-auto flex h-full w-full min-h-0  items-center justify-center p-0 sm:p-4">
             <FileMediaPlayer
               kind="audio"
               name={activeFile.name}

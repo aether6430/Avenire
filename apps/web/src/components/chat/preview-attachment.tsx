@@ -2,13 +2,31 @@
 
 import { Button } from "@avenire/ui/components/button";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, } from "@avenire/ui/components/dialog";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@avenire/ui/components/dialog";
 import {
-  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, } from "@avenire/ui/components/tooltip";
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@avenire/ui/components/tooltip";
 import {
-  FileMediaPlayer, type MediaPlaybackSource, useMediaPlaybackSource, } from "@avenire/ui/media";
+  FileMediaPlayer,
+  type MediaPlaybackSource,
+  useMediaPlaybackSource,
+} from "@avenire/ui/media";
 import { Spinner } from "@avenire/ui/components/spinner";
-import { File, FileCode as FileCode2, MagnifyingGlassMinus, MagnifyingGlassPlus, SpinnerGap as LoaderIcon, X } from "@phosphor-icons/react"
+import {
+  File,
+  FileCode as FileCode2,
+  MagnifyingGlassMinus,
+  MagnifyingGlassPlus,
+  SpinnerGap as LoaderIcon,
+  X,
+} from "@phosphor-icons/react";
 import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -32,13 +50,7 @@ const MAX_SCALE = 5;
 const ZOOM_STEP = 0.5;
 const DOUBLE_TAP_ZOOM = 2.5;
 
-function PanPinchImageViewer({
-  src,
-  alt,
-}: {
-  src: string;
-  alt: string;
-}) {
+function PanPinchImageViewer({ src, alt }: { src: string; alt: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [isPanning, setIsPanning] = useState(false);
@@ -54,6 +66,10 @@ function PanPinchImageViewer({
   const lastPinchDistRef = useRef<number | null>(null);
   const lastTapTimeRef = useRef<number>(0);
   const lastTapPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const scaleRef = useRef(scale);
+  const zoomToRef = useRef<
+    (nextScale: number, focalX?: number, focalY?: number) => void
+  >(() => undefined);
 
   const clampPosition = useCallback(
     (nextX: number, nextY: number, currentScale: number) => {
@@ -91,8 +107,10 @@ function PanPinchImageViewer({
       // Adjust pan so zoom is centered on focal point
       const prevScale = scale;
       const scaleDelta = clamped / prevScale;
-      const nextX = (x.get() - (cx - width / 2)) * scaleDelta + (cx - width / 2);
-      const nextY = (y.get() - (cy - height / 2)) * scaleDelta + (cy - height / 2);
+      const nextX =
+        (x.get() - (cx - width / 2)) * scaleDelta + (cx - width / 2);
+      const nextY =
+        (y.get() - (cy - height / 2)) * scaleDelta + (cy - height / 2);
       const clamped2 = clampPosition(nextX, nextY, clamped);
 
       setScale(clamped);
@@ -140,7 +158,10 @@ function PanPinchImageViewer({
         const pointers = Array.from(activePointersRef.current.values());
         const [p1, p2] = pointers;
         if (p1 && p2) {
-          const dist = Math.hypot(p2.clientX - p1.clientX, p2.clientY - p1.clientY);
+          const dist = Math.hypot(
+            p2.clientX - p1.clientX,
+            p2.clientY - p1.clientY
+          );
           lastPinchDistRef.current = dist;
         }
       }
@@ -158,7 +179,10 @@ function PanPinchImageViewer({
         const [p1, p2] = pointers;
         if (!p1 || !p2) return;
 
-        const dist = Math.hypot(p2.clientX - p1.clientX, p2.clientY - p1.clientY);
+        const dist = Math.hypot(
+          p2.clientX - p1.clientX,
+          p2.clientY - p1.clientY
+        );
         const lastDist = lastPinchDistRef.current;
         if (lastDist !== null) {
           const container = containerRef.current;
@@ -166,14 +190,21 @@ function PanPinchImageViewer({
           const rect = container.getBoundingClientRect();
           const midX = (p1.clientX + p2.clientX) / 2 - rect.left;
           const midY = (p1.clientY + p2.clientY) / 2 - rect.top;
-          const nextScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale * (dist / lastDist)));
+          const nextScale = Math.max(
+            MIN_SCALE,
+            Math.min(MAX_SCALE, scale * (dist / lastDist))
+          );
           zoomTo(nextScale, midX, midY);
         }
         lastPinchDistRef.current = dist;
         return;
       }
 
-      if (activePointersRef.current.size === 1 && lastPointerRef.current && scale > 1) {
+      if (
+        activePointersRef.current.size === 1 &&
+        lastPointerRef.current &&
+        scale > 1
+      ) {
         // Pan
         const dx = e.clientX - lastPointerRef.current.x;
         const dy = e.clientY - lastPointerRef.current.y;
@@ -197,25 +228,46 @@ function PanPinchImageViewer({
       } else if (activePointersRef.current.size === 1) {
         // One finger remaining, update last pointer
         const remaining = Array.from(activePointersRef.current.values())[0];
-        if (remaining) lastPointerRef.current = { x: remaining.clientX, y: remaining.clientY };
+        if (remaining)
+          lastPointerRef.current = {
+            x: remaining.clientX,
+            y: remaining.clientY,
+          };
       }
     },
     []
   );
 
-  const handleWheel = useCallback(
-    (e: React.WheelEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      const container = containerRef.current;
-      if (!container) return;
+  useEffect(() => {
+    scaleRef.current = scale;
+    zoomToRef.current = zoomTo;
+  }, [scale, zoomTo]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
       const rect = container.getBoundingClientRect();
-      const focalX = e.clientX - rect.left;
-      const focalY = e.clientY - rect.top;
-      const delta = e.deltaY > 0 ? -0.15 : 0.15;
-      zoomTo(scale + delta * scale, focalX, focalY);
-    },
-    [scale, zoomTo]
-  );
+      const focalX = event.clientX - rect.left;
+      const focalY = event.clientY - rect.top;
+      const delta = event.deltaY > 0 ? -0.15 : 0.15;
+      zoomToRef.current(
+        scaleRef.current + delta * scaleRef.current,
+        focalX,
+        focalY
+      );
+    };
+
+    container.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      container.removeEventListener("wheel", onWheel);
+    };
+  }, []);
 
   // Reset position when scale returns to 1
   useEffect(() => {
@@ -281,9 +333,12 @@ function PanPinchImageViewer({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        onWheel={handleWheel}
         ref={containerRef}
-        style={{ touchAction: "none", userSelect: "none" }}
+        style={{
+          overscrollBehavior: "contain",
+          touchAction: "none",
+          userSelect: "none",
+        }}
       >
         <motion.img
           alt={alt}
@@ -806,42 +861,31 @@ export function PreviewAttachment({
 
   const isImagePreview =
     contentType?.startsWith("image") && previewUrl && status === "completed";
+  const isVideoPreview =
+    contentType?.startsWith("video") && previewUrl && status === "completed";
 
   const renderModalContent = () => {
     if (isImagePreview && previewUrl) {
       return (
-        <PanPinchImageViewer
-          alt={name ?? "Image preview"}
-          src={previewUrl}
-        />
+        <PanPinchImageViewer alt={name ?? "Image preview"} src={previewUrl} />
       );
     }
 
-    if (
-      contentType?.startsWith("video") &&
-      previewUrl &&
-      status === "completed"
-    ) {
+    if (isVideoPreview && previewUrl) {
+      const resolvedPlaybackSource =
+        playbackDescriptor?.preferredSource ??
+        buildProgressivePlaybackSource(previewUrl, contentType);
+
       return (
-        <div className="flex justify-center">
-          {playbackDescriptor ? (
-            <FileMediaPlayer
-              className="w-full max-w-4xl"
-              kind="video"
-              name={name ?? "Video attachment"}
-              openedCached
-              playbackSource={playbackDescriptor.preferredSource}
-              posterUrl={playbackDescriptor.posterUrl}
-            />
-          ) : (
-            <video
-              className="max-h-[70vh] max-w-full rounded-md object-contain"
-              controls
-              src={previewUrl}
-            >
-              <track kind="captions" />
-            </video>
-          )}
+        <div className="flex h-full min-h-0 w-full flex-1 items-stretch justify-center bg-black">
+          <FileMediaPlayer
+            className="h-full w-full rounded-none border-0 bg-black shadow-none"
+            kind="video"
+            name={name ?? "Video attachment"}
+            openedCached
+            playbackSource={resolvedPlaybackSource}
+            posterUrl={playbackDescriptor?.posterUrl ?? null}
+          />
         </div>
       );
     }
@@ -997,7 +1041,14 @@ export function PreviewAttachment({
                     )}
                   </DialogTitle>
                 </DialogHeader>
-                <div className={cn("min-h-0 flex-1", isImagePreview ? "overflow-hidden" : "overflow-auto p-4 sm:p-6")}>
+                <div
+                  className={cn(
+                    "min-h-0 flex-1",
+                    isImagePreview || isVideoPreview
+                      ? "overflow-hidden"
+                      : "overflow-auto p-4 sm:p-6"
+                  )}
+                >
                   {renderModalContent()}
                 </div>
               </div>
@@ -1072,7 +1123,14 @@ export function PreviewAttachment({
                   )}
                 </DialogTitle>
               </DialogHeader>
-              <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">
+              <div
+                className={cn(
+                  "min-h-0 flex-1",
+                  isImagePreview || isVideoPreview
+                    ? "overflow-hidden"
+                    : "overflow-auto p-4 sm:p-6"
+                )}
+              >
                 {renderModalContent()}
               </div>
             </div>
@@ -1177,7 +1235,14 @@ export function PreviewAttachment({
                   )}
                 </DialogTitle>
               </DialogHeader>
-              <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">
+              <div
+                className={cn(
+                  "min-h-0 flex-1",
+                  isImagePreview || isVideoPreview
+                    ? "overflow-hidden"
+                    : "overflow-auto p-4 sm:p-6"
+                )}
+              >
                 {renderModalContent()}
               </div>
             </div>
