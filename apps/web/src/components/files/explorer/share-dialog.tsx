@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  Avatar,
+  AvatarFallback,
+} from "@avenire/ui/components/avatar";
 import { Button } from "@avenire/ui/components/button";
 import {
   Dialog,
@@ -13,7 +17,7 @@ import {
 import { Input } from "@avenire/ui/components/input";
 import { Label } from "@avenire/ui/components/label";
 import { ShareNetwork as Share2 } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { EmailSuggestionInput } from "@/components/shared/email-suggestion-input";
 import type {
   FileRecord,
@@ -34,6 +38,11 @@ interface ShareDialogProps {
   isAtWorkspaceRoot?: boolean;
   loadShareSuggestions: (q: string, cb: (s: ShareSuggestion[]) => void) => void;
 }
+
+const WORKSPACE_ROLE_OPTIONS = [
+  { value: "member", label: "Member" },
+  { value: "admin", label: "Admin" },
+] as const;
 
 export function ShareDialog({
   variant,
@@ -66,6 +75,19 @@ export function ShareDialog({
   const [workspaceShareStatus, setWorkspaceShareStatus] = useState<
     string | null
   >(null);
+  const [workspaceInviteRole, setWorkspaceInviteRole] = useState<
+    "admin" | "member"
+  >("member");
+  const [workspaceMembers, setWorkspaceMembers] = useState<
+    Array<{
+      avatar?: string | null;
+      email: string | null;
+      name: string | null;
+      role: string;
+      userId: string | null;
+    }>
+  >([]);
+  const [workspaceMembersLoading, setWorkspaceMembersLoading] = useState(false);
   const [folderShareEmail, setFolderShareEmail] = useState("");
   const [folderShareSuggestions, setFolderShareSuggestions] = useState<
     ShareSuggestion[]
@@ -78,6 +100,15 @@ export function ShareDialog({
   const [folderSharePermission, setFolderSharePermission] = useState<
     "viewer" | "editor"
   >("viewer");
+
+  const getInitials = (value: string) =>
+    value
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("") || "U";
 
   useEffect(() => {
     if (variant !== "file" || !workspaceUuid) {
@@ -270,7 +301,10 @@ export function ShareDialog({
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: workspaceShareEmail.trim() }),
+          body: JSON.stringify({
+            email: workspaceShareEmail.trim(),
+            role: workspaceInviteRole,
+          }),
         }
       );
       if (!response.ok) {
@@ -284,15 +318,60 @@ export function ShareDialog({
       setWorkspaceShareEmail("");
       setWorkspaceShareStatus(
         payload.status === "added"
-          ? "Workspace shared."
+          ? `${workspaceInviteRole === "admin" ? "Admin" : "Member"} added.`
           : payload.status === "invited"
-            ? "Invitation sent."
+            ? `${workspaceInviteRole === "admin" ? "Admin" : "Member"} invitation sent.`
+            : payload.status === "updated"
+              ? `${workspaceInviteRole === "admin" ? "Admin" : "Member"} updated.`
             : "Workspace shared."
       );
+      void loadWorkspaceMembers();
     } finally {
       setWorkspaceShareBusy(false);
     }
   };
+
+  const loadWorkspaceMembers = useCallback(async () => {
+    if (variant !== "folder" || !workspaceUuid || !isAtWorkspaceRoot) {
+      return;
+    }
+
+    setWorkspaceMembersLoading(true);
+    try {
+      const response = await fetch(
+        `/api/workspaces/${workspaceUuid}/share/members`,
+        {
+          cache: "no-store",
+        }
+      );
+      if (!response.ok) {
+        return;
+      }
+
+      const payload = (await response.json()) as {
+        members?: Array<{
+          avatar?: string | null;
+          email: string | null;
+          name: string | null;
+          role: string;
+          userId: string | null;
+        }>;
+      };
+      setWorkspaceMembers(payload.members ?? []);
+    } finally {
+      setWorkspaceMembersLoading(false);
+    }
+  }, [isAtWorkspaceRoot, variant, workspaceUuid]);
+
+  const handleDialogOpenChange = (nextOpen: boolean) => {
+    onOpenChange?.(nextOpen);
+  };
+
+  useEffect(() => {
+    if (open && variant === "folder" && isAtWorkspaceRoot) {
+      void loadWorkspaceMembers();
+    }
+  }, [isAtWorkspaceRoot, loadWorkspaceMembers, open, variant]);
 
   const notifyWorkspaceTeam = async () => {
     if (variant !== "folder" || !workspaceUuid) {
@@ -336,7 +415,7 @@ export function ShareDialog({
     }
 
     return (
-      <Dialog onOpenChange={onOpenChange} open={open}>
+      <Dialog onOpenChange={handleDialogOpenChange} open={open}>
         {hideTrigger ? null : (
           <DialogTrigger
             render={
@@ -357,49 +436,48 @@ export function ShareDialog({
             <Share2 className="size-3" />
           </DialogTrigger>
         )}
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Share file</DialogTitle>
             <DialogDescription>
               Grant viewer or editor access by email, or create a signed link.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="file-share-permission">Permission</Label>
-            <select
-              className="h-9 w-full rounded-md border bg-background px-3 text-sm"
-              id="file-share-permission"
-              onChange={(event) =>
-                setFileSharePermission(
-                  event.target.value === "editor" ? "editor" : "viewer"
-                )
-              }
-              value={fileSharePermission}
-            >
-              <option value="viewer">Viewer (read-only)</option>
-              <option value="editor">Editor</option>
-            </select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="file-share-email">Add people</Label>
-            <div className="flex items-center gap-2">
-              <EmailSuggestionInput
-                id="file-share-email"
-                onFocus={() => {
-                  void loadShareSuggestions(shareEmail, setShareSuggestions);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key !== "Enter") {
-                    return;
-                  }
-                  event.preventDefault();
-                  shareActiveFileWithEmail().catch(() => undefined);
-                }}
-                onValueChange={setShareEmail}
-                placeholder="name@example.com"
-                suggestions={shareSuggestions}
-                value={shareEmail}
-              />
+          <div className="space-y-4">
+            <div className="flex items-end gap-2">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="file-share-email">Add people</Label>
+                <EmailSuggestionInput
+                  id="file-share-email"
+                  onFocus={() => {
+                    void loadShareSuggestions(shareEmail, setShareSuggestions);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter") {
+                      return;
+                    }
+                    event.preventDefault();
+                    shareActiveFileWithEmail().catch(() => undefined);
+                  }}
+                  onValueChange={setShareEmail}
+                  placeholder="Add people, groups, or emails..."
+                  suggestions={shareSuggestions}
+                  value={shareEmail}
+                />
+              </div>
+              <select
+                className="h-9 rounded-md border border-border/60 bg-background px-3 text-sm"
+                id="file-share-permission"
+                onChange={(event) =>
+                  setFileSharePermission(
+                    event.target.value === "editor" ? "editor" : "viewer"
+                  )
+                }
+                value={fileSharePermission}
+              >
+                <option value="viewer">Viewer</option>
+                <option value="editor">Editor</option>
+              </select>
               <Button
                 disabled={shareBusy}
                 onClick={() => {
@@ -412,11 +490,30 @@ export function ShareDialog({
                 Add
               </Button>
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label>Share link (7 days)</Label>
-            <div className="flex items-center gap-2">
-              <Input readOnly value={shareLink ?? ""} />
+            <div className="rounded-lg border border-border/60 bg-background p-3">
+              <div className="flex items-start gap-3">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-foreground/[0.06] text-muted-foreground">
+                  <Share2 className="size-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm">Anyone with the link</span>
+                    <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                      Can {fileSharePermission === "editor" ? "edit" : "view"}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Signed link access expires after 7 days.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-background px-3 py-2">
+              <Input
+                className="border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+                readOnly
+                value={shareLink ?? ""}
+              />
               <Button
                 disabled={shareBusy}
                 onClick={() => {
@@ -456,7 +553,7 @@ export function ShareDialog({
   }
 
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
+      <Dialog onOpenChange={handleDialogOpenChange} open={open}>
       {hideTrigger ? null : (
         <DialogTrigger
           render={
@@ -478,7 +575,7 @@ export function ShareDialog({
           Share
         </DialogTrigger>
       )}
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>
             {isAtWorkspaceRoot ? "Share workspace" : "Share folder"}
@@ -493,7 +590,7 @@ export function ShareDialog({
           <div className="space-y-2">
             <Label htmlFor="folder-share-permission">Permission</Label>
             <select
-              className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+              className="h-9 w-full rounded-md border border-border/60 bg-background px-3 text-sm"
               id="folder-share-permission"
               onChange={(event) =>
                 setFolderSharePermission(
@@ -509,65 +606,92 @@ export function ShareDialog({
         )}
         <div className="space-y-2">
           <Label htmlFor="workspace-share-email">
-            {isAtWorkspaceRoot ? "Add teammate" : "Add people"}
+            {isAtWorkspaceRoot ? "Invite teammates" : "Add people"}
           </Label>
-          <div className="flex items-center gap-2">
-            <EmailSuggestionInput
-              id="workspace-share-email"
-              onFocus={() => {
-                void loadShareSuggestions(
-                  isAtWorkspaceRoot ? workspaceShareEmail : folderShareEmail,
+          <div className="rounded-lg border border-border/60 bg-background p-3">
+            <div className="flex items-center gap-2">
+              <EmailSuggestionInput
+                id="workspace-share-email"
+                onFocus={() => {
+                  void loadShareSuggestions(
+                    isAtWorkspaceRoot ? workspaceShareEmail : folderShareEmail,
+                    isAtWorkspaceRoot
+                      ? setWorkspaceShareSuggestions
+                      : setFolderShareSuggestions
+                  );
+                }}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter") {
+                    return;
+                  }
+                  event.preventDefault();
+                  if (isAtWorkspaceRoot) {
+                    shareWorkspaceWithEmail().catch(() => undefined);
+                    return;
+                  }
+                  shareCurrentFolderWithEmail().catch(() => undefined);
+                }}
+                onValueChange={
+                  isAtWorkspaceRoot ? setWorkspaceShareEmail : setFolderShareEmail
+                }
+                placeholder={
                   isAtWorkspaceRoot
-                    ? setWorkspaceShareSuggestions
-                    : setFolderShareSuggestions
-                );
-              }}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter") {
-                  return;
+                    ? "Add people, groups, or emails..."
+                    : "name@example.com"
                 }
-                event.preventDefault();
-                if (isAtWorkspaceRoot) {
-                  shareWorkspaceWithEmail().catch(() => undefined);
-                  return;
+                suggestions={
+                  isAtWorkspaceRoot
+                    ? workspaceShareSuggestions
+                    : folderShareSuggestions
                 }
-                shareCurrentFolderWithEmail().catch(() => undefined);
-              }}
-              onValueChange={
-                isAtWorkspaceRoot ? setWorkspaceShareEmail : setFolderShareEmail
-              }
-              placeholder="name@example.com"
-              suggestions={
-                isAtWorkspaceRoot
-                  ? workspaceShareSuggestions
-                  : folderShareSuggestions
-              }
-              value={isAtWorkspaceRoot ? workspaceShareEmail : folderShareEmail}
-            />
-            <Button
-              disabled={
-                isAtWorkspaceRoot ? workspaceShareBusy : folderShareBusy
-              }
-              onClick={() => {
-                if (isAtWorkspaceRoot) {
-                  shareWorkspaceWithEmail().catch(() => undefined);
-                  return;
+                value={isAtWorkspaceRoot ? workspaceShareEmail : folderShareEmail}
+              />
+              {isAtWorkspaceRoot ? (
+                <select
+                  className="h-9 rounded-md border border-border/60 bg-background px-3 text-sm"
+                  onChange={(event) =>
+                    setWorkspaceInviteRole(
+                      event.target.value === "admin" ? "admin" : "member"
+                    )
+                  }
+                  value={workspaceInviteRole}
+                >
+                  {WORKSPACE_ROLE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+              <Button
+                disabled={
+                  isAtWorkspaceRoot ? workspaceShareBusy : folderShareBusy
                 }
-                shareCurrentFolderWithEmail().catch(() => undefined);
-              }}
-              size="sm"
-              type="button"
-              variant="secondary"
-            >
-              Add
-            </Button>
+                onClick={() => {
+                  if (isAtWorkspaceRoot) {
+                    shareWorkspaceWithEmail().catch(() => undefined);
+                    return;
+                  }
+                  shareCurrentFolderWithEmail().catch(() => undefined);
+                }}
+                size="sm"
+                type="button"
+                variant="secondary"
+              >
+                Add
+              </Button>
+            </div>
           </div>
         </div>
         {isAtWorkspaceRoot ? null : (
           <div className="space-y-2">
             <Label>Share link (7 days)</Label>
-            <div className="flex items-center gap-2">
-              <Input readOnly value={folderShareLink ?? ""} />
+            <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-background px-3 py-2">
+              <Input
+                className="border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+                readOnly
+                value={folderShareLink ?? ""}
+              />
               <Button
                 disabled={folderShareBusy}
                 onClick={() => {
@@ -599,6 +723,52 @@ export function ShareDialog({
             </div>
           </div>
         )}
+        {isAtWorkspaceRoot ? (
+          <div className="space-y-2">
+            <Label>People with access</Label>
+            <div className="rounded-lg border border-border/60 bg-background">
+              {workspaceMembersLoading ? (
+                <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                  Loading workspace members...
+                </div>
+              ) : workspaceMembers.length === 0 ? (
+                <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                  No members found for this workspace yet.
+                </div>
+              ) : (
+                <ul className="divide-y divide-border/50">
+                  {workspaceMembers.map((member) => {
+                    const label =
+                      member.name?.trim() || member.email?.trim() || "Workspace member";
+                    return (
+                      <li
+                        className="flex items-center gap-3 px-4 py-3"
+                        key={member.userId ?? member.email ?? label}
+                      >
+                        <Avatar className="size-8">
+                          <AvatarFallback className="text-[10px]">
+                            {getInitials(label)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">
+                            {member.name ?? member.email ?? "Workspace member"}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {member.email ?? member.userId ?? "No email available"}
+                          </p>
+                        </div>
+                        <span className="rounded-md px-2 py-1 font-mono text-[11px] text-muted-foreground">
+                          {member.role}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
+        ) : null}
         <DialogFooter>
           {isAtWorkspaceRoot ? (
             <Button

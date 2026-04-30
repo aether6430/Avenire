@@ -68,6 +68,7 @@ export {
   updateFileAssetMetadata,
   updateFolder,
   updateNoteContent,
+  updateWorkspaceMemberRoleForUser,
   updateWorkspaceLogoForUser,
   userCanAccessWorkspace,
   userCanEditFile,

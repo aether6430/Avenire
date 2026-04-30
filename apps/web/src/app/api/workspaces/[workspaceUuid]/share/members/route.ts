@@ -3,6 +3,7 @@ import {
   findAuthUserByEmail,
   listWorkspaceMembers,
   listWorkspacesForUser,
+  updateWorkspaceMemberRoleForUser,
 } from "@/lib/file-data";
 import { auth, sendWorkspaceShareEmail } from "@avenire/auth/server";
 import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
@@ -42,11 +43,17 @@ export async function POST(
     return NextResponse.json({ error: "Only admins can share this workspace" }, { status: 403 });
   }
 
-  const body = (await request.json().catch(() => ({}))) as { email?: string };
+  const body = (await request.json().catch(() => ({}))) as {
+    email?: string;
+    role?: string;
+  };
   if (!body.email) {
     void apiLogger.requestFailed(400, "Missing email", { workspaceUuid });
     return NextResponse.json({ error: "Missing email" }, { status: 400 });
   }
+  const requestedRole =
+    body.role === "admin" || body.role === "member" ? body.role : null;
+  const inviteRole = requestedRole === "admin" ? "admin" : "member";
 
   const summaries = await listWorkspacesForUser(user.id);
   const summary = summaries.find((item) => item.workspaceId === workspaceUuid);
@@ -61,7 +68,7 @@ export async function POST(
     workspaceId: workspaceUuid,
     email: normalizedEmail,
     inviterUserId: user.id,
-    role: "member",
+    role: inviteRole,
     expiresInDays: 7,
   });
   if (invite.status === "workspace-not-found") {
@@ -73,12 +80,32 @@ export async function POST(
     return NextResponse.json({ error: "Invalid email" }, { status: 400 });
   }
   if (invite.status === "already-member") {
+    if (requestedRole && targetUser) {
+      const updatedMember = await updateWorkspaceMemberRoleForUser({
+        role: inviteRole,
+        userId: targetUser.id,
+        workspaceId: workspaceUuid,
+      });
+      if (updatedMember.status === "updated") {
+        void apiLogger.requestSucceeded(200, {
+          workspaceUuid,
+          emailSent: false,
+          role: inviteRole,
+          status: "updated",
+        });
+        return NextResponse.json(
+          { role: inviteRole, status: "updated" },
+          { status: 200 }
+        );
+      }
+    }
     void apiLogger.requestSucceeded(200, {
       workspaceUuid,
       emailSent: false,
       status: "already-member",
+      role: inviteRole,
     });
-    return NextResponse.json({ status: "already-member" }, { status: 200 });
+    return NextResponse.json({ role: inviteRole, status: "already-member" }, { status: 200 });
   }
 
   const workspaceName = summary?.name ?? "Workspace";
@@ -127,6 +154,7 @@ export async function POST(
       member: targetUser ?? null,
       invitationId: invite.invitationId,
       emailSent,
+      role: inviteRole,
       workspaceUrl,
     },
     { status: 200 },

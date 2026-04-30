@@ -1465,6 +1465,37 @@ export async function addWorkspaceMemberByEmail(input: {
   };
 }
 
+export async function updateWorkspaceMemberRoleForUser(input: {
+  role: "member" | "admin" | "owner";
+  userId: string;
+  workspaceId: string;
+}) {
+  const organizationId = await getWorkspaceOrganizationId(input.workspaceId);
+  if (!organizationId) {
+    return { status: "workspace-not-found" as const };
+  }
+
+  const [updated] = await db
+    .update(member)
+    .set({ role: input.role })
+    .where(
+      and(
+        eq(member.organizationId, organizationId),
+        eq(member.userId, input.userId)
+      )
+    )
+    .returning({ role: member.role });
+
+  if (!updated) {
+    return { status: "member-not-found" as const };
+  }
+
+  return {
+    status: "updated" as const,
+    role: updated.role,
+  };
+}
+
 export async function createWorkspaceInvitationByEmail(input: {
   workspaceId: string;
   email: string;
