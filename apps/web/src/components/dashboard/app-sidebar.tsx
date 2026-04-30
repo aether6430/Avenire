@@ -31,6 +31,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@avenire/ui/components/sidebar";
+import { cn } from "@avenire/ui/lib/utils";
 import {
   Tooltip,
   TooltipContent,
@@ -41,6 +42,7 @@ import { Spinner } from "@avenire/ui/components/spinner";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { measureElement, useVirtualizer } from "@tanstack/react-virtual";
 import {
+  SidebarSimpleIcon as PanelLeftIcon,
   Files,
   GitBranch,
   Chat as MessageSquare,
@@ -671,6 +673,8 @@ export function DashboardSidebar({
   initialWorkspaces = [],
   initialChats = [],
   activeChatSlug: activeChatSlugProp,
+  className,
+  style,
   ...props
 }: ComponentProps<typeof Sidebar> & {
   activeWorkspace?: {
@@ -689,7 +693,7 @@ export function DashboardSidebar({
   activeChatSlug?: string;
 }) {
   const router = useRouter();
-  const { isMobile, setOpenMobile } = useSidebar();
+  const { isMobile, setOpenMobile, state, toggleSidebar } = useSidebar();
   const { navigate } = useWorkspaceSurfaceNavigation({
     panesEnabled: !isMobile,
   });
@@ -786,6 +790,8 @@ export function DashboardSidebar({
   const [mobileSidebarView, setMobileSidebarView] = useState<
     "chat" | "flashcards" | "files" | "tasks" | "workspace"
   >(() => routeView ?? "workspace");
+  const [peekHovered, setPeekHovered] = useState(false);
+  const peekCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     setDesktopSidebarView(routeView ?? "workspace");
     if (isMobile) {
@@ -829,6 +835,51 @@ export function DashboardSidebar({
       ? (`/workspace/files/${activeWorkspaceSummary.workspaceId}/folder/${activeWorkspaceSummary.rootFolderId}` as Route)
       : ("/workspace/files" as Route);
   }, [activeWorkspace, workspaceUuid, workspaces]);
+  const isPeekabooActive = !isMobile && state === "collapsed" && peekHovered;
+
+  useEffect(() => {
+    if (!isMobile && state !== "collapsed") {
+      setPeekHovered(false);
+    }
+  }, [isMobile, state]);
+
+  useEffect(() => {
+    return () => {
+      if (peekCloseTimerRef.current) {
+        clearTimeout(peekCloseTimerRef.current);
+        peekCloseTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  const openPeekSidebar = useCallback(() => {
+    if (state !== "collapsed") {
+      return;
+    }
+
+    if (peekCloseTimerRef.current) {
+      clearTimeout(peekCloseTimerRef.current);
+      peekCloseTimerRef.current = null;
+    }
+
+    setPeekHovered(true);
+  }, [state]);
+
+  const closePeekSidebar = useCallback(() => {
+    if (state !== "collapsed") {
+      return;
+    }
+
+    if (peekCloseTimerRef.current) {
+      clearTimeout(peekCloseTimerRef.current);
+    }
+
+    peekCloseTimerRef.current = setTimeout(() => {
+      setPeekHovered(false);
+      peekCloseTimerRef.current = null;
+    }, 90);
+  }, [state]);
+
   useEffect(() => {
     if (!(activeView === "tasks" && activeWorkspace?.workspaceId)) {
       return;
@@ -1946,331 +1997,386 @@ export function DashboardSidebar({
   );
 
   return (
-    <Sidebar variant="inset" {...props}>
-      <SidebarContent>
-        <TooltipProvider delay={280}>
-          <SidebarGroup className="px-2 pb-1">
-            <SidebarGroupLabel>Workspace</SidebarGroupLabel>
-            <ExpandableTabs
-              allowDeselect={false}
-              className="mt-1"
-              items={[
-                { value: "chat", label: "Method", icon: MessageSquare },
-                { value: "flashcards", label: "Mindset", icon: Sparkles },
-                { value: "tasks", label: "Tasks", icon: ListChecks },
-                { value: "files", label: "Manage", icon: Files },
-              ]}
-              onItemHover={(item) => {
-                warmWorkspaceSection(
-                  item.value as "chat" | "flashcards" | "files" | "tasks"
-                );
-              }}
-              onItemClick={(item, _event) => {
-                const nextView = item.value as
-                  | "chat"
-                  | "flashcards"
-                  | "files"
-                  | "tasks";
+    <>
+      <div
+        aria-hidden="true"
+        className={cn(
+          "fixed inset-y-0 left-0 z-30 hidden w-10 md:block",
+          state === "collapsed" && !isPeekabooActive
+            ? "pointer-events-auto"
+            : "pointer-events-none"
+        )}
+        onPointerEnter={openPeekSidebar}
+        onPointerLeave={closePeekSidebar}
+      />
+      <Sidebar
+        className={cn(
+          "z-40 transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]",
+          className,
+          isPeekabooActive && "ring-1 ring-sidebar-border"
+        )}
+        onPointerEnter={openPeekSidebar}
+        onPointerLeave={closePeekSidebar}
+        style={
+          {
+            ...style,
+            left: isPeekabooActive ? "0" : undefined,
+            top: isPeekabooActive ? "0.75rem" : undefined,
+            bottom: isPeekabooActive ? "0.75rem" : undefined,
+            borderRadius: isPeekabooActive ? "1.5rem" : undefined,
+          } as React.CSSProperties
+        }
+        variant="inset"
+        {...props}
+      >
+        <SidebarContent>
+          <TooltipProvider delay={280}>
+            <SidebarGroup className="px-2 pb-1">
+              <div className="flex h-8 items-center gap-2 px-2">
+                <SidebarGroupLabel className="h-auto flex-1 px-0">
+                  Workspace
+                </SidebarGroupLabel>
+                <Button
+                  aria-label={
+                    state === "expanded" ? "Collapse sidebar" : "Expand sidebar"
+                  }
+                  className="size-7 shrink-0 rounded-md"
+                  onClick={() => {
+                    setPeekHovered(false);
+                    toggleSidebar();
+                  }}
+                  size="icon-sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  <PanelLeftIcon
+                    className={cn(
+                      "size-4 transition-transform duration-300",
+                      state === "expanded" ? "rotate-180" : "rotate-0"
+                    )}
+                  />
+                </Button>
+              </div>
+              <ExpandableTabs
+                allowDeselect={false}
+                className="mt-1"
+                items={[
+                  { value: "chat", label: "Method", icon: MessageSquare },
+                  { value: "flashcards", label: "Mindset", icon: Sparkles },
+                  { value: "tasks", label: "Tasks", icon: ListChecks },
+                  { value: "files", label: "Manage", icon: Files },
+                ]}
+                onItemHover={(item) => {
+                  warmWorkspaceSection(
+                    item.value as "chat" | "flashcards" | "files" | "tasks"
+                  );
+                }}
+                onItemClick={(item, _event) => {
+                  const nextView = item.value as
+                    | "chat"
+                    | "flashcards"
+                    | "files"
+                    | "tasks";
 
-                if (!isMobile) {
-                  setDesktopSidebarView(nextView);
-                } else {
-                  setMobileSidebarView(nextView);
-                }
-              }}
-              onItemContextMenu={(item, _event) => {
-                if (isMobile) {
-                  return;
-                }
+                  if (!isMobile) {
+                    setDesktopSidebarView(nextView);
+                  } else {
+                    setMobileSidebarView(nextView);
+                  }
+                }}
+                onItemContextMenu={(item, _event) => {
+                  if (isMobile) {
+                    return;
+                  }
 
-                const nextView = item.value as
-                  | "chat"
-                  | "flashcards"
-                  | "files"
-                  | "tasks";
-                if (isMobile) {
-                  setMobileSidebarView(nextView);
-                } else {
-                  setDesktopSidebarView(nextView);
-                }
-              }}
-              onValueChange={(nextValue) => {
-                if (!nextValue) {
-                  return;
-                }
-                const nextView = nextValue as
-                  | "chat"
-                  | "flashcards"
-                  | "files"
-                  | "tasks";
-                if (isMobile) {
-                  setMobileSidebarView(nextView);
-                } else {
-                  setDesktopSidebarView(nextView);
-                }
-              }}
-              persistenceKey="dashboard-workspace-tabs"
-              value={activeTabValue}
-            />
-          </SidebarGroup>
-          <div className="relative min-h-0 flex-1 overflow-hidden">
-            {sidebarView === "workspace" ? (
-              <div className="absolute inset-0 overflow-y-auto px-2 py-2">
-                <SidebarGroup>
-                  <SidebarGroupLabel>Workspace Home</SidebarGroupLabel>
-                  <SidebarGroupContent>
-                    <SidebarMenu>
-                      <SectionButton
-                        dragHref={"/workspace/chats/new" as Route}
-                        icon={MessageSquare}
-                        label="Open Method"
-                        onClick={(event) => {
-                          closeMobileSidebar();
-                          navigate("/workspace/chats/new" as Route, {
-                            openInNewPane: !isMobile && event.altKey,
-                          });
-                        }}
-                        onContextMenu={(event) => {
-                          if (isMobile) {
-                            return;
-                          }
-                          event.preventDefault();
-                          navigate("/workspace/chats/new" as Route, {
-                            openInNewPane: true,
-                          });
-                        }}
-                      />
-                      <SectionButton
-                        dragHref={"/workspace/flashcards" as Route}
-                        icon={Sparkles}
-                        label="Open Mindset"
-                        onClick={(event) => {
-                          closeMobileSidebar();
-                          if (!isMobile) {
+                  const nextView = item.value as
+                    | "chat"
+                    | "flashcards"
+                    | "files"
+                    | "tasks";
+                  if (isMobile) {
+                    setMobileSidebarView(nextView);
+                  } else {
+                    setDesktopSidebarView(nextView);
+                  }
+                }}
+                onValueChange={(nextValue) => {
+                  if (!nextValue) {
+                    return;
+                  }
+                  const nextView = nextValue as
+                    | "chat"
+                    | "flashcards"
+                    | "files"
+                    | "tasks";
+                  if (isMobile) {
+                    setMobileSidebarView(nextView);
+                  } else {
+                    setDesktopSidebarView(nextView);
+                  }
+                }}
+                persistenceKey="dashboard-workspace-tabs"
+                value={activeTabValue}
+              />
+            </SidebarGroup>
+            <div className="relative min-h-0 flex-1 overflow-hidden">
+              {sidebarView === "workspace" ? (
+                <div className="absolute inset-0 overflow-y-auto px-2 py-2">
+                  <SidebarGroup>
+                    <SidebarGroupLabel>Workspace Home</SidebarGroupLabel>
+                    <SidebarGroupContent>
+                      <SidebarMenu>
+                        <SectionButton
+                          dragHref={"/workspace/chats/new" as Route}
+                          icon={MessageSquare}
+                          label="Open Method"
+                          onClick={(event) => {
+                            closeMobileSidebar();
+                            navigate("/workspace/chats/new" as Route, {
+                              openInNewPane: !isMobile && event.altKey,
+                            });
+                          }}
+                          onContextMenu={(event) => {
+                            if (isMobile) {
+                              return;
+                            }
+                            event.preventDefault();
+                            navigate("/workspace/chats/new" as Route, {
+                              openInNewPane: true,
+                            });
+                          }}
+                        />
+                        <SectionButton
+                          dragHref={"/workspace/flashcards" as Route}
+                          icon={Sparkles}
+                          label="Open Mindset"
+                          onClick={(event) => {
+                            closeMobileSidebar();
+                            if (!isMobile) {
+                              setDesktopSidebarView("flashcards");
+                              navigate("/workspace/flashcards" as Route, {
+                                openInNewPane: event.altKey,
+                              });
+                              return;
+                            }
+                            navigate("/workspace/flashcards" as Route, {
+                              openInNewPane: false,
+                            });
+                          }}
+                          onContextMenu={(event) => {
+                            if (isMobile) {
+                              return;
+                            }
+                            event.preventDefault();
                             setDesktopSidebarView("flashcards");
                             navigate("/workspace/flashcards" as Route, {
-                              openInNewPane: event.altKey,
+                              openInNewPane: true,
                             });
-                            return;
-                          }
-                          navigate("/workspace/flashcards" as Route, {
-                            openInNewPane: false,
-                          });
-                        }}
-                        onContextMenu={(event) => {
-                          if (isMobile) {
-                            return;
-                          }
-                          event.preventDefault();
-                          setDesktopSidebarView("flashcards");
-                          navigate("/workspace/flashcards" as Route, {
-                            openInNewPane: true,
-                          });
-                        }}
-                      />
-                      <SectionButton
-                        dragHref={primaryFilesRoute}
-                        icon={Files}
-                        label="Open Manage"
-                        onClick={(event) => {
-                          closeMobileSidebar();
-                          if (!isMobile) {
-                            setDesktopSidebarView("files");
+                          }}
+                        />
+                        <SectionButton
+                          dragHref={primaryFilesRoute}
+                          icon={Files}
+                          label="Open Manage"
+                          onClick={(event) => {
+                            closeMobileSidebar();
+                            if (!isMobile) {
+                              setDesktopSidebarView("files");
+                              void navigateToFilesRoot({
+                                openInNewPane: event.altKey,
+                              });
+                              return;
+                            }
                             void navigateToFilesRoot({
-                              openInNewPane: event.altKey,
+                              openInNewPane: false,
                             });
-                            return;
-                          }
-                          void navigateToFilesRoot({
-                            openInNewPane: false,
-                          });
-                        }}
-                        onContextMenu={(event) => {
-                          if (isMobile) {
-                            return;
-                          }
-                          event.preventDefault();
-                          setDesktopSidebarView("files");
-                          void navigateToFilesRoot({ openInNewPane: true });
-                        }}
-                      />
-                      <SectionButton
-                        dragHref={"/workspace/tasks" as Route}
-                        icon={ListChecks}
-                        label="Open Tasks"
-                        onClick={(event) => {
-                          closeMobileSidebar();
-                          navigate("/workspace/tasks" as Route, {
-                            openInNewPane: !isMobile && event.altKey,
-                          });
-                        }}
-                        onContextMenu={(event) => {
-                          if (isMobile) {
-                            return;
-                          }
-                          event.preventDefault();
-                          navigate("/workspace/tasks" as Route, {
-                            openInNewPane: true,
-                          });
-                        }}
-                      />
-                    </SidebarMenu>
-                  </SidebarGroupContent>
-                </SidebarGroup>
-              </div>
-            ) : sidebarView === "tasks" ? (
-              <DeferredSidebarTaskPreview
-                activeWorkspaceId={activeWorkspace?.workspaceId}
-                closeMobileSidebar={closeMobileSidebar}
-                navigate={navigate}
-              />
-            ) : sidebarView ? (
-              <>
-                <div
-                  aria-hidden={sidebarView !== "chat"}
-                  className={
-                    mountedViews.has("chat")
-                      ? `absolute inset-0 overflow-y-auto ${
-                          sidebarView === "chat"
-                            ? ""
-                            : "pointer-events-none hidden"
-                        }`
-                      : "hidden"
-                  }
-                >
-                  <SidebarGroup>
-                    <SidebarGroupContent>
-                      <SectionHeader
-                        actions={
-                          <>
-                            <SectionIconAction
-                              icon={MagnifyingGlass}
-                              label="Search methods"
-                              onClick={() => {
-                                commandPaletteActions.open();
-                              }}
-                            />
-                            <SectionIconAction
-                              icon={PlusCircle}
-                              label="New method"
-                              onClick={() => {
-                                void triggerHaptic("selection");
-                                setEditingChatSlug(null);
-                                setEditingTitle("");
-                                void createChat();
-                              }}
-                            />
-                          </>
-                        }
-                        title="Methods"
-                      />
-                      <Input
-                        className="mt-2 h-8 hidden"
-                        onChange={(event) =>
-                          setChatSearchQuery(event.target.value)
-                        }
-                        placeholder="Search methods..."
-                        value={chatSearchQuery}
-                      />
+                          }}
+                          onContextMenu={(event) => {
+                            if (isMobile) {
+                              return;
+                            }
+                            event.preventDefault();
+                            setDesktopSidebarView("files");
+                            void navigateToFilesRoot({ openInNewPane: true });
+                          }}
+                        />
+                        <SectionButton
+                          dragHref={"/workspace/tasks" as Route}
+                          icon={ListChecks}
+                          label="Open Tasks"
+                          onClick={(event) => {
+                            closeMobileSidebar();
+                            navigate("/workspace/tasks" as Route, {
+                              openInNewPane: !isMobile && event.altKey,
+                            });
+                          }}
+                          onContextMenu={(event) => {
+                            if (isMobile) {
+                              return;
+                            }
+                            event.preventDefault();
+                            navigate("/workspace/tasks" as Route, {
+                              openInNewPane: true,
+                            });
+                          }}
+                        />
+                      </SidebarMenu>
                     </SidebarGroupContent>
                   </SidebarGroup>
-
-                  <ChatListSection
-                    activeChatSlug={activeChatSlug}
-                    editingChatSlug={editingChatSlug}
-                    editingTitle={editingTitle}
-                    onCancelRename={() => {
-                      setEditingChatSlug(null);
-                      setEditingTitle("");
-                    }}
-                    onDelete={(chatSlug) => {
-                      setEditingChatSlug(null);
-                      setEditingTitle("");
-                      void deleteChat(chatSlug);
-                    }}
-                    onEditingTitleChange={setEditingTitle}
-                    onFinishRename={(chatSlug) => {
-                      void updateChat(chatSlug, { title: editingTitle });
-                      setEditingChatSlug(null);
-                      setEditingTitle("");
-                    }}
-                    onSelect={(chatSlug) => {
-                      setEditingChatSlug(null);
-                      setEditingTitle("");
-                      navigate(`/workspace/chats/${chatSlug}` as Route);
-                    }}
-                    onSelectInNewPane={(chatSlug) => {
-                      setEditingChatSlug(null);
-                      setEditingTitle("");
-                      navigate(`/workspace/chats/${chatSlug}` as Route, {
-                        openInNewPane: true,
-                      });
-                    }}
-                    onStartRename={(chat) => {
-                      setEditingChatSlug(chat.slug);
-                      setEditingTitle(chat.title);
-                    }}
-                    onTogglePin={(chatSlug, pinned) => {
-                      void updateChat(chatSlug, { pinned });
-                    }}
-                    otherChats={filteredOtherChats}
-                    pendingChatSlug={pendingChatSlug}
-                    pinnedChats={filteredPinnedChats}
-                  />
                 </div>
-                <div
-                  aria-hidden={sidebarView !== "files"}
-                  className={
-                    mountedViews.has("files")
-                      ? `absolute inset-0 ${
-                          sidebarView === "files"
-                            ? ""
-                            : "pointer-events-none hidden"
-                        }`
-                      : "hidden"
-                  }
-                >
-                  {sidebarView === "files" ? (
-                    <DeferredFilesSidebarPanel
-                      currentFileId={currentFileId}
-                      currentFolderId={currentFolderId}
-                      key={`${workspaceUuid ?? "no-workspace"}:${currentFolderId ?? "root"}:${currentFileId ?? "no-file"}`}
-                      navigateToFilesRoot={navigateToFilesRoot}
+              ) : sidebarView === "tasks" ? (
+                <DeferredSidebarTaskPreview
+                  activeWorkspaceId={activeWorkspace?.workspaceId}
+                  closeMobileSidebar={closeMobileSidebar}
+                  navigate={navigate}
+                />
+              ) : sidebarView ? (
+                <>
+                  <div
+                    aria-hidden={sidebarView !== "chat"}
+                    className={
+                      mountedViews.has("chat")
+                        ? `absolute inset-0 overflow-y-auto ${
+                            sidebarView === "chat"
+                              ? ""
+                              : "pointer-events-none hidden"
+                          }`
+                        : "hidden"
+                    }
+                  >
+                    <SidebarGroup>
+                      <SidebarGroupContent>
+                        <SectionHeader
+                          actions={
+                            <>
+                              <SectionIconAction
+                                icon={MagnifyingGlass}
+                                label="Search methods"
+                                onClick={() => {
+                                  commandPaletteActions.open();
+                                }}
+                              />
+                              <SectionIconAction
+                                icon={PlusCircle}
+                                label="New method"
+                                onClick={() => {
+                                  void triggerHaptic("selection");
+                                  setEditingChatSlug(null);
+                                  setEditingTitle("");
+                                  void createChat();
+                                }}
+                              />
+                            </>
+                          }
+                          title="Methods"
+                        />
+                        <Input
+                          className="mt-2 h-8 hidden"
+                          onChange={(event) =>
+                            setChatSearchQuery(event.target.value)
+                          }
+                          placeholder="Search methods..."
+                          value={chatSearchQuery}
+                        />
+                      </SidebarGroupContent>
+                    </SidebarGroup>
+
+                    <ChatListSection
+                      activeChatSlug={activeChatSlug}
+                      editingChatSlug={editingChatSlug}
+                      editingTitle={editingTitle}
+                      onCancelRename={() => {
+                        setEditingChatSlug(null);
+                        setEditingTitle("");
+                      }}
+                      onDelete={(chatSlug) => {
+                        setEditingChatSlug(null);
+                        setEditingTitle("");
+                        void deleteChat(chatSlug);
+                      }}
+                      onEditingTitleChange={setEditingTitle}
+                      onFinishRename={(chatSlug) => {
+                        void updateChat(chatSlug, { title: editingTitle });
+                        setEditingChatSlug(null);
+                        setEditingTitle("");
+                      }}
+                      onSelect={(chatSlug) => {
+                        setEditingChatSlug(null);
+                        setEditingTitle("");
+                        navigate(`/workspace/chats/${chatSlug}` as Route);
+                      }}
+                      onSelectInNewPane={(chatSlug) => {
+                        setEditingChatSlug(null);
+                        setEditingTitle("");
+                        navigate(`/workspace/chats/${chatSlug}` as Route, {
+                          openInNewPane: true,
+                        });
+                      }}
+                      onStartRename={(chat) => {
+                        setEditingChatSlug(chat.slug);
+                        setEditingTitle(chat.title);
+                      }}
+                      onTogglePin={(chatSlug, pinned) => {
+                        void updateChat(chatSlug, { pinned });
+                      }}
+                      otherChats={filteredOtherChats}
+                      pendingChatSlug={pendingChatSlug}
+                      pinnedChats={filteredPinnedChats}
+                    />
+                  </div>
+                  <div
+                    aria-hidden={sidebarView !== "files"}
+                    className={
+                      mountedViews.has("files")
+                        ? `absolute inset-0 ${
+                            sidebarView === "files"
+                              ? ""
+                              : "pointer-events-none hidden"
+                          }`
+                        : "hidden"
+                    }
+                  >
+                    {sidebarView === "files" ? (
+                      <DeferredFilesSidebarPanel
+                        currentFileId={currentFileId}
+                        currentFolderId={currentFolderId}
+                        key={`${workspaceUuid ?? "no-workspace"}:${currentFolderId ?? "root"}:${currentFileId ?? "no-file"}`}
+                        navigateToFilesRoot={navigateToFilesRoot}
+                        workspaceUuid={workspaceUuid}
+                      />
+                    ) : null}
+                  </div>
+                  <div
+                    aria-hidden={sidebarView !== "flashcards"}
+                    className={
+                      mountedViews.has("flashcards")
+                        ? `absolute inset-0 ${
+                            sidebarView === "flashcards"
+                              ? ""
+                              : "pointer-events-none hidden"
+                          }`
+                        : "hidden"
+                    }
+                  >
+                    <FlashcardsSidebarPanel
+                      active={sidebarView === "flashcards"}
+                      activeSetId={currentFlashcardSetId}
                       workspaceUuid={workspaceUuid}
                     />
-                  ) : null}
-                </div>
-                <div
-                  aria-hidden={sidebarView !== "flashcards"}
-                  className={
-                    mountedViews.has("flashcards")
-                      ? `absolute inset-0 ${
-                          sidebarView === "flashcards"
-                            ? ""
-                            : "pointer-events-none hidden"
-                        }`
-                      : "hidden"
-                  }
-                >
-                  <FlashcardsSidebarPanel
-                    active={sidebarView === "flashcards"}
-                    activeSetId={currentFlashcardSetId}
-                    workspaceUuid={workspaceUuid}
+                  </div>
+                </>
+              ) : (
+                <div className="absolute inset-0 flex items-start p-4">
+                  <SidebarEmptyState
+                    description="Pick a workspace surface above to load its actions, shortcuts, and context."
+                    icon={Sparkles}
+                    title="Choose a surface"
                   />
                 </div>
-              </>
-            ) : (
-              <div className="absolute inset-0 flex items-start p-4">
-                <SidebarEmptyState
-                  description="Pick a workspace surface above to load its actions, shortcuts, and context."
-                  icon={Sparkles}
-                  title="Choose a surface"
-                />
-              </div>
-            )}
-          </div>
-        </TooltipProvider>
-      </SidebarContent>
+              )}
+            </div>
+          </TooltipProvider>
+        </SidebarContent>
       <SidebarFooter>
         <div className="mb-2 flex items-center justify-between gap-2 px-2">
           <div className="flex items-center gap-1">
@@ -2349,6 +2455,7 @@ export function DashboardSidebar({
           <div className="h-14" />
         )}
       </SidebarFooter>
-    </Sidebar>
+      </Sidebar>
+    </>
   );
 }

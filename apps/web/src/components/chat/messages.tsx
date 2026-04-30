@@ -15,6 +15,8 @@ import {
   useDeferredValue,
   memo,
   useMemo,
+  useLayoutEffect,
+  useRef,
   type CSSProperties,
   type RefObject,
 } from "react";
@@ -97,6 +99,30 @@ function splitTurnMessages(messages: UseChatHelpers<UIMessage>["messages"]) {
   };
 }
 
+const EDGE_MASK_SCROLL_DISTANCE_PX = 44;
+
+function updateChatEdgeMask(
+  host: HTMLElement,
+  container: HTMLElement
+) {
+  const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
+  if (maxScrollTop === 0) {
+    host.style.setProperty("--chat-edge-mask-top", "0");
+    host.style.setProperty("--chat-edge-mask-bottom", "0");
+    return;
+  }
+
+  const scrollTop = container.scrollTop;
+  const topOpacity = Math.min(1, scrollTop / EDGE_MASK_SCROLL_DISTANCE_PX);
+  const bottomOpacity = Math.min(
+    1,
+    (maxScrollTop - scrollTop) / EDGE_MASK_SCROLL_DISTANCE_PX
+  );
+
+  host.style.setProperty("--chat-edge-mask-top", topOpacity.toFixed(3));
+  host.style.setProperty("--chat-edge-mask-bottom", bottomOpacity.toFixed(3));
+}
+
 function MessagesError({ error }: { error: NonNullable<MessagesProps["error"]> }) {
   return (
     <Card className="mx-auto mb-4 w-full max-w-3xl border-destructive/20 bg-destructive/8 text-destructive shadow-sm">
@@ -154,9 +180,67 @@ function PureMessages({
 
   const virtualItems = virtualizer.getVirtualItems();
   const pastTurnsHeight = virtualizer.getTotalSize();
+  const maskFrameRef = useRef(0);
+
+  useLayoutEffect(() => {
+    const container = messagesContainerRef.current;
+    const host = container?.parentElement;
+    const content = messagesContentRef.current;
+    if (!container || !host) {
+      return;
+    }
+
+    const updateMask = () => {
+      maskFrameRef.current = 0;
+      updateChatEdgeMask(host, container);
+    };
+
+    const scheduleMaskUpdate = () => {
+      if (maskFrameRef.current) {
+        return;
+      }
+
+      maskFrameRef.current = window.requestAnimationFrame(updateMask);
+    };
+
+    updateMask();
+
+    const resizeObserver = new ResizeObserver(scheduleMaskUpdate);
+    resizeObserver.observe(container);
+    if (content) {
+      resizeObserver.observe(content);
+    }
+
+    container.addEventListener("scroll", scheduleMaskUpdate, {
+      passive: true,
+    });
+    window.addEventListener("resize", scheduleMaskUpdate, { passive: true });
+
+    return () => {
+      resizeObserver.disconnect();
+      container.removeEventListener("scroll", scheduleMaskUpdate);
+      window.removeEventListener("resize", scheduleMaskUpdate);
+      host.style.setProperty("--chat-edge-mask-top", "0");
+      host.style.setProperty("--chat-edge-mask-bottom", "0");
+      if (maskFrameRef.current) {
+        window.cancelAnimationFrame(maskFrameRef.current);
+        maskFrameRef.current = 0;
+      }
+    };
+  }, [messagesContainerRef, messagesContentRef, status, renderMessages.length]);
 
   return (
     <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 z-10 h-14 bg-gradient-to-b from-background via-background/95 to-transparent transition-opacity duration-150"
+        style={{ opacity: "var(--chat-edge-mask-top, 0)" }}
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-14 bg-gradient-to-t from-background via-background/95 to-transparent transition-opacity duration-150"
+        style={{ opacity: "var(--chat-edge-mask-bottom, 0)" }}
+      />
       <div
         className="no-scrollbar relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-y-contain px-0 pt-16 pb-6"
         ref={messagesContainerRef}
