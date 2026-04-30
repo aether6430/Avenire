@@ -8,6 +8,7 @@ import {
   BreadcrumbPage,
 } from "@avenire/ui/components/breadcrumb";
 import { Button } from "@avenire/ui/components/button";
+import { Spinner } from "@avenire/ui/components/spinner";
 import {
   Dialog,
   DialogContent,
@@ -23,7 +24,6 @@ import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Chat } from "@/components/chat/chat";
 import { ChatIcon } from "@/components/chat/chat-icon";
-import { ChatSpinnerGlyph } from "@/components/chat/spinner";
 import {
   HeaderActions,
   HeaderBreadcrumbs,
@@ -150,6 +150,9 @@ export function ChatWorkspace({
       if (chatSlug !== "new" && detail.fromId !== chatSlug) {
         return;
       }
+      if (chatSlug === "new") {
+        return;
+      }
       const pendingMessages =
         useChatMessageHandoffStore.getState().messagesByChatId[detail.id] ??
         null;
@@ -181,7 +184,7 @@ export function ChatWorkspace({
     <MessageSquareText className="hidden size-3.5 text-muted-foreground sm:inline-flex" />
   );
   if (isPending) {
-    headerIcon = <ChatSpinnerGlyph className="size-3.5" />;
+    headerIcon = <Spinner className="size-3.5 text-foreground/80" />;
   } else if (isChatIconName(icon)) {
     headerIcon = (
       <ChatIcon

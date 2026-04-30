@@ -4,8 +4,11 @@ import { useChat, type UseChatHelpers } from "@ai-sdk/react";
 import type { AgentActivityData, UIMessage } from "@avenire/ai/message-types";
 import { Button } from "@avenire/ui/components/button";
 import {
-  DefaultChatTransport, type FileUIPart, lastAssistantMessageIsCompleteWithApprovalResponses, } from "ai";
-import { CaretDown as ChevronDown } from "@phosphor-icons/react"
+  DefaultChatTransport,
+  type FileUIPart,
+  lastAssistantMessageIsCompleteWithApprovalResponses,
+} from "ai";
+import { CaretDown as ChevronDown } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import {
@@ -17,10 +20,7 @@ import {
 } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
-import {
-  type Attachment,
-  createLocalAttachment,
-} from "./attachment";
+import { type Attachment, createLocalAttachment } from "./attachment";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
 import { Overview } from "./overview";
@@ -52,6 +52,10 @@ type SendMessageInput = Parameters<UseChatHelpers<UIMessage>["sendMessage"]>[0];
 type SendMessageOptions =
   Parameters<UseChatHelpers<UIMessage>["sendMessage"]>[1];
 const ACTIVE_REPLY_MIN_HEIGHT = "calc(100dvh - 250px)";
+const EMPTY_COMPOSER_SHELL_CLASSNAME =
+  "mx-auto mb-3 w-full max-w-3xl";
+const FLOATING_COMPOSER_SHELL_CLASSNAME =
+  "mx-auto mb-3 w-full max-w-3xl";
 
 function createOptimisticUserMessage(
   message: SendMessageInput
@@ -124,6 +128,7 @@ export function Chat({
     messages,
     setMessages,
     sendMessage: append,
+    stop,
     status,
     resumeStream,
     error,
@@ -190,6 +195,8 @@ export function Chat({
       } as UIMessage,
     ];
   }, [messages, status]);
+  const shouldFollowStreamingTail =
+    status === "streaming" || status === "submitted";
   const {
     bottomSpacerHeight,
     containerRef: messagesContainerRef,
@@ -198,7 +205,7 @@ export function Chat({
     isAutoScrollEnabled,
     reenableAutoScroll,
   } = useChatScroll({
-    isStreaming: status === "streaming",
+    isStreaming: shouldFollowStreamingTail,
     latestUserMessageId:
       [...messages].reverse().find((message) => message.role === "user")?.id ??
       null,
@@ -360,7 +367,7 @@ export function Chat({
     }
 
     followIfNeeded(status === "submitted" ? "smooth" : "auto");
-  }, [displayedMessages, followIfNeeded, status]);
+  }, [displayedMessages.length, followIfNeeded, status]);
 
   const regenerateFromMessage = useCallback(
     async (assistantMessageId: string) => {
@@ -509,11 +516,20 @@ export function Chat({
     !pendingChatRouteRef.current &&
     status !== "submitted" &&
     status !== "streaming";
+  const isTransitioningFromNewChat =
+    chatId === "new" &&
+    (status === "submitted" ||
+      status === "streaming" ||
+      pendingChatRouteRef.current !== null);
+  const shouldUseCenteredComposerLayout =
+    isEmptyState || isTransitioningFromNewChat;
   const inputCard = (centered = false) => (
     <div
-      className={`flex w-full flex-col gap-1.5 rounded-2xl bg-transparent p-1.5 sm:min-h-28 sm:gap-2 sm:rounded-2xl sm:p-3 sm:pb-1 sm:backdrop-blur-sm ${
-        centered ? "sm:rounded-b-2xl" : "sm:rounded-b-none"
-      }`}
+      className={
+        centered
+          ? EMPTY_COMPOSER_SHELL_CLASSNAME
+          : FLOATING_COMPOSER_SHELL_CLASSNAME
+      }
     >
       <MultimodalInput
         attachments={attachments}
@@ -522,6 +538,7 @@ export function Chat({
         input={input}
         setAttachments={setAttachments}
         setInput={setInput}
+        stop={stop}
         status={status}
         workspaceUuid={workspaceUuid}
       />
@@ -529,16 +546,18 @@ export function Chat({
   );
 
   return (
-    <div {...getRootProps()} className="relative flex h-full min-h-0 flex-col">
-      <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col bg-background transition-all duration-300">
-        {!isEmptyState && (
+    <div
+      {...getRootProps()}
+      className="relative flex h-full min-h-0 flex-col bg-[#fdfdfd] px-4 dark:bg-[#141414]"
+    >
+      <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col">
+        {!isEmptyState && !isTransitioningFromNewChat && (
           <Messages
             activeReplyMessageId={activeReplyMessageId}
             agentActivity={agentActivity}
             bottomSpacerHeight={bottomSpacerHeight}
             chatId={chatId}
             error={error}
-            isEmpty={isEmptyState}
             isReadonly={isReadonly}
             messages={displayedMessages}
             messagesContainerRef={messagesContainerRef}
@@ -547,33 +566,34 @@ export function Chat({
             replyMinHeight={ACTIVE_REPLY_MIN_HEIGHT}
             sendMessage={sendMessage}
             status={status}
-            userName={userName}
             workspaceUuid={workspaceUuid}
           />
         )}
 
         {!isReadonly && (
           <AnimatePresence initial={false} mode="popLayout">
-            {isEmptyState ? (
+            {shouldUseCenteredComposerLayout ? (
               <motion.div
                 animate={{ opacity: 1, y: 0 }}
-                className="absolute inset-0 z-30 flex items-center justify-center px-3 pb-16 sm:px-2 sm:pb-20"
+                className="absolute inset-0 z-30 flex items-center justify-center"
                 exit={{ opacity: 0, y: 16 }}
                 initial={{ opacity: 0, y: 24 }}
                 key="composer-center"
                 transition={{ duration: 0.24, ease: "easeOut" }}
               >
                 <div className="flex w-full max-w-3xl flex-col items-center justify-center">
-                  <div className="mb-6">
-                    <Overview userName={userName} />
-                  </div>
+                  {isEmptyState ? (
+                    <div>
+                      <Overview userName={userName} />
+                    </div>
+                  ) : null}
                   {inputCard(true)}
                 </div>
               </motion.div>
             ) : (
               <motion.form
                 animate={{ opacity: 1, y: 0 }}
-                className="relative z-30 mx-auto w-full max-w-3xl px-1.5 pb-2 sm:px-2"
+                className="relative z-30 w-full"
                 exit={{ opacity: 0, y: 12 }}
                 initial={{ opacity: 0, y: 20 }}
                 key="composer-bottom"
@@ -581,7 +601,7 @@ export function Chat({
               >
                 <motion.div
                   animate={isAutoScrollEnabled ? "hidden" : "visible"}
-                  className="pointer-events-none absolute right-3 bottom-[calc(100%+0.5rem)] z-20 flex justify-end sm:right-4 sm:bottom-[calc(100%+0.75rem)]"
+                  className="pointer-events-none absolute right-0 bottom-[calc(100%+0.75rem)] z-20 flex justify-end"
                   initial="hidden"
                   transition={{ duration: 0.3, ease: "easeInOut" }}
                   variants={{
@@ -590,7 +610,7 @@ export function Chat({
                   }}
                 >
                   <Button
-                    className="pointer-events-auto h-9 min-w-9 rounded-full border-border/80 bg-card/90 px-2.5 backdrop-blur-xs sm:h-10 sm:min-w-10 sm:px-3"
+                    className="pointer-events-auto h-9 min-w-9 rounded-full border border-[#e5e5e5] bg-[#f8f8f8] px-2.5 dark:border-[#2a2a2a] dark:bg-[#212121] sm:h-10 sm:min-w-10 sm:px-3"
                     onClick={() => reenableAutoScroll("smooth")}
                     size="sm"
                     type="button"
@@ -610,14 +630,14 @@ export function Chat({
         {isDragActive && (
           <motion.div
             animate={{ opacity: 1 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-background/50 backdrop-blur-sm"
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-background/50"
             exit={{ opacity: 0 }}
             initial={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
           >
             <motion.div
               animate={{ scale: 1 }}
-              className="rounded-lg border-2 border-primary border-dashed bg-background/80 p-8 text-center"
+              className="rounded-2xl border-2 border-dashed border-primary bg-background p-8 text-center"
               exit={{ scale: 0.95 }}
               initial={{ scale: 0.95 }}
               transition={{ duration: 0.2 }}

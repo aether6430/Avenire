@@ -484,7 +484,7 @@ const PurePreviewMessage = ({
     <AnimatePresence>
       <motion.div
         animate={{ y: 0, opacity: 1 }}
-        className={cn("group/message mx-auto w-full max-w-3xl px-4", {
+        className={cn("group/message mx-auto w-full max-w-3xl px-3 sm:px-4", {
           "justify-self-end": message.role === "user",
         })}
         data-message-id={message.id}
@@ -494,7 +494,7 @@ const PurePreviewMessage = ({
         transition={{ duration: 0.2, ease: "easeOut" }}
       >
         <div
-          className="flex w-full flex-col gap-2.5 group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-[80%]"
+          className="flex w-full flex-col gap-3 group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-[82%]"
           style={
             message.role === "assistant" && isActiveReply && replyMinHeight
               ? { minHeight: replyMinHeight }
@@ -502,10 +502,8 @@ const PurePreviewMessage = ({
           }
         >
           {message.role === "assistant" && (
-            <div className="flex flex-row items-center gap-2">
-              <div className="flex flex-col gap-4 text-muted-foreground text-[11px] uppercase tracking-[0.15em]">
-                Apollo
-              </div>
+            <div className="flex flex-row items-center gap-2 text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
+              <span>Apollo</span>
             </div>
           )}
 
@@ -575,7 +573,9 @@ const PurePreviewMessage = ({
                       className={cn(
                         "flex w-full flex-col gap-4",
                         message.role === "user" &&
-                          "group relative rounded-lg bg-secondary px-4 py-3 text-secondary-foreground"
+                          "group relative rounded-[22px] rounded-br-[10px] border border-border/60 bg-secondary px-4 py-3 text-secondary-foreground",
+                        message.role === "assistant" &&
+                          "px-0 py-0"
                       )}
                       data-testid="message-content"
                     >

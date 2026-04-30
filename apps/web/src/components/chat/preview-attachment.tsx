@@ -945,9 +945,10 @@ export function PreviewAttachment({
         <motion.div
           animate={{ opacity: 1, scale: 1 }}
           className="group relative"
+          layout
           exit={{ opacity: 0, scale: 0.92 }}
           initial={{ opacity: 0, scale: 0.92 }}
-          transition={{ duration: 0.18 }}
+          transition={{ duration: 0.18, ease: "easeOut" }}
         >
           <Tooltip>
             <TooltipTrigger

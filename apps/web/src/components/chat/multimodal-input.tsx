@@ -4,11 +4,19 @@ import type { UseChatHelpers } from "@ai-sdk/react";
 import type { UIMessage } from "@avenire/ai/message-types";
 import { Button } from "@avenire/ui/components/button";
 import {
-  Command, CommandEmpty, CommandItem, CommandList, } from "@avenire/ui/components/command";
+  Command,
+  CommandEmpty,
+  CommandItem,
+  CommandList,
+} from "@avenire/ui/components/command";
 import { Textarea } from "@avenire/ui/components/textarea";
 import { useQuery } from "@tanstack/react-query";
 import {
-  ArrowUpIcon, FileText as FileTextIcon, Paperclip as PaperclipIcon, SpinnerGap as Loader2 } from "@phosphor-icons/react"
+  ArrowUpIcon,
+  FileText as FileTextIcon,
+  Paperclip as PaperclipIcon,
+  Square,
+} from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "motion/react";
 import type React from "react";
 import {
@@ -16,6 +24,7 @@ import {
   memo,
   type SetStateAction,
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -222,6 +231,7 @@ function PureMultimodalInput({
   attachments,
   setAttachments,
   handleSubmit,
+  stop,
   workspaceUuid,
   className,
   centered = false,
@@ -235,6 +245,7 @@ function PureMultimodalInput({
     inputValue: string,
     files: Attachment[]
   ) => void | Promise<void>;
+  stop: () => void;
   workspaceUuid: string;
   className?: string;
   centered?: boolean;
@@ -249,6 +260,10 @@ function PureMultimodalInput({
     start: 0,
     end: 0,
   });
+  const [queuedSubmission, setQueuedSubmission] = useState<{
+    attachmentIds: string[];
+    inputValue: string;
+  } | null>(null);
   const [highlightedMentionIndex, setHighlightedMentionIndex] = useState(0);
   const [dismissedMentionKey, setDismissedMentionKey] = useState<string | null>(
     null
@@ -288,19 +303,25 @@ function PureMultimodalInput({
     () => attachments.filter((attachment) => attachment.status === "completed"),
     [attachments]
   );
+  const submittableAttachments = useMemo(
+    () => attachments.filter((attachment) => attachment.status !== "failed"),
+    [attachments]
+  );
 
   const canSend = useMemo(
     () =>
-      (input.trim().length > 0 || completedAttachments.length > 0) &&
-      uploadQueue.length === 0,
-    [completedAttachments.length, input, uploadQueue.length]
+      queuedSubmission === null &&
+      (input.trim().length > 0 || submittableAttachments.length > 0),
+    [input, queuedSubmission, submittableAttachments.length]
   );
+  const isRunning = status === "submitted" || status === "streaming";
 
   const mentionTrigger = useMemo(
     () =>
       getMentionTrigger(input, textareaSelection.start, textareaSelection.end),
     [input, textareaSelection.end, textareaSelection.start]
   );
+  const deferredMentionQuery = useDeferredValue(mentionTrigger?.query ?? "");
 
   const workspaceFilesQuery = useQuery({
     enabled: Boolean(effectiveWorkspaceUuid),
@@ -324,7 +345,7 @@ function PureMultimodalInput({
       return [];
     }
 
-    const query = mentionTrigger.query.trim().toLowerCase();
+    const query = deferredMentionQuery.trim().toLowerCase();
     const ranked = workspaceFiles
       .flatMap((file) => {
         if (!query) {
@@ -362,7 +383,7 @@ function PureMultimodalInput({
       );
 
     return ranked.slice(0, MAX_MENTION_RESULTS).map((entry) => entry.file);
-  }, [mentionTrigger, workspaceFiles]);
+  }, [deferredMentionQuery, mentionTrigger, workspaceFiles]);
 
   const mentionTriggerKey = mentionTrigger
     ? `${mentionTrigger.rangeStart}:${mentionTrigger.rangeEnd}:${mentionTrigger.query}`
@@ -532,6 +553,77 @@ function PureMultimodalInput({
     processPendingUploads().catch(() => undefined);
   }, [attachments, uploadAttachment]);
 
+  useEffect(() => {
+    if (!queuedSubmission) {
+      return;
+    }
+
+    const submittedIds = new Set(queuedSubmission.attachmentIds);
+    const queuedAttachments = attachments.filter((attachment) =>
+      submittedIds.has(attachment.id)
+    );
+
+    if (queuedAttachments.some((attachment) => attachment.status === "failed")) {
+      setQueuedSubmission(null);
+      setInput(queuedSubmission.inputValue);
+      latestInputRef.current = queuedSubmission.inputValue;
+      setLocalStorageInput(queuedSubmission.inputValue);
+      toast.error(ERROR_MESSAGES.UPLOAD_ERROR);
+      return;
+    }
+
+    if (
+      queuedAttachments.some(
+        (attachment) =>
+          attachment.status === "pending" || attachment.status === "uploading"
+      )
+    ) {
+      return;
+    }
+
+    const readyAttachments = queuedAttachments.filter(
+      (attachment) => attachment.status === "completed"
+    );
+    const inputValue = queuedSubmission.inputValue;
+
+    setQueuedSubmission(null);
+
+    const submitQueued = async () => {
+      try {
+        await handleSubmit(inputValue, readyAttachments);
+      } catch {
+        setInput(inputValue);
+        latestInputRef.current = inputValue;
+        setLocalStorageInput(inputValue);
+        toast.error(ERROR_MESSAGES.UNKNOWN_ERROR);
+        return;
+      }
+
+      setAttachments((previous) =>
+        previous.filter((attachment) => !submittedIds.has(attachment.id))
+      );
+
+      for (const attachment of readyAttachments) {
+        revokeAttachmentUrl(attachment.url);
+      }
+
+      try {
+        window.localStorage.removeItem("chat-input");
+      } catch {
+        // ignore localStorage errors in restricted contexts
+      }
+    };
+
+    submitQueued().catch(() => undefined);
+  }, [
+    attachments,
+    handleSubmit,
+    queuedSubmission,
+    setAttachments,
+    setInput,
+    setLocalStorageInput,
+  ]);
+
   const enqueueFiles = useCallback(
     (incomingFiles: File[]) => {
       if (incomingFiles.length === 0) {
@@ -654,15 +746,18 @@ function PureMultimodalInput({
     }
 
     const hasText = input.trim().length > 0;
-    if (!hasText && completedAttachments.length === 0) {
+    if (!hasText && submittableAttachments.length === 0) {
       return;
     }
 
     const inputValue =
       textareaRef.current?.value ?? latestInputRef.current ?? input;
-    const attachmentsToSubmit = completedAttachments;
+    const attachmentsToSubmit = submittableAttachments;
+    const pendingAttachments = attachmentsToSubmit.filter(
+      (attachment) =>
+        attachment.status === "pending" || attachment.status === "uploading"
+    );
 
-    setAttachments([]);
     latestInputRef.current = "";
     setInput("");
     setLocalStorageInput("");
@@ -670,6 +765,14 @@ function PureMultimodalInput({
 
     if (width && width > 768) {
       textareaRef.current?.focus();
+    }
+
+    if (pendingAttachments.length > 0) {
+      setQueuedSubmission({
+        attachmentIds: attachmentsToSubmit.map((attachment) => attachment.id),
+        inputValue,
+      });
+      return;
     }
 
     try {
@@ -682,6 +785,13 @@ function PureMultimodalInput({
       return;
     }
 
+    setAttachments((previous) =>
+      previous.filter(
+        (attachment) =>
+          !attachmentsToSubmit.some((submitted) => submitted.id === attachment.id)
+      )
+    );
+
     try {
       window.localStorage.removeItem("chat-input");
     } catch {
@@ -692,13 +802,14 @@ function PureMultimodalInput({
       revokeAttachmentUrl(attachment.url);
     }
   }, [
-    completedAttachments,
     handleSubmit,
     input,
+    setAttachments,
     setAttachments,
     setInput,
     setLocalStorageInput,
     status,
+    submittableAttachments,
     width,
   ]);
 
@@ -782,91 +893,109 @@ function PureMultimodalInput({
 
   return (
     <div
-      className={cn(
-        "group relative flex w-full grow flex-col overflow-visible rounded-2xl border border-border/80 bg-secondary/95 transition-colors duration-200 focus-within:ring-1 focus-within:ring-ring/30",
-        centered ? "min-h-12 sm:min-h-32" : "min-h-12 sm:min-h-28"
-      )}
+      className="group/composer w-full"
+      data-empty={!canSend}
+      data-running={isRunning}
     >
-      <input
-        className="pointer-events-none fixed -top-4 -left-4 size-0.5 opacity-0"
-        multiple
-        onChange={handleFileChange}
-        ref={fileInputRef}
-        tabIndex={-1}
-        type="file"
-      />
+      <div
+        className={cn(
+          "relative flex w-full grow flex-col overflow-visible rounded-[28px] bg-[#f8f8f8] ring-1 ring-[#e5e5e5] ring-inset transition-colors duration-150 focus-within:ring-[#d7d7d7] dark:bg-[#212121] dark:ring-[#2f2f2f] dark:focus-within:ring-[#424242]",
+          centered ? "min-h-[56px]" : "min-h-[56px]"
+        )}
+      >
+        <input
+          className="pointer-events-none fixed -top-4 -left-4 size-0.5 opacity-0"
+          multiple
+          onChange={handleFileChange}
+          ref={fileInputRef}
+          tabIndex={-1}
+          type="file"
+        />
 
-      <div className="relative px-1.5 py-1.5 sm:px-4 sm:pt-4 sm:pb-3">
-        <AnimatePresence initial={false}>
-          {attachments.length > 0 ? (
-            <motion.div
-              animate={{ height: "auto", opacity: 1, y: 0 }}
-              className="overflow-hidden px-0.5 pb-2.5"
-              exit={{ height: 0, opacity: 0, y: -8 }}
-              initial={{ height: 0, opacity: 0, y: -8 }}
-              transition={{ duration: 0.18, ease: "easeOut" }}
-            >
-              <div className="flex flex-wrap items-center gap-1 pt-1">
-                {attachments.map((attachment) => (
-                  <PreviewAttachment
-                    attachment={attachment}
-                    key={attachment.id}
-                    onRemove={removeAttachment}
-                    variant="composer"
-                    workspaceUuid={workspaceUuid}
-                  />
-                ))}
-              </div>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
-
-        <div className="relative">
-          {isMentionMenuOpen && (
-            <div className="pointer-events-none absolute inset-x-[3px] bottom-full -z-10 mb-[-10px]">
-              <Command>
-                <div
-                  className="scroll-fade-frame scroll-fade-top scroll-fade-bottom relative"
-                  style={
-                    {
-                      "--scroll-fade-color": "var(--popover)",
-                    } as React.CSSProperties
-                  }
+        <div className="relative px-3 py-2">
+          <AnimatePresence initial={false}>
+            {attachments.length > 0 ? (
+              <motion.div
+                animate={{ height: "auto", opacity: 1, y: 0 }}
+                className="overflow-hidden px-0.5 pb-2.5"
+                exit={{ height: 0, opacity: 0, y: -8 }}
+                initial={{ height: 0, opacity: 0, y: -8 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+              >
+                <motion.div
+                  className="flex flex-wrap items-center gap-1 pt-1"
+                  layout
+                  transition={{ duration: 0.2, ease: "easeOut" }}
                 >
-                  <div className="pointer-events-auto relative overflow-hidden rounded-xl bg-secondary shadow-xl">
-                    <CommandList className="max-h-64">
-                      {mentionSuggestions.map((file, index) => (
-                        <CommandItem
-                          aria-label={`Attach ${file.workspacePath}`}
-                          className={cn(
-                            "cursor-pointer select-none gap-2",
-                            index === highlightedMentionIndex &&
-                              "bg-accent text-accent-foreground"
-                          )}
-                          key={file.id}
-                          onMouseDown={(event) => {
-                            event.preventDefault();
-                          }}
-                          onSelect={() => {
-                            selectMention(file);
-                          }}
-                          ref={(node) => {
-                            mentionItemRefs.current[index] = node;
-                          }}
-                          value={file.workspacePath}
-                        >
-                          <FileTextIcon className="size-4 text-muted-foreground/80" />
-                          <span className="flex min-w-0 items-center gap-1.5 truncate">
-                            <span className="truncate">{file.name}</span>
-                          </span>
-                          <span className="truncate text-muted-foreground/70 text-xs">
-                            {file.parentPath || "Workspace root"}
-                          </span>
-                        </CommandItem>
-                      ))}
-                    </CommandList>
+                  <AnimatePresence initial={false}>
+                    {attachments.map((attachment) => (
+                      <PreviewAttachment
+                        attachment={attachment}
+                        key={attachment.id}
+                        onRemove={removeAttachment}
+                        variant="composer"
+                        workspaceUuid={workspaceUuid}
+                      />
+                    ))}
+                  </AnimatePresence>
+                </motion.div>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+
+          <div className="relative">
+            <AnimatePresence initial={false}>
+              {isMentionMenuOpen && (
+                <motion.div
+                  animate={{ opacity: 1, y: 0 }}
+                  className="pointer-events-none absolute inset-x-1 bottom-full z-20 mb-3"
+                  exit={{ opacity: 0, y: 6 }}
+                  initial={{ opacity: 0, y: 8 }}
+                  transition={{ duration: 0.16, ease: "easeOut" }}
+                >
+                <Command>
+                  <div
+                    className="scroll-fade-frame scroll-fade-top scroll-fade-bottom relative"
+                    style={
+                      {
+                        "--scroll-fade-color": "var(--popover)",
+                      } as React.CSSProperties
+                    }
+                  >
+                    <div className="pointer-events-auto relative overflow-hidden rounded-2xl border border-[#e5e5e5] bg-[#f8f8f8] dark:border-[#2a2a2a] dark:bg-[#212121]">
+                      <CommandList className="max-h-64">
+                        {mentionSuggestions.map((file, index) => (
+                          <CommandItem
+                            aria-label={`Attach ${file.workspacePath}`}
+                            className={cn(
+                              "cursor-pointer select-none gap-2 rounded-none px-4 py-3",
+                              index === highlightedMentionIndex &&
+                                "bg-accent text-accent-foreground"
+                            )}
+                            key={file.id}
+                            onMouseDown={(event) => {
+                              event.preventDefault();
+                            }}
+                            onSelect={() => {
+                              selectMention(file);
+                            }}
+                            ref={(node) => {
+                              mentionItemRefs.current[index] = node;
+                            }}
+                            value={file.workspacePath}
+                          >
+                            <FileTextIcon className="size-4 text-muted-foreground/80" />
+                            <span className="flex min-w-0 items-center gap-1.5 truncate">
+                              <span className="truncate">{file.name}</span>
+                            </span>
+                            <span className="truncate text-muted-foreground/70 text-xs">
+                              {file.parentPath || "Workspace root"}
+                            </span>
+                          </CommandItem>
+                        ))}
+                      </CommandList>
+                    </div>
                   </div>
-                </div>
 
                 {mentionSuggestions.length === 0 && (
                   <CommandEmpty className="px-3 py-2 text-muted-foreground/70 text-xs">
@@ -874,92 +1003,81 @@ function PureMultimodalInput({
                   </CommandEmpty>
                 )}
               </Command>
-            </div>
-          )}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-          <div className="relative z-10 flex flex-row items-end rounded-xl bg-secondary sm:block sm:rounded-xl">
-            <div className="flex min-h-10 flex-1 min-w-0 items-center sm:min-h-16 sm:items-start">
-              <Textarea
-                autoFocus
-                className={cn(
-                  "relative z-10 min-h-10 flex-1 min-w-0 resize-none overflow-hidden border-none! bg-transparent! px-1 pl-2 py-2 text-[16px] leading-6 shadow-none! ring-0! focus-visible:border-transparent! focus-visible:ring-0! sm:min-h-16 sm:overflow-visible sm:px-0 sm:pl-0 sm:py-2 sm:text-[17px] sm:leading-7 [&::-webkit-scrollbar-thumb]:bg-background",
-                  className
-                )}
-                data-testid="multimodal-input"
-                enterKeyHint={isMobile ? "enter" : "send"}
-                onChange={(event) => {
-                  const nextValue = event.target.value;
-                  setDismissedMentionKey(null);
-                  latestInputRef.current = nextValue;
-                  setInput(nextValue);
-                  setLocalStorageInput(nextValue);
-                  updateTextareaSelection(
-                    event.target.selectionStart ?? 0,
-                    event.target.selectionEnd ?? 0
-                  );
-                }}
-                onClick={() => {
-                  updateTextareaSelection();
-                }}
-                onKeyDown={handleTextareaKeyDown}
-                onKeyUp={() => {
-                  updateTextareaSelection();
-                }}
-                onPaste={(event) => {
-                  const pastedFiles: File[] = [];
-                  for (const item of Array.from(event.clipboardData.items)) {
-                    if (
-                      item.kind !== "file" ||
-                      !item.type.startsWith("image/")
-                    ) {
-                      continue;
-                    }
-                    const file = item.getAsFile();
-                    if (file) {
-                      pastedFiles.push(file);
-                    }
-                  }
-
-                  if (pastedFiles.length > 0) {
-                    enqueueFiles(pastedFiles);
-                    toast.success(
-                      `Added ${pastedFiles.length} pasted image${pastedFiles.length > 1 ? "s" : ""}.`
-                    );
-                  }
-                }}
-                onSelect={() => {
-                  updateTextareaSelection();
-                }}
-                placeholder={
-                  isMobile
-                    ? "Ask anything..."
-                    : "Ask anything or type @ to attach a workspace file"
-                }
-                ref={textareaRef}
-                rows={1}
-                value={input}
+            <div className="relative z-10 flex items-center gap-2.5">
+              <AttachmentsButton
+                onClick={() => fileInputRef.current?.click()}
+                status={status}
               />
-            </div>
 
-            <div className="flex shrink-0 flex-nowrap items-center justify-between gap-1.5 sm:px-1.5 sm:pt-3">
-              <div className="hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex">
-                <AttachmentsButton
-                  onClick={() => fileInputRef.current?.click()}
-                  status={status}
+              <div className="flex min-w-0 flex-1 items-center">
+                <Textarea
+                  autoFocus
+                  className={cn(
+                    "max-h-40 min-h-0 w-full flex-1 resize-none overflow-hidden border-none! bg-transparent! px-0 py-0.5 text-[15px] leading-6 text-[#0d0d0d] outline-none shadow-none! ring-0! placeholder:text-muted-foreground/65 focus-visible:border-transparent! focus-visible:ring-0! dark:text-white sm:text-[15px] sm:leading-6 [&::-webkit-scrollbar-thumb]:bg-background",
+                    className
+                  )}
+                  data-testid="multimodal-input"
+                  enterKeyHint={isMobile ? "enter" : "send"}
+                  onChange={(event) => {
+                    const nextValue = event.target.value;
+                    setDismissedMentionKey(null);
+                    latestInputRef.current = nextValue;
+                    setInput(nextValue);
+                    setLocalStorageInput(nextValue);
+                    updateTextareaSelection(
+                      event.target.selectionStart ?? 0,
+                      event.target.selectionEnd ?? 0
+                    );
+                  }}
+                  onClick={() => {
+                    updateTextareaSelection();
+                  }}
+                  onKeyDown={handleTextareaKeyDown}
+                  onKeyUp={() => {
+                    updateTextareaSelection();
+                  }}
+                  onPaste={(event) => {
+                    const pastedFiles: File[] = [];
+                    for (const item of Array.from(event.clipboardData.items)) {
+                      if (
+                        item.kind !== "file" ||
+                        !item.type.startsWith("image/")
+                      ) {
+                        continue;
+                      }
+                      const file = item.getAsFile();
+                      if (file) {
+                        pastedFiles.push(file);
+                      }
+                    }
+
+                    if (pastedFiles.length > 0) {
+                      enqueueFiles(pastedFiles);
+                      toast.success(
+                        `Added ${pastedFiles.length} pasted image${pastedFiles.length > 1 ? "s" : ""}.`
+                      );
+                    }
+                  }}
+                  onSelect={() => {
+                    updateTextareaSelection();
+                  }}
+                  placeholder="What do you want to know?"
+                  ref={textareaRef}
+                  rows={1}
+                  value={input}
                 />
               </div>
 
-              <div className="flex shrink-0 items-center gap-1 pb-1 pr-1 sm:gap-2 sm:pb-0 sm:pr-0">
-                <div className="-mr-1 sm:hidden">
-                  <AttachmentsButton
-                    onClick={() => fileInputRef.current?.click()}
-                    status={status}
-                  />
-                </div>
-                <SendButton
+              <div className="flex shrink-0 items-center">
+                <ComposerActionButton
                   canSend={canSend}
-                  status={status}
-                  submitForm={runSubmitForm}
+                  isRunning={isRunning}
+                  onSend={runSubmitForm}
+                  onStop={stop}
                 />
               </div>
             </div>
@@ -988,73 +1106,81 @@ function PureAttachmentsButton({
 }) {
   return (
     <Button
-      className="shrink-0 whitespace-nowrap px-2 text-muted-foreground/70 hover:text-foreground/80 sm:px-3"
+      className="h-8 w-8 shrink-0 rounded-full px-0 text-muted-foreground/72 hover:text-foreground/88"
       data-testid="attachments-button"
       disabled={status === "submitted" || status === "streaming"}
       onClick={(event) => {
         event.preventDefault();
         onClick();
       }}
-      size="sm"
+      size="icon"
       type="button"
       variant="ghost"
     >
-      <PaperclipIcon className="h-5 w-5" />
+      <PaperclipIcon className="h-4 w-4" />
     </Button>
   );
 }
 
 const AttachmentsButton = memo(PureAttachmentsButton);
 
-function PureSendButton({
-  submitForm,
+function PureComposerActionButton({
   canSend,
-  status,
+  isRunning,
+  onSend,
+  onStop,
 }: {
-  submitForm: () => void;
   canSend: boolean;
-  status: UseChatHelpers<UIMessage>["status"];
+  isRunning: boolean;
+  onSend: () => void;
+  onStop: () => void;
 }) {
-  if (status === "submitted" || status === "streaming") {
-    return (
+  return (
+    <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full bg-primary text-primary-foreground">
       <Button
-        aria-label="Generating response"
-        className="h-9 w-9 rounded-full bg-muted text-muted-foreground sm:h-8 sm:w-8"
-        data-testid="loading-button"
-        disabled
+        aria-label={isRunning ? "Stop generating" : "Send message"}
+        className={cn(
+          "absolute inset-0 h-9 w-9 rounded-full bg-transparent text-white transition duration-200 ease-out hover:bg-transparent hover:text-white dark:text-[#0d0d0d] dark:hover:bg-transparent dark:hover:text-[#0d0d0d]",
+          !isRunning && !canSend && "opacity-55",
+          isRunning && "opacity-0 scale-0"
+        )}
+        data-testid="send-button"
+        disabled={!canSend || isRunning}
+        onClick={(event) => {
+          event.preventDefault();
+          if (canSend && !isRunning) {
+            onSend();
+          }
+        }}
         size="icon"
         type="button"
         variant="ghost"
       >
-        <Loader2 className="h-4 w-4 animate-spin" />
+        <ArrowUpIcon className="h-4 w-4" />
       </Button>
-    );
-  }
 
-  return (
-    <Button
-      aria-label="Send message"
-      className="h-9 w-9 rounded-full sm:h-8 sm:w-8"
-      data-testid="send-button"
-      disabled={!canSend}
-      onClick={(event) => {
-        event.preventDefault();
-        if (canSend) {
-          submitForm();
-        }
-      }}
-      size="icon"
-      type="button"
-      variant="default"
-    >
-      <ArrowUpIcon className="h-4 w-4" />
-    </Button>
+      <Button
+        aria-label="Stop generating"
+        className="absolute inset-0 h-9 w-9 rounded-full bg-transparent text-white opacity-0 scale-0 transition duration-200 ease-out group-data-[running=true]/composer:scale-100 group-data-[running=true]/composer:opacity-100 hover:bg-transparent hover:text-white dark:text-[#0d0d0d] dark:hover:bg-transparent dark:hover:text-[#0d0d0d]"
+        data-testid="stop-button"
+        disabled={!isRunning}
+        onClick={(event) => {
+          event.preventDefault();
+          onStop();
+        }}
+        size="icon"
+        type="button"
+        variant="ghost"
+      >
+        <Square className="h-3.5 w-3.5 fill-current" weight="fill" />
+      </Button>
+    </div>
   );
 }
 
-const SendButton = memo(
-  PureSendButton,
+const ComposerActionButton = memo(
+  PureComposerActionButton,
   (prevProps, nextProps) =>
     prevProps.canSend === nextProps.canSend &&
-    prevProps.status === nextProps.status
+    prevProps.isRunning === nextProps.isRunning
 );

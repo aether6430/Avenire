@@ -84,6 +84,22 @@ function normalizeWorkspaceFileLinks(content: string) {
   });
 }
 
+function normalizeMathDelimiters(content: string) {
+  return content
+    .replace(/\[\/math\]([\s\S]*?)\[\/math\]/g, (_match, mathContent) => {
+      return `$$${String(mathContent).trim()}$$`;
+    })
+    .replace(/\[\/inline\]([\s\S]*?)\[\/inline\]/g, (_match, mathContent) => {
+      return `$${String(mathContent).trim()}$`;
+    })
+    .replace(/\\{1,2}\(([\s\S]*?)\\{1,2}\)/g, (_match, mathContent) => {
+      return `$${String(mathContent).trim()}$`;
+    })
+    .replace(/\\{1,2}\[([\s\S]*?)\\{1,2}\]/g, (_match, mathContent) => {
+      return `$$${String(mathContent).trim()}$$`;
+    });
+}
+
 function WorkspaceFileLink({
   children,
   className,
@@ -350,10 +366,12 @@ const MemoizedMarkdown = memo(
   }: Omit<MarkdownProps, "id">) => {
     const normalized = useMemo(() => {
       const contentWithWorkspaceLinks = normalizeWorkspaceFileLinks(content);
+      const contentWithNormalizedMath =
+        normalizeMathDelimiters(contentWithWorkspaceLinks);
       return parseIncompleteMarkdown &&
-        !contentWithWorkspaceLinks.includes("workspace-file://")
-        ? remend(contentWithWorkspaceLinks)
-        : contentWithWorkspaceLinks;
+        !contentWithNormalizedMath.includes("workspace-file://")
+        ? remend(contentWithNormalizedMath)
+        : contentWithNormalizedMath;
     }, [content, parseIncompleteMarkdown]);
 
     const sizeClasses =

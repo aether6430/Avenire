@@ -540,7 +540,7 @@ function ChatListItem({
           >
             {chat.branching ? <GitBranch className="size-4" /> : null}
             {isPending ? (
-              <ChatSpinnerGlyph className="size-4" />
+              <Spinner className="size-4 text-foreground/80" />
             ) : iconName ? (
               <ChatIcon className="text-muted-foreground" name={iconName} />
             ) : null}

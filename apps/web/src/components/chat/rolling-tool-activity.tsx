@@ -1472,6 +1472,10 @@ export function RollingAgentActivity({
       return true;
     }
 
+    if (!group.items.some((item) => item.action.pending)) {
+      return true;
+    }
+
     const isLastGroup = groupIndex === groups.length - 1;
     return !(isLastGroup && isStreaming);
   };
@@ -1520,6 +1524,10 @@ export function RollingToolActivity({
   const isGroupDone = (groupIndex: number) => {
     const group = groups[groupIndex];
     if (!group || group.type !== "explore") {
+      return true;
+    }
+
+    if (!group.items.some((item) => item.action.pending)) {
       return true;
     }
 

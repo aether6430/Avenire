@@ -19,7 +19,7 @@ function createShimmerStyle(spread: number): CSSProperties {
   return {
     "--spread": `${spread}px`,
     backgroundImage:
-      "linear-gradient(90deg, transparent calc(50% - var(--spread)), hsl(var(--background)) 50%, transparent calc(50% + var(--spread)))",
+      "linear-gradient(90deg, transparent calc(50% - var(--spread)), hsl(var(--primary)) 50%, transparent calc(50% + var(--spread)))",
     backgroundPosition: "100% center",
     backgroundRepeat: "no-repeat",
     backgroundSize: "250% 100%",
@@ -48,13 +48,13 @@ const ShimmerComponent = ({
 
   return (
     <span className={cn("relative inline-block align-baseline", className)}>
-      <span aria-hidden="true" className="text-foreground/60">
+      <span aria-hidden="true" className="text-foreground/48">
         {children}
       </span>
       <MotionComponent
         aria-hidden="true"
         animate={{ backgroundPosition: "0% center" }}
-        className="absolute inset-0 text-transparent"
+        className="pointer-events-none absolute inset-0 text-transparent drop-shadow-[0_0_10px_hsl(var(--primary)/0.28)]"
         initial={{ backgroundPosition: "100% center" }}
         style={createShimmerStyle(dynamicSpread)}
         transition={{

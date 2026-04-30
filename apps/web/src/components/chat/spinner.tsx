@@ -73,18 +73,18 @@ export function ChatSpinnerGlyph({ className }: { className?: string }) {
   return (
     <div
       aria-hidden
-      className={cn("grid grid-cols-3 gap-[2px] text-foreground/72", className)}
+      className={cn("grid grid-cols-3 gap-[2px] text-foreground/88", className)}
     >
       {spinnerCells.map((cell) => (
         <motion.span
           animate={{
             backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
-            opacity: [0.22, 1, 0.22],
+            opacity: [0.4, 1, 0.4],
             scale: [0.92, 1, 0.92],
           }}
           className={cn(
             "size-[3px] rounded-[1px]",
-            "bg-[linear-gradient(90deg,hsl(var(--foreground)/0.18)_0%,hsl(var(--foreground)/0.92)_50%,hsl(var(--foreground)/0.18)_100%)]",
+            "bg-[linear-gradient(90deg,hsl(var(--foreground)/0.34)_0%,hsl(var(--foreground))_50%,hsl(var(--foreground)/0.34)_100%)]",
             "bg-[length:220%_100%]"
           )}
           key={cell}

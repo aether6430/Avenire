@@ -350,6 +350,80 @@ function toMarkdownFileName(title: string) {
   return base.endsWith(".md") ? base : `${base}.md`;
 }
 
+function stripNoteExtension(value: string) {
+  return value.replace(/\.(md|mdx|txt)$/i, "");
+}
+
+function normalizeNoteFileName(value: string) {
+  const trimmed = value.trim().replace(/^\/+|\/+$/g, "");
+  if (!trimmed) {
+    return "untitled-note.md";
+  }
+
+  if (/\.(md|mdx|txt)$/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return `${trimmed}.md`;
+}
+
+function extractQuotedValues(task: string) {
+  return Array.from(task.matchAll(/["']([^"']+)["']/g))
+    .map((match) => match[1]?.trim() ?? "")
+    .filter(Boolean);
+}
+
+function parseRequestedNoteDestination(task: string) {
+  const quotedValues = extractQuotedValues(task);
+  const explicitPathCandidate =
+    quotedValues.find((value) => value.includes("/") && /\.\w+$/.test(value)) ??
+    task.match(
+      /(?:in|under|inside|at|to)\s+["']?([^"'\n]+?\.(?:md|mdx|txt))["']?/i
+    )?.[1]?.trim() ??
+    null;
+
+  if (explicitPathCandidate) {
+    const cleaned = explicitPathCandidate.replace(/^\/+|\/+$/g, "");
+    const parts = cleaned.split("/").filter(Boolean);
+    const fileName = parts.pop() ?? cleaned;
+
+    return {
+      fileName: normalizeNoteFileName(fileName),
+      folderHint: parts.join("/"),
+      title: stripNoteExtension(fileName),
+    };
+  }
+
+  const fileNameCandidate =
+    task.match(
+      /(?:named|called|filename|file name)\s+["']?([^"'\n]+?(?:\.(?:md|mdx|txt))?)["']?(?=$|\s)/i
+    )?.[1]?.trim() ??
+    quotedValues.find((value) => /\.\w+$/.test(value) || /\s/.test(value)) ??
+    null;
+
+  const folderHint =
+    quotedValues.find((value) => value.includes("/") && !/\.\w+$/.test(value)) ??
+    task.match(
+      /(?:in|under|inside|at|to)\s+["']?([^"'\n]+(?:\/[^"'\n]+)*)["']?(?=(?:\s+(?:named|called|filename|file name|title|about|with)\b|$))/i
+    )?.[1]?.trim() ??
+    "";
+
+  const titleMatch = task.match(
+    /(?:title(?:d)?|about)\s+["']?([^"']+)["']?/i
+  );
+  const fileName = fileNameCandidate
+    ? normalizeNoteFileName(fileNameCandidate)
+    : null;
+
+  return {
+    fileName,
+    folderHint,
+    title:
+      titleMatch?.[1]?.trim() ??
+      (fileName ? stripNoteExtension(fileName) : null),
+  };
+}
+
 function isMarkdownFile(file: ExplorerFileLike) {
   const mime = file.mimeType?.toLowerCase() ?? "";
   const name = file.name.toLowerCase();
@@ -1058,6 +1132,84 @@ async function ensureNotesFolder(input: {
   }
 
   return folder;
+}
+
+async function ensureFolderPath(
+  ctx: ChatToolContext,
+  maps: WorkspacePathMaps,
+  hint?: string
+) {
+  if (!hint || normalizeWorkspacePath(hint).length === 0) {
+    return ctx.rootFolderId;
+  }
+
+  const existingFolderId = resolveFolderIdByPathHint(
+    maps,
+    ctx.rootFolderId,
+    hint
+  );
+  if (existingFolderId) {
+    await ensureWritableTargetFolder(ctx, existingFolderId);
+    return existingFolderId;
+  }
+
+  const rawSegments = hint
+    .trim()
+    .replace(/^\/+|\/+$/g, "")
+    .split("/")
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+
+  if (rawSegments.length === 0) {
+    return ctx.rootFolderId;
+  }
+
+  if (
+    rawSegments[0] &&
+    ["root", "workspace"].includes(rawSegments[0].toLowerCase())
+  ) {
+    rawSegments.shift();
+  }
+
+  let currentFolderId = ctx.rootFolderId;
+  let currentPath = "";
+  const folderIdByNormalizedPath = new Map<string, string>();
+
+  for (const [folderId, folderPath] of maps.folderPathById.entries()) {
+    folderIdByNormalizedPath.set(normalizeWorkspacePath(folderPath), folderId);
+  }
+
+  for (const segment of rawSegments) {
+    const nextPath = [currentPath, segment].filter(Boolean).join("/");
+    const normalizedNextPath = normalizeWorkspacePath(nextPath);
+    const existingId = folderIdByNormalizedPath.get(normalizedNextPath);
+
+    if (existingId) {
+      currentFolderId = existingId;
+      currentPath = nextPath;
+      continue;
+    }
+
+    await ensureWritableTargetFolder(ctx, currentFolderId);
+
+    const created = await createFolder(
+      ctx.workspaceId,
+      currentFolderId,
+      segment,
+      ctx.userId
+    );
+
+    if (!created) {
+      throw new Error(`Unable to create or resolve folder "${nextPath}".`);
+    }
+
+    currentFolderId = created.id;
+    currentPath = nextPath;
+    folderIdByNormalizedPath.set(normalizedNextPath, created.id);
+  }
+
+  await ensureWritableTargetFolder(ctx, currentFolderId);
+  return currentFolderId;
 }
 
 async function enqueueIngestionForFile(input: {
@@ -2008,32 +2160,30 @@ The agent decides which operations to perform based on the task.`,
         ) {
           operation = "created";
           const tagDirective = extractTagDirective(input.task);
+          const destination = parseRequestedNoteDestination(input.task);
           const titleMatch = input.task.match(
             /(?:create|new|write)\s+(?:a\s+)?(?:note\s+)?(?:about\s+)?["']?([^"']+)["']?/i
           );
-          const title = titleMatch?.[1]?.trim() || "New Note";
-
-          const targetFolderId = (
-            await ensureNotesFolder({
-              rootFolderId: ctx.rootFolderId,
-              userId: ctx.userId,
-              workspaceId: ctx.workspaceId,
-            })
-          ).id;
-
-          const canEdit = await userCanEditFolder({
-            workspaceId: ctx.workspaceId,
-            folderId: targetFolderId,
-            userId: ctx.userId,
-          });
-          if (!canEdit) {
-            throw new Error("The destination folder is read-only.");
-          }
+          const title =
+            destination.title?.trim() ||
+            titleMatch?.[1]?.trim() ||
+            "New Note";
+          const targetFolderId = destination.folderHint
+            ? await ensureFolderPath(ctx, maps, destination.folderHint)
+            : (
+                await ensureNotesFolder({
+                  rootFolderId: ctx.rootFolderId,
+                  userId: ctx.userId,
+                  workspaceId: ctx.workspaceId,
+                })
+              ).id;
 
           const content = buildNoteContent({
             content: input.task,
             title,
           });
+          const fileName =
+            destination.fileName || toMarkdownFileName(destination.title || title);
           const file = await createWorkspaceNoteFile({
             baseContent: content,
             content,
@@ -2055,7 +2205,7 @@ The agent decides which operations to perform based on the task.`,
                   }
                 : {}),
             },
-            name: toMarkdownFileName(title),
+            name: fileName,
             userId: ctx.userId,
             workspaceId: ctx.workspaceId,
           });
