@@ -1,6 +1,10 @@
 import { ingestStoredFile } from "./ingestion/pipeline";
 import { PostgresVectorStore } from "./retrieval/postgres-vector-store";
 import { retrieveRelevantChunks } from "./retrieval/retrieve";
+import {
+  queryWorkspace,
+  warmWorkspace,
+} from "./workspace-retrieval";
 
 export { assertRequiredSecrets } from "./config";
 
@@ -13,6 +17,17 @@ export {
   retrieveRelevantChunks,
 } from "./retrieval/retrieve";
 export type { RetrievalDecisionTelemetry } from "./retrieval/retrieve";
+export {
+  queryWorkspace,
+  warmWorkspace,
+} from "./workspace-retrieval";
+export type {
+  RetrievalMode,
+  RetrievalSourceType,
+  WorkspaceRetrievalQuery,
+  WorkspaceRetrievalResponse,
+  WorkspaceRetrievalWarmupInput,
+} from "./workspace-retrieval";
 
 export async function retrieveWorkspaceChunks(input: {
   workspaceId: string;

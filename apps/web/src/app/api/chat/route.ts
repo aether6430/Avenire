@@ -134,6 +134,18 @@ function formatError(error: unknown) {
   return { message: "Unknown error", value: error };
 }
 
+function isAbortLikeError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return (
+    error.name === "AbortError" ||
+    error.name === "ResponseAborted" ||
+    error.message.toLowerCase().includes("aborted")
+  );
+}
+
 function sanitizeChatName(value: string) {
   return value
     .replace(/^["'`\s]+|["'`\s]+$/g, "")
@@ -431,6 +443,9 @@ async function generateChatMetadata(
 
     return { title: fallback, icon: DEFAULT_CHAT_ICON };
   } catch (error) {
+    if (abortSignal?.aborted || isAbortLikeError(error)) {
+      return null;
+    }
     logError("Failed to generate chat title", { error });
     return {
       title: fallbackChatNameFromText(latestUserText),
@@ -478,6 +493,9 @@ async function generateChatThinkingMessages(
 
     return normalized.length > 0 ? normalized : DEFAULT_THINKING_MESSAGES;
   } catch (error) {
+    if (abortSignal?.aborted || isAbortLikeError(error)) {
+      return null;
+    }
     logWarn("Failed to generate thinking messages; using fallback", {
       error: formatError(error),
     });
@@ -1252,6 +1270,17 @@ export async function POST(request: Request) {
     if (previousStreamId) {
       await clearActiveStreamId(chatSlug, previousStreamId);
     }
+    request.signal.addEventListener(
+      "abort",
+      () => {
+        void clearActiveStreamId(chatSlug, streamId);
+        logInfo("Chat request aborted", { chatId: chatSlug, streamId });
+        if (idempotencyRedisKey && idempotencyLockAcquired) {
+          void clearIdempotencyKey(idempotencyRedisKey);
+        }
+      },
+      { once: true }
+    );
 
     const stream = createUIMessageStream<UIMessage>({
       execute: async ({ writer }) => {
@@ -1279,48 +1308,79 @@ export async function POST(request: Request) {
           });
         }
 
-        const nextMeta = await chatMetadataPromise;
-        if (nextMeta?.title) {
-          logInfo("Streaming generated chat title event", {
-            chatId: chatSlug,
-            nameLength: nextMeta.title.length,
-          });
-          writer.write({
-            type: "data-chatName",
-            transient: true,
-            data: {
-              id: chatSlug,
+        writer.write({
+          type: "data-thinkingMessages",
+          transient: true,
+          data: {
+            id: chatSlug,
+            messages: DEFAULT_THINKING_MESSAGES,
+          },
+        });
+
+        void (async () => {
+          try {
+            const nextThinkingMessages = await thinkingMessagesPromise;
+            if (!nextThinkingMessages?.length) {
+              return;
+            }
+
+            writer.write({
+              type: "data-thinkingMessages",
+              transient: true,
+              data: {
+                id: chatSlug,
+                messages: nextThinkingMessages,
+              },
+            });
+          } catch (error) {
+            logWarn("Failed to stream thinking messages", {
+              chatId: chatSlug,
+              error: formatError(error),
+            });
+          }
+        })();
+
+        void (async () => {
+          try {
+            const nextMeta = await chatMetadataPromise;
+            if (!nextMeta?.title) {
+              return;
+            }
+
+            logInfo("Streaming generated chat title event", {
+              chatId: chatSlug,
+              nameLength: nextMeta.title.length,
+            });
+            writer.write({
+              type: "data-chatName",
+              transient: true,
+              data: {
+                id: chatSlug,
+                name: nextMeta.title,
+                icon: nextMeta.icon,
+              },
+            });
+
+            await updateChatForUser(
+              session.user.id,
+              chatSlug,
+              {
+                title: nextMeta.title,
+                icon: nextMeta.icon,
+              },
+              workspace.workspaceId
+            );
+            logInfo("Persisted generated chat title", {
+              chatId: chatSlug,
               name: nextMeta.title,
-              icon: nextMeta.icon,
-            },
-          });
-
-          await updateChatForUser(
-            session.user.id,
-            chatSlug,
-            {
-              title: nextMeta.title,
-              icon: nextMeta.icon,
-            },
-            workspace.workspaceId
-          );
-          logInfo("Persisted generated chat title", {
-            chatId: chatSlug,
-            name: nextMeta.title,
-          });
-        }
-
-        const nextThinkingMessages = await thinkingMessagesPromise;
-        if (nextThinkingMessages?.length) {
-          writer.write({
-            type: "data-thinkingMessages",
-            transient: true,
-            data: {
-              id: chatSlug,
-              messages: nextThinkingMessages,
-            },
-          });
-        }
+            });
+          } catch (error) {
+            logWarn("Failed to stream generated chat title", {
+              chatId: chatSlug,
+              error: formatError(error),
+            });
+          }
+        })();
 
         const selectedModel = body.selectedModel ?? "apollo-apex";
         logInfo("Starting model stream", {
@@ -1546,10 +1606,16 @@ export async function POST(request: Request) {
                     model: selectedModel,
                   });
                 } catch (usageError) {
-                  logError("Failed to apply token-based chat usage", {
-                    chatId: chatSlug,
-                    error: usageError,
-                  });
+                  if (isAbortLikeError(usageError)) {
+                    logInfo("Skipped token-based chat usage after abort", {
+                      chatId: chatSlug,
+                    });
+                  } else {
+                    logError("Failed to apply token-based chat usage", {
+                      chatId: chatSlug,
+                      error: usageError,
+                    });
+                  }
                 }
               } catch (error) {
                 logError("Failed to persist streamed chat messages", {
@@ -1607,16 +1673,6 @@ export async function POST(request: Request) {
       selectedModel: body.selectedModel ?? "apollo-apex",
       messageCount: originalMessages.length,
     });
-
-    if (idempotencyRedisKey && idempotencyLockAcquired) {
-      request.signal.addEventListener(
-        "abort",
-        () => {
-          void clearIdempotencyKey(idempotencyRedisKey as string);
-        },
-        { once: true }
-      );
-    }
 
     return new Response(clientBody, {
       status: baseResponse.status,

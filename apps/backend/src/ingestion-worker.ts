@@ -11,7 +11,11 @@ import {
   replaceFileTranscriptCues,
   retryIngestionJob,
 } from "@avenire/database";
-import { assertRequiredSecrets, ingestStoredFile } from "@avenire/ingestion";
+import {
+  assertRequiredSecrets,
+  ingestStoredFile,
+  warmWorkspace,
+} from "@avenire/ingestion";
 import {
   createIngestionQueueWorker,
   enqueueIngestionQueueJob,
@@ -20,7 +24,6 @@ import {
 import { serve } from "@hono/node-server";
 import { config as loadEnv } from "dotenv";
 import { Hono } from "hono";
-import { triggerRetrievalWarmup } from "./retrieval-warmup";
 import { publishWorkspaceStreamEvent } from "./workspace-event-stream";
 
 // Prefer backend-local env; keep repo root as fallback.
@@ -210,7 +213,7 @@ async function processQueuedJob(queueJob: IngestionQueueJobData) {
       await markNoteReindexed(file.id);
     }
 
-    void triggerRetrievalWarmup({
+    void warmWorkspace({
       chunkCount,
       fileId: job.fileId,
       jobId: job.id,

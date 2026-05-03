@@ -120,6 +120,7 @@ export async function PATCH(
   await publishFilesInvalidationEvent({
     workspaceUuid: workspaceId,
     folderId: file.folderId || undefined,
+    fileId: noteId,
     reason: "file.updated",
   });
 

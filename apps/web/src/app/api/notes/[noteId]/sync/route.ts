@@ -1,5 +1,6 @@
 import { merge } from "node-diff3";
 import { NextResponse } from "next/server";
+import { after } from "next/server";
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
 import {
   deleteIngestionDataForFile,
@@ -10,6 +11,7 @@ import {
   upsertMarkdownFileContent,
   userCanEditFile,
 } from "@/lib/file-data";
+import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
 import { deleteUploadThingFile } from "@/lib/upload-registration";
 import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
 
@@ -60,38 +62,36 @@ export async function GET(
   }
 
   const markdown = await response.text();
-  const canEdit = await userCanEditFile({
-    workspaceId,
-    fileId: noteId,
-    userId: user.id,
-  });
-
-  if (!canEdit) {
-    return NextResponse.json({
-      markdown,
-      updatedAt: file.updatedAt,
-      version: 0,
+  after(async () => {
+    const canEdit = await userCanEditFile({
+      workspaceId,
+      fileId: noteId,
+      userId: user.id,
     });
-  }
 
-  const migrated = await upsertMarkdownFileContent({
-    content: markdown,
-    fileId: noteId,
-    userId: user.id,
-    workspaceId,
+    if (!canEdit) {
+      return;
+    }
+
+    const migrated = await upsertMarkdownFileContent({
+      content: markdown,
+      fileId: noteId,
+      userId: user.id,
+      workspaceId,
+    });
+
+    if (
+      migrated?.previousStorageKey &&
+      migrated.previousStorageKey !== migrated.file.storageKey
+    ) {
+      void deleteUploadThingFile(migrated.previousStorageKey);
+    }
   });
-
-  if (
-    migrated?.previousStorageKey &&
-    migrated.previousStorageKey !== migrated.file.storageKey
-  ) {
-    void deleteUploadThingFile(migrated.previousStorageKey);
-  }
 
   return NextResponse.json({
     markdown,
-    updatedAt: migrated?.updatedAt?.toISOString() ?? file.updatedAt,
-    version: migrated?.version ?? 0,
+    updatedAt: file.updatedAt,
+    version: 0,
   });
 }
 
@@ -165,6 +165,13 @@ export async function POST(
       delayMs: NOTE_REINDEX_DEBOUNCE_MS,
     });
   }
+
+  await publishFilesInvalidationEvent({
+    workspaceUuid: workspaceId,
+    folderId: file.folderId ?? undefined,
+    fileId: noteId,
+    reason: "file.updated",
+  });
 
   return NextResponse.json({
     hasConflict: mergedResult.conflict,

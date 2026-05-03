@@ -64,4 +64,3 @@ export function dispatchNoteWidgetInsertion(payload: NoteWidgetPayload) {
     })
   );
 }
-

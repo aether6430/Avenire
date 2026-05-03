@@ -18,6 +18,7 @@ export type FilesInvalidationReason =
 interface FilesInvalidationPayload {
   workspaceUuid: string;
   folderId?: string;
+  fileId?: string;
   reason: FilesInvalidationReason;
   at?: number;
 }
@@ -105,6 +106,7 @@ export async function publishFilesInvalidationEvent(payload: FilesInvalidationPa
       JSON.stringify({
         at: payload.at ?? Date.now(),
         folderId: payload.folderId,
+        fileId: payload.fileId,
         reason: payload.reason,
         workspaceUuid: payload.workspaceUuid,
       }),
@@ -116,6 +118,7 @@ export async function publishFilesInvalidationEvent(payload: FilesInvalidationPa
       payload: {
         at: payload.at ?? Date.now(),
         folderId: payload.folderId ?? null,
+        fileId: payload.fileId ?? null,
         reason: payload.reason,
         workspaceUuid: payload.workspaceUuid,
       },
