@@ -12,6 +12,7 @@
     "modules",
     "core-design-system",
     "when-nothing-fits",
+    "first-class-primitives",
     "ui-components",
     "color-palette"
   ],
@@ -20,6 +21,7 @@
     "modules",
     "core-design-system",
     "when-nothing-fits",
+    "first-class-primitives",
     "ui-components",
     "color-palette"
   ],
@@ -28,6 +30,7 @@
     "modules",
     "core-design-system",
     "when-nothing-fits",
+    "first-class-primitives",
     "ui-components",
     "color-palette",
     "charts-chart-js"

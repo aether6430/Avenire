@@ -4,10 +4,11 @@ These rules apply to ALL use cases.
 
 ### Philosophy
 - **Seamless**: Users shouldn't notice where claude.ai ends and your widget begins.
-- **Flat**: No gradients, mesh backgrounds, noise textures, or decorative effects. Clean flat surfaces.
-- **Compact**: Show the essential inline. Explain the rest in text.
-- **Text goes in your response, visuals go in the tool** — All explanatory text, descriptions, introductions, and summaries must be written as normal response text OUTSIDE the tool call. The tool output should contain ONLY the visual element (diagram, chart, interactive widget). Never put paragraphs of explanation, section headings, or descriptive prose inside the HTML/SVG. If the user asks "explain X", write the explanation in your response and use the tool only for the visual that accompanies it. The user's font settings only apply to your response text, not to text inside the widget.
-- **Use the system as-is**: do not invent your own styling language. Reuse the provided classes, bare controls, tokens, and structural patterns directly. Treat them as a contract, not inspiration.
+- **Primitive-first**: For canvas-style artifacts, use `widget_spec` first-class primitives. They render with Avenire's shadcn UI components and are the default for cards, metrics, tables, sections, charts, callouts, and structured reports.
+- **Raw-code escape hatch**: Use raw `widget_code` HTML/SVG only when the widget needs custom drawing, custom interaction, canvas animation, imperative JS, mermaid, or third-party libraries.
+- **Compact but complete**: Inline widgets should stay compact. Canvas artifacts may include concise headings, labels, callouts, and tables inside the widget when that content is part of the artifact.
+- **No duplicated prose**: Full explanations belong in the chat response. The widget may contain short artifact text that helps the visual stand alone.
+- **Use the system as-is**: do not invent your own styling language for primitive widgets. Reuse the provided primitive nodes and theme tokens. Treat them as a contract, not inspiration.
 
 ### Streaming
 Output streams token-by-token. Structure code so useful content appears early.
@@ -22,9 +23,9 @@ Output streams token-by-token. Structure code so useful content appears early.
 - No font-size below 11px
 - No emoji — use CSS shapes or SVG paths
 - No gradients, drop shadows, blur, glow, or neon effects
-- **No hand-authored colors.** Do not pick colors. Do not write hex, rgb(), hsl(), oklch(), named colors, or ad hoc opacity ramps for UI/diagram styling. Apply the provided classes and tokens only.
+- **No hand-authored UI colors.** Do not pick colors for primitive widgets. Use `tone` and built-in chart defaults. Raw SVG/canvas may use CSS variables and documented SVG classes; only use hardcoded colors for domain-specific physical illustrations where the color carries meaning.
 - **Classes first.** If a provided classname solves the problem, use the classname. Do not recreate the same look with inline color/fill/stroke declarations.
-- **Do not restyle core components from scratch.** Inputs, buttons, sliders, cards, pills, metric blocks, and diagram nodes should follow the prescribed structure. If the examples show a pattern, copy the pattern instead of improvising a new one.
+- **Do not restyle core components from scratch.** Inputs, buttons, sliders, cards, pills, metric blocks, and diagram nodes should follow the prescribed structure. If a primitive exists, use it instead of recreating it in HTML.
 - **Layout styles are allowed; appearance styles are not.** Use inline CSS for positioning, spacing, sizing, and grid/flex layout. Do not use inline CSS to invent new visual design for components.
 - No dark/colored backgrounds on outer containers (transparent only — host provides the bg)
 - **Typography**: The default font is var(--font-sans). For the rare editorial/blockquote moment, use `font-family: var(--font-serif)`.
@@ -37,7 +38,7 @@ Output streams token-by-token. Structure code so useful content appears early.
 - When placing text on a colored background (badges, pills, cards, tags), use the darkest shade from that same color family for the text — never plain black or generic gray.
 - **Corners**: use `border-radius: var(--border-radius-md)` (or `-lg` for cards) in HTML. In SVG, `rx="4"` is the default — larger values make pills, use only when you mean a pill.
 - **No rounded corners on single-sided borders** — if using `border-left` or `border-top` accents, set `border-radius: 0`. Rounded corners only work with full borders on all sides.
-- **No titles or prose inside the tool output** — see Philosophy above.
+- **Titles and concise artifact text are allowed in `widget_spec`**. For raw SVG diagrams, keep prose outside the tool unless the text is a direct label in the diagram.
 - **Icon sizing**: When using emoji or inline SVG icons, explicitly set `font-size: 16px` for emoji or `width: 16px; height: 16px` for SVG icons. Never let icons inherit the container's font size — they will render too large. For larger decorative icons, use 24px max.
 - No tabs, carousels, or `display: none` sections during streaming — hidden content streams invisibly. Show all content stacked vertically. (Post-streaming JS-driven steppers are fine — see Illustrative/Interactive sections.)
 - No nested scrolling — auto-fit height.

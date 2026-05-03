@@ -90,6 +90,190 @@ const misconceptionScopeSchema = z.object({
   topic: z.string().min(1).optional(),
 });
 
+const widgetToneSchema = z
+  .enum(["default", "muted", "info", "success", "warning", "danger"])
+  .optional();
+
+const widgetTextWeightSchema = z.enum(["regular", "medium"]).optional();
+
+const widgetChartSeriesSchema = z.object({
+  color: z.string().optional(),
+  dataKey: z.string().min(1),
+  label: z.string().optional(),
+  type: z.enum(["bar", "line", "area"]).optional(),
+});
+
+export const widgetSpecNodeSchema: z.ZodType<WidgetSpecNode> = z.lazy(() =>
+  z.discriminatedUnion("type", [
+    z.object({
+      type: z.literal("stack"),
+      children: z.array(widgetSpecNodeSchema).min(1),
+      gap: z.enum(["xs", "sm", "md", "lg", "xl"]).optional(),
+    }),
+    z.object({
+      type: z.literal("grid"),
+      children: z.array(widgetSpecNodeSchema).min(1),
+      columns: z.number().int().min(1).max(4).optional(),
+      gap: z.enum(["xs", "sm", "md", "lg"]).optional(),
+    }),
+    z.object({
+      type: z.literal("section"),
+      children: z.array(widgetSpecNodeSchema).min(1),
+      description: z.string().optional(),
+      title: z.string().optional(),
+    }),
+    z.object({
+      type: z.literal("card"),
+      children: z.array(widgetSpecNodeSchema).optional(),
+      description: z.string().optional(),
+      title: z.string().optional(),
+      tone: widgetToneSchema,
+    }),
+    z.object({
+      type: z.literal("stat"),
+      label: z.string().min(1),
+      value: z.string().min(1),
+      delta: z.string().optional(),
+      tone: widgetToneSchema,
+    }),
+    z.object({
+      type: z.literal("heading"),
+      text: z.string().min(1),
+      level: z.enum(["1", "2", "3"]).optional(),
+    }),
+    z.object({
+      type: z.literal("text"),
+      text: z.string().min(1),
+      tone: widgetToneSchema,
+      weight: widgetTextWeightSchema,
+    }),
+    z.object({
+      type: z.literal("badge"),
+      text: z.string().min(1),
+      tone: widgetToneSchema,
+    }),
+    z.object({
+      type: z.literal("callout"),
+      children: z.array(widgetSpecNodeSchema).optional(),
+      text: z.string().optional(),
+      title: z.string().optional(),
+      tone: widgetToneSchema,
+    }),
+    z.object({
+      type: z.literal("table"),
+      headers: z.array(z.string()).min(1).max(8),
+      rows: z.array(z.array(z.string()).min(1)).min(1).max(40),
+      caption: z.string().optional(),
+    }),
+    z.object({
+      type: z.literal("chart"),
+      chartType: z.enum(["bar", "line", "area"]).optional(),
+      data: z
+        .array(z.record(z.string(), z.union([z.string(), z.number()])))
+        .min(1)
+        .max(80),
+      indexKey: z.string().min(1),
+      series: z.array(widgetChartSeriesSchema).min(1).max(5),
+      title: z.string().optional(),
+    }),
+    z.object({
+      type: z.literal("progress"),
+      label: z.string().optional(),
+      value: z.number().min(0).max(100),
+    }),
+    z.object({
+      type: z.literal("divider"),
+    }),
+    z.object({
+      type: z.literal("code"),
+      code: z.string().min(1),
+      language: z.string().optional(),
+    }),
+    z.object({
+      type: z.literal("html"),
+      html: z.string().min(1),
+    }),
+  ])
+);
+
+export const widgetSpecSchema = z.object({
+  root: widgetSpecNodeSchema,
+  title: z.string().min(1),
+  description: z.string().optional(),
+});
+
+export type WidgetSpecNode =
+  | {
+      children: WidgetSpecNode[];
+      gap?: "xs" | "sm" | "md" | "lg" | "xl";
+      type: "stack";
+    }
+  | {
+      children: WidgetSpecNode[];
+      columns?: number;
+      gap?: "xs" | "sm" | "md" | "lg";
+      type: "grid";
+    }
+  | {
+      children: WidgetSpecNode[];
+      description?: string;
+      title?: string;
+      type: "section";
+    }
+  | {
+      children?: WidgetSpecNode[];
+      description?: string;
+      title?: string;
+      tone?: "default" | "muted" | "info" | "success" | "warning" | "danger";
+      type: "card";
+    }
+  | {
+      delta?: string;
+      label: string;
+      tone?: "default" | "muted" | "info" | "success" | "warning" | "danger";
+      type: "stat";
+      value: string;
+    }
+  | { level?: "1" | "2" | "3"; text: string; type: "heading" }
+  | {
+      text: string;
+      tone?: "default" | "muted" | "info" | "success" | "warning" | "danger";
+      type: "text";
+      weight?: "regular" | "medium";
+    }
+  | {
+      text: string;
+      tone?: "default" | "muted" | "info" | "success" | "warning" | "danger";
+      type: "badge";
+    }
+  | {
+      children?: WidgetSpecNode[];
+      text?: string;
+      title?: string;
+      tone?: "default" | "muted" | "info" | "success" | "warning" | "danger";
+      type: "callout";
+    }
+  | { caption?: string; headers: string[]; rows: string[][]; type: "table" }
+  | {
+      chartType?: "bar" | "line" | "area";
+      data: Record<string, string | number>[];
+      indexKey: string;
+      series: Array<{
+        color?: string;
+        dataKey: string;
+        label?: string;
+        type?: "bar" | "line" | "area";
+      }>;
+      title?: string;
+      type: "chart";
+    }
+  | { label?: string; type: "progress"; value: number }
+  | { type: "divider" }
+  | { code: string; language?: string; type: "code" }
+  | { html: string; type: "html" };
+
+export type WidgetSpec = z.infer<typeof widgetSpecSchema>;
+
 export const chatToolSchemas = {
   web_search: {
     input: z.object({
@@ -330,11 +514,16 @@ export const chatToolSchemas = {
       .object({
         i_have_seen_read_me: z.boolean(),
         title: z.string(),
-        widget_code: z.string(),
+        widget_code: z.string().optional(),
+        widget_spec: widgetSpecSchema.optional(),
         width: z.number().optional(),
         height: z.number().optional(),
         filename: z.string().optional(),
       })
+      .refine(
+        (value) => Boolean(value.widget_code) || Boolean(value.widget_spec),
+        "Provide either widget_code or widget_spec."
+      )
       .passthrough(),
     output: z.object({
       success: z.boolean(),
@@ -347,6 +536,7 @@ export const chatToolSchemas = {
         })
         .optional(),
       widget_code: z.string().optional(),
+      widget_spec: widgetSpecSchema.optional(),
       filePath: z.string().nullable().optional(),
     }),
   },

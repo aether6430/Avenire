@@ -1,4 +1,9 @@
 ## Charts (Chart.js)
+
+Prefer `widget_spec` `chart` for bar, line, and area charts, especially when paired with stats, tables, sections, or callouts. It uses the app's shadcn/Recharts chart system and should be the default for dashboards and analytical canvases.
+
+Use raw Chart.js in `widget_code` only when you need a chart type not covered by primitives, custom plugin behavior, imperative interaction, multiple synchronized canvases, or highly custom annotations.
+
 ```html
 <div style="position: relative; width: 100%; height: 300px;">
   <canvas id="myChart"></canvas>

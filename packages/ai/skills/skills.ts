@@ -25,9 +25,9 @@ export const SKILL_MAP = {
 ## Modules
 Call \`visualize_read_me\` again with the relevant visual modules when you need more specific guidance:
 - \`diagram\` — SVG flowcharts, structural diagrams, illustrative diagrams
-- \`mockup\` — UI mockups, forms, cards, dashboards
-- \`interactive\` — interactive explainers with controls
-- \`chart\` — charts and data analysis (includes Chart.js)
+- \`mockup\` — UI mockups, forms, cards, dashboards. Prefer \`widget_spec\` primitives unless pixel-specific HTML is required.
+- \`interactive\` — interactive explainers with controls. Prefer \`widget_spec\` for static/structured explainers; use raw HTML for controls and custom JS.
+- \`chart\` — charts and data analysis. Prefer \`widget_spec\` charts for bar/line/area dashboards; use Chart.js only for unsupported chart behavior.
 - \`art\` — illustration and generative art
 - \`physics\` — physics simulations, motion, forces, energy, and time-evolving systems
 Pick the closest fit. Each module includes the relevant design guidance.
@@ -39,7 +39,7 @@ Pick the closest fit. Each module includes the relevant design guidance.
 
 If you catch yourself writing "click to learn more" in prose, the diagram itself must ACTUALLY be sparse. Don't promise brevity then front-load everything.
 
-You create rich visual content — SVG diagrams/illustrations and HTML interactive widgets — that renders inline in conversation. The best output feels like a natural extension of the chat.
+You create rich visual content — first-class primitive canvases, SVG diagrams/illustrations, and HTML interactive widgets — that renders inline in conversation. The best output feels like a natural extension of the chat.
 
 
 ## Core Design System
@@ -48,10 +48,11 @@ These rules apply to ALL use cases.
 
 ### Philosophy
 - **Seamless**: Users shouldn't notice where claude.ai ends and your widget begins.
-- **Flat**: No gradients, mesh backgrounds, noise textures, or decorative effects. Clean flat surfaces.
-- **Compact**: Show the essential inline. Explain the rest in text.
-- **Text goes in your response, visuals go in the tool** — All explanatory text, descriptions, introductions, and summaries must be written as normal response text OUTSIDE the tool call. The tool output should contain ONLY the visual element (diagram, chart, interactive widget). Never put paragraphs of explanation, section headings, or descriptive prose inside the HTML/SVG. If the user asks "explain X", write the explanation in your response and use the tool only for the visual that accompanies it. The user's font settings only apply to your response text, not to text inside the widget.
-- **Use the system as-is**: do not invent your own styling language. Reuse the provided classes, bare controls, tokens, and structural patterns directly. Treat them as a contract, not inspiration.
+- **Primitive-first**: For canvas-style artifacts, use \`widget_spec\` first-class primitives. They render with Avenire's shadcn UI components and are the default for cards, metrics, tables, sections, charts, callouts, and structured reports.
+- **Raw-code escape hatch**: Use raw \`widget_code\` HTML/SVG only when the widget needs custom drawing, custom interaction, canvas animation, imperative JS, mermaid, or third-party libraries.
+- **Compact but complete**: Inline widgets should stay compact. Canvas artifacts may include concise headings, labels, callouts, and tables inside the widget when that content is part of the artifact.
+- **No duplicated prose**: Full explanations belong in the chat response. The widget may contain short artifact text that helps the visual stand alone.
+- **Use the system as-is**: do not invent your own styling language for primitive widgets. Reuse the provided primitive nodes and theme tokens. Treat them as a contract, not inspiration.
 
 ### Streaming
 Output streams token-by-token. Structure code so useful content appears early.
@@ -66,9 +67,9 @@ Output streams token-by-token. Structure code so useful content appears early.
 - No font-size below 11px
 - No emoji — use CSS shapes or SVG paths
 - No gradients, drop shadows, blur, glow, or neon effects
-- **No hand-authored colors.** Do not pick colors. Do not write hex, rgb(), hsl(), oklch(), named colors, or ad hoc opacity ramps for UI/diagram styling. Apply the provided classes and tokens only.
+- **No hand-authored UI colors.** Do not pick colors for primitive widgets. Use \`tone\` and built-in chart defaults. Raw SVG/canvas may use CSS variables and documented SVG classes; only use hardcoded colors for domain-specific physical illustrations where the color carries meaning.
 - **Classes first.** If a provided classname solves the problem, use the classname. Do not recreate the same look with inline color/fill/stroke declarations.
-- **Do not restyle core components from scratch.** Inputs, buttons, sliders, cards, pills, metric blocks, and diagram nodes should follow the prescribed structure. If the examples show a pattern, copy the pattern instead of improvising a new one.
+- **Do not restyle core components from scratch.** Inputs, buttons, sliders, cards, pills, metric blocks, and diagram nodes should follow the prescribed structure. If a primitive exists, use it instead of recreating it in HTML.
 - **Layout styles are allowed; appearance styles are not.** Use inline CSS for positioning, spacing, sizing, and grid/flex layout. Do not use inline CSS to invent new visual design for components.
 - No dark/colored backgrounds on outer containers (transparent only — host provides the bg)
 - **Typography**: The default font is var(--font-sans). For the rare editorial/blockquote moment, use \`font-family: var(--font-serif)\`.
@@ -81,7 +82,7 @@ Output streams token-by-token. Structure code so useful content appears early.
 - When placing text on a colored background (badges, pills, cards, tags), use the darkest shade from that same color family for the text — never plain black or generic gray.
 - **Corners**: use \`border-radius: var(--border-radius-md)\` (or \`-lg\` for cards) in HTML. In SVG, \`rx="4"\` is the default — larger values make pills, use only when you mean a pill.
 - **No rounded corners on single-sided borders** — if using \`border-left\` or \`border-top\` accents, set \`border-radius: 0\`. Rounded corners only work with full borders on all sides.
-- **No titles or prose inside the tool output** — see Philosophy above.
+- **Titles and concise artifact text are allowed in \`widget_spec\`**. For raw SVG diagrams, keep prose outside the tool unless the text is a direct label in the diagram.
 - **Icon sizing**: When using emoji or inline SVG icons, explicitly set \`font-size: 16px\` for emoji or \`width: 16px; height: 16px\` for SVG icons. Never let icons inherit the container's font size — they will render too large. For larger decorative icons, use 24px max.
 - No tabs, carousels, or \`display: none\` sections during streaming — hidden content streams invisibly. Show all content stacked vertically. (Post-streaming JS-driven steppers are fine — see Illustrative/Interactive sections.)
 - No nested scrolling — auto-fit height.
@@ -294,9 +295,9 @@ A multi-section flowchart showing Karpathy's autoresearch framework: human-agent
 ## Modules
 Call \`visualize_read_me\` again with the relevant visual modules when you need more specific guidance:
 - \`diagram\` — SVG flowcharts, structural diagrams, illustrative diagrams
-- \`mockup\` — UI mockups, forms, cards, dashboards
-- \`interactive\` — interactive explainers with controls
-- \`chart\` — charts and data analysis (includes Chart.js)
+- \`mockup\` — UI mockups, forms, cards, dashboards. Prefer \`widget_spec\` primitives unless pixel-specific HTML is required.
+- \`interactive\` — interactive explainers with controls. Prefer \`widget_spec\` for static/structured explainers; use raw HTML for controls and custom JS.
+- \`chart\` — charts and data analysis. Prefer \`widget_spec\` charts for bar/line/area dashboards; use Chart.js only for unsupported chart behavior.
 - \`art\` — illustration and generative art
 - \`physics\` — physics simulations, motion, forces, energy, and time-evolving systems
 Pick the closest fit. Each module includes the relevant design guidance.
@@ -308,7 +309,7 @@ Pick the closest fit. Each module includes the relevant design guidance.
 
 If you catch yourself writing "click to learn more" in prose, the diagram itself must ACTUALLY be sparse. Don't promise brevity then front-load everything.
 
-You create rich visual content — SVG diagrams/illustrations and HTML interactive widgets — that renders inline in conversation. The best output feels like a natural extension of the chat.
+You create rich visual content — first-class primitive canvases, SVG diagrams/illustrations, and HTML interactive widgets — that renders inline in conversation. The best output feels like a natural extension of the chat.
 
 
 ## Core Design System
@@ -317,10 +318,11 @@ These rules apply to ALL use cases.
 
 ### Philosophy
 - **Seamless**: Users shouldn't notice where claude.ai ends and your widget begins.
-- **Flat**: No gradients, mesh backgrounds, noise textures, or decorative effects. Clean flat surfaces.
-- **Compact**: Show the essential inline. Explain the rest in text.
-- **Text goes in your response, visuals go in the tool** — All explanatory text, descriptions, introductions, and summaries must be written as normal response text OUTSIDE the tool call. The tool output should contain ONLY the visual element (diagram, chart, interactive widget). Never put paragraphs of explanation, section headings, or descriptive prose inside the HTML/SVG. If the user asks "explain X", write the explanation in your response and use the tool only for the visual that accompanies it. The user's font settings only apply to your response text, not to text inside the widget.
-- **Use the system as-is**: do not invent your own styling language. Reuse the provided classes, bare controls, tokens, and structural patterns directly. Treat them as a contract, not inspiration.
+- **Primitive-first**: For canvas-style artifacts, use \`widget_spec\` first-class primitives. They render with Avenire's shadcn UI components and are the default for cards, metrics, tables, sections, charts, callouts, and structured reports.
+- **Raw-code escape hatch**: Use raw \`widget_code\` HTML/SVG only when the widget needs custom drawing, custom interaction, canvas animation, imperative JS, mermaid, or third-party libraries.
+- **Compact but complete**: Inline widgets should stay compact. Canvas artifacts may include concise headings, labels, callouts, and tables inside the widget when that content is part of the artifact.
+- **No duplicated prose**: Full explanations belong in the chat response. The widget may contain short artifact text that helps the visual stand alone.
+- **Use the system as-is**: do not invent your own styling language for primitive widgets. Reuse the provided primitive nodes and theme tokens. Treat them as a contract, not inspiration.
 
 ### Streaming
 Output streams token-by-token. Structure code so useful content appears early.
@@ -335,9 +337,9 @@ Output streams token-by-token. Structure code so useful content appears early.
 - No font-size below 11px
 - No emoji — use CSS shapes or SVG paths
 - No gradients, drop shadows, blur, glow, or neon effects
-- **No hand-authored colors.** Do not pick colors. Do not write hex, rgb(), hsl(), oklch(), named colors, or ad hoc opacity ramps for UI/diagram styling. Apply the provided classes and tokens only.
+- **No hand-authored UI colors.** Do not pick colors for primitive widgets. Use \`tone\` and built-in chart defaults. Raw SVG/canvas may use CSS variables and documented SVG classes; only use hardcoded colors for domain-specific physical illustrations where the color carries meaning.
 - **Classes first.** If a provided classname solves the problem, use the classname. Do not recreate the same look with inline color/fill/stroke declarations.
-- **Do not restyle core components from scratch.** Inputs, buttons, sliders, cards, pills, metric blocks, and diagram nodes should follow the prescribed structure. If the examples show a pattern, copy the pattern instead of improvising a new one.
+- **Do not restyle core components from scratch.** Inputs, buttons, sliders, cards, pills, metric blocks, and diagram nodes should follow the prescribed structure. If a primitive exists, use it instead of recreating it in HTML.
 - **Layout styles are allowed; appearance styles are not.** Use inline CSS for positioning, spacing, sizing, and grid/flex layout. Do not use inline CSS to invent new visual design for components.
 - No dark/colored backgrounds on outer containers (transparent only — host provides the bg)
 - **Typography**: The default font is var(--font-sans). For the rare editorial/blockquote moment, use \`font-family: var(--font-serif)\`.
@@ -350,7 +352,7 @@ Output streams token-by-token. Structure code so useful content appears early.
 - When placing text on a colored background (badges, pills, cards, tags), use the darkest shade from that same color family for the text — never plain black or generic gray.
 - **Corners**: use \`border-radius: var(--border-radius-md)\` (or \`-lg\` for cards) in HTML. In SVG, \`rx="4"\` is the default — larger values make pills, use only when you mean a pill.
 - **No rounded corners on single-sided borders** — if using \`border-left\` or \`border-top\` accents, set \`border-radius: 0\`. Rounded corners only work with full borders on all sides.
-- **No titles or prose inside the tool output** — see Philosophy above.
+- **Titles and concise artifact text are allowed in \`widget_spec\`**. For raw SVG diagrams, keep prose outside the tool unless the text is a direct label in the diagram.
 - **Icon sizing**: When using emoji or inline SVG icons, explicitly set \`font-size: 16px\` for emoji or \`width: 16px; height: 16px\` for SVG icons. Never let icons inherit the container's font size — they will render too large. For larger decorative icons, use 24px max.
 - No tabs, carousels, or \`display: none\` sections during streaming — hidden content streams invisibly. Show all content stacked vertically. (Post-streaming JS-driven steppers are fine — see Illustrative/Interactive sections.)
 - No nested scrolling — auto-fit height.
@@ -390,14 +392,140 @@ Pick the closest use case below and adapt. When nothing fits cleanly:
 - All core design system rules still apply
 - Use \`sendPrompt()\` for any action that benefits from Claude thinking
 
+---
+name: first-class-primitives
+description: Use structured first-class widget primitives for polished canvas artifacts rendered with the Avenire shadcn UI system.
+---
+
+# First-class widget primitives
+
+Prefer \`widget_spec\` for canvas-style artifacts: debugging reports, docs canvases, learning dashboards, comparison cards, metric summaries, tables, charts, timelines, and structured explanations. The app renders \`widget_spec\` with first-class React components backed by \`@avenire/ui\` shadcn primitives, so the result inherits the host theme, spacing, cards, tables, badges, progress bars, and chart styling.
+
+Use raw \`widget_code\` only when the visual needs custom SVG geometry, canvas drawing, imperative animation, DOM event handling, sliders, steppers, simulations, mermaid, or third-party libraries. If the artifact is mostly layout, text, metrics, tables, cards, or simple charts, use \`widget_spec\`.
+
+## Tool shape
+
+Call \`show_widget\` with either \`widget_spec\` or \`widget_code\`. For primitive widgets, omit \`widget_code\`.
+
+\`\`\`json
+{
+  "i_have_seen_read_me": true,
+  "title": "Websocket pool leak debug",
+  "widget_spec": {
+    "title": "Websocket pool leak debug",
+    "description": "Incident view with request, connection, memory, and milestone evidence.",
+    "root": {
+      "type": "stack",
+      "gap": "lg",
+      "children": []
+    }
+  }
+}
+\`\`\`
+
+## Available nodes
+
+- \`stack\`: vertical composition. Fields: \`children\`, optional \`gap\` (\`xs\`, \`sm\`, \`md\`, \`lg\`, \`xl\`).
+- \`grid\`: responsive grid. Fields: \`children\`, optional \`columns\` (1-4), optional \`gap\`.
+- \`section\`: open section with optional \`title\`, \`description\`, and \`children\`. Use to avoid a wall of identical cards.
+- \`card\`: bounded surface with optional \`title\`, \`description\`, \`tone\`, and \`children\`.
+- \`stat\`: metric card. Fields: \`label\`, \`value\`, optional \`delta\`, optional \`tone\`.
+- \`heading\`: text heading. Fields: \`text\`, optional \`level\` (\`1\`, \`2\`, \`3\`).
+- \`text\`: paragraph. Fields: \`text\`, optional \`tone\`, optional \`weight\` (\`regular\`, \`medium\`).
+- \`badge\`: compact label. Fields: \`text\`, optional \`tone\`.
+- \`callout\`: highlighted note. Fields: optional \`title\`, \`text\`, \`tone\`, \`children\`.
+- \`table\`: data table. Fields: \`headers\`, \`rows\`, optional \`caption\`.
+- \`chart\`: Recharts-backed chart. Fields: \`chartType\` (\`bar\`, \`line\`, \`area\`), \`data\`, \`indexKey\`, \`series\`, optional \`title\`.
+- \`progress\`: progress row. Fields: \`value\` from 0-100, optional \`label\`.
+- \`divider\`: horizontal separator.
+- \`code\`: code block. Fields: \`code\`, optional \`language\`.
+- \`html\`: final escape hatch for a small trusted fragment inside a primitive composition. Prefer not to use it.
+
+Tones: \`default\`, \`muted\`, \`info\`, \`success\`, \`warning\`, \`danger\`.
+
+## Composition rules
+
+- Lead with the artifact's answer: a title, a one-line description, then the most important metric, chart, or table.
+- Mix open sections with cards. Do not wrap every block in a card.
+- Use \`grid\` for 2-4 stats or option cards. Use \`stack\` for narrative flow.
+- Use \`section\` for headings and grouping; use \`card\` for bounded objects that should feel like one unit.
+- Keep card titles short and sentence case.
+- Prefer one strong chart plus a compact table over several tiny charts.
+- Round all displayed numbers before putting them into the JSON.
+- Keep rows compact: tables should usually have 3-6 columns and fewer than 20 rows.
+- Use semantic tones sparingly. Most nodes should be neutral; reserve \`warning\`, \`danger\`, and \`success\` for meaning.
+
+## Good pattern
+
+\`\`\`json
+{
+  "title": "Resource leak incident",
+  "description": "Connections climb after deploy, then recover after rollback.",
+  "root": {
+    "type": "stack",
+    "gap": "lg",
+    "children": [
+      {
+        "type": "grid",
+        "columns": 3,
+        "children": [
+          { "type": "stat", "label": "Peak open connections", "value": "8.4k", "delta": "+6.1k after deploy", "tone": "warning" },
+          { "type": "stat", "label": "Failed requests", "value": "1.5k/hr", "delta": "Recovered after rollback", "tone": "danger" },
+          { "type": "stat", "label": "Memory at baseline", "value": "08:08", "delta": "Hotfix stable", "tone": "success" }
+        ]
+      },
+      {
+        "type": "chart",
+        "title": "Failed requests per hour",
+        "chartType": "area",
+        "indexKey": "time",
+        "series": [{ "dataKey": "failed", "label": "Failed requests" }],
+        "data": [
+          { "time": "07:00", "failed": 0 },
+          { "time": "07:16", "failed": 240 },
+          { "time": "07:20", "failed": 1480 },
+          { "time": "08:08", "failed": 12 }
+        ]
+      },
+      {
+        "type": "section",
+        "title": "Milestones",
+        "children": [
+          {
+            "type": "table",
+            "headers": ["Time", "Event", "Interpretation"],
+            "rows": [
+              ["07:10", "Deploy v2.14.0", "Connections begin rising"],
+              ["07:16", "Alert fired", "Errors and p99 diverge"],
+              ["07:20", "Rollback", "Connections and memory fall"]
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+\`\`\`
+
+## Bad pattern
+
+- Do not put a single sentence into a card by itself.
+- Do not create a vertical stack of five identical cards.
+- Do not use raw HTML for tables, badges, metric cards, or simple charts.
+- Do not use decorative tones just to make the canvas colorful.
+- Do not duplicate the same explanatory paragraph in chat and in the widget. The widget can contain concise labels and artifact text; the chat response should carry the full explanation.
+
+
 ## UI components
 
 ### Aesthetic
-Flat, clean, white surfaces. Minimal 0.5px borders. Generous whitespace. No gradients, no shadows (except functional focus rings). Everything should feel native to claude.ai — like it belongs on the page, not embedded from somewhere else.
+Use \`widget_spec\` first for UI-like widgets. It renders with the host's shadcn primitives: cards, badges, tables, metric stats, sections, progress, callouts, and charts. Raw HTML is now the fallback for custom interaction, custom SVG/canvas, or controls that cannot be represented with primitives.
 
-This section is prescriptive. Do not freestyle component styling. Reuse the exact component recipes and token usage below.
+Flat, clean surfaces. Minimal borders. Generous whitespace. Avoid decorative gradients and shadows in primitive widgets. Everything should feel native to Avenire — like it belongs on the page, not embedded from somewhere else.
 
-**Hard rule:** component CSS is for layout only. Do not invent new visual treatments for cards, controls, badges, pills, panels, or tables. If the request maps to an existing pattern below, copy it closely. If it does not, stay visually plain rather than designing a new component language.
+This section is prescriptive. Do not freestyle component styling. Use \`widget_spec\` nodes when available; use the exact HTML recipes only when raw \`widget_code\` is necessary.
+
+**Hard rule:** component CSS is for layout only. Do not invent new visual treatments for cards, controls, badges, pills, panels, or tables. If the request maps to \`widget_spec\`, use primitives. If it must be raw HTML, copy the closest pattern below.
 
 ### Tokens
 - Borders: always \`0.5px solid var(--color-border-tertiary)\` (or \`-secondary\` for emphasis)
@@ -431,7 +559,7 @@ Contained mockups — mobile screens, chat threads, single cards, modals, small 
 ### 1. Interactive explainer — learn how something works
 *"Explain how compound interest works" / "Teach me about sorting algorithms"*
 
-Use \`show_widget\` with HTML for the interactive controls — sliders, buttons, live state displays, charts. Keep prose explanations in your normal response text (outside the tool call), not embedded in the HTML. No card wrapper. Whitespace is the container.
+Use \`widget_spec\` if the explainer is static or only needs metrics, tables, and simple charts. Use raw HTML for interactive controls — sliders, buttons, live state displays, imperative charts. Keep long prose explanations in your normal response text; labels and short artifact text may be inside the widget.
 
 \`\`\`html
 <div style="display: flex; align-items: center; gap: 12px; margin: 0 0 1.5rem;">
@@ -455,7 +583,7 @@ Use \`sendPrompt()\` to let users ask follow-ups: \`sendPrompt('What if I increa
 ### 2. Compare options — decision making
 *"Compare pricing and features of these products" / "Help me choose between React and Vue"*
 
-Use \`show_widget\` with HTML. Side-by-side card grid for options. Highlight differences with semantic colors. Interactive elements for filtering or weighting.
+Use \`widget_spec\` with a \`grid\` of \`card\` nodes, \`badge\` nodes for differentiators, and a compact \`table\` only when rows are the clearest representation. Use raw HTML only if filtering or weighting must happen inside the widget.
 
 - Use \`repeat(auto-fit, minmax(160px, 1fr))\` for responsive columns
 - Each option in a card. Use badges for key differentiators.
@@ -466,7 +594,7 @@ Use \`show_widget\` with HTML. Side-by-side card grid for options. Highlight dif
 ### 3. Data record — bounded UI object
 *"Show me a Salesforce contact card" / "Create a receipt for this order"*
 
-Use \`show_widget\` with HTML. Wrap the entire thing in a single raised card. All content is sans-serif since it's pure UI. Use an avatar/initials circle for people (see example below).
+Use \`widget_spec\` with a single \`card\`, short \`text\` rows, \`badge\` for status, and \`divider\` for sections. Use raw HTML only when you need a pixel-specific mockup or custom layout not covered by primitives.
 
 \`\`\`html
 <div style="background: var(--color-background-primary); border-radius: var(--border-radius-lg); border: 0.5px solid var(--color-border-tertiary); padding: 1rem 1.25rem;">
@@ -575,6 +703,73 @@ Use the current theme as the source of truth, then redraw the canvas whenever th
 
 
 ## Charts (Chart.js)
+
+Prefer \`widget_spec\` \`chart\` for bar, line, and area charts, especially when paired with stats, tables, sections, or callouts. It uses the app's shadcn/Recharts chart system and should be the default for dashboards and analytical canvases.
+
+Use raw Chart.js in \`widget_code\` only when you need a chart type not covered by primitives, custom plugin behavior, imperative interaction, multiple synchronized canvases, or highly custom annotations.
+
+\`\`\`html
+<div style="position: relative; width: 100%; height: 300px;">
+  <canvas id="myChart"></canvas>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" onload="initChart()"></script>
+<script>
+  function initChart() {
+    new Chart(document.getElementById('myChart'), {
+      type: 'bar',
+      data: { labels: ['Q1','Q2','Q3','Q4'], datasets: [{ label: 'Revenue', data: [12,19,8,15] }] },
+      options: { responsive: true, maintainAspectRatio: false }
+    });
+  }
+  if (window.Chart) initChart();
+</script>
+\`\`\`
+
+**Chart.js rules**:
+- Canvas cannot resolve CSS variables. Use hardcoded hex or Chart.js defaults.
+- Wrap \`<canvas>\` in \`<div>\` with explicit \`height\` and \`position: relative\`.
+- **Canvas sizing**: set height ONLY on the wrapper div, never on the canvas element itself. Use position: relative on the wrapper and responsive: true, maintainAspectRatio: false in Chart.js options. Never set CSS height directly on canvas — this causes wrong dimensions, especially for horizontal bar charts.
+- For horizontal bar charts: wrapper div height should be at least (number_of_bars * 40) + 80 pixels.
+- Load UMD build via \`<script src="https://cdnjs.cloudflare.com/ajax/libs/...">\` — sets \`window.Chart\` global. Follow with plain \`<script>\` (no \`type="module"\`).
+- **Script load ordering**: CDN scripts may not be loaded when the next \`<script>\` runs (especially during streaming). Always use \`onload="initChart()"\` on the CDN script tag, define your chart init in a named function, and add \`if (window.Chart) initChart();\` as a fallback at the end of your inline script. This guarantees charts render regardless of load order.
+- Multiple charts: use unique IDs (\`myChart1\`, \`myChart2\`). Each gets its own canvas+div pair.
+- For bubble and scatter charts: bubble radii extend past their center points, so points near axis boundaries get clipped. Pad the scale range — set \`scales.y.min\` and \`scales.y.max\` ~10% beyond your data range (same for x). Or use \`layout: { padding: 20 }\` as a blunt fallback.
+- Chart.js auto-skips x-axis labels when they'd overlap. If you have ≤12 categories and need all labels visible (waterfall, monthly series), set \`scales.x.ticks: { autoSkip: false, maxRotation: 45 }\` — missing labels make bars unidentifiable.
+
+**Number formatting**: negative values are \`-$5M\` not \`$-5M\` — sign before currency symbol. Use a formatter: \`(v) => (v < 0 ? '-' : '') + '$' + Math.abs(v) + 'M'\`.
+
+**Legends** — always disable Chart.js default and build custom HTML. The default uses round dots and no values; custom HTML gives small squares, tight spacing, and percentages:
+
+\`\`\`js
+plugins: { legend: { display: false } }
+\`\`\`
+
+\`\`\`html
+<div style="display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 8px; font-size: 12px; color: var(--color-text-secondary);">
+  <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 10px; height: 10px; border-radius: 2px; background: #3266ad;"></span>Chrome 65%</span>
+  <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 10px; height: 10px; border-radius: 2px; background: #73726c;"></span>Safari 18%</span>
+</div>
+\`\`\`
+
+Include the value/percentage in each label when the data is categorical (pie, donut, single-series bar). Position the legend above the chart (\`margin-bottom\`) or below (\`margin-top\`) — not inside the canvas.
+
+**Dashboard layout** — wrap summary numbers in metric cards (see UI fragment) above the chart. Chart canvas flows below without a card wrapper. Use \`sendPrompt()\` for drill-down: \`sendPrompt('Break down Q4 by region')\`.
+
+`,
+    sourceIds: ["preamble","modules","core-design-system","when-nothing-fits","first-class-primitives","ui-components","color-palette","charts-chart-js"] as const,
+  },
+  "charts-chart-js": {
+    id: "charts-chart-js",
+    title: "Charts Chart Js",
+    description: null,
+    section: "visual-guidelines",
+    path: "sections/visual-guidelines/charts_chart_js.md",
+    content: `## Charts (Chart.js)
+
+Prefer \`widget_spec\` \`chart\` for bar, line, and area charts, especially when paired with stats, tables, sections, or callouts. It uses the app's shadcn/Recharts chart system and should be the default for dashboards and analytical canvases.
+
+Use raw Chart.js in \`widget_code\` only when you need a chart type not covered by primitives, custom plugin behavior, imperative interaction, multiple synchronized canvases, or highly custom annotations.
+
 \`\`\`html
 <div style="position: relative; width: 100%; height: 300px;">
   <canvas id="myChart"></canvas>
@@ -622,61 +817,6 @@ Include the value/percentage in each label when the data is categorical (pie, do
 
 **Dashboard layout** — wrap summary numbers in metric cards (see UI fragment) above the chart. Chart canvas flows below without a card wrapper. Use \`sendPrompt()\` for drill-down: \`sendPrompt('Break down Q4 by region')\`.
 `,
-    sourceIds: ["preamble","modules","core-design-system","when-nothing-fits","ui-components","color-palette","charts-chart-js"] as const,
-  },
-  "charts-chart-js": {
-    id: "charts-chart-js",
-    title: "Charts Chart Js",
-    description: null,
-    section: "visual-guidelines",
-    path: "sections/visual-guidelines/charts_chart_js.md",
-    content: `## Charts (Chart.js)
-\`\`\`html
-<div style="position: relative; width: 100%; height: 300px;">
-  <canvas id="myChart"></canvas>
-</div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" onload="initChart()"></script>
-<script>
-  function initChart() {
-    new Chart(document.getElementById('myChart'), {
-      type: 'bar',
-      data: { labels: ['Q1','Q2','Q3','Q4'], datasets: [{ label: 'Revenue', data: [12,19,8,15] }] },
-      options: { responsive: true, maintainAspectRatio: false }
-    });
-  }
-  if (window.Chart) initChart();
-</script>
-\`\`\`
-
-**Chart.js rules**:
-- Canvas cannot resolve CSS variables. Use hardcoded hex or Chart.js defaults.
-- Wrap \`<canvas>\` in \`<div>\` with explicit \`height\` and \`position: relative\`.
-- **Canvas sizing**: set height ONLY on the wrapper div, never on the canvas element itself. Use position: relative on the wrapper and responsive: true, maintainAspectRatio: false in Chart.js options. Never set CSS height directly on canvas — this causes wrong dimensions, especially for horizontal bar charts.
-- For horizontal bar charts: wrapper div height should be at least (number_of_bars * 40) + 80 pixels.
-- Load UMD build via \`<script src="https://cdnjs.cloudflare.com/ajax/libs/...">\` — sets \`window.Chart\` global. Follow with plain \`<script>\` (no \`type="module"\`).
-- **Script load ordering**: CDN scripts may not be loaded when the next \`<script>\` runs (especially during streaming). Always use \`onload="initChart()"\` on the CDN script tag, define your chart init in a named function, and add \`if (window.Chart) initChart();\` as a fallback at the end of your inline script. This guarantees charts render regardless of load order.
-- Multiple charts: use unique IDs (\`myChart1\`, \`myChart2\`). Each gets its own canvas+div pair.
-- For bubble and scatter charts: bubble radii extend past their center points, so points near axis boundaries get clipped. Pad the scale range — set \`scales.y.min\` and \`scales.y.max\` ~10% beyond your data range (same for x). Or use \`layout: { padding: 20 }\` as a blunt fallback.
-- Chart.js auto-skips x-axis labels when they'd overlap. If you have ≤12 categories and need all labels visible (waterfall, monthly series), set \`scales.x.ticks: { autoSkip: false, maxRotation: 45 }\` — missing labels make bars unidentifiable.
-
-**Number formatting**: negative values are \`-$5M\` not \`$-5M\` — sign before currency symbol. Use a formatter: \`(v) => (v < 0 ? '-' : '') + '$' + Math.abs(v) + 'M'\`.
-
-**Legends** — always disable Chart.js default and build custom HTML. The default uses round dots and no values; custom HTML gives small squares, tight spacing, and percentages:
-
-\`\`\`js
-plugins: { legend: { display: false } }
-\`\`\`
-
-\`\`\`html
-<div style="display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 8px; font-size: 12px; color: var(--color-text-secondary);">
-  <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 10px; height: 10px; border-radius: 2px; background: #3266ad;"></span>Chrome 65%</span>
-  <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 10px; height: 10px; border-radius: 2px; background: #73726c;"></span>Safari 18%</span>
-</div>
-\`\`\`
-
-Include the value/percentage in each label when the data is categorical (pie, donut, single-series bar). Position the legend above the chart (\`margin-bottom\`) or below (\`margin-top\`) — not inside the canvas.
-
-**Dashboard layout** — wrap summary numbers in metric cards (see UI fragment) above the chart. Chart canvas flows below without a card wrapper. Use \`sendPrompt()\` for drill-down: \`sendPrompt('Break down Q4 by region')\`.`,
   },
   "color-palette": {
     id: "color-palette",
@@ -939,10 +1079,11 @@ These rules apply to ALL use cases.
 
 ### Philosophy
 - **Seamless**: Users shouldn't notice where claude.ai ends and your widget begins.
-- **Flat**: No gradients, mesh backgrounds, noise textures, or decorative effects. Clean flat surfaces.
-- **Compact**: Show the essential inline. Explain the rest in text.
-- **Text goes in your response, visuals go in the tool** — All explanatory text, descriptions, introductions, and summaries must be written as normal response text OUTSIDE the tool call. The tool output should contain ONLY the visual element (diagram, chart, interactive widget). Never put paragraphs of explanation, section headings, or descriptive prose inside the HTML/SVG. If the user asks "explain X", write the explanation in your response and use the tool only for the visual that accompanies it. The user's font settings only apply to your response text, not to text inside the widget.
-- **Use the system as-is**: do not invent your own styling language. Reuse the provided classes, bare controls, tokens, and structural patterns directly. Treat them as a contract, not inspiration.
+- **Primitive-first**: For canvas-style artifacts, use \`widget_spec\` first-class primitives. They render with Avenire's shadcn UI components and are the default for cards, metrics, tables, sections, charts, callouts, and structured reports.
+- **Raw-code escape hatch**: Use raw \`widget_code\` HTML/SVG only when the widget needs custom drawing, custom interaction, canvas animation, imperative JS, mermaid, or third-party libraries.
+- **Compact but complete**: Inline widgets should stay compact. Canvas artifacts may include concise headings, labels, callouts, and tables inside the widget when that content is part of the artifact.
+- **No duplicated prose**: Full explanations belong in the chat response. The widget may contain short artifact text that helps the visual stand alone.
+- **Use the system as-is**: do not invent your own styling language for primitive widgets. Reuse the provided primitive nodes and theme tokens. Treat them as a contract, not inspiration.
 
 ### Streaming
 Output streams token-by-token. Structure code so useful content appears early.
@@ -957,9 +1098,9 @@ Output streams token-by-token. Structure code so useful content appears early.
 - No font-size below 11px
 - No emoji — use CSS shapes or SVG paths
 - No gradients, drop shadows, blur, glow, or neon effects
-- **No hand-authored colors.** Do not pick colors. Do not write hex, rgb(), hsl(), oklch(), named colors, or ad hoc opacity ramps for UI/diagram styling. Apply the provided classes and tokens only.
+- **No hand-authored UI colors.** Do not pick colors for primitive widgets. Use \`tone\` and built-in chart defaults. Raw SVG/canvas may use CSS variables and documented SVG classes; only use hardcoded colors for domain-specific physical illustrations where the color carries meaning.
 - **Classes first.** If a provided classname solves the problem, use the classname. Do not recreate the same look with inline color/fill/stroke declarations.
-- **Do not restyle core components from scratch.** Inputs, buttons, sliders, cards, pills, metric blocks, and diagram nodes should follow the prescribed structure. If the examples show a pattern, copy the pattern instead of improvising a new one.
+- **Do not restyle core components from scratch.** Inputs, buttons, sliders, cards, pills, metric blocks, and diagram nodes should follow the prescribed structure. If a primitive exists, use it instead of recreating it in HTML.
 - **Layout styles are allowed; appearance styles are not.** Use inline CSS for positioning, spacing, sizing, and grid/flex layout. Do not use inline CSS to invent new visual design for components.
 - No dark/colored backgrounds on outer containers (transparent only — host provides the bg)
 - **Typography**: The default font is var(--font-sans). For the rare editorial/blockquote moment, use \`font-family: var(--font-serif)\`.
@@ -972,7 +1113,7 @@ Output streams token-by-token. Structure code so useful content appears early.
 - When placing text on a colored background (badges, pills, cards, tags), use the darkest shade from that same color family for the text — never plain black or generic gray.
 - **Corners**: use \`border-radius: var(--border-radius-md)\` (or \`-lg\` for cards) in HTML. In SVG, \`rx="4"\` is the default — larger values make pills, use only when you mean a pill.
 - **No rounded corners on single-sided borders** — if using \`border-left\` or \`border-top\` accents, set \`border-radius: 0\`. Rounded corners only work with full borders on all sides.
-- **No titles or prose inside the tool output** — see Philosophy above.
+- **Titles and concise artifact text are allowed in \`widget_spec\`**. For raw SVG diagrams, keep prose outside the tool unless the text is a direct label in the diagram.
 - **Icon sizing**: When using emoji or inline SVG icons, explicitly set \`font-size: 16px\` for emoji or \`width: 16px; height: 16px\` for SVG icons. Never let icons inherit the container's font size — they will render too large. For larger decorative icons, use 24px max.
 - No tabs, carousels, or \`display: none\` sections during streaming — hidden content streams invisibly. Show all content stacked vertically. (Post-streaming JS-driven steppers are fine — see Illustrative/Interactive sections.)
 - No nested scrolling — auto-fit height.
@@ -1016,9 +1157,9 @@ A global function that sends a message to chat as if the user typed it. Use it w
 ## Modules
 Call \`visualize_read_me\` again with the relevant visual modules when you need more specific guidance:
 - \`diagram\` — SVG flowcharts, structural diagrams, illustrative diagrams
-- \`mockup\` — UI mockups, forms, cards, dashboards
-- \`interactive\` — interactive explainers with controls
-- \`chart\` — charts and data analysis (includes Chart.js)
+- \`mockup\` — UI mockups, forms, cards, dashboards. Prefer \`widget_spec\` primitives unless pixel-specific HTML is required.
+- \`interactive\` — interactive explainers with controls. Prefer \`widget_spec\` for static/structured explainers; use raw HTML for controls and custom JS.
+- \`chart\` — charts and data analysis. Prefer \`widget_spec\` charts for bar/line/area dashboards; use Chart.js only for unsupported chart behavior.
 - \`art\` — illustration and generative art
 - \`physics\` — physics simulations, motion, forces, energy, and time-evolving systems
 Pick the closest fit. Each module includes the relevant design guidance.
@@ -1030,7 +1171,7 @@ Pick the closest fit. Each module includes the relevant design guidance.
 
 If you catch yourself writing "click to learn more" in prose, the diagram itself must ACTUALLY be sparse. Don't promise brevity then front-load everything.
 
-You create rich visual content — SVG diagrams/illustrations and HTML interactive widgets — that renders inline in conversation. The best output feels like a natural extension of the chat.
+You create rich visual content — first-class primitive canvases, SVG diagrams/illustrations, and HTML interactive widgets — that renders inline in conversation. The best output feels like a natural extension of the chat.
 
 
 ## Core Design System
@@ -1039,10 +1180,11 @@ These rules apply to ALL use cases.
 
 ### Philosophy
 - **Seamless**: Users shouldn't notice where claude.ai ends and your widget begins.
-- **Flat**: No gradients, mesh backgrounds, noise textures, or decorative effects. Clean flat surfaces.
-- **Compact**: Show the essential inline. Explain the rest in text.
-- **Text goes in your response, visuals go in the tool** — All explanatory text, descriptions, introductions, and summaries must be written as normal response text OUTSIDE the tool call. The tool output should contain ONLY the visual element (diagram, chart, interactive widget). Never put paragraphs of explanation, section headings, or descriptive prose inside the HTML/SVG. If the user asks "explain X", write the explanation in your response and use the tool only for the visual that accompanies it. The user's font settings only apply to your response text, not to text inside the widget.
-- **Use the system as-is**: do not invent your own styling language. Reuse the provided classes, bare controls, tokens, and structural patterns directly. Treat them as a contract, not inspiration.
+- **Primitive-first**: For canvas-style artifacts, use \`widget_spec\` first-class primitives. They render with Avenire's shadcn UI components and are the default for cards, metrics, tables, sections, charts, callouts, and structured reports.
+- **Raw-code escape hatch**: Use raw \`widget_code\` HTML/SVG only when the widget needs custom drawing, custom interaction, canvas animation, imperative JS, mermaid, or third-party libraries.
+- **Compact but complete**: Inline widgets should stay compact. Canvas artifacts may include concise headings, labels, callouts, and tables inside the widget when that content is part of the artifact.
+- **No duplicated prose**: Full explanations belong in the chat response. The widget may contain short artifact text that helps the visual stand alone.
+- **Use the system as-is**: do not invent your own styling language for primitive widgets. Reuse the provided primitive nodes and theme tokens. Treat them as a contract, not inspiration.
 
 ### Streaming
 Output streams token-by-token. Structure code so useful content appears early.
@@ -1057,9 +1199,9 @@ Output streams token-by-token. Structure code so useful content appears early.
 - No font-size below 11px
 - No emoji — use CSS shapes or SVG paths
 - No gradients, drop shadows, blur, glow, or neon effects
-- **No hand-authored colors.** Do not pick colors. Do not write hex, rgb(), hsl(), oklch(), named colors, or ad hoc opacity ramps for UI/diagram styling. Apply the provided classes and tokens only.
+- **No hand-authored UI colors.** Do not pick colors for primitive widgets. Use \`tone\` and built-in chart defaults. Raw SVG/canvas may use CSS variables and documented SVG classes; only use hardcoded colors for domain-specific physical illustrations where the color carries meaning.
 - **Classes first.** If a provided classname solves the problem, use the classname. Do not recreate the same look with inline color/fill/stroke declarations.
-- **Do not restyle core components from scratch.** Inputs, buttons, sliders, cards, pills, metric blocks, and diagram nodes should follow the prescribed structure. If the examples show a pattern, copy the pattern instead of improvising a new one.
+- **Do not restyle core components from scratch.** Inputs, buttons, sliders, cards, pills, metric blocks, and diagram nodes should follow the prescribed structure. If a primitive exists, use it instead of recreating it in HTML.
 - **Layout styles are allowed; appearance styles are not.** Use inline CSS for positioning, spacing, sizing, and grid/flex layout. Do not use inline CSS to invent new visual design for components.
 - No dark/colored backgrounds on outer containers (transparent only — host provides the bg)
 - **Typography**: The default font is var(--font-sans). For the rare editorial/blockquote moment, use \`font-family: var(--font-serif)\`.
@@ -1072,7 +1214,7 @@ Output streams token-by-token. Structure code so useful content appears early.
 - When placing text on a colored background (badges, pills, cards, tags), use the darkest shade from that same color family for the text — never plain black or generic gray.
 - **Corners**: use \`border-radius: var(--border-radius-md)\` (or \`-lg\` for cards) in HTML. In SVG, \`rx="4"\` is the default — larger values make pills, use only when you mean a pill.
 - **No rounded corners on single-sided borders** — if using \`border-left\` or \`border-top\` accents, set \`border-radius: 0\`. Rounded corners only work with full borders on all sides.
-- **No titles or prose inside the tool output** — see Philosophy above.
+- **Titles and concise artifact text are allowed in \`widget_spec\`**. For raw SVG diagrams, keep prose outside the tool unless the text is a direct label in the diagram.
 - **Icon sizing**: When using emoji or inline SVG icons, explicitly set \`font-size: 16px\` for emoji or \`width: 16px; height: 16px\` for SVG icons. Never let icons inherit the container's font size — they will render too large. For larger decorative icons, use 24px max.
 - No tabs, carousels, or \`display: none\` sections during streaming — hidden content streams invisibly. Show all content stacked vertically. (Post-streaming JS-driven steppers are fine — see Illustrative/Interactive sections.)
 - No nested scrolling — auto-fit height.
@@ -2332,6 +2474,136 @@ A left-to-right flow diagram showing electricity from generation sources through
 
 `,
   },
+  "first-class-primitives": {
+    id: "first-class-primitives",
+    title: "First-class widget primitives",
+    description: "Use structured first-class widget primitives for polished canvas artifacts rendered with the Avenire shadcn UI system.",
+    section: "visual-guidelines",
+    path: "sections/visual-guidelines/first_class_primitives.md",
+    content: `---
+name: first-class-primitives
+description: Use structured first-class widget primitives for polished canvas artifacts rendered with the Avenire shadcn UI system.
+---
+
+# First-class widget primitives
+
+Prefer \`widget_spec\` for canvas-style artifacts: debugging reports, docs canvases, learning dashboards, comparison cards, metric summaries, tables, charts, timelines, and structured explanations. The app renders \`widget_spec\` with first-class React components backed by \`@avenire/ui\` shadcn primitives, so the result inherits the host theme, spacing, cards, tables, badges, progress bars, and chart styling.
+
+Use raw \`widget_code\` only when the visual needs custom SVG geometry, canvas drawing, imperative animation, DOM event handling, sliders, steppers, simulations, mermaid, or third-party libraries. If the artifact is mostly layout, text, metrics, tables, cards, or simple charts, use \`widget_spec\`.
+
+## Tool shape
+
+Call \`show_widget\` with either \`widget_spec\` or \`widget_code\`. For primitive widgets, omit \`widget_code\`.
+
+\`\`\`json
+{
+  "i_have_seen_read_me": true,
+  "title": "Websocket pool leak debug",
+  "widget_spec": {
+    "title": "Websocket pool leak debug",
+    "description": "Incident view with request, connection, memory, and milestone evidence.",
+    "root": {
+      "type": "stack",
+      "gap": "lg",
+      "children": []
+    }
+  }
+}
+\`\`\`
+
+## Available nodes
+
+- \`stack\`: vertical composition. Fields: \`children\`, optional \`gap\` (\`xs\`, \`sm\`, \`md\`, \`lg\`, \`xl\`).
+- \`grid\`: responsive grid. Fields: \`children\`, optional \`columns\` (1-4), optional \`gap\`.
+- \`section\`: open section with optional \`title\`, \`description\`, and \`children\`. Use to avoid a wall of identical cards.
+- \`card\`: bounded surface with optional \`title\`, \`description\`, \`tone\`, and \`children\`.
+- \`stat\`: metric card. Fields: \`label\`, \`value\`, optional \`delta\`, optional \`tone\`.
+- \`heading\`: text heading. Fields: \`text\`, optional \`level\` (\`1\`, \`2\`, \`3\`).
+- \`text\`: paragraph. Fields: \`text\`, optional \`tone\`, optional \`weight\` (\`regular\`, \`medium\`).
+- \`badge\`: compact label. Fields: \`text\`, optional \`tone\`.
+- \`callout\`: highlighted note. Fields: optional \`title\`, \`text\`, \`tone\`, \`children\`.
+- \`table\`: data table. Fields: \`headers\`, \`rows\`, optional \`caption\`.
+- \`chart\`: Recharts-backed chart. Fields: \`chartType\` (\`bar\`, \`line\`, \`area\`), \`data\`, \`indexKey\`, \`series\`, optional \`title\`.
+- \`progress\`: progress row. Fields: \`value\` from 0-100, optional \`label\`.
+- \`divider\`: horizontal separator.
+- \`code\`: code block. Fields: \`code\`, optional \`language\`.
+- \`html\`: final escape hatch for a small trusted fragment inside a primitive composition. Prefer not to use it.
+
+Tones: \`default\`, \`muted\`, \`info\`, \`success\`, \`warning\`, \`danger\`.
+
+## Composition rules
+
+- Lead with the artifact's answer: a title, a one-line description, then the most important metric, chart, or table.
+- Mix open sections with cards. Do not wrap every block in a card.
+- Use \`grid\` for 2-4 stats or option cards. Use \`stack\` for narrative flow.
+- Use \`section\` for headings and grouping; use \`card\` for bounded objects that should feel like one unit.
+- Keep card titles short and sentence case.
+- Prefer one strong chart plus a compact table over several tiny charts.
+- Round all displayed numbers before putting them into the JSON.
+- Keep rows compact: tables should usually have 3-6 columns and fewer than 20 rows.
+- Use semantic tones sparingly. Most nodes should be neutral; reserve \`warning\`, \`danger\`, and \`success\` for meaning.
+
+## Good pattern
+
+\`\`\`json
+{
+  "title": "Resource leak incident",
+  "description": "Connections climb after deploy, then recover after rollback.",
+  "root": {
+    "type": "stack",
+    "gap": "lg",
+    "children": [
+      {
+        "type": "grid",
+        "columns": 3,
+        "children": [
+          { "type": "stat", "label": "Peak open connections", "value": "8.4k", "delta": "+6.1k after deploy", "tone": "warning" },
+          { "type": "stat", "label": "Failed requests", "value": "1.5k/hr", "delta": "Recovered after rollback", "tone": "danger" },
+          { "type": "stat", "label": "Memory at baseline", "value": "08:08", "delta": "Hotfix stable", "tone": "success" }
+        ]
+      },
+      {
+        "type": "chart",
+        "title": "Failed requests per hour",
+        "chartType": "area",
+        "indexKey": "time",
+        "series": [{ "dataKey": "failed", "label": "Failed requests" }],
+        "data": [
+          { "time": "07:00", "failed": 0 },
+          { "time": "07:16", "failed": 240 },
+          { "time": "07:20", "failed": 1480 },
+          { "time": "08:08", "failed": 12 }
+        ]
+      },
+      {
+        "type": "section",
+        "title": "Milestones",
+        "children": [
+          {
+            "type": "table",
+            "headers": ["Time", "Event", "Interpretation"],
+            "rows": [
+              ["07:10", "Deploy v2.14.0", "Connections begin rising"],
+              ["07:16", "Alert fired", "Errors and p99 diverge"],
+              ["07:20", "Rollback", "Connections and memory fall"]
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+\`\`\`
+
+## Bad pattern
+
+- Do not put a single sentence into a card by itself.
+- Do not create a vertical stack of five identical cards.
+- Do not use raw HTML for tables, badges, metric cards, or simple charts.
+- Do not use decorative tones just to make the canvas colorful.
+- Do not duplicate the same explanatory paragraph in chat and in the widget. The widget can contain concise labels and artifact text; the chat response should carry the full explanation.
+`,
+  },
   "flashcard-creator": {
     id: "flashcard-creator",
     title: "Flashcard Creator",
@@ -2569,9 +2841,9 @@ When creating multiple cards from a topic:
 ## Modules
 Call \`visualize_read_me\` again with the relevant visual modules when you need more specific guidance:
 - \`diagram\` — SVG flowcharts, structural diagrams, illustrative diagrams
-- \`mockup\` — UI mockups, forms, cards, dashboards
-- \`interactive\` — interactive explainers with controls
-- \`chart\` — charts and data analysis (includes Chart.js)
+- \`mockup\` — UI mockups, forms, cards, dashboards. Prefer \`widget_spec\` primitives unless pixel-specific HTML is required.
+- \`interactive\` — interactive explainers with controls. Prefer \`widget_spec\` for static/structured explainers; use raw HTML for controls and custom JS.
+- \`chart\` — charts and data analysis. Prefer \`widget_spec\` charts for bar/line/area dashboards; use Chart.js only for unsupported chart behavior.
 - \`art\` — illustration and generative art
 - \`physics\` — physics simulations, motion, forces, energy, and time-evolving systems
 Pick the closest fit. Each module includes the relevant design guidance.
@@ -2583,7 +2855,7 @@ Pick the closest fit. Each module includes the relevant design guidance.
 
 If you catch yourself writing "click to learn more" in prose, the diagram itself must ACTUALLY be sparse. Don't promise brevity then front-load everything.
 
-You create rich visual content — SVG diagrams/illustrations and HTML interactive widgets — that renders inline in conversation. The best output feels like a natural extension of the chat.
+You create rich visual content — first-class primitive canvases, SVG diagrams/illustrations, and HTML interactive widgets — that renders inline in conversation. The best output feels like a natural extension of the chat.
 
 
 ## Core Design System
@@ -2592,10 +2864,11 @@ These rules apply to ALL use cases.
 
 ### Philosophy
 - **Seamless**: Users shouldn't notice where claude.ai ends and your widget begins.
-- **Flat**: No gradients, mesh backgrounds, noise textures, or decorative effects. Clean flat surfaces.
-- **Compact**: Show the essential inline. Explain the rest in text.
-- **Text goes in your response, visuals go in the tool** — All explanatory text, descriptions, introductions, and summaries must be written as normal response text OUTSIDE the tool call. The tool output should contain ONLY the visual element (diagram, chart, interactive widget). Never put paragraphs of explanation, section headings, or descriptive prose inside the HTML/SVG. If the user asks "explain X", write the explanation in your response and use the tool only for the visual that accompanies it. The user's font settings only apply to your response text, not to text inside the widget.
-- **Use the system as-is**: do not invent your own styling language. Reuse the provided classes, bare controls, tokens, and structural patterns directly. Treat them as a contract, not inspiration.
+- **Primitive-first**: For canvas-style artifacts, use \`widget_spec\` first-class primitives. They render with Avenire's shadcn UI components and are the default for cards, metrics, tables, sections, charts, callouts, and structured reports.
+- **Raw-code escape hatch**: Use raw \`widget_code\` HTML/SVG only when the widget needs custom drawing, custom interaction, canvas animation, imperative JS, mermaid, or third-party libraries.
+- **Compact but complete**: Inline widgets should stay compact. Canvas artifacts may include concise headings, labels, callouts, and tables inside the widget when that content is part of the artifact.
+- **No duplicated prose**: Full explanations belong in the chat response. The widget may contain short artifact text that helps the visual stand alone.
+- **Use the system as-is**: do not invent your own styling language for primitive widgets. Reuse the provided primitive nodes and theme tokens. Treat them as a contract, not inspiration.
 
 ### Streaming
 Output streams token-by-token. Structure code so useful content appears early.
@@ -2610,9 +2883,9 @@ Output streams token-by-token. Structure code so useful content appears early.
 - No font-size below 11px
 - No emoji — use CSS shapes or SVG paths
 - No gradients, drop shadows, blur, glow, or neon effects
-- **No hand-authored colors.** Do not pick colors. Do not write hex, rgb(), hsl(), oklch(), named colors, or ad hoc opacity ramps for UI/diagram styling. Apply the provided classes and tokens only.
+- **No hand-authored UI colors.** Do not pick colors for primitive widgets. Use \`tone\` and built-in chart defaults. Raw SVG/canvas may use CSS variables and documented SVG classes; only use hardcoded colors for domain-specific physical illustrations where the color carries meaning.
 - **Classes first.** If a provided classname solves the problem, use the classname. Do not recreate the same look with inline color/fill/stroke declarations.
-- **Do not restyle core components from scratch.** Inputs, buttons, sliders, cards, pills, metric blocks, and diagram nodes should follow the prescribed structure. If the examples show a pattern, copy the pattern instead of improvising a new one.
+- **Do not restyle core components from scratch.** Inputs, buttons, sliders, cards, pills, metric blocks, and diagram nodes should follow the prescribed structure. If a primitive exists, use it instead of recreating it in HTML.
 - **Layout styles are allowed; appearance styles are not.** Use inline CSS for positioning, spacing, sizing, and grid/flex layout. Do not use inline CSS to invent new visual design for components.
 - No dark/colored backgrounds on outer containers (transparent only — host provides the bg)
 - **Typography**: The default font is var(--font-sans). For the rare editorial/blockquote moment, use \`font-family: var(--font-serif)\`.
@@ -2625,7 +2898,7 @@ Output streams token-by-token. Structure code so useful content appears early.
 - When placing text on a colored background (badges, pills, cards, tags), use the darkest shade from that same color family for the text — never plain black or generic gray.
 - **Corners**: use \`border-radius: var(--border-radius-md)\` (or \`-lg\` for cards) in HTML. In SVG, \`rx="4"\` is the default — larger values make pills, use only when you mean a pill.
 - **No rounded corners on single-sided borders** — if using \`border-left\` or \`border-top\` accents, set \`border-radius: 0\`. Rounded corners only work with full borders on all sides.
-- **No titles or prose inside the tool output** — see Philosophy above.
+- **Titles and concise artifact text are allowed in \`widget_spec\`**. For raw SVG diagrams, keep prose outside the tool unless the text is a direct label in the diagram.
 - **Icon sizing**: When using emoji or inline SVG icons, explicitly set \`font-size: 16px\` for emoji or \`width: 16px; height: 16px\` for SVG icons. Never let icons inherit the container's font size — they will render too large. For larger decorative icons, use 24px max.
 - No tabs, carousels, or \`display: none\` sections during streaming — hidden content streams invisibly. Show all content stacked vertically. (Post-streaming JS-driven steppers are fine — see Illustrative/Interactive sections.)
 - No nested scrolling — auto-fit height.
@@ -2665,14 +2938,140 @@ Pick the closest use case below and adapt. When nothing fits cleanly:
 - All core design system rules still apply
 - Use \`sendPrompt()\` for any action that benefits from Claude thinking
 
+---
+name: first-class-primitives
+description: Use structured first-class widget primitives for polished canvas artifacts rendered with the Avenire shadcn UI system.
+---
+
+# First-class widget primitives
+
+Prefer \`widget_spec\` for canvas-style artifacts: debugging reports, docs canvases, learning dashboards, comparison cards, metric summaries, tables, charts, timelines, and structured explanations. The app renders \`widget_spec\` with first-class React components backed by \`@avenire/ui\` shadcn primitives, so the result inherits the host theme, spacing, cards, tables, badges, progress bars, and chart styling.
+
+Use raw \`widget_code\` only when the visual needs custom SVG geometry, canvas drawing, imperative animation, DOM event handling, sliders, steppers, simulations, mermaid, or third-party libraries. If the artifact is mostly layout, text, metrics, tables, cards, or simple charts, use \`widget_spec\`.
+
+## Tool shape
+
+Call \`show_widget\` with either \`widget_spec\` or \`widget_code\`. For primitive widgets, omit \`widget_code\`.
+
+\`\`\`json
+{
+  "i_have_seen_read_me": true,
+  "title": "Websocket pool leak debug",
+  "widget_spec": {
+    "title": "Websocket pool leak debug",
+    "description": "Incident view with request, connection, memory, and milestone evidence.",
+    "root": {
+      "type": "stack",
+      "gap": "lg",
+      "children": []
+    }
+  }
+}
+\`\`\`
+
+## Available nodes
+
+- \`stack\`: vertical composition. Fields: \`children\`, optional \`gap\` (\`xs\`, \`sm\`, \`md\`, \`lg\`, \`xl\`).
+- \`grid\`: responsive grid. Fields: \`children\`, optional \`columns\` (1-4), optional \`gap\`.
+- \`section\`: open section with optional \`title\`, \`description\`, and \`children\`. Use to avoid a wall of identical cards.
+- \`card\`: bounded surface with optional \`title\`, \`description\`, \`tone\`, and \`children\`.
+- \`stat\`: metric card. Fields: \`label\`, \`value\`, optional \`delta\`, optional \`tone\`.
+- \`heading\`: text heading. Fields: \`text\`, optional \`level\` (\`1\`, \`2\`, \`3\`).
+- \`text\`: paragraph. Fields: \`text\`, optional \`tone\`, optional \`weight\` (\`regular\`, \`medium\`).
+- \`badge\`: compact label. Fields: \`text\`, optional \`tone\`.
+- \`callout\`: highlighted note. Fields: optional \`title\`, \`text\`, \`tone\`, \`children\`.
+- \`table\`: data table. Fields: \`headers\`, \`rows\`, optional \`caption\`.
+- \`chart\`: Recharts-backed chart. Fields: \`chartType\` (\`bar\`, \`line\`, \`area\`), \`data\`, \`indexKey\`, \`series\`, optional \`title\`.
+- \`progress\`: progress row. Fields: \`value\` from 0-100, optional \`label\`.
+- \`divider\`: horizontal separator.
+- \`code\`: code block. Fields: \`code\`, optional \`language\`.
+- \`html\`: final escape hatch for a small trusted fragment inside a primitive composition. Prefer not to use it.
+
+Tones: \`default\`, \`muted\`, \`info\`, \`success\`, \`warning\`, \`danger\`.
+
+## Composition rules
+
+- Lead with the artifact's answer: a title, a one-line description, then the most important metric, chart, or table.
+- Mix open sections with cards. Do not wrap every block in a card.
+- Use \`grid\` for 2-4 stats or option cards. Use \`stack\` for narrative flow.
+- Use \`section\` for headings and grouping; use \`card\` for bounded objects that should feel like one unit.
+- Keep card titles short and sentence case.
+- Prefer one strong chart plus a compact table over several tiny charts.
+- Round all displayed numbers before putting them into the JSON.
+- Keep rows compact: tables should usually have 3-6 columns and fewer than 20 rows.
+- Use semantic tones sparingly. Most nodes should be neutral; reserve \`warning\`, \`danger\`, and \`success\` for meaning.
+
+## Good pattern
+
+\`\`\`json
+{
+  "title": "Resource leak incident",
+  "description": "Connections climb after deploy, then recover after rollback.",
+  "root": {
+    "type": "stack",
+    "gap": "lg",
+    "children": [
+      {
+        "type": "grid",
+        "columns": 3,
+        "children": [
+          { "type": "stat", "label": "Peak open connections", "value": "8.4k", "delta": "+6.1k after deploy", "tone": "warning" },
+          { "type": "stat", "label": "Failed requests", "value": "1.5k/hr", "delta": "Recovered after rollback", "tone": "danger" },
+          { "type": "stat", "label": "Memory at baseline", "value": "08:08", "delta": "Hotfix stable", "tone": "success" }
+        ]
+      },
+      {
+        "type": "chart",
+        "title": "Failed requests per hour",
+        "chartType": "area",
+        "indexKey": "time",
+        "series": [{ "dataKey": "failed", "label": "Failed requests" }],
+        "data": [
+          { "time": "07:00", "failed": 0 },
+          { "time": "07:16", "failed": 240 },
+          { "time": "07:20", "failed": 1480 },
+          { "time": "08:08", "failed": 12 }
+        ]
+      },
+      {
+        "type": "section",
+        "title": "Milestones",
+        "children": [
+          {
+            "type": "table",
+            "headers": ["Time", "Event", "Interpretation"],
+            "rows": [
+              ["07:10", "Deploy v2.14.0", "Connections begin rising"],
+              ["07:16", "Alert fired", "Errors and p99 diverge"],
+              ["07:20", "Rollback", "Connections and memory fall"]
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+\`\`\`
+
+## Bad pattern
+
+- Do not put a single sentence into a card by itself.
+- Do not create a vertical stack of five identical cards.
+- Do not use raw HTML for tables, badges, metric cards, or simple charts.
+- Do not use decorative tones just to make the canvas colorful.
+- Do not duplicate the same explanatory paragraph in chat and in the widget. The widget can contain concise labels and artifact text; the chat response should carry the full explanation.
+
+
 ## UI components
 
 ### Aesthetic
-Flat, clean, white surfaces. Minimal 0.5px borders. Generous whitespace. No gradients, no shadows (except functional focus rings). Everything should feel native to claude.ai — like it belongs on the page, not embedded from somewhere else.
+Use \`widget_spec\` first for UI-like widgets. It renders with the host's shadcn primitives: cards, badges, tables, metric stats, sections, progress, callouts, and charts. Raw HTML is now the fallback for custom interaction, custom SVG/canvas, or controls that cannot be represented with primitives.
 
-This section is prescriptive. Do not freestyle component styling. Reuse the exact component recipes and token usage below.
+Flat, clean surfaces. Minimal borders. Generous whitespace. Avoid decorative gradients and shadows in primitive widgets. Everything should feel native to Avenire — like it belongs on the page, not embedded from somewhere else.
 
-**Hard rule:** component CSS is for layout only. Do not invent new visual treatments for cards, controls, badges, pills, panels, or tables. If the request maps to an existing pattern below, copy it closely. If it does not, stay visually plain rather than designing a new component language.
+This section is prescriptive. Do not freestyle component styling. Use \`widget_spec\` nodes when available; use the exact HTML recipes only when raw \`widget_code\` is necessary.
+
+**Hard rule:** component CSS is for layout only. Do not invent new visual treatments for cards, controls, badges, pills, panels, or tables. If the request maps to \`widget_spec\`, use primitives. If it must be raw HTML, copy the closest pattern below.
 
 ### Tokens
 - Borders: always \`0.5px solid var(--color-border-tertiary)\` (or \`-secondary\` for emphasis)
@@ -2706,7 +3105,7 @@ Contained mockups — mobile screens, chat threads, single cards, modals, small 
 ### 1. Interactive explainer — learn how something works
 *"Explain how compound interest works" / "Teach me about sorting algorithms"*
 
-Use \`show_widget\` with HTML for the interactive controls — sliders, buttons, live state displays, charts. Keep prose explanations in your normal response text (outside the tool call), not embedded in the HTML. No card wrapper. Whitespace is the container.
+Use \`widget_spec\` if the explainer is static or only needs metrics, tables, and simple charts. Use raw HTML for interactive controls — sliders, buttons, live state displays, imperative charts. Keep long prose explanations in your normal response text; labels and short artifact text may be inside the widget.
 
 \`\`\`html
 <div style="display: flex; align-items: center; gap: 12px; margin: 0 0 1.5rem;">
@@ -2730,7 +3129,7 @@ Use \`sendPrompt()\` to let users ask follow-ups: \`sendPrompt('What if I increa
 ### 2. Compare options — decision making
 *"Compare pricing and features of these products" / "Help me choose between React and Vue"*
 
-Use \`show_widget\` with HTML. Side-by-side card grid for options. Highlight differences with semantic colors. Interactive elements for filtering or weighting.
+Use \`widget_spec\` with a \`grid\` of \`card\` nodes, \`badge\` nodes for differentiators, and a compact \`table\` only when rows are the clearest representation. Use raw HTML only if filtering or weighting must happen inside the widget.
 
 - Use \`repeat(auto-fit, minmax(160px, 1fr))\` for responsive columns
 - Each option in a card. Use badges for key differentiators.
@@ -2741,7 +3140,7 @@ Use \`show_widget\` with HTML. Side-by-side card grid for options. Highlight dif
 ### 3. Data record — bounded UI object
 *"Show me a Salesforce contact card" / "Create a receipt for this order"*
 
-Use \`show_widget\` with HTML. Wrap the entire thing in a single raised card. All content is sans-serif since it's pure UI. Use an avatar/initials circle for people (see example below).
+Use \`widget_spec\` with a single \`card\`, short \`text\` rows, \`badge\` for status, and \`divider\` for sections. Use raw HTML only when you need a pixel-specific mockup or custom layout not covered by primitives.
 
 \`\`\`html
 <div style="background: var(--color-background-primary); border-radius: var(--border-radius-lg); border: 0.5px solid var(--color-border-tertiary); padding: 1rem 1.25rem;">
@@ -2849,7 +3248,7 @@ Canvas widgets should not hardcode one palette and hope it survives theme change
 Use the current theme as the source of truth, then redraw the canvas whenever the theme changes. That keeps charts, simulations, and custom renderers readable in both modes.
 
 `,
-    sourceIds: ["preamble","modules","core-design-system","when-nothing-fits","ui-components","color-palette"] as const,
+    sourceIds: ["preamble","modules","core-design-system","when-nothing-fits","first-class-primitives","ui-components","color-palette"] as const,
   },
   "mockup": {
     id: "mockup",
@@ -2862,9 +3261,9 @@ Use the current theme as the source of truth, then redraw the canvas whenever th
 ## Modules
 Call \`visualize_read_me\` again with the relevant visual modules when you need more specific guidance:
 - \`diagram\` — SVG flowcharts, structural diagrams, illustrative diagrams
-- \`mockup\` — UI mockups, forms, cards, dashboards
-- \`interactive\` — interactive explainers with controls
-- \`chart\` — charts and data analysis (includes Chart.js)
+- \`mockup\` — UI mockups, forms, cards, dashboards. Prefer \`widget_spec\` primitives unless pixel-specific HTML is required.
+- \`interactive\` — interactive explainers with controls. Prefer \`widget_spec\` for static/structured explainers; use raw HTML for controls and custom JS.
+- \`chart\` — charts and data analysis. Prefer \`widget_spec\` charts for bar/line/area dashboards; use Chart.js only for unsupported chart behavior.
 - \`art\` — illustration and generative art
 - \`physics\` — physics simulations, motion, forces, energy, and time-evolving systems
 Pick the closest fit. Each module includes the relevant design guidance.
@@ -2876,7 +3275,7 @@ Pick the closest fit. Each module includes the relevant design guidance.
 
 If you catch yourself writing "click to learn more" in prose, the diagram itself must ACTUALLY be sparse. Don't promise brevity then front-load everything.
 
-You create rich visual content — SVG diagrams/illustrations and HTML interactive widgets — that renders inline in conversation. The best output feels like a natural extension of the chat.
+You create rich visual content — first-class primitive canvases, SVG diagrams/illustrations, and HTML interactive widgets — that renders inline in conversation. The best output feels like a natural extension of the chat.
 
 
 ## Core Design System
@@ -2885,10 +3284,11 @@ These rules apply to ALL use cases.
 
 ### Philosophy
 - **Seamless**: Users shouldn't notice where claude.ai ends and your widget begins.
-- **Flat**: No gradients, mesh backgrounds, noise textures, or decorative effects. Clean flat surfaces.
-- **Compact**: Show the essential inline. Explain the rest in text.
-- **Text goes in your response, visuals go in the tool** — All explanatory text, descriptions, introductions, and summaries must be written as normal response text OUTSIDE the tool call. The tool output should contain ONLY the visual element (diagram, chart, interactive widget). Never put paragraphs of explanation, section headings, or descriptive prose inside the HTML/SVG. If the user asks "explain X", write the explanation in your response and use the tool only for the visual that accompanies it. The user's font settings only apply to your response text, not to text inside the widget.
-- **Use the system as-is**: do not invent your own styling language. Reuse the provided classes, bare controls, tokens, and structural patterns directly. Treat them as a contract, not inspiration.
+- **Primitive-first**: For canvas-style artifacts, use \`widget_spec\` first-class primitives. They render with Avenire's shadcn UI components and are the default for cards, metrics, tables, sections, charts, callouts, and structured reports.
+- **Raw-code escape hatch**: Use raw \`widget_code\` HTML/SVG only when the widget needs custom drawing, custom interaction, canvas animation, imperative JS, mermaid, or third-party libraries.
+- **Compact but complete**: Inline widgets should stay compact. Canvas artifacts may include concise headings, labels, callouts, and tables inside the widget when that content is part of the artifact.
+- **No duplicated prose**: Full explanations belong in the chat response. The widget may contain short artifact text that helps the visual stand alone.
+- **Use the system as-is**: do not invent your own styling language for primitive widgets. Reuse the provided primitive nodes and theme tokens. Treat them as a contract, not inspiration.
 
 ### Streaming
 Output streams token-by-token. Structure code so useful content appears early.
@@ -2903,9 +3303,9 @@ Output streams token-by-token. Structure code so useful content appears early.
 - No font-size below 11px
 - No emoji — use CSS shapes or SVG paths
 - No gradients, drop shadows, blur, glow, or neon effects
-- **No hand-authored colors.** Do not pick colors. Do not write hex, rgb(), hsl(), oklch(), named colors, or ad hoc opacity ramps for UI/diagram styling. Apply the provided classes and tokens only.
+- **No hand-authored UI colors.** Do not pick colors for primitive widgets. Use \`tone\` and built-in chart defaults. Raw SVG/canvas may use CSS variables and documented SVG classes; only use hardcoded colors for domain-specific physical illustrations where the color carries meaning.
 - **Classes first.** If a provided classname solves the problem, use the classname. Do not recreate the same look with inline color/fill/stroke declarations.
-- **Do not restyle core components from scratch.** Inputs, buttons, sliders, cards, pills, metric blocks, and diagram nodes should follow the prescribed structure. If the examples show a pattern, copy the pattern instead of improvising a new one.
+- **Do not restyle core components from scratch.** Inputs, buttons, sliders, cards, pills, metric blocks, and diagram nodes should follow the prescribed structure. If a primitive exists, use it instead of recreating it in HTML.
 - **Layout styles are allowed; appearance styles are not.** Use inline CSS for positioning, spacing, sizing, and grid/flex layout. Do not use inline CSS to invent new visual design for components.
 - No dark/colored backgrounds on outer containers (transparent only — host provides the bg)
 - **Typography**: The default font is var(--font-sans). For the rare editorial/blockquote moment, use \`font-family: var(--font-serif)\`.
@@ -2918,7 +3318,7 @@ Output streams token-by-token. Structure code so useful content appears early.
 - When placing text on a colored background (badges, pills, cards, tags), use the darkest shade from that same color family for the text — never plain black or generic gray.
 - **Corners**: use \`border-radius: var(--border-radius-md)\` (or \`-lg\` for cards) in HTML. In SVG, \`rx="4"\` is the default — larger values make pills, use only when you mean a pill.
 - **No rounded corners on single-sided borders** — if using \`border-left\` or \`border-top\` accents, set \`border-radius: 0\`. Rounded corners only work with full borders on all sides.
-- **No titles or prose inside the tool output** — see Philosophy above.
+- **Titles and concise artifact text are allowed in \`widget_spec\`**. For raw SVG diagrams, keep prose outside the tool unless the text is a direct label in the diagram.
 - **Icon sizing**: When using emoji or inline SVG icons, explicitly set \`font-size: 16px\` for emoji or \`width: 16px; height: 16px\` for SVG icons. Never let icons inherit the container's font size — they will render too large. For larger decorative icons, use 24px max.
 - No tabs, carousels, or \`display: none\` sections during streaming — hidden content streams invisibly. Show all content stacked vertically. (Post-streaming JS-driven steppers are fine — see Illustrative/Interactive sections.)
 - No nested scrolling — auto-fit height.
@@ -2958,14 +3358,140 @@ Pick the closest use case below and adapt. When nothing fits cleanly:
 - All core design system rules still apply
 - Use \`sendPrompt()\` for any action that benefits from Claude thinking
 
+---
+name: first-class-primitives
+description: Use structured first-class widget primitives for polished canvas artifacts rendered with the Avenire shadcn UI system.
+---
+
+# First-class widget primitives
+
+Prefer \`widget_spec\` for canvas-style artifacts: debugging reports, docs canvases, learning dashboards, comparison cards, metric summaries, tables, charts, timelines, and structured explanations. The app renders \`widget_spec\` with first-class React components backed by \`@avenire/ui\` shadcn primitives, so the result inherits the host theme, spacing, cards, tables, badges, progress bars, and chart styling.
+
+Use raw \`widget_code\` only when the visual needs custom SVG geometry, canvas drawing, imperative animation, DOM event handling, sliders, steppers, simulations, mermaid, or third-party libraries. If the artifact is mostly layout, text, metrics, tables, cards, or simple charts, use \`widget_spec\`.
+
+## Tool shape
+
+Call \`show_widget\` with either \`widget_spec\` or \`widget_code\`. For primitive widgets, omit \`widget_code\`.
+
+\`\`\`json
+{
+  "i_have_seen_read_me": true,
+  "title": "Websocket pool leak debug",
+  "widget_spec": {
+    "title": "Websocket pool leak debug",
+    "description": "Incident view with request, connection, memory, and milestone evidence.",
+    "root": {
+      "type": "stack",
+      "gap": "lg",
+      "children": []
+    }
+  }
+}
+\`\`\`
+
+## Available nodes
+
+- \`stack\`: vertical composition. Fields: \`children\`, optional \`gap\` (\`xs\`, \`sm\`, \`md\`, \`lg\`, \`xl\`).
+- \`grid\`: responsive grid. Fields: \`children\`, optional \`columns\` (1-4), optional \`gap\`.
+- \`section\`: open section with optional \`title\`, \`description\`, and \`children\`. Use to avoid a wall of identical cards.
+- \`card\`: bounded surface with optional \`title\`, \`description\`, \`tone\`, and \`children\`.
+- \`stat\`: metric card. Fields: \`label\`, \`value\`, optional \`delta\`, optional \`tone\`.
+- \`heading\`: text heading. Fields: \`text\`, optional \`level\` (\`1\`, \`2\`, \`3\`).
+- \`text\`: paragraph. Fields: \`text\`, optional \`tone\`, optional \`weight\` (\`regular\`, \`medium\`).
+- \`badge\`: compact label. Fields: \`text\`, optional \`tone\`.
+- \`callout\`: highlighted note. Fields: optional \`title\`, \`text\`, \`tone\`, \`children\`.
+- \`table\`: data table. Fields: \`headers\`, \`rows\`, optional \`caption\`.
+- \`chart\`: Recharts-backed chart. Fields: \`chartType\` (\`bar\`, \`line\`, \`area\`), \`data\`, \`indexKey\`, \`series\`, optional \`title\`.
+- \`progress\`: progress row. Fields: \`value\` from 0-100, optional \`label\`.
+- \`divider\`: horizontal separator.
+- \`code\`: code block. Fields: \`code\`, optional \`language\`.
+- \`html\`: final escape hatch for a small trusted fragment inside a primitive composition. Prefer not to use it.
+
+Tones: \`default\`, \`muted\`, \`info\`, \`success\`, \`warning\`, \`danger\`.
+
+## Composition rules
+
+- Lead with the artifact's answer: a title, a one-line description, then the most important metric, chart, or table.
+- Mix open sections with cards. Do not wrap every block in a card.
+- Use \`grid\` for 2-4 stats or option cards. Use \`stack\` for narrative flow.
+- Use \`section\` for headings and grouping; use \`card\` for bounded objects that should feel like one unit.
+- Keep card titles short and sentence case.
+- Prefer one strong chart plus a compact table over several tiny charts.
+- Round all displayed numbers before putting them into the JSON.
+- Keep rows compact: tables should usually have 3-6 columns and fewer than 20 rows.
+- Use semantic tones sparingly. Most nodes should be neutral; reserve \`warning\`, \`danger\`, and \`success\` for meaning.
+
+## Good pattern
+
+\`\`\`json
+{
+  "title": "Resource leak incident",
+  "description": "Connections climb after deploy, then recover after rollback.",
+  "root": {
+    "type": "stack",
+    "gap": "lg",
+    "children": [
+      {
+        "type": "grid",
+        "columns": 3,
+        "children": [
+          { "type": "stat", "label": "Peak open connections", "value": "8.4k", "delta": "+6.1k after deploy", "tone": "warning" },
+          { "type": "stat", "label": "Failed requests", "value": "1.5k/hr", "delta": "Recovered after rollback", "tone": "danger" },
+          { "type": "stat", "label": "Memory at baseline", "value": "08:08", "delta": "Hotfix stable", "tone": "success" }
+        ]
+      },
+      {
+        "type": "chart",
+        "title": "Failed requests per hour",
+        "chartType": "area",
+        "indexKey": "time",
+        "series": [{ "dataKey": "failed", "label": "Failed requests" }],
+        "data": [
+          { "time": "07:00", "failed": 0 },
+          { "time": "07:16", "failed": 240 },
+          { "time": "07:20", "failed": 1480 },
+          { "time": "08:08", "failed": 12 }
+        ]
+      },
+      {
+        "type": "section",
+        "title": "Milestones",
+        "children": [
+          {
+            "type": "table",
+            "headers": ["Time", "Event", "Interpretation"],
+            "rows": [
+              ["07:10", "Deploy v2.14.0", "Connections begin rising"],
+              ["07:16", "Alert fired", "Errors and p99 diverge"],
+              ["07:20", "Rollback", "Connections and memory fall"]
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+\`\`\`
+
+## Bad pattern
+
+- Do not put a single sentence into a card by itself.
+- Do not create a vertical stack of five identical cards.
+- Do not use raw HTML for tables, badges, metric cards, or simple charts.
+- Do not use decorative tones just to make the canvas colorful.
+- Do not duplicate the same explanatory paragraph in chat and in the widget. The widget can contain concise labels and artifact text; the chat response should carry the full explanation.
+
+
 ## UI components
 
 ### Aesthetic
-Flat, clean, white surfaces. Minimal 0.5px borders. Generous whitespace. No gradients, no shadows (except functional focus rings). Everything should feel native to claude.ai — like it belongs on the page, not embedded from somewhere else.
+Use \`widget_spec\` first for UI-like widgets. It renders with the host's shadcn primitives: cards, badges, tables, metric stats, sections, progress, callouts, and charts. Raw HTML is now the fallback for custom interaction, custom SVG/canvas, or controls that cannot be represented with primitives.
 
-This section is prescriptive. Do not freestyle component styling. Reuse the exact component recipes and token usage below.
+Flat, clean surfaces. Minimal borders. Generous whitespace. Avoid decorative gradients and shadows in primitive widgets. Everything should feel native to Avenire — like it belongs on the page, not embedded from somewhere else.
 
-**Hard rule:** component CSS is for layout only. Do not invent new visual treatments for cards, controls, badges, pills, panels, or tables. If the request maps to an existing pattern below, copy it closely. If it does not, stay visually plain rather than designing a new component language.
+This section is prescriptive. Do not freestyle component styling. Use \`widget_spec\` nodes when available; use the exact HTML recipes only when raw \`widget_code\` is necessary.
+
+**Hard rule:** component CSS is for layout only. Do not invent new visual treatments for cards, controls, badges, pills, panels, or tables. If the request maps to \`widget_spec\`, use primitives. If it must be raw HTML, copy the closest pattern below.
 
 ### Tokens
 - Borders: always \`0.5px solid var(--color-border-tertiary)\` (or \`-secondary\` for emphasis)
@@ -2999,7 +3525,7 @@ Contained mockups — mobile screens, chat threads, single cards, modals, small 
 ### 1. Interactive explainer — learn how something works
 *"Explain how compound interest works" / "Teach me about sorting algorithms"*
 
-Use \`show_widget\` with HTML for the interactive controls — sliders, buttons, live state displays, charts. Keep prose explanations in your normal response text (outside the tool call), not embedded in the HTML. No card wrapper. Whitespace is the container.
+Use \`widget_spec\` if the explainer is static or only needs metrics, tables, and simple charts. Use raw HTML for interactive controls — sliders, buttons, live state displays, imperative charts. Keep long prose explanations in your normal response text; labels and short artifact text may be inside the widget.
 
 \`\`\`html
 <div style="display: flex; align-items: center; gap: 12px; margin: 0 0 1.5rem;">
@@ -3023,7 +3549,7 @@ Use \`sendPrompt()\` to let users ask follow-ups: \`sendPrompt('What if I increa
 ### 2. Compare options — decision making
 *"Compare pricing and features of these products" / "Help me choose between React and Vue"*
 
-Use \`show_widget\` with HTML. Side-by-side card grid for options. Highlight differences with semantic colors. Interactive elements for filtering or weighting.
+Use \`widget_spec\` with a \`grid\` of \`card\` nodes, \`badge\` nodes for differentiators, and a compact \`table\` only when rows are the clearest representation. Use raw HTML only if filtering or weighting must happen inside the widget.
 
 - Use \`repeat(auto-fit, minmax(160px, 1fr))\` for responsive columns
 - Each option in a card. Use badges for key differentiators.
@@ -3034,7 +3560,7 @@ Use \`show_widget\` with HTML. Side-by-side card grid for options. Highlight dif
 ### 3. Data record — bounded UI object
 *"Show me a Salesforce contact card" / "Create a receipt for this order"*
 
-Use \`show_widget\` with HTML. Wrap the entire thing in a single raised card. All content is sans-serif since it's pure UI. Use an avatar/initials circle for people (see example below).
+Use \`widget_spec\` with a single \`card\`, short \`text\` rows, \`badge\` for status, and \`divider\` for sections. Use raw HTML only when you need a pixel-specific mockup or custom layout not covered by primitives.
 
 \`\`\`html
 <div style="background: var(--color-background-primary); border-radius: var(--border-radius-lg); border: 0.5px solid var(--color-border-tertiary); padding: 1rem 1.25rem;">
@@ -3142,7 +3668,7 @@ Canvas widgets should not hardcode one palette and hope it survives theme change
 Use the current theme as the source of truth, then redraw the canvas whenever the theme changes. That keeps charts, simulations, and custom renderers readable in both modes.
 
 `,
-    sourceIds: ["preamble","modules","core-design-system","when-nothing-fits","ui-components","color-palette"] as const,
+    sourceIds: ["preamble","modules","core-design-system","when-nothing-fits","first-class-primitives","ui-components","color-palette"] as const,
   },
   "modules": {
     id: "modules",
@@ -3153,9 +3679,9 @@ Use the current theme as the source of truth, then redraw the canvas whenever th
     content: `## Modules
 Call \`visualize_read_me\` again with the relevant visual modules when you need more specific guidance:
 - \`diagram\` — SVG flowcharts, structural diagrams, illustrative diagrams
-- \`mockup\` — UI mockups, forms, cards, dashboards
-- \`interactive\` — interactive explainers with controls
-- \`chart\` — charts and data analysis (includes Chart.js)
+- \`mockup\` — UI mockups, forms, cards, dashboards. Prefer \`widget_spec\` primitives unless pixel-specific HTML is required.
+- \`interactive\` — interactive explainers with controls. Prefer \`widget_spec\` for static/structured explainers; use raw HTML for controls and custom JS.
+- \`chart\` — charts and data analysis. Prefer \`widget_spec\` charts for bar/line/area dashboards; use Chart.js only for unsupported chart behavior.
 - \`art\` — illustration and generative art
 - \`physics\` — physics simulations, motion, forces, energy, and time-evolving systems
 Pick the closest fit. Each module includes the relevant design guidance.
@@ -3167,7 +3693,7 @@ Pick the closest fit. Each module includes the relevant design guidance.
 
 If you catch yourself writing "click to learn more" in prose, the diagram itself must ACTUALLY be sparse. Don't promise brevity then front-load everything.
 
-You create rich visual content — SVG diagrams/illustrations and HTML interactive widgets — that renders inline in conversation. The best output feels like a natural extension of the chat.
+You create rich visual content — first-class primitive canvases, SVG diagrams/illustrations, and HTML interactive widgets — that renders inline in conversation. The best output feels like a natural extension of the chat.
 `,
   },
   "phys-sim": {
@@ -3407,9 +3933,9 @@ Use this module for simulations where motion over time is the point: orbits, pen
 ## Modules
 Call \`visualize_read_me\` again with the relevant visual modules when you need more specific guidance:
 - \`diagram\` — SVG flowcharts, structural diagrams, illustrative diagrams
-- \`mockup\` — UI mockups, forms, cards, dashboards
-- \`interactive\` — interactive explainers with controls
-- \`chart\` — charts and data analysis (includes Chart.js)
+- \`mockup\` — UI mockups, forms, cards, dashboards. Prefer \`widget_spec\` primitives unless pixel-specific HTML is required.
+- \`interactive\` — interactive explainers with controls. Prefer \`widget_spec\` for static/structured explainers; use raw HTML for controls and custom JS.
+- \`chart\` — charts and data analysis. Prefer \`widget_spec\` charts for bar/line/area dashboards; use Chart.js only for unsupported chart behavior.
 - \`art\` — illustration and generative art
 - \`physics\` — physics simulations, motion, forces, energy, and time-evolving systems
 Pick the closest fit. Each module includes the relevant design guidance.
@@ -3421,7 +3947,7 @@ Pick the closest fit. Each module includes the relevant design guidance.
 
 If you catch yourself writing "click to learn more" in prose, the diagram itself must ACTUALLY be sparse. Don't promise brevity then front-load everything.
 
-You create rich visual content — SVG diagrams/illustrations and HTML interactive widgets — that renders inline in conversation. The best output feels like a natural extension of the chat.
+You create rich visual content — first-class primitive canvases, SVG diagrams/illustrations, and HTML interactive widgets — that renders inline in conversation. The best output feels like a natural extension of the chat.
 
 
 ## Core Design System
@@ -3430,10 +3956,11 @@ These rules apply to ALL use cases.
 
 ### Philosophy
 - **Seamless**: Users shouldn't notice where claude.ai ends and your widget begins.
-- **Flat**: No gradients, mesh backgrounds, noise textures, or decorative effects. Clean flat surfaces.
-- **Compact**: Show the essential inline. Explain the rest in text.
-- **Text goes in your response, visuals go in the tool** — All explanatory text, descriptions, introductions, and summaries must be written as normal response text OUTSIDE the tool call. The tool output should contain ONLY the visual element (diagram, chart, interactive widget). Never put paragraphs of explanation, section headings, or descriptive prose inside the HTML/SVG. If the user asks "explain X", write the explanation in your response and use the tool only for the visual that accompanies it. The user's font settings only apply to your response text, not to text inside the widget.
-- **Use the system as-is**: do not invent your own styling language. Reuse the provided classes, bare controls, tokens, and structural patterns directly. Treat them as a contract, not inspiration.
+- **Primitive-first**: For canvas-style artifacts, use \`widget_spec\` first-class primitives. They render with Avenire's shadcn UI components and are the default for cards, metrics, tables, sections, charts, callouts, and structured reports.
+- **Raw-code escape hatch**: Use raw \`widget_code\` HTML/SVG only when the widget needs custom drawing, custom interaction, canvas animation, imperative JS, mermaid, or third-party libraries.
+- **Compact but complete**: Inline widgets should stay compact. Canvas artifacts may include concise headings, labels, callouts, and tables inside the widget when that content is part of the artifact.
+- **No duplicated prose**: Full explanations belong in the chat response. The widget may contain short artifact text that helps the visual stand alone.
+- **Use the system as-is**: do not invent your own styling language for primitive widgets. Reuse the provided primitive nodes and theme tokens. Treat them as a contract, not inspiration.
 
 ### Streaming
 Output streams token-by-token. Structure code so useful content appears early.
@@ -3448,9 +3975,9 @@ Output streams token-by-token. Structure code so useful content appears early.
 - No font-size below 11px
 - No emoji — use CSS shapes or SVG paths
 - No gradients, drop shadows, blur, glow, or neon effects
-- **No hand-authored colors.** Do not pick colors. Do not write hex, rgb(), hsl(), oklch(), named colors, or ad hoc opacity ramps for UI/diagram styling. Apply the provided classes and tokens only.
+- **No hand-authored UI colors.** Do not pick colors for primitive widgets. Use \`tone\` and built-in chart defaults. Raw SVG/canvas may use CSS variables and documented SVG classes; only use hardcoded colors for domain-specific physical illustrations where the color carries meaning.
 - **Classes first.** If a provided classname solves the problem, use the classname. Do not recreate the same look with inline color/fill/stroke declarations.
-- **Do not restyle core components from scratch.** Inputs, buttons, sliders, cards, pills, metric blocks, and diagram nodes should follow the prescribed structure. If the examples show a pattern, copy the pattern instead of improvising a new one.
+- **Do not restyle core components from scratch.** Inputs, buttons, sliders, cards, pills, metric blocks, and diagram nodes should follow the prescribed structure. If a primitive exists, use it instead of recreating it in HTML.
 - **Layout styles are allowed; appearance styles are not.** Use inline CSS for positioning, spacing, sizing, and grid/flex layout. Do not use inline CSS to invent new visual design for components.
 - No dark/colored backgrounds on outer containers (transparent only — host provides the bg)
 - **Typography**: The default font is var(--font-sans). For the rare editorial/blockquote moment, use \`font-family: var(--font-serif)\`.
@@ -3463,7 +3990,7 @@ Output streams token-by-token. Structure code so useful content appears early.
 - When placing text on a colored background (badges, pills, cards, tags), use the darkest shade from that same color family for the text — never plain black or generic gray.
 - **Corners**: use \`border-radius: var(--border-radius-md)\` (or \`-lg\` for cards) in HTML. In SVG, \`rx="4"\` is the default — larger values make pills, use only when you mean a pill.
 - **No rounded corners on single-sided borders** — if using \`border-left\` or \`border-top\` accents, set \`border-radius: 0\`. Rounded corners only work with full borders on all sides.
-- **No titles or prose inside the tool output** — see Philosophy above.
+- **Titles and concise artifact text are allowed in \`widget_spec\`**. For raw SVG diagrams, keep prose outside the tool unless the text is a direct label in the diagram.
 - **Icon sizing**: When using emoji or inline SVG icons, explicitly set \`font-size: 16px\` for emoji or \`width: 16px; height: 16px\` for SVG icons. Never let icons inherit the container's font size — they will render too large. For larger decorative icons, use 24px max.
 - No tabs, carousels, or \`display: none\` sections during streaming — hidden content streams invisibly. Show all content stacked vertically. (Post-streaming JS-driven steppers are fine — see Illustrative/Interactive sections.)
 - No nested scrolling — auto-fit height.
@@ -4536,11 +5063,13 @@ Before placing text in a box, check: does (text width + 2×padding) fit the cont
     content: `## UI components
 
 ### Aesthetic
-Flat, clean, white surfaces. Minimal 0.5px borders. Generous whitespace. No gradients, no shadows (except functional focus rings). Everything should feel native to claude.ai — like it belongs on the page, not embedded from somewhere else.
+Use \`widget_spec\` first for UI-like widgets. It renders with the host's shadcn primitives: cards, badges, tables, metric stats, sections, progress, callouts, and charts. Raw HTML is now the fallback for custom interaction, custom SVG/canvas, or controls that cannot be represented with primitives.
 
-This section is prescriptive. Do not freestyle component styling. Reuse the exact component recipes and token usage below.
+Flat, clean surfaces. Minimal borders. Generous whitespace. Avoid decorative gradients and shadows in primitive widgets. Everything should feel native to Avenire — like it belongs on the page, not embedded from somewhere else.
 
-**Hard rule:** component CSS is for layout only. Do not invent new visual treatments for cards, controls, badges, pills, panels, or tables. If the request maps to an existing pattern below, copy it closely. If it does not, stay visually plain rather than designing a new component language.
+This section is prescriptive. Do not freestyle component styling. Use \`widget_spec\` nodes when available; use the exact HTML recipes only when raw \`widget_code\` is necessary.
+
+**Hard rule:** component CSS is for layout only. Do not invent new visual treatments for cards, controls, badges, pills, panels, or tables. If the request maps to \`widget_spec\`, use primitives. If it must be raw HTML, copy the closest pattern below.
 
 ### Tokens
 - Borders: always \`0.5px solid var(--color-border-tertiary)\` (or \`-secondary\` for emphasis)
@@ -4574,7 +5103,7 @@ Contained mockups — mobile screens, chat threads, single cards, modals, small 
 ### 1. Interactive explainer — learn how something works
 *"Explain how compound interest works" / "Teach me about sorting algorithms"*
 
-Use \`show_widget\` with HTML for the interactive controls — sliders, buttons, live state displays, charts. Keep prose explanations in your normal response text (outside the tool call), not embedded in the HTML. No card wrapper. Whitespace is the container.
+Use \`widget_spec\` if the explainer is static or only needs metrics, tables, and simple charts. Use raw HTML for interactive controls — sliders, buttons, live state displays, imperative charts. Keep long prose explanations in your normal response text; labels and short artifact text may be inside the widget.
 
 \`\`\`html
 <div style="display: flex; align-items: center; gap: 12px; margin: 0 0 1.5rem;">
@@ -4598,7 +5127,7 @@ Use \`sendPrompt()\` to let users ask follow-ups: \`sendPrompt('What if I increa
 ### 2. Compare options — decision making
 *"Compare pricing and features of these products" / "Help me choose between React and Vue"*
 
-Use \`show_widget\` with HTML. Side-by-side card grid for options. Highlight differences with semantic colors. Interactive elements for filtering or weighting.
+Use \`widget_spec\` with a \`grid\` of \`card\` nodes, \`badge\` nodes for differentiators, and a compact \`table\` only when rows are the clearest representation. Use raw HTML only if filtering or weighting must happen inside the widget.
 
 - Use \`repeat(auto-fit, minmax(160px, 1fr))\` for responsive columns
 - Each option in a card. Use badges for key differentiators.
@@ -4609,7 +5138,7 @@ Use \`show_widget\` with HTML. Side-by-side card grid for options. Highlight dif
 ### 3. Data record — bounded UI object
 *"Show me a Salesforce contact card" / "Create a receipt for this order"*
 
-Use \`show_widget\` with HTML. Wrap the entire thing in a single raised card. All content is sans-serif since it's pure UI. Use an avatar/initials circle for people (see example below).
+Use \`widget_spec\` with a single \`card\`, short \`text\` rows, \`badge\` for status, and \`divider\` for sections. Use raw HTML only when you need a pixel-specific mockup or custom layout not covered by primitives.
 
 \`\`\`html
 <div style="background: var(--color-background-primary); border-radius: var(--border-radius-lg); border: 0.5px solid var(--color-border-tertiary); padding: 1rem 1.25rem;">

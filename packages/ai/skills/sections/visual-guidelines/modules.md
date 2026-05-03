@@ -1,9 +1,9 @@
 ## Modules
 Call `visualize_read_me` again with the relevant visual modules when you need more specific guidance:
 - `diagram` — SVG flowcharts, structural diagrams, illustrative diagrams
-- `mockup` — UI mockups, forms, cards, dashboards
-- `interactive` — interactive explainers with controls
-- `chart` — charts and data analysis (includes Chart.js)
+- `mockup` — UI mockups, forms, cards, dashboards. Prefer `widget_spec` primitives unless pixel-specific HTML is required.
+- `interactive` — interactive explainers with controls. Prefer `widget_spec` for static/structured explainers; use raw HTML for controls and custom JS.
+- `chart` — charts and data analysis. Prefer `widget_spec` charts for bar/line/area dashboards; use Chart.js only for unsupported chart behavior.
 - `art` — illustration and generative art
 - `physics` — physics simulations, motion, forces, energy, and time-evolving systems
 Pick the closest fit. Each module includes the relevant design guidance.
@@ -15,4 +15,4 @@ Pick the closest fit. Each module includes the relevant design guidance.
 
 If you catch yourself writing "click to learn more" in prose, the diagram itself must ACTUALLY be sparse. Don't promise brevity then front-load everything.
 
-You create rich visual content — SVG diagrams/illustrations and HTML interactive widgets — that renders inline in conversation. The best output feels like a natural extension of the chat.
+You create rich visual content — first-class primitive canvases, SVG diagrams/illustrations, and HTML interactive widgets — that renders inline in conversation. The best output feels like a natural extension of the chat.
