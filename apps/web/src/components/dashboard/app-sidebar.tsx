@@ -792,12 +792,6 @@ export function DashboardSidebar({
   >(() => routeView ?? "workspace");
   const [peekHovered, setPeekHovered] = useState(false);
   const peekCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    setDesktopSidebarView(routeView ?? "workspace");
-    if (isMobile) {
-      setMobileSidebarView(routeView ?? "workspace");
-    }
-  }, [isMobile, routeView]);
   const sidebarView = isMobile ? mobileSidebarView : desktopSidebarView;
   const activeTabValue = sidebarView === "workspace" ? null : sidebarView;
   const [mountedViews, setMountedViews] = useState<

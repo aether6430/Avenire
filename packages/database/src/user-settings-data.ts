@@ -4,11 +4,13 @@ import { userSettings } from "./schema";
 
 export interface UserSettingsRecord {
   emailReceipts: boolean;
+  completedTasksAtTop: boolean;
   onboardingCompleted: boolean;
 }
 
 const DEFAULT_USER_SETTINGS: UserSettingsRecord = {
   emailReceipts: true,
+  completedTasksAtTop: true,
   onboardingCompleted: false,
 };
 
@@ -16,6 +18,7 @@ export async function getUserSettings(userId: string): Promise<UserSettingsRecor
   const [settings] = await db
     .select({
       emailReceipts: userSettings.emailReceipts,
+      completedTasksAtTop: userSettings.completedTasksAtTop,
       onboardingCompleted: userSettings.onboardingCompleted,
     })
     .from(userSettings)
@@ -28,6 +31,7 @@ export async function getUserSettings(userId: string): Promise<UserSettingsRecor
 
   return {
     emailReceipts: settings.emailReceipts,
+    completedTasksAtTop: settings.completedTasksAtTop,
     onboardingCompleted: settings.onboardingCompleted,
   };
 }
@@ -38,6 +42,8 @@ export async function upsertUserSettings(
 ): Promise<UserSettingsRecord> {
   const now = new Date();
   const hasValidEmailReceipts = typeof updates.emailReceipts === "boolean";
+  const hasValidCompletedTasksAtTop =
+    typeof updates.completedTasksAtTop === "boolean";
   const hasValidOnboardingCompleted =
     typeof updates.onboardingCompleted === "boolean";
 
@@ -46,6 +52,9 @@ export async function upsertUserSettings(
     createdAt: now,
     updatedAt: now,
     ...(hasValidEmailReceipts ? { emailReceipts: updates.emailReceipts } : {}),
+    ...(hasValidCompletedTasksAtTop
+      ? { completedTasksAtTop: updates.completedTasksAtTop }
+      : {}),
     ...(hasValidOnboardingCompleted
       ? { onboardingCompleted: updates.onboardingCompleted }
       : {}),
@@ -54,6 +63,9 @@ export async function upsertUserSettings(
   const conflictSet: Partial<typeof userSettings.$inferInsert> = {
     updatedAt: now,
     ...(hasValidEmailReceipts ? { emailReceipts: updates.emailReceipts } : {}),
+    ...(hasValidCompletedTasksAtTop
+      ? { completedTasksAtTop: updates.completedTasksAtTop }
+      : {}),
     ...(hasValidOnboardingCompleted
       ? { onboardingCompleted: updates.onboardingCompleted }
       : {}),
@@ -68,11 +80,13 @@ export async function upsertUserSettings(
     })
     .returning({
       emailReceipts: userSettings.emailReceipts,
+      completedTasksAtTop: userSettings.completedTasksAtTop,
       onboardingCompleted: userSettings.onboardingCompleted,
     });
 
   return {
     emailReceipts: settings.emailReceipts,
+    completedTasksAtTop: settings.completedTasksAtTop,
     onboardingCompleted: settings.onboardingCompleted,
   };
 }

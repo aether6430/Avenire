@@ -54,6 +54,9 @@ import {
 } from "@tiptap/extension-mathematics";
 import Placeholder from "@tiptap/extension-placeholder";
 import { TableKit } from "@tiptap/extension-table";
+import TableOfContents, {
+  type TableOfContentDataItem,
+} from "@tiptap/extension-table-of-contents";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { Markdown } from "@tiptap/markdown";
 import { Fragment } from "@tiptap/pm/model";
@@ -146,6 +149,7 @@ import {
   usePaneRouter,
 } from "@/lib/workspace-panes";
 import { commandPaletteActions } from "@/stores/commandPaletteStore";
+import { getUserSettingsSnapshot } from "@/lib/user-settings-client";
 import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
 const lowlight = createLowlight(common);
 const MENU_OFFSET = 10;
@@ -785,7 +789,7 @@ const MermaidDiagramExtension = TiptapNode.create({
   },
 });
 
-/** Keeps task list items sorted so completed (checked) items are always at the top. */
+/** Keeps task list items sorted so completed (checked) items follow the user preference. */
 const TaskListSortExtension = Extension.create({
   name: "taskListSort",
   addProseMirrorPlugins() {
@@ -811,21 +815,31 @@ const TaskListSortExtension = Extension.create({
             }
             const contentStart = pos + 1;
             const contentEnd = pos + node.nodeSize - 1;
-            const items: { node: ReturnType<typeof node.child> }[] = [];
+            const completedTasksAtTop =
+              getUserSettingsSnapshot().settings.completedTasksAtTop;
+            const completionRank = (checked: boolean) =>
+              completedTasksAtTop
+                ? checked
+                  ? 0
+                  : 1
+                : checked
+                  ? 1
+                  : 0;
+            const items: { index: number; node: ReturnType<typeof node.child> }[] = [];
             for (let i = 0; i < node.childCount; i++) {
               const child = node.child(i);
               if (child.type === taskItemType) {
-                items.push({ node: child });
+                items.push({ index: i, node: child });
               }
             }
             const sorted = [...items].sort((a, b) => {
-              const aChecked = (a.node.attrs as { checked?: boolean }).checked
-                ? 0
-                : 1;
-              const bChecked = (b.node.attrs as { checked?: boolean }).checked
-                ? 0
-                : 1;
-              return aChecked - bChecked;
+              const aChecked = completionRank(
+                Boolean((a.node.attrs as { checked?: boolean }).checked)
+              );
+              const bChecked = completionRank(
+                Boolean((b.node.attrs as { checked?: boolean }).checked)
+              );
+              return aChecked - bChecked || a.index - b.index;
             });
             const sameOrder = items.every((item, i) =>
               item.node.eq(sorted[i]!.node)
@@ -2448,6 +2462,75 @@ function EmptyNoteTemplateActions({
   );
 }
 
+function EditorTableOfContentsRail({
+  items,
+}: {
+  items: TableOfContentDataItem[];
+}) {
+  const visibleItems = items.filter((item) => item.textContent.trim().length > 0);
+  const getMarkerWidth = (item: TableOfContentDataItem) => {
+    if (item.originalLevel <= 1) {
+      return 46;
+    }
+    if (item.originalLevel === 2) {
+      return 34;
+    }
+    return 24;
+  };
+
+  if (visibleItems.length === 0) {
+    return null;
+  }
+
+  return (
+    <aside className="editor-toc-rail pointer-events-none absolute left-full top-24 z-30 ml-4">
+      <div className="pointer-events-auto">
+        <div className="editor-toc-rail__inner">
+          <div className="editor-toc-rail__collapsed" aria-hidden>
+            {visibleItems.slice(0, 14).map((item) => (
+              <span
+                className={`editor-toc-rail__tick ${
+                  item.isActive ? "is-active" : ""
+                }`}
+                key={item.id}
+                style={{
+                  width: `${getMarkerWidth(item)}px`,
+                }}
+              />
+            ))}
+          </div>
+
+          <nav aria-label="Table of contents" className="editor-toc-rail__panel">
+            <ol className="editor-toc-rail__list">
+              {visibleItems.map((item) => (
+                <li key={item.id}>
+                  <button
+                    className={`editor-toc-rail__item ${
+                      item.isActive ? "is-active" : ""
+                    }`}
+                    onClick={() => {
+                      item.dom.scrollIntoView({
+                        behavior: "smooth",
+                        block: "start",
+                      });
+                    }}
+                    style={{
+                      paddingLeft: `${12 + Math.max(0, item.originalLevel - 1) * 10}px`,
+                    }}
+                    type="button"
+                  >
+                    {item.textContent}
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
 function AvenireEditor({
   createdBy,
   defaultValue,
@@ -2505,6 +2588,9 @@ function AvenireEditor({
     getDefaultNoteTemplates()
   );
   const [recentTemplateIds, setRecentTemplateIds] = useState<string[]>([]);
+  const [tableOfContentsItems, setTableOfContentsItems] = useState<
+    TableOfContentDataItem[]
+  >([]);
   const tableContextMenuRef = useRef<HTMLDivElement | null>(null);
   const { startUpload: startImageUpload } = useUploadThing("imageUploader");
   const currentPane = useOptionalCurrentWorkspacePane();
@@ -2662,6 +2748,13 @@ function AvenireEditor({
           allowTableNodeSelection: true,
         },
       }),
+      TableOfContents.configure({
+        anchorTypes: ["heading"],
+        onUpdate(data) {
+          setTableOfContentsItems([...data]);
+        },
+        scrollParent: () => scrollContainerRef.current ?? window,
+      }),
       Image.configure({
         allowBase64: true,
         inline: false,
@@ -2742,15 +2835,40 @@ function AvenireEditor({
         openWikiPage(page);
         return true;
       },
+      handleDOMEvents: {
+        dragover(_view, event) {
+          const dataTransfer = event.dataTransfer;
+          if (!dataTransfer) {
+            return false;
+          }
+          const files = dataTransfer?.files;
+          if (!files?.length) {
+            return false;
+          }
+
+          const hasImageFile = Array.from(files).some((file) =>
+            file.type.startsWith("image/")
+          );
+
+          event.preventDefault();
+          dataTransfer.dropEffect = hasImageFile ? "copy" : "none";
+          return true;
+        },
+      },
       handleDrop(view, event) {
         const files = event.dataTransfer?.files;
         if (!files?.length) {
           return false;
         }
-        const file = files[0];
-        if (!file?.type.startsWith("image/")) {
-          return false;
+
+        const file = Array.from(files).find((entry) =>
+          entry.type.startsWith("image/")
+        );
+        if (!file) {
+          event.preventDefault();
+          return true;
         }
+
         event.preventDefault();
         const reader = new FileReader();
         reader.onload = () => {
@@ -3826,6 +3944,7 @@ function AvenireEditor({
           className="[&_.ProseMirror-focused]:outline-none"
           editor={editor}
         />
+        <EditorTableOfContentsRail items={tableOfContentsItems} />
 
         {editorUiState.showEmptyTemplateActions ? (
           <EmptyNoteTemplateActions

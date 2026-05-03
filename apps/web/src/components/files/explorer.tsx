@@ -127,9 +127,9 @@ import {
 import { useFileDragDrop } from "@/hooks/use-file-drag-drop";
 import { useFileSelection } from "@/hooks/use-file-selection";
 import { useHaptics } from "@/hooks/use-haptics";
+import { useIsTouchDevice } from "@/hooks/use-touch-device";
 import {
   useCurrentWorkspacePane,
-  useCurrentWorkspacePaneCompact,
   usePanePathname,
   usePaneRouter,
   usePaneSearchParams,
@@ -1548,7 +1548,7 @@ export function FileExplorer({
   const undoFileOperationHistoryRef = useRef<FileMutationHistoryEntry[]>([]);
   const redoFileOperationHistoryRef = useRef<FileMutationHistoryEntry[]>([]);
 
-  const isMobile = useCurrentWorkspacePaneCompact();
+  const isMobile = useIsTouchDevice();
   const { paneId } = useCurrentWorkspacePane();
   const closePane = useWorkspacePaneStore((state) => state.closePane);
   const openPane = useWorkspacePaneStore((state) => state.openPane);

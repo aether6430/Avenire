@@ -124,6 +124,18 @@ export function Chat({
     });
   }, []);
 
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: "/api/chat",
+        body: {
+          chatId,
+          selectedModel,
+        },
+      }),
+    [chatId, selectedModel]
+  );
+
   const {
     messages,
     setMessages,
@@ -134,13 +146,7 @@ export function Chat({
     error,
   } = useChat<UIMessage>({
     id: chatId,
-    transport: new DefaultChatTransport({
-      api: "/api/chat",
-      body: {
-        chatId,
-        selectedModel,
-      },
-    }),
+    transport,
     experimental_throttle: 100,
     messages: initialMessages,
     onError: handleError,
@@ -273,6 +279,11 @@ export function Chat({
     },
     [append, chatId]
   );
+
+  const handleStop = useCallback(() => {
+    setAgentActivity(null);
+    stop();
+  }, [stop]);
 
   useEffect(() => {
     if (initialMessages.length === 0 || messages.length > 0) {
@@ -538,7 +549,7 @@ export function Chat({
         input={input}
         setAttachments={setAttachments}
         setInput={setInput}
-        stop={stop}
+        stop={handleStop}
         status={status}
         workspaceUuid={workspaceUuid}
       />
@@ -581,9 +592,9 @@ export function Chat({
                 key="composer-center"
                 transition={{ duration: 0.24, ease: "easeOut" }}
               >
-                <div className="flex w-full max-w-3xl flex-col items-center justify-center">
+                <div className="relative flex w-full max-w-3xl flex-col items-center justify-center">
                   {isEmptyState ? (
-                    <div>
+                    <div className="pointer-events-none absolute bottom-[calc(100%+2.25rem)] w-full sm:bottom-[calc(100%+3rem)]">
                       <Overview userName={userName} />
                     </div>
                   ) : null}

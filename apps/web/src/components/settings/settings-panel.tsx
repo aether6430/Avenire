@@ -14,6 +14,14 @@ import {
   DialogTitle,
 } from "@avenire/ui/components/dialog";
 import { Input } from "@avenire/ui/components/input";
+import { Kbd, KbdGroup } from "@avenire/ui/components/kbd";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@avenire/ui/components/select";
 import { Spinner } from "@avenire/ui/components/spinner";
 import { Switch } from "@avenire/ui/components/switch";
 import { Building as Building2, Camera, Check, CreditCard, Database, FileText, Folder, GithubLogo as Github, Globe, HardDrive, Key, Shield, SlidersHorizontal, Warning as TriangleAlert, LinkBreak as Unlink, User, Users } from "@phosphor-icons/react";
@@ -22,9 +30,15 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ComponentType, type ReactNode, type SVGProps } from "react";
+import { useLocalStorage } from "usehooks-ts";
 import { SensitiveText } from "@/components/shared/sensitive-text";
 import { DataImportsSection } from "@/components/settings/data-imports-section";
 import { getFacehashUrl } from "@/lib/avatar";
+import {
+  CHAT_COMPOSER_SEND_MODE_STORAGE_KEY,
+  DEFAULT_CHAT_COMPOSER_SEND_MODE,
+  type ChatComposerSendMode,
+} from "@/lib/chat-composer-preferences";
 import {
   DEFAULT_NOTE_TEMPLATE,
   getDefaultNoteTemplates,
@@ -32,6 +46,7 @@ import {
   type NoteTemplate,
 } from "@/lib/note-templates";
 import { PRIVACY_MODE_STORAGE_KEY } from "@/lib/privacy-mode";
+import { loadUserSettings, saveUserSettings, type UserSettingsPreferences } from "@/lib/user-settings-client";
 import { getUploadErrorMessage } from "@/lib/upload";
 import { useUploadThing } from "@/lib/uploadthing";
 import { cn } from "@/lib/utils";
@@ -106,10 +121,6 @@ type BillingUsage = {
   };
 };
 
-type UserSettings = {
-  emailReceipts: boolean;
-};
-
 const tabs = [
   { key: "account", label: "Account", icon: User },
   { key: "preferences", label: "Preferences", icon: SlidersHorizontal },
@@ -127,20 +138,46 @@ const tabs = [
 
 type TabKey = (typeof tabs)[number]["key"];
 
-const KEYBOARD_SHORTCUTS = [
-  { label: "Command Palette", keys: ["Ctrl", "Shift", "K"] },
-  { label: "Open Manage", keys: ["Ctrl", "K"] },
-  { label: "New Method", keys: ["Ctrl", "Shift", "O"] },
-  { label: "Toggle Sidebar", keys: ["Ctrl", "B"] },
-  { label: "Open Model Picker", keys: ["Ctrl", "/"] },
-  { label: "Delete Current Method", keys: ["Ctrl", "Shift", "⌫"] },
-];
+const KEYBOARD_SHORTCUT_GROUPS = [
+  {
+    name: "General",
+    items: [
+      { label: "Command Palette", keys: ["Ctrl", "Shift", "K"] },
+      { label: "Open Manage", keys: ["Ctrl", "K"] },
+    ],
+  },
+  {
+    name: "Workspace",
+    items: [
+      { label: "Toggle Sidebar", keys: ["Ctrl", "B"] },
+      { label: "Open Model Picker", keys: ["Ctrl", "/"] },
+    ],
+  },
+  {
+    name: "Editing",
+    items: [
+      { label: "New Method", keys: ["Ctrl", "Shift", "O"] },
+      { label: "Delete Current Method", keys: ["Ctrl", "Shift", "⌫"] },
+    ],
+  },
+] as const;
 
 const PLAN_LABELS: Record<string, string> = {
   access: "Free Plan",
   core: "Core Plan",
   scholar: "Scholar Plan",
 };
+
+const THEME_PREVIEW = {
+  light: {
+    outer: "#ffffff",
+    inner: "#37352f",
+  },
+  dark: {
+    outer: "#141414",
+    inner: "rgba(255, 255, 255, 0.9)",
+  },
+} as const;
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) {
@@ -222,8 +259,15 @@ export function SettingsPanel({
   const [preferencesStatus, setPreferencesStatus] = useState<string | null>(
     null
   );
+  const [shortcutQuery, setShortcutQuery] = useState("");
   const [emailReceipts, setEmailReceipts] = useState(true);
+  const [completedTasksAtTop, setCompletedTasksAtTop] = useState(true);
   const [privacyMode, setPrivacyMode] = useState(false);
+  const [chatComposerSendMode, setChatComposerSendMode] =
+    useLocalStorage<ChatComposerSendMode>(
+      CHAT_COMPOSER_SEND_MODE_STORAGE_KEY,
+      DEFAULT_CHAT_COMPOSER_SEND_MODE
+    );
   const [sessionsStatus, setSessionsStatus] = useState<string | null>(null);
 
   // Passkeys
@@ -308,6 +352,30 @@ export function SettingsPanel({
     () => workspaces.find((w) => w.workspaceId === activeWorkspaceId) ?? null,
     [activeWorkspaceId, workspaces]
   );
+  const filteredShortcutGroups = useMemo(() => {
+    const query = shortcutQuery.trim().toLowerCase();
+    if (!query) {
+      return KEYBOARD_SHORTCUT_GROUPS;
+    }
+
+    return KEYBOARD_SHORTCUT_GROUPS.map((group) => ({
+      ...group,
+      items: group.items.filter((shortcut) =>
+        [shortcut.label, shortcut.keys.join(" "), group.name]
+          .join(" ")
+          .toLowerCase()
+          .includes(query)
+      ),
+    })).filter((group) => group.items.length > 0);
+  }, [shortcutQuery]);
+  const filteredShortcutCount = useMemo(
+    () =>
+      filteredShortcutGroups.reduce(
+        (total, group) => total + group.items.length,
+        0
+      ),
+    [filteredShortcutGroups]
+  );
 
   useEffect(() => {
     setWorkspaceIconDraft(selectedWorkspace?.logo ?? "");
@@ -357,14 +425,30 @@ export function SettingsPanel({
 
   const refreshUserSettings = async () => {
     setPreferencesStatus("Loading preferences...");
-    const response = await fetch("/api/user-settings", { cache: "no-store" });
-    if (!response.ok) {
+    try {
+      const settings = await loadUserSettings();
+      setEmailReceipts(settings.emailReceipts);
+      setCompletedTasksAtTop(settings.completedTasksAtTop);
+      setPreferencesStatus(null);
+    } catch {
       setPreferencesStatus("Unable to load preferences.");
-      return;
     }
-    const payload = (await response.json()) as { settings?: UserSettings };
-    setEmailReceipts(payload.settings?.emailReceipts ?? true);
-    setPreferencesStatus(null);
+  };
+
+  const persistUserSettings = async (
+    updates: Partial<UserSettingsPreferences>,
+    rollback: () => void
+  ) => {
+    try {
+      setPreferencesStatus("Saving preferences...");
+      const settings = await saveUserSettings(updates);
+      setEmailReceipts(settings.emailReceipts);
+      setCompletedTasksAtTop(settings.completedTasksAtTop);
+      setPreferencesStatus("Preferences saved.");
+    } catch {
+      rollback();
+      setPreferencesStatus("Unable to save preferences.");
+    }
   };
 
   const refreshMembers = async (workspaceId: string) => {
@@ -1456,20 +1540,10 @@ export function SettingsPanel({
                     onCheckedChange={(nextValue) => {
                       const previous = emailReceipts;
                       setEmailReceipts(nextValue);
-                      void (async () => {
-                        setPreferencesStatus("Saving preferences...");
-                        const response = await fetch("/api/user-settings", {
-                          method: "PUT",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ emailReceipts: nextValue }),
-                        });
-                        if (!response.ok) {
-                          setEmailReceipts(previous);
-                          setPreferencesStatus("Unable to save preferences.");
-                          return;
-                        }
-                        setPreferencesStatus("Preferences saved.");
-                      })();
+                      void persistUserSettings(
+                        { emailReceipts: nextValue },
+                        () => setEmailReceipts(previous)
+                      );
                     }}
                   />
                 {preferencesStatus ? (
@@ -1748,20 +1822,10 @@ export function SettingsPanel({
                     onCheckedChange={(nextValue) => {
                       const previous = emailReceipts;
                       setEmailReceipts(nextValue);
-                      void (async () => {
-                        setPreferencesStatus("Saving preferences...");
-                        const response = await fetch("/api/user-settings", {
-                          method: "PUT",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ emailReceipts: nextValue }),
-                        });
-                        if (!response.ok) {
-                          setEmailReceipts(previous);
-                          setPreferencesStatus("Unable to save preferences.");
-                          return;
-                        }
-                        setPreferencesStatus("Preferences saved.");
-                      })();
+                      void persistUserSettings(
+                        { emailReceipts: nextValue },
+                        () => setEmailReceipts(previous)
+                      );
                     }}
                   />
                   <ToggleRow
@@ -1772,6 +1836,64 @@ export function SettingsPanel({
                       setPrivacyMode(nextValue);
                     }}
                   />
+                  <div className="flex flex-col gap-3 px-0 py-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm">
+                        Completed tasks
+                      </p>
+                      <p className="text-muted-foreground text-xs">
+                        Choose whether completed tasks stay at the top or drop
+                        to the bottom in task lists.
+                      </p>
+                    </div>
+                    <Select
+                      onValueChange={(value) => {
+                        const nextValue = value === "top";
+                        const previous = completedTasksAtTop;
+                        setCompletedTasksAtTop(nextValue);
+                        void persistUserSettings(
+                          { completedTasksAtTop: nextValue },
+                          () => setCompletedTasksAtTop(previous)
+                        );
+                      }}
+                      value={completedTasksAtTop ? "top" : "bottom"}
+                    >
+                      <SelectTrigger className="w-full sm:w-[12rem]">
+                        <SelectValue placeholder="Top" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="top">Top</SelectItem>
+                        <SelectItem value="bottom">Bottom</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-3 px-0 py-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm">Chat send shortcut</p>
+                      <p className="text-muted-foreground text-xs">
+                        Enter can send immediately, or you can require
+                        Ctrl/Cmd+Enter. Shift+Enter always inserts a new line.
+                      </p>
+                    </div>
+                    <Select
+                      onValueChange={(value) => {
+                        setChatComposerSendMode(
+                          value === "mod-enter" ? "mod-enter" : "enter"
+                        );
+                      }}
+                      value={chatComposerSendMode}
+                    >
+                      <SelectTrigger className="w-full sm:w-[12rem]">
+                        <SelectValue placeholder="Enter to send" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="enter">Enter to send</SelectItem>
+                        <SelectItem value="mod-enter">
+                          Ctrl/Cmd+Enter
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   {preferencesStatus ? (
                     <p className="mt-2 inline-flex items-center gap-2 text-muted-foreground text-xs">
                       {preferencesStatus.startsWith("Loading") ? (
@@ -1800,8 +1922,14 @@ export function SettingsPanel({
                     onClick={() => setTheme("light")}
                     type="button"
                   >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f3f4f6]">
-                      <div className="h-5 w-5 rounded-full bg-white shadow-sm" />
+                    <div
+                      className="flex h-10 w-10 items-center justify-center rounded-full"
+                      style={{ backgroundColor: THEME_PREVIEW.light.outer }}
+                    >
+                      <div
+                        className="h-5 w-5 rounded-full shadow-sm"
+                        style={{ backgroundColor: THEME_PREVIEW.light.inner }}
+                      />
                     </div>
                     <span className="font-medium">Light</span>
                   </button>
@@ -1815,8 +1943,14 @@ export function SettingsPanel({
                     onClick={() => setTheme("dark")}
                     type="button"
                   >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1f2937]">
-                      <div className="h-5 w-5 rounded-full bg-slate-900 shadow-sm" />
+                    <div
+                      className="flex h-10 w-10 items-center justify-center rounded-full"
+                      style={{ backgroundColor: THEME_PREVIEW.dark.outer }}
+                    >
+                      <div
+                        className="h-5 w-5 rounded-full shadow-sm"
+                        style={{ backgroundColor: THEME_PREVIEW.dark.inner }}
+                      />
                     </div>
                     <span className="font-medium">Dark</span>
                   </button>
@@ -1830,9 +1964,15 @@ export function SettingsPanel({
                     onClick={() => setTheme("system")}
                     type="button"
                   >
-                    <div className="flex h-10 w-10 overflow-hidden rounded-full bg-[#f3f4f6]">
-                      <div className="h-full w-1/2 bg-[#f3f4f6]" />
-                      <div className="h-full w-1/2 bg-[#1f2937]" />
+                    <div className="flex h-10 w-10 overflow-hidden rounded-full">
+                      <div
+                        className="h-full w-1/2"
+                        style={{ backgroundColor: THEME_PREVIEW.light.outer }}
+                      />
+                      <div
+                        className="h-full w-1/2"
+                        style={{ backgroundColor: THEME_PREVIEW.dark.outer }}
+                      />
                     </div>
                     <span className="font-medium">System</span>
                   </button>
@@ -2432,25 +2572,60 @@ export function SettingsPanel({
                 description="Implemented shortcuts available in Avenire."
                 title="Keyboard Shortcuts"
               >
-                <div className="max-w-xl space-y-2">
-                  {KEYBOARD_SHORTCUTS.map((shortcut) => (
-                    <div
-                      className="flex items-center justify-between px-0 py-1.5"
-                      key={shortcut.label}
-                    >
-                      <span className="text-sm">{shortcut.label}</span>
-                      <div className="flex items-center gap-1">
-                        {shortcut.keys.map((key) => (
-                          <kbd
-                            className="inline-flex items-center justify-center rounded border border-border/80 bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground leading-none"
-                            key={`${shortcut.label}-${key}`}
-                          >
-                            {key}
-                          </kbd>
-                        ))}
-                      </div>
+                <div className="max-w-3xl space-y-4">
+                  <div className="border-border/60 border-b pb-3">
+                    <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-background px-3 py-2">
+                      <Key className="size-3.5 text-muted-foreground" />
+                      <Input
+                        aria-label="Search shortcuts"
+                        className="h-auto border-0 bg-transparent px-0 py-0 shadow-none focus-visible:ring-0"
+                        onChange={(event) => {
+                          setShortcutQuery(event.target.value);
+                        }}
+                        placeholder="Search shortcuts..."
+                        value={shortcutQuery}
+                      />
+                      <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+                        {filteredShortcutCount} total
+                      </span>
                     </div>
-                  ))}
+                  </div>
+
+                  {filteredShortcutCount === 0 ? (
+                    <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                      No shortcuts match that search.
+                    </div>
+                  ) : (
+                    <div className="grid gap-x-8 gap-y-5 md:grid-cols-2">
+                      {filteredShortcutGroups.map((group) => (
+                        <div key={group.name}>
+                          <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+                            {group.name}
+                          </div>
+                          <ul className="flex flex-col">
+                            {group.items.map((shortcut) => (
+                              <li
+                                className="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 hover:bg-foreground/[0.03]"
+                                key={shortcut.label}
+                              >
+                                <span className="text-sm">{shortcut.label}</span>
+                                <KbdGroup className="shrink-0">
+                                  {shortcut.keys.map((key) => (
+                                    <Kbd
+                                      className="border border-border/80 bg-muted/80"
+                                      key={`${shortcut.label}-${key}`}
+                                    >
+                                      {key}
+                                    </Kbd>
+                                  ))}
+                                </KbdGroup>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </Section>
             </>

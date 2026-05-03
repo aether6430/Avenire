@@ -60,6 +60,7 @@ export function WorkspaceOverviewPageClient() {
       activeMisconceptions={overviewQuery.data.activeMisconceptions}
       currentUserId={user.id}
       flashcardSets={overviewQuery.data.flashcardSets}
+      rootFolderId={workspace.rootFolderId}
       userName={user.name ?? undefined}
       weakestConcepts={overviewQuery.data.weakestConcepts}
       weakestDrillTarget={overviewQuery.data.weakestDrillTarget}

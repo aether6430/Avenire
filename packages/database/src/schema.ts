@@ -821,6 +821,9 @@ export const userSettings = pgTable("user_settings", {
     .primaryKey()
     .references(() => user.id, { onDelete: "cascade" }),
   emailReceipts: boolean("email_receipts").notNull().default(true),
+  completedTasksAtTop: boolean("completed_tasks_at_top")
+    .notNull()
+    .default(true),
   onboardingCompleted: boolean("onboarding_completed")
     .notNull()
     .default(false),

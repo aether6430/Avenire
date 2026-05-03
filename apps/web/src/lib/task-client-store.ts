@@ -2,6 +2,7 @@
 
 import { toast } from "sonner";
 import { readCachedTasks, writeCachedTasks } from "@/lib/dashboard-browser-cache";
+import { getUserSettingsSnapshot } from "@/lib/user-settings-client";
 import type { WorkspaceTask } from "@/lib/tasks";
 
 interface TaskStoreSnapshot {
@@ -50,18 +51,21 @@ export function getTaskStoreSnapshot() {
 }
 
 export function sortWorkspaceTasks(tasks: WorkspaceTask[]) {
+  const completedTasksAtTop =
+    getUserSettingsSnapshot().settings.completedTasksAtTop;
   return tasks.slice().sort((left, right) => {
     const statusRank = (status: WorkspaceTask["status"]) => {
       switch (status) {
-        case "planned":
-          return 0;
-        case "drafting":
-          return 1;
-        case "polishing":
-          return 2;
         case "completed":
+          return completedTasksAtTop ? 0 : 3;
+        case "planned":
+          return completedTasksAtTop ? 1 : 0;
+        case "drafting":
+          return completedTasksAtTop ? 2 : 1;
+        case "polishing":
+          return completedTasksAtTop ? 3 : 2;
         default:
-          return 3;
+          return completedTasksAtTop ? 4 : 4;
       }
     };
 

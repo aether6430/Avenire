@@ -35,6 +35,7 @@ import {
   subscribeToTaskStore,
   upsertWorkspaceTask,
 } from "@/lib/task-client-store";
+import { useUserSettings } from "@/lib/user-settings-client";
 import { usePaneWorkspaceHistoryActions } from "@/stores/workspaceHistoryStore";
 
 function buildTaskPayload(draft: TaskEditorDraft) {
@@ -152,6 +153,9 @@ export function TasksWorkspace({
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dropStatus, setDropStatus] = useState<WorkspaceTask["status"] | null>(null);
   const deferredSearchQuery = useDeferredValue(searchQuery);
+  const {
+    settings: { completedTasksAtTop },
+  } = useUserSettings();
   const tasks = useMemo(
     () => allTasks.filter((task) => task.workspaceId === workspaceId),
     [allTasks, workspaceId]
@@ -188,6 +192,10 @@ export function TasksWorkspace({
       window.removeEventListener(TASKS_REFRESH_EVENT, refresh);
     };
   }, [workspaceId]);
+
+  useEffect(() => {
+    void reloadWorkspaceTasks(workspaceId, { background: true });
+  }, [completedTasksAtTop, workspaceId]);
 
   useEffect(() => {
     const taskId = searchParams.get("task");

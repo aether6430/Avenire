@@ -12,7 +12,7 @@ import {
 } from "@avenire/ui/components/dialog";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowSquareOut, PlusCircle } from "@phosphor-icons/react";
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState, type ComponentProps } from "react";
 import type { Attachment } from "@/components/chat/attachment";
 import { ChatActions } from "@/components/chat/chat-actions";
 import { Markdown } from "@/components/chat/markdown";
@@ -25,6 +25,7 @@ import {
   RollingToolActivity,
 } from "@/components/chat/rolling-tool-activity";
 import { ChatToolPart, ToolRow } from "@/components/chat/tool-part";
+import { WidgetPrimitiveRenderer } from "@/components/WidgetPrimitiveRenderer";
 import { WidgetRenderer } from "@/components/WidgetRenderer";
 import { dispatchNoteWidgetInsertion } from "@/lib/note-widgets";
 import { resolveWorkspaceFileRoute } from "@/lib/workspace-file-navigation";
@@ -81,6 +82,17 @@ const getReasoningText = (part: MessagePart) => {
 
   return "";
 };
+
+const isRenderableWidgetSpec = (
+  value: unknown
+): value is ComponentProps<typeof WidgetPrimitiveRenderer>["spec"] =>
+  typeof value === "object" &&
+  value !== null &&
+  "title" in value &&
+  typeof value.title === "string" &&
+  "root" in value &&
+  typeof value.root === "object" &&
+  value.root !== null;
 
 const isToolPart = (part: MessagePart): part is ToolPart =>
   part.type.startsWith("tool-");
@@ -605,7 +617,13 @@ const PurePreviewMessage = ({
                     ? input.widget_code
                     : typeof output?.widget_code === "string"
                       ? output.widget_code
-                    : "";
+                      : "";
+                const widgetSpec =
+                  isRenderableWidgetSpec(input?.widget_spec)
+                    ? input.widget_spec
+                    : isRenderableWidgetSpec(output?.widget_spec)
+                      ? output.widget_spec
+                      : null;
                 const title =
                   typeof input?.title === "string"
                     ? input.title
@@ -650,7 +668,9 @@ const PurePreviewMessage = ({
                         ) : null}
                       </div>
                     </ToolRow>
-                    {widgetCode ? (
+                    {widgetSpec ? (
+                      <WidgetPrimitiveRenderer spec={widgetSpec} />
+                    ) : widgetCode ? (
                       <WidgetRenderer
                         html={widgetCode}
                         isStreaming={isStreamingWidget}

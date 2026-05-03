@@ -61,7 +61,9 @@ import {
   useState,
 } from "react";
 import { toast } from "sonner";
+import { Markdown as MarkdownRenderer } from "@/components/chat/markdown";
 import AvenireEditor from "@/components/editor";
+import type { WorkspaceInvalidationDetail } from "@/components/dashboard/workspace-realtime-bridge";
 import { PropertiesTable } from "@/components/editor/properties-table";
 import { CircleToAiSearchOverlay } from "@/components/files/circle-to-ai-search-overlay";
 import { PanPinchImageViewer } from "@/components/files/pan-pinch-image-viewer";
@@ -199,6 +201,28 @@ function createGradientBannerDataUrl(from: string, to: string) {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
+function InactiveMarkdownPreview({
+  content,
+  fileId,
+  workspaceUuid,
+}: {
+  content: string;
+  fileId: string;
+  workspaceUuid: string;
+}) {
+  return (
+    <div className="mx-auto w-full max-w-[45rem] px-4 py-8 sm:px-10 sm:py-10">
+      <MarkdownRenderer
+        className="text-sm"
+        content={content}
+        id={`inactive-note-preview:${fileId}`}
+        parseIncompleteMarkdown={false}
+        workspaceUuid={workspaceUuid}
+      />
+    </div>
+  );
+}
+
 const NOTE_COVER_GALLERY = [
   {
     label: "Default",
@@ -328,7 +352,7 @@ export function FilePreviewPanel({
   const noteSyncInFlightRef = useRef(false);
   const noteSyncQueuedRef = useRef(false);
   const searchParams = usePaneSearchParams();
-  const { paneId } = useCurrentWorkspacePane();
+  const { isActive: isPaneActive, paneId } = useCurrentWorkspacePane();
   const closePane = useWorkspacePaneStore((state) => state.closePane);
   const openPane = useWorkspacePaneStore((state) => state.openPane);
   const paneCount = useWorkspacePaneStore((state) => state.panes.length);
@@ -696,6 +720,67 @@ export function FilePreviewPanel({
     activeFileIsMarkdown,
     notePageDirty,
     saveFileMetadata,
+  ]);
+
+  useEffect(() => {
+    if (!(workspaceUuid && activeFileIsMarkdown)) {
+      return;
+    }
+
+    const handleWorkspaceInvalidation = (event: Event) => {
+      const detail = (
+        event as CustomEvent<WorkspaceInvalidationDetail | undefined>
+      ).detail;
+
+      if (
+        detail?.kind !== "files" ||
+        detail.workspaceUuid !== workspaceUuid ||
+        (detail.payload?.fileId && detail.payload.fileId !== activeFile.id)
+      ) {
+        return;
+      }
+
+      if (
+        latestMarkdownBodyRef.current !== markdownOriginal ||
+        noteSyncInFlightRef.current
+      ) {
+        return;
+      }
+
+      void loadMarkdownNote(activeFile.id)
+        .then((payload) => {
+          const markdown = payload.markdown ?? "";
+          setMarkdownOriginal(markdown);
+          setMarkdownDraft(markdown);
+          setNoteBaseContent(markdown);
+          setNoteRemoteUpdatedAt(payload.updatedAt ?? null);
+          setLoadedMarkdownFileId(activeFile.id);
+          writeWorkspaceMarkdownCache(workspaceUuid, activeFile.id, {
+            body: markdown,
+            content: markdown,
+            page: latestNotePageRef.current,
+            updatedAt: payload.updatedAt ?? null,
+          });
+        })
+        .catch(() => undefined);
+    };
+
+    window.addEventListener(
+      "avenire:workspace-data-invalidated",
+      handleWorkspaceInvalidation as EventListener
+    );
+
+    return () => {
+      window.removeEventListener(
+        "avenire:workspace-data-invalidated",
+        handleWorkspaceInvalidation as EventListener
+      );
+    };
+  }, [
+    activeFile.id,
+    activeFileIsMarkdown,
+    markdownOriginal,
+    workspaceUuid,
   ]);
 
   useEffect(() => {
@@ -1466,27 +1551,35 @@ export function FilePreviewPanel({
                     </div>
                   </div>
                 ) : null}
-                <AvenireEditor
-                  createdBy={
-                    currentUser?.name?.trim() ||
-                    currentUser?.email?.trim() ||
-                    ""
-                  }
-                  defaultValue={markdownBody}
-                  key={activeFile.id}
-                  noteTitle={noteDisplayTitle}
-                  onChange={handleMarkdownBodyChange}
-                  onTemplateApplied={(template) => {
-                    setNoteCoverUrl(template.bannerUrl);
-                  }}
-                  onOpenWikiLink={(page) => {
-                    openFileById(page.id);
-                  }}
-                  saveState={activeFileIsMarkdown ? noteSaveState : undefined}
-                  scrollContainerRef={filePreviewScrollRef}
-                  wikiPages={wikiLinkableFiles}
-                  workspaceUuid={workspaceUuid}
-                />
+                {isPaneActive ? (
+                  <AvenireEditor
+                    createdBy={
+                      currentUser?.name?.trim() ||
+                      currentUser?.email?.trim() ||
+                      ""
+                    }
+                    defaultValue={markdownBody}
+                    key={activeFile.id}
+                    noteTitle={noteDisplayTitle}
+                    onChange={handleMarkdownBodyChange}
+                    onTemplateApplied={(template) => {
+                      setNoteCoverUrl(template.bannerUrl);
+                    }}
+                    onOpenWikiLink={(page) => {
+                      openFileById(page.id);
+                    }}
+                    saveState={activeFileIsMarkdown ? noteSaveState : undefined}
+                    scrollContainerRef={filePreviewScrollRef}
+                    wikiPages={wikiLinkableFiles}
+                    workspaceUuid={workspaceUuid}
+                  />
+                ) : (
+                  <InactiveMarkdownPreview
+                    content={markdownBody}
+                    fileId={activeFile.id}
+                    workspaceUuid={workspaceUuid}
+                  />
+                )}
               </div>
             )}
           </div>

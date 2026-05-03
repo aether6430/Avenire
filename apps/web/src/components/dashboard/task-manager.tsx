@@ -16,6 +16,7 @@ import { LazyMotion, domAnimation, m } from "framer-motion";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { QuickCaptureDialog } from "@/components/dashboard/quick-capture-dialog";
 import { subscribeToTaskStore, getTaskStoreSnapshot, patchWorkspaceTask, primeWorkspaceTaskStore, reloadWorkspaceTasks, removeWorkspaceTask, setWorkspaceTaskError, upsertWorkspaceTask } from "@/lib/task-client-store";
+import { useUserSettings } from "@/lib/user-settings-client";
 import type { WorkspaceTask } from "@/lib/tasks";
 import { TASKS_REFRESH_EVENT } from "@/lib/tasks";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,9 @@ export function DashboardTaskManager({
     getTaskStoreSnapshot,
     getTaskStoreSnapshot
   );
+  const {
+    settings: { completedTasksAtTop },
+  } = useUserSettings();
 
   useEffect(() => {
     primeWorkspaceTaskStore(workspaceId);
@@ -54,6 +58,14 @@ export function DashboardTaskManager({
       startOfToday.setHours(0, 0, 0, 0);
       const endOfToday = new Date();
       endOfToday.setHours(23, 59, 59, 999);
+      const completionRank = (status: WorkspaceTask["status"]) =>
+        status === "completed"
+          ? completedTasksAtTop
+            ? 0
+            : 1
+          : completedTasksAtTop
+            ? 1
+            : 0;
 
       return tasks
         .filter((task) => {
@@ -70,11 +82,10 @@ export function DashboardTaskManager({
           return due >= startOfToday && due <= endOfToday;
         })
         .sort((left, right) => {
-          if (left.status === "completed" && right.status !== "completed") {
-            return -1;
-          }
-          if (left.status !== "completed" && right.status === "completed") {
-            return 1;
+          const completionDiff =
+            completionRank(left.status) - completionRank(right.status);
+          if (completionDiff !== 0) {
+            return completionDiff;
           }
           if (left.dueAt && right.dueAt) {
             return (
@@ -90,7 +101,7 @@ export function DashboardTaskManager({
           return 0;
         });
     },
-    [tasks, workspaceId]
+    [completedTasksAtTop, tasks, workspaceId]
   );
 
   const pendingCount = sortedTasks.filter(
@@ -154,14 +165,6 @@ export function DashboardTaskManager({
   };
 
   const displayTasks = useMemo(() => {
-    const completedTasks = sortedTasks.filter(
-      (task) => task.status === "completed"
-    );
-    const nonCompletedTasks = sortedTasks.filter((task) => task.status !== "completed");
-
-    if (sortedTasks.length > 10 && completedTasks.length > 0) {
-      return nonCompletedTasks.slice(0, 10);
-    }
     return sortedTasks.slice(0, 10);
   }, [sortedTasks]);
 

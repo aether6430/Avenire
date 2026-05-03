@@ -5,8 +5,17 @@ import { useEffect, useRef } from "react";
 
 type WorkspaceInvalidationKind = "chat" | "files" | "flashcards";
 
-interface WorkspaceInvalidationDetail {
+type WorkspaceInvalidationPayload = {
+  at?: number | null;
+  fileId?: string | null;
+  folderId?: string | null;
+  reason?: string | null;
+  workspaceUuid: string;
+};
+
+export interface WorkspaceInvalidationDetail {
   kind: WorkspaceInvalidationKind;
+  payload?: WorkspaceInvalidationPayload | null;
   workspaceUuid: string;
 }
 
@@ -70,8 +79,11 @@ export function WorkspaceRealtimeBridge({
           scheduleReconnect();
         };
 
-        const handleInvalidate = (kind: WorkspaceInvalidationKind) => {
-          dispatchWorkspaceInvalidation({ kind, workspaceUuid });
+        const handleInvalidate = (
+          kind: WorkspaceInvalidationKind,
+          payload?: WorkspaceInvalidationPayload | null
+        ) => {
+          dispatchWorkspaceInvalidation({ kind, payload, workspaceUuid });
 
           if (
             kind === "chat" &&
@@ -86,9 +98,18 @@ export function WorkspaceRealtimeBridge({
           // duplicate deck fetches and a full remount of the study UI.
         };
 
-        eventSource.addEventListener("files.invalidate", () =>
-          handleInvalidate("files")
-        );
+        eventSource.addEventListener("files.invalidate", (event) => {
+          let payload: WorkspaceInvalidationPayload | null = null;
+          if (event instanceof MessageEvent && typeof event.data === "string") {
+            try {
+              payload = JSON.parse(event.data) as WorkspaceInvalidationPayload;
+            } catch {
+              payload = null;
+            }
+          }
+
+          handleInvalidate("files", payload);
+        });
         eventSource.addEventListener("chat.invalidate", () =>
           handleInvalidate("chat")
         );

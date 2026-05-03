@@ -15,6 +15,113 @@
   max-width: min(100%, 45rem);
 }
 
+.editor-toc-rail {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .editor-toc-rail {
+    display: block;
+  }
+}
+
+.editor-toc-rail__inner {
+  position: sticky;
+  top: 2.5rem;
+  width: 3.125rem;
+  max-height: calc(100vh - 10rem);
+  overflow: hidden;
+  border-radius: 0.9rem;
+  background: color-mix(in oklch, var(--background) 92%, transparent 8%);
+  transition:
+    width 180ms ease,
+    background-color 180ms ease;
+}
+
+.editor-toc-rail__inner:hover,
+.editor-toc-rail__inner:focus-within {
+  width: 15.25rem;
+  background: color-mix(in oklch, var(--background) 98%, transparent 2%);
+}
+
+.editor-toc-rail__collapsed {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-height: 11rem;
+  padding: 0.85rem 0.7rem;
+  transition: opacity 140ms ease;
+}
+
+.editor-toc-rail__inner:hover .editor-toc-rail__collapsed,
+.editor-toc-rail__inner:focus-within .editor-toc-rail__collapsed {
+  opacity: 0;
+}
+
+.editor-toc-rail__tick {
+  display: block;
+  min-width: 1.5rem;
+  height: 2px;
+  background: color-mix(in oklch, var(--foreground) 42%, transparent 58%);
+  transition:
+    width 160ms ease,
+    background-color 160ms ease;
+}
+
+.editor-toc-rail__tick.is-active {
+  height: 3px;
+  background: #2563eb;
+}
+
+.editor-toc-rail__panel {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+.editor-toc-rail__inner:hover .editor-toc-rail__panel,
+.editor-toc-rail__inner:focus-within .editor-toc-rail__panel {
+  opacity: 1;
+}
+
+.editor-toc-rail__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.65rem;
+}
+
+.editor-toc-rail__item {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font-size: 0.8rem;
+  line-height: 1.25rem;
+  white-space: nowrap;
+  text-align: left;
+  text-overflow: ellipsis;
+  border-radius: 0.55rem;
+  min-height: 2rem;
+  padding: 0.45rem 0.55rem;
+  transition:
+    color 140ms ease,
+    background-color 140ms ease;
+}
+
+.editor-toc-rail__item:hover,
+.editor-toc-rail__item:focus-visible {
+  color: var(--foreground);
+  background: color-mix(in oklch, var(--foreground) 4%, transparent 96%);
+  outline: none;
+}
+
+.editor-toc-rail__item.is-active {
+  color: #2563eb;
+}
+
 .scribe-surface > *:first-child {
   margin-top: 0;
 }

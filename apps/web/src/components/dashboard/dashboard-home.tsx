@@ -2,6 +2,7 @@
 
 import { Badge } from "@avenire/ui/components/badge";
 import { Button } from "@avenire/ui/components/button";
+import { cn } from "@avenire/ui/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -41,7 +42,9 @@ import { startTransition, useEffect, useMemo, useState } from "react";
 import { HeaderBreadcrumbs } from "@/components/dashboard/header-portal";
 import { QuickCaptureDialog } from "@/components/dashboard/quick-capture-dialog";
 import { prefetchFlashcardSet } from "@/lib/flashcard-browser-cache";
+import { buildGreeting } from "@/lib/greetings";
 import {
+  useCurrentWorkspacePaneCompact,
   useWorkspacePaneNavigation,
 } from "@/lib/workspace-panes";
 import type {
@@ -94,6 +97,7 @@ interface DashboardHomeProps {
   userName?: string;
   weakestConcepts: ConceptMasteryRecord[];
   weakestDrillTarget: ConceptDrillTarget | null;
+  rootFolderId: string;
   workspaceId: string;
 }
 
@@ -250,9 +254,11 @@ export function DashboardHome({
   userName,
   weakestConcepts,
   weakestDrillTarget,
+  rootFolderId,
   workspaceId,
 }: DashboardHomeProps) {
   const router = useRouter();
+  const isCompactPane = useCurrentWorkspacePaneCompact();
   const { navigate } = useWorkspacePaneNavigation();
   const { recordRoute } = usePaneWorkspaceHistoryActions();
   const homeTab = useDashboardUiStore((state) => state.homeTab);
@@ -261,6 +267,11 @@ export function DashboardHome({
   const [loadingActivities, setLoadingActivities] = useState(true);
   const [selectedMisconception, setSelectedMisconception] =
     useState<MisconceptionRecord | null>(null);
+  const greeting = useMemo(
+    () => buildGreeting(userName, "workspace"),
+    [userName]
+  );
+  const compactGreeting = `Hey ${userName?.trim() || "there"}`;
 
   const weakPointGroups = useMemo(
     () => groupWeakPoints(weakestConcepts, activeMisconceptions),
@@ -450,7 +461,9 @@ export function DashboardHome({
           <Button
             className="h-8 gap-1.5 rounded-md px-2.5 text-muted-foreground text-sm"
             onClick={() => {
-              navigate("/workspace/files");
+              navigate(
+                `/workspace/files/${workspaceId}/folder/${rootFolderId}` as Route
+              );
             }}
             type="button"
             variant="ghost"
@@ -461,11 +474,23 @@ export function DashboardHome({
         </div>
 
         <div className="mt-2 min-w-0">
-          <h1 className="truncate font-semibold text-3xl text-foreground tracking-tight">
-            Hey {userName ?? "there"}
+          <h1
+            className={cn(
+              "max-w-full truncate text-balance font-semibold text-foreground tracking-tight",
+              isCompactPane ? "text-2xl" : "text-3xl"
+            )}
+            title={greeting.headline}
+          >
+            {isCompactPane ? compactGreeting : greeting.headline}
           </h1>
-          <p className="mt-1 truncate text-muted-foreground text-sm">
-            Welcome back to your workspace.
+          <p
+            className={cn(
+              "mt-1 max-w-full truncate text-muted-foreground",
+              isCompactPane ? "text-xs" : "text-sm"
+            )}
+            title={greeting.description}
+          >
+            {greeting.description}
           </p>
         </div>
 

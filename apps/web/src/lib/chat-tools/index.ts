@@ -323,6 +323,15 @@ const agentSelectionSchema = z.object({
   indices: z.array(z.number().int().nonnegative()).max(6),
 });
 
+const noteDraftSchema = z.object({
+  bodyMarkdown: z.string().min(1),
+  title: z.string().min(1).max(120),
+});
+
+const noteRewriteSchema = z.object({
+  markdown: z.string().min(1),
+});
+
 function emitAgentActivityUpdate(
   ctx: ChatToolContext,
   actions: AgentActivityAction[],
@@ -350,6 +359,17 @@ function toMarkdownFileName(title: string) {
   return base.endsWith(".md") ? base : `${base}.md`;
 }
 
+function sanitizeNoteTitle(value: string | null | undefined) {
+  const normalized = (value ?? "")
+    .replace(/^["'`#\s]+|["'`#\s]+$/g, "")
+    .replace(/\s+/g, " ")
+    .replace(/[.:;,!?]+$/g, "")
+    .trim()
+    .slice(0, 120);
+
+  return normalized.length > 0 ? normalized : "Untitled Note";
+}
+
 function stripNoteExtension(value: string) {
   return value.replace(/\.(md|mdx|txt)$/i, "");
 }
@@ -375,6 +395,9 @@ function extractQuotedValues(task: string) {
 
 function parseRequestedNoteDestination(task: string) {
   const quotedValues = extractQuotedValues(task);
+  const nonPathQuotedValues = quotedValues.filter(
+    (value) => !value.includes("/") && !/\.(md|mdx|txt)$/i.test(value)
+  );
   const explicitPathCandidate =
     quotedValues.find((value) => value.includes("/") && /\.\w+$/.test(value)) ??
     task.match(
@@ -396,9 +419,11 @@ function parseRequestedNoteDestination(task: string) {
 
   const fileNameCandidate =
     task.match(
-      /(?:named|called|filename|file name)\s+["']?([^"'\n]+?(?:\.(?:md|mdx|txt))?)["']?(?=$|\s)/i
+      /(?:filename|file name)\s*:?\s*["']?([^"'\n]+?(?:\.(?:md|mdx|txt)))["']?/i
     )?.[1]?.trim() ??
-    quotedValues.find((value) => /\.\w+$/.test(value) || /\s/.test(value)) ??
+    task.match(
+      /(?:named|called)\s+["']?([^"'\n]+?\.(?:md|mdx|txt))["']?(?=(?:\s+(?:in|under|inside|at|to|with)\b|$))/i
+    )?.[1]?.trim() ??
     null;
 
   const folderHint =
@@ -408,9 +433,16 @@ function parseRequestedNoteDestination(task: string) {
     )?.[1]?.trim() ??
     "";
 
-  const titleMatch = task.match(
-    /(?:title(?:d)?|about)\s+["']?([^"']+)["']?/i
-  );
+  const titleMatch =
+    task.match(/(?:^|\n)\s*title\s*:\s*([^\n]+)/i)?.[1]?.trim() ??
+    task.match(
+      /\b(?:title(?:d)?(?:\s+as)?|named|called)\s+["']?([^"'\n]+?)["']?(?=(?:\s+(?:in|under|inside|at|to|with)\b|$))/i
+    )?.[1]?.trim() ??
+    task.match(
+      /\babout\s+["']?([^"'\n]+?)["']?(?=(?:\s+(?:with|in|under|inside|at|to|and)\b|[?.!,]|$))/i
+    )?.[1]?.trim() ??
+    nonPathQuotedValues[0] ??
+    null;
   const fileName = fileNameCandidate
     ? normalizeNoteFileName(fileNameCandidate)
     : null;
@@ -419,8 +451,11 @@ function parseRequestedNoteDestination(task: string) {
     fileName,
     folderHint,
     title:
-      titleMatch?.[1]?.trim() ??
-      (fileName ? stripNoteExtension(fileName) : null),
+      titleMatch || fileName
+        ? sanitizeNoteTitle(
+            titleMatch ?? (fileName ? stripNoteExtension(fileName) : null)
+          )
+        : null,
   };
 }
 
@@ -439,6 +474,66 @@ function isMarkdownFile(file: ExplorerFileLike) {
 function buildNoteContent(params: { content: string; title: string }) {
   const normalizedContent = params.content.trim();
   return `# ${params.title}\n\n${normalizedContent}\n`;
+}
+
+function stripLeadingTitleHeading(markdown: string, title: string) {
+  const escapedTitle = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return markdown
+    .replace(new RegExp(`^#\\s+${escapedTitle}\\s*\\n+`, "i"), "")
+    .trim();
+}
+
+async function generateNoteDraftFromTask(input: {
+  task: string;
+  titleHint?: string | null;
+}) {
+  const result = await generateText({
+    model: apollo.languageModel("apollo-core"),
+    output: Output.object({ schema: noteDraftSchema }),
+    prompt: [
+      "Write a clean markdown note from the request.",
+      "Return a concise, specific title and a polished markdown body.",
+      "Do not include frontmatter or code fences unless the note explicitly needs them.",
+      "Do not include a top-level H1 heading in bodyMarkdown.",
+      input.titleHint
+        ? `Use this exact note title: ${sanitizeNoteTitle(input.titleHint)}`
+        : "Generate the note title from the request.",
+      `Request:\n${input.task}`,
+    ].join("\n\n"),
+    maxOutputTokens: 5_000,
+    temperature: 0.25,
+  });
+
+  const title = sanitizeNoteTitle(input.titleHint ?? result.output.title);
+  const body = stripLeadingTitleHeading(result.output.bodyMarkdown, title);
+
+  return {
+    bodyMarkdown: body.length > 0 ? body : result.output.bodyMarkdown.trim(),
+    title,
+  };
+}
+
+async function rewriteNoteFromTask(input: {
+  currentMarkdown: string;
+  fileName: string;
+  task: string;
+}) {
+  const result = await generateText({
+    model: apollo.languageModel("apollo-core"),
+    output: Output.object({ schema: noteRewriteSchema }),
+    prompt: [
+      "Revise the markdown note to satisfy the edit request.",
+      "Return the full updated markdown note, not a diff.",
+      "Preserve useful structure and existing detail unless the request clearly asks to remove or reorganize content.",
+      "Do not add commentary outside the note.",
+      `Edit request:\n${input.task}`,
+      `Current note (${input.fileName}):\n${input.currentMarkdown}`,
+    ].join("\n\n"),
+    maxOutputTokens: 8_000,
+    temperature: 0.2,
+  });
+
+  return `${result.output.markdown.trim()}\n`;
 }
 
 function normalizeTagList(tags: string[]) {
@@ -546,63 +641,6 @@ async function updateFileTags(params: {
   );
 
   return nextFile ?? params.file;
-}
-
-function applyNoteUpdate(params: {
-  content: string;
-  currentContent: string;
-  mode: "append" | "replace_entire" | "replace_section";
-  sectionHeading?: string | undefined;
-}) {
-  if (params.mode === "append") {
-    const base = params.currentContent.trimEnd();
-    return `${base}${base.length > 0 ? "\n\n" : ""}${params.content.trim()}\n`;
-  }
-
-  if (params.mode === "replace_entire") {
-    return `${params.content.trim()}\n`;
-  }
-
-  const heading = params.sectionHeading?.trim();
-  if (!heading) {
-    throw new Error("replace_section requires sectionHeading.");
-  }
-
-  const lines = params.currentContent.split("\n");
-  const headingPattern = new RegExp(
-    `^#{1,6}\\s+${heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*$`,
-    "i"
-  );
-  const sectionStart = lines.findIndex((line) =>
-    headingPattern.test(line.trim())
-  );
-  const replacement = [`## ${heading}`, "", params.content.trim(), ""];
-
-  if (sectionStart < 0) {
-    const base = params.currentContent.trimEnd();
-    return (
-      `${base}${base.length > 0 ? "\n\n" : ""}${replacement.join("\n")}`.trimEnd() +
-      "\n"
-    );
-  }
-
-  let sectionEnd = lines.length;
-  for (let index = sectionStart + 1; index < lines.length; index += 1) {
-    if (/^#{1,6}\s+/.test(lines[index] ?? "")) {
-      sectionEnd = index;
-      break;
-    }
-  }
-
-  return (
-    [
-      ...lines.slice(0, sectionStart),
-      ...replacement,
-      ...lines.slice(sectionEnd),
-    ]
-      .join("\n")
-      .trimEnd() + "\n"
-  );
 }
 
 function sanitizeTaxonomyLabel(value: string, maxLength: number) {
@@ -937,6 +975,7 @@ async function readWorkspaceFileContent(params: {
 }
 
 async function publishTreeMutationEvents(input: {
+  fileId?: string | null;
   folderId?: string | null;
   reason: "file.created" | "file.deleted" | "file.updated";
   workspaceId: string;
@@ -945,6 +984,7 @@ async function publishTreeMutationEvents(input: {
     publishFilesInvalidationEvent({
       workspaceUuid: input.workspaceId,
       folderId: input.folderId ?? undefined,
+      fileId: input.fileId ?? undefined,
       reason: input.reason,
     }),
     publishFilesInvalidationEvent({
@@ -952,6 +992,35 @@ async function publishTreeMutationEvents(input: {
       reason: "tree.changed",
     }),
   ]);
+}
+
+function findTargetNoteFile(params: {
+  maps: WorkspacePathMaps;
+  noteFiles: ExplorerFileLike[];
+  task: string;
+}) {
+  const destination = parseRequestedNoteDestination(params.task);
+  const directPath =
+    (destination.folderHint && destination.fileName
+      ? `${destination.folderHint}/${destination.fileName}`
+      : destination.fileName) ?? undefined;
+  const resolvedByPath = resolveFileIdByPathHint(params.maps, directPath);
+
+  if (resolvedByPath) {
+    return params.noteFiles.find((file) => file.id === resolvedByPath) ?? null;
+  }
+
+  const normalizedTitle = stripNoteExtension(destination.title ?? "").toLowerCase();
+  if (normalizedTitle) {
+    const exactMatches = params.noteFiles.filter(
+      (file) => stripNoteExtension(file.name).toLowerCase() === normalizedTitle
+    );
+    if (exactMatches.length === 1) {
+      return exactMatches[0];
+    }
+  }
+
+  return params.noteFiles.length === 1 ? params.noteFiles[0] : null;
 }
 
 function mapSearchResultsToCitations(params: {
@@ -1134,82 +1203,30 @@ async function ensureNotesFolder(input: {
   return folder;
 }
 
-async function ensureFolderPath(
+async function resolveCreateNoteFolder(
   ctx: ChatToolContext,
   maps: WorkspacePathMaps,
   hint?: string
 ) {
-  if (!hint || normalizeWorkspacePath(hint).length === 0) {
-    return ctx.rootFolderId;
-  }
-
-  const existingFolderId = resolveFolderIdByPathHint(
-    maps,
-    ctx.rootFolderId,
-    hint
-  );
-  if (existingFolderId) {
-    await ensureWritableTargetFolder(ctx, existingFolderId);
-    return existingFolderId;
-  }
-
-  const rawSegments = hint
-    .trim()
-    .replace(/^\/+|\/+$/g, "")
-    .split("/")
-    .map((segment) => segment.trim())
-    .filter(Boolean);
-
-  if (rawSegments.length === 0) {
-    return ctx.rootFolderId;
-  }
-
-  if (
-    rawSegments[0] &&
-    ["root", "workspace"].includes(rawSegments[0].toLowerCase())
-  ) {
-    rawSegments.shift();
-  }
-
-  let currentFolderId = ctx.rootFolderId;
-  let currentPath = "";
-  const folderIdByNormalizedPath = new Map<string, string>();
-
-  for (const [folderId, folderPath] of maps.folderPathById.entries()) {
-    folderIdByNormalizedPath.set(normalizeWorkspacePath(folderPath), folderId);
-  }
-
-  for (const segment of rawSegments) {
-    const nextPath = [currentPath, segment].filter(Boolean).join("/");
-    const normalizedNextPath = normalizeWorkspacePath(nextPath);
-    const existingId = folderIdByNormalizedPath.get(normalizedNextPath);
-
-    if (existingId) {
-      currentFolderId = existingId;
-      currentPath = nextPath;
-      continue;
-    }
-
-    await ensureWritableTargetFolder(ctx, currentFolderId);
-
-    const created = await createFolder(
-      ctx.workspaceId,
-      currentFolderId,
-      segment,
-      ctx.userId
+  if (hint && normalizeWorkspacePath(hint).length > 0) {
+    const existingFolderId = resolveFolderIdByPathHint(
+      maps,
+      ctx.rootFolderId,
+      hint
     );
-
-    if (!created) {
-      throw new Error(`Unable to create or resolve folder "${nextPath}".`);
+    if (existingFolderId) {
+      await ensureWritableTargetFolder(ctx, existingFolderId);
+      return existingFolderId;
     }
-
-    currentFolderId = created.id;
-    currentPath = nextPath;
-    folderIdByNormalizedPath.set(normalizedNextPath, created.id);
   }
 
-  await ensureWritableTargetFolder(ctx, currentFolderId);
-  return currentFolderId;
+  const notesFolder = await ensureNotesFolder({
+    rootFolderId: ctx.rootFolderId,
+    userId: ctx.userId,
+    workspaceId: ctx.workspaceId,
+  });
+  await ensureWritableTargetFolder(ctx, notesFolder.id);
+  return notesFolder.id;
 }
 
 async function enqueueIngestionForFile(input: {
@@ -2161,29 +2178,21 @@ The agent decides which operations to perform based on the task.`,
           operation = "created";
           const tagDirective = extractTagDirective(input.task);
           const destination = parseRequestedNoteDestination(input.task);
-          const titleMatch = input.task.match(
-            /(?:create|new|write)\s+(?:a\s+)?(?:note\s+)?(?:about\s+)?["']?([^"']+)["']?/i
+          const draft = await generateNoteDraftFromTask({
+            task: input.task,
+            titleHint: destination.title,
+          });
+          const targetFolderId = await resolveCreateNoteFolder(
+            ctx,
+            maps,
+            destination.folderHint
           );
-          const title =
-            destination.title?.trim() ||
-            titleMatch?.[1]?.trim() ||
-            "New Note";
-          const targetFolderId = destination.folderHint
-            ? await ensureFolderPath(ctx, maps, destination.folderHint)
-            : (
-                await ensureNotesFolder({
-                  rootFolderId: ctx.rootFolderId,
-                  userId: ctx.userId,
-                  workspaceId: ctx.workspaceId,
-                })
-              ).id;
-
           const content = buildNoteContent({
-            content: input.task,
-            title,
+            content: draft.bodyMarkdown,
+            title: draft.title,
           });
           const fileName =
-            destination.fileName || toMarkdownFileName(destination.title || title);
+            destination.fileName || toMarkdownFileName(draft.title);
           const file = await createWorkspaceNoteFile({
             baseContent: content,
             content,
@@ -2211,6 +2220,7 @@ The agent decides which operations to perform based on the task.`,
           });
 
           await publishTreeMutationEvents({
+            fileId: file.id,
             folderId: targetFolderId,
             reason: "file.created",
             workspaceId: ctx.workspaceId,
@@ -2226,12 +2236,12 @@ The agent decides which operations to perform based on the task.`,
             ctx.userId
           );
           notes.push({
-            contentPreview: input.task.slice(0, 500),
+            contentPreview: content.slice(0, 500),
             fileId: file.id,
             tags: getFileTags(file),
             title: file.name,
             updatedAt: file.updatedAt,
-            wordCount: input.task.split(/\s+/).length,
+            wordCount: content.split(/\s+/).length,
             workspacePath: newMaps.filePathById.get(file.id) ?? file.name,
           });
         } else if (
@@ -2240,7 +2250,12 @@ The agent decides which operations to perform based on the task.`,
           task.includes("what")
         ) {
           operation = "read";
-          const relevantNotes = noteFiles.slice(0, maxNotes);
+          const targetNote = findTargetNoteFile({
+            maps,
+            noteFiles,
+            task: input.task,
+          });
+          const relevantNotes = targetNote ? [targetNote] : noteFiles.slice(0, maxNotes);
           for (const file of relevantNotes) {
             try {
               const content = await fetchWorkspaceFileText(file, 500);
@@ -2261,7 +2276,11 @@ The agent decides which operations to perform based on the task.`,
           task.includes("append")
         ) {
           operation = "updated";
-          const noteFile = noteFiles[0];
+          const noteFile = findTargetNoteFile({
+            maps,
+            noteFiles,
+            task: input.task,
+          });
           if (noteFile) {
             const tagDirective = extractTagDirective(input.task);
             const canEdit = await userCanEditFile({
@@ -2274,10 +2293,10 @@ The agent decides which operations to perform based on the task.`,
                 noteFile,
                 50_000
               );
-              const nextContent = applyNoteUpdate({
-                content: input.task,
-                currentContent,
-                mode: "append",
+              const nextContent = await rewriteNoteFromTask({
+                currentMarkdown: currentContent,
+                fileName: noteFile.name,
+                task: input.task,
               });
               const updated = await updateNoteContent({
                 baseContent: currentContent,
@@ -2294,6 +2313,7 @@ The agent decides which operations to perform based on the task.`,
                 });
                 await deleteIngestionDataForFile(ctx.workspaceId, noteFile.id);
                 await publishTreeMutationEvents({
+                  fileId: noteFile.id,
                   folderId: noteFile.folderId,
                   reason: "file.updated",
                   workspaceId: ctx.workspaceId,
@@ -2538,7 +2558,8 @@ The agent decides which operations to perform based on the task.`,
           );
         }
 
-        const isSVG = input.widget_code.trimStart().startsWith("<svg");
+        const widgetCode = input.widget_code ?? "";
+        const isSVG = widgetCode.trimStart().startsWith("<svg");
         const width = input.width ?? 800;
         const height = input.height ?? 600;
 
@@ -2551,6 +2572,7 @@ The agent decides which operations to perform based on the task.`,
             isSVG,
           },
           widget_code: input.widget_code,
+          widget_spec: input.widget_spec,
           filePath: null,
         };
       },

@@ -12,8 +12,8 @@ export const Overview = ({ userName }: { userName?: string }) => {
       key="overview"
       transition={{ duration: 0.18, ease: "easeOut" }}
     >
-      <div className="mx-auto max-w-xl rounded-xl px-5 py-5 text-center">
-        <h1 className="pb-2 font-semibold text-4xl leading-tight tracking-tight text-foreground sm:text-5xl lg:text-6xl">
+      <div className="mx-auto max-w-xl rounded-xl px-5 py-2 text-center">
+        <h1 className="truncate pb-1 font-semibold text-3xl leading-tight tracking-tight text-foreground sm:text-4xl lg:text-5xl">
           {userName ? `Hey ${userName}!` : "hey there"}
         </h1>
       </div>

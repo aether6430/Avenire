@@ -27,16 +27,18 @@ export async function PUT(request: Request) {
 
   const raw = payload as {
     emailReceipts?: unknown;
+    completedTasksAtTop?: unknown;
     onboardingCompleted?: unknown;
   };
 
   const hasEmailReceipts = typeof raw.emailReceipts === "boolean";
+  const hasCompletedTasksAtTop = typeof raw.completedTasksAtTop === "boolean";
   const hasOnboardingCompleted = typeof raw.onboardingCompleted === "boolean";
-  if (!hasEmailReceipts && !hasOnboardingCompleted) {
+  if (!hasEmailReceipts && !hasCompletedTasksAtTop && !hasOnboardingCompleted) {
     return NextResponse.json(
       {
         error:
-          "Provide at least one boolean setting: emailReceipts, onboardingCompleted",
+          "Provide at least one boolean setting: emailReceipts, completedTasksAtTop, onboardingCompleted",
       },
       { status: 400 },
     );
@@ -45,6 +47,9 @@ export async function PUT(request: Request) {
   const settings = await upsertUserSettings(user.id, {
     ...(hasEmailReceipts
       ? { emailReceipts: raw.emailReceipts as boolean }
+      : {}),
+    ...(hasCompletedTasksAtTop
+      ? { completedTasksAtTop: raw.completedTasksAtTop as boolean }
       : {}),
     ...(hasOnboardingCompleted
       ? { onboardingCompleted: raw.onboardingCompleted as boolean }

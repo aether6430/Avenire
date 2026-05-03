@@ -8,24 +8,74 @@ const TIME_WINDOWS = {
 type GreetingSurface = "chat" | "workspace";
 
 const CHAT_VERBS = [
-  "tinker",
-  "brainstorm",
-  "untangle",
-  "ship",
-  "explore",
-  "debug",
-  "create",
+  "beboppin'",
+  "boondoggling",
+  "booping",
+  "cerebrating",
+  "cogitating",
+  "discombobulating",
+  "fiddle-faddling",
+  "flibbertigibbeting",
+  "hyperspacing",
+  "lollygagging",
+  "quantumizing",
+  "razzle-dazzling",
+  "ruminating",
+  "synthesizing",
+  "tomfoolering",
+  "vibe coding",
+  "wibbling",
+  "zigzagging",
 ];
 
 const WORKSPACE_VERBS = [
-  "focus",
-  "plan",
-  "review",
-  "build",
-  "prioritize",
-  "polish",
-  "progress",
+  "baking",
+  "brewing",
+  "caramelizing",
+  "clauding",
+  "crystallizing",
+  "fermenting",
+  "flambéing",
+  "gallivanting",
+  "garnishing",
+  "gitifying",
+  "ionizing",
+  "kneading",
+  "marinating",
+  "nebulizing",
+  "osmosing",
+  "perambulating",
+  "percolating",
+  "photosynthesizing",
+  "spelunking",
+  "stewing",
+  "sublimating",
+  "transmuting",
+  "whisking",
 ];
+
+const TIME_PROMPTS = {
+  dawn: [
+    "The world is still booting. Perfect time for quiet momentum.",
+    "Early hours, low noise, clean context.",
+  ],
+  morning: [
+    "Fresh brain, fresh tab, decent odds.",
+    "Morning energy is useful. Spend it deliberately.",
+  ],
+  afternoon: [
+    "The afternoon stretch is for turning loose ends into finished work.",
+    "Midday context is loaded. Time to make it count.",
+  ],
+  evening: [
+    "Evening mode: lower the noise and keep the useful thread.",
+    "Good hour for thoughtful edits and small wins.",
+  ],
+  night: [
+    "Night owl mode. Keep it sharp, not heroic.",
+    "Late session detected. We can still be precise.",
+  ],
+} as const;
 
 function getTimeLabel(hour = new Date().getHours()) {
   if (hour >= TIME_WINDOWS.dawn[0] && hour < TIME_WINDOWS.dawn[1]) {
@@ -41,6 +91,22 @@ function getTimeLabel(hour = new Date().getHours()) {
     return "Evening";
   }
   return "Night Owl";
+}
+
+function getTimeKey(hour = new Date().getHours()): keyof typeof TIME_PROMPTS {
+  if (hour >= TIME_WINDOWS.dawn[0] && hour < TIME_WINDOWS.dawn[1]) {
+    return "dawn";
+  }
+  if (hour >= TIME_WINDOWS.morning[0] && hour < TIME_WINDOWS.morning[1]) {
+    return "morning";
+  }
+  if (hour >= TIME_WINDOWS.afternoon[0] && hour < TIME_WINDOWS.afternoon[1]) {
+    return "afternoon";
+  }
+  if (hour >= TIME_WINDOWS.evening[0] && hour < TIME_WINDOWS.evening[1]) {
+    return "evening";
+  }
+  return "night";
 }
 
 function getFormalPeriod(hour = new Date().getHours()) {
@@ -74,6 +140,7 @@ export function buildGreeting(
   const hourSeed = now.getHours();
   const minuteBucket = Math.floor(now.getMinutes() / 5);
   const timeLabel = getTimeLabel(now.getHours());
+  const timeKey = getTimeKey(now.getHours());
   const formalPeriod = getFormalPeriod(now.getHours());
   const verbs = surface === "chat" ? CHAT_VERBS : WORKSPACE_VERBS;
   const verb =
@@ -84,31 +151,39 @@ export function buildGreeting(
   const headlines =
     surface === "chat"
       ? [
-          `${timeLabel} Spark, ${name}!`,
-          `Let's ${verb.toUpperCase()} this, ${name}!`,
-          `Boom! ${name}, ready to ${verb}?`,
-          `${name}, Big Ideas Start Here!`,
-          `Let's Make Magic, ${name}!`,
+          `${timeLabel} spark, ${name}`,
+          `${name}, we're ${verb} now`,
+          `${name}, what are we ${verb} today?`,
+          `${formalPeriod} brain online, ${name}`,
+          `${name}, bring the weird useful idea`,
         ]
       : [
-          `Good ${formalPeriod}, ${name}!`,
-          `Welcome Back, ${name}!`,
-          `${name}, Ready to ${verb}?`,
-          `${name}, Let's Have a Great Session!`,
-          `Let's Go, ${name}!`,
+          `Good ${formalPeriod}, ${name}`,
+          `Welcome back, ${name}`,
+          `${name}, today's workspace is ${verb}`,
+          `${formalPeriod} session, ${name}`,
+          `${name}, let's sort the useful chaos`,
         ];
 
+  const timePrompts = TIME_PROMPTS[timeKey];
   const descriptions =
     surface === "chat"
       ? [
-          `This ${timeLabel} is perfect for bold thinking!`,
-          "Drop a prompt and let's build something brilliant!",
-          `Let's ${verb} something meaningful together!`,
+          timePrompts[
+            stableIndex(`${daySeed}:${hourSeed}:time:${name}:chat`, timePrompts.length)
+          ],
+          `Drop a prompt and we can start ${verb}.`,
+          `This ${timeLabel.toLowerCase()} is good for questions with edges.`,
         ]
       : [
-          "Your workspace is ready.",
+          timePrompts[
+            stableIndex(
+              `${daySeed}:${hourSeed}:time:${name}:workspace`,
+              timePrompts.length
+            )
+          ],
           "Tasks, recent concepts, and reviews are lined up.",
-          `Time to ${verb} your priorities.`,
+          `Time for a little ${verb} across your priorities.`,
         ];
 
   const headline =

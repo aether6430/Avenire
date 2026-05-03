@@ -14,6 +14,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   ArrowUpIcon,
   FileText as FileTextIcon,
+  Microphone,
   Paperclip as PaperclipIcon,
   Square,
 } from "@phosphor-icons/react";
@@ -39,7 +40,14 @@ import {
   revokeAttachmentUrl,
 } from "@/components/chat/attachment";
 import { PreviewAttachment } from "@/components/chat/preview-attachment";
+import {
+  CHAT_COMPOSER_SEND_MODE_STORAGE_KEY,
+  DEFAULT_CHAT_COMPOSER_SEND_MODE,
+  normalizeChatComposerSendMode,
+  type ChatComposerSendMode,
+} from "@/lib/chat-composer-preferences";
 import { getUploadErrorMessage } from "@/lib/upload";
+import { useAudioTranscription } from "@/lib/use-audio-transcription";
 import { useCurrentWorkspacePaneCompact } from "@/lib/workspace-panes";
 import { useUploadThing } from "@/lib/uploadthing";
 import { cn } from "@/lib/utils";
@@ -275,6 +283,10 @@ function PureMultimodalInput({
     "chat-input",
     ""
   );
+  const [sendMode] = useLocalStorage<ChatComposerSendMode>(
+    CHAT_COMPOSER_SEND_MODE_STORAGE_KEY,
+    DEFAULT_CHAT_COMPOSER_SEND_MODE
+  );
   const [preferredWorkspaceId] = useLocalStorage<string | null>(
     "preferredWorkspaceId",
     null
@@ -417,6 +429,49 @@ function PureMultimodalInput({
     },
     []
   );
+  const insertTranscript = useCallback(
+    (text: string) => {
+      const transcript = text.trim();
+      if (!transcript) {
+        return;
+      }
+
+      const textarea = textareaRef.current;
+      const source = textarea?.value ?? latestInputRef.current ?? input;
+      const selectionStart = textarea?.selectionStart ?? source.length;
+      const selectionEnd = textarea?.selectionEnd ?? source.length;
+      const prefix = source.slice(0, selectionStart);
+      const suffix = source.slice(selectionEnd);
+      const spacerBefore =
+        prefix.length > 0 && !/\s$/.test(prefix) ? " " : "";
+      const spacerAfter =
+        suffix.length > 0 && !/^\s/.test(suffix) ? " " : "";
+      const nextValue = `${prefix}${spacerBefore}${transcript}${spacerAfter}${suffix}`;
+      const nextCursor = (prefix + spacerBefore + transcript).length;
+
+      latestInputRef.current = nextValue;
+      setInput(nextValue);
+      setLocalStorageInput(nextValue);
+
+      requestAnimationFrame(() => {
+        textareaRef.current?.focus();
+        textareaRef.current?.setSelectionRange(nextCursor, nextCursor);
+        updateTextareaSelection(nextCursor, nextCursor);
+      });
+    },
+    [input, setInput, setLocalStorageInput, updateTextareaSelection]
+  );
+  const {
+    error: transcriptionError,
+    isRecording,
+    isTranscribing,
+    startRecording,
+    stopRecording,
+    supported: speechSupported,
+  } = useAudioTranscription({
+    onTranscript: insertTranscript,
+    workspaceUuid: effectiveWorkspaceUuid,
+  });
 
   useEffect(() => {
     latestInputRef.current = input;
@@ -443,6 +498,12 @@ function PureMultimodalInput({
       setDismissedMentionKey(null);
     }
   }, [mentionTriggerKey]);
+
+  useEffect(() => {
+    if (transcriptionError) {
+      toast.error(transcriptionError);
+    }
+  }, [transcriptionError]);
 
   useEffect(() => {
     if (!isMentionMenuOpen) {
@@ -876,19 +937,29 @@ function PureMultimodalInput({
         return;
       }
 
-      if (
-        !isMobile &&
-        event.key === "Enter" &&
-        !event.shiftKey &&
-        !event.nativeEvent.isComposing
-      ) {
+      if (isMobile || event.key !== "Enter" || event.nativeEvent.isComposing) {
+        return;
+      }
+
+      if (event.shiftKey) {
+        return;
+      }
+
+      const normalizedSendMode = normalizeChatComposerSendMode(sendMode);
+      const hasModifier = event.metaKey || event.ctrlKey;
+
+      if (normalizedSendMode === "mod-enter" && !hasModifier) {
+        return;
+      }
+
+      if (normalizedSendMode === "enter" || hasModifier) {
         event.preventDefault();
         if (canSend) {
           runSubmitForm();
         }
       }
     },
-    [canSend, handleMentionKeyDown, isMobile, runSubmitForm]
+    [canSend, handleMentionKeyDown, isMobile, runSubmitForm, sendMode]
   );
 
   return (
@@ -898,10 +969,7 @@ function PureMultimodalInput({
       data-running={isRunning}
     >
       <div
-        className={cn(
-          "relative flex w-full grow flex-col overflow-visible rounded-[28px] bg-[#f8f8f8] ring-1 ring-[#e5e5e5] ring-inset transition-colors duration-150 focus-within:ring-[#d7d7d7] dark:bg-[#212121] dark:ring-[#2f2f2f] dark:focus-within:ring-[#424242]",
-          centered ? "min-h-[56px]" : "min-h-[56px]"
-        )}
+        className="relative flex w-full grow flex-col overflow-visible rounded-[28px] bg-[#f8f8f8] ring-1 ring-[#e5e5e5] ring-inset transition-colors duration-150 focus-within:ring-[#d7d7d7] dark:bg-[#212121] dark:ring-[#2f2f2f] dark:focus-within:ring-[#424242]"
       >
         <input
           className="pointer-events-none fixed -top-4 -left-4 size-0.5 opacity-0"
@@ -1012,6 +1080,21 @@ function PureMultimodalInput({
                 onClick={() => fileInputRef.current?.click()}
                 status={status}
               />
+              {speechSupported ? (
+                <ComposerVoiceButton
+                  isRecording={isRecording}
+                  isRunning={isRunning}
+                  isTranscribing={isTranscribing}
+                  onToggle={() => {
+                    if (isRecording) {
+                      stopRecording();
+                      return;
+                    }
+
+                    void startRecording();
+                  }}
+                />
+              ) : null}
 
               <div className="flex min-w-0 flex-1 items-center">
                 <Textarea
@@ -1065,7 +1148,13 @@ function PureMultimodalInput({
                   onSelect={() => {
                     updateTextareaSelection();
                   }}
-                  placeholder="What do you want to know?"
+                  placeholder={
+                    isRecording
+                      ? "Listening..."
+                      : isTranscribing
+                        ? "Transcribing..."
+                        : "What do you want to know?"
+                  }
                   ref={textareaRef}
                   rows={1}
                   value={input}
@@ -1124,6 +1213,94 @@ function PureAttachmentsButton({
 
 const AttachmentsButton = memo(PureAttachmentsButton);
 
+function PureComposerVoiceButton({
+  isRecording,
+  isRunning,
+  isTranscribing,
+  onToggle,
+}: {
+  isRecording: boolean;
+  isRunning: boolean;
+  isTranscribing: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="relative h-9 w-9 shrink-0">
+      <motion.span
+        animate={
+          isRecording
+            ? {
+                opacity: [0.22, 0.08, 0.22],
+                scale: [1, 1.18, 1],
+              }
+            : {
+                opacity: isTranscribing ? 0.12 : 0,
+                scale: 1,
+              }
+        }
+        className={cn(
+          "pointer-events-none absolute inset-0 rounded-full",
+          isRecording ? "bg-red-500/30" : "bg-foreground/10"
+        )}
+        transition={
+          isRecording
+            ? {
+                duration: 1.3,
+                ease: "easeInOut",
+                repeat: Number.POSITIVE_INFINITY,
+              }
+            : { duration: 0.18, ease: "easeOut" }
+        }
+      />
+      <Button
+        aria-label={isRecording ? "Stop recording" : "Start voice input"}
+        className={cn(
+          "relative h-9 w-9 rounded-full border border-transparent bg-transparent px-0 text-muted-foreground/72 transition-colors duration-200 hover:bg-transparent hover:text-foreground/92",
+          (isRecording || isTranscribing) &&
+            "text-foreground dark:text-white",
+          isRecording &&
+            "border-red-500/30 text-red-600 dark:border-red-400/35 dark:text-red-300"
+        )}
+        disabled={isTranscribing || isRunning}
+        onClick={(event) => {
+          event.preventDefault();
+          onToggle();
+        }}
+        size="icon"
+        type="button"
+        variant="ghost"
+      >
+        <motion.span
+          animate={
+            isRecording
+              ? { scale: [1, 0.88, 1] }
+              : { scale: isTranscribing ? 0.94 : 1 }
+          }
+          transition={
+            isRecording
+              ? {
+                  duration: 1.1,
+                  ease: "easeInOut",
+                  repeat: Number.POSITIVE_INFINITY,
+                }
+              : { duration: 0.18, ease: "easeOut" }
+          }
+        >
+          <Microphone className="h-[17px] w-[17px]" weight="fill" />
+        </motion.span>
+      </Button>
+    </div>
+  );
+}
+
+const ComposerVoiceButton = memo(
+  PureComposerVoiceButton,
+  (prevProps, nextProps) =>
+    prevProps.isRecording === nextProps.isRecording &&
+    prevProps.isRunning === nextProps.isRunning &&
+    prevProps.isTranscribing === nextProps.isTranscribing
+);
+
 function PureComposerActionButton({
   canSend,
   isRunning,
@@ -1135,20 +1312,38 @@ function PureComposerActionButton({
   onSend: () => void;
   onStop: () => void;
 }) {
+  const disabled = !isRunning && !canSend;
+
   return (
-    <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full bg-primary text-primary-foreground">
+    <motion.div
+      animate={{
+        scale: isRunning ? 1.03 : canSend ? 1 : 0.96,
+      }}
+      className="relative h-9 w-9 shrink-0"
+      transition={{ stiffness: 520, damping: 32, mass: 0.7, type: "spring" }}
+    >
+      <motion.span
+        animate={{
+          opacity: disabled ? 0.68 : 1,
+        }}
+        className="absolute inset-0 rounded-full bg-primary shadow-[0_10px_24px_-14px_hsl(var(--primary))]"
+        transition={{ duration: 0.18, ease: "easeOut" }}
+      />
       <Button
         aria-label={isRunning ? "Stop generating" : "Send message"}
         className={cn(
-          "absolute inset-0 h-9 w-9 rounded-full bg-transparent text-white transition duration-200 ease-out hover:bg-transparent hover:text-white dark:text-[#0d0d0d] dark:hover:bg-transparent dark:hover:text-[#0d0d0d]",
-          !isRunning && !canSend && "opacity-55",
-          isRunning && "opacity-0 scale-0"
+          "absolute inset-0 h-9 w-9 rounded-full bg-transparent text-white transition duration-200 ease-out hover:bg-transparent hover:text-white focus-visible:ring-0 dark:text-[#0d0d0d] dark:hover:bg-transparent dark:hover:text-[#0d0d0d]",
+          disabled && "opacity-55"
         )}
-        data-testid="send-button"
-        disabled={!canSend || isRunning}
+        data-testid={isRunning ? "stop-button" : "send-button"}
+        disabled={disabled}
         onClick={(event) => {
           event.preventDefault();
-          if (canSend && !isRunning) {
+          if (isRunning) {
+            onStop();
+            return;
+          }
+          if (canSend) {
             onSend();
           }
         }}
@@ -1156,25 +1351,31 @@ function PureComposerActionButton({
         type="button"
         variant="ghost"
       >
-        <ArrowUpIcon className="h-4 w-4" />
+        <AnimatePresence initial={false} mode="wait">
+          {isRunning ? (
+            <motion.span
+              animate={{ opacity: 1, rotate: 0, scale: 1 }}
+              exit={{ opacity: 0, rotate: -16, scale: 0.72 }}
+              initial={{ opacity: 0, rotate: 16, scale: 0.72 }}
+              key="stop"
+              transition={{ duration: 0.18, ease: "easeOut" }}
+            >
+              <Square className="h-[13px] w-[13px] fill-current" weight="fill" />
+            </motion.span>
+          ) : (
+            <motion.span
+              animate={{ opacity: 1, rotate: 0, scale: 1 }}
+              exit={{ opacity: 0, rotate: 16, scale: 0.72 }}
+              initial={{ opacity: 0, rotate: -16, scale: 0.72 }}
+              key="send"
+              transition={{ duration: 0.18, ease: "easeOut" }}
+            >
+              <ArrowUpIcon className="h-[18px] w-[18px]" weight="bold" />
+            </motion.span>
+          )}
+        </AnimatePresence>
       </Button>
-
-      <Button
-        aria-label="Stop generating"
-        className="absolute inset-0 h-9 w-9 rounded-full bg-transparent text-white opacity-0 scale-0 transition duration-200 ease-out group-data-[running=true]/composer:scale-100 group-data-[running=true]/composer:opacity-100 hover:bg-transparent hover:text-white dark:text-[#0d0d0d] dark:hover:bg-transparent dark:hover:text-[#0d0d0d]"
-        data-testid="stop-button"
-        disabled={!isRunning}
-        onClick={(event) => {
-          event.preventDefault();
-          onStop();
-        }}
-        size="icon"
-        type="button"
-        variant="ghost"
-      >
-        <Square className="h-3.5 w-3.5 fill-current" weight="fill" />
-      </Button>
-    </div>
+    </motion.div>
   );
 }
 

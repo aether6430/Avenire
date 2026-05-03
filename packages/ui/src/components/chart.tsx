@@ -344,6 +344,7 @@ function getPayloadConfigFromPayload(
 }
 
 export {
+  RechartsPrimitive,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,

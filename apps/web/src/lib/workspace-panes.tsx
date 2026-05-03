@@ -29,6 +29,7 @@ export interface WorkspacePaneRecord {
 export type WorkspacePaneSplitDirection = "horizontal" | "vertical";
 
 const WORKSPACE_PANE_DRAG_MIME = "application/x-avenire-workspace-pane-link";
+let activeWorkspacePaneDragHref: string | null = null;
 
 interface WorkspacePaneContextValue {
   isActive: boolean;
@@ -55,6 +56,7 @@ export function setWorkspacePaneDragData(
   href: string
 ) {
   const normalizedHref = normalizeHref(href);
+  activeWorkspacePaneDragHref = normalizedHref;
   dataTransfer.effectAllowed = "copyMove";
   dataTransfer.setData(WORKSPACE_PANE_DRAG_MIME, normalizedHref);
   dataTransfer.setData("text/plain", normalizedHref);
@@ -71,13 +73,18 @@ export function getWorkspacePaneDragHref(
   const href =
     dataTransfer.getData(WORKSPACE_PANE_DRAG_MIME) ||
     dataTransfer.getData("text/uri-list") ||
-    dataTransfer.getData("text/plain");
+    dataTransfer.getData("text/plain") ||
+    activeWorkspacePaneDragHref;
 
   if (!href || !isInternalWorkspaceHref(href)) {
     return null;
   }
 
   return normalizeHref(href);
+}
+
+export function clearWorkspacePaneDragData() {
+  activeWorkspacePaneDragHref = null;
 }
 
 export function hasWorkspacePaneDragHref(
