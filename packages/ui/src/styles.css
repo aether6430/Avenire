@@ -14,7 +14,7 @@
   --popover-foreground: #37352F;
 
   /* Branding accent */
-  --primary: #abcfff;
+  --primary: #abc4ff;
   --primary-foreground: #1B2733;
 
   /* Neutrals: Pushed to #FAFAFA to be closer to #FFFFFF background */
@@ -32,7 +32,7 @@
   /* Borders */
   --border: rgba(55, 53, 47, 0.09);
   --input: rgba(55, 53, 47, 0.12);
-  --ring: #abcfff;
+  --ring: #abc4ff;
 
   /* Status */
   --info: #0B6E99;
@@ -52,12 +52,12 @@
   /* Sidebar */
   --sidebar: #FAFAFA;
   --sidebar-foreground: #37352F;
-  --sidebar-primary: #abcfff;
+  --sidebar-primary: #abc4ff;
   --sidebar-primary-foreground: #1B2733;
   --sidebar-accent: rgba(0, 0, 0, 0.04);
   --sidebar-accent-foreground: #37352F;
   --sidebar-border: rgba(55, 53, 47, 0.09);
-  --sidebar-ring: #abcfff;
+  --sidebar-ring: #abc4ff;
 
   /* Typography */
   --font-sans: "Inter", ui-sans-serif, -apple-system, "Segoe UI", sans-serif;
@@ -132,7 +132,7 @@
   --popover: #252525;
   --popover-foreground: rgba(255, 255, 255, 0.9);
 
-  --primary: #abcfff;
+  --primary: #abc4ff;
   --primary-foreground: #191919;
 
   --secondary: #181818;
@@ -147,7 +147,7 @@
 
   --border: #202020;
   --input: #202020;
-  --ring: #abcfff;
+  --ring: #abc4ff;
 
   --info: #529CCA;
   --info-foreground: #529CCA;
@@ -164,12 +164,12 @@
 
   --sidebar: #141414;
   --sidebar-foreground: rgba(255, 255, 255, 0.8);
-  --sidebar-primary: #abcfff;
+  --sidebar-primary: #abc4ff;
   --sidebar-primary-foreground: #191919;
   --sidebar-accent: rgba(255, 255, 255, 0.04);
   --sidebar-accent-foreground: rgba(255, 255, 255, 0.8);
   --sidebar-border: #202020;
-  --sidebar-ring: #abcfff;
+  --sidebar-ring: #abc4ff;
 
   --font-sans: "Inter", ui-sans-serif, -apple-system, "Segoe UI", sans-serif;
   --font-serif: "Lora", Georgia, serif;

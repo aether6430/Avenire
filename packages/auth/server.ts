@@ -144,22 +144,21 @@ function buildWelcomeWorkspaceNote(input: {
 
 Hi ${name},
 
-Your workspace **${input.workspaceName}** is ready.
+I set up **${input.workspaceName}** for you. This is your starting point for the first study loop.
 
-## Start here
+## Your first three moves
 
-- Use **Manage** to organize files, notes, and folders.
-- Open **Method** to ask questions, study material, and work with Apollo.
-- Use **Mindset** to review flashcards and reinforce concepts over time.
-- Use **Tasks** to turn what you are learning into an execution plan.
+1. Upload a file so Avenire has something real to work from.
+2. Generate flashcards from that file to turn it into something you can review.
+3. Ask a question about the file and use Apollo to explain the parts that still feel unclear.
 
-## Good first moves
+## What to do next
 
-1. Upload a file or create a note.
-2. Ask Apollo to explain, summarize, or quiz you on it.
-3. Review the concepts that come back in your dashboard.
+- Keep adding files as you study.
+- Revisit flashcards before they decay.
+- Use Apollo when you want a deeper explanation instead of a shorter answer.
 
-This note lives in your workspace so you always have a starting point.
+I left this note here so you always have a clean way to get started, ${name}.
 `;
 }
 
@@ -254,7 +253,7 @@ export const auth = betterAuth({
       }
     : {})
   },
-  databasseHooks: {
+  databaseHooks: {
     user: {
       create: {
         after: async (user) => {

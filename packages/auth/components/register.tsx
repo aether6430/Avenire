@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-import Image from "next/image"
 import Link from "next/link"
 import { useState, useSyncExternalStore } from "react"
 import { Button } from "@avenire/ui/components/button"
@@ -85,6 +84,14 @@ const registerSchema = z
     message: "Passwords must match",
     path: ["confirmPassword"],
   })
+
+function FieldError({ message }: { message?: string }) {
+  if (!message) {
+    return null
+  }
+
+  return <p className="text-[11px] leading-relaxed text-destructive">{message}</p>
+}
 
 export function RegisterForm({
   callbackURL = "/workspace",
@@ -232,18 +239,16 @@ export function RegisterForm({
           void handleSubmit()
         }}>
           <div className="flex flex-col gap-5">
-            <div className="flex flex-col items-center text-center space-y-2">
-              <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                <Image
-                  alt="Avenire"
-                  className="h-7 w-7"
-                  height={28}
-                  src="/branding/avenire-logo-mark.svg"
-                  width={28}
-                />
-              </div>
-              <h1 className="text-2xl font-bold">Create an account</h1>
-              <p className="text-balance text-muted-foreground">Sign up to get started with Avenire</p>
+            <div className="space-y-2">
+              <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
+                New account
+              </p>
+              <h1 className="text-3xl font-semibold tracking-tight">
+                Create an account
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Sign up to get started with Avenire.
+              </p>
             </div>
 
             <div className="space-y-4">
@@ -361,7 +366,7 @@ export function RegisterForm({
               </div>
             </div>
 
-            <Button type="submit" className="w-full group transition-all" disabled={isLoading}>
+            <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? (
                 <div className="flex items-center justify-center">
                   <LoadingIcon />
@@ -382,7 +387,7 @@ export function RegisterForm({
             <div className="grid grid-cols-2 gap-4">
               <Button
                 variant={lastLoginMethod === "google" ? "default" : "outline"}
-                className="w-full transition-all"
+                className="w-full justify-center transition-all"
                 type="button"
                 onClick={() => {
                   signIn.social({
@@ -398,7 +403,7 @@ export function RegisterForm({
               </Button>
               <Button
                 variant={lastLoginMethod === "github" ? "default" : "outline"}
-                className="w-full transition-all"
+                className="w-full justify-center transition-all"
                 type="button"
                 onClick={() => {
                   signIn.social({
@@ -414,43 +419,48 @@ export function RegisterForm({
               </Button>
             </div>
 
-            <div className="text-center text-sm">
+            <div className="text-center text-sm text-muted-foreground">
               Already have an account?{" "}
               <Link
                 href={callbackURL === "/workspace" ? "/login" : `/login?callbackURL=${encodeURIComponent(callbackURL)}`}
-                className="text-primary hover:text-primary/80 transition-colors font-medium"
+                className="font-medium text-foreground transition-colors hover:text-primary"
               >
-                Login
+                Sign in
               </Link>
             </div>
           </div>
         </form>
       ) : (
-        <div className="flex flex-col items-center justify-center p-6 md:p-8 h-full slide-up">
-          <div className="flex flex-col items-center gap-4 text-center max-w-md">
-            <div className="rounded-full bg-primary/10 p-3">
-              <MailIcon className="text-primary h-6 w-6" />
+        <div className="flex h-full flex-col items-center justify-center px-5 py-8 sm:px-7 sm:py-10">
+          <div className="flex max-w-md flex-col items-center gap-5 text-center">
+            <div className="rounded-2xl border border-border/70 bg-primary/10 p-3.5">
+              <MailIcon className="h-6 w-6 text-primary" />
             </div>
-            <h2 className="text-2xl font-bold">Verify your email</h2>
-            <p className="text-muted-foreground">
+            <div className="space-y-2">
+              <div className="font-mono text-[11px] uppercase tracking-[0.28em] text-muted-foreground">
+                One more step
+              </div>
+              <h2 className="text-3xl font-semibold leading-tight">Verify your email</h2>
+            </div>
+            <p className="text-sm leading-relaxed text-muted-foreground">
               We&apos;ve sent a verification link to{" "}
               <span className="font-medium text-foreground">{email || "your email address"}</span>. Please check
               your inbox and click the link to complete your registration.
             </p>
-            <div className="mt-2 w-full max-w-xs rounded-lg bg-muted p-4">
+            <div className="mt-1 w-full rounded-2xl border border-border/70 bg-muted/40 p-4 text-left">
               <div className="flex items-start">
                 <div className="flex-shrink-0">
-                  <AlertCircle className="h-3 w-3 text-blue-400" />
+                  <AlertCircle className="h-4 w-4 text-primary" />
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm leading-relaxed text-muted-foreground">
                     Don&apos;t see the email? Check your spam folder or try again in a few minutes.
                   </p>
                 </div>
               </div>
             </div>
             <Button
-              className="mt-4 transition-all hover:bg-primary/90 group"
+              className="mt-2 h-12 w-full rounded-2xl text-sm"
               type="button"
               disabled={!canResendVerificationEmail}
               onClick={async () => {
@@ -480,7 +490,7 @@ export function RegisterForm({
                 }
               }}
             >
-              <div className="flex items-center">
+              <div className="flex items-center justify-center">
                 {isResendingVerificationEmail
                   ? "Sending..."
                   : resendCooldownSecondsRemaining > 0

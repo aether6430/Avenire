@@ -1,11 +1,11 @@
 "use client"
 
 import type React from "react"
-import Image from "next/image"
 import { useEffect, useState } from "react"
 import { Button } from "@avenire/ui/components/button"
 import { Input } from "@avenire/ui/components/input"
 import { Label } from "@avenire/ui/components/label"
+import { cn } from "@avenire/ui/lib/utils"
 import { toast } from "sonner"
 import { Envelope as Mail, Lock, ArrowRight } from "@phosphor-icons/react"
 import { authClient, requestPasswordReset, signIn } from "../client"
@@ -19,13 +19,21 @@ const loginSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters long").nonempty("Password is required"),
 })
 
+function FieldError({ message }: { message?: string }) {
+  if (!message) {
+    return null
+  }
+
+  return <p className="text-[11px] leading-relaxed text-destructive">{message}</p>
+}
+
 export function LoginForm({
   callbackURL = "/workspace",
   className,
   initialEmail = "",
   initialError,
   ...props
-}: React.ComponentProps<"div"> & {
+}: Omit<React.ComponentProps<"form">, "onSubmit"> & {
   callbackURL?: string
   initialEmail?: string
   initialError?: string | null
@@ -168,20 +176,16 @@ export function LoginForm({
   }
 
   return (
-    <form className="p-5 md:p-6" onSubmit={handleSubmit}>
+    <form className={cn("p-5 md:p-6", className)} onSubmit={handleSubmit} {...props}>
       <div className="flex flex-col gap-5">
-        <div className="flex flex-col items-center text-center space-y-2">
-          <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-            <Image
-              alt="Avenire"
-              className="h-7 w-7"
-              height={28}
-              src="/branding/avenire-logo-mark.svg"
-              width={28}
-            />
-          </div>
-          <h1 className="text-2xl font-bold">Welcome back</h1>
-          <p className="text-balance text-muted-foreground">Login to your Avenire account</p>
+        <div className="space-y-2">
+          <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
+            Welcome back
+          </p>
+          <h1 className="text-3xl font-semibold tracking-tight">Sign in</h1>
+          <p className="text-sm text-muted-foreground">
+            Sign in to continue.
+          </p>
         </div>
 
         <div className="space-y-4">
@@ -206,8 +210,8 @@ export function LoginForm({
                 }}
                 autoComplete="email webauthn"
               />
-              {errors?.email ? <p className="text-red-500 text-xs mt-1">{errors.email}</p> : null}
             </div>
+            <FieldError message={errors?.email} />
             {waitlistMessage ? (
               <p className="text-xs text-muted-foreground">{waitlistMessage}</p>
             ) : null}
@@ -277,12 +281,16 @@ export function LoginForm({
                 onChange={(event) => setPassword(event.target.value)}
                 autoComplete="current-password webauthn"
               />
-              {errors?.password ? <p className="text-red-500 text-xs mt-1">{errors.password}</p> : null}
             </div>
+            <FieldError message={errors?.password} />
           </div>
         </div>
 
-        <Button type="submit" className="w-full group transition-all" disabled={isLoading}>
+        <Button
+          type="submit"
+          className="group transition-all"
+          disabled={isLoading}
+        >
           {isLoading ? (
             <div className="flex items-center justify-center">
               <LoadingIcon />

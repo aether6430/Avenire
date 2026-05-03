@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-import Image from "next/image"
 import { useEffect, useState } from "react"
 import { Button } from "@avenire/ui/components/button"
 import { Input } from "@avenire/ui/components/input"
@@ -124,18 +123,14 @@ export function WaitlistForm({ className, ...props }: React.ComponentProps<"form
   return (
     <form className={className} onSubmit={handleSubmit} {...props}>
       <div className="flex flex-col gap-5 p-5 md:p-6">
-        <div className="flex flex-col items-center text-center space-y-2">
-          <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-            <Image
-              alt="Avenire"
-              className="h-7 w-7"
-              height={28}
-              src="/branding/avenire-logo-mark.svg"
-              width={28}
-            />
-          </div>
-          <h1 className="text-2xl font-bold">Join the waitlist</h1>
-          <p className="text-balance text-muted-foreground">
+        <div className="space-y-2 text-left">
+          <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-foreground/55">
+            Request access
+          </p>
+          <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+            Join the waitlist
+          </h2>
+          <p className="text-sm text-foreground/70">
             Leave your email and we’ll let you know when access opens.
           </p>
         </div>

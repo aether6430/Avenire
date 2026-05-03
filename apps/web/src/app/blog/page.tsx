@@ -161,7 +161,7 @@ export default function BlogPage() {
   const rest = featured ? posts.filter((post) => post.slug !== featured.slug) : posts;
 
   return (
-    <main className="landing-light-scope min-h-screen bg-background text-foreground">
+    <main className="min-h-screen bg-background text-foreground">
       <Navbar />
 
       {/* Hero */}
