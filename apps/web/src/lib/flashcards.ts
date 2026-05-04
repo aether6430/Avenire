@@ -38,7 +38,6 @@ export type {
   ListDueFlashcardsForUserInput,
 } from "@avenire/database";
 
-// biome-ignore lint/performance/noBarrelFile: Thin app-layer re-export for flashcards APIs and types.
 export {
   archiveFlashcardCardForUser,
   archiveFlashcardSetForUser,

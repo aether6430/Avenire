@@ -1,14 +1,14 @@
-import { createResourceShareLink } from "@/lib/file-data";
 import { auth } from "@avenire/auth/server";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-import { getChatBySlugForUser, isChatOwnerForUser } from "@/lib/chat-data";
-import { createApiLogger } from "@/lib/observability";
 import { resolveAppBaseUrl } from "@/lib/app-base-url";
+import { getChatBySlugForUser, isChatOwnerForUser } from "@/lib/chat-data";
+import { createResourceShareLink } from "@/lib/file-data";
+import { createApiLogger } from "@/lib/observability";
 
 export async function POST(
   request: Request,
-  context: { params: Promise<{ slug: string }> },
+  context: { params: Promise<{ slug: string }> }
 ) {
   const session = await auth.api.getSession({ headers: await headers() });
   const apiLogger = createApiLogger({
@@ -30,14 +30,21 @@ export async function POST(
     void apiLogger.requestFailed(403, "Chat not found", { slug });
     return NextResponse.json({ error: "Chat not found" }, { status: 403 });
   }
-  const isOwner = await isChatOwnerForUser(session.user.id, slug, chat.workspaceId);
+  const isOwner = await isChatOwnerForUser(
+    session.user.id,
+    slug,
+    chat.workspaceId
+  );
   if (!isOwner) {
     void apiLogger.requestFailed(403, "Read-only chat", { slug });
     return NextResponse.json({ error: "Read-only chat" }, { status: 403 });
   }
   if (!chat.workspaceId) {
     void apiLogger.requestFailed(400, "Chat workspace missing", { slug });
-    return NextResponse.json({ error: "Chat workspace missing" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Chat workspace missing" },
+      { status: 400 }
+    );
   }
 
   const link = await createResourceShareLink({

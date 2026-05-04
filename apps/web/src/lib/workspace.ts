@@ -1,9 +1,9 @@
 import { auth } from "@avenire/auth/server";
+import { headers } from "next/headers";
 import {
   resolveWorkspaceForUser,
   userCanAccessWorkspace,
 } from "@/lib/file-data";
-import { headers } from "next/headers";
 
 export async function getSessionUser() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -20,7 +20,10 @@ export async function getWorkspaceContextForUser() {
     (session as { session?: { activeOrganizationId?: string | null } }).session
       ?.activeOrganizationId ?? null;
 
-  const workspace = await resolveWorkspaceForUser(session.user.id, activeOrganizationId);
+  const workspace = await resolveWorkspaceForUser(
+    session.user.id,
+    activeOrganizationId
+  );
   if (!workspace) {
     return null;
   }
@@ -31,6 +34,9 @@ export async function getWorkspaceContextForUser() {
   };
 }
 
-export async function ensureWorkspaceAccessForUser(userId: string, workspaceId: string) {
+export async function ensureWorkspaceAccessForUser(
+  userId: string,
+  workspaceId: string
+) {
   return userCanAccessWorkspace(userId, workspaceId);
 }

@@ -54,7 +54,7 @@ export function AuthParticlePage({
         <div className="w-full max-w-lg">
           {children}
           {footer ? (
-            <div className="mt-4 text-center text-xs text-muted-foreground/80">
+            <div className="mt-4 text-center text-muted-foreground/80 text-xs">
               {footer}
             </div>
           ) : null}

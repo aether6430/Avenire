@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { NextResponse } from "next/server";
 import {
   createFolder,
   createWorkspaceNoteFile,
@@ -11,21 +13,23 @@ import {
 } from "@/lib/file-data";
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
 import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
-import { NextResponse } from "next/server";
-import { randomUUID } from "node:crypto";
 
-type DuplicateBody = {
+interface DuplicateBody {
   id?: string;
   kind?: "file" | "folder";
   parentId?: string | null;
-};
+}
 
 function resolveDuplicateName(existingNames: string[], requestedName: string) {
-  const existingNameSet = new Set(existingNames.map((name) => name.toLowerCase()));
+  const existingNameSet = new Set(
+    existingNames.map((name) => name.toLowerCase())
+  );
 
   const dotIndex = requestedName.lastIndexOf(".");
   const hasExtension = dotIndex > 0 && dotIndex < requestedName.length - 1;
-  const baseName = hasExtension ? requestedName.slice(0, dotIndex) : requestedName;
+  const baseName = hasExtension
+    ? requestedName.slice(0, dotIndex)
+    : requestedName;
   const extension = hasExtension ? requestedName.slice(dotIndex) : "";
   const safeBaseName = baseName || "Untitled";
 
@@ -50,7 +54,7 @@ function resolveDuplicateName(existingNames: string[], requestedName: string) {
 
 export async function POST(
   request: Request,
-  context: { params: Promise<{ workspaceUuid: string }> },
+  context: { params: Promise<{ workspaceUuid: string }> }
 ) {
   const user = await getSessionUser();
   if (!user) {
@@ -97,8 +101,14 @@ export async function POST(
         workspaceId: workspaceUuid,
       });
 
-      await publishFilesInvalidationEvent({ workspaceUuid, reason: "file.created" });
-      await publishFilesInvalidationEvent({ workspaceUuid, reason: "tree.changed" });
+      await publishFilesInvalidationEvent({
+        workspaceUuid,
+        reason: "file.created",
+      });
+      await publishFilesInvalidationEvent({
+        workspaceUuid,
+        reason: "tree.changed",
+      });
 
       return NextResponse.json({ file }, { status: 201 });
     }
@@ -106,9 +116,17 @@ export async function POST(
     const file = await registerFileAsset(workspaceUuid, user.id, {
       contentHashSha256: source.contentHashSha256 ?? null,
       folderId: targetFolderId,
-      hashComputedBy: source.hashComputedBy as "client" | "server" | null | undefined,
-      hashVerificationStatus:
-        source.hashVerificationStatus as "failed" | "pending" | "verified" | null | undefined,
+      hashComputedBy: source.hashComputedBy as
+        | "client"
+        | "server"
+        | null
+        | undefined,
+      hashVerificationStatus: source.hashVerificationStatus as
+        | "failed"
+        | "pending"
+        | "verified"
+        | null
+        | undefined,
       storageKey: `virtual:duplicate:${source.id}:${randomUUID()}`,
       storageUrl: source.storageUrl,
       name: duplicateName,
@@ -116,13 +134,23 @@ export async function POST(
       sizeBytes: source.sizeBytes,
     });
 
-    await publishFilesInvalidationEvent({ workspaceUuid, reason: "file.created" });
-    await publishFilesInvalidationEvent({ workspaceUuid, reason: "tree.changed" });
+    await publishFilesInvalidationEvent({
+      workspaceUuid,
+      reason: "file.created",
+    });
+    await publishFilesInvalidationEvent({
+      workspaceUuid,
+      reason: "tree.changed",
+    });
 
     return NextResponse.json({ file }, { status: 201 });
   }
 
-  const sourceTree = await getFolderWithAncestors(workspaceUuid, body.id, user.id);
+  const sourceTree = await getFolderWithAncestors(
+    workspaceUuid,
+    body.id,
+    user.id
+  );
   if (!sourceTree?.folder) {
     return NextResponse.json({ error: "Folder not found" }, { status: 404 });
   }
@@ -141,16 +169,22 @@ export async function POST(
   const siblingNames = workspaceFolders
     .filter((folder) => folder.parentId === targetParentId)
     .map((folder) => folder.name);
-  const duplicateRootName = resolveDuplicateName(siblingNames, sourceFolder.name);
+  const duplicateRootName = resolveDuplicateName(
+    siblingNames,
+    sourceFolder.name
+  );
   const rootFolder = await createFolder(
     workspaceUuid,
     targetParentId ?? sourceFolder.parentId ?? sourceFolder.id,
     duplicateRootName,
-    user.id,
+    user.id
   );
 
   if (!rootFolder) {
-    return NextResponse.json({ error: "Unable to duplicate folder" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Unable to duplicate folder" },
+      { status: 500 }
+    );
   }
 
   const descendants = workspaceFolders.filter((folder) => {
@@ -160,22 +194,26 @@ export async function POST(
         return true;
       }
       cursor =
-        workspaceFolders.find((candidate) => candidate.id === cursor)?.parentId ??
-        null;
+        workspaceFolders.find((candidate) => candidate.id === cursor)
+          ?.parentId ?? null;
     }
     return false;
   });
 
-  const createdFolderBySourceId = new Map<string, string>([[sourceFolder.id, rootFolder.id]]);
+  const createdFolderBySourceId = new Map<string, string>([
+    [sourceFolder.id, rootFolder.id],
+  ]);
   const descendantsByDepth = descendants.sort((left, right) => {
     const depth = (folderId: string) => {
       let value = 0;
       let cursor =
-        workspaceFolders.find((folder) => folder.id === folderId)?.parentId ?? null;
+        workspaceFolders.find((folder) => folder.id === folderId)?.parentId ??
+        null;
       while (cursor) {
         value += 1;
         cursor =
-          workspaceFolders.find((folder) => folder.id === cursor)?.parentId ?? null;
+          workspaceFolders.find((folder) => folder.id === cursor)?.parentId ??
+          null;
       }
       return value;
     };
@@ -194,7 +232,7 @@ export async function POST(
       workspaceUuid,
       clonedParentId,
       resolveDuplicateName(folderSiblingNames, folder.name),
-      user.id,
+      user.id
     );
     if (createdFolder) {
       createdFolderBySourceId.set(folder.id, createdFolder.id);
@@ -206,7 +244,9 @@ export async function POST(
     ...descendants.map((folder) => folder.id),
   ]);
 
-  for (const file of workspaceFiles.filter((entry) => sourceFolderIds.has(entry.folderId))) {
+  for (const file of workspaceFiles.filter((entry) =>
+    sourceFolderIds.has(entry.folderId)
+  )) {
     const clonedFolderId = createdFolderBySourceId.get(file.folderId);
     if (!clonedFolderId) {
       continue;
@@ -234,9 +274,17 @@ export async function POST(
     await registerFileAsset(workspaceUuid, user.id, {
       contentHashSha256: file.contentHashSha256 ?? null,
       folderId: clonedFolderId,
-      hashComputedBy: file.hashComputedBy as "client" | "server" | null | undefined,
-      hashVerificationStatus:
-        file.hashVerificationStatus as "failed" | "pending" | "verified" | null | undefined,
+      hashComputedBy: file.hashComputedBy as
+        | "client"
+        | "server"
+        | null
+        | undefined,
+      hashVerificationStatus: file.hashVerificationStatus as
+        | "failed"
+        | "pending"
+        | "verified"
+        | null
+        | undefined,
       storageKey: `virtual:duplicate:${file.id}:${randomUUID()}`,
       storageUrl: file.storageUrl,
       name: resolveDuplicateName(siblingFileNames, file.name),
@@ -245,8 +293,14 @@ export async function POST(
     });
   }
 
-  await publishFilesInvalidationEvent({ workspaceUuid, reason: "folder.created" });
-  await publishFilesInvalidationEvent({ workspaceUuid, reason: "tree.changed" });
+  await publishFilesInvalidationEvent({
+    workspaceUuid,
+    reason: "folder.created",
+  });
+  await publishFilesInvalidationEvent({
+    workspaceUuid,
+    reason: "tree.changed",
+  });
 
   return NextResponse.json({ folder: rootFolder }, { status: 201 });
 }

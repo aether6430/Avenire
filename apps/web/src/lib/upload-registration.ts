@@ -1,12 +1,8 @@
 import { createHash } from "node:crypto";
-import matter from "gray-matter";
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
 import { UTApi } from "@avenire/storage";
+import matter from "gray-matter";
 import { consumeUploadUnits } from "@/lib/billing";
-import {
-  normalizeFrontmatterProperties,
-  type PageMetadataState,
-} from "@/lib/frontmatter";
 import {
   createWorkspaceNoteFile,
   getFileAssetByContentHash,
@@ -15,6 +11,10 @@ import {
   softDeleteFileAsset,
 } from "@/lib/file-data";
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
+import {
+  normalizeFrontmatterProperties,
+  type PageMetadataState,
+} from "@/lib/frontmatter";
 import { hasSuccessfulIngestionForFile } from "@/lib/ingestion-data";
 import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
 
@@ -211,7 +211,8 @@ function extractMarkdownNotePayload(input: {
     page: {
       ...currentPage,
       properties: {
-        ...((currentPage.properties as Record<string, unknown> | undefined) ?? {}),
+        ...((currentPage.properties as Record<string, unknown> | undefined) ??
+          {}),
         ...normalizedPage.properties,
       },
     },
@@ -436,7 +437,10 @@ export async function registerWorkspaceUploadedFile(
     metadata: input.metadata,
     sizeBytes: input.sizeBytes,
     storageKey: input.storageKey,
-    storageUrl: normalizeUploadThingStorageUrl(input.storageUrl, input.storageKey),
+    storageUrl: normalizeUploadThingStorageUrl(
+      input.storageUrl,
+      input.storageKey
+    ),
   };
   const normalizedHash = normalizeSha256(normalizedUpload.contentHashSha256);
 

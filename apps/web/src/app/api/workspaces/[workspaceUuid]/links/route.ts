@@ -2,7 +2,11 @@ import { extractLinkPreview } from "@avenire/ingestion/link";
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
 import { NextResponse } from "next/server";
 import { consumeUploadUnits } from "@/lib/billing";
-import { createWorkspaceNoteFile, isSharedFilesVirtualFolderId, userCanEditFolder } from "@/lib/file-data";
+import {
+  createWorkspaceNoteFile,
+  isSharedFilesVirtualFolderId,
+  userCanEditFolder,
+} from "@/lib/file-data";
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
 import { getSessionUser } from "@/lib/workspace";
 import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
@@ -116,7 +120,11 @@ export async function POST(
     );
   }
 
-  const title = (trimmedName || linkPreview.title || inferLinkTitle(normalizedUrl)).slice(0, 255);
+  const title = (
+    trimmedName ||
+    linkPreview.title ||
+    inferLinkTitle(normalizedUrl)
+  ).slice(0, 255);
   const fileName = /\.mdx?$/i.test(title) ? title : `${title}.md`;
   const noteTitle = fileName.replace(/\.mdx?$/i, "") || "Imported link";
 

@@ -1,6 +1,10 @@
 "use client";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@avenire/ui/components/avatar";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@avenire/ui/components/avatar";
 import { Badge } from "@avenire/ui/components/badge";
 import { Button } from "@avenire/ui/components/button";
 import { cn } from "@avenire/ui/lib/utils";
@@ -15,7 +19,6 @@ import type { WorkspaceTask } from "@/lib/tasks";
 import {
   formatTaskDueDate,
   getTaskInitials,
-  getTaskResourceTypeLabel,
   getTaskPriorityLabel,
   getTaskStatusLabel,
 } from "@/lib/tasks";
@@ -98,17 +101,24 @@ export function TaskListRow({
           <Circle className="size-3.5" />
         )}
       </Button>
-      <button className="min-w-0 flex-1 text-left" onClick={onSelect} type="button">
+      <button
+        className="min-w-0 flex-1 text-left"
+        onClick={onSelect}
+        type="button"
+      >
         <div className="flex flex-wrap items-center gap-2">
           <p
             className={cn(
-              "truncate font-medium text-sm text-foreground",
+              "truncate font-medium text-foreground text-sm",
               isCompleted && "text-muted-foreground line-through"
             )}
           >
             {task.title}
           </p>
-          <Badge className={cn("rounded-sm border", statusClass(task.status))} variant="outline">
+          <Badge
+            className={cn("rounded-sm border", statusClass(task.status))}
+            variant="outline"
+          >
             {getTaskStatusLabel(task.status)}
           </Badge>
         </div>
@@ -122,23 +132,38 @@ export function TaskListRow({
             <CalendarDots className="size-3" />
             {formatTaskDueDate(task.dueAt)}
           </span>
-          <span className={cn("inline-flex items-center gap-1", priorityClass(task.priority))}>
+          <span
+            className={cn(
+              "inline-flex items-center gap-1",
+              priorityClass(task.priority)
+            )}
+          >
             <FlagBanner className="size-3" />
             {getTaskPriorityLabel(task.priority)}
           </span>
           {task.resources.length > 0 ? (
             <span className="inline-flex items-center gap-1">
               <LinkSimple className="size-3" />
-              {task.resources.length} resource{task.resources.length === 1 ? "" : "s"}
+              {task.resources.length} resource
+              {task.resources.length === 1 ? "" : "s"}
             </span>
           ) : null}
         </div>
       </button>
-      <button className="shrink-0 rounded-full" onClick={onSelect} type="button">
+      <button
+        className="shrink-0 rounded-full"
+        onClick={onSelect}
+        type="button"
+      >
         <Avatar className="size-7" size="sm">
-          {task.assignee?.avatar ? <AvatarImage src={task.assignee.avatar} /> : null}
+          {task.assignee?.avatar ? (
+            <AvatarImage src={task.assignee.avatar} />
+          ) : null}
           <AvatarFallback>
-            {getTaskInitials(task.assignee?.name ?? null, task.assignee?.email ?? null)}
+            {getTaskInitials(
+              task.assignee?.name ?? null,
+              task.assignee?.email ?? null
+            )}
           </AvatarFallback>
         </Avatar>
       </button>

@@ -1,3 +1,7 @@
+import { auth } from "@avenire/auth/server";
+import { zipSync } from "fflate";
+import { headers } from "next/headers";
+import { NextResponse } from "next/server";
 import {
   getFileAssetById,
   getFolderWithAncestors,
@@ -7,16 +11,12 @@ import {
   listWorkspaceFolders,
   userCanAccessWorkspace,
 } from "@/lib/file-data";
-import { auth } from "@avenire/auth/server";
-import { zipSync } from "fflate";
-import { headers } from "next/headers";
-import { NextResponse } from "next/server";
 
-type ArchiveBody = {
+interface ArchiveBody {
   id?: string;
-  kind?: "file" | "folder";
   items?: Array<{ id?: string; kind?: "file" | "folder" }>;
-};
+  kind?: "file" | "folder";
+}
 
 function sanitizeArchiveSegment(value: string) {
   return value.replace(/[\\/:*?"<>|]+/g, "-").trim() || "untitled";
@@ -127,7 +127,9 @@ function addArchiveEntry(
   const dirname =
     lastSlashIndex >= 0 ? requestedPath.slice(0, lastSlashIndex) : "";
   const basename =
-    lastSlashIndex >= 0 ? requestedPath.slice(lastSlashIndex + 1) : requestedPath;
+    lastSlashIndex >= 0
+      ? requestedPath.slice(lastSlashIndex + 1)
+      : requestedPath;
   const dotIndex = basename.lastIndexOf(".");
   const base = dotIndex > 0 ? basename.slice(0, dotIndex) : basename;
   const extension = dotIndex > 0 ? basename.slice(dotIndex) : "";
@@ -148,7 +150,7 @@ function addArchiveEntry(
 
 export async function POST(
   request: Request,
-  context: { params: Promise<{ workspaceUuid: string }> },
+  context: { params: Promise<{ workspaceUuid: string }> }
 ) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) {
@@ -156,22 +158,24 @@ export async function POST(
   }
 
   const { workspaceUuid } = await context.params;
-  const canAccess = await userCanAccessWorkspace(session.user.id, workspaceUuid);
+  const canAccess = await userCanAccessWorkspace(
+    session.user.id,
+    workspaceUuid
+  );
   if (!canAccess) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const body = (await request.json().catch(() => ({}))) as ArchiveBody;
   const requestedItems =
-    body.items
-      ?.filter(
-        (
-          item
-        ): item is {
-          id: string;
-          kind: "file" | "folder";
-        } => Boolean(item?.id && item?.kind)
-      ) ?? [];
+    body.items?.filter(
+      (
+        item
+      ): item is {
+        id: string;
+        kind: "file" | "folder";
+      } => Boolean(item?.id && item?.kind)
+    ) ?? [];
 
   if (requestedItems.length === 0 && body.id && body.kind) {
     requestedItems.push({ id: body.id, kind: body.kind });
@@ -182,8 +186,7 @@ export async function POST(
   }
 
   const archiveEntries: Record<string, Uint8Array> = {};
-  const archiveName =
-    requestedItems.length === 1 ? "archive" : "selection";
+  const archiveName = requestedItems.length === 1 ? "archive" : "selection";
 
   if (requestedItems.length === 1 && requestedItems[0]?.kind === "file") {
     const singleFile = await buildSingleFileDownload(
@@ -205,7 +208,9 @@ export async function POST(
       ])
     : [[], []];
 
-  const folderById = new Map(workspaceFolders.map((folder) => [folder.id, folder]));
+  const folderById = new Map(
+    workspaceFolders.map((folder) => [folder.id, folder])
+  );
 
   for (const item of requestedItems) {
     if (item.kind === "file") {
@@ -227,7 +232,9 @@ export async function POST(
       return NextResponse.json({ error: "Folder not found" }, { status: 404 });
     }
 
-    const sourceFolder = workspaceFolders.find((folder) => folder.id === item.id);
+    const sourceFolder = workspaceFolders.find(
+      (folder) => folder.id === item.id
+    );
     if (!sourceFolder) {
       return NextResponse.json({ error: "Folder not found" }, { status: 404 });
     }

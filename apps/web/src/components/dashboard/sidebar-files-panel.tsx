@@ -32,11 +32,13 @@ import {
 } from "react";
 import { type TreeDataItem, TreeView } from "@/components/ui/tree-view";
 import { useHaptics } from "@/hooks/use-haptics";
-import { useWorkspaceSurfaceNavigation } from "@/lib/workspace-panes";
-import { setWorkspacePaneDragData } from "@/lib/workspace-panes";
 import { cn } from "@/lib/utils";
 import { invalidateWorkspaceFolderCache } from "@/lib/workspace-folder-cache";
 import { invalidateWorkspaceMarkdownCache } from "@/lib/workspace-markdown-cache";
+import {
+  setWorkspacePaneDragData,
+  useWorkspaceSurfaceNavigation,
+} from "@/lib/workspace-panes";
 import {
   readWorkspaceTreeCache,
   writeWorkspaceTreeCache,
@@ -1189,7 +1191,7 @@ export function FilesSidebarPanel({
           {workspaceUuid && folderTree.length > 0 ? (
             <div className="h-full min-w-0 pr-1">
               <TreeView
-                className="h-full min-w-0 rounded-xl overflow-y-auto"
+                className="h-full min-w-0 overflow-y-auto rounded-xl"
                 data={sidebarTreeData}
                 expandedItemIds={expandedTreePathIds}
                 onExpandedChange={(itemIds) => {
@@ -1225,12 +1227,7 @@ export function FilesSidebarPanel({
                 <SidebarMenuButton
                   draggable
                   onClick={(event) => {
-                    if (
-                      handlePaneIntent(
-                        event,
-                        "/workspace/files" as Route
-                      )
-                    ) {
+                    if (handlePaneIntent(event, "/workspace/files" as Route)) {
                       return;
                     }
                     navigateToFilesRoot().catch(() => undefined);

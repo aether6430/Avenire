@@ -5,7 +5,11 @@ import {
 } from "@avenire/database";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { listWorkspaceFolders, listWorkspacesForUser, userCanEditFolder } from "@/lib/file-data";
+import {
+  listWorkspaceFolders,
+  listWorkspacesForUser,
+  userCanEditFolder,
+} from "@/lib/file-data";
 import { getSessionUser } from "@/lib/workspace";
 
 const updatePresetSchema = z.object({
@@ -29,10 +33,15 @@ export async function PATCH(
     userId: user.id,
   });
   if (!existing) {
-    return NextResponse.json({ error: "Destination not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Destination not found" },
+      { status: 404 }
+    );
   }
 
-  const parsed = updatePresetSchema.safeParse(await request.json().catch(() => ({})));
+  const parsed = updatePresetSchema.safeParse(
+    await request.json().catch(() => ({}))
+  );
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
@@ -72,7 +81,10 @@ export async function PATCH(
   });
 
   if (!destination) {
-    return NextResponse.json({ error: "Destination not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Destination not found" },
+      { status: 404 }
+    );
   }
 
   return NextResponse.json({
@@ -85,7 +97,7 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  request: Request,
+  _request: Request,
   contextParams: { params: Promise<{ id: string }> }
 ) {
   const user = await getSessionUser();
@@ -99,7 +111,10 @@ export async function DELETE(
     userId: user.id,
   });
   if (!deleted) {
-    return NextResponse.json({ error: "Destination not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Destination not found" },
+      { status: 404 }
+    );
   }
 
   return new NextResponse(null, { status: 204 });

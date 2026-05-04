@@ -1,9 +1,9 @@
 import {
+  type RefObject,
   useCallback,
   useEffect,
   useRef,
   useState,
-  type RefObject,
 } from "react";
 
 const PROGRAMMATIC_SCROLL_GRACE_MS = 200;
@@ -167,7 +167,7 @@ export function useScrollToBottom<T extends HTMLElement>(options: {
       }
 
       requestAnimationFrame(() => {
-        if (!isAutoScrollEnabledRef.current || !containerRef.current) {
+        if (!(isAutoScrollEnabledRef.current && containerRef.current)) {
           return;
         }
         scrollToBottom(behavior);

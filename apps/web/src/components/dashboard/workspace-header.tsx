@@ -5,10 +5,10 @@ import { ButtonGroup } from "@avenire/ui/components/button-group";
 import { cn } from "@avenire/ui/lib/utils";
 import { ArrowLeft, ArrowRight, House } from "@phosphor-icons/react";
 import type { Route } from "next";
+import type { ReactNode } from "react";
 import { usePanePathname, usePaneRouter } from "@/lib/workspace-panes";
 import { usePaneHeaderStore } from "@/stores/header-store";
 import { usePaneWorkspaceHistoryStore } from "@/stores/workspaceHistoryStore";
-import type { ReactNode } from "react";
 
 interface WorkspaceHeaderProps {
   className?: string;
@@ -54,17 +54,17 @@ export function WorkspaceHeader({
     return (
       <header
         className={cn(
-          "w-full sticky top-0 z-30 shrink-0 border-border/40 border-b bg-background/80 backdrop-blur-xl",
+          "sticky top-0 z-30 w-full shrink-0 border-border/40 border-b bg-background/80 backdrop-blur-xl",
           className
         )}
       >
         <div
           className={cn(
-            "w-full flex shrink-0 flex-row items-center px-3",
+            "flex w-full shrink-0 flex-row items-center px-3",
             shouldUseCompactDesktop ? "min-h-10 gap-1.5" : "min-h-11 gap-1"
           )}
         >
-          <div className="flex min-w-0 w-full items-center gap-1">
+          <div className="flex w-full min-w-0 items-center gap-1">
             <ButtonGroup className={segmentedGroupClass}>
               <Button
                 aria-label="Go back"
@@ -110,7 +110,7 @@ export function WorkspaceHeader({
                 <ArrowRight className="size-3.5" />
               </Button>
             </ButtonGroup>
-            <div className="flex min-w-0 w-full items-center gap-1">
+            <div className="flex w-full min-w-0 items-center gap-1">
               <div className="flex size-5 shrink-0 items-center justify-center text-muted-foreground">
                 {leadingIcon ?? (
                   <div
@@ -121,7 +121,10 @@ export function WorkspaceHeader({
               </div>
               <div className="min-w-0 flex-1">
                 {breadcrumbs ?? (
-                  <div className="min-w-0 flex-1" id="workspace-header-breadcrumbs">
+                  <div
+                    className="min-w-0 flex-1"
+                    id="workspace-header-breadcrumbs"
+                  >
                     {title ? (
                       <h1
                         className={cn(
@@ -139,14 +142,12 @@ export function WorkspaceHeader({
               </div>
             </div>
           </div>
-          <div className="flex min-w-0 w-full pr-4 items-center justify-end gap-1 overflow-x-auto no-scrollbar">
+          <div className="no-scrollbar flex w-full min-w-0 items-center justify-end gap-1 overflow-x-auto pr-4">
             <div className="flex min-w-0 items-center justify-end gap-1">
               {actions}
             </div>
             {trailingActions ? (
-              <div className="shrink-0">
-                {trailingActions}
-              </div>
+              <div className="shrink-0">{trailingActions}</div>
             ) : null}
           </div>
         </div>
@@ -160,10 +161,16 @@ export function WorkspaceHeader({
     <>
       <header
         className={cn(
-          isOverlayCompact ? "w-full fixed top-0 left-0 right-0 z-40" : "w-full sticky top-0 z-40",
+          isOverlayCompact
+            ? "fixed top-0 right-0 left-0 z-40 w-full"
+            : "sticky top-0 z-40 w-full",
           className
         )}
-        style={isOverlayCompact ? { paddingTop: "env(safe-area-inset-top)" } : undefined}
+        style={
+          isOverlayCompact
+            ? { paddingTop: "env(safe-area-inset-top)" }
+            : undefined
+        }
       >
         <div
           className="absolute inset-0 border-border/20 border-b bg-background/45 backdrop-blur-2xl"
@@ -225,7 +232,7 @@ export function WorkspaceHeader({
             {breadcrumbs ?? (
               <div id="workspace-header-breadcrumbs">
                 {title ? (
-                  <h1 className="truncate font-medium text-[13px] leading-5 text-foreground">
+                  <h1 className="truncate font-medium text-[13px] text-foreground leading-5">
                     {title}
                   </h1>
                 ) : (

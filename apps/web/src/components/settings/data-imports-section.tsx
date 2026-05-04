@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge } from "@avenire/ui/components/badge";
+import { linkSocial } from "@avenire/auth/client";
 import { Button } from "@avenire/ui/components/button";
 import { Checkbox } from "@avenire/ui/components/checkbox";
 import { ScrollArea } from "@avenire/ui/components/scroll-area";
@@ -13,31 +13,30 @@ import {
 } from "@avenire/ui/components/select";
 import { Spinner } from "@avenire/ui/components/spinner";
 import {
-  ArrowClockwise as Refresh,
   ArrowLeft,
   CheckCircle,
   DownloadSimple as Download,
   Folder,
   Globe,
   Link as LinkIcon,
+  ArrowClockwise as Refresh,
   Warning,
   WifiHigh,
   WifiX,
 } from "@phosphor-icons/react";
-import { linkSocial } from "@avenire/auth/client";
 import { useEffect, useMemo, useState } from "react";
 import { GOOGLE_IMPORT_SCOPES } from "@/lib/imports-shared";
 import { cn } from "@/lib/utils";
 
-type WorkspaceSummary = {
+interface WorkspaceSummary {
   logo: string | null;
   name: string;
   organizationId: string;
   rootFolderId: string;
   workspaceId: string;
-};
+}
 
-type ImportProviderStatus = {
+interface ImportProviderStatus {
   accountId: string | null;
   configured: boolean;
   connected: boolean;
@@ -45,7 +44,7 @@ type ImportProviderStatus = {
   hasUsableAccessToken: boolean;
   ready: boolean;
   scopes: string[];
-};
+}
 
 type ImportDestination = {
   createdAt: string;
@@ -59,20 +58,20 @@ type ImportDestination = {
   workspaceName: string;
 } | null;
 
-type ImportPage = {
+interface ImportPage {
   id: string;
   lastEditedTime: string;
   title: string;
   url: string | null;
-};
+}
 
-type FolderOption = {
+interface FolderOption {
   id: string;
   name: string;
   parentId: string | null;
   path: string;
   readOnly: boolean;
-};
+}
 
 type SelectedSource = "google" | "notion" | null;
 
@@ -81,16 +80,14 @@ declare global {
     gapi?: {
       load: (
         name: string,
-        options:
-          | (() => void)
-          | { callback?: () => void; onerror?: () => void },
+        options: (() => void) | { callback?: () => void; onerror?: () => void }
       ) => void;
     };
     google?: {
       picker?: {
         Action: { PICKED: string };
         DocsView: new (
-          viewId: unknown,
+          viewId: unknown
         ) => {
           setIncludeFolders: (value: boolean) => unknown;
           setMode: (value: unknown) => unknown;
@@ -115,7 +112,7 @@ declare global {
 }
 
 function StatusIcon({ status }: { status: ImportProviderStatus }) {
-  if (!status.configured || !status.connected) {
+  if (!(status.configured && status.connected)) {
     return <WifiX className="size-3.5 text-muted-foreground" />;
   }
   if (!status.ready) {
@@ -140,13 +137,10 @@ function buildFolderOptions(
     name: string;
     parentId: string | null;
     readOnly: boolean;
-  }>,
+  }>
 ) {
   const byId = new Map(
-    folders.map((folder) => [
-      folder.id,
-      { ...folder, path: folder.name },
-    ]),
+    folders.map((folder) => [folder.id, { ...folder, path: folder.name }])
   );
 
   const buildPath = (folderId: string): string => {
@@ -170,7 +164,7 @@ function buildFolderOptions(
     .sort((left, right) => left.path.localeCompare(right.path));
 }
 
-function getProviderSummary(status: ImportProviderStatus | null) {
+function _getProviderSummary(status: ImportProviderStatus | null) {
   if (!status?.configured) {
     return "Not configured";
   }
@@ -202,7 +196,7 @@ function loadScript(src: string) {
     }
 
     const existing = document.querySelector<HTMLScriptElement>(
-      `script[src="${src}"]`,
+      `script[src="${src}"]`
     );
     if (existing) {
       if (existing.dataset.loaded === "true") {
@@ -214,7 +208,7 @@ function loadScript(src: string) {
       existing.addEventListener(
         "error",
         () => reject(new Error(`Unable to load ${src}`)),
-        { once: true },
+        { once: true }
       );
       return;
     }
@@ -229,12 +223,12 @@ function loadScript(src: string) {
         script.dataset.loaded = "true";
         resolve();
       },
-      { once: true },
+      { once: true }
     );
     script.addEventListener(
       "error",
       () => reject(new Error(`Unable to load ${src}`)),
-      { once: true },
+      { once: true }
     );
     document.head.appendChild(script);
   });
@@ -277,7 +271,7 @@ function SourceCard({
     <button
       className={cn(
         "group flex w-full flex-col gap-2 px-0 py-2 text-left transition-colors duration-200",
-        "hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        "hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       )}
       onClick={onSelect}
       type="button"
@@ -359,47 +353,55 @@ export function DataImportsSection({
   const [overviewStatus, setOverviewStatus] = useState<string | null>(null);
   const [destination, setDestination] = useState<ImportDestination>(null);
   const [googleStatus, setGoogleStatus] = useState<ImportProviderStatus | null>(
-    null,
+    null
   );
   const [notionStatus, setNotionStatus] = useState<ImportProviderStatus | null>(
-    null,
+    null
   );
   const [destinationWorkspaceId, setDestinationWorkspaceId] = useState(
-    workspaces[0]?.workspaceId ?? "",
+    workspaces[0]?.workspaceId ?? ""
   );
   const [destinationFolderId, setDestinationFolderId] = useState("");
   const [folderOptions, setFolderOptions] = useState<FolderOption[]>([]);
   const [folderLoading, setFolderLoading] = useState(false);
-  const [destinationStatus, setDestinationStatus] = useState<string | null>(null);
+  const [destinationStatus, setDestinationStatus] = useState<string | null>(
+    null
+  );
   const [notionPages, setNotionPages] = useState<ImportPage[]>([]);
   const [selectedNotionPageIds, setSelectedNotionPageIds] = useState<string[]>(
-    [],
+    []
   );
   const [notionLoading, setNotionLoading] = useState(false);
   const [notionImporting, setNotionImporting] = useState(false);
   const [notionImportStatus, setNotionImportStatus] = useState<string | null>(
-    null,
+    null
   );
   const [driveImporting, setDriveImporting] = useState(false);
-  const [driveImportStatus, setDriveImportStatus] = useState<string | null>(null);
+  const [driveImportStatus, setDriveImportStatus] = useState<string | null>(
+    null
+  );
 
   // Two-step flow state
   const [selectedSource, setSelectedSource] = useState<SelectedSource>(null);
 
-  const pickerApiKey = process.env.NEXT_PUBLIC_GOOGLE_PICKER_API_KEY?.trim() ?? "";
-  const pickerAppId = process.env.NEXT_PUBLIC_GOOGLE_PICKER_APP_ID?.trim() ?? "";
-  const hasSelectedDestination = Boolean(destinationWorkspaceId && destinationFolderId);
-  const hasSavedDestination = Boolean(destination?.folderId);
+  const pickerApiKey =
+    process.env.NEXT_PUBLIC_GOOGLE_PICKER_API_KEY?.trim() ?? "";
+  const pickerAppId =
+    process.env.NEXT_PUBLIC_GOOGLE_PICKER_APP_ID?.trim() ?? "";
+  const hasSelectedDestination = Boolean(
+    destinationWorkspaceId && destinationFolderId
+  );
+  const _hasSavedDestination = Boolean(destination?.folderId);
   const selectedPagesCount = selectedNotionPageIds.length;
   const googleImportBlockedReason = driveImporting
     ? "Google Drive import is in progress."
-    : !googleStatus?.ready
-      ? "Reconnect Google to continue."
-      : !hasSelectedDestination
-        ? "Choose a destination folder first."
-        : !pickerApiKey
-          ? "Set NEXT_PUBLIC_GOOGLE_PICKER_API_KEY and restart the web app."
-          : null;
+    : googleStatus?.ready
+      ? hasSelectedDestination
+        ? pickerApiKey
+          ? null
+          : "Set NEXT_PUBLIC_GOOGLE_PICKER_API_KEY and restart the web app."
+        : "Choose a destination folder first."
+      : "Reconnect Google to continue.";
 
   const loadOverview = async () => {
     setOverviewLoading(true);
@@ -425,22 +427,22 @@ export function DataImportsSection({
       setGoogleStatus(payload.providers.google);
       setNotionStatus(payload.providers.notion);
       setDestinationWorkspaceId(
-        payload.destination?.workspaceId ?? workspaces[0]?.workspaceId ?? "",
+        payload.destination?.workspaceId ?? workspaces[0]?.workspaceId ?? ""
       );
       setDestinationFolderId(payload.destination?.folderId ?? "");
       if (payload.providers.google.connected) {
         setDriveImportStatus(
-          payload.providers.google.ready ? "Google account connected." : null,
+          payload.providers.google.ready ? "Google account connected." : null
         );
       }
       if (payload.providers.notion.connected) {
         setNotionImportStatus(
-          payload.providers.notion.ready ? "Notion account connected." : null,
+          payload.providers.notion.ready ? "Notion account connected." : null
         );
       }
     } catch (error) {
       setOverviewStatus(
-        error instanceof Error ? error.message : "Unable to load imports.",
+        error instanceof Error ? error.message : "Unable to load imports."
       );
     } finally {
       setOverviewLoading(false);
@@ -464,9 +466,9 @@ export function DataImportsSection({
       try {
         const response = await fetch(
           `/api/imports/destination/folders?workspaceId=${encodeURIComponent(
-            destinationWorkspaceId,
+            destinationWorkspaceId
           )}`,
-          { cache: "no-store" },
+          { cache: "no-store" }
         );
         if (!response.ok) {
           throw new Error("Unable to load folders.");
@@ -486,7 +488,10 @@ export function DataImportsSection({
           return;
         }
 
-        const options = buildFolderOptions(payload.rootFolderId, payload.folders);
+        const options = buildFolderOptions(
+          payload.rootFolderId,
+          payload.folders
+        );
         setFolderOptions(options);
         if (!options.some((entry) => entry.id === destinationFolderId)) {
           const firstWritable = options.find((entry) => !entry.readOnly);
@@ -496,7 +501,7 @@ export function DataImportsSection({
         if (!cancelled) {
           setFolderOptions([]);
           setDestinationStatus(
-            error instanceof Error ? error.message : "Unable to load folders.",
+            error instanceof Error ? error.message : "Unable to load folders."
           );
         }
       } finally {
@@ -514,28 +519,30 @@ export function DataImportsSection({
   }, [destinationWorkspaceId]);
 
   const selectedFolder = useMemo(
-    () => folderOptions.find((entry) => entry.id === destinationFolderId) ?? null,
-    [destinationFolderId, folderOptions],
+    () =>
+      folderOptions.find((entry) => entry.id === destinationFolderId) ?? null,
+    [destinationFolderId, folderOptions]
   );
   const selectedWorkspace = useMemo(
     () =>
-      workspaces.find((entry) => entry.workspaceId === destinationWorkspaceId) ?? null,
-    [destinationWorkspaceId, workspaces],
+      workspaces.find(
+        (entry) => entry.workspaceId === destinationWorkspaceId
+      ) ?? null,
+    [destinationWorkspaceId, workspaces]
   );
-  const destinationSummaryLabel =
-    `${selectedWorkspace?.name ?? destination?.workspaceName ?? "Workspace"} / ${
-      selectedFolder?.path ?? destination?.folderName ?? "Folder"
-    }`;
+  const destinationSummaryLabel = `${selectedWorkspace?.name ?? destination?.workspaceName ?? "Workspace"} / ${
+    selectedFolder?.path ?? destination?.folderName ?? "Folder"
+  }`;
 
   const toggleNotionPage = (pageId: string) => {
     setSelectedNotionPageIds((current) =>
       current.includes(pageId)
         ? current.filter((entry) => entry !== pageId)
-        : [...current, pageId],
+        : [...current, pageId]
     );
   };
 
-  const saveDestination = async () => {
+  const _saveDestination = async () => {
     if (!(destinationWorkspaceId && destinationFolderId)) {
       setDestinationStatus("Choose a workspace and folder first.");
       return;
@@ -558,7 +565,7 @@ export function DataImportsSection({
         destination?: ImportDestination;
         error?: string;
       };
-      if (!response.ok || !payload.destination) {
+      if (!(response.ok && payload.destination)) {
         throw new Error(payload.error ?? "Unable to save destination.");
       }
 
@@ -566,7 +573,7 @@ export function DataImportsSection({
       setDestinationStatus("Import destination saved.");
     } catch (error) {
       setDestinationStatus(
-        error instanceof Error ? error.message : "Unable to save destination.",
+        error instanceof Error ? error.message : "Unable to save destination."
       );
     }
   };
@@ -598,7 +605,7 @@ export function DataImportsSection({
       destination?: ImportDestination;
       error?: string;
     };
-    if (!response.ok || !payload.destination) {
+    if (!(response.ok && payload.destination)) {
       throw new Error(payload.error ?? "Unable to save destination.");
     }
 
@@ -644,11 +651,11 @@ export function DataImportsSection({
       setNotionImportStatus(
         payload.pages?.length
           ? "Choose pages to import."
-          : "No importable Notion pages were found.",
+          : "No importable Notion pages were found."
       );
     } catch (error) {
       setNotionImportStatus(
-        error instanceof Error ? error.message : "Unable to load Notion pages.",
+        error instanceof Error ? error.message : "Unable to load Notion pages."
       );
     } finally {
       setNotionLoading(false);
@@ -685,12 +692,12 @@ export function DataImportsSection({
       setNotionImportStatus(
         `Imported ${payload.imported?.length ?? 0} Notion page${
           (payload.imported?.length ?? 0) === 1 ? "" : "s"
-        }.`,
+        }.`
       );
       await loadOverview();
     } catch (error) {
       setNotionImportStatus(
-        error instanceof Error ? error.message : "Unable to import pages.",
+        error instanceof Error ? error.message : "Unable to import pages."
       );
     } finally {
       setNotionImporting(false);
@@ -700,7 +707,7 @@ export function DataImportsSection({
   const openGooglePicker = async () => {
     if (!pickerApiKey) {
       setDriveImportStatus(
-        "Missing NEXT_PUBLIC_GOOGLE_PICKER_API_KEY for Google Picker.",
+        "Missing NEXT_PUBLIC_GOOGLE_PICKER_API_KEY for Google Picker."
       );
       return;
     }
@@ -709,16 +716,19 @@ export function DataImportsSection({
     setDriveImportStatus("Loading Google Drive Picker...");
     try {
       await ensureSavedDestination();
-      const tokenResponse = await fetch("/api/imports/google-drive/picker-token", {
-        cache: "no-store",
-      });
+      const tokenResponse = await fetch(
+        "/api/imports/google-drive/picker-token",
+        {
+          cache: "no-store",
+        }
+      );
       const tokenPayload = (await tokenResponse.json().catch(() => ({}))) as {
         accessToken?: string;
         error?: string;
       };
-      if (!tokenResponse.ok || !tokenPayload.accessToken) {
+      if (!(tokenResponse.ok && tokenPayload.accessToken)) {
         throw new Error(
-          tokenPayload.error ?? "Unable to get a Google Drive access token.",
+          tokenPayload.error ?? "Unable to get a Google Drive access token."
         );
       }
 
@@ -734,25 +744,30 @@ export function DataImportsSection({
       pickerView.setSelectFolderEnabled(false);
       pickerView.setMode(googlePicker.DocsViewMode.LIST);
 
-      const picker = (new googlePicker.PickerBuilder() as {
-        addView: (view: unknown) => any;
-        enableFeature: (feature: unknown) => any;
-        setAppId: (appId: string) => any;
-        setCallback: (callback: (data: any) => void) => any;
-        setDeveloperKey: (key: string) => any;
-        setOAuthToken: (token: string) => any;
-        build: () => { setVisible: (value: boolean) => void };
-      })
+      const picker = (
+        new googlePicker.PickerBuilder() as {
+          addView: (view: unknown) => any;
+          enableFeature: (feature: unknown) => any;
+          setAppId: (appId: string) => any;
+          setCallback: (callback: (data: any) => void) => any;
+          setDeveloperKey: (key: string) => any;
+          setOAuthToken: (token: string) => any;
+          build: () => { setVisible: (value: boolean) => void };
+        }
+      )
         .addView(pickerView)
         .enableFeature(googlePicker.Feature.MULTISELECT_ENABLED)
         .setCallback((data: any) => {
-          if (data[googlePicker.Response.ACTION] !== googlePicker.Action.PICKED) {
+          if (
+            data[googlePicker.Response.ACTION] !== googlePicker.Action.PICKED
+          ) {
             setDriveImporting(false);
             setDriveImportStatus("Google Drive import cancelled.");
             return;
           }
 
-          const documents = (data[googlePicker.Response.DOCUMENTS] ?? []) as Array<{
+          const documents = (data[googlePicker.Response.DOCUMENTS] ??
+            []) as Array<{
             id?: string;
           }>;
           const fileIds = documents
@@ -774,20 +789,22 @@ export function DataImportsSection({
                 imported?: Array<{ fileId: string }>;
               };
               if (!response.ok) {
-                throw new Error(payload.error ?? "Unable to import Drive files.");
+                throw new Error(
+                  payload.error ?? "Unable to import Drive files."
+                );
               }
 
               setDriveImportStatus(
                 `Imported ${payload.imported?.length ?? 0} Drive file${
                   (payload.imported?.length ?? 0) === 1 ? "" : "s"
-                }.`,
+                }.`
               );
               await loadOverview();
             } catch (error) {
               setDriveImportStatus(
                 error instanceof Error
                   ? error.message
-                  : "Unable to import Drive files.",
+                  : "Unable to import Drive files."
               );
             } finally {
               setDriveImporting(false);
@@ -807,7 +824,7 @@ export function DataImportsSection({
       setDriveImportStatus(
         error instanceof Error
           ? error.message
-          : "Unable to open Google Drive Picker.",
+          : "Unable to open Google Drive Picker."
       );
       setDriveImporting(false);
     }
@@ -830,17 +847,37 @@ export function DataImportsSection({
             <div className="flex items-center gap-2">
               <p className="font-medium text-sm">Google Drive</p>
               <div className="flex items-center gap-1.5 rounded-full px-2 py-0.5">
-                <StatusIcon status={status ?? { accountId: null, configured: false, connected: false, hasRefreshToken: false, hasUsableAccessToken: false, ready: false, scopes: [] }} />
+                <StatusIcon
+                  status={
+                    status ?? {
+                      accountId: null,
+                      configured: false,
+                      connected: false,
+                      hasRefreshToken: false,
+                      hasUsableAccessToken: false,
+                      ready: false,
+                      scopes: [],
+                    }
+                  }
+                />
                 <span className="text-[11px] text-muted-foreground">
-                  {isReady ? "Ready" : isConnected ? "Reconnect required" : "Not linked"}
+                  {isReady
+                    ? "Ready"
+                    : isConnected
+                      ? "Reconnect required"
+                      : "Not linked"}
                 </span>
               </div>
             </div>
             {status?.accountId && (
-              <p className="mt-0.5 text-muted-foreground text-xs">{status.accountId}</p>
+              <p className="mt-0.5 text-muted-foreground text-xs">
+                {status.accountId}
+              </p>
             )}
-            {(driveImportStatus) && (
-              <p className="mt-1 text-muted-foreground text-xs">{driveImportStatus}</p>
+            {driveImportStatus && (
+              <p className="mt-1 text-muted-foreground text-xs">
+                {driveImportStatus}
+              </p>
             )}
           </div>
           <Button
@@ -858,7 +895,9 @@ export function DataImportsSection({
         {/* Destination (only show when source is connected) */}
         {isReady && (
           <div className="space-y-3">
-            <p className="font-medium text-xs text-foreground/70">Destination</p>
+            <p className="font-medium text-foreground/70 text-xs">
+              Destination
+            </p>
             <div className="space-y-2">
               <div className="space-y-1.5">
                 <p className="text-muted-foreground text-xs">Workspace</p>
@@ -938,7 +977,9 @@ export function DataImportsSection({
                   )}
                 </div>
                 {destinationStatus && (
-                  <p className="text-muted-foreground text-xs">{destinationStatus}</p>
+                  <p className="text-muted-foreground text-xs">
+                    {destinationStatus}
+                  </p>
                 )}
               </div>
             </div>
@@ -946,9 +987,11 @@ export function DataImportsSection({
         )}
 
         {/* Import action */}
-        <div className="flex items-center justify-between gap-3 border-t border-border/50 pt-4">
+        <div className="flex items-center justify-between gap-3 border-border/50 border-t pt-4">
           {googleImportBlockedReason && !isReady && (
-            <p className="text-muted-foreground text-xs">{googleImportBlockedReason}</p>
+            <p className="text-muted-foreground text-xs">
+              {googleImportBlockedReason}
+            </p>
           )}
           <div className="ml-auto">
             <Button
@@ -987,17 +1030,37 @@ export function DataImportsSection({
             <div className="flex items-center gap-2">
               <p className="font-medium text-sm">Notion</p>
               <div className="flex items-center gap-1.5 rounded-full px-2 py-0.5">
-                <StatusIcon status={status ?? { accountId: null, configured: false, connected: false, hasRefreshToken: false, hasUsableAccessToken: false, ready: false, scopes: [] }} />
+                <StatusIcon
+                  status={
+                    status ?? {
+                      accountId: null,
+                      configured: false,
+                      connected: false,
+                      hasRefreshToken: false,
+                      hasUsableAccessToken: false,
+                      ready: false,
+                      scopes: [],
+                    }
+                  }
+                />
                 <span className="text-[11px] text-muted-foreground">
-                  {isReady ? "Ready" : isConnected ? "Reconnect required" : "Not linked"}
+                  {isReady
+                    ? "Ready"
+                    : isConnected
+                      ? "Reconnect required"
+                      : "Not linked"}
                 </span>
               </div>
             </div>
             {status?.accountId && (
-              <p className="mt-0.5 text-muted-foreground text-xs">{status.accountId}</p>
+              <p className="mt-0.5 text-muted-foreground text-xs">
+                {status.accountId}
+              </p>
             )}
             {notionImportStatus && (
-              <p className="mt-1 text-muted-foreground text-xs">{notionImportStatus}</p>
+              <p className="mt-1 text-muted-foreground text-xs">
+                {notionImportStatus}
+              </p>
             )}
           </div>
           <Button
@@ -1016,8 +1079,11 @@ export function DataImportsSection({
         {isReady && (
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-2">
-              <p className="font-medium text-xs text-foreground/70">
-                Pages{notionPages.length > 0 ? ` · ${selectedPagesCount} of ${notionPages.length} selected` : ""}
+              <p className="font-medium text-foreground/70 text-xs">
+                Pages
+                {notionPages.length > 0
+                  ? ` · ${selectedPagesCount} of ${notionPages.length} selected`
+                  : ""}
               </p>
               <Button
                 disabled={notionLoading || !isReady}
@@ -1052,7 +1118,9 @@ export function DataImportsSection({
                         />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-3">
-                            <p className="truncate font-medium text-sm">{page.title}</p>
+                            <p className="truncate font-medium text-sm">
+                              {page.title}
+                            </p>
                             <span className="shrink-0 text-muted-foreground text-xs">
                               {formatTimestamp(page.lastEditedTime)}
                             </span>
@@ -1084,7 +1152,9 @@ export function DataImportsSection({
         {/* Destination */}
         {isReady && (
           <div className="space-y-3">
-            <p className="font-medium text-xs text-foreground/70">Destination</p>
+            <p className="font-medium text-foreground/70 text-xs">
+              Destination
+            </p>
             <div className="space-y-2">
               <div className="space-y-1.5">
                 <p className="text-muted-foreground text-xs">Workspace</p>
@@ -1164,7 +1234,9 @@ export function DataImportsSection({
                   )}
                 </div>
                 {destinationStatus && (
-                  <p className="text-muted-foreground text-xs">{destinationStatus}</p>
+                  <p className="text-muted-foreground text-xs">
+                    {destinationStatus}
+                  </p>
                 )}
               </div>
             </div>
@@ -1189,7 +1261,10 @@ export function DataImportsSection({
               ) : (
                 <Download className="size-3.5" />
               )}
-              Import {selectedPagesCount > 0 ? `${selectedPagesCount} page${selectedPagesCount === 1 ? "" : "s"}` : "selected"}
+              Import{" "}
+              {selectedPagesCount > 0
+                ? `${selectedPagesCount} page${selectedPagesCount === 1 ? "" : "s"}`
+                : "selected"}
             </Button>
           </div>
         )}
@@ -1224,7 +1299,9 @@ export function DataImportsSection({
               </p>
               {!selectedSource && (
                 <p className="text-muted-foreground text-xs">
-                  {overviewLoading ? "Loading..." : "Select a source to get started"}
+                  {overviewLoading
+                    ? "Loading..."
+                    : "Select a source to get started"}
                 </p>
               )}
             </div>
@@ -1244,16 +1321,18 @@ export function DataImportsSection({
         </div>
 
         {/* Step router */}
-        {!selectedSource ? (
+        {selectedSource ? (
+          selectedSource === "google" ? (
+            renderGoogleStep()
+          ) : (
+            renderNotionStep()
+          )
+        ) : (
           <Step1SourcePicker
             googleStatus={googleStatus}
             notionStatus={notionStatus}
             onSelect={setSelectedSource}
           />
-        ) : selectedSource === "google" ? (
-          renderGoogleStep()
-        ) : (
-          renderNotionStep()
         )}
 
         {overviewStatus ? (

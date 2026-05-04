@@ -10,9 +10,7 @@ export async function POST(request: Request) {
 
   let payload: { pageIds: string[] };
   try {
-    payload = parseNotionImportPayload(
-      await request.json().catch(() => ({})),
-    );
+    payload = parseNotionImportPayload(await request.json().catch(() => ({})));
   } catch {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
@@ -31,7 +29,7 @@ export async function POST(request: Request) {
             ? error.message
             : "Unable to import Notion pages.",
       },
-      { status: 400 },
+      { status: 400 }
     );
   }
 }

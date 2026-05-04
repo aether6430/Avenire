@@ -14,7 +14,10 @@ export async function GET() {
   const activeOrganizationId =
     (session as { session?: { activeOrganizationId?: string | null } }).session
       ?.activeOrganizationId ?? null;
-  const ws = await resolveWorkspaceForUser(session.user.id, activeOrganizationId);
+  const ws = await resolveWorkspaceForUser(
+    session.user.id,
+    activeOrganizationId
+  );
   if (!ws) {
     return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
   }

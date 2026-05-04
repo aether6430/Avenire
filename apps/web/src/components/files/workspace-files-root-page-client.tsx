@@ -21,7 +21,7 @@ export function WorkspaceFilesRootPageClient({
     ) ?? (workspace?.workspaceId === targetWorkspaceUuid ? workspace : null);
 
   useEffect(() => {
-    if (!targetWorkspace?.workspaceId || !targetWorkspace.rootFolderId) {
+    if (!(targetWorkspace?.workspaceId && targetWorkspace.rootFolderId)) {
       return;
     }
 

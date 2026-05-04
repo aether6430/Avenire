@@ -1,11 +1,11 @@
 "use client";
 
-import type { PageMetadataState } from "@/lib/frontmatter";
 import {
   readBrowserCache,
   removeBrowserCache,
   writeBrowserCache,
 } from "@/lib/browser-cache";
+import type { PageMetadataState } from "@/lib/frontmatter";
 
 const MAX_MARKDOWN_CACHE_ENTRIES = 240;
 

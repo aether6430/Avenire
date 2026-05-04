@@ -8,11 +8,7 @@ const MEDIA_TYPE_ALIASES: Record<string, string> = {
 };
 
 export function normalizeMediaType(value: string | null | undefined): string {
-  const normalized = (value ?? "")
-    .trim()
-    .toLowerCase()
-    .split(";")[0]
-    ?.trim();
+  const normalized = (value ?? "").trim().toLowerCase().split(";")[0]?.trim();
 
   if (!normalized) {
     return DEFAULT_MEDIA_TYPE;

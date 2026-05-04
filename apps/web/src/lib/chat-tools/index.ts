@@ -4,16 +4,17 @@ import type {
   AgentActivityData,
 } from "@avenire/ai/message-types";
 import { apollo } from "@avenire/ai/models";
-import { chatToolSchemas } from "@avenire/ai/tools";
 import {
   AVAILABLE_STUDY_SKILLS,
   AVAILABLE_VISUAL_SKILLS,
   loadSkills,
 } from "@avenire/ai/skills";
+import { chatToolSchemas } from "@avenire/ai/tools";
+import { canonicalizeLearningTaxonomy } from "@avenire/database";
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
+import { logInfo } from "@avenire/observability";
 import { tavily } from "@tavily/core";
 import { z } from "zod";
-import { canonicalizeLearningTaxonomy } from "@avenire/database";
 import {
   createFolder,
   createWorkspaceNoteFile,
@@ -33,8 +34,8 @@ import {
   createFlashcardCardForUser,
   createFlashcardSetForUser,
   type FlashcardCardKind,
-  getFlashcardSetForUser,
   getFlashcardDashboardForUser,
+  getFlashcardSetForUser,
   listDueFlashcardsForUser,
   normalizeFlashcardTaxonomy,
 } from "@/lib/flashcards";
@@ -42,21 +43,20 @@ import {
   deleteIngestionDataForFile,
   getIngestionSummaryForFile,
 } from "@/lib/ingestion-data";
-import { logInfo } from "@avenire/observability";
 import {
   getActiveMisconceptions,
-  type MisconceptionRecord,
   improveMisconceptionsForConcept,
+  type MisconceptionRecord,
   recomputeConceptMastery,
   resolveMisconceptionsForConcept,
   upsertMisconception,
 } from "@/lib/learning-data";
-import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
 import { retrieveWorkspaceChunksShared } from "@/lib/retrieval-service";
+import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
 
 const DEFAULT_SEARCH_LIMIT = 8;
 const DEFAULT_WEB_SEARCH_LIMIT = 5;
-const DEFAULT_FILE_LIST_LIMIT = 50;
+const _DEFAULT_FILE_LIST_LIMIT = 50;
 const DEFAULT_DUE_CARD_LIMIT = 5;
 const DEFAULT_NOTE_MAX_CHARS = 16_000;
 const NOTE_TEXT_BYTE_LIMIT = 512_000;
@@ -73,27 +73,27 @@ const FILE_MANAGER_MAX_FILE_CHARS = 5000;
 const FILE_MANAGER_MAX_OUTPUT_TOKENS = 260;
 const MISCONCEPTION_CONTEXT_LIMIT = 5;
 
-type FlashcardTaxonomy = {
+interface FlashcardTaxonomy {
   concept: string;
   subject: string;
   topic: string;
-};
+}
 
-type ChatToolContext = {
+interface ChatToolContext {
   agentActivityId: string;
   chatSlug: string;
   emitAgentActivity?: (data: AgentActivityData) => void;
   rootFolderId: string;
   userId: string;
   workspaceId: string;
-};
+}
 
 type ExplorerFileLike = Awaited<ReturnType<typeof listWorkspaceFiles>>[number];
 
-type WorkspacePathMaps = {
+interface WorkspacePathMaps {
   filePathById: Map<string, string>;
   folderPathById: Map<string, string>;
-};
+}
 
 function normalizeMisconceptionField(value: string, maxLength: number) {
   return sanitizeTaxonomyLabel(value, maxLength).replace(/\s+/g, " ");
@@ -396,13 +396,15 @@ function extractQuotedValues(task: string) {
 function parseRequestedNoteDestination(task: string) {
   const quotedValues = extractQuotedValues(task);
   const nonPathQuotedValues = quotedValues.filter(
-    (value) => !value.includes("/") && !/\.(md|mdx|txt)$/i.test(value)
+    (value) => !(value.includes("/") || /\.(md|mdx|txt)$/i.test(value))
   );
   const explicitPathCandidate =
     quotedValues.find((value) => value.includes("/") && /\.\w+$/.test(value)) ??
-    task.match(
-      /(?:in|under|inside|at|to)\s+["']?([^"'\n]+?\.(?:md|mdx|txt))["']?/i
-    )?.[1]?.trim() ??
+    task
+      .match(
+        /(?:in|under|inside|at|to)\s+["']?([^"'\n]+?\.(?:md|mdx|txt))["']?/i
+      )?.[1]
+      ?.trim() ??
     null;
 
   if (explicitPathCandidate) {
@@ -418,29 +420,41 @@ function parseRequestedNoteDestination(task: string) {
   }
 
   const fileNameCandidate =
-    task.match(
-      /(?:filename|file name)\s*:?\s*["']?([^"'\n]+?(?:\.(?:md|mdx|txt)))["']?/i
-    )?.[1]?.trim() ??
-    task.match(
-      /(?:named|called)\s+["']?([^"'\n]+?\.(?:md|mdx|txt))["']?(?=(?:\s+(?:in|under|inside|at|to|with)\b|$))/i
-    )?.[1]?.trim() ??
+    task
+      .match(
+        /(?:filename|file name)\s*:?\s*["']?([^"'\n]+?(?:\.(?:md|mdx|txt)))["']?/i
+      )?.[1]
+      ?.trim() ??
+    task
+      .match(
+        /(?:named|called)\s+["']?([^"'\n]+?\.(?:md|mdx|txt))["']?(?=(?:\s+(?:in|under|inside|at|to|with)\b|$))/i
+      )?.[1]
+      ?.trim() ??
     null;
 
   const folderHint =
-    quotedValues.find((value) => value.includes("/") && !/\.\w+$/.test(value)) ??
-    task.match(
-      /(?:in|under|inside|at|to)\s+["']?([^"'\n]+(?:\/[^"'\n]+)*)["']?(?=(?:\s+(?:named|called|filename|file name|title|about|with)\b|$))/i
-    )?.[1]?.trim() ??
+    quotedValues.find(
+      (value) => value.includes("/") && !/\.\w+$/.test(value)
+    ) ??
+    task
+      .match(
+        /(?:in|under|inside|at|to)\s+["']?([^"'\n]+(?:\/[^"'\n]+)*)["']?(?=(?:\s+(?:named|called|filename|file name|title|about|with)\b|$))/i
+      )?.[1]
+      ?.trim() ??
     "";
 
   const titleMatch =
     task.match(/(?:^|\n)\s*title\s*:\s*([^\n]+)/i)?.[1]?.trim() ??
-    task.match(
-      /\b(?:title(?:d)?(?:\s+as)?|named|called)\s+["']?([^"'\n]+?)["']?(?=(?:\s+(?:in|under|inside|at|to|with)\b|$))/i
-    )?.[1]?.trim() ??
-    task.match(
-      /\babout\s+["']?([^"'\n]+?)["']?(?=(?:\s+(?:with|in|under|inside|at|to|and)\b|[?.!,]|$))/i
-    )?.[1]?.trim() ??
+    task
+      .match(
+        /\b(?:title(?:d)?(?:\s+as)?|named|called)\s+["']?([^"'\n]+?)["']?(?=(?:\s+(?:in|under|inside|at|to|with)\b|$))/i
+      )?.[1]
+      ?.trim() ??
+    task
+      .match(
+        /\babout\s+["']?([^"'\n]+?)["']?(?=(?:\s+(?:with|in|under|inside|at|to|and)\b|[?.!,]|$))/i
+      )?.[1]
+      ?.trim() ??
     nonPathQuotedValues[0] ??
     null;
   const fileName = fileNameCandidate
@@ -500,7 +514,7 @@ async function generateNoteDraftFromTask(input: {
         : "Generate the note title from the request.",
       `Request:\n${input.task}`,
     ].join("\n\n"),
-    maxOutputTokens: 5_000,
+    maxOutputTokens: 5000,
     temperature: 0.25,
   });
 
@@ -529,7 +543,7 @@ async function rewriteNoteFromTask(input: {
       `Edit request:\n${input.task}`,
       `Current note (${input.fileName}):\n${input.currentMarkdown}`,
     ].join("\n\n"),
-    maxOutputTokens: 8_000,
+    maxOutputTokens: 8000,
     temperature: 0.2,
   });
 
@@ -1010,7 +1024,9 @@ function findTargetNoteFile(params: {
     return params.noteFiles.find((file) => file.id === resolvedByPath) ?? null;
   }
 
-  const normalizedTitle = stripNoteExtension(destination.title ?? "").toLowerCase();
+  const normalizedTitle = stripNoteExtension(
+    destination.title ?? ""
+  ).toLowerCase();
   if (normalizedTitle) {
     const exactMatches = params.noteFiles.filter(
       (file) => stripNoteExtension(file.name).toLowerCase() === normalizedTitle
@@ -1704,7 +1720,7 @@ async function generateQuizFromSource(
     ].join("\n\n"),
   });
 
-  const questions = result.output.questions.map((question, index) => ({
+  const questions = result.output.questions.map((question, _index) => ({
     ...question,
     explanation: question.explanation ?? null,
   }));
@@ -2255,7 +2271,9 @@ The agent decides which operations to perform based on the task.`,
             noteFiles,
             task: input.task,
           });
-          const relevantNotes = targetNote ? [targetNote] : noteFiles.slice(0, maxNotes);
+          const relevantNotes = targetNote
+            ? [targetNote]
+            : noteFiles.slice(0, maxNotes);
           for (const file of relevantNotes) {
             try {
               const content = await fetchWorkspaceFileText(file, 500);

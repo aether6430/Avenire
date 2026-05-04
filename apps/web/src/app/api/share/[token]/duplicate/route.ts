@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { NextResponse } from "next/server";
 import {
   canUserAccessSharedResource,
   createFolder,
@@ -13,12 +15,10 @@ import {
   resolveResourceShareLink,
 } from "@/lib/file-data";
 import { getSessionUser } from "@/lib/workspace";
-import { NextResponse } from "next/server";
-import { randomUUID } from "node:crypto";
 
-type DuplicateBody = {
+interface DuplicateBody {
   workspaceId?: string;
-};
+}
 
 function resolveDuplicateName(existingNames: string[], requestedName: string) {
   const existingNameSet = new Set(

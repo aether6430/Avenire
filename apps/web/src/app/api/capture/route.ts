@@ -2,9 +2,9 @@ import { recomputeConceptMastery } from "@avenire/database";
 import { createTaskForUser } from "@avenire/database/task-data";
 import { NextResponse } from "next/server";
 import { createWorkspaceNoteFile } from "@/lib/file-data";
-import { ensureNotesFolder } from "@/lib/quick-capture";
-import { upsertMisconception } from "@/lib/learning-data";
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
+import { upsertMisconception } from "@/lib/learning-data";
+import { ensureNotesFolder } from "@/lib/quick-capture";
 import { invalidateTaskListCache } from "@/lib/tasks-cache";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
 
@@ -42,14 +42,20 @@ export async function POST(request: Request) {
   };
 
   const kind = normalizeText(body.kind) as CaptureKind;
-  if (!kind || !["task", "note", "misconception"].includes(kind)) {
-    return NextResponse.json({ error: "Invalid capture kind" }, { status: 400 });
+  if (!(kind && ["task", "note", "misconception"].includes(kind))) {
+    return NextResponse.json(
+      { error: "Invalid capture kind" },
+      { status: 400 }
+    );
   }
 
   if (kind === "task") {
     const title = normalizeText(body.title);
     if (!title) {
-      return NextResponse.json({ error: "Task title is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Task title is required" },
+        { status: 400 }
+      );
     }
 
     try {
@@ -93,7 +99,10 @@ export async function POST(request: Request) {
     const title = normalizeText(body.title);
     const content = normalizeText(body.content);
     if (!title) {
-      return NextResponse.json({ error: "Note title is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Note title is required" },
+        { status: 400 }
+      );
     }
 
     const notesFolder = await ensureNotesFolder({
@@ -129,7 +138,9 @@ export async function POST(request: Request) {
   const concept = normalizeText(body.concept);
   const reason = normalizeText(body.reason);
   const confidenceRaw =
-    typeof body.confidence === "number" ? body.confidence : Number(body.confidence);
+    typeof body.confidence === "number"
+      ? body.confidence
+      : Number(body.confidence);
   const confidence =
     Number.isFinite(confidenceRaw) && confidenceRaw >= 0 && confidenceRaw <= 1
       ? confidenceRaw

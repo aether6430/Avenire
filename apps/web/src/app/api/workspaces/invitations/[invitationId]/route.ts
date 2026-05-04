@@ -1,15 +1,17 @@
 import { NextResponse } from "next/server";
-import { respondToInvitationForUser } from "@/lib/file-data";
+import {
+  listWorkspacesForUser,
+  respondToInvitationForUser,
+} from "@/lib/file-data";
 import { getSessionUser } from "@/lib/workspace";
-import { listWorkspacesForUser } from "@/lib/file-data";
 
-type ActionBody = {
+interface ActionBody {
   action?: "accept" | "decline";
-};
+}
 
 export async function POST(
   request: Request,
-  context: { params: Promise<{ invitationId: string }> },
+  context: { params: Promise<{ invitationId: string }> }
 ) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) {

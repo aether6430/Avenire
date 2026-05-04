@@ -14,10 +14,10 @@ import { Spinner } from "@avenire/ui/components/spinner";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 interface TrashItem {
+  deletedAt: string;
   id: string;
   kind: "file" | "folder";
   name: string;
-  deletedAt: string;
   sizeBytes: number | null;
 }
 
@@ -86,7 +86,7 @@ export function TrashDialog({
 
   const totalSize = useMemo(
     () => items.reduce((sum, item) => sum + (item.sizeBytes ?? 0), 0),
-    [items],
+    [items]
   );
 
   const runMutation = async (
@@ -97,7 +97,9 @@ export function TrashDialog({
       return;
     }
 
-    setStatus(operation === "restore" ? "Restoring..." : "Deleting permanently...");
+    setStatus(
+      operation === "restore" ? "Restoring..." : "Deleting permanently..."
+    );
     const response = await fetch(`/api/workspaces/${workspaceUuid}/trash`, {
       method: operation === "restore" ? "POST" : "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -105,11 +107,15 @@ export function TrashDialog({
     });
 
     if (!response.ok) {
-      setStatus(operation === "restore" ? "Restore failed." : "Permanent delete failed.");
+      setStatus(
+        operation === "restore" ? "Restore failed." : "Permanent delete failed."
+      );
       return;
     }
 
-    setStatus(operation === "restore" ? "Item restored." : "Item permanently deleted.");
+    setStatus(
+      operation === "restore" ? "Item restored." : "Item permanently deleted."
+    );
     await refresh();
   };
 
@@ -121,13 +127,7 @@ export function TrashDialog({
         Loading trash...
       </p>
     );
-  } else if (!hasItems) {
-    content = (
-      <p className="p-4 text-muted-foreground text-sm">
-        Trash is empty.
-      </p>
-    );
-  } else {
+  } else if (hasItems) {
     content = items.map((item) => (
       <div
         className="flex flex-col gap-4 p-3 sm:flex-row sm:items-center sm:justify-between"
@@ -135,7 +135,7 @@ export function TrashDialog({
       >
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate text-sm font-medium">{item.name}</p>
+            <p className="truncate font-medium text-sm">{item.name}</p>
             <Badge variant="outline">{item.kind}</Badge>
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-xs">
@@ -177,13 +177,17 @@ export function TrashDialog({
         </div>
       </div>
     ));
+  } else {
+    content = (
+      <p className="p-4 text-muted-foreground text-sm">Trash is empty.</p>
+    );
   }
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="h-[100dvh] w-screen max-w-none rounded-none border-0 p-0 sm:h-[92vh] sm:w-[96vw] sm:max-w-[1200px] sm:rounded-xl sm:border lg:max-w-[1280px]">
         <div className="flex h-full flex-col overflow-hidden bg-background sm:rounded-xl">
-          <DialogHeader className="border-b border-border/60 px-4 py-4 sm:px-6">
+          <DialogHeader className="border-border/60 border-b px-4 py-4 sm:px-6">
             <DialogTitle>Trash</DialogTitle>
             <DialogDescription>
               Deleted items stay for 30 days before permanent cleanup.
@@ -210,7 +214,7 @@ export function TrashDialog({
           </div>
 
           {status ? (
-            <p className="border-t border-border/60 px-4 py-3 text-muted-foreground text-xs sm:px-6">
+            <p className="border-border/60 border-t px-4 py-3 text-muted-foreground text-xs sm:px-6">
               {status}
             </p>
           ) : null}

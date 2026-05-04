@@ -7,7 +7,7 @@ import {
   getChatBySlugForUser,
   getMessagesByChatSlugForUser,
   isChatOwnerForUser,
-  updateChatForUser
+  updateChatForUser,
 } from "@/lib/chat-data";
 import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
 
@@ -60,11 +60,16 @@ export async function PATCH(
     icon?: string | null;
   };
 
-  const updated = await updateChatForUser(user.id, slug, {
-    title: body.title,
-    pinned: body.pinned,
-    icon: body.icon,
-  }, chat?.workspaceId);
+  const updated = await updateChatForUser(
+    user.id,
+    slug,
+    {
+      title: body.title,
+      pinned: body.pinned,
+      icon: body.icon,
+    },
+    chat?.workspaceId
+  );
 
   if (!updated) {
     return NextResponse.json({ error: "Chat not found" }, { status: 404 });
@@ -97,7 +102,11 @@ export async function POST(
 
   const { slug } = await context.params;
   const existing = await getChatBySlugForUser(user.id, slug);
-  const isOwner = await isChatOwnerForUser(user.id, slug, existing?.workspaceId);
+  const isOwner = await isChatOwnerForUser(
+    user.id,
+    slug,
+    existing?.workspaceId
+  );
   if (!isOwner) {
     return NextResponse.json({ error: "Read-only chat" }, { status: 403 });
   }
@@ -134,7 +143,11 @@ export async function DELETE(
 
   const { slug } = await context.params;
   const existing = await getChatBySlugForUser(user.id, slug);
-  const isOwner = await isChatOwnerForUser(user.id, slug, existing?.workspaceId);
+  const isOwner = await isChatOwnerForUser(
+    user.id,
+    slug,
+    existing?.workspaceId
+  );
   if (!isOwner) {
     return NextResponse.json({ error: "Read-only chat" }, { status: 403 });
   }

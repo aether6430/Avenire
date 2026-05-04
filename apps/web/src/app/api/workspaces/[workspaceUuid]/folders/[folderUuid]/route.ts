@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import {
   getFolderWithAncestors,
   getNoteContent,
@@ -6,18 +7,17 @@ import {
   listFolderContentsForUser,
   listWorkspaceMembers,
   softDeleteFolder,
+  updateFolder,
   userCanEditFolder,
   userCanViewFolder,
-  updateFolder,
 } from "@/lib/file-data";
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
 import { getIngestionFlagsByFileIds } from "@/lib/ingestion-data";
-import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/workspace";
 
 export async function GET(
   _request: Request,
-  context: { params: Promise<{ workspaceUuid: string; folderUuid: string }> },
+  context: { params: Promise<{ workspaceUuid: string; folderUuid: string }> }
 ) {
   const user = await getSessionUser();
   if (!user) {
@@ -34,12 +34,20 @@ export async function GET(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const folder = await getFolderWithAncestors(workspaceUuid, folderUuid, user.id);
+  const folder = await getFolderWithAncestors(
+    workspaceUuid,
+    folderUuid,
+    user.id
+  );
   if (!folder) {
     return NextResponse.json({ error: "Folder not found" }, { status: 404 });
   }
 
-  const children = await listFolderContentsForUser(workspaceUuid, folderUuid, user.id);
+  const children = await listFolderContentsForUser(
+    workspaceUuid,
+    folderUuid,
+    user.id
+  );
   const ingestionFlags = await getIngestionFlagsByFileIds(
     workspaceUuid,
     (children.files ?? []).map((file) => file.id)
@@ -55,9 +63,9 @@ export async function GET(
           return;
         }
 
-        const response = await fetch(file.storageUrl, { cache: "no-store" }).catch(
-          () => null
-        );
+        const response = await fetch(file.storageUrl, {
+          cache: "no-store",
+        }).catch(() => null);
         noteContentByFileId.set(
           file.id,
           response?.ok ? await response.text() : null
@@ -78,7 +86,7 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  context: { params: Promise<{ workspaceUuid: string; folderUuid: string }> },
+  context: { params: Promise<{ workspaceUuid: string; folderUuid: string }> }
 ) {
   const user = await getSessionUser();
   if (!user) {
@@ -95,11 +103,14 @@ export async function PATCH(
     return NextResponse.json({ error: "Read-only folder" }, { status: 403 });
   }
   if (isSharedFilesVirtualFolderId(folderUuid, workspaceUuid)) {
-    return NextResponse.json({ error: "Shared Files is read-only" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Shared Files is read-only" },
+      { status: 400 }
+    );
   }
   const members = await listWorkspaceMembers(workspaceUuid);
   const currentMember = members.find((member) => member.userId === user.id);
-  if (!currentMember || !["owner", "admin"].includes(currentMember.role)) {
+  if (!(currentMember && ["owner", "admin"].includes(currentMember.role))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -109,11 +120,21 @@ export async function PATCH(
     name?: string;
     parentId?: string | null;
   };
-  if (body.parentId && isSharedFilesVirtualFolderId(body.parentId, workspaceUuid)) {
-    return NextResponse.json({ error: "Cannot move items into Shared Files" }, { status: 400 });
+  if (
+    body.parentId &&
+    isSharedFilesVirtualFolderId(body.parentId, workspaceUuid)
+  ) {
+    return NextResponse.json(
+      { error: "Cannot move items into Shared Files" },
+      { status: 400 }
+    );
   }
 
-  const existing = await getFolderWithAncestors(workspaceUuid, folderUuid, user.id);
+  const existing = await getFolderWithAncestors(
+    workspaceUuid,
+    folderUuid,
+    user.id
+  );
   if (!existing) {
     return NextResponse.json({ error: "Folder not found" }, { status: 404 });
   }
@@ -148,8 +169,8 @@ export async function PATCH(
         workspaceUuid,
         folderId: parentId,
         reason: "tree.changed",
-      }),
-    ),
+      })
+    )
   );
 
   return NextResponse.json({ folder });
@@ -157,7 +178,7 @@ export async function PATCH(
 
 export async function DELETE(
   _request: Request,
-  context: { params: Promise<{ workspaceUuid: string; folderUuid: string }> },
+  context: { params: Promise<{ workspaceUuid: string; folderUuid: string }> }
 ) {
   const user = await getSessionUser();
   if (!user) {
@@ -174,11 +195,14 @@ export async function DELETE(
     return NextResponse.json({ error: "Read-only folder" }, { status: 403 });
   }
   if (isSharedFilesVirtualFolderId(folderUuid, workspaceUuid)) {
-    return NextResponse.json({ error: "Shared Files is read-only" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Shared Files is read-only" },
+      { status: 400 }
+    );
   }
   const members = await listWorkspaceMembers(workspaceUuid);
   const currentMember = members.find((member) => member.userId === user.id);
-  if (!currentMember || !["owner", "admin"].includes(currentMember.role)) {
+  if (!(currentMember && ["owner", "admin"].includes(currentMember.role))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

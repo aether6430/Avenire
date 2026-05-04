@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
 import {
   deleteWorkspaceForUser,
   listWorkspacesForUser,
@@ -10,7 +10,7 @@ import { getSessionUser } from "@/lib/workspace";
 
 export async function DELETE(
   _request: Request,
-  context: { params: Promise<{ workspaceUuid: string }> },
+  context: { params: Promise<{ workspaceUuid: string }> }
 ) {
   const user = await getSessionUser();
   if (!user) {
@@ -19,9 +19,15 @@ export async function DELETE(
 
   const cookieStore = await cookies();
   const sudoCookie = cookieStore.get(SUDO_COOKIE_NAME)?.value ?? null;
-  const hasSudo = validateSudoCookie({ userId: user.id, cookieValue: sudoCookie });
+  const hasSudo = validateSudoCookie({
+    userId: user.id,
+    cookieValue: sudoCookie,
+  });
   if (!hasSudo) {
-    return NextResponse.json({ error: "Sudo verification required" }, { status: 403 });
+    return NextResponse.json(
+      { error: "Sudo verification required" },
+      { status: 403 }
+    );
   }
 
   const { workspaceUuid } = await context.params;
@@ -33,7 +39,10 @@ export async function DELETE(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   if (result.status === "not-owner") {
-    return NextResponse.json({ error: "Only owners can delete workspaces" }, { status: 403 });
+    return NextResponse.json(
+      { error: "Only owners can delete workspaces" },
+      { status: 403 }
+    );
   }
 
   const workspaces = await listWorkspacesForUser(user.id);

@@ -2,12 +2,29 @@
 
 import { Button } from "@avenire/ui/components/button";
 import {
-  Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, } from "@avenire/ui/components/drawer";
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@avenire/ui/components/drawer";
 import {
-  Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle, } from "@avenire/ui/components/empty";
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@avenire/ui/components/empty";
 import { Spinner } from "@avenire/ui/components/spinner";
+import {
+  Warning as AlertCircle,
+  CheckCircle as CheckCircle2,
+  Waves,
+  X,
+  XCircle,
+} from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
-import { Warning as AlertCircle, CheckCircle as CheckCircle2, Waves, X, XCircle } from "@phosphor-icons/react"
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -397,16 +414,16 @@ export function UploadActivityPanel() {
       ...jobs
         .filter((job) => Boolean(job.fileName))
         .map((job) => {
-        const status = mapRecentJobStatus(job.status);
-        return {
-          id: `job:${job.id}`,
-          ingestionJobId: job.id,
-          fileId: job.fileId,
-          name: job.fileName as string,
-          sizeLabel: "—",
-          status,
-        };
-      }),
+          const status = mapRecentJobStatus(job.status);
+          return {
+            id: `job:${job.id}`,
+            ingestionJobId: job.id,
+            fileId: job.fileId,
+            name: job.fileName as string,
+            sizeLabel: "—",
+            status,
+          };
+        }),
     ]);
   }, [
     activeWorkspaceUuid,
@@ -490,7 +507,11 @@ export function UploadActivityPanel() {
               }
               return [
                 ...previous,
-                createIngestionQueueItem({ jobId: payload.jobId, status, fileName }),
+                createIngestionQueueItem({
+                  jobId: payload.jobId,
+                  status,
+                  fileName,
+                }),
               ];
             }
 
@@ -615,7 +636,12 @@ export function UploadActivityPanel() {
         }}
         open={isQueueVisible}
       >
-        <DrawerContent className={cn("flex min-h-0 flex-col p-0", MOBILE_PANEL_MAX_HEIGHT_CLASS)}>
+        <DrawerContent
+          className={cn(
+            "flex min-h-0 flex-col p-0",
+            MOBILE_PANEL_MAX_HEIGHT_CLASS
+          )}
+        >
           <DrawerHeader className="border-border/70 border-b pb-4 text-left">
             <DrawerTitle>Upload activity</DrawerTitle>
             <DrawerDescription>

@@ -6,12 +6,16 @@ export interface UserSettingsRecord {
   emailReceipts: boolean;
   completedTasksAtTop: boolean;
   onboardingCompleted: boolean;
+  petName: string;
+  petAccessory: string;
 }
 
 const DEFAULT_USER_SETTINGS: UserSettingsRecord = {
   emailReceipts: true,
   completedTasksAtTop: true,
   onboardingCompleted: false,
+  petName: "Auri",
+  petAccessory: "none",
 };
 
 export async function getUserSettings(userId: string): Promise<UserSettingsRecord> {
@@ -20,6 +24,8 @@ export async function getUserSettings(userId: string): Promise<UserSettingsRecor
       emailReceipts: userSettings.emailReceipts,
       completedTasksAtTop: userSettings.completedTasksAtTop,
       onboardingCompleted: userSettings.onboardingCompleted,
+      petName: userSettings.petName,
+      petAccessory: userSettings.petAccessory,
     })
     .from(userSettings)
     .where(eq(userSettings.userId, userId))
@@ -33,6 +39,8 @@ export async function getUserSettings(userId: string): Promise<UserSettingsRecor
     emailReceipts: settings.emailReceipts,
     completedTasksAtTop: settings.completedTasksAtTop,
     onboardingCompleted: settings.onboardingCompleted,
+    petName: settings.petName,
+    petAccessory: settings.petAccessory,
   };
 }
 
@@ -46,6 +54,11 @@ export async function upsertUserSettings(
     typeof updates.completedTasksAtTop === "boolean";
   const hasValidOnboardingCompleted =
     typeof updates.onboardingCompleted === "boolean";
+  const hasValidPetName =
+    typeof updates.petName === "string" && updates.petName.trim().length > 0;
+  const hasValidPetAccessory =
+    typeof updates.petAccessory === "string" &&
+    updates.petAccessory.trim().length > 0;
 
   const insertValues: typeof userSettings.$inferInsert = {
     userId,
@@ -58,6 +71,10 @@ export async function upsertUserSettings(
     ...(hasValidOnboardingCompleted
       ? { onboardingCompleted: updates.onboardingCompleted }
       : {}),
+    ...(hasValidPetName ? { petName: updates.petName?.trim().slice(0, 32) } : {}),
+    ...(hasValidPetAccessory
+      ? { petAccessory: updates.petAccessory?.trim() }
+      : {}),
   };
 
   const conflictSet: Partial<typeof userSettings.$inferInsert> = {
@@ -68,6 +85,10 @@ export async function upsertUserSettings(
       : {}),
     ...(hasValidOnboardingCompleted
       ? { onboardingCompleted: updates.onboardingCompleted }
+      : {}),
+    ...(hasValidPetName ? { petName: updates.petName?.trim().slice(0, 32) } : {}),
+    ...(hasValidPetAccessory
+      ? { petAccessory: updates.petAccessory?.trim() }
       : {}),
   };
 
@@ -82,11 +103,15 @@ export async function upsertUserSettings(
       emailReceipts: userSettings.emailReceipts,
       completedTasksAtTop: userSettings.completedTasksAtTop,
       onboardingCompleted: userSettings.onboardingCompleted,
+      petName: userSettings.petName,
+      petAccessory: userSettings.petAccessory,
     });
 
   return {
     emailReceipts: settings.emailReceipts,
     completedTasksAtTop: settings.completedTasksAtTop,
     onboardingCompleted: settings.onboardingCompleted,
+    petName: settings.petName,
+    petAccessory: settings.petAccessory,
   };
 }

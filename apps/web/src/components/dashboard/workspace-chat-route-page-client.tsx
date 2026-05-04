@@ -35,14 +35,21 @@ async function loadChatRoute(slug: string, signal?: AbortSignal) {
   return (await response.json()) as ChatRoutePayload;
 }
 
-export function WorkspaceChatRoutePageClient({ slug: slugProp }: { slug?: string }) {
+export function WorkspaceChatRoutePageClient({
+  slug: slugProp,
+}: {
+  slug?: string;
+}) {
   const pathname = usePanePathname();
   const router = usePaneRouter();
   const { status, user, workspace } = useWorkspaceBootstrap();
-  const slug = slugProp ?? pathname.match(/^\/workspace\/chats\/([^/?#]+)/)?.[1] ?? "new";
+  const slug =
+    slugProp ?? pathname.match(/^\/workspace\/chats\/([^/?#]+)/)?.[1] ?? "new";
   const chatQuery = useQuery({
     enabled:
-      status === "ready" && Boolean(user?.id && workspace?.workspaceId) && slug !== "new",
+      status === "ready" &&
+      Boolean(user?.id && workspace?.workspaceId) &&
+      slug !== "new",
     queryFn: ({ signal }) => loadChatRoute(slug, signal),
     queryKey: ["workspace-chat-route", workspace?.workspaceId ?? null, slug],
   });

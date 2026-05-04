@@ -1,22 +1,6 @@
 "use client";
 
 import { Button } from "@avenire/ui/components/button";
-import { Input } from "@avenire/ui/components/input";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@avenire/ui/components/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@avenire/ui/components/select";
-import { Spinner } from "@avenire/ui/components/spinner";
-import { Textarea } from "@avenire/ui/components/textarea";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,7 +10,57 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@avenire/ui/components/dropdown-menu";
+import { Input } from "@avenire/ui/components/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@avenire/ui/components/select";
+import { Spinner } from "@avenire/ui/components/spinner";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@avenire/ui/components/tabs";
+import { Textarea } from "@avenire/ui/components/textarea";
 import { cn } from "@avenire/ui/lib/utils";
+import {
+  ArrowsOutLineHorizontal as BetweenHorizontalEnd,
+  ArrowsOutLineHorizontal as BetweenHorizontalStart,
+  ArrowsOutLineVertical as BetweenVerticalEnd,
+  ArrowsOutLineVertical as BetweenVerticalStart,
+  TextB as Bold,
+  Check,
+  CaretDown as ChevronDown,
+  Code,
+  Columns as Columns3,
+  Copy,
+  TextHOne as Heading1,
+  TextHTwo as Heading2,
+  TextHThree as Heading3,
+  Highlighter,
+  ImageIcon,
+  TextItalic as Italic,
+  LinkSimple as Link2,
+  List,
+  ListNumbers as ListOrdered,
+  ListChecks as ListTodo,
+  GitMerge as Merge,
+  Minus,
+  Palette,
+  Paragraph as Pilcrow,
+  Quotes as Quote,
+  Rows as Rows3,
+  Sigma,
+  Rows as Split,
+  TextStrikethrough as Strikethrough,
+  Table as Table2,
+  Trash as Trash2,
+  FlowArrow as Workflow,
+} from "@phosphor-icons/react";
 import {
   Extension,
   InputRule,
@@ -78,54 +112,18 @@ import StarterKit from "@tiptap/starter-kit";
 import { renderMermaidSVG } from "beautiful-mermaid";
 import { common, createLowlight } from "lowlight";
 import {
-  ArrowsOutLineHorizontal as BetweenHorizontalEnd,
-  ArrowsOutLineHorizontal as BetweenHorizontalStart,
-  ArrowsOutLineVertical as BetweenVerticalEnd,
-  ArrowsOutLineVertical as BetweenVerticalStart,
-  TextB as Bold,
-  Check,
-  CaretDown as ChevronDown,
-  Code,
-  Columns as Columns3,
-  Copy,
-  ArrowUpRight,
-  TextHOne as Heading1,
-  TextHTwo as Heading2,
-  TextHThree as Heading3,
-  Highlighter,
-  ImageIcon,
-  TextItalic as Italic,
-  LinkSimple as Link2,
-  List,
-  ListNumbers as ListOrdered,
-  ListChecks as ListTodo,
-  GitMerge as Merge,
-  Minus,
-  Palette,
-  Paragraph as Pilcrow,
-  Quotes as Quote,
-  Rows as Rows3,
-  Sigma,
-  Rows as Split,
-  TextStrikethrough as Strikethrough,
-  Table as Table2,
-  Trash as Trash2,
-  FlowArrow as Workflow,
-} from "@phosphor-icons/react";
-import {
   type ComponentType,
   type KeyboardEvent,
+  memo,
   type ReactNode,
   type RefObject,
   type SVGProps,
-  memo,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import { Markdown as MarkdownRenderer } from "@/components/chat/markdown";
 import { NoteWidgetExtension } from "@/components/editor/note-widget-extension";
 import "../editor.css";
 import {
@@ -133,24 +131,25 @@ import {
   renderMarkdownNoteTemplate,
 } from "@/lib/markdown-note-template";
 import {
+  getDefaultNoteTemplates,
+  getNoteTemplateStorageKey,
+  getRecentNoteTemplateStorageKey,
+  type NoteTemplate,
+} from "@/lib/note-templates";
+import {
   NOTE_WIDGET_INSERT_EVENT,
   type NoteWidgetPayload,
 } from "@/lib/note-widgets";
-import {
-  getDefaultNoteTemplates,
-  getRecentNoteTemplateStorageKey,
-  getNoteTemplateStorageKey,
-  type NoteTemplate,
-} from "@/lib/note-templates";
-import { resolveWorkspaceFileRoute } from "@/lib/workspace-file-navigation";
 import { useUploadThing } from "@/lib/uploadthing";
+import { getUserSettingsSnapshot } from "@/lib/user-settings-client";
+import { resolveWorkspaceFileRoute } from "@/lib/workspace-file-navigation";
 import {
   useOptionalCurrentWorkspacePane,
   usePaneRouter,
 } from "@/lib/workspace-panes";
 import { commandPaletteActions } from "@/stores/commandPaletteStore";
-import { getUserSettingsSnapshot } from "@/lib/user-settings-client";
 import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
+
 const lowlight = createLowlight(common);
 const MENU_OFFSET = 10;
 const VIEWPORT_PADDING = 12;
@@ -233,10 +232,10 @@ const PasteMarkdownExtension = Extension.create({
     return [
       new Plugin({
         props: {
-          handlePaste(view, event) {
+          handlePaste(_view, event) {
             const text = event.clipboardData?.getData("text/plain")?.trim();
 
-            if (!text || !looksLikeMarkdown(text)) {
+            if (!(text && looksLikeMarkdown(text))) {
               return false;
             }
 
@@ -256,7 +255,7 @@ const PasteMarkdownExtension = Extension.create({
   },
 });
 
-async function loadWikiPreviewMarkdown(input: {
+async function _loadWikiPreviewMarkdown(input: {
   pageId: string;
   signal: AbortSignal;
 }) {
@@ -275,72 +274,72 @@ async function loadWikiPreviewMarkdown(input: {
   return payload.markdown ?? "";
 }
 
-type SlashMatch = {
-  query: string;
+interface SlashMatch {
   from: number;
-  to: number;
-  text: string;
   key: string;
-};
+  query: string;
+  text: string;
+  to: number;
+}
 
 type MathKind = "inlineMath" | "blockMath";
 
-type MathPopoverState = {
+interface MathPopoverState {
+  draft: string;
   kind: MathKind;
   pos: number;
-  draft: string;
-};
+}
 
-type MermaidPopoverState = {
+interface MermaidPopoverState {
+  draft: string;
   pos: number;
-  draft: string;
-};
+}
 
-type WikiPreviewState = {
+interface WikiPreviewState {
   anchorEl: HTMLAnchorElement;
   content: string | null;
   left: number;
   loading: boolean;
   page: WikiPage;
   placement: "top" | "bottom";
-  top: number;
   rect: DOMRect;
-};
+  top: number;
+}
 
-type WikiPage = {
+interface WikiPage {
+  content: string;
+  excerpt: string;
   id: string;
   title: string;
-  excerpt: string;
-  content: string;
-};
+}
 
 type AiAction = "explain" | "elaborate" | "simplify";
 
-type SlashCommand = {
-  id: string;
-  label: string;
+interface SlashCommand {
+  clearTrigger?: boolean;
   description: string;
   icon: ComponentType<SVGProps<SVGSVGElement>>;
+  id: string;
   keywords: string[];
-  clearTrigger?: boolean;
+  label: string;
   run: (context: { match: SlashMatch | null }) => void | Promise<void>;
-};
+}
 
-type TableAction = {
+interface TableAction {
+  disabled: boolean;
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
   id: string;
   label: string;
-  icon: ComponentType<SVGProps<SVGSVGElement>>;
-  disabled: boolean;
   run: () => void;
-};
+}
 
 interface AvenireEditorProps {
   createdBy?: string;
   defaultValue: string;
   noteTitle: string;
   onChange: (markdown: string) => void;
-  onTemplateApplied?: (template: NoteTemplate, rendered: string) => void;
   onOpenWikiLink?: (page: WikiPage) => void;
+  onTemplateApplied?: (template: NoteTemplate, rendered: string) => void;
   saveMessage?: string;
   saveState?: "idle" | "saving" | "saved" | "error";
   scrollContainerRef: RefObject<HTMLDivElement | null>;
@@ -802,7 +801,7 @@ const TaskListSortExtension = Extension.create({
     return [
       new Plugin({
         key: new PluginKey("taskListSort"),
-        appendTransaction(transactions, _oldState, state) {
+        appendTransaction(_transactions, _oldState, state) {
           const ranges: {
             from: number;
             to: number;
@@ -818,14 +817,11 @@ const TaskListSortExtension = Extension.create({
             const completedTasksAtTop =
               getUserSettingsSnapshot().settings.completedTasksAtTop;
             const completionRank = (checked: boolean) =>
-              completedTasksAtTop
-                ? checked
-                  ? 0
-                  : 1
-                : checked
-                  ? 1
-                  : 0;
-            const items: { index: number; node: ReturnType<typeof node.child> }[] = [];
+              completedTasksAtTop ? (checked ? 0 : 1) : checked ? 1 : 0;
+            const items: {
+              index: number;
+              node: ReturnType<typeof node.child>;
+            }[] = [];
             for (let i = 0; i < node.childCount; i++) {
               const child = node.child(i);
               if (child.type === taskItemType) {
@@ -842,7 +838,7 @@ const TaskListSortExtension = Extension.create({
               return aChecked - bChecked || a.index - b.index;
             });
             const sameOrder = items.every((item, i) =>
-              item.node.eq(sorted[i]!.node)
+              item.node.eq(sorted[i]?.node)
             );
             if (!sameOrder) {
               ranges.push({
@@ -872,7 +868,7 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-function getWikiPreviewPlacement(
+function _getWikiPreviewPlacement(
   anchorRect: DOMRect,
   cardRect: DOMRect | null
 ) {
@@ -1030,7 +1026,7 @@ function normalizeWikiSyntax(markdown: string, pages: WikiPage[]) {
   });
 }
 
-function stripMarkdownFrontmatter(content: string) {
+function _stripMarkdownFrontmatter(content: string) {
   if (!content.startsWith("---")) {
     return content;
   }
@@ -1176,12 +1172,12 @@ function highlightLatex(source: string) {
   return parts;
 }
 
-type ToolbarButtonProps = {
-  title: string;
+interface ToolbarButtonProps {
   active?: boolean;
-  onClick: () => void;
   children: ReactNode;
-};
+  onClick: () => void;
+  title: string;
+}
 
 function ToolbarButton({
   title,
@@ -1563,7 +1559,9 @@ function CodeBlockOverlayControls({
 
       const handleEnter = () => setHoveredBlockPos(block.pos);
       const handleLeave = () =>
-        setHoveredBlockPos((current) => (current === block.pos ? null : current));
+        setHoveredBlockPos((current) =>
+          current === block.pos ? null : current
+        );
 
       dom.addEventListener("pointerenter", handleEnter);
       dom.addEventListener("pointerleave", handleLeave);
@@ -2302,7 +2300,7 @@ function ImagePopover({
         style={style ?? undefined}
       >
         <div className="flex items-center justify-between border-border/60 border-b px-3 py-2">
-          <TabsList variant="line" className="h-8 gap-1 p-0">
+          <TabsList className="h-8 gap-1 p-0" variant="line">
             <TabsTrigger className="rounded-none px-2.5 text-xs" value="upload">
               Upload
             </TabsTrigger>
@@ -2313,8 +2311,8 @@ function ImagePopover({
         </div>
         <TabsContent className="space-y-3 p-3" value="upload">
           <input
-            className="hidden"
             accept="image/*"
+            className="hidden"
             onChange={async (event) => {
               const file = event.currentTarget.files?.[0];
               event.currentTarget.value = "";
@@ -2326,9 +2324,9 @@ function ImagePopover({
             ref={uploadInputRef}
             type="file"
           />
-          <div className="flex min-h-36 items-center justify-center rounded-md border border-dashed border-border/70 bg-muted/20 px-4 text-center">
+          <div className="flex min-h-36 items-center justify-center rounded-md border border-border/70 border-dashed bg-muted/20 px-4 text-center">
             <div className="space-y-3">
-              <p className="text-xs text-muted-foreground">
+              <p className="text-muted-foreground text-xs">
                 Upload from your device and insert the hosted image URL.
               </p>
               <Button
@@ -2350,7 +2348,7 @@ function ImagePopover({
                 )}
               </Button>
               {uploadError ? (
-                <p className="text-xs text-destructive">{uploadError}</p>
+                <p className="text-destructive text-xs">{uploadError}</p>
               ) : null}
             </div>
           </div>
@@ -2467,7 +2465,9 @@ function EditorTableOfContentsRail({
 }: {
   items: TableOfContentDataItem[];
 }) {
-  const visibleItems = items.filter((item) => item.textContent.trim().length > 0);
+  const visibleItems = items.filter(
+    (item) => item.textContent.trim().length > 0
+  );
   const getMarkerWidth = (item: TableOfContentDataItem) => {
     if (item.originalLevel <= 1) {
       return 46;
@@ -2483,10 +2483,10 @@ function EditorTableOfContentsRail({
   }
 
   return (
-    <aside className="editor-toc-rail pointer-events-none absolute left-full top-24 z-30 ml-4">
+    <aside className="editor-toc-rail pointer-events-none absolute top-24 left-full z-30 ml-4">
       <div className="pointer-events-auto">
         <div className="editor-toc-rail__inner">
-          <div className="editor-toc-rail__collapsed" aria-hidden>
+          <div aria-hidden className="editor-toc-rail__collapsed">
             {visibleItems.slice(0, 14).map((item) => (
               <span
                 className={`editor-toc-rail__tick ${
@@ -2500,7 +2500,10 @@ function EditorTableOfContentsRail({
             ))}
           </div>
 
-          <nav aria-label="Table of contents" className="editor-toc-rail__panel">
+          <nav
+            aria-label="Table of contents"
+            className="editor-toc-rail__panel"
+          >
             <ol className="editor-toc-rail__list">
               {visibleItems.map((item) => (
                 <li key={item.id}>
@@ -3846,415 +3849,411 @@ function AvenireEditor({
   };
 
   return (
-    <>
-      <div className="scribe-shell">
-        <SelectionBubbleMenu
-          editor={editor}
-          scrollContainerRef={scrollContainerRef}
-        />
+    <div className="scribe-shell">
+      <SelectionBubbleMenu
+        editor={editor}
+        scrollContainerRef={scrollContainerRef}
+      />
 
-        <FloatingMenu
-          appendTo={() => document.body}
-          className="z-[80]"
-          editor={editor}
-          options={{
-            strategy: "fixed",
-            placement: "bottom-start",
-            offset: 10,
-            onUpdate: () => editor.commands.updateFloatingMenuPosition(),
-            flip: { padding: VIEWPORT_PADDING },
-            shift: { padding: VIEWPORT_PADDING },
-            scrollTarget: getScrollTarget(scrollContainerRef),
-          }}
-          pluginKey="wikiFloatingMenu"
-          resizeDelay={0}
-          shouldShow={({ editor }) =>
-            Boolean(editor) && getWikiMatch(editor) !== null
-          }
-          updateDelay={0}
-        >
-          {visibleWikiMatch ? (
-            <WikiMenu
-              activeIndex={activeWikiIndex}
-              onPick={(index) => {
-                const page = filteredWikiPages[index];
-                if (!page) {
-                  return;
-                }
-                insertWikiLink(editor, page.title, wikiPages, {
-                  from: visibleWikiMatch.from,
-                  to: visibleWikiMatch.to,
-                });
-                setWikiNav({ key: null, index: 0 });
-              }}
-              pages={filteredWikiPages}
-              query={visibleWikiMatch.query}
-            />
-          ) : null}
-        </FloatingMenu>
-
-        <FloatingMenu
-          appendTo={() => document.body}
-          className="z-[80]"
-          editor={editor}
-          options={{
-            strategy: "fixed",
-            placement: "bottom-start",
-            offset: 12,
-            onUpdate: () => editor.commands.updateFloatingMenuPosition(),
-            flip: { padding: VIEWPORT_PADDING },
-            shift: { padding: VIEWPORT_PADDING },
-            scrollTarget: getScrollTarget(scrollContainerRef),
-          }}
-          pluginKey="slashFloatingMenu"
-          resizeDelay={0}
-          shouldShow={({ editor }) =>
-            Boolean(editor) && getSlashMatch(editor) !== null
-          }
-          updateDelay={0}
-        >
-          {visibleSlashMatch ? (
-            <SlashMenu
-              activeIndex={activeSlashIndex}
-              commands={filteredSlashCommands}
-              onPick={executeSlashCommand}
-              query={visibleSlashMatch.query}
-            />
-          ) : null}
-        </FloatingMenu>
-
-        <CodeBlockOverlayControls
-          editor={editor}
-          onCopy={(pos) => {
-            const activeCodeBlock = editor.state.doc.nodeAt(pos);
-
-            if (activeCodeBlock?.type.name !== "codeBlock") {
-              setInlineNotice("Could not find that code block.");
-              return;
-            }
-
-            void navigator.clipboard
-              .writeText(activeCodeBlock.textContent)
-              .then(() => setInlineNotice("Code copied."))
-              .catch(() => setInlineNotice("Could not copy code."));
-          }}
-        />
-
-        <EditorContent
-          className="[&_.ProseMirror-focused]:outline-none"
-          editor={editor}
-        />
-        <EditorTableOfContentsRail items={tableOfContentsItems} />
-
-        {editorUiState.showEmptyTemplateActions ? (
-          <EmptyNoteTemplateActions
-            createdBy={createdBy}
-            editor={editor}
-            noteTemplates={noteTemplates}
-            noteTitle={noteTitle}
-            onTemplateApplied={onTemplateApplied}
-            onTemplateUsed={(templateId) =>
-              setRecentTemplateIds((current) => [
-                templateId,
-                ...current.filter((entry) => entry !== templateId),
-              ])
-            }
-            recentTemplateIds={recentTemplateIds}
-            workspaceUuid={workspaceUuid}
+      <FloatingMenu
+        appendTo={() => document.body}
+        className="z-[80]"
+        editor={editor}
+        options={{
+          strategy: "fixed",
+          placement: "bottom-start",
+          offset: 10,
+          onUpdate: () => editor.commands.updateFloatingMenuPosition(),
+          flip: { padding: VIEWPORT_PADDING },
+          shift: { padding: VIEWPORT_PADDING },
+          scrollTarget: getScrollTarget(scrollContainerRef),
+        }}
+        pluginKey="wikiFloatingMenu"
+        resizeDelay={0}
+        shouldShow={({ editor }) =>
+          Boolean(editor) && getWikiMatch(editor) !== null
+        }
+        updateDelay={0}
+      >
+        {visibleWikiMatch ? (
+          <WikiMenu
+            activeIndex={activeWikiIndex}
+            onPick={(index) => {
+              const page = filteredWikiPages[index];
+              if (!page) {
+                return;
+              }
+              insertWikiLink(editor, page.title, wikiPages, {
+                from: visibleWikiMatch.from,
+                to: visibleWikiMatch.to,
+              });
+              setWikiNav({ key: null, index: 0 });
+            }}
+            pages={filteredWikiPages}
+            query={visibleWikiMatch.query}
           />
         ) : null}
+      </FloatingMenu>
 
-        <MathPopover
+      <FloatingMenu
+        appendTo={() => document.body}
+        className="z-[80]"
+        editor={editor}
+        options={{
+          strategy: "fixed",
+          placement: "bottom-start",
+          offset: 12,
+          onUpdate: () => editor.commands.updateFloatingMenuPosition(),
+          flip: { padding: VIEWPORT_PADDING },
+          shift: { padding: VIEWPORT_PADDING },
+          scrollTarget: getScrollTarget(scrollContainerRef),
+        }}
+        pluginKey="slashFloatingMenu"
+        resizeDelay={0}
+        shouldShow={({ editor }) =>
+          Boolean(editor) && getSlashMatch(editor) !== null
+        }
+        updateDelay={0}
+      >
+        {visibleSlashMatch ? (
+          <SlashMenu
+            activeIndex={activeSlashIndex}
+            commands={filteredSlashCommands}
+            onPick={executeSlashCommand}
+            query={visibleSlashMatch.query}
+          />
+        ) : null}
+      </FloatingMenu>
+
+      <CodeBlockOverlayControls
+        editor={editor}
+        onCopy={(pos) => {
+          const activeCodeBlock = editor.state.doc.nodeAt(pos);
+
+          if (activeCodeBlock?.type.name !== "codeBlock") {
+            setInlineNotice("Could not find that code block.");
+            return;
+          }
+
+          void navigator.clipboard
+            .writeText(activeCodeBlock.textContent)
+            .then(() => setInlineNotice("Code copied."))
+            .catch(() => setInlineNotice("Could not copy code."));
+        }}
+      />
+
+      <EditorContent
+        className="[&_.ProseMirror-focused]:outline-none"
+        editor={editor}
+      />
+      <EditorTableOfContentsRail items={tableOfContentsItems} />
+
+      {editorUiState.showEmptyTemplateActions ? (
+        <EmptyNoteTemplateActions
+          createdBy={createdBy}
           editor={editor}
-          onCancel={() => setMathPopover(null)}
-          onChange={(next) => {
-            setMathPopover((current) =>
-              current ? { ...current, draft: next } : null
-            );
-
-            if (!mathPopover) {
-              return;
-            }
-
-            if (mathPopover.kind === "inlineMath") {
-              editor.commands.updateInlineMath({
-                pos: mathPopover.pos,
-                latex: next,
-              });
-            } else {
-              editor.commands.updateBlockMath({
-                pos: mathPopover.pos,
-                latex: next,
-              });
-            }
-          }}
-          onDelete={() => {
-            if (!mathPopover) {
-              return;
-            }
-
-            if (mathPopover.kind === "inlineMath") {
-              editor
-                .chain()
-                .focus()
-                .deleteInlineMath({ pos: mathPopover.pos })
-                .run();
-            } else {
-              editor
-                .chain()
-                .focus()
-                .deleteBlockMath({ pos: mathPopover.pos })
-                .run();
-            }
-
-            setMathPopover(null);
-          }}
-          onSave={() => {
-            if (!mathPopover) {
-              return;
-            }
-
-            if (mathPopover.kind === "inlineMath") {
-              editor
-                .chain()
-                .focus()
-                .updateInlineMath({
-                  pos: mathPopover.pos,
-                  latex: mathPopover.draft,
-                })
-                .run();
-            } else {
-              editor
-                .chain()
-                .focus()
-                .updateBlockMath({
-                  pos: mathPopover.pos,
-                  latex: mathPopover.draft,
-                })
-                .run();
-            }
-
-            setMathPopover(null);
-          }}
-          scrollContainerRef={scrollContainerRef}
-          value={mathPopover}
+          noteTemplates={noteTemplates}
+          noteTitle={noteTitle}
+          onTemplateApplied={onTemplateApplied}
+          onTemplateUsed={(templateId) =>
+            setRecentTemplateIds((current) => [
+              templateId,
+              ...current.filter((entry) => entry !== templateId),
+            ])
+          }
+          recentTemplateIds={recentTemplateIds}
+          workspaceUuid={workspaceUuid}
         />
+      ) : null}
 
-        <MermaidPopover
-          editor={editor}
-          onCancel={() => setMermaidPopover(null)}
-          onChange={(next) => {
-            setMermaidPopover((current) =>
-              current ? { ...current, draft: next } : null
-            );
-            if (mermaidPopover) {
-              (
-                editor.commands as unknown as {
-                  updateMermaidDiagram: (o: {
-                    pos: number;
-                    code: string;
-                  }) => boolean;
-                }
-              ).updateMermaidDiagram({
-                pos: mermaidPopover.pos,
-                code: next,
-              });
-            }
-          }}
-          onDelete={() => {
-            if (!mermaidPopover) {
-              return;
-            }
-            (
-              editor.chain().focus() as unknown as {
-                deleteMermaidDiagram: (o: { pos: number }) => {
-                  run: () => void;
-                };
-              }
-            )
-              .deleteMermaidDiagram({ pos: mermaidPopover.pos })
+      <MathPopover
+        editor={editor}
+        onCancel={() => setMathPopover(null)}
+        onChange={(next) => {
+          setMathPopover((current) =>
+            current ? { ...current, draft: next } : null
+          );
+
+          if (!mathPopover) {
+            return;
+          }
+
+          if (mathPopover.kind === "inlineMath") {
+            editor.commands.updateInlineMath({
+              pos: mathPopover.pos,
+              latex: next,
+            });
+          } else {
+            editor.commands.updateBlockMath({
+              pos: mathPopover.pos,
+              latex: next,
+            });
+          }
+        }}
+        onDelete={() => {
+          if (!mathPopover) {
+            return;
+          }
+
+          if (mathPopover.kind === "inlineMath") {
+            editor
+              .chain()
+              .focus()
+              .deleteInlineMath({ pos: mathPopover.pos })
               .run();
-            setMermaidPopover(null);
-          }}
-          onSave={() => {
-            if (!mermaidPopover) {
-              return;
-            }
-            (
-              editor.chain().focus() as unknown as {
-                updateMermaidDiagram: (o: { pos: number; code: string }) => {
-                  run: () => void;
-                };
-              }
-            )
-              .updateMermaidDiagram({
-                pos: mermaidPopover.pos,
-                code: mermaidPopover.draft,
+          } else {
+            editor
+              .chain()
+              .focus()
+              .deleteBlockMath({ pos: mathPopover.pos })
+              .run();
+          }
+
+          setMathPopover(null);
+        }}
+        onSave={() => {
+          if (!mathPopover) {
+            return;
+          }
+
+          if (mathPopover.kind === "inlineMath") {
+            editor
+              .chain()
+              .focus()
+              .updateInlineMath({
+                pos: mathPopover.pos,
+                latex: mathPopover.draft,
               })
               .run();
-            setMermaidPopover(null);
-          }}
-          scrollContainerRef={scrollContainerRef}
-          value={mermaidPopover}
-        />
+          } else {
+            editor
+              .chain()
+              .focus()
+              .updateBlockMath({
+                pos: mathPopover.pos,
+                latex: mathPopover.draft,
+              })
+              .run();
+          }
 
-        <ImagePopover
-          editor={editor}
-          onCancel={() => setImagePopover(null)}
-          onChange={(next) => {
-            setImagePopover((current) =>
-              current ? { ...current, src: next } : null
-            );
-          }}
-          onTabChange={(tab) => {
-            setImagePopover((current) =>
-              current ? { ...current, tab } : current
-            );
-          }}
-          onUpload={async (file) => {
-            setImageUploadBusy(true);
-            setImageUploadError(null);
+          setMathPopover(null);
+        }}
+        scrollContainerRef={scrollContainerRef}
+        value={mathPopover}
+      />
 
-            try {
-              const uploaded = ((await startImageUpload([file])) ?? [])[0] as
-                | {
-                    ufsUrl?: string;
-                    url?: string;
-                  }
-                | undefined;
-              const uploadedUrl =
-                (typeof uploaded?.ufsUrl === "string" && uploaded.ufsUrl) ||
-                (typeof uploaded?.url === "string" && uploaded.url) ||
-                null;
-
-              if (!uploadedUrl) {
-                throw new Error("Upload returned no file metadata");
+      <MermaidPopover
+        editor={editor}
+        onCancel={() => setMermaidPopover(null)}
+        onChange={(next) => {
+          setMermaidPopover((current) =>
+            current ? { ...current, draft: next } : null
+          );
+          if (mermaidPopover) {
+            (
+              editor.commands as unknown as {
+                updateMermaidDiagram: (o: {
+                  pos: number;
+                  code: string;
+                }) => boolean;
               }
+            ).updateMermaidDiagram({
+              pos: mermaidPopover.pos,
+              code: next,
+            });
+          }
+        }}
+        onDelete={() => {
+          if (!mermaidPopover) {
+            return;
+          }
+          (
+            editor.chain().focus() as unknown as {
+              deleteMermaidDiagram: (o: { pos: number }) => {
+                run: () => void;
+              };
+            }
+          )
+            .deleteMermaidDiagram({ pos: mermaidPopover.pos })
+            .run();
+          setMermaidPopover(null);
+        }}
+        onSave={() => {
+          if (!mermaidPopover) {
+            return;
+          }
+          (
+            editor.chain().focus() as unknown as {
+              updateMermaidDiagram: (o: { pos: number; code: string }) => {
+                run: () => void;
+              };
+            }
+          )
+            .updateMermaidDiagram({
+              pos: mermaidPopover.pos,
+              code: mermaidPopover.draft,
+            })
+            .run();
+          setMermaidPopover(null);
+        }}
+        scrollContainerRef={scrollContainerRef}
+        value={mermaidPopover}
+      />
 
-              setImagePopover((current) =>
-                current
-                  ? { ...current, src: uploadedUrl, tab: "upload" }
-                  : current
-              );
-              editor.chain().focus().setImage({ src: uploadedUrl }).run();
-              setImagePopover(null);
-            } catch (error) {
-              setImageUploadError(
-                error instanceof Error
-                  ? error.message
-                  : "Unable to upload image."
-              );
-            } finally {
-              setImageUploadBusy(false);
-            }
-          }}
-          uploadBusy={imageUploadBusy}
-          uploadError={imageUploadError}
-          onSave={() => {
-            if (!imagePopover) {
-              return;
-            }
-            const src = imagePopover.src.trim();
-            if (!src) {
-              setImagePopover(null);
-              return;
-            }
-            editor.chain().focus().setImage({ src }).run();
+      <ImagePopover
+        editor={editor}
+        onCancel={() => setImagePopover(null)}
+        onChange={(next) => {
+          setImagePopover((current) =>
+            current ? { ...current, src: next } : null
+          );
+        }}
+        onSave={() => {
+          if (!imagePopover) {
+            return;
+          }
+          const src = imagePopover.src.trim();
+          if (!src) {
             setImagePopover(null);
-          }}
-          scrollContainerRef={scrollContainerRef}
-          value={imagePopover}
-        />
+            return;
+          }
+          editor.chain().focus().setImage({ src }).run();
+          setImagePopover(null);
+        }}
+        onTabChange={(tab) => {
+          setImagePopover((current) =>
+            current ? { ...current, tab } : current
+          );
+        }}
+        onUpload={async (file) => {
+          setImageUploadBusy(true);
+          setImageUploadError(null);
 
-        {tableContextMenu.open && tableState?.active ? (
-          <div
-            className="fixed z-[85] w-56 rounded-md border border-border bg-popover p-1 shadow-lg"
+          try {
+            const uploaded = ((await startImageUpload([file])) ?? [])[0] as
+              | {
+                  ufsUrl?: string;
+                  url?: string;
+                }
+              | undefined;
+            const uploadedUrl =
+              (typeof uploaded?.ufsUrl === "string" && uploaded.ufsUrl) ||
+              (typeof uploaded?.url === "string" && uploaded.url) ||
+              null;
+
+            if (!uploadedUrl) {
+              throw new Error("Upload returned no file metadata");
+            }
+
+            setImagePopover((current) =>
+              current
+                ? { ...current, src: uploadedUrl, tab: "upload" }
+                : current
+            );
+            editor.chain().focus().setImage({ src: uploadedUrl }).run();
+            setImagePopover(null);
+          } catch (error) {
+            setImageUploadError(
+              error instanceof Error ? error.message : "Unable to upload image."
+            );
+          } finally {
+            setImageUploadBusy(false);
+          }
+        }}
+        scrollContainerRef={scrollContainerRef}
+        uploadBusy={imageUploadBusy}
+        uploadError={imageUploadError}
+        value={imagePopover}
+      />
+
+      {tableContextMenu.open && tableState?.active ? (
+        <div
+          className="fixed z-[85] w-56 rounded-md border border-border bg-popover p-1 shadow-lg"
+          onMouseDown={(event) => event.preventDefault()}
+          ref={tableContextMenuRef}
+          style={{ left: tableContextMenu.x, top: tableContextMenu.y }}
+        >
+          {tableActions.map((action) => {
+            const Icon = action.icon;
+
+            return (
+              <button
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={action.disabled}
+                key={action.id}
+                onClick={() => {
+                  action.run();
+                  setTableContextMenu({ open: false, x: 0, y: 0 });
+                }}
+                type="button"
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {action.label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {inlineNotice ? (
+        <div className="absolute right-3 bottom-3 z-[90] rounded-md border border-border bg-popover px-3 py-2 text-popover-foreground text-xs shadow-md">
+          {inlineNotice}
+        </div>
+      ) : null}
+
+      {saveState && saveState !== "idle" ? (
+        <div
+          className="scribe-autosave-badge"
+          data-state={saveState}
+          role="status"
+        >
+          {saveMessage ??
+            (saveState === "saving"
+              ? "Saving..."
+              : saveState === "saved"
+                ? "Saved"
+                : "Save failed")}
+        </div>
+      ) : null}
+
+      {aiReview ? (
+        <div className="absolute right-3 bottom-3 z-[90] flex items-center gap-2 rounded-md border border-border bg-popover px-3 py-2 text-popover-foreground text-xs shadow-md">
+          <span>Keep generated text?</span>
+          <Button
+            onClick={() => {
+              editor
+                .chain()
+                .focus()
+                .deleteRange({
+                  from: aiReview.from,
+                  to: aiReview.from + aiReview.generatedLength,
+                })
+                .insertContentAt(aiReview.from, aiReview.original)
+                .setTextSelection({
+                  from: aiReview.from,
+                  to: aiReview.from + aiReview.original.length,
+                })
+                .run();
+              setAiReview(null);
+            }}
             onMouseDown={(event) => event.preventDefault()}
-            ref={tableContextMenuRef}
-            style={{ left: tableContextMenu.x, top: tableContextMenu.y }}
+            size="xs"
+            type="button"
+            variant="outline"
           >
-            {tableActions.map((action) => {
-              const Icon = action.icon;
-
-              return (
-                <button
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
-                  disabled={action.disabled}
-                  key={action.id}
-                  onClick={() => {
-                    action.run();
-                    setTableContextMenu({ open: false, x: 0, y: 0 });
-                  }}
-                  type="button"
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  {action.label}
-                </button>
-              );
-            })}
-          </div>
-        ) : null}
-
-        {inlineNotice ? (
-          <div className="absolute right-3 bottom-3 z-[90] rounded-md border border-border bg-popover px-3 py-2 text-popover-foreground text-xs shadow-md">
-            {inlineNotice}
-          </div>
-        ) : null}
-
-        {saveState && saveState !== "idle" ? (
-          <div
-            className="scribe-autosave-badge"
-            data-state={saveState}
-            role="status"
+            Deny
+          </Button>
+          <Button
+            onClick={() => setAiReview(null)}
+            onMouseDown={(event) => event.preventDefault()}
+            size="xs"
+            type="button"
           >
-            {saveMessage ??
-              (saveState === "saving"
-                ? "Saving..."
-                : saveState === "saved"
-                  ? "Saved"
-                  : "Save failed")}
-          </div>
-        ) : null}
-
-        {aiReview ? (
-          <div className="absolute right-3 bottom-3 z-[90] flex items-center gap-2 rounded-md border border-border bg-popover px-3 py-2 text-popover-foreground text-xs shadow-md">
-            <span>Keep generated text?</span>
-            <Button
-              onClick={() => {
-                editor
-                  .chain()
-                  .focus()
-                  .deleteRange({
-                    from: aiReview.from,
-                    to: aiReview.from + aiReview.generatedLength,
-                  })
-                  .insertContentAt(aiReview.from, aiReview.original)
-                  .setTextSelection({
-                    from: aiReview.from,
-                    to: aiReview.from + aiReview.original.length,
-                  })
-                  .run();
-                setAiReview(null);
-              }}
-              onMouseDown={(event) => event.preventDefault()}
-              size="xs"
-              type="button"
-              variant="outline"
-            >
-              Deny
-            </Button>
-            <Button
-              onClick={() => setAiReview(null)}
-              onMouseDown={(event) => event.preventDefault()}
-              size="xs"
-              type="button"
-            >
-              Accept
-            </Button>
-          </div>
-        ) : null}
-      </div>
-    </>
+            Accept
+          </Button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 

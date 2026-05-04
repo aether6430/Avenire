@@ -2,13 +2,13 @@ import { createHash, randomUUID } from "node:crypto";
 import {
   APOLLO_PROMPT,
   type ApolloModelName,
-  type PromptMemoryBlock,
   apollo,
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
-  Output,
   generateText,
+  Output,
+  type PromptMemoryBlock,
   smoothStream,
   stepCountIs,
   streamText,
@@ -38,20 +38,24 @@ import {
   createChatTools,
   getActiveMisconceptionContext,
 } from "@/lib/chat-tools";
-import { resolveWorkspaceForUser } from "@/lib/file-data";
+import {
+  getNoteContent,
+  listWorkspaceFiles,
+  resolveWorkspaceForUser,
+} from "@/lib/file-data";
 import "@/lib/learning-automation";
-import { normalizeMediaType } from "@/lib/media-type";
-import { createApiLogger } from "@/lib/observability";
-import { buildStudentProfileContext } from "@/lib/student-profile";
 import {
   getLatestSessionSummaryForChat,
   getRecentRelevantSessionSummary,
 } from "@avenire/database";
+import { normalizeMediaType } from "@/lib/media-type";
+import { createApiLogger } from "@/lib/observability";
 import {
   buildRecentSessionSummaryContext,
   getWorkspaceSubjectSummary,
   persistSessionSummaryForCompletedTurn,
 } from "@/lib/session-summaries";
+import { buildStudentProfileContext } from "@/lib/student-profile";
 import {
   inferTopicLabel,
   normalizeSubjectLabel,
@@ -91,6 +95,8 @@ const MODEL_TOOL_ALLOW_LIST = new Set([
   "load_skill",
   "show_widget",
 ]);
+const AI_INSTRUCTIONS_FILE_NAME = "Auri Instructions.md";
+const AI_INSTRUCTIONS_MAX_CHARS = 8000;
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -301,8 +307,17 @@ function buildPromptMemoryBlocks(input: {
   studentProfileContext: string | null;
   subject: string | null;
   topic: string | null;
+  userInstructionsContext?: string | null;
 }): PromptMemoryBlock[] {
   const blocks: PromptMemoryBlock[] = [];
+
+  if (input.userInstructionsContext) {
+    blocks.push({
+      content: input.userInstructionsContext,
+      freshness: "current",
+      kind: "user-instructions",
+    });
+  }
 
   if (input.subject) {
     blocks.push({
@@ -355,6 +370,35 @@ function buildPromptMemoryBlocks(input: {
   }
 
   return blocks;
+}
+
+async function loadUserInstructionsContext(input: {
+  rootFolderId: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  const files = await listWorkspaceFiles(input.workspaceId, input.userId);
+  const instructionsFile = files.find(
+    (file) =>
+      file.folderId === input.rootFolderId &&
+      file.name.toLowerCase() === AI_INSTRUCTIONS_FILE_NAME.toLowerCase()
+  );
+
+  if (!instructionsFile) {
+    return null;
+  }
+
+  const note = await getNoteContent(instructionsFile.id);
+  const content = note?.content?.trim();
+  if (!content) {
+    return null;
+  }
+
+  return [
+    `User-authored AI instructions from ${AI_INSTRUCTIONS_FILE_NAME}:`,
+    "Follow these preferences unless they conflict with higher-priority system, developer, safety, or tool instructions.",
+    content.slice(0, AI_INSTRUCTIONS_MAX_CHARS),
+  ].join("\n\n");
 }
 
 async function generateChatMetadata(
@@ -990,7 +1034,7 @@ export async function POST(request: Request) {
               reasoning: true,
             },
           },
-          maxOutputTokens: 5_000,
+          maxOutputTokens: 5000,
           stopWhen: stepCountIs(8),
           temperature: 0.2,
           abortSignal: request.signal,
@@ -1407,25 +1451,42 @@ export async function POST(request: Request) {
           workspaceId: workspace.workspaceId,
         });
         const modelTools = pickModelTools(tools);
-        const modelMessagesPromise = convertToModelMessages(modelContextMessages, {
-          tools,
-        });
-        const [modelMessages, activeMisconceptionContext, studentProfileContext] =
-          await Promise.all([
-            modelMessagesPromise,
-            getActiveMisconceptionContext({
-              subject: resolvedSubject,
-              topic: resolvedTopic,
-              userId: session.user.id,
-              workspaceId: workspace.workspaceId,
-            }),
-            buildStudentProfileContext({
-              subject: resolvedSubject,
-              topic: resolvedTopic,
-              userId: session.user.id,
-              workspaceId: workspace.workspaceId,
-            }),
-          ]);
+        const modelMessagesPromise = convertToModelMessages(
+          modelContextMessages,
+          {
+            tools,
+          }
+        );
+        const [
+          modelMessages,
+          activeMisconceptionContext,
+          studentProfileContext,
+          userInstructionsContext,
+        ] = await Promise.all([
+          modelMessagesPromise,
+          getActiveMisconceptionContext({
+            subject: resolvedSubject,
+            topic: resolvedTopic,
+            userId: session.user.id,
+            workspaceId: workspace.workspaceId,
+          }),
+          buildStudentProfileContext({
+            subject: resolvedSubject,
+            topic: resolvedTopic,
+            userId: session.user.id,
+            workspaceId: workspace.workspaceId,
+          }),
+          loadUserInstructionsContext({
+            rootFolderId: workspace.rootFolderId,
+            userId: session.user.id,
+            workspaceId: workspace.workspaceId,
+          }).catch((error) => {
+            logWarn("Failed to load user AI instructions; continuing", {
+              error: formatError(error),
+            });
+            return null;
+          }),
+        ]);
         const promptMemoryBlocks = buildPromptMemoryBlocks({
           misconceptionsContext: activeMisconceptionContext,
           sessionSummaryContext: buildRecentSessionSummaryContext(
@@ -1434,6 +1495,7 @@ export async function POST(request: Request) {
           studentProfileContext,
           subject: resolvedSubject,
           topic: resolvedTopic,
+          userInstructionsContext,
         });
 
         try {
@@ -1474,7 +1536,7 @@ export async function POST(request: Request) {
                     toolName: chunk.toolName,
                   });
                 }
-              } catch (error) {}
+              } catch (_error) {}
             },
           });
         } catch (error) {
@@ -1535,10 +1597,7 @@ export async function POST(request: Request) {
                       .map((message, index) =>
                         message.role === "user" ? index : -1
                       )
-                      .reduce(
-                        (highest, index) => Math.max(highest, index),
-                        -1
-                      )
+                      .reduce((highest, index) => Math.max(highest, index), -1)
                   );
 
                   await persistSessionSummaryForCompletedTurn({

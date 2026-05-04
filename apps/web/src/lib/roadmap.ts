@@ -3,18 +3,18 @@ import roadmapData from "@/content/roadmap.json";
 export type RoadmapStatus = "planned" | "in-progress" | "shipped";
 
 export interface RoadmapItem {
-  id: string;
-  title: string;
-  description: string;
-  status: RoadmapStatus;
   category?: string;
+  description: string;
+  id: string;
   link?: string;
+  status: RoadmapStatus;
+  title: string;
 }
 
 export interface RoadmapGroup {
+  items: RoadmapItem[];
   label: string;
   status: RoadmapStatus;
-  items: RoadmapItem[];
 }
 
 export function getRoadmapGroups(): RoadmapGroup[] {

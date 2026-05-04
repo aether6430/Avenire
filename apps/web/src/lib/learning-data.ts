@@ -2,8 +2,8 @@ export type { MisconceptionRecord } from "@avenire/database";
 
 export {
   getActiveMisconceptions,
-  getMisconceptionById,
   getMasteryBySubject,
+  getMisconceptionById,
   getWeakestConcepts,
   improveMisconceptionsForConcept,
   recomputeConceptMastery,

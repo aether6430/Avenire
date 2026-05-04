@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  Avatar,
-  AvatarFallback,
-} from "@avenire/ui/components/avatar";
+import { Avatar, AvatarFallback } from "@avenire/ui/components/avatar";
 import { Button } from "@avenire/ui/components/button";
 import {
   Dialog,
@@ -18,25 +15,25 @@ import { Input } from "@avenire/ui/components/input";
 import { Label } from "@avenire/ui/components/label";
 import { ShareNetwork as Share2 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
-import { EmailSuggestionInput } from "@/components/shared/email-suggestion-input";
 import type {
   FileRecord,
   FolderRecord,
   ShareSuggestion,
 } from "@/components/files/explorer/shared";
+import { EmailSuggestionInput } from "@/components/shared/email-suggestion-input";
 
 interface ShareDialogProps {
-  variant: "file" | "folder";
-  compact?: boolean;
-  segmented?: boolean;
-  hideTrigger?: boolean;
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
-  workspaceUuid: string;
   activeFile?: FileRecord | null;
+  compact?: boolean;
   currentFolder?: FolderRecord | null;
+  hideTrigger?: boolean;
   isAtWorkspaceRoot?: boolean;
   loadShareSuggestions: (q: string, cb: (s: ShareSuggestion[]) => void) => void;
+  onOpenChange?: (open: boolean) => void;
+  open?: boolean;
+  segmented?: boolean;
+  variant: "file" | "folder";
+  workspaceUuid: string;
 }
 
 const WORKSPACE_ROLE_OPTIONS = [
@@ -323,7 +320,7 @@ export function ShareDialog({
             ? `${workspaceInviteRole === "admin" ? "Admin" : "Member"} invitation sent.`
             : payload.status === "updated"
               ? `${workspaceInviteRole === "admin" ? "Admin" : "Member"} updated.`
-            : "Workspace shared."
+              : "Workspace shared."
       );
       void loadWorkspaceMembers();
     } finally {
@@ -498,11 +495,11 @@ export function ShareDialog({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm">Anyone with the link</span>
-                    <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                    <span className="font-mono text-[11px] text-muted-foreground uppercase tracking-[0.2em]">
                       Can {fileSharePermission === "editor" ? "edit" : "view"}
                     </span>
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="mt-1 text-muted-foreground text-xs">
                     Signed link access expires after 7 days.
                   </p>
                 </div>
@@ -553,7 +550,7 @@ export function ShareDialog({
   }
 
   return (
-      <Dialog onOpenChange={handleDialogOpenChange} open={open}>
+    <Dialog onOpenChange={handleDialogOpenChange} open={open}>
       {hideTrigger ? null : (
         <DialogTrigger
           render={
@@ -632,7 +629,9 @@ export function ShareDialog({
                   shareCurrentFolderWithEmail().catch(() => undefined);
                 }}
                 onValueChange={
-                  isAtWorkspaceRoot ? setWorkspaceShareEmail : setFolderShareEmail
+                  isAtWorkspaceRoot
+                    ? setWorkspaceShareEmail
+                    : setFolderShareEmail
                 }
                 placeholder={
                   isAtWorkspaceRoot
@@ -644,7 +643,9 @@ export function ShareDialog({
                     ? workspaceShareSuggestions
                     : folderShareSuggestions
                 }
-                value={isAtWorkspaceRoot ? workspaceShareEmail : folderShareEmail}
+                value={
+                  isAtWorkspaceRoot ? workspaceShareEmail : folderShareEmail
+                }
               />
               {isAtWorkspaceRoot ? (
                 <select
@@ -728,18 +729,20 @@ export function ShareDialog({
             <Label>People with access</Label>
             <div className="rounded-lg border border-border/60 bg-background">
               {workspaceMembersLoading ? (
-                <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                <div className="px-4 py-6 text-center text-muted-foreground text-sm">
                   Loading workspace members...
                 </div>
               ) : workspaceMembers.length === 0 ? (
-                <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                <div className="px-4 py-6 text-center text-muted-foreground text-sm">
                   No members found for this workspace yet.
                 </div>
               ) : (
                 <ul className="divide-y divide-border/50">
                   {workspaceMembers.map((member) => {
                     const label =
-                      member.name?.trim() || member.email?.trim() || "Workspace member";
+                      member.name?.trim() ||
+                      member.email?.trim() ||
+                      "Workspace member";
                     return (
                       <li
                         className="flex items-center gap-3 px-4 py-3"
@@ -751,11 +754,13 @@ export function ShareDialog({
                           </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">
+                          <p className="truncate font-medium text-sm">
                             {member.name ?? member.email ?? "Workspace member"}
                           </p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {member.email ?? member.userId ?? "No email available"}
+                          <p className="truncate text-muted-foreground text-xs">
+                            {member.email ??
+                              member.userId ??
+                              "No email available"}
                           </p>
                         </div>
                         <span className="rounded-md px-2 py-1 font-mono text-[11px] text-muted-foreground">

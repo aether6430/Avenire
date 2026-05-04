@@ -1,9 +1,9 @@
 import {
   queryWorkspace,
-  warmWorkspace,
   type RetrievalMode,
   type WorkspaceRetrievalQuery,
   type WorkspaceRetrievalResponse,
+  warmWorkspace,
 } from "@avenire/ingestion";
 
 export type { RetrievalMode };

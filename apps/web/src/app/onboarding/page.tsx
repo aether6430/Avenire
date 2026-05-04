@@ -1,8 +1,8 @@
+import { redirect } from "next/navigation";
 import { OnboardingPageClient } from "@/components/auth/onboarding-page-client";
+import { buildPageMetadata } from "@/lib/page-metadata";
 import { getUserSettings } from "@/lib/user-settings";
 import { getSessionUser } from "@/lib/workspace";
-import { buildPageMetadata } from "@/lib/page-metadata";
-import { redirect } from "next/navigation";
 
 export const metadata = buildPageMetadata({
   noIndex: true,

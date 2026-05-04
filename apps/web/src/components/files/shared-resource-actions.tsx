@@ -6,11 +6,11 @@ import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-type WorkspaceOption = {
+interface WorkspaceOption {
   name: string;
   rootFolderId: string;
   workspaceId: string;
-};
+}
 
 export function SharedResourceActions({
   token,
@@ -46,7 +46,7 @@ export function SharedResourceActions({
         route?: string;
       };
 
-      if (!response.ok || !payload.route) {
+      if (!(response.ok && payload.route)) {
         setStatus(payload.error ?? `Unable to copy this ${resourceLabel}.`);
         return;
       }

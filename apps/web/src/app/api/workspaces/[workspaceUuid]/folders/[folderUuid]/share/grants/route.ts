@@ -1,17 +1,17 @@
+import { auth } from "@avenire/auth/server";
+import { headers } from "next/headers";
+import { NextResponse } from "next/server";
+import { resolveAppBaseUrl } from "@/lib/app-base-url";
 import {
   createResourceShareLink,
   getFolderWithAncestors,
   grantResourceToUserByEmail,
   userCanAccessWorkspace,
 } from "@/lib/file-data";
-import { auth } from "@avenire/auth/server";
-import { headers } from "next/headers";
-import { NextResponse } from "next/server";
-import { resolveAppBaseUrl } from "@/lib/app-base-url";
 
 export async function POST(
   request: Request,
-  context: { params: Promise<{ workspaceUuid: string; folderUuid: string }> },
+  context: { params: Promise<{ workspaceUuid: string; folderUuid: string }> }
 ) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) {
@@ -19,7 +19,10 @@ export async function POST(
   }
 
   const { workspaceUuid, folderUuid } = await context.params;
-  const canAccess = await userCanAccessWorkspace(session.user.id, workspaceUuid);
+  const canAccess = await userCanAccessWorkspace(
+    session.user.id,
+    workspaceUuid
+  );
   if (!canAccess) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -35,7 +38,7 @@ export async function POST(
   const folder = await getFolderWithAncestors(
     workspaceUuid,
     folderUuid,
-    session.user.id,
+    session.user.id
   );
   if (!folder?.folder) {
     return NextResponse.json({ error: "Folder not found" }, { status: 404 });
@@ -69,6 +72,6 @@ export async function POST(
       emailSent: false,
       shareUrl: `${baseUrl}/share/${link.token}`,
     },
-    { status: 201 },
+    { status: 201 }
   );
 }

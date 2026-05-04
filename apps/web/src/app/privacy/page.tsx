@@ -1,9 +1,9 @@
-import fs from "fs";
-import path from "path";
+import fs from "node:fs";
+import path from "node:path";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Navbar } from "@/components/landing/Navbar";
 import { Footer } from "@/components/landing/Footer";
+import { Navbar } from "@/components/landing/Navbar";
 import { buildPageMetadata } from "@/lib/page-metadata";
 
 export const metadata = buildPageMetadata({
@@ -14,44 +14,41 @@ export const metadata = buildPageMetadata({
 });
 
 const mdxComponents = {
-  h1: ({
-    children,
-    ...props
-  }: React.HTMLAttributes<HTMLHeadingElement>) => (
+  h1: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
     <h1
-      className="mb-4 mt-8 text-3xl font-semibold tracking-tight text-foreground md:text-4xl"
+      className="mt-8 mb-4 font-semibold text-3xl text-foreground tracking-tight md:text-4xl"
       {...props}
     >
       {children}
     </h1>
   ),
-  h2: ({
-    children,
-    ...props
-  }: React.HTMLAttributes<HTMLHeadingElement>) => (
+  h2: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
     <h2
-      className="mb-3 mt-8 text-2xl font-semibold tracking-tight text-foreground"
+      className="mt-8 mb-3 font-semibold text-2xl text-foreground tracking-tight"
       {...props}
     >
       {children}
     </h2>
   ),
-  h3: ({
-    children,
-    ...props
-  }: React.HTMLAttributes<HTMLHeadingElement>) => (
-    <h3 className="mb-2 mt-6 text-xl font-semibold text-foreground" {...props}>
+  h3: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
+    <h3 className="mt-6 mb-2 font-semibold text-foreground text-xl" {...props}>
       {children}
     </h3>
   ),
   p: (props: React.HTMLAttributes<HTMLParagraphElement>) => (
-    <p className="text-foreground/80 leading-relaxed mb-4" {...props} />
+    <p className="mb-4 text-foreground/80 leading-relaxed" {...props} />
   ),
   ul: (props: React.HTMLAttributes<HTMLUListElement>) => (
-    <ul className="my-3 ml-5 space-y-2 list-disc text-foreground/80" {...props} />
+    <ul
+      className="my-3 ml-5 list-disc space-y-2 text-foreground/80"
+      {...props}
+    />
   ),
   ol: (props: React.HTMLAttributes<HTMLOListElement>) => (
-    <ol className="my-3 ml-5 space-y-2 list-decimal text-foreground/80" {...props} />
+    <ol
+      className="my-3 ml-5 list-decimal space-y-2 text-foreground/80"
+      {...props}
+    />
   ),
   li: (props: React.HTMLAttributes<HTMLLIElement>) => (
     <li className="leading-relaxed" {...props} />
@@ -60,7 +57,10 @@ const mdxComponents = {
     <strong className="font-semibold text-foreground" {...props} />
   ),
   a: (props: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
-    <a className="text-primary underline underline-offset-4 hover:text-primary/80" {...props} />
+    <a
+      className="text-primary underline underline-offset-4 hover:text-primary/80"
+      {...props}
+    />
   ),
   hr: () => <hr className="my-8 border-border" />,
 };
@@ -73,8 +73,8 @@ export default function PrivacyPage() {
     <main className="min-h-screen bg-background text-foreground">
       <Navbar />
 
-      <section className="pt-32 pb-24 px-4">
-        <div className="max-w-3xl mx-auto">
+      <section className="px-4 pt-32 pb-24">
+        <div className="mx-auto max-w-3xl">
           <Markdown components={mdxComponents} remarkPlugins={[remarkGfm]}>
             {source}
           </Markdown>

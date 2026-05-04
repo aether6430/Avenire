@@ -49,9 +49,12 @@ export async function GET() {
   try {
     const utapi = new UTApi({ token: process.env.UPLOADTHING_TOKEN });
     const activeOrganizationId =
-      (session as { session?: { activeOrganizationId?: string | null } }).session
-        ?.activeOrganizationId ?? null;
-    const workspace = await resolveWorkspaceForUser(session.user.id, activeOrganizationId);
+      (session as { session?: { activeOrganizationId?: string | null } })
+        .session?.activeOrganizationId ?? null;
+    const workspace = await resolveWorkspaceForUser(
+      session.user.id,
+      activeOrganizationId
+    );
     if (!workspace) {
       return NextResponse.json({ files: [] }, { status: 404 });
     }
@@ -73,8 +76,11 @@ export async function GET() {
     const urlsResponse = await utapi.getFileUrls(files.map((file) => file.key));
     const urlByKey = new Map(
       urlsResponse.data
-        .filter((entry) => typeof entry?.key === "string" && typeof entry?.url === "string")
-        .map((entry) => [entry.key, entry.url]),
+        .filter(
+          (entry) =>
+            typeof entry?.key === "string" && typeof entry?.url === "string"
+        )
+        .map((entry) => [entry.key, entry.url])
     );
 
     const hydrated = files

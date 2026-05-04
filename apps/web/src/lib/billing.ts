@@ -1,13 +1,13 @@
+import { mapProductIdToPlan } from "@avenire/payments";
 import {
+  type BillingPlan,
   consumeUsageUnits,
   findUserIdByPolarCustomerId,
   getBillingSubscriptionByUserId,
   getUsageOverview,
   upsertBillingCustomer,
   upsertBillingSubscription,
-  type BillingPlan,
 } from "@/lib/database-billing";
-import { mapProductIdToPlan } from "@avenire/payments";
 
 function toBillingPlan(input: string | null | undefined): BillingPlan {
   if (input === "core" || input === "scholar") {
@@ -16,7 +16,9 @@ function toBillingPlan(input: string | null | undefined): BillingPlan {
   return "access";
 }
 
-function toPaidPlanOrNull(input: string | null | undefined): Exclude<BillingPlan, "access"> | null {
+function toPaidPlanOrNull(
+  input: string | null | undefined
+): Exclude<BillingPlan, "access"> | null {
   if (input === "core" || input === "scholar") {
     return input;
   }
@@ -25,7 +27,7 @@ function toPaidPlanOrNull(input: string | null | undefined): Exclude<BillingPlan
 
 function getEventString(
   source: Record<string, unknown>,
-  keys: string[],
+  keys: string[]
 ): string | null {
   for (const key of keys) {
     const value = source[key];
@@ -98,17 +100,23 @@ export async function applyPolarWebhookEvent(event: {
     const mappedPlan = mapProductIdToPlan(productId);
     const metadataPlan = toPaidPlanOrNull(getEventString(metadata, ["plan"]));
     const resolvedPlan = mappedPlan ?? metadataPlan;
-    const checkoutStatus = getEventString(data, ["status"])?.toLowerCase() ?? "";
+    const checkoutStatus =
+      getEventString(data, ["status"])?.toLowerCase() ?? "";
     if (
       userId &&
       resolvedPlan &&
-      (checkoutStatus === "succeeded" || checkoutStatus === "confirmed" || checkoutStatus === "paid")
+      (checkoutStatus === "succeeded" ||
+        checkoutStatus === "confirmed" ||
+        checkoutStatus === "paid")
     ) {
       await upsertBillingSubscription({
         userId,
         plan: resolvedPlan,
         status: "active",
-        polarSubscriptionId: getEventString(data, ["subscriptionId", "subscription_id"]),
+        polarSubscriptionId: getEventString(data, [
+          "subscriptionId",
+          "subscription_id",
+        ]),
         polarProductId: productId,
         currentPeriodStart: null,
         currentPeriodEnd: null,
@@ -128,7 +136,9 @@ export async function applyPolarWebhookEvent(event: {
   const metadataUserId =
     getEventString(metadata, ["userId", "user_id"]) ??
     getEventString(data, ["externalCustomerId", "external_customer_id"]);
-  const mappedUserId = customerId ? await findUserIdByPolarCustomerId(customerId) : null;
+  const mappedUserId = customerId
+    ? await findUserIdByPolarCustomerId(customerId)
+    : null;
   const userId = metadataUserId ?? mappedUserId;
 
   if (!userId) {
@@ -151,9 +161,11 @@ export async function applyPolarWebhookEvent(event: {
   const metadataPlan = toPaidPlanOrNull(getEventString(metadata, ["plan"]));
   const plan = mappedPlan ?? metadataPlan ?? toBillingPlan(existing?.plan);
 
-  const currentPeriodStart = data.currentPeriodStart ?? data.current_period_start;
+  const currentPeriodStart =
+    data.currentPeriodStart ?? data.current_period_start;
   const currentPeriodEnd = data.currentPeriodEnd ?? data.current_period_end;
-  const rawStatus = getEventString(data, ["status"]) ?? existing?.status ?? "inactive";
+  const rawStatus =
+    getEventString(data, ["status"]) ?? existing?.status ?? "inactive";
 
   await upsertBillingSubscription({
     userId,
@@ -169,12 +181,12 @@ export async function applyPolarWebhookEvent(event: {
         ? currentPeriodStart
         : typeof currentPeriodStart === "string"
           ? new Date(currentPeriodStart)
-          : existing?.currentPeriodStart ?? null,
+          : (existing?.currentPeriodStart ?? null),
     currentPeriodEnd:
       currentPeriodEnd instanceof Date
         ? currentPeriodEnd
         : typeof currentPeriodEnd === "string"
           ? new Date(currentPeriodEnd)
-          : existing?.currentPeriodEnd ?? null,
+          : (existing?.currentPeriodEnd ?? null),
   });
 }

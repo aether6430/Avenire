@@ -9,6 +9,7 @@ import {
   BreadcrumbSeparator,
 } from "@avenire/ui/components/breadcrumb";
 import { Button } from "@avenire/ui/components/button";
+import { ButtonGroup } from "@avenire/ui/components/button-group";
 import { Card, CardContent } from "@avenire/ui/components/card";
 import { Checkbox } from "@avenire/ui/components/checkbox";
 import {
@@ -33,39 +34,37 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
-  DropdownMenuLabel,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@avenire/ui/components/dropdown-menu";
+import {
+  type Filter,
+  type FilterFieldConfig,
+  Filters as PropertyFilters,
+} from "@avenire/ui/components/filters";
 import { Input } from "@avenire/ui/components/input";
-import { ButtonGroup } from "@avenire/ui/components/button-group";
+import { ScrollArea } from "@avenire/ui/components/scroll-area";
 import { Spinner } from "@avenire/ui/components/spinner";
 import { Textarea } from "@avenire/ui/components/textarea";
 import {
-  Filters as PropertyFilters,
-  type Filter,
-  type FilterFieldConfig,
-} from "@avenire/ui/components/filters";
-import {
   DownloadSimple as ArrowDownToLine,
-  ArrowClockwise as RotateCw,
   ArrowLeft,
   ArrowRight,
   ArrowsDownUp as ArrowUpDown,
+  Check,
   Columns,
   Copy,
-  Check,
   FileArchive,
   FileAudio as FileAudio2,
   FileCode as FileCode2,
   FileImage,
   FilePlus as FilePlus2,
   FileXls as FileSpreadsheet,
-  LinkSimple,
   FileText,
   FileVideo,
   Folder,
@@ -74,21 +73,23 @@ import {
   House,
   Info,
   List as LayoutList,
+  LinkSimple,
   DotsThree as MoreHorizontal,
   Pencil,
   PushPin as Pin,
   PushPinSlash as PinOff,
   Plus,
   ArrowCounterClockwise as RotateCcw,
-  Rows,
+  ArrowClockwise as RotateCw,
   ShareNetwork as Share2,
   SlidersHorizontal,
   Trash as Trash2,
   UploadSimple as Upload,
+  MagicWand as WandSparkles,
   X,
   XCircle,
-  MagicWand as WandSparkles,
 } from "@phosphor-icons/react";
+import { measureElement, useVirtualizer } from "@tanstack/react-virtual";
 import { motion } from "motion/react";
 import type { Route } from "next";
 import {
@@ -99,7 +100,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { measureElement, useVirtualizer } from "@tanstack/react-virtual";
 import { toast } from "sonner";
 import { FilePreviewPanel } from "@/components/files/explorer/file-preview-panel";
 import { ShareDialog } from "@/components/files/explorer/share-dialog";
@@ -128,12 +128,6 @@ import { useFileDragDrop } from "@/hooks/use-file-drag-drop";
 import { useFileSelection } from "@/hooks/use-file-selection";
 import { useHaptics } from "@/hooks/use-haptics";
 import { useIsTouchDevice } from "@/hooks/use-touch-device";
-import {
-  useCurrentWorkspacePane,
-  usePanePathname,
-  usePaneRouter,
-  usePaneSearchParams,
-} from "@/lib/workspace-panes";
 import { readCachedWorkspaces } from "@/lib/dashboard-browser-cache";
 import { getWarmState, isFileOpenedCached } from "@/lib/file-preview-cache";
 import {
@@ -143,18 +137,18 @@ import {
   normalizePropertyDefinitions,
   type WorkspacePropertyDefinition,
 } from "@/lib/frontmatter";
-import {
-  DEFAULT_NOTE_TEMPLATE,
-  getDefaultNoteTemplates,
-  getRecentNoteTemplateStorageKey,
-  getNoteTemplateStorageKey,
-  type NoteTemplate,
-} from "@/lib/note-templates";
 import { renderMarkdownNoteTemplate } from "@/lib/markdown-note-template";
 import {
   buildProgressivePlaybackSource,
   buildVideoPlaybackDescriptor,
 } from "@/lib/media-playback";
+import {
+  DEFAULT_NOTE_TEMPLATE,
+  getDefaultNoteTemplates,
+  getNoteTemplateStorageKey,
+  getRecentNoteTemplateStorageKey,
+  type NoteTemplate,
+} from "@/lib/note-templates";
 import { getUploadErrorMessage } from "@/lib/upload";
 import { requestUploadPreflight } from "@/lib/upload-preflight";
 import { useUploadThing } from "@/lib/uploadthing";
@@ -165,6 +159,12 @@ import {
   writeWorkspaceFolderCache,
 } from "@/lib/workspace-folder-cache";
 import { invalidateWorkspaceMarkdownCache } from "@/lib/workspace-markdown-cache";
+import {
+  useCurrentWorkspacePane,
+  usePanePathname,
+  usePaneRouter,
+  usePaneSearchParams,
+} from "@/lib/workspace-panes";
 import {
   readWorkspaceTreeCache,
   writeWorkspaceTreeCache,
@@ -180,7 +180,6 @@ import {
   usePaneWorkspaceHistoryStore,
 } from "@/stores/workspaceHistoryStore";
 import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
-import { ScrollArea } from "@avenire/ui/components/scroll-area";
 
 const WORKSPACE_FILE_OPEN_EVENT = "workspace.file.open";
 const MOBILE_LONG_PRESS_DELAY_MS = 450;
@@ -211,7 +210,7 @@ const ITEM_ACTION_TARGET_SELECTOR =
   "[data-item-actions='true'], [data-selection-control='true'], button, a, input, textarea, select, label";
 const HEADER_SEGMENTED_GROUP_CLASS =
   "items-center divide-x divide-border/60 overflow-hidden rounded-md border border-border/60 bg-background shadow-sm";
-const HEADER_SEGMENT_BUTTON_CLASS =
+const _HEADER_SEGMENT_BUTTON_CLASS =
   "h-9 rounded-none border-0 bg-transparent px-3 text-xs text-foreground shadow-none hover:bg-muted/70 disabled:bg-transparent";
 const HEADER_SEGMENT_ICON_BUTTON_CLASS =
   "h-9 w-9 rounded-none border-0 bg-transparent text-foreground shadow-none hover:bg-muted/70 disabled:bg-transparent";
@@ -364,7 +363,7 @@ function mergePropertyDefinitions(
   );
 }
 
-function getOperatorsForType(type: WorkspacePropertyDefinition["type"]) {
+function _getOperatorsForType(type: WorkspacePropertyDefinition["type"]) {
   switch (type) {
     case "checkbox":
       return ["is_true", "is_false"] as const;
@@ -385,7 +384,7 @@ function getOperatorsForType(type: WorkspacePropertyDefinition["type"]) {
   }
 }
 
-function getOperatorLabel(operator: PropertyFilterOperator) {
+function _getOperatorLabel(operator: PropertyFilterOperator) {
   switch (operator) {
     case "contains":
       return "contains";
@@ -566,7 +565,7 @@ function MobileActionsPopover({
             className={cn("w-56 bg-background", COMPACT_MENU_SURFACE_CLASS)}
           >
             <DropdownMenuGroup>
-              <DropdownMenuLabel className="px-2 py-1.5 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+              <DropdownMenuLabel className="px-2 py-1.5 text-[11px] text-muted-foreground uppercase tracking-[0.16em]">
                 {name}
               </DropdownMenuLabel>
             </DropdownMenuGroup>
@@ -699,7 +698,7 @@ function MobileActionsPopover({
           <SlidersHorizontal className="size-3.5" />
           Properties
         </DropdownMenuItem>
-        {!readOnly ? (
+        {readOnly ? null : (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onDelete} variant="destructive">
@@ -707,7 +706,7 @@ function MobileActionsPopover({
               Delete
             </DropdownMenuItem>
           </>
-        ) : null}
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -1387,7 +1386,7 @@ function getFileVisualIcon(
       <span
         aria-hidden="true"
         className={cn(
-          "inline-flex shrink-0 items-center justify-center font-medium leading-none text-sm",
+          "inline-flex shrink-0 items-center justify-center font-medium text-sm leading-none",
           className
         )}
       >
@@ -1431,7 +1430,9 @@ export function FileExplorer({
     typeof setTimeout
   > | null>(null);
 
-  const routeMatch = pathname.match(/^\/workspace\/files\/([^/]+)\/folder\/([^/?#]+)/);
+  const routeMatch = pathname.match(
+    /^\/workspace\/files\/([^/]+)\/folder\/([^/?#]+)/
+  );
   const workspaceUuidParam = routeMatch?.[1];
   const folderUuidParam = routeMatch?.[2];
   const workspaceUuid = useMemo(() => {
@@ -1469,7 +1470,7 @@ export function FileExplorer({
   const [breadcrumbs, setBreadcrumbs] = useState<FolderRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [downloadStatus, setDownloadStatus] = useState<string | null>(null);
-  const [workspaceMembers, setWorkspaceMembers] = useState<
+  const [workspaceMembers, _setWorkspaceMembers] = useState<
     WorkspaceMemberRecord[]
   >([]);
   const [workspaceName, setWorkspaceName] = useState("Workspace");
@@ -1493,7 +1494,7 @@ export function FileExplorer({
   const [hoveredPreviewFileId, setHoveredPreviewFileId] = useState<
     string | null
   >(null);
-  const [sseConnected, setSseConnected] = useState(false);
+  const [_sseConnected, setSseConnected] = useState(false);
   const [bannerUploadBusy, setBannerUploadBusy] = useState(false);
   const [propertiesOpen, setPropertiesOpen] = useState(false);
   const [propertiesItem, setPropertiesItem] = useState<{
@@ -1554,7 +1555,7 @@ export function FileExplorer({
   const openPane = useWorkspacePaneStore((state) => state.openPane);
   const paneCount = useWorkspacePaneStore((state) => state.panes.length);
   const currentUser = useUserStore((state) => state.user);
-  const setSettingsOpen = useDashboardOverlayStore(
+  const _setSettingsOpen = useDashboardOverlayStore(
     (state) => state.setSettingsOpen
   );
 
@@ -1565,9 +1566,9 @@ export function FileExplorer({
   const { recordRoute } = usePaneWorkspaceHistoryActions();
   const historyEntries = usePaneWorkspaceHistoryStore((state) => state.entries);
   const historyIndex = usePaneWorkspaceHistoryStore((state) => state.index);
-  const backRoute =
+  const _backRoute =
     historyIndex > 0 ? (historyEntries[historyIndex - 1] ?? null) : null;
-  const forwardRoute =
+  const _forwardRoute =
     historyIndex >= 0 && historyIndex < historyEntries.length - 1
       ? (historyEntries[historyIndex + 1] ?? null)
       : null;
@@ -1659,7 +1660,7 @@ export function FileExplorer({
   );
 
   const currentFolder = useMemo(
-    () => breadcrumbs[breadcrumbs.length - 1] ?? null,
+    () => breadcrumbs.at(-1) ?? null,
     [breadcrumbs]
   );
   const isCurrentFolderReadOnly = Boolean(currentFolder?.readOnly);
@@ -1806,7 +1807,7 @@ export function FileExplorer({
         error?: string;
         file?: FileRecord;
       };
-      if (!response.ok || !payload.file?.id) {
+      if (!(response.ok && payload.file?.id)) {
         throw new Error(payload.error ?? "Unable to import link.");
       }
 
@@ -1895,7 +1896,7 @@ export function FileExplorer({
   }, [workspaceUuid]);
 
   useEffect(() => {
-    if (!workspaceUuid || !noteTemplatesHydratedRef.current) {
+    if (!(workspaceUuid && noteTemplatesHydratedRef.current)) {
       return;
     }
 
@@ -1917,7 +1918,7 @@ export function FileExplorer({
     }
   }, [noteTemplates, recentTemplateIds, workspaceUuid]);
 
-  const openTemplateEditor = useCallback((template?: NoteTemplate | null) => {
+  const _openTemplateEditor = useCallback((template?: NoteTemplate | null) => {
     const nextTemplate =
       template ??
       ({
@@ -1977,10 +1978,7 @@ export function FileExplorer({
     setNoteTemplateEditorOpen(false);
   }, [noteTemplateDraft.id, setNoteTemplates]);
 
-  const parentFolder = useMemo(
-    () => breadcrumbs[breadcrumbs.length - 2] ?? null,
-    [breadcrumbs]
-  );
+  const parentFolder = useMemo(() => breadcrumbs.at(-2) ?? null, [breadcrumbs]);
   const isAtWorkspaceRoot = breadcrumbs.length <= 1;
   const currentLocationTitle = isAtWorkspaceRoot
     ? workspaceName
@@ -2510,21 +2508,20 @@ export function FileExplorer({
   }, [allFiles, allFolders]);
 
   const wikiLinkableFiles = useMemo(() => {
-    return allFiles
-      .map((file) => {
-        const path = filePathById.get(file.id);
-        const ext = getExtension(file.name);
-        const isMarkdown =
-          (file.mimeType?.toLowerCase() ?? "").includes("markdown") ||
-          ext === ".md" ||
-          ext === ".mdx";
-        return {
-          id: file.id,
-          title: isMarkdown ? file.name.replace(/\.(md|mdx)$/i, "") : file.name,
-          excerpt: path ?? file.name,
-          content: "",
-        };
-      });
+    return allFiles.map((file) => {
+      const path = filePathById.get(file.id);
+      const ext = getExtension(file.name);
+      const isMarkdown =
+        (file.mimeType?.toLowerCase() ?? "").includes("markdown") ||
+        ext === ".md" ||
+        ext === ".mdx";
+      return {
+        id: file.id,
+        title: isMarkdown ? file.name.replace(/\.(md|mdx)$/i, "") : file.name,
+        excerpt: path ?? file.name,
+        content: "",
+      };
+    });
   }, [allFiles, filePathById]);
   const workspaceMemberNameById = useMemo(
     () =>
@@ -3681,8 +3678,11 @@ export function FileExplorer({
           );
         }
 
-        type CreatedFolder = { id: string; key: string };
-        const rollbackCreatedFolders = async (
+        interface CreatedFolder {
+          id: string;
+          key: string;
+        }
+        const _rollbackCreatedFolders = async (
           createdFolders: CreatedFolder[]
         ) => {
           for (const createdFolder of createdFolders.slice().reverse()) {
@@ -3745,7 +3745,7 @@ export function FileExplorer({
         const maxParallelUploads = 4;
         const dedupeLookupChunkSize = 100;
         const registerChunkSize = 40;
-        type UploadPrepared = {
+        interface UploadPrepared {
           candidate: UploadCandidate;
           content?: string;
           contentHashSha256?: string;
@@ -3753,7 +3753,7 @@ export function FileExplorer({
           queueItemId: string;
           targetFolderId: string;
           uploaded?: UploadResultLike;
-        };
+        }
         const preparedForRegister: UploadPrepared[] = [];
         let successCount = 0;
         let uploadCursor = 0;
@@ -3778,7 +3778,7 @@ export function FileExplorer({
                 return;
               }
               const entry = indexedCandidates[index];
-              if (!(entry && entry.queueItemId)) {
+              if (!entry?.queueItemId) {
                 continue;
               }
 
@@ -3923,7 +3923,7 @@ export function FileExplorer({
             )
           );
 
-          const createdFoldersForCandidate: CreatedFolder[] = [];
+          const _createdFoldersForCandidate: CreatedFolder[] = [];
           try {
             const normalizedPath = normalizeRelativePath(
               entry.candidate.relativePath,
@@ -4154,7 +4154,7 @@ export function FileExplorer({
     ]
   );
 
-  const hardReingestFile = useCallback(
+  const _hardReingestFile = useCallback(
     async (file: FileRecord) => {
       if (!workspaceUuid || file.readOnly) {
         return;
@@ -4463,7 +4463,7 @@ export function FileExplorer({
     ]
   );
 
-  const moveFile = useCallback(
+  const _moveFile = useCallback(
     async (fileId: string, targetFolderId: string) => {
       if (!workspaceUuid) {
         return;
@@ -4727,7 +4727,7 @@ export function FileExplorer({
       mode === "undo"
         ? redoFileOperationHistoryRef.current
         : undoFileOperationHistoryRef.current;
-    const entry = sourceStack[sourceStack.length - 1];
+    const entry = sourceStack.at(-1);
 
     if (!entry) {
       return;
@@ -5015,7 +5015,7 @@ export function FileExplorer({
     };
 
     const moveSelectedItemsUp = () => {
-      const parentFolderId = breadcrumbs[breadcrumbs.length - 2]?.id;
+      const parentFolderId = breadcrumbs.at(-2)?.id;
       if (!parentFolderId) {
         return;
       }
@@ -5027,7 +5027,7 @@ export function FileExplorer({
     };
 
     const goParentFolder = () => {
-      const parentFolderId = breadcrumbs[breadcrumbs.length - 2]?.id;
+      const parentFolderId = breadcrumbs.at(-2)?.id;
       if (!parentFolderId) {
         return;
       }
@@ -5326,7 +5326,7 @@ export function FileExplorer({
     [downloadStatus, workspaceUuid]
   );
 
-  const downloadFileDirect = useCallback(
+  const _downloadFileDirect = useCallback(
     async (file: FileRecord) => {
       try {
         const sourceUrl =
@@ -5706,64 +5706,62 @@ export function FileExplorer({
           </div>
         }
       >
-        <>
-          <ShareDialog
-            activeFile={shareTargetFile}
-            hideTrigger
-            loadShareSuggestions={loadShareSuggestions}
-            onOpenChange={(open) => {
-              setFileShareDialogOpen(open);
-              if (!open) {
-                setShareTargetFile(null);
-              }
-            }}
-            open={fileShareDialogOpen}
-            variant="file"
-            workspaceUuid={workspaceUuid}
-          />
-          <ShareDialog
-            currentFolder={shareTargetFolder}
-            hideTrigger
-            loadShareSuggestions={loadShareSuggestions}
-            onOpenChange={(open) => {
-              setFolderShareDialogOpen(open);
-              if (!open) {
-                setShareTargetFolder(null);
-              }
-            }}
-            open={folderShareDialogOpen}
-            variant="folder"
-            workspaceUuid={workspaceUuid}
-          />
-          <FilePreviewPanel
-            activeFile={activeFile}
-            activeRetrievalChunkId={activeRetrievalChunkId}
-            allFiles={allFiles}
-            allFolders={allFolders}
-            openFileShareDialog={openFileShareDialog}
-            currentFolderId={currentFolderId}
-            currentInfoEntries={currentInfoEntries}
-            deleteContextActionItems={deleteContextActionItems}
-            downloadContextActionItems={downloadContextActionItems}
-            duplicateContextActionItems={duplicateContextActionItems}
-            filePathById={filePathById}
-            hardReingestContextActionItems={hardReingestContextActionItems}
-            isCurrentPinned={isCurrentPinned}
-            moveContextActionItemsToFolder={moveContextActionItemsToFolder}
-            openFileById={openFileById}
-            openRenameFileDialog={openRenameFileDialog}
-            propertyDefinitions={availablePropertyDefinitions}
-            query={query}
-            retrievalResults={retrievalResults}
-            selectFile={selectFile}
-            setPropertyDefinitions={setPropertyDefinitions}
-            startBannerUpload={startBannerUpload}
-            toggleCurrentPinnedItem={toggleCurrentPinnedItem}
-            wikiLinkableFiles={wikiLinkableFiles}
-            workspaceMembers={workspaceMembers}
-            workspaceUuid={workspaceUuid}
-          />
-        </>
+        <ShareDialog
+          activeFile={shareTargetFile}
+          hideTrigger
+          loadShareSuggestions={loadShareSuggestions}
+          onOpenChange={(open) => {
+            setFileShareDialogOpen(open);
+            if (!open) {
+              setShareTargetFile(null);
+            }
+          }}
+          open={fileShareDialogOpen}
+          variant="file"
+          workspaceUuid={workspaceUuid}
+        />
+        <ShareDialog
+          currentFolder={shareTargetFolder}
+          hideTrigger
+          loadShareSuggestions={loadShareSuggestions}
+          onOpenChange={(open) => {
+            setFolderShareDialogOpen(open);
+            if (!open) {
+              setShareTargetFolder(null);
+            }
+          }}
+          open={folderShareDialogOpen}
+          variant="folder"
+          workspaceUuid={workspaceUuid}
+        />
+        <FilePreviewPanel
+          activeFile={activeFile}
+          activeRetrievalChunkId={activeRetrievalChunkId}
+          allFiles={allFiles}
+          allFolders={allFolders}
+          currentFolderId={currentFolderId}
+          currentInfoEntries={currentInfoEntries}
+          deleteContextActionItems={deleteContextActionItems}
+          downloadContextActionItems={downloadContextActionItems}
+          duplicateContextActionItems={duplicateContextActionItems}
+          filePathById={filePathById}
+          hardReingestContextActionItems={hardReingestContextActionItems}
+          isCurrentPinned={isCurrentPinned}
+          moveContextActionItemsToFolder={moveContextActionItemsToFolder}
+          openFileById={openFileById}
+          openFileShareDialog={openFileShareDialog}
+          openRenameFileDialog={openRenameFileDialog}
+          propertyDefinitions={availablePropertyDefinitions}
+          query={query}
+          retrievalResults={retrievalResults}
+          selectFile={selectFile}
+          setPropertyDefinitions={setPropertyDefinitions}
+          startBannerUpload={startBannerUpload}
+          toggleCurrentPinnedItem={toggleCurrentPinnedItem}
+          wikiLinkableFiles={wikiLinkableFiles}
+          workspaceMembers={workspaceMembers}
+          workspaceUuid={workspaceUuid}
+        />
       </Suspense>
     );
   }
@@ -5897,7 +5895,7 @@ export function FileExplorer({
         type="file"
       />
 
-      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden no-scrollbar pb-24 md:pb-0">
+      <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-24 md:pb-0">
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 pb-4">
           <div className="flex min-w-0 items-center gap-2">
             {!isAtWorkspaceRoot && parentFolder ? (
@@ -6054,7 +6052,7 @@ export function FileExplorer({
                 <ScrollArea className="max-h-72">
                   <div className="p-1">
                     <DropdownMenuGroup>
-                      <DropdownMenuLabel className="px-2 py-1.5 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                      <DropdownMenuLabel className="px-2 py-1.5 text-[11px] text-muted-foreground uppercase tracking-[0.16em]">
                         Sort options
                       </DropdownMenuLabel>
                     </DropdownMenuGroup>
@@ -6108,7 +6106,7 @@ export function FileExplorer({
                       <>
                         <DropdownMenuSeparator />
                         <DropdownMenuGroup>
-                          <DropdownMenuLabel className="px-2 py-1.5 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                          <DropdownMenuLabel className="px-2 py-1.5 text-[11px] text-muted-foreground uppercase tracking-[0.16em]">
                             Properties
                           </DropdownMenuLabel>
                         </DropdownMenuGroup>
@@ -6183,7 +6181,7 @@ export function FileExplorer({
                 )}
               >
                 <DropdownMenuGroup>
-                  <DropdownMenuLabel className="flex items-center justify-between gap-3 px-2 py-1.5 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                  <DropdownMenuLabel className="flex items-center justify-between gap-3 px-2 py-1.5 text-[11px] text-muted-foreground uppercase tracking-[0.16em]">
                     <span>Visible card fields</span>
                     <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] normal-case">
                       {selectedCardPropertyDefinitions.length}/
@@ -6211,7 +6209,7 @@ export function FileExplorer({
                     </div>
                   </ScrollArea>
                 ) : (
-                  <div className="px-2 py-2 text-xs text-muted-foreground">
+                  <div className="px-2 py-2 text-muted-foreground text-xs">
                     No visible fields selected.
                   </div>
                 )}
@@ -6227,7 +6225,7 @@ export function FileExplorer({
                       COMPACT_MENU_SURFACE_CLASS
                     )}
                   >
-                    <div className="border-b border-border/60 p-2">
+                    <div className="border-border/60 border-b p-2">
                       <Input
                         className="h-8 border-0 bg-transparent px-2 text-xs shadow-none"
                         onChange={(event) =>
@@ -6240,7 +6238,7 @@ export function FileExplorer({
                     <ScrollArea className="max-h-56">
                       <div className="p-1">
                         {filteredAvailablePropertyDefinitions.length === 0 ? (
-                          <div className="px-2 py-2 text-xs text-muted-foreground">
+                          <div className="px-2 py-2 text-muted-foreground text-xs">
                             No matching fields.
                           </div>
                         ) : (
@@ -6370,14 +6368,14 @@ export function FileExplorer({
                   {...getCanvasDropProps()}
                 >
                   {downloadStatus ? (
-                    <div className="pointer-events-none absolute right-4 top-4 z-20">
+                    <div className="pointer-events-none absolute top-4 right-4 z-20">
                       <div className="inline-flex max-w-[24rem] items-center gap-2 rounded-full border border-border/70 bg-background/95 px-3 py-2 text-sm shadow-lg backdrop-blur">
                         <Spinner className="size-4" />
                         <div className="min-w-0">
                           <p className="font-medium text-xs">
                             Preparing download
                           </p>
-                          <p className="truncate text-muted-foreground text-[11px]">
+                          <p className="truncate text-[11px] text-muted-foreground">
                             {downloadStatus}
                           </p>
                         </div>
@@ -6422,7 +6420,7 @@ export function FileExplorer({
                                     selection.selectedIds.has(folder.id) &&
                                       "border border-primary bg-primary/5",
                                     dropTargetId === folder.id &&
-                                      "border-primary/80 bg-primary/20 ring-2 ring-primary/60 shadow-[0_0_0_1px_rgba(59,130,246,0.25)]"
+                                      "border-primary/80 bg-primary/20 shadow-[0_0_0_1px_rgba(59,130,246,0.25)] ring-2 ring-primary/60"
                                   )}
                                   data-drop-folder-id={folder.id}
                                   data-select-item="true"
@@ -6487,11 +6485,11 @@ export function FileExplorer({
                                   <div
                                     className="absolute top-2 left-2 z-20 rounded-md bg-background/90 p-1 shadow-sm backdrop-blur-sm"
                                     data-selection-control="true"
+                                    onClickCapture={stopItemSelectionEvent}
+                                    onMouseDownCapture={stopItemSelectionEvent}
                                     onPointerDownCapture={
                                       stopItemSelectionEvent
                                     }
-                                    onMouseDownCapture={stopItemSelectionEvent}
-                                    onClickCapture={stopItemSelectionEvent}
                                   >
                                     <Checkbox
                                       checked={selection.selectedIds.has(
@@ -6802,11 +6800,11 @@ export function FileExplorer({
                                   <div
                                     className="absolute top-2 left-2 z-20 rounded-md bg-background/90 p-1 shadow-sm backdrop-blur-sm"
                                     data-selection-control="true"
+                                    onClickCapture={stopItemSelectionEvent}
+                                    onMouseDownCapture={stopItemSelectionEvent}
                                     onPointerDownCapture={
                                       stopItemSelectionEvent
                                     }
-                                    onMouseDownCapture={stopItemSelectionEvent}
-                                    onClickCapture={stopItemSelectionEvent}
                                   >
                                     <Checkbox
                                       aria-label={`Select file ${file.name}`}
@@ -7002,480 +7000,588 @@ export function FileExplorer({
                         <div className="rounded-md bg-secondary/30">
                           <div
                             className="relative w-full"
-                            style={{ height: `${listVirtualizer.getTotalSize()}px` }}
+                            style={{
+                              height: `${listVirtualizer.getTotalSize()}px`,
+                            }}
                           >
-                            {listVirtualizer.getVirtualItems().map((virtualItem) => {
-                              const entry = explorerEntries[virtualItem.index];
-                              if (!entry) {
-                                return null;
-                              }
+                            {listVirtualizer
+                              .getVirtualItems()
+                              .map((virtualItem) => {
+                                const entry =
+                                  explorerEntries[virtualItem.index];
+                                if (!entry) {
+                                  return null;
+                                }
 
-                              return (
-                                <div
-                                  data-index={virtualItem.index}
-                                  key={virtualItem.key}
-                                  ref={listVirtualizer.measureElement}
-                                  style={{
-                                    left: 0,
-                                    position: "absolute",
-                                    top: 0,
-                                    transform: `translateY(${virtualItem.start}px)`,
-                                    width: "100%",
-                                  }}
-                                >
-                                  {entry.kind === "folder" ? (
-                                    <div
-                                      className={cn(
-                                        "flex cursor-pointer items-center gap-3 border-border/40 px-3 py-2.5 transition-colors hover:bg-muted/30",
-                                        virtualItem.index < explorerEntries.length - 1 &&
-                                          "border-b",
-                                        selection.selectedIds.has(entry.folder.id) &&
-                                          "bg-primary/10",
-                                        dropTargetId === entry.folder.id &&
-                                          "bg-primary/20 outline outline-2 outline-primary/60"
-                                      )}
-                                      data-drop-folder-id={entry.folder.id}
-                                      data-select-item="true"
-                                      {...getFolderDragProps(
-                                        entry.folder.id,
-                                        entry.folder.readOnly
-                                      )}
-                                      onClick={(event) => {
-                                        if (shouldIgnoreItemClick(event)) {
-                                          return;
-                                        }
-                                        if (isMobile) {
-                                          handleMobileItemClick(entry.folder.id, () =>
+                                return (
+                                  <div
+                                    data-index={virtualItem.index}
+                                    key={virtualItem.key}
+                                    ref={listVirtualizer.measureElement}
+                                    style={{
+                                      left: 0,
+                                      position: "absolute",
+                                      top: 0,
+                                      transform: `translateY(${virtualItem.start}px)`,
+                                      width: "100%",
+                                    }}
+                                  >
+                                    {entry.kind === "folder" ? (
+                                      <div
+                                        className={cn(
+                                          "flex cursor-pointer items-center gap-3 border-border/40 px-3 py-2.5 transition-colors hover:bg-muted/30",
+                                          virtualItem.index <
+                                            explorerEntries.length - 1 &&
+                                            "border-b",
+                                          selection.selectedIds.has(
+                                            entry.folder.id
+                                          ) && "bg-primary/10",
+                                          dropTargetId === entry.folder.id &&
+                                            "bg-primary/20 outline outline-2 outline-primary/60"
+                                        )}
+                                        data-drop-folder-id={entry.folder.id}
+                                        data-select-item="true"
+                                        {...getFolderDragProps(
+                                          entry.folder.id,
+                                          entry.folder.readOnly
+                                        )}
+                                        onClick={(event) => {
+                                          if (shouldIgnoreItemClick(event)) {
+                                            return;
+                                          }
+                                          if (isMobile) {
+                                            handleMobileItemClick(
+                                              entry.folder.id,
+                                              () =>
+                                                navigateToFolder(
+                                                  entry.folder.id
+                                                )
+                                            );
+                                            return;
+                                          }
+                                          selection.handleItemClick(
+                                            event,
+                                            entry.folder.id,
+                                            visibleItemIds
+                                          );
+                                          handleOpenOnDoubleClick(event, () =>
                                             navigateToFolder(entry.folder.id)
                                           );
-                                          return;
+                                        }}
+                                        onContextMenu={(event) =>
+                                          handleItemContextMenu(
+                                            event,
+                                            entry.folder.id
+                                          )
                                         }
-                                        selection.handleItemClick(
-                                          event,
-                                          entry.folder.id,
-                                          visibleItemIds
-                                        );
-                                        handleOpenOnDoubleClick(event, () =>
-                                          navigateToFolder(entry.folder.id)
-                                        );
-                                      }}
-                                      onContextMenu={(event) =>
-                                        handleItemContextMenu(event, entry.folder.id)
-                                      }
-                                      onPointerCancel={handleMobileItemPointerUp}
-                                      onPointerDown={(event) => {
-                                        const target =
-                                          event.target as HTMLElement | null;
-                                        if (
-                                          target?.closest(ITEM_ACTION_TARGET_SELECTOR)
-                                        ) {
-                                          return;
+                                        onPointerCancel={
+                                          handleMobileItemPointerUp
                                         }
-                                        if (
-                                          isMobile &&
-                                          event.pointerType === "touch"
-                                        ) {
-                                          beginMobileItemLongPress(entry.folder.id);
-                                        }
-                                      }}
-                                      onPointerUp={handleMobileItemPointerUp}
-                                      ref={(node: HTMLDivElement | null) => {
-                                        if (!node) {
-                                          itemRefs.current.delete(entry.folder.id);
-                                          return;
-                                        }
-                                        itemRefs.current.set(entry.folder.id, node);
-                                      }}
-                                    >
-                                      {isMobile ? (
-                                        <>
-                                          <FolderGlyph
-                                            compact
-                                            previewKinds={
-                                              folderPreviewKinds.get(entry.folder.id) ?? []
-                                            }
-                                          />
-                                          <p className="min-w-0 flex-1 truncate font-medium text-sm">
-                                            {entry.folder.name}
-                                          </p>
-                                          <MobileActionsPopover
-                                            detail={`Folder • ${folderSubfolderCount.get(entry.folder.id) ?? 0} folders • ${folderFileCount.get(entry.folder.id) ?? 0} files`}
-                                            folders={allFolders}
-                                            kind="folder"
-                                            name={entry.folder.name}
-                                            onDelete={() => {
-                                              deleteContextActionItems(
-                                                entry.folder.id,
-                                                "folder"
-                                              );
-                                            }}
-                                            onDownload={() => {
-                                              downloadContextActionItems(
-                                                entry.folder.id,
-                                                "folder",
-                                                entry.folder.name
-                                              );
-                                            }}
-                                            onDuplicate={() => {
-                                              duplicateContextActionItems(
-                                                entry.folder.id,
-                                                "folder"
-                                              );
-                                            }}
-                                            onMetadata={() => {
-                                              setPropertiesItem({
-                                                kind: "folder",
-                                                id: entry.folder.id,
-                                                name: entry.folder.name,
-                                                detail: "Folder",
-                                              });
-                                              setPropertiesOpen(true);
-                                            }}
-                                            onMoveTo={(targetId) => {
-                                              moveContextActionItemsToFolder(
-                                                entry.folder.id,
-                                                "folder",
-                                                targetId
-                                              );
-                                            }}
-                                            onOpenProperties={() => {
-                                              setPropertiesItem({
-                                                kind: "folder",
-                                                id: entry.folder.id,
-                                                name: entry.folder.name,
-                                                detail: "Folder",
-                                              });
-                                              setPropertiesOpen(true);
-                                            }}
-                                            onRename={() =>
-                                              openRenameFolderDialog(entry.folder)
-                                            }
-                                            onShare={() => {
-                                              openFolderShareDialog(entry.folder);
-                                            }}
-                                            onTogglePin={() => {
-                                              filesPinsActions.togglePinnedItem(
-                                                workspaceUuid,
-                                                {
-                                                  folderId: entry.folder.parentId,
-                                                  id: entry.folder.id,
-                                                  kind: "folder",
-                                                  name: entry.folder.name,
-                                                  workspaceId: workspaceUuid,
-                                                }
-                                              );
-                                            }}
-                                            pinned={Boolean(
-                                              filesPinsActions.isPinned(
-                                                workspaceUuid,
-                                                "folder",
-                                                entry.folder.id
-                                              )
-                                            )}
-                                            readOnly={Boolean(entry.folder.readOnly)}
-                                            targetId={entry.folder.id}
-                                          />
-                                        </>
-                                      ) : (
-                                        <>
-                                          <div
-                                            className="relative z-10 flex shrink-0"
-                                            data-selection-control="true"
-                                            onPointerDownCapture={
-                                              stopItemSelectionEvent
-                                            }
-                                            onMouseDownCapture={stopItemSelectionEvent}
-                                            onClickCapture={stopItemSelectionEvent}
-                                          >
-                                            <Checkbox
-                                              checked={selection.selectedIds.has(
-                                                entry.folder.id
-                                              )}
-                                              onCheckedChange={() =>
-                                                selection.toggleSelection(entry.folder.id)
+                                        onPointerDown={(event) => {
+                                          const target =
+                                            event.target as HTMLElement | null;
+                                          if (
+                                            target?.closest(
+                                              ITEM_ACTION_TARGET_SELECTOR
+                                            )
+                                          ) {
+                                            return;
+                                          }
+                                          if (
+                                            isMobile &&
+                                            event.pointerType === "touch"
+                                          ) {
+                                            beginMobileItemLongPress(
+                                              entry.folder.id
+                                            );
+                                          }
+                                        }}
+                                        onPointerUp={handleMobileItemPointerUp}
+                                        ref={(node: HTMLDivElement | null) => {
+                                          if (!node) {
+                                            itemRefs.current.delete(
+                                              entry.folder.id
+                                            );
+                                            return;
+                                          }
+                                          itemRefs.current.set(
+                                            entry.folder.id,
+                                            node
+                                          );
+                                        }}
+                                      >
+                                        {isMobile ? (
+                                          <>
+                                            <FolderGlyph
+                                              compact
+                                              previewKinds={
+                                                folderPreviewKinds.get(
+                                                  entry.folder.id
+                                                ) ?? []
                                               }
                                             />
-                                          </div>
-                                          <FolderGlyph
-                                            compact
-                                            previewKinds={
-                                              folderPreviewKinds.get(entry.folder.id) ?? []
-                                            }
-                                          />
-                                          <p className="min-w-0 flex-1 truncate font-medium text-sm">
-                                            {entry.folder.name}
-                                          </p>
-                                          <div className="ml-auto flex items-center gap-6 text-muted-foreground text-xs">
-                                            <span className="min-w-[110px] text-right tabular-nums">
-                                              {folderSubfolderCount.get(entry.folder.id) ?? 0} folders •{" "}
-                                              {folderFileCount.get(entry.folder.id) ?? 0} files
-                                            </span>
-                                            <span className="min-w-[72px] text-right tabular-nums">
-                                              {entry.folder.updatedAt
-                                                ? toUpdatedLabel(entry.folder.updatedAt)
-                                                : "—"}
-                                            </span>
-                                          </div>
-                                        </>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    (() => {
-                                      const fileKind = detectFileKind(entry.file);
-                                      const previewKind = detectPreviewKind(entry.file);
-                                      const fileProperties = getFileProperties(entry.file);
-                                      return (
-                                        <div
-                                          className={cn(
-                                            "flex cursor-pointer items-center gap-3 border-border/40 px-3 py-2.5 transition-colors hover:bg-muted/30",
-                                            virtualItem.index < explorerEntries.length - 1 &&
-                                              "border-b",
-                                            selection.selectedIds.has(entry.file.id) &&
-                                              "bg-primary/10"
-                                          )}
-                                          data-select-item="true"
-                                          {...getFileDragProps(
-                                            entry.file.id,
-                                            entry.file.readOnly
-                                          )}
-                                          onClick={(event) => {
-                                            if (shouldIgnoreItemClick(event)) {
-                                              return;
-                                            }
-                                            if (isMobile) {
-                                              handleMobileItemClick(entry.file.id, () =>
-                                                selectFile(entry.file.id)
-                                              );
-                                              return;
-                                            }
-                                            selection.handleItemClick(
-                                              event,
-                                              entry.file.id,
-                                              visibleItemIds
-                                            );
-                                            handleOpenOnDoubleClick(event, () =>
-                                              selectFile(entry.file.id)
-                                            );
-                                          }}
-                                          onContextMenu={(event) =>
-                                            handleItemContextMenu(event, entry.file.id)
-                                          }
-                                          onPointerCancel={handleMobileItemPointerUp}
-                                          onPointerDown={(event) => {
-                                            const target =
-                                              event.target as HTMLElement | null;
-                                            if (
-                                              target?.closest(
-                                                ITEM_ACTION_TARGET_SELECTOR
-                                              )
-                                            ) {
-                                              return;
-                                            }
-                                            if (
-                                              isMobile &&
-                                              event.pointerType === "touch"
-                                            ) {
-                                              beginMobileItemLongPress(entry.file.id);
-                                            }
-                                          }}
-                                          onPointerUp={handleMobileItemPointerUp}
-                                          ref={(node: HTMLDivElement | null) => {
-                                            if (!node) {
-                                              itemRefs.current.delete(entry.file.id);
-                                              return;
-                                            }
-                                            itemRefs.current.set(entry.file.id, node);
-                                          }}
-                                        >
-                                          {isMobile ? (
-                                            <>
-                                              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted/60">
-                                                {getFileVisualIcon(entry.file, fileKind)}
-                                              </div>
-                                              <div className="min-w-0 flex-1">
-                                                <p className="min-w-0 truncate font-medium text-sm">
-                                                  {entry.file.name}
-                                                </p>
-                                              </div>
-                                              <MobileActionsPopover
-                                                detail={`${formatBytes(entry.file.sizeBytes)} • ${entry.file.mimeType ?? "unknown"} • ${entry.file.isIngested ? "Ingested" : "Pending"}`}
-                                                folders={allFolders}
-                                                kind="file"
-                                                name={entry.file.name}
-                                                onCircleToAi={
-                                                  previewKind.isPdf ||
-                                                  previewKind.isImage ||
-                                                  previewKind.isVideo
-                                                    ? () =>
-                                                        selectFile(entry.file.id, {
-                                                          circleToAi: true,
-                                                        })
-                                                    : undefined
-                                                }
-                                                onDelete={() => {
-                                                  deleteContextActionItems(
-                                                    entry.file.id,
-                                                    "file"
-                                                  );
-                                                }}
-                                                onDownload={() => {
-                                                  downloadContextActionItems(
-                                                    entry.file.id,
-                                                    "file",
-                                                    entry.file.name
-                                                  );
-                                                }}
-                                                onDuplicate={() => {
-                                                  duplicateContextActionItems(
-                                                    entry.file.id,
-                                                    "file"
-                                                  );
-                                                }}
-                                                onHardReingest={() => {
-                                                  hardReingestContextActionItems(entry.file.id);
-                                                }}
-                                                onMetadata={() => {
-                                                  setPropertiesItem({
-                                                    kind: "file",
-                                                    id: entry.file.id,
-                                                    name: entry.file.name,
-                                                    detail: `${formatBytes(entry.file.sizeBytes)} • ${entry.file.mimeType ?? "unknown"} • ${entry.file.isIngested ? "Ingested" : "Pending"}`,
-                                                  });
-                                                  setPropertiesOpen(true);
-                                                }}
-                                                onMoveTo={(targetId) => {
-                                                  moveContextActionItemsToFolder(
-                                                    entry.file.id,
-                                                    "file",
-                                                    targetId
-                                                  );
-                                                }}
-                                                onOpenProperties={() => {
-                                                  setPropertiesItem({
-                                                    kind: "file",
-                                                    id: entry.file.id,
-                                                    name: entry.file.name,
-                                                    detail: `${formatBytes(entry.file.sizeBytes)} • ${entry.file.mimeType ?? "unknown"} • ${entry.file.isIngested ? "Ingested" : "Pending"}`,
-                                                  });
-                                                  setPropertiesOpen(true);
-                                                }}
-                                                onRename={() =>
-                                                  openRenameFileDialog(entry.file)
-                                                }
-                                                onShare={() => {
-                                                  openFileShareDialog(entry.file);
-                                                }}
-                                                onTogglePin={() => {
-                                                  filesPinsActions.togglePinnedItem(
-                                                    workspaceUuid,
-                                                    {
-                                                      folderId: entry.file.folderId,
-                                                      id: entry.file.id,
-                                                      kind: "file",
-                                                      name: entry.file.name,
-                                                      workspaceId: workspaceUuid,
-                                                    }
-                                                  );
-                                                }}
-                                                pinned={Boolean(
-                                                  filesPinsActions.isPinned(
-                                                    workspaceUuid,
-                                                    "file",
-                                                    entry.file.id
-                                                  )
+                                            <p className="min-w-0 flex-1 truncate font-medium text-sm">
+                                              {entry.folder.name}
+                                            </p>
+                                            <MobileActionsPopover
+                                              detail={`Folder • ${folderSubfolderCount.get(entry.folder.id) ?? 0} folders • ${folderFileCount.get(entry.folder.id) ?? 0} files`}
+                                              folders={allFolders}
+                                              kind="folder"
+                                              name={entry.folder.name}
+                                              onDelete={() => {
+                                                deleteContextActionItems(
+                                                  entry.folder.id,
+                                                  "folder"
+                                                );
+                                              }}
+                                              onDownload={() => {
+                                                downloadContextActionItems(
+                                                  entry.folder.id,
+                                                  "folder",
+                                                  entry.folder.name
+                                                );
+                                              }}
+                                              onDuplicate={() => {
+                                                duplicateContextActionItems(
+                                                  entry.folder.id,
+                                                  "folder"
+                                                );
+                                              }}
+                                              onMetadata={() => {
+                                                setPropertiesItem({
+                                                  kind: "folder",
+                                                  id: entry.folder.id,
+                                                  name: entry.folder.name,
+                                                  detail: "Folder",
+                                                });
+                                                setPropertiesOpen(true);
+                                              }}
+                                              onMoveTo={(targetId) => {
+                                                moveContextActionItemsToFolder(
+                                                  entry.folder.id,
+                                                  "folder",
+                                                  targetId
+                                                );
+                                              }}
+                                              onOpenProperties={() => {
+                                                setPropertiesItem({
+                                                  kind: "folder",
+                                                  id: entry.folder.id,
+                                                  name: entry.folder.name,
+                                                  detail: "Folder",
+                                                });
+                                                setPropertiesOpen(true);
+                                              }}
+                                              onRename={() =>
+                                                openRenameFolderDialog(
+                                                  entry.folder
+                                                )
+                                              }
+                                              onShare={() => {
+                                                openFolderShareDialog(
+                                                  entry.folder
+                                                );
+                                              }}
+                                              onTogglePin={() => {
+                                                filesPinsActions.togglePinnedItem(
+                                                  workspaceUuid,
+                                                  {
+                                                    folderId:
+                                                      entry.folder.parentId,
+                                                    id: entry.folder.id,
+                                                    kind: "folder",
+                                                    name: entry.folder.name,
+                                                    workspaceId: workspaceUuid,
+                                                  }
+                                                );
+                                              }}
+                                              pinned={Boolean(
+                                                filesPinsActions.isPinned(
+                                                  workspaceUuid,
+                                                  "folder",
+                                                  entry.folder.id
+                                                )
+                                              )}
+                                              readOnly={Boolean(
+                                                entry.folder.readOnly
+                                              )}
+                                              targetId={entry.folder.id}
+                                            />
+                                          </>
+                                        ) : (
+                                          <>
+                                            <div
+                                              className="relative z-10 flex shrink-0"
+                                              data-selection-control="true"
+                                              onClickCapture={
+                                                stopItemSelectionEvent
+                                              }
+                                              onMouseDownCapture={
+                                                stopItemSelectionEvent
+                                              }
+                                              onPointerDownCapture={
+                                                stopItemSelectionEvent
+                                              }
+                                            >
+                                              <Checkbox
+                                                checked={selection.selectedIds.has(
+                                                  entry.folder.id
                                                 )}
-                                                readOnly={Boolean(entry.file.readOnly)}
-                                                targetId={entry.file.id}
+                                                onCheckedChange={() =>
+                                                  selection.toggleSelection(
+                                                    entry.folder.id
+                                                  )
+                                                }
                                               />
-                                            </>
-                                          ) : (
-                                            <>
-                                              <div
-                                                className="relative z-10 flex shrink-0"
-                                                data-selection-control="true"
-                                                onPointerDownCapture={
-                                                  stopItemSelectionEvent
-                                                }
-                                                onMouseDownCapture={
-                                                  stopItemSelectionEvent
-                                                }
-                                                onClickCapture={stopItemSelectionEvent}
-                                              >
-                                                <Checkbox
-                                                  checked={selection.selectedIds.has(
-                                                    entry.file.id
+                                            </div>
+                                            <FolderGlyph
+                                              compact
+                                              previewKinds={
+                                                folderPreviewKinds.get(
+                                                  entry.folder.id
+                                                ) ?? []
+                                              }
+                                            />
+                                            <p className="min-w-0 flex-1 truncate font-medium text-sm">
+                                              {entry.folder.name}
+                                            </p>
+                                            <div className="ml-auto flex items-center gap-6 text-muted-foreground text-xs">
+                                              <span className="min-w-[110px] text-right tabular-nums">
+                                                {folderSubfolderCount.get(
+                                                  entry.folder.id
+                                                ) ?? 0}{" "}
+                                                folders •{" "}
+                                                {folderFileCount.get(
+                                                  entry.folder.id
+                                                ) ?? 0}{" "}
+                                                files
+                                              </span>
+                                              <span className="min-w-[72px] text-right tabular-nums">
+                                                {entry.folder.updatedAt
+                                                  ? toUpdatedLabel(
+                                                      entry.folder.updatedAt
+                                                    )
+                                                  : "—"}
+                                              </span>
+                                            </div>
+                                          </>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      (() => {
+                                        const fileKind = detectFileKind(
+                                          entry.file
+                                        );
+                                        const previewKind = detectPreviewKind(
+                                          entry.file
+                                        );
+                                        const fileProperties =
+                                          getFileProperties(entry.file);
+                                        return (
+                                          <div
+                                            className={cn(
+                                              "flex cursor-pointer items-center gap-3 border-border/40 px-3 py-2.5 transition-colors hover:bg-muted/30",
+                                              virtualItem.index <
+                                                explorerEntries.length - 1 &&
+                                                "border-b",
+                                              selection.selectedIds.has(
+                                                entry.file.id
+                                              ) && "bg-primary/10"
+                                            )}
+                                            data-select-item="true"
+                                            {...getFileDragProps(
+                                              entry.file.id,
+                                              entry.file.readOnly
+                                            )}
+                                            onClick={(event) => {
+                                              if (
+                                                shouldIgnoreItemClick(event)
+                                              ) {
+                                                return;
+                                              }
+                                              if (isMobile) {
+                                                handleMobileItemClick(
+                                                  entry.file.id,
+                                                  () =>
+                                                    selectFile(entry.file.id)
+                                                );
+                                                return;
+                                              }
+                                              selection.handleItemClick(
+                                                event,
+                                                entry.file.id,
+                                                visibleItemIds
+                                              );
+                                              handleOpenOnDoubleClick(
+                                                event,
+                                                () => selectFile(entry.file.id)
+                                              );
+                                            }}
+                                            onContextMenu={(event) =>
+                                              handleItemContextMenu(
+                                                event,
+                                                entry.file.id
+                                              )
+                                            }
+                                            onPointerCancel={
+                                              handleMobileItemPointerUp
+                                            }
+                                            onPointerDown={(event) => {
+                                              const target =
+                                                event.target as HTMLElement | null;
+                                              if (
+                                                target?.closest(
+                                                  ITEM_ACTION_TARGET_SELECTOR
+                                                )
+                                              ) {
+                                                return;
+                                              }
+                                              if (
+                                                isMobile &&
+                                                event.pointerType === "touch"
+                                              ) {
+                                                beginMobileItemLongPress(
+                                                  entry.file.id
+                                                );
+                                              }
+                                            }}
+                                            onPointerUp={
+                                              handleMobileItemPointerUp
+                                            }
+                                            ref={(
+                                              node: HTMLDivElement | null
+                                            ) => {
+                                              if (!node) {
+                                                itemRefs.current.delete(
+                                                  entry.file.id
+                                                );
+                                                return;
+                                              }
+                                              itemRefs.current.set(
+                                                entry.file.id,
+                                                node
+                                              );
+                                            }}
+                                          >
+                                            {isMobile ? (
+                                              <>
+                                                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted/60">
+                                                  {getFileVisualIcon(
+                                                    entry.file,
+                                                    fileKind
                                                   )}
-                                                  onCheckedChange={(checked) =>
-                                                    selection.setItemSelected(
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                  <p className="min-w-0 truncate font-medium text-sm">
+                                                    {entry.file.name}
+                                                  </p>
+                                                </div>
+                                                <MobileActionsPopover
+                                                  detail={`${formatBytes(entry.file.sizeBytes)} • ${entry.file.mimeType ?? "unknown"} • ${entry.file.isIngested ? "Ingested" : "Pending"}`}
+                                                  folders={allFolders}
+                                                  kind="file"
+                                                  name={entry.file.name}
+                                                  onCircleToAi={
+                                                    previewKind.isPdf ||
+                                                    previewKind.isImage ||
+                                                    previewKind.isVideo
+                                                      ? () =>
+                                                          selectFile(
+                                                            entry.file.id,
+                                                            {
+                                                              circleToAi: true,
+                                                            }
+                                                          )
+                                                      : undefined
+                                                  }
+                                                  onDelete={() => {
+                                                    deleteContextActionItems(
                                                       entry.file.id,
-                                                      checked === true
+                                                      "file"
+                                                    );
+                                                  }}
+                                                  onDownload={() => {
+                                                    downloadContextActionItems(
+                                                      entry.file.id,
+                                                      "file",
+                                                      entry.file.name
+                                                    );
+                                                  }}
+                                                  onDuplicate={() => {
+                                                    duplicateContextActionItems(
+                                                      entry.file.id,
+                                                      "file"
+                                                    );
+                                                  }}
+                                                  onHardReingest={() => {
+                                                    hardReingestContextActionItems(
+                                                      entry.file.id
+                                                    );
+                                                  }}
+                                                  onMetadata={() => {
+                                                    setPropertiesItem({
+                                                      kind: "file",
+                                                      id: entry.file.id,
+                                                      name: entry.file.name,
+                                                      detail: `${formatBytes(entry.file.sizeBytes)} • ${entry.file.mimeType ?? "unknown"} • ${entry.file.isIngested ? "Ingested" : "Pending"}`,
+                                                    });
+                                                    setPropertiesOpen(true);
+                                                  }}
+                                                  onMoveTo={(targetId) => {
+                                                    moveContextActionItemsToFolder(
+                                                      entry.file.id,
+                                                      "file",
+                                                      targetId
+                                                    );
+                                                  }}
+                                                  onOpenProperties={() => {
+                                                    setPropertiesItem({
+                                                      kind: "file",
+                                                      id: entry.file.id,
+                                                      name: entry.file.name,
+                                                      detail: `${formatBytes(entry.file.sizeBytes)} • ${entry.file.mimeType ?? "unknown"} • ${entry.file.isIngested ? "Ingested" : "Pending"}`,
+                                                    });
+                                                    setPropertiesOpen(true);
+                                                  }}
+                                                  onRename={() =>
+                                                    openRenameFileDialog(
+                                                      entry.file
                                                     )
                                                   }
-                                                />
-                                              </div>
-                                              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted/60">
-                                                {getFileVisualIcon(entry.file, fileKind)}
-                                              </div>
-                                              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                                                <p className="min-w-0 truncate font-medium text-sm">
-                                                  {entry.file.name}
-                                                </p>
-                                              </div>
-                                              <div className="ml-auto flex items-start gap-4 text-muted-foreground text-xs">
-                                                <div className="flex flex-col items-end gap-1">
-                                                  <span className="min-w-[110px] text-right tabular-nums">
-                                                    {formatBytes(entry.file.sizeBytes)}
-                                                  </span>
-                                                  <span className="min-w-[72px] text-right tabular-nums">
-                                                    {toUpdatedLabel(
-                                                      entry.file.updatedAt ??
-                                                        entry.file.createdAt
-                                                    )}
-                                                  </span>
-                                                </div>
-                                                {selectedCardPropertyDefinitions.length > 0 ? (
-                                                  <div className="flex max-w-[22rem] flex-wrap justify-end gap-1.5">
-                                                    {selectedCardPropertyDefinitions.map(
-                                                      (definition) => {
-                                                        const property =
-                                                          fileProperties[definition.key];
-                                                        const value =
-                                                          property &&
-                                                          formatCardPropertyValue(
-                                                            property
-                                                          );
-                                                        if (!value) {
-                                                          return null;
-                                                        }
-
-                                                        return (
-                                                          <span
-                                                            className="inline-flex max-w-full items-center gap-1 rounded-md border border-border/50 bg-background/75 px-2 py-0.5 text-[10px] leading-none text-muted-foreground"
-                                                            key={definition.key}
-                                                            title={`${definition.key}: ${value}`}
-                                                          >
-                                                            <span className="shrink-0 font-medium text-foreground/75">
-                                                              {definition.key}
-                                                            </span>
-                                                            <span className="min-w-0 truncate">
-                                                              {value}
-                                                            </span>
-                                                          </span>
-                                                        );
+                                                  onShare={() => {
+                                                    openFileShareDialog(
+                                                      entry.file
+                                                    );
+                                                  }}
+                                                  onTogglePin={() => {
+                                                    filesPinsActions.togglePinnedItem(
+                                                      workspaceUuid,
+                                                      {
+                                                        folderId:
+                                                          entry.file.folderId,
+                                                        id: entry.file.id,
+                                                        kind: "file",
+                                                        name: entry.file.name,
+                                                        workspaceId:
+                                                          workspaceUuid,
                                                       }
+                                                    );
+                                                  }}
+                                                  pinned={Boolean(
+                                                    filesPinsActions.isPinned(
+                                                      workspaceUuid,
+                                                      "file",
+                                                      entry.file.id
+                                                    )
+                                                  )}
+                                                  readOnly={Boolean(
+                                                    entry.file.readOnly
+                                                  )}
+                                                  targetId={entry.file.id}
+                                                />
+                                              </>
+                                            ) : (
+                                              <>
+                                                <div
+                                                  className="relative z-10 flex shrink-0"
+                                                  data-selection-control="true"
+                                                  onClickCapture={
+                                                    stopItemSelectionEvent
+                                                  }
+                                                  onMouseDownCapture={
+                                                    stopItemSelectionEvent
+                                                  }
+                                                  onPointerDownCapture={
+                                                    stopItemSelectionEvent
+                                                  }
+                                                >
+                                                  <Checkbox
+                                                    checked={selection.selectedIds.has(
+                                                      entry.file.id
                                                     )}
+                                                    onCheckedChange={(
+                                                      checked
+                                                    ) =>
+                                                      selection.setItemSelected(
+                                                        entry.file.id,
+                                                        checked === true
+                                                      )
+                                                    }
+                                                  />
+                                                </div>
+                                                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted/60">
+                                                  {getFileVisualIcon(
+                                                    entry.file,
+                                                    fileKind
+                                                  )}
+                                                </div>
+                                                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                                                  <p className="min-w-0 truncate font-medium text-sm">
+                                                    {entry.file.name}
+                                                  </p>
+                                                </div>
+                                                <div className="ml-auto flex items-start gap-4 text-muted-foreground text-xs">
+                                                  <div className="flex flex-col items-end gap-1">
+                                                    <span className="min-w-[110px] text-right tabular-nums">
+                                                      {formatBytes(
+                                                        entry.file.sizeBytes
+                                                      )}
+                                                    </span>
+                                                    <span className="min-w-[72px] text-right tabular-nums">
+                                                      {toUpdatedLabel(
+                                                        entry.file.updatedAt ??
+                                                          entry.file.createdAt
+                                                      )}
+                                                    </span>
                                                   </div>
-                                                ) : null}
-                                              </div>
-                                            </>
-                                          )}
-                                        </div>
-                                      );
-                                    })()
-                                  )}
-                                </div>
-                              );
-                            })}
+                                                  {selectedCardPropertyDefinitions.length >
+                                                  0 ? (
+                                                    <div className="flex max-w-[22rem] flex-wrap justify-end gap-1.5">
+                                                      {selectedCardPropertyDefinitions.map(
+                                                        (definition) => {
+                                                          const property =
+                                                            fileProperties[
+                                                              definition.key
+                                                            ];
+                                                          const value =
+                                                            property &&
+                                                            formatCardPropertyValue(
+                                                              property
+                                                            );
+                                                          if (!value) {
+                                                            return null;
+                                                          }
+
+                                                          return (
+                                                            <span
+                                                              className="inline-flex max-w-full items-center gap-1 rounded-md border border-border/50 bg-background/75 px-2 py-0.5 text-[10px] text-muted-foreground leading-none"
+                                                              key={
+                                                                definition.key
+                                                              }
+                                                              title={`${definition.key}: ${value}`}
+                                                            >
+                                                              <span className="shrink-0 font-medium text-foreground/75">
+                                                                {definition.key}
+                                                              </span>
+                                                              <span className="min-w-0 truncate">
+                                                                {value}
+                                                              </span>
+                                                            </span>
+                                                          );
+                                                        }
+                                                      )}
+                                                    </div>
+                                                  ) : null}
+                                                </div>
+                                              </>
+                                            )}
+                                          </div>
+                                        );
+                                      })()
+                                    )}
+                                  </div>
+                                );
+                              })}
                           </div>
                         </div>
                       ) : null}
@@ -7554,7 +7660,7 @@ export function FileExplorer({
               </p>
             </div>
             <Button
-              disabled={!breadcrumbs[breadcrumbs.length - 2]?.id}
+              disabled={!breadcrumbs.at(-2)?.id}
               onClick={() => setMobileConfirmAction("move")}
               size="sm"
               type="button"
@@ -7691,8 +7797,7 @@ export function FileExplorer({
                 if (mobileConfirmAction === "delete") {
                   void deleteSelectionItems(items);
                 } else {
-                  const parentFolderId =
-                    breadcrumbs[breadcrumbs.length - 2]?.id;
+                  const parentFolderId = breadcrumbs.at(-2)?.id;
                   if (parentFolderId) {
                     void moveItemsToFolder(
                       Array.from(selection.getSelectedIds()),
@@ -7723,7 +7828,7 @@ export function FileExplorer({
             </DialogDescription>
           </DialogHeader>
           {propertiesItem ? (
-            <div className="space-y-1.5 rounded-lg border border-border/60 bg-background p-3 text-xs text-foreground">
+            <div className="space-y-1.5 rounded-lg border border-border/60 bg-background p-3 text-foreground text-xs">
               <p className="flex gap-1.5">
                 <span className="min-w-14 font-medium text-muted-foreground">
                   Name
@@ -7831,7 +7936,7 @@ export function FileExplorer({
 
       <Dialog
         onOpenChange={(open) => {
-          if (!open && !linkImportBusy) {
+          if (!(open || linkImportBusy)) {
             setLinkImportDialog(null);
           }
         }}
@@ -7994,8 +8099,10 @@ export function FileExplorer({
             </div>
             <Button
               disabled={
-                !noteTemplateDraft.name.trim() ||
-                !noteTemplateDraft.content.trim()
+                !(
+                  noteTemplateDraft.name.trim() &&
+                  noteTemplateDraft.content.trim()
+                )
               }
               onClick={() => {
                 saveTemplateDraft();

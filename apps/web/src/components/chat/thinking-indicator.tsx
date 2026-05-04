@@ -1,6 +1,6 @@
 "use client";
 
 export {
-  ThinkingIndicator,
   SpinnerGlyph as ThinkingGlyph,
+  ThinkingIndicator,
 } from "@avenire/ui/components/spinner";

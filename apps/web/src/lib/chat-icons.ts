@@ -20,5 +20,4 @@ export const DEFAULT_CHAT_ICON: ChatIconName = "MessageSquareText";
 export const isChatIconName = (
   value: string | null | undefined
 ): value is ChatIconName =>
-  Boolean(value) &&
-  CHAT_ICON_NAMES.includes(value as ChatIconName);
+  Boolean(value) && CHAT_ICON_NAMES.includes(value as ChatIconName);

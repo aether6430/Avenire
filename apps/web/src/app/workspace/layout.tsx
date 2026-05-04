@@ -5,7 +5,5 @@ export default function WorkspaceLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return (
-    <WorkspaceLayoutShell>{children}</WorkspaceLayoutShell>
-  );
+  return <WorkspaceLayoutShell>{children}</WorkspaceLayoutShell>;
 }

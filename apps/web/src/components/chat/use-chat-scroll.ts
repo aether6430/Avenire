@@ -1,12 +1,12 @@
 "use client";
 
 import {
+  type RefObject,
   useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
   useState,
-  type RefObject,
 } from "react";
 
 const PROGRAMMATIC_SCROLL_GRACE_MS = 220;
@@ -122,7 +122,7 @@ export function useChatScroll(options: {
     (messageId: string, behavior: ScrollBehavior = "smooth") => {
       const container = containerRef.current;
       const message = getMessageElement(messageId);
-      if (!container || !message) {
+      if (!(container && message)) {
         return;
       }
 
@@ -156,11 +156,11 @@ export function useChatScroll(options: {
     [markProgrammaticScroll]
   );
 
-  const pinMessageDuringSettle = useCallback(
+  const _pinMessageDuringSettle = useCallback(
     (messageId: string, initialBehavior: ScrollBehavior = "auto") => {
       const container = containerRef.current;
       const content = contentRef.current;
-      if (!container || !content) {
+      if (!(container && content)) {
         return;
       }
 
@@ -195,7 +195,7 @@ export function useChatScroll(options: {
   const followIfNeeded = useCallback(
     (behavior: ScrollBehavior = "auto") => {
       const container = containerRef.current;
-      if (!container || !isAutoScrollEnabledRef.current) {
+      if (!(container && isAutoScrollEnabledRef.current)) {
         return;
       }
 
@@ -284,8 +284,7 @@ export function useChatScroll(options: {
 
   useLayoutEffect(() => {
     if (
-      !hasInitializedLayoutRef.current ||
-      !latestUserMessageId ||
+      !(hasInitializedLayoutRef.current && latestUserMessageId) ||
       latestUserMessageId === lastUserMessageIdRef.current
     ) {
       return;

@@ -22,11 +22,18 @@ export async function POST(request: Request) {
   const activeOrganizationId =
     (session as { session?: { activeOrganizationId?: string | null } }).session
       ?.activeOrganizationId ?? null;
-  const workspace = await resolveWorkspaceForUser(session.user.id, activeOrganizationId);
+  const workspace = await resolveWorkspaceForUser(
+    session.user.id,
+    activeOrganizationId
+  );
   if (!workspace) {
     return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
   }
-  const chat = await createChatForUser(session.user.id, workspace.workspaceId, body.title);
+  const chat = await createChatForUser(
+    session.user.id,
+    workspace.workspaceId,
+    body.title
+  );
 
   void publishWorkspaceStreamEvent({
     workspaceUuid: workspace.workspaceId,

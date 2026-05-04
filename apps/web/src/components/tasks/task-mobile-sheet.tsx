@@ -69,8 +69,8 @@ export function TaskMobileSheet({
               onReset={onReset}
               onSave={onSave}
               onToggleComplete={onToggleComplete}
-              workspaceUuid={workspaceUuid}
               task={task}
+              workspaceUuid={workspaceUuid}
             />
           </div>
         </div>

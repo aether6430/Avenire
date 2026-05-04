@@ -10,11 +10,15 @@ import {
   CommandItem,
   CommandList,
 } from "@avenire/ui/components/command";
-import { Popover, PopoverContent, PopoverTrigger } from "@avenire/ui/components/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@avenire/ui/components/popover";
 import {
   ChatCenteredText,
-  Folder,
   Files,
+  Folder,
   LinkSimple,
   X,
 } from "@phosphor-icons/react";
@@ -25,7 +29,9 @@ import type {
 } from "@/lib/tasks";
 import { getTaskResourceTypeLabel } from "@/lib/tasks";
 
-function resourceKey(resource: WorkspaceTaskResourceLink | WorkspaceTaskResourceOption) {
+function resourceKey(
+  resource: WorkspaceTaskResourceLink | WorkspaceTaskResourceOption
+) {
   return `${resource.resourceType}:${resource.resourceId}`;
 }
 
@@ -35,13 +41,14 @@ function resourceIcon(resourceType: WorkspaceTaskResourceLink["resourceType"]) {
       return ChatCenteredText;
     case "folder":
       return Folder;
-    case "file":
     default:
       return Files;
   }
 }
 
-function resourceLabel(resource: WorkspaceTaskResourceLink | WorkspaceTaskResourceOption) {
+function resourceLabel(
+  resource: WorkspaceTaskResourceLink | WorkspaceTaskResourceOption
+) {
   return resource.title || "Resource";
 }
 
@@ -62,7 +69,7 @@ export function TaskResourcePicker({
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!open || !workspaceUuid) {
+    if (!(open && workspaceUuid)) {
       return;
     }
 
@@ -161,7 +168,9 @@ export function TaskResourcePicker({
             />
             <CommandList className="max-h-80">
               <CommandEmpty>
-                {loading ? "Loading resources..." : "No resources match that search."}
+                {loading
+                  ? "Loading resources..."
+                  : "No resources match that search."}
               </CommandEmpty>
               <CommandGroup heading="Workspace resources">
                 {options.map((resource) => {
@@ -171,7 +180,11 @@ export function TaskResourcePicker({
                     <CommandItem
                       key={resourceKey(resource)}
                       onSelect={() => toggleResource(resource)}
-                      value={[resource.title, resource.subtitle ?? "", resource.resourceId].join(" ")}
+                      value={[
+                        resource.title,
+                        resource.subtitle ?? "",
+                        resource.resourceId,
+                      ].join(" ")}
                     >
                       <Icon className="size-3.5 text-muted-foreground" />
                       <div className="min-w-0 flex-1">
@@ -202,7 +215,7 @@ export function TaskResourcePicker({
             const Icon = resourceIcon(resource.resourceType);
             return (
               <Badge
-                className="inline-flex max-w-full items-center gap-1 rounded-sm border-border/70 bg-secondary/50 px-2 py-1 text-[11px] font-normal text-foreground"
+                className="inline-flex max-w-full items-center gap-1 rounded-sm border-border/70 bg-secondary/50 px-2 py-1 font-normal text-[11px] text-foreground"
                 key={resourceKey(resource)}
                 variant="outline"
               >
@@ -212,7 +225,11 @@ export function TaskResourcePicker({
                   aria-label={`Remove ${resource.title}`}
                   className="ml-1 rounded-sm p-0.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
                   onClick={() =>
-                    onChange(value.filter((entry) => resourceKey(entry) !== resourceKey(resource)))
+                    onChange(
+                      value.filter(
+                        (entry) => resourceKey(entry) !== resourceKey(resource)
+                      )
+                    )
                   }
                   type="button"
                 >

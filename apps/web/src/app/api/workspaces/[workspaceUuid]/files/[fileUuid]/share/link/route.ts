@@ -1,12 +1,15 @@
-import { createResourceShareLink, userCanAccessWorkspace } from "@/lib/file-data";
 import { auth } from "@avenire/auth/server";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { resolveAppBaseUrl } from "@/lib/app-base-url";
+import {
+  createResourceShareLink,
+  userCanAccessWorkspace,
+} from "@/lib/file-data";
 
 export async function POST(
   _request: Request,
-  context: { params: Promise<{ workspaceUuid: string; fileUuid: string }> },
+  context: { params: Promise<{ workspaceUuid: string; fileUuid: string }> }
 ) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) {
@@ -14,7 +17,10 @@ export async function POST(
   }
 
   const { workspaceUuid, fileUuid } = await context.params;
-  const canAccess = await userCanAccessWorkspace(session.user.id, workspaceUuid);
+  const canAccess = await userCanAccessWorkspace(
+    session.user.id,
+    workspaceUuid
+  );
   if (!canAccess) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

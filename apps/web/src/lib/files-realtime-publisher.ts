@@ -1,10 +1,10 @@
 import type { RedisClientType } from "redis";
-import { publishWorkspaceStreamEvent } from "./workspace-event-stream";
 import {
   createManagedRedisClient,
   ensureManagedRedisClient,
   isExpectedRedisConnectionError,
 } from "@/lib/redis-client";
+import { publishWorkspaceStreamEvent } from "./workspace-event-stream";
 
 export type FilesInvalidationReason =
   | "file.created"
@@ -16,11 +16,11 @@ export type FilesInvalidationReason =
   | "tree.changed";
 
 interface FilesInvalidationPayload {
-  workspaceUuid: string;
-  folderId?: string;
-  fileId?: string;
-  reason: FilesInvalidationReason;
   at?: number;
+  fileId?: string;
+  folderId?: string;
+  reason: FilesInvalidationReason;
+  workspaceUuid: string;
 }
 
 const redisUrl = process.env.REDIS_URL;
@@ -38,7 +38,7 @@ async function getPublisher() {
     throw new Error("REDIS_URL is not configured");
   }
 
-  if (!publisher && !publisherInitPromise) {
+  if (!(publisher || publisherInitPromise)) {
     publisherInitPromise = (async () => {
       const client = createManagedRedisClient(
         redisUrl,
@@ -94,7 +94,9 @@ export async function createFilesRealtimeSubscriber(workspaceUuid: string) {
   return { channel: workspaceChannel(workspaceUuid), subscriber };
 }
 
-export async function publishFilesInvalidationEvent(payload: FilesInvalidationPayload) {
+export async function publishFilesInvalidationEvent(
+  payload: FilesInvalidationPayload
+) {
   if (!redisUrl) {
     return;
   }
@@ -109,7 +111,7 @@ export async function publishFilesInvalidationEvent(payload: FilesInvalidationPa
         fileId: payload.fileId,
         reason: payload.reason,
         workspaceUuid: payload.workspaceUuid,
-      }),
+      })
     );
 
     await publishWorkspaceStreamEvent({
@@ -124,6 +126,9 @@ export async function publishFilesInvalidationEvent(payload: FilesInvalidationPa
       },
     });
   } catch (error) {
-    console.error("Failed to publish files invalidation event", { payload, error });
+    console.error("Failed to publish files invalidation event", {
+      payload,
+      error,
+    });
   }
 }

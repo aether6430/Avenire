@@ -1,12 +1,12 @@
-import { listWorkspaceShareSuggestions } from "@/lib/file-data";
 import { auth } from "@avenire/auth/server";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { getChatBySlugForUser, isChatOwnerForUser } from "@/lib/chat-data";
+import { listWorkspaceShareSuggestions } from "@/lib/file-data";
 
 export async function GET(
   request: Request,
-  context: { params: Promise<{ slug: string }> },
+  context: { params: Promise<{ slug: string }> }
 ) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) {
@@ -18,7 +18,11 @@ export async function GET(
   if (!chat) {
     return NextResponse.json({ error: "Chat not found" }, { status: 404 });
   }
-  const isOwner = await isChatOwnerForUser(session.user.id, slug, chat.workspaceId);
+  const isOwner = await isChatOwnerForUser(
+    session.user.id,
+    slug,
+    chat.workspaceId
+  );
   if (!isOwner) {
     return NextResponse.json({ error: "Read-only chat" }, { status: 403 });
   }

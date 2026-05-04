@@ -23,59 +23,70 @@ function getPaneHistoryState(state: WorkspaceHistoryState, paneId: string) {
   return state.byPane[paneId] ?? EMPTY_WORKSPACE_HISTORY_STATE;
 }
 
-export const useWorkspaceHistoryStore = create<WorkspaceHistoryState>()((set) => ({
-  byPane: {},
-  recordRoute: (paneId, route) =>
-    set((state) => {
-      if (!route) {
-        return state;
-      }
+export const useWorkspaceHistoryStore = create<WorkspaceHistoryState>()(
+  (set) => ({
+    byPane: {},
+    recordRoute: (paneId, route) =>
+      set((state) => {
+        if (!route) {
+          return state;
+        }
 
-      const paneState = getPaneHistoryState(state, paneId);
-      if (paneState.index >= 0 && paneState.entries[paneState.index] === route) {
-        return state;
-      }
+        const paneState = getPaneHistoryState(state, paneId);
+        if (
+          paneState.index >= 0 &&
+          paneState.entries[paneState.index] === route
+        ) {
+          return state;
+        }
 
-      if (paneState.index > 0 && paneState.entries[paneState.index - 1] === route) {
+        if (
+          paneState.index > 0 &&
+          paneState.entries[paneState.index - 1] === route
+        ) {
+          return {
+            byPane: {
+              ...state.byPane,
+              [paneId]: {
+                entries: paneState.entries,
+                index: paneState.index - 1,
+              },
+            },
+          };
+        }
+
+        if (
+          paneState.index >= 0 &&
+          paneState.index < paneState.entries.length - 1 &&
+          paneState.entries[paneState.index + 1] === route
+        ) {
+          return {
+            byPane: {
+              ...state.byPane,
+              [paneId]: {
+                entries: paneState.entries,
+                index: paneState.index + 1,
+              },
+            },
+          };
+        }
+
+        const nextEntries = [
+          ...paneState.entries.slice(0, paneState.index + 1),
+          route,
+        ];
         return {
           byPane: {
             ...state.byPane,
             [paneId]: {
-              entries: paneState.entries,
-              index: paneState.index - 1,
+              entries: nextEntries,
+              index: nextEntries.length - 1,
             },
           },
         };
-      }
-
-      if (
-        paneState.index >= 0 &&
-        paneState.index < paneState.entries.length - 1 &&
-        paneState.entries[paneState.index + 1] === route
-      ) {
-        return {
-          byPane: {
-            ...state.byPane,
-            [paneId]: {
-              entries: paneState.entries,
-              index: paneState.index + 1,
-            },
-          },
-        };
-      }
-
-      const nextEntries = [...paneState.entries.slice(0, paneState.index + 1), route];
-      return {
-        byPane: {
-          ...state.byPane,
-          [paneId]: {
-            entries: nextEntries,
-            index: nextEntries.length - 1,
-          },
-        },
-      };
-    }),
-}));
+      }),
+  })
+);
 
 export function usePaneWorkspaceHistoryStore<T>(
   selector: (state: PaneWorkspaceHistoryState) => T

@@ -1,86 +1,85 @@
 "use client";
 
-import { useState, useEffect, useCallback, useReducer, useRef } from "react";
-import { AnimatePresence, LazyMotion, domAnimation, m } from "framer-motion";
-import { Calligraph } from "calligraph";
-import Image from "next/image";
-import type { Route } from "next";
-import Link from "next/link";
-import { buttonVariants } from "@avenire/ui/components/button";
-import { Badge } from "@avenire/ui/components/badge";
 import { useSession } from "@avenire/auth/client";
+import { Badge } from "@avenire/ui/components/badge";
+import { buttonVariants } from "@avenire/ui/components/button";
+import { AnimatePresence, domAnimation, LazyMotion, m } from "framer-motion";
+import type { Route } from "next";
+import Image from "next/image";
+import Link from "next/link";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 
 /* ── Types ── */
 interface ChatMessage {
-  role: "user" | "ai";
-  text: string;
-  tag?: string;
   flashcard?: FlashcardArtifact;
+  role: "user" | "ai";
+  tag?: string;
+  text: string;
 }
 
 interface FollowUp {
+  docArtifacts?: DocArtifacts;
+  docSections?: { heading: string; text: string }[];
+  docTasks?: string[];
   label: string;
   response: ChatMessage[];
   streamFlashcards?: FlashcardArtifact[];
-  docSections?: { heading: string; text: string }[];
-  docTasks?: string[];
-  docArtifacts?: DocArtifacts;
 }
 
 interface FlashcardArtifact {
-  front: string;
   back: string;
+  front: string;
   interval: string;
 }
 
 interface QuizArtifact {
-  question: string;
-  options: string[];
   correctIndex: number;
   explanation: string;
+  options: string[];
+  question: string;
 }
 
 interface PlotArtifact {
-  src: string;
   alt: string;
   caption: string;
+  src: string;
 }
 
 interface DocArtifacts {
   flashcards?: FlashcardArtifact[];
-  quiz?: QuizArtifact;
   plot?: PlotArtifact;
+  quiz?: QuizArtifact;
 }
 
 interface Session {
-  id: string;
-  icon: React.ReactNode;
-  name: string;
-  status: "in-progress" | "done" | "review";
-  statusLabel: string;
-  timeAgo: string;
-  messages: ChatMessage[];
-  followUps: FollowUp[];
-  thinkingTime: string;
-  thinkingSteps: string[];
+  artifacts?: DocArtifacts;
+  docBreadcrumb: string;
+  docSections: { heading: string; text: string }[];
+  docTasks: string[];
+  docTitle: string;
   fileRef?: { name: string; changes: string };
+  followUps: FollowUp[];
+  icon: React.ReactNode;
+  id: string;
+  messages: ChatMessage[];
+  name: string;
   question?: {
     title: string;
     options: { id: number; label: string; selected: boolean }[];
   };
-  docTitle: string;
-  docBreadcrumb: string;
-  docSections: { heading: string; text: string }[];
-  docTasks: string[];
-  artifacts?: DocArtifacts;
+  status: "in-progress" | "done" | "review";
+  statusLabel: string;
+  thinkingSteps: string[];
+  thinkingTime: string;
+  timeAgo: string;
 }
 
 interface DocView {
-  title: string;
+  artifacts?: DocArtifacts;
   breadcrumb: string;
   sections: { heading: string; text: string }[];
   tasks: string[];
-  artifacts?: DocArtifacts;
+  title: string;
 }
 
 declare global {
@@ -102,69 +101,69 @@ const CALLIGRAPH_TEXTS = ["Collect.", "Think.", "Learn."] as const;
 /* ── Icons ── */
 const SearchIcon = (
   <svg
-    width="14"
-    height="14"
-    viewBox="0 0 24 24"
     fill="none"
+    height="14"
     stroke="currentColor"
-    strokeWidth="2"
     strokeLinecap="round"
+    strokeWidth="2"
+    viewBox="0 0 24 24"
+    width="14"
   >
     <circle cx="11" cy="11" r="8" />
-    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    <line x1="21" x2="16.65" y1="21" y2="16.65" />
   </svg>
 );
 const CardsIcon = (
   <svg
-    width="14"
-    height="14"
-    viewBox="0 0 24 24"
     fill="none"
+    height="14"
     stroke="currentColor"
-    strokeWidth="2"
     strokeLinecap="round"
+    strokeWidth="2"
+    viewBox="0 0 24 24"
+    width="14"
   >
-    <rect x="2" y="3" width="20" height="14" rx="2" />
-    <line x1="8" y1="21" x2="16" y2="21" />
-    <line x1="12" y1="17" x2="12" y2="21" />
+    <rect height="14" rx="2" width="20" x="2" y="3" />
+    <line x1="8" x2="16" y1="21" y2="21" />
+    <line x1="12" x2="12" y1="17" y2="21" />
   </svg>
 );
 const QuizIcon = (
   <svg
-    width="14"
-    height="14"
-    viewBox="0 0 24 24"
     fill="none"
+    height="14"
     stroke="currentColor"
-    strokeWidth="2"
     strokeLinecap="round"
+    strokeWidth="2"
+    viewBox="0 0 24 24"
+    width="14"
   >
     <circle cx="12" cy="12" r="10" />
     <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-    <line x1="12" y1="17" x2="12.01" y2="17" />
+    <line x1="12" x2="12.01" y1="17" y2="17" />
   </svg>
 );
 const PlotIcon = (
   <svg
-    width="14"
-    height="14"
-    viewBox="0 0 24 24"
     fill="none"
+    height="14"
     stroke="currentColor"
-    strokeWidth="2"
     strokeLinecap="round"
+    strokeWidth="2"
+    viewBox="0 0 24 24"
+    width="14"
   >
     <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
   </svg>
 );
 const FileIcon = (
   <svg
-    width="10"
-    height="10"
-    viewBox="0 0 24 24"
     fill="none"
+    height="10"
     stroke="currentColor"
     strokeWidth="2"
+    viewBox="0 0 24 24"
+    width="10"
   >
     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
     <polyline points="14 2 14 8 20 8" />
@@ -703,25 +702,24 @@ function useStreamer(messages: ChatMessage[], speed = 12, enabled = true) {
         });
       }, speed);
       return () => clearTimeout(t);
-    } else {
-      const t = setTimeout(() => {
-        dispatch({ type: "advance-message" });
-      }, 300);
-      return () => clearTimeout(t);
     }
+    const t = setTimeout(() => {
+      dispatch({ type: "advance-message" });
+    }, 300);
+    return () => clearTimeout(t);
   }, [enabled, visibleCount, currentText, messages, speed]);
 
   return {
     completed: messages.slice(0, activeVisibleCount),
-    partial: !isDone
-      ? {
+    partial: isDone
+      ? null
+      : {
           ...messages[activeVisibleCount],
           text:
             messages[activeVisibleCount].role === "user"
               ? messages[activeVisibleCount].text
               : activeCurrentText,
-        }
-      : null,
+        },
     isDone,
   };
 }
@@ -827,32 +825,32 @@ function LatexText({
         if (!canRender) {
           return (
             <span
-              key={`math-fallback-${i}`}
               className={
                 chunk.display
-                  ? "block font-mono text-[10px] my-1"
+                  ? "my-1 block font-mono text-[10px]"
                   : "font-mono text-[10px]"
               }
+              key={`math-fallback-${i}`}
             >
               {chunk.display ? `$$${chunk.value}$$` : `$${chunk.value}$`}
             </span>
           );
         }
 
-        const html = window.katex!.renderToString(chunk.value, {
+        const html = window.katex?.renderToString(chunk.value, {
           displayMode: chunk.display,
           throwOnError: false,
         });
 
         return (
           <span
-            key={`math-${i}`}
             className={
               chunk.display
-                ? "block my-1 overflow-x-auto"
+                ? "my-1 block overflow-x-auto"
                 : "inline-block align-middle"
             }
             dangerouslySetInnerHTML={{ __html: html }}
+            key={`math-${i}`}
           />
         );
       })}
@@ -871,38 +869,38 @@ function ChatFlashcard({
 
   return (
     <m.div
-      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       className="w-full max-w-[280px]"
+      initial={{ opacity: 0, y: 8 }}
       style={{ perspective: "900px" }}
     >
       <m.button
-        type="button"
-        className="relative w-full aspect-[4/3] cursor-pointer"
         animate={{ rotateY: flipped ? 180 : 0 }}
+        className="relative aspect-[4/3] w-full cursor-pointer"
+        onClick={() => setFlipped((v) => !v)}
+        style={{ transformStyle: "preserve-3d" }}
         transition={{
           duration: 0.65,
           type: "spring",
           stiffness: 105,
           damping: 16,
         }}
-        style={{ transformStyle: "preserve-3d" }}
-        onClick={() => setFlipped((v) => !v)}
+        type="button"
       >
         <div
-          className="absolute inset-0 rounded-xl bg-card border border-border p-4 flex flex-col justify-between"
+          className="absolute inset-0 flex flex-col justify-between rounded-xl border border-border bg-card p-4"
           style={{ backfaceVisibility: "hidden" }}
         >
           <div className="flex items-center justify-between">
-            <Badge variant="outline" className="text-[8px] h-4">
+            <Badge className="h-4 text-[8px]" variant="outline">
               Question
             </Badge>
-            <span className="text-[8px] font-mono text-primary">
+            <span className="font-mono text-[8px] text-primary">
               {card.interval}
             </span>
           </div>
           <div className="text-[11px] text-foreground leading-relaxed">
-            <LatexText text={card.front} katexReady={katexReady} />
+            <LatexText katexReady={katexReady} text={card.front} />
           </div>
           <span className="text-[8px] text-muted-foreground/70">
             Click to flip
@@ -910,14 +908,14 @@ function ChatFlashcard({
         </div>
 
         <div
-          className="absolute inset-0 rounded-xl bg-card border border-primary p-4 flex flex-col justify-between"
+          className="absolute inset-0 flex flex-col justify-between rounded-xl border border-primary bg-card p-4"
           style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
         >
-          <Badge variant="secondary" className="text-[8px] h-4 w-fit">
+          <Badge className="h-4 w-fit text-[8px]" variant="secondary">
             Answer
           </Badge>
           <div className="text-[11px] text-muted-foreground leading-relaxed">
-            <LatexText text={card.back} katexReady={katexReady} />
+            <LatexText katexReady={katexReady} text={card.back} />
           </div>
           <span className="text-[8px] text-muted-foreground/70">
             Click to flip back
@@ -951,18 +949,18 @@ function Msg({
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-[92%] rounded-md px-3 py-2 text-[11px] leading-relaxed whitespace-pre-wrap ${
-          isUser && "bg-primary/10 text-foreground border border-primary/20"
+        className={`max-w-[92%] whitespace-pre-wrap rounded-md px-3 py-2 text-[11px] leading-relaxed ${
+          isUser && "border border-primary/20 bg-primary/10 text-foreground"
         }`}
       >
         {msg.tag && (
-          <Badge variant="secondary" className="text-[8px] mb-1 mr-1 h-4">
+          <Badge className="mr-1 mb-1 h-4 text-[8px]" variant="secondary">
             {msg.tag}
           </Badge>
         )}
-        <LatexText text={msg.text} katexReady={katexReady} />
+        <LatexText katexReady={katexReady} text={msg.text} />
         {isStreaming && (
-          <span className="inline-block w-[1.5px] h-3 bg-primary ml-0.5 animate-pulse" />
+          <span className="ml-0.5 inline-block h-3 w-[1.5px] animate-pulse bg-primary" />
         )}
       </div>
     </div>
@@ -1026,7 +1024,7 @@ function DemoWindow({
   }, [session.id]);
 
   useEffect(() => {
-    if (!shouldStream || !isDone || hasPromotedRef.current) {
+    if (!(shouldStream && isDone) || hasPromotedRef.current) {
       return;
     }
 
@@ -1035,7 +1033,9 @@ function DemoWindow({
   }, [isDone, onStreamComplete, session.id, shouldStream]);
 
   const handleOptionClick = (optId: number) => {
-    if (!question) return;
+    if (!question) {
+      return;
+    }
     const selectedOpt = question.options.find((o) => o.id === optId)!;
 
     // Briefly show visual selection
@@ -1062,6 +1062,7 @@ function DemoWindow({
   };
 
   const handleFollowUpClick = (fu: FollowUp) => {
+    const streamFlashcards = fu.streamFlashcards ?? [];
     const streamedMessages = [
       { role: "user" as const, text: fu.label },
       ...fu.response,
@@ -1074,12 +1075,12 @@ function DemoWindow({
     ]);
     const nextDocView = getFollowUpDocViewFromAction(session, fu);
 
-    if (fu.streamFlashcards && fu.streamFlashcards.length > 0) {
+    if (streamFlashcards.length > 0) {
       nextDocView.artifacts = {
         ...(nextDocView.artifacts ?? {}),
         flashcards: [
           ...(nextDocView.artifacts?.flashcards ?? []),
-          ...fu.streamFlashcards,
+          ...streamFlashcards,
         ],
       };
     }
@@ -1088,12 +1089,12 @@ function DemoWindow({
     setDocFlashcardIndex(0);
     setFollowUps((prev) => prev.filter((f) => f.label !== fu.label));
 
-    if (fu.streamFlashcards && fu.streamFlashcards.length > 0) {
+    if (streamFlashcards.length > 0) {
       const delay = estimateStreamDuration(streamedMessages) + 120;
       const timer = window.setTimeout(() => {
         setMessages((prev) => [
           ...prev,
-          ...fu.streamFlashcards!.map((card) => ({
+          ...streamFlashcards.map((card) => ({
             role: "ai" as const,
             text: "",
             tag: "Flashcard",
@@ -1118,13 +1119,13 @@ function DemoWindow({
   return (
     <div className="flex min-h-[460px] overflow-x-auto">
       {/* ── Chat Panel ── */}
-      <div className="flex-1 lg:flex-none lg:w-[500px] shrink-0 flex flex-col min-w-[320px]">
+      <div className="flex min-w-[320px] flex-1 shrink-0 flex-col lg:w-[500px] lg:flex-none">
         {/* Chat header */}
-        <div className="px-4 py-2 border-b border-border flex items-center justify-between">
-          <span className="text-xs font-semibold text-foreground truncate">
+        <div className="flex items-center justify-between border-border border-b px-4 py-2">
+          <span className="truncate font-semibold text-foreground text-xs">
             {session.name.replace("...", "")}
           </span>
-          <Badge variant="outline" className="text-[8px] h-4">
+          <Badge className="h-4 text-[8px]" variant="outline">
             {session.status === "in-progress"
               ? "In Progress"
               : session.status === "done"
@@ -1135,40 +1136,40 @@ function DemoWindow({
 
         {/* Messages */}
         <div
+          className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-3"
           ref={chatRef}
-          className="flex-1 overflow-y-auto px-4 py-3 space-y-2 min-h-0"
         >
           {completed.map((message) => (
             <m.div
-              key={`${message.role}-${message.tag ?? "message"}-${message.text || message.flashcard?.front || "empty"}`}
-              initial={{ opacity: 0, y: 3 }}
               animate={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, y: 3 }}
+              key={`${message.role}-${message.tag ?? "message"}-${message.text || message.flashcard?.front || "empty"}`}
               transition={{ duration: 0.12 }}
             >
-              <Msg msg={message} katexReady={katexReady} />
+              <Msg katexReady={katexReady} msg={message} />
             </m.div>
           ))}
           {partial && (
             <m.div
-              key="partial"
-              initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
+              initial={{ opacity: 0 }}
+              key="partial"
             >
-              <Msg msg={partial} isStreaming katexReady={katexReady} />
+              <Msg isStreaming katexReady={katexReady} msg={partial} />
             </m.div>
           )}
 
           {/* Thinking steps + file ref (after first AI message) */}
           {completed.length >= 2 && (
             <m.div
-              initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.1 }}
               className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground"
+              initial={{ opacity: 0 }}
+              transition={{ delay: 0.1 }}
             >
               <span>Thought {session.thinkingTime}</span>
               {session.thinkingSteps.map((step) => (
-                <span key={step} className="text-muted-foreground/60">
+                <span className="text-muted-foreground/60" key={step}>
                   · {step}
                 </span>
               ))}
@@ -1176,13 +1177,13 @@ function DemoWindow({
           )}
           {completed.length >= 2 && session.fileRef && (
             <m.div
-              initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
+              className="flex w-fit items-center gap-1.5 rounded border border-border bg-muted/30 px-2.5 py-1.5"
+              initial={{ opacity: 0 }}
               transition={{ delay: 0.15 }}
-              className="flex items-center gap-1.5 bg-muted/30 border border-border rounded px-2.5 py-1.5 w-fit"
             >
               <span className="text-primary">{FileIcon}</span>
-              <span className="text-[10px] text-primary font-medium">
+              <span className="font-medium text-[10px] text-primary">
                 {session.fileRef.name}
               </span>
               <span className="text-[10px] text-muted-foreground">
@@ -1194,58 +1195,58 @@ function DemoWindow({
           {/* Questions */}
           {isDone && question && (
             <m.div
-              initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
               className="space-y-2 pt-1"
+              initial={{ opacity: 0, y: 4 }}
+              transition={{ delay: 0.2 }}
             >
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-muted-foreground font-medium">
+                <span className="font-medium text-[10px] text-muted-foreground">
                   Questions
                 </span>
                 <div className="flex gap-0.5">
                   <button className="text-muted-foreground/40 hover:text-muted-foreground">
                     <svg
-                      width="10"
-                      height="10"
-                      viewBox="0 0 24 24"
                       fill="none"
+                      height="10"
                       stroke="currentColor"
                       strokeWidth="2"
+                      viewBox="0 0 24 24"
+                      width="10"
                     >
                       <polyline points="15 18 9 12 15 6" />
                     </svg>
                   </button>
                   <button className="text-muted-foreground/40 hover:text-muted-foreground">
                     <svg
-                      width="10"
-                      height="10"
-                      viewBox="0 0 24 24"
                       fill="none"
+                      height="10"
                       stroke="currentColor"
                       strokeWidth="2"
+                      viewBox="0 0 24 24"
+                      width="10"
                     >
                       <polyline points="9 18 15 12 9 6" />
                     </svg>
                   </button>
                 </div>
               </div>
-              <p className="text-[11px] font-semibold text-foreground/90">
+              <p className="font-semibold text-[11px] text-foreground/90">
                 {question.title}
               </p>
               <div className="space-y-1">
                 {question.options.map((opt) => (
                   <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => handleOptionClick(opt.id)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-md border text-[11px] cursor-pointer transition-all ${
+                    className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-[11px] transition-all ${
                       opt.selected
                         ? "border-primary/30 bg-primary/5 text-foreground"
                         : "border-border text-muted-foreground hover:border-primary/20"
                     }`}
+                    key={opt.id}
+                    onClick={() => handleOptionClick(opt.id)}
+                    type="button"
                   >
-                    <span className="font-mono text-primary/70 text-[10px]">
+                    <span className="font-mono text-[10px] text-primary/70">
                       {opt.id}
                     </span>
                     {opt.label}
@@ -1258,16 +1259,16 @@ function DemoWindow({
           {/* Follow-up buttons */}
           {isDone && !question && followUps.length > 0 && (
             <m.div
-              initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
+              className="space-y-1 pt-1"
+              initial={{ opacity: 0 }}
               transition={{ delay: 0.2 }}
-              className="pt-1 space-y-1"
             >
               {followUps.map((fu) => (
                 <button
+                  className="block w-full rounded-md border border-border px-3 py-2 text-left text-[11px] text-muted-foreground transition-all hover:border-primary/20 hover:bg-primary/5 hover:text-foreground"
                   key={fu.label}
                   onClick={() => handleFollowUpClick(fu)}
-                  className="block w-full text-left text-[11px] text-muted-foreground hover:text-foreground px-3 py-2 rounded-md border border-border hover:border-primary/20 hover:bg-primary/5 transition-all"
                 >
                   {fu.label}
                 </button>
@@ -1277,9 +1278,9 @@ function DemoWindow({
         </div>
 
         {/* Input bar */}
-        <div className="px-4 py-2 border-t border-border">
-          <div className="flex items-center bg-muted/20 border border-border rounded-md px-3 py-1.5">
-            <span className="text-[11px] text-muted-foreground/40 flex-1">
+        <div className="border-border border-t px-4 py-2">
+          <div className="flex items-center rounded-md border border-border bg-muted/20 px-3 py-1.5">
+            <span className="flex-1 text-[11px] text-muted-foreground/40">
               Add a follow-up...
             </span>
             <div className="flex items-center gap-2">
@@ -1292,12 +1293,12 @@ function DemoWindow({
       </div>
 
       {/* ── Doc Panel ── */}
-      <div className="hidden lg:flex flex-col w-[280px] shrink-0 border-l border-border bg-muted/5">
+      <div className="hidden w-[280px] shrink-0 flex-col border-border border-l bg-muted/5 lg:flex">
         {/* Doc header */}
-        <div className="px-4 py-2 border-b border-border flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground truncate">
+        <div className="flex items-center justify-between border-border border-b px-4 py-2">
+          <div className="flex items-center gap-1.5 truncate text-[10px] text-muted-foreground">
             <span className="text-muted-foreground/50">{docRoot} ›</span>
-            <span className="text-foreground/80 font-medium">{docLeaf}</span>
+            <span className="font-medium text-foreground/80">{docLeaf}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[9px] text-muted-foreground/40">
@@ -1307,16 +1308,18 @@ function DemoWindow({
         </div>
 
         {/* Doc content */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-          <h3 className="text-sm font-semibold text-foreground">{docView.title}</h3>
+        <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+          <h3 className="font-semibold text-foreground text-sm">
+            {docView.title}
+          </h3>
 
           {docView.sections.map((sec) => (
             <div key={sec.heading}>
-              <h4 className="text-[10px] font-semibold text-foreground/70 mb-1">
+              <h4 className="mb-1 font-semibold text-[10px] text-foreground/70">
                 {sec.heading}
               </h4>
-              <div className="text-[10px] text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                <LatexText text={sec.text} katexReady={katexReady} />
+              <div className="whitespace-pre-wrap text-[10px] text-muted-foreground leading-relaxed">
+                <LatexText katexReady={katexReady} text={sec.text} />
               </div>
             </div>
           ))}
@@ -1325,7 +1328,7 @@ function DemoWindow({
             docView.artifacts?.quiz ||
             docView.artifacts?.plot) && (
             <div className="space-y-3">
-              <h4 className="text-[10px] font-semibold text-foreground/70">
+              <h4 className="font-semibold text-[10px] text-foreground/70">
                 Study Artifacts
               </h4>
 
@@ -1340,40 +1343,40 @@ function DemoWindow({
                     </div>
                     <div className="flex items-center justify-between">
                       <button
-                        type="button"
-                        onClick={() => setDocFlashcardIndex((i) => i - 1)}
-                        className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground hover:border-primary/20 transition-colors disabled:opacity-40"
+                        className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:border-primary/20 hover:text-foreground disabled:opacity-40"
                         disabled={docCards.length <= 1}
+                        onClick={() => setDocFlashcardIndex((i) => i - 1)}
+                        type="button"
                       >
                         <svg
-                          width="10"
-                          height="10"
-                          viewBox="0 0 24 24"
                           fill="none"
+                          height="10"
                           stroke="currentColor"
                           strokeWidth="2"
+                          viewBox="0 0 24 24"
+                          width="10"
                         >
                           <polyline points="15 18 9 12 15 6" />
                         </svg>
                         Prev
                       </button>
-                      <span className="text-[9px] font-mono text-muted-foreground">
+                      <span className="font-mono text-[9px] text-muted-foreground">
                         {activeDocCardIndex + 1} / {docCards.length}
                       </span>
                       <button
-                        type="button"
-                        onClick={() => setDocFlashcardIndex((i) => i + 1)}
-                        className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground hover:border-primary/20 transition-colors disabled:opacity-40"
+                        className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:border-primary/20 hover:text-foreground disabled:opacity-40"
                         disabled={docCards.length <= 1}
+                        onClick={() => setDocFlashcardIndex((i) => i + 1)}
+                        type="button"
                       >
                         Next
                         <svg
-                          width="10"
-                          height="10"
-                          viewBox="0 0 24 24"
                           fill="none"
+                          height="10"
                           stroke="currentColor"
                           strokeWidth="2"
+                          viewBox="0 0 24 24"
+                          width="10"
                         >
                           <polyline points="9 18 15 12 9 6" />
                         </svg>
@@ -1383,52 +1386,52 @@ function DemoWindow({
                 )}
 
               {docView.artifacts?.quiz && (
-                <div className="rounded-md border border-border bg-card/70 p-2.5 space-y-2">
-                  <span className="text-[8px] uppercase tracking-wide text-muted-foreground">
+                <div className="space-y-2 rounded-md border border-border bg-card/70 p-2.5">
+                  <span className="text-[8px] text-muted-foreground uppercase tracking-wide">
                     Quiz Check
                   </span>
                   <div className="text-[10px] text-foreground/90 leading-relaxed">
                     <LatexText
-                      text={docView.artifacts.quiz.question}
                       katexReady={katexReady}
+                      text={docView.artifacts.quiz.question}
                     />
                   </div>
                   <div className="space-y-1">
                     {docView.artifacts.quiz.options.map((opt, i) => (
                       <div
-                        key={opt}
-                        className={`rounded px-2 py-1 text-[10px] border ${
+                        className={`rounded border px-2 py-1 text-[10px] ${
                           i === docView.artifacts?.quiz?.correctIndex
                             ? "border-primary/30 bg-primary/10 text-foreground"
                             : "border-border text-muted-foreground"
                         }`}
+                        key={opt}
                       >
-                        <LatexText text={opt} katexReady={katexReady} />
+                        <LatexText katexReady={katexReady} text={opt} />
                       </div>
                     ))}
                   </div>
                   <div className="text-[10px] text-muted-foreground leading-relaxed">
                     <LatexText
-                      text={docView.artifacts.quiz.explanation}
                       katexReady={katexReady}
+                      text={docView.artifacts.quiz.explanation}
                     />
                   </div>
                 </div>
               )}
 
               {docView.artifacts?.plot && (
-                <div className="rounded-md border border-border bg-card/70 p-2.5 space-y-2">
-                  <span className="text-[8px] uppercase tracking-wide text-muted-foreground">
+                <div className="space-y-2 rounded-md border border-border bg-card/70 p-2.5">
+                  <span className="text-[8px] text-muted-foreground uppercase tracking-wide">
                     Plot Preview
                   </span>
                   <Image
-                    src={docView.artifacts.plot.src}
                     alt={docView.artifacts.plot.alt}
-                    width={760}
-                    height={460}
                     className="w-full rounded border border-border/70 bg-background object-cover"
+                    height={460}
                     priority
                     sizes="(max-width: 768px) calc(100vw - 3rem), (max-width: 1280px) 42vw, 760px"
+                    src={docView.artifacts.plot.src}
+                    width={760}
                   />
                   <p className="text-[9px] text-muted-foreground leading-relaxed">
                     {docView.artifacts.plot.caption}
@@ -1440,13 +1443,13 @@ function DemoWindow({
 
           {docView.tasks.length > 0 && (
             <div>
-              <h4 className="text-[10px] font-semibold text-foreground/70 mb-2">
+              <h4 className="mb-2 font-semibold text-[10px] text-foreground/70">
                 {docView.tasks.length} Tasks
               </h4>
               <div className="space-y-2">
                 {docView.tasks.map((task) => (
-                  <div key={task} className="flex items-start gap-2">
-                    <div className="w-3.5 h-3.5 rounded-full border border-border mt-0.5 flex-shrink-0" />
+                  <div className="flex items-start gap-2" key={task}>
+                    <div className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 rounded-full border border-border" />
                     <span className="text-[10px] text-muted-foreground leading-relaxed">
                       {task}
                     </span>
@@ -1456,7 +1459,7 @@ function DemoWindow({
             </div>
           )}
 
-          <div className="text-[10px] text-muted-foreground/40 pt-2">
+          <div className="pt-2 text-[10px] text-muted-foreground/40">
             Add a task, ⌘K to generate...
           </div>
         </div>
@@ -1495,7 +1498,7 @@ export function Hero() {
   }, []);
 
   // Calligraph text rotation
-  const [calligraphIndex, setCalligraphIndex] = useState(0);
+  const [_calligraphIndex, setCalligraphIndex] = useState(0);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -1508,19 +1511,19 @@ export function Hero() {
     <LazyMotion features={domAnimation}>
       <section className="pt-20 pb-16">
         {/* Headline section - stacked above widget */}
-        <div className="max-w-3xl mx-auto px-6 mb-12">
+        <div className="mx-auto mb-12 max-w-3xl px-6">
           <m.div
-            initial={{ opacity: 0, y: -16 }}
             animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: -16 }}
             transition={{ duration: 0.5 }}
           >
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight leading-[1.1] mb-5">
+            <h1 className="mb-5 font-semibold text-4xl leading-[1.1] tracking-tight md:text-5xl lg:text-6xl">
               The AI learning workspace that thinks with you.
             </h1>
             <div className="flex items-center gap-3">
               <Link
-                href={(isSignedIn ? "/workspace" : "/waitlist") as Route}
                 className={buttonVariants({ size: "lg" })}
+                href={(isSignedIn ? "/workspace" : "/waitlist") as Route}
               >
                 {isSignedIn ? "Go to app" : "Join waitlist"}
               </Link>
@@ -1529,29 +1532,29 @@ export function Hero() {
         </div>
 
         <div className="relative">
-          <div className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-[0.08] saturate-150" />
+          <div className="absolute inset-0 bg-center bg-cover bg-no-repeat opacity-[0.08] saturate-150" />
           <m.div
-            initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
+            className="relative mx-auto max-w-5xl px-4 pb-16 sm:px-6"
+            initial={{ opacity: 0, y: 24 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="relative max-w-5xl mx-auto px-4 sm:px-6 pb-16"
           >
-            <div className="rounded-xl border border-border/50 overflow-hidden bg-card backdrop-blur-xl shadow-2xl shadow-black/10">
+            <div className="overflow-hidden rounded-xl border border-border/50 bg-card shadow-2xl shadow-black/10 backdrop-blur-xl">
               {/* Window chrome */}
-              <div className="flex items-center justify-between px-5 py-3 bg-muted/40 border-b border-border/50">
+              <div className="flex items-center justify-between border-border/50 border-b bg-muted/40 px-5 py-3">
                 <div className="flex items-center gap-3">
                   <div className="flex gap-1.5">
-                    <div className="w-3 h-3 rounded-full bg-red-500" />
-                    <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                    <div className="w-3 h-3 rounded-full bg-green-500" />
+                    <div className="h-3 w-3 rounded-full bg-red-500" />
+                    <div className="h-3 w-3 rounded-full bg-yellow-500" />
+                    <div className="h-3 w-3 rounded-full bg-green-500" />
                   </div>
-                  <span className="text-[12px] text-foreground font-medium ml-2">
+                  <span className="ml-2 font-medium text-[12px] text-foreground">
                     Avenire
                   </span>
                 </div>
                 <Link
+                  className="cursor-pointer font-medium text-[11px] text-primary hover:underline"
                   href={(isSignedIn ? "/workspace" : "/waitlist") as Route}
-                  className="text-[11px] text-primary font-medium cursor-pointer hover:underline"
                 >
                   {isSignedIn ? "Go to app" : "Get Avenire"}
                 </Link>
@@ -1559,22 +1562,22 @@ export function Hero() {
 
               <div className="flex h-[580px]">
                 {/* Sidebar */}
-                <div className="hidden md:flex flex-col w-[200px] border-r border-border/50 bg-muted/5">
+                <div className="hidden w-[200px] flex-col border-border/50 border-r bg-muted/5 md:flex">
                   {/* In progress */}
-                  <div className="px-4 py-3 border-b border-border/50">
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                  <div className="border-border/50 border-b px-4 py-3">
+                    <span className="font-semibold text-[10px] text-muted-foreground uppercase tracking-wider">
                       In Progress {inProgress.length}
                     </span>
                   </div>
                   {inProgress.map((s) => (
                     <button
-                      key={s.id}
-                      onClick={() => handleSessionClick(s.id)}
-                      className={`w-full text-left px-4 py-3 transition-all border-l-2 ${
+                      className={`w-full border-l-2 px-4 py-3 text-left transition-all ${
                         s.id === activeId
                           ? "border-l-primary bg-primary/5"
                           : "border-l-transparent hover:bg-muted/30"
                       }`}
+                      key={s.id}
+                      onClick={() => handleSessionClick(s.id)}
                     >
                       <div className="flex items-center gap-2">
                         <span
@@ -1587,32 +1590,32 @@ export function Hero() {
                           {s.icon}
                         </span>
                         <span
-                          className={`text-[11px] truncate ${s.id === activeId ? "text-foreground font-medium" : "text-foreground/60"}`}
+                          className={`truncate text-[11px] ${s.id === activeId ? "font-medium text-foreground" : "text-foreground/60"}`}
                         >
                           {s.name}
                         </span>
                       </div>
-                      <p className="text-[9px] text-muted-foreground truncate mt-1 pl-[22px]">
+                      <p className="mt-1 truncate pl-[22px] text-[9px] text-muted-foreground">
                         {s.statusLabel}
                       </p>
                     </button>
                   ))}
 
                   {/* Ready for review */}
-                  <div className="px-4 py-3 border-t border-b border-border/50">
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                  <div className="border-border/50 border-t border-b px-4 py-3">
+                    <span className="font-semibold text-[10px] text-muted-foreground uppercase tracking-wider">
                       Review {readyForReview.length}
                     </span>
                   </div>
                   {readyForReview.map((s) => (
                     <button
-                      key={s.id}
-                      onClick={() => handleSessionClick(s.id)}
-                      className={`w-full text-left px-4 py-3 transition-all border-l-2 ${
+                      className={`w-full border-l-2 px-4 py-3 text-left transition-all ${
                         s.id === activeId
                           ? "border-l-primary bg-primary/5"
                           : "border-l-transparent hover:bg-muted/30"
                       }`}
+                      key={s.id}
+                      onClick={() => handleSessionClick(s.id)}
                     >
                       <div className="flex items-center gap-2">
                         <span
@@ -1625,12 +1628,12 @@ export function Hero() {
                           {s.icon}
                         </span>
                         <span
-                          className={`text-[11px] truncate ${s.id === activeId ? "text-foreground font-medium" : "text-foreground/60"}`}
+                          className={`truncate text-[11px] ${s.id === activeId ? "font-medium text-foreground" : "text-foreground/60"}`}
                         >
                           {s.name}
                         </span>
                       </div>
-                      <p className="text-[9px] text-muted-foreground truncate mt-1 pl-[22px]">
+                      <p className="mt-1 truncate pl-[22px] text-[9px] text-muted-foreground">
                         {s.statusLabel}
                       </p>
                     </button>
@@ -1640,16 +1643,16 @@ export function Hero() {
                 {/* Main demo content */}
                 <AnimatePresence mode="wait">
                   <m.div
-                    key={activeId}
-                    initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
+                    className="flex min-w-0 flex-1"
                     exit={{ opacity: 0 }}
+                    initial={{ opacity: 0 }}
+                    key={activeId}
                     transition={{ duration: 0.15 }}
-                    className="flex-1 flex min-w-0"
                   >
                     <DemoWindow
-                      session={active}
                       onStreamComplete={handleStreamComplete}
+                      session={active}
                     />
                   </m.div>
                 </AnimatePresence>
@@ -1660,14 +1663,14 @@ export function Hero() {
 
         {/* Tagline */}
         <m.p
-          initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
+          className="mt-24 text-center font-medium text-2xl text-muted-foreground"
+          initial={{ opacity: 0 }}
           transition={{ duration: 0.5, delay: 0.7 }}
-          className="text-center text-2xl font-medium text-muted-foreground mt-24"
         >
-          Built for <span className="text-primary font-semibold">thinkers</span>,{" "}
-          <span className="text-primary font-semibold">builders</span>, and{" "}
-          <span className="text-primary font-semibold">curious minds</span>.
+          Built for <span className="font-semibold text-primary">thinkers</span>
+          , <span className="font-semibold text-primary">builders</span>, and{" "}
+          <span className="font-semibold text-primary">curious minds</span>.
         </m.p>
       </section>
     </LazyMotion>

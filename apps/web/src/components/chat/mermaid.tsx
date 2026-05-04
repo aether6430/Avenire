@@ -1,11 +1,5 @@
 "use client";
 
-import type React from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { renderMermaidSVG } from "beautiful-mermaid";
-import {
-  Download, ArrowsOutSimple as Maximize2, ArrowsOutCardinal as Move, ArrowCounterClockwise as RotateCcw, MagnifyingGlassPlus as ZoomIn, MagnifyingGlassMinus as ZoomOut } from "@phosphor-icons/react"
-
 import { Button } from "@avenire/ui/components/button";
 import {
   Card,
@@ -13,20 +7,31 @@ import {
   CardHeader,
   CardTitle,
 } from "@avenire/ui/components/card";
+import {
+  Download,
+  ArrowsOutSimple as Maximize2,
+  ArrowsOutCardinal as Move,
+  ArrowCounterClockwise as RotateCcw,
+  MagnifyingGlassPlus as ZoomIn,
+  MagnifyingGlassMinus as ZoomOut,
+} from "@phosphor-icons/react";
+import { renderMermaidSVG } from "beautiful-mermaid";
+import type React from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-type MermaidDiagramProps = {
+interface MermaidDiagramProps {
   chart: string;
-  title?: string;
   className?: string;
   containerHeight?: number;
   containerWidth?: number;
-};
+  title?: string;
+}
 
-type ViewState = {
+interface ViewState {
   scale: number;
   translateX: number;
   translateY: number;
-};
+}
 
 const MIN_SCALE = 0.1;
 const MAX_SCALE = 5;
@@ -39,10 +44,7 @@ function stripUnsafeSvg(svg: string): string {
   return svg
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
     .replace(/<foreignObject\b[^>]*>[\s\S]*?<\/foreignObject>/gi, "")
-    .replace(
-      /\son[a-z0-9_-]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi,
-      ""
-    )
+    .replace(/\son[a-z0-9_-]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
     .replace(
       /\s(?:href|xlink:href)\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*'|javascript:[^\s>]+)/gi,
       ""
@@ -61,7 +63,9 @@ function sanitizeMermaidSvg(svg: string) {
       return stripUnsafeSvg(svg);
     }
 
-    root.querySelectorAll("script,foreignObject").forEach((node) => node.remove());
+    root
+      .querySelectorAll("script,foreignObject")
+      .forEach((node) => node.remove());
     root.querySelectorAll("*").forEach((node) => {
       const attributes = Array.from(node.attributes);
       for (const attribute of attributes) {
@@ -144,13 +148,19 @@ export function MermaidDiagram({
   };
 
   const fitToScreen = () => {
-    if (!containerRef.current || !chartRef.current) return;
+    if (!(containerRef.current && chartRef.current)) {
+      return;
+    }
     const svgEl = chartRef.current.querySelector("svg");
-    if (!svgEl) return;
+    if (!svgEl) {
+      return;
+    }
 
     const containerRect = containerRef.current.getBoundingClientRect();
     const svgRect = svgEl.getBoundingClientRect();
-    if (!svgRect.width || !svgRect.height) return;
+    if (!(svgRect.width && svgRect.height)) {
+      return;
+    }
 
     const scaleX = (containerRect.width - 40) / svgRect.width;
     const scaleY = (containerRect.height - 40) / svgRect.height;
@@ -164,19 +174,25 @@ export function MermaidDiagram({
   };
 
   useEffect(() => {
-    if (!svg || error) return;
+    if (!svg || error) {
+      return;
+    }
     const timer = window.setTimeout(() => fitToScreen(), 50);
     return () => window.clearTimeout(timer);
   }, [svg, error]);
 
   const handleZoomIn = () => {
-    if (!containerRef.current) return;
+    if (!containerRef.current) {
+      return;
+    }
     const rect = containerRef.current.getBoundingClientRect();
     zoomAtPoint(viewState.scale * 1.2, rect.width / 2, rect.height / 2);
   };
 
   const handleZoomOut = () => {
-    if (!containerRef.current) return;
+    if (!containerRef.current) {
+      return;
+    }
     const rect = containerRef.current.getBoundingClientRect();
     zoomAtPoint(viewState.scale / 1.2, rect.width / 2, rect.height / 2);
   };
@@ -184,7 +200,9 @@ export function MermaidDiagram({
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!containerRef.current) return;
+    if (!containerRef.current) {
+      return;
+    }
 
     const rect = containerRef.current.getBoundingClientRect();
     const cursorX = e.clientX - rect.left;
@@ -203,7 +221,9 @@ export function MermaidDiagram({
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
+    if (!isDragging) {
+      return;
+    }
     e.preventDefault();
     setViewState((prev) => ({
       ...prev,
@@ -215,9 +235,13 @@ export function MermaidDiagram({
   const handleMouseUp = () => setIsDragging(false);
 
   const handleDownload = async () => {
-    if (!chartRef.current || isDownloading) return;
+    if (!chartRef.current || isDownloading) {
+      return;
+    }
     const svgEl = chartRef.current.querySelector("svg");
-    if (!svgEl) return;
+    if (!svgEl) {
+      return;
+    }
 
     setIsDownloading(true);
     try {
@@ -228,7 +252,9 @@ export function MermaidDiagram({
 
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
-      if (!ctx) return;
+      if (!ctx) {
+        return;
+      }
 
       const pixelRatio = 2;
       canvas.width = width * pixelRatio;
@@ -260,7 +286,9 @@ export function MermaidDiagram({
       const blob = await new Promise<Blob | null>((resolve) => {
         canvas.toBlob((result) => resolve(result), "image/png");
       });
-      if (!blob) return;
+      if (!blob) {
+        return;
+      }
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -284,99 +312,99 @@ export function MermaidDiagram({
       ) : null}
       <CardContent className="p-0">
         <div
+          className="relative select-none overflow-hidden bg-background"
+          onMouseDown={handleMouseDown}
+          onMouseLeave={handleMouseUp}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onWheel={handleWheel}
           ref={containerRef}
-          className="relative overflow-hidden bg-background select-none"
           style={{
             height: containerHeight,
             width: "100%",
             maxWidth: containerWidth,
             margin: "0 auto",
           }}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-          onWheel={handleWheel}
         >
           {error ? (
             <div className="absolute inset-0 flex items-center justify-center bg-background">
-              <div className="rounded-md border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+              <div className="rounded-md border border-destructive/20 bg-destructive/10 p-4 text-destructive text-sm">
                 {error}
               </div>
             </div>
           ) : null}
 
           <div
-            ref={chartRef}
             className={`mermaid-chart transition-transform ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
+            dangerouslySetInnerHTML={{ __html: svg ?? "" }}
+            ref={chartRef}
             style={{
               transform: `translate(${viewState.translateX}px, ${viewState.translateY}px) scale(${viewState.scale})`,
               transformOrigin: "0 0",
               transition: isDragging ? "none" : "transform 0.2s ease-out",
             }}
-            dangerouslySetInnerHTML={{ __html: svg ?? "" }}
           />
 
-          {!error ? (
+          {error ? null : (
             <>
-              <div className="absolute bottom-4 left-4 flex items-center gap-2 rounded-lg border bg-background/90 px-2 py-1 text-xs text-muted-foreground backdrop-blur-sm">
+              <div className="absolute bottom-4 left-4 flex items-center gap-2 rounded-lg border bg-background/90 px-2 py-1 text-muted-foreground text-xs backdrop-blur-sm">
                 <Move className="h-3 w-3" />
                 <span>Drag to pan • Scroll to zoom</span>
               </div>
 
-              <div className="absolute bottom-4 right-4 z-20 rounded-lg border bg-background/95 p-1 shadow-lg backdrop-blur-sm">
+              <div className="absolute right-4 bottom-4 z-20 rounded-lg border bg-background/95 p-1 shadow-lg backdrop-blur-sm">
                 <div className="grid grid-cols-3 gap-1">
                   <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleZoomIn}
                     className="h-8 w-8"
+                    onClick={handleZoomIn}
+                    size="icon"
+                    variant="ghost"
                   >
                     <ZoomIn className="h-3 w-3" />
                   </Button>
                   <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={fitToScreen}
                     className="h-8 w-8"
+                    onClick={fitToScreen}
+                    size="icon"
+                    variant="ghost"
                   >
                     <Maximize2 className="h-3 w-3" />
                   </Button>
                   <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleZoomOut}
                     className="h-8 w-8"
+                    onClick={handleZoomOut}
+                    size="icon"
+                    variant="ghost"
                   >
                     <ZoomOut className="h-3 w-3" />
                   </Button>
 
-                  <div className="flex h-8 w-8 items-center justify-center text-[10px] font-medium text-muted-foreground">
+                  <div className="flex h-8 w-8 items-center justify-center font-medium text-[10px] text-muted-foreground">
                     {Math.round(viewState.scale * 100)}%
                   </div>
                   <Button
-                    variant="ghost"
-                    size="icon"
+                    className="h-8 w-8"
                     onClick={() =>
                       setViewState({ scale: 1, translateX: 0, translateY: 0 })
                     }
-                    className="h-8 w-8"
+                    size="icon"
+                    variant="ghost"
                   >
                     <RotateCcw className="h-3 w-3" />
                   </Button>
                   <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleDownload}
-                    disabled={isDownloading}
                     className="h-8 w-8"
+                    disabled={isDownloading}
+                    onClick={handleDownload}
+                    size="icon"
+                    variant="ghost"
                   >
                     <Download className="h-3 w-3" />
                   </Button>
                 </div>
               </div>
             </>
-          ) : null}
+          )}
         </div>
       </CardContent>
     </Card>

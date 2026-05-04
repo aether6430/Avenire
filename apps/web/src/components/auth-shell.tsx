@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, useContext, useRef, type MutableRefObject, type ReactNode } from "react";
+import {
+  createContext,
+  type MutableRefObject,
+  type ReactNode,
+  useContext,
+  useRef,
+} from "react";
 import { ParticleField } from "@/components/ui/particle-field";
 
 const TypingImpulseContext = createContext<MutableRefObject<number> | null>(
@@ -32,7 +38,7 @@ export function AuthShell({
     <TypingImpulseContext.Provider value={typingImpulse}>
       <main className="min-h-svh bg-background text-foreground">
         <div className="mx-auto flex min-h-svh w-full max-w-[1320px]">
-          <section className="relative hidden min-h-svh w-[48%] overflow-hidden border-r border-border/60 md:block lg:w-1/2">
+          <section className="relative hidden min-h-svh w-[48%] overflow-hidden border-border/60 border-r md:block lg:w-1/2">
             <ParticleField
               align="center"
               className="absolute inset-0"
@@ -55,13 +61,13 @@ export function AuthShell({
               }}
             />
             <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-8 lg:p-12">
-              <div className="font-mono text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
+              <div className="font-mono text-[11px] text-muted-foreground uppercase tracking-[0.3em]">
                 Avenire
               </div>
               <div className="max-w-md">
                 {variant === "onboarding" ? (
                   <>
-                    <div className="font-mono text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
+                    <div className="font-mono text-[11px] text-muted-foreground uppercase tracking-[0.3em]">
                       A source-first workflow
                     </div>
                     <p className="mt-3 text-xl leading-snug md:text-2xl">
@@ -71,7 +77,7 @@ export function AuthShell({
                   </>
                 ) : (
                   <>
-                    <div className="font-mono text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
+                    <div className="font-mono text-[11px] text-muted-foreground uppercase tracking-[0.3em]">
                       A quieter internet
                     </div>
                     <p className="mt-3 text-xl leading-snug md:text-2xl">
@@ -83,7 +89,7 @@ export function AuthShell({
             </div>
           </section>
           <section className="relative flex min-h-svh w-full items-center justify-center px-4 py-8 sm:px-6 md:w-[52%] md:px-10 lg:w-1/2">
-            <div className="absolute top-5 left-5 font-mono text-[11px] uppercase tracking-[0.3em] text-muted-foreground md:hidden">
+            <div className="absolute top-5 left-5 font-mono text-[11px] text-muted-foreground uppercase tracking-[0.3em] md:hidden">
               Avenire
             </div>
             <div className="w-full max-w-xl pt-8 md:pt-0">{children}</div>

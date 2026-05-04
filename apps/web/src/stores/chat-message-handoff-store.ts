@@ -1,7 +1,7 @@
 "use client";
 
-import { create } from "zustand";
 import type { UIMessage } from "@avenire/ai/message-types";
+import { create } from "zustand";
 
 interface ChatMessageHandoffState {
   messagesByChatId: Record<string, UIMessage[]>;
@@ -11,9 +11,11 @@ const INITIAL_STATE: ChatMessageHandoffState = {
   messagesByChatId: {},
 };
 
-export const useChatMessageHandoffStore = create<ChatMessageHandoffState>()(() => ({
-  ...INITIAL_STATE,
-}));
+export const useChatMessageHandoffStore = create<ChatMessageHandoffState>()(
+  () => ({
+    ...INITIAL_STATE,
+  })
+);
 
 export const chatMessageHandoffActions = {
   consume(chatId: string) {

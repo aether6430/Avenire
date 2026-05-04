@@ -4,7 +4,11 @@ import {
 } from "@avenire/database";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { listWorkspaceFolders, listWorkspacesForUser, userCanEditFolder } from "@/lib/file-data";
+import {
+  listWorkspaceFolders,
+  listWorkspacesForUser,
+  userCanEditFolder,
+} from "@/lib/file-data";
 import { getSessionUser } from "@/lib/workspace";
 
 const createPresetSchema = z.object({
@@ -35,7 +39,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const parsed = createPresetSchema.safeParse(await request.json().catch(() => ({})));
+  const parsed = createPresetSchema.safeParse(
+    await request.json().catch(() => ({}))
+  );
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }

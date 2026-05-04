@@ -28,18 +28,19 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@avenire/ui/components/sidebar";
 import { Textarea } from "@avenire/ui/components/textarea";
 import {
   BookOpenText as BookOpenCheck,
-  ChatCenteredText as MessageSquareDashed,
   MagnifyingGlass,
+  ChatCenteredText as MessageSquareDashed,
   PlusCircle,
 } from "@phosphor-icons/react";
 import type { Route } from "next";
 import {
-  startTransition,
   type MouseEvent,
+  startTransition,
   useCallback,
   useEffect,
   useMemo,
@@ -57,7 +58,6 @@ import {
   useWorkspaceSurfaceNavigation,
 } from "@/lib/workspace-panes";
 import { commandPaletteActions } from "@/stores/commandPaletteStore";
-import { useSidebar } from "@avenire/ui/components/sidebar";
 
 export function FlashcardsSidebarPanel({
   active,
@@ -336,18 +336,18 @@ export function FlashcardsSidebarPanel({
                     : ("/workspace/flashcards" as Route);
                   handlePaneIntent(event, href);
                 }}
+                onDragStart={(event) => {
+                  const href = reviewTarget
+                    ? (`/workspace/flashcards/${reviewTarget.id}` as Route)
+                    : ("/workspace/flashcards" as Route);
+                  setWorkspacePaneDragData(event.dataTransfer, href);
+                }}
                 onFocus={() => {
                   if (reviewTarget) {
                     prefetchFlashcardSet(reviewTarget.id).catch(
                       () => undefined
                     );
                   }
-                }}
-                onDragStart={(event) => {
-                  const href = reviewTarget
-                    ? (`/workspace/flashcards/${reviewTarget.id}` as Route)
-                    : ("/workspace/flashcards" as Route);
-                  setWorkspacePaneDragData(event.dataTransfer, href);
                 }}
                 onMouseEnter={() => {
                   if (reviewTarget) {
@@ -408,7 +408,7 @@ export function FlashcardsSidebarPanel({
         </div>
         <SidebarGroupContent>
           <Input
-            className="mb-2 h-8 hidden"
+            className="mb-2 hidden h-8"
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder="Search sets..."
             value={searchQuery}
@@ -451,17 +451,17 @@ export function FlashcardsSidebarPanel({
                         `/workspace/flashcards/${set.id}` as Route
                       );
                     }}
-                    onFocus={() => {
-                      prefetchFlashcardSet(set.id).catch(() => undefined);
-                    }}
-                    onMouseEnter={() => {
-                      prefetchFlashcardSet(set.id).catch(() => undefined);
-                    }}
                     onDragStart={(event) => {
                       setWorkspacePaneDragData(
                         event.dataTransfer,
                         `/workspace/flashcards/${set.id}` as Route
                       );
+                    }}
+                    onFocus={() => {
+                      prefetchFlashcardSet(set.id).catch(() => undefined);
+                    }}
+                    onMouseEnter={() => {
+                      prefetchFlashcardSet(set.id).catch(() => undefined);
                     }}
                   >
                     <SparklineChip due={set.dueCount} newCount={set.newCount} />

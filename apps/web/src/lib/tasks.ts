@@ -1,10 +1,15 @@
-import type { TaskPriority, TaskRecord, TaskStatus } from "@avenire/database/task-data";
+import type {
+  TaskPriority,
+  TaskRecord,
+  TaskStatus,
+} from "@avenire/database/task-data";
 
 export type WorkspaceTask = TaskRecord;
 export type WorkspaceTaskStatus = TaskStatus;
 export type WorkspaceTaskPriority = TaskPriority;
 export type WorkspaceTaskResourceLink = WorkspaceTask["resources"][number];
-export type WorkspaceTaskResourceType = WorkspaceTaskResourceLink["resourceType"];
+export type WorkspaceTaskResourceType =
+  WorkspaceTaskResourceLink["resourceType"];
 
 export interface WorkspaceMemberOption {
   avatar?: string | null;
@@ -77,7 +82,6 @@ export function getTaskResourceTypeLabel(
       return "Method";
     case "folder":
       return "Folder";
-    case "file":
     default:
       return "File";
   }

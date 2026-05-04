@@ -94,9 +94,11 @@ function normalizeStringArray(value: unknown) {
   );
 }
 
-export function normalizePropertyValue(value: unknown): FilePropertyValue | null {
+export function normalizePropertyValue(
+  value: unknown
+): FilePropertyValue | null {
   const record = asRecord(value);
-  if (!record || !isFilePropertyType(record.type)) {
+  if (!(record && isFilePropertyType(record.type))) {
     return null;
   }
 
@@ -106,7 +108,10 @@ export function normalizePropertyValue(value: unknown): FilePropertyValue | null
     case "date":
       return { type: "date", value: normalizeString(record.value) };
     case "multi_select":
-      return { type: "multi_select", value: normalizeStringArray(record.value) };
+      return {
+        type: "multi_select",
+        value: normalizeStringArray(record.value),
+      };
     case "number":
       return { type: "number", value: normalizeNumber(record.value) };
     case "select":
@@ -134,8 +139,8 @@ export function normalizeFrontmatterProperties(
 
       return [normalizedKey, normalizedProperty] as const;
     })
-    .filter(
-      (entry): entry is readonly [string, FilePropertyValue] => Boolean(entry)
+    .filter((entry): entry is readonly [string, FilePropertyValue] =>
+      Boolean(entry)
     );
 
   return Object.fromEntries(entries);
@@ -172,9 +177,7 @@ export function normalizePropertyDefinitions(
 
   return value
     .map((entry) => normalizePropertyDefinition(entry))
-    .filter(
-      (entry): entry is WorkspacePropertyDefinition => Boolean(entry)
-    )
+    .filter((entry): entry is WorkspacePropertyDefinition => Boolean(entry))
     .sort((left, right) => left.key.localeCompare(right.key));
 }
 

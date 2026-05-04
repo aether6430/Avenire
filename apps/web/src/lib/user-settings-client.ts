@@ -1,11 +1,20 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
+import {
+  DEFAULT_PET_ACCESSORY,
+  DEFAULT_PET_NAME,
+  normalizePetAccessory,
+  normalizePetName,
+  type PetAccessory,
+} from "@/lib/pet-preferences";
 
 export interface UserSettingsPreferences {
-  emailReceipts: boolean;
   completedTasksAtTop: boolean;
+  emailReceipts: boolean;
   onboardingCompleted: boolean;
+  petAccessory: PetAccessory;
+  petName: string;
 }
 
 interface UserSettingsSnapshot {
@@ -17,6 +26,8 @@ const DEFAULT_USER_SETTINGS: UserSettingsPreferences = {
   emailReceipts: true,
   completedTasksAtTop: true,
   onboardingCompleted: false,
+  petName: DEFAULT_PET_NAME,
+  petAccessory: DEFAULT_PET_ACCESSORY,
 };
 
 const USER_SETTINGS_UPDATED_EVENT = "avenire:user-settings-updated";
@@ -40,12 +51,16 @@ function normalizeUserSettings(
   settings: Partial<UserSettingsPreferences> | null | undefined
 ): UserSettingsPreferences {
   return {
-    emailReceipts: settings?.emailReceipts ?? DEFAULT_USER_SETTINGS.emailReceipts,
+    emailReceipts:
+      settings?.emailReceipts ?? DEFAULT_USER_SETTINGS.emailReceipts,
     completedTasksAtTop:
-      settings?.completedTasksAtTop ?? DEFAULT_USER_SETTINGS.completedTasksAtTop,
+      settings?.completedTasksAtTop ??
+      DEFAULT_USER_SETTINGS.completedTasksAtTop,
     onboardingCompleted:
       settings?.onboardingCompleted ??
       DEFAULT_USER_SETTINGS.onboardingCompleted,
+    petName: normalizePetName(settings?.petName),
+    petAccessory: normalizePetAccessory(settings?.petAccessory),
   };
 }
 

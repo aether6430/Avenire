@@ -1,7 +1,7 @@
 import { createClient } from "redis";
 
 const DEFAULT_CONNECT_TIMEOUT_MS = 10_000;
-const DEFAULT_RECONNECT_DELAY_MS = 1_000;
+const DEFAULT_RECONNECT_DELAY_MS = 1000;
 
 export function isExpectedRedisConnectionError(error: unknown) {
   return (

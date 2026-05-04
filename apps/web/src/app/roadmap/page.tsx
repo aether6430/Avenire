@@ -1,14 +1,14 @@
-import { getRoadmapGroups } from "@/lib/roadmap";
-import type { RoadmapGroup, RoadmapItem } from "@/lib/roadmap";
-import { Navbar } from "@/components/landing/Navbar";
-import { Footer } from "@/components/landing/Footer";
 import {
   CheckCircle as CheckCircle2,
   Circle,
-  SpinnerGap as Loader2,
   ArrowSquareOut as ExternalLink,
+  SpinnerGap as Loader2,
 } from "@phosphor-icons/react/ssr";
+import { Footer } from "@/components/landing/Footer";
+import { Navbar } from "@/components/landing/Navbar";
 import { buildPageMetadata } from "@/lib/page-metadata";
+import type { RoadmapGroup, RoadmapItem } from "@/lib/roadmap";
+import { getRoadmapGroups } from "@/lib/roadmap";
 
 export const metadata = buildPageMetadata({
   description:
@@ -53,7 +53,7 @@ function RoadmapCard({ item }: { item: RoadmapItem }) {
 
   return (
     <article
-      className={`group rounded-xl border ${cfg.borderColor} bg-card p-5 transition-all duration-200 hover:shadow-md hover:shadow-black/10 hover:-translate-y-0.5`}
+      className={`group rounded-xl border ${cfg.borderColor} bg-card p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-black/10 hover:shadow-md`}
     >
       <div className="flex items-start gap-3">
         <div className={`mt-0.5 shrink-0 ${cfg.color}`}>
@@ -62,31 +62,31 @@ function RoadmapCard({ item }: { item: RoadmapItem }) {
           />
         </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2 mb-1.5">
-            <h3 className="text-sm font-medium text-foreground leading-snug">
+        <div className="min-w-0 flex-1">
+          <div className="mb-1.5 flex items-start justify-between gap-2">
+            <h3 className="font-medium text-foreground text-sm leading-snug">
               {item.title}
             </h3>
             {item.link && (
               <a
-                href={item.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
                 aria-label={`Learn more about ${item.title}`}
+                className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+                href={item.link}
+                rel="noopener noreferrer"
+                target="_blank"
               >
                 <ExternalLink className="size-3.5" />
               </a>
             )}
           </div>
 
-          <p className="text-xs text-muted-foreground leading-relaxed">
+          <p className="text-muted-foreground text-xs leading-relaxed">
             {item.description}
           </p>
 
           {item.category && (
             <div className="mt-3">
-              <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
+              <span className="rounded-full bg-muted px-2 py-0.5 font-medium text-muted-foreground text-xs">
                 {item.category}
               </span>
             </div>
@@ -103,11 +103,11 @@ function RoadmapColumn({ group }: { group: RoadmapGroup }) {
   return (
     <div className="flex flex-col gap-4">
       {/* Column header */}
-      <div className="flex items-center gap-2.5 pb-4 border-b border-border">
+      <div className="flex items-center gap-2.5 border-border border-b pb-4">
         <div className={`size-2 rounded-full ${cfg.dotColor}`} />
-        <h2 className="text-sm font-semibold text-foreground">{group.label}</h2>
+        <h2 className="font-semibold text-foreground text-sm">{group.label}</h2>
         <span
-          className={`ml-auto text-xs font-medium px-2 py-0.5 rounded-full ${cfg.badgeBg} ${cfg.badgeText}`}
+          className={`ml-auto rounded-full px-2 py-0.5 font-medium text-xs ${cfg.badgeBg} ${cfg.badgeText}`}
         >
           {group.items.length}
         </span>
@@ -119,10 +119,10 @@ function RoadmapColumn({ group }: { group: RoadmapGroup }) {
         style={{ maxHeight: "calc(4 * 88px + 3 * 12px)" }}
       >
         {group.items.map((item) => (
-          <RoadmapCard key={item.id} item={item} />
+          <RoadmapCard item={item} key={item.id} />
         ))}
         {group.items.length === 0 && (
-          <p className="text-xs text-muted-foreground/50 text-center py-6">
+          <p className="py-6 text-center text-muted-foreground/50 text-xs">
             Nothing here yet.
           </p>
         )}
@@ -139,19 +139,19 @@ export default function RoadmapPage() {
       <Navbar />
 
       {/* Hero */}
-      <section className="pt-32 pb-16 px-4">
-        <div className="max-w-6xl mx-auto">
+      <section className="px-4 pt-32 pb-16">
+        <div className="mx-auto max-w-6xl">
           <div className="mb-2">
-            <span className="text-xs font-medium tracking-widest uppercase text-primary">
+            <span className="font-medium text-primary text-xs uppercase tracking-widest">
               Roadmap
             </span>
           </div>
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
+          <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div>
-              <h1 className="text-4xl md:text-5xl font-semibold text-foreground tracking-tight mb-4">
+              <h1 className="mb-4 font-semibold text-4xl text-foreground tracking-tight md:text-5xl">
                 What &apos;s Coming Next
               </h1>
-              <p className="text-lg text-muted-foreground max-w-xl leading-relaxed">
+              <p className="max-w-xl text-lg text-muted-foreground leading-relaxed">
                 A transparent look at what we&apos;re building. We update this
                 as our plans evolve.
               </p>
@@ -162,10 +162,10 @@ export default function RoadmapPage() {
 
       {/* Roadmap columns */}
       <section className="px-4 pb-24">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="mx-auto max-w-6xl">
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
             {groups.map((group) => (
-              <RoadmapColumn key={group.status} group={group} />
+              <RoadmapColumn group={group} key={group.status} />
             ))}
           </div>
         </div>

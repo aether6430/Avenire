@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   typedRoutes: true,
   serverExternalPackages: [
     "@ai-sdk/baseten",
-    "@basetenlabs/performance-client"
+    "@basetenlabs/performance-client",
   ],
   transpilePackages: [
     "@avenire/ui",
@@ -14,12 +14,12 @@ const nextConfig: NextConfig = {
     "@avenire/payments",
     "@avenire/database",
     "@avenire/emailer",
-    "@avenire/ingestion"
+    "@avenire/ingestion",
   ],
   productionBrowserSourceMaps: true,
-  typescript:{
-    ignoreBuildErrors: true
-  }
+  typescript: {
+    ignoreBuildErrors: true,
+  },
 };
 
 export default nextConfig;

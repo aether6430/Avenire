@@ -21,10 +21,7 @@ export function ParticleFormFrame({
 
   return (
     <div
-      className={cn(
-        "w-full",
-        className
-      )}
+      className={cn("w-full", className)}
       onKeyDownCapture={(event) => {
         bumpParticleTypingImpulse(typingImpulse, event);
       }}
@@ -34,7 +31,7 @@ export function ParticleFormFrame({
     >
       {children}
       {footer ? (
-        <div className="px-5 pt-4 text-center text-xs text-muted-foreground sm:px-6">
+        <div className="px-5 pt-4 text-center text-muted-foreground text-xs sm:px-6">
           {footer}
         </div>
       ) : null}

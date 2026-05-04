@@ -1,4 +1,9 @@
-import { createHash, createHmac, randomInt, timingSafeEqual } from "node:crypto";
+import {
+  createHash,
+  createHmac,
+  randomInt,
+  timingSafeEqual,
+} from "node:crypto";
 import {
   createSudoChallenge as createSudoChallengeRecord,
   invalidateSudoChallenge,
@@ -135,13 +140,16 @@ export function validateSudoCookie(input: {
   return true;
 }
 
-export function getSudoCookieExpiresAt(input: { userId: string; cookieValue?: string | null }) {
+export function getSudoCookieExpiresAt(input: {
+  userId: string;
+  cookieValue?: string | null;
+}) {
   if (!input.cookieValue) {
     return null;
   }
 
   const [encodedPayload, signature] = input.cookieValue.split(".");
-  if (!encodedPayload || !signature) {
+  if (!(encodedPayload && signature)) {
     return null;
   }
 

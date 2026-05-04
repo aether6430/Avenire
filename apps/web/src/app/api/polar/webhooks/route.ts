@@ -1,5 +1,5 @@
 import { handlePolarWebhook } from "@avenire/payments";
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { applyPolarWebhookEvent } from "@/lib/billing";
 import { createApiLogger } from "@/lib/observability";
 
@@ -31,12 +31,15 @@ export async function POST(request: NextRequest) {
           ok: false,
           error: "Webhook secret not configured",
         },
-        { status: 503 },
+        { status: 503 }
       );
     }
 
     const payload = await request.text();
-    const event = await handlePolarWebhook(payload, request.headers.get("polar-signature"));
+    const event = await handlePolarWebhook(
+      payload,
+      request.headers.get("polar-signature")
+    );
     if (!event) {
       console.error("[api/polar/webhooks] signature verification failed", {
         requestId,
@@ -47,7 +50,7 @@ export async function POST(request: NextRequest) {
           ok: false,
           error: "Invalid webhook signature",
         },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -62,7 +65,9 @@ export async function POST(request: NextRequest) {
     void apiLogger.featureUsed("payments.webhook", {
       eventType: (event as { type?: string }).type ?? null,
     });
-    await applyPolarWebhookEvent(event as { type: string; data?: Record<string, unknown> });
+    await applyPolarWebhookEvent(
+      event as { type: string; data?: Record<string, unknown> }
+    );
     void apiLogger.requestSucceeded(200);
     return NextResponse.json({ ok: true });
   } catch (error) {

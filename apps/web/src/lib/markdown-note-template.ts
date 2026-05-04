@@ -26,7 +26,7 @@ function formatDateToken(date: Date, format: string) {
     weekday: date.getUTCDay(),
   };
 
-  const replacements: Array<[RegExp, string]> = [
+  const replacements: [RegExp, string][] = [
     [/YYYY/g, String(utc.year)],
     [/YY/g, String(utc.year).slice(-2)],
     [

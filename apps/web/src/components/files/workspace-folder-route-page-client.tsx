@@ -1,7 +1,7 @@
 "use client";
 
-import { FileExplorer } from "@/components/files/explorer";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
+import { FileExplorer } from "@/components/files/explorer";
 import { usePanePathname } from "@/lib/workspace-panes";
 
 export function WorkspaceFolderRoutePageClient({
@@ -12,7 +12,9 @@ export function WorkspaceFolderRoutePageClient({
   workspaceUuid?: string;
 }) {
   const pathname = usePanePathname();
-  const match = pathname.match(/^\/workspace\/files\/([^/]+)\/folder\/([^/?#]+)/);
+  const match = pathname.match(
+    /^\/workspace\/files\/([^/]+)\/folder\/([^/?#]+)/
+  );
   const folderUuid = folderUuidProp ?? match?.[2] ?? null;
   const workspaceUuid = workspaceUuidProp ?? match?.[1] ?? null;
 

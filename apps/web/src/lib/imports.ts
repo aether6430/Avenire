@@ -1,8 +1,6 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { Client as NotionClient } from "@notionhq/client";
-import { type PageObjectResponse } from "@notionhq/client/build/src/api-endpoints";
-import { NotionToMarkdown } from "notion-to-md";
+import { auth } from "@avenire/auth/server";
 import {
   createExtensionDestinationPreset,
   getExtensionDestinationPreset,
@@ -13,23 +11,22 @@ import {
   listWorkspacesForUser,
   updateExtensionDestinationPreset,
 } from "@avenire/database";
-import { auth } from "@avenire/auth/server";
 import { UTApi, UTFile } from "@avenire/storage";
+import { Client as NotionClient } from "@notionhq/client";
+import type { PageObjectResponse } from "@notionhq/client/build/src/api-endpoints";
+import { NotionToMarkdown } from "notion-to-md";
 import { z } from "zod";
-import {
-  createWorkspaceNoteFile,
-  userCanEditFolder,
-} from "@/lib/file-data";
+import { createWorkspaceNoteFile, userCanEditFolder } from "@/lib/file-data";
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
+import {
+  DATA_IMPORT_PRESET_LABEL,
+  GOOGLE_DRIVE_READONLY_SCOPE,
+  GOOGLE_IMPORT_SCOPES,
+} from "@/lib/imports-shared";
 import {
   deleteUploadThingFile,
   registerWorkspaceUploadedFile,
 } from "@/lib/upload-registration";
-import {
-  DATA_IMPORT_PRESET_LABEL,
-  GOOGLE_IMPORT_SCOPES,
-  GOOGLE_DRIVE_READONLY_SCOPE,
-} from "@/lib/imports-shared";
 
 const notionImportSchema = z.object({
   pageIds: z.array(z.string().min(1)).min(1).max(50),
@@ -39,7 +36,7 @@ const googleDriveImportSchema = z.object({
   fileIds: z.array(z.string().min(1)).min(1).max(50),
 });
 
-type AuthAccountRecord = {
+interface AuthAccountRecord {
   accessToken: string | null;
   accessTokenExpiresAt: Date | null;
   accountId: string;
@@ -49,9 +46,9 @@ type AuthAccountRecord = {
   refreshToken: string | null;
   scope: string | null;
   updatedAt: Date;
-};
+}
 
-type ImportDestinationRecord = {
+interface ImportDestinationRecord {
   createdAt: string;
   folderId: string;
   folderName: string;
@@ -61,9 +58,9 @@ type ImportDestinationRecord = {
   updatedAt: string;
   workspaceId: string;
   workspaceName: string;
-};
+}
 
-type ImportProviderStatus = {
+interface ImportProviderStatus {
   accountId: string | null;
   configured: boolean;
   connected: boolean;
@@ -71,40 +68,40 @@ type ImportProviderStatus = {
   hasUsableAccessToken: boolean;
   ready: boolean;
   scopes: string[];
-};
+}
 
-type ImportFileSummary = {
+interface ImportFileSummary {
   fileId: string;
   ingestionJobId: string | null;
   name: string;
-};
+}
 
-type NotionSearchPage = {
+interface NotionSearchPage {
   id: string;
   lastEditedTime: string;
   title: string;
   url: string | null;
-};
+}
 
-type DriveFileDescriptor = {
+interface DriveFileDescriptor {
   downloadMimeType: string | null;
   fileId: string;
   metadata: Record<string, unknown>;
   name: string;
   sourceMimeType: string | null;
   url: string;
-};
+}
 
-type DriveFileMetadata = {
+interface DriveFileMetadata {
   id: string;
   mimeType?: string;
   modifiedTime?: string;
   name?: string;
   webViewLink?: string;
-};
+}
 
 function isFullNotionPage(
-  value: PageObjectResponse | { object: string },
+  value: PageObjectResponse | { object: string }
 ): value is PageObjectResponse {
   return (
     value.object === "page" &&
@@ -206,7 +203,7 @@ function serializeDestination(
     updatedAt: Date;
     workspaceId: string;
     workspaceName: string;
-  } | null,
+  } | null
 ): ImportDestinationRecord | null {
   if (!preset) {
     return null;
@@ -236,7 +233,7 @@ function serializeAuthAccountRecord(account: AuthAccountRecord) {
 
 async function getLatestImportAccount(
   userId: string,
-  providerId: "google" | "notion",
+  providerId: "google" | "notion"
 ) {
   const record = await getLatestAuthAccountForUser({
     providerId,
@@ -248,7 +245,7 @@ async function getLatestImportAccount(
 
 async function getImportProviderStatus(
   userId: string,
-  providerId: "google" | "notion",
+  providerId: "google" | "notion"
 ): Promise<ImportProviderStatus> {
   const account = await getLatestImportAccount(userId, providerId);
   const scopes = parseScopeList(account?.scope);
@@ -256,15 +253,14 @@ async function getImportProviderStatus(
     providerId === "google"
       ? Boolean(
           process.env.AUTH_GOOGLE_ID?.trim() &&
-            process.env.AUTH_GOOGLE_SECRET?.trim(),
+            process.env.AUTH_GOOGLE_SECRET?.trim()
         )
       : Boolean(
           process.env.AUTH_NOTION_ID?.trim() &&
-            process.env.AUTH_NOTION_SECRET?.trim(),
+            process.env.AUTH_NOTION_SECRET?.trim()
         );
 
-  const requiredScopes =
-    providerId === "google" ? GOOGLE_IMPORT_SCOPES : [];
+  const requiredScopes = providerId === "google" ? GOOGLE_IMPORT_SCOPES : [];
   const hasRequiredProviderScopes =
     requiredScopes.length === 0 || hasScopes(scopes, requiredScopes);
 
@@ -285,7 +281,7 @@ async function getImportProviderStatus(
 
 async function getProviderAccessToken(
   userId: string,
-  providerId: "google" | "notion",
+  providerId: "google" | "notion"
 ) {
   const status = await getImportProviderStatus(userId, providerId);
   if (!status.configured) {
@@ -297,7 +293,10 @@ async function getProviderAccessToken(
   if (!(status.hasRefreshToken || status.hasUsableAccessToken)) {
     throw new Error(`${providerId} account must be reconnected.`);
   }
-  if (providerId === "google" && !hasScopes(status.scopes, GOOGLE_IMPORT_SCOPES)) {
+  if (
+    providerId === "google" &&
+    !hasScopes(status.scopes, GOOGLE_IMPORT_SCOPES)
+  ) {
     throw new Error("Google account is missing Drive import scopes.");
   }
 
@@ -310,12 +309,16 @@ async function getProviderAccessToken(
     | undefined;
 
   try {
-    response = await (auth.api.getAccessToken as (input: {
-      body: { providerId: string; userId: string };
-    }) => Promise<{
-      accessToken?: string;
-      scopes?: string[];
-    }> | undefined)?.({
+    response = await (
+      auth.api.getAccessToken as (input: {
+        body: { providerId: string; userId: string };
+      }) =>
+        | Promise<{
+            accessToken?: string;
+            scopes?: string[];
+          }>
+        | undefined
+    )?.({
       body: {
         providerId,
         userId,
@@ -393,14 +396,14 @@ export async function getImportProviderDebugSnapshot(userId: string) {
   return {
     google: {
       accounts: googleAccounts.map((account) =>
-        serializeAuthAccountRecord(account as AuthAccountRecord),
+        serializeAuthAccountRecord(account as AuthAccountRecord)
       ),
       status: googleStatus,
       tokenCheck: googleTokenCheck,
     },
     notion: {
       accounts: notionAccounts.map((account) =>
-        serializeAuthAccountRecord(account as AuthAccountRecord),
+        serializeAuthAccountRecord(account as AuthAccountRecord)
       ),
       status: notionStatus,
       tokenCheck: notionTokenCheck,
@@ -414,7 +417,7 @@ export async function listImportDestinationFolders(input: {
 }) {
   const workspaceSummaries = await listWorkspacesForUser(input.userId);
   const workspace = workspaceSummaries.find(
-    (entry) => entry.workspaceId === input.workspaceId,
+    (entry) => entry.workspaceId === input.workspaceId
   );
 
   if (!workspace) {
@@ -447,7 +450,7 @@ export async function saveDataImportDestination(input: {
 }) {
   const workspaceSummaries = await listWorkspacesForUser(input.userId);
   const workspace = workspaceSummaries.find(
-    (entry) => entry.workspaceId === input.workspaceId,
+    (entry) => entry.workspaceId === input.workspaceId
   );
   if (!workspace) {
     throw new Error("Workspace not found.");
@@ -543,7 +546,7 @@ function getNotionPageTitle(page: PageObjectResponse) {
 
 async function listNotionChildPages(
   notionClient: NotionClient,
-  parentPageId: string,
+  parentPageId: string
 ) {
   const childPageIds = new Set<string>();
   let cursor: string | undefined;
@@ -561,7 +564,9 @@ async function listNotionChildPages(
       }
     }
 
-    cursor = response.has_more ? response.next_cursor ?? undefined : undefined;
+    cursor = response.has_more
+      ? (response.next_cursor ?? undefined)
+      : undefined;
   } while (cursor);
 
   return Array.from(childPageIds);
@@ -630,7 +635,9 @@ export async function listImportableNotionPages(userId: string) {
       });
     }
 
-    cursor = response.has_more ? response.next_cursor ?? undefined : undefined;
+    cursor = response.has_more
+      ? (response.next_cursor ?? undefined)
+      : undefined;
   } while (cursor && pages.length < 200);
 
   return pages;
@@ -712,7 +719,9 @@ export async function importNotionPages(input: {
   };
 }
 
-function getGoogleExportDescriptor(file: DriveFileMetadata): DriveFileDescriptor {
+function getGoogleExportDescriptor(
+  file: DriveFileMetadata
+): DriveFileDescriptor {
   const sourceMimeType = file.mimeType?.trim() ?? null;
   const baseName = file.name?.trim() || "Untitled";
   const metadata = {
@@ -733,7 +742,7 @@ function getGoogleExportDescriptor(file: DriveFileMetadata): DriveFileDescriptor
       name: appendExtension(baseName, ".docx"),
       sourceMimeType,
       url: `https://www.googleapis.com/drive/v3/files/${file.id}/export?mimeType=${encodeURIComponent(
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
       )}`,
     };
   }
@@ -746,7 +755,7 @@ function getGoogleExportDescriptor(file: DriveFileMetadata): DriveFileDescriptor
       name: appendExtension(baseName, ".pdf"),
       sourceMimeType,
       url: `https://www.googleapis.com/drive/v3/files/${file.id}/export?mimeType=${encodeURIComponent(
-        "application/pdf",
+        "application/pdf"
       )}`,
     };
   }
@@ -761,10 +770,7 @@ function getGoogleExportDescriptor(file: DriveFileMetadata): DriveFileDescriptor
   };
 }
 
-async function fetchGoogleDriveFile(
-  accessToken: string,
-  fileId: string,
-) {
+async function fetchGoogleDriveFile(accessToken: string, fileId: string) {
   const metadataResponse = await fetch(
     `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,name,mimeType,modifiedTime,webViewLink`,
     {
@@ -772,7 +778,7 @@ async function fetchGoogleDriveFile(
         Authorization: `Bearer ${accessToken}`,
       },
       cache: "no-store",
-    },
+    }
   );
 
   if (!metadataResponse.ok) {
@@ -814,18 +820,18 @@ async function uploadImportedBuffer(input: {
   const utapi = new UTApi({ token: uploadThingToken });
   const fileBuffer = input.bytes.buffer.slice(
     input.bytes.byteOffset,
-    input.bytes.byteOffset + input.bytes.byteLength,
+    input.bytes.byteOffset + input.bytes.byteLength
   ) as ArrayBuffer;
   const uploadResult = await utapi.uploadFiles(
     new UTFile([fileBuffer], input.name, {
       type: input.mimeType ?? undefined,
-    }),
+    })
   );
   const uploaded = Array.isArray(uploadResult)
     ? uploadResult[0]?.data
     : uploadResult?.data;
 
-  if (!uploaded?.key || !uploaded.ufsUrl) {
+  if (!(uploaded?.key && uploaded.ufsUrl)) {
     throw new Error(`Unable to upload imported file ${input.name}.`);
   }
 
@@ -867,7 +873,10 @@ export async function importGoogleDriveFiles(input: {
   const imported: ImportFileSummary[] = [];
 
   for (const fileId of input.fileIds) {
-    const { bytes, descriptor } = await fetchGoogleDriveFile(accessToken, fileId);
+    const { bytes, descriptor } = await fetchGoogleDriveFile(
+      accessToken,
+      fileId
+    );
     const result = await uploadImportedBuffer({
       bytes,
       folderId: destination.folderId,

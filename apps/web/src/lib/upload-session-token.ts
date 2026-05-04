@@ -28,7 +28,9 @@ function getSecret() {
 }
 
 function signPayload(payloadSegment: string, secret: string) {
-  return createHmac("sha256", secret).update(payloadSegment).digest("base64url");
+  return createHmac("sha256", secret)
+    .update(payloadSegment)
+    .digest("base64url");
 }
 
 export function createUploadSessionPartToken(input: {
@@ -78,7 +80,7 @@ export function verifyUploadSessionPartToken(
   }
 
   const [payloadSegment, signature] = parts;
-  if (!payloadSegment || !signature) {
+  if (!(payloadSegment && signature)) {
     return { ok: false as const, reason: "malformed" };
   }
 
@@ -89,7 +91,9 @@ export function verifyUploadSessionPartToken(
 
   let payload: UploadSessionTokenPayload;
   try {
-    payload = JSON.parse(base64UrlDecode(payloadSegment)) as UploadSessionTokenPayload;
+    payload = JSON.parse(
+      base64UrlDecode(payloadSegment)
+    ) as UploadSessionTokenPayload;
   } catch {
     return { ok: false as const, reason: "payload" };
   }

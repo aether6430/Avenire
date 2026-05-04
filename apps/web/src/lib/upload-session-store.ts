@@ -11,18 +11,21 @@ export type UploadSessionStatus =
   | "failed";
 
 export interface UploadSessionRecord {
-  id: string;
-  userId: string;
-  workspaceUuid: string;
-  folderId: string;
-  name: string;
-  mimeType: string | null;
-  sizeBytes: number;
   checksumSha256: string | null;
   createdAt: string;
-  updatedAt: string;
   expiresAt: string;
+  folderId: string;
+  id: string;
+  mimeType: string | null;
+  name: string;
+  result?: {
+    fileId: string;
+    ingestionJobId: string | null;
+    deduplicated: boolean;
+  } | null;
+  sizeBytes: number;
   status: UploadSessionStatus;
+  updatedAt: string;
   upload?: {
     storageKey: string;
     storageUrl: string;
@@ -30,11 +33,8 @@ export interface UploadSessionRecord {
     sizeBytes: number;
     checksumSha256: string | null;
   } | null;
-  result?: {
-    fileId: string;
-    ingestionJobId: string | null;
-    deduplicated: boolean;
-  } | null;
+  userId: string;
+  workspaceUuid: string;
 }
 
 const redisUrl = process.env.REDIS_URL;

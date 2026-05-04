@@ -10,7 +10,6 @@ import {
   CommandList,
 } from "@avenire/ui/components/command";
 import { Textarea } from "@avenire/ui/components/textarea";
-import { useQuery } from "@tanstack/react-query";
 import {
   ArrowUpIcon,
   FileText as FileTextIcon,
@@ -18,6 +17,7 @@ import {
   Paperclip as PaperclipIcon,
   Square,
 } from "@phosphor-icons/react";
+import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import type React from "react";
 import {
@@ -42,15 +42,15 @@ import {
 import { PreviewAttachment } from "@/components/chat/preview-attachment";
 import {
   CHAT_COMPOSER_SEND_MODE_STORAGE_KEY,
+  type ChatComposerSendMode,
   DEFAULT_CHAT_COMPOSER_SEND_MODE,
   normalizeChatComposerSendMode,
-  type ChatComposerSendMode,
 } from "@/lib/chat-composer-preferences";
 import { getUploadErrorMessage } from "@/lib/upload";
-import { useAudioTranscription } from "@/lib/use-audio-transcription";
-import { useCurrentWorkspacePaneCompact } from "@/lib/workspace-panes";
 import { useUploadThing } from "@/lib/uploadthing";
+import { useAudioTranscription } from "@/lib/use-audio-transcription";
 import { cn } from "@/lib/utils";
+import { useCurrentWorkspacePaneCompact } from "@/lib/workspace-panes";
 
 type InputErrorType = "UPLOAD_ERROR" | "MODEL_BUSY" | "UNKNOWN_ERROR";
 
@@ -302,7 +302,7 @@ function PureMultimodalInput({
     },
   });
 
-  const uploadQueue = useMemo(
+  const _uploadQueue = useMemo(
     () =>
       attachments.filter(
         (attachment) =>
@@ -311,7 +311,7 @@ function PureMultimodalInput({
     [attachments]
   );
 
-  const completedAttachments = useMemo(
+  const _completedAttachments = useMemo(
     () => attachments.filter((attachment) => attachment.status === "completed"),
     [attachments]
   );
@@ -442,10 +442,8 @@ function PureMultimodalInput({
       const selectionEnd = textarea?.selectionEnd ?? source.length;
       const prefix = source.slice(0, selectionStart);
       const suffix = source.slice(selectionEnd);
-      const spacerBefore =
-        prefix.length > 0 && !/\s$/.test(prefix) ? " " : "";
-      const spacerAfter =
-        suffix.length > 0 && !/^\s/.test(suffix) ? " " : "";
+      const spacerBefore = prefix.length > 0 && !/\s$/.test(prefix) ? " " : "";
+      const spacerAfter = suffix.length > 0 && !/^\s/.test(suffix) ? " " : "";
       const nextValue = `${prefix}${spacerBefore}${transcript}${spacerAfter}${suffix}`;
       const nextCursor = (prefix + spacerBefore + transcript).length;
 
@@ -624,7 +622,9 @@ function PureMultimodalInput({
       submittedIds.has(attachment.id)
     );
 
-    if (queuedAttachments.some((attachment) => attachment.status === "failed")) {
+    if (
+      queuedAttachments.some((attachment) => attachment.status === "failed")
+    ) {
       setQueuedSubmission(null);
       setInput(queuedSubmission.inputValue);
       latestInputRef.current = queuedSubmission.inputValue;
@@ -849,7 +849,9 @@ function PureMultimodalInput({
     setAttachments((previous) =>
       previous.filter(
         (attachment) =>
-          !attachmentsToSubmit.some((submitted) => submitted.id === attachment.id)
+          !attachmentsToSubmit.some(
+            (submitted) => submitted.id === attachment.id
+          )
       )
     );
 
@@ -968,9 +970,7 @@ function PureMultimodalInput({
       data-empty={!canSend}
       data-running={isRunning}
     >
-      <div
-        className="relative flex w-full grow flex-col overflow-visible rounded-[28px] bg-[#f8f8f8] ring-1 ring-[#e5e5e5] ring-inset transition-colors duration-150 focus-within:ring-[#d7d7d7] dark:bg-[#212121] dark:ring-[#2f2f2f] dark:focus-within:ring-[#424242]"
-      >
+      <div className="relative flex w-full grow flex-col overflow-visible rounded-[28px] bg-[#f8f8f8] ring-1 ring-[#e5e5e5] ring-inset transition-colors duration-150 focus-within:ring-[#d7d7d7] dark:bg-[#212121] dark:ring-[#2f2f2f] dark:focus-within:ring-[#424242]">
         <input
           className="pointer-events-none fixed -top-4 -left-4 size-0.5 opacity-0"
           multiple
@@ -1021,56 +1021,56 @@ function PureMultimodalInput({
                   initial={{ opacity: 0, y: 8 }}
                   transition={{ duration: 0.16, ease: "easeOut" }}
                 >
-                <Command>
-                  <div
-                    className="scroll-fade-frame scroll-fade-top scroll-fade-bottom relative"
-                    style={
-                      {
-                        "--scroll-fade-color": "var(--popover)",
-                      } as React.CSSProperties
-                    }
-                  >
-                    <div className="pointer-events-auto relative overflow-hidden rounded-2xl border border-[#e5e5e5] bg-[#f8f8f8] dark:border-[#2a2a2a] dark:bg-[#212121]">
-                      <CommandList className="max-h-64">
-                        {mentionSuggestions.map((file, index) => (
-                          <CommandItem
-                            aria-label={`Attach ${file.workspacePath}`}
-                            className={cn(
-                              "cursor-pointer select-none gap-2 rounded-none px-4 py-3",
-                              index === highlightedMentionIndex &&
-                                "bg-accent text-accent-foreground"
-                            )}
-                            key={file.id}
-                            onMouseDown={(event) => {
-                              event.preventDefault();
-                            }}
-                            onSelect={() => {
-                              selectMention(file);
-                            }}
-                            ref={(node) => {
-                              mentionItemRefs.current[index] = node;
-                            }}
-                            value={file.workspacePath}
-                          >
-                            <FileTextIcon className="size-4 text-muted-foreground/80" />
-                            <span className="flex min-w-0 items-center gap-1.5 truncate">
-                              <span className="truncate">{file.name}</span>
-                            </span>
-                            <span className="truncate text-muted-foreground/70 text-xs">
-                              {file.parentPath || "Workspace root"}
-                            </span>
-                          </CommandItem>
-                        ))}
-                      </CommandList>
+                  <Command>
+                    <div
+                      className="scroll-fade-frame scroll-fade-top scroll-fade-bottom relative"
+                      style={
+                        {
+                          "--scroll-fade-color": "var(--popover)",
+                        } as React.CSSProperties
+                      }
+                    >
+                      <div className="pointer-events-auto relative overflow-hidden rounded-2xl border border-[#e5e5e5] bg-[#f8f8f8] dark:border-[#2a2a2a] dark:bg-[#212121]">
+                        <CommandList className="max-h-64">
+                          {mentionSuggestions.map((file, index) => (
+                            <CommandItem
+                              aria-label={`Attach ${file.workspacePath}`}
+                              className={cn(
+                                "cursor-pointer select-none gap-2 rounded-none px-4 py-3",
+                                index === highlightedMentionIndex &&
+                                  "bg-accent text-accent-foreground"
+                              )}
+                              key={file.id}
+                              onMouseDown={(event) => {
+                                event.preventDefault();
+                              }}
+                              onSelect={() => {
+                                selectMention(file);
+                              }}
+                              ref={(node) => {
+                                mentionItemRefs.current[index] = node;
+                              }}
+                              value={file.workspacePath}
+                            >
+                              <FileTextIcon className="size-4 text-muted-foreground/80" />
+                              <span className="flex min-w-0 items-center gap-1.5 truncate">
+                                <span className="truncate">{file.name}</span>
+                              </span>
+                              <span className="truncate text-muted-foreground/70 text-xs">
+                                {file.parentPath || "Workspace root"}
+                              </span>
+                            </CommandItem>
+                          ))}
+                        </CommandList>
+                      </div>
                     </div>
-                  </div>
 
-                {mentionSuggestions.length === 0 && (
-                  <CommandEmpty className="px-3 py-2 text-muted-foreground/70 text-xs">
-                    No matching workspace files.
-                  </CommandEmpty>
-                )}
-              </Command>
+                    {mentionSuggestions.length === 0 && (
+                      <CommandEmpty className="px-3 py-2 text-muted-foreground/70 text-xs">
+                        No matching workspace files.
+                      </CommandEmpty>
+                    )}
+                  </Command>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -1100,7 +1100,7 @@ function PureMultimodalInput({
                 <Textarea
                   autoFocus
                   className={cn(
-                    "max-h-40 min-h-0 w-full flex-1 resize-none overflow-hidden border-none! bg-transparent! px-0 py-0.5 text-[15px] leading-6 text-[#0d0d0d] outline-none shadow-none! ring-0! placeholder:text-muted-foreground/65 focus-visible:border-transparent! focus-visible:ring-0! dark:text-white sm:text-[15px] sm:leading-6 [&::-webkit-scrollbar-thumb]:bg-background",
+                    "max-h-40 min-h-0 w-full flex-1 resize-none overflow-hidden border-none! bg-transparent! px-0 py-0.5 text-[#0d0d0d] text-[15px] leading-6 shadow-none! outline-none ring-0! placeholder:text-muted-foreground/65 focus-visible:border-transparent! focus-visible:ring-0! sm:text-[15px] sm:leading-6 dark:text-white [&::-webkit-scrollbar-thumb]:bg-background",
                     className
                   )}
                   data-testid="multimodal-input"
@@ -1256,8 +1256,7 @@ function PureComposerVoiceButton({
         aria-label={isRecording ? "Stop recording" : "Start voice input"}
         className={cn(
           "relative h-9 w-9 rounded-full border border-transparent bg-transparent px-0 text-muted-foreground/72 transition-colors duration-200 hover:bg-transparent hover:text-foreground/92",
-          (isRecording || isTranscribing) &&
-            "text-foreground dark:text-white",
+          (isRecording || isTranscribing) && "text-foreground dark:text-white",
           isRecording &&
             "border-red-500/30 text-red-600 dark:border-red-400/35 dark:text-red-300"
         )}
@@ -1312,7 +1311,7 @@ function PureComposerActionButton({
   onSend: () => void;
   onStop: () => void;
 }) {
-  const disabled = !isRunning && !canSend;
+  const disabled = !(isRunning || canSend);
 
   return (
     <motion.div
@@ -1360,7 +1359,10 @@ function PureComposerActionButton({
               key="stop"
               transition={{ duration: 0.18, ease: "easeOut" }}
             >
-              <Square className="h-[13px] w-[13px] fill-current" weight="fill" />
+              <Square
+                className="h-[13px] w-[13px] fill-current"
+                weight="fill"
+              />
             </motion.span>
           ) : (
             <motion.span

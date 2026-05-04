@@ -76,9 +76,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     return NextResponse.json(
       {
         error:
-          error instanceof Error
-            ? error.message
-            : "Unable to update task.",
+          error instanceof Error ? error.message : "Unable to update task.",
       },
       { status: 400 }
     );

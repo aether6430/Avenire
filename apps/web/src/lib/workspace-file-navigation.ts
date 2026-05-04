@@ -4,7 +4,7 @@ export async function resolveWorkspaceFileRoute(
   workspaceUuid: string,
   fileIdentifier: string
 ): Promise<Route | null> {
-  if (!workspaceUuid || !fileIdentifier) {
+  if (!(workspaceUuid && fileIdentifier)) {
     return null;
   }
 

@@ -4,17 +4,26 @@ import { Button } from "@avenire/ui/components/button";
 import { Checkbox } from "@avenire/ui/components/checkbox";
 import { Input } from "@avenire/ui/components/input";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from "@avenire/ui/components/select";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@avenire/ui/components/select";
 import {
-  CaretDown as ChevronDown, CaretRight as ChevronRight, Plus, Trash as Trash2 } from "@phosphor-icons/react"
+  CaretDown as ChevronDown,
+  CaretRight as ChevronRight,
+  Plus,
+  Trash as Trash2,
+} from "@phosphor-icons/react";
 import { useCallback, useMemo, useState } from "react";
 import {
   createEmptyProperty,
+  type FilePropertyType,
+  type FrontmatterProperties,
   formatPropertyValue,
   normalizePropertyOptions,
   PROPERTY_TYPE_LABELS,
-  type FilePropertyType,
-  type FrontmatterProperties,
   setPropertyValue,
   type WorkspacePropertyDefinition,
 } from "@/lib/frontmatter";
@@ -51,7 +60,8 @@ export function PropertiesTable({
   const [newType, setNewType] = useState<FilePropertyType>("text");
 
   const definitionByKey = useMemo(
-    () => new Map(definitions.map((definition) => [definition.key, definition])),
+    () =>
+      new Map(definitions.map((definition) => [definition.key, definition])),
     [definitions]
   );
 
@@ -79,7 +89,7 @@ export function PropertiesTable({
           options:
             type === "select" || type === "multi_select"
               ? normalizePropertyOptions([
-                  ...nextDefinitions[existingIndex]!.options,
+                  ...nextDefinitions[existingIndex]?.options,
                   ...nextOptions,
                 ])
               : [],
@@ -132,7 +142,9 @@ export function PropertiesTable({
       }
 
       const nextEntries = Object.entries(properties).map(([entryKey, value]) =>
-        entryKey === key ? ([trimmedKey, value] as const) : ([entryKey, value] as const)
+        entryKey === key
+          ? ([trimmedKey, value] as const)
+          : ([entryKey, value] as const)
       );
       onChange(Object.fromEntries(nextEntries));
 
@@ -147,13 +159,7 @@ export function PropertiesTable({
         );
       }
     },
-    [
-      definitionByKey,
-      definitions,
-      onChange,
-      onDefinitionsChange,
-      properties,
-    ]
+    [definitionByKey, definitions, onChange, onDefinitionsChange, properties]
   );
 
   const handlePropertyValueChange = useCallback(
@@ -184,7 +190,7 @@ export function PropertiesTable({
   return (
     <div
       className={cn(
-        "mb-2 border-border/50 border-b px-4 pb-2 pt-3 sm:px-10",
+        "mb-2 border-border/50 border-b px-4 pt-3 pb-2 sm:px-10",
         "mx-auto max-w-[50rem]",
         className
       )}
@@ -284,7 +290,10 @@ export function PropertiesTable({
                       className="h-8 min-w-0 text-xs"
                       disabled={disabled}
                       onChange={(event) =>
-                        handlePropertyValueChange(key, event.currentTarget.value)
+                        handlePropertyValueChange(
+                          key,
+                          event.currentTarget.value
+                        )
                       }
                       placeholder={
                         property.type === "multi_select"

@@ -66,7 +66,7 @@ export const useChatStore = create<ChatStore>()(
           chats: state.chats.map((chat) =>
             chat.id === id
               ? { ...chat, title: cleanTitle, updatedAt: nowIso() }
-              : chat,
+              : chat
           ),
         }));
       },
@@ -94,14 +94,14 @@ export const useChatStore = create<ChatStore>()(
           chats: state.chats.map((chat) =>
             chat.id === id
               ? { ...chat, pinned: !chat.pinned, updatedAt: nowIso() }
-              : chat,
+              : chat
           ),
         }));
       },
       touchChat: (id) => {
         set((state) => ({
           chats: state.chats.map((chat) =>
-            chat.id === id ? { ...chat, updatedAt: nowIso() } : chat,
+            chat.id === id ? { ...chat, updatedAt: nowIso() } : chat
           ),
         }));
       },
@@ -113,6 +113,6 @@ export const useChatStore = create<ChatStore>()(
         chats: state.chats,
         activeChatId: state.activeChatId,
       }),
-    },
-  ),
+    }
+  )
 );

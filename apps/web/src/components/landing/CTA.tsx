@@ -1,11 +1,11 @@
 "use client";
 
-import { useRef, useEffect, useCallback, useState } from "react";
+import { useSession } from "@avenire/auth/client";
+import { Button } from "@avenire/ui/components/button";
 import { motion, useInView } from "framer-motion";
 import type { Route } from "next";
 import Link from "next/link";
-import { Button } from "@avenire/ui/components/button";
-import { useSession } from "@avenire/auth/client";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /* ── Conway's Game of Life ── */
 const CELL_SIZE = 12;
@@ -26,29 +26,36 @@ function useGameOfLife(width: number, height: number) {
     return grid;
   }, [rows, cols]);
 
-  const step = useCallback((grid: boolean[][]) => {
-    const next: boolean[][] = [];
-    for (let r = 0; r < rows; r++) {
-      next[r] = [];
-      for (let c = 0; c < cols; c++) {
-        let neighbors = 0;
-        for (let dr = -1; dr <= 1; dr++) {
-          for (let dc = -1; dc <= 1; dc++) {
-            if (dr === 0 && dc === 0) continue;
-            const nr = (r + dr + rows) % rows;
-            const nc = (c + dc + cols) % cols;
-            if (grid[nr][nc]) neighbors++;
+  const step = useCallback(
+    (grid: boolean[][]) => {
+      const next: boolean[][] = [];
+      for (let r = 0; r < rows; r++) {
+        next[r] = [];
+        for (let c = 0; c < cols; c++) {
+          let neighbors = 0;
+          for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+              if (dr === 0 && dc === 0) {
+                continue;
+              }
+              const nr = (r + dr + rows) % rows;
+              const nc = (c + dc + cols) % cols;
+              if (grid[nr][nc]) {
+                neighbors++;
+              }
+            }
+          }
+          if (grid[r][c]) {
+            next[r][c] = neighbors === 2 || neighbors === 3;
+          } else {
+            next[r][c] = neighbors === 3;
           }
         }
-        if (grid[r][c]) {
-          next[r][c] = neighbors === 2 || neighbors === 3;
-        } else {
-          next[r][c] = neighbors === 3;
-        }
       }
-    }
-    return next;
-  }, [rows, cols]);
+      return next;
+    },
+    [rows, cols]
+  );
 
   return { createGrid, step, rows, cols };
 }
@@ -63,7 +70,9 @@ function ConwayCanvas() {
 
   useEffect(() => {
     const el = containerRef.current;
-    if (!el) return;
+    if (!el) {
+      return;
+    }
     const obs = new ResizeObserver(([entry]) => {
       const { width, height } = entry.contentRect;
       setDims({ w: Math.floor(width), h: Math.floor(height) });
@@ -80,9 +89,13 @@ function ConwayCanvas() {
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) {
+      return;
+    }
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!ctx) {
+      return;
+    }
 
     canvas.width = dims.w;
     canvas.height = dims.h;
@@ -105,7 +118,12 @@ function ConwayCanvas() {
         for (let r = 0; r < rows; r++) {
           for (let c = 0; c < cols; c++) {
             if (gridRef.current[r][c]) {
-              ctx.fillRect(c * CELL_SIZE + 1, r * CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+              ctx.fillRect(
+                c * CELL_SIZE + 1,
+                r * CELL_SIZE + 1,
+                CELL_SIZE - 2,
+                CELL_SIZE - 2
+              );
             }
           }
         }
@@ -120,8 +138,11 @@ function ConwayCanvas() {
   }, [dims, step, rows, cols]);
 
   return (
-    <div ref={containerRef} className="bg-sidebar absolute inset-0 overflow-hidden pointer-events-none">
-      <canvas ref={canvasRef} className="w-full h-full" />
+    <div
+      className="pointer-events-none absolute inset-0 overflow-hidden bg-sidebar"
+      ref={containerRef}
+    >
+      <canvas className="h-full w-full" ref={canvasRef} />
       <div className="absolute inset-0 bg-background/35" />
       <div className="absolute inset-0 shadow-[inset_0_0_72px_rgba(0,0,0,0.1)]" />
     </div>
@@ -136,33 +157,36 @@ export function CTA() {
   const isSignedIn = Boolean(session?.user);
 
   return (
-    <section className="py-24 px-4" ref={ref}>
-      <div className="relative max-w-7xl mx-auto rounded-xl border border-border bg-card overflow-hidden">
+    <section className="px-4 py-24" ref={ref}>
+      <div className="relative mx-auto max-w-7xl overflow-hidden rounded-xl border border-border bg-card">
         <ConwayCanvas />
 
-        <div className="relative z-10 max-w-2xl mx-auto px-8 py-24 text-center">
+        <div className="relative z-10 mx-auto max-w-2xl px-8 py-24 text-center">
           <motion.div
-            initial={{ opacity: 0, y: 12 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
+            initial={{ opacity: 0, y: 12 }}
             transition={{ duration: 0.5 }}
           >
-            <h2 className="text-3xl md:text-4xl font-semibold tracking-tight mb-4 text-foreground">
+            <h2 className="mb-4 font-semibold text-3xl text-foreground tracking-tight md:text-4xl">
               Start building real understanding
             </h2>
 
-            <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed mb-8">
-              Join a community of thinkers building real understanding, one reasoning step at a time.
+            <p className="mx-auto mb-8 max-w-md text-muted-foreground text-sm leading-relaxed">
+              Join a community of thinkers building real understanding, one
+              reasoning step at a time.
             </p>
 
             <Button
-              size="lg"
               nativeButton={false}
-              render={<Link href={(isSignedIn ? APP_HREF : "/waitlist") as Route} />}
+              render={
+                <Link href={(isSignedIn ? APP_HREF : "/waitlist") as Route} />
+              }
+              size="lg"
             >
               {isSignedIn ? "Go to app" : "Join waitlist"}
             </Button>
 
-            <p className="text-xs text-muted-foreground/50 mt-4">
+            <p className="mt-4 text-muted-foreground/50 text-xs">
               Free to start · No credit card required
             </p>
           </motion.div>

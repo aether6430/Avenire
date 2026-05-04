@@ -4,11 +4,20 @@ import { authClient } from "@avenire/auth/client";
 import { Badge } from "@avenire/ui/components/badge";
 import { Button, buttonVariants } from "@avenire/ui/components/button";
 import {
-  Card, CardContent, CardHeader, CardTitle, } from "@avenire/ui/components/card";
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@avenire/ui/components/card";
 import { cn } from "@avenire/ui/lib/utils";
-import { AnimatePresence, motion } from "framer-motion";
 import {
-  ArrowRight, BellRinging as BellRing, Check, LockKey as LockKeyhole, RepeatOnce as Repeat2 } from "@phosphor-icons/react"
+  ArrowRight,
+  BellRinging as BellRing,
+  Check,
+  LockKey as LockKeyhole,
+  RepeatOnce as Repeat2,
+} from "@phosphor-icons/react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
 import { Footer } from "@/components/landing/Footer";
 import { Navbar } from "@/components/landing/Navbar";

@@ -13,12 +13,12 @@ import {
 import { ListChecks, MagnifyingGlass, Plus } from "@phosphor-icons/react";
 import type { Route } from "next";
 import { useMemo, useState, useSyncExternalStore } from "react";
-import { formatTaskDueDate, getTaskStatusLabel } from "@/lib/tasks";
 import {
   getTaskStoreSnapshot,
   sortWorkspaceTasks,
   subscribeToTaskStore,
 } from "@/lib/task-client-store";
+import { formatTaskDueDate, getTaskStatusLabel } from "@/lib/tasks";
 
 function SectionButton({
   label,
@@ -99,7 +99,7 @@ export function SidebarTaskPreview({
               }}
             >
               <div className="flex w-full items-start justify-between gap-2">
-                <span className="truncate text-left text-xs font-medium">
+                <span className="truncate text-left font-medium text-xs">
                   {task.title}
                 </span>
                 <span className="shrink-0 rounded-sm border border-border/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
@@ -165,7 +165,7 @@ export function SidebarTaskPreview({
             />
           </SidebarMenu>
           <Input
-            className="mt-2 h-8 hidden"
+            className="mt-2 hidden h-8"
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder="Search tasks..."
             value={searchQuery}

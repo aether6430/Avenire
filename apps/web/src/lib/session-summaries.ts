@@ -11,7 +11,10 @@ import {
 } from "@avenire/database";
 import { logInfo } from "@avenire/observability";
 import { z } from "zod";
-import { inferTopicLabel, normalizeSubjectLabel } from "@/lib/subject-detection";
+import {
+  inferTopicLabel,
+  normalizeSubjectLabel,
+} from "@/lib/subject-detection";
 
 const DEFAULT_SESSION_INACTIVITY_WINDOW_MS = 30 * 60 * 1000;
 // Keep the session-summary pass cheap; this is the truncation/summarization step,
@@ -52,10 +55,10 @@ const summaryOutputSchema = z.object({
 
 type ToolPart = Extract<UIMessage["parts"][number], { type: `tool-${string}` }>;
 
-type ConfusionSignals = {
+interface ConfusionSignals {
   detected: boolean;
   reasons: string[];
-};
+}
 
 export interface SessionWindow {
   shouldCreateNewSummary: boolean;
@@ -370,7 +373,10 @@ async function persistAutomaticMisconceptions(input: {
 
   await Promise.allSettled(
     results.flatMap((result) => {
-      if (result.status !== "fulfilled" || result.value.status !== "confirmed") {
+      if (
+        result.status !== "fulfilled" ||
+        result.value.status !== "confirmed"
+      ) {
         return [];
       }
 
@@ -557,7 +563,8 @@ export async function persistSessionSummaryForCompletedTurn(input: {
         transcript,
       })
   );
-  const shouldPersistLearningMemory = result.output.memoryRelevance === "learning";
+  const shouldPersistLearningMemory =
+    result.output.memoryRelevance === "learning";
 
   if (confusionSignals.detected) {
     logInfo({

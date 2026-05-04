@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { getFolderWithAncestors, listWorkspaceFolders, listWorkspacesForUser, userCanAccessWorkspace } from "@/lib/file-data";
+import {
+  getFolderWithAncestors,
+  listWorkspaceFolders,
+  listWorkspacesForUser,
+  userCanAccessWorkspace,
+} from "@/lib/file-data";
 import { getSessionUser } from "@/lib/workspace";
 
 export async function GET(
@@ -18,13 +23,16 @@ export async function GET(
   }
 
   const summaries = await listWorkspacesForUser(user.id);
-  const workspace = summaries.find((entry) => entry.workspaceId === workspaceUuid);
+  const workspace = summaries.find(
+    (entry) => entry.workspaceId === workspaceUuid
+  );
   if (!workspace) {
     return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
   }
 
   const url = new URL(request.url);
-  const currentParentId = url.searchParams.get("parentId") ?? workspace.rootFolderId;
+  const currentParentId =
+    url.searchParams.get("parentId") ?? workspace.rootFolderId;
   const folders = await listWorkspaceFolders(workspaceUuid, user.id);
   const currentFolder = folders.find((entry) => entry.id === currentParentId);
   if (!currentFolder) {

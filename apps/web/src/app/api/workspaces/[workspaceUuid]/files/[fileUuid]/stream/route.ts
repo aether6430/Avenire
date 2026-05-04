@@ -28,7 +28,11 @@ function normalizeSingleRange(input: {
       ? Number.parseInt(endRaw, 10)
       : Number.NaN;
 
-  if (!Number.isFinite(parsedStart) || parsedStart < 0 || parsedStart >= sizeBytes) {
+  if (
+    !Number.isFinite(parsedStart) ||
+    parsedStart < 0 ||
+    parsedStart >= sizeBytes
+  ) {
     return null;
   }
 
@@ -43,7 +47,7 @@ function normalizeSingleRange(input: {
 
 export async function GET(
   request: Request,
-  context: { params: Promise<{ workspaceUuid: string; fileUuid: string }> },
+  context: { params: Promise<{ workspaceUuid: string; fileUuid: string }> }
 ) {
   const user = await getSessionUser();
   if (!user) {
@@ -94,7 +98,8 @@ export async function GET(
           sizeBytes: file.sizeBytes,
         })
       : null;
-  const forwardedRange = normalizedRequestedRange ?? requestedRange ?? startupRange;
+  const forwardedRange =
+    normalizedRequestedRange ?? requestedRange ?? startupRange;
   if (forwardedRange) {
     upstreamHeaders.set("Range", forwardedRange);
   }
@@ -144,10 +149,7 @@ export async function GET(
   if (requestedRange && upstream.status === 200) {
     headers.set("x-avenire-range-supported", "false");
   }
-  headers.set(
-    "cache-control",
-    "private, no-store, max-age=0"
-  );
+  headers.set("cache-control", "private, no-store, max-age=0");
   headers.set("vary", "Range, Cookie");
 
   return new Response(upstream.body, {

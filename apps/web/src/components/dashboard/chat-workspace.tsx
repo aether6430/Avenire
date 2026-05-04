@@ -8,7 +8,6 @@ import {
   BreadcrumbPage,
 } from "@avenire/ui/components/breadcrumb";
 import { Button } from "@avenire/ui/components/button";
-import { Spinner } from "@avenire/ui/components/spinner";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +18,13 @@ import {
 } from "@avenire/ui/components/dialog";
 import { Input } from "@avenire/ui/components/input";
 import { Label } from "@avenire/ui/components/label";
-import { ChatText as MessageSquareText, LinkSimple as Link2, ShareNetwork as Share2 } from "@phosphor-icons/react";
+import { Spinner } from "@avenire/ui/components/spinner";
+import {
+  LinkSimple as Link2,
+  ChatText as MessageSquareText,
+  ShareNetwork as Share2,
+} from "@phosphor-icons/react";
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Chat } from "@/components/chat/chat";
@@ -39,11 +44,12 @@ import {
 } from "@/lib/chat-events";
 import { isChatIconName } from "@/lib/chat-icons";
 import { usePanePathname } from "@/lib/workspace-panes";
-import { chatMessageHandoffActions } from "@/stores/chat-message-handoff-store";
-import { useChatMessageHandoffStore } from "@/stores/chat-message-handoff-store";
+import {
+  chatMessageHandoffActions,
+  useChatMessageHandoffStore,
+} from "@/stores/chat-message-handoff-store";
 import { usePaneWorkspaceHistoryActions } from "@/stores/workspaceHistoryStore";
 import type { ShareSuggestion } from "@/types/share";
-import { useQuery } from "@tanstack/react-query"
 
 interface ChatWorkspaceProps {
   chatIcon?: string | null;
@@ -203,7 +209,6 @@ export function ChatWorkspace({
   useEffect(() => {
     recordRoute(currentRoute);
   }, [currentRoute, recordRoute]);
-
 
   useEffect(() => {
     const onChatNameUpdated = (event: Event) => {
@@ -434,10 +439,7 @@ export function ChatWorkspace({
       </HeaderBreadcrumbs>
 
       <div className="min-h-0 flex-1 overflow-hidden">
-        <motion.div
-          className="h-full"
-          initial={false}
-        >
+        <motion.div className="h-full" initial={false}>
           <Chat
             id={currentChatSlug}
             initialMessages={resolvedInitialMessages}

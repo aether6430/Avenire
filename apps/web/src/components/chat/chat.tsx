@@ -1,30 +1,19 @@
 "use client";
 
-import { useChat, type UseChatHelpers } from "@ai-sdk/react";
+import { type UseChatHelpers, useChat } from "@ai-sdk/react";
 import type { AgentActivityData, UIMessage } from "@avenire/ai/message-types";
 import { Button } from "@avenire/ui/components/button";
+import { CaretDown as ChevronDown } from "@phosphor-icons/react";
 import {
   DefaultChatTransport,
   type FileUIPart,
   lastAssistantMessageIsCompleteWithApprovalResponses,
 } from "ai";
-import { CaretDown as ChevronDown } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
-import { type Attachment, createLocalAttachment } from "./attachment";
-import { Messages } from "./messages";
-import { MultimodalInput } from "./multimodal-input";
-import { Overview } from "./overview";
-import { useChatScroll } from "./use-chat-scroll";
 import { getChatErrorMessage } from "@/lib/chat-errors";
 import {
   CHAT_CREATED_EVENT,
@@ -36,7 +25,13 @@ import {
   type ChatStreamStatusDetail,
 } from "@/lib/chat-events";
 import { normalizeMediaType } from "@/lib/media-type";
+import { emitPetNotification } from "@/lib/pet-preferences";
 import { chatMessageHandoffActions } from "@/stores/chat-message-handoff-store";
+import { type Attachment, createLocalAttachment } from "./attachment";
+import { Messages } from "./messages";
+import { MultimodalInput } from "./multimodal-input";
+import { Overview } from "./overview";
+import { useChatScroll } from "./use-chat-scroll";
 
 interface ChatProps {
   id: string;
@@ -49,13 +44,12 @@ interface ChatProps {
 }
 
 type SendMessageInput = Parameters<UseChatHelpers<UIMessage>["sendMessage"]>[0];
-type SendMessageOptions =
-  Parameters<UseChatHelpers<UIMessage>["sendMessage"]>[1];
+type SendMessageOptions = Parameters<
+  UseChatHelpers<UIMessage>["sendMessage"]
+>[1];
 const ACTIVE_REPLY_MIN_HEIGHT = "calc(100dvh - 250px)";
-const EMPTY_COMPOSER_SHELL_CLASSNAME =
-  "mx-auto mb-3 w-full max-w-3xl";
-const FLOATING_COMPOSER_SHELL_CLASSNAME =
-  "mx-auto mb-3 w-full max-w-3xl";
+const EMPTY_COMPOSER_SHELL_CLASSNAME = "mx-auto mb-3 w-full max-w-3xl";
+const FLOATING_COMPOSER_SHELL_CLASSNAME = "mx-auto mb-3 w-full max-w-3xl";
 
 function createOptimisticUserMessage(
   message: SendMessageInput
@@ -111,6 +105,7 @@ export function Chat({
   );
   const router = useRouter();
   const lastCompletedMessageIdRef = useRef<string | null>(null);
+  const previousStatusRef = useRef<string | null>(null);
   const messagesRef = useRef<UIMessage[]>(initialMessages);
   const pendingNewChatMessagesRef = useRef<UIMessage[] | null>(null);
   const pendingChatRouteRef = useRef<string | null>(null);
@@ -121,6 +116,11 @@ export function Chat({
     toast.error(getChatErrorMessage(error), {
       description: "If this issue persists, please contact support.",
       duration: 5000,
+    });
+    emitPetNotification({
+      message: "Chat failed",
+      tone: "failure",
+      animation: "failed",
     });
   }, []);
 
@@ -349,10 +349,24 @@ export function Chat({
         detail: { chatId, status },
       })
     );
+    if (status === "submitted") {
+      emitPetNotification({
+        message: "Thinking",
+        tone: "working",
+        animation: "waiting",
+        durationMs: 1800,
+      });
+    }
   }, [chatId, status]);
 
   useEffect(() => {
     if (status !== "ready") {
+      previousStatusRef.current = status;
+      return;
+    }
+    const previousStatus = previousStatusRef.current;
+    previousStatusRef.current = status;
+    if (previousStatus !== "submitted" && previousStatus !== "streaming") {
       return;
     }
     const lastMessage = messages.at(-1);
@@ -364,6 +378,11 @@ export function Chat({
     }
 
     lastCompletedMessageIdRef.current = lastMessage.id;
+    emitPetNotification({
+      message: "Chat complete",
+      tone: "success",
+      animation: "waving",
+    });
   }, [chatId, messages, status]);
 
   useEffect(() => {
@@ -549,8 +568,8 @@ export function Chat({
         input={input}
         setAttachments={setAttachments}
         setInput={setInput}
-        stop={handleStop}
         status={status}
+        stop={handleStop}
         workspaceUuid={workspaceUuid}
       />
     </div>
@@ -562,7 +581,7 @@ export function Chat({
       className="relative flex h-full min-h-0 flex-col bg-[#fdfdfd] px-4 dark:bg-[#141414]"
     >
       <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col">
-        {!isEmptyState && !isTransitioningFromNewChat && (
+        {!(isEmptyState || isTransitioningFromNewChat) && (
           <Messages
             activeReplyMessageId={activeReplyMessageId}
             agentActivity={agentActivity}
@@ -621,7 +640,7 @@ export function Chat({
                   }}
                 >
                   <Button
-                    className="pointer-events-auto h-9 min-w-9 rounded-full border border-[#e5e5e5] bg-[#f8f8f8] px-2.5 dark:border-[#2a2a2a] dark:bg-[#212121] sm:h-10 sm:min-w-10 sm:px-3"
+                    className="pointer-events-auto h-9 min-w-9 rounded-full border border-[#e5e5e5] bg-[#f8f8f8] px-2.5 sm:h-10 sm:min-w-10 sm:px-3 dark:border-[#2a2a2a] dark:bg-[#212121]"
                     onClick={() => reenableAutoScroll("smooth")}
                     size="sm"
                     type="button"
@@ -648,7 +667,7 @@ export function Chat({
           >
             <motion.div
               animate={{ scale: 1 }}
-              className="rounded-2xl border-2 border-dashed border-primary bg-background p-8 text-center"
+              className="rounded-2xl border-2 border-primary border-dashed bg-background p-8 text-center"
               exit={{ scale: 0.95 }}
               initial={{ scale: 0.95 }}
               transition={{ duration: 0.2 }}

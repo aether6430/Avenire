@@ -1,11 +1,18 @@
 "use client";
 
 import { Button } from "@avenire/ui/components/button";
-import {
-  Drawer, DrawerContent, } from "@avenire/ui/components/drawer";
+import { Drawer, DrawerContent } from "@avenire/ui/components/drawer";
 import { Progress } from "@avenire/ui/components/progress";
 import {
-  File, FileAudio, FileCode, FileImage, FileText, FileVideo, UploadSimple as Upload, X } from "@phosphor-icons/react"
+  File,
+  FileAudio,
+  FileCode,
+  FileImage,
+  FileText,
+  FileVideo,
+  UploadSimple as Upload,
+  X,
+} from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 

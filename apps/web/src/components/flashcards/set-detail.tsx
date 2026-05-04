@@ -33,7 +33,6 @@ import {
 } from "@phosphor-icons/react";
 import { motion } from "motion/react";
 import type { Route } from "next";
-import { usePanePathname, usePaneRouter } from "@/lib/workspace-panes";
 import {
   useCallback,
   useDeferredValue,
@@ -61,6 +60,8 @@ import type {
   FlashcardSetRecord,
   FlashcardTaxonomy,
 } from "@/lib/flashcards";
+import { emitPetNotification } from "@/lib/pet-preferences";
+import { usePanePathname, usePaneRouter } from "@/lib/workspace-panes";
 import { usePaneWorkspaceHistoryActions } from "@/stores/workspaceHistoryStore";
 
 type Rating = "again" | "hard" | "good" | "easy";
@@ -237,7 +238,7 @@ function StudyCardFace({
         >
           <Markdown
             className={cn(
-              "max-w-none text-card-foreground text-inherit leading-[1.6] [&_ol]:text-inherit [&_p]:text-inherit [&_strong]:text-inherit [&_ul]:text-inherit [&_pre.shiki]:rounded-xl [&_pre.shiki]:border [&_pre.shiki]:border-border [&_pre.shiki]:bg-secondary [&_code:not(pre_code)]:rounded-md [&_code:not(pre_code)]:border [&_code:not(pre_code)]:border-border [&_code:not(pre_code)]:bg-secondary [&_code:not(pre_code)]:px-1.5 [&_code:not(pre_code)]:py-0.5",
+              "max-w-none text-card-foreground text-inherit leading-[1.6] [&_code:not(pre_code)]:rounded-md [&_code:not(pre_code)]:border [&_code:not(pre_code)]:border-border [&_code:not(pre_code)]:bg-secondary [&_code:not(pre_code)]:px-1.5 [&_code:not(pre_code)]:py-0.5 [&_ol]:text-inherit [&_p]:text-inherit [&_pre.shiki]:rounded-xl [&_pre.shiki]:border [&_pre.shiki]:border-border [&_pre.shiki]:bg-secondary [&_strong]:text-inherit [&_ul]:text-inherit",
               align === "center" &&
                 "text-balance text-center [&_li]:text-left [&_p]:text-center"
             )}
@@ -251,7 +252,7 @@ function StudyCardFace({
                 Notes
               </p>
               <Markdown
-                className="max-w-none text-[0.92em] text-card-foreground leading-[1.6] [&_pre.shiki]:rounded-xl [&_pre.shiki]:border [&_pre.shiki]:border-border [&_pre.shiki]:bg-secondary [&_code:not(pre_code)]:rounded-md [&_code:not(pre_code)]:border [&_code:not(pre_code)]:border-border [&_code:not(pre_code)]:bg-secondary [&_code:not(pre_code)]:px-1.5 [&_code:not(pre_code)]:py-0.5"
+                className="max-w-none text-[0.92em] text-card-foreground leading-[1.6] [&_code:not(pre_code)]:rounded-md [&_code:not(pre_code)]:border [&_code:not(pre_code)]:border-border [&_code:not(pre_code)]:bg-secondary [&_code:not(pre_code)]:px-1.5 [&_code:not(pre_code)]:py-0.5 [&_pre.shiki]:rounded-xl [&_pre.shiki]:border [&_pre.shiki]:border-border [&_pre.shiki]:bg-secondary"
                 content={notes}
                 id={`${id}-notes`}
                 parseIncompleteMarkdown={false}
@@ -264,7 +265,6 @@ function StudyCardFace({
   );
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: existing page component; study flow is kept local to avoid refetch churn
 export function FlashcardSetDetail({
   initialDrillFilters,
   initialQueue,
@@ -458,8 +458,8 @@ export function FlashcardSetDetail({
     );
   } else if (activeCard) {
     studySessionContent = (
-      <div className="mx-auto flex w-full max-w-3xl items-center flex-col gap-8">
-        <div className="flex items-end justify-between w-full gap-4 px-0.5">
+      <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-8">
+        <div className="flex w-full items-end justify-between gap-4 px-0.5">
           <div className="min-w-0">
             <p className="font-medium text-[0.68rem] text-muted-foreground uppercase tracking-[0.22em]">
               Review Progress
@@ -723,6 +723,26 @@ export function FlashcardSetDetail({
         });
         if (!response.ok) {
           throw new Error("Failed to submit review");
+        }
+
+        if (rating === "again") {
+          emitPetNotification({
+            animation: "failed",
+            message: "Review it once more",
+            tone: "failure",
+          });
+        } else if (rating === "hard") {
+          emitPetNotification({
+            animation: "review",
+            message: "Keep going",
+            tone: "info",
+          });
+        } else {
+          emitPetNotification({
+            animation: "waving",
+            message: rating === "easy" ? "You nailed it" : "Good recall",
+            tone: "success",
+          });
         }
 
         setStudySessionReviewed((value) => value + 1);

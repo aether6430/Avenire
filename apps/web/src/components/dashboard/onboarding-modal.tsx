@@ -1,22 +1,31 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
-import { AnimatePresence, motion, type Variants } from "framer-motion";
 import { Badge } from "@avenire/ui/components/badge";
 import { Button } from "@avenire/ui/components/button";
 import { Dialog, DialogContent } from "@avenire/ui/components/dialog";
 import { Input } from "@avenire/ui/components/input";
 import { cn } from "@avenire/ui/lib/utils";
 import {
-  ArrowRight, BookOpen, Brain, CheckCircle as CheckCircle2, FileText, Flask as FlaskConical, GraduationCap, UploadSimple as Upload, Lightning as Zap } from "@phosphor-icons/react"
+  ArrowRight,
+  BookOpen,
+  Brain,
+  CheckCircle as CheckCircle2,
+  FileText,
+  Flask as FlaskConical,
+  GraduationCap,
+  UploadSimple as Upload,
+  Lightning as Zap,
+} from "@phosphor-icons/react";
+import { AnimatePresence, motion, type Variants } from "framer-motion";
+import { useRouter } from "next/navigation";
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FlashcardDeckStack } from "@/components/flashcards/deck-stack";
+import { StudentCalendar } from "@/components/student-calendar";
 import type { FlashcardSetSummary } from "@/lib/flashcards";
 import type { MisconceptionRecord } from "@/lib/learning-data";
-import { StudentCalendar } from "@/components/student-calendar";
-import { FlashcardDeckStack } from "@/components/flashcards/deck-stack";
 import { getUploadErrorMessage } from "@/lib/upload";
-import { useUploadThing } from "@/lib/uploadthing";
 import { requestUploadPreflight } from "@/lib/upload-preflight";
-import { useRouter } from "next/navigation";
+import { useUploadThing } from "@/lib/uploadthing";
 
 interface WeakPointGroup {
   subject: string;
@@ -54,8 +63,8 @@ interface OnboardingMemory {
   generatedCards: GeneratedFlashcard[];
   generatedDeckTitle: string | null;
   generatedSetId: string | null;
-  uploadFileName: string | null;
   uploadAt: string | null;
+  uploadFileName: string | null;
 }
 
 const ONBOARDING_STORAGE_PREFIX = "avenire:onboarding-memory:v2";
@@ -79,8 +88,8 @@ export interface OnboardingModalProps {
   rootFolderId: string;
   setOnboardingStep: (stepIndex: number) => void;
   stepIndex: number;
-  workspaceUuid: string;
   weakPointGroups: WeakPointGroup[];
+  workspaceUuid: string;
 }
 
 const STEP_TRANSITION: Variants = {
@@ -154,20 +163,20 @@ function memoryToDeckCards(memory: OnboardingMemory) {
   return memory.generatedCards.map((card, index) => ({
     back: (
       <div className="space-y-3 text-center">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+        <p className="font-semibold text-[11px] text-muted-foreground uppercase tracking-[0.18em]">
           Answer
         </p>
-        <p className="whitespace-pre-wrap text-base leading-7 text-foreground">
+        <p className="whitespace-pre-wrap text-base text-foreground leading-7">
           {card.backMarkdown}
         </p>
       </div>
     ),
     front: (
       <div className="space-y-3 text-center">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+        <p className="font-semibold text-[11px] text-muted-foreground uppercase tracking-[0.18em]">
           Prompt
         </p>
-        <p className="whitespace-pre-wrap text-base leading-7 text-foreground">
+        <p className="whitespace-pre-wrap text-base text-foreground leading-7">
           {card.frontMarkdown}
         </p>
       </div>
@@ -255,7 +264,8 @@ const ONBOARDING_STEPS: OnboardingStepDefinition[] = [
   {
     content: [
       {
-        detail: "Review load stays sustainable when the calendar is doing the work.",
+        detail:
+          "Review load stays sustainable when the calendar is doing the work.",
         label: "7-day preview",
       },
       {
@@ -278,7 +288,8 @@ const ONBOARDING_STEPS: OnboardingStepDefinition[] = [
   {
     content: [
       {
-        detail: "The mismatch between weak points and dashboard nudges is the payoff.",
+        detail:
+          "The mismatch between weak points and dashboard nudges is the payoff.",
         label: "Suggested task",
       },
       {
@@ -286,7 +297,8 @@ const ONBOARDING_STEPS: OnboardingStepDefinition[] = [
         label: "Immediate context",
       },
       {
-        detail: "No dead-end empty states. The home screen should already be useful.",
+        detail:
+          "No dead-end empty states. The home screen should already be useful.",
         label: "Ready-made home",
       },
     ],
@@ -306,15 +318,21 @@ function StepPanels({ content }: { content: OnboardingStepContent[] }) {
       {content.map((entry, index) => (
         <motion.div
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl border border-border/70 bg-muted/20 p-4 shadow-sm shadow-black/5"
+          className="rounded-2xl border border-border/70 bg-muted/20 p-4 shadow-black/5 shadow-sm"
           initial={{ opacity: 0, y: 12 }}
           key={entry.label}
-          transition={{ delay: 0.05 + index * 0.05, duration: 0.24, ease: "easeOut" }}
+          transition={{
+            delay: 0.05 + index * 0.05,
+            duration: 0.24,
+            ease: "easeOut",
+          }}
         >
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          <p className="font-semibold text-[11px] text-muted-foreground uppercase tracking-[0.18em]">
             {entry.label}
           </p>
-          <p className="mt-2 text-sm leading-6 text-foreground/90">{entry.detail}</p>
+          <p className="mt-2 text-foreground/90 text-sm leading-6">
+            {entry.detail}
+          </p>
         </motion.div>
       ))}
     </div>
@@ -346,12 +364,20 @@ function WelcomeStep() {
           className="flex items-start gap-3 rounded-3xl border border-white/12 bg-white/6 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
           initial={{ opacity: 0, y: 10 }}
           key={item.label}
-          transition={{ delay: 0.06 + index * 0.06, duration: 0.24, ease: "easeOut" }}
+          transition={{
+            delay: 0.06 + index * 0.06,
+            duration: 0.24,
+            ease: "easeOut",
+          }}
         >
           <span className="mt-0.5 text-amber-500">{item.icon}</span>
           <div>
-            <p className="text-sm font-medium leading-none text-foreground">{item.label}</p>
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{item.desc}</p>
+            <p className="font-medium text-foreground text-sm leading-none">
+              {item.label}
+            </p>
+            <p className="mt-1 text-muted-foreground text-xs leading-relaxed">
+              {item.desc}
+            </p>
           </div>
         </motion.div>
       ))}
@@ -378,8 +404,8 @@ function UploadStep({
 }) {
   return (
     <div className="space-y-4">
-      <div className="rounded-3xl border border-border/70 bg-background p-5 shadow-sm shadow-black/5">
-        <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-6 text-center">
+      <div className="rounded-3xl border border-border/70 bg-background p-5 shadow-black/5 shadow-sm">
+        <div className="rounded-2xl border border-border/70 border-dashed bg-muted/20 p-6 text-center">
           <motion.div
             animate={
               uploadPhase === "uploading"
@@ -394,12 +420,12 @@ function UploadStep({
           >
             <Upload className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
           </motion.div>
-          <p className="text-sm font-medium">
+          <p className="font-medium text-sm">
             {uploadPhase === "uploading"
               ? "Uploading inside onboarding"
               : "Drop a PDF or browse from here"}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 text-muted-foreground text-xs">
             The file stays in flow and lands in your workspace root.
           </p>
           <Button className="mt-4 w-full" onClick={onPickUpload} type="button">
@@ -426,13 +452,13 @@ function UploadStep({
             },
           ].map((item) => (
             <div
-              className="rounded-2xl border border-border/70 bg-background px-3 py-3 text-center shadow-sm shadow-black/5"
+              className="rounded-2xl border border-border/70 bg-background px-3 py-3 text-center shadow-black/5 shadow-sm"
               key={item.label}
             >
               <span className="mb-1 flex justify-center text-muted-foreground">
                 {item.icon}
               </span>
-              <p className="text-xs font-medium">{item.label}</p>
+              <p className="font-medium text-xs">{item.label}</p>
               <p className="text-[10px] text-muted-foreground">{item.sub}</p>
             </div>
           ))}
@@ -442,19 +468,19 @@ function UploadStep({
           {rememberedFileName || uploadPhase !== "idle" ? (
             <motion.div
               animate={{ opacity: 1, y: 0 }}
-              className="mt-4 rounded-2xl border border-border/70 bg-background px-4 py-3 shadow-sm shadow-black/5"
-              initial={{ opacity: 0, y: 8 }}
+              className="mt-4 rounded-2xl border border-border/70 bg-background px-4 py-3 shadow-black/5 shadow-sm"
               exit={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 8 }}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                  <p className="text-muted-foreground text-xs uppercase tracking-[0.18em]">
                     Uploaded file
                   </p>
-                  <p className="mt-1 truncate text-sm font-medium text-foreground">
+                  <p className="mt-1 truncate font-medium text-foreground text-sm">
                     {uploadName ?? rememberedFileName ?? "Preparing upload"}
                   </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="mt-1 text-muted-foreground text-xs">
                     {uploadMessage ??
                       (rememberedUploadAt
                         ? `Saved locally${rememberedUploadAt ? ` · ${new Date(rememberedUploadAt).toLocaleDateString()}` : ""}`
@@ -489,7 +515,12 @@ function UploadStep({
         </AnimatePresence>
       </div>
 
-      <Button className="w-full" onClick={onOpenFiles} type="button" variant="outline">
+      <Button
+        className="w-full"
+        onClick={onOpenFiles}
+        type="button"
+        variant="outline"
+      >
         Open manage workspace
       </Button>
     </div>
@@ -531,39 +562,43 @@ function MisconceptionsStep({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-3xl border border-border/70 bg-background p-5 shadow-sm shadow-black/5">
+      <div className="rounded-3xl border border-border/70 bg-background p-5 shadow-black/5 shadow-sm">
         <div className="mb-3 flex items-center gap-2">
-          <Badge className="text-[10px] font-medium" variant="secondary">
+          <Badge className="font-medium text-[10px]" variant="secondary">
             Concept check · 1 of 3
           </Badge>
         </div>
-        <p className="text-sm font-medium leading-snug">
-          A Gaussian surface encloses a dipole. What is the net electric flux through it?
+        <p className="font-medium text-sm leading-snug">
+          A Gaussian surface encloses a dipole. What is the net electric flux
+          through it?
         </p>
         <div className="mt-4 grid gap-2">
-          {["Q / ε₀", "Zero", "2Q / ε₀", "Depends on orientation"].map((option, index) => (
-            <button
-              className={cn(
-                "rounded-xl border px-3 py-2 text-left text-sm transition-colors",
-                index === 1
-                  ? "border-border bg-muted/40 text-foreground"
-                  : "border-border/60 bg-background hover:bg-muted/30"
-              )}
-              key={option}
-              type="button"
-            >
-              {option}
-            </button>
-          ))}
+          {["Q / ε₀", "Zero", "2Q / ε₀", "Depends on orientation"].map(
+            (option, index) => (
+              <button
+                className={cn(
+                  "rounded-xl border px-3 py-2 text-left text-sm transition-colors",
+                  index === 1
+                    ? "border-border bg-muted/40 text-foreground"
+                    : "border-border/60 bg-background hover:bg-muted/30"
+                )}
+                key={option}
+                type="button"
+              >
+                {option}
+              </button>
+            )
+          )}
         </div>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
         <div className="space-y-4">
-          <div className="rounded-2xl border border-border/70 bg-background p-4 shadow-sm shadow-black/5">
-            <p className="text-sm font-medium">Probe this gap</p>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Let Apollo ask targeted questions from your current material and turn wrong answers into misconceptions.
+          <div className="rounded-2xl border border-border/70 bg-background p-4 shadow-black/5 shadow-sm">
+            <p className="font-medium text-sm">Probe this gap</p>
+            <p className="mt-2 text-muted-foreground text-sm leading-6">
+              Let Apollo ask targeted questions from your current material and
+              turn wrong answers into misconceptions.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <Button onClick={onStartChatProbe} type="button">
@@ -584,38 +619,44 @@ function MisconceptionsStep({
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border/70 bg-background p-4 shadow-sm shadow-black/5">
-            <p className="text-sm font-medium">Captured misconception</p>
+          <div className="rounded-2xl border border-border/70 bg-background p-4 shadow-black/5 shadow-sm">
+            <p className="font-medium text-sm">Captured misconception</p>
             {activeMisconception ? (
               <div className="mt-2 rounded-xl border border-border/60 bg-background p-3">
-                <p className="text-sm text-foreground">{activeMisconception.concept}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="text-foreground text-sm">
+                  {activeMisconception.concept}
+                </p>
+                <p className="mt-1 text-muted-foreground text-xs">
                   {activeMisconception.subject} / {activeMisconception.topic}
                 </p>
               </div>
             ) : (
-              <p className="mt-2 text-sm text-muted-foreground">
+              <p className="mt-2 text-muted-foreground text-sm">
                 Your first wrong answer will populate this panel.
               </p>
             )}
           </div>
 
           {physicsFocused ? (
-            <div className="rounded-2xl border border-border/70 bg-background p-4 shadow-sm shadow-black/5">
-              <p className="text-sm font-medium">Physics sim path is available</p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Your weak-point map suggests Physics, so Apollo can spin up a simulation-focused explanation next.
+            <div className="rounded-2xl border border-border/70 bg-background p-4 shadow-black/5 shadow-sm">
+              <p className="font-medium text-sm">
+                Physics sim path is available
+              </p>
+              <p className="mt-2 text-muted-foreground text-sm leading-6">
+                Your weak-point map suggests Physics, so Apollo can spin up a
+                simulation-focused explanation next.
               </p>
             </div>
           ) : null}
         </div>
 
-        <div className="rounded-3xl border border-border/70 bg-background p-5 shadow-sm shadow-black/5">
+        <div className="rounded-3xl border border-border/70 bg-background p-5 shadow-black/5 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-medium">Generated mindset</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                The deck stays in onboarding, stored locally, and can be reviewed without leaving this flow.
+              <p className="font-medium text-sm">Generated mindset</p>
+              <p className="mt-1 text-muted-foreground text-xs">
+                The deck stays in onboarding, stored locally, and can be
+                reviewed without leaving this flow.
               </p>
             </div>
             <Badge className="rounded-md" variant="outline">
@@ -644,10 +685,10 @@ function MisconceptionsStep({
                         delay: index * 0.1,
                       }}
                     />
-                    <p className="mt-3 text-sm font-medium text-foreground">
+                    <p className="mt-3 font-medium text-foreground text-sm">
                       {label}
                     </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <p className="mt-1 text-muted-foreground text-xs">
                       Building the deck in place.
                     </p>
                   </div>
@@ -661,14 +702,17 @@ function MisconceptionsStep({
                 showCounter={false}
               />
             ) : (
-              <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 px-4 py-8 text-sm text-muted-foreground">
-                Generate a deck here and it will render without sending you away to another page.
+              <div className="rounded-2xl border border-border/70 border-dashed bg-muted/10 px-4 py-8 text-muted-foreground text-sm">
+                Generate a deck here and it will render without sending you away
+                to another page.
               </div>
             )}
           </div>
 
           {generationError ? (
-            <p className="mt-3 text-sm text-muted-foreground">{generationError}</p>
+            <p className="mt-3 text-muted-foreground text-sm">
+              {generationError}
+            </p>
           ) : null}
         </div>
       </div>
@@ -702,18 +746,21 @@ function ReviewLoopStep({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-3xl border border-border/70 bg-background p-5 shadow-sm shadow-black/5">
+      <div className="rounded-3xl border border-border/70 bg-background p-5 shadow-black/5 shadow-sm">
         <StudentCalendar />
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
-        <div className="rounded-2xl border border-border/70 bg-muted/10 p-4 shadow-sm shadow-black/5">
-          <p className="mb-3 text-xs font-medium text-muted-foreground">
+        <div className="rounded-2xl border border-border/70 bg-muted/10 p-4 shadow-black/5 shadow-sm">
+          <p className="mb-3 font-medium text-muted-foreground text-xs">
             Next 7 days · cards due
           </p>
           <div className="flex items-end gap-1.5">
             {days.map((day, index) => (
-              <div className="flex flex-1 flex-col items-center gap-1" key={day}>
+              <div
+                className="flex flex-1 flex-col items-center gap-1"
+                key={day}
+              >
                 <motion.div
                   animate={{ height: `${counts[index] * 6}px` }}
                   className={cn(
@@ -733,9 +780,9 @@ function ReviewLoopStep({
           </div>
         </div>
 
-        <div className="rounded-2xl border border-border/70 bg-background p-4 shadow-sm shadow-black/5">
-          <p className="text-sm font-medium">Daily review time</p>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+        <div className="rounded-2xl border border-border/70 bg-background p-4 shadow-black/5 shadow-sm">
+          <p className="font-medium text-sm">Daily review time</p>
+          <p className="mt-2 text-muted-foreground text-sm leading-6">
             This sets the default time for your review reminder. It does not
             start a session by itself. It just tells Avenire when to nudge you
             back tomorrow.
@@ -750,27 +797,27 @@ function ReviewLoopStep({
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
-        <div className="rounded-2xl border border-border/70 bg-background p-4 shadow-sm shadow-black/5">
-          <p className="text-sm font-medium">First review</p>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+        <div className="rounded-2xl border border-border/70 bg-background p-4 shadow-black/5 shadow-sm">
+          <p className="font-medium text-sm">First review</p>
+          <p className="mt-2 text-muted-foreground text-sm leading-6">
             Start with the cards that matter most right now.
           </p>
           <Button className="mt-4 w-full" onClick={onStartReview} type="button">
             Start review session
           </Button>
         </div>
-        <div className="rounded-2xl border border-border/70 bg-background p-4 shadow-sm shadow-black/5">
-          <p className="text-sm font-medium">Why this matters</p>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+        <div className="rounded-2xl border border-border/70 bg-background p-4 shadow-black/5 shadow-sm">
+          <p className="font-medium text-sm">Why this matters</p>
+          <p className="mt-2 text-muted-foreground text-sm leading-6">
             A consistent reminder time keeps the review loop predictable.
           </p>
           {reviewTimeLocal ? (
-            <p className="mt-3 text-sm text-foreground">
+            <p className="mt-3 text-foreground text-sm">
               Reminder time: {reviewTimeLocal}
             </p>
           ) : null}
           {currentReviewTarget ? (
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 text-muted-foreground text-sm">
               Reviewing {currentReviewTarget.title} first.
             </p>
           ) : null}
@@ -816,15 +863,24 @@ function DashboardStep({
       ].map((item, index) => (
         <motion.div
           animate={{ opacity: 1, y: 0 }}
-          className={cn("flex items-center gap-3 rounded-2xl border px-4 py-3", item.bg)}
+          className={cn(
+            "flex items-center gap-3 rounded-2xl border px-4 py-3",
+            item.bg
+          )}
           initial={{ opacity: 0, y: 10 }}
           key={item.title}
-          transition={{ delay: 0.06 + index * 0.06, duration: 0.24, ease: "easeOut" }}
+          transition={{
+            delay: 0.06 + index * 0.06,
+            duration: 0.24,
+            ease: "easeOut",
+          }}
         >
           <span>{item.icon}</span>
           <div className="min-w-0 flex-1">
-            <p className="mb-0.5 text-sm font-medium leading-none">{item.title}</p>
-            <p className="text-xs text-muted-foreground">{item.sub}</p>
+            <p className="mb-0.5 font-medium text-sm leading-none">
+              {item.title}
+            </p>
+            <p className="text-muted-foreground text-xs">{item.sub}</p>
           </div>
           <Button
             className="shrink-0 gap-1 text-xs"
@@ -843,7 +899,7 @@ function DashboardStep({
           </Button>
         </motion.div>
       ))}
-      <p className="mt-1 text-center text-xs italic text-muted-foreground">
+      <p className="mt-1 text-center text-muted-foreground text-xs italic">
         Your home from here on. No empty states - ever.
       </p>
     </div>
@@ -871,15 +927,14 @@ export function OnboardingModal({
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const [uploadName, setUploadName] = useState<string | null>(null);
   const [uploadPhase, setUploadPhase] = useState<UploadPhase>("idle");
-  const [memory, setMemory] = useState<OnboardingMemory>(EMPTY_ONBOARDING_MEMORY);
+  const [memory, setMemory] = useState<OnboardingMemory>(
+    EMPTY_ONBOARDING_MEMORY
+  );
   const [memoryReady, setMemoryReady] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [generationStatus, setGenerationStatus] =
     useState<GeneratedDeckState>("idle");
-  const activeStepIndex = Math.min(
-    stepIndex,
-    ONBOARDING_STEPS.length - 1
-  );
+  const activeStepIndex = Math.min(stepIndex, ONBOARDING_STEPS.length - 1);
   const step = ONBOARDING_STEPS[activeStepIndex] ?? ONBOARDING_STEPS[0];
   const isLast = activeStepIndex === ONBOARDING_STEPS.length - 1;
   const { startUpload } = useUploadThing("fileExplorerUploader", {
@@ -914,7 +969,7 @@ export function OnboardingModal({
   }, [workspaceUuid]);
 
   useEffect(() => {
-    if (!memoryReady || !workspaceUuid) {
+    if (!(memoryReady && workspaceUuid)) {
       return;
     }
 
@@ -1052,15 +1107,14 @@ export function OnboardingModal({
     }
   };
 
-  const sourceMisconception =
-    activeMisconceptions[0] ?? {
-      concept: weakPointGroups[0]?.topic ?? "Concept check",
-      reason: weakPointGroups[0]
-        ? `${weakPointGroups[0].subject} / ${weakPointGroups[0].topic}`
-        : "This concept surfaced during onboarding.",
-      subject: weakPointGroups[0]?.subject ?? "General",
-      topic: weakPointGroups[0]?.topic ?? "Review",
-    };
+  const sourceMisconception = activeMisconceptions[0] ?? {
+    concept: weakPointGroups[0]?.topic ?? "Concept check",
+    reason: weakPointGroups[0]
+      ? `${weakPointGroups[0].subject} / ${weakPointGroups[0].topic}`
+      : "This concept surfaced during onboarding.",
+    subject: weakPointGroups[0]?.subject ?? "General",
+    topic: weakPointGroups[0]?.topic ?? "Review",
+  };
 
   const generateFlashcards = async () => {
     setGenerationStatus("loading");
@@ -1109,12 +1163,14 @@ export function OnboardingModal({
     } catch (error) {
       setGenerationStatus("error");
       setGenerationError(
-        error instanceof Error ? error.message : "Unable to generate flashcards."
+        error instanceof Error
+          ? error.message
+          : "Unable to generate flashcards."
       );
     }
   };
 
-  const generatedDeckItems = useMemo(
+  const _generatedDeckItems = useMemo(
     () =>
       memoryToDeckCards({
         ...memory,
@@ -1149,7 +1205,7 @@ export function OnboardingModal({
               )}
             />
             <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 hidden w-max max-w-[12rem] -translate-x-1/2 rounded-md border border-border/70 bg-popover px-2 py-1 text-left text-[11px] text-popover-foreground shadow-sm group-hover:block group-focus-visible:block">
-              <span className="block uppercase tracking-[0.18em] text-muted-foreground">
+              <span className="block text-muted-foreground uppercase tracking-[0.18em]">
                 {item.tag}
               </span>
               <span className="block text-xs">{item.title}</span>
@@ -1161,7 +1217,7 @@ export function OnboardingModal({
   );
 
   return (
-    <Dialog open={open} onOpenChange={() => undefined}>
+    <Dialog onOpenChange={() => undefined} open={open}>
       <DialogContent
         className="h-[100dvh] w-[min(100vw-1rem,78rem)] max-w-none overflow-hidden rounded-2xl border border-border/70 bg-background p-0 shadow-[0_50px_120px_-60px_rgba(0,0,0,0.75)] sm:h-[92vh] sm:w-[min(100vw-2rem,78rem)]"
         largeWidth
@@ -1169,7 +1225,6 @@ export function OnboardingModal({
       >
         <input
           accept="application/pdf"
-          aria-hidden="true"
           className="hidden"
           onChange={handleUploadSelection}
           ref={fileInputRef}
@@ -1177,46 +1232,51 @@ export function OnboardingModal({
         />
 
         <div className="grid h-full min-h-0 lg:grid-cols-[minmax(280px,0.44fr)_minmax(0,0.56fr)]">
-          <aside className="flex min-h-0 flex-col justify-between border-border/70 border-b px-5 py-5 lg:border-r lg:border-b-0 lg:px-8 lg:py-8 bg-muted/20">
+          <aside className="flex min-h-0 flex-col justify-between border-border/70 border-b bg-muted/20 px-5 py-5 lg:border-r lg:border-b-0 lg:px-8 lg:py-8">
             <div className="space-y-6">
               <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground/60">
+                <p className="font-semibold text-muted-foreground/60 text-xs uppercase tracking-[0.24em]">
                   Onboarding
                 </p>
-                <h2 className="max-w-sm font-mono text-4xl leading-none tracking-tight text-foreground">
+                <h2 className="max-w-sm font-mono text-4xl text-foreground leading-none tracking-tight">
                   Q&amp;A agents
                 </h2>
-                <p className="max-w-sm text-sm leading-6 text-muted-foreground">
-                  Answers repeat questions using your workspace, files, misconceptions, and connected study tools.
+                <p className="max-w-sm text-muted-foreground text-sm leading-6">
+                  Answers repeat questions using your workspace, files,
+                  misconceptions, and connected study tools.
                 </p>
               </div>
 
               <div className="rounded-2xl border border-border/40 bg-card p-5">
                 <div className="rounded-xl bg-muted p-5">
                   {step.id === "welcome" ? (
-                    <div className="space-y-6 rounded-xl bg-card border border-border/40 p-5 text-foreground">
+                    <div className="space-y-6 rounded-xl border border-border/40 bg-card p-5 text-foreground">
                       <div className="space-y-1">
                         <p className="font-semibold text-lg">Jason</p>
-                        <p className="max-w-[14rem] text-base leading-6 text-muted-foreground">
-                          Where should I start if my weak point is electric flux?
+                        <p className="max-w-[14rem] text-base text-muted-foreground leading-6">
+                          Where should I start if my weak point is electric
+                          flux?
                         </p>
                       </div>
                       <div className="space-y-1 border-border/40 border-t pt-4">
-                        <p className="font-semibold text-base">Apollo workspace assistant</p>
-                        <p className="max-w-[15rem] text-base leading-6 text-muted-foreground">
-                          Start with the misconception probe, then review the first due deck and land in the calendar.
+                        <p className="font-semibold text-base">
+                          Apollo workspace assistant
+                        </p>
+                        <p className="max-w-[15rem] text-base text-muted-foreground leading-6">
+                          Start with the misconception probe, then review the
+                          first due deck and land in the calendar.
                         </p>
                       </div>
                     </div>
                   ) : (
-                    <div className="rounded-xl bg-card border border-border/40 p-5 text-foreground">
-                      <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                    <div className="rounded-xl border border-border/40 bg-card p-5 text-foreground">
+                      <p className="text-muted-foreground text-xs uppercase tracking-[0.2em]">
                         Step {step.step}
                       </p>
                       <p className="mt-3 font-mono text-3xl leading-none">
                         {step.title}
                       </p>
-                      <p className="mt-4 text-sm leading-6 text-muted-foreground">
+                      <p className="mt-4 text-muted-foreground text-sm leading-6">
                         {step.subtitle}
                       </p>
                     </div>
@@ -1238,33 +1298,36 @@ export function OnboardingModal({
             <header className="flex items-start justify-between gap-4 border-border/70 border-b px-4 py-4 sm:px-6">
               <div className="min-w-0 space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge className="rounded-full bg-secondary text-secondary-foreground" variant="secondary">
+                  <Badge
+                    className="rounded-full bg-secondary text-secondary-foreground"
+                    variant="secondary"
+                  >
                     {step.tag}
                   </Badge>
-                  <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                  <span className="text-muted-foreground text-xs uppercase tracking-[0.18em]">
                     Step {step.step}
                   </span>
                 </div>
-                <h3 className="font-mono text-3xl leading-none text-foreground">
+                <h3 className="font-mono text-3xl text-foreground leading-none">
                   {step.title}
                 </h3>
-                <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+                <p className="max-w-2xl text-muted-foreground text-sm leading-6">
                   {step.note}
                 </p>
               </div>
-              <div className="hidden shrink-0 rounded-full border border-border/70 px-3 py-1 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:block">
+              <div className="hidden shrink-0 rounded-full border border-border/70 px-3 py-1 text-muted-foreground text-xs uppercase tracking-[0.18em] sm:block">
                 {step.skippable ? "Optional" : "Required"}
               </div>
             </header>
 
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
-              <AnimatePresence mode="wait" custom={direction}>
+              <AnimatePresence custom={direction} mode="wait">
                 <motion.div
-                  key={`${step.id}-body`}
                   animate="center"
                   custom={direction}
                   exit="exit"
                   initial="enter"
+                  key={`${step.id}-body`}
                   transition={{ duration: 0.3 }}
                   variants={STEP_TRANSITION}
                 >
@@ -1272,10 +1335,10 @@ export function OnboardingModal({
                     <WelcomeStep />
                   ) : step.id === "upload" ? (
                     <UploadStep
-                      rememberedFileName={memory.uploadFileName}
-                      rememberedUploadAt={memory.uploadAt}
                       onOpenFiles={onOpenFiles}
                       onPickUpload={pickUpload}
+                      rememberedFileName={memory.uploadFileName}
+                      rememberedUploadAt={memory.uploadAt}
                       uploadMessage={uploadMessage}
                       uploadName={uploadName}
                       uploadPhase={uploadPhase}
@@ -1298,8 +1361,8 @@ export function OnboardingModal({
                   ) : step.id === "dashboard" ? (
                     <DashboardStep
                       onOpenFlashcards={onOpenFlashcards}
-                      onStartReview={onStartReview}
                       onStartChatProbe={onStartChatProbe}
+                      onStartReview={onStartReview}
                     />
                   ) : (
                     <StepPanels content={step.content} />
@@ -1309,39 +1372,39 @@ export function OnboardingModal({
             </div>
 
             <footer className="border-border/70 border-t bg-background/96 px-4 py-4 backdrop-blur sm:px-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <Button
-                disabled={activeStepIndex === 0}
-                onClick={handleBack}
-                type="button"
-                variant="ghost"
-              >
-                Back
-              </Button>
-
-              {stepDotNavigator}
-
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                {step.skippable && !isLast ? (
-                  <Button
-                    onClick={() => goTo(activeStepIndex + 1)}
-                    type="button"
-                    variant="outline"
-                  >
-                    Skip for now
-                  </Button>
-                ) : null}
-                <Button onClick={handleNext} type="button">
-                  {step.id === "review_loop"
-                    ? "Save & continue"
-                    : isLast
-                      ? "Finish setup"
-                      : "Continue"}
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <Button
+                  disabled={activeStepIndex === 0}
+                  onClick={handleBack}
+                  type="button"
+                  variant="ghost"
+                >
+                  Back
                 </Button>
+
+                {stepDotNavigator}
+
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {step.skippable && !isLast ? (
+                    <Button
+                      onClick={() => goTo(activeStepIndex + 1)}
+                      type="button"
+                      variant="outline"
+                    >
+                      Skip for now
+                    </Button>
+                  ) : null}
+                  <Button onClick={handleNext} type="button">
+                    {step.id === "review_loop"
+                      ? "Save & continue"
+                      : isLast
+                        ? "Finish setup"
+                        : "Continue"}
+                  </Button>
+                </div>
               </div>
-            </div>
-          </footer>
-        </div>
+            </footer>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

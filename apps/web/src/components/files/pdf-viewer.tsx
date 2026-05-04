@@ -8,15 +8,15 @@ import {
   Root,
   Search,
   TextLayer,
-  usePdfJump,
   usePdf,
+  usePdfJump,
   useSearch,
   ZoomIn,
   ZoomOut,
 } from "@anaralabs/lector";
+import { Button } from "@avenire/ui/components/button";
 import { cn } from "@avenire/ui/lib/utils";
 import { ArrowLeft, ArrowRight } from "@phosphor-icons/react";
-import { Button } from "@avenire/ui/components/button";
 import { motion } from "framer-motion";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "pdfjs-dist/web/pdf_viewer.css";
@@ -339,7 +339,7 @@ function PDFViewer({
           className={cn(
             "min-h-0 flex-1 overflow-auto px-3 py-3 sm:px-4 sm:py-4",
             invertColors &&
-              "dark:invert-[94%] dark:hue-rotate-180 dark:brightness-[80%] dark:contrast-[228%]"
+              "dark:brightness-[80%] dark:contrast-[228%] dark:hue-rotate-180 dark:invert-[94%]"
           )}
         >
           <Page>

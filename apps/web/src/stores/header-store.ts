@@ -51,7 +51,7 @@ function applyHeaderTitle(title: string | null) {
   document.title = title?.trim() ? `${title.trim()} - Avenire` : "Avenire";
 }
 
-export const useHeaderStore = create<HeaderState>((set, get) => ({
+export const useHeaderStore = create<HeaderState>((set, _get) => ({
   activePaneId: null,
   byPane: {},
   resetHeaderContext: (paneId) =>
@@ -95,7 +95,8 @@ export const useHeaderStore = create<HeaderState>((set, get) => ({
     set((state) => {
       const current = getPaneState(state, paneId);
       const nextState = {
-        actions: context.actions !== undefined ? context.actions : current.actions,
+        actions:
+          context.actions !== undefined ? context.actions : current.actions,
         breadcrumbs:
           context.breadcrumbs !== undefined
             ? context.breadcrumbs
@@ -146,12 +147,13 @@ export const useHeaderStore = create<HeaderState>((set, get) => ({
     }),
 }));
 
-export function usePaneHeaderStore<T>(
-  selector: (state: PaneHeaderState) => T
-) {
+export function usePaneHeaderStore<T>(selector: (state: PaneHeaderState) => T) {
   const { paneId } = useCurrentWorkspacePane();
   return useHeaderStore(
-    useCallback((state) => selector(getPaneState(state, paneId)), [paneId, selector])
+    useCallback(
+      (state) => selector(getPaneState(state, paneId)),
+      [paneId, selector]
+    )
   );
 }
 
@@ -162,7 +164,9 @@ export function usePaneHeaderActions() {
   const setLeadingIcon = useHeaderStore((state) => state.setLeadingIcon);
   const setTitle = useHeaderStore((state) => state.setTitle);
   const setHeaderContext = useHeaderStore((state) => state.setHeaderContext);
-  const resetHeaderContext = useHeaderStore((state) => state.resetHeaderContext);
+  const resetHeaderContext = useHeaderStore(
+    (state) => state.resetHeaderContext
+  );
 
   return {
     resetHeaderContext: () => resetHeaderContext(paneId),

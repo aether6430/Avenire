@@ -3,13 +3,13 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-export type PinnedExplorerItem = {
+export interface PinnedExplorerItem {
   folderId: string | null;
   id: string;
   kind: "file" | "folder";
   name: string;
   workspaceId: string;
-};
+}
 
 interface FilesPinsState {
   pinnedByWorkspace: Record<string, PinnedExplorerItem[]>;

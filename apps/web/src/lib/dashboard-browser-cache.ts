@@ -1,9 +1,9 @@
 "use client";
 
+import { readBrowserCache, writeBrowserCache } from "@/lib/browser-cache";
 import type { ChatSummary } from "@/lib/chat-data";
 import type { FlashcardSetSummary } from "@/lib/flashcards";
 import type { WorkspaceTask } from "@/lib/tasks";
-import { readBrowserCache, writeBrowserCache } from "@/lib/browser-cache";
 
 interface CachedListPayload<T> {
   cachedAt: number;
@@ -146,7 +146,10 @@ export function readCachedTasks(workspaceUuid: string) {
   return payload?.items ?? null;
 }
 
-export function writeCachedTasks(workspaceUuid: string, tasks: WorkspaceTask[]) {
+export function writeCachedTasks(
+  workspaceUuid: string,
+  tasks: WorkspaceTask[]
+) {
   writeBrowserCache(cacheKey("tasks", workspaceUuid), {
     cachedAt: Date.now(),
     items: tasks,
@@ -157,7 +160,9 @@ export function writeCachedTasks(workspaceUuid: string, tasks: WorkspaceTask[]) 
 export function readCachedWorkspaces() {
   const payload = readBrowserCache(
     WORKSPACE_LIST_CACHE_KEY,
-    (value): value is {
+    (
+      value
+    ): value is {
       cachedAt: number;
       workspaces: CachedWorkspaceSummary[];
     } =>
@@ -167,20 +172,19 @@ export function readCachedWorkspaces() {
           !Array.isArray(value) &&
           typeof (value as { cachedAt?: unknown }).cachedAt === "number" &&
           Array.isArray((value as { workspaces?: unknown }).workspaces) &&
-          (value as { workspaces?: unknown[] }).workspaces!.every(
-            (entry) =>
-              Boolean(
-                entry &&
-                  typeof entry === "object" &&
-                  !Array.isArray(entry) &&
-                  typeof (entry as { workspaceId?: unknown }).workspaceId ===
-                    "string" &&
-                  typeof (entry as { organizationId?: unknown }).organizationId ===
-                    "string" &&
-                  typeof (entry as { rootFolderId?: unknown }).rootFolderId ===
-                    "string" &&
-                  typeof (entry as { name?: unknown }).name === "string"
-              )
+          (value as { workspaces?: unknown[] }).workspaces?.every((entry) =>
+            Boolean(
+              entry &&
+                typeof entry === "object" &&
+                !Array.isArray(entry) &&
+                typeof (entry as { workspaceId?: unknown }).workspaceId ===
+                  "string" &&
+                typeof (entry as { organizationId?: unknown })
+                  .organizationId === "string" &&
+                typeof (entry as { rootFolderId?: unknown }).rootFolderId ===
+                  "string" &&
+                typeof (entry as { name?: unknown }).name === "string"
+            )
           )
       )
   );
@@ -188,9 +192,7 @@ export function readCachedWorkspaces() {
   return payload?.workspaces ?? null;
 }
 
-export function writeCachedWorkspaces(
-  workspaces: CachedWorkspaceSummary[]
-) {
+export function writeCachedWorkspaces(workspaces: CachedWorkspaceSummary[]) {
   writeBrowserCache(WORKSPACE_LIST_CACHE_KEY, {
     cachedAt: Date.now(),
     workspaces,

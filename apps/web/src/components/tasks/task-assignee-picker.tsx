@@ -1,6 +1,10 @@
 "use client";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@avenire/ui/components/avatar";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@avenire/ui/components/avatar";
 import { Button } from "@avenire/ui/components/button";
 import {
   Command,
@@ -10,7 +14,11 @@ import {
   CommandItem,
   CommandList,
 } from "@avenire/ui/components/command";
-import { Popover, PopoverContent, PopoverTrigger } from "@avenire/ui/components/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@avenire/ui/components/popover";
 import { cn } from "@avenire/ui/lib/utils";
 import { CaretUpDown, Check } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
@@ -44,7 +52,9 @@ export function TaskAssigneePicker({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [remoteMembers, setRemoteMembers] = useState<WorkspaceMemberOption[]>([]);
+  const [remoteMembers, setRemoteMembers] = useState<WorkspaceMemberOption[]>(
+    []
+  );
 
   const normalizedMembers = useMemo(
     () =>
@@ -98,10 +108,11 @@ export function TaskAssigneePicker({
   const availableMembers = query.trim() ? remoteMembers : normalizedMembers;
   const resolvedMembers = useMemo(
     () =>
-      (workspaceUuid && remoteMembers.length > 0 ? remoteMembers : availableMembers).filter(
-        (
-          member
-        ): member is WorkspaceMemberOption & { userId: string } =>
+      (workspaceUuid && remoteMembers.length > 0
+        ? remoteMembers
+        : availableMembers
+      ).filter(
+        (member): member is WorkspaceMemberOption & { userId: string } =>
           typeof member.userId === "string" && member.userId.length > 0
       ),
     [availableMembers, remoteMembers, workspaceUuid]
@@ -110,9 +121,12 @@ export function TaskAssigneePicker({
     selectedAssignee ??
     [...resolvedMembers, ...normalizedMembers].find(
       (member) => member.userId === value
-    ) ?? null;
+    ) ??
+    null;
 
-  const selectedLabel = selectedMember ? getMemberLabel(selectedMember) : "Assign to";
+  const selectedLabel = selectedMember
+    ? getMemberLabel(selectedMember)
+    : "Assign to";
 
   return (
     <Popover
@@ -126,7 +140,9 @@ export function TaskAssigneePicker({
       open={open}
     >
       <PopoverTrigger
-        disabled={disabled || (!workspaceUuid && normalizedMembers.length === 0)}
+        disabled={
+          disabled || (!workspaceUuid && normalizedMembers.length === 0)
+        }
         render={
           <Button
             className={cn(
@@ -170,7 +186,9 @@ export function TaskAssigneePicker({
             value={query}
           />
           <CommandList className="max-h-72">
-            <CommandEmpty>No workspace member matches that search.</CommandEmpty>
+            <CommandEmpty>
+              No workspace member matches that search.
+            </CommandEmpty>
             <CommandGroup heading="Workspace members">
               {resolvedMembers.map((member) => {
                 const label = getMemberLabel(member);
@@ -184,7 +202,9 @@ export function TaskAssigneePicker({
                     value={getMemberSearchValue(member)}
                   >
                     <Avatar className="size-7 shrink-0" size="sm">
-                      {member.avatar ? <AvatarImage src={member.avatar} /> : null}
+                      {member.avatar ? (
+                        <AvatarImage src={member.avatar} />
+                      ) : null}
                       <AvatarFallback>
                         {getTaskInitials(member.name, member.email)}
                       </AvatarFallback>

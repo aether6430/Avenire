@@ -1,17 +1,17 @@
 import { sendSudoVerificationCodeEmail } from "@avenire/auth/server";
-import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
 import { getLatestActiveSudoChallenge } from "@/lib/database-sudo";
-import { getSessionUser } from "@/lib/workspace";
 import {
-  SUDO_CHALLENGE_TTL_SECONDS,
-  SUDO_COOKIE_NAME,
   createSudoChallenge,
   getSudoCookieExpiresAt,
   invalidateSudoChallenge,
-  verifySudoCode,
+  SUDO_CHALLENGE_TTL_SECONDS,
+  SUDO_COOKIE_NAME,
   SUDO_SESSION_TTL_SECONDS,
+  verifySudoCode,
 } from "@/lib/sudo";
+import { getSessionUser } from "@/lib/workspace";
 
 export async function GET() {
   const user = await getSessionUser();
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     if (latest && Date.now() - latest.createdAt.getTime() < 45_000) {
       return NextResponse.json(
         { error: "Please wait before requesting another code." },
-        { status: 429 },
+        { status: 429 }
       );
     }
 
@@ -65,7 +65,7 @@ export async function POST(request: Request) {
       await invalidateSudoChallenge(challenge.id);
       return NextResponse.json(
         { error: "Unable to send verification code." },
-        { status: 500 },
+        { status: 500 }
       );
     }
 
@@ -78,14 +78,17 @@ export async function POST(request: Request) {
   if (payload.action === "verify") {
     const code = payload.code?.trim() ?? "";
     if (!/^\d{6}$/.test(code)) {
-      return NextResponse.json({ error: "Invalid code format." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid code format." },
+        { status: 400 }
+      );
     }
 
     const result = await verifySudoCode({ userId: user.id, code });
     if (!result.ok) {
       return NextResponse.json(
         { error: "Invalid or expired code." },
-        { status: 400 },
+        { status: 400 }
       );
     }
 

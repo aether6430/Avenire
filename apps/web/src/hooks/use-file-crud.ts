@@ -3,14 +3,14 @@ import { useCallback, useMemo, useState } from "react";
 export type ExplorerItemType = "file" | "folder";
 
 export interface ExplorerItem {
+  contentType?: string;
   id: string;
   name: string;
-  type: ExplorerItemType;
   parentId: string | null;
-  updatedLabel: string;
   sizeLabel?: string;
+  type: ExplorerItemType;
+  updatedLabel: string;
   url?: string;
-  contentType?: string;
 }
 
 function listToMap(items: ExplorerItem[]): Record<string, ExplorerItem> {
@@ -20,10 +20,10 @@ function listToMap(items: ExplorerItem[]): Record<string, ExplorerItem> {
 function isDescendant(
   itemsById: Record<string, ExplorerItem>,
   folderId: string,
-  possibleDescendantId: string,
+  possibleDescendantId: string
 ): boolean {
   let cursor = itemsById[possibleDescendantId];
-  while (cursor && cursor.parentId) {
+  while (cursor?.parentId) {
     if (cursor.parentId === folderId) {
       return true;
     }
@@ -32,11 +32,14 @@ function isDescendant(
   return false;
 }
 
-function pruneDraggedSet(itemsById: Record<string, ExplorerItem>, draggedIds: string[]): string[] {
+function pruneDraggedSet(
+  itemsById: Record<string, ExplorerItem>,
+  draggedIds: string[]
+): string[] {
   const draggedSet = new Set(draggedIds);
   return draggedIds.filter((id) => {
     let cursor = itemsById[id];
-    while (cursor && cursor.parentId) {
+    while (cursor?.parentId) {
       if (draggedSet.has(cursor.parentId)) {
         return false;
       }
@@ -46,14 +49,21 @@ function pruneDraggedSet(itemsById: Record<string, ExplorerItem>, draggedIds: st
   });
 }
 
-function collectDescendants(itemsById: Record<string, ExplorerItem>, rootId: string): Set<string> {
+function collectDescendants(
+  itemsById: Record<string, ExplorerItem>,
+  rootId: string
+): Set<string> {
   const descendants = new Set<string>([rootId]);
   let found = true;
 
   while (found) {
     found = false;
     Object.values(itemsById).forEach((item) => {
-      if (!descendants.has(item.id) && item.parentId && descendants.has(item.parentId)) {
+      if (
+        !descendants.has(item.id) &&
+        item.parentId &&
+        descendants.has(item.parentId)
+      ) {
         descendants.add(item.id);
         found = true;
       }
@@ -64,7 +74,9 @@ function collectDescendants(itemsById: Record<string, ExplorerItem>, rootId: str
 }
 
 export function useFileCrud(initialItems: ExplorerItem[]) {
-  const [itemsById, setItemsById] = useState<Record<string, ExplorerItem>>(() => listToMap(initialItems));
+  const [itemsById, setItemsById] = useState<Record<string, ExplorerItem>>(() =>
+    listToMap(initialItems)
+  );
 
   const getVisibleItems = useCallback(
     (parentId: string) => {
@@ -77,7 +89,7 @@ export function useFileCrud(initialItems: ExplorerItem[]) {
           return a.type === "folder" ? -1 : 1;
         });
     },
-    [itemsById],
+    [itemsById]
   );
 
   const getAncestors = useCallback(
@@ -95,23 +107,33 @@ export function useFileCrud(initialItems: ExplorerItem[]) {
 
       return chain;
     },
-    [itemsById],
+    [itemsById]
   );
 
   const moveItemsToFolder = useCallback(
     (sourceIds: string[], targetFolderId: string) => {
-      if (!itemsById[targetFolderId] || itemsById[targetFolderId].type !== "folder") {
+      if (
+        !itemsById[targetFolderId] ||
+        itemsById[targetFolderId].type !== "folder"
+      ) {
         return [] as string[];
       }
 
       const prunedIds = pruneDraggedSet(itemsById, sourceIds);
       const movableIds = prunedIds.filter((itemId) => {
         const item = itemsById[itemId];
-        if (!item || item.parentId === targetFolderId || itemId === targetFolderId) {
+        if (
+          !item ||
+          item.parentId === targetFolderId ||
+          itemId === targetFolderId
+        ) {
           return false;
         }
 
-        if (item.type === "folder" && isDescendant(itemsById, itemId, targetFolderId)) {
+        if (
+          item.type === "folder" &&
+          isDescendant(itemsById, itemId, targetFolderId)
+        ) {
           return false;
         }
 
@@ -128,7 +150,11 @@ export function useFileCrud(initialItems: ExplorerItem[]) {
         movableIds.forEach((itemId) => {
           const item = next[itemId];
           if (item) {
-            next[itemId] = { ...item, parentId: targetFolderId, updatedLabel: "now" };
+            next[itemId] = {
+              ...item,
+              parentId: targetFolderId,
+              updatedLabel: "now",
+            };
           }
         });
 
@@ -137,7 +163,7 @@ export function useFileCrud(initialItems: ExplorerItem[]) {
 
       return movableIds;
     },
-    [itemsById],
+    [itemsById]
   );
 
   const createItem = useCallback((item: Omit<ExplorerItem, "updatedLabel">) => {
@@ -148,7 +174,11 @@ export function useFileCrud(initialItems: ExplorerItem[]) {
   }, []);
 
   const upsertItems = useCallback(
-    (incomingItems: Array<Omit<ExplorerItem, "updatedLabel"> & { updatedLabel?: string }>) => {
+    (
+      incomingItems: Array<
+        Omit<ExplorerItem, "updatedLabel"> & { updatedLabel?: string }
+      >
+    ) => {
       if (incomingItems.length === 0) {
         return;
       }
@@ -161,14 +191,15 @@ export function useFileCrud(initialItems: ExplorerItem[]) {
           next[incoming.id] = {
             ...existing,
             ...incoming,
-            updatedLabel: incoming.updatedLabel ?? existing?.updatedLabel ?? "now",
+            updatedLabel:
+              incoming.updatedLabel ?? existing?.updatedLabel ?? "now",
           };
         }
 
         return next;
       });
     },
-    [],
+    []
   );
 
   const renameItem = useCallback((itemId: string, name: string) => {

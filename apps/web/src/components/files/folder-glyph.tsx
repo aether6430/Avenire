@@ -32,17 +32,17 @@ export function FolderGlyph({
         aria-hidden
         className={cn(
           "relative h-3.5 w-4.5 shrink-0",
-          "[--folder-front:#2f2f2f] [--folder-back:#1f1f1f]",
+          "[--folder-back:#1f1f1f] [--folder-front:#2f2f2f]",
           className
         )}
       >
-        <div className="absolute inset-0 rounded-[3px] [clip-path:polygon(0%_22%,40%_22%,50%_0%,100%_0%,100%_100%,0%_100%)] bg-[var(--folder-back)]" />
+        <div className="absolute inset-0 rounded-[3px] bg-[var(--folder-back)] [clip-path:polygon(0%_22%,40%_22%,50%_0%,100%_0%,100%_100%,0%_100%)]" />
         {visibleKinds.length > 0 ? (
-          <span className="absolute right-[8%] bottom-[14%] text-[6px] font-semibold tracking-[0.03em] text-white/70">
+          <span className="absolute right-[8%] bottom-[14%] font-semibold text-[6px] text-white/70 tracking-[0.03em]">
             {visibleKinds[0] ? PREVIEW_LABEL_BY_KIND[visibleKinds[0]] : "FILE"}
           </span>
         ) : null}
-        <div className="absolute right-0 bottom-0 h-[78%] w-full rounded-b-[3px] rounded-t-[2px] bg-gradient-to-b from-[#3a3a3a] to-[var(--folder-front)]" />
+        <div className="absolute right-0 bottom-0 h-[78%] w-full rounded-t-[2px] rounded-b-[3px] bg-gradient-to-b from-[#3a3a3a] to-[var(--folder-front)]" />
       </div>
     );
   }
@@ -52,11 +52,11 @@ export function FolderGlyph({
       aria-hidden
       className={cn(
         "group/folder relative h-[72px] w-[90px] shrink-0 [perspective:700px]",
-        "[--folder-front:#2c2c2c] [--folder-back:#202020]",
+        "[--folder-back:#202020] [--folder-front:#2c2c2c]",
         className
       )}
     >
-      <div className="absolute inset-0 rounded-[10px] bg-[var(--folder-back)] [clip-path:polygon(0%_18%,40%_18%,46%_0%,100%_0%,100%_100%,0%_100%)] transition-transform duration-200 ease-out group-hover/folder:scale-[0.99]" />
+      <div className="absolute inset-0 rounded-[10px] bg-[var(--folder-back)] transition-transform duration-200 ease-out [clip-path:polygon(0%_18%,40%_18%,46%_0%,100%_0%,100%_100%,0%_100%)] group-hover/folder:scale-[0.99]" />
 
       {visibleKinds.length > 0 ? (
         <div className="pointer-events-none absolute right-[7px] bottom-[10px] z-[1] h-[58px] w-[84px]">
@@ -68,7 +68,7 @@ export function FolderGlyph({
                 transform: `translateY(${index * 3}px) rotate(${index % 2 === 0 ? -1 : 1}deg)`,
               }}
             >
-              <span className="h-2 rounded-[2px] bg-neutral-700 px-1 font-black text-[6px] leading-[8px] tracking-[0.02em] text-white">
+              <span className="h-2 rounded-[2px] bg-neutral-700 px-1 font-black text-[6px] text-white leading-[8px] tracking-[0.02em]">
                 {PREVIEW_LABEL_BY_KIND[kind] ?? "FILE"}
               </span>
             </div>
@@ -76,7 +76,7 @@ export function FolderGlyph({
         </div>
       ) : null}
 
-      <div className="absolute right-0 bottom-0 z-10 flex h-[60px] w-full origin-bottom items-end rounded-b-[10px] rounded-t-[4px] bg-gradient-to-b from-[#383838] to-[var(--folder-front)] px-2.5 pb-2 transition-all duration-250 ease-out group-hover/folder:translate-y-0.5 group-hover/folder:rotate-x-[7deg] " />
+      <div className="absolute right-0 bottom-0 z-10 flex h-[60px] w-full origin-bottom items-end rounded-t-[4px] rounded-b-[10px] bg-gradient-to-b from-[#383838] to-[var(--folder-front)] px-2.5 pb-2 transition-all duration-250 ease-out group-hover/folder:translate-y-0.5 group-hover/folder:rotate-x-[7deg]" />
     </div>
   );
 }

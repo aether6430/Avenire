@@ -1,13 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { scopedLogger, safeError } from "@avenire/observability";
+import { safeError, scopedLogger } from "@avenire/observability";
 
 interface ApiLoggerInput {
+  context?: Record<string, unknown>;
+  feature: string;
   request: Request;
   route: string;
-  feature: string;
   userId?: string | null;
   workspaceId?: string | null;
-  context?: Record<string, unknown>;
 }
 
 export function createApiLogger(input: ApiLoggerInput) {
@@ -45,16 +45,27 @@ export function createApiLogger(input: ApiLoggerInput) {
       return logger.info("api.request.started", payload);
     },
     requestSucceeded(status: number, payload?: Record<string, unknown>) {
-      return logger.info("api.request.succeeded", { status, ...(payload ?? {}) });
+      return logger.info("api.request.succeeded", {
+        status,
+        ...(payload ?? {}),
+      });
     },
-    requestFailed(status: number, error: unknown, payload?: Record<string, unknown>) {
+    requestFailed(
+      status: number,
+      error: unknown,
+      payload?: Record<string, unknown>
+    ) {
       return logger.error("api.request.failed", {
         status,
         error: safeError(error),
         ...(payload ?? {}),
       });
     },
-    rateLimited(meterName: string, retryAfter?: string | null, payload?: Record<string, unknown>) {
+    rateLimited(
+      meterName: string,
+      retryAfter?: string | null,
+      payload?: Record<string, unknown>
+    ) {
       return logger.warn("api.request.rate_limited", {
         meter: meterName,
         retryAfter: retryAfter ?? null,

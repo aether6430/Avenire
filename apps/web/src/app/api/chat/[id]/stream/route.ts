@@ -1,8 +1,8 @@
 import { UI_MESSAGE_STREAM_HEADERS } from "@avenire/ai";
 import { auth } from "@avenire/auth/server";
+import { headers } from "next/headers";
 import { after } from "next/server";
 import { createResumableStreamContext } from "resumable-stream";
-import { headers } from "next/headers";
 import { getChatBySlugForUser } from "@/lib/chat-data";
 import { resolveWorkspaceForUser } from "@/lib/file-data";
 import {
@@ -14,7 +14,7 @@ import {
 
 export async function GET(
   _request: Request,
-  context: { params: Promise<{ id: string }> },
+  context: { params: Promise<{ id: string }> }
 ) {
   const session = await auth.api.getSession({ headers: await headers() });
 
@@ -26,11 +26,18 @@ export async function GET(
   const activeOrganizationId =
     (session as { session?: { activeOrganizationId?: string | null } }).session
       ?.activeOrganizationId ?? null;
-  const workspace = await resolveWorkspaceForUser(session.user.id, activeOrganizationId);
+  const workspace = await resolveWorkspaceForUser(
+    session.user.id,
+    activeOrganizationId
+  );
   if (!workspace) {
     return new Response(null, { status: 404 });
   }
-  const chat = await getChatBySlugForUser(session.user.id, id, workspace.workspaceId);
+  const chat = await getChatBySlugForUser(
+    session.user.id,
+    id,
+    workspace.workspaceId
+  );
   if (!chat) {
     return new Response(null, { status: 404 });
   }

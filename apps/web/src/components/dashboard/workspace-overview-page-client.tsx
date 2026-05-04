@@ -4,7 +4,11 @@ import { useQuery } from "@tanstack/react-query";
 import { DashboardHome } from "@/components/dashboard/dashboard-home";
 import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
-import type { ConceptDrillTarget, ConceptMasteryRecord, FlashcardSetSummary } from "@/lib/flashcards";
+import type {
+  ConceptDrillTarget,
+  ConceptMasteryRecord,
+  FlashcardSetSummary,
+} from "@/lib/flashcards";
 import type { MisconceptionRecord } from "@/lib/learning-data";
 import { usePaneSearchParams } from "@/lib/workspace-panes";
 
@@ -15,7 +19,10 @@ interface WorkspaceOverviewPayload {
   weakestDrillTarget: ConceptDrillTarget | null;
 }
 
-async function loadWorkspaceOverview(subject?: string | null, signal?: AbortSignal) {
+async function loadWorkspaceOverview(
+  subject?: string | null,
+  signal?: AbortSignal
+) {
   const url = new URL("/api/workspace/overview", window.location.origin);
   if (subject?.trim()) {
     url.searchParams.set("subject", subject.trim());

@@ -31,22 +31,22 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@avenire/ui/components/sidebar";
-import { cn } from "@avenire/ui/lib/utils";
+import { Spinner } from "@avenire/ui/components/spinner";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@avenire/ui/components/tooltip";
-import { Spinner } from "@avenire/ui/components/spinner";
-import { useHotkey } from "@tanstack/react-hotkeys";
-import { measureElement, useVirtualizer } from "@tanstack/react-virtual";
+import { cn } from "@avenire/ui/lib/utils";
 import {
-  SidebarSimpleIcon as PanelLeftIcon,
   Files,
   GitBranch,
+  ListChecks,
+  MagnifyingGlass,
   Chat as MessageSquare,
   DotsThree as MoreHorizontal,
+  SidebarSimpleIcon as PanelLeftIcon,
   Pencil,
   PushPin as Pin,
   PushPinSlash as PinOff,
@@ -55,9 +55,9 @@ import {
   Sparkle as Sparkles,
   Trash as Trash2,
   Waves,
-  ListChecks,
-  MagnifyingGlass,
 } from "@phosphor-icons/react";
+import { useHotkey } from "@tanstack/react-hotkeys";
+import { measureElement, useVirtualizer } from "@tanstack/react-virtual";
 import type { Route } from "next";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -73,7 +73,6 @@ import {
   useState,
 } from "react";
 import { ChatIcon } from "@/components/chat/chat-icon";
-import { ChatSpinnerGlyph } from "@/components/chat/spinner";
 import { useHaptics } from "@/hooks/use-haptics";
 import type { ChatSummary } from "@/lib/chat-data";
 import {
@@ -92,21 +91,21 @@ import {
   writeCachedWorkspaces,
 } from "@/lib/dashboard-browser-cache";
 import {
-  setWorkspacePaneDragData,
-  useWorkspaceSurfaceNavigation,
-} from "@/lib/workspace-panes";
-import {
   warmDashboardBackground,
   warmWorkspaceSurface,
 } from "@/lib/dashboard-warmup";
-import { commandPaletteActions } from "@/stores/commandPaletteStore";
-import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
-import { useFilesPinsStore } from "@/stores/filesPinsStore";
-import { filesUiActions } from "@/stores/filesUiStore";
 import {
   primeWorkspaceTaskStore,
   reloadWorkspaceTasks,
 } from "@/lib/task-client-store";
+import {
+  setWorkspacePaneDragData,
+  useWorkspaceSurfaceNavigation,
+} from "@/lib/workspace-panes";
+import { commandPaletteActions } from "@/stores/commandPaletteStore";
+import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
+import { useFilesPinsStore } from "@/stores/filesPinsStore";
+import { filesUiActions } from "@/stores/filesUiStore";
 
 const FlashcardsSidebarPanel = dynamic(
   () =>
@@ -364,13 +363,21 @@ function ChatListSection({
     > = [];
 
     if (pinnedChats.length > 0) {
-      nextRows.push({ key: "header-pinned", title: "Pinned Chats", type: "header" });
+      nextRows.push({
+        key: "header-pinned",
+        title: "Pinned Chats",
+        type: "header",
+      });
       for (const chat of pinnedChats) {
         nextRows.push({ chat, key: `chat-${chat.slug}`, type: "chat" });
       }
     }
 
-    nextRows.push({ key: "header-other", title: "Other Chats", type: "header" });
+    nextRows.push({
+      key: "header-other",
+      title: "Other Chats",
+      type: "header",
+    });
     for (const chat of otherChats) {
       nextRows.push({ chat, key: `chat-${chat.slug}`, type: "chat" });
     }
@@ -428,7 +435,7 @@ function ChatListSection({
                 }}
               >
                 {row.type === "header" ? (
-                  <div className="px-2 pb-1 pt-2">
+                  <div className="px-2 pt-2 pb-1">
                     <SidebarGroupLabel>{row.title}</SidebarGroupLabel>
                   </div>
                 ) : (
@@ -734,11 +741,11 @@ export function DashboardSidebar({
       inviterEmail: string;
     }>
   >([]);
-  const settingsOpen = useDashboardOverlayStore((state) => state.settingsOpen);
+  const _settingsOpen = useDashboardOverlayStore((state) => state.settingsOpen);
   const setSettingsOpen = useDashboardOverlayStore(
     (state) => state.setSettingsOpen
   );
-  const trashOpen = useDashboardOverlayStore((state) => state.trashOpen);
+  const _trashOpen = useDashboardOverlayStore((state) => state.trashOpen);
   const setTrashOpen = useDashboardOverlayStore((state) => state.setTrashOpen);
   const isChatsRoute =
     pathname === "/workspace/chats" || pathname.startsWith("/workspace/chats/");
@@ -1281,10 +1288,11 @@ export function DashboardSidebar({
   }, [deferredStartupReady]);
 
   useEffect(() => {
-    if (routeWorkspaceUuid) {
-      if (readPreferredWorkspaceId() !== routeWorkspaceUuid) {
-        window.localStorage.setItem("preferredWorkspaceId", routeWorkspaceUuid);
-      }
+    if (
+      routeWorkspaceUuid &&
+      readPreferredWorkspaceId() !== routeWorkspaceUuid
+    ) {
+      window.localStorage.setItem("preferredWorkspaceId", routeWorkspaceUuid);
     }
   }, [routeWorkspaceUuid]);
 
@@ -1418,79 +1426,80 @@ export function DashboardSidebar({
   const filteredPinnedChats = useMemo(
     () =>
       pinnedChats.filter((chat) =>
-        !chatSearchNeedle
-          ? true
-          : chat.title.toLowerCase().includes(chatSearchNeedle)
+        chatSearchNeedle
+          ? chat.title.toLowerCase().includes(chatSearchNeedle)
+          : true
       ),
     [chatSearchNeedle, pinnedChats]
   );
   const filteredOtherChats = useMemo(
     () =>
       otherChats.filter((chat) =>
-        !chatSearchNeedle
-          ? true
-          : chat.title.toLowerCase().includes(chatSearchNeedle)
+        chatSearchNeedle
+          ? chat.title.toLowerCase().includes(chatSearchNeedle)
+          : true
       ),
     [chatSearchNeedle, otherChats]
   );
 
-  const navigateToFilesRoot = useCallback(async (options?: {
-    openInNewPane?: boolean;
-  }) => {
-    try {
-      const preferredWorkspaceId =
-        typeof window !== "undefined"
-          ? window.localStorage.getItem("preferredWorkspaceId")
-          : null;
-      const preferred = preferredWorkspaceId
-        ? workspaces.find(
-            (workspace) => workspace.workspaceId === preferredWorkspaceId
-          )
-        : undefined;
-      const targetWorkspace =
-        preferred ??
-        (activeWorkspace
-          ? {
-              name: "Workspace",
-              organizationId: undefined,
-              rootFolderId: activeWorkspace.rootFolderId,
-              workspaceId: activeWorkspace.workspaceId,
-            }
-          : undefined) ??
-        workspaces[0];
+  const navigateToFilesRoot = useCallback(
+    async (options?: { openInNewPane?: boolean }) => {
+      try {
+        const preferredWorkspaceId =
+          typeof window !== "undefined"
+            ? window.localStorage.getItem("preferredWorkspaceId")
+            : null;
+        const preferred = preferredWorkspaceId
+          ? workspaces.find(
+              (workspace) => workspace.workspaceId === preferredWorkspaceId
+            )
+          : undefined;
+        const targetWorkspace =
+          preferred ??
+          (activeWorkspace
+            ? {
+                name: "Workspace",
+                organizationId: undefined,
+                rootFolderId: activeWorkspace.rootFolderId,
+                workspaceId: activeWorkspace.workspaceId,
+              }
+            : undefined) ??
+          workspaces[0];
 
-      if (targetWorkspace) {
-        navigate(
-          `/workspace/files/${targetWorkspace.workspaceId}/folder/${targetWorkspace.rootFolderId}` as Route,
-          options
-        );
-        return;
-      }
+        if (targetWorkspace) {
+          navigate(
+            `/workspace/files/${targetWorkspace.workspaceId}/folder/${targetWorkspace.rootFolderId}` as Route,
+            options
+          );
+          return;
+        }
 
-      const response = await fetch("/api/workspaces", { cache: "no-store" });
-      if (!response.ok) {
+        const response = await fetch("/api/workspaces", { cache: "no-store" });
+        if (!response.ok) {
+          navigate("/workspace/files" as Route, options);
+          return;
+        }
+
+        const payload = (await response.json()) as {
+          workspaceUuid?: string;
+          rootFolderUuid?: string;
+        };
+
+        if (payload.workspaceUuid && payload.rootFolderUuid) {
+          navigate(
+            `/workspace/files/${payload.workspaceUuid}/folder/${payload.rootFolderUuid}` as Route,
+            options
+          );
+          return;
+        }
+
         navigate("/workspace/files" as Route, options);
-        return;
+      } catch {
+        navigate("/workspace/files" as Route, options);
       }
-
-      const payload = (await response.json()) as {
-        workspaceUuid?: string;
-        rootFolderUuid?: string;
-      };
-
-      if (payload.workspaceUuid && payload.rootFolderUuid) {
-        navigate(
-          `/workspace/files/${payload.workspaceUuid}/folder/${payload.rootFolderUuid}` as Route,
-          options
-        );
-        return;
-      }
-
-      navigate("/workspace/files" as Route, options);
-    } catch {
-      navigate("/workspace/files" as Route, options);
-    }
-  }, [activeWorkspace, navigate, workspaces]);
+    },
+    [activeWorkspace, navigate, workspaces]
+  );
 
   const loadWorkspaces = useCallback(async () => {
     try {
@@ -2060,11 +2069,6 @@ export function DashboardSidebar({
                   { value: "tasks", label: "Tasks", icon: ListChecks },
                   { value: "files", label: "Manage", icon: Files },
                 ]}
-                onItemHover={(item) => {
-                  warmWorkspaceSection(
-                    item.value as "chat" | "flashcards" | "files" | "tasks"
-                  );
-                }}
                 onItemClick={(item, _event) => {
                   const nextView = item.value as
                     | "chat"
@@ -2072,10 +2076,10 @@ export function DashboardSidebar({
                     | "files"
                     | "tasks";
 
-                  if (!isMobile) {
-                    setDesktopSidebarView(nextView);
-                  } else {
+                  if (isMobile) {
                     setMobileSidebarView(nextView);
+                  } else {
+                    setDesktopSidebarView(nextView);
                   }
                 }}
                 onItemContextMenu={(item, _event) => {
@@ -2093,6 +2097,11 @@ export function DashboardSidebar({
                   } else {
                     setDesktopSidebarView(nextView);
                   }
+                }}
+                onItemHover={(item) => {
+                  warmWorkspaceSection(
+                    item.value as "chat" | "flashcards" | "files" | "tasks"
+                  );
                 }}
                 onValueChange={(nextValue) => {
                   if (!nextValue) {
@@ -2265,7 +2274,7 @@ export function DashboardSidebar({
                           title="Methods"
                         />
                         <Input
-                          className="mt-2 h-8 hidden"
+                          className="mt-2 hidden h-8"
                           onChange={(event) =>
                             setChatSearchQuery(event.target.value)
                           }
@@ -2371,84 +2380,84 @@ export function DashboardSidebar({
             </div>
           </TooltipProvider>
         </SidebarContent>
-      <SidebarFooter>
-        <div className="mb-2 flex items-center justify-between gap-2 px-2">
-          <div className="flex items-center gap-1">
-            <Button
-              className="hit-area h-8 w-8"
-              onClick={() => {
-                void triggerHaptic("selection");
-                openOverlayAfterCollapse(() => setTrashOpen(true));
-              }}
-              size="icon-sm"
-              type="button"
-              variant="ghost"
-            >
-              <Trash2 className="size-4" />
-              <span className="sr-only">Open trash</span>
-            </Button>
-            <Button
-              className="hit-area h-8 w-8"
-              onClick={() => {
-                void triggerHaptic("selection");
-                openOverlayAfterCollapse(() => {
-                  filesUiActions.toggleUploadActivityOpen();
-                });
-              }}
-              size="icon-sm"
-              type="button"
-              variant="ghost"
-            >
-              <Waves className="size-4" />
-              <span className="sr-only">Open upload activity</span>
-            </Button>
-            <Button
-              id="dashboard-settings-trigger"
-              className="hit-area h-8 w-8"
-              onFocus={() => {
-                void import("@/components/settings/settings-dialog").catch(
-                  () => undefined
-                );
-              }}
-              onClick={() => {
-                void triggerHaptic("selection");
-                openOverlayAfterCollapse(() => setSettingsOpen(true));
-              }}
-              onPointerEnter={() => {
-                void import("@/components/settings/settings-dialog").catch(
-                  () => undefined
-                );
-              }}
-              size="icon-sm"
-              type="button"
-              variant="ghost"
-            >
-              <Settings className="size-4" />
-              <span className="sr-only">Open settings</span>
-            </Button>
+        <SidebarFooter>
+          <div className="mb-2 flex items-center justify-between gap-2 px-2">
+            <div className="flex items-center gap-1">
+              <Button
+                className="hit-area h-8 w-8"
+                onClick={() => {
+                  void triggerHaptic("selection");
+                  openOverlayAfterCollapse(() => setTrashOpen(true));
+                }}
+                size="icon-sm"
+                type="button"
+                variant="ghost"
+              >
+                <Trash2 className="size-4" />
+                <span className="sr-only">Open trash</span>
+              </Button>
+              <Button
+                className="hit-area h-8 w-8"
+                onClick={() => {
+                  void triggerHaptic("selection");
+                  openOverlayAfterCollapse(() => {
+                    filesUiActions.toggleUploadActivityOpen();
+                  });
+                }}
+                size="icon-sm"
+                type="button"
+                variant="ghost"
+              >
+                <Waves className="size-4" />
+                <span className="sr-only">Open upload activity</span>
+              </Button>
+              <Button
+                className="hit-area h-8 w-8"
+                id="dashboard-settings-trigger"
+                onClick={() => {
+                  void triggerHaptic("selection");
+                  openOverlayAfterCollapse(() => setSettingsOpen(true));
+                }}
+                onFocus={() => {
+                  void import("@/components/settings/settings-dialog").catch(
+                    () => undefined
+                  );
+                }}
+                onPointerEnter={() => {
+                  void import("@/components/settings/settings-dialog").catch(
+                    () => undefined
+                  );
+                }}
+                size="icon-sm"
+                type="button"
+                variant="ghost"
+              >
+                <Settings className="size-4" />
+                <span className="sr-only">Open settings</span>
+              </Button>
+            </div>
           </div>
-        </div>
-        {deferredStartupReady ? (
-          <DeferredNavUser
-            activeWorkspaceId={workspaceUuid}
-            invitations={invitations}
-            onAcceptInvitation={(invitationId) => {
-              void respondToInvitation(invitationId, "accept");
-            }}
-            onCreateWorkspace={createWorkspace}
-            onDeclineInvitation={(invitationId) => {
-              void respondToInvitation(invitationId, "decline");
-            }}
-            onSwitchWorkspace={(workspace) => {
-              void switchWorkspace(workspace);
-            }}
-            user={user}
-            workspaces={workspaces}
-          />
-        ) : (
-          <div className="h-14" />
-        )}
-      </SidebarFooter>
+          {deferredStartupReady ? (
+            <DeferredNavUser
+              activeWorkspaceId={workspaceUuid}
+              invitations={invitations}
+              onAcceptInvitation={(invitationId) => {
+                void respondToInvitation(invitationId, "accept");
+              }}
+              onCreateWorkspace={createWorkspace}
+              onDeclineInvitation={(invitationId) => {
+                void respondToInvitation(invitationId, "decline");
+              }}
+              onSwitchWorkspace={(workspace) => {
+                void switchWorkspace(workspace);
+              }}
+              user={user}
+              workspaces={workspaces}
+            />
+          ) : (
+            <div className="h-14" />
+          )}
+        </SidebarFooter>
       </Sidebar>
     </>
   );

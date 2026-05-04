@@ -3,10 +3,10 @@
 import { AnimatePresence, motion } from "motion/react";
 import {
   forwardRef,
+  type HTMLAttributes,
   useEffect,
   useMemo,
   useState,
-  type HTMLAttributes,
 } from "react";
 import { Shimmer } from "@/components/chat/shimmer";
 import { cn } from "@/lib/utils";
@@ -36,7 +36,7 @@ function RotatingMessage({
   }, [messages]);
 
   return (
-    <span className="inline-grid overflow-hidden text-[13px] font-medium">
+    <span className="inline-grid overflow-hidden font-medium text-[13px]">
       <Shimmer
         aria-hidden="true"
         as="span"
@@ -92,7 +92,7 @@ export function ChatSpinnerGlyph({ className }: { className?: string }) {
             delay: cell * 0.06,
             duration: 1.25,
             ease: "easeInOut",
-            repeat: Infinity,
+            repeat: Number.POSITIVE_INFINITY,
           }}
         />
       ))}

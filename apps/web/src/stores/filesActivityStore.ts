@@ -27,7 +27,10 @@ type QueueUpdater =
 
 interface FilesActivityStore {
   queuesByWorkspace: Record<string, FilesActivityItem[]>;
-  replaceWorkspaceQueue: (workspaceUuid: string, items: FilesActivityItem[]) => void;
+  replaceWorkspaceQueue: (
+    workspaceUuid: string,
+    items: FilesActivityItem[]
+  ) => void;
   updateWorkspaceQueue: (workspaceUuid: string, updater: QueueUpdater) => void;
 }
 
@@ -43,8 +46,7 @@ export const useFilesActivityStore = create<FilesActivityStore>()((set) => ({
   updateWorkspaceQueue: (workspaceUuid, updater) =>
     set((state) => {
       const previous = state.queuesByWorkspace[workspaceUuid] ?? [];
-      const next =
-        typeof updater === "function" ? updater(previous) : updater;
+      const next = typeof updater === "function" ? updater(previous) : updater;
       return {
         queuesByWorkspace: {
           ...state.queuesByWorkspace,

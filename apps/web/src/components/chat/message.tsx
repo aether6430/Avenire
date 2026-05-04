@@ -10,9 +10,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@avenire/ui/components/dialog";
-import { AnimatePresence, motion } from "motion/react";
 import { ArrowSquareOut, PlusCircle } from "@phosphor-icons/react";
-import { memo, useEffect, useMemo, useState, type ComponentProps } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { type ComponentProps, memo, useEffect, useMemo, useState } from "react";
 import type { Attachment } from "@/components/chat/attachment";
 import { ChatActions } from "@/components/chat/chat-actions";
 import { Markdown } from "@/components/chat/markdown";
@@ -20,16 +20,16 @@ import { PreviewAttachment } from "@/components/chat/preview-attachment";
 import {
   type ActivityAction,
   isRollingToolPart,
-  RollingAgentActivity,
   ReasoningAction,
+  RollingAgentActivity,
   RollingToolActivity,
 } from "@/components/chat/rolling-tool-activity";
 import { ChatToolPart, ToolRow } from "@/components/chat/tool-part";
 import { WidgetPrimitiveRenderer } from "@/components/WidgetPrimitiveRenderer";
 import { WidgetRenderer } from "@/components/WidgetRenderer";
 import { dispatchNoteWidgetInsertion } from "@/lib/note-widgets";
-import { resolveWorkspaceFileRoute } from "@/lib/workspace-file-navigation";
 import { cn } from "@/lib/utils";
+import { resolveWorkspaceFileRoute } from "@/lib/workspace-file-navigation";
 import { useHeaderStore } from "@/stores/header-store";
 import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
 
@@ -37,18 +37,18 @@ type MessagePart = UIMessage["parts"][number];
 type ToolPart = Extract<MessagePart, { type: `tool-${string}` }>;
 type AgentActivityPart = Extract<MessagePart, { type: "data-agent_activity" }>;
 type CompletedToolPart = Extract<ToolPart, { state: "output-available" }>;
-type FlashcardToolOutput = {
-  cards?: Array<unknown>;
+interface FlashcardToolOutput {
+  cards?: unknown[];
   setId: string;
   title: string;
-};
-type NoteToolOutput = {
+}
+interface NoteToolOutput {
   notes?: Array<{
     fileId: string;
     title?: string;
     workspacePath: string;
   }>;
-};
+}
 type NoteWidgetPayload = Parameters<typeof dispatchNoteWidgetInsertion>[0];
 interface RenderBlock {
   index: number;
@@ -300,7 +300,9 @@ function GeneratedArtifacts({
     [parts]
   );
 
-  const [noteRoutes, setNoteRoutes] = useState<Record<string, string | null>>({});
+  const [noteRoutes, setNoteRoutes] = useState<Record<string, string | null>>(
+    {}
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -445,9 +447,8 @@ const PurePreviewMessage = ({
   const activePaneId = useWorkspacePaneStore((state) => state.activePaneId);
   const paneHeaders = useHeaderStore((state) => state.byPane);
   const [noteInsertDialogOpen, setNoteInsertDialogOpen] = useState(false);
-  const [pendingNoteWidget, setPendingNoteWidget] = useState<NoteWidgetPayload | null>(
-    null
-  );
+  const [pendingNoteWidget, setPendingNoteWidget] =
+    useState<NoteWidgetPayload | null>(null);
   const noteTargets = useMemo(
     () =>
       panes
@@ -463,7 +464,10 @@ const PurePreviewMessage = ({
         })
         .map((pane) => {
           const title = paneHeaders[pane.id]?.title?.trim();
-          const routeLabel = pane.route.pathname.replace("/workspace/files/", "");
+          const routeLabel = pane.route.pathname.replace(
+            "/workspace/files/",
+            ""
+          );
           return {
             id: pane.id,
             label: title || routeLabel || "Files pane",
@@ -514,7 +518,7 @@ const PurePreviewMessage = ({
           }
         >
           {message.role === "assistant" && (
-            <div className="flex flex-row items-center gap-2 text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
+            <div className="flex flex-row items-center gap-2 text-[11px] text-muted-foreground uppercase tracking-[0.15em]">
               <span>Apollo</span>
             </div>
           )}
@@ -586,8 +590,7 @@ const PurePreviewMessage = ({
                         "flex w-full flex-col gap-4",
                         message.role === "user" &&
                           "group relative rounded-[22px] rounded-br-[10px] border border-border/60 bg-secondary px-4 py-3 text-secondary-foreground",
-                        message.role === "assistant" &&
-                          "px-0 py-0"
+                        message.role === "assistant" && "px-0 py-0"
                       )}
                       data-testid="message-content"
                     >
@@ -618,12 +621,11 @@ const PurePreviewMessage = ({
                     : typeof output?.widget_code === "string"
                       ? output.widget_code
                       : "";
-                const widgetSpec =
-                  isRenderableWidgetSpec(input?.widget_spec)
-                    ? input.widget_spec
-                    : isRenderableWidgetSpec(output?.widget_spec)
-                      ? output.widget_spec
-                      : null;
+                const widgetSpec = isRenderableWidgetSpec(input?.widget_spec)
+                  ? input.widget_spec
+                  : isRenderableWidgetSpec(output?.widget_spec)
+                    ? output.widget_spec
+                    : null;
                 const title =
                   typeof input?.title === "string"
                     ? input.title
@@ -757,7 +759,7 @@ const PurePreviewMessage = ({
                   </Button>
                 ))
               ) : (
-                <div className="rounded-lg border border-dashed border-border/60 px-4 py-5 text-muted-foreground text-sm">
+                <div className="rounded-lg border border-border/60 border-dashed px-4 py-5 text-muted-foreground text-sm">
                   Open a file pane first, then try adding the widget again.
                 </div>
               )}

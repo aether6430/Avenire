@@ -1,21 +1,21 @@
-import fs from "fs";
-import path from "path";
+import fs from "node:fs";
+import path from "node:path";
 import matter from "gray-matter";
 import readingTime from "reading-time";
 
 const BLOG_DIR = path.join(process.cwd(), "content", "blog");
 
 export interface PostMeta {
-  slug: string;
-  title: string;
-  description: string;
-  date: string;
   author: string;
-  tags: string[];
-  readingTime: string;
   coverImage?: string;
+  date: string;
+  description: string;
   featured?: boolean;
   featuredOrder?: number;
+  readingTime: string;
+  slug: string;
+  tags: string[];
+  title: string;
 }
 
 export interface Post extends PostMeta {
@@ -44,13 +44,18 @@ export function getAllPostMetas(): PostMeta[] {
         slug,
         title: data.title ?? "Untitled",
         description: data.description ?? "",
-        date: data.date ? new Date(data.date).toISOString() : new Date().toISOString(),
+        date: data.date
+          ? new Date(data.date).toISOString()
+          : new Date().toISOString(),
         author: data.author ?? "Avenire Team",
         tags: data.tags ?? [],
         readingTime: rt.text,
         coverImage: data.coverImage,
         featured: Boolean(data.featured),
-        featuredOrder: typeof data.featuredOrder === "number" ? data.featuredOrder : undefined,
+        featuredOrder:
+          typeof data.featuredOrder === "number"
+            ? data.featuredOrder
+            : undefined,
       } satisfies PostMeta;
     })
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -59,7 +64,9 @@ export function getAllPostMetas(): PostMeta[] {
 export function getPostBySlug(slug: string): Post | null {
   ensureBlogDir();
   const fullPath = path.join(BLOG_DIR, `${slug}.mdx`);
-  if (!fs.existsSync(fullPath)) return null;
+  if (!fs.existsSync(fullPath)) {
+    return null;
+  }
 
   const raw = fs.readFileSync(fullPath, "utf-8");
   const { data, content } = matter(raw);
@@ -69,13 +76,16 @@ export function getPostBySlug(slug: string): Post | null {
     slug,
     title: data.title ?? "Untitled",
     description: data.description ?? "",
-    date: data.date ? new Date(data.date).toISOString() : new Date().toISOString(),
+    date: data.date
+      ? new Date(data.date).toISOString()
+      : new Date().toISOString(),
     author: data.author ?? "Avenire Team",
     tags: data.tags ?? [],
     readingTime: rt.text,
     coverImage: data.coverImage,
     featured: Boolean(data.featured),
-    featuredOrder: typeof data.featuredOrder === "number" ? data.featuredOrder : undefined,
+    featuredOrder:
+      typeof data.featuredOrder === "number" ? data.featuredOrder : undefined,
     content,
   };
 }

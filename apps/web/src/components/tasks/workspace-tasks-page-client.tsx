@@ -1,8 +1,8 @@
 "use client";
 
-import { TasksWorkspace } from "@/components/tasks/tasks-workspace";
 import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
+import { TasksWorkspace } from "@/components/tasks/tasks-workspace";
 
 export function WorkspaceTasksPageClient() {
   const { status, user, workspace } = useWorkspaceBootstrap();

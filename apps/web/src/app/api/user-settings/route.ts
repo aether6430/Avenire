@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/workspace";
 import { getUserSettings, upsertUserSettings } from "@/lib/user-settings";
+import { getSessionUser } from "@/lib/workspace";
 
 export async function GET() {
   const user = await getSessionUser();
@@ -29,18 +29,32 @@ export async function PUT(request: Request) {
     emailReceipts?: unknown;
     completedTasksAtTop?: unknown;
     onboardingCompleted?: unknown;
+    petName?: unknown;
+    petAccessory?: unknown;
   };
 
   const hasEmailReceipts = typeof raw.emailReceipts === "boolean";
   const hasCompletedTasksAtTop = typeof raw.completedTasksAtTop === "boolean";
   const hasOnboardingCompleted = typeof raw.onboardingCompleted === "boolean";
-  if (!hasEmailReceipts && !hasCompletedTasksAtTop && !hasOnboardingCompleted) {
+  const hasPetName =
+    typeof raw.petName === "string" && raw.petName.trim().length > 0;
+  const hasPetAccessory =
+    typeof raw.petAccessory === "string" && raw.petAccessory.trim().length > 0;
+  if (
+    !(
+      hasEmailReceipts ||
+      hasCompletedTasksAtTop ||
+      hasOnboardingCompleted ||
+      hasPetName ||
+      hasPetAccessory
+    )
+  ) {
     return NextResponse.json(
       {
         error:
-          "Provide at least one boolean setting: emailReceipts, completedTasksAtTop, onboardingCompleted",
+          "Provide at least one setting: emailReceipts, completedTasksAtTop, onboardingCompleted, petName, petAccessory",
       },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -53,6 +67,12 @@ export async function PUT(request: Request) {
       : {}),
     ...(hasOnboardingCompleted
       ? { onboardingCompleted: raw.onboardingCompleted as boolean }
+      : {}),
+    ...(hasPetName
+      ? { petName: (raw.petName as string).trim().slice(0, 32) }
+      : {}),
+    ...(hasPetAccessory
+      ? { petAccessory: (raw.petAccessory as string).trim() }
       : {}),
   });
 

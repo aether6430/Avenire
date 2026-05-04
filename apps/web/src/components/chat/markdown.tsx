@@ -3,8 +3,19 @@
 import { Button } from "@avenire/ui/components/button";
 import { Separator } from "@avenire/ui/components/separator";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow, } from "@avenire/ui/components/table";
-import { CheckIcon, Copy as CopyIcon, FileText as FileTextIcon } from "@phosphor-icons/react"
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@avenire/ui/components/table";
+import {
+  CheckIcon,
+  Copy as CopyIcon,
+  FileText as FileTextIcon,
+} from "@phosphor-icons/react";
+import type { Route } from "next";
 import {
   type ComponentPropsWithoutRef,
   memo,
@@ -14,7 +25,6 @@ import {
   useRef,
   useState,
 } from "react";
-import type { Route } from "next";
 import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
@@ -23,19 +33,19 @@ import remend from "remend";
 import type { BundledLanguage } from "shiki";
 import { bundledLanguages, bundledLanguagesAlias, codeToHtml } from "shiki";
 import { MermaidDiagram } from "@/components/chat/mermaid";
-import { resolveWorkspaceFileRoute } from "@/lib/workspace-file-navigation";
 import { cn } from "@/lib/utils";
+import { resolveWorkspaceFileRoute } from "@/lib/workspace-file-navigation";
 
 import "katex/dist/katex.min.css";
 
-type MarkdownProps = {
+interface MarkdownProps {
+  className?: string;
   content: string;
   id: string;
   parseIncompleteMarkdown?: boolean;
-  className?: string;
   textSize?: "default" | "small";
   workspaceUuid?: string;
-};
+}
 
 const CODE_LANGUAGE_REGEX = /language-([^\s]+)/;
 const TRAILING_NEWLINE_REGEX = /\n$/;
@@ -57,7 +67,7 @@ function resolveBundledLanguage(language: string): BundledLanguage | null {
     return null;
   }
 
-  if (Object.prototype.hasOwnProperty.call(bundledLanguages, language)) {
+  if (Object.hasOwn(bundledLanguages, language)) {
     return language as BundledLanguage;
   }
 
@@ -125,7 +135,7 @@ function WorkspaceFileLink({
   useEffect(() => {
     let cancelled = false;
 
-    if (!workspaceUuid || !fileIdentifier || !cacheKey) {
+    if (!(workspaceUuid && fileIdentifier && cacheKey)) {
       setResolvedRoute(null);
       return;
     }
@@ -158,7 +168,7 @@ function WorkspaceFileLink({
   return (
     <a
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-muted/60 px-2.5 py-1 font-mono text-[11px] font-medium text-foreground no-underline hover:bg-muted",
+        "inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-muted/60 px-2.5 py-1 font-medium font-mono text-[11px] text-foreground no-underline hover:bg-muted",
         !resolvedRoute && "cursor-default opacity-80",
         className
       )}
@@ -171,7 +181,7 @@ function WorkspaceFileLink({
         }
         if (!resolvedRoute) {
           event.preventDefault();
-          if (!workspaceUuid || !fileIdentifier || !cacheKey) {
+          if (!(workspaceUuid && fileIdentifier && cacheKey)) {
             return;
           }
           resolveWorkspaceFileRoute(workspaceUuid, fileIdentifier)
@@ -189,7 +199,7 @@ function WorkspaceFileLink({
       target="_self"
     >
       <FileTextIcon className="size-3.5 text-primary" />
-      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+      <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
         Source
       </span>
       <span>{children}</span>
@@ -314,7 +324,7 @@ function HighlightedCodeBlock({
         />
       ) : (
         <pre className="my-0 overflow-x-auto px-4 py-4">
-          <code className={cn("font-mono text-xs whitespace-pre", className)}>
+          <code className={cn("whitespace-pre font-mono text-xs", className)}>
             {code}
           </code>
         </pre>
@@ -366,8 +376,9 @@ const MemoizedMarkdown = memo(
   }: Omit<MarkdownProps, "id">) => {
     const normalized = useMemo(() => {
       const contentWithWorkspaceLinks = normalizeWorkspaceFileLinks(content);
-      const contentWithNormalizedMath =
-        normalizeMathDelimiters(contentWithWorkspaceLinks);
+      const contentWithNormalizedMath = normalizeMathDelimiters(
+        contentWithWorkspaceLinks
+      );
       return parseIncompleteMarkdown &&
         !contentWithNormalizedMath.includes("workspace-file://")
         ? remend(contentWithNormalizedMath)
@@ -398,20 +409,12 @@ const MemoizedMarkdown = memo(
     return (
       <div
         className={cn(
-          "prose prose-sm max-w-full break-words dark:prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-pre:my-3 prose-blockquote:my-2 prose-hr:my-3",
+          "prose prose-sm dark:prose-invert prose-blockquote:my-2 prose-hr:my-3 prose-ol:my-2 prose-p:my-2 prose-pre:my-3 prose-ul:my-2 max-w-full break-words",
           sizeClasses.body,
           className
         )}
       >
         <ReactMarkdown
-          remarkPlugins={[remarkGfm, remarkMath]}
-          rehypePlugins={[rehypeKatex]}
-          urlTransform={(url) => {
-            if (url.startsWith("workspace-file://")) {
-              return url;
-            }
-            return defaultUrlTransform(url);
-          }}
           components={{
             code: CodeRenderer,
             ol: ({ children, className, ...props }: any) => (
@@ -576,6 +579,14 @@ const MemoizedMarkdown = memo(
               </h6>
             ),
           }}
+          rehypePlugins={[rehypeKatex]}
+          remarkPlugins={[remarkGfm, remarkMath]}
+          urlTransform={(url) => {
+            if (url.startsWith("workspace-file://")) {
+              return url;
+            }
+            return defaultUrlTransform(url);
+          }}
         >
           {normalized}
         </ReactMarkdown>
@@ -602,10 +613,10 @@ export const Markdown = memo(function Markdown({
 }: MarkdownProps) {
   return (
     <MemoizedMarkdown
-      key={id}
-      content={content}
-      parseIncompleteMarkdown={parseIncompleteMarkdown}
       className={className}
+      content={content}
+      key={id}
+      parseIncompleteMarkdown={parseIncompleteMarkdown}
       textSize={textSize}
       workspaceUuid={workspaceUuid}
     />

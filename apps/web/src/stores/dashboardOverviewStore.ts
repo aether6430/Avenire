@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 
-export type DashboardOverviewStats = {
+export interface DashboardOverviewStats {
   activeSets: number;
   chats: number;
   due: number;
@@ -16,13 +16,13 @@ export type DashboardOverviewStats = {
     name: string;
     workspaceId: string;
   }>;
-};
+}
 
-type DashboardOverviewStore = {
-  stats: DashboardOverviewStats | null;
-  setStats: (stats: DashboardOverviewStats) => void;
+interface DashboardOverviewStore {
   clearStats: () => void;
-};
+  setStats: (stats: DashboardOverviewStats) => void;
+  stats: DashboardOverviewStats | null;
+}
 
 export const useDashboardOverviewStore = create<DashboardOverviewStore>()(
   (set) => ({

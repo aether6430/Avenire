@@ -2,7 +2,6 @@
 
 import { Badge } from "@avenire/ui/components/badge";
 import { Button } from "@avenire/ui/components/button";
-import { cn } from "@avenire/ui/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +24,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@avenire/ui/components/tabs";
+import { cn } from "@avenire/ui/lib/utils";
 import {
   ArrowRight,
   BookOpenText as BookOpenCheck,
@@ -42,18 +42,18 @@ import { startTransition, useEffect, useMemo, useState } from "react";
 import { HeaderBreadcrumbs } from "@/components/dashboard/header-portal";
 import { QuickCaptureDialog } from "@/components/dashboard/quick-capture-dialog";
 import { prefetchFlashcardSet } from "@/lib/flashcard-browser-cache";
-import { buildGreeting } from "@/lib/greetings";
-import {
-  useCurrentWorkspacePaneCompact,
-  useWorkspacePaneNavigation,
-} from "@/lib/workspace-panes";
 import type {
   ConceptDrillTarget,
   ConceptMasteryRecord,
   FlashcardSetSummary,
   FlashcardTaxonomy,
 } from "@/lib/flashcards";
+import { buildGreeting } from "@/lib/greetings";
 import type { MisconceptionRecord } from "@/lib/learning-data";
+import {
+  useCurrentWorkspacePaneCompact,
+  useWorkspacePaneNavigation,
+} from "@/lib/workspace-panes";
 import {
   dashboardUiActions,
   useDashboardUiStore,
@@ -94,10 +94,10 @@ interface DashboardHomeProps {
   activeMisconceptions: MisconceptionRecord[];
   currentUserId: string;
   flashcardSets: FlashcardSetSummary[];
+  rootFolderId: string;
   userName?: string;
   weakestConcepts: ConceptMasteryRecord[];
   weakestDrillTarget: ConceptDrillTarget | null;
-  rootFolderId: string;
   workspaceId: string;
 }
 
@@ -389,7 +389,7 @@ export function DashboardHome({
           />
         </div>
 
-        <div className="flex w-full justify-around flex-wrap gap-1.5">
+        <div className="flex w-full flex-wrap justify-around gap-1.5">
           <QuickCaptureDialog
             currentUserId={currentUserId}
             initialKind="task"
@@ -743,9 +743,7 @@ export function DashboardHome({
                       const prompt = promptForMisconception(
                         selectedMisconception
                       );
-                      navigate(
-                        `/workspace/chats/new?prompt=${prompt}`
-                      );
+                      navigate(`/workspace/chats/new?prompt=${prompt}`);
                     }}
                     type="button"
                   >
@@ -755,9 +753,7 @@ export function DashboardHome({
                   <Button
                     onClick={() => {
                       const prompt = promptForFlashcards(selectedMisconception);
-                      navigate(
-                        `/workspace/chats/new?prompt=${prompt}`
-                      );
+                      navigate(`/workspace/chats/new?prompt=${prompt}`);
                     }}
                     type="button"
                     variant="outline"

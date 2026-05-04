@@ -1,11 +1,11 @@
-import { getAllPostMetas } from "@/lib/blog";
-import type { PostMeta } from "@/lib/blog";
-import { Navbar } from "@/components/landing/Navbar";
-import { Footer } from "@/components/landing/Footer";
-import Link from "next/link";
-import Image from "next/image";
+import { ArrowRight, Calendar, Clock, Tag } from "@phosphor-icons/react/ssr";
 import type { Route } from "next";
-import { Calendar, Clock, Tag, ArrowRight } from "@phosphor-icons/react/ssr"
+import Image from "next/image";
+import Link from "next/link";
+import { Footer } from "@/components/landing/Footer";
+import { Navbar } from "@/components/landing/Navbar";
+import type { PostMeta } from "@/lib/blog";
+import { getAllPostMetas } from "@/lib/blog";
 import { buildPageMetadata } from "@/lib/page-metadata";
 
 export const metadata = buildPageMetadata({
@@ -29,50 +29,49 @@ function blogPostHref(slug: string): Route {
 
 function FeaturedPostCard({ post }: { post: PostMeta }) {
   return (
-    <Link href={blogPostHref(post.slug)} className="group block">
-      <article className="relative overflow-hidden rounded-2xl border border-border bg-card p-8 md:p-10 transition-all duration-300 hover:border-primary/40 hover:shadow-xl hover:shadow-black/20">
+    <Link className="group block" href={blogPostHref(post.slug)}>
+      <article className="relative overflow-hidden rounded-2xl border border-border bg-card p-8 transition-all duration-300 hover:border-primary/40 hover:shadow-black/20 hover:shadow-xl md:p-10">
         {post.coverImage ? (
-          <div className="relative -mx-8 -mt-8 md:-mx-10 md:-mt-10 mb-6 md:mb-8 border-b border-border/70 overflow-hidden">
+          <div className="relative -mx-8 -mt-8 mb-6 overflow-hidden border-border/70 border-b md:-mx-10 md:-mt-10 md:mb-8">
             <Image
-              src={post.coverImage}
               alt={post.title}
-              width={1600}
+              className="h-52 w-full object-cover transition-transform duration-500 group-hover:scale-[1.02] md:h-64"
               height={900}
-              className="w-full h-52 md:h-64 object-cover transition-transform duration-500 group-hover:scale-[1.02]"
               priority
+              src={post.coverImage}
+              width={1600}
             />
           </div>
         ) : (
-          <div className="relative -mx-8 -mt-8 md:-mx-10 md:-mt-10 mb-6 md:mb-8 h-44 md:h-52 border-b border-border/70 bg-gradient-to-br from-primary/10 via-secondary/40 to-accent/30" />
+          <div className="relative -mx-8 -mt-8 mb-6 h-44 border-border/70 border-b bg-gradient-to-br from-primary/10 via-secondary/40 to-accent/30 md:-mx-10 md:-mt-10 md:mb-8 md:h-52" />
         )}
 
-
         <div className="relative">
-          <div className="flex flex-wrap gap-2 mb-5">
+          <div className="mb-5 flex flex-wrap gap-2">
             {post.tags.slice(0, 3).map((tag) => (
               <span
+                className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 font-medium text-primary text-xs"
                 key={tag}
-                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20"
               >
                 <Tag className="size-2.5" />
                 {tag}
               </span>
             ))}
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border">
+            <span className="inline-flex items-center rounded-full border border-border bg-muted px-2.5 py-0.5 font-medium text-muted-foreground text-xs">
               Featured
             </span>
           </div>
 
-          <h2 className="text-2xl md:text-3xl font-semibold text-foreground mb-4 tracking-tight group-hover:text-primary transition-colors duration-200 leading-snug">
+          <h2 className="mb-4 font-semibold text-2xl text-foreground leading-snug tracking-tight transition-colors duration-200 group-hover:text-primary md:text-3xl">
             {post.title}
           </h2>
 
-          <p className="text-muted-foreground text-base leading-relaxed mb-6 max-w-2xl">
+          <p className="mb-6 max-w-2xl text-base text-muted-foreground leading-relaxed">
             {post.description}
           </p>
 
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            <div className="flex items-center gap-4 text-muted-foreground text-xs">
               <span className="flex items-center gap-1.5">
                 <Calendar className="size-3.5" />
                 {formatDate(post.date)}
@@ -81,9 +80,11 @@ function FeaturedPostCard({ post }: { post: PostMeta }) {
                 <Clock className="size-3.5" />
                 {post.readingTime}
               </span>
-              <span className="font-medium text-foreground/70">{post.author}</span>
+              <span className="font-medium text-foreground/70">
+                {post.author}
+              </span>
             </div>
-            <span className="flex items-center gap-1 text-sm font-medium text-primary group-hover:gap-2 transition-all duration-200">
+            <span className="flex items-center gap-1 font-medium text-primary text-sm transition-all duration-200 group-hover:gap-2">
               Read more <ArrowRight className="size-4" />
             </span>
           </div>
@@ -95,29 +96,29 @@ function FeaturedPostCard({ post }: { post: PostMeta }) {
 
 function PostCard({ post }: { post: PostMeta }) {
   return (
-    <Link href={blogPostHref(post.slug)} className="group block h-full">
-      <article className="h-full flex flex-col rounded-xl border border-border bg-card p-6 transition-all duration-300 hover:border-primary/40 hover:shadow-lg hover:shadow-black/10 hover:-translate-y-0.5">
+    <Link className="group block h-full" href={blogPostHref(post.slug)}>
+      <article className="flex h-full flex-col rounded-xl border border-border bg-card p-6 transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-black/10 hover:shadow-lg">
         {post.coverImage ? (
-          <div className="-mx-6 -mt-6 mb-5 overflow-hidden border-b border-border/70 rounded-t-xl">
+          <div className="-mx-6 -mt-6 mb-5 overflow-hidden rounded-t-xl border-border/70 border-b">
             <Image
-              src={post.coverImage}
               alt={post.title}
-              width={1200}
+              className="h-36 w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
               height={700}
-              className="w-full h-36 object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+              src={post.coverImage}
+              width={1200}
             />
           </div>
         ) : (
-          <div className="-mx-6 -mt-6 mb-5 h-28 border-b border-border/70 rounded-t-xl bg-gradient-to-br from-primary/10 via-secondary/40 to-accent/30" />
+          <div className="-mx-6 -mt-6 mb-5 h-28 rounded-t-xl border-border/70 border-b bg-gradient-to-br from-primary/10 via-secondary/40 to-accent/30" />
         )}
 
         {/* Tags */}
         {post.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-4">
+          <div className="mb-4 flex flex-wrap gap-1.5">
             {post.tags.slice(0, 2).map((tag) => (
               <span
+                className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 font-medium text-muted-foreground text-xs"
                 key={tag}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground"
               >
                 {tag}
               </span>
@@ -125,15 +126,15 @@ function PostCard({ post }: { post: PostMeta }) {
           </div>
         )}
 
-        <h3 className="text-lg font-semibold text-foreground mb-3 leading-snug group-hover:text-primary transition-colors duration-200 flex-1">
+        <h3 className="mb-3 flex-1 font-semibold text-foreground text-lg leading-snug transition-colors duration-200 group-hover:text-primary">
           {post.title}
         </h3>
 
-        <p className="text-sm text-muted-foreground leading-relaxed mb-5 line-clamp-3">
+        <p className="mb-5 line-clamp-3 text-muted-foreground text-sm leading-relaxed">
           {post.description}
         </p>
 
-        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-auto pt-4 border-t border-border">
+        <div className="mt-auto flex items-center gap-3 border-border border-t pt-4 text-muted-foreground text-xs">
           <span className="flex items-center gap-1">
             <Calendar className="size-3" />
             {formatDate(post.date)}
@@ -153,37 +154,44 @@ export default function BlogPage() {
   const featuredPool = posts
     .filter((post) => post.featured)
     .sort((a, b) => {
-      const orderDiff = (a.featuredOrder ?? Number.MAX_SAFE_INTEGER) - (b.featuredOrder ?? Number.MAX_SAFE_INTEGER);
-      if (orderDiff !== 0) return orderDiff;
+      const orderDiff =
+        (a.featuredOrder ?? Number.MAX_SAFE_INTEGER) -
+        (b.featuredOrder ?? Number.MAX_SAFE_INTEGER);
+      if (orderDiff !== 0) {
+        return orderDiff;
+      }
       return new Date(b.date).getTime() - new Date(a.date).getTime();
     });
   const featured = featuredPool[0] ?? posts[0];
-  const rest = featured ? posts.filter((post) => post.slug !== featured.slug) : posts;
+  const rest = featured
+    ? posts.filter((post) => post.slug !== featured.slug)
+    : posts;
 
   return (
     <main className="min-h-screen bg-background text-foreground">
       <Navbar />
 
       {/* Hero */}
-      <section className="pt-32 pb-16 px-4">
-        <div className="max-w-5xl mx-auto">
+      <section className="px-4 pt-32 pb-16">
+        <div className="mx-auto max-w-5xl">
           <div className="mb-2">
-            <span className="text-xs font-medium tracking-widest uppercase text-primary">
+            <span className="font-medium text-primary text-xs uppercase tracking-widest">
               From the blog
             </span>
           </div>
-          <h1 className="text-4xl md:text-5xl font-semibold text-foreground tracking-tight mb-4">
+          <h1 className="mb-4 font-semibold text-4xl text-foreground tracking-tight md:text-5xl">
             Thoughts & Updates
           </h1>
-          <p className="text-lg text-muted-foreground max-w-xl leading-relaxed">
-            Insights on AI reasoning, product updates, and ideas from the Avenire team.
+          <p className="max-w-xl text-lg text-muted-foreground leading-relaxed">
+            Insights on AI reasoning, product updates, and ideas from the
+            Avenire team.
           </p>
         </div>
       </section>
 
       {/* Content */}
       <section className="px-4 pb-24">
-        <div className="max-w-5xl mx-auto space-y-12">
+        <div className="mx-auto max-w-5xl space-y-12">
           {/* Featured post */}
           {featured && (
             <div>
@@ -194,10 +202,10 @@ export default function BlogPage() {
           {/* Rest of posts */}
           {rest.length > 0 && (
             <div>
-              <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-widest mb-6">
+              <h2 className="mb-6 font-medium text-muted-foreground text-sm uppercase tracking-widest">
                 More posts
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 {rest.map((post) => (
                   <PostCard key={post.slug} post={post} />
                 ))}
@@ -206,7 +214,7 @@ export default function BlogPage() {
           )}
 
           {posts.length === 0 && (
-            <div className="text-center py-24 text-muted-foreground">
+            <div className="py-24 text-center text-muted-foreground">
               <p className="text-lg">No posts yet. Check back soon!</p>
             </div>
           )}

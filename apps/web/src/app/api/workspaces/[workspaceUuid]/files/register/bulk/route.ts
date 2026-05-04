@@ -45,9 +45,8 @@ const requestSchema = z.object({
   files: z.array(fileSchema).min(1).max(200),
 });
 
-type RegisterResult = {
+interface RegisterResult {
   clientUploadId: string;
-  status: "ok" | "failed";
   error?: string;
   file?: {
     id: string;
@@ -55,7 +54,8 @@ type RegisterResult = {
   ingestionJob?: {
     id?: string;
   } | null;
-};
+  status: "ok" | "failed";
+}
 
 export async function POST(
   request: Request,

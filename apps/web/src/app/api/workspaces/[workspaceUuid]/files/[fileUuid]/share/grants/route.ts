@@ -1,18 +1,18 @@
+import { auth, sendFileShareEmail } from "@avenire/auth/server";
+import { headers } from "next/headers";
+import { NextResponse } from "next/server";
+import { resolveAppBaseUrl } from "@/lib/app-base-url";
 import {
   createResourceShareLink,
   getFileAssetById,
   grantResourceToUserByEmail,
   userCanAccessWorkspace,
 } from "@/lib/file-data";
-import { auth, sendFileShareEmail } from "@avenire/auth/server";
-import { headers } from "next/headers";
-import { NextResponse } from "next/server";
 import { createApiLogger } from "@/lib/observability";
-import { resolveAppBaseUrl } from "@/lib/app-base-url";
 
 export async function POST(
   request: Request,
-  context: { params: Promise<{ workspaceUuid: string; fileUuid: string }> },
+  context: { params: Promise<{ workspaceUuid: string; fileUuid: string }> }
 ) {
   const session = await auth.api.getSession({ headers: await headers() });
   const apiLogger = createApiLogger({
@@ -29,7 +29,10 @@ export async function POST(
   }
 
   const { workspaceUuid, fileUuid } = await context.params;
-  const canAccess = await userCanAccessWorkspace(session.user.id, workspaceUuid);
+  const canAccess = await userCanAccessWorkspace(
+    session.user.id,
+    workspaceUuid
+  );
   if (!canAccess) {
     void apiLogger.requestFailed(403, "Forbidden", { workspaceUuid, fileUuid });
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -40,13 +43,19 @@ export async function POST(
     permission?: "viewer" | "editor";
   };
   if (!body.email) {
-    void apiLogger.requestFailed(400, "Missing email", { workspaceUuid, fileUuid });
+    void apiLogger.requestFailed(400, "Missing email", {
+      workspaceUuid,
+      fileUuid,
+    });
     return NextResponse.json({ error: "Missing email" }, { status: 400 });
   }
 
   const file = await getFileAssetById(workspaceUuid, fileUuid);
   if (!file) {
-    void apiLogger.requestFailed(404, "File not found", { workspaceUuid, fileUuid });
+    void apiLogger.requestFailed(404, "File not found", {
+      workspaceUuid,
+      fileUuid,
+    });
     return NextResponse.json({ error: "File not found" }, { status: 404 });
   }
 
@@ -60,7 +69,10 @@ export async function POST(
   });
 
   if (!grant) {
-    void apiLogger.requestFailed(404, "User not found", { workspaceUuid, fileUuid });
+    void apiLogger.requestFailed(404, "User not found", {
+      workspaceUuid,
+      fileUuid,
+    });
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 

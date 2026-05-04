@@ -105,10 +105,15 @@ export function inferTopicLabel(
     return null;
   }
 
-  const normalizedSubject = normalizeSubjectLabel(subject)?.toLowerCase() ?? null;
+  const normalizedSubject =
+    normalizeSubjectLabel(subject)?.toLowerCase() ?? null;
 
   const match = TOPIC_KEYWORDS.find((entry) => {
-    if (entry.subject && normalizedSubject && entry.subject.toLowerCase() !== normalizedSubject) {
+    if (
+      entry.subject &&
+      normalizedSubject &&
+      entry.subject.toLowerCase() !== normalizedSubject
+    ) {
       return false;
     }
 

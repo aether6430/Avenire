@@ -1,11 +1,11 @@
 "use client";
 
-import type { FlashcardDashboardRecord } from "@/lib/flashcards";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
+import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
 import { FlashcardsDashboard } from "@/components/flashcards/dashboard";
-import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
+import type { FlashcardDashboardRecord } from "@/lib/flashcards";
 import { usePaneRouter, usePaneSearchParams } from "@/lib/workspace-panes";
 
 interface FlashcardsDashboardPayload {

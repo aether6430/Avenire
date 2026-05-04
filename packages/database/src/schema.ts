@@ -827,6 +827,8 @@ export const userSettings = pgTable("user_settings", {
   onboardingCompleted: boolean("onboarding_completed")
     .notNull()
     .default(false),
+  petName: text("pet_name").notNull().default("Auri"),
+  petAccessory: text("pet_accessory").notNull().default("none"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

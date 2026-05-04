@@ -10,7 +10,9 @@ export const metadata = buildPageMetadata({
 
 export default function WorkspacePage() {
   return (
-    <Suspense fallback={<WorkspaceRoutePlaceholder label="Loading workspace..." />}>
+    <Suspense
+      fallback={<WorkspaceRoutePlaceholder label="Loading workspace..." />}
+    >
       <WorkspaceOverviewPageClient />
     </Suspense>
   );

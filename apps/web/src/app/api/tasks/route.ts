@@ -35,9 +35,7 @@ export async function GET(request: Request) {
   const limit = searchParams.get("limit");
   const parsedLimit = limit ? Number.parseInt(limit, 10) : undefined;
 
-  const version = await getTaskListCacheVersion(
-    ctx.workspace.workspaceId
-  );
+  const version = await getTaskListCacheVersion(ctx.workspace.workspaceId);
   const cacheKey = createTaskListCacheKey({
     assigneeUserId: assigneeUserId ?? undefined,
     dueBefore: dueBefore ?? undefined,
@@ -64,10 +62,7 @@ export async function GET(request: Request) {
 
   await setCachedTaskList(cacheKey, { tasks });
 
-  return NextResponse.json(
-    { tasks },
-    { headers: { "x-tasks-cache": "miss" } }
-  );
+  return NextResponse.json({ tasks }, { headers: { "x-tasks-cache": "miss" } });
 }
 
 export async function POST(request: Request) {
@@ -118,9 +113,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          error instanceof Error
-            ? error.message
-            : "Unable to create task.",
+          error instanceof Error ? error.message : "Unable to create task.",
       },
       { status: 400 }
     );

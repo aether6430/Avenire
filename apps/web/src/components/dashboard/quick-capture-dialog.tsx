@@ -2,7 +2,13 @@
 
 import { Button } from "@avenire/ui/components/button";
 import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, } from "@avenire/ui/components/dialog";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@avenire/ui/components/dialog";
 import { Input } from "@avenire/ui/components/input";
 import { Label } from "@avenire/ui/components/label";
 import {
@@ -13,7 +19,11 @@ import {
   SelectValue,
 } from "@avenire/ui/components/select";
 import { Textarea } from "@avenire/ui/components/textarea";
-import { SpinnerGap as Loader2, Plus, Warning as TriangleAlert } from "@phosphor-icons/react"
+import {
+  SpinnerGap as Loader2,
+  Plus,
+  Warning as TriangleAlert,
+} from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { type ReactElement, useEffect, useMemo, useState } from "react";
 import { TaskAssigneePicker } from "@/components/tasks/task-assignee-picker";
@@ -26,7 +36,6 @@ export type CaptureKind = "task" | "note" | "misconception";
 
 export interface QuickCaptureTaskValues {
   assigneeUserId?: string;
-  selectedAssignee?: WorkspaceMemberOption | null;
   description: string;
   dueAt: string;
   priority?: "low" | "normal" | "high";
@@ -37,6 +46,7 @@ export interface QuickCaptureTaskValues {
     subtitle: string | null;
     title: string;
   }>;
+  selectedAssignee?: WorkspaceMemberOption | null;
   title: string;
 }
 
@@ -181,8 +191,9 @@ export function QuickCaptureDialog({
       if (kind === "task") {
         setTask(
           taskValues
-              ? {
-                assigneeUserId: taskValues.assigneeUserId ?? currentUserId ?? "",
+            ? {
+                assigneeUserId:
+                  taskValues.assigneeUserId ?? currentUserId ?? "",
                 ...taskValues,
                 dueAt: toDateTimeLocalValue(taskValues.dueAt),
                 priority: taskValues.priority ?? "normal",
@@ -392,9 +403,7 @@ export function QuickCaptureDialog({
                 <Label htmlFor="quick-task-due">Due</Label>
                 <TaskDueDatePicker
                   id="quick-task-due"
-                  onChange={(dueAt) =>
-                    setTask((prev) => ({ ...prev, dueAt }))
-                  }
+                  onChange={(dueAt) => setTask((prev) => ({ ...prev, dueAt }))}
                   value={task.dueAt}
                 />
                 <p className="text-muted-foreground text-xs">

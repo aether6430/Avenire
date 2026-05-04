@@ -7,7 +7,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
-type Particle = {
+interface Particle {
   alpha: number;
   appear: number;
   fading: boolean;
@@ -20,16 +20,16 @@ type Particle = {
   vy: number;
   x: number;
   y: number;
-};
+}
 
-type ParticleTarget = {
+interface ParticleTarget {
   alpha: number;
   ox: number;
   oy: number;
   size: number;
-};
+}
 
-export type ParticleFieldProps = {
+export interface ParticleFieldProps {
   adaptToTheme?: boolean;
   align?: "center" | "bottom";
   className?: string;
@@ -46,7 +46,7 @@ export type ParticleFieldProps = {
   src: string | { src: string };
   threshold?: number;
   typingImpulseRef?: MutableRefObject<number>;
-};
+}
 
 function subscribeDocumentDark(callback: () => void) {
   const el = document.documentElement;
@@ -95,7 +95,10 @@ export function pulseParticleSubmitImpulse(
 
 export function bumpParticleTypingImpulse(
   impulseRef: MutableRefObject<number>,
-  event: Pick<KeyboardEvent, "altKey" | "ctrlKey" | "key" | "metaKey" | "repeat">
+  event: Pick<
+    KeyboardEvent,
+    "altKey" | "ctrlKey" | "key" | "metaKey" | "repeat"
+  >
 ) {
   if (event.repeat || event.metaKey || event.ctrlKey || event.altKey) {
     return;
@@ -184,7 +187,7 @@ export function ParticleField({
   useEffect(() => {
     const canvas = canvasRef.current;
     const wrapper = wrapperRef.current;
-    if (!canvas || !wrapper) {
+    if (!(canvas && wrapper)) {
       return;
     }
 
@@ -221,7 +224,7 @@ export function ParticleField({
     };
 
     const sampleTargets = (image: HTMLImageElement): ParticleTarget[] => {
-      if (!image.width || !image.height) {
+      if (!(image.width && image.height)) {
         return [];
       }
 
@@ -327,7 +330,7 @@ export function ParticleField({
     const randomSpringJitter = () => 0.9 + Math.random() * 0.2;
 
     const buildFresh = (image: HTMLImageElement) => {
-      if (!image.width || !image.height) {
+      if (!(image.width && image.height)) {
         return;
       }
 
@@ -364,7 +367,7 @@ export function ParticleField({
     };
 
     const morphTo = (image: HTMLImageElement) => {
-      if (!image.width || !image.height) {
+      if (!(image.width && image.height)) {
         return;
       }
 

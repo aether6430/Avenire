@@ -20,9 +20,7 @@ function encodeUtf8Base64(value: string) {
 
 function decodeUtf8Base64(value: string) {
   const binary = atob(value);
-  const bytes = Uint8Array.from(binary, (character) =>
-    character.charCodeAt(0)
-  );
+  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
   return new TextDecoder().decode(bytes);
 }
 

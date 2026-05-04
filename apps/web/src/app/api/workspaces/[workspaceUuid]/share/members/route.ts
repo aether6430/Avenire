@@ -1,3 +1,7 @@
+import { auth, sendWorkspaceShareEmail } from "@avenire/auth/server";
+import { headers } from "next/headers";
+import { NextResponse } from "next/server";
+import { resolveAppBaseUrl } from "@/lib/app-base-url";
 import {
   createWorkspaceInvitationByEmail,
   findAuthUserByEmail,
@@ -5,16 +9,12 @@ import {
   listWorkspacesForUser,
   updateWorkspaceMemberRoleForUser,
 } from "@/lib/file-data";
-import { auth, sendWorkspaceShareEmail } from "@avenire/auth/server";
-import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
-import { NextResponse } from "next/server";
-import { headers } from "next/headers";
 import { createApiLogger } from "@/lib/observability";
-import { resolveAppBaseUrl } from "@/lib/app-base-url";
+import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
 
 export async function POST(
   request: Request,
-  context: { params: Promise<{ workspaceUuid: string }> },
+  context: { params: Promise<{ workspaceUuid: string }> }
 ) {
   const user = await getSessionUser();
   const apiLogger = createApiLogger({
@@ -38,9 +38,14 @@ export async function POST(
   }
   const members = await listWorkspaceMembers(workspaceUuid);
   const currentMember = members.find((member) => member.userId === user.id);
-  if (!currentMember || !["owner", "admin"].includes(currentMember.role)) {
-    void apiLogger.requestFailed(403, "Only admins can share this workspace", { workspaceUuid });
-    return NextResponse.json({ error: "Only admins can share this workspace" }, { status: 403 });
+  if (!(currentMember && ["owner", "admin"].includes(currentMember.role))) {
+    void apiLogger.requestFailed(403, "Only admins can share this workspace", {
+      workspaceUuid,
+    });
+    return NextResponse.json(
+      { error: "Only admins can share this workspace" },
+      { status: 403 }
+    );
   }
 
   const body = (await request.json().catch(() => ({}))) as {
@@ -105,7 +110,10 @@ export async function POST(
       status: "already-member",
       role: inviteRole,
     });
-    return NextResponse.json({ role: inviteRole, status: "already-member" }, { status: 200 });
+    return NextResponse.json(
+      { role: inviteRole, status: "already-member" },
+      { status: 200 }
+    );
   }
 
   const workspaceName = summary?.name ?? "Workspace";
@@ -157,13 +165,13 @@ export async function POST(
       role: inviteRole,
       workspaceUrl,
     },
-    { status: 200 },
+    { status: 200 }
   );
 }
 
 export async function GET(
   request: Request,
-  context: { params: Promise<{ workspaceUuid: string }> },
+  context: { params: Promise<{ workspaceUuid: string }> }
 ) {
   const user = await getSessionUser();
   const apiLogger = createApiLogger({
@@ -203,7 +211,7 @@ export async function GET(
   const members = (
     Array.isArray(membersResult)
       ? membersResult
-      : (membersResult as { members?: unknown[] }).members ?? []
+      : ((membersResult as { members?: unknown[] }).members ?? [])
   ) as Array<{
     id?: string | null;
     role?: string | null;
@@ -216,7 +224,9 @@ export async function GET(
     } | null;
   }>;
 
-  const query = request.url ? new URL(request.url).searchParams.get("q") ?? "" : "";
+  const query = request.url
+    ? (new URL(request.url).searchParams.get("q") ?? "")
+    : "";
   const normalizedQuery = query.trim().toLowerCase();
 
   const mappedMembers = members
@@ -241,12 +251,11 @@ export async function GET(
 
   if (
     normalizedQuery &&
-    !mappedMembers.some(
-      (member) =>
-        [member.name ?? "", member.email ?? "", member.userId ?? ""]
-          .join(" ")
-          .toLowerCase()
-          .includes(normalizedQuery)
+    !mappedMembers.some((member) =>
+      [member.name ?? "", member.email ?? "", member.userId ?? ""]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedQuery)
     )
   ) {
     const fallbackUser = await findAuthUserByEmail(normalizedQuery);
@@ -262,8 +271,13 @@ export async function GET(
     }
   }
 
-  void apiLogger.featureUsed("workspace.sharing.members.listed", { workspaceUuid });
-  void apiLogger.requestSucceeded(200, { workspaceUuid, memberCount: mappedMembers.length });
+  void apiLogger.featureUsed("workspace.sharing.members.listed", {
+    workspaceUuid,
+  });
+  void apiLogger.requestSucceeded(200, {
+    workspaceUuid,
+    memberCount: mappedMembers.length,
+  });
 
   return NextResponse.json({
     members: mappedMembers,
@@ -272,7 +286,7 @@ export async function GET(
 
 export async function DELETE(
   request: Request,
-  context: { params: Promise<{ workspaceUuid: string }> },
+  context: { params: Promise<{ workspaceUuid: string }> }
 ) {
   const user = await getSessionUser();
   const apiLogger = createApiLogger({
@@ -311,18 +325,25 @@ export async function DELETE(
   const members = (
     Array.isArray(membersResult)
       ? membersResult
-      : (membersResult as { members?: unknown[] }).members ?? []
+      : ((membersResult as { members?: unknown[] }).members ?? [])
   ) as Array<{
     role?: string | null;
     user?: { id?: string | null } | null;
     userId?: string | null;
   }>;
   const currentMember = members.find(
-    (member) => (member.userId ?? member.user?.id ?? null) === user.id,
+    (member) => (member.userId ?? member.user?.id ?? null) === user.id
   );
-  if (!currentMember || !["owner", "admin"].includes(currentMember.role ?? "")) {
-    void apiLogger.requestFailed(403, "Only admins can remove members", { workspaceUuid });
-    return NextResponse.json({ error: "Only admins can remove members" }, { status: 403 });
+  if (
+    !(currentMember && ["owner", "admin"].includes(currentMember.role ?? ""))
+  ) {
+    void apiLogger.requestFailed(403, "Only admins can remove members", {
+      workspaceUuid,
+    });
+    return NextResponse.json(
+      { error: "Only admins can remove members" },
+      { status: 403 }
+    );
   }
 
   const body = (await request.json().catch(() => ({}))) as {
@@ -330,8 +351,13 @@ export async function DELETE(
   };
   const memberIdOrEmail = body.memberIdOrEmail?.trim();
   if (!memberIdOrEmail) {
-    void apiLogger.requestFailed(400, "Missing memberIdOrEmail", { workspaceUuid });
-    return NextResponse.json({ error: "Missing memberIdOrEmail" }, { status: 400 });
+    void apiLogger.requestFailed(400, "Missing memberIdOrEmail", {
+      workspaceUuid,
+    });
+    return NextResponse.json(
+      { error: "Missing memberIdOrEmail" },
+      { status: 400 }
+    );
   }
 
   try {
@@ -347,15 +373,20 @@ export async function DELETE(
       resourceType: "workspace-member-removed",
       workspaceUuid,
     });
-    void apiLogger.featureUsed("workspace.sharing.member.removed", { workspaceUuid });
+    void apiLogger.featureUsed("workspace.sharing.member.removed", {
+      workspaceUuid,
+    });
     void apiLogger.requestSucceeded(200, { workspaceUuid });
 
     return NextResponse.json({ status: "removed", removed });
   } catch (error) {
     void apiLogger.requestFailed(400, error, { workspaceUuid });
     return NextResponse.json(
-      { error: "Unable to remove member", detail: error instanceof Error ? error.message : "Unknown error" },
-      { status: 400 },
+      {
+        error: "Unable to remove member",
+        detail: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 400 }
     );
   }
 }

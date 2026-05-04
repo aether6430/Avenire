@@ -46,7 +46,7 @@ const cohere = createCohere({
 export const apollo = customProvider({
   languageModels: {
     "apollo-sprint": mistral("mistral-small-latest"),
-    "apollo-apex": fireworks("accounts/fireworks/models/kimi-k2p5"),
+    "apollo-apex": fireworks("accounts/fireworks/models/kimi-k2p6"),
     "apollo-core": gemini("gemini-3-flash-preview"),
     "apollo-agent": fireworks("accounts/fireworks/models/glm-5"),
     "apollo-tiny": mistral("ministral-3b-2512"),

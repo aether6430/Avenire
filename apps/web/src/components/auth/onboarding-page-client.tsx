@@ -1,10 +1,19 @@
 "use client";
 
+import { Button } from "@avenire/ui/components/button";
+import { Input } from "@avenire/ui/components/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@avenire/ui/components/select";
+import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Button } from "@avenire/ui/components/button";
-import { AnimatePresence, motion } from "motion/react";
 import { AuthShell } from "@/components/auth-shell";
+import { PET_OPTIONS, type PetAccessory } from "@/lib/pet-preferences";
 
 const STEPS = [
   {
@@ -37,6 +46,8 @@ export function OnboardingPageClient() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [isFinishing, setIsFinishing] = useState(false);
+  const [petName, setPetName] = useState("Auri");
+  const [petAccessory, setPetAccessory] = useState<PetAccessory>("none");
   const current = STEPS[step] ?? STEPS[0];
 
   const finishOnboarding = async () => {
@@ -46,7 +57,11 @@ export function OnboardingPageClient() {
       const response = await fetch("/api/user-settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ onboardingCompleted: true }),
+        body: JSON.stringify({
+          onboardingCompleted: true,
+          petName: petName.trim() || "Auri",
+          petAccessory,
+        }),
       });
 
       if (!response.ok) {
@@ -63,14 +78,14 @@ export function OnboardingPageClient() {
   return (
     <AuthShell variant="onboarding">
       <div className="w-full max-w-lg">
-        <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+        <div className="flex items-center gap-2 font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">
           <span>
-            Step {String(step + 1).padStart(2, "0")} / {String(STEPS.length).padStart(2, "0")}
+            Step {String(step + 1).padStart(2, "0")} /{" "}
+            {String(STEPS.length).padStart(2, "0")}
           </span>
           <div className="ml-2 flex items-center gap-1.5">
             {STEPS.map((_, index) => (
               <span
-                key={index}
                 className={`h-1.5 rounded-full transition-all ${
                   index === step
                     ? "w-5 bg-foreground"
@@ -78,6 +93,7 @@ export function OnboardingPageClient() {
                       ? "w-1.5 bg-foreground/70"
                       : "w-1.5 bg-foreground/20"
                 }`}
+                key={index}
               />
             ))}
           </div>
@@ -96,13 +112,13 @@ export function OnboardingPageClient() {
                 ease: [0.22, 1, 0.36, 1],
               }}
             >
-              <div className="font-mono text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
+              <div className="font-mono text-[11px] text-muted-foreground uppercase tracking-[0.3em]">
                 {current.eyebrow}
               </div>
-              <h1 className="mt-2 text-3xl font-semibold leading-tight text-foreground">
+              <h1 className="mt-2 font-semibold text-3xl text-foreground leading-tight">
                 {current.title}
               </h1>
-              <p className="mt-2 text-sm text-muted-foreground">
+              <p className="mt-2 text-muted-foreground text-sm">
                 Avenire works best when the workspace starts from your material,
                 not a blank slate.
               </p>
@@ -110,13 +126,44 @@ export function OnboardingPageClient() {
               <div className="mt-8 space-y-3">
                 {current.body.map((line) => (
                   <p
-                    className="text-sm leading-6 text-foreground/78"
+                    className="text-foreground/78 text-sm leading-6"
                     key={line}
                   >
                     {line}
                   </p>
                 ))}
               </div>
+              {step === 0 ? (
+                <div className="mt-6 grid gap-3 rounded-lg border border-border/60 bg-background/60 p-3">
+                  <Input
+                    aria-label="Pet name"
+                    maxLength={32}
+                    onChange={(event) => setPetName(event.target.value)}
+                    placeholder="Pet name"
+                    value={petName}
+                  />
+                  <Select
+                    onValueChange={(value) =>
+                      setPetAccessory(value as PetAccessory)
+                    }
+                    value={petAccessory}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pet accessory" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PET_OPTIONS.map((option) => (
+                        <SelectItem
+                          key={option.accessory}
+                          value={option.accessory}
+                        >
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
             </motion.div>
           </AnimatePresence>
         </div>

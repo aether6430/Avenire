@@ -3,16 +3,31 @@
 import { useChat } from "@ai-sdk/react";
 import { Button } from "@avenire/ui/components/button";
 import {
-  Command, CommandEmpty, CommandInput, CommandItem, CommandList, } from "@avenire/ui/components/command";
-import { TextStreamChatTransport, type UIMessage } from "ai";
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@avenire/ui/components/command";
 import {
-  CaretRight as ChevronRight, FileAudio as FileAudio2, FileCode as FileCode2, FileImage, FileText, FileVideo, Folder, Globe, Sparkle as Sparkles, X } from "@phosphor-icons/react"
+  CaretRight as ChevronRight,
+  FileAudio as FileAudio2,
+  FileCode as FileCode2,
+  FileImage,
+  FileText,
+  FileVideo,
+  Folder,
+  Globe,
+  Sparkle as Sparkles,
+  X,
+} from "@phosphor-icons/react";
+import { TextStreamChatTransport, type UIMessage } from "ai";
 import { AnimatePresence, motion } from "motion/react";
 import {
   type CSSProperties,
+  memo,
   useCallback,
   useEffect,
-  memo,
   useMemo,
   useRef,
   useState,
@@ -601,21 +616,21 @@ const StylizedSearchBar = memo(function StylizedSearchBar({
                     ) : null}
                   </div>
                 </div>
-                  {results.length > 0 ? (
-                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-muted-foreground text-xs">
-                      <span>
-                        {`${results.length} match${results.length === 1 ? "" : "es"} in indexed workspace content`}
-                      </span>
-                      {isSearching || isSummaryStreaming ? (
-                        <div className="inline-flex items-center gap-1.5">
-                          <ChatSpinner
-                            className="px-0 py-0"
-                            messages={["Retrieving", "Summarizing"]}
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null}
+                {results.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-muted-foreground text-xs">
+                    <span>
+                      {`${results.length} match${results.length === 1 ? "" : "es"} in indexed workspace content`}
+                    </span>
+                    {isSearching || isSummaryStreaming ? (
+                      <div className="inline-flex items-center gap-1.5">
+                        <ChatSpinner
+                          className="px-0 py-0"
+                          messages={["Retrieving", "Summarizing"]}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
 
               <AnimatePresence initial={false}>
@@ -632,7 +647,9 @@ const StylizedSearchBar = memo(function StylizedSearchBar({
                         <div className="mb-2 flex items-center gap-2 text-muted-foreground text-xs">
                           <Sparkles className="size-3.5" />
                           <span>
-                            {isSummaryStreaming ? "Summarizing answer" : "Answer"}
+                            {isSummaryStreaming
+                              ? "Summarizing answer"
+                              : "Answer"}
                           </span>
                         </div>
                         <div
@@ -680,8 +697,8 @@ const StylizedSearchBar = memo(function StylizedSearchBar({
                         </div>
                         {results.length === 0 && !isSearching ? (
                           <CommandEmpty className="rounded-md px-3 py-6 text-left text-muted-foreground text-sm">
-                            No relevant matches yet. Try a narrower phrase, a file
-                            name, or a concept from your notes.
+                            No relevant matches yet. Try a narrower phrase, a
+                            file name, or a concept from your notes.
                           </CommandEmpty>
                         ) : null}
 
@@ -711,7 +728,9 @@ const StylizedSearchBar = memo(function StylizedSearchBar({
                                       "retrievalResultIn 340ms cubic-bezier(0.22,1,0.36,1) both",
                                     animationDelay: `${index * 45}ms`,
                                   }}
-                                  title={filePathById?.get(fileId) ?? result.title}
+                                  title={
+                                    filePathById?.get(fileId) ?? result.title
+                                  }
                                   value={value}
                                 >
                                   <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background">

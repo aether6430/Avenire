@@ -1,14 +1,14 @@
-"use client"
+"use client";
 
-import { create } from "zustand"
-import { createJSONStorage, persist } from "zustand/middleware"
+import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 
-export type DashboardView = "chat" | "flashcards" | "files" | null
+export type DashboardView = "chat" | "flashcards" | "files" | null;
 
-type DashboardViewStore = {
-  view: DashboardView
-  setView: (view: DashboardView) => void
-  resetView: () => void
+interface DashboardViewStore {
+  resetView: () => void;
+  setView: (view: DashboardView) => void;
+  view: DashboardView;
 }
 
 export const useDashboardViewStore = create<DashboardViewStore>()(
@@ -24,4 +24,4 @@ export const useDashboardViewStore = create<DashboardViewStore>()(
       partialize: (state) => ({ view: state.view }),
     }
   )
-)
+);

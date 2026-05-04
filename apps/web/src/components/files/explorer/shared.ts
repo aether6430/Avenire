@@ -1,5 +1,5 @@
-import type { FrontmatterProperties } from "@/lib/frontmatter";
 import type { VideoDeliveryRecord } from "@/lib/file-data";
+import type { FrontmatterProperties } from "@/lib/frontmatter";
 import type { ShareSuggestion } from "@/types/share";
 
 export type UploadStatus = "failed" | "queued" | "uploaded" | "uploading";
@@ -10,9 +10,9 @@ export interface FolderRecord {
   createdBy?: string;
   iconColor?: string | null;
   id: string;
+  isShared?: boolean;
   name: string;
   parentId: string | null;
-  isShared?: boolean;
   readOnly?: boolean;
   updatedAt?: string;
   updatedBy?: string | null;
@@ -20,28 +20,28 @@ export interface FolderRecord {
 
 export interface FileRecord {
   createdAt: string;
-  noteContent?: string | null;
-  metadata?: Record<string, unknown>;
   folderId: string;
   id: string;
-  name: string;
-  storageUrl: string;
-  mimeType: string | null;
-  sizeBytes: number;
-  videoDelivery?: VideoDeliveryRecord | null;
   isIngested?: boolean;
   isNote?: boolean;
   isShared?: boolean;
-  readOnly?: boolean;
-  sourceWorkspaceId?: string;
+  metadata?: Record<string, unknown>;
+  mimeType: string | null;
+  name: string;
+  noteContent?: string | null;
   page?: {
     bannerUrl: string | null;
     icon: string | null;
     properties: FrontmatterProperties;
   } | null;
+  readOnly?: boolean;
+  sizeBytes: number;
+  sourceWorkspaceId?: string;
+  storageUrl: string;
   updatedAt?: string;
   updatedBy?: string | null;
   uploadedBy?: string;
+  videoDelivery?: VideoDeliveryRecord | null;
 }
 
 export interface WorkspaceMemberRecord {

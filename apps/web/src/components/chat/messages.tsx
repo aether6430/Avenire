@@ -12,13 +12,13 @@ import {
 import { Warning as AlertCircle } from "@phosphor-icons/react";
 import { measureElement, useVirtualizer } from "@tanstack/react-virtual";
 import {
-  useDeferredValue,
-  memo,
-  useMemo,
-  useLayoutEffect,
-  useRef,
   type CSSProperties,
+  memo,
   type RefObject,
+  useDeferredValue,
+  useLayoutEffect,
+  useMemo,
+  useRef,
 } from "react";
 import {
   ChatMessageRow,
@@ -101,11 +101,11 @@ function splitTurnMessages(messages: UseChatHelpers<UIMessage>["messages"]) {
 
 const EDGE_MASK_SCROLL_DISTANCE_PX = 44;
 
-function updateChatEdgeMask(
-  host: HTMLElement,
-  container: HTMLElement
-) {
-  const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
+function updateChatEdgeMask(host: HTMLElement, container: HTMLElement) {
+  const maxScrollTop = Math.max(
+    0,
+    container.scrollHeight - container.clientHeight
+  );
   if (maxScrollTop === 0) {
     host.style.setProperty("--chat-edge-mask-top", "0");
     host.style.setProperty("--chat-edge-mask-bottom", "0");
@@ -123,7 +123,11 @@ function updateChatEdgeMask(
   host.style.setProperty("--chat-edge-mask-bottom", bottomOpacity.toFixed(3));
 }
 
-function MessagesError({ error }: { error: NonNullable<MessagesProps["error"]> }) {
+function MessagesError({
+  error,
+}: {
+  error: NonNullable<MessagesProps["error"]>;
+}) {
   return (
     <Card className="mx-auto mb-4 w-full max-w-3xl border-destructive/20 bg-destructive/8 text-destructive shadow-sm">
       <CardHeader className="pb-2">
@@ -186,7 +190,7 @@ function PureMessages({
     const container = messagesContainerRef.current;
     const host = container?.parentElement;
     const content = messagesContentRef.current;
-    if (!container || !host) {
+    if (!(container && host)) {
       return;
     }
 
@@ -273,15 +277,17 @@ function PureMessages({
                     data-message-id={message.id}
                     key={virtualItem.key}
                     ref={virtualizer.measureElement}
-                    style={{
-                      contentVisibility: "auto",
-                      containIntrinsicSize: "320px",
-                      left: 0,
-                      position: "absolute",
-                      top: 0,
-                      transform: `translateY(${virtualItem.start}px)`,
-                      width: "100%",
-                    } as CSSProperties}
+                    style={
+                      {
+                        contentVisibility: "auto",
+                        containIntrinsicSize: "320px",
+                        left: 0,
+                        position: "absolute",
+                        top: 0,
+                        transform: `translateY(${virtualItem.start}px)`,
+                        width: "100%",
+                      } as CSSProperties
+                    }
                   >
                     <ChatMessageRow
                       agentActivity={null}

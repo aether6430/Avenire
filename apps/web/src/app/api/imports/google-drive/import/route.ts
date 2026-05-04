@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   let payload: { fileIds: string[] };
   try {
     payload = parseGoogleDriveImportPayload(
-      await request.json().catch(() => ({})),
+      await request.json().catch(() => ({}))
     );
   } catch {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
         error:
           error instanceof Error ? error.message : "Unable to import files.",
       },
-      { status: 400 },
+      { status: 400 }
     );
   }
 }

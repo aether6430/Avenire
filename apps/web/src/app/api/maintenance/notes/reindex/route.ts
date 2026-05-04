@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
+import { NextResponse } from "next/server";
 import {
   acquireMaintenanceLock,
   listNotesNeedingReindex,

@@ -1,8 +1,11 @@
 import { listSessionSummariesForUser } from "@avenire/database";
-import { getFlashcardDashboardForUser, listMasterySubjectsForUser } from "@/lib/flashcards";
+import {
+  getFlashcardDashboardForUser,
+  listMasterySubjectsForUser,
+} from "@/lib/flashcards";
 import { getActiveMisconceptions } from "@/lib/learning-data";
 
-type StudentProfile = {
+interface StudentProfile {
   dynamic: {
     active_misconceptions: string[];
     cards_due_today: number;
@@ -13,7 +16,7 @@ type StudentProfile = {
     strong_subjects: string[];
     weak_subjects: string[];
   };
-};
+}
 
 const RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -34,8 +37,9 @@ function averageSessionLengthMins(
   }
 
   const avgMs =
-    durations.reduce((total, duration) => total + duration, 0) / durations.length;
-  return Math.round(avgMs / 60000);
+    durations.reduce((total, duration) => total + duration, 0) /
+    durations.length;
+  return Math.round(avgMs / 60_000);
 }
 
 export async function buildStudentProfileContext(input: {
@@ -58,7 +62,9 @@ export async function buildStudentProfileContext(input: {
           userId: input.userId,
           workspaceId: input.workspaceId,
         })
-      : Promise.resolve([] as Awaited<ReturnType<typeof getActiveMisconceptions>>),
+      : Promise.resolve(
+          [] as Awaited<ReturnType<typeof getActiveMisconceptions>>
+        ),
     listSessionSummariesForUser({
       limit: 12,
       userId: input.userId,
@@ -81,7 +87,9 @@ export async function buildStudentProfileContext(input: {
 
   const profile: StudentProfile = {
     static: {
-      strong_subjects: sortedSubjects.slice(0, 3).map((subject) => subject.subject),
+      strong_subjects: sortedSubjects
+        .slice(0, 3)
+        .map((subject) => subject.subject),
       weak_subjects: sortedSubjects
         .slice()
         .reverse()
@@ -109,7 +117,9 @@ export async function buildStudentProfileContext(input: {
     },
   };
 
-  return ["<student_context>", JSON.stringify(profile, null, 2), "</student_context>"].join(
-    "\n"
-  );
+  return [
+    "<student_context>",
+    JSON.stringify(profile, null, 2),
+    "</student_context>",
+  ].join("\n");
 }

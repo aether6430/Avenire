@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createApiLogger } from "@/lib/observability";
+import {
+  getUploadSession,
+  saveUploadSession,
+} from "@/lib/upload-session-store";
 import { createUploadSessionPartToken } from "@/lib/upload-session-token";
-import { getUploadSession, saveUploadSession } from "@/lib/upload-session-store";
 import { getSessionUser } from "@/lib/workspace";
 
 const partsSchema = z.object({
@@ -10,7 +13,10 @@ const partsSchema = z.object({
 });
 
 function resolveMaxPartBytes() {
-  const parsed = Number.parseInt(process.env.UPLOAD_SESSION_MAX_PART_BYTES ?? "", 10);
+  const parsed = Number.parseInt(
+    process.env.UPLOAD_SESSION_MAX_PART_BYTES ?? "",
+    10
+  );
   if (!Number.isFinite(parsed) || parsed <= 0) {
     return 16 * 1024 * 1024;
   }

@@ -19,7 +19,7 @@ export async function GET() {
             ? error.message
             : "Unable to get a Google Drive access token.",
       },
-      { status: 409 },
+      { status: 409 }
     );
   }
 }

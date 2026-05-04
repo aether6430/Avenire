@@ -2,13 +2,19 @@
 
 import type { WidgetSpec, WidgetSpecNode } from "@avenire/ai/tools";
 import { Badge } from "@avenire/ui/components/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@avenire/ui/components/card";
 import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@avenire/ui/components/card";
+import {
+  type ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
   RechartsPrimitive,
-  type ChartConfig,
 } from "@avenire/ui/components/chart";
 import { Progress } from "@avenire/ui/components/progress";
 import { Separator } from "@avenire/ui/components/separator";
@@ -35,9 +41,9 @@ const {
   YAxis,
 } = RechartsPrimitive;
 
-type PrimitiveRendererProps = {
+interface PrimitiveRendererProps {
   spec: WidgetSpec;
-};
+}
 
 const gapClass = {
   xs: "gap-1.5",
@@ -86,8 +92,13 @@ function renderNode(node: WidgetSpecNode, key: string) {
   switch (node.type) {
     case "stack":
       return (
-        <div className={cn("flex flex-col", gapClass[node.gap ?? "md"])} key={key}>
-          {node.children.map((child, index) => renderNode(child, `${key}-${index}`))}
+        <div
+          className={cn("flex flex-col", gapClass[node.gap ?? "md"])}
+          key={key}
+        >
+          {node.children.map((child, index) =>
+            renderNode(child, `${key}-${index}`)
+          )}
         </div>
       );
     case "grid":
@@ -99,7 +110,9 @@ function renderNode(node: WidgetSpecNode, key: string) {
             gridTemplateColumns: `repeat(${node.columns ?? 2}, minmax(0, 1fr))`,
           }}
         >
-          {node.children.map((child, index) => renderNode(child, `${key}-${index}`))}
+          {node.children.map((child, index) =>
+            renderNode(child, `${key}-${index}`)
+          )}
         </div>
       );
     case "section":
@@ -107,41 +120,67 @@ function renderNode(node: WidgetSpecNode, key: string) {
         <section className="space-y-3" key={key}>
           {(node.title || node.description) && (
             <div className="space-y-1">
-              {node.title ? <h2 className="font-medium text-base">{node.title}</h2> : null}
+              {node.title ? (
+                <h2 className="font-medium text-base">{node.title}</h2>
+              ) : null}
               {node.description ? (
-                <p className="text-muted-foreground text-xs/relaxed">{node.description}</p>
+                <p className="text-muted-foreground text-xs/relaxed">
+                  {node.description}
+                </p>
               ) : null}
             </div>
           )}
           <div className="space-y-3">
-            {node.children.map((child, index) => renderNode(child, `${key}-${index}`))}
+            {node.children.map((child, index) =>
+              renderNode(child, `${key}-${index}`)
+            )}
           </div>
         </section>
       );
     case "card":
       return (
-        <Card className={cn(toneSurfaceClass[node.tone ?? "default"])} key={key}>
+        <Card
+          className={cn(toneSurfaceClass[node.tone ?? "default"])}
+          key={key}
+        >
           {(node.title || node.description) && (
             <CardHeader>
               {node.title ? <CardTitle>{node.title}</CardTitle> : null}
-              {node.description ? <CardDescription>{node.description}</CardDescription> : null}
+              {node.description ? (
+                <CardDescription>{node.description}</CardDescription>
+              ) : null}
             </CardHeader>
           )}
           {node.children?.length ? (
             <CardContent className="space-y-3">
-              {node.children.map((child, index) => renderNode(child, `${key}-${index}`))}
+              {node.children.map((child, index) =>
+                renderNode(child, `${key}-${index}`)
+              )}
             </CardContent>
           ) : null}
         </Card>
       );
     case "stat":
       return (
-        <Card className={cn("gap-2 py-3", toneSurfaceClass[node.tone ?? "muted"])} key={key} size="sm">
+        <Card
+          className={cn("gap-2 py-3", toneSurfaceClass[node.tone ?? "muted"])}
+          key={key}
+          size="sm"
+        >
           <CardContent>
-            <div className="text-muted-foreground text-[11px]">{node.label}</div>
-            <div className="mt-1 font-medium text-2xl tracking-tight">{node.value}</div>
+            <div className="text-[11px] text-muted-foreground">
+              {node.label}
+            </div>
+            <div className="mt-1 font-medium text-2xl tracking-tight">
+              {node.value}
+            </div>
             {node.delta ? (
-              <div className={cn("mt-1 text-[11px]", toneTextClass[node.tone ?? "muted"])}>
+              <div
+                className={cn(
+                  "mt-1 text-[11px]",
+                  toneTextClass[node.tone ?? "muted"]
+                )}
+              >
                 {node.delta}
               </div>
             ) : null}
@@ -156,9 +195,25 @@ function renderNode(node: WidgetSpecNode, key: string) {
         level === "2" && "text-base",
         level === "3" && "text-sm"
       );
-      if (level === "1") return <h1 className={className} key={key}>{node.text}</h1>;
-      if (level === "3") return <h3 className={className} key={key}>{node.text}</h3>;
-      return <h2 className={className} key={key}>{node.text}</h2>;
+      if (level === "1") {
+        return (
+          <h1 className={className} key={key}>
+            {node.text}
+          </h1>
+        );
+      }
+      if (level === "3") {
+        return (
+          <h3 className={className} key={key}>
+            {node.text}
+          </h3>
+        );
+      }
+      return (
+        <h2 className={className} key={key}>
+          {node.text}
+        </h2>
+      );
     }
     case "text":
       return (
@@ -175,18 +230,34 @@ function renderNode(node: WidgetSpecNode, key: string) {
       );
     case "badge":
       return (
-        <Badge className={cn(toneTextClass[node.tone ?? "default"])} key={key} variant={badgeVariant[node.tone ?? "default"]}>
+        <Badge
+          className={cn(toneTextClass[node.tone ?? "default"])}
+          key={key}
+          variant={badgeVariant[node.tone ?? "default"]}
+        >
           {node.text}
         </Badge>
       );
     case "callout":
       return (
-        <div className={cn("rounded-2xl border p-3", toneSurfaceClass[node.tone ?? "muted"])} key={key}>
-          {node.title ? <div className="mb-1 font-medium text-sm">{node.title}</div> : null}
-          {node.text ? <p className="text-muted-foreground text-xs/relaxed">{node.text}</p> : null}
+        <div
+          className={cn(
+            "rounded-2xl border p-3",
+            toneSurfaceClass[node.tone ?? "muted"]
+          )}
+          key={key}
+        >
+          {node.title ? (
+            <div className="mb-1 font-medium text-sm">{node.title}</div>
+          ) : null}
+          {node.text ? (
+            <p className="text-muted-foreground text-xs/relaxed">{node.text}</p>
+          ) : null}
           {node.children?.length ? (
             <div className="mt-3 space-y-2">
-              {node.children.map((child, index) => renderNode(child, `${key}-${index}`))}
+              {node.children.map((child, index) =>
+                renderNode(child, `${key}-${index}`)
+              )}
             </div>
           ) : null}
         </div>
@@ -222,7 +293,13 @@ function renderNode(node: WidgetSpecNode, key: string) {
         <div className="space-y-1.5" key={key}>
           {(node.label || Number.isFinite(node.value)) && (
             <div className="flex items-center justify-between gap-3">
-              {node.label ? <span className="font-medium text-xs/relaxed">{node.label}</span> : <span />}
+              {node.label ? (
+                <span className="font-medium text-xs/relaxed">
+                  {node.label}
+                </span>
+              ) : (
+                <span />
+              )}
               <span className="text-muted-foreground text-xs/relaxed tabular-nums">
                 {Math.round(node.value)}%
               </span>
@@ -235,7 +312,10 @@ function renderNode(node: WidgetSpecNode, key: string) {
       return <Separator key={key} />;
     case "code":
       return (
-        <pre className="overflow-x-auto rounded-xl border bg-muted/30 p-3 text-xs" key={key}>
+        <pre
+          className="overflow-x-auto rounded-xl border bg-muted/30 p-3 text-xs"
+          key={key}
+        >
           <code>{node.code}</code>
         </pre>
       );
@@ -252,7 +332,11 @@ function renderNode(node: WidgetSpecNode, key: string) {
   }
 }
 
-function PrimitiveChart({ node }: { node: Extract<WidgetSpecNode, { type: "chart" }> }) {
+function PrimitiveChart({
+  node,
+}: {
+  node: Extract<WidgetSpecNode, { type: "chart" }>;
+}) {
   const config = node.series.reduce<ChartConfig>((acc, series, index) => {
     acc[series.dataKey] = {
       label: series.label ?? series.dataKey,
@@ -334,7 +418,9 @@ export function WidgetPrimitiveRenderer({ spec }: PrimitiveRendererProps) {
         <div className="mb-4 space-y-1">
           <h1 className="font-medium text-lg tracking-tight">{spec.title}</h1>
           {spec.description ? (
-            <p className="text-muted-foreground text-xs/relaxed">{spec.description}</p>
+            <p className="text-muted-foreground text-xs/relaxed">
+              {spec.description}
+            </p>
           ) : null}
         </div>
       )}

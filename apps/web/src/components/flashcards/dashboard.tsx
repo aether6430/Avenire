@@ -33,14 +33,14 @@ import {
   HeaderBreadcrumbs,
   HeaderLeadingIcon,
 } from "@/components/dashboard/header-portal";
+import { prefetchFlashcardSet } from "@/lib/flashcard-browser-cache";
+import type { FlashcardDashboardRecord } from "@/lib/flashcards";
 import {
   useCurrentWorkspacePaneCompact,
   usePanePathname,
   usePaneRouter,
   usePaneSearchParams,
 } from "@/lib/workspace-panes";
-import { prefetchFlashcardSet } from "@/lib/flashcard-browser-cache";
-import type { FlashcardDashboardRecord } from "@/lib/flashcards";
 import { usePaneWorkspaceHistoryActions } from "@/stores/workspaceHistoryStore";
 
 interface FlashcardGenerationRequest {
@@ -93,7 +93,6 @@ function getEnrollmentLabel(
   return "Not enrolled";
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: This screen intentionally co-locates generation, deck selection, and deck summary controls.
 export function FlashcardsDashboard({
   generationRequest,
   initialDashboard,

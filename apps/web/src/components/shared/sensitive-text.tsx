@@ -1,7 +1,7 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 
 export function SensitiveText({
   value,
@@ -34,7 +34,7 @@ export function SensitiveText({
       title="Click to reveal"
       type="button"
     >
-      <span className="inline-block max-w-full truncate blur-[6px] select-none">
+      <span className="inline-block max-w-full select-none truncate blur-[6px]">
         {value}
       </span>
     </button>

@@ -1,14 +1,14 @@
-import { listWorkspacesForUser } from "@/lib/file-data";
 import { auth, sendWorkspaceShareEmail } from "@avenire/auth/server";
-import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
-import { NextResponse, after } from "next/server";
 import { headers } from "next/headers";
-import { createApiLogger } from "@/lib/observability";
+import { after, NextResponse } from "next/server";
 import { resolveAppBaseUrl } from "@/lib/app-base-url";
+import { listWorkspacesForUser } from "@/lib/file-data";
+import { createApiLogger } from "@/lib/observability";
+import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
 
 export async function POST(
   request: Request,
-  context: { params: Promise<{ workspaceUuid: string }> },
+  context: { params: Promise<{ workspaceUuid: string }> }
 ) {
   const user = await getSessionUser();
   const apiLogger = createApiLogger({
@@ -47,7 +47,7 @@ export async function POST(
   const members = (
     Array.isArray(membersResult)
       ? membersResult
-      : (membersResult as { members?: unknown[] }).members ?? []
+      : ((membersResult as { members?: unknown[] }).members ?? [])
   ) as Array<{
     role?: string | null;
     user?: { id?: string | null; email?: string | null } | null;
@@ -55,11 +55,18 @@ export async function POST(
     email?: string | null;
   }>;
   const currentMember = members.find(
-    (member) => (member.userId ?? member.user?.id ?? null) === user.id,
+    (member) => (member.userId ?? member.user?.id ?? null) === user.id
   );
-  if (!currentMember || !["owner", "admin"].includes(currentMember.role ?? "")) {
-    void apiLogger.requestFailed(403, "Only admins can share this workspace", { workspaceUuid });
-    return NextResponse.json({ error: "Only admins can share this workspace" }, { status: 403 });
+  if (
+    !(currentMember && ["owner", "admin"].includes(currentMember.role ?? ""))
+  ) {
+    void apiLogger.requestFailed(403, "Only admins can share this workspace", {
+      workspaceUuid,
+    });
+    return NextResponse.json(
+      { error: "Only admins can share this workspace" },
+      { status: 403 }
+    );
   }
   const workspaceName = summary?.name ?? "Workspace";
   const rootFolderId = summary?.rootFolderId ?? "";
@@ -73,7 +80,9 @@ export async function POST(
       userId: member.userId ?? member.user?.id ?? null,
       email: member.user?.email ?? member.email ?? null,
     }))
-    .filter((member) => member.userId !== user.id && typeof member.email === "string");
+    .filter(
+      (member) => member.userId !== user.id && typeof member.email === "string"
+    );
   after(async () => {
     let emailSentCount = 0;
     await Promise.all(
@@ -102,7 +111,7 @@ export async function POST(
             action: "sendWorkspaceShareEmail",
           });
         }
-      }),
+      })
     );
 
     void apiLogger.meter("meter.share.created", {

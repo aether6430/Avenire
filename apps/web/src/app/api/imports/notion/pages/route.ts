@@ -19,7 +19,7 @@ export async function GET() {
             ? error.message
             : "Unable to load Notion pages.",
       },
-      { status: 400 },
+      { status: 400 }
     );
   }
 }

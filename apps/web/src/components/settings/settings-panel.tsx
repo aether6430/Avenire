@@ -1,8 +1,19 @@
 "use client";
 
-import { authClient, linkSocial, listAccounts, revokeOtherSessions, unlinkAccount, updateUser, useSession, } from "@avenire/auth/client";
 import {
-  Avatar, AvatarFallback, AvatarImage, } from "@avenire/ui/components/avatar";
+  authClient,
+  linkSocial,
+  listAccounts,
+  revokeOtherSessions,
+  unlinkAccount,
+  updateUser,
+  useSession,
+} from "@avenire/auth/client";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@avenire/ui/components/avatar";
 import { Badge } from "@avenire/ui/components/badge";
 import { Button } from "@avenire/ui/components/button";
 import {
@@ -24,20 +35,48 @@ import {
 } from "@avenire/ui/components/select";
 import { Spinner } from "@avenire/ui/components/spinner";
 import { Switch } from "@avenire/ui/components/switch";
-import { Building as Building2, Camera, Check, CreditCard, Database, FileText, Folder, GithubLogo as Github, Globe, HardDrive, Key, Shield, SlidersHorizontal, Warning as TriangleAlert, LinkBreak as Unlink, User, Users } from "@phosphor-icons/react";
+import {
+  Building as Building2,
+  Camera,
+  Check,
+  CreditCard,
+  Database,
+  FileText,
+  Folder,
+  GithubLogo as Github,
+  Globe,
+  HardDrive,
+  Key,
+  Shield,
+  SlidersHorizontal,
+  Warning as TriangleAlert,
+  LinkBreak as Unlink,
+  User,
+  Users,
+} from "@phosphor-icons/react";
 import type { Route } from "next";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
-import dynamic from "next/dynamic";
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ComponentType, type ReactNode, type SVGProps } from "react";
+import {
+  type ChangeEvent,
+  type ComponentType,
+  type ReactNode,
+  type SVGProps,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useLocalStorage } from "usehooks-ts";
-import { SensitiveText } from "@/components/shared/sensitive-text";
 import { DataImportsSection } from "@/components/settings/data-imports-section";
+import { SensitiveText } from "@/components/shared/sensitive-text";
+import { SpritePet } from "@/components/pets/sprite-pet";
 import { getFacehashUrl } from "@/lib/avatar";
 import {
   CHAT_COMPOSER_SEND_MODE_STORAGE_KEY,
-  DEFAULT_CHAT_COMPOSER_SEND_MODE,
   type ChatComposerSendMode,
+  DEFAULT_CHAT_COMPOSER_SEND_MODE,
 } from "@/lib/chat-composer-preferences";
 import {
   DEFAULT_NOTE_TEMPLATE,
@@ -45,81 +84,83 @@ import {
   getNoteTemplateStorageKey,
   type NoteTemplate,
 } from "@/lib/note-templates";
+import { PET_OPTIONS, type PetAccessory } from "@/lib/pet-preferences";
 import { PRIVACY_MODE_STORAGE_KEY } from "@/lib/privacy-mode";
-import { loadUserSettings, saveUserSettings, type UserSettingsPreferences } from "@/lib/user-settings-client";
 import { getUploadErrorMessage } from "@/lib/upload";
 import { useUploadThing } from "@/lib/uploadthing";
+import {
+  loadUserSettings,
+  saveUserSettings,
+  type UserSettingsPreferences,
+} from "@/lib/user-settings-client";
 import { cn } from "@/lib/utils";
 
-const DeferredAvenireEditor = dynamic(
-  () => import("@/components/editor"),
-  {
-    loading: () => (
-      <div className="flex min-h-[18rem] items-center justify-center text-muted-foreground text-sm">
-        Loading editor...
-      </div>
-    ),
-    ssr: false,
-  }
-);
+const DeferredAvenireEditor = dynamic(() => import("@/components/editor"), {
+  loading: () => (
+    <div className="flex min-h-[18rem] items-center justify-center text-muted-foreground text-sm">
+      Loading editor...
+    </div>
+  ),
+  ssr: false,
+});
 
-type WorkspaceSummary = {
+interface WorkspaceSummary {
   logo: string | null;
-  workspaceId: string;
+  name: string;
   organizationId: string;
   rootFolderId: string;
-  name: string;
-};
+  workspaceId: string;
+}
 
-type WorkspaceMember = {
-  id: string | null;
-  userId: string | null;
+interface WorkspaceMember {
   email: string | null;
+  id: string | null;
   name: string | null;
   role: string;
-};
+  userId: string | null;
+}
 
-type WorkspaceUsage = {
+interface WorkspaceUsage {
   fileCount: number;
   folderCount: number;
   indexedFileCount: number;
   memberCount: number;
   pendingIngestionCount: number;
   totalSizeBytes: number;
-};
+}
 
-type AccountEntry = {
+interface AccountEntry {
+  accountId?: string;
   id?: string;
   providerId?: string;
-  accountId?: string;
-};
+}
 
-type PasskeyEntry = {
-  id: string;
-  name?: string | null;
+interface PasskeyEntry {
   createdAt?: string;
   deviceType?: string;
-};
+  id: string;
+  name?: string | null;
+}
 
-type MeterUsage = {
-  fourHourCapacity: number;
+interface MeterUsage {
   fourHourBalance: number;
-  overageCapacity: number;
+  fourHourCapacity: number;
   overageBalance: number;
-  totalCapacity: number;
-  totalBalance: number;
+  overageCapacity: number;
   refillAt: string | null;
-};
+  totalBalance: number;
+  totalCapacity: number;
+}
 
-type BillingUsage = {
-  plan: "access" | "core" | "scholar";
+interface BillingUsage {
   chat: MeterUsage;
-  upload: MeterUsage;
   combined: {
     totalCapacity: number;
     totalBalance: number;
   };
-};
+  plan: "access" | "core" | "scholar";
+  upload: MeterUsage;
+}
 
 const tabs = [
   { key: "account", label: "Account", icon: User },
@@ -151,6 +192,7 @@ const KEYBOARD_SHORTCUT_GROUPS = [
     items: [
       { label: "Toggle Sidebar", keys: ["Ctrl", "B"] },
       { label: "Open Model Picker", keys: ["Ctrl", "/"] },
+      { label: "Show or hide pet", keys: ["Ctrl", "Shift", "Y"] },
     ],
   },
   {
@@ -242,8 +284,8 @@ export function SettingsPanel({
   const [profileName, setProfileName] = useState(session?.user?.name ?? "");
   const [profileImage, setProfileImage] = useState(session?.user?.image ?? "");
   const [profileStatus, setProfileStatus] = useState<string | null>(null);
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [isSavingProfile, _setIsSavingProfile] = useState(false);
+  const [isUploadingAvatar, _setIsUploadingAvatar] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string>("");
   const [avatarUploading, setAvatarUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -262,6 +304,9 @@ export function SettingsPanel({
   const [shortcutQuery, setShortcutQuery] = useState("");
   const [emailReceipts, setEmailReceipts] = useState(true);
   const [completedTasksAtTop, setCompletedTasksAtTop] = useState(true);
+  const [petName, setPetName] = useState("Auri");
+  const [petAccessory, setPetAccessory] = useState<PetAccessory>("none");
+  const [isOpeningAiInstructions, setIsOpeningAiInstructions] = useState(false);
   const [privacyMode, setPrivacyMode] = useState(false);
   const [chatComposerSendMode, setChatComposerSendMode] =
     useLocalStorage<ChatComposerSendMode>(
@@ -429,6 +474,8 @@ export function SettingsPanel({
       const settings = await loadUserSettings();
       setEmailReceipts(settings.emailReceipts);
       setCompletedTasksAtTop(settings.completedTasksAtTop);
+      setPetName(settings.petName);
+      setPetAccessory(settings.petAccessory);
       setPreferencesStatus(null);
     } catch {
       setPreferencesStatus("Unable to load preferences.");
@@ -444,10 +491,38 @@ export function SettingsPanel({
       const settings = await saveUserSettings(updates);
       setEmailReceipts(settings.emailReceipts);
       setCompletedTasksAtTop(settings.completedTasksAtTop);
+      setPetName(settings.petName);
+      setPetAccessory(settings.petAccessory);
       setPreferencesStatus("Preferences saved.");
     } catch {
       rollback();
       setPreferencesStatus("Unable to save preferences.");
+    }
+  };
+
+  const openAiInstructions = async () => {
+    setIsOpeningAiInstructions(true);
+    setPreferencesStatus("Opening instructions...");
+    try {
+      const response = await fetch("/api/user-settings/ai-instructions", {
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        throw new Error("Unable to open AI instructions.");
+      }
+      const payload = (await response.json()) as {
+        fileId: string;
+        rootFolderId: string;
+        workspaceUuid: string;
+      };
+      setPreferencesStatus(null);
+      router.push(
+        `/workspace/files/${payload.workspaceUuid}/folder/${payload.rootFolderId}?file=${payload.fileId}` as Route
+      );
+    } catch {
+      setPreferencesStatus("Unable to open instructions.");
+    } finally {
+      setIsOpeningAiInstructions(false);
     }
   };
 
@@ -607,7 +682,7 @@ export function SettingsPanel({
     const file = event.target.files?.[0];
     event.target.value = "";
 
-    if (!file || !selectedWorkspace) {
+    if (!(file && selectedWorkspace)) {
       return;
     }
 
@@ -854,7 +929,8 @@ export function SettingsPanel({
           }
 
           const candidate = entry as Partial<NoteTemplate>;
-          const id = typeof candidate.id === "string" ? candidate.id.trim() : "";
+          const id =
+            typeof candidate.id === "string" ? candidate.id.trim() : "";
           const name =
             typeof candidate.name === "string" ? candidate.name.trim() : "";
           const content =
@@ -886,7 +962,7 @@ export function SettingsPanel({
 
   useEffect(() => {
     const workspaceId = noteTemplatesWorkspaceRef.current;
-    if (!workspaceId || !noteTemplatesHydratedRef.current) {
+    if (!(workspaceId && noteTemplatesHydratedRef.current)) {
       return;
     }
 
@@ -1392,10 +1468,10 @@ export function SettingsPanel({
                     ) : (
                       accounts.map((account) => (
                         <div
-                        className="flex items-center justify-between px-0 py-1.5"
-                        key={
-                          account.id ??
-                          `${account.providerId}-${account.accountId}`
+                          className="flex items-center justify-between px-0 py-1.5"
+                          key={
+                            account.id ??
+                            `${account.providerId}-${account.accountId}`
                           }
                         >
                           <div className="flex items-center gap-2">
@@ -1546,14 +1622,14 @@ export function SettingsPanel({
                       );
                     }}
                   />
-                {preferencesStatus ? (
-                  <p className="mt-2 inline-flex items-center gap-2 text-muted-foreground text-xs">
-                    {preferencesStatus.startsWith("Loading") ? (
-                      <Spinner className="size-3.5" />
-                    ) : null}
-                    {preferencesStatus}
-                  </p>
-                ) : null}
+                  {preferencesStatus ? (
+                    <p className="mt-2 inline-flex items-center gap-2 text-muted-foreground text-xs">
+                      {preferencesStatus.startsWith("Loading") ? (
+                        <Spinner className="size-3.5" />
+                      ) : null}
+                      {preferencesStatus}
+                    </p>
+                  ) : null}
                 </div>
               </Section>
 
@@ -1676,7 +1752,10 @@ export function SettingsPanel({
                       </p>
                     ) : (
                       passkeys.map((passkey) => (
-                        <div className="flex items-center justify-between px-0 py-1.5" key={passkey.id}>
+                        <div
+                          className="flex items-center justify-between px-0 py-1.5"
+                          key={passkey.id}
+                        >
                           <div>
                             <p className="font-medium text-sm">
                               {passkey.name ?? "Passkey"}
@@ -1838,9 +1917,7 @@ export function SettingsPanel({
                   />
                   <div className="flex flex-col gap-3 px-0 py-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
-                      <p className="font-medium text-sm">
-                        Completed tasks
-                      </p>
+                      <p className="font-medium text-sm">Completed tasks</p>
                       <p className="text-muted-foreground text-xs">
                         Choose whether completed tasks stay at the top or drop
                         to the bottom in task lists.
@@ -1902,6 +1979,110 @@ export function SettingsPanel({
                       {preferencesStatus}
                     </p>
                   ) : null}
+                </div>
+              </Section>
+
+              <Divider />
+
+              <Section
+                description="Name Auri, choose an accessory, and edit the root markdown file used to steer chat behavior."
+                title="Personalize AI"
+              >
+                <div className="space-y-5">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="flex size-28 items-center justify-center rounded-full border bg-muted/30 shadow-sm">
+                      <SpritePet
+                        animation="idle"
+                        scale={0.48}
+                        src={
+                          PET_OPTIONS.find(
+                            (option) => option.accessory === petAccessory
+                          )?.src ?? PET_OPTIONS[0].src
+                        }
+                      />
+                    </div>
+                    <Input
+                      aria-label="AI companion name"
+                      className="h-9 max-w-[15rem] text-center"
+                      maxLength={32}
+                      onBlur={() => {
+                        const nextValue = petName.trim() || "Auri";
+                        const previous = petName;
+                        setPetName(nextValue);
+                        void persistUserSettings({ petName: nextValue }, () =>
+                          setPetName(previous)
+                        );
+                      }}
+                      onChange={(event) => setPetName(event.target.value)}
+                      placeholder="Enter a name"
+                      value={petName}
+                    />
+                  </div>
+
+                  <div className="rounded-lg bg-muted/40 p-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm">Instructions</p>
+                        <p className="text-muted-foreground text-xs">
+                          Edit the root markdown note Auri reads before new chat
+                          responses.
+                        </p>
+                      </div>
+                      <Button
+                        disabled={isOpeningAiInstructions}
+                        onClick={() => {
+                          void openAiInstructions();
+                        }}
+                        size="sm"
+                        type="button"
+                        variant="secondary"
+                      >
+                        {isOpeningAiInstructions ? (
+                          <Spinner className="mr-2 size-3.5" />
+                        ) : (
+                          <FileText className="mr-2 size-4" />
+                        )}
+                        Open instructions
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="mb-2 font-medium text-sm">Accessories</p>
+                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                      {PET_OPTIONS.map((option) => {
+                        const selected = option.accessory === petAccessory;
+                        return (
+                          <button
+                            aria-label={option.label}
+                            aria-pressed={selected}
+                            className={cn(
+                              "flex h-16 items-center justify-center rounded-lg border bg-muted/30 transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                              selected &&
+                                "border-primary bg-primary/10 ring-1 ring-primary"
+                            )}
+                            key={option.accessory}
+                            onClick={() => {
+                              const previous = petAccessory;
+                              setPetAccessory(option.accessory);
+                              void persistUserSettings(
+                                { petAccessory: option.accessory },
+                                () => setPetAccessory(previous)
+                              );
+                            }}
+                            title={option.label}
+                            type="button"
+                          >
+                            <SpritePet
+                              animation="idle"
+                              scale={0.26}
+                              src={option.src}
+                            />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               </Section>
 
@@ -1994,7 +2175,9 @@ export function SettingsPanel({
                       <Avatar className="size-14 shrink-0 rounded-2xl">
                         <AvatarImage
                           alt={selectedWorkspace?.name ?? "Workspace icon"}
-                          src={workspaceIconDraft || selectedWorkspace?.logo || ""}
+                          src={
+                            workspaceIconDraft || selectedWorkspace?.logo || ""
+                          }
                         />
                         <AvatarFallback className="rounded-2xl bg-muted font-semibold text-foreground text-lg">
                           {selectedWorkspaceInitial}
@@ -2076,14 +2259,14 @@ export function SettingsPanel({
                         icon={HardDrive}
                         label="Storage Used"
                         value={
-                          workspaceUsage
-                            ? formatBytes(workspaceUsage.totalSizeBytes)
-                            : (
-                              <span className="inline-flex items-center gap-1.5">
-                                <Spinner className="size-4" />
-                                Loading...
-                              </span>
-                            )
+                          workspaceUsage ? (
+                            formatBytes(workspaceUsage.totalSizeBytes)
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5">
+                              <Spinner className="size-4" />
+                              Loading...
+                            </span>
+                          )
                         }
                       />
                       <UsageStatCard
@@ -2091,14 +2274,14 @@ export function SettingsPanel({
                         icon={FileText}
                         label="Manage"
                         value={
-                          workspaceUsage
-                            ? workspaceUsage.fileCount.toLocaleString()
-                            : (
-                              <span className="inline-flex items-center gap-1.5">
-                                <Spinner className="size-4" />
-                                Loading...
-                              </span>
-                            )
+                          workspaceUsage ? (
+                            workspaceUsage.fileCount.toLocaleString()
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5">
+                              <Spinner className="size-4" />
+                              Loading...
+                            </span>
+                          )
                         }
                       />
                       <UsageStatCard
@@ -2106,14 +2289,14 @@ export function SettingsPanel({
                         icon={Folder}
                         label="Folders"
                         value={
-                          workspaceUsage
-                            ? workspaceUsage.folderCount.toLocaleString()
-                            : (
-                              <span className="inline-flex items-center gap-1.5">
-                                <Spinner className="size-4" />
-                                Loading...
-                              </span>
-                            )
+                          workspaceUsage ? (
+                            workspaceUsage.folderCount.toLocaleString()
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5">
+                              <Spinner className="size-4" />
+                              Loading...
+                            </span>
+                          )
                         }
                       />
                       <UsageStatCard
@@ -2125,14 +2308,14 @@ export function SettingsPanel({
                         icon={Users}
                         label="Indexed"
                         value={
-                          workspaceUsage
-                            ? workspaceUsage.indexedFileCount.toLocaleString()
-                            : (
-                              <span className="inline-flex items-center gap-1.5">
-                                <Spinner className="size-4" />
-                                Loading...
-                              </span>
-                            )
+                          workspaceUsage ? (
+                            workspaceUsage.indexedFileCount.toLocaleString()
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5">
+                              <Spinner className="size-4" />
+                              Loading...
+                            </span>
+                          )
                         }
                       />
                     </div>
@@ -2232,8 +2415,8 @@ export function SettingsPanel({
                       </Badge>
                     </div>
 
-                      <div className="mt-3">
-                        <div className="grid grid-cols-[minmax(0,1.5fr)_minmax(110px,0.8fr)_minmax(0,1.6fr)_minmax(90px,0.8fr)_auto] px-0 py-0 font-medium text-muted-foreground text-xs">
+                    <div className="mt-3">
+                      <div className="grid grid-cols-[minmax(0,1.5fr)_minmax(110px,0.8fr)_minmax(0,1.6fr)_minmax(90px,0.8fr)_auto] px-0 py-0 font-medium text-muted-foreground text-xs">
                         <span>User</span>
                         <span>Role</span>
                         <span>Email</span>
@@ -2259,7 +2442,10 @@ export function SettingsPanel({
                               member.role.toLowerCase() === "owner";
 
                             return (
-                              <div className="grid grid-cols-[minmax(0,1.5fr)_minmax(110px,0.8fr)_minmax(0,1.6fr)_minmax(90px,0.8fr)_auto] items-center gap-3 px-0 py-2 text-sm" key={memberKey}>
+                              <div
+                                className="grid grid-cols-[minmax(0,1.5fr)_minmax(110px,0.8fr)_minmax(0,1.6fr)_minmax(90px,0.8fr)_auto] items-center gap-3 px-0 py-2 text-sm"
+                                key={memberKey}
+                              >
                                 <div className="min-w-0">
                                   <p className="truncate font-medium">
                                     <SensitiveText
@@ -2567,68 +2753,66 @@ export function SettingsPanel({
 
           {/* ── Keyboard Shortcuts Tab ── */}
           {currentTab === "shortcuts" ? (
-            <>
-              <Section
-                description="Implemented shortcuts available in Avenire."
-                title="Keyboard Shortcuts"
-              >
-                <div className="max-w-3xl space-y-4">
-                  <div className="border-border/60 border-b pb-3">
-                    <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-background px-3 py-2">
-                      <Key className="size-3.5 text-muted-foreground" />
-                      <Input
-                        aria-label="Search shortcuts"
-                        className="h-auto border-0 bg-transparent px-0 py-0 shadow-none focus-visible:ring-0"
-                        onChange={(event) => {
-                          setShortcutQuery(event.target.value);
-                        }}
-                        placeholder="Search shortcuts..."
-                        value={shortcutQuery}
-                      />
-                      <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-                        {filteredShortcutCount} total
-                      </span>
-                    </div>
+            <Section
+              description="Implemented shortcuts available in Avenire."
+              title="Keyboard Shortcuts"
+            >
+              <div className="max-w-3xl space-y-4">
+                <div className="border-border/60 border-b pb-3">
+                  <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-background px-3 py-2">
+                    <Key className="size-3.5 text-muted-foreground" />
+                    <Input
+                      aria-label="Search shortcuts"
+                      className="h-auto border-0 bg-transparent px-0 py-0 shadow-none focus-visible:ring-0"
+                      onChange={(event) => {
+                        setShortcutQuery(event.target.value);
+                      }}
+                      placeholder="Search shortcuts..."
+                      value={shortcutQuery}
+                    />
+                    <span className="shrink-0 font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">
+                      {filteredShortcutCount} total
+                    </span>
                   </div>
-
-                  {filteredShortcutCount === 0 ? (
-                    <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                      No shortcuts match that search.
-                    </div>
-                  ) : (
-                    <div className="grid gap-x-8 gap-y-5 md:grid-cols-2">
-                      {filteredShortcutGroups.map((group) => (
-                        <div key={group.name}>
-                          <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-                            {group.name}
-                          </div>
-                          <ul className="flex flex-col">
-                            {group.items.map((shortcut) => (
-                              <li
-                                className="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 hover:bg-foreground/[0.03]"
-                                key={shortcut.label}
-                              >
-                                <span className="text-sm">{shortcut.label}</span>
-                                <KbdGroup className="shrink-0">
-                                  {shortcut.keys.map((key) => (
-                                    <Kbd
-                                      className="border border-border/80 bg-muted/80"
-                                      key={`${shortcut.label}-${key}`}
-                                    >
-                                      {key}
-                                    </Kbd>
-                                  ))}
-                                </KbdGroup>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
-              </Section>
-            </>
+
+                {filteredShortcutCount === 0 ? (
+                  <div className="px-4 py-8 text-center text-muted-foreground text-sm">
+                    No shortcuts match that search.
+                  </div>
+                ) : (
+                  <div className="grid gap-x-8 gap-y-5 md:grid-cols-2">
+                    {filteredShortcutGroups.map((group) => (
+                      <div key={group.name}>
+                        <div className="mb-2 font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">
+                          {group.name}
+                        </div>
+                        <ul className="flex flex-col">
+                          {group.items.map((shortcut) => (
+                            <li
+                              className="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 hover:bg-foreground/[0.03]"
+                              key={shortcut.label}
+                            >
+                              <span className="text-sm">{shortcut.label}</span>
+                              <KbdGroup className="shrink-0">
+                                {shortcut.keys.map((key) => (
+                                  <Kbd
+                                    className="border border-border/80 bg-muted/80"
+                                    key={`${shortcut.label}-${key}`}
+                                  >
+                                    {key}
+                                  </Kbd>
+                                ))}
+                              </KbdGroup>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </Section>
           ) : null}
         </div>
       </div>
@@ -2673,19 +2857,24 @@ export function SettingsPanel({
                 />
               </div>
               <div className="space-y-2">
-                <label className="font-medium text-sm" htmlFor="template-banner">
+                <label
+                  className="font-medium text-sm"
+                  htmlFor="template-banner"
+                >
                   Banner
                 </label>
                 <input
+                  accept="image/*"
                   className="hidden"
                   onChange={handleNoteTemplateBannerFileChange}
                   ref={noteTemplateBannerInputRef}
                   type="file"
-                  accept="image/*"
                 />
                 <Input
                   id="template-banner"
-                  onChange={(event) => setNoteTemplateBannerUrl(event.target.value)}
+                  onChange={(event) =>
+                    setNoteTemplateBannerUrl(event.target.value)
+                  }
                   placeholder="https://example.com/banner.png"
                   value={noteTemplateBannerUrl}
                 />
@@ -2698,7 +2887,9 @@ export function SettingsPanel({
                     variant="outline"
                   >
                     <Camera className="mr-2 h-4 w-4" />
-                    {noteTemplateBannerUploading ? "Uploading..." : "Upload banner"}
+                    {noteTemplateBannerUploading
+                      ? "Uploading..."
+                      : "Upload banner"}
                   </Button>
                   <Button
                     disabled={!noteTemplateBannerUrl.trim()}
@@ -2753,7 +2944,9 @@ export function SettingsPanel({
                   }}
                   scrollContainerRef={noteTemplateEditorScrollRef}
                   wikiPages={[]}
-                  workspaceUuid={selectedWorkspace?.workspaceId ?? activeWorkspaceId}
+                  workspaceUuid={
+                    selectedWorkspace?.workspaceId ?? activeWorkspaceId
+                  }
                 />
               </div>
             </div>
@@ -2783,8 +2976,10 @@ export function SettingsPanel({
             </div>
             <Button
               disabled={
-                !noteTemplateDraft.name.trim() ||
-                !noteTemplateDraft.content.trim()
+                !(
+                  noteTemplateDraft.name.trim() &&
+                  noteTemplateDraft.content.trim()
+                )
               }
               onClick={() => {
                 saveNoteTemplateDraft();

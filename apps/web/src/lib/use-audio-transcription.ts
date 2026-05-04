@@ -2,16 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-type TranscriptSegment = {
+interface TranscriptSegment {
   endMs: number;
   startMs: number;
   text: string;
-};
+}
 
-type UseAudioTranscriptionOptions = {
+interface UseAudioTranscriptionOptions {
   onTranscript: (text: string) => void;
   workspaceUuid: string;
-};
+}
 
 function getSupportedMimeType() {
   if (typeof window === "undefined" || typeof MediaRecorder === "undefined") {
@@ -25,13 +25,13 @@ function getSupportedMimeType() {
     "audio/mp4",
   ];
 
-  return candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) ?? "";
+  return (
+    candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) ??
+    ""
+  );
 }
 
-async function transcribeBlob(input: {
-  audio: Blob;
-  workspaceUuid: string;
-}) {
+async function transcribeBlob(input: { audio: Blob; workspaceUuid: string }) {
   const formData = new FormData();
   formData.append("workspaceUuid", input.workspaceUuid);
   formData.append("audio", input.audio, "recording.webm");

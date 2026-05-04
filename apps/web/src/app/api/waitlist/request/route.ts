@@ -1,5 +1,5 @@
-import { Emailer, renderWaitlistWelcomeEmail } from "@avenire/emailer";
 import { requestWaitlistEntry } from "@avenire/database";
+import { Emailer, renderWaitlistWelcomeEmail } from "@avenire/emailer";
 import { NextResponse } from "next/server";
 import { resolveAppBaseUrl } from "@/lib/app-base-url";
 
@@ -37,6 +37,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ status: entry.status, waitlist: entry });
   } catch (error) {
     console.error("[api/waitlist/request] failed", { error });
-    return NextResponse.json({ error: "Unable to add email to the waitlist." }, { status: 500 });
+    return NextResponse.json(
+      { error: "Unable to add email to the waitlist." },
+      { status: 500 }
+    );
   }
 }

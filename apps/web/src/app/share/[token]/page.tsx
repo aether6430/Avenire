@@ -9,8 +9,8 @@ import {
   canUserAccessSharedResource,
   getFileAssetById,
   getFolderWithAncestors,
-  listWorkspacesForUser,
   listFolderContents,
+  listWorkspacesForUser,
   resolveResourceShareLink,
 } from "@/lib/file-data";
 import { buildPageMetadata } from "@/lib/page-metadata";
@@ -88,7 +88,7 @@ export default async function SharedResourcePage({
       userId: session?.user?.id,
     });
 
-    if (!hasAccess && !session?.user) {
+    if (!(hasAccess || session?.user)) {
       redirect(`/login?callbackURL=${encodeURIComponent(`/share/${token}`)}`);
     }
 
@@ -155,7 +155,7 @@ export default async function SharedResourcePage({
       userId: session?.user?.id,
     });
 
-    if (!hasAccess && !session?.user) {
+    if (!(hasAccess || session?.user)) {
       redirect(`/login?callbackURL=${encodeURIComponent(`/share/${token}`)}`);
     }
 

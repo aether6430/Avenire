@@ -16,7 +16,10 @@ export default function Page() {
         "@type": "Organization",
         description:
           "Avenire builds an AI learning workspace for deep study, research, and interactive reasoning.",
-        logo: new URL("/branding/avenire-logo-full.png", metadataBase).toString(),
+        logo: new URL(
+          "/branding/avenire-logo-full.png",
+          metadataBase
+        ).toString(),
         name: "Avenire",
         url: metadataBase.toString(),
       },

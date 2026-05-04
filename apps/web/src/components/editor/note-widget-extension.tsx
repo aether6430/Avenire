@@ -2,9 +2,9 @@
 
 import { mergeAttributes, Node as TiptapNode } from "@tiptap/core";
 import {
+  type NodeViewProps,
   NodeViewWrapper,
   ReactNodeViewRenderer,
-  type NodeViewProps,
 } from "@tiptap/react";
 import { WidgetRenderer } from "@/components/WidgetRenderer";
 import {
@@ -29,16 +29,16 @@ function NoteWidgetNodeView({ node }: NodeViewProps) {
       <div className="overflow-hidden rounded-2xl border border-border/70 bg-background/85 shadow-sm">
         <div className="flex items-center justify-between gap-3 border-border/60 border-b px-4 py-3">
           <div className="min-w-0">
-            <p className="font-medium text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
+            <p className="font-medium text-[11px] text-muted-foreground uppercase tracking-[0.24em]">
               {NOTE_WIDGET_DEFAULT_TITLE}
             </p>
             {title ? (
-              <p className="truncate text-sm font-medium text-foreground">
+              <p className="truncate font-medium text-foreground text-sm">
                 {title}
               </p>
             ) : null}
           </div>
-          <div className="shrink-0 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+          <div className="shrink-0 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[10px] text-muted-foreground uppercase tracking-[0.18em]">
             Read only
           </div>
         </div>
@@ -64,7 +64,10 @@ export const NoteWidgetExtension = TiptapNode.create({
   addOptions() {
     return {
       onInsert: undefined as
-        | ((node: { attrs: { html?: string; title?: string | null } }, pos: number) => void)
+        | ((
+            node: { attrs: { html?: string; title?: string | null } },
+            pos: number
+          ) => void)
         | undefined,
     };
   },
@@ -154,9 +157,7 @@ export const NoteWidgetExtension = TiptapNode.create({
     level: "block",
     start: (src: string) => src.indexOf(`\`\`\`${NOTE_WIDGET_TOKEN}`),
     tokenize(src: string) {
-      const match = src.match(
-        /^```avenire-widget\n([\s\S]*?)```(?:\n|$)/
-      );
+      const match = src.match(/^```avenire-widget\n([\s\S]*?)```(?:\n|$)/);
       if (!match) {
         return undefined;
       }

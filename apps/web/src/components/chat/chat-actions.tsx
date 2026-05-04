@@ -3,7 +3,10 @@
 import type { UIMessage } from "@avenire/ai/message-types";
 import { Button } from "@avenire/ui/components/button";
 import {
-  Copy, GitBranch, ArrowCounterClockwise as RefreshCcw } from "@phosphor-icons/react"
+  Copy,
+  GitBranch,
+  ArrowCounterClockwise as RefreshCcw,
+} from "@phosphor-icons/react";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";

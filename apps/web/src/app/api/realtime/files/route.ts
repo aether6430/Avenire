@@ -1,4 +1,7 @@
-import { createFilesRealtimeSubscriber, hasFilesRealtimeConfigured } from "@/lib/files-realtime-publisher";
+import {
+  createFilesRealtimeSubscriber,
+  hasFilesRealtimeConfigured,
+} from "@/lib/files-realtime-publisher";
 import { verifyFilesRealtimeToken } from "@/lib/files-realtime-token";
 
 export const runtime = "nodejs";
@@ -9,8 +12,11 @@ export async function GET(request: Request) {
   const workspaceUuid = url.searchParams.get("workspaceUuid")?.trim();
   const token = url.searchParams.get("token")?.trim();
 
-  if (!workspaceUuid || !token) {
-    return Response.json({ error: "Missing workspaceUuid or token" }, { status: 400 });
+  if (!(workspaceUuid && token)) {
+    return Response.json(
+      { error: "Missing workspaceUuid or token" },
+      { status: 400 }
+    );
   }
 
   if (!hasFilesRealtimeConfigured()) {
@@ -19,14 +25,19 @@ export async function GET(request: Request) {
 
   const verification = verifyFilesRealtimeToken(token, workspaceUuid);
   if (!verification.ok) {
-    return Response.json({ error: "Unauthorized", reason: verification.reason }, { status: 401 });
+    return Response.json(
+      { error: "Unauthorized", reason: verification.reason },
+      { status: 401 }
+    );
   }
 
   const encoder = new TextEncoder();
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   let streamClosed = false;
   let channel: string | null = null;
-  let subscriber: Awaited<ReturnType<typeof createFilesRealtimeSubscriber>>["subscriber"] | null = null;
+  let subscriber:
+    | Awaited<ReturnType<typeof createFilesRealtimeSubscriber>>["subscriber"]
+    | null = null;
 
   const body = new ReadableStream<Uint8Array>({
     start: async (controller) => {
@@ -48,7 +59,7 @@ export async function GET(request: Request) {
       };
 
       const disconnect = async () => {
-        if (!subscriber || !channel) {
+        if (!(subscriber && channel)) {
           return;
         }
 
@@ -116,7 +127,7 @@ export async function GET(request: Request) {
         heartbeatTimer = null;
       }
 
-      if (!subscriber || !channel) {
+      if (!(subscriber && channel)) {
         return;
       }
 

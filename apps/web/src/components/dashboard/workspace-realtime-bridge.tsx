@@ -5,13 +5,13 @@ import { useEffect, useRef } from "react";
 
 type WorkspaceInvalidationKind = "chat" | "files" | "flashcards";
 
-type WorkspaceInvalidationPayload = {
+interface WorkspaceInvalidationPayload {
   at?: number | null;
   fileId?: string | null;
   folderId?: string | null;
   reason?: string | null;
   workspaceUuid: string;
-};
+}
 
 export interface WorkspaceInvalidationDetail {
   kind: WorkspaceInvalidationKind;

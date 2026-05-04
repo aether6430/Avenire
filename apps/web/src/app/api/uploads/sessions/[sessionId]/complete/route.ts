@@ -1,5 +1,5 @@
-import { UTApi, UTFile } from "@avenire/storage";
 import { openAsBlob } from "node:fs";
+import { UTApi, UTFile } from "@avenire/storage";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { userCanEditFolder } from "@/lib/file-data";
@@ -195,7 +195,7 @@ export async function POST(
   let checksumSha256 = normalizeSha256(parsed.data.checksumSha256);
   let multipartPartCount = 0;
 
-  if (!storageKey || !storageUrl || typeof sizeBytes !== "number") {
+  if (!(storageKey && storageUrl) || typeof sizeBytes !== "number") {
     try {
       const multipartUpload = await uploadMultipartAsSingleObject({
         sessionId,
@@ -232,7 +232,7 @@ export async function POST(
     }
   }
 
-  if (!storageKey || !storageUrl || typeof sizeBytes !== "number") {
+  if (!(storageKey && storageUrl) || typeof sizeBytes !== "number") {
     void apiLogger.requestFailed(
       400,
       "Missing upload metadata after completion"

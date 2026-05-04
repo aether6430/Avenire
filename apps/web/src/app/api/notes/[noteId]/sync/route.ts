@@ -1,13 +1,12 @@
-import { merge } from "node-diff3";
-import { NextResponse } from "next/server";
-import { after } from "next/server";
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
+import { after, NextResponse } from "next/server";
+import { merge } from "node-diff3";
 import {
   deleteIngestionDataForFile,
   getFileAssetById,
-  isMarkdownFileRecord,
   getNoteContent,
   getWorkspaceIdForFile,
+  isMarkdownFileRecord,
   upsertMarkdownFileContent,
   userCanEditFile,
 } from "@/lib/file-data";
@@ -37,8 +36,11 @@ export async function GET(
   }
 
   const file = await getFileAssetById(workspaceId, noteId);
-  if (!file || !isMarkdownFileRecord(file)) {
-    return NextResponse.json({ error: "Markdown file not found" }, { status: 404 });
+  if (!(file && isMarkdownFileRecord(file))) {
+    return NextResponse.json(
+      { error: "Markdown file not found" },
+      { status: 404 }
+    );
   }
 
   const note = await getNoteContent(noteId);
@@ -120,8 +122,11 @@ export async function POST(
   }
 
   const file = await getFileAssetById(workspaceId, noteId);
-  if (!file || !isMarkdownFileRecord(file)) {
-    return NextResponse.json({ error: "Markdown file not found" }, { status: 404 });
+  if (!(file && isMarkdownFileRecord(file))) {
+    return NextResponse.json(
+      { error: "Markdown file not found" },
+      { status: 404 }
+    );
   }
 
   const body = (await request.json().catch(() => ({}))) as {
@@ -129,7 +134,10 @@ export async function POST(
     current?: string;
   };
   if (typeof body.base !== "string" || typeof body.current !== "string") {
-    return NextResponse.json({ error: "Invalid sync payload" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid sync payload" },
+      { status: 400 }
+    );
   }
 
   const note = await getNoteContent(noteId);

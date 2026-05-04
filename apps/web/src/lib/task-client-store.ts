@@ -1,9 +1,12 @@
 "use client";
 
 import { toast } from "sonner";
-import { readCachedTasks, writeCachedTasks } from "@/lib/dashboard-browser-cache";
-import { getUserSettingsSnapshot } from "@/lib/user-settings-client";
+import {
+  readCachedTasks,
+  writeCachedTasks,
+} from "@/lib/dashboard-browser-cache";
 import type { WorkspaceTask } from "@/lib/tasks";
+import { getUserSettingsSnapshot } from "@/lib/user-settings-client";
 
 interface TaskStoreSnapshot {
   errorMessage: string | null;
@@ -96,12 +99,15 @@ export function sortWorkspaceTasks(tasks: WorkspaceTask[]) {
       }
     };
 
-    const priorityDiff = priorityRank(right.priority) - priorityRank(left.priority);
+    const priorityDiff =
+      priorityRank(right.priority) - priorityRank(left.priority);
     if (priorityDiff !== 0) {
       return priorityDiff;
     }
 
-    return new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime();
+    return (
+      new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
+    );
   });
 }
 
@@ -192,7 +198,10 @@ export function patchWorkspaceTask(
   });
 }
 
-export function upsertWorkspaceTask(workspaceUuid: string, task: WorkspaceTask) {
+export function upsertWorkspaceTask(
+  workspaceUuid: string,
+  task: WorkspaceTask
+) {
   updateTaskStore((current) => {
     if (current.workspaceUuid !== workspaceUuid) {
       return {
@@ -203,9 +212,7 @@ export function upsertWorkspaceTask(workspaceUuid: string, task: WorkspaceTask) 
       };
     }
     const tasks = sortWorkspaceTasks(
-      current.tasks
-        .filter((entry) => entry.id !== task.id)
-        .concat(task)
+      current.tasks.filter((entry) => entry.id !== task.id).concat(task)
     );
     writeCachedTasks(workspaceUuid, tasks);
     return { ...current, tasks };

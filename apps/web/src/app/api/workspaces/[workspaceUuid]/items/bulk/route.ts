@@ -6,10 +6,10 @@ import {
   isSharedFilesVirtualFolderId,
   softDeleteFileAsset,
   softDeleteFolder,
-  userCanEditFile,
-  userCanEditFolder,
   updateFileAsset,
   updateFolder,
+  userCanEditFile,
+  userCanEditFolder,
 } from "@/lib/file-data";
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
 import { getSessionUser } from "@/lib/workspace";
@@ -31,12 +31,12 @@ const requestSchema = z.discriminatedUnion("operation", [
   }),
 ]);
 
-type MutationResult = {
+interface MutationResult {
+  error?: string;
   id: string;
   kind: "file" | "folder";
   status: "ok" | "failed";
-  error?: string;
-};
+}
 
 export async function POST(
   request: Request,
@@ -49,7 +49,9 @@ export async function POST(
 
   const { workspaceUuid } = await context.params;
 
-  const parsed = requestSchema.safeParse(await request.json().catch(() => ({})));
+  const parsed = requestSchema.safeParse(
+    await request.json().catch(() => ({}))
+  );
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
@@ -71,7 +73,10 @@ export async function POST(
       userId: user.id,
     });
     if (!canEditTarget) {
-      return NextResponse.json({ error: "Read-only target folder" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Read-only target folder" },
+        { status: 403 }
+      );
     }
   }
 
@@ -121,7 +126,11 @@ export async function POST(
           continue;
         }
 
-        const folder = await getFolderWithAncestors(workspaceUuid, item.id, user.id);
+        const folder = await getFolderWithAncestors(
+          workspaceUuid,
+          item.id,
+          user.id
+        );
         if (!folder || isSharedFilesVirtualFolderId(item.id, workspaceUuid)) {
           results.push({
             id: item.id,
@@ -175,9 +184,14 @@ export async function POST(
             });
             continue;
           }
-          const updated = await updateFileAsset(workspaceUuid, item.id, user.id, {
-            folderId: payload.targetFolderId,
-          });
+          const updated = await updateFileAsset(
+            workspaceUuid,
+            item.id,
+            user.id,
+            {
+              folderId: payload.targetFolderId,
+            }
+          );
 
           if (!updated) {
             results.push({

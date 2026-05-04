@@ -50,9 +50,7 @@ function versionKey(workspaceUuid: string) {
   return `tasks:list:${TASK_CACHE_VERSION}:version:${workspaceUuid}`;
 }
 
-export async function getTaskListCacheVersion(
-  workspaceUuid: string
-) {
+export async function getTaskListCacheVersion(workspaceUuid: string) {
   const key = versionKey(workspaceUuid);
   const redis = await getRedisClient();
   if (redis) {
@@ -74,9 +72,7 @@ export async function getTaskListCacheVersion(
   return next;
 }
 
-export async function invalidateTaskListCache(
-  workspaceUuid: string
-) {
+export async function invalidateTaskListCache(workspaceUuid: string) {
   const next = Date.now().toString();
   const key = versionKey(workspaceUuid);
   const redis = await getRedisClient();

@@ -4,9 +4,19 @@ import { Button } from "@avenire/ui/components/button";
 import { Spinner } from "@avenire/ui/components/spinner";
 import { ListChecks, Plus } from "@phosphor-icons/react";
 import type { Route } from "next";
-import { startTransition, useDeferredValue, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { HeaderActions, HeaderBreadcrumbs, HeaderLeadingIcon } from "@/components/dashboard/header-portal";
-import { usePanePathname, usePaneRouter, usePaneSearchParams } from "@/lib/workspace-panes";
+import {
+  startTransition,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import {
+  HeaderActions,
+  HeaderBreadcrumbs,
+  HeaderLeadingIcon,
+} from "@/components/dashboard/header-portal";
 import { TaskFilters } from "@/components/tasks/task-filters";
 import { TaskKanbanPane } from "@/components/tasks/task-kanban-pane";
 import { TaskListPane } from "@/components/tasks/task-list-pane";
@@ -19,23 +29,28 @@ import {
   type TaskViewMode,
 } from "@/components/tasks/types";
 import {
-  getTaskGroupLabel,
-  TASKS_REFRESH_EVENT,
-  type WorkspaceMemberOption,
-  type WorkspaceTask,
-} from "@/lib/tasks";
-import {
   getTaskStoreSnapshot,
   patchWorkspaceTask,
   primeWorkspaceTaskStore,
   reloadWorkspaceTasks,
   removeWorkspaceTask,
   setWorkspaceTaskError,
-  sortWorkspaceTasks,
   subscribeToTaskStore,
   upsertWorkspaceTask,
 } from "@/lib/task-client-store";
+import {
+  getTaskGroupLabel,
+  TASKS_REFRESH_EVENT,
+  type WorkspaceMemberOption,
+  type WorkspaceTask,
+} from "@/lib/tasks";
+import { emitPetNotification } from "@/lib/pet-preferences";
 import { useUserSettings } from "@/lib/user-settings-client";
+import {
+  usePanePathname,
+  usePaneRouter,
+  usePaneSearchParams,
+} from "@/lib/workspace-panes";
 import { usePaneWorkspaceHistoryActions } from "@/stores/workspaceHistoryStore";
 
 function buildTaskPayload(draft: TaskEditorDraft) {
@@ -50,20 +65,40 @@ function buildTaskPayload(draft: TaskEditorDraft) {
   };
 }
 
-function sameDraft(left: TaskEditorDraft | null, right: TaskEditorDraft | null) {
+function sameDraft(
+  left: TaskEditorDraft | null,
+  right: TaskEditorDraft | null
+) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function buildStatusGroups(tasks: WorkspaceTask[]) {
   const buckets = [
-    { key: "planned", label: getTaskGroupLabel("planned"), tasks: [] as WorkspaceTask[] },
-    { key: "drafting", label: getTaskGroupLabel("drafting"), tasks: [] as WorkspaceTask[] },
-    { key: "polishing", label: getTaskGroupLabel("polishing"), tasks: [] as WorkspaceTask[] },
-    { key: "completed", label: getTaskGroupLabel("completed"), tasks: [] as WorkspaceTask[] },
+    {
+      key: "planned",
+      label: getTaskGroupLabel("planned"),
+      tasks: [] as WorkspaceTask[],
+    },
+    {
+      key: "drafting",
+      label: getTaskGroupLabel("drafting"),
+      tasks: [] as WorkspaceTask[],
+    },
+    {
+      key: "polishing",
+      label: getTaskGroupLabel("polishing"),
+      tasks: [] as WorkspaceTask[],
+    },
+    {
+      key: "completed",
+      label: getTaskGroupLabel("completed"),
+      tasks: [] as WorkspaceTask[],
+    },
   ];
 
   for (const task of tasks) {
-    const bucket = buckets.find((entry) => entry.key === task.status) ?? buckets[1];
+    const bucket =
+      buckets.find((entry) => entry.key === task.status) ?? buckets[1];
     bucket.tasks.push(task);
   }
 
@@ -78,11 +113,31 @@ function buildDueGroups(tasks: WorkspaceTask[]) {
   startOfToday.setHours(0, 0, 0, 0);
 
   const buckets = [
-    { key: "overdue", label: getTaskGroupLabel("overdue"), tasks: [] as WorkspaceTask[] },
-    { key: "today", label: getTaskGroupLabel("today"), tasks: [] as WorkspaceTask[] },
-    { key: "upcoming", label: getTaskGroupLabel("upcoming"), tasks: [] as WorkspaceTask[] },
-    { key: "no_date", label: getTaskGroupLabel("no_date"), tasks: [] as WorkspaceTask[] },
-    { key: "completed", label: getTaskGroupLabel("completed"), tasks: [] as WorkspaceTask[] },
+    {
+      key: "overdue",
+      label: getTaskGroupLabel("overdue"),
+      tasks: [] as WorkspaceTask[],
+    },
+    {
+      key: "today",
+      label: getTaskGroupLabel("today"),
+      tasks: [] as WorkspaceTask[],
+    },
+    {
+      key: "upcoming",
+      label: getTaskGroupLabel("upcoming"),
+      tasks: [] as WorkspaceTask[],
+    },
+    {
+      key: "no_date",
+      label: getTaskGroupLabel("no_date"),
+      tasks: [] as WorkspaceTask[],
+    },
+    {
+      key: "completed",
+      label: getTaskGroupLabel("completed"),
+      tasks: [] as WorkspaceTask[],
+    },
   ];
 
   for (const task of tasks) {
@@ -151,7 +206,9 @@ export function TasksWorkspace({
   const [isSaving, setIsSaving] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
-  const [dropStatus, setDropStatus] = useState<WorkspaceTask["status"] | null>(null);
+  const [dropStatus, setDropStatus] = useState<WorkspaceTask["status"] | null>(
+    null
+  );
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const {
     settings: { completedTasksAtTop },
@@ -232,7 +289,12 @@ export function TasksWorkspace({
       if (!query) {
         return true;
       }
-      return [task.title, task.description ?? "", task.assignee?.name ?? "", task.assignee?.email ?? ""]
+      return [
+        task.title,
+        task.description ?? "",
+        task.assignee?.name ?? "",
+        task.assignee?.email ?? "",
+      ]
         .join(" ")
         .toLowerCase()
         .includes(query);
@@ -240,7 +302,10 @@ export function TasksWorkspace({
   }, [assigneeFilter, deferredSearchQuery, statusFilter, tasks]);
 
   const groupedTasks = useMemo(
-    () => (grouping === "due" ? buildDueGroups(filteredTasks) : buildStatusGroups(filteredTasks)),
+    () =>
+      grouping === "due"
+        ? buildDueGroups(filteredTasks)
+        : buildStatusGroups(filteredTasks),
     [filteredTasks, grouping]
   );
   const kanbanGroups = useMemo(
@@ -320,10 +385,20 @@ export function TasksWorkspace({
         error?: string;
         task?: WorkspaceTask;
       };
-      if (!response.ok || !payload.task) {
+      if (!(response.ok && payload.task)) {
         throw new Error(payload.error ?? "Unable to update task.");
       }
       upsertWorkspaceTask(workspaceId, payload.task);
+      if (
+        previous.status !== "completed" &&
+        payload.task.status === "completed"
+      ) {
+        emitPetNotification({
+          animation: "waving",
+          message: "Nice work",
+          tone: "success",
+        });
+      }
       void reloadWorkspaceTasks(workspaceId, { background: true });
     } catch (error) {
       upsertWorkspaceTask(workspaceId, previous);
@@ -352,7 +427,7 @@ export function TasksWorkspace({
         error?: string;
         task?: WorkspaceTask;
       };
-      if (!response.ok || !payload.task) {
+      if (!(response.ok && payload.task)) {
         throw new Error(payload.error ?? "Unable to save task.");
       }
 
@@ -466,7 +541,7 @@ export function TasksWorkspace({
 
       <div className="flex w-full flex-col gap-4 px-4 py-4 md:px-6 lg:px-8">
         <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-semibold tracking-tight text-foreground">
+          <h1 className="font-semibold text-foreground text-xl tracking-tight">
             Tasks
           </h1>
           <p className="text-muted-foreground text-sm">
@@ -474,7 +549,7 @@ export function TasksWorkspace({
           </p>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-hidden border-t border-border/70">
+        <div className="min-h-0 flex-1 overflow-hidden border-border/70 border-t">
           <TaskFilters
             assigneeFilter={assigneeFilter}
             grouping={grouping}
@@ -494,18 +569,18 @@ export function TasksWorkspace({
               Loading tasks...
             </div>
           ) : viewMode === "kanban" ? (
-          <TaskKanbanPane
-            draggedTaskId={draggedTaskId}
-            dropStatus={dropStatus}
-            groups={kanbanGroups}
-            onDragEndTask={handleDragEndTask}
-            onDragStartTask={handleDragStartTask}
-            onDragTargetChange={setDropStatus}
-            onDropStatus={handleDropStatus}
-            onSelectTask={handleSelectTask}
-            onToggleComplete={toggleTaskComplete}
-            selectedTaskId={selectedTaskId}
-          />
+            <TaskKanbanPane
+              draggedTaskId={draggedTaskId}
+              dropStatus={dropStatus}
+              groups={kanbanGroups}
+              onDragEndTask={handleDragEndTask}
+              onDragStartTask={handleDragStartTask}
+              onDragTargetChange={setDropStatus}
+              onDropStatus={handleDropStatus}
+              onSelectTask={handleSelectTask}
+              onToggleComplete={toggleTaskComplete}
+              selectedTaskId={selectedTaskId}
+            />
           ) : (
             <TaskListPane
               draggedTaskId={draggedTaskId}
@@ -531,7 +606,9 @@ export function TasksWorkspace({
         mode={mode}
         onDelete={handleDelete}
         onDraftChange={(updates) =>
-          setDraft((current) => (current ? { ...current, ...updates } : current))
+          setDraft((current) =>
+            current ? { ...current, ...updates } : current
+          )
         }
         onOpenChange={(open) => {
           if (!open) {
@@ -555,8 +632,8 @@ export function TasksWorkspace({
             void toggleTaskComplete(selectedTask);
           }
         }}
-        workspaceUuid={workspaceId}
         task={selectedTask}
+        workspaceUuid={workspaceId}
       />
     </div>
   );

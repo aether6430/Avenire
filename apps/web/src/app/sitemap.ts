@@ -19,7 +19,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const staticEntries = PUBLIC_ROUTES.map((route) => ({
     changeFrequency: route === "/" ? "weekly" : "monthly",
     lastModified: now,
-    priority: route === "/" ? 1 : route === "/pricing" || route === "/blog" ? 0.8 : 0.6,
+    priority:
+      route === "/" ? 1 : route === "/pricing" || route === "/blog" ? 0.8 : 0.6,
     url: `${base}${route === "/" ? "" : route}`,
   })) satisfies MetadataRoute.Sitemap;
 

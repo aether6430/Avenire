@@ -1,13 +1,14 @@
 "use client";
 
 import { SidebarInset, SidebarProvider } from "@avenire/ui/components/sidebar";
-import dynamic from "next/dynamic";
 import type { Route } from "next";
+import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { Suspense, useEffect, useState } from "react";
 import { DashboardSidebar } from "@/components/dashboard/app-sidebar";
 import { WorkspacePaneRenderer } from "@/components/dashboard/workspace-pane-renderer";
+import { ChatPet } from "@/components/pets/chat-pet";
 import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
 import { useDashboardUiStore } from "@/stores/dashboardUiStore";
 
@@ -135,14 +136,17 @@ export function DashboardLayout({
     nextParams.delete("overlay");
     nextParams.delete("settingsTab");
     const nextQuery = nextParams.toString();
-    router.replace((nextQuery ? `${pathname}?${nextQuery}` : pathname) as Route);
+    router.replace(
+      (nextQuery ? `${pathname}?${nextQuery}` : pathname) as Route
+    );
   }, [pathname, router, searchParams, setSettingsOpen, setSettingsTab]);
 
   useEffect(() => {
     const documentElement = document.documentElement;
     const body = document.body;
     const previousHtmlOverflow = documentElement.style.overflow;
-    const previousHtmlOverscrollBehavior = documentElement.style.overscrollBehavior;
+    const previousHtmlOverscrollBehavior =
+      documentElement.style.overscrollBehavior;
     const previousBodyOverflow = body.style.overflow;
     const previousBodyOverscrollBehavior = body.style.overscrollBehavior;
 
@@ -255,6 +259,7 @@ export function DashboardLayout({
           workspaceUuid={activeWorkspace.workspaceId}
         />
       ) : null}
+      <ChatPet />
     </SidebarProvider>
   );
 }

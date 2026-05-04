@@ -1,6 +1,6 @@
+import { NextResponse } from "next/server";
 import { listWorkspacesForUser } from "@/lib/file-data";
 import { getSessionUser } from "@/lib/workspace";
-import { NextResponse } from "next/server";
 
 export async function GET() {
   const user = await getSessionUser();

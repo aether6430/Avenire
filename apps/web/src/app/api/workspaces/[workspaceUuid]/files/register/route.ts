@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import {
-  isSharedFilesVirtualFolderId,
   createWorkspaceNoteFile,
+  isSharedFilesVirtualFolderId,
   userCanEditFolder,
 } from "@/lib/file-data";
-import { createApiLogger } from "@/lib/observability";
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
 import { extractMarkdownNotePageMetadata } from "@/lib/markdown-note-template";
+import { createApiLogger } from "@/lib/observability";
 import { registerWorkspaceUploadedFile } from "@/lib/upload-registration";
 import { scheduleAsyncVideoDeliveryOptimization } from "@/lib/video-delivery";
 import { getSessionUser } from "@/lib/workspace";
@@ -124,8 +124,9 @@ export async function POST(
         ...(currentPage ?? {}),
         ...(templatePage ?? {}),
         properties: {
-          ...(((currentPage?.properties as Record<string, unknown> | undefined) ??
-            {}) as Record<string, unknown>),
+          ...(((currentPage?.properties as
+            | Record<string, unknown>
+            | undefined) ?? {}) as Record<string, unknown>),
           ...(templatePage?.properties ?? {}),
         },
       };

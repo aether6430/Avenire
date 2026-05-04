@@ -1,5 +1,5 @@
-import { Suspense } from "react";
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
 import { WorkspaceFolderRoutePageClient } from "@/components/files/workspace-folder-route-page-client";
 import { buildPageMetadata } from "@/lib/page-metadata";

@@ -1,11 +1,11 @@
+import { NextResponse } from "next/server";
 import { listWorkspaceFiles, listWorkspaceFolders } from "@/lib/file-data";
 import { getIngestionFlagsByFileIds } from "@/lib/ingestion-data";
 import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
-import { NextResponse } from "next/server";
 
 export async function GET(
   _request: Request,
-  context: { params: Promise<{ workspaceUuid: string }> },
+  context: { params: Promise<{ workspaceUuid: string }> }
 ) {
   const user = await getSessionUser();
   if (!user) {

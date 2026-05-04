@@ -15,7 +15,7 @@ export interface WorkspaceStreamEvent {
 }
 
 const redisUrl = process.env.REDIS_URL;
-const DEFAULT_MAX_LEN = 5_000;
+const DEFAULT_MAX_LEN = 5000;
 const DEFAULT_BLOCK_MS = 15_000;
 
 let publisher: RedisClientType | null = null;
@@ -39,7 +39,7 @@ function toWorkspaceEvent(
 
   const streamId = typeof entry[0] === "string" ? entry[0] : null;
   const fields = entry[1];
-  if (!streamId || !Array.isArray(fields)) {
+  if (!(streamId && Array.isArray(fields))) {
     return null;
   }
 
@@ -232,13 +232,16 @@ export async function waitForWorkspaceStreamEvents(input: {
 
   const streamKey = getStreamKey(input.workspaceUuid);
   const blockMs = Math.max(
-    1_000,
-    toPositiveInt(process.env.WORKSPACE_EVENTS_STREAM_BLOCK_MS, DEFAULT_BLOCK_MS)
+    1000,
+    toPositiveInt(
+      process.env.WORKSPACE_EVENTS_STREAM_BLOCK_MS,
+      DEFAULT_BLOCK_MS
+    )
   );
   const limit = Math.min(200, Math.max(1, input.limit ?? 100));
   const after = input.afterStreamId ?? "$";
   const client = createManagedRedisClient(redisUrl, "workspace-event-stream");
-  if (!client.isOpen || !client.isReady) {
+  if (!(client.isOpen && client.isReady)) {
     try {
       await client.connect();
     } catch (error) {

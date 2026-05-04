@@ -42,7 +42,7 @@ export async function GET(request: Request) {
   const plan = searchParams.get("plan");
   const billing = searchParams.get("billing");
 
-  if (!isPaidPlan(plan) || !isBillingPeriod(billing)) {
+  if (!(isPaidPlan(plan) && isBillingPeriod(billing))) {
     void apiLogger.requestFailed(400, "Invalid plan or billing period");
     return NextResponse.redirect(new URL("/pricing", request.url));
   }
@@ -73,6 +73,8 @@ export async function GET(request: Request) {
       error,
     });
     void apiLogger.requestFailed(500, error, { plan, billing });
-    return NextResponse.redirect(new URL("/pricing?error=checkout", request.url));
+    return NextResponse.redirect(
+      new URL("/pricing?error=checkout", request.url)
+    );
   }
 }

@@ -13,10 +13,7 @@ export function WorkspaceLoadingState({
   if (compact) {
     return (
       <div className="flex items-center justify-center rounded-lg bg-secondary/40 px-4 py-8">
-        <ChatSpinner
-          className="px-0 py-0"
-          messages={[label]}
-        />
+        <ChatSpinner className="px-0 py-0" messages={[label]} />
       </div>
     );
   }

@@ -1,9 +1,9 @@
-export type NoteTemplate = {
+export interface NoteTemplate {
   bannerUrl: string | null;
   content: string;
   id: string;
   name: string;
-};
+}
 
 export const DEFAULT_NOTE_TEMPLATE: NoteTemplate = {
   bannerUrl: null,

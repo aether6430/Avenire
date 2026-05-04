@@ -4,10 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import { usePathname } from "next/navigation";
 import {
   createContext,
+  type ReactNode,
   useContext,
   useEffect,
   useMemo,
-  type ReactNode,
 } from "react";
 import {
   readCachedWorkspaces,
@@ -155,7 +155,15 @@ export function WorkspaceBootstrapProvider({
       workspace: resolvedWorkspace,
       workspaces,
     };
-  }, [query.data, query.error, query.isError, query.isPending, query.refetch, resolvedWorkspace, workspaces]);
+  }, [
+    query.data,
+    query.error,
+    query.isError,
+    query.isPending,
+    query.refetch,
+    resolvedWorkspace,
+    workspaces,
+  ]);
 
   return (
     <WorkspaceBootstrapContext.Provider value={value}>

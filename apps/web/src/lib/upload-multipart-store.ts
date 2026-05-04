@@ -90,7 +90,7 @@ export async function listMultipartParts(sessionId: string) {
       .sort((a, b) => a.partNumber - b.partNumber)
       .map(async (part) => {
         const info = await stat(part.path).catch(() => null);
-        if (!info || !info.isFile()) {
+        if (!info?.isFile()) {
           return null;
         }
         return {
@@ -100,7 +100,9 @@ export async function listMultipartParts(sessionId: string) {
       })
   );
 
-  return parts.filter((part): part is NonNullable<typeof part> => Boolean(part));
+  return parts.filter((part): part is NonNullable<typeof part> =>
+    Boolean(part)
+  );
 }
 
 export async function assembleMultipartPartsToFile(sessionId: string) {

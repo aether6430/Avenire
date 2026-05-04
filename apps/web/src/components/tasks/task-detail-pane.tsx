@@ -16,13 +16,19 @@ import { Badge } from "@avenire/ui/components/badge";
 import { Button } from "@avenire/ui/components/button";
 import { Input } from "@avenire/ui/components/input";
 import { Label } from "@avenire/ui/components/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@avenire/ui/components/select";
-import { Textarea } from "@avenire/ui/components/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@avenire/ui/components/select";
 import { Spinner } from "@avenire/ui/components/spinner";
+import { Textarea } from "@avenire/ui/components/textarea";
 import { CalendarDots, FlagBanner, Trash } from "@phosphor-icons/react";
 import { TaskAssigneePicker } from "@/components/tasks/task-assignee-picker";
-import { TaskEmptyState } from "@/components/tasks/task-empty-state";
 import { TaskDueDatePicker } from "@/components/tasks/task-due-date-picker";
+import { TaskEmptyState } from "@/components/tasks/task-empty-state";
 import { TaskResourcePicker } from "@/components/tasks/task-resource-picker";
 import type { TaskEditorDraft } from "@/components/tasks/types";
 import type { WorkspaceMemberOption, WorkspaceTask } from "@/lib/tasks";
@@ -106,7 +112,10 @@ export function TaskDetailPane({
           <TaskAssigneePicker
             members={members}
             onChange={(assigneeUserId, selectedAssignee) =>
-              onDraftChange({ assigneeUserId, selectedAssignee: selectedAssignee ?? null })
+              onDraftChange({
+                assigneeUserId,
+                selectedAssignee: selectedAssignee ?? null,
+              })
             }
             selectedAssignee={draft.selectedAssignee ?? task?.assignee ?? null}
             value={draft.assigneeUserId}
@@ -155,7 +164,9 @@ export function TaskDetailPane({
             <Label>Priority</Label>
             <Select
               onValueChange={(value) =>
-                onDraftChange({ priority: value as TaskEditorDraft["priority"] })
+                onDraftChange({
+                  priority: value as TaskEditorDraft["priority"],
+                })
               }
               value={draft.priority}
             >
@@ -198,8 +209,12 @@ export function TaskDetailPane({
               <FlagBanner className="size-3" />
               {getTaskPriorityLabel(task.priority)}
             </div>
-            <div>Created {new Date(task.createdAt).toLocaleDateString("en-US")}</div>
-            <div>Updated {new Date(task.updatedAt).toLocaleDateString("en-US")}</div>
+            <div>
+              Created {new Date(task.createdAt).toLocaleDateString("en-US")}
+            </div>
+            <div>
+              Updated {new Date(task.updatedAt).toLocaleDateString("en-US")}
+            </div>
           </div>
         ) : null}
         {task ? (
@@ -208,7 +223,9 @@ export function TaskDetailPane({
               {task.status === "completed" ? "Reopen task" : "Mark complete"}
             </Button>
             <AlertDialog>
-              <AlertDialogTrigger render={<Button type="button" variant="destructive" />}>
+              <AlertDialogTrigger
+                render={<Button type="button" variant="destructive" />}
+              >
                 <Trash className="size-3.5" />
                 Delete
               </AlertDialogTrigger>
@@ -219,7 +236,8 @@ export function TaskDetailPane({
                   </AlertDialogMedia>
                   <AlertDialogTitle>Delete task?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This removes the task from the workspace and cannot be undone.
+                    This removes the task from the workspace and cannot be
+                    undone.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -233,7 +251,7 @@ export function TaskDetailPane({
           </div>
         ) : null}
       </div>
-      <div className="border-border/70 sticky bottom-0 flex min-w-0 flex-col gap-2 border-t bg-background px-4 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-6">
+      <div className="sticky bottom-0 flex min-w-0 flex-col gap-2 border-border/70 border-t bg-background px-4 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-6">
         <Button
           className="sm:order-1"
           disabled={!isDirty || isSaving}

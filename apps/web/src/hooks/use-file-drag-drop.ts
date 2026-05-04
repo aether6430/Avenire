@@ -1,4 +1,10 @@
-import { useCallback, useRef, useState, type DragEvent, type TouchEvent } from "react";
+import {
+  type DragEvent,
+  type TouchEvent,
+  useCallback,
+  useRef,
+  useState,
+} from "react";
 import type { useFileSelection } from "@/hooks/use-file-selection";
 
 interface UploadCandidate {
@@ -7,15 +13,15 @@ interface UploadCandidate {
 }
 
 interface UseFileDragDropOptions {
-  selection: ReturnType<typeof useFileSelection>;
   currentFolderId: string;
-  isCurrentFolderReadOnly: boolean;
   enableTouchDrag?: boolean;
-  moveItemsToFolder: (ids: string[], targetFolderId: string) => Promise<void>;
-  queueUploads: (candidates: UploadCandidate[]) => void;
   getDropUploadCandidates: (
     event: DragEvent<HTMLDivElement>
   ) => Promise<UploadCandidate[]>;
+  isCurrentFolderReadOnly: boolean;
+  moveItemsToFolder: (ids: string[], targetFolderId: string) => Promise<void>;
+  queueUploads: (candidates: UploadCandidate[]) => void;
+  selection: ReturnType<typeof useFileSelection>;
 }
 
 export function useFileDragDrop({
@@ -80,13 +86,16 @@ export function useFileDragDrop({
     }
   }, [isCurrentFolderReadOnly]);
 
-  const updateTouchDropTarget = useCallback((clientX: number, clientY: number) => {
-    const element = document.elementFromPoint(clientX, clientY);
-    const target = element?.closest<HTMLElement>("[data-drop-folder-id]");
-    const targetId = target?.dataset.dropFolderId ?? null;
-    setDropTargetId(targetId);
-    return targetId;
-  }, []);
+  const updateTouchDropTarget = useCallback(
+    (clientX: number, clientY: number) => {
+      const element = document.elementFromPoint(clientX, clientY);
+      const target = element?.closest<HTMLElement>("[data-drop-folder-id]");
+      const targetId = target?.dataset.dropFolderId ?? null;
+      setDropTargetId(targetId);
+      return targetId;
+    },
+    []
+  );
 
   const beginTouchDrag = useCallback(
     (itemId: string) => {
@@ -158,18 +167,18 @@ export function useFileDragDrop({
         event.preventDefault();
         const isExternalFileDrop = event.dataTransfer.types.includes("Files");
         event.dataTransfer.dropEffect = isExternalFileDrop ? "copy" : "move";
-        const target = (event.target as HTMLElement | null)?.closest<HTMLElement>(
-          "[data-drop-folder-id]"
-        );
+        const target = (
+          event.target as HTMLElement | null
+        )?.closest<HTMLElement>("[data-drop-folder-id]");
         const targetFolderId = target?.dataset.dropFolderId ?? currentFolderId;
         setCanvasDropActive(targetFolderId === currentFolderId);
         setDropTargetId(targetFolderId);
       },
       onDrop: (event: DragEvent<HTMLDivElement>) => {
         event.preventDefault();
-        const target = (event.target as HTMLElement | null)?.closest<HTMLElement>(
-          "[data-drop-folder-id]"
-        );
+        const target = (
+          event.target as HTMLElement | null
+        )?.closest<HTMLElement>("[data-drop-folder-id]");
         const targetFolderId =
           target?.dataset.dropFolderId ?? dropTargetId ?? currentFolderId;
         resetDragState();

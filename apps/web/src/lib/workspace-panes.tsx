@@ -1,7 +1,7 @@
 "use client";
 
-import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import type { Route } from "next";
+import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { useRouter } from "next/navigation";
 import {
   createContext,
@@ -76,7 +76,7 @@ export function getWorkspacePaneDragHref(
     dataTransfer.getData("text/plain") ||
     activeWorkspacePaneDragHref;
 
-  if (!href || !isInternalWorkspaceHref(href)) {
+  if (!(href && isInternalWorkspaceHref(href))) {
     return null;
   }
 
@@ -187,7 +187,8 @@ export function usePanePathname() {
 export function usePaneSearchParams() {
   const search = useCurrentWorkspacePane().route.search;
   return useMemo(
-    () => new URLSearchParams(search.startsWith("?") ? search.slice(1) : search),
+    () =>
+      new URLSearchParams(search.startsWith("?") ? search.slice(1) : search),
     [search]
   );
 }
@@ -222,7 +223,11 @@ export function useWorkspacePaneNavigation() {
     () => ({
       navigate: (
         href: string,
-        options?: { openInNewPane?: boolean; replace?: boolean; scroll?: boolean }
+        options?: {
+          openInNewPane?: boolean;
+          replace?: boolean;
+          scroll?: boolean;
+        }
       ) => navigatePane(router, pane, href, options),
       openInNewPane: (href: string) =>
         navigatePane(router, pane, href, { openInNewPane: true }),
@@ -231,7 +236,9 @@ export function useWorkspacePaneNavigation() {
   );
 }
 
-export function useWorkspaceSurfaceNavigation(options?: { panesEnabled?: boolean }) {
+export function useWorkspaceSurfaceNavigation(options?: {
+  panesEnabled?: boolean;
+}) {
   const router = useRouter();
   const panesEnabled = options?.panesEnabled ?? true;
   const activePaneId = useWorkspacePaneStore((state) => state.activePaneId);
@@ -289,7 +296,7 @@ function findNavigableAnchor(target: EventTarget | null) {
   }
 
   const href = anchor.getAttribute("href");
-  if (!href || !isInternalWorkspaceHref(href)) {
+  if (!(href && isInternalWorkspaceHref(href))) {
     return null;
   }
 

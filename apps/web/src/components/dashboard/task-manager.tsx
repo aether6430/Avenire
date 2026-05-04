@@ -11,14 +11,30 @@ import {
   EmptyTitle,
 } from "@avenire/ui/components/empty";
 import { Spinner } from "@avenire/ui/components/spinner";
-import { CalendarDots as CalendarDays, CheckCircle as CheckCircle2, Circle, Pencil, Sparkle as Sparkles, Trash as Trash2 } from "@phosphor-icons/react";
-import { LazyMotion, domAnimation, m } from "framer-motion";
+import {
+  CalendarDots as CalendarDays,
+  CheckCircle as CheckCircle2,
+  Circle,
+  Pencil,
+  Sparkle as Sparkles,
+  Trash as Trash2,
+} from "@phosphor-icons/react";
+import { domAnimation, LazyMotion, m } from "framer-motion";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { QuickCaptureDialog } from "@/components/dashboard/quick-capture-dialog";
-import { subscribeToTaskStore, getTaskStoreSnapshot, patchWorkspaceTask, primeWorkspaceTaskStore, reloadWorkspaceTasks, removeWorkspaceTask, setWorkspaceTaskError, upsertWorkspaceTask } from "@/lib/task-client-store";
-import { useUserSettings } from "@/lib/user-settings-client";
+import {
+  getTaskStoreSnapshot,
+  patchWorkspaceTask,
+  primeWorkspaceTaskStore,
+  reloadWorkspaceTasks,
+  removeWorkspaceTask,
+  setWorkspaceTaskError,
+  subscribeToTaskStore,
+  upsertWorkspaceTask,
+} from "@/lib/task-client-store";
 import type { WorkspaceTask } from "@/lib/tasks";
 import { TASKS_REFRESH_EVENT } from "@/lib/tasks";
+import { useUserSettings } from "@/lib/user-settings-client";
 import { cn } from "@/lib/utils";
 
 export function DashboardTaskManager({
@@ -52,57 +68,54 @@ export function DashboardTaskManager({
     };
   }, [workspaceId]);
 
-  const sortedTasks = useMemo(
-    () => {
-      const startOfToday = new Date();
-      startOfToday.setHours(0, 0, 0, 0);
-      const endOfToday = new Date();
-      endOfToday.setHours(23, 59, 59, 999);
-      const completionRank = (status: WorkspaceTask["status"]) =>
-        status === "completed"
-          ? completedTasksAtTop
-            ? 0
-            : 1
-          : completedTasksAtTop
-            ? 1
-            : 0;
+  const sortedTasks = useMemo(() => {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+    const completionRank = (status: WorkspaceTask["status"]) =>
+      status === "completed"
+        ? completedTasksAtTop
+          ? 0
+          : 1
+        : completedTasksAtTop
+          ? 1
+          : 0;
 
-      return tasks
-        .filter((task) => {
-          if (task.workspaceId !== workspaceId) {
-            return false;
-          }
+    return tasks
+      .filter((task) => {
+        if (task.workspaceId !== workspaceId) {
+          return false;
+        }
 
-          // Dashboard widget should only show tasks due today.
-          if (!task.dueAt) {
-            return false;
-          }
+        // Dashboard widget should only show tasks due today.
+        if (!task.dueAt) {
+          return false;
+        }
 
-          const due = new Date(task.dueAt);
-          return due >= startOfToday && due <= endOfToday;
-        })
-        .sort((left, right) => {
-          const completionDiff =
-            completionRank(left.status) - completionRank(right.status);
-          if (completionDiff !== 0) {
-            return completionDiff;
-          }
-          if (left.dueAt && right.dueAt) {
-            return (
-              new Date(left.dueAt).getTime() - new Date(right.dueAt).getTime()
-            );
-          }
-          if (left.dueAt) {
-            return -1;
-          }
-          if (right.dueAt) {
-            return 1;
-          }
-          return 0;
-        });
-    },
-    [completedTasksAtTop, tasks, workspaceId]
-  );
+        const due = new Date(task.dueAt);
+        return due >= startOfToday && due <= endOfToday;
+      })
+      .sort((left, right) => {
+        const completionDiff =
+          completionRank(left.status) - completionRank(right.status);
+        if (completionDiff !== 0) {
+          return completionDiff;
+        }
+        if (left.dueAt && right.dueAt) {
+          return (
+            new Date(left.dueAt).getTime() - new Date(right.dueAt).getTime()
+          );
+        }
+        if (left.dueAt) {
+          return -1;
+        }
+        if (right.dueAt) {
+          return 1;
+        }
+        return 0;
+      });
+  }, [completedTasksAtTop, tasks, workspaceId]);
 
   const pendingCount = sortedTasks.filter(
     (task) => task.status !== "completed"
@@ -115,10 +128,7 @@ export function DashboardTaskManager({
 
     patchWorkspaceTask(workspaceId, task.id, (current) => ({
       ...current,
-      completedAt:
-        nextStatus === "completed"
-          ? new Date().toISOString()
-          : null,
+      completedAt: nextStatus === "completed" ? new Date().toISOString() : null,
       status: nextStatus,
     }));
 
@@ -132,10 +142,14 @@ export function DashboardTaskManager({
         error?: string;
         task?: WorkspaceTask;
       };
-      if (!response.ok || !payload.task) {
+      if (!(response.ok && payload.task)) {
         throw new Error(payload.error ?? "Failed to update task.");
       }
-      patchWorkspaceTask(workspaceId, task.id, () => payload.task as WorkspaceTask);
+      patchWorkspaceTask(
+        workspaceId,
+        task.id,
+        () => payload.task as WorkspaceTask
+      );
       void reloadWorkspaceTasks(workspaceId, { background: true });
     } catch (error) {
       upsertWorkspaceTask(workspaceId, previousTask);

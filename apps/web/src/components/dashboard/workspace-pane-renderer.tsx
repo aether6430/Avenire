@@ -1,12 +1,6 @@
 "use client";
 
 import {
-  ArrowsSplit,
-  Columns,
-  DotsThree as MoreHorizontal,
-  X,
-} from "@phosphor-icons/react";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -14,6 +8,12 @@ import {
   DropdownMenuTrigger,
 } from "@avenire/ui/components/dropdown-menu";
 import { cn } from "@avenire/ui/lib/utils";
+import {
+  ArrowsSplit,
+  Columns,
+  DotsThree as MoreHorizontal,
+  X,
+} from "@phosphor-icons/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   type DragEvent,
@@ -25,14 +25,15 @@ import {
   useRef,
   useState,
 } from "react";
-import { FlashcardSetPageClient } from "@/components/flashcards/set-detail-page";
-import { WorkspaceFlashcardsPageClient } from "@/components/flashcards/workspace-flashcards-page-client";
-import { WorkspaceFolderRoutePageClient } from "@/components/files/workspace-folder-route-page-client";
-import { WorkspaceFilesRootPageClient } from "@/components/files/workspace-files-root-page-client";
-import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
+import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
+import { WorkspaceChatRoutePageClient } from "@/components/dashboard/workspace-chat-route-page-client";
 import { WorkspaceHeader } from "@/components/dashboard/workspace-header";
 import { WorkspaceOverviewPageClient } from "@/components/dashboard/workspace-overview-page-client";
-import { WorkspaceChatRoutePageClient } from "@/components/dashboard/workspace-chat-route-page-client";
+import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
+import { WorkspaceFilesRootPageClient } from "@/components/files/workspace-files-root-page-client";
+import { WorkspaceFolderRoutePageClient } from "@/components/files/workspace-folder-route-page-client";
+import { FlashcardSetPageClient } from "@/components/flashcards/set-detail-page";
+import { WorkspaceFlashcardsPageClient } from "@/components/flashcards/workspace-flashcards-page-client";
 import { WorkspaceTasksPageClient } from "@/components/tasks/workspace-tasks-page-client";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
@@ -43,17 +44,16 @@ import {
   WorkspacePaneInteractionBoundary,
   WorkspacePaneProvider,
 } from "@/lib/workspace-panes";
-import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
 import { useHeaderStore } from "@/stores/header-store";
 import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
 
 const COMPACT_PANE_WIDTH = 900;
 type PaneDropRegion = "center" | "left" | "right";
-type PaneDropPreview = {
+interface PaneDropPreview {
   href: string | null;
   paneId: string;
   region: PaneDropRegion;
-};
+}
 
 const PREVIEW_PANE_ID = "__workspace-pane-drop-preview__";
 const PREVIEW_PANE_MIN_SIZE = 28;
@@ -72,7 +72,9 @@ function createTransparentDragImage() {
 function isInteractiveHeaderTarget(target: EventTarget | null) {
   return (
     target instanceof HTMLElement &&
-    Boolean(target.closest("button, a, input, select, textarea, [role='menuitem']"))
+    Boolean(
+      target.closest("button, a, input, select, textarea, [role='menuitem']")
+    )
   );
 }
 
@@ -102,12 +104,23 @@ function getPaneSplitPlacement(region: PaneDropRegion) {
 function getDropIndicatorStyle(region: PaneDropRegion) {
   switch (region) {
     case "left":
-      return { height: "calc(100% - 1rem)", inset: "0.5rem auto 0.5rem 0.5rem", width: "0.35rem" };
+      return {
+        height: "calc(100% - 1rem)",
+        inset: "0.5rem auto 0.5rem 0.5rem",
+        width: "0.35rem",
+      };
     case "right":
-      return { height: "calc(100% - 1rem)", inset: "0.5rem 0.5rem 0.5rem auto", width: "0.35rem" };
-    case "center":
+      return {
+        height: "calc(100% - 1rem)",
+        inset: "0.5rem 0.5rem 0.5rem auto",
+        width: "0.35rem",
+      };
     default:
-      return { height: "calc(100% - 1rem)", inset: "0.5rem", width: "calc(100% - 1rem)" };
+      return {
+        height: "calc(100% - 1rem)",
+        inset: "0.5rem",
+        width: "calc(100% - 1rem)",
+      };
   }
 }
 
@@ -191,7 +204,9 @@ function buildPreviewPanes(
   const withoutDragged = draggedPaneId
     ? panes.filter((pane) => pane.id !== draggedPaneId)
     : panes;
-  const targetIndex = withoutDragged.findIndex((pane) => pane.id === preview.paneId);
+  const targetIndex = withoutDragged.findIndex(
+    (pane) => pane.id === preview.paneId
+  );
   const insertIndex =
     targetIndex < 0
       ? withoutDragged.length
@@ -217,7 +232,8 @@ function WorkspacePaneScene({
   search: string;
 }) {
   const searchParams = useMemo(
-    () => new URLSearchParams(search.startsWith("?") ? search.slice(1) : search),
+    () =>
+      new URLSearchParams(search.startsWith("?") ? search.slice(1) : search),
     [search]
   );
 
@@ -259,7 +275,9 @@ function WorkspacePaneScene({
     );
   }
 
-  const flashcardSetMatch = pathname.match(/^\/workspace\/flashcards\/([^/?#]+)$/);
+  const flashcardSetMatch = pathname.match(
+    /^\/workspace\/flashcards\/([^/?#]+)$/
+  );
   if (flashcardSetMatch?.[1]) {
     return (
       <FlashcardSetPageClient
@@ -365,7 +383,8 @@ function WorkspacePaneSurface({
   }, []);
 
   const isCompact = width > 0 && width < COMPACT_PANE_WIDTH;
-  const showPaneMenuInHeader = !pane.route.pathname.startsWith("/workspace/files/");
+  const showPaneMenuInHeader =
+    !pane.route.pathname.startsWith("/workspace/files/");
   const paneMenu = isMultiPane ? (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -397,7 +416,7 @@ function WorkspacePaneSurface({
   ) : null;
 
   return (
-    <div className="min-w-0 w-full" ref={surfaceRef}>
+    <div className="w-full min-w-0" ref={surfaceRef}>
       <WorkspacePaneProvider
         isActive={isActive}
         isCompact={isCompact}
@@ -406,11 +425,11 @@ function WorkspacePaneSurface({
       >
         <div
           className={cn(
-            "relative flex h-full min-w-0 flex-col overflow-hidden border-r border-border/70 bg-background transition-[opacity,transform,box-shadow] duration-200 ease-out",
-            isActive ? "ring-1 ring-inset ring-border/90" : "ring-0",
+            "relative flex h-full min-w-0 flex-col overflow-hidden border-border/70 border-r bg-background transition-[opacity,transform,box-shadow] duration-200 ease-out",
+            isActive ? "ring-1 ring-border/90 ring-inset" : "ring-0",
             isDragging && "opacity-15",
             isPreviewPane &&
-              "border border-dashed border-primary/35 bg-primary/[0.04] shadow-[inset_0_0_0_1px_rgba(59,130,246,0.08)]"
+              "border border-primary/35 border-dashed bg-primary/[0.04] shadow-[inset_0_0_0_1px_rgba(59,130,246,0.08)]"
           )}
           onClick={onFocus}
           onDragLeave={onDragLeave}
@@ -469,7 +488,7 @@ function WorkspacePaneSurface({
             <div className="pointer-events-none absolute inset-0 z-30 p-2">
               <div
                 className={cn(
-                  "absolute transition-[inset,width,height,background-color,border-radius,opacity,box-shadow] duration-150 ease-out shadow-[0_0_0_1px_rgba(59,130,246,0.22),0_12px_28px_rgba(59,130,246,0.22)]",
+                  "absolute shadow-[0_0_0_1px_rgba(59,130,246,0.22),0_12px_28px_rgba(59,130,246,0.22)] transition-[inset,width,height,background-color,border-radius,opacity,box-shadow] duration-150 ease-out",
                   dropRegion === "center"
                     ? "rounded-2xl border border-primary/35 bg-primary/10"
                     : "rounded-full bg-primary/85"
@@ -498,14 +517,18 @@ export function WorkspacePaneRenderer() {
   const closePane = useWorkspacePaneStore((state) => state.closePane);
   const focusPane = useWorkspacePaneStore((state) => state.focusPane);
   const openPane = useWorkspacePaneStore((state) => state.openPane);
-  const movePaneToSplit = useWorkspacePaneStore((state) => state.movePaneToSplit);
+  const movePaneToSplit = useWorkspacePaneStore(
+    (state) => state.movePaneToSplit
+  );
   const reorderPanes = useWorkspacePaneStore((state) => state.reorderPanes);
   const setPaneSizes = useWorkspacePaneStore((state) => state.setPaneSizes);
   const syncActivePaneFromBrowser = useWorkspacePaneStore(
     (state) => state.syncActivePaneFromBrowser
   );
   const setPaneRoute = useWorkspacePaneStore((state) => state.setPaneRoute);
-  const setActiveHeaderPaneId = useHeaderStore((state) => state.setActivePaneId);
+  const setActiveHeaderPaneId = useHeaderStore(
+    (state) => state.setActivePaneId
+  );
   const [draggedPaneId, setDraggedPaneId] = useState<string | null>(null);
   const [dropPreview, setDropPreview] = useState<PaneDropPreview | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -514,9 +537,10 @@ export function WorkspacePaneRenderer() {
   const previewFrameRef = useRef<number | null>(null);
 
   const browserRoute = useMemo(
-    () => buildRouteState(
-      `${pathname}${searchParams.size > 0 ? `?${searchParams.toString()}` : ""}`
-    ),
+    () =>
+      buildRouteState(
+        `${pathname}${searchParams.size > 0 ? `?${searchParams.toString()}` : ""}`
+      ),
     [pathname, searchParams]
   );
 
@@ -584,18 +608,21 @@ export function WorkspacePaneRenderer() {
     };
   }, []);
 
-  const queueDropPreview = useCallback((nextPreview: PaneDropPreview | null) => {
-    if (previewFrameRef.current !== null) {
-      window.cancelAnimationFrame(previewFrameRef.current);
-    }
+  const queueDropPreview = useCallback(
+    (nextPreview: PaneDropPreview | null) => {
+      if (previewFrameRef.current !== null) {
+        window.cancelAnimationFrame(previewFrameRef.current);
+      }
 
-    previewFrameRef.current = window.requestAnimationFrame(() => {
-      previewFrameRef.current = null;
-      setDropPreview((current) =>
-        isSameDropPreview(current, nextPreview) ? current : nextPreview
-      );
-    });
-  }, []);
+      previewFrameRef.current = window.requestAnimationFrame(() => {
+        previewFrameRef.current = null;
+        setDropPreview((current) =>
+          isSameDropPreview(current, nextPreview) ? current : nextPreview
+        );
+      });
+    },
+    []
+  );
 
   const startPaneResize = useCallback(
     (targetId: string, index: number, startClientX: number) => {
@@ -617,10 +644,17 @@ export function WorkspacePaneRenderer() {
         const delta = event.clientX - startClientX;
         const deltaPercent = (delta / containerSize) * 100;
         const leftSize = Math.max(20, startingSizes[index]! + deltaPercent);
-        const rightSize = Math.max(20, startingSizes[index + 1]! - deltaPercent);
+        const rightSize = Math.max(
+          20,
+          startingSizes[index + 1]! - deltaPercent
+        );
         const adjustedTotal = leftSize + rightSize;
-        const fixedLeft = (leftSize / adjustedTotal) * (startingSizes[index]! + startingSizes[index + 1]!);
-        const fixedRight = (rightSize / adjustedTotal) * (startingSizes[index]! + startingSizes[index + 1]!);
+        const fixedLeft =
+          (leftSize / adjustedTotal) *
+          (startingSizes[index]! + startingSizes[index + 1]!);
+        const fixedRight =
+          (rightSize / adjustedTotal) *
+          (startingSizes[index]! + startingSizes[index + 1]!);
         const nextSizes = [...startingSizes];
         nextSizes[index] = fixedLeft;
         nextSizes[index + 1] = fixedRight;
@@ -706,7 +740,7 @@ export function WorkspacePaneRenderer() {
       >
         <div className="flex h-full min-w-0 flex-col bg-background">
           <WorkspaceHeader
-            className="border-b border-border/60"
+            className="border-border/60 border-b"
             compact
             overlay
             paneId={mobilePaneId}
@@ -729,7 +763,10 @@ export function WorkspacePaneRenderer() {
   const rowDropTargetId = rowPanes[0]?.id ?? null;
 
   return (
-    <div className="flex h-full w-full flex-col bg-background" ref={containerRef}>
+    <div
+      className="flex h-full w-full flex-col bg-background"
+      ref={containerRef}
+    >
       <div
         className="flex h-full min-w-0"
         onDragOver={(event) => {
@@ -750,7 +787,7 @@ export function WorkspacePaneRenderer() {
         {rowPanes.map((pane, paneIndex) => {
           const isPreviewPane = pane.id === PREVIEW_PANE_ID;
           const dropTargetPaneId = isPreviewPane
-            ? dropPreview?.paneId ?? pane.id
+            ? (dropPreview?.paneId ?? pane.id)
             : pane.id;
           const isActive = pane.id === activePaneId;
           const isMultiPane = panes.length > 1 && !isPreviewPane;
@@ -766,13 +803,13 @@ export function WorkspacePaneRenderer() {
               }}
             >
               <WorkspacePaneSurface
-                isActive={isActive}
-                isDragging={pane.id === draggedPaneId}
-                isPreviewPane={isPreviewPane}
-                isMultiPane={isMultiPane}
                 dropRegion={
                   dropPreview?.paneId === pane.id ? dropPreview.region : null
                 }
+                isActive={isActive}
+                isDragging={pane.id === draggedPaneId}
+                isMultiPane={isMultiPane}
+                isPreviewPane={isPreviewPane}
                 onClose={() => {
                   if (!isPreviewPane) {
                     closePane(pane.id);
@@ -787,15 +824,6 @@ export function WorkspacePaneRenderer() {
                   setDropPreview(null);
                   clearWorkspacePaneDragData();
                 }}
-                onDragStart={(event) => {
-                  const dragImage = dragGhostImageRef.current;
-                  if (dragImage) {
-                    event.dataTransfer.setDragImage(dragImage, 0, 0);
-                  }
-                  clearWorkspacePaneDragData();
-                  event.dataTransfer.effectAllowed = "move";
-                  setDraggedPaneId(pane.id);
-                }}
                 onDragLeave={(event) => {
                   if (isDragLeaveInsidePane(event)) {
                     return;
@@ -804,7 +832,9 @@ export function WorkspacePaneRenderer() {
                   queueDropPreview(null);
                 }}
                 onDragOver={(event) => {
-                  const droppedHref = getWorkspacePaneDragHref(event.dataTransfer);
+                  const droppedHref = getWorkspacePaneDragHref(
+                    event.dataTransfer
+                  );
                   if (droppedHref || draggedPaneId) {
                     event.preventDefault();
                     if (draggedPaneId === pane.id || isPreviewPane) {
@@ -813,7 +843,9 @@ export function WorkspacePaneRenderer() {
                       }
                       return;
                     }
-                    event.dataTransfer.dropEffect = draggedPaneId ? "move" : "copy";
+                    event.dataTransfer.dropEffect = draggedPaneId
+                      ? "move"
+                      : "copy";
                     queueDropPreview({
                       href: droppedHref,
                       paneId: dropTargetPaneId,
@@ -823,6 +855,15 @@ export function WorkspacePaneRenderer() {
                       ),
                     });
                   }
+                }}
+                onDragStart={(event) => {
+                  const dragImage = dragGhostImageRef.current;
+                  if (dragImage) {
+                    event.dataTransfer.setDragImage(dragImage, 0, 0);
+                  }
+                  clearWorkspacePaneDragData();
+                  event.dataTransfer.effectAllowed = "move";
+                  setDraggedPaneId(pane.id);
                 }}
                 onDrop={(event) => {
                   event.stopPropagation();
@@ -853,7 +894,11 @@ export function WorkspacePaneRenderer() {
                   className="relative z-20 w-3 shrink-0 cursor-col-resize bg-border/35 transition-colors hover:bg-border/75"
                   onPointerDown={(event) => {
                     event.preventDefault();
-                    startPaneResize(rowPanes[0]!.rowId, paneIndex, event.clientX);
+                    startPaneResize(
+                      rowPanes[0]?.rowId,
+                      paneIndex,
+                      event.clientX
+                    );
                   }}
                 >
                   <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/70">

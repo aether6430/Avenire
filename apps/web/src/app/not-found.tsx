@@ -49,31 +49,31 @@ export default function NotFound() {
       />
       <div className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-4 px-6 pb-16 text-center">
         <div
-          className="pointer-events-none font-mono text-[11px] uppercase tracking-[0.3em] text-foreground/55"
+          className="pointer-events-none font-mono text-[11px] text-foreground/55 uppercase tracking-[0.3em]"
           style={{ textShadow: "0 1px 16px rgba(0,0,0,0.7)" }}
         >
           Error 404
         </div>
         <h1
-          className="pointer-events-none max-w-xl text-3xl leading-tight text-foreground md:text-4xl"
+          className="pointer-events-none max-w-xl text-3xl text-foreground leading-tight md:text-4xl"
           style={{ textShadow: "0 1px 24px rgba(0,0,0,0.65)" }}
         >
           This page isn&apos;t here.
         </h1>
         <p
-          className="pointer-events-none max-w-md text-sm leading-relaxed text-foreground/70"
+          className="pointer-events-none max-w-md text-foreground/70 text-sm leading-relaxed"
           style={{ textShadow: "0 1px 16px rgba(0,0,0,0.7)" }}
         >
           The route you asked for doesn&apos;t exist. Head back to the workspace
           or start again from home.
         </p>
         <Link
-          className="mt-2 inline-flex h-10 items-center justify-center rounded-md bg-foreground px-5 text-sm font-medium text-background transition-opacity hover:opacity-90"
+          className="mt-2 inline-flex h-10 items-center justify-center rounded-md bg-foreground px-5 font-medium text-background text-sm transition-opacity hover:opacity-90"
           href="/workspace"
         >
           Open workspace
         </Link>
-        <p className="max-w-md text-xs text-foreground/55">
+        <p className="max-w-md text-foreground/55 text-xs">
           Or go back to the{" "}
           <Link className="underline underline-offset-4" href="/">
             homepage

@@ -28,7 +28,7 @@ export async function PUT(request: Request) {
   }
 
   const parsed = destinationSchema.safeParse(
-    await request.json().catch(() => ({})),
+    await request.json().catch(() => ({}))
   );
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
@@ -49,7 +49,7 @@ export async function PUT(request: Request) {
             ? error.message
             : "Unable to save import destination.",
       },
-      { status: 400 },
+      { status: 400 }
     );
   }
 }

@@ -1,4 +1,6 @@
 const CACHE_NAME = "avenire-static-v2";
+const STATIC_ASSET_PATH_PATTERN =
+  /\.(?:css|js|ico|png|jpg|jpeg|svg|webp|woff2?)$/i;
 
 const PRECACHE_URLS = [
   "/",
@@ -46,7 +48,7 @@ self.addEventListener("fetch", (event) => {
 
   const isSameOriginStatic =
     url.origin === self.location.origin &&
-    /\.(?:css|js|ico|png|jpg|jpeg|svg|webp|woff2?)$/i.test(url.pathname);
+    STATIC_ASSET_PATH_PATTERN.test(url.pathname);
 
   if (isSameOriginStatic) {
     event.respondWith(cacheFirst(request));

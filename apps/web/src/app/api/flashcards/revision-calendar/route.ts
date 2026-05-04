@@ -1,8 +1,8 @@
 import { auth } from "@avenire/auth/server";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-import { listFlashcardDueCountsByDayForUser } from "@/lib/flashcards";
 import { resolveWorkspaceForUser } from "@/lib/file-data";
+import { listFlashcardDueCountsByDayForUser } from "@/lib/flashcards";
 
 function parseDate(value: string | null): Date | null {
   if (!value) {
@@ -23,7 +23,7 @@ export async function GET(request: Request) {
   const from = parseDate(searchParams.get("from"));
   const to = parseDate(searchParams.get("to"));
 
-  if (!from || !to) {
+  if (!(from && to)) {
     return NextResponse.json({ error: "Invalid date range" }, { status: 400 });
   }
 

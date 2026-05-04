@@ -12,9 +12,15 @@ export async function DELETE() {
 
   const cookieStore = await cookies();
   const sudoCookie = cookieStore.get(SUDO_COOKIE_NAME)?.value ?? null;
-  const hasSudo = validateSudoCookie({ userId: currentUser.id, cookieValue: sudoCookie });
+  const hasSudo = validateSudoCookie({
+    userId: currentUser.id,
+    cookieValue: sudoCookie,
+  });
   if (!hasSudo) {
-    return NextResponse.json({ error: "Sudo verification required" }, { status: 403 });
+    return NextResponse.json(
+      { error: "Sudo verification required" },
+      { status: 403 }
+    );
   }
 
   const deleted = await deleteAuthUserById(currentUser.id);

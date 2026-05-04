@@ -4,9 +4,14 @@ import { useChat } from "@ai-sdk/react";
 import { Button } from "@avenire/ui/components/button";
 import { Input } from "@avenire/ui/components/input";
 import { ScrollArea } from "@avenire/ui/components/scroll-area";
-import { DefaultChatTransport, type UIMessage } from "ai";
 import {
-  DotsSixVertical as GripVertical, SpinnerGap as Loader2, PaperPlaneRight as SendHorizontal, MagicWand as WandSparkles, X } from "@phosphor-icons/react"
+  DotsSixVertical as GripVertical,
+  SpinnerGap as Loader2,
+  PaperPlaneRight as SendHorizontal,
+  MagicWand as WandSparkles,
+  X,
+} from "@phosphor-icons/react";
+import { DefaultChatTransport, type UIMessage } from "ai";
 import { motion } from "motion/react";
 import {
   type ReactNode,
@@ -374,7 +379,7 @@ function SearchPopover({
   return (
     <motion.div
       animate={{ height: isExpanded ? expandedHeight : 136, opacity: 1 }}
-      className="fixed z-40 flex w-[min(24rem,calc(100%-1rem))] overflow-hidden rounded-xl border border-border bg-card shadow-lg flex flex-col"
+      className="fixed z-40 flex w-[min(24rem,calc(100%-1rem))] flex-col overflow-hidden rounded-xl border border-border bg-card shadow-lg"
       initial={{ opacity: 0, height: 0 }}
       onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => event.stopPropagation()}
@@ -1018,6 +1023,7 @@ export function CircleToAiSearchOverlay({
           <section
             aria-label="Halo search surface"
             className="pointer-events-auto absolute inset-0 cursor-crosshair"
+            onPointerDown={handlePointerDown}
             onPointerDownCapture={(event) => {
               if (
                 selectionSnapshotRef.current &&
@@ -1028,7 +1034,6 @@ export function CircleToAiSearchOverlay({
                 closeOverlay();
               }
             }}
-            onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
           >
@@ -1096,24 +1101,24 @@ export function CircleToAiSearchOverlay({
                 clearSelection={closeOverlay}
                 draft={draft}
                 error={error}
+                expandedHeight={expandedPanelHeight}
                 fileName={fileName}
                 inputRef={inputRef}
                 isExpanded={showTranscript}
                 isLoading={loading}
                 loadingText="Halo is thinking through the selection..."
-                expandedHeight={expandedPanelHeight}
                 messages={messages}
                 onDraftChange={setDraft}
                 onDraftSubmit={handleDraftSubmit}
                 onDragEnd={handlePanelDragEnd}
                 onDragMove={handlePanelDragMove}
                 onDragStart={handlePanelDragStart}
+                position={panelPosition}
+                showTranscript={showTranscript}
                 viewportPosition={{
                   x: containerOffset.left + panelPosition.x,
                   y: containerOffset.top + panelPosition.y,
                 }}
-                position={panelPosition}
-                showTranscript={showTranscript}
                 workspaceUuid={workspaceUuid}
               />
             ) : null}

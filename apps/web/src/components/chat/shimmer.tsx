@@ -1,15 +1,14 @@
 "use client";
 
-import type { CSSProperties, ElementType, JSX } from "react";
-
 import { motion } from "motion/react";
+import type { CSSProperties, ElementType, JSX } from "react";
 import { memo, useMemo } from "react";
 
 import { cn } from "@/lib/utils";
 
 export interface TextShimmerProps {
-  children: string;
   as?: ElementType;
+  children: string;
   className?: string;
   duration?: number;
   spread?: number;
@@ -52,8 +51,8 @@ const ShimmerComponent = ({
         {children}
       </span>
       <MotionComponent
-        aria-hidden="true"
         animate={{ backgroundPosition: "0% center" }}
+        aria-hidden="true"
         className="pointer-events-none absolute inset-0 text-transparent drop-shadow-[0_0_10px_hsl(var(--primary)/0.28)]"
         initial={{ backgroundPosition: "100% center" }}
         style={createShimmerStyle(dynamicSpread)}

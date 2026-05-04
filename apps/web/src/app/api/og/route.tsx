@@ -8,42 +8,40 @@ export async function GET(request: Request) {
   const title = rawTitle.trim().slice(0, 120) || "Avenire";
 
   return new ImageResponse(
-    (
+    <div
+      style={{
+        alignItems: "stretch",
+        background:
+          "linear-gradient(135deg, #f7f5f1 0%, #eef2fb 45%, #dbe8ff 100%)",
+        color: "#1f2937",
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        justifyContent: "space-between",
+        padding: "64px",
+        width: "100%",
+      }}
+    >
+      <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.02em" }}>
+        Avenire
+      </div>
       <div
         style={{
-          alignItems: "stretch",
-          background:
-            "linear-gradient(135deg, #f7f5f1 0%, #eef2fb 45%, #dbe8ff 100%)",
-          color: "#1f2937",
           display: "flex",
-          flexDirection: "column",
-          height: "100%",
-          justifyContent: "space-between",
-          padding: "64px",
-          width: "100%",
+          fontSize: 72,
+          fontWeight: 700,
+          letterSpacing: "-0.03em",
+          lineHeight: 1.05,
+          maxWidth: "92%",
+          wordBreak: "break-word",
         }}
       >
-        <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.02em" }}>
-          Avenire
-        </div>
-        <div
-          style={{
-            display: "flex",
-            fontSize: 72,
-            fontWeight: 700,
-            letterSpacing: "-0.03em",
-            lineHeight: 1.05,
-            maxWidth: "92%",
-            wordBreak: "break-word",
-          }}
-        >
-          {title}
-        </div>
+        {title}
       </div>
-    ),
+    </div>,
     {
       height: 630,
       width: 1200,
-    },
+    }
   );
 }

@@ -1,14 +1,14 @@
-import { getPostBySlug, getAllSlugs } from "@/lib/blog";
-import { Navbar } from "@/components/landing/Navbar";
-import { Footer } from "@/components/landing/Footer";
-import Link from "next/link";
+import { ArrowLeft, Calendar, Clock, Tag } from "@phosphor-icons/react/ssr";
 import Image from "next/image";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import Markdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import { Calendar, Clock, ArrowLeft, Tag } from "@phosphor-icons/react/ssr"
+import { Footer } from "@/components/landing/Footer";
+import { Navbar } from "@/components/landing/Navbar";
+import { getAllSlugs, getPostBySlug } from "@/lib/blog";
 import { metadataBase } from "@/lib/page-metadata";
 
 export async function generateStaticParams() {
@@ -16,14 +16,23 @@ export async function generateStaticParams() {
   return slugs.map((slug) => ({ slug }));
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
   const { slug } = await params;
   const post = getPostBySlug(slug);
-  if (!post) return {};
+  if (!post) {
+    return {};
+  }
   const canonical = `/blog/${slug}`;
   const image = post.coverImage
     ? new URL(post.coverImage, metadataBase).toString()
-    : new URL(`/api/og?title=${encodeURIComponent(post.title)}`, metadataBase).toString();
+    : new URL(
+        `/api/og?title=${encodeURIComponent(post.title)}`,
+        metadataBase
+      ).toString();
 
   return {
     alternates: {
@@ -51,12 +60,17 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 function buildArticleSchema(slug: string) {
   const post = getPostBySlug(slug);
-  if (!post) return null;
+  if (!post) {
+    return null;
+  }
 
   const canonical = new URL(`/blog/${slug}`, metadataBase).toString();
   const image = post.coverImage
     ? new URL(post.coverImage, metadataBase).toString()
-    : new URL(`/api/og?title=${encodeURIComponent(post.title)}`, metadataBase).toString();
+    : new URL(
+        `/api/og?title=${encodeURIComponent(post.title)}`,
+        metadataBase
+      ).toString();
 
   return {
     "@context": "https://schema.org",
@@ -74,7 +88,10 @@ function buildArticleSchema(slug: string) {
       "@type": "Organization",
       logo: {
         "@type": "ImageObject",
-        url: new URL("/branding/avenire-logo-full.png", metadataBase).toString(),
+        url: new URL(
+          "/branding/avenire-logo-full.png",
+          metadataBase
+        ).toString(),
       },
       name: "Avenire",
     },
@@ -91,51 +108,45 @@ function formatDate(iso: string) {
 }
 
 const mdxComponents = {
-  h1: ({
-    children,
-    ...props
-  }: React.HTMLAttributes<HTMLHeadingElement>) => (
+  h1: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
     <h1
-      className="mb-4 mt-10 text-3xl font-semibold tracking-tight text-foreground"
+      className="mt-10 mb-4 font-semibold text-3xl text-foreground tracking-tight"
       {...props}
     >
       {children}
     </h1>
   ),
-  h2: ({
-    children,
-    ...props
-  }: React.HTMLAttributes<HTMLHeadingElement>) => (
+  h2: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
     <h2
-      className="mb-3 mt-10 text-2xl font-semibold tracking-tight text-foreground"
+      className="mt-10 mb-3 font-semibold text-2xl text-foreground tracking-tight"
       {...props}
     >
       {children}
     </h2>
   ),
-  h3: ({
-    children,
-    ...props
-  }: React.HTMLAttributes<HTMLHeadingElement>) => (
-    <h3 className="mb-3 mt-8 text-xl font-semibold text-foreground" {...props}>
+  h3: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
+    <h3 className="mt-8 mb-3 font-semibold text-foreground text-xl" {...props}>
       {children}
     </h3>
   ),
   p: (props: React.HTMLAttributes<HTMLParagraphElement>) => (
-    <p className="text-foreground/80 leading-relaxed mb-5" {...props} />
+    <p className="mb-5 text-foreground/80 leading-relaxed" {...props} />
   ),
   ul: (props: React.HTMLAttributes<HTMLUListElement>) => (
-    <ul className="my-4 ml-6 space-y-2 list-none" {...props} />
+    <ul className="my-4 ml-6 list-none space-y-2" {...props} />
   ),
   ol: (props: React.HTMLAttributes<HTMLOListElement>) => (
-    <ol className="my-4 ml-6 space-y-2 list-decimal list-outside" {...props} />
+    <ol className="my-4 ml-6 list-outside list-decimal space-y-2" {...props} />
   ),
   li: (props: React.HTMLAttributes<HTMLLIElement>) => (
-    <li className="text-foreground/80 leading-relaxed pl-1 before:content-['—'] before:mr-2 before:text-primary" {...props} />
+    <li
+      className="pl-1 text-foreground/80 leading-relaxed before:mr-2 before:text-primary before:content-['—']"
+      {...props}
+    />
   ),
   a: (props: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
     <a
-      className="text-primary underline underline-offset-4 hover:text-primary/80 transition-colors"
+      className="text-primary underline underline-offset-4 transition-colors hover:text-primary/80"
       {...props}
     />
   ),
@@ -143,35 +154,41 @@ const mdxComponents = {
     <strong className="font-semibold text-foreground" {...props} />
   ),
   em: (props: React.HTMLAttributes<HTMLElement>) => (
-    <em className="italic text-foreground/90" {...props} />
+    <em className="text-foreground/90 italic" {...props} />
   ),
   blockquote: (props: React.HTMLAttributes<HTMLQuoteElement>) => (
     <blockquote
-      className="my-6 pl-5 border-l-2 border-primary/50 text-muted-foreground italic"
+      className="my-6 border-primary/50 border-l-2 pl-5 text-muted-foreground italic"
       {...props}
     />
   ),
   code: (props: React.HTMLAttributes<HTMLElement>) => (
     <code
-      className="text-sm font-mono bg-muted px-1.5 py-0.5 rounded text-foreground/90"
+      className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground/90 text-sm"
       {...props}
     />
   ),
   pre: (props: React.HTMLAttributes<HTMLPreElement>) => (
     <pre
-      className="my-6 overflow-x-auto rounded-xl bg-card border border-border p-5 text-sm font-mono leading-relaxed"
+      className="my-6 overflow-x-auto rounded-xl border border-border bg-card p-5 font-mono text-sm leading-relaxed"
       {...props}
     />
   ),
   hr: () => <hr className="my-10 border-border" />,
 };
 
-export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function BlogPostPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
   const { slug } = await params;
   const post = getPostBySlug(slug);
   const articleSchema = buildArticleSchema(slug);
 
-  if (!post) notFound();
+  if (!post) {
+    notFound();
+  }
 
   return (
     <main className="min-h-screen">
@@ -183,25 +200,24 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       ) : null}
       <Navbar />
 
-      <article className="pt-32 pb-24 px-4">
-        <div className="max-w-2xl mx-auto">
-
+      <article className="px-4 pt-32 pb-24">
+        <div className="mx-auto max-w-2xl">
           {/* Back link */}
           <Link
+            className="group mb-10 inline-flex items-center gap-1.5 text-muted-foreground text-sm transition-colors hover:text-foreground"
             href="/blog"
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-10 group"
           >
-            <ArrowLeft className="size-4 group-hover:-translate-x-0.5 transition-transform" />
+            <ArrowLeft className="size-4 transition-transform group-hover:-translate-x-0.5" />
             All posts
           </Link>
 
           {/* Tags */}
           {post.tags.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-5">
+            <div className="mb-5 flex flex-wrap gap-2">
               {post.tags.map((tag) => (
                 <span
+                  className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 font-medium text-primary text-xs"
                   key={tag}
-                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20"
                 >
                   <Tag className="size-2.5" />
                   {tag}
@@ -213,31 +229,33 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           {post.coverImage && (
             <div className="mb-8 overflow-hidden rounded-xl border border-border/70">
               <Image
-                src={post.coverImage}
                 alt={post.title}
-                width={1600}
+                className="h-auto w-full object-cover"
                 height={900}
-                className="w-full h-auto object-cover"
                 priority
+                src={post.coverImage}
+                width={1600}
               />
             </div>
           )}
 
           {/* Title */}
-          <h1 className="text-3xl md:text-4xl font-semibold text-foreground tracking-tight leading-tight mb-4">
+          <h1 className="mb-4 font-semibold text-3xl text-foreground leading-tight tracking-tight md:text-4xl">
             {post.title}
           </h1>
 
           {/* Description */}
           {post.description && (
-            <p className="text-lg text-muted-foreground leading-relaxed mb-8">
+            <p className="mb-8 text-lg text-muted-foreground leading-relaxed">
               {post.description}
             </p>
           )}
 
           {/* Meta */}
-          <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground pb-8 mb-10 border-b border-border">
-            <span className="font-medium text-foreground/70">{post.author}</span>
+          <div className="mb-10 flex flex-wrap items-center gap-4 border-border border-b pb-8 text-muted-foreground text-sm">
+            <span className="font-medium text-foreground/70">
+              {post.author}
+            </span>
             <span className="flex items-center gap-1.5">
               <Calendar className="size-3.5" />
               {formatDate(post.date)}
@@ -260,12 +278,12 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           </div>
 
           {/* Footer navigation */}
-          <div className="mt-16 pt-8 border-t border-border">
+          <div className="mt-16 border-border border-t pt-8">
             <Link
+              className="group inline-flex items-center gap-1.5 text-muted-foreground text-sm transition-colors hover:text-primary"
               href="/blog"
-              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors group"
             >
-              <ArrowLeft className="size-4 group-hover:-translate-x-0.5 transition-transform" />
+              <ArrowLeft className="size-4 transition-transform group-hover:-translate-x-0.5" />
               Back to all posts
             </Link>
           </div>

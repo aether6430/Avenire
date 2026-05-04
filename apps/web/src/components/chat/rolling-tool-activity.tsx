@@ -25,33 +25,33 @@ import { cn } from "@/lib/utils";
 
 type ToolPart = Extract<UIMessage["parts"][number], { type: `tool-${string}` }>;
 
-type ReadPreview = {
+interface ReadPreview {
   content: string;
   path: string;
-};
+}
 
-type SearchPreview = {
+interface SearchPreview {
   matches: string[];
   query: string;
-};
+}
 
-type NotePreview = {
+interface NotePreview {
   noteCount: number;
   operation: "created" | "listed" | "read" | "updated";
   title?: string;
-};
+}
 
-type FlashcardPreview = {
+interface FlashcardPreview {
   cardCount: number;
   setId: string;
   title: string;
-};
+}
 
-type QuizPreview = {
+interface QuizPreview {
   questionCount: number;
   setId: string;
   title: string;
-};
+}
 
 export type ActivityAction =
   | {
@@ -112,11 +112,11 @@ type ExploreAction = Extract<
 >;
 type MutationAction = Exclude<ActivityAction, ExploreAction>;
 
-type ExploreItem = {
+interface ExploreItem {
   action: ExploreAction;
   label: string;
   value: string;
-};
+}
 
 type ActionGroup =
   | { items: ExploreItem[]; type: "explore" }
@@ -162,7 +162,7 @@ function toPreviewContent(value: string | undefined) {
   return value.trim();
 }
 
-function toReadPreview(part: ToolPart): ReadPreview | undefined {
+function _toReadPreview(part: ToolPart): ReadPreview | undefined {
   if (
     part.type === "tool-avenire_agent" ||
     part.type === "tool-file_manager_agent"
@@ -466,11 +466,11 @@ interface ReasoningContextValue {
 
 const ReasoningContext = createContext<ReasoningContextValue | null>(null);
 
-type ControllableStateOptions<T> = {
-  prop?: T;
+interface ControllableStateOptions<T> {
   defaultProp: T;
   onChange?: (value: T) => void;
-};
+  prop?: T;
+}
 
 const useControllableState = <T,>({
   prop,
@@ -632,7 +632,7 @@ export const ReasoningTrigger = memo(
     return (
       <div
         className={cn(
-          "flex items-center gap-2 text-sm text-foreground/60",
+          "flex items-center gap-2 text-foreground/60 text-sm",
           className
         )}
         {...props}
@@ -684,20 +684,20 @@ export const ReasoningContent = memo(
           }}
         />
         <motion.div
-          className="relative z-10 font-mono text-[11px] text-foreground/40"
           animate={{
             y:
               lines.length > VISIBLE_ROWS
                 ? -(lines.length - VISIBLE_ROWS) * ROW_HEIGHT
                 : 0,
           }}
+          className="relative z-10 font-mono text-[11px] text-foreground/40"
           initial={false}
+          style={{ willChange: "transform" }}
           transition={{
             damping: 20,
             mass: 0.5,
             stiffness: 160,
           }}
-          style={{ willChange: "transform" }}
         >
           {lines.map((line, index) => (
             <div
@@ -716,12 +716,12 @@ export const ReasoningContent = memo(
   }
 );
 
-export type ReasoningActionProps = {
+export interface ReasoningActionProps {
+  className?: string;
   content: string;
   isStreaming: boolean;
   workspaceUuid?: string;
-  className?: string;
-};
+}
 
 export function ReasoningAction({
   className,
@@ -876,7 +876,7 @@ export function RollingStatusHeader({
         className={cn("flex h-7 items-center gap-2", className)}
         role="status"
       >
-        <Shimmer as="span" className="text-sm font-semibold text-foreground">
+        <Shimmer as="span" className="font-semibold text-foreground text-sm">
           {title}
         </Shimmer>
         {summary ? (
@@ -1276,7 +1276,7 @@ function ExploreBlock({
           className="flex h-7 items-center gap-2"
           role="status"
         >
-          <Shimmer as="span" className="text-sm font-semibold text-foreground">
+          <Shimmer as="span" className="font-semibold text-foreground text-sm">
             Exploring
           </Shimmer>
           {summary ? (
@@ -1369,7 +1369,7 @@ function MutationBlock({ action }: { action: MutationAction }) {
             ) : null}
           </div>
           {action.pending ? (
-            <div className="shrink-0 border-l border-foreground/[0.08] pl-3">
+            <div className="shrink-0 border-foreground/[0.08] border-l pl-3">
               <span className="font-mono text-[11px] text-foreground/42">
                 writing
                 <ThinkingDots />

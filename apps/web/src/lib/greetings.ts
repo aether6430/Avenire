@@ -170,7 +170,10 @@ export function buildGreeting(
     surface === "chat"
       ? [
           timePrompts[
-            stableIndex(`${daySeed}:${hourSeed}:time:${name}:chat`, timePrompts.length)
+            stableIndex(
+              `${daySeed}:${hourSeed}:time:${name}:chat`,
+              timePrompts.length
+            )
           ],
           `Drop a prompt and we can start ${verb}.`,
           `This ${timeLabel.toLowerCase()} is good for questions with edges.`,

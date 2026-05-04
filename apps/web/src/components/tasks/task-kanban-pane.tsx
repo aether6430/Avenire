@@ -42,14 +42,14 @@ export function TaskKanbanPane({
   return (
     <ScrollArea className="min-h-0 flex-1">
       <div className="grid gap-4 p-4 xl:grid-cols-4">
-        {!hasTasks ? (
+        {hasTasks ? null : (
           <div className="col-span-full">
             <TaskEmptyState
               description="Try a different filter, or create the first task for this workspace."
               title="No tasks match this view"
             />
           </div>
-        ) : null}
+        )}
         {KANBAN_STATUSES.map((status) => {
           const group = groups.find((entry) => entry.key === status);
           const tasks = group?.tasks ?? [];
@@ -62,11 +62,11 @@ export function TaskKanbanPane({
                 isDropTarget && "border-primary/40 bg-primary/5"
               )}
               key={status}
+              onDragLeave={() => onDragTargetChange(null)}
               onDragOver={(event) => {
                 event.preventDefault();
                 onDragTargetChange(status);
               }}
-              onDragLeave={() => onDragTargetChange(null)}
               onDrop={(event) => {
                 event.preventDefault();
                 const taskId = event.dataTransfer.getData("text/task-id");
@@ -76,7 +76,7 @@ export function TaskKanbanPane({
               }}
             >
               <div className="flex items-center justify-between border-border/60 border-b pb-3">
-                <h2 className="font-medium text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                <h2 className="font-medium text-[11px] text-muted-foreground uppercase tracking-[0.12em]">
                   {getTaskGroupLabel(status)}
                 </h2>
                 <span className="text-[11px] text-muted-foreground">

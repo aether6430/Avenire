@@ -1,10 +1,10 @@
-import { Emailer, renderWaitlistApprovalEmail } from "@avenire/emailer";
 import {
   approveWaitlistEntry,
   getWaitlistEntryByEmail,
   listWaitlistEntries,
   normalizeEmail,
 } from "@avenire/database";
+import { Emailer, renderWaitlistApprovalEmail } from "@avenire/emailer";
 import { NextResponse } from "next/server";
 import { resolveAppBaseUrl } from "@/lib/app-base-url";
 
@@ -59,10 +59,13 @@ export async function POST(request: Request) {
         }),
       });
     } catch (error) {
-      console.error("[api/maintenance/waitlist] failed to send approval email", {
-        error,
-        email,
-      });
+      console.error(
+        "[api/maintenance/waitlist] failed to send approval email",
+        {
+          error,
+          email,
+        }
+      );
     }
   }
 

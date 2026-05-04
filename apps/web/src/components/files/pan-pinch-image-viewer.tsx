@@ -7,12 +7,12 @@ import {
   MagnifyingGlassPlus,
 } from "@phosphor-icons/react";
 import {
+  type PointerEvent as ReactPointerEvent,
+  type WheelEvent as ReactWheelEvent,
   useCallback,
   useEffect,
   useRef,
   useState,
-  type PointerEvent as ReactPointerEvent,
-  type WheelEvent as ReactWheelEvent,
 } from "react";
 import { cn } from "@/lib/utils";
 
@@ -21,16 +21,16 @@ const MAX_SCALE = 5;
 const ZOOM_STEP = 0.2;
 const DOUBLE_TAP_ZOOM = 2.25;
 
-type Point = {
+interface Point {
   x: number;
   y: number;
-};
+}
 
-type TransformState = {
+interface TransformState {
   scale: number;
   x: number;
   y: number;
-};
+}
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -68,8 +68,14 @@ export function PanPinchImageViewer({
     }
 
     const bounds = container.getBoundingClientRect();
-    const maxX = Math.max(0, (bounds.width * nextTransform.scale - bounds.width) / 2);
-    const maxY = Math.max(0, (bounds.height * nextTransform.scale - bounds.height) / 2);
+    const maxX = Math.max(
+      0,
+      (bounds.width * nextTransform.scale - bounds.width) / 2
+    );
+    const maxY = Math.max(
+      0,
+      (bounds.height * nextTransform.scale - bounds.height) / 2
+    );
     const clamped = {
       scale: clamp(nextTransform.scale, MIN_SCALE, MAX_SCALE),
       x: clamp(nextTransform.x, -maxX, maxX),
@@ -100,8 +106,12 @@ export function PanPinchImageViewer({
 
       commitTransform({
         scale: nextScale,
-        x: (current.x - (focal.x - center.x)) * scaleRatio + (focal.x - center.x),
-        y: (current.y - (focal.y - center.y)) * scaleRatio + (focal.y - center.y),
+        x:
+          (current.x - (focal.x - center.x)) * scaleRatio +
+          (focal.x - center.x),
+        y:
+          (current.y - (focal.y - center.y)) * scaleRatio +
+          (focal.y - center.y),
       });
     },
     [commitTransform]
@@ -169,7 +179,7 @@ export function PanPinchImageViewer({
       if (pointersRef.current.size === 2) {
         const [first, second] = Array.from(pointersRef.current.values());
         const container = containerRef.current?.getBoundingClientRect();
-        if (!first || !second || !container) {
+        if (!(first && second && container)) {
           return;
         }
 
@@ -206,7 +216,8 @@ export function PanPinchImageViewer({
     lastPinchDistanceRef.current = null;
 
     if (pointersRef.current.size === 1) {
-      dragOriginRef.current = Array.from(pointersRef.current.values())[0] ?? null;
+      dragOriginRef.current =
+        Array.from(pointersRef.current.values())[0] ?? null;
       return;
     }
 
@@ -267,8 +278,7 @@ export function PanPinchImageViewer({
 
   return (
     <div
-      ref={containerRef}
-      className="group relative flex min-h-[62vh] w-full items-center justify-center overflow-hidden rounded-none border-0 overscroll-none select-none touch-none sm:min-h-[68vh] sm:rounded-2xl sm:border sm:border-border/60"
+      className="group relative flex min-h-[62vh] w-full touch-none select-none items-center justify-center overflow-hidden overscroll-none rounded-none border-0 sm:min-h-[68vh] sm:rounded-2xl sm:border sm:border-border/60"
       onDoubleClick={() => {
         if (transformRef.current.scale > 1) {
           resetView();
@@ -287,8 +297,10 @@ export function PanPinchImageViewer({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onWheel={handleWheel}
+      ref={containerRef}
       style={{
-        cursor: transform.scale > 1 ? (isDragging ? "grabbing" : "grab") : "default",
+        cursor:
+          transform.scale > 1 ? (isDragging ? "grabbing" : "grab") : "default",
         touchAction: "none",
       }}
     >
@@ -321,15 +333,15 @@ export function PanPinchImageViewer({
         />
       </div>
 
-      {!loaded ? (
+      {loaded ? null : (
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="rounded-full border border-border/60 bg-background/92 px-3 py-1.5 text-xs text-muted-foreground shadow-sm backdrop-blur">
+          <div className="rounded-full border border-border/60 bg-background/92 px-3 py-1.5 text-muted-foreground text-xs shadow-sm backdrop-blur">
             Loading image...
           </div>
         </div>
-      ) : null}
+      )}
 
-      <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-md border border-border/60 bg-background/92 p-1 shadow-sm backdrop-blur">
+      <div className="absolute right-3 bottom-3 flex items-center gap-1 rounded-md border border-border/60 bg-background/92 p-1 shadow-sm backdrop-blur">
         <Button
           aria-label="Zoom out"
           className="size-8 rounded-md"
@@ -342,7 +354,7 @@ export function PanPinchImageViewer({
         </Button>
         <Button
           aria-label="Reset image view"
-          className="h-8 min-w-12 rounded-md px-2 text-xs font-medium"
+          className="h-8 min-w-12 rounded-md px-2 font-medium text-xs"
           onClick={resetView}
           type="button"
           variant="ghost"

@@ -9,11 +9,8 @@ function stripQuotes(value: string) {
   }
 
   const first = trimmed[0];
-  const last = trimmed[trimmed.length - 1];
-  if (
-    (first === '"' && last === '"') ||
-    (first === "'" && last === "'")
-  ) {
+  const last = trimmed.at(-1);
+  if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
     return trimmed.slice(1, -1).trim();
   }
 

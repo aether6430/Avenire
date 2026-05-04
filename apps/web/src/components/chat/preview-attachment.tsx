@@ -7,6 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@avenire/ui/components/dialog";
+import { Spinner } from "@avenire/ui/components/spinner";
 import {
   Tooltip,
   TooltipContent,
@@ -18,16 +19,15 @@ import {
   type MediaPlaybackSource,
   useMediaPlaybackSource,
 } from "@avenire/ui/media";
-import { Spinner } from "@avenire/ui/components/spinner";
 import {
   File,
   FileCode as FileCode2,
+  SpinnerGap as LoaderIcon,
   MagnifyingGlassMinus,
   MagnifyingGlassPlus,
-  SpinnerGap as LoaderIcon,
   X,
 } from "@phosphor-icons/react";
-import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
+import { motion, useMotionValue, useSpring } from "motion/react";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -74,7 +74,9 @@ function PanPinchImageViewer({ src, alt }: { src: string; alt: string }) {
   const clampPosition = useCallback(
     (nextX: number, nextY: number, currentScale: number) => {
       const container = containerRef.current;
-      if (!container) return { x: nextX, y: nextY };
+      if (!container) {
+        return { x: nextX, y: nextY };
+      }
 
       const { width, height } = container.getBoundingClientRect();
       const maxX = Math.max(0, (width * currentScale - width) / 2);
@@ -97,7 +99,9 @@ function PanPinchImageViewer({ src, alt }: { src: string; alt: string }) {
   const zoomTo = useCallback(
     (nextScale: number, focalX?: number, focalY?: number) => {
       const container = containerRef.current;
-      if (!container) return;
+      if (!container) {
+        return;
+      }
 
       const clamped = Math.max(MIN_SCALE, Math.min(MAX_SCALE, nextScale));
       const { width, height } = container.getBoundingClientRect();
@@ -136,7 +140,9 @@ function PanPinchImageViewer({ src, alt }: { src: string; alt: string }) {
         if (now - lastTapTimeRef.current < 300 && dx < 20 && dy < 20) {
           // Double tap
           const container = containerRef.current;
-          if (!container) return;
+          if (!container) {
+            return;
+          }
           const rect = container.getBoundingClientRect();
           const focalX = e.clientX - rect.left;
           const focalY = e.clientY - rect.top;
@@ -177,7 +183,9 @@ function PanPinchImageViewer({ src, alt }: { src: string; alt: string }) {
         // Pinch zoom
         const pointers = Array.from(activePointersRef.current.values());
         const [p1, p2] = pointers;
-        if (!p1 || !p2) return;
+        if (!(p1 && p2)) {
+          return;
+        }
 
         const dist = Math.hypot(
           p2.clientX - p1.clientX,
@@ -186,7 +194,9 @@ function PanPinchImageViewer({ src, alt }: { src: string; alt: string }) {
         const lastDist = lastPinchDistRef.current;
         if (lastDist !== null) {
           const container = containerRef.current;
-          if (!container) return;
+          if (!container) {
+            return;
+          }
           const rect = container.getBoundingClientRect();
           const midX = (p1.clientX + p2.clientX) / 2 - rect.left;
           const midY = (p1.clientY + p2.clientY) / 2 - rect.top;
@@ -228,11 +238,12 @@ function PanPinchImageViewer({ src, alt }: { src: string; alt: string }) {
       } else if (activePointersRef.current.size === 1) {
         // One finger remaining, update last pointer
         const remaining = Array.from(activePointersRef.current.values())[0];
-        if (remaining)
+        if (remaining) {
           lastPointerRef.current = {
             x: remaining.clientX,
             y: remaining.clientY,
           };
+        }
       }
     },
     []
@@ -282,7 +293,7 @@ function PanPinchImageViewer({ src, alt }: { src: string; alt: string }) {
   return (
     <div className="flex h-full flex-col">
       {/* Toolbar */}
-      <div className="flex items-center justify-center gap-2 border-b border-foreground/[0.06] py-2">
+      <div className="flex items-center justify-center gap-2 border-foreground/[0.06] border-b py-2">
         <Button
           className="size-7 text-muted-foreground hover:text-foreground"
           disabled={scale <= MIN_SCALE}
@@ -294,7 +305,7 @@ function PanPinchImageViewer({ src, alt }: { src: string; alt: string }) {
           <MagnifyingGlassMinus className="size-3.5" />
         </Button>
         <button
-          className="min-w-[3.5rem] rounded px-2 py-0.5 text-center font-mono text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="min-w-[3.5rem] rounded px-2 py-0.5 text-center font-mono text-muted-foreground text-xs transition-colors hover:bg-muted hover:text-foreground"
           onClick={resetView}
           type="button"
         >
@@ -312,7 +323,7 @@ function PanPinchImageViewer({ src, alt }: { src: string; alt: string }) {
         </Button>
         {scale > 1 && (
           <Button
-            className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+            className="h-6 px-2 text-muted-foreground text-xs hover:text-foreground"
             onClick={resetView}
             type="button"
             variant="ghost"
@@ -329,10 +340,10 @@ function PanPinchImageViewer({ src, alt }: { src: string; alt: string }) {
           scale > 1 ? "cursor-grab" : "cursor-default",
           isPanning && scale > 1 ? "cursor-grabbing" : ""
         )}
+        onPointerCancel={handlePointerUp}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
         ref={containerRef}
         style={{
           overscrollBehavior: "contain",
@@ -354,7 +365,7 @@ function PanPinchImageViewer({ src, alt }: { src: string; alt: string }) {
           transition={{ type: "spring", stiffness: 300, damping: 35 }}
         />
         {scale === 1 && (
-          <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/40 px-2.5 py-1 text-[10px] text-white backdrop-blur-sm opacity-60">
+          <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/40 px-2.5 py-1 text-[10px] text-white opacity-60 backdrop-blur-sm">
             Pinch or scroll to zoom · Double-tap to zoom in
           </div>
         )}
@@ -945,9 +956,9 @@ export function PreviewAttachment({
         <motion.div
           animate={{ opacity: 1, scale: 1 }}
           className="group relative"
-          layout
           exit={{ opacity: 0, scale: 0.92 }}
           initial={{ opacity: 0, scale: 0.92 }}
+          layout
           transition={{ duration: 0.18, ease: "easeOut" }}
         >
           <Tooltip>
@@ -1071,7 +1082,7 @@ export function PreviewAttachment({
       >
         <Button
           aria-label={name ?? "Attachment"}
-          className="flex h-6 min-w-0 max-w-[240px] items-center gap-1.5 rounded-md border border-border/80 bg-muted px-2 text-xs text-foreground hover:bg-muted/90"
+          className="flex h-6 min-w-0 max-w-[240px] items-center gap-1.5 rounded-md border border-border/80 bg-muted px-2 text-foreground text-xs hover:bg-muted/90"
           onClick={() => {
             setIsModalOpen(true);
             if (canPreview) {
@@ -1087,7 +1098,7 @@ export function PreviewAttachment({
 
         {onRemove && id ? (
           <Button
-            className="-top-1 -right-1 absolute z-10 h-4 w-4 rounded-full border border-border bg-background text-muted-foreground hover:text-foreground"
+            className="absolute -top-1 -right-1 z-10 h-4 w-4 rounded-full border border-border bg-background text-muted-foreground hover:text-foreground"
             onClick={(event) => {
               event.stopPropagation();
               onRemove(id);

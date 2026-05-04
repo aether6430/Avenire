@@ -114,15 +114,15 @@ const FILE_FUSE_OPTIONS = {
 const FILE_RESULTS_LIMIT = 8;
 const FILES_ROUTE_PATTERN = /^\/workspace\/files\/([^/]+)\/folder\/([^/?#]+)$/;
 
-type WorkspaceSummary = {
+interface WorkspaceSummary {
   logo?: string | null;
   name: string;
   organizationId: string;
   rootFolderId: string;
   workspaceId: string;
-};
+}
 
-type WorkspaceTreePayload = {
+interface WorkspaceTreePayload {
   files?: Array<{
     folderId: string;
     id: string;
@@ -135,7 +135,7 @@ type WorkspaceTreePayload = {
     parentId: string | null;
     readOnly?: boolean;
   }>;
-};
+}
 
 async function hydrateWorkspaceIndex(workspace: WorkspaceSummary) {
   const cached = readWorkspaceTreeCache<
@@ -1197,14 +1197,17 @@ export function CommandPalette({
         ) : null}
         <div className="grid min-h-0 flex-1 grid-cols-1 border-border/70 border-t bg-background/10">
           <div className="min-h-0">
-            <CommandList className="max-h-96 min-h-0 rounded-lg overflow-y-auto scrollbar-thin scrollbar-thumb-muted scrollbar-track-background">
+            <CommandList className="scrollbar-thin scrollbar-thumb-muted scrollbar-track-background max-h-96 min-h-0 overflow-y-auto rounded-lg">
               {searchQuery ? (
                 hasCommandMatches ? (
                   renderCommandGroups()
                 ) : searchItems.length > 0 || resolvedWorkspaceUuid ? (
                   <>
                     {chatResults.length > 0 ? (
-                      <CommandGroup className={PALETTE_GROUP_CLASS} heading="Chats">
+                      <CommandGroup
+                        className={PALETTE_GROUP_CLASS}
+                        heading="Chats"
+                      >
                         {chatResults.map((chat) => (
                           <CommandItem
                             className={PALETTE_ITEM_CLASS}
@@ -1226,7 +1229,7 @@ export function CommandPalette({
                                 {chat.description}
                               </p>
                             </div>
-                            <span className="mt-0.5 shrink-0 text-muted-foreground/50 text-xs whitespace-nowrap">
+                            <span className="mt-0.5 shrink-0 whitespace-nowrap text-muted-foreground/50 text-xs">
                               {chat.meta}
                             </span>
                           </CommandItem>
@@ -1236,7 +1239,10 @@ export function CommandPalette({
                     {flashcardResults.length > 0 ? (
                       <>
                         {chatResults.length > 0 ? <CommandSeparator /> : null}
-                        <CommandGroup className={PALETTE_GROUP_CLASS} heading="Flashcards">
+                        <CommandGroup
+                          className={PALETTE_GROUP_CLASS}
+                          heading="Flashcards"
+                        >
                           {flashcardResults.map((set) => (
                             <CommandItem
                               className={PALETTE_ITEM_CLASS}
@@ -1258,7 +1264,7 @@ export function CommandPalette({
                                   {set.description}
                                 </p>
                               </div>
-                              <span className="mt-0.5 shrink-0 text-muted-foreground/50 text-xs whitespace-nowrap">
+                              <span className="mt-0.5 shrink-0 whitespace-nowrap text-muted-foreground/50 text-xs">
                                 {set.meta}
                               </span>
                             </CommandItem>
@@ -1272,7 +1278,10 @@ export function CommandPalette({
                       </>
                     ) : null}
                     {fuzzyResults.length > 0 ? (
-                      <CommandGroup className={PALETTE_GROUP_CLASS} heading="Files and folders">
+                      <CommandGroup
+                        className={PALETTE_GROUP_CLASS}
+                        heading="Files and folders"
+                      >
                         {fuzzyResults.map((item) => (
                           <CommandItem
                             className={PALETTE_ITEM_CLASS}
@@ -1315,7 +1324,10 @@ export function CommandPalette({
 
                     {fuzzyResults.length === 0 &&
                     (isRetrieving || retrievalResults.length > 0) ? (
-                      <CommandGroup className={PALETTE_GROUP_CLASS} heading="Content search">
+                      <CommandGroup
+                        className={PALETTE_GROUP_CLASS}
+                        heading="Content search"
+                      >
                         {isRetrieving ? (
                           <CommandItem
                             className={PALETTE_ITEM_CLASS}
@@ -1390,7 +1402,10 @@ export function CommandPalette({
               ) : (
                 <>
                   {workspaceTasks.length > 0 ? (
-                    <CommandGroup className={PALETTE_GROUP_CLASS} heading="Upcoming tasks">
+                    <CommandGroup
+                      className={PALETTE_GROUP_CLASS}
+                      heading="Upcoming tasks"
+                    >
                       {workspaceTasks.map((task) => (
                         <CommandItem
                           className={PALETTE_ITEM_CLASS}
@@ -1424,7 +1439,10 @@ export function CommandPalette({
                   ) : null}
                   {workspaceTasks.length > 0 ? <CommandSeparator /> : null}
                   {recentItems.length > 0 ? (
-                    <CommandGroup className={PALETTE_GROUP_CLASS} heading="Recent files">
+                    <CommandGroup
+                      className={PALETTE_GROUP_CLASS}
+                      heading="Recent files"
+                    >
                       {recentItems.map((item) => (
                         <CommandItem
                           className={PALETTE_ITEM_CLASS}
@@ -1438,7 +1456,9 @@ export function CommandPalette({
                           }}
                           value={`${item.name} ${item.path} recent`}
                         >
-                          <ClockCounterClockwise className={PALETTE_ICON_CLASS} />
+                          <ClockCounterClockwise
+                            className={PALETTE_ICON_CLASS}
+                          />
                           <div className="min-w-0">
                             <p className="truncate font-medium text-foreground/90 text-sm">
                               {item.name}
@@ -1455,7 +1475,10 @@ export function CommandPalette({
                   {recentItems.length > 0 ? <CommandSeparator /> : null}
                   {cachedChats.length > 0 ? (
                     <>
-                      <CommandGroup className={PALETTE_GROUP_CLASS} heading="Recent chats">
+                      <CommandGroup
+                        className={PALETTE_GROUP_CLASS}
+                        heading="Recent chats"
+                      >
                         {cachedChats
                           .slice()
                           .sort((left, right) =>
@@ -1476,7 +1499,9 @@ export function CommandPalette({
                               }}
                               value={`${chat.title} ${chat.slug} chat`}
                             >
-                              <MessageSquareText className={PALETTE_ICON_CLASS} />
+                              <MessageSquareText
+                                className={PALETTE_ICON_CLASS}
+                              />
                               <div className="min-w-0">
                                 <p className="truncate font-medium text-foreground/90 text-sm">
                                   {chat.title}
@@ -1494,7 +1519,10 @@ export function CommandPalette({
                   ) : null}
                   {cachedFlashcardSets.length > 0 ? (
                     <>
-                      <CommandGroup className={PALETTE_GROUP_CLASS} heading="Recent flashcards">
+                      <CommandGroup
+                        className={PALETTE_GROUP_CLASS}
+                        heading="Recent flashcards"
+                      >
                         {cachedFlashcardSets
                           .slice()
                           .sort((left, right) =>

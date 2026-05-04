@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import { UTApi } from "@avenire/storage";
+import { NextResponse } from "next/server";
 import {
   listTrashedItems,
   permanentlyDeleteFileAsset,
@@ -10,13 +10,13 @@ import {
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
 import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
 
-type TrashMutationBody = {
-  operation?: "restore" | "delete";
+interface TrashMutationBody {
   items?: Array<{
     id: string;
     kind: "file" | "folder";
   }>;
-};
+  operation?: "restore" | "delete";
+}
 
 async function deleteUploadThingFiles(storageKeys: string[]) {
   const deletableKeys = storageKeys.filter(
@@ -37,7 +37,7 @@ async function deleteUploadThingFiles(storageKeys: string[]) {
 
 export async function GET(
   _request: Request,
-  context: { params: Promise<{ workspaceUuid: string }> },
+  context: { params: Promise<{ workspaceUuid: string }> }
 ) {
   const user = await getSessionUser();
   if (!user) {
@@ -56,7 +56,7 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  context: { params: Promise<{ workspaceUuid: string }> },
+  context: { params: Promise<{ workspaceUuid: string }> }
 ) {
   const user = await getSessionUser();
   if (!user) {
@@ -70,11 +70,16 @@ export async function POST(
   }
 
   const body = (await request.json().catch(() => ({}))) as TrashMutationBody;
-  if (body.operation !== "restore" || !Array.isArray(body.items) || body.items.length === 0) {
+  if (
+    body.operation !== "restore" ||
+    !Array.isArray(body.items) ||
+    body.items.length === 0
+  ) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
-  const results: Array<{ id: string; kind: "file" | "folder"; ok: boolean }> = [];
+  const results: Array<{ id: string; kind: "file" | "folder"; ok: boolean }> =
+    [];
 
   for (const item of body.items) {
     if (item.kind === "file") {
@@ -88,7 +93,10 @@ export async function POST(
   }
 
   if (results.some((entry) => entry.ok)) {
-    await publishFilesInvalidationEvent({ workspaceUuid, reason: "tree.changed" });
+    await publishFilesInvalidationEvent({
+      workspaceUuid,
+      reason: "tree.changed",
+    });
   }
 
   return NextResponse.json({ ok: true, results });
@@ -96,7 +104,7 @@ export async function POST(
 
 export async function DELETE(
   request: Request,
-  context: { params: Promise<{ workspaceUuid: string }> },
+  context: { params: Promise<{ workspaceUuid: string }> }
 ) {
   const user = await getSessionUser();
   if (!user) {
@@ -110,11 +118,16 @@ export async function DELETE(
   }
 
   const body = (await request.json().catch(() => ({}))) as TrashMutationBody;
-  if (body.operation !== "delete" || !Array.isArray(body.items) || body.items.length === 0) {
+  if (
+    body.operation !== "delete" ||
+    !Array.isArray(body.items) ||
+    body.items.length === 0
+  ) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
-  const results: Array<{ id: string; kind: "file" | "folder"; ok: boolean }> = [];
+  const results: Array<{ id: string; kind: "file" | "folder"; ok: boolean }> =
+    [];
   const storageKeys: string[] = [];
 
   for (const item of body.items) {
@@ -135,7 +148,10 @@ export async function DELETE(
   await deleteUploadThingFiles(Array.from(new Set(storageKeys)));
 
   if (results.some((entry) => entry.ok)) {
-    await publishFilesInvalidationEvent({ workspaceUuid, reason: "tree.changed" });
+    await publishFilesInvalidationEvent({
+      workspaceUuid,
+      reason: "tree.changed",
+    });
   }
 
   return NextResponse.json({ ok: true, results });

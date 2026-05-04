@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
 import { hasSessionCookie } from "@avenire/auth/middleware";
+import { type NextRequest, NextResponse } from "next/server";
 
 const protectedRoutes = ["/workspace", "/settings", "/chat", "/chats"];
 const publicRoutes = ["/login", "/register"];

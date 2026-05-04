@@ -19,7 +19,10 @@ export async function POST(request: Request) {
   const workspaceUuid = body.workspaceUuid?.trim();
 
   if (!workspaceUuid) {
-    return NextResponse.json({ error: "Missing workspaceUuid" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing workspaceUuid" },
+      { status: 400 }
+    );
   }
 
   const hasAccess = await ensureWorkspaceAccessForUser(user.id, workspaceUuid);
@@ -29,7 +32,10 @@ export async function POST(request: Request) {
   }
 
   if (!process.env.SSE_TOKEN_SECRET) {
-    return NextResponse.json({ error: "Realtime unavailable" }, { status: 503 });
+    return NextResponse.json(
+      { error: "Realtime unavailable" },
+      { status: 503 }
+    );
   }
 
   const token = createFilesRealtimeToken({

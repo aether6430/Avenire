@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
+import { NextResponse } from "next/server";
 import {
   deleteIngestionDataForFile,
   getFileAssetById,
-  isMarkdownFileRecord,
   getWorkspaceIdForFile,
+  isMarkdownFileRecord,
   updateFileAsset,
   upsertMarkdownFileContent,
   userCanEditFile,
@@ -65,7 +65,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid note update" }, { status: 400 });
   }
 
-  const nextContent = hasContent ? body.content ?? "" : undefined;
+  const nextContent = hasContent ? (body.content ?? "") : undefined;
   const trimmed = nextContent?.trim() ?? "";
   const nextPage = hasPage
     ? normalizePageMetadataState({
@@ -73,10 +73,10 @@ export async function PATCH(
         ...body.page,
         properties:
           body.page?.properties === undefined
-            ? file.page?.properties ?? {}
+            ? (file.page?.properties ?? {})
             : normalizeFrontmatterProperties(body.page.properties),
       })
-    : file.page ?? null;
+    : (file.page ?? null);
 
   const [updatedNote, updatedFile] = await Promise.all([
     hasContent

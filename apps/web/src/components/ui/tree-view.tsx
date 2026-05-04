@@ -89,7 +89,12 @@ function flattenVisibleTree(
   for (const item of items) {
     visibleItems.push({ depth, item });
     if (item.children?.length && expandedItemIds.has(item.id)) {
-      flattenVisibleTree(item.children, expandedItemIds, depth + 1, visibleItems);
+      flattenVisibleTree(
+        item.children,
+        expandedItemIds,
+        depth + 1,
+        visibleItems
+      );
     }
   }
   return visibleItems;
@@ -258,8 +263,7 @@ export function TreeView({
             className={cn(
               "group/tree-row flex w-full min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 transition-colors",
               "hover:bg-primary/6",
-              isSelected &&
-                "bg-primary/10 text-primary ring-1 ring-primary/20",
+              isSelected && "bg-primary/10 text-primary ring-1 ring-primary/20",
               isDropTarget && "bg-primary/12 ring-1 ring-primary/30",
               item.disabled && "pointer-events-none opacity-50"
             )}
@@ -280,11 +284,7 @@ export function TreeView({
             }}
             onDragOver={(event) => {
               if (
-                !(
-                  item.droppable &&
-                  draggedItemId &&
-                  draggedItemId !== item.id
-                )
+                !(item.droppable && draggedItemId && draggedItemId !== item.id)
               ) {
                 return;
               }
@@ -299,11 +299,7 @@ export function TreeView({
             }}
             onDrop={(event) => {
               if (
-                !(
-                  item.droppable &&
-                  draggedItemId &&
-                  draggedItemId !== item.id
-                )
+                !(item.droppable && draggedItemId && draggedItemId !== item.id)
               ) {
                 return;
               }

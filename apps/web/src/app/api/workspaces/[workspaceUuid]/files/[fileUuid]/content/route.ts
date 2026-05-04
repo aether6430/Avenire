@@ -59,8 +59,7 @@ export async function PATCH(
   const storageUrl = String(body.storageUrl ?? "").trim();
   const sizeBytes = Number(body.sizeBytes);
   const mimeType = typeof body.mimeType === "string" ? body.mimeType : null;
-  const content =
-    typeof body.content === "string" ? body.content : null;
+  const content = typeof body.content === "string" ? body.content : null;
   const isMarkdownFile = isMarkdownFileRecord(existing);
 
   const nextPage =
@@ -98,7 +97,10 @@ export async function PATCH(
     return NextResponse.json({ file: replaced.file });
   }
 
-  if (!storageKey || !storageUrl || !Number.isFinite(sizeBytes) || sizeBytes < 0) {
+  if (
+    !(storageKey && storageUrl && Number.isFinite(sizeBytes)) ||
+    sizeBytes < 0
+  ) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
@@ -106,19 +108,27 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid file source" }, { status: 400 });
   }
 
-  const replaced = await replaceFileAssetContent(workspaceUuid, fileUuid, user.id, {
-    storageKey,
-    storageUrl,
-    sizeBytes,
-    mimeType,
-    metadata: nextPage === undefined ? undefined : { page: nextPage },
-    hashComputedBy: null,
-    hashVerificationStatus: null,
-    contentHashSha256: null,
-  });
+  const replaced = await replaceFileAssetContent(
+    workspaceUuid,
+    fileUuid,
+    user.id,
+    {
+      storageKey,
+      storageUrl,
+      sizeBytes,
+      mimeType,
+      metadata: nextPage === undefined ? undefined : { page: nextPage },
+      hashComputedBy: null,
+      hashVerificationStatus: null,
+      contentHashSha256: null,
+    }
+  );
 
   if (!replaced) {
-    return NextResponse.json({ error: "Unable to replace file content" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Unable to replace file content" },
+      { status: 404 }
+    );
   }
 
   await publishFilesInvalidationEvent({

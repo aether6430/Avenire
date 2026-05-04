@@ -69,7 +69,7 @@ export async function GET(request: Request) {
                 continue;
               }
               write(`id: ${event.streamId}\n`);
-              write(`event: ingestion.job\n`);
+              write("event: ingestion.job\n");
               write(
                 `data: ${JSON.stringify({
                   ...event.payload,
@@ -97,7 +97,7 @@ export async function GET(request: Request) {
                 continue;
               }
               write(`id: ${event.streamId}\n`);
-              write(`event: ingestion.job\n`);
+              write("event: ingestion.job\n");
               write(
                 `data: ${JSON.stringify({
                   ...event.payload,

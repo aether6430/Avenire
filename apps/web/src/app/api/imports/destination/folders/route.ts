@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   if (!workspaceId) {
     return NextResponse.json(
       { error: "workspaceId is required" },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
         error:
           error instanceof Error ? error.message : "Unable to load folders.",
       },
-      { status: 400 },
+      { status: 400 }
     );
   }
 }

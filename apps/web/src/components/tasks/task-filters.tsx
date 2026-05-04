@@ -1,10 +1,20 @@
 "use client";
 
 import { Input } from "@avenire/ui/components/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@avenire/ui/components/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@avenire/ui/components/select";
 import { Tabs, TabsList, TabsTrigger } from "@avenire/ui/components/tabs";
+import type {
+  TaskGrouping,
+  TaskStatusFilter,
+  TaskViewMode,
+} from "@/components/tasks/types";
 import type { WorkspaceMemberOption } from "@/lib/tasks";
-import type { TaskGrouping, TaskStatusFilter, TaskViewMode } from "@/components/tasks/types";
 
 export function TaskFilters({
   assigneeFilter,
@@ -38,20 +48,28 @@ export function TaskFilters({
 
   return (
     <div className="flex flex-col gap-3 border-border/70 border-b px-4 py-3 md:flex-row md:items-center">
-      <Tabs onValueChange={(value) => onViewModeChange(value as TaskViewMode)} value={viewMode}>
-        <TabsList variant="line" className="w-auto">
+      <Tabs
+        onValueChange={(value) => onViewModeChange(value as TaskViewMode)}
+        value={viewMode}
+      >
+        <TabsList className="w-auto" variant="line">
           <TabsTrigger value="list">List</TabsTrigger>
           <TabsTrigger value="kanban">Kanban</TabsTrigger>
         </TabsList>
       </Tabs>
       <Input
-        className="h-8 flex-1 text-xs hidden"
+        className="hidden h-8 flex-1 text-xs"
         onChange={(event) => onSearchQueryChange(event.target.value)}
         placeholder="Search tasks..."
         value={searchQuery}
       />
       <div className="flex flex-wrap items-center gap-2">
-        <Select onValueChange={(value) => onStatusFilterChange(value as TaskStatusFilter)} value={statusFilter}>
+        <Select
+          onValueChange={(value) =>
+            onStatusFilterChange(value as TaskStatusFilter)
+          }
+          value={statusFilter}
+        >
           <SelectTrigger>
             <SelectValue placeholder="Status" />
           </SelectTrigger>
@@ -80,7 +98,10 @@ export function TaskFilters({
           </SelectContent>
         </Select>
         {viewMode === "list" ? (
-          <Select onValueChange={(value) => onGroupingChange(value as TaskGrouping)} value={grouping}>
+          <Select
+            onValueChange={(value) => onGroupingChange(value as TaskGrouping)}
+            value={grouping}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Group by" />
             </SelectTrigger>

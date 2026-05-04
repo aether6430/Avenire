@@ -1,10 +1,10 @@
 export interface CachedUploadThingFile {
+  contentType?: string;
   key: string;
   name: string;
   size: number;
   uploadedAt: number;
   url: string;
-  contentType?: string;
 }
 
 interface CachedPayload {
@@ -36,7 +36,8 @@ function isValidCachedFile(value: unknown): value is CachedUploadThingFile {
     Number.isFinite(value.uploadedAt) &&
     typeof value.url === "string" &&
     value.url.startsWith("http") &&
-    (typeof value.contentType === "string" || typeof value.contentType === "undefined")
+    (typeof value.contentType === "string" ||
+      typeof value.contentType === "undefined")
   );
 }
 
@@ -81,7 +82,11 @@ function getValue<T>(database: IDBDatabase, key: string): Promise<T | null> {
   });
 }
 
-function setValue(database: IDBDatabase, key: string, value: unknown): Promise<void> {
+function setValue(
+  database: IDBDatabase,
+  key: string,
+  value: unknown
+): Promise<void> {
   return new Promise((resolve, reject) => {
     const transaction = database.transaction(STORE_NAME, "readwrite");
     const store = transaction.objectStore(STORE_NAME);
@@ -111,7 +116,9 @@ export async function readUploadThingCache(): Promise<CachedUploadThingFile[]> {
   }
 }
 
-export async function writeUploadThingCache(files: CachedUploadThingFile[]): Promise<void> {
+export async function writeUploadThingCache(
+  files: CachedUploadThingFile[]
+): Promise<void> {
   if (typeof window === "undefined" || typeof indexedDB === "undefined") {
     return;
   }

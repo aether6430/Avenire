@@ -31,7 +31,9 @@ export async function POST(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const parsed = requestSchema.safeParse(await request.json().catch(() => ({})));
+  const parsed = requestSchema.safeParse(
+    await request.json().catch(() => ({}))
+  );
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }

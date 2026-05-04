@@ -1,9 +1,9 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
 import { LoginForm } from "@avenire/auth/components/login";
-import { AuthShell } from "@/components/auth-shell";
+import { useSearchParams } from "next/navigation";
 import { ParticleFormFrame } from "@/components/auth/particle-form-frame";
+import { AuthShell } from "@/components/auth-shell";
 
 function getSingleValue(value: string | null) {
   return value ?? undefined;

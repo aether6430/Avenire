@@ -1,7 +1,12 @@
 export interface PromptMemoryBlock {
   content: string;
   freshness: "current" | "recent" | "historical";
-  kind: "subject" | "session-summary" | "student-profile" | "misconception";
+  kind:
+    | "subject"
+    | "session-summary"
+    | "student-profile"
+    | "misconception"
+    | "user-instructions";
   scope?: {
     subject?: string | null;
     topic?: string | null;

@@ -1,18 +1,8 @@
 import { NextResponse } from "next/server";
-import {
-  ensureWorkspaceAccessForUser,
-  getSessionUser,
-} from "@/lib/workspace";
 import { listChatsForUser } from "@/lib/chat-data";
-import {
-  listWorkspaceFiles,
-  listWorkspaceFolders,
-  listWorkspacesForUser,
-} from "@/lib/file-data";
-import type {
-  WorkspaceTaskResourceOption,
-  WorkspaceTaskResourceType,
-} from "@/lib/tasks";
+import { listWorkspaceFiles, listWorkspaceFolders } from "@/lib/file-data";
+import type { WorkspaceTaskResourceOption } from "@/lib/tasks";
+import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
 
 function normalizeQuery(value: unknown) {
   return typeof value === "string" ? value.trim().toLowerCase() : "";

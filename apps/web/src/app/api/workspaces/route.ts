@@ -1,9 +1,12 @@
-import { NextResponse } from "next/server";
-import { auth } from "@avenire/auth/server";
 import { randomUUID } from "node:crypto";
-import { getWorkspaceContextForUser, getSessionUser } from "@/lib/workspace";
-import { listWorkspacesForUser, resolveWorkspaceForUser } from "@/lib/file-data";
+import { auth } from "@avenire/auth/server";
 import { headers } from "next/headers";
+import { NextResponse } from "next/server";
+import {
+  listWorkspacesForUser,
+  resolveWorkspaceForUser,
+} from "@/lib/file-data";
+import { getSessionUser, getWorkspaceContextForUser } from "@/lib/workspace";
 
 export async function GET() {
   const ctx = await getWorkspaceContextForUser();
@@ -35,10 +38,13 @@ export async function POST(request: Request) {
   const slug = `${slugBase}-${randomUUID().slice(0, 8)}`;
   const existingSummaries = await listWorkspacesForUser(user.id);
   const existingWorkspace = existingSummaries.find(
-    (entry) => entry.name.trim().toLowerCase() === trimmed.toLowerCase(),
+    (entry) => entry.name.trim().toLowerCase() === trimmed.toLowerCase()
   );
   if (existingWorkspace) {
-    const resolvedExisting = await resolveWorkspaceForUser(user.id, existingWorkspace.organizationId);
+    const resolvedExisting = await resolveWorkspaceForUser(
+      user.id,
+      existingWorkspace.organizationId
+    );
     if (resolvedExisting) {
       return NextResponse.json(
         {
@@ -48,7 +54,7 @@ export async function POST(request: Request) {
             name: existingWorkspace.name,
           },
         },
-        { status: 200 },
+        { status: 200 }
       );
     }
   }
@@ -64,15 +70,24 @@ export async function POST(request: Request) {
   });
 
   if (!org?.id) {
-    return NextResponse.json({ error: "Unable to create workspace" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Unable to create workspace" },
+      { status: 400 }
+    );
   }
 
   const workspace = await resolveWorkspaceForUser(user.id, org.id);
   if (!workspace) {
-    return NextResponse.json({ error: "Unable to resolve workspace" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Unable to resolve workspace" },
+      { status: 500 }
+    );
   }
   if (workspace.organizationId !== org.id) {
-    return NextResponse.json({ error: "Unable to resolve workspace" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Unable to resolve workspace" },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json(
@@ -83,6 +98,6 @@ export async function POST(request: Request) {
         name: trimmed,
       },
     },
-    { status: 201 },
+    { status: 201 }
   );
 }

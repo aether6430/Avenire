@@ -1,22 +1,22 @@
+import { NextResponse } from "next/server";
 import {
   deleteIngestionDataForFile,
   getFileAssetById,
   isSharedFilesVirtualFolderId,
   softDeleteFileAsset,
-  userCanEditFile,
   updateFileAsset,
+  userCanEditFile,
 } from "@/lib/file-data";
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
 import {
   normalizeFrontmatterProperties,
   normalizePageMetadataState,
 } from "@/lib/frontmatter";
-import { NextResponse } from "next/server";
 import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
 
 export async function GET(
   _request: Request,
-  context: { params: Promise<{ workspaceUuid: string; fileUuid: string }> },
+  context: { params: Promise<{ workspaceUuid: string; fileUuid: string }> }
 ) {
   const user = await getSessionUser();
   if (!user) {
@@ -46,7 +46,7 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  context: { params: Promise<{ workspaceUuid: string; fileUuid: string }> },
+  context: { params: Promise<{ workspaceUuid: string; fileUuid: string }> }
 ) {
   const user = await getSessionUser();
   if (!user) {
@@ -72,8 +72,14 @@ export async function PATCH(
       properties?: Record<string, unknown>;
     };
   };
-  if (body.folderId && isSharedFilesVirtualFolderId(body.folderId, workspaceUuid)) {
-    return NextResponse.json({ error: "Cannot move items into Shared Files" }, { status: 400 });
+  if (
+    body.folderId &&
+    isSharedFilesVirtualFolderId(body.folderId, workspaceUuid)
+  ) {
+    return NextResponse.json(
+      { error: "Cannot move items into Shared Files" },
+      { status: 400 }
+    );
   }
 
   const nextPage =
@@ -115,7 +121,7 @@ export async function PATCH(
 
 export async function DELETE(
   _request: Request,
-  context: { params: Promise<{ workspaceUuid: string; fileUuid: string }> },
+  context: { params: Promise<{ workspaceUuid: string; fileUuid: string }> }
 ) {
   const user = await getSessionUser();
   if (!user) {

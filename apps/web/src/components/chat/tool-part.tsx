@@ -241,14 +241,6 @@ function FlashcardDeckComponent({
   setId: string;
   title: string;
 }) {
-  if (cards.length === 0) {
-    return (
-      <p className="font-mono text-[11px] text-foreground/28">
-        No cards generated
-      </p>
-    );
-  }
-
   const deckCards = useMemo(
     () =>
       cards.map((card, index) => ({
@@ -262,6 +254,14 @@ function FlashcardDeckComponent({
       })),
     [cards, setId, title]
   );
+
+  if (cards.length === 0) {
+    return (
+      <p className="font-mono text-[11px] text-foreground/28">
+        No cards generated
+      </p>
+    );
+  }
 
   return (
     <div className="mb-2">
@@ -424,11 +424,7 @@ export function ChatToolPart({ part }: { part: ToolPart }) {
       );
     }
 
-    return (
-      <ToolPending
-        label={getToolLabel(part.type)}
-      />
-    );
+    return <ToolPending label={getToolLabel(part.type)} />;
   }
 
   if (part.state === "output-error") {
@@ -438,12 +434,7 @@ export function ChatToolPart({ part }: { part: ToolPart }) {
       return null;
     }
     const errorText = part.errorText;
-    return (
-      <ToolError
-        errorText={errorText}
-        label={getToolLabel(part.type)}
-      />
-    );
+    return <ToolError errorText={errorText} label={getToolLabel(part.type)} />;
   }
 
   if (part.state !== "output-available") {

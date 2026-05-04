@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import {
   createFolder,
   isSharedFilesVirtualFolderId,
@@ -5,12 +6,11 @@ import {
   userCanEditFolder,
 } from "@/lib/file-data";
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
-import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/workspace";
 
 export async function POST(
   request: Request,
-  context: { params: Promise<{ workspaceUuid: string }> },
+  context: { params: Promise<{ workspaceUuid: string }> }
 ) {
   const user = await getSessionUser();
   if (!user) {
@@ -24,10 +24,19 @@ export async function POST(
   };
 
   if (typeof body.parentId === "undefined" || !body.name) {
-    return NextResponse.json({ error: "Missing parentId or name" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing parentId or name" },
+      { status: 400 }
+    );
   }
-  if (body.parentId && isSharedFilesVirtualFolderId(body.parentId, workspaceUuid)) {
-    return NextResponse.json({ error: "Cannot create items in Shared Files" }, { status: 400 });
+  if (
+    body.parentId &&
+    isSharedFilesVirtualFolderId(body.parentId, workspaceUuid)
+  ) {
+    return NextResponse.json(
+      { error: "Cannot create items in Shared Files" },
+      { status: 400 }
+    );
   }
   const canEdit =
     typeof body.parentId === "string"
@@ -41,9 +50,17 @@ export async function POST(
     return NextResponse.json({ error: "Read-only folder" }, { status: 403 });
   }
 
-  const folder = await createFolder(workspaceUuid, body.parentId, body.name, user.id);
+  const folder = await createFolder(
+    workspaceUuid,
+    body.parentId,
+    body.name,
+    user.id
+  );
   if (!folder) {
-    return NextResponse.json({ error: "Unable to create folder" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Unable to create folder" },
+      { status: 400 }
+    );
   }
 
   await publishFilesInvalidationEvent({

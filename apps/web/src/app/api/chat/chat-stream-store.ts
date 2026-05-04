@@ -69,7 +69,11 @@ export async function setActiveStreamId(chatId: string, streamId: string) {
     const client = await getRedisClient();
     await client.set(`${ACTIVE_STREAM_KEY_PREFIX}${chatId}`, streamId);
   } catch (error) {
-    console.error("Failed to set active stream id", { chatId, streamId, error });
+    console.error("Failed to set active stream id", {
+      chatId,
+      streamId,
+      error,
+    });
   }
 }
 
@@ -89,6 +93,10 @@ export async function clearActiveStreamId(chatId: string, streamId: string) {
       }
     );
   } catch (error) {
-    console.error("Failed to clear active stream id", { chatId, streamId, error });
+    console.error("Failed to clear active stream id", {
+      chatId,
+      streamId,
+      error,
+    });
   }
 }

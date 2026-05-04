@@ -1,6 +1,10 @@
 "use client";
 
-import type { WorkspaceTask, WorkspaceTaskPriority, WorkspaceTaskStatus } from "@/lib/tasks";
+import type {
+  WorkspaceTask,
+  WorkspaceTaskPriority,
+  WorkspaceTaskStatus,
+} from "@/lib/tasks";
 
 export type TaskGrouping = "due" | "status";
 export type TaskViewMode = "list" | "kanban";
@@ -8,11 +12,11 @@ export type TaskStatusFilter = "all" | WorkspaceTaskStatus;
 
 export interface TaskEditorDraft {
   assigneeUserId: string;
-  selectedAssignee?: import("@/lib/tasks").WorkspaceMemberOption | null;
   description: string;
   dueAt: string;
   priority: WorkspaceTaskPriority;
   resources: WorkspaceTask["resources"];
+  selectedAssignee?: import("@/lib/tasks").WorkspaceMemberOption | null;
   status: WorkspaceTaskStatus;
   title: string;
 }

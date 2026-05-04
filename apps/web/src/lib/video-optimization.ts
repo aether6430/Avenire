@@ -1,6 +1,5 @@
-import { UTApi, UTFile } from "@avenire/storage";
-import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { lookup } from "node:dns/promises";
 import {
   mkdir,
@@ -14,6 +13,7 @@ import {
 import { isIP } from "node:net";
 import { tmpdir } from "node:os";
 import { basename, extname, join } from "node:path";
+import { UTApi, UTFile } from "@avenire/storage";
 import type { VideoDeliveryRecord } from "@/lib/file-data";
 import { isTrustedStorageUrl } from "@/lib/file-data";
 
@@ -36,8 +36,8 @@ const MAX_UPLOAD_BUFFER_BYTES =
     : DEFAULT_MAX_UPLOAD_BUFFER_BYTES;
 
 interface OptimizeAndReuploadVideoInput {
-  sourceUrl: string;
   sourceName: string;
+  sourceUrl: string;
 }
 
 interface StoredAsset {
@@ -94,10 +94,18 @@ function isPrivateOrLocalAddress(address: string) {
     const [a, b] = address
       .split(".")
       .map((value) => Number.parseInt(value, 10));
-    if (a === 10 || a === 127 || a === 0) return true;
-    if (a === 169 && b === 254) return true;
-    if (a === 192 && b === 168) return true;
-    if (a === 172 && typeof b === "number" && b >= 16 && b <= 31) return true;
+    if (a === 10 || a === 127 || a === 0) {
+      return true;
+    }
+    if (a === 169 && b === 254) {
+      return true;
+    }
+    if (a === 192 && b === 168) {
+      return true;
+    }
+    if (a === 172 && typeof b === "number" && b >= 16 && b <= 31) {
+      return true;
+    }
     return false;
   }
 
@@ -414,8 +422,7 @@ async function uploadBufferedFiles(
       const uploadedFile = result?.data;
       const source = prepared[offset];
       if (
-        !source ||
-        !uploadedFile ||
+        !(source && uploadedFile) ||
         typeof uploadedFile.key !== "string" ||
         typeof uploadedFile.ufsUrl !== "string"
       ) {
@@ -718,7 +725,7 @@ export async function optimizeAndReuploadVideo(
     }).finally(() => {
       clearTimeout(timer);
     });
-    if (!response.ok || !response.body) {
+    if (!(response.ok && response.body)) {
       return null;
     }
 

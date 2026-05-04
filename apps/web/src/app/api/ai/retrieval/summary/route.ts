@@ -26,11 +26,14 @@ const summarySchema = z.object({
           .optional(),
         snippet: z.string().min(1).optional(),
         title: z.string().min(1).optional(),
-      }),
+      })
     )
     .max(24)
     .optional(),
-  fileIds: z.array(z.uuid({ version: "v4" })).max(10).optional(),
+  fileIds: z
+    .array(z.uuid({ version: "v4" }))
+    .max(10)
+    .optional(),
   workspaceUuid: z.uuid({ version: "v4" }),
   query: z.string().min(1),
   stream: z.boolean().optional(),
@@ -94,7 +97,7 @@ export async function POST(request: Request) {
   }
 
   const parsed = summarySchema.safeParse(
-    await request.json().catch(() => ({})),
+    await request.json().catch(() => ({}))
   );
   if (!parsed.success) {
     void apiLogger.requestFailed(400, "Invalid payload");
@@ -103,7 +106,7 @@ export async function POST(request: Request) {
 
   const canAccess = await ensureWorkspaceAccessForUser(
     user.id,
-    parsed.data.workspaceUuid,
+    parsed.data.workspaceUuid
   );
   if (!canAccess) {
     void apiLogger.requestFailed(403, "Forbidden", {
@@ -116,29 +119,29 @@ export async function POST(request: Request) {
     6,
     toPositiveInt(
       process.env.RETRIEVAL_SUMMARY_ATTACHMENT_LIMIT,
-      DEFAULT_ATTACHMENT_LIMIT,
-    ),
+      DEFAULT_ATTACHMENT_LIMIT
+    )
   );
   const attachmentMaxBytes = Math.max(
     256_000,
     toPositiveInt(
       process.env.RETRIEVAL_SUMMARY_ATTACHMENT_MAX_BYTES,
-      DEFAULT_ATTACHMENT_MAX_BYTES,
-    ),
+      DEFAULT_ATTACHMENT_MAX_BYTES
+    )
   );
   const fetchTimeoutMs = Math.max(
-    2_000,
+    2000,
     toPositiveInt(
       process.env.RETRIEVAL_SUMMARY_FETCH_TIMEOUT_MS,
-      DEFAULT_FETCH_TIMEOUT_MS,
-    ),
+      DEFAULT_FETCH_TIMEOUT_MS
+    )
   );
-  
+
   const matches = parsed.data.matches ?? [];
   const matchedFileIds = matches.map((match) => match.fileId);
   const fallbackFileIds = parsed.data.fileIds ?? [];
   const fileIds = Array.from(
-    new Set([...matchedFileIds, ...fallbackFileIds]),
+    new Set([...matchedFileIds, ...fallbackFileIds])
   ).slice(0, 12);
 
   if (fileIds.length === 0 && matches.length === 0) {
@@ -180,7 +183,7 @@ export async function POST(request: Request) {
       const snippet = match.snippet?.trim();
       if (snippet) {
         group.snippets.push(
-          snippet.length > 650 ? `${snippet.slice(0, 650)}...` : snippet,
+          snippet.length > 650 ? `${snippet.slice(0, 650)}...` : snippet
         );
       }
       groupedMatches.set(match.fileId, group);
@@ -200,7 +203,7 @@ export async function POST(request: Request) {
         return [
           `Document file: ${title} (${fileId})`,
           ...topSnippets.map(
-            (snippet, index) => `Chunk ${index + 1}: ${snippet}`,
+            (snippet, index) => `Chunk ${index + 1}: ${snippet}`
           ),
         ].join("\n");
       });
@@ -217,8 +220,8 @@ export async function POST(request: Request) {
         attachmentCandidateIds
           .slice(0, attachmentLimit * 2)
           .map(async (fileId) =>
-            getFileAssetById(parsed.data.workspaceUuid, fileId),
-          ),
+            getFileAssetById(parsed.data.workspaceUuid, fileId)
+          )
       )
     ).filter((record): record is NonNullable<typeof record> => Boolean(record));
 
@@ -273,7 +276,7 @@ export async function POST(request: Request) {
             }
 
             const downloadedType = normalizeMediaType(
-              response.headers.get("content-type"),
+              response.headers.get("content-type")
             );
             const mediaType =
               normalizeMediaType(file.mimeType) === "application/octet-stream"
@@ -299,7 +302,7 @@ export async function POST(request: Request) {
           } finally {
             clearTimeout(timeout);
           }
-        }),
+        })
       )
     )
       .filter((part): part is NonNullable<typeof part> => Boolean(part))
@@ -388,7 +391,9 @@ export async function POST(request: Request) {
       temperature: 0.2,
       maxOutputTokens: 220,
     });
-    const generationLatencyMs = Math.round(performance.now() - generationStartedAt);
+    const generationLatencyMs = Math.round(
+      performance.now() - generationStartedAt
+    );
     const summary = text.trim() || FALLBACK_SUMMARY;
     flagInvalidCitations({
       allowedFileIds: fileIds,

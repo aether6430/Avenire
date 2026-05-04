@@ -3,16 +3,15 @@
 import { useRouter } from "next/navigation";
 import { Suspense, useEffect } from "react";
 import { DashboardLayout as DashboardShellLayout } from "@/components/dashboard/shell";
-import { WorkspaceBootstrapProvider, useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
+import {
+  useWorkspaceBootstrap,
+  WorkspaceBootstrapProvider,
+} from "@/components/dashboard/workspace-bootstrap";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
 import { AppQueryProvider } from "@/components/query-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 
-function WorkspaceLayoutFrame({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function WorkspaceLayoutFrame({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { status, user, workspace, workspaces } = useWorkspaceBootstrap();
 
@@ -27,7 +26,9 @@ function WorkspaceLayoutFrame({
   }
 
   return (
-    <Suspense fallback={<WorkspaceRoutePlaceholder label="Loading workspace..." />}>
+    <Suspense
+      fallback={<WorkspaceRoutePlaceholder label="Loading workspace..." />}
+    >
       <DashboardShellLayout
         activeWorkspace={workspace}
         initialWorkspaces={workspaces}

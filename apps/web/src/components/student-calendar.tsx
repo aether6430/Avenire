@@ -6,16 +6,22 @@ import { Spinner } from "@avenire/ui/components/spinner";
 import { cn } from "@avenire/ui/lib/utils";
 import {
   BookOpen,
-  Calendar as CalendarRange,
   CalendarBlank,
   CalendarDots as CalendarDays,
+  Calendar as CalendarRange,
   CaretLeft as ChevronLeft,
   CaretRight as ChevronRight,
   ListChecks as ListTodo,
   X,
 } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import {
+  type MouseEvent as ReactMouseEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 export type CalendarMode = "month" | "week";
 
@@ -64,12 +70,21 @@ const DAYS_FULL = [
 ];
 
 const startOfUtcDay = (date: Date) =>
-  new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+  );
 
 const addUtcDays = (date: Date, days: number) =>
-  new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
+  new Date(
+    Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate() + days
+    )
+  );
 
-const dateKeyUtc = (date: Date) => startOfUtcDay(date).toISOString().slice(0, 10);
+const dateKeyUtc = (date: Date) =>
+  startOfUtcDay(date).toISOString().slice(0, 10);
 
 const getDaysInMonth = (year: number, month: number) =>
   new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
@@ -112,17 +127,23 @@ const formatRangeLabel = (
   const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
 
   if (weekStart.getUTCFullYear() !== end.getUTCFullYear()) {
-    return `${weekStart.toLocaleDateString("en-US", { ...opts, year: "numeric" })} - ${end.toLocaleDateString("en-US", {
-      ...opts,
-      year: "numeric",
-    })}`;
+    return `${weekStart.toLocaleDateString("en-US", { ...opts, year: "numeric" })} - ${end.toLocaleDateString(
+      "en-US",
+      {
+        ...opts,
+        year: "numeric",
+      }
+    )}`;
   }
 
   if (weekStart.getUTCMonth() !== end.getUTCMonth()) {
-    return `${weekStart.toLocaleDateString("en-US", opts)} - ${end.toLocaleDateString("en-US", {
-      ...opts,
-      year: "numeric",
-    })}`;
+    return `${weekStart.toLocaleDateString("en-US", opts)} - ${end.toLocaleDateString(
+      "en-US",
+      {
+        ...opts,
+        year: "numeric",
+      }
+    )}`;
   }
 
   return `${weekStart.toLocaleDateString("en-US", opts)} - ${end.getUTCDate()}, ${end.getUTCFullYear()}`;
@@ -136,7 +157,9 @@ const formatSheetDate = (key: string) =>
   });
 
 const formatTaskDue = (dueAt: string | null) => {
-  if (!dueAt) return "No due date";
+  if (!dueAt) {
+    return "No due date";
+  }
 
   return new Date(dueAt).toLocaleDateString("en-US", {
     weekday: "short",
@@ -151,7 +174,9 @@ async function fetchRevisionData(
   signal: AbortSignal
 ): Promise<RevisionData> {
   const params = new URLSearchParams({ from, to });
-  const response = await fetch(`/api/flashcards/revision-calendar?${params}`, { signal });
+  const response = await fetch(`/api/flashcards/revision-calendar?${params}`, {
+    signal,
+  });
 
   if (!response.ok) {
     throw new Error("Unable to load revision calendar.");
@@ -200,14 +225,20 @@ function DayPills({
   const hasTask = tasks.length > 0;
   const total = items.length + tasks.length;
 
-  if (!hasReview && !hasTask) return null;
+  if (!(hasReview || hasTask)) {
+    return null;
+  }
 
   return (
     <div className="flex w-full flex-col gap-[3px] px-[3px]">
-      {hasReview && <div className="h-[3.5px] w-full rounded-full bg-primary/60" />}
-      {hasTask && <div className="h-[3.5px] w-full rounded-full bg-amber-400/70" />}
+      {hasReview && (
+        <div className="h-[3.5px] w-full rounded-full bg-primary/60" />
+      )}
+      {hasTask && (
+        <div className="h-[3.5px] w-full rounded-full bg-amber-400/70" />
+      )}
       {total > 2 && (
-        <span className="text-center text-[8px] leading-none text-muted-foreground">
+        <span className="text-center text-[8px] text-muted-foreground leading-none">
           +{total - 2}
         </span>
       )}
@@ -239,13 +270,15 @@ function DaySheet({
     >
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+          <p className="font-medium text-[11px] text-muted-foreground uppercase tracking-widest">
             {formatSheetDate(dayKey)}
           </p>
           {total > 0 && (
-            <p className="mt-0.5 text-base font-semibold text-foreground">
+            <p className="mt-0.5 font-semibold text-base text-foreground">
               {total}{" "}
-              <span className="text-sm font-normal text-muted-foreground">cards due</span>
+              <span className="font-normal text-muted-foreground text-sm">
+                cards due
+              </span>
             </p>
           )}
         </div>
@@ -259,12 +292,14 @@ function DaySheet({
       </div>
 
       {!hasAnything && (
-        <p className="py-2 text-center text-xs text-muted-foreground">Nothing scheduled</p>
+        <p className="py-2 text-center text-muted-foreground text-xs">
+          Nothing scheduled
+        </p>
       )}
 
       {items.length > 0 && (
         <div className="flex flex-col gap-1.5">
-          <p className="pl-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+          <p className="pl-0.5 text-[10px] text-muted-foreground uppercase tracking-widest">
             Flashcards
           </p>
           {items.map((item, idx) => (
@@ -283,10 +318,10 @@ function DaySheet({
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10">
                 <BookOpen className="h-3.5 w-3.5 text-primary" />
               </div>
-              <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+              <p className="min-w-0 flex-1 truncate font-medium text-foreground text-sm">
                 {item.title}
               </p>
-              <span className="shrink-0 text-sm font-semibold text-foreground">
+              <span className="shrink-0 font-semibold text-foreground text-sm">
                 {item.dueCount}
               </span>
             </motion.div>
@@ -296,7 +331,7 @@ function DaySheet({
 
       {tasks.length > 0 && (
         <div className="flex flex-col gap-1.5">
-          <p className="pl-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+          <p className="pl-0.5 text-[10px] text-muted-foreground uppercase tracking-widest">
             Tasks
           </p>
           {tasks.map((task, idx) => (
@@ -316,8 +351,12 @@ function DaySheet({
                 <ListTodo className="h-3.5 w-3.5 text-amber-600" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-foreground">{task.title}</p>
-                <p className="text-[10px] text-muted-foreground">{formatTaskDue(task.dueAt)}</p>
+                <p className="truncate font-medium text-foreground text-sm">
+                  {task.title}
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  {formatTaskDue(task.dueAt)}
+                </p>
               </div>
             </motion.div>
           ))}
@@ -365,7 +404,7 @@ function MobileDayCell({
           "flex h-[26px] w-[26px] items-center justify-center rounded-full text-[13px] leading-none transition-colors",
           isToday && !isSelected && "font-semibold text-primary",
           isSelected && "bg-primary font-semibold text-primary-foreground",
-          !isToday && !isSelected && "font-normal text-foreground/80"
+          !(isToday || isSelected) && "font-normal text-foreground/80"
         )}
       >
         {day}
@@ -396,7 +435,11 @@ function MobileMonthGrid({
   const firstDay = getFirstDay(curYear, curMonth);
   const prevMonthDays = getPrevMonthDays(curYear, curMonth);
 
-  type CellInfo = { day: number; key: string; isOtherMonth: boolean };
+  interface CellInfo {
+    day: number;
+    isOtherMonth: boolean;
+    key: string;
+  }
   const cells: CellInfo[] = [];
 
   for (let i = firstDay - 1; i >= 0; i--) {
@@ -496,7 +539,12 @@ function DayPopover({
     <motion.div
       animate={{ opacity: 1, scale: 1, y: 0 }}
       className="overflow-hidden rounded-xl border border-border bg-popover shadow-lg"
-      exit={{ opacity: 0, scale: 0.96, y: -4, transition: { duration: 0.12, ease: "easeIn" } }}
+      exit={{
+        opacity: 0,
+        scale: 0.96,
+        y: -4,
+        transition: { duration: 0.12, ease: "easeIn" },
+      }}
       initial={{ opacity: 0, scale: 0.94, y: -6 }}
       key={dayKey}
       ref={ref}
@@ -510,12 +558,15 @@ function DayPopover({
       }}
       transition={{ type: "spring", stiffness: 340, damping: 26, mass: 0.9 }}
     >
-      <div className="border-b border-border px-4 pb-2.5 pt-3">
-        <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+      <div className="border-border border-b px-4 pt-3 pb-2.5">
+        <p className="font-medium text-[11px] text-muted-foreground uppercase tracking-widest">
           {label}
         </p>
-        <p className="mt-0.5 text-base font-semibold text-foreground">
-          {total} <span className="text-sm font-normal text-muted-foreground">cards due</span>
+        <p className="mt-0.5 font-semibold text-base text-foreground">
+          {total}{" "}
+          <span className="font-normal text-muted-foreground text-sm">
+            cards due
+          </span>
         </p>
       </div>
 
@@ -537,19 +588,21 @@ function DayPopover({
               <BookOpen className="h-4 w-4 text-primary" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium leading-none text-foreground">
+              <p className="truncate font-medium text-foreground text-sm leading-none">
                 {item.title}
               </p>
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1">
-              <span className="text-sm font-semibold text-foreground">{item.dueCount}</span>
+              <span className="font-semibold text-foreground text-sm">
+                {item.dueCount}
+              </span>
             </div>
           </motion.div>
         ))}
 
         {tasks.length > 0 && (
-          <div className="border-t border-border/70 px-3 pb-1 pt-2">
-            <p className="mb-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+          <div className="border-border/70 border-t px-3 pt-2 pb-1">
+            <p className="mb-1.5 text-[10px] text-muted-foreground uppercase tracking-widest">
               Tasks
             </p>
             <div className="flex flex-col gap-1">
@@ -560,7 +613,9 @@ function DayPopover({
                 >
                   <ListTodo className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-medium text-foreground">{task.title}</p>
+                    <p className="truncate font-medium text-foreground text-xs">
+                      {task.title}
+                    </p>
                     <p className="mt-0.5 text-[10px] text-muted-foreground">
                       {task.dueAt ? formatTaskDue(task.dueAt) : "No due date"}
                     </p>
@@ -620,14 +675,16 @@ function DesktopDayCell({
         <span
           className={cn(
             "text-sm leading-none",
-            isToday ? "font-semibold text-primary" : "font-normal text-muted-foreground"
+            isToday
+              ? "font-semibold text-primary"
+              : "font-normal text-muted-foreground"
           )}
         >
           {day}
         </span>
         {isToday && (
           <Badge
-            className="h-4 rounded-md border-primary/20 bg-primary/10 px-1.5 text-[9px] font-medium text-primary"
+            className="h-4 rounded-md border-primary/20 bg-primary/10 px-1.5 font-medium text-[9px] text-primary"
             variant="secondary"
           >
             today
@@ -638,21 +695,31 @@ function DesktopDayCell({
       {(hasItems || hasTasks) && (
         <div className="flex w-full flex-col gap-1">
           {shownItems.map((item) => (
-            <div className="flex items-center gap-1.5 rounded-md bg-muted/40 px-1.5 py-0.5" key={item.id}>
+            <div
+              className="flex items-center gap-1.5 rounded-md bg-muted/40 px-1.5 py-0.5"
+              key={item.id}
+            >
               <BookOpen className="h-2.5 w-2.5 shrink-0 text-muted-foreground" />
               <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
                 {item.title}
               </span>
-              <span className="shrink-0 text-[10px] text-muted-foreground">{item.dueCount}</span>
+              <span className="shrink-0 text-[10px] text-muted-foreground">
+                {item.dueCount}
+              </span>
             </div>
           ))}
           {overflow > 0 && (
-            <span className="pl-0.5 text-[10px] text-muted-foreground">+{overflow} more</span>
+            <span className="pl-0.5 text-[10px] text-muted-foreground">
+              +{overflow} more
+            </span>
           )}
           {shownTasks.length > 0 && (
             <div className="mt-1 flex flex-col gap-1">
               {shownTasks.map((task) => (
-                <div className="flex items-center gap-1.5 rounded-md bg-amber-500/10 px-1.5 py-0.5" key={task.id}>
+                <div
+                  className="flex items-center gap-1.5 rounded-md bg-amber-500/10 px-1.5 py-0.5"
+                  key={task.id}
+                >
                   <ListTodo className="h-2.5 w-2.5 shrink-0 text-amber-600" />
                   <span className="min-w-0 flex-1 truncate text-[11px] text-foreground">
                     {task.title}
@@ -704,7 +771,10 @@ function DesktopMonthGrid({
     <>
       <div className="mb-1 grid grid-cols-7 gap-1">
         {DAYS_SHORT_DESKTOP.map((day) => (
-          <div className="py-1.5 text-center text-[11px] font-medium text-muted-foreground" key={day}>
+          <div
+            className="py-1.5 text-center font-medium text-[11px] text-muted-foreground"
+            key={day}
+          >
             {day}
           </div>
         ))}
@@ -717,12 +787,25 @@ function DesktopMonthGrid({
             <DesktopDayCell
               day={day}
               dayKey={dateKeyUtc(new Date(Date.UTC(curYear, curMonth, day)))}
-              isActive={activeKey === dateKeyUtc(new Date(Date.UTC(curYear, curMonth, day)))}
-              isToday={dateKeyUtc(new Date(Date.UTC(curYear, curMonth, day))) === todayKey}
-              items={data[dateKeyUtc(new Date(Date.UTC(curYear, curMonth, day)))] ?? []}
+              isActive={
+                activeKey ===
+                dateKeyUtc(new Date(Date.UTC(curYear, curMonth, day)))
+              }
+              isToday={
+                dateKeyUtc(new Date(Date.UTC(curYear, curMonth, day))) ===
+                todayKey
+              }
+              items={
+                data[dateKeyUtc(new Date(Date.UTC(curYear, curMonth, day)))] ??
+                []
+              }
               key={day}
               onClick={onDayClick}
-              tasks={tasksByDay[dateKeyUtc(new Date(Date.UTC(curYear, curMonth, day)))] ?? []}
+              tasks={
+                tasksByDay[
+                  dateKeyUtc(new Date(Date.UTC(curYear, curMonth, day)))
+                ] ?? []
+              }
             />
           )
         )}
@@ -752,7 +835,10 @@ function WeekGrid({
     <>
       <div className="mb-1 grid grid-cols-7 gap-1">
         {days.map((_, idx) => (
-          <div className="py-1.5 text-center text-[11px] font-medium text-muted-foreground" key={idx}>
+          <div
+            className="py-1.5 text-center font-medium text-[11px] text-muted-foreground"
+            key={idx}
+          >
             {DAYS_FULL[idx]}
           </div>
         ))}
@@ -799,7 +885,9 @@ export function MobileStudentCalendar() {
   const tasksRequestRef = useRef<Promise<void> | null>(null);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current) {
+      return;
+    }
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -817,7 +905,9 @@ export function MobileStudentCalendar() {
 
   useEffect(() => {
     const loadTasks = (background = false) => {
-      if (tasksRequestRef.current) return tasksRequestRef.current;
+      if (tasksRequestRef.current) {
+        return tasksRequestRef.current;
+      }
 
       tasksRequestRef.current = (async () => {
         try {
@@ -825,7 +915,7 @@ export function MobileStudentCalendar() {
           tasksLoadedRef.current = true;
           setUpcomingTasks(nextTasks);
         } catch {
-          if (!background && !tasksLoadedRef.current) {
+          if (!(background || tasksLoadedRef.current)) {
             setUpcomingTasks([]);
           }
         } finally {
@@ -844,7 +934,9 @@ export function MobileStudentCalendar() {
   }, []);
 
   useEffect(() => {
-    if (!isActive) return;
+    if (!isActive) {
+      return;
+    }
 
     const { from, to } = getMonthRange(curYear, curMonth);
     const rangeKey = `${curYear}-${curMonth}`;
@@ -862,12 +954,22 @@ export function MobileStudentCalendar() {
       setError(null);
 
       try {
-        const nextData = await fetchRevisionData(dateKeyUtc(from), dateKeyUtc(to), controller.signal);
+        const nextData = await fetchRevisionData(
+          dateKeyUtc(from),
+          dateKeyUtc(to),
+          controller.signal
+        );
         cacheRef.current.set(rangeKey, nextData);
         setData(nextData);
       } catch (err) {
-        if (controller.signal.aborted) return;
-        setError(err instanceof Error ? err.message : "Unable to load revision calendar.");
+        if (controller.signal.aborted) {
+          return;
+        }
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to load revision calendar."
+        );
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false);
@@ -881,7 +983,9 @@ export function MobileStudentCalendar() {
 
   const tasksByDay = useMemo(() => {
     return upcomingTasks.reduce<Record<string, UpcomingTask[]>>((acc, task) => {
-      if (!task.dueAt) return acc;
+      if (!task.dueAt) {
+        return acc;
+      }
       const key = dateKeyUtc(new Date(task.dueAt));
       acc[key] = [...(acc[key] ?? []), task];
       return acc;
@@ -892,7 +996,11 @@ export function MobileStudentCalendar() {
     const prefix = `${curYear}-${String(curMonth + 1).padStart(2, "0")}`;
     return Object.entries(data)
       .filter(([key]) => key.startsWith(prefix))
-      .reduce((sum, [, items]) => sum + items.reduce((itemSum, item) => itemSum + item.dueCount, 0), 0);
+      .reduce(
+        (sum, [, items]) =>
+          sum + items.reduce((itemSum, item) => itemSum + item.dueCount, 0),
+        0
+      );
   }, [curMonth, curYear, data]);
 
   const selectedItems = selectedKey ? (data[selectedKey] ?? []) : [];
@@ -943,10 +1051,10 @@ export function MobileStudentCalendar() {
               initial={{ opacity: 0, y: -4 }}
               key={`${curMonth}-${curYear}`}
             >
-              <h2 className="text-xl font-semibold tracking-tight text-foreground">
+              <h2 className="font-semibold text-foreground text-xl tracking-tight">
                 {MONTHS[curMonth]}
               </h2>
-              <p className="text-xs text-muted-foreground">{curYear}</p>
+              <p className="text-muted-foreground text-xs">{curYear}</p>
             </motion.div>
           </AnimatePresence>
         </div>
@@ -954,30 +1062,53 @@ export function MobileStudentCalendar() {
         <div className="flex shrink-0 items-center gap-2">
           {loading && <Spinner className="size-3.5 text-muted-foreground" />}
           {totalDue > 0 && (
-            <Badge className="text-xs font-normal text-muted-foreground" variant="outline">
-              <span className="mr-1 font-semibold text-foreground">{totalDue}</span>
+            <Badge
+              className="font-normal text-muted-foreground text-xs"
+              variant="outline"
+            >
+              <span className="mr-1 font-semibold text-foreground">
+                {totalDue}
+              </span>
               due
             </Badge>
           )}
           <div className="flex items-center gap-1">
-            <Button className="h-7 w-7" onClick={() => navigate(false)} size="icon" variant="outline">
+            <Button
+              className="h-7 w-7"
+              onClick={() => navigate(false)}
+              size="icon"
+              variant="outline"
+            >
               <ChevronLeft className="h-3.5 w-3.5" />
             </Button>
-            <Button className="h-7 w-7" onClick={() => navigate(true)} size="icon" variant="outline">
+            <Button
+              className="h-7 w-7"
+              onClick={() => navigate(true)}
+              size="icon"
+              variant="outline"
+            >
               <ChevronRight className="h-3.5 w-3.5" />
             </Button>
           </div>
-          <Button className="h-7 px-2.5 text-xs" onClick={goToday} size="sm" variant="outline">
+          <Button
+            className="h-7 px-2.5 text-xs"
+            onClick={goToday}
+            size="sm"
+            variant="outline"
+          >
             Today
           </Button>
         </div>
       </div>
 
-      {error && <p className="text-xs text-muted-foreground">{error}</p>}
+      {error && <p className="text-muted-foreground text-xs">{error}</p>}
 
       <div className="grid grid-cols-7">
         {DAYS_SHORT.map((day, idx) => (
-          <div className="py-1 text-center text-[11px] font-medium text-muted-foreground" key={idx}>
+          <div
+            className="py-1 text-center font-medium text-[11px] text-muted-foreground"
+            key={idx}
+          >
             {day}
           </div>
         ))}
@@ -989,7 +1120,12 @@ export function MobileStudentCalendar() {
             animate={{
               opacity: 1,
               x: 0,
-              transition: { type: "spring", stiffness: 280, damping: 28, mass: 0.85 },
+              transition: {
+                type: "spring",
+                stiffness: 280,
+                damping: 28,
+                mass: 0.85,
+              },
             }}
             custom={dir}
             exit={{
@@ -1004,7 +1140,9 @@ export function MobileStudentCalendar() {
               curMonth={curMonth}
               curYear={curYear}
               data={data}
-              onDayClick={(key) => setSelectedKey((prev) => (prev === key ? null : key))}
+              onDayClick={(key) =>
+                setSelectedKey((prev) => (prev === key ? null : key))
+              }
               selectedKey={selectedKey}
               tasksByDay={tasksByDay}
               todayKey={todayKey}
@@ -1021,7 +1159,12 @@ export function MobileStudentCalendar() {
             exit={{ opacity: 0, height: 0, transition: { duration: 0.16 } }}
             initial={{ opacity: 0, height: 0 }}
             key={selectedKey}
-            transition={{ type: "spring", stiffness: 320, damping: 28, mass: 0.85 }}
+            transition={{
+              type: "spring",
+              stiffness: 320,
+              damping: 28,
+              mass: 0.85,
+            }}
           >
             <div className="rounded-xl border border-border bg-card p-4">
               <DaySheet
@@ -1035,7 +1178,7 @@ export function MobileStudentCalendar() {
         )}
       </AnimatePresence>
 
-      {!loading && !error && Object.keys(data).length === 0 && (
+      {!(loading || error) && Object.keys(data).length === 0 && (
         <div className="flex flex-col items-center gap-2 py-6 text-muted-foreground">
           <CalendarBlank className="h-8 w-8 opacity-40" />
           <p className="text-xs">No reviews scheduled this month</p>
@@ -1052,7 +1195,9 @@ export function DesktopStudentCalendar() {
   const [mode, setMode] = useState<CalendarMode>("month");
   const [curYear, setCurYear] = useState(today.getUTCFullYear());
   const [curMonth, setCurMonth] = useState(today.getUTCMonth());
-  const [weekStart, setWeekStart] = useState<Date>(() => getWeekStartUtc(today));
+  const [weekStart, setWeekStart] = useState<Date>(() =>
+    getWeekStartUtc(today)
+  );
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [popoverPos, setPopoverPos] = useState<PopoverPos | null>(null);
   const [data, setData] = useState<RevisionData>({});
@@ -1069,7 +1214,9 @@ export function DesktopStudentCalendar() {
 
   useEffect(() => {
     const loadTasks = (background = false) => {
-      if (tasksRequestRef.current) return tasksRequestRef.current;
+      if (tasksRequestRef.current) {
+        return tasksRequestRef.current;
+      }
 
       tasksRequestRef.current = (async () => {
         try {
@@ -1077,7 +1224,7 @@ export function DesktopStudentCalendar() {
           tasksLoadedRef.current = true;
           setUpcomingTasks(nextTasks);
         } catch {
-          if (!background && !tasksLoadedRef.current) {
+          if (!(background || tasksLoadedRef.current)) {
             setUpcomingTasks([]);
           }
         } finally {
@@ -1096,7 +1243,9 @@ export function DesktopStudentCalendar() {
   }, []);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current) {
+      return;
+    }
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -1113,10 +1262,14 @@ export function DesktopStudentCalendar() {
   }, []);
 
   useEffect(() => {
-    if (!isActive) return;
+    if (!isActive) {
+      return;
+    }
 
     const { from, to } =
-      mode === "month" ? getMonthRange(curYear, curMonth) : getWeekRange(weekStart);
+      mode === "month"
+        ? getMonthRange(curYear, curMonth)
+        : getWeekRange(weekStart);
 
     const rangeKey = `${mode}-${dateKeyUtc(from)}-${dateKeyUtc(to)}`;
     const cached = cacheRef.current.get(rangeKey);
@@ -1133,12 +1286,22 @@ export function DesktopStudentCalendar() {
       setError(null);
 
       try {
-        const nextData = await fetchRevisionData(dateKeyUtc(from), dateKeyUtc(to), controller.signal);
+        const nextData = await fetchRevisionData(
+          dateKeyUtc(from),
+          dateKeyUtc(to),
+          controller.signal
+        );
         cacheRef.current.set(rangeKey, nextData);
         setData(nextData);
       } catch (err) {
-        if (controller.signal.aborted) return;
-        setError(err instanceof Error ? err.message : "Unable to load revision calendar.");
+        if (controller.signal.aborted) {
+          return;
+        }
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to load revision calendar."
+        );
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false);
@@ -1152,25 +1315,39 @@ export function DesktopStudentCalendar() {
 
   const headerLabel = formatRangeLabel(mode, curYear, curMonth, weekStart);
   const periodKey =
-    mode === "month" ? `m-${curYear}-${curMonth}` : `w-${weekStart.toISOString().slice(0, 10)}`;
+    mode === "month"
+      ? `m-${curYear}-${curMonth}`
+      : `w-${weekStart.toISOString().slice(0, 10)}`;
 
   const totalDue = useMemo(() => {
     if (mode === "month") {
       const prefix = `${curYear}-${String(curMonth + 1).padStart(2, "0")}`;
       return Object.entries(data)
         .filter(([key]) => key.startsWith(prefix))
-        .reduce((sum, [, items]) => sum + items.reduce((itemSum, item) => itemSum + item.dueCount, 0), 0);
+        .reduce(
+          (sum, [, items]) =>
+            sum + items.reduce((itemSum, item) => itemSum + item.dueCount, 0),
+          0
+        );
     }
 
     return getWeekDates(weekStart).reduce((sum, day) => {
       const dayKey = dateKeyUtc(day);
-      return sum + (data[dayKey] ?? []).reduce((itemSum, item) => itemSum + item.dueCount, 0);
+      return (
+        sum +
+        (data[dayKey] ?? []).reduce(
+          (itemSum, item) => itemSum + item.dueCount,
+          0
+        )
+      );
     }, 0);
   }, [curMonth, curYear, data, mode, weekStart]);
 
   const tasksByDay = useMemo(() => {
     return upcomingTasks.reduce<Record<string, UpcomingTask[]>>((acc, task) => {
-      if (!task.dueAt) return acc;
+      if (!task.dueAt) {
+        return acc;
+      }
       const key = dateKeyUtc(new Date(task.dueAt));
       const next = acc[key] ?? [];
       next.push(task);
@@ -1181,7 +1358,10 @@ export function DesktopStudentCalendar() {
 
   const activeItems = activeKey ? (data[activeKey] ?? []) : [];
 
-  const handleDayClick = (event: ReactMouseEvent<HTMLButtonElement>, key: string) => {
+  const handleDayClick = (
+    event: ReactMouseEvent<HTMLButtonElement>,
+    key: string
+  ) => {
     if (activeKey === key) {
       setActiveKey(null);
       return;
@@ -1190,7 +1370,9 @@ export function DesktopStudentCalendar() {
     const cell = event.currentTarget.getBoundingClientRect();
     const container = containerRef.current?.getBoundingClientRect();
 
-    if (!container) return;
+    if (!container) {
+      return;
+    }
 
     const rawLeft = cell.left - container.left;
     const left = Math.max(0, Math.min(rawLeft, container.width - 280));
@@ -1247,7 +1429,7 @@ export function DesktopStudentCalendar() {
                 y: 0,
                 transition: { type: "spring", stiffness: 300, damping: 28 },
               }}
-              className="text-sm font-medium tracking-tight text-foreground"
+              className="font-medium text-foreground text-sm tracking-tight"
               exit={{ opacity: 0, y: 5, transition: { duration: 0.12 } }}
               initial={{ opacity: 0, y: -5 }}
               key={headerLabel}
@@ -1258,21 +1440,41 @@ export function DesktopStudentCalendar() {
         </div>
 
         <div className="flex shrink-0 items-center gap-3">
-          <Badge className="text-xs font-normal text-muted-foreground" variant="outline">
-            <span className="mr-1 font-semibold text-foreground">{totalDue}</span>
+          <Badge
+            className="font-normal text-muted-foreground text-xs"
+            variant="outline"
+          >
+            <span className="mr-1 font-semibold text-foreground">
+              {totalDue}
+            </span>
             cards due
           </Badge>
         </div>
       </div>
 
       <div className="flex items-center gap-1.5">
-        <Button className="h-7 w-7" onClick={() => navigate(false)} size="icon" variant="outline">
+        <Button
+          className="h-7 w-7"
+          onClick={() => navigate(false)}
+          size="icon"
+          variant="outline"
+        >
           <ChevronLeft className="h-3.5 w-3.5" />
         </Button>
-        <Button className="h-7 w-7" onClick={() => navigate(true)} size="icon" variant="outline">
+        <Button
+          className="h-7 w-7"
+          onClick={() => navigate(true)}
+          size="icon"
+          variant="outline"
+        >
           <ChevronRight className="h-3.5 w-3.5" />
         </Button>
-        <Button className="h-7 px-2.5 text-xs" onClick={goToday} size="sm" variant="outline">
+        <Button
+          className="h-7 px-2.5 text-xs"
+          onClick={goToday}
+          size="sm"
+          variant="outline"
+        >
           Today
         </Button>
 
@@ -1282,7 +1484,7 @@ export function DesktopStudentCalendar() {
           {(["month", "week"] as CalendarMode[]).map((nextMode) => (
             <button
               className={cn(
-                "flex h-6 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors",
+                "flex h-6 items-center gap-1.5 rounded-md px-2.5 font-medium text-xs transition-colors",
                 mode === nextMode
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -1308,13 +1510,15 @@ export function DesktopStudentCalendar() {
       <div className="space-y-4">
         <div className="min-w-0 space-y-3">
           {loading && (
-            <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="inline-flex items-center gap-2 text-muted-foreground text-xs">
               <Spinner className="size-3.5" />
               Loading upcoming reviews...
             </div>
           )}
 
-          {error && <div className="text-xs text-muted-foreground">{error}</div>}
+          {error && (
+            <div className="text-muted-foreground text-xs">{error}</div>
+          )}
 
           <div className="overflow-hidden">
             <AnimatePresence custom={dir} initial={false} mode="wait">

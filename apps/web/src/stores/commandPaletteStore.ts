@@ -61,30 +61,27 @@ export const commandPaletteActions = {
     useCommandPaletteStore.setState({
       open: true,
     }),
-  setFileIndex: (
-    next: {
-      files: CommandPaletteFileNode[];
-      folders: CommandPaletteFolderNode[];
-      rootFolderId?: string | null;
-      workspaceName?: string;
-      workspaceUuid: string | null;
-    }
-  ) =>
+  setFileIndex: (next: {
+    files: CommandPaletteFileNode[];
+    folders: CommandPaletteFolderNode[];
+    rootFolderId?: string | null;
+    workspaceName?: string;
+    workspaceUuid: string | null;
+  }) =>
     useCommandPaletteStore.setState((state) => ({
       ...state,
       workspaceUuid: next.workspaceUuid,
-      fileIndexByWorkspace:
-        next.workspaceUuid
-          ? {
-              ...state.fileIndexByWorkspace,
-              [next.workspaceUuid]: {
-                files: next.files,
-                folders: next.folders,
-                rootFolderId: next.rootFolderId ?? null,
-                workspaceName: next.workspaceName,
-              },
-            }
-          : state.fileIndexByWorkspace,
+      fileIndexByWorkspace: next.workspaceUuid
+        ? {
+            ...state.fileIndexByWorkspace,
+            [next.workspaceUuid]: {
+              files: next.files,
+              folders: next.folders,
+              rootFolderId: next.rootFolderId ?? null,
+              workspaceName: next.workspaceName,
+            },
+          }
+        : state.fileIndexByWorkspace,
     })),
   recordRecentFile: (workspaceId: string, fileId: string) =>
     useCommandPaletteStore.setState((state) => {

@@ -1,17 +1,20 @@
 import { cn } from "@/lib/utils";
 
-type AvenireMarkProps = {
+interface AvenireMarkProps {
   className?: string;
   title?: string;
-};
+}
 
-export function AvenireMark({ className, title = "Avenire mark" }: AvenireMarkProps) {
+export function AvenireMark({
+  className,
+  title = "Avenire mark",
+}: AvenireMarkProps) {
   return (
     <svg
-      viewBox="0 0 198 154"
-      role="img"
       aria-label={title}
       className={cn("text-foreground", className)}
+      role="img"
+      viewBox="0 0 198 154"
       xmlns="http://www.w3.org/2000/svg"
     >
       <path

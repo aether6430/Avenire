@@ -13,7 +13,9 @@ function base64UrlEncode(input: string) {
 }
 
 function signPayload(payloadSegment: string, secret: string) {
-  return createHmac("sha256", secret).update(payloadSegment).digest("base64url");
+  return createHmac("sha256", secret)
+    .update(payloadSegment)
+    .digest("base64url");
 }
 
 function base64UrlDecode(input: string) {
@@ -59,7 +61,7 @@ export function verifyFilesRealtimeToken(token: string, workspaceUuid: string) {
   }
 
   const [payloadSegment, signature] = parts;
-  if (!payloadSegment || !signature) {
+  if (!(payloadSegment && signature)) {
     return { ok: false as const, reason: "malformed" };
   }
 
@@ -79,7 +81,9 @@ export function verifyFilesRealtimeToken(token: string, workspaceUuid: string) {
 
   let payload: FilesRealtimeTokenPayload;
   try {
-    payload = JSON.parse(base64UrlDecode(payloadSegment)) as FilesRealtimeTokenPayload;
+    payload = JSON.parse(
+      base64UrlDecode(payloadSegment)
+    ) as FilesRealtimeTokenPayload;
   } catch {
     return { ok: false as const, reason: "payload" };
   }

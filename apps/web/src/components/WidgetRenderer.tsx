@@ -1,24 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
 import { useTheme } from "next-themes";
+import { useCallback, useEffect, useRef } from "react";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 interface WidgetRendererProps {
+  className?: string;
   /** Raw HTML/CSS/JS fragment from the AI */
   html: string;
-  /** Called when the widget calls sendMessage(text) */
-  onSendMessage?: (text: string) => void;
-  /** Called when the widget calls openLink(url) */
-  onOpenLink?: (url: string) => void;
-  /** Run inline scripts after content updates (disable during streaming). */
-  runScripts?: boolean;
   /** Whether the widget is still streaming (used for shimmer). */
   isStreaming?: boolean;
-  className?: string;
+  /** Called when the widget calls openLink(url) */
+  onOpenLink?: (url: string) => void;
+  /** Called when the widget calls sendMessage(text) */
+  onSendMessage?: (text: string) => void;
+  /** Run inline scripts after content updates (disable during streaming). */
+  runScripts?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -34,9 +34,13 @@ function extractThemeVars(): Record<string, string> {
   const vars: Record<string, string> = {};
   for (let i = 0; i < style.length; i += 1) {
     const name = style[i];
-    if (!name?.startsWith("--")) continue;
+    if (!name?.startsWith("--")) {
+      continue;
+    }
     const val = style.getPropertyValue(name).trim();
-    if (val) vars[name] = val;
+    if (val) {
+      vars[name] = val;
+    }
   }
   return vars;
 }
@@ -591,7 +595,9 @@ export function WidgetRenderer({
 
   const postToIframe = useCallback((data: Record<string, unknown>) => {
     const iframe = iframeRef.current;
-    if (!iframe?.contentWindow) return;
+    if (!iframe?.contentWindow) {
+      return;
+    }
     iframe.contentWindow.postMessage(data, "*");
   }, []);
 
@@ -615,7 +621,9 @@ export function WidgetRenderer({
   // Build the iframe document once; updates happen via postMessage + morphdom
   const initIframe = useCallback(() => {
     const iframe = iframeRef.current;
-    if (!iframe) return;
+    if (!iframe) {
+      return;
+    }
 
     const vars = extractThemeVars();
     const cssVarBlock = buildCssVarBlock(vars);
@@ -630,21 +638,29 @@ export function WidgetRenderer({
   }, [initIframe]);
 
   useEffect(() => {
-    if (!isReadyRef.current) return;
+    if (!isReadyRef.current) {
+      return;
+    }
     writeCssVars();
   }, [writeCssVars, isDark]);
 
   useEffect(() => {
-    if (!isReadyRef.current) return;
+    if (!isReadyRef.current) {
+      return;
+    }
     writeContent(html, runScripts);
   }, [html, runScripts, writeContent]);
 
   // Listen for messages from the iframe
   useEffect(() => {
     function handleMessage(e: MessageEvent) {
-      if (!iframeRef.current) return;
+      if (!iframeRef.current) {
+        return;
+      }
       // Only accept messages from our iframe
-      if (e.source !== iframeRef.current.contentWindow) return;
+      if (e.source !== iframeRef.current.contentWindow) {
+        return;
+      }
 
       const { type, text, url, height: h } = e.data ?? {};
 
@@ -658,7 +674,7 @@ export function WidgetRenderer({
         // Auto-height mode: resize iframe to content
         autoHeightRef.current = Math.max(80, h + 2); // +2 for border
         if (iframeRef.current) {
-          iframeRef.current.style.height = autoHeightRef.current + "px";
+          iframeRef.current.style.height = `${autoHeightRef.current}px`;
         }
       }
     }
@@ -669,8 +685,8 @@ export function WidgetRenderer({
 
   return (
     <div
-      ref={containerRef}
       className={`relative w-full overflow-visible rounded-lg bg-card ${className}`}
+      ref={containerRef}
     >
       {isStreaming && (
         <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden rounded-lg bg-background/5 backdrop-blur-[0.5px]">
@@ -686,14 +702,13 @@ export function WidgetRenderer({
         </div>
       )}
       <iframe
-        ref={iframeRef}
-        title="Avenire Widget"
-        sandbox="allow-scripts"
         onLoad={() => {
           isReadyRef.current = true;
           writeCssVars();
           writeContent(html, runScripts);
         }}
+        ref={iframeRef}
+        sandbox="allow-scripts"
         style={{
           width: "100%",
           height: `${autoHeightRef.current}px`,
@@ -701,6 +716,7 @@ export function WidgetRenderer({
           display: "block",
           background: "var(--card)",
         }}
+        title="Avenire Widget"
       />
     </div>
   );

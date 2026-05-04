@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
 import type { ReactNode } from "react";
+import { useEffect } from "react";
 import { usePaneHeaderActions } from "@/stores/header-store";
 
 export function HeaderActions({ children }: { children: ReactNode }) {
