@@ -2,6 +2,7 @@
 
 import {
   AppleHelloEffect,
+  resolveAppleHelloLocaleFromCountry,
   resolveAppleHelloLocale,
 } from "@avenire/ui/components/apple-hello-effect";
 import { Button } from "@avenire/ui/components/button";
@@ -48,22 +49,29 @@ const STEPS = [
   },
 ] as const;
 
-export function OnboardingPageClient() {
+export function OnboardingPageClient({
+  countryCode,
+}: {
+  countryCode?: string | null;
+}) {
   const router = useRouter();
+  const initialHelloLocale = resolveAppleHelloLocaleFromCountry(countryCode);
   const [step, setStep] = useState(0);
   const [isFinishing, setIsFinishing] = useState(false);
   const [showFlush, setShowFlush] = useState(false);
   const [helloLocale, setHelloLocale] = useState<
     ReturnType<typeof resolveAppleHelloLocale>
-  >("en");
+  >(initialHelloLocale ?? "en");
   const [petName, setPetName] = useState("Auri");
   const [petAccessory, setPetAccessory] = useState<PetAccessory>("none");
   const current = STEPS[step] ?? STEPS[0];
   const isPetStep = step === 1;
 
   useEffect(() => {
-    setHelloLocale(resolveAppleHelloLocale(navigator.languages));
-  }, []);
+    setHelloLocale(
+      initialHelloLocale ?? resolveAppleHelloLocale(navigator.languages)
+    );
+  }, [initialHelloLocale]);
 
   useEffect(() => {
     if (!showFlush) {
