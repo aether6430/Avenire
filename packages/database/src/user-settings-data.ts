@@ -44,6 +44,20 @@ export async function getUserSettings(userId: string): Promise<UserSettingsRecor
   };
 }
 
+export async function getUserOnboardingCompleted(
+  userId: string
+): Promise<boolean> {
+  const [settings] = await db
+    .select({
+      onboardingCompleted: userSettings.onboardingCompleted,
+    })
+    .from(userSettings)
+    .where(eq(userSettings.userId, userId))
+    .limit(1);
+
+  return settings?.onboardingCompleted ?? false;
+}
+
 export async function upsertUserSettings(
   userId: string,
   updates: Partial<UserSettingsRecord>,

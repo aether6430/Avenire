@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { OnboardingPageClient } from "@/components/auth/onboarding-page-client";
 import { buildPageMetadata } from "@/lib/page-metadata";
-import { getUserSettings } from "@/lib/user-settings";
+import { getUserOnboardingCompleted } from "@/lib/user-settings";
 import { getSessionUser } from "@/lib/workspace";
 
 export const metadata = buildPageMetadata({
@@ -16,8 +16,13 @@ export default async function OnboardingPage() {
     redirect("/login?callbackURL=/onboarding");
   }
 
-  const settings = await getUserSettings(user.id);
-  if (settings.onboardingCompleted) {
+  const onboardingCompleted = await getUserOnboardingCompleted(user.id).catch(
+    (error) => {
+      console.error("[onboarding] Failed to load onboarding status", error);
+      return false;
+    }
+  );
+  if (onboardingCompleted) {
     redirect("/workspace");
   }
 

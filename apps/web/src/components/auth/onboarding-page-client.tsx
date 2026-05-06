@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  AppleHelloEffect,
+  resolveAppleHelloLocale,
+} from "@avenire/ui/components/apple-hello-effect";
 import { Button } from "@avenire/ui/components/button";
 import { Input } from "@avenire/ui/components/input";
 import {
@@ -11,8 +15,9 @@ import {
 } from "@avenire/ui/components/select";
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AuthShell } from "@/components/auth-shell";
+import { MeshGradient } from "@/components/marketing/mesh-gradient";
 import { PET_OPTIONS, type PetAccessory } from "@/lib/pet-preferences";
 
 const STEPS = [
@@ -46,9 +51,30 @@ export function OnboardingPageClient() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [isFinishing, setIsFinishing] = useState(false);
+  const [showFlush, setShowFlush] = useState(false);
+  const [helloLocale, setHelloLocale] = useState<
+    ReturnType<typeof resolveAppleHelloLocale>
+  >("en");
   const [petName, setPetName] = useState("Auri");
   const [petAccessory, setPetAccessory] = useState<PetAccessory>("none");
   const current = STEPS[step] ?? STEPS[0];
+
+  useEffect(() => {
+    setHelloLocale(resolveAppleHelloLocale(navigator.languages));
+  }, []);
+
+  useEffect(() => {
+    if (!showFlush) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      router.push("/workspace");
+      router.refresh();
+    }, 4200);
+
+    return () => window.clearTimeout(timeout);
+  }, [router, showFlush]);
 
   const finishOnboarding = async () => {
     setIsFinishing(true);
@@ -68,8 +94,7 @@ export function OnboardingPageClient() {
         throw new Error("Unable to complete onboarding.");
       }
 
-      router.push("/workspace");
-      router.refresh();
+      setShowFlush(true);
     } catch {
       setIsFinishing(false);
     }
@@ -77,6 +102,44 @@ export function OnboardingPageClient() {
 
   return (
     <AuthShell variant="onboarding">
+      <AnimatePresence>
+        {showFlush ? (
+          <motion.div
+            animate={{ clipPath: "inset(0% 0% 0% 0%)" }}
+            className="fixed inset-0 z-[100] overflow-hidden bg-background text-white"
+            exit={{ opacity: 0 }}
+            initial={{ clipPath: "inset(0% 100% 0% 0%)" }}
+            transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <MeshGradient
+              className="absolute inset-0"
+              colors={["#101827", "#f45d48", "#2f80ed", "#f5c04e", "#18b788"]}
+              resolutionScale={0.9}
+              speed={0.85}
+            />
+            <motion.div
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              className="absolute inset-0 grid place-items-center px-8"
+              initial={{ opacity: 0, scale: 0.96, y: 12 }}
+              transition={{
+                delay: 0.45,
+                duration: 0.7,
+                ease: [0.16, 1, 0.3, 1],
+              }}
+            >
+              <AppleHelloEffect
+                className="h-auto max-h-32 w-full max-w-[min(78vw,720px)] drop-shadow-[0_18px_50px_rgba(0,0,0,0.28)]"
+                durationScale={0.72}
+                locale={helloLocale}
+                onAnimationComplete={() => {
+                  router.push("/workspace");
+                  router.refresh();
+                }}
+              />
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
       <div className="w-full max-w-lg">
         <div className="flex items-center gap-2 font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">
           <span>

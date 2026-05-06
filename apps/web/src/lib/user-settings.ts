@@ -1,4 +1,5 @@
 export {
+  getUserOnboardingCompleted,
   getUserSettings,
   type UserSettingsRecord,
   upsertUserSettings,
