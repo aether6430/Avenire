@@ -22,6 +22,7 @@ export function buildPageMetadata(input: {
   const description = input.description ?? DEFAULT_DESCRIPTION;
   const ogImage = new URL("/api/og", metadataBase);
   ogImage.searchParams.set("title", input.title);
+  ogImage.searchParams.set("description", "Learn with context");
   const ogImageUrl = ogImage.toString();
   const canonical =
     input.path === undefined

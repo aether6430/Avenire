@@ -16,18 +16,18 @@ export const Hero = () => {
         <span className="text-brand">clearer thinking</span>
       </Heading>
 
-      <SubHeading className="mx-auto mt-6 max-w-lg">
+      <SubHeading as="p" className="mx-auto mt-6 max-w-lg">
         Avenire turns notes, files, questions, and study sessions into one
-        connected AI workspace for learning deeply and working through hard
+        connected AI learning workspace for clearer thinking through hard
         ideas.
       </SubHeading>
 
       <div className="mt-6 flex items-center gap-4">
         <Button as={Link} href="/waitlist">
-          Join waitlist
+          Start learning
         </Button>
         <Button variant="secondary" as={Link} href="/pricing">
-          View pricing
+          See plans
         </Button>
       </div>
     </Container>

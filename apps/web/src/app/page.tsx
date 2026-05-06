@@ -3,9 +3,9 @@ import { buildPageMetadata, metadataBase } from "@/lib/page-metadata";
 
 export const metadata = buildPageMetadata({
   description:
-    "Avenire is an AI learning workspace that builds real understanding. Upload notes, ask questions across sources, and grow a knowledge graph that compounds over time.",
+    "Study from sources, ask better questions, and turn notes into review.",
   path: "/",
-  title: "Avenire — AI Learning Workspace for Students & Researchers",
+  title: "AI Learning Workspace",
 });
 
 export default function Page() {

@@ -16,6 +16,7 @@ import {
 type Tab = {
   title: string;
   description: string;
+  mobileDescription: string;
   icon: React.FC<React.SVGProps<SVGSVGElement>>;
   id: string;
 };
@@ -26,6 +27,8 @@ export const HowItWorks = () => {
       title: "Add the material",
       description:
         "Upload papers, keep notes, organize folders, and let Avenire search the material you are using",
+      mobileDescription:
+        "Bring papers, notes, and folders into one searchable study base.",
       icon: FirstIcon,
       id: "workflow",
       skeleton: <DesignYourWorkflowSkeleton />,
@@ -34,6 +37,8 @@ export const HowItWorks = () => {
       title: "Work through it interactively",
       description:
         "Ask questions, generate diagrams or widgets, check assumptions, and log misconceptions as they appear",
+      mobileDescription:
+        "Question the material, check assumptions, and capture weak spots.",
       icon: SecondIcon,
       id: "tools",
       skeleton: <ConnectYourTooklsSkeleton />,
@@ -42,6 +47,8 @@ export const HowItWorks = () => {
       title: "Turn gaps into review",
       description:
         "Save explanations into markdown, generate flashcards, and schedule review around the concepts you missed",
+      mobileDescription:
+        "Convert missed concepts into notes, cards, and scheduled review.",
       icon: ThirdIcon,
       id: "deploy",
       skeleton: <DeployAndScaleSkeleton />,
@@ -65,7 +72,9 @@ export const HowItWorks = () => {
     <Container className="border-divide border-x">
       <div className="flex flex-col items-center pt-16">
         <Badge text="How it works" />
-        <SectionHeading className="mt-4">From source to understanding</SectionHeading>
+        <SectionHeading className="mt-4">
+          From source to understanding
+        </SectionHeading>
 
         <SubHeading as="p" className="mx-auto mt-6 max-w-lg">
           Avenire keeps the full loop connected: source search, interactive AI
@@ -129,7 +138,7 @@ export const HowItWorks = () => {
                 <tab.icon className="shrink-0" /> {tab.title}
               </div>
               <p className="relative z-20 mt-2 text-left text-sm text-gray-600 dark:text-neutral-300">
-                {tab.description}
+                {tab.mobileDescription}
               </p>
               <div className="relative mx-auto h-80 w-full overflow-hidden mask-t-from-90% mask-r-from-90% mask-b-from-90% mask-l-from-90% sm:h-80 sm:w-160">
                 {tab.skeleton}

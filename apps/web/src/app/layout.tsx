@@ -11,7 +11,7 @@ const defaultOgImage = {
   alt: "Avenire — AI learning workspace",
   height: 630,
   type: "image/png",
-  url: "/api/og?title=Avenire",
+  url: "/api/og?title=Avenire&description=Learn%20with%20context",
   width: 1200,
 };
 
