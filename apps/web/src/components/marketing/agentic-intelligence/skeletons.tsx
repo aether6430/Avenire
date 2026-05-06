@@ -461,15 +461,6 @@ const AssistantMessage = ({
 export const NativeToolsIntegrationSkeleton = () => {
   return (
     <>
-      <div className="relative mx-auto my-24 h-full w-full scale-[2] sm:scale-[1.5] md:scale-[1.2] lg:hidden">
-        <Image
-          src="/marketing/illustrations/native-tools-integration.svg"
-          alt="Native Tools Integration"
-          width={1200}
-          height={1200}
-          className="dark:invert dark:filter"
-        />
-      </div>
       <motion.div className="relative mx-auto my-12 hidden h-full max-h-70 min-h-80 max-w-[67rem] grid-cols-2 p-4 lg:grid">
         <div className="flex items-center justify-between">
           <div className="flex flex-col gap-10">

@@ -99,7 +99,7 @@ const MobileNav = ({ items }: { items: { title: string; href: string }[] }) => {
                       key={item.title}
                       render={
                         <Link
-                          className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4 font-medium text-2xl text-white capitalize transition duration-200 hover:border-brand/50 hover:bg-brand/10"
+                          className="font-medium text-2xl text-white capitalize transition duration-200 hover:text-brand"
                           href={item.href as any}
                         />
                       }
@@ -117,27 +117,24 @@ const MobileNav = ({ items }: { items: { title: string; href: string }[] }) => {
                 </div>
               </div>
 
-              <SheetFooter className="flex-row items-center justify-between border-white/10 border-t p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-                <SheetClose
-                  render={
-                    <Link
-                      className="font-medium text-sm text-white/64 transition-colors hover:text-white"
-                      href="/login"
-                    />
-                  }
+              <SheetFooter className="border-white/10 border-t p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+                <Button
+                  as={Link}
+                  className="w-full py-3"
+                  href="/login"
+                  onClick={() => setIsOpen(false)}
+                  variant="secondary"
                 >
                   Login
-                </SheetClose>
-                <SheetClose
-                  render={
-                    <Link
-                      className="font-medium text-brand text-sm transition-colors hover:text-brand/80"
-                      href="/waitlist"
-                    />
-                  }
+                </Button>
+                <Button
+                  as={Link}
+                  className="w-full py-3"
+                  href="/waitlist"
+                  onClick={() => setIsOpen(false)}
                 >
                   Join waitlist
-                </SheetClose>
+                </Button>
               </SheetFooter>
             </div>
           </SheetContent>
