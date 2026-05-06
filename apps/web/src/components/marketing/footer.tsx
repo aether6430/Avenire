@@ -1,8 +1,4 @@
-import {
-  ChatCircle,
-  Envelope,
-  GithubLogo,
-} from "@phosphor-icons/react/ssr";
+import { ChatCircle, Envelope, GithubLogo } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
 import { AvenireMark } from "@/components/branding/AvenireMark";
 import { Container } from "./container";
@@ -48,11 +44,11 @@ const communityLinks = [
 
 export const Footer = () => {
   return (
-    <footer className="border-divide relative overflow-hidden border-t bg-[#050506]">
+    <footer className="relative overflow-hidden border-divide border-t bg-[#050506]">
       <Container className="relative min-h-[31rem] px-6 pt-16 pb-8 md:px-10">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute right-[-10vw] bottom-[-0.42em] left-[-10vw] select-none overflow-hidden font-semibold text-[27vw] leading-none tracking-[-0.08em] text-white/[0.065]"
+          className="pointer-events-none absolute bottom-[-0.42em] left-1/2 w-[115vw] -translate-x-1/2 select-none overflow-hidden text-center font-semibold text-[25vw] text-white/[0.065] leading-none tracking-[-0.08em] md:text-[27vw]"
         >
           Avenire
         </div>
@@ -68,7 +64,7 @@ export const Footer = () => {
                 Avenire
               </span>
             </Link>
-            <p className="mt-4 max-w-[17rem] text-sm leading-6 text-white/52">
+            <p className="mt-4 max-w-[17rem] text-sm text-white/52 leading-6">
               Study, research, and reason through hard ideas in one connected AI
               workspace.
             </p>
@@ -103,7 +99,7 @@ export const Footer = () => {
           </FooterColumn>
 
           <div className="flex flex-col items-start gap-4 md:items-end">
-            <p className="text-xs uppercase tracking-[0.16em] text-white/36">
+            <p className="text-white/36 text-xs uppercase tracking-[0.16em]">
               Community
             </p>
             <div className="flex gap-2">
@@ -117,7 +113,9 @@ export const Footer = () => {
                     href={link.href}
                     key={link.label}
                     rel="noreferrer"
-                    target={link.href.startsWith("mailto:") ? undefined : "_blank"}
+                    target={
+                      link.href.startsWith("mailto:") ? undefined : "_blank"
+                    }
                   >
                     <Icon className="size-4" />
                   </a>
@@ -141,7 +139,7 @@ function FooterColumn({
 }) {
   return (
     <nav className="flex flex-col items-start gap-3">
-      <p className="mb-1 text-xs uppercase tracking-[0.16em] text-white/36">
+      <p className="mb-1 text-white/36 text-xs uppercase tracking-[0.16em]">
         {title}
       </p>
       {children}
@@ -158,8 +156,7 @@ function FooterLink({
   external?: boolean;
   href: string;
 }) {
-  const className =
-    "text-sm text-white/72 transition-colors hover:text-brand";
+  const className = "text-sm text-white/72 transition-colors hover:text-brand";
 
   if (external) {
     return (

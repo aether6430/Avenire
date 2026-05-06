@@ -1,10 +1,4 @@
 "use client";
-import React, { useState } from "react";
-import { Logo } from "./logo";
-import { Container } from "./container";
-import Link from "next/link";
-import { Button } from "./button";
-import { CloseIcon, HamburgerIcon } from "@/components/marketing/icons/general";
 import {
   Sheet,
   SheetClose,
@@ -15,12 +9,13 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@avenire/ui/components/sheet";
-import {
-  motion,
-  useScroll,
-  useSpring,
-  useTransform,
-} from "motion/react";
+import { motion, useScroll, useSpring, useTransform } from "motion/react";
+import Link from "next/link";
+import { useState } from "react";
+import { CloseIcon, HamburgerIcon } from "@/components/marketing/icons/general";
+import { Button } from "./button";
+import { Container } from "./container";
+import { Logo } from "./logo";
 
 const items = [
   {
@@ -57,27 +52,27 @@ const MobileNav = ({ items }: { items: { title: string; href: string }[] }) => {
 
   return (
     <div className="fixed inset-x-3 top-3 z-50 md:hidden">
-      <div className="shadow-aceternity flex items-center justify-between rounded-2xl border border-white/10 bg-neutral-950/88 p-3 backdrop-blur-xl">
+      <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-neutral-950/88 p-3 shadow-aceternity backdrop-blur-xl">
         <Logo />
-        <Sheet open={isOpen} onOpenChange={setIsOpen}>
+        <Sheet onOpenChange={setIsOpen} open={isOpen}>
           <SheetTrigger
             render={
               <button
-                className="shadow-aceternity flex size-9 flex-col items-center justify-center rounded-xl border border-white/10 bg-white/5"
                 aria-label="Open menu"
+                className="flex size-9 flex-col items-center justify-center rounded-xl border border-white/10 bg-white/5 shadow-aceternity"
               />
             }
           >
             <HamburgerIcon className="size-4 shrink-0 text-brand" />
           </SheetTrigger>
           <SheetContent
-            side="right"
-            showCloseButton={false}
             className="avenire-marketing-scope dark inset-0 h-dvh w-screen max-w-none border-0 bg-neutral-950 p-0 text-neutral-100"
+            showCloseButton={false}
+            side="right"
           >
             <div className="absolute inset-0 bg-[repeating-linear-gradient(315deg,_var(--pattern-fg)_0,_var(--pattern-fg)_1px,_transparent_0,_transparent_50%)] bg-[size:12px_12px] opacity-40" />
             <div className="relative z-10 flex min-h-dvh flex-col">
-              <SheetHeader className="flex-row items-center justify-between border-b border-white/10 p-4">
+              <SheetHeader className="flex-row items-center justify-between border-white/10 border-b p-4">
                 <div>
                   <Logo />
                   <SheetTitle className="sr-only">Navigation</SheetTitle>
@@ -88,8 +83,8 @@ const MobileNav = ({ items }: { items: { title: string; href: string }[] }) => {
                 <SheetClose
                   render={
                     <button
-                      className="shadow-aceternity flex size-9 items-center justify-center rounded-xl border border-white/10 bg-white/5"
                       aria-label="Close menu"
+                      className="flex size-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 shadow-aceternity"
                     />
                   }
                 >
@@ -104,15 +99,15 @@ const MobileNav = ({ items }: { items: { title: string; href: string }[] }) => {
                       key={item.title}
                       render={
                         <Link
+                          className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4 font-medium text-2xl text-white capitalize transition duration-200 hover:border-brand/50 hover:bg-brand/10"
                           href={item.href as any}
-                          className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4 text-2xl font-medium capitalize text-white transition duration-200 hover:border-brand/50 hover:bg-brand/10"
                         />
                       }
                     >
                       <motion.span
+                        animate={{ opacity: 1, y: 0 }}
                         className="block"
                         initial={{ opacity: 0, y: 12 }}
-                        animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.24, delay: index * 0.05 }}
                       >
                         {item.title}
@@ -122,24 +117,27 @@ const MobileNav = ({ items }: { items: { title: string; href: string }[] }) => {
                 </div>
               </div>
 
-              <SheetFooter className="border-t border-white/10 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-                <Button
-                  as={Link}
-                  href="/login"
-                  className="w-full py-3"
-                  onClick={() => setIsOpen(false)}
-                  variant="secondary"
+              <SheetFooter className="flex-row items-center justify-between border-white/10 border-t p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+                <SheetClose
+                  render={
+                    <Link
+                      className="font-medium text-sm text-white/64 transition-colors hover:text-white"
+                      href="/login"
+                    />
+                  }
                 >
                   Login
-                </Button>
-                <Button
-                  as={Link}
-                  href="/waitlist"
-                  className="w-full py-3"
-                  onClick={() => setIsOpen(false)}
+                </SheetClose>
+                <SheetClose
+                  render={
+                    <Link
+                      className="font-medium text-brand text-sm transition-colors hover:text-brand/80"
+                      href="/waitlist"
+                    />
+                  }
                 >
                   Join waitlist
-                </Button>
+                </SheetClose>
               </SheetFooter>
             </div>
           </SheetContent>
@@ -192,12 +190,12 @@ const FloatingNav = ({
   };
   const y = useSpring(
     useTransform(scrollY, [100, 120], [-100, 10]),
-    springConfig,
+    springConfig
   );
   return (
     <motion.div
+      className="fixed inset-x-6 top-0 z-50 mx-auto hidden max-w-[68rem] items-center justify-between rounded-2xl border border-white/10 bg-neutral-950/82 px-2 py-2 shadow-aceternity backdrop-blur-sm md:flex dark:bg-neutral-950/82"
       style={{ y }}
-      className="shadow-aceternity fixed inset-x-6 top-0 z-50 mx-auto hidden max-w-[68rem] items-center justify-between rounded-2xl border border-white/10 bg-neutral-950/82 px-2 py-2 backdrop-blur-sm md:flex dark:bg-neutral-950/82"
     >
       <Logo />
       <div className="flex items-center gap-10">

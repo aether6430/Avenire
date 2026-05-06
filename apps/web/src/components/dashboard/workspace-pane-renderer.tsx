@@ -59,6 +59,18 @@ const PREVIEW_PANE_ID = "__workspace-pane-drop-preview__";
 const PREVIEW_PANE_MIN_SIZE = 28;
 const WORKSPACE_PANE_REORDER_MIME = "application/x-avenire-workspace-pane-id";
 
+interface RenderablePane {
+  id: string;
+  isDropPreview?: boolean;
+  previewTargetPaneId?: string;
+  route: {
+    pathname: string;
+    search: string;
+  };
+  rowId: string;
+  size: number;
+}
+
 function createTransparentDragImage() {
   if (typeof document === "undefined") {
     return null;
@@ -134,16 +146,16 @@ function getDraggedPaneId(
   return dataTransferPaneId || fallbackPaneId;
 }
 
-function isDragLeaveInsidePane(event: DragEvent<HTMLElement>) {
+function isDragLeaveInsideElement(
+  event: DragEvent<HTMLElement>,
+  element: HTMLElement = event.currentTarget
+) {
   const relatedTarget = event.relatedTarget;
-  if (
-    relatedTarget instanceof Node &&
-    event.currentTarget.contains(relatedTarget)
-  ) {
+  if (relatedTarget instanceof Node && element.contains(relatedTarget)) {
     return true;
   }
 
-  const bounds = event.currentTarget.getBoundingClientRect();
+  const bounds = element.getBoundingClientRect();
   return (
     event.clientX >= bounds.left &&
     event.clientX <= bounds.right &&
@@ -178,15 +190,7 @@ function normalizePreviewPaneSizes<T extends { id: string; size: number }>(
 }
 
 function buildPreviewPanes(
-  panes: Array<{
-    id: string;
-    route: {
-      pathname: string;
-      search: string;
-    };
-    rowId: string;
-    size: number;
-  }>,
+  panes: RenderablePane[],
   preview: PaneDropPreview | null,
   draggedPaneId: string | null
 ) {
@@ -199,17 +203,25 @@ function buildPreviewPanes(
     return panes;
   }
 
-  const draggedPane = draggedPaneId
-    ? panes.find((pane) => pane.id === draggedPaneId)
-    : null;
-  const sourcePane = draggedPane ?? {
-    id: PREVIEW_PANE_ID,
-    route: preview.href
-      ? buildRouteState(preview.href)
-      : { pathname: "/workspace", search: "" },
-    rowId: targetPane.rowId,
-    size: PREVIEW_PANE_MIN_SIZE,
-  };
+  const sourcePane = draggedPaneId
+    ? {
+        id: PREVIEW_PANE_ID,
+        isDropPreview: true,
+        previewTargetPaneId: targetPane.id,
+        route: { pathname: "/workspace", search: "" },
+        rowId: targetPane.rowId,
+        size: PREVIEW_PANE_MIN_SIZE,
+      }
+    : {
+        id: PREVIEW_PANE_ID,
+        isDropPreview: true,
+        previewTargetPaneId: targetPane.id,
+        route: preview.href
+          ? buildRouteState(preview.href)
+          : { pathname: "/workspace", search: "" },
+        rowId: targetPane.rowId,
+        size: PREVIEW_PANE_MIN_SIZE,
+      };
 
   const withoutDragged = draggedPaneId
     ? panes.filter((pane) => pane.id !== draggedPaneId)
@@ -222,10 +234,12 @@ function buildPreviewPanes(
       ? withoutDragged.length
       : targetIndex + (preview.region === "right" ? 1 : 0);
 
-  const nextPanes = [...withoutDragged];
+  const nextPanes: RenderablePane[] = [...withoutDragged];
   nextPanes.splice(insertIndex, 0, {
     ...sourcePane,
-    id: draggedPane ? draggedPane.id : PREVIEW_PANE_ID,
+    id: PREVIEW_PANE_ID,
+    isDropPreview: true,
+    previewTargetPaneId: targetPane.id,
     rowId: targetPane.rowId,
   });
 
@@ -355,6 +369,7 @@ function WorkspacePaneSurface({
   onSplitHorizontal: () => void;
   pane: {
     id: string;
+    isDropPreview?: boolean;
     route: {
       pathname: string;
       search: string;
@@ -437,7 +452,7 @@ function WorkspacePaneSurface({
           className={cn(
             "relative flex h-full min-w-0 flex-col overflow-hidden border-border/70 border-r bg-background transition-[opacity,transform,box-shadow] duration-200 ease-out",
             isActive ? "ring-1 ring-border/90 ring-inset" : "ring-0",
-            isDragging && "opacity-15",
+            isDragging && "opacity-0",
             isPreviewPane &&
               "border border-primary/35 border-dashed bg-primary/[0.04] shadow-[inset_0_0_0_1px_rgba(59,130,246,0.08)]"
           )}
@@ -780,6 +795,13 @@ export function WorkspacePaneRenderer() {
     >
       <div
         className="flex h-full min-w-0"
+        onDragLeave={(event) => {
+          if (isDragLeaveInsideElement(event)) {
+            return;
+          }
+
+          queueDropPreview(null);
+        }}
         onDragOver={(event) => {
           const activeDraggedPaneId = getDraggedPaneId(
             event.dataTransfer,
@@ -787,7 +809,8 @@ export function WorkspacePaneRenderer() {
           );
           if (
             rowDropTargetId &&
-            (hasWorkspacePaneDragHref(event.dataTransfer) || activeDraggedPaneId)
+            (hasWorkspacePaneDragHref(event.dataTransfer) ||
+              activeDraggedPaneId)
           ) {
             event.preventDefault();
             event.dataTransfer.dropEffect = activeDraggedPaneId
@@ -802,9 +825,9 @@ export function WorkspacePaneRenderer() {
         }}
       >
         {rowPanes.map((pane, paneIndex) => {
-          const isPreviewPane = pane.id === PREVIEW_PANE_ID;
+          const isPreviewPane = Boolean(pane.isDropPreview);
           const dropTargetPaneId = isPreviewPane
-            ? (dropPreview?.paneId ?? pane.id)
+            ? (pane.previewTargetPaneId ?? dropPreview?.paneId ?? pane.id)
             : pane.id;
           const isActive = pane.id === activePaneId;
           const isMultiPane = panes.length > 1 && !isPreviewPane;
@@ -842,7 +865,8 @@ export function WorkspacePaneRenderer() {
                   clearWorkspacePaneDragData();
                 }}
                 onDragLeave={(event) => {
-                  if (isDragLeaveInsidePane(event)) {
+                  const container = containerRef.current;
+                  if (container && isDragLeaveInsideElement(event, container)) {
                     return;
                   }
 
