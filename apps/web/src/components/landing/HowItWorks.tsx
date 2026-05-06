@@ -3,7 +3,7 @@
 import { Badge } from "@avenire/ui/components/badge";
 import {
   AnimatePresence,
-  motion,
+  m,
   useInView,
   useMotionValueEvent,
   useScroll,
@@ -96,7 +96,7 @@ function CompoundVisual() {
   }, []);
 
   return (
-    <motion.div
+    <m.div
       animate={{ opacity: 1 }}
       className="absolute inset-0 flex items-center justify-center p-8"
       exit={{ opacity: 0 }}
@@ -111,7 +111,7 @@ function CompoundVisual() {
             <div className="flex gap-3" key={step.label}>
               {/* Timeline line + dot */}
               <div className="flex flex-col items-center">
-                <motion.div
+                <m.div
                   animate={{
                     borderColor: isActive ? "var(--primary)" : "var(--border)",
                     backgroundColor: isCurrent
@@ -124,7 +124,7 @@ function CompoundVisual() {
                   transition={{ duration: 0.4 }}
                 />
                 {i < timelineSteps.length - 1 && (
-                  <motion.div
+                  <m.div
                     animate={{
                       backgroundColor: isActive
                         ? "var(--primary)"
@@ -137,7 +137,7 @@ function CompoundVisual() {
                 )}
               </div>
               {/* Content */}
-              <motion.div
+              <m.div
                 animate={{ opacity: isActive ? 1 : 0.3 }}
                 className="-mt-0.5 pb-5"
                 transition={{ duration: 0.4 }}
@@ -149,13 +149,13 @@ function CompoundVisual() {
                     {step.label}
                   </p>
                   {isCurrent && (
-                    <motion.span
+                    <m.span
                       animate={{ opacity: 1, scale: 1 }}
                       className="rounded bg-primary/10 px-1.5 py-0.5 font-mono text-[8px] text-primary"
                       initial={{ opacity: 0, scale: 0.8 }}
                     >
                       NEW
-                    </motion.span>
+                    </m.span>
                   )}
                 </div>
                 <p className="mt-0.5 text-[9px] text-muted-foreground/50">
@@ -163,7 +163,7 @@ function CompoundVisual() {
                 </p>
                 {/* Connection lines for current */}
                 {isCurrent && i > 0 && (
-                  <motion.div
+                  <m.div
                     animate={{ opacity: 1, width: "100%" }}
                     className="mt-2 flex items-center gap-1.5"
                     initial={{ opacity: 0, width: 0 }}
@@ -174,15 +174,15 @@ function CompoundVisual() {
                       linked to {timelineSteps[i - 1].label}
                     </span>
                     <div className="h-[1px] w-4 bg-primary/20" />
-                  </motion.div>
+                  </m.div>
                 )}
-              </motion.div>
+              </m.div>
             </div>
           );
         })}
 
         {/* Counter */}
-        <motion.div
+        <m.div
           animate={{ opacity: [0.4, 0.7, 0.4] }}
           className="mt-1 flex items-center gap-2 pl-[22px]"
           transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY }}
@@ -191,9 +191,9 @@ function CompoundVisual() {
           <span className="font-mono text-[8px] text-muted-foreground/40">
             {activeStep + 1} of {timelineSteps.length} concepts compounding
           </span>
-        </motion.div>
+        </m.div>
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -246,7 +246,7 @@ function DriveVisual() {
   const isExpanded = phase === "expanded";
 
   return (
-    <motion.div
+    <m.div
       animate={{ opacity: 1 }}
       className="absolute inset-0 flex items-center justify-center p-8"
       exit={{ opacity: 0 }}
@@ -260,7 +260,7 @@ function DriveVisual() {
           const shouldExpand = isExpanded && isMiddle;
 
           return (
-            <motion.div
+            <m.div
               animate={{
                 opacity: shouldHide ? 0 : 1,
                 x: 0,
@@ -295,7 +295,7 @@ function DriveVisual() {
                 {/* Status indicator */}
                 <AnimatePresence mode="wait">
                   {phase === "scanning" ? (
-                    <motion.div
+                    <m.div
                       animate={{
                         opacity: [0.3, 1, 0.3],
                         scale: [0.8, 1.2, 0.8],
@@ -309,7 +309,7 @@ function DriveVisual() {
                       }}
                     />
                   ) : (
-                    <motion.div
+                    <m.div
                       animate={{ scale: 1 }}
                       className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-success/20"
                       initial={{ scale: 0 }}
@@ -325,7 +325,7 @@ function DriveVisual() {
                       >
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
-                    </motion.div>
+                    </m.div>
                   )}
                 </AnimatePresence>
               </div>
@@ -333,7 +333,7 @@ function DriveVisual() {
               {/* Expanded content for middle file */}
               <AnimatePresence>
                 {shouldExpand && (
-                  <motion.div
+                  <m.div
                     animate={{ height: "auto", opacity: 1 }}
                     className="overflow-hidden"
                     exit={{ height: 0, opacity: 0 }}
@@ -342,7 +342,7 @@ function DriveVisual() {
                   >
                     <div className="mt-2 space-y-2 pl-[44px]">
                       {extractedContent.map((item, j) => (
-                        <motion.div
+                        <m.div
                           animate={{ opacity: 1, y: 0 }}
                           className="border-primary/20 border-l-2 py-1 pl-3"
                           initial={{ opacity: 0, y: 8 }}
@@ -355,18 +355,18 @@ function DriveVisual() {
                           <p className="mt-0.5 text-[9px] text-muted-foreground/50 leading-relaxed">
                             {item.text}
                           </p>
-                        </motion.div>
+                        </m.div>
                       ))}
                     </div>
-                  </motion.div>
+                  </m.div>
                 )}
               </AnimatePresence>
-            </motion.div>
+            </m.div>
           );
         })}
 
         {/* Progress / status bar */}
-        <motion.div
+        <m.div
           animate={{ opacity: 1 }}
           className="mt-1"
           initial={{ opacity: 0 }}
@@ -374,7 +374,7 @@ function DriveVisual() {
         >
           <AnimatePresence mode="wait">
             {phase === "scanning" ? (
-              <motion.div exit={{ opacity: 0 }} key="progress">
+              <m.div exit={{ opacity: 0 }} key="progress">
                 <div className="mb-1.5 flex items-center justify-between">
                   <span className="font-mono text-[9px] text-muted-foreground/60 uppercase tracking-widest">
                     Indexing
@@ -382,16 +382,16 @@ function DriveVisual() {
                   <span className="font-mono text-[9px] text-primary">3/3</span>
                 </div>
                 <div className="h-[3px] w-full overflow-hidden rounded-full bg-border/40">
-                  <motion.div
+                  <m.div
                     animate={{ width: "100%" }}
                     className="h-full rounded-full bg-primary/70"
                     initial={{ width: "0%" }}
                     transition={{ duration: 2.5, ease: "easeInOut" }}
                   />
                 </div>
-              </motion.div>
+              </m.div>
             ) : (
-              <motion.div
+              <m.div
                 animate={{ opacity: 1, y: 0 }}
                 className="flex items-center gap-2"
                 initial={{ opacity: 0, y: 4 }}
@@ -403,12 +403,12 @@ function DriveVisual() {
                     ? "3 concepts extracted · 3 flashcards ready"
                     : "All files indexed"}
                 </span>
-              </motion.div>
+              </m.div>
             )}
           </AnimatePresence>
-        </motion.div>
+        </m.div>
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -421,7 +421,7 @@ function FlashcardsVisual() {
   }, []);
 
   return (
-    <motion.div
+    <m.div
       animate={{ opacity: 1 }}
       className="absolute inset-0 flex flex-col items-center justify-center p-8"
       exit={{ opacity: 0 }}
@@ -430,7 +430,7 @@ function FlashcardsVisual() {
       transition={{ duration: 0.4 }}
     >
       <div className="relative w-full max-w-[260px]">
-        <motion.div
+        <m.div
           animate={{ rotateY: flipped ? 180 : 0 }}
           className="relative aspect-[4/3] w-full cursor-pointer"
           onClick={() => setFlipped(!flipped)}
@@ -471,13 +471,13 @@ function FlashcardsVisual() {
               states of higher entropy.
             </p>
           </div>
-        </motion.div>
+        </m.div>
 
         {/* Spaced repetition buttons */}
         <div className="flex h-14 items-end justify-center">
           <AnimatePresence>
             {flipped && (
-              <motion.div
+              <m.div
                 animate={{ opacity: 1, y: 0 }}
                 className="flex gap-2"
                 exit={{ opacity: 0, y: -6 }}
@@ -506,7 +506,7 @@ function FlashcardsVisual() {
                     hover: "hover:border-blue-500/30 hover:text-blue-400",
                   },
                 ].map((btn) => (
-                  <motion.button
+                  <m.button
                     className={`flex flex-col items-center rounded-lg border border-border bg-card px-3 py-1.5 text-muted-foreground transition-all duration-200 ${btn.hover}`}
                     key={btn.label}
                     whileHover={{ y: -2 }}
@@ -518,14 +518,14 @@ function FlashcardsVisual() {
                     <span className="text-[8px] leading-none opacity-50">
                       {btn.label}
                     </span>
-                  </motion.button>
+                  </m.button>
                 ))}
-              </motion.div>
+              </m.div>
             )}
           </AnimatePresence>
         </div>
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -602,7 +602,7 @@ export function HowItWorks() {
   return (
     <section className="py-24 md:py-28" id="how-it-works" ref={sectionRef}>
       <div className="mx-auto max-w-7xl px-4">
-        <motion.div
+        <m.div
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           className="mb-10 md:hidden"
           initial={{ opacity: 0, y: 12 }}
@@ -614,7 +614,7 @@ export function HowItWorks() {
           <h2 className="mt-3 mb-2 font-semibold text-3xl text-foreground tracking-tight md:text-4xl">
             How it works
           </h2>
-        </motion.div>
+        </m.div>
 
         <div
           className="hidden md:block"
@@ -623,7 +623,7 @@ export function HowItWorks() {
         >
           <div className="sticky top-20 h-[calc(100vh-5rem)]">
             <div className="relative flex h-full flex-col">
-              <motion.div
+              <m.div
                 animate={isInView ? { opacity: 1, y: 0 } : {}}
                 className="mb-3 shrink-0"
                 initial={{ opacity: 0, y: 12 }}
@@ -635,9 +635,9 @@ export function HowItWorks() {
                 <h2 className="mt-3 mb-2 font-semibold text-3xl text-foreground tracking-tight md:text-4xl">
                   How Avenire works
                 </h2>
-              </motion.div>
+              </m.div>
 
-              <motion.div
+              <m.div
                 animate={{ opacity: [0.45, 1, 0.45] }}
                 aria-hidden="true"
                 className="pointer-events-none absolute right-4 bottom-4 z-10 hidden items-center gap-2 rounded-full border border-border/70 bg-background/75 px-3 py-2 shadow-sm backdrop-blur-sm md:flex"
@@ -650,7 +650,7 @@ export function HowItWorks() {
                 <span className="font-mono text-[9px] text-muted-foreground uppercase tracking-[0.24em]">
                   Scroll
                 </span>
-                <motion.svg
+                <m.svg
                   animate={{ y: [0, 4, 0] }}
                   className="text-muted-foreground/70"
                   fill="none"
@@ -669,8 +669,8 @@ export function HowItWorks() {
                 >
                   <path d="M12 5v14" />
                   <path d="m6 13 6 6 6-6" />
-                </motion.svg>
-              </motion.div>
+                </m.svg>
+              </m.div>
 
               <div className="grid min-h-0 flex-1 grid-cols-[1fr_1.05fr] items-center gap-14">
                 <div className="relative pr-4">
@@ -679,7 +679,7 @@ export function HowItWorks() {
                       const isActive = index === activeIndex;
 
                       return (
-                        <motion.article
+                        <m.article
                           animate={{
                             opacity: isActive ? 1 : 0.45,
                             x: isActive ? 0 : -8,
@@ -720,20 +720,20 @@ export function HowItWorks() {
                           >
                             {feature.description}
                           </p>
-                        </motion.article>
+                        </m.article>
                       );
                     })}
                   </div>
                 </div>
 
-                <motion.div
+                <m.div
                   animate={isInView ? { opacity: 1, x: 0 } : {}}
                   className="relative"
                   initial={{ opacity: 0, x: 20 }}
                   transition={{ duration: 0.6, delay: 0.15 }}
                 >
                   <Visualizer activeIndex={activeIndex} />
-                </motion.div>
+                </m.div>
               </div>
             </div>
           </div>
@@ -741,7 +741,7 @@ export function HowItWorks() {
 
         <div className="space-y-7 md:hidden">
           {features.map((feature, index) => (
-            <motion.article
+            <m.article
               className="rounded-xl border border-border/80 bg-card/55 p-5"
               initial={{ opacity: 0, y: 22 }}
               key={feature.id}
@@ -764,7 +764,7 @@ export function HowItWorks() {
               <div className="mt-5">
                 <MobileFeatureVisual activeIndex={index} />
               </div>
-            </motion.article>
+            </m.article>
           ))}
         </div>
       </div>

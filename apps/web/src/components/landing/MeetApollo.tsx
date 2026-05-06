@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge } from "@avenire/ui/components/badge";
-import { motion, useInView } from "framer-motion";
+import { m, useInView } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 
 /* ── Jargon / Simple pairs for the text eraser ── */
@@ -67,7 +67,7 @@ function TextEraser() {
       <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-8 md:px-12">
         {/* Jargon text */}
         <div className="pointer-events-none absolute inset-x-8 flex items-center justify-center md:inset-x-12">
-          <motion.p
+          <m.p
             animate={{
               opacity: isSimplified ? 0 : 0.7,
               filter: isSimplified ? "blur(6px)" : "blur(0px)",
@@ -76,12 +76,12 @@ function TextEraser() {
             transition={{ duration: 0.8, delay: isSimplified ? 0 : 0.6 }}
           >
             &ldquo;{pair.jargon}&rdquo;
-          </motion.p>
+          </m.p>
         </div>
 
         {/* Simplified text */}
         <div className="pointer-events-none absolute inset-x-8 flex items-center justify-center md:inset-x-12">
-          <motion.p
+          <m.p
             animate={{
               opacity: isSimplified ? 1 : 0,
               filter: isSimplified ? "blur(0px)" : "blur(6px)",
@@ -90,14 +90,14 @@ function TextEraser() {
             transition={{ duration: 0.8, delay: isSimplified ? 0.6 : 0 }}
           >
             &ldquo;{pair.simple}&rdquo;
-          </motion.p>
+          </m.p>
         </div>
       </div>
 
       {/* Bottom bar with Simplify button */}
       <div className="relative z-10 flex items-center justify-between border-border/60 border-t px-5 py-3">
         <div className="flex items-center gap-2.5">
-          <motion.div
+          <m.div
             animate={{
               backgroundColor: isSimplified
                 ? "oklch(0.72 0.17 142)"
@@ -117,7 +117,7 @@ function TextEraser() {
           <span className="font-mono text-[9px] text-muted-foreground">
             {pairIndex + 1}/{textPairs.length}
           </span>
-          <motion.button
+          <m.button
             className={`rounded-lg border px-4 py-1.5 font-medium text-[11px] transition-all duration-200 ${
               isSimplified
                 ? "cursor-default border-border/40 text-muted-foreground/30"
@@ -129,7 +129,7 @@ function TextEraser() {
             whileTap={isSimplified ? {} : { scale: 0.96 }}
           >
             {isSimplified ? "Simplifying..." : "✦ Simplify"}
-          </motion.button>
+          </m.button>
         </div>
       </div>
     </div>
@@ -146,17 +146,17 @@ export function MeetApollo() {
       <div className="mx-auto max-w-7xl px-4">
         <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-[1.1fr_1fr] lg:gap-20">
           {/* Left: Text Eraser Visual */}
-          <motion.div
+          <m.div
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             className="order-2 lg:order-1"
             initial={{ opacity: 0, y: 20 }}
             transition={{ duration: 0.6 }}
           >
             <TextEraser />
-          </motion.div>
+          </m.div>
 
           {/* Right: Text Content */}
-          <motion.div
+          <m.div
             animate={isInView ? { opacity: 1, x: 0 } : {}}
             className="order-1 lg:order-2"
             initial={{ opacity: 0, x: 20 }}
@@ -193,7 +193,7 @@ export function MeetApollo() {
                 </Badge>
               ))}
             </div>
-          </motion.div>
+          </m.div>
         </div>
       </div>
     </section>

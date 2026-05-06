@@ -16,7 +16,7 @@ import {
   UploadSimple as Upload,
   Lightning as Zap,
 } from "@phosphor-icons/react";
-import { AnimatePresence, motion, type Variants } from "framer-motion";
+import { AnimatePresence, m, type Variants } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { FlashcardDeckStack } from "@/components/flashcards/deck-stack";
@@ -316,7 +316,7 @@ function StepPanels({ content }: { content: OnboardingStepContent[] }) {
   return (
     <div className="grid gap-3 md:grid-cols-2">
       {content.map((entry, index) => (
-        <motion.div
+        <m.div
           animate={{ opacity: 1, y: 0 }}
           className="rounded-2xl border border-border/70 bg-muted/20 p-4 shadow-black/5 shadow-sm"
           initial={{ opacity: 0, y: 12 }}
@@ -333,7 +333,7 @@ function StepPanels({ content }: { content: OnboardingStepContent[] }) {
           <p className="mt-2 text-foreground/90 text-sm leading-6">
             {entry.detail}
           </p>
-        </motion.div>
+        </m.div>
       ))}
     </div>
   );
@@ -359,7 +359,7 @@ function WelcomeStep() {
           label: "Built in context",
         },
       ].map((item, index) => (
-        <motion.div
+        <m.div
           animate={{ opacity: 1, y: 0 }}
           className="flex items-start gap-3 rounded-3xl border border-white/12 bg-white/6 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
           initial={{ opacity: 0, y: 10 }}
@@ -379,7 +379,7 @@ function WelcomeStep() {
               {item.desc}
             </p>
           </div>
-        </motion.div>
+        </m.div>
       ))}
     </div>
   );
@@ -406,7 +406,7 @@ function UploadStep({
     <div className="space-y-4">
       <div className="rounded-3xl border border-border/70 bg-background p-5 shadow-black/5 shadow-sm">
         <div className="rounded-2xl border border-border/70 border-dashed bg-muted/20 p-6 text-center">
-          <motion.div
+          <m.div
             animate={
               uploadPhase === "uploading"
                 ? { scale: [1, 1.04, 1], opacity: [0.9, 1, 0.95] }
@@ -419,7 +419,7 @@ function UploadStep({
             }
           >
             <Upload className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
-          </motion.div>
+          </m.div>
           <p className="font-medium text-sm">
             {uploadPhase === "uploading"
               ? "Uploading inside onboarding"
@@ -466,7 +466,7 @@ function UploadStep({
 
         <AnimatePresence>
           {rememberedFileName || uploadPhase !== "idle" ? (
-            <motion.div
+            <m.div
               animate={{ opacity: 1, y: 0 }}
               className="mt-4 rounded-2xl border border-border/70 bg-background px-4 py-3 shadow-black/5 shadow-sm"
               exit={{ opacity: 0, y: 8 }}
@@ -499,7 +499,7 @@ function UploadStep({
               </div>
               {uploadPhase === "uploading" ? (
                 <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
-                  <motion.div
+                  <m.div
                     animate={{ x: ["-40%", "120%"] }}
                     className="h-full w-1/3 rounded-full bg-foreground/60"
                     transition={{
@@ -510,7 +510,7 @@ function UploadStep({
                   />
                 </div>
               ) : null}
-            </motion.div>
+            </m.div>
           ) : null}
         </AnimatePresence>
       </div>
@@ -676,7 +676,7 @@ function MisconceptionsStep({
                     className="rounded-2xl border border-border/70 bg-background px-4 py-5"
                     key={label}
                   >
-                    <motion.div
+                    <m.div
                       animate={{ opacity: [0.35, 1, 0.35] }}
                       className="h-2 w-16 rounded-full bg-foreground/40"
                       transition={{
@@ -761,7 +761,7 @@ function ReviewLoopStep({
                 className="flex flex-1 flex-col items-center gap-1"
                 key={day}
               >
-                <motion.div
+                <m.div
                   animate={{ height: `${counts[index] * 6}px` }}
                   className={cn(
                     "w-full rounded-md",
@@ -861,7 +861,7 @@ function DashboardStep({
           title: "Continue your note",
         },
       ].map((item, index) => (
-        <motion.div
+        <m.div
           animate={{ opacity: 1, y: 0 }}
           className={cn(
             "flex items-center gap-3 rounded-2xl border px-4 py-3",
@@ -897,7 +897,7 @@ function DashboardStep({
             {item.action}
             <ArrowRight className="h-3 w-3" />
           </Button>
-        </motion.div>
+        </m.div>
       ))}
       <p className="mt-1 text-center text-muted-foreground text-xs italic">
         Your home from here on. No empty states - ever.
@@ -1322,7 +1322,7 @@ export function OnboardingModal({
 
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
               <AnimatePresence custom={direction} mode="wait">
-                <motion.div
+                <m.div
                   animate="center"
                   custom={direction}
                   exit="exit"
@@ -1367,7 +1367,7 @@ export function OnboardingModal({
                   ) : (
                     <StepPanels content={step.content} />
                   )}
-                </motion.div>
+                </m.div>
               </AnimatePresence>
             </div>
 

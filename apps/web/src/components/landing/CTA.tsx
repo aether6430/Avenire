@@ -2,7 +2,7 @@
 
 import { useSession } from "@avenire/auth/client";
 import { Button } from "@avenire/ui/components/button";
-import { motion, useInView } from "framer-motion";
+import { m, useInView } from "framer-motion";
 import type { Route } from "next";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -162,7 +162,7 @@ export function CTA() {
         <ConwayCanvas />
 
         <div className="relative z-10 mx-auto max-w-2xl px-8 py-24 text-center">
-          <motion.div
+          <m.div
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             initial={{ opacity: 0, y: 12 }}
             transition={{ duration: 0.5 }}
@@ -189,7 +189,7 @@ export function CTA() {
             <p className="mt-4 text-muted-foreground/50 text-xs">
               Free to start · No credit card required
             </p>
-          </motion.div>
+          </m.div>
         </div>
       </div>
     </section>

@@ -17,7 +17,7 @@ import {
 import { Button } from "@avenire/ui/components/button";
 import { cn } from "@avenire/ui/lib/utils";
 import { ArrowLeft, ArrowRight } from "@phosphor-icons/react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "pdfjs-dist/web/pdf_viewer.css";
 
@@ -223,7 +223,7 @@ function PdfFloatingDock() {
   }, [resolvedZoom, updateZoom, zoomInput]);
 
   return (
-    <motion.div
+    <m.div
       animate={{ opacity: isVisible ? 1 : 0, y: isVisible ? 0 : 10 }}
       className="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex justify-center px-3"
       initial={false}
@@ -331,7 +331,7 @@ function PdfFloatingDock() {
           <ZoomIn className="size-3.5" />
         </Button>
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { AnimatePresence, motion } from "framer-motion"
+import { AnimatePresence, m } from "framer-motion"
 
 import { cn } from "../lib/utils"
 
@@ -148,7 +148,7 @@ export function ExpandableTabs({
         const isSelected = currentValue === item.value
 
         return (
-          <motion.button
+          <m.button
             key={item.value}
             ref={(node) => {
               tabRefs.current[index] = node
@@ -188,7 +188,7 @@ export function ExpandableTabs({
             <Icon className="size-3.5 shrink-0" aria-hidden="true" />
             <AnimatePresence initial={false}>
               {isSelected && (
-                <motion.span
+                <m.span
                   initial={
                     hasMounted || shouldAnimateOnInitialMount
                       ? { width: 0, opacity: 0 }
@@ -200,11 +200,11 @@ export function ExpandableTabs({
                   className="overflow-hidden whitespace-nowrap"
                 >
                   {item.label}
-                </motion.span>
+                </m.span>
               )}
             </AnimatePresence>
             <span className="sr-only">{item.label}</span>
-          </motion.button>
+          </m.button>
         )
       })}
     </div>

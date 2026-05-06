@@ -6,7 +6,7 @@ import {
   CaretDown as ChevronDown,
   CaretRight as ChevronRight,
 } from "@phosphor-icons/react";
-import { motion, useSpring } from "framer-motion";
+import { m, useSpring } from "framer-motion";
 import {
   type ComponentProps,
   createContext,
@@ -430,7 +430,7 @@ function buildSummary(items: ExploreItem[]) {
 
 function Dot({ delay }: { delay: number }) {
   return (
-    <motion.span
+    <m.span
       animate={{ opacity: [0.15, 0.7, 0.15] }}
       aria-hidden="true"
       className="inline-block size-[3px] rounded-full bg-current"
@@ -683,7 +683,7 @@ export const ReasoningContent = memo(
             height: ROW_HEIGHT * 1.4,
           }}
         />
-        <motion.div
+        <m.div
           animate={{
             y:
               lines.length > VISIBLE_ROWS
@@ -710,7 +710,7 @@ export const ReasoningContent = memo(
               </span>
             </div>
           ))}
-        </motion.div>
+        </m.div>
       </div>
     );
   }
@@ -753,7 +753,7 @@ function ReasoningPanel({
   workspaceUuid?: string;
 }) {
   return (
-    <motion.div
+    <m.div
       animate={{ height: open ? "auto" : 0, opacity: open ? 1 : 0 }}
       initial={false}
       role="region"
@@ -763,7 +763,7 @@ function ReasoningPanel({
       <ReasoningContent workspaceUuid={workspaceUuid}>
         {content}
       </ReasoningContent>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -827,14 +827,14 @@ function ReasoningBlock({
           {summary ? (
             <span className="text-[11px] text-foreground/26">{summary}</span>
           ) : null}
-          <motion.span
+          <m.span
             animate={{ rotate: open ? 180 : 0 }}
             aria-hidden="true"
             className="ml-0.5 text-foreground/22 transition-colors duration-200 group-hover:text-foreground/42"
             transition={{ duration: 0.25, ease: "easeInOut" }}
           >
             <ChevronRight className="size-3 rotate-90" strokeWidth={2} />
-          </motion.span>
+          </m.span>
         </button>
       )}
 
@@ -902,14 +902,14 @@ export function RollingStatusHeader({
         {summary ? (
           <span className="text-[11px] text-foreground/26">{summary}</span>
         ) : null}
-        <motion.span
+        <m.span
           animate={{ rotate: open ? 180 : 0 }}
           aria-hidden="true"
           className="ml-0.5 text-foreground/22"
           transition={{ duration: 0.25, ease: "easeInOut" }}
         >
           <ChevronDown className="size-3" strokeWidth={2} />
-        </motion.span>
+        </m.span>
         {children}
       </div>
     );
@@ -932,14 +932,14 @@ export function RollingStatusHeader({
       {summary ? (
         <span className="text-[11px] text-foreground/26">{summary}</span>
       ) : null}
-      <motion.span
+      <m.span
         animate={{ rotate: open ? 180 : 0 }}
         aria-hidden="true"
         className="ml-0.5 text-foreground/22 transition-colors duration-200 group-hover:text-foreground/42"
         transition={{ duration: 0.25, ease: "easeInOut" }}
       >
         <ChevronDown className="size-3" strokeWidth={2} />
-      </motion.span>
+      </m.span>
       {children}
     </button>
   );
@@ -955,7 +955,7 @@ export function RollingPreviewPanel({
   open: boolean;
 }) {
   return (
-    <motion.div
+    <m.div
       animate={{ height: open ? "auto" : 0, opacity: open ? 1 : 0 }}
       initial={false}
       style={{ overflow: "hidden" }}
@@ -969,7 +969,7 @@ export function RollingPreviewPanel({
       >
         {children}
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -1003,7 +1003,7 @@ function RollingWindow({ items }: { items: ExploreItem[] }) {
             height: ROW_HEIGHT * 1.4,
           }}
         />
-        <motion.div style={{ y: springY }}>
+        <m.div style={{ y: springY }}>
           {items.map((item, index) => (
             <div
               className="flex items-baseline gap-2 pl-4"
@@ -1018,7 +1018,7 @@ function RollingWindow({ items }: { items: ExploreItem[] }) {
               </span>
             </div>
           ))}
-        </motion.div>
+        </m.div>
       </div>
       <ul className="sr-only">
         {items.map((item, index) => (
@@ -1045,7 +1045,7 @@ function ReadPreviewPanel({
     .slice(0, 2);
 
   return (
-    <motion.div
+    <m.div
       animate={{ height: open ? "auto" : 0, opacity: open ? 1 : 0 }}
       initial={false}
       style={{ overflow: "hidden" }}
@@ -1061,7 +1061,7 @@ function ReadPreviewPanel({
           {lines.join("\n")}
         </pre>
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -1073,7 +1073,7 @@ function SearchPreviewPanel({
   preview: SearchPreview;
 }) {
   return (
-    <motion.div
+    <m.div
       animate={{ height: open ? "auto" : 0, opacity: open ? 1 : 0 }}
       initial={false}
       style={{ overflow: "hidden" }}
@@ -1099,7 +1099,7 @@ function SearchPreviewPanel({
           ))}
         </ul>
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -1138,20 +1138,20 @@ function AccordionFileRow({
         {item.value}
       </span>
       {hasPreview ? (
-        <motion.span
+        <m.span
           animate={{ rotate: expanded ? 90 : 0 }}
           aria-hidden="true"
           className="mr-2 shrink-0 text-foreground/18 transition-colors duration-150 group-hover:text-foreground/36"
           transition={{ duration: 0.2, ease: "easeInOut" }}
         >
           <ChevronRight className="size-3" strokeWidth={1.5} />
-        </motion.span>
+        </m.span>
       ) : null}
     </div>
   );
 
   return (
-    <motion.li
+    <m.li
       animate={{ opacity: parentOpen ? 1 : 0 }}
       initial={{ opacity: 0 }}
       key={`${item.label}-${item.value}-${index}`}
@@ -1186,7 +1186,7 @@ function AccordionFileRow({
           <SearchPreviewPanel open={expanded} preview={item.action.preview} />
         </div>
       ) : null}
-    </motion.li>
+    </m.li>
   );
 }
 
@@ -1200,7 +1200,7 @@ function AccordionPanel({
   open: boolean;
 }) {
   return (
-    <motion.div
+    <m.div
       animate={{ height: open ? "auto" : 0, opacity: open ? 1 : 0 }}
       id={id}
       initial={false}
@@ -1218,7 +1218,7 @@ function AccordionPanel({
           />
         ))}
       </ul>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -1260,14 +1260,14 @@ function ExploreBlock({
           {summary ? (
             <span className="text-[11px] text-foreground/26">{summary}</span>
           ) : null}
-          <motion.span
+          <m.span
             animate={{ rotate: open ? 180 : 0 }}
             aria-hidden="true"
             className="ml-0.5 text-foreground/22 transition-colors duration-200 group-hover:text-foreground/42"
             transition={{ duration: 0.25, ease: "easeInOut" }}
           >
             <ChevronRight className="size-3 rotate-90" strokeWidth={2} />
-          </motion.span>
+          </m.span>
         </button>
       ) : (
         <div
@@ -1297,7 +1297,7 @@ function ExploreBlock({
 function MutationBlock({ action }: { action: MutationAction }) {
   if (action.kind === "error") {
     return (
-      <motion.div
+      <m.div
         animate={{ opacity: 1, y: 0 }}
         className="mb-1 flex items-baseline gap-2 text-sm"
         initial={{ opacity: 0, y: 5 }}
@@ -1314,13 +1314,13 @@ function MutationBlock({ action }: { action: MutationAction }) {
             <ThinkingDots />
           </span>
         ) : null}
-      </motion.div>
+      </m.div>
     );
   }
 
   if (action.kind === "flashcards") {
     return (
-      <motion.div
+      <m.div
         animate={{ opacity: 1, y: 0 }}
         className="mb-1 flex items-baseline gap-2 text-sm"
         initial={{ opacity: 0, y: 5 }}
@@ -1337,7 +1337,7 @@ function MutationBlock({ action }: { action: MutationAction }) {
             <ThinkingDots />
           </span>
         ) : null}
-      </motion.div>
+      </m.div>
     );
   }
 
@@ -1347,7 +1347,7 @@ function MutationBlock({ action }: { action: MutationAction }) {
       : null;
 
     return (
-      <motion.div
+      <m.div
         animate={{ opacity: 1, y: 0 }}
         className="mb-1 overflow-hidden rounded-xl border border-foreground/[0.08] bg-foreground/[0.03]"
         initial={{ opacity: 0, y: 5 }}
@@ -1377,13 +1377,13 @@ function MutationBlock({ action }: { action: MutationAction }) {
             </div>
           ) : null}
         </div>
-      </motion.div>
+      </m.div>
     );
   }
 
   if (action.kind === "quiz") {
     return (
-      <motion.div
+      <m.div
         animate={{ opacity: 1, y: 0 }}
         className="mb-1 flex items-baseline gap-2 text-sm"
         initial={{ opacity: 0, y: 5 }}
@@ -1400,7 +1400,7 @@ function MutationBlock({ action }: { action: MutationAction }) {
             <ThinkingDots />
           </span>
         ) : null}
-      </motion.div>
+      </m.div>
     );
   }
 
@@ -1419,7 +1419,7 @@ function MutationBlock({ action }: { action: MutationAction }) {
           : "Edit";
 
   return (
-    <motion.div
+    <m.div
       animate={{ opacity: 1, y: 0 }}
       className="mb-1 flex items-baseline gap-2 text-sm"
       initial={{ opacity: 0, y: 5 }}
@@ -1445,7 +1445,7 @@ function MutationBlock({ action }: { action: MutationAction }) {
           <ThinkingDots />
         </span>
       ) : null}
-    </motion.div>
+    </m.div>
   );
 }
 
