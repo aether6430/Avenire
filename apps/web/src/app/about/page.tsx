@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Footer } from "@/components/landing/Footer";
-import { Navbar } from "@/components/landing/Navbar";
+import { Footer } from "@/components/marketing/footer";
+import { Navbar } from "@/components/marketing/navbar";
 import { buildPageMetadata } from "@/lib/page-metadata";
 
 export const metadata = buildPageMetadata({
@@ -59,13 +59,14 @@ export default function AboutPage() {
   const source = fs.readFileSync(visionPath, "utf-8");
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="avenire-marketing-scope dark min-h-screen bg-neutral-950 text-neutral-100">
       <Navbar />
 
       <section className="px-4 pt-32 pb-24">
-        <div className="mx-auto max-w-5xl">
-          <div className="overflow-hidden rounded-2xl border border-border/80 bg-card/90 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-border/80 border-b bg-muted/40 px-4 py-3">
+        <div className="mx-auto max-w-[72rem] border-divide border-x px-4 py-8 md:px-8">
+          <div className="mx-auto max-w-[56rem]">
+          <div className="overflow-hidden rounded-2xl border border-divide bg-neutral-900/70 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-divide border-b bg-white/5 px-4 py-3">
               <p className="font-mono text-[11px] text-muted-foreground uppercase tracking-[0.14em]">
                 Avenire Mission Document
               </p>
@@ -91,6 +92,7 @@ export default function AboutPage() {
               </article>
             </div>
           </div>
+        </div>
         </div>
       </section>
 

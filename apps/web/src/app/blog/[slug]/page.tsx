@@ -6,8 +6,8 @@ import Markdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import { Footer } from "@/components/landing/Footer";
-import { Navbar } from "@/components/landing/Navbar";
+import { Footer } from "@/components/marketing/footer";
+import { Navbar } from "@/components/marketing/navbar";
 import { getAllSlugs, getPostBySlug } from "@/lib/blog";
 import { metadataBase } from "@/lib/page-metadata";
 
@@ -191,7 +191,7 @@ export default async function BlogPostPage({
   }
 
   return (
-    <main className="min-h-screen">
+    <main className="avenire-marketing-scope dark min-h-screen bg-neutral-950 text-neutral-100">
       {articleSchema ? (
         <script
           dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
@@ -201,10 +201,11 @@ export default async function BlogPostPage({
       <Navbar />
 
       <article className="px-4 pt-32 pb-24">
+        <div className="mx-auto max-w-[72rem] border-divide border-x px-4 py-8 md:px-8">
         <div className="mx-auto max-w-2xl">
           {/* Back link */}
           <Link
-            className="group mb-10 inline-flex items-center gap-1.5 text-muted-foreground text-sm transition-colors hover:text-foreground"
+            className="group mb-10 inline-flex items-center gap-1.5 text-white/50 text-sm transition-colors hover:text-white"
             href="/blog"
           >
             <ArrowLeft className="size-4 transition-transform group-hover:-translate-x-0.5" />
@@ -216,7 +217,7 @@ export default async function BlogPostPage({
             <div className="mb-5 flex flex-wrap gap-2">
               {post.tags.map((tag) => (
                 <span
-                  className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 font-medium text-primary text-xs"
+                  className="inline-flex items-center gap-1 rounded-full border border-brand/20 bg-brand/10 px-2.5 py-0.5 font-medium text-brand text-xs"
                   key={tag}
                 >
                   <Tag className="size-2.5" />
@@ -227,7 +228,7 @@ export default async function BlogPostPage({
           )}
 
           {post.coverImage && (
-            <div className="mb-8 overflow-hidden rounded-xl border border-border/70">
+            <div className="mb-8 overflow-hidden rounded-xl border border-divide">
               <Image
                 alt={post.title}
                 className="h-auto w-full object-cover"
@@ -240,20 +241,20 @@ export default async function BlogPostPage({
           )}
 
           {/* Title */}
-          <h1 className="mb-4 font-semibold text-3xl text-foreground leading-tight tracking-tight md:text-4xl">
+          <h1 className="mb-4 font-semibold text-3xl text-white leading-tight tracking-tight md:text-4xl">
             {post.title}
           </h1>
 
           {/* Description */}
           {post.description && (
-            <p className="mb-8 text-lg text-muted-foreground leading-relaxed">
+            <p className="mb-8 text-lg text-white/60 leading-relaxed">
               {post.description}
             </p>
           )}
 
           {/* Meta */}
-          <div className="mb-10 flex flex-wrap items-center gap-4 border-border border-b pb-8 text-muted-foreground text-sm">
-            <span className="font-medium text-foreground/70">
+          <div className="mb-10 flex flex-wrap items-center gap-4 border-divide border-b pb-8 text-white/45 text-sm">
+            <span className="font-medium text-white/62">
               {post.author}
             </span>
             <span className="flex items-center gap-1.5">
@@ -278,15 +279,16 @@ export default async function BlogPostPage({
           </div>
 
           {/* Footer navigation */}
-          <div className="mt-16 border-border border-t pt-8">
+          <div className="mt-16 border-divide border-t pt-8">
             <Link
-              className="group inline-flex items-center gap-1.5 text-muted-foreground text-sm transition-colors hover:text-primary"
+              className="group inline-flex items-center gap-1.5 text-white/50 text-sm transition-colors hover:text-brand"
               href="/blog"
             >
               <ArrowLeft className="size-4 transition-transform group-hover:-translate-x-0.5" />
               Back to all posts
             </Link>
           </div>
+        </div>
         </div>
       </article>
 

@@ -4,8 +4,8 @@ import {
   ArrowSquareOut as ExternalLink,
   SpinnerGap as Loader2,
 } from "@phosphor-icons/react/ssr";
-import { Footer } from "@/components/landing/Footer";
-import { Navbar } from "@/components/landing/Navbar";
+import { Footer } from "@/components/marketing/footer";
+import { Navbar } from "@/components/marketing/navbar";
 import { buildPageMetadata } from "@/lib/page-metadata";
 import type { RoadmapGroup, RoadmapItem } from "@/lib/roadmap";
 import { getRoadmapGroups } from "@/lib/roadmap";
@@ -135,39 +135,43 @@ export default function RoadmapPage() {
   const groups = getRoadmapGroups();
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="avenire-marketing-scope dark min-h-screen bg-neutral-950 text-neutral-100">
       <Navbar />
 
       {/* Hero */}
-      <section className="px-4 pt-32 pb-16">
-        <div className="mx-auto max-w-6xl">
+      <section className="px-4 pt-32">
+        <div className="mx-auto max-w-[72rem] border-divide border-x px-4 pt-8 pb-16 md:px-8">
+        <div className="mx-auto max-w-[62rem]">
           <div className="mb-2">
-            <span className="font-medium text-primary text-xs uppercase tracking-widest">
+            <span className="font-medium text-brand text-xs uppercase tracking-widest">
               Roadmap
             </span>
           </div>
           <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div>
-              <h1 className="mb-4 font-semibold text-4xl text-foreground tracking-tight md:text-5xl">
+              <h1 className="mb-4 font-semibold text-4xl text-white tracking-tight md:text-5xl">
                 What &apos;s Coming Next
               </h1>
-              <p className="max-w-xl text-lg text-muted-foreground leading-relaxed">
+              <p className="max-w-xl text-lg text-white/60 leading-relaxed">
                 A transparent look at what we&apos;re building. We update this
                 as our plans evolve.
               </p>
             </div>
           </div>
         </div>
+        </div>
       </section>
 
       {/* Roadmap columns */}
       <section className="px-4 pb-24">
-        <div className="mx-auto max-w-6xl">
+        <div className="mx-auto max-w-[72rem] border-divide border-x px-4 pb-8 md:px-8">
+        <div className="mx-auto max-w-[62rem]">
           <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
             {groups.map((group) => (
               <RoadmapColumn group={group} key={group.status} />
             ))}
           </div>
+        </div>
         </div>
       </section>
 

@@ -2,52 +2,112 @@
 
 @source "../../../**/*.{js,ts,jsx,tsx}";
 @source "../../../../packages/**/*.{js,ts,jsx,tsx}";
-/*
- * Force light theme on the landing page regardless of system/user preference.
- * Only the tokens that .dark overrides need to be reset here.
- * Core surface + accent + semantic + sidebar tokens are reset to their :root
- * (light) values so the landing page always renders in light mode.
- */
-.landing-light-scope {
-  --background: #ffffff;
-  --foreground: #37352f;
-  --card: #ffffff;
-  --card-foreground: #37352f;
-  --popover: #ffffff;
-  --popover-foreground: #37352f;
 
-  --primary: #abc4ff;
-  --primary-foreground: #1b2733;
+@theme {
+  --font-primary: "Inter Display", sans-serif;
+  --font-mono: "DM Mono", monospace;
+  --color-charcoal-900: #202020;
+  --color-charcoal-800: #29292e;
+  --color-charcoal-700: #343434;
+  --color-brand: #abc4ff;
+  --shadow-aceternity:
+    0px 2px 3px -1px rgba(0, 0, 0, 0.1),
+    0px 1px 0px 0px rgba(25, 28, 33, 0.02),
+    0px 0px 0px 1px rgba(25, 28, 33, 0.08);
+  --animate-orbit: orbit 24s linear infinite;
+  --animate-counter-orbit: counter-orbit 24s linear infinite;
 
-  --secondary: #fafafa;
-  --secondary-foreground: #37352f;
-  --muted: #fafafa;
-  --muted-foreground: #9b9a97;
-  --accent: #fafafa;
-  --accent-foreground: #37352f;
+  @keyframes orbit {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
 
-  --destructive: #e03e3e;
-  --destructive-foreground: #ffffff;
-
-  --border: rgba(55, 53, 47, 0.09);
-  --input: rgba(55, 53, 47, 0.12);
-  --ring: #abc4ff;
-
-  --info: #0b6e99;
-  --success: #0f7b6c;
-  --warning: #dfab01;
-
-  --sidebar: #fafafa;
-  --sidebar-foreground: #37352f;
-  --sidebar-primary: #abc4ff;
-  --sidebar-primary-foreground: #1b2733;
-  --sidebar-accent: rgba(0, 0, 0, 0.04);
-  --sidebar-accent-foreground: #37352f;
-  --sidebar-border: rgba(55, 53, 47, 0.09);
-  --sidebar-ring: #abc4ff;
-  color-scheme: light;
+  @keyframes counter-orbit {
+    0% {
+      transform: rotate(360deg);
+    }
+    100% {
+      transform: rotate(0deg);
+    }
+  }
 }
 
+@theme inline {
+  --color-divide: var(--avenire-marketing-divide);
+  --color-canvas: var(--avenire-marketing-canvas);
+  --color-canvas-fill: var(--avenire-marketing-canvas-fill);
+  --color-dots: var(--avenire-marketing-dots);
+  --color-line: var(--avenire-marketing-line);
+  --color-footer-link: var(--avenire-marketing-footer-link);
+}
+
+.avenire-marketing-scope {
+  --avenire-marketing-divide: rgba(255, 255, 255, 0.1);
+  --avenire-marketing-primary: #f6f7fb;
+  --avenire-marketing-canvas: rgba(171, 196, 255, 0.68);
+  --avenire-marketing-canvas-fill: rgba(255, 255, 255, 0.08);
+  --avenire-marketing-dots: rgba(255, 255, 255, 0.09);
+  --avenire-marketing-line: rgba(255, 255, 255, 0.16);
+  --avenire-marketing-footer-link: rgba(255, 255, 255, 0.64);
+  --pattern-fg: rgba(255, 255, 255, 0.08);
+  background-color: #050506;
+  background-image:
+    linear-gradient(#050506, #050506),
+    repeating-linear-gradient(
+      315deg,
+      rgba(255, 255, 255, 0.026) 0,
+      rgba(255, 255, 255, 0.026) 1px,
+      transparent 1px,
+      transparent 12px
+    );
+  background-position:
+    center top,
+    left top;
+  background-repeat:
+    repeat-y,
+    repeat;
+  background-size:
+    min(72rem, calc(100% - 2rem)) 100%,
+    12px 12px;
+  color-scheme: dark;
+  font-family: var(--font-primary);
+}
+
+.avenire-marketing-scope :where(.bg-gray-100) {
+  background-color: #0b0c0f;
+}
+
+.avenire-marketing-scope :where(.bg-gray-200) {
+  background-color: #17191f;
+}
+
+.avenire-marketing-scope :where(.bg-gray-300) {
+  background-color: #20242d;
+}
+
+.avenire-marketing-scope :where(.border-gray-300) {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.avenire-marketing-scope :where(.border-gray-500) {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.avenire-marketing-scope :where(.text-gray-500) {
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.avenire-marketing-scope :where(.text-gray-600) {
+  color: rgba(255, 255, 255, 0.64);
+}
+
+.avenire-marketing-scope :where(.placeholder-gray-600)::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
 /* App-specific chat markdown chrome */
 .chat-markdown-codeblock {
   position: relative;
