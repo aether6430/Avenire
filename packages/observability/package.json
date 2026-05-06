@@ -13,11 +13,12 @@
     "format": "biome format --write ."
   },
   "dependencies": {
-    "@axiomhq/js": "latest"
+    "posthog-node": "^5.33.2"
   },
   "devDependencies": {
     "@avenire/env-types": "workspace:*",
     "@avenire/typescript-config": "workspace:*",
+    "@types/node": "latest",
     "typescript": "5.9.3"
   },
   "engines": {

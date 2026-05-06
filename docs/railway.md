@@ -81,7 +81,8 @@ Recommended for the full app:
 - `MAINTENANCE_CRON_TOKEN=<strong-random-secret>`
 - `RESEND_API_KEY=...`
 - `UPLOADTHING_TOKEN=...`
-- `AXIOM_TOKEN=...`
+- `POSTHOG_KEY=...`
+- `POSTHOG_HOST=https://us.i.posthog.com`
 - `OBSERVABILITY_ENABLED=true`
 - `OBSERVABILITY_SERVICE=web`
 

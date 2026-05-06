@@ -2,6 +2,7 @@ import {
   enqueueIngestionJob,
   type IngestionJobRecord,
 } from "@avenire/database";
+import { reportError } from "@avenire/observability";
 import { Queue, Worker } from "bullmq";
 
 export const INGESTION_QUEUE_NAME = "avenire-ingestion";
@@ -25,6 +26,14 @@ function buildQueue() {
     connection: getConnectionOptions(null),
   });
   ingestionQueue.on("error", (error) => {
+    void reportError({
+      error,
+      eventName: "ingestion.queue.producer_error",
+      context: {
+        feature: "ingestion",
+        service: "ingestion",
+      },
+    });
     console.error("BullMQ ingestion producer error", error);
   });
   return ingestionQueue;
@@ -88,6 +97,19 @@ export async function scheduleIngestionJob(input: {
         delayMs: input.delayMs,
       });
     } catch (error) {
+      void reportError({
+        error,
+        eventName: "ingestion.queue.enqueue_failed",
+        context: {
+          feature: "ingestion",
+          service: "ingestion",
+          workspaceId: job.workspaceId,
+        },
+        payload: {
+          fileId: job.fileId,
+          jobId: job.id,
+        },
+      });
       console.error("ingestion.queue.enqueue_failed", {
         workspaceId: job.workspaceId,
         fileId: job.fileId,
@@ -119,6 +141,14 @@ export function createIngestionQueueWorker(
   );
 
   worker.on("error", (error) => {
+    void reportError({
+      error,
+      eventName: "ingestion.queue.worker_error",
+      context: {
+        feature: "ingestion",
+        service: "ingestion",
+      },
+    });
     console.error("BullMQ ingestion worker error", error);
   });
 

@@ -6,8 +6,6 @@ declare namespace NodeJS {
     AUTH_GOOGLE_SECRET?: string;
     AUTH_NOTION_ID?: string;
     AUTH_NOTION_SECRET?: string;
-    AXIOM_DATASET?: string;
-    AXIOM_TOKEN?: string;
     BASETEN_API_KEY?: string;
     BETTER_AUTH_SECRET?: string;
     BETTER_AUTH_EXTENSION_ORIGINS?: string;
@@ -53,6 +51,8 @@ declare namespace NodeJS {
     NEXT_PUBLIC_APP_URL?: string;
     NEXT_PUBLIC_GOOGLE_PICKER_API_KEY?: string;
     NEXT_PUBLIC_GOOGLE_PICKER_APP_ID?: string;
+    NEXT_PUBLIC_POSTHOG_HOST?: string;
+    NEXT_PUBLIC_POSTHOG_KEY?: string;
     NEXT_PUBLIC_UPLOAD_DEDUPE_HASH_MAX_BYTES?: string;
     NEXT_PUBLIC_UPLOAD_PREUPLOAD_DEDUPE?: string;
     NODE_ENV?: string;
@@ -70,6 +70,8 @@ declare namespace NodeJS {
     POLAR_PRODUCT_ID_SCHOLAR_YEARLY?: string;
     POLAR_SERVER?: string;
     POLAR_WEBHOOK_SECRET?: string;
+    POSTHOG_HOST?: string;
+    POSTHOG_KEY?: string;
     REDIS_URL?: string;
     RESEND_API_KEY?: string;
     RETRIEVAL_QUERY_CACHE_TTL_SECONDS?: string;

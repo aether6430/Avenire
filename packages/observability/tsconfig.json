@@ -1,4 +1,7 @@
 {
   "extends": "@avenire/typescript-config/base.json",
+  "compilerOptions": {
+    "types": ["@avenire/env-types", "node"]
+  },
   "include": ["src/**/*.ts"]
 }

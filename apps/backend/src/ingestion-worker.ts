@@ -5,9 +5,9 @@ import {
   beginIngestionJob,
   getFileForIngestion,
   listQueuedIngestionJobs,
-  markNoteReindexed,
   markIngestionJobFailed,
   markIngestionJobSucceeded,
+  markNoteReindexed,
   replaceFileTranscriptCues,
   retryIngestionJob,
 } from "@avenire/database";
@@ -21,6 +21,13 @@ import {
   enqueueIngestionQueueJob,
   type IngestionQueueJobData,
 } from "@avenire/ingestion/queue";
+import {
+  logInfo,
+  reportError,
+  safeError,
+  scopedLogger,
+  shutdownObservability,
+} from "@avenire/observability";
 import { serve } from "@hono/node-server";
 import { config as loadEnv } from "dotenv";
 import { Hono } from "hono";
@@ -59,6 +66,11 @@ const recoverySweepMs = Math.max(
 assertRequiredSecrets();
 
 const app = new Hono();
+const workerLogger = scopedLogger({
+  feature: "ingestion",
+  route: "ingestion-worker",
+  service: "ingestion-worker",
+});
 
 let activeJobs = 0;
 let lastError: string | null = null;
@@ -72,7 +84,8 @@ function isNonRetryableIngestionError(stage: string, error: unknown) {
   }
 
   return (
-    stage === "load-file" && error.message === "File not found for ingestion job."
+    stage === "load-file" &&
+    error.message === "File not found for ingestion job."
   );
 }
 
@@ -172,7 +185,7 @@ async function processQueuedJob(queueJob: IngestionQueueJobData) {
       fileName: file.name,
       mimeType: file.mimeType,
       metadata: file.metadata,
-      content: file.isNote ? file.content ?? "" : null,
+      content: file.isNote ? (file.content ?? "") : null,
     });
 
     stage = "persist-transcript";
@@ -220,8 +233,22 @@ async function processQueuedJob(queueJob: IngestionQueueJobData) {
       resourceCount: result.resources.length,
       workspaceId: job.workspaceId,
     }).catch((error) => {
+      void reportError({
+        error,
+        eventName: "ingestion.worker.retrieval_warmup_failed",
+        context: {
+          feature: "ingestion",
+          service: "ingestion-worker",
+          workspaceId: job.workspaceId,
+        },
+        payload: {
+          fileId: job.fileId,
+          jobId: job.id,
+        },
+      });
       console.warn("ingestion.worker.retrieval_warmup_failed", {
-        error: error instanceof Error ? error.message : "Unknown warmup failure",
+        error:
+          error instanceof Error ? error.message : "Unknown warmup failure",
         jobId: job.id,
         workspaceId: job.workspaceId,
       });
@@ -245,6 +272,22 @@ async function processQueuedJob(queueJob: IngestionQueueJobData) {
       : `[${stage}] ${message}`;
     lastError = enrichedMessage;
 
+    await reportError({
+      error,
+      eventName: "ingestion.worker.job_failed",
+      context: {
+        feature: "ingestion",
+        service: "ingestion-worker",
+        workspaceId: job.workspaceId,
+      },
+      payload: {
+        attempts: job.attempts,
+        fileId: job.fileId,
+        jobId: job.id,
+        stage,
+        causeMessage,
+      },
+    });
     console.error("ingestion.worker.job_failed", {
       workspaceId: job.workspaceId,
       jobId: job.id,
@@ -317,6 +360,19 @@ async function processQueuedJob(queueJob: IngestionQueueJobData) {
         jobId: job.id,
         error: `${enrichedMessage} | ${retryMessage}`,
       }).catch((markError) => {
+        void reportError({
+          error: markError,
+          eventName: "ingestion.worker.retry_mark_failed_error",
+          context: {
+            feature: "ingestion",
+            service: "ingestion-worker",
+            workspaceId: job.workspaceId,
+          },
+          payload: {
+            fileId: job.fileId,
+            jobId: job.id,
+          },
+        });
         console.error("ingestion.worker.retry_mark_failed_error", markError);
       });
 
@@ -331,12 +387,38 @@ async function processQueuedJob(queueJob: IngestionQueueJobData) {
           maxAttempts: maxIngestionAttempts,
         },
       }).catch((publishError) => {
+        void reportError({
+          error: publishError,
+          eventName: "ingestion.worker.retry_publish_failed_error",
+          context: {
+            feature: "ingestion",
+            service: "ingestion-worker",
+            workspaceId: job.workspaceId,
+          },
+          payload: {
+            fileId: job.fileId,
+            jobId: job.id,
+          },
+        });
         console.error(
           "ingestion.worker.retry_publish_failed_error",
           publishError
         );
       });
 
+      await reportError({
+        error: retryError,
+        eventName: "ingestion.worker.retry_schedule_error",
+        context: {
+          feature: "ingestion",
+          service: "ingestion-worker",
+          workspaceId: job.workspaceId,
+        },
+        payload: {
+          fileId: job.fileId,
+          jobId: job.id,
+        },
+      });
       console.error("ingestion.worker.retry_schedule_error", retryError);
     }
   } finally {
@@ -379,7 +461,10 @@ async function recoverQueuedJobs() {
         (result) => result.status === "rejected"
       ).length;
 
-      const lastJob = queuedJobs[queuedJobs.length - 1];
+      const lastJob = queuedJobs.at(-1);
+      if (!lastJob) {
+        break;
+      }
       cursor = {
         createdAt: new Date(lastJob.createdAt),
         id: lastJob.id,
@@ -397,6 +482,10 @@ async function recoverQueuedJobs() {
     }
 
     if (rejectedCount > 0) {
+      await workerLogger.error("ingestion.worker.recovery_enqueue_failed", {
+        queuedJobs: recoveredJobsCount,
+        rejectedCount,
+      });
       console.error("ingestion.worker.recovery_enqueue_failed", {
         queuedJobs: recoveredJobsCount,
         rejectedCount,
@@ -404,11 +493,29 @@ async function recoverQueuedJobs() {
       return;
     }
 
+    await logInfo({
+      eventName: "ingestion.worker.recovery_enqueued",
+      context: {
+        feature: "ingestion",
+        service: "ingestion-worker",
+      },
+      payload: {
+        queuedJobs: recoveredJobsCount,
+      },
+    });
     console.log("ingestion.worker.recovery_enqueued", {
       queuedJobs: recoveredJobsCount,
     });
   } catch (error) {
     lastError = error instanceof Error ? error.message : String(error);
+    await reportError({
+      error,
+      eventName: "ingestion.worker.recovery_error",
+      context: {
+        feature: "ingestion",
+        service: "ingestion-worker",
+      },
+    });
     console.error("ingestion.worker.recovery_error", error);
   }
 }
@@ -419,6 +526,14 @@ const ingestionWorker = createIngestionQueueWorker(processQueuedJob, {
 
 ingestionWorker.worker.on("error", (error) => {
   lastError = error instanceof Error ? error.message : String(error);
+  void reportError({
+    error,
+    eventName: "ingestion.worker.error",
+    context: {
+      feature: "ingestion",
+      service: "ingestion-worker",
+    },
+  });
   console.error("ingestion.worker.error", error);
 });
 
@@ -444,35 +559,93 @@ serve(
     port,
   },
   (info) => {
+    void logInfo({
+      eventName: "ingestion.worker.started",
+      context: {
+        feature: "ingestion",
+        service: "ingestion-worker",
+      },
+      payload: {
+        port: info.port,
+        workerConcurrency,
+      },
+    });
     console.log(`Ingestion worker listening on http://localhost:${info.port}`);
   }
 );
 
 const shutdown = async () => {
   await ingestionWorker.close().catch((error) => {
+    void reportError({
+      error,
+      eventName: "ingestion.worker.close_failed",
+      context: {
+        feature: "ingestion",
+        service: "ingestion-worker",
+      },
+    });
     console.error("Failed to close ingestion BullMQ worker", error);
   });
+  shutdownObservability();
   process.exit(0);
 };
 
 process.on("SIGINT", () => {
   shutdown().catch((error) => {
+    void reportError({
+      error,
+      eventName: "ingestion.worker.sigint_shutdown_failed",
+      context: {
+        feature: "ingestion",
+        service: "ingestion-worker",
+      },
+      payload: {
+        error: safeError(error),
+      },
+    });
     console.error("Failed to shut down ingestion worker on SIGINT", error);
     process.exit(1);
   });
 });
 process.on("SIGTERM", () => {
   shutdown().catch((error) => {
+    void reportError({
+      error,
+      eventName: "ingestion.worker.sigterm_shutdown_failed",
+      context: {
+        feature: "ingestion",
+        service: "ingestion-worker",
+      },
+      payload: {
+        error: safeError(error),
+      },
+    });
     console.error("Failed to shut down ingestion worker on SIGTERM", error);
     process.exit(1);
   });
 });
 
 recoverQueuedJobs().catch((error) => {
+  void reportError({
+    error,
+    eventName: "ingestion.worker.initial_recovery_failed",
+    context: {
+      feature: "ingestion",
+      service: "ingestion-worker",
+    },
+  });
   console.error("Failed initial ingestion queue recovery sweep", error);
 });
 setInterval(() => {
   recoverQueuedJobs().catch((error) => {
+    void reportError({
+      error,
+      eventName: "ingestion.worker.scheduled_recovery_failed",
+      context: {
+        feature: "ingestion",
+        service: "ingestion-worker",
+      },
+    });
     console.error("Failed scheduled ingestion queue recovery sweep", error);
   });
 }, recoverySweepMs);

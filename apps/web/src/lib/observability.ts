@@ -55,11 +55,15 @@ export function createApiLogger(input: ApiLoggerInput) {
       error: unknown,
       payload?: Record<string, unknown>
     ) {
-      return logger.error("api.request.failed", {
-        status,
-        error: safeError(error),
-        ...(payload ?? {}),
-      });
+      return logger.captureError(
+        error,
+        {
+          status,
+          error: safeError(error),
+          ...(payload ?? {}),
+        },
+        "api.request.failed"
+      );
     },
     rateLimited(
       meterName: string,
