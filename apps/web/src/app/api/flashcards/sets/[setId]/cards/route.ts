@@ -1,5 +1,6 @@
 import { assertFlashcardTaxonomy } from "@avenire/database";
 import { NextResponse } from "next/server";
+import { invalidateFlashcardReadCaches } from "@/lib/domain-cache";
 import { createFlashcardCardForUser } from "@/lib/flashcards";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
 import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
@@ -60,6 +61,8 @@ export async function POST(
   if (!card) {
     return NextResponse.json({ error: "Set not found" }, { status: 404 });
   }
+
+  await invalidateFlashcardReadCaches(ctx.workspace.workspaceId);
 
   void publishWorkspaceStreamEvent({
     workspaceUuid: ctx.workspace.workspaceId,

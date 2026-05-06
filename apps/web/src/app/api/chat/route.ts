@@ -34,6 +34,7 @@ import {
   DEFAULT_CHAT_ICON,
   isChatIconName,
 } from "@/lib/chat-icons";
+import { invalidateChatReadCaches } from "@/lib/domain-cache";
 import {
   createChatTools,
   getActiveMisconceptionContext,
@@ -1088,6 +1089,7 @@ export async function POST(request: Request) {
         workspace.workspaceId,
         DEFAULT_CHAT_TITLE
       );
+      await invalidateChatReadCaches(workspace.workspaceId);
       chat = createdChat;
       chatCreatedFromNew = true;
       chatSlug = createdChat.slug;
@@ -1243,6 +1245,7 @@ export async function POST(request: Request) {
           originalMessages,
           workspace.workspaceId
         );
+        await invalidateChatReadCaches(workspace.workspaceId);
         logInfo("Persisted user messages before stream", {
           chatId: chatSlug,
           messageCount: originalMessages.length,
@@ -1371,6 +1374,7 @@ export async function POST(request: Request) {
               },
               workspace.workspaceId
             );
+            await invalidateChatReadCaches(workspace.workspaceId);
             logInfo("Persisted generated chat title", {
               chatId: chatSlug,
               name: nextMeta.title,
@@ -1527,6 +1531,7 @@ export async function POST(request: Request) {
                   persistedMessages,
                   workspace.workspaceId
                 );
+                await invalidateChatReadCaches(workspace.workspaceId);
                 logInfo("Persisted streamed messages", {
                   chatId: chatSlug,
                   messageCount: persistedMessages.length,
@@ -1749,6 +1754,7 @@ export async function DELETE(request: Request) {
     if (activeStreamId) {
       await clearActiveStreamId(id, activeStreamId);
     }
+    await invalidateChatReadCaches(workspace.workspaceId);
     apiLogger.featureUsed("chat.delete", { chatId: id });
     apiLogger.requestSucceeded(200, { chatId: id });
 

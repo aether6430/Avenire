@@ -808,6 +808,74 @@ export async function getNoteContent(fileId: string) {
   return row ?? null;
 }
 
+export async function listNoteContentByFileIds(fileIds: string[]) {
+  if (fileIds.length === 0) {
+    return new Map<
+      string,
+      {
+        baseContent: string | null;
+        content: string | null;
+        needsReindex: boolean;
+        updatedAt: Date;
+        version: number;
+      }
+    >();
+  }
+
+  const rows = await db
+    .select({
+      baseContent: noteContent.baseContent,
+      content: noteContent.content,
+      fileId: noteContent.fileId,
+      needsReindex: noteContent.needsReindex,
+      updatedAt: noteContent.updatedAt,
+      version: noteContent.version,
+    })
+    .from(noteContent)
+    .where(inArray(noteContent.fileId, fileIds));
+
+  return new Map(rows.map((row) => [row.fileId, row]));
+}
+
+export async function getAccessibleMarkdownNoteForUser(input: {
+  fileId: string;
+  userId: string;
+}) {
+  const [row] = await db
+    .select({
+      file: fileAsset,
+      note: {
+        baseContent: noteContent.baseContent,
+        content: noteContent.content,
+        needsReindex: noteContent.needsReindex,
+        updatedAt: noteContent.updatedAt,
+        version: noteContent.version,
+      },
+    })
+    .from(fileAsset)
+    .innerJoin(workspace, eq(workspace.id, fileAsset.workspaceId))
+    .innerJoin(member, eq(member.organizationId, workspace.organizationId))
+    .leftJoin(noteContent, eq(noteContent.fileId, fileAsset.id))
+    .where(
+      and(
+        eq(fileAsset.id, input.fileId),
+        eq(member.userId, input.userId),
+        isNull(fileAsset.deletedAt)
+      )
+    )
+    .limit(1);
+
+  if (!row || !isMarkdownFileRecord(row.file)) {
+    return null;
+  }
+
+  return {
+    file: mapFile(row.file),
+    note: row.note?.content == null ? null : row.note,
+    workspaceId: row.file.workspaceId,
+  };
+}
+
 export async function createWorkspaceNoteFile(input: {
   baseContent?: string;
   content: string;

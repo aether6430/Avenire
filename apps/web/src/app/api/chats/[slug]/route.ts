@@ -9,6 +9,7 @@ import {
   isChatOwnerForUser,
   updateChatForUser,
 } from "@/lib/chat-data";
+import { invalidateChatReadCaches } from "@/lib/domain-cache";
 import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
 
 async function getSessionUser() {
@@ -76,6 +77,8 @@ export async function PATCH(
   }
 
   if (updated.workspaceId) {
+    await invalidateChatReadCaches(updated.workspaceId);
+
     void publishWorkspaceStreamEvent({
       workspaceUuid: updated.workspaceId,
       type: "chat.invalidate",
@@ -117,6 +120,8 @@ export async function POST(
   }
 
   if (chat.workspaceId) {
+    await invalidateChatReadCaches(chat.workspaceId);
+
     void publishWorkspaceStreamEvent({
       workspaceUuid: chat.workspaceId,
       type: "chat.invalidate",
@@ -158,6 +163,8 @@ export async function DELETE(
   }
 
   if (existing?.workspaceId) {
+    await invalidateChatReadCaches(existing.workspaceId);
+
     void publishWorkspaceStreamEvent({
       workspaceUuid: existing.workspaceId,
       type: "chat.invalidate",

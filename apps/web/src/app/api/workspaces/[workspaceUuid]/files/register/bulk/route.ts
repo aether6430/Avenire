@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { invalidateWorkspaceReadCaches } from "@/lib/domain-cache";
 import {
   isSharedFilesVirtualFolderId,
   userCanEditFolder,
@@ -171,6 +172,9 @@ export async function POST(
   }
 
   const succeeded = results.filter((entry) => entry.status === "ok").length;
+  if (succeeded > 0) {
+    await invalidateWorkspaceReadCaches(workspaceUuid);
+  }
   return NextResponse.json({
     ok: true,
     summary: {

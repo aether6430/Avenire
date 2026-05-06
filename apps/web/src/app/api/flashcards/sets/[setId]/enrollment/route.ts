@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { invalidateFlashcardReadCaches } from "@/lib/domain-cache";
 import { upsertFlashcardSetEnrollmentForUser } from "@/lib/flashcards";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
 
@@ -28,6 +29,8 @@ export async function POST(
   if (!enrollment) {
     return NextResponse.json({ error: "Set not found" }, { status: 404 });
   }
+
+  await invalidateFlashcardReadCaches(ctx.workspace.workspaceId);
 
   return NextResponse.json({ enrollment });
 }

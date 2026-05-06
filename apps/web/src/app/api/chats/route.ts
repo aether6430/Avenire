@@ -2,6 +2,7 @@ import { auth } from "@avenire/auth/server";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { createChatForUser } from "@/lib/chat-data";
+import { invalidateChatReadCaches } from "@/lib/domain-cache";
 import { resolveWorkspaceForUser } from "@/lib/file-data";
 import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
 
@@ -34,6 +35,8 @@ export async function POST(request: Request) {
     workspace.workspaceId,
     body.title
   );
+
+  await invalidateChatReadCaches(workspace.workspaceId);
 
   void publishWorkspaceStreamEvent({
     workspaceUuid: workspace.workspaceId,

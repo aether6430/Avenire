@@ -1,8 +1,10 @@
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
 import { after, NextResponse } from "next/server";
 import { merge } from "node-diff3";
+import { invalidateWorkspaceReadCaches } from "@/lib/domain-cache";
 import {
   deleteIngestionDataForFile,
+  getAccessibleMarkdownNoteForUser,
   getFileAssetById,
   getNoteContent,
   getWorkspaceIdForFile,
@@ -12,7 +14,7 @@ import {
 } from "@/lib/file-data";
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
 import { deleteUploadThingFile } from "@/lib/upload-registration";
-import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
+import { getSessionUser } from "@/lib/workspace";
 
 const NOTE_REINDEX_DEBOUNCE_MS = 3000;
 
@@ -26,24 +28,18 @@ export async function GET(
   }
 
   const { noteId } = await context.params;
-  const workspaceId = await getWorkspaceIdForFile(noteId);
-  if (!workspaceId) {
-    return NextResponse.json({ error: "Note not found" }, { status: 404 });
-  }
-  const canAccess = await ensureWorkspaceAccessForUser(user.id, workspaceId);
-  if (!canAccess) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const file = await getFileAssetById(workspaceId, noteId);
-  if (!(file && isMarkdownFileRecord(file))) {
+  const accessibleNote = await getAccessibleMarkdownNoteForUser({
+    fileId: noteId,
+    userId: user.id,
+  });
+  if (!accessibleNote) {
     return NextResponse.json(
       { error: "Markdown file not found" },
       { status: 404 }
     );
   }
+  const { file, note, workspaceId } = accessibleNote;
 
-  const note = await getNoteContent(noteId);
   if (note?.content != null) {
     return NextResponse.json({
       markdown: note.content,
@@ -180,6 +176,7 @@ export async function POST(
     fileId: noteId,
     reason: "file.updated",
   });
+  await invalidateWorkspaceReadCaches(workspaceId);
 
   return NextResponse.json({
     hasConflict: mergedResult.conflict,

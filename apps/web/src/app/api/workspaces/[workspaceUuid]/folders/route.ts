@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { invalidateWorkspaceReadCaches } from "@/lib/domain-cache";
 import {
   createFolder,
   isSharedFilesVirtualFolderId,
@@ -72,6 +73,7 @@ export async function POST(
     workspaceUuid,
     reason: "tree.changed",
   });
+  await invalidateWorkspaceReadCaches(workspaceUuid);
 
   return NextResponse.json({ folder }, { status: 201 });
 }

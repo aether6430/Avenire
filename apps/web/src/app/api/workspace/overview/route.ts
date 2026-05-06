@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { CACHE_NAMESPACES } from "@/lib/domain-cache";
 import {
   getFlashcardDashboardForUser,
   getWeakestConcepts,
@@ -6,6 +7,12 @@ import {
   resolveWeakestConceptDrillTarget,
 } from "@/lib/flashcards";
 import { getActiveMisconceptions } from "@/lib/learning-data";
+import {
+  createRouteCacheKey,
+  getCachedRoute,
+  getRouteCacheVersion,
+  setCachedRoute,
+} from "@/lib/route-cache";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
 
 export async function GET(request: Request) {
@@ -16,6 +23,27 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const requestedSubject = searchParams.get("subject")?.trim() || undefined;
+  const version = await getRouteCacheVersion(
+    CACHE_NAMESPACES.workspaceOverview,
+    ctx.workspace.workspaceId
+  );
+  const cacheKey = createRouteCacheKey({
+    namespace: CACHE_NAMESPACES.workspaceOverview,
+    params: { subject: requestedSubject ?? null },
+    scope: ctx.workspace.workspaceId,
+    version,
+  });
+  const cached = await getCachedRoute<{
+    activeMisconceptions: unknown[];
+    flashcardSets: unknown[];
+    weakestConcepts: unknown[];
+    weakestDrillTarget: unknown;
+  }>(cacheKey);
+  if (cached) {
+    return NextResponse.json(cached, {
+      headers: { "x-workspace-overview-cache": "hit" },
+    });
+  }
 
   const [
     flashcardSets,
@@ -67,12 +95,17 @@ export async function GET(request: Request) {
     ),
   ]);
 
-  return NextResponse.json({
+  const payload = {
     activeMisconceptions,
     flashcardSets,
     weakestConcepts,
     weakestDrillTarget: flashcardDashboard
       ? resolveWeakestConceptDrillTarget(flashcardDashboard, weakestConcepts)
       : null,
+  };
+
+  await setCachedRoute(CACHE_NAMESPACES.workspaceOverview, cacheKey, payload);
+  return NextResponse.json(payload, {
+    headers: { "x-workspace-overview-cache": "miss" },
   });
 }

@@ -1,5 +1,6 @@
 import { assertFlashcardTaxonomy } from "@avenire/database";
 import { NextResponse } from "next/server";
+import { invalidateFlashcardReadCaches } from "@/lib/domain-cache";
 import {
   archiveFlashcardCardForUser,
   updateFlashcardCardForUser,
@@ -57,6 +58,8 @@ export async function PATCH(
     return NextResponse.json({ error: "Card not found" }, { status: 404 });
   }
 
+  await invalidateFlashcardReadCaches(ctx.workspace.workspaceId);
+
   void publishWorkspaceStreamEvent({
     workspaceUuid: ctx.workspace.workspaceId,
     type: "flashcards.invalidate",
@@ -90,6 +93,8 @@ export async function DELETE(
   if (!card) {
     return NextResponse.json({ error: "Card not found" }, { status: 404 });
   }
+
+  await invalidateFlashcardReadCaches(ctx.workspace.workspaceId);
 
   void publishWorkspaceStreamEvent({
     workspaceUuid: ctx.workspace.workspaceId,

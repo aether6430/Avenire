@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { invalidateFlashcardReadCaches } from "@/lib/domain-cache";
 import { reviewFlashcardForUser } from "@/lib/flashcards";
 import "@/lib/learning-automation";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
@@ -34,6 +35,8 @@ export async function POST(request: Request) {
   if (!result) {
     return NextResponse.json({ error: "Card not found" }, { status: 404 });
   }
+
+  await invalidateFlashcardReadCaches(ctx.workspace.workspaceId);
 
   void publishWorkspaceStreamEvent({
     workspaceUuid: ctx.workspace.workspaceId,

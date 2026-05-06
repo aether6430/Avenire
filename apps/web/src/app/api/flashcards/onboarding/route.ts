@@ -2,6 +2,7 @@ import { generateText, Output } from "@avenire/ai";
 import { apollo } from "@avenire/ai/models";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { invalidateFlashcardReadCaches } from "@/lib/domain-cache";
 import {
   createFlashcardCardForUser,
   createFlashcardSetForUser,
@@ -124,6 +125,8 @@ export async function POST(request: Request) {
       });
     }
   }
+
+  await invalidateFlashcardReadCaches(ctx.workspace.workspaceId);
 
   return NextResponse.json({
     cards,

@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import {
+  CACHE_NAMESPACES,
+  invalidateWorkspaceReadCaches,
+} from "@/lib/domain-cache";
+import {
   getFolderWithAncestors,
-  getNoteContent,
   isMarkdownFileRecord,
   isSharedFilesVirtualFolderId,
+  listNoteContentByFileIds,
   listFolderContentsForUser,
   listWorkspaceMembers,
   softDeleteFolder,
@@ -13,6 +17,12 @@ import {
 } from "@/lib/file-data";
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
 import { getIngestionFlagsByFileIds } from "@/lib/ingestion-data";
+import {
+  createRouteCacheKey,
+  getCachedRoute,
+  getRouteCacheVersion,
+  setCachedRoute,
+} from "@/lib/route-cache";
 import { getSessionUser } from "@/lib/workspace";
 
 export async function GET(
@@ -34,35 +44,50 @@ export async function GET(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const folder = await getFolderWithAncestors(
-    workspaceUuid,
-    folderUuid,
-    user.id
+  const version = await getRouteCacheVersion(
+    CACHE_NAMESPACES.workspaceFolder,
+    workspaceUuid
   );
+  const cacheKey = createRouteCacheKey({
+    namespace: CACHE_NAMESPACES.workspaceFolder,
+    params: { folderUuid },
+    scope: workspaceUuid,
+    version,
+  });
+  const cached = await getCachedRoute<{
+    ancestors: unknown[];
+    files: unknown[];
+    folder: unknown;
+    folders: unknown[];
+  }>(cacheKey);
+  if (cached) {
+    return NextResponse.json(cached, {
+      headers: { "x-workspace-folder-cache": "hit" },
+    });
+  }
+
+  const [folder, children] = await Promise.all([
+    getFolderWithAncestors(workspaceUuid, folderUuid, user.id),
+    listFolderContentsForUser(workspaceUuid, folderUuid, user.id),
+  ]);
   if (!folder) {
     return NextResponse.json({ error: "Folder not found" }, { status: 404 });
   }
 
-  const children = await listFolderContentsForUser(
-    workspaceUuid,
-    folderUuid,
-    user.id
-  );
-  const ingestionFlags = await getIngestionFlagsByFileIds(
-    workspaceUuid,
-    (children.files ?? []).map((file) => file.id)
-  );
+  const files = children.files ?? [];
+  const markdownFiles = files.filter((file) => isMarkdownFileRecord(file));
+  const [ingestionFlags, noteRows] = await Promise.all([
+    getIngestionFlagsByFileIds(
+      workspaceUuid,
+      files.map((file) => file.id)
+    ),
+    listNoteContentByFileIds(markdownFiles.map((file) => file.id)),
+  ]);
   const noteContentByFileId = new Map<string, string | null>();
   await Promise.all(
-    (children.files ?? [])
-      .filter((file) => isMarkdownFileRecord(file))
+    markdownFiles
+      .filter((file) => !noteRows.has(file.id))
       .map(async (file) => {
-        const note = await getNoteContent(file.id);
-        if (note?.content != null) {
-          noteContentByFileId.set(file.id, note.content);
-          return;
-        }
-
         const response = await fetch(file.storageUrl, {
           cache: "no-store",
         }).catch(() => null);
@@ -72,7 +97,10 @@ export async function GET(
         );
       })
   );
-  return NextResponse.json({
+  for (const [fileId, note] of noteRows) {
+    noteContentByFileId.set(fileId, note.content ?? null);
+  }
+  const payload = {
     folder: folder.folder,
     ancestors: folder.ancestors,
     folders: children.folders,
@@ -81,6 +109,10 @@ export async function GET(
       isIngested: ingestionFlags[file.id] ?? false,
       noteContent: noteContentByFileId.get(file.id) ?? null,
     })),
+  };
+  await setCachedRoute(CACHE_NAMESPACES.workspaceFolder, cacheKey, payload);
+  return NextResponse.json(payload, {
+    headers: { "x-workspace-folder-cache": "miss" },
   });
 }
 
@@ -172,6 +204,7 @@ export async function PATCH(
       })
     )
   );
+  await invalidateWorkspaceReadCaches(workspaceUuid);
 
   return NextResponse.json({ folder });
 }
@@ -219,5 +252,6 @@ export async function DELETE(
     workspaceUuid,
     reason: "tree.changed",
   });
+  await invalidateWorkspaceReadCaches(workspaceUuid);
   return NextResponse.json({ ok: true });
 }

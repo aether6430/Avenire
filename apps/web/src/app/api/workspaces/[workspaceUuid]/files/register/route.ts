@@ -4,6 +4,7 @@ import {
   isSharedFilesVirtualFolderId,
   userCanEditFolder,
 } from "@/lib/file-data";
+import { invalidateWorkspaceReadCaches } from "@/lib/domain-cache";
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
 import { extractMarkdownNotePageMetadata } from "@/lib/markdown-note-template";
 import { createApiLogger } from "@/lib/observability";
@@ -151,6 +152,7 @@ export async function POST(
       workspaceUuid,
       reason: "tree.changed",
     });
+    await invalidateWorkspaceReadCaches(workspaceUuid);
 
     void apiLogger.meter("meter.upload.filesystem.registered", {
       workspaceUuid,
@@ -277,6 +279,7 @@ export async function POST(
     mimeType: storedFile.mimeType,
     sizeBytes: storedFile.sizeBytes,
   });
+  await invalidateWorkspaceReadCaches(workspaceUuid);
 
   return NextResponse.json(
     {
