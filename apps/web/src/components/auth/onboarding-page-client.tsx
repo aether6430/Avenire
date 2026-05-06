@@ -5,20 +5,13 @@ import {
   resolveAppleHelloLocale,
 } from "@avenire/ui/components/apple-hello-effect";
 import { Button } from "@avenire/ui/components/button";
-import { Input } from "@avenire/ui/components/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@avenire/ui/components/select";
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AuthShell } from "@/components/auth-shell";
 import { MeshGradient } from "@/components/marketing/mesh-gradient";
-import { PET_OPTIONS, type PetAccessory } from "@/lib/pet-preferences";
+import { PetPreferencesFields } from "@/components/pets/pet-preferences-fields";
+import { type PetAccessory } from "@/lib/pet-preferences";
 
 const STEPS = [
   {
@@ -28,6 +21,14 @@ const STEPS = [
     ],
     eyebrow: "Upload your first file",
     title: "Start with source material.",
+  },
+  {
+    body: [
+      "Give Auri a name and pick an accessory before you enter the workspace.",
+      "This is a separate setup step so it does not crowd the main onboarding screen.",
+    ],
+    eyebrow: "Personalize your pet",
+    title: "Set up Auri.",
   },
   {
     body: [
@@ -58,6 +59,7 @@ export function OnboardingPageClient() {
   const [petName, setPetName] = useState("Auri");
   const [petAccessory, setPetAccessory] = useState<PetAccessory>("none");
   const current = STEPS[step] ?? STEPS[0];
+  const isPetStep = step === 1;
 
   useEffect(() => {
     setHelloLocale(resolveAppleHelloLocale(navigator.languages));
@@ -162,7 +164,7 @@ export function OnboardingPageClient() {
           </div>
         </div>
 
-        <div className="relative mt-8 min-h-[18.5rem] max-w-md sm:min-h-[17rem]">
+        <div className="relative mt-8 min-h-[22rem] max-w-md sm:min-h-[21rem]">
           <AnimatePresence initial={false} mode="wait">
             <motion.div
               animate={{ filter: "blur(0px)", opacity: 1, y: 0 }}
@@ -196,35 +198,18 @@ export function OnboardingPageClient() {
                   </p>
                 ))}
               </div>
-              {step === 0 ? (
-                <div className="mt-6 grid gap-3 rounded-lg border border-border/60 bg-background/60 p-3">
-                  <Input
-                    aria-label="Pet name"
-                    maxLength={32}
-                    onChange={(event) => setPetName(event.target.value)}
-                    placeholder="Pet name"
-                    value={petName}
+              {isPetStep ? (
+                <div className="mt-6 rounded-2xl border border-border/70 bg-background/70 p-4 shadow-sm">
+                  <PetPreferencesFields
+                    accessory={petAccessory}
+                    accessoryDescription="Pick an accessory for Auri. The pet stays hidden until the workspace opens."
+                    className="border-0 bg-transparent p-0 shadow-none sm:grid-cols-1"
+                    name={petName}
+                    nameDescription="Name Auri before you enter the workspace."
+                    namePlaceholder="Auri"
+                    onAccessoryChange={setPetAccessory}
+                    onNameChange={setPetName}
                   />
-                  <Select
-                    onValueChange={(value) =>
-                      setPetAccessory(value as PetAccessory)
-                    }
-                    value={petAccessory}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Pet accessory" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PET_OPTIONS.map((option) => (
-                        <SelectItem
-                          key={option.accessory}
-                          value={option.accessory}
-                        >
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
               ) : null}
             </motion.div>
