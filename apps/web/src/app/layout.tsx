@@ -7,6 +7,14 @@ import { metadataBase } from "@/lib/page-metadata";
 import "./globals.css";
 import "react-quizlet-flashcard/dist/index.css";
 
+const defaultOgImage = {
+  alt: "Avenire — AI learning workspace",
+  height: 630,
+  type: "image/png",
+  url: "/api/og?title=Avenire",
+  width: 1200,
+};
+
 const fontSans = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
@@ -51,14 +59,19 @@ export const metadata: Metadata = {
     siteName: "Avenire",
     title: "Avenire",
     type: "website",
-    images: ["/api/og?title=Avenire"],
+    images: [defaultOgImage],
   },
   twitter: {
     card: "summary_large_image",
     description:
       "Avenire is an AI learning workspace for deep study, research, and interactive reasoning.",
     title: "Avenire",
-    images: ["/api/og?title=Avenire"],
+    images: [
+      {
+        url: defaultOgImage.url,
+        alt: defaultOgImage.alt,
+      },
+    ],
   },
 };
 

@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
     host: metadataBase.toString(),
     rules: [
       {
-        allow: "/",
+        allow: ["/", "/api/og"],
         disallow: [
           "/api/",
           "/auth/",

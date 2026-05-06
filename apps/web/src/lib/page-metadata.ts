@@ -22,6 +22,7 @@ export function buildPageMetadata(input: {
   const description = input.description ?? DEFAULT_DESCRIPTION;
   const ogImage = new URL("/api/og", metadataBase);
   ogImage.searchParams.set("title", input.title);
+  const ogImageUrl = ogImage.toString();
   const canonical =
     input.path === undefined
       ? undefined
@@ -42,7 +43,15 @@ export function buildPageMetadata(input: {
       title,
       description,
       url: canonical,
-      images: [ogImage.toString()],
+      images: [
+        {
+          url: ogImageUrl,
+          width: 1200,
+          height: 630,
+          type: "image/png",
+          alt: `${input.title} — Avenire`,
+        },
+      ],
     },
     robots: input.noIndex
       ? {
@@ -54,7 +63,12 @@ export function buildPageMetadata(input: {
       card: "summary_large_image",
       title,
       description,
-      images: [ogImage.toString()],
+      images: [
+        {
+          url: ogImageUrl,
+          alt: `${input.title} — Avenire`,
+        },
+      ],
     },
   };
 }
