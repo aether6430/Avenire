@@ -53,28 +53,19 @@ function buildPdfHighlightQueries(
 
 const PdfAutoJump = memo(function PdfAutoJump({
   fallbackHighlightText,
-  highlightPage,
   highlightText,
 }: {
   fallbackHighlightText?: string | null;
-  highlightPage?: number | null;
   highlightText?: string | null;
 }) {
   const { jumpToPage } = usePdfJump();
   const { search, textContent } = useSearch();
 
   useEffect(() => {
-    const hasHighlightPage =
-      typeof highlightPage === "number" && highlightPage > 0;
     const queries = buildPdfHighlightQueries(
       highlightText,
       fallbackHighlightText
     );
-
-    if (hasHighlightPage) {
-      jumpToPage(highlightPage, { align: "center", behavior: "smooth" });
-      return;
-    }
 
     if (queries.length === 0 || (textContent?.length ?? 0) === 0) {
       return;
@@ -96,7 +87,6 @@ const PdfAutoJump = memo(function PdfAutoJump({
     }
   }, [
     fallbackHighlightText,
-    highlightPage,
     highlightText,
     jumpToPage,
     search,
@@ -105,6 +95,46 @@ const PdfAutoJump = memo(function PdfAutoJump({
 
   return null;
 });
+
+const PdfPageJump = memo(function PdfPageJump({
+  highlightPage,
+}: {
+  highlightPage?: number | null;
+}) {
+  const { jumpToPage } = usePdfJump();
+
+  useEffect(() => {
+    if (typeof highlightPage === "number" && highlightPage > 0) {
+      jumpToPage(highlightPage, { align: "center", behavior: "smooth" });
+    }
+  }, [highlightPage, jumpToPage]);
+
+  return null;
+});
+
+function PdfPagesView({
+  invertColors,
+  withTextLayer,
+}: {
+  invertColors: boolean;
+  withTextLayer: boolean;
+}) {
+  return (
+    <Pages
+      className={cn(
+        "min-h-0 flex-1 overflow-auto px-3 py-3 sm:px-4 sm:py-4",
+        invertColors &&
+          "dark:brightness-[80%] dark:contrast-[228%] dark:hue-rotate-180 dark:invert-[94%]"
+      )}
+    >
+      <Page>
+        <CanvasLayer />
+        {withTextLayer ? <TextLayer /> : null}
+        <AnnotationLayer />
+      </Page>
+    </Pages>
+  );
+}
 
 function PdfFloatingDock() {
   const currentPage = usePdf((state) => state.currentPage);
@@ -320,6 +350,11 @@ function PDFViewer({
   invertColors?: boolean;
   className?: string;
 }) {
+  const hasPageJump = typeof highlightPage === "number" && highlightPage > 0;
+  const hasSearchJump =
+    !hasPageJump &&
+    buildPdfHighlightQueries(highlightText, fallbackHighlightText).length > 0;
+
   return (
     <Root
       className={cn(
@@ -329,26 +364,18 @@ function PDFViewer({
       loader={<div className="p-4">Loading...</div>}
       source={source}
     >
-      <PdfAutoJump
-        fallbackHighlightText={fallbackHighlightText}
-        highlightPage={highlightPage}
-        highlightText={highlightText}
-      />
-      <Search>
-        <Pages
-          className={cn(
-            "min-h-0 flex-1 overflow-auto px-3 py-3 sm:px-4 sm:py-4",
-            invertColors &&
-              "dark:brightness-[80%] dark:contrast-[228%] dark:hue-rotate-180 dark:invert-[94%]"
-          )}
-        >
-          <Page>
-            <CanvasLayer />
-            <TextLayer />
-            <AnnotationLayer />
-          </Page>
-        </Pages>
-      </Search>
+      {hasPageJump ? <PdfPageJump highlightPage={highlightPage} /> : null}
+      {hasSearchJump ? (
+        <Search>
+          <PdfAutoJump
+            fallbackHighlightText={fallbackHighlightText}
+            highlightText={highlightText}
+          />
+          <PdfPagesView invertColors={invertColors} withTextLayer />
+        </Search>
+      ) : (
+        <PdfPagesView invertColors={invertColors} withTextLayer={false} />
+      )}
       <PdfFloatingDock />
     </Root>
   );

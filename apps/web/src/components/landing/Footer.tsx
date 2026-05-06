@@ -43,10 +43,10 @@ export function Footer() {
   return (
     <footer className="border-border border-t">
       <div className="mx-auto max-w-7xl px-4 pt-14 pb-24">
-        <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
+        <div className="flex flex-col items-center gap-8 text-center md:flex-row md:items-start md:justify-between md:text-left">
           <div className="md:w-[24rem]">
             <Link
-              className="inline-flex items-center gap-2 font-semibold text-base text-foreground"
+              className="inline-flex items-center justify-center gap-2 font-semibold text-base text-foreground md:justify-start"
               href="/"
             >
               <AvenireMark className="h-5 w-auto shrink-0" />
@@ -56,7 +56,7 @@ export function Footer() {
               <p className="font-medium text-muted-foreground text-xs uppercase tracking-[0.14em]">
                 Follow the build:
               </p>
-              <div className="mt-2 flex items-center gap-2">
+              <div className="mt-2 flex items-center justify-center gap-2 md:justify-start">
                 {socialLinks.map((link) => {
                   const Icon = link.icon;
                   return (
@@ -77,7 +77,7 @@ export function Footer() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-8 md:ml-auto md:w-[20rem]">
+          <div className="grid w-full max-w-sm grid-cols-2 gap-8 md:ml-auto md:w-[20rem]">
             {columns.map((column) => (
               <div key={column.title}>
                 <h4 className="mb-4 font-medium text-muted-foreground text-xs uppercase tracking-wider">
@@ -109,7 +109,7 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-12 flex flex-col items-center justify-between gap-3 border-border border-t pt-6 sm:flex-row">
+        <div className="mt-12 flex flex-col items-center justify-center gap-3 border-border border-t pt-6 text-center sm:flex-row sm:justify-between sm:text-left">
           <p className="text-muted-foreground/60 text-xs">
             © {new Date().getFullYear()} Avenire. All rights reserved.
           </p>

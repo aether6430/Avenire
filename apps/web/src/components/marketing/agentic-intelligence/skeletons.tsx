@@ -12,6 +12,17 @@ import { useState, useEffect } from "react";
 import { useTypewriter } from "@/components/marketing/hooks/use-typewriter";
 import { LogoSVG } from "../logo";
 import { IconBlock } from "../common/icon-block";
+import {
+  Brain,
+  Cards,
+  FilePdf,
+  Files,
+  Graph,
+  MarkdownLogo,
+  Question,
+  Sparkle,
+  WarningDiamond,
+} from "@phosphor-icons/react";
 
 const StudyToken = ({
   label,
@@ -19,16 +30,43 @@ const StudyToken = ({
 }: {
   label: string;
   className?: string;
-}) => (
-  <span
-    className={cn(
-      "inline-flex size-6 items-center justify-center rounded-sm border border-brand/25 bg-brand/10 font-mono text-[9px] text-brand uppercase",
-      className,
-    )}
->
-    {label}
-  </span>
-);
+}) => {
+  const normalizedLabel = label.toLowerCase();
+  const iconClassName = "size-[70%]";
+  const icon =
+    normalizedLabel === "pdf" ? (
+      <FilePdf weight="duotone" className={iconClassName} />
+    ) : normalizedLabel === "md" ? (
+      <MarkdownLogo weight="duotone" className={iconClassName} />
+    ) : normalizedLabel === "cards" || normalizedLabel === "srs" ? (
+      <Cards weight="duotone" className={iconClassName} />
+    ) : normalizedLabel === "graph" ? (
+      <Graph weight="duotone" className={iconClassName} />
+    ) : normalizedLabel === "files" ? (
+      <Files weight="duotone" className={iconClassName} />
+    ) : normalizedLabel === "gap" ? (
+      <WarningDiamond weight="duotone" className={iconClassName} />
+    ) : normalizedLabel === "q" ? (
+      <Question weight="duotone" className={iconClassName} />
+    ) : normalizedLabel === "ai" ? (
+      <Sparkle weight="duotone" className={iconClassName} />
+    ) : (
+      <Brain weight="duotone" className={iconClassName} />
+    );
+
+  return (
+    <span
+      aria-label={label}
+      className={cn(
+        "inline-flex size-6 items-center justify-center rounded-sm border border-brand/25 bg-brand/10 text-brand",
+        className,
+      )}
+      title={label}
+    >
+      {icon}
+    </span>
+  );
+};
 
 const makeStudyToken =
   (label: string) =>

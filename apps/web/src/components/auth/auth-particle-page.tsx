@@ -13,7 +13,7 @@ export function AuthParticlePage({
   src: string;
 }) {
   return (
-    <div className="relative min-h-svh overflow-hidden bg-background text-foreground">
+    <div className="dark relative min-h-svh overflow-hidden bg-background text-foreground">
       <ParticleField
         align="center"
         className="fixed inset-0"

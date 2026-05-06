@@ -1600,7 +1600,6 @@ export function FilePreviewPanel({
                 query
               }
               invertColors={pdfInvertColors}
-              key={`${activeFile.id}:${activeRetrievalChunkId ?? activeRetrievalResult?.page ?? "base"}`}
               source={activeFile.storageUrl}
             />
           </CircleToAiSearchOverlay>

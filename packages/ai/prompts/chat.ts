@@ -5,8 +5,7 @@ export interface PromptMemoryBlock {
     | "subject"
     | "session-summary"
     | "student-profile"
-    | "misconception"
-    | "user-instructions";
+    | "misconception";
   scope?: {
     subject?: string | null;
     topic?: string | null;

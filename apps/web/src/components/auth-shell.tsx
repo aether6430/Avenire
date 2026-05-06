@@ -36,7 +36,7 @@ export function AuthShell({
 
   return (
     <TypingImpulseContext.Provider value={typingImpulse}>
-      <main className="min-h-svh bg-background text-foreground">
+      <main className="dark min-h-svh bg-background text-foreground">
         <div className="mx-auto flex min-h-svh w-full max-w-[1320px]">
           <section className="relative hidden min-h-svh w-[48%] overflow-hidden border-border/60 border-r md:block lg:w-1/2">
             <ParticleField

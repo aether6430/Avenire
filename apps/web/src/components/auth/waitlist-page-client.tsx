@@ -20,7 +20,7 @@ export function WaitlistPageClient() {
 
   return (
     <>
-      <div className="relative h-dvh w-dvw overflow-hidden bg-background">
+      <div className="dark relative h-dvh w-dvw overflow-hidden bg-background">
         <ParticleField
           align="center"
           className="absolute inset-0"
@@ -98,7 +98,7 @@ export function WaitlistPageClient() {
       </div>
 
       <Dialog onOpenChange={setIsDialogOpen} open={isDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="dark sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Join the waitlist</DialogTitle>
             <DialogDescription>

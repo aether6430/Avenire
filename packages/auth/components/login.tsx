@@ -310,8 +310,8 @@ export function LoginForm({
 
         <div className="grid grid-cols-3 gap-4">
           <Button
-            variant={lastLoginMethod === "google" ? "default" : "outline"}
-            className="w-full justify-center transition-all"
+            variant="outline"
+            className="relative w-full justify-center transition-all"
             type="button"
             onClick={() => {
               signIn.social({
@@ -324,12 +324,16 @@ export function LoginForm({
             <span className="inline-flex h-4 w-4 items-center justify-center">
               <GoogleIcon />
             </span>
-            {lastLoginMethod === "google" ? <span className="sr-only">Last used</span> : null}
+            {lastLoginMethod === "google" ? (
+              <span className="absolute right-1 top-1 rounded-[3px] border border-primary/25 bg-primary/10 px-1 py-0.5 font-mono text-[7px] leading-none text-primary">
+                Last used
+              </span>
+            ) : null}
             <span className="sr-only">Login with Google</span>
           </Button>
           <Button
-            variant={lastLoginMethod === "github" ? "default" : "outline"}
-            className="w-full justify-center transition-all"
+            variant="outline"
+            className="relative w-full justify-center transition-all"
             type="button"
             onClick={() => {
               signIn.social({
@@ -342,12 +346,16 @@ export function LoginForm({
             <span className="inline-flex h-4 w-4 items-center justify-center">
               <GithubIcon />
             </span>
-            {lastLoginMethod === "github" ? <span className="sr-only">Last used</span> : null}
+            {lastLoginMethod === "github" ? (
+              <span className="absolute right-1 top-1 rounded-[3px] border border-primary/25 bg-primary/10 px-1 py-0.5 font-mono text-[7px] leading-none text-primary">
+                Last used
+              </span>
+            ) : null}
             <span className="sr-only">Login with Github</span>
           </Button>
           <Button
-            variant={lastLoginMethod === "passkey" ? "default" : "outline"}
-            className="w-full justify-center transition-all"
+            variant="outline"
+            className="relative w-full justify-center transition-all"
             type="button"
             onClick={async () => {
               resetWaitlistFeedback()
@@ -384,7 +392,11 @@ export function LoginForm({
             <span className="inline-flex h-4 w-4 items-center justify-center">
               <PasskeyIcon />
             </span>
-            {lastLoginMethod === "passkey" ? <span className="sr-only">Last used</span> : null}
+            {lastLoginMethod === "passkey" ? (
+              <span className="absolute right-1 top-1 rounded-[3px] border border-primary/25 bg-primary/10 px-1 py-0.5 font-mono text-[7px] leading-none text-primary">
+                Last used
+              </span>
+            ) : null}
             <span className="sr-only">Login with Passkey</span>
           </Button>
         </div>

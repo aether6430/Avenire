@@ -39,8 +39,6 @@ import {
   getActiveMisconceptionContext,
 } from "@/lib/chat-tools";
 import {
-  getNoteContent,
-  listWorkspaceFiles,
   resolveWorkspaceForUser,
 } from "@/lib/file-data";
 import "@/lib/learning-automation";
@@ -95,9 +93,6 @@ const MODEL_TOOL_ALLOW_LIST = new Set([
   "load_skill",
   "show_widget",
 ]);
-const AI_INSTRUCTIONS_FILE_NAME = "Auri Instructions.md";
-const AI_INSTRUCTIONS_MAX_CHARS = 8000;
-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -307,17 +302,8 @@ function buildPromptMemoryBlocks(input: {
   studentProfileContext: string | null;
   subject: string | null;
   topic: string | null;
-  userInstructionsContext?: string | null;
 }): PromptMemoryBlock[] {
   const blocks: PromptMemoryBlock[] = [];
-
-  if (input.userInstructionsContext) {
-    blocks.push({
-      content: input.userInstructionsContext,
-      freshness: "current",
-      kind: "user-instructions",
-    });
-  }
 
   if (input.subject) {
     blocks.push({
@@ -370,35 +356,6 @@ function buildPromptMemoryBlocks(input: {
   }
 
   return blocks;
-}
-
-async function loadUserInstructionsContext(input: {
-  rootFolderId: string;
-  userId: string;
-  workspaceId: string;
-}) {
-  const files = await listWorkspaceFiles(input.workspaceId, input.userId);
-  const instructionsFile = files.find(
-    (file) =>
-      file.folderId === input.rootFolderId &&
-      file.name.toLowerCase() === AI_INSTRUCTIONS_FILE_NAME.toLowerCase()
-  );
-
-  if (!instructionsFile) {
-    return null;
-  }
-
-  const note = await getNoteContent(instructionsFile.id);
-  const content = note?.content?.trim();
-  if (!content) {
-    return null;
-  }
-
-  return [
-    `User-authored AI instructions from ${AI_INSTRUCTIONS_FILE_NAME}:`,
-    "Follow these preferences unless they conflict with higher-priority system, developer, safety, or tool instructions.",
-    content.slice(0, AI_INSTRUCTIONS_MAX_CHARS),
-  ].join("\n\n");
 }
 
 async function generateChatMetadata(
@@ -1461,7 +1418,6 @@ export async function POST(request: Request) {
           modelMessages,
           activeMisconceptionContext,
           studentProfileContext,
-          userInstructionsContext,
         ] = await Promise.all([
           modelMessagesPromise,
           getActiveMisconceptionContext({
@@ -1476,16 +1432,6 @@ export async function POST(request: Request) {
             userId: session.user.id,
             workspaceId: workspace.workspaceId,
           }),
-          loadUserInstructionsContext({
-            rootFolderId: workspace.rootFolderId,
-            userId: session.user.id,
-            workspaceId: workspace.workspaceId,
-          }).catch((error) => {
-            logWarn("Failed to load user AI instructions; continuing", {
-              error: formatError(error),
-            });
-            return null;
-          }),
         ]);
         const promptMemoryBlocks = buildPromptMemoryBlocks({
           misconceptionsContext: activeMisconceptionContext,
@@ -1495,7 +1441,6 @@ export async function POST(request: Request) {
           studentProfileContext,
           subject: resolvedSubject,
           topic: resolvedTopic,
-          userInstructionsContext,
         });
 
         try {

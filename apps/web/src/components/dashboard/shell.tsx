@@ -259,7 +259,9 @@ export function DashboardLayout({
           workspaceUuid={activeWorkspace.workspaceId}
         />
       ) : null}
-      <ChatPet />
+      <div className="hidden lg:block">
+        <ChatPet />
+      </div>
     </SidebarProvider>
   );
 }

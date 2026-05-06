@@ -288,38 +288,31 @@ export function Navbar() {
           ))}
         </div>
 
-        <div className="flex flex-col gap-3 px-6 pb-8">
+        <div className="flex items-center justify-between gap-6 border-border/70 border-t px-6 py-6">
           {isSignedIn ? (
-            <Button
-              className="w-full rounded-full"
-              nativeButton={false}
+            <Link
+              className="font-medium text-foreground text-sm underline-offset-4 transition-colors hover:text-muted-foreground hover:underline"
+              href={APP_HREF as Route}
               onClick={() => setMobileOpen(false)}
-              render={<Link href={APP_HREF as Route} />}
-              size="lg"
             >
               Go to app
-            </Button>
+            </Link>
           ) : (
             <>
-              <Button
-                className="w-full rounded-full"
-                nativeButton={false}
+              <Link
+                className="font-medium text-muted-foreground text-sm underline-offset-4 transition-colors hover:text-foreground hover:underline"
+                href={SIGN_IN_HREF}
                 onClick={() => setMobileOpen(false)}
-                render={<Link href={SIGN_IN_HREF} />}
-                size="lg"
-                variant="outline"
               >
                 Log in
-              </Button>
-              <Button
-                className="w-full rounded-full"
-                nativeButton={false}
+              </Link>
+              <Link
+                className="font-medium text-foreground text-sm underline-offset-4 transition-colors hover:text-muted-foreground hover:underline"
+                href={SIGN_UP_HREF as Route}
                 onClick={() => setMobileOpen(false)}
-                render={<Link href={SIGN_UP_HREF as Route} />}
-                size="lg"
               >
                 Join waitlist
-              </Button>
+              </Link>
             </>
           )}
         </div>

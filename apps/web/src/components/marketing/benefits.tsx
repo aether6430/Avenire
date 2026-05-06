@@ -20,6 +20,7 @@ import { LogoSVG } from "./logo";
 import { IconBlock } from "./common/icon-block";
 import { HorizontalLine } from "./common/horizontal-line";
 import { VerticalLine } from "./common/vertical-line";
+import { Cards, FilePdf } from "@phosphor-icons/react";
 
 export const Benefits = () => {
   const benefits = [
@@ -106,7 +107,7 @@ const MiddleCard = () => {
 
       <div className="flex items-center justify-center">
         <IconBlock
-          icon={<span className="font-mono text-[10px] text-brand">PDF</span>}
+          icon={<FilePdf weight="duotone" className="size-6 text-brand" />}
           className="border-brand/20 bg-neutral-950"
         />
         <HorizontalLine />
@@ -119,7 +120,7 @@ const MiddleCard = () => {
         </div>
         <HorizontalLine />
         <IconBlock
-          icon={<span className="font-mono text-[10px] text-brand">SRS</span>}
+          icon={<Cards weight="duotone" className="size-6 text-brand" />}
           className="border-brand/20 bg-neutral-950"
         />
       </div>

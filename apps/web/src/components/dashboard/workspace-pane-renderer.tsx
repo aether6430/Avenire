@@ -57,6 +57,7 @@ interface PaneDropPreview {
 
 const PREVIEW_PANE_ID = "__workspace-pane-drop-preview__";
 const PREVIEW_PANE_MIN_SIZE = 28;
+const WORKSPACE_PANE_REORDER_MIME = "application/x-avenire-workspace-pane-id";
 
 function createTransparentDragImage() {
   if (typeof document === "undefined") {
@@ -105,23 +106,32 @@ function getDropIndicatorStyle(region: PaneDropRegion) {
   switch (region) {
     case "left":
       return {
-        height: "calc(100% - 1rem)",
-        inset: "0.5rem auto 0.5rem 0.5rem",
-        width: "0.35rem",
+        height: "calc(100% - 0.75rem)",
+        inset: "0.375rem auto 0.375rem 0.375rem",
+        width: "0.1875rem",
       };
     case "right":
       return {
-        height: "calc(100% - 1rem)",
-        inset: "0.5rem 0.5rem 0.5rem auto",
-        width: "0.35rem",
+        height: "calc(100% - 0.75rem)",
+        inset: "0.375rem 0.375rem 0.375rem auto",
+        width: "0.1875rem",
       };
     default:
       return {
-        height: "calc(100% - 1rem)",
-        inset: "0.5rem",
-        width: "calc(100% - 1rem)",
+        height: "calc(100% - 0.75rem)",
+        inset: "0.375rem",
+        width: "calc(100% - 0.75rem)",
       };
   }
+}
+
+function getDraggedPaneId(
+  dataTransfer: DataTransfer | null | undefined,
+  fallbackPaneId: string | null
+) {
+  const dataTransferPaneId =
+    dataTransfer?.getData(WORKSPACE_PANE_REORDER_MIME) || null;
+  return dataTransferPaneId || fallbackPaneId;
 }
 
 function isDragLeaveInsidePane(event: DragEvent<HTMLElement>) {
@@ -488,10 +498,10 @@ function WorkspacePaneSurface({
             <div className="pointer-events-none absolute inset-0 z-30 p-2">
               <div
                 className={cn(
-                  "absolute shadow-[0_0_0_1px_rgba(59,130,246,0.22),0_12px_28px_rgba(59,130,246,0.22)] transition-[inset,width,height,background-color,border-radius,opacity,box-shadow] duration-150 ease-out",
+                  "absolute transition-[inset,width,height,background-color,border-color,opacity] duration-100 ease-out",
                   dropRegion === "center"
-                    ? "rounded-2xl border border-primary/35 bg-primary/10"
-                    : "rounded-full bg-primary/85"
+                    ? "rounded-md border border-primary/45 bg-primary/[0.035]"
+                    : "rounded-sm bg-primary"
                 )}
                 style={getDropIndicatorStyle(dropRegion)}
               />
@@ -680,6 +690,7 @@ export function WorkspacePaneRenderer() {
     ) => {
       const targetBounds = event.currentTarget.getBoundingClientRect();
       const region = forcedRegion ?? getPaneDropRegion(event, targetBounds);
+      const droppedPaneId = getDraggedPaneId(event.dataTransfer, draggedPaneId);
       const droppedHref = getWorkspacePaneDragHref(event.dataTransfer);
       if (droppedHref) {
         event.preventDefault();
@@ -699,12 +710,12 @@ export function WorkspacePaneRenderer() {
         return;
       }
 
-      if (draggedPaneId && draggedPaneId !== targetPaneId) {
+      if (droppedPaneId && droppedPaneId !== targetPaneId) {
         event.preventDefault();
         if (region === "center") {
-          reorderPanes(draggedPaneId, targetPaneId);
+          reorderPanes(droppedPaneId, targetPaneId);
         } else {
-          movePaneToSplit(draggedPaneId, targetPaneId, {
+          movePaneToSplit(droppedPaneId, targetPaneId, {
             splitDirection: getPaneSplitDirection(),
             splitPlacement: getPaneSplitPlacement(region),
           });
@@ -770,12 +781,18 @@ export function WorkspacePaneRenderer() {
       <div
         className="flex h-full min-w-0"
         onDragOver={(event) => {
+          const activeDraggedPaneId = getDraggedPaneId(
+            event.dataTransfer,
+            draggedPaneId
+          );
           if (
             rowDropTargetId &&
-            (hasWorkspacePaneDragHref(event.dataTransfer) || draggedPaneId)
+            (hasWorkspacePaneDragHref(event.dataTransfer) || activeDraggedPaneId)
           ) {
             event.preventDefault();
-            event.dataTransfer.dropEffect = draggedPaneId ? "move" : "copy";
+            event.dataTransfer.dropEffect = activeDraggedPaneId
+              ? "move"
+              : "copy";
           }
         }}
         onDrop={(event) => {
@@ -832,18 +849,22 @@ export function WorkspacePaneRenderer() {
                   queueDropPreview(null);
                 }}
                 onDragOver={(event) => {
+                  const activeDraggedPaneId = getDraggedPaneId(
+                    event.dataTransfer,
+                    draggedPaneId
+                  );
                   const droppedHref = getWorkspacePaneDragHref(
                     event.dataTransfer
                   );
-                  if (droppedHref || draggedPaneId) {
+                  if (droppedHref || activeDraggedPaneId) {
                     event.preventDefault();
-                    if (draggedPaneId === pane.id || isPreviewPane) {
+                    if (activeDraggedPaneId === pane.id || isPreviewPane) {
                       if (dropPreview?.paneId === pane.id) {
                         queueDropPreview(null);
                       }
                       return;
                     }
-                    event.dataTransfer.dropEffect = draggedPaneId
+                    event.dataTransfer.dropEffect = activeDraggedPaneId
                       ? "move"
                       : "copy";
                     queueDropPreview({
@@ -863,6 +884,11 @@ export function WorkspacePaneRenderer() {
                   }
                   clearWorkspacePaneDragData();
                   event.dataTransfer.effectAllowed = "move";
+                  event.dataTransfer.setData(
+                    WORKSPACE_PANE_REORDER_MIME,
+                    pane.id
+                  );
+                  event.dataTransfer.setData("text/plain", pane.id);
                   setDraggedPaneId(pane.id);
                 }}
                 onDrop={(event) => {

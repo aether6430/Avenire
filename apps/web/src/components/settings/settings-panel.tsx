@@ -71,7 +71,7 @@ import {
 import { useLocalStorage } from "usehooks-ts";
 import { DataImportsSection } from "@/components/settings/data-imports-section";
 import { SensitiveText } from "@/components/shared/sensitive-text";
-import { SpritePet } from "@/components/pets/sprite-pet";
+import { PetPreferencesFields } from "@/components/pets/pet-preferences-fields";
 import { getFacehashUrl } from "@/lib/avatar";
 import {
   CHAT_COMPOSER_SEND_MODE_STORAGE_KEY,
@@ -84,7 +84,7 @@ import {
   getNoteTemplateStorageKey,
   type NoteTemplate,
 } from "@/lib/note-templates";
-import { PET_OPTIONS, type PetAccessory } from "@/lib/pet-preferences";
+import { type PetAccessory } from "@/lib/pet-preferences";
 import { PRIVACY_MODE_STORAGE_KEY } from "@/lib/privacy-mode";
 import { getUploadErrorMessage } from "@/lib/upload";
 import { useUploadThing } from "@/lib/uploadthing";
@@ -204,6 +204,8 @@ const KEYBOARD_SHORTCUT_GROUPS = [
   },
 ] as const;
 
+const KEYBOARD_DETECTED_STORAGE_KEY = "avenire:keyboard-detected";
+
 const PLAN_LABELS: Record<string, string> = {
   access: "Free Plan",
   core: "Core Plan",
@@ -302,11 +304,11 @@ export function SettingsPanel({
     null
   );
   const [shortcutQuery, setShortcutQuery] = useState("");
+  const [hasKeyboardDetected, setHasKeyboardDetected] = useState(false);
   const [emailReceipts, setEmailReceipts] = useState(true);
   const [completedTasksAtTop, setCompletedTasksAtTop] = useState(true);
   const [petName, setPetName] = useState("Auri");
   const [petAccessory, setPetAccessory] = useState<PetAccessory>("none");
-  const [isOpeningAiInstructions, setIsOpeningAiInstructions] = useState(false);
   const [privacyMode, setPrivacyMode] = useState(false);
   const [chatComposerSendMode, setChatComposerSendMode] =
     useLocalStorage<ChatComposerSendMode>(
@@ -338,6 +340,29 @@ export function SettingsPanel({
   const [workspaceName, setWorkspaceName] = useState("");
   const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
   const [isInvitingMember, setIsInvitingMember] = useState(false);
+
+  useEffect(() => {
+    const storedKeyboardDetected =
+      window.localStorage.getItem(KEYBOARD_DETECTED_STORAGE_KEY) === "true";
+    const hasKeyboardApi = "keyboard" in navigator;
+
+    if (storedKeyboardDetected || hasKeyboardApi) {
+      setHasKeyboardDetected(true);
+      return;
+    }
+
+    const detectKeyboard = (event: KeyboardEvent) => {
+      if (event.isComposing || event.key === "Unidentified") {
+        return;
+      }
+      setHasKeyboardDetected(true);
+      window.localStorage.setItem(KEYBOARD_DETECTED_STORAGE_KEY, "true");
+      window.removeEventListener("keydown", detectKeyboard);
+    };
+
+    window.addEventListener("keydown", detectKeyboard, { passive: true });
+    return () => window.removeEventListener("keydown", detectKeyboard);
+  }, []);
   const [workspaceDeleteConfirm, setWorkspaceDeleteConfirm] = useState("");
   const [noteTemplates, setNoteTemplates] = useState<NoteTemplate[]>([
     DEFAULT_NOTE_TEMPLATE,
@@ -497,32 +522,6 @@ export function SettingsPanel({
     } catch {
       rollback();
       setPreferencesStatus("Unable to save preferences.");
-    }
-  };
-
-  const openAiInstructions = async () => {
-    setIsOpeningAiInstructions(true);
-    setPreferencesStatus("Opening instructions...");
-    try {
-      const response = await fetch("/api/user-settings/ai-instructions", {
-        cache: "no-store",
-      });
-      if (!response.ok) {
-        throw new Error("Unable to open AI instructions.");
-      }
-      const payload = (await response.json()) as {
-        fileId: string;
-        rootFolderId: string;
-        workspaceUuid: string;
-      };
-      setPreferencesStatus(null);
-      router.push(
-        `/workspace/files/${payload.workspaceUuid}/folder/${payload.rootFolderId}?file=${payload.fileId}` as Route
-      );
-    } catch {
-      setPreferencesStatus("Unable to open instructions.");
-    } finally {
-      setIsOpeningAiInstructions(false);
     }
   };
 
@@ -1048,7 +1047,16 @@ export function SettingsPanel({
     router.replace(`/settings?${params.toString()}` as Route);
   };
 
-  const mobileTabs = tabs.filter(
+  useEffect(() => {
+    if (currentTab === "shortcuts" && !hasKeyboardDetected) {
+      setTab("account");
+    }
+  }, [currentTab, hasKeyboardDetected]);
+
+  const visibleTabs = tabs.filter(
+    (tab) => tab.key !== "shortcuts" || hasKeyboardDetected
+  );
+  const mobileTabs = visibleTabs.filter(
     (tab) => !("mobileHidden" in tab && tab.mobileHidden)
   );
   const hasPaidPlan =
@@ -1288,19 +1296,21 @@ export function SettingsPanel({
             <Shield className="h-4 w-4" />
             Security
           </Button>
-          <Button
-            className={[
-              "h-auto w-full justify-start gap-2 px-2 py-2 text-left text-sm transition-colors",
-              currentTab === "shortcuts"
-                ? "bg-muted font-medium hover:bg-muted"
-                : "hover:bg-muted/70",
-            ].join(" ")}
-            onClick={() => setTab("shortcuts")}
-            variant="ghost"
-          >
-            <Key className="h-4 w-4" />
-            Keyboard Shortcuts
-          </Button>
+          {hasKeyboardDetected ? (
+            <Button
+              className={[
+                "h-auto w-full justify-start gap-2 px-2 py-2 text-left text-sm transition-colors",
+                currentTab === "shortcuts"
+                  ? "bg-muted font-medium hover:bg-muted"
+                  : "hover:bg-muted/70",
+              ].join(" ")}
+              onClick={() => setTab("shortcuts")}
+              variant="ghost"
+            >
+              <Key className="h-4 w-4" />
+              Keyboard Shortcuts
+            </Button>
+          ) : null}
         </div>
       </aside>
 
@@ -1985,104 +1995,34 @@ export function SettingsPanel({
               <Divider />
 
               <Section
-                description="Name Auri, choose an accessory, and edit the root markdown file used to steer chat behavior."
+                description="Name Auri and choose an accessory for workspace surfaces."
                 title="Personalize AI"
               >
                 <div className="space-y-5">
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="flex size-28 items-center justify-center rounded-full border bg-muted/30 shadow-sm">
-                      <SpritePet
-                        animation="idle"
-                        scale={0.48}
-                        src={
-                          PET_OPTIONS.find(
-                            (option) => option.accessory === petAccessory
-                          )?.src ?? PET_OPTIONS[0].src
-                        }
-                      />
-                    </div>
-                    <Input
-                      aria-label="AI companion name"
-                      className="h-9 max-w-[15rem] text-center"
-                      maxLength={32}
-                      onBlur={() => {
-                        const nextValue = petName.trim() || "Auri";
-                        const previous = petName;
-                        setPetName(nextValue);
-                        void persistUserSettings({ petName: nextValue }, () =>
-                          setPetName(previous)
-                        );
-                      }}
-                      onChange={(event) => setPetName(event.target.value)}
-                      placeholder="Enter a name"
-                      value={petName}
-                    />
-                  </div>
+                  <PetPreferencesFields
+                    accessory={petAccessory}
+                    accessoryDescription="Choose the accessory Auri should wear. This is saved to your account."
+                    name={petName}
+                    nameDescription="Give Auri a name that appears in chat and workspace surfaces."
+                    namePlaceholder="Enter a name"
+                    onAccessoryChange={(value) => {
+                      const previous = petAccessory;
+                      setPetAccessory(value);
+                      void persistUserSettings({ petAccessory: value }, () =>
+                        setPetAccessory(previous)
+                      );
+                    }}
+                    onNameBlur={() => {
+                      const nextValue = petName.trim() || "Auri";
+                      const previous = petName;
+                      setPetName(nextValue);
+                      void persistUserSettings({ petName: nextValue }, () =>
+                        setPetName(previous)
+                      );
+                    }}
+                    onNameChange={setPetName}
+                  />
 
-                  <div className="rounded-lg bg-muted/40 p-3">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="min-w-0">
-                        <p className="font-medium text-sm">Instructions</p>
-                        <p className="text-muted-foreground text-xs">
-                          Edit the root markdown note Auri reads before new chat
-                          responses.
-                        </p>
-                      </div>
-                      <Button
-                        disabled={isOpeningAiInstructions}
-                        onClick={() => {
-                          void openAiInstructions();
-                        }}
-                        size="sm"
-                        type="button"
-                        variant="secondary"
-                      >
-                        {isOpeningAiInstructions ? (
-                          <Spinner className="mr-2 size-3.5" />
-                        ) : (
-                          <FileText className="mr-2 size-4" />
-                        )}
-                        Open instructions
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="mb-2 font-medium text-sm">Accessories</p>
-                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-                      {PET_OPTIONS.map((option) => {
-                        const selected = option.accessory === petAccessory;
-                        return (
-                          <button
-                            aria-label={option.label}
-                            aria-pressed={selected}
-                            className={cn(
-                              "flex h-16 items-center justify-center rounded-lg border bg-muted/30 transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                              selected &&
-                                "border-primary bg-primary/10 ring-1 ring-primary"
-                            )}
-                            key={option.accessory}
-                            onClick={() => {
-                              const previous = petAccessory;
-                              setPetAccessory(option.accessory);
-                              void persistUserSettings(
-                                { petAccessory: option.accessory },
-                                () => setPetAccessory(previous)
-                              );
-                            }}
-                            title={option.label}
-                            type="button"
-                          >
-                            <SpritePet
-                              animation="idle"
-                              scale={0.26}
-                              src={option.src}
-                            />
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
                 </div>
               </Section>
 

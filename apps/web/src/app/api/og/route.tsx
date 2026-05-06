@@ -16,176 +16,74 @@ export async function GET(request: Request) {
   return new ImageResponse(
     <div
       style={{
-        alignItems: "center",
-        background:
-          "radial-gradient(circle at 22% 16%, rgba(171, 196, 255, 0.22), transparent 30%), radial-gradient(circle at 72% 78%, rgba(115, 144, 215, 0.18), transparent 30%), linear-gradient(135deg, #050607 0%, #0a0d12 46%, #111827 100%)",
-        color: "#f8fafc",
+        alignItems: "flex-start",
+        background: "#f8fafc",
+        color: "#111827",
         display: "flex",
         flexDirection: "column",
         height: "100%",
-        justifyContent: "center",
-        padding: "54px",
+        justifyContent: "space-between",
+        padding: "76px",
         width: "100%",
       }}
     >
       <div
         style={{
-          border: "1px solid rgba(255,255,255,0.12)",
-          borderRadius: 34,
-          boxShadow:
-            "0 26px 90px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08)",
+          alignItems: "center",
+          display: "flex",
+          gap: 18,
+        }}
+      >
+        <svg
+          width="48"
+          height="38"
+          viewBox="0 0 198 154"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path d={logoPath} fill="#111827" />
+        </svg>
+        <div
+          style={{
+            display: "flex",
+            fontSize: 36,
+            fontWeight: 700,
+            letterSpacing: "-0.02em",
+          }}
+        >
+          Avenire
+        </div>
+      </div>
+      <div
+        style={{
           display: "flex",
           flexDirection: "column",
-          height: "100%",
-          overflow: "hidden",
-          position: "relative",
-          width: "100%",
+          gap: 28,
+          maxWidth: 960,
         }}
       >
         <div
           style={{
-            background:
-              "repeating-linear-gradient(135deg, rgba(255,255,255,0.045) 0, rgba(255,255,255,0.045) 1px, transparent 1px, transparent 13px)",
-            inset: 0,
-            opacity: 0.52,
-            position: "absolute",
-          }}
-        />
-        <div
-          style={{
-            alignItems: "center",
-            borderBottom: "1px solid rgba(255,255,255,0.1)",
             display: "flex",
-            height: 96,
-            justifyContent: "space-between",
-            padding: "0 30px",
-            position: "relative",
+            fontSize: 82,
+            fontWeight: 700,
+            letterSpacing: "-0.04em",
+            lineHeight: 1,
+            wordBreak: "break-word",
           }}
         >
-          <div style={{ alignItems: "center", display: "flex", gap: 16 }}>
-            <svg
-              width="36"
-              height="28"
-              viewBox="0 0 198 154"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path d={logoPath} fill="#abc4ff" />
-            </svg>
-            <div
-              style={{
-                color: "#ffffff",
-                fontSize: 34,
-                fontWeight: 650,
-                letterSpacing: "-0.04em",
-              }}
-            >
-              Avenire
-            </div>
-          </div>
-          <div
-            style={{
-              border: "1px solid rgba(171,196,255,0.34)",
-              borderRadius: 999,
-              color: "#abc4ff",
-              fontSize: 20,
-              fontWeight: 600,
-              padding: "10px 18px",
-            }}
-          >
-            {description}
-          </div>
+          {title}
         </div>
-
         <div
           style={{
-            alignItems: "center",
+            color: "#475569",
             display: "flex",
-            flex: 1,
-            gap: 42,
-            padding: "38px 54px 54px",
-            position: "relative",
+            fontSize: 34,
+            lineHeight: 1.25,
+            maxWidth: 820,
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 26,
-              width: "58%",
-            }}
-          >
-            <div
-              style={{
-                color: "#f8fafc",
-                display: "flex",
-                fontSize: 82,
-                fontWeight: 700,
-                letterSpacing: "-0.055em",
-                lineHeight: 0.98,
-              }}
-            >
-              {title}
-            </div>
-            <div
-              style={{
-                color: "rgba(226,232,240,0.72)",
-                display: "flex",
-                fontSize: 30,
-                lineHeight: 1.25,
-                maxWidth: 620,
-              }}
-            >
-              Source-aware notes, answers, graphs, and review in one study
-              workspace.
-            </div>
-          </div>
-
-          <div
-            style={{
-              alignItems: "stretch",
-              display: "flex",
-              flexDirection: "column",
-              gap: 18,
-              width: "42%",
-            }}
-          >
-            {[
-              ["Ask across sources", "Paper, notes, folders"],
-              ["Save the answer", "Editable markdown"],
-              ["Review what slipped", "Cards from misconceptions"],
-            ].map(([label, detail], index) => (
-              <div
-                key={label}
-                style={{
-                  background:
-                    index === 1
-                      ? "rgba(171,196,255,0.92)"
-                      : "rgba(255,255,255,0.06)",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  borderRadius: 24,
-                  color: index === 1 ? "#111827" : "#f8fafc",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 6,
-                  padding: "22px 24px",
-                }}
-              >
-                <div style={{ fontSize: 25, fontWeight: 700 }}>{label}</div>
-                <div
-                  style={{
-                    color:
-                      index === 1
-                        ? "rgba(17,24,39,0.68)"
-                        : "rgba(226,232,240,0.58)",
-                    fontSize: 18,
-                  }}
-                >
-                  {detail}
-                </div>
-              </div>
-            ))}
-          </div>
+          {description}
         </div>
       </div>
     </div>,

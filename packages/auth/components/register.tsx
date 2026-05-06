@@ -386,8 +386,8 @@ export function RegisterForm({
 
             <div className="grid grid-cols-2 gap-4">
               <Button
-                variant={lastLoginMethod === "google" ? "default" : "outline"}
-                className="w-full justify-center transition-all"
+                variant="outline"
+                className="relative w-full justify-center transition-all"
                 type="button"
                 onClick={() => {
                   signIn.social({
@@ -398,12 +398,16 @@ export function RegisterForm({
                 }}
               >
                 <GoogleIcon />
-                {lastLoginMethod === "google" ? <span className="sr-only">Last used</span> : null}
+                {lastLoginMethod === "google" ? (
+                  <span className="absolute right-1 top-1 rounded-[3px] border border-primary/25 bg-primary/10 px-1 py-0.5 font-mono text-[7px] leading-none text-primary">
+                    Last used
+                  </span>
+                ) : null}
                 Google
               </Button>
               <Button
-                variant={lastLoginMethod === "github" ? "default" : "outline"}
-                className="w-full justify-center transition-all"
+                variant="outline"
+                className="relative w-full justify-center transition-all"
                 type="button"
                 onClick={() => {
                   signIn.social({
@@ -414,7 +418,11 @@ export function RegisterForm({
                 }}
               >
                 <GithubIcon />
-                {lastLoginMethod === "github" ? <span className="sr-only">Last used</span> : null}
+                {lastLoginMethod === "github" ? (
+                  <span className="absolute right-1 top-1 rounded-[3px] border border-primary/25 bg-primary/10 px-1 py-0.5 font-mono text-[7px] leading-none text-primary">
+                    Last used
+                  </span>
+                ) : null}
                 GitHub
               </Button>
             </div>

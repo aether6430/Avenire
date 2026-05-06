@@ -2,6 +2,7 @@
 
 import { Button } from "@avenire/ui/components/button";
 import { ButtonGroup } from "@avenire/ui/components/button-group";
+import { SidebarTrigger } from "@avenire/ui/components/sidebar";
 import { cn } from "@avenire/ui/lib/utils";
 import { ArrowLeft, ArrowRight, House } from "@phosphor-icons/react";
 import type { Route } from "next";
@@ -65,6 +66,7 @@ export function WorkspaceHeader({
           )}
         >
           <div className="flex w-full min-w-0 items-center gap-1">
+            <SidebarTrigger className="size-8 shrink-0 md:hidden" />
             <ButtonGroup className={segmentedGroupClass}>
               <Button
                 aria-label="Go back"
@@ -182,6 +184,7 @@ export function WorkspaceHeader({
 
         <div className="relative flex h-10 items-center gap-1.5 px-3">
           <div className="flex shrink-0 items-center gap-1">
+            <SidebarTrigger className="size-8 md:hidden" />
             <ButtonGroup className={segmentedGroupClass}>
               <Button
                 aria-label="Go back"
