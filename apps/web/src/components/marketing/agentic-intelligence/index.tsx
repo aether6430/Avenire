@@ -72,8 +72,8 @@ export const AgenticIntelligence = () => {
               <CardTitle>Native learning tools</CardTitle>
             </div>
             <CardDescription>
-              Search files, write markdown notes, graph relationships, and
-              review cards without moving your study context between apps.
+              Keep source files, editable notes, concept graphs, AI help, and
+              review cards in one connected study surface.
             </CardDescription>
             <NativeToolsIntegrationSkeleton />
           </Card>
@@ -85,8 +85,8 @@ export const AgenticIntelligence = () => {
               <CardTitle>File-aware answers</CardTitle>
             </div>
             <CardDescription>
-              Ask across uploaded papers, notes, folders, and generated assets
-              so answers start from the material you are studying.
+              Ground explanations in the PDFs, folders, notes, and generated
+              artifacts already inside your workspace.
             </CardDescription>
           </Card>
           <Card>
@@ -95,8 +95,8 @@ export const AgenticIntelligence = () => {
               <CardTitle>Realtime note updates</CardTitle>
             </div>
             <CardDescription>
-              AI edits and generated notes appear in the editor as they land,
-              including split screen workflows.
+              Save useful answers as markdown and see AI edits land in open
+              editor panes without refreshing.
             </CardDescription>
           </Card>
           <Card>
@@ -105,8 +105,8 @@ export const AgenticIntelligence = () => {
               <CardTitle>Spaced repetition loop</CardTitle>
             </div>
             <CardDescription>
-              Convert hard explanations and misconceptions into cards that
-              come back when you actually need to review them.
+              Turn missed ideas into flashcards and review prompts tied back to
+              the exact note or source.
             </CardDescription>
           </Card>
         </div>

@@ -1,11 +1,8 @@
 "use client";
 import {
   AttachmentIcon,
-  CodeIcon,
   IntegrationsLogo,
-  PhoneIcon,
   SendIcon,
-  WindowIcon,
 } from "@/components/marketing/icons/bento-icons";
 import { DivideX } from "../divide";
 import { motion } from "motion/react";
@@ -438,13 +435,22 @@ export const NativeToolsIntegrationSkeleton = () => {
       <motion.div className="relative mx-auto my-12 hidden h-full max-h-70 min-h-80 max-w-[67rem] grid-cols-2 p-4 lg:grid">
         <div className="flex items-center justify-between">
           <div className="flex flex-col gap-10">
-            <TextIconBlock icon={<WindowIcon />} text="Meeting Summarizer">
+            <TextIconBlock
+              icon={<StudyToken label="PDF" />}
+              text="Source search"
+            >
               <TopSVG className="absolute top-2 -right-84" />
             </TextIconBlock>
-            <TextIconBlock icon={<CodeIcon />} text="Code Reviewer">
+            <TextIconBlock
+              icon={<StudyToken label="MD" />}
+              text="Markdown notes"
+            >
               <MiddleSVG className="absolute top-2 -right-84" />
             </TextIconBlock>
-            <TextIconBlock icon={<PhoneIcon />} text="Customer Support">
+            <TextIconBlock
+              icon={<StudyToken label="SRS" />}
+              text="Review cards"
+            >
               <BottomSVG className="absolute -right-84 bottom-2" />
             </TextIconBlock>
           </div>

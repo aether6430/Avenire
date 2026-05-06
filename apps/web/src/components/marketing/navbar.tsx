@@ -6,7 +6,16 @@ import Link from "next/link";
 import { Button } from "./button";
 import { CloseIcon, HamburgerIcon } from "@/components/marketing/icons/general";
 import {
-  AnimatePresence,
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@avenire/ui/components/sheet";
+import {
   motion,
   useScroll,
   useSpring,
@@ -44,78 +53,98 @@ export const Navbar = () => {
 
 const MobileNav = ({ items }: { items: { title: string; href: string }[] }) => {
   const [isOpen, setIsOpen] = useState(false);
-  return (
-    <div className="fixed inset-x-3 top-3 z-50 flex items-center justify-between rounded-2xl border border-divide bg-neutral-950/86 p-3 shadow-aceternity backdrop-blur-md md:hidden">
-      <Logo />
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="shadow-aceternity flex size-6 flex-col items-center justify-center rounded-md"
-        aria-label="Toggle menu"
-      >
-        <HamburgerIcon className="size-4 shrink-0 text-gray-600" />
-      </button>
+  const mobileItems = items.filter((item) => item.href !== "/pricing");
 
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[60] h-full w-full bg-neutral-950 shadow-lg"
-          >
-            <div className="flex items-center justify-between p-2">
-              <Logo />
+  return (
+    <div className="fixed inset-x-3 top-3 z-50 md:hidden">
+      <div className="shadow-aceternity flex items-center justify-between rounded-2xl border border-white/10 bg-neutral-950/88 p-3 backdrop-blur-xl">
+        <Logo />
+        <Sheet open={isOpen} onOpenChange={setIsOpen}>
+          <SheetTrigger
+            render={
               <button
-                onClick={() => setIsOpen(!isOpen)}
-                className="shadow-aceternity flex size-6 flex-col items-center justify-center rounded-md"
-                aria-label="Toggle menu"
-              >
-                <CloseIcon className="size-4 shrink-0 text-gray-600" />
-              </button>
-            </div>
-            <div className="divide-divide border-divide mt-6 flex flex-col divide-y border-t">
-              {items.map((item, index) => (
-                <Link
-                  href={item.href as any}
-                  key={item.title}
-                  className="px-4 py-2 font-medium text-gray-600 transition duration-200 hover:text-brand dark:text-gray-300 dark:hover:text-brand"
-                  onClick={() => setIsOpen(false)}
+                className="shadow-aceternity flex size-9 flex-col items-center justify-center rounded-xl border border-white/10 bg-white/5"
+                aria-label="Open menu"
+              />
+            }
+          >
+            <HamburgerIcon className="size-4 shrink-0 text-brand" />
+          </SheetTrigger>
+          <SheetContent
+            side="right"
+            showCloseButton={false}
+            className="avenire-marketing-scope dark inset-0 h-dvh w-screen max-w-none border-0 bg-neutral-950 p-0 text-neutral-100"
+          >
+            <div className="absolute inset-0 bg-[repeating-linear-gradient(315deg,_var(--pattern-fg)_0,_var(--pattern-fg)_1px,_transparent_0,_transparent_50%)] bg-[size:12px_12px] opacity-40" />
+            <div className="relative z-10 flex min-h-dvh flex-col">
+              <SheetHeader className="flex-row items-center justify-between border-b border-white/10 p-4">
+                <div>
+                  <Logo />
+                  <SheetTitle className="sr-only">Navigation</SheetTitle>
+                  <SheetDescription className="sr-only">
+                    Avenire landing page navigation
+                  </SheetDescription>
+                </div>
+                <SheetClose
+                  render={
+                    <button
+                      className="shadow-aceternity flex size-9 items-center justify-center rounded-xl border border-white/10 bg-white/5"
+                      aria-label="Close menu"
+                    />
+                  }
                 >
-                  <motion.div
-                    key={item.title}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 10 }}
-                    transition={{ duration: 0.2, delay: index * 0.1 }}
-                  >
-                    {item.title}
-                  </motion.div>
-                </Link>
-              ))}
-              <div className="mt-4 grid gap-2 p-4">
+                  <CloseIcon className="size-4 shrink-0 text-brand" />
+                </SheetClose>
+              </SheetHeader>
+
+              <div className="flex flex-1 flex-col px-4 pt-8">
+                <div className="grid gap-3">
+                  {mobileItems.map((item, index) => (
+                    <SheetClose
+                      key={item.title}
+                      render={
+                        <Link
+                          href={item.href as any}
+                          className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4 text-2xl font-medium capitalize text-white transition duration-200 hover:border-brand/50 hover:bg-brand/10"
+                        />
+                      }
+                    >
+                      <motion.span
+                        className="block"
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.24, delay: index * 0.05 }}
+                      >
+                        {item.title}
+                      </motion.span>
+                    </SheetClose>
+                  ))}
+                </div>
+              </div>
+
+              <SheetFooter className="border-t border-white/10 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
                 <Button
-                  onClick={() => setIsOpen(false)}
                   as={Link}
                   href="/login"
-                  className="w-full"
+                  className="w-full py-3"
+                  onClick={() => setIsOpen(false)}
                   variant="secondary"
                 >
                   Login
                 </Button>
                 <Button
-                  onClick={() => setIsOpen(false)}
                   as={Link}
                   href="/waitlist"
-                  className="w-full"
+                  className="w-full py-3"
+                  onClick={() => setIsOpen(false)}
                 >
                   Join waitlist
                 </Button>
-              </div>
+              </SheetFooter>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </SheetContent>
+        </Sheet>
+      </div>
     </div>
   );
 };
@@ -168,7 +197,7 @@ const FloatingNav = ({
   return (
     <motion.div
       style={{ y }}
-      className="shadow-aceternity fixed inset-x-6 top-0 z-50 mx-auto hidden max-w-[68rem] items-center justify-between bg-neutral-950/82 px-2 py-2 backdrop-blur-sm md:flex xl:rounded-2xl dark:bg-neutral-950/82 dark:shadow-[0px_2px_0px_0px_var(--color-neutral-800),0px_-2px_0px_0px_var(--color-neutral-800)]"
+      className="shadow-aceternity fixed inset-x-6 top-0 z-50 mx-auto hidden max-w-[68rem] items-center justify-between rounded-2xl border border-white/10 bg-neutral-950/82 px-2 py-2 backdrop-blur-sm md:flex dark:bg-neutral-950/82"
     >
       <Logo />
       <div className="flex items-center gap-10">

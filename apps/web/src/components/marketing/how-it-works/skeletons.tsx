@@ -1,5 +1,4 @@
 "use client";
-import { ForkIcon } from "@/components/marketing/icons/general";
 import { cn } from "@/lib/utils";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DivideX } from "../divide";
@@ -9,8 +8,19 @@ import { Scale } from "../scale";
 import { LogoSVG } from "../logo";
 import { IntegrationsLogo } from "@/components/marketing/icons/bento-icons";
 
-const StudyToken = ({ label }: { label: string }) => (
-  <span className="inline-flex size-6 items-center justify-center rounded-sm border border-brand/25 bg-brand/10 font-mono text-[9px] text-brand uppercase">
+const StudyToken = ({
+  label,
+  className,
+}: {
+  label: string;
+  className?: string;
+}) => (
+  <span
+    className={cn(
+      "inline-flex size-6 items-center justify-center rounded-sm border border-brand/25 bg-brand/10 font-mono text-[9px] text-brand uppercase",
+      className,
+    )}
+  >
     {label}
   </span>
 );
@@ -224,68 +234,67 @@ export const DeployAndScaleSkeleton = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerHeight, setContainerHeight] = useState(0);
 
-  // Define deploy cards data for reusability
   const deployCards = [
-    { title: "deploy-dev-eu-324", subtitle: "2h ago", branch: "master" },
+    { title: "Residual block note", subtitle: "2h ago", branch: "markdown" },
     {
-      title: "deploy-prod-eu-128",
+      title: "Shortcut connection",
       subtitle: "10m ago",
-      branch: "main",
+      branch: "misconception",
       variant: "success" as const,
     },
-    { title: "deploy-dev-us-445", subtitle: "45m ago", branch: "feature/auth" },
+    { title: "Gradient flow", subtitle: "45m ago", branch: "review" },
     {
-      title: "deploy-prod-ap-223",
+      title: "ResNet paper",
       subtitle: "1h ago",
-      branch: "main",
+      branch: "source",
       variant: "success" as const,
     },
     {
-      title: "deploy-dev-eu-891",
+      title: "Bottleneck blocks",
       subtitle: "2h ago",
-      branch: "fix/cache",
+      branch: "cards",
       variant: "warning" as const,
     },
     {
-      title: "deploy-prod-us-337",
+      title: "Training depth",
       subtitle: "3h ago",
-      branch: "main",
+      branch: "note",
       variant: "success" as const,
     },
     {
-      title: "deploy-dev-ap-556",
+      title: "Skipped assumption",
       subtitle: "4h ago",
-      branch: "feat/api",
+      branch: "gap",
       variant: "danger" as const,
     },
     {
-      title: "deploy-dev-eu-672",
+      title: "Concept graph edge",
       subtitle: "5h ago",
-      branch: "feat/search",
+      branch: "linked",
       variant: "default" as const,
     },
     {
-      title: "deploy-prod-ap-445",
+      title: "Review scheduled",
       subtitle: "6h ago",
-      branch: "main",
+      branch: "tomorrow",
       variant: "success" as const,
     },
     {
-      title: "deploy-dev-us-891",
+      title: "Weak spot found",
       subtitle: "7h ago",
-      branch: "fix/perf",
+      branch: "revisit",
       variant: "warning" as const,
     },
     {
-      title: "deploy-prod-eu-223",
+      title: "Answer saved",
       subtitle: "8h ago",
-      branch: "main",
+      branch: "markdown",
       variant: "success" as const,
     },
     {
-      title: "deploy-dev-ap-337",
+      title: "Paper passage",
       subtitle: "9h ago",
-      branch: "feat/analytics",
+      branch: "cited",
       variant: "default" as const,
     },
   ];
@@ -416,19 +425,28 @@ const DeployCard = ({
         <div
           className={cn(
             "flex h-6 w-6 items-center justify-center rounded-md",
-            variant === "default" && "bg-gray-200",
+            variant === "default" && "bg-blue-100",
             variant === "danger" && "bg-red-200",
             variant === "success" && "bg-green-200",
             variant === "warning" && "bg-yellow-200",
           )}
         >
-          <ForkIcon
+          <StudyToken
+            label={
+              variant === "danger"
+                ? "Gap"
+                : variant === "warning"
+                  ? "SRS"
+                  : variant === "success"
+                    ? "MD"
+                    : "PDF"
+            }
             className={cn(
-              "h-4 w-4",
-              variant === "default" && "text-gray-500",
+              "size-5 border-0 bg-transparent text-[8px]",
+              variant === "default" && "text-blue-500",
               variant === "danger" && "text-red-500",
-              variant === "success" && "text-green-500",
-              variant === "warning" && "text-yellow-500",
+              variant === "success" && "text-green-600",
+              variant === "warning" && "text-yellow-600",
             )}
           />
         </div>

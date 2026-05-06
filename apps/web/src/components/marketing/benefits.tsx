@@ -159,14 +159,14 @@ const MiddleCard = () => {
             <div className="h-full w-14 bg-gray-200 dark:bg-neutral-800" />
             <motion.div className="relative w-full gap-y-4 p-4">
               <h2 className="text-sm font-semibold text-gray-800 dark:text-neutral-300">
-                Dashboard
+                Study loop
               </h2>
 
               <div className="mt-4 flex flex-col gap-y-3 mask-b-from-50%">
                 {[
-                  { label: "API Calls", width: 85 },
-                  { label: "Success Rate", width: 92 },
-                  { label: "Workflows", width: 65 },
+                  { label: "Sources linked", width: 86 },
+                  { label: "Notes updated", width: 74 },
+                  { label: "Review due", width: 58 },
                 ].map((item, index) => (
                   <div key={item.label} className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
