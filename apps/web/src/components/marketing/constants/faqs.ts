@@ -15,9 +15,9 @@ export const faqs = [
       "Yes. Avenire is designed around your own context, including notes, folders, uploaded files, and generated study assets that stay organized in your workspace.",
   },
   {
-    question: "Is my workspace private?",
+    question: "What makes Avenire different from a normal chatbot?",
     answer:
-      "Your personal workspace is scoped to your account, and sharing is explicit. You control what you add, generate, and share.",
+      "Avenire is built around the whole learning loop: file search, interactive sessions, misconception logging, editable markdown notes, graphing, flashcards, and spaced repetition.",
   },
   {
     question: "Does Avenire replace my note app?",

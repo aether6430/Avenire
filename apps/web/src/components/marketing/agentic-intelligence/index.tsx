@@ -36,29 +36,30 @@ export const AgenticIntelligence = () => {
         </SectionHeading>
 
         <SubHeading as="p" className="mx-auto mt-6 max-w-lg px-2">
-          Move between explanation, retrieval, graphing, planning, and review
-          without losing the thread of what you were trying to understand.
+          Move between source material, interactive explanations, searchable
+          files, and review without losing the thread of what you were trying
+          to understand.
         </SubHeading>
         <div className="border-divide divide-divide mt-16 grid grid-cols-1 divide-y border-y md:grid-cols-2 md:divide-x">
           <Card className="overflow-hidden mask-b-from-80%">
             <div className="flex items-center gap-2">
               <BrainIcon />
-              <CardTitle>Model-aware study sessions</CardTitle>
+              <CardTitle>Interactive AI sessions</CardTitle>
             </div>
             <CardDescription>
-              Choose the right depth for quick answers, long-form reasoning,
-              or research-heavy study sessions.
+              Turn a PDF, note, or question into guided explanations, checks,
+              widgets, and follow-ups that adapt to the topic.
             </CardDescription>
             <LLMModelSelectorSkeleton />
           </Card>
           <Card className="overflow-hidden mask-b-from-80%">
             <div className="flex items-center gap-2">
               <MouseBoxIcon />
-              <CardTitle>Notes from natural language</CardTitle>
+              <CardTitle>Misconception logging</CardTitle>
             </div>
             <CardDescription>
-              Ask for summaries, outlines, flashcards, and explanations that
-              stay attached to your actual source material.
+              Capture what went wrong during a session, then turn that gap into
+              targeted flashcards and future review.
             </CardDescription>
             <TextToWorkflowBuilderSkeleton />
           </Card>
@@ -71,8 +72,8 @@ export const AgenticIntelligence = () => {
               <CardTitle>Native learning tools</CardTitle>
             </div>
             <CardDescription>
-              Use retrieval, markdown notes, graphs, files, and whiteboard
-              reasoning as one connected surface.
+              Search files, write markdown notes, graph relationships, and
+              review cards without moving your study context between apps.
             </CardDescription>
             <NativeToolsIntegrationSkeleton />
           </Card>
@@ -81,11 +82,11 @@ export const AgenticIntelligence = () => {
           <Card>
             <div className="flex items-center gap-2">
               <FingerprintIcon />
-              <CardTitle>Private by default</CardTitle>
+              <CardTitle>File-aware answers</CardTitle>
             </div>
             <CardDescription>
-              Your workspace is scoped to your account, with private notes and
-              controllable sharing.
+              Ask across uploaded papers, notes, folders, and generated assets
+              so answers start from the material you are studying.
             </CardDescription>
           </Card>
           <Card>
@@ -101,11 +102,11 @@ export const AgenticIntelligence = () => {
           <Card>
             <div className="flex items-center gap-2">
               <SDKIcon />
-              <CardTitle>Import-friendly workspace</CardTitle>
+              <CardTitle>Spaced repetition loop</CardTitle>
             </div>
             <CardDescription>
-              Bring in files and external knowledge, then keep the generated
-              work organized in your folders.
+              Convert hard explanations and misconceptions into cards that
+              come back when you actually need to review them.
             </CardDescription>
           </Card>
         </div>

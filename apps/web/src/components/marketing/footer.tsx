@@ -52,7 +52,7 @@ export const Footer = () => {
       <Container className="relative min-h-[31rem] px-6 pt-16 pb-8 md:px-10">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute right-[-10vw] bottom-[-0.78em] left-[-10vw] select-none overflow-hidden font-semibold text-[27vw] leading-none tracking-[-0.08em] text-white/[0.04]"
+          className="pointer-events-none absolute right-[-10vw] bottom-[-0.42em] left-[-10vw] select-none overflow-hidden font-semibold text-[27vw] leading-none tracking-[-0.08em] text-white/[0.065]"
         >
           Avenire
         </div>

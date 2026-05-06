@@ -21,29 +21,29 @@ const statusConfig = {
   planned: {
     icon: Circle,
     label: "Planned",
-    color: "text-muted-foreground",
-    dotColor: "bg-muted-foreground/50",
-    borderColor: "border-border",
-    badgeBg: "bg-muted",
-    badgeText: "text-muted-foreground",
+    color: "text-white/55",
+    dotColor: "bg-white/30",
+    borderColor: "border-divide",
+    badgeBg: "bg-white/5",
+    badgeText: "text-white/55",
   },
   "in-progress": {
     icon: Loader2,
     label: "In Progress",
-    color: "text-primary",
-    dotColor: "bg-primary",
-    borderColor: "border-primary/30",
-    badgeBg: "bg-primary/10",
-    badgeText: "text-primary",
+    color: "text-brand",
+    dotColor: "bg-brand",
+    borderColor: "border-brand/30",
+    badgeBg: "bg-brand/10",
+    badgeText: "text-brand",
   },
   shipped: {
     icon: CheckCircle2,
     label: "Shipped",
-    color: "text-chart-2",
-    dotColor: "bg-chart-2",
-    borderColor: "border-chart-2/20",
-    badgeBg: "bg-chart-2/10",
-    badgeText: "text-chart-2",
+    color: "text-emerald-300",
+    dotColor: "bg-emerald-300",
+    borderColor: "border-emerald-300/20",
+    badgeBg: "bg-emerald-300/10",
+    badgeText: "text-emerald-300",
   },
 };
 
@@ -53,7 +53,7 @@ function RoadmapCard({ item }: { item: RoadmapItem }) {
 
   return (
     <article
-      className={`group rounded-xl border ${cfg.borderColor} bg-card p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-black/10 hover:shadow-md`}
+      className={`group rounded-lg border ${cfg.borderColor} bg-neutral-900/45 p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/35 hover:bg-neutral-900/75`}
     >
       <div className="flex items-start gap-3">
         <div className={`mt-0.5 shrink-0 ${cfg.color}`}>
@@ -64,13 +64,13 @@ function RoadmapCard({ item }: { item: RoadmapItem }) {
 
         <div className="min-w-0 flex-1">
           <div className="mb-1.5 flex items-start justify-between gap-2">
-            <h3 className="font-medium text-foreground text-sm leading-snug">
+            <h3 className="font-medium text-white text-sm leading-snug">
               {item.title}
             </h3>
             {item.link && (
               <a
                 aria-label={`Learn more about ${item.title}`}
-                className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+                className="shrink-0 text-white/55 transition-colors hover:text-white"
                 href={item.link}
                 rel="noopener noreferrer"
                 target="_blank"
@@ -80,13 +80,13 @@ function RoadmapCard({ item }: { item: RoadmapItem }) {
             )}
           </div>
 
-          <p className="text-muted-foreground text-xs leading-relaxed">
+          <p className="text-white/55 text-xs leading-relaxed">
             {item.description}
           </p>
 
           {item.category && (
             <div className="mt-3">
-              <span className="rounded-full bg-muted px-2 py-0.5 font-medium text-muted-foreground text-xs">
+              <span className="rounded-full bg-white/5 px-2 py-0.5 font-medium text-white/55 text-xs">
                 {item.category}
               </span>
             </div>
@@ -102,10 +102,9 @@ function RoadmapColumn({ group }: { group: RoadmapGroup }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Column header */}
-      <div className="flex items-center gap-2.5 border-border border-b pb-4">
+      <div className="flex items-center gap-2.5 border-divide border-b pb-4">
         <div className={`size-2 rounded-full ${cfg.dotColor}`} />
-        <h2 className="font-semibold text-foreground text-sm">{group.label}</h2>
+        <h2 className="font-semibold text-white text-sm">{group.label}</h2>
         <span
           className={`ml-auto rounded-full px-2 py-0.5 font-medium text-xs ${cfg.badgeBg} ${cfg.badgeText}`}
         >
@@ -113,16 +112,12 @@ function RoadmapColumn({ group }: { group: RoadmapGroup }) {
         </span>
       </div>
 
-      {/* Cards */}
-      <div
-        className="flex flex-col gap-3 overflow-y-auto pr-1"
-        style={{ maxHeight: "calc(4 * 88px + 3 * 12px)" }}
-      >
+      <div className="flex flex-col gap-3">
         {group.items.map((item) => (
           <RoadmapCard item={item} key={item.id} />
         ))}
         {group.items.length === 0 && (
-          <p className="py-6 text-center text-muted-foreground/50 text-xs">
+          <p className="py-6 text-center text-white/35 text-xs">
             Nothing here yet.
           </p>
         )}
@@ -141,7 +136,7 @@ export default function RoadmapPage() {
       {/* Hero */}
       <section className="px-4 pt-32">
         <div className="mx-auto max-w-[72rem] border-divide border-x px-4 pt-8 pb-16 md:px-8">
-        <div className="mx-auto max-w-[62rem]">
+          <div className="mx-auto max-w-[62rem]">
           <div className="mb-2">
             <span className="font-medium text-brand text-xs uppercase tracking-widest">
               Roadmap
@@ -158,20 +153,20 @@ export default function RoadmapPage() {
               </p>
             </div>
           </div>
-        </div>
+          </div>
         </div>
       </section>
 
       {/* Roadmap columns */}
       <section className="px-4 pb-24">
         <div className="mx-auto max-w-[72rem] border-divide border-x px-4 pb-8 md:px-8">
-        <div className="mx-auto max-w-[62rem]">
+          <div className="mx-auto max-w-[62rem]">
           <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
             {groups.map((group) => (
               <RoadmapColumn group={group} key={group.status} />
             ))}
           </div>
-        </div>
+          </div>
         </div>
       </section>
 

@@ -42,7 +42,7 @@ export const HeroImage = () => {
   };
 
   return (
-    <Container className="border-divide relative flex items-start justify-start border-x bg-gray-100 p-2 perspective-distant md:p-4 lg:p-8 dark:bg-neutral-800">
+    <Container className="border-divide relative flex items-start justify-start border-x bg-neutral-900/70 p-2 perspective-distant md:p-4 lg:p-8">
       <Dot top left />
       <Dot top right />
       <Dot bottom left />
@@ -71,12 +71,12 @@ export const HeroImage = () => {
           }}
         >
           <Image
-            src="/dashboard@3x.png"
-            alt="Hero Image"
-            className="w-full"
+            src="/marketing/avenire-workspace.png"
+            alt="Avenire workspace with a paper, generated ResNet notes, and an interactive learning widget"
+            className="w-full rounded-md border border-white/10 shadow-2xl shadow-black/60"
             priority
-            width={1000}
-            height={1000}
+            width={1918}
+            height={1019}
             draggable={false}
           />
         </motion.div>

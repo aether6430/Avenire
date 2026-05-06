@@ -32,7 +32,7 @@ function FeaturedPostCard({ post }: { post: PostMeta }) {
     <Link className="group block" href={blogPostHref(post.slug)}>
       <article className="relative overflow-hidden rounded-2xl border border-divide bg-neutral-900/60 p-8 transition-all duration-300 hover:border-brand/40 hover:shadow-black/20 hover:shadow-xl md:p-10">
         {post.coverImage ? (
-          <div className="relative -mx-8 -mt-8 mb-6 overflow-hidden border-border/70 border-b md:-mx-10 md:-mt-10 md:mb-8">
+          <div className="relative -mx-8 -mt-8 mb-6 overflow-hidden border-divide border-b md:-mx-10 md:-mt-10 md:mb-8">
             <Image
               alt={post.title}
               className="h-52 w-full object-cover transition-transform duration-500 group-hover:scale-[1.02] md:h-64"
@@ -99,7 +99,7 @@ function PostCard({ post }: { post: PostMeta }) {
     <Link className="group block h-full" href={blogPostHref(post.slug)}>
       <article className="flex h-full flex-col rounded-xl border border-divide bg-neutral-900/55 p-6 transition-all duration-300 hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-black/10 hover:shadow-lg">
         {post.coverImage ? (
-          <div className="-mx-6 -mt-6 mb-5 overflow-hidden rounded-t-xl border-border/70 border-b">
+          <div className="-mx-6 -mt-6 mb-5 overflow-hidden rounded-t-xl border-divide border-b">
             <Image
               alt={post.title}
               className="h-36 w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"

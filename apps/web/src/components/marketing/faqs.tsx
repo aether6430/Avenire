@@ -54,8 +54,8 @@ export const FAQs = () => {
       </SectionHeading>
 
       <SubHeading as="p" className="mx-auto mt-6 max-w-lg px-2">
-          Answers about plans, workspace privacy, and how Avenire fits into
-          daily learning.
+        Answers about plans, study workflows, and how Avenire fits into daily
+        learning.
       </SubHeading>
       <div className="mt-8 mb-12 flex w-full flex-col justify-center gap-4 px-4 sm:flex-row">
         <Button variant="primary" className="w-full sm:w-auto">

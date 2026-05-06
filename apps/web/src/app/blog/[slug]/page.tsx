@@ -110,7 +110,7 @@ function formatDate(iso: string) {
 const mdxComponents = {
   h1: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
     <h1
-      className="mt-10 mb-4 font-semibold text-3xl text-foreground tracking-tight"
+      className="mt-10 mb-4 font-semibold text-3xl text-white tracking-tight"
       {...props}
     >
       {children}
@@ -118,19 +118,19 @@ const mdxComponents = {
   ),
   h2: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
     <h2
-      className="mt-10 mb-3 font-semibold text-2xl text-foreground tracking-tight"
+      className="mt-10 mb-3 font-semibold text-2xl text-white tracking-tight"
       {...props}
     >
       {children}
     </h2>
   ),
   h3: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
-    <h3 className="mt-8 mb-3 font-semibold text-foreground text-xl" {...props}>
+    <h3 className="mt-8 mb-3 font-semibold text-white text-xl" {...props}>
       {children}
     </h3>
   ),
   p: (props: React.HTMLAttributes<HTMLParagraphElement>) => (
-    <p className="mb-5 text-foreground/80 leading-relaxed" {...props} />
+    <p className="mb-5 text-white/70 leading-relaxed" {...props} />
   ),
   ul: (props: React.HTMLAttributes<HTMLUListElement>) => (
     <ul className="my-4 ml-6 list-none space-y-2" {...props} />
@@ -140,41 +140,41 @@ const mdxComponents = {
   ),
   li: (props: React.HTMLAttributes<HTMLLIElement>) => (
     <li
-      className="pl-1 text-foreground/80 leading-relaxed before:mr-2 before:text-primary before:content-['—']"
+      className="pl-1 text-white/70 leading-relaxed before:mr-2 before:text-brand before:content-['—']"
       {...props}
     />
   ),
   a: (props: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
     <a
-      className="text-primary underline underline-offset-4 transition-colors hover:text-primary/80"
+      className="text-brand underline underline-offset-4 transition-colors hover:text-brand/80"
       {...props}
     />
   ),
   strong: (props: React.HTMLAttributes<HTMLElement>) => (
-    <strong className="font-semibold text-foreground" {...props} />
+    <strong className="font-semibold text-white" {...props} />
   ),
   em: (props: React.HTMLAttributes<HTMLElement>) => (
-    <em className="text-foreground/90 italic" {...props} />
+    <em className="text-white/80 italic" {...props} />
   ),
   blockquote: (props: React.HTMLAttributes<HTMLQuoteElement>) => (
     <blockquote
-      className="my-6 border-primary/50 border-l-2 pl-5 text-muted-foreground italic"
+      className="my-6 border-brand/50 border-l-2 pl-5 text-white/55 italic"
       {...props}
     />
   ),
   code: (props: React.HTMLAttributes<HTMLElement>) => (
     <code
-      className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground/90 text-sm"
+      className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-white/80 text-sm"
       {...props}
     />
   ),
   pre: (props: React.HTMLAttributes<HTMLPreElement>) => (
     <pre
-      className="my-6 overflow-x-auto rounded-xl border border-border bg-card p-5 font-mono text-sm leading-relaxed"
+      className="my-6 overflow-x-auto rounded-xl border border-divide bg-neutral-900/55 p-5 font-mono text-sm leading-relaxed"
       {...props}
     />
   ),
-  hr: () => <hr className="my-10 border-border" />,
+  hr: () => <hr className="my-10 border-divide" />,
 };
 
 export default async function BlogPostPage({

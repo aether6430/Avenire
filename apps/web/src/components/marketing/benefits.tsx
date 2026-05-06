@@ -25,39 +25,39 @@ import { VerticalLine } from "./common/vertical-line";
 export const Benefits = () => {
   const benefits = [
     {
-      title: "Study Faster",
+      title: "Find the right source",
       description:
-        "Turn raw notes and files into explanations, outlines, and review material",
+        "Search papers, notes, folders, and generated assets from one study surface",
       icon: <RocketIcon className="text-brand size-6" />,
     },
     {
-      title: "Keep Context",
+      title: "Keep session context",
       description:
-        "Continue from prior sessions without restating the same background",
+        "Continue from prior chats, files, and notes without rebuilding the background",
       icon: <RealtimeSyncIcon className="text-brand size-6" />,
     },
     {
-      title: "Graph Ideas",
+      title: "Map ideas visually",
       description:
-        "Use visual structure to connect concepts, dependencies, and problems",
+        "Connect concepts, dependencies, mistakes, and follow-up questions",
       icon: <GraphIcon className="text-brand size-6" />,
     },
     {
-      title: "Reuse Notes",
+      title: "Generate durable notes",
       description:
-        "Promote useful answers into durable markdown notes and study assets",
+        "Promote useful answers into markdown notes you can edit and reuse",
       icon: <ReuseBrainIcon className="text-brand size-6" />,
     },
     {
-      title: "Reduce Confusion",
+      title: "Track misconceptions",
       description:
-        "Break difficult topics into steps, checks, and targeted follow-ups",
+        "Log weak spots from sessions and turn them into targeted review",
       icon: <ShieldIcon className="text-brand size-6" />,
     },
     {
-      title: "Review Better",
+      title: "Review on schedule",
       description:
-        "Generate flashcards and study plans from the material you already trust",
+        "Build spaced repetition from notes, files, and misconception history",
       icon: <ScreenCogIcon className="text-brand size-6" />,
     },
   ];
@@ -66,12 +66,13 @@ export const Benefits = () => {
       <div className="relative flex flex-col items-center">
         <Badge text="Benefits" />
         <SectionHeading className="mt-4">
-          Making focused learning feel lighter
+          Learning tools that solve real study problems
         </SectionHeading>
 
         <SubHeading as="p" className="mx-auto mt-6 max-w-lg">
-          Avenire helps students and builders reason through hard material,
-          organize what matters, and return to it without friction.
+          Avenire is built around the moments where studying usually breaks:
+          finding context, checking understanding, and returning to what you
+          forgot.
         </SubHeading>
       </div>
       <div className="mt-20 grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -92,7 +93,7 @@ export const Benefits = () => {
 };
 
 const MiddleCard = () => {
-  const texts = ["Note saved", "Flashcards ready", "Context synced"];
+  const texts = ["Misconception logged", "Flashcards ready", "Context synced"];
   const [activeText, setActiveText] = useState(0);
   useEffect(() => {
     const interval = setInterval(() => {

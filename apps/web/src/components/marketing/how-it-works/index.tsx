@@ -23,25 +23,25 @@ type Tab = {
 export const HowItWorks = () => {
   const tabs = [
     {
-      title: "Collect your context",
+      title: "Add the material",
       description:
-        "Bring notes, files, folders, and questions into a workspace the AI can reason over",
+        "Upload papers, keep notes, organize folders, and let Avenire search the material you are using",
       icon: FirstIcon,
       id: "workflow",
       skeleton: <DesignYourWorkflowSkeleton />,
     },
     {
-      title: "Think with the material",
+      title: "Work through it interactively",
       description:
-        "Ask questions, generate flashcards, map concepts, and work through problems step by step",
+        "Ask questions, generate diagrams or widgets, check assumptions, and log misconceptions as they appear",
       icon: SecondIcon,
       id: "tools",
       skeleton: <ConnectYourTooklsSkeleton />,
     },
     {
-      title: "Keep learning moving",
+      title: "Turn gaps into review",
       description:
-        "Turn sessions into durable notes, study plans, exports, and reviewable knowledge",
+        "Save explanations into markdown, generate flashcards, and schedule review around the concepts you missed",
       icon: ThirdIcon,
       id: "deploy",
       skeleton: <DeployAndScaleSkeleton />,
@@ -65,11 +65,11 @@ export const HowItWorks = () => {
     <Container className="border-divide border-x">
       <div className="flex flex-col items-center pt-16">
         <Badge text="How it works" />
-        <SectionHeading className="mt-4">Learning stays connected</SectionHeading>
+        <SectionHeading className="mt-4">From source to understanding</SectionHeading>
 
         <SubHeading as="p" className="mx-auto mt-6 max-w-lg">
-          Avenire keeps the context around your learning visible, searchable,
-          and useful across notes, chats, files, and review.
+          Avenire keeps the full loop connected: source search, interactive AI
+          sessions, misconception capture, notes, and spaced repetition.
         </SubHeading>
         {/* Desktop Tabs */}
         <div className="border-divide divide-divide mt-16 hidden w-full grid-cols-2 divide-x border-t lg:grid">
