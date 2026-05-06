@@ -17,7 +17,6 @@ import { AnimatePresence, motion } from "motion/react";
 import { RealtimeSyncIcon } from "@/components/marketing/icons/bento-icons";
 import { DivideX } from "./divide";
 import { LogoSVG } from "./logo";
-import { OpenAILogo, SlackLogo } from "@/components/marketing/icons/general";
 import { IconBlock } from "./common/icon-block";
 import { HorizontalLine } from "./common/horizontal-line";
 import { VerticalLine } from "./common/vertical-line";
@@ -106,7 +105,10 @@ const MiddleCard = () => {
       <div className="absolute inset-0 bg-[repeating-linear-gradient(315deg,_var(--pattern-fg)_0,_var(--pattern-fg)_1px,_transparent_0,_transparent_50%)] bg-[size:12px_12px] opacity-55 mask-radial-from-10% shadow-xl"></div>
 
       <div className="flex items-center justify-center">
-        <IconBlock icon={<OpenAILogo className="size-6" />} />
+        <IconBlock
+          icon={<span className="font-mono text-[10px] text-brand">PDF</span>}
+          className="border-brand/20 bg-neutral-950"
+        />
         <HorizontalLine />
         <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md border border-brand/40 bg-gray-200 p-px shadow-xl dark:bg-neutral-700">
           <div className="absolute inset-0 scale-[1.4] animate-spin rounded-full bg-conic [background-image:conic-gradient(at_center,transparent,var(--color-brand)_20%,transparent_30%)] [animation-duration:2s]"></div>
@@ -116,7 +118,10 @@ const MiddleCard = () => {
           </div>
         </div>
         <HorizontalLine />
-        <IconBlock icon={<SlackLogo className="size-6" />} />
+        <IconBlock
+          icon={<span className="font-mono text-[10px] text-brand">SRS</span>}
+          className="border-brand/20 bg-neutral-950"
+        />
       </div>
       <div className="relative z-20 flex flex-col items-center justify-center">
         <VerticalLine />

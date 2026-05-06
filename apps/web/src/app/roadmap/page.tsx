@@ -135,7 +135,7 @@ export default function RoadmapPage() {
 
       {/* Hero */}
       <section className="px-4 pt-32">
-        <div className="mx-auto max-w-[72rem] border-divide border-x px-4 pt-8 pb-16 md:px-8">
+        <div className="mx-auto max-w-[72rem] border-divide border-x border-t px-4 pt-8 pb-16 md:px-8">
           <div className="mx-auto max-w-[62rem]">
           <div className="mb-2">
             <span className="font-medium text-brand text-xs uppercase tracking-widest">
@@ -159,7 +159,7 @@ export default function RoadmapPage() {
 
       {/* Roadmap columns */}
       <section className="px-4 pb-24">
-        <div className="mx-auto max-w-[72rem] border-divide border-x px-4 pb-8 md:px-8">
+        <div className="mx-auto max-w-[72rem] border-divide border-x border-b px-4 pb-8 md:px-8">
           <div className="mx-auto max-w-[62rem]">
           <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
             {groups.map((group) => (

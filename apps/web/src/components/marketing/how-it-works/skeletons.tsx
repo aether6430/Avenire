@@ -1,11 +1,5 @@
 "use client";
-import {
-  AnthropicLogo,
-  ForkIcon,
-  MetaLogo,
-  OpenAILogo,
-  SlackLogo,
-} from "@/components/marketing/icons/general";
+import { ForkIcon } from "@/components/marketing/icons/general";
 import { cn } from "@/lib/utils";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DivideX } from "../divide";
@@ -15,15 +9,21 @@ import { Scale } from "../scale";
 import { LogoSVG } from "../logo";
 import { IntegrationsLogo } from "@/components/marketing/icons/bento-icons";
 
+const StudyToken = ({ label }: { label: string }) => (
+  <span className="inline-flex size-6 items-center justify-center rounded-sm border border-brand/25 bg-brand/10 font-mono text-[9px] text-brand uppercase">
+    {label}
+  </span>
+);
+
 export const DesignYourWorkflowSkeleton = () => {
   return (
     <div className="mt-12 flex flex-col items-center">
       <div className="relative">
         <Card
-          title="Slack"
-          subtitle="#standups"
-          logo={<SlackLogo />}
-          cta="Connected"
+          title="Source files"
+          subtitle="resnet.pdf"
+          logo={<StudyToken label="PDF" />}
+          cta="Indexed"
           tone="default"
         />
         <LeftSVG className="absolute top-12 -left-32" />
@@ -33,26 +33,26 @@ export const DesignYourWorkflowSkeleton = () => {
 
       <div className="mt-12 flex flex-row gap-4.5">
         <Card
-          title="Anthropic"
-          subtitle="Claude 4"
-          logo={<AnthropicLogo />}
-          cta="UI Generator"
+          title="Misconception"
+          subtitle="gradient flow"
+          logo={<StudyToken label="Gap" />}
+          cta="Logged"
           tone="danger"
           delay={0.2}
         />
         <Card
-          title="Meta"
-          subtitle="Llama 2"
-          logo={<MetaLogo />}
-          cta="Text Generator"
+          title="Markdown note"
+          subtitle="ResNet"
+          logo={<StudyToken label="MD" />}
+          cta="Saved"
           tone="default"
           delay={0.4}
         />
         <Card
-          title="OpenAI"
-          subtitle="GPT-5"
-          logo={<OpenAILogo />}
-          cta="Code Generator"
+          title="Review queue"
+          subtitle="12 cards"
+          logo={<StudyToken label="SRS" />}
+          cta="Ready"
           tone="success"
           delay={0.6}
         />
@@ -62,7 +62,7 @@ export const DesignYourWorkflowSkeleton = () => {
 };
 
 export const ConnectYourTooklsSkeleton = () => {
-  const text = `Write the first and second rule of it using Claude and ChatGPT.`;
+  const text = `Explain why residual shortcuts reduce degradation in deep networks.`;
   const [mounted, setMounted] = useState(false);
   const randomWidth = useMemo(() => Math.random() * 100, [mounted]);
 
@@ -82,7 +82,7 @@ export const ConnectYourTooklsSkeleton = () => {
       >
         <div className="absolute -top-4 -right-4 flex h-14 w-14 items-center justify-center rounded-lg bg-white shadow-xl">
           <Scale />
-          <OpenAILogo className="relative z-20 h-8 w-8" />
+          <StudyToken label="AI" />
         </div>
         <div className="mt-12 flex items-center gap-2">
           <IntegrationsLogo />
@@ -163,18 +163,18 @@ export const ConnectYourTooklsSkeleton = () => {
         <div className="mt-12 flex items-center gap-2">
           <IntegrationsLogo className="dark:text-neutral-200" />
           <span className="text-charcoal-700 text-xs font-medium md:text-sm dark:text-neutral-200">
-            Integrations
+            Learning tools
           </span>
           <span className="text-charcoal-700 rounded-lg border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200">
-            200
+            4
           </span>
         </div>
         <DivideX className="mt-2" />
         <div className="mt-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <OpenAILogo className="h-4 w-4 shrink-0" />
+            <StudyToken label="PDF" />
             <span className="text-charcoal-700 text-xs font-medium md:text-sm dark:text-neutral-200">
-              ChatGPT
+              Source search
             </span>
           </div>
 
@@ -184,9 +184,9 @@ export const ConnectYourTooklsSkeleton = () => {
         </div>
         <div className="mt-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <AnthropicLogo className="h-4 w-4 shrink-0" />
+            <StudyToken label="SRS" />
             <span className="text-charcoal-700 text-xs font-medium md:text-sm dark:text-neutral-200">
-              Claude 4 Opus
+              Spaced review
             </span>
           </div>
 

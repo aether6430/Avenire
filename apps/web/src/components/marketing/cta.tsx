@@ -2,24 +2,10 @@
 
 import React from "react";
 import { cn } from "@/lib/utils";
-import {
-  AnthropicLogo,
-  AppleIcon,
-  FacebookIcon,
-  GoogleIcon,
-  LinearLogo,
-  MetaLogo,
-  NotionLogo,
-  OpenAILogo,
-  SlackLogo,
-  SupabaseLogo,
-} from "@/components/marketing/icons/general";
 import { Container } from "./container";
 import { SectionHeading } from "./seciton-heading";
 import { Button } from "./button";
 import Link from "next/link";
-
-type SvgComponent = React.ComponentType<React.SVGProps<SVGSVGElement>>;
 
 export type CTAOrbitProps = {
   size?: number;
@@ -50,22 +36,21 @@ export const CTAOrbit: React.FC<CTAOrbitProps> = ({
   ringDurationsSec,
   numRings = 3,
 }) => {
-  const logos = [
-    SupabaseLogo,
-    OpenAILogo,
-    MetaLogo,
-    SlackLogo,
-    NotionLogo,
-    LinearLogo,
-    AnthropicLogo,
-    SupabaseLogo,
-    OpenAILogo,
-    MetaLogo,
-    GoogleIcon,
-    FacebookIcon,
-    AppleIcon,
+  const nodes = [
+    "PDF",
+    "Notes",
+    "Search",
+    "Graph",
+    "Cards",
+    "Review",
+    "Files",
+    "Widgets",
+    "Gaps",
+    "Recall",
+    "MD",
+    "Study",
   ];
-  const total = logos.length;
+  const total = nodes.length;
 
   // Compute ring weights (fewer inner, more outer): proportional 1..numRings
   const weights = Array.from({ length: numRings }, (_, i) => i + 1); // [1,2,...]
@@ -80,8 +65,8 @@ export const CTAOrbit: React.FC<CTAOrbitProps> = ({
   const counts: number[] = countsBase; // inner→outer
 
   let cursor = 0;
-  const rings: SvgComponent[][] = counts.map((count) => {
-    const slice = logos.slice(cursor, cursor + count);
+  const rings: string[][] = counts.map((count) => {
+    const slice = nodes.slice(cursor, cursor + count);
     cursor += count;
     return slice;
   });
@@ -126,7 +111,7 @@ export const CTAOrbit: React.FC<CTAOrbitProps> = ({
         }}
       >
         <div className="relative h-full w-full">
-          {ringLogos.map((Logo, idx) => {
+          {ringLogos.map((label, idx) => {
             const angleDeg = (360 / count) * idx;
             const translate = radius;
             return (
@@ -140,14 +125,14 @@ export const CTAOrbit: React.FC<CTAOrbitProps> = ({
                 <div style={{ transform: `rotate(${-angleDeg}deg)` }}>
                   <div
                     className={cn(
-                      "shadow-aceternity flex size-14 items-center justify-center rounded-md bg-white dark:bg-neutral-950/90",
+                      "shadow-aceternity flex size-14 items-center justify-center rounded-md border border-brand/20 bg-neutral-950/90 font-mono text-[10px] text-brand/85 uppercase",
                       reverse ? "animate-orbit" : "animate-counter-orbit",
                     )}
                     style={{
                       ["--duration" as any]: `${duration}s`,
                     }}
                   >
-                    <Logo className="size-8 shrink-0" />
+                    {label}
                   </div>
                 </div>
               </div>
@@ -176,10 +161,10 @@ export const CTAOrbit: React.FC<CTAOrbitProps> = ({
                   key={`bg-ring-${i}`}
                   className={cn(
                     "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full shadow-inner",
-                    i === 0 && "bg-neutral-300 dark:bg-neutral-500",
-                    i === 1 && "bg-neutral-200 dark:bg-neutral-600",
-                    i === 2 && "bg-neutral-100 dark:bg-neutral-700",
-                    i === 3 && "bg-neutral-50 dark:bg-neutral-800",
+                    i === 0 && "bg-brand/10",
+                    i === 1 && "bg-white/[0.045]",
+                    i === 2 && "bg-white/[0.025]",
+                    i === 3 && "bg-white/[0.015]",
                   )}
                   style={{
                     width: diameter,

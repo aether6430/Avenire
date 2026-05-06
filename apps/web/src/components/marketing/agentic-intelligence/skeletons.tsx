@@ -8,15 +8,6 @@ import {
   WindowIcon,
 } from "@/components/marketing/icons/bento-icons";
 import { DivideX } from "../divide";
-import {
-  AnthropicLogo,
-  LinearLogo,
-  MetaLogo,
-  NotionLogo,
-  OpenAILogo,
-  SlackLogo,
-  SupabaseLogo,
-} from "@/components/marketing/icons/general";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
@@ -25,24 +16,47 @@ import { useTypewriter } from "@/components/marketing/hooks/use-typewriter";
 import { LogoSVG } from "../logo";
 import { IconBlock } from "../common/icon-block";
 
+const StudyToken = ({
+  label,
+  className,
+}: {
+  label: string;
+  className?: string;
+}) => (
+  <span
+    className={cn(
+      "inline-flex size-6 items-center justify-center rounded-sm border border-brand/25 bg-brand/10 font-mono text-[9px] text-brand uppercase",
+      className,
+    )}
+>
+    {label}
+  </span>
+);
+
+const makeStudyToken =
+  (label: string) =>
+  ({ className }: React.SVGProps<SVGSVGElement>) => (
+    <StudyToken label={label} className={className} />
+  );
+
 export const LLMModelSelectorSkeleton = () => {
   const models = [
     {
-      name: "Claude 4 Opus",
-      logo: AnthropicLogo,
-      status: "Unavailable",
+      name: "Fast explanation",
+      logo: makeStudyToken("Q"),
+      status: "Ready",
       variant: "danger",
     },
     {
-      name: "ChatGPT",
-      logo: OpenAILogo,
+      name: "Deep reasoning",
+      logo: makeStudyToken("AI"),
       status: "Connected",
       variant: "success",
     },
     {
-      name: "Llama 3.2",
-      logo: MetaLogo,
-      status: "Waiting",
+      name: "Review builder",
+      logo: makeStudyToken("SRS"),
+      status: "Queued",
       variant: "warning",
     },
   ];
@@ -57,10 +71,10 @@ export const LLMModelSelectorSkeleton = () => {
       >
         <div className="flex w-full items-center justify-between p-2">
           <div className="flex items-center gap-2 font-medium">
-            <OpenAILogo />
-            Open AI
+            <StudyToken label="AI" />
+            Session
           </div>
-          <p className="font-mono text-gray-600">GPT 5</p>
+          <p className="font-mono text-gray-600">Deep</p>
         </div>
         <DivideX />
         <div className="m-2 rounded-sm border border-brand/70 bg-brand/10 px-2 py-0.5 text-brand">
@@ -75,10 +89,10 @@ export const LLMModelSelectorSkeleton = () => {
       <div className="mt-12 flex items-center gap-2">
         <IntegrationsLogo />
         <span className="text-charcoal-700 text-sm font-medium dark:text-neutral-200">
-          All Models
+          Study modes
         </span>
         <span className="text-charcoal-700 rounded-lg border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200">
-          69,420
+          3
         </span>
       </div>
       <DivideX className="mt-2" />
@@ -449,19 +463,19 @@ export const NativeToolsIntegrationSkeleton = () => {
               Connected
             </span>
             <div className="absolute inset-x-0 -top-30 flex h-full flex-col items-center">
-              <IconBlock icon={<NotionLogo className="size-6" />} />
+              <IconBlock icon={<StudyToken label="MD" />} />
               <VerticalLine />
               <VerticalLine />
-              <IconBlock icon={<LinearLogo className="size-6" />} />
+              <IconBlock icon={<StudyToken label="Graph" />} />
             </div>
           </div>
           <div className="2 absolute -top-4 right-30 flex h-full flex-col items-center">
-            <IconBlock icon={<SupabaseLogo className="size-6" />} />
+            <IconBlock icon={<StudyToken label="Files" />} />
             <VerticalLine />
-            <IconBlock icon={<SlackLogo className="size-6" />} />
+            <IconBlock icon={<StudyToken label="Cards" />} />
           </div>
           <RightSideSVG />
-          <IconBlock icon={<OpenAILogo className="size-6" />} />
+          <IconBlock icon={<StudyToken label="AI" />} />
         </div>
       </motion.div>
     </>

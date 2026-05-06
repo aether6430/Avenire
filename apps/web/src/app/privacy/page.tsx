@@ -74,7 +74,7 @@ export default function PrivacyPage() {
       <Navbar />
 
       <section className="px-4 pt-32 pb-24">
-        <div className="mx-auto max-w-[72rem] border-divide border-x px-4 py-8 md:px-8">
+        <div className="mx-auto max-w-[72rem] border-divide border-x border-y px-4 py-8 md:px-8">
           <div className="mx-auto max-w-[48rem]">
             <Markdown components={mdxComponents} remarkPlugins={[remarkGfm]}>
               {source}
