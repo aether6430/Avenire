@@ -887,7 +887,8 @@ interface WebkitFileSystemDirectoryEntry extends WebkitFileSystemEntry {
   createReader: () => WebkitFileSystemDirectoryReader;
 }
 
-const DEFAULT_FOLDER_BANNER_URL = "/images/banners/banner1.png";
+const DEFAULT_FOLDER_BANNER_URL =
+  "https://gtgr46laft.ufs.sh/f/7avzGFBuzbjB9vfw3D1PxUaEr7wSqNQiFgMAvYKy35DlcXb0";
 
 function getMutationHistoryItemKey(item: FileMutationHistoryItem) {
   return `${item.kind}:${item.id}`;

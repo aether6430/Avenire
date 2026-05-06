@@ -54,7 +54,7 @@ export const WelcomeEmail = ({ companyName, url }: WelcomeEmailProps) => (
 
           <Section className="mobile:px-4 px-6">
             <Img
-              src={`${baseUrl}/images/banners/banner1.png`}
+              src={"https://gtgr46laft.ufs.sh/f/7avzGFBuzbjB9vfw3D1PxUaEr7wSqNQiFgMAvYKy35DlcXb0"}
               alt=""
               width={592}
               className="block w-full max-w-[592px]"

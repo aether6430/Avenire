@@ -9,6 +9,8 @@ export const metadata = buildPageMetadata({
   title: "Terms of Service",
 });
 
+export const dynamic = "force-static";
+
 const sections = [
   {
     title: "Use of the service",

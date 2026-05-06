@@ -33,7 +33,7 @@ export const FeatureAnnouncementEmail = ({
   url,
 }: FeatureAnnouncementEmailProps) => {
   const featureName = 'Smart Tasks';
-  const heroImageSrc = `${baseUrl}/images/banners/banner1.png`;
+  const heroImageSrc = "https://gtgr46laft.ufs.sh/f/7avzGFBuzbjB9vfw3D1PxUaEr7wSqNQiFgMAvYKy35DlcXb0";
 
   return (
     <Tailwind config={ditherTailwindConfig}>

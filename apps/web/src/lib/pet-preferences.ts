@@ -1,5 +1,7 @@
 "use client";
 
+import { STATIC_ASSETS } from "@/lib/static-assets";
+
 export const PET_VISIBILITY_STORAGE_KEY = "avenire:pet:visible";
 export const PET_POSITION_STORAGE_KEY = "avenire:pet:position";
 export const PET_NOTIFICATION_EVENT = "avenire:pet-notification";
@@ -41,23 +43,23 @@ export const PET_OPTIONS: PetOption[] = [
   {
     accessory: "none",
     label: "No accessory",
-    src: "/pets/auri/spritesheet.webp",
+    src: STATIC_ASSETS.pets.none,
   },
   {
     accessory: "flower",
     label: "Flower",
-    src: "/pets/auri-flower/spritesheet.webp",
+    src: STATIC_ASSETS.pets.flower,
   },
   {
     accessory: "pencil",
     label: "Pencil",
-    src: "/pets/auri-pencil/spritesheet.webp",
+    src: STATIC_ASSETS.pets.pencil,
   },
-  { accessory: "duck", label: "Duck", src: "/pets/auri-duck/spritesheet.webp" },
+  { accessory: "duck", label: "Duck", src: STATIC_ASSETS.pets.duck },
   {
     accessory: "bamboo-copter",
     label: "Bamboo copter",
-    src: "/pets/auri-bamboo-copter/spritesheet.webp",
+    src: STATIC_ASSETS.pets.bambooCopter,
   },
 ];
 

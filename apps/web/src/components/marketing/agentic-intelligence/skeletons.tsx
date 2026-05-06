@@ -7,7 +7,6 @@ import {
 import { DivideX } from "../divide";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
-import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useTypewriter } from "@/components/marketing/hooks/use-typewriter";
 import { LogoSVG } from "../logo";
@@ -411,13 +410,7 @@ const UserMessage = ({
         </div>
       </div>
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand to-brand/70 text-xs font-medium text-white">
-        <Image
-          src="/marketing/avatar.webp"
-          alt="user"
-          width={32}
-          height={32}
-          className="rounded-full"
-        />
+        A
       </div>
     </div>
   );

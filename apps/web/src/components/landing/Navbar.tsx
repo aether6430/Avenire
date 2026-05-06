@@ -17,6 +17,7 @@ import Image from "next/image";
 import Link from "next/link";
 import * as React from "react";
 import { AvenireMark } from "@/components/branding/AvenireMark";
+import { STATIC_ASSETS } from "@/lib/static-assets";
 import { cn } from "@/lib/utils";
 
 const SIGN_UP_HREF = "/waitlist";
@@ -29,7 +30,7 @@ const highlightedBlog = {
   href: "/blog/introducing-avenire",
   description:
     "Why we built Avenire and how interactive AI study can deepen understanding instead of shortcutting it.",
-  image: "/blog/interactive-learning.jpeg",
+  image: STATIC_ASSETS.interactiveLearning,
 } as const;
 
 const productLinks = [

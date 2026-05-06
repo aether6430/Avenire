@@ -15,6 +15,8 @@ export const metadata = buildPageMetadata({
   title: "Blog",
 });
 
+export const dynamic = "force-static";
+
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
     year: "numeric",

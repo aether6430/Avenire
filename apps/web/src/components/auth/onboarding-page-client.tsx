@@ -13,6 +13,7 @@ import { AuthShell } from "@/components/auth-shell";
 import { MeshGradient } from "@/components/marketing/mesh-gradient";
 import { PetPreferencesFields } from "@/components/pets/pet-preferences-fields";
 import { type PetAccessory } from "@/lib/pet-preferences";
+import { loadUserSettings } from "@/lib/user-settings-client";
 
 const STEPS = [
   {
@@ -72,6 +73,30 @@ export function OnboardingPageClient({
       initialHelloLocale ?? resolveAppleHelloLocale(navigator.languages)
     );
   }, [initialHelloLocale]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    loadUserSettings()
+      .then((settings) => {
+        if (cancelled) {
+          return;
+        }
+
+        if (settings.onboardingCompleted) {
+          router.replace("/workspace");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          router.replace("/login?callbackURL=/onboarding");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   useEffect(() => {
     if (!showFlush) {

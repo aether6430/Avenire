@@ -11,6 +11,9 @@ import { Navbar } from "@/components/marketing/navbar";
 import { getAllSlugs, getPostBySlug } from "@/lib/blog";
 import { metadataBase } from "@/lib/page-metadata";
 
+export const dynamic = "force-static";
+export const dynamicParams = false;
+
 export async function generateStaticParams() {
   const slugs = getAllSlugs();
   return slugs.map((slug) => ({ slug }));

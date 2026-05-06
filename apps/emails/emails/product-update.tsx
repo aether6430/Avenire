@@ -47,21 +47,21 @@ export const ProductUpdateEmail = ({
       body: 'All your tasks for the week are surfaced based on urgency and impact.',
       linkText: 'Explore Smart Tasks',
       linkHref: url,
-      imageSrc: `${baseUrl}/images/banners/banner1.png`,
+      imageSrc: "https://gtgr46laft.ufs.sh/f/7avzGFBuzbjB9vfw3D1PxUaEr7wSqNQiFgMAvYKy35DlcXb0",
     },
     {
       title: 'Less manual work',
       body: 'Fewer status updates, more automated work.',
       linkText: 'Read more',
       linkHref: url,
-      imageSrc: `${baseUrl}/images/banners/banner1.png`,
+      imageSrc: "https://gtgr46laft.ufs.sh/f/7avzGFBuzbjB9vfw3D1PxUaEr7wSqNQiFgMAvYKy35DlcXb0",
     },
     {
       title: 'Less manual work',
       body: 'Fewer status updates, more automated work.',
       linkText: 'Read more',
       linkHref: url,
-      imageSrc: `${baseUrl}/images/banners/banner1.png`,
+      imageSrc: "https://gtgr46laft.ufs.sh/f/7avzGFBuzbjB9vfw3D1PxUaEr7wSqNQiFgMAvYKy35DlcXb0",
     },
   ];
 
@@ -86,7 +86,7 @@ export const ProductUpdateEmail = ({
 
             <Section className="mobile:mt-8 mobile:px-4 mt-12 px-6 pb-2">
               <Img
-                src={`${baseUrl}/images/banners/banner1.png`}
+                src={"https://gtgr46laft.ufs.sh/f/7avzGFBuzbjB9vfw3D1PxUaEr7wSqNQiFgMAvYKy35DlcXb0"}
                 alt=""
                 width={592}
                 className="mobile:!max-w-full block w-full max-w-[592px]"

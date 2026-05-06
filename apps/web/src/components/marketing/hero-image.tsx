@@ -3,6 +3,7 @@ import React, { useRef } from "react";
 import { Container } from "./container";
 import Image from "next/image";
 import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
+import { STATIC_ASSETS } from "@/lib/static-assets";
 import { Dot } from "./common/dots";
 
 const springConfig = {
@@ -71,7 +72,7 @@ export const HeroImage = () => {
           }}
         >
           <Image
-            src="/marketing/avenire-workspace.png"
+            src={STATIC_ASSETS.avenireWorkspace}
             alt="Avenire workspace with a paper, generated ResNet notes, and an interactive learning widget"
             className="w-full rounded-md border border-white/10 shadow-2xl shadow-black/60"
             priority

@@ -384,7 +384,7 @@ export function DashboardHome({
             alt="Workspace banner"
             className="h-28 w-full object-cover md:h-40"
             height={160}
-            src="/images/banners/banner1.png"
+            src="https://gtgr46laft.ufs.sh/f/7avzGFBuzbjB9vfw3D1PxUaEr7wSqNQiFgMAvYKy35DlcXb0"
             width={2400}
           />
         </div>

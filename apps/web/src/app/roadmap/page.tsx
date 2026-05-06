@@ -17,6 +17,8 @@ export const metadata = buildPageMetadata({
   title: "Roadmap",
 });
 
+export const dynamic = "force-static";
+
 const statusConfig = {
   planned: {
     icon: Circle,

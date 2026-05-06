@@ -13,6 +13,8 @@ export const metadata = buildPageMetadata({
   title: "Privacy Policy",
 });
 
+export const dynamic = "force-static";
+
 const mdxComponents = {
   h1: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
     <h1
