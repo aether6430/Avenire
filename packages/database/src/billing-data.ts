@@ -53,12 +53,7 @@ function hasMissingRelationMessage(input: string) {
 }
 
 function hasFailedBillingTableQuery(input: string) {
-  return (
-    input.includes("Failed query:") &&
-    BILLING_TABLE_NAMES.some((tableName) =>
-      input.includes(`from "${tableName}"`)
-    )
-  );
+  return input.includes("Failed query:") && hasBillingTableName(input);
 }
 
 function isMissingBillingTableError(error: unknown): boolean {
@@ -82,7 +77,7 @@ function isMissingBillingTableError(error: unknown): boolean {
         return true;
       }
 
-      for (const key of ["message", "detail"]) {
+      for (const key of ["message", "detail", "stack"]) {
         const value = record[key];
         if (
           typeof value === "string" &&
@@ -370,12 +365,15 @@ export async function consumeUsageUnits(input: {
 }
 
 export async function getUsageOverview(userId: string) {
-  const activePlan = await getUserPlan(userId);
-  const activeEntitlements = PLAN_ENTITLEMENTS[activePlan];
+  let activePlan: BillingPlan = "access";
+  let activeEntitlements = PLAN_ENTITLEMENTS[activePlan];
 
   let rows: (typeof usageMeter.$inferSelect)[];
 
   try {
+    activePlan = await getUserPlan(userId);
+    activeEntitlements = PLAN_ENTITLEMENTS[activePlan];
+
     await Promise.all([
       getOrCreateMeter(userId, "chat"),
       getOrCreateMeter(userId, "upload"),
