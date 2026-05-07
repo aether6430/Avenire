@@ -52,6 +52,15 @@ function hasMissingRelationMessage(input: string) {
   );
 }
 
+function hasFailedBillingTableQuery(input: string) {
+  return (
+    input.includes("Failed query:") &&
+    BILLING_TABLE_NAMES.some((tableName) =>
+      input.includes(`from "${tableName}"`)
+    )
+  );
+}
+
 function isMissingBillingTableError(error: unknown): boolean {
   const seen = new Set<unknown>();
   const stack: unknown[] = [error];
@@ -77,8 +86,8 @@ function isMissingBillingTableError(error: unknown): boolean {
         const value = record[key];
         if (
           typeof value === "string" &&
-          hasBillingTableName(value) &&
-          hasMissingRelationMessage(value)
+          ((hasBillingTableName(value) && hasMissingRelationMessage(value)) ||
+            hasFailedBillingTableQuery(value))
         ) {
           return true;
         }
