@@ -20,7 +20,6 @@
     "format": "biome format --write ."
   },
   "dependencies": {
-    "@ai-sdk/baseten": "^1.0.36",
     "@ai-sdk/cohere": "^3.0.25",
     "@ai-sdk/fireworks": "^2.0.42",
     "@ai-sdk/google": "latest",

@@ -1,6 +1,6 @@
 export const STATIC_ASSETS = {
   avenireWorkspace:
-    "https://gtgr46laft.ufs.sh/f/7avzGFBuzbjBesF3zom1dIFJ6sgzBPbDZfa4uRpm8cLQ3Cxt",
+    "https://gtgr46laft.ufs.sh/f/7avzGFBuzbjBiUmhCv9EpBKmolqNC6xuU12eaR8jvStP0ZY5",
   banner1:
     "https://gtgr46laft.ufs.sh/f/7avzGFBuzbjB9vfw3D1PxUaEr7wSqNQiFgMAvYKy35DlcXb0",
   interactiveLearning:

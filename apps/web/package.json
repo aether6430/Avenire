@@ -11,7 +11,6 @@
     "format": "biome format --write ."
   },
   "dependencies": {
-    "@ai-sdk/baseten": "^1.0.36",
     "@ai-sdk/mistral": "^3.0.21",
     "@ai-sdk/react": "^3.0.107",
     "@anaralabs/lector": "^3.8.0",

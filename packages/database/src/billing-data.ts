@@ -1,5 +1,5 @@
-import { and, eq, inArray } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "./client";
 import { billingCustomer, billingSubscription, usageMeter } from "./schema";
 
@@ -34,6 +34,62 @@ const PLAN_ENTITLEMENTS: Record<BillingPlan, PlanEntitlements> = {
 };
 
 const ACTIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing"]);
+const BILLING_TABLE_NAMES = [
+  "billing_subscription",
+  "billing_customer",
+  "usage_meter",
+];
+
+function hasBillingTableName(input: string) {
+  return BILLING_TABLE_NAMES.some((tableName) => input.includes(tableName));
+}
+
+function hasMissingRelationMessage(input: string) {
+  return (
+    input.includes("does not exist") ||
+    input.includes("relation") ||
+    input.includes("undefined_table")
+  );
+}
+
+function isMissingBillingTableError(error: unknown): boolean {
+  const seen = new Set<unknown>();
+  const stack: unknown[] = [error];
+
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current || seen.has(current)) {
+      continue;
+    }
+    seen.add(current);
+
+    if (typeof current === "object") {
+      const record = current as Record<string, unknown>;
+      if (
+        record.code === "42P01" &&
+        typeof record.message === "string" &&
+        hasBillingTableName(record.message)
+      ) {
+        return true;
+      }
+
+      for (const key of ["message", "detail"]) {
+        const value = record[key];
+        if (
+          typeof value === "string" &&
+          hasBillingTableName(value) &&
+          hasMissingRelationMessage(value)
+        ) {
+          return true;
+        }
+      }
+
+      stack.push(record.cause);
+    }
+  }
+
+  return false;
+}
 
 function clampToCapacity(value: number, capacity: number) {
   return Math.max(0, Math.min(value, capacity));
@@ -46,7 +102,7 @@ function recomputeRemainingFromConsumed(input: {
 }) {
   const consumed = clampToCapacity(
     input.previousCapacity - input.previousBalance,
-    input.previousCapacity,
+    input.previousCapacity
   );
   return clampToCapacity(input.nextCapacity - consumed, input.nextCapacity);
 }
@@ -76,20 +132,36 @@ function advanceFourHourWindow(input: {
   const windowsPassed = Math.floor(elapsedMs / FOUR_HOUR_MS) + 1;
   return {
     fourHourBalance: input.fourHourCapacity,
-    fourHourRefillAt: new Date(input.fourHourRefillAt.getTime() + windowsPassed * FOUR_HOUR_MS),
+    fourHourRefillAt: new Date(
+      input.fourHourRefillAt.getTime() + windowsPassed * FOUR_HOUR_MS
+    ),
     changed: true,
   };
 }
 
 async function getUserPlan(userId: string): Promise<BillingPlan> {
-  const [subscription] = await db
-    .select({
-      status: billingSubscription.status,
-      plan: billingSubscription.plan,
-    })
-    .from(billingSubscription)
-    .where(eq(billingSubscription.userId, userId))
-    .limit(1);
+  let subscription:
+    | {
+        status: string;
+        plan: string;
+      }
+    | undefined;
+
+  try {
+    [subscription] = await db
+      .select({
+        status: billingSubscription.status,
+        plan: billingSubscription.plan,
+      })
+      .from(billingSubscription)
+      .where(eq(billingSubscription.userId, userId))
+      .limit(1);
+  } catch (error) {
+    if (!isMissingBillingTableError(error)) {
+      throw error;
+    }
+    return "access";
+  }
 
   if (!subscription) {
     return "access";
@@ -155,61 +227,96 @@ export async function consumeUsageUnits(input: {
 
   const now = new Date();
 
-  return db.transaction(async (tx) => {
-    const plan = await getUserPlan(input.userId);
-    const entitlement = PLAN_ENTITLEMENTS[plan][input.meter];
+  try {
+    return await db.transaction(async (tx) => {
+      const plan = await getUserPlan(input.userId);
+      const entitlement = PLAN_ENTITLEMENTS[plan][input.meter];
 
-    const [existing] = await tx
-      .select()
-      .from(usageMeter)
-      .where(and(eq(usageMeter.userId, input.userId), eq(usageMeter.meter, input.meter)))
-      .limit(1);
+      const [existing] = await tx
+        .select()
+        .from(usageMeter)
+        .where(
+          and(
+            eq(usageMeter.userId, input.userId),
+            eq(usageMeter.meter, input.meter)
+          )
+        )
+        .limit(1);
 
-    const base = existing ?? {
-      id: randomUUID(),
-      userId: input.userId,
-      meter: input.meter,
-      fourHourCapacity: entitlement.fourHourCapacity,
-      fourHourBalance: entitlement.fourHourCapacity,
-      fourHourRefillAt: new Date(now.getTime() + FOUR_HOUR_MS),
-      overageCapacity: entitlement.overageCapacity,
-      overageBalance: entitlement.overageCapacity,
-      createdAt: now,
-      updatedAt: now,
-    };
+      const base = existing ?? {
+        id: randomUUID(),
+        userId: input.userId,
+        meter: input.meter,
+        fourHourCapacity: entitlement.fourHourCapacity,
+        fourHourBalance: entitlement.fourHourCapacity,
+        fourHourRefillAt: new Date(now.getTime() + FOUR_HOUR_MS),
+        overageCapacity: entitlement.overageCapacity,
+        overageBalance: entitlement.overageCapacity,
+        createdAt: now,
+        updatedAt: now,
+      };
 
-    const baselineFourHourBalance = recomputeRemainingFromConsumed({
-      previousBalance: base.fourHourBalance,
-      previousCapacity: base.fourHourCapacity,
-      nextCapacity: entitlement.fourHourCapacity,
-    });
-    const reset = advanceFourHourWindow({
-      fourHourBalance: baselineFourHourBalance,
-      fourHourCapacity: entitlement.fourHourCapacity,
-      fourHourRefillAt: base.fourHourRefillAt,
-      now,
-    });
+      const baselineFourHourBalance = recomputeRemainingFromConsumed({
+        previousBalance: base.fourHourBalance,
+        previousCapacity: base.fourHourCapacity,
+        nextCapacity: entitlement.fourHourCapacity,
+      });
+      const reset = advanceFourHourWindow({
+        fourHourBalance: baselineFourHourBalance,
+        fourHourCapacity: entitlement.fourHourCapacity,
+        fourHourRefillAt: base.fourHourRefillAt,
+        now,
+      });
 
-    let nextFourHourBalance = reset.fourHourBalance;
-    let nextOverageBalance = recomputeRemainingFromConsumed({
-      previousBalance: base.overageBalance,
-      previousCapacity: base.overageCapacity,
-      nextCapacity: entitlement.overageCapacity,
-    });
+      let nextFourHourBalance = reset.fourHourBalance;
+      let nextOverageBalance = recomputeRemainingFromConsumed({
+        previousBalance: base.overageBalance,
+        previousCapacity: base.overageCapacity,
+        nextCapacity: entitlement.overageCapacity,
+      });
 
-    const spendFourHour = Math.min(nextFourHourBalance, units);
-    const remaining = units - spendFourHour;
-    const spendOverage = Math.min(nextOverageBalance, remaining);
+      const spendFourHour = Math.min(nextFourHourBalance, units);
+      const remaining = units - spendFourHour;
+      const spendOverage = Math.min(nextOverageBalance, remaining);
 
-    if (spendFourHour + spendOverage < units) {
-      if (!existing) {
-        await tx.insert(usageMeter).values({
-          ...base,
-          fourHourBalance: nextFourHourBalance,
-          fourHourRefillAt: reset.fourHourRefillAt,
-          overageBalance: nextOverageBalance,
-        });
-      } else if (reset.changed || base.fourHourCapacity !== entitlement.fourHourCapacity || base.overageCapacity !== entitlement.overageCapacity) {
+      if (spendFourHour + spendOverage < units) {
+        if (!existing) {
+          await tx.insert(usageMeter).values({
+            ...base,
+            fourHourBalance: nextFourHourBalance,
+            fourHourRefillAt: reset.fourHourRefillAt,
+            overageBalance: nextOverageBalance,
+          });
+        } else if (
+          reset.changed ||
+          base.fourHourCapacity !== entitlement.fourHourCapacity ||
+          base.overageCapacity !== entitlement.overageCapacity
+        ) {
+          await tx
+            .update(usageMeter)
+            .set({
+              fourHourCapacity: entitlement.fourHourCapacity,
+              fourHourBalance: nextFourHourBalance,
+              fourHourRefillAt: reset.fourHourRefillAt,
+              overageCapacity: entitlement.overageCapacity,
+              overageBalance: nextOverageBalance,
+              updatedAt: now,
+            })
+            .where(eq(usageMeter.id, base.id));
+        }
+
+        return {
+          ok: false as const,
+          consumedFromFourHour: 0,
+          consumedFromOverage: 0,
+          retryAfter: nextOverageBalance > 0 ? null : reset.fourHourRefillAt,
+        };
+      }
+
+      nextFourHourBalance -= spendFourHour;
+      nextOverageBalance -= spendOverage;
+
+      if (existing) {
         await tx
           .update(usageMeter)
           .set({
@@ -221,64 +328,66 @@ export async function consumeUsageUnits(input: {
             updatedAt: now,
           })
           .where(eq(usageMeter.id, base.id));
-      }
-
-      return {
-        ok: false as const,
-        consumedFromFourHour: 0,
-        consumedFromOverage: 0,
-        retryAfter: nextOverageBalance > 0 ? null : reset.fourHourRefillAt,
-      };
-    }
-
-    nextFourHourBalance -= spendFourHour;
-    nextOverageBalance -= spendOverage;
-
-    if (!existing) {
-      await tx.insert(usageMeter).values({
-        ...base,
-        fourHourCapacity: entitlement.fourHourCapacity,
-        fourHourBalance: nextFourHourBalance,
-        fourHourRefillAt: reset.fourHourRefillAt,
-        overageCapacity: entitlement.overageCapacity,
-        overageBalance: nextOverageBalance,
-      });
-    } else {
-      await tx
-        .update(usageMeter)
-        .set({
+      } else {
+        await tx.insert(usageMeter).values({
+          ...base,
           fourHourCapacity: entitlement.fourHourCapacity,
           fourHourBalance: nextFourHourBalance,
           fourHourRefillAt: reset.fourHourRefillAt,
           overageCapacity: entitlement.overageCapacity,
           overageBalance: nextOverageBalance,
-          updatedAt: now,
-        })
-        .where(eq(usageMeter.id, base.id));
+        });
+      }
+
+      return {
+        ok: true as const,
+        consumedFromFourHour: spendFourHour,
+        consumedFromOverage: spendOverage,
+        retryAfter: null as Date | null,
+      };
+    });
+  } catch (error) {
+    if (!isMissingBillingTableError(error)) {
+      throw error;
     }
 
     return {
       ok: true as const,
-      consumedFromFourHour: spendFourHour,
-      consumedFromOverage: spendOverage,
+      consumedFromFourHour: 0,
+      consumedFromOverage: 0,
       retryAfter: null as Date | null,
     };
-  });
+  }
 }
 
 export async function getUsageOverview(userId: string) {
   const activePlan = await getUserPlan(userId);
   const activeEntitlements = PLAN_ENTITLEMENTS[activePlan];
 
-  await Promise.all([
-    getOrCreateMeter(userId, "chat"),
-    getOrCreateMeter(userId, "upload"),
-  ]);
+  let rows: (typeof usageMeter.$inferSelect)[];
 
-  const rows = await db
-    .select()
-    .from(usageMeter)
-    .where(and(eq(usageMeter.userId, userId), inArray(usageMeter.meter, ["chat", "upload"])));
+  try {
+    await Promise.all([
+      getOrCreateMeter(userId, "chat"),
+      getOrCreateMeter(userId, "upload"),
+    ]);
+
+    rows = await db
+      .select()
+      .from(usageMeter)
+      .where(
+        and(
+          eq(usageMeter.userId, userId),
+          inArray(usageMeter.meter, ["chat", "upload"])
+        )
+      );
+  } catch (error) {
+    if (!isMissingBillingTableError(error)) {
+      throw error;
+    }
+
+    return buildUsageOverview(activePlan);
+  }
 
   const now = new Date();
   const normalized = rows.map((row) => {
@@ -339,8 +448,8 @@ export async function getUsageOverview(userId: string) {
             overageBalance: row.overageBalance,
             updatedAt: now,
           })
-          .where(eq(usageMeter.id, row.id)),
-      ),
+          .where(eq(usageMeter.id, row.id))
+      )
   );
 
   const byMeter = new Map(normalized.map((row) => [row.meter, row]));
@@ -381,6 +490,31 @@ export async function getUsageOverview(userId: string) {
     combined: {
       totalCapacity: chatSummary.totalCapacity + uploadSummary.totalCapacity,
       totalBalance: chatSummary.totalBalance + uploadSummary.totalBalance,
+    },
+  };
+}
+
+function buildUsageOverview(plan: BillingPlan) {
+  const entitlements = PLAN_ENTITLEMENTS[plan];
+  const toMeterSummary = (entitlement: MeterEntitlement) => ({
+    fourHourCapacity: entitlement.fourHourCapacity,
+    fourHourBalance: entitlement.fourHourCapacity,
+    overageCapacity: entitlement.overageCapacity,
+    overageBalance: entitlement.overageCapacity,
+    totalCapacity: entitlement.fourHourCapacity + entitlement.overageCapacity,
+    totalBalance: entitlement.fourHourCapacity + entitlement.overageCapacity,
+    refillAt: null as string | null,
+  });
+  const chat = toMeterSummary(entitlements.chat);
+  const upload = toMeterSummary(entitlements.upload);
+
+  return {
+    plan,
+    chat,
+    upload,
+    combined: {
+      totalCapacity: chat.totalCapacity + upload.totalCapacity,
+      totalBalance: chat.totalBalance + upload.totalBalance,
     },
   };
 }

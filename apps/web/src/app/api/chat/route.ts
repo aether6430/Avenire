@@ -987,11 +987,6 @@ export async function POST(request: Request) {
             "show_widget",
             "visualize_read_me",
           ]),
-          providerOptions: {
-            baseten: {
-              reasoning: true,
-            },
-          },
           maxOutputTokens: 5000,
           stopWhen: stepCountIs(8),
           temperature: 0.2,
@@ -1454,11 +1449,6 @@ export async function POST(request: Request) {
               body.userName ?? session.user.name ?? undefined,
               promptMemoryBlocks.length > 0 ? promptMemoryBlocks : undefined
             ),
-            providerOptions: {
-              baseten: {
-                reasoning: true, // This enables the extraction of thinking tokens
-              },
-            },
             messages: modelMessages,
             maxOutputTokens: 20_000,
             stopWhen: stepCountIs(8),

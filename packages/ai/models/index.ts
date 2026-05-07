@@ -1,4 +1,3 @@
-import { createBaseten } from "@ai-sdk/baseten";
 import { createCohere } from "@ai-sdk/cohere";
 import { createFireworks } from "@ai-sdk/fireworks";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
