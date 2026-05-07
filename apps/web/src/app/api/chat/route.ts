@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import {
+  APOLLO_LANGUAGE_MODEL_IDS,
   APOLLO_PROMPT,
   type ApolloModelName,
   apollo,
@@ -70,7 +71,7 @@ import {
 const DEFAULT_CHAT_TITLE = "New Chat";
 const LOG_PREFIX = "[api/chat]";
 const DEFAULT_CHAT_TOKENS_PER_CREDIT = 4000;
-const DEFAULT_CHAT_TITLE_MODEL: ApolloModelName = "apollo-sprint";
+const DEFAULT_CHAT_TITLE_MODEL: ApolloModelName = "apollo-meta";
 const WHITESPACE_PATTERN = /\s+/g;
 const DEFAULT_THINKING_MESSAGES = [
   "Thinking through the details",
@@ -210,12 +211,17 @@ function resolveChatTitleModel(): ApolloModelName {
     "apollo-core",
     "apollo-apex",
     "apollo-agent",
+    "apollo-meta",
     "apollo-tiny",
-    "apollo-core",
-    "apollo-agent",
   ]);
 
   if (allowed.has(raw as ApolloModelName)) {
+    if (
+      (raw === "apollo-sprint" || raw === "apollo-tiny") &&
+      !process.env.MISTRAL_API_KEY?.trim()
+    ) {
+      return DEFAULT_CHAT_TITLE_MODEL;
+    }
     return raw as ApolloModelName;
   }
 
@@ -360,10 +366,9 @@ function buildPromptMemoryBlocks(input: {
 }
 
 async function generateChatMetadata(
-  messages: UIMessage[],
+  latestUserText: string,
   abortSignal?: AbortSignal
 ) {
-  const latestUserText = extractLatestUserText(messages);
   if (!latestUserText) {
     logInfo("Skipping chat title generation: latest user text missing");
     return null;
@@ -461,10 +466,9 @@ const thinkingMessagesSchema = z.object({
 });
 
 async function generateChatThinkingMessages(
-  messages: UIMessage[],
+  latestUserText: string,
   abortSignal?: AbortSignal
 ) {
-  const latestUserText = extractLatestUserText(messages);
   if (!latestUserText) {
     return null;
   }
@@ -1287,12 +1291,15 @@ export async function POST(request: Request) {
           chat.title,
           originalMessages
         );
+        const latestUserTextForMetadata = extractLatestUserText(
+          originalMessages
+        );
         const thinkingMessagesPromise = generateChatThinkingMessages(
-          originalMessages,
+          latestUserTextForMetadata,
           request.signal
         );
         const chatMetadataPromise = shouldGenerateChatTitle
-          ? generateChatMetadata(originalMessages, request.signal)
+          ? generateChatMetadata(latestUserTextForMetadata, request.signal)
           : Promise.resolve(null);
 
         if (chatCreatedFromNew) {
@@ -1386,6 +1393,7 @@ export async function POST(request: Request) {
         logInfo("Starting model stream", {
           chatId: chatSlug,
           model: selectedModel,
+          providerModel: APOLLO_LANGUAGE_MODEL_IDS[selectedModel],
         });
 
         let result: Awaited<ReturnType<typeof streamText>>;
@@ -1450,7 +1458,7 @@ export async function POST(request: Request) {
               promptMemoryBlocks.length > 0 ? promptMemoryBlocks : undefined
             ),
             messages: modelMessages,
-            maxOutputTokens: 20_000,
+            maxOutputTokens: 10_000,
             stopWhen: stepCountIs(8),
             tools: modelTools,
             abortSignal: request.signal,

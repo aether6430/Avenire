@@ -16,7 +16,16 @@ interface RequestErrorRequest {
 }
 
 export function register() {
-  process.on("unhandledRejection", (error) => {
+  const processOn =
+    typeof globalThis.process?.on === "function"
+      ? globalThis.process.on.bind(globalThis.process)
+      : null;
+
+  if (!processOn) {
+    return;
+  }
+
+  processOn("unhandledRejection", (error) => {
     void reportError({
       error,
       eventName: "web.unhandled_rejection",
@@ -27,7 +36,7 @@ export function register() {
     });
   });
 
-  process.on("uncaughtException", (error) => {
+  processOn("uncaughtException", (error) => {
     void reportError({
       error,
       eventName: "web.uncaught_exception",

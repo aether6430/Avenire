@@ -3,13 +3,13 @@ import { createFireworks } from "@ai-sdk/fireworks";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
 import { createMistral } from "@ai-sdk/mistral";
-import { openrouter } from "@openrouter/ai-sdk-provider";
 import { customProvider } from "ai";
 
 const APOLLO_MODEL_SPRINT = "apollo-sprint";
 const APOLLO_MODEL_CORE = "apollo-core";
 const APOLLO_MODEL_APEX = "apollo-apex";
 const APOLLO_MODEL_AGENT = "apollo-agent";
+const APOLLO_MODEL_META = "apollo-meta";
 const APOLLO_MODEL_TINY = "apollo-tiny";
 
 export const APOLLO_INGESTION_MISTRAL_OCR_MODEL = "mistral-ocr-latest";
@@ -24,7 +24,17 @@ export type ApolloModelName =
   | typeof APOLLO_MODEL_CORE
   | typeof APOLLO_MODEL_APEX
   | typeof APOLLO_MODEL_AGENT
+  | typeof APOLLO_MODEL_META
   | typeof APOLLO_MODEL_TINY;
+
+export const APOLLO_LANGUAGE_MODEL_IDS: Record<ApolloModelName, string> = {
+  "apollo-agent": "accounts/fireworks/models/glm-5",
+  "apollo-apex": "accounts/fireworks/models/kimi-k2p5",
+  "apollo-core": "gemini-3-flash-preview",
+  "apollo-meta": "openai/gpt-oss-120b",
+  "apollo-sprint": "mistral-small-latest",
+  "apollo-tiny": "ministral-3b-2512",
+};
 
 const mistral = createMistral({
   apiKey: process.env.MISTRAL_API_KEY,
@@ -45,9 +55,10 @@ const cohere = createCohere({
 export const apollo = customProvider({
   languageModels: {
     "apollo-sprint": mistral("mistral-small-latest"),
-    "apollo-apex": fireworks("accounts/fireworks/models/kimi-k2p6"),
+    "apollo-apex": fireworks(APOLLO_LANGUAGE_MODEL_IDS["apollo-apex"]),
     "apollo-core": gemini("gemini-3-flash-preview"),
     "apollo-agent": fireworks("accounts/fireworks/models/glm-5"),
+    "apollo-meta": groq(APOLLO_LANGUAGE_MODEL_IDS["apollo-meta"]),
     "apollo-tiny": mistral("ministral-3b-2512"),
   },
   embeddingModels: {},

@@ -541,13 +541,15 @@ export function Chat({
     noKeyboard: true,
   });
 
+  const hasConversationSurface = displayedMessages.length > 0;
   const isEmptyState =
-    messages.length === 0 &&
+    !hasConversationSurface &&
     !pendingChatRouteRef.current &&
     status !== "submitted" &&
     status !== "streaming";
   const isTransitioningFromNewChat =
     chatId === "new" &&
+    !hasConversationSurface &&
     (status === "submitted" ||
       status === "streaming" ||
       pendingChatRouteRef.current !== null);
@@ -581,7 +583,7 @@ export function Chat({
       className="relative flex h-full min-h-0 flex-col bg-[#fdfdfd] px-4 dark:bg-[#141414]"
     >
       <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col">
-        {!(isEmptyState || isTransitioningFromNewChat) && (
+        {hasConversationSurface && (
           <Messages
             activeReplyMessageId={activeReplyMessageId}
             agentActivity={agentActivity}
