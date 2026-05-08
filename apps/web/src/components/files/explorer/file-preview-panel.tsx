@@ -294,6 +294,7 @@ interface FilePreviewPanelProps {
 export function FilePreviewPanel({
   activeFile,
   workspaceUuid,
+  allFiles,
   allFolders,
   query,
   retrievalResults,
@@ -1560,8 +1561,25 @@ export function FilePreviewPanel({
                     key={activeFile.id}
                     noteTitle={noteDisplayTitle}
                     onChange={handleMarkdownBodyChange}
-                    onOpenWikiLink={(page) => {
-                      openFileById(page.id);
+                    onOpenWikiLink={(page, options) => {
+                      if (!options.openInNewPane) {
+                        openFileById(page.id);
+                        return;
+                      }
+
+                      const targetFile = allFiles.find(
+                        (file) => file.id === page.id
+                      );
+                      if (!targetFile) {
+                        return;
+                      }
+
+                      const params = new URLSearchParams();
+                      params.set("file", page.id);
+                      openPane(
+                        `/workspace/files/${workspaceUuid}/folder/${targetFile.folderId}?${params.toString()}`,
+                        { sourcePaneId: paneId }
+                      );
                     }}
                     onTemplateApplied={(template) => {
                       setNoteCoverUrl(template.bannerUrl);
