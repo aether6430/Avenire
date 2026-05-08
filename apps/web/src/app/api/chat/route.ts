@@ -128,13 +128,38 @@ function logWarn(message: string, meta?: Record<string, unknown>) {
 
 function formatError(error: unknown) {
   if (error instanceof Error) {
+    const maybeApiError = error as Error & {
+      statusCode?: unknown;
+      url?: unknown;
+      responseBody?: unknown;
+      lastError?: unknown;
+      reason?: unknown;
+    };
     return {
       name: error.name,
       message: error.message,
+      reason: maybeApiError.reason,
+      statusCode: maybeApiError.statusCode,
+      url: maybeApiError.url,
+      responseBody: maybeApiError.responseBody,
+      lastError: maybeApiError.lastError
+        ? formatError(maybeApiError.lastError)
+        : undefined,
       stack: error.stack,
     };
   }
   return { message: "Unknown error", value: error };
+}
+
+function getChatStreamErrorMessage(error: unknown) {
+  const formatted = formatError(error);
+  logError("Model stream failed", { error: formatted });
+
+  if (isAbortLikeError(error)) {
+    return "The chat request was stopped.";
+  }
+
+  return "The model provider failed while generating this response. Please retry in a moment.";
 }
 
 function isAbortLikeError(error: unknown) {
@@ -999,6 +1024,13 @@ export async function POST(request: Request) {
             delayInMs: null,
             chunking: "word",
           }),
+          onError: ({ error }) => {
+            logError("Selection inspection stream failed", {
+              error: formatError(error),
+              model: selectedModel,
+              providerModel: APOLLO_LANGUAGE_MODEL_IDS[selectedModel],
+            });
+          },
         });
 
         apiLogger.requestSucceeded(200, {
@@ -1008,6 +1040,7 @@ export async function POST(request: Request) {
 
         return result.toUIMessageStreamResponse({
           originalMessages,
+          onError: getChatStreamErrorMessage,
           headers: {
             "Cache-Control": "no-store",
           },
@@ -1485,6 +1518,14 @@ export async function POST(request: Request) {
                 }
               } catch (_error) {}
             },
+            onError: ({ error }) => {
+              logError("Chat model stream failed", {
+                chatId: chatSlug,
+                error: formatError(error),
+                model: selectedModel,
+                providerModel: APOLLO_LANGUAGE_MODEL_IDS[selectedModel],
+              });
+            },
           });
         } catch (error) {
           await clearActiveStreamId(chatSlug, streamId);
@@ -1501,6 +1542,7 @@ export async function POST(request: Request) {
           result.toUIMessageStream({
             originalMessages,
             generateMessageId: randomUUID,
+            onError: getChatStreamErrorMessage,
             onFinish: async ({ messages, responseMessage, isContinuation }) => {
               try {
                 const persistedMessages = getPersistedMessages({
