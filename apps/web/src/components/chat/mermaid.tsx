@@ -33,8 +33,9 @@ interface ViewState {
   translateY: number;
 }
 
-const MIN_SCALE = 0.1;
+const MIN_SCALE = 0.25;
 const MAX_SCALE = 5;
+const FIT_MARGIN_PX = 24;
 
 function fixMermaidQuotes(code: string): string {
   return code.replace(/(\w+)\[([^"\]]+)\]/g, '$1["$2"]');
@@ -88,6 +89,16 @@ function sanitizeMermaidSvg(svg: string) {
   } catch {
     return stripUnsafeSvg(svg);
   }
+}
+
+function getSvgNaturalSize(svgEl: SVGSVGElement) {
+  const viewBox = svgEl.viewBox.baseVal;
+  if (viewBox && viewBox.width > 0 && viewBox.height > 0) {
+    return { width: viewBox.width, height: viewBox.height };
+  }
+
+  const rect = svgEl.getBoundingClientRect();
+  return { width: rect.width, height: rect.height };
 }
 
 export function MermaidDiagram({
@@ -157,19 +168,24 @@ export function MermaidDiagram({
     }
 
     const containerRect = containerRef.current.getBoundingClientRect();
-    const svgRect = svgEl.getBoundingClientRect();
-    if (!(svgRect.width && svgRect.height)) {
+    const naturalSize = getSvgNaturalSize(svgEl);
+    if (!(naturalSize.width && naturalSize.height)) {
       return;
     }
 
-    const scaleX = (containerRect.width - 40) / svgRect.width;
-    const scaleY = (containerRect.height - 40) / svgRect.height;
-    const scale = Math.min(scaleX, scaleY, 1);
+    const availableWidth = Math.max(1, containerRect.width - FIT_MARGIN_PX * 2);
+    const availableHeight = Math.max(
+      1,
+      containerRect.height - FIT_MARGIN_PX * 2
+    );
+    const scaleX = availableWidth / naturalSize.width;
+    const scaleY = availableHeight / naturalSize.height;
+    const scale = Math.min(Math.max(Math.min(scaleX, scaleY), MIN_SCALE), 1);
 
     setViewState({
       scale,
-      translateX: (containerRect.width - svgRect.width * scale) / 2,
-      translateY: (containerRect.height - svgRect.height * scale) / 2,
+      translateX: (containerRect.width - naturalSize.width * scale) / 2,
+      translateY: (containerRect.height - naturalSize.height * scale) / 2,
     });
   };
 

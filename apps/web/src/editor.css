@@ -15,6 +15,71 @@
   caret-color: var(--foreground);
 }
 
+.scroll-fade-frame::before,
+.scroll-fade-frame::after {
+  position: absolute;
+  right: 0;
+  left: 0;
+  z-index: 1;
+  height: 1.75rem;
+  pointer-events: none;
+  content: "";
+}
+
+.scroll-fade-frame::before {
+  top: 0;
+  background: linear-gradient(
+    to bottom,
+    var(--scroll-fade-color, var(--background)) 15%,
+    transparent 100%
+  );
+  opacity: 0;
+}
+
+.scroll-fade-frame::after {
+  bottom: 0;
+  background: linear-gradient(
+    to top,
+    var(--scroll-fade-color, var(--background)) 15%,
+    transparent 100%
+  );
+  opacity: 0;
+}
+
+.scroll-fade-frame.scroll-fade-top::before,
+.scroll-fade-frame.scroll-fade-bottom::after {
+  opacity: 1;
+}
+
+.scribe-frontmatter-panel {
+  position: relative;
+  max-width: min(100%, 45rem);
+  max-height: 12.5rem;
+  margin-inline: auto;
+  margin-bottom: 1rem;
+  overflow-y: auto;
+  --scroll-fade-color: var(--background);
+}
+
+.scribe-frontmatter-table {
+  max-width: none;
+  padding: 0 0 1.25rem;
+  margin: 0;
+  border: 0;
+}
+
+.scribe-frontmatter-table > button {
+  margin-bottom: 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.15;
+}
+
+.scribe-frontmatter-table input,
+.scribe-frontmatter-table button,
+.scribe-frontmatter-table [role="combobox"] {
+  border-radius: 0.5rem;
+}
+
 .editor-toc-rail {
   display: block;
 }
@@ -615,17 +680,20 @@
 
 .scribe-surface .mermaid-diagram-viewport {
   position: relative;
-  overflow: auto;
+  height: 480px;
+  overflow: hidden;
+  touch-action: none;
   border-radius: 0.45rem;
 }
 
+.scribe-surface .mermaid-diagram-viewport.is-dragging {
+  cursor: grabbing;
+}
+
 .scribe-surface .mermaid-diagram-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-width: max-content;
-  min-height: 4rem;
+  position: absolute;
+  top: 0;
+  left: 0;
   transform-origin: top left;
   will-change: transform;
 }
@@ -635,6 +703,36 @@
   max-width: none;
   height: auto;
   overflow: visible;
+}
+
+.scribe-surface .mermaid-diagram-container svg[data-xychart-colors] {
+  --xychart-color-1: color-mix(
+    in srgb,
+    var(--primary) 45%,
+    var(--foreground) 55%
+  );
+  --xychart-color-2: color-mix(
+    in srgb,
+    var(--primary) 20%,
+    var(--foreground) 80%
+  );
+  --xychart-color-3: color-mix(
+    in srgb,
+    var(--primary) 8%,
+    var(--foreground) 92%
+  );
+  --xychart-color-4: color-mix(
+    in srgb,
+    var(--primary) 4%,
+    var(--foreground) 96%
+  );
+  --xychart-color-5: color-mix(
+    in srgb,
+    var(--primary) 2%,
+    var(--foreground) 98%
+  );
+  --xychart-color-6: var(--foreground);
+  --xychart-color-7: var(--foreground);
 }
 
 .scribe-surface .mermaid-diagram-error {
