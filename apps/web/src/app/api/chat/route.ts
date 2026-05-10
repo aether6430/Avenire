@@ -8,7 +8,6 @@ import {
   createUIMessageStream,
   createUIMessageStreamResponse,
   generateText,
-  Output,
   type PromptMemoryBlock,
   smoothStream,
   stepCountIs,
@@ -19,7 +18,6 @@ import { auth } from "@avenire/auth/server";
 import { headers } from "next/headers";
 import { after, NextResponse } from "next/server";
 import { createResumableStreamContext } from "resumable-stream";
-import { z } from "zod";
 import { consumeChatUnits } from "@/lib/billing";
 import {
   createChatForUser,
@@ -40,9 +38,7 @@ import {
   createChatTools,
   getActiveMisconceptionContext,
 } from "@/lib/chat-tools";
-import {
-  resolveWorkspaceForUser,
-} from "@/lib/file-data";
+import { resolveWorkspaceForUser } from "@/lib/file-data";
 import "@/lib/learning-automation";
 import {
   getLatestSessionSummaryForChat,
@@ -72,6 +68,8 @@ const DEFAULT_CHAT_TITLE = "New Chat";
 const LOG_PREFIX = "[api/chat]";
 const DEFAULT_CHAT_TOKENS_PER_CREDIT = 4000;
 const DEFAULT_CHAT_TITLE_MODEL: ApolloModelName = "apollo-meta";
+const LEARNING_CONTEXT_CACHE_PREFIX = "chat-learning-context:v1:";
+const LEARNING_CONTEXT_CACHE_TTL_SECONDS = 60 * 60 * 3;
 const WHITESPACE_PATTERN = /\s+/g;
 const DEFAULT_THINKING_MESSAGES = [
   "Thinking through the details",
@@ -190,12 +188,12 @@ function fallbackChatNameFromText(value: string) {
   return normalized.length > 0 ? normalized : DEFAULT_CHAT_TITLE;
 }
 
-function normalizeThinkingMessage(value: string) {
-  return value.replace(/\s+/g, " ").trim().slice(0, 80);
-}
-
 const SESSION_CLOSE_KEY_PREFIX = "chat:session-close:";
 const SESSION_CLOSE_TTL_SECONDS = 60 * 60 * 24;
+const memoryLearningContextCache = new Map<
+  string,
+  { expiresAtMs: number; value: PromptMemoryBlock[] }
+>();
 
 function buildSessionCloseKey(input: {
   chatId: string;
@@ -390,6 +388,125 @@ function buildPromptMemoryBlocks(input: {
   return blocks;
 }
 
+function isPromptMemoryBlockArray(value: unknown): value is PromptMemoryBlock[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (entry) =>
+        entry &&
+        typeof entry === "object" &&
+        typeof (entry as { content?: unknown }).content === "string" &&
+        typeof (entry as { kind?: unknown }).kind === "string"
+    )
+  );
+}
+
+function buildLearningContextCacheKey(input: {
+  recentSummaryUpdatedAt?: string | null;
+  subject: string | null;
+  topic: string | null;
+  userId: string;
+  workspaceId: string;
+}) {
+  return [
+    LEARNING_CONTEXT_CACHE_PREFIX,
+    input.userId,
+    input.workspaceId,
+    input.subject ?? "none",
+    input.topic ?? "none",
+    input.recentSummaryUpdatedAt ?? "none",
+  ].join(":");
+}
+
+async function readLearningContextCache(key: string) {
+  const memoryCached = memoryLearningContextCache.get(key);
+  if (memoryCached && memoryCached.expiresAtMs > Date.now()) {
+    return memoryCached.value;
+  }
+  if (memoryCached) {
+    memoryLearningContextCache.delete(key);
+  }
+
+  try {
+    const client = await getRedisClient();
+    const raw = await client.get(key);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as unknown;
+    if (!isPromptMemoryBlockArray(parsed)) {
+      return null;
+    }
+    memoryLearningContextCache.set(key, {
+      expiresAtMs: Date.now() + LEARNING_CONTEXT_CACHE_TTL_SECONDS * 1000,
+      value: parsed,
+    });
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+async function writeLearningContextCache(
+  key: string,
+  value: PromptMemoryBlock[]
+) {
+  memoryLearningContextCache.set(key, {
+    expiresAtMs: Date.now() + LEARNING_CONTEXT_CACHE_TTL_SECONDS * 1000,
+    value,
+  });
+
+  try {
+    const client = await getRedisClient();
+    await client.set(key, JSON.stringify(value), {
+      EX: LEARNING_CONTEXT_CACHE_TTL_SECONDS,
+    });
+  } catch {
+    // Redis is optional in local/dev runs; the process cache still avoids repeat work.
+  }
+}
+
+async function getCachedLearningPromptMemoryBlocks(input: {
+  recentSummaryContext: string | null;
+  recentSummaryUpdatedAt?: string | null;
+  subject: string | null;
+  topic: string | null;
+  userId: string;
+  workspaceId: string;
+}) {
+  const key = buildLearningContextCacheKey(input);
+  const cached = await readLearningContextCache(key);
+  if (cached) {
+    return cached;
+  }
+
+  const [activeMisconceptionContext, studentProfileContext] =
+    await Promise.all([
+      getActiveMisconceptionContext({
+        subject: input.subject,
+        topic: input.topic,
+        userId: input.userId,
+        workspaceId: input.workspaceId,
+      }),
+      buildStudentProfileContext({
+        subject: input.subject,
+        topic: input.topic,
+        userId: input.userId,
+        workspaceId: input.workspaceId,
+      }),
+    ]);
+
+  const blocks = buildPromptMemoryBlocks({
+    misconceptionsContext: activeMisconceptionContext,
+    sessionSummaryContext: input.recentSummaryContext,
+    studentProfileContext,
+    subject: input.subject,
+    topic: input.topic,
+  });
+  await writeLearningContextCache(key, blocks);
+  return blocks;
+}
+
 async function generateChatMetadata(
   latestUserText: string,
   abortSignal?: AbortSignal
@@ -486,52 +603,15 @@ async function generateChatMetadata(
   }
 }
 
-const thinkingMessagesSchema = z.object({
-  messages: z.array(z.string().min(1)).min(3).max(4),
-});
-
 async function generateChatThinkingMessages(
   latestUserText: string,
   abortSignal?: AbortSignal
 ) {
-  if (!latestUserText) {
+  if (!(latestUserText && !abortSignal?.aborted)) {
     return null;
   }
 
-  try {
-    const modelName = resolveChatTitleModel();
-    const { output } = await generateText({
-      model: apollo.languageModel(modelName),
-      output: Output.object({ schema: thinkingMessagesSchema }),
-      prompt: [
-        "Generate 3 or 4 short loading messages for a live chat thinking animation.",
-        "The messages should sound like the assistant is actively working.",
-        "Keep each message short and concrete.",
-        "Avoid quotes and punctuation at the end.",
-        "Return only valid JSON with this shape:",
-        '{"messages":["...","...","...","..."]}',
-        `User message: ${latestUserText}`,
-      ].join("\n"),
-      maxOutputTokens: 96,
-      temperature: 0.7,
-      abortSignal,
-    });
-
-    const normalized = output.messages
-      .map(normalizeThinkingMessage)
-      .filter(Boolean)
-      .slice(0, 4);
-
-    return normalized.length > 0 ? normalized : DEFAULT_THINKING_MESSAGES;
-  } catch (error) {
-    if (abortSignal?.aborted || isAbortLikeError(error)) {
-      return null;
-    }
-    logWarn("Failed to generate thinking messages; using fallback", {
-      error: formatError(error),
-    });
-    return DEFAULT_THINKING_MESSAGES;
-  }
+  return DEFAULT_THINKING_MESSAGES;
 }
 
 function extractMessageText(message: UIMessage) {
@@ -1212,7 +1292,6 @@ export async function POST(request: Request) {
         .join("\n\n"),
       resolvedSubject
     );
-
     if (idempotencyHeader && !idempotencyRedisKey) {
       idempotencyRedisKey = buildChatIdempotencyRedisKey({
         userId: session.user.id,
@@ -1454,33 +1533,14 @@ export async function POST(request: Request) {
             tools,
           }
         );
-        const [
-          modelMessages,
-          activeMisconceptionContext,
-          studentProfileContext,
-        ] = await Promise.all([
-          modelMessagesPromise,
-          getActiveMisconceptionContext({
-            subject: resolvedSubject,
-            topic: resolvedTopic,
-            userId: session.user.id,
-            workspaceId: workspace.workspaceId,
-          }),
-          buildStudentProfileContext({
-            subject: resolvedSubject,
-            topic: resolvedTopic,
-            userId: session.user.id,
-            workspaceId: workspace.workspaceId,
-          }),
-        ]);
-        const promptMemoryBlocks = buildPromptMemoryBlocks({
-          misconceptionsContext: activeMisconceptionContext,
-          sessionSummaryContext: buildRecentSessionSummaryContext(
-            recentRelevantSummary
-          ),
-          studentProfileContext,
+        const promptMemoryBlocks = await getCachedLearningPromptMemoryBlocks({
+          recentSummaryContext:
+            buildRecentSessionSummaryContext(recentRelevantSummary),
+          recentSummaryUpdatedAt: recentRelevantSummary?.updatedAt ?? null,
           subject: resolvedSubject,
           topic: resolvedTopic,
+          userId: session.user.id,
+          workspaceId: workspace.workspaceId,
         });
 
         try {
@@ -1490,7 +1550,7 @@ export async function POST(request: Request) {
               body.userName ?? session.user.name ?? undefined,
               promptMemoryBlocks.length > 0 ? promptMemoryBlocks : undefined
             ),
-            messages: modelMessages,
+            messages: await modelMessagesPromise,
             maxOutputTokens: 10_000,
             stopWhen: stepCountIs(8),
             tools: modelTools,
