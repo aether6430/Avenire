@@ -15,6 +15,24 @@
   caret-color: var(--foreground);
 }
 
+.scribe-document-row {
+  display: grid;
+  grid-template-columns: minmax(0, 45rem) 3.125rem;
+  gap: 1rem;
+  justify-content: center;
+  align-items: start;
+  width: 100%;
+  padding-inline: 1rem;
+}
+
+.scribe-editor-content {
+  min-width: 0;
+}
+
+.scribe-editor-content .scribe-surface {
+  max-width: 100%;
+}
+
 .scroll-fade-frame::before,
 .scroll-fade-frame::after {
   position: absolute;
@@ -58,11 +76,31 @@
   margin-inline: auto;
   margin-bottom: 1rem;
   overflow-y: auto;
+  --surface-subtle: color-mix(in oklch, var(--foreground) 7%, transparent 93%);
+  --text-icon-muted: color-mix(
+    in oklch,
+    var(--foreground) 40%,
+    transparent 60%
+  );
+  --text-muted: color-mix(in oklch, var(--foreground) 54%, transparent 46%);
+  --text-primary: var(--foreground);
   --scroll-fade-color: var(--background);
 }
 
 .scribe-frontmatter-table {
+  --surface-subtle: color-mix(in oklch, var(--foreground) 7%, transparent 93%);
+  --text-icon-muted: color-mix(
+    in oklch,
+    var(--foreground) 40%,
+    transparent 60%
+  );
+  --text-muted: color-mix(in oklch, var(--foreground) 54%, transparent 46%);
+  --text-primary: var(--foreground);
+}
+
+.scribe-frontmatter-table {
   max-width: none;
+  overflow-x: hidden;
   padding: 0 0 1.25rem;
   margin: 0;
   border: 0;
@@ -80,15 +118,23 @@
   border-radius: 0.5rem;
 }
 
+.scribe-frontmatter-table button {
+  cursor: pointer;
+}
+
 .editor-toc-rail {
   display: block;
+  position: sticky;
+  top: 6rem;
+  width: 3.125rem;
+  align-self: start;
+  max-height: calc(100vh - 8rem);
 }
 
 .editor-toc-rail__inner {
-  position: sticky;
-  top: 2.5rem;
+  position: relative;
   width: 3.125rem;
-  max-height: calc(100vh - 10rem);
+  max-height: inherit;
   overflow: hidden;
   background: color-mix(in oklch, var(--background) 92%, transparent 8%);
   border-radius: 0.9rem;
@@ -99,7 +145,7 @@
 
 .editor-toc-rail__inner:hover,
 .editor-toc-rail__inner:focus-within {
-  width: 15.25rem;
+  width: min(15.25rem, calc(100vw - 2rem));
   background: color-mix(in oklch, var(--background) 98%, transparent 2%);
 }
 
@@ -165,6 +211,7 @@
   text-align: left;
   white-space: nowrap;
   border-radius: 0.55rem;
+  cursor: pointer;
   transition:
     color 140ms ease,
     background-color 140ms ease;
@@ -197,6 +244,17 @@
 
   .editor-toc-rail__inner:focus-within .editor-toc-rail__panel {
     opacity: 1;
+  }
+}
+
+@media (max-width: 1023px) {
+  .scribe-document-row {
+    display: block;
+    padding-inline: 0;
+  }
+
+  .editor-toc-rail {
+    display: none;
   }
 }
 

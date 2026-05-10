@@ -338,6 +338,31 @@
   background: rgba(228, 228, 228, 0.22);
 }
 
+.sidebar-fade-scrollbar {
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 160ms ease;
+}
+
+.sidebar-fade-scrollbar::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+.sidebar-fade-scrollbar[data-scrolling="true"] {
+  scrollbar-color: rgba(55, 53, 47, 0.16) transparent;
+}
+
+.sidebar-fade-scrollbar[data-scrolling="true"]::-webkit-scrollbar-thumb {
+  background: rgba(55, 53, 47, 0.16);
+}
+
+.dark .sidebar-fade-scrollbar[data-scrolling="true"] {
+  scrollbar-color: rgba(228, 228, 228, 0.14) transparent;
+}
+
+.dark .sidebar-fade-scrollbar[data-scrolling="true"]::-webkit-scrollbar-thumb {
+  background: rgba(228, 228, 228, 0.14);
+}
+
 /* Utility: hide on desktop (md: 768px+) — bypasses Tailwind v4 specificity */
 @media (min-width: 768px) {
   .mobile-only {

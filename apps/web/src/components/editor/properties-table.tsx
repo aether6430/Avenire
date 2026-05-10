@@ -1,29 +1,20 @@
 "use client";
 
-import { Button } from "@avenire/ui/components/button";
-import { Checkbox } from "@avenire/ui/components/checkbox";
-import { Input } from "@avenire/ui/components/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@avenire/ui/components/select";
-import {
-  CaretDown as ChevronDown,
-  CaretRight as ChevronRight,
-  Plus,
-  Trash as Trash2,
-} from "@phosphor-icons/react";
-import { useCallback, useMemo, useState } from "react";
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  type FocusEvent,
+  type KeyboardEvent,
+} from "react";
 import {
   createEmptyProperty,
   type FilePropertyType,
   type FrontmatterProperties,
   formatPropertyValue,
   normalizePropertyOptions,
-  PROPERTY_TYPE_LABELS,
+  normalizeFrontmatterProperties,
   setPropertyValue,
   type WorkspacePropertyDefinition,
 } from "@/lib/frontmatter";
@@ -38,14 +29,29 @@ interface PropertiesTableProps {
   properties: FrontmatterProperties;
 }
 
-const PROPERTY_TYPES: FilePropertyType[] = [
-  "text",
-  "number",
-  "checkbox",
-  "date",
-  "select",
-  "multi_select",
-];
+function parseFormattedPropertyValue(type: FilePropertyType, value: string) {
+  if (type === "checkbox") {
+    return value.trim().toLowerCase() === "true";
+  }
+
+  if (type === "number") {
+    const parsed = Number(value.trim());
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  if (type === "multi_select") {
+    return value
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+
+  return value;
+}
+
+function normalizeEditablePropertyKey(key: string) {
+  return key.trim().toLowerCase();
+}
 
 export function PropertiesTable({
   className,
@@ -55,13 +61,19 @@ export function PropertiesTable({
   onDefinitionsChange,
   properties,
 }: PropertiesTableProps) {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isAddingProperty, setIsAddingProperty] = useState(false);
   const [newKey, setNewKey] = useState("");
-  const [newType, setNewType] = useState<FilePropertyType>("text");
+  const [newValue, setNewValue] = useState("");
+  const newKeyInputRef = useRef<HTMLInputElement | null>(null);
 
   const definitionByKey = useMemo(
     () =>
-      new Map(definitions.map((definition) => [definition.key, definition])),
+      new Map(
+        definitions.map((definition) => [
+          normalizeEditablePropertyKey(definition.key),
+          { ...definition, key: normalizeEditablePropertyKey(definition.key) },
+        ])
+      ),
     [definitions]
   );
 
@@ -71,7 +83,7 @@ export function PropertiesTable({
         return;
       }
 
-      const trimmedKey = key.trim();
+      const trimmedKey = normalizeEditablePropertyKey(key);
       if (!trimmedKey) {
         return;
       }
@@ -79,7 +91,8 @@ export function PropertiesTable({
       const nextOptions = normalizePropertyOptions(options);
       const nextDefinitions = [...definitions];
       const existingIndex = nextDefinitions.findIndex(
-        (definition) => definition.key === trimmedKey
+        (definition) =>
+          normalizeEditablePropertyKey(definition.key) === trimmedKey
       );
 
       if (existingIndex >= 0) {
@@ -112,23 +125,37 @@ export function PropertiesTable({
   );
 
   const handleAddProperty = useCallback(() => {
-    const trimmedKey = newKey.trim();
-    if (!(trimmedKey && !properties[trimmedKey])) {
+    const trimmedKey = normalizeEditablePropertyKey(newKey);
+    const nextProperties = normalizeFrontmatterProperties(properties);
+    if (!(trimmedKey && !nextProperties[trimmedKey])) {
       return;
     }
 
-    onChange({
-      ...properties,
-      [trimmedKey]: createEmptyProperty(newType),
-    });
-    syncDefinition(trimmedKey, newType);
+    const definition = definitionByKey.get(trimmedKey);
+    const propertyType = definition?.type ?? "text";
+    const nextProperty = createEmptyProperty(propertyType);
+    const seededProperty =
+      newValue.trim().length > 0
+        ? setPropertyValue(nextProperty, newValue)
+        : nextProperty;
+
+    onChange(
+      normalizeFrontmatterProperties({
+        ...nextProperties,
+        [trimmedKey]: seededProperty,
+      })
+    );
+    syncDefinition(trimmedKey, propertyType);
     setNewKey("");
-    setNewType("text");
-  }, [newKey, newType, onChange, properties, syncDefinition]);
+    setNewValue("");
+    setIsAddingProperty(false);
+  }, [definitionByKey, newKey, newValue, onChange, properties, syncDefinition]);
 
   const handleDeleteProperty = useCallback(
     (key: string) => {
-      const { [key]: _removed, ...rest } = properties;
+      const normalizedKey = normalizeEditablePropertyKey(key);
+      const normalizedProperties = normalizeFrontmatterProperties(properties);
+      const { [normalizedKey]: _removed, ...rest } = normalizedProperties;
       onChange(rest);
     },
     [onChange, properties]
@@ -136,24 +163,35 @@ export function PropertiesTable({
 
   const handleRenameProperty = useCallback(
     (key: string, nextKey: string) => {
-      const trimmedKey = nextKey.trim();
-      if (!(trimmedKey && trimmedKey !== key && !properties[trimmedKey])) {
+      const normalizedKey = normalizeEditablePropertyKey(key);
+      const trimmedKey = normalizeEditablePropertyKey(nextKey);
+      const normalizedProperties = normalizeFrontmatterProperties(properties);
+      if (
+        !(
+          trimmedKey &&
+          trimmedKey !== normalizedKey &&
+          !normalizedProperties[trimmedKey]
+        )
+      ) {
         return;
       }
 
-      const nextEntries = Object.entries(properties).map(([entryKey, value]) =>
-        entryKey === key
-          ? ([trimmedKey, value] as const)
-          : ([entryKey, value] as const)
+      const nextEntries = Object.entries(normalizedProperties).map(
+        ([entryKey, value]) =>
+          entryKey === normalizedKey
+            ? ([trimmedKey, value] as const)
+            : ([entryKey, value] as const)
       );
       onChange(Object.fromEntries(nextEntries));
 
-      const definition = definitionByKey.get(key);
+      const definition = definitionByKey.get(normalizedKey);
       if (definition && onDefinitionsChange) {
         onDefinitionsChange(
           definitions
             .map((entry) =>
-              entry.key === key ? { ...entry, key: trimmedKey } : entry
+              normalizeEditablePropertyKey(entry.key) === normalizedKey
+                ? { ...entry, key: trimmedKey }
+                : entry
             )
             .sort((left, right) => left.key.localeCompare(right.key))
         );
@@ -164,190 +202,254 @@ export function PropertiesTable({
 
   const handlePropertyValueChange = useCallback(
     (key: string, nextValue: unknown) => {
-      const property = properties[key];
+      const normalizedKey = normalizeEditablePropertyKey(key);
+      const normalizedProperties = normalizeFrontmatterProperties(properties);
+      const property = normalizedProperties[normalizedKey];
       if (!property) {
         return;
       }
 
       const nextProperty = setPropertyValue(property, nextValue);
-      onChange({
-        ...properties,
-        [key]: nextProperty,
-      });
+      onChange(
+        normalizeFrontmatterProperties({
+          ...normalizedProperties,
+          [normalizedKey]: nextProperty,
+        })
+      );
 
       if (nextProperty.type === "select" && nextProperty.value) {
-        syncDefinition(key, nextProperty.type, [nextProperty.value]);
+        syncDefinition(normalizedKey, nextProperty.type, [nextProperty.value]);
       }
       if (nextProperty.type === "multi_select") {
-        syncDefinition(key, nextProperty.type, nextProperty.value);
+        syncDefinition(normalizedKey, nextProperty.type, nextProperty.value);
       }
     },
     [onChange, properties, syncDefinition]
   );
 
-  const entries = Object.entries(properties);
+  const handleFormattedPropertyValueChange = useCallback(
+    (key: string, nextValue: string) => {
+      const property =
+        normalizeFrontmatterProperties(properties)[
+          normalizeEditablePropertyKey(key)
+        ];
+      if (!property) {
+        return;
+      }
+
+      handlePropertyValueChange(
+        key,
+        parseFormattedPropertyValue(property.type, nextValue)
+      );
+    },
+    [handlePropertyValueChange, properties]
+  );
+
+  const focusNewKeyInput = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      newKeyInputRef.current?.focus();
+    });
+  }, []);
+
+  const handleEntryBlur = useCallback(
+    (event: FocusEvent<HTMLInputElement>, key: string) => {
+      const row = event.currentTarget.closest("[data-property-row]");
+      const next = event.relatedTarget as Node | null;
+      if (next && row?.contains(next)) {
+        return;
+      }
+
+      if (key.trim().length === 0) {
+        handleDeleteProperty(key);
+      }
+    },
+    [handleDeleteProperty]
+  );
+
+  const handleEntryKeyDown = useCallback(
+    (
+      event: KeyboardEvent<HTMLInputElement>,
+      key: string,
+      field: "key" | "value"
+    ) => {
+      const property =
+        normalizeFrontmatterProperties(properties)[
+          normalizeEditablePropertyKey(key)
+        ];
+      if (!property) {
+        return;
+      }
+
+      if (event.key === "Enter" && field === "value") {
+        event.preventDefault();
+        focusNewKeyInput();
+        return;
+      }
+
+      if (
+        event.key === "Backspace" &&
+        field === "key" &&
+        key.trim().length === 0 &&
+        formatPropertyValue(property).trim().length === 0
+      ) {
+        event.preventDefault();
+        handleDeleteProperty(key);
+      }
+    },
+    [focusNewKeyInput, handleDeleteProperty, properties]
+  );
+
+  const entries = Object.entries(normalizeFrontmatterProperties(properties));
 
   return (
     <div
       className={cn(
-        "mb-2 border-border/50 border-b px-4 pt-3 pb-2 sm:px-10",
+        "mb-2 overflow-x-hidden border-border/50 border-b px-4 pt-3 pb-2 sm:px-10",
         "mx-auto max-w-[50rem]",
         className
       )}
     >
-      <button
-        className="mb-2 flex items-center gap-1 text-muted-foreground text-xs hover:text-foreground"
-        onClick={() => setIsExpanded((current) => !current)}
-        type="button"
-      >
-        {isExpanded ? (
-          <ChevronDown className="h-3 w-3" />
-        ) : (
-          <ChevronRight className="h-3 w-3" />
-        )}
-        Properties {isExpanded ? `(${entries.length})` : ""}
-      </button>
-
-      {isExpanded ? (
-        <div className="space-y-2">
-          {entries.length === 0 ? (
-            <div className="text-muted-foreground text-xs">
-              No properties on this file.
-            </div>
-          ) : null}
-
-          {entries.map(([key, property]) => {
-            const definition = definitionByKey.get(key);
-            const options =
-              property.type === "select" || property.type === "multi_select"
-                ? normalizePropertyOptions([
-                    ...(definition?.options ?? []),
-                    ...(property.type === "select" && property.value
-                      ? [property.value]
-                      : []),
-                    ...(property.type === "multi_select" ? property.value : []),
-                  ])
-                : [];
-
-            return (
-              <div
-                className="grid grid-cols-[minmax(0,1fr)_7.5rem_2rem] items-center gap-2 text-sm lg:grid-cols-[minmax(0,11rem)_8rem_minmax(0,1fr)_2rem]"
-                key={key}
+      <div className="space-y-2">
+        {entries.map(([key, property]) => {
+          return (
+            <div
+              className="group -mx-3 flex items-center gap-4 rounded-lg px-3 py-1.5"
+              data-property-row
+              key={key}
+            >
+              <input
+                className="w-36 shrink-0 bg-transparent text-[13px] leading-[1.15] text-[var(--text-muted)] outline-none placeholder:text-[var(--text-muted)] placeholder:opacity-70"
+                defaultValue={key}
+                disabled={disabled}
+                onBlur={(event) => {
+                  handleEntryBlur(event, key);
+                  handleRenameProperty(key, event.currentTarget.value);
+                }}
+                onKeyDown={(event) => handleEntryKeyDown(event, key, "key")}
+                placeholder="key"
+                spellCheck={false}
+                type="text"
+              />
+              <input
+                aria-label={`${key} value`}
+                className="min-w-0 flex-1 bg-transparent text-[13px] leading-[1.15] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] placeholder:opacity-70"
+                disabled={disabled}
+                onBlur={(event) => handleEntryBlur(event, key)}
+                onChange={(event) =>
+                  handleFormattedPropertyValueChange(
+                    key,
+                    event.currentTarget.value
+                  )
+                }
+                onKeyDown={(event) => handleEntryKeyDown(event, key, "value")}
+                placeholder="value"
+                spellCheck={false}
+                type="text"
+                value={formatPropertyValue(property)}
+              />
+              <button
+                aria-label="Remove property"
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[var(--text-icon-muted)] opacity-0 transition-opacity hover:text-[var(--text-primary)] group-hover:opacity-100"
+                disabled={disabled}
+                onClick={() => handleDeleteProperty(key)}
+                tabIndex={-1}
+                type="button"
               >
-                <Input
-                  className="h-8 min-w-0 text-xs"
-                  defaultValue={key}
-                  disabled={disabled}
-                  onBlur={(event) =>
-                    handleRenameProperty(key, event.currentTarget.value)
-                  }
-                />
-                <div className="min-w-0 truncate rounded-md border border-border/70 px-2 py-1 text-[11px] text-muted-foreground">
-                  {PROPERTY_TYPE_LABELS[property.type]}
-                </div>
-                <Button
-                  className="h-8 w-8"
-                  disabled={disabled}
-                  onClick={() => handleDeleteProperty(key)}
-                  size="icon"
-                  type="button"
-                  variant="ghost"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-                <div className="col-span-3 min-w-0 lg:col-span-1">
-                  {property.type === "checkbox" ? (
-                    <div className="flex h-8 items-center rounded-md border border-border/70 px-3">
-                      <Checkbox
-                        checked={property.value}
-                        disabled={disabled}
-                        onCheckedChange={(checked) =>
-                          handlePropertyValueChange(key, checked === true)
-                        }
-                      />
-                    </div>
-                  ) : property.type === "select" ? (
-                    <Select
-                      disabled={disabled}
-                      onValueChange={(value) =>
-                        handlePropertyValueChange(key, value)
-                      }
-                      value={property.value ?? ""}
-                    >
-                      <SelectTrigger className="h-8 min-w-0 text-xs">
-                        <SelectValue placeholder="Select value" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {options.map((option) => (
-                          <SelectItem key={option} value={option}>
-                            {option}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Input
-                      className="h-8 min-w-0 text-xs"
-                      disabled={disabled}
-                      onChange={(event) =>
-                        handlePropertyValueChange(
-                          key,
-                          event.currentTarget.value
-                        )
-                      }
-                      placeholder={
-                        property.type === "multi_select"
-                          ? "comma, separated, values"
-                          : property.type === "date"
-                            ? "YYYY-MM-DD"
-                            : "Value"
-                      }
-                      value={formatPropertyValue(property)}
-                    />
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                <svg fill="none" height="10" viewBox="0 0 10 10" width="10">
+                  <path
+                    d="M2 2l6 6M8 2l-6 6"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeWidth="1.5"
+                  />
+                </svg>
+              </button>
+            </div>
+          );
+        })}
 
-          <div className="grid grid-cols-[minmax(0,1fr)_4rem] items-center gap-2 pt-1 lg:grid-cols-[minmax(0,11rem)_8rem_1fr]">
-            <Input
-              className="h-8 min-w-0 text-xs"
+        {isAddingProperty ? (
+          <div
+            className="group -mx-3 flex items-center gap-4 rounded-lg px-3 py-1.5"
+            data-property-row
+          >
+            <input
+              className="w-36 shrink-0 bg-transparent text-[13px] leading-[1.15] text-[var(--text-muted)] outline-none placeholder:text-[var(--text-muted)] placeholder:opacity-70"
               disabled={disabled}
               onChange={(event) => setNewKey(event.currentTarget.value)}
-              placeholder="New property"
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  handleAddProperty();
+                }
+              }}
+              placeholder="key"
+              ref={newKeyInputRef}
+              spellCheck={false}
+              type="text"
               value={newKey}
             />
-            <Select
+            <input
+              className="min-w-0 flex-1 bg-transparent text-[13px] leading-[1.15] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] placeholder:opacity-70"
               disabled={disabled}
-              onValueChange={(value) => setNewType(value as FilePropertyType)}
-              value={newType}
-            >
-              <SelectTrigger className="h-8 min-w-0 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PROPERTY_TYPES.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {PROPERTY_TYPE_LABELS[type]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              className="col-span-2 justify-start lg:col-span-1"
-              disabled={disabled || !newKey.trim()}
-              onClick={handleAddProperty}
-              size="sm"
+              onChange={(event) => setNewValue(event.currentTarget.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  handleAddProperty();
+                }
+              }}
+              placeholder="value"
+              spellCheck={false}
+              type="text"
+              value={newValue}
+            />
+            <button
+              aria-label="Remove property"
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[var(--text-icon-muted)] opacity-0 transition-opacity hover:text-[var(--text-primary)] group-hover:opacity-100"
+              disabled={disabled}
+              onClick={() => {
+                setNewKey("");
+                setNewValue("");
+                setIsAddingProperty(false);
+              }}
+              tabIndex={-1}
               type="button"
-              variant="ghost"
             >
-              <Plus className="mr-1 h-3 w-3" />
-              Add property
-            </Button>
+              <svg fill="none" height="10" viewBox="0 0 10 10" width="10">
+                <path
+                  d="M2 2l6 6M8 2l-6 6"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeWidth="1.5"
+                />
+              </svg>
+            </button>
           </div>
+        ) : null}
+
+        <div className="flex items-center gap-4 pt-1">
+          <button
+            className="flex items-center gap-1 text-[13px] leading-[1.15] text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
+            disabled={disabled}
+            onClick={() => {
+              setIsAddingProperty(true);
+              focusNewKeyInput();
+            }}
+            type="button"
+          >
+            <svg fill="none" height="12" viewBox="0 0 12 12" width="12">
+              <path
+                d="M6 2v8M2 6h8"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeWidth="1.5"
+              />
+            </svg>
+            Add property
+          </button>
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }

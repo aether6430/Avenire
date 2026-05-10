@@ -55,7 +55,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 function normalizePropertyKey(key: string) {
-  return key.trim();
+  return key.trim().toLowerCase();
 }
 
 export function isFilePropertyType(value: unknown): value is FilePropertyType {
@@ -129,28 +129,26 @@ export function normalizeFrontmatterProperties(
     return {};
   }
 
-  const entries = Object.entries(record)
-    .map(([key, property]) => {
-      const normalizedKey = normalizePropertyKey(key);
-      const normalizedProperty = normalizePropertyValue(property);
-      if (!(normalizedKey && normalizedProperty)) {
-        return null;
-      }
+  const normalizedProperties: FrontmatterProperties = {};
 
-      return [normalizedKey, normalizedProperty] as const;
-    })
-    .filter((entry): entry is readonly [string, FilePropertyValue] =>
-      Boolean(entry)
-    );
+  for (const [key, property] of Object.entries(record)) {
+    const normalizedKey = normalizePropertyKey(key);
+    const normalizedProperty = normalizePropertyValue(property);
+    if (!(normalizedKey && normalizedProperty)) {
+      continue;
+    }
 
-  return Object.fromEntries(entries);
+    normalizedProperties[normalizedKey] = normalizedProperty;
+  }
+
+  return normalizedProperties;
 }
 
 export function normalizePropertyDefinition(
   value: unknown
 ): WorkspacePropertyDefinition | null {
   const record = asRecord(value);
-  const key = normalizeString(record?.key);
+  const key = normalizeString(record?.key)?.toLowerCase() ?? null;
   const type = record?.type;
   if (!(key && isFilePropertyType(type))) {
     return null;

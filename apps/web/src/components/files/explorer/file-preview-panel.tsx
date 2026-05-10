@@ -1081,10 +1081,6 @@ export function FilePreviewPanel({
                 )}
                 {isCurrentPinned ? "Unpin" : "Pin"}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setPropertiesOpen(true)}>
-                <SlidersHorizontal className="size-3.5" />
-                Properties
-              </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() =>
                   window.open(
@@ -1279,7 +1275,7 @@ export function FilePreviewPanel({
               Properties
             </DialogTitle>
           </DialogHeader>
-          <div className="max-h-[70vh] overflow-y-auto p-3.5">
+          <div className="max-h-[70vh] overflow-x-hidden overflow-y-auto p-3.5">
             <PropertiesTable
               className="mx-0 mb-0 max-w-none border-0 px-0 pt-0 pb-0 sm:px-0"
               definitions={propertyDefinitions}
@@ -1619,7 +1615,11 @@ export function FilePreviewPanel({
                 query
               }
               invertColors={pdfInvertColors}
-              source={activeFile.storageUrl}
+              key={activeFile.id}
+              source={
+                activeFile.storageUrl ||
+                `/api/workspaces/${workspaceUuid}/files/${activeFile.id}/stream`
+              }
             />
           </CircleToAiSearchOverlay>
         </div>
