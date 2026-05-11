@@ -7,6 +7,7 @@
     "build": "([ \"$NODE_ENV\" = \"production\" ] || [ \"$VERCEL_ENV\" = \"production\" ]) && bun run check-types; next build",
     "start": "next start -p $PORT",
     "lint": "biome check .",
+    "send-pending-waitlist-emails": "bun scripts/send-pending-waitlist-emails.ts",
     "check-types": "tsc --noEmit",
     "format": "biome format --write ."
   },

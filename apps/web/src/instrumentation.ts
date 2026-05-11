@@ -1,5 +1,3 @@
-import { reportError } from "@avenire/observability";
-
 interface RequestErrorContext {
   renderSource?: string;
   revalidateReason?: string;
@@ -8,17 +6,62 @@ interface RequestErrorContext {
   routeType?: string;
 }
 
+type ReportErrorInput = {
+  context?: Record<string, unknown>;
+  error: unknown;
+  eventName?: string;
+  payload?: Record<string, unknown>;
+};
+
+async function reportRuntimeError(input: ReportErrorInput) {
+  if (process.env.NEXT_RUNTIME === "edge") {
+    return;
+  }
+
+  const { reportError } = await import("@avenire/observability");
+  return reportError(input);
+}
+
 interface RequestErrorRequest {
-  headers?: Headers;
+  headers?: Headers | Record<string, string | string[] | undefined>;
   method?: string;
   path?: string;
   url?: string;
 }
 
+function getHeader(
+  headers: RequestErrorRequest["headers"],
+  name: string
+): string | null {
+  if (!headers) {
+    return null;
+  }
+
+  if (typeof (headers as Headers).get === "function") {
+    return (headers as Headers).get(name);
+  }
+
+  const value =
+    (headers as Record<string, string | string[] | undefined>)[name] ??
+    (headers as Record<string, string | string[] | undefined>)[
+      name.toLowerCase()
+    ];
+  return Array.isArray(value) ? value[0] ?? null : value ?? null;
+}
+
 export function register() {
+  if (process.env.NEXT_RUNTIME === "edge") {
+    return;
+  }
+
+  const runtimeProcess = (
+    globalThis as typeof globalThis & {
+      process?: { on?: unknown };
+    }
+  ).process;
   const processOn =
-    typeof globalThis.process?.on === "function"
-      ? globalThis.process.on.bind(globalThis.process)
+    typeof runtimeProcess?.on === "function"
+      ? runtimeProcess.on.bind(runtimeProcess)
       : null;
 
   if (!processOn) {
@@ -26,7 +69,7 @@ export function register() {
   }
 
   processOn("unhandledRejection", (error) => {
-    void reportError({
+    void reportRuntimeError({
       error,
       eventName: "web.unhandled_rejection",
       context: {
@@ -37,7 +80,7 @@ export function register() {
   });
 
   processOn("uncaughtException", (error) => {
-    void reportError({
+    void reportRuntimeError({
       error,
       eventName: "web.uncaught_exception",
       context: {
@@ -53,14 +96,14 @@ export function onRequestError(
   request: RequestErrorRequest,
   context: RequestErrorContext
 ) {
-  return reportError({
+  return reportRuntimeError({
     error,
     eventName: "web.request_error",
     context: {
       feature: "runtime",
       requestId:
-        request.headers?.get("x-request-id") ??
-        request.headers?.get("x-correlation-id") ??
+        getHeader(request.headers, "x-request-id") ??
+        getHeader(request.headers, "x-correlation-id") ??
         null,
       route: context.routePath ?? request.path ?? request.url,
       service: "web",
