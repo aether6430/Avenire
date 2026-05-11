@@ -5,6 +5,13 @@ import { resolveAppBaseUrl } from "@/lib/app-base-url";
 
 const emailer = new Emailer();
 
+function resolvePublicEmailBaseUrl(request: Request) {
+  const baseUrl = resolveAppBaseUrl(request);
+  return baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1")
+    ? "https://avenire.space"
+    : baseUrl;
+}
+
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => ({}))) as { email?: string };
   const email = body.email?.trim() ?? "";
@@ -17,7 +24,7 @@ export async function POST(request: Request) {
     const entry = await requestWaitlistEntry(email);
     if (entry.status === "pending") {
       try {
-        const baseUrl = resolveAppBaseUrl(request);
+        const baseUrl = resolvePublicEmailBaseUrl(request);
         await emailer.send({
           to: [entry.email],
           subject: "Welcome to the Avenire waitlist",
@@ -25,6 +32,7 @@ export async function POST(request: Request) {
             email: entry.email,
             loginUrl: `${baseUrl}/waitlist`,
           }),
+          replyTo: "support@avenire.space",
         });
       } catch (error) {
         console.error("[api/waitlist/request] failed to send welcome email", {

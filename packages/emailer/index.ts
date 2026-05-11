@@ -21,7 +21,7 @@ export class Emailer {
   constructor() {
     this.client = new Resend(process.env.RESEND_API_KEY);
     this.defaultFrom =
-      process.env.EMAIL_FROM ?? "Avenire <noreply@example.com>";
+      process.env.EMAIL_FROM ?? "Avenire <support@avenire.space>";
   }
 
   async send(input: {
@@ -31,13 +31,19 @@ export class Emailer {
     from?: string;
     replyTo?: string;
   }) {
-    return this.client.emails.send({
+    const result = await this.client.emails.send({
       from: input.from ?? this.defaultFrom,
       to: input.to,
       subject: input.subject,
       html: input.html,
       replyTo: input.replyTo,
     });
+
+    if (result.error) {
+      throw result.error;
+    }
+
+    return result;
   }
 }
 

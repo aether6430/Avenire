@@ -20,6 +20,13 @@ function isAuthorized(request: Request) {
   return authHeader === `Bearer ${token}`;
 }
 
+function resolvePublicEmailBaseUrl(request: Request) {
+  const baseUrl = resolveAppBaseUrl(request);
+  return baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1")
+    ? "https://avenire.space"
+    : baseUrl;
+}
+
 export async function GET(request: Request) {
   if (!isAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -49,7 +56,7 @@ export async function POST(request: Request) {
   const entry = await approveWaitlistEntry(normalizeEmail(email));
   if (entry.status === "approved" && previousEntry?.status !== "approved") {
     try {
-      const baseUrl = resolveAppBaseUrl(request);
+      const baseUrl = resolvePublicEmailBaseUrl(request);
       await emailer.send({
         to: [entry.email],
         subject: "You're approved for Avenire",
@@ -57,6 +64,7 @@ export async function POST(request: Request) {
           name: entry.email.split("@")[0] ?? "there",
           loginUrl: `${baseUrl}/register`,
         }),
+        replyTo: "support@avenire.space",
       });
     } catch (error) {
       console.error(

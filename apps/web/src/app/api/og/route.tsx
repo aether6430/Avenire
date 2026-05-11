@@ -1,95 +1,48 @@
-import { ImageResponse } from "next/og";
+import { STATIC_ASSETS } from "@/lib/static-assets";
 
 export const runtime = "edge";
 
-const logoPath =
-  "M119 116.5V81.5C119 79.1 117 78.1666 116 77.9999H83C79.8 77.9999 78.3807 80.3333 78.071 81.5V116.5C78.071 117.667 76.752 120.223 72.1038 122.5C67 125 34.9745 143.667 19.3934 153C18.5647 153.333 16.6087 153.5 15.4153 151.5C14.2219 149.5 10.6084 143.333 8.95082 140.5C8.45355 139.333 8.25465 136.6 11.4372 135C14.6197 133.4 36.3005 121 46.7432 115C47.5719 114.167 49.0306 112.1 48.235 110.5C47.4393 108.9 45.9144 108.167 45.2514 108H1.98907C1.32605 108 0 107.6 0 106V91.3892C0 90.5928 0.397815 89 1.98907 89H44.3705C45.6587 89 48.235 88.3 48.235 85.5C48.235 82.7 45.2514 81 43.7596 80.5L9.44809 60.5C8.95082 60.1667 8.25465 59 9.44809 57C10.6415 55 14.918 47.5 16.9071 44C17.2386 43.6667 18.3989 43.3 20.388 44.5C22.377 45.7 59.3406 67.3333 77.5738 77.9999L43.7596 19.4999C43.2623 18.8333 42.8645 17.1999 45.2514 15.9999C47.6383 14.7999 54.5337 10.4999 57.6831 8.49994C58.1803 8.16661 59.5727 8.19994 61.1639 10.9999C62.7552 13.7999 75.7505 36.1666 82.0492 47C84.204 47.6667 88.5137 47.9 88.5137 43.5V1.38477C88.5137 0.923177 89.0109 0 91 0H106C108 0 108.5 0.923177 108.5 1.38477V43.5C108.5 47.9 112.833 47.6667 115 47C121.333 36.1666 134.4 13.7999 136 10.9999C137.6 8.19994 139 8.16661 139.5 8.49994C142.667 10.4999 149.6 14.7999 152 15.9999C154.4 17.1999 154 18.8333 153.5 19.4999L119.5 77.9999C137.833 67.3333 175 45.7 177 44.5C179 43.3 180.167 43.6667 180.5 44C182.5 47.5 186.8 55 188 57C189.2 59 188.5 60.1667 188 60.5L153.5 80.5C152 81 149 82.7 149 85.5C149 88.3 151.59 89 152.886 89H195.5C197.1 89 197.5 90.5928 197.5 91.3892V106C197.5 107.6 196.167 108 195.5 108H152C151.333 108.167 149.8 108.9 149 110.5C148.2 112.1 149.667 114.167 150.5 115C161 121 182.8 133.4 186 135C189.2 136.6 189 139.333 188.5 140.5C186.833 143.333 183.2 149.5 182 151.5C180.8 153.5 178.833 153.333 178 153C162.333 143.667 129.5 125 125 122.5C120.454 119.975 119 117.667 119 116.5Z";
+const DEFAULT_TITLE = "Avenire";
+const DEFAULT_DESCRIPTION = "Learn with context";
+
+function escapeXml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&apos;");
+}
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const rawTitle = searchParams.get("title") ?? "Avenire";
-  const title = rawTitle.trim().slice(0, 120) || "Avenire";
-  const description =
-    searchParams.get("description")?.trim().slice(0, 48) ||
-    "Learn with context";
-
-  return new ImageResponse(
-    <div
-      style={{
-        alignItems: "flex-start",
-        background: "#f8fafc",
-        color: "#111827",
-        display: "flex",
-        flexDirection: "column",
-        height: "100%",
-        justifyContent: "space-between",
-        padding: "76px",
-        width: "100%",
-      }}
-    >
-      <div
-        style={{
-          alignItems: "center",
-          display: "flex",
-          gap: 18,
-        }}
-      >
-        <svg
-          width="48"
-          height="38"
-          viewBox="0 0 198 154"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path d={logoPath} fill="#111827" />
-        </svg>
-        <div
-          style={{
-            display: "flex",
-            fontSize: 36,
-            fontWeight: 700,
-            letterSpacing: "-0.02em",
-          }}
-        >
-          Avenire
-        </div>
-      </div>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 28,
-          maxWidth: 960,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            fontSize: 82,
-            fontWeight: 700,
-            letterSpacing: "-0.04em",
-            lineHeight: 1,
-            wordBreak: "break-word",
-          }}
-        >
-          {title}
-        </div>
-        <div
-          style={{
-            color: "#475569",
-            display: "flex",
-            fontSize: 34,
-            lineHeight: 1.25,
-            maxWidth: 820,
-          }}
-        >
-          {description}
-        </div>
-      </div>
-    </div>,
-    {
-      height: 630,
-      width: 1200,
-    }
+  const url = new URL(request.url);
+  const rawTitle = url.searchParams.get("title") ?? DEFAULT_TITLE;
+  const rawDescription =
+    url.searchParams.get("description") ?? DEFAULT_DESCRIPTION;
+  const title = escapeXml(rawTitle.trim().slice(0, 96) || DEFAULT_TITLE);
+  const description = escapeXml(
+    rawDescription.trim().slice(0, 80) || DEFAULT_DESCRIPTION
   );
+  const origin = url.origin;
+  const logoUrl = `${origin}/branding/avenire-logo-mark.svg`;
+  const dashboardUrl = STATIC_ASSETS.avenireWorkspace;
+
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="630" fill="#000000"/>
+  <image href="${escapeXml(dashboardUrl)}" x="560" y="88" width="550" height="454" preserveAspectRatio="xMidYMid slice"/>
+  <rect x="560" y="88" width="550" height="454" fill="none" stroke="#242424" stroke-width="1"/>
+  <rect x="0" y="0" width="520" height="630" fill="#000000"/>
+  <image href="${escapeXml(logoUrl)}" x="80" y="78" width="58" height="46" preserveAspectRatio="xMidYMid meet"/>
+  <text x="80" y="272" fill="#FFFFFF" font-family="Inter, Arial, sans-serif" font-size="82" font-weight="700" letter-spacing="0">${title}</text>
+  <text x="84" y="328" fill="#A3A3A3" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="400" letter-spacing="0">${description}</text>
+  <text x="80" y="536" fill="#FFFFFF" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="600" letter-spacing="0">Avenire</text>
+</svg>`;
+
+  return new Response(svg, {
+    headers: {
+      "Cache-Control": "public, immutable, no-transform, max-age=31536000",
+      "Content-Type": "image/svg+xml; charset=utf-8",
+    },
+  });
 }

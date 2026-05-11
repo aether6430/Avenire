@@ -10,12 +10,9 @@ import {
   Tailwind,
   Text,
 } from "@react-email/components";
-import { DitherFonts } from "./dither-fonts";
 import { ditherTailwindConfig } from "./theme";
 
-const baseUrl = process.env.VERCEL_URL
-  ? `https://${process.env.VERCEL_URL}`
-  : "";
+const baseUrl = "https://avenire.space";
 
 interface WaitlistEmailProps {
   companyName?: string;
@@ -41,19 +38,17 @@ function WaitlistEmail({
   return (
     <Tailwind config={ditherTailwindConfig}>
       <Html>
-        <Head>
-          <DitherFonts />
-        </Head>
+        <Head />
 
         <Body className="bg-bg-2 font-14 m-0 p-0 font-sans">
           <Preview>{preview}</Preview>
           <Container className="bg-bg mx-auto max-w-[640px]">
             <Section className="mobile:px-4 px-6 py-6">
               <Img
-                src={`${baseUrl}/branding/avenire-logo-mark-white.svg`}
-                alt=""
-                width="32"
-                height="32"
+                src={`${baseUrl}/branding/avenire-logo-full.png`}
+                alt="Avenire"
+                width="128"
+                height="28"
                 className="block"
               />
             </Section>
@@ -113,7 +108,7 @@ export function WaitlistWelcomeEmail(props: { companyName?: string; email: strin
       ctaHref={props.loginUrl}
       ctaLabel="View the waitlist"
       email={props.email}
-      headline="You&apos;re on the waitlist"
+      headline="You're on the waitlist"
       preview="Thanks for joining the Avenire waitlist"
     />
   );
@@ -127,7 +122,7 @@ export function WaitlistApprovalEmail(props: { companyName?: string; name?: stri
       ctaHref={props.loginUrl}
       ctaLabel="Create your account"
       name={props.name}
-      headline="You&apos;re approved"
+      headline="You're approved"
       preview="Your Avenire access is ready"
     />
   );
