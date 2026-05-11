@@ -70,6 +70,7 @@ const DEFAULT_CHAT_TOKENS_PER_CREDIT = 4000;
 const DEFAULT_CHAT_TITLE_MODEL: ApolloModelName = "apollo-meta";
 const LEARNING_CONTEXT_CACHE_PREFIX = "chat-learning-context:v1:";
 const LEARNING_CONTEXT_CACHE_TTL_SECONDS = 60 * 60 * 3;
+const CHAT_STARTUP_CONTEXT_TIMEOUT_MS = 1200;
 const WHITESPACE_PATTERN = /\s+/g;
 const DEFAULT_THINKING_MESSAGES = [
   "Thinking through the details",
@@ -97,9 +98,41 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
+function isChatProfileLoggingEnabled() {
+  return (
+    process.env.NODE_ENV !== "production" &&
+    process.env.CHAT_PROFILE_LOGS?.trim().toLowerCase() === "true"
+  );
+}
+
+function getProfileLogMeta() {
+  if (!isChatProfileLoggingEnabled()) {
+    return null;
+  }
+
+  return {
+    profileAt: new Date().toISOString(),
+    profileEpochMs: Date.now(),
+    profileProcessMs: Math.round(performance.now() * 1000) / 1000,
+  };
+}
+
+function withProfileLogMeta(meta?: Record<string, unknown>) {
+  const profileMeta = getProfileLogMeta();
+  if (!profileMeta) {
+    return meta;
+  }
+
+  return {
+    ...meta,
+    ...profileMeta,
+  };
+}
+
 function logInfo(message: string, meta?: Record<string, unknown>) {
-  if (meta) {
-    console.info(`${LOG_PREFIX} ${message}`, meta);
+  const nextMeta = withProfileLogMeta(meta);
+  if (nextMeta) {
+    console.info(`${LOG_PREFIX} ${message}`, nextMeta);
     return;
   }
 
@@ -107,8 +140,9 @@ function logInfo(message: string, meta?: Record<string, unknown>) {
 }
 
 function logError(message: string, meta?: Record<string, unknown>) {
-  if (meta) {
-    console.error(`${LOG_PREFIX} ${message}`, meta);
+  const nextMeta = withProfileLogMeta(meta);
+  if (nextMeta) {
+    console.error(`${LOG_PREFIX} ${message}`, nextMeta);
     return;
   }
 
@@ -116,12 +150,40 @@ function logError(message: string, meta?: Record<string, unknown>) {
 }
 
 function logWarn(message: string, meta?: Record<string, unknown>) {
-  if (meta) {
-    console.warn(`${LOG_PREFIX} ${message}`, meta);
+  const nextMeta = withProfileLogMeta(meta);
+  if (nextMeta) {
+    console.warn(`${LOG_PREFIX} ${message}`, nextMeta);
     return;
   }
 
   console.warn(`${LOG_PREFIX} ${message}`);
+}
+
+async function withStartupTimeout<T>(
+  promise: Promise<T>,
+  label: string,
+  fallback: T,
+  timeoutMs = CHAT_STARTUP_CONTEXT_TIMEOUT_MS
+) {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((resolve) => {
+        timeout = setTimeout(() => {
+          logWarn("Startup context timed out; continuing without it", {
+            label,
+            timeoutMs,
+          });
+          resolve(fallback);
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  }
 }
 
 function formatError(error: unknown) {
@@ -673,6 +735,10 @@ function pickModelTools<T extends Record<string, unknown>>(
       ([name]) => MODEL_TOOL_ALLOW_LIST.has(name) && !excluded.has(name)
     )
   ) as T;
+}
+
+function modelUsesLegacyWidgetSchema(model: ApolloModelName) {
+  return model === "apollo-apex";
 }
 
 function normalizeMessageFileMediaTypes(messages: UIMessage[]) {
@@ -1244,19 +1310,23 @@ export async function POST(request: Request) {
 
     const requestStartedAt = new Date();
 
-    const workspaceSubjectSummary = await getWorkspaceSubjectSummary({
-      userId: session.user.id,
-      workspaceId: workspace.workspaceId,
-    }).catch((error) => {
-      logWarn(
-        "Failed to load workspace subject summary; continuing without it",
-        {
-          chatId: chat.id,
-          error: formatError(error),
-        }
-      );
-      return null;
-    });
+    const workspaceSubjectSummary = await withStartupTimeout(
+      getWorkspaceSubjectSummary({
+        userId: session.user.id,
+        workspaceId: workspace.workspaceId,
+      }).catch((error) => {
+        logWarn(
+          "Failed to load workspace subject summary; continuing without it",
+          {
+            chatId: chat.id,
+            error: formatError(error),
+          }
+        );
+        return null;
+      }),
+      "workspace-subject-summary",
+      null
+    );
     const resolvedSubject = normalizeSubjectLabel(
       workspaceSubjectSummary?.subject ?? null
     );
@@ -1270,21 +1340,25 @@ export async function POST(request: Request) {
       resolvedSubject,
     });
     const recentRelevantSummary = resolvedSubject
-      ? await getRecentRelevantSessionSummary({
-          subject: resolvedSubject,
-          userId: session.user.id,
-          workspaceId: workspace.workspaceId,
-        }).catch((error) => {
-          logWarn(
-            "Failed to load recent relevant session summary; continuing without it",
-            {
-              chatId: chat.id,
-              error: formatError(error),
-              subject: resolvedSubject,
-            }
-          );
-          return null;
-        })
+      ? await withStartupTimeout(
+          getRecentRelevantSessionSummary({
+            subject: resolvedSubject,
+            userId: session.user.id,
+            workspaceId: workspace.workspaceId,
+          }).catch((error) => {
+            logWarn(
+              "Failed to load recent relevant session summary; continuing without it",
+              {
+                chatId: chat.id,
+                error: formatError(error),
+                subject: resolvedSubject,
+              }
+            );
+            return null;
+          }),
+          "recent-relevant-session-summary",
+          null
+        )
       : null;
     const resolvedTopic = inferTopicLabel(
       [latestUserText, recentRelevantSummary?.summaryText]
@@ -1410,9 +1484,55 @@ export async function POST(request: Request) {
           latestUserTextForMetadata,
           request.signal
         );
-        const chatMetadataPromise = shouldGenerateChatTitle
-          ? generateChatMetadata(latestUserTextForMetadata, request.signal)
-          : Promise.resolve(null);
+        const streamChatMetadata = async () => {
+          if (!shouldGenerateChatTitle) {
+            return;
+          }
+
+          try {
+            const nextMeta = await generateChatMetadata(
+              latestUserTextForMetadata,
+              request.signal
+            );
+            if (!nextMeta?.title) {
+              return;
+            }
+
+            logInfo("Streaming generated chat title event", {
+              chatId: chatSlug,
+              nameLength: nextMeta.title.length,
+            });
+            writer.write({
+              type: "data-chatName",
+              transient: true,
+              data: {
+                id: chatSlug,
+                name: nextMeta.title,
+                icon: nextMeta.icon,
+              },
+            });
+
+            await updateChatForUser(
+              session.user.id,
+              chatSlug,
+              {
+                title: nextMeta.title,
+                icon: nextMeta.icon,
+              },
+              workspace.workspaceId
+            );
+            await invalidateChatReadCaches(workspace.workspaceId);
+            logInfo("Persisted generated chat title", {
+              chatId: chatSlug,
+              name: nextMeta.title,
+            });
+          } catch (error) {
+            logWarn("Failed to stream generated chat title", {
+              chatId: chatSlug,
+              error: formatError(error),
+            });
+          }
+        };
 
         if (chatCreatedFromNew) {
           writer.write({
@@ -1458,49 +1578,6 @@ export async function POST(request: Request) {
           }
         })();
 
-        void (async () => {
-          try {
-            const nextMeta = await chatMetadataPromise;
-            if (!nextMeta?.title) {
-              return;
-            }
-
-            logInfo("Streaming generated chat title event", {
-              chatId: chatSlug,
-              nameLength: nextMeta.title.length,
-            });
-            writer.write({
-              type: "data-chatName",
-              transient: true,
-              data: {
-                id: chatSlug,
-                name: nextMeta.title,
-                icon: nextMeta.icon,
-              },
-            });
-
-            await updateChatForUser(
-              session.user.id,
-              chatSlug,
-              {
-                title: nextMeta.title,
-                icon: nextMeta.icon,
-              },
-              workspace.workspaceId
-            );
-            await invalidateChatReadCaches(workspace.workspaceId);
-            logInfo("Persisted generated chat title", {
-              chatId: chatSlug,
-              name: nextMeta.title,
-            });
-          } catch (error) {
-            logWarn("Failed to stream generated chat title", {
-              chatId: chatSlug,
-              error: formatError(error),
-            });
-          }
-        })();
-
         const selectedModel = body.selectedModel ?? "apollo-apex";
         logInfo("Starting model stream", {
           chatId: chatSlug,
@@ -1518,14 +1595,19 @@ export async function POST(request: Request) {
             transient: true,
           });
         };
-        const tools = createChatTools({
-          chatSlug,
-          agentActivityId,
-          emitAgentActivity,
-          rootFolderId: workspace.rootFolderId,
-          userId: session.user.id,
-          workspaceId: workspace.workspaceId,
-        });
+        const tools = createChatTools(
+          {
+            chatSlug,
+            agentActivityId,
+            emitAgentActivity,
+            rootFolderId: workspace.rootFolderId,
+            userId: session.user.id,
+            workspaceId: workspace.workspaceId,
+          },
+          {
+            legacyShowWidgetSchema: modelUsesLegacyWidgetSchema(selectedModel),
+          }
+        );
         const modelTools = pickModelTools(tools);
         const modelMessagesPromise = convertToModelMessages(
           modelContextMessages,
@@ -1533,24 +1615,35 @@ export async function POST(request: Request) {
             tools,
           }
         );
-        const promptMemoryBlocks = await getCachedLearningPromptMemoryBlocks({
-          recentSummaryContext:
-            buildRecentSessionSummaryContext(recentRelevantSummary),
-          recentSummaryUpdatedAt: recentRelevantSummary?.updatedAt ?? null,
-          subject: resolvedSubject,
-          topic: resolvedTopic,
-          userId: session.user.id,
-          workspaceId: workspace.workspaceId,
-        });
+        const promptMemoryBlocksPromise = withStartupTimeout(
+          getCachedLearningPromptMemoryBlocks({
+            recentSummaryContext:
+              buildRecentSessionSummaryContext(recentRelevantSummary),
+            recentSummaryUpdatedAt: recentRelevantSummary?.updatedAt ?? null,
+            subject: resolvedSubject,
+            topic: resolvedTopic,
+            userId: session.user.id,
+            workspaceId: workspace.workspaceId,
+          }),
+          "learning-prompt-memory",
+          []
+        );
 
         try {
+          const [modelMessages, promptMemoryBlocks] = await Promise.all([
+            modelMessagesPromise,
+            promptMemoryBlocksPromise,
+          ]);
           result = streamText({
             model: apollo.languageModel(selectedModel),
             system: APOLLO_PROMPT(
               body.userName ?? session.user.name ?? undefined,
-              promptMemoryBlocks.length > 0 ? promptMemoryBlocks : undefined
+              promptMemoryBlocks.length > 0 ? promptMemoryBlocks : undefined,
+              {
+                useWidgetSpec: !modelUsesLegacyWidgetSchema(selectedModel),
+              }
             ),
-            messages: await modelMessagesPromise,
+            messages: modelMessages,
             maxOutputTokens: 10_000,
             stopWhen: stepCountIs(8),
             tools: modelTools,
@@ -1741,6 +1834,8 @@ export async function POST(request: Request) {
             },
           })
         );
+
+        void streamChatMetadata();
       },
     });
 

@@ -90,6 +90,17 @@ const misconceptionScopeSchema = z.object({
   topic: z.string().min(1).optional(),
 });
 
+export const legacyShowWidgetInputSchema = z
+  .object({
+    i_have_seen_read_me: z.boolean(),
+    title: z.string(),
+    widget_code: z.string(),
+    width: z.number().optional(),
+    height: z.number().optional(),
+    filename: z.string().optional(),
+  })
+  .passthrough();
+
 const widgetToneSchema = z
   .enum(["default", "muted", "info", "success", "warning", "danger"])
   .optional();

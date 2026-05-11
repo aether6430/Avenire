@@ -11,6 +11,7 @@ declare namespace NodeJS {
     BETTER_AUTH_EXTENSION_ORIGINS?: string;
     BETTER_AUTH_TRUSTED_ORIGINS?: string;
     BETTER_AUTH_URL?: string;
+    CHAT_PROFILE_LOGS?: string;
     CHAT_TOKENS_PER_CREDIT?: string;
     COHERE_API_KEY?: string;
     COHERE_TEST_ADAPTIVE_MODE?: string;

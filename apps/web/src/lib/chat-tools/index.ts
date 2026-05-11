@@ -9,7 +9,10 @@ import {
   AVAILABLE_VISUAL_SKILLS,
   loadSkills,
 } from "@avenire/ai/skills";
-import { chatToolSchemas } from "@avenire/ai/tools";
+import {
+  chatToolSchemas,
+  legacyShowWidgetInputSchema,
+} from "@avenire/ai/tools";
 import { canonicalizeLearningTaxonomy } from "@avenire/database";
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
 import { logInfo } from "@avenire/observability";
@@ -86,6 +89,10 @@ interface ChatToolContext {
   rootFolderId: string;
   userId: string;
   workspaceId: string;
+}
+
+interface ChatToolOptions {
+  legacyShowWidgetSchema?: boolean;
 }
 
 type ExplorerFileLike = Awaited<ReturnType<typeof listWorkspaceFiles>>[number];
@@ -1789,7 +1796,14 @@ async function runWebSearch(
   };
 }
 
-export function createChatTools(ctx: ChatToolContext): ToolSet {
+export function createChatTools(
+  ctx: ChatToolContext,
+  options: ChatToolOptions = {}
+): ToolSet {
+  const showWidgetInputSchema = options.legacyShowWidgetSchema
+    ? (legacyShowWidgetInputSchema as unknown as typeof chatToolSchemas.show_widget.input)
+    : chatToolSchemas.show_widget.input;
+
   return {
     web_search: tool({
       description:
@@ -2567,7 +2581,7 @@ The agent decides which operations to perform based on the task.`,
     show_widget: tool({
       description:
         "Render an interactive HTML/CSS/JS widget in the chat. Use for visualizations, diagrams, charts, simulations, and interactive explainers.",
-      inputSchema: chatToolSchemas.show_widget.input,
+      inputSchema: showWidgetInputSchema,
       outputSchema: chatToolSchemas.show_widget.output,
       execute: async (input) => {
         if (!input.i_have_seen_read_me) {
