@@ -11,7 +11,7 @@ import {
   listWorkspacesForUser,
   updateExtensionDestinationPreset,
 } from "@avenire/database";
-import { UTApi, UTFile } from "@avenire/storage";
+import { uploadStorageFile } from "@avenire/storage";
 import { Client as NotionClient } from "@notionhq/client";
 import type { PageObjectResponse } from "@notionhq/client/build/src/api-endpoints";
 import { NotionToMarkdown } from "notion-to-md";
@@ -816,22 +816,18 @@ async function uploadImportedBuffer(input: {
   userId: string;
   workspaceId: string;
 }) {
-  const uploadThingToken = requireEnv("UPLOADTHING_TOKEN");
-  const utapi = new UTApi({ token: uploadThingToken });
   const fileBuffer = input.bytes.buffer.slice(
     input.bytes.byteOffset,
     input.bytes.byteOffset + input.bytes.byteLength
   ) as ArrayBuffer;
-  const uploadResult = await utapi.uploadFiles(
-    new UTFile([fileBuffer], input.name, {
-      type: input.mimeType ?? undefined,
-    })
-  );
-  const uploaded = Array.isArray(uploadResult)
-    ? uploadResult[0]?.data
-    : uploadResult?.data;
+  requireEnv("UPLOADTHING_TOKEN");
+  const uploaded = await uploadStorageFile({
+    body: fileBuffer,
+    contentType: input.mimeType,
+    name: input.name,
+  });
 
-  if (!(uploaded?.key && uploaded.ufsUrl)) {
+  if (!(uploaded.key && uploaded.url)) {
     throw new Error(`Unable to upload imported file ${input.name}.`);
   }
 
@@ -845,7 +841,7 @@ async function uploadImportedBuffer(input: {
       name: input.name,
       sizeBytes: input.bytes.byteLength,
       storageKey: uploaded.key,
-      storageUrl: uploaded.ufsUrl,
+      storageUrl: uploaded.url,
       userId: input.userId,
       workspaceUuid: input.workspaceId,
     });

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
-import { UTApi } from "@avenire/storage";
+import { deleteStorageFiles } from "@avenire/storage";
 import matter from "gray-matter";
 import { consumeUploadUnits } from "@/lib/billing";
 import {
@@ -394,8 +394,7 @@ export async function deleteUploadThingFile(
   }
 
   try {
-    const utapi = new UTApi({ token: process.env.UPLOADTHING_TOKEN });
-    await utapi.deleteFiles([storageKey]);
+    await deleteStorageFiles([storageKey]);
   } catch {
     // Best effort cleanup.
   }

@@ -1,5 +1,5 @@
 import { auth } from "@avenire/auth/server";
-import { UTApi } from "@avenire/storage";
+import { getStorageUrl } from "@avenire/storage";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { listWorkspaceFiles, resolveWorkspaceForUser } from "@/lib/file-data";
@@ -47,7 +47,6 @@ export async function GET() {
   }
 
   try {
-    const utapi = new UTApi({ token: process.env.UPLOADTHING_TOKEN });
     const activeOrganizationId =
       (session as { session?: { activeOrganizationId?: string | null } })
         .session?.activeOrganizationId ?? null;
@@ -73,25 +72,17 @@ export async function GET() {
       return NextResponse.json({ files: [] });
     }
 
-    const urlsResponse = await utapi.getFileUrls(files.map((file) => file.key));
-    const urlByKey = new Map(
-      urlsResponse.data
-        .filter(
-          (entry) =>
-            typeof entry?.key === "string" && typeof entry?.url === "string"
-        )
-        .map((entry) => [entry.key, entry.url])
-    );
-
-    const hydrated = files
-      .map((file) => ({
+    const hydrated = await Promise.all(
+      files.map(async (file) => ({
         ...file,
-        url: urlByKey.get(file.key) ?? "",
+        url: await getStorageUrl(file.key).catch(() => ""),
       }))
+    );
+    const visible = hydrated
       .filter((file) => file.url.length > 0)
       .sort((a, b) => b.uploadedAt - a.uploadedAt);
 
-    return NextResponse.json({ files: hydrated });
+    return NextResponse.json({ files: visible });
   } catch {
     return NextResponse.json({ files: [] }, { status: 500 });
   }

@@ -1,4 +1,4 @@
-import { UTApi } from "@avenire/storage";
+import { deleteStorageFiles } from "@avenire/storage";
 import { NextResponse } from "next/server";
 import {
   listTrashedItems,
@@ -28,8 +28,7 @@ async function deleteUploadThingFiles(storageKeys: string[]) {
   }
 
   try {
-    const utapi = new UTApi({ token: process.env.UPLOADTHING_TOKEN });
-    await utapi.deleteFiles(deletableKeys);
+    await deleteStorageFiles(deletableKeys);
   } catch {
     // Best effort cleanup.
   }

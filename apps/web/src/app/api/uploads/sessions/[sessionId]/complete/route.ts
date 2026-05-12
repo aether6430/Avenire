@@ -1,5 +1,5 @@
 import { openAsBlob } from "node:fs";
-import { UTApi, UTFile } from "@avenire/storage";
+import { deleteStorageFiles, uploadStorageFile } from "@avenire/storage";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { userCanEditFolder } from "@/lib/file-data";
@@ -81,26 +81,14 @@ async function uploadMultipartAsSingleObject(input: {
       });
     }
   }
-  const utapi = new UTApi({ token: process.env.UPLOADTHING_TOKEN });
   const assembledBlob = await openAsBlob(assembled.path, {
     type: input.mimeType ?? undefined,
   });
-  const uploadResult = await utapi.uploadFiles(
-    new UTFile([assembledBlob], input.name, {
-      type: input.mimeType ?? undefined,
-    })
-  );
-  const result = Array.isArray(uploadResult) ? uploadResult[0] : uploadResult;
-  const uploaded = result?.data;
-  if (
-    !uploaded ||
-    typeof uploaded.key !== "string" ||
-    typeof uploaded.ufsUrl !== "string"
-  ) {
-    throw new Error(
-      "Multipart upload assembly succeeded but UploadThing upload failed."
-    );
-  }
+  const uploaded = await uploadStorageFile({
+    body: assembledBlob,
+    contentType: input.mimeType,
+    name: input.name,
+  });
 
   return {
     checksumSha256: assembled.checksumSha256,
@@ -108,7 +96,7 @@ async function uploadMultipartAsSingleObject(input: {
     partCount: assembled.partCount,
     sizeBytes: assembled.totalSizeBytes,
     storageKey: uploaded.key,
-    storageUrl: uploaded.ufsUrl,
+    storageUrl: uploaded.url,
   };
 }
 
@@ -363,8 +351,7 @@ export async function POST(
       null;
     if (cleanupStorageKey && process.env.UPLOADTHING_TOKEN) {
       try {
-        const utapi = new UTApi({ token: process.env.UPLOADTHING_TOKEN });
-        await utapi.deleteFiles([cleanupStorageKey]);
+        await deleteStorageFiles([cleanupStorageKey]);
       } catch (cleanupError) {
         void apiLogger.warn("upload.cleanup.failed", {
           workspaceUuid: session.workspaceUuid,

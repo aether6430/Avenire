@@ -1,4 +1,4 @@
-import { UTApi } from "@avenire/storage";
+import { deleteStorageFiles } from "@avenire/storage";
 import { NextResponse } from "next/server";
 import { purgeTrashOlderThan } from "@/lib/file-data";
 
@@ -28,8 +28,7 @@ export async function POST(request: Request) {
 
   if (process.env.UPLOADTHING_TOKEN && deletableKeys.length > 0) {
     try {
-      const utapi = new UTApi({ token: process.env.UPLOADTHING_TOKEN });
-      await utapi.deleteFiles(Array.from(new Set(deletableKeys)));
+      await deleteStorageFiles(deletableKeys);
     } catch {
       // Best effort physical cleanup.
     }
