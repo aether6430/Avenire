@@ -7,11 +7,15 @@ import { motion } from "motion/react";
 import { DivideX } from "./divide";
 import { Button } from "./button";
 import { CheckIcon } from "@/components/marketing/icons/card-icons";
+import { useSession } from "@avenire/auth/client";
+import { startPolarCheckout } from "@/lib/polar-checkout-client";
 import { Scale } from "./scale";
-import { tiers } from "@/components/marketing/constants/pricing";
+import { TierName, tiers } from "@/components/marketing/constants/pricing";
 import Link from "next/link";
 
 export const Pricing = () => {
+  const { data: session } = useSession();
+  const isSignedIn = Boolean(session?.user);
   const tabs = [
     {
       title: "Monthly",
@@ -25,6 +29,18 @@ export const Pricing = () => {
     },
   ];
   const [activeTier, setActiveTier] = useState<"monthly" | "yearly">("monthly");
+  const handleCheckout = (tierTitle: TierName) => {
+    if (!isSignedIn) {
+      return;
+    }
+    if (tierTitle === TierName.TIER_2) {
+      void startPolarCheckout("core", activeTier);
+    }
+    if (tierTitle === TierName.TIER_3) {
+      void startPolarCheckout("scholar", activeTier);
+    }
+  };
+
   return (
     <section className="">
       <Container className="border-divide flex flex-col items-center justify-center border-x pt-10 pb-10">
@@ -85,14 +101,31 @@ export const Pricing = () => {
                   <Step key={tierFeature + tierIdx + idx}>{tierFeature}</Step>
                 ))}
               </div>
-              <Button
-                className="mt-6 w-full"
-                as={Link}
-                href={tier.ctaLink as any}
-                variant={tier.featured ? "brand" : "secondary"}
-              >
-                {tier.ctaText}
-              </Button>
+              {isSignedIn && tier.title !== TierName.TIER_1 ? (
+                <Button
+                  className="mt-6 w-full"
+                  onClick={() => handleCheckout(tier.title)}
+                  type="button"
+                  variant={tier.featured ? "brand" : "secondary"}
+                >
+                  Upgrade
+                </Button>
+              ) : (
+                <Button
+                  className="mt-6 w-full"
+                  as={Link}
+                  href={
+                    (isSignedIn && tier.title === TierName.TIER_1
+                      ? "/workspace"
+                      : tier.ctaLink) as any
+                  }
+                  variant={tier.featured ? "brand" : "secondary"}
+                >
+                  {isSignedIn && tier.title === TierName.TIER_1
+                    ? "Go to app"
+                    : tier.ctaText}
+                </Button>
+              )}
             </div>
           ))}
         </div>

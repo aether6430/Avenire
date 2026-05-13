@@ -307,6 +307,7 @@ export const auth = betterAuth({
                     checkout({
                       products: polarCheckoutProducts,
                       authenticatedUsersOnly: true,
+                      returnUrl: "/settings?tab=billing",
                       successUrl: "/settings?tab=billing&checkout=success",
                     }),
                   ]

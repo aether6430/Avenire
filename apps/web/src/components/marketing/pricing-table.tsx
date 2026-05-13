@@ -6,9 +6,13 @@ import { pricingTable, tiers, TierName } from "@/components/marketing/constants/
 import { cn } from "@/lib/utils";
 import { Button } from "./button";
 import Link from "next/link";
+import { useSession } from "@avenire/auth/client";
+import { startPolarCheckout } from "@/lib/polar-checkout-client";
 
 export const PricingTable = () => {
   const [cycle, setCycle] = useState<"monthly" | "yearly">("monthly");
+  const { data: session } = useSession();
+  const isSignedIn = Boolean(session?.user);
 
   const orderedTierNames: TierName[] = useMemo(
     () => [TierName.TIER_1, TierName.TIER_2, TierName.TIER_3],
@@ -23,6 +27,15 @@ export const PricingTable = () => {
       });
       return map;
     }, []);
+
+  const handleCheckout = (tierName: TierName) => {
+    if (tierName === TierName.TIER_2) {
+      void startPolarCheckout("core", cycle);
+    }
+    if (tierName === TierName.TIER_3) {
+      void startPolarCheckout("scholar", cycle);
+    }
+  };
 
   return (
     <section>
@@ -73,14 +86,31 @@ export const PricingTable = () => {
                       /seat billed{" "}
                       {cycle === "monthly" ? "monthly" : "annually"}
                     </div>
-                    <Button
-                      as={Link}
-                      href="/waitlist"
-                      className="mt-4 w-full"
-                      variant="secondary"
-                    >
-                      Join waitlist
-                    </Button>
+                    {isSignedIn && tierName !== TierName.TIER_1 ? (
+                      <Button
+                        className="mt-4 w-full"
+                        onClick={() => handleCheckout(tierName)}
+                        type="button"
+                        variant="secondary"
+                      >
+                        Upgrade
+                      </Button>
+                    ) : (
+                      <Button
+                        as={Link}
+                        href={
+                          (isSignedIn && tierName === TierName.TIER_1
+                            ? "/workspace"
+                            : "/waitlist") as any
+                        }
+                        className="mt-4 w-full"
+                        variant="secondary"
+                      >
+                        {isSignedIn && tierName === TierName.TIER_1
+                          ? "Go to app"
+                          : "Join waitlist"}
+                      </Button>
+                    )}
                   </th>
                 ))}
               </tr>

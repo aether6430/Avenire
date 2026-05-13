@@ -78,6 +78,10 @@ import {
   DEFAULT_CHAT_COMPOSER_SEND_MODE,
 } from "@/lib/chat-composer-preferences";
 import { type PetAccessory } from "@/lib/pet-preferences";
+import {
+  ensurePolarCustomer,
+  startPolarCheckout,
+} from "@/lib/polar-checkout-client";
 import { PRIVACY_MODE_STORAGE_KEY } from "@/lib/privacy-mode";
 import { getUploadErrorMessage } from "@/lib/upload";
 import { useUploadThing } from "@/lib/uploadthing";
@@ -249,20 +253,6 @@ async function loadProviderBillingPlan(): Promise<BillingUsage["plan"]> {
   };
 
   return planFromPolarCustomerState(providerState.data);
-}
-
-async function ensurePolarCustomer() {
-  const response = await fetch("/api/billing/polar", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-  });
-
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => ({}))) as {
-      error?: string;
-    };
-    throw new Error(payload.error ?? "Unable to prepare Polar customer");
-  }
 }
 
 const THEME_PREVIEW = {
@@ -1004,11 +994,11 @@ export function SettingsPanel({
   };
 
   const openCheckout = (plan: "core" | "scholar") => {
-    const params = new URLSearchParams({
-      billing: "monthly",
-      plan,
+    setBillingStatus("Opening checkout...");
+    void startPolarCheckout(plan, "monthly").catch((error: unknown) => {
+      console.error("[settings] failed to start Better Auth checkout", error);
+      setBillingStatus("Unable to open checkout.");
     });
-    window.location.href = `/api/billing/checkout?${params.toString()}`;
   };
 
   const runDeleteAccount = async () => {
