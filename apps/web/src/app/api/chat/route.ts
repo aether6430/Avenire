@@ -24,7 +24,7 @@ import {
   deleteChatForUser,
   getChatBySlugForUser,
   getMessagesByChatSlugForUser,
-  isChatOwnerForUser,
+  getWritableChatBySlugForUser,
   saveMessagesForChatSlug,
   updateChatForUser,
 } from "@/lib/chat-data";
@@ -56,6 +56,7 @@ import {
   inferTopicLabel,
   normalizeSubjectLabel,
 } from "@/lib/subject-detection";
+import { detectMisconceptionSignals } from "@/lib/misconception-signal-detector";
 import {
   clearActiveStreamId,
   getActiveStreamId,
@@ -73,6 +74,7 @@ const DEFAULT_CHAT_TITLE_MODEL: ApolloModelName = "apollo-meta";
 const LEARNING_CONTEXT_CACHE_PREFIX = "chat-learning-context:v1:";
 const LEARNING_CONTEXT_CACHE_TTL_SECONDS = 60 * 60 * 3;
 const CHAT_STARTUP_CONTEXT_TIMEOUT_MS = 1200;
+const MISCONCEPTION_SIGNAL_TIMEOUT_MS = 900;
 const WHITESPACE_PATTERN = /\s+/g;
 const DEFAULT_THINKING_MESSAGES = [
   "Thinking through the details",
@@ -1310,12 +1312,14 @@ export async function POST(request: Request) {
         workspace.workspaceId,
         DEFAULT_CHAT_TITLE
       );
-      await invalidateChatReadCaches(workspace.workspaceId);
+      after(async () => {
+        await invalidateChatReadCaches(workspace.workspaceId);
+      });
       chat = createdChat;
       chatCreatedFromNew = true;
       chatSlug = createdChat.slug;
     } else {
-      chat = await getChatBySlugForUser(
+      chat = await getWritableChatBySlugForUser(
         session.user.id,
         chatSlug,
         workspace.workspaceId
@@ -1327,14 +1331,7 @@ export async function POST(request: Request) {
         });
         return NextResponse.json({ error: "Chat not found" }, { status: 404 });
       }
-      if (
-        Boolean(chat.readOnly) ||
-        !(await isChatOwnerForUser(
-          session.user.id,
-          chatSlug,
-          workspace.workspaceId
-        ))
-      ) {
+      if (Boolean(chat.readOnly)) {
         apiLogger.requestFailed(403, "Read-only chat", {
           chatId: chatSlug,
         });
@@ -1353,62 +1350,13 @@ export async function POST(request: Request) {
 
     const requestStartedAt = new Date();
 
-    const workspaceSubjectSummary = await withStartupTimeout(
-      getWorkspaceSubjectSummary({
-        userId: session.user.id,
-        workspaceId: workspace.workspaceId,
-      }).catch((error) => {
-        logWarn(
-          "Failed to load workspace subject summary; continuing without it",
-          {
-            chatId: chat.id,
-            error: formatError(error),
-          }
-        );
-        return null;
-      }),
-      "workspace-subject-summary",
-      null
-    );
-    const resolvedSubject = normalizeSubjectLabel(
-      workspaceSubjectSummary?.subject ?? null
-    );
     const latestUserText = extractLatestUserText(originalMessages);
     logInfo("Incoming chat request", {
       chatId: body.chatId ?? null,
       selectedModel: body.selectedModel ?? null,
       messageCount: originalMessages.length,
       modelContextCount: modelContextMessages.length,
-      workspaceSubjectSummary,
-      resolvedSubject,
     });
-    const recentRelevantSummary = resolvedSubject
-      ? await withStartupTimeout(
-          getRecentRelevantSessionSummary({
-            subject: resolvedSubject,
-            userId: session.user.id,
-            workspaceId: workspace.workspaceId,
-          }).catch((error) => {
-            logWarn(
-              "Failed to load recent relevant session summary; continuing without it",
-              {
-                chatId: chat.id,
-                error: formatError(error),
-                subject: resolvedSubject,
-              }
-            );
-            return null;
-          }),
-          "recent-relevant-session-summary",
-          null
-        )
-      : null;
-    const resolvedTopic = inferTopicLabel(
-      [latestUserText, recentRelevantSummary?.summaryText]
-        .filter((value) => typeof value === "string" && value.trim().length > 0)
-        .join("\n\n"),
-      resolvedSubject
-    );
     if (idempotencyHeader && !idempotencyRedisKey) {
       idempotencyRedisKey = buildChatIdempotencyRedisKey({
         userId: session.user.id,
@@ -1642,6 +1590,20 @@ export async function POST(request: Request) {
             transient: true,
           });
         };
+        const emitStartupActivity = (value: string) => {
+          emitAgentActivity({
+            id: agentActivityId,
+            status: "running",
+            actions: [
+              {
+                kind: "read",
+                pending: true,
+                value,
+              },
+            ],
+          });
+        };
+        emitStartupActivity("Preparing chat context");
         const tools = createChatTools(
           {
             chatSlug,
@@ -1675,36 +1637,130 @@ export async function POST(request: Request) {
           }
         );
         const modelTools = pickModelTools(tools);
-        const modelMessagesPromise = convertToModelMessages(
-          modelContextMessages,
-          {
-            tools,
-          }
-        );
-        const promptMemoryBlocksPromise = withStartupTimeout(
-          getCachedLearningPromptMemoryBlocks({
-            recentSummaryContext:
-              buildRecentSessionSummaryContext(recentRelevantSummary),
-            recentSummaryUpdatedAt: recentRelevantSummary?.updatedAt ?? null,
-            subject: resolvedSubject,
-            topic: resolvedTopic,
-            userId: session.user.id,
-            workspaceId: workspace.workspaceId,
-          }),
-          "learning-prompt-memory",
-          []
-        );
 
         try {
-          const [modelMessages, promptMemoryBlocks] = await Promise.all([
-            modelMessagesPromise,
-            promptMemoryBlocksPromise,
-          ]);
+          const workspaceSubjectSummaryPromise = withStartupTimeout(
+            getWorkspaceSubjectSummary({
+              userId: session.user.id,
+              workspaceId: workspace.workspaceId,
+            }).catch((error) => {
+              logWarn(
+                "Failed to load workspace subject summary; continuing without it",
+                {
+                  chatId: chat.id,
+                  error: formatError(error),
+                }
+              );
+              return null;
+            }),
+            "workspace-subject-summary",
+            null
+          );
+          const modelMessagesPromise = convertToModelMessages(
+            modelContextMessages,
+            {
+              tools,
+            }
+          );
+          const workspaceSubjectSummary = await workspaceSubjectSummaryPromise;
+          const resolvedSubject = normalizeSubjectLabel(
+            workspaceSubjectSummary?.subject ?? null
+          );
+          const recentRelevantSummaryPromise = resolvedSubject
+            ? withStartupTimeout(
+                getRecentRelevantSessionSummary({
+                  subject: resolvedSubject,
+                  userId: session.user.id,
+                  workspaceId: workspace.workspaceId,
+                }).catch((error) => {
+                  logWarn(
+                    "Failed to load recent relevant session summary; continuing without it",
+                    {
+                      chatId: chat.id,
+                      error: formatError(error),
+                      subject: resolvedSubject,
+                    }
+                  );
+                  return null;
+                }),
+                "recent-relevant-session-summary",
+                null
+              )
+            : Promise.resolve(null);
+          emitStartupActivity("Checking learning memory");
+          const recentRelevantSummary = await recentRelevantSummaryPromise;
+          const resolvedTopic = inferTopicLabel(
+            [latestUserText, recentRelevantSummary?.summaryText]
+              .filter(
+                (value) => typeof value === "string" && value.trim().length > 0
+              )
+              .join("\n\n"),
+            resolvedSubject
+          );
+          const promptMemoryBlocksPromise = withStartupTimeout(
+            getCachedLearningPromptMemoryBlocks({
+              recentSummaryContext:
+                buildRecentSessionSummaryContext(recentRelevantSummary),
+              recentSummaryUpdatedAt: recentRelevantSummary?.updatedAt ?? null,
+              subject: resolvedSubject,
+              topic: resolvedTopic,
+              userId: session.user.id,
+              workspaceId: workspace.workspaceId,
+            }),
+            "learning-prompt-memory",
+            []
+          );
+          const misconceptionSignalPromise = withStartupTimeout(
+            detectMisconceptionSignals({
+              abortSignal: request.signal,
+              latestUserText,
+              subject: resolvedSubject,
+              topic: resolvedTopic,
+              userId: session.user.id,
+              workspaceId: workspace.workspaceId,
+            }).catch((error) => {
+              logWarn(
+                "Failed to detect real-time misconception signal; continuing without it",
+                {
+                  chatId: chat.id,
+                  error: formatError(error),
+                  subject: resolvedSubject,
+                  topic: resolvedTopic,
+                }
+              );
+              return null;
+            }),
+            "misconception-signal-detector",
+            null,
+            MISCONCEPTION_SIGNAL_TIMEOUT_MS
+          );
+          const [modelMessages, promptMemoryBlocks, misconceptionSignal] =
+            await Promise.all([
+              modelMessagesPromise,
+              promptMemoryBlocksPromise,
+              misconceptionSignalPromise,
+            ]);
+          const nextPromptMemoryBlocks = misconceptionSignal?.interventionBlock
+            ? [...promptMemoryBlocks, misconceptionSignal.interventionBlock]
+            : promptMemoryBlocks;
+          emitStartupActivity("Starting model response");
+          logInfo("Resolved chat prompt context", {
+            chatId: chatSlug,
+            workspaceSubjectSummary,
+            resolvedSubject,
+            resolvedTopic,
+            misconceptionSignalCandidateCount:
+              misconceptionSignal?.candidates.length ?? 0,
+            misconceptionSignalMatched: misconceptionSignal?.matched ?? false,
+            promptMemoryBlockCount: nextPromptMemoryBlocks.length,
+          });
           result = streamText({
             model: apollo.languageModel(selectedModel),
             system: APOLLO_PROMPT(
               body.userName ?? session.user.name ?? undefined,
-              promptMemoryBlocks.length > 0 ? promptMemoryBlocks : undefined,
+              nextPromptMemoryBlocks.length > 0
+                ? nextPromptMemoryBlocks
+                : undefined,
               {
                 useWidgetSpec: !modelUsesLegacyWidgetSchema(selectedModel),
               }
@@ -1745,6 +1801,17 @@ export async function POST(request: Request) {
                 providerModel: APOLLO_LANGUAGE_MODEL_IDS[selectedModel],
               });
             },
+          });
+          emitAgentActivity({
+            id: agentActivityId,
+            status: "done",
+            actions: [
+              {
+                kind: "read",
+                pending: false,
+                value: "Model response started",
+              },
+            ],
           });
         } catch (error) {
           await clearActiveStreamId(chatSlug, streamId);

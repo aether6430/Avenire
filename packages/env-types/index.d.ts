@@ -14,6 +14,7 @@ declare namespace NodeJS {
     CHAT_PROFILE_LOGS?: string;
     CHAT_TOKENS_PER_CREDIT?: string;
     COHERE_API_KEY?: string;
+    COHERE_EMBEDDING_DIMENSIONS?: string;
     COHERE_TEST_ADAPTIVE_MODE?: string;
     COHERE_TEST_RPM_GUARD_ENABLED?: string;
     COHERE_TEST_SAFE_MODE?: string;

@@ -6,6 +6,7 @@
   "exports": {
     ".": "./index.ts",
     "./message-types": "./message-type.ts",
+    "./misconception-signals": "./misconception-signals.ts",
     "./models": "./models/index.ts",
     "./prompts": "./prompts/index.ts",
     "./skills": "./skills/index.ts",
@@ -17,7 +18,8 @@
     "build": "tsc --noEmit",
     "lint": "biome check .",
     "check-types": "tsc --noEmit",
-    "format": "biome format --write ."
+    "format": "biome format --write .",
+    "test": "vitest run"
   },
   "dependencies": {
     "@ai-sdk/cohere": "^3.0.25",
@@ -33,7 +35,8 @@
   "devDependencies": {
     "@avenire/env-types": "workspace:*",
     "@avenire/typescript-config": "workspace:*",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "^4.1.2"
   },
   "engines": {
     "bun": ">=1.0.0"

@@ -344,6 +344,31 @@ export async function getChatBySlugForUser(
   };
 }
 
+export async function getWritableChatBySlugForUser(
+  userId: string,
+  slug: string,
+  workspaceId?: string | null,
+) {
+  const [thread] = await db
+    .select()
+    .from(chatThread)
+    .where(
+      and(
+        eq(chatThread.slug, slug),
+        workspaceId ? eq(chatThread.workspaceId, workspaceId) : undefined,
+      )
+    )
+    .limit(1);
+
+  return thread
+    ? {
+        ...mapChatSummary(thread),
+        readOnly: thread.userId !== userId,
+        ownerUserId: thread.userId,
+      }
+    : null;
+}
+
 export async function getChatBySlug(slug: string) {
   const [thread] = await db
     .select()
