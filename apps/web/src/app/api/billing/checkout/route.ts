@@ -7,6 +7,7 @@ import {
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { ensureUserBillingRecords } from "@/lib/billing";
+import { BILLING_SETTINGS_PATH } from "@/lib/billing-plans";
 import { createApiLogger } from "@/lib/observability";
 
 const BILLING_PERIODS: BillingPeriod[] = ["monthly", "yearly"];
@@ -46,13 +47,13 @@ export async function GET(request: Request) {
   if (!(isPaidPlan(plan) && isBillingPeriod(billing))) {
     void apiLogger.requestFailed(400, "Invalid plan or billing period");
     return NextResponse.redirect(
-      new URL("/settings?tab=billing&error=invalid_checkout", request.url)
+      new URL(`${BILLING_SETTINGS_PATH}&error=invalid_checkout`, request.url)
     );
   }
 
   const baseUrl = appBaseUrl(request);
-  const successUrl = `${baseUrl}/settings?tab=billing&checkout=success`;
-  const returnUrl = `${baseUrl}/settings?tab=billing`;
+  const successUrl = `${baseUrl}${BILLING_SETTINGS_PATH}&checkout=success`;
+  const returnUrl = `${baseUrl}${BILLING_SETTINGS_PATH}`;
 
   try {
     console.info("[api/billing/checkout] starting checkout", {
@@ -87,7 +88,7 @@ export async function GET(request: Request) {
         reason: "active_subscription",
       });
       return NextResponse.redirect(
-        new URL("/settings?tab=billing&billing=active", request.url)
+        new URL(`${BILLING_SETTINGS_PATH}&billing=active`, request.url)
       );
     }
 
@@ -122,7 +123,7 @@ export async function GET(request: Request) {
     });
     void apiLogger.requestFailed(500, error, { plan, billing });
     return NextResponse.redirect(
-      new URL("/settings?tab=billing&error=checkout", request.url)
+      new URL(`${BILLING_SETTINGS_PATH}&error=checkout`, request.url)
     );
   }
 }

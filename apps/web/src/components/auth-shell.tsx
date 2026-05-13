@@ -40,8 +40,10 @@ export function AuthShell({
         <div className="mx-auto flex min-h-svh w-full max-w-[1320px]">
           <section className="relative hidden min-h-svh w-[48%] overflow-hidden border-border/60 border-r md:block lg:w-1/2">
             <ParticleField
+              adaptToTheme={false}
               align="center"
               className="absolute inset-0"
+              color="rgba(255, 255, 255, 0.92)"
               denseParticles
               dotSize={1}
               mouseForce={34}

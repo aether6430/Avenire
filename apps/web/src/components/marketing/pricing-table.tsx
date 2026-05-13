@@ -1,13 +1,21 @@
 "use client";
 
+import { useSession } from "@avenire/auth/client";
+import Link from "next/link";
 import React, { useMemo, useState } from "react";
-import { Container } from "./container";
-import { pricingTable, tiers, TierName } from "@/components/marketing/constants/pricing";
+import {
+  pricingTable,
+  TierName,
+  tiers,
+} from "@/components/marketing/constants/pricing";
+import {
+  formatInr,
+  getYearlyDiscountPercent,
+} from "@/lib/billing-plans";
+import { startPolarCheckout } from "@/lib/polar-checkout-client";
 import { cn } from "@/lib/utils";
 import { Button } from "./button";
-import Link from "next/link";
-import { useSession } from "@avenire/auth/client";
-import { startPolarCheckout } from "@/lib/polar-checkout-client";
+import { Container } from "./container";
 
 export const PricingTable = () => {
   const [cycle, setCycle] = useState<"monthly" | "yearly">("monthly");
@@ -82,9 +90,20 @@ export const PricingTable = () => {
                       {tierName}
                     </div>
                     <div className="flex items-center text-sm font-normal text-gray-600 dark:text-neutral-300">
-                      $<span className="tabular-nums">{titleToPrice[tierName]?.[cycle]}</span>
-                      /seat billed{" "}
-                      {cycle === "monthly" ? "monthly" : "annually"}
+                      <span className="tabular-nums">
+                        {formatInr(titleToPrice[tierName]?.[cycle] ?? 0)}
+                      </span>
+                      {cycle === "monthly" ? "/mo" : "/yr"}
+                      {cycle === "yearly" &&
+                      tierName !== TierName.TIER_1 ? (
+                        <span className="ml-2 text-primary">
+                          Save{" "}
+                          {getYearlyDiscountPercent(
+                            tierName === TierName.TIER_2 ? "core" : "scholar"
+                          )}
+                          %
+                        </span>
+                      ) : null}
                     </div>
                     {isSignedIn && tierName !== TierName.TIER_1 ? (
                       <Button

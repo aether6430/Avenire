@@ -2,8 +2,8 @@
 
 import {
   AppleHelloEffect,
-  resolveAppleHelloLocaleFromCountry,
   resolveAppleHelloLocale,
+  resolveAppleHelloLocaleFromCountry,
 } from "@avenire/ui/components/apple-hello-effect";
 import { Button } from "@avenire/ui/components/button";
 import { AnimatePresence, motion } from "motion/react";
@@ -12,7 +12,7 @@ import { useEffect, useState } from "react";
 import { AuthShell } from "@/components/auth-shell";
 import { MeshGradient } from "@/components/marketing/mesh-gradient";
 import { PetPreferencesFields } from "@/components/pets/pet-preferences-fields";
-import { type PetAccessory } from "@/lib/pet-preferences";
+import type { PetAccessory } from "@/lib/pet-preferences";
 import { loadUserSettings } from "@/lib/user-settings-client";
 
 const STEPS = [
@@ -60,6 +60,7 @@ export function OnboardingPageClient({
   const [step, setStep] = useState(0);
   const [isFinishing, setIsFinishing] = useState(false);
   const [showFlush, setShowFlush] = useState(false);
+  const [isHelloLeaving, setIsHelloLeaving] = useState(false);
   const [helloLocale, setHelloLocale] = useState<
     ReturnType<typeof resolveAppleHelloLocale>
   >(initialHelloLocale ?? "en");
@@ -106,7 +107,7 @@ export function OnboardingPageClient({
     const timeout = window.setTimeout(() => {
       router.push("/workspace");
       router.refresh();
-    }, 4200);
+    }, 5200);
 
     return () => window.clearTimeout(timeout);
   }, [router, showFlush]);
@@ -129,6 +130,9 @@ export function OnboardingPageClient({
         throw new Error("Unable to complete onboarding.");
       }
 
+      setHelloLocale(
+        initialHelloLocale ?? resolveAppleHelloLocale(navigator.languages)
+      );
       setShowFlush(true);
     } catch {
       setIsFinishing(false);
@@ -140,17 +144,21 @@ export function OnboardingPageClient({
       <AnimatePresence>
         {showFlush ? (
           <motion.div
-            animate={{ clipPath: "inset(0% 0% 0% 0%)" }}
+            animate={{
+              clipPath: isHelloLeaving
+                ? "inset(0% 0% 0% 100%)"
+                : "inset(0% 0% 0% 0%)",
+            }}
             className="fixed inset-0 z-[100] overflow-hidden bg-background text-white"
             exit={{ opacity: 0 }}
             initial={{ clipPath: "inset(0% 100% 0% 0%)" }}
-            transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.85, ease: [0.22, 1, 0.36, 1] }}
           >
             <MeshGradient
               className="absolute inset-0"
-              colors={["#101827", "#f45d48", "#2f80ed", "#f5c04e", "#18b788"]}
+              colors={["#06111f", "#ff4f7b", "#4f8cff", "#ffd166", "#20e3b2"]}
               resolutionScale={0.9}
-              speed={0.85}
+              speed={1.05}
             />
             <motion.div
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -165,10 +173,14 @@ export function OnboardingPageClient({
               <AppleHelloEffect
                 className="h-auto max-h-32 w-full max-w-[min(78vw,720px)] drop-shadow-[0_18px_50px_rgba(0,0,0,0.28)]"
                 durationScale={0.72}
+                key={helloLocale}
                 locale={helloLocale}
                 onAnimationComplete={() => {
-                  router.push("/workspace");
-                  router.refresh();
+                  setIsHelloLeaving(true);
+                  window.setTimeout(() => {
+                    router.push("/workspace");
+                    router.refresh();
+                  }, 720);
                 }}
               />
             </motion.div>

@@ -10,10 +10,12 @@ export default function NotFound() {
   const typingImpulse = useRef(0);
 
   return (
-    <div className="relative h-dvh w-dvw overflow-hidden bg-background">
+    <div className="dark relative h-dvh w-dvw overflow-hidden bg-background">
       <ParticleField
+        adaptToTheme={false}
         align="center"
         className="absolute inset-0"
+        color="rgba(255, 255, 255, 0.92)"
         dotSize={0.95}
         mouseForce={30}
         mouseRadius={92}

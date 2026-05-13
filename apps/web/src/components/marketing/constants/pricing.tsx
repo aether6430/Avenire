@@ -1,5 +1,6 @@
 import { CheckIcon } from "@/components/marketing/icons/card-icons";
 import { CloseIcon } from "@/components/marketing/icons/general";
+import { BILLING_PLANS } from "@/lib/billing-plans";
 
 export enum TierName {
   TIER_1 = "Access",
@@ -11,8 +12,8 @@ export const tiers = [
   {
     title: TierName.TIER_1,
     subtitle: "Start learning with AI",
-    monthly: 0,
-    yearly: 0,
+    monthly: BILLING_PLANS.access.monthly,
+    yearly: BILLING_PLANS.access.yearly,
     ctaText: "Start free",
     ctaLink: "/waitlist",
     features: [
@@ -30,8 +31,8 @@ export const tiers = [
   {
     title: TierName.TIER_2,
     subtitle: "For daily study workflows",
-    monthly: 8,
-    yearly: 80,
+    monthly: BILLING_PLANS.core.monthly,
+    yearly: BILLING_PLANS.core.yearly,
     ctaText: "Join waitlist",
     ctaLink: "/waitlist",
     features: [
@@ -51,8 +52,8 @@ export const tiers = [
   {
     title: TierName.TIER_3,
     subtitle: "For research heavy work",
-    monthly: 50,
-    yearly: 500,
+    monthly: BILLING_PLANS.scholar.monthly,
+    yearly: BILLING_PLANS.scholar.yearly,
     ctaText: "Join waitlist",
     ctaLink: "/waitlist",
     features: [

@@ -15,8 +15,10 @@ export function AuthParticlePage({
   return (
     <div className="dark relative min-h-svh overflow-hidden bg-background text-foreground">
       <ParticleField
+        adaptToTheme={false}
         align="center"
         className="fixed inset-0"
+        color="rgba(255, 255, 255, 0.92)"
         denseParticles
         dotSize={0.98}
         mouseForce={32}

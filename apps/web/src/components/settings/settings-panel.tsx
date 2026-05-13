@@ -73,6 +73,15 @@ import { SensitiveText } from "@/components/shared/sensitive-text";
 import { PetPreferencesFields } from "@/components/pets/pet-preferences-fields";
 import { getFacehashUrl } from "@/lib/avatar";
 import {
+  BILLING_PLANS,
+  BILLING_SETTINGS_PATH,
+  canUpgradePlan,
+  formatInr,
+  getYearlyDiscountPercent,
+  type BillingPlanKey,
+  type PaidBillingPlanKey,
+} from "@/lib/billing-plans";
+import {
   CHAT_COMPOSER_SEND_MODE_STORAGE_KEY,
   type ChatComposerSendMode,
   DEFAULT_CHAT_COMPOSER_SEND_MODE,
@@ -146,7 +155,7 @@ interface BillingUsage {
     totalCapacity: number;
     totalBalance: number;
   };
-  plan: "access" | "core" | "scholar";
+  plan: BillingPlanKey;
   storage: {
     limitBytes: number;
     remainingBytes: number;
@@ -215,14 +224,14 @@ const PLAN_LABELS: Record<string, string> = {
 
 function planFromPolarCustomerState(
   state: PolarCustomerState | null | undefined
-): BillingUsage["plan"] {
+): BillingUsage["plan"] | null {
   const subscription = state?.activeSubscriptions?.find((candidate) => {
     const status = candidate.status?.toLowerCase();
     return status === "active" || status === "trialing";
   });
 
   if (!subscription) {
-    return "access";
+    return null;
   }
 
   const metadataPlan = subscription.metadata?.plan;
@@ -230,9 +239,7 @@ function planFromPolarCustomerState(
     return metadataPlan;
   }
 
-  return typeof subscription.amount === "number" && subscription.amount >= 5000
-    ? "scholar"
-    : "core";
+  return null;
 }
 
 function withBillingPlan(
@@ -246,7 +253,7 @@ function withBillingPlan(
   return { ...usage, plan };
 }
 
-async function loadProviderBillingPlan(): Promise<BillingUsage["plan"]> {
+async function loadProviderBillingPlan(): Promise<BillingUsage["plan"] | null> {
   await ensurePolarCustomer();
   const providerState = (await authClient.customer.state()) as {
     data?: PolarCustomerState | null;
@@ -504,14 +511,11 @@ export function SettingsPanel({
 
     try {
       const providerPlan = await loadProviderBillingPlan();
-      if (nextUsage) {
+      if (nextUsage && providerPlan) {
         nextUsage = withBillingPlan(nextUsage, providerPlan);
       }
     } catch (error) {
       console.warn("[settings] failed to load Polar customer state", error);
-      if (nextUsage) {
-        nextUsage = withBillingPlan(nextUsage, "access");
-      }
     }
 
     setBillingUsage(nextUsage);
@@ -912,9 +916,9 @@ export function SettingsPanel({
       setLocalTab(tab);
       return;
     }
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("tab", tab);
-    router.replace(`/settings?${params.toString()}` as Route);
+    router.replace(
+      `/workspace?overlay=settings&settingsTab=${tab}` as Route
+    );
   };
 
   useEffect(() => {
@@ -978,7 +982,7 @@ export function SettingsPanel({
     const response = await fetch("/api/billing/portal", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ returnPath: "/settings?tab=billing" }),
+      body: JSON.stringify({ returnPath: BILLING_SETTINGS_PATH }),
     });
     const payload = (await response.json().catch(() => ({}))) as {
       error?: string;
@@ -993,7 +997,7 @@ export function SettingsPanel({
     window.location.href = payload.url;
   };
 
-  const openCheckout = (plan: "core" | "scholar") => {
+  const openCheckout = (plan: PaidBillingPlanKey) => {
     setBillingStatus("Opening checkout...");
     void startPolarCheckout(plan, "monthly").catch((error: unknown) => {
       console.error("[settings] failed to start Better Auth checkout", error);
@@ -1449,40 +1453,31 @@ export function SettingsPanel({
               <Section description="" title="Choose Your Plan">
                 <div className="grid gap-4 sm:grid-cols-3">
                   <PlanCard
+                    canUpgrade={false}
                     current={billingUsage?.plan === "access"}
-                    features={[
-                      "220 chat credits",
-                      "2 GB storage",
-                      "Basic models only",
-                    ]}
-                    name="Free"
+                    features={BILLING_PLANS.access.features}
+                    name={BILLING_PLANS.access.label}
                     onUpgrade={null}
-                    price="$0/month"
+                    price="Free"
                   />
                   <PlanCard
+                    canUpgrade={canUpgradePlan(billingUsage?.plan, "core")}
                     current={billingUsage?.plan === "core"}
-                    features={[
-                      "1,880 chat credits",
-                      "50 GB storage",
-                      "Access to all models",
-                      "File uploads and web search",
-                    ]}
-                    name="Core"
+                    features={BILLING_PLANS.core.features}
+                    name={BILLING_PLANS.core.label}
                     onUpgrade={() => openCheckout("core")}
                     popular
-                    price="$8/month"
+                    price={`${formatInr(BILLING_PLANS.core.monthly)} / mo`}
+                    yearlyPrice={`${formatInr(BILLING_PLANS.core.yearly)} / yr`}
                   />
                   <PlanCard
+                    canUpgrade={canUpgradePlan(billingUsage?.plan, "scholar")}
                     current={billingUsage?.plan === "scholar"}
-                    features={[
-                      "6,680 chat credits",
-                      "75 GB storage",
-                      "Includes everything in Core",
-                      "Priority support",
-                    ]}
-                    name="Scholar"
+                    features={BILLING_PLANS.scholar.features}
+                    name={BILLING_PLANS.scholar.label}
                     onUpgrade={() => openCheckout("scholar")}
-                    price="$50/month"
+                    price={`${formatInr(BILLING_PLANS.scholar.monthly)} / mo`}
+                    yearlyPrice={`${formatInr(BILLING_PLANS.scholar.yearly)} / yr`}
                   />
                 </div>
               </Section>
@@ -2696,18 +2691,29 @@ function ToggleRow({
 function PlanCard({
   name,
   price,
+  yearlyPrice,
   features,
   current,
+  canUpgrade = true,
   popular,
   onUpgrade,
 }: {
   name: string;
   price: string;
+  yearlyPrice?: string;
   features: string[];
   current: boolean;
+  canUpgrade?: boolean;
   popular?: boolean;
   onUpgrade: (() => void) | null;
 }) {
+  const yearlyDiscount =
+    name === BILLING_PLANS.core.label
+      ? getYearlyDiscountPercent("core")
+      : name === BILLING_PLANS.scholar.label
+        ? getYearlyDiscountPercent("scholar")
+        : null;
+
   return (
     <div
       className={[
@@ -2723,6 +2729,16 @@ function PlanCard({
       <div>
         <p className="font-semibold text-base">{name}</p>
         <p className="mt-0.5 text-muted-foreground text-xs">{price}</p>
+        {yearlyPrice ? (
+          <p className="mt-0.5 text-muted-foreground text-xs">
+            {yearlyPrice}
+            {yearlyDiscount ? (
+              <span className="ml-1 text-primary">
+                Save {yearlyDiscount}%
+              </span>
+            ) : null}
+          </p>
+        ) : null}
       </div>
       <ul className="flex-1 space-y-1.5">
         {features.map((f) => (
@@ -2738,6 +2754,10 @@ function PlanCard({
       {current ? (
         <Button className="w-full" disabled size="sm" variant="outline">
           Current Plan
+        </Button>
+      ) : !canUpgrade ? (
+        <Button className="w-full" disabled size="sm" variant="outline">
+          Included
         </Button>
       ) : (
         <Button className="w-full" onClick={onUpgrade ?? undefined} size="sm">

@@ -6,6 +6,7 @@ import {
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { ensureUserBillingRecords } from "@/lib/billing";
+import { BILLING_SETTINGS_PATH } from "@/lib/billing-plans";
 import { getBillingCustomerByUserId } from "@/lib/database-billing";
 import { createApiLogger } from "@/lib/observability";
 
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
     process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin;
   const returnPath = body.returnPath?.startsWith("/")
     ? body.returnPath
-    : "/settings?tab=billing";
+    : BILLING_SETTINGS_PATH;
   const returnUrl = `${baseUrl}${returnPath}`;
 
   try {
