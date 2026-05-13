@@ -2,6 +2,7 @@ import { auth } from "@avenire/auth/server";
 import {
   type BillingPeriod,
   createCheckoutSession,
+  ensurePolarCustomer,
   type PaidPlan,
 } from "@avenire/payments";
 import { headers } from "next/headers";
@@ -66,6 +67,11 @@ export async function GET(request: Request) {
           `POLAR_PRODUCT_ID_${plan.toUpperCase()}_${billing.toUpperCase()}`
         ]?.trim()
       ),
+    });
+    await ensurePolarCustomer({
+      userId: session.user.id,
+      email: session.user.email,
+      name: session.user.name,
     });
     const activeSubscription = await syncUserBillingFromPolar(session.user.id);
     if (activeSubscription) {

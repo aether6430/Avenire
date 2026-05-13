@@ -2,6 +2,7 @@ import { auth } from "@avenire/auth/server";
 import {
   createCustomerPortalLink,
   createCustomerPortalLinkForExternalCustomer,
+  ensurePolarCustomer,
 } from "@avenire/payments";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
@@ -34,6 +35,11 @@ export async function POST(request: Request) {
   const returnUrl = `${baseUrl}${returnPath}`;
 
   try {
+    await ensurePolarCustomer({
+      userId: session.user.id,
+      email: session.user.email,
+      name: session.user.name,
+    });
     console.info("[api/billing/portal] creating portal session", {
       userId: session.user.id,
       returnUrl,

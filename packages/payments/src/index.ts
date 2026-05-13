@@ -84,6 +84,59 @@ export function mapProductIdToPlan(productId?: string | null): PaidPlan | null {
   return planByProduct.get(productId) ?? null;
 }
 
+export async function ensurePolarCustomer(input: {
+  userId: string;
+  email: string;
+  name?: string | null;
+}) {
+  const polar = getPolarClient();
+
+  try {
+    return await polar.customers.getExternal({ externalId: input.userId });
+  } catch {
+    // Existing users may predate Better Auth's Polar customer creation hook.
+  }
+
+  const existingByEmail = await polar.customers.list({
+    email: input.email,
+    limit: 10,
+  });
+
+  for await (const page of existingByEmail) {
+    const customer = page.result.items.find(
+      (item) => item.email.toLowerCase() === input.email.toLowerCase()
+    );
+
+    if (!customer) {
+      continue;
+    }
+
+    if (customer.externalId && customer.externalId !== input.userId) {
+      throw new Error(
+        `Polar customer ${customer.id} is already linked to external id ${customer.externalId}`
+      );
+    }
+
+    if (customer.externalId === input.userId) {
+      return customer;
+    }
+
+    return polar.customers.update({
+      id: customer.id,
+      customerUpdate: {
+        externalId: input.userId,
+        name: input.name ?? customer.name ?? null,
+      },
+    });
+  }
+
+  return polar.customers.create({
+    email: input.email,
+    externalId: input.userId,
+    name: input.name ?? null,
+  });
+}
+
 export async function getActiveSubscriptionForExternalCustomer(
   externalCustomerId: string,
 ) {

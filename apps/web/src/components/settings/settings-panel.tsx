@@ -243,11 +243,26 @@ function withBillingPlan(
 }
 
 async function loadProviderBillingPlan(): Promise<BillingUsage["plan"]> {
+  await ensurePolarCustomer();
   const providerState = (await authClient.customer.state()) as {
     data?: PolarCustomerState | null;
   };
 
   return planFromPolarCustomerState(providerState.data);
+}
+
+async function ensurePolarCustomer() {
+  const response = await fetch("/api/billing/polar", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+    throw new Error(payload.error ?? "Unable to prepare Polar customer");
+  }
 }
 
 const THEME_PREVIEW = {
@@ -963,6 +978,7 @@ export function SettingsPanel({
   const handleManageBilling = async () => {
     setBillingStatus("Opening billing portal...");
     try {
+      await ensurePolarCustomer();
       await authClient.customer.portal();
       return;
     } catch (error) {
@@ -988,10 +1004,12 @@ export function SettingsPanel({
   };
 
   const openCheckout = (plan: "core" | "scholar") => {
-    void authClient
-      .checkout({
-        slug: `${plan}-monthly`,
-      })
+    void ensurePolarCustomer()
+      .then(() =>
+        authClient.checkout({
+          slug: `${plan}-monthly`,
+        })
+      )
       .catch((error: unknown) => {
         console.error("[settings] failed to start Better Auth checkout", error);
         const params = new URLSearchParams({
