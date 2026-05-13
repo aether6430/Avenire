@@ -6,7 +6,7 @@ import {
 } from "@/lib/file-data";
 import { invalidateWorkspaceReadCaches } from "@/lib/domain-cache";
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
-import { extractMarkdownNotePageMetadata } from "@/lib/markdown-note-template";
+import { extractMarkdownNotePageMetadata } from "@/lib/markdown-note-metadata";
 import { createApiLogger } from "@/lib/observability";
 import { registerWorkspaceUploadedFile } from "@/lib/upload-registration";
 import { scheduleAsyncVideoDeliveryOptimization } from "@/lib/video-delivery";
@@ -112,7 +112,7 @@ export async function POST(
       );
     }
 
-    const templatePage = extractMarkdownNotePageMetadata(body.content);
+    const extractedPage = extractMarkdownNotePageMetadata(body.content);
     const currentPage =
       nextMetadata.page &&
       typeof nextMetadata.page === "object" &&
@@ -120,15 +120,15 @@ export async function POST(
         ? (nextMetadata.page as Record<string, unknown>)
         : null;
 
-    if (templatePage || currentPage) {
+    if (extractedPage || currentPage) {
       nextMetadata.page = {
         ...(currentPage ?? {}),
-        ...(templatePage ?? {}),
+        ...(extractedPage ?? {}),
         properties: {
           ...(((currentPage?.properties as
             | Record<string, unknown>
             | undefined) ?? {}) as Record<string, unknown>),
-          ...(templatePage?.properties ?? {}),
+          ...(extractedPage?.properties ?? {}),
         },
       };
     }
@@ -219,18 +219,14 @@ export async function POST(
       hashComputedBy: body.hashComputedBy,
     });
   } catch (error) {
-    const isRateLimit =
+    const isStorageLimit =
       (error as { code?: string } | null | undefined)?.code ===
-      "UPLOAD_RATE_LIMIT";
-    const retryAfter =
-      (error as { retryAfter?: string | null } | null | undefined)
-        ?.retryAfter ?? null;
-    if (isRateLimit) {
-      void apiLogger.rateLimited("upload", retryAfter, { workspaceUuid });
+      "STORAGE_LIMIT";
+    if (isStorageLimit) {
+      void apiLogger.rateLimited("storage", null, { workspaceUuid });
       return NextResponse.json(
         {
-          error: "Upload usage limit reached",
-          retryAfter,
+          error: "Storage limit reached",
         },
         { status: 429 }
       );

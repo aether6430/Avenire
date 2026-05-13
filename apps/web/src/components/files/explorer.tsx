@@ -50,7 +50,6 @@ import {
 import { Input } from "@avenire/ui/components/input";
 import { ScrollArea } from "@avenire/ui/components/scroll-area";
 import { Spinner } from "@avenire/ui/components/spinner";
-import { Textarea } from "@avenire/ui/components/textarea";
 import {
   DownloadSimple as ArrowDownToLine,
   ArrowLeft,
@@ -137,18 +136,10 @@ import {
   normalizePropertyDefinitions,
   type WorkspacePropertyDefinition,
 } from "@/lib/frontmatter";
-import { renderMarkdownNoteTemplate } from "@/lib/markdown-note-template";
 import {
   buildProgressivePlaybackSource,
   buildVideoPlaybackDescriptor,
 } from "@/lib/media-playback";
-import {
-  DEFAULT_NOTE_TEMPLATE,
-  getDefaultNoteTemplates,
-  getNoteTemplateStorageKey,
-  getRecentNoteTemplateStorageKey,
-  type NoteTemplate,
-} from "@/lib/note-templates";
 import { getUploadErrorMessage } from "@/lib/upload";
 import { requestUploadPreflight } from "@/lib/upload-preflight";
 import { useUploadThing } from "@/lib/uploadthing";
@@ -1508,7 +1499,6 @@ export function FileExplorer({
     mode: "create-folder" | "create-note" | "rename-file" | "rename-folder";
     id?: string;
     parentId?: string;
-    templateId?: string;
     value: string;
   } | null>(null);
   const [shareTargetFile, setShareTargetFile] = useState<FileRecord | null>(
@@ -1518,15 +1508,6 @@ export function FileExplorer({
     useState<FolderRecord | null>(null);
   const [fileShareDialogOpen, setFileShareDialogOpen] = useState(false);
   const [folderShareDialogOpen, setFolderShareDialogOpen] = useState(false);
-  const [noteTemplates, setNoteTemplates] = useState<NoteTemplate[]>([]);
-  const [recentTemplateIds, setRecentTemplateIds] = useState<string[]>([]);
-  const [noteTemplateEditorOpen, setNoteTemplateEditorOpen] = useState(false);
-  const [noteTemplateDraft, setNoteTemplateDraft] = useState<NoteTemplate>({
-    bannerUrl: null,
-    content: "",
-    id: "",
-    name: "",
-  });
   const [noteCreateBusy, setNoteCreateBusy] = useState(false);
   const [linkImportDialog, setLinkImportDialog] = useState<{
     folderId: string;
@@ -1546,7 +1527,6 @@ export function FileExplorer({
     useState(false);
   const loadedPropertyRegistryWorkspaceRef = useRef<string | null>(null);
   const loadedCardPropertySelectionRef = useRef(false);
-  const noteTemplatesHydratedRef = useRef(false);
   const undoFileOperationHistoryRef = useRef<FileMutationHistoryEntry[]>([]);
   const redoFileOperationHistoryRef = useRef<FileMutationHistoryEntry[]>([]);
 
@@ -1669,7 +1649,7 @@ export function FileExplorer({
   const canRedoFileOperation = fileOperationHistoryState.redoCount > 0;
 
   const createNote = useCallback(
-    async (parentId: string, name: string, templateId?: string) => {
+    async (parentId: string, name: string) => {
       if (!workspaceUuid) {
         return;
       }
@@ -1688,21 +1668,7 @@ export function FileExplorer({
         ? trimmedName
         : `${trimmedName}.md`;
       const noteTitle = fileName.replace(/\.mdx?$/i, "") || "Untitled";
-      const template =
-        noteTemplates.find((entry) => entry.id === templateId) ?? null;
-      const createdBy =
-        currentUser?.name?.trim() || currentUser?.email?.trim() || "";
-      const initialContent = template
-        ? renderMarkdownNoteTemplate(template.content, {
-            createdBy,
-            title: noteTitle,
-          })
-        : `# ${noteTitle}\n`;
-      const page = template
-        ? {
-            bannerUrl: template.bannerUrl ?? null,
-          }
-        : undefined;
+      const initialContent = `# ${noteTitle}\n`;
 
       setNoteCreateBusy(true);
       try {
@@ -1717,7 +1683,6 @@ export function FileExplorer({
               content: initialContent,
               metadata: {
                 type: "note",
-                ...(page ? { page } : {}),
               },
             }),
           }
@@ -1747,7 +1712,7 @@ export function FileExplorer({
         setNoteCreateBusy(false);
       }
     },
-    [currentUser, noteCreateBusy, noteTemplates, router, workspaceUuid]
+    [noteCreateBusy, router, workspaceUuid]
   );
 
   const openCreateNoteDialog = useCallback(
@@ -1828,156 +1793,6 @@ export function FileExplorer({
       setLinkImportBusy(false);
     }
   }, [linkImportBusy, linkImportDialog, router, workspaceUuid]);
-
-  useEffect(() => {
-    noteTemplatesHydratedRef.current = false;
-    if (!workspaceUuid) {
-      setNoteTemplates(getDefaultNoteTemplates());
-      noteTemplatesHydratedRef.current = true;
-      return;
-    }
-
-    try {
-      const raw = window.localStorage.getItem(
-        getNoteTemplateStorageKey(workspaceUuid)
-      );
-      const recentRaw = window.localStorage.getItem(
-        getRecentNoteTemplateStorageKey(workspaceUuid)
-      );
-      const recent = Array.isArray(JSON.parse(recentRaw ?? "[]"))
-        ? (JSON.parse(recentRaw ?? "[]") as unknown[])
-            .filter((entry): entry is string => typeof entry === "string")
-            .slice(0, 6)
-        : [];
-      setRecentTemplateIds(recent);
-      if (!raw) {
-        setNoteTemplates(getDefaultNoteTemplates());
-        noteTemplatesHydratedRef.current = true;
-        return;
-      }
-      const parsed = JSON.parse(raw) as unknown;
-      if (!Array.isArray(parsed)) {
-        setNoteTemplates(getDefaultNoteTemplates());
-        return;
-      }
-      const templates = parsed
-        .map((entry) => {
-          if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-            return null;
-          }
-          const candidate = entry as Partial<NoteTemplate>;
-          const id =
-            typeof candidate.id === "string" ? candidate.id.trim() : "";
-          const name =
-            typeof candidate.name === "string" ? candidate.name.trim() : "";
-          const content =
-            typeof candidate.content === "string"
-              ? candidate.content
-              : DEFAULT_NOTE_TEMPLATE.content;
-          const bannerUrl =
-            typeof candidate.bannerUrl === "string" &&
-            candidate.bannerUrl.trim().length > 0
-              ? candidate.bannerUrl.trim()
-              : null;
-          if (!(id && name)) {
-            return null;
-          }
-          return { id, name, content, bannerUrl } satisfies NoteTemplate;
-        })
-        .filter((entry): entry is NoteTemplate => Boolean(entry));
-      setNoteTemplates(
-        templates.length > 0 ? templates : getDefaultNoteTemplates()
-      );
-      noteTemplatesHydratedRef.current = true;
-    } catch {
-      setNoteTemplates(getDefaultNoteTemplates());
-      setRecentTemplateIds([]);
-      noteTemplatesHydratedRef.current = true;
-    }
-  }, [workspaceUuid]);
-
-  useEffect(() => {
-    if (!(workspaceUuid && noteTemplatesHydratedRef.current)) {
-      return;
-    }
-
-    try {
-      window.localStorage.setItem(
-        getNoteTemplateStorageKey(workspaceUuid),
-        JSON.stringify(noteTemplates)
-      );
-      window.localStorage.setItem(
-        getRecentNoteTemplateStorageKey(workspaceUuid),
-        JSON.stringify(
-          recentTemplateIds.filter((id) =>
-            noteTemplates.some((template) => template.id === id)
-          )
-        )
-      );
-    } catch {
-      return;
-    }
-  }, [noteTemplates, recentTemplateIds, workspaceUuid]);
-
-  const _openTemplateEditor = useCallback((template?: NoteTemplate | null) => {
-    const nextTemplate =
-      template ??
-      ({
-        content: DEFAULT_NOTE_TEMPLATE.content,
-        bannerUrl: null,
-        id: "",
-        name: "",
-      } satisfies NoteTemplate);
-    setNoteTemplateDraft(nextTemplate);
-    setNoteTemplateEditorOpen(true);
-  }, []);
-
-  const saveTemplateDraft = useCallback(() => {
-    const trimmedName = noteTemplateDraft.name.trim();
-    const trimmedContent = noteTemplateDraft.content.trim();
-    if (!(trimmedName && trimmedContent)) {
-      return;
-    }
-
-    const id =
-      noteTemplateDraft.id.trim() ||
-      globalThis.crypto?.randomUUID?.() ||
-      `template-${Date.now()}`;
-    const nextTemplate: NoteTemplate = {
-      bannerUrl: noteTemplateDraft.bannerUrl ?? null,
-      id,
-      name: trimmedName,
-      content: noteTemplateDraft.content,
-    };
-
-    setNoteTemplates((current) => {
-      const existingIndex = current.findIndex((item) => item.id === id);
-      if (existingIndex < 0) {
-        return [...current, nextTemplate];
-      }
-      return current.map((item) => (item.id === id ? nextTemplate : item));
-    });
-
-    setNoteTemplateEditorOpen(false);
-  }, [noteTemplateDraft, setNoteTemplates]);
-
-  const deleteTemplateDraft = useCallback(() => {
-    const id = noteTemplateDraft.id.trim();
-    if (!id) {
-      setNoteTemplateEditorOpen(false);
-      return;
-    }
-
-    setNoteTemplates((current) => {
-      const next = current.filter((template) => template.id !== id);
-      return next.length > 0 ? next : getDefaultNoteTemplates();
-    });
-
-    setRecentTemplateIds((current) =>
-      current.filter((templateId) => templateId !== id)
-    );
-    setNoteTemplateEditorOpen(false);
-  }, [noteTemplateDraft.id, setNoteTemplates]);
 
   const parentFolder = useMemo(() => breadcrumbs.at(-2) ?? null, [breadcrumbs]);
   const isAtWorkspaceRoot = breadcrumbs.length <= 1;
@@ -5127,11 +4942,7 @@ export function FileExplorer({
     }
 
     if (editDialog.mode === "create-note" && editDialog.parentId) {
-      await createNote(
-        editDialog.parentId,
-        editDialog.value,
-        editDialog.templateId
-      );
+      await createNote(editDialog.parentId, editDialog.value);
     }
 
     if (editDialog.mode === "rename-folder" && editDialog.id) {
@@ -8022,99 +7833,6 @@ export function FileExplorer({
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        onOpenChange={(open) => {
-          if (!open) {
-            setNoteTemplateEditorOpen(false);
-          }
-        }}
-        open={noteTemplateEditorOpen}
-      >
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {noteTemplateDraft.id ? "Edit template" : "New template"}
-            </DialogTitle>
-            <DialogDescription>
-              Templates live in this workspace and can use note variables when a
-              note is created.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4">
-            <div className="space-y-2">
-              <label className="font-medium text-sm" htmlFor="template-name">
-                Name
-              </label>
-              <Input
-                id="template-name"
-                onChange={(event) =>
-                  setNoteTemplateDraft((current) => ({
-                    ...current,
-                    name: event.target.value,
-                  }))
-                }
-                placeholder="Study note"
-                value={noteTemplateDraft.name}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="font-medium text-sm" htmlFor="template-body">
-                Template body
-              </label>
-              <Textarea
-                className="min-h-80 font-mono text-xs"
-                id="template-body"
-                onChange={(event) =>
-                  setNoteTemplateDraft((current) => ({
-                    ...current,
-                    content: event.target.value,
-                  }))
-                }
-                placeholder={DEFAULT_NOTE_TEMPLATE.content}
-                value={noteTemplateDraft.content}
-              />
-            </div>
-          </div>
-          <DialogFooter className="justify-between gap-2 sm:justify-between">
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={() => {
-                  setNoteTemplateEditorOpen(false);
-                }}
-                type="button"
-                variant="ghost"
-              >
-                Cancel
-              </Button>
-              {noteTemplateDraft.id ? (
-                <Button
-                  onClick={() => {
-                    deleteTemplateDraft();
-                  }}
-                  type="button"
-                  variant="outline"
-                >
-                  Delete
-                </Button>
-              ) : null}
-            </div>
-            <Button
-              disabled={
-                !(
-                  noteTemplateDraft.name.trim() &&
-                  noteTemplateDraft.content.trim()
-                )
-              }
-              onClick={() => {
-                saveTemplateDraft();
-              }}
-              type="button"
-            >
-              Save template
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

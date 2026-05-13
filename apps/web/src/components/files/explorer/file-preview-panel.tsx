@@ -105,7 +105,6 @@ import {
   usePaneSearchParams,
 } from "@/lib/workspace-panes";
 import { usePaneHeaderActions } from "@/stores/header-store";
-import { useUserStore } from "@/stores/userStore";
 import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
 
 const PDFViewer = dynamic(() => import("@/components/files/pdf-viewer"), {
@@ -357,7 +356,6 @@ export function FilePreviewPanel({
   const closePane = useWorkspacePaneStore((state) => state.closePane);
   const openPane = useWorkspacePaneStore((state) => state.openPane);
   const paneCount = useWorkspacePaneStore((state) => state.panes.length);
-  const currentUser = useUserStore((state) => state.user);
   const circleToAiParam = searchParams.get("circleToAi");
   const canClosePane = paneCount > 1;
 
@@ -1548,11 +1546,6 @@ export function FilePreviewPanel({
                 ) : null}
                 {isPaneActive ? (
                   <AvenireEditor
-                    createdBy={
-                      currentUser?.name?.trim() ||
-                      currentUser?.email?.trim() ||
-                      ""
-                    }
                     defaultValue={markdownBody}
                     key={activeFile.id}
                     noteTitle={noteDisplayTitle}
@@ -1576,9 +1569,6 @@ export function FilePreviewPanel({
                         `/workspace/files/${workspaceUuid}/folder/${targetFile.folderId}?${params.toString()}`,
                         { sourcePaneId: paneId }
                       );
-                    }}
-                    onTemplateApplied={(template) => {
-                      setNoteCoverUrl(template.bannerUrl);
                     }}
                     saveState={activeFileIsMarkdown ? noteSaveState : undefined}
                     scrollContainerRef={filePreviewScrollRef}

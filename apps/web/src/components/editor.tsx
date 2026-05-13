@@ -132,16 +132,6 @@ import type {
   WorkspacePropertyDefinition,
 } from "@/lib/frontmatter";
 import {
-  isMarkdownNoteTemplateTargetEmpty,
-  renderMarkdownNoteTemplate,
-} from "@/lib/markdown-note-template";
-import {
-  getDefaultNoteTemplates,
-  getNoteTemplateStorageKey,
-  getRecentNoteTemplateStorageKey,
-  type NoteTemplate,
-} from "@/lib/note-templates";
-import {
   NOTE_WIDGET_INSERT_EVENT,
   type NoteWidgetPayload,
 } from "@/lib/note-widgets";
@@ -465,7 +455,6 @@ interface TableAction {
 }
 
 interface AvenireEditorProps {
-  createdBy?: string;
   defaultValue: string;
   noteTitle: string;
   onChange: (markdown: string) => void;
@@ -474,7 +463,6 @@ interface AvenireEditorProps {
   onPropertyDefinitionsChange?: (
     definitions: WorkspacePropertyDefinition[]
   ) => void;
-  onTemplateApplied?: (template: NoteTemplate, rendered: string) => void;
   pageProperties?: FrontmatterProperties;
   propertyDefinitions?: WorkspacePropertyDefinition[];
   readOnly?: boolean;
@@ -483,72 +471,6 @@ interface AvenireEditorProps {
   scrollContainerRef: RefObject<HTMLDivElement | null>;
   wikiPages: WikiPage[];
   workspaceUuid: string;
-}
-
-function loadWorkspaceNoteTemplates(workspaceUuid: string) {
-  try {
-    const raw = window.localStorage.getItem(
-      getNoteTemplateStorageKey(workspaceUuid)
-    );
-    const parsed = JSON.parse(raw ?? "[]") as unknown;
-    if (!Array.isArray(parsed)) {
-      return getDefaultNoteTemplates();
-    }
-    const templates = parsed
-      .map((entry) => {
-        if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-          return null;
-        }
-        const candidate = entry as Partial<NoteTemplate>;
-        const id = typeof candidate.id === "string" ? candidate.id.trim() : "";
-        const name =
-          typeof candidate.name === "string" ? candidate.name.trim() : "";
-        const content =
-          typeof candidate.content === "string" ? candidate.content : "";
-        const bannerUrl =
-          typeof candidate.bannerUrl === "string" &&
-          candidate.bannerUrl.trim().length > 0
-            ? candidate.bannerUrl.trim()
-            : null;
-        return id && name && content ? { id, name, content, bannerUrl } : null;
-      })
-      .filter((entry): entry is NoteTemplate => Boolean(entry));
-
-    return templates.length > 0 ? templates : getDefaultNoteTemplates();
-  } catch {
-    return getDefaultNoteTemplates();
-  }
-}
-
-function loadRecentTemplateIds(workspaceUuid: string) {
-  try {
-    const raw = window.localStorage.getItem(
-      getRecentNoteTemplateStorageKey(workspaceUuid)
-    );
-    const parsed = JSON.parse(raw ?? "[]") as unknown;
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-    return parsed
-      .filter((entry): entry is string => typeof entry === "string")
-      .slice(0, 6);
-  } catch {
-    return [];
-  }
-}
-
-function persistRecentTemplate(workspaceUuid: string, templateId: string) {
-  try {
-    const existing = loadRecentTemplateIds(workspaceUuid).filter(
-      (entry) => entry !== templateId
-    );
-    window.localStorage.setItem(
-      getRecentNoteTemplateStorageKey(workspaceUuid),
-      JSON.stringify([templateId, ...existing].slice(0, 6))
-    );
-  } catch {
-    return;
-  }
 }
 
 const InlineMathExtension = InlineMath.extend({
@@ -2667,72 +2589,6 @@ function ImagePopover({
   );
 }
 
-function EmptyNoteTemplateActions({
-  createdBy,
-  editor,
-  noteTemplates,
-  noteTitle,
-  onTemplateApplied,
-  onTemplateUsed,
-  recentTemplateIds,
-  workspaceUuid,
-}: {
-  createdBy?: string;
-  editor: Editor;
-  noteTemplates: NoteTemplate[];
-  noteTitle: string;
-  onTemplateApplied?: (template: NoteTemplate, rendered: string) => void;
-  onTemplateUsed: (templateId: string) => void;
-  recentTemplateIds: string[];
-  workspaceUuid: string;
-}) {
-  const templateChoices = useMemo(() => {
-    const byId = new Map(
-      noteTemplates.map((template) => [template.id, template])
-    );
-    const recent = recentTemplateIds
-      .map((id) => byId.get(id) ?? null)
-      .filter((template): template is NoteTemplate => Boolean(template));
-    const fallback = noteTemplates.filter(
-      (template) => !recent.some((entry) => entry.id === template.id)
-    );
-    return [...recent, ...fallback].slice(0, 3);
-  }, [noteTemplates, recentTemplateIds]);
-
-  if (templateChoices.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="pointer-events-none sticky bottom-24 z-20 mt-10 flex justify-center px-4">
-      <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-2">
-        {templateChoices.map((template) => (
-          <Button
-            className="rounded-full shadow-sm"
-            key={template.id}
-            onClick={() => {
-              const rendered = renderMarkdownNoteTemplate(template.content, {
-                createdBy,
-                title: noteTitle,
-              });
-              insertMarkdownContent(editor, rendered);
-              editor.commands.focus("end");
-              onTemplateApplied?.(template, rendered);
-              persistRecentTemplate(workspaceUuid, template.id);
-              onTemplateUsed(template.id);
-            }}
-            size="sm"
-            type="button"
-            variant="secondary"
-          >
-            {template.name}
-          </Button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function EditorTableOfContentsRail({
   items,
 }: {
@@ -2808,13 +2664,11 @@ function EditorTableOfContentsRail({
 }
 
 function AvenireEditor({
-  createdBy,
   defaultValue,
   noteTitle,
   onChange,
   onPagePropertiesChange,
   onPropertyDefinitionsChange,
-  onTemplateApplied,
   pageProperties = {},
   propertyDefinitions = [],
   readOnly = false,
@@ -2865,10 +2719,6 @@ function AvenireEditor({
     x: number;
     y: number;
   }>({ open: false, x: 0, y: 0 });
-  const [noteTemplates, setNoteTemplates] = useState<NoteTemplate[]>(() =>
-    getDefaultNoteTemplates()
-  );
-  const [recentTemplateIds, setRecentTemplateIds] = useState<string[]>([]);
   const [tableOfContentsItems, setTableOfContentsItems] = useState<
     TableOfContentDataItem[]
   >([]);
@@ -2938,11 +2788,6 @@ function AvenireEditor({
   );
 
   allWikiPagesRef.current = wikiPages;
-
-  useEffect(() => {
-    setNoteTemplates(loadWorkspaceNoteTemplates(workspaceUuid));
-    setRecentTemplateIds(loadRecentTemplateIds(workspaceUuid));
-  }, [workspaceUuid]);
 
   useEffect(() => {
     if (!inlineNotice) {
@@ -3286,7 +3131,6 @@ function AvenireEditor({
       if (!editor) {
         return {
           imageSelection: null,
-          showEmptyTemplateActions: false,
         };
       }
 
@@ -3302,10 +3146,6 @@ function AvenireEditor({
 
       return {
         imageSelection,
-        showEmptyTemplateActions: isMarkdownNoteTemplateTargetEmpty(
-          editor.getMarkdown(),
-          noteTitle
-        ),
       };
     },
   });
@@ -4275,25 +4115,6 @@ function AvenireEditor({
         />
         <EditorTableOfContentsRail items={tableOfContentsItems} />
       </div>
-
-      {editorUiState.showEmptyTemplateActions ? (
-        <EmptyNoteTemplateActions
-          createdBy={createdBy}
-          editor={editor}
-          noteTemplates={noteTemplates}
-          noteTitle={noteTitle}
-          onTemplateApplied={onTemplateApplied}
-          onTemplateUsed={(templateId) =>
-            setRecentTemplateIds((current) => [
-              templateId,
-              ...current.filter((entry) => entry !== templateId),
-            ])
-          }
-          recentTemplateIds={recentTemplateIds}
-          workspaceUuid={workspaceUuid}
-        />
-      ) : null}
-
       <MathPopover
         editor={editor}
         onCancel={() => setMathPopover(null)}

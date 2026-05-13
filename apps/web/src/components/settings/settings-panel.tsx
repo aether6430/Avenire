@@ -55,7 +55,6 @@ import {
   Users,
 } from "@phosphor-icons/react";
 import type { Route } from "next";
-import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
@@ -78,12 +77,6 @@ import {
   type ChatComposerSendMode,
   DEFAULT_CHAT_COMPOSER_SEND_MODE,
 } from "@/lib/chat-composer-preferences";
-import {
-  DEFAULT_NOTE_TEMPLATE,
-  getDefaultNoteTemplates,
-  getNoteTemplateStorageKey,
-  type NoteTemplate,
-} from "@/lib/note-templates";
 import { type PetAccessory } from "@/lib/pet-preferences";
 import { PRIVACY_MODE_STORAGE_KEY } from "@/lib/privacy-mode";
 import { getUploadErrorMessage } from "@/lib/upload";
@@ -94,15 +87,6 @@ import {
   type UserSettingsPreferences,
 } from "@/lib/user-settings-client";
 import { cn } from "@/lib/utils";
-
-const DeferredAvenireEditor = dynamic(() => import("@/components/editor"), {
-  loading: () => (
-    <div className="flex min-h-[18rem] items-center justify-center text-muted-foreground text-sm">
-      Loading editor...
-    </div>
-  ),
-  ssr: false,
-});
 
 interface WorkspaceSummary {
   logo: string | null;
@@ -159,7 +143,11 @@ interface BillingUsage {
     totalBalance: number;
   };
   plan: "access" | "core" | "scholar";
-  upload: MeterUsage;
+  storage: {
+    limitBytes: number;
+    remainingBytes: number;
+    usedBytes: number;
+  };
 }
 
 const tabs = [
@@ -364,30 +352,12 @@ export function SettingsPanel({
     return () => window.removeEventListener("keydown", detectKeyboard);
   }, []);
   const [workspaceDeleteConfirm, setWorkspaceDeleteConfirm] = useState("");
-  const [noteTemplates, setNoteTemplates] = useState<NoteTemplate[]>([
-    DEFAULT_NOTE_TEMPLATE,
-  ]);
-  const [noteTemplateDialogOpen, setNoteTemplateDialogOpen] = useState(false);
-  const [noteTemplateDraft, setNoteTemplateDraft] = useState<NoteTemplate>(
-    DEFAULT_NOTE_TEMPLATE
-  );
-  const [noteTemplateEditorKey, setNoteTemplateEditorKey] = useState(0);
-  const noteTemplatesWorkspaceRef = useRef<string | null>(null);
-  const noteTemplatesHydratedRef = useRef(false);
   const [workspaceIconDraft, setWorkspaceIconDraft] = useState("");
   const [workspaceIconStatus, setWorkspaceIconStatus] = useState<string | null>(
     null
   );
   const [workspaceIconUploading, setWorkspaceIconUploading] = useState(false);
   const workspaceIconInputRef = useRef<HTMLInputElement | null>(null);
-  const [noteTemplateBannerUrl, setNoteTemplateBannerUrl] = useState("");
-  const [noteTemplateBannerStatus, setNoteTemplateBannerStatus] = useState<
-    string | null
-  >(null);
-  const [noteTemplateBannerUploading, setNoteTemplateBannerUploading] =
-    useState(false);
-  const noteTemplateBannerInputRef = useRef<HTMLInputElement | null>(null);
-  const noteTemplateEditorScrollRef = useRef<HTMLDivElement | null>(null);
   const [accountDeleteConfirm, setAccountDeleteConfirm] = useState("");
   const [dangerStatus, setDangerStatus] = useState<string | null>(null);
   const [sudoActive, setSudoActive] = useState(false);
@@ -708,39 +678,6 @@ export function SettingsPanel({
     }
   };
 
-  const handleNoteTemplateBannerFileChange = async (
-    event: ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-
-    if (!file) {
-      return;
-    }
-
-    setNoteTemplateBannerUploading(true);
-    setNoteTemplateBannerStatus("Uploading banner...");
-
-    try {
-      const uploaded = ((await startAvatarUpload([file])) ?? [])[0] as
-        | { ufsUrl?: string | null; url?: string | null }
-        | undefined;
-      const uploadedUrl = uploaded?.ufsUrl ?? uploaded?.url ?? null;
-
-      if (!uploadedUrl) {
-        setNoteTemplateBannerStatus("Unable to upload banner.");
-        return;
-      }
-
-      setNoteTemplateBannerUrl(uploadedUrl);
-      setNoteTemplateBannerStatus("Banner uploaded.");
-    } catch (error) {
-      setNoteTemplateBannerStatus(getUploadErrorMessage(error));
-    } finally {
-      setNoteTemplateBannerUploading(false);
-    }
-  };
-
   const requestSudoForAction = (
     actionLabel: string,
     action: () => Promise<void>
@@ -895,147 +832,11 @@ export function SettingsPanel({
   }, [privacyMode]);
 
   useEffect(() => {
-    const workspaceId = activeWorkspaceId.trim();
-    noteTemplatesWorkspaceRef.current = workspaceId || null;
-    noteTemplatesHydratedRef.current = false;
-
-    if (!workspaceId) {
-      setNoteTemplates(getDefaultNoteTemplates());
-      noteTemplatesHydratedRef.current = true;
-      return;
-    }
-
-    try {
-      const raw = window.localStorage.getItem(
-        getNoteTemplateStorageKey(workspaceId)
-      );
-      if (!raw) {
-        setNoteTemplates(getDefaultNoteTemplates());
-        noteTemplatesHydratedRef.current = true;
-        return;
-      }
-
-      const parsed = JSON.parse(raw) as unknown;
-      if (!Array.isArray(parsed)) {
-        setNoteTemplates(getDefaultNoteTemplates());
-        return;
-      }
-
-      const templates = parsed
-        .map((entry) => {
-          if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-            return null;
-          }
-
-          const candidate = entry as Partial<NoteTemplate>;
-          const id =
-            typeof candidate.id === "string" ? candidate.id.trim() : "";
-          const name =
-            typeof candidate.name === "string" ? candidate.name.trim() : "";
-          const content =
-            typeof candidate.content === "string"
-              ? candidate.content
-              : DEFAULT_NOTE_TEMPLATE.content;
-          const bannerUrl =
-            typeof candidate.bannerUrl === "string" &&
-            candidate.bannerUrl.trim().length > 0
-              ? candidate.bannerUrl.trim()
-              : null;
-          if (!(id && name)) {
-            return null;
-          }
-
-          return { id, name, content, bannerUrl } satisfies NoteTemplate;
-        })
-        .filter((entry): entry is NoteTemplate => Boolean(entry));
-
-      setNoteTemplates(
-        templates.length > 0 ? templates : getDefaultNoteTemplates()
-      );
-      noteTemplatesHydratedRef.current = true;
-    } catch {
-      setNoteTemplates(getDefaultNoteTemplates());
-      noteTemplatesHydratedRef.current = true;
-    }
-  }, [activeWorkspaceId]);
-
-  useEffect(() => {
-    const workspaceId = noteTemplatesWorkspaceRef.current;
-    if (!(workspaceId && noteTemplatesHydratedRef.current)) {
-      return;
-    }
-
-    try {
-      window.localStorage.setItem(
-        getNoteTemplateStorageKey(workspaceId),
-        JSON.stringify(noteTemplates)
-      );
-    } catch {
-      return;
-    }
-  }, [noteTemplates]);
-
-  useEffect(() => {
     if (sudoDialogOpen && !sudoActive && !codeRequestedForSessionRef.current) {
       codeRequestedForSessionRef.current = true;
       void requestSudoCode();
     }
   }, [sudoActive, sudoDialogOpen]);
-
-  const openNoteTemplateEditor = (template?: NoteTemplate | null) => {
-    setNoteTemplateDraft(
-      template ?? {
-        ...DEFAULT_NOTE_TEMPLATE,
-        id: "",
-      }
-    );
-    setNoteTemplateBannerUrl(template?.bannerUrl ?? "");
-    setNoteTemplateBannerStatus(null);
-    setNoteTemplateEditorKey((current) => current + 1);
-    setNoteTemplateDialogOpen(true);
-  };
-
-  const saveNoteTemplateDraft = () => {
-    const trimmedName = noteTemplateDraft.name.trim();
-    const trimmedContent = noteTemplateDraft.content.trim();
-    if (!(trimmedName && trimmedContent)) {
-      return;
-    }
-
-    const id =
-      noteTemplateDraft.id.trim() ||
-      globalThis.crypto?.randomUUID?.() ||
-      `template-${Date.now()}`;
-    const nextTemplate: NoteTemplate = {
-      id,
-      name: trimmedName,
-      content: noteTemplateDraft.content,
-      bannerUrl: noteTemplateBannerUrl.trim() || null,
-    };
-
-    setNoteTemplates((current) => {
-      const existingIndex = current.findIndex((item) => item.id === id);
-      if (existingIndex < 0) {
-        return [...current, nextTemplate];
-      }
-      return current.map((item) => (item.id === id ? nextTemplate : item));
-    });
-    setNoteTemplateDialogOpen(false);
-  };
-
-  const deleteNoteTemplateDraft = () => {
-    const id = noteTemplateDraft.id.trim();
-    if (!id) {
-      setNoteTemplateDialogOpen(false);
-      return;
-    }
-
-    setNoteTemplates((current) => {
-      const next = current.filter((template) => template.id !== id);
-      return next.length > 0 ? next : getDefaultNoteTemplates();
-    });
-    setNoteTemplateDialogOpen(false);
-  };
 
   const setTab = (tab: TabKey) => {
     if (tabMode === "local") {
@@ -1067,22 +868,18 @@ export function SettingsPanel({
   const billingMeters = billingUsage
     ? [
         {
-          label: "Total credits",
-          remaining: billingUsage.combined.totalBalance,
-          total: billingUsage.combined.totalCapacity,
-          refillAt: billingUsage.chat.refillAt ?? billingUsage.upload.refillAt,
-        },
-        {
-          label: "Chat credits",
+          kind: "credits" as const,
+          label: "Chat tokens",
           remaining: billingUsage.chat.totalBalance,
           total: billingUsage.chat.totalCapacity,
           refillAt: billingUsage.chat.refillAt,
         },
         {
-          label: "Upload credits",
-          remaining: billingUsage.upload.totalBalance,
-          total: billingUsage.upload.totalCapacity,
-          refillAt: billingUsage.upload.refillAt,
+          kind: "storage" as const,
+          label: "Storage",
+          remaining: billingUsage.storage.remainingBytes,
+          total: billingUsage.storage.limitBytes,
+          used: billingUsage.storage.usedBytes,
         },
       ]
     : [];
@@ -1137,6 +934,14 @@ export function SettingsPanel({
     }
 
     window.location.href = payload.url;
+  };
+
+  const openCheckout = (plan: "core" | "scholar") => {
+    const params = new URLSearchParams({
+      billing: "monthly",
+      plan,
+    });
+    window.location.href = `/api/billing/checkout?${params.toString()}`;
   };
 
   const runDeleteAccount = async () => {
@@ -1553,14 +1358,21 @@ export function SettingsPanel({
                         {meter.label}
                       </p>
                       <p className="mt-1 font-semibold text-base">
-                        {formatCredits(meter.remaining)}
+                        {meter.kind === "storage"
+                          ? formatBytes(meter.used)
+                          : formatCredits(meter.remaining)}
                         <span className="font-normal text-muted-foreground text-xs">
                           {" "}
-                          / {formatCredits(meter.total)}
+                          /{" "}
+                          {meter.kind === "storage"
+                            ? formatBytes(meter.total)
+                            : formatCredits(meter.total)}
                         </span>
                       </p>
                       <p className="mt-1 text-muted-foreground text-xs">
-                        Refills {formatRefillAt(meter.refillAt)}
+                        {meter.kind === "storage"
+                          ? `${formatBytes(meter.remaining)} available`
+                          : `Refills ${formatRefillAt(meter.refillAt)}`}
                       </p>
                     </div>
                   ))}
@@ -1582,7 +1394,8 @@ export function SettingsPanel({
                   <PlanCard
                     current={billingUsage?.plan === "access"}
                     features={[
-                      "Small monthly limits for basic usage",
+                      "220 chat credits",
+                      "2 GB storage",
                       "Basic models only",
                     ]}
                     name="Free"
@@ -1592,24 +1405,26 @@ export function SettingsPanel({
                   <PlanCard
                     current={billingUsage?.plan === "core"}
                     features={[
-                      "Expanded monthly limits for more flexibility",
+                      "1,880 chat credits",
+                      "50 GB storage",
                       "Access to all models",
                       "File uploads and web search",
                     ]}
                     name="Core"
-                    onUpgrade={() => router.push("/pricing" as Route)}
+                    onUpgrade={() => openCheckout("core")}
                     popular
                     price="$8/month"
                   />
                   <PlanCard
                     current={billingUsage?.plan === "scholar"}
                     features={[
-                      "Over 10× Core limits for power users",
+                      "6,680 chat credits",
+                      "75 GB storage",
                       "Includes everything in Core",
                       "Priority support",
                     ]}
                     name="Scholar"
-                    onUpgrade={() => router.push("/pricing" as Route)}
+                    onUpgrade={() => openCheckout("scholar")}
                     price="$50/month"
                   />
                 </div>
@@ -2263,87 +2078,6 @@ export function SettingsPanel({
 
                   <div className="mt-6">
                     <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="font-medium text-sm">Note templates</p>
-                        <p className="text-muted-foreground text-xs">
-                          Templates are stored per workspace and can use note
-                          variables when you create a new note.
-                        </p>
-                      </div>
-                      <Button
-                        onClick={() => openNoteTemplateEditor(null)}
-                        size="sm"
-                        type="button"
-                        variant="outline"
-                      >
-                        New template
-                      </Button>
-                    </div>
-                    <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                      {noteTemplates.map((template) => (
-                        <div className="space-y-3 p-0" key={template.id}>
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="truncate font-medium text-sm">
-                                {template.name}
-                              </p>
-                              <p className="text-muted-foreground text-xs">
-                                {template.bannerUrl
-                                  ? "Template banner enabled"
-                                  : "Markdown template"}
-                              </p>
-                            </div>
-                            <Badge variant="secondary">Template</Badge>
-                          </div>
-                          {template.bannerUrl ? (
-                            <div
-                              className="mt-3 h-24 overflow-hidden rounded-xl border border-border/60 bg-muted/30"
-                              style={{
-                                backgroundImage: `url(${template.bannerUrl})`,
-                                backgroundPosition: "center",
-                                backgroundSize: "cover",
-                              }}
-                            />
-                          ) : null}
-                          <p className="mt-3 line-clamp-6 whitespace-pre-wrap text-muted-foreground text-xs">
-                            {template.content}
-                          </p>
-                          <div className="mt-4 flex items-center gap-2">
-                            <Button
-                              onClick={() => openNoteTemplateEditor(template)}
-                              size="sm"
-                              type="button"
-                              variant="outline"
-                            >
-                              Edit
-                            </Button>
-                            {template.id !== DEFAULT_NOTE_TEMPLATE.id ? (
-                              <Button
-                                onClick={() => {
-                                  setNoteTemplates((current) => {
-                                    const next = current.filter(
-                                      (item) => item.id !== template.id
-                                    );
-                                    return next.length > 0
-                                      ? next
-                                      : getDefaultNoteTemplates();
-                                  });
-                                }}
-                                size="sm"
-                                type="button"
-                                variant="ghost"
-                              >
-                                Delete
-                              </Button>
-                            ) : null}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="mt-6">
-                    <div className="flex items-center justify-between gap-3">
                       <p className="font-medium text-sm">Members</p>
                       <Badge
                         className="rounded-full px-3 py-1 text-xs"
@@ -2756,181 +2490,6 @@ export function SettingsPanel({
           ) : null}
         </div>
       </div>
-
-      <Dialog
-        onOpenChange={(open) => {
-          setNoteTemplateDialogOpen(open);
-          if (!open) {
-            setNoteTemplateDraft(DEFAULT_NOTE_TEMPLATE);
-            setNoteTemplateBannerUrl("");
-            setNoteTemplateBannerStatus(null);
-          }
-        }}
-        open={noteTemplateDialogOpen}
-      >
-        <DialogContent className="max-h-[92vh] sm:max-w-5xl">
-          <DialogHeader>
-            <DialogTitle>
-              {noteTemplateDraft.id ? "Edit template" : "New template"}
-            </DialogTitle>
-            <DialogDescription>
-              Templates are stored per workspace and can use note variables at
-              creation time.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid max-h-[calc(92vh-12rem)] gap-4 overflow-y-auto pr-1">
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
-              <div className="space-y-2">
-                <label className="font-medium text-sm" htmlFor="template-name">
-                  Name
-                </label>
-                <Input
-                  id="template-name"
-                  onChange={(event) =>
-                    setNoteTemplateDraft((current) => ({
-                      ...current,
-                      name: event.target.value,
-                    }))
-                  }
-                  placeholder="Study note"
-                  value={noteTemplateDraft.name}
-                />
-              </div>
-              <div className="space-y-2">
-                <label
-                  className="font-medium text-sm"
-                  htmlFor="template-banner"
-                >
-                  Banner
-                </label>
-                <input
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleNoteTemplateBannerFileChange}
-                  ref={noteTemplateBannerInputRef}
-                  type="file"
-                />
-                <Input
-                  id="template-banner"
-                  onChange={(event) =>
-                    setNoteTemplateBannerUrl(event.target.value)
-                  }
-                  placeholder="https://example.com/banner.png"
-                  value={noteTemplateBannerUrl}
-                />
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    disabled={noteTemplateBannerUploading}
-                    onClick={() => noteTemplateBannerInputRef.current?.click()}
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                  >
-                    <Camera className="mr-2 h-4 w-4" />
-                    {noteTemplateBannerUploading
-                      ? "Uploading..."
-                      : "Upload banner"}
-                  </Button>
-                  <Button
-                    disabled={!noteTemplateBannerUrl.trim()}
-                    onClick={() => setNoteTemplateBannerUrl("")}
-                    size="sm"
-                    type="button"
-                    variant="ghost"
-                  >
-                    Remove
-                  </Button>
-                </div>
-                {noteTemplateBannerStatus ? (
-                  <p className="text-muted-foreground text-xs">
-                    {noteTemplateBannerStatus}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-            {noteTemplateBannerUrl.trim() ? (
-              <div
-                className="h-32 overflow-hidden rounded-2xl border border-border/60 bg-muted/30"
-                style={{
-                  backgroundImage: `url(${noteTemplateBannerUrl.trim()})`,
-                  backgroundPosition: "center",
-                  backgroundSize: "cover",
-                }}
-              />
-            ) : null}
-            <div className="space-y-2">
-              <p className="font-medium text-sm">Template body</p>
-              <div
-                className="overflow-hidden rounded-2xl border border-border/60"
-                ref={noteTemplateEditorScrollRef}
-              >
-                <DeferredAvenireEditor
-                  createdBy={
-                    session?.user?.name?.trim() ||
-                    session?.user?.email?.trim() ||
-                    ""
-                  }
-                  defaultValue={noteTemplateDraft.content}
-                  key={noteTemplateEditorKey}
-                  noteTitle={noteTemplateDraft.name || "Untitled"}
-                  onChange={(markdown) =>
-                    setNoteTemplateDraft((current) => ({
-                      ...current,
-                      content: markdown,
-                    }))
-                  }
-                  onTemplateApplied={(template) => {
-                    setNoteTemplateBannerUrl(template.bannerUrl ?? "");
-                  }}
-                  scrollContainerRef={noteTemplateEditorScrollRef}
-                  wikiPages={[]}
-                  workspaceUuid={
-                    selectedWorkspace?.workspaceId ?? activeWorkspaceId
-                  }
-                />
-              </div>
-            </div>
-          </div>
-          <DialogFooter className="justify-between gap-2 sm:justify-between">
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={() => {
-                  setNoteTemplateDialogOpen(false);
-                }}
-                type="button"
-                variant="ghost"
-              >
-                Cancel
-              </Button>
-              {noteTemplateDraft.id ? (
-                <Button
-                  onClick={() => {
-                    deleteNoteTemplateDraft();
-                  }}
-                  type="button"
-                  variant="outline"
-                >
-                  Delete
-                </Button>
-              ) : null}
-            </div>
-            <Button
-              disabled={
-                !(
-                  noteTemplateDraft.name.trim() &&
-                  noteTemplateDraft.content.trim()
-                )
-              }
-              onClick={() => {
-                saveNoteTemplateDraft();
-              }}
-              type="button"
-            >
-              Save template
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog
         onOpenChange={(open) => {
