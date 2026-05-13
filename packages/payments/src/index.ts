@@ -68,6 +68,24 @@ export function mapProductIdToPlan(productId?: string | null): PaidPlan | null {
   return planByProduct.get(productId) ?? null;
 }
 
+export async function getActiveSubscriptionForExternalCustomer(
+  externalCustomerId: string,
+) {
+  const polar = getPolarClient();
+  const result = await polar.subscriptions.list({
+    active: true,
+    externalCustomerId,
+    limit: 10,
+    sorting: ["-started_at"],
+  });
+
+  for await (const page of result) {
+    return page.result.items[0] ?? null;
+  }
+
+  return null;
+}
+
 export async function validatePolarWebhook(
   payload: string,
   headers: Record<string, string>,
@@ -103,6 +121,17 @@ export async function createCustomerPortalLink(customerId: string, returnUrl?: s
   const polar = getPolarClient();
   return polar.customerSessions.create({
     customerId,
+    returnUrl: returnUrl ?? null,
+  });
+}
+
+export async function createCustomerPortalLinkForExternalCustomer(
+  externalCustomerId: string,
+  returnUrl?: string,
+) {
+  const polar = getPolarClient();
+  return polar.customerSessions.create({
+    externalCustomerId,
     returnUrl: returnUrl ?? null,
   });
 }

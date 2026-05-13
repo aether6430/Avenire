@@ -860,8 +860,6 @@ export function SettingsPanel({
   const mobileTabs = visibleTabs.filter(
     (tab) => !("mobileHidden" in tab && tab.mobileHidden)
   );
-  const hasPaidPlan =
-    billingUsage?.plan === "core" || billingUsage?.plan === "scholar";
   const currentPlanLabel = billingUsage
     ? (PLAN_LABELS[billingUsage.plan] ?? "Free Plan")
     : "Loading plan";
@@ -899,25 +897,7 @@ export function SettingsPanel({
     .toUpperCase();
 
   const handleManageBilling = async () => {
-    if (!hasPaidPlan) {
-      router.push("/pricing" as Route);
-      return;
-    }
-
     setBillingStatus("Opening billing portal...");
-    const portal = (authClient as any)?.customer?.portal as
-      | undefined
-      | (() => Promise<unknown>);
-
-    if (portal) {
-      try {
-        await portal();
-        return;
-      } catch (error) {
-        console.error("[settings] failed to open Polar portal", error);
-      }
-    }
-
     const response = await fetch("/api/billing/portal", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1469,7 +1449,7 @@ export function SettingsPanel({
                   type="button"
                   variant="outline"
                 >
-                  {hasPaidPlan ? "Manage Billing & Invoices" : "View Plans"}
+                  Manage Billing & Invoices
                 </Button>
                 {billingStatus ? (
                   <p className="mt-2 inline-flex items-center gap-2 text-muted-foreground text-xs">

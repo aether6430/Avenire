@@ -6,6 +6,7 @@ import {
 } from "@avenire/payments";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { syncUserBillingFromPolar } from "@/lib/billing";
 import { createApiLogger } from "@/lib/observability";
 
 const BILLING_PERIODS: BillingPeriod[] = ["monthly", "yearly"];
@@ -52,6 +53,18 @@ export async function GET(request: Request) {
   const returnUrl = `${baseUrl}/pricing`;
 
   try {
+    const activeSubscription = await syncUserBillingFromPolar(session.user.id);
+    if (activeSubscription) {
+      void apiLogger.requestSucceeded(302, {
+        plan,
+        billing,
+        reason: "active_subscription",
+      });
+      return NextResponse.redirect(
+        new URL("/settings?tab=billing&billing=active", request.url)
+      );
+    }
+
     const checkout = await createCheckoutSession({
       plan,
       billing,

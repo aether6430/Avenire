@@ -1,5 +1,8 @@
 import { auth } from "@avenire/auth/server";
-import { createCustomerPortalLink } from "@avenire/payments";
+import {
+  createCustomerPortalLink,
+  createCustomerPortalLinkForExternalCustomer,
+} from "@avenire/payments";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { getBillingCustomerByUserId } from "@/lib/database-billing";
@@ -20,15 +23,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const customer = await getBillingCustomerByUserId(session.user.id);
-  if (!customer?.polarCustomerId) {
-    void apiLogger.requestFailed(404, "No billing customer found");
-    return NextResponse.json(
-      { error: "No billing customer found" },
-      { status: 404 }
-    );
-  }
-
   const body = (await request.json().catch(() => ({}))) as {
     returnPath?: string;
   };
@@ -40,10 +34,13 @@ export async function POST(request: Request) {
   const returnUrl = `${baseUrl}${returnPath}`;
 
   try {
-    const sessionLink = await createCustomerPortalLink(
-      customer.polarCustomerId,
-      returnUrl
-    );
+    const customer = await getBillingCustomerByUserId(session.user.id);
+    const sessionLink = customer?.polarCustomerId
+      ? await createCustomerPortalLink(customer.polarCustomerId, returnUrl)
+      : await createCustomerPortalLinkForExternalCustomer(
+          session.user.id,
+          returnUrl
+        );
     const portalUrl = sessionLink.customerPortalUrl;
 
     if (!portalUrl) {

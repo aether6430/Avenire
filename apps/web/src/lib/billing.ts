@@ -1,4 +1,7 @@
-import { mapProductIdToPlan } from "@avenire/payments";
+import {
+  getActiveSubscriptionForExternalCustomer,
+  mapProductIdToPlan,
+} from "@avenire/payments";
 import {
   type BillingPlan,
   canStoreBytesForUser,
@@ -69,7 +72,69 @@ export async function canStoreBytes(userId: string, bytes: number) {
 }
 
 export async function getUserUsageOverview(userId: string) {
+  await syncUserBillingFromPolar(userId);
   return getUsageOverview(userId);
+}
+
+export async function syncUserBillingFromPolar(userId: string) {
+  if (!process.env.POLAR_ACCESS_TOKEN?.trim()) {
+    return null;
+  }
+
+  let activeSubscription: Awaited<
+    ReturnType<typeof getActiveSubscriptionForExternalCustomer>
+  >;
+
+  try {
+    activeSubscription = await getActiveSubscriptionForExternalCustomer(userId);
+  } catch (error) {
+    console.warn("[billing] unable to sync Polar subscription state", {
+      userId,
+      error,
+    });
+    return null;
+  }
+
+  if (!activeSubscription) {
+    const existing = await getBillingSubscriptionByUserId(userId);
+    if (existing && existing.status !== "inactive") {
+      await upsertBillingSubscription({
+        userId,
+        plan: "access",
+        status: "inactive",
+        polarSubscriptionId: existing.polarSubscriptionId,
+        polarProductId: existing.polarProductId,
+        currentPeriodStart: existing.currentPeriodStart,
+        currentPeriodEnd: existing.currentPeriodEnd,
+      });
+    }
+    return null;
+  }
+
+  const plan =
+    mapProductIdToPlan(activeSubscription.productId) ??
+    toPaidPlanOrNull(String(activeSubscription.metadata?.plan ?? "")) ??
+    "core";
+
+  await upsertBillingCustomer({
+    userId,
+    polarCustomerId: activeSubscription.customerId,
+    email:
+      typeof activeSubscription.customer?.email === "string"
+        ? activeSubscription.customer.email
+        : null,
+  });
+  await upsertBillingSubscription({
+    userId,
+    plan,
+    status: activeSubscription.status,
+    polarSubscriptionId: activeSubscription.id,
+    polarProductId: activeSubscription.productId,
+    currentPeriodStart: activeSubscription.currentPeriodStart,
+    currentPeriodEnd: activeSubscription.currentPeriodEnd,
+  });
+
+  return activeSubscription;
 }
 
 export async function applyPolarWebhookEvent(event: {
