@@ -1,7 +1,7 @@
 import { auth } from "@avenire/auth/server";
-import { ensurePolarCustomer } from "@avenire/payments";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { ensureUserBillingRecords } from "@/lib/billing";
 import { createApiLogger } from "@/lib/observability";
 
 export async function POST(request: Request) {
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const customer = await ensurePolarCustomer({
+    const { activeSubscription, customer } = await ensureUserBillingRecords({
       userId: session.user.id,
       email: session.user.email,
       name: session.user.name,
@@ -32,6 +32,13 @@ export async function POST(request: Request) {
         externalId: customer.externalId ?? null,
         id: customer.id,
       },
+      subscription: activeSubscription
+        ? {
+            id: activeSubscription.id,
+            productId: activeSubscription.productId,
+            status: activeSubscription.status,
+          }
+        : null,
     });
   } catch (error) {
     console.error("[api/billing/polar] failed to ensure Polar customer", {

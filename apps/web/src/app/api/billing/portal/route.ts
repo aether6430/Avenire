@@ -2,10 +2,10 @@ import { auth } from "@avenire/auth/server";
 import {
   createCustomerPortalLink,
   createCustomerPortalLinkForExternalCustomer,
-  ensurePolarCustomer,
 } from "@avenire/payments";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { ensureUserBillingRecords } from "@/lib/billing";
 import { getBillingCustomerByUserId } from "@/lib/database-billing";
 import { createApiLogger } from "@/lib/observability";
 
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
   const returnUrl = `${baseUrl}${returnPath}`;
 
   try {
-    await ensurePolarCustomer({
+    await ensureUserBillingRecords({
       userId: session.user.id,
       email: session.user.email,
       name: session.user.name,

@@ -1004,20 +1004,11 @@ export function SettingsPanel({
   };
 
   const openCheckout = (plan: "core" | "scholar") => {
-    void ensurePolarCustomer()
-      .then(() =>
-        authClient.checkout({
-          slug: `${plan}-monthly`,
-        })
-      )
-      .catch((error: unknown) => {
-        console.error("[settings] failed to start Better Auth checkout", error);
-        const params = new URLSearchParams({
-          billing: "monthly",
-          plan,
-        });
-        window.location.href = `/api/billing/checkout?${params.toString()}`;
-      });
+    const params = new URLSearchParams({
+      billing: "monthly",
+      plan,
+    });
+    window.location.href = `/api/billing/checkout?${params.toString()}`;
   };
 
   const runDeleteAccount = async () => {

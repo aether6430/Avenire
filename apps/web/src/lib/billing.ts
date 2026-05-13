@@ -1,4 +1,5 @@
 import {
+  ensurePolarCustomer,
   getActiveSubscriptionForExternalCustomer,
   mapProductIdToPlan,
 } from "@avenire/payments";
@@ -73,6 +74,35 @@ export async function canStoreBytes(userId: string, bytes: number) {
 
 export async function getUserUsageOverview(userId: string) {
   return getUsageOverview(userId);
+}
+
+export async function ensureUserBillingRecords(input: {
+  userId: string;
+  email: string;
+  name?: string | null;
+}) {
+  const customer = await ensurePolarCustomer(input);
+
+  await upsertBillingCustomer({
+    userId: input.userId,
+    polarCustomerId: customer.id,
+    email: customer.email ?? input.email,
+  });
+
+  const activeSubscription = await syncUserBillingFromPolar(input.userId);
+  if (!activeSubscription) {
+    await upsertBillingSubscription({
+      userId: input.userId,
+      plan: "access",
+      status: "inactive",
+      polarSubscriptionId: null,
+      polarProductId: null,
+      currentPeriodStart: null,
+      currentPeriodEnd: null,
+    });
+  }
+
+  return { activeSubscription, customer };
 }
 
 export async function syncUserBillingFromPolar(userId: string) {

@@ -2,12 +2,11 @@ import { auth } from "@avenire/auth/server";
 import {
   type BillingPeriod,
   createCheckoutSession,
-  ensurePolarCustomer,
   type PaidPlan,
 } from "@avenire/payments";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-import { syncUserBillingFromPolar } from "@/lib/billing";
+import { ensureUserBillingRecords } from "@/lib/billing";
 import { createApiLogger } from "@/lib/observability";
 
 const BILLING_PERIODS: BillingPeriod[] = ["monthly", "yearly"];
@@ -46,12 +45,14 @@ export async function GET(request: Request) {
 
   if (!(isPaidPlan(plan) && isBillingPeriod(billing))) {
     void apiLogger.requestFailed(400, "Invalid plan or billing period");
-    return NextResponse.redirect(new URL("/pricing", request.url));
+    return NextResponse.redirect(
+      new URL("/settings?tab=billing&error=invalid_checkout", request.url)
+    );
   }
 
   const baseUrl = appBaseUrl(request);
   const successUrl = `${baseUrl}/settings?tab=billing&checkout=success`;
-  const returnUrl = `${baseUrl}/pricing`;
+  const returnUrl = `${baseUrl}/settings?tab=billing`;
 
   try {
     console.info("[api/billing/checkout] starting checkout", {
@@ -68,12 +69,11 @@ export async function GET(request: Request) {
         ]?.trim()
       ),
     });
-    await ensurePolarCustomer({
+    const { activeSubscription } = await ensureUserBillingRecords({
       userId: session.user.id,
       email: session.user.email,
       name: session.user.name,
     });
-    const activeSubscription = await syncUserBillingFromPolar(session.user.id);
     if (activeSubscription) {
       console.info("[api/billing/checkout] active subscription found", {
         userId: session.user.id,
@@ -122,7 +122,7 @@ export async function GET(request: Request) {
     });
     void apiLogger.requestFailed(500, error, { plan, billing });
     return NextResponse.redirect(
-      new URL("/pricing?error=checkout", request.url)
+      new URL("/settings?tab=billing&error=checkout", request.url)
     );
   }
 }
