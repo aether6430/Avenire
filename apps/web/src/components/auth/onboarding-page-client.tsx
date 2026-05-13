@@ -209,17 +209,25 @@ export function OnboardingPageClient({
           </div>
         </div>
 
-        <div className="relative mt-8 min-h-[22rem] max-w-md sm:min-h-[21rem]">
+        <motion.div
+          className="mt-8 max-w-md"
+          layout
+          transition={{
+            layout: { duration: 0.36, ease: [0.22, 1, 0.36, 1] },
+          }}
+        >
           <AnimatePresence initial={false} mode="wait">
             <motion.div
               animate={{ filter: "blur(0px)", opacity: 1, y: 0 }}
-              className="absolute inset-0"
+              className="min-h-[22rem] sm:min-h-[21rem]"
               exit={{ filter: "blur(8px)", opacity: 0, y: -10 }}
               initial={{ filter: "blur(10px)", opacity: 0, y: 12 }}
               key={step}
+              layout
               transition={{
                 duration: 0.28,
                 ease: [0.22, 1, 0.36, 1],
+                layout: { duration: 0.36, ease: [0.22, 1, 0.36, 1] },
               }}
             >
               <div className="font-mono text-[11px] text-muted-foreground uppercase tracking-[0.3em]">
@@ -244,7 +252,13 @@ export function OnboardingPageClient({
                 ))}
               </div>
               {isPetStep ? (
-                <div className="mt-6 rounded-2xl border border-border/70 bg-background/70 p-4 shadow-sm">
+                <motion.div
+                  className="mt-6 rounded-2xl border border-border/70 bg-background/70 p-4 shadow-sm"
+                  layout
+                  transition={{
+                    layout: { duration: 0.36, ease: [0.22, 1, 0.36, 1] },
+                  }}
+                >
                   <PetPreferencesFields
                     accessory={petAccessory}
                     accessoryDescription="Pick an accessory for Auri. The pet stays hidden until the workspace opens."
@@ -255,43 +269,53 @@ export function OnboardingPageClient({
                     onAccessoryChange={setPetAccessory}
                     onNameChange={setPetName}
                   />
-                </div>
+                </motion.div>
               ) : null}
             </motion.div>
           </AnimatePresence>
-        </div>
+        </motion.div>
 
-        <div className="mt-8 flex items-center justify-between">
-          <Button
-            disabled={step === 0 || isFinishing}
-            onClick={() => setStep((value) => Math.max(0, value - 1))}
-            type="button"
-            variant="ghost"
-          >
-            Back
-          </Button>
+        <motion.div
+          className="mt-8 flex items-center justify-between"
+          layout="position"
+          transition={{
+            layout: { duration: 0.36, ease: [0.22, 1, 0.36, 1] },
+          }}
+        >
+          <motion.div layout="position">
+            <Button
+              disabled={step === 0 || isFinishing}
+              onClick={() => setStep((value) => Math.max(0, value - 1))}
+              type="button"
+              variant="ghost"
+            >
+              Back
+            </Button>
+          </motion.div>
 
-          {step < STEPS.length - 1 ? (
-            <Button
-              onClick={() =>
-                setStep((value) => Math.min(STEPS.length - 1, value + 1))
-              }
-              type="button"
-            >
-              Continue
-            </Button>
-          ) : (
-            <Button
-              disabled={isFinishing}
-              onClick={() => {
-                void finishOnboarding();
-              }}
-              type="button"
-            >
-              {isFinishing ? "Entering workspace..." : "Enter workspace"}
-            </Button>
-          )}
-        </div>
+          <motion.div layout="position">
+            {step < STEPS.length - 1 ? (
+              <Button
+                onClick={() =>
+                  setStep((value) => Math.min(STEPS.length - 1, value + 1))
+                }
+                type="button"
+              >
+                Continue
+              </Button>
+            ) : (
+              <Button
+                disabled={isFinishing}
+                onClick={() => {
+                  void finishOnboarding();
+                }}
+                type="button"
+              >
+                {isFinishing ? "Entering workspace..." : "Enter workspace"}
+              </Button>
+            )}
+          </motion.div>
+        </motion.div>
       </div>
     </AuthShell>
   );
