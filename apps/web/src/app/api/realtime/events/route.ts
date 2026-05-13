@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const encoder = new TextEncoder();
+const allowedEventTypes = new Set(["chat.invalidate", "files.invalidate"]);
 
 function toSseChunk(input: {
   event: string;
@@ -44,6 +45,10 @@ export async function GET(request: Request) {
     return new Response("Missing workspaceUuid", { status: 400 });
   }
 
+  if (eventTypeFilter && !allowedEventTypes.has(eventTypeFilter)) {
+    return new Response("Unsupported eventType", { status: 400 });
+  }
+
   const canAccess = await ensureWorkspaceAccessForUser(user.id, workspaceUuid);
   if (!canAccess) {
     return new Response("Forbidden", { status: 403 });
@@ -70,6 +75,9 @@ export async function GET(request: Request) {
         requestId: string | null;
       }) => {
         cursor = event.streamId;
+        if (!allowedEventTypes.has(event.type)) {
+          return;
+        }
         if (eventTypeFilter && event.type !== eventTypeFilter) {
           return;
         }

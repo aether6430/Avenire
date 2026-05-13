@@ -14,11 +14,31 @@ if (!connectionString) {
   throw new Error("DATABASE_URL is not set");
 }
 
+function normalizePostgresConnectionString(value: string) {
+  try {
+    const url = new URL(value);
+    const sslMode = url.searchParams.get("sslmode");
+    const useLibpqCompat = url.searchParams.get("uselibpqcompat");
+
+    if (
+      !useLibpqCompat &&
+      (sslMode === "prefer" || sslMode === "require" || sslMode === "verify-ca")
+    ) {
+      url.searchParams.set("sslmode", "verify-full");
+      return url.toString();
+    }
+  } catch {
+    return value;
+  }
+
+  return value;
+}
+
 const isVercel = Boolean(process.env.VERCEL);
 const poolMax = Number.parseInt(process.env.PG_POOL_MAX ?? "", 10);
 
 export const pool = new Pool({
-  connectionString,
+  connectionString: normalizePostgresConnectionString(connectionString),
   allowExitOnIdle: true,
   connectionTimeoutMillis: 10_000,
   idleTimeoutMillis: 10_000,

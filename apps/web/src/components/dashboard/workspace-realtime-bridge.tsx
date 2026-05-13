@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
-type WorkspaceInvalidationKind = "chat" | "files" | "flashcards";
+type WorkspaceInvalidationKind = "chat" | "files";
 
 interface WorkspaceInvalidationPayload {
   at?: number | null;
@@ -37,7 +37,12 @@ export function WorkspaceRealtimeBridge({
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!workspaceUuid) {
+    const realtimeRoute =
+      pathname === "/workspace" ||
+      pathname.startsWith("/workspace/chats") ||
+      pathname.startsWith("/workspace/files");
+
+    if (!(workspaceUuid && realtimeRoute)) {
       return;
     }
 
@@ -93,9 +98,6 @@ export function WorkspaceRealtimeBridge({
             router.refresh();
           }
 
-          // Flashcard screens already handle this via client-side invalidation.
-          // Avoid forcing an RSC refresh on every review mutation, which causes
-          // duplicate deck fetches and a full remount of the study UI.
         };
 
         eventSource.addEventListener("files.invalidate", (event) => {
@@ -112,9 +114,6 @@ export function WorkspaceRealtimeBridge({
         });
         eventSource.addEventListener("chat.invalidate", () =>
           handleInvalidate("chat")
-        );
-        eventSource.addEventListener("flashcards.invalidate", () =>
-          handleInvalidate("flashcards")
         );
       } catch {
         scheduleReconnect();
