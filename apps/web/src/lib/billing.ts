@@ -77,6 +77,10 @@ export async function getUserUsageOverview(userId: string) {
 
 export async function syncUserBillingFromPolar(userId: string) {
   if (!process.env.POLAR_ACCESS_TOKEN?.trim()) {
+    console.warn("[billing] skipped Polar subscription sync: missing token", {
+      userId,
+      polarServer: process.env.POLAR_SERVER ?? null,
+    });
     return null;
   }
 
@@ -85,16 +89,22 @@ export async function syncUserBillingFromPolar(userId: string) {
   >;
 
   try {
+    console.info("[billing] syncing Polar subscription state", {
+      userId,
+      polarServer: process.env.POLAR_SERVER ?? null,
+    });
     activeSubscription = await getActiveSubscriptionForExternalCustomer(userId);
   } catch (error) {
     console.warn("[billing] unable to sync Polar subscription state", {
       userId,
+      polarServer: process.env.POLAR_SERVER ?? null,
       error,
     });
     return null;
   }
 
   if (!activeSubscription) {
+    console.info("[billing] no active Polar subscription found", { userId });
     const existing = await getBillingSubscriptionByUserId(userId);
     if (existing && existing.status !== "inactive") {
       await upsertBillingSubscription({
@@ -114,6 +124,14 @@ export async function syncUserBillingFromPolar(userId: string) {
     mapProductIdToPlan(activeSubscription.productId) ??
     toPaidPlanOrNull(String(activeSubscription.metadata?.plan ?? "")) ??
     "core";
+
+  console.info("[billing] active Polar subscription found", {
+    userId,
+    plan,
+    subscriptionId: activeSubscription.id,
+    productId: activeSubscription.productId,
+    status: activeSubscription.status,
+  });
 
   await upsertBillingCustomer({
     userId,

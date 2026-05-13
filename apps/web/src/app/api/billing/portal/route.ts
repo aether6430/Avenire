@@ -34,7 +34,17 @@ export async function POST(request: Request) {
   const returnUrl = `${baseUrl}${returnPath}`;
 
   try {
+    console.info("[api/billing/portal] creating portal session", {
+      userId: session.user.id,
+      returnUrl,
+      polarServer: process.env.POLAR_SERVER ?? null,
+      hasAccessToken: Boolean(process.env.POLAR_ACCESS_TOKEN?.trim()),
+    });
     const customer = await getBillingCustomerByUserId(session.user.id);
+    console.info("[api/billing/portal] billing customer lookup complete", {
+      userId: session.user.id,
+      hasStoredPolarCustomerId: Boolean(customer?.polarCustomerId),
+    });
     const sessionLink = customer?.polarCustomerId
       ? await createCustomerPortalLink(customer.polarCustomerId, returnUrl)
       : await createCustomerPortalLinkForExternalCustomer(
@@ -53,8 +63,20 @@ export async function POST(request: Request) {
 
     void apiLogger.featureUsed("payments.portal.opened");
     void apiLogger.requestSucceeded(200);
+    console.info("[api/billing/portal] portal session created", {
+      userId: session.user.id,
+      usedStoredPolarCustomerId: Boolean(customer?.polarCustomerId),
+      hasPortalUrl: Boolean(portalUrl),
+    });
     return NextResponse.json({ url: portalUrl });
   } catch (error) {
+    console.error("[api/billing/portal] failed to create portal session", {
+      userId: session.user.id,
+      returnUrl,
+      polarServer: process.env.POLAR_SERVER ?? null,
+      hasAccessToken: Boolean(process.env.POLAR_ACCESS_TOKEN?.trim()),
+      error,
+    });
     void apiLogger.requestFailed(500, error);
     return NextResponse.json(
       { error: "Unable to create portal session" },

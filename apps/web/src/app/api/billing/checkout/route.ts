@@ -53,8 +53,28 @@ export async function GET(request: Request) {
   const returnUrl = `${baseUrl}/pricing`;
 
   try {
+    console.info("[api/billing/checkout] starting checkout", {
+      userId: session.user.id,
+      email: session.user.email,
+      plan,
+      billing,
+      polarServer: process.env.POLAR_SERVER ?? null,
+      hasAccessToken: Boolean(process.env.POLAR_ACCESS_TOKEN?.trim()),
+      productEnvKey: `POLAR_PRODUCT_ID_${plan.toUpperCase()}_${billing.toUpperCase()}`,
+      hasProductId: Boolean(
+        process.env[
+          `POLAR_PRODUCT_ID_${plan.toUpperCase()}_${billing.toUpperCase()}`
+        ]?.trim()
+      ),
+    });
     const activeSubscription = await syncUserBillingFromPolar(session.user.id);
     if (activeSubscription) {
+      console.info("[api/billing/checkout] active subscription found", {
+        userId: session.user.id,
+        subscriptionId: activeSubscription.id,
+        productId: activeSubscription.productId,
+        status: activeSubscription.status,
+      });
       void apiLogger.requestSucceeded(302, {
         plan,
         billing,
@@ -74,6 +94,13 @@ export async function GET(request: Request) {
       returnUrl,
     });
 
+    console.info("[api/billing/checkout] checkout session created", {
+      userId: session.user.id,
+      plan,
+      billing,
+      checkoutId: "id" in checkout ? checkout.id : null,
+      hasUrl: Boolean(checkout.url),
+    });
     void apiLogger.featureUsed("payments.checkout.started", { plan, billing });
     void apiLogger.meter("meter.billing.checkout.started", { plan, billing });
     void apiLogger.requestSucceeded(302, { plan, billing });
@@ -83,6 +110,8 @@ export async function GET(request: Request) {
       plan,
       billing,
       userId: session.user.id,
+      polarServer: process.env.POLAR_SERVER ?? null,
+      hasAccessToken: Boolean(process.env.POLAR_ACCESS_TOKEN?.trim()),
       error,
     });
     void apiLogger.requestFailed(500, error, { plan, billing });

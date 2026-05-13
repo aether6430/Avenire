@@ -3,6 +3,22 @@ import { WebhookVerificationError, validateEvent } from "@polar-sh/sdk/webhooks"
 
 type PolarServer = "sandbox" | "production";
 
+function describePolarError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return { value: error };
+  }
+
+  const record = error as Record<string, unknown>;
+  return {
+    name: record.name,
+    message: record.message,
+    statusCode: record.statusCode,
+    status: record.status,
+    code: record.code,
+    body: record.body,
+  };
+}
+
 function getPolarServer(): PolarServer {
   const configured = process.env.POLAR_SERVER;
   if (configured === "sandbox" || configured === "production") {
@@ -72,15 +88,24 @@ export async function getActiveSubscriptionForExternalCustomer(
   externalCustomerId: string,
 ) {
   const polar = getPolarClient();
-  const result = await polar.subscriptions.list({
-    active: true,
-    externalCustomerId,
-    limit: 10,
-    sorting: ["-started_at"],
-  });
+  try {
+    const result = await polar.subscriptions.list({
+      active: true,
+      externalCustomerId,
+      limit: 10,
+      sorting: ["-started_at"],
+    });
 
-  for await (const page of result) {
-    return page.result.items[0] ?? null;
+    for await (const page of result) {
+      return page.result.items[0] ?? null;
+    }
+  } catch (error) {
+    console.error("[payments] failed to list Polar subscriptions", {
+      externalCustomerId,
+      polarServer: getPolarServer(),
+      error: describePolarError(error),
+    });
+    throw error;
   }
 
   return null;
@@ -119,10 +144,20 @@ export async function handlePolarWebhook(
 
 export async function createCustomerPortalLink(customerId: string, returnUrl?: string) {
   const polar = getPolarClient();
-  return polar.customerSessions.create({
-    customerId,
-    returnUrl: returnUrl ?? null,
-  });
+  try {
+    return await polar.customerSessions.create({
+      customerId,
+      returnUrl: returnUrl ?? null,
+    });
+  } catch (error) {
+    console.error("[payments] failed to create Polar customer portal link", {
+      customerId,
+      hasReturnUrl: Boolean(returnUrl),
+      polarServer: getPolarServer(),
+      error: describePolarError(error),
+    });
+    throw error;
+  }
 }
 
 export async function createCustomerPortalLinkForExternalCustomer(
@@ -130,10 +165,20 @@ export async function createCustomerPortalLinkForExternalCustomer(
   returnUrl?: string,
 ) {
   const polar = getPolarClient();
-  return polar.customerSessions.create({
-    externalCustomerId,
-    returnUrl: returnUrl ?? null,
-  });
+  try {
+    return await polar.customerSessions.create({
+      externalCustomerId,
+      returnUrl: returnUrl ?? null,
+    });
+  } catch (error) {
+    console.error("[payments] failed to create Polar external customer portal link", {
+      externalCustomerId,
+      hasReturnUrl: Boolean(returnUrl),
+      polarServer: getPolarServer(),
+      error: describePolarError(error),
+    });
+    throw error;
+  }
 }
 
 export async function createCheckoutSession(input: {
@@ -164,6 +209,14 @@ export async function createCheckoutSession(input: {
       returnUrl: input.returnUrl,
     });
   } catch (error) {
+    console.error("[payments] failed to create Polar checkout", {
+      plan: input.plan,
+      billing: input.billing,
+      userId: input.userId,
+      productId,
+      polarServer: getPolarServer(),
+      error: describePolarError(error),
+    });
     if (
       error &&
       typeof error === "object" &&
