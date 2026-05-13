@@ -1,10 +1,12 @@
 import { mapProductIdToPlan } from "@avenire/payments";
 import {
   type BillingPlan,
+  canStoreBytesForUser,
   consumeUsageUnits,
   findUserIdByPolarCustomerId,
   getBillingSubscriptionByUserId,
   getUsageOverview,
+  restoreUsageUnits,
   upsertBillingCustomer,
   upsertBillingSubscription,
 } from "@/lib/database-billing";
@@ -50,8 +52,20 @@ export async function consumeChatUnits(userId: string, units = 1) {
   return consumeUsageUnits({ userId, meter: "chat", units });
 }
 
-export async function consumeUploadUnits(userId: string, units = 1) {
-  return consumeUsageUnits({ userId, meter: "upload", units });
+export async function restoreChatUnits(
+  userId: string,
+  usage: { consumedFromFourHour?: number; consumedFromOverage?: number }
+) {
+  return restoreUsageUnits({
+    userId,
+    meter: "chat",
+    fourHourUnits: usage.consumedFromFourHour,
+    overageUnits: usage.consumedFromOverage,
+  });
+}
+
+export async function canStoreBytes(userId: string, bytes: number) {
+  return canStoreBytesForUser(userId, bytes);
 }
 
 export async function getUserUsageOverview(userId: string) {

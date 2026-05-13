@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getUserUsageOverview } from "@/lib/billing";
+import { canStoreBytes } from "@/lib/billing";
 import { userCanEditFolder } from "@/lib/file-data";
 import { createApiLogger } from "@/lib/observability";
 import { normalizeSha256 } from "@/lib/upload-registration";
@@ -71,14 +71,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Read-only folder" }, { status: 403 });
   }
 
-  const usage = await getUserUsageOverview(user.id);
-  if (usage.upload.totalBalance < 1) {
-    apiLogger.requestFailed(429, "Upload usage limit reached", {
+  const storage = await canStoreBytes(user.id, parsed.data.sizeBytes);
+  if (!storage.ok) {
+    apiLogger.requestFailed(429, "Storage limit reached", {
       workspaceUuid: parsed.data.workspaceUuid,
       folderId: parsed.data.folderId,
+      limitBytes: storage.limitBytes,
+      usedBytes: storage.usedBytes,
     });
     return NextResponse.json(
-      { error: "Upload usage limit reached" },
+      {
+        error: "Storage limit reached",
+        limitBytes: storage.limitBytes,
+        usedBytes: storage.usedBytes,
+      },
       { status: 429 }
     );
   }

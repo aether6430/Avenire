@@ -1,10 +1,15 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "./client";
-import { billingCustomer, billingSubscription, usageMeter } from "./schema";
+import {
+  billingCustomer,
+  billingSubscription,
+  fileAsset,
+  usageMeter,
+} from "./schema";
 
 export type BillingPlan = "access" | "core" | "scholar";
-export type UsageMeterType = "chat" | "upload";
+export type UsageMeterType = "chat";
 
 interface MeterEntitlement {
   fourHourCapacity: number;
@@ -13,23 +18,24 @@ interface MeterEntitlement {
 
 interface PlanEntitlements {
   chat: MeterEntitlement;
-  upload: MeterEntitlement;
+  storageBytes: number;
 }
 
 const FOUR_HOUR_MS = 4 * 60 * 60 * 1000;
+const GIB = 1024 * 1024 * 1024;
 
 const PLAN_ENTITLEMENTS: Record<BillingPlan, PlanEntitlements> = {
   access: {
     chat: { fourHourCapacity: 20, overageCapacity: 200 },
-    upload: { fourHourCapacity: 20, overageCapacity: 200 },
+    storageBytes: 2 * GIB,
   },
   core: {
     chat: { fourHourCapacity: 80, overageCapacity: 1800 },
-    upload: { fourHourCapacity: 50, overageCapacity: 900 },
+    storageBytes: 50 * GIB,
   },
   scholar: {
     chat: { fourHourCapacity: 180, overageCapacity: 6500 },
-    upload: { fourHourCapacity: 120, overageCapacity: 2200 },
+    storageBytes: 75 * GIB,
   },
 };
 
@@ -364,9 +370,124 @@ export async function consumeUsageUnits(input: {
   }
 }
 
+export async function restoreUsageUnits(input: {
+  userId: string;
+  meter: UsageMeterType;
+  fourHourUnits?: number;
+  overageUnits?: number;
+}) {
+  const fourHourUnits = Math.max(0, Math.floor(input.fourHourUnits ?? 0));
+  const overageUnits = Math.max(0, Math.floor(input.overageUnits ?? 0));
+  if (fourHourUnits + overageUnits === 0) {
+    return;
+  }
+
+  const now = new Date();
+
+  try {
+    await db.transaction(async (tx) => {
+      const plan = await getUserPlan(input.userId);
+      const entitlement = PLAN_ENTITLEMENTS[plan][input.meter];
+
+      const [existing] = await tx
+        .select()
+        .from(usageMeter)
+        .where(
+          and(
+            eq(usageMeter.userId, input.userId),
+            eq(usageMeter.meter, input.meter)
+          )
+        )
+        .limit(1);
+
+      if (!existing) {
+        return;
+      }
+
+      const baselineFourHourBalance = recomputeRemainingFromConsumed({
+        previousBalance: existing.fourHourBalance,
+        previousCapacity: existing.fourHourCapacity,
+        nextCapacity: entitlement.fourHourCapacity,
+      });
+      const reset = advanceFourHourWindow({
+        fourHourBalance: baselineFourHourBalance,
+        fourHourCapacity: entitlement.fourHourCapacity,
+        fourHourRefillAt: existing.fourHourRefillAt,
+        now,
+      });
+      const overageBalance = recomputeRemainingFromConsumed({
+        previousBalance: existing.overageBalance,
+        previousCapacity: existing.overageCapacity,
+        nextCapacity: entitlement.overageCapacity,
+      });
+
+      await tx
+        .update(usageMeter)
+        .set({
+          fourHourCapacity: entitlement.fourHourCapacity,
+          fourHourBalance: clampToCapacity(
+            reset.fourHourBalance + fourHourUnits,
+            entitlement.fourHourCapacity
+          ),
+          fourHourRefillAt: reset.fourHourRefillAt,
+          overageCapacity: entitlement.overageCapacity,
+          overageBalance: clampToCapacity(
+            overageBalance + overageUnits,
+            entitlement.overageCapacity
+          ),
+          updatedAt: now,
+        })
+        .where(eq(usageMeter.id, existing.id));
+    });
+  } catch (error) {
+    if (!isMissingBillingTableError(error)) {
+      throw error;
+    }
+  }
+}
+
+async function getUserStorageBytes(userId: string) {
+  const [row] = await db
+    .select({
+      bytes: sql<number>`coalesce(sum(${fileAsset.sizeBytes}), 0)`,
+    })
+    .from(fileAsset)
+    .where(eq(fileAsset.uploadedBy, userId));
+
+  const bytes = Number(row?.bytes ?? 0);
+  return Number.isFinite(bytes) ? Math.max(0, bytes) : 0;
+}
+
+export async function getStorageUsageForUser(userId: string) {
+  const plan = await getUserPlan(userId);
+  const usedBytes = await getUserStorageBytes(userId);
+  const limitBytes = PLAN_ENTITLEMENTS[plan].storageBytes;
+
+  return {
+    limitBytes,
+    remainingBytes: Math.max(0, limitBytes - usedBytes),
+    usedBytes,
+  };
+}
+
+export async function canStoreBytesForUser(userId: string, bytes: number) {
+  const storage = await getStorageUsageForUser(userId);
+  const requiredBytes = Math.max(0, Math.floor(bytes));
+
+  return {
+    ok: storage.usedBytes + requiredBytes <= storage.limitBytes,
+    ...storage,
+  };
+}
+
 export async function getUsageOverview(userId: string) {
   let activePlan: BillingPlan = "access";
   let activeEntitlements = PLAN_ENTITLEMENTS[activePlan];
+  let storage = {
+    usedBytes: 0,
+    limitBytes: activeEntitlements.storageBytes,
+    remainingBytes: activeEntitlements.storageBytes,
+  };
 
   let rows: (typeof usageMeter.$inferSelect)[];
 
@@ -374,19 +495,14 @@ export async function getUsageOverview(userId: string) {
     activePlan = await getUserPlan(userId);
     activeEntitlements = PLAN_ENTITLEMENTS[activePlan];
 
-    await Promise.all([
-      getOrCreateMeter(userId, "chat"),
-      getOrCreateMeter(userId, "upload"),
-    ]);
+    await getOrCreateMeter(userId, "chat");
+    storage = await getStorageUsageForUser(userId);
 
     rows = await db
       .select()
       .from(usageMeter)
       .where(
-        and(
-          eq(usageMeter.userId, userId),
-          inArray(usageMeter.meter, ["chat", "upload"])
-        )
+        and(eq(usageMeter.userId, userId), eq(usageMeter.meter, "chat"))
       );
   } catch (error) {
     if (!isMissingBillingTableError(error)) {
@@ -398,10 +514,7 @@ export async function getUsageOverview(userId: string) {
 
   const now = new Date();
   const normalized = rows.map((row) => {
-    const entitlement =
-      row.meter === "chat"
-        ? activeEntitlements.chat
-        : activeEntitlements.upload;
+    const entitlement = activeEntitlements.chat;
     const fourHourCapacity = entitlement.fourHourCapacity;
     const overageCapacity = entitlement.overageCapacity;
     const baselineFourHourBalance = recomputeRemainingFromConsumed({
@@ -461,7 +574,6 @@ export async function getUsageOverview(userId: string) {
 
   const byMeter = new Map(normalized.map((row) => [row.meter, row]));
   const chat = byMeter.get("chat");
-  const upload = byMeter.get("upload");
 
   const toMeterSummary = (row: (typeof normalized)[number] | undefined) => {
     if (!row) {
@@ -488,15 +600,14 @@ export async function getUsageOverview(userId: string) {
   };
 
   const chatSummary = toMeterSummary(chat);
-  const uploadSummary = toMeterSummary(upload);
 
   return {
     plan: activePlan,
     chat: chatSummary,
-    upload: uploadSummary,
+    storage,
     combined: {
-      totalCapacity: chatSummary.totalCapacity + uploadSummary.totalCapacity,
-      totalBalance: chatSummary.totalBalance + uploadSummary.totalBalance,
+      totalCapacity: chatSummary.totalCapacity,
+      totalBalance: chatSummary.totalBalance,
     },
   };
 }
@@ -513,15 +624,19 @@ function buildUsageOverview(plan: BillingPlan) {
     refillAt: null as string | null,
   });
   const chat = toMeterSummary(entitlements.chat);
-  const upload = toMeterSummary(entitlements.upload);
+  const storage = {
+    usedBytes: 0,
+    limitBytes: entitlements.storageBytes,
+    remainingBytes: entitlements.storageBytes,
+  };
 
   return {
     plan,
     chat,
-    upload,
+    storage,
     combined: {
-      totalCapacity: chat.totalCapacity + upload.totalCapacity,
-      totalBalance: chat.totalBalance + upload.totalBalance,
+      totalCapacity: chat.totalCapacity,
+      totalBalance: chat.totalBalance,
     },
   };
 }

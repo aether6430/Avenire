@@ -1,6 +1,5 @@
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
 import { NextResponse } from "next/server";
-import { consumeUploadUnits } from "@/lib/billing";
 import { getFileAssetById, userCanEditFile } from "@/lib/file-data";
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
 import { deleteIngestionDataForFile } from "@/lib/ingestion-data";
@@ -29,17 +28,6 @@ export async function POST(
   const file = await getFileAssetById(workspaceUuid, fileUuid);
   if (!file) {
     return NextResponse.json({ error: "File not found" }, { status: 404 });
-  }
-
-  const usage = await consumeUploadUnits(user.id, 1);
-  if (!usage.ok) {
-    return NextResponse.json(
-      {
-        error: "Upload usage limit reached",
-        retryAfter: usage.retryAfter?.toISOString() ?? null,
-      },
-      { status: 429 }
-    );
   }
 
   await deleteIngestionDataForFile(workspaceUuid, fileUuid);

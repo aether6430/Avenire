@@ -85,6 +85,7 @@ interface FlashcardTaxonomy {
 interface ChatToolContext {
   agentActivityId: string;
   chatSlug: string;
+  chargeWidgetGeneration?: () => Promise<void>;
   emitAgentActivity?: (data: AgentActivityData) => void;
   rootFolderId: string;
   userId: string;
@@ -2589,6 +2590,7 @@ The agent decides which operations to perform based on the task.`,
             "You must call visualize_read_me before show_widget."
           );
         }
+        await ctx.chargeWidgetGeneration?.();
 
         const widgetCode = input.widget_code ?? "";
         const isSVG = widgetCode.trimStart().startsWith("<svg");

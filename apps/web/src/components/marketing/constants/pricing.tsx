@@ -16,7 +16,8 @@ export const tiers = [
     ctaText: "Start free",
     ctaLink: "/waitlist",
     features: [
-      "Core AI chat workspace",
+      "220 chat credits",
+      "2 GB storage",
       "Basic flashcard generation",
       "Interactive graphs, limited",
       "Whiteboard reasoning tools",
@@ -29,12 +30,14 @@ export const tiers = [
   {
     title: TierName.TIER_2,
     subtitle: "For daily study workflows",
-    monthly: 5,
-    yearly: 45,
+    monthly: 8,
+    yearly: 80,
     ctaText: "Join waitlist",
     ctaLink: "/waitlist",
     features: [
       "Everything in Access",
+      "1,880 chat credits",
+      "50 GB storage",
       "Advanced reasoning sessions",
       "Full graph and plot tools",
       "Smart spaced repetition",
@@ -48,12 +51,14 @@ export const tiers = [
   {
     title: TierName.TIER_3,
     subtitle: "For research heavy work",
-    monthly: 15,
-    yearly: 150,
+    monthly: 50,
+    yearly: 500,
     ctaText: "Join waitlist",
     ctaLink: "/waitlist",
     features: [
       "Everything in Core",
+      "6,680 chat credits",
+      "75 GB storage",
       "Deep Research synthesis",
       "High context long sessions",
       "AI video explanations",
@@ -135,19 +140,36 @@ export const pricingTable = [
     ],
   },
   {
-    title: "Monthly AI credits",
+    title: "Chat credits",
     tiers: [
       {
         title: TierName.TIER_1,
-        value: "Starter",
+        value: "220",
       },
       {
         title: TierName.TIER_2,
-        value: "Expanded",
+        value: "1,880",
       },
       {
         title: TierName.TIER_3,
-        value: "Unlimited",
+        value: "6,680",
+      },
+    ],
+  },
+  {
+    title: "Storage",
+    tiers: [
+      {
+        title: TierName.TIER_1,
+        value: "2 GB",
+      },
+      {
+        title: TierName.TIER_2,
+        value: "50 GB",
+      },
+      {
+        title: TierName.TIER_3,
+        value: "75 GB",
       },
     ],
   },

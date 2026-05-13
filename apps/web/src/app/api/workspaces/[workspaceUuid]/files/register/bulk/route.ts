@@ -156,14 +156,14 @@ export async function POST(
         });
       }
     } catch (error) {
-      const isRateLimit =
+      const isStorageLimit =
         (error as { code?: string } | null | undefined)?.code ===
-        "UPLOAD_RATE_LIMIT";
+        "STORAGE_LIMIT";
       results.push({
         clientUploadId: fileInput.clientUploadId,
         status: "failed",
-        error: isRateLimit
-          ? "Upload usage limit reached"
+        error: isStorageLimit
+          ? "Storage limit reached"
           : error instanceof Error
             ? error.message
             : "Registration failed",

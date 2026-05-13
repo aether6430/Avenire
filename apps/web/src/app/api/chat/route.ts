@@ -18,7 +18,7 @@ import { auth } from "@avenire/auth/server";
 import { headers } from "next/headers";
 import { after, NextResponse } from "next/server";
 import { createResumableStreamContext } from "resumable-stream";
-import { consumeChatUnits } from "@/lib/billing";
+import { consumeChatUnits, restoreChatUnits } from "@/lib/billing";
 import {
   createChatForUser,
   deleteChatForUser,
@@ -66,7 +66,9 @@ import {
 
 const DEFAULT_CHAT_TITLE = "New Chat";
 const LOG_PREFIX = "[api/chat]";
-const DEFAULT_CHAT_TOKENS_PER_CREDIT = 4000;
+const DEFAULT_CHAT_TOKENS_PER_CREDIT = 3800;
+const DEFAULT_EXPECTED_OUTPUT_TOKENS = 2000;
+const WIDGET_GENERATION_CREDITS = 2;
 const DEFAULT_CHAT_TITLE_MODEL: ApolloModelName = "apollo-meta";
 const LEARNING_CONTEXT_CACHE_PREFIX = "chat-learning-context:v1:";
 const LEARNING_CONTEXT_CACHE_TTL_SECONDS = 60 * 60 * 3;
@@ -888,6 +890,38 @@ function getRequiredChatCredits(totalTokens: number) {
   return Math.max(1, Math.ceil(totalTokens / tokensPerCredit));
 }
 
+function estimateMessageTokens(messages: UIMessage[]) {
+  const textChars = messages.reduce(
+    (total, message) => total + extractMessageText(message).length,
+    0
+  );
+  return Math.ceil(textChars / 4);
+}
+
+function getExpectedChatCredits(messages: UIMessage[]) {
+  return getRequiredChatCredits(
+    estimateMessageTokens(messages) + DEFAULT_EXPECTED_OUTPUT_TOKENS
+  );
+}
+
+function getRefundedChatUsage(
+  usage: {
+    consumedFromFourHour: number;
+    consumedFromOverage: number;
+  },
+  units: number
+) {
+  let remaining = Math.max(0, Math.floor(units));
+  const overage = Math.min(usage.consumedFromOverage, remaining);
+  remaining -= overage;
+  const fourHour = Math.min(usage.consumedFromFourHour, remaining);
+
+  return {
+    consumedFromFourHour: fourHour,
+    consumedFromOverage: overage,
+  };
+}
+
 function getPersistedMessages(input: {
   originalMessages: UIMessage[];
   streamedMessages: UIMessage[];
@@ -1114,6 +1148,15 @@ export async function POST(request: Request) {
         const latestUserText = extractLatestUserText(originalMessages);
         const haloTools = createChatTools({
           agentActivityId: randomUUID(),
+          chargeWidgetGeneration: async () => {
+            const usage = await consumeChatUnits(
+              session.user.id,
+              WIDGET_GENERATION_CREDITS
+            );
+            if (!usage.ok) {
+              throw new Error("Chat usage limit reached");
+            }
+          },
           chatSlug: `halo-ephemeral:${randomUUID()}`,
           emitAgentActivity: () => undefined,
           rootFolderId: workspace.rootFolderId,
@@ -1406,7 +1449,11 @@ export async function POST(request: Request) {
       }
     }
 
-    const initialUsage = await consumeChatUnits(session.user.id, 1);
+    const expectedCredits = getExpectedChatCredits(originalMessages);
+    const initialUsage = await consumeChatUnits(
+      session.user.id,
+      expectedCredits
+    );
     if (!initialUsage.ok) {
       const retryAfter = initialUsage.retryAfter?.toISOString() ?? null;
       apiLogger.rateLimited("chat", retryAfter, { chatId: chatSlug });
@@ -1598,6 +1645,25 @@ export async function POST(request: Request) {
         const tools = createChatTools(
           {
             chatSlug,
+            chargeWidgetGeneration: async () => {
+              const usage = await consumeChatUnits(
+                session.user.id,
+                WIDGET_GENERATION_CREDITS
+              );
+              if (!usage.ok) {
+                logInfo("Widget generation over usage limit", {
+                  chatId: chatSlug,
+                  credits: WIDGET_GENERATION_CREDITS,
+                  retryAfter: usage.retryAfter?.toISOString() ?? null,
+                });
+                throw new Error("Chat usage limit reached");
+              }
+              apiLogger.meter("meter.chat.widget", {
+                chatId: chatSlug,
+                creditsCharged: WIDGET_GENERATION_CREDITS,
+                model: selectedModel,
+              });
+            },
             agentActivityId,
             emitAgentActivity,
             rootFolderId: workspace.rootFolderId,
@@ -1767,7 +1833,14 @@ export async function POST(request: Request) {
                   const totalUsage = await result.totalUsage;
                   const totalTokens = resolveTotalTokens(totalUsage);
                   const requiredCredits = getRequiredChatCredits(totalTokens);
-                  const additionalCredits = Math.max(0, requiredCredits - 1);
+                  const additionalCredits = Math.max(
+                    0,
+                    requiredCredits - expectedCredits
+                  );
+                  const unusedCredits = Math.max(
+                    0,
+                    expectedCredits - requiredCredits
+                  );
 
                   if (additionalCredits > 0) {
                     const meteredUsage = await consumeChatUnits(
@@ -1782,13 +1855,20 @@ export async function POST(request: Request) {
                         additionalCredits,
                       });
                     }
+                  } else if (unusedCredits > 0) {
+                    await restoreChatUnits(
+                      session.user.id,
+                      getRefundedChatUsage(initialUsage, unusedCredits)
+                    );
                   }
 
                   logInfo("Applied token-based chat usage", {
                     chatId: chatSlug,
                     totalTokens,
+                    expectedCredits,
                     requiredCredits,
                     additionalCredits,
+                    unusedCredits,
                   });
                   apiLogger.meter("meter.chat.tokens", {
                     chatId: chatSlug,
