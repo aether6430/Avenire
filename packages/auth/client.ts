@@ -19,6 +19,13 @@ const client = createAuthClient({
 
 export const authClient = {
   checkout: client.checkout as (...args: any[]) => Promise<any>,
+  customer: client.customer as {
+    portal: (...args: any[]) => Promise<any>;
+    state: (...args: any[]) => Promise<any>;
+    subscriptions: {
+      list: (...args: any[]) => Promise<any>;
+    };
+  },
   getLastUsedLoginMethod:
     client.getLastUsedLoginMethod as (() => string | null | undefined),
 };

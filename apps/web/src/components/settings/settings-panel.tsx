@@ -150,6 +150,15 @@ interface BillingUsage {
   };
 }
 
+interface PolarCustomerState {
+  activeSubscriptions?: Array<{
+    amount?: number;
+    metadata?: Record<string, string | number | boolean | undefined>;
+    productId?: string;
+    status?: string;
+  }>;
+}
+
 const tabs = [
   { key: "account", label: "Account", icon: User },
   { key: "preferences", label: "Preferences", icon: SlidersHorizontal },
@@ -199,6 +208,47 @@ const PLAN_LABELS: Record<string, string> = {
   core: "Core Plan",
   scholar: "Scholar Plan",
 };
+
+function planFromPolarCustomerState(
+  state: PolarCustomerState | null | undefined
+): BillingUsage["plan"] {
+  const subscription = state?.activeSubscriptions?.find((candidate) => {
+    const status = candidate.status?.toLowerCase();
+    return status === "active" || status === "trialing";
+  });
+
+  if (!subscription) {
+    return "access";
+  }
+
+  const metadataPlan = subscription.metadata?.plan;
+  if (metadataPlan === "core" || metadataPlan === "scholar") {
+    return metadataPlan;
+  }
+
+  return typeof subscription.amount === "number" && subscription.amount >= 5000
+    ? "scholar"
+    : "core";
+}
+
+function withBillingPlan(
+  usage: BillingUsage,
+  plan: BillingUsage["plan"]
+): BillingUsage {
+  if (usage.plan === plan) {
+    return usage;
+  }
+
+  return { ...usage, plan };
+}
+
+async function loadProviderBillingPlan(): Promise<BillingUsage["plan"]> {
+  const providerState = (await authClient.customer.state()) as {
+    data?: PolarCustomerState | null;
+  };
+
+  return planFromPolarCustomerState(providerState.data);
+}
 
 const THEME_PREVIEW = {
   light: {
@@ -445,7 +495,21 @@ export function SettingsPanel({
       return;
     }
     const payload = (await response.json()) as { usage?: BillingUsage };
-    setBillingUsage(payload.usage ?? null);
+    let nextUsage = payload.usage ?? null;
+
+    try {
+      const providerPlan = await loadProviderBillingPlan();
+      if (nextUsage) {
+        nextUsage = withBillingPlan(nextUsage, providerPlan);
+      }
+    } catch (error) {
+      console.warn("[settings] failed to load Polar customer state", error);
+      if (nextUsage) {
+        nextUsage = withBillingPlan(nextUsage, "access");
+      }
+    }
+
+    setBillingUsage(nextUsage);
     if (showLoading) {
       setBillingStatus(null);
     }
@@ -898,6 +962,13 @@ export function SettingsPanel({
 
   const handleManageBilling = async () => {
     setBillingStatus("Opening billing portal...");
+    try {
+      await authClient.customer.portal();
+      return;
+    } catch (error) {
+      console.error("[settings] failed to open Better Auth Polar portal", error);
+    }
+
     const response = await fetch("/api/billing/portal", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -917,11 +988,18 @@ export function SettingsPanel({
   };
 
   const openCheckout = (plan: "core" | "scholar") => {
-    const params = new URLSearchParams({
-      billing: "monthly",
-      plan,
-    });
-    window.location.href = `/api/billing/checkout?${params.toString()}`;
+    void authClient
+      .checkout({
+        slug: `${plan}-monthly`,
+      })
+      .catch((error: unknown) => {
+        console.error("[settings] failed to start Better Auth checkout", error);
+        const params = new URLSearchParams({
+          billing: "monthly",
+          plan,
+        });
+        window.location.href = `/api/billing/checkout?${params.toString()}`;
+      });
   };
 
   const runDeleteAccount = async () => {

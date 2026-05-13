@@ -72,7 +72,6 @@ export async function canStoreBytes(userId: string, bytes: number) {
 }
 
 export async function getUserUsageOverview(userId: string) {
-  await syncUserBillingFromPolar(userId);
   return getUsageOverview(userId);
 }
 
