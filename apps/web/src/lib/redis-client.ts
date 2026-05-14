@@ -6,15 +6,24 @@ const DEFAULT_RECONNECT_DELAY_MS = 1000;
 export function isExpectedRedisConnectionError(error: unknown) {
   return (
     error instanceof Error &&
-    /Socket closed unexpectedly|The client is closed|Connection is closed|disconnect/i.test(
+    /Socket closed unexpectedly|The client is closed|Connection is closed|Invalid URL|disconnect/i.test(
       error.message
     )
   );
 }
 
+function normalizeRedisUrl(url: string) {
+  const trimmed = url.trim();
+  if (!trimmed || /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return `redis://${trimmed}`;
+}
+
 export function createManagedRedisClient(url: string, label: string) {
   const client = createClient({
-    url,
+    url: normalizeRedisUrl(url),
     socket: {
       connectTimeout: DEFAULT_CONNECT_TIMEOUT_MS,
       keepAlive: true,

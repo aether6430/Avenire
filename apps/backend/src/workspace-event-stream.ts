@@ -18,6 +18,15 @@ function getStreamKey(workspaceUuid: string) {
   return `workspace:events:${workspaceUuid}`;
 }
 
+function normalizeRedisUrl(url: string) {
+  const trimmed = url.trim();
+  if (!trimmed || /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return `redis://${trimmed}`;
+}
+
 function toPositiveInt(raw: string | undefined, fallback: number) {
   const parsed = Number.parseInt(raw ?? "", 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -29,7 +38,7 @@ async function getPublisherClient() {
   }
 
   if (!publisher) {
-    publisher = createClient({ url: redisUrl });
+    publisher = createClient({ url: normalizeRedisUrl(redisUrl) });
     publisher.on("error", (error) => {
       console.error("Redis publisher error in backend workspace-event-stream", error);
     });

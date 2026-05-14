@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@avenire/observability": "workspace:*",
-    "drizzle-orm": "latest",
+    "drizzle-orm": "0.45.2",
     "pg": "latest",
     "ts-fsrs": "^5.2.3"
   },
@@ -32,7 +32,7 @@
     "dotenv": "latest",
     "drizzle-kit": "latest",
     "typescript": "5.9.3",
-    "vitest": "^4.1.2"
+    "vitest": "^4.1.6"
   },
   "engines": {
     "bun": ">=1.0.0"
