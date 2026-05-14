@@ -10,7 +10,6 @@ import {
   lastAssistantMessageIsCompleteWithApprovalResponses,
 } from "ai";
 import { AnimatePresence, motion } from "motion/react";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
@@ -103,12 +102,10 @@ export function Chat({
   const [agentActivity, setAgentActivity] = useState<AgentActivityData | null>(
     null
   );
-  const router = useRouter();
   const lastCompletedMessageIdRef = useRef<string | null>(null);
   const previousStatusRef = useRef<string | null>(null);
   const messagesRef = useRef<UIMessage[]>(initialMessages);
   const pendingNewChatMessagesRef = useRef<UIMessage[] | null>(null);
-  const pendingChatRouteRef = useRef<string | null>(null);
   const autoPromptSentRef = useRef<string | null>(null);
   const MAX_FILES = 3;
 
@@ -159,7 +156,7 @@ export function Chat({
         }
         primeNewChatHandoff(detail.id);
         setChatId(detail.id);
-        pendingChatRouteRef.current = detail.id;
+        pendingNewChatMessagesRef.current = null;
         window.dispatchEvent(
           new CustomEvent<ChatCreatedDetail>(CHAT_CREATED_EVENT, {
             detail,
@@ -271,7 +268,7 @@ export function Chat({
       try {
         return await append(message, options);
       } catch (error) {
-        if (chatId === "new" && !pendingChatRouteRef.current) {
+        if (chatId === "new") {
           pendingNewChatMessagesRef.current = null;
         }
         throw error;
@@ -318,19 +315,6 @@ export function Chat({
       autoPromptSentRef.current = null;
     });
   }, [id, initialPrompt, messages.length, sendMessage, status]);
-
-  useEffect(() => {
-    if (!pendingChatRouteRef.current) {
-      return;
-    }
-
-    const nextChatId = pendingChatRouteRef.current;
-
-    primeNewChatHandoff(nextChatId);
-    router.replace(`/workspace/chats/${nextChatId}`);
-    pendingChatRouteRef.current = null;
-    pendingNewChatMessagesRef.current = null;
-  }, [chatId, primeNewChatHandoff, router]);
 
   useEffect(() => {
     if (status !== "ready") {
@@ -383,7 +367,7 @@ export function Chat({
       tone: "success",
       animation: "waving",
     });
-  }, [chatId, messages, status]);
+  }, [messages, status]);
 
   useEffect(() => {
     if (status === "submitted") {
@@ -543,16 +527,11 @@ export function Chat({
 
   const hasConversationSurface = displayedMessages.length > 0;
   const isEmptyState =
-    !hasConversationSurface &&
-    !pendingChatRouteRef.current &&
-    status !== "submitted" &&
-    status !== "streaming";
+    !hasConversationSurface && status !== "submitted" && status !== "streaming";
   const isTransitioningFromNewChat =
     chatId === "new" &&
     !hasConversationSurface &&
-    (status === "submitted" ||
-      status === "streaming" ||
-      pendingChatRouteRef.current !== null);
+    (status === "submitted" || status === "streaming");
   const shouldUseCenteredComposerLayout =
     isEmptyState || isTransitioningFromNewChat;
   const inputCard = (centered = false) => (

@@ -156,9 +156,6 @@ export function ChatWorkspace({
       if (chatSlug !== "new" && detail.fromId !== chatSlug) {
         return;
       }
-      if (chatSlug === "new") {
-        return;
-      }
       const pendingMessages =
         useChatMessageHandoffStore.getState().messagesByChatId[detail.id] ??
         null;
@@ -230,7 +227,7 @@ export function ChatWorkspace({
     return () => {
       window.removeEventListener(CHAT_NAME_UPDATED_EVENT, onChatNameUpdated);
     };
-  }, [currentChatSlug]);
+  }, [chatIcon, currentChatSlug]);
 
   useEffect(() => {
     const onChatStreamStatus = (event: Event) => {
@@ -250,7 +247,7 @@ export function ChatWorkspace({
     return () => {
       window.removeEventListener(CHAT_STREAM_STATUS_EVENT, onChatStreamStatus);
     };
-  }, [chatIcon, currentChatSlug]);
+  }, [currentChatSlug]);
 
   const shareSuggestionsQuery = useQuery({
     enabled:

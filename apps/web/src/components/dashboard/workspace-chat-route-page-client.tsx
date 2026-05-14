@@ -7,6 +7,7 @@ import { ChatWorkspace } from "@/components/dashboard/chat-workspace";
 import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
 import { usePanePathname, usePaneRouter } from "@/lib/workspace-panes";
+import { useChatMessageHandoffStore } from "@/stores/chat-message-handoff-store";
 
 interface ChatRoutePayload {
   chat?: {
@@ -45,6 +46,9 @@ export function WorkspaceChatRoutePageClient({
   const { status, user, workspace } = useWorkspaceBootstrap();
   const slug =
     slugProp ?? pathname.match(/^\/workspace\/chats\/([^/?#]+)/)?.[1] ?? "new";
+  const handoffMessages = useChatMessageHandoffStore(
+    (state) => state.messagesByChatId[slug] ?? null
+  );
   const chatQuery = useQuery({
     enabled:
       status === "ready" &&
@@ -79,6 +83,21 @@ export function WorkspaceChatRoutePageClient({
     );
   }
 
+  if (chatQuery.isPending && handoffMessages?.length) {
+    return (
+      <ChatWorkspace
+        chatIcon={null}
+        chatSlug={slug}
+        chatTitle="New Method"
+        initialMessages={[]}
+        initialPrompt={null}
+        isReadonly={false}
+        userName={user.name ?? undefined}
+        workspaceUuid={workspace.workspaceId}
+      />
+    );
+  }
+
   if (chatQuery.isPending || !chatQuery.data?.chat) {
     return <WorkspaceRoutePlaceholder label="Loading method..." />;
   }
@@ -91,7 +110,6 @@ export function WorkspaceChatRoutePageClient({
       initialMessages={chatQuery.data.messages ?? []}
       initialPrompt={null}
       isReadonly={Boolean(chatQuery.data.chat.readOnly)}
-      key={`${chatQuery.data.chat.slug}:${(chatQuery.data.messages ?? []).length}`}
       userName={user.name ?? undefined}
       workspaceUuid={workspace.workspaceId}
     />
