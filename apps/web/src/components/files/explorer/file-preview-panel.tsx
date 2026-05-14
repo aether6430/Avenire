@@ -45,7 +45,6 @@ import {
   ShareNetwork as Share2,
   SlidersHorizontal,
   Trash as Trash2,
-  MagicWand as WandSparkles,
   X,
 } from "@phosphor-icons/react";
 import dynamic from "next/dynamic";
@@ -64,7 +63,6 @@ import { Markdown as MarkdownRenderer } from "@/components/chat/markdown";
 import type { WorkspaceInvalidationDetail } from "@/components/dashboard/workspace-realtime-bridge";
 import AvenireEditor from "@/components/editor";
 import { PropertiesTable } from "@/components/editor/properties-table";
-import { CircleToAiSearchOverlay } from "@/components/files/circle-to-ai-search-overlay";
 import type {
   FileRecord,
   FolderRecord,
@@ -100,10 +98,7 @@ import {
   readWorkspaceMarkdownCache,
   writeWorkspaceMarkdownCache,
 } from "@/lib/workspace-markdown-cache";
-import {
-  useCurrentWorkspacePane,
-  usePaneSearchParams,
-} from "@/lib/workspace-panes";
+import { useCurrentWorkspacePane } from "@/lib/workspace-panes";
 import { usePaneHeaderActions } from "@/stores/header-store";
 import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
 
@@ -338,7 +333,6 @@ export function FilePreviewPanel({
   const [loadedMarkdownFileId, setLoadedMarkdownFileId] = useState<
     string | null
   >(null);
-  const [circleToAiEnabled, setCircleToAiEnabled] = useState(false);
   const [videoLoadFailed, setVideoLoadFailed] = useState(false);
   const [audioLoadFailed, setAudioLoadFailed] = useState(false);
   const [mediaStreamFailed, setMediaStreamFailed] = useState(false);
@@ -351,12 +345,10 @@ export function FilePreviewPanel({
   const noteSyncDebounceRef = useRef<number | null>(null);
   const noteSyncInFlightRef = useRef(false);
   const noteSyncQueuedRef = useRef(false);
-  const searchParams = usePaneSearchParams();
   const { isActive: isPaneActive, paneId } = useCurrentWorkspacePane();
   const closePane = useWorkspacePaneStore((state) => state.closePane);
   const openPane = useWorkspacePaneStore((state) => state.openPane);
   const paneCount = useWorkspacePaneStore((state) => state.panes.length);
-  const circleToAiParam = searchParams.get("circleToAi");
   const canClosePane = paneCount > 1;
 
   const activeFileIsMarkdown = detectPreviewKind(activeFile).isMarkdown;
@@ -789,10 +781,6 @@ export function FilePreviewPanel({
   }, [activeFile.id, activeFileUpdatedAt, activePageFromFile]);
 
   useEffect(() => {
-    setCircleToAiEnabled(false);
-  }, [activeFile.id]);
-
-  useEffect(() => {
     if (noteSaveState !== "saved" && noteSaveState !== "error") {
       return;
     }
@@ -987,14 +975,6 @@ export function FilePreviewPanel({
 
   const { resetHeaderContext, setHeaderContext } = usePaneHeaderActions();
   useEffect(() => {
-    if (circleToAiParam === "1") {
-      const { isPdf, isImage, isVideo } = detectPreviewKind(activeFile);
-      if (isPdf || isImage || isVideo) {
-        setCircleToAiEnabled(true);
-      }
-    }
-  }, [activeFile, circleToAiParam]);
-  useEffect(() => {
     setHeaderContext({
       title: activeFileIsMarkdown ? markdownDisplayTitle : activeFile.name,
       leadingIcon: (
@@ -1051,16 +1031,6 @@ export function FilePreviewPanel({
               align="end"
               className="w-56 border border-border/60 bg-background shadow-md"
             >
-              {isPdf || isImage || isVideo ? (
-                <DropdownMenuItem
-                  onClick={() => {
-                    setCircleToAiEnabled((current) => !current);
-                  }}
-                >
-                  <WandSparkles className="size-3.5" />
-                  {circleToAiEnabled ? "Stop Circle to AI" : "Circle to AI"}
-                </DropdownMenuItem>
-              ) : null}
               {isPdf ? (
                 <DropdownMenuCheckboxItem
                   checked={pdfInvertColors}
@@ -1255,7 +1225,6 @@ export function FilePreviewPanel({
     openPane,
     paneId,
     workspaceUuid,
-    circleToAiEnabled,
     isImage,
     isPdf,
     isVideo,
@@ -1273,7 +1242,7 @@ export function FilePreviewPanel({
               Properties
             </DialogTitle>
           </DialogHeader>
-          <div className="max-h-[70vh] overflow-x-hidden overflow-y-auto p-3.5">
+          <div className="max-h-[70vh] overflow-y-auto overflow-x-hidden p-3.5">
             <PropertiesTable
               className="mx-0 mb-0 max-w-none border-0 px-0 pt-0 pb-0 sm:px-0"
               definitions={propertyDefinitions}
@@ -1588,73 +1557,57 @@ export function FilePreviewPanel({
         </div>
       ) : isPdf ? (
         <div className="min-h-0 flex-1 overflow-hidden">
-          <CircleToAiSearchOverlay
-            enabled={circleToAiEnabled}
-            fileKind="pdf"
-            fileName={activeFile.name}
-            onEnabledChange={setCircleToAiEnabled}
-            workspaceUuid={workspaceUuid}
-          >
-            <PDFViewer
-              className="h-full min-h-0 rounded-none border-0 sm:rounded-xl sm:border sm:border-border/70"
-              fallbackHighlightText={query}
-              highlightPage={activeRetrievalResult?.page ?? null}
-              highlightText={
-                activeRetrievalResult?.highlightText ??
-                activeRetrievalResult?.snippet ??
-                query
-              }
-              invertColors={pdfInvertColors}
-              key={activeFile.id}
-              source={
-                activeFile.storageUrl ||
-                `/api/workspaces/${workspaceUuid}/files/${activeFile.id}/stream`
-              }
-            />
-          </CircleToAiSearchOverlay>
+          <PDFViewer
+            className="h-full min-h-0 rounded-none border-0 sm:rounded-xl sm:border sm:border-border/70"
+            fallbackHighlightText={query}
+            highlightPage={activeRetrievalResult?.page ?? null}
+            highlightText={
+              activeRetrievalResult?.highlightText ??
+              activeRetrievalResult?.snippet ??
+              query
+            }
+            invertColors={pdfInvertColors}
+            key={activeFile.id}
+            source={
+              activeFile.storageUrl ||
+              `/api/workspaces/${workspaceUuid}/files/${activeFile.id}/stream`
+            }
+          />
         </div>
       ) : isVideo && !videoLoadFailed ? (
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <div className="mx-auto flex h-full min-h-0 w-full items-center justify-center p-0 sm:p-4">
-            <CircleToAiSearchOverlay
-              enabled={circleToAiEnabled}
-              fileKind="video"
-              fileName={activeFile.name}
-              onEnabledChange={setCircleToAiEnabled}
-              workspaceUuid={workspaceUuid}
-            >
-              <FileMediaPlayer
-                activeRangeIndex={
-                  activeFileRetrievalResults.findIndex(
-                    (item) => item.chunkId === activeRetrievalChunkId
-                  ) >= 0
-                    ? activeFileRetrievalResults.findIndex(
-                        (item) => item.chunkId === activeRetrievalChunkId
-                      )
-                    : null
-                }
-                captionsSrc={activeVideoCaptionsSrc}
-                kind="video"
-                name={activeFile.name}
-                onError={() => {
-                  setVideoLoadFailed(true);
-                }}
-                openedCached={shouldUsePreferredVideoSource}
-                playbackSource={activeVideoPlaybackSource}
-                posterUrl={activePlaybackDescriptor?.posterUrl}
-                retrievalRanges={activeFileRetrievalResults
-                  .filter(
-                    (item) =>
-                      typeof item.startMs === "number" &&
-                      Number.isFinite(item.startMs)
-                  )
-                  .map((item) => ({
-                    startMs: item.startMs as number,
-                    endMs: item.endMs,
-                  }))}
-                seekToMs={activeRetrievalResult?.startMs ?? null}
-              />
-            </CircleToAiSearchOverlay>
+            <FileMediaPlayer
+              activeRangeIndex={
+                activeFileRetrievalResults.findIndex(
+                  (item) => item.chunkId === activeRetrievalChunkId
+                ) >= 0
+                  ? activeFileRetrievalResults.findIndex(
+                      (item) => item.chunkId === activeRetrievalChunkId
+                    )
+                  : null
+              }
+              captionsSrc={activeVideoCaptionsSrc}
+              kind="video"
+              name={activeFile.name}
+              onError={() => {
+                setVideoLoadFailed(true);
+              }}
+              openedCached={shouldUsePreferredVideoSource}
+              playbackSource={activeVideoPlaybackSource}
+              posterUrl={activePlaybackDescriptor?.posterUrl}
+              retrievalRanges={activeFileRetrievalResults
+                .filter(
+                  (item) =>
+                    typeof item.startMs === "number" &&
+                    Number.isFinite(item.startMs)
+                )
+                .map((item) => ({
+                  startMs: item.startMs as number,
+                  endMs: item.endMs,
+                }))}
+              seekToMs={activeRetrievalResult?.startMs ?? null}
+            />
           </div>
         </div>
       ) : isAudio && !audioLoadFailed ? (
@@ -1677,20 +1630,12 @@ export function FilePreviewPanel({
       ) : isImage ? (
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <div className="mx-auto flex h-full min-h-0 w-full max-w-[1360px] flex-col gap-3 p-0 sm:p-4">
-            <CircleToAiSearchOverlay
-              enabled={circleToAiEnabled}
-              fileKind="image"
-              fileName={activeFile.name}
-              onEnabledChange={setCircleToAiEnabled}
-              workspaceUuid={workspaceUuid}
-            >
-              <div className="w-full">
-                <PanPinchImageViewer
-                  alt={activeFile.name}
-                  src={activeFileSourceUrl}
-                />
-              </div>
-            </CircleToAiSearchOverlay>
+            <div className="w-full">
+              <PanPinchImageViewer
+                alt={activeFile.name}
+                src={activeFileSourceUrl}
+              />
+            </div>
           </div>
         </div>
       ) : (

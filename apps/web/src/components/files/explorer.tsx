@@ -84,7 +84,6 @@ import {
   SlidersHorizontal,
   Trash as Trash2,
   UploadSimple as Upload,
-  MagicWand as WandSparkles,
   X,
   XCircle,
 } from "@phosphor-icons/react";
@@ -472,7 +471,6 @@ interface MobileActionsPopoverProps {
   folders: FolderRecord[];
   kind: "file" | "folder";
   name: string;
-  onCircleToAi?: () => void;
   onDelete: () => void;
   onDownload: () => void;
   onDuplicate: () => void;
@@ -493,7 +491,6 @@ function MobileActionsPopover({
   folders,
   kind,
   name,
-  onCircleToAi,
   onDelete,
   onDownload,
   onDuplicate,
@@ -541,12 +538,6 @@ function MobileActionsPopover({
         align="end"
         className={cn("w-56 bg-background", COMPACT_MENU_SURFACE_CLASS)}
       >
-        {onCircleToAi ? (
-          <DropdownMenuItem onClick={onCircleToAi}>
-            <WandSparkles className="size-3.5" />
-            Circle to AI
-          </DropdownMenuItem>
-        ) : null}
         <DropdownMenuSub>
           <DropdownMenuSubTrigger className={actionRowClass}>
             <Info className="size-3.5" />
@@ -3170,7 +3161,6 @@ export function FileExplorer({
     (
       fileId: string | null,
       options?: {
-        circleToAi?: boolean;
         retrievalChunkId?: string | null;
       }
     ) => {
@@ -3189,12 +3179,6 @@ export function FileExplorer({
       } else if (options?.retrievalChunkId === null) {
         params.delete("retrievalChunk");
       }
-      if (options?.circleToAi) {
-        params.set("circleToAi", "1");
-      } else {
-        params.delete("circleToAi");
-      }
-
       const query = params.toString();
       const target = query.length
         ? `/workspace/files/${workspaceUuid}/folder/${currentFolderId}?${query}`
@@ -7193,19 +7177,6 @@ export function FileExplorer({
                                                   folders={allFolders}
                                                   kind="file"
                                                   name={entry.file.name}
-                                                  onCircleToAi={
-                                                    previewKind.isPdf ||
-                                                    previewKind.isImage ||
-                                                    previewKind.isVideo
-                                                      ? () =>
-                                                          selectFile(
-                                                            entry.file.id,
-                                                            {
-                                                              circleToAi: true,
-                                                            }
-                                                          )
-                                                      : undefined
-                                                  }
                                                   onDelete={() => {
                                                     deleteContextActionItems(
                                                       entry.file.id,
@@ -7832,7 +7803,6 @@ export function FileExplorer({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }

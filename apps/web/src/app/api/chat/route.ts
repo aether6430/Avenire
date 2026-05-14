@@ -33,11 +33,11 @@ import {
   DEFAULT_CHAT_ICON,
   isChatIconName,
 } from "@/lib/chat-icons";
-import { invalidateChatReadCaches } from "@/lib/domain-cache";
 import {
   createChatTools,
   getActiveMisconceptionContext,
 } from "@/lib/chat-tools";
+import { invalidateChatReadCaches } from "@/lib/domain-cache";
 import { resolveWorkspaceForUser } from "@/lib/file-data";
 import "@/lib/learning-automation";
 import {
@@ -45,6 +45,7 @@ import {
   getRecentRelevantSessionSummary,
 } from "@avenire/database";
 import { normalizeMediaType } from "@/lib/media-type";
+import { detectMisconceptionSignals } from "@/lib/misconception-signal-detector";
 import { createApiLogger } from "@/lib/observability";
 import {
   buildRecentSessionSummaryContext,
@@ -56,7 +57,6 @@ import {
   inferTopicLabel,
   normalizeSubjectLabel,
 } from "@/lib/subject-detection";
-import { detectMisconceptionSignals } from "@/lib/misconception-signal-detector";
 import {
   clearActiveStreamId,
   getActiveStreamId,
@@ -454,7 +454,9 @@ function buildPromptMemoryBlocks(input: {
   return blocks;
 }
 
-function isPromptMemoryBlockArray(value: unknown): value is PromptMemoryBlock[] {
+function isPromptMemoryBlockArray(
+  value: unknown
+): value is PromptMemoryBlock[] {
   return (
     Array.isArray(value) &&
     value.every(
@@ -546,8 +548,8 @@ async function getCachedLearningPromptMemoryBlocks(input: {
     return cached;
   }
 
-  const [activeMisconceptionContext, studentProfileContext] =
-    await Promise.all([
+  const [activeMisconceptionContext, studentProfileContext] = await Promise.all(
+    [
       getActiveMisconceptionContext({
         subject: input.subject,
         topic: input.topic,
@@ -560,7 +562,8 @@ async function getCachedLearningPromptMemoryBlocks(input: {
         userId: input.userId,
         workspaceId: input.workspaceId,
       }),
-    ]);
+    ]
+  );
 
   const blocks = buildPromptMemoryBlocks({
     misconceptionsContext: activeMisconceptionContext,
@@ -999,10 +1002,7 @@ export async function POST(request: Request) {
 
     const body = (await request.json().catch(() => ({}))) as {
       kind?: "session-close";
-      ephemeral?: boolean;
       messages?: UIMessage[];
-      selectionBase64?: string | null;
-      selectionMediaType?: string | null;
       workspaceUuid?: string;
       selectedModel?: ApolloModelName;
       chatId?: string;
@@ -1115,139 +1115,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true }, { status: 202 });
     }
 
-    if (body.ephemeral) {
-      const originalMessages = normalizeMessageFileMediaTypes(
-        body.messages ?? []
-      );
-
-      const initialUsage = await consumeChatUnits(session.user.id, 1);
-      if (!initialUsage.ok) {
-        const retryAfter = initialUsage.retryAfter?.toISOString() ?? null;
-        apiLogger.rateLimited("chat", retryAfter, { chatId: "ephemeral" });
-        return NextResponse.json(
-          {
-            error: "Chat usage limit reached",
-            retryAfter,
-          },
-          { status: 429 }
-        );
-      }
-
-      const selectedModel = body.selectedModel ?? "apollo-apex";
-      try {
-        const selectionBase64 = body.selectionBase64?.trim() ?? "";
-        if (!selectionBase64) {
-          apiLogger.requestFailed(400, "Missing selection image");
-          return NextResponse.json(
-            { error: "Missing selection image" },
-            { status: 400 }
-          );
-        }
-
-        const selectionMediaType =
-          body.selectionMediaType?.trim() ?? "image/png";
-        const selectionBuffer = Buffer.from(selectionBase64, "base64");
-        const latestUserText = extractLatestUserText(originalMessages);
-        const haloTools = createChatTools({
-          agentActivityId: randomUUID(),
-          chargeWidgetGeneration: async () => {
-            const usage = await consumeChatUnits(
-              session.user.id,
-              WIDGET_GENERATION_CREDITS
-            );
-            if (!usage.ok) {
-              throw new Error("Chat usage limit reached");
-            }
-          },
-          chatSlug: `halo-ephemeral:${randomUUID()}`,
-          emitAgentActivity: () => undefined,
-          rootFolderId: workspace.rootFolderId,
-          userId: session.user.id,
-          workspaceId: workspace.workspaceId,
-        });
-        const priorMessages = await convertToModelMessages(
-          originalMessages.slice(0, -1),
-          {
-            tools: haloTools,
-          }
-        );
-        const selectionPrompt = latestUserText.trim();
-        const haloSystemPrompt = APOLLO_PROMPT(
-          body.userName ?? session.user.name ?? undefined,
-          [
-            "The selected image is evidence, not the task.",
-            "Answer the user's text request directly and use the image only when it helps justify the answer.",
-            "Do not respond with only an image description unless the user explicitly asks for one.",
-          ].join(" "),
-          {
-            allowVisualizations: false,
-          }
-        );
-        const result = streamText({
-          model: apollo.languageModel(selectedModel),
-          system: haloSystemPrompt,
-          messages: [
-            ...priorMessages,
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: selectionPrompt || "Inspect the selected crop.",
-                },
-                {
-                  type: "image",
-                  image: selectionBuffer,
-                  mediaType: selectionMediaType,
-                },
-              ],
-            },
-          ],
-          tools: pickModelTools(haloTools, [
-            "show_widget",
-            "visualize_read_me",
-          ]),
-          maxOutputTokens: 5000,
-          stopWhen: stepCountIs(8),
-          temperature: 0.2,
-          abortSignal: request.signal,
-          experimental_transform: smoothStream({
-            delayInMs: null,
-            chunking: "word",
-          }),
-          onError: ({ error }) => {
-            logError("Selection inspection stream failed", {
-              error: formatError(error),
-              model: selectedModel,
-              providerModel: APOLLO_LANGUAGE_MODEL_IDS[selectedModel],
-            });
-          },
-        });
-
-        apiLogger.requestSucceeded(200, {
-          chatId: "ephemeral",
-          selectedModel,
-        });
-
-        return result.toUIMessageStreamResponse({
-          originalMessages,
-          onError: getChatStreamErrorMessage,
-          headers: {
-            "Cache-Control": "no-store",
-          },
-        });
-      } catch (error) {
-        apiLogger.requestFailed(500, error, {
-          chatId: "ephemeral",
-          selectedModel,
-        });
-        return NextResponse.json(
-          { error: "Failed to inspect selection" },
-          { status: 500 }
-        );
-      }
-    }
-
     let chatSlug: string = body.chatId?.trim() ?? "";
     if (!chatSlug) {
       apiLogger.requestFailed(400, "Missing chatId");
@@ -1331,7 +1198,7 @@ export async function POST(request: Request) {
         });
         return NextResponse.json({ error: "Chat not found" }, { status: 404 });
       }
-      if (Boolean(chat.readOnly)) {
+      if (chat.readOnly) {
         apiLogger.requestFailed(403, "Read-only chat", {
           chatId: chatSlug,
         });
@@ -1472,9 +1339,8 @@ export async function POST(request: Request) {
           chat.title,
           originalMessages
         );
-        const latestUserTextForMetadata = extractLatestUserText(
-          originalMessages
-        );
+        const latestUserTextForMetadata =
+          extractLatestUserText(originalMessages);
         const thinkingMessagesPromise = generateChatThinkingMessages(
           latestUserTextForMetadata,
           request.signal
@@ -1699,8 +1565,9 @@ export async function POST(request: Request) {
           );
           const promptMemoryBlocksPromise = withStartupTimeout(
             getCachedLearningPromptMemoryBlocks({
-              recentSummaryContext:
-                buildRecentSessionSummaryContext(recentRelevantSummary),
+              recentSummaryContext: buildRecentSessionSummaryContext(
+                recentRelevantSummary
+              ),
               recentSummaryUpdatedAt: recentRelevantSummary?.updatedAt ?? null,
               subject: resolvedSubject,
               topic: resolvedTopic,

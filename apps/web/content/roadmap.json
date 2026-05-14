@@ -126,13 +126,6 @@
     "category": "Core Product"
   },
   {
-    "id": "circle-to-ai",
-    "title": "Circle to AI (Halo)",
-    "description": "A quick capture flow for circling content and turning it into an AI prompt or task.",
-    "status": "shipped",
-    "category": "Capture"
-  },
-  {
     "id": "hybrid-search",
     "title": "Hybrid Search Improvements",
     "description": "Query rewriting and retrieval upgrades that make workspace search more accurate.",
