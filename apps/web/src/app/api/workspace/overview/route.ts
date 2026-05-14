@@ -65,6 +65,7 @@ export async function GET(request: Request) {
       return [];
     }),
     getActiveMisconceptions({
+      includeCandidates: true,
       limit: 12,
       subject: requestedSubject,
       userId: ctx.user.id,

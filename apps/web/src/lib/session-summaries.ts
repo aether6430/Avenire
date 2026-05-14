@@ -2,7 +2,6 @@ import { generateText, Output } from "@avenire/ai";
 import type { UIMessage } from "@avenire/ai/message-types";
 import { apollo } from "@avenire/ai/models";
 import {
-  canonicalizeLearningTaxonomy,
   createSessionSummary,
   listSessionSummariesForUser,
   recomputeConceptMastery,
@@ -11,10 +10,7 @@ import {
 } from "@avenire/database";
 import { logInfo } from "@avenire/observability";
 import { z } from "zod";
-import {
-  inferTopicLabel,
-  normalizeSubjectLabel,
-} from "@/lib/subject-detection";
+import { normalizeSubjectLabel } from "@/lib/subject-detection";
 
 const DEFAULT_SESSION_INACTIVITY_WINDOW_MS = 30 * 60 * 1000;
 // Keep the session-summary pass cheap; this is the truncation/summarization step,
@@ -102,26 +98,14 @@ function normalizeMisconceptionCandidate(
     candidate.topic,
     MAX_MISCONCEPTION_TOPIC_LENGTH
   );
-  const sessionSubject = normalizeSubjectLabel(context?.sessionSubject ?? null);
-  const inferredTopic = sessionSubject
-    ? inferTopicLabel(
-        [boundedConcept, boundedReason, context?.transcript ?? ""].join("\n"),
-        sessionSubject
-      )
-    : null;
-  const canonical = canonicalizeLearningTaxonomy({
-    concept: boundedConcept,
-    subject: sessionSubject ?? boundedSubject,
-    text: [boundedConcept, boundedReason, context?.transcript ?? ""].join("\n"),
-    topic: inferredTopic ?? boundedTopic,
-  });
+  const candidateSubject = normalizeSubjectLabel(boundedSubject);
 
   return {
     confidence: Math.min(1, Math.max(0, candidate.confidence)),
-    concept: canonical?.concept ?? boundedConcept,
+    concept: boundedConcept,
     reason: boundedReason,
-    subject: canonical?.subject ?? sessionSubject ?? boundedSubject,
-    topic: canonical?.topic ?? inferredTopic ?? boundedTopic,
+    subject: candidateSubject ?? boundedSubject,
+    topic: boundedTopic,
   };
 }
 
@@ -548,7 +532,9 @@ export async function persistSessionSummaryForCompletedTurn(input: {
         ? `Misconceptions already detected by tools: ${misconceptionsDetected.join(", ")}`
         : "Misconceptions already detected by tools: none",
       "For subject, use an established subject label such as Mathematics, Physics, Chemistry, Biology, Computer Science, History, Literature, or Economics.",
+      "For each misconceptionCandidate, classify subject and topic from that candidate's concept, reason, and the local transcript evidence. Do not copy the session subject when the candidate is about a different field.",
       "For misconceptionCandidates, keep concept labels short and specific, ideally under 180 characters, and keep subject/topic labels concise.",
+      "For misconceptionCandidates.topic, use the most specific standard topic label justified by the candidate evidence; if uncertain, use a broad topic within the candidate subject rather than an unrelated session topic.",
       "For misconceptionCandidates, return objects with concept, subject, topic, reason, and confidence.",
       "Session transcript:",
       transcript,
