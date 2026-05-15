@@ -1539,6 +1539,15 @@ export function FilePreviewPanel({
                         { sourcePaneId: paneId }
                       );
                     }}
+                    onPagePropertiesChange={(properties) => {
+                      setNotePage((current) => ({
+                        ...current,
+                        properties,
+                      }));
+                    }}
+                    onPropertyDefinitionsChange={setPropertyDefinitions}
+                    pageProperties={notePage.properties}
+                    propertyDefinitions={propertyDefinitions}
                     saveState={activeFileIsMarkdown ? noteSaveState : undefined}
                     scrollContainerRef={filePreviewScrollRef}
                     wikiPages={wikiLinkableFiles}
