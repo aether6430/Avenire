@@ -5,6 +5,7 @@
     "core-design-system",
     "when-nothing-fits",
     "svg-setup",
+    "mathematical-svg-reference",
     "art-and-illustration"
   ],
   "mockup": [
@@ -42,6 +43,7 @@
     "when-nothing-fits",
     "color-palette",
     "svg-setup",
+    "mathematical-svg-reference",
     "diagram-types"
   ],
   "physics": [
