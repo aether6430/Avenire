@@ -1,5 +1,6 @@
 "use client";
 
+import { Calendar } from "@avenire/ui/components/calendar";
 import {
   Popover,
   PopoverContent,
@@ -10,9 +11,10 @@ import {
   CaretDown,
   CheckSquare,
   Copy,
+  DotsSixVertical,
   Hash,
+  Info,
   ListBullets,
-  PencilSimple,
   Plus,
   Sparkle,
   TextT,
@@ -86,6 +88,69 @@ function normalizeEditablePropertyKey(key: string) {
   return key.trim().toLowerCase();
 }
 
+function padDatePart(value: number) {
+  return String(value).padStart(2, "0");
+}
+
+function parseLocalDateTimeValue(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const [datePart, timePart] = value.split("T");
+  const dateSegments = datePart?.split("-").map((segment) => Number(segment));
+  if (
+    !dateSegments ||
+    dateSegments.length !== 3 ||
+    dateSegments.some((segment) => Number.isNaN(segment))
+  ) {
+    return null;
+  }
+
+  const [year, month, day] = dateSegments;
+  const date = new Date(year, month - 1, day);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return {
+    date,
+    time:
+      typeof timePart === "string" && /^\d{2}:\d{2}/.test(timePart)
+        ? timePart.slice(0, 5)
+        : "",
+  };
+}
+
+function toLocalDateValue(date: Date, time: string) {
+  const datePart = `${date.getFullYear()}-${padDatePart(
+    date.getMonth() + 1
+  )}-${padDatePart(date.getDate())}`;
+  return time ? `${datePart}T${time}` : datePart;
+}
+
+function formatDateValue(value: string | null) {
+  const parsed = parseLocalDateTimeValue(value);
+  if (!parsed) {
+    return "Select";
+  }
+
+  const dateLabel = parsed.date.toLocaleDateString("en-US", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+
+  return parsed.time ? `${dateLabel} ${parsed.time}` : dateLabel;
+}
+
+function getPropertyTypeItem(type: FilePropertyType) {
+  return (
+    PROPERTY_TYPE_ITEMS.find((item) => item.type === type) ??
+    PROPERTY_TYPE_ITEMS[0]
+  );
+}
+
 export function PropertiesTable({
   className,
   definitions = [],
@@ -100,6 +165,7 @@ export function PropertiesTable({
   const [newValue, setNewValue] = useState("");
   const [newType, setNewType] = useState<FilePropertyType>("text");
   const [optionDraft, setOptionDraft] = useState("");
+  const [valueOptionDraft, setValueOptionDraft] = useState("");
   const [openPropertyEditorKey, setOpenPropertyEditorKey] = useState<
     string | null
   >(null);
@@ -486,7 +552,7 @@ export function PropertiesTable({
 
     if (property.type === "checkbox") {
       return (
-        <label className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2 text-[13px] text-[var(--text-primary)]">
+        <label className="flex min-w-0 flex-1 items-center justify-start gap-2 text-[13px] text-[var(--text-primary)]">
           <input
             checked={property.value}
             className="h-4 w-4 accent-[var(--accent-color,#3b82f6)]"
@@ -501,17 +567,71 @@ export function PropertiesTable({
     }
 
     if (property.type === "date") {
+      const parsedValue = parseLocalDateTimeValue(property.value);
+      const selectedTime = parsedValue?.time ?? "";
+
       return (
-        <input
-          aria-label={`${key} date`}
-          className="min-w-0 flex-1 bg-transparent text-right text-[13px] text-[var(--text-primary)] leading-[1.15] outline-none placeholder:text-[var(--text-muted)] placeholder:opacity-70"
-          disabled={disabled}
-          onChange={(event) =>
-            handlePropertyValueChange(key, event.currentTarget.value)
-          }
-          type="date"
-          value={property.value ?? ""}
-        />
+        <Popover>
+          <PopoverTrigger
+            className="flex min-w-0 flex-1 items-center justify-start gap-1 rounded-md px-1.5 py-1 text-left text-[13px] text-[var(--text-primary)] hover:bg-[var(--background-modifier-hover)]"
+            disabled={disabled}
+            type="button"
+          >
+            <span
+              className={cn(
+                "truncate",
+                !property.value && "text-[var(--text-muted)]"
+              )}
+            >
+              {formatDateValue(property.value)}
+            </span>
+            <CaretDown className="h-3 w-3 shrink-0 text-[var(--text-muted)]" />
+          </PopoverTrigger>
+          <PopoverContent
+            align="start"
+            className="w-auto gap-2 overflow-visible p-2"
+            sideOffset={6}
+          >
+            <Calendar
+              className="p-0"
+              mode="single"
+              onSelect={(date) => {
+                if (!date) {
+                  return;
+                }
+                handlePropertyValueChange(
+                  key,
+                  toLocalDateValue(date, selectedTime)
+                );
+              }}
+              selected={parsedValue?.date ?? undefined}
+            />
+            <div className="flex items-center gap-2 border-border/70 border-t pt-2">
+              <input
+                aria-label={`${key} time`}
+                className="h-7 rounded-md border border-border/70 bg-transparent px-2 text-[12px] outline-none focus:border-[var(--accent-color,#3b82f6)]"
+                disabled={disabled}
+                onChange={(event) => {
+                  const nextDate = parsedValue?.date ?? new Date();
+                  handlePropertyValueChange(
+                    key,
+                    toLocalDateValue(nextDate, event.currentTarget.value)
+                  );
+                }}
+                type="time"
+                value={selectedTime}
+              />
+              <button
+                className="ml-auto rounded-md px-2 py-1 text-[12px] text-[var(--text-muted)] hover:bg-accent hover:text-accent-foreground"
+                disabled={disabled || !property.value}
+                onClick={() => handlePropertyValueChange(key, null)}
+                type="button"
+              >
+                Clear
+              </button>
+            </div>
+          </PopoverContent>
+        </Popover>
       );
     }
 
@@ -519,7 +639,7 @@ export function PropertiesTable({
       return (
         <input
           aria-label={`${key} number`}
-          className="min-w-0 flex-1 bg-transparent text-right text-[13px] text-[var(--text-primary)] leading-[1.15] outline-none placeholder:text-[var(--text-muted)] placeholder:opacity-70"
+          className="min-w-0 flex-1 bg-transparent text-left text-[13px] text-[var(--text-primary)] leading-[1.15] outline-none placeholder:text-[var(--text-muted)] placeholder:opacity-70"
           disabled={disabled}
           inputMode="decimal"
           onChange={(event) =>
@@ -546,17 +666,56 @@ export function PropertiesTable({
       return (
         <Popover>
           <PopoverTrigger
-            className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1 rounded-md px-1.5 py-1 text-right text-[13px] text-[var(--text-primary)] hover:bg-[var(--background-modifier-hover)]"
+            className="flex min-w-0 flex-1 items-center justify-start gap-1 rounded-md px-1.5 py-1 text-left text-[13px] text-[var(--text-primary)] hover:bg-[var(--background-modifier-hover)]"
             disabled={disabled}
             type="button"
           >
-            <span className="truncate">{displayValue}</span>
+            <span
+              className={cn(
+                "truncate",
+                selectedValues.length === 0 && "text-[var(--text-muted)]"
+              )}
+            >
+              {displayValue}
+            </span>
             <CaretDown className="h-3 w-3 shrink-0 text-[var(--text-muted)]" />
           </PopoverTrigger>
-          <PopoverContent align="end" className="w-56 gap-1 p-1" sideOffset={6}>
+          <PopoverContent
+            align="start"
+            className="w-56 gap-1 overflow-visible p-1"
+            sideOffset={6}
+          >
+            <form
+              className="flex items-center gap-1 p-1"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const option = valueOptionDraft.trim();
+                if (!option) {
+                  return;
+                }
+                syncDefinition(key, property.type, [option]);
+                if (property.type === "select") {
+                  handlePropertyValueChange(key, option);
+                } else if (!property.value.includes(option)) {
+                  handlePropertyValueChange(key, [...property.value, option]);
+                }
+                setValueOptionDraft("");
+              }}
+            >
+              <input
+                className="h-7 min-w-0 flex-1 rounded-md border border-border/70 bg-transparent px-2 text-[12px] outline-none focus:border-[var(--accent-color,#3b82f6)]"
+                disabled={disabled}
+                onChange={(event) =>
+                  setValueOptionDraft(event.currentTarget.value)
+                }
+                placeholder="Type to create/select"
+                spellCheck={false}
+                value={valueOptionDraft}
+              />
+            </form>
             {options.length === 0 ? (
               <div className="px-2 py-2 text-[12px] text-[var(--text-muted)]">
-                Add options in property settings.
+                Type to create the first option.
               </div>
             ) : null}
             {options.map((option) => {
@@ -599,7 +758,7 @@ export function PropertiesTable({
     return (
       <input
         aria-label={`${key} value`}
-        className="min-w-0 flex-1 bg-transparent text-right text-[13px] text-[var(--text-primary)] leading-[1.15] outline-none placeholder:text-[var(--text-muted)] placeholder:opacity-70"
+        className="min-w-0 flex-1 bg-transparent text-left text-[13px] text-[var(--text-primary)] leading-[1.15] outline-none placeholder:text-[var(--text-muted)] placeholder:opacity-70"
         disabled={disabled}
         onBlur={(event) => handleEntryBlur(event, key)}
         onChange={(event) =>
@@ -626,6 +785,8 @@ export function PropertiesTable({
         <AnimatePresence initial={false}>
           {entries.map(([key, property]) => {
             const definitionOptions = getDefinitionOptions(key, property);
+            const propertyTypeItem = getPropertyTypeItem(property.type);
+            const PropertyTypeIcon = propertyTypeItem.icon;
             return (
               <motion.div
                 animate={{ opacity: 1, height: "auto" }}
@@ -649,12 +810,12 @@ export function PropertiesTable({
                     onMouseDown={(event) => event.preventDefault()}
                     type="button"
                   >
-                    <PencilSimple className="h-3.5 w-3.5 shrink-0" />
+                    <PropertyTypeIcon className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">{key}</span>
                   </PopoverTrigger>
                   <PopoverContent
                     align="start"
-                    className="w-64 gap-1 p-1"
+                    className="max-h-none w-64 gap-1 overflow-visible p-1"
                     sideOffset={6}
                   >
                     <div
@@ -678,38 +839,47 @@ export function PropertiesTable({
                         spellCheck={false}
                       />
                     </div>
-                    <div className="px-2 pt-1 pb-0.5 text-[11px] text-[var(--text-muted)]">
-                      Type
+                    <div className="flex min-h-8 w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[var(--text-muted)] text-xs">
+                      <PropertyTypeIcon className="h-3.5 w-3.5" />
+                      <span className="text-[var(--text-primary)]">Type</span>
+                      <span className="ml-auto">{propertyTypeItem.label}</span>
                     </div>
-                    {PROPERTY_TYPE_ITEMS.map((item) => {
-                      const Icon = item.icon;
-                      return (
-                        <button
-                          className="flex min-h-7 w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground"
-                          disabled={disabled}
-                          key={item.type}
-                          onClick={() => {
-                            const normalizedProperties =
-                              normalizeFrontmatterProperties(properties);
-                            onChange({
-                              ...normalizedProperties,
-                              [key]: createEmptyProperty(item.type),
-                            });
-                            syncDefinition(key, item.type);
-                            setOpenPropertyEditorKey(key);
-                          }}
-                          type="button"
-                        >
-                          <Icon className="h-3.5 w-3.5" />
-                          {item.label}
-                          {property.type === item.type ? (
-                            <span className="ml-auto text-[11px] text-[var(--text-muted)]">
-                              Current
-                            </span>
-                          ) : null}
-                        </button>
-                      );
-                    })}
+                    {property.type === "date" ? (
+                      <>
+                        <div className="flex min-h-7 w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs">
+                          <CalendarBlank className="h-3.5 w-3.5 text-[var(--text-muted)]" />
+                          Date format
+                          <span className="ml-auto text-[var(--text-muted)]">
+                            Relative
+                          </span>
+                        </div>
+                        <div className="flex min-h-7 w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs">
+                          <Info className="h-3.5 w-3.5 text-[var(--text-muted)]" />
+                          Time format
+                          <span className="ml-auto text-[var(--text-muted)]">
+                            24 hour
+                          </span>
+                        </div>
+                      </>
+                    ) : null}
+                    {property.type === "number" ? (
+                      <>
+                        <div className="flex min-h-7 w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs">
+                          <Hash className="h-3.5 w-3.5 text-[var(--text-muted)]" />
+                          Number format
+                          <span className="ml-auto text-[var(--text-muted)]">
+                            Number
+                          </span>
+                        </div>
+                        <div className="flex min-h-7 w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs">
+                          <Hash className="h-3.5 w-3.5 text-[var(--text-muted)]" />
+                          Decimal places
+                          <span className="ml-auto text-[var(--text-muted)]">
+                            Default
+                          </span>
+                        </div>
+                      </>
+                    ) : null}
                     {property.type === "select" ||
                     property.type === "multi_select" ? (
                       <>
@@ -724,6 +894,7 @@ export function PropertiesTable({
                                 className="flex min-h-7 items-center gap-2 rounded-md px-1.5 text-[var(--text-primary)] text-xs"
                                 key={option}
                               >
+                                <DotsSixVertical className="h-3.5 w-3.5 text-[var(--text-muted)]" />
                                 <span className="h-2.5 w-2.5 rounded-full bg-[var(--accent-color,#3b82f6)]" />
                                 <span className="truncate">{option}</span>
                               </div>
@@ -942,7 +1113,7 @@ export function PropertiesTable({
                 }}
                 type="button"
               >
-                <PencilSimple className="h-3.5 w-3.5" />
+                <TextT className="h-3.5 w-3.5" />
                 Custom property
               </button>
               <button

@@ -17,7 +17,7 @@
 
 .scribe-surface ::selection {
   color: var(--foreground);
-  background: color-mix(in oklch, var(--accent) 34%, transparent);
+  background: color-mix(in oklch, var(--primary) 44%, transparent);
 }
 
 .scribe-document-row {
