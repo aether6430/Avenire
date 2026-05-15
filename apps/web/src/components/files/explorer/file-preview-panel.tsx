@@ -59,7 +59,6 @@ import {
   useState,
 } from "react";
 import { toast } from "sonner";
-import { Markdown as MarkdownRenderer } from "@/components/chat/markdown";
 import type { WorkspaceInvalidationDetail } from "@/components/dashboard/workspace-realtime-bridge";
 import AvenireEditor from "@/components/editor";
 import { PropertiesTable } from "@/components/editor/properties-table";
@@ -195,28 +194,6 @@ function createGradientBannerDataUrl(from: string, to: string) {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
-function InactiveMarkdownPreview({
-  content,
-  fileId,
-  workspaceUuid,
-}: {
-  content: string;
-  fileId: string;
-  workspaceUuid: string;
-}) {
-  return (
-    <div className="mx-auto w-full max-w-[45rem] px-4 py-8 sm:px-10 sm:py-10">
-      <MarkdownRenderer
-        className="text-sm"
-        content={content}
-        id={`inactive-note-preview:${fileId}`}
-        parseIncompleteMarkdown={false}
-        workspaceUuid={workspaceUuid}
-      />
-    </div>
-  );
-}
-
 const NOTE_COVER_GALLERY = [
   {
     label: "Default",
@@ -345,7 +322,7 @@ export function FilePreviewPanel({
   const noteSyncDebounceRef = useRef<number | null>(null);
   const noteSyncInFlightRef = useRef(false);
   const noteSyncQueuedRef = useRef(false);
-  const { isActive: isPaneActive, paneId } = useCurrentWorkspacePane();
+  const { paneId } = useCurrentWorkspacePane();
   const closePane = useWorkspacePaneStore((state) => state.closePane);
   const openPane = useWorkspacePaneStore((state) => state.openPane);
   const paneCount = useWorkspacePaneStore((state) => state.panes.length);
@@ -1508,53 +1485,45 @@ export function FilePreviewPanel({
                     </div>
                   </div>
                 ) : null}
-                {isPaneActive ? (
-                  <AvenireEditor
-                    defaultValue={markdownBody}
-                    key={activeFile.id}
-                    noteTitle={noteDisplayTitle}
-                    onChange={handleMarkdownBodyChange}
-                    onOpenWikiLink={(page, options) => {
-                      if (!options.openInNewPane) {
-                        openFileById(page.id);
-                        return;
-                      }
+                <AvenireEditor
+                  defaultValue={markdownBody}
+                  key={activeFile.id}
+                  noteTitle={noteDisplayTitle}
+                  onChange={handleMarkdownBodyChange}
+                  onOpenWikiLink={(page, options) => {
+                    if (!options.openInNewPane) {
+                      openFileById(page.id);
+                      return;
+                    }
 
-                      const targetFile = allFiles.find(
-                        (file) => file.id === page.id
-                      );
-                      if (!targetFile) {
-                        return;
-                      }
+                    const targetFile = allFiles.find(
+                      (file) => file.id === page.id
+                    );
+                    if (!targetFile) {
+                      return;
+                    }
 
-                      const params = new URLSearchParams();
-                      params.set("file", page.id);
-                      openPane(
-                        `/workspace/files/${workspaceUuid}/folder/${targetFile.folderId}?${params.toString()}`,
-                        { sourcePaneId: paneId }
-                      );
-                    }}
-                    onPagePropertiesChange={(properties) => {
-                      setNotePage((current) => ({
-                        ...current,
-                        properties,
-                      }));
-                    }}
-                    onPropertyDefinitionsChange={setPropertyDefinitions}
-                    pageProperties={notePage.properties}
-                    propertyDefinitions={propertyDefinitions}
-                    saveState={activeFileIsMarkdown ? noteSaveState : undefined}
-                    scrollContainerRef={filePreviewScrollRef}
-                    wikiPages={wikiLinkableFiles}
-                    workspaceUuid={workspaceUuid}
-                  />
-                ) : (
-                  <InactiveMarkdownPreview
-                    content={markdownBody}
-                    fileId={activeFile.id}
-                    workspaceUuid={workspaceUuid}
-                  />
-                )}
+                    const params = new URLSearchParams();
+                    params.set("file", page.id);
+                    openPane(
+                      `/workspace/files/${workspaceUuid}/folder/${targetFile.folderId}?${params.toString()}`,
+                      { sourcePaneId: paneId }
+                    );
+                  }}
+                  onPagePropertiesChange={(properties) => {
+                    setNotePage((current) => ({
+                      ...current,
+                      properties,
+                    }));
+                  }}
+                  onPropertyDefinitionsChange={setPropertyDefinitions}
+                  pageProperties={notePage.properties}
+                  propertyDefinitions={propertyDefinitions}
+                  saveState={activeFileIsMarkdown ? noteSaveState : undefined}
+                  scrollContainerRef={filePreviewScrollRef}
+                  wikiPages={wikiLinkableFiles}
+                  workspaceUuid={workspaceUuid}
+                />
               </div>
             )}
           </div>
