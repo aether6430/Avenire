@@ -23,6 +23,7 @@ import {
 } from "@/lib/chat-events";
 import { normalizeMediaType } from "@/lib/media-type";
 import { emitPetNotification } from "@/lib/pet-preferences";
+import { usePaneRouter } from "@/lib/workspace-panes";
 import { type Attachment, createLocalAttachment } from "./attachment";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
@@ -56,7 +57,10 @@ export function Chat({
   workspaceUuid,
   userName,
 }: ChatProps) {
-  const [chatId] = useState(() => (id === "new" ? crypto.randomUUID() : id));
+  const router = usePaneRouter();
+  const [chatId, setChatId] = useState(() =>
+    id === "new" ? crypto.randomUUID() : id
+  );
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [input, setInput] = useState("");
   const [agentActivity, setAgentActivity] = useState<AgentActivityData | null>(
@@ -171,13 +175,29 @@ export function Chat({
     return null;
   }, [displayedMessages]);
 
+  useEffect(() => {
+    if (id === "new") {
+      if (hasPushedNewChatUrlRef.current) {
+        hasPushedNewChatUrlRef.current = false;
+        setChatId(crypto.randomUUID());
+        setMessages([]);
+      }
+      return;
+    }
+
+    hasPushedNewChatUrlRef.current = true;
+    if (id !== chatId) {
+      setChatId(id);
+    }
+  }, [chatId, id, setMessages]);
+
   const pushNewChatUrl = useCallback(() => {
     if (hasPushedNewChatUrlRef.current || id !== "new") {
       return;
     }
     hasPushedNewChatUrlRef.current = true;
-    window.history.pushState({}, "", `/workspace/chats/${chatId}`);
-  }, [chatId, id]);
+    router.replace(`/workspace/chats/${chatId}` as never);
+  }, [chatId, id, router]);
 
   const sendMessage = useCallback(
     async (message: SendMessageInput, options?: SendMessageOptions) => {

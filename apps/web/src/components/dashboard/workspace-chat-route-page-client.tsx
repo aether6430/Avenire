@@ -2,11 +2,10 @@
 
 import type { UIMessage } from "@avenire/ai/message-types";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
 import { ChatWorkspace } from "@/components/dashboard/chat-workspace";
 import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
-import { usePanePathname, usePaneRouter } from "@/lib/workspace-panes";
+import { usePanePathname } from "@/lib/workspace-panes";
 
 interface ChatRoutePayload {
   chat?: {
@@ -41,7 +40,6 @@ export function WorkspaceChatRoutePageClient({
   slug?: string;
 }) {
   const pathname = usePanePathname();
-  const router = usePaneRouter();
   const { status, user, workspace } = useWorkspaceBootstrap();
   const slug =
     slugProp ?? pathname.match(/^\/workspace\/chats\/([^/?#]+)/)?.[1] ?? "new";
@@ -53,12 +51,6 @@ export function WorkspaceChatRoutePageClient({
     queryFn: ({ signal }) => loadChatRoute(slug, signal),
     queryKey: ["workspace-chat-route", workspace?.workspaceId ?? null, slug],
   });
-
-  useEffect(() => {
-    if (chatQuery.data === null) {
-      router.replace("/workspace/chats");
-    }
-  }, [chatQuery.data, router]);
 
   if (!(status === "ready" && user && workspace)) {
     return <WorkspaceRoutePlaceholder label="Loading method..." />;
@@ -79,7 +71,22 @@ export function WorkspaceChatRoutePageClient({
     );
   }
 
-  if (chatQuery.isPending || !chatQuery.data?.chat) {
+  if (chatQuery.isPending || chatQuery.data === null) {
+    return (
+      <ChatWorkspace
+        chatIcon={null}
+        chatSlug={slug}
+        chatTitle="New Method"
+        initialMessages={[]}
+        initialPrompt={null}
+        isReadonly={false}
+        userName={user.name ?? undefined}
+        workspaceUuid={workspace.workspaceId}
+      />
+    );
+  }
+
+  if (!chatQuery.data?.chat) {
     return <WorkspaceRoutePlaceholder label="Loading method..." />;
   }
 

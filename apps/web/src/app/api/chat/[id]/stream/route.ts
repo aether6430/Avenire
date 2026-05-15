@@ -6,7 +6,6 @@ import { createResumableStreamContext } from "resumable-stream";
 import { getChatBySlugForUser } from "@/lib/chat-data";
 import { resolveWorkspaceForUser } from "@/lib/file-data";
 import {
-  clearActiveStreamId,
   getActiveStreamId,
   getRedisClient,
   getRedisSubscriber,
@@ -33,17 +32,21 @@ export async function GET(
   if (!workspace) {
     return new Response(null, { status: 404 });
   }
+
+  const activeStreamId = await getActiveStreamId(id);
+  if (!activeStreamId) {
+    return new Response(null, {
+      status: 204,
+      headers: { "Cache-Control": "no-store" },
+    });
+  }
+
   const chat = await getChatBySlugForUser(
     session.user.id,
     id,
     workspace.workspaceId
   );
   if (!chat) {
-    return new Response(null, { status: 404 });
-  }
-
-  const activeStreamId = await getActiveStreamId(id);
-  if (!activeStreamId) {
     return new Response(null, {
       status: 204,
       headers: { "Cache-Control": "no-store" },

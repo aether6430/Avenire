@@ -750,10 +750,7 @@ export function DashboardSidebar({
     }
     return match[1];
   }, [pathname]);
-  const activeChatSlug =
-    activeChatSlugFromPath ||
-    activeChatSlugProp ||
-    "";
+  const activeChatSlug = activeChatSlugFromPath || activeChatSlugProp || "";
   const chatsWorkspaceRef = useRef<string | null>(
     activeWorkspace?.workspaceId ?? null
   );
@@ -1332,6 +1329,9 @@ export function DashboardSidebar({
         return;
       }
       if (detail.status === "ready" || detail.status === "error") {
+        if (detail.status === "ready") {
+          void loadChats();
+        }
         setPendingChatSlug((prev) => (prev === detail.chatId ? null : prev));
       }
     };
@@ -1342,7 +1342,7 @@ export function DashboardSidebar({
       window.removeEventListener(CHAT_NAME_UPDATED_EVENT, onChatNameUpdated);
       window.removeEventListener(CHAT_STREAM_STATUS_EVENT, onChatStreamStatus);
     };
-  }, []);
+  }, [loadChats]);
 
   const sortedChats = useMemo(
     () =>

@@ -385,7 +385,6 @@ export function ChatWorkspace({
             initialMessages={initialMessages}
             initialPrompt={initialPrompt}
             isReadonly={isReadonly}
-            key={currentChatSlug}
             selectedModel="apollo-apex"
             userName={userName}
             workspaceUuid={workspaceUuid}
