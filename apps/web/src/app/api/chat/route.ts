@@ -1554,7 +1554,6 @@ export async function POST(request: Request) {
                 null
               )
             : Promise.resolve(null);
-          emitMisconceptionActivity("Checking misconception memory");
           const recentRelevantSummary = await recentRelevantSummaryPromise;
           const resolvedTopic = inferTopicLabel(
             [latestUserText, recentRelevantSummary?.summaryText]
@@ -1578,57 +1577,23 @@ export async function POST(request: Request) {
             "learning-prompt-memory",
             []
           );
-          const misconceptionSignalPromise = withStartupTimeout(
-            detectMisconceptionSignals({
-              abortSignal: request.signal,
-              latestUserText,
-              subject: resolvedSubject,
-              topic: resolvedTopic,
-              userId: session.user.id,
-              workspaceId: workspace.workspaceId,
-            }).catch((error) => {
-              logWarn(
-                "Failed to detect real-time misconception signal; continuing without it",
-                {
-                  chatId: chat.id,
-                  error: formatError(error),
-                  subject: resolvedSubject,
-                  topic: resolvedTopic,
-                }
-              );
-              return null;
-            }),
-            "misconception-signal-detector",
-            null,
-            MISCONCEPTION_SIGNAL_TIMEOUT_MS
-          );
-          const [modelMessages, promptMemoryBlocks, misconceptionSignal] =
-            await Promise.all([
-              modelMessagesPromise,
-              promptMemoryBlocksPromise,
-              misconceptionSignalPromise,
-            ]);
-          const nextPromptMemoryBlocks = misconceptionSignal?.interventionBlock
-            ? [...promptMemoryBlocks, misconceptionSignal.interventionBlock]
-            : promptMemoryBlocks;
+          const [modelMessages, promptMemoryBlocks] = await Promise.all([
+            modelMessagesPromise,
+            promptMemoryBlocksPromise,
+          ]);
           emitStartupActivity("Starting model response");
           logInfo("Resolved chat prompt context", {
             chatId: chatSlug,
             workspaceSubjectSummary,
             resolvedSubject,
             resolvedTopic,
-            misconceptionSignalCandidateCount:
-              misconceptionSignal?.candidates.length ?? 0,
-            misconceptionSignalMatched: misconceptionSignal?.matched ?? false,
-            promptMemoryBlockCount: nextPromptMemoryBlocks.length,
+            promptMemoryBlockCount: promptMemoryBlocks.length,
           });
           result = streamText({
             model: apollo.languageModel(selectedModel),
             system: APOLLO_PROMPT(
               body.userName ?? session.user.name ?? undefined,
-              nextPromptMemoryBlocks.length > 0
-                ? nextPromptMemoryBlocks
-                : undefined,
+              promptMemoryBlocks.length > 0 ? promptMemoryBlocks : undefined,
               {
                 useWidgetSpec: !modelUsesLegacyWidgetSchema(selectedModel),
               }
@@ -1681,6 +1646,55 @@ export async function POST(request: Request) {
               },
             ],
           });
+          void (async () => {
+            emitMisconceptionActivity("Checking misconception memory");
+            const misconceptionSignal = await withStartupTimeout(
+              detectMisconceptionSignals({
+                abortSignal: request.signal,
+                latestUserText,
+                subject: resolvedSubject,
+                topic: resolvedTopic,
+                userId: session.user.id,
+                workspaceId: workspace.workspaceId,
+              }).catch((error) => {
+                logWarn(
+                  "Failed to detect real-time misconception signal; continuing without it",
+                  {
+                    chatId: chat.id,
+                    error: formatError(error),
+                    subject: resolvedSubject,
+                    topic: resolvedTopic,
+                  }
+                );
+                return null;
+              }),
+              "misconception-signal-detector",
+              null,
+              MISCONCEPTION_SIGNAL_TIMEOUT_MS
+            );
+
+            emitAgentActivity({
+              id: agentActivityId,
+              status: "done",
+              actions: [
+                {
+                  kind: "misconception",
+                  pending: false,
+                  value: misconceptionSignal?.matched
+                    ? "Matched misconception memory"
+                    : "Checked misconception memory",
+                },
+              ],
+            });
+            logInfo("Resolved post-start misconception signal", {
+              chatId: chatSlug,
+              misconceptionSignalCandidateCount:
+                misconceptionSignal?.candidates.length ?? 0,
+              misconceptionSignalMatched: misconceptionSignal?.matched ?? false,
+              resolvedSubject,
+              resolvedTopic,
+            });
+          })();
         } catch (error) {
           await clearActiveStreamId(chatSlug, streamId);
           logError("Failed to start model stream", {

@@ -1326,6 +1326,7 @@ export function DashboardSidebar({
       }
       if (detail.status === "submitted" || detail.status === "streaming") {
         setPendingChatSlug(detail.chatId);
+        void loadChats();
         return;
       }
       if (detail.status === "ready" || detail.status === "error") {

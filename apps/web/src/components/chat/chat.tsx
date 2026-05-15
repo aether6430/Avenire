@@ -68,6 +68,7 @@ export function Chat({
   );
   const lastCompletedMessageIdRef = useRef<string | null>(null);
   const previousStatusRef = useRef<string | null>(null);
+  const initialMessagesCountRef = useRef(initialMessages.length);
   const hasPushedNewChatUrlRef = useRef(id !== "new");
   const autoPromptSentRef = useRef<string | null>(null);
   const MAX_FILES = 3;
@@ -196,6 +197,11 @@ export function Chat({
       return;
     }
     hasPushedNewChatUrlRef.current = true;
+    window.dispatchEvent(
+      new CustomEvent<ChatStreamStatusDetail>(CHAT_STREAM_STATUS_EVENT, {
+        detail: { chatId, status: "submitted" },
+      })
+    );
     router.replace(`/workspace/chats/${chatId}` as never);
   }, [chatId, id, router]);
 
@@ -221,19 +227,24 @@ export function Chat({
   }, [initialMessages, messages.length, setMessages]);
 
   useEffect(() => {
-    if (id === "new") {
+    const canResumeExistingStream =
+      id !== "new" &&
+      initialMessagesCountRef.current > 0 &&
+      messages.at(-1)?.role === "user" &&
+      status === "ready";
+    if (!canResumeExistingStream) {
       return;
     }
     resumeStream().catch(() => undefined);
-  }, [id, resumeStream]);
+  }, [id, messages, resumeStream, status]);
 
   useEffect(() => {
-    if (id === "new") {
+    if (id === "new" || initialMessagesCountRef.current === 0) {
       return;
     }
 
     const resumeExistingStream = () => {
-      if (document.visibilityState === "hidden") {
+      if (document.visibilityState === "hidden" || status !== "ready") {
         return;
       }
       resumeStream().catch(() => undefined);
@@ -246,7 +257,7 @@ export function Chat({
       window.removeEventListener("focus", resumeExistingStream);
       document.removeEventListener("visibilitychange", resumeExistingStream);
     };
-  }, [id, resumeStream]);
+  }, [id, resumeStream, status]);
 
   useEffect(() => {
     if (id !== "new") {
