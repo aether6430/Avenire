@@ -765,25 +765,29 @@ export function ReasoningAction({
 
 function ReasoningPanel({
   content,
+  id,
   open,
   workspaceUuid,
 }: {
   content: string;
+  id: string;
   open: boolean;
   workspaceUuid?: string;
 }) {
   return (
-    <m.div
-      animate={{ height: open ? "auto" : 0, opacity: open ? 1 : 0 }}
-      initial={false}
+    <div
+      className={cn(
+        "overflow-hidden transition-[height,opacity] duration-300 ease-out",
+        open ? "h-auto opacity-100" : "h-0 opacity-0"
+      )}
+      hidden={!open}
+      id={id}
       role="region"
-      style={{ overflow: "hidden" }}
-      transition={{ duration: 0.36, ease: [0.4, 0, 0.2, 1] }}
     >
       <ReasoningContent workspaceUuid={workspaceUuid}>
         {content}
       </ReasoningContent>
-    </m.div>
+    </div>
   );
 }
 
@@ -861,6 +865,7 @@ function ReasoningBlock({
       {content ? (
         <ReasoningPanel
           content={content}
+          id={panelId}
           open={isStreaming || open}
           workspaceUuid={workspaceUuid}
         />
@@ -1220,13 +1225,14 @@ function AccordionPanel({
   open: boolean;
 }) {
   return (
-    <m.div
-      animate={{ height: open ? "auto" : 0, opacity: open ? 1 : 0 }}
+    <div
+      className={cn(
+        "overflow-hidden transition-[height,opacity] duration-300 ease-out",
+        open ? "h-auto opacity-100" : "h-0 opacity-0"
+      )}
+      hidden={!open}
       id={id}
-      initial={false}
       role="region"
-      style={{ overflow: "hidden" }}
-      transition={{ duration: 0.36, ease: [0.4, 0, 0.2, 1] }}
     >
       <ul aria-label="Files accessed" className="mt-[3px]">
         {items.map((item, index) => (
@@ -1238,7 +1244,7 @@ function AccordionPanel({
           />
         ))}
       </ul>
-    </m.div>
+    </div>
   );
 }
 
@@ -1317,13 +1323,7 @@ function ExploreBlock({
 function MutationBlock({ action }: { action: MutationAction }) {
   if (action.kind === "error") {
     return (
-      <m.div
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-1 flex items-baseline gap-2 text-sm"
-        initial={{ opacity: 0, y: 5 }}
-        role="listitem"
-        transition={{ duration: 0.28, ease: "easeOut" }}
-      >
+      <div className="mb-1 flex items-baseline gap-2 text-sm" role="listitem">
         <span className="font-semibold text-destructive">Error</span>
         <span className="font-mono text-[12px] text-destructive/80">
           {action.error ?? "Unknown error"}
@@ -1334,19 +1334,13 @@ function MutationBlock({ action }: { action: MutationAction }) {
             <ThinkingDots />
           </span>
         ) : null}
-      </m.div>
+      </div>
     );
   }
 
   if (action.kind === "flashcards") {
     return (
-      <m.div
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-1 flex items-baseline gap-2 text-sm"
-        initial={{ opacity: 0, y: 5 }}
-        role="listitem"
-        transition={{ duration: 0.28, ease: "easeOut" }}
-      >
+      <div className="mb-1 flex items-baseline gap-2 text-sm" role="listitem">
         <span className="font-semibold text-foreground/72">Mindset</span>
         <span className="font-mono text-[12px] text-foreground/62">
           {action.preview?.title || action.value || "flashcards"}
@@ -1357,7 +1351,7 @@ function MutationBlock({ action }: { action: MutationAction }) {
             <ThinkingDots />
           </span>
         ) : null}
-      </m.div>
+      </div>
     );
   }
 
@@ -1367,12 +1361,9 @@ function MutationBlock({ action }: { action: MutationAction }) {
       : null;
 
     return (
-      <m.div
-        animate={{ opacity: 1, y: 0 }}
+      <div
         className="mb-1 overflow-hidden rounded-xl border border-foreground/[0.08] bg-foreground/[0.03]"
-        initial={{ opacity: 0, y: 5 }}
         role="listitem"
-        transition={{ duration: 0.28, ease: "easeOut" }}
       >
         <div className="flex min-h-16 items-center justify-between gap-3 px-3 py-2.5">
           <div className="min-w-0">
@@ -1397,19 +1388,13 @@ function MutationBlock({ action }: { action: MutationAction }) {
             </div>
           ) : null}
         </div>
-      </m.div>
+      </div>
     );
   }
 
   if (action.kind === "quiz") {
     return (
-      <m.div
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-1 flex items-baseline gap-2 text-sm"
-        initial={{ opacity: 0, y: 5 }}
-        role="listitem"
-        transition={{ duration: 0.28, ease: "easeOut" }}
-      >
+      <div className="mb-1 flex items-baseline gap-2 text-sm" role="listitem">
         <span className="font-semibold text-foreground/72">Quiz</span>
         <span className="font-mono text-[12px] text-foreground/62">
           {action.value || "generating..."}
@@ -1420,7 +1405,7 @@ function MutationBlock({ action }: { action: MutationAction }) {
             <ThinkingDots />
           </span>
         ) : null}
-      </m.div>
+      </div>
     );
   }
 
@@ -1431,13 +1416,7 @@ function MutationBlock({ action }: { action: MutationAction }) {
         : null;
 
     return (
-      <m.div
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-1 flex items-baseline gap-2 text-sm"
-        initial={{ opacity: 0, y: 5 }}
-        role="listitem"
-        transition={{ duration: 0.28, ease: "easeOut" }}
-      >
+      <div className="mb-1 flex items-baseline gap-2 text-sm" role="listitem">
         <span className="font-semibold text-foreground/72">Misconception</span>
         <span className="min-w-0 truncate font-mono text-[12px] text-foreground/62">
           {action.preview?.concept || action.value || "learning memory"}
@@ -1453,7 +1432,7 @@ function MutationBlock({ action }: { action: MutationAction }) {
             <ThinkingDots />
           </span>
         ) : null}
-      </m.div>
+      </div>
     );
   }
 
@@ -1472,13 +1451,7 @@ function MutationBlock({ action }: { action: MutationAction }) {
           : "Edit";
 
   return (
-    <m.div
-      animate={{ opacity: 1, y: 0 }}
-      className="mb-1 flex items-baseline gap-2 text-sm"
-      initial={{ opacity: 0, y: 5 }}
-      role="listitem"
-      transition={{ duration: 0.28, ease: "easeOut" }}
-    >
+    <div className="mb-1 flex items-baseline gap-2 text-sm" role="listitem">
       <span className="font-semibold text-foreground/72">{label}</span>
       <span className="font-mono text-[12px] text-foreground/62">
         {filename}
@@ -1498,7 +1471,7 @@ function MutationBlock({ action }: { action: MutationAction }) {
           <ThinkingDots />
         </span>
       ) : null}
-    </m.div>
+    </div>
   );
 }
 

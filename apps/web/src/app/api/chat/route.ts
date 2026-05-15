@@ -1436,6 +1436,7 @@ export async function POST(request: Request) {
 
         let result: Awaited<ReturnType<typeof streamText>>;
         const agentActivityId = randomUUID();
+        const misconceptionActivityId = randomUUID();
         const emitAgentActivity = (data: AgentActivityData) => {
           writer.write({
             type: "data-agent_activity",
@@ -1459,7 +1460,7 @@ export async function POST(request: Request) {
         };
         const emitMisconceptionActivity = (value: string) => {
           emitAgentActivity({
-            id: agentActivityId,
+            id: misconceptionActivityId,
             status: "running",
             actions: [
               {
@@ -1468,6 +1469,13 @@ export async function POST(request: Request) {
                 value,
               },
             ],
+          });
+        };
+        const clearMisconceptionActivity = () => {
+          emitAgentActivity({
+            id: misconceptionActivityId,
+            status: "done",
+            actions: [],
           });
         };
         emitStartupActivity("Preparing chat context");
@@ -1673,19 +1681,7 @@ export async function POST(request: Request) {
               MISCONCEPTION_SIGNAL_TIMEOUT_MS
             );
 
-            emitAgentActivity({
-              id: agentActivityId,
-              status: "done",
-              actions: [
-                {
-                  kind: "misconception",
-                  pending: false,
-                  value: misconceptionSignal?.matched
-                    ? "Matched misconception memory"
-                    : "Checked misconception memory",
-                },
-              ],
-            });
+            clearMisconceptionActivity();
             logInfo("Resolved post-start misconception signal", {
               chatId: chatSlug,
               misconceptionSignalCandidateCount:
