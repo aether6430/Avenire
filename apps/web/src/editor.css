@@ -15,12 +15,17 @@
   caret-color: var(--foreground);
 }
 
+.scribe-surface ::selection {
+  color: var(--foreground);
+  background: color-mix(in oklch, var(--accent) 34%, transparent);
+}
+
 .scribe-document-row {
   display: grid;
   grid-template-columns: minmax(0, 45rem) 3.125rem;
   gap: 1rem;
-  justify-content: center;
   align-items: start;
+  justify-content: center;
   width: 100%;
   padding-inline: 1rem;
 }
@@ -70,12 +75,6 @@
 }
 
 .scribe-frontmatter-panel {
-  position: relative;
-  max-width: min(100%, 45rem);
-  max-height: 12.5rem;
-  margin-inline: auto;
-  margin-bottom: 1rem;
-  overflow-y: auto;
   --surface-subtle: color-mix(in oklch, var(--foreground) 7%, transparent 93%);
   --text-icon-muted: color-mix(
     in oklch,
@@ -85,6 +84,12 @@
   --text-muted: color-mix(in oklch, var(--foreground) 54%, transparent 46%);
   --text-primary: var(--foreground);
   --scroll-fade-color: var(--background);
+  position: relative;
+  max-width: min(100%, 45rem);
+  max-height: 12.5rem;
+  margin-inline: auto;
+  margin-bottom: 1rem;
+  overflow-y: auto;
 }
 
 .scribe-frontmatter-table {
@@ -100,9 +105,9 @@
 
 .scribe-frontmatter-table {
   max-width: none;
-  overflow-x: hidden;
   padding: 0 0 1.25rem;
   margin: 0;
+  overflow-x: hidden;
   border: 0;
 }
 
@@ -123,11 +128,11 @@
 }
 
 .editor-toc-rail {
-  display: block;
   position: sticky;
   top: 6rem;
-  width: 3.125rem;
+  display: block;
   align-self: start;
+  width: 3.125rem;
   max-height: calc(100vh - 8rem);
 }
 
@@ -210,8 +215,8 @@
   color: var(--muted-foreground);
   text-align: left;
   white-space: nowrap;
-  border-radius: 0.55rem;
   cursor: pointer;
+  border-radius: 0.55rem;
   transition:
     color 140ms ease,
     background-color 140ms ease;
@@ -504,9 +509,11 @@
   margin: 0;
 }
 
-.scribe-surface .scribe-codeblock-node[data-editing="false"]
+.scribe-surface
+  .scribe-codeblock-node[data-editing="false"]
   .scribe-codeblock-editor,
-.scribe-surface .scribe-codeblock-node[data-editing="true"]
+.scribe-surface
+  .scribe-codeblock-node[data-editing="true"]
   .scribe-codeblock-preview {
   display: none;
 }

@@ -97,6 +97,9 @@ export function PropertiesTable({
   const [newKey, setNewKey] = useState("");
   const [newValue, setNewValue] = useState("");
   const [newType, setNewType] = useState<FilePropertyType>("text");
+  const [openPropertyEditorKey, setOpenPropertyEditorKey] = useState<
+    string | null
+  >(null);
   const [propertyPickerOpen, setPropertyPickerOpen] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
   const newKeyInputRef = useRef<HTMLInputElement | null>(null);
@@ -181,6 +184,7 @@ export function PropertiesTable({
       })
     );
     syncDefinition(trimmedKey, propertyType);
+    setOpenPropertyEditorKey(trimmedKey);
     setNewKey("");
     setNewValue("");
     setNewType("text");
@@ -231,7 +235,9 @@ export function PropertiesTable({
       syncDefinition(key, type);
       setIsAddingProperty(false);
       setPropertyPickerOpen(false);
+      setOpenPropertyEditorKey(key);
       setNewType("text");
+      return key;
     },
     [onChange, onSummarizePage, properties, syncDefinition]
   );
@@ -411,7 +417,12 @@ export function PropertiesTable({
                 layout
                 transition={{ duration: 0.16, ease: "easeOut" }}
               >
-                <Popover>
+                <Popover
+                  onOpenChange={(open) =>
+                    setOpenPropertyEditorKey(open ? key : null)
+                  }
+                  open={openPropertyEditorKey === key}
+                >
                   <PopoverTrigger
                     className="flex w-36 shrink-0 items-center gap-2 rounded-md px-1.5 py-1 text-left text-[13px] text-[var(--text-muted)] leading-[1.15] outline-none transition-colors hover:bg-[var(--background-modifier-hover)] hover:text-[var(--text-primary)]"
                     disabled={disabled}
@@ -464,7 +475,9 @@ export function PropertiesTable({
                               [key]: createEmptyProperty(item.type),
                             });
                             syncDefinition(key, item.type);
+                            setOpenPropertyEditorKey(key);
                           }}
+                          type="button"
                         >
                           <Icon className="h-3.5 w-3.5" />
                           {item.label}
@@ -481,6 +494,7 @@ export function PropertiesTable({
                       className="flex min-h-7 w-full items-center gap-2 rounded-md px-2 py-1 text-destructive text-xs hover:bg-destructive/10"
                       disabled={disabled}
                       onClick={() => handleDeleteProperty(key)}
+                      type="button"
                     >
                       <Trash className="h-3.5 w-3.5" />
                       Delete property
@@ -589,6 +603,7 @@ export function PropertiesTable({
                         className="flex min-h-7 w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground"
                         key={item.type}
                         onClick={() => setNewType(item.type)}
+                        type="button"
                       >
                         <Icon className="h-3.5 w-3.5" />
                         {item.label}
@@ -663,6 +678,7 @@ export function PropertiesTable({
                   setIsAddingProperty(true);
                   focusNewKeyInput();
                 }}
+                type="button"
               >
                 <PencilSimple className="h-3.5 w-3.5" />
                 Custom property
@@ -671,6 +687,7 @@ export function PropertiesTable({
                 className="flex min-h-7 w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
                 disabled={summarizing || !onSummarizePage}
                 onClick={() => void handleAddPropertyOfType("text", "summary")}
+                type="button"
               >
                 <Sparkle className="h-3.5 w-3.5 text-[var(--accent-color,#3b82f6)]" />
                 {summarizing ? "Summarizing..." : "Summarize"}
@@ -686,6 +703,7 @@ export function PropertiesTable({
                     className="flex min-h-7 w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground"
                     key={item.type}
                     onClick={() => void handleAddPropertyOfType(item.type)}
+                    type="button"
                   >
                     <Icon className="h-3.5 w-3.5" />
                     {item.label}
