@@ -15,17 +15,20 @@ const aiEditSchema = z.object({
   text: z.string().min(1).max(40_000),
 });
 
+const markdownWriterRules = [
+  "You are writing directly into a markdown note editor.",
+  "Return valid Markdown only, with no surrounding commentary, labels, or code fences unless a code fence is part of the content.",
+  "Preserve useful existing markdown structure such as headings, lists, links, bold, italic, code, tables, and task lists.",
+  "When math is needed, write LaTeX inline as $...$ and display math as $$...$$. Never use \\(...\\) or \\[...\\].",
+  "Do not escape markdown syntax unnecessarily.",
+].join(" ");
+
 const prompts: Record<z.infer<typeof aiEditSchema>["action"], string> = {
-  elaborate:
-    "Expand the selected text with useful detail while preserving the user's voice. Return only the replacement text.",
-  explain:
-    "Explain the selected text clearly and directly. Return only the replacement text.",
-  improve:
-    "Improve the selected writing for clarity, flow, and precision while preserving meaning. Return only the replacement text.",
-  proofread:
-    "Proofread the selected text. Fix grammar, spelling, and punctuation without changing meaning. Return only the replacement text.",
-  simplify:
-    "Rewrite the selected text in simpler, clearer language while preserving meaning. Return only the replacement text.",
+  elaborate: `${markdownWriterRules} Expand the selected text with useful detail while preserving the user's voice.`,
+  explain: `${markdownWriterRules} Explain the selected text clearly and directly.`,
+  improve: `${markdownWriterRules} Improve the selected writing for clarity, flow, and precision while preserving meaning.`,
+  proofread: `${markdownWriterRules} Proofread the selected text. Fix grammar, spelling, and punctuation without changing meaning.`,
+  simplify: `${markdownWriterRules} Rewrite the selected text in simpler, clearer language while preserving meaning.`,
   summarize:
     "Summarize the current page in one concise sentence suitable for a note property. Return only the summary.",
 };

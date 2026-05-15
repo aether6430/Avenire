@@ -1,13 +1,10 @@
 "use client";
 
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@avenire/ui/components/dropdown-menu";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@avenire/ui/components/popover";
 import {
   CalendarBlank,
   CheckSquare,
@@ -100,6 +97,7 @@ export function PropertiesTable({
   const [newKey, setNewKey] = useState("");
   const [newValue, setNewValue] = useState("");
   const [newType, setNewType] = useState<FilePropertyType>("text");
+  const [propertyPickerOpen, setPropertyPickerOpen] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
   const newKeyInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -232,6 +230,7 @@ export function PropertiesTable({
       );
       syncDefinition(key, type);
       setIsAddingProperty(false);
+      setPropertyPickerOpen(false);
       setNewType("text");
     },
     [onChange, onSummarizePage, properties, syncDefinition]
@@ -412,27 +411,27 @@ export function PropertiesTable({
                 layout
                 transition={{ duration: 0.16, ease: "easeOut" }}
               >
-                <DropdownMenu>
-                  <DropdownMenuTrigger
+                <Popover>
+                  <PopoverTrigger
                     className="flex w-36 shrink-0 items-center gap-2 rounded-md px-1.5 py-1 text-left text-[13px] text-[var(--text-muted)] leading-[1.15] outline-none transition-colors hover:bg-[var(--background-modifier-hover)] hover:text-[var(--text-primary)]"
                     disabled={disabled}
                     onMouseDown={(event) => event.preventDefault()}
                   >
                     <PencilSimple className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">{key}</span>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
+                  </PopoverTrigger>
+                  <PopoverContent
                     align="start"
-                    className="w-64"
+                    className="w-64 gap-1 p-1"
                     sideOffset={6}
                   >
                     <div
-                      className="px-2 py-1"
+                      className="px-2 py-1.5"
                       onKeyDown={(event) => event.stopPropagation()}
                       onPointerDown={(event) => event.stopPropagation()}
                     >
                       <input
-                        className="h-7 w-full bg-transparent text-[13px] outline-none"
+                        className="h-7 w-full rounded-md border border-border/70 bg-transparent px-2 text-[13px] outline-none focus:border-[var(--accent-color,#3b82f6)]"
                         defaultValue={key}
                         disabled={disabled}
                         onBlur={(event) =>
@@ -447,12 +446,15 @@ export function PropertiesTable({
                         spellCheck={false}
                       />
                     </div>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel>Type</DropdownMenuLabel>
+                    <div className="px-2 pt-1 pb-0.5 text-[11px] text-[var(--text-muted)]">
+                      Type
+                    </div>
                     {PROPERTY_TYPE_ITEMS.map((item) => {
                       const Icon = item.icon;
                       return (
-                        <DropdownMenuItem
+                        <button
+                          className="flex min-h-7 w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground"
+                          disabled={disabled}
                           key={item.type}
                           onClick={() => {
                             const normalizedProperties =
@@ -471,19 +473,20 @@ export function PropertiesTable({
                               Current
                             </span>
                           ) : null}
-                        </DropdownMenuItem>
+                        </button>
                       );
                     })}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      className="text-destructive"
+                    <div className="my-1 h-px bg-border/70" />
+                    <button
+                      className="flex min-h-7 w-full items-center gap-2 rounded-md px-2 py-1 text-destructive text-xs hover:bg-destructive/10"
+                      disabled={disabled}
                       onClick={() => handleDeleteProperty(key)}
                     >
                       <Trash className="h-3.5 w-3.5" />
                       Delete property
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                    </button>
+                  </PopoverContent>
+                </Popover>
                 <input
                   className="sr-only"
                   defaultValue={key}
@@ -565,30 +568,35 @@ export function PropertiesTable({
                 type="text"
                 value={newKey}
               />
-              <DropdownMenu>
-                <DropdownMenuTrigger
+              <Popover>
+                <PopoverTrigger
                   className="hidden w-24 shrink-0 rounded-md px-1.5 py-1 text-left text-[12px] text-[var(--text-muted)] hover:bg-[var(--background-modifier-hover)] hover:text-[var(--text-primary)] sm:block"
                   disabled={disabled}
                   onMouseDown={(event) => event.preventDefault()}
                 >
                   {PROPERTY_TYPE_ITEMS.find((item) => item.type === newType)
                     ?.label ?? "Text"}
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" sideOffset={6}>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="start"
+                  className="w-40 gap-1 p-1"
+                  sideOffset={6}
+                >
                   {PROPERTY_TYPE_ITEMS.map((item) => {
                     const Icon = item.icon;
                     return (
-                      <DropdownMenuItem
+                      <button
+                        className="flex min-h-7 w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground"
                         key={item.type}
                         onClick={() => setNewType(item.type)}
                       >
                         <Icon className="h-3.5 w-3.5" />
                         {item.label}
-                      </DropdownMenuItem>
+                      </button>
                     );
                   })}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                </PopoverContent>
+              </Popover>
               <input
                 className="min-w-0 flex-1 bg-transparent text-[13px] text-[var(--text-primary)] leading-[1.15] outline-none placeholder:text-[var(--text-muted)] placeholder:opacity-70"
                 disabled={disabled}
@@ -630,48 +638,62 @@ export function PropertiesTable({
         </AnimatePresence>
 
         <div className="flex items-center gap-4 pt-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger
+          <Popover
+            onOpenChange={setPropertyPickerOpen}
+            open={propertyPickerOpen}
+          >
+            <PopoverTrigger
               className="flex items-center gap-1 text-[13px] text-[var(--text-muted)] leading-[1.15] transition-colors hover:text-[var(--text-primary)]"
               disabled={disabled}
               type="button"
             >
               <Plus className="h-3 w-3" />
               Add property
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-64" sideOffset={6}>
-              <DropdownMenuItem
+            </PopoverTrigger>
+            <PopoverContent
+              align="start"
+              className="w-64 gap-1 p-1"
+              sideOffset={6}
+            >
+              <button
+                className="flex min-h-7 w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground"
+                disabled={disabled}
                 onClick={() => {
+                  setPropertyPickerOpen(false);
                   setIsAddingProperty(true);
                   focusNewKeyInput();
                 }}
               >
                 <PencilSimple className="h-3.5 w-3.5" />
                 Custom property
-              </DropdownMenuItem>
-              <DropdownMenuItem
+              </button>
+              <button
+                className="flex min-h-7 w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
                 disabled={summarizing || !onSummarizePage}
                 onClick={() => void handleAddPropertyOfType("text", "summary")}
               >
                 <Sparkle className="h-3.5 w-3.5 text-[var(--accent-color,#3b82f6)]" />
                 {summarizing ? "Summarizing..." : "Summarize"}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>Type</DropdownMenuLabel>
+              </button>
+              <div className="my-1 h-px bg-border/70" />
+              <div className="px-2 pt-1 pb-0.5 text-[11px] text-[var(--text-muted)]">
+                Type
+              </div>
               {PROPERTY_TYPE_ITEMS.map((item) => {
                 const Icon = item.icon;
                 return (
-                  <DropdownMenuItem
+                  <button
+                    className="flex min-h-7 w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground"
                     key={item.type}
                     onClick={() => void handleAddPropertyOfType(item.type)}
                   >
                     <Icon className="h-3.5 w-3.5" />
                     {item.label}
-                  </DropdownMenuItem>
+                  </button>
                 );
               })}
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
     </div>
