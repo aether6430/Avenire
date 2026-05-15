@@ -341,6 +341,32 @@ function insertMarkdownContent(editor: Editor, markdown: string) {
   editor.commands.setContent(json);
 }
 
+function replaceRangeWithMarkdown(
+  editor: Editor,
+  range: { from: number; to: number },
+  markdown: string
+) {
+  if (!editor.markdown) {
+    editor
+      .chain()
+      .focus()
+      .deleteRange(range)
+      .insertContentAt(range.from, markdown)
+      .run();
+    return;
+  }
+
+  const json = editor.markdown.parse(markdown) as {
+    content?: unknown;
+  };
+  editor
+    .chain()
+    .focus()
+    .deleteRange(range)
+    .insertContentAt(range.from, json.content ?? markdown)
+    .run();
+}
+
 const PasteMarkdownExtension = Extension.create({
   name: "pasteMarkdown",
 
@@ -1414,6 +1440,10 @@ function SelectionBubbleMenu({
   scrollContainerRef: RefObject<HTMLDivElement | null>;
 }) {
   const [aiLoading, setAiLoading] = useState<AiAction | null>(null);
+  const [aiPendingRange, setAiPendingRange] = useState<{
+    from: number;
+    to: number;
+  } | null>(null);
   const state = useEditorState({
     editor,
     selector: ({ editor }) => ({
@@ -1446,6 +1476,7 @@ function SelectionBubbleMenu({
       }
 
       setAiLoading(action);
+      setAiPendingRange({ from: selection.from, to: selection.to });
       try {
         const response = await fetch("/api/ai", {
           method: "POST",
@@ -1460,16 +1491,10 @@ function SelectionBubbleMenu({
         if (!generated) {
           throw new Error("No text generated");
         }
-        const from = selection.from;
-        editor
-          .chain()
-          .focus()
-          .deleteRange({ from: selection.from, to: selection.to })
-          .insertContentAt(from, generated)
-          .setTextSelection({ from, to: from + generated.length })
-          .run();
+        replaceRangeWithMarkdown(editor, selection, generated);
       } finally {
         setAiLoading(null);
+        setAiPendingRange(null);
       }
     },
     [editor]
@@ -1483,7 +1508,7 @@ function SelectionBubbleMenu({
       getReferencedVirtualElement={() => {
         // Anchor at the beginning of the selection (not the combined selection rect),
         // so multiline selections (e.g. Ctrl+A) don't position the bubble mid-page.
-        const { from } = editor.state.selection;
+        const { from } = aiPendingRange ?? editor.state.selection;
         const pos = Math.max(1, from);
         const coords = editor.view.coordsAtPos(pos);
 
@@ -1507,20 +1532,49 @@ function SelectionBubbleMenu({
       }}
       pluginKey="formattingBubbleMenu"
       resizeDelay={0}
-      shouldShow={({ editor, state }) =>
-        Boolean(editor) &&
-        state.selection instanceof TextSelection &&
-        !state.selection.empty &&
-        state.doc.textBetween(state.selection.from, state.selection.to).trim()
-          .length > 0 &&
-        !editor.isActive("table") &&
-        !editor.isActive("inlineMath") &&
-        !editor.isActive("blockMath") &&
-        !editor.isActive("image") &&
-        !editor.isActive("mermaidDiagram")
-      }
+      shouldShow={({ editor, state }) => {
+        if (editor && aiLoading !== null && aiPendingRange) {
+          return true;
+        }
+
+        if (
+          !(
+            editor &&
+            state.selection instanceof TextSelection &&
+            !state.selection.empty &&
+            !editor.isActive("table") &&
+            !editor.isActive("inlineMath") &&
+            !editor.isActive("blockMath") &&
+            !editor.isActive("image") &&
+            !editor.isActive("mermaidDiagram")
+          )
+        ) {
+          return false;
+        }
+
+        return (
+          aiLoading !== null ||
+          state.doc.textBetween(state.selection.from, state.selection.to).trim()
+            .length > 0
+        );
+      }}
       updateDelay={0}
     >
+      {aiLoading ? (
+        <div className="flex min-w-56 items-center justify-between gap-3 rounded-lg border border-border bg-popover px-3 py-2 text-[13px] shadow-black/5 shadow-lg">
+          <span className="flex min-w-0 items-center gap-2 text-[var(--text-muted)]">
+            <Sparkle className="h-3.5 w-3.5 text-[var(--accent-color,#3b82f6)]" weight="fill" />
+            <span className="truncate">
+              {aiLoading === "proofread"
+                ? "Proofreading"
+                : aiLoading === "improve"
+                  ? "Improving"
+                  : `${aiLoading[0]?.toUpperCase()}${aiLoading.slice(1)}`}
+            </span>
+          </span>
+          <span className="h-3 w-3 animate-pulse rounded-sm bg-[var(--text-muted)]" />
+        </div>
+      ) : (
       <div className="flex items-center gap-1 rounded-lg border border-border bg-popover p-1 shadow-black/5 shadow-lg">
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -1719,6 +1773,7 @@ function SelectionBubbleMenu({
           <Link2 className="h-3.5 w-3.5" />
         </ToolbarButton>
       </div>
+      )}
     </BubbleMenu>
   );
 }

@@ -2,12 +2,12 @@
 
 import { Button } from "@avenire/ui/components/button";
 import {
+  type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
   DEFAULT_PET_NAME,
@@ -24,9 +24,9 @@ import { SpritePet } from "./sprite-pet";
 
 function getStoredVisibility() {
   if (typeof window === "undefined") {
-    return true;
+    return false;
   }
-  return window.localStorage.getItem(PET_VISIBILITY_STORAGE_KEY) !== "false";
+  return window.localStorage.getItem(PET_VISIBILITY_STORAGE_KEY) === "true";
 }
 
 const PET_SCALE = 0.45;
@@ -49,11 +49,17 @@ function clampPosition(position: PetPosition): PetPosition {
   return {
     x: Math.min(
       Math.max(POSITION_PADDING, position.x),
-      Math.max(POSITION_PADDING, window.innerWidth - PET_SIZE.width - POSITION_PADDING)
+      Math.max(
+        POSITION_PADDING,
+        window.innerWidth - PET_SIZE.width - POSITION_PADDING
+      )
     ),
     y: Math.min(
       Math.max(POSITION_PADDING, position.y),
-      Math.max(POSITION_PADDING, window.innerHeight - PET_SIZE.height - POSITION_PADDING)
+      Math.max(
+        POSITION_PADDING,
+        window.innerHeight - PET_SIZE.height - POSITION_PADDING
+      )
     ),
   };
 }
@@ -157,7 +163,10 @@ export function ChatPet() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey) || !event.shiftKey || event.altKey) {
+      if (
+        !((event.metaKey || event.ctrlKey) && event.shiftKey) ||
+        event.altKey
+      ) {
         return;
       }
       if (event.key.toLowerCase() !== "y") {

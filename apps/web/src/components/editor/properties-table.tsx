@@ -426,8 +426,10 @@ export function PropertiesTable({
                     className="w-64"
                     sideOffset={6}
                   >
-                    <DropdownMenuItem
-                      onSelect={(event) => event.preventDefault()}
+                    <div
+                      className="px-2 py-1"
+                      onKeyDown={(event) => event.stopPropagation()}
+                      onPointerDown={(event) => event.stopPropagation()}
                     >
                       <input
                         className="h-7 w-full bg-transparent text-[13px] outline-none"
@@ -444,7 +446,7 @@ export function PropertiesTable({
                         placeholder="Property name"
                         spellCheck={false}
                       />
-                    </DropdownMenuItem>
+                    </div>
                     <DropdownMenuSeparator />
                     <DropdownMenuLabel>Type</DropdownMenuLabel>
                     {PROPERTY_TYPE_ITEMS.map((item) => {
