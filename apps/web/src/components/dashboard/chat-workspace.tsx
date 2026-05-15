@@ -165,7 +165,7 @@ export function ChatWorkspace({
       setActiveChatSlug(detail.id);
       setChatMetaOverride(null);
       resetShareState();
-      setIsPending(false);
+      setIsPending(true);
     };
 
     window.addEventListener(CHAT_CREATED_EVENT, onChatCreated);
@@ -202,6 +202,11 @@ export function ChatWorkspace({
     }
     return pathname;
   }, [currentChatSlug, pathname]);
+  const chatComponentKey =
+    chatSlug === "new" && currentChatSlug !== "new" && isPending
+      ? "new"
+      : currentChatSlug;
+  const chatComponentId = chatComponentKey === "new" ? "new" : currentChatSlug;
 
   useEffect(() => {
     recordRoute(currentRoute);
@@ -438,11 +443,11 @@ export function ChatWorkspace({
       <div className="min-h-0 flex-1 overflow-hidden">
         <motion.div className="h-full" initial={false}>
           <Chat
-            id={currentChatSlug}
+            id={chatComponentId}
             initialMessages={resolvedInitialMessages}
             initialPrompt={initialPrompt}
             isReadonly={isReadonly}
-            key={currentChatSlug}
+            key={chatComponentKey}
             selectedModel="apollo-apex"
             userName={userName}
             workspaceUuid={workspaceUuid}

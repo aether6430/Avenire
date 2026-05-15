@@ -231,7 +231,7 @@ const toAgentActivityActions = (
             return null;
           }
           return {
-            kind: "search",
+            kind: "file_search",
             pending: action.pending,
             value: action.value,
             preview: action.preview?.query

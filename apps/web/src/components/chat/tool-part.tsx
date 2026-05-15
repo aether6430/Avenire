@@ -135,7 +135,7 @@ function buildAgentActionsFromToolPart(part: ToolPart): ActivityAction[] {
     if (part.type === "tool-avenire_agent") {
       const matches = extractCitationMatches(part);
       actions.push({
-        kind: "search",
+        kind: "file_search",
         pending: part.state !== "output-available",
         value: query,
         preview:

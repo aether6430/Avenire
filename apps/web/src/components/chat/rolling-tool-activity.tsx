@@ -88,7 +88,7 @@ export type ActivityAction =
       value: string;
     }
   | {
-      kind: "search";
+      kind: "file_search" | "web_search";
       pending: boolean;
       preview?: SearchPreview;
       value: string;
@@ -120,7 +120,7 @@ export type ActivityAction =
 
 type ExploreAction = Extract<
   ActivityAction,
-  { kind: "list" | "read" | "search" }
+  { kind: "file_search" | "list" | "read" | "web_search" }
 >;
 type MutationAction = Exclude<ActivityAction, ExploreAction>;
 
@@ -149,7 +149,8 @@ const ROLLING_TOOL_TYPES = new Set([
 const EXPLORE_KINDS = new Set<ActivityAction["kind"]>([
   "list",
   "read",
-  "search",
+  "file_search",
+  "web_search",
 ]);
 const ROW_HEIGHT = 22;
 const VISIBLE_ROWS = 3;
@@ -293,7 +294,7 @@ function toAction(part: ToolPart): ActivityAction | null {
     }
     if (part.type === "tool-avenire_agent") {
       return {
-        kind: "search",
+        kind: "file_search",
         pending: isPending(part),
         preview: toSearchPreview(part),
         value: query,
@@ -340,7 +341,7 @@ function toAction(part: ToolPart): ActivityAction | null {
     part.type === "tool-web_search"
   ) {
     return {
-      kind: "search",
+      kind: part.type === "tool-web_search" ? "web_search" : "file_search",
       pending: isPending(part),
       preview: toSearchPreview(part),
       value: toActionValue(part) || "search",
@@ -408,8 +409,10 @@ function labelFor(action: ExploreAction): string {
   switch (action.kind) {
     case "read":
       return "Read";
-    case "search":
-      return "Search";
+    case "file_search":
+      return "Search files";
+    case "web_search":
+      return "Search web";
     case "list":
       return "List";
     default:
@@ -428,7 +431,10 @@ function groupActions(actions: ActivityAction[]): ActionGroup[] {
         value: action.value,
       };
       const lastGroup = groups.at(-1);
-      if (lastGroup?.type === "explore") {
+      if (
+        lastGroup?.type === "explore" &&
+        exploreScopeFor(lastGroup.items[0]?.action) === exploreScopeFor(action)
+      ) {
         lastGroup.items.push(item);
       } else {
         groups.push({ items: [item], type: "explore" });
@@ -442,17 +448,31 @@ function groupActions(actions: ActivityAction[]): ActionGroup[] {
   return groups;
 }
 
+function exploreScopeFor(action: ExploreAction | undefined) {
+  return action?.kind === "web_search" ? "web" : "files";
+}
+
 function buildSummary(items: ExploreItem[]) {
   const reads = items.filter((item) => item.action.kind === "read").length;
-  const searches = items.filter((item) => item.action.kind === "search").length;
+  const fileSearches = items.filter(
+    (item) => item.action.kind === "file_search"
+  ).length;
+  const webSearches = items.filter(
+    (item) => item.action.kind === "web_search"
+  ).length;
   const lists = items.filter((item) => item.action.kind === "list").length;
   const parts: string[] = [];
 
   if (reads > 0) {
     parts.push(`${reads} read${reads === 1 ? "" : "s"}`);
   }
-  if (searches > 0) {
-    parts.push(`${searches} search${searches === 1 ? "" : "es"}`);
+  if (fileSearches > 0) {
+    parts.push(
+      `${fileSearches} file search${fileSearches === 1 ? "" : "es"}`
+    );
+  }
+  if (webSearches > 0) {
+    parts.push(`${webSearches} web search${webSearches === 1 ? "" : "es"}`);
   }
   if (lists > 0) {
     parts.push(`${lists} list${lists === 1 ? "" : "s"}`);
@@ -866,7 +886,7 @@ function ReasoningBlock({
             className="ml-0.5 text-foreground/22 transition-colors duration-200 group-hover:text-foreground/42"
             transition={{ duration: 0.25, ease: "easeInOut" }}
           >
-            <ChevronRight className="size-3 rotate-90" strokeWidth={2} />
+            <ChevronDown className="size-3" strokeWidth={2} />
           </m.span>
         </button>
       )}
@@ -1151,7 +1171,9 @@ function AccordionFileRow({
 
   const hasPreview =
     (item.action.kind === "read" && item.action.preview) ||
-    (item.action.kind === "search" && item.action.preview);
+    ((item.action.kind === "file_search" ||
+      item.action.kind === "web_search") &&
+      item.action.preview);
 
   useEffect(() => {
     if (!parentOpen) {
@@ -1214,7 +1236,9 @@ function AccordionFileRow({
           <ReadPreviewPanel open={expanded} preview={item.action.preview} />
         </div>
       ) : null}
-      {item.action.kind === "search" && item.action.preview ? (
+      {(item.action.kind === "file_search" ||
+        item.action.kind === "web_search") &&
+      item.action.preview ? (
         <div aria-labelledby={rowId} id={panelId} role="region">
           <SearchPreviewPanel open={expanded} preview={item.action.preview} />
         </div>
@@ -1266,6 +1290,9 @@ function ExploreBlock({
   const triggerId = useId();
   const panelId = useId();
   const summary = buildSummary(items);
+  const scope = exploreScopeFor(items[0]?.action);
+  const doneTitle = scope === "web" ? "Searched web" : "Explored files";
+  const runningTitle = scope === "web" ? "Searching web" : "Exploring files";
 
   useEffect(() => {
     if (!done) {
@@ -1289,7 +1316,7 @@ function ExploreBlock({
           onClick={() => setOpen((current) => !current)}
           type="button"
         >
-          <span className="font-semibold text-sm">Explored</span>
+          <span className="font-semibold text-sm">{doneTitle}</span>
           {summary ? (
             <span className="text-[11px] text-foreground/26">{summary}</span>
           ) : null}
@@ -1299,7 +1326,7 @@ function ExploreBlock({
             className="ml-0.5 text-foreground/22 transition-colors duration-200 group-hover:text-foreground/42"
             transition={{ duration: 0.25, ease: "easeInOut" }}
           >
-            <ChevronRight className="size-3 rotate-90" strokeWidth={2} />
+            <ChevronDown className="size-3" strokeWidth={2} />
           </m.span>
         </button>
       ) : (
@@ -1310,7 +1337,7 @@ function ExploreBlock({
           role="status"
         >
           <Shimmer as="span" className="font-semibold text-foreground text-sm">
-            Exploring
+            {runningTitle}
           </Shimmer>
           {summary ? (
             <span aria-hidden="true" className="text-[11px] text-foreground/26">
