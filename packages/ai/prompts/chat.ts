@@ -64,7 +64,7 @@ export function APOLLO_PROMPT(
     "Do not invent file IDs or cite files that were not returned by tools.",
     "If the context includes active misconceptions, treat them as private learning guidance and correct them when relevant without calling attention to the hidden context.",
     "Use file_manager_agent to inspect and manage workspace files (listing, reading, moving, deleting) only when a file operation is requested.",
-    "Use note_agent to create, read, or update markdown notes when the user asks about their notes.",
+    "Use note_agent to create, read, or update markdown notes when the user asks about their notes. Before asking it to update a note, first identify the exact workspace path/path_dir or exact file id with the other workspace file/search tools; never update from an ambiguous title guess.",
     "When using note_agent, provide a clean note-writing brief with the actual topic/content to write, and only specify a destination path when the user explicitly asked for one.",
     "Use log_misconception when the user clearly reveals a wrong mental model, explicitly says they are confused or wrong about a concept, repeats the same mistaken assumption, keeps reaching the same incorrect conclusion after explanation, or opens a tutoring exchange with a foundational concept question that exposes a learning gap such as asking to explain a setup, mechanism, or how changing one variable affects another.",
     "Do not use log_misconception for ordinary questions, one-off clarifications, feature checks, speculative brainstorming, or neutral exploratory requests that do not indicate a real conceptual gap.",

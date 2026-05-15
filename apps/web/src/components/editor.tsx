@@ -55,6 +55,7 @@ import {
   Quotes as Quote,
   Rows as Rows3,
   Sigma,
+  Sparkle,
   Rows as Split,
   TextStrikethrough as Strikethrough,
   Table as Table2,
@@ -434,7 +435,13 @@ interface WikiPage {
   title: string;
 }
 
-type AiAction = "explain" | "elaborate" | "simplify";
+type AiAction =
+  | "elaborate"
+  | "explain"
+  | "improve"
+  | "proofread"
+  | "simplify"
+  | "summarize";
 
 interface SlashCommand {
   clearTrigger?: boolean;
@@ -1406,6 +1413,7 @@ function SelectionBubbleMenu({
   editor: Editor;
   scrollContainerRef: RefObject<HTMLDivElement | null>;
 }) {
+  const [aiLoading, setAiLoading] = useState<AiAction | null>(null);
   const state = useEditorState({
     editor,
     selector: ({ editor }) => ({
@@ -1424,6 +1432,48 @@ function SelectionBubbleMenu({
         : null,
     }),
   });
+  const runSelectionAiAction = useCallback(
+    async (action: AiAction) => {
+      const { selection, doc } = editor.state;
+      if (!(selection instanceof TextSelection) || selection.empty) {
+        return;
+      }
+      const source = doc
+        .textBetween(selection.from, selection.to, "\n", "\n")
+        .trim();
+      if (!source) {
+        return;
+      }
+
+      setAiLoading(action);
+      try {
+        const response = await fetch("/api/ai", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action, text: source }),
+        });
+        if (!response.ok) {
+          throw new Error("AI request failed");
+        }
+        const payload = (await response.json()) as { text?: string };
+        const generated = payload.text?.trim();
+        if (!generated) {
+          throw new Error("No text generated");
+        }
+        const from = selection.from;
+        editor
+          .chain()
+          .focus()
+          .deleteRange({ from: selection.from, to: selection.to })
+          .insertContentAt(from, generated)
+          .setTextSelection({ from, to: from + generated.length })
+          .run();
+      } finally {
+        setAiLoading(null);
+      }
+    },
+    [editor]
+  );
 
   return (
     <BubbleMenu
@@ -1471,7 +1521,33 @@ function SelectionBubbleMenu({
       }
       updateDelay={0}
     >
-      <div className="flex items-center gap-1 rounded-xl border border-border bg-popover p-1 shadow-black/5 shadow-lg">
+      <div className="flex items-center gap-1 rounded-lg border border-border bg-popover p-1 shadow-black/5 shadow-lg">
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[var(--accent-color,#3b82f6)] hover:bg-accent"
+            onMouseDown={(event) => event.preventDefault()}
+            title="AI tools"
+          >
+            <Sparkle className="h-4 w-4" weight="fill" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" sideOffset={6}>
+            {[
+              ["simplify", "Simplify"],
+              ["explain", "Explain"],
+              ["elaborate", "Elaborate"],
+              ["improve", "Improve writing"],
+              ["proofread", "Proofread"],
+            ].map(([action, label]) => (
+              <DropdownMenuItem
+                disabled={aiLoading !== null}
+                key={action}
+                onClick={() => void runSelectionAiAction(action as AiAction)}
+              >
+                {aiLoading === action ? "Working..." : label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
         <ToolbarButton
           active={state.bold}
           onClick={() => editor.chain().focus().toggleBold().run()}
@@ -3215,111 +3291,6 @@ function AvenireEditor({
       return [];
     }
 
-    const resolveAiTarget = () => {
-      const { selection, doc } = editor.state;
-
-      if (!selection.empty) {
-        const selected = doc.textBetween(
-          selection.from,
-          selection.to,
-          "\n",
-          "\n"
-        );
-        if (selected.trim()) {
-          return {
-            from: selection.from,
-            to: selection.to,
-            text: selected,
-          };
-        }
-      }
-
-      const { $from } = selection;
-      const currentBlockText = $from.parent.textContent;
-      if ($from.parent.isTextblock && currentBlockText.trim()) {
-        return {
-          from: $from.start(),
-          to: $from.end(),
-          text: currentBlockText,
-        };
-      }
-
-      let candidate: { from: number; to: number; text: string } | null = null;
-      doc.nodesBetween(0, selection.from, (node, pos) => {
-        if (!node.isTextblock) {
-          return;
-        }
-        const text = node.textContent.trim();
-        if (!text) {
-          return;
-        }
-        candidate = {
-          from: pos + 1,
-          to: pos + node.nodeSize - 1,
-          text: node.textContent,
-        };
-      });
-
-      return candidate;
-    };
-
-    const runAiAction = async (action: AiAction) => {
-      const target = resolveAiTarget();
-
-      if (!target) {
-        setInlineNotice("No text found to transform in this context.");
-        return;
-      }
-
-      const source = target.text;
-
-      if (!source.trim()) {
-        setInlineNotice("No text found to transform in this context.");
-        return;
-      }
-
-      setAiLoading(action);
-
-      try {
-        const response = await fetch("/api/ai", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action, text: source }),
-        });
-
-        if (!response.ok) {
-          throw new Error("AI request failed");
-        }
-
-        const payload = (await response.json()) as { text?: string };
-        const generated = payload.text?.trim();
-
-        if (!generated) {
-          throw new Error("No text generated");
-        }
-
-        const from = target.from;
-
-        editor
-          .chain()
-          .focus()
-          .deleteRange({ from: target.from, to: target.to })
-          .insertContentAt(from, generated)
-          .setTextSelection({ from, to: from + generated.length })
-          .run();
-
-        setAiReview({
-          from,
-          generatedLength: generated.length,
-          original: source,
-        });
-      } catch {
-        setInlineNotice("Could not generate text right now.");
-      } finally {
-        setAiLoading(null);
-      }
-    };
-
     const focusAndOpenMath = (kind: MathKind, latex: string) => {
       const pos = editor.state.selection.from;
 
@@ -3489,37 +3460,8 @@ function AvenireEditor({
             .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
             .run(),
       },
-      {
-        id: "ai-explain",
-        label: "/explain",
-        description:
-          aiLoading === "explain" ? "Generating..." : "Explain selected text",
-        icon: Sigma,
-        keywords: ["explain", "ai"],
-        run: () => runAiAction("explain"),
-      },
-      {
-        id: "ai-elaborate",
-        label: "/elaborate",
-        description:
-          aiLoading === "elaborate"
-            ? "Generating..."
-            : "Elaborate selected text",
-        icon: Sigma,
-        keywords: ["elaborate", "ai", "expand"],
-        run: () => runAiAction("elaborate"),
-      },
-      {
-        id: "ai-simplify",
-        label: "/simplify",
-        description:
-          aiLoading === "simplify" ? "Generating..." : "Simplify selected text",
-        icon: Sigma,
-        keywords: ["simplify", "ai"],
-        run: () => runAiAction("simplify"),
-      },
     ];
-  }, [aiLoading, editor]);
+  }, [editor]);
 
   const filteredSlashCommands = useMemo(() => {
     if (!slashMatch) {
@@ -4004,6 +3946,30 @@ function AvenireEditor({
     setSlashNav({ key: null, index: 0 });
   };
 
+  const summarizeCurrentPage = async () => {
+    const markdown = editor.getMarkdown().trim();
+    if (!markdown) {
+      setInlineNotice("There is no page content to summarize yet.");
+      return null;
+    }
+
+    try {
+      const response = await fetch("/api/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "summarize", text: markdown }),
+      });
+      if (!response.ok) {
+        throw new Error("AI request failed");
+      }
+      const payload = (await response.json()) as { text?: string };
+      return payload.text?.trim() || null;
+    } catch {
+      setInlineNotice("Could not summarize this page right now.");
+      return null;
+    }
+  };
+
   return (
     <div className="scribe-shell">
       <SelectionBubbleMenu
@@ -4105,6 +4071,7 @@ function AvenireEditor({
           disabled={readOnly}
           onChange={(properties) => onPagePropertiesChange?.(properties)}
           onDefinitionsChange={onPropertyDefinitionsChange}
+          onSummarizePage={summarizeCurrentPage}
           properties={pageProperties}
         />
       </div>

@@ -1,20 +1,40 @@
 "use client";
 
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@avenire/ui/components/dropdown-menu";
+import {
+  CalendarBlank,
+  CheckSquare,
+  Hash,
+  ListBullets,
+  PencilSimple,
+  Plus,
+  Sparkle,
+  TextT,
+  Trash,
+} from "@phosphor-icons/react";
+import { AnimatePresence, motion } from "motion/react";
+import {
+  type FocusEvent,
+  type KeyboardEvent,
   useCallback,
   useMemo,
   useRef,
   useState,
-  type FocusEvent,
-  type KeyboardEvent,
 } from "react";
 import {
   createEmptyProperty,
   type FilePropertyType,
   type FrontmatterProperties,
   formatPropertyValue,
-  normalizePropertyOptions,
   normalizeFrontmatterProperties,
+  normalizePropertyOptions,
   setPropertyValue,
   type WorkspacePropertyDefinition,
 } from "@/lib/frontmatter";
@@ -26,8 +46,22 @@ interface PropertiesTableProps {
   disabled?: boolean;
   onChange: (properties: FrontmatterProperties) => void;
   onDefinitionsChange?: (definitions: WorkspacePropertyDefinition[]) => void;
+  onSummarizePage?: () => Promise<string | null>;
   properties: FrontmatterProperties;
 }
+
+const PROPERTY_TYPE_ITEMS: Array<{
+  label: string;
+  type: FilePropertyType;
+  icon: typeof TextT;
+}> = [
+  { label: "Text", type: "text", icon: TextT },
+  { label: "Number", type: "number", icon: Hash },
+  { label: "Select", type: "select", icon: CheckSquare },
+  { label: "Multi-select", type: "multi_select", icon: ListBullets },
+  { label: "Date", type: "date", icon: CalendarBlank },
+  { label: "Checkbox", type: "checkbox", icon: CheckSquare },
+];
 
 function parseFormattedPropertyValue(type: FilePropertyType, value: string) {
   if (type === "checkbox") {
@@ -59,11 +93,14 @@ export function PropertiesTable({
   disabled = false,
   onChange,
   onDefinitionsChange,
+  onSummarizePage,
   properties,
 }: PropertiesTableProps) {
   const [isAddingProperty, setIsAddingProperty] = useState(false);
   const [newKey, setNewKey] = useState("");
   const [newValue, setNewValue] = useState("");
+  const [newType, setNewType] = useState<FilePropertyType>("text");
+  const [summarizing, setSummarizing] = useState(false);
   const newKeyInputRef = useRef<HTMLInputElement | null>(null);
 
   const definitionByKey = useMemo(
@@ -132,7 +169,7 @@ export function PropertiesTable({
     }
 
     const definition = definitionByKey.get(trimmedKey);
-    const propertyType = definition?.type ?? "text";
+    const propertyType = definition?.type ?? newType;
     const nextProperty = createEmptyProperty(propertyType);
     const seededProperty =
       newValue.trim().length > 0
@@ -148,8 +185,57 @@ export function PropertiesTable({
     syncDefinition(trimmedKey, propertyType);
     setNewKey("");
     setNewValue("");
+    setNewType("text");
     setIsAddingProperty(false);
-  }, [definitionByKey, newKey, newValue, onChange, properties, syncDefinition]);
+  }, [
+    definitionByKey,
+    newKey,
+    newType,
+    newValue,
+    onChange,
+    properties,
+    syncDefinition,
+  ]);
+
+  const handleAddPropertyOfType = useCallback(
+    async (type: FilePropertyType, keyHint?: string) => {
+      const normalizedProperties = normalizeFrontmatterProperties(properties);
+      let key = normalizeEditablePropertyKey(keyHint ?? type);
+      if (key === "multi_select") {
+        key = "multi-select";
+      }
+      let counter = 2;
+      const baseKey = key;
+      while (normalizedProperties[key]) {
+        key = `${baseKey} ${counter}`;
+        counter += 1;
+      }
+
+      let nextProperty = createEmptyProperty(type);
+      if (keyHint === "summary" && onSummarizePage) {
+        setSummarizing(true);
+        const summary = await onSummarizePage().finally(() =>
+          setSummarizing(false)
+        );
+        if (!summary) {
+          return;
+        }
+        key = normalizedProperties.summary ? `summary ${counter}` : "summary";
+        nextProperty = setPropertyValue(nextProperty, summary);
+      }
+
+      onChange(
+        normalizeFrontmatterProperties({
+          ...normalizedProperties,
+          [key]: nextProperty,
+        })
+      );
+      syncDefinition(key, type);
+      setIsAddingProperty(false);
+      setNewType("text");
+    },
+    [onChange, onSummarizePage, properties, syncDefinition]
+  );
 
   const handleDeleteProperty = useCallback(
     (key: string) => {
@@ -310,48 +396,221 @@ export function PropertiesTable({
       )}
     >
       <div className="space-y-2">
-        {entries.map(([key, property]) => {
-          return (
-            <div
-              className="group -mx-3 flex items-center gap-4 rounded-lg px-3 py-1.5"
+        <AnimatePresence initial={false}>
+          {entries.map(([key, property]) => {
+            const propertyTypeLabel =
+              PROPERTY_TYPE_ITEMS.find((item) => item.type === property.type)
+                ?.label ?? "Text";
+            return (
+              <motion.div
+                animate={{ opacity: 1, height: "auto" }}
+                className="group -mx-3 flex items-center gap-3 rounded-lg px-3 py-1.5"
+                data-property-row
+                exit={{ opacity: 0, height: 0 }}
+                initial={{ opacity: 0, height: 0 }}
+                key={key}
+                layout
+                transition={{ duration: 0.16, ease: "easeOut" }}
+              >
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    className="flex w-36 shrink-0 items-center gap-2 rounded-md px-1.5 py-1 text-left text-[13px] text-[var(--text-muted)] leading-[1.15] outline-none transition-colors hover:bg-[var(--background-modifier-hover)] hover:text-[var(--text-primary)]"
+                    disabled={disabled}
+                    onMouseDown={(event) => event.preventDefault()}
+                  >
+                    <PencilSimple className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{key}</span>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="start"
+                    className="w-64"
+                    sideOffset={6}
+                  >
+                    <DropdownMenuItem
+                      onSelect={(event) => event.preventDefault()}
+                    >
+                      <input
+                        className="h-7 w-full bg-transparent text-[13px] outline-none"
+                        defaultValue={key}
+                        disabled={disabled}
+                        onBlur={(event) =>
+                          handleRenameProperty(key, event.currentTarget.value)
+                        }
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.currentTarget.blur();
+                          }
+                        }}
+                        placeholder="Property name"
+                        spellCheck={false}
+                      />
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel>Type</DropdownMenuLabel>
+                    {PROPERTY_TYPE_ITEMS.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <DropdownMenuItem
+                          key={item.type}
+                          onClick={() => {
+                            const normalizedProperties =
+                              normalizeFrontmatterProperties(properties);
+                            onChange({
+                              ...normalizedProperties,
+                              [key]: createEmptyProperty(item.type),
+                            });
+                            syncDefinition(key, item.type);
+                          }}
+                        >
+                          <Icon className="h-3.5 w-3.5" />
+                          {item.label}
+                          {property.type === item.type ? (
+                            <span className="ml-auto text-[11px] text-[var(--text-muted)]">
+                              Current
+                            </span>
+                          ) : null}
+                        </DropdownMenuItem>
+                      );
+                    })}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-destructive"
+                      onClick={() => handleDeleteProperty(key)}
+                    >
+                      <Trash className="h-3.5 w-3.5" />
+                      Delete property
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <input
+                  className="sr-only"
+                  defaultValue={key}
+                  disabled={disabled}
+                  onBlur={(event) => {
+                    handleEntryBlur(event, key);
+                    handleRenameProperty(key, event.currentTarget.value);
+                  }}
+                  onKeyDown={(event) => handleEntryKeyDown(event, key, "key")}
+                  placeholder="key"
+                  spellCheck={false}
+                  type="text"
+                />
+                <span className="hidden w-24 shrink-0 text-[12px] text-[var(--text-muted)] sm:block">
+                  {propertyTypeLabel}
+                </span>
+                <input
+                  aria-label={`${key} value`}
+                  className="min-w-0 flex-1 bg-transparent text-[13px] text-[var(--text-primary)] leading-[1.15] outline-none placeholder:text-[var(--text-muted)] placeholder:opacity-70"
+                  disabled={disabled}
+                  onBlur={(event) => handleEntryBlur(event, key)}
+                  onChange={(event) =>
+                    handleFormattedPropertyValueChange(
+                      key,
+                      event.currentTarget.value
+                    )
+                  }
+                  onKeyDown={(event) => handleEntryKeyDown(event, key, "value")}
+                  placeholder="value"
+                  spellCheck={false}
+                  type="text"
+                  value={formatPropertyValue(property)}
+                />
+                <button
+                  aria-label="Remove property"
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[var(--text-icon-muted)] opacity-0 transition-opacity hover:text-[var(--text-primary)] group-hover:opacity-100"
+                  disabled={disabled}
+                  onClick={() => handleDeleteProperty(key)}
+                  tabIndex={-1}
+                  type="button"
+                >
+                  <svg fill="none" height="10" viewBox="0 0 10 10" width="10">
+                    <path
+                      d="M2 2l6 6M8 2l-6 6"
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeWidth="1.5"
+                    />
+                  </svg>
+                </button>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+
+        <AnimatePresence initial={false}>
+          {isAddingProperty ? (
+            <motion.div
+              animate={{ opacity: 1, height: "auto" }}
+              className="group -mx-3 flex items-center gap-3 rounded-lg px-3 py-1.5"
               data-property-row
-              key={key}
+              exit={{ opacity: 0, height: 0 }}
+              initial={{ opacity: 0, height: 0 }}
+              layout
             >
               <input
-                className="w-36 shrink-0 bg-transparent text-[13px] leading-[1.15] text-[var(--text-muted)] outline-none placeholder:text-[var(--text-muted)] placeholder:opacity-70"
-                defaultValue={key}
+                className="w-36 shrink-0 bg-transparent text-[13px] text-[var(--text-muted)] leading-[1.15] outline-none placeholder:text-[var(--text-muted)] placeholder:opacity-70"
                 disabled={disabled}
-                onBlur={(event) => {
-                  handleEntryBlur(event, key);
-                  handleRenameProperty(key, event.currentTarget.value);
+                onChange={(event) => setNewKey(event.currentTarget.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    handleAddProperty();
+                  }
                 }}
-                onKeyDown={(event) => handleEntryKeyDown(event, key, "key")}
                 placeholder="key"
+                ref={newKeyInputRef}
                 spellCheck={false}
                 type="text"
+                value={newKey}
               />
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  className="hidden w-24 shrink-0 rounded-md px-1.5 py-1 text-left text-[12px] text-[var(--text-muted)] hover:bg-[var(--background-modifier-hover)] hover:text-[var(--text-primary)] sm:block"
+                  disabled={disabled}
+                  onMouseDown={(event) => event.preventDefault()}
+                >
+                  {PROPERTY_TYPE_ITEMS.find((item) => item.type === newType)
+                    ?.label ?? "Text"}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" sideOffset={6}>
+                  {PROPERTY_TYPE_ITEMS.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <DropdownMenuItem
+                        key={item.type}
+                        onClick={() => setNewType(item.type)}
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                        {item.label}
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
               <input
-                aria-label={`${key} value`}
-                className="min-w-0 flex-1 bg-transparent text-[13px] leading-[1.15] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] placeholder:opacity-70"
+                className="min-w-0 flex-1 bg-transparent text-[13px] text-[var(--text-primary)] leading-[1.15] outline-none placeholder:text-[var(--text-muted)] placeholder:opacity-70"
                 disabled={disabled}
-                onBlur={(event) => handleEntryBlur(event, key)}
-                onChange={(event) =>
-                  handleFormattedPropertyValueChange(
-                    key,
-                    event.currentTarget.value
-                  )
-                }
-                onKeyDown={(event) => handleEntryKeyDown(event, key, "value")}
+                onChange={(event) => setNewValue(event.currentTarget.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    handleAddProperty();
+                  }
+                }}
                 placeholder="value"
                 spellCheck={false}
                 type="text"
-                value={formatPropertyValue(property)}
+                value={newValue}
               />
               <button
                 aria-label="Remove property"
                 className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[var(--text-icon-muted)] opacity-0 transition-opacity hover:text-[var(--text-primary)] group-hover:opacity-100"
                 disabled={disabled}
-                onClick={() => handleDeleteProperty(key)}
+                onClick={() => {
+                  setNewKey("");
+                  setNewValue("");
+                  setIsAddingProperty(false);
+                }}
                 tabIndex={-1}
                 type="button"
               >
@@ -364,90 +623,53 @@ export function PropertiesTable({
                   />
                 </svg>
               </button>
-            </div>
-          );
-        })}
-
-        {isAddingProperty ? (
-          <div
-            className="group -mx-3 flex items-center gap-4 rounded-lg px-3 py-1.5"
-            data-property-row
-          >
-            <input
-              className="w-36 shrink-0 bg-transparent text-[13px] leading-[1.15] text-[var(--text-muted)] outline-none placeholder:text-[var(--text-muted)] placeholder:opacity-70"
-              disabled={disabled}
-              onChange={(event) => setNewKey(event.currentTarget.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  handleAddProperty();
-                }
-              }}
-              placeholder="key"
-              ref={newKeyInputRef}
-              spellCheck={false}
-              type="text"
-              value={newKey}
-            />
-            <input
-              className="min-w-0 flex-1 bg-transparent text-[13px] leading-[1.15] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] placeholder:opacity-70"
-              disabled={disabled}
-              onChange={(event) => setNewValue(event.currentTarget.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  handleAddProperty();
-                }
-              }}
-              placeholder="value"
-              spellCheck={false}
-              type="text"
-              value={newValue}
-            />
-            <button
-              aria-label="Remove property"
-              className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[var(--text-icon-muted)] opacity-0 transition-opacity hover:text-[var(--text-primary)] group-hover:opacity-100"
-              disabled={disabled}
-              onClick={() => {
-                setNewKey("");
-                setNewValue("");
-                setIsAddingProperty(false);
-              }}
-              tabIndex={-1}
-              type="button"
-            >
-              <svg fill="none" height="10" viewBox="0 0 10 10" width="10">
-                <path
-                  d="M2 2l6 6M8 2l-6 6"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeWidth="1.5"
-                />
-              </svg>
-            </button>
-          </div>
-        ) : null}
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
 
         <div className="flex items-center gap-4 pt-1">
-          <button
-            className="flex items-center gap-1 text-[13px] leading-[1.15] text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
-            disabled={disabled}
-            onClick={() => {
-              setIsAddingProperty(true);
-              focusNewKeyInput();
-            }}
-            type="button"
-          >
-            <svg fill="none" height="12" viewBox="0 0 12 12" width="12">
-              <path
-                d="M6 2v8M2 6h8"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeWidth="1.5"
-              />
-            </svg>
-            Add property
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className="flex items-center gap-1 text-[13px] text-[var(--text-muted)] leading-[1.15] transition-colors hover:text-[var(--text-primary)]"
+              disabled={disabled}
+              type="button"
+            >
+              <Plus className="h-3 w-3" />
+              Add property
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-64" sideOffset={6}>
+              <DropdownMenuItem
+                onClick={() => {
+                  setIsAddingProperty(true);
+                  focusNewKeyInput();
+                }}
+              >
+                <PencilSimple className="h-3.5 w-3.5" />
+                Custom property
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={summarizing || !onSummarizePage}
+                onClick={() => void handleAddPropertyOfType("text", "summary")}
+              >
+                <Sparkle className="h-3.5 w-3.5 text-[var(--accent-color,#3b82f6)]" />
+                {summarizing ? "Summarizing..." : "Summarize"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Type</DropdownMenuLabel>
+              {PROPERTY_TYPE_ITEMS.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <DropdownMenuItem
+                    key={item.type}
+                    onClick={() => void handleAddPropertyOfType(item.type)}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {item.label}
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </div>

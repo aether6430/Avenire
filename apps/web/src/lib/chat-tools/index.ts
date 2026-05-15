@@ -2176,7 +2176,7 @@ The agent decides which operations to perform based on the task.`,
 Internal capabilities:
 - create_note: Create new markdown note
 - read_note: Read existing note content
-- update_note: Append or replace note content (append, replace_entire, replace_section)
+- update_note: Append or replace note content (append, replace_entire, replace_section). Before updating, you must first use the available workspace file tools/search/listing behavior to identify the exact path_dir/workspacePath or the exact file id of the note. Do not update a note from a vague title guess when multiple files could match.
 - update_tags: Read and update note tags stored in file properties
 
 The agent decides which operations to perform based on the task.`,
