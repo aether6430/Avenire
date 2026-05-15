@@ -967,7 +967,11 @@ function getPersistedMessages(input: {
 }
 
 export async function POST(request: Request) {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const requestHeadersPromise = headers();
+  const requestBodyPromise = request.json().catch(() => ({}));
+  const session = await auth.api.getSession({
+    headers: await requestHeadersPromise,
+  });
   const apiLogger = createApiLogger({
     request,
     route: "/api/chat",
@@ -999,7 +1003,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = (await request.json().catch(() => ({}))) as {
+    const body = (await requestBodyPromise) as {
       kind?: "session-close";
       messages?: UIMessage[];
       workspaceUuid?: string;
@@ -1144,53 +1148,70 @@ export async function POST(request: Request) {
       );
     }
 
-    chat = await getWritableChatBySlugForUser(
-      session.user.id,
-      chatSlug,
-      workspace.workspaceId
-    );
+    const idempotencyCheckPromise = idempotencyHeader
+      ? (async () => {
+          const key = buildChatIdempotencyRedisKey({
+            userId: session.user.id,
+            workspaceId: workspace.workspaceId,
+            chatSlug,
+            idempotencyKey: idempotencyHeader,
+          });
+          const state = await getIdempotencyState(key);
+          if (state) {
+            return { key, status: "duplicate" as const };
+          }
+          const acquired = await tryAcquireIdempotencyLock(key);
+          return {
+            key,
+            status: acquired ? ("acquired" as const) : ("locked" as const),
+          };
+        })()
+      : Promise.resolve(null);
 
-    if (!chat && shouldCreateChat) {
-      if (idempotencyHeader) {
-        idempotencyRedisKey = buildChatIdempotencyRedisKey({
-          userId: session.user.id,
-          workspaceId: workspace.workspaceId,
-          chatSlug,
+    const [chatLookup, idempotencyCheck] = await Promise.all([
+      getWritableChatBySlugForUser(
+        session.user.id,
+        chatSlug,
+        workspace.workspaceId
+      ),
+      idempotencyCheckPromise,
+    ]);
+    chat = chatLookup;
+
+    if (idempotencyCheck) {
+      idempotencyRedisKey = idempotencyCheck.key;
+      idempotencyLockAcquired = idempotencyCheck.status === "acquired";
+
+      if (idempotencyCheck.status === "duplicate") {
+        apiLogger.requestFailed(409, "Duplicate request", {
+          chatId: chatSlug,
           idempotencyKey: idempotencyHeader,
         });
-
-        const state = await getIdempotencyState(idempotencyRedisKey);
-        if (state) {
-          apiLogger.requestFailed(409, "Duplicate request", {
+        return NextResponse.json(
+          {
+            error: "Duplicate request",
             chatId: chatSlug,
-            idempotencyKey: idempotencyHeader,
-          });
-          return NextResponse.json(
-            {
-              error: "Duplicate request",
-              chatId: chatSlug,
-            },
-            { status: 409 }
-          );
-        }
-
-        idempotencyLockAcquired =
-          await tryAcquireIdempotencyLock(idempotencyRedisKey);
-        if (!idempotencyLockAcquired) {
-          apiLogger.requestFailed(409, "Request in progress", {
-            chatId: chatSlug,
-            idempotencyKey: idempotencyHeader,
-          });
-          return NextResponse.json(
-            {
-              error: "Request already in progress",
-              chatId: chatSlug,
-            },
-            { status: 409 }
-          );
-        }
+          },
+          { status: 409 }
+        );
       }
 
+      if (idempotencyCheck.status === "locked") {
+        apiLogger.requestFailed(409, "Request in progress", {
+          chatId: chatSlug,
+          idempotencyKey: idempotencyHeader,
+        });
+        return NextResponse.json(
+          {
+            error: "Request already in progress",
+            chatId: chatSlug,
+          },
+          { status: 409 }
+        );
+      }
+    }
+
+    if (!chat && shouldCreateChat) {
       const createdChat = await createChatForUser(
         session.user.id,
         workspace.workspaceId,
@@ -1224,46 +1245,6 @@ export async function POST(request: Request) {
       messageCount: originalMessages.length,
       modelContextCount: modelContextMessages.length,
     });
-    if (idempotencyHeader && !idempotencyRedisKey) {
-      idempotencyRedisKey = buildChatIdempotencyRedisKey({
-        userId: session.user.id,
-        workspaceId: workspace.workspaceId,
-        chatSlug,
-        idempotencyKey: idempotencyHeader,
-      });
-
-      const state = await getIdempotencyState(idempotencyRedisKey);
-      if (state) {
-        apiLogger.requestFailed(409, "Duplicate request", {
-          chatId: chatSlug,
-          idempotencyKey: idempotencyHeader,
-        });
-        return NextResponse.json(
-          {
-            error: "Duplicate request",
-            chatId: chatSlug,
-          },
-          { status: 409 }
-        );
-      }
-
-      idempotencyLockAcquired =
-        await tryAcquireIdempotencyLock(idempotencyRedisKey);
-      if (!idempotencyLockAcquired) {
-        apiLogger.requestFailed(409, "Request in progress", {
-          chatId: chatSlug,
-          idempotencyKey: idempotencyHeader,
-        });
-        return NextResponse.json(
-          {
-            error: "Request already in progress",
-            chatId: chatSlug,
-          },
-          { status: 409 }
-        );
-      }
-    }
-
     const expectedCredits = getExpectedChatCredits(originalMessages);
     const initialUsage = await consumeChatUnits(
       session.user.id,
@@ -1292,7 +1273,9 @@ export async function POST(request: Request) {
           originalMessages,
           workspace.workspaceId
         );
-        await invalidateChatReadCaches(workspace.workspaceId);
+        after(async () => {
+          await invalidateChatReadCaches(workspace.workspaceId);
+        });
         logInfo("Persisted user messages before stream", {
           chatId: chatSlug,
           messageCount: originalMessages.length,
@@ -1316,8 +1299,9 @@ export async function POST(request: Request) {
     }
 
     const streamId = randomUUID();
-    const previousStreamId = await getActiveStreamId(chatSlug);
+    const previousStreamIdPromise = getActiveStreamId(chatSlug);
     await setActiveStreamId(chatSlug, streamId);
+    const previousStreamId = await previousStreamIdPromise;
     if (previousStreamId) {
       await clearActiveStreamId(chatSlug, previousStreamId);
     }

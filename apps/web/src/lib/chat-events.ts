@@ -16,3 +16,18 @@ export interface ChatStreamStatusDetail {
   chatId: string;
   status: string;
 }
+
+const activeChatStreamIds = new Set<string>();
+
+export function rememberChatStreamStatus(detail: ChatStreamStatusDetail) {
+  if (detail.status === "submitted" || detail.status === "streaming") {
+    activeChatStreamIds.add(detail.chatId);
+    return;
+  }
+
+  activeChatStreamIds.delete(detail.chatId);
+}
+
+export function isChatStreamActive(chatId: string) {
+  return activeChatStreamIds.has(chatId);
+}

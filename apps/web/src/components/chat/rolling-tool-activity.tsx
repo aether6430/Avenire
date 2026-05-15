@@ -153,6 +153,8 @@ const EXPLORE_KINDS = new Set<ActivityAction["kind"]>([
 const ROW_HEIGHT = 22;
 const VISIBLE_ROWS = 3;
 const WINDOW_HEIGHT = ROW_HEIGHT * VISIBLE_ROWS;
+const MUTATION_ROW_ENTER_CLASS =
+  "animate-in fade-in-0 slide-in-from-bottom-1 duration-200";
 
 function isOutputAvailable(part: ToolPart) {
   return part.state === "output-available";
@@ -776,17 +778,19 @@ function ReasoningPanel({
 }) {
   return (
     <div
+      aria-hidden={!open}
       className={cn(
-        "overflow-hidden transition-[height,opacity] duration-300 ease-out",
-        open ? "h-auto opacity-100" : "h-0 opacity-0"
+        "grid overflow-hidden transition-[grid-template-rows,opacity] duration-300 ease-out",
+        open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
       )}
-      hidden={!open}
       id={id}
       role="region"
     >
-      <ReasoningContent workspaceUuid={workspaceUuid}>
-        {content}
-      </ReasoningContent>
+      <div className="min-h-0 overflow-hidden">
+        <ReasoningContent workspaceUuid={workspaceUuid}>
+          {content}
+        </ReasoningContent>
+      </div>
     </div>
   );
 }
@@ -1177,10 +1181,9 @@ function AccordionFileRow({
 
   return (
     <m.li
-      animate={{ opacity: parentOpen ? 1 : 0 }}
-      initial={{ opacity: 0 }}
+      className="fade-in-0 animate-in duration-150"
       key={`${item.label}-${item.value}-${index}`}
-      transition={{ delay: parentOpen ? index * 0.025 : 0, duration: 0.16 }}
+      style={{ animationDelay: parentOpen ? `${index * 25}ms` : undefined }}
     >
       {hasPreview ? (
         <button
@@ -1226,24 +1229,26 @@ function AccordionPanel({
 }) {
   return (
     <div
+      aria-hidden={!open}
       className={cn(
-        "overflow-hidden transition-[height,opacity] duration-300 ease-out",
-        open ? "h-auto opacity-100" : "h-0 opacity-0"
+        "grid overflow-hidden transition-[grid-template-rows,opacity] duration-300 ease-out",
+        open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
       )}
-      hidden={!open}
       id={id}
       role="region"
     >
-      <ul aria-label="Files accessed" className="mt-[3px]">
-        {items.map((item, index) => (
-          <AccordionFileRow
-            index={index}
-            item={item}
-            key={`${item.label}-${item.value}-${index}`}
-            parentOpen={open}
-          />
-        ))}
-      </ul>
+      <div className="min-h-0 overflow-hidden">
+        <ul aria-label="Files accessed" className="mt-[3px]">
+          {items.map((item, index) => (
+            <AccordionFileRow
+              index={index}
+              item={item}
+              key={`${item.label}-${item.value}-${index}`}
+              parentOpen={open}
+            />
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
@@ -1323,7 +1328,13 @@ function ExploreBlock({
 function MutationBlock({ action }: { action: MutationAction }) {
   if (action.kind === "error") {
     return (
-      <div className="mb-1 flex items-baseline gap-2 text-sm" role="listitem">
+      <div
+        className={cn(
+          "mb-1 flex items-baseline gap-2 text-sm",
+          MUTATION_ROW_ENTER_CLASS
+        )}
+        role="listitem"
+      >
         <span className="font-semibold text-destructive">Error</span>
         <span className="font-mono text-[12px] text-destructive/80">
           {action.error ?? "Unknown error"}
@@ -1340,7 +1351,13 @@ function MutationBlock({ action }: { action: MutationAction }) {
 
   if (action.kind === "flashcards") {
     return (
-      <div className="mb-1 flex items-baseline gap-2 text-sm" role="listitem">
+      <div
+        className={cn(
+          "mb-1 flex items-baseline gap-2 text-sm",
+          MUTATION_ROW_ENTER_CLASS
+        )}
+        role="listitem"
+      >
         <span className="font-semibold text-foreground/72">Mindset</span>
         <span className="font-mono text-[12px] text-foreground/62">
           {action.preview?.title || action.value || "flashcards"}
@@ -1362,7 +1379,10 @@ function MutationBlock({ action }: { action: MutationAction }) {
 
     return (
       <div
-        className="mb-1 overflow-hidden rounded-xl border border-foreground/[0.08] bg-foreground/[0.03]"
+        className={cn(
+          "mb-1 overflow-hidden rounded-xl border border-foreground/[0.08] bg-foreground/[0.03]",
+          MUTATION_ROW_ENTER_CLASS
+        )}
         role="listitem"
       >
         <div className="flex min-h-16 items-center justify-between gap-3 px-3 py-2.5">
@@ -1394,7 +1414,13 @@ function MutationBlock({ action }: { action: MutationAction }) {
 
   if (action.kind === "quiz") {
     return (
-      <div className="mb-1 flex items-baseline gap-2 text-sm" role="listitem">
+      <div
+        className={cn(
+          "mb-1 flex items-baseline gap-2 text-sm",
+          MUTATION_ROW_ENTER_CLASS
+        )}
+        role="listitem"
+      >
         <span className="font-semibold text-foreground/72">Quiz</span>
         <span className="font-mono text-[12px] text-foreground/62">
           {action.value || "generating..."}
@@ -1416,7 +1442,13 @@ function MutationBlock({ action }: { action: MutationAction }) {
         : null;
 
     return (
-      <div className="mb-1 flex items-baseline gap-2 text-sm" role="listitem">
+      <div
+        className={cn(
+          "mb-1 flex items-baseline gap-2 text-sm",
+          MUTATION_ROW_ENTER_CLASS
+        )}
+        role="listitem"
+      >
         <span className="font-semibold text-foreground/72">Misconception</span>
         <span className="min-w-0 truncate font-mono text-[12px] text-foreground/62">
           {action.preview?.concept || action.value || "learning memory"}
@@ -1451,7 +1483,13 @@ function MutationBlock({ action }: { action: MutationAction }) {
           : "Edit";
 
   return (
-    <div className="mb-1 flex items-baseline gap-2 text-sm" role="listitem">
+    <div
+      className={cn(
+        "mb-1 flex items-baseline gap-2 text-sm",
+        MUTATION_ROW_ENTER_CLASS
+      )}
+      role="listitem"
+    >
       <span className="font-semibold text-foreground/72">{label}</span>
       <span className="font-mono text-[12px] text-foreground/62">
         {filename}

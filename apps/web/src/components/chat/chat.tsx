@@ -20,10 +20,10 @@ import {
   CHAT_STREAM_STATUS_EVENT,
   type ChatNameUpdatedDetail,
   type ChatStreamStatusDetail,
+  rememberChatStreamStatus,
 } from "@/lib/chat-events";
 import { normalizeMediaType } from "@/lib/media-type";
 import { emitPetNotification } from "@/lib/pet-preferences";
-import { usePaneRouter } from "@/lib/workspace-panes";
 import { type Attachment, createLocalAttachment } from "./attachment";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
@@ -57,7 +57,6 @@ export function Chat({
   workspaceUuid,
   userName,
 }: ChatProps) {
-  const router = usePaneRouter();
   const [chatId, setChatId] = useState(() =>
     id === "new" ? crypto.randomUUID() : id
   );
@@ -192,25 +191,11 @@ export function Chat({
     }
   }, [chatId, id, setMessages]);
 
-  const pushNewChatUrl = useCallback(() => {
-    if (hasPushedNewChatUrlRef.current || id !== "new") {
-      return;
-    }
-    hasPushedNewChatUrlRef.current = true;
-    window.dispatchEvent(
-      new CustomEvent<ChatStreamStatusDetail>(CHAT_STREAM_STATUS_EVENT, {
-        detail: { chatId, status: "submitted" },
-      })
-    );
-    router.replace(`/workspace/chats/${chatId}` as never);
-  }, [chatId, id, router]);
-
   const sendMessage = useCallback(
     async (message: SendMessageInput, options?: SendMessageOptions) => {
-      pushNewChatUrl();
       return append(message, options);
     },
-    [append, pushNewChatUrl]
+    [append]
   );
 
   const handleStop = useCallback(() => {
@@ -290,9 +275,11 @@ export function Chat({
   }, [chatId, status]);
 
   useEffect(() => {
+    const detail = { chatId, status };
+    rememberChatStreamStatus(detail);
     window.dispatchEvent(
       new CustomEvent<ChatStreamStatusDetail>(CHAT_STREAM_STATUS_EVENT, {
-        detail: { chatId, status },
+        detail,
       })
     );
     if (status === "submitted") {
