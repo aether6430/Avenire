@@ -11,11 +11,16 @@ interface BaseFileProperty<T extends FilePropertyType, TValue> {
   value: TValue;
 }
 
+export type NumberPropertyDisplay = "bar" | "number" | "ring";
+
 export type FilePropertyValue =
   | BaseFileProperty<"checkbox", boolean>
   | BaseFileProperty<"date", string | null>
   | BaseFileProperty<"multi_select", string[]>
-  | BaseFileProperty<"number", number | null>
+  | (BaseFileProperty<"number", number | null> & {
+      display?: NumberPropertyDisplay;
+      total?: number | null;
+    })
   | BaseFileProperty<"select", string | null>
   | BaseFileProperty<"text", string | null>;
 
@@ -79,6 +84,10 @@ function normalizeNumber(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function normalizeNumberDisplay(value: unknown): NumberPropertyDisplay {
+  return value === "bar" || value === "ring" ? value : "number";
+}
+
 function normalizeStringArray(value: unknown) {
   if (!Array.isArray(value)) {
     return [];
@@ -113,7 +122,12 @@ export function normalizePropertyValue(
         value: normalizeStringArray(record.value),
       };
     case "number":
-      return { type: "number", value: normalizeNumber(record.value) };
+      return {
+        type: "number",
+        value: normalizeNumber(record.value),
+        display: normalizeNumberDisplay(record.display),
+        total: normalizeNumber(record.total),
+      };
     case "select":
       return { type: "select", value: normalizeString(record.value) };
     case "text":
@@ -201,7 +215,7 @@ export function createEmptyProperty(type: FilePropertyType): FilePropertyValue {
     case "multi_select":
       return { type: "multi_select", value: [] };
     case "number":
-      return { type: "number", value: null };
+      return { type: "number", value: null, display: "number", total: null };
     case "select":
       return { type: "select", value: null };
     case "text":
@@ -227,6 +241,7 @@ export function setPropertyValue(
       };
     case "number":
       return {
+        ...property,
         type: "number",
         value:
           typeof value === "string" && value.trim().length > 0

@@ -688,7 +688,7 @@ export function FilePreviewPanel({
   ]);
 
   useEffect(() => {
-    if (activeFile.readOnly || !activeFileIsMarkdown) {
+    if (activeFile.readOnly) {
       return;
     }
 
@@ -709,12 +709,7 @@ export function FilePreviewPanel({
         window.clearTimeout(fileMetadataSaveTimerRef.current);
       }
     };
-  }, [
-    activeFile.readOnly,
-    activeFileIsMarkdown,
-    notePageDirty,
-    saveFileMetadata,
-  ]);
+  }, [activeFile.readOnly, notePageDirty, saveFileMetadata]);
 
   useEffect(() => {
     if (!(workspaceUuid && activeFileIsMarkdown)) {
@@ -1235,14 +1230,14 @@ export function FilePreviewPanel({
   return (
     <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background">
       <Dialog onOpenChange={setPropertiesOpen} open={propertiesOpen}>
-        <DialogContent className="max-h-[85vh] max-w-[calc(100vw-1rem)] overflow-hidden rounded-lg border border-border/60 bg-background p-0 shadow-md sm:max-w-[26rem]">
+        <DialogContent className="max-w-[calc(100vw-1rem)] overflow-visible rounded-lg border border-border/60 bg-background p-0 shadow-md sm:max-w-[26rem]">
           <DialogHeader className="border-border/60 border-b px-4 py-3">
             <DialogTitle className="flex items-center gap-2 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.16em]">
               <SlidersHorizontal className="size-3" />
               Properties
             </DialogTitle>
           </DialogHeader>
-          <div className="max-h-[70vh] overflow-y-auto overflow-x-hidden p-3.5">
+          <div className="overflow-visible p-3.5">
             <PropertiesTable
               className="mx-0 mb-0 max-w-none border-0 px-0 pt-0 pb-0 sm:px-0"
               definitions={propertyDefinitions}
