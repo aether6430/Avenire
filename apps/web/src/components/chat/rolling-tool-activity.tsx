@@ -20,7 +20,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { Shimmer } from "@/components/chat/shimmer";
 import { cn } from "@/lib/utils";
 
 type ToolPart = Extract<UIMessage["parts"][number], { type: `tool-${string}` }>;
@@ -464,7 +463,7 @@ function Dot({ delay }: { delay: number }) {
     <m.span
       animate={{ opacity: [0.15, 0.7, 0.15] }}
       aria-hidden="true"
-      className="inline-block size-[3px] rounded-full bg-current"
+      className="inline-block size-[3px] rounded-full bg-current opacity-30"
       transition={{
         delay,
         duration: 1.5,
@@ -663,15 +662,15 @@ export const ReasoningTrigger = memo(
     return (
       <div
         className={cn(
-          "flex items-center gap-2 text-foreground/60 text-sm",
+          "flex items-center gap-2 text-foreground/52 text-sm",
           className
         )}
         {...props}
       >
         {children ?? (
           <>
-            <span className="font-semibold text-foreground/72">Reasoning</span>
-            <span className="text-[12px] text-foreground/35">{detail}</span>
+            <span className="font-semibold">Reasoning</span>
+            <span className="text-[11px] text-foreground/26">{detail}</span>
             {isStreaming ? <ThinkingDots /> : null}
           </>
         )}
@@ -714,14 +713,14 @@ export const ReasoningContent = memo(
             height: ROW_HEIGHT * 1.4,
           }}
         />
-        <m.div
+        <m.pre
           animate={{
             y:
               lines.length > VISIBLE_ROWS
                 ? -(lines.length - VISIBLE_ROWS) * ROW_HEIGHT
                 : 0,
           }}
-          className="relative z-10 font-mono text-[11px] text-foreground/40"
+          className="relative z-10 whitespace-pre-wrap break-words pl-4 font-mono text-[11px] text-foreground/22 leading-[22px]"
           initial={false}
           style={{ willChange: "transform" }}
           transition={{
@@ -730,18 +729,8 @@ export const ReasoningContent = memo(
             stiffness: 160,
           }}
         >
-          {lines.map((line, index) => (
-            <div
-              className="flex items-start gap-2 pl-4"
-              key={`${index}-${line}`}
-              style={{ minHeight: ROW_HEIGHT }}
-            >
-              <span className="whitespace-pre-wrap break-words leading-5">
-                {line}
-              </span>
-            </div>
-          ))}
-        </m.div>
+          {lines.join("\n")}
+        </m.pre>
       </div>
     );
   }
@@ -830,9 +819,9 @@ function ReasoningBlock({
           className="flex h-7 items-center gap-2"
           role="status"
         >
-          <Shimmer as="span" className="font-semibold text-foreground text-sm">
+          <span className="font-semibold text-foreground/32 text-sm">
             Reasoning
-          </Shimmer>
+          </span>
           {summary ? (
             <span aria-hidden="true" className="text-[11px] text-foreground/26">
               {summary}
@@ -907,9 +896,9 @@ export function RollingStatusHeader({
         className={cn("flex h-7 items-center gap-2", className)}
         role="status"
       >
-        <Shimmer as="span" className="font-semibold text-foreground text-sm">
+        <span className="font-semibold text-foreground/32 text-sm">
           {title}
-        </Shimmer>
+        </span>
         {summary ? (
           <span aria-hidden="true" className="text-[11px] text-foreground/26">
             {summary}
@@ -1041,7 +1030,7 @@ function RollingWindow({ items }: { items: ExploreItem[] }) {
               key={`${item.label}-${item.value}-${index}`}
               style={{ height: ROW_HEIGHT }}
             >
-              <span className="w-14 shrink-0 font-semibold text-[11px] text-foreground/45">
+              <span className="w-11 shrink-0 font-semibold text-[11px] text-foreground/45">
                 {item.label}
               </span>
               <span className="truncate font-mono text-[11px] text-foreground/22">
@@ -1082,13 +1071,13 @@ function ReadPreviewPanel({
       style={{ overflow: "hidden" }}
       transition={{ duration: 0.24, ease: [0.4, 0, 0.2, 1] }}
     >
-      <div className="mt-0.5 mb-1.5 ml-[60px] overflow-hidden rounded border border-foreground/[0.07] bg-foreground/[0.025]">
+      <div className="mt-0.5 mb-1.5 ml-[48px] overflow-hidden rounded border border-foreground/[0.07] bg-foreground/[0.025]">
         <div className="border-foreground/[0.06] border-b px-2.5 pt-1.5 pb-1">
           <span className="block truncate font-mono text-[10px] text-foreground/28">
             {preview.path}
           </span>
         </div>
-        <pre className="overflow-hidden px-2.5 py-1.5 font-mono text-[10.5px] text-foreground/32 leading-[1.55]">
+        <pre className="overflow-hidden whitespace-pre-wrap break-words px-2.5 py-1.5 font-mono text-[10.5px] text-foreground/32 leading-[1.55]">
           {lines.join("\n")}
         </pre>
       </div>
@@ -1110,7 +1099,7 @@ function SearchPreviewPanel({
       style={{ overflow: "hidden" }}
       transition={{ duration: 0.24, ease: [0.4, 0, 0.2, 1] }}
     >
-      <div className="mt-0.5 mb-1.5 ml-[60px] overflow-hidden rounded border border-foreground/[0.07] bg-foreground/[0.025]">
+      <div className="mt-0.5 mb-1.5 ml-[48px] overflow-hidden rounded border border-foreground/[0.07] bg-foreground/[0.025]">
         <div className="border-foreground/[0.06] border-b px-2.5 pt-1.5 pb-1">
           <span className="font-mono text-[10px] text-foreground/28">
             {preview.matches.length} match
@@ -1162,7 +1151,7 @@ function AccordionFileRow({
       className="flex items-baseline gap-2 pl-4"
       style={{ height: ROW_HEIGHT }}
     >
-      <span className="w-14 shrink-0 font-semibold text-[11px] text-foreground/32">
+      <span className="w-11 shrink-0 font-semibold text-[11px] text-foreground/32">
         {item.label}
       </span>
       <span className="flex-1 truncate font-mono text-[11px] text-foreground/20">
@@ -1307,9 +1296,9 @@ function ExploreBlock({
           className="flex h-7 items-center gap-2"
           role="status"
         >
-          <Shimmer as="span" className="font-semibold text-foreground text-sm">
+          <span className="font-semibold text-foreground/32 text-sm">
             Exploring
-          </Shimmer>
+          </span>
           {summary ? (
             <span aria-hidden="true" className="text-[11px] text-foreground/26">
               {summary}
