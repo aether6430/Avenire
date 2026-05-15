@@ -298,6 +298,27 @@ export function Chat({
   }, [id, resumeStream]);
 
   useEffect(() => {
+    if (id === "new") {
+      return;
+    }
+
+    const resumeExistingStream = () => {
+      if (document.visibilityState === "hidden") {
+        return;
+      }
+      resumeStream().catch(() => undefined);
+    };
+
+    window.addEventListener("focus", resumeExistingStream);
+    document.addEventListener("visibilitychange", resumeExistingStream);
+
+    return () => {
+      window.removeEventListener("focus", resumeExistingStream);
+      document.removeEventListener("visibilitychange", resumeExistingStream);
+    };
+  }, [id, resumeStream]);
+
+  useEffect(() => {
     if (id !== "new") {
       autoPromptSentRef.current = null;
       return;

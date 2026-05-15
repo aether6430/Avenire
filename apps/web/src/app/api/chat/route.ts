@@ -90,7 +90,6 @@ const MODEL_TOOL_ALLOW_LIST = new Set([
   "generate_flashcards_from_misconception",
   "get_due_cards",
   "list_misconceptions",
-  "log_misconception",
   "quiz_me",
   "web_search",
   "search_materials",
@@ -1469,6 +1468,19 @@ export async function POST(request: Request) {
             ],
           });
         };
+        const emitMisconceptionActivity = (value: string) => {
+          emitAgentActivity({
+            id: agentActivityId,
+            status: "running",
+            actions: [
+              {
+                kind: "misconception",
+                pending: true,
+                value,
+              },
+            ],
+          });
+        };
         emitStartupActivity("Preparing chat context");
         const tools = createChatTools(
           {
@@ -1553,7 +1565,7 @@ export async function POST(request: Request) {
                 null
               )
             : Promise.resolve(null);
-          emitStartupActivity("Checking learning memory");
+          emitMisconceptionActivity("Checking misconception memory");
           const recentRelevantSummary = await recentRelevantSummaryPromise;
           const resolvedTopic = inferTopicLabel(
             [latestUserText, recentRelevantSummary?.summaryText]

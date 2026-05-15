@@ -556,7 +556,11 @@ export function WorkspacePaneRenderer() {
   );
   const [draggedPaneId, setDraggedPaneId] = useState<string | null>(null);
   const [dropPreview, setDropPreview] = useState<PaneDropPreview | null>(null);
+  const [paneStoreHydrated, setPaneStoreHydrated] = useState(() =>
+    useWorkspacePaneStore.persist.hasHydrated()
+  );
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const initialHydratedRouteHandledRef = useRef(false);
   const pendingBrowserSyncRef = useRef<string | null>(null);
   const dragGhostImageRef = useRef<HTMLCanvasElement | null>(null);
   const previewFrameRef = useRef<number | null>(null);
@@ -570,10 +574,38 @@ export function WorkspacePaneRenderer() {
   );
 
   useEffect(() => {
-    ensureInitialized(browserRoute);
-  }, [browserRoute, ensureInitialized]);
+    if (paneStoreHydrated) {
+      return;
+    }
+
+    const unsubscribe = useWorkspacePaneStore.persist.onFinishHydration(() => {
+      setPaneStoreHydrated(true);
+    });
+
+    if (useWorkspacePaneStore.persist.hasHydrated()) {
+      setPaneStoreHydrated(true);
+    }
+
+    return unsubscribe;
+  }, [paneStoreHydrated]);
 
   useEffect(() => {
+    if (!paneStoreHydrated) {
+      return;
+    }
+    ensureInitialized(browserRoute);
+  }, [browserRoute, ensureInitialized, paneStoreHydrated]);
+
+  useEffect(() => {
+    if (!paneStoreHydrated) {
+      return;
+    }
+    if (!initialHydratedRouteHandledRef.current) {
+      initialHydratedRouteHandledRef.current = true;
+      if (panes.length > 0) {
+        return;
+      }
+    }
     const browserHref = `${browserRoute.pathname}${browserRoute.search}`;
     if (pendingBrowserSyncRef.current === browserHref) {
       pendingBrowserSyncRef.current = null;
@@ -581,9 +613,12 @@ export function WorkspacePaneRenderer() {
     }
 
     syncActivePaneFromBrowser(browserRoute);
-  }, [browserRoute, syncActivePaneFromBrowser]);
+  }, [browserRoute, paneStoreHydrated, panes.length, syncActivePaneFromBrowser]);
 
   useEffect(() => {
+    if (!paneStoreHydrated) {
+      return;
+    }
     const activePane = panes.find((pane) => pane.id === activePaneId);
     if (!activePane) {
       return;
@@ -600,7 +635,14 @@ export function WorkspacePaneRenderer() {
 
     pendingBrowserSyncRef.current = nextHref;
     router.replace(nextHref as never);
-  }, [activePaneId, browserRoute.pathname, browserRoute.search, panes, router]);
+  }, [
+    activePaneId,
+    browserRoute.pathname,
+    browserRoute.search,
+    paneStoreHydrated,
+    panes,
+    router,
+  ]);
 
   useEffect(() => {
     setActiveHeaderPaneId(activePaneId);

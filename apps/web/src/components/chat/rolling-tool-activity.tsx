@@ -53,6 +53,12 @@ interface QuizPreview {
   title: string;
 }
 
+interface MisconceptionPreview {
+  confidence?: number;
+  concept?: string;
+  topic?: string;
+}
+
 export type ActivityAction =
   | {
       error?: string;
@@ -104,6 +110,12 @@ export type ActivityAction =
       pending: boolean;
       preview?: QuizPreview;
       value: string;
+    }
+  | {
+      kind: "misconception";
+      pending: boolean;
+      preview?: MisconceptionPreview;
+      value: string;
     };
 
 type ExploreAction = Extract<
@@ -127,6 +139,7 @@ const ROLLING_TOOL_TYPES = new Set([
   "tool-file_manager_agent",
   "tool-generate_flashcards",
   "tool-get_due_cards",
+  "tool-log_misconception",
   "tool-note_agent",
   "tool-quiz_me",
   "tool-web_search",
@@ -365,6 +378,26 @@ function toAction(part: ToolPart): ActivityAction | null {
             }
           : undefined,
       value: part.input?.title ?? "quiz",
+    };
+  }
+
+  if (part.type === "tool-log_misconception") {
+    const output = isOutputAvailable(part) ? part.output : null;
+    const misconception = output?.misconception;
+    return {
+      kind: "misconception",
+      pending: isPending(part),
+      preview: misconception
+        ? {
+            confidence: misconception.confidence,
+            concept: misconception.concept,
+            topic: misconception.topic,
+          }
+        : undefined,
+      value:
+        misconception?.concept ??
+        part.input?.concept ??
+        "misconception memory",
     };
   }
 
@@ -1397,6 +1430,41 @@ function MutationBlock({ action }: { action: MutationAction }) {
         {action.pending ? (
           <span className="font-mono text-[11px] text-foreground/28">
             creating
+            <ThinkingDots />
+          </span>
+        ) : null}
+      </m.div>
+    );
+  }
+
+  if (action.kind === "misconception") {
+    const confidence =
+      typeof action.preview?.confidence === "number"
+        ? `${Math.round(action.preview.confidence * 100)}%`
+        : null;
+
+    return (
+      <m.div
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-1 flex items-baseline gap-2 text-sm"
+        initial={{ opacity: 0, y: 5 }}
+        role="listitem"
+        transition={{ duration: 0.28, ease: "easeOut" }}
+      >
+        <span className="font-semibold text-foreground/72">
+          Misconception
+        </span>
+        <span className="min-w-0 truncate font-mono text-[12px] text-foreground/62">
+          {action.preview?.concept || action.value || "learning memory"}
+        </span>
+        {confidence ? (
+          <span className="font-mono text-[11px] text-foreground/35">
+            {confidence}
+          </span>
+        ) : null}
+        {action.pending ? (
+          <span className="font-mono text-[11px] text-foreground/28">
+            checking
             <ThinkingDots />
           </span>
         ) : null}

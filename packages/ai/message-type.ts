@@ -4,7 +4,7 @@ import type { ChatUITools } from "./tools";
 type DataPartsMap<T extends Record<string, unknown>> = T;
 
 export type AgentActivityAction = {
-  kind: "edit" | "list" | "read" | "search";
+  kind: "edit" | "list" | "misconception" | "read" | "search";
   pending: boolean;
   value?: string;
   path?: string;
