@@ -54,8 +54,8 @@ interface QuizPreview {
 }
 
 interface MisconceptionPreview {
-  confidence?: number;
   concept?: string;
+  confidence?: number;
   topic?: string;
 }
 
@@ -396,9 +396,7 @@ function toAction(part: ToolPart): ActivityAction | null {
           }
         : undefined,
       value:
-        misconception?.concept ??
-        part.input?.concept ??
-        "misconception memory",
+        misconception?.concept ?? part.input?.concept ?? "misconception memory",
     };
   }
 
@@ -467,9 +465,7 @@ function buildSummary(items: ExploreItem[]) {
     parts.push(`${reads} read${reads === 1 ? "" : "s"}`);
   }
   if (fileSearches > 0) {
-    parts.push(
-      `${fileSearches} file search${fileSearches === 1 ? "" : "es"}`
-    );
+    parts.push(`${fileSearches} file search${fileSearches === 1 ? "" : "es"}`);
   }
   if (webSearches > 0) {
     parts.push(`${webSearches} web search${webSearches === 1 ? "" : "es"}`);
@@ -805,13 +801,17 @@ function ReasoningPanel({
   open: boolean;
   workspaceUuid?: string;
 }) {
+  if (!open) {
+    return null;
+  }
+
   return (
     <m.div
-      animate={{ height: open ? "auto" : 0, opacity: open ? 1 : 0 }}
-      initial={false}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      initial={{ opacity: 0 }}
       role="region"
-      style={{ overflow: "hidden" }}
-      transition={{ duration: 0.36, ease: [0.4, 0, 0.2, 1] }}
+      transition={{ duration: 0.16, ease: "easeOut" }}
     >
       <ReasoningContent workspaceUuid={workspaceUuid}>
         {content}
@@ -1091,6 +1091,10 @@ function ReadPreviewPanel({
   open: boolean;
   preview: ReadPreview;
 }) {
+  if (!open) {
+    return null;
+  }
+
   const lines = preview.content
     .split("\n")
     .map((line) => line.trimEnd())
@@ -1099,10 +1103,9 @@ function ReadPreviewPanel({
 
   return (
     <m.div
-      animate={{ height: open ? "auto" : 0, opacity: open ? 1 : 0 }}
-      initial={false}
-      style={{ overflow: "hidden" }}
-      transition={{ duration: 0.24, ease: [0.4, 0, 0.2, 1] }}
+      animate={{ opacity: 1 }}
+      initial={{ opacity: 0 }}
+      transition={{ duration: 0.16, ease: "easeOut" }}
     >
       <div className="mt-0.5 mb-1.5 ml-[60px] overflow-hidden rounded border border-foreground/[0.07] bg-foreground/[0.025]">
         <div className="border-foreground/[0.06] border-b px-2.5 pt-1.5 pb-1">
@@ -1125,12 +1128,15 @@ function SearchPreviewPanel({
   open: boolean;
   preview: SearchPreview;
 }) {
+  if (!open) {
+    return null;
+  }
+
   return (
     <m.div
-      animate={{ height: open ? "auto" : 0, opacity: open ? 1 : 0 }}
-      initial={false}
-      style={{ overflow: "hidden" }}
-      transition={{ duration: 0.24, ease: [0.4, 0, 0.2, 1] }}
+      animate={{ opacity: 1 }}
+      initial={{ opacity: 0 }}
+      transition={{ duration: 0.16, ease: "easeOut" }}
     >
       <div className="mt-0.5 mb-1.5 ml-[60px] overflow-hidden rounded border border-foreground/[0.07] bg-foreground/[0.025]">
         <div className="border-foreground/[0.06] border-b px-2.5 pt-1.5 pb-1">
@@ -1256,14 +1262,17 @@ function AccordionPanel({
   items: ExploreItem[];
   open: boolean;
 }) {
+  if (!open) {
+    return null;
+  }
+
   return (
     <m.div
-      animate={{ height: open ? "auto" : 0, opacity: open ? 1 : 0 }}
+      animate={{ opacity: 1 }}
       id={id}
-      initial={false}
+      initial={{ opacity: 0 }}
       role="region"
-      style={{ overflow: "hidden" }}
-      transition={{ duration: 0.36, ease: [0.4, 0, 0.2, 1] }}
+      transition={{ duration: 0.16, ease: "easeOut" }}
     >
       <ul aria-label="Files accessed" className="mt-[3px]">
         {items.map((item, index) => (
@@ -1478,9 +1487,7 @@ function MutationBlock({ action }: { action: MutationAction }) {
         role="listitem"
         transition={{ duration: 0.28, ease: "easeOut" }}
       >
-        <span className="font-semibold text-foreground/72">
-          Misconception
-        </span>
+        <span className="font-semibold text-foreground/72">Misconception</span>
         <span className="min-w-0 truncate font-mono text-[12px] text-foreground/62">
           {action.preview?.concept || action.value || "learning memory"}
         </span>

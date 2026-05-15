@@ -76,10 +76,8 @@ import { ChatIcon } from "@/components/chat/chat-icon";
 import { useHaptics } from "@/hooks/use-haptics";
 import type { ChatSummary } from "@/lib/chat-data";
 import {
-  CHAT_CREATED_EVENT,
   CHAT_NAME_UPDATED_EVENT,
   CHAT_STREAM_STATUS_EVENT,
-  type ChatCreatedDetail,
   type ChatNameUpdatedDetail,
   type ChatStreamStatusDetail,
 } from "@/lib/chat-events";
@@ -717,10 +715,6 @@ export function DashboardSidebar({
   const [editingTitle, setEditingTitle] = useState("");
   const [chatSearchQuery, setChatSearchQuery] = useState("");
   const [pendingChatSlug, setPendingChatSlug] = useState<string | null>(null);
-  const [activeChatSlugOverride, setActiveChatSlugOverride] = useState<
-    string | null
-  >(null);
-  const pendingCreatedChatRef = useRef<ChatSummary | null>(null);
   const [workspaceUuid, setWorkspaceUuid] = useState<string | null>(
     activeWorkspace?.workspaceId ?? null
   );
@@ -758,7 +752,6 @@ export function DashboardSidebar({
   }, [pathname]);
   const activeChatSlug =
     activeChatSlugFromPath ||
-    activeChatSlugOverride ||
     activeChatSlugProp ||
     "";
   const chatsWorkspaceRef = useRef<string | null>(
@@ -1309,47 +1302,10 @@ export function DashboardSidebar({
   }, [derivedWorkspaceUuid, routeWorkspaceUuid]);
 
   useEffect(() => {
-    const onChatCreated = (event: Event) => {
-      const detail = (event as CustomEvent<ChatCreatedDetail>).detail;
-      if (!(detail?.id && detail?.title)) {
-        return;
-      }
-
-      if (
-        pathname === "/workspace/chats/new" ||
-        activeChatSlug === "new" ||
-        detail.fromId === "new"
-      ) {
-        pendingCreatedChatRef.current = {
-          branching: null,
-          createdAt: new Date().toISOString(),
-          icon: null,
-          id: detail.id,
-          lastMessageAt: new Date().toISOString(),
-          pinned: false,
-          slug: detail.id,
-          title: detail.title,
-          updatedAt: new Date().toISOString(),
-          workspaceId: workspaceUuid,
-        };
-        setActiveChatSlugOverride(detail.id);
-        navigate(`/workspace/chats/${detail.id}` as Route);
-      }
-    };
-
     const onChatNameUpdated = (event: Event) => {
       const detail = (event as CustomEvent<ChatNameUpdatedDetail>).detail;
       if (!(detail?.id && detail?.name)) {
         return;
-      }
-
-      if (pendingCreatedChatRef.current?.slug === detail.id) {
-        pendingCreatedChatRef.current = {
-          ...pendingCreatedChatRef.current,
-          icon: detail.icon ?? pendingCreatedChatRef.current.icon ?? null,
-          title: detail.name,
-          updatedAt: new Date().toISOString(),
-        };
       }
 
       setChats((prev) =>
@@ -1376,36 +1332,17 @@ export function DashboardSidebar({
         return;
       }
       if (detail.status === "ready" || detail.status === "error") {
-        if (detail.status === "ready") {
-          const pendingCreatedChat = pendingCreatedChatRef.current;
-          if (pendingCreatedChat?.slug === detail.chatId) {
-            setChats((prev) => {
-              if (prev.some((chat) => chat.slug === pendingCreatedChat.slug)) {
-                return prev;
-              }
-              return [pendingCreatedChat, ...prev];
-            });
-          }
-        }
-        if (detail.status === "error") {
-          pendingCreatedChatRef.current = null;
-        }
         setPendingChatSlug((prev) => (prev === detail.chatId ? null : prev));
-        if (detail.status === "ready") {
-          pendingCreatedChatRef.current = null;
-        }
       }
     };
 
-    window.addEventListener(CHAT_CREATED_EVENT, onChatCreated);
     window.addEventListener(CHAT_NAME_UPDATED_EVENT, onChatNameUpdated);
     window.addEventListener(CHAT_STREAM_STATUS_EVENT, onChatStreamStatus);
     return () => {
-      window.removeEventListener(CHAT_CREATED_EVENT, onChatCreated);
       window.removeEventListener(CHAT_NAME_UPDATED_EVENT, onChatNameUpdated);
       window.removeEventListener(CHAT_STREAM_STATUS_EVENT, onChatStreamStatus);
     };
-  }, [activeChatSlug, pathname, router, workspaceUuid]);
+  }, []);
 
   const sortedChats = useMemo(
     () =>
@@ -1656,7 +1593,6 @@ export function DashboardSidebar({
     setChats(remaining);
 
     if (activeChatSlug === chatSlug) {
-      setActiveChatSlugOverride(null);
       navigate("/workspace/chats/new" as Route);
       router.refresh();
     }

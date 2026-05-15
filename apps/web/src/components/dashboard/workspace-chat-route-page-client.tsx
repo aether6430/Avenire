@@ -7,7 +7,6 @@ import { ChatWorkspace } from "@/components/dashboard/chat-workspace";
 import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
 import { usePanePathname, usePaneRouter } from "@/lib/workspace-panes";
-import { useChatMessageHandoffStore } from "@/stores/chat-message-handoff-store";
 
 interface ChatRoutePayload {
   chat?: {
@@ -46,9 +45,6 @@ export function WorkspaceChatRoutePageClient({
   const { status, user, workspace } = useWorkspaceBootstrap();
   const slug =
     slugProp ?? pathname.match(/^\/workspace\/chats\/([^/?#]+)/)?.[1] ?? "new";
-  const handoffMessages = useChatMessageHandoffStore(
-    (state) => state.messagesByChatId[slug] ?? null
-  );
   const chatQuery = useQuery({
     enabled:
       status === "ready" &&
@@ -73,21 +69,6 @@ export function WorkspaceChatRoutePageClient({
       <ChatWorkspace
         chatIcon={null}
         chatSlug="new"
-        chatTitle="New Method"
-        initialMessages={[]}
-        initialPrompt={null}
-        isReadonly={false}
-        userName={user.name ?? undefined}
-        workspaceUuid={workspace.workspaceId}
-      />
-    );
-  }
-
-  if (chatQuery.isPending && handoffMessages?.length) {
-    return (
-      <ChatWorkspace
-        chatIcon={null}
-        chatSlug={slug}
         chatTitle="New Method"
         initialMessages={[]}
         initialPrompt={null}

@@ -15,17 +15,14 @@ import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import { getChatErrorMessage } from "@/lib/chat-errors";
 import {
-  CHAT_CREATED_EVENT,
   CHAT_NAME_UPDATED_EVENT,
   CHAT_STREAM_FINISHED_EVENT,
   CHAT_STREAM_STATUS_EVENT,
-  type ChatCreatedDetail,
   type ChatNameUpdatedDetail,
   type ChatStreamStatusDetail,
 } from "@/lib/chat-events";
 import { normalizeMediaType } from "@/lib/media-type";
 import { emitPetNotification } from "@/lib/pet-preferences";
-import { chatMessageHandoffActions } from "@/stores/chat-message-handoff-store";
 import { type Attachment, createLocalAttachment } from "./attachment";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
@@ -50,43 +47,6 @@ const ACTIVE_REPLY_MIN_HEIGHT = "calc(100dvh - 250px)";
 const EMPTY_COMPOSER_SHELL_CLASSNAME = "mx-auto mb-3 w-full max-w-3xl";
 const FLOATING_COMPOSER_SHELL_CLASSNAME = "mx-auto mb-3 w-full max-w-3xl";
 
-function createOptimisticUserMessage(
-  message: SendMessageInput
-): UIMessage | null {
-  if (!message) {
-    return null;
-  }
-
-  const text =
-    "text" in message && typeof message.text === "string" ? message.text : "";
-  const candidateFiles =
-    "files" in message && Array.isArray(message.files) ? message.files : [];
-  const files = candidateFiles.filter(
-    (file): file is FileUIPart =>
-      file.type === "file" &&
-      typeof file.url === "string" &&
-      file.url.trim().length > 0
-  );
-
-  if (text.trim().length === 0 && files.length === 0) {
-    return null;
-  }
-
-  return {
-    id: crypto.randomUUID(),
-    role: "user",
-    parts: [
-      ...(text.trim().length > 0 ? [{ type: "text" as const, text }] : []),
-      ...files.map((file) => ({
-        type: "file" as const,
-        filename: file.filename,
-        mediaType: file.mediaType,
-        url: file.url,
-      })),
-    ],
-  } as UIMessage;
-}
-
 export function Chat({
   id,
   initialMessages,
@@ -96,7 +56,7 @@ export function Chat({
   workspaceUuid,
   userName,
 }: ChatProps) {
-  const [chatId, setChatId] = useState(id);
+  const [chatId] = useState(() => (id === "new" ? crypto.randomUUID() : id));
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [input, setInput] = useState("");
   const [agentActivity, setAgentActivity] = useState<AgentActivityData | null>(
@@ -104,8 +64,7 @@ export function Chat({
   );
   const lastCompletedMessageIdRef = useRef<string | null>(null);
   const previousStatusRef = useRef<string | null>(null);
-  const messagesRef = useRef<UIMessage[]>(initialMessages);
-  const pendingNewChatMessagesRef = useRef<UIMessage[] | null>(null);
+  const hasPushedNewChatUrlRef = useRef(id !== "new");
   const autoPromptSentRef = useRef<string | null>(null);
   const MAX_FILES = 3;
 
@@ -149,22 +108,6 @@ export function Chat({
     onError: handleError,
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
     onData: (dataPart) => {
-      if (dataPart.type === "data-chatCreated") {
-        const detail = dataPart.data as ChatCreatedDetail;
-        if (!(detail?.id && detail?.fromId)) {
-          return;
-        }
-        primeNewChatHandoff(detail.id);
-        setChatId(detail.id);
-        pendingNewChatMessagesRef.current = null;
-        window.dispatchEvent(
-          new CustomEvent<ChatCreatedDetail>(CHAT_CREATED_EVENT, {
-            detail,
-          })
-        );
-        return;
-      }
-
       if (dataPart.type === "data-chatName") {
         const detail = dataPart.data as ChatNameUpdatedDetail;
         if (!(detail?.id && detail?.name)) {
@@ -228,53 +171,20 @@ export function Chat({
     return null;
   }, [displayedMessages]);
 
-  useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
-
-  const primeNewChatHandoff = useCallback((nextChatId: string) => {
-    if (!nextChatId) {
+  const pushNewChatUrl = useCallback(() => {
+    if (hasPushedNewChatUrlRef.current || id !== "new") {
       return;
     }
-
-    const currentMessages = messagesRef.current;
-    const pendingMessages = pendingNewChatMessagesRef.current;
-    const handoffMessages =
-      pendingMessages && pendingMessages.length > currentMessages.length
-        ? pendingMessages
-        : currentMessages.length > 0
-          ? currentMessages
-          : pendingMessages;
-
-    if (!handoffMessages || handoffMessages.length === 0) {
-      return;
-    }
-
-    chatMessageHandoffActions.prime(nextChatId, handoffMessages);
-  }, []);
+    hasPushedNewChatUrlRef.current = true;
+    window.history.pushState({}, "", `/workspace/chats/${chatId}`);
+  }, [chatId, id]);
 
   const sendMessage = useCallback(
     async (message: SendMessageInput, options?: SendMessageOptions) => {
-      if (chatId === "new") {
-        const optimisticMessage = createOptimisticUserMessage(message);
-        if (optimisticMessage) {
-          pendingNewChatMessagesRef.current = [
-            ...messagesRef.current,
-            optimisticMessage,
-          ];
-        }
-      }
-
-      try {
-        return await append(message, options);
-      } catch (error) {
-        if (chatId === "new") {
-          pendingNewChatMessagesRef.current = null;
-        }
-        throw error;
-      }
+      pushNewChatUrl();
+      return append(message, options);
     },
-    [append, chatId]
+    [append, pushNewChatUrl]
   );
 
   const handleStop = useCallback(() => {

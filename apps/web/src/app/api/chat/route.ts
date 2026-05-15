@@ -1114,7 +1114,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true }, { status: 202 });
     }
 
-    let chatSlug: string = body.chatId?.trim() ?? "";
+    const chatSlug: string = body.chatId?.trim() ?? "";
     if (!chatSlug) {
       apiLogger.requestFailed(400, "Missing chatId");
       return NextResponse.json({ error: "Missing chatId" }, { status: 400 });
@@ -1131,8 +1131,26 @@ export async function POST(request: Request) {
     >;
     type CreatedChat = Awaited<ReturnType<typeof createChatForUser>>;
     let chat: ExistingChat | CreatedChat | null = null;
-    let chatCreatedFromNew = false;
+    const shouldCreateChat =
+      originalMessages.some((message) => message.role === "user") &&
+      chatSlug !== "new";
     if (chatSlug === "new") {
+      apiLogger.requestFailed(400, "Missing concrete chat id", {
+        chatId: chatSlug,
+      });
+      return NextResponse.json(
+        { error: "Missing concrete chat id" },
+        { status: 400 }
+      );
+    }
+
+    chat = await getWritableChatBySlugForUser(
+      session.user.id,
+      chatSlug,
+      workspace.workspaceId
+    );
+
+    if (!chat && shouldCreateChat) {
       if (idempotencyHeader) {
         idempotencyRedisKey = buildChatIdempotencyRedisKey({
           userId: session.user.id,
@@ -1176,44 +1194,27 @@ export async function POST(request: Request) {
       const createdChat = await createChatForUser(
         session.user.id,
         workspace.workspaceId,
-        DEFAULT_CHAT_TITLE
+        DEFAULT_CHAT_TITLE,
+        chatSlug
       );
       after(async () => {
         await invalidateChatReadCaches(workspace.workspaceId);
       });
       chat = createdChat;
-      chatCreatedFromNew = true;
-      chatSlug = createdChat.slug;
-    } else {
-      chat = await getWritableChatBySlugForUser(
-        session.user.id,
-        chatSlug,
-        workspace.workspaceId
-      );
-
-      if (!chat) {
-        apiLogger.requestFailed(404, "Chat not found", {
-          chatId: chatSlug,
-        });
-        return NextResponse.json({ error: "Chat not found" }, { status: 404 });
-      }
-      if (chat.readOnly) {
-        apiLogger.requestFailed(403, "Read-only chat", {
-          chatId: chatSlug,
-        });
-        return NextResponse.json({ error: "Read-only chat" }, { status: 403 });
-      }
     }
+
     if (!chat) {
-      apiLogger.requestFailed(500, "Unable to resolve chat", {
+      apiLogger.requestFailed(404, "Chat not found", {
         chatId: chatSlug,
       });
-      return NextResponse.json(
-        { error: "Unable to resolve chat" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Chat not found" }, { status: 404 });
     }
-
+    if (chat.readOnly) {
+      apiLogger.requestFailed(403, "Read-only chat", {
+        chatId: chatSlug,
+      });
+      return NextResponse.json({ error: "Read-only chat" }, { status: 403 });
+    }
     const requestStartedAt = new Date();
 
     const latestUserText = extractLatestUserText(originalMessages);
@@ -1393,18 +1394,6 @@ export async function POST(request: Request) {
             });
           }
         };
-
-        if (chatCreatedFromNew) {
-          writer.write({
-            type: "data-chatCreated",
-            transient: true,
-            data: {
-              fromId: body.chatId?.trim() ?? "new",
-              id: chatSlug,
-              title: chat.title,
-            },
-          });
-        }
 
         writer.write({
           type: "data-thinkingMessages",

@@ -24,11 +24,6 @@ export type AgentActivityData = {
 
 type ChatUIData = DataPartsMap<{
   agent_activity: AgentActivityData;
-  chatCreated: {
-    fromId: string;
-    id: string;
-    title: string;
-  };
   chatName: {
     icon?: string | null;
     id: string;

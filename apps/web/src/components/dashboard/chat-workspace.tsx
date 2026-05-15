@@ -26,7 +26,7 @@ import {
 } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "motion/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Chat } from "@/components/chat/chat";
 import { ChatIcon } from "@/components/chat/chat-icon";
 import {
@@ -35,19 +35,13 @@ import {
 } from "@/components/dashboard/header-portal";
 import { EmailSuggestionInput } from "@/components/shared/email-suggestion-input";
 import {
-  CHAT_CREATED_EVENT,
   CHAT_NAME_UPDATED_EVENT,
   CHAT_STREAM_STATUS_EVENT,
-  type ChatCreatedDetail,
   type ChatNameUpdatedDetail,
   type ChatStreamStatusDetail,
 } from "@/lib/chat-events";
 import { isChatIconName } from "@/lib/chat-icons";
 import { usePanePathname } from "@/lib/workspace-panes";
-import {
-  chatMessageHandoffActions,
-  useChatMessageHandoffStore,
-} from "@/stores/chat-message-handoff-store";
 import { usePaneWorkspaceHistoryActions } from "@/stores/workspaceHistoryStore";
 import type { ShareSuggestion } from "@/types/share";
 
@@ -102,7 +96,6 @@ export function ChatWorkspace({
 }: ChatWorkspaceProps) {
   const pathname = usePanePathname();
   const { recordRoute } = usePaneWorkspaceHistoryActions();
-  const [activeChatSlug, setActiveChatSlug] = useState(chatSlug);
   const [shareEmail, setShareEmail] = useState("");
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [shareBusy, setShareBusy] = useState(false);
@@ -114,15 +107,6 @@ export function ChatWorkspace({
     title: string;
   } | null>(null);
   const [isPending, setIsPending] = useState(false);
-  const [resolvedInitialMessages, setResolvedInitialMessages] = useState<
-    UIMessage[]
-  >(() => {
-    if (initialMessages.length > 0) {
-      return initialMessages;
-    }
-
-    return chatMessageHandoffActions.consume(chatSlug) ?? initialMessages;
-  });
   const [prevChatSlug, setPrevChatSlug] = useState(chatSlug);
 
   const resetShareState = useCallback(() => {
@@ -135,46 +119,12 @@ export function ChatWorkspace({
 
   if (chatSlug !== prevChatSlug) {
     setPrevChatSlug(chatSlug);
-    setActiveChatSlug(chatSlug);
     setChatMetaOverride(null);
     resetShareState();
     setIsPending(false);
-    if (initialMessages.length > 0) {
-      setResolvedInitialMessages(initialMessages);
-    } else {
-      const pending = chatMessageHandoffActions.consume(chatSlug);
-      setResolvedInitialMessages(pending ?? initialMessages);
-    }
   }
 
-  useEffect(() => {
-    const onChatCreated = (event: Event) => {
-      const detail = (event as CustomEvent<ChatCreatedDetail>).detail;
-      if (!(detail?.id && detail?.fromId)) {
-        return;
-      }
-      if (chatSlug !== "new" && detail.fromId !== chatSlug) {
-        return;
-      }
-      const pendingMessages =
-        useChatMessageHandoffStore.getState().messagesByChatId[detail.id] ??
-        null;
-      if (pendingMessages) {
-        setResolvedInitialMessages(pendingMessages);
-      }
-      setActiveChatSlug(detail.id);
-      setChatMetaOverride(null);
-      resetShareState();
-      setIsPending(true);
-    };
-
-    window.addEventListener(CHAT_CREATED_EVENT, onChatCreated);
-    return () => {
-      window.removeEventListener(CHAT_CREATED_EVENT, onChatCreated);
-    };
-  }, [chatSlug, resetShareState]);
-
-  const currentChatSlug = activeChatSlug;
+  const currentChatSlug = chatSlug;
   const title =
     chatMetaOverride?.slug === currentChatSlug
       ? chatMetaOverride.title
@@ -196,21 +146,9 @@ export function ChatWorkspace({
       />
     );
   }
-  const currentRoute = useMemo(() => {
-    if (pathname === "/workspace/chats/new" && currentChatSlug !== "new") {
-      return `/workspace/chats/${currentChatSlug}`;
-    }
-    return pathname;
-  }, [currentChatSlug, pathname]);
-  const chatComponentKey =
-    chatSlug === "new" && currentChatSlug !== "new" && isPending
-      ? "new"
-      : currentChatSlug;
-  const chatComponentId = chatComponentKey === "new" ? "new" : currentChatSlug;
-
   useEffect(() => {
-    recordRoute(currentRoute);
-  }, [currentRoute, recordRoute]);
+    recordRoute(pathname);
+  }, [pathname, recordRoute]);
 
   useEffect(() => {
     const onChatNameUpdated = (event: Event) => {
@@ -443,11 +381,11 @@ export function ChatWorkspace({
       <div className="min-h-0 flex-1 overflow-hidden">
         <motion.div className="h-full" initial={false}>
           <Chat
-            id={chatComponentId}
-            initialMessages={resolvedInitialMessages}
+            id={currentChatSlug}
+            initialMessages={initialMessages}
             initialPrompt={initialPrompt}
             isReadonly={isReadonly}
-            key={chatComponentKey}
+            key={currentChatSlug}
             selectedModel="apollo-apex"
             userName={userName}
             workspaceUuid={workspaceUuid}

@@ -200,10 +200,15 @@ export async function listChatsForUser(userId: string, workspaceId?: string | nu
   });
 }
 
-export async function createChatForUser(userId: string, workspaceId: string, title?: string) {
+export async function createChatForUser(
+  userId: string,
+  workspaceId: string,
+  title?: string,
+  slugOverride?: string
+) {
   const now = new Date();
   const cleanTitle = sanitizeTitle(title);
-  const slug = randomUUID();
+  const slug = slugOverride ?? randomUUID();
   const newThread: typeof chatThread.$inferInsert = {
     id: randomUUID(),
     userId,
