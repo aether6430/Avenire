@@ -691,7 +691,7 @@ export function PropertiesTable({
           </PopoverTrigger>
           <PopoverContent
             align="start"
-            className="w-auto gap-2 overflow-visible p-2"
+            className="w-auto gap-2 overflow-visible p-2 shadow-none ring-0"
             sideOffset={6}
           >
             <Calendar
@@ -708,10 +708,10 @@ export function PropertiesTable({
               }}
               selected={parsedValue?.date ?? undefined}
             />
-            <div className="flex items-center gap-2 border-border/70 border-t pt-2">
+            <div className="flex items-center gap-2 border-border/50 border-t pt-2">
               <input
                 aria-label={`${key} time`}
-                className="h-7 rounded-md border border-border/70 bg-transparent px-2 text-[12px]"
+                className="h-7 rounded-md border border-transparent bg-transparent px-2 text-[12px]"
                 disabled={disabled}
                 onChange={(event) => {
                   const nextDate = parsedValue?.date ?? new Date();
@@ -819,7 +819,7 @@ export function PropertiesTable({
           </PopoverTrigger>
           <PopoverContent
             align="start"
-            className="w-56 gap-1 overflow-visible p-1"
+            className="w-56 gap-1 overflow-visible p-1 shadow-none ring-0"
             sideOffset={6}
           >
             <form
@@ -840,7 +840,7 @@ export function PropertiesTable({
               }}
             >
               <input
-                className="h-7 min-w-0 flex-1 rounded-md border border-border/70 bg-transparent px-2 text-[12px]"
+                className="h-7 min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 text-[12px]"
                 disabled={disabled}
                 onChange={(event) =>
                   setValueOptionDraft(event.currentTarget.value)
@@ -973,7 +973,7 @@ export function PropertiesTable({
                       </PopoverTrigger>
                       <PopoverContent
                         align="start"
-                        className="max-h-none w-64 gap-1 overflow-visible p-1"
+                        className="max-h-none w-64 gap-1 overflow-visible p-1 shadow-none ring-0"
                         sideOffset={6}
                       >
                         <div
@@ -982,7 +982,7 @@ export function PropertiesTable({
                           onPointerDown={(event) => event.stopPropagation()}
                         >
                           <input
-                            className="h-7 w-full rounded-md border border-border/70 bg-transparent px-2 text-[13px]"
+                            className="h-7 w-full rounded-md border border-transparent bg-transparent px-2 text-[13px]"
                             defaultValue={key}
                             disabled={disabled}
                             onBlur={(event) =>
@@ -1101,9 +1101,9 @@ export function PropertiesTable({
                                 return (
                                   <button
                                     className={cn(
-                                      "flex h-11 flex-col items-center justify-center gap-1 rounded-md border border-border/70 text-[11px] text-[var(--text-muted)] hover:bg-accent hover:text-accent-foreground",
+                                      "flex h-11 flex-col items-center justify-center gap-1 rounded-md border border-transparent text-[11px] text-[var(--text-muted)] hover:bg-accent hover:text-accent-foreground",
                                       selected &&
-                                        "border-[var(--accent-color,#3b82f6)] text-[var(--accent-color,#3b82f6)]"
+                                        "bg-[var(--background-modifier-hover)] text-[var(--accent-color,#3b82f6)]"
                                     )}
                                     disabled={disabled}
                                     key={item.value}
@@ -1135,7 +1135,7 @@ export function PropertiesTable({
                               <label className="mt-1 flex min-h-7 items-center gap-2 px-2 text-xs">
                                 Total
                                 <input
-                                  className="ml-auto h-7 w-20 rounded-md border border-border/70 bg-transparent px-2 text-right"
+                                  className="ml-auto h-7 w-20 rounded-md border border-transparent bg-transparent px-2 text-right"
                                   disabled={disabled}
                                   inputMode="decimal"
                                   onChange={(event) => {
@@ -1184,7 +1184,7 @@ export function PropertiesTable({
                               }}
                             >
                               <input
-                                className="h-7 min-w-0 flex-1 rounded-md border border-border/70 bg-transparent px-2 text-[12px]"
+                                className="h-7 min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 text-[12px]"
                                 disabled={disabled}
                                 onChange={(event) =>
                                   setOptionDraft(event.currentTarget.value)
@@ -1308,7 +1308,7 @@ export function PropertiesTable({
                 </PopoverTrigger>
                 <PopoverContent
                   align="start"
-                  className="w-40 gap-1 p-1"
+                  className="w-40 gap-1 p-1 shadow-none ring-0"
                   sideOffset={6}
                 >
                   {PROPERTY_TYPE_ITEMS.map((item) => {
@@ -1382,7 +1382,7 @@ export function PropertiesTable({
             </PopoverTrigger>
             <PopoverContent
               align="start"
-              className="w-64 gap-1 p-1"
+              className="w-64 gap-1 p-1 shadow-none ring-0"
               sideOffset={6}
             >
               <button

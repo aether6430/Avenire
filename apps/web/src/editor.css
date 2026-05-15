@@ -22,15 +22,18 @@
 
 .scribe-document-row {
   display: grid;
-  grid-template-columns: minmax(0, 45rem) 3.125rem;
-  gap: 1rem;
+  grid-template-columns: minmax(1rem, 1fr) minmax(0, 45rem) minmax(
+      3.125rem,
+      1fr
+    );
+  column-gap: 1rem;
   align-items: start;
-  justify-content: center;
   width: 100%;
-  padding-inline: 1rem;
+  padding-inline: clamp(1rem, 3vw, 3rem);
 }
 
 .scribe-editor-content {
+  grid-column: 2;
   min-width: 0;
 }
 
@@ -86,10 +89,9 @@
   --scroll-fade-color: var(--background);
   position: relative;
   max-width: min(100%, 45rem);
-  max-height: 12.5rem;
   margin-inline: auto;
   margin-bottom: 1rem;
-  overflow-y: auto;
+  overflow: visible;
 }
 
 .scribe-frontmatter-table {
@@ -127,13 +129,21 @@
   cursor: pointer;
 }
 
+.scribe-frontmatter-table :where(input, button, [role="button"]) {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
 .editor-toc-rail {
   position: sticky;
   top: 6rem;
   display: block;
+  grid-column: 3;
   align-self: start;
+  justify-self: end;
   width: 3.125rem;
   max-height: calc(100vh - 8rem);
+  margin-right: clamp(0rem, 2vw, 2.5rem);
 }
 
 .editor-toc-rail__inner {
