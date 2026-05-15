@@ -2,14 +2,9 @@
 
 import type { UIMessage } from "@avenire/ai/message-types";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
 import { ChatWorkspace } from "@/components/dashboard/chat-workspace";
 import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
-import {
-  CHAT_STREAM_STATUS_EVENT,
-  type ChatStreamStatusDetail,
-} from "@/lib/chat-events";
 import { usePanePathname } from "@/lib/workspace-panes";
 
 interface ChatRoutePayload {
@@ -21,8 +16,6 @@ interface ChatRoutePayload {
   } | null;
   messages?: UIMessage[];
 }
-
-const activeChatStreams = new Set<string>();
 
 async function loadChatRoute(slug: string, signal?: AbortSignal) {
   const response = await fetch(`/api/chats/${slug}`, {
@@ -50,9 +43,6 @@ export function WorkspaceChatRoutePageClient({
   const { status, user, workspace } = useWorkspaceBootstrap();
   const slug =
     slugProp ?? pathname.match(/^\/workspace\/chats\/([^/?#]+)/)?.[1] ?? "new";
-  const [hasActiveStream, setHasActiveStream] = useState(() =>
-    activeChatStreams.has(slug)
-  );
   const chatQuery = useQuery({
     enabled:
       status === "ready" &&
@@ -61,34 +51,6 @@ export function WorkspaceChatRoutePageClient({
     queryFn: ({ signal }) => loadChatRoute(slug, signal),
     queryKey: ["workspace-chat-route", workspace?.workspaceId ?? null, slug],
   });
-
-  useEffect(() => {
-    setHasActiveStream(activeChatStreams.has(slug));
-  }, [slug]);
-
-  useEffect(() => {
-    const onChatStreamStatus = (event: Event) => {
-      const detail = (event as CustomEvent<ChatStreamStatusDetail>).detail;
-      if (!detail?.chatId) {
-        return;
-      }
-
-      if (detail.status === "submitted" || detail.status === "streaming") {
-        activeChatStreams.add(detail.chatId);
-      } else if (detail.status === "ready" || detail.status === "error") {
-        activeChatStreams.delete(detail.chatId);
-      }
-
-      if (detail.chatId === slug) {
-        setHasActiveStream(activeChatStreams.has(slug));
-      }
-    };
-
-    window.addEventListener(CHAT_STREAM_STATUS_EVENT, onChatStreamStatus);
-    return () => {
-      window.removeEventListener(CHAT_STREAM_STATUS_EVENT, onChatStreamStatus);
-    };
-  }, [slug]);
 
   if (!(status === "ready" && user && workspace)) {
     return <WorkspaceRoutePlaceholder label="Loading method..." />;
@@ -109,7 +71,7 @@ export function WorkspaceChatRoutePageClient({
     );
   }
 
-  if ((chatQuery.isPending || chatQuery.data === null) && hasActiveStream) {
+  if (chatQuery.isPending || chatQuery.data === null) {
     return (
       <ChatWorkspace
         chatIcon={null}
@@ -124,7 +86,7 @@ export function WorkspaceChatRoutePageClient({
     );
   }
 
-  if (chatQuery.isPending || !chatQuery.data?.chat) {
+  if (!chatQuery.data?.chat) {
     return <WorkspaceRoutePlaceholder label="Loading method..." />;
   }
 
