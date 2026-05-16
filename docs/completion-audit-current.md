@@ -19,6 +19,15 @@ copy, this audit uses the previously recovered completion snapshot from the old
 workspace as the concrete surrogate for the goal shape, then re-checks every
 major category against the actual current repo state.
 
+The original Desktop copy is still present only as a File Provider placeholder:
+
+- `/Users/johnmacartew/Desktop/aveniri/instruction.md`
+- current file flags: `compressed,dataless`
+
+That means the active no-sync repo is the correct working copy, but the
+completion audit still cannot quote the original instruction text verbatim from
+the old workspace.
+
 ## Current evidence
 
 ### 1. Reliability floor
@@ -49,7 +58,7 @@ Assessment:
 
 Current measured app-level hotspots:
 
-- `apps/web/src/components/files/explorer.tsx` — `1202` lines
+- `apps/web/src/components/files/explorer.tsx` — `686` lines
 - `apps/web/src/components/dashboard/sidebar-files-panel.tsx` — `55` lines
 - `apps/web/src/components/chat/multimodal-input.tsx` — `60` lines
 - `apps/web/src/components/settings/data-imports-section.tsx` — `14` lines
@@ -64,6 +73,7 @@ Recent verified reductions already landed and were pushed:
 - `06dcda1` — `Use workspace explorer data hook`
 - `9d76bc8` — `Use explorer shell hook`
 - `d3249c0` — `Use explorer derived state hook`
+- `d0dc5d8` — `Remove dead explorer inline code`
 - `4951e61` — `Reduce multimodal input to thin wrapper`
 - `6b8607d` — `Reduce data imports section to thin wrapper`
 - `a444f94` — `Reduce command palette to thin wrapper`
@@ -86,6 +96,8 @@ Current evidence in the no-sync repo:
 - `docs/environment.md`
 - `docs/migrations.md`
 - `docs/local-workspace-integrity.md`
+- `docs/product-coherence-audit-current.md`
+- `docs/visual-interaction-audit-current.md`
 - `docs/workspace-surface-map.md`
 
 Assessment:
@@ -104,11 +116,21 @@ Current evidence:
 - `docs/product-coherence-audit-current.md` now exists in the active no-sync
   repo and captures current public/auth-entry findings.
 - A local verified user exists for `audit+workspace@example.com`.
+- A second fresh local user now exists for deterministic browser audit work:
+  - `audit.browser@example.com`
 - Signed-in workspace evidence now includes:
   - `/workspace` returned `200`
   - `/api/workspace/bootstrap` returned user + workspace payload
   - `/api/workspace/overview` returned a valid empty-state overview payload
   - `/api/workspaces/list` returned the created workspace
+- Browser-level signed-in shell evidence now exists through the local session
+  proxy:
+  - `bun scripts/local-auth-session-proxy.ts --cookie-file output/auth-login-cookies.txt --upstream http://127.0.0.1:3000 --port 4010`
+  - `chrome-headless-shell` and full Chrome both rendered the signed-in
+    workspace shell at `http://localhost:4010/workspace`
+  - the left sidebar and workspace quick actions rendered consistently
+  - the main pane still remained on `Loading workspace...` even after a
+    `20s` virtual-time budget
 - The auth-entry flow itself improved materially:
   - `/register` no longer crashes with `Maximum update depth exceeded`
   - sign-up returned `200`
@@ -117,8 +139,12 @@ Current evidence:
 
 Missing proof:
 
-- There is still no stable browser-level walkthrough of the signed-in workspace
-  interaction loop beyond route/bootstrap/empty-state proof.
+- There is now partial browser-level signed-in proof, but not a healthy
+  in-session loop:
+  - the shell renders
+  - the authenticated route is reachable
+  - the default main pane still stalls on `Loading workspace...` in
+    deterministic headless browser captures
 - Passing builds prove integrity, but they do not by themselves prove that the
   product now feels coherent.
 
@@ -129,20 +155,24 @@ Current evidence:
 - Recent structural cuts preserved green production builds.
 - The previously huge authenticated shell surfaces were reduced to existing
   canonical boundaries rather than ad hoc inline logic.
+- `docs/visual-interaction-audit-current.md` now records the current visual
+  pass across public/authenticated entry points and the signed-in workspace
+  shell.
 
 Missing proof:
 
-- There is still no current visual/interaction audit artifact that says the
-  major public/authenticated flows look and feel consistently built.
+- The signed-in shell has a visual audit artifact now, but the core workspace
+  pane still does not have a healthy ready-state capture to prove visual
+  continuity inside the main work surface.
 
 ## Strongest uncovered requirements
 
 1. `explorer.tsx` is still the largest remaining app-level surface by a wide
    margin.
-2. The goal still lacks a stable browser-level audit of the signed-in
-   workspace interaction loop.
-3. The goal still lacks a current visual/interaction audit across the main
-   surfaces.
+2. The signed-in workspace shell is browser-proven, but the main pane still
+   stalls on `Loading workspace...` in deterministic authenticated captures.
+3. The original `instruction.md` remains absent from the active repo and
+   trapped as a `compressed,dataless` placeholder in the old Desktop copy.
 4. The evidence trail is healthier, but it is still split between the active
    no-sync repo and the old Desktop repo’s historical `logs/`.
 
@@ -150,7 +180,10 @@ Missing proof:
 
 1. Continue structural reduction on `explorer.tsx` until it no longer dominates
    the app-level surface map.
-2. Continue the signed-in workspace audit until it includes stable browser-level
-   interaction proof, not only route/bootstrap evidence.
-3. After that, perform a final end-state audit against the recovered goal
+2. Debug or prove the signed-in workspace main-pane loading seam under the
+   authenticated browser proxy, because that is now the clearest remaining
+   product-level gap.
+3. Recover or otherwise memorialize the original `instruction.md` text so the
+   final completion audit no longer depends on a surrogate alone.
+4. After that, perform a final end-state audit against the recovered goal
    surrogate before considering the overall objective achieved.

@@ -13,6 +13,7 @@ audit focuses on:
 - public entry surfaces
 - auth entry surfaces
 - unauthenticated workspace entry behavior
+- signed-in workspace shell behavior under a real local session proxy
 
 It does **not** claim full authenticated in-session workspace proof yet.
 
@@ -42,6 +43,19 @@ Auth-backed local environment:
 - local waitlist approval helper:
   - `bun scripts/local-auth-verification-link.ts audit+workspace@example.com --approve-waitlist --callback /workspace`
 - live sign-up and verification evidence collected from the running dev server
+
+Signed-in browser proxy:
+
+- fresh waitlist-approved local user:
+  - `audit.browser@example.com`
+- cookie jar created through:
+  - `POST /api/auth/sign-up/email`
+  - `GET /api/auth/verify-email?...`
+- authenticated proxy:
+  - `bun scripts/local-auth-session-proxy.ts --cookie-file output/auth-login-cookies.txt --upstream http://127.0.0.1:3000 --port 4010`
+- browser render captures:
+  - `chrome-headless-shell --screenshot ... http://localhost:4010/workspace`
+  - `Google Chrome --headless --screenshot ... http://localhost:4010/workspace`
 
 ## Observed strengths
 
@@ -147,6 +161,25 @@ Observed via the local DB + server logs:
 This means the local product is no longer only “buildable”; a meaningful part
 of the real auth lifecycle actually works end to end.
 
+### 8. The signed-in workspace shell now has real browser-level evidence
+
+Observed via the authenticated local proxy at `http://localhost:4010`:
+
+- the signed-in `/workspace` shell renders in a real browser engine
+- visible shell elements include:
+  - `Workspace`
+  - `Workspace Home`
+  - `New Method`
+  - `Open Mindset Sets`
+  - `Open Files`
+  - `Open Tasks`
+- the sidebar action rail and footer controls render coherently inside the
+  authenticated shell
+
+This is stronger than the earlier route/bootstrap-only proof because it confirms
+that the signed-in workspace chrome is not just returning HTML; it is rendering
+as a real browser surface.
+
 ## Current weak spots
 
 ### 1. Authenticated workspace experience is still not fully audited
@@ -172,10 +205,35 @@ What is still missing:
 
 - a stable browser-level proof that the authenticated user can move through the
   main signed-in surfaces coherently, not only receive authenticated HTML/JSON
+- a ready-state browser capture of the default workspace main pane
 
+What the new browser pass surfaced:
+
+- both `chrome-headless-shell` and full Chrome rendered the authenticated shell
+- even after a `20s` virtual-time budget, the main pane still displayed:
+  - `Loading workspace...`
+- dev logs did not show matching browser-driven `/api/workspace/bootstrap` or
+  `/api/workspace/overview` fetches during that deterministic headless pass
+
+So the gap is no longer vague. The signed-in shell is proven, but the default
+main work surface is still weakly proven and may have a real hydration or pane
+initialization seam.
+
+### 2. Local proxy host mismatch can obscure dev-mode browser proof
+
+Observed during the authenticated proxy pass:
+
+- using `http://127.0.0.1:4010/workspace` caused Next.js to block
+  `/_next/webpack-hmr` because `127.0.0.1` was not in `allowedDevOrigins`
+- switching the same proxy to `http://localhost:4010/workspace` removed that
+  specific cross-origin dev warning
+- the workspace main pane still remained on `Loading workspace...`
+
+This matters because it rules out one false explanation: the lingering loading
+state is not only a `127.0.0.1` dev-origin quirk.
 This remains a real gap against the overall objective.
 
-### 2. Voice mismatch still exists in places
+### 3. Voice mismatch still exists in places
 
 The login page uses:
 
@@ -188,7 +246,7 @@ more concrete study/research language on `/` and `/pricing`.
 This is not a blocker by itself, but it is one of the clearer remaining
 copy-level seams.
 
-### 3. Product proof is still stronger on entry than in-flow
+### 4. Product proof is still stronger on entry than in-flow
 
 Right now the strongest evidence is:
 
@@ -218,15 +276,16 @@ But the broader objective is still **not achieved** because the authenticated
 workspace flow is now only partially proven:
 
 - the signed-in workspace route and bootstrap endpoints work
-- the empty workspace state is reachable
-- but the broader signed-in interaction loop is still not audited end to end in
-  a stable browser session
+- the signed-in workspace shell renders in a real browser engine
+- but the main signed-in pane still remains on `Loading workspace...` in
+  deterministic browser captures, so the broader interaction loop is still not
+  proven end to end
 
 ## Recommended next move
 
-Audit the signed-in workspace flow under a real session next:
+Debug the signed-in workspace main-pane loading seam next:
 
-1. enter workspace
-2. inspect sidebar + command palette + files/chat/tasks continuity
-3. inspect one real content workflow
-4. record concrete UX findings, not just green route availability
+1. trace why the default `/workspace` pane stays on `Loading workspace...`
+2. confirm whether the missing ready-state is a headless-only artifact or a
+   real client bootstrap issue
+3. only then continue the deeper sidebar/files/chat/tasks continuity audit
