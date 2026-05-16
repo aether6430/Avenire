@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
 import { UTApi } from "@avenire/storage";
 import matter from "gray-matter";
-import { consumeUploadUnits } from "@/lib/billing";
+import { consumeUploadUnits } from "@/lib/billing-metering";
 import {
   createWorkspaceNoteFile,
   getFileAssetByContentHash,

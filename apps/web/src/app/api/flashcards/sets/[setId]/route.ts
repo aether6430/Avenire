@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import { invalidateFlashcardReadCaches } from "@/lib/domain-cache";
-import {
-  archiveFlashcardSetForUser,
-  getFlashcardSetForUser,
-  updateFlashcardSetForUser,
-} from "@/lib/flashcards";
+import { normalizeFlashcardSetId } from "@/lib/flashcard-set-id";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
-import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
+import { handleFlashcardSetRouteGet } from "./flashcard-set-route-get";
+import {
+  handleFlashcardSetRouteDelete,
+  handleFlashcardSetRoutePatch,
+} from "./flashcard-set-route-mutations";
 
 export async function GET(
   _request: Request,
@@ -17,18 +16,16 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { setId } = await context.params;
-  const set = await getFlashcardSetForUser(
-    ctx.user.id,
-    ctx.workspace.workspaceId,
-    setId
-  );
-
-  if (!set) {
+  const { setId: rawSetId } = await context.params;
+  const setId = normalizeFlashcardSetId(rawSetId);
+  if (!setId) {
     return NextResponse.json({ error: "Set not found" }, { status: 404 });
   }
-
-  return NextResponse.json({ set });
+  return await handleFlashcardSetRouteGet({
+    setId,
+    userId: ctx.user.id,
+    workspaceId: ctx.workspace.workspaceId,
+  });
 }
 
 export async function PATCH(
@@ -40,38 +37,17 @@ export async function PATCH(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = (await request.json().catch(() => ({}))) as {
-    description?: string | null;
-    tags?: string[];
-    title?: string;
-  };
-  const { setId } = await context.params;
-  const set = await updateFlashcardSetForUser({
-    description: body.description,
+  const { setId: rawSetId } = await context.params;
+  const setId = normalizeFlashcardSetId(rawSetId);
+  if (!setId) {
+    return NextResponse.json({ error: "Set not found" }, { status: 404 });
+  }
+  return await handleFlashcardSetRoutePatch({
+    request,
     setId,
-    tags: body.tags,
-    title: body.title,
     userId: ctx.user.id,
     workspaceId: ctx.workspace.workspaceId,
   });
-
-  if (!set) {
-    return NextResponse.json({ error: "Set not found" }, { status: 404 });
-  }
-
-  await invalidateFlashcardReadCaches(ctx.workspace.workspaceId);
-
-  void publishWorkspaceStreamEvent({
-    workspaceUuid: ctx.workspace.workspaceId,
-    type: "flashcards.invalidate",
-    payload: {
-      action: "updated",
-      setId: set.id,
-      workspaceUuid: ctx.workspace.workspaceId,
-    },
-  });
-
-  return NextResponse.json({ set });
 }
 
 export async function DELETE(
@@ -83,28 +59,14 @@ export async function DELETE(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { setId } = await context.params;
-  const archived = await archiveFlashcardSetForUser(
-    ctx.user.id,
-    ctx.workspace.workspaceId,
-    setId
-  );
-
-  if (!archived) {
+  const { setId: rawSetId } = await context.params;
+  const setId = normalizeFlashcardSetId(rawSetId);
+  if (!setId) {
     return NextResponse.json({ error: "Set not found" }, { status: 404 });
   }
-
-  await invalidateFlashcardReadCaches(ctx.workspace.workspaceId);
-
-  void publishWorkspaceStreamEvent({
-    workspaceUuid: ctx.workspace.workspaceId,
-    type: "flashcards.invalidate",
-    payload: {
-      action: "deleted",
-      setId,
-      workspaceUuid: ctx.workspace.workspaceId,
-    },
+  return await handleFlashcardSetRouteDelete({
+    setId,
+    userId: ctx.user.id,
+    workspaceId: ctx.workspace.workspaceId,
   });
-
-  return NextResponse.json({ ok: true });
 }

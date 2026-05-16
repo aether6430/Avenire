@@ -598,7 +598,10 @@ export const misconception = pgTable(
     status: text("status").notNull().default("candidate"),
     evidenceClass: text("evidence_class").notNull().default("session"),
     evidenceRootId: text("evidence_root_id"),
-    evidenceSpan: jsonb("evidence_span").$type<Record<string, unknown> | null>(),
+    evidenceSpan: jsonb("evidence_span").$type<Record<
+      string,
+      unknown
+    > | null>(),
     sourceSessionId: text("source_session_id"),
     promotedAt: timestamp("promoted_at", { withTimezone: true }),
     decayedAt: timestamp("decayed_at", { withTimezone: true }),
@@ -669,7 +672,10 @@ export const misconceptionEvidence = pgTable(
     evidenceRootId: text("evidence_root_id"),
     sourceSessionId: text("source_session_id"),
     confidence: real("confidence").notNull().default(0),
-    evidenceSpan: jsonb("evidence_span").$type<Record<string, unknown> | null>(),
+    evidenceSpan: jsonb("evidence_span").$type<Record<
+      string,
+      unknown
+    > | null>(),
     observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -824,9 +830,7 @@ export const userSettings = pgTable("user_settings", {
   completedTasksAtTop: boolean("completed_tasks_at_top")
     .notNull()
     .default(true),
-  onboardingCompleted: boolean("onboarding_completed")
-    .notNull()
-    .default(false),
+  onboardingCompleted: boolean("onboarding_completed").notNull().default(false),
   petName: text("pet_name").notNull().default("Auri"),
   petAccessory: text("pet_accessory").notNull().default("none"),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -1062,7 +1066,7 @@ export const task = pgTable(
     completedAt: timestamp("completed_at", { withTimezone: true }),
     resources: jsonb("resources")
       .notNull()
-      .$type<Array<Record<string, unknown>>>()
+      .$type<Record<string, unknown>[]>()
       .default([]),
     createdBy: text("created_by")
       .notNull()

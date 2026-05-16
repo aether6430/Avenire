@@ -1,11 +1,10 @@
-import { config as loadEnv } from "dotenv";
-import { defineConfig } from "drizzle-kit";
-import { dirname, resolve } from "node:path";
+import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { defineConfig } from "drizzle-kit";
+import { loadDatabaseEnv } from "./src/load-env";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
-loadEnv({ path: resolve(currentDir, "../../.env") });
-loadEnv({ path: resolve(currentDir, "../../.env.local"), override: true });
+loadDatabaseEnv({ packageRootDir: currentDir });
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -20,6 +19,6 @@ export default defineConfig({
   schema: ["./src/schema.ts", "./src/auth-schema.ts"],
   out: "./drizzle",
   dbCredentials: {
-    url: databaseUrl
-  }
+    url: databaseUrl,
+  },
 });

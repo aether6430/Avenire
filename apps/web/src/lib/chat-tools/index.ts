@@ -185,7 +185,7 @@ function buildMisconceptionStudySource(misconception: MisconceptionRecord) {
     `Subject: ${misconception.subject}`,
     `Topic: ${misconception.topic}`,
     `Misconception: ${misconception.reason}`,
-    "Create flashcards that confront the wrong model directly, then replace it with the correct reasoning.",
+    "Create mindset cards that confront the wrong model directly, then replace it with the correct reasoning.",
   ].join("\n");
 }
 
@@ -1514,11 +1514,11 @@ async function generateFlashcardsFromSource(
     model: apollo.languageModel("apollo-core"),
     output: Output.object({ schema: flashcardGenerationSchema }),
     prompt: [
-      "Create a clean flashcard deck from the study material.",
+      "Create a clean mindset set from the study material.",
       "Write concise markdown front/back pairs.",
       `Return exactly ${Math.max(1, Math.min(input.count ?? 10, 24))} cards.`,
       "Avoid duplicate cards.",
-      `Deck title hint: ${input.title ?? source.title}`,
+      `Mindset title hint: ${input.title ?? source.title}`,
       `Study material:\n${source.content}`,
     ].join("\n\n"),
   });
@@ -2458,14 +2458,14 @@ The agent decides which operations to perform based on the task.`,
     }),
     generate_flashcards: tool({
       description:
-        "Generate a persisted flashcard deck from a file, search query, or provided source text. Use only when the user explicitly asks for flashcards or study cards.",
+        "Generate a persisted mindset set from a file, search query, or provided source text. Use only when the user explicitly asks for a mindset set, flashcards, mindset cards, or study cards.",
       inputSchema: chatToolSchemas.generate_flashcards.input,
       outputSchema: chatToolSchemas.generate_flashcards.output,
       execute: async (input) => generateFlashcardsFromSource(ctx, input),
     }),
     generate_flashcards_from_misconception: tool({
       description:
-        "Generate a flashcard deck from an active misconception so the user can train the correct model directly.",
+        "Generate a mindset set from an active misconception so the user can train the correct model directly.",
       inputSchema: chatToolSchemas.generate_flashcards_from_misconception.input,
       outputSchema:
         chatToolSchemas.generate_flashcards_from_misconception.output,
@@ -2540,7 +2540,7 @@ The agent decides which operations to perform based on the task.`,
     }),
     load_skill: tool({
       description:
-        "Load a study-guideline skill into context. Use this before acting on structured study tasks like explanations, summaries, notes, flashcards, or quizzes.",
+        "Load a study-guideline skill into context. Use this before acting on structured study tasks like explanations, summaries, notes, mindset cards, or quizzes.",
       inputSchema: chatToolSchemas.load_skill.input,
       outputSchema: chatToolSchemas.load_skill.output,
       execute: async (input) => {

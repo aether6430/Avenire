@@ -1,12 +1,11 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
 import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
 import { FlashcardsDashboard } from "@/components/flashcards/dashboard";
 import type { FlashcardDashboardRecord } from "@/lib/flashcards";
-import { usePaneRouter, usePaneSearchParams } from "@/lib/workspace-panes";
+import { usePaneSearchParams } from "@/lib/workspace-panes";
 
 interface FlashcardsDashboardPayload {
   dashboard: FlashcardDashboardRecord;
@@ -32,14 +31,13 @@ async function loadFlashcardsDashboard(signal?: AbortSignal) {
   }
 
   if (!response.ok) {
-    throw new Error("Unable to load flashcards dashboard.");
+    throw new Error("Unable to load mindset sets dashboard.");
   }
 
   return (await response.json()) as FlashcardsDashboardPayload;
 }
 
 export function WorkspaceFlashcardsPageClient() {
-  const router = usePaneRouter();
   const searchParams = usePaneSearchParams();
   const { status, user, workspace } = useWorkspaceBootstrap();
   const dashboardQuery = useQuery({
@@ -47,12 +45,6 @@ export function WorkspaceFlashcardsPageClient() {
     queryFn: ({ signal }) => loadFlashcardsDashboard(signal),
     queryKey: ["flashcards-dashboard", workspace?.workspaceId ?? null],
   });
-
-  useEffect(() => {
-    if (dashboardQuery.data === null) {
-      router.replace("/workspace");
-    }
-  }, [dashboardQuery.data, router]);
 
   const generationRequest: FlashcardGenerationRequest | null =
     searchParams.get("generate") === "onboarding"
@@ -68,12 +60,48 @@ export function WorkspaceFlashcardsPageClient() {
         }
       : null;
 
+  if (status === "error") {
+    return (
+      <WorkspaceRoutePlaceholder
+        label="Unable to load mindset sets."
+        pending={false}
+      />
+    );
+  }
+
+  if (status === "ready" && user && !workspace) {
+    return (
+      <WorkspaceRoutePlaceholder
+        label="Create a workspace to continue."
+        pending={false}
+      />
+    );
+  }
+
   if (!(status === "ready" && user && workspace)) {
-    return <WorkspaceRoutePlaceholder label="Loading flashcards..." />;
+    return <WorkspaceRoutePlaceholder label="Loading mindset sets..." />;
+  }
+
+  if (dashboardQuery.isError) {
+    return (
+      <WorkspaceRoutePlaceholder
+        label="Unable to load mindset sets."
+        pending={false}
+      />
+    );
+  }
+
+  if (dashboardQuery.data === null) {
+    return (
+      <WorkspaceRoutePlaceholder
+        label="Mindset sets unavailable."
+        pending={false}
+      />
+    );
   }
 
   if (dashboardQuery.isPending || !dashboardQuery.data?.dashboard) {
-    return <WorkspaceRoutePlaceholder label="Loading flashcards..." />;
+    return <WorkspaceRoutePlaceholder label="Loading mindset sets..." />;
   }
 
   return (

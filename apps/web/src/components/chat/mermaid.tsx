@@ -17,7 +17,7 @@ import {
 } from "@phosphor-icons/react";
 import { renderMermaidSVG } from "beautiful-mermaid";
 import type React from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 interface MermaidDiagramProps {
   chart: string;
@@ -158,7 +158,7 @@ export function MermaidDiagram({
     });
   };
 
-  const fitToScreen = () => {
+  const fitToScreen = useCallback(() => {
     if (!(containerRef.current && chartRef.current)) {
       return;
     }
@@ -187,7 +187,7 @@ export function MermaidDiagram({
       translateX: (containerRect.width - naturalSize.width * scale) / 2,
       translateY: (containerRect.height - naturalSize.height * scale) / 2,
     });
-  };
+  }, []);
 
   useEffect(() => {
     if (!svg || error) {
@@ -195,7 +195,7 @@ export function MermaidDiagram({
     }
     const timer = window.setTimeout(() => fitToScreen(), 50);
     return () => window.clearTimeout(timer);
-  }, [svg, error]);
+  }, [error, fitToScreen, svg]);
 
   const handleZoomIn = () => {
     if (!containerRef.current) {

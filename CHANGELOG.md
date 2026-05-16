@@ -5,69 +5,8 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
----
-
-## Database Migrations
-
-Run migrations after updating:
-
-```bash
-pnpm db:migrate
-```
-
-### Migration History
-
-| Version | Tag | Description |
-|---------|-----|-------------|
-| 0000 | `foamy_mandrill` | Initial schema |
-| 0001 | `subject_confidence` | Subject confidence scores |
-| 0002 | `onboarding_completed` | Onboarding flow |
-| 0003 | `condemned_leopardon` | File improvements |
-| 0004 | `task_commitment_inbox` | Task management |
-| 0005 | `careful_spirit` | Learning taxonomy |
-| 0006 | `flashcard_automation` | Flashcard automation |
-| 0007 | `extension_destinations` | Web clipper destinations |
-
----
-
-## Environment Configuration
-
-### Required Variables
-
-```bash
-# Database
-DATABASE_URL=postgres://user:pass@host:5432/avenire
-REDIS_URL=redis://localhost:6379
-
-# Authentication
-BETTER_AUTH_SECRET=
-BETTER_AUTH_URL=https://your-domain.com
-AUTH_GOOGLE_ID=
-AUTH_GOOGLE_SECRET=
-AUTH_GITHUB_ID=
-AUTH_GITHUB_SECRET=
-
-# AI Providers
-GEMINI_API_KEY=
-GROQ_API_KEY=
-OPENROUTER_API_KEY=
-MISTRAL_API_KEY=
-OPENAI_API_KEY=
-OLLAMA_BASE_URL=http://127.0.0.1:11434
-```
-
-### Optional Variables
-
-```bash
-# Storage
-UPLOADTHING_APP_ID=
-UPLOADTHING_SECRET=
-
-# Email
-RESEND_API_KEY=
-```
-
----
+Migration operations now live in [docs/migrations.md](docs/migrations.md), and
+environment setup lives in [docs/environment.md](docs/environment.md).
 
 ## [Unreleased]
 

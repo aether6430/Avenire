@@ -39,6 +39,7 @@ interface ChatProps {
   initialPrompt?: string | null;
   isReadonly: boolean;
   selectedModel: string;
+  title: string;
   userName?: string;
   workspaceUuid: string;
 }
@@ -94,6 +95,7 @@ export function Chat({
   initialPrompt,
   selectedModel,
   isReadonly,
+  title,
   workspaceUuid,
   userName,
 }: ChatProps) {
@@ -330,7 +332,7 @@ export function Chat({
     router.replace(`/workspace/chats/${nextChatId}`);
     pendingChatRouteRef.current = null;
     pendingNewChatMessagesRef.current = null;
-  }, [chatId, primeNewChatHandoff, router]);
+  }, [primeNewChatHandoff, router]);
 
   useEffect(() => {
     if (status !== "ready") {
@@ -383,7 +385,7 @@ export function Chat({
       tone: "success",
       animation: "waving",
     });
-  }, [chatId, messages, status]);
+  }, [messages, status]);
 
   useEffect(() => {
     if (status === "submitted") {
@@ -543,8 +545,7 @@ export function Chat({
 
   const hasConversationSurface = displayedMessages.length > 0;
   const isEmptyState =
-    !hasConversationSurface &&
-    !pendingChatRouteRef.current &&
+    !(hasConversationSurface || pendingChatRouteRef.current) &&
     status !== "submitted" &&
     status !== "streaming";
   const isTransitioningFromNewChat =
@@ -616,7 +617,7 @@ export function Chat({
                 <div className="relative flex w-full max-w-3xl flex-col items-center justify-center">
                   {isEmptyState ? (
                     <div className="pointer-events-none absolute bottom-[calc(100%+2.25rem)] w-full sm:bottom-[calc(100%+3rem)]">
-                      <Overview userName={userName} />
+                      <Overview title={title} userName={userName} />
                     </div>
                   ) : null}
                   {inputCard(true)}

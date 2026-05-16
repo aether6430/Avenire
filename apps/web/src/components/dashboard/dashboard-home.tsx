@@ -36,6 +36,7 @@ import {
 } from "@phosphor-icons/react";
 import type { Route } from "next";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { startTransition, useEffect, useMemo, useState } from "react";
@@ -380,11 +381,13 @@ export function DashboardHome({
         </HeaderBreadcrumbs>
 
         <div className="-mx-6 overflow-hidden rounded-none md:-mx-12 lg:-mx-16">
-          <img
+          <Image
             alt="Workspace banner"
             className="h-28 w-full object-cover md:h-40"
             height={160}
+            priority
             src="https://gtgr46laft.ufs.sh/f/7avzGFBuzbjB9vfw3D1PxUaEr7wSqNQiFgMAvYKy35DlcXb0"
+            unoptimized
             width={2400}
           />
         </div>

@@ -4,6 +4,8 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { buildPageMetadata } from "@/lib/page-metadata";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = buildPageMetadata({
   noIndex: true,
   title: "New Method",

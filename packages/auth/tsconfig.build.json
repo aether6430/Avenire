@@ -1,0 +1,18 @@
+{
+  "extends": "@avenire/typescript-config/base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "lib": ["dom", "ES2022"]
+  },
+  "include": [
+    "error_codes.ts",
+    "error_messages.ts",
+    "middleware.ts",
+    "origin-policy.ts",
+    "parse-user-agent.ts",
+    "passkey-origin.ts",
+    "types.ts",
+    "waitlist-shared.ts",
+    "waitlist.ts"
+  ]
+}

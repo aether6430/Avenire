@@ -19,23 +19,9 @@ import {
   Sparkle as Sparkles,
   Trash as Trash2,
 } from "@phosphor-icons/react";
-import { domAnimation, LazyMotion, m } from "framer-motion";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { QuickCaptureDialog } from "@/components/dashboard/quick-capture-dialog";
-import {
-  getTaskStoreSnapshot,
-  patchWorkspaceTask,
-  primeWorkspaceTaskStore,
-  reloadWorkspaceTasks,
-  removeWorkspaceTask,
-  setWorkspaceTaskError,
-  subscribeToTaskStore,
-  upsertWorkspaceTask,
-} from "@/lib/task-client-store";
-import type { WorkspaceTask } from "@/lib/tasks";
-import { TASKS_REFRESH_EVENT } from "@/lib/tasks";
-import { useUserSettings } from "@/lib/user-settings-client";
 import { cn } from "@/lib/utils";
+import { useDashboardTaskManager } from "./use-dashboard-task-manager";
 
 export function DashboardTaskManager({
   currentUserId,
@@ -44,143 +30,16 @@ export function DashboardTaskManager({
   currentUserId: string;
   workspaceId: string;
 }) {
-  const [editingTask, setEditingTask] = useState<WorkspaceTask | null>(null);
-  const { loading, tasks } = useSyncExternalStore(
-    subscribeToTaskStore,
-    getTaskStoreSnapshot,
-    getTaskStoreSnapshot
-  );
+  const runtime = useDashboardTaskManager({ workspaceId });
   const {
-    settings: { completedTasksAtTop },
-  } = useUserSettings();
-
-  useEffect(() => {
-    primeWorkspaceTaskStore(workspaceId);
-    void reloadWorkspaceTasks(workspaceId);
-
-    const refresh = () => {
-      void reloadWorkspaceTasks(workspaceId, { background: true });
-    };
-
-    window.addEventListener(TASKS_REFRESH_EVENT, refresh);
-    return () => {
-      window.removeEventListener(TASKS_REFRESH_EVENT, refresh);
-    };
-  }, [workspaceId]);
-
-  const sortedTasks = useMemo(() => {
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    const endOfToday = new Date();
-    endOfToday.setHours(23, 59, 59, 999);
-    const completionRank = (status: WorkspaceTask["status"]) =>
-      status === "completed"
-        ? completedTasksAtTop
-          ? 0
-          : 1
-        : completedTasksAtTop
-          ? 1
-          : 0;
-
-    return tasks
-      .filter((task) => {
-        if (task.workspaceId !== workspaceId) {
-          return false;
-        }
-
-        // Dashboard widget should only show tasks due today.
-        if (!task.dueAt) {
-          return false;
-        }
-
-        const due = new Date(task.dueAt);
-        return due >= startOfToday && due <= endOfToday;
-      })
-      .sort((left, right) => {
-        const completionDiff =
-          completionRank(left.status) - completionRank(right.status);
-        if (completionDiff !== 0) {
-          return completionDiff;
-        }
-        if (left.dueAt && right.dueAt) {
-          return (
-            new Date(left.dueAt).getTime() - new Date(right.dueAt).getTime()
-          );
-        }
-        if (left.dueAt) {
-          return -1;
-        }
-        if (right.dueAt) {
-          return 1;
-        }
-        return 0;
-      });
-  }, [completedTasksAtTop, tasks, workspaceId]);
-
-  const pendingCount = sortedTasks.filter(
-    (task) => task.status !== "completed"
-  ).length;
-
-  const handleToggleTask = async (task: WorkspaceTask) => {
-    const previousTask = task;
-    const previousStatus = task.status;
-    const nextStatus = previousStatus === "completed" ? "planned" : "completed";
-
-    patchWorkspaceTask(workspaceId, task.id, (current) => ({
-      ...current,
-      completedAt: nextStatus === "completed" ? new Date().toISOString() : null,
-      status: nextStatus,
-    }));
-
-    try {
-      const response = await fetch(`/api/tasks/${task.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: nextStatus }),
-      });
-      const payload = (await response.json().catch(() => ({}))) as {
-        error?: string;
-        task?: WorkspaceTask;
-      };
-      if (!(response.ok && payload.task)) {
-        throw new Error(payload.error ?? "Failed to update task.");
-      }
-      patchWorkspaceTask(
-        workspaceId,
-        task.id,
-        () => payload.task as WorkspaceTask
-      );
-      void reloadWorkspaceTasks(workspaceId, { background: true });
-    } catch (error) {
-      upsertWorkspaceTask(workspaceId, previousTask);
-      setWorkspaceTaskError(
-        error instanceof Error ? error.message : "Could not update that task."
-      );
-    }
-  };
-
-  const handleDeleteTask = async (task: WorkspaceTask) => {
-    removeWorkspaceTask(workspaceId, task.id);
-
-    try {
-      const response = await fetch(`/api/tasks/${task.id}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) {
-        throw new Error("Failed to delete task.");
-      }
-      void reloadWorkspaceTasks(workspaceId, { background: true });
-    } catch (error) {
-      upsertWorkspaceTask(workspaceId, task);
-      setWorkspaceTaskError(
-        error instanceof Error ? error.message : "Could not delete that task."
-      );
-    }
-  };
-
-  const displayTasks = useMemo(() => {
-    return sortedTasks.slice(0, 10);
-  }, [sortedTasks]);
+    displayTasks,
+    editingTask,
+    handleDeleteTask,
+    handleToggleTask,
+    pendingCount,
+    setEditingTask,
+    taskManagerState,
+  } = runtime;
 
   return (
     <Card className="self-start" id="task-manager">
@@ -198,28 +57,29 @@ export function DashboardTaskManager({
       </CardHeader>
       <CardContent className="max-h-[22rem] space-y-3 overflow-auto">
         <div className="space-y-1">
-          {loading && sortedTasks.length === 0 && (
+          {taskManagerState?.showSpinner ? (
             <div className="inline-flex items-center gap-2 text-muted-foreground text-xs">
               <Spinner className="size-3.5" />
-              Loading tasks...
+              {taskManagerState.title}
             </div>
-          )}
-          {!loading && sortedTasks.length === 0 && (
+          ) : null}
+          {taskManagerState && !taskManagerState.showSpinner ? (
             <Empty className="min-h-[11rem]">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <Sparkles className="size-4" />
                 </EmptyMedia>
-                <EmptyTitle>No tasks due today</EmptyTitle>
+                <EmptyTitle>{taskManagerState.title}</EmptyTitle>
               </EmptyHeader>
-              <EmptyContent>
-                <EmptyDescription>
-                  Capture a task with a due date of today and it will show up
-                  here with quick edit and completion controls.
-                </EmptyDescription>
-              </EmptyContent>
+              {taskManagerState.description ? (
+                <EmptyContent>
+                  <EmptyDescription>
+                    {taskManagerState.description}
+                  </EmptyDescription>
+                </EmptyContent>
+              ) : null}
             </Empty>
-          )}
+          ) : null}
           {displayTasks.length > 0 &&
             displayTasks.map((task) => {
               const isCompleted = task.status === "completed";
@@ -236,56 +96,46 @@ export function DashboardTaskManager({
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
-                    <LazyMotion features={domAnimation}>
-                      <m.button
-                        animate={{ opacity: 1, scale: 1 }}
+                    <button
+                      className={cn(
+                        "flex min-w-0 flex-1 items-center gap-2 text-left transition-colors",
+                        isCompleted && "text-muted-foreground"
+                      )}
+                      onClick={() => void handleToggleTask(task)}
+                      type="button"
+                    >
+                      <span
                         className={cn(
-                          "flex min-w-0 flex-1 items-center gap-2 text-left",
-                          isCompleted && "text-muted-foreground"
+                          "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors",
+                          isCompleted
+                            ? "border-primary/40 bg-primary text-primary-foreground"
+                            : "border-border bg-background text-muted-foreground"
                         )}
-                        layout
-                        onClick={() => void handleToggleTask(task)}
-                        type="button"
                       >
-                        <m.span
-                          animate={{
-                            scale: isCompleted ? 1 : 0.88,
-                            opacity: isCompleted ? 1 : 0.8,
-                          }}
-                          className={cn(
-                            "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors",
-                            isCompleted
-                              ? "border-primary/40 bg-primary text-primary-foreground"
-                              : "border-border bg-background text-muted-foreground"
-                          )}
-                          transition={{ duration: 0.18, ease: "easeOut" }}
-                        >
-                          {isCompleted ? (
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                          ) : (
-                            <Circle className="h-3.5 w-3.5" />
-                          )}
-                        </m.span>
-                        <span className="relative min-w-0 flex-1 overflow-hidden">
-                          <span className="block truncate">{task.title}</span>
-                          <m.span
-                            animate={{ scaleX: isCompleted ? 1 : 0 }}
-                            className="absolute inset-x-0 top-1/2 h-px origin-left bg-current"
-                            style={{ translateY: "-50%" }}
-                            transition={{ duration: 0.2, ease: "easeOut" }}
-                          />
-                        </span>
-                        <span className="flex shrink-0 items-center gap-1 text-muted-foreground text-xs">
-                          <CalendarDays className="h-3 w-3" />
-                          {task.dueAt
-                            ? new Date(task.dueAt).toLocaleDateString("en-US", {
-                                month: "short",
-                                day: "numeric",
-                              })
-                            : "No date"}
-                        </span>
-                      </m.button>
-                    </LazyMotion>
+                        {isCompleted ? (
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                        ) : (
+                          <Circle className="h-3.5 w-3.5" />
+                        )}
+                      </span>
+                      <span
+                        className={cn(
+                          "block min-w-0 flex-1 truncate",
+                          isCompleted && "line-through decoration-current/70"
+                        )}
+                      >
+                        {task.title}
+                      </span>
+                      <span className="flex shrink-0 items-center gap-1 text-muted-foreground text-xs">
+                        <CalendarDays className="h-3 w-3" />
+                        {task.dueAt
+                          ? new Date(task.dueAt).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                            })
+                          : "No date"}
+                      </span>
+                    </button>
                     <button
                       className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-destructive"
                       onClick={(e) => {
@@ -301,36 +151,34 @@ export function DashboardTaskManager({
               );
             })}
         </div>
-        <QuickCaptureDialog
-          currentUserId={currentUserId}
-          initialKind="task"
-          onOpenChange={(open) => {
-            if (!open) {
-              setEditingTask(null);
+        {editingTask ? (
+          <QuickCaptureDialog
+            currentUserId={currentUserId}
+            initialKind="task"
+            onOpenChange={(open) => {
+              if (!open) {
+                setEditingTask(null);
+              }
+            }}
+            open
+            taskId={editingTask.id}
+            taskMode="edit"
+            taskValues={{
+              assigneeUserId: editingTask.assigneeUserId ?? currentUserId,
+              selectedAssignee: editingTask.assignee ?? null,
+              description: editingTask.description ?? "",
+              dueAt: editingTask.dueAt ?? "",
+              priority: editingTask.priority ?? "normal",
+              title: editingTask.title,
+            }}
+            trigger={
+              <Button className="sr-only" type="button">
+                Edit task
+              </Button>
             }
-          }}
-          open={editingTask !== null}
-          taskId={editingTask?.id}
-          taskMode="edit"
-          taskValues={
-            editingTask
-              ? {
-                  assigneeUserId: editingTask.assigneeUserId ?? currentUserId,
-                  selectedAssignee: editingTask.assignee ?? null,
-                  description: editingTask.description ?? "",
-                  dueAt: editingTask.dueAt ?? "",
-                  priority: editingTask.priority ?? "normal",
-                  title: editingTask.title,
-                }
-              : undefined
-          }
-          trigger={
-            <Button className="sr-only" type="button">
-              Edit task
-            </Button>
-          }
-          workspaceUuid={workspaceId}
-        />
+            workspaceUuid={workspaceId}
+          />
+        ) : null}
       </CardContent>
     </Card>
   );

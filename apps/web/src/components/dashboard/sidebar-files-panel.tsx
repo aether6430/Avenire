@@ -595,7 +595,7 @@ export function FilesSidebarPanel({
     return () => {
       clearTimeout(timer);
     };
-  }, [currentFileId, currentFolderId, fileTree.length, folderTree.length]);
+  }, [currentFileId, currentFolderId]);
 
   useEffect(() => {
     if (!workspaceUuid) {
@@ -805,7 +805,14 @@ export function FilesSidebarPanel({
       });
       filesUiActions.emitSync(workspaceUuid);
     },
-    [currentFileId, currentFolderId, navigateToFilesRoot, workspaceUuid]
+    [
+      currentFileId,
+      currentFolderId,
+      fileTree,
+      folderTree,
+      navigateToFilesRoot,
+      workspaceUuid,
+    ]
   );
 
   const fileSearchNeedle = filesNameSearchQuery.trim().toLowerCase();
@@ -1038,6 +1045,7 @@ export function FilesSidebarPanel({
     deleteTreeItems,
     filteredFileTreeState.files,
     filteredFileTreeState.folders,
+    navigate,
     navigateToFile,
     navigateToFolder,
     workspaceUuid,

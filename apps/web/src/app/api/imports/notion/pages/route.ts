@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { listImportableNotionPages } from "@/lib/imports";
 import { getSessionUser } from "@/lib/workspace";
+import { handleNotionPagesRouteGet } from "./imports-notion-pages-route-get";
 
 export async function GET() {
   const user = await getSessionUser();
@@ -8,18 +8,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  try {
-    const pages = await listImportableNotionPages(user.id);
-    return NextResponse.json({ pages });
-  } catch (error) {
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unable to load Notion pages.",
-      },
-      { status: 400 }
-    );
-  }
+  return await handleNotionPagesRouteGet({
+    userId: user.id,
+  });
 }

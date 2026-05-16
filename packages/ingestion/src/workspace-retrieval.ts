@@ -1,11 +1,5 @@
 import { createHash } from "node:crypto";
-import {
-  getWorkspaceCorpusFingerprintMarker,
-  listSessionSummariesForWorkspace,
-  listWorkspaceFiles,
-} from "@avenire/database";
 import { logInfo } from "@avenire/observability";
-import { PostgresVectorStore } from "./retrieval/postgres-vector-store";
 import {
   normalizeRetrievalQuery,
   retrieveRelevantChunksAdaptive,
@@ -39,7 +33,9 @@ export interface WorkspaceRetrievalQuery {
   workspaceId: string;
 }
 
-type RetrievalResult = Awaited<ReturnType<typeof retrieveRelevantChunksAdaptive>>;
+type RetrievalResult = Awaited<
+  ReturnType<typeof retrieveRelevantChunksAdaptive>
+>;
 
 export interface WorkspaceRetrievalResponse {
   ambiguityReasons: string[];
@@ -63,23 +59,22 @@ export interface WorkspaceRetrievalResponse {
   results: RetrievalResult["results"];
 }
 
-type WarmupCandidate = {
+interface WarmupCandidate {
   query: string;
   sourceType?: RetrievalSourceType;
   userId?: string | null;
-};
+}
 
-type WorkspaceSummaryHintSource = {
+interface WorkspaceSummaryHintSource {
   conceptsCovered: string[];
   misconceptionsDetected: string[];
   subject: string | null;
   summaryText: string;
-};
+}
 
-type WorkspaceFileHintSource = {
+interface WorkspaceFileHintSource {
   name: string;
-  page?:
-    | {
+  page?: {
     properties?: {
       aliases?:
         | { type: "multi_select"; value: string[] }
@@ -87,9 +82,8 @@ type WorkspaceFileHintSource = {
       tags?: { type: "multi_select"; value: string[] };
       title?: { value: string };
     };
-  }
-    | null;
-};
+  } | null;
+}
 
 export interface WorkspaceRetrievalWarmupInput {
   chunkCount?: number;
@@ -135,7 +129,19 @@ interface WorkspaceRetrievalAdapters {
 
 const defaultWorkspaceRetrievalStore = createWorkspaceRetrievalStore();
 
-function createProductionAdapters(): WorkspaceRetrievalAdapters {
+async function createProductionAdapters(): Promise<WorkspaceRetrievalAdapters> {
+  const [
+    {
+      getWorkspaceCorpusFingerprintMarker,
+      listSessionSummariesForWorkspace,
+      listWorkspaceFiles,
+    },
+    { PostgresVectorStore },
+  ] = await Promise.all([
+    import("@avenire/database"),
+    import("./retrieval/postgres-vector-store"),
+  ]);
+
   return {
     listSessionSummaries(workspaceId, limit) {
       return listSessionSummariesForWorkspace({ limit, workspaceId });
@@ -263,9 +269,7 @@ function collectFileHints(file: WorkspaceFileHintSource) {
   return hints;
 }
 
-function collectSummaryHints(
-  summaries: WorkspaceSummaryHintSource[]
-) {
+function collectSummaryHints(summaries: WorkspaceSummaryHintSource[]) {
   const hints = new Set<string>();
   const questionPattern =
     /(?:^|[.!?]\s+)([^.!?]*\b(?:how|why|what|when|where|which|who|can you|could you|explain|help me understand)\b[^.!?]*)/gi;
@@ -349,7 +353,8 @@ function collectRetrievalHints(input: {
   };
 
   for (const query of [...input.recentQueries].sort((left, right) => {
-    const originDelta = originPriority[left.origin] - originPriority[right.origin];
+    const originDelta =
+      originPriority[left.origin] - originPriority[right.origin];
     if (originDelta !== 0) {
       return originDelta;
     }
@@ -359,7 +364,7 @@ function collectRetrievalHints(input: {
     add({
       query: query.query,
       sourceType: query.sourceType ?? undefined,
-      userId: query.origin === "chat" ? query.userId ?? undefined : undefined,
+      userId: query.origin === "chat" ? (query.userId ?? undefined) : undefined,
     });
   }
 
@@ -387,7 +392,9 @@ export async function queryWorkspaceWithAdapters(
   }
 
   const vectorStore = adapters.vectorStoreFactory(input.workspaceId);
-  const latestUpdatedAt = await adapters.loadCorpusFingerprint(input.workspaceId);
+  const latestUpdatedAt = await adapters.loadCorpusFingerprint(
+    input.workspaceId
+  );
   const corpusFingerprint = createHash("sha256")
     .update(
       JSON.stringify({
@@ -408,10 +415,10 @@ export async function queryWorkspaceWithAdapters(
     workspaceUuid: input.workspaceId,
   });
 
-  const cached = await adapters.store.getCachedResult<Omit<
-    WorkspaceRetrievalResponse,
-    "cache" | "latencyMs"
-  >>(cacheKey);
+  const cached =
+    await adapters.store.getCachedResult<
+      Omit<WorkspaceRetrievalResponse, "cache" | "latencyMs">
+    >(cacheKey);
   if (cached) {
     const latencyMs = Math.round(performance.now() - start);
     const response = {
@@ -614,7 +621,8 @@ export async function warmWorkspaceWithAdapters(
       logInfo({
         eventName: "retrieval.warmup.query_failed",
         payload: {
-          error: error instanceof Error ? error.message : "Unknown warmup failure",
+          error:
+            error instanceof Error ? error.message : "Unknown warmup failure",
           query: candidate.query,
           workspaceId: input.workspaceId,
         },
@@ -622,7 +630,8 @@ export async function warmWorkspaceWithAdapters(
     }
   }
 
-  const coverage = selectedQueries.length > 0 ? warmed / selectedQueries.length : 0;
+  const coverage =
+    selectedQueries.length > 0 ? warmed / selectedQueries.length : 0;
   const coldMissRate = warmed > 0 ? cacheMisses / warmed : 0;
 
   logInfo({
@@ -659,11 +668,11 @@ export async function warmWorkspaceWithAdapters(
 export async function queryWorkspace(
   input: WorkspaceRetrievalQuery
 ): Promise<WorkspaceRetrievalResponse> {
-  return queryWorkspaceWithAdapters(input, createProductionAdapters());
+  return queryWorkspaceWithAdapters(input, await createProductionAdapters());
 }
 
 export async function warmWorkspace(
   input: WorkspaceRetrievalWarmupInput
 ): Promise<WorkspaceRetrievalWarmupResult> {
-  return warmWorkspaceWithAdapters(input, createProductionAdapters());
+  return warmWorkspaceWithAdapters(input, await createProductionAdapters());
 }

@@ -190,7 +190,12 @@ const SUBJECT_TOPIC_NORMALIZERS: Record<
   ],
   Physics: [
     {
-      keywords: ["electric field", "electrostatics", "potential energy", "charge"],
+      keywords: [
+        "electric field",
+        "electrostatics",
+        "potential energy",
+        "charge",
+      ],
       topic: "Electrostatics",
     },
     {
@@ -278,7 +283,10 @@ function normalizeTopicForSubject(
 ) {
   const normalizedValue = value ? normalizeWhitespace(value) : null;
   const normalizedSubject = subject ?? null;
-  const haystack = [normalizedValue, text].filter(Boolean).join(" ").toLowerCase();
+  const haystack = [normalizedValue, text]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
 
   if (normalizedSubject && (preferRuleOverride || !normalizedValue)) {
     const rules = SUBJECT_TOPIC_NORMALIZERS[normalizedSubject] ?? [];
@@ -305,7 +313,10 @@ function normalizeConceptForSubject(
   preferRuleOverride: boolean
 ) {
   const normalizedValue = value ? normalizeWhitespace(value) : null;
-  const haystack = [normalizedValue, topic, text].filter(Boolean).join(" ").toLowerCase();
+  const haystack = [normalizedValue, topic, text]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
 
   if (preferRuleOverride && subject === "Biology") {
     if (haystack.includes("essential amino")) {
@@ -321,15 +332,15 @@ function normalizeConceptForSubject(
     }
   }
 
-  if (preferRuleOverride && subject === "Chemistry") {
-    if (
-      haystack.includes("thermochemistry") ||
+  if (
+    preferRuleOverride &&
+    subject === "Chemistry" &&
+    (haystack.includes("thermochemistry") ||
       haystack.includes("gibbs") ||
       haystack.includes("enthalpy") ||
-      haystack.includes("entropy")
-    ) {
-      return "Thermochemistry";
-    }
+      haystack.includes("entropy"))
+  ) {
+    return "Thermochemistry";
   }
 
   if (!normalizedValue) {

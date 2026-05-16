@@ -2,12 +2,12 @@
 
 import { Button } from "@avenire/ui/components/button";
 import {
+  type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
   DEFAULT_PET_NAME,
@@ -49,11 +49,17 @@ function clampPosition(position: PetPosition): PetPosition {
   return {
     x: Math.min(
       Math.max(POSITION_PADDING, position.x),
-      Math.max(POSITION_PADDING, window.innerWidth - PET_SIZE.width - POSITION_PADDING)
+      Math.max(
+        POSITION_PADDING,
+        window.innerWidth - PET_SIZE.width - POSITION_PADDING
+      )
     ),
     y: Math.min(
       Math.max(POSITION_PADDING, position.y),
-      Math.max(POSITION_PADDING, window.innerHeight - PET_SIZE.height - POSITION_PADDING)
+      Math.max(
+        POSITION_PADDING,
+        window.innerHeight - PET_SIZE.height - POSITION_PADDING
+      )
     ),
   };
 }
@@ -100,9 +106,10 @@ function savePosition(position: PetPosition) {
 
 export function ChatPet() {
   const { settings } = useUserSettings();
-  const [visible, setVisible] = useState(getStoredVisibility);
+  const [hydrated, setHydrated] = useState(false);
+  const [visible, setVisible] = useState(true);
   const [animation, setAnimation] = useState<PetAnimationName>("idle");
-  const [position, setPosition] = useState(getStoredPosition);
+  const [position, setPosition] = useState<PetPosition>({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [notification, setNotification] =
     useState<PetNotificationDetail | null>(null);
@@ -116,6 +123,12 @@ export function ChatPet() {
     () => getPetOption(settings.petAccessory),
     [settings.petAccessory]
   );
+
+  useEffect(() => {
+    setVisible(getStoredVisibility());
+    setPosition(getStoredPosition());
+    setHydrated(true);
+  }, []);
 
   const showNotification = useCallback((detail: PetNotificationDetail) => {
     if (clearNotificationRef.current) {
@@ -157,7 +170,10 @@ export function ChatPet() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey) || !event.shiftKey || event.altKey) {
+      if (
+        !((event.metaKey || event.ctrlKey) && event.shiftKey) ||
+        event.altKey
+      ) {
         return;
       }
       if (event.key.toLowerCase() !== "y") {
@@ -259,7 +275,7 @@ export function ChatPet() {
     [animation, isDragging, notification]
   );
 
-  if (!visible) {
+  if (!(hydrated && visible)) {
     return null;
   }
 

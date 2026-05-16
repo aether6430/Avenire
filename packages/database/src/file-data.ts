@@ -1,3 +1,4 @@
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import {
   and,
   asc,
@@ -8,18 +9,16 @@ import {
   isNotNull,
   isNull,
   lte,
-  ne,
   or,
   sql,
 } from "drizzle-orm";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { db } from "./client";
 import {
+  user as authUser,
   invitation,
   member,
   organization,
-  user as authUser,
 } from "./auth-schema";
+import { db } from "./client";
 import {
   chatThread,
   fileAsset,
@@ -27,8 +26,8 @@ import {
   noteContent,
   resourceShareGrant,
   resourceShareLink,
-  workspacePropertyRegistry,
   workspace,
+  workspacePropertyRegistry,
 } from "./schema";
 
 export type ShareResourceType = "chat" | "file" | "folder";
@@ -36,42 +35,42 @@ export type SharePermission = "viewer" | "editor";
 
 export interface ExplorerFolderRecord {
   bannerUrl?: string | null;
-  id: string;
-  iconColor?: string | null;
-  workspaceId: string;
-  parentId: string | null;
-  name: string;
-  isShared?: boolean;
-  readOnly?: boolean;
   createdAt: string;
+  iconColor?: string | null;
+  id: string;
+  isShared?: boolean;
+  name: string;
+  parentId: string | null;
+  readOnly?: boolean;
   updatedAt: string;
+  workspaceId: string;
 }
 
 export interface ExplorerFileRecord {
   contentHashSha256?: string | null;
-  isIngested?: boolean;
-  isNote?: boolean;
-  id: string;
-  workspaceId: string;
+  createdAt: string;
   folderId: string;
-  storageKey: string;
-  storageUrl: string;
-  name: string;
-  mimeType: string | null;
-  sizeBytes: number;
-  uploadedBy: string;
-  updatedBy: string | null;
   hashComputedBy?: string | null;
   hashVerificationStatus?: string | null;
   hashVerifiedAt?: string | null;
+  id: string;
+  isIngested?: boolean;
+  isNote?: boolean;
   isShared?: boolean;
-  readOnly?: boolean;
-  sourceWorkspaceId?: string;
   metadata?: Record<string, unknown>;
+  mimeType: string | null;
+  name: string;
   page?: FilePageRecord | null;
-  videoDelivery?: VideoDeliveryRecord | null;
-  createdAt: string;
+  readOnly?: boolean;
+  sizeBytes: number;
+  sourceWorkspaceId?: string;
+  storageKey: string;
+  storageUrl: string;
   updatedAt: string;
+  updatedBy: string | null;
+  uploadedBy: string;
+  videoDelivery?: VideoDeliveryRecord | null;
+  workspaceId: string;
 }
 
 function isMarkdownFileName(name: string) {
@@ -204,35 +203,35 @@ export interface VideoDeliveryRecord {
 }
 
 export interface TrashItemRecord {
+  createdAt: string;
+  deletedAt: string;
+  folderId: string | null;
   id: string;
   kind: "file" | "folder";
   name: string;
-  workspaceId: string;
-  folderId: string | null;
   sizeBytes: number | null;
-  deletedAt: string;
-  createdAt: string;
   updatedAt: string;
+  workspaceId: string;
 }
 
 export interface ShareRecipientSuggestion {
-  email: string;
-  name: string | null;
   count: number;
+  email: string;
   lastSharedAt: string | null;
+  name: string | null;
   source: "frequent" | "workspace-member";
 }
 
 export interface WorkspaceInvitationRecord {
+  createdAt: string;
+  expiresAt: string;
   id: string;
+  inviterEmail: string;
+  inviterName: string | null;
   organizationId: string;
   organizationName: string;
-  inviterName: string | null;
-  inviterEmail: string;
   role: string;
   status: string;
-  expiresAt: string;
-  createdAt: string;
 }
 
 const SHARED_FILES_FOLDER_PREFIX = "__shared_files__:";
@@ -295,11 +294,11 @@ export function isTrustedStorageUrl(storageUrl: string) {
 }
 
 export interface WorkspaceMemberRecord {
-  userId: string;
+  createdAt: string;
   email: string;
   name: string | null;
   role: string;
-  createdAt: string;
+  userId: string;
 }
 
 function mapFolder(row: typeof fileFolder.$inferSelect): ExplorerFolderRecord {
@@ -363,9 +362,11 @@ function normalizeSelectOptions(value: unknown) {
   );
 }
 
-function normalizeFilePropertyRecord(value: unknown): FilePropertyRecord | null {
+function normalizeFilePropertyRecord(
+  value: unknown
+): FilePropertyRecord | null {
   const record = asObjectRecord(value);
-  if (!record || !isFilePropertyType(record.type)) {
+  if (!(record && isFilePropertyType(record.type))) {
     return null;
   }
 
@@ -420,8 +421,8 @@ function normalizePageProperties(value: unknown): FilePageProperties {
       }
       return [normalizedKey, property] as const;
     })
-    .filter(
-      (entry): entry is readonly [string, FilePropertyRecord] => Boolean(entry)
+    .filter((entry): entry is readonly [string, FilePropertyRecord] =>
+      Boolean(entry)
     );
 
   return Object.fromEntries(entries);
@@ -461,7 +462,7 @@ function mapVideoDeliveryProgressive(
 ): VideoDeliveryProgressiveRecord | null {
   const record = asObjectRecord(value);
   const url = asNullableString(record?.url);
-  if (!record || !url) {
+  if (!(record && url)) {
     return null;
   }
 
@@ -478,7 +479,7 @@ function mapVideoDeliveryPoster(
 ): VideoDeliveryPosterRecord | null {
   const record = asObjectRecord(value);
   const url = asNullableString(record?.url);
-  if (!record || !url) {
+  if (!(record && url)) {
     return null;
   }
 
@@ -494,7 +495,7 @@ function mapVideoDeliveryHlsVariant(
 ): VideoDeliveryHlsVariantRecord | null {
   const record = asObjectRecord(value);
   const playlistUrl = asNullableString(record?.playlistUrl);
-  if (!record || !playlistUrl) {
+  if (!(record && playlistUrl)) {
     return null;
   }
 
@@ -510,7 +511,7 @@ function mapVideoDeliveryHlsVariant(
 function mapVideoDeliveryHls(value: unknown): VideoDeliveryHlsRecord | null {
   const record = asObjectRecord(value);
   const manifestUrl = asNullableString(record?.manifestUrl);
-  if (!record || !manifestUrl) {
+  if (!(record && manifestUrl)) {
     return null;
   }
 
@@ -540,8 +541,7 @@ function mapVideoDeliveryMuxPlayback(
   const id = asNullableString(record?.id);
   const policy = asNullableString(record?.policy);
   if (
-    !id ||
-    !(policy === "public" || policy === "signed" || policy === "drm")
+    !(id && (policy === "public" || policy === "signed" || policy === "drm"))
   ) {
     return null;
   }
@@ -556,7 +556,7 @@ function mapVideoDeliveryMux(value: unknown): VideoDeliveryMuxRecord | null {
   const record = asObjectRecord(value);
   const assetId = asNullableString(record?.assetId);
   const status = asNullableString(record?.status);
-  if (!record || !assetId || !status) {
+  if (!(record && assetId && status)) {
     return null;
   }
 
@@ -594,13 +594,13 @@ export function mapVideoDeliveryRecord(
   const version = asNullableFiniteNumber(record.version);
 
   if (
-    !(status === "pending" || status === "ready" || status === "failed") ||
     !(
-      strategy === "progressive" ||
-      strategy === "hybrid" ||
-      strategy === "mux"
+      (status === "pending" || status === "ready" || status === "failed") &&
+      (strategy === "progressive" ||
+        strategy === "hybrid" ||
+        strategy === "mux") &&
+      updatedAt
     ) ||
-    !updatedAt ||
     version === null
   ) {
     return null;
@@ -865,7 +865,7 @@ export async function getAccessibleMarkdownNoteForUser(input: {
     )
     .limit(1);
 
-  if (!row || !isMarkdownFileRecord(row.file)) {
+  if (!(row && isMarkdownFileRecord(row.file))) {
     return null;
   }
 
@@ -992,7 +992,9 @@ export async function updateNoteContent(input: {
           needsReindex: shouldReindex,
           updatedBy: input.userId,
           updatedAt: now,
-          ...(typeof input.version === "number" ? { version: input.version } : {}),
+          ...(typeof input.version === "number"
+            ? { version: input.version }
+            : {}),
         },
       })
       .returning({
@@ -1123,13 +1125,17 @@ export async function upsertMarkdownFileContent(input: {
       )
       .returning();
 
-    if (!record || !note) {
+    if (!(record && note)) {
       return null;
     }
 
     const page = mapFilePageRecord(nextMetadata.page);
     if (page) {
-      await syncWorkspacePropertyRegistry(tx, input.workspaceId, page.properties);
+      await syncWorkspacePropertyRegistry(
+        tx,
+        input.workspaceId,
+        page.properties
+      );
     }
 
     return {
@@ -1152,12 +1158,7 @@ export async function listNotesNeedingReindex(input: { limit: number }) {
     })
     .from(noteContent)
     .innerJoin(fileAsset, eq(fileAsset.id, noteContent.fileId))
-    .where(
-      and(
-        eq(noteContent.needsReindex, true),
-        isNull(fileAsset.deletedAt)
-      )
-    )
+    .where(and(eq(noteContent.needsReindex, true), isNull(fileAsset.deletedAt)))
     .orderBy(asc(noteContent.updatedAt))
     .limit(limit);
 
@@ -1755,10 +1756,10 @@ export async function listWorkspaceShareSuggestions(input: {
 
 export interface UserWorkspaceSummary {
   logo: string | null;
-  workspaceId: string;
-  organizationId: string;
   name: string;
+  organizationId: string;
   rootFolderId: string;
+  workspaceId: string;
 }
 
 export async function ensureWorkspaceForOrganization(organizationId: string) {

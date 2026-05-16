@@ -4,16 +4,33 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./link": "./src/ingestion/link.ts",
-    "./queue": "./src/queue.ts",
-    "./types": "./src/ingestion/types.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./link": {
+      "types": "./src/ingestion/link.ts",
+      "default": "./dist/ingestion/link.js"
+    },
+    "./queue": {
+      "types": "./src/queue.ts",
+      "default": "./dist/queue.js"
+    },
+    "./workspace-retrieval": {
+      "types": "./src/workspace-retrieval.ts",
+      "default": "./dist/workspace-retrieval.js"
+    },
+    "./types": {
+      "types": "./src/ingestion/types.ts",
+      "default": "./dist/ingestion/types.js"
+    }
   },
   "scripts": {
-    "build": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json",
     "lint": "biome check .",
-    "check-types": "tsc --noEmit",
+    "check-types": "tsc --noEmit -p tsconfig.build.json",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage.enabled true --coverage.provider v8 --coverage.reporter text-summary --coverage.reporter json-summary --coverage.include 'src/**/*.ts' --coverage.exclude 'src/**/*.d.ts' --coverage.exclude 'src/**/*.test.*'",
     "format": "biome format --write ."
   },
   "dependencies": {
@@ -28,15 +45,17 @@
     "abso-ai": "^0.0.9",
     "ai": "^6.0.141",
     "bullmq": "^5.70.4",
-    "drizzle-orm": "^0.45.1",
+    "drizzle-orm": "0.45.1",
     "pdfjs-dist": "^5.4.624",
+    "redis": "^5.11.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@avenire/env-types": "workspace:*",
     "@avenire/typescript-config": "workspace:*",
-    "@types/node": "latest",
-    "typescript": "latest",
+    "@types/node": "25.4.0",
+    "typescript": "5.9.3",
+    "vite": "7.3.1",
     "vitest": "^4.1.2"
   }
 }

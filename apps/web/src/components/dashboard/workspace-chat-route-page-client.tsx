@@ -29,7 +29,7 @@ async function loadChatRoute(slug: string, signal?: AbortSignal) {
   }
 
   if (!response.ok) {
-    throw new Error("Unable to load chat.");
+    throw new Error("Unable to load method.");
   }
 
   return (await response.json()) as ChatRoutePayload;
@@ -43,8 +43,17 @@ export function WorkspaceChatRoutePageClient({
   const pathname = usePanePathname();
   const router = usePaneRouter();
   const { status, user, workspace } = useWorkspaceBootstrap();
+  const isLegacyEmptyChatRoute =
+    pathname === "/workspace/chats" && slugProp === undefined;
   const slug =
     slugProp ?? pathname.match(/^\/workspace\/chats\/([^/?#]+)/)?.[1] ?? "new";
+
+  useEffect(() => {
+    if (isLegacyEmptyChatRoute) {
+      router.replace("/workspace/chats/new");
+    }
+  }, [isLegacyEmptyChatRoute, router]);
+
   const chatQuery = useQuery({
     enabled:
       status === "ready" &&
@@ -56,9 +65,27 @@ export function WorkspaceChatRoutePageClient({
 
   useEffect(() => {
     if (chatQuery.data === null) {
-      router.replace("/workspace/chats");
+      router.replace("/workspace/chats/new");
     }
   }, [chatQuery.data, router]);
+
+  if (status === "error") {
+    return (
+      <WorkspaceRoutePlaceholder
+        label="Unable to load method."
+        pending={false}
+      />
+    );
+  }
+
+  if (status === "ready" && user && !workspace) {
+    return (
+      <WorkspaceRoutePlaceholder
+        label="Create a workspace to continue."
+        pending={false}
+      />
+    );
+  }
 
   if (!(status === "ready" && user && workspace)) {
     return <WorkspaceRoutePlaceholder label="Loading method..." />;
@@ -75,6 +102,15 @@ export function WorkspaceChatRoutePageClient({
         isReadonly={false}
         userName={user.name ?? undefined}
         workspaceUuid={workspace.workspaceId}
+      />
+    );
+  }
+
+  if (chatQuery.isError) {
+    return (
+      <WorkspaceRoutePlaceholder
+        label="Unable to load method."
+        pending={false}
       />
     );
   }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getDataImportOverview } from "@/lib/imports";
 import { getSessionUser } from "@/lib/workspace";
+import { handleImportsProvidersGet } from "./imports-providers-route-get";
 
 export async function GET() {
   const user = await getSessionUser();
@@ -8,6 +8,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const overview = await getDataImportOverview(user.id);
-  return NextResponse.json(overview);
+  return await handleImportsProvidersGet({
+    userId: user.id,
+  });
 }

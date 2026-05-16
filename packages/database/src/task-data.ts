@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, isNull, lte, or } from "drizzle-orm";
 import { member, user } from "./auth-schema";
-import { db } from "./client";
 import { listChatsForUser } from "./chat-data";
+import { db } from "./client";
 import { listWorkspaceFiles, listWorkspaceFolders } from "./file-data";
 import { task, workspace } from "./schema";
 
@@ -70,7 +70,9 @@ function normalizeTaskResources(resources: unknown): TaskResourceLink[] {
   }
 
   return resources.filter((resource): resource is TaskResourceLink => {
-    if (!(resource && typeof resource === "object" && !Array.isArray(resource))) {
+    if (
+      !(resource && typeof resource === "object" && !Array.isArray(resource))
+    ) {
       return false;
     }
 
@@ -152,7 +154,9 @@ async function resolveAssignableUser(
     .from(workspace)
     .innerJoin(member, eq(member.organizationId, workspace.organizationId))
     .innerJoin(user, eq(user.id, member.userId))
-    .where(and(eq(workspace.id, workspaceId), eq(member.userId, assigneeUserId)))
+    .where(
+      and(eq(workspace.id, workspaceId), eq(member.userId, assigneeUserId))
+    )
     .limit(1);
 
   if (workspaceMember) {
@@ -281,7 +285,10 @@ export async function listTasksForUser(
   }
 
   if (options?.dueBefore) {
-    const dueOrNull = or(isNull(task.dueAt), lte(task.dueAt, options.dueBefore));
+    const dueOrNull = or(
+      isNull(task.dueAt),
+      lte(task.dueAt, options.dueBefore)
+    );
     if (dueOrNull) {
       conditions.push(dueOrNull);
     }
@@ -442,9 +449,7 @@ export async function updateTaskForUser(
   }
   if (updates.assigneeUserId !== undefined) {
     const nextAssigneeUserId = updates.assigneeUserId;
-    if (!nextAssigneeUserId) {
-      updateData.assigneeUserId = null;
-    } else {
+    if (nextAssigneeUserId) {
       const assignee = await resolveAssignableUser(
         currentTask.workspaceId,
         nextAssigneeUserId
@@ -453,6 +458,8 @@ export async function updateTaskForUser(
         throw new Error("Assignee must be a valid user.");
       }
       updateData.assigneeUserId = assignee.userId;
+    } else {
+      updateData.assigneeUserId = null;
     }
   }
   if (updates.resources !== undefined) {

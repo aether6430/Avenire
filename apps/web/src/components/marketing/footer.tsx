@@ -3,18 +3,17 @@ import Link from "next/link";
 import { AvenireMark } from "@/components/branding/AvenireMark";
 import { Container } from "./container";
 
+const workspaceLinks = [
+  { label: "methods", href: "/chats" },
+  { label: "files", href: "/workspace/files" },
+  { label: "mindset sets", href: "/workspace/flashcards" },
+  { label: "workspace", href: "/workspace" },
+] as const;
+
 const productLinks = [
-  { label: "home", href: "/" },
   { label: "pricing", href: "/pricing" },
   { label: "roadmap", href: "/roadmap" },
   { label: "blog", href: "/blog" },
-] as const;
-
-const workspaceLinks = [
-  { label: "chats", href: "/chats" },
-  { label: "files", href: "/workspace/files" },
-  { label: "flashcards", href: "/workspace/flashcards" },
-  { label: "workspace", href: "/workspace" },
 ] as const;
 
 const companyLinks = [

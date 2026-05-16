@@ -19,12 +19,26 @@ const PREVIEW_LABEL_BY_KIND: Record<string, string> = {
   video: "VID",
 };
 
+function buildOccurrenceKeys<T>(
+  items: readonly T[],
+  toBaseKey: (item: T) => string
+) {
+  const seenKeys = new Map<string, number>();
+  return items.map((item) => {
+    const baseKey = toBaseKey(item);
+    const occurrence = seenKeys.get(baseKey) ?? 0;
+    seenKeys.set(baseKey, occurrence + 1);
+    return occurrence === 0 ? baseKey : `${baseKey}-${occurrence}`;
+  });
+}
+
 export function FolderGlyph({
   className,
   compact = false,
   previewKinds = [],
 }: FolderGlyphProps) {
   const visibleKinds = previewKinds.slice(0, 3);
+  const visibleKindKeys = buildOccurrenceKeys(visibleKinds, (kind) => kind);
 
   if (compact) {
     return (
@@ -63,7 +77,7 @@ export function FolderGlyph({
           {visibleKinds.map((kind, index) => (
             <div
               className="absolute inset-0 flex justify-end rounded-[4px] bg-white p-1.5 transition-transform duration-300 [transition-timing-function:cubic-bezier(0.2,0.9,0.4,1)] group-hover/folder:-translate-y-4 group-hover/folder:-rotate-1"
-              key={`${kind}-${index}`}
+              key={visibleKindKeys[index]}
               style={{
                 transform: `translateY(${index * 3}px) rotate(${index % 2 === 0 ? -1 : 1}deg)`,
               }}

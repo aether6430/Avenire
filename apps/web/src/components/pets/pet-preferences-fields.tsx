@@ -1,5 +1,3 @@
-"use client";
-
 import { Input } from "@avenire/ui/components/input";
 import {
   Select,
@@ -9,7 +7,11 @@ import {
   SelectValue,
 } from "@avenire/ui/components/select";
 import { cn } from "@avenire/ui/lib/utils";
-import { PET_OPTIONS, type PetAccessory } from "@/lib/pet-preferences";
+import {
+  DEFAULT_PET_NAME,
+  PET_OPTIONS,
+  type PetAccessory,
+} from "@/lib/pet-preferences";
 
 interface PetPreferencesFieldsProps {
   accessory: PetAccessory;
@@ -29,7 +31,7 @@ export function PetPreferencesFields({
   className,
   name,
   nameDescription = "Pick a name that will show up across the workspace.",
-  namePlaceholder = "Auri",
+  namePlaceholder = DEFAULT_PET_NAME,
   onAccessoryChange,
   onNameBlur,
   onNameChange,
@@ -60,7 +62,9 @@ export function PetPreferencesFields({
       <div className="space-y-2">
         <div className="space-y-1">
           <p className="font-medium text-sm">Accessory</p>
-          <p className="text-muted-foreground text-xs">{accessoryDescription}</p>
+          <p className="text-muted-foreground text-xs">
+            {accessoryDescription}
+          </p>
         </div>
         <Select
           onValueChange={(value) => onAccessoryChange(value as PetAccessory)}

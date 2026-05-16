@@ -10,6 +10,7 @@ import { getUserSettingsSnapshot } from "@/lib/user-settings-client";
 
 interface TaskStoreSnapshot {
   errorMessage: string | null;
+  loadFailed: boolean;
   loading: boolean;
   tasks: WorkspaceTask[];
   workspaceUuid: string | null;
@@ -17,6 +18,7 @@ interface TaskStoreSnapshot {
 
 const DEFAULT_SNAPSHOT: TaskStoreSnapshot = {
   errorMessage: null,
+  loadFailed: false,
   loading: false,
   tasks: [],
   workspaceUuid: null,
@@ -119,6 +121,7 @@ export function primeWorkspaceTaskStore(workspaceUuid: string) {
   const cached = readCachedTasks(workspaceUuid);
   updateTaskStore({
     errorMessage: null,
+    loadFailed: false,
     loading: cached === null,
     tasks: cached ? sortWorkspaceTasks(cached) : [],
     workspaceUuid,
@@ -141,7 +144,11 @@ export async function reloadWorkspaceTasks(
   }
 
   if (!options?.background && taskStoreSnapshot.tasks.length === 0) {
-    updateTaskStore((current) => ({ ...current, loading: true }));
+    updateTaskStore((current) => ({
+      ...current,
+      loadFailed: false,
+      loading: true,
+    }));
   }
 
   taskStoreRequest = (async () => {
@@ -158,6 +165,7 @@ export async function reloadWorkspaceTasks(
       writeCachedTasks(workspaceUuid, tasks);
       updateTaskStore({
         errorMessage: null,
+        loadFailed: false,
         loading: false,
         tasks,
         workspaceUuid,
@@ -170,6 +178,7 @@ export async function reloadWorkspaceTasks(
       updateTaskStore((current) => ({
         ...current,
         errorMessage,
+        loadFailed: true,
         loading: false,
       }));
       toast.error(errorMessage);
@@ -206,6 +215,7 @@ export function upsertWorkspaceTask(
     if (current.workspaceUuid !== workspaceUuid) {
       return {
         errorMessage: null,
+        loadFailed: false,
         loading: false,
         tasks: sortWorkspaceTasks([task]),
         workspaceUuid,

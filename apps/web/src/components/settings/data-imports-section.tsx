@@ -24,7 +24,7 @@ import {
   WifiHigh,
   WifiX,
 } from "@phosphor-icons/react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { GOOGLE_IMPORT_SCOPES } from "@/lib/imports-shared";
 import { cn } from "@/lib/utils";
 
@@ -403,7 +403,7 @@ export function DataImportsSection({
         : "Choose a destination folder first."
       : "Reconnect Google to continue.";
 
-  const loadOverview = async () => {
+  const loadOverview = useCallback(async () => {
     setOverviewLoading(true);
     setOverviewStatus(null);
 
@@ -447,11 +447,11 @@ export function DataImportsSection({
     } finally {
       setOverviewLoading(false);
     }
-  };
+  }, [workspaces]);
 
   useEffect(() => {
     void loadOverview();
-  }, []);
+  }, [loadOverview]);
 
   useEffect(() => {
     if (!destinationWorkspaceId) {
@@ -516,7 +516,7 @@ export function DataImportsSection({
     return () => {
       cancelled = true;
     };
-  }, [destinationWorkspaceId]);
+  }, [destinationFolderId, destinationWorkspaceId]);
 
   const selectedFolder = useMemo(
     () =>

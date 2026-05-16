@@ -1,14 +1,15 @@
-"use client";
-
 import Link from "next/link";
-import { useRef } from "react";
 import { ParticleField } from "@/components/ui/particle-field";
+import { buildPageMetadata } from "@/lib/page-metadata";
 
 const emptyRoomSrc = "/figures/empty-room.png";
 
-export default function NotFound() {
-  const typingImpulse = useRef(0);
+export const metadata = buildPageMetadata({
+  noIndex: true,
+  title: "This page isn't here.",
+});
 
+export default function NotFound() {
   return (
     <div className="relative h-dvh w-dvw overflow-hidden bg-background">
       <ParticleField
@@ -21,7 +22,6 @@ export default function NotFound() {
         sampleStep={3}
         src={emptyRoomSrc}
         threshold={38}
-        typingImpulseRef={typingImpulse}
       />
       <div
         aria-hidden
@@ -64,19 +64,19 @@ export default function NotFound() {
           className="pointer-events-none max-w-md text-foreground/70 text-sm leading-relaxed"
           style={{ textShadow: "0 1px 16px rgba(0,0,0,0.7)" }}
         >
-          The route you asked for doesn&apos;t exist. Head back to the workspace
-          or start again from home.
+          The route you asked for doesn&apos;t exist. Head back home or, if you
+          were working, reopen the workspace.
         </p>
         <Link
           className="mt-2 inline-flex h-10 items-center justify-center rounded-md bg-foreground px-5 font-medium text-background text-sm transition-opacity hover:opacity-90"
-          href="/workspace"
+          href="/"
         >
-          Open workspace
+          Go home
         </Link>
         <p className="max-w-md text-foreground/55 text-xs">
-          Or go back to the{" "}
-          <Link className="underline underline-offset-4" href="/">
-            homepage
+          Or open the{" "}
+          <Link className="underline underline-offset-4" href="/workspace">
+            workspace
           </Link>
           .
         </p>

@@ -1,10 +1,7 @@
-import { auth, sendWorkspaceShareEmail } from "@avenire/auth/server";
-import { headers } from "next/headers";
-import { after, NextResponse } from "next/server";
-import { resolveAppBaseUrl } from "@/lib/app-base-url";
-import { listWorkspacesForUser } from "@/lib/file-data";
+import { NextResponse } from "next/server";
 import { createApiLogger } from "@/lib/observability";
 import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
+import { handleWorkspaceShareTeamPost } from "./workspace-share-team-post";
 
 export async function POST(
   request: Request,
@@ -31,111 +28,10 @@ export async function POST(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const summaries = await listWorkspacesForUser(user.id);
-  const summary = summaries.find((item) => item.workspaceId === workspaceUuid);
-  if (!summary) {
-    void apiLogger.requestFailed(404, "Workspace not found", { workspaceUuid });
-    return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
-  }
-
-  const membersResult = await auth.api.listMembers({
-    query: {
-      organizationId: summary.organizationId,
-    },
-    headers: await headers(),
-  });
-  const members = (
-    Array.isArray(membersResult)
-      ? membersResult
-      : ((membersResult as { members?: unknown[] }).members ?? [])
-  ) as Array<{
-    role?: string | null;
-    user?: { id?: string | null; email?: string | null } | null;
-    userId?: string | null;
-    email?: string | null;
-  }>;
-  const currentMember = members.find(
-    (member) => (member.userId ?? member.user?.id ?? null) === user.id
-  );
-  if (
-    !(currentMember && ["owner", "admin"].includes(currentMember.role ?? ""))
-  ) {
-    void apiLogger.requestFailed(403, "Only admins can share this workspace", {
-      workspaceUuid,
-    });
-    return NextResponse.json(
-      { error: "Only admins can share this workspace" },
-      { status: 403 }
-    );
-  }
-  const workspaceName = summary?.name ?? "Workspace";
-  const rootFolderId = summary?.rootFolderId ?? "";
-  const baseUrl = resolveAppBaseUrl(request);
-  const workspaceUrl = rootFolderId
-    ? `${baseUrl}/workspace/files/${workspaceUuid}/folder/${rootFolderId}`
-    : `${baseUrl}/workspace/files`;
-
-  const recipients = members
-    .map((member) => ({
-      userId: member.userId ?? member.user?.id ?? null,
-      email: member.user?.email ?? member.email ?? null,
-    }))
-    .filter(
-      (member) => member.userId !== user.id && typeof member.email === "string"
-    );
-  after(async () => {
-    let emailSentCount = 0;
-    await Promise.all(
-      recipients.map(async (member) => {
-        try {
-          await sendWorkspaceShareEmail({
-            toEmail: member.email as string,
-            workspaceName,
-            workspaceUrl,
-            sharedByName: user.name ?? undefined,
-          });
-          emailSentCount += 1;
-        } catch (error) {
-          const errorSummary =
-            error instanceof Error
-              ? { name: error.name, message: error.message }
-              : { value: String(error) };
-          console.error("Failed to send workspace share team email", {
-            workspaceUuid,
-            recipient: member.email as string,
-            error: errorSummary,
-          });
-          void apiLogger.error("error.integration", {
-            integration: "email",
-            workspaceUuid,
-            action: "sendWorkspaceShareEmail",
-          });
-        }
-      })
-    );
-
-    void apiLogger.meter("meter.share.created", {
-      resourceType: "workspace-team",
-      workspaceUuid,
-      recipients: recipients.length,
-      emailSentCount,
-    });
-    void apiLogger.featureUsed("workspace.sharing.team", {
-      workspaceUuid,
-      recipients: recipients.length,
-      emailSentCount,
-    });
-  });
-
-  void apiLogger.requestSucceeded(200, {
+  return await handleWorkspaceShareTeamPost({
+    apiLogger,
+    request,
+    user,
     workspaceUuid,
-    recipients: recipients.length,
-    queued: true,
-  });
-
-  return NextResponse.json({
-    recipients: recipients.length,
-    queued: true,
-    workspaceUrl,
   });
 }

@@ -1,0 +1,34 @@
+export type DashboardSidebarView =
+  | "chat"
+  | "files"
+  | "flashcards"
+  | "tasks"
+  | "workspace"
+  | null;
+
+export function shouldWarmAllWorkspaceSurfacesOnStartup(
+  activeView: DashboardSidebarView
+) {
+  return activeView === null || activeView === "workspace";
+}
+
+export function shouldLoadChatsForSidebar(options: {
+  isChatsRoute: boolean;
+  sidebarView: DashboardSidebarView;
+}) {
+  return options.isChatsRoute || options.sidebarView === "chat";
+}
+
+export function shouldLoadWorkspaceListOnStartup(options: {
+  bootstrapStatus: "error" | "loading" | "ready" | "unauthorized";
+  deferredStartupReady: boolean;
+  initialWorkspaceCount: number;
+  workspaceCount: number;
+}) {
+  return (
+    options.deferredStartupReady &&
+    options.initialWorkspaceCount === 0 &&
+    options.workspaceCount === 0 &&
+    options.bootstrapStatus !== "loading"
+  );
+}

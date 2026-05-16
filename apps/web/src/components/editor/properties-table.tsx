@@ -1,26 +1,26 @@
 "use client";
 
 import {
+  type FocusEvent,
+  type KeyboardEvent,
   useCallback,
   useMemo,
   useRef,
   useState,
-  type FocusEvent,
-  type KeyboardEvent,
 } from "react";
 import {
   createEmptyProperty,
   type FilePropertyType,
   type FrontmatterProperties,
   formatPropertyValue,
-  normalizePropertyOptions,
   normalizeFrontmatterProperties,
+  normalizePropertyOptions,
   setPropertyValue,
   type WorkspacePropertyDefinition,
 } from "@/lib/frontmatter";
 import { cn } from "@/lib/utils";
 
-interface PropertiesTableProps {
+export interface PropertiesTableProps {
   className?: string;
   definitions?: WorkspacePropertyDefinition[];
   disabled?: boolean;
@@ -318,7 +318,7 @@ export function PropertiesTable({
               key={key}
             >
               <input
-                className="w-36 shrink-0 bg-transparent text-[13px] leading-[1.15] text-[var(--text-muted)] outline-none placeholder:text-[var(--text-muted)] placeholder:opacity-70"
+                className="w-36 shrink-0 bg-transparent text-[13px] text-[var(--text-muted)] leading-[1.15] outline-none placeholder:text-[var(--text-muted)] placeholder:opacity-70"
                 defaultValue={key}
                 disabled={disabled}
                 onBlur={(event) => {
@@ -332,7 +332,7 @@ export function PropertiesTable({
               />
               <input
                 aria-label={`${key} value`}
-                className="min-w-0 flex-1 bg-transparent text-[13px] leading-[1.15] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] placeholder:opacity-70"
+                className="min-w-0 flex-1 bg-transparent text-[13px] text-[var(--text-primary)] leading-[1.15] outline-none placeholder:text-[var(--text-muted)] placeholder:opacity-70"
                 disabled={disabled}
                 onBlur={(event) => handleEntryBlur(event, key)}
                 onChange={(event) =>
@@ -374,7 +374,7 @@ export function PropertiesTable({
             data-property-row
           >
             <input
-              className="w-36 shrink-0 bg-transparent text-[13px] leading-[1.15] text-[var(--text-muted)] outline-none placeholder:text-[var(--text-muted)] placeholder:opacity-70"
+              className="w-36 shrink-0 bg-transparent text-[13px] text-[var(--text-muted)] leading-[1.15] outline-none placeholder:text-[var(--text-muted)] placeholder:opacity-70"
               disabled={disabled}
               onChange={(event) => setNewKey(event.currentTarget.value)}
               onKeyDown={(event) => {
@@ -390,7 +390,7 @@ export function PropertiesTable({
               value={newKey}
             />
             <input
-              className="min-w-0 flex-1 bg-transparent text-[13px] leading-[1.15] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] placeholder:opacity-70"
+              className="min-w-0 flex-1 bg-transparent text-[13px] text-[var(--text-primary)] leading-[1.15] outline-none placeholder:text-[var(--text-muted)] placeholder:opacity-70"
               disabled={disabled}
               onChange={(event) => setNewValue(event.currentTarget.value)}
               onKeyDown={(event) => {
@@ -430,7 +430,7 @@ export function PropertiesTable({
 
         <div className="flex items-center gap-4 pt-1">
           <button
-            className="flex items-center gap-1 text-[13px] leading-[1.15] text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
+            className="flex items-center gap-1 text-[13px] text-[var(--text-muted)] leading-[1.15] transition-colors hover:text-[var(--text-primary)]"
             disabled={disabled}
             onClick={() => {
               setIsAddingProperty(true);

@@ -4,9 +4,10 @@
     "baseUrl": ".",
     "paths": {
       "@/content/*": ["./content/*"],
-      "@/*": ["./src/*", "./*"],
+      "@/*": ["./src/*"],
       "@avenire/emailer": ["../../packages/emailer/index.ts"]
-    }
+    },
+    "allowJs": true
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]

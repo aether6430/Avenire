@@ -1,6 +1,6 @@
-"use client";
-
-import { readBrowserCache, writeBrowserCache } from "@/lib/browser-cache";
+import { readBrowserCache } from "@/lib/browser-cache-read";
+import { writeBrowserCache } from "@/lib/browser-cache-write";
+import { normalizeFlashcardSetId } from "@/lib/flashcard-set-id";
 import type { FlashcardSetRecord } from "@/lib/flashcards";
 
 interface CachedFlashcardSetPayload {
@@ -81,18 +81,23 @@ export function removeCachedFlashcardSet(setId: string) {
 const inFlightFlashcardPrefetches = new Map<string, Promise<void>>();
 
 export function prefetchFlashcardSet(setId: string) {
-  const existing = inFlightFlashcardPrefetches.get(setId);
+  const normalizedSetId = normalizeFlashcardSetId(setId);
+  if (!normalizedSetId) {
+    return Promise.resolve();
+  }
+
+  const existing = inFlightFlashcardPrefetches.get(normalizedSetId);
   if (existing) {
     return existing;
   }
 
   const next = (async () => {
-    const cached = readCachedFlashcardSet(setId);
+    const cached = readCachedFlashcardSet(normalizedSetId);
     if (cached) {
       return;
     }
 
-    const response = await fetch(`/api/flashcards/sets/${setId}`, {
+    const response = await fetch(`/api/flashcards/sets/${normalizedSetId}`, {
       cache: "no-store",
       credentials: "same-origin",
     });
@@ -106,11 +111,11 @@ export function prefetchFlashcardSet(setId: string) {
       writeCachedFlashcardSet(payload.set);
     }
   })().finally(() => {
-    if (inFlightFlashcardPrefetches.get(setId) === next) {
-      inFlightFlashcardPrefetches.delete(setId);
+    if (inFlightFlashcardPrefetches.get(normalizedSetId) === next) {
+      inFlightFlashcardPrefetches.delete(normalizedSetId);
     }
   });
 
-  inFlightFlashcardPrefetches.set(setId, next);
+  inFlightFlashcardPrefetches.set(normalizedSetId, next);
   return next;
 }

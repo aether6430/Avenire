@@ -1,14 +1,14 @@
 import { apollo } from "@avenire/ai";
-import { rerank } from "ai";
 import { logInfo, logWarn, safeError } from "@avenire/observability";
+import { rerank } from "ai";
 import { config } from "../config";
 import {
   embedMultimodal,
   rerankByCohereWithQueryEmbedding,
   textToMultimodalInput,
 } from "../ingestion/embeddings";
-import { expandQuery } from "./query-expansion";
 import { getLearnerSignalBoosts } from "./learner-signals";
+import { expandQuery } from "./query-expansion";
 import type { VectorSearchResult, VectorStore } from "./vector-store";
 
 const RETRIEVAL_CONTEXT_TOKEN_BUDGET = 2400;
@@ -49,11 +49,21 @@ type RetrievedCandidate = VectorSearchResult & {
   rerankScore: number;
 };
 
-type RetrievalPathResult = {
+interface RetrievalPathResult {
   ambiguityReasons: string[];
+  calibration?: {
+    citationAgreement: number;
+    fastCandidateCount: number;
+    fastLatencyMs: number;
+    thresholdDecisions: Array<{ threshold: number; wouldTakeFast: boolean }>;
+    topKOverlap: number;
+    slowCandidateCount: number;
+    slowLatencyMs: number;
+  };
   confidence: number;
   context: string;
   corpus: Awaited<ReturnType<VectorStore["corpusStats"]>> | null;
+  decision: RetrievalDecisionTelemetry;
   latencyMs: number;
   path: "fast" | "slow";
   results: Array<{
@@ -73,17 +83,7 @@ type RetrievalPathResult = {
     rerankScore: number;
     metadata: Record<string, unknown>;
   }>;
-  calibration?: {
-    citationAgreement: number;
-    fastCandidateCount: number;
-    fastLatencyMs: number;
-    thresholdDecisions: Array<{ threshold: number; wouldTakeFast: boolean }>;
-    topKOverlap: number;
-    slowCandidateCount: number;
-    slowLatencyMs: number;
-  };
-  decision: RetrievalDecisionTelemetry;
-};
+}
 
 export interface RetrievalDecisionTelemetry {
   ambiguityReasons: string[];
@@ -101,8 +101,8 @@ export interface RetrievalDecisionTelemetry {
     visual: boolean;
   };
   latencyMs: number;
-  lexicalCandidateCount: number;
   learnerBoostedCandidateCount: number;
+  lexicalCandidateCount: number;
   queryCount: number;
   queryShape: {
     charCount: number;
@@ -111,7 +111,14 @@ export interface RetrievalDecisionTelemetry {
     hasQuotedPhrase: boolean;
     provider: string | null;
     searchQueryCount: number;
-    sourceType: "pdf" | "image" | "video" | "audio" | "markdown" | "link" | null;
+    sourceType:
+      | "pdf"
+      | "image"
+      | "video"
+      | "audio"
+      | "markdown"
+      | "link"
+      | null;
     tokenCount: number;
   };
   rerankCandidateCount: number;
@@ -121,7 +128,14 @@ export interface RetrievalDecisionTelemetry {
   resultSourceTypeMix: Record<string, number>;
   sourceTypeBreakdown: Record<string, number>;
   topRerankScore: number;
-  topResultSourceType: "pdf" | "image" | "video" | "audio" | "markdown" | "link" | null;
+  topResultSourceType:
+    | "pdf"
+    | "image"
+    | "video"
+    | "audio"
+    | "markdown"
+    | "link"
+    | null;
   userId: string | null;
   workspaceId: string | null;
 }
@@ -130,7 +144,8 @@ export const normalizeRetrievalQuery = (value: string): string =>
   value.replace(/\s+/g, " ").trim();
 
 const countQueryTokens = (value: string): number =>
-  normalizeRetrievalQuery(value).split(TOKEN_SPLIT_PATTERN).filter(Boolean).length;
+  normalizeRetrievalQuery(value).split(TOKEN_SPLIT_PATTERN).filter(Boolean)
+    .length;
 
 const estimateTokens = (value: string): number =>
   Math.max(1, Math.ceil(value.length / 4));
@@ -478,7 +493,6 @@ export const buildContextAwareResults = (
   };
 };
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: telemetry assembly is intentionally centralized here.
 function buildRetrievalDecisionTelemetry(input: {
   audioIntent: boolean;
   assembled: {
@@ -499,7 +513,7 @@ function buildRetrievalDecisionTelemetry(input: {
     userId?: string;
     workspaceId?: string;
   };
-  querySearchResults: Array<VectorSearchResult[]>;
+  querySearchResults: VectorSearchResult[][];
   queryCount: number;
   rerankCandidates: FusionCandidate[];
   rerankFallbackUsed: boolean;
@@ -1028,8 +1042,7 @@ export const retrieveRelevantChunks = async (
     adjacentByChunkId,
     RETRIEVAL_CONTEXT_TOKEN_BUDGET
   );
-  const corpus =
-    options?.corpus ?? (await vectorStore.corpusStats());
+  const corpus = options?.corpus ?? (await vectorStore.corpusStats());
 
   const latencyMs = Math.round(performance.now() - start);
   const telemetry = buildRetrievalDecisionTelemetry({
@@ -1254,7 +1267,8 @@ async function logCalibrationShadow(input: {
     thresholdDecisions: [0.6, 0.7, 0.8, 0.85, 0.9].map((threshold) => ({
       threshold,
       wouldTakeFast:
-        input.thresholdConfidence >= threshold && input.routeReasons.length === 0,
+        input.thresholdConfidence >= threshold &&
+        input.routeReasons.length === 0,
     })),
   };
 
@@ -1341,7 +1355,8 @@ export const retrieveRelevantChunksAdaptive = async (
       ? true
       : options?.mode === "full"
         ? false
-        : confidence >= FAST_PATH_CONFIDENCE_THRESHOLD && routeReasons.length === 0;
+        : confidence >= FAST_PATH_CONFIDENCE_THRESHOLD &&
+          routeReasons.length === 0;
   const fastLatencyMs = Math.round(performance.now() - start);
 
   if (shouldUseFast) {
@@ -1397,13 +1412,17 @@ export const retrieveRelevantChunksAdaptive = async (
     };
   }
 
-  const slowResult = await retrieveRelevantChunks(vectorStore, normalizedQuery, {
-    limit,
-    provider: options?.provider,
-    sourceType: options?.sourceType,
-    userId: options?.userId,
-    workspaceId: options?.workspaceId,
-  });
+  const slowResult = await retrieveRelevantChunks(
+    vectorStore,
+    normalizedQuery,
+    {
+      limit,
+      provider: options?.provider,
+      sourceType: options?.sourceType,
+      userId: options?.userId,
+      workspaceId: options?.workspaceId,
+    }
+  );
   const slowLatencyMs = Math.round(performance.now() - start);
   const calibration = await logCalibrationShadow({
     audioIntent,

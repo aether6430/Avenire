@@ -3,11 +3,11 @@ import { db } from "./client";
 import { userSettings } from "./schema";
 
 export interface UserSettingsRecord {
-  emailReceipts: boolean;
   completedTasksAtTop: boolean;
+  emailReceipts: boolean;
   onboardingCompleted: boolean;
-  petName: string;
   petAccessory: string;
+  petName: string;
 }
 
 const DEFAULT_USER_SETTINGS: UserSettingsRecord = {
@@ -18,7 +18,9 @@ const DEFAULT_USER_SETTINGS: UserSettingsRecord = {
   petAccessory: "none",
 };
 
-export async function getUserSettings(userId: string): Promise<UserSettingsRecord> {
+export async function getUserSettings(
+  userId: string
+): Promise<UserSettingsRecord> {
   const [settings] = await db
     .select({
       emailReceipts: userSettings.emailReceipts,
@@ -60,7 +62,7 @@ export async function getUserOnboardingCompleted(
 
 export async function upsertUserSettings(
   userId: string,
-  updates: Partial<UserSettingsRecord>,
+  updates: Partial<UserSettingsRecord>
 ): Promise<UserSettingsRecord> {
   const now = new Date();
   const hasValidEmailReceipts = typeof updates.emailReceipts === "boolean";
@@ -85,7 +87,9 @@ export async function upsertUserSettings(
     ...(hasValidOnboardingCompleted
       ? { onboardingCompleted: updates.onboardingCompleted }
       : {}),
-    ...(hasValidPetName ? { petName: updates.petName?.trim().slice(0, 32) } : {}),
+    ...(hasValidPetName
+      ? { petName: updates.petName?.trim().slice(0, 32) }
+      : {}),
     ...(hasValidPetAccessory
       ? { petAccessory: updates.petAccessory?.trim() }
       : {}),
@@ -100,7 +104,9 @@ export async function upsertUserSettings(
     ...(hasValidOnboardingCompleted
       ? { onboardingCompleted: updates.onboardingCompleted }
       : {}),
-    ...(hasValidPetName ? { petName: updates.petName?.trim().slice(0, 32) } : {}),
+    ...(hasValidPetName
+      ? { petName: updates.petName?.trim().slice(0, 32) }
+      : {}),
     ...(hasValidPetAccessory
       ? { petAccessory: updates.petAccessory?.trim() }
       : {}),

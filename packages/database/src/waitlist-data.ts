@@ -1,17 +1,17 @@
 import { randomUUID } from "node:crypto";
 import { desc, eq, inArray } from "drizzle-orm";
-import { db } from "./client";
 import { user, waitlist } from "./auth-schema";
+import { db } from "./client";
 
 export type WaitlistStatus = "pending" | "approved" | "registered";
 export type WaitlistAccessState = WaitlistStatus | "none";
 
 export interface WaitlistEntry {
-  id: string;
   email: string;
-  status: WaitlistStatus;
-  requestedAt: Date;
+  id: string;
   processedAt: Date | null;
+  requestedAt: Date;
+  status: WaitlistStatus;
 }
 
 export function normalizeEmail(email: string) {
@@ -90,20 +90,20 @@ export async function getWaitlistStatusByEmail(email: string) {
 }
 
 export function hasWaitlistAccess(
-  status: WaitlistStatus | WaitlistAccessState | null | undefined,
+  status: WaitlistStatus | WaitlistAccessState | null | undefined
 ) {
   return status === "approved" || status === "registered";
 }
 
 export async function getWaitlistAccessStateByEmail(
-  email: string,
+  email: string
 ): Promise<WaitlistAccessState> {
   const status = await getWaitlistStatusByEmail(email);
   return status ?? "none";
 }
 
 export async function getWaitlistAccessStateByUserId(
-  userId: string,
+  userId: string
 ): Promise<WaitlistAccessState> {
   const [row] = await db
     .select({

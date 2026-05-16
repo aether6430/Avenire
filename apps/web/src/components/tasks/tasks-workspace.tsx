@@ -28,6 +28,7 @@ import {
   type TaskStatusFilter,
   type TaskViewMode,
 } from "@/components/tasks/types";
+import { emitPetNotification } from "@/lib/pet-preferences";
 import {
   getTaskStoreSnapshot,
   patchWorkspaceTask,
@@ -44,7 +45,6 @@ import {
   type WorkspaceMemberOption,
   type WorkspaceTask,
 } from "@/lib/tasks";
-import { emitPetNotification } from "@/lib/pet-preferences";
 import { useUserSettings } from "@/lib/user-settings-client";
 import {
   usePanePathname,
@@ -252,7 +252,7 @@ export function TasksWorkspace({
 
   useEffect(() => {
     void reloadWorkspaceTasks(workspaceId, { background: true });
-  }, [completedTasksAtTop, workspaceId]);
+  }, [workspaceId]);
 
   useEffect(() => {
     const taskId = searchParams.get("task");

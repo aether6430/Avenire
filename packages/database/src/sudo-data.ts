@@ -12,8 +12,8 @@ export async function getLatestActiveSudoChallenge(userId: string) {
       and(
         eq(sudoChallenge.userId, userId),
         isNull(sudoChallenge.usedAt),
-        gt(sudoChallenge.expiresAt, new Date()),
-      ),
+        gt(sudoChallenge.expiresAt, new Date())
+      )
     )
     .orderBy(desc(sudoChallenge.createdAt))
     .limit(1);

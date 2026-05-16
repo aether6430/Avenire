@@ -66,6 +66,7 @@ export function ChatActions({
   return (
     <div className="mt-2 flex items-center gap-2">
       <Button
+        aria-label="Copy message"
         className="h-9 w-9"
         onClick={copyMessage}
         size="icon"
@@ -75,6 +76,7 @@ export function ChatActions({
         <Copy className="size-4" />
       </Button>
       <Button
+        aria-label="Branch method"
         className="h-9 w-9"
         onClick={branchChat}
         size="icon"
@@ -85,6 +87,7 @@ export function ChatActions({
       </Button>
       {onRegenerate && message.role === "assistant" && (
         <Button
+          aria-label="Regenerate response"
           className="h-9 w-9"
           onClick={() => {
             onRegenerate(message.id);

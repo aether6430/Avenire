@@ -1,82 +1,96 @@
-"use client";
-
-import React, { useMemo, useState } from "react";
-import { Container } from "./container";
-import { pricingTable, tiers, TierName } from "@/components/marketing/constants/pricing";
-import { cn } from "@/lib/utils";
-import { Button } from "./button";
 import Link from "next/link";
+import {
+  pricingTable,
+  TIER_NAMES,
+  type TierName,
+  tiers,
+} from "@/components/marketing/constants/pricing";
+import { Button } from "./button";
+import { Container } from "./container";
+
+const cycleTabs = [
+  { label: "Monthly", value: "monthly" },
+  { label: "Yearly", value: "yearly" },
+] as const;
+
+const orderedTierNames: TierName[] = [
+  TIER_NAMES.TIER_1,
+  TIER_NAMES.TIER_2,
+  TIER_NAMES.TIER_3,
+];
+
+const titleToPrice = Object.fromEntries(
+  tiers.map((tier) => [
+    tier.title,
+    { monthly: tier.monthly, yearly: tier.yearly },
+  ])
+) as Record<string, { monthly: number; yearly: number }>;
 
 export const PricingTable = () => {
-  const [cycle, setCycle] = useState<"monthly" | "yearly">("monthly");
-
-  const orderedTierNames: TierName[] = useMemo(
-    () => [TierName.TIER_1, TierName.TIER_2, TierName.TIER_3],
-    [],
-  );
-
-  const titleToPrice: Record<string, { monthly: number; yearly: number }> =
-    useMemo(() => {
-      const map: Record<string, { monthly: number; yearly: number }> = {};
-      tiers.forEach((t) => {
-        map[t.title] = { monthly: t.monthly, yearly: t.yearly };
-      });
-      return map;
-    }, []);
-
   return (
-    <section>
+    <section className="pricing-table-cycle">
+      <input
+        className="sr-only"
+        defaultChecked
+        id="pricing-table-cycle-monthly"
+        name="pricing-table-cycle"
+        type="radio"
+      />
+      <input
+        className="sr-only"
+        id="pricing-table-cycle-yearly"
+        name="pricing-table-cycle"
+        type="radio"
+      />
+
       <Container className="border-divide border-x">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead className="">
-              <tr className="border-divide divide-divide divide-x border-b">
-                <th className="min-w-[220px] px-4 pt-12 pb-8 align-bottom text-sm font-medium text-gray-600 dark:text-neutral-200">
-                  <div className="mb-2 text-sm font-normal text-gray-600 dark:text-neutral-200">
+              <tr className="divide-x divide-divide border-divide border-b">
+                <th className="min-w-[220px] px-4 pt-12 pb-8 align-bottom font-medium text-gray-600 text-sm dark:text-neutral-200">
+                  <div className="mb-2 font-normal text-gray-600 text-sm dark:text-neutral-200">
                     Select a preferred cycle
                   </div>
                   <div className="inline-flex rounded-md bg-gray-100 p-1 dark:bg-neutral-800">
-                    {[
-                      { label: "Monthly", value: "monthly" },
-                      { label: "Yearly", value: "yearly" },
-                    ].map((opt) => (
-                      <button
+                    {cycleTabs.map((opt) => (
+                      <label
+                        className="pricing-table-cycle-tab relative z-10 cursor-pointer rounded-md px-3 py-1 text-gray-800 text-sm dark:text-white"
+                        htmlFor={`pricing-table-cycle-${opt.value}`}
                         key={opt.value}
-                        onClick={() =>
-                          setCycle(opt.value as "monthly" | "yearly")
-                        }
-                        className={cn(
-                          "relative z-10 rounded-md px-3 py-1 text-sm text-gray-800 dark:text-white",
-                          cycle === opt.value &&
-                            "shadow-aceternity bg-white dark:bg-neutral-900 dark:text-white",
-                        )}
-                        aria-pressed={
-                          cycle === (opt.value as "monthly" | "yearly")
-                        }
-                        type="button"
                       >
                         {opt.label}
-                      </button>
+                      </label>
                     ))}
                   </div>
                 </th>
                 {orderedTierNames.map((tierName) => (
                   <th
-                    key={`hdr-${tierName}`}
                     className="min-w-[220px] px-4 pt-12 pb-8 align-bottom"
+                    key={`hdr-${tierName}`}
                   >
-                    <div className="text-charcoal-700 text-lg font-medium dark:text-neutral-100">
+                    <div className="font-medium text-charcoal-700 text-lg dark:text-neutral-100">
                       {tierName}
                     </div>
-                    <div className="flex items-center text-sm font-normal text-gray-600 dark:text-neutral-300">
-                      $<span className="tabular-nums">{titleToPrice[tierName]?.[cycle]}</span>
-                      /seat billed{" "}
-                      {cycle === "monthly" ? "monthly" : "annually"}
+                    <div className="flex items-center font-normal text-gray-600 text-sm dark:text-neutral-300">
+                      $
+                      <span className="pricing-table-monthly-only tabular-nums">
+                        {titleToPrice[tierName]?.monthly}
+                      </span>
+                      <span className="pricing-table-yearly-only tabular-nums">
+                        {titleToPrice[tierName]?.yearly}
+                      </span>
+                      <span className="pricing-table-monthly-only ml-1">
+                        /seat billed monthly
+                      </span>
+                      <span className="pricing-table-yearly-only ml-1">
+                        /seat billed annually
+                      </span>
                     </div>
                     <Button
                       as={Link}
-                      href="/waitlist"
                       className="mt-4 w-full"
+                      href="/waitlist"
                       variant="secondary"
                     >
                       Join waitlist
@@ -88,23 +102,25 @@ export const PricingTable = () => {
             <tbody className="">
               {pricingTable.map((row, index) => (
                 <tr
+                  className={[
+                    "divide-x divide-divide border-divide border-b",
+                    index % 2 === 0 ? "bg-gray-50 dark:bg-neutral-800" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
                   key={row.title}
-                  className={cn(
-                    "border-divide divide-divide divide-x border-b",
-                    index % 2 === 0 && "bg-gray-50 dark:bg-neutral-800",
-                  )}
                 >
-                  <td className="text-charcoal-700 flex px-4 py-6 text-center text-sm dark:text-neutral-100">
+                  <td className="flex px-4 py-6 text-center text-charcoal-700 text-sm dark:text-neutral-100">
                     {row.title}
                   </td>
                   {orderedTierNames.map((tierName) => {
                     const tierVal = row.tiers.find(
-                      (t) => t.title === tierName,
+                      (t) => t.title === tierName
                     )?.value;
                     return (
                       <td
+                        className="mx-auto px-4 py-6 text-center text-charcoal-700 text-sm dark:text-neutral-100"
                         key={`${row.title}-${tierName}`}
-                        className="text-charcoal-700 mx-auto px-4 py-6 text-center text-sm dark:text-neutral-100"
                       >
                         {tierVal}
                       </td>

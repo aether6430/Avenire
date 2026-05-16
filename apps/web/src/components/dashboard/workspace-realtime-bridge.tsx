@@ -93,9 +93,9 @@ export function WorkspaceRealtimeBridge({
             router.refresh();
           }
 
-          // Flashcard screens already handle this via client-side invalidation.
+          // Mindset screens already handle this via client-side invalidation.
           // Avoid forcing an RSC refresh on every review mutation, which causes
-          // duplicate deck fetches and a full remount of the study UI.
+          // duplicate mindset-set fetches and a full remount of the study UI.
         };
 
         eventSource.addEventListener("files.invalidate", (event) => {

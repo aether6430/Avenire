@@ -44,7 +44,6 @@ export function SettingsDialog({
           initialTab={initialTab}
           initialWorkspaceId={initialWorkspaceId}
           initialWorkspaces={initialWorkspaces}
-          tabMode="local"
         />
       </DialogContent>
     </Dialog>

@@ -219,7 +219,7 @@ function summarizeToolPart(
       const cardCount = Array.isArray(part.output.cards)
         ? part.output.cards.length
         : 0;
-      return `Generated ${cardCount} flashcards in "${normalizeText(part.output.title)}".`;
+      return `Generated ${cardCount} mindset cards in "${normalizeText(part.output.title)}".`;
     }
     case "tool-quiz_me": {
       const questionCount =
@@ -543,7 +543,7 @@ export async function persistSessionSummaryForCompletedTurn(input: {
       confusionSignals.detected
         ? `Confusion detection stage: detected. Reasons: ${confusionSignals.reasons.join(", ")}. Verify only concrete wrong models with concept grounding.`
         : "Confusion detection stage: no strong signal. Return an empty misconceptionCandidates array unless the transcript clearly contains a durable wrong model.",
-      `Flashcards created during this window: ${flashcardsCreated}`,
+      `Mindset cards created during this window: ${flashcardsCreated}`,
       misconceptionsDetected.length > 0
         ? `Misconceptions already detected by tools: ${misconceptionsDetected.join(", ")}`
         : "Misconceptions already detected by tools: none",
@@ -674,7 +674,7 @@ export function buildRecentSessionSummaryContext(
       : null;
   const flashcards =
     summary.flashcardsCreated > 0
-      ? `Flashcards created: ${summary.flashcardsCreated}.`
+      ? `Mindset cards created: ${summary.flashcardsCreated}.`
       : null;
 
   return [

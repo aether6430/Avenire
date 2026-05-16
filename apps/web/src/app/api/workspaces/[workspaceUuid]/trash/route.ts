@@ -1,39 +1,11 @@
-import { UTApi } from "@avenire/storage";
 import { NextResponse } from "next/server";
-import {
-  listTrashedItems,
-  permanentlyDeleteFileAsset,
-  permanentlyDeleteFolder,
-  restoreFileAsset,
-  restoreFolder,
-} from "@/lib/file-data";
-import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
 import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
-
-interface TrashMutationBody {
-  items?: Array<{
-    id: string;
-    kind: "file" | "folder";
-  }>;
-  operation?: "restore" | "delete";
-}
-
-async function deleteUploadThingFiles(storageKeys: string[]) {
-  const deletableKeys = storageKeys.filter(
-    (storageKey) => storageKey && !storageKey.startsWith("virtual:duplicate:")
-  );
-
-  if (deletableKeys.length === 0 || !process.env.UPLOADTHING_TOKEN) {
-    return;
-  }
-
-  try {
-    const utapi = new UTApi({ token: process.env.UPLOADTHING_TOKEN });
-    await utapi.deleteFiles(deletableKeys);
-  } catch {
-    // Best effort cleanup.
-  }
-}
+import { handleWorkspaceTrashRouteGet } from "./workspace-trash-route-get";
+import {
+  handleWorkspaceTrashRouteDelete,
+  handleWorkspaceTrashRouteRestore,
+  type WorkspaceTrashMutationBody,
+} from "./workspace-trash-route-mutations";
 
 export async function GET(
   _request: Request,
@@ -50,8 +22,7 @@ export async function GET(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const items = await listTrashedItems(workspaceUuid);
-  return NextResponse.json({ items });
+  return await handleWorkspaceTrashRouteGet({ workspaceUuid });
 }
 
 export async function POST(
@@ -69,37 +40,13 @@ export async function POST(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = (await request.json().catch(() => ({}))) as TrashMutationBody;
-  if (
-    body.operation !== "restore" ||
-    !Array.isArray(body.items) ||
-    body.items.length === 0
-  ) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
-  }
-
-  const results: Array<{ id: string; kind: "file" | "folder"; ok: boolean }> =
-    [];
-
-  for (const item of body.items) {
-    if (item.kind === "file") {
-      const ok = await restoreFileAsset(workspaceUuid, item.id);
-      results.push({ id: item.id, kind: item.kind, ok });
-      continue;
-    }
-
-    const ok = await restoreFolder(workspaceUuid, item.id);
-    results.push({ id: item.id, kind: item.kind, ok });
-  }
-
-  if (results.some((entry) => entry.ok)) {
-    await publishFilesInvalidationEvent({
-      workspaceUuid,
-      reason: "tree.changed",
-    });
-  }
-
-  return NextResponse.json({ ok: true, results });
+  const body = (await request
+    .json()
+    .catch(() => ({}))) as WorkspaceTrashMutationBody;
+  return await handleWorkspaceTrashRouteRestore({
+    body,
+    workspaceUuid,
+  });
 }
 
 export async function DELETE(
@@ -117,42 +64,11 @@ export async function DELETE(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = (await request.json().catch(() => ({}))) as TrashMutationBody;
-  if (
-    body.operation !== "delete" ||
-    !Array.isArray(body.items) ||
-    body.items.length === 0
-  ) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
-  }
-
-  const results: Array<{ id: string; kind: "file" | "folder"; ok: boolean }> =
-    [];
-  const storageKeys: string[] = [];
-
-  for (const item of body.items) {
-    if (item.kind === "file") {
-      const deleted = await permanentlyDeleteFileAsset(workspaceUuid, item.id);
-      if (deleted?.storageKeys?.length) {
-        storageKeys.push(...deleted.storageKeys);
-      }
-      results.push({ id: item.id, kind: item.kind, ok: Boolean(deleted) });
-      continue;
-    }
-
-    const keys = await permanentlyDeleteFolder(workspaceUuid, item.id);
-    storageKeys.push(...keys);
-    results.push({ id: item.id, kind: item.kind, ok: true });
-  }
-
-  await deleteUploadThingFiles(Array.from(new Set(storageKeys)));
-
-  if (results.some((entry) => entry.ok)) {
-    await publishFilesInvalidationEvent({
-      workspaceUuid,
-      reason: "tree.changed",
-    });
-  }
-
-  return NextResponse.json({ ok: true, results });
+  const body = (await request
+    .json()
+    .catch(() => ({}))) as WorkspaceTrashMutationBody;
+  return await handleWorkspaceTrashRouteDelete({
+    body,
+    workspaceUuid,
+  });
 }

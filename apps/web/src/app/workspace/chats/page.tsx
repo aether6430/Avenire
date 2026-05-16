@@ -1,19 +1,35 @@
-import { Suspense } from "react";
-import { WorkspaceChatNewPageClient } from "@/components/dashboard/workspace-chat-new-page-client";
-import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
+import type { Route } from "next";
+import { redirect } from "next/navigation";
 import { buildPageMetadata } from "@/lib/page-metadata";
 
 export const metadata = buildPageMetadata({
   noIndex: true,
-  title: "Chats",
+  title: "New Method",
 });
 
-export default function WorkspaceChatsPage() {
-  return (
-    <Suspense
-      fallback={<WorkspaceRoutePlaceholder label="Loading method..." />}
-    >
-      <WorkspaceChatNewPageClient />
-    </Suspense>
-  );
+export default async function WorkspaceChatsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const query = await searchParams;
+  const params = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(query)) {
+    if (typeof value === "string") {
+      params.set(key, value);
+      continue;
+    }
+
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (typeof item === "string") {
+          params.append(key, item);
+        }
+      }
+    }
+  }
+
+  const suffix = params.toString();
+  redirect(`/workspace/chats/new${suffix ? `?${suffix}` : ""}` as Route);
 }

@@ -1,7 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { DashboardHome } from "@/components/dashboard/dashboard-home";
+import dynamic from "next/dynamic";
+import type { DashboardHomeProps } from "@/components/dashboard/dashboard-home-model";
 import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
 import type {
@@ -11,6 +12,17 @@ import type {
 } from "@/lib/flashcards";
 import type { MisconceptionRecord } from "@/lib/learning-data";
 import { usePaneSearchParams } from "@/lib/workspace-panes";
+
+const DashboardHome = dynamic<DashboardHomeProps>(
+  () =>
+    import("@/components/dashboard/dashboard-home").then(
+      (module) => module.DashboardHome
+    ),
+  {
+    loading: () => <WorkspaceRoutePlaceholder label="Loading workspace..." />,
+    ssr: false,
+  }
+);
 
 interface WorkspaceOverviewPayload {
   activeMisconceptions: MisconceptionRecord[];
@@ -54,8 +66,35 @@ export function WorkspaceOverviewPageClient() {
     ],
   });
 
+  if (status === "error") {
+    return (
+      <WorkspaceRoutePlaceholder
+        label="Unable to load workspace."
+        pending={false}
+      />
+    );
+  }
+
+  if (status === "ready" && user && !workspace) {
+    return (
+      <WorkspaceRoutePlaceholder
+        label="Create a workspace to continue."
+        pending={false}
+      />
+    );
+  }
+
   if (!(status === "ready" && user && workspace)) {
     return <WorkspaceRoutePlaceholder />;
+  }
+
+  if (overviewQuery.isError) {
+    return (
+      <WorkspaceRoutePlaceholder
+        label="Unable to load workspace."
+        pending={false}
+      />
+    );
   }
 
   if (overviewQuery.isPending || !overviewQuery.data) {

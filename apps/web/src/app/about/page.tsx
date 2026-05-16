@@ -2,15 +2,17 @@ import fs from "node:fs";
 import path from "node:path";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Footer } from "@/components/marketing/footer";
-import { Navbar } from "@/components/marketing/navbar";
+import {
+  MarketingPageFrame,
+  MarketingPageShell,
+} from "@/components/marketing/page-shell";
 import { buildPageMetadata } from "@/lib/page-metadata";
 
 export const metadata = buildPageMetadata({
   description:
     "Learn what Avenire is building and why we think AI should deepen understanding instead of replacing it.",
   path: "/about",
-  title: "About",
+  title: "Why Avenire Exists",
 });
 
 export const dynamic = "force-static";
@@ -26,7 +28,7 @@ const mdxComponents = {
   ),
   h2: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
     <h2
-      className="mt-8 mb-3 font-sans font-semibold text-white text-lg tracking-tight md:text-xl"
+      className="mt-8 mb-3 font-sans font-semibold text-lg text-white tracking-tight md:text-xl"
       {...props}
     >
       {children}
@@ -36,16 +38,10 @@ const mdxComponents = {
     <p className="mb-4 text-white/72 leading-relaxed" {...props} />
   ),
   ul: (props: React.HTMLAttributes<HTMLUListElement>) => (
-    <ul
-      className="mb-4 ml-5 list-disc space-y-2 text-white/72"
-      {...props}
-    />
+    <ul className="mb-4 ml-5 list-disc space-y-2 text-white/72" {...props} />
   ),
   ol: (props: React.HTMLAttributes<HTMLOListElement>) => (
-    <ol
-      className="mb-4 ml-5 list-decimal space-y-2 text-white/72"
-      {...props}
-    />
+    <ol className="mb-4 ml-5 list-decimal space-y-2 text-white/72" {...props} />
   ),
   li: (props: React.HTMLAttributes<HTMLLIElement>) => (
     <li className="leading-relaxed" {...props} />
@@ -61,25 +57,17 @@ export default function AboutPage() {
   const source = fs.readFileSync(visionPath, "utf-8");
 
   return (
-    <main className="avenire-marketing-scope dark min-h-screen bg-neutral-950 text-neutral-100">
-      <Navbar />
-
-      <section className="px-4 pt-32 pb-24">
-        <div className="mx-auto max-w-[72rem] border-divide border-x border-y px-4 py-8 md:px-8">
-          <div className="mx-auto max-w-[56rem]">
-            <p className="mb-4 font-medium text-brand text-xs uppercase tracking-widest">
-              About
-            </p>
-            <article className="border-divide border-t pt-8 font-mono text-[13px] md:text-[14px]">
-              <Markdown components={mdxComponents} remarkPlugins={[remarkGfm]}>
-                {source}
-              </Markdown>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <Footer />
-    </main>
+    <MarketingPageShell>
+      <MarketingPageFrame>
+        <p className="mb-4 font-medium text-brand text-xs uppercase tracking-widest">
+          About
+        </p>
+        <article className="border-divide border-t pt-8 font-mono text-[13px] md:text-[14px]">
+          <Markdown components={mdxComponents} remarkPlugins={[remarkGfm]}>
+            {source}
+          </Markdown>
+        </article>
+      </MarketingPageFrame>
+    </MarketingPageShell>
   );
 }

@@ -1,11 +1,5 @@
-export const DATA_IMPORT_PRESET_LABEL = "Avenire Data Import";
-
-export const GOOGLE_DRIVE_READONLY_SCOPE =
-  "https://www.googleapis.com/auth/drive.readonly";
-
-export const GOOGLE_IMPORT_SCOPES = [
-  "openid",
-  "email",
-  "profile",
+export { DATA_IMPORT_PRESET_LABEL } from "@/lib/imports-data-import-preset";
+export {
   GOOGLE_DRIVE_READONLY_SCOPE,
-];
+  GOOGLE_IMPORT_SCOPES,
+} from "@/lib/imports-google-scopes";

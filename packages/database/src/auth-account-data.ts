@@ -26,8 +26,8 @@ export async function listAuthAccountsForUser(input: {
     .where(
       and(
         eq(account.userId, input.userId),
-        eq(account.providerId, input.providerId),
-      ),
+        eq(account.providerId, input.providerId)
+      )
     )
     .orderBy(desc(account.updatedAt));
 }

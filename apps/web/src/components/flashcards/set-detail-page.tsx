@@ -8,12 +8,17 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  HeaderBreadcrumbs,
+  HeaderTitle,
+} from "@/components/dashboard/header-portal";
 import { FlashcardSetDetail } from "@/components/flashcards/set-detail";
 import {
   readCachedFlashcardSet,
   removeCachedFlashcardSet,
   writeCachedFlashcardSet,
 } from "@/lib/flashcard-browser-cache";
+import { normalizeFlashcardSetId } from "@/lib/flashcard-set-id";
 import type { FlashcardSetRecord, FlashcardTaxonomy } from "@/lib/flashcards";
 
 function hasMatchingVersion(
@@ -23,8 +28,10 @@ function hasMatchingVersion(
   return current?.id === next.id && current.updatedAt === next.updatedAt;
 }
 
-function readDeckError(status: number) {
-  return status === 404 ? "Deck not found." : "Unable to load deck.";
+function readMindsetError(status: number) {
+  return status === 404
+    ? "Mindset set not found."
+    : "Unable to load mindset set.";
 }
 
 function parseDrillFilters(rawDrill: string | string[] | undefined) {
@@ -60,15 +67,26 @@ function parseDrillFilters(rawDrill: string | string[] | undefined) {
   });
 }
 
-function LoadingShell({ setId }: { setId: string }) {
+function DetailPageBreadcrumbs({ title }: { title: string }) {
+  return (
+    <HeaderBreadcrumbs>
+      <div className="min-w-0">
+        <p className="truncate text-muted-foreground text-sm">Mindset Set</p>
+        <p className="truncate text-muted-foreground text-xs">{title}</p>
+      </div>
+    </HeaderBreadcrumbs>
+  );
+}
+
+function LoadingShell() {
   return (
     <div className="flex h-full items-center justify-center bg-background px-4 py-8">
       <div className="w-full max-w-2xl rounded-2xl border border-border/50 bg-card/80 p-6 shadow-sm">
         <p className="text-[11px] text-muted-foreground uppercase tracking-[0.22em]">
-          Loading mindset
+          Loading mindset set
         </p>
         <h1 className="mt-2 font-semibold text-2xl tracking-tight">
-          Opening deck {setId}
+          Opening mindset set
         </h1>
         <div className="mt-6 space-y-3">
           <div className="h-5 w-1/2 animate-pulse rounded-full bg-muted" />
@@ -96,10 +114,21 @@ export function FlashcardSetPageClient({
     () => parseDrillFilters(rawDrillFilters),
     [rawDrillFilters]
   );
-  const cachedSet = useMemo(() => readCachedFlashcardSet(setId), [setId]);
+  const normalizedSetId = useMemo(
+    () => normalizeFlashcardSetId(setId),
+    [setId]
+  );
+  const cachedSet = useMemo(
+    () => (normalizedSetId ? readCachedFlashcardSet(normalizedSetId) : null),
+    [normalizedSetId]
+  );
   const [set, setSet] = useState<FlashcardSetRecord | null>(cachedSet);
-  const [loading, setLoading] = useState(() => cachedSet === null);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(
+    () => cachedSet === null && normalizedSetId !== null
+  );
+  const [error, setError] = useState<string | null>(() =>
+    normalizedSetId ? null : "Mindset set not found."
+  );
   const loadedSetIdRef = useRef(cachedSet?.id ?? null);
 
   const applySet = useCallback((nextSet: FlashcardSetRecord) => {
@@ -117,7 +146,15 @@ export function FlashcardSetPageClient({
   const loadSet = useCallback(
     async (options?: { force?: boolean }) => {
       const force = options?.force ?? false;
-      const cached = readCachedFlashcardSet(setId);
+      if (!normalizedSetId) {
+        startTransition(() => {
+          setError("Mindset set not found.");
+          setLoading(false);
+        });
+        return;
+      }
+
+      const cached = readCachedFlashcardSet(normalizedSetId);
 
       startTransition(() => {
         if (cached) {
@@ -135,16 +172,19 @@ export function FlashcardSetPageClient({
       }
 
       try {
-        const response = await fetch(`/api/flashcards/sets/${setId}`, {
-          cache: "no-store",
-        });
+        const response = await fetch(
+          `/api/flashcards/sets/${normalizedSetId}`,
+          {
+            cache: "no-store",
+          }
+        );
 
         if (!response.ok) {
           if (response.status === 404) {
-            removeCachedFlashcardSet(setId);
+            removeCachedFlashcardSet(normalizedSetId);
           }
 
-          setError(readDeckError(response.status));
+          setError(readMindsetError(response.status));
           setLoading(false);
           return;
         }
@@ -162,12 +202,12 @@ export function FlashcardSetPageClient({
         setError(
           fetchError instanceof Error
             ? fetchError.message
-            : "Unable to load deck."
+            : "Unable to load mindset set."
         );
         setLoading(false);
       }
     },
-    [applySet, setId]
+    [applySet, normalizedSetId]
   );
 
   useEffect(() => {
@@ -201,29 +241,45 @@ export function FlashcardSetPageClient({
   }, [loadSet]);
 
   if (loading && !set) {
-    return <LoadingShell setId={setId} />;
+    return (
+      <>
+        <HeaderTitle>Mindset Set</HeaderTitle>
+        <DetailPageBreadcrumbs title="Opening mindset set" />
+        <LoadingShell />
+      </>
+    );
   }
 
   if (error && !set) {
     return (
-      <div className="flex h-full items-center justify-center bg-background px-4 py-8">
-        <div className="w-full max-w-2xl rounded-2xl border border-border/50 bg-card/80 p-6 shadow-sm">
-          <p className="text-[11px] text-muted-foreground uppercase tracking-[0.22em]">
-            Mindset
-          </p>
-          <h1 className="mt-2 font-semibold text-2xl tracking-tight">
-            {error}
-          </h1>
-          <p className="mt-2 text-muted-foreground text-sm">
-            Try going back to the deck list and opening the deck again.
-          </p>
+      <>
+        <HeaderTitle>{error}</HeaderTitle>
+        <DetailPageBreadcrumbs title={error} />
+        <div className="flex h-full items-center justify-center bg-background px-4 py-8">
+          <div className="w-full max-w-2xl rounded-2xl border border-border/50 bg-card/80 p-6 shadow-sm">
+            <p className="text-[11px] text-muted-foreground uppercase tracking-[0.22em]">
+              Mindset Set
+            </p>
+            <h1 className="mt-2 font-semibold text-2xl tracking-tight">
+              {error}
+            </h1>
+            <p className="mt-2 text-muted-foreground text-sm">
+              Try going back to the mindset sets list and opening it again.
+            </p>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   if (!set) {
-    return <LoadingShell setId={setId} />;
+    return (
+      <>
+        <HeaderTitle>Mindset Set</HeaderTitle>
+        <DetailPageBreadcrumbs title="Opening mindset set" />
+        <LoadingShell />
+      </>
+    );
   }
 
   return (

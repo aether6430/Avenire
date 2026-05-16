@@ -1,5 +1,5 @@
 import { createFireworks } from "@ai-sdk/fireworks";
-import { streamText, stepCountIs, tool } from "ai";
+import { stepCountIs, streamText, tool } from "ai";
 import { z } from "zod";
 import { APOLLO_PROMPT } from "../prompts";
 import { chatTools } from "../tools";

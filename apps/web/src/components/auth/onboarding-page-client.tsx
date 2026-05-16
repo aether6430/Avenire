@@ -1,44 +1,52 @@
 "use client";
 
 import {
-  AppleHelloEffect,
-  resolveAppleHelloLocaleFromCountry,
+  type HelloLocale,
   resolveAppleHelloLocale,
-} from "@avenire/ui/components/apple-hello-effect";
+  resolveAppleHelloLocaleFromCountry,
+} from "@avenire/ui/components/apple-hello-locale";
 import { Button } from "@avenire/ui/components/button";
 import { AnimatePresence, motion } from "motion/react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AuthShell } from "@/components/auth-shell";
 import { MeshGradient } from "@/components/marketing/mesh-gradient";
 import { PetPreferencesFields } from "@/components/pets/pet-preferences-fields";
-import { type PetAccessory } from "@/lib/pet-preferences";
-import { loadUserSettings } from "@/lib/user-settings-client";
+import { DEFAULT_PET_NAME, type PetAccessory } from "@/lib/pet-preferences";
+
+const AppleHelloEffect = dynamic(
+  () =>
+    import("@avenire/ui/components/apple-hello-effect").then(
+      (module) => module.AppleHelloEffect
+    ),
+  { loading: () => null, ssr: false }
+);
 
 const STEPS = [
   {
     body: [
       "Bring in a PDF, note, or scan so the workspace has something real to read.",
-      "Uploads become reusable context across flashcards, notes, and chat.",
+      "Uploads become reusable context across mindset, notes, and methods.",
     ],
     eyebrow: "Upload your first file",
     title: "Start with source material.",
   },
   {
     body: [
-      "Give Auri a name and pick an accessory before you enter the workspace.",
+      "Give your pet a name and pick an accessory before you enter the workspace.",
       "This is a separate setup step so it does not crowd the main onboarding screen.",
     ],
     eyebrow: "Personalize your pet",
-    title: "Set up Auri.",
+    title: "Set up your pet.",
   },
   {
     body: [
-      "Generate a first deck from the material you just added.",
+      "Generate a first mindset set from the material you just added.",
       "Keep the cards tight enough to study and easy enough to revise later.",
     ],
     eyebrow: "Turn it into practice",
-    title: "Build the first flashcards.",
+    title: "Build the first mindset set.",
   },
   {
     body: [
@@ -60,10 +68,10 @@ export function OnboardingPageClient({
   const [step, setStep] = useState(0);
   const [isFinishing, setIsFinishing] = useState(false);
   const [showFlush, setShowFlush] = useState(false);
-  const [helloLocale, setHelloLocale] = useState<
-    ReturnType<typeof resolveAppleHelloLocale>
-  >(initialHelloLocale ?? "en");
-  const [petName, setPetName] = useState("Auri");
+  const [helloLocale, setHelloLocale] = useState<HelloLocale>(
+    initialHelloLocale ?? "en"
+  );
+  const [petName, setPetName] = useState(DEFAULT_PET_NAME);
   const [petAccessory, setPetAccessory] = useState<PetAccessory>("none");
   const current = STEPS[step] ?? STEPS[0];
   const isPetStep = step === 1;
@@ -73,30 +81,6 @@ export function OnboardingPageClient({
       initialHelloLocale ?? resolveAppleHelloLocale(navigator.languages)
     );
   }, [initialHelloLocale]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    loadUserSettings()
-      .then((settings) => {
-        if (cancelled) {
-          return;
-        }
-
-        if (settings.onboardingCompleted) {
-          router.replace("/workspace");
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          router.replace("/login?callbackURL=/onboarding");
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [router]);
 
   useEffect(() => {
     if (!showFlush) {
@@ -120,7 +104,7 @@ export function OnboardingPageClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           onboardingCompleted: true,
-          petName: petName.trim() || "Auri",
+          petName: petName.trim() || DEFAULT_PET_NAME,
           petAccessory,
         }),
       });
@@ -176,13 +160,22 @@ export function OnboardingPageClient({
         ) : null}
       </AnimatePresence>
       <div className="w-full max-w-lg">
+        <div className="space-y-2">
+          <h1 className="font-semibold text-3xl text-foreground leading-tight">
+            Onboarding
+          </h1>
+          <p className="text-muted-foreground text-sm">
+            Set up the workspace from real study material before you dive in.
+          </p>
+        </div>
+
         <div className="flex items-center gap-2 font-mono text-[10px] text-muted-foreground uppercase tracking-[0.3em]">
           <span>
             Step {String(step + 1).padStart(2, "0")} /{" "}
             {String(STEPS.length).padStart(2, "0")}
           </span>
           <div className="ml-2 flex items-center gap-1.5">
-            {STEPS.map((_, index) => (
+            {STEPS.map((stepItem, index) => (
               <span
                 className={`h-1.5 rounded-full transition-all ${
                   index === step
@@ -191,7 +184,7 @@ export function OnboardingPageClient({
                       ? "w-1.5 bg-foreground/70"
                       : "w-1.5 bg-foreground/20"
                 }`}
-                key={index}
+                key={stepItem.eyebrow}
               />
             ))}
           </div>
@@ -213,9 +206,9 @@ export function OnboardingPageClient({
               <div className="font-mono text-[11px] text-muted-foreground uppercase tracking-[0.3em]">
                 {current.eyebrow}
               </div>
-              <h1 className="mt-2 font-semibold text-3xl text-foreground leading-tight">
+              <h2 className="mt-2 font-semibold text-3xl text-foreground leading-tight">
                 {current.title}
-              </h1>
+              </h2>
               <p className="mt-2 text-muted-foreground text-sm">
                 Avenire works best when the workspace starts from your material,
                 not a blank slate.
@@ -235,11 +228,11 @@ export function OnboardingPageClient({
                 <div className="mt-6 rounded-2xl border border-border/70 bg-background/70 p-4 shadow-sm">
                   <PetPreferencesFields
                     accessory={petAccessory}
-                    accessoryDescription="Pick an accessory for Auri. The pet stays hidden until the workspace opens."
+                    accessoryDescription="Pick an accessory for your pet. The pet stays hidden until the workspace opens."
                     className="border-0 bg-transparent p-0 shadow-none sm:grid-cols-1"
                     name={petName}
-                    nameDescription="Name Auri before you enter the workspace."
-                    namePlaceholder="Auri"
+                    nameDescription="Name your pet before you enter the workspace."
+                    namePlaceholder={DEFAULT_PET_NAME}
                     onAccessoryChange={setPetAccessory}
                     onNameChange={setPetName}
                   />

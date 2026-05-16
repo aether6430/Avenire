@@ -1,15 +1,14 @@
-import React from "react";
-import { Container } from "./container";
-import { DivideX } from "./divide";
-import { SectionHeading } from "./seciton-heading";
-import { SubHeading } from "./subheading";
-import { Button } from "./button";
 import Link from "next/link";
 import {
   BrainIcon,
   RealtimeSyncIcon,
   SDKIcon,
 } from "@/components/marketing/icons/bento-icons";
+import { Button } from "./button";
+import { Container } from "./container";
+import { DivideX } from "./divide";
+import { SectionHeading } from "./section-heading";
+import { SubHeading } from "./subheading";
 
 const workflowPoints = [
   {
@@ -27,7 +26,7 @@ const workflowPoints = [
   {
     title: "Review that follows the work",
     description:
-      "Flashcards and spaced repetition come from the material you just studied, not a separate manual workflow.",
+      "Mindset and spaced repetition come from the material you just studied, not a separate manual workflow.",
     icon: RealtimeSyncIcon,
   },
 ];
@@ -36,12 +35,12 @@ export const Security = () => {
   return (
     <>
       <Container className="border-divide border-x">
-        <h2 className="pt-10 pb-5 text-center font-mono text-sm tracking-tight text-neutral-500 uppercase md:pt-20 md:pb-10 dark:text-neutral-400">
+        <h2 className="pt-10 pb-5 text-center font-mono text-neutral-500 text-sm uppercase tracking-tight md:pt-20 md:pb-10 dark:text-neutral-400">
           FOR DEEP STUDY SESSIONS
         </h2>
       </Container>
       <DivideX />
-      <Container className="border-divide grid grid-cols-1 gap-10 border-x bg-neutral-900/55 px-6 py-12 md:grid-cols-[0.9fr_1.1fr] md:px-8">
+      <Container className="grid grid-cols-1 gap-10 border-divide border-x bg-neutral-900/55 px-6 py-12 md:grid-cols-[0.9fr_1.1fr] md:px-8">
         <div className="max-w-md">
           <SectionHeading className="text-left">
             The workspace gets more useful every session
@@ -52,28 +51,28 @@ export const Security = () => {
             spaced review.
           </SubHeading>
           <Button
-            className="mt-4 mb-8 inline-block w-full md:w-auto"
             as={Link}
+            className="mt-4 mb-8 inline-block w-full md:w-auto"
             href="/waitlist"
           >
-            Join the waitlist
+            Join waitlist
           </Button>
         </div>
         <div className="grid gap-3">
           {workflowPoints.map((point) => (
             <div
-              key={point.title}
               className="group rounded-lg border border-white/10 bg-[#0b0b0d] p-5 transition-colors hover:border-brand/40 hover:bg-[#101116]"
+              key={point.title}
             >
               <div className="flex items-start gap-4">
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-md border border-brand/35 bg-brand/10 text-brand">
                   <point.icon className="size-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-medium text-white">
+                  <h3 className="font-medium text-base text-white">
                     {point.title}
                   </h3>
-                  <p className="mt-2 text-sm leading-6 text-white/58">
+                  <p className="mt-2 text-sm text-white/58 leading-6">
                     {point.description}
                   </p>
                 </div>

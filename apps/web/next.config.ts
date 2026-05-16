@@ -1,7 +1,28 @@
+import { resolve } from "node:path";
+import { loadDatabaseEnv } from "@avenire/database/load-env";
 import type { NextConfig } from "next";
+
+loadDatabaseEnv({
+  packageRootDir: resolve(process.cwd(), "../../packages/database"),
+});
 
 const nextConfig: NextConfig = {
   typedRoutes: true,
+  outputFileTracingRoot: resolve(process.cwd(), "../../"),
+  outputFileTracingExcludes: {
+    "/*": [
+      "../../apps/backend/node_modules/**/*",
+      "../../apps/emails/node_modules/**/*",
+      "../../apps/extension/node_modules/**/*",
+      "../../.ccb/**/*",
+      "../../.git/**/*",
+      "../../.turbo/**/*",
+      "../../docs/**/*",
+      "../../logs/**/*",
+      "../../output/**/*",
+      "../../packages/*/node_modules/**/*",
+    ],
+  },
   images: {
     remotePatterns: [
       {
@@ -16,19 +37,23 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  transpilePackages: ["@avenire/ai", "@avenire/database"],
   serverExternalPackages: [
     "@ai-sdk/baseten",
-    "@basetenlabs/performance-client",
-  ],
-  transpilePackages: [
-    "@avenire/ui",
+    "@better-auth/passkey",
+    "@notionhq/client",
     "@avenire/auth",
-    "@avenire/ai",
     "@avenire/storage",
-    "@avenire/payments",
-    "@avenire/database",
     "@avenire/emailer",
     "@avenire/ingestion",
+    "@avenire/payments",
+    "@basetenlabs/performance-client",
+    "@polar-sh/better-auth",
+    "better-auth",
+    "defuddle",
+    "gray-matter",
+    "reading-time",
+    "uploadthing",
   ],
   productionBrowserSourceMaps: false,
 };

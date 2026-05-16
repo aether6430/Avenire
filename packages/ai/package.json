@@ -22,10 +22,10 @@
   "dependencies": {
     "@ai-sdk/cohere": "^3.0.25",
     "@ai-sdk/fireworks": "^2.0.42",
-    "@ai-sdk/google": "latest",
-    "@ai-sdk/groq": "latest",
+    "@ai-sdk/google": "3.0.43",
+    "@ai-sdk/groq": "3.0.29",
     "@ai-sdk/mistral": "^3.0.21",
-    "@openrouter/ai-sdk-provider": "latest",
+    "@openrouter/ai-sdk-provider": "2.3.0",
     "ai": "^6.0.141",
     "ai-sdk-ollama": "^3.8.0",
     "zod": "^4.3.6"

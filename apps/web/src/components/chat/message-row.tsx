@@ -3,7 +3,10 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { AgentActivityData, UIMessage } from "@avenire/ai/message-types";
 import { memo } from "react";
-import { PreviewMessage } from "@/components/chat/message";
+import { getMessageSignature } from "@/components/chat/message-model";
+import { PreviewMessageSurface } from "@/components/chat/message-surface";
+
+export { getMessageSignature } from "@/components/chat/message-model";
 
 export interface ChatMessageRowProps {
   agentActivity: AgentActivityData | null;
@@ -17,20 +20,6 @@ export interface ChatMessageRowProps {
   replyMinHeight?: string;
   sendMessage: UseChatHelpers<UIMessage>["sendMessage"];
   workspaceUuid: string;
-}
-
-export function getMessageSignature(message: UIMessage) {
-  const parts = message.parts ?? [];
-  const lastPart = parts.at(-1);
-
-  return [
-    message.id,
-    message.role,
-    parts.length,
-    lastPart?.type ?? "",
-    lastPart && "text" in lastPart ? (lastPart.text ?? "") : "",
-    lastPart && "state" in lastPart ? (lastPart.state ?? "") : "",
-  ].join("|");
 }
 
 function PureChatMessageRow({
@@ -47,7 +36,7 @@ function PureChatMessageRow({
   workspaceUuid,
 }: ChatMessageRowProps) {
   return (
-    <PreviewMessage
+    <PreviewMessageSurface
       agentActivity={agentActivity}
       chatId={chatId}
       isActiveReply={isActiveReply}

@@ -1405,7 +1405,7 @@ export function DashboardSidebar({
       window.removeEventListener(CHAT_NAME_UPDATED_EVENT, onChatNameUpdated);
       window.removeEventListener(CHAT_STREAM_STATUS_EVENT, onChatStreamStatus);
     };
-  }, [activeChatSlug, pathname, router, workspaceUuid]);
+  }, [activeChatSlug, navigate, pathname, workspaceUuid]);
 
   const sortedChats = useMemo(
     () =>
@@ -1532,6 +1532,23 @@ export function DashboardSidebar({
     void loadWorkspaces();
   }, [deferredStartupReady, loadWorkspaces]);
 
+  const setActiveOrganization = useCallback(
+    async (organizationId?: string | null) => {
+      if (!organizationId) {
+        return;
+      }
+      const response = await fetch("/api/auth/organization/set-active", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId }),
+      });
+      if (!response.ok) {
+        throw new Error("Unable to switch active organization");
+      }
+    },
+    []
+  );
+
   const activeOrgSyncRef = useRef<string | null>(null);
   useEffect(() => {
     const match = pathname.match(/^\/workspace\/files\/([^/]+)/);
@@ -1553,7 +1570,7 @@ export function DashboardSidebar({
     void setActiveOrganization(targetWorkspace.organizationId).catch(() => {
       activeOrgSyncRef.current = null;
     });
-  }, [pathname, workspaces]);
+  }, [pathname, setActiveOrganization, workspaces]);
 
   const loadInvitations = useCallback(async () => {
     try {
@@ -1659,20 +1676,6 @@ export function DashboardSidebar({
       setActiveChatSlugOverride(null);
       navigate("/workspace/chats/new" as Route);
       router.refresh();
-    }
-  };
-
-  const setActiveOrganization = async (organizationId?: string | null) => {
-    if (!organizationId) {
-      return;
-    }
-    const response = await fetch("/api/auth/organization/set-active", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ organizationId }),
-    });
-    if (!response.ok) {
-      throw new Error("Unable to switch active organization");
     }
   };
 

@@ -1,11 +1,6 @@
 import { NextResponse } from "next/server";
-import {
-  listWorkspaceFiles,
-  listWorkspaceFolders,
-  listWorkspaceMembers,
-} from "@/lib/file-data";
-import { getIngestionFlagsByFileIds } from "@/lib/ingestion-data";
 import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
+import { handleWorkspaceUsageRouteGet } from "./workspace-usage-route-get";
 
 export async function GET(
   _request: Request,
@@ -22,31 +17,7 @@ export async function GET(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const [folders, files, members] = await Promise.all([
-    listWorkspaceFolders(workspaceUuid),
-    listWorkspaceFiles(workspaceUuid),
-    listWorkspaceMembers(workspaceUuid),
-  ]);
-
-  const ingestionFlags = await getIngestionFlagsByFileIds(
+  return await handleWorkspaceUsageRouteGet({
     workspaceUuid,
-    files.map((file) => file.id)
-  );
-
-  const fileCount = files.length;
-  const indexedFileCount = files.reduce(
-    (count, file) => count + (ingestionFlags[file.id] ? 1 : 0),
-    0
-  );
-
-  return NextResponse.json({
-    usage: {
-      fileCount,
-      folderCount: folders.length,
-      indexedFileCount,
-      memberCount: members.length,
-      pendingIngestionCount: Math.max(0, fileCount - indexedFileCount),
-      totalSizeBytes: files.reduce((total, file) => total + file.sizeBytes, 0),
-    },
   });
 }

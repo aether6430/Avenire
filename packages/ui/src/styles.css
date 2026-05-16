@@ -6,28 +6,28 @@
 
 :root {
   /* Core surfaces */
-  --background: #FFFFFF;
-  --foreground: #37352F;
-  --card: #FFFFFF;
-  --card-foreground: #37352F;
-  --popover: #FFFFFF;
-  --popover-foreground: #37352F;
+  --background: #ffffff;
+  --foreground: #37352f;
+  --card: #ffffff;
+  --card-foreground: #37352f;
+  --popover: #ffffff;
+  --popover-foreground: #37352f;
 
   /* Branding accent */
   --primary: #abc4ff;
-  --primary-foreground: #1B2733;
+  --primary-foreground: #1b2733;
 
   /* Neutrals: Pushed to #FAFAFA to be closer to #FFFFFF background */
-  --secondary: #FAFAFA;
-  --secondary-foreground: #37352F;
-  --muted: #FAFAFA;
-  --muted-foreground: #9B9A97;
-  --accent: #FAFAFA;
-  --accent-foreground: #37352F;
+  --secondary: #fafafa;
+  --secondary-foreground: #37352f;
+  --muted: #fafafa;
+  --muted-foreground: #9b9a97;
+  --accent: #fafafa;
+  --accent-foreground: #37352f;
 
   /* Semantic */
-  --destructive: #E03E3E;
-  --destructive-foreground: #FFFFFF;
+  --destructive: #e03e3e;
+  --destructive-foreground: #ffffff;
 
   /* Borders */
   --border: rgba(55, 53, 47, 0.09);
@@ -35,27 +35,27 @@
   --ring: #abc4ff;
 
   /* Status */
-  --info: #0B6E99;
-  --info-foreground: #0B6E99;
-  --success: #0F7B6C;
-  --success-foreground: #0F7B6C;
-  --warning: #DFAB01;
-  --warning-foreground: #DFAB01;
+  --info: #0b6e99;
+  --info-foreground: #0b6e99;
+  --success: #0f7b6c;
+  --success-foreground: #0f7b6c;
+  --warning: #dfab01;
+  --warning-foreground: #dfab01;
 
   /* Charts */
-  --chart-1: #0F7B6C;
-  --chart-2: #0B6E99;
-  --chart-3: #6940A5;
-  --chart-4: #D9730D;
-  --chart-5: #DFAB01;
+  --chart-1: #0f7b6c;
+  --chart-2: #0b6e99;
+  --chart-3: #6940a5;
+  --chart-4: #d9730d;
+  --chart-5: #dfab01;
 
   /* Sidebar */
-  --sidebar: #FAFAFA;
-  --sidebar-foreground: #37352F;
+  --sidebar: #fafafa;
+  --sidebar-foreground: #37352f;
   --sidebar-primary: #abc4ff;
-  --sidebar-primary-foreground: #1B2733;
+  --sidebar-primary-foreground: #1b2733;
   --sidebar-accent: rgba(0, 0, 0, 0.04);
-  --sidebar-accent-foreground: #37352F;
+  --sidebar-accent-foreground: #37352f;
   --sidebar-border: rgba(55, 53, 47, 0.09);
   --sidebar-ring: #abc4ff;
 
@@ -83,44 +83,44 @@
   --spacing-11: 2.75rem;
   --spacing-12: 3rem;
 
-  --color-text-default: #37352F;
-  --color-bg-default: #FFFFFF;
+  --color-text-default: #37352f;
+  --color-bg-default: #ffffff;
   --color-pill-default: rgba(206, 205, 202, 0.5);
 
-  --color-text-gray: #9B9A97;
-  --color-bg-gray: #EBECED;
+  --color-text-gray: #9b9a97;
+  --color-bg-gray: #ebeced;
   --color-pill-gray: rgba(155, 154, 151, 0.4);
 
-  --color-text-brown: #64473A;
-  --color-bg-brown: #E9E5E3;
+  --color-text-brown: #64473a;
+  --color-bg-brown: #e9e5e3;
   --color-pill-brown: rgba(140, 46, 0, 0.2);
 
-  --color-text-orange: #D9730D;
-  --color-bg-orange: #FAEBDD;
+  --color-text-orange: #d9730d;
+  --color-bg-orange: #faebdd;
   --color-pill-orange: rgba(245, 93, 0, 0.2);
 
-  --color-text-yellow: #DFAB01;
-  --color-bg-yellow: #FBF3DB;
+  --color-text-yellow: #dfab01;
+  --color-bg-yellow: #fbf3db;
   --color-pill-yellow: rgba(233, 168, 0, 0.2);
 
-  --color-text-green: #0F7B6C;
-  --color-bg-green: #DDEDEA;
+  --color-text-green: #0f7b6c;
+  --color-bg-green: #ddedea;
   --color-pill-green: rgba(0, 135, 107, 0.2);
 
-  --color-text-blue: #0B6E99;
-  --color-bg-blue: #DDEBF1;
+  --color-text-blue: #0b6e99;
+  --color-bg-blue: #ddebf1;
   --color-pill-blue: rgba(0, 120, 223, 0.2);
 
-  --color-text-purple: #6940A5;
-  --color-bg-purple: #EAE4F2;
+  --color-text-purple: #6940a5;
+  --color-bg-purple: #eae4f2;
   --color-pill-purple: rgba(103, 36, 222, 0.2);
 
-  --color-text-pink: #AD1A72;
-  --color-bg-pink: #F4DFEB;
+  --color-text-pink: #ad1a72;
+  --color-bg-pink: #f4dfeb;
   --color-pill-pink: rgba(221, 0, 129, 0.2);
 
-  --color-text-red: #E03E3E;
-  --color-bg-red: #FBE4E4;
+  --color-text-red: #e03e3e;
+  --color-bg-red: #fbe4e4;
   --color-pill-red: rgba(255, 0, 26, 0.2);
 }
 
@@ -142,25 +142,25 @@
   --accent: #181818;
   --accent-foreground: rgba(255, 255, 255, 0.8);
 
-  --destructive: #FF7369;
+  --destructive: #ff7369;
   --destructive-foreground: #191919;
 
   --border: #202020;
   --input: #202020;
   --ring: #abc4ff;
 
-  --info: #529CCA;
-  --info-foreground: #529CCA;
-  --success: #4DAB9A;
-  --success-foreground: #4DAB9A;
-  --warning: #FFDC49;
-  --warning-foreground: #FFDC49;
+  --info: #529cca;
+  --info-foreground: #529cca;
+  --success: #4dab9a;
+  --success-foreground: #4dab9a;
+  --warning: #ffdc49;
+  --warning-foreground: #ffdc49;
 
-  --chart-1: #4DAB9A;
-  --chart-2: #529CCA;
-  --chart-3: #9A6DD7;
-  --chart-4: #FFA344;
-  --chart-5: #FFDC49;
+  --chart-1: #4dab9a;
+  --chart-2: #529cca;
+  --chart-3: #9a6dd7;
+  --chart-4: #ffa344;
+  --chart-5: #ffdc49;
 
   --sidebar: #141414;
   --sidebar-foreground: rgba(255, 255, 255, 0.8);
@@ -192,42 +192,42 @@
   --spacing-12: 3rem;
 
   --color-text-default: rgba(255, 255, 255, 0.9);
-  --color-bg-default: #2F3437;
+  --color-bg-default: #2f3437;
   --color-pill-default: rgba(206, 205, 202, 0.5);
 
   --color-text-gray: rgba(151, 154, 155, 0.95);
-  --color-bg-gray: #454B4E;
+  --color-bg-gray: #454b4e;
   --color-pill-gray: rgba(151, 154, 155, 0.5);
 
   --color-text-brown: #937264;
   --color-bg-brown: #434040;
   --color-pill-brown: rgba(147, 114, 100, 0.5);
 
-  --color-text-orange: #FFA344;
-  --color-bg-orange: #594A3A;
+  --color-text-orange: #ffa344;
+  --color-bg-orange: #594a3a;
   --color-pill-orange: rgba(255, 163, 68, 0.5);
 
-  --color-text-yellow: #FFDC49;
-  --color-bg-yellow: #59563B;
+  --color-text-yellow: #ffdc49;
+  --color-bg-yellow: #59563b;
   --color-pill-yellow: rgba(255, 220, 73, 0.5);
 
-  --color-text-green: #4DAB9A;
-  --color-bg-green: #354C4B;
+  --color-text-green: #4dab9a;
+  --color-bg-green: #354c4b;
   --color-pill-green: rgba(77, 171, 154, 0.5);
 
-  --color-text-blue: #529CCA;
+  --color-text-blue: #529cca;
   --color-bg-blue: #364954;
   --color-pill-blue: rgba(82, 156, 202, 0.5);
 
-  --color-text-purple: #9A6DD7;
-  --color-bg-purple: #443F57;
+  --color-text-purple: #9a6dd7;
+  --color-bg-purple: #443f57;
   --color-pill-purple: rgba(154, 109, 215, 0.5);
 
-  --color-text-pink: #E255A1;
-  --color-bg-pink: #533B4C;
+  --color-text-pink: #e255a1;
+  --color-bg-pink: #533b4c;
   --color-pill-pink: rgba(226, 85, 161, 0.5);
 
-  --color-text-red: #FF7369;
+  --color-text-red: #ff7369;
   --color-bg-red: #594141;
   --color-pill-red: rgba(255, 115, 105, 0.5);
 }

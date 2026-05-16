@@ -1,6 +1,5 @@
 "use client";
 
-import { WaitlistForm } from "@avenire/auth/components/waitlist";
 import {
   Dialog,
   DialogContent,
@@ -8,9 +7,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@avenire/ui/components/dialog";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { ParticleField } from "@/components/ui/particle-field";
+
+const WaitlistForm = dynamic(
+  () =>
+    import("@avenire/auth/components/waitlist").then(
+      (module) => module.WaitlistForm
+    ),
+  { loading: () => null, ssr: false }
+);
 
 const emptyRoomSrc = "/figures/empty-room.png";
 
@@ -68,20 +76,21 @@ export function WaitlistPageClient() {
             className="pointer-events-none max-w-xl text-3xl text-foreground leading-tight md:text-4xl"
             style={{ textShadow: "0 1px 24px rgba(0,0,0,0.65)" }}
           >
-            This room&apos;s full.
+            Join the waitlist
           </h1>
           <p
             className="pointer-events-none max-w-md text-foreground/70 text-sm leading-relaxed"
             style={{ textShadow: "0 1px 16px rgba(0,0,0,0.7)" }}
           >
-            Join the waitlist and we&apos;ll email you when there&apos;s space.
+            This room&apos;s full for now. We&apos;ll email you when
+            there&apos;s space.
           </p>
           <button
             className="mt-2 inline-flex h-10 items-center justify-center rounded-md bg-foreground px-5 font-medium text-background text-sm transition-opacity hover:opacity-90"
             onClick={() => setIsDialogOpen(true)}
             type="button"
           >
-            Join the waitlist
+            Join waitlist
           </button>
           <p className="max-w-md text-foreground/55 text-xs">
             Joining the waitlist means you agree to our{" "}
@@ -97,17 +106,19 @@ export function WaitlistPageClient() {
         </div>
       </div>
 
-      <Dialog onOpenChange={setIsDialogOpen} open={isDialogOpen}>
-        <DialogContent className="dark sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Join the waitlist</DialogTitle>
-            <DialogDescription>
-              Leave your email and we&apos;ll let you know when access opens.
-            </DialogDescription>
-          </DialogHeader>
-          <WaitlistForm />
-        </DialogContent>
-      </Dialog>
+      {isDialogOpen ? (
+        <Dialog onOpenChange={setIsDialogOpen} open={isDialogOpen}>
+          <DialogContent className="dark sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Join the waitlist</DialogTitle>
+              <DialogDescription>
+                Leave your email and we&apos;ll let you know when access opens.
+              </DialogDescription>
+            </DialogHeader>
+            <WaitlistForm />
+          </DialogContent>
+        </Dialog>
+      ) : null}
     </>
   );
 }

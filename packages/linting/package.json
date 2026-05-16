@@ -14,8 +14,8 @@
   },
   "devDependencies": {
     "@avenire/env-types": "workspace:*",
-    "@biomejs/biome": "latest",
-    "ultracite": "latest"
+    "@biomejs/biome": "2.4.6",
+    "ultracite": "7.2.5"
   },
   "engines": {
     "bun": ">=1.0.0"

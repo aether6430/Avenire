@@ -2,19 +2,14 @@
 
 import { RegisterForm } from "@avenire/auth/components/register";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { ParticleFormFrame } from "@/components/auth/particle-form-frame";
 import { AuthShell } from "@/components/auth-shell";
 
-function getSingleValue(value: string | null) {
-  return value ?? undefined;
-}
-
-export function RegisterPageClient() {
-  const searchParams = useSearchParams();
-  const callbackURL =
-    getSingleValue(searchParams.get("callbackURL")) ?? "/onboarding";
-
+export function RegisterPageClient({
+  callbackURL = "/onboarding",
+}: {
+  callbackURL?: string;
+}) {
   return (
     <AuthShell>
       <div className="w-full max-w-lg">

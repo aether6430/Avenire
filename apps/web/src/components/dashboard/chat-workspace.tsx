@@ -230,7 +230,7 @@ export function ChatWorkspace({
     return () => {
       window.removeEventListener(CHAT_NAME_UPDATED_EVENT, onChatNameUpdated);
     };
-  }, [currentChatSlug]);
+  }, [chatIcon, currentChatSlug]);
 
   useEffect(() => {
     const onChatStreamStatus = (event: Event) => {
@@ -250,7 +250,7 @@ export function ChatWorkspace({
     return () => {
       window.removeEventListener(CHAT_STREAM_STATUS_EVENT, onChatStreamStatus);
     };
-  }, [chatIcon, currentChatSlug]);
+  }, [currentChatSlug]);
 
   const shareSuggestionsQuery = useQuery({
     enabled:
@@ -447,6 +447,7 @@ export function ChatWorkspace({
             isReadonly={isReadonly}
             key={currentChatSlug}
             selectedModel="apollo-apex"
+            title={title}
             userName={userName}
             workspaceUuid={workspaceUuid}
           />

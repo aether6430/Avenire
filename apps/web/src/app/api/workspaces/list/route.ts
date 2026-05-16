@@ -1,13 +1,5 @@
-import { NextResponse } from "next/server";
-import { listWorkspacesForUser } from "@/lib/file-data";
-import { getSessionUser } from "@/lib/workspace";
+import { handleWorkspaceListRouteGet } from "./workspace-list-route-get";
 
 export async function GET() {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const workspaces = await listWorkspacesForUser(user.id);
-  return NextResponse.json({ workspaces });
+  return await handleWorkspaceListRouteGet();
 }

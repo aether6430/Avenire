@@ -1,14 +1,12 @@
-import { LandingPageClient } from "@/components/landing/landing-page-client";
+import { LandingPage } from "@/components/marketing/landing-page";
 import { buildPageMetadata, metadataBase } from "@/lib/page-metadata";
 
 export const metadata = buildPageMetadata({
   description:
     "Study from sources, ask better questions, and turn notes into review.",
   path: "/",
-  title: "AI Learning Workspace",
+  title: "AI Learning Workspace for clearer thinking",
 });
-
-export const dynamic = "force-static";
 
 export default function Page() {
   const websiteSchema = {
@@ -55,7 +53,7 @@ export default function Page() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
         type="application/ld+json"
       />
-      <LandingPageClient />
+      <LandingPage />
     </>
   );
 }

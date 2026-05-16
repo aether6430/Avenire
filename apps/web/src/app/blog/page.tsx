@@ -82,9 +82,7 @@ function FeaturedPostCard({ post }: { post: PostMeta }) {
                 <Clock className="size-3.5" />
                 {post.readingTime}
               </span>
-              <span className="font-medium text-white/62">
-                {post.author}
-              </span>
+              <span className="font-medium text-white/62">{post.author}</span>
             </div>
             <span className="flex items-center gap-1 font-medium text-brand text-sm transition-all duration-200 group-hover:gap-2">
               Read more <ArrowRight className="size-4" />
@@ -128,11 +126,11 @@ function PostCard({ post }: { post: PostMeta }) {
           </div>
         )}
 
-        <h3 className="mb-3 flex-1 font-semibold text-white text-lg leading-snug transition-colors duration-200 group-hover:text-brand">
+        <h3 className="mb-3 flex-1 font-semibold text-lg text-white leading-snug transition-colors duration-200 group-hover:text-brand">
           {post.title}
         </h3>
 
-        <p className="mb-5 line-clamp-3 text-white/58 text-sm leading-relaxed">
+        <p className="mb-5 line-clamp-3 text-sm text-white/58 leading-relaxed">
           {post.description}
         </p>
 
@@ -176,54 +174,54 @@ export default function BlogPage() {
       {/* Hero */}
       <section className="px-4 pt-32">
         <div className="mx-auto max-w-[72rem] border-divide border-x border-t px-4 pt-8 pb-16 md:px-8">
-        <div className="mx-auto max-w-[56rem]">
-          <div className="mb-2">
-            <span className="font-medium text-brand text-xs uppercase tracking-widest">
-              From the blog
-            </span>
+          <div className="mx-auto max-w-[56rem]">
+            <div className="mb-2">
+              <span className="font-medium text-brand text-xs uppercase tracking-widest">
+                From the blog
+              </span>
+            </div>
+            <h1 className="mb-4 font-semibold text-4xl text-white tracking-tight md:text-5xl">
+              Thoughts & Updates
+            </h1>
+            <p className="max-w-xl text-lg text-white/60 leading-relaxed">
+              Insights on AI reasoning, product updates, and ideas from the
+              Avenire team.
+            </p>
           </div>
-          <h1 className="mb-4 font-semibold text-4xl text-white tracking-tight md:text-5xl">
-            Thoughts & Updates
-          </h1>
-          <p className="max-w-xl text-lg text-white/60 leading-relaxed">
-            Insights on AI reasoning, product updates, and ideas from the
-            Avenire team.
-          </p>
-        </div>
         </div>
       </section>
 
       {/* Content */}
       <section className="px-4 pb-24">
         <div className="mx-auto max-w-[72rem] border-divide border-x border-b px-4 pb-8 md:px-8">
-        <div className="mx-auto max-w-[56rem] space-y-12">
-          {/* Featured post */}
-          {featured && (
-            <div>
-              <FeaturedPostCard post={featured} />
-            </div>
-          )}
-
-          {/* Rest of posts */}
-          {rest.length > 0 && (
-            <div>
-              <h2 className="mb-6 font-medium text-white/45 text-sm uppercase tracking-widest">
-                More posts
-              </h2>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                {rest.map((post) => (
-                  <PostCard key={post.slug} post={post} />
-                ))}
+          <div className="mx-auto max-w-[56rem] space-y-12">
+            {/* Featured post */}
+            {featured && (
+              <div>
+                <FeaturedPostCard post={featured} />
               </div>
-            </div>
-          )}
+            )}
 
-          {posts.length === 0 && (
-            <div className="py-24 text-center text-white/50">
-              <p className="text-lg">No posts yet. Check back soon!</p>
-            </div>
-          )}
-        </div>
+            {/* Rest of posts */}
+            {rest.length > 0 && (
+              <div>
+                <h2 className="mb-6 font-medium text-sm text-white/45 uppercase tracking-widest">
+                  More posts
+                </h2>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  {rest.map((post) => (
+                    <PostCard key={post.slug} post={post} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {posts.length === 0 && (
+              <div className="py-24 text-center text-white/50">
+                <p className="text-lg">No posts yet. Check back soon!</p>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 

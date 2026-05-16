@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getGooglePickerToken } from "@/lib/imports";
 import { getSessionUser } from "@/lib/workspace";
+import { handleGoogleDrivePickerTokenRouteGet } from "./imports-google-drive-picker-token-route-get";
 
 export async function GET() {
   const user = await getSessionUser();
@@ -8,18 +8,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  try {
-    const token = await getGooglePickerToken(user.id);
-    return NextResponse.json(token);
-  } catch (error) {
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unable to get a Google Drive access token.",
-      },
-      { status: 409 }
-    );
-  }
+  return await handleGoogleDrivePickerTokenRouteGet({
+    userId: user.id,
+  });
 }

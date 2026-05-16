@@ -45,7 +45,7 @@ export function getUploadErrorMessage(error: unknown): string {
   return "An unknown error occurred during upload";
 }
 
-export const router = {
+export const router: FileRouter = {
   imageUploader: storage({
     image: { maxFileSize: "4MB", maxFileCount: 1 },
   }).onUploadComplete(async ({ file }) => ({
@@ -77,6 +77,6 @@ export const router = {
     url: file.ufsUrl,
     contentType: file.type,
   })),
-} satisfies FileRouter;
+};
 
 export type UploadRouter = typeof router;

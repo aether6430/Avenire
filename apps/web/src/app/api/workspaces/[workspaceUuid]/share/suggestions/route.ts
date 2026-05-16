@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { listWorkspaceShareSuggestions } from "@/lib/file-data";
 import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
+import { handleWorkspaceShareSuggestionsRouteGet } from "./workspace-share-suggestions-route-get";
 
 export async function GET(
   request: Request,
@@ -17,14 +17,9 @@ export async function GET(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const query = new URL(request.url).searchParams.get("q") ?? "";
-  const suggestions = await listWorkspaceShareSuggestions({
-    workspaceId: workspaceUuid,
-    userId: user.id,
-    userEmail: user.email,
-    query,
-    limit: 8,
+  return await handleWorkspaceShareSuggestionsRouteGet({
+    request,
+    user,
+    workspaceUuid,
   });
-
-  return NextResponse.json({ suggestions });
 }

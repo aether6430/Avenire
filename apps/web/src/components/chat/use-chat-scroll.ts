@@ -236,7 +236,7 @@ export function useChatScroll(options: {
     return () => {
       resizeObserver.disconnect();
     };
-  }, [messageCount]);
+  }, []);
 
   useLayoutEffect(() => {
     const content = contentRef.current;
@@ -262,7 +262,7 @@ export function useChatScroll(options: {
     return () => {
       resizeObserver.disconnect();
     };
-  }, [followIfNeeded, isStreaming, messageCount, scrollToBottom]);
+  }, [followIfNeeded, isStreaming, scrollToBottom]);
 
   useLayoutEffect(() => {
     const container = containerRef.current;

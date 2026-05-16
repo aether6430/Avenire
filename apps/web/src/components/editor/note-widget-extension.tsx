@@ -12,6 +12,18 @@ import {
   serializeNoteWidgetPayload,
 } from "@/lib/note-widgets";
 
+declare module "@tiptap/core" {
+  interface Commands<ReturnType> {
+    noteWidget: {
+      insertNoteWidget: (options: {
+        html: string;
+        pos?: number;
+        title?: string | null;
+      }) => ReturnType;
+    };
+  }
+}
+
 const NOTE_WIDGET_TOKEN = "avenire-widget";
 const NOTE_WIDGET_DEFAULT_TITLE = "Interactive widget";
 

@@ -22,9 +22,6 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@avenire/ui/components/dropdown-menu";
 import { Input } from "@avenire/ui/components/input";
@@ -35,13 +32,9 @@ import {
   useSidebar,
 } from "@avenire/ui/components/sidebar";
 import {
-  Building as Building2,
-  Check,
   CaretUpDown as ChevronsUpDown,
   SignOut as LogOut,
-  Envelope as Mail,
   Plus,
-  UserPlus,
 } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -49,21 +42,16 @@ import { SensitiveText } from "@/components/shared/sensitive-text";
 import { useHaptics } from "@/hooks/use-haptics";
 import { usePrivacyMode } from "@/hooks/use-privacy-mode";
 import { getFacehashUrl } from "@/lib/avatar";
-
-interface WorkspaceSummary {
-  name: string;
-  organizationId?: string;
-  rootFolderId: string;
-  workspaceId: string;
-}
-
-interface WorkspaceInvitation {
-  id: string;
-  inviterEmail: string;
-  inviterName: string | null;
-  organizationId: string;
-  organizationName: string;
-}
+import type { WorkspaceSummary } from "./command-palette-model";
+import {
+  getSidebarInvitationsState,
+  getSidebarWorkspaceListState,
+} from "./dashboard-sidebar-workspaces-model";
+import type { WorkspaceInvitation } from "./nav-user-menu-sections";
+import {
+  WorkspaceInvitesMenuSection,
+  WorkspaceSwitchMenuSection,
+} from "./nav-user-menu-sections";
 
 function getInitials(value: string) {
   return (
@@ -82,6 +70,11 @@ export function NavUser({
   workspaces = [],
   invitations = [],
   activeWorkspaceId,
+  workspacesLoadFailed = false,
+  workspacesLoading = false,
+  invitationsLoadFailed = false,
+  invitationsLoading = false,
+  workspaceActionStatus = null,
   onSwitchWorkspace,
   onCreateWorkspace,
   onAcceptInvitation,
@@ -95,6 +88,11 @@ export function NavUser({
   workspaces?: WorkspaceSummary[];
   invitations?: WorkspaceInvitation[];
   activeWorkspaceId?: string | null;
+  workspacesLoadFailed?: boolean;
+  workspacesLoading?: boolean;
+  invitationsLoadFailed?: boolean;
+  invitationsLoading?: boolean;
+  workspaceActionStatus?: string | null;
   onSwitchWorkspace?: (workspace: WorkspaceSummary) => void;
   onCreateWorkspace?: (name: string) => Promise<void> | void;
   onAcceptInvitation?: (invitationId: string) => Promise<void> | void;
@@ -154,6 +152,17 @@ export function NavUser({
     [activeWorkspaceId, workspaces]
   );
   const activeWorkspaceLabel = activeWorkspace?.name ?? "Active workspace";
+  const workspaceListState = getSidebarWorkspaceListState({
+    activeWorkspaceLabel,
+    loadFailed: workspacesLoadFailed,
+    loading: workspacesLoading,
+    workspaceCount: workspaces.length,
+  });
+  const invitationsState = getSidebarInvitationsState({
+    invitationCount: invitations.length,
+    loadFailed: invitationsLoadFailed,
+    loading: invitationsLoading,
+  });
 
   return (
     <Dialog onOpenChange={setCreateOpen} open={createOpen}>
@@ -201,102 +210,37 @@ export function NavUser({
               sideOffset={4}
             >
               <DropdownMenuGroup>
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    <Building2 className="size-4" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate">Switch Workspace</p>
-                      <p className="truncate text-[10px] text-muted-foreground">
-                        {activeWorkspaceLabel}
-                      </p>
-                    </div>
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="min-w-64">
-                    {workspaces.map((workspace) => (
-                      <DropdownMenuItem
-                        key={workspace.workspaceId}
-                        onSelect={() => {
-                          void triggerHaptic("selection");
-                          onSwitchWorkspace?.(workspace);
-                        }}
-                      >
-                        <Building2 className="size-4" />
-                        <span className="truncate">{workspace.name}</span>
-                        {workspace.workspaceId === activeWorkspaceId ? (
-                          <Check className="ml-auto size-4" />
-                        ) : null}
-                      </DropdownMenuItem>
-                    ))}
+                <WorkspaceSwitchMenuSection
+                  activeWorkspaceId={activeWorkspaceId}
+                  createWorkspaceTrigger={
                     <DialogTrigger render={<DropdownMenuItem />}>
                       <Plus className="size-4" />
                       Create workspace
                     </DialogTrigger>
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
+                  }
+                  onSwitchWorkspace={onSwitchWorkspace}
+                  subtitle={workspaceListState.subtitle}
+                  switchWorkspaceEmptyMessage={workspaceListState.emptyMessage}
+                  triggerHaptic={() => triggerHaptic("selection")}
+                  workspaces={workspaces}
+                />
 
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    <UserPlus className="size-4" />
-                    <div className="min-w-0 flex-1">
-                      <p>Workspace invites</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {invitations.length} pending
-                      </p>
-                    </div>
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="min-w-72">
-                    {invitations.length === 0 ? (
-                      <DropdownMenuItem disabled>
-                        <Mail className="size-4" />
-                        No pending invites
-                      </DropdownMenuItem>
-                    ) : (
-                      invitations.map((invite) => (
-                        <div
-                          className="rounded-md border border-border/60 p-2"
-                          key={invite.id}
-                        >
-                          <p className="truncate font-medium text-xs">
-                            {invite.organizationName}
-                          </p>
-                          <p className="truncate text-[11px] text-muted-foreground">
-                            <SensitiveText
-                              className="truncate"
-                              privacyMode={privacyMode}
-                              value={invite.inviterName ?? invite.inviterEmail}
-                            />
-                          </p>
-                          <div className="mt-2 flex gap-2">
-                            <Button
-                              className="h-6 px-2 text-xs"
-                              onClick={() => {
-                                void onAcceptInvitation?.(invite.id);
-                              }}
-                              size="sm"
-                              type="button"
-                            >
-                              Accept
-                            </Button>
-                            <Button
-                              className="h-6 px-2 text-xs"
-                              onClick={() => {
-                                void onDeclineInvitation?.(invite.id);
-                              }}
-                              size="sm"
-                              type="button"
-                              variant="outline"
-                            >
-                              Decline
-                            </Button>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
+                <WorkspaceInvitesMenuSection
+                  emptyMessage={invitationsState.emptyMessage}
+                  invitations={invitations}
+                  onAcceptInvitation={onAcceptInvitation}
+                  onDeclineInvitation={onDeclineInvitation}
+                  privacyMode={privacyMode}
+                  subtitle={invitationsState.subtitle}
+                />
               </DropdownMenuGroup>
 
               <DropdownMenuSeparator />
+              {workspaceActionStatus ? (
+                <div className="px-2 pb-2 text-destructive text-xs">
+                  {workspaceActionStatus}
+                </div>
+              ) : null}
               <DropdownMenuItem
                 disabled={signingOut}
                 onClick={() => {

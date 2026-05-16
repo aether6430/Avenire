@@ -1,18 +1,19 @@
+import { execFileSync } from "node:child_process";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 type SkillSection = "study-guidelines" | "visual-guidelines";
 
-type ParsedFrontmatter = {
+interface ParsedFrontmatter {
   attributes: {
     description?: string;
     name?: string;
   };
   body: string;
-};
+}
 
-type SkillEntry = {
+interface SkillEntry {
   content: string;
   description: string | null;
   id: string;
@@ -20,7 +21,7 @@ type SkillEntry = {
   section: SkillSection;
   sourceIds?: string[];
   title: string;
-};
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -92,6 +93,12 @@ function escapeTemplateLiteral(value: string) {
     .replace(/\$\{/g, "\\${");
 }
 
+function serializeContent(value: string) {
+  return value.includes("\n")
+    ? `\`${escapeTemplateLiteral(value)}\``
+    : JSON.stringify(value);
+}
+
 async function readMarkdownEntries() {
   const sections = (await readdir(SECTIONS_DIR, { withFileTypes: true }))
     .filter((entry): entry is typeof entry & { name: SkillSection } =>
@@ -114,7 +121,7 @@ async function readMarkdownEntries() {
         continue;
       }
 
-      if (!entry.isFile() || !entry.name.endsWith(".md")) {
+      if (!(entry.isFile() && entry.name.endsWith(".md"))) {
         continue;
       }
 
@@ -194,6 +201,7 @@ async function buildSkillMap() {
 
 async function main() {
   const { entries, visualSkillIds } = await buildSkillMap();
+  const templateInterpolation = "${";
   const studySkillIds = entries
     .filter((entry) => entry.section === "study-guidelines")
     .map((entry) => entry.id)
@@ -207,15 +215,15 @@ async function main() {
     'export type SkillSection = "study-guidelines" | "visual-guidelines";'
   );
   lines.push("");
-  lines.push("export type SkillDefinition = {");
-  lines.push("  id: string;");
-  lines.push("  title: string;");
-  lines.push("  description: string | null;");
-  lines.push("  section: SkillSection;");
-  lines.push("  path: string | null;");
+  lines.push("export interface SkillDefinition {");
   lines.push("  content: string;");
+  lines.push("  description: string | null;");
+  lines.push("  id: string;");
+  lines.push("  path: string | null;");
+  lines.push("  section: SkillSection;");
   lines.push("  sourceIds?: readonly string[];");
-  lines.push("};");
+  lines.push("  title: string;");
+  lines.push("}");
   lines.push("");
   lines.push("export const SKILL_MAP = {");
 
@@ -226,7 +234,7 @@ async function main() {
     lines.push(`    description: ${JSON.stringify(entry.description)},`);
     lines.push(`    section: ${JSON.stringify(entry.section)},`);
     lines.push(`    path: ${JSON.stringify(entry.path)},`);
-    lines.push(`    content: \`${escapeTemplateLiteral(entry.content)}\`,`);
+    lines.push(`    content: ${serializeContent(entry.content)},`);
     if (entry.sourceIds) {
       lines.push(`    sourceIds: ${JSON.stringify(entry.sourceIds)} as const,`);
     }
@@ -258,19 +266,27 @@ async function main() {
   lines.push('  let content = "";');
   lines.push("");
   lines.push("  for (const skillId of skillIds) {");
-  lines.push("    if (seen.has(skillId)) continue;");
+  lines.push("    if (seen.has(skillId)) {");
+  lines.push("      continue;");
+  lines.push("    }");
   lines.push("    seen.add(skillId);");
   lines.push("");
   lines.push("    const skill = getSkill(skillId);");
   lines.push("    if (!skill) {");
-  lines.push("      throw new Error(`Unknown skill: ${skillId}`);");
+  lines.push(
+    `      throw new Error(\`Unknown skill: ${templateInterpolation}skillId}\`);`
+  );
   lines.push("    }");
   lines.push("");
-  lines.push('    if (content) content += "\\n\\n";');
+  lines.push("    if (content) {");
+  lines.push('      content += "\\n\\n";');
+  lines.push("    }");
   lines.push("    content += skill.content.trimEnd();");
   lines.push("  }");
   lines.push("");
-  lines.push('  return content ? `${content}\\n` : "";');
+  lines.push(
+    `  return content ? \`${templateInterpolation}content}\\n\` : "";`
+  );
   lines.push("}");
   lines.push("");
   lines.push("export function getGuidelines(modules: string[]) {");
@@ -279,6 +295,10 @@ async function main() {
   lines.push("");
 
   await writeFile(OUTPUT_FILE, `${lines.join("\n")}`, "utf8");
+  execFileSync("pnpm", ["exec", "biome", "format", "--write", "./skills.ts"], {
+    cwd: ROOT_DIR,
+    stdio: "ignore",
+  });
 }
 
 await main();

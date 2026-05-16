@@ -1,116 +1,16 @@
-import { openAsBlob } from "node:fs";
-import { UTApi, UTFile } from "@avenire/storage";
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { userCanEditFolder } from "@/lib/file-data";
 import { createApiLogger } from "@/lib/observability";
-import {
-  assembleMultipartPartsToFile,
-  clearMultipartParts,
-} from "@/lib/upload-multipart-store";
-import {
-  normalizeSha256,
-  registerWorkspaceUploadedFile,
-} from "@/lib/upload-registration";
-import {
-  getUploadSession,
-  saveUploadSession,
-} from "@/lib/upload-session-store";
-import { scheduleAsyncVideoDeliveryOptimization } from "@/lib/video-delivery";
+import { normalizeSha256 } from "@/lib/upload-registration";
+import { getUploadSession } from "@/lib/upload-session-store";
 import { getSessionUser } from "@/lib/workspace";
-
-const completeSchema = z
-  .object({
-    storageKey: z.string().min(1).optional(),
-    storageUrl: z.string().url().optional(),
-    mimeType: z.string().nullable().optional(),
-    sizeBytes: z.number().int().nonnegative().optional(),
-    checksumSha256: z.string().optional(),
-    metadata: z.record(z.string(), z.unknown()).optional(),
-    multipart: z
-      .object({
-        partNumbers: z.array(z.number().int().positive()).optional(),
-      })
-      .optional(),
-  })
-  .refine(
-    (value) =>
-      (Boolean(value.storageKey) &&
-        Boolean(value.storageUrl) &&
-        typeof value.sizeBytes === "number") ||
-      Boolean(value.multipart),
-    {
-      message:
-        "Provide direct upload metadata or multipart completion payload.",
-    }
-  );
-
-function asNullableString(value: string | null | undefined) {
-  const trimmed = (value ?? "").trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-async function uploadMultipartAsSingleObject(input: {
-  sessionId: string;
-  name: string;
-  mimeType: string | null;
-  expectedPartNumbers?: number[];
-}) {
-  if (!process.env.UPLOADTHING_TOKEN) {
-    throw Object.assign(new Error("UPLOADTHING_TOKEN missing"), {
-      code: "UPLOADTHING_UNAVAILABLE",
-    });
-  }
-
-  const assembled = await assembleMultipartPartsToFile(input.sessionId);
-  if (
-    Array.isArray(input.expectedPartNumbers) &&
-    input.expectedPartNumbers.length > 0
-  ) {
-    const normalizedExpected = [
-      ...new Set(
-        input.expectedPartNumbers.map((value) => Math.max(1, Math.trunc(value)))
-      ),
-    ].sort((a, b) => a - b);
-    const normalizedActual = [...assembled.partNumbers].sort((a, b) => a - b);
-    if (
-      JSON.stringify(normalizedExpected) !== JSON.stringify(normalizedActual)
-    ) {
-      throw Object.assign(new Error("Multipart part list mismatch"), {
-        code: "MULTIPART_PART_MISMATCH",
-      });
-    }
-  }
-  const utapi = new UTApi({ token: process.env.UPLOADTHING_TOKEN });
-  const assembledBlob = await openAsBlob(assembled.path, {
-    type: input.mimeType ?? undefined,
-  });
-  const uploadResult = await utapi.uploadFiles(
-    new UTFile([assembledBlob], input.name, {
-      type: input.mimeType ?? undefined,
-    })
-  );
-  const result = Array.isArray(uploadResult) ? uploadResult[0] : uploadResult;
-  const uploaded = result?.data;
-  if (
-    !uploaded ||
-    typeof uploaded.key !== "string" ||
-    typeof uploaded.ufsUrl !== "string"
-  ) {
-    throw new Error(
-      "Multipart upload assembly succeeded but UploadThing upload failed."
-    );
-  }
-
-  return {
-    checksumSha256: assembled.checksumSha256,
-    partNumbers: assembled.partNumbers,
-    partCount: assembled.partCount,
-    sizeBytes: assembled.totalSizeBytes,
-    storageKey: uploaded.key,
-    storageUrl: uploaded.ufsUrl,
-  };
-}
+import { finalizeUploadSessionCompletion } from "./upload-session-complete-finalize";
+import {
+  asNullableString,
+  buildUploadCompletionReplayResponse,
+  completeSchema,
+} from "./upload-session-complete-model";
+import { completeMultipartUploadSession } from "./upload-session-complete-storage";
 
 export async function POST(
   request: Request,
@@ -157,14 +57,6 @@ export async function POST(
     return NextResponse.json({ error: "Read-only folder" }, { status: 403 });
   }
 
-  const parsed = completeSchema.safeParse(
-    await request.json().catch(() => ({}))
-  );
-  if (!parsed.success) {
-    void apiLogger.requestFailed(400, "Invalid payload");
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
-  }
-
   const sessionStartedAt = new Date(session.createdAt).getTime();
 
   if (session.result?.fileId) {
@@ -177,16 +69,15 @@ export async function POST(
       sessionUploadDurationMs: Math.max(0, Date.now() - sessionStartedAt),
       sizeBytes: session.upload?.sizeBytes ?? session.sizeBytes,
     });
-    return NextResponse.json(
-      {
-        ok: true,
-        session,
-        fileId: session.result.fileId,
-        ingestionJobId: session.result.ingestionJobId,
-        deduplicated: session.result.deduplicated,
-      },
-      { status: 200 }
-    );
+    return buildUploadCompletionReplayResponse({ session });
+  }
+
+  const parsed = completeSchema.safeParse(
+    await request.json().catch(() => ({}))
+  );
+  if (!parsed.success) {
+    void apiLogger.requestFailed(400, "Invalid payload");
+    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
   let storageKey = parsed.data.storageKey;
@@ -197,7 +88,7 @@ export async function POST(
 
   if (!(storageKey && storageUrl) || typeof sizeBytes !== "number") {
     try {
-      const multipartUpload = await uploadMultipartAsSingleObject({
+      const multipartUpload = await completeMultipartUploadSession({
         sessionId,
         name: session.name,
         mimeType: asNullableString(parsed.data.mimeType) ?? session.mimeType,
@@ -267,140 +158,18 @@ export async function POST(
     return NextResponse.json({ error: "MIME type mismatch" }, { status: 422 });
   }
 
-  const uploadedSession = await saveUploadSession({
-    ...session,
-    status: "uploaded",
-    upload: {
-      storageKey,
-      storageUrl,
-      mimeType: asNullableString(parsed.data.mimeType) ?? session.mimeType,
-      sizeBytes,
-      checksumSha256,
-    },
+  return await finalizeUploadSessionCompletion({
+    apiLogger,
+    checksumSha256,
+    metadata: parsed.data.metadata,
+    mimeType: asNullableString(parsed.data.mimeType) ?? session.mimeType,
+    multipartPartCount,
+    requestStartedAt,
+    session,
+    sessionId,
+    sizeBytes,
+    storageKey,
+    storageUrl,
+    user,
   });
-
-  const verifiedSession = await saveUploadSession({
-    ...uploadedSession,
-    status: "verified",
-  });
-
-  try {
-    const result = await registerWorkspaceUploadedFile({
-      workspaceUuid: session.workspaceUuid,
-      userId: user.id,
-      folderId: session.folderId,
-      storageKey,
-      storageUrl,
-      name: session.name,
-      mimeType: parsed.data.mimeType ?? session.mimeType,
-      sizeBytes,
-      metadata: parsed.data.metadata,
-      contentHashSha256: checksumSha256 ?? session.checksumSha256,
-      hashComputedBy: "client",
-    });
-
-    const completedSession = await saveUploadSession({
-      ...verifiedSession,
-      status: "ingestion_queued",
-      result: {
-        fileId: result.file.id,
-        ingestionJobId: result.ingestionJob?.id ?? null,
-        deduplicated: result.status === "deduplicated",
-      },
-    });
-
-    if (
-      result.status === "created" &&
-      result.file.mimeType?.startsWith("video/")
-    ) {
-      scheduleAsyncVideoDeliveryOptimization({
-        file: result.file,
-        userId: user.id,
-        workspaceUuid: session.workspaceUuid,
-      });
-    }
-
-    await clearMultipartParts(sessionId);
-
-    void apiLogger.requestSucceeded(200, {
-      completionDurationMs: Date.now() - requestStartedAt,
-      workspaceUuid: session.workspaceUuid,
-      sessionId: session.id,
-      fileId: result.file.id,
-      ingestionJobId: result.ingestionJob?.id ?? null,
-      deduplicated: result.status === "deduplicated",
-      multipartPartCount: multipartPartCount || undefined,
-      sessionUploadDurationMs: Math.max(0, Date.now() - sessionStartedAt),
-      sizeBytes,
-    });
-    void apiLogger.info("upload.session.completed", {
-      completionDurationMs: Date.now() - requestStartedAt,
-      deduplicated: result.status === "deduplicated",
-      multipartPartCount: multipartPartCount || undefined,
-      sessionId: session.id,
-      sessionUploadDurationMs: Math.max(0, Date.now() - sessionStartedAt),
-      sizeBytes,
-      workspaceUuid: session.workspaceUuid,
-    });
-    return NextResponse.json(
-      {
-        ok: true,
-        session: completedSession,
-        file: result.file,
-        ingestionJob: result.ingestionJob,
-      },
-      { status: 200 }
-    );
-  } catch (error) {
-    const failedSession = await saveUploadSession({
-      ...verifiedSession,
-      status: "failed",
-    });
-    const cleanupStorageKey =
-      verifiedSession.upload?.storageKey ??
-      session.upload?.storageKey ??
-      storageKey ??
-      null;
-    if (cleanupStorageKey && process.env.UPLOADTHING_TOKEN) {
-      try {
-        const utapi = new UTApi({ token: process.env.UPLOADTHING_TOKEN });
-        await utapi.deleteFiles([cleanupStorageKey]);
-      } catch (cleanupError) {
-        void apiLogger.warn("upload.cleanup.failed", {
-          workspaceUuid: session.workspaceUuid,
-          sessionId: session.id,
-          storageKey: cleanupStorageKey,
-          error:
-            cleanupError instanceof Error
-              ? { name: cleanupError.name, message: cleanupError.message }
-              : { message: "Unknown cleanup error" },
-        });
-      }
-    }
-    const isRateLimit =
-      (error as { code?: string } | null | undefined)?.code ===
-      "UPLOAD_RATE_LIMIT";
-    const retryAfter =
-      (error as { retryAfter?: string | null } | null | undefined)
-        ?.retryAfter ?? null;
-
-    void apiLogger.requestFailed(isRateLimit ? 429 : 500, error, {
-      completionDurationMs: Date.now() - requestStartedAt,
-      workspaceUuid: session.workspaceUuid,
-      sessionId: session.id,
-      retryAfter,
-      sessionUploadDurationMs: Math.max(0, Date.now() - sessionStartedAt),
-      sizeBytes: sizeBytes ?? null,
-    });
-    return NextResponse.json(
-      {
-        error: isRateLimit
-          ? "Upload usage limit reached"
-          : "Upload finalize failed",
-        retryAfter,
-        session: failedSession,
-      },
-      { status: isRateLimit ? 429 : 500 }
-    );
-  }
 }

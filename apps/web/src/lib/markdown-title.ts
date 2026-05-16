@@ -1,6 +1,7 @@
 const FRONTMATTER_BLOCK_REGEX = /^---\s*\r?\n([\s\S]*?)\r?\n---\s*\r?\n?/;
 const FRONTMATTER_TITLE_REGEX = /^\s*title:\s*(.+?)\s*$/im;
 const ATX_HEADING_REGEX = /^#\s+(.+?)\s*$/m;
+const LEADING_ATX_H1_REGEX = /^(?:\s*\r?\n)*#\s+.+\r?\n(?:\r?\n)*/;
 
 function stripQuotes(value: string) {
   const trimmed = value.trim();
@@ -30,7 +31,11 @@ function extractFrontmatterTitle(markdown: string) {
 
 function extractFirstHeading(markdown: string) {
   const heading = markdown.match(ATX_HEADING_REGEX)?.[1] ?? "";
-  const normalized = heading.trim();
+  const normalized = heading
+    .replaceAll("\\r\\n", "\n")
+    .replaceAll("\\n", "\n")
+    .split(/\r?\n/, 1)[0]
+    .trim();
   return normalized.length > 0 ? normalized : null;
 }
 
@@ -49,4 +54,8 @@ export function getMarkdownDisplayTitle(
   }
 
   return fallbackTitle;
+}
+
+export function stripLeadingMarkdownH1(markdown: string) {
+  return markdown.replace(LEADING_ATX_H1_REGEX, "");
 }

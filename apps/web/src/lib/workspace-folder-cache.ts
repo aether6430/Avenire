@@ -1,10 +1,6 @@
-"use client";
-
-import {
-  readBrowserCache,
-  removeBrowserCache,
-  writeBrowserCache,
-} from "@/lib/browser-cache";
+import { readBrowserCache } from "@/lib/browser-cache-read";
+import { removeBrowserCache } from "@/lib/browser-cache-remove";
+import { writeBrowserCache } from "@/lib/browser-cache-write";
 
 const MAX_FOLDER_CACHE_ENTRIES = 80;
 

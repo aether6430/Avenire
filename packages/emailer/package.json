@@ -4,24 +4,27 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
   "scripts": {
-    "build": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json",
     "lint": "biome check .",
-    "check-types": "tsc --noEmit",
+    "check-types": "tsc --noEmit -p tsconfig.build.json",
     "format": "biome format --write ."
   },
   "dependencies": {
     "@avenire/emails": "workspace:*",
-    "@react-email/components": "latest",
-    "react": "latest",
-    "resend": "latest"
+    "@react-email/components": "1.0.10",
+    "react": "19.2.6",
+    "resend": "6.9.3"
   },
   "devDependencies": {
     "@avenire/env-types": "workspace:*",
     "@avenire/typescript-config": "workspace:*",
-    "@types/react": "latest",
+    "@types/react": "19.2.14",
     "typescript": "5.9.3"
   },
   "engines": {

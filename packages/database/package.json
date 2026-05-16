@@ -8,6 +8,7 @@
     "./schema": "./src/schema.ts",
     "./auth-schema": "./src/auth-schema.ts",
     "./client": "./src/client.ts",
+    "./load-env": "./src/load-env.ts",
     "./task-data": "./src/task-data.ts"
   },
   "scripts": {
@@ -15,23 +16,25 @@
     "lint": "biome check .",
     "check-types": "tsc --noEmit",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage.enabled true --coverage.provider v8 --coverage.reporter text-summary --coverage.reporter json-summary --coverage.include 'src/**/*.ts' --coverage.exclude 'src/**/*.d.ts' --coverage.exclude 'src/**/*.test.*'",
     "format": "biome format --write .",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
     "@avenire/observability": "workspace:*",
-    "drizzle-orm": "latest",
-    "pg": "latest",
+    "drizzle-orm": "0.45.1",
+    "pg": "8.20.0",
     "ts-fsrs": "^5.2.3"
   },
   "devDependencies": {
     "@avenire/env-types": "workspace:*",
     "@avenire/typescript-config": "workspace:*",
-    "@types/pg": "latest",
-    "dotenv": "latest",
-    "drizzle-kit": "latest",
+    "@types/pg": "8.20.0",
+    "dotenv": "17.3.1",
+    "drizzle-kit": "0.31.9",
     "typescript": "5.9.3",
+    "vite": "7.3.1",
     "vitest": "^4.1.2"
   },
   "engines": {

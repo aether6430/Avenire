@@ -1,3 +1,4 @@
+import "server-only";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { lookup } from "node:dns/promises";

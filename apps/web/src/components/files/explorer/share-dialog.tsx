@@ -22,7 +22,7 @@ import type {
 } from "@/components/files/explorer/shared";
 import { EmailSuggestionInput } from "@/components/shared/email-suggestion-input";
 
-interface ShareDialogProps {
+export interface ShareDialogProps {
   activeFile?: FileRecord | null;
   compact?: boolean;
   currentFolder?: FolderRecord | null;

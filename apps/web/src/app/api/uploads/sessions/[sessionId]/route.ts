@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getUploadSession } from "@/lib/upload-session-store";
 import { getSessionUser } from "@/lib/workspace";
+import { handleUploadSessionGet } from "../upload-session-route-get";
 
 export async function GET(
   _request: Request,
@@ -12,14 +12,9 @@ export async function GET(
   }
 
   const { sessionId } = await context.params;
-  const session = await getUploadSession(sessionId);
-  if (!session) {
-    return NextResponse.json({ error: "Session not found" }, { status: 404 });
-  }
 
-  if (session.userId !== user.id) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  return NextResponse.json({ session });
+  return await handleUploadSessionGet({
+    sessionId,
+    userId: user.id,
+  });
 }

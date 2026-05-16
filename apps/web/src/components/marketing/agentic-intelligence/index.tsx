@@ -1,10 +1,4 @@
-"use client";
-import React from "react";
-import { Container } from "../container";
-import { Badge } from "../badge";
-import { SubHeading } from "../subheading";
-import { SectionHeading } from "../seciton-heading";
-import { Card, CardDescription, CardTitle } from "./card";
+import type React from "react";
 import {
   BrainIcon,
   FingerprintIcon,
@@ -13,18 +7,23 @@ import {
   RealtimeSyncIcon,
   SDKIcon,
 } from "@/components/marketing/icons/bento-icons";
+import { Badge } from "../badge";
+import { Container } from "../container";
+import { SectionHeading } from "../section-heading";
+import { SubHeading } from "../subheading";
+import { Card, CardDescription, CardTitle } from "./card";
+import { TextToWorkflowBuilderSkeleton } from "./skeletons";
 import {
   LLMModelSelectorSkeleton,
   NativeToolsIntegrationSkeleton,
-  TextToWorkflowBuilderSkeleton,
-} from "./skeletons";
+} from "./static-skeletons";
 
-type Tab = {
-  title: string;
+interface Tab {
   description: string;
   icon: React.FC<React.SVGProps<SVGSVGElement>>;
   id: string;
-};
+  title: string;
+}
 
 export const AgenticIntelligence = () => {
   return (
@@ -37,11 +36,11 @@ export const AgenticIntelligence = () => {
 
         <SubHeading as="p" className="mx-auto mt-6 max-w-lg px-2">
           Move between source material, interactive explanations, searchable
-          files, and review without losing the thread of what you were trying
-          to understand.
+          files, and review without losing the thread of what you were trying to
+          understand.
         </SubHeading>
-        <div className="border-divide divide-divide mt-16 grid grid-cols-1 divide-y border-y md:grid-cols-2 md:divide-x">
-          <Card className="overflow-hidden mask-b-from-80%">
+        <div className="mt-16 grid grid-cols-1 divide-y divide-divide border-divide border-y md:grid-cols-2 md:divide-x">
+          <Card className="mask-b-from-80% overflow-hidden">
             <div className="flex items-center gap-2">
               <BrainIcon />
               <CardTitle>Interactive AI sessions</CardTitle>
@@ -52,21 +51,21 @@ export const AgenticIntelligence = () => {
             </CardDescription>
             <LLMModelSelectorSkeleton />
           </Card>
-          <Card className="overflow-hidden mask-b-from-80%">
+          <Card className="mask-b-from-80% overflow-hidden">
             <div className="flex items-center gap-2">
               <MouseBoxIcon />
               <CardTitle>Misconception logging</CardTitle>
             </div>
             <CardDescription>
               Capture what went wrong during a session, then turn that gap into
-              targeted flashcards and future review.
+              targeted mindset cards and future review.
             </CardDescription>
             <TextToWorkflowBuilderSkeleton />
           </Card>
         </div>
         <div className="w-full">
           <Card className="relative w-full max-w-none overflow-hidden bg-neutral-900/60">
-            <div className="pointer-events-none absolute inset-0 h-full w-full bg-[repeating-linear-gradient(315deg,_var(--pattern-fg)_0,_var(--pattern-fg)_1px,_transparent_0,_transparent_50%)] bg-[size:12px_12px] opacity-50 mask-radial-from-10%"></div>
+            <div className="mask-radial-from-10% pointer-events-none absolute inset-0 h-full w-full bg-[repeating-linear-gradient(315deg,_var(--pattern-fg)_0,_var(--pattern-fg)_1px,_transparent_0,_transparent_50%)] bg-[size:12px_12px] opacity-50" />
             <div className="flex items-center gap-2">
               <NativeIcon />
               <CardTitle>Native learning tools</CardTitle>
@@ -105,8 +104,8 @@ export const AgenticIntelligence = () => {
               <CardTitle>Spaced repetition loop</CardTitle>
             </div>
             <CardDescription>
-              Turn missed ideas into flashcards and review prompts tied back to
-              the exact note or source.
+              Turn missed ideas into mindset cards and review prompts tied back
+              to the exact note or source.
             </CardDescription>
           </Card>
         </div>

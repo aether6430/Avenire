@@ -548,7 +548,9 @@ export async function getWorkspaceCorpusFingerprintMarker(workspaceId: string) {
     .from(ingestionResource)
     .where(eq(ingestionResource.workspaceId, workspaceId));
 
-  return Number(row?.resourceCount ?? 0) > 0 ? row?.corpusFingerprint ?? null : null;
+  return Number(row?.resourceCount ?? 0) > 0
+    ? (row?.corpusFingerprint ?? null)
+    : null;
 }
 
 export async function getFileForIngestion(workspaceId: string, fileId: string) {

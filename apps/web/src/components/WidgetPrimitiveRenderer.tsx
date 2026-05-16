@@ -88,6 +88,12 @@ const chartColors = [
   "var(--chart-5)",
 ];
 
+function buildOccurrenceKey(baseKey: string, seenKeys: Map<string, number>) {
+  const occurrence = seenKeys.get(baseKey) ?? 0;
+  seenKeys.set(baseKey, occurrence + 1);
+  return occurrence === 0 ? baseKey : `${baseKey}-${occurrence}`;
+}
+
 function renderNode(node: WidgetSpecNode, key: string) {
   switch (node.type) {
     case "stack":
@@ -262,7 +268,9 @@ function renderNode(node: WidgetSpecNode, key: string) {
           ) : null}
         </div>
       );
-    case "table":
+    case "table": {
+      const seenRowKeys = new Map<string, number>();
+
       return (
         <Table key={key}>
           {node.caption ? <TableCaption>{node.caption}</TableCaption> : null}
@@ -274,18 +282,37 @@ function renderNode(node: WidgetSpecNode, key: string) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {node.rows.map((row, rowIndex) => (
-              <TableRow key={`${key}-row-${rowIndex}`}>
-                {node.headers.map((_, cellIndex) => (
-                  <TableCell key={`${key}-${rowIndex}-${cellIndex}`}>
-                    {row[cellIndex] ?? ""}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
+            {node.rows.map((row) => {
+              const rowSignature = row
+                .map((cell, cellIndex) => {
+                  const header = node.headers[cellIndex] ?? "value";
+                  return `${header}:${String(cell ?? "")}`;
+                })
+                .join("\u0001");
+              const rowKey = buildOccurrenceKey(
+                `${key}-row-${rowSignature}`,
+                seenRowKeys
+              );
+
+              return (
+                <TableRow key={rowKey}>
+                  {row.map((cell, cellIndex) => {
+                    const header = node.headers[cellIndex] ?? "value";
+                    return (
+                      <TableCell
+                        key={`${rowKey}-${header}:${String(cell ?? "")}`}
+                      >
+                        {cell ?? ""}
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       );
+    }
     case "chart":
       return <PrimitiveChart key={key} node={node} />;
     case "progress":

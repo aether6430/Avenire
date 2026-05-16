@@ -11,7 +11,14 @@ import {
 } from "@avenire/ui/components/dialog";
 import { ScrollArea } from "@avenire/ui/components/scroll-area";
 import { Spinner } from "@avenire/ui/components/spinner";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { getTrashDialogStateLabels } from "@/components/dashboard/trash-dialog-model";
 
 interface TrashItem {
   deletedAt: string;
@@ -48,46 +55,59 @@ export function TrashDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const [items, setItems] = useState<TrashItem[]>([]);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
   const hasItems = items.length > 0;
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     if (!workspaceUuid) {
       setItems([]);
+      setLoadFailed(false);
       return;
     }
     setLoading(true);
+    setLoadFailed(false);
     try {
       const response = await fetch(`/api/workspaces/${workspaceUuid}/trash`, {
         cache: "no-store",
       });
       if (!response.ok) {
-        setStatus("Unable to load trash.");
         setItems([]);
+        setLoadFailed(true);
+        setStatus(null);
         return;
       }
       const payload = (await response.json()) as { items?: TrashItem[] };
       setItems(payload.items ?? []);
+      setLoadFailed(false);
       setStatus(null);
     } finally {
       setLoading(false);
     }
-  };
+  }, [workspaceUuid]);
 
   useEffect(() => {
     if (open) {
       refresh().catch(() => {
-        setStatus("Unable to load trash.");
+        setItems([]);
+        setLoadFailed(true);
+        setStatus(null);
       });
     }
-  }, [open, workspaceUuid]);
+  }, [open, refresh]);
 
   const totalSize = useMemo(
     () => items.reduce((sum, item) => sum + (item.sizeBytes ?? 0), 0),
     [items]
   );
+  const stateLabels = getTrashDialogStateLabels({
+    itemCount: items.length,
+    loadFailed,
+    loading,
+    totalSizeBytes: totalSize,
+  });
 
   const runMutation = async (
     operation: "restore" | "delete",
@@ -120,14 +140,7 @@ export function TrashDialog({
   };
 
   let content: ReactNode;
-  if (loading) {
-    content = (
-      <p className="inline-flex items-center gap-2 p-4 text-muted-foreground text-sm">
-        <Spinner className="size-4" />
-        Loading trash...
-      </p>
-    );
-  } else if (hasItems) {
+  if (!stateLabels.bodyMessage && hasItems) {
     content = items.map((item) => (
       <div
         className="flex flex-col gap-4 p-3 sm:flex-row sm:items-center sm:justify-between"
@@ -179,7 +192,10 @@ export function TrashDialog({
     ));
   } else {
     content = (
-      <p className="p-4 text-muted-foreground text-sm">Trash is empty.</p>
+      <p className="inline-flex items-center gap-2 p-4 text-muted-foreground text-sm">
+        {stateLabels.showSpinner ? <Spinner className="size-4" /> : null}
+        {stateLabels.bodyMessage}
+      </p>
     );
   }
 
@@ -195,16 +211,8 @@ export function TrashDialog({
           </DialogHeader>
 
           <div className="flex items-center justify-between px-4 py-3 text-muted-foreground text-xs sm:px-6">
-            <span>
-              {hasItems
-                ? `${items.length} item${items.length === 1 ? "" : "s"}`
-                : "No deleted items"}
-            </span>
-            <span>
-              {totalSize > 0
-                ? `${(totalSize / (1024 * 1024)).toFixed(2)} MB`
-                : "0 MB"}
-            </span>
+            <span>{stateLabels.summaryLabel}</span>
+            <span>{stateLabels.totalSizeLabel}</span>
           </div>
 
           <div className="min-h-0 flex-1 px-4 pb-4 sm:px-6 sm:pb-6">

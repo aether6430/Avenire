@@ -20,14 +20,7 @@ export interface RecentRetrievalQuery {
   path: "fast" | "slow";
   provider: string | null;
   query: string;
-  sourceType:
-    | "pdf"
-    | "image"
-    | "video"
-    | "audio"
-    | "markdown"
-    | "link"
-    | null;
+  sourceType: "pdf" | "image" | "video" | "audio" | "markdown" | "link" | null;
   userId: string | null;
   workspaceUuid: string;
 }
@@ -201,8 +194,9 @@ export function createWorkspaceRetrievalStore(): WorkspaceRetrievalStore {
             }
           })
           .filter(
-            (entry: RecentRetrievalQuery | null): entry is RecentRetrievalQuery =>
-              Boolean(entry)
+            (
+              entry: RecentRetrievalQuery | null
+            ): entry is RecentRetrievalQuery => Boolean(entry)
           );
       }
 

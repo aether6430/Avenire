@@ -1,16 +1,12 @@
 "use client";
 
 import { SidebarInset, SidebarProvider } from "@avenire/ui/components/sidebar";
-import type { Route } from "next";
 import dynamic from "next/dynamic";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { Suspense, useEffect, useState } from "react";
 import { DashboardSidebar } from "@/components/dashboard/app-sidebar";
 import { WorkspacePaneRenderer } from "@/components/dashboard/workspace-pane-renderer";
 import { ChatPet } from "@/components/pets/chat-pet";
-import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
-import { useDashboardUiStore } from "@/stores/dashboardUiStore";
 
 const DeferredCommandPalette = dynamic(
   () =>
@@ -62,10 +58,19 @@ const DeferredTrashDialog = dynamic(
   { loading: () => null }
 );
 
-interface DashboardLayoutProps {
+const DeferredDashboardOverlayHost = dynamic(
+  () =>
+    import("@/components/dashboard/dashboard-overlay-host").then((module) => ({
+      default: module.DashboardOverlayHost,
+    })),
+  { loading: () => null }
+);
+
+export interface DashboardLayoutProps {
   activeChatSlug?: string;
   activeWorkspace?: {
     name?: string;
+    organizationId?: string | null;
     rootFolderId: string;
     workspaceId: string;
   } | null;
@@ -93,53 +98,6 @@ export function DashboardLayout({
   children: _children,
 }: DashboardLayoutProps) {
   const [deferredReady, setDeferredReady] = useState(false);
-  const pathname = usePathname();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const settingsOpen = useDashboardOverlayStore((state) => state.settingsOpen);
-  const settingsTab = useDashboardOverlayStore((state) => state.settingsTab);
-  const setSettingsOpen = useDashboardOverlayStore(
-    (state) => state.setSettingsOpen
-  );
-  const setSettingsTab = useDashboardOverlayStore(
-    (state) => state.setSettingsTab
-  );
-  const trashOpen = useDashboardOverlayStore((state) => state.trashOpen);
-  const setTrashOpen = useDashboardOverlayStore((state) => state.setTrashOpen);
-
-  useEffect(() => {
-    useDashboardUiStore.persist.rehydrate();
-  }, []);
-
-  useEffect(() => {
-    const overlay = searchParams.get("overlay");
-    if (overlay !== "settings") {
-      return;
-    }
-
-    const requestedTab = searchParams.get("settingsTab");
-    const validTab =
-      requestedTab === "account" ||
-      requestedTab === "preferences" ||
-      requestedTab === "workspace" ||
-      requestedTab === "data" ||
-      requestedTab === "billing" ||
-      requestedTab === "security" ||
-      requestedTab === "shortcuts"
-        ? requestedTab
-        : "account";
-
-    setSettingsTab(validTab);
-    setSettingsOpen(true);
-
-    const nextParams = new URLSearchParams(searchParams.toString());
-    nextParams.delete("overlay");
-    nextParams.delete("settingsTab");
-    const nextQuery = nextParams.toString();
-    router.replace(
-      (nextQuery ? `${pathname}?${nextQuery}` : pathname) as Route
-    );
-  }, [pathname, router, searchParams, setSettingsOpen, setSettingsTab]);
 
   useEffect(() => {
     const documentElement = document.documentElement;
@@ -238,27 +196,10 @@ export function DashboardLayout({
           </>
         ) : null}
       </SidebarInset>
-      {settingsOpen ? (
-        <DeferredSettingsDialog
-          initialTab={settingsTab ?? "account"}
-          initialWorkspaceId={activeWorkspace?.workspaceId}
-          initialWorkspaces={initialWorkspaces}
-          onOpenChange={(open) => {
-            setSettingsOpen(open);
-            if (!open) {
-              setSettingsTab(null);
-            }
-          }}
-          open={settingsOpen}
-        />
-      ) : null}
-      {trashOpen && activeWorkspace?.workspaceId ? (
-        <DeferredTrashDialog
-          onOpenChange={setTrashOpen}
-          open={trashOpen}
-          workspaceUuid={activeWorkspace.workspaceId}
-        />
-      ) : null}
+      <DeferredDashboardOverlayHost
+        activeWorkspace={activeWorkspace}
+        initialWorkspaces={initialWorkspaces}
+      />
       <div className="hidden lg:block">
         <ChatPet />
       </div>

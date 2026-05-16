@@ -4,6 +4,7 @@ node_modules
 .next
 .turbo
 dist
+coverage
 *.tsbuildinfo
 .env
 .env.*
@@ -24,3 +25,11 @@ context
 
 .vercel
 .env*.local
+/reference/
+/instruction.md
+/logs/
+/.ccb/
+/.playwright-cli/
+/output/
+# CocoIndex Code (ccc)
+/.cocoindex_code/

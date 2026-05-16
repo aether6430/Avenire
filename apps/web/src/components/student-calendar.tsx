@@ -59,6 +59,15 @@ const MONTHS = [
 
 const DAYS_SHORT = ["S", "M", "T", "W", "T", "F", "S"];
 const DAYS_SHORT_DESKTOP = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DAYS_SHORT_MOBILE = [
+  { key: "sun", label: "S" },
+  { key: "mon", label: "M" },
+  { key: "tue", label: "T" },
+  { key: "wed", label: "W" },
+  { key: "thu", label: "T" },
+  { key: "fri", label: "F" },
+  { key: "sat", label: "S" },
+] as const;
 const DAYS_FULL = [
   "Sunday",
   "Monday",
@@ -474,7 +483,7 @@ function MobileMonthGrid({
 
   return (
     <div className="grid grid-cols-7 gap-y-1">
-      {cells.map(({ day, key, isOtherMonth }, idx) => (
+      {cells.map(({ day, key, isOtherMonth }) => (
         <MobileDayCell
           day={day}
           dayKey={key}
@@ -482,7 +491,7 @@ function MobileMonthGrid({
           isSelected={key === selectedKey}
           isToday={key === todayKey}
           items={isOtherMonth ? [] : (data[key] ?? [])}
-          key={`${key}-${idx}`}
+          key={key}
           onClick={onDayClick}
           tasks={isOtherMonth ? [] : (tasksByDay[key] ?? [])}
         />
@@ -758,13 +767,22 @@ function DesktopMonthGrid({
 }) {
   const daysInMonth = getDaysInMonth(curYear, curMonth);
   const firstDay = getFirstDay(curYear, curMonth);
-  const cells: (number | null)[] = [
-    ...new Array(firstDay).fill(null),
-    ...Array.from({ length: daysInMonth }, (_, idx) => idx + 1),
+  const cells: Array<{ day: number | null; slotKey: string }> = [
+    ...Array.from({ length: firstDay }, (_, idx) => ({
+      day: null,
+      slotKey: `pad-start-${idx}`,
+    })),
+    ...Array.from({ length: daysInMonth }, (_, idx) => ({
+      day: idx + 1,
+      slotKey: `day-${idx + 1}`,
+    })),
   ];
 
   while (cells.length % 7 !== 0) {
-    cells.push(null);
+    cells.push({
+      day: null,
+      slotKey: `pad-end-${cells.length}`,
+    });
   }
 
   return (
@@ -780,9 +798,9 @@ function DesktopMonthGrid({
         ))}
       </div>
       <div className="grid grid-cols-7 gap-1">
-        {cells.map((day, idx) =>
+        {cells.map(({ day, slotKey }) =>
           day == null ? (
-            <div className="min-h-[84px]" key={`empty-${idx}`} />
+            <div className="min-h-[84px]" key={slotKey} />
           ) : (
             <DesktopDayCell
               day={day}
@@ -834,12 +852,12 @@ function WeekGrid({
   return (
     <>
       <div className="mb-1 grid grid-cols-7 gap-1">
-        {days.map((_, idx) => (
+        {days.map((day) => (
           <div
             className="py-1.5 text-center font-medium text-[11px] text-muted-foreground"
-            key={idx}
+            key={dateKeyUtc(day)}
           >
-            {DAYS_FULL[idx]}
+            {DAYS_FULL[day.getUTCDay()]}
           </div>
         ))}
       </div>
@@ -1104,12 +1122,12 @@ export function MobileStudentCalendar() {
       {error && <p className="text-muted-foreground text-xs">{error}</p>}
 
       <div className="grid grid-cols-7">
-        {DAYS_SHORT.map((day, idx) => (
+        {DAYS_SHORT_MOBILE.map(({ key, label }) => (
           <div
             className="py-1 text-center font-medium text-[11px] text-muted-foreground"
-            key={idx}
+            key={key}
           >
-            {day}
+            {label}
           </div>
         ))}
       </div>

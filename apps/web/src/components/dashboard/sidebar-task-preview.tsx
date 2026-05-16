@@ -12,7 +12,7 @@ import {
 } from "@avenire/ui/components/sidebar";
 import { ListChecks, MagnifyingGlass, Plus } from "@phosphor-icons/react";
 import type { Route } from "next";
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   getTaskStoreSnapshot,
   sortWorkspaceTasks,
@@ -49,7 +49,12 @@ export function SidebarTaskPreview({
   navigate: (href: Route) => void;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
-  const { tasks: sidebarTasks } = useSyncExternalStore(
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const {
+    errorMessage,
+    loadFailed,
+    tasks: sidebarTasks,
+  } = useSyncExternalStore(
     subscribeToTaskStore,
     getTaskStoreSnapshot,
     getTaskStoreSnapshot
@@ -129,10 +134,10 @@ export function SidebarTaskPreview({
           <SidebarGroupLabel>Tasks</SidebarGroupLabel>
           <div className="flex items-center gap-1">
             <Button
+              aria-label="Search Tasks"
               className="h-7 w-7 rounded-md border border-border/60 bg-background/60 p-0 text-muted-foreground shadow-none hover:bg-muted"
               onClick={() => {
-                closeMobileSidebar();
-                navigate("/workspace/tasks" as Route);
+                searchInputRef.current?.focus();
               }}
               size="icon"
               type="button"
@@ -141,10 +146,11 @@ export function SidebarTaskPreview({
               <MagnifyingGlass className="size-3.5" />
             </Button>
             <Button
+              aria-label="New Task"
               className="h-7 w-7 rounded-md border border-border/60 bg-background/60 p-0 text-muted-foreground shadow-none hover:bg-muted"
               onClick={() => {
                 closeMobileSidebar();
-                navigate("/workspace/tasks" as Route);
+                navigate("/workspace/tasks?new=1" as Route);
               }}
               size="icon"
               type="button"
@@ -165,26 +171,37 @@ export function SidebarTaskPreview({
             />
           </SidebarMenu>
           <Input
-            className="mt-2 hidden h-8"
+            className="mt-2 h-8"
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search tasks..."
+            placeholder="Search Tasks..."
+            ref={searchInputRef}
             value={searchQuery}
           />
-          <SidebarGroup className="mt-3">
-            <SidebarGroupLabel>Due tasks</SidebarGroupLabel>
-            <SidebarGroupContent>
-              {renderTaskItems(dueTasks, "Nothing is due right now.")}
-            </SidebarGroupContent>
-          </SidebarGroup>
-          <SidebarGroup className="mt-3">
-            <SidebarGroupLabel>Upcoming tasks</SidebarGroupLabel>
-            <SidebarGroupContent>
-              {renderTaskItems(
-                upcomingTasks,
-                "No upcoming tasks have due dates yet."
-              )}
-            </SidebarGroupContent>
-          </SidebarGroup>
+          {loadFailed ? (
+            <p className="px-2 py-3 text-muted-foreground text-xs">
+              {errorMessage?.trim()
+                ? "Unable to load tasks."
+                : "Unable to load tasks."}
+            </p>
+          ) : (
+            <>
+              <SidebarGroup className="mt-3">
+                <SidebarGroupLabel>Due Tasks</SidebarGroupLabel>
+                <SidebarGroupContent>
+                  {renderTaskItems(dueTasks, "Nothing is due right now.")}
+                </SidebarGroupContent>
+              </SidebarGroup>
+              <SidebarGroup className="mt-3">
+                <SidebarGroupLabel>Upcoming Tasks</SidebarGroupLabel>
+                <SidebarGroupContent>
+                  {renderTaskItems(
+                    upcomingTasks,
+                    "No upcoming tasks have due dates yet."
+                  )}
+                </SidebarGroupContent>
+              </SidebarGroup>
+            </>
+          )}
         </SidebarGroupContent>
       </SidebarGroup>
     </div>

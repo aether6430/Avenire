@@ -1,11 +1,13 @@
-import type { RedisClientType } from "redis";
-import { ensureManagedRedisClient } from "@/lib/redis-client";
+import {
+  ensureManagedRedisClient,
+  type ManagedRedisClient,
+} from "@/lib/redis-client";
 
 const redisUrl = process.env.REDIS_URL;
 const ACTIVE_STREAM_KEY_PREFIX = "chat-active-stream:";
 
-let redisClient: RedisClientType | null = null;
-let redisSubscriber: RedisClientType | null = null;
+let redisClient: ManagedRedisClient | null = null;
+let redisSubscriber: ManagedRedisClient | null = null;
 
 function hasRedisConfigured() {
   return Boolean(redisUrl);

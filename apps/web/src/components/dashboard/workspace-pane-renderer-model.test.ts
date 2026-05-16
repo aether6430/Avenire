@@ -1,0 +1,91 @@
+import { describe, expect, it } from "vitest";
+import {
+  buildPreviewPanes,
+  getPaneDropRegion,
+  normalizePreviewPaneSizes,
+  type RenderablePane,
+} from "@/components/dashboard/workspace-pane-renderer-model";
+
+describe("workspace pane renderer model", () => {
+  it("detects left, center, and right pane drop regions", () => {
+    const bounds = {
+      left: 0,
+      width: 100,
+    } as DOMRect;
+
+    expect(getPaneDropRegion({ clientX: 10 } as never, bounds)).toBe("left");
+    expect(getPaneDropRegion({ clientX: 50 } as never, bounds)).toBe("center");
+    expect(getPaneDropRegion({ clientX: 90 } as never, bounds)).toBe("right");
+  });
+
+  it("normalizes preview pane sizes when inserting a drop preview", () => {
+    const panes: RenderablePane[] = [
+      {
+        id: "pane-a",
+        route: { pathname: "/workspace", search: "" },
+        rowId: "row-1",
+        size: 60,
+      },
+      {
+        id: "pane-b",
+        route: { pathname: "/workspace/tasks", search: "" },
+        rowId: "row-1",
+        size: 40,
+      },
+    ];
+
+    const next = buildPreviewPanes(
+      panes,
+      {
+        href: "/workspace/flashcards",
+        paneId: "pane-b",
+        region: "left",
+      },
+      null
+    );
+
+    expect(next.map((pane) => pane.id)).toEqual([
+      "pane-a",
+      "__workspace-pane-drop-preview__",
+      "pane-b",
+    ]);
+    expect(next.every((pane) => pane.size > 0)).toBe(true);
+    expect(
+      normalizePreviewPaneSizes(next).reduce((sum, pane) => sum + pane.size, 0)
+    ).toBeCloseTo(100, 6);
+    expect(next[1]?.route.pathname).toBe("/workspace/flashcards");
+  });
+
+  it("uses a dragged pane placeholder route when previewing a pane move", () => {
+    const panes: RenderablePane[] = [
+      {
+        id: "pane-a",
+        route: { pathname: "/workspace", search: "" },
+        rowId: "row-1",
+        size: 50,
+      },
+      {
+        id: "pane-b",
+        route: { pathname: "/workspace/tasks", search: "" },
+        rowId: "row-1",
+        size: 50,
+      },
+    ];
+
+    const next = buildPreviewPanes(
+      panes,
+      {
+        href: null,
+        paneId: "pane-b",
+        region: "right",
+      },
+      "pane-a"
+    );
+
+    expect(next.map((pane) => pane.id)).toEqual([
+      "pane-b",
+      "__workspace-pane-drop-preview__",
+    ]);
+    expect(next[1]?.route.pathname).toBe("/workspace");
+  });
+});

@@ -1,4 +1,6 @@
 import type { Route } from "next";
+import { getWorkspaceTreePayload } from "@/lib/workspace-tree-client";
+import { createWorkspaceTreePathResolver } from "@/lib/workspace-tree-read-model";
 
 export async function resolveWorkspaceFileRoute(
   workspaceUuid: string,
@@ -17,66 +19,16 @@ export async function resolveWorkspaceFileRoute(
     trimmedIdentifier.includes("/") || trimmedIdentifier.includes(".");
 
   if (isLikelyWorkspacePath) {
-    const response = await fetch(`/api/workspaces/${workspaceUuid}/tree`, {
-      cache: "no-store",
+    const payload = await getWorkspaceTreePayload(workspaceUuid, {
+      preferCache: true,
     });
-    if (!response.ok) {
+    if (!payload) {
       return null;
     }
-
-    const payload = (await response.json()) as {
-      files?: Array<{
-        folderId: string;
-        id: string;
-        name: string;
-      }>;
-      folders?: Array<{
-        id: string;
-        name: string;
-        parentId: string | null;
-      }>;
-    };
-    const folderById = new Map(
-      (payload.folders ?? []).map((folder) => [folder.id, folder])
-    );
-    const folderPathCache = new Map<string, string>();
-    const resolveFolderPath = (folderId: string | null): string => {
-      if (!folderId) {
-        return "";
-      }
-      const cached = folderPathCache.get(folderId);
-      if (cached !== undefined) {
-        return cached;
-      }
-
-      const segments: string[] = [];
-      let cursor: string | null = folderId;
-      const seen = new Set<string>();
-      while (cursor) {
-        if (seen.has(cursor)) {
-          break;
-        }
-        seen.add(cursor);
-        const folder = folderById.get(cursor);
-        if (!folder || folder.parentId === null) {
-          break;
-        }
-        segments.push(folder.name);
-        cursor = folder.parentId;
-      }
-
-      const resolvedPath = segments.reverse().join("/");
-      folderPathCache.set(folderId, resolvedPath);
-      return resolvedPath;
-    };
-
-    const matchedFile = (payload.files ?? []).find((file) => {
-      const parentPath = resolveFolderPath(file.folderId);
-      const workspacePath = parentPath
-        ? `${parentPath}/${file.name}`
-        : file.name;
-      return workspacePath === trimmedIdentifier;
-    });
+    const matchedFile =
+      createWorkspaceTreePathResolver(payload).findFileByWorkspacePath(
+        trimmedIdentifier
+      );
 
     if (!matchedFile) {
       return null;

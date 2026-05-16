@@ -36,3 +36,14 @@ export function HeaderLeadingIcon({ children }: { children: ReactNode }) {
   }, [children, setLeadingIcon]);
   return null;
 }
+
+export function HeaderTitle({ children }: { children: string | null }) {
+  const { setTitle } = usePaneHeaderActions();
+  useEffect(() => {
+    setTitle(children);
+    return () => {
+      setTitle(null);
+    };
+  }, [children, setTitle]);
+  return null;
+}

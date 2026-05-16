@@ -780,22 +780,15 @@ function PureMultimodalInput({
         updateTextareaSelection(nextCursor, nextCursor);
       });
     },
-    [
-      MAX_FILES,
-      input,
-      mentionTrigger,
-      setAttachments,
-      setInput,
-      updateTextareaSelection,
-    ]
+    [input, mentionTrigger, setAttachments, setInput, updateTextareaSelection]
   );
 
-  const resetHeight = () => {
+  const resetHeight = useCallback(() => {
     if (!textareaRef.current) {
       return;
     }
     textareaRef.current.style.height = "auto";
-  };
+  }, []);
 
   const submitForm = useCallback(async () => {
     if (status === "submitted" || status === "streaming") {
@@ -868,9 +861,9 @@ function PureMultimodalInput({
     handleSubmit,
     input,
     setAttachments,
-    setAttachments,
     setInput,
     setLocalStorageInput,
+    resetHeight,
     status,
     submittableAttachments,
     width,

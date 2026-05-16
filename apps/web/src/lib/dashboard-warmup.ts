@@ -148,7 +148,7 @@ export async function warmWorkspaceSurface(
 export function warmDashboardRoutes(router: {
   prefetch: (href: Route) => void;
 }) {
-  router.prefetch("/workspace/chats" as Route);
+  router.prefetch("/workspace/chats/new" as Route);
   router.prefetch("/workspace/flashcards" as Route);
   router.prefetch("/workspace/files" as Route);
 }

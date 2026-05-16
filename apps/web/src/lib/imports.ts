@@ -18,11 +18,11 @@ import { NotionToMarkdown } from "notion-to-md";
 import { z } from "zod";
 import { createWorkspaceNoteFile, userCanEditFolder } from "@/lib/file-data";
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
+import { DATA_IMPORT_PRESET_LABEL } from "@/lib/imports-data-import-preset";
 import {
-  DATA_IMPORT_PRESET_LABEL,
   GOOGLE_DRIVE_READONLY_SCOPE,
   GOOGLE_IMPORT_SCOPES,
-} from "@/lib/imports-shared";
+} from "@/lib/imports-google-scopes";
 import {
   deleteUploadThingFile,
   registerWorkspaceUploadedFile,

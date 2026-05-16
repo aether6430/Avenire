@@ -231,7 +231,7 @@ function PureMessages({
         maskFrameRef.current = 0;
       }
     };
-  }, [messagesContainerRef, messagesContentRef, status, renderMessages.length]);
+  }, [messagesContainerRef, messagesContentRef]);
 
   return (
     <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">

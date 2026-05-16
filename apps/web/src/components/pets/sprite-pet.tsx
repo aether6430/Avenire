@@ -25,7 +25,7 @@ export function SpritePet({
   useEffect(() => {
     completedRef.current = false;
     setFrame(0);
-  }, [animation, src]);
+  }, []);
 
   useEffect(() => {
     if (!definition || completedRef.current) {

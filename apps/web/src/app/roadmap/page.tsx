@@ -4,8 +4,10 @@ import {
   ArrowSquareOut as ExternalLink,
   SpinnerGap as Loader2,
 } from "@phosphor-icons/react/ssr";
-import { Footer } from "@/components/marketing/footer";
-import { Navbar } from "@/components/marketing/navbar";
+import {
+  MarketingPageFrame,
+  MarketingPageShell,
+} from "@/components/marketing/page-shell";
 import { buildPageMetadata } from "@/lib/page-metadata";
 import type { RoadmapGroup, RoadmapItem } from "@/lib/roadmap";
 import { getRoadmapGroups } from "@/lib/roadmap";
@@ -66,7 +68,7 @@ function RoadmapCard({ item }: { item: RoadmapItem }) {
 
         <div className="min-w-0 flex-1">
           <div className="mb-1.5 flex items-start justify-between gap-2">
-            <h3 className="font-medium text-white text-sm leading-snug">
+            <h3 className="font-medium text-sm text-white leading-snug">
               {item.title}
             </h3>
             {item.link && (
@@ -106,7 +108,7 @@ function RoadmapColumn({ group }: { group: RoadmapGroup }) {
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2.5 border-divide border-b pb-4">
         <div className={`size-2 rounded-full ${cfg.dotColor}`} />
-        <h2 className="font-semibold text-white text-sm">{group.label}</h2>
+        <h2 className="font-semibold text-sm text-white">{group.label}</h2>
         <span
           className={`ml-auto rounded-full px-2 py-0.5 font-medium text-xs ${cfg.badgeBg} ${cfg.badgeText}`}
         >
@@ -132,47 +134,41 @@ export default function RoadmapPage() {
   const groups = getRoadmapGroups();
 
   return (
-    <main className="avenire-marketing-scope dark min-h-screen bg-neutral-950 text-neutral-100">
-      <Navbar />
-
-      {/* Hero */}
-      <section className="px-4 pt-32">
-        <div className="mx-auto max-w-[72rem] border-divide border-x border-t px-4 pt-8 pb-16 md:px-8">
-          <div className="mx-auto max-w-[62rem]">
-          <div className="mb-2">
-            <span className="font-medium text-brand text-xs uppercase tracking-widest">
-              Roadmap
-            </span>
-          </div>
-          <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-            <div>
-              <h1 className="mb-4 font-semibold text-4xl text-white tracking-tight md:text-5xl">
-                What &apos;s Coming Next
-              </h1>
-              <p className="max-w-xl text-lg text-white/60 leading-relaxed">
-                A transparent look at what we&apos;re building. We update this
-                as our plans evolve.
-              </p>
-            </div>
-          </div>
+    <MarketingPageShell>
+      <MarketingPageFrame
+        contentClassName="max-w-[62rem]"
+        frameClassName="border-b-0 pt-8 pb-16"
+        sectionClassName="px-4 pt-32 pb-0"
+      >
+        <div className="mb-2">
+          <span className="font-medium text-brand text-xs uppercase tracking-widest">
+            Roadmap
+          </span>
+        </div>
+        <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h1 className="mb-4 font-semibold text-4xl text-white tracking-tight md:text-5xl">
+              What's Coming Next
+            </h1>
+            <p className="max-w-xl text-lg text-white/60 leading-relaxed">
+              A transparent look at what we're building. We update this as our
+              plans evolve.
+            </p>
           </div>
         </div>
-      </section>
+      </MarketingPageFrame>
 
-      {/* Roadmap columns */}
-      <section className="px-4 pb-24">
-        <div className="mx-auto max-w-[72rem] border-divide border-x border-b px-4 pb-8 md:px-8">
-          <div className="mx-auto max-w-[62rem]">
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-            {groups.map((group) => (
-              <RoadmapColumn group={group} key={group.status} />
-            ))}
-          </div>
-          </div>
+      <MarketingPageFrame
+        contentClassName="max-w-[62rem]"
+        frameClassName="border-t-0 pt-0 pb-8"
+        sectionClassName="px-4 pt-0 pb-24"
+      >
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+          {groups.map((group) => (
+            <RoadmapColumn group={group} key={group.status} />
+          ))}
         </div>
-      </section>
-
-      <Footer />
-    </main>
+      </MarketingPageFrame>
+    </MarketingPageShell>
   );
 }

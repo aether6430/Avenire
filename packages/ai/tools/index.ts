@@ -417,9 +417,7 @@ export const chatToolSchemas = {
     input: z.object({
       skills: z
         .array(
-          z.enum(
-            AVAILABLE_STUDY_SKILLS as unknown as [string, ...string[]]
-          )
+          z.enum(AVAILABLE_STUDY_SKILLS as unknown as [string, ...string[]])
         )
         .min(1),
     }),
@@ -432,9 +430,7 @@ export const chatToolSchemas = {
     input: z.object({
       modules: z
         .array(
-          z.enum(
-            AVAILABLE_VISUAL_SKILLS as unknown as [string, ...string[]]
-          )
+          z.enum(AVAILABLE_VISUAL_SKILLS as unknown as [string, ...string[]])
         )
         .min(1),
     }),
