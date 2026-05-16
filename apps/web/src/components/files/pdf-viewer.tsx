@@ -85,13 +85,7 @@ const PdfAutoJump = memo(function PdfAutoJump({
       });
       return;
     }
-  }, [
-    fallbackHighlightText,
-    highlightText,
-    jumpToPage,
-    search,
-    textContent,
-  ]);
+  }, [fallbackHighlightText, highlightText, jumpToPage, search, textContent]);
 
   return null;
 });
@@ -156,14 +150,6 @@ function PdfFloatingDock() {
     () => String(Math.round((zoom || 1) * 100)),
     [zoom]
   );
-
-  useEffect(() => {
-    setPageInput("");
-  }, [resolvedPage]);
-
-  useEffect(() => {
-    setZoomInput("");
-  }, [resolvedZoom]);
 
   useEffect(() => {
     const node = viewportRef.current;
@@ -358,7 +344,7 @@ function PDFViewer({
   return (
     <Root
       className={cn(
-        "relative flex h-[500px] w-full flex-col overflow-hidden rounded-lg border",
+        "relative flex h-[500px] w-full flex-col overflow-hidden border-0 bg-background",
         className
       )}
       loader={<div className="p-4">Loading...</div>}
