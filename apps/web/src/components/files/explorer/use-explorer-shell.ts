@@ -30,6 +30,28 @@ function readStoredExplorerViewMode() {
   }
 }
 
+async function loadWorkspaceName(workspaceUuid: string) {
+  const response = await fetch("/api/workspaces/list", {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const payload = (await response.json()) as {
+    workspaces?: Array<{
+      name: string;
+      workspaceId: string;
+    }>;
+  };
+  return (
+    (payload.workspaces ?? []).find(
+      (workspace) => workspace.workspaceId === workspaceUuid
+    )?.name ?? null
+  );
+}
+
 export function useExplorerShell({
   folderInputRef,
   folderUuidFromPage,
@@ -72,6 +94,35 @@ export function useExplorerShell({
       setWorkspaceName(resolvedWorkspaceName);
     }
   }, [bootstrapWorkspaces, workspaceUuid]);
+
+  useEffect(() => {
+    if (!workspaceUuid) {
+      return;
+    }
+
+    const cachedWorkspace = readCachedWorkspaces()?.find(
+      (workspace) => workspace.workspaceId === workspaceUuid
+    );
+    if (cachedWorkspace?.name) {
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const name = await loadWorkspaceName(workspaceUuid);
+        if (!(cancelled || !name)) {
+          setWorkspaceName(name);
+        }
+      } catch {
+        // Ignore workspace-name warmup failures.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceUuid]);
 
   useEffect(() => {
     if (lastRecordedRouteRef.current === currentRoute) {

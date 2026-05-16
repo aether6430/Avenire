@@ -64,13 +64,13 @@ import { useExplorerPaneHeader } from "@/components/files/explorer/use-explorer-
 import { useExplorerPropertyControls } from "@/components/files/explorer/use-explorer-property-controls";
 import { useExplorerRuntime } from "@/components/files/explorer/use-explorer-runtime";
 import { useExplorerShareDialogs } from "@/components/files/explorer/use-explorer-share-dialogs";
+import { useExplorerShell } from "@/components/files/explorer/use-explorer-shell";
 import { useExplorerSurfaceSummary } from "@/components/files/explorer/use-explorer-surface-summary";
 import { useExplorerSurfaceUiState } from "@/components/files/explorer/use-explorer-surface-ui-state";
 import { useExplorerWorkspaceIndexState } from "@/components/files/explorer/use-explorer-workspace-index-state";
 import type { BulkItemKind } from "@/components/files/explorer/workspace-bulk-operations-model";
 import type { SortState } from "@/components/files/explorer/workspace-folder-browse-model";
 import type { WorkspaceSearchResult } from "@/components/files/stylized-search-bar";
-import { readCachedWorkspaces } from "@/lib/dashboard-browser-cache";
 import {
   normalizePropertyDefinitions,
   type WorkspacePropertyDefinition,
@@ -94,10 +94,6 @@ import {
 import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
 import { filesPinsActions, useFilesPinsStore } from "@/stores/filesPinsStore";
 import { filesUiActions } from "@/stores/filesUiStore";
-import {
-  usePaneWorkspaceHistoryActions,
-  usePaneWorkspaceHistoryStore,
-} from "@/stores/workspaceHistoryStore";
 import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
 
 const MOBILE_LONG_PRESS_DELAY_MS = 450;
@@ -108,7 +104,6 @@ type UploadStatus =
   | "queued"
   | "uploaded"
   | "uploading";
-const FILE_EXPLORER_VIEW_MODE_KEY = "file-explorer-view-mode";
 const FILE_CARD_FIELD_STORAGE_PREFIX = "file-explorer-card-fields:v1:";
 const FILE_RETRIEVAL_CONTEXT_KEY = "file-explorer-retrieval-context-v1";
 const COMPACT_MENU_SURFACE_CLASS = "border border-border/60 shadow-md";
@@ -135,28 +130,6 @@ async function loadWorkspacePropertyDefinitions(workspaceUuid: string) {
 
   const payload = (await response.json()) as { properties?: unknown };
   return normalizePropertyDefinitions(payload.properties);
-}
-
-async function loadWorkspaceName(workspaceUuid: string) {
-  const response = await fetch("/api/workspaces/list", {
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    return null;
-  }
-
-  const payload = (await response.json()) as {
-    workspaces?: Array<{
-      name: string;
-      workspaceId: string;
-    }>;
-  };
-  return (
-    (payload.workspaces ?? []).find(
-      (workspace) => workspace.workspaceId === workspaceUuid
-    )?.name ?? null
-  );
 }
 
 interface MobileActionsPopoverProps {
@@ -575,24 +548,20 @@ export function FileExplorer({
   );
   const mobileSuppressClickRef = useRef<string | null>(null);
   const refreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const routeMatch = pathname.match(
-    /^\/workspace\/files\/([^/]+)\/folder\/([^/?#]+)/
-  );
-  const workspaceUuidParam = routeMatch?.[1];
-  const folderUuidParam = routeMatch?.[2];
-  const workspaceUuid = useMemo(() => {
-    if (workspaceUuidFromPage) {
-      return workspaceUuidFromPage;
-    }
-    return workspaceUuidParam ?? "";
-  }, [workspaceUuidFromPage, workspaceUuidParam]);
-  const currentFolderId = useMemo(() => {
-    if (folderUuidFromPage) {
-      return folderUuidFromPage;
-    }
-    return folderUuidParam ?? "";
-  }, [folderUuidFromPage, folderUuidParam]);
+  const {
+    canClosePane,
+    currentFolderId,
+    setViewMode,
+    viewMode,
+    workspaceName,
+    workspaceUuid,
+  } = useExplorerShell({
+    folderInputRef,
+    folderUuidFromPage,
+    pathname,
+    searchParams,
+    workspaceUuidFromPage,
+  });
 
   const [query, setQuery] = useState("");
   const [sortState, setSortState] = useState<SortState>({
@@ -617,19 +586,9 @@ export function FileExplorer({
   const [workspaceMembers, _setWorkspaceMembers] = useState<
     WorkspaceMemberRecord[]
   >([]);
-  const [workspaceName, setWorkspaceName] = useState("Workspace");
   const [propertyDefinitions, setPropertyDefinitions] = useState<
     WorkspacePropertyDefinition[]
   >([]);
-  const [viewMode, setViewMode] = useState<"cards" | "list">(() => {
-    try {
-      return window.localStorage.getItem(FILE_EXPLORER_VIEW_MODE_KEY) === "list"
-        ? "list"
-        : "cards";
-    } catch {
-      return "cards";
-    }
-  });
   const loadedPropertyRegistryWorkspaceRef = useRef<string | null>(null);
   const {
     mobileConfirmAction,
@@ -646,22 +605,11 @@ export function FileExplorer({
   const { paneId } = useCurrentWorkspacePane();
   const closePane = useWorkspacePaneStore((state) => state.closePane);
   const openPane = useWorkspacePaneStore((state) => state.openPane);
-  const paneCount = useWorkspacePaneStore((state) => state.panes.length);
   const _setSettingsOpen = useDashboardOverlayStore(
     (state) => state.setSettingsOpen
   );
 
   const { startUpload: startBannerUpload } = useUploadThing("imageUploader");
-  const { recordRoute } = usePaneWorkspaceHistoryActions();
-  const historyEntries = usePaneWorkspaceHistoryStore((state) => state.entries);
-  const historyIndex = usePaneWorkspaceHistoryStore((state) => state.index);
-  const _backRoute =
-    historyIndex > 0 ? (historyEntries[historyIndex - 1] ?? null) : null;
-  const _forwardRoute =
-    historyIndex >= 0 && historyIndex < historyEntries.length - 1
-      ? (historyEntries[historyIndex + 1] ?? null)
-      : null;
-  const canClosePane = paneCount > 1;
   const pinnedByWorkspace = useFilesPinsStore(
     (state) => state.pinnedByWorkspace
   );
@@ -669,14 +617,9 @@ export function FileExplorer({
     () => pinnedByWorkspace[workspaceUuid] ?? [],
     [pinnedByWorkspace, workspaceUuid]
   );
-  const lastRecordedRouteRef = useRef<string | null>(null);
 
   const selectedFileParam = searchParams.get("file");
   const selectedRetrievalChunkParam = searchParams.get("retrievalChunk");
-  const currentRoute = useMemo(() => {
-    const queryString = searchParams.toString();
-    return queryString ? `${pathname}?${queryString}` : pathname;
-  }, [pathname, searchParams]);
   const {
     navigateToFolder,
     openFileById,
@@ -1098,46 +1041,6 @@ export function FileExplorer({
     if (!workspaceUuid) {
       return;
     }
-
-    const cachedWorkspace = readCachedWorkspaces()?.find(
-      (workspace) => workspace.workspaceId === workspaceUuid
-    );
-    if (cachedWorkspace?.name) {
-      setWorkspaceName(cachedWorkspace.name);
-    }
-
-    (async () => {
-      try {
-        if (cachedWorkspace?.name) {
-          return;
-        }
-
-        const name = await loadWorkspaceName(workspaceUuid);
-        if (name) {
-          setWorkspaceName(name);
-        }
-      } catch {
-        // ignore
-      }
-    })().catch(() => undefined);
-  }, [workspaceUuid]);
-
-  useEffect(() => {
-    if (lastRecordedRouteRef.current === currentRoute) {
-      return;
-    }
-    lastRecordedRouteRef.current = currentRoute;
-    recordRoute(currentRoute);
-  }, [currentRoute, recordRoute]);
-
-  useEffect(() => {
-    window.localStorage.setItem(FILE_EXPLORER_VIEW_MODE_KEY, viewMode);
-  }, [viewMode]);
-
-  useEffect(() => {
-    if (!workspaceUuid) {
-      return;
-    }
     try {
       const raw = window.sessionStorage.getItem(
         `${FILE_RETRIEVAL_CONTEXT_KEY}:${workspaceUuid}`
@@ -1199,15 +1102,6 @@ export function FileExplorer({
   ) {
     setActiveRetrievalChunkId(selectedRetrievalChunkParam);
   }
-
-  useEffect(() => {
-    const input = folderInputRef.current;
-    if (!input) {
-      return;
-    }
-    input.setAttribute("webkitdirectory", "");
-    input.setAttribute("directory", "");
-  }, []);
 
   const toggleCurrentPinnedItem = useCallback(() => {
     if (!(workspaceUuid && currentPinnedItem)) {
