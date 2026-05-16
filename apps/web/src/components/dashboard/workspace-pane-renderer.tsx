@@ -9,6 +9,17 @@ import {
 } from "@avenire/ui/components/dropdown-menu";
 import { cn } from "@avenire/ui/lib/utils";
 import {
+  DndContext,
+  type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
   ArrowsSplit,
   Columns,
   DotsThree as MoreHorizontal,
@@ -16,15 +27,15 @@ import {
 } from "@phosphor-icons/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
-  type DragEvent,
+  Fragment,
   type ReactNode,
-  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
 import { WorkspaceChatRoutePageClient } from "@/components/dashboard/workspace-chat-route-page-client";
 import { WorkspaceHeader } from "@/components/dashboard/workspace-header";
@@ -38,9 +49,6 @@ import { WorkspaceTasksPageClient } from "@/components/tasks/workspace-tasks-pag
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   buildRouteState,
-  clearWorkspacePaneDragData,
-  getWorkspacePaneDragHref,
-  hasWorkspacePaneDragHref,
   WorkspacePaneInteractionBoundary,
   WorkspacePaneProvider,
 } from "@/lib/workspace-panes";
@@ -48,203 +56,7 @@ import { useHeaderStore } from "@/stores/header-store";
 import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
 
 const COMPACT_PANE_WIDTH = 900;
-type PaneDropRegion = "center" | "left" | "right";
-interface PaneDropPreview {
-  href: string | null;
-  paneId: string;
-  region: PaneDropRegion;
-}
-
-const PREVIEW_PANE_ID = "__workspace-pane-drop-preview__";
-const PREVIEW_PANE_MIN_SIZE = 28;
-const WORKSPACE_PANE_REORDER_MIME = "application/x-avenire-workspace-pane-id";
-
-interface RenderablePane {
-  id: string;
-  isDropPreview?: boolean;
-  previewTargetPaneId?: string;
-  route: {
-    pathname: string;
-    search: string;
-  };
-  rowId: string;
-  size: number;
-}
-
-function createTransparentDragImage() {
-  if (typeof document === "undefined") {
-    return null;
-  }
-
-  const pixel = document.createElement("canvas");
-  pixel.width = 1;
-  pixel.height = 1;
-  return pixel;
-}
-
-function isInteractiveHeaderTarget(target: EventTarget | null) {
-  return (
-    target instanceof HTMLElement &&
-    Boolean(
-      target.closest("button, a, input, select, textarea, [role='menuitem']")
-    )
-  );
-}
-
-function getPaneDropRegion(
-  event: DragEvent<HTMLElement>,
-  bounds: DOMRect
-): PaneDropRegion {
-  const x = (event.clientX - bounds.left) / Math.max(bounds.width, 1);
-  if (x <= 0.22) {
-    return "left";
-  }
-  if (x >= 0.78) {
-    return "right";
-  }
-
-  return "center";
-}
-
-function getPaneSplitDirection() {
-  return "horizontal" as const;
-}
-
-function getPaneSplitPlacement(region: PaneDropRegion) {
-  return region === "left" ? "before" : "after";
-}
-
-function getDropIndicatorStyle(region: PaneDropRegion) {
-  switch (region) {
-    case "left":
-      return {
-        height: "calc(100% - 0.75rem)",
-        inset: "0.375rem auto 0.375rem 0.375rem",
-        width: "0.1875rem",
-      };
-    case "right":
-      return {
-        height: "calc(100% - 0.75rem)",
-        inset: "0.375rem 0.375rem 0.375rem auto",
-        width: "0.1875rem",
-      };
-    default:
-      return {
-        height: "calc(100% - 0.75rem)",
-        inset: "0.375rem",
-        width: "calc(100% - 0.75rem)",
-      };
-  }
-}
-
-function getDraggedPaneId(
-  dataTransfer: DataTransfer | null | undefined,
-  fallbackPaneId: string | null
-) {
-  const dataTransferPaneId =
-    dataTransfer?.getData(WORKSPACE_PANE_REORDER_MIME) || null;
-  return dataTransferPaneId || fallbackPaneId;
-}
-
-function isDragLeaveInsideElement(
-  event: DragEvent<HTMLElement>,
-  element: HTMLElement = event.currentTarget
-) {
-  const relatedTarget = event.relatedTarget;
-  if (relatedTarget instanceof Node && element.contains(relatedTarget)) {
-    return true;
-  }
-
-  const bounds = element.getBoundingClientRect();
-  return (
-    event.clientX >= bounds.left &&
-    event.clientX <= bounds.right &&
-    event.clientY >= bounds.top &&
-    event.clientY <= bounds.bottom
-  );
-}
-
-function isSameDropPreview(
-  current: PaneDropPreview | null,
-  next: PaneDropPreview | null
-) {
-  return (
-    current?.href === next?.href &&
-    current?.paneId === next?.paneId &&
-    current?.region === next?.region
-  );
-}
-
-function normalizePreviewPaneSizes<T extends { id: string; size: number }>(
-  panes: T[]
-) {
-  if (panes.length === 0) {
-    return panes;
-  }
-
-  const size = 100 / panes.length;
-  return panes.map((pane) => ({
-    ...pane,
-    size,
-  }));
-}
-
-function buildPreviewPanes(
-  panes: RenderablePane[],
-  preview: PaneDropPreview | null,
-  draggedPaneId: string | null
-) {
-  if (!preview || preview.region === "center") {
-    return panes;
-  }
-
-  const targetPane = panes.find((pane) => pane.id === preview.paneId);
-  if (!targetPane) {
-    return panes;
-  }
-
-  const sourcePane = draggedPaneId
-    ? {
-        id: PREVIEW_PANE_ID,
-        isDropPreview: true,
-        previewTargetPaneId: targetPane.id,
-        route: { pathname: "/workspace", search: "" },
-        rowId: targetPane.rowId,
-        size: PREVIEW_PANE_MIN_SIZE,
-      }
-    : {
-        id: PREVIEW_PANE_ID,
-        isDropPreview: true,
-        previewTargetPaneId: targetPane.id,
-        route: preview.href
-          ? buildRouteState(preview.href)
-          : { pathname: "/workspace", search: "" },
-        rowId: targetPane.rowId,
-        size: PREVIEW_PANE_MIN_SIZE,
-      };
-
-  const withoutDragged = draggedPaneId
-    ? panes.filter((pane) => pane.id !== draggedPaneId)
-    : panes;
-  const targetIndex = withoutDragged.findIndex(
-    (pane) => pane.id === preview.paneId
-  );
-  const insertIndex =
-    targetIndex < 0
-      ? withoutDragged.length
-      : targetIndex + (preview.region === "right" ? 1 : 0);
-
-  const nextPanes: RenderablePane[] = [...withoutDragged];
-  nextPanes.splice(insertIndex, 0, {
-    ...sourcePane,
-    id: PREVIEW_PANE_ID,
-    isDropPreview: true,
-    previewTargetPaneId: targetPane.id,
-    rowId: targetPane.rowId,
-  });
-
-  return normalizePreviewPaneSizes(nextPanes);
-}
+const MIN_PANE_SIZE = 20;
 
 function WorkspacePaneScene({
   paneId,
@@ -339,46 +151,43 @@ function PaneHeader({
 }
 
 function WorkspacePaneSurface({
-  dropRegion,
+  dropIndicator,
   isActive,
-  isDragging,
-  isPreviewPane,
   isMultiPane,
   onClose,
-  onDragEnd,
-  onDragStart,
-  onDrop,
-  onDragOver,
-  onDragLeave,
   onFocus,
   onSplitHorizontal,
   pane,
 }: {
-  dropRegion: PaneDropRegion | null;
+  dropIndicator: "before" | "after" | null;
   isActive: boolean;
-  isDragging: boolean;
-  isPreviewPane: boolean;
   isMultiPane: boolean;
   onClose: () => void;
-  onDragEnd: () => void;
-  onDragStart: (event: DragEvent<HTMLDivElement>) => void;
-  onDrop: (event: DragEvent<HTMLDivElement>) => void;
-  onDragOver: (event: DragEvent<HTMLDivElement>) => void;
-  onDragLeave: (event: DragEvent<HTMLDivElement>) => void;
   onFocus: () => void;
   onSplitHorizontal: () => void;
   pane: {
     id: string;
-    isDropPreview?: boolean;
     route: {
       pathname: string;
       search: string;
     };
-    rowId: string;
-    size: number;
   };
 }) {
   const surfaceRef = useRef<HTMLDivElement | null>(null);
+  const { isOver, setNodeRef: setDropNodeRef } = useDroppable({
+    data: { paneId: pane.id },
+    id: pane.id,
+  });
+  const {
+    attributes: dragAttributes,
+    isDragging,
+    listeners: dragListeners,
+    setNodeRef: setDragNodeRef,
+  } = useDraggable({
+    data: { paneId: pane.id },
+    disabled: !isMultiPane,
+    id: pane.id,
+  });
   const [width, setWidth] = useState(0);
 
   useLayoutEffect(() => {
@@ -397,9 +206,7 @@ function WorkspacePaneSurface({
       return () => undefined;
     }
 
-    const observer = new ResizeObserver(() => {
-      updateWidth();
-    });
+    const observer = new ResizeObserver(updateWidth);
     observer.observe(element);
 
     return () => {
@@ -441,7 +248,13 @@ function WorkspacePaneSurface({
   ) : null;
 
   return (
-    <div className="w-full min-w-0" ref={surfaceRef}>
+    <div
+      className="h-full w-full min-w-0"
+      ref={(node) => {
+        surfaceRef.current = node;
+        setDropNodeRef(node);
+      }}
+    >
       <WorkspacePaneProvider
         isActive={isActive}
         isCompact={isCompact}
@@ -450,78 +263,44 @@ function WorkspacePaneSurface({
       >
         <div
           className={cn(
-            "relative flex h-full min-w-0 flex-col overflow-hidden border-border/70 border-r bg-background transition-[opacity,transform,box-shadow] duration-200 ease-out",
+            "relative flex h-full min-w-0 flex-col overflow-hidden border-border/70 border-r bg-background transition-[opacity,box-shadow] duration-150",
             isActive ? "ring-1 ring-border/90 ring-inset" : "ring-0",
-            isDragging && "opacity-0",
-            isPreviewPane &&
-              "border border-primary/35 border-dashed bg-primary/[0.04] shadow-[inset_0_0_0_1px_rgba(59,130,246,0.08)]"
+            isDragging && "opacity-55",
+            isOver && !isDragging && "bg-primary/[0.025]"
           )}
           onClick={onFocus}
-          onDragLeave={onDragLeave}
-          onDragOver={onDragOver}
-          onDrop={onDrop}
         >
-          {isPreviewPane ? (
-            <div className="flex h-full min-h-0 flex-1 items-center justify-center px-6 text-center text-muted-foreground/70 text-sm">
-              Drop to open here
-            </div>
-          ) : (
-            <>
-              <div
-                className={cn(
-                  "min-w-0",
-                  isMultiPane &&
-                    "cursor-grab select-none active:cursor-grabbing"
-                )}
-                draggable={isMultiPane}
-                onDragEnd={onDragEnd}
-                onDragStart={(event) => {
-                  if (isInteractiveHeaderTarget(event.target)) {
-                    event.preventDefault();
-                    return;
-                  }
-                  onDragStart(event);
-                }}
-              >
-                {isMultiPane ? (
-                  <PaneHeader
-                    compact={isCompact}
-                    paneId={pane.id}
-                    trailingActions={showPaneMenuInHeader ? paneMenu : null}
-                  />
-                ) : (
-                  <WorkspaceHeader
-                    className="border-b-0"
-                    compact={isCompact}
-                    paneId={pane.id}
-                    trailingActions={showPaneMenuInHeader ? paneMenu : null}
-                  />
-                )}
-              </div>
-              <div className="min-h-0 flex-1 overflow-hidden">
-                <WorkspacePaneInteractionBoundary>
-                  <WorkspacePaneScene
-                    paneId={pane.id}
-                    pathname={pane.route.pathname}
-                    search={pane.route.search}
-                  />
-                </WorkspacePaneInteractionBoundary>
-              </div>
-            </>
-          )}
-          {dropRegion ? (
-            <div className="pointer-events-none absolute inset-0 z-30 p-2">
-              <div
-                className={cn(
-                  "absolute transition-[inset,width,height,background-color,border-color,opacity] duration-100 ease-out",
-                  dropRegion === "center"
-                    ? "rounded-md border border-primary/45 bg-primary/[0.035]"
-                    : "rounded-sm bg-primary"
-                )}
-                style={getDropIndicatorStyle(dropRegion)}
-              />
-            </div>
+          {dropIndicator ? (
+            <div
+              className={cn(
+                "pointer-events-none absolute inset-y-2 z-40 w-1 rounded-full bg-primary shadow-[0_0_0_3px_hsl(var(--primary)/0.16),0_0_18px_hsl(var(--primary)/0.35)] transition-all duration-150",
+                dropIndicator === "before" ? "left-1" : "right-1"
+              )}
+            />
           ) : null}
+          <div
+            className={cn(
+              isMultiPane && "cursor-grab touch-none active:cursor-grabbing"
+            )}
+            ref={setDragNodeRef}
+            {...dragAttributes}
+            {...dragListeners}
+          >
+            <PaneHeader
+              compact={isCompact}
+              paneId={pane.id}
+              trailingActions={showPaneMenuInHeader ? paneMenu : null}
+            />
+          </div>
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <WorkspacePaneInteractionBoundary>
+              <WorkspacePaneScene
+                paneId={pane.id}
+                pathname={pane.route.pathname}
+                search={pane.route.search}
+              />
+            </WorkspacePaneInteractionBoundary>
+          </div>
         </div>
       </WorkspacePaneProvider>
     </div>
@@ -542,28 +321,24 @@ export function WorkspacePaneRenderer() {
   const closePane = useWorkspacePaneStore((state) => state.closePane);
   const focusPane = useWorkspacePaneStore((state) => state.focusPane);
   const openPane = useWorkspacePaneStore((state) => state.openPane);
-  const movePaneToSplit = useWorkspacePaneStore(
-    (state) => state.movePaneToSplit
-  );
   const reorderPanes = useWorkspacePaneStore((state) => state.reorderPanes);
   const setPaneSizes = useWorkspacePaneStore((state) => state.setPaneSizes);
-  const syncActivePaneFromBrowser = useWorkspacePaneStore(
-    (state) => state.syncActivePaneFromBrowser
-  );
-  const setPaneRoute = useWorkspacePaneStore((state) => state.setPaneRoute);
   const setActiveHeaderPaneId = useHeaderStore(
     (state) => state.setActivePaneId
   );
-  const [draggedPaneId, setDraggedPaneId] = useState<string | null>(null);
-  const [dropPreview, setDropPreview] = useState<PaneDropPreview | null>(null);
   const [paneStoreHydrated, setPaneStoreHydrated] = useState(() =>
     useWorkspacePaneStore.persist.hasHydrated()
   );
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const initialHydratedRouteHandledRef = useRef(false);
+  const [dragPreview, setDragPreview] = useState<{
+    activePaneId: string;
+    overPaneId: string;
+  } | null>(null);
   const pendingBrowserSyncRef = useRef<string | null>(null);
-  const dragGhostImageRef = useRef<HTMLCanvasElement | null>(null);
-  const previewFrameRef = useRef<number | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    })
+  );
 
   const browserRoute = useMemo(
     () =>
@@ -600,25 +375,6 @@ export function WorkspacePaneRenderer() {
     if (!paneStoreHydrated) {
       return;
     }
-    if (!initialHydratedRouteHandledRef.current) {
-      initialHydratedRouteHandledRef.current = true;
-      if (panes.length > 0) {
-        return;
-      }
-    }
-    const browserHref = `${browserRoute.pathname}${browserRoute.search}`;
-    if (pendingBrowserSyncRef.current === browserHref) {
-      pendingBrowserSyncRef.current = null;
-      return;
-    }
-
-    syncActivePaneFromBrowser(browserRoute);
-  }, [browserRoute, paneStoreHydrated, panes.length, syncActivePaneFromBrowser]);
-
-  useEffect(() => {
-    if (!paneStoreHydrated) {
-      return;
-    }
     const activePane = panes.find((pane) => pane.id === activePaneId);
     if (!activePane) {
       return;
@@ -647,151 +403,6 @@ export function WorkspacePaneRenderer() {
   useEffect(() => {
     setActiveHeaderPaneId(activePaneId);
   }, [activePaneId, setActiveHeaderPaneId]);
-
-  useEffect(() => {
-    dragGhostImageRef.current = createTransparentDragImage();
-  }, []);
-
-  useEffect(() => {
-    const clearDragState = () => {
-      if (previewFrameRef.current !== null) {
-        window.cancelAnimationFrame(previewFrameRef.current);
-        previewFrameRef.current = null;
-      }
-      setDraggedPaneId(null);
-      setDropPreview(null);
-      clearWorkspacePaneDragData();
-    };
-
-    window.addEventListener("dragend", clearDragState);
-    window.addEventListener("drop", clearDragState);
-
-    return () => {
-      window.removeEventListener("dragend", clearDragState);
-      window.removeEventListener("drop", clearDragState);
-      if (previewFrameRef.current !== null) {
-        window.cancelAnimationFrame(previewFrameRef.current);
-      }
-    };
-  }, []);
-
-  const queueDropPreview = useCallback(
-    (nextPreview: PaneDropPreview | null) => {
-      if (previewFrameRef.current !== null) {
-        window.cancelAnimationFrame(previewFrameRef.current);
-      }
-
-      previewFrameRef.current = window.requestAnimationFrame(() => {
-        previewFrameRef.current = null;
-        setDropPreview((current) =>
-          isSameDropPreview(current, nextPreview) ? current : nextPreview
-        );
-      });
-    },
-    []
-  );
-
-  const startPaneResize = useCallback(
-    (targetId: string, index: number, startClientX: number) => {
-      const container = containerRef.current;
-      if (!container) {
-        return;
-      }
-
-      const startingSizes = panes
-        .filter((pane) => pane.rowId === targetId)
-        .map((pane) => pane.size);
-      const bounds = container.getBoundingClientRect();
-      const containerSize = bounds.width;
-      if (containerSize <= 0) {
-        return;
-      }
-
-      const handlePointerMove = (event: PointerEvent) => {
-        const delta = event.clientX - startClientX;
-        const deltaPercent = (delta / containerSize) * 100;
-        const leftSize = Math.max(20, startingSizes[index]! + deltaPercent);
-        const rightSize = Math.max(
-          20,
-          startingSizes[index + 1]! - deltaPercent
-        );
-        const adjustedTotal = leftSize + rightSize;
-        const fixedLeft =
-          (leftSize / adjustedTotal) *
-          (startingSizes[index]! + startingSizes[index + 1]!);
-        const fixedRight =
-          (rightSize / adjustedTotal) *
-          (startingSizes[index]! + startingSizes[index + 1]!);
-        const nextSizes = [...startingSizes];
-        nextSizes[index] = fixedLeft;
-        nextSizes[index + 1] = fixedRight;
-        setPaneSizes(targetId, nextSizes);
-      };
-
-      const handlePointerUp = () => {
-        window.removeEventListener("pointermove", handlePointerMove);
-        window.removeEventListener("pointerup", handlePointerUp);
-      };
-
-      window.addEventListener("pointermove", handlePointerMove);
-      window.addEventListener("pointerup", handlePointerUp, { once: true });
-    },
-    [panes, setPaneSizes]
-  );
-
-  const handlePaneDrop = useCallback(
-    (
-      event: DragEvent<HTMLDivElement>,
-      targetPaneId: string,
-      forcedRegion?: PaneDropRegion
-    ) => {
-      const targetBounds = event.currentTarget.getBoundingClientRect();
-      const region = forcedRegion ?? getPaneDropRegion(event, targetBounds);
-      const droppedPaneId = getDraggedPaneId(event.dataTransfer, draggedPaneId);
-      const droppedHref = getWorkspacePaneDragHref(event.dataTransfer);
-      if (droppedHref) {
-        event.preventDefault();
-        if (region === "center") {
-          focusPane(targetPaneId);
-          setPaneRoute(targetPaneId, buildRouteState(droppedHref));
-        } else {
-          openPane(droppedHref, {
-            sourcePaneId: targetPaneId,
-            splitDirection: getPaneSplitDirection(),
-            splitPlacement: getPaneSplitPlacement(region),
-          });
-        }
-        setDraggedPaneId(null);
-        queueDropPreview(null);
-        clearWorkspacePaneDragData();
-        return;
-      }
-
-      if (droppedPaneId && droppedPaneId !== targetPaneId) {
-        event.preventDefault();
-        if (region === "center") {
-          reorderPanes(droppedPaneId, targetPaneId);
-        } else {
-          movePaneToSplit(droppedPaneId, targetPaneId, {
-            splitDirection: getPaneSplitDirection(),
-            splitPlacement: getPaneSplitPlacement(region),
-          });
-        }
-        setDraggedPaneId(null);
-        queueDropPreview(null);
-        clearWorkspacePaneDragData();
-      }
-    },
-    [
-      draggedPaneId,
-      focusPane,
-      movePaneToSplit,
-      openPane,
-      queueDropPreview,
-      reorderPanes,
-      setPaneRoute,
-    ]
-  );
 
   if (!workspace || panes.length === 0) {
     return <WorkspaceRoutePlaceholder label="Loading workspace..." />;
@@ -827,181 +438,113 @@ export function WorkspacePaneRenderer() {
     );
   }
 
-  const rowPanes = buildPreviewPanes(panes, dropPreview, draggedPaneId);
-  const rowDropTargetId = rowPanes[0]?.id ?? null;
+  const rowId = panes[0]?.rowId;
+
+  const handlePaneDragStart = (event: DragStartEvent) => {
+    const activePaneId = String(event.active.id);
+    setDragPreview({ activePaneId, overPaneId: activePaneId });
+  };
+
+  const handlePaneDragOver = (event: DragOverEvent) => {
+    const activePaneId = String(event.active.id);
+    const overPaneId = event.over ? String(event.over.id) : activePaneId;
+    setDragPreview({ activePaneId, overPaneId });
+  };
+
+  const handlePaneDragEnd = (event: DragEndEvent) => {
+    const draggedPaneId = String(event.active.id);
+    const targetPaneId = event.over ? String(event.over.id) : null;
+    setDragPreview(null);
+
+    if (targetPaneId && draggedPaneId !== targetPaneId) {
+      reorderPanes(draggedPaneId, targetPaneId);
+      focusPane(draggedPaneId);
+    }
+  };
+
+  const handlePaneDragCancel = () => {
+    setDragPreview(null);
+  };
 
   return (
-    <div
-      className="flex h-full w-full flex-col bg-background"
-      ref={containerRef}
+    <DndContext
+      onDragCancel={handlePaneDragCancel}
+      onDragEnd={handlePaneDragEnd}
+      onDragOver={handlePaneDragOver}
+      onDragStart={handlePaneDragStart}
+      sensors={sensors}
     >
-      <div
-        className="flex h-full min-w-0"
-        onDragLeave={(event) => {
-          if (isDragLeaveInsideElement(event)) {
-            return;
-          }
+      <div className="h-full w-full bg-background">
+        <PanelGroup
+          autoSaveId="avenire-workspace-panes"
+          className="h-full min-w-0"
+          direction="horizontal"
+          onLayout={(sizes) => {
+            if (rowId) {
+              setPaneSizes(rowId, sizes);
+            }
+          }}
+        >
+          {panes.map((pane, paneIndex) => {
+            const isActive = pane.id === activePaneId;
+            const isMultiPane = panes.length > 1;
+            const draggedPaneIndex = dragPreview
+              ? panes.findIndex(
+                  (candidate) => candidate.id === dragPreview.activePaneId
+                )
+              : -1;
+            const overPaneIndex = dragPreview
+              ? panes.findIndex(
+                  (candidate) => candidate.id === dragPreview.overPaneId
+                )
+              : -1;
+            const dropIndicator =
+              dragPreview?.overPaneId === pane.id &&
+              dragPreview.activePaneId !== pane.id &&
+              draggedPaneIndex >= 0 &&
+              overPaneIndex >= 0
+                ? draggedPaneIndex < overPaneIndex
+                  ? "after"
+                  : "before"
+                : null;
 
-          queueDropPreview(null);
-        }}
-        onDragOver={(event) => {
-          const activeDraggedPaneId = getDraggedPaneId(
-            event.dataTransfer,
-            draggedPaneId
-          );
-          if (
-            rowDropTargetId &&
-            (hasWorkspacePaneDragHref(event.dataTransfer) ||
-              activeDraggedPaneId)
-          ) {
-            event.preventDefault();
-            event.dataTransfer.dropEffect = activeDraggedPaneId
-              ? "move"
-              : "copy";
-          }
-        }}
-        onDrop={(event) => {
-          if (rowDropTargetId) {
-            handlePaneDrop(event, rowDropTargetId);
-          }
-        }}
-      >
-        {rowPanes.map((pane, paneIndex) => {
-          const isPreviewPane = Boolean(pane.isDropPreview);
-          const dropTargetPaneId = isPreviewPane
-            ? (pane.previewTargetPaneId ?? dropPreview?.paneId ?? pane.id)
-            : pane.id;
-          const isActive = pane.id === activePaneId;
-          const isMultiPane = panes.length > 1 && !isPreviewPane;
-          return (
-            <div
-              className="flex min-w-0 shrink-0"
-              key={pane.id}
-              style={{
-                transition: draggedPaneId
-                  ? "width 180ms cubic-bezier(0.22, 1, 0.36, 1)"
-                  : undefined,
-                width: `${pane.size}%`,
-              }}
-            >
-              <WorkspacePaneSurface
-                dropRegion={
-                  dropPreview?.paneId === pane.id ? dropPreview.region : null
-                }
-                isActive={isActive}
-                isDragging={pane.id === draggedPaneId}
-                isMultiPane={isMultiPane}
-                isPreviewPane={isPreviewPane}
-                onClose={() => {
-                  if (!isPreviewPane) {
-                    closePane(pane.id);
-                  }
-                }}
-                onDragEnd={() => {
-                  if (previewFrameRef.current !== null) {
-                    window.cancelAnimationFrame(previewFrameRef.current);
-                    previewFrameRef.current = null;
-                  }
-                  setDraggedPaneId(null);
-                  setDropPreview(null);
-                  clearWorkspacePaneDragData();
-                }}
-                onDragLeave={(event) => {
-                  const container = containerRef.current;
-                  if (container && isDragLeaveInsideElement(event, container)) {
-                    return;
-                  }
-
-                  queueDropPreview(null);
-                }}
-                onDragOver={(event) => {
-                  const activeDraggedPaneId = getDraggedPaneId(
-                    event.dataTransfer,
-                    draggedPaneId
-                  );
-                  const droppedHref = getWorkspacePaneDragHref(
-                    event.dataTransfer
-                  );
-                  if (droppedHref || activeDraggedPaneId) {
-                    event.preventDefault();
-                    if (activeDraggedPaneId === pane.id || isPreviewPane) {
-                      if (dropPreview?.paneId === pane.id) {
-                        queueDropPreview(null);
-                      }
-                      return;
-                    }
-                    event.dataTransfer.dropEffect = activeDraggedPaneId
-                      ? "move"
-                      : "copy";
-                    queueDropPreview({
-                      href: droppedHref,
-                      paneId: dropTargetPaneId,
-                      region: getPaneDropRegion(
-                        event,
-                        event.currentTarget.getBoundingClientRect()
-                      ),
-                    });
-                  }
-                }}
-                onDragStart={(event) => {
-                  const dragImage = dragGhostImageRef.current;
-                  if (dragImage) {
-                    event.dataTransfer.setDragImage(dragImage, 0, 0);
-                  }
-                  clearWorkspacePaneDragData();
-                  event.dataTransfer.effectAllowed = "move";
-                  event.dataTransfer.setData(
-                    WORKSPACE_PANE_REORDER_MIME,
-                    pane.id
-                  );
-                  event.dataTransfer.setData("text/plain", pane.id);
-                  setDraggedPaneId(pane.id);
-                }}
-                onDrop={(event) => {
-                  event.stopPropagation();
-                  handlePaneDrop(
-                    event,
-                    dropTargetPaneId,
-                    isPreviewPane ? dropPreview?.region : undefined
-                  );
-                }}
-                onFocus={() => {
-                  if (!isPreviewPane) {
-                    focusPane(pane.id);
-                  }
-                }}
-                onSplitHorizontal={() =>
-                  !isPreviewPane &&
-                  openPane("/workspace", {
-                    sourcePaneId: pane.id,
-                    splitDirection: "horizontal",
-                    splitPlacement: "after",
-                  })
-                }
-                pane={pane}
-              />
-              {paneIndex < rowPanes.length - 1 ? (
-                <div
-                  aria-hidden="true"
-                  className="relative z-20 w-3 shrink-0 cursor-col-resize bg-border/35 transition-colors hover:bg-border/75"
-                  onPointerDown={(event) => {
-                    event.preventDefault();
-                    startPaneResize(
-                      rowPanes[0]?.rowId,
-                      paneIndex,
-                      event.clientX
-                    );
-                  }}
+            return (
+              <Fragment key={pane.id}>
+                <Panel
+                  className="min-w-0"
+                  defaultSize={pane.size}
+                  id={pane.id}
+                  minSize={MIN_PANE_SIZE}
+                  order={paneIndex}
                 >
-                  <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/70">
-                    <ArrowsSplit className="size-3.5" />
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
+                  <WorkspacePaneSurface
+                    dropIndicator={dropIndicator}
+                    isActive={isActive}
+                    isMultiPane={isMultiPane}
+                    onClose={() => closePane(pane.id)}
+                    onFocus={() => focusPane(pane.id)}
+                    onSplitHorizontal={() =>
+                      openPane("/workspace", {
+                        sourcePaneId: pane.id,
+                        splitDirection: "horizontal",
+                        splitPlacement: "after",
+                      })
+                    }
+                    pane={pane}
+                  />
+                </Panel>
+                {paneIndex < panes.length - 1 ? (
+                  <PanelResizeHandle className="group relative z-20 w-3 bg-border/35 transition-colors hover:bg-border/75 data-[resize-handle-active]:bg-border/90">
+                    <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/70">
+                      <ArrowsSplit className="size-3.5 transition-transform group-data-[resize-handle-active]:scale-110" />
+                    </div>
+                  </PanelResizeHandle>
+                ) : null}
+              </Fragment>
+            );
+          })}
+        </PanelGroup>
       </div>
-    </div>
+    </DndContext>
   );
 }
