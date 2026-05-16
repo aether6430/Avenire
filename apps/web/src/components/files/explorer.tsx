@@ -68,29 +68,18 @@ import { useExplorerShell } from "@/components/files/explorer/use-explorer-shell
 import { useExplorerSurfaceSummary } from "@/components/files/explorer/use-explorer-surface-summary";
 import { useExplorerSurfaceUiState } from "@/components/files/explorer/use-explorer-surface-ui-state";
 import { useExplorerWorkspaceIndexState } from "@/components/files/explorer/use-explorer-workspace-index-state";
+import { useWorkspaceExplorerData } from "@/components/files/explorer/use-workspace-explorer-data";
 import type { BulkItemKind } from "@/components/files/explorer/workspace-bulk-operations-model";
 import type { SortState } from "@/components/files/explorer/workspace-folder-browse-model";
 import type { WorkspaceSearchResult } from "@/components/files/stylized-search-bar";
-import {
-  normalizePropertyDefinitions,
-  type WorkspacePropertyDefinition,
-} from "@/lib/frontmatter";
 import { useUploadThing } from "@/lib/uploadthing";
 import { cn } from "@/lib/utils";
-import {
-  readWorkspaceFolderCache,
-  writeWorkspaceFolderCache,
-} from "@/lib/workspace-folder-cache";
 import {
   useCurrentWorkspacePane,
   usePanePathname,
   usePaneRouter,
   usePaneSearchParams,
 } from "@/lib/workspace-panes";
-import {
-  readWorkspaceTreeCache,
-  writeWorkspaceTreeCache,
-} from "@/lib/workspace-tree-cache";
 import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
 import { filesPinsActions, useFilesPinsStore } from "@/stores/filesPinsStore";
 import { filesUiActions } from "@/stores/filesUiStore";
@@ -117,20 +106,6 @@ const _HEADER_SEGMENT_BUTTON_CLASS =
 const HEADER_SEGMENT_ICON_BUTTON_CLASS =
   "h-9 w-9 rounded-none border-0 bg-transparent text-foreground shadow-none hover:bg-muted/70 disabled:bg-transparent";
 const FILE_EXPLORER_LIST_ROW_ESTIMATE = 52;
-
-async function loadWorkspacePropertyDefinitions(workspaceUuid: string) {
-  const response = await fetch(
-    `/api/workspaces/${workspaceUuid}/property-registry`,
-    { cache: "no-store" }
-  );
-
-  if (!response.ok) {
-    return [];
-  }
-
-  const payload = (await response.json()) as { properties?: unknown };
-  return normalizePropertyDefinitions(payload.properties);
-}
 
 interface MobileActionsPopoverProps {
   detail: string;
@@ -547,7 +522,6 @@ export function FileExplorer({
     null
   );
   const mobileSuppressClickRef = useRef<string | null>(null);
-  const refreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const {
     canClosePane,
     currentFolderId,
@@ -577,19 +551,9 @@ export function FileExplorer({
   const [activeRetrievalChunkId, setActiveRetrievalChunkId] = useState<
     string | null
   >(null);
-  const [allFolders, setAllFolders] = useState<FolderRecord[]>([]);
-  const [allFiles, setAllFiles] = useState<FileRecord[]>([]);
-  const [folders, setFolders] = useState<FolderRecord[]>([]);
-  const [files, setFiles] = useState<FileRecord[]>([]);
-  const [breadcrumbs, setBreadcrumbs] = useState<FolderRecord[]>([]);
-  const [loading, setLoading] = useState(false);
   const [workspaceMembers, _setWorkspaceMembers] = useState<
     WorkspaceMemberRecord[]
   >([]);
-  const [propertyDefinitions, setPropertyDefinitions] = useState<
-    WorkspacePropertyDefinition[]
-  >([]);
-  const loadedPropertyRegistryWorkspaceRef = useRef<string | null>(null);
   const {
     mobileConfirmAction,
     mobileCreateMenuOpen,
@@ -610,6 +574,23 @@ export function FileExplorer({
   );
 
   const { startUpload: startBannerUpload } = useUploadThing("imageUploader");
+  const {
+    allFiles,
+    allFolders,
+    breadcrumbs,
+    files,
+    folders,
+    loadFolder,
+    loadTree,
+    loading,
+    propertyDefinitions,
+    refreshData,
+    refreshDataDebounced,
+    setPropertyDefinitions,
+  } = useWorkspaceExplorerData({
+    currentFolderId,
+    workspaceUuid,
+  });
   const pinnedByWorkspace = useFilesPinsStore(
     (state) => state.pinnedByWorkspace
   );
@@ -724,118 +705,6 @@ export function FileExplorer({
     workspaceMembers,
     workspaceUuid,
   });
-
-  const loadFolder = useCallback(
-    async (options?: { silent?: boolean }) => {
-      if (!(workspaceUuid && currentFolderId)) {
-        return;
-      }
-      const silent = options?.silent ?? false;
-      const cached = readWorkspaceFolderCache<FolderRecord, FileRecord>(
-        workspaceUuid,
-        currentFolderId
-      );
-
-      if (cached) {
-        setLoading(false);
-        setFolders(cached.folders);
-        setFiles(cached.files);
-        setBreadcrumbs(cached.ancestors);
-      }
-
-      if (!(silent || cached)) {
-        setLoading(true);
-      }
-      try {
-        const response = await fetch(
-          `/api/workspaces/${workspaceUuid}/folders/${currentFolderId}`,
-          { cache: "no-store" }
-        );
-
-        if (!response.ok) {
-          return;
-        }
-
-        const payload = (await response.json()) as {
-          folders?: FolderRecord[];
-          files?: FileRecord[];
-          ancestors?: FolderRecord[];
-        };
-
-        const nextFolders = payload.folders ?? [];
-        const nextFiles = payload.files ?? [];
-        const nextAncestors = payload.ancestors ?? [];
-
-        setFolders(nextFolders);
-        setFiles(nextFiles);
-        setBreadcrumbs(nextAncestors);
-        writeWorkspaceFolderCache<FolderRecord, FileRecord>(
-          workspaceUuid,
-          currentFolderId,
-          {
-            ancestors: nextAncestors,
-            files: nextFiles,
-            folders: nextFolders,
-          }
-        );
-      } finally {
-        if (!(silent || cached)) {
-          setLoading(false);
-        }
-      }
-    },
-    [currentFolderId, workspaceUuid]
-  );
-
-  const loadTree = useCallback(async () => {
-    if (!workspaceUuid) {
-      return;
-    }
-
-    const cached = readWorkspaceTreeCache<FolderRecord, FileRecord>(
-      workspaceUuid
-    );
-    if (cached) {
-      setAllFolders(cached.folders);
-      setAllFiles(cached.files);
-    }
-
-    try {
-      const response = await fetch(`/api/workspaces/${workspaceUuid}/tree`, {
-        cache: "no-store",
-      });
-      if (!response.ok) {
-        return;
-      }
-      const payload = (await response.json()) as {
-        folders?: FolderRecord[];
-        files?: FileRecord[];
-      };
-      setAllFolders(payload.folders ?? []);
-      setAllFiles(payload.files ?? []);
-      writeWorkspaceTreeCache<FolderRecord, FileRecord>(workspaceUuid, {
-        files: payload.files ?? [],
-        folders: payload.folders ?? [],
-      });
-    } catch {
-      // ignore
-    }
-  }, [workspaceUuid]);
-
-  const refreshData = useCallback(() => {
-    void loadFolder({ silent: true });
-    void loadTree();
-  }, [loadFolder, loadTree]);
-
-  const refreshDataDebounced = useCallback(() => {
-    if (refreshDebounceRef.current) {
-      clearTimeout(refreshDebounceRef.current);
-    }
-
-    refreshDebounceRef.current = setTimeout(() => {
-      refreshData();
-    }, 300);
-  }, [refreshData]);
 
   const emitSync = useCallback(() => {
     filesUiActions.emitSync(workspaceUuid);
@@ -975,67 +844,6 @@ export function FileExplorer({
     visibleItemIds,
     workspaceUuid,
   });
-
-  useEffect(() => {
-    if (!(workspaceUuid && currentFolderId)) {
-      setFolders([]);
-      setFiles([]);
-      setBreadcrumbs([]);
-      return;
-    }
-
-    const cached = readWorkspaceFolderCache<FolderRecord, FileRecord>(
-      workspaceUuid,
-      currentFolderId
-    );
-    if (!cached) {
-      return;
-    }
-
-    setFolders(cached.folders);
-    setFiles(cached.files);
-    setBreadcrumbs(cached.ancestors);
-  }, [currentFolderId, workspaceUuid]);
-
-  useEffect(() => {
-    void loadFolder();
-  }, [loadFolder]);
-
-  useEffect(() => {
-    void loadTree();
-  }, [loadTree]);
-
-  useEffect(() => {
-    if (!workspaceUuid) {
-      setPropertyDefinitions([]);
-      loadedPropertyRegistryWorkspaceRef.current = null;
-      return;
-    }
-    if (loadedPropertyRegistryWorkspaceRef.current === workspaceUuid) {
-      return;
-    }
-
-    let cancelled = false;
-    loadedPropertyRegistryWorkspaceRef.current = workspaceUuid;
-    void (async () => {
-      try {
-        const normalized =
-          await loadWorkspacePropertyDefinitions(workspaceUuid);
-        if (cancelled) {
-          return;
-        }
-        setPropertyDefinitions(normalized);
-      } catch {
-        if (!cancelled) {
-          setPropertyDefinitions([]);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [workspaceUuid]);
 
   useEffect(() => {
     if (!workspaceUuid) {
