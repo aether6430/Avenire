@@ -101,11 +101,24 @@ Current evidence:
 
 - Public and authenticated surfaces now build together in production.
 - Large shell components were reduced without reopening type/build failures.
+- `docs/product-coherence-audit-current.md` now exists in the active no-sync
+  repo and captures current public/auth-entry findings.
+- A local verified user exists for `audit+workspace@example.com`.
+- Signed-in workspace evidence now includes:
+  - `/workspace` returned `200`
+  - `/api/workspace/bootstrap` returned user + workspace payload
+  - `/api/workspace/overview` returned a valid empty-state overview payload
+  - `/api/workspaces/list` returned the created workspace
+- The auth-entry flow itself improved materially:
+  - `/register` no longer crashes with `Maximum update depth exceeded`
+  - sign-up returned `200`
+  - verify-email returned `302`
+  - a session token was issued in the database
 
 Missing proof:
 
-- There is still no updated end-to-end product-coherence audit that walks the
-  real user flows and states after the no-sync recovery.
+- There is still no stable browser-level walkthrough of the signed-in workspace
+  interaction loop beyond route/bootstrap/empty-state proof.
 - Passing builds prove integrity, but they do not by themselves prove that the
   product now feels coherent.
 
@@ -126,7 +139,8 @@ Missing proof:
 
 1. `explorer.tsx` is still the largest remaining app-level surface by a wide
    margin.
-2. The goal still lacks a current product-coherence audit across real flows.
+2. The goal still lacks a stable browser-level audit of the signed-in
+   workspace interaction loop.
 3. The goal still lacks a current visual/interaction audit across the main
    surfaces.
 4. The evidence trail is healthier, but it is still split between the active
@@ -136,7 +150,7 @@ Missing proof:
 
 1. Continue structural reduction on `explorer.tsx` until it no longer dominates
    the app-level surface map.
-2. Produce a fresh product-coherence audit once `explorer` is no longer the
-   obvious structural outlier.
+2. Continue the signed-in workspace audit until it includes stable browser-level
+   interaction proof, not only route/bootstrap evidence.
 3. After that, perform a final end-state audit against the recovered goal
    surrogate before considering the overall objective achieved.

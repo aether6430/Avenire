@@ -162,11 +162,16 @@ What is currently true:
 - auth backend state exists
 - a verified local user exists
 - a session token exists in the database
+- authenticated workspace endpoints now respond for that user:
+  - `/workspace` returned `200`
+  - `/api/workspace/bootstrap` returned user + workspace payload
+  - `/api/workspace/overview` returned an empty-but-valid overview payload
+  - `/api/workspaces/list` returned the created workspace
 
 What is still missing:
 
-- a direct browser-level proof that the authenticated user lands inside the
-  workspace and can move through the main signed-in surfaces coherently
+- a stable browser-level proof that the authenticated user can move through the
+  main signed-in surfaces coherently, not only receive authenticated HTML/JSON
 
 This remains a real gap against the overall objective.
 
@@ -195,6 +200,7 @@ The weaker evidence is:
 
 - deep authenticated workflows under real usage
 - a stable browser-level proof of the signed-in workspace loop
+- richer signed-in states beyond the freshly created empty workspace
 
 So the repo feels much more coherent at the public/product edge than it is yet
 proven to be inside the core signed-in work loop.
@@ -209,8 +215,12 @@ Public and auth-entry coherence are materially healthier than before:
 - sane workspace redirect behavior
 
 But the broader objective is still **not achieved** because the authenticated
-workspace flow has not yet been audited end to end under a browser-proven real
-session, and that is exactly where the product’s main promise actually lives.
+workspace flow is now only partially proven:
+
+- the signed-in workspace route and bootstrap endpoints work
+- the empty workspace state is reachable
+- but the broader signed-in interaction loop is still not audited end to end in
+  a stable browser session
 
 ## Recommended next move
 
