@@ -5,38 +5,13 @@ import { redirect } from "next/navigation";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
 import { listWorkspacesForUser } from "@/lib/file-data";
 import { buildPageMetadata } from "@/lib/page-metadata";
-import { resolveWorkspaceFilesPageTitle } from "../workspace-files-page-metadata";
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ workspaceUuid: string }>;
-}) {
-  const { workspaceUuid } = await params;
-  const session = await auth.api.getSession({ headers: await headers() });
-
-  if (!session?.user) {
-    return buildPageMetadata({
-      noIndex: true,
-      title: "Files",
-    });
-  }
-
-  const workspaces = await listWorkspacesForUser(session.user.id);
-  const workspaceName =
-    workspaces.find((workspace) => workspace.workspaceId === workspaceUuid)
-      ?.name ?? null;
-
-  return buildPageMetadata({
-    noIndex: true,
-    title: resolveWorkspaceFilesPageTitle({
-      isAtWorkspaceRoot: true,
-      workspaceName,
-    }),
-  });
-}
+export const metadata = buildPageMetadata({
+  noIndex: true,
+  title: "Files",
+});
 
 export default async function WorkspaceFilesWorkspacePage({
   params,

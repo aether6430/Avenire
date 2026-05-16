@@ -142,12 +142,13 @@ Current evidence:
     - `/api/activity?...`
   - browser snapshot now proves the home screen headline, tasks panel, recent
     concepts panel, and student calendar
-  - signed-in `Open Files` navigation now also updates the real browser URL and
-    loads the files sidebar/tree surface
+  - signed-in files route now also has direct production proof:
+    - authenticated HTTP GET returns `200`
+    - the production browser renders the files surface itself instead of only a
+      loading placeholder
   - remaining gap has shifted deeper:
-    - the files route main pane still shows `Loading files...`
-    - production server responsiveness can still degrade after deeper
-      signed-in navigation
+    - production server responsiveness can still degrade after signed-in files
+      activity
 - The auth-entry flow itself improved materially:
   - `/register` no longer crashes with `Maximum update depth exceeded`
   - sign-up returned `200`
@@ -162,7 +163,6 @@ Missing proof:
   - the authenticated route is reachable in both dev-proxy and direct
     production-browser sessions
   - the home pane now reaches a ready state in production
-  - the files route main pane still stalls on `Loading files...`
   - the production signed-in path is still not fully trustworthy under deeper
     navigation
 - Passing builds prove integrity, but they do not by themselves prove that the
@@ -189,9 +189,8 @@ Missing proof:
 
 1. `explorer.tsx` is still the largest remaining app-level surface by a wide
    margin.
-2. The signed-in workspace home surface is now browser-proven, but deeper
-   continuity is still weak:
-   - the files route main pane still stalls on `Loading files...`
+2. The signed-in workspace home and files surfaces are now browser-proven, but
+   deeper reliability is still weak:
    - production server responsiveness can still degrade after deeper
      signed-in navigation
 3. The original `instruction.md` remains absent from the active repo and
@@ -203,12 +202,9 @@ Missing proof:
 
 1. Continue structural reduction on `explorer.tsx` until it no longer dominates
    the app-level surface map.
-2. Debug the signed-in files-route loading seam under the direct production
-   browser session, because that is now the clearest remaining product-level
-   gap.
-3. Isolate the remaining production responsiveness failure after deeper
+2. Isolate the remaining production responsiveness failure after deeper
    signed-in navigation.
-4. Recover or otherwise memorialize the original `instruction.md` text so the
+3. Recover or otherwise memorialize the original `instruction.md` text so the
    final completion audit no longer depends on a surrogate alone.
-5. After that, perform a final end-state audit against the recovered goal
+4. After that, perform a final end-state audit against the recovered goal
    surrogate before considering the overall objective achieved.

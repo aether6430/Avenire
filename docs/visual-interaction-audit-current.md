@@ -98,17 +98,25 @@ Observed in the current direct production browser session:
 
 That is a meaningful visual improvement over the earlier shell-only proof.
 
-### 2. The files route is now the weaker visual surface
+### 2. The files route now has a real rendered surface
 
 Observed after clicking `Open Files` in the same production browser session:
 
 - the route updates to the real files URL
 - the files sidebar/tree visibly loads
-- the main files pane still shows:
-  - `Loading files...`
+- the main files pane now also renders visible content, including:
+  - breadcrumb `Workspace`
+  - `Workspace actions`
+  - sort and view controls
+  - visible file content row for `Welcome to Avenire.md`
 
-So the visual weakest point has moved from the workspace home route to the
-files-route main pane.
+So the files route is no longer only a sidebar-shell or spinner proof.
+
+### 3. The remaining visual risk is now tied to longer-lived stability
+
+Even after the files route renders, the broader production session can still
+degrade later, so the weakest point is no longer first paint. It is sustained
+signed-in stability.
 
 ## Conclusion
 
@@ -120,6 +128,6 @@ were still giant inline surfaces:
 - the signed-in workspace shell is now browser-visible and coherent
 - the signed-in home surface now reaches a real ready state
 
-But the audit is still incomplete because the primary work pane has not yet
-been observed in a stable ready state for every major signed-in route. The
-clearest remaining visual gap is the files-route main pane.
+But the audit is still incomplete because the signed-in routes are not yet
+proven stable under longer production sessions. The clearest remaining gap is
+runtime durability, not initial visual composition.

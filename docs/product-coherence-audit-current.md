@@ -291,18 +291,28 @@ Observed after moving beyond the home surface:
 
 - clicking `Open Files` now changes the real browser URL to:
   - `/workspace/files/<workspaceUuid>/folder/<rootFolderId>`
-- the files tree/sidebar surface loads and shows:
+- the production files route now has direct signed-in proof:
+  - authenticated HTTP GET to `/workspace/files/<workspaceUuid>/folder/<rootFolderId>`
+    returned `200`
+  - a real production browser session rendered the files surface at that exact
+    route
+- the files tree/sidebar surface now visibly loads and shows:
   - `Files`
   - `Search Files`
   - `New Note`
   - `Import Link`
   - `Your Files`
   - `Welcome to Avenire.md`
-- the main files pane still remained on:
-  - `Loading files...`
+- the main files pane now also renders real content in the production browser
+  snapshot, including:
+  - breadcrumb `Workspace`
+  - `Workspace actions`
+  - sort control
+  - card/list toggle
+  - visible file row for `Welcome to Avenire.md`
 
-So the deepest remaining signed-in gap is no longer the workspace home shell.
-It is the next stage of continuity after entering files.
+This is materially stronger than the earlier shell-only or spinner-only files
+proof. The files route is no longer “unreachable” in production.
 
 ### 4. Signed-in production responsiveness is still not fully trustworthy
 
@@ -310,9 +320,10 @@ Observed during the same broader signed-in production work:
 
 - a production `next start` process previously died with Node heap OOM under a
   signed-in workspace browser session
-- after the startup trims above, the initial home path is materially healthier
-- however, after deeper in-session navigation the server can still become
-  partially unhealthy:
+- after the auth runtime fix and files-route simplification, the files page now
+  reaches a real production browser render
+- however, after signed-in files activity the server can still become partially
+  unhealthy:
   - it may keep listening on port `3005`
   - but fresh requests such as `/login` can still time out
 
@@ -363,9 +374,8 @@ workspace flow is now only partially proven:
 
 - the signed-in workspace route and home surface now reach a real ready state
   in a production browser session
-- the files route now also navigates in-browser and loads its sidebar/tree
-  surface
-- but the main files pane is still not proven to reach a stable ready state
+- the files route now also reaches a real production browser render instead of
+  only a loading placeholder
 - and the production signed-in path is still not trustworthy enough under
   sustained use because server responsiveness can degrade
 
@@ -373,7 +383,8 @@ workspace flow is now only partially proven:
 
 Debug the next signed-in continuity seam next:
 
-1. trace why the files route main pane stays on `Loading files...`
-2. isolate why the production server can become partially unresponsive after
-   deeper signed-in navigation
+1. isolate why the production server can become partially unresponsive after
+   signed-in files activity, even now that the files surface renders
+2. confirm whether the degradation is tied to long-lived files/realtime runtime
+   paths rather than the initial route render itself
 3. only then continue the deeper chat/tasks/flashcards continuity audit
