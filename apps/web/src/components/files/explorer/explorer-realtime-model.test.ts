@@ -3,6 +3,7 @@ import {
   applyExplorerIngestionJobEvent,
   parseExplorerFilesInvalidationPayload,
   parseExplorerIngestionJobEventPayload,
+  shouldEnableExplorerRealtime,
 } from "@/components/files/explorer/explorer-realtime-model";
 import type { ExplorerUploadQueueItem } from "@/components/files/explorer/explorer-upload-model";
 
@@ -66,5 +67,29 @@ describe("Explorer realtime model", () => {
       failureCount: 0,
       status: "uploaded",
     });
+  });
+
+  it("only enables explorer realtime when uploads are still active", () => {
+    expect(
+      shouldEnableExplorerRealtime([
+        {
+          id: "upload-1",
+          name: "alpha.pdf",
+          sizeLabel: "1 MB",
+          status: "uploaded",
+        },
+      ])
+    ).toBe(false);
+
+    expect(
+      shouldEnableExplorerRealtime([
+        {
+          id: "upload-1",
+          name: "alpha.pdf",
+          sizeLabel: "1 MB",
+          status: "queued",
+        },
+      ])
+    ).toBe(true);
   });
 });

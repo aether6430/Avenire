@@ -125,6 +125,8 @@ uniform across signed-in routes:
   healthy
 - signed-in files routes are much more likely to be the trigger for later
   instability
+- the initial detached production files render is now quieter on background
+  live-runtime work, even though the deeper durability issue still remains
 
 ## Conclusion
 

@@ -146,6 +146,8 @@ Current evidence:
     - authenticated HTTP GET returns `200`
     - the production browser renders the files surface itself instead of only a
       loading placeholder
+    - a fresh detached production files render now avoids auto-starting the
+      broader files realtime streams when no uploads are active
   - remaining gap has shifted deeper:
     - production server responsiveness can still degrade after signed-in files
       activity

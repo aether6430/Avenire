@@ -2,6 +2,7 @@
 
 import { measureElement, useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useState } from "react";
+import { shouldEnableExplorerRealtime } from "@/components/files/explorer/explorer-realtime-model";
 import type { ExplorerUploadQueueItem } from "@/components/files/explorer/explorer-upload-model";
 import type {
   FileRecord,
@@ -94,6 +95,9 @@ export function useExplorerRuntime({
   const updateWorkspaceQueue = useFilesActivityStore(
     (state) => state.updateWorkspaceQueue
   );
+  const queuesByWorkspace = useFilesActivityStore(
+    (state) => state.queuesByWorkspace
+  );
   const [realtimeReady, setRealtimeReady] = useState(false);
   const setUploadQueue = useCallback(
     (
@@ -108,6 +112,7 @@ export function useExplorerRuntime({
     },
     [updateWorkspaceQueue, workspaceUuid]
   );
+  const workspaceQueue = queuesByWorkspace[workspaceUuid] ?? [];
 
   useEffect(() => {
     if (realtimeReady || typeof window === "undefined") {
@@ -203,7 +208,7 @@ export function useExplorerRuntime({
   });
 
   useExplorerRealtimeSync({
-    enabled: realtimeReady,
+    enabled: realtimeReady && shouldEnableExplorerRealtime(workspaceQueue),
     refreshDataDebounced,
     setUploadQueue,
     workspaceUuid,

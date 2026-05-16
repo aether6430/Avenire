@@ -70,3 +70,12 @@ export function applyExplorerIngestionJobEvent(
     };
   });
 }
+
+export function shouldEnableExplorerRealtime(queue: ExplorerUploadQueueItem[]) {
+  return queue.some(
+    (item) =>
+      item.status === "queued" ||
+      item.status === "uploading" ||
+      item.status === "ingesting"
+  );
+}

@@ -314,6 +314,18 @@ Observed after moving beyond the home surface:
 This is materially stronger than the earlier shell-only or spinner-only files
 proof. The files route is no longer “unreachable” in production.
 
+Recent files-route runtime tightening also changed the initial network shape:
+
+- on a fresh detached production files render, the browser now loads:
+  - `/api/workspaces/<workspaceUuid>/tree`
+  - `/api/workspaces/<workspaceUuid>/folders/<folderUuid>`
+  - `/api/workspaces/<workspaceUuid>/property-registry`
+- but it does **not** immediately open the broader files realtime streams when
+  there are no active uploads
+
+That means the first files render is now doing less background live-work than
+it did before.
+
 ### 4. Signed-in production responsiveness is still not fully trustworthy
 
 Observed during the same broader signed-in production work:
