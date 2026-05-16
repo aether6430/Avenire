@@ -131,6 +131,16 @@ Current evidence:
   - the left sidebar and workspace quick actions rendered consistently
   - the main pane still remained on `Loading workspace...` even after a
     `20s` virtual-time budget
+- A direct production browser session now proves more of the signed-in path:
+  - signed-in `http://127.0.0.1:3005/workspace` stayed on the workspace route
+  - the browser loaded:
+    - `/api/workspace/bootstrap`
+    - `/api/user-settings`
+    - `/api/workspaces/invitations`
+    - `/api/workspaces/list`
+  - the main pane still remained on `Loading workspace...`
+  - the same production browser path can eventually crash `next start` with
+    Node heap OOM
 - The auth-entry flow itself improved materially:
   - `/register` no longer crashes with `Maximum update depth exceeded`
   - sign-up returned `200`
@@ -139,12 +149,13 @@ Current evidence:
 
 Missing proof:
 
-- There is now partial browser-level signed-in proof, but not a healthy
+- There is now meaningful browser-level signed-in proof, but not a healthy
   in-session loop:
   - the shell renders
-  - the authenticated route is reachable
-  - the default main pane still stalls on `Loading workspace...` in
-    deterministic headless browser captures
+  - the authenticated route is reachable in both dev-proxy and direct
+    production-browser sessions
+  - the default main pane still stalls on `Loading workspace...`
+  - the production signed-in path can crash `next start` with OOM
 - Passing builds prove integrity, but they do not by themselves prove that the
   product now feels coherent.
 
@@ -170,7 +181,8 @@ Missing proof:
 1. `explorer.tsx` is still the largest remaining app-level surface by a wide
    margin.
 2. The signed-in workspace shell is browser-proven, but the main pane still
-   stalls on `Loading workspace...` in deterministic authenticated captures.
+   stalls on `Loading workspace...` even in a direct production browser
+   session, and that same path can crash `next start` with OOM.
 3. The original `instruction.md` remains absent from the active repo and
    trapped as a `compressed,dataless` placeholder in the old Desktop copy.
 4. The evidence trail is healthier, but it is still split between the active
@@ -180,10 +192,12 @@ Missing proof:
 
 1. Continue structural reduction on `explorer.tsx` until it no longer dominates
    the app-level surface map.
-2. Debug or prove the signed-in workspace main-pane loading seam under the
-   authenticated browser proxy, because that is now the clearest remaining
+2. Debug the signed-in workspace main-pane loading seam under the direct
+   production browser session, because that is now the clearest remaining
    product-level gap.
-3. Recover or otherwise memorialize the original `instruction.md` text so the
+3. Isolate the production `next start` OOM during signed-in workspace loading
+   and prefetch.
+4. Recover or otherwise memorialize the original `instruction.md` text so the
    final completion audit no longer depends on a surrogate alone.
-4. After that, perform a final end-state audit against the recovered goal
+5. After that, perform a final end-state audit against the recovered goal
    surrogate before considering the overall objective achieved.

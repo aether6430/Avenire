@@ -57,6 +57,17 @@ Signed-in browser proxy:
   - `chrome-headless-shell --screenshot ... http://localhost:4010/workspace`
   - `Google Chrome --headless --screenshot ... http://localhost:4010/workspace`
 
+Direct production browser session:
+
+- production build:
+  - `DATABASE_URL=postgres://johnmacartew@localhost:5433/avenire NEXT_PUBLIC_APP_URL=http://localhost:3005 BETTER_AUTH_URL=http://localhost:3005 BETTER_AUTH_SECRET=0123456789abcdef0123456789abcdef RESEND_API_KEY=re_dummy_123456789012345678901234 NODE_ENV=production pnpm --filter @avenire/web build`
+- production server:
+  - `PORT=3005 ... NODE_ENV=production pnpm --filter @avenire/web start`
+- production local sign-in:
+  - `POST http://127.0.0.1:3005/api/auth/sign-in/email`
+- Playwright browser session with direct cookie injection for:
+  - `http://127.0.0.1:3005/workspace`
+
 ## Observed strengths
 
 ### 1. Public nav is consistent
@@ -180,6 +191,29 @@ This is stronger than the earlier route/bootstrap-only proof because it confirms
 that the signed-in workspace chrome is not just returning HTML; it is rendering
 as a real browser surface.
 
+### 9. A direct production browser session now proves more of the signed-in path
+
+Observed in a real Playwright-driven production session against
+`http://127.0.0.1:3005/workspace`:
+
+- the session stayed on the signed-in workspace URL instead of redirecting to
+  `/login`
+- production browser requests included:
+  - `GET /api/workspace/bootstrap => 200`
+  - `GET /api/user-settings => 200`
+  - `GET /api/workspaces/invitations => 200`
+  - `GET /api/workspaces/list => 200`
+  - route prefetches for:
+    - `/workspace/files`
+    - `/workspace/flashcards`
+    - `/workspace/chats/new`
+    - `/workspace/files/<workspace>/folder/<rootFolder>`
+- console output in the production browser session contained no errors or
+  warnings before the later crash
+
+This is the cleanest signed-in browser evidence collected so far because it
+does not depend on dev-mode HMR behavior.
+
 ## Current weak spots
 
 ### 1. Authenticated workspace experience is still not fully audited
@@ -219,6 +253,19 @@ So the gap is no longer vague. The signed-in shell is proven, but the default
 main work surface is still weakly proven and may have a real hydration or pane
 initialization seam.
 
+What the production browser pass surfaced:
+
+- the default signed-in URL stayed on `/workspace`
+- the browser successfully loaded bootstrap and workspace-adjacent APIs
+- the main pane still remained on:
+  - `Loading workspace...`
+- no production browser request to `/api/workspace/overview` was observed in
+  that session
+
+That makes the remaining gap more specific: the signed-in shell can initialize,
+but the default workspace-home pane still does not transition into its ready
+state under a clean production browser session.
+
 ### 2. Local proxy host mismatch can obscure dev-mode browser proof
 
 Observed during the authenticated proxy pass:
@@ -233,7 +280,21 @@ This matters because it rules out one false explanation: the lingering loading
 state is not only a `127.0.0.1` dev-origin quirk.
 This remains a real gap against the overall objective.
 
-### 3. Voice mismatch still exists in places
+### 3. The production signed-in browser path can crash `next start`
+
+Observed during the direct production browser session:
+
+- after the signed-in `/workspace` session began prefetching workspace routes
+  and chunks, the `next start` process died with:
+  - `FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory`
+- the crash came from the production `@avenire/web start` process itself, not
+  only from the browser tool
+- once that happened, subsequent browser requests flipped to:
+  - `ERR_CONNECTION_REFUSED`
+
+This is a real reliability problem, not only an audit inconvenience.
+
+### 4. Voice mismatch still exists in places
 
 The login page uses:
 
@@ -246,7 +307,7 @@ more concrete study/research language on `/` and `/pricing`.
 This is not a blocker by itself, but it is one of the clearer remaining
 copy-level seams.
 
-### 4. Product proof is still stronger on entry than in-flow
+### 5. Product proof is still stronger on entry than in-flow
 
 Right now the strongest evidence is:
 
@@ -277,15 +338,18 @@ workspace flow is now only partially proven:
 
 - the signed-in workspace route and bootstrap endpoints work
 - the signed-in workspace shell renders in a real browser engine
-- but the main signed-in pane still remains on `Loading workspace...` in
-  deterministic browser captures, so the broader interaction loop is still not
-  proven end to end
+- the production browser path now proves bootstrap/list/settings/invitations
+  traffic too
+- but the main signed-in pane still remains on `Loading workspace...`, and the
+  production signed-in path can even take `next start` down with OOM, so the
+  broader interaction loop is still not proven end to end
 
 ## Recommended next move
 
 Debug the signed-in workspace main-pane loading seam next:
 
 1. trace why the default `/workspace` pane stays on `Loading workspace...`
-2. confirm whether the missing ready-state is a headless-only artifact or a
-   real client bootstrap issue
-3. only then continue the deeper sidebar/files/chat/tasks continuity audit
+2. trace why the production signed-in path never reaches
+   `/api/workspace/overview`
+3. isolate the production OOM trigger during signed-in workspace prefetch/load
+4. only then continue the deeper sidebar/files/chat/tasks continuity audit

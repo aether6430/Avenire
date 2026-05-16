@@ -32,6 +32,15 @@ Signed-in browser evidence from the current local auth pass:
 - signed-in route inspected:
   - `http://localhost:4010/workspace`
 
+Direct production browser evidence:
+
+- local production server at:
+  - `http://127.0.0.1:3005`
+- Playwright-driven signed-in route:
+  - `http://127.0.0.1:3005/workspace`
+- direct production sign-in cookie established through:
+  - `POST /api/auth/sign-in/email`
+
 ## Observed strengths
 
 ### 1. Public-facing surfaces still read like one product
@@ -85,6 +94,18 @@ even after a `20s` virtual-time budget.
 That means the shell is visually coherent, but the central work surface is not
 yet visually proven in a healthy ready state.
 
+### 2. The production signed-in route is visually worse than the shell-only dev pass
+
+Observed in the direct production browser session:
+
+- the route stayed on signed-in `/workspace`
+- the main pane still showed `Loading workspace...`
+- after the later production crash, the browser degraded to a full connection
+  failure surface instead of a product UI
+
+So the best current visual story is still the authenticated shell, not a stable
+ready-state main workspace view.
+
 ## Conclusion
 
 The visual story is materially better than it was when the large shell files
@@ -95,4 +116,5 @@ were still giant inline surfaces:
 - the signed-in workspace shell is now browser-visible and coherent
 
 But the audit is still incomplete because the primary work pane has not yet
-been observed in a stable ready state under the authenticated browser pass.
+been observed in a stable ready state under either the authenticated dev-proxy
+or the direct production browser pass.
