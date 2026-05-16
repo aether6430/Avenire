@@ -8,6 +8,7 @@ import {
   type IngestionJobEvent,
   mapIngestionEventStatus,
   mapRecentJobStatus,
+  shouldEnableUploadActivityLiveQueries,
   summarizeUploadQueue,
   updateIngestionQueueItem,
   WORKSPACE_FILES_ROUTE_REGEX,
@@ -75,9 +76,15 @@ export function useUploadActivityPanel() {
   const queue = activeWorkspaceUuid
     ? (queuesByWorkspace[activeWorkspaceUuid] ?? [])
     : [];
+  const liveQueriesEnabled = shouldEnableUploadActivityLiveQueries({
+    activeWorkspaceUuid,
+    isFilesRoute,
+    queueLength: queue.length,
+    uploadActivityOpen,
+  });
 
   const recentJobsQuery = useQuery({
-    enabled: Boolean(activeWorkspaceUuid && isFilesRoute),
+    enabled: liveQueriesEnabled,
     queryFn: ({ signal }) =>
       activeWorkspaceUuid
         ? loadRecentIngestionJobs({ activeWorkspaceUuid, signal })
@@ -87,7 +94,7 @@ export function useUploadActivityPanel() {
   });
 
   useEffect(() => {
-    if (!(activeWorkspaceUuid && isFilesRoute)) {
+    if (!(activeWorkspaceUuid && liveQueriesEnabled)) {
       return;
     }
     const jobs = recentJobsQuery.data ?? [];
@@ -116,7 +123,7 @@ export function useUploadActivityPanel() {
     ]);
   }, [
     activeWorkspaceUuid,
-    isFilesRoute,
+    liveQueriesEnabled,
     recentJobsQuery.data,
     updateWorkspaceQueue,
   ]);
@@ -126,7 +133,7 @@ export function useUploadActivityPanel() {
   }, [recentJobsQuery.isError]);
 
   useEffect(() => {
-    if (!(activeWorkspaceUuid && isFilesRoute)) {
+    if (!(activeWorkspaceUuid && liveQueriesEnabled)) {
       return;
     }
 
@@ -229,7 +236,7 @@ export function useUploadActivityPanel() {
         ingestionSseRetryTimerRef.current = null;
       }
     };
-  }, [activeWorkspaceUuid, isFilesRoute, updateWorkspaceQueue]);
+  }, [activeWorkspaceUuid, liveQueriesEnabled, updateWorkspaceQueue]);
 
   useEffect(() => {
     if (queue.length === 0) {

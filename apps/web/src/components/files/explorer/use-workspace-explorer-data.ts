@@ -15,7 +15,10 @@ import {
   loadWorkspaceFolderPayload,
   loadWorkspacePropertyDefinitionsPayload,
 } from "@/components/files/explorer/workspace-data-loader";
-import { readVisibleWorkspaceFolderSnapshot } from "@/components/files/explorer/workspace-folder-snapshot";
+import {
+  deriveWorkspaceFolderSnapshotFromTree,
+  readVisibleWorkspaceFolderSnapshot,
+} from "@/components/files/explorer/workspace-folder-snapshot";
 import type { WorkspacePropertyDefinition } from "@/lib/frontmatter";
 import { writeWorkspaceFolderCache } from "@/lib/workspace-folder-cache";
 import {
@@ -42,6 +45,25 @@ export function useWorkspaceExplorerData({
     WorkspacePropertyDefinition[]
   >([]);
   const refreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const applyVisibleSnapshot = useCallback(
+    (snapshot: {
+      ancestors: FolderRecord[];
+      files: FileRecord[];
+      folders: FolderRecord[];
+    }) => {
+      setLoading(false);
+      setFolders(snapshot.folders);
+      setFiles(snapshot.files);
+      setBreadcrumbs(snapshot.ancestors);
+      writeWorkspaceFolderCache<FolderRecord, FileRecord>(
+        workspaceUuid,
+        currentFolderId,
+        snapshot
+      );
+    },
+    [currentFolderId, workspaceUuid]
+  );
 
   const loadFolder = useCallback(
     async (options?: { silent?: boolean }) => {
@@ -76,21 +98,14 @@ export function useWorkspaceExplorerData({
           return;
         }
 
-        setFolders(payload.folders);
-        setFiles(payload.files);
-        setBreadcrumbs(payload.ancestors);
-        writeWorkspaceFolderCache<FolderRecord, FileRecord>(
-          workspaceUuid,
-          currentFolderId,
-          payload
-        );
+        applyVisibleSnapshot(payload);
       } finally {
         if (!(silent || visibleSnapshot)) {
           setLoading(false);
         }
       }
     },
-    [currentFolderId, workspaceUuid]
+    [applyVisibleSnapshot, currentFolderId, workspaceUuid]
   );
 
   const loadTree = useCallback(async () => {
@@ -104,6 +119,13 @@ export function useWorkspaceExplorerData({
     if (cached) {
       setAllFolders(cached.folders);
       setAllFiles(cached.files);
+      const visibleSnapshot = deriveWorkspaceFolderSnapshotFromTree({
+        folderId: currentFolderId,
+        treePayload: cached,
+      });
+      if (visibleSnapshot) {
+        applyVisibleSnapshot(visibleSnapshot);
+      }
     }
 
     try {
@@ -116,10 +138,17 @@ export function useWorkspaceExplorerData({
 
       setAllFolders(payload.folders);
       setAllFiles(payload.files);
+      const visibleSnapshot = deriveWorkspaceFolderSnapshotFromTree({
+        folderId: currentFolderId,
+        treePayload: payload,
+      });
+      if (visibleSnapshot) {
+        applyVisibleSnapshot(visibleSnapshot);
+      }
     } catch {
       // ignore
     }
-  }, [workspaceUuid]);
+  }, [applyVisibleSnapshot, currentFolderId, workspaceUuid]);
 
   const refreshData = useCallback(() => {
     void loadFolder({ silent: true });
@@ -138,6 +167,7 @@ export function useWorkspaceExplorerData({
 
   useLayoutEffect(() => {
     if (!(workspaceUuid && currentFolderId)) {
+      setLoading(false);
       setFolders([]);
       setFiles([]);
       setBreadcrumbs([]);

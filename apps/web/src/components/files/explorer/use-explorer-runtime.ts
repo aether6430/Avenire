@@ -1,7 +1,7 @@
 "use client";
 
 import { measureElement, useVirtualizer } from "@tanstack/react-virtual";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ExplorerUploadQueueItem } from "@/components/files/explorer/explorer-upload-model";
 import type {
   FileRecord,
@@ -94,6 +94,7 @@ export function useExplorerRuntime({
   const updateWorkspaceQueue = useFilesActivityStore(
     (state) => state.updateWorkspaceQueue
   );
+  const [realtimeReady, setRealtimeReady] = useState(false);
   const setUploadQueue = useCallback(
     (
       updater:
@@ -107,6 +108,33 @@ export function useExplorerRuntime({
     },
     [updateWorkspaceQueue, workspaceUuid]
   );
+
+  useEffect(() => {
+    if (realtimeReady || typeof window === "undefined") {
+      return;
+    }
+
+    const markReady = () => {
+      setRealtimeReady(true);
+    };
+
+    const cleanupListeners = () => {
+      window.removeEventListener("pointerdown", markReady);
+      window.removeEventListener("keydown", markReady);
+      window.removeEventListener("focusin", markReady);
+    };
+
+    window.addEventListener("pointerdown", markReady, {
+      once: true,
+      passive: true,
+    });
+    window.addEventListener("keydown", markReady, { once: true });
+    window.addEventListener("focusin", markReady, { once: true });
+
+    return () => {
+      cleanupListeners();
+    };
+  }, [realtimeReady]);
 
   const fileOperations = useExplorerFileOperations({
     allFiles,
@@ -175,6 +203,7 @@ export function useExplorerRuntime({
   });
 
   useExplorerRealtimeSync({
+    enabled: realtimeReady,
     refreshDataDebounced,
     setUploadQueue,
     workspaceUuid,

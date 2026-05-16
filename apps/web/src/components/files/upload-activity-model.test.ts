@@ -5,6 +5,7 @@ import {
   getUploadActivityEmptyState,
   mapIngestionEventStatus,
   mapRecentJobStatus,
+  shouldEnableUploadActivityLiveQueries,
   summarizeUploadQueue,
   updateIngestionQueueItem,
 } from "@/components/files/upload-activity-model";
@@ -130,5 +131,43 @@ describe("upload activity model", () => {
         loading: false,
       })
     ).toBeNull();
+  });
+
+  it("only enables upload activity live queries when the files route needs them", () => {
+    expect(
+      shouldEnableUploadActivityLiveQueries({
+        activeWorkspaceUuid: "workspace-1",
+        isFilesRoute: true,
+        queueLength: 0,
+        uploadActivityOpen: false,
+      })
+    ).toBe(false);
+
+    expect(
+      shouldEnableUploadActivityLiveQueries({
+        activeWorkspaceUuid: "workspace-1",
+        isFilesRoute: true,
+        queueLength: 1,
+        uploadActivityOpen: false,
+      })
+    ).toBe(true);
+
+    expect(
+      shouldEnableUploadActivityLiveQueries({
+        activeWorkspaceUuid: "workspace-1",
+        isFilesRoute: true,
+        queueLength: 0,
+        uploadActivityOpen: true,
+      })
+    ).toBe(true);
+
+    expect(
+      shouldEnableUploadActivityLiveQueries({
+        activeWorkspaceUuid: "workspace-1",
+        isFilesRoute: false,
+        queueLength: 2,
+        uploadActivityOpen: true,
+      })
+    ).toBe(false);
   });
 });

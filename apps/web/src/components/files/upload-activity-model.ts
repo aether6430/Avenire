@@ -150,3 +150,16 @@ export function getUploadActivityEmptyState(input: {
 
   return null;
 }
+
+export function shouldEnableUploadActivityLiveQueries(input: {
+  activeWorkspaceUuid: string | null;
+  isFilesRoute: boolean;
+  queueLength: number;
+  uploadActivityOpen: boolean;
+}) {
+  return Boolean(
+    input.activeWorkspaceUuid &&
+      input.isFilesRoute &&
+      (input.uploadActivityOpen || input.queueLength > 0)
+  );
+}

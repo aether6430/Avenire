@@ -11,6 +11,7 @@ import { invalidateWorkspaceFolderCache } from "@/lib/workspace-folder-cache";
 import { invalidateWorkspaceMarkdownCache } from "@/lib/workspace-markdown-cache";
 
 interface UseExplorerRealtimeSyncOptions {
+  enabled: boolean;
   refreshDataDebounced: () => void;
   setUploadQueue: (
     updater:
@@ -21,6 +22,7 @@ interface UseExplorerRealtimeSyncOptions {
 }
 
 export function useExplorerRealtimeSync({
+  enabled,
   refreshDataDebounced,
   setUploadQueue,
   workspaceUuid,
@@ -33,7 +35,7 @@ export function useExplorerRealtimeSync({
   );
 
   useEffect(() => {
-    if (!workspaceUuid) {
+    if (!(enabled && workspaceUuid)) {
       return;
     }
 
@@ -103,10 +105,10 @@ export function useExplorerRealtimeSync({
         filesInvalidateRetryTimerRef.current = null;
       }
     };
-  }, [refreshDataDebounced, workspaceUuid]);
+  }, [enabled, refreshDataDebounced, workspaceUuid]);
 
   useEffect(() => {
-    if (!workspaceUuid) {
+    if (!(enabled && workspaceUuid)) {
       return;
     }
 
@@ -187,5 +189,5 @@ export function useExplorerRealtimeSync({
         ingestionRetryTimerRef.current = null;
       }
     };
-  }, [refreshDataDebounced, setUploadQueue, workspaceUuid]);
+  }, [enabled, refreshDataDebounced, setUploadQueue, workspaceUuid]);
 }
