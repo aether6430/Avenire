@@ -1,44 +1,13 @@
 "use client";
 
-import { Button } from "@avenire/ui/components/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from "@avenire/ui/components/dropdown-menu";
-import { ScrollArea } from "@avenire/ui/components/scroll-area";
 import { Spinner } from "@avenire/ui/components/spinner";
-import {
-  DownloadSimple as ArrowDownToLine,
-  Copy,
-  FolderPlus as FolderInput,
-  Info,
-  DotsThree as MoreHorizontal,
-  Pencil,
-  PushPin as Pin,
-  PushPinSlash as PinOff,
-  ArrowCounterClockwise as RotateCcw,
-  ShareNetwork as Share2,
-  SlidersHorizontal,
-  Trash as Trash2,
-  MagicWand as WandSparkles,
-} from "@phosphor-icons/react";
 import { Suspense, useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ExplorerBrowsePane } from "@/components/files/explorer/explorer-browse-pane";
 import { ExplorerPreviewPane } from "@/components/files/explorer/explorer-preview-pane";
-import {
-  detectPreviewKind,
-  type FileRecord,
-  type FolderRecord,
-  type WorkspaceMemberRecord,
+import type {
+  FileRecord,
+  WorkspaceMemberRecord,
 } from "@/components/files/explorer/shared";
 import { useExplorerDerivedState } from "@/components/files/explorer/use-explorer-derived-state";
 import { useExplorerEditWorkflows } from "@/components/files/explorer/use-explorer-edit-workflows";
@@ -59,14 +28,12 @@ import { useWorkspaceExplorerData } from "@/components/files/explorer/use-worksp
 import type { BulkItemKind } from "@/components/files/explorer/workspace-bulk-operations-model";
 import type { SortState } from "@/components/files/explorer/workspace-folder-browse-model";
 import { useUploadThing } from "@/lib/uploadthing";
-import { cn } from "@/lib/utils";
 import {
   useCurrentWorkspacePane,
   usePanePathname,
   usePaneRouter,
   usePaneSearchParams,
 } from "@/lib/workspace-panes";
-import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
 import { filesPinsActions, useFilesPinsStore } from "@/stores/filesPinsStore";
 import { filesUiActions } from "@/stores/filesUiStore";
 import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
@@ -80,254 +47,11 @@ type UploadStatus =
   | "uploaded"
   | "uploading";
 const FILE_CARD_FIELD_STORAGE_PREFIX = "file-explorer-card-fields:v1:";
-const FILE_RETRIEVAL_CONTEXT_KEY = "file-explorer-retrieval-context-v1";
 const COMPACT_MENU_SURFACE_CLASS = "border border-border/60 shadow-md";
 const FILE_OPERATION_HISTORY_TOAST_ID = "files-operation-history";
 const ITEM_ACTION_TARGET_SELECTOR =
   "[data-item-actions='true'], [data-selection-control='true'], button, a, input, textarea, select, label";
-const HEADER_SEGMENTED_GROUP_CLASS =
-  "items-center divide-x divide-border/60 overflow-hidden rounded-md border border-border/60 bg-background shadow-sm";
-const _HEADER_SEGMENT_BUTTON_CLASS =
-  "h-9 rounded-none border-0 bg-transparent px-3 text-xs text-foreground shadow-none hover:bg-muted/70 disabled:bg-transparent";
-const HEADER_SEGMENT_ICON_BUTTON_CLASS =
-  "h-9 w-9 rounded-none border-0 bg-transparent text-foreground shadow-none hover:bg-muted/70 disabled:bg-transparent";
 const FILE_EXPLORER_LIST_ROW_ESTIMATE = 52;
-
-interface MobileActionsPopoverProps {
-  detail: string;
-  folders: FolderRecord[];
-  kind: "file" | "folder";
-  name: string;
-  onCircleToAi?: () => void;
-  onDelete: () => void;
-  onDownload: () => void;
-  onDuplicate: () => void;
-  onHardReingest?: () => void;
-  onMetadata: () => void;
-  onMoveTo: (folderId: string) => void;
-  onOpenProperties: () => void;
-  onRename: () => void;
-  onShare: () => void;
-  onTogglePin: () => void;
-  pinned: boolean;
-  readOnly: boolean;
-  targetId: string;
-}
-
-function MobileActionsPopover({
-  detail,
-  folders,
-  kind,
-  name,
-  onCircleToAi,
-  onDelete,
-  onDownload,
-  onDuplicate,
-  onHardReingest,
-  onMetadata,
-  onMoveTo,
-  onOpenProperties,
-  onRename,
-  onShare,
-  onTogglePin,
-  pinned,
-  readOnly,
-  targetId,
-}: MobileActionsPopoverProps) {
-  const canEdit = !readOnly;
-  const moveTargets = useMemo(
-    () =>
-      folders.filter((folder) => {
-        if (kind === "folder") {
-          return folder.id !== targetId && !folder.readOnly;
-        }
-        return !folder.readOnly;
-      }),
-    [folders, kind, targetId]
-  );
-
-  const actionRowClass = "gap-2 text-xs";
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            aria-label={`More actions for ${name}`}
-            className="h-7 w-7 shrink-0 rounded-md border border-border/60 bg-background text-muted-foreground shadow-sm hover:bg-muted/70"
-            size="icon-sm"
-            type="button"
-            variant="outline"
-          />
-        }
-      >
-        <MoreHorizontal className="size-3.5" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        className={cn("w-56 bg-background", COMPACT_MENU_SURFACE_CLASS)}
-      >
-        {onCircleToAi ? (
-          <DropdownMenuItem onClick={onCircleToAi}>
-            <WandSparkles className="size-3.5" />
-            Circle to AI
-          </DropdownMenuItem>
-        ) : null}
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger className={actionRowClass}>
-            <Info className="size-3.5" />
-            Properties
-          </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent
-            className={cn("w-56 bg-background", COMPACT_MENU_SURFACE_CLASS)}
-          >
-            <DropdownMenuGroup>
-              <DropdownMenuLabel className="px-2 py-1.5 text-[11px] text-muted-foreground uppercase tracking-[0.16em]">
-                {name}
-              </DropdownMenuLabel>
-            </DropdownMenuGroup>
-            <div className="space-y-1 px-2 pb-2 text-xs">
-              <div className="flex items-start justify-between gap-3">
-                <span className="text-muted-foreground">Type</span>
-                <span className="text-right text-foreground">
-                  {kind === "file" ? "File" : "Folder"}
-                </span>
-              </div>
-              <div className="flex items-start justify-between gap-3">
-                <span className="text-muted-foreground">ID</span>
-                <span className="max-w-32 truncate text-right text-foreground">
-                  {targetId}
-                </span>
-              </div>
-              {detail ? (
-                <div className="flex items-start justify-between gap-3">
-                  <span className="text-muted-foreground">Detail</span>
-                  <span className="max-w-32 text-right text-foreground">
-                    {detail}
-                  </span>
-                </div>
-              ) : null}
-            </div>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onOpenProperties}>
-              <SlidersHorizontal className="size-3.5" />
-              Metadata
-            </DropdownMenuItem>
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
-        {canEdit ? (
-          <>
-            <DropdownMenuItem onClick={onTogglePin}>
-              {pinned ? (
-                <PinOff className="size-3.5" />
-              ) : (
-                <Pin className="size-3.5" />
-              )}
-              {pinned ? "Unpin" : "Pin"}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onRename}>
-              <Pencil className="size-3.5" />
-              Rename
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onDuplicate}>
-              <Copy className="size-3.5" />
-              Duplicate
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onShare}>
-              <Share2 className="size-3.5" />
-              Share
-            </DropdownMenuItem>
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger className={actionRowClass}>
-                <FolderInput className="size-3.5" />
-                Move to
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent
-                className={cn("w-56 bg-background", COMPACT_MENU_SURFACE_CLASS)}
-              >
-                <ScrollArea className="max-h-48">
-                  <div className="p-1">
-                    {moveTargets.length === 0 ? (
-                      <div className="px-2 py-2 text-center text-muted-foreground text-xs">
-                        No destinations available
-                      </div>
-                    ) : (
-                      moveTargets.map((folder) => (
-                        <DropdownMenuItem
-                          key={folder.id}
-                          onClick={() => {
-                            onMoveTo(folder.id);
-                          }}
-                        >
-                          {folder.name}
-                        </DropdownMenuItem>
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-            <DropdownMenuItem onClick={onDownload}>
-              <ArrowDownToLine className="size-3.5" />
-              Download
-            </DropdownMenuItem>
-            {onHardReingest ? (
-              <DropdownMenuItem onClick={onHardReingest}>
-                <RotateCcw className="size-3.5" />
-                Hard Re-ingest
-              </DropdownMenuItem>
-            ) : null}
-          </>
-        ) : null}
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger className={actionRowClass}>
-            <Info className="size-3.5" />
-            Metadata
-          </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent
-            className={cn("w-56 bg-background", COMPACT_MENU_SURFACE_CLASS)}
-          >
-            <div className="space-y-1 px-2 py-2 text-xs">
-              <div className="flex items-start justify-between gap-3">
-                <span className="text-muted-foreground">Type</span>
-                <span className="text-right text-foreground">
-                  {kind === "file" ? "File" : "Folder"}
-                </span>
-              </div>
-              <div className="flex items-start justify-between gap-3">
-                <span className="text-muted-foreground">ID</span>
-                <span className="max-w-32 truncate text-right text-foreground">
-                  {targetId}
-                </span>
-              </div>
-              {detail ? (
-                <div className="flex items-start justify-between gap-3">
-                  <span className="text-muted-foreground">Detail</span>
-                  <span className="max-w-32 text-right text-foreground">
-                    {detail}
-                  </span>
-                </div>
-              ) : null}
-            </div>
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
-        <DropdownMenuItem onClick={onMetadata}>
-          <SlidersHorizontal className="size-3.5" />
-          Properties
-        </DropdownMenuItem>
-        {readOnly ? null : (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onDelete} variant="destructive">
-              <Trash2 className="size-3.5" />
-              Delete
-            </DropdownMenuItem>
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
 
 interface UploadResultLike {
   contentType?: string;
@@ -547,9 +271,6 @@ export function FileExplorer({
   const { paneId } = useCurrentWorkspacePane();
   const closePane = useWorkspacePaneStore((state) => state.closePane);
   const openPane = useWorkspacePaneStore((state) => state.openPane);
-  const _setSettingsOpen = useDashboardOverlayStore(
-    (state) => state.setSettingsOpen
-  );
 
   const { startUpload: startBannerUpload } = useUploadThing("imageUploader");
   const {
@@ -788,7 +509,6 @@ export function FileExplorer({
       duplicateContextActionItems,
       duplicateItem,
       fileOperationHistoryBusy,
-      getContextActionItems: resolveContextActionItems,
       getSelectedActionItems: resolveSelectedActionItems,
       hardReingestContextActionItems,
       moveContextActionItemsToFolder,
@@ -811,7 +531,7 @@ export function FileExplorer({
     listVirtualizer,
     selection,
     triggerHapticSuccess,
-    uploadWorkflows: { getDropUploadCandidates, queueUploads },
+    uploadWorkflows: { queueUploads },
   } = runtime;
 
   const toggleCurrentPinnedItem = useCallback(() => {
@@ -820,35 +540,6 @@ export function FileExplorer({
     }
     filesPinsActions.togglePinnedItem(workspaceUuid, currentPinnedItem);
   }, [currentPinnedItem, workspaceUuid]);
-
-  const _hardReingestFile = useCallback(
-    async (file: FileRecord) => {
-      if (!workspaceUuid || file.readOnly) {
-        return;
-      }
-
-      const response = await fetch(
-        `/api/workspaces/${workspaceUuid}/files/${file.id}/reingest`,
-        {
-          method: "POST",
-        }
-      );
-      const payload = (await response.json().catch(() => ({}))) as {
-        error?: string;
-      };
-
-      if (!response.ok) {
-        const message = payload.error ?? "Unable to re-ingest file.";
-        toast.error(message);
-        throw new Error(message);
-      }
-
-      toast.success("File queued for hard re-ingestion.");
-      await Promise.all([loadFolder({ silent: true }), loadTree()]);
-      emitSync();
-    },
-    [emitSync, loadFolder, loadTree, workspaceUuid]
-  );
 
   const hardReingestSelectionItems = useCallback(
     async (items: Array<{ id: string; kind: BulkItemKind }>) => {
@@ -922,37 +613,6 @@ export function FileExplorer({
     workspaceUuid,
   });
   const { getFileItemActionProps, getFolderItemActionProps } = itemActionProps;
-
-  const _downloadFileDirect = useCallback(
-    async (file: FileRecord) => {
-      try {
-        const sourceUrl =
-          file.isNote || detectPreviewKind(file).isMarkdown
-            ? `/api/workspaces/${workspaceUuid}/files/${file.id}/stream`
-            : file.storageUrl;
-        const response = await fetch(sourceUrl);
-        if (!response.ok) {
-          throw new Error("Download failed");
-        }
-        const blob = await response.blob();
-        const objectUrl = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = objectUrl;
-        link.download = file.name;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        URL.revokeObjectURL(objectUrl);
-      } catch {
-        const fallbackUrl =
-          file.isNote || detectPreviewKind(file).isMarkdown
-            ? `/api/workspaces/${workspaceUuid}/files/${file.id}/stream`
-            : file.storageUrl;
-        window.open(fallbackUrl, "_blank", "noopener,noreferrer");
-      }
-    },
-    [workspaceUuid]
-  );
 
   const { browsePaneProps, previewPaneProps } = useExplorerPaneSurfaces({
     activeFile,
