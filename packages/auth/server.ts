@@ -1,4 +1,8 @@
-import { createWorkspaceForUser, createWorkspaceNoteFile, db } from "@avenire/database";
+import {
+  createWorkspaceForUser,
+  createWorkspaceNoteFile,
+  db,
+} from "@avenire/database";
 import {
   account,
   invitation,
@@ -17,33 +21,38 @@ import {
   renderSecurityVerificationCodeEmail,
   renderVerificationEmail,
   renderWelcomeEmail,
-  renderWorkspaceShareNotificationEmail
+  renderWorkspaceShareNotificationEmail,
 } from "@avenire/emailer";
-import { betterAuth } from "better-auth";
-import { createAuthMiddleware } from "better-auth/api";
-import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { nextCookies, toNextJsHandler } from "better-auth/next-js";
-import { lastLoginMethod, organization } from "better-auth/plugins";
+import { passkey } from "@better-auth/passkey";
 import { checkout, polar, portal } from "@polar-sh/better-auth";
 import { Polar } from "@polar-sh/sdk";
-import { passkey } from "@better-auth/passkey";
+import { betterAuth } from "better-auth";
+import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { toNextJsHandler } from "better-auth/next-js";
+import { lastLoginMethod, organization } from "better-auth/plugins";
 import { username } from "better-auth/plugins/username";
 import { waitlistPlugin } from "./waitlist";
 
 const appUrl = process.env.BETTER_AUTH_URL?.trim();
 if (!appUrl) {
-  throw new Error("Missing BETTER_AUTH_URL. Set BETTER_AUTH_URL for auth server configuration.");
+  throw new Error(
+    "Missing BETTER_AUTH_URL. Set BETTER_AUTH_URL for auth server configuration."
+  );
 }
 const EXTENSION_PROTOCOLS = new Set(["chrome-extension:", "moz-extension:"]);
 
 function parseOriginList(value?: string) {
-  return value
-    ?.split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean) ?? [];
+  return (
+    value
+      ?.split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean) ?? []
+  );
 }
 
-function isBrowserExtensionOrigin(origin: string | null | undefined): origin is string {
+function isBrowserExtensionOrigin(
+  origin: string | null | undefined
+): origin is string {
   if (!origin) {
     return false;
   }
@@ -79,14 +88,19 @@ function getRequestOrigin(request: unknown) {
   return null;
 }
 
-const trustedOriginsFromEnv = parseOriginList(process.env.BETTER_AUTH_TRUSTED_ORIGINS);
-const extensionOriginsFromEnv = parseOriginList(process.env.BETTER_AUTH_EXTENSION_ORIGINS);
+const trustedOriginsFromEnv = parseOriginList(
+  process.env.BETTER_AUTH_TRUSTED_ORIGINS
+);
+const extensionOriginsFromEnv = parseOriginList(
+  process.env.BETTER_AUTH_EXTENSION_ORIGINS
+);
 const emailer = new Emailer();
 const trustedOrigins = Array.from(
-  new Set([appUrl, ...trustedOriginsFromEnv, ...extensionOriginsFromEnv]),
+  new Set([appUrl, ...trustedOriginsFromEnv, ...extensionOriginsFromEnv])
 );
 const polarAccessToken = process.env.POLAR_ACCESS_TOKEN?.trim();
-const polarServer = process.env.POLAR_SERVER === "production" ? "production" : "sandbox";
+const polarServer =
+  process.env.POLAR_SERVER === "production" ? "production" : "sandbox";
 const polarClient = polarAccessToken
   ? new Polar({
       accessToken: polarAccessToken,
@@ -122,7 +136,9 @@ const polarCheckoutProducts = [
       slug: product.slug,
     };
   })
-  .filter((product): product is { productId: string; slug: string } => Boolean(product));
+  .filter((product): product is { productId: string; slug: string } =>
+    Boolean(product)
+  );
 const generatedBetterAuthSchema = {
   user,
   session,
@@ -166,15 +182,21 @@ export const auth = betterAuth({
   trustedOrigins: async (request) => {
     const requestOrigin = getRequestOrigin(request);
 
-    if (process.env.NODE_ENV !== "production" && isBrowserExtensionOrigin(requestOrigin)) {
+    if (
+      process.env.NODE_ENV !== "production" &&
+      isBrowserExtensionOrigin(requestOrigin)
+    ) {
       return Array.from(new Set([...trustedOrigins, requestOrigin]));
     }
 
     return trustedOrigins;
   },
-  database: drizzleAdapter(db, { provider: "pg", schema: generatedBetterAuthSchema }),
+  database: drizzleAdapter(db, {
+    provider: "pg",
+    schema: generatedBetterAuthSchema,
+  }),
   session: {
-    updateAge: 60 * 60
+    updateAge: 60 * 60,
   },
   emailAndPassword: {
     enabled: true,
@@ -183,9 +205,12 @@ export const auth = betterAuth({
       await emailer.send({
         to: [user.email],
         subject: "Reset your password",
-        html: await renderPasswordResetEmail({ name: user.name ?? "there", resetLink: url })
+        html: await renderPasswordResetEmail({
+          name: user.name ?? "there",
+          resetLink: url,
+        }),
       });
-    }
+    },
   },
   emailVerification: {
     sendOnSignUp: true,
@@ -194,9 +219,12 @@ export const auth = betterAuth({
       await emailer.send({
         to: [user.email],
         subject: "Verify your email",
-        html: await renderVerificationEmail({ name: user.name ?? "there", confirmationLink: url })
+        html: await renderVerificationEmail({
+          name: user.name ?? "there",
+          confirmationLink: url,
+        }),
       });
-    }
+    },
   },
   user: {
     deleteUser: {
@@ -205,17 +233,20 @@ export const auth = betterAuth({
         await emailer.send({
           to: [user.email],
           subject: "Confirm account deletion",
-          html: await renderDeleteAccountEmail({ name: user.name ?? "there", confirmationLink: url })
+          html: await renderDeleteAccountEmail({
+            name: user.name ?? "there",
+            confirmationLink: url,
+          }),
         });
-      }
-    }
+      },
+    },
   },
   account: {
     accountLinking: {
       enabled: true,
       allowDifferentEmails: true,
-      trustedProviders: ["google", "github", "notion"]
-    }
+      trustedProviders: ["google", "github", "notion"],
+    },
   },
   socialProviders: {
     ...(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET
@@ -227,9 +258,9 @@ export const auth = betterAuth({
             prompt: "select_account consent",
             mapProfileToUser: (profile) => ({
               name: profile.given_name ?? profile.name,
-              username: profile.name
-            })
-          }
+              username: profile.name,
+            }),
+          },
         }
       : {}),
     ...(process.env.AUTH_NOTION_ID && process.env.AUTH_NOTION_SECRET
@@ -237,7 +268,7 @@ export const auth = betterAuth({
           notion: {
             clientId: process.env.AUTH_NOTION_ID,
             clientSecret: process.env.AUTH_NOTION_SECRET,
-          }
+          },
         }
       : {}),
     ...(process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET
@@ -247,18 +278,20 @@ export const auth = betterAuth({
             clientSecret: process.env.AUTH_GITHUB_SECRET,
             mapProfileToUser: (profile) => ({
               name: profile.name,
-              username: profile.name
-            })
-          }
-      }
-    : {})
+              username: profile.name,
+            }),
+          },
+        }
+      : {}),
   },
   databaseHooks: {
     user: {
       create: {
         after: async (user) => {
           try {
-            const html = await renderWelcomeEmail({ companyName: user.name ?? "there" });
+            const html = await renderWelcomeEmail({
+              companyName: user.name ?? "there",
+            });
             console.log("[auth] rendered welcome email", { email: user.email });
             await emailer.send({
               to: [user.email],
@@ -266,7 +299,10 @@ export const auth = betterAuth({
               html,
             });
           } catch (error) {
-              console.error("[auth] failed to send welcome email", { error, email: user.email });
+            console.error("[auth] failed to send welcome email", {
+              error,
+              email: user.email,
+            });
           }
           try {
             const workspaceNameBase =
@@ -288,9 +324,9 @@ export const auth = betterAuth({
           } catch (error) {
             console.error("Failed to create default workspace", error);
           }
-        }
-      } 
-    }
+        },
+      },
+    },
   },
   plugins: [
     lastLoginMethod(),
@@ -316,19 +352,18 @@ export const auth = betterAuth({
         ]
       : []),
     username({
-      usernameValidator: () => true
+      usernameValidator: () => true,
     }),
     organization(),
     passkey({
       rpName: "Avenire",
-      origin: appUrl
+      origin: appUrl,
     }),
-    nextCookies()
   ],
   onAPIError: {
     throw: false,
     errorURL: `${appUrl.replace(/\/$/, "")}/login`,
-  }
+  },
 });
 
 export const authRouteHandlers = toNextJsHandler(auth);

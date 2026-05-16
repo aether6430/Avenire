@@ -7,7 +7,6 @@ const lastLoginMethodMock = vi.fn(() => "last-login-plugin");
 const organizationMock = vi.fn(() => "organization-plugin");
 const usernameMock = vi.fn(() => "username-plugin");
 const passkeyMock = vi.fn(() => "passkey-plugin");
-const nextCookiesMock = vi.fn(() => "next-cookies-plugin");
 const waitlistPluginMock = vi.fn(() => "waitlist-plugin");
 const sendMock = vi.fn();
 const createWorkspaceForUserMock = vi.fn(async () => ({
@@ -55,7 +54,6 @@ vi.mock("better-auth/adapters/drizzle", () => ({
   drizzleAdapter: drizzleAdapterMock,
 }));
 vi.mock("better-auth/next-js", () => ({
-  nextCookies: nextCookiesMock,
   toNextJsHandler: toNextJsHandlerMock,
 }));
 vi.mock("better-auth/plugins", () => ({
@@ -90,7 +88,6 @@ describe("@avenire/auth server config", () => {
     expect(drizzleAdapterMock).toHaveBeenCalled();
     expect(lastLoginMethodMock).toHaveBeenCalled();
     expect(waitlistPluginMock).toHaveBeenCalled();
-    expect(nextCookiesMock).toHaveBeenCalled();
     expect(module.authRouteHandlers).toEqual({ GET: "GET" });
     expect(config.onAPIError.errorURL).toBe("https://app.avenire.test/login");
     expect(config.socialProviders.google.clientId).toBe("google-id");
@@ -111,14 +108,18 @@ describe("@avenire/auth server config", () => {
       "username-plugin",
       "organization-plugin",
       "passkey-plugin",
-      "next-cookies-plugin",
     ]);
 
     await expect(
       config.trustedOrigins({
         headers: new Headers({ origin: "http://localhost:3001" }),
       })
-    ).resolves.toContain("http://localhost:3001");
+    ).resolves.not.toContain("http://localhost:3001");
+    await expect(
+      config.trustedOrigins({
+        headers: new Headers({ origin: "chrome-extension://abc123" }),
+      })
+    ).resolves.toContain("chrome-extension://abc123");
 
     await config.emailAndPassword.sendResetPassword({
       url: "https://app.avenire.test/reset",
