@@ -33,23 +33,20 @@ import {
 import { Suspense, useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ExplorerBrowsePane } from "@/components/files/explorer/explorer-browse-pane";
-import { buildExplorerBrowsePaneProps } from "@/components/files/explorer/explorer-browse-pane-props";
 import { ExplorerPreviewPane } from "@/components/files/explorer/explorer-preview-pane";
-import { buildExplorerPreviewPaneProps } from "@/components/files/explorer/explorer-preview-pane-props";
 import {
   detectPreviewKind,
   type FileRecord,
   type FolderRecord,
   type WorkspaceMemberRecord,
 } from "@/components/files/explorer/shared";
-import { useExplorerCurrentFolderActions } from "@/components/files/explorer/use-explorer-current-folder-actions";
 import { useExplorerDerivedState } from "@/components/files/explorer/use-explorer-derived-state";
 import { useExplorerEditWorkflows } from "@/components/files/explorer/use-explorer-edit-workflows";
 import { useExplorerFilePresentation } from "@/components/files/explorer/use-explorer-file-presentation";
 import { useExplorerItemActionProps } from "@/components/files/explorer/use-explorer-item-action-props";
 import { useExplorerNavigation } from "@/components/files/explorer/use-explorer-navigation";
 import { useExplorerNoteWorkflows } from "@/components/files/explorer/use-explorer-note-workflows";
-import { useExplorerPaneHeader } from "@/components/files/explorer/use-explorer-pane-header";
+import { useExplorerPaneSurfaces } from "@/components/files/explorer/use-explorer-pane-surfaces";
 import { useExplorerPropertyControls } from "@/components/files/explorer/use-explorer-property-controls";
 import { useExplorerRuntime } from "@/components/files/explorer/use-explorer-runtime";
 import { useExplorerSearchSurface } from "@/components/files/explorer/use-explorer-search-surface";
@@ -534,6 +531,7 @@ export function FileExplorer({
   const [workspaceMembers, _setWorkspaceMembers] = useState<
     WorkspaceMemberRecord[]
   >([]);
+  const uiState = useExplorerSurfaceUiState();
   const {
     mobileConfirmAction,
     mobileCreateMenuOpen,
@@ -545,7 +543,7 @@ export function FileExplorer({
     setMobileCreateMenuOpen,
     setPropertiesItem,
     setPropertiesOpen,
-  } = useExplorerSurfaceUiState();
+  } = uiState;
   const { paneId } = useCurrentWorkspacePane();
   const closePane = useWorkspacePaneStore((state) => state.closePane);
   const openPane = useWorkspacePaneStore((state) => state.openPane);
@@ -581,6 +579,13 @@ export function FileExplorer({
 
   const selectedFileParam = searchParams.get("file");
   const selectedRetrievalChunkParam = searchParams.get("retrievalChunk");
+  const navigation = useExplorerNavigation({
+    allFiles,
+    currentFolderId,
+    router,
+    searchParams,
+    workspaceUuid,
+  });
   const {
     navigateToFolder,
     openFileById,
@@ -588,13 +593,7 @@ export function FileExplorer({
     openSearchResult,
     openWorkspaceFileInFolder,
     selectFile,
-  } = useExplorerNavigation({
-    allFiles,
-    currentFolderId,
-    router,
-    searchParams,
-    workspaceUuid,
-  });
+  } = navigation;
   const searchSurface = useExplorerSearchSurface({
     onOpenFolderById: openFolderById,
     onOpenSearchResult: openSearchResult,
@@ -602,6 +601,11 @@ export function FileExplorer({
     workspaceUuid,
   });
 
+  const propertyControls = useExplorerPropertyControls({
+    allFiles,
+    propertyDefinitions,
+    workspaceUuid,
+  });
   const {
     availablePropertyDefinitions,
     cardFieldQuery,
@@ -616,10 +620,17 @@ export function FileExplorer({
     propertyFiltersForUi,
     resetCardFields,
     selectedCardPropertyDefinitions,
-  } = useExplorerPropertyControls({
-    allFiles,
-    propertyDefinitions,
-    workspaceUuid,
+  } = propertyControls;
+  const derivedState = useExplorerDerivedState({
+    breadcrumbs,
+    files,
+    folders,
+    propertyFilters,
+    query: searchSurface.query,
+    selectedFileParam,
+    sortState,
+    vectorFilteredIds: searchSurface.vectorFilteredIds,
+    workspaceName,
   });
   const {
     activeFile,
@@ -635,32 +646,27 @@ export function FileExplorer({
     sortedFiles,
     sortedFolders,
     visibleItemIds,
-  } = useExplorerDerivedState({
-    breadcrumbs,
-    files,
-    folders,
-    propertyFilters,
-    query: searchSurface.query,
-    selectedFileParam,
-    sortState,
-    vectorFilteredIds: searchSurface.vectorFilteredIds,
-    workspaceName,
+  } = derivedState;
+  const noteWorkflows = useExplorerNoteWorkflows({
+    isCurrentFolderReadOnly,
+    openWorkspaceFileInFolder,
+    workspaceUuid,
   });
   const {
     contentDialogProps: noteWorkflowContentDialogProps,
     createNote,
     openImportLinkDialog,
-  } = useExplorerNoteWorkflows({
-    isCurrentFolderReadOnly,
-    openWorkspaceFileInFolder,
-    workspaceUuid,
-  });
+  } = noteWorkflows;
 
+  const workspaceIndexState = useExplorerWorkspaceIndexState({
+    allFiles,
+    allFolders,
+  });
   const { filePathById, searchableItems, workspaceFileIndex } =
-    useExplorerWorkspaceIndexState({
-      allFiles,
-      allFolders,
-    });
+    workspaceIndexState;
+  const filePresentation = useExplorerFilePresentation({
+    workspaceFileIndex,
+  });
   const {
     detectFileKind,
     getFileVisualIcon,
@@ -668,17 +674,8 @@ export function FileExplorer({
     handlePreviewIntentStart,
     hoveredPreviewFileId,
     wikiLinkableFiles,
-  } = useExplorerFilePresentation({
-    workspaceFileIndex,
-  });
-  const {
-    currentInfoEntries,
-    currentPinnedItem,
-    folderFileCount,
-    folderPreviewKinds,
-    folderSubfolderCount,
-    isCurrentPinned,
-  } = useExplorerSurfaceSummary({
+  } = filePresentation;
+  const surfaceSummary = useExplorerSurfaceSummary({
     activeFile,
     allFiles,
     allFolders,
@@ -691,11 +688,30 @@ export function FileExplorer({
     workspaceMembers,
     workspaceUuid,
   });
+  const {
+    currentInfoEntries,
+    currentPinnedItem,
+    folderFileCount,
+    folderPreviewKinds,
+    folderSubfolderCount,
+    isCurrentPinned,
+  } = surfaceSummary;
 
   const emitSync = useCallback(() => {
     filesUiActions.emitSync(workspaceUuid);
   }, [workspaceUuid]);
 
+  const editWorkflows = useExplorerEditWorkflows({
+    allFolders,
+    currentFolder,
+    emitSync,
+    files,
+    loadFolder,
+    loadTree,
+    onCreateNote: createNote,
+    startBannerUpload,
+    workspaceUuid,
+  });
   const {
     applyEditDialog,
     bannerInputRef,
@@ -710,30 +726,48 @@ export function FileExplorer({
     openRenameFolderDialog,
     resetFolderBanner,
     triggerBannerPicker,
-  } = useExplorerEditWorkflows({
-    allFolders,
-    currentFolder,
-    emitSync,
-    files,
-    loadFolder,
-    loadTree,
-    onCreateNote: createNote,
-    startBannerUpload,
-    workspaceUuid,
-  });
+  } = editWorkflows;
   const handleApplyEditDialog = useCallback(() => {
     void applyEditDialog();
   }, [applyEditDialog]);
 
+  const shareDialogs = useExplorerShareDialogs({
+    workspaceUuid,
+  });
   const {
     fileShareDialogProps,
     folderShareDialogProps,
     openFileShareDialog,
     openFolderShareDialog,
-  } = useExplorerShareDialogs({
+  } = shareDialogs;
+
+  const runtime = useExplorerRuntime({
+    allFiles,
+    allFolders,
+    breadcrumbs,
+    contextActionIdsRef,
+    currentFolderId,
+    editWorkflows,
+    emitSync,
+    explorerEntryCount: explorerEntries.length,
+    explorerScrollRef,
+    fileInputRef,
+    folderInputRef,
+    gridRef,
+    isCurrentFolderReadOnly,
+    itemRefs,
+    loadFolder,
+    loadTree,
+    mobileLongPressTimerRef,
+    mobileSuppressClickRef,
+    navigation,
+    noteWorkflows,
+    onOpenMobileCreateMenu: openMobileCreateMenu,
+    refreshDataDebounced,
+    viewMode,
+    visibleItemIds,
     workspaceUuid,
   });
-
   const {
     commandRouting: { focusSearchSignal },
     dragDrop: {
@@ -778,58 +812,7 @@ export function FileExplorer({
     selection,
     triggerHapticSuccess,
     uploadWorkflows: { getDropUploadCandidates, queueUploads },
-  } = useExplorerRuntime({
-    allFiles,
-    allFolders,
-    breadcrumbs,
-    contextActionIdsRef,
-    currentFolderId,
-    editWorkflows: {
-      applyEditDialog,
-      bannerInputRef,
-      bannerUploadBusy,
-      editDialog,
-      handleBannerInputChange,
-      handleEditDialogOpenChange,
-      handleEditDialogValueChange,
-      openCreateFolderDialog,
-      openCreateNoteDialog,
-      openRenameFileDialog,
-      openRenameFolderDialog,
-      resetFolderBanner,
-      triggerBannerPicker,
-    },
-    emitSync,
-    explorerEntryCount: explorerEntries.length,
-    explorerScrollRef,
-    fileInputRef,
-    folderInputRef,
-    gridRef,
-    isCurrentFolderReadOnly,
-    itemRefs,
-    loadFolder,
-    loadTree,
-    mobileLongPressTimerRef,
-    mobileSuppressClickRef,
-    navigation: {
-      navigateToFolder,
-      openFileById,
-      openFolderById,
-      openSearchResult,
-      openWorkspaceFileInFolder,
-      selectFile,
-    },
-    noteWorkflows: {
-      contentDialogProps: noteWorkflowContentDialogProps,
-      createNote,
-      openImportLinkDialog,
-    },
-    onOpenMobileCreateMenu: openMobileCreateMenu,
-    refreshDataDebounced,
-    viewMode,
-    visibleItemIds,
-    workspaceUuid,
-  });
+  } = runtime;
 
   const toggleCurrentPinnedItem = useCallback(() => {
     if (!(workspaceUuid && currentPinnedItem)) {
@@ -918,50 +901,27 @@ export function FileExplorer({
     [allFiles, emitSync, loadFolder, loadTree, workspaceUuid]
   );
 
-  const { getFileItemActionProps, getFolderItemActionProps } =
-    useExplorerItemActionProps({
-      allFolders,
-      deleteContextActionItems,
-      downloadContextActionItems,
-      duplicateContextActionItems,
-      hardReingestContextActionItems,
-      isPinned: (kind, itemId) =>
-        Boolean(filesPinsActions.isPinned(workspaceUuid, kind, itemId)),
-      moveContextActionItemsToFolder,
-      onOpenPropertiesItem: openPropertiesItem,
-      onSelectFile: selectFile,
-      openFileShareDialog,
-      openFolderShareDialog,
-      openRenameFileDialog,
-      openRenameFolderDialog,
-      togglePinnedItem: (item) => {
-        filesPinsActions.togglePinnedItem(workspaceUuid, item);
-      },
-      workspaceUuid,
-    });
-
-  const {
-    deleteCurrentFolder,
-    downloadCurrentFolder,
-    duplicateCurrentFolder,
-    moveCurrentFolderTo,
-    openCurrentFolderProperties,
-    openCurrentFolderRename,
-    openPaneRight,
-    shareCurrentFolder,
-  } = useExplorerCurrentFolderActions({
-    currentFolder,
-    deleteSelectionItems,
-    downloadItemArchive,
-    duplicateItem,
-    moveFolder,
+  const itemActionProps = useExplorerItemActionProps({
+    allFolders,
+    deleteContextActionItems,
+    downloadContextActionItems,
+    duplicateContextActionItems,
+    hardReingestContextActionItems,
+    isPinned: (kind, itemId) =>
+      Boolean(filesPinsActions.isPinned(workspaceUuid, kind, itemId)),
+    moveContextActionItemsToFolder,
+    onOpenPropertiesItem: openPropertiesItem,
+    onSelectFile: selectFile,
+    openFileShareDialog,
     openFolderShareDialog,
-    openPane,
+    openRenameFileDialog,
     openRenameFolderDialog,
-    paneId,
-    setPropertiesItem,
-    setPropertiesOpen,
+    togglePinnedItem: (item) => {
+      filesPinsActions.togglePinnedItem(workspaceUuid, item);
+    },
+    workspaceUuid,
   });
+  const { getFileItemActionProps, getFolderItemActionProps } = itemActionProps;
 
   const _downloadFileDirect = useCallback(
     async (file: FileRecord) => {
@@ -994,191 +954,55 @@ export function FileExplorer({
     [workspaceUuid]
   );
 
-  useExplorerPaneHeader({
+  const { browsePaneProps, previewPaneProps } = useExplorerPaneSurfaces({
     activeFile,
+    allFiles,
     allFolders,
     breadcrumbs,
     canClosePane,
     closePane,
-    currentLocationTitle,
-    currentFolder,
-    currentInfoEntries,
-    deleteCurrentFolder,
-    downloadCurrentFolder,
-    duplicateCurrentFolder,
-    isAtWorkspaceRoot,
-    isCurrentPinned,
-    menuSurfaceClass: COMPACT_MENU_SURFACE_CLASS,
-    moveCurrentFolderTo,
-    navigateToFolder,
-    openCurrentFolderProperties,
-    openCurrentFolderRename,
-    openCurrentFolderShare: shareCurrentFolder,
-    openPaneRight,
-    toggleCurrentPinnedItem,
-    paneId,
-  });
-
-  const previewPaneProps = activeFile
-    ? buildExplorerPreviewPaneProps({
-        activeFile,
-        allFiles,
-        allFolders,
-        currentInfoEntries,
-        deleteContextActionItems,
-        downloadContextActionItems,
-        duplicateContextActionItems,
-        filePreviewRetrievalProps: searchSurface.filePreviewRetrievalProps,
-        fileShareDialogProps,
-        folderShareDialogProps,
-        hardReingestContextActionItems,
-        isCurrentPinned,
-        moveContextActionItemsToFolder,
-        openFileById,
-        openFileShareDialog,
-        openRenameFileDialog,
-        propertyDefinitions: availablePropertyDefinitions,
-        setPropertyDefinitions,
-        startBannerUpload,
-        toggleCurrentPinnedItem,
-        wikiLinkableFiles,
-        workspaceUuid,
-      })
-    : null;
-  const searchBarProps = searchSurface.getSearchBarProps({
-    focusSearchSignal,
-    onOpenFileById: openFileById,
-    onOpenFolderById: openFolderById,
-    searchableItems,
-  });
-  const browsePaneProps = buildExplorerBrowsePaneProps({
-    allFolders,
-    availablePropertyDefinitions,
-    bannerInputRef,
-    bannerUploadBusy,
-    canMoveSelectionUp: Boolean(breadcrumbs.at(-2)?.id),
-    canNavigateUp: !isAtWorkspaceRoot && Boolean(parentFolder),
-    canvasDropActive,
-    canvasDropProps: getCanvasDropProps(),
-    canRedoFileOperation,
-    canUndoFileOperation,
-    cardFieldQuery,
-    cardPropertyKeys,
-    clearSelection: selection.clearSelection,
-    contextMenuSurfaceClass: COMPACT_MENU_SURFACE_CLASS,
-    currentFolder,
-    currentFolderBannerUrl,
     currentFolderId,
-    currentLocationTitle,
-    deleteSelectionItems,
-    downloadStatus,
-    dropTargetId,
-    editDialog,
-    explorerEntries,
+    derivedState,
+    dragDrop: runtime.dragDrop,
+    editWorkflows,
     fileInputRef,
-    fileOperationHistoryBusy,
-    fileShareDialogProps,
-    filteredAvailablePropertyDefinitions,
-    folderFileCount,
+    fileOperations: runtime.fileOperations,
+    filePresentation,
+    focusSearchSignal,
     folderInputRef,
-    folderPreviewKinds,
-    folderShareDialogProps,
-    folderSubfolderCount,
-    getFileDragProps,
-    getFileIcon: getFileVisualIcon,
-    getFileItemActionProps,
-    getFileKind: detectFileKind,
-    getFolderDragProps,
-    getFolderItemActionProps,
-    getSelectedActionItems: resolveSelectedActionItems,
     gridRef,
-    handleApplyEditDialog,
-    handleEditDialogOpenChange,
-    handleEditDialogValueChange,
-    handlePropertyFiltersChange,
-    hoveredPreviewFileId,
-    interactions: {
-      beginMobileItemLongPress,
-      handleItemContextMenu,
-      handleMobileItemClick,
-      handleMobileItemPointerUp,
-      handleOpenOnDoubleClick,
-      shouldIgnoreItemClick,
-      stopItemSelectionEvent,
-    },
-    isCurrentFolderReadOnly,
     isMobile,
-    itemActionTargetSelector: ITEM_ACTION_TARGET_SELECTOR,
+    itemActionProps,
+    itemInteractions: runtime.itemInteractions,
+    itemRefs,
     listMeasureElement: listVirtualizer.measureElement,
     listTotalSize: listVirtualizer.getTotalSize(),
     listVirtualItems: listVirtualizer.getVirtualItems(),
     loading,
-    mobileConfirmAction,
-    mobileCreateMenuOpen,
-    moveItemsToFolder,
-    moveSelectionTargetFolderId: breadcrumbs.at(-2)?.id ?? null,
-    noteWorkflowContentDialogProps: {
-      ...noteWorkflowContentDialogProps,
-    },
-    onBannerInputChange: handleBannerInputChange,
-    onCardFieldQueryChange: handleCardFieldQueryChange,
-    onCardFieldToggle: handleCardFieldToggle,
-    onChangeFolderBanner: triggerBannerPicker,
-    onClearCardFields: clearCardFields,
-    onCreateFolder: openCreateFolderDialog,
-    onCreateNote: openCreateNoteDialog,
-    onImportLink: openImportLinkDialog,
-    onMobileCanvasPointerDown: handleMobileCanvasPointerDown,
-    onNavigateUp: () => {
-      if (parentFolder) {
-        navigateToFolder(parentFolder.id);
-      }
-    },
-    onOpenFile: selectFile,
-    onOpenFolder: navigateToFolder,
-    onOpenMobileCreateMenu: openMobileCreateMenu,
-    onPreviewIntentEnd: handlePreviewIntentEnd,
-    onPreviewIntentStart: handlePreviewIntentStart,
-    onQueueFiles: (incomingFiles) => {
-      queueUploads(incomingFiles.map((file) => ({ file })));
-    },
-    onQueueFolderFiles: queueUploads,
-    onRedo: () => {
-      void redoLatestFileOperation();
-    },
-    onRefresh: refreshData,
-    onResetCardFields: resetCardFields,
-    onResetFolderBanner: (folderId) => {
-      void resetFolderBanner(folderId);
-    },
-    onUndo: () => {
-      void undoLatestFileOperation();
-    },
-    onUploadFile: () => fileInputRef.current?.click(),
-    onUploadFolder: () => folderInputRef.current?.click(),
-    propertiesItem,
-    propertiesOpen,
-    propertyFilterFields,
-    propertyFiltersForUi,
+    navigation,
+    noteWorkflows,
+    openPane,
+    paneId,
+    propertyControls,
+    refreshCurrentFolder: loadFolder,
     scrollRef: explorerScrollRef,
-    searchBarProps,
-    selectedCardPropertyDefinitions,
-    selectedCount: selection.selectedCount,
-    selectedIds: selection.getSelectedIds(),
+    searchableItems,
+    searchSurface,
     selection,
-    selectionRect: selection.selectionRect,
-    setItemRowRefMap: itemRefs,
-    setMobileConfirmAction,
-    setMobileCreateMenuOpen,
-    setPropertiesOpen,
+    setPropertyDefinitions,
     setSortState,
-    setViewMode,
+    shareDialogs,
+    shell: {
+      setViewMode,
+      viewMode,
+    },
     sortState,
-    sortedFiles,
-    sortedFolders,
-    startHapticSuccess: triggerHapticSuccess,
-    viewMode,
-    visibleItemIds,
+    startBannerUpload,
+    surfaceSummary,
+    triggerHapticSuccess,
+    uiState,
+    uploadWorkflows: runtime.uploadWorkflows,
+    workspaceUuid,
   });
 
   if (previewPaneProps) {
