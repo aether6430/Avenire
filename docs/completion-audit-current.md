@@ -165,6 +165,9 @@ Missing proof:
   - the home pane now reaches a ready state in production
   - the production signed-in path is still not fully trustworthy under deeper
     navigation
+  - detached production evidence now strongly suggests the remaining
+    reliability gap is files-route-specific rather than a general signed-in
+    workspace failure
 - Passing builds prove integrity, but they do not by themselves prove that the
   product now feels coherent.
 
@@ -191,8 +194,8 @@ Missing proof:
    margin.
 2. The signed-in workspace home and files surfaces are now browser-proven, but
    deeper reliability is still weak:
-   - production server responsiveness can still degrade after deeper
-     signed-in navigation
+   - detached production `/workspace` survives
+   - detached production signed-in files activity can still kill the server
 3. The original `instruction.md` remains absent from the active repo and
    trapped as a `compressed,dataless` placeholder in the old Desktop copy.
 4. The evidence trail is healthier, but it is still split between the active

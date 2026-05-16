@@ -326,6 +326,13 @@ Observed during the same broader signed-in production work:
   unhealthy:
   - it may keep listening on port `3005`
   - but fresh requests such as `/login` can still time out
+- detached-production evidence is now sharper:
+  - a detached production server on `:3009` survives a signed-in browser visit
+    to `/workspace` and still answers `/login`
+  - a detached production server on `:3007` or `:3008` can die immediately on
+    the signed-in files route before the route reaches a stable browser render
+  - a detached production server on `:3006` can render the files route, but the
+    broader signed-in files session still remains a durability risk
 
 This is still a real reliability problem, even though the startup path is now
 better than before.

@@ -118,6 +118,14 @@ Even after the files route renders, the broader production session can still
 degrade later, so the weakest point is no longer first paint. It is sustained
 signed-in stability.
 
+The latest detached-server evidence also suggests that this instability is not
+uniform across signed-in routes:
+
+- signed-in `/workspace` can render and leave the detached production server
+  healthy
+- signed-in files routes are much more likely to be the trigger for later
+  instability
+
 ## Conclusion
 
 The visual story is materially better than it was when the large shell files
