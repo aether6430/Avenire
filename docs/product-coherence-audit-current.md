@@ -14,7 +14,7 @@ audit focuses on:
 - auth entry surfaces
 - unauthenticated workspace entry behavior
 
-It does **not** claim authenticated in-session workspace proof yet.
+It does **not** claim full authenticated in-session workspace proof yet.
 
 ## Commands used
 
@@ -34,6 +34,14 @@ Browser inspection:
   - `/pricing`
   - `/login`
   - `/workspace` (redirected to `/login`)
+
+Auth-backed local environment:
+
+- local Postgres via `bash scripts/local-auth-db-start.sh`
+- `DATABASE_URL=postgres://johnmacartew@localhost:5433/avenire`
+- local waitlist approval helper:
+  - `bun scripts/local-auth-verification-link.ts audit+workspace@example.com --approve-waitlist --callback /workspace`
+- live sign-up and verification evidence collected from the running dev server
 
 ## Observed strengths
 
@@ -108,16 +116,57 @@ Observed on `/workspace`:
 That is a meaningful coherence signal because the boundary between public and
 authenticated product space is behaving intentionally.
 
+### 6. The register flow is no longer crashing
+
+Observed during this audit:
+
+- `/register` originally hit a real runtime failure:
+  - `Maximum update depth exceeded`
+- root cause was an invalid `useSyncExternalStore` snapshot in
+  `packages/auth/components/register.tsx`
+- after the fix, the register form rendered normally again and accepted real
+  input
+
+This is an important coherence win because the auth-entry surface is now at
+least interactable instead of failing before sign-up.
+
+### 7. Auth backend flow is partially proven with a real local user
+
+Observed via the local DB + server logs:
+
+- waitlist approval succeeded for `audit+workspace@example.com`
+- sign-up request succeeded:
+  - `POST /api/auth/sign-up/email 200`
+- verification request succeeded:
+  - `GET /api/auth/verify-email?... 302`
+- database evidence confirms:
+  - user row exists
+  - `email_verified = true`
+  - a session token was issued
+
+This means the local product is no longer only “buildable”; a meaningful part
+of the real auth lifecycle actually works end to end.
+
 ## Current weak spots
 
 ### 1. Authenticated workspace experience is still not fully audited
 
-The current environment does not provide a real authenticated session, so this
-audit does **not** yet prove:
+Even after the local auth work above, this audit does **not** yet prove:
 
 - workspace overview coherence after login
 - dashboard/sidebar/command-palette interplay in-session
 - files/chat/flashcards/tasks continuity as a lived workflow
+
+What is currently true:
+
+- auth backend state exists
+- a verified local user exists
+- a session token exists in the database
+
+What is still missing:
+
+- a direct browser-level proof that the authenticated user lands inside the
+  workspace and can move through the main signed-in surfaces coherently
 
 This remains a real gap against the overall objective.
 
@@ -145,6 +194,7 @@ Right now the strongest evidence is:
 The weaker evidence is:
 
 - deep authenticated workflows under real usage
+- a stable browser-level proof of the signed-in workspace loop
 
 So the repo feels much more coherent at the public/product edge than it is yet
 proven to be inside the core signed-in work loop.
@@ -159,8 +209,8 @@ Public and auth-entry coherence are materially healthier than before:
 - sane workspace redirect behavior
 
 But the broader objective is still **not achieved** because the authenticated
-workspace flow has not yet been audited end to end under a real session, and
-that is exactly where the product’s main promise actually lives.
+workspace flow has not yet been audited end to end under a browser-proven real
+session, and that is exactly where the product’s main promise actually lives.
 
 ## Recommended next move
 

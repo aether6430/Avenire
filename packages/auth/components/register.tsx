@@ -25,12 +25,15 @@ const VERIFICATION_EMAIL_STORAGE_KEY = "auth:verification-email";
 
 const clockSubscribers = new Set<() => void>();
 let clockInterval: number | null = null;
+let currentClockNow = 0;
 
 function subscribeToClock(callback: () => void) {
   clockSubscribers.add(callback);
+  currentClockNow = Date.now();
 
   if (!clockInterval) {
     clockInterval = window.setInterval(() => {
+      currentClockNow = Date.now();
       clockSubscribers.forEach((subscriber) => subscriber());
     }, 1000);
   }
@@ -48,7 +51,7 @@ function subscribeToClock(callback: () => void) {
 function useClockNow() {
   return useSyncExternalStore(
     subscribeToClock,
-    () => Date.now(),
+    () => currentClockNow,
     () => 0
   );
 }
