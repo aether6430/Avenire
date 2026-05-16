@@ -30,23 +30,12 @@ import {
   Trash as Trash2,
   MagicWand as WandSparkles,
 } from "@phosphor-icons/react";
-import {
-  Suspense,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { Suspense, useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ExplorerBrowsePane } from "@/components/files/explorer/explorer-browse-pane";
 import { buildExplorerBrowsePaneProps } from "@/components/files/explorer/explorer-browse-pane-props";
 import { ExplorerPreviewPane } from "@/components/files/explorer/explorer-preview-pane";
 import { buildExplorerPreviewPaneProps } from "@/components/files/explorer/explorer-preview-pane-props";
-import {
-  buildExplorerFilePreviewRetrievalProps,
-  buildExplorerSearchBarProps,
-} from "@/components/files/explorer/explorer-retrieval-props";
 import {
   detectPreviewKind,
   type FileRecord,
@@ -63,6 +52,7 @@ import { useExplorerNoteWorkflows } from "@/components/files/explorer/use-explor
 import { useExplorerPaneHeader } from "@/components/files/explorer/use-explorer-pane-header";
 import { useExplorerPropertyControls } from "@/components/files/explorer/use-explorer-property-controls";
 import { useExplorerRuntime } from "@/components/files/explorer/use-explorer-runtime";
+import { useExplorerSearchSurface } from "@/components/files/explorer/use-explorer-search-surface";
 import { useExplorerShareDialogs } from "@/components/files/explorer/use-explorer-share-dialogs";
 import { useExplorerShell } from "@/components/files/explorer/use-explorer-shell";
 import { useExplorerSurfaceSummary } from "@/components/files/explorer/use-explorer-surface-summary";
@@ -71,7 +61,6 @@ import { useExplorerWorkspaceIndexState } from "@/components/files/explorer/use-
 import { useWorkspaceExplorerData } from "@/components/files/explorer/use-workspace-explorer-data";
 import type { BulkItemKind } from "@/components/files/explorer/workspace-bulk-operations-model";
 import type { SortState } from "@/components/files/explorer/workspace-folder-browse-model";
-import type { WorkspaceSearchResult } from "@/components/files/stylized-search-bar";
 import { useUploadThing } from "@/lib/uploadthing";
 import { cn } from "@/lib/utils";
 import {
@@ -537,20 +526,11 @@ export function FileExplorer({
     workspaceUuidFromPage,
   });
 
-  const [query, setQuery] = useState("");
   const [sortState, setSortState] = useState<SortState>({
     direction: "asc",
     key: "name",
     kind: "builtin",
   });
-  const [vectorFilteredIds, setVectorFilteredIds] =
-    useState<Set<string> | null>(null);
-  const [retrievalResults, setRetrievalResults] = useState<
-    WorkspaceSearchResult[]
-  >([]);
-  const [activeRetrievalChunkId, setActiveRetrievalChunkId] = useState<
-    string | null
-  >(null);
   const [workspaceMembers, _setWorkspaceMembers] = useState<
     WorkspaceMemberRecord[]
   >([]);
@@ -615,6 +595,12 @@ export function FileExplorer({
     searchParams,
     workspaceUuid,
   });
+  const searchSurface = useExplorerSearchSurface({
+    onOpenFolderById: openFolderById,
+    onOpenSearchResult: openSearchResult,
+    selectedRetrievalChunkParam,
+    workspaceUuid,
+  });
 
   const {
     availablePropertyDefinitions,
@@ -654,10 +640,10 @@ export function FileExplorer({
     files,
     folders,
     propertyFilters,
-    query,
+    query: searchSurface.query,
     selectedFileParam,
     sortState,
-    vectorFilteredIds,
+    vectorFilteredIds: searchSurface.vectorFilteredIds,
     workspaceName,
   });
   const {
@@ -845,72 +831,6 @@ export function FileExplorer({
     workspaceUuid,
   });
 
-  useEffect(() => {
-    if (!workspaceUuid) {
-      return;
-    }
-    try {
-      const raw = window.sessionStorage.getItem(
-        `${FILE_RETRIEVAL_CONTEXT_KEY}:${workspaceUuid}`
-      );
-      if (!raw) {
-        return;
-      }
-      const parsed = JSON.parse(raw) as {
-        activeChunkId?: string | null;
-        query?: string;
-        results?: WorkspaceSearchResult[];
-      };
-      const parsedResults = Array.isArray(parsed.results) ? parsed.results : [];
-      if (typeof parsed.query === "string") {
-        setQuery((current) => (current ? "" : current));
-      }
-      if (parsedResults.length > 0) {
-        setRetrievalResults((current) => {
-          if (current.length === parsedResults.length) {
-            return current;
-          }
-          return parsedResults;
-        });
-        setVectorFilteredIds((current) => (current ? null : current));
-        setQuery((current) => (current ? "" : current));
-      }
-      if (
-        typeof parsed.activeChunkId === "string" ||
-        parsed.activeChunkId === null
-      ) {
-        setActiveRetrievalChunkId((current) =>
-          current === (parsed.activeChunkId ?? null)
-            ? current
-            : (parsed.activeChunkId ?? null)
-        );
-      }
-    } catch {
-      // Ignore malformed client cache.
-    }
-  }, [workspaceUuid]);
-
-  useEffect(() => {
-    if (!workspaceUuid) {
-      return;
-    }
-    window.sessionStorage.setItem(
-      `${FILE_RETRIEVAL_CONTEXT_KEY}:${workspaceUuid}`,
-      JSON.stringify({
-        activeChunkId: activeRetrievalChunkId,
-        query: retrievalResults.length > 0 ? query : "",
-        results: retrievalResults,
-      })
-    );
-  }, [activeRetrievalChunkId, query, retrievalResults, workspaceUuid]);
-
-  if (
-    selectedRetrievalChunkParam &&
-    selectedRetrievalChunkParam !== activeRetrievalChunkId
-  ) {
-    setActiveRetrievalChunkId(selectedRetrievalChunkParam);
-  }
-
   const toggleCurrentPinnedItem = useCallback(() => {
     if (!(workspaceUuid && currentPinnedItem)) {
       return;
@@ -1074,36 +994,6 @@ export function FileExplorer({
     [workspaceUuid]
   );
 
-  const handleApplyWorkspaceFilter = useCallback((itemIds: string[] | null) => {
-    setVectorFilteredIds(
-      itemIds && itemIds.length > 0 ? new Set(itemIds) : null
-    );
-  }, []);
-
-  const handleSearch = useCallback(
-    (_searchQuery: string, results: WorkspaceSearchResult[]) => {
-      setQuery("");
-      setRetrievalResults(results);
-      if (results.length === 0) {
-        setActiveRetrievalChunkId(null);
-      }
-    },
-    []
-  );
-
-  const handleSelectResult = useCallback(
-    (result: WorkspaceSearchResult) => {
-      if (result.type === "folder") {
-        setActiveRetrievalChunkId(null);
-        openFolderById(result.id);
-        return;
-      }
-      setActiveRetrievalChunkId(result.chunkId ?? null);
-      openSearchResult(result);
-    },
-    [openFolderById, openSearchResult]
-  );
-
   useExplorerPaneHeader({
     activeFile,
     allFolders,
@@ -1138,11 +1028,7 @@ export function FileExplorer({
         deleteContextActionItems,
         downloadContextActionItems,
         duplicateContextActionItems,
-        filePreviewRetrievalProps: buildExplorerFilePreviewRetrievalProps({
-          activeRetrievalChunkId,
-          query,
-          retrievalResults,
-        }),
+        filePreviewRetrievalProps: searchSurface.filePreviewRetrievalProps,
         fileShareDialogProps,
         folderShareDialogProps,
         hardReingestContextActionItems,
@@ -1159,18 +1045,11 @@ export function FileExplorer({
         workspaceUuid,
       })
     : null;
-  const searchBarProps = buildExplorerSearchBarProps({
-    activeRetrievalChunkId,
+  const searchBarProps = searchSurface.getSearchBarProps({
     focusSearchSignal,
-    handleApplyWorkspaceFilter,
-    handleSearch,
-    handleSelectResult,
     onOpenFileById: openFileById,
     onOpenFolderById: openFolderById,
-    query,
-    retrievalResults,
     searchableItems,
-    workspaceUuid,
   });
   const browsePaneProps = buildExplorerBrowsePaneProps({
     allFolders,
