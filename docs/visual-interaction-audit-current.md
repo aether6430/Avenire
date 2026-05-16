@@ -127,6 +127,8 @@ uniform across signed-in routes:
   instability
 - the initial detached production files render is now quieter on background
   live-runtime work, even though the deeper durability issue still remains
+- the latest detached files snapshot also no longer shows the upload-activity
+  panel body on first paint
 
 ## Conclusion
 

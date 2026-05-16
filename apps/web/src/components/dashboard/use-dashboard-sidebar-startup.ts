@@ -19,7 +19,6 @@ export function useDashboardSidebarStartup() {
     const cleanupListeners = () => {
       window.removeEventListener("pointerdown", markReady);
       window.removeEventListener("keydown", markReady);
-      window.removeEventListener("focusin", markReady);
     };
 
     window.addEventListener("pointerdown", markReady, {
@@ -27,7 +26,6 @@ export function useDashboardSidebarStartup() {
       passive: true,
     });
     window.addEventListener("keydown", markReady, { once: true });
-    window.addEventListener("focusin", markReady, { once: true });
     return () => {
       cleanupListeners();
     };

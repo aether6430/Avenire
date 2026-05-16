@@ -148,6 +148,8 @@ Current evidence:
       loading placeholder
     - a fresh detached production files render now avoids auto-starting the
       broader files realtime streams when no uploads are active
+    - after the latest deferred-runtime trim, the detached files render also
+      avoids auto-starting the general workspace realtime stream on first paint
   - remaining gap has shifted deeper:
     - production server responsiveness can still degrade after signed-in files
       activity

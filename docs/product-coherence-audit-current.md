@@ -322,6 +322,10 @@ Recent files-route runtime tightening also changed the initial network shape:
   - `/api/workspaces/<workspaceUuid>/property-registry`
 - but it does **not** immediately open the broader files realtime streams when
   there are no active uploads
+- after removing `focusin` as a deferred-runtime trigger, the fresh detached
+  files render is quieter still:
+  - no general `/api/realtime/events?workspaceUuid=...` request
+  - no upload-activity panel body appears in the first settled browser snapshot
 
 That means the first files render is now doing less background live-work than
 it did before.
