@@ -6,9 +6,9 @@ import {
 } from "@/components/dashboard/sidebar-startup";
 
 describe("dashboard sidebar startup policy", () => {
-  it("warms all surfaces only from the workspace home view", () => {
-    expect(shouldWarmAllWorkspaceSurfacesOnStartup("workspace")).toBe(true);
-    expect(shouldWarmAllWorkspaceSurfacesOnStartup(null)).toBe(true);
+  it("does not auto-warm all workspace surfaces on startup", () => {
+    expect(shouldWarmAllWorkspaceSurfacesOnStartup("workspace")).toBe(false);
+    expect(shouldWarmAllWorkspaceSurfacesOnStartup(null)).toBe(false);
     expect(shouldWarmAllWorkspaceSurfacesOnStartup("files")).toBe(false);
     expect(shouldWarmAllWorkspaceSurfacesOnStartup("chat")).toBe(false);
     expect(shouldWarmAllWorkspaceSurfacesOnStartup("flashcards")).toBe(false);

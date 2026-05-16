@@ -83,28 +83,32 @@ marketing page leaked into the product.
 
 ## Current weak spot
 
-### 1. The main signed-in pane is still visually unresolved
+### 1. The signed-in home surface now reaches a real ready state
 
-In both authenticated browser captures, the main pane remained on:
+Observed in the current direct production browser session:
 
-- `Loading workspace...`
+- the main workspace home pane now renders a real ready state rather than a
+  perpetual loading placeholder
+- visible home content includes:
+  - greeting headline
+  - quick-create action row
+  - today's tasks panel
+  - recent concepts panel
+  - student calendar
 
-even after a `20s` virtual-time budget.
+That is a meaningful visual improvement over the earlier shell-only proof.
 
-That means the shell is visually coherent, but the central work surface is not
-yet visually proven in a healthy ready state.
+### 2. The files route is now the weaker visual surface
 
-### 2. The production signed-in route is visually worse than the shell-only dev pass
+Observed after clicking `Open Files` in the same production browser session:
 
-Observed in the direct production browser session:
+- the route updates to the real files URL
+- the files sidebar/tree visibly loads
+- the main files pane still shows:
+  - `Loading files...`
 
-- the route stayed on signed-in `/workspace`
-- the main pane still showed `Loading workspace...`
-- after the later production crash, the browser degraded to a full connection
-  failure surface instead of a product UI
-
-So the best current visual story is still the authenticated shell, not a stable
-ready-state main workspace view.
+So the visual weakest point has moved from the workspace home route to the
+files-route main pane.
 
 ## Conclusion
 
@@ -114,7 +118,8 @@ were still giant inline surfaces:
 - public entry surfaces are aligned
 - auth entry remains visually calm
 - the signed-in workspace shell is now browser-visible and coherent
+- the signed-in home surface now reaches a real ready state
 
 But the audit is still incomplete because the primary work pane has not yet
-been observed in a stable ready state under either the authenticated dev-proxy
-or the direct production browser pass.
+been observed in a stable ready state for every major signed-in route. The
+clearest remaining visual gap is the files-route main pane.

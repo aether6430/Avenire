@@ -67,6 +67,9 @@ Direct production browser session:
   - `POST http://127.0.0.1:3005/api/auth/sign-in/email`
 - Playwright browser session with direct cookie injection for:
   - `http://127.0.0.1:3005/workspace`
+- startup trims now in place for the signed-in shell:
+  - home-screen startup no longer auto-warms every workspace surface
+  - deferred shell/runtime extras no longer auto-enable from idle timers alone
 
 ## Observed strengths
 
@@ -201,15 +204,17 @@ Observed in a real Playwright-driven production session against
 - production browser requests included:
   - `GET /api/workspace/bootstrap => 200`
   - `GET /api/user-settings => 200`
-  - `GET /api/workspaces/invitations => 200`
-  - `GET /api/workspaces/list => 200`
-  - route prefetches for:
-    - `/workspace/files`
-    - `/workspace/flashcards`
-    - `/workspace/chats/new`
-    - `/workspace/files/<workspace>/folder/<rootFolder>`
-- console output in the production browser session contained no errors or
-  warnings before the later crash
+  - `GET /api/workspace/overview => 200`
+  - `GET /api/tasks?includeCompleted=true => 200`
+  - `GET /api/tasks?includeCompleted=false&limit=8 => 200`
+  - `GET /api/activity?limit=6 => 200`
+- the production browser snapshot showed a real ready-state home surface:
+  - greeting headline
+  - task panel
+  - recent concepts panel
+  - student calendar
+- console output in that production home session contained no errors or
+  warnings
 
 This is the cleanest signed-in browser evidence collected so far because it
 does not depend on dev-mode HMR behavior.
@@ -253,18 +258,18 @@ So the gap is no longer vague. The signed-in shell is proven, but the default
 main work surface is still weakly proven and may have a real hydration or pane
 initialization seam.
 
-What the production browser pass surfaced:
+What the current production browser pass surfaced:
 
-- the default signed-in URL stayed on `/workspace`
-- the browser successfully loaded bootstrap and workspace-adjacent APIs
-- the main pane still remained on:
-  - `Loading workspace...`
-- no production browser request to `/api/workspace/overview` was observed in
-  that session
+- the default signed-in URL now stays on `/workspace`
+- the home pane now reaches a visible ready state under a fresh production
+  browser session
+- the home view now issues the expected browser requests for:
+  - bootstrap
+  - overview
+  - tasks
+  - activity
 
-That makes the remaining gap more specific: the signed-in shell can initialize,
-but the default workspace-home pane still does not transition into its ready
-state under a clean production browser session.
+That is a material improvement over the earlier shell-only proof.
 
 ### 2. Local proxy host mismatch can obscure dev-mode browser proof
 
@@ -280,21 +285,41 @@ This matters because it rules out one false explanation: the lingering loading
 state is not only a `127.0.0.1` dev-origin quirk.
 This remains a real gap against the overall objective.
 
-### 3. The production signed-in browser path can crash `next start`
+### 3. Deeper signed-in continuity is still weaker than home
 
-Observed during the direct production browser session:
+Observed after moving beyond the home surface:
 
-- after the signed-in `/workspace` session began prefetching workspace routes
-  and chunks, the `next start` process died with:
-  - `FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory`
-- the crash came from the production `@avenire/web start` process itself, not
-  only from the browser tool
-- once that happened, subsequent browser requests flipped to:
-  - `ERR_CONNECTION_REFUSED`
+- clicking `Open Files` now changes the real browser URL to:
+  - `/workspace/files/<workspaceUuid>/folder/<rootFolderId>`
+- the files tree/sidebar surface loads and shows:
+  - `Files`
+  - `Search Files`
+  - `New Note`
+  - `Import Link`
+  - `Your Files`
+  - `Welcome to Avenire.md`
+- the main files pane still remained on:
+  - `Loading files...`
 
-This is a real reliability problem, not only an audit inconvenience.
+So the deepest remaining signed-in gap is no longer the workspace home shell.
+It is the next stage of continuity after entering files.
 
-### 4. Voice mismatch still exists in places
+### 4. Signed-in production responsiveness is still not fully trustworthy
+
+Observed during the same broader signed-in production work:
+
+- a production `next start` process previously died with Node heap OOM under a
+  signed-in workspace browser session
+- after the startup trims above, the initial home path is materially healthier
+- however, after deeper in-session navigation the server can still become
+  partially unhealthy:
+  - it may keep listening on port `3005`
+  - but fresh requests such as `/login` can still time out
+
+This is still a real reliability problem, even though the startup path is now
+better than before.
+
+### 5. Voice mismatch still exists in places
 
 The login page uses:
 
@@ -307,7 +332,7 @@ more concrete study/research language on `/` and `/pricing`.
 This is not a blocker by itself, but it is one of the clearer remaining
 copy-level seams.
 
-### 5. Product proof is still stronger on entry than in-flow
+### 6. Product proof is still stronger on entry than in-flow
 
 Right now the strongest evidence is:
 
@@ -336,20 +361,19 @@ Public and auth-entry coherence are materially healthier than before:
 But the broader objective is still **not achieved** because the authenticated
 workspace flow is now only partially proven:
 
-- the signed-in workspace route and bootstrap endpoints work
-- the signed-in workspace shell renders in a real browser engine
-- the production browser path now proves bootstrap/list/settings/invitations
-  traffic too
-- but the main signed-in pane still remains on `Loading workspace...`, and the
-  production signed-in path can even take `next start` down with OOM, so the
-  broader interaction loop is still not proven end to end
+- the signed-in workspace route and home surface now reach a real ready state
+  in a production browser session
+- the files route now also navigates in-browser and loads its sidebar/tree
+  surface
+- but the main files pane is still not proven to reach a stable ready state
+- and the production signed-in path is still not trustworthy enough under
+  sustained use because server responsiveness can degrade
 
 ## Recommended next move
 
-Debug the signed-in workspace main-pane loading seam next:
+Debug the next signed-in continuity seam next:
 
-1. trace why the default `/workspace` pane stays on `Loading workspace...`
-2. trace why the production signed-in path never reaches
-   `/api/workspace/overview`
-3. isolate the production OOM trigger during signed-in workspace prefetch/load
-4. only then continue the deeper sidebar/files/chat/tasks continuity audit
+1. trace why the files route main pane stays on `Loading files...`
+2. isolate why the production server can become partially unresponsive after
+   deeper signed-in navigation
+3. only then continue the deeper chat/tasks/flashcards continuity audit

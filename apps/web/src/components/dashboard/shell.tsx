@@ -142,21 +142,8 @@ export function DashboardLayout({
     });
     window.addEventListener("keydown", markReady, { once: true });
     window.addEventListener("focusin", markReady, { once: true });
-
-    if ("requestIdleCallback" in window) {
-      const idleId = window.requestIdleCallback(() => {
-        markReady();
-      });
-      return () => {
-        cleanupListeners();
-        window.cancelIdleCallback?.(idleId);
-      };
-    }
-
-    const timeoutId = globalThis.setTimeout(markReady, 1500);
     return () => {
       cleanupListeners();
-      globalThis.clearTimeout(timeoutId);
     };
   }, [deferredReady]);
 

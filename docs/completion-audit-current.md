@@ -132,15 +132,22 @@ Current evidence:
   - the main pane still remained on `Loading workspace...` even after a
     `20s` virtual-time budget
 - A direct production browser session now proves more of the signed-in path:
-  - signed-in `http://127.0.0.1:3005/workspace` stayed on the workspace route
+  - signed-in `http://127.0.0.1:3005/workspace` now reaches a real home ready
+    state
   - the browser loaded:
     - `/api/workspace/bootstrap`
     - `/api/user-settings`
-    - `/api/workspaces/invitations`
-    - `/api/workspaces/list`
-  - the main pane still remained on `Loading workspace...`
-  - the same production browser path can eventually crash `next start` with
-    Node heap OOM
+    - `/api/workspace/overview`
+    - `/api/tasks?...`
+    - `/api/activity?...`
+  - browser snapshot now proves the home screen headline, tasks panel, recent
+    concepts panel, and student calendar
+  - signed-in `Open Files` navigation now also updates the real browser URL and
+    loads the files sidebar/tree surface
+  - remaining gap has shifted deeper:
+    - the files route main pane still shows `Loading files...`
+    - production server responsiveness can still degrade after deeper
+      signed-in navigation
 - The auth-entry flow itself improved materially:
   - `/register` no longer crashes with `Maximum update depth exceeded`
   - sign-up returned `200`
@@ -149,13 +156,15 @@ Current evidence:
 
 Missing proof:
 
-- There is now meaningful browser-level signed-in proof, but not a healthy
-  in-session loop:
+- There is now meaningful browser-level signed-in proof, but not a fully
+  healthy in-session loop:
   - the shell renders
   - the authenticated route is reachable in both dev-proxy and direct
     production-browser sessions
-  - the default main pane still stalls on `Loading workspace...`
-  - the production signed-in path can crash `next start` with OOM
+  - the home pane now reaches a ready state in production
+  - the files route main pane still stalls on `Loading files...`
+  - the production signed-in path is still not fully trustworthy under deeper
+    navigation
 - Passing builds prove integrity, but they do not by themselves prove that the
   product now feels coherent.
 
@@ -180,9 +189,11 @@ Missing proof:
 
 1. `explorer.tsx` is still the largest remaining app-level surface by a wide
    margin.
-2. The signed-in workspace shell is browser-proven, but the main pane still
-   stalls on `Loading workspace...` even in a direct production browser
-   session, and that same path can crash `next start` with OOM.
+2. The signed-in workspace home surface is now browser-proven, but deeper
+   continuity is still weak:
+   - the files route main pane still stalls on `Loading files...`
+   - production server responsiveness can still degrade after deeper
+     signed-in navigation
 3. The original `instruction.md` remains absent from the active repo and
    trapped as a `compressed,dataless` placeholder in the old Desktop copy.
 4. The evidence trail is healthier, but it is still split between the active
@@ -192,11 +203,11 @@ Missing proof:
 
 1. Continue structural reduction on `explorer.tsx` until it no longer dominates
    the app-level surface map.
-2. Debug the signed-in workspace main-pane loading seam under the direct
-   production browser session, because that is now the clearest remaining
-   product-level gap.
-3. Isolate the production `next start` OOM during signed-in workspace loading
-   and prefetch.
+2. Debug the signed-in files-route loading seam under the direct production
+   browser session, because that is now the clearest remaining product-level
+   gap.
+3. Isolate the remaining production responsiveness failure after deeper
+   signed-in navigation.
 4. Recover or otherwise memorialize the original `instruction.md` text so the
    final completion audit no longer depends on a surrogate alone.
 5. After that, perform a final end-state audit against the recovered goal

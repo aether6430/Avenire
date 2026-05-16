@@ -7,9 +7,9 @@ export type DashboardSidebarView =
   | null;
 
 export function shouldWarmAllWorkspaceSurfacesOnStartup(
-  activeView: DashboardSidebarView
+  _activeView: DashboardSidebarView
 ) {
-  return activeView === null || activeView === "workspace";
+  return false;
 }
 
 export function shouldLoadChatsForSidebar(options: {
