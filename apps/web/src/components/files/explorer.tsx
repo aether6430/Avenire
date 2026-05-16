@@ -41,25 +41,20 @@ import {
 import { toast } from "sonner";
 import { ExplorerBrowsePane } from "@/components/files/explorer/explorer-browse-pane";
 import { buildExplorerBrowsePaneProps } from "@/components/files/explorer/explorer-browse-pane-props";
-import {
-  formatCardPropertyValue,
-  getFileProperties,
-} from "@/components/files/explorer/explorer-file-properties-model";
 import { ExplorerPreviewPane } from "@/components/files/explorer/explorer-preview-pane";
 import { buildExplorerPreviewPaneProps } from "@/components/files/explorer/explorer-preview-pane-props";
 import {
   buildExplorerFilePreviewRetrievalProps,
   buildExplorerSearchBarProps,
-  type ExplorerFilePreviewRetrievalProps,
 } from "@/components/files/explorer/explorer-retrieval-props";
 import {
   detectPreviewKind,
   type FileRecord,
   type FolderRecord,
-  formatBytes,
   type WorkspaceMemberRecord,
 } from "@/components/files/explorer/shared";
 import { useExplorerCurrentFolderActions } from "@/components/files/explorer/use-explorer-current-folder-actions";
+import { useExplorerDerivedState } from "@/components/files/explorer/use-explorer-derived-state";
 import { useExplorerEditWorkflows } from "@/components/files/explorer/use-explorer-edit-workflows";
 import { useExplorerFilePresentation } from "@/components/files/explorer/use-explorer-file-presentation";
 import { useExplorerItemActionProps } from "@/components/files/explorer/use-explorer-item-action-props";
@@ -67,7 +62,6 @@ import { useExplorerNavigation } from "@/components/files/explorer/use-explorer-
 import { useExplorerNoteWorkflows } from "@/components/files/explorer/use-explorer-note-workflows";
 import { useExplorerPaneHeader } from "@/components/files/explorer/use-explorer-pane-header";
 import { useExplorerPropertyControls } from "@/components/files/explorer/use-explorer-property-controls";
-import { useExplorerSearchSurface } from "@/components/files/explorer/use-explorer-search-surface";
 import { useExplorerRuntime } from "@/components/files/explorer/use-explorer-runtime";
 import { useExplorerShareDialogs } from "@/components/files/explorer/use-explorer-share-dialogs";
 import { useExplorerSurfaceSummary } from "@/components/files/explorer/use-explorer-surface-summary";
@@ -128,10 +122,6 @@ const _HEADER_SEGMENT_BUTTON_CLASS =
 const HEADER_SEGMENT_ICON_BUTTON_CLASS =
   "h-9 w-9 rounded-none border-0 bg-transparent text-foreground shadow-none hover:bg-muted/70 disabled:bg-transparent";
 const FILE_EXPLORER_LIST_ROW_ESTIMATE = 52;
-
-type ExplorerEntry =
-  | { folder: FolderRecord; id: string; kind: "folder" }
-  | { file: FileRecord; id: string; kind: "file" };
 
 async function loadWorkspacePropertyDefinitions(workspaceUuid: string) {
   const response = await fetch(
@@ -687,16 +677,6 @@ export function FileExplorer({
     const queryString = searchParams.toString();
     return queryString ? `${pathname}?${queryString}` : pathname;
   }, [pathname, searchParams]);
-  const activeFile = useMemo(
-    () => files.find((file) => file.id === selectedFileParam) ?? null,
-    [files, selectedFileParam]
-  );
-
-  const currentFolder = useMemo(
-    () => breadcrumbs.at(-1) ?? null,
-    [breadcrumbs]
-  );
-  const isCurrentFolderReadOnly = Boolean(currentFolder?.readOnly);
   const {
     navigateToFolder,
     openFileById,
@@ -712,25 +692,6 @@ export function FileExplorer({
     workspaceUuid,
   });
 
-  const {
-    contentDialogProps: noteWorkflowContentDialogProps,
-    createNote,
-    openImportLinkDialog,
-  } = useExplorerNoteWorkflows({
-    isCurrentFolderReadOnly,
-    openWorkspaceFileInFolder,
-    workspaceUuid,
-  });
-
-  const parentFolder = useMemo(() => breadcrumbs.at(-2) ?? null, [breadcrumbs]);
-  const isAtWorkspaceRoot = breadcrumbs.length <= 1;
-  const currentLocationTitle = isAtWorkspaceRoot
-    ? workspaceName
-    : (currentFolder?.name ?? workspaceName);
-  const currentFolderBannerUrl =
-    currentFolder?.bannerUrl && currentFolder.bannerUrl.trim().length > 0
-      ? currentFolder.bannerUrl
-      : DEFAULT_FOLDER_BANNER_URL;
   const {
     availablePropertyDefinitions,
     cardFieldQuery,
@@ -750,220 +711,40 @@ export function FileExplorer({
     propertyDefinitions,
     workspaceUuid,
   });
-
-  const filteredFolders = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    const activeVectorIds =
-      vectorFilteredIds && vectorFilteredIds.size > 0
-        ? vectorFilteredIds
-        : null;
-    return activeVectorIds
-      ? folders.filter((folder) => activeVectorIds.has(folder.id))
-      : term
-        ? folders.filter((folder) => folder.name.toLowerCase().includes(term))
-        : folders;
-  }, [folders, query, vectorFilteredIds]);
-
-  const filteredFiles = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    const activeVectorIds =
-      vectorFilteredIds && vectorFilteredIds.size > 0
-        ? vectorFilteredIds
-        : null;
-    const base = activeVectorIds
-      ? files.filter((file) => activeVectorIds.has(file.id))
-      : term
-        ? files.filter((file) => file.name.toLowerCase().includes(term))
-        : files;
-    if (propertyFilters.length === 0) {
-      return base;
-    }
-
-    return base.filter((file) => {
-      const properties = getFileProperties(file);
-
-      return propertyFilters.every((filter) => {
-        const property = properties[filter.key];
-        if (!property) {
-          return filter.operator === "is_empty";
-        }
-
-        const needle = filter.value.trim().toLowerCase();
-        switch (property.type) {
-          case "checkbox":
-            return filter.operator === "is_true"
-              ? property.value
-              : !property.value;
-          case "date":
-          case "text":
-          case "select": {
-            const value = String(property.value ?? "").toLowerCase();
-            switch (filter.operator) {
-              case "contains":
-                return value.includes(needle);
-              case "eq":
-                return value === needle;
-              case "gt":
-                return value > needle;
-              case "gte":
-                return value >= needle;
-              case "is_empty":
-                return value.length === 0;
-              case "is_not":
-                return value !== needle;
-              case "is_not_empty":
-                return value.length > 0;
-              case "lt":
-                return value < needle;
-              case "lte":
-                return value <= needle;
-              default:
-                return true;
-            }
-          }
-          case "number": {
-            const value = property.value;
-            const operand = Number(filter.value);
-            if (filter.operator === "is_empty") {
-              return value === null;
-            }
-            if (value === null || !Number.isFinite(operand)) {
-              return false;
-            }
-            switch (filter.operator) {
-              case "eq":
-                return value === operand;
-              case "gt":
-                return value > operand;
-              case "gte":
-                return value >= operand;
-              case "lt":
-                return value < operand;
-              case "lte":
-                return value <= operand;
-              default:
-                return false;
-            }
-          }
-          case "multi_select": {
-            const values = property.value.map((entry) => entry.toLowerCase());
-            const needles = filter.value
-              .split(",")
-              .map((entry) => entry.trim().toLowerCase())
-              .filter(Boolean);
-            switch (filter.operator) {
-              case "contains_any":
-                return needles.some((entry) => values.includes(entry));
-              case "contains_all":
-                return needles.every((entry) => values.includes(entry));
-              case "contains_none":
-                return needles.every((entry) => !values.includes(entry));
-              case "is_empty":
-                return values.length === 0;
-              default:
-                return true;
-            }
-          }
-        }
-      });
-    });
-  }, [files, propertyFilters, query, vectorFilteredIds]);
-
-  const sortedFolders = useMemo(
-    () =>
-      [...filteredFolders].sort((a, b) => {
-        if (sortState.kind === "builtin" && sortState.key === "name") {
-          return a.name.localeCompare(b.name);
-        }
-        const aDate = new Date(
-          sortState.kind === "builtin" && sortState.key === "updatedAt"
-            ? (a.updatedAt ?? a.createdAt ?? 0)
-            : (a.createdAt ?? 0)
-        ).getTime();
-        const bDate = new Date(
-          sortState.kind === "builtin" && sortState.key === "updatedAt"
-            ? (b.updatedAt ?? b.createdAt ?? 0)
-            : (b.createdAt ?? 0)
-        ).getTime();
-        return sortState.direction === "asc" ? aDate - bDate : bDate - aDate;
-      }),
-    [filteredFolders, sortState]
-  );
-
-  const sortedFiles = useMemo(
-    () =>
-      [...filteredFiles].sort((a, b) => {
-        if (sortState.kind === "builtin") {
-          if (sortState.key === "name") {
-            return sortState.direction === "asc"
-              ? a.name.localeCompare(b.name)
-              : b.name.localeCompare(a.name);
-          }
-
-          const aDate = new Date(
-            sortState.key === "updatedAt"
-              ? (a.updatedAt ?? a.createdAt)
-              : a.createdAt
-          ).getTime();
-          const bDate = new Date(
-            sortState.key === "updatedAt"
-              ? (b.updatedAt ?? b.createdAt)
-              : b.createdAt
-          ).getTime();
-
-          return sortState.direction === "asc" ? aDate - bDate : bDate - aDate;
-        }
-
-        const left = getFileProperties(a)[sortState.key];
-        const right = getFileProperties(b)[sortState.key];
-        if (!(left || right)) {
-          return a.name.localeCompare(b.name);
-        }
-        if (!left) {
-          return 1;
-        }
-        if (!right) {
-          return -1;
-        }
-
-        const leftValue = formatCardPropertyValue(left).toLowerCase();
-        const rightValue = formatCardPropertyValue(right).toLowerCase();
-        const compare =
-          left.type === "number" && right.type === "number"
-            ? (left.value ?? Number.POSITIVE_INFINITY) -
-              (right.value ?? Number.POSITIVE_INFINITY)
-            : leftValue.localeCompare(rightValue);
-
-        if (compare === 0) {
-          return a.name.localeCompare(b.name);
-        }
-        return sortState.direction === "asc" ? compare : compare * -1;
-      }),
-    [filteredFiles, sortState]
-  );
-
-  const visibleItemIds = useMemo(
-    () => [
-      ...sortedFolders.map((folder) => folder.id),
-      ...sortedFiles.map((file) => file.id),
-    ],
-    [sortedFiles, sortedFolders]
-  );
-  const explorerEntries = useMemo<ExplorerEntry[]>(
-    () => [
-      ...sortedFolders.map((folder) => ({
-        folder,
-        id: folder.id,
-        kind: "folder" as const,
-      })),
-      ...sortedFiles.map((file) => ({
-        file,
-        id: file.id,
-        kind: "file" as const,
-      })),
-    ],
-    [sortedFiles, sortedFolders]
-  );
+  const {
+    activeFile,
+    currentFolder,
+    currentFolderBannerUrl,
+    currentLocationTitle,
+    explorerEntries,
+    filteredFiles,
+    filteredFolders,
+    isAtWorkspaceRoot,
+    isCurrentFolderReadOnly,
+    parentFolder,
+    sortedFiles,
+    sortedFolders,
+    visibleItemIds,
+  } = useExplorerDerivedState({
+    breadcrumbs,
+    files,
+    folders,
+    propertyFilters,
+    query,
+    selectedFileParam,
+    sortState,
+    vectorFilteredIds,
+    workspaceName,
+  });
+  const {
+    contentDialogProps: noteWorkflowContentDialogProps,
+    createNote,
+    openImportLinkDialog,
+  } = useExplorerNoteWorkflows({
+    isCurrentFolderReadOnly,
+    openWorkspaceFileInFolder,
+    workspaceUuid,
+  });
 
   const { filePathById, searchableItems, workspaceFileIndex } =
     useExplorerWorkspaceIndexState({
