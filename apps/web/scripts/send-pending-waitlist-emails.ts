@@ -1,6 +1,10 @@
-import { listWaitlistEntries } from "@avenire/database";
-import { pool } from "@avenire/database/client";
+import { loadDatabaseEnv } from "@avenire/database/load-env";
 import { Emailer, renderWaitlistWelcomeEmail } from "@avenire/emailer";
+
+loadDatabaseEnv();
+
+const { listWaitlistEntries } = await import("@avenire/database");
+const { pool } = await import("@avenire/database/client");
 
 const PUBLIC_BASE_URL = "https://avenire.space";
 

@@ -40,37 +40,16 @@ vi.mock("@/lib/file-data", () => ({
   listWorkspacesForUser: listWorkspacesForUserMock,
 }));
 
-import WorkspaceFilesWorkspacePage, { dynamic, generateMetadata } from "./page";
+import WorkspaceFilesWorkspacePage, { dynamic, metadata } from "./page";
 
 describe("WorkspaceFilesWorkspacePage metadata", () => {
   it("keeps the route explicitly request-driven", () => {
     expect(dynamic).toBe("force-dynamic");
   });
 
-  it("uses the workspace name for the root files route title", async () => {
-    getSessionMock.mockResolvedValueOnce({ user: { id: "user-1" } });
-    listWorkspacesForUserMock.mockResolvedValueOnce([
-      {
-        name: "Dev Workspace",
-        workspaceId: "workspace-1",
-      },
-    ]);
-
-    const metadata = await generateMetadata({
-      params: Promise.resolve({ workspaceUuid: "workspace-1" }),
-    });
-
-    expect(metadata.title).toBe("Dev Workspace — Avenire");
-  });
-
-  it("fails closed to Files when the viewer is anonymous", async () => {
-    getSessionMock.mockResolvedValueOnce(null);
-
-    const metadata = await generateMetadata({
-      params: Promise.resolve({ workspaceUuid: "workspace-1" }),
-    });
-
+  it("uses the static Files title", () => {
     expect(metadata.title).toBe("Files — Avenire");
+    expect(metadata.robots).toEqual({ follow: false, index: false });
   });
 });
 

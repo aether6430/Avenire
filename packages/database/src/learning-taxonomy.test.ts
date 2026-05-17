@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeFlashcardTaxonomy } from "./flashcard-data";
+import { normalizeFlashcardTaxonomy } from "./flashcard-taxonomy";
 import {
   canonicalizeLearningTaxonomy,
   canonicalizeSubjectLabel,

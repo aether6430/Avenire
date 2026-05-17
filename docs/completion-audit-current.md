@@ -4,8 +4,8 @@ Tags: audit, structure, verification, product, docs
 
 ## Objective restated
 
-The active thread goal points to an `instruction.md` that described a broad
-product-foundation recovery, not a single feature:
+The recovered [instruction.md](/Users/johnmacartew/Developer.nosync/aveniri/instruction.md:1)
+describes a broad product-foundation recovery, not a single feature:
 
 1. Raise and keep a measurable reliability floor.
 2. Improve product coherence across public and authenticated surfaces.
@@ -14,19 +14,14 @@ product-foundation recovery, not a single feature:
 5. Tighten UI consistency without pretending a full redesign happened.
 6. Keep verifying until the obvious integrity problems stop surfacing.
 
-Because the original `instruction.md` is not present in this no-sync working
-copy, this audit uses the previously recovered completion snapshot from the old
-workspace as the concrete surrogate for the goal shape, then re-checks every
-major category against the actual current repo state.
+The instruction also contains two explicit quantitative requirements that are
+now directly measurable in the active repo:
 
-The original Desktop copy is still present only as a File Provider placeholder:
+1. Reach at least `10%` test coverage.
+2. Keep test LOC at or below `25%` of total source LOC.
 
-- `/Users/johnmacartew/Desktop/aveniri/instruction.md`
-- current file flags: `compressed,dataless`
-
-That means the active no-sync repo is the correct working copy, but the
-completion audit still cannot quote the original instruction text verbatim from
-the old workspace.
+This audit now uses the actual recovered instruction text instead of a
+surrogate.
 
 ## Current evidence
 
@@ -47,10 +42,25 @@ Current hard evidence:
 - Package-local web gate also passes under the same env surface:
   - `pnpm --filter @avenire/web build`
   - `pnpm --filter @avenire/web check-types --pretty false`
+- The explicit instruction-level repo test budget now has a direct receipt:
+  - `pnpm test:budget`
+  - repo source LOC: `177654`
+  - repo test LOC: `31249`
+  - repo ratio: `17.59%`
+  - result: `Test budget satisfied`
+- The explicit instruction-level repo coverage floor now has a direct receipt:
+  - `pnpm test:coverage:repo`
+  - repo lower-bound coverage: `11.03%`
+  - result: `Coverage floor satisfied`
+- The coverage gate is conservative by construction:
+  - it uses real V8 line coverage where available
+  - it counts every remaining uncovered package as `0%` in the lower bound
 
 Assessment:
 
 - This category is currently strong.
+- The quantitative testing requirements from the instruction are currently
+  satisfied.
 - The repo is no longer blocked by iCloud placeholder files in the active
   working copy.
 
@@ -91,6 +101,7 @@ Assessment:
 
 Current evidence in the no-sync repo:
 
+- `instruction.md`
 - `README.md`
 - `docs/README.md`
 - `docs/environment.md`
@@ -99,13 +110,16 @@ Current evidence in the no-sync repo:
 - `docs/product-coherence-audit-current.md`
 - `docs/visual-interaction-audit-current.md`
 - `docs/workspace-surface-map.md`
+- `logs/2026-05-17-instruction-recovery-and-coverage-audit.md`
 
 Assessment:
 
 - Documentation and operator guidance are materially better than earlier.
-- However, the old pass-level receipts still live only in the original Desktop
-  repo’s `logs/` directory rather than this working copy, so the evidence trail
-  is split across two locations.
+- The active repo now contains the actual instruction text and a live `logs/`
+  path that follows the instruction's logging protocol.
+- However, older historical receipts still live in the original Desktop repo's
+  `logs/` directory, so the evidence trail is still partly split across two
+  locations.
 
 ### 4. Product coherence
 
@@ -234,19 +248,17 @@ Missing proof:
    - a short repeated signed-in files browser soak now survives as well
    - a short multi-surface signed-in browser pass now survives as well
    - longer-lived signed-in sessions are still not fully proven safe
-3. The original `instruction.md` remains absent from the active repo and
-   trapped as a `compressed,dataless` placeholder in the old Desktop copy.
-4. The evidence trail is healthier, but it is still split between the active
+3. The evidence trail is healthier, but it is still split between the active
    no-sync repo and the old Desktop repo’s historical `logs/`.
 
 ## Recommended next moves
 
 1. Continue structural reduction on `explorer.tsx` until it no longer dominates
    the app-level surface map.
-2. Run a longer detached multi-surface soak to determine whether the remaining
-   responsiveness risk now requires longer-lived cross-route activity rather
-   than repeated short files visits alone.
-3. Recover or otherwise memorialize the original `instruction.md` text so the
-   final completion audit no longer depends on a surrogate alone.
-4. After that, perform a final end-state audit against the recovered goal
-   surrogate before considering the overall objective achieved.
+2. Run a longer detached multi-surface soak against richer persisted states so
+   the remaining durability risk is narrowed beyond empty-state route proof and
+   beyond repeated short files visits.
+3. Consolidate or mirror the most useful older Desktop `logs/` receipts into
+   the active repo so the evidence trail stops being split across two homes.
+4. After that, perform a final end-state audit against the recovered
+   `instruction.md` before considering the overall objective achieved.

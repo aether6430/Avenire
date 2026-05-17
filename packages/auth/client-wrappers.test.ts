@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const createAuthClientMock = vi.fn();
 const passkeyClientMock = vi.fn(() => "passkey-plugin");
 const organizationClientMock = vi.fn(() => "organization-plugin");
+const polarClientMock = vi.fn(() => "polar-client-plugin");
 const usernameClientMock = vi.fn(() => "username-plugin");
 const lastLoginMethodClientMock = vi.fn(() => "last-login-plugin");
 
@@ -18,6 +19,10 @@ vi.mock("better-auth/client/plugins", () => ({
   lastLoginMethodClient: lastLoginMethodClientMock,
   organizationClient: organizationClientMock,
   usernameClient: usernameClientMock,
+}));
+
+vi.mock("@polar-sh/better-auth/client", () => ({
+  polarClient: polarClientMock,
 }));
 
 const sharedClient = {
@@ -98,6 +103,7 @@ describe("@avenire/auth client wrappers", () => {
     expect(passkeyClientMock).toHaveBeenCalledTimes(1);
     expect(usernameClientMock).toHaveBeenCalledTimes(1);
     expect(lastLoginMethodClientMock).toHaveBeenCalledTimes(1);
+    expect(polarClientMock).toHaveBeenCalledTimes(1);
     expect(createAuthClientMock).toHaveBeenCalledWith({
       baseURL: "https://app.avenire.test",
       plugins: [
@@ -105,6 +111,7 @@ describe("@avenire/auth client wrappers", () => {
         "passkey-plugin",
         "username-plugin",
         "last-login-plugin",
+        "polar-client-plugin",
       ],
     });
     expect(module.authClient.getLastUsedLoginMethod).toBe(
