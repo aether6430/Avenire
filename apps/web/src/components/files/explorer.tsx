@@ -240,14 +240,6 @@ export function FileExplorer({
     workspaceMembers,
     workspaceUuid,
   });
-  const {
-    currentInfoEntries,
-    currentPinnedItem,
-    folderFileCount,
-    folderPreviewKinds,
-    folderSubfolderCount,
-    isCurrentPinned,
-  } = surfaceSummary;
 
   const emitSync = useCallback(() => {
     filesUiActions.emitSync(workspaceUuid);
@@ -364,13 +356,6 @@ export function FileExplorer({
     triggerHapticSuccess,
     uploadWorkflows: { queueUploads },
   } = runtime;
-
-  const toggleCurrentPinnedItem = useCallback(() => {
-    if (!(workspaceUuid && currentPinnedItem)) {
-      return;
-    }
-    filesPinsActions.togglePinnedItem(workspaceUuid, currentPinnedItem);
-  }, [currentPinnedItem, workspaceUuid]);
 
   const hardReingestSelectionItems = useCallback(
     async (items: Array<{ id: string; kind: BulkItemKind }>) => {
