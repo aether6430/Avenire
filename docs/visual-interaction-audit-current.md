@@ -209,6 +209,27 @@ Observed on `http://127.0.0.1:4018/workspace/flashcards`:
 So signed-in visual proof now spans home, files, tasks, chat/new-method, and
 flashcards in their real product routes.
 
+### 6. Workspace tab labels no longer duplicate on the active tab
+
+Observed on the rebuilt production routes for:
+
+- `http://127.0.0.1:4020/workspace/chats/new`
+- `http://127.0.0.1:4020/workspace/flashcards`
+
+The selected workspace tab now appears once in the browser snapshot:
+
+- `Methods`
+- `Mindset Sets`
+
+instead of the earlier duplicated accessible/snapshot labels:
+
+- `Methods Methods`
+- `Mindset Sets Mindset Sets`
+
+This is a small but real polish win for the signed-in shell because the active
+tab names are now cleaner in both accessibility-facing and automation-facing
+representations.
+
 ## Conclusion
 
 The visual story is materially better than it was when the large shell files

@@ -203,7 +203,7 @@ export function ExpandableTabs({
                 </m.span>
               )}
             </AnimatePresence>
-            <span className="sr-only">{item.label}</span>
+            {!isSelected ? <span className="sr-only">{item.label}</span> : null}
           </m.button>
         )
       })}

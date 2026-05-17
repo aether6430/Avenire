@@ -213,6 +213,9 @@ Current evidence:
 - `docs/visual-interaction-audit-current.md` now records the current visual
   pass across public/authenticated entry points and the signed-in workspace
   shell.
+- the shared workspace tabs no longer duplicate the selected tab label in
+  current production browser snapshots (for example `Methods` instead of
+  `Methods Methods`)
 
 Missing proof:
 
