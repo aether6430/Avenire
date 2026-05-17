@@ -74,7 +74,7 @@ Current measured app-level hotspots:
 - `apps/web/src/components/ui/particle-field.tsx` — `619` lines
 - `apps/web/src/components/marketing/icons/bento-icons.tsx` — `538` lines
 - `apps/web/src/components/widget-renderer-model.ts` — `535` lines
-- `apps/web/src/components/files/use-circle-to-ai-search-overlay.ts` — `532` lines
+- `apps/web/src/components/files/use-circle-to-ai-search-overlay.ts` — `540` lines
 - `apps/web/src/components/marketing/icons/general.tsx` — `496` lines
 - `apps/web/src/components/files/explorer/file-preview-panel.tsx` — `408` lines
 - `apps/web/src/components/files/explorer/explorer-upload-batch.ts` — `446` lines
@@ -99,6 +99,7 @@ Recent verified reductions already landed and were pushed:
 - `use-chat-runtime.ts` — `520` -> `447`
 - `explorer-upload-batch.ts` — `492` -> `446`
 - `file-preview-panel.tsx` — `466` -> `408`
+- `use-circle-to-ai-search-overlay.ts` — `532` -> `540` with a new `circle-to-ai-search-overlay-model.ts` pure state owner
 - `chat.tsx` — `688` -> `44`
 - `chat-workspace.tsx` — `458` -> `11`
 - `student-calendar-desktop.tsx` — `705` -> `10`
@@ -162,6 +163,7 @@ Current evidence in the no-sync repo:
 - `logs/2026-05-17-markdown-renderer-dedupe.md`
 - `logs/2026-05-17-file-preview-panel-model-extraction.md`
 - `logs/2026-05-17-explorer-upload-batch-model-extraction.md`
+- `logs/2026-05-17-circle-to-ai-search-overlay-model-extraction.md`
 - `logs/2026-05-17-use-chat-runtime-model-extraction.md`
 - `logs/2026-05-17-chat-thin-wrapper.md`
 

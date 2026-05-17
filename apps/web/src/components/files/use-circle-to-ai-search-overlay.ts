@@ -23,6 +23,15 @@ import {
   type SelectionRect,
 } from "@/components/files/circle-to-ai-search-model";
 import {
+  buildCircleToAiPanelPosition,
+  buildCircleToAiViewportPanelPosition,
+  canSubmitCircleToAiDraft,
+  clampCircleToAiPanelPosition,
+  getCircleToAiExpandedPanelHeight,
+  getCircleToAiSearchOverlayState,
+  isCircleToAiSelectionUsable,
+} from "@/components/files/circle-to-ai-search-overlay-model";
+import {
   type CircleToAiSnapshotTarget,
   getLocalPoint,
   getTargetRectWithinContainer,
@@ -110,32 +119,30 @@ export function useCircleToAiSearchOverlay({
       transport,
     });
 
-  const loading = status === "submitted" || status === "streaming";
-  const hasConversation = messages.length > 0;
-  const showTranscript = hasConversation || loading || error !== null;
+  const { loading, showTranscript } = useMemo(
+    () =>
+      getCircleToAiSearchOverlayState({
+        error,
+        messages,
+        status,
+      }),
+    [error, messages, status]
+  );
 
   const clampPanelPosition = useCallback(
     (nextPosition: { x: number; y: number }, expanded = showTranscript) => {
-      const panelWidth = Math.min(384, Math.max(0, containerSize.width - 16));
-      const collapsedHeight = 136;
-      const expandedHeight = Math.min(
-        512,
-        Math.max(collapsedHeight, containerSize.height - 16)
-      );
-      const panelHeight = expanded ? expandedHeight : collapsedHeight;
-      const maxX = Math.max(8, containerSize.width - panelWidth - 8);
-      const maxY = Math.max(8, containerSize.height - panelHeight - 8);
-      return {
-        x: Math.min(maxX, Math.max(8, nextPosition.x)),
-        y: Math.min(maxY, Math.max(8, nextPosition.y)),
-      };
+      return clampCircleToAiPanelPosition({
+        containerHeight: containerSize.height,
+        containerWidth: containerSize.width,
+        expanded,
+        nextPosition,
+      });
     },
     [containerSize.height, containerSize.width, showTranscript]
   );
 
-  const expandedPanelHeight = Math.min(
-    512,
-    Math.max(136, containerSize.height - 16)
+  const expandedPanelHeight = getCircleToAiExpandedPanelHeight(
+    containerSize.height
   );
 
   const activeSelection = useMemo(
@@ -266,13 +273,7 @@ export function useCircleToAiSearchOverlay({
       };
       setDraft("");
       setPanelPosition(
-        clampPanelPosition(
-          {
-            x: paddedSelection.x + paddedSelection.width + 14,
-            y: paddedSelection.y + (paddedSelection.height > 120 ? 12 : -8),
-          },
-          false
-        )
+        clampPanelPosition(buildCircleToAiPanelPosition(paddedSelection), false)
       );
     } catch (caughtError) {
       setError(
@@ -401,10 +402,10 @@ export function useCircleToAiSearchOverlay({
     const points = [...selectionPathRef.current, end];
     const selectionBounds = getSelectionBounds(points);
     if (
-      !selectionBounds ||
-      selectionBounds.width < 10 ||
-      selectionBounds.height < 10 ||
-      points.length < 3
+      !isCircleToAiSelectionUsable({
+        pointCount: points.length,
+        selectionBounds,
+      })
     ) {
       setSelection(null);
       setSelectionPath([]);
@@ -417,17 +418,24 @@ export function useCircleToAiSearchOverlay({
     });
   };
 
+  const hasSelectionSnapshot = selectionSnapshotRef.current !== null;
+
   const handleDraftSubmit = useCallback(() => {
-    const prompt = draft.trim();
-    if (!(prompt && selectionSnapshotRef.current)) {
+    if (
+      !canSubmitCircleToAiDraft({
+        draft,
+        hasSelectionSnapshot: selectionSnapshotRef.current !== null,
+        isLoading: loading,
+      })
+    ) {
       return;
     }
 
     clearError();
     setError(null);
-    sendMessage({ text: prompt });
+    sendMessage({ text: draft.trim() });
     setDraft("");
-  }, [clearError, draft, sendMessage]);
+  }, [clearError, draft, loading, sendMessage]);
 
   const handlePanelDragStart = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -516,7 +524,7 @@ export function useCircleToAiSearchOverlay({
     handlePointerDown,
     handlePointerMove,
     handlePointerUp,
-    hasSelectionSnapshot: selectionSnapshotRef.current !== null,
+    hasSelectionSnapshot,
     inputRef,
     loading,
     messages,
@@ -524,9 +532,9 @@ export function useCircleToAiSearchOverlay({
     selectionPathData,
     setDraft,
     showTranscript,
-    viewportPanelPosition: {
-      x: containerOffset.left + panelPosition.x,
-      y: containerOffset.top + panelPosition.y,
-    },
+    viewportPanelPosition: buildCircleToAiViewportPanelPosition({
+      containerOffset,
+      panelPosition,
+    }),
   };
 }
