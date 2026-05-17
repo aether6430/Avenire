@@ -84,6 +84,8 @@ Current measured app-level hotspots:
 - `apps/web/src/components/files/explorer/use-explorer-file-action-operations.ts` — `422` lines
 - `apps/web/src/components/files/explorer/use-explorer-pane-surfaces.ts` — `419` lines
 - `apps/web/src/components/chat/use-chat-scroll.ts` — `409` lines
+- `apps/web/src/components/settings/settings-workspace-selected-sections.tsx` — `403` lines
+- `apps/web/src/components/chat/messages.tsx` — `14` lines
 - `apps/web/src/components/chat/mermaid.tsx` — `403` lines
 - `apps/web/src/components/files/explorer/use-file-preview-pane-header.tsx` — `199` lines
 
@@ -112,6 +114,7 @@ Recent verified reductions already landed and were pushed:
 - `particle-field.tsx` — `619` -> `597`
 - `preview-attachment-content.tsx` — `455` -> `8`
 - `multimodal-input-surface.tsx` — `428` -> `46`
+- `messages.tsx` — `403` -> `14`
 - `mermaid.tsx` — `428` -> `403` with a new `mermaid-model.ts` pure policy owner
 - `use-chat-scroll.ts` — `434` -> `409` with a new `chat-scroll-model.ts` pure policy owner
 - `use-explorer-file-action-operations.ts` — `443` -> `422` with a new `explorer-file-action-operations-model.ts` policy owner
@@ -199,6 +202,7 @@ Current evidence in the no-sync repo:
 - `logs/2026-05-17-mermaid-model-extraction.md`
 - `logs/2026-05-17-file-preview-pane-header-content-split.md`
 - `logs/2026-05-17-widget-renderer-model-split.md`
+- `logs/2026-05-17-messages-thin-wrapper.md`
 
 Assessment:
 
