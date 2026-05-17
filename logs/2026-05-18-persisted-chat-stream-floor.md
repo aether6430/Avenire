@@ -19,6 +19,8 @@ Covered behavior:
 - failed-stream persistence through `onError`
 - active stream/idempotency cleanup on failed streams
 - no-body response cleanup path
+- Redis-enabled resumable stream context creation
+- resumable stream creation failure cleanup/logging path
 
 ## Why it mattered
 
@@ -40,6 +42,5 @@ layer, model-stream layer, and this wrapper layer.
 ## Remaining concerns
 
 The persisted-chat server stack is now much better covered. A future follow-up
-in this area would be broader integration-style tests around resumable-stream
-creation when Redis stream storage is enabled, since the current floor still
-leans on mocking that infrastructure.
+in this area would be broader integration-style validation against a real Redis
+or resumable-stream environment rather than the mocked infrastructure used here.

@@ -431,4 +431,134 @@ describe("chat route persisted stream", () => {
       expect.any(String)
     );
   });
+
+  it("creates a resumable stream context when chat stream storage is configured", async () => {
+    const writer = {
+      merge: vi.fn(),
+      write: vi.fn(),
+    };
+    const createNewResumableStream = vi.fn().mockResolvedValue(undefined);
+
+    hasChatStreamStoreConfigMock.mockReturnValue(true);
+    getRedisClientMock.mockResolvedValue("publisher-client");
+    getRedisSubscriberMock.mockResolvedValue("subscriber-client");
+    createResumableStreamContextMock.mockReturnValue({
+      createNewResumableStream,
+    });
+    createUIMessageStreamMock.mockImplementation(async ({ execute }) => {
+      await execute({ writer });
+      return { id: "ui-stream" };
+    });
+
+    const response = await buildPersistedChatStreamResponse({
+      apiLogger: {
+        requestSucceeded: vi.fn(),
+      } as never,
+      body: {
+        chatId: "chat-4",
+      },
+      chat: {
+        id: "chat-db-4",
+        title: "Existing Method",
+      } as never,
+      chatCreatedFromNew: false,
+      chatSlug: "chat-4",
+      idempotencyLockAcquired: false,
+      idempotencyRedisKey: null,
+      modelContextMessages: [{ id: "message-1", role: "user" }] as never,
+      originalMessages: [{ id: "message-1", role: "user" }] as never,
+      request: new Request("http://localhost/api/chat"),
+      requestStartedAt: new Date("2026-05-18T00:00:00.000Z"),
+      sessionUser: { id: "user-1" },
+      startupContext: {
+        latestUserText: "Explain angular momentum",
+        recentRelevantSummary: null,
+        resolvedSubject: null,
+        resolvedTopic: null,
+        workspaceSubjectSummary: null,
+      },
+      workspace: {
+        rootFolderId: "root-1",
+        workspaceId: "workspace-1",
+      },
+    });
+
+    await flushPromises();
+
+    expect(response.status).toBe(200);
+    expect(createResumableStreamContextMock).toHaveBeenCalledWith({
+      publisher: "publisher-client",
+      subscriber: "subscriber-client",
+      waitUntil: afterMock,
+    });
+    expect(createNewResumableStream).toHaveBeenCalledWith(
+      "stream-1",
+      expect.any(Function)
+    );
+  });
+
+  it("logs resumable stream creation failures and clears the active stream id", async () => {
+    const writer = {
+      merge: vi.fn(),
+      write: vi.fn(),
+    };
+
+    hasChatStreamStoreConfigMock.mockReturnValue(true);
+    getRedisClientMock.mockResolvedValue("publisher-client");
+    getRedisSubscriberMock.mockResolvedValue("subscriber-client");
+    createResumableStreamContextMock.mockReturnValue({
+      createNewResumableStream: vi
+        .fn()
+        .mockRejectedValue(new Error("resumable failed")),
+    });
+    createUIMessageStreamMock.mockImplementation(async ({ execute }) => {
+      await execute({ writer });
+      return { id: "ui-stream" };
+    });
+
+    await buildPersistedChatStreamResponse({
+      apiLogger: {
+        requestSucceeded: vi.fn(),
+      } as never,
+      body: {
+        chatId: "chat-5",
+      },
+      chat: {
+        id: "chat-db-5",
+        title: "Existing Method",
+      } as never,
+      chatCreatedFromNew: false,
+      chatSlug: "chat-5",
+      idempotencyLockAcquired: false,
+      idempotencyRedisKey: null,
+      modelContextMessages: [{ id: "message-1", role: "user" }] as never,
+      originalMessages: [{ id: "message-1", role: "user" }] as never,
+      request: new Request("http://localhost/api/chat"),
+      requestStartedAt: new Date("2026-05-18T00:00:00.000Z"),
+      sessionUser: { id: "user-1" },
+      startupContext: {
+        latestUserText: "Explain angular momentum",
+        recentRelevantSummary: null,
+        resolvedSubject: null,
+        resolvedTopic: null,
+        workspaceSubjectSummary: null,
+      },
+      workspace: {
+        rootFolderId: "root-1",
+        workspaceId: "workspace-1",
+      },
+    });
+
+    await flushPromises();
+
+    expect(clearActiveStreamIdMock).toHaveBeenCalledWith("chat-5", "stream-1");
+    expect(logErrorMock).toHaveBeenCalledWith(
+      "Failed to create resumable chat stream",
+      expect.objectContaining({
+        chatSlug: "chat-5",
+        streamId: "stream-1",
+        error: "resumable failed",
+      })
+    );
+  });
 });

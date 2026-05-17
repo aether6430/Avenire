@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   deriveActiveChatSlugFromPath,
   deriveCurrentFlashcardSetId,
@@ -6,16 +6,24 @@ import {
   deriveDashboardSidebarRouteView,
   deriveRouteWorkspaceUuid,
   getNextMountedDashboardSidebarViews,
+  isTypingTarget,
+  parseDashboardSidebarResponse,
   resolveDashboardSidebarActiveTabValue,
   resolveDashboardSidebarSurfaceView,
   resolveInitialDashboardSidebarView,
   resolveInitialMountedDashboardSidebarViews,
   resolveSidebarWorkspaceUuid,
+  sendDashboardSidebarChatSessionClose,
   shouldSeedPreferredWorkspaceId,
   shouldSyncRouteWorkspacePreference,
 } from "@/components/dashboard/dashboard-sidebar-runtime-model";
 
 describe("dashboard sidebar runtime model", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
   it("derives the active view and route payloads from workspace paths", () => {
     expect(
       deriveDashboardSidebarRouteView({
@@ -250,5 +258,80 @@ describe("dashboard sidebar runtime model", () => {
         })
       )
     ).toEqual(["chat", "files"]);
+  });
+
+  it("sends chat session-close with sendBeacon when available and falls back to fetch otherwise", async () => {
+    const sendBeacon = vi.fn();
+    vi.stubGlobal("navigator", { sendBeacon });
+
+    await sendDashboardSidebarChatSessionClose({
+      chatId: "chat-1",
+      sessionId: "session-1",
+    });
+    expect(sendBeacon).toHaveBeenCalledWith("/api/chat", expect.any(Blob));
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("navigator", { sendBeacon: undefined });
+
+    await sendDashboardSidebarChatSessionClose({
+      chatId: "chat-2",
+      sessionId: "session-2",
+    });
+    expect(fetchMock).toHaveBeenCalledWith("/api/chat", {
+      body: JSON.stringify({
+        kind: "session-close",
+        chatId: "chat-2",
+        sessionId: "session-2",
+      }),
+      keepalive: true,
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+  });
+
+  it("parses sidebar responses only when they are ok and recognizes typing targets", async () => {
+    await expect(
+      parseDashboardSidebarResponse<{ ok: boolean }>(
+        new Response(JSON.stringify({ ok: true }), { status: 200 })
+      )
+    ).resolves.toEqual({ ok: true });
+    await expect(
+      parseDashboardSidebarResponse<{ ok: boolean }>(
+        new Response(null, { status: 500 })
+      )
+    ).resolves.toBeNull();
+
+    class ElementMock {
+      isContentEditable = false;
+      tagName: string;
+
+      constructor(tagName: string) {
+        this.tagName = tagName.toUpperCase();
+      }
+    }
+
+    class InputMock extends ElementMock {
+      type: string;
+
+      constructor(type: string) {
+        super("input");
+        this.type = type;
+      }
+    }
+
+    vi.stubGlobal("HTMLElement", ElementMock as never);
+    vi.stubGlobal("HTMLInputElement", InputMock as never);
+
+    const editable = new ElementMock("div");
+    editable.isContentEditable = true;
+    expect(isTypingTarget(editable as never)).toBe(true);
+    expect(isTypingTarget(new ElementMock("textarea") as never)).toBe(true);
+    expect(isTypingTarget(new ElementMock("select") as never)).toBe(true);
+    expect(isTypingTarget(new InputMock("text") as never)).toBe(true);
+    expect(isTypingTarget(new InputMock("checkbox") as never)).toBe(false);
+    expect(isTypingTarget(new ElementMock("button") as never)).toBe(false);
   });
 });
