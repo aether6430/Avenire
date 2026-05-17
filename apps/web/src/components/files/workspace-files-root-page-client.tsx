@@ -31,16 +31,28 @@ export function WorkspaceFilesRootPageClient({
   }, [router, targetWorkspace?.rootFolderId, targetWorkspace?.workspaceId]);
 
   if (status === "error") {
-    return <WorkspaceRoutePlaceholder label="Unable to open files." />;
+    return (
+      <WorkspaceRoutePlaceholder
+        label="Unable to load files."
+        pending={false}
+      />
+    );
   }
 
   if (status === "ready" && !targetWorkspace) {
-    return <WorkspaceRoutePlaceholder label="Workspace not found." />;
+    return (
+      <WorkspaceRoutePlaceholder label="Workspace not found." pending={false} />
+    );
   }
 
   if (status === "ready" && targetWorkspace && !targetWorkspace.rootFolderId) {
-    return <WorkspaceRoutePlaceholder label="Workspace files unavailable." />;
+    return (
+      <WorkspaceRoutePlaceholder
+        label="Workspace files unavailable."
+        pending={false}
+      />
+    );
   }
 
-  return <WorkspaceRoutePlaceholder label="Opening files..." />;
+  return <WorkspaceRoutePlaceholder label="Loading files..." />;
 }
