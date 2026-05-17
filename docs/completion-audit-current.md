@@ -77,7 +77,6 @@ Current measured app-level hotspots:
 - `apps/web/src/components/files/use-circle-to-ai-search-overlay.ts` — `532` lines
 - `apps/web/src/components/marketing/icons/general.tsx` — `496` lines
 - `apps/web/src/components/files/explorer/explorer-upload-batch.ts` — `492` lines
-- `apps/web/src/components/chat/markdown-renderers.tsx` — `479` lines
 - `apps/web/src/components/files/explorer/file-preview-panel.tsx` — `466` lines
 - `apps/web/src/components/chat/use-chat-runtime.ts` — `447` lines
 
@@ -95,6 +94,7 @@ Recent verified reductions already landed and were pushed:
 - `rolling-tool-activity-surface.tsx` — `648` -> `6`
 - `student-calendar-desktop-surface.tsx` — `588` -> `196`
 - `markdown.tsx` — `624` -> `27`
+- `markdown-renderers.tsx` — `479` -> `197`
 - `rolling-reasoning.tsx` — `578` -> `20`
 - `use-chat-runtime.ts` — `520` -> `447`
 - `chat.tsx` — `688` -> `44`
@@ -157,6 +157,7 @@ Current evidence in the no-sync repo:
 - `logs/2026-05-17-rolling-reasoning-ownership-split.md`
 - `logs/2026-05-17-rolling-tool-activity-ownership-split.md`
 - `logs/2026-05-17-markdown-ownership-split.md`
+- `logs/2026-05-17-markdown-renderer-dedupe.md`
 - `logs/2026-05-17-use-chat-runtime-model-extraction.md`
 - `logs/2026-05-17-chat-thin-wrapper.md`
 
