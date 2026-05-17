@@ -25,6 +25,10 @@ Covered behavior:
 - dropped-file limit handling and attachment append logic
 - auto-prompt dispatch for fresh chats
 - completed assistant-reply signaling after streaming/submitted -> ready
+- chat handoff priming
+- initial hydration decision for preloaded messages
+- follow behavior resolution for displayed messages
+- submitted-status agent-activity reset gating
 
 ## Why it mattered
 
@@ -45,6 +49,7 @@ wrapper component tests alone.
 
 ## Remaining concerns
 
-The chat runtime is cleaner now, but the hook still owns substantial effect
-orchestration around scrolling coordination. That is the next natural chat
-follow-up if we keep pushing on this surface.
+The chat runtime is cleaner now, but the hook still owns meaningful lifecycle
+coordination across multiple effects. The next natural follow-up in this area
+would be either a small direct floor around the remaining hook shell or another
+extraction pass if more deterministic branches surface.

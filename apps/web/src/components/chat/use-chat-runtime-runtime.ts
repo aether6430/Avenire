@@ -155,6 +155,49 @@ export function flushPendingChatRuntimeRoute(input: {
   return true;
 }
 
+export function primeChatRuntimeHandoff(input: {
+  chatId: string | null;
+  currentMessages: UIMessage[];
+  getChatHandoffMessages: (input: {
+    currentMessages: UIMessage[];
+    pendingMessages: UIMessage[] | null;
+  }) => UIMessage[] | null;
+  pendingMessages: UIMessage[] | null;
+  primeMessages: (chatId: string, messages: UIMessage[]) => void;
+}) {
+  if (!input.chatId) {
+    return false;
+  }
+
+  const handoffMessages = input.getChatHandoffMessages({
+    currentMessages: input.currentMessages,
+    pendingMessages: input.pendingMessages,
+  });
+
+  if (!(handoffMessages && handoffMessages.length > 0)) {
+    return false;
+  }
+
+  input.primeMessages(input.chatId, handoffMessages);
+  return true;
+}
+
+export function resolveChatRuntimeHydration(input: {
+  initialMessages: UIMessage[];
+  messageCount: number;
+  shouldHydrateInitialChatMessages: (input: {
+    initialMessageCount: number;
+    messageCount: number;
+  }) => boolean;
+}) {
+  return input.shouldHydrateInitialChatMessages({
+    initialMessageCount: input.initialMessages.length,
+    messageCount: input.messageCount,
+  })
+    ? input.initialMessages
+    : null;
+}
+
 export function publishChatRuntimeStatus(input: {
   chatId: string;
   emitPetNotification: (notification: PetNotificationDetail) => void;
@@ -250,6 +293,21 @@ export function publishCompletedChatRuntimeReply(input: {
 
   input.onCompleted(completedMessageId);
   return completedMessageId;
+}
+
+export function shouldClearChatRuntimeAgentActivity(status: ChatRuntimeStatus) {
+  return status === "submitted";
+}
+
+export function resolveChatRuntimeFollowBehavior(input: {
+  displayedMessageCount: number;
+  status: ChatRuntimeStatus;
+}) {
+  if (input.displayedMessageCount === 0) {
+    return null;
+  }
+
+  return input.status === "submitted" ? "smooth" : "auto";
 }
 
 export function appendDroppedChatAttachments(input: {

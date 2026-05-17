@@ -5,10 +5,14 @@ import {
   flushChatRuntimeAutoPrompt,
   flushPendingChatRuntimeRoute,
   handleChatRuntimeDataPart,
+  primeChatRuntimeHandoff,
   publishChatRuntimeStatus,
   publishCompletedChatRuntimeReply,
   regenerateChatRuntimeMessage,
+  resolveChatRuntimeFollowBehavior,
+  resolveChatRuntimeHydration,
   sendChatRuntimeMessage,
+  shouldClearChatRuntimeAgentActivity,
 } from "@/components/chat/use-chat-runtime-runtime";
 
 function buildMessage(
@@ -205,6 +209,36 @@ describe("use chat runtime runtime", () => {
     expect(clearPendingNewChatMessages).toHaveBeenCalledTimes(1);
   });
 
+  it("primes chat handoff messages only when a target chat and handoff messages exist", () => {
+    const getChatHandoffMessages = vi.fn(() => [
+      buildMessage({ id: "user-1", role: "user" }),
+    ]);
+    const primeMessages = vi.fn();
+
+    expect(
+      primeChatRuntimeHandoff({
+        chatId: null,
+        currentMessages: [],
+        getChatHandoffMessages,
+        pendingMessages: null,
+        primeMessages,
+      })
+    ).toBe(false);
+
+    expect(
+      primeChatRuntimeHandoff({
+        chatId: "chat-8",
+        currentMessages: [],
+        getChatHandoffMessages,
+        pendingMessages: null,
+        primeMessages,
+      })
+    ).toBe(true);
+    expect(primeMessages).toHaveBeenCalledWith("chat-8", [
+      buildMessage({ id: "user-1", role: "user" }),
+    ]);
+  });
+
   it("publishes stream status, ready completion, and pet notifications deterministically", () => {
     const emitPetNotification = vi.fn();
     const onFinished = vi.fn();
@@ -369,5 +403,46 @@ describe("use chat runtime runtime", () => {
       })
     ).toBe("assistant-2");
     expect(onCompleted).toHaveBeenCalledTimes(1);
+  });
+
+  it("resolves hydration, follow behavior, and submitted-status agent resets deterministically", () => {
+    const initialMessages = [buildMessage({ id: "user-1", role: "user" })];
+
+    expect(
+      resolveChatRuntimeHydration({
+        initialMessages,
+        messageCount: 0,
+        shouldHydrateInitialChatMessages: vi.fn(() => true),
+      })
+    ).toBe(initialMessages);
+    expect(
+      resolveChatRuntimeHydration({
+        initialMessages,
+        messageCount: 2,
+        shouldHydrateInitialChatMessages: vi.fn(() => false),
+      })
+    ).toBeNull();
+
+    expect(
+      resolveChatRuntimeFollowBehavior({
+        displayedMessageCount: 0,
+        status: "ready",
+      })
+    ).toBeNull();
+    expect(
+      resolveChatRuntimeFollowBehavior({
+        displayedMessageCount: 3,
+        status: "submitted",
+      })
+    ).toBe("smooth");
+    expect(
+      resolveChatRuntimeFollowBehavior({
+        displayedMessageCount: 3,
+        status: "ready",
+      })
+    ).toBe("auto");
+
+    expect(shouldClearChatRuntimeAgentActivity("submitted")).toBe(true);
+    expect(shouldClearChatRuntimeAgentActivity("ready")).toBe(false);
   });
 });

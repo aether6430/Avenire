@@ -43,10 +43,14 @@ import {
   flushChatRuntimeAutoPrompt,
   flushPendingChatRuntimeRoute,
   handleChatRuntimeDataPart,
+  primeChatRuntimeHandoff,
   publishChatRuntimeStatus,
   publishCompletedChatRuntimeReply,
   regenerateChatRuntimeMessage,
+  resolveChatRuntimeFollowBehavior,
+  resolveChatRuntimeHydration,
   sendChatRuntimeMessage,
+  shouldClearChatRuntimeAgentActivity,
 } from "@/components/chat/use-chat-runtime-runtime";
 import { useChatScroll } from "@/components/chat/use-chat-scroll";
 import { getChatErrorMessage } from "@/lib/chat-errors";
@@ -184,20 +188,13 @@ export function useChatRuntime({
   }, [messages]);
 
   const primeNewChatHandoff = useCallback((nextChatId: string) => {
-    if (!nextChatId) {
-      return;
-    }
-
-    const handoffMessages = getChatHandoffMessages({
+    primeChatRuntimeHandoff({
+      chatId: nextChatId,
       currentMessages: messagesRef.current,
+      getChatHandoffMessages,
       pendingMessages: pendingNewChatMessagesRef.current,
+      primeMessages: chatMessageHandoffActions.prime,
     });
-
-    if (!handoffMessages || handoffMessages.length === 0) {
-      return;
-    }
-
-    chatMessageHandoffActions.prime(nextChatId, handoffMessages);
   }, []);
 
   const sendMessage = useCallback(
@@ -224,16 +221,14 @@ export function useChatRuntime({
   }, [stop]);
 
   useEffect(() => {
-    if (
-      !shouldHydrateInitialChatMessages({
-        initialMessageCount: initialMessages.length,
-        messageCount: messages.length,
-      })
-    ) {
-      return;
+    const hydratedMessages = resolveChatRuntimeHydration({
+      initialMessages,
+      messageCount: messages.length,
+      shouldHydrateInitialChatMessages,
+    });
+    if (hydratedMessages) {
+      setMessages(hydratedMessages);
     }
-
-    setMessages(initialMessages);
   }, [initialMessages, messages.length, setMessages]);
 
   useEffect(() => {
@@ -314,17 +309,19 @@ export function useChatRuntime({
   }, [messages, status]);
 
   useEffect(() => {
-    if (status === "submitted") {
+    if (shouldClearChatRuntimeAgentActivity(status)) {
       setAgentActivity(null);
     }
   }, [status]);
 
   useEffect(() => {
-    if (displayedMessages.length === 0) {
-      return;
+    const behavior = resolveChatRuntimeFollowBehavior({
+      displayedMessageCount: displayedMessages.length,
+      status,
+    });
+    if (behavior) {
+      followIfNeeded(behavior);
     }
-
-    followIfNeeded(status === "submitted" ? "smooth" : "auto");
   }, [displayedMessages.length, followIfNeeded, status]);
 
   const regenerateFromMessage = useCallback(
