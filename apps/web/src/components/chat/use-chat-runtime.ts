@@ -30,6 +30,10 @@ import {
   getAutoPromptToSend,
   getChatAttachmentLimitDescription,
   getChatHandoffMessages,
+  getChatStatusPetNotification,
+  getCompletedAssistantMessageId,
+  shouldHydrateInitialChatMessages,
+  shouldResumeChatStream,
   type UseChatRuntimeProps,
   willExceedChatAttachmentLimit,
 } from "@/components/chat/use-chat-runtime-model";
@@ -226,7 +230,12 @@ export function useChatRuntime({
   }, [stop]);
 
   useEffect(() => {
-    if (initialMessages.length === 0 || messages.length > 0) {
+    if (
+      !shouldHydrateInitialChatMessages({
+        initialMessageCount: initialMessages.length,
+        messageCount: messages.length,
+      })
+    ) {
       return;
     }
 
@@ -234,7 +243,7 @@ export function useChatRuntime({
   }, [initialMessages, messages.length, setMessages]);
 
   useEffect(() => {
-    if (id === "new") {
+    if (!shouldResumeChatStream(id)) {
       return;
     }
     resumeStream().catch(() => undefined);
@@ -292,37 +301,26 @@ export function useChatRuntime({
         detail: { chatId, status },
       })
     );
-    if (status === "submitted") {
-      emitPetNotification({
-        animation: "waiting",
-        durationMs: 1800,
-        message: "Thinking",
-        tone: "working",
-      });
+    const notification = getChatStatusPetNotification(status);
+    if (notification) {
+      emitPetNotification(notification);
     }
   }, [chatId, status]);
 
   useEffect(() => {
-    if (status !== "ready") {
-      previousStatusRef.current = status;
-      return;
-    }
-
     const previousStatus = previousStatusRef.current;
     previousStatusRef.current = status;
-    if (previousStatus !== "submitted" && previousStatus !== "streaming") {
+    const completedMessageId = getCompletedAssistantMessageId({
+      lastCompletedMessageId: lastCompletedMessageIdRef.current,
+      messages,
+      previousStatus,
+      status,
+    });
+    if (!completedMessageId) {
       return;
     }
 
-    const lastMessage = messages.at(-1);
-    if (!lastMessage || lastMessage.role !== "assistant") {
-      return;
-    }
-    if (lastCompletedMessageIdRef.current === lastMessage.id) {
-      return;
-    }
-
-    lastCompletedMessageIdRef.current = lastMessage.id;
+    lastCompletedMessageIdRef.current = completedMessageId;
     emitPetNotification({
       animation: "waving",
       message: "Response ready",

@@ -6,6 +6,10 @@ import {
   getAutoPromptToSend,
   getChatAttachmentLimitDescription,
   getChatHandoffMessages,
+  getChatStatusPetNotification,
+  getCompletedAssistantMessageId,
+  shouldHydrateInitialChatMessages,
+  shouldResumeChatStream,
   willExceedChatAttachmentLimit,
 } from "@/components/chat/use-chat-runtime-model";
 
@@ -97,5 +101,56 @@ describe("use chat runtime model", () => {
     expect(getChatAttachmentLimitDescription()).toBe(
       `You can only upload up to ${CHAT_RUNTIME_MAX_FILES} files per message.`
     );
+  });
+
+  it("keeps initial-message hydration and stream resume rules explicit", () => {
+    expect(
+      shouldHydrateInitialChatMessages({
+        initialMessageCount: 1,
+        messageCount: 0,
+      })
+    ).toBe(true);
+    expect(
+      shouldHydrateInitialChatMessages({
+        initialMessageCount: 1,
+        messageCount: 2,
+      })
+    ).toBe(false);
+    expect(shouldResumeChatStream("new")).toBe(false);
+    expect(shouldResumeChatStream("chat-1")).toBe(true);
+  });
+
+  it("derives the submitted pet notification and completed assistant reply id", () => {
+    expect(getChatStatusPetNotification("submitted")).toEqual({
+      animation: "waiting",
+      durationMs: 1800,
+      message: "Thinking",
+      tone: "working",
+    });
+    expect(getChatStatusPetNotification("ready")).toBeNull();
+
+    expect(
+      getCompletedAssistantMessageId({
+        lastCompletedMessageId: null,
+        messages: [
+          { id: "u1", parts: [], role: "user" },
+          { id: "a1", parts: [], role: "assistant" },
+        ] as UIMessage[],
+        previousStatus: "streaming",
+        status: "ready",
+      })
+    ).toBe("a1");
+
+    expect(
+      getCompletedAssistantMessageId({
+        lastCompletedMessageId: "a1",
+        messages: [
+          { id: "u1", parts: [], role: "user" },
+          { id: "a1", parts: [], role: "assistant" },
+        ] as UIMessage[],
+        previousStatus: "streaming",
+        status: "ready",
+      })
+    ).toBeNull();
   });
 });

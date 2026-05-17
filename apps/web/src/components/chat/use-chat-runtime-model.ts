@@ -16,6 +16,8 @@ export interface UseChatRuntimeProps {
   workspaceUuid: string;
 }
 
+export type ChatRuntimeStatus = "submitted" | "streaming" | "ready" | "error";
+
 export interface ChatRuntime {
   activeReplyMessageId: string | null;
   agentActivity: AgentActivityData | null;
@@ -46,7 +48,7 @@ export interface ChatRuntime {
   ) => Promise<void>;
   setAttachments: React.Dispatch<React.SetStateAction<Attachment[]>>;
   setInput: React.Dispatch<React.SetStateAction<string>>;
-  status: "submitted" | "streaming" | "ready" | "error";
+  status: ChatRuntimeStatus;
   workspaceUuid: string;
 }
 
@@ -81,7 +83,7 @@ export function getAutoPromptToSend({
   initialPrompt?: string | null;
   lastAutoPrompt: string | null;
   messageCount: number;
-  status: "submitted" | "streaming" | "ready" | "error";
+  status: ChatRuntimeStatus;
 }) {
   if (chatId !== "new") {
     return null;
@@ -96,6 +98,59 @@ export function getAutoPromptToSend({
   }
 
   return prompt;
+}
+
+export function shouldHydrateInitialChatMessages(input: {
+  initialMessageCount: number;
+  messageCount: number;
+}) {
+  return input.initialMessageCount > 0 && input.messageCount === 0;
+}
+
+export function shouldResumeChatStream(chatId: string) {
+  return chatId !== "new";
+}
+
+export function getChatStatusPetNotification(status: ChatRuntimeStatus) {
+  if (status !== "submitted") {
+    return null;
+  }
+
+  return {
+    animation: "waiting" as const,
+    durationMs: 1800,
+    message: "Thinking",
+    tone: "working" as const,
+  };
+}
+
+export function getCompletedAssistantMessageId(input: {
+  lastCompletedMessageId: string | null;
+  messages: UIMessage[];
+  previousStatus: string | null;
+  status: ChatRuntimeStatus;
+}) {
+  if (input.status !== "ready") {
+    return null;
+  }
+
+  if (
+    input.previousStatus !== "submitted" &&
+    input.previousStatus !== "streaming"
+  ) {
+    return null;
+  }
+
+  const lastMessage = input.messages.at(-1);
+  if (!lastMessage || lastMessage.role !== "assistant") {
+    return null;
+  }
+
+  if (input.lastCompletedMessageId === lastMessage.id) {
+    return null;
+  }
+
+  return lastMessage.id;
 }
 
 export function buildRegenerationRequest(

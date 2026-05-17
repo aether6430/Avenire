@@ -100,6 +100,7 @@ Recent verified reductions already landed and were pushed:
 - `markdown-renderers.tsx` — `479` -> `197`
 - `rolling-reasoning.tsx` — `578` -> `20`
 - `use-chat-runtime.ts` — `520` -> `447`
+- `use-chat-runtime.ts` — `447` -> `445`
 - `explorer-upload-batch.ts` — `492` -> `446`
 - `file-preview-panel.tsx` — `466` -> `408`
 - `file-preview-panel.tsx` — `408` -> `13`
@@ -177,6 +178,7 @@ Current evidence in the no-sync repo:
 - `logs/2026-05-17-preview-attachment-content-split.md`
 - `logs/2026-05-17-command-palette-group-split.md`
 - `logs/2026-05-17-dashboard-sidebar-content-split.md`
+- `logs/2026-05-17-use-chat-runtime-status-model-extraction.md`
 - `logs/2026-05-17-use-chat-runtime-model-extraction.md`
 - `logs/2026-05-17-chat-thin-wrapper.md`
 
