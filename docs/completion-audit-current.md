@@ -77,12 +77,13 @@ Current measured app-level hotspots:
 - `apps/web/src/components/files/use-circle-to-ai-search-overlay.ts` — `540` lines
 - `apps/web/src/components/marketing/icons/general.tsx` — `496` lines
 - `apps/web/src/components/files/explorer/explorer-upload-batch.ts` — `446` lines
-- `apps/web/src/components/chat/use-chat-runtime.ts` — `447` lines
-- `apps/web/src/components/files/explorer/explorer-inspector-pane.tsx` — `416` lines
-- `apps/web/src/components/chat/preview-attachment-modal.tsx` — `276` lines
-- `apps/web/src/components/dashboard/command-palette-search-groups.tsx` — `287` lines
-- `apps/web/src/components/dashboard/dashboard-sidebar-mounted-views.tsx` — `225` lines
-- `apps/web/src/components/files/explorer/explorer-browse-list.tsx` — `215` lines
+- `apps/web/src/components/chat/use-chat-runtime.ts` — `445` lines
+- `apps/web/src/components/files/explorer/use-explorer-file-action-operations.ts` — `443` lines
+- `apps/web/src/components/chat/use-chat-scroll.ts` — `434` lines
+- `apps/web/src/components/tasks/use-tasks-workspace.ts` — `429` lines
+- `apps/web/src/components/chat/mermaid.tsx` — `428` lines
+- `apps/web/src/components/files/explorer/use-file-preview-pane-header.tsx` — `423` lines
+- `apps/web/src/components/files/explorer/use-explorer-pane-surfaces.ts` — `419` lines
 
 Recent verified reductions already landed and were pushed:
 
@@ -108,6 +109,7 @@ Recent verified reductions already landed and were pushed:
 - `use-circle-to-ai-search-overlay.ts` — `532` -> `540` with a new `circle-to-ai-search-overlay-model.ts` pure state owner
 - `particle-field.tsx` — `619` -> `597`
 - `preview-attachment-content.tsx` — `455` -> `8`
+- `multimodal-input-surface.tsx` — `428` -> `46`
 - `command-palette-groups.tsx` — `444` -> `17`
 - `dashboard-sidebar-content.tsx` — `449` -> `150`
 - `explorer-browse-surface.tsx` — `417` -> `14`
@@ -184,6 +186,7 @@ Current evidence in the no-sync repo:
 - `logs/2026-05-17-use-chat-runtime-status-model-extraction.md`
 - `logs/2026-05-17-use-chat-runtime-model-extraction.md`
 - `logs/2026-05-17-chat-thin-wrapper.md`
+- `logs/2026-05-17-multimodal-input-surface-split.md`
 
 Assessment:
 
