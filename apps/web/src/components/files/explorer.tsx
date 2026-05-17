@@ -152,16 +152,7 @@ export function FileExplorer({
     propertyDefinitions,
     workspaceUuid,
   });
-  const {
-    availablePropertyDefinitions,
-    cardPropertyKeys,
-    clearCardFields,
-    handleCardFieldQueryChange,
-    handleCardFieldToggle,
-    handlePropertyFiltersChange,
-    propertyFilters,
-    resetCardFields,
-  } = propertyControls;
+  const { propertyFilters } = propertyControls;
   const derivedState = useExplorerDerivedState({
     breadcrumbs,
     files,
@@ -176,16 +167,10 @@ export function FileExplorer({
   const {
     activeFile,
     currentFolder,
-    currentFolderBannerUrl,
     currentLocationTitle,
     explorerEntries,
-    filteredFiles,
-    filteredFolders,
     isAtWorkspaceRoot,
     isCurrentFolderReadOnly,
-    parentFolder,
-    sortedFiles,
-    sortedFolders,
     visibleItemIds,
   } = derivedState;
   const noteWorkflows = useExplorerNoteWorkflows({
@@ -193,11 +178,7 @@ export function FileExplorer({
     openWorkspaceFileInFolder,
     workspaceUuid,
   });
-  const {
-    contentDialogProps: noteWorkflowContentDialogProps,
-    createNote,
-    openImportLinkDialog,
-  } = noteWorkflows;
+  const { createNote } = noteWorkflows;
 
   const workspaceIndexState = useExplorerWorkspaceIndexState({
     allFiles,
@@ -208,21 +189,13 @@ export function FileExplorer({
   const filePresentation = useExplorerFilePresentation({
     workspaceFileIndex,
   });
-  const {
-    detectFileKind,
-    getFileVisualIcon,
-    handlePreviewIntentEnd,
-    handlePreviewIntentStart,
-    hoveredPreviewFileId,
-    wikiLinkableFiles,
-  } = filePresentation;
   const surfaceSummary = useExplorerSurfaceSummary({
     activeFile,
     allFiles,
     allFolders,
     currentFolder,
     currentLocationTitle,
-    detectFileKind,
+    detectFileKind: filePresentation.detectFileKind,
     filePathById,
     isAtWorkspaceRoot,
     pinnedItems,
@@ -245,33 +218,12 @@ export function FileExplorer({
     startBannerUpload,
     workspaceUuid,
   });
-  const {
-    applyEditDialog,
-    bannerInputRef,
-    editDialog,
-    handleBannerInputChange,
-    handleEditDialogOpenChange,
-    handleEditDialogValueChange,
-    openCreateFolderDialog,
-    openCreateNoteDialog,
-    openRenameFileDialog,
-    openRenameFolderDialog,
-    resetFolderBanner,
-    triggerBannerPicker,
-  } = editWorkflows;
-  const handleApplyEditDialog = useCallback(() => {
-    void applyEditDialog();
-  }, [applyEditDialog]);
+  const { openRenameFileDialog, openRenameFolderDialog } = editWorkflows;
 
   const shareDialogs = useExplorerShareDialogs({
     workspaceUuid,
   });
-  const {
-    fileShareDialogProps,
-    folderShareDialogProps,
-    openFileShareDialog,
-    openFolderShareDialog,
-  } = shareDialogs;
+  const { openFileShareDialog, openFolderShareDialog } = shareDialogs;
 
   const runtime = useExplorerRuntime({
     allFiles,
