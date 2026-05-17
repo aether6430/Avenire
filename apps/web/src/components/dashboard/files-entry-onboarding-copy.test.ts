@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const onboardingStepsFile = path.resolve(
   import.meta.dirname,
-  "./onboarding-modal-steps.tsx"
+  "./onboarding-modal-upload-step.tsx"
 );
 
 describe("files onboarding copy", () => {
