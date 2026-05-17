@@ -1,7 +1,5 @@
 "use client";
 
-import type { Route } from "next";
-import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { useRouter } from "next/navigation";
 import {
   createContext,
@@ -20,54 +18,19 @@ import {
   isInternalWorkspaceHref,
   normalizeHref,
   setWorkspacePaneDragData,
-  type WorkspacePaneRouteState,
 } from "@/lib/workspace-pane-model";
+import {
+  createPaneRouter,
+  createWorkspaceSurfaceNavigator,
+  findNavigableAnchor,
+  navigateWorkspacePane,
+  type WorkspacePaneContextValue,
+} from "@/lib/workspace-pane-runtime";
 import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
-
-interface WorkspacePaneContextValue {
-  isActive: boolean;
-  isCompact: boolean;
-  paneId: string;
-  route: WorkspacePaneRouteState;
-}
 
 const WorkspacePaneContext = createContext<WorkspacePaneContextValue | null>(
   null
 );
-
-function navigatePane(
-  router: AppRouterInstance,
-  pane: WorkspacePaneContextValue,
-  href: string,
-  options?: { openInNewPane?: boolean; replace?: boolean; scroll?: boolean }
-) {
-  const openInNewPane = options?.openInNewPane ?? false;
-  const replace = options?.replace ?? false;
-  const scroll = options?.scroll ?? false;
-  const route = buildRouteState(href);
-  const store = useWorkspacePaneStore.getState();
-
-  if (openInNewPane) {
-    store.openPane(`${route.pathname}${route.search}`, {
-      sourcePaneId: pane.paneId,
-    });
-    return;
-  }
-
-  store.focusPane(pane.paneId);
-  store.setPaneRoute(pane.paneId, route, { replace });
-
-  if (!pane.isActive) {
-    return;
-  }
-
-  const nextHref = `${route.pathname}${route.search}` as Route;
-  if (replace) {
-    router.replace(nextHref, { scroll });
-  } else {
-    router.push(nextHref, { scroll });
-  }
-}
 
 export function WorkspacePaneProvider({
   children,
@@ -122,19 +85,7 @@ export function usePaneRouter() {
   const pane = useCurrentWorkspacePane();
 
   return useMemo(
-    () => ({
-      prefetch: async (_href: Route) => undefined,
-      push: (href: Route, options?: { scroll?: boolean }) => {
-        navigatePane(router, pane, href, { scroll: options?.scroll });
-      },
-      refresh: () => undefined,
-      replace: (href: Route, options?: { scroll?: boolean }) => {
-        navigatePane(router, pane, href, {
-          replace: true,
-          scroll: options?.scroll,
-        });
-      },
-    }),
+    () => createPaneRouter(router, pane, useWorkspacePaneStore.getState()),
     [pane, router]
   );
 }
@@ -152,9 +103,22 @@ export function useWorkspacePaneNavigation() {
           replace?: boolean;
           scroll?: boolean;
         }
-      ) => navigatePane(router, pane, href, options),
+      ) =>
+        navigateWorkspacePane(
+          router,
+          pane,
+          useWorkspacePaneStore.getState(),
+          href,
+          options
+        ),
       openInNewPane: (href: string) =>
-        navigatePane(router, pane, href, { openInNewPane: true }),
+        navigateWorkspacePane(
+          router,
+          pane,
+          useWorkspacePaneStore.getState(),
+          href,
+          { openInNewPane: true }
+        ),
     }),
     [pane, router]
   );
@@ -171,68 +135,17 @@ export function useWorkspaceSurfaceNavigation(options?: {
   const setPaneRoute = useWorkspacePaneStore((state) => state.setPaneRoute);
 
   return useMemo(
-    () => ({
-      navigate: (
-        href: string,
-        navigateOptions?: {
-          openInNewPane?: boolean;
-          replace?: boolean;
-          scroll?: boolean;
-        }
-      ) => {
-        const route = buildRouteState(href);
-        const openInNewPane = navigateOptions?.openInNewPane ?? false;
-        const replace = navigateOptions?.replace ?? false;
-        const scroll = navigateOptions?.scroll ?? false;
-
-        if (panesEnabled && openInNewPane) {
-          openPane(`${route.pathname}${route.search}`, {
-            sourcePaneId: activePaneId ?? undefined,
-          });
-          return;
-        }
-
-        if (panesEnabled && activePaneId) {
-          focusPane(activePaneId);
-          setPaneRoute(activePaneId, route, { replace });
-        }
-
-        const nextHref = `${route.pathname}${route.search}` as Route;
-        if (replace) {
-          router.replace(nextHref, { scroll });
-          return;
-        }
-        router.push(nextHref, { scroll });
-      },
-    }),
+    () =>
+      createWorkspaceSurfaceNavigator({
+        activePaneId,
+        focusPane,
+        openPane,
+        panesEnabled,
+        router,
+        setPaneRoute,
+      }),
     [activePaneId, focusPane, openPane, panesEnabled, router, setPaneRoute]
   );
-}
-
-function findNavigableAnchor(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) {
-    return null;
-  }
-
-  const anchor = target.closest("a[href]");
-  if (!(anchor instanceof HTMLAnchorElement)) {
-    return null;
-  }
-
-  const href = anchor.getAttribute("href");
-  if (!(href && isInternalWorkspaceHref(href))) {
-    return null;
-  }
-
-  if (anchor.target && anchor.target !== "_self") {
-    return null;
-  }
-
-  if (anchor.hasAttribute("download")) {
-    return null;
-  }
-
-  return anchor;
 }
 
 export function WorkspacePaneInteractionBoundary({
