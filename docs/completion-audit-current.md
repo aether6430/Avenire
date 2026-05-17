@@ -72,12 +72,13 @@ Current measured app-level hotspots:
 - `apps/web/src/components/editor/editor-extensions.ts` — `762` lines
 - `apps/web/src/components/marketing/icons/card-icons.tsx` — `756` lines
 - `apps/web/src/components/ui/particle-field.tsx` — `619` lines
-- `apps/web/src/components/chat/rolling-reasoning.tsx` — `578` lines
 - `apps/web/src/components/marketing/icons/bento-icons.tsx` — `538` lines
 - `apps/web/src/components/widget-renderer-model.ts` — `535` lines
 - `apps/web/src/components/files/use-circle-to-ai-search-overlay.ts` — `532` lines
 - `apps/web/src/components/chat/use-chat-runtime.ts` — `520` lines
 - `apps/web/src/components/marketing/icons/general.tsx` — `496` lines
+- `apps/web/src/components/files/explorer/explorer-upload-batch.ts` — `492` lines
+- `apps/web/src/components/chat/markdown-renderers.tsx` — `479` lines
 
 Recent verified reductions already landed and were pushed:
 
@@ -93,6 +94,7 @@ Recent verified reductions already landed and were pushed:
 - `rolling-tool-activity-surface.tsx` — `648` -> `6`
 - `student-calendar-desktop-surface.tsx` — `588` -> `196`
 - `markdown.tsx` — `624` -> `27`
+- `rolling-reasoning.tsx` — `578` -> `20`
 - `chat.tsx` — `688` -> `44`
 - `chat-workspace.tsx` — `458` -> `11`
 - `student-calendar-desktop.tsx` — `705` -> `10`
@@ -150,6 +152,7 @@ Current evidence in the no-sync repo:
 - `logs/2026-05-17-auth-entry-voice-alignment.md`
 - `logs/2026-05-17-longer-detached-soak-and-session-summary-skip.md`
 - `logs/2026-05-17-onboarding-modal-step-ownership-split.md`
+- `logs/2026-05-17-rolling-reasoning-ownership-split.md`
 - `logs/2026-05-17-rolling-tool-activity-ownership-split.md`
 - `logs/2026-05-17-markdown-ownership-split.md`
 - `logs/2026-05-17-chat-thin-wrapper.md`
