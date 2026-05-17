@@ -1,0 +1,203 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const {
+  consumeUploadUnitsMock,
+  createWorkspaceNoteFileMock,
+  getFileAssetByContentHashMock,
+  getFileAssetByStorageKeyMock,
+  hasSuccessfulIngestionForFileMock,
+  publishFilesInvalidationEventMock,
+  publishWorkspaceStreamEventMock,
+  registerFileAssetMock,
+  scheduleIngestionJobMock,
+  softDeleteFileAssetMock,
+  utApiDeleteFilesMock,
+} = vi.hoisted(() => ({
+  consumeUploadUnitsMock: vi.fn(),
+  createWorkspaceNoteFileMock: vi.fn(),
+  getFileAssetByContentHashMock: vi.fn(),
+  getFileAssetByStorageKeyMock: vi.fn(),
+  hasSuccessfulIngestionForFileMock: vi.fn(),
+  publishFilesInvalidationEventMock: vi.fn(),
+  publishWorkspaceStreamEventMock: vi.fn(),
+  registerFileAssetMock: vi.fn(),
+  scheduleIngestionJobMock: vi.fn(),
+  softDeleteFileAssetMock: vi.fn(),
+  utApiDeleteFilesMock: vi.fn(),
+}));
+
+vi.mock("@avenire/ingestion/queue", () => ({
+  scheduleIngestionJob: scheduleIngestionJobMock,
+}));
+
+vi.mock("@avenire/storage", () => ({
+  UTApi: vi.fn(function UTApiMock() {
+    return {
+      deleteFiles: utApiDeleteFilesMock,
+    };
+  }),
+}));
+
+vi.mock("@/lib/billing-metering", () => ({
+  consumeUploadUnits: consumeUploadUnitsMock,
+}));
+
+vi.mock("@/lib/file-data", () => ({
+  createWorkspaceNoteFile: createWorkspaceNoteFileMock,
+  getFileAssetByContentHash: getFileAssetByContentHashMock,
+  getFileAssetByStorageKey: getFileAssetByStorageKeyMock,
+  registerFileAsset: registerFileAssetMock,
+  softDeleteFileAsset: softDeleteFileAssetMock,
+}));
+
+vi.mock("@/lib/files-realtime-publisher", () => ({
+  publishFilesInvalidationEvent: publishFilesInvalidationEventMock,
+}));
+
+vi.mock("@/lib/ingestion-data", () => ({
+  hasSuccessfulIngestionForFile: hasSuccessfulIngestionForFileMock,
+}));
+
+vi.mock("@/lib/workspace-event-stream", () => ({
+  publishWorkspaceStreamEvent: publishWorkspaceStreamEventMock,
+}));
+
+vi.mock("@/lib/upload-registration-model", () => ({
+  extractMarkdownNotePayload: vi.fn(
+    (input: { rawContent: string; metadata?: Record<string, unknown> }) => ({
+      content: input.rawContent,
+      contentHashSha256:
+        "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+      metadata: input.metadata,
+    })
+  ),
+  isMarkdownUpload: vi.fn(
+    (input: { mimeType?: string | null; name: string }) =>
+      input.mimeType === "text/markdown" || input.name.endsWith(".md")
+  ),
+  normalizeSha256: vi.fn((value: string | null | undefined) => value ?? null),
+  normalizeUploadThingStorageUrl: vi.fn((url: string) => url),
+  resolveMimeType: vi.fn(
+    (input: { mimeType?: string | null }) => input.mimeType ?? null
+  ),
+}));
+
+import {
+  deleteUploadThingFile,
+  registerWorkspaceMarkdownNote,
+  registerWorkspaceUploadedFile,
+} from "@/lib/upload-registration-runtime";
+
+describe("upload registration runtime", () => {
+  beforeEach(() => {
+    consumeUploadUnitsMock.mockReset();
+    createWorkspaceNoteFileMock.mockReset();
+    getFileAssetByContentHashMock.mockReset();
+    getFileAssetByStorageKeyMock.mockReset();
+    hasSuccessfulIngestionForFileMock.mockReset();
+    publishFilesInvalidationEventMock.mockReset();
+    publishWorkspaceStreamEventMock.mockReset();
+    registerFileAssetMock.mockReset();
+    scheduleIngestionJobMock.mockReset();
+    softDeleteFileAssetMock.mockReset();
+    utApiDeleteFilesMock.mockReset();
+  });
+
+  it("deduplicates markdown notes when an existing content hash already exists", async () => {
+    getFileAssetByContentHashMock.mockResolvedValue({
+      folderId: "folder-1",
+      id: "file-1",
+    });
+    hasSuccessfulIngestionForFileMock.mockResolvedValue(true);
+
+    const result = await registerWorkspaceMarkdownNote({
+      content: "# Note",
+      folderId: "folder-1",
+      name: "note.md",
+      userId: "user-1",
+      workspaceUuid: "workspace-1",
+    });
+
+    expect(result.status).toBe("deduplicated");
+    expect(createWorkspaceNoteFileMock).not.toHaveBeenCalled();
+  });
+
+  it("creates markdown notes and schedules ingestion when no duplicate exists", async () => {
+    getFileAssetByContentHashMock.mockResolvedValue(null);
+    createWorkspaceNoteFileMock.mockResolvedValue({
+      id: "file-2",
+    });
+    scheduleIngestionJobMock.mockResolvedValue({ id: "job-1" });
+
+    const result = await registerWorkspaceMarkdownNote({
+      content: "# Note",
+      folderId: "folder-1",
+      name: "note.md",
+      userId: "user-1",
+      workspaceUuid: "workspace-1",
+    });
+
+    expect(result.status).toBe("created");
+    expect(createWorkspaceNoteFileMock).toHaveBeenCalled();
+    expect(scheduleIngestionJobMock).toHaveBeenCalled();
+  });
+
+  it("cleans up uploadthing files best-effort", async () => {
+    process.env.UPLOADTHING_TOKEN = "token";
+    await deleteUploadThingFile("key-1");
+    expect(utApiDeleteFilesMock).toHaveBeenCalledWith(["key-1"]);
+  });
+
+  it("delegates markdown uploaded files through markdown note registration", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => "# Imported note",
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    getFileAssetByContentHashMock.mockResolvedValue(null);
+    createWorkspaceNoteFileMock.mockResolvedValue({ id: "file-3" });
+    scheduleIngestionJobMock.mockResolvedValue({ id: "job-2" });
+
+    const result = await registerWorkspaceUploadedFile({
+      folderId: "folder-1",
+      mimeType: "text/markdown",
+      name: "note.md",
+      sizeBytes: 12,
+      storageKey: "upload-key",
+      storageUrl: "https://utfs.io/f/upload-key",
+      userId: "user-1",
+      workspaceUuid: "workspace-1",
+    });
+
+    expect(fetchMock).toHaveBeenCalled();
+    expect(result.status).toBe("created");
+  });
+
+  it("registers binary uploads and rolls back on usage-limit failure", async () => {
+    registerFileAssetMock.mockResolvedValue({ id: "file-4" });
+    consumeUploadUnitsMock.mockResolvedValue({
+      ok: false,
+      retryAfter: new Date("2026-05-17T12:00:00.000Z"),
+    });
+    getFileAssetByStorageKeyMock.mockResolvedValue(null);
+
+    await expect(
+      registerWorkspaceUploadedFile({
+        contentHashSha256: "hash-1",
+        folderId: "folder-1",
+        mimeType: "application/pdf",
+        name: "guide.pdf",
+        sizeBytes: 42,
+        storageKey: "binary-key",
+        storageUrl: "https://cdn.example.com/guide.pdf",
+        userId: "user-1",
+        workspaceUuid: "workspace-1",
+      })
+    ).rejects.toMatchObject({
+      code: "UPLOAD_RATE_LIMIT",
+    });
+
+    expect(softDeleteFileAssetMock).toHaveBeenCalled();
+    expect(utApiDeleteFilesMock).toHaveBeenCalledWith(["binary-key"]);
+  });
+});
