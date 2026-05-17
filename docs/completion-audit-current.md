@@ -105,6 +105,7 @@ Current evidence in the no-sync repo:
 - `README.md`
 - `docs/README.md`
 - `docs/environment.md`
+- `docs/desktop-log-index-current.md`
 - `docs/instruction-evidence-matrix-current.md`
 - `docs/migrations.md`
 - `docs/local-workspace-integrity.md`
@@ -117,6 +118,7 @@ Current evidence in the no-sync repo:
 - `logs/2026-05-17-chat-provider-config-proof.md`
 - `logs/2026-05-17-instruction-evidence-matrix.md`
 - `logs/2026-05-17-chat-failure-recovery-proof.md`
+- `logs/2026-05-17-desktop-log-index.md`
 - `logs/2026-05-17-explorer-dead-slice-removal.md`
 
 Assessment:
@@ -126,6 +128,9 @@ Assessment:
   path that follows the instruction's logging protocol.
 - The active repo now also contains a direct instruction-to-evidence checklist:
   `docs/instruction-evidence-matrix-current.md`.
+- The active repo now also contains a filename-level index of the old Desktop
+  log cluster, which reduces the discovery gap even though the underlying
+  historical files are still split and dataless.
 - However, older historical receipts still live in the original Desktop repo's
   `logs/` directory, so the evidence trail is still partly split across two
   locations.

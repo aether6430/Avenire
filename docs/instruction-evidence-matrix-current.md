@@ -50,7 +50,7 @@ Status legend:
 | improve repository organization without meaningless churn | `partial` | Many large surfaces reduced and routes clarified; still one dominant hotspot remains. |
 | keep docs useful and reorganized where presentation was poor | `met` | Current audit bundle plus recovered instruction and logs form a coherent working knowledge base. |
 | logging protocol using `logs/` for meaningful passes | `met` | Active repo now has `5` meaningful log entries under `logs/`, including instruction recovery, richer-state soak, richer-interaction soak, chat failure recovery, and provider-config proof. |
-| evidence trail not split across two homes | `partial` | Active repo now mirrors the most important recent receipts, but older Desktop logs remain outside the repo. |
+| evidence trail not split across two homes | `partial` | Active repo now mirrors the most important recent receipts and includes `docs/desktop-log-index-current.md` for the old Desktop log cluster, but older Desktop logs still remain outside the repo and many are dataless placeholders. |
 
 ## Workstream 4: Structural code health
 
