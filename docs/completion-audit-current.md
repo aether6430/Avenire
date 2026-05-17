@@ -73,9 +73,11 @@ Current measured app-level hotspots:
 - `apps/web/src/components/marketing/icons/card-icons.tsx` — `756` lines
 - `apps/web/src/components/ui/particle-field.tsx` — `597` lines
 - `apps/web/src/components/marketing/icons/bento-icons.tsx` — `538` lines
-- `apps/web/src/components/widget-renderer-model.ts` — `535` lines
 - `apps/web/src/components/files/use-circle-to-ai-search-overlay.ts` — `540` lines
 - `apps/web/src/components/marketing/icons/general.tsx` — `496` lines
+- `apps/web/src/components/WidgetPrimitiveRenderer.tsx` — `457` lines
+- `apps/web/src/components/editor/properties-table.tsx` — `455` lines
+- `apps/web/src/components/marketing/agentic-intelligence/static-skeletons.tsx` — `451` lines
 - `apps/web/src/components/files/explorer/explorer-upload-batch.ts` — `446` lines
 - `apps/web/src/components/chat/use-chat-runtime.ts` — `445` lines
 - `apps/web/src/components/tasks/use-tasks-workspace.ts` — `429` lines
@@ -114,6 +116,7 @@ Recent verified reductions already landed and were pushed:
 - `use-chat-scroll.ts` — `434` -> `409` with a new `chat-scroll-model.ts` pure policy owner
 - `use-explorer-file-action-operations.ts` — `443` -> `422` with a new `explorer-file-action-operations-model.ts` policy owner
 - `use-file-preview-pane-header.tsx` — `423` -> `199` with a new `file-preview-pane-header-content.tsx` UI owner
+- `widget-renderer-model.ts` — `535` -> `17` with `widget-renderer-theme.ts` and `widget-renderer-iframe-document.ts` as explicit local owners
 - `command-palette-groups.tsx` — `444` -> `17`
 - `dashboard-sidebar-content.tsx` — `449` -> `150`
 - `explorer-browse-surface.tsx` — `417` -> `14`
@@ -195,6 +198,7 @@ Current evidence in the no-sync repo:
 - `logs/2026-05-17-explorer-file-action-operations-model-extraction.md`
 - `logs/2026-05-17-mermaid-model-extraction.md`
 - `logs/2026-05-17-file-preview-pane-header-content-split.md`
+- `logs/2026-05-17-widget-renderer-model-split.md`
 
 Assessment:
 
