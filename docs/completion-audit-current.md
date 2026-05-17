@@ -85,6 +85,7 @@ Recent verified reductions already landed and were pushed:
 - `d3249c0` — `Use explorer derived state hook`
 - `d0dc5d8` — `Remove dead explorer inline code`
 - `share-dialog.tsx` — `842` -> `142`
+- `stylized-search-bar.tsx` — `812` -> `69`
 - `chat.tsx` — `688` -> `44`
 - `flashcards/dashboard.tsx` — `702` -> `11`
 - `flashcards/sidebar-panel.tsx` — `487` -> `11`
@@ -127,6 +128,7 @@ Current evidence in the no-sync repo:
 - `logs/2026-05-17-desktop-log-index.md`
 - `logs/2026-05-17-explorer-dead-slice-removal.md`
 - `logs/2026-05-17-share-dialog-thin-wrapper.md`
+- `logs/2026-05-17-stylized-search-bar-thin-wrapper.md`
 - `logs/2026-05-17-tasks-workspace-thin-wrapper.md`
 - `logs/2026-05-17-flashcards-dashboard-thin-wrapper.md`
 - `logs/2026-05-17-dashboard-home-thin-wrapper.md`

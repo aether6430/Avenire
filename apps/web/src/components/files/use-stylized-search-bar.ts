@@ -354,3 +354,5 @@ export function useStylizedSearchBar({
     workspaceUuid,
   };
 }
+
+export type StylizedSearchBarRuntime = ReturnType<typeof useStylizedSearchBar>;
