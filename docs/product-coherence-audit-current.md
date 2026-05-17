@@ -102,6 +102,19 @@ Detached production soak pass:
   - `/login` after `20s`
   - `/login` after `30s`
 
+Detached multi-surface production pass:
+
+- production build and server:
+  - `http://127.0.0.1:3018`
+- authenticated proxy:
+  - `bun scripts/local-auth-session-proxy.ts --cookie-file output/auth-login-cookies-prod.txt --upstream http://127.0.0.1:3018 --port 4018`
+- browser routes inspected:
+  - `http://127.0.0.1:4018/workspace/chats/new`
+  - `http://127.0.0.1:4018/workspace/flashcards`
+- detached server health checks after both passes:
+  - `/login` immediately
+  - `/login` after `20s`
+
 ## Observed strengths
 
 ### 1. Public nav is consistent
@@ -399,6 +412,46 @@ Observed in the same detached production environment:
 That means the signed-in proof is no longer concentrated only on home and
 files. Tasks now has direct browser evidence too.
 
+### 5. Chat and flashcards now have direct signed-in browser proof
+
+Observed in the next detached production environment:
+
+- the signed-in route `http://127.0.0.1:4018/workspace/chats/new` rendered a
+  real new-method surface
+- visible content included:
+  - selected `Methods` workspace tab
+  - sidebar methods section with:
+    - `Search Methods`
+    - `New Method`
+    - empty-state copy
+  - main-pane heading `New Method`
+  - prompt box `What do you want to know?`
+  - voice-input and send controls
+- the signed-in route `http://127.0.0.1:4018/workspace/flashcards` rendered a
+  real mindset/flashcards surface
+- visible content included:
+  - selected `Mindset Sets` workspace tab
+  - sidebar mindset section with:
+    - `Review Due`
+    - `Import From Method`
+    - `Sets`
+    - empty-state copy for no sets yet
+  - main-pane heading `Mindset`
+  - `New Set`
+  - `Go to deck`
+  - deck empty-state copy
+- after visiting both routes in the same detached session, `/login` still
+  returned `200` immediately and after `20s`
+
+That means the signed-in proof now spans all the main empty-state workspace
+route families that matter most to the current product shell:
+
+- home
+- files
+- tasks
+- chat/new method
+- flashcards
+
 Recent files-route runtime tightening also changed the initial network shape:
 
 - on a fresh detached production files render, the browser now loads:
@@ -425,7 +478,7 @@ Recent files-route runtime tightening also changed the initial network shape:
 That means the first files render is now doing less background live-work than
 it did before.
 
-### 5. Signed-in production responsiveness is still not fully trustworthy
+### 6. Signed-in production responsiveness is still not fully trustworthy
 
 Observed during the same broader signed-in production work:
 
@@ -454,11 +507,15 @@ Observed during the same broader signed-in production work:
     - `5` headless Chrome files-route visits
     - a signed-in tasks-route browser pass
     - and still answers `/login` after the passes
+  - the latest detached production server on `:3018` now survives:
+    - a signed-in chat/new-method browser pass
+    - a signed-in flashcards browser pass
+    - and still answers `/login` after both routes
 
 This is still a real reliability problem, even though the startup path is now
 better than before.
 
-### 6. Voice mismatch still exists in places
+### 7. Voice mismatch still exists in places
 
 The login page uses:
 
@@ -471,7 +528,7 @@ more concrete study/research language on `/` and `/pricing`.
 This is not a blocker by itself, but it is one of the clearer remaining
 copy-level seams.
 
-### 7. Product proof is still stronger on entry than in-flow
+### 8. Product proof is still stronger on entry than in-flow
 
 Right now the strongest evidence is:
 
@@ -505,6 +562,8 @@ workspace flow is now only partially proven:
 - the files route now also reaches a real production browser render instead of
   only a loading placeholder
 - the tasks route now also reaches a real production browser render
+- the chat/new-method route now also reaches a real production browser render
+- the flashcards route now also reaches a real production browser render
 - and the production signed-in path is healthier across short repeated files
   visits, but still not trustworthy enough under sustained or broader
   multi-surface use because server responsiveness can degrade
@@ -519,4 +578,5 @@ Debug the next signed-in continuity seam next:
 2. confirm whether the remaining degradation is tied to longer-lived
    files/realtime or cross-route runtime paths rather than the initial route
    render itself
-3. extend the direct signed-in browser proof into chat and flashcards
+3. move from empty-state route proof into richer signed-in state proof
+   (persisted methods, non-empty flashcard sets, and cross-route transitions)

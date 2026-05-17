@@ -172,10 +172,16 @@ Current evidence:
     - `/workspace/tasks` renders a real tasks surface
     - the detached production server still answered `/login` immediately and
       after `20s` following the tasks browser pass
+  - signed-in chat and flashcards routes now also have direct production
+    browser proof:
+    - `/workspace/chats/new` renders a real new-method surface
+    - `/workspace/flashcards` renders a real mindset/flashcards surface
+    - after visiting both routes in the same detached session, the production
+      server still answered `/login` immediately and after `20s`
   - remaining gap has shifted deeper:
     - production server responsiveness is healthier across short repeated files
-      visits, but longer-lived multi-surface signed-in sessions are still not
-      fully proven trustworthy
+      visits and short multi-surface passes, but longer-lived signed-in
+      sessions are still not fully proven trustworthy
 - The auth-entry flow itself improved materially:
   - `/register` no longer crashes with `Maximum update depth exceeded`
   - sign-up returned `200`
@@ -190,11 +196,10 @@ Missing proof:
   - the authenticated route is reachable in both dev-proxy and direct
     production-browser sessions
   - the home pane now reaches a ready state in production
-  - the production signed-in path is still not fully trustworthy under deeper
-    navigation
-  - detached production evidence now strongly suggests the remaining
-    reliability gap is files-route-specific rather than a general signed-in
-    workspace failure
+  - the production signed-in path is still not fully trustworthy under
+    longer-lived or richer in-session usage
+  - detached production evidence now suggests the remaining reliability gap is
+    deeper than the basic empty-state route family renders
 - Passing builds prove integrity, but they do not by themselves prove that the
   product now feels coherent.
 
@@ -211,22 +216,21 @@ Current evidence:
 
 Missing proof:
 
-- The signed-in shell has a visual audit artifact now, but the core workspace
-  pane still does not have a healthy ready-state capture to prove visual
-  continuity inside the main work surface.
+- The signed-in shell now has visual proof across the main empty-state route
+  families, but not yet across richer persisted in-session states.
 
 ## Strongest uncovered requirements
 
 1. `explorer.tsx` is still the largest remaining app-level surface by a wide
    margin.
-2. The signed-in workspace home, files, and tasks surfaces are now
-   browser-proven, but deeper reliability is still weak:
+2. The signed-in workspace home, files, tasks, chat, and flashcards surfaces
+   are now browser-proven, but deeper reliability is still weak:
    - detached production `/workspace` survives
    - a detached production files visit now survives a short post-session
      `/login` health check window
    - a short repeated signed-in files browser soak now survives as well
-   - longer-lived or multi-surface signed-in sessions are still not fully
-     proven safe
+   - a short multi-surface signed-in browser pass now survives as well
+   - longer-lived signed-in sessions are still not fully proven safe
 3. The original `instruction.md` remains absent from the active repo and
    trapped as a `compressed,dataless` placeholder in the old Desktop copy.
 4. The evidence trail is healthier, but it is still split between the active
@@ -236,13 +240,10 @@ Missing proof:
 
 1. Continue structural reduction on `explorer.tsx` until it no longer dominates
    the app-level surface map.
-2. Extend the signed-in continuity audit beyond home/files/tasks into chat and
-   flashcards so the remaining weak spots are real route families, not a vague
-   bucket.
-3. Run a longer detached multi-surface soak to determine whether the remaining
+2. Run a longer detached multi-surface soak to determine whether the remaining
    responsiveness risk now requires longer-lived cross-route activity rather
    than repeated short files visits alone.
-4. Recover or otherwise memorialize the original `instruction.md` text so the
+3. Recover or otherwise memorialize the original `instruction.md` text so the
    final completion audit no longer depends on a surrogate alone.
-5. After that, perform a final end-state audit against the recovered goal
+4. After that, perform a final end-state audit against the recovered goal
    surrogate before considering the overall objective achieved.

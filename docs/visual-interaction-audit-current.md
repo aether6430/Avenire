@@ -183,6 +183,32 @@ Observed on `http://127.0.0.1:4017/workspace/tasks`:
 So signed-in visual proof is no longer limited to home and files; the dedicated
 tasks route now has a real rendered surface too.
 
+### 5. Chat and flashcards now have direct visual proof too
+
+Observed on `http://127.0.0.1:4018/workspace/chats/new`:
+
+- left sidebar rendered the signed-in workspace frame coherently
+- the selected `Methods` tab and sidebar methods section were visible
+- the main pane showed:
+  - heading `New Method`
+  - personalized subcopy
+  - prompt textbox `What do you want to know?`
+  - voice-input control
+  - send control
+
+Observed on `http://127.0.0.1:4018/workspace/flashcards`:
+
+- left sidebar rendered the signed-in workspace frame coherently
+- the selected `Mindset Sets` tab and sidebar mindset tools were visible
+- the main pane showed:
+  - heading `Mindset`
+  - `New Set`
+  - `Go to deck`
+  - decks empty-state copy
+
+So signed-in visual proof now spans home, files, tasks, chat/new-method, and
+flashcards in their real product routes.
+
 ## Conclusion
 
 The visual story is materially better than it was when the large shell files
@@ -192,6 +218,8 @@ were still giant inline surfaces:
 - auth entry remains visually calm
 - the signed-in workspace shell is now browser-visible and coherent
 - the signed-in home surface now reaches a real ready state
+- the signed-in files, tasks, chat/new-method, and flashcards routes all reach
+  real rendered surfaces
 
 But the audit is still incomplete because the signed-in routes are not yet
 proven stable under longer or repeated production sessions. The clearest
