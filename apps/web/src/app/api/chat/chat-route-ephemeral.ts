@@ -78,7 +78,7 @@ export async function handleEphemeralChatRequest({
       );
     }
 
-    const selectionMediaType = body.selectionMediaType?.trim() ?? "image/png";
+    const selectionMediaType = body.selectionMediaType?.trim() || "image/png";
     const selectionBuffer = Buffer.from(selectionBase64, "base64");
     const latestUserText = extractLatestUserText(originalMessages);
     const haloTools = createChatTools({
@@ -158,6 +158,11 @@ export async function handleEphemeralChatRequest({
       },
     });
   } catch (error) {
+    logError("Failed to inspect selection", {
+      error: formatError(error),
+      model: selectedModel,
+      providerModel: APOLLO_LANGUAGE_MODEL_IDS[selectedModel],
+    });
     apiLogger.requestFailed(500, error, {
       chatId: "ephemeral",
       selectedModel,
