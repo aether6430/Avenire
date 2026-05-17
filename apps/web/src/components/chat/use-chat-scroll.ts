@@ -8,45 +8,31 @@ import {
   useRef,
   useState,
 } from "react";
-
-const PROGRAMMATIC_SCROLL_GRACE_MS = 220;
-const USER_SCROLL_INTENT_WINDOW_MS = 720;
-const AUTO_SCROLL_RESUME_THRESHOLD_PX = 64;
-const TOP_ANCHOR_OFFSET_PX = 32;
-const LAYOUT_SETTLE_MS = 600;
-
-function getBottomScrollTop(container: HTMLElement) {
-  return Math.max(0, container.scrollHeight - container.clientHeight);
-}
-
-function getDistanceFromBottom(container: HTMLElement) {
-  return getBottomScrollTop(container) - container.scrollTop;
-}
-
-function isNearBottom(container: HTMLElement) {
-  return getDistanceFromBottom(container) <= AUTO_SCROLL_RESUME_THRESHOLD_PX;
-}
-
-function escapeSelectorValue(value: string) {
-  return value.replace(/"/g, '\\"');
-}
+import {
+  buildChatScrollMetricStyles,
+  escapeChatScrollSelectorValue,
+  getBottomScrollTop,
+  isChatScrollIntentKey,
+  isNearBottom,
+  LAYOUT_SETTLE_MS,
+  PROGRAMMATIC_SCROLL_GRACE_MS,
+  resolveAutoScrollEnabled,
+  shouldIgnoreAutoScrollToggle,
+  TOP_ANCHOR_OFFSET_PX,
+  USER_SCROLL_INTENT_WINDOW_MS,
+} from "@/components/chat/chat-scroll-model";
 
 function updateScrollMetrics(container: HTMLElement) {
   const computed = window.getComputedStyle(container);
-  const paddingTop = Number.parseFloat(computed.paddingTop) || 0;
-  const paddingBottom = Number.parseFloat(computed.paddingBottom) || 0;
-  const innerHeight = Math.max(
-    0,
-    Math.round(container.clientHeight - paddingTop - paddingBottom)
-  );
+  const styles = buildChatScrollMetricStyles({
+    clientHeight: container.clientHeight,
+    paddingBottom: Number.parseFloat(computed.paddingBottom) || 0,
+    paddingTop: Number.parseFloat(computed.paddingTop) || 0,
+  });
 
-  container.style.setProperty("--chat-scroll-h", `${container.clientHeight}px`);
-  container.style.setProperty("--chat-scroll-inner-h", `${innerHeight}px`);
-  container.style.setProperty("--chat-scroll-padding-top", `${paddingTop}px`);
-  container.style.setProperty(
-    "--chat-scroll-padding-bottom",
-    `${paddingBottom}px`
-  );
+  for (const [key, value] of Object.entries(styles)) {
+    container.style.setProperty(key, value);
+  }
 }
 
 export function useChatScroll(options: {
@@ -114,7 +100,7 @@ export function useChatScroll(options: {
     }
 
     return container.querySelector<HTMLElement>(
-      `[data-message-id="${escapeSelectorValue(messageId)}"]`
+      `[data-message-id="${escapeChatScrollSelectorValue(messageId)}"]`
     );
   }, []);
 
@@ -359,34 +345,23 @@ export function useChatScroll(options: {
     };
 
     const onScroll = () => {
-      if (Date.now() < programmaticScrollUntilRef.current) {
+      if (
+        shouldIgnoreAutoScrollToggle({
+          hasRecentUserIntent: hasRecentUserIntent(),
+          now: Date.now(),
+          programmaticScrollUntil: programmaticScrollUntilRef.current,
+        })
+      ) {
         return;
       }
 
-      if (!hasRecentUserIntent()) {
-        return;
-      }
-
-      if (isNearBottom(container)) {
-        isAutoScrollEnabledRef.current = true;
-        setIsAutoScrollEnabled(true);
-        return;
-      }
-
-      isAutoScrollEnabledRef.current = false;
-      setIsAutoScrollEnabled(false);
+      const nextEnabled = resolveAutoScrollEnabled(container);
+      isAutoScrollEnabledRef.current = nextEnabled;
+      setIsAutoScrollEnabled(nextEnabled);
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.key === "ArrowDown" ||
-        event.key === "ArrowUp" ||
-        event.key === "PageDown" ||
-        event.key === "PageUp" ||
-        event.key === "Home" ||
-        event.key === "End" ||
-        event.key === " "
-      ) {
+      if (isChatScrollIntentKey(event.key)) {
         markUserIntent();
       }
     };
