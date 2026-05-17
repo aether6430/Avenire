@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { getDashboardTaskManagerState } from "@/components/dashboard/dashboard-task-manager-model";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import {
+  getDashboardDisplayTasks,
+  getDashboardTaskManagerState,
+} from "@/components/dashboard/dashboard-task-manager-model";
 import {
   getTaskStoreSnapshot,
   patchWorkspaceTask,
@@ -45,53 +48,11 @@ export function useDashboardTaskManager({
     };
   }, [workspaceId]);
 
-  const sortedTasks = useMemo(() => {
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    const endOfToday = new Date();
-    endOfToday.setHours(23, 59, 59, 999);
-    const completionRank = (status: WorkspaceTask["status"]) =>
-      status === "completed"
-        ? completedTasksAtTop
-          ? 0
-          : 1
-        : completedTasksAtTop
-          ? 1
-          : 0;
-
-    return tasks
-      .filter((task) => {
-        if (task.workspaceId !== workspaceId) {
-          return false;
-        }
-
-        if (!task.dueAt) {
-          return false;
-        }
-
-        const due = new Date(task.dueAt);
-        return due >= startOfToday && due <= endOfToday;
-      })
-      .sort((left, right) => {
-        const completionDiff =
-          completionRank(left.status) - completionRank(right.status);
-        if (completionDiff !== 0) {
-          return completionDiff;
-        }
-        if (left.dueAt && right.dueAt) {
-          return (
-            new Date(left.dueAt).getTime() - new Date(right.dueAt).getTime()
-          );
-        }
-        if (left.dueAt) {
-          return -1;
-        }
-        if (right.dueAt) {
-          return 1;
-        }
-        return 0;
-      });
-  }, [completedTasksAtTop, tasks, workspaceId]);
+  const sortedTasks = getDashboardDisplayTasks({
+    completedTasksAtTop,
+    tasks,
+    workspaceId,
+  });
 
   const pendingCount = sortedTasks.filter(
     (task) => task.status !== "completed"
@@ -154,9 +115,7 @@ export function useDashboardTaskManager({
     }
   };
 
-  const displayTasks = useMemo(() => {
-    return sortedTasks.slice(0, 10);
-  }, [sortedTasks]);
+  const displayTasks = sortedTasks.slice(0, 10);
   const taskManagerState = getDashboardTaskManagerState({
     loadFailed,
     loading,

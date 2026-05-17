@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { getDashboardTaskManagerState } from "./dashboard-task-manager-model";
+import {
+  getDashboardDisplayTasks,
+  getDashboardTaskManagerState,
+} from "./dashboard-task-manager-model";
 
 describe("dashboard task manager model", () => {
   it("keeps loading, load failure, and empty due-task states distinct", () => {
@@ -47,5 +50,52 @@ describe("dashboard task manager model", () => {
         visibleTaskCount: 2,
       })
     ).toBeNull();
+  });
+
+  it("filters due-today tasks for the active workspace and sorts completion placement", () => {
+    const tasks = [
+      {
+        dueAt: "2026-05-17T08:00:00.000Z",
+        id: "planned-early",
+        status: "planned",
+        workspaceId: "workspace-1",
+      },
+      {
+        dueAt: "2026-05-17T18:00:00.000Z",
+        id: "completed-late",
+        status: "completed",
+        workspaceId: "workspace-1",
+      },
+      {
+        dueAt: "2026-05-18T12:00:00.000Z",
+        id: "tomorrow",
+        status: "planned",
+        workspaceId: "workspace-1",
+      },
+      {
+        dueAt: "2026-05-17T09:00:00.000Z",
+        id: "other-workspace",
+        status: "planned",
+        workspaceId: "workspace-2",
+      },
+    ] as never[];
+
+    expect(
+      getDashboardDisplayTasks({
+        completedTasksAtTop: false,
+        now: new Date("2026-05-17T12:00:00.000Z"),
+        tasks,
+        workspaceId: "workspace-1",
+      }).map((task) => task.id)
+    ).toEqual(["planned-early", "completed-late"]);
+
+    expect(
+      getDashboardDisplayTasks({
+        completedTasksAtTop: true,
+        now: new Date("2026-05-17T12:00:00.000Z"),
+        tasks,
+        workspaceId: "workspace-1",
+      }).map((task) => task.id)
+    ).toEqual(["completed-late", "planned-early"]);
   });
 });
