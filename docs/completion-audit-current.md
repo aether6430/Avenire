@@ -75,7 +75,6 @@ Current measured app-level hotspots:
 - `apps/web/src/components/marketing/icons/bento-icons.tsx` — `538` lines
 - `apps/web/src/components/files/use-circle-to-ai-search-overlay.ts` — `540` lines
 - `apps/web/src/components/marketing/icons/general.tsx` — `496` lines
-- `apps/web/src/components/WidgetPrimitiveRenderer.tsx` — `457` lines
 - `apps/web/src/components/editor/properties-table.tsx` — `455` lines
 - `apps/web/src/components/marketing/agentic-intelligence/static-skeletons.tsx` — `451` lines
 - `apps/web/src/components/files/explorer/explorer-upload-batch.ts` — `446` lines
@@ -120,6 +119,7 @@ Recent verified reductions already landed and were pushed:
 - `use-explorer-file-action-operations.ts` — `443` -> `422` with a new `explorer-file-action-operations-model.ts` policy owner
 - `use-file-preview-pane-header.tsx` — `423` -> `199` with a new `file-preview-pane-header-content.tsx` UI owner
 - `widget-renderer-model.ts` — `535` -> `17` with `widget-renderer-theme.ts` and `widget-renderer-iframe-document.ts` as explicit local owners
+- `WidgetPrimitiveRenderer.tsx` — `457` -> `12` with `widget-primitive-render-content.tsx` and `widget-primitive-render-chart.tsx` as explicit local owners
 - `command-palette-groups.tsx` — `444` -> `17`
 - `dashboard-sidebar-content.tsx` — `449` -> `150`
 - `explorer-browse-surface.tsx` — `417` -> `14`
@@ -203,6 +203,7 @@ Current evidence in the no-sync repo:
 - `logs/2026-05-17-file-preview-pane-header-content-split.md`
 - `logs/2026-05-17-widget-renderer-model-split.md`
 - `logs/2026-05-17-messages-thin-wrapper.md`
+- `logs/2026-05-17-widget-primitive-renderer-split.md`
 
 Assessment:
 
