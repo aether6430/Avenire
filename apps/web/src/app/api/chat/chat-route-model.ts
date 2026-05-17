@@ -38,7 +38,7 @@ export function sanitizeChatName(value: string) {
 
 export function fallbackChatNameFromText(value: string) {
   const normalized = sanitizeChatName(
-    value.split(WHITESPACE_PATTERN).slice(0, 6).join(" ")
+    value.split(WHITESPACE_PATTERN).filter(Boolean).slice(0, 6).join(" ")
   );
 
   return normalized.length > 0 ? normalized : DEFAULT_CHAT_TITLE;
