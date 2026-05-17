@@ -30,7 +30,7 @@ Status legend:
 | add tests where instability blocks confidence | `met` | Recent targeted tests added or repaired around files route metadata/route behavior, auth coverage harness, database env boundaries, chat tab accessibility, chat provider-config messaging. |
 | prefer meaningful coverage over vanity coverage | `met` | Repo coverage script uses conservative lower-bound accounting and counts untouched packages as `0%`; documented in [completion-audit-current.md](/Users/johnmacartew/Developer.nosync/aveniri/docs/completion-audit-current.md:1). |
 | use failures in real usage as input for tests | `met` | Chat provider failure, files-route metadata drift, auth coverage breakage, and database env-boundary regressions all produced focused tests or test repairs. |
-| app stops collapsing under normal use | `partial` | Detached signed-in loops now survive across empty-state, richer-state, short post-mutation routes, a `30`-request mixed-route soak with `/login` healthy after `120s`, a `60`-request mixed-route soak with `/login` healthy after `180s`, and a `30`-visit browser-level loop on the same route family. Longer-lived interactive use is still open. |
+| app stops collapsing under normal use | `partial` | Detached signed-in loops now survive across empty-state, richer-state, short post-mutation routes, a `30`-request mixed-route soak with `/login` healthy after `120s`, a `60`-request mixed-route soak with `/login` healthy after `180s`, and a `40`-visit browser-level loop on the same route family with `/login` still healthy after `240s`. Longer-lived interactive use is still open. |
 
 ## Workstream 2: User experience and product coherence
 
@@ -91,7 +91,7 @@ Status legend:
 
 | End-state claim | Status | Evidence |
 | --- | --- | --- |
-| can be used without constantly falling apart | `partial` | Short repeated signed-in loops, richer-state loops, post-mutation loops, a `30`-request detached route soak, a `60`-request detached route soak, and a `30`-visit detached browser-level loop now survive; longer-lived interactive use is still not fully proven. |
+| can be used without constantly falling apart | `partial` | Short repeated signed-in loops, richer-state loops, post-mutation loops, a `30`-request detached route soak, a `60`-request detached route soak, and a `40`-visit detached browser-level loop now survive; longer-lived interactive use is still not fully proven. |
 | feels coherent rather than stitched together | `partial` | Strong improvement across route families and error states; still not fully closed until successful method interaction and longer-lived sessions are proven. |
 | has enough testing to support change | `met` | Explicit test budget and coverage floor from the instruction are now satisfied. |
 | has a structure that future work can build on | `partial` | Major improvement, but `explorer.tsx` remains a meaningful hotspot. |

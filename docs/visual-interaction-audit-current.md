@@ -356,18 +356,18 @@ earlier `30`-request proof.
 
 Observed on the same fresh detached production build and authenticated proxy:
 
-- `6` repeated headless Chrome cycles across:
+- `8` repeated headless Chrome cycles across:
   - `/workspace`
   - files detail
   - tasks
   - persisted chat detail
   - persisted flashcard-set detail
 - total browser visits:
-  - `30`
+  - `40`
 - `/login` still returned `200`:
   - immediately after the browser loop
   - after `60s`
-  - after `180s`
+  - after `240s`
 
 This is still below a truly long interactive session, but it strengthens the
 browser-level side of the detached durability proof instead of relying only on
