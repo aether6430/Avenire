@@ -3,31 +3,38 @@
   "private": true,
   "packageManager": "pnpm@10.32.1",
   "scripts": {
-    "prebuild": "bun packages/ai/skills/scripts/generator.ts",
-    "build": "turbo run build",
-    "dev": "turbo run dev --parallel",
-    "lint": "turbo run lint",
-    "check-types": "turbo run check-types",
+    "build:prepare": "bun packages/ai/skills/scripts/generator.ts",
+    "build": "bash scripts/run-with-dataless-guard.sh --repo -- bash -lc 'bun packages/ai/skills/scripts/generator.ts && turbo run build'",
+    "dev": "bash scripts/run-with-dataless-guard.sh --repo -- turbo run dev --parallel",
+    "test": "bash scripts/run-with-dataless-guard.sh --repo -- turbo run test",
+    "test:budget": "bash scripts/run-with-dataless-guard.sh --repo -- node scripts/report-test-budget.mjs",
+    "test:coverage:repo": "bash scripts/run-with-dataless-guard.sh --repo -- node scripts/report-test-coverage.mjs",
+    "doctor:dataless": "bash scripts/report-dataless-files.sh",
+    "doctor:dataless:materialize": "bash scripts/materialize-dataless-files.sh",
+    "auth:local-verify-link": "bun scripts/local-auth-verification-link.ts",
+    "auth:local-session-proxy": "bun scripts/local-auth-session-proxy.ts",
+    "auth:local-db-start": "bash scripts/local-auth-db-start.sh",
+    "auth:local-db-stop": "bash scripts/local-auth-db-stop.sh",
+    "lint": "bash scripts/run-with-dataless-guard.sh --repo -- turbo run lint",
+    "check-types": "bash scripts/run-with-dataless-guard.sh --repo -- turbo run check-types",
     "format": "turbo run format",
     "db:generate": "pnpm --filter @avenire/database db:generate",
     "db:migrate": "pnpm --filter @avenire/database db:migrate"
   },
   "devDependencies": {
-    "@biomejs/biome": "latest",
-    "turbo": "latest",
+    "@biomejs/biome": "2.4.6",
+    "turbo": "2.8.16",
     "typescript": "5.9.3",
-    "ultracite": "latest"
+    "ultracite": "7.2.5"
   },
   "engines": {
     "bun": ">=1.0.0"
   },
   "pnpm": {
-    "patchedDependencies": {
-      "@anaralabs/lector@3.8.0": "patches/@anaralabs__lector@3.8.0.patch"
-    },
     "overrides": {
       "@hono/node-server": "1.19.12",
       "axios": "1.13.6",
+      "drizzle-orm": "0.45.1",
       "effect": "3.20.0",
       "hono": "4.12.9",
       "picomatch": "4.0.4"
