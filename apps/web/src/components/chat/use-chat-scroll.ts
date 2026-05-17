@@ -9,31 +9,21 @@ import {
   useState,
 } from "react";
 import {
-  buildChatScrollMetricStyles,
   escapeChatScrollSelectorValue,
   getBottomScrollTop,
-  isChatScrollIntentKey,
-  isNearBottom,
   LAYOUT_SETTLE_MS,
   PROGRAMMATIC_SCROLL_GRACE_MS,
-  resolveAutoScrollEnabled,
-  shouldIgnoreAutoScrollToggle,
   TOP_ANCHOR_OFFSET_PX,
   USER_SCROLL_INTENT_WINDOW_MS,
 } from "@/components/chat/chat-scroll-model";
-
-function updateScrollMetrics(container: HTMLElement) {
-  const computed = window.getComputedStyle(container);
-  const styles = buildChatScrollMetricStyles({
-    clientHeight: container.clientHeight,
-    paddingBottom: Number.parseFloat(computed.paddingBottom) || 0,
-    paddingTop: Number.parseFloat(computed.paddingTop) || 0,
-  });
-
-  for (const [key, value] of Object.entries(styles)) {
-    container.style.setProperty(key, value);
-  }
-}
+import {
+  applyChatScrollMetrics,
+  attachChatScrollIntentListeners,
+  followChatScrollIfNeeded,
+  handleLatestUserMessageForScroll,
+  initializeChatScrollState,
+  schedulePinnedLatestChatMessage,
+} from "@/components/chat/use-chat-scroll-runtime";
 
 export function useChatScroll(options: {
   isStreaming: boolean;
@@ -180,18 +170,13 @@ export function useChatScroll(options: {
 
   const followIfNeeded = useCallback(
     (behavior: ScrollBehavior = "auto") => {
-      const container = containerRef.current;
-      if (!(container && isAutoScrollEnabledRef.current)) {
-        return;
-      }
-
-      if (isStreaming) {
-        return;
-      }
-
-      if (isNearBottom(container)) {
-        scrollToBottom(behavior);
-      }
+      followChatScrollIfNeeded({
+        behavior,
+        container: containerRef.current,
+        isAutoScrollEnabled: isAutoScrollEnabledRef.current,
+        isStreaming,
+        scrollToBottom,
+      });
     },
     [isStreaming, scrollToBottom]
   );
@@ -211,10 +196,18 @@ export function useChatScroll(options: {
       return;
     }
 
-    updateScrollMetrics(container);
+    applyChatScrollMetrics({
+      container,
+      getComputedStyle: (element) =>
+        window.getComputedStyle(element as Element),
+    });
 
     const resizeObserver = new ResizeObserver(() => {
-      updateScrollMetrics(container);
+      applyChatScrollMetrics({
+        container,
+        getComputedStyle: (element) =>
+          window.getComputedStyle(element as Element),
+      });
     });
 
     resizeObserver.observe(container);
@@ -251,65 +244,60 @@ export function useChatScroll(options: {
   }, [followIfNeeded, isStreaming, scrollToBottom]);
 
   useLayoutEffect(() => {
-    const container = containerRef.current;
-    if (!container || hasInitializedLayoutRef.current || messageCount === 0) {
+    const nextState = initializeChatScrollState({
+      hasInitializedLayout: hasInitializedLayoutRef.current,
+      isStreaming,
+      latestUserMessageId,
+      messageCount,
+    });
+    if (!nextState) {
       return;
     }
 
-    hasInitializedLayoutRef.current = true;
+    hasInitializedLayoutRef.current = nextState.hasInitializedLayout;
+    lastUserMessageIdRef.current = nextState.lastUserMessageId;
+    lastStreamPinnedMessageIdRef.current = nextState.lastStreamPinnedMessageId;
 
-    if (latestUserMessageId) {
-      lastUserMessageIdRef.current = latestUserMessageId;
-      lastStreamPinnedMessageIdRef.current = null;
-    }
-
-    if (!isStreaming) {
+    if (nextState.shouldScrollToBottom) {
       scrollToBottom("auto");
     }
   }, [isStreaming, latestUserMessageId, messageCount, scrollToBottom]);
 
   useLayoutEffect(() => {
-    if (
-      !(hasInitializedLayoutRef.current && latestUserMessageId) ||
-      latestUserMessageId === lastUserMessageIdRef.current
-    ) {
+    const nextState = handleLatestUserMessageForScroll({
+      hasInitializedLayout: hasInitializedLayoutRef.current,
+      lastUserMessageId: lastUserMessageIdRef.current,
+      latestUserMessageId,
+    });
+    if (!nextState) {
       return;
     }
 
-    lastUserMessageIdRef.current = latestUserMessageId;
-    lastStreamPinnedMessageIdRef.current = null;
-    isAutoScrollEnabledRef.current = true;
-    setIsAutoScrollEnabled(true);
+    lastUserMessageIdRef.current = nextState.lastUserMessageId;
+    lastStreamPinnedMessageIdRef.current = nextState.lastStreamPinnedMessageId;
+    isAutoScrollEnabledRef.current = nextState.autoScrollEnabled;
+    setIsAutoScrollEnabled(nextState.autoScrollEnabled);
   }, [latestUserMessageId]);
 
   useLayoutEffect(() => {
-    const wasStreaming = previousStreamingRef.current;
+    const scheduled = schedulePinnedLatestChatMessage({
+      cancelAnimationFrame: window.cancelAnimationFrame,
+      isStreaming,
+      lastStreamPinnedMessageId: lastStreamPinnedMessageIdRef.current,
+      latestUserMessageId,
+      requestAnimationFrame: window.requestAnimationFrame,
+      scrollToMessageTop,
+      wasStreaming: previousStreamingRef.current,
+    });
     previousStreamingRef.current = isStreaming;
 
-    if (
-      !isStreaming ||
-      wasStreaming ||
-      !latestUserMessageId ||
-      lastStreamPinnedMessageIdRef.current === latestUserMessageId
-    ) {
+    if (!scheduled) {
       return;
     }
 
-    lastStreamPinnedMessageIdRef.current = latestUserMessageId;
+    lastStreamPinnedMessageIdRef.current = scheduled.lastStreamPinnedMessageId;
 
-    let secondFrame = 0;
-    const firstFrame = window.requestAnimationFrame(() => {
-      secondFrame = window.requestAnimationFrame(() => {
-        scrollToMessageTop(latestUserMessageId, "smooth");
-      });
-    });
-
-    return () => {
-      window.cancelAnimationFrame(firstFrame);
-      if (secondFrame) {
-        window.cancelAnimationFrame(secondFrame);
-      }
-    };
+    return scheduled.cancel;
   }, [isStreaming, latestUserMessageId, scrollToMessageTop]);
 
   useEffect(() => {
@@ -328,59 +316,17 @@ export function useChatScroll(options: {
       return;
     }
 
-    const onWheel = () => {
-      markUserIntent();
-    };
-
-    const onTouchStart = () => {
-      markUserIntent();
-    };
-
-    const onTouchMove = () => {
-      markUserIntent();
-    };
-
-    const onPointerDown = () => {
-      markUserIntent();
-    };
-
-    const onScroll = () => {
-      if (
-        shouldIgnoreAutoScrollToggle({
-          hasRecentUserIntent: hasRecentUserIntent(),
-          now: Date.now(),
-          programmaticScrollUntil: programmaticScrollUntilRef.current,
-        })
-      ) {
-        return;
-      }
-
-      const nextEnabled = resolveAutoScrollEnabled(container);
-      isAutoScrollEnabledRef.current = nextEnabled;
-      setIsAutoScrollEnabled(nextEnabled);
-    };
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (isChatScrollIntentKey(event.key)) {
-        markUserIntent();
-      }
-    };
-
-    container.addEventListener("wheel", onWheel, { passive: true });
-    container.addEventListener("touchstart", onTouchStart, { passive: true });
-    container.addEventListener("touchmove", onTouchMove, { passive: true });
-    container.addEventListener("pointerdown", onPointerDown, { passive: true });
-    container.addEventListener("scroll", onScroll, { passive: true });
-    container.addEventListener("keydown", onKeyDown);
-
-    detachListenerRef.current = () => {
-      container.removeEventListener("wheel", onWheel);
-      container.removeEventListener("touchstart", onTouchStart);
-      container.removeEventListener("touchmove", onTouchMove);
-      container.removeEventListener("pointerdown", onPointerDown);
-      container.removeEventListener("scroll", onScroll);
-      container.removeEventListener("keydown", onKeyDown);
-    };
+    detachListenerRef.current = attachChatScrollIntentListeners({
+      container,
+      getNow: Date.now,
+      hasRecentUserIntent,
+      markUserIntent,
+      programmaticScrollUntil: programmaticScrollUntilRef.current,
+      setAutoScrollEnabled: (nextEnabled) => {
+        isAutoScrollEnabledRef.current = nextEnabled;
+        setIsAutoScrollEnabled(nextEnabled);
+      },
+    });
 
     return detachListenerRef.current;
   }, [hasRecentUserIntent, markUserIntent]);
