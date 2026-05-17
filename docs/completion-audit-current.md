@@ -86,6 +86,7 @@ Recent verified reductions already landed and were pushed:
 - `d0dc5d8` — `Remove dead explorer inline code`
 - `share-dialog.tsx` — `842` -> `142`
 - `chat.tsx` — `688` -> `44`
+- `flashcards/dashboard.tsx` — `702` -> `11`
 - `tasks-workspace.tsx` — `640` -> `13`
 - `4951e61` — `Reduce multimodal input to thin wrapper`
 - `6b8607d` — `Reduce data imports section to thin wrapper`
@@ -125,6 +126,7 @@ Current evidence in the no-sync repo:
 - `logs/2026-05-17-explorer-dead-slice-removal.md`
 - `logs/2026-05-17-share-dialog-thin-wrapper.md`
 - `logs/2026-05-17-tasks-workspace-thin-wrapper.md`
+- `logs/2026-05-17-flashcards-dashboard-thin-wrapper.md`
 - `logs/2026-05-17-chat-thin-wrapper.md`
 
 Assessment:
