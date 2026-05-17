@@ -40,6 +40,7 @@ import {
   getActiveStreamId,
   getRedisClient,
   getRedisSubscriber,
+  hasChatStreamStoreConfig,
   setActiveStreamId,
 } from "./chat-stream-store";
 
@@ -330,27 +331,29 @@ export async function buildPersistedChatStreamResponse({
     new TextDecoderStream()
   );
 
-  void (async () => {
-    try {
-      const streamContext = createResumableStreamContext({
-        waitUntil: after,
-        publisher: await getRedisClient(),
-        subscriber: await getRedisSubscriber(),
-      });
+  if (hasChatStreamStoreConfig()) {
+    void (async () => {
+      try {
+        const streamContext = createResumableStreamContext({
+          waitUntil: after,
+          publisher: await getRedisClient(),
+          subscriber: await getRedisSubscriber(),
+        });
 
-      await streamContext.createNewResumableStream(
-        streamId,
-        () => resumableTextStream
-      );
-    } catch (error) {
-      await clearActiveStreamId(chatSlug, streamId);
-      logError("Failed to create resumable chat stream", {
-        chatSlug,
-        streamId,
-        error: formatError(error),
-      });
-    }
-  })();
+        await streamContext.createNewResumableStream(
+          streamId,
+          () => resumableTextStream
+        );
+      } catch (error) {
+        await clearActiveStreamId(chatSlug, streamId);
+        logError("Failed to create resumable chat stream", {
+          chatSlug,
+          streamId,
+          error: formatError(error),
+        });
+      }
+    })();
+  }
 
   apiLogger.requestSucceeded(200, {
     chatId: chatSlug,

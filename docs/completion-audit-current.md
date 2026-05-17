@@ -113,6 +113,7 @@ Current evidence in the no-sync repo:
 - `logs/2026-05-17-instruction-recovery-and-coverage-audit.md`
 - `logs/2026-05-17-rich-state-multisurface-soak.md`
 - `logs/2026-05-17-rich-interaction-multisurface-soak.md`
+- `logs/2026-05-17-chat-failure-recovery-proof.md`
 
 Assessment:
 
@@ -220,6 +221,10 @@ Current evidence:
       a dangling user message
     - reloading `/workspace/chats/<slug>` now shows the explicit failure text
       plus `Copy message`, `Branch method`, and `Regenerate response`
+    - the message now explicitly says the selected AI model is not configured
+      in this environment
+    - the local missing-Redis path no longer emits the unrelated resumable chat
+      stream failure during this flow
   - remaining gap has shifted deeper:
     - production server responsiveness is healthier across short repeated files
       visits, short multi-surface passes, richer persisted-state loops, and

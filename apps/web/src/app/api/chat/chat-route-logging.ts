@@ -98,12 +98,28 @@ export function isAbortLikeError(error: unknown) {
   );
 }
 
+export function isChatProviderConfigurationError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return (
+    error.name === "AI_LoadAPIKeyError" ||
+    error.message.includes("API key is missing") ||
+    error.message.includes("isn't configured in this environment")
+  );
+}
+
 export function getChatStreamErrorMessage(error: unknown) {
   const formatted = formatError(error);
   logError("Model stream failed", { error: formatted });
 
   if (isAbortLikeError(error)) {
     return "The chat request was stopped.";
+  }
+
+  if (isChatProviderConfigurationError(error)) {
+    return "The selected AI model isn't configured in this environment. Please configure the AI provider and retry.";
   }
 
   return "The model provider failed while generating this response. Please retry in a moment.";

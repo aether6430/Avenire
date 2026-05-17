@@ -546,10 +546,13 @@ Observed in the detached production method round-trip:
   - reloading the method route showed:
     - the user message
     - assistant label `Apollo`
-    - `The model provider failed while generating this response. Please retry in a moment.`
+    - `The selected AI model isn't configured in this environment. Please configure the AI provider and retry.`
     - `Copy message`
     - `Branch method`
     - `Regenerate response`
+  - the detached production server log no longer emitted:
+    - `Failed to create resumable chat stream`
+    during the missing-Redis local path
 
 That is a meaningful product-coherence win because an important failure mode is
 now explained in-product instead of silently collapsing into ambiguity.

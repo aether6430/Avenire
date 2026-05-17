@@ -13,6 +13,10 @@ function hasRedisConfigured() {
   return Boolean(redisUrl);
 }
 
+export function hasChatStreamStoreConfig() {
+  return hasRedisConfigured();
+}
+
 export async function getRedisClient() {
   if (!redisUrl) {
     throw new Error("REDIS_URL is not configured");

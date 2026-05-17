@@ -280,7 +280,7 @@ shows:
 - the user message
 - assistant label `Apollo`
 - explicit failure copy:
-  - `The model provider failed while generating this response. Please retry in a moment.`
+  - `The selected AI model isn't configured in this environment. Please configure the AI provider and retry.`
 - action controls:
   - `Copy message`
   - `Branch method`
