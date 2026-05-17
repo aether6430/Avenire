@@ -1,6 +1,5 @@
 import "server-only";
 import { spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
 import { lookup } from "node:dns/promises";
 import {
   mkdir,
@@ -13,10 +12,19 @@ import {
 } from "node:fs/promises";
 import { isIP } from "node:net";
 import { tmpdir } from "node:os";
-import { basename, extname, join } from "node:path";
+import { basename, join } from "node:path";
 import { UTApi, UTFile } from "@avenire/storage";
 import type { VideoDeliveryRecord } from "@/lib/file-data";
 import { isTrustedStorageUrl } from "@/lib/file-data";
+import {
+  buildAssetStem,
+  buildHlsVariants,
+  buildMp4Name,
+  isPrivateOrLocalAddress,
+  rewritePlaylistReferences,
+  shouldGenerateHls,
+  type VideoAnalysis,
+} from "@/lib/video-optimization-model";
 
 const DOWNLOAD_MAX_BYTES = 500 * 1024 * 1024;
 const FFMPEG_TIMEOUT_MS = 3 * 60_000;
@@ -49,20 +57,6 @@ interface StoredAsset {
   storageUrl: string;
 }
 
-interface VideoAnalysis {
-  bitrateKbps: number | null;
-  durationSeconds: number | null;
-  height: number | null;
-  width: number | null;
-}
-
-interface HlsVariantSpec {
-  bitrateKbps: number;
-  height: number | null;
-  label: string;
-  width: number | null;
-}
-
 interface GeneratedHlsVariant {
   bitrateKbps: number;
   height: number | null;
@@ -89,35 +83,6 @@ const VIDEO_OPT_FETCH_TIMEOUT_MS = Math.max(
     ? parsedVideoOptFetchTimeoutMs
     : 25_000
 );
-
-function isPrivateOrLocalAddress(address: string) {
-  if (isIP(address) === 4) {
-    const [a, b] = address
-      .split(".")
-      .map((value) => Number.parseInt(value, 10));
-    if (a === 10 || a === 127 || a === 0) {
-      return true;
-    }
-    if (a === 169 && b === 254) {
-      return true;
-    }
-    if (a === 192 && b === 168) {
-      return true;
-    }
-    if (a === 172 && typeof b === "number" && b >= 16 && b <= 31) {
-      return true;
-    }
-    return false;
-  }
-
-  const normalized = address.toLowerCase();
-  return (
-    normalized === "::1" ||
-    normalized.startsWith("fc") ||
-    normalized.startsWith("fd") ||
-    normalized.startsWith("fe80:")
-  );
-}
 
 async function validateSourceUrl(sourceUrlInput: string) {
   const trimmed = sourceUrlInput.trim();
@@ -157,34 +122,6 @@ async function validateSourceUrl(sourceUrlInput: string) {
   }
 
   return parsed.toString();
-}
-
-function buildMp4Name(sourceName: string) {
-  const trimmed = sourceName.trim();
-  if (!trimmed) {
-    return "video.mp4";
-  }
-
-  const extension = extname(trimmed);
-  if (!extension) {
-    return `${trimmed}.mp4`;
-  }
-
-  return `${trimmed.slice(0, -extension.length)}.mp4`;
-}
-
-function buildAssetStem(sourceName: string) {
-  const extension = extname(sourceName.trim());
-  const withoutExtension =
-    extension.length > 0 ? sourceName.slice(0, -extension.length) : sourceName;
-  const sanitized = withoutExtension
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 48);
-
-  return `${sanitized || "video"}-${randomUUID().slice(0, 8)}`;
 }
 
 async function runCommand(command: "ffmpeg" | "ffprobe", args: string[]) {
@@ -299,99 +236,6 @@ async function analyzeVideo(inputPath: string): Promise<VideoAnalysis> {
         ? videoStream.width
         : null,
   };
-}
-
-function shouldGenerateHls(input: {
-  analysis: VideoAnalysis;
-  requiresTranscode: boolean;
-  sourceSizeBytes: number;
-}) {
-  const { analysis, requiresTranscode, sourceSizeBytes } = input;
-  return (
-    requiresTranscode ||
-    sourceSizeBytes > HLS_SIZE_THRESHOLD_BYTES ||
-    (analysis.durationSeconds ?? 0) >= HLS_DURATION_THRESHOLD_SECONDS ||
-    Math.max(analysis.width ?? 0, analysis.height ?? 0) >=
-      HLS_RESOLUTION_THRESHOLD
-  );
-}
-
-function scaleWidthToEven(width: number, height: number, targetHeight: number) {
-  const scaled = Math.round((width / height) * targetHeight);
-  return scaled % 2 === 0 ? scaled : scaled - 1;
-}
-
-function buildHlsVariants(analysis: VideoAnalysis): HlsVariantSpec[] {
-  if ((analysis.height ?? 0) >= 1080) {
-    return [
-      {
-        bitrateKbps: 2800,
-        height: 720,
-        label: "720p",
-        width:
-          analysis.width && analysis.height
-            ? scaleWidthToEven(analysis.width, analysis.height, 720)
-            : 1280,
-      },
-      {
-        bitrateKbps: 5000,
-        height: 1080,
-        label: "1080p",
-        width:
-          analysis.width && analysis.height
-            ? scaleWidthToEven(analysis.width, analysis.height, 1080)
-            : 1920,
-      },
-    ];
-  }
-
-  if ((analysis.height ?? 0) >= 720) {
-    return [
-      {
-        bitrateKbps: 2800,
-        height: 720,
-        label: "720p",
-        width:
-          analysis.width && analysis.height
-            ? scaleWidthToEven(analysis.width, analysis.height, 720)
-            : 1280,
-      },
-    ];
-  }
-
-  return [
-    {
-      bitrateKbps: Math.max(900, analysis.bitrateKbps ?? 1400),
-      height: analysis.height,
-      label: "source",
-      width: analysis.width,
-    },
-  ];
-}
-
-function rewritePlaylistReferences(
-  playlistText: string,
-  replacements: Map<string, string>
-) {
-  return playlistText
-    .split(/\r?\n/)
-    .map((line) => {
-      const trimmed = line.trim();
-      if (!trimmed) {
-        return line;
-      }
-      if (!trimmed.startsWith("#")) {
-        return replacements.get(trimmed) ?? line;
-      }
-      return line.replace(/URI="([^"]+)"/g, (match, value: string) => {
-        const replacement = replacements.get(value);
-        if (!replacement) {
-          return match;
-        }
-        return `URI="${replacement}"`;
-      });
-    })
-    .join("\n");
 }
 
 async function uploadBufferedFiles(
@@ -827,6 +671,7 @@ export async function optimizeAndReuploadVideo(
 
     const shouldCreateHls = shouldGenerateHls({
       analysis,
+      hlsSizeThresholdBytes: HLS_SIZE_THRESHOLD_BYTES,
       requiresTranscode,
       sourceSizeBytes: downloadedBytes,
     });
