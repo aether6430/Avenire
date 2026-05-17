@@ -5,6 +5,7 @@ import {
   getDashboardDisplayTasks,
   getDashboardTaskManagerState,
 } from "@/components/dashboard/dashboard-task-manager-model";
+import { buildOptimisticTaskStatusUpdate } from "@/components/tasks/tasks-workspace-runtime-model";
 import {
   getTaskStoreSnapshot,
   patchWorkspaceTask,
@@ -62,11 +63,14 @@ export function useDashboardTaskManager({
     const previousTask = task;
     const previousStatus = task.status;
     const nextStatus = previousStatus === "completed" ? "planned" : "completed";
+    const optimisticNowIso = new Date().toISOString();
 
     patchWorkspaceTask(workspaceId, task.id, (current) => ({
-      ...current,
-      completedAt: nextStatus === "completed" ? new Date().toISOString() : null,
-      status: nextStatus,
+      ...buildOptimisticTaskStatusUpdate({
+        nextStatus,
+        nowIso: optimisticNowIso,
+        task: current,
+      }),
     }));
 
     try {

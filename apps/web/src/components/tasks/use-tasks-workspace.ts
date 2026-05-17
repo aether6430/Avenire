@@ -23,6 +23,14 @@ import {
   type TasksWorkspaceProps,
 } from "@/components/tasks/tasks-workspace-model";
 import {
+  buildOptimisticTaskStatusUpdate,
+  resolveTasksWorkspaceClosedSheetState,
+  resolveTasksWorkspaceCreateState,
+  resolveTasksWorkspaceDeleteSuccess,
+  resolveTasksWorkspaceEditState,
+  resolveTasksWorkspaceSaveSuccess,
+} from "@/components/tasks/tasks-workspace-runtime-model";
+import {
   createTaskDraft,
   type TaskEditorDraft,
   type TaskGrouping,
@@ -214,11 +222,16 @@ export function useTasksWorkspace({
     }
 
     const nextTask = tasks.find((task) => task.id === taskId);
-    setSelectedTaskId(taskId);
-    setMode("edit");
-    setDraft(createTaskDraft(currentUserId, nextTask));
-    setSheetOpen(true);
-    syncTaskParam(taskId);
+    const nextState = resolveTasksWorkspaceEditState({
+      currentUserId,
+      selectedTask: nextTask ?? null,
+      taskId,
+    });
+    setSelectedTaskId(nextState.selectedTaskId);
+    setMode(nextState.mode);
+    setDraft(nextState.draft);
+    setSheetOpen(nextState.sheetOpen);
+    syncTaskParam(nextState.routeTaskId);
   };
 
   const handleCreateTask = () => {
@@ -226,11 +239,12 @@ export function useTasksWorkspace({
       return;
     }
 
-    setSelectedTaskId(null);
-    setMode("create");
-    setDraft(createTaskDraft(currentUserId));
-    setSheetOpen(true);
-    syncTaskParam(null);
+    const nextState = resolveTasksWorkspaceCreateState(currentUserId);
+    setSelectedTaskId(nextState.selectedTaskId);
+    setMode(nextState.mode);
+    setDraft(nextState.draft);
+    setSheetOpen(nextState.sheetOpen);
+    syncTaskParam(nextState.routeTaskId);
   };
 
   const handleReset = () => {
@@ -242,11 +256,14 @@ export function useTasksWorkspace({
     nextStatus: WorkspaceTask["status"]
   ) => {
     const previous = task;
+    const optimisticNowIso = new Date().toISOString();
 
     patchWorkspaceTask(workspaceId, task.id, (current) => ({
-      ...current,
-      completedAt: nextStatus === "completed" ? new Date().toISOString() : null,
-      status: nextStatus,
+      ...buildOptimisticTaskStatusUpdate({
+        nextStatus,
+        nowIso: optimisticNowIso,
+        task: current,
+      }),
     }));
 
     try {
@@ -288,18 +305,16 @@ export function useTasksWorkspace({
       });
 
       upsertWorkspaceTask(workspaceId, savedTask);
-      if (mode === "create") {
-        setSelectedTaskId(null);
-        setMode("idle");
-        setDraft(null);
-        setSheetOpen(false);
-        syncTaskParam(null);
-      } else {
-        setSelectedTaskId(savedTask.id);
-        setMode("edit");
-        setDraft(createTaskDraft(currentUserId, savedTask));
-        syncTaskParam(savedTask.id);
-      }
+      const nextState = resolveTasksWorkspaceSaveSuccess({
+        currentUserId,
+        mode,
+        savedTask,
+      });
+      setSelectedTaskId(nextState.selectedTaskId);
+      setMode(nextState.mode);
+      setDraft(nextState.draft);
+      setSheetOpen(nextState.sheetOpen);
+      syncTaskParam(nextState.routeTaskId);
       void reloadWorkspaceTasks(workspaceId, { background: true });
     } catch (error) {
       setWorkspaceTaskError(
@@ -320,11 +335,12 @@ export function useTasksWorkspace({
 
     try {
       await deleteWorkspaceTaskRecord(selectedTaskId);
-      setMode("idle");
-      setDraft(null);
-      setSelectedTaskId(null);
-      setSheetOpen(false);
-      syncTaskParam(null);
+      const nextState = resolveTasksWorkspaceDeleteSuccess();
+      setMode(nextState.mode);
+      setDraft(nextState.draft);
+      setSelectedTaskId(nextState.selectedTaskId);
+      setSheetOpen(nextState.sheetOpen);
+      syncTaskParam(nextState.routeTaskId);
       void reloadWorkspaceTasks(workspaceId, { background: true });
     } catch (error) {
       upsertWorkspaceTask(workspaceId, deletedTask);
@@ -373,11 +389,13 @@ export function useTasksWorkspace({
       if (!confirmDiscard()) {
         return;
       }
-      setSheetOpen(false);
-      if (mode === "create") {
-        setDraft(null);
-      }
-      syncTaskParam(null);
+      const nextState = resolveTasksWorkspaceClosedSheetState({
+        draft,
+        mode,
+      });
+      setSheetOpen(nextState.sheetOpen);
+      setDraft(nextState.draft);
+      syncTaskParam(nextState.routeTaskId);
       return;
     }
 
