@@ -1,9 +1,5 @@
-import { generateText, Output, type ToolSet, tool } from "@avenire/ai";
-import type {
-  AgentActivityAction,
-  AgentActivityData,
-} from "@avenire/ai/message-types";
-import { apollo } from "@avenire/ai/models";
+import { type ToolSet, tool } from "@avenire/ai";
+import type { AgentActivityData } from "@avenire/ai/message-types";
 import {
   AVAILABLE_STUDY_SKILLS,
   AVAILABLE_VISUAL_SKILLS,
@@ -21,11 +17,6 @@ import {
   logMisconceptionForTool,
   resolveMisconceptionForTool,
 } from "@/lib/chat-tools/chat-tool-misconception-runtime";
-import {
-  agentSelectionSchema,
-  buildAgentSelectionPrompt,
-  buildFileManagerSelectionPrompt,
-} from "@/lib/chat-tools/chat-tool-models";
 import { executeNoteAgent } from "@/lib/chat-tools/chat-tool-note-agent-runtime";
 import {
   generateFlashcardsFromMisconception,
@@ -33,37 +24,21 @@ import {
   generateQuizFromSource,
 } from "@/lib/chat-tools/chat-tool-study-runtime";
 import {
-  buildCitationMarkdown,
-  matchesTaxonomyScope,
-} from "@/lib/chat-tools/study-tool-helpers";
-import {
-  buildWorkspacePathMaps,
-  getWorkspacePathForFile,
-  resolveFileExcerpt,
-  resolveWorkspaceSearchMatches,
-} from "@/lib/chat-tools/workspace-file-helpers";
-import { listWorkspaceFiles } from "@/lib/file-data";
+  executeAvenireAgent,
+  executeFileManagerAgent,
+  executeSearchMaterials,
+} from "@/lib/chat-tools/chat-tool-workspace-agent-runtime";
+import { matchesTaxonomyScope } from "@/lib/chat-tools/study-tool-helpers";
 import {
   getFlashcardDashboardForUser,
   listDueFlashcardsForUser,
   normalizeFlashcardTaxonomy,
 } from "@/lib/flashcards";
 
-export { getActiveMisconceptionContext } from "@/lib/chat-tools/chat-tool-misconception-runtime";
-
-const DEFAULT_SEARCH_LIMIT = 8;
 const DEFAULT_WEB_SEARCH_LIMIT = 5;
 const _DEFAULT_FILE_LIST_LIMIT = 50;
 const DEFAULT_DUE_CARD_LIMIT = 5;
 const NOTES_FOLDER_NAME = "Notes";
-const AGENT_DEFAULT_MATCH_LIMIT = 10;
-const AGENT_DEFAULT_MAX_FILES = 3;
-const AGENT_MAX_FILE_CHARS = 4000;
-const AGENT_MAX_OUTPUT_TOKENS = 220;
-const FILE_MANAGER_DEFAULT_MAX_FILES = 4;
-const FILE_MANAGER_LIST_LIMIT = 120;
-const FILE_MANAGER_MAX_FILE_CHARS = 5000;
-const FILE_MANAGER_MAX_OUTPUT_TOKENS = 260;
 
 interface ChatToolContext {
   agentActivityId: string;
@@ -76,18 +51,6 @@ interface ChatToolContext {
 
 interface ChatToolOptions {
   legacyShowWidgetSchema?: boolean;
-}
-
-function emitAgentActivityUpdate(
-  ctx: ChatToolContext,
-  actions: AgentActivityAction[],
-  status: AgentActivityData["status"] = "running"
-) {
-  ctx.emitAgentActivity?.({
-    actions,
-    id: ctx.agentActivityId,
-    status,
-  });
 }
 
 async function runWebSearch(
@@ -143,187 +106,14 @@ export function createChatTools(
         "Semantic search over workspace materials with file citations. Use only when the user asks about their files/workspace or requests a workspace search.",
       inputSchema: chatToolSchemas.search_materials.input,
       outputSchema: chatToolSchemas.search_materials.output,
-      execute: async (input) => {
-        const { matches } = await resolveWorkspaceSearchMatches({
-          workspaceId: ctx.workspaceId,
-          userId: ctx.userId,
-          query: input.query,
-          limit: input.limit ?? DEFAULT_SEARCH_LIMIT,
-          mode: input.mode ?? "auto",
-          sourceType: input.sourceType,
-        });
-
-        return {
-          citationMarkdown: buildCitationMarkdown(matches),
-          matches,
-          query: input.query,
-          totalMatches: matches.length,
-        };
-      },
+      execute: async (input) => executeSearchMaterials(ctx, input),
     }),
     avenire_agent: tool({
       description:
         "Run the Avenire retrieval agent to gather workspace context and return a consolidated summary. Use only when the user asks about their files/workspace or explicitly wants workspace context.",
       inputSchema: chatToolSchemas.avenire_agent.input,
       outputSchema: chatToolSchemas.avenire_agent.output,
-      execute: async (input) => {
-        const maxMatches = input.maxMatches ?? AGENT_DEFAULT_MATCH_LIMIT;
-        const maxFiles = input.maxFiles ?? AGENT_DEFAULT_MAX_FILES;
-        const activityActions: AgentActivityAction[] = [
-          {
-            kind: "search",
-            pending: true,
-            value: input.query,
-            preview: { query: input.query, matches: [] },
-          },
-        ];
-
-        emitAgentActivityUpdate(ctx, activityActions, "running");
-
-        const { maps, matches } = await resolveWorkspaceSearchMatches({
-          workspaceId: ctx.workspaceId,
-          userId: ctx.userId,
-          query: input.query,
-          limit: maxMatches,
-          sourceType: undefined,
-        });
-
-        const indexedMatches = matches.map((match, index) => ({
-          index,
-          fileId: match.fileId,
-          snippet: match.snippet,
-          sourceType: match.sourceType,
-          workspacePath: match.workspacePath,
-        }));
-
-        const searchMatches = matches
-          .map((match) => match.workspacePath)
-          .filter(Boolean)
-          .slice(0, 6);
-
-        activityActions[0] = {
-          kind: "search",
-          pending: false,
-          value: input.query,
-          preview: { query: input.query, matches: searchMatches },
-        };
-        emitAgentActivityUpdate(ctx, activityActions, "running");
-
-        let selectedFileIds: string[] = [];
-        if (indexedMatches.length > 0) {
-          const selection = await generateText({
-            model: apollo.languageModel("apollo-agent"),
-            output: Output.object({ schema: agentSelectionSchema }),
-            prompt: buildAgentSelectionPrompt({
-              query: input.query,
-              matches: indexedMatches,
-              maxFiles,
-            }),
-          });
-
-          const selectedIndices = Array.from(
-            new Set(
-              selection.output.indices.filter(
-                (index) =>
-                  Number.isFinite(index) &&
-                  index >= 0 &&
-                  index < indexedMatches.length
-              )
-            )
-          ).slice(0, maxFiles);
-
-          selectedFileIds = selectedIndices
-            .map((index) => indexedMatches[index]?.fileId)
-            .filter((fileId): fileId is string => Boolean(fileId));
-        }
-
-        const readActionIndexByFileId = new Map<string, number>();
-        for (const fileId of selectedFileIds) {
-          const workspacePath =
-            maps.filePathById.get(fileId) ?? "workspace file";
-          readActionIndexByFileId.set(fileId, activityActions.length);
-          activityActions.push({
-            kind: "read",
-            pending: true,
-            value: workspacePath,
-          });
-        }
-
-        if (selectedFileIds.length > 0) {
-          emitAgentActivityUpdate(ctx, activityActions, "running");
-        }
-
-        const files: Array<{
-          excerpt: string;
-          fileId: string | null;
-          workspacePath: string;
-        }> = [];
-
-        for (const fileId of selectedFileIds) {
-          const preview = await resolveFileExcerpt({
-            workspaceId: ctx.workspaceId,
-            fileId,
-            maxChars: AGENT_MAX_FILE_CHARS,
-            maps,
-          });
-          if (preview) {
-            files.push(preview);
-            const actionIndex = readActionIndexByFileId.get(fileId);
-            if (actionIndex !== undefined) {
-              activityActions[actionIndex] = {
-                kind: "read",
-                pending: false,
-                value: preview.workspacePath,
-                preview: {
-                  content: preview.excerpt,
-                  path: preview.workspacePath,
-                },
-              };
-              emitAgentActivityUpdate(ctx, activityActions, "running");
-            }
-          }
-        }
-
-        const contextBlocks =
-          files.length > 0
-            ? files.map(
-                (file) => `File: ${file.workspacePath}\n${file.excerpt.trim()}`
-              )
-            : matches
-                .slice(0, 6)
-                .map(
-                  (match) =>
-                    `Match: ${match.workspacePath}\n${match.snippet.trim()}`
-                );
-
-        const context = contextBlocks.join("\n\n").trim();
-        const summaryResult = await generateText({
-          model: apollo.languageModel("apollo-agent"),
-          prompt: [
-            "Summarize the retrieved workspace context for the user's query.",
-            "Use 2-4 concise sentences.",
-            "If nothing relevant was found, say that clearly.",
-            `Query: ${input.query}`,
-            "Context:",
-            context || "No relevant workspace content found.",
-          ].join("\n\n"),
-          maxOutputTokens: AGENT_MAX_OUTPUT_TOKENS,
-          temperature: 0.3,
-        });
-
-        const summary =
-          summaryResult.text.trim() || "No relevant context found.";
-        emitAgentActivityUpdate(ctx, activityActions, "done");
-
-        return {
-          citationMarkdown: buildCitationMarkdown(matches),
-          citations: matches.slice(0, maxMatches),
-          context: context || "No relevant workspace content found.",
-          files,
-          query: input.query,
-          summary,
-        };
-      },
+      execute: async (input) => executeAvenireAgent(ctx, input),
     }),
     file_manager_agent: tool({
       description: `Inspect and manage workspace files and folders. Handles listing, reading, moving, deleting files, and creating/managing folders. Use when the user asks about their files, wants to organize their workspace, or needs file operations.
@@ -341,159 +131,7 @@ Internal capabilities:
 The agent decides which operations to perform based on the task.`,
       inputSchema: chatToolSchemas.file_manager_agent.input,
       outputSchema: chatToolSchemas.file_manager_agent.output,
-      execute: async (input) => {
-        const maxFiles = input.maxFiles ?? FILE_MANAGER_DEFAULT_MAX_FILES;
-        const activityActions: AgentActivityAction[] = [
-          {
-            kind: "list",
-            pending: true,
-            value: "workspace files",
-          },
-        ];
-
-        emitAgentActivityUpdate(ctx, activityActions, "running");
-
-        const [maps, files] = await Promise.all([
-          buildWorkspacePathMaps(ctx.workspaceId, ctx.userId),
-          listWorkspaceFiles(ctx.workspaceId, ctx.userId),
-        ]);
-
-        const candidateFiles = [...files]
-          .sort(
-            (left, right) =>
-              Date.parse(right.updatedAt) - Date.parse(left.updatedAt)
-          )
-          .slice(0, FILE_MANAGER_LIST_LIMIT)
-          .map((file) => ({
-            fileId: file.id,
-            mimeType: file.mimeType ?? null,
-            updatedAt: file.updatedAt,
-            workspacePath: getWorkspacePathForFile(file, maps),
-          }));
-
-        activityActions[0] = {
-          kind: "list",
-          pending: false,
-          value: "workspace files",
-        };
-        emitAgentActivityUpdate(ctx, activityActions, "running");
-
-        let selectedFileIds: string[] = [];
-        if (candidateFiles.length > 0) {
-          const selection = await generateText({
-            model: apollo.languageModel("apollo-agent"),
-            output: Output.object({ schema: agentSelectionSchema }),
-            prompt: buildFileManagerSelectionPrompt({
-              files: candidateFiles,
-              maxFiles,
-              task: input.task,
-            }),
-          });
-
-          selectedFileIds = Array.from(
-            new Set(
-              selection.output.indices
-                .filter(
-                  (index) =>
-                    Number.isFinite(index) &&
-                    index >= 0 &&
-                    index < candidateFiles.length
-                )
-                .map((index) => candidateFiles[index]?.fileId)
-                .filter((fileId): fileId is string => Boolean(fileId))
-            )
-          ).slice(0, maxFiles);
-        }
-
-        const readActionIndexByFileId = new Map<string, number>();
-        for (const fileId of selectedFileIds) {
-          const workspacePath =
-            maps.filePathById.get(fileId) ?? "workspace file";
-          readActionIndexByFileId.set(fileId, activityActions.length);
-          activityActions.push({
-            kind: "read",
-            pending: true,
-            value: workspacePath,
-          });
-        }
-
-        if (selectedFileIds.length > 0) {
-          emitAgentActivityUpdate(ctx, activityActions, "running");
-        }
-
-        const filesToInspect: Array<{
-          excerpt: string;
-          fileId: string | null;
-          workspacePath: string;
-        }> = [];
-
-        for (const fileId of selectedFileIds) {
-          const preview = await resolveFileExcerpt({
-            workspaceId: ctx.workspaceId,
-            fileId,
-            maxChars: FILE_MANAGER_MAX_FILE_CHARS,
-            maps,
-          });
-
-          if (!preview) {
-            continue;
-          }
-
-          filesToInspect.push(preview);
-          const actionIndex = readActionIndexByFileId.get(fileId);
-          if (actionIndex !== undefined) {
-            activityActions[actionIndex] = {
-              kind: "read",
-              pending: false,
-              value: preview.workspacePath,
-              preview: {
-                content: preview.excerpt,
-                path: preview.workspacePath,
-              },
-            };
-            emitAgentActivityUpdate(ctx, activityActions, "running");
-          }
-        }
-
-        const context =
-          filesToInspect.length > 0
-            ? filesToInspect
-                .map(
-                  (file) =>
-                    `File: ${file.workspacePath}\n${file.excerpt.trim()}`
-                )
-                .join("\n\n")
-            : candidateFiles
-                .slice(0, Math.min(maxFiles, 8))
-                .map(
-                  (file) =>
-                    `Path: ${file.workspacePath}\nMime: ${file.mimeType ?? "unknown"}\nUpdated: ${file.updatedAt}`
-                )
-                .join("\n\n");
-
-        const summaryResult = await generateText({
-          model: apollo.languageModel("apollo-agent"),
-          prompt: [
-            "You are a file manager agent.",
-            "Summarize the relevant workspace files for the task.",
-            "Do not claim that any files were moved or deleted unless that already happened outside this tool.",
-            "If the task is ambiguous, say what still needs clarification.",
-            `Task: ${input.task}`,
-            "Context:",
-            context || "No relevant files found.",
-          ].join("\n\n"),
-          maxOutputTokens: FILE_MANAGER_MAX_OUTPUT_TOKENS,
-          temperature: 0.2,
-        });
-
-        emitAgentActivityUpdate(ctx, activityActions, "done");
-
-        return {
-          files: filesToInspect,
-          summary: summaryResult.text.trim() || "No relevant files found.",
-          task: input.task,
-        };
-      },
+      execute: async (input) => executeFileManagerAgent(ctx, input),
     }),
     note_agent: tool({
       description: `Manage markdown notes in the workspace. Handles creating, reading, and updating notes. Use when the user asks about their notes or wants to create/modify notes.
