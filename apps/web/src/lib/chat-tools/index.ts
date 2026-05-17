@@ -19,20 +19,40 @@ import { logInfo } from "@avenire/observability";
 import { tavily } from "@tavily/core";
 import { z } from "zod";
 import {
+  buildNoteContent,
+  extractTagDirective,
+  getFileTags,
+  normalizeTagList,
+  parseRequestedNoteDestination,
+  sanitizeNoteTitle,
+  stripLeadingTitleHeading,
+  type TagDirective,
+  toMarkdownFileName,
+} from "@/lib/chat-tools/note-file-helpers";
+import {
+  buildWorkspacePathMaps,
+  type ExplorerFileLike,
+  ensureWritableTargetFolder,
+  fetchWorkspaceFileText,
+  findTargetNoteFile,
+  getWorkspacePathForFile,
+  isMarkdownFile,
+  normalizeWorkspacePath,
+  publishTreeMutationEvents,
+  resolveFileExcerpt,
+  resolveFolderIdByPathHint,
+  resolveWorkspaceSearchMatches,
+  type WorkspacePathMaps,
+} from "@/lib/chat-tools/workspace-file-helpers";
+import {
   createFolder,
   createWorkspaceNoteFile,
   getFileAssetById,
-  getNoteContent,
-  isMarkdownFileRecord,
-  isSharedFilesVirtualFolderId,
   listWorkspaceFiles,
-  listWorkspaceFolders,
   updateFileAsset,
   updateNoteContent,
   userCanEditFile,
-  userCanEditFolder,
 } from "@/lib/file-data";
-import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
 import {
   createFlashcardCardForUser,
   createFlashcardSetForUser,
@@ -61,8 +81,6 @@ const DEFAULT_SEARCH_LIMIT = 8;
 const DEFAULT_WEB_SEARCH_LIMIT = 5;
 const _DEFAULT_FILE_LIST_LIMIT = 50;
 const DEFAULT_DUE_CARD_LIMIT = 5;
-const DEFAULT_NOTE_MAX_CHARS = 16_000;
-const NOTE_TEXT_BYTE_LIMIT = 512_000;
 const STUDY_SOURCE_CHAR_LIMIT = 18_000;
 const STUDY_QUERY_MATCH_LIMIT = 8;
 const NOTES_FOLDER_NAME = "Notes";
@@ -93,13 +111,6 @@ interface ChatToolContext {
 
 interface ChatToolOptions {
   legacyShowWidgetSchema?: boolean;
-}
-
-type ExplorerFileLike = Awaited<ReturnType<typeof listWorkspaceFiles>>[number];
-
-interface WorkspacePathMaps {
-  filePathById: Map<string, string>;
-  folderPathById: Map<string, string>;
 }
 
 function normalizeMisconceptionField(value: string, maxLength: number) {
@@ -351,159 +362,6 @@ function emitAgentActivityUpdate(
   });
 }
 
-function slugifyTitle(value: string) {
-  const normalized = value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-
-  return normalized.length > 0 ? normalized.slice(0, 80) : "untitled-note";
-}
-
-function toMarkdownFileName(title: string) {
-  const base = slugifyTitle(title);
-  return base.endsWith(".md") ? base : `${base}.md`;
-}
-
-function sanitizeNoteTitle(value: string | null | undefined) {
-  const normalized = (value ?? "")
-    .replace(/^["'`#\s]+|["'`#\s]+$/g, "")
-    .replace(/\s+/g, " ")
-    .replace(/[.:;,!?]+$/g, "")
-    .trim()
-    .slice(0, 120);
-
-  return normalized.length > 0 ? normalized : "Untitled Note";
-}
-
-function stripNoteExtension(value: string) {
-  return value.replace(/\.(md|mdx|txt)$/i, "");
-}
-
-function normalizeNoteFileName(value: string) {
-  const trimmed = value.trim().replace(/^\/+|\/+$/g, "");
-  if (!trimmed) {
-    return "untitled-note.md";
-  }
-
-  if (/\.(md|mdx|txt)$/i.test(trimmed)) {
-    return trimmed;
-  }
-
-  return `${trimmed}.md`;
-}
-
-function extractQuotedValues(task: string) {
-  return Array.from(task.matchAll(/["']([^"']+)["']/g))
-    .map((match) => match[1]?.trim() ?? "")
-    .filter(Boolean);
-}
-
-function parseRequestedNoteDestination(task: string) {
-  const quotedValues = extractQuotedValues(task);
-  const nonPathQuotedValues = quotedValues.filter(
-    (value) => !(value.includes("/") || /\.(md|mdx|txt)$/i.test(value))
-  );
-  const explicitPathCandidate =
-    quotedValues.find((value) => value.includes("/") && /\.\w+$/.test(value)) ??
-    task
-      .match(
-        /(?:in|under|inside|at|to)\s+["']?([^"'\n]+?\.(?:md|mdx|txt))["']?/i
-      )?.[1]
-      ?.trim() ??
-    null;
-
-  if (explicitPathCandidate) {
-    const cleaned = explicitPathCandidate.replace(/^\/+|\/+$/g, "");
-    const parts = cleaned.split("/").filter(Boolean);
-    const fileName = parts.pop() ?? cleaned;
-
-    return {
-      fileName: normalizeNoteFileName(fileName),
-      folderHint: parts.join("/"),
-      title: stripNoteExtension(fileName),
-    };
-  }
-
-  const fileNameCandidate =
-    task
-      .match(
-        /(?:filename|file name)\s*:?\s*["']?([^"'\n]+?(?:\.(?:md|mdx|txt)))["']?/i
-      )?.[1]
-      ?.trim() ??
-    task
-      .match(
-        /(?:named|called)\s+["']?([^"'\n]+?\.(?:md|mdx|txt))["']?(?=(?:\s+(?:in|under|inside|at|to|with)\b|$))/i
-      )?.[1]
-      ?.trim() ??
-    null;
-
-  const folderHint =
-    quotedValues.find(
-      (value) => value.includes("/") && !/\.\w+$/.test(value)
-    ) ??
-    task
-      .match(
-        /(?:in|under|inside|at|to)\s+["']?([^"'\n]+(?:\/[^"'\n]+)*)["']?(?=(?:\s+(?:named|called|filename|file name|title|about|with)\b|$))/i
-      )?.[1]
-      ?.trim() ??
-    "";
-
-  const titleMatch =
-    task.match(/(?:^|\n)\s*title\s*:\s*([^\n]+)/i)?.[1]?.trim() ??
-    task
-      .match(
-        /\b(?:title(?:d)?(?:\s+as)?|named|called)\s+["']?([^"'\n]+?)["']?(?=(?:\s+(?:in|under|inside|at|to|with)\b|$))/i
-      )?.[1]
-      ?.trim() ??
-    task
-      .match(
-        /\babout\s+["']?([^"'\n]+?)["']?(?=(?:\s+(?:with|in|under|inside|at|to|and)\b|[?.!,]|$))/i
-      )?.[1]
-      ?.trim() ??
-    nonPathQuotedValues[0] ??
-    null;
-  const fileName = fileNameCandidate
-    ? normalizeNoteFileName(fileNameCandidate)
-    : null;
-
-  return {
-    fileName,
-    folderHint,
-    title:
-      titleMatch || fileName
-        ? sanitizeNoteTitle(
-            titleMatch ?? (fileName ? stripNoteExtension(fileName) : null)
-          )
-        : null,
-  };
-}
-
-function isMarkdownFile(file: ExplorerFileLike) {
-  const mime = file.mimeType?.toLowerCase() ?? "";
-  const name = file.name.toLowerCase();
-  return (
-    mime.startsWith("text/markdown") ||
-    mime.startsWith("text/plain") ||
-    name.endsWith(".md") ||
-    name.endsWith(".mdx") ||
-    name.endsWith(".txt")
-  );
-}
-
-function buildNoteContent(params: { content: string; title: string }) {
-  const normalizedContent = params.content.trim();
-  return `# ${params.title}\n\n${normalizedContent}\n`;
-}
-
-function stripLeadingTitleHeading(markdown: string, title: string) {
-  const escapedTitle = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return markdown
-    .replace(new RegExp(`^#\\s+${escapedTitle}\\s*\\n+`, "i"), "")
-    .trim();
-}
-
 async function generateNoteDraftFromTask(input: {
   task: string;
   titleHint?: string | null;
@@ -557,68 +415,9 @@ async function rewriteNoteFromTask(input: {
   return `${result.output.markdown.trim()}\n`;
 }
 
-function normalizeTagList(tags: string[]) {
-  return Array.from(
-    new Set(tags.map((tag) => tag.trim()).filter(Boolean))
-  ).slice(0, 24);
-}
-
-function getFileTags(file: ExplorerFileLike) {
-  const property = file.page?.properties?.tags;
-  if (!(property && property.type === "multi_select")) {
-    return [];
-  }
-  return normalizeTagList(property.value);
-}
-
-function extractTagDirective(
-  task: string
-):
-  | { action: "add"; tags: string[] }
-  | { action: "remove"; tags: string[] }
-  | { action: "replace"; tags: string[] }
-  | null {
-  const clearMatch = task.match(/\bclear\s+tags?\b/i);
-  if (clearMatch) {
-    return { action: "replace", tags: [] };
-  }
-
-  const replaceMatch =
-    task.match(/\btags?\s*:\s*([^\n]+)/i) ??
-    task.match(/\b(?:set|update|change)\s+tags?\s+(?:to|as)\s+([^\n]+)/i);
-  if (replaceMatch?.[1]) {
-    return {
-      action: "replace",
-      tags: normalizeTagList(
-        replaceMatch[1]
-          .split(/[,\n]/)
-          .map((entry) => entry.replace(/^and\s+/i, "").trim())
-      ),
-    };
-  }
-
-  const addMatch = task.match(/\badd\s+tags?\s+([^\n]+)/i);
-  if (addMatch?.[1]) {
-    return {
-      action: "add",
-      tags: normalizeTagList(addMatch[1].split(/[,\n]/)),
-    };
-  }
-
-  const removeMatch = task.match(/\bremove\s+tags?\s+([^\n]+)/i);
-  if (removeMatch?.[1]) {
-    return {
-      action: "remove",
-      tags: normalizeTagList(removeMatch[1].split(/[,\n]/)),
-    };
-  }
-
-  return null;
-}
-
 async function updateFileTags(params: {
   file: ExplorerFileLike;
-  tagDirective: ReturnType<typeof extractTagDirective>;
+  tagDirective: TagDirective | null;
   userId: string;
   workspaceId: string;
 }) {
@@ -749,381 +548,6 @@ function inferFlashcardTaxonomy(input: {
   );
 }
 
-async function buildWorkspacePathMaps(
-  workspaceId: string,
-  userId: string
-): Promise<WorkspacePathMaps> {
-  const [folders, files] = await Promise.all([
-    listWorkspaceFolders(workspaceId, userId),
-    listWorkspaceFiles(workspaceId, userId),
-  ]);
-
-  const folderById = new Map(folders.map((folder) => [folder.id, folder]));
-  const folderPathCache = new Map<string, string>();
-
-  const getFolderPath = (folderId: string | null): string => {
-    if (!folderId) {
-      return "";
-    }
-
-    const cached = folderPathCache.get(folderId);
-    if (typeof cached === "string") {
-      return cached;
-    }
-
-    const folder = folderById.get(folderId);
-    if (!folder) {
-      return "";
-    }
-
-    const parentPath = getFolderPath(folder.parentId);
-    const currentSegment = folder.parentId === null ? "" : folder.name;
-    const nextPath = [parentPath, currentSegment].filter(Boolean).join("/");
-    folderPathCache.set(folderId, nextPath);
-    return nextPath;
-  };
-
-  const filePathById = new Map<string, string>();
-  for (const folder of folders) {
-    getFolderPath(folder.id);
-  }
-  for (const file of files) {
-    const folderPath = getFolderPath(file.folderId);
-    filePathById.set(
-      file.id,
-      [folderPath, file.name].filter(Boolean).join("/")
-    );
-  }
-
-  return {
-    filePathById,
-    folderPathById: folderPathCache,
-  };
-}
-
-async function fetchWorkspaceFileText(
-  file: ExplorerFileLike,
-  maxChars = DEFAULT_NOTE_MAX_CHARS
-) {
-  if (!isMarkdownFile(file)) {
-    throw new Error("Only markdown and text files can be read as notes.");
-  }
-
-  if (isMarkdownFileRecord(file)) {
-    const note = await getNoteContent(file.id);
-    const text =
-      note?.content ??
-      (await fetch(file.storageUrl, { cache: "no-store" }).then(
-        async (response) => {
-          if (!response.ok) {
-            throw new Error(
-              `Failed to fetch file content (${response.status}).`
-            );
-          }
-          return response.text();
-        }
-      ));
-    if (Buffer.byteLength(text, "utf8") > NOTE_TEXT_BYTE_LIMIT) {
-      throw new Error("The note is too large to load into chat context.");
-    }
-    return text.slice(0, Math.max(250, maxChars));
-  }
-
-  const response = await fetch(file.storageUrl, { cache: "no-store" });
-  if (!response.ok) {
-    throw new Error(`Failed to fetch file content (${response.status}).`);
-  }
-
-  const text = await response.text();
-  if (Buffer.byteLength(text, "utf8") > NOTE_TEXT_BYTE_LIMIT) {
-    throw new Error("The note is too large to load into chat context.");
-  }
-
-  return text.slice(0, Math.max(250, maxChars));
-}
-
-function getWorkspacePathForFile(
-  file: Pick<ExplorerFileLike, "id" | "name">,
-  maps: WorkspacePathMaps
-) {
-  return maps.filePathById.get(file.id) ?? file.name ?? "Untitled file";
-}
-
-function normalizeWorkspacePath(value: string) {
-  return value
-    .trim()
-    .replace(/^\/+|\/+$/g, "")
-    .replace(/\/{2,}/g, "/")
-    .toLowerCase();
-}
-
-function resolveFolderIdByPathHint(
-  maps: WorkspacePathMaps,
-  rootFolderId: string,
-  hint?: string
-) {
-  if (typeof hint !== "string") {
-    return null;
-  }
-
-  const normalizedHint = normalizeWorkspacePath(hint);
-  if (!normalizedHint) {
-    return rootFolderId;
-  }
-
-  for (const [folderId, folderPath] of maps.folderPathById.entries()) {
-    if (normalizeWorkspacePath(folderPath) === normalizedHint) {
-      return folderId;
-    }
-  }
-
-  if (normalizedHint.includes("/")) {
-    return null;
-  }
-
-  let matchedFolderId: string | null = null;
-  for (const [folderId, folderPath] of maps.folderPathById.entries()) {
-    const normalizedPath = normalizeWorkspacePath(folderPath);
-    if (
-      normalizedPath === normalizedHint ||
-      normalizedPath.endsWith(`/${normalizedHint}`)
-    ) {
-      if (matchedFolderId) {
-        return null;
-      }
-      matchedFolderId = folderId;
-    }
-  }
-
-  if (matchedFolderId) {
-    return matchedFolderId;
-  }
-
-  if (normalizedHint === "root" || normalizedHint === "workspace") {
-    return rootFolderId;
-  }
-
-  return null;
-}
-
-function resolveFileIdByPathHint(maps: WorkspacePathMaps, hint?: string) {
-  if (typeof hint !== "string") {
-    return null;
-  }
-
-  const normalizedHint = normalizeWorkspacePath(hint);
-  if (!normalizedHint) {
-    return null;
-  }
-
-  for (const [fileId, filePath] of maps.filePathById.entries()) {
-    if (normalizeWorkspacePath(filePath) === normalizedHint) {
-      return fileId;
-    }
-  }
-
-  if (normalizedHint.includes("/")) {
-    return null;
-  }
-
-  let matchedFileId: string | null = null;
-  for (const [fileId, filePath] of maps.filePathById.entries()) {
-    const normalizedPath = normalizeWorkspacePath(filePath);
-    if (
-      normalizedPath === normalizedHint ||
-      normalizedPath.endsWith(`/${normalizedHint}`)
-    ) {
-      if (matchedFileId) {
-        return null;
-      }
-      matchedFileId = fileId;
-    }
-  }
-
-  return matchedFileId;
-}
-
-async function readWorkspaceFileContent(params: {
-  workspaceId: string;
-  file: ExplorerFileLike;
-  maps: WorkspacePathMaps;
-  maxChars?: number;
-}) {
-  const workspacePath = getWorkspacePathForFile(params.file, params.maps);
-  const maxChars = params.maxChars ?? DEFAULT_NOTE_MAX_CHARS;
-
-  if (isMarkdownFile(params.file)) {
-    return {
-      content: await fetchWorkspaceFileText(params.file, maxChars),
-      fileId: params.file.id,
-      mimeType: params.file.mimeType ?? null,
-      name: params.file.name,
-      readMode: "text" as const,
-      updatedAt: params.file.updatedAt,
-      workspacePath,
-    };
-  }
-
-  const summary = await getIngestionSummaryForFile(
-    params.workspaceId,
-    params.file.id
-  );
-  const summaryChunks =
-    summary?.resources.flatMap((resource) => resource.chunks) ?? [];
-
-  const content = summaryChunks
-    .slice(0, 5)
-    .map((chunk) => chunk.content.trim())
-    .filter(Boolean)
-    .join("\n\n")
-    .slice(0, Math.max(250, maxChars));
-
-  if (!content) {
-    throw new Error(
-      "No readable content is available for this file yet. Try get_file_summary after ingestion finishes."
-    );
-  }
-
-  return {
-    content,
-    fileId: params.file.id,
-    mimeType: params.file.mimeType ?? null,
-    name: params.file.name,
-    readMode: "summary" as const,
-    updatedAt: params.file.updatedAt,
-    workspacePath,
-  };
-}
-
-async function publishTreeMutationEvents(input: {
-  fileId?: string | null;
-  folderId?: string | null;
-  reason: "file.created" | "file.deleted" | "file.updated";
-  workspaceId: string;
-}) {
-  await Promise.allSettled([
-    publishFilesInvalidationEvent({
-      workspaceUuid: input.workspaceId,
-      folderId: input.folderId ?? undefined,
-      fileId: input.fileId ?? undefined,
-      reason: input.reason,
-    }),
-    publishFilesInvalidationEvent({
-      workspaceUuid: input.workspaceId,
-      reason: "tree.changed",
-    }),
-  ]);
-}
-
-function findTargetNoteFile(params: {
-  maps: WorkspacePathMaps;
-  noteFiles: ExplorerFileLike[];
-  task: string;
-}) {
-  const destination = parseRequestedNoteDestination(params.task);
-  const directPath =
-    (destination.folderHint && destination.fileName
-      ? `${destination.folderHint}/${destination.fileName}`
-      : destination.fileName) ?? undefined;
-  const resolvedByPath = resolveFileIdByPathHint(params.maps, directPath);
-
-  if (resolvedByPath) {
-    return params.noteFiles.find((file) => file.id === resolvedByPath) ?? null;
-  }
-
-  const normalizedTitle = stripNoteExtension(
-    destination.title ?? ""
-  ).toLowerCase();
-  if (normalizedTitle) {
-    const exactMatches = params.noteFiles.filter(
-      (file) => stripNoteExtension(file.name).toLowerCase() === normalizedTitle
-    );
-    if (exactMatches.length === 1) {
-      return exactMatches[0];
-    }
-  }
-
-  return params.noteFiles.length === 1 ? params.noteFiles[0] : null;
-}
-
-function mapSearchResultsToCitations(params: {
-  maps: WorkspacePathMaps;
-  results: Awaited<ReturnType<typeof retrieveWorkspaceChunksShared>>["results"];
-}) {
-  return params.results.map((match) => ({
-    chunkId: match.chunkId,
-    endMs: match.endMs ?? null,
-    fileId: match.fileId,
-    page: match.page ?? null,
-    score: match.score,
-    snippet: match.content,
-    sourceType: match.sourceType,
-    startMs: match.startMs ?? null,
-    title: match.title ?? null,
-    workspacePath:
-      (match.fileId ? params.maps.filePathById.get(match.fileId) : null) ??
-      match.title ??
-      match.source,
-  }));
-}
-
-async function resolveWorkspaceSearchMatches(params: {
-  workspaceId: string;
-  userId: string;
-  query: string;
-  limit: number;
-  mode?: z.infer<typeof chatToolSchemas.search_materials.input>["mode"];
-  sourceType?: z.infer<
-    typeof chatToolSchemas.search_materials.input
-  >["sourceType"];
-}) {
-  const result = await retrieveWorkspaceChunksShared({
-    query: params.query,
-    limit: params.limit,
-    mode: params.mode,
-    origin: "chat",
-    sourceType: params.sourceType,
-    userId: params.userId,
-    workspaceId: params.workspaceId,
-  });
-  const maps = await buildWorkspacePathMaps(params.workspaceId, params.userId);
-  const matches = mapSearchResultsToCitations({
-    maps,
-    results: result.results,
-  });
-
-  return { maps, matches };
-}
-
-async function resolveFileExcerpt(params: {
-  workspaceId: string;
-  fileId: string;
-  maxChars: number;
-  maps: WorkspacePathMaps;
-}) {
-  const file = await getFileAssetById(params.workspaceId, params.fileId);
-  if (!file) {
-    return null;
-  }
-
-  try {
-    const result = await readWorkspaceFileContent({
-      workspaceId: params.workspaceId,
-      file,
-      maps: params.maps,
-      maxChars: params.maxChars,
-    });
-
-    return {
-      excerpt: result.content,
-      fileId: result.fileId,
-      workspacePath: result.workspacePath,
-    };
-  } catch {
-    return null;
-  }
-}
-
 function buildAgentSelectionPrompt(params: {
   query: string;
   matches: Array<{
@@ -1186,25 +610,6 @@ function buildFileManagerSelectionPrompt(params: {
     "Workspace files:",
     fileLines,
   ].join("\n\n");
-}
-
-async function ensureWritableTargetFolder(
-  ctx: ChatToolContext,
-  folderId: string
-) {
-  if (isSharedFilesVirtualFolderId(folderId, ctx.workspaceId)) {
-    throw new Error("Files cannot be moved into Shared Files.");
-  }
-
-  const canEdit = await userCanEditFolder({
-    workspaceId: ctx.workspaceId,
-    folderId,
-    userId: ctx.userId,
-  });
-
-  if (!canEdit) {
-    throw new Error("The destination folder is read-only.");
-  }
 }
 
 async function ensureNotesFolder(input: {
