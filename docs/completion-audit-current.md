@@ -68,7 +68,7 @@ Assessment:
 
 Current measured app-level hotspots:
 
-- `apps/web/src/components/files/explorer.tsx` — `686` lines
+- `apps/web/src/components/files/explorer.tsx` — `517` lines
 - `apps/web/src/components/dashboard/sidebar-files-panel.tsx` — `55` lines
 - `apps/web/src/components/chat/multimodal-input.tsx` — `60` lines
 - `apps/web/src/components/settings/data-imports-section.tsx` — `14` lines
@@ -117,6 +117,7 @@ Current evidence in the no-sync repo:
 - `logs/2026-05-17-chat-provider-config-proof.md`
 - `logs/2026-05-17-instruction-evidence-matrix.md`
 - `logs/2026-05-17-chat-failure-recovery-proof.md`
+- `logs/2026-05-17-explorer-dead-slice-removal.md`
 
 Assessment:
 
