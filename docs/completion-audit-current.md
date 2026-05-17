@@ -78,9 +78,9 @@ Current measured app-level hotspots:
 - `apps/web/src/components/marketing/icons/general.tsx` — `496` lines
 - `apps/web/src/components/files/explorer/explorer-upload-batch.ts` — `446` lines
 - `apps/web/src/components/chat/use-chat-runtime.ts` — `445` lines
-- `apps/web/src/components/files/explorer/use-explorer-file-action-operations.ts` — `443` lines
 - `apps/web/src/components/tasks/use-tasks-workspace.ts` — `429` lines
 - `apps/web/src/components/chat/mermaid.tsx` — `428` lines
+- `apps/web/src/components/files/explorer/use-explorer-file-action-operations.ts` — `422` lines
 - `apps/web/src/components/files/explorer/use-file-preview-pane-header.tsx` — `423` lines
 - `apps/web/src/components/files/explorer/use-explorer-pane-surfaces.ts` — `419` lines
 - `apps/web/src/components/chat/use-chat-scroll.ts` — `409` lines
@@ -111,6 +111,7 @@ Recent verified reductions already landed and were pushed:
 - `preview-attachment-content.tsx` — `455` -> `8`
 - `multimodal-input-surface.tsx` — `428` -> `46`
 - `use-chat-scroll.ts` — `434` -> `409` with a new `chat-scroll-model.ts` pure policy owner
+- `use-explorer-file-action-operations.ts` — `443` -> `422` with a new `explorer-file-action-operations-model.ts` policy owner
 - `command-palette-groups.tsx` — `444` -> `17`
 - `dashboard-sidebar-content.tsx` — `449` -> `150`
 - `explorer-browse-surface.tsx` — `417` -> `14`
@@ -189,6 +190,7 @@ Current evidence in the no-sync repo:
 - `logs/2026-05-17-chat-thin-wrapper.md`
 - `logs/2026-05-17-multimodal-input-surface-split.md`
 - `logs/2026-05-17-chat-scroll-model-extraction.md`
+- `logs/2026-05-17-explorer-file-action-operations-model-extraction.md`
 
 Assessment:
 

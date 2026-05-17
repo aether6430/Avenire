@@ -3,6 +3,13 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
 import {
+  buildMoveFolderHistoryEntry,
+  canMoveExplorerFolder,
+  describeExplorerHardReingestSuccessCount,
+  resolveBulkMutationHistoryOutcome,
+  resolveExplorerHardReingestFiles,
+} from "@/components/files/explorer/explorer-file-action-operations-model";
+import {
   duplicateExplorerItemTransport,
   moveExplorerFolderTransport,
   queueExplorerHardReingestTransport,
@@ -19,8 +26,6 @@ import {
   buildMoveMutationHistoryItems,
   type FileMutationHistoryEntry,
   filterWritableBulkActionItems,
-  getMutationHistoryItemKey,
-  getSuccessfulBulkMutationKeys,
   resolveBulkActionItemsFromContext,
   resolveBulkActionItemsFromSelection,
 } from "@/components/files/explorer/workspace-bulk-operations-model";
@@ -90,28 +95,15 @@ export function useExplorerFileActionOperations({
 
   const moveFolder = useCallback(
     async (folderId: string, targetFolderId: string) => {
-      if (!workspaceUuid) {
+      if (
+        !canMoveExplorerFolder({
+          allFolders,
+          folderId,
+          targetFolderId,
+          workspaceUuid,
+        })
+      ) {
         return;
-      }
-
-      const folder = allFolders.find((entry) => entry.id === folderId);
-      const targetFolder = allFolders.find(
-        (entry) => entry.id === targetFolderId
-      );
-      if (folder?.readOnly || targetFolder?.readOnly) {
-        return;
-      }
-      if (folderId === targetFolderId) {
-        return;
-      }
-
-      const byId = new Map(allFolders.map((entry) => [entry.id, entry]));
-      let cursor = byId.get(targetFolderId);
-      while (cursor?.parentId) {
-        if (cursor.parentId === folderId) {
-          return;
-        }
-        cursor = byId.get(cursor.parentId);
       }
 
       await moveExplorerFolderTransport({
@@ -120,21 +112,13 @@ export function useExplorerFileActionOperations({
         workspaceUuid,
       });
 
-      if (folder?.parentId) {
-        pushMutationHistoryEntry(
-          {
-            items: [
-              {
-                fromFolderId: folder.parentId,
-                id: folder.id,
-                kind: "folder",
-                toFolderId: targetFolderId,
-              },
-            ],
-            operation: "move",
-          },
-          1
-        );
+      const historyEntry = buildMoveFolderHistoryEntry({
+        allFolders,
+        folderId,
+        targetFolderId,
+      });
+      if (historyEntry) {
+        pushMutationHistoryEntry(historyEntry, 1);
       }
 
       await refreshExplorerView();
@@ -190,11 +174,12 @@ export function useExplorerFileActionOperations({
         items: writableItems,
         operation: "delete",
       });
-      const successfulKeys = getSuccessfulBulkMutationKeys(result);
-      const successfulItems = writableItems.filter((item) =>
-        successfulKeys.has(getMutationHistoryItemKey(item))
+      const { successfulItems, totalCount } = resolveBulkMutationHistoryOutcome(
+        {
+          items: writableItems,
+          result,
+        }
       );
-      const totalCount = result?.summary?.total ?? writableItems.length;
 
       if (successfulItems.length > 0) {
         pushMutationHistoryEntry(
@@ -244,11 +229,12 @@ export function useExplorerFileActionOperations({
         operation: "move",
         targetFolderId,
       });
-      const successfulKeys = getSuccessfulBulkMutationKeys(result);
-      const successfulItems = moveHistoryItems.filter((item) =>
-        successfulKeys.has(getMutationHistoryItemKey(item))
+      const { successfulItems, totalCount } = resolveBulkMutationHistoryOutcome(
+        {
+          items: moveHistoryItems,
+          result,
+        }
       );
-      const totalCount = result?.summary?.total ?? items.length;
 
       if (successfulItems.length > 0) {
         pushMutationHistoryEntry(
@@ -341,14 +327,11 @@ export function useExplorerFileActionOperations({
         return;
       }
 
-      const filesToReingest = filterWritableBulkActionItems({
-        files: allFiles,
-        folders: allFolders,
+      const filesToReingest = resolveExplorerHardReingestFiles({
+        allFiles,
+        allFolders,
         items,
-      })
-        .filter((item) => item.kind === "file")
-        .map((item) => allFiles.find((entry) => entry.id === item.id))
-        .filter((file): file is FileRecord => Boolean(file));
+      });
 
       if (filesToReingest.length === 0) {
         return;
@@ -374,11 +357,7 @@ export function useExplorerFileActionOperations({
         return;
       }
 
-      toast.success(
-        succeeded === 1
-          ? "File queued for hard re-ingestion."
-          : `${succeeded} files queued for hard re-ingestion.`
-      );
+      toast.success(describeExplorerHardReingestSuccessCount(succeeded));
       await refreshExplorerView({ silentFolder: true });
     },
     [allFiles, allFolders, refreshExplorerView, workspaceUuid]
