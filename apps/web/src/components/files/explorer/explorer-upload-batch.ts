@@ -15,6 +15,13 @@ import {
 import type { FolderRecord } from "@/components/files/explorer/shared";
 import { getUploadErrorMessage } from "@/lib/upload";
 import { requestUploadPreflight } from "@/lib/upload-preflight";
+import {
+  applyExplorerDedupeHitsToQueue,
+  applyExplorerRegisterFailureToQueue,
+  applyExplorerRegisterResultsToQueue,
+  countSuccessfulExplorerRegisterResults,
+  type ExplorerBulkRegisterResult,
+} from "./explorer-upload-batch-model";
 
 export interface UploadResultLike {
   contentType?: string;
@@ -25,13 +32,7 @@ export interface UploadResultLike {
 }
 
 interface BulkRegisterResponse {
-  results?: Array<{
-    clientUploadId: string;
-    error?: string;
-    file?: { id?: string };
-    ingestionJob?: { id?: string } | null;
-    status: "failed" | "ok";
-  }>;
+  results?: ExplorerBulkRegisterResult[];
   summary?: {
     failed?: number;
     succeeded?: number;
@@ -272,19 +273,7 @@ export async function runExplorerUploadBatch({
   if (dedupeHitByQueueId.size > 0) {
     successCount += dedupeHitByQueueId.size;
     setUploadQueue((previous) =>
-      previous.map((item) => {
-        const hit = dedupeHitByQueueId.get(item.id);
-        if (!hit) {
-          return item;
-        }
-        return {
-          ...item,
-          error: undefined,
-          failureCount: 0,
-          fileId: hit.fileId,
-          status: "uploaded",
-        };
-      })
+      applyExplorerDedupeHitsToQueue(previous, dedupeHitByQueueId)
     );
   }
 
@@ -424,39 +413,13 @@ export async function runExplorerUploadBatch({
       }
 
       const payload = (await registerResponse.json()) as BulkRegisterResponse;
-      const resultMap = new Map(
-        (payload.results ?? []).map((result) => [result.clientUploadId, result])
+      const chunkSucceeded = countSuccessfulExplorerRegisterResults(
+        payload.results ?? []
       );
-      const chunkSucceeded = (payload.results ?? []).filter(
-        (result) => result.status === "ok"
-      ).length;
       successCount += chunkSucceeded;
 
       setUploadQueue((previous) =>
-        previous.map((item) => {
-          const result = resultMap.get(item.id);
-          if (!result) {
-            return item;
-          }
-
-          if (result.status === "ok") {
-            return {
-              ...item,
-              error: undefined,
-              failureCount: 0,
-              fileId: result.file?.id,
-              ingestionJobId: result.ingestionJob?.id,
-              status: result.ingestionJob?.id ? "ingesting" : "uploaded",
-            };
-          }
-
-          return {
-            ...item,
-            error: result.error ?? "File metadata registration failed",
-            failureCount: (item.failureCount ?? 0) + 1,
-            status: "failed",
-          };
-        })
+        applyExplorerRegisterResultsToQueue(previous, payload.results ?? [])
       );
 
       if (chunkSucceeded > 0) {
@@ -471,16 +434,7 @@ export async function runExplorerUploadBatch({
           : "File metadata registration failed";
       const queueItemIds = registerChunk.map((entry) => entry.queueItemId);
       setUploadQueue((previous) =>
-        previous.map((item) =>
-          queueItemIds.includes(item.id)
-            ? {
-                ...item,
-                error: message,
-                failureCount: (item.failureCount ?? 0) + 1,
-                status: "failed",
-              }
-            : item
-        )
+        applyExplorerRegisterFailureToQueue(previous, queueItemIds, message)
       );
     }
   }

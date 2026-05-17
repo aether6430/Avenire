@@ -58,7 +58,7 @@ Status legend:
 | --- | --- | --- |
 | reduce god files and monolithic modules where they block development | `partial` | Former hotspots like `app-sidebar.tsx`, `command-palette.tsx`, `student-calendar.tsx`, `student-calendar-desktop.tsx`, `student-calendar-desktop-surface.tsx`, `onboarding-modal-steps.tsx`, `rolling-tool-activity-surface.tsx`, `rolling-reasoning.tsx`, `markdown.tsx`, `use-chat-runtime.ts`, `multimodal-input.tsx`, `data-imports-section.tsx`, and `sidebar-files-panel.tsx` were reduced dramatically. |
 | keep abstractions honest and local | `met` | Recent reductions consistently wrapped existing local hooks/models rather than inventing compatibility shims. |
-| make repo easier to change correctly after refactor | `partial` | Many shells are slimmer. Remaining pressure is now distributed across files like `particle-field.tsx`, the chat-runtime/reasoning clusters, and the explorer cluster instead of one giant explorer shell. |
+| make repo easier to change correctly after refactor | `partial` | Many shells are slimmer. Remaining pressure is now distributed across files like `particle-field.tsx`, the chat-runtime/reasoning cluster, and the explorer/files cluster instead of one giant explorer shell. |
 | avoid over-advanced refactors that do not improve codability | `met` | Recent changes stayed surgical and aligned with existing boundaries. |
 
 ## Workstream 5: UI polish and consistency
