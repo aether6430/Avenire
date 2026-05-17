@@ -80,6 +80,7 @@ Current measured app-level hotspots:
 - `apps/web/src/components/chat/use-chat-runtime.ts` — `447` lines
 - `apps/web/src/components/files/explorer/explorer-inspector-pane.tsx` — `416` lines
 - `apps/web/src/components/chat/preview-attachment-modal.tsx` — `276` lines
+- `apps/web/src/components/dashboard/command-palette-search-groups.tsx` — `287` lines
 
 Recent verified reductions already landed and were pushed:
 
@@ -104,6 +105,7 @@ Recent verified reductions already landed and were pushed:
 - `use-circle-to-ai-search-overlay.ts` — `532` -> `540` with a new `circle-to-ai-search-overlay-model.ts` pure state owner
 - `particle-field.tsx` — `619` -> `597`
 - `preview-attachment-content.tsx` — `455` -> `8`
+- `command-palette-groups.tsx` — `444` -> `17`
 - `chat.tsx` — `688` -> `44`
 - `chat-workspace.tsx` — `458` -> `11`
 - `student-calendar-desktop.tsx` — `705` -> `10`
@@ -171,6 +173,7 @@ Current evidence in the no-sync repo:
 - `logs/2026-05-17-circle-to-ai-search-overlay-model-extraction.md`
 - `logs/2026-05-17-particle-field-model-extraction.md`
 - `logs/2026-05-17-preview-attachment-content-split.md`
+- `logs/2026-05-17-command-palette-group-split.md`
 - `logs/2026-05-17-use-chat-runtime-model-extraction.md`
 - `logs/2026-05-17-chat-thin-wrapper.md`
 
