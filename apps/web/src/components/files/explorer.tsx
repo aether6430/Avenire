@@ -2,13 +2,9 @@
 
 import { Spinner } from "@avenire/ui/components/spinner";
 import { Suspense, useCallback, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
 import { ExplorerBrowsePane } from "@/components/files/explorer/explorer-browse-pane";
 import { ExplorerPreviewPane } from "@/components/files/explorer/explorer-preview-pane";
-import type {
-  FileRecord,
-  WorkspaceMemberRecord,
-} from "@/components/files/explorer/shared";
+import type { WorkspaceMemberRecord } from "@/components/files/explorer/shared";
 import { useExplorerDerivedState } from "@/components/files/explorer/use-explorer-derived-state";
 import { useExplorerEditWorkflows } from "@/components/files/explorer/use-explorer-edit-workflows";
 import { useExplorerFilePresentation } from "@/components/files/explorer/use-explorer-file-presentation";
@@ -25,7 +21,6 @@ import { useExplorerSurfaceSummary } from "@/components/files/explorer/use-explo
 import { useExplorerSurfaceUiState } from "@/components/files/explorer/use-explorer-surface-ui-state";
 import { useExplorerWorkspaceIndexState } from "@/components/files/explorer/use-explorer-workspace-index-state";
 import { useWorkspaceExplorerData } from "@/components/files/explorer/use-workspace-explorer-data";
-import type { BulkItemKind } from "@/components/files/explorer/workspace-bulk-operations-model";
 import type { SortState } from "@/components/files/explorer/workspace-folder-browse-model";
 import { useUploadThing } from "@/lib/uploadthing";
 import {
@@ -140,7 +135,6 @@ export function FileExplorer({
   });
   const {
     navigateToFolder,
-    openFileById,
     openFolderById,
     openSearchResult,
     openWorkspaceFileInFolder,
@@ -160,18 +154,13 @@ export function FileExplorer({
   });
   const {
     availablePropertyDefinitions,
-    cardFieldQuery,
     cardPropertyKeys,
     clearCardFields,
-    filteredAvailablePropertyDefinitions,
     handleCardFieldQueryChange,
     handleCardFieldToggle,
     handlePropertyFiltersChange,
     propertyFilters,
-    propertyFilterFields,
-    propertyFiltersForUi,
     resetCardFields,
-    selectedCardPropertyDefinitions,
   } = propertyControls;
   const derivedState = useExplorerDerivedState({
     breadcrumbs,
@@ -259,7 +248,6 @@ export function FileExplorer({
   const {
     applyEditDialog,
     bannerInputRef,
-    bannerUploadBusy,
     editDialog,
     handleBannerInputChange,
     handleEditDialogOpenChange,
@@ -328,11 +316,9 @@ export function FileExplorer({
       deleteSelectionItems,
       downloadContextActionItems,
       downloadItemArchive,
-      downloadStatus,
       duplicateContextActionItems,
       duplicateItem,
       fileOperationHistoryBusy,
-      getSelectedActionItems: resolveSelectedActionItems,
       hardReingestContextActionItems,
       moveContextActionItemsToFolder,
       moveFolder,
@@ -354,59 +340,7 @@ export function FileExplorer({
     listVirtualizer,
     selection,
     triggerHapticSuccess,
-    uploadWorkflows: { queueUploads },
   } = runtime;
-
-  const hardReingestSelectionItems = useCallback(
-    async (items: Array<{ id: string; kind: BulkItemKind }>) => {
-      if (!workspaceUuid) {
-        return;
-      }
-
-      const filesToReingest = items
-        .filter((item) => item.kind === "file")
-        .map((item) => allFiles.find((entry) => entry.id === item.id))
-        .filter((file): file is FileRecord => Boolean(file && !file.readOnly));
-
-      if (filesToReingest.length === 0) {
-        return;
-      }
-
-      let succeeded = 0;
-
-      for (const file of filesToReingest) {
-        const response = await fetch(
-          `/api/workspaces/${workspaceUuid}/files/${file.id}/reingest`,
-          {
-            method: "POST",
-          }
-        );
-        const payload = (await response.json().catch(() => ({}))) as {
-          error?: string;
-        };
-
-        if (!response.ok) {
-          toast.error(payload.error ?? "Unable to re-ingest file.");
-          continue;
-        }
-
-        succeeded += 1;
-      }
-
-      if (succeeded === 0) {
-        return;
-      }
-
-      toast.success(
-        succeeded === 1
-          ? "File queued for hard re-ingestion."
-          : `${succeeded} files queued for hard re-ingestion.`
-      );
-      await Promise.all([loadFolder({ silent: true }), loadTree()]);
-      emitSync();
-    },
-    [allFiles, emitSync, loadFolder, loadTree, workspaceUuid]
-  );
 
   const itemActionProps = useExplorerItemActionProps({
     allFolders,
