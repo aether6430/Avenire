@@ -1,0 +1,101 @@
+import type { UIMessage } from "@avenire/ai/message-types";
+import { describe, expect, it } from "vitest";
+import {
+  buildRegenerationRequest,
+  CHAT_RUNTIME_MAX_FILES,
+  getAutoPromptToSend,
+  getChatAttachmentLimitDescription,
+  getChatHandoffMessages,
+  willExceedChatAttachmentLimit,
+} from "@/components/chat/use-chat-runtime-model";
+
+describe("use chat runtime model", () => {
+  it("prefers pending handoff messages when they are longer than current messages", () => {
+    const currentMessages = [
+      { id: "a", parts: [], role: "user" },
+    ] as UIMessage[];
+    const pendingMessages = [
+      { id: "a", parts: [], role: "user" },
+      { id: "b", parts: [], role: "assistant" },
+    ] as UIMessage[];
+
+    expect(
+      getChatHandoffMessages({
+        currentMessages,
+        pendingMessages,
+      })
+    ).toEqual(pendingMessages);
+  });
+
+  it("returns an auto prompt only for a fresh ready chat without messages", () => {
+    expect(
+      getAutoPromptToSend({
+        chatId: "new",
+        initialPrompt: "  focus on algebra  ",
+        lastAutoPrompt: null,
+        messageCount: 0,
+        status: "ready",
+      })
+    ).toBe("focus on algebra");
+
+    expect(
+      getAutoPromptToSend({
+        chatId: "new",
+        initialPrompt: "focus on algebra",
+        lastAutoPrompt: "focus on algebra",
+        messageCount: 0,
+        status: "ready",
+      })
+    ).toBeNull();
+  });
+
+  it("builds a regeneration request from the user message before the target assistant reply", () => {
+    const messages = [
+      {
+        id: "u1",
+        parts: [
+          { text: "Explain Gauss law", type: "text" },
+          {
+            filename: "note.pdf",
+            mediaType: "application/pdf",
+            type: "file",
+            url: "https://example.com/note.pdf",
+          },
+        ],
+        role: "user",
+      },
+      {
+        id: "a1",
+        parts: [{ text: "Answer", type: "text" }],
+        role: "assistant",
+      },
+    ] as UIMessage[];
+
+    expect(buildRegenerationRequest(messages, "a1")).toEqual({
+      message: {
+        files: [
+          {
+            filename: "note.pdf",
+            mediaType: "application/pdf",
+            type: "file",
+            url: "https://example.com/note.pdf",
+          },
+        ],
+        text: "Explain Gauss law",
+      },
+      preservedMessages: [],
+    });
+  });
+
+  it("keeps attachment-limit messaging explicit", () => {
+    expect(
+      willExceedChatAttachmentLimit({
+        currentCount: 2,
+        incomingCount: 2,
+      })
+    ).toBe(true);
+    expect(getChatAttachmentLimitDescription()).toBe(
+      `You can only upload up to ${CHAT_RUNTIME_MAX_FILES} files per message.`
+    );
+  });
+});

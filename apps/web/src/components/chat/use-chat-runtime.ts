@@ -4,7 +4,6 @@ import { useChat } from "@ai-sdk/react";
 import type { AgentActivityData, UIMessage } from "@avenire/ai/message-types";
 import {
   DefaultChatTransport,
-  type FileUIPart,
   lastAssistantMessageIsCompleteWithApprovalResponses,
 } from "ai";
 import { useRouter } from "next/navigation";
@@ -25,6 +24,15 @@ import {
   type SendMessageInput,
   type SendMessageOptions,
 } from "@/components/chat/chat-model";
+import {
+  buildRegenerationRequest,
+  type ChatRuntime,
+  getAutoPromptToSend,
+  getChatAttachmentLimitDescription,
+  getChatHandoffMessages,
+  type UseChatRuntimeProps,
+  willExceedChatAttachmentLimit,
+} from "@/components/chat/use-chat-runtime-model";
 import { useChatScroll } from "@/components/chat/use-chat-scroll";
 import { getChatErrorMessage } from "@/lib/chat-errors";
 import {
@@ -39,59 +47,13 @@ import {
 import { emitPetNotification } from "@/lib/pet-preferences";
 import { chatMessageHandoffActions } from "@/stores/chat-message-handoff-store";
 
-interface ChatProps {
-  id: string;
-  initialMessages: UIMessage[];
-  initialPrompt?: string | null;
-  isReadonly: boolean;
-  selectedModel: string;
-  userName?: string;
-  workspaceUuid: string;
-}
-
-const MAX_FILES = 3;
-
-export interface ChatRuntime {
-  activeReplyMessageId: string | null;
-  agentActivity: AgentActivityData | null;
-  attachments: Attachment[];
-  bottomSpacerHeight: number;
-  chatId: string;
-  displayedMessages: UIMessage[];
-  error: Error | undefined;
-  getRootProps: () => Record<string, unknown>;
-  handleStop: () => void;
-  handleSubmit: (inputValue: string, files: Attachment[]) => Promise<void>;
-  input: string;
-  isAutoScrollEnabled: boolean;
-  isDragActive: boolean;
-  layoutState: {
-    hasConversationSurface: boolean;
-    isEmptyState: boolean;
-    isTransitioningFromNewChat: boolean;
-    shouldUseCenteredComposerLayout: boolean;
-  };
-  messagesContainerRef: React.RefObject<HTMLDivElement | null>;
-  messagesContentRef: React.RefObject<HTMLDivElement | null>;
-  reenableAutoScroll: (behavior?: ScrollBehavior) => void;
-  regenerateFromMessage: (assistantMessageId: string) => Promise<void>;
-  sendMessage: (
-    message: SendMessageInput,
-    options?: SendMessageOptions
-  ) => Promise<void>;
-  setAttachments: React.Dispatch<React.SetStateAction<Attachment[]>>;
-  setInput: React.Dispatch<React.SetStateAction<string>>;
-  status: "submitted" | "streaming" | "ready" | "error";
-  workspaceUuid: string;
-}
-
 export function useChatRuntime({
   id,
   initialMessages,
   initialPrompt,
   selectedModel,
   workspaceUuid,
-}: Omit<ChatProps, "isReadonly" | "userName">): ChatRuntime {
+}: UseChatRuntimeProps): ChatRuntime {
   const [chatId, setChatId] = useState(id);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [input, setInput] = useState("");
@@ -222,14 +184,10 @@ export function useChatRuntime({
       return;
     }
 
-    const currentMessages = messagesRef.current;
-    const pendingMessages = pendingNewChatMessagesRef.current;
-    const handoffMessages =
-      pendingMessages && pendingMessages.length > currentMessages.length
-        ? pendingMessages
-        : currentMessages.length > 0
-          ? currentMessages
-          : pendingMessages;
+    const handoffMessages = getChatHandoffMessages({
+      currentMessages: messagesRef.current,
+      pendingMessages: pendingNewChatMessagesRef.current,
+    });
 
     if (!handoffMessages || handoffMessages.length === 0) {
       return;
@@ -283,16 +241,19 @@ export function useChatRuntime({
   }, [id, resumeStream]);
 
   useEffect(() => {
+    const prompt = getAutoPromptToSend({
+      chatId: id,
+      initialPrompt,
+      lastAutoPrompt: autoPromptSentRef.current,
+      messageCount: messages.length,
+      status,
+    });
+
     if (id !== "new") {
       autoPromptSentRef.current = null;
       return;
     }
-
-    const prompt = initialPrompt?.trim();
-    if (!prompt || autoPromptSentRef.current === prompt) {
-      return;
-    }
-    if (status !== "ready" || messages.length > 0) {
+    if (!prompt) {
       return;
     }
 
@@ -389,58 +350,19 @@ export function useChatRuntime({
         return;
       }
 
-      const targetIndex = messages.findIndex(
-        (message) => message.id === assistantMessageId
+      const regeneration = buildRegenerationRequest(
+        messages,
+        assistantMessageId
       );
-      if (targetIndex <= 0 || messages[targetIndex]?.role !== "assistant") {
+      if (!regeneration) {
         return;
       }
 
-      let userIndex = targetIndex - 1;
-      while (userIndex >= 0 && messages[userIndex]?.role !== "user") {
-        userIndex -= 1;
-      }
-      if (userIndex < 0) {
-        return;
-      }
-
-      const userMessage = messages[userIndex];
-      const userText = userMessage.parts
-        .filter(
-          (
-            part
-          ): part is Extract<
-            (typeof userMessage.parts)[number],
-            { type: "text"; text: string }
-          > => part.type === "text"
-        )
-        .map((part) => part.text)
-        .join("\n")
-        .trim();
-      const userFiles: FileUIPart[] = userMessage.parts
-        .filter(
-          (
-            part
-          ): part is Extract<
-            (typeof userMessage.parts)[number],
-            { type: "file"; url: string }
-          > => part.type === "file" && typeof part.url === "string"
-        )
-        .map((part) => ({
-          filename: part.filename,
-          mediaType: part.mediaType,
-          type: "file",
-          url: part.url,
-        }));
-
-      const preservedMessages = messages.slice(0, userIndex);
+      const { preservedMessages, message } = regeneration;
       setMessages(preservedMessages);
 
       try {
-        await sendMessage({
-          text: userText,
-          ...(userFiles.length > 0 ? { files: userFiles } : {}),
-        });
+        await sendMessage(message);
       } catch (error) {
         setMessages(messages);
         handleError(
@@ -473,9 +395,14 @@ export function useChatRuntime({
     }
 
     setAttachments((prev) => {
-      if (prev.length + incomingFiles.length > MAX_FILES) {
+      if (
+        willExceedChatAttachmentLimit({
+          currentCount: prev.length,
+          incomingCount: incomingFiles.length,
+        })
+      ) {
         toast.error("File limit exceeded", {
-          description: `You can only upload up to ${MAX_FILES} files per message.`,
+          description: getChatAttachmentLimitDescription(),
           duration: 3000,
         });
         return prev;
