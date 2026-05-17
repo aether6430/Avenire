@@ -84,6 +84,14 @@ const VIDEO_OPT_FETCH_TIMEOUT_MS = Math.max(
     : 25_000
 );
 
+function getUploadThingToken() {
+  const token = process.env.UPLOADTHING_TOKEN?.trim();
+  if (!(token && token !== "undefined" && token !== "null")) {
+    return null;
+  }
+  return token;
+}
+
 export async function validateSourceUrl(sourceUrlInput: string) {
   const trimmed = sourceUrlInput.trim();
   if (!trimmed) {
@@ -117,6 +125,9 @@ export async function validateSourceUrl(sourceUrlInput: string) {
   }
 
   const resolved = await lookup(parsed.hostname, { all: true });
+  if (!Array.isArray(resolved) || resolved.length === 0) {
+    throw new Error("Unable to validate source URL");
+  }
   if (resolved.some((entry) => isPrivateOrLocalAddress(entry.address))) {
     throw new Error("Source URL resolves to a private address");
   }
@@ -545,7 +556,8 @@ async function generateHlsAssets(
 export async function optimizeAndReuploadVideo(
   input: OptimizeAndReuploadVideoInput
 ): Promise<OptimizedVideoUpload | null> {
-  if (!process.env.UPLOADTHING_TOKEN) {
+  const uploadThingToken = getUploadThingToken();
+  if (!uploadThingToken) {
     return null;
   }
 
@@ -654,7 +666,7 @@ export async function optimizeAndReuploadVideo(
       );
     }
 
-    const utapi = new UTApi({ token: process.env.UPLOADTHING_TOKEN });
+    const utapi = new UTApi({ token: uploadThingToken });
     const progressive = await uploadSingleAsset(utapi, {
       name: buildMp4Name(input.sourceName),
       path: optimizedPath,
