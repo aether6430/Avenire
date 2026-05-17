@@ -129,6 +129,7 @@ Current evidence in the no-sync repo:
 - `logs/2026-05-17-tasks-workspace-thin-wrapper.md`
 - `logs/2026-05-17-flashcards-dashboard-thin-wrapper.md`
 - `logs/2026-05-17-dashboard-home-thin-wrapper.md`
+- `logs/2026-05-17-dashboard-home-thin-wrapper.md`
 - `logs/2026-05-17-chat-thin-wrapper.md`
 
 Assessment:
