@@ -71,7 +71,7 @@ Current measured app-level hotspots:
 - `apps/web/src/components/marketing/how-it-works/skeletons.tsx` — `762` lines
 - `apps/web/src/components/editor/editor-extensions.ts` — `762` lines
 - `apps/web/src/components/marketing/icons/card-icons.tsx` — `756` lines
-- `apps/web/src/components/ui/particle-field.tsx` — `619` lines
+- `apps/web/src/components/ui/particle-field.tsx` — `597` lines
 - `apps/web/src/components/marketing/icons/bento-icons.tsx` — `538` lines
 - `apps/web/src/components/widget-renderer-model.ts` — `535` lines
 - `apps/web/src/components/files/use-circle-to-ai-search-overlay.ts` — `540` lines
@@ -100,6 +100,7 @@ Recent verified reductions already landed and were pushed:
 - `explorer-upload-batch.ts` — `492` -> `446`
 - `file-preview-panel.tsx` — `466` -> `408`
 - `use-circle-to-ai-search-overlay.ts` — `532` -> `540` with a new `circle-to-ai-search-overlay-model.ts` pure state owner
+- `particle-field.tsx` — `619` -> `597`
 - `chat.tsx` — `688` -> `44`
 - `chat-workspace.tsx` — `458` -> `11`
 - `student-calendar-desktop.tsx` — `705` -> `10`
@@ -164,6 +165,7 @@ Current evidence in the no-sync repo:
 - `logs/2026-05-17-file-preview-panel-model-extraction.md`
 - `logs/2026-05-17-explorer-upload-batch-model-extraction.md`
 - `logs/2026-05-17-circle-to-ai-search-overlay-model-extraction.md`
+- `logs/2026-05-17-particle-field-model-extraction.md`
 - `logs/2026-05-17-use-chat-runtime-model-extraction.md`
 - `logs/2026-05-17-chat-thin-wrapper.md`
 
