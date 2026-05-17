@@ -130,11 +130,13 @@ describe("useDashboardTaskManager", () => {
       completedAt: "2026-05-17T12:00:00.000Z",
       status: "completed",
     });
-    expect(patchWorkspaceTaskMock).toHaveBeenNthCalledWith(
-      2,
+    expect(upsertWorkspaceTaskMock).toHaveBeenCalledWith(
       "workspace-1",
-      "task-1",
-      expect.any(Function)
+      expect.objectContaining({
+        completedAt: "2026-05-17T12:00:00.000Z",
+        id: "task-1",
+        status: "completed",
+      })
     );
     expect(fetchMock).toHaveBeenCalledWith("/api/tasks/task-1", {
       body: JSON.stringify({ status: "completed" }),

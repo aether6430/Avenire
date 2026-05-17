@@ -5,7 +5,10 @@ import {
   getDashboardDisplayTasks,
   getDashboardTaskManagerState,
 } from "@/components/dashboard/dashboard-task-manager-model";
-import { buildOptimisticTaskStatusUpdate } from "@/components/tasks/tasks-workspace-runtime-model";
+import {
+  deleteWorkspaceTaskWithRollback,
+  updateWorkspaceTaskStatusWithRollback,
+} from "@/components/tasks/tasks-mutation-runtime";
 import {
   getTaskStoreSnapshot,
   patchWorkspaceTask,
@@ -60,63 +63,52 @@ export function useDashboardTaskManager({
   ).length;
 
   const handleToggleTask = async (task: WorkspaceTask) => {
-    const previousTask = task;
     const previousStatus = task.status;
     const nextStatus = previousStatus === "completed" ? "planned" : "completed";
-    const optimisticNowIso = new Date().toISOString();
 
-    patchWorkspaceTask(workspaceId, task.id, (current) => ({
-      ...buildOptimisticTaskStatusUpdate({
-        nextStatus,
-        nowIso: optimisticNowIso,
-        task: current,
-      }),
-    }));
-
-    try {
-      const response = await fetch(`/api/tasks/${task.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: nextStatus }),
-      });
-      const payload = (await response.json().catch(() => ({}))) as {
-        error?: string;
-        task?: WorkspaceTask;
-      };
-      if (!(response.ok && payload.task)) {
-        throw new Error(payload.error ?? "Failed to update task.");
-      }
-      patchWorkspaceTask(
-        workspaceId,
-        task.id,
-        () => payload.task as WorkspaceTask
-      );
-      void reloadWorkspaceTasks(workspaceId, { background: true });
-    } catch (error) {
-      upsertWorkspaceTask(workspaceId, previousTask);
-      setWorkspaceTaskError(
-        error instanceof Error ? error.message : "Could not update that task."
-      );
-    }
+    await updateWorkspaceTaskStatusWithRollback({
+      nextStatus,
+      patchWorkspaceTask,
+      persistTaskStatus: async (input) => {
+        const response = await fetch(`/api/tasks/${input.taskId}`, {
+          body: JSON.stringify({ status: input.status }),
+          headers: { "Content-Type": "application/json" },
+          method: "PATCH",
+        });
+        const payload = (await response.json().catch(() => ({}))) as {
+          error?: string;
+          task?: WorkspaceTask;
+        };
+        if (!(response.ok && payload.task)) {
+          throw new Error(payload.error ?? "Failed to update task.");
+        }
+        return payload.task;
+      },
+      reloadWorkspaceTasks,
+      setWorkspaceTaskError,
+      task,
+      upsertWorkspaceTask,
+      workspaceId,
+    });
   };
 
   const handleDeleteTask = async (task: WorkspaceTask) => {
-    removeWorkspaceTask(workspaceId, task.id);
-
-    try {
-      const response = await fetch(`/api/tasks/${task.id}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) {
-        throw new Error("Failed to delete task.");
-      }
-      void reloadWorkspaceTasks(workspaceId, { background: true });
-    } catch (error) {
-      upsertWorkspaceTask(workspaceId, task);
-      setWorkspaceTaskError(
-        error instanceof Error ? error.message : "Could not delete that task."
-      );
-    }
+    await deleteWorkspaceTaskWithRollback({
+      deleteTaskRecord: async (taskId) => {
+        const response = await fetch(`/api/tasks/${taskId}`, {
+          method: "DELETE",
+        });
+        if (!response.ok) {
+          throw new Error("Failed to delete task.");
+        }
+      },
+      reloadWorkspaceTasks,
+      removeWorkspaceTask,
+      setWorkspaceTaskError,
+      task,
+      upsertWorkspaceTask,
+      workspaceId,
+    });
   };
 
   const displayTasks = sortedTasks.slice(0, 10);

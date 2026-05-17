@@ -10,6 +10,10 @@ import {
   useSyncExternalStore,
 } from "react";
 import {
+  deleteWorkspaceTaskWithRollback,
+  updateWorkspaceTaskStatusWithRollback,
+} from "@/components/tasks/tasks-mutation-runtime";
+import {
   deleteWorkspaceTaskRecord,
   saveWorkspaceTaskDraft,
   updateWorkspaceTaskStatus,
@@ -23,7 +27,6 @@ import {
   type TasksWorkspaceProps,
 } from "@/components/tasks/tasks-workspace-model";
 import {
-  buildOptimisticTaskStatusUpdate,
   resolveTasksWorkspaceClosedSheetState,
   resolveTasksWorkspaceCreateState,
   resolveTasksWorkspaceDeleteSuccess,
@@ -255,40 +258,22 @@ export function useTasksWorkspace({
     task: WorkspaceTask,
     nextStatus: WorkspaceTask["status"]
   ) => {
-    const previous = task;
-    const optimisticNowIso = new Date().toISOString();
-
-    patchWorkspaceTask(workspaceId, task.id, (current) => ({
-      ...buildOptimisticTaskStatusUpdate({
-        nextStatus,
-        nowIso: optimisticNowIso,
-        task: current,
-      }),
-    }));
-
-    try {
-      const updatedTask = await updateWorkspaceTaskStatus({
-        status: nextStatus,
-        taskId: task.id,
-      });
-      upsertWorkspaceTask(workspaceId, updatedTask);
-      if (
-        previous.status !== "completed" &&
-        updatedTask.status === "completed"
-      ) {
+    await updateWorkspaceTaskStatusWithRollback({
+      nextStatus,
+      onCompleted: () =>
         emitPetNotification({
           animation: "waving",
           message: "Nice work",
           tone: "success",
-        });
-      }
-      void reloadWorkspaceTasks(workspaceId, { background: true });
-    } catch (error) {
-      upsertWorkspaceTask(workspaceId, previous);
-      setWorkspaceTaskError(
-        error instanceof Error ? error.message : "Unable to update task."
-      );
-    }
+        }),
+      patchWorkspaceTask,
+      persistTaskStatus: updateWorkspaceTaskStatus,
+      reloadWorkspaceTasks,
+      setWorkspaceTaskError,
+      task,
+      upsertWorkspaceTask,
+      workspaceId,
+    });
   };
 
   const handleSave = async () => {
@@ -331,23 +316,25 @@ export function useTasksWorkspace({
     }
 
     const deletedTask = selectedTask;
-    removeWorkspaceTask(workspaceId, selectedTaskId);
-
-    try {
-      await deleteWorkspaceTaskRecord(selectedTaskId);
-      const nextState = resolveTasksWorkspaceDeleteSuccess();
-      setMode(nextState.mode);
-      setDraft(nextState.draft);
-      setSelectedTaskId(nextState.selectedTaskId);
-      setSheetOpen(nextState.sheetOpen);
-      syncTaskParam(nextState.routeTaskId);
-      void reloadWorkspaceTasks(workspaceId, { background: true });
-    } catch (error) {
-      upsertWorkspaceTask(workspaceId, deletedTask);
-      setWorkspaceTaskError(
-        error instanceof Error ? error.message : "Unable to delete task."
-      );
+    const deleted = await deleteWorkspaceTaskWithRollback({
+      deleteTaskRecord: deleteWorkspaceTaskRecord,
+      reloadWorkspaceTasks,
+      removeWorkspaceTask,
+      setWorkspaceTaskError,
+      task: deletedTask,
+      upsertWorkspaceTask,
+      workspaceId,
+    });
+    if (!deleted) {
+      return;
     }
+
+    const nextState = resolveTasksWorkspaceDeleteSuccess();
+    setMode(nextState.mode);
+    setDraft(nextState.draft);
+    setSelectedTaskId(nextState.selectedTaskId);
+    setSheetOpen(nextState.sheetOpen);
+    syncTaskParam(nextState.routeTaskId);
   };
 
   const toggleTaskComplete = async (task: WorkspaceTask) => {
