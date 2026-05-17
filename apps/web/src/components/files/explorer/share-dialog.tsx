@@ -15,6 +15,7 @@ import { Input } from "@avenire/ui/components/input";
 import { Label } from "@avenire/ui/components/label";
 import { ShareNetwork as Share2 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
+import { shouldLoadShareSuggestions } from "@/components/files/explorer/share-dialog-suggestions-model";
 import type {
   FileRecord,
   FolderRecord,
@@ -108,7 +109,15 @@ export function ShareDialog({
       .join("") || "U";
 
   useEffect(() => {
-    if (variant !== "file" || !workspaceUuid) {
+    if (
+      !shouldLoadShareSuggestions({
+        isAtWorkspaceRoot,
+        open: open ?? false,
+        scope: "file",
+        variant,
+        workspaceUuid,
+      })
+    ) {
       setShareSuggestions([]);
       return;
     }
@@ -116,10 +125,25 @@ export function ShareDialog({
       void loadShareSuggestions(shareEmail, setShareSuggestions);
     }, 150);
     return () => clearTimeout(timer);
-  }, [loadShareSuggestions, shareEmail, variant, workspaceUuid]);
+  }, [
+    isAtWorkspaceRoot,
+    loadShareSuggestions,
+    open,
+    shareEmail,
+    variant,
+    workspaceUuid,
+  ]);
 
   useEffect(() => {
-    if (variant !== "folder" || !workspaceUuid) {
+    if (
+      !shouldLoadShareSuggestions({
+        isAtWorkspaceRoot,
+        open: open ?? false,
+        scope: "workspace",
+        variant,
+        workspaceUuid,
+      })
+    ) {
       setWorkspaceShareSuggestions([]);
       return;
     }
@@ -130,10 +154,25 @@ export function ShareDialog({
       );
     }, 150);
     return () => clearTimeout(timer);
-  }, [loadShareSuggestions, workspaceShareEmail, variant, workspaceUuid]);
+  }, [
+    isAtWorkspaceRoot,
+    loadShareSuggestions,
+    open,
+    variant,
+    workspaceShareEmail,
+    workspaceUuid,
+  ]);
 
   useEffect(() => {
-    if (variant !== "folder" || !workspaceUuid || isAtWorkspaceRoot) {
+    if (
+      !shouldLoadShareSuggestions({
+        isAtWorkspaceRoot,
+        open: open ?? false,
+        scope: "folder",
+        variant,
+        workspaceUuid,
+      })
+    ) {
       setFolderShareSuggestions([]);
       return;
     }
@@ -145,6 +184,7 @@ export function ShareDialog({
     folderShareEmail,
     isAtWorkspaceRoot,
     loadShareSuggestions,
+    open,
     variant,
     workspaceUuid,
   ]);

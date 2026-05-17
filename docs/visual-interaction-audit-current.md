@@ -129,6 +129,8 @@ uniform across signed-in routes:
   live-runtime work, even though the deeper durability issue still remains
 - the latest detached files snapshot also no longer shows the upload-activity
   panel body on first paint
+- the latest detached files render also avoids background share-suggestion
+  traffic before any share dialog is opened
 
 ## Conclusion
 

@@ -326,6 +326,9 @@ Recent files-route runtime tightening also changed the initial network shape:
   files render is quieter still:
   - no general `/api/realtime/events?workspaceUuid=...` request
   - no upload-activity panel body appears in the first settled browser snapshot
+- after gating share-dialog suggestions on actual dialog open, the fresh
+  detached files render also stops firing repeated background requests to:
+  - `/api/workspaces/<workspaceUuid>/share/suggestions`
 
 That means the first files render is now doing less background live-work than
 it did before.

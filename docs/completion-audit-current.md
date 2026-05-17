@@ -150,6 +150,8 @@ Current evidence:
       broader files realtime streams when no uploads are active
     - after the latest deferred-runtime trim, the detached files render also
       avoids auto-starting the general workspace realtime stream on first paint
+    - after the latest share-dialog trim, the detached files render no longer
+      fires repeated background `/share/suggestions` requests on first paint
   - remaining gap has shifted deeper:
     - production server responsiveness can still degrade after signed-in files
       activity
