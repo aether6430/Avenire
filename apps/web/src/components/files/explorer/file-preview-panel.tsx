@@ -7,7 +7,6 @@ import type {
   FileRecord,
   FolderRecord,
 } from "@/components/files/explorer/shared";
-import { detectPreviewKind } from "@/components/files/explorer/shared";
 import type { WorkspaceSearchResult } from "@/components/files/stylized-search-bar";
 import {
   getWarmState,
@@ -17,10 +16,7 @@ import {
   releaseMediaPlaybackPrime,
 } from "@/lib/file-preview-cache";
 import type { WorkspacePropertyDefinition } from "@/lib/frontmatter";
-import {
-  buildProgressivePlaybackSource,
-  buildVideoPlaybackDescriptor,
-} from "@/lib/media-playback";
+import { buildProgressivePlaybackSource } from "@/lib/media-playback";
 import {
   useCurrentWorkspacePane,
   usePaneSearchParams,
@@ -31,8 +27,8 @@ import type { ExplorerSurfaceInfoEntry } from "./explorer-surface-summary-model"
 import { FilePreviewMarkdownPane } from "./file-preview-markdown-pane";
 import { buildFilePreviewMediaModel } from "./file-preview-media-model";
 import { FilePreviewMediaPane } from "./file-preview-media-pane";
+import { buildFilePreviewPanelDerivedState } from "./file-preview-panel-model";
 import { FilePreviewPropertiesDialog } from "./file-preview-properties-dialog";
-import { buildFilePreviewRetrievalModel } from "./file-preview-retrieval-model";
 import { useFilePreviewNoteWorkflows } from "./use-file-preview-note-workflows";
 import { useFilePreviewPaneHeader } from "./use-file-preview-pane-header";
 
@@ -47,28 +43,6 @@ const PDFViewer = dynamic(() => import("@/components/files/pdf-viewer"), {
   ),
   ssr: false,
 });
-
-function normalizeFilePageIcon(icon: string | null | undefined) {
-  if (typeof icon !== "string") {
-    return null;
-  }
-
-  const trimmed = icon.trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  if (
-    trimmed.startsWith("http://") ||
-    trimmed.startsWith("https://") ||
-    trimmed.startsWith("/") ||
-    trimmed.startsWith("data:image/")
-  ) {
-    return trimmed;
-  }
-
-  return trimmed.slice(0, 8);
-}
 
 export interface FilePreviewPanelProps {
   activeFile: FileRecord;
@@ -183,73 +157,31 @@ export function FilePreviewPanel({
   useEffect(() => {
     setPropertiesOpen(false);
   }, []);
-
-  const activeCustomIcon = normalizeFilePageIcon(activeFile.page?.icon);
-  const activeLinkSourceUrl =
-    activeFile.metadata &&
-    typeof activeFile.metadata === "object" &&
-    !Array.isArray(activeFile.metadata) &&
-    activeFile.metadata.link &&
-    typeof activeFile.metadata.link === "object" &&
-    !Array.isArray(activeFile.metadata.link) &&
-    typeof (activeFile.metadata.link as Record<string, unknown>).sourceUrl ===
-      "string"
-      ? ((activeFile.metadata.link as Record<string, unknown>)
-          .sourceUrl as string)
-      : null;
-  const activeFileSourceUrl = activeFileIsMarkdown
-    ? (activeLinkSourceUrl ??
-      `/api/workspaces/${workspaceUuid}/files/${activeFile.id}/stream`)
-    : activeFile.storageUrl;
   useEffect(() => {
     setCircleToAiEnabled(false);
   }, []);
-
-  const activeMediaStreamUrl = useMemo(() => {
-    if (!(activeFile && workspaceUuid)) {
-      return null;
-    }
-    return `/api/workspaces/${workspaceUuid}/files/${activeFile.id}/stream`;
-  }, [activeFile, workspaceUuid]);
-  const activeMediaSrc = useMemo(() => {
-    if (!activeMediaStreamUrl) {
-      return null;
-    }
-    return activeMediaStreamUrl;
-  }, [activeMediaStreamUrl]);
-  const activePlaybackDescriptor = useMemo(() => {
-    if (!(activeFile && activeMediaSrc)) {
-      return null;
-    }
-    return buildVideoPlaybackDescriptor({
-      fallbackUrl: activeMediaSrc,
-      mimeType: activeFile.mimeType,
-      videoDelivery: mediaStreamFailed ? null : activeFile.videoDelivery,
-    });
-  }, [activeFile, activeMediaSrc, mediaStreamFailed]);
-  const activeVideoCaptionsSrc = useMemo(() => {
-    if (!(activeFile && workspaceUuid)) {
-      return undefined;
-    }
-    const isVideo = (activeFile.mimeType ?? "")
-      .toLowerCase()
-      .startsWith("video/");
-    if (!isVideo) {
-      return undefined;
-    }
-    return `/api/workspaces/${workspaceUuid}/files/${activeFile.id}/captions.vtt`;
-  }, [activeFile, workspaceUuid]);
-
-  const retrievalModel = useMemo(
+  const derivedState = useMemo(
     () =>
-      buildFilePreviewRetrievalModel({
-        activeFileId: activeFile.id,
+      buildFilePreviewPanelDerivedState({
+        activeFile,
+        activeFileIsMarkdown,
         activeRetrievalChunkId,
+        mediaStreamFailed,
         query,
         retrievalResults,
+        workspaceUuid,
       }),
-    [activeFile.id, activeRetrievalChunkId, query, retrievalResults]
+    [
+      activeFile,
+      activeFileIsMarkdown,
+      activeRetrievalChunkId,
+      mediaStreamFailed,
+      query,
+      retrievalResults,
+      workspaceUuid,
+    ]
   );
+  const { isAudio, isImage, isPdf, isVideo, isMarkdown } = derivedState;
 
   useEffect(() => {
     setVideoLoadFailed(false);
@@ -260,15 +192,17 @@ export function FilePreviewPanel({
 
   useEffect(() => {
     markFileOpened(activeFile.id);
-    const { isAudio, isVideo } = detectPreviewKind(activeFile);
     if (!(isAudio || isVideo)) {
       return;
     }
 
     const playbackSource = isVideo
-      ? (activePlaybackDescriptor?.preferredSource ?? null)
-      : activeMediaSrc
-        ? buildProgressivePlaybackSource(activeMediaSrc, activeFile.mimeType)
+      ? (derivedState.activePlaybackDescriptor?.preferredSource ?? null)
+      : derivedState.activeMediaStreamUrl
+        ? buildProgressivePlaybackSource(
+            derivedState.activeMediaStreamUrl,
+            activeFile.mimeType
+          )
         : null;
     if (!playbackSource) {
       return;
@@ -276,31 +210,39 @@ export function FilePreviewPanel({
 
     void primeMediaPlayback(playbackSource, {
       mediaType: isVideo ? "video" : "audio",
-      posterUrl: isVideo ? activePlaybackDescriptor?.posterUrl : null,
+      posterUrl: isVideo
+        ? derivedState.activePlaybackDescriptor?.posterUrl
+        : null,
       sizeBytes: activeFile.sizeBytes,
       surface: "viewer",
     });
     return () => {
       releaseMediaPlaybackPrime(playbackSource);
     };
-  }, [activeFile, activeMediaSrc, activePlaybackDescriptor]);
+  }, [
+    activeFile,
+    activeFile.mimeType,
+    derivedState.activeMediaStreamUrl,
+    derivedState.activePlaybackDescriptor,
+    isAudio,
+    isVideo,
+  ]);
 
-  const { isAudio, isImage, isPdf, isVideo, isMarkdown } =
-    detectPreviewKind(activeFile);
   const isOpenedCached = isFileOpenedCached(activeFile.id);
   const activeAudioPlaybackSource = buildProgressivePlaybackSource(
-    activeMediaSrc ?? activeFile.storageUrl,
+    derivedState.activeMediaStreamUrl ?? activeFile.storageUrl,
     activeFile.mimeType
   );
-  const isPreferredVideoSourceWarm = activePlaybackDescriptor
-    ? getWarmState(activePlaybackDescriptor.preferredSource) === "warm"
+  const isPreferredVideoSourceWarm = derivedState.activePlaybackDescriptor
+    ? getWarmState(derivedState.activePlaybackDescriptor.preferredSource) ===
+      "warm"
     : false;
   const shouldUsePreferredVideoSource =
     isOpenedCached || isPreferredVideoSourceWarm;
-  const activeVideoPlaybackSource = activePlaybackDescriptor
-    ? activePlaybackDescriptor.preferredSource
+  const activeVideoPlaybackSource = derivedState.activePlaybackDescriptor
+    ? derivedState.activePlaybackDescriptor.preferredSource
     : buildProgressivePlaybackSource(
-        activeMediaSrc ?? activeFile.storageUrl,
+        derivedState.activeMediaStreamUrl ?? activeFile.storageUrl,
         activeFile.mimeType
       );
   const mediaModel = useMemo(
@@ -308,8 +250,8 @@ export function FilePreviewPanel({
       buildFilePreviewMediaModel({
         activeAudioPlaybackSource,
         activeFile,
-        activeFileSourceUrl,
-        activeVideoCaptionsSrc,
+        activeFileSourceUrl: derivedState.activeFileSourceUrl,
+        activeVideoCaptionsSrc: derivedState.activeVideoCaptionsSrc,
         activeVideoPlaybackSource,
         audioOpenedCached:
           isOpenedCached || getWarmState(activeAudioPlaybackSource) === "warm",
@@ -318,36 +260,36 @@ export function FilePreviewPanel({
         isImage,
         isPdf,
         isVideo,
-        posterUrl: activePlaybackDescriptor?.posterUrl ?? null,
-        retrievalModel,
+        posterUrl: derivedState.activePlaybackDescriptor?.posterUrl ?? null,
+        retrievalModel: derivedState.retrievalModel,
         shouldUsePreferredVideoSource,
         videoLoadFailed,
       }),
     [
       activeAudioPlaybackSource,
       activeFile,
-      activeFileSourceUrl,
-      activePlaybackDescriptor?.posterUrl,
-      activeVideoCaptionsSrc,
       activeVideoPlaybackSource,
       audioLoadFailed,
+      derivedState.activeFileSourceUrl,
+      derivedState.activePlaybackDescriptor?.posterUrl,
+      derivedState.activeVideoCaptionsSrc,
+      derivedState.retrievalModel,
       isAudio,
       isImage,
       isOpenedCached,
       isPdf,
       isVideo,
-      retrievalModel,
       shouldUsePreferredVideoSource,
       videoLoadFailed,
     ]
   );
 
   useFilePreviewPaneHeader({
-    activeCustomIcon,
+    activeCustomIcon: derivedState.activeCustomIcon,
     activeFile,
     activeFileIsMarkdown,
-    activeFileSourceUrl,
-    activeLinkSourceUrl,
+    activeFileSourceUrl: derivedState.activeFileSourceUrl,
+    activeLinkSourceUrl: derivedState.activeLinkSourceUrl,
     allFolders,
     canClosePane,
     circleToAiEnabled,
