@@ -155,6 +155,9 @@ Current evidence:
     - the shell now also skips mounting `WorkspaceRealtimeBridge` on files
       routes, which keeps the broad workspace SSE path out of the initial files
       render
+    - the latest explorer-data trim lets the detached files render paint from
+      the workspace tree snapshot first, without waiting for the folder-detail
+      API to finish
   - remaining gap has shifted deeper:
     - production server responsiveness can still degrade after signed-in files
       activity

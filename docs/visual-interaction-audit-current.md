@@ -133,6 +133,8 @@ uniform across signed-in routes:
   traffic before any share dialog is opened
 - the files route now also avoids mounting the broader workspace realtime
   bridge on first paint
+- the first visible files surface can now appear before the folder-detail API
+  finishes
 
 ## Conclusion
 

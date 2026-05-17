@@ -189,10 +189,6 @@ export function useWorkspaceExplorerData({
   }, [currentFolderId, workspaceUuid]);
 
   useEffect(() => {
-    void loadFolder();
-  }, [loadFolder]);
-
-  useEffect(() => {
     void loadTree();
   }, [loadTree]);
 

@@ -332,6 +332,10 @@ Recent files-route runtime tightening also changed the initial network shape:
 - after skipping the general `WorkspaceRealtimeBridge` on files routes, the
   fresh detached files render no longer mounts the broad workspace realtime SSE
   stream on first paint
+- after relying on the tree-derived snapshot for the initial files view, the
+  fresh detached files render can paint the visible file surface without
+  waiting for the separate `/api/workspaces/<workspaceUuid>/folders/<folderUuid>`
+  roundtrip to complete
 
 That means the first files render is now doing less background live-work than
 it did before.
