@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import {
+  resolveDashboardChatSessionScope,
+  shouldStartDashboardChatSessionCloseTimer,
+} from "@/components/dashboard/dashboard-sidebar-chat-events-runtime";
 import { sendDashboardSidebarChatSessionClose } from "@/components/dashboard/dashboard-sidebar-runtime-model";
 import type { DashboardSidebarView } from "@/components/dashboard/sidebar-startup";
 
@@ -53,26 +57,6 @@ export function useDashboardSidebarChatSessionClose({
       );
     };
 
-    const updateSessionScope = () => {
-      const nextChatId = activeChatSlug || "";
-      if (!nextChatId || nextChatId === "new") {
-        if (routeView === "chat") {
-          sessionCloseRef.current = null;
-        }
-        return;
-      }
-
-      if (sessionCloseRef.current?.chatId !== nextChatId) {
-        sessionCloseRef.current = {
-          chatId: nextChatId,
-          sent: false,
-          sessionId:
-            globalThis.crypto?.randomUUID?.() ??
-            `session-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-        };
-      }
-    };
-
     const sendCloseNow = () => {
       const scope = sessionCloseRef.current;
       if (!scope || scope.sent || !scope.chatId) {
@@ -86,11 +70,24 @@ export function useDashboardSidebarChatSessionClose({
       }).catch(() => undefined);
     };
 
-    updateSessionScope();
+    sessionCloseRef.current = resolveDashboardChatSessionScope({
+      activeChatSlug,
+      createSessionId: () =>
+        globalThis.crypto?.randomUUID?.() ??
+        `session-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      currentScope: sessionCloseRef.current,
+      routeView,
+    });
 
     if (routeView === "chat") {
       clearSessionCloseTimer();
-    } else if (sessionCloseRef.current?.chatId) {
+    } else if (
+      shouldStartDashboardChatSessionCloseTimer({
+        routeView,
+        scope: sessionCloseRef.current,
+        timerActive: Boolean(sessionCloseTimerRef.current),
+      })
+    ) {
       startSessionCloseTimer();
     }
 
@@ -101,10 +98,15 @@ export function useDashboardSidebarChatSessionClose({
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
-        if (routeView === "chat") {
-          return;
+        if (
+          shouldStartDashboardChatSessionCloseTimer({
+            routeView,
+            scope: sessionCloseRef.current,
+            timerActive: Boolean(sessionCloseTimerRef.current),
+          })
+        ) {
+          startSessionCloseTimer();
         }
-        startSessionCloseTimer();
         return;
       }
 
