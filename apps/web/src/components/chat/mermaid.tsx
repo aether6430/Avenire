@@ -18,6 +18,13 @@ import {
 import { renderMermaidSVG } from "beautiful-mermaid";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  buildFitToScreenMermaidViewState,
+  buildZoomedMermaidViewState,
+  fixMermaidQuotes,
+  type MermaidViewState,
+  stripUnsafeSvg,
+} from "@/components/chat/mermaid-model";
 
 interface MermaidDiagramProps {
   chart: string;
@@ -25,31 +32,6 @@ interface MermaidDiagramProps {
   containerHeight?: number;
   containerWidth?: number;
   title?: string;
-}
-
-interface ViewState {
-  scale: number;
-  translateX: number;
-  translateY: number;
-}
-
-const MIN_SCALE = 0.25;
-const MAX_SCALE = 5;
-const FIT_MARGIN_PX = 24;
-
-function fixMermaidQuotes(code: string): string {
-  return code.replace(/(\w+)\[([^"\]]+)\]/g, '$1["$2"]');
-}
-
-function stripUnsafeSvg(svg: string): string {
-  return svg
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
-    .replace(/<foreignObject\b[^>]*>[\s\S]*?<\/foreignObject>/gi, "")
-    .replace(/\son[a-z0-9_-]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(
-      /\s(?:href|xlink:href)\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*'|javascript:[^\s>]+)/gi,
-      ""
-    );
 }
 
 function sanitizeMermaidSvg(svg: string) {
@@ -111,7 +93,7 @@ export function MermaidDiagram({
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<HTMLDivElement>(null);
 
-  const [viewState, setViewState] = useState<ViewState>({
+  const [viewState, setViewState] = useState<MermaidViewState>({
     scale: 1,
     translateX: 0,
     translateY: 0,
@@ -146,16 +128,14 @@ export function MermaidDiagram({
   }, [chart]);
 
   const zoomAtPoint = (nextScale: number, x: number, y: number) => {
-    const clamped = Math.min(Math.max(nextScale, MIN_SCALE), MAX_SCALE);
-    const pointX = (x - viewState.translateX) / viewState.scale;
-    const pointY = (y - viewState.translateY) / viewState.scale;
-    const nextTranslateX = x - pointX * clamped;
-    const nextTranslateY = y - pointY * clamped;
-    setViewState({
-      scale: clamped,
-      translateX: nextTranslateX,
-      translateY: nextTranslateY,
-    });
+    setViewState(
+      buildZoomedMermaidViewState({
+        nextScale,
+        pointX: x,
+        pointY: y,
+        viewState,
+      })
+    );
   };
 
   const fitToScreen = useCallback(() => {
@@ -173,20 +153,15 @@ export function MermaidDiagram({
       return;
     }
 
-    const availableWidth = Math.max(1, containerRect.width - FIT_MARGIN_PX * 2);
-    const availableHeight = Math.max(
-      1,
-      containerRect.height - FIT_MARGIN_PX * 2
-    );
-    const scaleX = availableWidth / naturalSize.width;
-    const scaleY = availableHeight / naturalSize.height;
-    const scale = Math.min(Math.max(Math.min(scaleX, scaleY), MIN_SCALE), 1);
-
-    setViewState({
-      scale,
-      translateX: (containerRect.width - naturalSize.width * scale) / 2,
-      translateY: (containerRect.height - naturalSize.height * scale) / 2,
+    const nextState = buildFitToScreenMermaidViewState({
+      containerHeight: containerRect.height,
+      containerWidth: containerRect.width,
+      naturalHeight: naturalSize.height,
+      naturalWidth: naturalSize.width,
     });
+    if (nextState) {
+      setViewState(nextState);
+    }
   }, []);
 
   useEffect(() => {
