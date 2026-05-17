@@ -534,6 +534,26 @@ Observed in the richer interaction environment:
 This matters because the proof has now crossed from persisted entities into
 actual interaction results that the user can see.
 
+### 8. Method-message provider failure is now explicit and reload-safe
+
+Observed in the detached production method round-trip:
+
+- the persisted method request reached the real `/api/chat` streaming path
+- the provider failed because the Fireworks API key was missing
+- after this fix:
+  - `GET /api/chats/<slug>` returned both the user message and an assistant
+    failure message
+  - reloading the method route showed:
+    - the user message
+    - assistant label `Apollo`
+    - `The model provider failed while generating this response. Please retry in a moment.`
+    - `Copy message`
+    - `Branch method`
+    - `Regenerate response`
+
+That is a meaningful product-coherence win because an important failure mode is
+now explained in-product instead of silently collapsing into ambiguity.
+
 Recent files-route runtime tightening also changed the initial network shape:
 
 - on a fresh detached production files render, the browser now loads:
@@ -560,7 +580,7 @@ Recent files-route runtime tightening also changed the initial network shape:
 That means the first files render is now doing less background live-work than
 it did before.
 
-### 8. Signed-in production responsiveness is still not fully trustworthy
+### 9. Signed-in production responsiveness is still not fully trustworthy
 
 Observed during the same broader signed-in production work:
 
@@ -603,11 +623,15 @@ Observed during the same broader signed-in production work:
     - non-empty tasks + flashcard-set route renders
     - a `10`-navigation post-mutation mixed-route loop
     - and still answers `/login` immediately and after `30s`
+  - the latest detached production server on `:3029` now survives:
+    - a real persisted `/api/chat` provider failure
+    - a reload of the affected method route
+    - and still answers `/login` after that failure path
 
 This is still a real reliability problem, even though the startup path is now
 better than before.
 
-### 9. Voice mismatch still exists in places
+### 10. Voice mismatch still exists in places
 
 The login page uses:
 
@@ -620,7 +644,7 @@ more concrete study/research language on `/` and `/pricing`.
 This is not a blocker by itself, but it is one of the clearer remaining
 copy-level seams.
 
-### 10. Product proof is still stronger on entry than in-flow
+### 11. Product proof is still stronger on entry than in-flow
 
 Right now the strongest evidence is:
 
@@ -660,6 +684,8 @@ workspace flow is now only partially proven:
   production browser renders
 - task creation/update and flashcard create/review now also have real visible
   production effects
+- a real method-message provider failure now also has an explicit persisted
+  recovery state
 - and the production signed-in path is healthier across short repeated files
   visits, richer repeated route loops, and short broader multi-surface
   interactive use, but still not trustworthy enough under sustained or deeper
@@ -669,7 +695,8 @@ workspace flow is now only partially proven:
 
 Debug the next signed-in continuity seam next:
 
-1. move from richer interaction proof into a real method message round-trip
+1. prove one successful method message round-trip under a configured model
+   provider key, now that the failure path is explicit and reload-safe
 2. isolate why the production server can become partially unresponsive only
    after longer-lived or more interactive signed-in usage, even now that
    richer repeated route loops and short post-mutation loops survive

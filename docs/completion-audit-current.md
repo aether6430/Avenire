@@ -212,6 +212,14 @@ Current evidence:
       `1 studied today`, and `1 in progress`
     - a post-mutation detached mixed-route session survived `10` route
       navigations and still left `/login` healthy immediately and after `30s`
+  - real method-message provider failure is now an explicit product state:
+    - `POST /api/chat` reached the persisted method streaming boundary in
+      production
+    - the model provider failed because the provider key was unavailable
+    - the route now persists an assistant error message instead of leaving only
+      a dangling user message
+    - reloading `/workspace/chats/<slug>` now shows the explicit failure text
+      plus `Copy message`, `Branch method`, and `Regenerate response`
   - remaining gap has shifted deeper:
     - production server responsiveness is healthier across short repeated files
       visits, short multi-surface passes, richer persisted-state loops, and
@@ -271,6 +279,8 @@ Missing proof:
    - a short multi-surface signed-in browser pass now survives as well
    - a richer persisted-state multi-surface loop now survives as well
    - a short post-mutation multi-surface loop now survives as well
+   - a real provider-failure method round-trip now fails explicitly instead of
+     silently
    - longer-lived signed-in sessions are still not fully proven safe
 3. The evidence trail is healthier, but it is still split between the active
    no-sync repo and the old Desktop repo’s historical `logs/`.
@@ -279,9 +289,8 @@ Missing proof:
 
 1. Continue structural reduction on `explorer.tsx` until it no longer dominates
    the app-level surface map.
-2. Extend richer interaction proof into a real method message round-trip and at
-   least one longer-lived interactive session beyond the current repeated
-   navigation loops.
+2. Prove one successful method message round-trip under a configured model
+   provider key, now that the failure path is explicit and reload-safe.
 3. Run a longer detached soak after those richer interactions so the remaining
    durability risk is narrowed beyond short post-mutation loops.
 4. Consolidate or mirror the most useful older Desktop `logs/` receipts into

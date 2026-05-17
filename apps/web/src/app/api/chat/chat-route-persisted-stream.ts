@@ -10,14 +10,16 @@ import { createResumableStreamContext } from "resumable-stream";
 import {
   type createChatForUser,
   type getChatBySlugForUser,
+  saveMessagesForChatSlug,
   updateChatForUser,
 } from "@/lib/chat-data";
 import { invalidateChatReadCaches } from "@/lib/domain-cache";
 import type { createApiLogger } from "@/lib/observability";
-import { clearIdempotencyKey } from "./chat-route-cache";
+import { clearIdempotencyKey, markIdempotencyDone } from "./chat-route-cache";
 import {
   formatError,
   getChatStreamErrorMessage,
+  isAbortLikeError,
   logError,
   logInfo,
   logWarn,
@@ -90,6 +92,7 @@ export async function buildPersistedChatStreamResponse({
   workspace,
 }: BuildPersistedChatStreamResponseOptions): Promise<Response> {
   const streamId = randomUUID();
+  let streamSettled = false;
   const previousStreamId = await getActiveStreamId(chatSlug);
   await setActiveStreamId(chatSlug, streamId);
   if (previousStreamId) {
@@ -110,6 +113,60 @@ export async function buildPersistedChatStreamResponse({
 
   const stream = createUIMessageStream<UIMessage>({
     execute: async ({ writer }) => {
+      const finalizeFailedStream = async (error: unknown) => {
+        if (streamSettled) {
+          return;
+        }
+        streamSettled = true;
+
+        try {
+          const activeStreamId = await getActiveStreamId(chatSlug);
+          if (activeStreamId && activeStreamId !== streamId) {
+            logInfo("Skipped persisting stale failed stream", {
+              chatId: chatSlug,
+              streamId,
+              activeStreamId,
+            });
+            return;
+          }
+
+          if (!isAbortLikeError(error)) {
+            const errorMessage = getChatStreamErrorMessage(error);
+            await saveMessagesForChatSlug(
+              sessionUser.id,
+              chatSlug,
+              [
+                ...originalMessages,
+                {
+                  id: randomUUID(),
+                  parts: [{ text: errorMessage, type: "text" }],
+                  role: "assistant",
+                } as UIMessage,
+              ],
+              workspace.workspaceId
+            );
+            await invalidateChatReadCaches(workspace.workspaceId);
+            logInfo("Persisted failed streamed message", {
+              chatId: chatSlug,
+            });
+          }
+        } catch (persistError) {
+          logError("Failed to persist failed streamed message", {
+            chatId: chatSlug,
+            error: formatError(persistError),
+          });
+        } finally {
+          await clearActiveStreamId(chatSlug, streamId);
+          if (idempotencyRedisKey && idempotencyLockAcquired) {
+            await markIdempotencyDone(idempotencyRedisKey, chatSlug);
+          }
+          logInfo("Cleared active stream id after stream failure", {
+            chatId: chatSlug,
+            streamId,
+          });
+        }
+      };
+
       const shouldGenerateChatTitle = shouldGenerateTitle(
         chat.title,
         originalMessages
@@ -230,8 +287,13 @@ export async function buildPersistedChatStreamResponse({
         result.toUIMessageStream({
           originalMessages,
           generateMessageId: randomUUID,
-          onError: getChatStreamErrorMessage,
+          onError: (error) => {
+            const errorMessage = getChatStreamErrorMessage(error);
+            void finalizeFailedStream(error);
+            return errorMessage;
+          },
           onFinish: async ({ messages, responseMessage, isContinuation }) => {
+            streamSettled = true;
             await handlePersistedChatStreamFinish({
               apiLogger,
               chat,

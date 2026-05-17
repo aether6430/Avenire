@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildChatSubmissionFileParts,
   createOptimisticUserMessage,
+  FAILED_ASSISTANT_REPLY_TEXT,
   getActiveReplyMessageId,
   getChatLayoutState,
   getDisplayedChatMessages,
@@ -84,6 +85,25 @@ describe("chat model", () => {
       hasConversationSurface: false,
       isEmptyState: true,
       shouldUseCenteredComposerLayout: true,
+    });
+  });
+
+  it("derives a failed assistant placeholder when a persisted turn ends on a user message", () => {
+    const messages = [
+      {
+        id: "user-1",
+        parts: [{ text: "hello", type: "text" }],
+        role: "user",
+      },
+    ] as UIMessage[];
+
+    const displayed = getDisplayedChatMessages(messages, "ready");
+
+    expect(displayed).toHaveLength(2);
+    expect(displayed[1]).toMatchObject({
+      id: "assistant-error-user-1",
+      role: "assistant",
+      parts: [{ text: FAILED_ASSISTANT_REPLY_TEXT, type: "text" }],
     });
   });
 });

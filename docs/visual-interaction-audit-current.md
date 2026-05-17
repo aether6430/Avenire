@@ -268,7 +268,28 @@ So the signed-in visual proof now includes actual user-visible results from
 task and flashcard interactions, not just empty-state or passive persisted
 route surfaces.
 
-### 8. Workspace tab labels no longer duplicate on the active tab
+### 8. Method provider failure now shows an explicit assistant-side state
+
+Observed on:
+
+- `http://127.0.0.1:4029/workspace/chats/ca4a56e3-6482-47f6-822f-56f4d66d69ad`
+
+After a real persisted `/api/chat` provider failure, the method route now
+shows:
+
+- the user message
+- assistant label `Apollo`
+- explicit failure copy:
+  - `The model provider failed while generating this response. Please retry in a moment.`
+- action controls:
+  - `Copy message`
+  - `Branch method`
+  - `Regenerate response`
+
+So this important failure mode is now visible and legible in the chat surface
+instead of looking like an abandoned message.
+
+### 9. Workspace tab labels no longer duplicate on the active tab
 
 Observed on the rebuilt production routes for:
 
@@ -304,6 +325,8 @@ were still giant inline surfaces:
   rendered surfaces
 - task creation/update and flashcard create/review now also produce visible
   non-empty signed-in states
+- provider-failure method responses now also produce a visible signed-in
+  recovery state
 
 But the audit is still incomplete because the signed-in routes are not yet
 proven stable under longer or repeated production sessions. The clearest

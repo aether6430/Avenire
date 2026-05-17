@@ -15,6 +15,8 @@ export const ACTIVE_REPLY_MIN_HEIGHT = "calc(100dvh - 250px)";
 export const EMPTY_COMPOSER_SHELL_CLASSNAME = "mx-auto mb-3 w-full max-w-3xl";
 export const FLOATING_COMPOSER_SHELL_CLASSNAME =
   "mx-auto mb-3 w-full max-w-3xl";
+export const FAILED_ASSISTANT_REPLY_TEXT =
+  "The model provider failed while generating this response. Please retry in a moment.";
 
 export function createOptimisticUserMessage(
   message: SendMessageInput
@@ -102,7 +104,21 @@ export function getDisplayedChatMessages(
 ) {
   const lastMessage = messages.at(-1);
   if (!(status === "submitted" && lastMessage?.role === "user")) {
-    return messages;
+    if (
+      lastMessage?.role !== "user" ||
+      !(status === "ready" || status === "error")
+    ) {
+      return messages;
+    }
+
+    return [
+      ...messages,
+      {
+        id: `assistant-error-${lastMessage.id}`,
+        parts: [{ text: FAILED_ASSISTANT_REPLY_TEXT, type: "text" }],
+        role: "assistant",
+      } as UIMessage,
+    ];
   }
 
   return [
