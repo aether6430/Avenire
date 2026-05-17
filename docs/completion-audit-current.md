@@ -112,6 +112,7 @@ Current evidence in the no-sync repo:
 - `docs/workspace-surface-map.md`
 - `logs/2026-05-17-instruction-recovery-and-coverage-audit.md`
 - `logs/2026-05-17-rich-state-multisurface-soak.md`
+- `logs/2026-05-17-rich-interaction-multisurface-soak.md`
 
 Assessment:
 
@@ -201,10 +202,21 @@ Current evidence:
     - a detached mixed-route session across home, files, tasks, chat detail,
       and flashcard-set detail survived `15` route navigations and still left
       `/login` healthy immediately and after `30s`
+  - richer interaction-state production proof now exists too:
+    - `POST /api/tasks` created a real task
+    - `PATCH /api/tasks/<taskId>` updated that real task
+    - `POST /api/flashcards/sets/<setId>/cards` created a real flashcard
+    - `POST /api/flashcards/review` reviewed that real flashcard
+    - `/workspace/tasks` now has non-empty proof with a visible drafting task
+    - `/workspace/flashcards/<setId>` now has non-empty proof with `1 cards`,
+      `1 studied today`, and `1 in progress`
+    - a post-mutation detached mixed-route session survived `10` route
+      navigations and still left `/login` healthy immediately and after `30s`
   - remaining gap has shifted deeper:
     - production server responsiveness is healthier across short repeated files
-      visits, short multi-surface passes, and richer persisted-state loops, but
-      longer-lived signed-in sessions are still not fully proven trustworthy
+      visits, short multi-surface passes, richer persisted-state loops, and
+      short post-mutation loops, but longer-lived signed-in sessions are still
+      not fully proven trustworthy
 - The auth-entry flow itself improved materially:
   - `/register` no longer crashes with `Maximum update depth exceeded`
   - sign-up returned `200`
@@ -243,7 +255,8 @@ Current evidence:
 Missing proof:
 
 - The signed-in shell now has visual proof across the main empty-state route
-  families, but not yet across richer persisted in-session states.
+  families and richer persisted interaction states, but not yet across longer
+  interactive sessions.
 
 ## Strongest uncovered requirements
 
@@ -257,6 +270,7 @@ Missing proof:
    - a short repeated signed-in files browser soak now survives as well
    - a short multi-surface signed-in browser pass now survives as well
    - a richer persisted-state multi-surface loop now survives as well
+   - a short post-mutation multi-surface loop now survives as well
    - longer-lived signed-in sessions are still not fully proven safe
 3. The evidence trail is healthier, but it is still split between the active
    no-sync repo and the old Desktop repo’s historical `logs/`.
@@ -265,10 +279,11 @@ Missing proof:
 
 1. Continue structural reduction on `explorer.tsx` until it no longer dominates
    the app-level surface map.
-2. Extend richer-state proof into deeper interactions like sending a method
-   message, adding a flashcard, and completing a real task mutation.
+2. Extend richer interaction proof into a real method message round-trip and at
+   least one longer-lived interactive session beyond the current repeated
+   navigation loops.
 3. Run a longer detached soak after those richer interactions so the remaining
-   durability risk is narrowed beyond repeated navigation loops.
+   durability risk is narrowed beyond short post-mutation loops.
 4. Consolidate or mirror the most useful older Desktop `logs/` receipts into
    the active repo so the evidence trail stops being split across two homes.
 5. After that, perform a final end-state audit against the recovered

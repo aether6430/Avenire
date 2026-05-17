@@ -163,6 +163,9 @@ uniform across signed-in routes:
 - the latest detached production server on `:3021` stayed healthy enough to
   answer `/login` after persisted chat/set renders and a `15`-navigation
   richer mixed-route loop
+- the latest detached production server on `:3022` stayed healthy enough to
+  answer `/login` after task creation/update, flashcard create/review, and a
+  `10`-navigation post-mutation mixed-route loop
 
 ### 4. The tasks route now has direct visual proof too
 
@@ -241,7 +244,31 @@ The persisted flashcard-set surface showed:
 So the signed-in visual proof now includes not just empty-state routes, but
 real persisted entities in chat and flashcards.
 
-### 7. Workspace tab labels no longer duplicate on the active tab
+### 7. Real task and flashcard interactions now show visible results
+
+Observed on:
+
+- `http://127.0.0.1:4022/workspace/tasks`
+- `http://127.0.0.1:4022/workspace/flashcards/654bbf5c-4d98-4a26-acbf-55bc9482bd3f`
+
+The tasks surface showed a real non-empty state:
+
+- group heading `Drafting`
+- task title `Rich Soak Task 2026-05-17`
+- task description
+- visible metadata chips for date and priority
+
+The flashcard-set surface showed a real non-empty study state:
+
+- `1 cards`
+- `1 studied today`
+- `1 in progress`
+
+So the signed-in visual proof now includes actual user-visible results from
+task and flashcard interactions, not just empty-state or passive persisted
+route surfaces.
+
+### 8. Workspace tab labels no longer duplicate on the active tab
 
 Observed on the rebuilt production routes for:
 
@@ -275,6 +302,8 @@ were still giant inline surfaces:
   real rendered surfaces
 - persisted chat detail and persisted flashcard-set detail also reach real
   rendered surfaces
+- task creation/update and flashcard create/review now also produce visible
+  non-empty signed-in states
 
 But the audit is still incomplete because the signed-in routes are not yet
 proven stable under longer or repeated production sessions. The clearest

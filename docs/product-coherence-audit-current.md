@@ -135,6 +135,28 @@ Detached richer-state production pass:
   - `/login` immediately
   - `/login` after `30s`
 
+Detached richer-interaction production pass:
+
+- production build and server:
+  - `http://127.0.0.1:3022`
+- authenticated proxy:
+  - `bun scripts/local-auth-session-proxy.ts --cookie-file output/auth-login-cookies-prod.txt --upstream http://127.0.0.1:3022 --port 4022`
+- real interactive mutations created through production APIs:
+  - `POST /api/tasks` -> task id `2c93b3fb-7788-4718-8f42-ba4e519c5249`
+  - `PATCH /api/tasks/<taskId>` -> status `drafting`
+  - `POST /api/flashcards/sets/<setId>/cards` -> card id `99f99ef5-0a16-4179-a7ec-8c36ba2bb5d6`
+  - `POST /api/flashcards/review` -> reviewed that card with rating `good`
+- non-empty UI routes inspected:
+  - `http://127.0.0.1:4022/workspace/tasks`
+  - `http://127.0.0.1:4022/workspace/flashcards/654bbf5c-4d98-4a26-acbf-55bc9482bd3f`
+- repeated mixed-route loop after those mutations:
+  - `2` cycles
+  - `10` total navigations across home, files, tasks, chat detail, and
+    flashcard-set detail
+- detached server health checks after the loop:
+  - `/login` immediately
+  - `/login` after `30s`
+
 ## Observed strengths
 
 ### 1. Public nav is consistent
@@ -494,6 +516,24 @@ Observed in the richer detached production environment:
 This matters because the proof is no longer limited to empty-state routes. Real
 persisted chat and flashcard entities now render in production too.
 
+### 7. Real task and flashcard interactions now have direct browser proof
+
+Observed in the richer interaction environment:
+
+- the tasks route rendered a real non-empty task list:
+  - heading `Drafting`
+  - visible task `Rich Soak Task 2026-05-17`
+  - visible description `Task updated during richer production audit`
+  - visible metadata `No date` and `Normal`
+- the persisted flashcard-set route rendered a real non-empty study state:
+  - `1 cards`
+  - `1 studied today`
+  - `1 in progress`
+  - the existing set action row and card-bank surface remained healthy
+
+This matters because the proof has now crossed from persisted entities into
+actual interaction results that the user can see.
+
 Recent files-route runtime tightening also changed the initial network shape:
 
 - on a fresh detached production files render, the browser now loads:
@@ -520,7 +560,7 @@ Recent files-route runtime tightening also changed the initial network shape:
 That means the first files render is now doing less background live-work than
 it did before.
 
-### 7. Signed-in production responsiveness is still not fully trustworthy
+### 8. Signed-in production responsiveness is still not fully trustworthy
 
 Observed during the same broader signed-in production work:
 
@@ -557,11 +597,17 @@ Observed during the same broader signed-in production work:
     - persisted chat-detail and flashcard-set-detail route renders
     - a `15`-navigation richer mixed-route loop
     - and still answers `/login` immediately and after `30s`
+  - the latest detached production server on `:3022` now survives:
+    - task creation + task update
+    - flashcard creation + flashcard review
+    - non-empty tasks + flashcard-set route renders
+    - a `10`-navigation post-mutation mixed-route loop
+    - and still answers `/login` immediately and after `30s`
 
 This is still a real reliability problem, even though the startup path is now
 better than before.
 
-### 8. Voice mismatch still exists in places
+### 9. Voice mismatch still exists in places
 
 The login page uses:
 
@@ -574,7 +620,7 @@ more concrete study/research language on `/` and `/pricing`.
 This is not a blocker by itself, but it is one of the clearer remaining
 copy-level seams.
 
-### 9. Product proof is still stronger on entry than in-flow
+### 10. Product proof is still stronger on entry than in-flow
 
 Right now the strongest evidence is:
 
@@ -612,21 +658,21 @@ workspace flow is now only partially proven:
 - the flashcards route now also reaches a real production browser render
 - persisted chat detail and persisted flashcard-set detail now also reach real
   production browser renders
+- task creation/update and flashcard create/review now also have real visible
+  production effects
 - and the production signed-in path is healthier across short repeated files
-  visits, richer repeated route loops, and short broader multi-surface use, but
-  still not trustworthy enough under sustained or deeper interactive use
-  because server responsiveness can degrade
+  visits, richer repeated route loops, and short broader multi-surface
+  interactive use, but still not trustworthy enough under sustained or deeper
+  interactive use because server responsiveness can degrade
 
 ## Recommended next move
 
 Debug the next signed-in continuity seam next:
 
-1. move from persisted-state route proof into deeper interactions:
-   - send a method message
-   - add at least one flashcard
-   - perform at least one real task mutation
+1. move from richer interaction proof into a real method message round-trip
 2. isolate why the production server can become partially unresponsive only
    after longer-lived or more interactive signed-in usage, even now that
-   richer repeated route loops survive
-3. confirm whether the remaining degradation is tied to interactive
-   files/realtime or cross-route mutation paths rather than route rendering
+   richer repeated route loops and short post-mutation loops survive
+3. confirm whether the remaining degradation is tied to message-generation,
+   interactive files/realtime, or cross-route mutation paths rather than route
+   rendering alone
