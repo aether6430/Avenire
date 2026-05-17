@@ -49,14 +49,14 @@ Status legend:
 | move/rewrite docs into sensible places | `met` | Active repo now contains `instruction.md`, current audits, local environment docs, migrations docs, and logging receipts. |
 | improve repository organization without meaningless churn | `partial` | Many large surfaces reduced and routes clarified; still one dominant hotspot remains. |
 | keep docs useful and reorganized where presentation was poor | `met` | Current audit bundle plus recovered instruction and logs form a coherent working knowledge base. |
-| logging protocol using `logs/` for meaningful passes | `met` | Active repo now has `5` meaningful log entries under `logs/`, including instruction recovery, richer-state soak, richer-interaction soak, chat failure recovery, and provider-config proof. |
+| logging protocol using `logs/` for meaningful passes | `met` | Active repo now has a growing bundle of meaningful log entries under `logs/`, covering instruction recovery, richer-state and richer-interaction soaks, chat failure/config proofs, and structural wrapper receipts. |
 | evidence trail not split across two homes | `partial` | Active repo now mirrors the most important recent receipts and includes `docs/desktop-log-index-current.md` for the old Desktop log cluster, but older Desktop logs still remain outside the repo and many are dataless placeholders. |
 
 ## Workstream 4: Structural code health
 
 | Requirement | Status | Evidence |
 | --- | --- | --- |
-| reduce god files and monolithic modules where they block development | `partial` | Former hotspots like `app-sidebar.tsx`, `command-palette.tsx`, `student-calendar.tsx`, `multimodal-input.tsx`, `data-imports-section.tsx`, `sidebar-files-panel.tsx` were reduced dramatically. |
+| reduce god files and monolithic modules where they block development | `partial` | Former hotspots like `app-sidebar.tsx`, `command-palette.tsx`, `student-calendar.tsx`, `student-calendar-desktop.tsx`, `multimodal-input.tsx`, `data-imports-section.tsx`, and `sidebar-files-panel.tsx` were reduced dramatically. |
 | keep abstractions honest and local | `met` | Recent reductions consistently wrapped existing local hooks/models rather than inventing compatibility shims. |
 | make repo easier to change correctly after refactor | `partial` | Many shells are slimmer, and [explorer.tsx](/Users/johnmacartew/Developer.nosync/aveniri/apps/web/src/components/files/explorer.tsx:1) is now down to `323` lines, but it remains the clearest structural hotspot. |
 | avoid over-advanced refactors that do not improve codability | `met` | Recent changes stayed surgical and aligned with existing boundaries. |
