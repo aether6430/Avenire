@@ -1,16 +1,10 @@
 import { type ToolSet, tool } from "@avenire/ai";
 import type { AgentActivityData } from "@avenire/ai/message-types";
 import {
-  AVAILABLE_STUDY_SKILLS,
-  AVAILABLE_VISUAL_SKILLS,
-  loadSkills,
-} from "@avenire/ai/skills";
-import {
   chatToolSchemas,
   legacyShowWidgetInputSchema,
 } from "@avenire/ai/tools";
-import { tavily } from "@tavily/core";
-import type { z } from "zod";
+import { executeGetDueCards } from "@/lib/chat-tools/chat-tool-due-cards-runtime";
 import {
   improveMisconceptionForTool,
   listMisconceptionsForTool,
@@ -24,21 +18,16 @@ import {
   generateQuizFromSource,
 } from "@/lib/chat-tools/chat-tool-study-runtime";
 import {
+  executeLoadSkill,
+  executeShowWidget,
+  executeVisualizeReadMe,
+  runWebSearch,
+} from "@/lib/chat-tools/chat-tool-utility-runtime";
+import {
   executeAvenireAgent,
   executeFileManagerAgent,
   executeSearchMaterials,
 } from "@/lib/chat-tools/chat-tool-workspace-agent-runtime";
-import { matchesTaxonomyScope } from "@/lib/chat-tools/study-tool-helpers";
-import {
-  getFlashcardDashboardForUser,
-  listDueFlashcardsForUser,
-  normalizeFlashcardTaxonomy,
-} from "@/lib/flashcards";
-
-const DEFAULT_WEB_SEARCH_LIMIT = 5;
-const _DEFAULT_FILE_LIST_LIMIT = 50;
-const DEFAULT_DUE_CARD_LIMIT = 5;
-const NOTES_FOLDER_NAME = "Notes";
 
 interface ChatToolContext {
   agentActivityId: string;
@@ -51,38 +40,6 @@ interface ChatToolContext {
 
 interface ChatToolOptions {
   legacyShowWidgetSchema?: boolean;
-}
-
-async function runWebSearch(
-  input: z.infer<typeof chatToolSchemas.web_search.input>
-) {
-  const apiKey = process.env.TAVILY_API_KEY?.trim();
-  if (!apiKey) {
-    throw new Error("TAVILY_API_KEY is required for web_search.");
-  }
-
-  const client = tavily({ apiKey });
-  const response = await client.search(input.query, {
-    includeAnswer: input.includeAnswer ?? true,
-    includeFavicon: true,
-    maxResults: input.maxResults ?? DEFAULT_WEB_SEARCH_LIMIT,
-    searchDepth: "advanced",
-    topic: input.topic ?? "general",
-  });
-
-  return {
-    answer: response.answer?.trim() || undefined,
-    query: response.query,
-    results: response.results.map((result) => ({
-      content: result.content,
-      favicon: result.favicon,
-      publishedDate: result.publishedDate,
-      score: result.score,
-      title: result.title,
-      url: result.url,
-    })),
-    totalResults: response.results.length,
-  };
 }
 
 export function createChatTools(
@@ -202,60 +159,7 @@ The agent decides which operations to perform based on the task.`,
         "Show how many study cards are due and preview the next due items. Use when the user asks about due cards or study progress, and also when the user is clearly struggling with a topic and you want to check whether relevant cards are due.",
       inputSchema: chatToolSchemas.get_due_cards.input,
       outputSchema: chatToolSchemas.get_due_cards.output,
-      execute: async (input) => {
-        const [dashboard, dueCards] = await Promise.all([
-          getFlashcardDashboardForUser(ctx.userId, ctx.workspaceId),
-          listDueFlashcardsForUser({
-            limit: 100,
-            userId: ctx.userId,
-            workspaceId: ctx.workspaceId,
-          }),
-        ]);
-
-        const hasScope = Boolean(input.subject || input.topic || input.concept);
-        const matchingCardIds = hasScope
-          ? new Set(
-              (dashboard?.cardSnapshots ?? [])
-                .filter((snapshot) => {
-                  const taxonomy = normalizeFlashcardTaxonomy(
-                    snapshot.card.source
-                  );
-                  return Boolean(
-                    taxonomy &&
-                      matchesTaxonomyScope(taxonomy, {
-                        concept: input.concept,
-                        subject: input.subject,
-                        topic: input.topic,
-                      })
-                  );
-                })
-                .map((snapshot) => snapshot.card.id)
-            )
-          : null;
-        const filteredDueCards =
-          matchingCardIds && hasScope
-            ? dueCards.filter((entry) => matchingCardIds.has(entry.card.id))
-            : dueCards;
-        const previewDueCards = filteredDueCards.slice(
-          0,
-          input.limit ?? DEFAULT_DUE_CARD_LIMIT
-        );
-
-        return {
-          dueCards: previewDueCards.map((entry) => ({
-            cardId: entry.card.id,
-            dueAt: entry.reviewState?.dueAt ?? null,
-            frontMarkdown: entry.card.frontMarkdown,
-            kind: entry.card.kind,
-            remainingDueCount: entry.remainingDueCount,
-            setId: entry.set.id,
-            setTitle: entry.set.title,
-          })),
-          totalDueCount: hasScope
-            ? filteredDueCards.length
-            : (dashboard?.dueCount ?? 0),
-        };
-      },
+      execute: async (input) => executeGetDueCards(ctx, input),
     }),
     quiz_me: tool({
       description:
@@ -269,71 +173,21 @@ The agent decides which operations to perform based on the task.`,
         "Load a study-guideline skill into context. Use this before acting on structured study tasks like explanations, summaries, notes, mindset cards, or quizzes.",
       inputSchema: chatToolSchemas.load_skill.input,
       outputSchema: chatToolSchemas.load_skill.output,
-      execute: async (input) => {
-        const skills = input.skills.filter((skillName) =>
-          AVAILABLE_STUDY_SKILLS.includes(
-            skillName as (typeof AVAILABLE_STUDY_SKILLS)[number]
-          )
-        );
-        if (skills.length === 0) {
-          throw new Error("No valid skills provided for load_skill.");
-        }
-        return {
-          content: loadSkills(skills),
-          skills,
-        };
-      },
+      execute: async (input) => executeLoadSkill(input),
     }),
     visualize_read_me: tool({
       description:
         "Load visualization guidelines for widget generation. Call this before generating widgets to get detailed instructions for interactive HTML/CSS/SVG fragments.",
       inputSchema: chatToolSchemas.visualize_read_me.input,
       outputSchema: chatToolSchemas.visualize_read_me.output,
-      execute: async (input) => {
-        const modules = input.modules.filter((moduleName) =>
-          AVAILABLE_VISUAL_SKILLS.includes(
-            moduleName as (typeof AVAILABLE_VISUAL_SKILLS)[number]
-          )
-        );
-        if (modules.length === 0) {
-          throw new Error("No valid modules provided for visualize_read_me.");
-        }
-        return {
-          content: loadSkills(modules),
-          modules,
-        };
-      },
+      execute: async (input) => executeVisualizeReadMe(input),
     }),
     show_widget: tool({
       description:
         "Render an interactive HTML/CSS/JS widget in the chat. Use for visualizations, diagrams, charts, simulations, and interactive explainers.",
       inputSchema: showWidgetInputSchema,
       outputSchema: chatToolSchemas.show_widget.output,
-      execute: async (input) => {
-        if (!input.i_have_seen_read_me) {
-          throw new Error(
-            "You must call visualize_read_me before show_widget."
-          );
-        }
-
-        const widgetCode = input.widget_code ?? "";
-        const isSVG = widgetCode.trimStart().startsWith("<svg");
-        const width = input.width ?? 800;
-        const height = input.height ?? 600;
-
-        return {
-          success: true,
-          details: {
-            title: input.title,
-            width,
-            height,
-            isSVG,
-          },
-          widget_code: input.widget_code,
-          widget_spec: input.widget_spec,
-          filePath: null,
-        };
-      },
+      execute: async (input) => executeShowWidget(input),
     }),
   };
 }
