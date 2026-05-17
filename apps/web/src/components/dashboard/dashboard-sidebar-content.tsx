@@ -271,7 +271,6 @@ export function DashboardSidebarContent({
                       onClick={(event) => {
                         closeMobileSidebar();
                         if (!isMobile) {
-                          setDesktopSidebarView("files");
                           void navigateToFilesRoot({
                             openInNewPane: event.altKey,
                           });
@@ -286,7 +285,6 @@ export function DashboardSidebarContent({
                           return;
                         }
                         event.preventDefault();
-                        setDesktopSidebarView("files");
                         void navigateToFilesRoot({ openInNewPane: true });
                       }}
                     />

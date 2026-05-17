@@ -215,6 +215,36 @@ export function resolveDashboardSidebarActiveTabValue(
   return sidebarView === "workspace" ? null : sidebarView;
 }
 
+export function resolveInitialDashboardSidebarView(options: {
+  activeView: DashboardSidebarView;
+  isMobile: boolean;
+}) {
+  if (options.isMobile) {
+    return options.activeView ?? "workspace";
+  }
+
+  if (options.activeView === "files") {
+    return "workspace";
+  }
+
+  return options.activeView ?? "workspace";
+}
+
+export function resolveInitialMountedDashboardSidebarViews(options: {
+  activeView: DashboardSidebarView;
+  isMobile: boolean;
+}) {
+  if (!(options.activeView && options.activeView !== "workspace")) {
+    return new Set<DashboardSidebarMountedView>();
+  }
+
+  if (!options.isMobile && options.activeView === "files") {
+    return new Set<DashboardSidebarMountedView>();
+  }
+
+  return new Set([options.activeView]);
+}
+
 export function getNextMountedDashboardSidebarViews(options: {
   mountedViews: Set<DashboardSidebarMountedView>;
   sidebarView: Exclude<DashboardSidebarView, null>;

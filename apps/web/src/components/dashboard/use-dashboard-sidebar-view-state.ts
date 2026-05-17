@@ -5,6 +5,8 @@ import {
   getNextMountedDashboardSidebarViews,
   resolveDashboardSidebarActiveTabValue,
   resolveDashboardSidebarSurfaceView,
+  resolveInitialDashboardSidebarView,
+  resolveInitialMountedDashboardSidebarViews,
 } from "@/components/dashboard/dashboard-sidebar-runtime-model";
 import type { DashboardSidebarView } from "@/components/dashboard/sidebar-startup";
 
@@ -18,14 +20,16 @@ export function useDashboardSidebarViewState({
   isMobile: boolean;
 }) {
   const [desktopSidebarView, setDesktopSidebarView] =
-    useState<SidebarSurfaceView>(() => activeView ?? "workspace");
+    useState<SidebarSurfaceView>(() =>
+      resolveInitialDashboardSidebarView({ activeView, isMobile: false })
+    );
   const [mobileSidebarView, setMobileSidebarView] =
-    useState<SidebarSurfaceView>(() => activeView ?? "workspace");
+    useState<SidebarSurfaceView>(() =>
+      resolveInitialDashboardSidebarView({ activeView, isMobile: true })
+    );
   const [mountedViews, setMountedViews] = useState<
     Set<Exclude<DashboardSidebarView, "workspace" | null>>
-  >(() =>
-    activeView && activeView !== "workspace" ? new Set([activeView]) : new Set()
-  );
+  >(() => resolveInitialMountedDashboardSidebarViews({ activeView, isMobile }));
 
   const sidebarView = resolveDashboardSidebarSurfaceView({
     desktopSidebarView,

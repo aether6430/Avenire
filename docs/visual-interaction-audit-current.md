@@ -112,6 +112,15 @@ Observed after clicking `Open Files` in the same production browser session:
 
 So the files route is no longer only a sidebar-shell or spinner proof.
 
+The latest detached production files pass also shows a cleaner desktop layout
+split:
+
+- the left sidebar remains on `Workspace Home` and its quick actions
+- the main pane carries the files work surface
+
+So the files view no longer duplicates a heavyweight files surface in both the
+desktop sidebar and the main pane on first arrival.
+
 ### 3. The remaining visual risk is now tied to longer-lived stability
 
 Even after the files route renders, the broader production session can still
@@ -135,6 +144,9 @@ uniform across signed-in routes:
   bridge on first paint
 - the first visible files surface can now appear before the folder-detail API
   finishes
+- the latest detached production server on `:3016` stayed healthy enough to
+  answer `/login` immediately, after `10s`, and after `30s` following a
+  signed-in files browser pass
 
 ## Conclusion
 
@@ -147,5 +159,5 @@ were still giant inline surfaces:
 - the signed-in home surface now reaches a real ready state
 
 But the audit is still incomplete because the signed-in routes are not yet
-proven stable under longer production sessions. The clearest remaining gap is
-runtime durability, not initial visual composition.
+proven stable under longer or repeated production sessions. The clearest
+remaining gap is runtime durability, not initial visual composition.

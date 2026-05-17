@@ -71,6 +71,18 @@ Direct production browser session:
   - home-screen startup no longer auto-warms every workspace surface
   - deferred shell/runtime extras no longer auto-enable from idle timers alone
 
+Detached production files pass:
+
+- production build and server:
+  - `http://127.0.0.1:3016`
+- authenticated proxy:
+  - `bun scripts/local-auth-session-proxy.ts --cookie-file output/auth-login-cookies-prod.txt --upstream http://127.0.0.1:3016 --port 4016`
+- Playwright browser snapshot for:
+  - `http://127.0.0.1:4016/workspace/files/<workspaceUuid>/folder/<rootFolderId>`
+- detached server health checks after the browser pass:
+  - `curl -m 10 http://127.0.0.1:3016/login`
+  - repeated immediately, after `10s`, and after `30s`
+
 ## Observed strengths
 
 ### 1. Public nav is consistent
@@ -314,6 +326,25 @@ Observed after moving beyond the home surface:
 This is materially stronger than the earlier shell-only or spinner-only files
 proof. The files route is no longer “unreachable” in production.
 
+The latest detached production pass also proves a cleaner desktop split between
+navigation shell and files work surface:
+
+- on the signed-in files route, the left desktop sidebar now remains on:
+  - `Workspace Home`
+  - `New Method`
+  - `Open Mindset Sets`
+  - `Open Files`
+  - `Open Tasks`
+- while the main pane renders the real files surface with:
+  - breadcrumb `Workspace`
+  - `Workspace actions`
+  - sort and view controls
+  - visible file row for `Welcome to Avenire.md`
+
+That is a meaningful coherence improvement because the desktop files route no
+longer mounts a second heavyweight files surface in the sidebar just from
+opening the main files view.
+
 Recent files-route runtime tightening also changed the initial network shape:
 
 - on a fresh detached production files render, the browser now loads:
@@ -359,6 +390,11 @@ Observed during the same broader signed-in production work:
     the signed-in files route before the route reaches a stable browser render
   - a detached production server on `:3006` can render the files route, but the
     broader signed-in files session still remains a durability risk
+  - the latest detached production server on `:3016` now survives a signed-in
+    files browser pass and still answers `/login`:
+    - immediately
+    - after `10s`
+    - after `30s`
 
 This is still a real reliability problem, even though the startup path is now
 better than before.
@@ -409,15 +445,17 @@ workspace flow is now only partially proven:
   in a production browser session
 - the files route now also reaches a real production browser render instead of
   only a loading placeholder
-- and the production signed-in path is still not trustworthy enough under
-  sustained use because server responsiveness can degrade
+- and the production signed-in path is healthier after a single detached files
+  pass, but still not trustworthy enough under sustained or repeated use
+  because server responsiveness can degrade
 
 ## Recommended next move
 
 Debug the next signed-in continuity seam next:
 
 1. isolate why the production server can become partially unresponsive after
-   signed-in files activity, even now that the files surface renders
-2. confirm whether the degradation is tied to long-lived files/realtime runtime
-   paths rather than the initial route render itself
+   repeated or longer-lived signed-in files activity, even now that the files
+   surface renders and a short detached pass survives
+2. confirm whether the remaining degradation is tied to longer-lived
+   files/realtime runtime paths rather than the initial route render itself
 3. only then continue the deeper chat/tasks/flashcards continuity audit

@@ -8,6 +8,8 @@ import {
   getNextMountedDashboardSidebarViews,
   resolveDashboardSidebarActiveTabValue,
   resolveDashboardSidebarSurfaceView,
+  resolveInitialDashboardSidebarView,
+  resolveInitialMountedDashboardSidebarViews,
   resolveSidebarWorkspaceUuid,
   shouldSeedPreferredWorkspaceId,
   shouldSyncRouteWorkspacePreference,
@@ -190,6 +192,42 @@ describe("dashboard sidebar runtime model", () => {
     expect(resolveDashboardSidebarActiveTabValue("flashcards")).toBe(
       "flashcards"
     );
+
+    expect(
+      resolveInitialDashboardSidebarView({
+        activeView: "files",
+        isMobile: false,
+      })
+    ).toBe("workspace");
+    expect(
+      resolveInitialDashboardSidebarView({
+        activeView: "files",
+        isMobile: true,
+      })
+    ).toBe("files");
+    expect(
+      resolveInitialDashboardSidebarView({
+        activeView: "chat",
+        isMobile: false,
+      })
+    ).toBe("chat");
+
+    expect(
+      Array.from(
+        resolveInitialMountedDashboardSidebarViews({
+          activeView: "files",
+          isMobile: false,
+        })
+      )
+    ).toEqual([]);
+    expect(
+      Array.from(
+        resolveInitialMountedDashboardSidebarViews({
+          activeView: "files",
+          isMobile: true,
+        })
+      )
+    ).toEqual(["files"]);
 
     const initialMountedViews = new Set(["chat"] as const);
     expect(
