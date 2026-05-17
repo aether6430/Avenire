@@ -87,6 +87,7 @@ Recent verified reductions already landed and were pushed:
 - `share-dialog.tsx` — `842` -> `142`
 - `stylized-search-bar.tsx` — `812` -> `69`
 - `chat.tsx` — `688` -> `44`
+- `chat-workspace.tsx` — `458` -> `11`
 - `flashcards/dashboard.tsx` — `702` -> `11`
 - `flashcards/sidebar-panel.tsx` — `487` -> `11`
 - `tasks-workspace.tsx` — `640` -> `13`
@@ -133,6 +134,7 @@ Current evidence in the no-sync repo:
 - `logs/2026-05-17-flashcards-dashboard-thin-wrapper.md`
 - `logs/2026-05-17-dashboard-home-thin-wrapper.md`
 - `logs/2026-05-17-flashcards-sidebar-thin-wrapper.md`
+- `logs/2026-05-17-chat-workspace-thin-wrapper.md`
 - `logs/2026-05-17-dashboard-home-thin-wrapper.md`
 - `logs/2026-05-17-chat-thin-wrapper.md`
 
