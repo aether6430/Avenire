@@ -115,6 +115,26 @@ Detached multi-surface production pass:
   - `/login` immediately
   - `/login` after `20s`
 
+Detached richer-state production pass:
+
+- production build and server:
+  - `http://127.0.0.1:3021`
+- authenticated proxy:
+  - `bun scripts/local-auth-session-proxy.ts --cookie-file output/auth-login-cookies-prod.txt --upstream http://127.0.0.1:3021 --port 4021`
+- real persisted state created through production APIs:
+  - `POST /api/chats` -> method slug `ca4a56e3-6482-47f6-822f-56f4d66d69ad`
+  - `POST /api/flashcards/sets` -> set id `654bbf5c-4d98-4a26-acbf-55bc9482bd3f`
+- richer signed-in routes inspected:
+  - `http://127.0.0.1:4021/workspace/chats/ca4a56e3-6482-47f6-822f-56f4d66d69ad`
+  - `http://127.0.0.1:4021/workspace/flashcards/654bbf5c-4d98-4a26-acbf-55bc9482bd3f`
+- repeated mixed-route loop:
+  - `3` cycles
+  - `15` total navigations across home, files, tasks, chat detail, and
+    flashcard-set detail
+- detached server health checks after the loop:
+  - `/login` immediately
+  - `/login` after `30s`
+
 ## Observed strengths
 
 ### 1. Public nav is consistent
@@ -452,6 +472,28 @@ route families that matter most to the current product shell:
 - chat/new method
 - flashcards
 
+### 6. Richer persisted chat and flashcard states now have direct browser proof
+
+Observed in the richer detached production environment:
+
+- the persisted method route rendered:
+  - sidebar methods collection containing `Rich Soak Method 2026-05-17`
+  - breadcrumb `Rich Soak Method 2026-05-17`
+  - main-pane heading `Rich Soak Method 2026-05-17`
+  - chat composer and share action
+- the persisted flashcard-set route rendered:
+  - sidebar set entry `Rich Soak Set 2026-05-17`
+  - main-pane heading `Rich Soak Set 2026-05-17`
+  - set description
+  - `Edit mindset`
+  - `Pause`
+  - `Add Card`
+  - `Delete set`
+  - set profile / review stats / card bank surfaces
+
+This matters because the proof is no longer limited to empty-state routes. Real
+persisted chat and flashcard entities now render in production too.
+
 Recent files-route runtime tightening also changed the initial network shape:
 
 - on a fresh detached production files render, the browser now loads:
@@ -478,7 +520,7 @@ Recent files-route runtime tightening also changed the initial network shape:
 That means the first files render is now doing less background live-work than
 it did before.
 
-### 6. Signed-in production responsiveness is still not fully trustworthy
+### 7. Signed-in production responsiveness is still not fully trustworthy
 
 Observed during the same broader signed-in production work:
 
@@ -511,11 +553,15 @@ Observed during the same broader signed-in production work:
     - a signed-in chat/new-method browser pass
     - a signed-in flashcards browser pass
     - and still answers `/login` after both routes
+  - the latest detached production server on `:3021` now survives:
+    - persisted chat-detail and flashcard-set-detail route renders
+    - a `15`-navigation richer mixed-route loop
+    - and still answers `/login` immediately and after `30s`
 
 This is still a real reliability problem, even though the startup path is now
 better than before.
 
-### 7. Voice mismatch still exists in places
+### 8. Voice mismatch still exists in places
 
 The login page uses:
 
@@ -528,7 +574,7 @@ more concrete study/research language on `/` and `/pricing`.
 This is not a blocker by itself, but it is one of the clearer remaining
 copy-level seams.
 
-### 8. Product proof is still stronger on entry than in-flow
+### 9. Product proof is still stronger on entry than in-flow
 
 Right now the strongest evidence is:
 
@@ -564,19 +610,23 @@ workspace flow is now only partially proven:
 - the tasks route now also reaches a real production browser render
 - the chat/new-method route now also reaches a real production browser render
 - the flashcards route now also reaches a real production browser render
+- persisted chat detail and persisted flashcard-set detail now also reach real
+  production browser renders
 - and the production signed-in path is healthier across short repeated files
-  visits, but still not trustworthy enough under sustained or broader
-  multi-surface use because server responsiveness can degrade
+  visits, richer repeated route loops, and short broader multi-surface use, but
+  still not trustworthy enough under sustained or deeper interactive use
+  because server responsiveness can degrade
 
 ## Recommended next move
 
 Debug the next signed-in continuity seam next:
 
-1. isolate why the production server can become partially unresponsive after
-   longer-lived or broader multi-surface signed-in usage, even now that
-   repeated short files passes survive
-2. confirm whether the remaining degradation is tied to longer-lived
-   files/realtime or cross-route runtime paths rather than the initial route
-   render itself
-3. move from empty-state route proof into richer signed-in state proof
-   (persisted methods, non-empty flashcard sets, and cross-route transitions)
+1. move from persisted-state route proof into deeper interactions:
+   - send a method message
+   - add at least one flashcard
+   - perform at least one real task mutation
+2. isolate why the production server can become partially unresponsive only
+   after longer-lived or more interactive signed-in usage, even now that
+   richer repeated route loops survive
+3. confirm whether the remaining degradation is tied to interactive
+   files/realtime or cross-route mutation paths rather than route rendering

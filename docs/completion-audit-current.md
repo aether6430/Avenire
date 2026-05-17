@@ -111,6 +111,7 @@ Current evidence in the no-sync repo:
 - `docs/visual-interaction-audit-current.md`
 - `docs/workspace-surface-map.md`
 - `logs/2026-05-17-instruction-recovery-and-coverage-audit.md`
+- `logs/2026-05-17-rich-state-multisurface-soak.md`
 
 Assessment:
 
@@ -192,10 +193,18 @@ Current evidence:
     - `/workspace/flashcards` renders a real mindset/flashcards surface
     - after visiting both routes in the same detached session, the production
       server still answered `/login` immediately and after `20s`
+  - richer persisted-state production proof now exists too:
+    - `POST /api/chats` created a real persisted method
+    - `POST /api/flashcards/sets` created a real persisted mindset set
+    - the persisted routes `/workspace/chats/<slug>` and
+      `/workspace/flashcards/<setId>` both rendered in production
+    - a detached mixed-route session across home, files, tasks, chat detail,
+      and flashcard-set detail survived `15` route navigations and still left
+      `/login` healthy immediately and after `30s`
   - remaining gap has shifted deeper:
     - production server responsiveness is healthier across short repeated files
-      visits and short multi-surface passes, but longer-lived signed-in
-      sessions are still not fully proven trustworthy
+      visits, short multi-surface passes, and richer persisted-state loops, but
+      longer-lived signed-in sessions are still not fully proven trustworthy
 - The auth-entry flow itself improved materially:
   - `/register` no longer crashes with `Maximum update depth exceeded`
   - sign-up returned `200`
@@ -247,6 +256,7 @@ Missing proof:
      `/login` health check window
    - a short repeated signed-in files browser soak now survives as well
    - a short multi-surface signed-in browser pass now survives as well
+   - a richer persisted-state multi-surface loop now survives as well
    - longer-lived signed-in sessions are still not fully proven safe
 3. The evidence trail is healthier, but it is still split between the active
    no-sync repo and the old Desktop repo’s historical `logs/`.
@@ -255,10 +265,11 @@ Missing proof:
 
 1. Continue structural reduction on `explorer.tsx` until it no longer dominates
    the app-level surface map.
-2. Run a longer detached multi-surface soak against richer persisted states so
-   the remaining durability risk is narrowed beyond empty-state route proof and
-   beyond repeated short files visits.
-3. Consolidate or mirror the most useful older Desktop `logs/` receipts into
+2. Extend richer-state proof into deeper interactions like sending a method
+   message, adding a flashcard, and completing a real task mutation.
+3. Run a longer detached soak after those richer interactions so the remaining
+   durability risk is narrowed beyond repeated navigation loops.
+4. Consolidate or mirror the most useful older Desktop `logs/` receipts into
    the active repo so the evidence trail stops being split across two homes.
-4. After that, perform a final end-state audit against the recovered
+5. After that, perform a final end-state audit against the recovered
    `instruction.md` before considering the overall objective achieved.

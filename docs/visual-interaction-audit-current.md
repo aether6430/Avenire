@@ -160,6 +160,9 @@ uniform across signed-in routes:
 - the latest detached production server on `:3017` stayed healthy enough to
   answer `/login` after `20` authenticated files-route GETs, `5` headless
   Chrome files-route visits, and a tasks-route browser pass
+- the latest detached production server on `:3021` stayed healthy enough to
+  answer `/login` after persisted chat/set renders and a `15`-navigation
+  richer mixed-route loop
 
 ### 4. The tasks route now has direct visual proof too
 
@@ -209,7 +212,36 @@ Observed on `http://127.0.0.1:4018/workspace/flashcards`:
 So signed-in visual proof now spans home, files, tasks, chat/new-method, and
 flashcards in their real product routes.
 
-### 6. Workspace tab labels no longer duplicate on the active tab
+### 6. Richer persisted chat and flashcard surfaces now render cleanly
+
+Observed on:
+
+- `http://127.0.0.1:4021/workspace/chats/ca4a56e3-6482-47f6-822f-56f4d66d69ad`
+- `http://127.0.0.1:4021/workspace/flashcards/654bbf5c-4d98-4a26-acbf-55bc9482bd3f`
+
+The persisted method surface showed:
+
+- the method title in the sidebar list
+- the same title in the breadcrumb
+- the same title in the main-pane heading
+- composer controls and share action
+
+The persisted flashcard-set surface showed:
+
+- the set title in the sidebar list
+- the set title in the main-pane heading
+- description and study stats
+- the full action row:
+  - `Edit mindset`
+  - `Pause`
+  - `Add Card`
+  - `Delete set`
+- card-bank scaffolding
+
+So the signed-in visual proof now includes not just empty-state routes, but
+real persisted entities in chat and flashcards.
+
+### 7. Workspace tab labels no longer duplicate on the active tab
 
 Observed on the rebuilt production routes for:
 
@@ -241,6 +273,8 @@ were still giant inline surfaces:
 - the signed-in home surface now reaches a real ready state
 - the signed-in files, tasks, chat/new-method, and flashcards routes all reach
   real rendered surfaces
+- persisted chat detail and persisted flashcard-set detail also reach real
+  rendered surfaces
 
 But the audit is still incomplete because the signed-in routes are not yet
 proven stable under longer or repeated production sessions. The clearest
