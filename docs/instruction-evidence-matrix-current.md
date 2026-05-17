@@ -39,7 +39,7 @@ Status legend:
 | improve clarity of flows, states, transitions, empty states, interaction logic | `partial` | Public, auth, workspace home/files/tasks/chat/flashcards, persisted entity routes, and post-mutation states are browser-proven. Method failure is explicit and reload-safe. Successful provider-backed method response is still open. |
 | reduce chaos or cognitive overload | `partial` | Startup pressure and redundant background work on files routes were reduced; sidebar duplicate files surface removed on desktop; tab label duplication fixed. Remaining complexity still lives in longer signed-in loops and `explorer.tsx`. |
 | clearer model of what user is doing and what matters next | `partial` | Home/tasks/files/chat/flashcards route proofs are stronger; richer persisted states and mutation results now visible. Still missing one successful method-response round-trip and longer-lived session continuity. |
-| product-language quality | `partial` | Multiple copy and language passes landed; login still has a mild voice mismatch documented in [product-coherence-audit-current.md](/Users/johnmacartew/Developer.nosync/aveniri/docs/product-coherence-audit-current.md:1). |
+| product-language quality | `partial` | Multiple copy and language passes landed; auth entry copy now matches the study/research language on the public product edge, but deeper successful method interaction is still not locally proven. |
 | existing product vision legible throughout experience | `partial` | Far more legible than before, but not fully closed because deeper successful interactive method behavior is not yet proven locally. |
 
 ## Workstream 3: Organization and documentation
@@ -66,7 +66,7 @@ Status legend:
 | Requirement | Status | Evidence |
 | --- | --- | --- |
 | fix sloppy visual inconsistencies | `partial` | Selected workspace tab labels no longer duplicate; richer route families and failure states are visually coherent. |
-| correct broken spacing, alignment, capitalization, copy formatting, rough details | `partial` | Many local polish passes landed; current visual audit still notes a lingering voice mismatch on login. |
+| correct broken spacing, alignment, capitalization, copy formatting, rough details | `partial` | Many local polish passes landed, including auth-entry copy alignment; broader signed-in interactive polish remains open. |
 | preserve current design direction unless inconsistency harms quality | `met` | Recent UI fixes improve consistency without redesigning the product. |
 
 ## Workstream 6: Relentless verification
@@ -95,5 +95,5 @@ Status legend:
 | feels coherent rather than stitched together | `partial` | Strong improvement across route families and error states; still not fully closed until successful method interaction and longer-lived sessions are proven. |
 | has enough testing to support change | `met` | Explicit test budget and coverage floor from the instruction are now satisfied. |
 | has a structure that future work can build on | `partial` | Major improvement, but `explorer.tsx` remains a meaningful hotspot. |
-| communicates itself more clearly | `partial` | Public/product surfaces, richer states, and failure states are much clearer; login voice mismatch remains. |
+| communicates itself more clearly | `partial` | Public/product surfaces, auth entry, richer states, and failure states are much clearer; successful provider-backed method interaction is still not locally proven. |
 | ready for public-facing iteration instead of internal survival mode | `partial` | Much closer, but not yet fully proven because the successful model-backed method path and longer-lived interactive durability remain open. |

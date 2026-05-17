@@ -78,10 +78,10 @@ export function AuthShell({
                 ) : (
                   <>
                     <div className="font-mono text-[11px] text-muted-foreground uppercase tracking-[0.3em]">
-                      A quieter internet
+                      A study-first workspace
                     </div>
                     <p className="mt-3 text-xl leading-snug md:text-2xl">
-                      Built for people who prefer focus over noise.
+                      Built for deep study, research, and interactive reasoning.
                     </p>
                   </>
                 )}

@@ -634,18 +634,16 @@ Observed during the same broader signed-in production work:
 This is still a real reliability problem, even though the startup path is now
 better than before.
 
-### 10. Voice mismatch still exists in places
+### 10. Auth entry voice now matches the public product language
 
-The login page uses:
+The auth shell now uses:
 
-- `A quieter internet`
-- `Built for people who prefer focus over noise.`
+- `A study-first workspace`
+- `Built for deep study, research, and interactive reasoning.`
 
-That tone is not wrong, but it is slightly more editorial and ambient than the
-more concrete study/research language on `/` and `/pricing`.
-
-This is not a blocker by itself, but it is one of the clearer remaining
-copy-level seams.
+That brings `/login` and `/register` back into the same product language family
+as `/` and `/pricing`, instead of leaving the auth boundary on a more ambient
+or editorial note.
 
 ### 11. Product proof is still stronger on entry than in-flow
 

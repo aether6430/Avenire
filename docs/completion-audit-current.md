@@ -137,7 +137,7 @@ Current evidence in the no-sync repo:
 - `logs/2026-05-17-flashcards-sidebar-thin-wrapper.md`
 - `logs/2026-05-17-chat-workspace-thin-wrapper.md`
 - `logs/2026-05-17-student-calendar-desktop-thin-wrapper.md`
-- `logs/2026-05-17-dashboard-home-thin-wrapper.md`
+- `logs/2026-05-17-auth-entry-voice-alignment.md`
 - `logs/2026-05-17-chat-thin-wrapper.md`
 
 Assessment:
@@ -288,6 +288,8 @@ Current evidence:
 - Recent structural cuts preserved green production builds.
 - The previously huge authenticated shell surfaces were reduced to existing
   canonical boundaries rather than ad hoc inline logic.
+- The auth shell copy now matches the same study/research language family used
+  on `/` and `/pricing`, instead of a more ambient standalone slogan.
 - `docs/visual-interaction-audit-current.md` now records the current visual
   pass across public/authenticated entry points and the signed-in workspace
   shell.
