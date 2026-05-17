@@ -68,7 +68,7 @@ Assessment:
 
 Current measured app-level hotspots:
 
-- `apps/web/src/components/files/explorer.tsx` — `375` lines
+- `apps/web/src/components/files/explorer.tsx` — `323` lines
 - `apps/web/src/components/dashboard/sidebar-files-panel.tsx` — `55` lines
 - `apps/web/src/components/chat/multimodal-input.tsx` — `60` lines
 - `apps/web/src/components/settings/data-imports-section.tsx` — `14` lines

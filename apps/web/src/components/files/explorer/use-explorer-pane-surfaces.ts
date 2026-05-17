@@ -7,8 +7,8 @@ import { useExplorerCurrentFolderActions } from "@/components/files/explorer/use
 import type { useExplorerDerivedState } from "@/components/files/explorer/use-explorer-derived-state";
 import type { useExplorerEditWorkflows } from "@/components/files/explorer/use-explorer-edit-workflows";
 import type { useExplorerFileOperations } from "@/components/files/explorer/use-explorer-file-operations";
-import type { useExplorerFilePresentation } from "@/components/files/explorer/use-explorer-file-presentation";
-import type { useExplorerItemActionProps } from "@/components/files/explorer/use-explorer-item-action-props";
+import { useExplorerFilePresentation } from "@/components/files/explorer/use-explorer-file-presentation";
+import { useExplorerItemActionProps } from "@/components/files/explorer/use-explorer-item-action-props";
 import type { useExplorerItemInteractions } from "@/components/files/explorer/use-explorer-item-interactions";
 import type { useExplorerNavigation } from "@/components/files/explorer/use-explorer-navigation";
 import type { useExplorerNoteWorkflows } from "@/components/files/explorer/use-explorer-note-workflows";
@@ -16,10 +16,10 @@ import { useExplorerPaneHeader } from "@/components/files/explorer/use-explorer-
 import type { useExplorerPropertyControls } from "@/components/files/explorer/use-explorer-property-controls";
 import type { useExplorerSearchSurface } from "@/components/files/explorer/use-explorer-search-surface";
 import type { useExplorerShareDialogs } from "@/components/files/explorer/use-explorer-share-dialogs";
-import type { useExplorerSurfaceSummary } from "@/components/files/explorer/use-explorer-surface-summary";
+import { useExplorerSurfaceSummary } from "@/components/files/explorer/use-explorer-surface-summary";
 import type { useExplorerSurfaceUiState } from "@/components/files/explorer/use-explorer-surface-ui-state";
 import type { useExplorerUploadWorkflows } from "@/components/files/explorer/use-explorer-upload-workflows";
-import type { useExplorerWorkspaceIndexState } from "@/components/files/explorer/use-explorer-workspace-index-state";
+import { useExplorerWorkspaceIndexState } from "@/components/files/explorer/use-explorer-workspace-index-state";
 import type { useFileDragDrop } from "@/hooks/use-file-drag-drop";
 import type { useFileSelection } from "@/hooks/use-file-selection";
 import { filesPinsActions } from "@/stores/filesPinsStore";
@@ -41,14 +41,12 @@ interface UseExplorerPaneSurfacesOptions {
     typeof buildExplorerBrowsePaneProps
   >[0]["fileInputRef"];
   fileOperations: ReturnType<typeof useExplorerFileOperations>;
-  filePresentation: ReturnType<typeof useExplorerFilePresentation>;
   focusSearchSignal: number;
   folderInputRef: Parameters<
     typeof buildExplorerBrowsePaneProps
   >[0]["folderInputRef"];
   gridRef: Parameters<typeof buildExplorerBrowsePaneProps>[0]["gridRef"];
   isMobile: boolean;
-  itemActionProps: ReturnType<typeof useExplorerItemActionProps>;
   itemInteractions: ReturnType<typeof useExplorerItemInteractions>;
   itemRefs: Parameters<
     typeof buildExplorerBrowsePaneProps
@@ -70,9 +68,6 @@ interface UseExplorerPaneSurfacesOptions {
   propertyControls: ReturnType<typeof useExplorerPropertyControls>;
   refreshCurrentFolder: () => Promise<unknown>;
   scrollRef: Parameters<typeof buildExplorerBrowsePaneProps>[0]["scrollRef"];
-  searchableItems: ReturnType<
-    typeof useExplorerWorkspaceIndexState
-  >["searchableItems"];
   searchSurface: ReturnType<typeof useExplorerSearchSurface>;
   selection: ReturnType<typeof useFileSelection>;
   setPropertyDefinitions: Parameters<
@@ -92,7 +87,6 @@ interface UseExplorerPaneSurfacesOptions {
   startBannerUpload: Parameters<
     typeof buildExplorerPreviewPaneProps
   >[0]["startBannerUpload"];
-  surfaceSummary: ReturnType<typeof useExplorerSurfaceSummary>;
   triggerHapticSuccess: () => void;
   uiState: ReturnType<typeof useExplorerSurfaceUiState>;
   uploadWorkflows: ReturnType<typeof useExplorerUploadWorkflows>;
@@ -114,12 +108,10 @@ export function useExplorerPaneSurfaces({
   editWorkflows,
   fileInputRef,
   fileOperations,
-  filePresentation,
   folderInputRef,
   focusSearchSignal,
   gridRef,
   isMobile,
-  itemActionProps,
   itemInteractions,
   itemRefs,
   listMeasureElement,
@@ -135,19 +127,58 @@ export function useExplorerPaneSurfaces({
   sortState,
   refreshCurrentFolder,
   scrollRef,
-  searchableItems,
   searchSurface,
   selection,
   setPropertyDefinitions,
   shareDialogs,
   shell,
   startBannerUpload,
-  surfaceSummary,
   triggerHapticSuccess,
   uiState,
   uploadWorkflows,
   workspaceUuid,
 }: UseExplorerPaneSurfacesOptions) {
+  const { filePathById, searchableItems, workspaceFileIndex } =
+    useExplorerWorkspaceIndexState({
+      allFiles,
+      allFolders,
+    });
+  const filePresentation = useExplorerFilePresentation({
+    workspaceFileIndex,
+  });
+  const surfaceSummary = useExplorerSurfaceSummary({
+    activeFile,
+    allFiles,
+    allFolders,
+    currentFolder: derivedState.currentFolder,
+    currentLocationTitle: derivedState.currentLocationTitle,
+    detectFileKind: filePresentation.detectFileKind,
+    filePathById,
+    isAtWorkspaceRoot: derivedState.isAtWorkspaceRoot,
+    workspaceUuid,
+  });
+  const itemActionProps = useExplorerItemActionProps({
+    allFolders,
+    deleteContextActionItems: fileOperations.deleteContextActionItems,
+    downloadContextActionItems: fileOperations.downloadContextActionItems,
+    duplicateContextActionItems: fileOperations.duplicateContextActionItems,
+    hardReingestContextActionItems:
+      fileOperations.hardReingestContextActionItems,
+    isPinned: (kind, itemId) =>
+      Boolean(filesPinsActions.isPinned(workspaceUuid, kind, itemId)),
+    moveContextActionItemsToFolder:
+      fileOperations.moveContextActionItemsToFolder,
+    onOpenPropertiesItem: uiState.openPropertiesItem,
+    onSelectFile: navigation.selectFile,
+    openFileShareDialog: shareDialogs.openFileShareDialog,
+    openFolderShareDialog: shareDialogs.openFolderShareDialog,
+    openRenameFileDialog: editWorkflows.openRenameFileDialog,
+    openRenameFolderDialog: editWorkflows.openRenameFolderDialog,
+    togglePinnedItem: (item) => {
+      filesPinsActions.togglePinnedItem(workspaceUuid, item);
+    },
+    workspaceUuid,
+  });
   const toggleCurrentPinnedItem = useCallback(() => {
     if (!(workspaceUuid && surfaceSummary.currentPinnedItem)) {
       return;

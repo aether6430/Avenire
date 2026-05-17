@@ -58,7 +58,7 @@ Status legend:
 | --- | --- | --- |
 | reduce god files and monolithic modules where they block development | `partial` | Former hotspots like `app-sidebar.tsx`, `command-palette.tsx`, `student-calendar.tsx`, `multimodal-input.tsx`, `data-imports-section.tsx`, `sidebar-files-panel.tsx` were reduced dramatically. |
 | keep abstractions honest and local | `met` | Recent reductions consistently wrapped existing local hooks/models rather than inventing compatibility shims. |
-| make repo easier to change correctly after refactor | `partial` | Many shells are slimmer, and [explorer.tsx](/Users/johnmacartew/Developer.nosync/aveniri/apps/web/src/components/files/explorer.tsx:1) is now down to `375` lines, but it remains the clearest structural hotspot. |
+| make repo easier to change correctly after refactor | `partial` | Many shells are slimmer, and [explorer.tsx](/Users/johnmacartew/Developer.nosync/aveniri/apps/web/src/components/files/explorer.tsx:1) is now down to `323` lines, but it remains the clearest structural hotspot. |
 | avoid over-advanced refactors that do not improve codability | `met` | Recent changes stayed surgical and aligned with existing boundaries. |
 
 ## Workstream 5: UI polish and consistency

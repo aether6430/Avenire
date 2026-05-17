@@ -6,8 +6,6 @@ import { ExplorerBrowsePane } from "@/components/files/explorer/explorer-browse-
 import { ExplorerPreviewPane } from "@/components/files/explorer/explorer-preview-pane";
 import { useExplorerDerivedState } from "@/components/files/explorer/use-explorer-derived-state";
 import { useExplorerEditWorkflows } from "@/components/files/explorer/use-explorer-edit-workflows";
-import { useExplorerFilePresentation } from "@/components/files/explorer/use-explorer-file-presentation";
-import { useExplorerItemActionProps } from "@/components/files/explorer/use-explorer-item-action-props";
 import { useExplorerNavigation } from "@/components/files/explorer/use-explorer-navigation";
 import { useExplorerNoteWorkflows } from "@/components/files/explorer/use-explorer-note-workflows";
 import { useExplorerPaneSurfaces } from "@/components/files/explorer/use-explorer-pane-surfaces";
@@ -16,9 +14,7 @@ import { useExplorerRuntime } from "@/components/files/explorer/use-explorer-run
 import { useExplorerSearchSurface } from "@/components/files/explorer/use-explorer-search-surface";
 import { useExplorerShareDialogs } from "@/components/files/explorer/use-explorer-share-dialogs";
 import { useExplorerShell } from "@/components/files/explorer/use-explorer-shell";
-import { useExplorerSurfaceSummary } from "@/components/files/explorer/use-explorer-surface-summary";
 import { useExplorerSurfaceUiState } from "@/components/files/explorer/use-explorer-surface-ui-state";
-import { useExplorerWorkspaceIndexState } from "@/components/files/explorer/use-explorer-workspace-index-state";
 import { useWorkspaceExplorerData } from "@/components/files/explorer/use-workspace-explorer-data";
 import type { SortState } from "@/components/files/explorer/workspace-folder-browse-model";
 import { useUploadThing } from "@/lib/uploadthing";
@@ -28,7 +24,6 @@ import {
   usePaneRouter,
   usePaneSearchParams,
 } from "@/lib/workspace-panes";
-import { filesPinsActions } from "@/stores/filesPinsStore";
 import { filesUiActions } from "@/stores/filesUiStore";
 import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
 
@@ -169,27 +164,6 @@ export function FileExplorer({
   });
   const { createNote } = noteWorkflows;
 
-  const workspaceIndexState = useExplorerWorkspaceIndexState({
-    allFiles,
-    allFolders,
-  });
-  const { filePathById, searchableItems, workspaceFileIndex } =
-    workspaceIndexState;
-  const filePresentation = useExplorerFilePresentation({
-    workspaceFileIndex,
-  });
-  const surfaceSummary = useExplorerSurfaceSummary({
-    activeFile,
-    allFiles,
-    allFolders,
-    currentFolder,
-    currentLocationTitle,
-    detectFileKind: filePresentation.detectFileKind,
-    filePathById,
-    isAtWorkspaceRoot,
-    workspaceUuid,
-  });
-
   const emitSync = useCallback(() => {
     filesUiActions.emitSync(workspaceUuid);
   }, [workspaceUuid]);
@@ -281,28 +255,6 @@ export function FileExplorer({
     triggerHapticSuccess,
   } = runtime;
 
-  const itemActionProps = useExplorerItemActionProps({
-    allFolders,
-    deleteContextActionItems,
-    downloadContextActionItems,
-    duplicateContextActionItems,
-    hardReingestContextActionItems,
-    isPinned: (kind, itemId) =>
-      Boolean(filesPinsActions.isPinned(workspaceUuid, kind, itemId)),
-    moveContextActionItemsToFolder,
-    onOpenPropertiesItem: openPropertiesItem,
-    onSelectFile: selectFile,
-    openFileShareDialog,
-    openFolderShareDialog,
-    openRenameFileDialog,
-    openRenameFolderDialog,
-    togglePinnedItem: (item) => {
-      filesPinsActions.togglePinnedItem(workspaceUuid, item);
-    },
-    workspaceUuid,
-  });
-  const { getFileItemActionProps, getFolderItemActionProps } = itemActionProps;
-
   const { browsePaneProps, previewPaneProps } = useExplorerPaneSurfaces({
     activeFile,
     allFiles,
@@ -316,12 +268,10 @@ export function FileExplorer({
     editWorkflows,
     fileInputRef,
     fileOperations: runtime.fileOperations,
-    filePresentation,
     focusSearchSignal,
     folderInputRef,
     gridRef,
     isMobile,
-    itemActionProps,
     itemInteractions: runtime.itemInteractions,
     itemRefs,
     listMeasureElement: listVirtualizer.measureElement,
@@ -335,7 +285,6 @@ export function FileExplorer({
     propertyControls,
     refreshCurrentFolder: loadFolder,
     scrollRef: explorerScrollRef,
-    searchableItems,
     searchSurface,
     selection,
     setPropertyDefinitions,
@@ -347,7 +296,6 @@ export function FileExplorer({
     },
     sortState,
     startBannerUpload,
-    surfaceSummary,
     triggerHapticSuccess,
     uiState,
     uploadWorkflows: runtime.uploadWorkflows,
