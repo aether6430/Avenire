@@ -13,9 +13,15 @@ import {
   chatToolSchemas,
   legacyShowWidgetInputSchema,
 } from "@avenire/ai/tools";
-import { logInfo } from "@avenire/observability";
 import { tavily } from "@tavily/core";
 import type { z } from "zod";
+import {
+  improveMisconceptionForTool,
+  listMisconceptionsForTool,
+  logMisconceptionForTool,
+  resolveMisconceptionForTool,
+  resolveMisconceptionSeed,
+} from "@/lib/chat-tools/chat-tool-misconception-runtime";
 import {
   agentSelectionSchema,
   buildAgentSelectionPrompt,
@@ -39,14 +45,10 @@ import {
 } from "@/lib/chat-tools/note-file-helpers";
 import {
   buildCitationMarkdown,
-  buildMisconceptionContext,
   buildMisconceptionStudySource,
   buildTopicKey,
   inferFlashcardTaxonomy,
-  MISCONCEPTION_CONTEXT_LIMIT,
-  mapMisconceptionForTool,
   matchesTaxonomyScope,
-  normalizeMisconceptionSubjectKey,
   normalizeStudyMatchKey,
 } from "@/lib/chat-tools/study-tool-helpers";
 import {
@@ -79,15 +81,9 @@ import {
   deleteIngestionDataForFile,
   getIngestionSummaryForFile,
 } from "@/lib/ingestion-data";
-import {
-  getActiveMisconceptions,
-  improveMisconceptionsForConcept,
-  type MisconceptionRecord,
-  recomputeConceptMastery,
-  resolveMisconceptionsForConcept,
-  upsertMisconception,
-} from "@/lib/learning-data";
 import { retrieveWorkspaceChunksShared } from "@/lib/retrieval-service";
+
+export { getActiveMisconceptionContext } from "@/lib/chat-tools/chat-tool-misconception-runtime";
 
 const DEFAULT_SEARCH_LIMIT = 8;
 const DEFAULT_WEB_SEARCH_LIMIT = 5;
@@ -118,49 +114,6 @@ interface ChatToolOptions {
   legacyShowWidgetSchema?: boolean;
 }
 
-export async function getActiveMisconceptionContext(params: {
-  subject?: string | null;
-  topic?: string | null;
-  userId: string;
-  workspaceId: string;
-}) {
-  const subject = params.subject?.trim();
-  const topic = params.topic?.trim();
-  if (!(subject && topic)) {
-    return null;
-  }
-
-  const misconceptions = await getActiveMisconceptions({
-    limit: 24,
-    subject,
-    topic,
-    userId: params.userId,
-    workspaceId: params.workspaceId,
-  });
-  const active = misconceptions
-    .filter(
-      (misconception) =>
-        normalizeMisconceptionSubjectKey(misconception.subject) ===
-        normalizeMisconceptionSubjectKey(subject)
-    )
-    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
-    .slice(0, MISCONCEPTION_CONTEXT_LIMIT);
-
-  if (active.length > 0) {
-    logInfo({
-      eventName: "misconception.confirmed.injected",
-      payload: {
-        activeCount: active.length,
-        subject,
-        topic,
-        userId: params.userId,
-        workspaceId: params.workspaceId,
-      },
-    });
-  }
-
-  return buildMisconceptionContext(active);
-}
 function emitAgentActivityUpdate(
   ctx: ChatToolContext,
   actions: AgentActivityAction[],
@@ -434,40 +387,12 @@ async function generateFlashcardsFromMisconception(
     typeof chatToolSchemas.generate_flashcards_from_misconception.input
   >
 ) {
-  const misconceptions = await getActiveMisconceptions({
+  const misconception = await resolveMisconceptionSeed(ctx, {
     concept: input.concept,
+    reason: input.reason,
     subject: input.subject,
     topic: input.topic,
-    userId: ctx.userId,
-    workspaceId: ctx.workspaceId,
   });
-  const misconception =
-    misconceptions[0] ??
-    ({
-      active: true,
-      decayedAt: null,
-      confidence: 0.85,
-      concept: input.concept,
-      createdAt: new Date().toISOString(),
-      evidenceCount: 0,
-      evidenceClass: "manual",
-      evidenceRootId: null,
-      evidenceSpan: null,
-      firstSeenAt: new Date().toISOString(),
-      id: "draft",
-      lastSeenAt: new Date().toISOString(),
-      promotedAt: new Date().toISOString(),
-      reason: input.reason,
-      resolvedAt: null,
-      source: "manual",
-      sourceSessionId: null,
-      subject: input.subject,
-      status: "confirmed",
-      topic: input.topic,
-      updatedAt: new Date().toISOString(),
-      userId: ctx.userId,
-      workspaceId: ctx.workspaceId,
-    } satisfies MisconceptionRecord);
 
   const sourceText = buildMisconceptionStudySource(misconception);
   const generated = await generateFlashcardsFromSource(ctx, {
@@ -478,110 +403,6 @@ async function generateFlashcardsFromMisconception(
   });
 
   return generated;
-}
-
-async function listMisconceptionsForTool(
-  ctx: ChatToolContext,
-  input: z.infer<typeof chatToolSchemas.list_misconceptions.input>
-) {
-  const misconceptions = await getActiveMisconceptions({
-    concept: input.concept,
-    limit: input.limit,
-    subject: input.subject,
-    topic: input.topic,
-    userId: ctx.userId,
-    workspaceId: ctx.workspaceId,
-  });
-
-  return {
-    count: misconceptions.length,
-    misconceptions: misconceptions.map(mapMisconceptionForTool),
-    summary:
-      misconceptions.length > 0
-        ? `Found ${misconceptions.length} active misconception(s).`
-        : "No active misconceptions found.",
-  };
-}
-
-async function resolveMisconceptionForTool(
-  ctx: ChatToolContext,
-  input: z.infer<typeof chatToolSchemas.resolve_misconception.input>
-) {
-  const resolved = await resolveMisconceptionsForConcept({
-    concept: input.concept,
-    subject: input.subject,
-    topic: input.topic,
-    userId: ctx.userId,
-    workspaceId: ctx.workspaceId,
-  });
-
-  await recomputeConceptMastery({
-    concept: input.concept,
-    subject: input.subject,
-    topic: input.topic,
-    userId: ctx.userId,
-    workspaceId: ctx.workspaceId,
-  });
-
-  const remaining = await getActiveMisconceptions({
-    concept: input.concept,
-    subject: input.subject,
-    topic: input.topic,
-    userId: ctx.userId,
-    workspaceId: ctx.workspaceId,
-  });
-
-  return {
-    remainingActiveCount: remaining.length,
-    resolvedCount: resolved.length,
-    summary:
-      resolved.length > 0
-        ? `Resolved ${resolved.length} misconception(s).`
-        : "No active misconception matched that concept.",
-  };
-}
-
-async function improveMisconceptionForTool(
-  ctx: ChatToolContext,
-  input: z.infer<typeof chatToolSchemas.improve_misconception.input>
-) {
-  const improved = await improveMisconceptionsForConcept({
-    concept: input.concept,
-    decay: input.decay,
-    resolveThreshold: input.resolveThreshold,
-    subject: input.subject,
-    topic: input.topic,
-    userId: ctx.userId,
-    workspaceId: ctx.workspaceId,
-  });
-
-  await recomputeConceptMastery({
-    concept: input.concept,
-    subject: input.subject,
-    topic: input.topic,
-    userId: ctx.userId,
-    workspaceId: ctx.workspaceId,
-  });
-
-  const remaining = await getActiveMisconceptions({
-    concept: input.concept,
-    subject: input.subject,
-    topic: input.topic,
-    userId: ctx.userId,
-    workspaceId: ctx.workspaceId,
-  });
-
-  const resolvedCount = improved.filter((item) => !item.active).length;
-
-  return {
-    improvedCount: improved.length,
-    remainingActiveCount: remaining.length,
-    resolvedCount,
-    summary:
-      improved.length > 0
-        ? `Improved ${improved.length} misconception(s).`
-        : "No active misconception matched that concept.",
-  };
 }
 
 async function generateQuizFromSource(
@@ -1279,34 +1100,7 @@ The agent decides which operations to perform based on the task.`,
         "Record a misconception only when the user explicitly reports a durable misunderstanding or the conversation clearly establishes a wrong mental model. Do not use it for normal questions, feature checks, or one-off clarifications.",
       inputSchema: chatToolSchemas.log_misconception.input,
       outputSchema: chatToolSchemas.log_misconception.output,
-      execute: async (input) => {
-        const misconception = await upsertMisconception({
-          confidence: input.confidence,
-          concept: input.concept,
-          evidenceClass: "manual",
-          reason: input.reason,
-          source: "chat_tool",
-          sourceSessionId: ctx.chatSlug,
-          subject: input.subject,
-          topic: input.topic,
-          status: "confirmed",
-          userId: ctx.userId,
-          workspaceId: ctx.workspaceId,
-        });
-        const activeMisconceptions = await getActiveMisconceptions({
-          concept: misconception.concept,
-          subject: misconception.subject,
-          topic: misconception.topic,
-          userId: ctx.userId,
-          workspaceId: ctx.workspaceId,
-        });
-
-        return {
-          activeMisconceptionsCount: activeMisconceptions.length,
-          misconception: mapMisconceptionForTool(misconception),
-          summary: `Stored misconception for ${misconception.concept}`,
-        };
-      },
+      execute: async (input) => logMisconceptionForTool(ctx, input),
     }),
     list_misconceptions: tool({
       description:
