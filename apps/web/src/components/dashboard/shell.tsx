@@ -2,6 +2,7 @@
 
 import { SidebarInset, SidebarProvider } from "@avenire/ui/components/sidebar";
 import dynamic from "next/dynamic";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { Suspense, useEffect, useState } from "react";
 import { DashboardSidebar } from "@/components/dashboard/app-sidebar";
@@ -97,7 +98,12 @@ export function DashboardLayout({
   initialWorkspaces,
   children: _children,
 }: DashboardLayoutProps) {
+  const pathname = usePathname();
   const [deferredReady, setDeferredReady] = useState(false);
+  const shouldMountRealtimeBridge =
+    deferredReady &&
+    Boolean(activeWorkspace?.workspaceId) &&
+    !pathname.startsWith("/workspace/files");
 
   useEffect(() => {
     const documentElement = document.documentElement;
@@ -155,7 +161,7 @@ export function DashboardLayout({
           user={user}
         />
       </Suspense>
-      {deferredReady ? (
+      {shouldMountRealtimeBridge ? (
         <DeferredWorkspaceRealtimeBridge
           workspaceUuid={activeWorkspace?.workspaceId ?? null}
         />

@@ -131,6 +131,8 @@ uniform across signed-in routes:
   panel body on first paint
 - the latest detached files render also avoids background share-suggestion
   traffic before any share dialog is opened
+- the files route now also avoids mounting the broader workspace realtime
+  bridge on first paint
 
 ## Conclusion
 

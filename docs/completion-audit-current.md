@@ -152,6 +152,9 @@ Current evidence:
       avoids auto-starting the general workspace realtime stream on first paint
     - after the latest share-dialog trim, the detached files render no longer
       fires repeated background `/share/suggestions` requests on first paint
+    - the shell now also skips mounting `WorkspaceRealtimeBridge` on files
+      routes, which keeps the broad workspace SSE path out of the initial files
+      render
   - remaining gap has shifted deeper:
     - production server responsiveness can still degrade after signed-in files
       activity

@@ -329,6 +329,9 @@ Recent files-route runtime tightening also changed the initial network shape:
 - after gating share-dialog suggestions on actual dialog open, the fresh
   detached files render also stops firing repeated background requests to:
   - `/api/workspaces/<workspaceUuid>/share/suggestions`
+- after skipping the general `WorkspaceRealtimeBridge` on files routes, the
+  fresh detached files render no longer mounts the broad workspace realtime SSE
+  stream on first paint
 
 That means the first files render is now doing less background live-work than
 it did before.
