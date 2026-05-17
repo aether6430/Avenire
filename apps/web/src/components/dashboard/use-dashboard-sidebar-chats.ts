@@ -2,6 +2,12 @@
 
 import type { Route } from "next";
 import { useMemo, useState } from "react";
+import {
+  filterDashboardSidebarChats,
+  resolveDashboardSidebarActiveChatSlug,
+  resolveDashboardSidebarPrimaryChatRoute,
+  toggleDashboardSidebarChatSearchState,
+} from "@/components/dashboard/dashboard-sidebar-chat-runtime-model";
 import type { DashboardSidebarView } from "@/components/dashboard/sidebar-startup";
 import { useDashboardSidebarChatActions } from "@/components/dashboard/use-dashboard-sidebar-chat-actions";
 import { useDashboardSidebarChatCollection } from "@/components/dashboard/use-dashboard-sidebar-chat-collection";
@@ -52,11 +58,11 @@ export function useDashboardSidebarChats({
     string | null
   >(null);
 
-  const activeChatSlug =
-    activeChatSlugFromPath ||
-    activeChatSlugOverride ||
-    activeChatSlugProp ||
-    "";
+  const activeChatSlug = resolveDashboardSidebarActiveChatSlug({
+    activeChatSlugFromPath,
+    activeChatSlugOverride,
+    activeChatSlugProp,
+  });
 
   useDashboardSidebarChatSessionClose({
     activeChatSlug,
@@ -72,12 +78,14 @@ export function useDashboardSidebarChats({
   const { chats, chatsLoadFailed, chatsLoading, loadChats, setChats } =
     collection;
 
-  const primaryChatRoute = useMemo<Route>(() => {
-    const chatSlug = activeChatSlug || chats[0]?.slug;
-    return chatSlug
-      ? (`/workspace/chats/${chatSlug}` as Route)
-      : ("/workspace/chats/new" as Route);
-  }, [activeChatSlug, chats]);
+  const primaryChatRoute = useMemo<Route>(
+    () =>
+      resolveDashboardSidebarPrimaryChatRoute({
+        activeChatSlug,
+        chats,
+      }),
+    [activeChatSlug, chats]
+  );
   useDashboardSidebarChatEvents({
     activeChatSlug,
     loadChats,
@@ -98,49 +106,25 @@ export function useDashboardSidebarChats({
   });
   const { chatActionStatus, createChat, deleteChat, updateChat } = actions;
 
-  const sortedChats = useMemo(
-    () =>
-      [...chats].sort((left, right) =>
-        right.lastMessageAt.localeCompare(left.lastMessageAt)
-      ),
-    [chats]
-  );
-  const pinnedChats = useMemo(
-    () => sortedChats.filter((chat) => chat.pinned),
-    [sortedChats]
-  );
-  const otherChats = useMemo(
-    () => sortedChats.filter((chat) => !chat.pinned),
-    [sortedChats]
-  );
-  const chatSearchNeedle = chatSearchQuery.trim().toLowerCase();
-  const filteredPinnedChats = useMemo(
-    () =>
-      pinnedChats.filter((chat) =>
-        chatSearchNeedle
-          ? chat.title.toLowerCase().includes(chatSearchNeedle)
-          : true
-      ),
-    [chatSearchNeedle, pinnedChats]
-  );
-  const filteredOtherChats = useMemo(
-    () =>
-      otherChats.filter((chat) =>
-        chatSearchNeedle
-          ? chat.title.toLowerCase().includes(chatSearchNeedle)
-          : true
-      ),
-    [chatSearchNeedle, otherChats]
-  );
+  const { filteredOtherChats, filteredPinnedChats, otherChats, pinnedChats } =
+    useMemo(
+      () =>
+        filterDashboardSidebarChats({
+          chats,
+          query: chatSearchQuery,
+        }),
+      [chatSearchQuery, chats]
+    );
 
   const toggleChatSearch = () => {
     setIsChatSearchOpen((current) => {
-      if (current) {
-        setChatSearchQuery("");
-        return false;
+      const nextState = toggleDashboardSidebarChatSearchState({
+        isOpen: current,
+      });
+      if (nextState.query !== null) {
+        setChatSearchQuery(nextState.query);
       }
-
-      return true;
+      return nextState.isOpen;
     });
   };
 
