@@ -84,6 +84,7 @@ Recent verified reductions already landed and were pushed:
 - `9d76bc8` — `Use explorer shell hook`
 - `d3249c0` — `Use explorer derived state hook`
 - `d0dc5d8` — `Remove dead explorer inline code`
+- `share-dialog.tsx` — `842` -> `142`
 - `4951e61` — `Reduce multimodal input to thin wrapper`
 - `6b8607d` — `Reduce data imports section to thin wrapper`
 - `a444f94` — `Reduce command palette to thin wrapper`
@@ -120,6 +121,7 @@ Current evidence in the no-sync repo:
 - `logs/2026-05-17-chat-failure-recovery-proof.md`
 - `logs/2026-05-17-desktop-log-index.md`
 - `logs/2026-05-17-explorer-dead-slice-removal.md`
+- `logs/2026-05-17-share-dialog-thin-wrapper.md`
 
 Assessment:
 
