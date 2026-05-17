@@ -1,10 +1,14 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useMemo } from "react";
 import { useWorkspacePaneBrowserSync } from "@/components/dashboard/use-workspace-pane-browser-sync";
 import { useWorkspacePaneInteractions } from "@/components/dashboard/use-workspace-pane-interactions";
 import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
-import type { RenderablePane } from "@/components/dashboard/workspace-pane-renderer-model";
+import {
+  buildRenderablePaneRows,
+  type RenderablePane,
+} from "@/components/dashboard/workspace-pane-renderer-model";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useHeaderStore } from "@/stores/header-store";
 import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
@@ -16,6 +20,7 @@ export function useWorkspacePaneRenderer() {
   const isMobile = useIsMobile();
   const { status, workspace } = useWorkspaceBootstrap();
   const panes = useWorkspacePaneStore((state) => state.panes);
+  const rows = useWorkspacePaneStore((state) => state.rows);
   const activePaneId = useWorkspacePaneStore((state) => state.activePaneId);
   const ensureInitialized = useWorkspacePaneStore(
     (state) => state.ensureInitialized
@@ -28,6 +33,7 @@ export function useWorkspacePaneRenderer() {
   );
   const reorderPanes = useWorkspacePaneStore((state) => state.reorderPanes);
   const setPaneSizes = useWorkspacePaneStore((state) => state.setPaneSizes);
+  const setRowSizes = useWorkspacePaneStore((state) => state.setRowSizes);
   const syncActivePaneFromBrowser = useWorkspacePaneStore(
     (state) => state.syncActivePaneFromBrowser
   );
@@ -51,8 +57,10 @@ export function useWorkspacePaneRenderer() {
     openPane,
     panes: panes as RenderablePane[],
     reorderPanes,
+    rows,
     setPaneRoute,
     setPaneSizes,
+    setRowSizes,
   });
   const {
     containerRef,
@@ -66,10 +74,19 @@ export function useWorkspacePaneRenderer() {
     handlePaneDragOver,
     handlePaneDragStart,
     handlePaneDrop,
-    rowDropTargetId,
-    rowPanes,
     startPaneResize,
+    startRowResize,
   } = interactions;
+  const paneRows = useMemo(
+    () =>
+      buildRenderablePaneRows(
+        rows,
+        panes as RenderablePane[],
+        dropPreview,
+        draggedPaneId
+      ),
+    [rows, panes, dropPreview, draggedPaneId]
+  );
 
   return {
     activePaneId,
@@ -90,9 +107,10 @@ export function useWorkspacePaneRenderer() {
     isMobile,
     openPane,
     panes,
-    rowDropTargetId,
-    rowPanes,
+    paneRows,
+    paneCount: panes.length,
     startPaneResize,
+    startRowResize,
     status,
     workspace,
   };

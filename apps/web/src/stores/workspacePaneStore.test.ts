@@ -95,4 +95,34 @@ describe("workspace pane store", () => {
       search: "",
     });
   });
+
+  it("materializes vertical splits into a second row through the zustand shell", async () => {
+    const { useWorkspacePaneStore } = await loadStore();
+
+    useWorkspacePaneStore.getState().ensureInitialized({
+      pathname: "/workspace/files",
+      search: "",
+    });
+    useWorkspacePaneStore.getState().openPane("/workspace/flashcards", {
+      sourcePaneId: "uuid-2",
+      splitDirection: "vertical",
+    });
+
+    expect(
+      useWorkspacePaneStore
+        .getState()
+        .rows.map((row) => [row.id, Math.round(row.size)])
+    ).toEqual([
+      ["uuid-1", 50],
+      ["uuid-4", 50],
+    ]);
+    expect(
+      useWorkspacePaneStore
+        .getState()
+        .panes.find((pane) => pane.id === "uuid-3")
+    ).toMatchObject({
+      route: { pathname: "/workspace/flashcards", search: "" },
+      rowId: "uuid-4",
+    });
+  });
 });

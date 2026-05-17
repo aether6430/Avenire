@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildPreviewPanes,
+  buildRenderablePaneRows,
   getPaneDropRegion,
   normalizePreviewPaneSizes,
   type RenderablePane,
@@ -87,5 +88,43 @@ describe("workspace pane renderer model", () => {
       "__workspace-pane-drop-preview__",
     ]);
     expect(next[1]?.route.pathname).toBe("/workspace");
+  });
+
+  it("builds renderable rows from pane rows and keeps row sizing stable", () => {
+    const rows = buildRenderablePaneRows(
+      [
+        { id: "row-1", size: 30 },
+        { id: "row-2", size: 70 },
+      ],
+      [
+        {
+          id: "pane-a",
+          route: { pathname: "/workspace", search: "" },
+          rowId: "row-1",
+          size: 60,
+        },
+        {
+          id: "pane-b",
+          route: { pathname: "/workspace/tasks", search: "" },
+          rowId: "row-1",
+          size: 40,
+        },
+        {
+          id: "pane-c",
+          route: { pathname: "/workspace/flashcards", search: "" },
+          rowId: "row-2",
+          size: 100,
+        },
+      ],
+      null,
+      null
+    );
+
+    expect(rows.map((row) => [row.id, Math.round(row.size)])).toEqual([
+      ["row-1", 30],
+      ["row-2", 70],
+    ]);
+    expect(rows[0]?.panes.map((pane) => pane.id)).toEqual(["pane-a", "pane-b"]);
+    expect(rows[1]?.panes.map((pane) => pane.id)).toEqual(["pane-c"]);
   });
 });

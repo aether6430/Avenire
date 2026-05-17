@@ -105,7 +105,8 @@ export const useWorkspacePaneStore = create<WorkspacePaneStoreState>()(
             state,
             draggedPaneId,
             targetPaneId,
-            options
+            options,
+            { createRowId }
           )
         ),
       closePane: (paneId) =>

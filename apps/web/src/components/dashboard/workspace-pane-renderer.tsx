@@ -65,8 +65,10 @@ export function WorkspacePaneRenderer() {
       handlePaneDragStart={runtime.handlePaneDragStart}
       handlePaneDrop={runtime.handlePaneDrop}
       openPane={runtime.openPane}
-      rowPanes={runtime.rowPanes}
+      paneCount={runtime.paneCount}
+      paneRows={runtime.paneRows}
       startPaneResize={runtime.startPaneResize}
+      startRowResize={runtime.startRowResize}
     />
   );
 }

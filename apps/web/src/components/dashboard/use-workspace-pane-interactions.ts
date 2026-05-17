@@ -1,9 +1,8 @@
 "use client";
 
 import type { DragEvent } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  buildPreviewPanes,
   createTransparentDragImage,
   getDraggedPaneId,
   getPaneDropRegion,
@@ -30,6 +29,8 @@ export function useWorkspacePaneInteractions({
   reorderPanes,
   setPaneRoute,
   setPaneSizes,
+  setRowSizes,
+  rows,
 }: {
   focusPane: (paneId: string) => void;
   movePaneToSplit: (
@@ -50,6 +51,7 @@ export function useWorkspacePaneInteractions({
   ) => void;
   panes: RenderablePane[];
   reorderPanes: (draggedPaneId: string, targetPaneId: string) => void;
+  rows: Array<{ id: string; size: number }>;
   setPaneRoute: (
     paneId: string,
     route: {
@@ -58,6 +60,7 @@ export function useWorkspacePaneInteractions({
     }
   ) => void;
   setPaneSizes: (rowId: string, nextSizes: number[]) => void;
+  setRowSizes: (nextSizes: number[]) => void;
 }) {
   const [draggedPaneId, setDraggedPaneId] = useState<string | null>(null);
   const [dropPreview, setDropPreview] = useState<PaneDropPreview | null>(null);
@@ -156,6 +159,52 @@ export function useWorkspacePaneInteractions({
     [panes, setPaneSizes]
   );
 
+  const startRowResize = useCallback(
+    (index: number, startClientY: number) => {
+      const container = containerRef.current;
+      if (!container) {
+        return;
+      }
+
+      const startingSizes = rows.map((row) => row.size);
+      const bounds = container.getBoundingClientRect();
+      const containerSize = bounds.height;
+      if (containerSize <= 0) {
+        return;
+      }
+
+      const handlePointerMove = (event: PointerEvent) => {
+        const delta = event.clientY - startClientY;
+        const deltaPercent = (delta / containerSize) * 100;
+        const topSize = Math.max(18, startingSizes[index]! + deltaPercent);
+        const bottomSize = Math.max(
+          18,
+          startingSizes[index + 1]! - deltaPercent
+        );
+        const adjustedTotal = topSize + bottomSize;
+        const fixedTop =
+          (topSize / adjustedTotal) *
+          (startingSizes[index]! + startingSizes[index + 1]!);
+        const fixedBottom =
+          (bottomSize / adjustedTotal) *
+          (startingSizes[index]! + startingSizes[index + 1]!);
+        const nextSizes = [...startingSizes];
+        nextSizes[index] = fixedTop;
+        nextSizes[index + 1] = fixedBottom;
+        setRowSizes(nextSizes);
+      };
+
+      const handlePointerUp = () => {
+        window.removeEventListener("pointermove", handlePointerMove);
+        window.removeEventListener("pointerup", handlePointerUp);
+      };
+
+      window.addEventListener("pointermove", handlePointerMove);
+      window.addEventListener("pointerup", handlePointerUp, { once: true });
+    },
+    [rows, setRowSizes]
+  );
+
   const handlePaneDrop = useCallback(
     (
       event: DragEvent<HTMLDivElement>,
@@ -206,11 +255,7 @@ export function useWorkspacePaneInteractions({
     ]
   );
 
-  const rowPanes = useMemo(
-    () => buildPreviewPanes(panes, dropPreview, draggedPaneId),
-    [panes, dropPreview, draggedPaneId]
-  );
-  const rowDropTargetId = rowPanes[0]?.id ?? null;
+  const rowDropTargetId = panes[0]?.id ?? null;
 
   const handleContainerDragLeave = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
@@ -323,7 +368,7 @@ export function useWorkspacePaneInteractions({
     handlePaneDragStart,
     handlePaneDrop,
     rowDropTargetId,
-    rowPanes,
     startPaneResize,
+    startRowResize,
   };
 }

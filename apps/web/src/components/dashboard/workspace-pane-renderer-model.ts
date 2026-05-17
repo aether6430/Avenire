@@ -27,6 +27,12 @@ export interface RenderablePane {
   size: number;
 }
 
+export interface RenderablePaneRow {
+  id: string;
+  panes: RenderablePane[];
+  size: number;
+}
+
 export function createTransparentDragImage() {
   if (typeof document === "undefined") {
     return null;
@@ -145,6 +151,18 @@ export function normalizePreviewPaneSizes<
   }));
 }
 
+function normalizeRenderableRowSizes(rows: RenderablePaneRow[]) {
+  if (rows.length === 0) {
+    return rows;
+  }
+
+  const total = rows.reduce((sum, row) => sum + row.size, 0) || rows.length;
+  return rows.map((row) => ({
+    ...row,
+    size: (row.size / total) * 100,
+  }));
+}
+
 export function buildPreviewPanes(
   panes: RenderablePane[],
   preview: PaneDropPreview | null,
@@ -200,4 +218,63 @@ export function buildPreviewPanes(
   });
 
   return normalizePreviewPaneSizes(nextPanes);
+}
+
+export function buildRenderablePaneRows(
+  rows: Array<{ id: string; size: number }>,
+  panes: RenderablePane[],
+  preview: PaneDropPreview | null,
+  draggedPaneId: string | null
+) {
+  const previewTargetPane = preview
+    ? panes.find((pane) => pane.id === preview.paneId)
+    : null;
+  const previewTargetRowId =
+    preview && preview.region !== "center"
+      ? (previewTargetPane?.rowId ?? null)
+      : null;
+
+  const rowsWithPanes = rows
+    .map((row) => {
+      const rowPanes = panes.filter((pane) => pane.rowId === row.id);
+      if (rowPanes.length === 0) {
+        return null;
+      }
+
+      if (previewTargetRowId === row.id) {
+        return {
+          id: row.id,
+          panes: buildPreviewPanes(rowPanes, preview, draggedPaneId),
+          size: row.size,
+        } satisfies RenderablePaneRow;
+      }
+
+      if (
+        draggedPaneId &&
+        previewTargetRowId &&
+        rowPanes.some((pane) => pane.id === draggedPaneId)
+      ) {
+        const remainingPanes = rowPanes.filter(
+          (pane) => pane.id !== draggedPaneId
+        );
+        if (remainingPanes.length === 0) {
+          return null;
+        }
+
+        return {
+          id: row.id,
+          panes: normalizePreviewPaneSizes(remainingPanes),
+          size: row.size,
+        } satisfies RenderablePaneRow;
+      }
+
+      return {
+        id: row.id,
+        panes: rowPanes,
+        size: row.size,
+      } satisfies RenderablePaneRow;
+    })
+    .filter((row): row is RenderablePaneRow => Boolean(row));
+
+  return normalizeRenderableRowSizes(rowsWithPanes);
 }

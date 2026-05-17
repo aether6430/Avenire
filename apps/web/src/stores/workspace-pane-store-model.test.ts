@@ -124,6 +124,37 @@ describe("workspace pane store model", () => {
       "pane-4",
       "pane-2",
     ]);
+
+    const vertical = openWorkspacePaneState(
+      buildState({
+        panes: [
+          buildPane({
+            id: "pane-1",
+            route: buildRouteState("/workspace/files"),
+          }),
+          buildPane({
+            id: "pane-2",
+            route: buildRouteState("/workspace/chats"),
+          }),
+        ],
+      }),
+      "/workspace/flashcards",
+      {
+        sourcePaneId: "pane-2",
+        splitDirection: "vertical",
+      },
+      { createPaneId: () => "pane-5", createRowId: () => "row-2" }
+    );
+
+    expect(vertical.activePaneId).toBe("pane-5");
+    expect(vertical.rows.map((row) => [row.id, Math.round(row.size)])).toEqual([
+      ["row-1", 50],
+      ["row-2", 50],
+    ]);
+    expect(vertical.panes.find((pane) => pane.id === "pane-5")).toMatchObject({
+      route: { pathname: "/workspace/flashcards", search: "" },
+      rowId: "row-2",
+    });
   });
 
   it("closes active panes conservatively and reorders within the target row", () => {

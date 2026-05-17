@@ -8,7 +8,12 @@ import {
   DropdownMenuTrigger,
 } from "@avenire/ui/components/dropdown-menu";
 import { cn } from "@avenire/ui/lib/utils";
-import { Columns, DotsThree as MoreHorizontal, X } from "@phosphor-icons/react";
+import {
+  Columns,
+  DotsThree as MoreHorizontal,
+  Rows,
+  X,
+} from "@phosphor-icons/react";
 import type { DragEvent as ReactDragEvent, ReactNode } from "react";
 import { useLayoutEffect, useRef, useState } from "react";
 import {
@@ -60,6 +65,7 @@ export function WorkspacePaneSurface({
   onDragLeave,
   onFocus,
   onSplitHorizontal,
+  onSplitVertical,
   pane,
 }: {
   dropRegion: PaneDropRegion | null;
@@ -75,6 +81,7 @@ export function WorkspacePaneSurface({
   onDragLeave: (event: ReactDragEvent<HTMLDivElement>) => void;
   onFocus: () => void;
   onSplitHorizontal: () => void;
+  onSplitVertical: () => void;
   pane: RenderablePane;
 }) {
   const surfaceRef = useRef<HTMLDivElement | null>(null);
@@ -109,7 +116,7 @@ export function WorkspacePaneSurface({
   const isCompact = width > 0 && width < COMPACT_PANE_WIDTH;
   const showPaneMenuInHeader =
     !pane.route.pathname.startsWith("/workspace/files/");
-  const paneMenu = isMultiPane ? (
+  const paneMenu = (
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
@@ -127,6 +134,10 @@ export function WorkspacePaneSurface({
           <Columns className="mr-2 size-4" />
           Split right
         </DropdownMenuItem>
+        <DropdownMenuItem onClick={onSplitVertical}>
+          <Rows className="mr-2 size-4" />
+          Split down
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           className="text-destructive focus:text-destructive"
@@ -137,7 +148,7 @@ export function WorkspacePaneSurface({
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-  ) : null;
+  );
 
   return (
     <div className="w-full min-w-0" ref={surfaceRef}>

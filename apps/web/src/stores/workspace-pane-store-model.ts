@@ -73,9 +73,15 @@ export function cleanupRows(
 ) {
   const rowIds = new Set(panes.map((pane) => pane.rowId));
   const filteredRows = rows.filter((row) => rowIds.has(row.id));
+  const knownRowIds = new Set(filteredRows.map((row) => row.id));
+  const missingRows = panes
+    .map((pane) => pane.rowId)
+    .filter((rowId) => !knownRowIds.has(rowId))
+    .map((rowId) => ({ id: rowId, size: 100 }));
+  const nextRows = filteredRows.concat(missingRows);
 
-  if (filteredRows.length > 0) {
-    return normalizeRows(filteredRows);
+  if (nextRows.length > 0) {
+    return normalizeRows(nextRows);
   }
 
   if (panes[0]) {
@@ -85,36 +91,12 @@ export function cleanupRows(
   return [];
 }
 
-export function collapseToSingleRow(
-  panes: WorkspacePaneRecord[],
-  rows: WorkspacePaneRowRecord[]
-): {
-  panes: WorkspacePaneRecord[];
-  rows: WorkspacePaneRowRecord[];
-} {
-  if (panes.length === 0) {
-    return { panes: [], rows: [] };
-  }
-
-  const primaryRowId = rows[0]?.id ?? panes[0]?.rowId;
-  const normalizedPanes = panes.map((pane) => ({
-    ...pane,
-    rowId: primaryRowId,
-  }));
-
-  return {
-    panes: normalizedPanes,
-    rows: [{ id: primaryRowId, size: 100 }],
-  };
-}
-
 export function sanitizeWorkspacePaneState(
   state: WorkspacePaneStorePersistedState
 ) {
   const panes = state.panes.filter((pane) => pane.id && pane.rowId);
   const rows = cleanupRows(panes, state.rows);
-  const collapsed = collapseToSingleRow(panes, rows);
-  const normalizedPanes = normalizePanesByRow(collapsed.panes, collapsed.rows);
+  const normalizedPanes = normalizePanesByRow(panes, rows);
   const activePaneId = normalizedPanes.some(
     (pane) => pane.id === state.activePaneId
   )
@@ -125,8 +107,24 @@ export function sanitizeWorkspacePaneState(
     activePaneId,
     initialized: state.initialized || normalizedPanes.length > 0,
     panes: normalizedPanes,
-    rows: collapsed.rows,
+    rows,
   } satisfies WorkspacePaneStorePersistedState;
+}
+
+function insertRowRelativeToSource(
+  rows: WorkspacePaneRowRecord[],
+  sourceRowId: string,
+  nextRow: WorkspacePaneRowRecord,
+  splitPlacement: "after" | "before"
+) {
+  const sourceRowIndex = rows.findIndex((row) => row.id === sourceRowId);
+  const nextRows = [...rows];
+  const insertionIndex =
+    sourceRowIndex >= 0
+      ? sourceRowIndex + (splitPlacement === "after" ? 1 : 0)
+      : nextRows.length;
+  nextRows.splice(insertionIndex, 0, nextRow);
+  return normalizeRows(nextRows);
 }
 
 export function findNextActivePaneId(
@@ -213,22 +211,39 @@ export function openWorkspacePaneState(
   const splitPlacement = options?.splitPlacement ?? "after";
   const sourceRowId =
     sourcePane?.rowId ?? state.rows[0]?.id ?? ids.createRowId();
+  const splitDirection = options?.splitDirection ?? "horizontal";
+  const nextPaneId = ids.createPaneId();
+  const nextRowId =
+    splitDirection === "vertical" ? ids.createRowId() : sourceRowId;
   const nextPane: WorkspacePaneRecord = {
-    id: ids.createPaneId(),
+    id: nextPaneId,
     route: buildRouteState(href),
-    rowId: sourceRowId,
+    rowId: nextRowId,
     size: 100,
   };
 
   const nextPanes = [...state.panes];
   const nextRows = [...state.rows];
+  const sourceRowPanes = nextPanes.filter((pane) => pane.rowId === sourceRowId);
+  const sourceRowFirstIndex = sourceRowPanes[0]
+    ? nextPanes.findIndex((pane) => pane.id === sourceRowPanes[0]?.id)
+    : -1;
+  const sourceRowLastIndex = sourceRowPanes.at(-1)
+    ? nextPanes.findIndex((pane) => pane.id === sourceRowPanes.at(-1)?.id)
+    : -1;
   const sourcePaneIndex = sourcePane
     ? nextPanes.findIndex((pane) => pane.id === sourcePane.id)
     : nextPanes.length - 1;
   const insertIndex =
-    sourcePaneIndex >= 0
-      ? sourcePaneIndex + (splitPlacement === "after" ? 1 : 0)
-      : nextPanes.length;
+    splitDirection === "vertical"
+      ? splitPlacement === "after"
+        ? (sourceRowLastIndex >= 0 ? sourceRowLastIndex : sourcePaneIndex) + 1
+        : sourceRowFirstIndex >= 0
+          ? sourceRowFirstIndex
+          : nextPanes.length
+      : sourcePaneIndex >= 0
+        ? sourcePaneIndex + (splitPlacement === "after" ? 1 : 0)
+        : nextPanes.length;
 
   nextPanes.splice(insertIndex, 0, nextPane);
 
@@ -236,7 +251,17 @@ export function openWorkspacePaneState(
     activePaneId: nextPane.id,
     initialized: true,
     panes: nextPanes,
-    rows: nextRows.length > 0 ? nextRows : [{ id: nextPane.rowId, size: 100 }],
+    rows:
+      splitDirection === "vertical"
+        ? insertRowRelativeToSource(
+            nextRows.length > 0 ? nextRows : [{ id: sourceRowId, size: 100 }],
+            sourceRowId,
+            { id: nextRowId, size: 100 },
+            splitPlacement
+          )
+        : nextRows.length > 0
+          ? nextRows
+          : [{ id: nextPane.rowId, size: 100 }],
   });
 }
 
@@ -247,7 +272,8 @@ export function moveWorkspacePaneToSplitState(
   options: {
     splitDirection: WorkspacePaneSplitDirection;
     splitPlacement?: "after" | "before";
-  }
+  },
+  ids?: Pick<IdFactories, "createRowId">
 ) {
   const draggedPane = state.panes.find((pane) => pane.id === draggedPaneId);
   const targetPane = state.panes.find((pane) => pane.id === targetPaneId);
@@ -257,7 +283,52 @@ export function moveWorkspacePaneToSplitState(
   }
 
   const splitPlacement = options.splitPlacement ?? "after";
+  const splitDirection = options.splitDirection ?? "horizontal";
   const nextPanes = state.panes.filter((pane) => pane.id !== draggedPaneId);
+  const nextRows = [...state.rows];
+
+  if (splitDirection === "vertical") {
+    const nextRowId = ids?.createRowId?.() ?? `${draggedPane.id}-row`;
+    const retargetedPane = {
+      ...draggedPane,
+      rowId: nextRowId,
+    };
+
+    const targetRowPanes = nextPanes.filter(
+      (pane) => pane.rowId === targetPane.rowId
+    );
+    const targetRowFirstIndex = targetRowPanes[0]
+      ? nextPanes.findIndex((pane) => pane.id === targetRowPanes[0]?.id)
+      : -1;
+    const targetRowLastIndex = targetRowPanes.at(-1)
+      ? nextPanes.findIndex((pane) => pane.id === targetRowPanes.at(-1)?.id)
+      : -1;
+
+    nextPanes.splice(
+      splitPlacement === "after"
+        ? (targetRowLastIndex >= 0
+            ? targetRowLastIndex
+            : nextPanes.length - 1) + 1
+        : targetRowFirstIndex >= 0
+          ? targetRowFirstIndex
+          : nextPanes.length,
+      0,
+      retargetedPane
+    );
+
+    return sanitizeWorkspacePaneState({
+      activePaneId: draggedPane.id,
+      initialized: true,
+      panes: nextPanes,
+      rows: insertRowRelativeToSource(
+        nextRows.length > 0 ? nextRows : [{ id: targetPane.rowId, size: 100 }],
+        targetPane.rowId,
+        { id: nextRowId, size: 100 },
+        splitPlacement
+      ),
+    });
+  }
+
   const targetIndex = nextPanes.findIndex((pane) => pane.id === targetPaneId);
   nextPanes.splice(
     targetIndex >= 0
@@ -274,7 +345,7 @@ export function moveWorkspacePaneToSplitState(
     activePaneId: draggedPane.id,
     initialized: true,
     panes: nextPanes,
-    rows: state.rows,
+    rows: nextRows,
   });
 }
 
