@@ -22,7 +22,7 @@ friction.
 
 - `wc -l apps/web/src/components/files/explorer.tsx`
   - before: `686`
-  - after: `391`
+  - after: `375`
 - `node_modules/.bin/biome check apps/web/src/components/files/explorer.tsx`
   - passed
 - `pnpm --filter @avenire/web check-types --pretty false`

@@ -15,7 +15,7 @@ import type {
   FolderRecord,
   WorkspaceMemberRecord,
 } from "@/components/files/explorer/shared";
-import type { PinnedExplorerItem } from "@/stores/filesPinsStore";
+import { useFilesPinsStore } from "@/stores/filesPinsStore";
 
 interface UseExplorerSurfaceSummaryOptions {
   activeFile: FileRecord | null;
@@ -26,8 +26,7 @@ interface UseExplorerSurfaceSummaryOptions {
   detectFileKind: (file: FileRecord) => string;
   filePathById: Map<string, string>;
   isAtWorkspaceRoot: boolean;
-  pinnedItems: PinnedExplorerItem[];
-  workspaceMembers: WorkspaceMemberRecord[];
+  workspaceMembers?: WorkspaceMemberRecord[];
   workspaceUuid: string;
 }
 
@@ -40,10 +39,17 @@ export function useExplorerSurfaceSummary({
   detectFileKind,
   filePathById,
   isAtWorkspaceRoot,
-  pinnedItems,
-  workspaceMembers,
   workspaceUuid,
+  workspaceMembers = [],
 }: UseExplorerSurfaceSummaryOptions) {
+  const pinnedByWorkspace = useFilesPinsStore(
+    (state) => state.pinnedByWorkspace
+  );
+  const pinnedItems = useMemo(
+    () => pinnedByWorkspace[workspaceUuid] ?? [],
+    [pinnedByWorkspace, workspaceUuid]
+  );
+
   const currentPinnedItem = useMemo(
     () =>
       buildExplorerCurrentPinnedItem({

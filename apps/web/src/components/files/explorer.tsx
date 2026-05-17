@@ -1,10 +1,9 @@
 "use client";
 
 import { Spinner } from "@avenire/ui/components/spinner";
-import { Suspense, useCallback, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useRef, useState } from "react";
 import { ExplorerBrowsePane } from "@/components/files/explorer/explorer-browse-pane";
 import { ExplorerPreviewPane } from "@/components/files/explorer/explorer-preview-pane";
-import type { WorkspaceMemberRecord } from "@/components/files/explorer/shared";
 import { useExplorerDerivedState } from "@/components/files/explorer/use-explorer-derived-state";
 import { useExplorerEditWorkflows } from "@/components/files/explorer/use-explorer-edit-workflows";
 import { useExplorerFilePresentation } from "@/components/files/explorer/use-explorer-file-presentation";
@@ -29,7 +28,7 @@ import {
   usePaneRouter,
   usePaneSearchParams,
 } from "@/lib/workspace-panes";
-import { filesPinsActions, useFilesPinsStore } from "@/stores/filesPinsStore";
+import { filesPinsActions } from "@/stores/filesPinsStore";
 import { filesUiActions } from "@/stores/filesUiStore";
 import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
 
@@ -78,9 +77,6 @@ export function FileExplorer({
     key: "name",
     kind: "builtin",
   });
-  const [workspaceMembers, _setWorkspaceMembers] = useState<
-    WorkspaceMemberRecord[]
-  >([]);
   const uiState = useExplorerSurfaceUiState();
   const {
     mobileConfirmAction,
@@ -116,13 +112,6 @@ export function FileExplorer({
     currentFolderId,
     workspaceUuid,
   });
-  const pinnedByWorkspace = useFilesPinsStore(
-    (state) => state.pinnedByWorkspace
-  );
-  const pinnedItems = useMemo(
-    () => pinnedByWorkspace[workspaceUuid] ?? [],
-    [pinnedByWorkspace, workspaceUuid]
-  );
 
   const selectedFileParam = searchParams.get("file");
   const selectedRetrievalChunkParam = searchParams.get("retrievalChunk");
@@ -198,8 +187,6 @@ export function FileExplorer({
     detectFileKind: filePresentation.detectFileKind,
     filePathById,
     isAtWorkspaceRoot,
-    pinnedItems,
-    workspaceMembers,
     workspaceUuid,
   });
 
