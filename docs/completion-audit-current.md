@@ -105,6 +105,7 @@ Current evidence in the no-sync repo:
 - `README.md`
 - `docs/README.md`
 - `docs/environment.md`
+- `docs/instruction-evidence-matrix-current.md`
 - `docs/migrations.md`
 - `docs/local-workspace-integrity.md`
 - `docs/product-coherence-audit-current.md`
@@ -113,6 +114,8 @@ Current evidence in the no-sync repo:
 - `logs/2026-05-17-instruction-recovery-and-coverage-audit.md`
 - `logs/2026-05-17-rich-state-multisurface-soak.md`
 - `logs/2026-05-17-rich-interaction-multisurface-soak.md`
+- `logs/2026-05-17-chat-provider-config-proof.md`
+- `logs/2026-05-17-instruction-evidence-matrix.md`
 - `logs/2026-05-17-chat-failure-recovery-proof.md`
 
 Assessment:
@@ -120,6 +123,8 @@ Assessment:
 - Documentation and operator guidance are materially better than earlier.
 - The active repo now contains the actual instruction text and a live `logs/`
   path that follows the instruction's logging protocol.
+- The active repo now also contains a direct instruction-to-evidence checklist:
+  `docs/instruction-evidence-matrix-current.md`.
 - However, older historical receipts still live in the original Desktop repo's
   `logs/` directory, so the evidence trail is still partly split across two
   locations.
