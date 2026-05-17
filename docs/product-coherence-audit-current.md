@@ -198,6 +198,18 @@ Detached extended route-soak verification pass:
   - `/login` immediately
   - `/login` after `60s`
   - `/login` after `180s`
+- browser-level route loop on the same detached build:
+  - `6` cycles
+  - `30` headless Chrome route visits across:
+    - `/workspace`
+    - files detail
+    - tasks
+    - persisted chat detail
+    - persisted flashcard-set detail
+  - `/login` still returned `200`:
+    - immediately after the browser loop
+    - after `60s`
+    - after `180s`
 
 Detached session-close summary skip proof:
 

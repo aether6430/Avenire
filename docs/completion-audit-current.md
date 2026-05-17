@@ -300,6 +300,13 @@ Current evidence:
       - immediately after the soak
       - after `60s`
       - after `180s`
+    - a stronger detached browser-level route loop on `:4056` now survives:
+      - `6` cycles
+      - `30` headless Chrome visits across those same five signed-in surfaces
+    - `/login` stayed healthy after that browser loop too:
+      - immediately
+      - after `60s`
+      - after `180s`
   - real method-message provider failure is now an explicit product state:
     - `POST /api/chat` reached the persisted method streaming boundary in
       production
@@ -339,8 +346,10 @@ Missing proof:
   - the authenticated route is reachable in both dev-proxy and direct
     production-browser sessions
   - the home pane now reaches a ready state in production
-  - the current detached production route family now survives a `60`-request
-    signed-in soak plus a `180s` `/login` health window
+  - the current detached production route family now survives:
+    - a `60`-request signed-in route soak
+    - a `30`-visit signed-in browser loop
+    - a `180s` `/login` health window
   - the production signed-in path is still not fully trustworthy under
     truly longer-lived or richer interactive in-session usage
   - detached production evidence now suggests the remaining reliability gap is

@@ -352,6 +352,27 @@ This is still not the same thing as a truly long interactive browser session,
 but it further strengthens the detached signed-in durability window beyond the
 earlier `30`-request proof.
 
+### 12. The detached browser-loop window is now stronger too
+
+Observed on the same fresh detached production build and authenticated proxy:
+
+- `6` repeated headless Chrome cycles across:
+  - `/workspace`
+  - files detail
+  - tasks
+  - persisted chat detail
+  - persisted flashcard-set detail
+- total browser visits:
+  - `30`
+- `/login` still returned `200`:
+  - immediately after the browser loop
+  - after `60s`
+  - after `180s`
+
+This is still below a truly long interactive session, but it strengthens the
+browser-level side of the detached durability proof instead of relying only on
+HTTP route loops.
+
 ### 9. Workspace tab labels no longer duplicate on the active tab
 
 Observed on the rebuilt production routes for:
