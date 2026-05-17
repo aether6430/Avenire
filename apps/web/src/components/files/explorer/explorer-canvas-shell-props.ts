@@ -1,0 +1,46 @@
+import type {
+  BuildExplorerBrowsePanePropsOptions,
+  ShellProps,
+} from "@/components/files/explorer/explorer-browse-pane-props-shared";
+
+export function buildExplorerCanvasShellProps({
+  canvasDropActive,
+  canvasDropProps,
+  contextMenuSurfaceClass,
+  currentFolderId,
+  downloadStatus,
+  gridRef,
+  isCurrentFolderReadOnly,
+  isMobile,
+  loading,
+  onCreateFolder,
+  onCreateNote,
+  onImportLink,
+  onMobileCanvasPointerDown,
+  onRefresh,
+  onUploadFile,
+  onUploadFolder,
+  scrollRef,
+  selectionRect,
+}: BuildExplorerBrowsePanePropsOptions): ShellProps {
+  return {
+    canvasDropActive,
+    canvasDropProps,
+    currentFolderId,
+    downloadStatus,
+    gridRef,
+    isCurrentFolderReadOnly,
+    isMobile,
+    loading,
+    menuSurfaceClass: contextMenuSurfaceClass,
+    onCreateFolder,
+    onCreateNote,
+    onImportLink,
+    onMobileCanvasPointerDown,
+    onRefresh,
+    onUploadFile,
+    onUploadFolder,
+    scrollRef,
+    selectionRect,
+  };
+}
