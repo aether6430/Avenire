@@ -1,6 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  loadDashboardSidebarChats,
+  resolveSidebarChatsForWorkspace,
+  resolveSidebarChatsFromInitial,
+  shouldPersistSidebarChatsToCache,
+} from "@/components/dashboard/dashboard-sidebar-chat-collection-runtime";
 import type { DashboardSidebarView } from "@/components/dashboard/sidebar-startup";
 import { shouldLoadChatsForSidebar } from "@/components/dashboard/sidebar-startup";
 import type { ChatSummary } from "@/lib/chat-data";
@@ -33,72 +39,46 @@ export function useDashboardSidebarChatCollection({
   }, []);
 
   useEffect(() => {
-    if (initialChats.length === 0) {
-      return;
-    }
-
     setChats((previous) => {
-      if (previous === initialChats) {
-        return previous;
-      }
-      if (
-        previous.length === initialChats.length &&
-        previous.every((chat, index) => chat.id === initialChats[index]?.id)
-      ) {
-        return previous;
-      }
-      return initialChats;
+      return resolveSidebarChatsFromInitial({
+        initialChats,
+        previousChats: previous,
+      });
     });
   }, [initialChats]);
 
   useEffect(() => {
-    if (!hydrated) {
-      return;
-    }
-    if (chatsWorkspaceRef.current === workspaceUuid) {
-      return;
-    }
-
-    chatsWorkspaceRef.current = workspaceUuid;
-    const cachedChats = workspaceUuid ? readCachedChats(workspaceUuid) : null;
-    setChats(() => {
-      if (cachedChats) {
-        return cachedChats;
-      }
-
-      if (workspaceUuid && workspaceUuid === activeWorkspaceId) {
-        return initialChats;
-      }
-
-      return [];
+    const nextState = resolveSidebarChatsForWorkspace({
+      activeWorkspaceId,
+      cachedChats: workspaceUuid ? readCachedChats(workspaceUuid) : null,
+      hydrated,
+      initialChats,
+      trackedWorkspaceUuid: chatsWorkspaceRef.current,
+      workspaceUuid,
     });
+    if (!nextState) {
+      return;
+    }
+
+    chatsWorkspaceRef.current = nextState.trackedWorkspaceUuid;
+    setChats(() => nextState.chats);
   }, [activeWorkspaceId, hydrated, initialChats, workspaceUuid]);
 
   const loadChats = useCallback(async () => {
     setChatsLoading(true);
     setChatsLoadFailed(false);
-    try {
-      const response = await fetch("/api/chat/history", {
-        cache: "no-store",
-      });
-      if (!response.ok) {
-        setChats([]);
-        setChatsLoadFailed(true);
-        return;
-      }
-      const payload = (await response.json()) as { chats?: ChatSummary[] };
-      const nextChats = payload.chats ?? [];
-      setChats(nextChats);
-      setChatsLoadFailed(false);
-      if (workspaceUuid && chatsWorkspaceRef.current === workspaceUuid) {
-        writeCachedChats(workspaceUuid, nextChats);
-      }
-    } catch {
-      setChats([]);
-      setChatsLoadFailed(true);
-    } finally {
-      setChatsLoading(false);
-    }
+    const result = await loadDashboardSidebarChats({
+      fetchChats: () =>
+        fetch("/api/chat/history", {
+          cache: "no-store",
+        }),
+      trackedWorkspaceUuid: chatsWorkspaceRef.current,
+      workspaceUuid,
+      writeCachedChats,
+    });
+    setChats(result.chats);
+    setChatsLoadFailed(result.loadFailed);
+    setChatsLoading(false);
   }, [workspaceUuid]);
 
   useEffect(() => {
@@ -118,7 +98,12 @@ export function useDashboardSidebarChatCollection({
     if (!workspaceUuid) {
       return;
     }
-    if (chatsWorkspaceRef.current !== workspaceUuid) {
+    if (
+      !shouldPersistSidebarChatsToCache({
+        trackedWorkspaceUuid: chatsWorkspaceRef.current,
+        workspaceUuid,
+      })
+    ) {
       return;
     }
     writeCachedChats(workspaceUuid, chats);
