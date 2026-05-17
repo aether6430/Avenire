@@ -148,6 +148,8 @@ Current evidence:
       loading placeholder
     - the latest detached production pass now also keeps the desktop sidebar on
       `Workspace Home` while the main pane renders the files surface
+    - a direct authenticated production server-render loop now survives `20`
+      consecutive files route GETs while `/login` stays healthy afterward
     - a fresh detached production files render now avoids auto-starting the
       broader files realtime streams when no uploads are active
     - after the latest deferred-runtime trim, the detached files render also
@@ -163,9 +165,16 @@ Current evidence:
     - under the latest detached proof on `:3016`, the production server still
       answered `/login` with `200` immediately, after `10s`, and after `30s`
       following the signed-in files browser pass
+    - under the latest detached browser soak on `:3017`, five full headless
+      Chrome visits to the signed-in files route all succeeded, and `/login`
+      still returned `200` after each visit and after `30s`
+  - signed-in tasks route now also has direct production browser proof:
+    - `/workspace/tasks` renders a real tasks surface
+    - the detached production server still answered `/login` immediately and
+      after `20s` following the tasks browser pass
   - remaining gap has shifted deeper:
-    - production server responsiveness is healthier after a single detached
-      files session, but longer-lived or repeated files activity is still not
+    - production server responsiveness is healthier across short repeated files
+      visits, but longer-lived multi-surface signed-in sessions are still not
       fully proven trustworthy
 - The auth-entry flow itself improved materially:
   - `/register` no longer crashes with `Maximum update depth exceeded`
@@ -210,12 +219,13 @@ Missing proof:
 
 1. `explorer.tsx` is still the largest remaining app-level surface by a wide
    margin.
-2. The signed-in workspace home and files surfaces are now browser-proven, but
-   deeper reliability is still weak:
+2. The signed-in workspace home, files, and tasks surfaces are now
+   browser-proven, but deeper reliability is still weak:
    - detached production `/workspace` survives
    - a detached production files visit now survives a short post-session
      `/login` health check window
-   - longer-lived or repeated signed-in files activity is still not fully
+   - a short repeated signed-in files browser soak now survives as well
+   - longer-lived or multi-surface signed-in sessions are still not fully
      proven safe
 3. The original `instruction.md` remains absent from the active repo and
    trapped as a `compressed,dataless` placeholder in the old Desktop copy.
@@ -226,10 +236,13 @@ Missing proof:
 
 1. Continue structural reduction on `explorer.tsx` until it no longer dominates
    the app-level surface map.
-2. Run a longer detached soak on the files route to determine whether the
-   remaining responsiveness risk now requires repeated activity rather than a
-   single signed-in files visit.
-3. Recover or otherwise memorialize the original `instruction.md` text so the
+2. Extend the signed-in continuity audit beyond home/files/tasks into chat and
+   flashcards so the remaining weak spots are real route families, not a vague
+   bucket.
+3. Run a longer detached multi-surface soak to determine whether the remaining
+   responsiveness risk now requires longer-lived cross-route activity rather
+   than repeated short files visits alone.
+4. Recover or otherwise memorialize the original `instruction.md` text so the
    final completion audit no longer depends on a surrogate alone.
-4. After that, perform a final end-state audit against the recovered goal
+5. After that, perform a final end-state audit against the recovered goal
    surrogate before considering the overall objective achieved.

@@ -121,6 +121,16 @@ split:
 So the files view no longer duplicates a heavyweight files surface in both the
 desktop sidebar and the main pane on first arrival.
 
+The latest detached soak also shows that this first files render is no longer a
+fragile one-off:
+
+- `5` headless Chrome visits to the signed-in files route all completed
+- the detached production server still answered `/login` after each visit and
+  after a further `30s`
+
+That materially strengthens the visual proof because the rendered files surface
+is now surviving short repeated browser use, not just one lucky paint.
+
 ### 3. The remaining visual risk is now tied to longer-lived stability
 
 Even after the files route renders, the broader production session can still
@@ -147,6 +157,31 @@ uniform across signed-in routes:
 - the latest detached production server on `:3016` stayed healthy enough to
   answer `/login` immediately, after `10s`, and after `30s` following a
   signed-in files browser pass
+- the latest detached production server on `:3017` stayed healthy enough to
+  answer `/login` after `20` authenticated files-route GETs, `5` headless
+  Chrome files-route visits, and a tasks-route browser pass
+
+### 4. The tasks route now has direct visual proof too
+
+Observed on `http://127.0.0.1:4017/workspace/tasks`:
+
+- left sidebar rendered the signed-in workspace frame coherently
+- the tasks sidebar section showed:
+  - `Tasks`
+  - `Search Tasks`
+  - `New Task`
+  - `Due Tasks`
+  - `Upcoming Tasks`
+- the main pane showed:
+  - heading `Tasks`
+  - descriptive subcopy
+  - list/kanban toggle
+  - search input
+  - filter controls
+  - empty-state copy for the current workspace
+
+So signed-in visual proof is no longer limited to home and files; the dedicated
+tasks route now has a real rendered surface too.
 
 ## Conclusion
 

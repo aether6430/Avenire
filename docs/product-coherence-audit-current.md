@@ -83,6 +83,25 @@ Detached production files pass:
   - `curl -m 10 http://127.0.0.1:3016/login`
   - repeated immediately, after `10s`, and after `30s`
 
+Detached production soak pass:
+
+- production build and server:
+  - `http://127.0.0.1:3017`
+- authenticated proxy:
+  - `bun scripts/local-auth-session-proxy.ts --cookie-file output/auth-login-cookies-prod.txt --upstream http://127.0.0.1:3017 --port 4017`
+- authenticated direct server-render loop:
+  - `20` consecutive GETs to
+    `/workspace/files/<workspaceUuid>/folder/<rootFolderId>`
+- browser-level soak:
+  - `5` headless Chrome visits to
+    `http://127.0.0.1:4017/workspace/files/<workspaceUuid>/folder/<rootFolderId>`
+- follow-up route audit:
+  - `http://127.0.0.1:4017/workspace/tasks`
+- detached server health checks after those passes:
+  - `/login` immediately
+  - `/login` after `20s`
+  - `/login` after `30s`
+
 ## Observed strengths
 
 ### 1. Public nav is consistent
@@ -345,6 +364,41 @@ That is a meaningful coherence improvement because the desktop files route no
 longer mounts a second heavyweight files surface in the sidebar just from
 opening the main files view.
 
+The latest detached soak also strengthens the stability proof around that
+surface:
+
+- `20` consecutive authenticated server-render GETs to the files folder route
+  all returned `200`
+- after that loop, `/login` still returned `200`
+- `5` full headless Chrome visits to the signed-in files route all succeeded
+- after each browser visit, `/login` still returned `200`
+- `/login` still returned `200` after a further `30s`
+
+So the remaining durability seam is no longer “repeated short files visits kill
+the server.” The weaker point has moved deeper than that.
+
+### 4. The tasks route now has direct signed-in browser proof
+
+Observed in the same detached production environment:
+
+- the signed-in route `http://127.0.0.1:4017/workspace/tasks` rendered a real
+  tasks surface
+- visible content included:
+  - `Tasks`
+  - `Search Tasks`
+  - `New Task`
+  - `Due Tasks`
+  - `Upcoming Tasks`
+  - main-pane heading `Tasks`
+  - list/kanban toggle
+  - filter controls
+  - empty-state copy for the current workspace
+- after the tasks browser pass, `/login` still returned `200` immediately and
+  after `20s`
+
+That means the signed-in proof is no longer concentrated only on home and
+files. Tasks now has direct browser evidence too.
+
 Recent files-route runtime tightening also changed the initial network shape:
 
 - on a fresh detached production files render, the browser now loads:
@@ -371,7 +425,7 @@ Recent files-route runtime tightening also changed the initial network shape:
 That means the first files render is now doing less background live-work than
 it did before.
 
-### 4. Signed-in production responsiveness is still not fully trustworthy
+### 5. Signed-in production responsiveness is still not fully trustworthy
 
 Observed during the same broader signed-in production work:
 
@@ -395,11 +449,16 @@ Observed during the same broader signed-in production work:
     - immediately
     - after `10s`
     - after `30s`
+  - the latest detached production server on `:3017` now survives:
+    - `20` consecutive authenticated files-route GETs
+    - `5` headless Chrome files-route visits
+    - a signed-in tasks-route browser pass
+    - and still answers `/login` after the passes
 
 This is still a real reliability problem, even though the startup path is now
 better than before.
 
-### 5. Voice mismatch still exists in places
+### 6. Voice mismatch still exists in places
 
 The login page uses:
 
@@ -412,7 +471,7 @@ more concrete study/research language on `/` and `/pricing`.
 This is not a blocker by itself, but it is one of the clearer remaining
 copy-level seams.
 
-### 6. Product proof is still stronger on entry than in-flow
+### 7. Product proof is still stronger on entry than in-flow
 
 Right now the strongest evidence is:
 
@@ -445,17 +504,19 @@ workspace flow is now only partially proven:
   in a production browser session
 - the files route now also reaches a real production browser render instead of
   only a loading placeholder
-- and the production signed-in path is healthier after a single detached files
-  pass, but still not trustworthy enough under sustained or repeated use
-  because server responsiveness can degrade
+- the tasks route now also reaches a real production browser render
+- and the production signed-in path is healthier across short repeated files
+  visits, but still not trustworthy enough under sustained or broader
+  multi-surface use because server responsiveness can degrade
 
 ## Recommended next move
 
 Debug the next signed-in continuity seam next:
 
 1. isolate why the production server can become partially unresponsive after
-   repeated or longer-lived signed-in files activity, even now that the files
-   surface renders and a short detached pass survives
+   longer-lived or broader multi-surface signed-in usage, even now that
+   repeated short files passes survive
 2. confirm whether the remaining degradation is tied to longer-lived
-   files/realtime runtime paths rather than the initial route render itself
-3. only then continue the deeper chat/tasks/flashcards continuity audit
+   files/realtime or cross-route runtime paths rather than the initial route
+   render itself
+3. extend the direct signed-in browser proof into chat and flashcards
