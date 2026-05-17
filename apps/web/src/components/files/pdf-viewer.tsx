@@ -85,13 +85,7 @@ const PdfAutoJump = memo(function PdfAutoJump({
       });
       return;
     }
-  }, [
-    fallbackHighlightText,
-    highlightText,
-    jumpToPage,
-    search,
-    textContent,
-  ]);
+  }, [fallbackHighlightText, highlightText, jumpToPage, search, textContent]);
 
   return null;
 });
@@ -158,11 +152,15 @@ function PdfFloatingDock() {
   );
 
   useEffect(() => {
-    setPageInput("");
+    if (resolvedPage) {
+      setPageInput("");
+    }
   }, [resolvedPage]);
 
   useEffect(() => {
-    setZoomInput("");
+    if (resolvedZoom) {
+      setZoomInput("");
+    }
   }, [resolvedZoom]);
 
   useEffect(() => {
