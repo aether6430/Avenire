@@ -84,9 +84,9 @@ Current measured app-level hotspots:
 - `apps/web/src/components/files/explorer/use-explorer-pane-surfaces.ts` — `419` lines
 - `apps/web/src/components/chat/use-chat-scroll.ts` — `409` lines
 - `apps/web/src/components/chat/mermaid.tsx` — `403` lines
-- `apps/web/src/components/files/explorer/file-preview-markdown-pane.tsx` — `402` lines
 - `apps/web/src/components/editor/editor-core.ts` — `402` lines
 - `apps/web/src/components/editor/editor-command-menu-model.ts` — `402` lines
+- `apps/web/src/components/files/explorer/file-preview-markdown-pane-surface.tsx` — `402` lines
 
 Recent verified reductions already landed and were pushed:
 
@@ -121,6 +121,7 @@ Recent verified reductions already landed and were pushed:
 - `widget-renderer-model.ts` — `535` -> `17` with `widget-renderer-theme.ts` and `widget-renderer-iframe-document.ts` as explicit local owners
 - `WidgetPrimitiveRenderer.tsx` — `457` -> `12` with `widget-primitive-render-content.tsx` and `widget-primitive-render-chart.tsx` as explicit local owners
 - `settings-workspace-selected-sections.tsx` — `403` -> `40` with explicit stats/templates/members section owners
+- `file-preview-markdown-pane.tsx` — `402` -> `10` with `file-preview-markdown-pane-surface.tsx` as the local surface owner
 - `command-palette-groups.tsx` — `444` -> `17`
 - `dashboard-sidebar-content.tsx` — `449` -> `150`
 - `explorer-browse-surface.tsx` — `417` -> `14`
@@ -206,6 +207,7 @@ Current evidence in the no-sync repo:
 - `logs/2026-05-17-messages-thin-wrapper.md`
 - `logs/2026-05-17-widget-primitive-renderer-split.md`
 - `logs/2026-05-17-settings-workspace-sections-split.md`
+- `logs/2026-05-17-file-preview-markdown-pane-split.md`
 
 Assessment:
 
