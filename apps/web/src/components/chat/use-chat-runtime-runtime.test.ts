@@ -8,6 +8,7 @@ import {
   primeChatRuntimeHandoff,
   publishChatRuntimeStatus,
   publishCompletedChatRuntimeReply,
+  reactToChatRuntimeError,
   regenerateChatRuntimeMessage,
   resolveChatRuntimeFollowBehavior,
   resolveChatRuntimeHydration,
@@ -87,6 +88,30 @@ describe("use chat runtime runtime", () => {
     });
     expect(onAgentActivity).toHaveBeenCalledWith(activity);
     expect(onChatCreated).toHaveBeenCalledTimes(1);
+  });
+
+  it("maps chat runtime errors into toast and pet notification reactions", () => {
+    const emitPetNotification = vi.fn();
+    const toastError = vi.fn();
+
+    reactToChatRuntimeError({
+      emitPetNotification,
+      error: new Error("network timeout"),
+      toastError,
+    });
+
+    expect(toastError).toHaveBeenCalledWith(
+      "Unable to connect to the server. Please check your internet connection and try again.",
+      {
+        description: "If this issue persists, please contact support.",
+        duration: 5000,
+      }
+    );
+    expect(emitPetNotification).toHaveBeenCalledWith({
+      animation: "failed",
+      message: "Response failed",
+      tone: "failure",
+    });
   });
 
   it("primes optimistic pending messages for new chats and clears them when append fails before route handoff", async () => {

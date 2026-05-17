@@ -46,6 +46,7 @@ import {
   primeChatRuntimeHandoff,
   publishChatRuntimeStatus,
   publishCompletedChatRuntimeReply,
+  reactToChatRuntimeError,
   regenerateChatRuntimeMessage,
   resolveChatRuntimeFollowBehavior,
   resolveChatRuntimeHydration,
@@ -53,7 +54,6 @@ import {
   shouldClearChatRuntimeAgentActivity,
 } from "@/components/chat/use-chat-runtime-runtime";
 import { useChatScroll } from "@/components/chat/use-chat-scroll";
-import { getChatErrorMessage } from "@/lib/chat-errors";
 import {
   CHAT_CREATED_EVENT,
   CHAT_NAME_UPDATED_EVENT,
@@ -88,14 +88,12 @@ export function useChatRuntime({
   const autoPromptSentRef = useRef<string | null>(null);
 
   const handleError = useCallback((error: Error) => {
-    toast.error(getChatErrorMessage(error), {
-      description: "If this issue persists, please contact support.",
-      duration: 5000,
-    });
-    emitPetNotification({
-      animation: "failed",
-      message: "Response failed",
-      tone: "failure",
+    reactToChatRuntimeError({
+      emitPetNotification,
+      error,
+      toastError: (message, options) => {
+        toast.error(message, options);
+      },
     });
   }, []);
 

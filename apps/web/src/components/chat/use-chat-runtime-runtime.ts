@@ -9,6 +9,7 @@ import type {
   ChatRuntimeStatus,
   getChatStatusPetNotification,
 } from "@/components/chat/use-chat-runtime-model";
+import { getChatErrorMessage } from "@/lib/chat-errors";
 import type {
   ChatCreatedDetail,
   ChatNameUpdatedDetail,
@@ -45,6 +46,25 @@ export function handleChatRuntimeDataPart(input: {
   if (dataPart.type === "data-agent_activity") {
     input.onAgentActivity(dataPart.data as AgentActivityData);
   }
+}
+
+export function reactToChatRuntimeError(input: {
+  emitPetNotification: (detail: PetNotificationDetail) => void;
+  error: Error;
+  toastError: (
+    message: string,
+    options: { description: string; duration: number }
+  ) => void;
+}) {
+  input.toastError(getChatErrorMessage(input.error), {
+    description: "If this issue persists, please contact support.",
+    duration: 5000,
+  });
+  input.emitPetNotification({
+    animation: "failed",
+    message: "Response failed",
+    tone: "failure",
+  });
 }
 
 export async function sendChatRuntimeMessage(input: {
