@@ -157,6 +157,43 @@ Detached richer-interaction production pass:
   - `/login` immediately
   - `/login` after `30s`
 
+Detached longer route-soak verification pass:
+
+- production build and server:
+  - `http://127.0.0.1:3042`
+- authenticated proxy:
+  - `bun scripts/local-auth-session-proxy.ts --cookie-file output/auth-login-cookies-prod.txt --upstream http://127.0.0.1:3042 --port 4042`
+- current detached browser proof reconfirmed on:
+  - `http://127.0.0.1:4042/workspace`
+  - `http://127.0.0.1:4042/workspace/files/a14719c1-c1c2-4e41-852b-234b1656f1fd/folder/0de9c432-603a-4c2b-aac7-0264d4a8af56`
+  - `http://127.0.0.1:4042/workspace/tasks`
+  - `http://127.0.0.1:4042/workspace/chats/ca4a56e3-6482-47f6-822f-56f4d66d69ad`
+  - `http://127.0.0.1:4042/workspace/flashcards/654bbf5c-4d98-4a26-acbf-55bc9482bd3f`
+- longer authenticated route soak:
+  - `6` cycles
+  - `30` total authenticated route GETs across those five surfaces
+  - max observed route response time: `0.043948s`
+- detached server health checks after the soak:
+  - `/login` immediately
+  - `/login` after `30s`
+  - `/login` after `120s`
+
+Detached session-close summary skip proof:
+
+- production build and server:
+  - `http://127.0.0.1:3043`
+- direct authenticated request:
+  - `POST /api/chat`
+  - body:
+    - `kind: "session-close"`
+    - `chatId: "ca4a56e3-6482-47f6-822f-56f4d66d69ad"`
+    - `sessionId: "summary-skip-proof-3043"`
+- result:
+  - response `{"ok":true}`
+  - `/login` still returned `200`
+  - shutting the server down no longer emitted the earlier
+    `Failed to persist session summary on session close` missing-provider error
+
 ## Observed strengths
 
 ### 1. Public nav is consistent
@@ -632,7 +669,8 @@ Observed during the same broader signed-in production work:
     - and still answers `/login` after that failure path
 
 This is still a real reliability problem, even though the startup path is now
-better than before.
+materially better than before and the current detached route-soak window is
+stronger than the earlier short loops.
 
 ### 10. Auth entry voice now matches the public product language
 

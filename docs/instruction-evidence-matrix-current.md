@@ -30,7 +30,7 @@ Status legend:
 | add tests where instability blocks confidence | `met` | Recent targeted tests added or repaired around files route metadata/route behavior, auth coverage harness, database env boundaries, chat tab accessibility, chat provider-config messaging. |
 | prefer meaningful coverage over vanity coverage | `met` | Repo coverage script uses conservative lower-bound accounting and counts untouched packages as `0%`; documented in [completion-audit-current.md](/Users/johnmacartew/Developer.nosync/aveniri/docs/completion-audit-current.md:1). |
 | use failures in real usage as input for tests | `met` | Chat provider failure, files-route metadata drift, auth coverage breakage, and database env-boundary regressions all produced focused tests or test repairs. |
-| app stops collapsing under normal use | `partial` | Short detached signed-in loops now survive across empty-state, richer-state, and short post-mutation routes. Longer-lived interactive use is still open. |
+| app stops collapsing under normal use | `partial` | Detached signed-in loops now survive across empty-state, richer-state, short post-mutation routes, and a `30`-request mixed-route soak with `/login` still healthy after `120s`. Longer-lived interactive use is still open. |
 
 ## Workstream 2: User experience and product coherence
 
@@ -47,7 +47,7 @@ Status legend:
 | Requirement | Status | Evidence |
 | --- | --- | --- |
 | move/rewrite docs into sensible places | `met` | Active repo now contains `instruction.md`, current audits, local environment docs, migrations docs, and logging receipts. |
-| improve repository organization without meaningless churn | `partial` | Many large surfaces reduced and routes clarified; still one dominant hotspot remains. |
+| improve repository organization without meaningless churn | `partial` | Many large surfaces reduced and routes clarified; remaining structural pressure is now concentrated in a smaller distributed set instead of one giant shell. |
 | keep docs useful and reorganized where presentation was poor | `met` | Current audit bundle plus recovered instruction and logs form a coherent working knowledge base. |
 | logging protocol using `logs/` for meaningful passes | `met` | Active repo now has a growing bundle of meaningful log entries under `logs/`, covering instruction recovery, richer-state and richer-interaction soaks, chat failure/config proofs, and structural wrapper receipts. |
 | evidence trail not split across two homes | `partial` | Active repo now mirrors the most important recent receipts and includes `docs/desktop-log-index-current.md` for the old Desktop log cluster, but older Desktop logs still remain outside the repo and many are dataless placeholders. |
@@ -58,7 +58,7 @@ Status legend:
 | --- | --- | --- |
 | reduce god files and monolithic modules where they block development | `partial` | Former hotspots like `app-sidebar.tsx`, `command-palette.tsx`, `student-calendar.tsx`, `student-calendar-desktop.tsx`, `multimodal-input.tsx`, `data-imports-section.tsx`, and `sidebar-files-panel.tsx` were reduced dramatically. |
 | keep abstractions honest and local | `met` | Recent reductions consistently wrapped existing local hooks/models rather than inventing compatibility shims. |
-| make repo easier to change correctly after refactor | `partial` | Many shells are slimmer, and [explorer.tsx](/Users/johnmacartew/Developer.nosync/aveniri/apps/web/src/components/files/explorer.tsx:1) is now down to `323` lines, but it remains the clearest structural hotspot. |
+| make repo easier to change correctly after refactor | `partial` | Many shells are slimmer. Remaining pressure is now distributed across files like `onboarding-modal-steps.tsx`, `rolling-tool-activity-surface.tsx`, `markdown.tsx`, and the explorer cluster instead of one giant explorer shell. |
 | avoid over-advanced refactors that do not improve codability | `met` | Recent changes stayed surgical and aligned with existing boundaries. |
 
 ## Workstream 5: UI polish and consistency
@@ -75,13 +75,13 @@ Status legend:
 | --- | --- | --- |
 | re-check each area after changes | `met` | Every major pass has paired lint/type/build/test or browser receipts and a log entry. |
 | do not trust first pass | `met` | Multiple detached route loops, richer-state loops, post-mutation loops, and repeated browser proofs were run across fresh production ports. |
-| continue until no more meaningful issues are easy to spot | `open` | There are still meaningful issues easy to spot: successful method-response proof under a configured provider, longer-lived interactive durability, and the remaining `explorer.tsx` hotspot. |
+| continue until no more meaningful issues are easy to spot | `open` | There are still meaningful issues easy to spot: successful method-response proof under a configured provider, longer-lived interactive durability, and the current distributed structural hotspots. |
 
 ## Additional baseline standards
 
 | Requirement | Status | Evidence |
 | --- | --- | --- |
-| improve error handling where failure feels silent/confusing | `partial` | Provider failure in persisted chat is now explicit and reload-safe. A successful provider-backed round-trip is still not proven locally. |
+| improve error handling where failure feels silent/confusing | `partial` | Provider failure in persisted chat is now explicit and reload-safe, and the unconfigured session-summary close path now skips cleanly instead of logging a hard failure. A successful provider-backed round-trip is still not proven locally. |
 | remove or reduce dead weight harming clarity | `partial` | Many giant surfaces and eager background behaviors were cut. |
 | prefer stable, explicit behavior over hidden magic | `met` | Recent work favored fail-closed or explicit UI states over invisible background behavior. |
 | watch for over-engineering that does not pay off | `partial` | Many overgrown shells were reduced, but the codebase is still structurally uneven around `explorer.tsx`. |
@@ -91,7 +91,7 @@ Status legend:
 
 | End-state claim | Status | Evidence |
 | --- | --- | --- |
-| can be used without constantly falling apart | `partial` | Short repeated signed-in loops, richer-state loops, and short post-mutation loops survive; longer-lived interactive use is still not fully proven. |
+| can be used without constantly falling apart | `partial` | Short repeated signed-in loops, richer-state loops, post-mutation loops, and a `30`-request detached route soak now survive; longer-lived interactive use is still not fully proven. |
 | feels coherent rather than stitched together | `partial` | Strong improvement across route families and error states; still not fully closed until successful method interaction and longer-lived sessions are proven. |
 | has enough testing to support change | `met` | Explicit test budget and coverage floor from the instruction are now satisfied. |
 | has a structure that future work can build on | `partial` | Major improvement, but `explorer.tsx` remains a meaningful hotspot. |

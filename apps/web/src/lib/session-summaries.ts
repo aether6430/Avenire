@@ -11,6 +11,7 @@ import {
 } from "@avenire/database";
 import { logInfo } from "@avenire/observability";
 import { z } from "zod";
+import { isAiProviderConfigurationError } from "@/lib/ai-provider-errors";
 import {
   inferTopicLabel,
   normalizeSubjectLabel,
@@ -526,34 +527,53 @@ export async function persistSessionSummaryForCompletedTurn(input: {
     });
   }
 
-  const result = await generateText({
-    model: apollo.languageModel(SUMMARY_MODEL),
-    output: Output.object({ schema: summaryOutputSchema }),
-    prompt: [
-      "Classify and summarize this completed chat session window for learning memory.",
-      "Return concise, factual output only.",
-      "First decide whether this window is genuinely learning-relevant or non-learning.",
-      "Use non_learning for shopping, file navigation, operational requests, ambiguous utility lookups, greetings, admin chatter, or generic support help.",
-      "Only use learning when the exchange is meaningfully about study, tutoring, conceptual understanding, or skill-building.",
-      "If memoryRelevance is non_learning, return subject as null, subjectConfidence as null, empty conceptsCovered, empty misconceptionsDetected, empty misconceptionCandidates, and a short summary explaining why it was skipped.",
-      "If memoryRelevance is learning, focus on concepts covered, misconceptions explicitly surfaced, and the learning outcome.",
-      "Only identify an academic subject when memoryRelevance is learning.",
-      "Only infer up to three concept-level misconception candidates when the user clearly expresses confusion, states or implies a wrong mental model, repeats the same mistaken assumption, or draws an incorrect conclusion that persists across the exchange.",
-      "Stay selective. Do not infer a misconception from a normal feature check, casual curiosity, or a single minor clarification unless the exchange indicates a real conceptual gap worth tracking.",
-      confusionSignals.detected
-        ? `Confusion detection stage: detected. Reasons: ${confusionSignals.reasons.join(", ")}. Verify only concrete wrong models with concept grounding.`
-        : "Confusion detection stage: no strong signal. Return an empty misconceptionCandidates array unless the transcript clearly contains a durable wrong model.",
-      `Mindset cards created during this window: ${flashcardsCreated}`,
-      misconceptionsDetected.length > 0
-        ? `Misconceptions already detected by tools: ${misconceptionsDetected.join(", ")}`
-        : "Misconceptions already detected by tools: none",
-      "For subject, use an established subject label such as Mathematics, Physics, Chemistry, Biology, Computer Science, History, Literature, or Economics.",
-      "For misconceptionCandidates, keep concept labels short and specific, ideally under 180 characters, and keep subject/topic labels concise.",
-      "For misconceptionCandidates, return objects with concept, subject, topic, reason, and confidence.",
-      "Session transcript:",
-      transcript,
-    ].join("\n\n"),
-  });
+  let result: Awaited<ReturnType<typeof generateText>>;
+  try {
+    result = await generateText({
+      model: apollo.languageModel(SUMMARY_MODEL),
+      output: Output.object({ schema: summaryOutputSchema }),
+      prompt: [
+        "Classify and summarize this completed chat session window for learning memory.",
+        "Return concise, factual output only.",
+        "First decide whether this window is genuinely learning-relevant or non-learning.",
+        "Use non_learning for shopping, file navigation, operational requests, ambiguous utility lookups, greetings, admin chatter, or generic support help.",
+        "Only use learning when the exchange is meaningfully about study, tutoring, conceptual understanding, or skill-building.",
+        "If memoryRelevance is non_learning, return subject as null, subjectConfidence as null, empty conceptsCovered, empty misconceptionsDetected, empty misconceptionCandidates, and a short summary explaining why it was skipped.",
+        "If memoryRelevance is learning, focus on concepts covered, misconceptions explicitly surfaced, and the learning outcome.",
+        "Only identify an academic subject when memoryRelevance is learning.",
+        "Only infer up to three concept-level misconception candidates when the user clearly expresses confusion, states or implies a wrong mental model, repeats the same mistaken assumption, or draws an incorrect conclusion that persists across the exchange.",
+        "Stay selective. Do not infer a misconception from a normal feature check, casual curiosity, or a single minor clarification unless the exchange indicates a real conceptual gap worth tracking.",
+        confusionSignals.detected
+          ? `Confusion detection stage: detected. Reasons: ${confusionSignals.reasons.join(", ")}. Verify only concrete wrong models with concept grounding.`
+          : "Confusion detection stage: no strong signal. Return an empty misconceptionCandidates array unless the transcript clearly contains a durable wrong model.",
+        `Mindset cards created during this window: ${flashcardsCreated}`,
+        misconceptionsDetected.length > 0
+          ? `Misconceptions already detected by tools: ${misconceptionsDetected.join(", ")}`
+          : "Misconceptions already detected by tools: none",
+        "For subject, use an established subject label such as Mathematics, Physics, Chemistry, Biology, Computer Science, History, Literature, or Economics.",
+        "For misconceptionCandidates, keep concept labels short and specific, ideally under 180 characters, and keep subject/topic labels concise.",
+        "For misconceptionCandidates, return objects with concept, subject, topic, reason, and confidence.",
+        "Session transcript:",
+        transcript,
+      ].join("\n\n"),
+    });
+  } catch (error) {
+    if (isAiProviderConfigurationError(error)) {
+      logInfo({
+        eventName: "session_summary.memory.skipped",
+        payload: {
+          chatId: input.chatId,
+          model: SUMMARY_MODEL,
+          reason: "provider_not_configured",
+          userId: input.userId,
+          workspaceId: input.workspaceId,
+        },
+      });
+      return null;
+    }
+
+    throw error;
+  }
 
   const detectedSubject = normalizeSubjectLabel(result.output.subject);
   const normalizedCandidates = result.output.misconceptionCandidates.map(

@@ -289,6 +289,46 @@ shows:
 So this important failure mode is now visible and legible in the chat surface
 instead of looking like an abandoned message.
 
+### 9. The current detached build still renders the richer signed-in route family
+
+Observed through current headless browser DOM proof on:
+
+- `http://127.0.0.1:4042/workspace`
+- `http://127.0.0.1:4042/workspace/files/a14719c1-c1c2-4e41-852b-234b1656f1fd/folder/0de9c432-603a-4c2b-aac7-0264d4a8af56`
+- `http://127.0.0.1:4042/workspace/tasks`
+- `http://127.0.0.1:4042/workspace/chats/ca4a56e3-6482-47f6-822f-56f4d66d69ad`
+- `http://127.0.0.1:4042/workspace/flashcards/654bbf5c-4d98-4a26-acbf-55bc9482bd3f`
+
+The detached build still exposed the expected signed-in product surfaces:
+
+- home/workspace shell
+- files surface with visible file rows
+- tasks surface
+- persisted method detail
+- persisted flashcard-set detail
+
+So the richer signed-in route family is not just historically proven; it still
+renders on the current detached production proof build.
+
+### 10. The detached route-soak window is now stronger than the earlier short loops
+
+Observed on the same detached production server:
+
+- `6` authenticated cycles
+- `30` total route GETs across:
+  - `/workspace`
+  - files detail
+  - tasks
+  - persisted chat detail
+  - persisted flashcard-set detail
+- `/login` still returned `200`:
+  - immediately after the soak
+  - after `30s`
+  - after `120s`
+
+This does not yet prove a truly long interactive browser session, but it is a
+meaningful step beyond the earlier short detached loops.
+
 ### 9. Workspace tab labels no longer duplicate on the active tab
 
 Observed on the rebuilt production routes for:

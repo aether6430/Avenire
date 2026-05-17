@@ -68,13 +68,12 @@ Assessment:
 
 Current measured app-level hotspots:
 
+- `apps/web/src/components/dashboard/onboarding-modal-steps.tsx` — `794` lines
+- `apps/web/src/components/chat/rolling-tool-activity-surface.tsx` — `648` lines
+- `apps/web/src/components/chat/markdown.tsx` — `624` lines
+- `apps/web/src/components/student-calendar-desktop-surface.tsx` — `588` lines
+- `apps/web/src/components/chat/rolling-reasoning.tsx` — `578` lines
 - `apps/web/src/components/files/explorer.tsx` — `323` lines
-- `apps/web/src/components/dashboard/sidebar-files-panel.tsx` — `55` lines
-- `apps/web/src/components/chat/multimodal-input.tsx` — `60` lines
-- `apps/web/src/components/settings/data-imports-section.tsx` — `14` lines
-- `apps/web/src/components/dashboard/command-palette.tsx` — `20` lines
-- `apps/web/src/components/dashboard/app-sidebar.tsx` — `88` lines
-- `apps/web/src/components/student-calendar.tsx` — `10` lines
 
 Recent verified reductions already landed and were pushed:
 
@@ -102,9 +101,11 @@ Recent verified reductions already landed and were pushed:
 Assessment:
 
 - This category improved dramatically.
-- The remaining clearly dominant hotspot is still `explorer.tsx`.
-- The rest of the previously obvious top-level shells have mostly been reduced
-  to wrappers over existing boundaries.
+- `explorer.tsx` is no longer the dominant shell it used to be.
+- Remaining structural pressure is now concentrated in a smaller but more
+  distributed set of files instead of one giant explorer bottleneck.
+- The previously obvious top-level shells have mostly been reduced to wrappers
+  over existing boundaries.
 
 ### 3. Organization and documentation
 
@@ -138,6 +139,7 @@ Current evidence in the no-sync repo:
 - `logs/2026-05-17-chat-workspace-thin-wrapper.md`
 - `logs/2026-05-17-student-calendar-desktop-thin-wrapper.md`
 - `logs/2026-05-17-auth-entry-voice-alignment.md`
+- `logs/2026-05-17-longer-detached-soak-and-session-summary-skip.md`
 - `logs/2026-05-17-chat-thin-wrapper.md`
 
 Assessment:
@@ -243,6 +245,21 @@ Current evidence:
       `1 studied today`, and `1 in progress`
     - a post-mutation detached mixed-route session survived `10` route
       navigations and still left `/login` healthy immediately and after `30s`
+  - the current detached production verification pass is now stronger too:
+    - current headless browser DOM proof on `:4042` reconfirmed:
+      - `/workspace`
+      - `/workspace/files/<workspaceUuid>/folder/<rootFolderId>`
+      - `/workspace/tasks`
+      - `/workspace/chats/<slug>`
+      - `/workspace/flashcards/<setId>`
+    - a longer detached authenticated route soak on `:3042` survived:
+      - `6` cycles
+      - `30` authenticated route GETs across those five signed-in surfaces
+      - max observed route response time `0.043948s`
+    - `/login` stayed healthy:
+      - immediately after the soak
+      - after `30s`
+      - after `120s`
   - real method-message provider failure is now an explicit product state:
     - `POST /api/chat` reached the persisted method streaming boundary in
       production
@@ -255,11 +272,18 @@ Current evidence:
       in this environment
     - the local missing-Redis path no longer emits the unrelated resumable chat
       stream failure during this flow
+  - the missing-provider session-close summary path is now quieter too:
+    - `POST /api/chat` with `kind: "session-close"` for the persisted method
+      now returns `{"ok":true}`
+    - the server no longer emits the earlier
+      `Failed to persist session summary on session close` missing-key error on
+      shutdown after that request
   - remaining gap has shifted deeper:
     - production server responsiveness is healthier across short repeated files
-      visits, short multi-surface passes, richer persisted-state loops, and
-      short post-mutation loops, but longer-lived signed-in sessions are still
-      not fully proven trustworthy
+      visits, short multi-surface passes, richer persisted-state loops, short
+      post-mutation loops, and the current `30`-request detached route soak
+    - but a successful provider-backed method round-trip and truly longer-lived
+      interactive sessions are still not fully proven trustworthy
 - The auth-entry flow itself improved materially:
   - `/register` no longer crashes with `Maximum update depth exceeded`
   - sign-up returned `200`
@@ -274,8 +298,10 @@ Missing proof:
   - the authenticated route is reachable in both dev-proxy and direct
     production-browser sessions
   - the home pane now reaches a ready state in production
+  - the current detached production route family now survives a `30`-request
+    signed-in soak plus a `120s` `/login` health window
   - the production signed-in path is still not fully trustworthy under
-    longer-lived or richer in-session usage
+    truly longer-lived or richer interactive in-session usage
   - detached production evidence now suggests the remaining reliability gap is
     deeper than the basic empty-state route family renders
 - Passing builds prove integrity, but they do not by themselves prove that the
@@ -305,8 +331,11 @@ Missing proof:
 
 ## Strongest uncovered requirements
 
-1. `explorer.tsx` is still the largest remaining app-level surface by a wide
-   margin.
+1. Structural pressure is no longer dominated by a single explorer shell:
+   the largest remaining app-level surfaces now include
+   `onboarding-modal-steps.tsx`, `rolling-tool-activity-surface.tsx`,
+   `markdown.tsx`, `student-calendar-desktop-surface.tsx`,
+   `rolling-reasoning.tsx`, and the remaining explorer cluster.
 2. The signed-in workspace home, files, tasks, chat, and flashcards surfaces
    are now browser-proven, but deeper reliability is still weak:
    - detached production `/workspace` survives
@@ -318,14 +347,17 @@ Missing proof:
    - a short post-mutation multi-surface loop now survives as well
    - a real provider-failure method round-trip now fails explicitly instead of
      silently
-   - longer-lived signed-in sessions are still not fully proven safe
+   - a current `30`-request detached route soak now survives too
+   - longer-lived interactive signed-in sessions are still not fully proven
+     safe
 3. The evidence trail is healthier, but it is still split between the active
    no-sync repo and the old Desktop repo’s historical `logs/`.
 
 ## Recommended next moves
 
-1. Continue structural reduction on `explorer.tsx` until it no longer dominates
-   the app-level surface map.
+1. Continue structural reduction on the current largest app-level hotspots:
+   `onboarding-modal-steps.tsx`, `rolling-tool-activity-surface.tsx`,
+   `markdown.tsx`, and the remaining explorer cluster.
 2. Prove one successful method message round-trip under a configured model
    provider key, now that the failure path is explicit and reload-safe.
 3. Run a longer detached soak after those richer interactions so the remaining

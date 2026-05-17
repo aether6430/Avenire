@@ -1,3 +1,5 @@
+import { isAiProviderConfigurationError } from "@/lib/ai-provider-errors";
+
 const LOG_PREFIX = "[api/chat]";
 
 function isChatProfileLoggingEnabled() {
@@ -98,17 +100,7 @@ export function isAbortLikeError(error: unknown) {
   );
 }
 
-export function isChatProviderConfigurationError(error: unknown) {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-
-  return (
-    error.name === "AI_LoadAPIKeyError" ||
-    error.message.includes("API key is missing") ||
-    error.message.includes("isn't configured in this environment")
-  );
-}
+export const isChatProviderConfigurationError = isAiProviderConfigurationError;
 
 export function getChatStreamErrorMessage(error: unknown) {
   const formatted = formatError(error);
