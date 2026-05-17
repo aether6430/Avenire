@@ -178,6 +178,27 @@ Detached longer route-soak verification pass:
   - `/login` after `30s`
   - `/login` after `120s`
 
+Detached extended route-soak verification pass:
+
+- production build and server:
+  - `http://127.0.0.1:3056`
+- authenticated proxy:
+  - `bun scripts/local-auth-session-proxy.ts --cookie-file output/auth-login-cookies-prod.txt --upstream http://127.0.0.1:3056 --port 4056`
+- current detached browser proof reconfirmed on:
+  - `http://127.0.0.1:4056/workspace`
+  - `http://127.0.0.1:4056/workspace/files/a14719c1-c1c2-4e41-852b-234b1656f1fd/folder/0de9c432-603a-4c2b-aac7-0264d4a8af56`
+  - `http://127.0.0.1:4056/workspace/tasks`
+  - `http://127.0.0.1:4056/workspace/chats/ca4a56e3-6482-47f6-822f-56f4d66d69ad`
+  - `http://127.0.0.1:4056/workspace/flashcards/654bbf5c-4d98-4a26-acbf-55bc9482bd3f`
+- longer authenticated route soak:
+  - `12` cycles
+  - `60` total authenticated route GETs across those five surfaces
+  - max observed route response time: `0.044416s`
+- detached server health checks after the soak:
+  - `/login` immediately
+  - `/login` after `60s`
+  - `/login` after `180s`
+
 Detached session-close summary skip proof:
 
 - production build and server:

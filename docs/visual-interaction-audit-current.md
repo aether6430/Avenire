@@ -329,6 +329,29 @@ Observed on the same detached production server:
 This does not yet prove a truly long interactive browser session, but it is a
 meaningful step beyond the earlier short detached loops.
 
+### 11. The current detached route-soak window is stronger again
+
+Observed on a fresh detached production server and authenticated proxy:
+
+- current headless browser DOM proof still rendered:
+  - `/workspace`
+  - files detail
+  - tasks
+  - persisted chat detail
+  - persisted flashcard-set detail
+- the longer authenticated route soak then survived:
+  - `12` cycles
+  - `60` total route GETs across those five signed-in surfaces
+  - max observed route response time `0.044416s`
+- `/login` still returned `200`:
+  - immediately after the soak
+  - after `60s`
+  - after `180s`
+
+This is still not the same thing as a truly long interactive browser session,
+but it further strengthens the detached signed-in durability window beyond the
+earlier `30`-request proof.
+
 ### 9. Workspace tab labels no longer duplicate on the active tab
 
 Observed on the rebuilt production routes for:

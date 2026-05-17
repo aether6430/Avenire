@@ -287,6 +287,14 @@ Current evidence:
       - immediately after the soak
       - after `30s`
       - after `120s`
+    - a stronger detached authenticated route soak on `:3056` now survives:
+      - `12` cycles
+      - `60` authenticated route GETs across those same five signed-in surfaces
+      - max observed route response time `0.044416s`
+    - `/login` stayed healthy on that pass:
+      - immediately after the soak
+      - after `60s`
+      - after `180s`
   - real method-message provider failure is now an explicit product state:
     - `POST /api/chat` reached the persisted method streaming boundary in
       production
@@ -308,7 +316,8 @@ Current evidence:
   - remaining gap has shifted deeper:
     - production server responsiveness is healthier across short repeated files
       visits, short multi-surface passes, richer persisted-state loops, short
-      post-mutation loops, and the current `30`-request detached route soak
+      post-mutation loops, the `30`-request detached route soak, and the newer
+      `60`-request detached route soak
     - but a successful provider-backed method round-trip and truly longer-lived
       interactive sessions are still not fully proven trustworthy
 - The auth-entry flow itself improved materially:
@@ -325,8 +334,8 @@ Missing proof:
   - the authenticated route is reachable in both dev-proxy and direct
     production-browser sessions
   - the home pane now reaches a ready state in production
-  - the current detached production route family now survives a `30`-request
-    signed-in soak plus a `120s` `/login` health window
+  - the current detached production route family now survives a `60`-request
+    signed-in soak plus a `180s` `/login` health window
   - the production signed-in path is still not fully trustworthy under
     truly longer-lived or richer interactive in-session usage
   - detached production evidence now suggests the remaining reliability gap is
@@ -374,7 +383,7 @@ Missing proof:
    - a short post-mutation multi-surface loop now survives as well
    - a real provider-failure method round-trip now fails explicitly instead of
      silently
-   - a current `30`-request detached route soak now survives too
+   - a current `60`-request detached route soak now survives too
    - longer-lived interactive signed-in sessions are still not fully proven
      safe
 3. The evidence trail is healthier, but it is still split between the active
