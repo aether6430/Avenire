@@ -2,20 +2,22 @@
 
 import type { MediaPlaybackSource } from "@avenire/ui/media";
 import {
+  buildWarmFetchInit,
+  getEntryKey,
+  type PreviewKind,
+  parsePlaylistUris,
+  parseWarmMediaUrls,
+  shouldCachePreviewBlob,
+  type WarmState,
+} from "@/lib/file-preview-cache-model";
+import {
   getPlaybackSourceCacheKey,
   getPlaybackSourcePrimaryUrl,
 } from "@/lib/media-playback";
 
-type PreviewKind = "audio" | "image" | "pdf" | "video";
-type WarmState = "cold" | "warm" | "warming";
-
 const OPENED_FILES_MAX = 300;
 const WARM_CACHE_MAX = 120;
 const WARM_TTL_MS = 15 * 60 * 1000;
-const PREVIEW_BLOB_CACHE_MAX_BYTES = 48 * 1024 * 1024;
-const HLS_MAP_URI_PATTERN = /#EXT-X-MAP:.*URI="([^"]+)"/;
-const PLAYLIST_LINE_SPLIT_PATTERN = /\r?\n/;
-
 const openedFiles = new Map<string, number>();
 const preconnectedOrigins = new Set<string>();
 
@@ -33,12 +35,6 @@ const warmByKey = new Map<string, WarmEntry>();
 
 function now() {
   return Date.now();
-}
-
-function getEntryKey(input: MediaPlaybackSource | string) {
-  return typeof input === "string"
-    ? `progressive:${input}`
-    : getPlaybackSourceCacheKey(input);
 }
 
 function pruneOpenedFiles() {
@@ -80,18 +76,6 @@ function pruneWarmCache() {
   }
 }
 
-function shouldCachePreviewBlob(
-  mediaType: "audio" | "video" | null,
-  sizeBytes?: number | null
-) {
-  return (
-    mediaType === "video" &&
-    typeof sizeBytes === "number" &&
-    sizeBytes > 0 &&
-    sizeBytes <= PREVIEW_BLOB_CACHE_MAX_BYTES
-  );
-}
-
 function preconnectOrigin(url: string) {
   try {
     const origin = new URL(url).origin;
@@ -108,42 +92,12 @@ function preconnectOrigin(url: string) {
   }
 }
 
-function buildWarmFetchInit(signal?: AbortSignal): RequestInit {
-  return {
-    cache: "force-cache",
-    credentials: "same-origin",
-    ...(signal ? { signal } : {}),
-  };
-}
-
 async function fetchText(url: string, signal?: AbortSignal) {
   const response = await fetch(url, buildWarmFetchInit(signal));
   if (!response.ok) {
     throw new Error(`Warm request failed: ${response.status}`);
   }
   return await response.text();
-}
-
-function parsePlaylistUris(playlistText: string, baseUrl: string) {
-  return playlistText
-    .split(PLAYLIST_LINE_SPLIT_PATTERN)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !line.startsWith("#"))
-    .map((line) => new URL(line, baseUrl).toString());
-}
-
-function parseMapUri(playlistText: string, baseUrl: string) {
-  const match = playlistText.match(HLS_MAP_URI_PATTERN);
-  if (!match?.[1]) {
-    return null;
-  }
-  return new URL(match[1], baseUrl).toString();
-}
-
-function parseWarmMediaUrls(playlistText: string, baseUrl: string) {
-  const urls = parsePlaylistUris(playlistText, baseUrl).slice(0, 2);
-  const initUrl = parseMapUri(playlistText, baseUrl);
-  return initUrl ? [initUrl, ...urls] : urls;
 }
 
 function setWarmState(key: string, nextState: WarmState) {
