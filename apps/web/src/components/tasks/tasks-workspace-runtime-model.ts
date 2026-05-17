@@ -84,3 +84,52 @@ export function resolveTasksWorkspaceClosedSheetState(input: {
     sheetOpen: false,
   };
 }
+
+export function resolveTasksWorkspaceSearchParamState(taskId: string | null) {
+  if (!taskId) {
+    return null;
+  }
+
+  return {
+    mode: "edit" as const,
+    selectedTaskId: taskId,
+    sheetOpen: true,
+  };
+}
+
+export function resolveTasksWorkspaceDraftSync(input: {
+  currentDraft: TaskEditorDraft | null;
+  currentUserId: string;
+  isDirty: boolean;
+  mode: "create" | "edit" | "idle";
+  selectedTask: WorkspaceTask | null;
+}) {
+  if (input.mode !== "edit" || !input.selectedTask) {
+    return input.currentDraft;
+  }
+
+  if (input.currentDraft && input.isDirty) {
+    return input.currentDraft;
+  }
+
+  return createTaskDraft(input.currentUserId, input.selectedTask);
+}
+
+export function resolveTasksWorkspaceDropStatus(input: {
+  nextStatus: WorkspaceTask["status"];
+  task: WorkspaceTask | null;
+}) {
+  return {
+    draggedTaskId: null,
+    dropStatus: null,
+    shouldMove: Boolean(input.task && input.task.status !== input.nextStatus),
+    task: input.task,
+  };
+}
+
+export function resolveTasksWorkspaceDragEndState() {
+  return {
+    draggedTaskId: null,
+    dropStatus: null,
+  };
+}

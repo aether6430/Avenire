@@ -30,8 +30,12 @@ import {
   resolveTasksWorkspaceClosedSheetState,
   resolveTasksWorkspaceCreateState,
   resolveTasksWorkspaceDeleteSuccess,
+  resolveTasksWorkspaceDraftSync,
+  resolveTasksWorkspaceDragEndState,
+  resolveTasksWorkspaceDropStatus,
   resolveTasksWorkspaceEditState,
   resolveTasksWorkspaceSaveSuccess,
+  resolveTasksWorkspaceSearchParamState,
 } from "@/components/tasks/tasks-workspace-runtime-model";
 import {
   createTaskDraft,
@@ -182,13 +186,15 @@ export function useTasksWorkspace({
   }, [workspaceId]);
 
   useEffect(() => {
-    const taskId = searchParams.get("task");
-    if (!taskId) {
+    const nextState = resolveTasksWorkspaceSearchParamState(
+      searchParams.get("task")
+    );
+    if (!nextState) {
       return;
     }
-    setSelectedTaskId(taskId);
-    setMode("edit");
-    setSheetOpen(true);
+    setSelectedTaskId(nextState.selectedTaskId);
+    setMode(nextState.mode);
+    setSheetOpen(nextState.sheetOpen);
   }, [searchParams]);
 
   useEffect(() => {
@@ -196,12 +202,15 @@ export function useTasksWorkspace({
       return;
     }
 
-    setDraft((current) => {
-      if (current && isDirty) {
-        return current;
-      }
-      return createTaskDraft(currentUserId, selectedTask);
-    });
+    setDraft((current) =>
+      resolveTasksWorkspaceDraftSync({
+        currentDraft: current,
+        currentUserId,
+        isDirty,
+        mode,
+        selectedTask,
+      })
+    );
   }, [currentUserId, isDirty, mode, selectedTask]);
 
   const syncTaskParam = (taskId: string | null) => {
@@ -349,8 +358,9 @@ export function useTasksWorkspace({
   };
 
   const handleDragEndTask = () => {
-    setDraggedTaskId(null);
-    setDropStatus(null);
+    const nextState = resolveTasksWorkspaceDragEndState();
+    setDraggedTaskId(nextState.draggedTaskId);
+    setDropStatus(nextState.dropStatus);
   };
 
   const handleDropStatus = async (
@@ -362,13 +372,17 @@ export function useTasksWorkspace({
       return;
     }
 
-    setDropStatus(null);
-    setDraggedTaskId(null);
-    if (task.status === nextStatus) {
+    const nextState = resolveTasksWorkspaceDropStatus({
+      nextStatus,
+      task,
+    });
+    setDropStatus(nextState.dropStatus);
+    setDraggedTaskId(nextState.draggedTaskId);
+    if (!(nextState.shouldMove && nextState.task)) {
       return;
     }
 
-    await moveTaskStatus(task, nextStatus);
+    await moveTaskStatus(nextState.task, nextStatus);
   };
 
   const handleSheetOpenChange = (open: boolean) => {

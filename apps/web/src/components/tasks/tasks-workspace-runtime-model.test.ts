@@ -4,8 +4,12 @@ import {
   resolveTasksWorkspaceClosedSheetState,
   resolveTasksWorkspaceCreateState,
   resolveTasksWorkspaceDeleteSuccess,
+  resolveTasksWorkspaceDraftSync,
+  resolveTasksWorkspaceDragEndState,
+  resolveTasksWorkspaceDropStatus,
   resolveTasksWorkspaceEditState,
   resolveTasksWorkspaceSaveSuccess,
+  resolveTasksWorkspaceSearchParamState,
 } from "@/components/tasks/tasks-workspace-runtime-model";
 
 function buildTask(overrides: Record<string, unknown> = {}) {
@@ -142,6 +146,75 @@ describe("tasks workspace runtime model", () => {
       draft: expect.objectContaining({ title: "Draft" }),
       routeTaskId: null,
       sheetOpen: false,
+    });
+  });
+
+  it("derives search-param edit state, draft sync behavior, and drag/drop resets", () => {
+    const selectedTask = buildTask({ id: "task-2", title: "Polish" });
+    const dirtyDraft = {
+      assigneeUserId: "user-1",
+      description: "dirty",
+      dueAt: "",
+      priority: "normal",
+      resources: [],
+      selectedAssignee: null,
+      status: "planned",
+      title: "Dirty draft",
+    };
+
+    expect(resolveTasksWorkspaceSearchParamState("task-2")).toEqual({
+      mode: "edit",
+      selectedTaskId: "task-2",
+      sheetOpen: true,
+    });
+    expect(resolveTasksWorkspaceSearchParamState(null)).toBeNull();
+
+    expect(
+      resolveTasksWorkspaceDraftSync({
+        currentDraft: dirtyDraft,
+        currentUserId: "user-1",
+        isDirty: true,
+        mode: "edit",
+        selectedTask,
+      })
+    ).toBe(dirtyDraft);
+
+    expect(
+      resolveTasksWorkspaceDraftSync({
+        currentDraft: null,
+        currentUserId: "user-1",
+        isDirty: false,
+        mode: "edit",
+        selectedTask,
+      })
+    ).toMatchObject({
+      title: "Polish",
+    });
+
+    expect(
+      resolveTasksWorkspaceDropStatus({
+        nextStatus: "completed",
+        task: selectedTask,
+      })
+    ).toEqual({
+      draggedTaskId: null,
+      dropStatus: null,
+      shouldMove: true,
+      task: selectedTask,
+    });
+
+    expect(
+      resolveTasksWorkspaceDropStatus({
+        nextStatus: "planned",
+        task: buildTask({ status: "planned" }),
+      })
+    ).toMatchObject({
+      shouldMove: false,
+    });
+
+    expect(resolveTasksWorkspaceDragEndState()).toEqual({
+      draggedTaskId: null,
+      dropStatus: null,
     });
   });
 });
