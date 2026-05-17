@@ -209,7 +209,7 @@ export function useWorkspacePaneInteractions({
     (
       event: DragEvent<HTMLDivElement>,
       targetPaneId: string,
-      forcedRegion?: "center" | "left" | "right"
+      forcedRegion?: "bottom" | "center" | "left" | "right" | "top"
     ) => {
       const targetBounds = event.currentTarget.getBoundingClientRect();
       const region = forcedRegion ?? getPaneDropRegion(event, targetBounds);
@@ -223,7 +223,7 @@ export function useWorkspacePaneInteractions({
         } else {
           openPane(droppedHref, {
             sourcePaneId: targetPaneId,
-            splitDirection: getPaneSplitDirection(),
+            splitDirection: getPaneSplitDirection(region),
             splitPlacement: getPaneSplitPlacement(region),
           });
         }
@@ -237,7 +237,7 @@ export function useWorkspacePaneInteractions({
           reorderPanes(droppedPaneId, targetPaneId);
         } else {
           movePaneToSplit(droppedPaneId, targetPaneId, {
-            splitDirection: getPaneSplitDirection(),
+            splitDirection: getPaneSplitDirection(region),
             splitPlacement: getPaneSplitPlacement(region),
           });
         }

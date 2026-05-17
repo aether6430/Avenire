@@ -2,7 +2,7 @@ import type { DragEvent } from "react";
 import { buildRouteState } from "@/lib/workspace-panes";
 
 export const COMPACT_PANE_WIDTH = 900;
-export type PaneDropRegion = "center" | "left" | "right";
+export type PaneDropRegion = "bottom" | "center" | "left" | "right" | "top";
 
 export interface PaneDropPreview {
   href: string | null;
@@ -11,6 +11,7 @@ export interface PaneDropPreview {
 }
 
 export const PREVIEW_PANE_ID = "__workspace-pane-drop-preview__";
+export const PREVIEW_ROW_ID = "__preview-row__";
 export const PREVIEW_PANE_MIN_SIZE = 28;
 export const WORKSPACE_PANE_REORDER_MIME =
   "application/x-avenire-workspace-pane-id";
@@ -58,6 +59,13 @@ export function getPaneDropRegion(
   bounds: DOMRect
 ): PaneDropRegion {
   const x = (event.clientX - bounds.left) / Math.max(bounds.width, 1);
+  const y = (event.clientY - bounds.top) / Math.max(bounds.height, 1);
+  if (y <= 0.22) {
+    return "top";
+  }
+  if (y >= 0.78) {
+    return "bottom";
+  }
   if (x <= 0.22) {
     return "left";
   }
@@ -68,12 +76,14 @@ export function getPaneDropRegion(
   return "center";
 }
 
-export function getPaneSplitDirection() {
-  return "horizontal" as const;
+export function getPaneSplitDirection(region: PaneDropRegion) {
+  return region === "top" || region === "bottom"
+    ? ("vertical" as const)
+    : ("horizontal" as const);
 }
 
 export function getPaneSplitPlacement(region: PaneDropRegion) {
-  return region === "left" ? "before" : "after";
+  return region === "left" || region === "top" ? "before" : "after";
 }
 
 export function getDropIndicatorStyle(region: PaneDropRegion) {
@@ -89,6 +99,18 @@ export function getDropIndicatorStyle(region: PaneDropRegion) {
         height: "calc(100% - 0.75rem)",
         inset: "0.375rem 0.375rem 0.375rem auto",
         width: "0.1875rem",
+      };
+    case "top":
+      return {
+        height: "0.1875rem",
+        inset: "0.375rem 0.375rem auto 0.375rem",
+        width: "calc(100% - 0.75rem)",
+      };
+    case "bottom":
+      return {
+        height: "0.1875rem",
+        inset: "auto 0.375rem 0.375rem 0.375rem",
+        width: "calc(100% - 0.75rem)",
       };
     default:
       return {
@@ -168,7 +190,12 @@ export function buildPreviewPanes(
   preview: PaneDropPreview | null,
   draggedPaneId: string | null
 ) {
-  if (!preview || preview.region === "center") {
+  if (
+    !preview ||
+    preview.region === "center" ||
+    preview.region === "top" ||
+    preview.region === "bottom"
+  ) {
     return panes;
   }
 
@@ -220,6 +247,49 @@ export function buildPreviewPanes(
   return normalizePreviewPaneSizes(nextPanes);
 }
 
+function splitPreviewRows(
+  rows: Array<{ id: string; size: number }>,
+  targetRowId: string,
+  preview: PaneDropPreview,
+  previewPane: RenderablePane
+) {
+  const targetRow = rows.find((row) => row.id === targetRowId);
+  if (!targetRow) {
+    return rows;
+  }
+
+  const previewRow = {
+    id: PREVIEW_ROW_ID,
+    size: targetRow.size / 2,
+  };
+  const resizedTargetRow = {
+    ...targetRow,
+    size: targetRow.size / 2,
+  };
+
+  const nextRows: Array<{
+    id: string;
+    previewPane?: RenderablePane;
+    size: number;
+  }> = [];
+  for (const row of rows) {
+    if (row.id !== targetRowId) {
+      nextRows.push(row);
+      continue;
+    }
+
+    if (preview.region === "top") {
+      nextRows.push(previewRow, resizedTargetRow);
+    } else {
+      nextRows.push(resizedTargetRow, previewRow);
+    }
+  }
+
+  return nextRows.map((row) =>
+    row.id === PREVIEW_ROW_ID ? { ...row, previewPane } : row
+  );
+}
+
 export function buildRenderablePaneRows(
   rows: Array<{ id: string; size: number }>,
   panes: RenderablePane[],
@@ -233,15 +303,49 @@ export function buildRenderablePaneRows(
     preview && preview.region !== "center"
       ? (previewTargetPane?.rowId ?? null)
       : null;
+  const previewPane: RenderablePane | null =
+    preview && (preview.region === "top" || preview.region === "bottom")
+      ? {
+          id: PREVIEW_PANE_ID,
+          isDropPreview: true,
+          previewTargetPaneId: preview.paneId,
+          route: preview.href
+            ? buildRouteState(preview.href)
+            : { pathname: "/workspace", search: "" },
+          rowId: PREVIEW_ROW_ID,
+          size: 100,
+        }
+      : null;
+  const previewRows: Array<{
+    id: string;
+    previewPane?: RenderablePane;
+    size: number;
+  }> =
+    previewTargetRowId && preview && previewPane
+      ? splitPreviewRows(rows, previewTargetRowId, preview, previewPane)
+      : rows;
 
-  const rowsWithPanes = rows
+  const rowsWithPanes = previewRows
     .map((row) => {
+      if (row.previewPane) {
+        return {
+          id: row.id,
+          panes: [row.previewPane],
+          size: row.size,
+        } satisfies RenderablePaneRow;
+      }
+
       const rowPanes = panes.filter((pane) => pane.rowId === row.id);
       if (rowPanes.length === 0) {
         return null;
       }
 
-      if (previewTargetRowId === row.id) {
+      if (
+        previewTargetRowId === row.id &&
+        preview &&
+        preview.region !== "top" &&
+        preview.region !== "bottom"
+      ) {
         return {
           id: row.id,
           panes: buildPreviewPanes(rowPanes, preview, draggedPaneId),

@@ -77,7 +77,7 @@ export interface WorkspacePaneDesktopLayoutProps {
   handlePaneDrop: (
     event: DragEvent<HTMLDivElement>,
     targetPaneId: string,
-    forcedRegion?: "center" | "left" | "right"
+    forcedRegion?: "bottom" | "center" | "left" | "right" | "top"
   ) => void;
   openPane: (
     href: string,

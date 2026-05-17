@@ -11,12 +11,20 @@ describe("workspace pane renderer model", () => {
   it("detects left, center, and right pane drop regions", () => {
     const bounds = {
       left: 0,
+      top: 0,
+      height: 100,
       width: 100,
     } as DOMRect;
 
     expect(getPaneDropRegion({ clientX: 10 } as never, bounds)).toBe("left");
     expect(getPaneDropRegion({ clientX: 50 } as never, bounds)).toBe("center");
     expect(getPaneDropRegion({ clientX: 90 } as never, bounds)).toBe("right");
+    expect(
+      getPaneDropRegion({ clientX: 50, clientY: 10 } as never, bounds)
+    ).toBe("top");
+    expect(
+      getPaneDropRegion({ clientX: 50, clientY: 90 } as never, bounds)
+    ).toBe("bottom");
   });
 
   it("normalizes preview pane sizes when inserting a drop preview", () => {
@@ -126,5 +134,31 @@ describe("workspace pane renderer model", () => {
     ]);
     expect(rows[0]?.panes.map((pane) => pane.id)).toEqual(["pane-a", "pane-b"]);
     expect(rows[1]?.panes.map((pane) => pane.id)).toEqual(["pane-c"]);
+  });
+
+  it("inserts a dedicated preview row for top and bottom split previews", () => {
+    const rows = buildRenderablePaneRows(
+      [{ id: "row-1", size: 100 }],
+      [
+        {
+          id: "pane-a",
+          route: { pathname: "/workspace", search: "" },
+          rowId: "row-1",
+          size: 100,
+        },
+      ],
+      {
+        href: "/workspace/tasks",
+        paneId: "pane-a",
+        region: "bottom",
+      },
+      null
+    );
+
+    expect(rows.map((row) => row.id)).toEqual(["row-1", "__preview-row__"]);
+    expect(rows[1]?.panes.map((pane) => pane.id)).toEqual([
+      "__workspace-pane-drop-preview__",
+    ]);
+    expect(rows[1]?.panes[0]?.route.pathname).toBe("/workspace/tasks");
   });
 });

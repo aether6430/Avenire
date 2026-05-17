@@ -6,6 +6,7 @@ import type {
 import {
   closeWorkspacePaneState,
   ensureInitializedWorkspacePaneState,
+  moveWorkspacePaneToSplitState,
   openWorkspacePaneState,
   reorderWorkspacePaneState,
   setPaneRouteInWorkspacePaneState,
@@ -188,6 +189,40 @@ describe("workspace pane store model", () => {
       "pane-1",
       "pane-3",
     ]);
+
+    const movedVertical = moveWorkspacePaneToSplitState(
+      buildState({
+        panes: [
+          buildPane({ id: "pane-1", rowId: "row-1" }),
+          buildPane({ id: "pane-2", rowId: "row-1" }),
+          buildPane({ id: "pane-3", rowId: "row-2" }),
+        ],
+        rows: [
+          { id: "row-1", size: 70 },
+          { id: "row-2", size: 30 },
+        ],
+      }),
+      "pane-1",
+      "pane-3",
+      {
+        splitDirection: "vertical",
+        splitPlacement: "after",
+      },
+      { createRowId: () => "row-3" }
+    );
+
+    expect(
+      movedVertical.rows.map((row) => [row.id, Math.round(row.size)])
+    ).toEqual([
+      ["row-1", 70],
+      ["row-2", 15],
+      ["row-3", 15],
+    ]);
+    expect(
+      movedVertical.panes.find((pane) => pane.id === "pane-1")
+    ).toMatchObject({
+      rowId: "row-3",
+    });
   });
 
   it("normalizes pane and row sizes after updates", () => {

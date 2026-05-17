@@ -118,13 +118,26 @@ function insertRowRelativeToSource(
   splitPlacement: "after" | "before"
 ) {
   const sourceRowIndex = rows.findIndex((row) => row.id === sourceRowId);
+  const sourceRow = sourceRowIndex >= 0 ? rows[sourceRowIndex] : null;
+  if (!sourceRow) {
+    return normalizeRows(rows.concat(nextRow));
+  }
+
+  const splitSize = sourceRow.size / 2;
   const nextRows = [...rows];
+  nextRows[sourceRowIndex] = {
+    ...sourceRow,
+    size: splitSize,
+  };
   const insertionIndex =
     sourceRowIndex >= 0
       ? sourceRowIndex + (splitPlacement === "after" ? 1 : 0)
       : nextRows.length;
-  nextRows.splice(insertionIndex, 0, nextRow);
-  return normalizeRows(nextRows);
+  nextRows.splice(insertionIndex, 0, {
+    ...nextRow,
+    size: splitSize,
+  });
+  return nextRows;
 }
 
 export function findNextActivePaneId(
