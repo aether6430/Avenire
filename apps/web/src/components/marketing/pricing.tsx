@@ -86,7 +86,7 @@ export const Pricing = () => {
                 {tier.subtitle}
               </p>
               <span className="mt-6 flex items-baseline text-2xl font-medium dark:text-white">
-                $
+                ₹
                 <Price
                   value={activeTier === "monthly" ? tier.monthly : tier.yearly}
                 />

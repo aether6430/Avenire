@@ -31,11 +31,11 @@ const PLAN_ENTITLEMENTS: Record<BillingPlan, PlanEntitlements> = {
   },
   core: {
     chat: { fourHourCapacity: 80, overageCapacity: 1800 },
-    storageBytes: 50 * GIB,
+    storageBytes: 15 * GIB,
   },
   scholar: {
     chat: { fourHourCapacity: 180, overageCapacity: 6500 },
-    storageBytes: 75 * GIB,
+    storageBytes: 50 * GIB,
   },
 };
 

@@ -22,7 +22,6 @@ export const tiers = [
       "Basic flashcard generation",
       "Interactive graphs, limited",
       "Whiteboard reasoning tools",
-      "7 day session history",
       "Community prompt library",
       "Standard response speed",
       "One personal workspace",
@@ -38,14 +37,11 @@ export const tiers = [
     features: [
       "Everything in Access",
       "1,880 chat credits",
-      "50 GB storage",
+      "15 GB storage",
       "Advanced reasoning sessions",
       "Full graph and plot tools",
-      "Smart spaced repetition",
-      "Notebook memory across sessions",
-      "Markdown and PDF export",
+      "More database columns",
       "Priority generation queue",
-      "Extended context windows",
     ],
     featured: true,
   },
@@ -59,12 +55,12 @@ export const tiers = [
     features: [
       "Everything in Core",
       "6,680 chat credits",
-      "75 GB storage",
+      "50 GB storage",
       "Deep Research synthesis",
-      "High context long sessions",
       "AI video explanations",
       "Document research workflows",
       "Mastery tracking analytics",
+      "Maximum database columns",
       "Custom study plans",
       "Early experimental features",
     ],
@@ -166,62 +162,11 @@ export const pricingTable = [
       },
       {
         title: TierName.TIER_2,
+        value: "15 GB",
+      },
+      {
+        title: TierName.TIER_3,
         value: "50 GB",
-      },
-      {
-        title: TierName.TIER_3,
-        value: "75 GB",
-      },
-    ],
-  },
-  {
-    title: "Markdown and PDF export",
-    tiers: [
-      {
-        title: TierName.TIER_1,
-        value: <CloseIcon className="mx-auto size-5 text-gray-600" />,
-      },
-      {
-        title: TierName.TIER_2,
-        value: <CheckIcon className="mx-auto size-5 text-gray-600" />,
-      },
-      {
-        title: TierName.TIER_3,
-        value: <CheckIcon className="mx-auto size-5 text-gray-600" />,
-      },
-    ],
-  },
-  {
-    title: "Session history",
-    tiers: [
-      {
-        title: TierName.TIER_1,
-        value: "7 days",
-      },
-      {
-        title: TierName.TIER_2,
-        value: "Unlimited",
-      },
-      {
-        title: TierName.TIER_3,
-        value: "Unlimited",
-      },
-    ],
-  },
-  {
-    title: "Spaced repetition",
-    tiers: [
-      {
-        title: TierName.TIER_1,
-        value: <CloseIcon className="mx-auto size-5 text-gray-600" />,
-      },
-      {
-        title: TierName.TIER_2,
-        value: <CheckIcon className="mx-auto size-5 text-gray-600" />,
-      },
-      {
-        title: TierName.TIER_3,
-        value: <CheckIcon className="mx-auto size-5 text-gray-600" />,
       },
     ],
   },
@@ -243,19 +188,19 @@ export const pricingTable = [
     ],
   },
   {
-    title: "Context window",
+    title: "Database columns",
     tiers: [
       {
         title: TierName.TIER_1,
-        value: "Basic",
+        value: "Standard",
       },
       {
         title: TierName.TIER_2,
-        value: "Extended",
+        value: "Expanded",
       },
       {
         title: TierName.TIER_3,
-        value: "Unlimited",
+        value: "Maximum",
       },
     ],
   },
@@ -311,23 +256,6 @@ export const pricingTable = [
     ],
   },
   {
-    title: "Workspace notebooks",
-    tiers: [
-      {
-        title: TierName.TIER_1,
-        value: "1",
-      },
-      {
-        title: TierName.TIER_2,
-        value: "5",
-      },
-      {
-        title: TierName.TIER_3,
-        value: "Unlimited",
-      },
-    ],
-  },
-  {
     title: "Support",
     tiers: [
       {
@@ -341,23 +269,6 @@ export const pricingTable = [
       {
         title: TierName.TIER_3,
         value: "Priority",
-      },
-    ],
-  },
-  {
-    title: "Flashcard sets",
-    tiers: [
-      {
-        title: TierName.TIER_1,
-        value: "3",
-      },
-      {
-        title: TierName.TIER_2,
-        value: "Unlimited",
-      },
-      {
-        title: TierName.TIER_3,
-        value: "Unlimited",
       },
     ],
   },

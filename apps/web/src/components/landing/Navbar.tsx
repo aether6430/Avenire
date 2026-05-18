@@ -160,7 +160,7 @@ export function Navbar() {
                             />
                           </div>
                           <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
-                            Highlighted blog
+                            Highlighted Blog
                           </p>
                           <div className="mt-1 font-medium text-xs leading-tight">
                             {highlightedBlog.title}
@@ -206,7 +206,7 @@ export function Navbar() {
                 render={<Link href={APP_HREF as Route} />}
                 size="sm"
               >
-                Go to app
+                Go To App
               </Button>
             ) : (
               <>
@@ -217,7 +217,7 @@ export function Navbar() {
                   size="sm"
                   variant="ghost"
                 >
-                  Log in
+                  Log In
                 </Button>
                 <Button
                   className="rounded-full px-3 text-xs"
@@ -225,7 +225,7 @@ export function Navbar() {
                   render={<Link href={SIGN_UP_HREF as Route} />}
                   size="sm"
                 >
-                  Join waitlist
+                  Join Waitlist
                 </Button>
               </>
             )}
@@ -296,7 +296,7 @@ export function Navbar() {
               href={APP_HREF as Route}
               onClick={() => setMobileOpen(false)}
             >
-              Go to app
+              Go To App
             </Link>
           ) : (
             <>
@@ -305,14 +305,14 @@ export function Navbar() {
                 href={SIGN_IN_HREF}
                 onClick={() => setMobileOpen(false)}
               >
-                Log in
+                Log In
               </Link>
               <Link
                 className="font-medium text-foreground text-sm underline-offset-4 transition-colors hover:text-muted-foreground hover:underline"
                 href={SIGN_UP_HREF as Route}
                 onClick={() => setMobileOpen(false)}
               >
-                Join waitlist
+                Join Waitlist
               </Link>
             </>
           )}

@@ -1,5 +1,4 @@
 import {
-  GithubLogo as Github,
   Envelope as Mail,
   ChatCircle as MessageCircle,
 } from "@phosphor-icons/react/ssr";
@@ -31,11 +30,6 @@ const columns = [
 
 const socialLinks = [
   { label: "Discord", href: "https://discord.gg/avenire", icon: MessageCircle },
-  {
-    label: "GitHub",
-    href: "https://github.com/thedamod/Avenire",
-    icon: Github,
-  },
   { label: "Email", href: "mailto:support@avenire.space", icon: Mail },
 ] as const;
 
@@ -54,7 +48,7 @@ export function Footer() {
             </Link>
             <div className="mt-4">
               <p className="font-medium text-muted-foreground text-xs uppercase tracking-[0.14em]">
-                Follow the build:
+                Follow The Build:
               </p>
               <div className="mt-2 flex items-center justify-center gap-2 md:justify-start">
                 {socialLinks.map((link) => {
@@ -111,7 +105,7 @@ export function Footer() {
 
         <div className="mt-12 flex flex-col items-center justify-center gap-3 border-border border-t pt-6 text-center sm:flex-row sm:justify-between sm:text-left">
           <p className="text-muted-foreground/60 text-xs">
-            © {new Date().getFullYear()} Avenire. All rights reserved.
+            © {new Date().getFullYear()} Avenire. All Rights Reserved.
           </p>
           <div className="flex gap-5">
             <Link
