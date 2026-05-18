@@ -8,6 +8,16 @@ import {
   loadBillingUsage,
 } from "@/components/settings/settings-billing-client";
 import { getBillingPlanLabel } from "@/components/settings/settings-billing-model";
+import {
+  createBillingUsageLoadFailureState,
+  createBillingUsageLoadStartState,
+  createBillingUsageLoadSuccessState,
+  createSettingsBillingMeters,
+  hasSettingsPaidPlan,
+  resolveManageBillingStatus,
+  shouldLoadInitialBillingUsage,
+  shouldPollBillingUsage,
+} from "@/components/settings/settings-billing-runtime-model";
 import type {
   BillingUsage,
   TabKey,
@@ -32,27 +42,31 @@ export function useSettingsPanelBilling({
   const billingLoadedRef = useRef(false);
 
   const refreshBillingUsage = useCallback(async (showLoading = false) => {
-    setBillingLoading(showLoading);
-    setBillingLoadFailed(false);
-    if (showLoading) {
-      setBillingStatus("Loading usage...");
-    }
+    const loadingState = createBillingUsageLoadStartState(showLoading);
+    setBillingLoading(loadingState.billingLoading);
+    setBillingLoadFailed(loadingState.billingLoadFailed);
+    setBillingStatus(loadingState.billingStatus);
 
     try {
-      setBillingUsage(await loadBillingUsage());
-      setBillingLoadFailed(false);
-      if (showLoading) {
-        setBillingStatus(null);
+      const usage = await loadBillingUsage();
+      const successState = createBillingUsageLoadSuccessState(
+        usage,
+        showLoading
+      );
+      setBillingUsage(successState.billingUsage);
+      setBillingLoadFailed(successState.billingLoadFailed);
+      if (successState.billingStatus !== undefined) {
+        setBillingStatus(successState.billingStatus);
       }
     } catch (error) {
-      setBillingUsage(null);
-      setBillingLoadFailed(true);
-      if (showLoading) {
-        setBillingStatus(
-          error instanceof Error
-            ? error.message
-            : "Unable to load billing usage."
-        );
+      const failureState = createBillingUsageLoadFailureState(
+        error,
+        showLoading
+      );
+      setBillingUsage(failureState.billingUsage);
+      setBillingLoadFailed(failureState.billingLoadFailed);
+      if (failureState.billingStatus !== undefined) {
+        setBillingStatus(failureState.billingStatus);
       }
     } finally {
       setBillingLoading(false);
@@ -60,7 +74,12 @@ export function useSettingsPanelBilling({
   }, []);
 
   useEffect(() => {
-    if (!(currentTab === "billing" && !billingLoadedRef.current)) {
+    if (
+      !shouldLoadInitialBillingUsage({
+        currentTab,
+        billingLoaded: billingLoadedRef.current,
+      })
+    ) {
       return;
     }
     billingLoadedRef.current = true;
@@ -68,7 +87,12 @@ export function useSettingsPanelBilling({
   }, [currentTab, refreshBillingUsage]);
 
   useEffect(() => {
-    if (!(currentTab === "billing" && billingLoadedRef.current)) {
+    if (
+      !shouldPollBillingUsage({
+        currentTab,
+        billingLoaded: billingLoadedRef.current,
+      })
+    ) {
       return;
     }
 
@@ -79,38 +103,14 @@ export function useSettingsPanelBilling({
     return () => window.clearInterval(intervalId);
   }, [currentTab, refreshBillingUsage]);
 
-  const hasPaidPlan =
-    billingUsage?.plan === "core" || billingUsage?.plan === "scholar";
+  const hasPaidPlan = hasSettingsPaidPlan(billingUsage);
   const currentPlanLabel = getBillingPlanLabel({
     billingUsagePlan: billingUsage?.plan ?? null,
     loadFailed: billingLoadFailed,
     loading: billingLoading,
   });
   const billingMeters = useMemo(
-    () =>
-      billingUsage
-        ? [
-            {
-              label: "Total credits",
-              remaining: billingUsage.combined.totalBalance,
-              total: billingUsage.combined.totalCapacity,
-              refillAt:
-                billingUsage.chat.refillAt ?? billingUsage.upload.refillAt,
-            },
-            {
-              label: "Method credits",
-              remaining: billingUsage.chat.totalBalance,
-              total: billingUsage.chat.totalCapacity,
-              refillAt: billingUsage.chat.refillAt,
-            },
-            {
-              label: "Upload credits",
-              remaining: billingUsage.upload.totalBalance,
-              total: billingUsage.upload.totalCapacity,
-              refillAt: billingUsage.upload.refillAt,
-            },
-          ]
-        : [],
+    () => createSettingsBillingMeters(billingUsage),
     [billingUsage]
   );
   const billingReturnPath = useMemo(
@@ -133,11 +133,7 @@ export function useSettingsPanelBilling({
     try {
       window.location.href = await loadBillingPortalUrl(billingReturnPath);
     } catch (error) {
-      setBillingStatus(
-        error instanceof Error
-          ? error.message
-          : "Unable to open billing portal."
-      );
+      setBillingStatus(resolveManageBillingStatus(error));
     }
   };
 
