@@ -71,4 +71,30 @@ describe("SettingsPreferencesSection", () => {
     );
     expect(html).not.toContain("Personalize AI");
   });
+
+  it("renders loaded preference controls, pet fields, and appearance choices", () => {
+    const html = renderToStaticMarkup(
+      <SettingsPreferencesSection
+        runtime={createRuntime({
+          preferencesStatus: "Preferences saved.",
+          privacyMode: true,
+          theme: "system",
+        })}
+      />
+    );
+
+    expect(html).toContain("Privacy mode");
+    expect(html).toContain("Email me receipts");
+    expect(html).toContain("Completed tasks");
+    expect(html).toContain(">top<");
+    expect(html).toContain("Chat send shortcut");
+    expect(html).toContain(">enter<");
+    expect(html).toContain("Pet name");
+    expect(html).toContain("Accessory");
+    expect(html).toContain("Appearance");
+    expect(html).toContain("Light");
+    expect(html).toContain("Dark");
+    expect(html).toContain("System");
+    expect(html).toContain("Preferences saved.");
+  });
 });

@@ -83,4 +83,66 @@ describe("SettingsBillingSection", () => {
     expect(html).toContain("Method credits");
     expect(html).not.toContain("Chat credits");
   });
+
+  it("renders loaded billing meters, receipts preferences, and paid-plan management copy", () => {
+    const html = renderToStaticMarkup(
+      <SettingsBillingSection
+        runtime={createRuntime({
+          billingMeters: [
+            {
+              label: "Total credits",
+              refillAt: "2026-05-20T00:00:00.000Z",
+              remaining: 1230,
+              total: 2050,
+            },
+            {
+              label: "Method credits",
+              refillAt: "2026-05-20T00:00:00.000Z",
+              remaining: 1200,
+              total: 2000,
+            },
+            {
+              label: "Upload credits",
+              refillAt: "2026-05-20T00:00:00.000Z",
+              remaining: 30,
+              total: 50,
+            },
+          ],
+          billingStatus: "Billing portal ready.",
+          billingUsage: { plan: "core" } as never,
+          currentPlanLabel: "Core Plan",
+          emailReceipts: true,
+          hasPaidPlan: true,
+          preferencesStatus: "Preferences saved.",
+        })}
+      />
+    );
+
+    expect(html).toContain("Core Plan");
+    expect(html).toContain("Total credits");
+    expect(html).toContain("1,230");
+    expect(html).toContain("/ 2,050");
+    expect(html).toContain("Method credits");
+    expect(html).toContain("Upload credits");
+    expect(html).toContain("Email me receipts");
+    expect(html).toContain("Preferences saved.");
+    expect(html).toContain("Manage Billing &amp; Invoices");
+    expect(html).toContain("Billing portal ready.");
+  });
+
+  it("uses the free-plan CTA when there is no paid plan", () => {
+    const html = renderToStaticMarkup(
+      <SettingsBillingSection
+        runtime={createRuntime({
+          billingUsage: { plan: "access" } as never,
+          currentPlanLabel: "Free Plan",
+          hasPaidPlan: false,
+        })}
+      />
+    );
+
+    expect(html).toContain("Free Plan");
+    expect(html).toContain(">View Plans<");
+    expect(html).not.toContain("Manage Billing &amp; Invoices");
+  });
 });
