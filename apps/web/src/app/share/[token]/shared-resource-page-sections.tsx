@@ -79,7 +79,7 @@ export function SharedMethodResourcePage({
       <div className="space-y-3 rounded-lg border bg-card p-4">
         {messages.length === 0 ? (
           <p className="text-muted-foreground text-sm">
-            No method messages available.
+            No method messages yet.
           </p>
         ) : (
           messages.map((message) => {
@@ -135,7 +135,9 @@ export function SharedFolderResourcePage({
       <div className="rounded-lg border bg-card p-4">
         <p className="font-medium text-sm">Folders</p>
         {folders.length === 0 ? (
-          <p className="mt-1 text-muted-foreground text-sm">No subfolders</p>
+          <p className="mt-1 text-muted-foreground text-sm">
+            No subfolders yet.
+          </p>
         ) : (
           <ul className="mt-2 space-y-1 text-sm">
             {folders.map((entry) => (
@@ -145,7 +147,7 @@ export function SharedFolderResourcePage({
         )}
         <p className="mt-4 font-medium text-sm">Files</p>
         {files.length === 0 ? (
-          <p className="mt-1 text-muted-foreground text-sm">No files</p>
+          <p className="mt-1 text-muted-foreground text-sm">No files yet.</p>
         ) : (
           <ul className="mt-2 space-y-1 text-sm">
             {files.map((entry) => (

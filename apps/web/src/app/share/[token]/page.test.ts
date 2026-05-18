@@ -164,7 +164,7 @@ describe("SharedResourcePage", () => {
 
     expect(html).toContain("<h1");
     expect(html).toContain("Shared method");
-    expect(html).toContain("No method messages available.");
+    expect(html).toContain("No method messages yet.");
     expect(html).toContain('href="/workspace/chats/chat-1"');
     expect(html).toContain("Open method in workspace");
   });
