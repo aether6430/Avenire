@@ -1,6 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import {
+  resolveAccountDeleteResponse,
+  shouldRequestSudoForAccountDelete,
+} from "@/components/settings/settings-security-runtime-model";
 
 export function useSettingsPanelAccountDanger({
   requestSudoForAction,
@@ -20,27 +24,32 @@ export function useSettingsPanelAccountDanger({
   const runDeleteAccount = async () => {
     setDangerStatus("Deleting account...");
     const response = await fetch("/api/account", { method: "DELETE" });
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+    const result = resolveAccountDeleteResponse({
+      payloadError: payload.error ?? null,
+      responseOk: response.ok,
+      responseStatus: response.status,
+    });
 
-    if (response.status === 403) {
+    if (result.kind === "sudo_required") {
       setSudoActive(false);
-      setDangerStatus("Verification required.");
+      setDangerStatus(result.status);
       requestSudoForAction("delete your account", runDeleteAccount);
       return;
     }
 
-    if (!response.ok) {
-      const payload = (await response.json().catch(() => ({}))) as {
-        error?: string;
-      };
-      setDangerStatus(payload.error ?? "Unable to delete account.");
+    if (result.kind === "error") {
+      setDangerStatus(result.status);
       return;
     }
 
-    window.location.href = "/login";
+    window.location.href = result.href;
   };
 
   const deleteAccount = async () => {
-    if (!sudoActive) {
+    if (shouldRequestSudoForAccountDelete(sudoActive)) {
       requestSudoForAction("delete your account", runDeleteAccount);
       return;
     }

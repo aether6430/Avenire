@@ -3,6 +3,12 @@
 import { addPasskey as addPasskeyClient } from "@avenire/auth/passkey-client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PasskeyEntry } from "@/components/settings/settings-panel-model";
+import {
+  createPasskeysRefreshFailureState,
+  createPasskeysRefreshSuccessState,
+  resolveAddPasskeyStatus,
+  resolveRemovePasskeyStatus,
+} from "@/components/settings/settings-security-runtime-model";
 
 export function useSettingsPanelPasskeys({
   currentTab,
@@ -23,13 +29,15 @@ export function useSettingsPanelPasskeys({
         cache: "no-store",
       });
       if (!response.ok) {
-        setPasskeys([]);
-        setPasskeysLoadFailed(true);
+        const next = createPasskeysRefreshFailureState();
+        setPasskeys(next.passkeys);
+        setPasskeysLoadFailed(next.passkeysLoadFailed);
         return;
       }
       const payload = (await response.json()) as PasskeyEntry[];
-      setPasskeys(Array.isArray(payload) ? payload : []);
-      setPasskeysLoadFailed(false);
+      const next = createPasskeysRefreshSuccessState(payload);
+      setPasskeys(next.passkeys);
+      setPasskeysLoadFailed(next.passkeysLoadFailed);
     } finally {
       setPasskeysLoading(false);
     }
@@ -48,9 +56,7 @@ export function useSettingsPanelPasskeys({
     const result = (await addPasskeyClient()) as
       | { error?: unknown }
       | undefined;
-    setPasskeysStatus(
-      result?.error ? "Unable to add passkey." : "Passkey added."
-    );
+    setPasskeysStatus(resolveAddPasskeyStatus(result));
     await refreshPasskeys();
   };
 
@@ -62,9 +68,7 @@ export function useSettingsPanelPasskeys({
       },
       method: "POST",
     });
-    setPasskeysStatus(
-      response.ok ? "Passkey removed." : "Unable to remove passkey."
-    );
+    setPasskeysStatus(resolveRemovePasskeyStatus(response.ok));
     await refreshPasskeys();
   };
 
