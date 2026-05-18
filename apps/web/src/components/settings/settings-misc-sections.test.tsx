@@ -1,0 +1,99 @@
+import { createElement, type ReactNode } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it, vi } from "vitest";
+import {
+  SettingsDataSection,
+  SettingsShortcutsSection,
+} from "@/components/settings/settings-misc-sections";
+
+const { dataImportsSectionMock } = vi.hoisted(() => ({
+  dataImportsSectionMock: vi.fn(() =>
+    createElement("div", { "data-imports-section": "1" })
+  ),
+}));
+
+vi.mock("next/dynamic", () => ({
+  default: () => dataImportsSectionMock,
+}));
+
+vi.mock("@avenire/ui/components/input", () => ({
+  Input: (props: Record<string, unknown>) => createElement("input", props),
+}));
+
+vi.mock("@avenire/ui/components/kbd", () => ({
+  Kbd: ({ children }: { children: ReactNode }) =>
+    createElement("kbd", null, children),
+  KbdGroup: ({ children }: { children: ReactNode }) =>
+    createElement("div", null, children),
+}));
+
+describe("settings misc sections", () => {
+  it("renders the data imports and retention surface", () => {
+    const html = renderToStaticMarkup(
+      <SettingsDataSection
+        runtime={{} as never}
+        workspaces={[
+          {
+            name: "Aveniri",
+            organizationId: "org-1",
+            rootFolderId: "root-1",
+            workspaceId: "workspace-1",
+          },
+        ]}
+      />
+    );
+
+    expect(html).toContain("Data Imports");
+    expect(html).toContain('data-imports-section="1"');
+    expect(html).toContain("Data Retention");
+    expect(html).toContain("Deleted files and folders are moved to Trash");
+  });
+
+  it("renders the explicit empty shortcuts search state", () => {
+    const html = renderToStaticMarkup(
+      <SettingsShortcutsSection
+        filteredShortcutCount={0}
+        filteredShortcutGroups={[]}
+        setShortcutQuery={() => {}}
+        shortcutQuery="vim"
+      />
+    );
+
+    expect(html).toContain("Keyboard Shortcuts");
+    expect(html).toContain("Search shortcuts");
+    expect(html).toContain("0 total");
+    expect(html).toContain("No shortcuts match that search.");
+  });
+
+  it("renders grouped shortcut rows when matches exist", () => {
+    const html = renderToStaticMarkup(
+      <SettingsShortcutsSection
+        filteredShortcutCount={2}
+        filteredShortcutGroups={[
+          {
+            items: [
+              {
+                keys: ["Cmd", "K"],
+                label: "Open command palette",
+              },
+              {
+                keys: ["Cmd", "B"],
+                label: "Toggle sidebar",
+              },
+            ],
+            name: "Workspace",
+          },
+        ]}
+        setShortcutQuery={() => {}}
+        shortcutQuery=""
+      />
+    );
+
+    expect(html).toContain("Workspace");
+    expect(html).toContain("Open command palette");
+    expect(html).toContain("Toggle sidebar");
+    expect(html).toContain(">Cmd<");
+    expect(html).toContain(">K<");
+    expect(html).toContain(">B<");
+  });
+});
