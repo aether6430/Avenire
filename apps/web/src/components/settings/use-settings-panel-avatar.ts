@@ -1,7 +1,16 @@
 "use client";
 
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
-import { getFacehashUrl } from "@/lib/avatar";
+import {
+  createAvatarUploadFinishState,
+  createAvatarUploadMissingUrlState,
+  createAvatarUploadSavedState,
+  createAvatarUploadStartState,
+  resolveAvatarFallbackInitials,
+  resolveAvatarPreviewSource,
+  resolveDisplayAvatar,
+  resolveUploadedAvatarUrl,
+} from "@/components/settings/settings-avatar-runtime-model";
 import { getUploadErrorMessage } from "@/lib/upload";
 import { useUploadThing } from "@/lib/uploadthing";
 
@@ -33,11 +42,8 @@ export function useSettingsPanelAvatar({
   const { startUpload: startAvatarUpload } = useUploadThing("imageUploader");
 
   useEffect(() => {
-    const src =
-      sessionUser?.image ??
-      getFacehashUrl(sessionUser?.name ?? sessionUser?.email ?? "");
-    setAvatarPreview(src);
-  }, [sessionUser?.email, sessionUser?.image, sessionUser?.name]);
+    setAvatarPreview(resolveAvatarPreviewSource(sessionUser));
+  }, [sessionUser]);
 
   const handleAvatarFileChange = async (
     event: ChangeEvent<HTMLInputElement>
@@ -49,43 +55,49 @@ export function useSettingsPanelAvatar({
       return;
     }
 
-    setAvatarUploading(true);
-    setIsUploadingAvatar(true);
-    setProfileStatus("Uploading avatar...");
+    const startState = createAvatarUploadStartState();
+    setAvatarUploading(startState.avatarUploading);
+    setIsUploadingAvatar(startState.isUploadingAvatar);
+    setProfileStatus(startState.profileStatus);
 
     try {
       const uploaded = ((await startAvatarUpload([file])) ?? [])[0] as
         | { ufsUrl?: string | null; url?: string | null }
         | undefined;
-      const uploadedUrl = uploaded?.ufsUrl ?? uploaded?.url ?? null;
+      const uploadedUrl = resolveUploadedAvatarUrl(uploaded);
 
       if (!uploadedUrl) {
-        setProfileStatus("Unable to upload avatar.");
+        setProfileStatus(createAvatarUploadMissingUrlState().profileStatus);
         return;
       }
 
-      setProfileImage(uploadedUrl);
-      setAvatarPreview(uploadedUrl);
+      const savedState = createAvatarUploadSavedState(uploadedUrl);
+      setProfileImage(savedState.profileImage);
+      setAvatarPreview(savedState.avatarPreview);
 
       const saved = await saveProfile(uploadedUrl);
       if (saved) {
-        setProfileStatus("Avatar uploaded and saved.");
+        setProfileStatus(savedState.profileStatus);
       }
     } catch (error) {
       setProfileStatus(getUploadErrorMessage(error));
     } finally {
-      setAvatarUploading(false);
-      setIsUploadingAvatar(false);
+      const finishState = createAvatarUploadFinishState();
+      setAvatarUploading(finishState.avatarUploading);
+      setIsUploadingAvatar(finishState.isUploadingAvatar);
     }
   };
 
-  const displayAvatar =
-    avatarPreview ||
-    profileImage ||
-    getFacehashUrl(profileName || sessionUser?.email || "");
-  const fallbackInitials = (profileName || sessionUser?.name || "U")
-    .slice(0, 2)
-    .toUpperCase();
+  const displayAvatar = resolveDisplayAvatar({
+    avatarPreview,
+    profileImage,
+    profileName,
+    sessionUser,
+  });
+  const fallbackInitials = resolveAvatarFallbackInitials({
+    profileName,
+    sessionUser,
+  });
 
   return {
     avatarPreview,
