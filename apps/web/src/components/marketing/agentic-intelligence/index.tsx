@@ -3,7 +3,6 @@ import {
   BrainIcon,
   FingerprintIcon,
   MouseBoxIcon,
-  NativeIcon,
   RealtimeSyncIcon,
   SDKIcon,
 } from "@/components/marketing/icons/bento-icons";
@@ -13,10 +12,7 @@ import { SectionHeading } from "../section-heading";
 import { SubHeading } from "../subheading";
 import { Card, CardDescription, CardTitle } from "./card";
 import { TextToWorkflowBuilderSkeleton } from "./skeletons";
-import {
-  LLMModelSelectorSkeleton,
-  NativeToolsIntegrationSkeleton,
-} from "./static-skeletons";
+import { LLMModelSelectorSkeleton } from "./static-skeletons";
 
 interface Tab {
   description: string;
@@ -63,21 +59,7 @@ export const AgenticIntelligence = () => {
             <TextToWorkflowBuilderSkeleton />
           </Card>
         </div>
-        <div className="w-full">
-          <Card className="relative w-full max-w-none overflow-hidden bg-neutral-900/60">
-            <div className="mask-radial-from-10% pointer-events-none absolute inset-0 h-full w-full bg-[repeating-linear-gradient(315deg,_var(--pattern-fg)_0,_var(--pattern-fg)_1px,_transparent_0,_transparent_50%)] bg-[size:12px_12px] opacity-50" />
-            <div className="flex items-center gap-2">
-              <NativeIcon />
-              <CardTitle>Native learning tools</CardTitle>
-            </div>
-            <CardDescription>
-              Keep source files, editable notes, concept graphs, AI help, and
-              review cards in one connected study surface.
-            </CardDescription>
-            <NativeToolsIntegrationSkeleton />
-          </Card>
-        </div>
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-10 border-divide border-t md:grid-cols-3">
           <Card>
             <div className="flex items-center gap-2">
               <FingerprintIcon />

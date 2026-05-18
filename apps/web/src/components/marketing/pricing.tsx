@@ -1,9 +1,18 @@
 import { Badge } from "./badge";
+import type { BillingCycle } from "./billing-cycle-tabs";
 import { Container } from "./container";
 import { PricingPlans } from "./pricing-plans";
 import { SectionHeading } from "./section-heading";
 
-export const Pricing = ({ headingAs = "h2" }: { headingAs?: "h1" | "h2" }) => {
+export const Pricing = ({
+  cycle,
+  headingAs = "h2",
+  onCycleChange,
+}: {
+  cycle?: BillingCycle;
+  headingAs?: "h1" | "h2";
+  onCycleChange?: (cycle: BillingCycle) => void;
+}) => {
   return (
     <section className="">
       <Container className="flex flex-col items-center justify-center border-divide border-x pt-10 pb-10">
@@ -12,7 +21,7 @@ export const Pricing = ({ headingAs = "h2" }: { headingAs?: "h1" | "h2" }) => {
           Simple pricing for serious study
         </SectionHeading>
       </Container>
-      <PricingPlans />
+      <PricingPlans cycle={cycle} onCycleChange={onCycleChange} />
     </section>
   );
 };

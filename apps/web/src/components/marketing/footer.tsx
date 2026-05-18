@@ -4,38 +4,38 @@ import { AvenireMark } from "@/components/branding/AvenireMark";
 import { Container } from "./container";
 
 const workspaceLinks = [
-  { label: "methods", href: "/chats" },
-  { label: "files", href: "/workspace/files" },
-  { label: "mindset sets", href: "/workspace/flashcards" },
-  { label: "workspace", href: "/workspace" },
+  { label: "Methods", href: "/chats" },
+  { label: "Files", href: "/workspace/files" },
+  { label: "Mindset sets", href: "/workspace/flashcards" },
+  { label: "Workspace", href: "/workspace" },
 ] as const;
 
 const productLinks = [
-  { label: "pricing", href: "/pricing" },
-  { label: "roadmap", href: "/roadmap" },
-  { label: "blog", href: "/blog" },
+  { label: "Pricing", href: "/pricing" },
+  { label: "Roadmap", href: "/roadmap" },
+  { label: "Blog", href: "/blog" },
 ] as const;
 
 const companyLinks = [
-  { label: "about", href: "/about" },
-  { label: "privacy", href: "/privacy" },
-  { label: "terms", href: "/terms" },
-  { label: "contact", href: "mailto:support@avenire.space", external: true },
+  { label: "About", href: "/about" },
+  { label: "Privacy", href: "/privacy" },
+  { label: "Terms", href: "/terms" },
+  { label: "Contact", href: "mailto:support@avenire.space", external: true },
 ] as const;
 
 const communityLinks = [
   {
-    label: "github",
+    label: "GitHub",
     href: "https://github.com/thedamod/Avenire",
     icon: GithubLogo,
   },
   {
-    label: "discord",
+    label: "Discord",
     href: "https://discord.gg/avenire",
     icon: ChatCircle,
   },
   {
-    label: "email",
+    label: "Email",
     href: "mailto:support@avenire.space",
     icon: Envelope,
   },

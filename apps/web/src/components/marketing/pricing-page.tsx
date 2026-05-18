@@ -1,24 +1,16 @@
 import { CTA } from "@/components/marketing/cta";
 import { DivideX } from "@/components/marketing/divide";
 import { FAQs } from "@/components/marketing/faqs";
-import { Footer } from "@/components/marketing/footer";
-import { Navbar } from "@/components/marketing/navbar";
-import { Pricing } from "@/components/marketing/pricing";
-import { PricingTable } from "@/components/marketing/pricing-table";
+import { MarketingPageShell } from "@/components/marketing/page-shell";
+import { PricingBillingSections } from "@/components/marketing/pricing-billing-sections";
 
 export function PricingPage() {
   return (
-    <main className="avenire-marketing-scope dark min-h-screen bg-neutral-950 text-neutral-100">
-      <Navbar />
-      <DivideX />
-      <Pricing headingAs="h1" />
-      <DivideX />
-      <PricingTable />
+    <MarketingPageShell>
+      <PricingBillingSections />
       <FAQs />
       <DivideX />
       <CTA />
-      <DivideX />
-      <Footer />
-    </main>
+    </MarketingPageShell>
   );
 }

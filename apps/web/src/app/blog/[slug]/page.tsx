@@ -6,8 +6,8 @@ import Markdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import { Footer } from "@/components/marketing/footer";
-import { Navbar } from "@/components/marketing/navbar";
+import { Container } from "@/components/marketing/container";
+import { MarketingPageShell } from "@/components/marketing/page-shell";
 import { getAllSlugs, getPostBySlug } from "@/lib/blog";
 import { metadataBase } from "@/lib/page-metadata";
 
@@ -198,17 +198,16 @@ export default async function BlogPostPage({
   }
 
   return (
-    <main className="avenire-marketing-scope dark min-h-screen bg-neutral-950 text-neutral-100">
+    <MarketingPageShell>
       {articleSchema ? (
         <script
           dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
           type="application/ld+json"
         />
       ) : null}
-      <Navbar />
 
-      <article className="px-4 pt-32 pb-24">
-        <div className="mx-auto max-w-[72rem] border-divide border-x border-y px-4 py-8 md:px-8">
+      <article className="px-4 pt-28 pb-24 md:pt-12">
+        <Container className="border-divide border-x px-4 py-12 md:px-8 md:py-16">
           <div className="mx-auto max-w-2xl">
             {/* Back link */}
             <Link
@@ -294,10 +293,8 @@ export default async function BlogPostPage({
               </Link>
             </div>
           </div>
-        </div>
+        </Container>
       </article>
-
-      <Footer />
-    </main>
+    </MarketingPageShell>
   );
 }

@@ -142,7 +142,8 @@ export const ConnectYourTooklsSkeleton = () => {
   const text =
     "Explain why residual shortcuts reduce degradation in deep networks.";
   const [mounted, setMounted] = useState(false);
-  const randomWidth = useMemo(() => Math.random() * 100, []);
+  const sessionBarWidths = useMemo(() => [58, 42], []);
+  const toolBarWidths = useMemo(() => [54, 36, 28], []);
   const textSegments = text.split(/(\s+)/);
   const textSegmentKeys = useMemo(
     () =>
@@ -161,26 +162,26 @@ export const ConnectYourTooklsSkeleton = () => {
   }
 
   return (
-    <div className="relative flex h-full w-full items-center justify-between">
+    <div className="relative flex h-full w-full flex-col items-center justify-center gap-3 px-3 sm:flex-row sm:gap-8 sm:px-8">
       <motion.div
         animate={{ y: 0, opacity: 1 }}
-        className="relative h-70 w-60 -translate-x-2 rounded-2xl border-gray-300 border-t bg-white p-4 shadow-2xl md:translate-x-0 dark:border-neutral-700 dark:bg-neutral-900"
+        className="relative h-36 w-72 overflow-hidden rounded-2xl border border-brand/18 bg-[#151f31]/98 p-3 shadow-2xl shadow-black/45 sm:h-64 sm:w-52 sm:p-4"
         initial={{ y: -20, opacity: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <div className="absolute -top-4 -right-4 flex h-14 w-14 items-center justify-center rounded-lg bg-white shadow-xl">
-          <Scale />
-          <StudyToken label="AI" />
+        <div className="absolute top-3 right-3 flex size-9 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white/[0.05] shadow-black/25 shadow-lg sm:size-10">
+          <Scale className="bg-neutral-900/80 dark:bg-neutral-900/80" />
+          <StudyToken className="relative z-20 size-6" label="AI" />
         </div>
-        <div className="mt-12 flex items-center gap-2">
-          <IntegrationsLogo />
-          <span className="font-medium text-charcoal-700 text-sm dark:text-neutral-200">
+        <div className="mt-2 flex items-center gap-2 pr-12 sm:mt-4">
+          <IntegrationsLogo className="dark:text-neutral-200" />
+          <span className="font-medium text-white/86 text-xs sm:text-sm">
             Tasks
           </span>
         </div>
         <DivideX className="mt-2" />
 
-        <div className="mt-4 flex items-center justify-between gap-2">
+        <div className="mt-3 flex items-center justify-between gap-2 sm:mt-4">
           <div className="flex items-center gap-2">
             <span className="font-normal text-[10px] text-charcoal-700 leading-loose md:text-xs dark:text-neutral-200">
               {textSegments.map((word, index) => (
@@ -205,17 +206,17 @@ export const ConnectYourTooklsSkeleton = () => {
             </span>
           </div>
         </div>
-        <div className="mt-2 flex flex-col">
-          {["first", "second"].map((barKey, index) => (
+        <div className="mt-2 hidden max-w-full flex-col overflow-hidden sm:flex">
+          {sessionBarWidths.map((width, index) => (
             <motion.div
               animate={{
-                width: `${randomWidth}%`,
+                width: `${width}%`,
               }}
-              className="mt-2 h-4 w-full rounded-full bg-gray-200 dark:bg-neutral-800"
+              className="mt-2 h-2.5 rounded-full bg-white/8"
               initial={{
-                width: "0%",
+                width: "14%",
               }}
-              key={`width-bar-right-${barKey}`}
+              key={`session-bar-${width}`}
               transition={{
                 duration: 4,
                 delay: index * 0.2,
@@ -230,27 +231,27 @@ export const ConnectYourTooklsSkeleton = () => {
 
       <motion.div
         animate={{ opacity: 1 }}
-        className="absolute inset-x-0 z-30 hidden items-center justify-center md:flex"
+        className="pointer-events-none absolute inset-x-0 z-30 hidden items-center justify-center md:flex"
         initial={{ opacity: 0 }}
-        transition={{ duration: 1, delay: 1 }}
+        transition={{ duration: 0.6, delay: 0.25 }}
       >
-        <div className="size-3 rounded-full border-2 border-brand/70 bg-white dark:bg-neutral-800" />
-        <div className="h-[2px] w-38 bg-brand/100" />
-        <div className="size-3 rounded-full border-2 border-brand/70 bg-white dark:bg-neutral-800" />
+        <div className="size-2.5 rounded-full border border-brand/70 bg-neutral-950 shadow-[0_0_14px_rgba(171,196,255,0.35)]" />
+        <div className="h-px w-12 bg-gradient-to-r from-transparent via-brand/35 to-transparent" />
+        <div className="size-2.5 rounded-full border border-brand/70 bg-neutral-950 shadow-[0_0_14px_rgba(171,196,255,0.35)]" />
       </motion.div>
       <motion.div
         animate={{ y: 0, opacity: 1 }}
-        className="relative h-70 w-60 translate-x-10 rounded-2xl border-gray-300 border-t bg-white p-4 shadow-2xl md:translate-x-0 dark:border-neutral-700 dark:bg-neutral-900"
+        className="relative h-36 w-72 overflow-hidden rounded-2xl border border-brand/18 bg-[#151f31]/98 p-3 shadow-2xl shadow-black/45 sm:h-64 sm:w-52 sm:p-4"
         initial={{ y: -20, opacity: 0 }}
-        transition={{ duration: 0.5, delay: 1 }}
+        transition={{ duration: 0.5, delay: 0.25 }}
       >
-        <div className="absolute -top-4 -left-4 flex h-14 w-14 items-center justify-center rounded-lg bg-white shadow-xl dark:bg-neutral-800">
-          <Scale />
-          <LogoSVG className="relative z-20 h-8 w-8" />
+        <div className="absolute top-3 right-3 flex size-9 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white/[0.05] shadow-black/25 shadow-lg sm:size-10">
+          <Scale className="bg-neutral-900/80 dark:bg-neutral-900/80" />
+          <LogoSVG className="relative z-20 size-5 text-brand sm:size-6" />
         </div>
-        <div className="mt-12 flex items-center gap-2">
+        <div className="mt-2 flex items-center gap-2 pr-12 sm:mt-4">
           <IntegrationsLogo className="dark:text-neutral-200" />
-          <span className="font-medium text-charcoal-700 text-xs md:text-sm dark:text-neutral-200">
+          <span className="font-medium text-white/86 text-xs md:text-sm">
             Learning tools
           </span>
           <span className="rounded-lg border border-gray-200 bg-gray-50 px-2 py-0.5 text-charcoal-700 text-xs dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200">
@@ -258,7 +259,7 @@ export const ConnectYourTooklsSkeleton = () => {
           </span>
         </div>
         <DivideX className="mt-2" />
-        <div className="mt-4 flex items-center justify-between gap-2">
+        <div className="mt-3 flex items-center justify-between gap-2 sm:mt-4">
           <div className="flex items-center gap-2">
             <StudyToken label="PDF" />
             <span className="font-medium text-charcoal-700 text-xs md:text-sm dark:text-neutral-200">
@@ -270,7 +271,7 @@ export const ConnectYourTooklsSkeleton = () => {
             Connected
           </div>
         </div>
-        <div className="mt-4 flex items-center justify-between gap-2">
+        <div className="mt-3 flex items-center justify-between gap-2 sm:mt-4">
           <div className="flex items-center gap-2">
             <StudyToken label="SRS" />
             <span className="font-medium text-charcoal-700 text-xs md:text-sm dark:text-neutral-200">
@@ -282,17 +283,17 @@ export const ConnectYourTooklsSkeleton = () => {
             Connected
           </div>
         </div>
-        <div className="mt-2 flex flex-col">
-          {["first", "second", "third"].map((barKey, index) => (
+        <div className="mt-2 hidden max-w-full flex-col overflow-hidden sm:flex">
+          {toolBarWidths.map((width, index) => (
             <motion.div
               animate={{
-                width: `${70 + Math.random() * 30}%`,
+                width: `${width}%`,
               }}
-              className="mt-2 h-4 w-full rounded-full bg-gray-200 dark:bg-neutral-800"
+              className="mt-2 h-2.5 rounded-full bg-white/8"
               initial={{
-                width: `${20 + Math.random() * 20}%`,
+                width: "16%",
               }}
-              key={`width-bar-right-${barKey}`}
+              key={`tool-bar-${width}`}
               transition={{
                 duration: 4,
                 delay: index * 0.2,

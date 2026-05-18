@@ -1,12 +1,30 @@
-import { auth } from "@avenire/auth/server";
 import type { Route } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
-import { resolveWorkspaceForUser } from "@/lib/file-data";
 
-type RouteSession = Awaited<ReturnType<typeof auth.api.getSession>>;
-type RouteWorkspace = Awaited<ReturnType<typeof resolveWorkspaceForUser>>;
+type RouteSession = {
+  session?: {
+    activeOrganizationId?: string | null;
+  } | null;
+  user?: {
+    email?: string | null;
+    id: string;
+    image?: string | null;
+    name?: string | null;
+  } | null;
+} | null;
+type RouteWorkspace = Awaited<
+  ReturnType<typeof import("@/lib/file-data")["resolveWorkspaceForUser"]>
+> | null;
+
+let hasWarnedAboutMissingAuthRuntime = false;
+
+function hasServerAuthRuntime() {
+  return Boolean(
+    process.env.BETTER_AUTH_URL?.trim() && process.env.DATABASE_URL?.trim()
+  );
+}
 
 function logRouteTiming(label: string, startTime: number) {
   if (process.env.NODE_ENV !== "development") {
@@ -19,7 +37,26 @@ function logRouteTiming(label: string, startTime: number) {
 
 export const getRouteSession = cache(async (): Promise<RouteSession> => {
   const startTime = performance.now();
-  const session = await auth.api.getSession({ headers: await headers() });
+
+  if (!hasServerAuthRuntime()) {
+    if (
+      process.env.NODE_ENV === "development" &&
+      !hasWarnedAboutMissingAuthRuntime
+    ) {
+      hasWarnedAboutMissingAuthRuntime = true;
+      console.warn(
+        "[auth] skipping server session lookup because BETTER_AUTH_URL or DATABASE_URL is missing"
+      );
+    }
+
+    logRouteTiming("route-session", startTime);
+    return null;
+  }
+
+  const { auth } = await import("@avenire/auth/server");
+  const session = (await auth.api.getSession({
+    headers: await headers(),
+  })) as RouteSession;
   logRouteTiming("route-session", startTime);
   return session;
 });
@@ -40,6 +77,7 @@ export const getWorkspaceRouteContext = cache(async () => {
   const activeOrganizationId =
     (session as { session?: { activeOrganizationId?: string | null } }).session
       ?.activeOrganizationId ?? null;
+  const { resolveWorkspaceForUser } = await import("@/lib/file-data");
   const workspace = await resolveWorkspaceForUser(
     session.user.id,
     activeOrganizationId

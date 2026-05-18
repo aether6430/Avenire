@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type React from "react";
 import { faqs } from "@/components/marketing/constants/faqs";
 import { Badge } from "./badge";
@@ -41,8 +42,8 @@ export const FAQs = () => {
         learning.
       </SubHeading>
       <div className="mt-8 mb-12 flex w-full flex-col justify-center gap-4 px-4 sm:flex-row">
-        <Button className="w-full sm:w-auto" variant="primary">
-          Read Blog
+        <Button as={Link} className="w-full sm:w-auto" href="/blog">
+          Read blog
         </Button>
         <Button
           as="a"

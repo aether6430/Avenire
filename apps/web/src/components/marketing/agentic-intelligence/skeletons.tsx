@@ -127,12 +127,13 @@ export const TextToWorkflowBuilderSkeleton = () => {
 
   return (
     <motion.div className="relative mx-auto mt-2 h-full max-h-70 min-h-40 w-[85%] p-4">
-      <div className="absolute inset-x-0 -bottom-4 mx-auto flex w-[85%] items-center justify-between rounded-lg border border-gray-300 bg-white shadow-[0px_2px_12px_0px_rgba(0,0,0,0.08)] dark:border-neutral-700 dark:bg-neutral-800">
+      <div className="absolute inset-x-0 -bottom-4 mx-auto flex w-[85%] items-center justify-between rounded-lg border border-gray-300 bg-white shadow-[0px_2px_12px_0px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-neutral-900">
         <input
           className="flex-1 border-none px-4 py-4 text-xs placeholder-neutral-600 focus:outline-none"
           onChange={(e) => setInputText(e.target.value)}
           onKeyPress={handleKeyPress}
           placeholder="Ask Avenire"
+          style={{ caretColor: "transparent" }}
           type="text"
           value={inputText}
         />
@@ -144,7 +145,7 @@ export const TextToWorkflowBuilderSkeleton = () => {
         </div>
       </div>
       <div
-        className="mask-bg-gradient-to-b mask-t-from-70% mask-b-from-70% flex max-h-[calc(100%-1rem)] flex-col gap-4 overflow-y-auto from-white to-transparent pt-4 pb-16 dark:from-neutral-900 dark:to-transparent"
+        className="mask-bg-gradient-to-b mask-t-from-70% mask-b-from-75% flex max-h-[calc(100%-1rem)] flex-col gap-4 overflow-y-auto from-white to-transparent pt-4 pb-16 dark:from-neutral-900 dark:to-transparent"
         ref={setChatContainerRef}
         style={{
           scrollbarWidth: "none",
@@ -236,11 +237,11 @@ const AssistantMessage = ({
 
   return (
     <div className="flex gap-3 px-1">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white font-medium text-white text-xs shadow-aceternity dark:bg-neutral-900">
-        <LogoSVG className="size-3.5 text-black dark:text-white" />
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-brand/25 bg-brand/12 font-medium text-white text-xs shadow-[0_0_18px_rgba(171,196,255,0.16)]">
+        <LogoSVG className="size-4 text-brand" />
       </div>
       <div className="flex max-w-xs flex-col gap-1">
-        <div className="rounded-2xl rounded-bl-md bg-gray-100 px-4 py-2 text-charcoal-700 text-sm">
+        <div className="rounded-2xl rounded-bl-md border border-brand/18 bg-[#162033] px-4 py-2 text-sm text-white/86 shadow-[0_10px_30px_rgba(0,0,0,0.22)]">
           {isActive ? displayText : content}
           {isActive && !isComplete && <span className="animate-pulse">|</span>}
         </div>
