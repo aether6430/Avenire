@@ -48,4 +48,49 @@ describe("SettingsSecuritySection", () => {
     expect(html).toContain("Unable to load passkeys.");
     expect(html).not.toContain("No passkeys registered.");
   });
+
+  it("renders active sudo, listed passkeys, session controls, and danger status", () => {
+    const html = renderToStaticMarkup(
+      <SettingsSecuritySection
+        runtime={createRuntime({
+          accountDeleteConfirm: "DELETE MY ACCOUNT",
+          dangerStatus: "Verification required.",
+          passkeys: [
+            {
+              deviceType: "MacBook Pro",
+              id: "passkey-1",
+              name: "Primary passkey",
+            },
+          ],
+          passkeysStatus: "Passkey added.",
+          sessionsStatus: "Other sessions revoked.",
+          sudoActive: true,
+          sudoStatus: "Verification active.",
+        })}
+      />
+    );
+
+    expect(html).toContain("Sensitive Actions");
+    expect(html).toContain("Verified for this browser session.");
+    expect(html).toContain("Active");
+    expect(html).toContain("Verification Active");
+    expect(html).toContain("Passkeys");
+    expect(html).toContain("Primary passkey");
+    expect(html).toContain("MacBook Pro");
+    expect(html).toContain(">Remove<");
+    expect(html).toContain("Passkey added.");
+    expect(html).toContain("Sign Out Other Devices");
+    expect(html).toContain("Other sessions revoked.");
+    expect(html).toContain("Danger Zone");
+    expect(html).toContain("DELETE MY ACCOUNT");
+    expect(html).toContain("Verification required.");
+  });
+
+  it("keeps the explicit empty passkeys state when no passkeys exist", () => {
+    const html = renderToStaticMarkup(
+      <SettingsSecuritySection runtime={createRuntime()} />
+    );
+
+    expect(html).toContain("No passkeys registered.");
+  });
 });

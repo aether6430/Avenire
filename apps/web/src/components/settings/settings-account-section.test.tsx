@@ -52,4 +52,46 @@ describe("SettingsAccountSection", () => {
     expect(html).toContain("Unable to load linked accounts.");
     expect(html).not.toContain("No linked accounts yet.");
   });
+
+  it("renders profile controls and connected provider actions for loaded accounts", () => {
+    const html = renderToStaticMarkup(
+      <SettingsAccountSection
+        runtime={createRuntime({
+          accounts: [
+            {
+              accountId: "github-user",
+              id: "account-1",
+              providerId: "github",
+            },
+          ],
+          accountsStatus: "GitHub linked.",
+          avatarUploading: true,
+          displayAvatar: "https://cdn.avenire.app/avatar.png",
+          profileStatus: "Profile saved.",
+        })}
+      />
+    );
+
+    expect(html).toContain("Profile");
+    expect(html).toContain("Display Name");
+    expect(html).toContain("Profile photo");
+    expect(html).toContain(">AU<");
+    expect(html).toContain("Uploading...");
+    expect(html).toContain("Save Changes");
+    expect(html).toContain("Profile saved.");
+    expect(html).toContain("Connected Providers");
+    expect(html).toContain("Connect Google");
+    expect(html).toContain("Connect GitHub");
+    expect(html).toContain("github");
+    expect(html).toContain("github-user");
+    expect(html).toContain("GitHub linked.");
+  });
+
+  it("keeps the explicit empty state when no linked accounts exist", () => {
+    const html = renderToStaticMarkup(
+      <SettingsAccountSection runtime={createRuntime()} />
+    );
+
+    expect(html).toContain("No linked accounts yet.");
+  });
 });
