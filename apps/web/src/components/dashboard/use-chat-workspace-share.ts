@@ -2,13 +2,24 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
-import { shouldLoadChatShareSuggestions } from "@/components/dashboard/chat-workspace-model";
 import {
   createChatShareLink,
   grantChatShareAccess,
   loadChatShareSuggestions,
 } from "@/components/dashboard/chat-workspace-share-data";
-import type { ShareSuggestion } from "@/types/share";
+import {
+  canShareWorkspaceChat,
+  createCopiedChatWorkspaceShareLinkState,
+  createFailedChatWorkspaceShareCopyState,
+  createFailedChatWorkspaceShareGrantState,
+  createFailedChatWorkspaceShareLinkState,
+  createGeneratedChatWorkspaceShareLinkState,
+  createGrantedChatWorkspaceShareState,
+  createResetChatWorkspaceShareState,
+  DEFAULT_CHAT_WORKSPACE_SHARE_STATE,
+  resolveChatWorkspaceShareSuggestions,
+  shouldLoadChatWorkspaceShareSuggestions,
+} from "@/components/dashboard/chat-workspace-share-runtime-model";
 
 export function useChatWorkspaceShare({
   currentChatSlug,
@@ -17,21 +28,32 @@ export function useChatWorkspaceShare({
   currentChatSlug: string;
   isReadonly: boolean;
 }) {
-  const [shareEmail, setShareEmail] = useState("");
-  const [shareLink, setShareLink] = useState<string | null>(null);
-  const [shareBusy, setShareBusy] = useState(false);
-  const [shareStatus, setShareStatus] = useState<string | null>(null);
-  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [shareEmail, setShareEmail] = useState(
+    DEFAULT_CHAT_WORKSPACE_SHARE_STATE.shareEmail
+  );
+  const [shareLink, setShareLink] = useState<string | null>(
+    DEFAULT_CHAT_WORKSPACE_SHARE_STATE.shareLink
+  );
+  const [shareBusy, setShareBusy] = useState(
+    DEFAULT_CHAT_WORKSPACE_SHARE_STATE.shareBusy
+  );
+  const [shareStatus, setShareStatus] = useState<string | null>(
+    DEFAULT_CHAT_WORKSPACE_SHARE_STATE.shareStatus
+  );
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(
+    DEFAULT_CHAT_WORKSPACE_SHARE_STATE.isShareDialogOpen
+  );
 
   const resetShareState = useCallback(() => {
-    setShareEmail("");
-    setShareLink(null);
-    setShareBusy(false);
-    setShareStatus(null);
-    setIsShareDialogOpen(false);
+    const next = createResetChatWorkspaceShareState();
+    setShareEmail(next.shareEmail);
+    setShareLink(next.shareLink);
+    setShareBusy(next.shareBusy);
+    setShareStatus(next.shareStatus);
+    setIsShareDialogOpen(next.isShareDialogOpen);
   }, []);
 
-  const loadShareSuggestionsEnabled = shouldLoadChatShareSuggestions({
+  const loadShareSuggestionsEnabled = shouldLoadChatWorkspaceShareSuggestions({
     currentChatSlug,
     isShareDialogOpen,
     shareEmail,
@@ -53,10 +75,12 @@ export function useChatWorkspaceShare({
     staleTime: 30_000,
   });
 
-  const shareSuggestions =
-    isShareDialogOpen && currentChatSlug !== "new"
-      ? (shareSuggestionsQuery.data ?? [])
-      : [];
+  const shareSuggestions = resolveChatWorkspaceShareSuggestions({
+    currentChatSlug,
+    isShareDialogOpen,
+    shareEmail,
+    suggestions: shareSuggestionsQuery.data,
+  });
 
   const handleShareWithEmail = useCallback(async () => {
     const email = shareEmail.trim();
@@ -71,10 +95,11 @@ export function useChatWorkspaceShare({
         chatSlug: currentChatSlug,
         email,
       });
-      setShareEmail("");
-      setShareStatus(`Method access granted to ${email}.`);
+      const next = createGrantedChatWorkspaceShareState(email);
+      setShareEmail(next.shareEmail);
+      setShareStatus(next.shareStatus);
     } catch {
-      setShareStatus("Could not grant method access.");
+      setShareStatus(createFailedChatWorkspaceShareGrantState().shareStatus);
     } finally {
       setShareBusy(false);
     }
@@ -85,16 +110,18 @@ export function useChatWorkspaceShare({
     setShareStatus(null);
     try {
       const nextShareLink = await createChatShareLink(currentChatSlug);
-      if (nextShareLink) {
-        setShareLink(nextShareLink);
-        setShareStatus("Method share link generated.");
-      }
+      const next = createGeneratedChatWorkspaceShareLinkState({
+        currentShareLink: shareLink,
+        nextShareLink,
+      });
+      setShareLink(next.shareLink);
+      setShareStatus(next.shareStatus);
     } catch {
-      setShareStatus("Unable to generate method link.");
+      setShareStatus(createFailedChatWorkspaceShareLinkState().shareStatus);
     } finally {
       setShareBusy(false);
     }
-  }, [currentChatSlug]);
+  }, [currentChatSlug, shareLink]);
 
   const handleCopyShareLink = useCallback(async () => {
     if (!shareLink) {
@@ -103,9 +130,9 @@ export function useChatWorkspaceShare({
 
     try {
       await navigator.clipboard.writeText(shareLink);
-      setShareStatus("Method link copied.");
+      setShareStatus(createCopiedChatWorkspaceShareLinkState().shareStatus);
     } catch {
-      setShareStatus("Unable to copy method link.");
+      setShareStatus(createFailedChatWorkspaceShareCopyState().shareStatus);
     }
   }, [shareLink]);
 
@@ -120,7 +147,10 @@ export function useChatWorkspaceShare({
   );
 
   return {
-    canShare: !isReadonly && currentChatSlug !== "new",
+    canShare: canShareWorkspaceChat({
+      currentChatSlug,
+      isReadonly,
+    }),
     handleCopyShareLink,
     handleGenerateShareLink,
     handleShareDialogOpenChange,
@@ -132,6 +162,6 @@ export function useChatWorkspaceShare({
     shareEmail,
     shareLink,
     shareStatus,
-    shareSuggestions: shareSuggestions as ShareSuggestion[],
+    shareSuggestions,
   };
 }
