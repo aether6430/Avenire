@@ -1,6 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  createSudoActionRequestState,
+  createSudoCodeRequestStartState,
+  createSudoVerifyStartState,
+  createSudoVerifySuccessState,
+  resolveSudoCodeRequestStatus,
+  resolveSudoStatusPayload,
+  resolveSudoVerifyFailureState,
+  shouldAutoRequestSudoCode,
+  shouldLoadInitialSudoStatus,
+} from "@/components/settings/settings-sudo-runtime-model";
 
 export function useSettingsPanelSudo({ currentTab }: { currentTab: string }) {
   const [sudoActive, setSudoActive] = useState(false);
@@ -22,12 +33,9 @@ export function useSettingsPanelSudo({ currentTab }: { currentTab: string }) {
       return;
     }
     const payload = (await response.json()) as { active?: boolean };
-    setSudoActive(Boolean(payload.active));
-    if (payload.active) {
-      setSudoStatus("Sudo mode is active for this session.");
-    } else {
-      setSudoStatus(null);
-    }
+    const next = resolveSudoStatusPayload(Boolean(payload.active));
+    setSudoActive(next.sudoActive);
+    setSudoStatus(next.sudoStatus);
   }, []);
 
   const requestSudoForAction = (
@@ -35,15 +43,17 @@ export function useSettingsPanelSudo({ currentTab }: { currentTab: string }) {
     action: () => Promise<void>
   ) => {
     pendingSudoActionRef.current = action;
-    setSudoActionLabel(actionLabel);
-    setSudoCode("");
-    setSudoStatus(null);
-    setSudoDialogOpen(true);
+    const next = createSudoActionRequestState(actionLabel);
+    setSudoActionLabel(next.sudoActionLabel);
+    setSudoCode(next.sudoCode);
+    setSudoStatus(next.sudoStatus);
+    setSudoDialogOpen(next.sudoDialogOpen);
   };
 
   const requestSudoCode = useCallback(async () => {
-    setSudoRequestingCode(true);
-    setSudoStatus("Sending verification code...");
+    const startState = createSudoCodeRequestStartState();
+    setSudoRequestingCode(startState.sudoRequestingCode);
+    setSudoStatus(startState.sudoStatus);
 
     try {
       const response = await fetch("/api/security/sudo", {
@@ -54,19 +64,20 @@ export function useSettingsPanelSudo({ currentTab }: { currentTab: string }) {
       const payload = (await response.json().catch(() => ({}))) as {
         error?: string;
       };
-      setSudoStatus(
-        response.ok
-          ? "Verification code sent to your email."
-          : (payload.error ?? "Unable to send code.")
-      );
+      const next = resolveSudoCodeRequestStatus({
+        error: payload.error,
+        responseOk: response.ok,
+      });
+      setSudoStatus(next.sudoStatus);
     } finally {
       setSudoRequestingCode(false);
     }
   }, []);
 
   const verifySudoCodeAndContinue = async () => {
-    setSudoVerifyingCode(true);
-    setSudoStatus("Verifying code...");
+    const startState = createSudoVerifyStartState();
+    setSudoVerifyingCode(startState.sudoVerifyingCode);
+    setSudoStatus(startState.sudoStatus);
 
     try {
       const response = await fetch("/api/security/sudo", {
@@ -79,19 +90,25 @@ export function useSettingsPanelSudo({ currentTab }: { currentTab: string }) {
         const payload = (await response.json().catch(() => ({}))) as {
           error?: string;
         };
-        setSudoActive(false);
-        setSudoStatus(payload.error ?? "Invalid or expired code.");
+        const next = resolveSudoVerifyFailureState(payload.error);
+        setSudoActive(next.sudoActive);
+        setSudoStatus(next.sudoStatus);
+        setSudoVerifyingCode(next.sudoVerifyingCode);
         return;
       }
 
-      setSudoActive(true);
-      setSudoCode("");
-      setSudoStatus("Sudo mode is active for 12 hours.");
+      const next = createSudoVerifySuccessState();
+      setSudoActive(next.sudoActive);
+      setSudoCode(next.sudoCode);
+      setSudoStatus(next.sudoStatus);
+      setSudoDialogOpen(next.sudoDialogOpen);
+      setSudoVerifyingCode(next.sudoVerifyingCode);
 
       const pendingAction = pendingSudoActionRef.current;
       pendingSudoActionRef.current = null;
-      codeRequestedForSessionRef.current = false;
-      setSudoDialogOpen(false);
+      codeRequestedForSessionRef.current = next.resetCodeRequested
+        ? false
+        : codeRequestedForSessionRef.current;
 
       if (pendingAction) {
         await pendingAction();
@@ -102,7 +119,12 @@ export function useSettingsPanelSudo({ currentTab }: { currentTab: string }) {
   };
 
   useEffect(() => {
-    if (currentTab !== "security" || securityLoadedRef.current) {
+    if (
+      !shouldLoadInitialSudoStatus({
+        currentTab,
+        securityLoaded: securityLoadedRef.current,
+      })
+    ) {
       return;
     }
     securityLoadedRef.current = true;
@@ -110,7 +132,13 @@ export function useSettingsPanelSudo({ currentTab }: { currentTab: string }) {
   }, [currentTab, refreshSudoStatus]);
 
   useEffect(() => {
-    if (sudoDialogOpen && !sudoActive && !codeRequestedForSessionRef.current) {
+    if (
+      shouldAutoRequestSudoCode({
+        codeRequested: codeRequestedForSessionRef.current,
+        sudoActive,
+        sudoDialogOpen,
+      })
+    ) {
       codeRequestedForSessionRef.current = true;
       void requestSudoCode();
     }
