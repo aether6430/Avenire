@@ -5,9 +5,12 @@ import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.
 import type { ReadonlyURLSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import {
-  SETTINGS_TABS,
-  type TabKey,
-} from "@/components/settings/settings-panel-model";
+  resolveMobileSettingsTabs,
+  resolveVisibleSettingsTabs,
+  shouldRedirectShortcutSettingsTab,
+  shouldSyncSettingsLocalTab,
+} from "@/components/settings/settings-navigation-runtime-model";
+import type { TabKey } from "@/components/settings/settings-panel-model";
 import { buildSettingsOverlayRoute } from "@/lib/settings-overlay-route";
 
 export function useSettingsPanelNavigation({
@@ -27,7 +30,12 @@ export function useSettingsPanelNavigation({
   const currentTab = localTab;
 
   useEffect(() => {
-    if (localTab !== initialTab) {
+    if (
+      shouldSyncSettingsLocalTab({
+        initialTab,
+        localTab,
+      })
+    ) {
       setLocalTab(initialTab);
     }
   }, [initialTab, localTab]);
@@ -51,17 +59,18 @@ export function useSettingsPanelNavigation({
   );
 
   useEffect(() => {
-    if (currentTab === "shortcuts" && !hasKeyboardDetected) {
+    if (
+      shouldRedirectShortcutSettingsTab({
+        currentTab,
+        hasKeyboardDetected,
+      })
+    ) {
       setTab("account");
     }
   }, [currentTab, hasKeyboardDetected, setTab]);
 
-  const visibleTabs = SETTINGS_TABS.filter(
-    (tab) => tab.key !== "shortcuts" || hasKeyboardDetected
-  );
-  const mobileTabs = visibleTabs.filter(
-    (tab) => !("mobileHidden" in tab && tab.mobileHidden)
-  );
+  const visibleTabs = resolveVisibleSettingsTabs(hasKeyboardDetected);
+  const mobileTabs = resolveMobileSettingsTabs(visibleTabs);
 
   return {
     currentTab,
