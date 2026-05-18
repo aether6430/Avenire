@@ -2,7 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { TabKey } from "@/components/settings/settings-panel-model";
-import { DEFAULT_PET_NAME, type PetAccessory } from "@/lib/pet-preferences";
+import {
+  createRemotePreferencesDefaults,
+  createRemotePreferencesLoadFailureState,
+  createRemotePreferencesLoadStartState,
+  createRemotePreferencesLoadSuccessState,
+  createRemotePreferencesSaveStartState,
+  createRemotePreferencesSaveSuccessState,
+  shouldLoadRemotePreferences,
+} from "@/components/settings/settings-remote-preferences-runtime-model";
+import type { PetAccessory } from "@/lib/pet-preferences";
 import {
   loadUserSettings,
   saveUserSettings,
@@ -19,29 +28,37 @@ export function useSettingsPanelRemotePreferences({
   const [preferencesStatus, setPreferencesStatus] = useState<string | null>(
     null
   );
-  const [emailReceipts, setEmailReceipts] = useState(true);
-  const [completedTasksAtTop, setCompletedTasksAtTop] = useState(true);
-  const [petName, setPetName] = useState(DEFAULT_PET_NAME);
-  const [petAccessory, setPetAccessory] = useState<PetAccessory>("none");
+  const defaults = createRemotePreferencesDefaults();
+  const [emailReceipts, setEmailReceipts] = useState(defaults.emailReceipts);
+  const [completedTasksAtTop, setCompletedTasksAtTop] = useState(
+    defaults.completedTasksAtTop
+  );
+  const [petName, setPetName] = useState(defaults.petName);
+  const [petAccessory, setPetAccessory] = useState<PetAccessory>(
+    defaults.petAccessory
+  );
   const preferencesLoadedRef = useRef(false);
 
   const refreshUserSettings = useCallback(async () => {
-    setPreferencesLoading(true);
-    setPreferencesLoadFailed(false);
-    setPreferencesStatus("Loading preferences...");
+    const startState = createRemotePreferencesLoadStartState();
+    setPreferencesLoading(startState.preferencesLoading);
+    setPreferencesLoadFailed(startState.preferencesLoadFailed);
+    setPreferencesStatus(startState.preferencesStatus);
     try {
       const settings = await loadUserSettings();
-      setEmailReceipts(settings.emailReceipts);
-      setCompletedTasksAtTop(settings.completedTasksAtTop);
-      setPetName(settings.petName);
-      setPetAccessory(settings.petAccessory);
-      setPreferencesLoadFailed(false);
-      setPreferencesStatus(null);
+      const successState = createRemotePreferencesLoadSuccessState(settings);
+      setEmailReceipts(successState.emailReceipts);
+      setCompletedTasksAtTop(successState.completedTasksAtTop);
+      setPetName(successState.petName);
+      setPetAccessory(successState.petAccessory);
+      setPreferencesLoadFailed(successState.preferencesLoadFailed);
+      setPreferencesStatus(successState.preferencesStatus);
+      setPreferencesLoading(successState.preferencesLoading);
     } catch {
-      setPreferencesLoadFailed(true);
-      setPreferencesStatus("Unable to load preferences.");
-    } finally {
-      setPreferencesLoading(false);
+      const failureState = createRemotePreferencesLoadFailureState();
+      setPreferencesLoadFailed(failureState.preferencesLoadFailed);
+      setPreferencesStatus(failureState.preferencesStatus);
+      setPreferencesLoading(failureState.preferencesLoading);
     }
   }, []);
 
@@ -50,13 +67,16 @@ export function useSettingsPanelRemotePreferences({
     rollback: () => void
   ) => {
     try {
-      setPreferencesStatus("Saving preferences...");
+      setPreferencesStatus(
+        createRemotePreferencesSaveStartState().preferencesStatus
+      );
       const settings = await saveUserSettings(updates);
-      setEmailReceipts(settings.emailReceipts);
-      setCompletedTasksAtTop(settings.completedTasksAtTop);
-      setPetName(settings.petName);
-      setPetAccessory(settings.petAccessory);
-      setPreferencesStatus("Preferences saved.");
+      const successState = createRemotePreferencesSaveSuccessState(settings);
+      setEmailReceipts(successState.emailReceipts);
+      setCompletedTasksAtTop(successState.completedTasksAtTop);
+      setPetName(successState.petName);
+      setPetAccessory(successState.petAccessory);
+      setPreferencesStatus(successState.preferencesStatus);
     } catch {
       rollback();
       setPreferencesStatus("Unable to save preferences.");
@@ -64,9 +84,12 @@ export function useSettingsPanelRemotePreferences({
   };
 
   useEffect(() => {
-    const shouldWarmPreferences =
-      currentTab === "preferences" || currentTab === "billing";
-    if (!(shouldWarmPreferences && !preferencesLoadedRef.current)) {
+    if (
+      !shouldLoadRemotePreferences({
+        currentTab,
+        preferencesLoaded: preferencesLoadedRef.current,
+      })
+    ) {
       return;
     }
     preferencesLoadedRef.current = true;
