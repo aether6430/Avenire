@@ -96,4 +96,54 @@ describe("ChatWorkspaceShareDialog copy", () => {
     expect(html).not.toContain(">Generate<");
     expect(html).not.toContain(">Copy<");
   });
+
+  it("renders explicit busy, link, and status states for method sharing", () => {
+    const html = renderToStaticMarkup(
+      <ChatWorkspaceShareDialog
+        isOpen
+        onCopyLink={() => {}}
+        onGenerateLink={() => {}}
+        onOpenChange={() => {}}
+        onShareEmailChange={() => {}}
+        onShareWithEmail={() => {}}
+        shareBusy
+        shareEmail="ada@example.com"
+        shareLink="https://avenire.space/share/chat-1"
+        shareStatus="Method link copied."
+        shareSuggestions={[
+          {
+            email: "ada@example.com",
+            id: "user-1",
+            name: "Ada",
+          },
+        ]}
+      />
+    );
+
+    expect(html).toContain('value="ada@example.com"');
+    expect(html).toContain('value="https://avenire.space/share/chat-1"');
+    expect(html).toContain("Method link copied.");
+    expect(html).toContain("disabled");
+  });
+
+  it("keeps the copy action disabled when there is no generated link", () => {
+    const html = renderToStaticMarkup(
+      <ChatWorkspaceShareDialog
+        isOpen
+        onCopyLink={() => {}}
+        onGenerateLink={() => {}}
+        onOpenChange={() => {}}
+        onShareEmailChange={() => {}}
+        onShareWithEmail={() => {}}
+        shareBusy={false}
+        shareEmail=""
+        shareLink={null}
+        shareStatus={null}
+        shareSuggestions={[]}
+      />
+    );
+
+    expect(html).toContain("Copy link");
+    expect(html).toContain('value=""');
+  });
 });
