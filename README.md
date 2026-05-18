@@ -171,14 +171,13 @@ on that condition instead of drifting into misleading verifier hangs.
 - [Migration guide](docs/migrations.md) — database migration commands and history
 - [Web app guide](apps/web/README.md) — layout of the Next.js product surface
 - [Railway deployment](docs/railway.md) — production deployment notes
-- [Recovery logs](logs/) — meaningful product-recovery passes and verification
 
 ## Repository status
 
 This repo is actively being tightened into a more coherent product foundation.
 The recent work has focused on reliability, route coverage, structural
-ownership, and public-facing coherence. The `logs/` folder is the best short
-history of what changed and how it was verified.
+ownership, and public-facing coherence. Public repository docs should point to
+source, tests, and operating guides rather than local operator artifacts.
 
 ## License
 

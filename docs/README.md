@@ -37,7 +37,6 @@ This folder holds operational documentation for the active Avenire repository.
   the root verification commands actually guarantee
 - `pnpm test:budget` — repo-wide and per-package source/test LOC ceiling check
 - `pnpm test:coverage:repo` — conservative repo-wide coverage floor report
-- [../logs/](../logs/) — concise pass-by-pass recovery notes with verification
 
 ## What is not in this folder
 
@@ -46,3 +45,5 @@ This folder holds operational documentation for the active Avenire repository.
 - `CHANGELOG.md` is the historical changelog, not the current operating guide.
 - `TODO.md` is a loose backlog snapshot, not a source of truth for repository
   structure or deployment.
+- local operator artifacts such as `logs/` and `docs/*-current.md` are
+  intentionally kept out of the public git history.

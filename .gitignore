@@ -28,6 +28,7 @@ context
 /reference/
 /instruction.md
 /logs/
+/docs/*-current.md
 /.ccb/
 /.playwright-cli/
 /output/
