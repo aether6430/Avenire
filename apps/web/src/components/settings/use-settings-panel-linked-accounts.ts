@@ -6,6 +6,14 @@ import {
   unlinkAccount,
 } from "@avenire/auth/app-client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  createAccountsRefreshFailureState,
+  createAccountsRefreshSuccessState,
+  createLinkAccountStatus,
+  resolveLinkAccountFailureStatus,
+  resolveUnlinkAccountStatus,
+  shouldLoadInitialAccounts,
+} from "@/components/settings/settings-account-runtime-model";
 import type { AccountEntry } from "@/components/settings/settings-panel-model";
 
 export function useSettingsPanelLinkedAccounts({
@@ -24,21 +32,25 @@ export function useSettingsPanelLinkedAccounts({
     setAccountsLoadFailed(false);
     try {
       const result = await listAccounts();
-      setAccounts(
-        ((result as { data?: AccountEntry[] | null }).data ??
-          []) as AccountEntry[]
-      );
-      setAccountsLoadFailed(false);
+      const next = createAccountsRefreshSuccessState(result);
+      setAccounts(next.accounts);
+      setAccountsLoadFailed(next.accountsLoadFailed);
     } catch {
-      setAccounts([]);
-      setAccountsLoadFailed(true);
+      const next = createAccountsRefreshFailureState();
+      setAccounts(next.accounts);
+      setAccountsLoadFailed(next.accountsLoadFailed);
     } finally {
       setAccountsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (currentTab !== "account" || accountsLoadedRef.current) {
+    if (
+      !shouldLoadInitialAccounts({
+        accountsLoaded: accountsLoadedRef.current,
+        currentTab,
+      })
+    ) {
       return;
     }
     accountsLoadedRef.current = true;
@@ -46,11 +58,11 @@ export function useSettingsPanelLinkedAccounts({
   }, [currentTab, refreshAccounts]);
 
   const linkAccountProvider = async (provider: "github" | "google") => {
-    setAccountsStatus(`Connecting ${provider}...`);
+    setAccountsStatus(createLinkAccountStatus(provider));
     try {
       await linkSocial({ provider });
     } catch {
-      setAccountsStatus(`Unable to connect ${provider}.`);
+      setAccountsStatus(resolveLinkAccountFailureStatus(provider));
     }
   };
 
@@ -64,9 +76,7 @@ export function useSettingsPanelLinkedAccounts({
       accountId: account.accountId ?? "",
       providerId,
     });
-    setAccountsStatus(
-      result.error ? "Unable to unlink account." : "Account unlinked."
-    );
+    setAccountsStatus(resolveUnlinkAccountStatus(result));
     await refreshAccounts();
   };
 

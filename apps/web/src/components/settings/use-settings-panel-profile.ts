@@ -2,6 +2,11 @@
 
 import { updateUser } from "@avenire/auth/app-client";
 import { useEffect, useState } from "react";
+import {
+  createProfileSaveStartState,
+  resolveProfileSaveStatus,
+  syncProfileDraftFromSession,
+} from "@/components/settings/settings-account-runtime-model";
 
 interface SettingsSessionUser {
   email?: string | null;
@@ -14,28 +19,29 @@ export function useSettingsPanelProfile({
 }: {
   sessionUser?: SettingsSessionUser | null;
 }) {
-  const [profileName, setProfileName] = useState(sessionUser?.name ?? "");
-  const [profileImage, setProfileImage] = useState(sessionUser?.image ?? "");
+  const initialDraft = syncProfileDraftFromSession(sessionUser);
+  const [profileName, setProfileName] = useState(initialDraft.profileName);
+  const [profileImage, setProfileImage] = useState(initialDraft.profileImage);
   const [profileStatus, setProfileStatus] = useState<string | null>(null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   useEffect(() => {
-    setProfileName(sessionUser?.name ?? "");
-    setProfileImage(sessionUser?.image ?? "");
-  }, [sessionUser?.image, sessionUser?.name]);
+    const next = syncProfileDraftFromSession(sessionUser);
+    setProfileName(next.profileName);
+    setProfileImage(next.profileImage);
+  }, [sessionUser]);
 
   const saveProfile = async (nextImage?: string) => {
-    setIsSavingProfile(true);
-    setProfileStatus("Saving...");
+    const startState = createProfileSaveStartState();
+    setIsSavingProfile(startState.isSavingProfile);
+    setProfileStatus(startState.profileStatus);
 
     try {
       const result = await updateUser({
         name: profileName.trim() || undefined,
         image: (nextImage ?? profileImage).trim() || undefined,
       });
-      setProfileStatus(
-        result.error ? "Unable to update profile." : "Profile updated."
-      );
+      setProfileStatus(resolveProfileSaveStatus(result));
       return !result.error;
     } finally {
       setIsSavingProfile(false);
