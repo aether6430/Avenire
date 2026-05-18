@@ -8,14 +8,22 @@ import {
 } from "@/components/settings/data-imports-client";
 import {
   buildImportDestinationSummaryLabel,
-  buildImportFolderOptions,
   type DataImportsDestinationRuntime,
   type ImportDestination,
   type ImportProviderStatus,
-  resolveImportDestinationWorkspaceId,
-  resolveNextImportFolderId,
   type WorkspaceSummary,
 } from "@/components/settings/data-imports-model";
+import {
+  createDataImportFoldersLoadFailureState,
+  createDataImportFoldersLoadStartState,
+  createDataImportFoldersLoadSuccessState,
+  createDataImportFoldersResetState,
+  createDataImportsOverviewLoadStartState,
+  createDataImportsOverviewLoadSuccessState,
+  resolveDataImportsOverviewFailureStatus,
+  shouldLoadDestinationFolders,
+  shouldReuseSavedImportDestination,
+} from "@/components/settings/settings-data-imports-destination-runtime-model";
 
 export function useDataImportsDestination({
   workspaces,
@@ -36,7 +44,7 @@ export function useDataImportsDestination({
   );
   const [destinationFolderId, setDestinationFolderId] = useState("");
   const [folderOptions, setFolderOptions] = useState<
-    ReturnType<typeof buildImportFolderOptions>
+    ReturnType<typeof createDataImportFoldersLoadSuccessState>["folderOptions"]
   >([]);
   const [folderLoadFailed, setFolderLoadFailed] = useState(false);
   const [folderLoading, setFolderLoading] = useState(false);
@@ -45,26 +53,26 @@ export function useDataImportsDestination({
   );
 
   const loadOverview = useCallback(async () => {
-    setOverviewLoading(true);
-    setOverviewStatus(null);
+    const startState = createDataImportsOverviewLoadStartState();
+    setOverviewLoading(startState.overviewLoading);
+    setOverviewStatus(startState.overviewStatus);
 
     try {
       const payload = await loadDataImportsOverview();
-      setDestination(payload.destination);
-      setGoogleStatus(payload.providers.google);
-      setNotionStatus(payload.providers.notion);
-      setDestinationWorkspaceId(
-        resolveImportDestinationWorkspaceId({
-          destination: payload.destination,
-          fallbackWorkspaceId: workspaces[0]?.workspaceId ?? "",
-        })
-      );
-      setDestinationFolderId(payload.destination?.folderId ?? "");
+      const successState = createDataImportsOverviewLoadSuccessState({
+        destination: payload.destination,
+        fallbackWorkspaceId: workspaces[0]?.workspaceId ?? "",
+        googleStatus: payload.providers.google,
+        notionStatus: payload.providers.notion,
+      });
+      setDestination(successState.destination);
+      setGoogleStatus(successState.googleStatus);
+      setNotionStatus(successState.notionStatus);
+      setDestinationWorkspaceId(successState.destinationWorkspaceId);
+      setDestinationFolderId(successState.destinationFolderId);
+      setOverviewLoading(successState.overviewLoading);
     } catch (error) {
-      setOverviewStatus(
-        error instanceof Error ? error.message : "Unable to load imports."
-      );
-    } finally {
+      setOverviewStatus(resolveDataImportsOverviewFailureStatus(error));
       setOverviewLoading(false);
     }
   }, [workspaces]);
@@ -74,17 +82,19 @@ export function useDataImportsDestination({
   }, [loadOverview]);
 
   useEffect(() => {
-    if (!destinationWorkspaceId) {
-      setFolderOptions([]);
-      setFolderLoadFailed(false);
+    if (!shouldLoadDestinationFolders(destinationWorkspaceId)) {
+      const resetState = createDataImportFoldersResetState();
+      setFolderOptions(resetState.folderOptions);
+      setFolderLoadFailed(resetState.folderLoadFailed);
       return;
     }
 
     let cancelled = false;
 
     const loadFolders = async () => {
-      setFolderLoading(true);
-      setFolderLoadFailed(false);
+      const startState = createDataImportFoldersLoadStartState();
+      setFolderLoading(startState.folderLoading);
+      setFolderLoadFailed(startState.folderLoadFailed);
 
       try {
         const payload = await loadDataImportFolders(destinationWorkspaceId);
@@ -92,28 +102,22 @@ export function useDataImportsDestination({
           return;
         }
 
-        const nextOptions = buildImportFolderOptions(
-          payload.rootFolderId,
-          payload.folders
-        );
-        setFolderOptions(nextOptions);
-        setDestinationFolderId((current) =>
-          resolveNextImportFolderId({
-            currentFolderId: current,
-            options: nextOptions,
-          })
-        );
+        const successState = createDataImportFoldersLoadSuccessState({
+          currentFolderId: destinationFolderId,
+          folders: payload.folders,
+          rootFolderId: payload.rootFolderId,
+        });
+        setFolderOptions(successState.folderOptions);
+        setDestinationFolderId(successState.destinationFolderId);
+        setFolderLoadFailed(successState.folderLoadFailed);
+        setFolderLoading(successState.folderLoading);
       } catch (error) {
         if (!cancelled) {
-          setFolderLoadFailed(true);
-          setFolderOptions([]);
-          setDestinationStatus(
-            error instanceof Error ? error.message : "Unable to load folders."
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setFolderLoading(false);
+          const failureState = createDataImportFoldersLoadFailureState(error);
+          setFolderLoadFailed(failureState.folderLoadFailed);
+          setFolderOptions(failureState.folderOptions);
+          setDestinationStatus(failureState.destinationStatus);
+          setFolderLoading(failureState.folderLoading);
         }
       }
     };
@@ -123,7 +127,7 @@ export function useDataImportsDestination({
     return () => {
       cancelled = true;
     };
-  }, [destinationWorkspaceId]);
+  }, [destinationFolderId, destinationWorkspaceId]);
 
   const hasSelectedDestination = Boolean(
     destinationWorkspaceId && destinationFolderId
@@ -168,8 +172,11 @@ export function useDataImportsDestination({
     }
 
     if (
-      destination?.workspaceId === destinationWorkspaceId &&
-      destination?.folderId === destinationFolderId
+      shouldReuseSavedImportDestination({
+        destination,
+        destinationFolderId,
+        destinationWorkspaceId,
+      })
     ) {
       return destination;
     }
