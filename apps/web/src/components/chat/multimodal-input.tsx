@@ -13,6 +13,7 @@ import { Textarea } from "@avenire/ui/components/textarea";
 import {
   ArrowUpIcon,
   FileText as FileTextIcon,
+  Lightning,
   Microphone,
   Paperclip as PaperclipIcon,
   Square,
@@ -240,6 +241,8 @@ function PureMultimodalInput({
   setAttachments,
   handleSubmit,
   stop,
+  turboEnabled,
+  onTurboChange,
   workspaceUuid,
   className,
   centered = false,
@@ -254,6 +257,8 @@ function PureMultimodalInput({
     files: Attachment[]
   ) => void | Promise<void>;
   stop: () => void;
+  turboEnabled: boolean;
+  onTurboChange: (enabled: boolean) => void;
   workspaceUuid: string;
   className?: string;
   centered?: boolean;
@@ -1155,6 +1160,11 @@ function PureMultimodalInput({
               </div>
 
               <div className="flex shrink-0 items-center">
+                <ComposerTurboButton
+                  disabled={isRunning}
+                  enabled={turboEnabled}
+                  onToggle={() => onTurboChange(!turboEnabled)}
+                />
                 <ComposerActionButton
                   canSend={canSend}
                   isRunning={isRunning}
@@ -1175,6 +1185,7 @@ export const MultimodalInput = memo(
   (prevProps, nextProps) =>
     prevProps.input === nextProps.input &&
     prevProps.status === nextProps.status &&
+    prevProps.turboEnabled === nextProps.turboEnabled &&
     prevProps.attachments === nextProps.attachments &&
     prevProps.workspaceUuid === nextProps.workspaceUuid
 );
@@ -1291,6 +1302,50 @@ const ComposerVoiceButton = memo(
     prevProps.isRecording === nextProps.isRecording &&
     prevProps.isRunning === nextProps.isRunning &&
     prevProps.isTranscribing === nextProps.isTranscribing
+);
+
+function PureComposerTurboButton({
+  disabled,
+  enabled,
+  onToggle,
+}: {
+  disabled: boolean;
+  enabled: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <Button
+      aria-label={enabled ? "Disable Apex Turbo" : "Enable Apex Turbo"}
+      aria-pressed={enabled}
+      className={cn(
+        "mr-1.5 h-9 w-9 rounded-full border border-border/70 bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring",
+        enabled &&
+          "border-yellow-300/70 bg-yellow-100 text-yellow-900 hover:bg-yellow-100 hover:text-yellow-950 dark:border-yellow-700/70 dark:bg-yellow-500/20 dark:text-yellow-200 dark:hover:bg-yellow-500/25",
+        disabled && "opacity-60"
+      )}
+      data-testid="turbo-toggle-button"
+      disabled={disabled}
+      onClick={(event) => {
+        event.preventDefault();
+        onToggle();
+      }}
+      size="icon"
+      type="button"
+      variant="ghost"
+    >
+      <Lightning
+        className="h-[17px] w-[17px]"
+        weight={enabled ? "fill" : "regular"}
+      />
+    </Button>
+  );
+}
+
+const ComposerTurboButton = memo(
+  PureComposerTurboButton,
+  (prevProps, nextProps) =>
+    prevProps.disabled === nextProps.disabled &&
+    prevProps.enabled === nextProps.enabled
 );
 
 function PureComposerActionButton({

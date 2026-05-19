@@ -9,6 +9,16 @@ import {
 } from "./schema";
 
 export type BillingPlan = "access" | "core" | "scholar";
+export type BillingFeature =
+  | "fullWorkspaceSearch"
+  | "apolloTutor"
+  | "interactiveConceptWidgets"
+  | "misconceptionDetection"
+  | "spacedRepetitionFlashcards"
+  | "priorityResponseQueue"
+  | "masteryAnalytics"
+  | "customStudyPlans"
+  | "earlyExperimentalFeatures";
 export type UsageMeterType = "chat";
 
 interface MeterEntitlement {
@@ -18,6 +28,8 @@ interface MeterEntitlement {
 
 interface PlanEntitlements {
   chat: MeterEntitlement;
+  features: Record<BillingFeature, boolean>;
+  responseSpeed: "standard" | "priority";
   storageBytes: number;
 }
 
@@ -27,14 +39,50 @@ const GIB = 1024 * 1024 * 1024;
 const PLAN_ENTITLEMENTS: Record<BillingPlan, PlanEntitlements> = {
   access: {
     chat: { fourHourCapacity: 20, overageCapacity: 200 },
+    features: {
+      fullWorkspaceSearch: true,
+      apolloTutor: true,
+      interactiveConceptWidgets: true,
+      misconceptionDetection: true,
+      spacedRepetitionFlashcards: true,
+      priorityResponseQueue: false,
+      masteryAnalytics: false,
+      customStudyPlans: false,
+      earlyExperimentalFeatures: false,
+    },
+    responseSpeed: "standard",
     storageBytes: 2 * GIB,
   },
   core: {
     chat: { fourHourCapacity: 80, overageCapacity: 1800 },
+    features: {
+      fullWorkspaceSearch: true,
+      apolloTutor: true,
+      interactiveConceptWidgets: true,
+      misconceptionDetection: true,
+      spacedRepetitionFlashcards: true,
+      priorityResponseQueue: true,
+      masteryAnalytics: false,
+      customStudyPlans: false,
+      earlyExperimentalFeatures: false,
+    },
+    responseSpeed: "priority",
     storageBytes: 15 * GIB,
   },
   scholar: {
     chat: { fourHourCapacity: 180, overageCapacity: 6500 },
+    features: {
+      fullWorkspaceSearch: true,
+      apolloTutor: true,
+      interactiveConceptWidgets: true,
+      misconceptionDetection: true,
+      spacedRepetitionFlashcards: true,
+      priorityResponseQueue: true,
+      masteryAnalytics: true,
+      customStudyPlans: true,
+      earlyExperimentalFeatures: true,
+    },
+    responseSpeed: "priority",
     storageBytes: 50 * GIB,
   },
 };
@@ -182,6 +230,24 @@ async function getUserPlan(userId: string): Promise<BillingPlan> {
   }
 
   return toPlan(subscription.plan);
+}
+
+export function getPlanEntitlements(plan: BillingPlan) {
+  const entitlements = PLAN_ENTITLEMENTS[plan];
+  return {
+    chat: { ...entitlements.chat },
+    features: { ...entitlements.features },
+    responseSpeed: entitlements.responseSpeed,
+    storageBytes: entitlements.storageBytes,
+  };
+}
+
+export async function userHasBillingFeature(
+  userId: string,
+  feature: BillingFeature
+) {
+  const plan = await getUserPlan(userId);
+  return PLAN_ENTITLEMENTS[plan].features[feature];
 }
 
 async function getOrCreateMeter(userId: string, meter: UsageMeterType) {
@@ -604,6 +670,10 @@ export async function getUsageOverview(userId: string) {
   return {
     plan: activePlan,
     chat: chatSummary,
+    entitlements: {
+      features: { ...activeEntitlements.features },
+      responseSpeed: activeEntitlements.responseSpeed,
+    },
     storage,
     combined: {
       totalCapacity: chatSummary.totalCapacity,
@@ -633,6 +703,10 @@ function buildUsageOverview(plan: BillingPlan) {
   return {
     plan,
     chat,
+    entitlements: {
+      features: { ...entitlements.features },
+      responseSpeed: entitlements.responseSpeed,
+    },
     storage,
     combined: {
       totalCapacity: chat.totalCapacity,

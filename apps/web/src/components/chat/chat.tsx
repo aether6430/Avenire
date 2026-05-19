@@ -65,6 +65,8 @@ export function Chat({
   const [agentActivity, setAgentActivity] = useState<AgentActivityData | null>(
     null
   );
+  const [turboEnabled, setTurboEnabled] = useState(false);
+  const activeSelectedModel = turboEnabled ? "apex-turbo" : selectedModel;
   const lastCompletedMessageIdRef = useRef<string | null>(null);
   const previousStatusRef = useRef<string | null>(null);
   const initialMessagesCountRef = useRef(initialMessages.length);
@@ -90,10 +92,10 @@ export function Chat({
         api: "/api/chat",
         body: {
           chatId,
-          selectedModel,
+          selectedModel: activeSelectedModel,
         },
       }),
-    [chatId, selectedModel]
+    [activeSelectedModel, chatId]
   );
 
   const {
@@ -500,6 +502,8 @@ export function Chat({
         setInput={setInput}
         status={status}
         stop={handleStop}
+        turboEnabled={turboEnabled}
+        onTurboChange={setTurboEnabled}
         workspaceUuid={workspaceUuid}
       />
     </div>

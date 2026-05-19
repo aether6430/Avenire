@@ -7,10 +7,12 @@ import {
   type BillingPlan,
   canStoreBytesForUser,
   consumeUsageUnits,
+  type BillingFeature,
   findUserIdByPolarCustomerId,
   getBillingSubscriptionByUserId,
   getUsageOverview,
   restoreUsageUnits,
+  userHasBillingFeature,
   upsertBillingCustomer,
   upsertBillingSubscription,
 } from "@/lib/database-billing";
@@ -74,6 +76,13 @@ export async function canStoreBytes(userId: string, bytes: number) {
 
 export async function getUserUsageOverview(userId: string) {
   return getUsageOverview(userId);
+}
+
+export async function hasBillingFeature(
+  userId: string,
+  feature: BillingFeature
+) {
+  return userHasBillingFeature(userId, feature);
 }
 
 export async function ensureUserBillingRecords(input: {

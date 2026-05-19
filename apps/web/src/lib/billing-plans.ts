@@ -19,8 +19,17 @@ export const BILLING_PLANS: Record<
 > = {
   access: {
     chatCredits: "220",
-    features: ["220 chat credits", "2 GB storage", "Basic models only"],
-    label: "Free",
+    features: [
+      "220 Apollo credits",
+      "2 GB storage",
+      "Full workspace with file & note search",
+      "Apollo AI tutor",
+      "Interactive concept widgets",
+      "Misconception detection",
+      "Flashcards with spaced repetition",
+      "Standard response speed",
+    ],
+    label: "Access",
     monthly: 0,
     rank: 0,
     storage: "2 GB",
@@ -29,11 +38,10 @@ export const BILLING_PLANS: Record<
   core: {
     chatCredits: "1,880",
     features: [
-      "1,880 chat credits",
+      "Everything in Access",
+      "1,880 Apollo credits",
       "15 GB storage",
-      "Access to all models",
-      "File uploads and web search",
-      "More database columns",
+      "Priority response queue",
     ],
     label: "Core",
     monthly: 450,
@@ -44,11 +52,12 @@ export const BILLING_PLANS: Record<
   scholar: {
     chatCredits: "6,680",
     features: [
-      "6,680 chat credits",
+      "Everything in Core",
+      "6,680 Apollo credits",
       "50 GB storage",
-      "Includes everything in Core",
-      "Maximum database columns",
-      "Priority support",
+      "Mastery tracking & analytics",
+      "Custom study plans",
+      "Early experimental features",
     ],
     label: "Scholar",
     monthly: 1350,

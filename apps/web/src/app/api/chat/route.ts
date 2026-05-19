@@ -67,9 +67,10 @@ import {
 
 const DEFAULT_CHAT_TITLE = "New Chat";
 const LOG_PREFIX = "[api/chat]";
-const DEFAULT_CHAT_TOKENS_PER_CREDIT = 3800;
+const DEFAULT_CHAT_TOKENS_PER_CREDIT = 1000;
 const DEFAULT_EXPECTED_OUTPUT_TOKENS = 2000;
-const WIDGET_GENERATION_CREDITS = 2;
+const DEFAULT_WIDGET_GENERATION_CREDITS = 20;
+const DEFAULT_TURBO_MODEL_CREDIT_MULTIPLIER = 2;
 const DEFAULT_CHAT_TITLE_MODEL: ApolloModelName = "apollo-meta";
 const LEARNING_CONTEXT_CACHE_PREFIX = "chat-learning-context:v1:";
 const LEARNING_CONTEXT_CACHE_TTL_SECONDS = 60 * 60 * 3;
@@ -298,6 +299,7 @@ function resolveChatTitleModel(): ApolloModelName {
     "apollo-sprint",
     "apollo-core",
     "apollo-apex",
+    "apex-turbo",
     "apollo-agent",
     "apollo-meta",
     "apollo-tiny",
@@ -744,7 +746,7 @@ function pickModelTools<T extends Record<string, unknown>>(
 }
 
 function modelUsesLegacyWidgetSchema(model: ApolloModelName) {
-  return model === "apollo-apex";
+  return model === "apollo-apex" || model === "apex-turbo";
 }
 
 function normalizeMessageFileMediaTypes(messages: UIMessage[]) {
@@ -870,6 +872,34 @@ function resolveChatTokensPerCredit() {
   return raw;
 }
 
+function resolveWidgetGenerationCredits() {
+  const raw = Number.parseInt(process.env.WIDGET_GENERATION_CREDITS ?? "", 10);
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return DEFAULT_WIDGET_GENERATION_CREDITS;
+  }
+  return raw;
+}
+
+function resolveTurboModelCreditMultiplier() {
+  const raw = Number.parseFloat(
+    process.env.TURBO_MODEL_CREDIT_MULTIPLIER ?? ""
+  );
+  if (!Number.isFinite(raw) || raw < 1) {
+    return DEFAULT_TURBO_MODEL_CREDIT_MULTIPLIER;
+  }
+  return raw;
+}
+
+function modelUsesTurboCreditMultiplier(model: ApolloModelName) {
+  return model === "apex-turbo";
+}
+
+function getModelCreditMultiplier(model: ApolloModelName) {
+  return modelUsesTurboCreditMultiplier(model)
+    ? resolveTurboModelCreditMultiplier()
+    : 1;
+}
+
 function resolveTotalTokens(usage: {
   totalTokens?: number;
   inputTokens?: number;
@@ -889,9 +919,10 @@ function resolveTotalTokens(usage: {
   return inputTokens + outputTokens;
 }
 
-function getRequiredChatCredits(totalTokens: number) {
+function getRequiredChatCredits(totalTokens: number, model: ApolloModelName) {
   const tokensPerCredit = resolveChatTokensPerCredit();
-  return Math.max(1, Math.ceil(totalTokens / tokensPerCredit));
+  const baseCredits = Math.max(1, Math.ceil(totalTokens / tokensPerCredit));
+  return Math.ceil(baseCredits * getModelCreditMultiplier(model));
 }
 
 function estimateMessageTokens(messages: UIMessage[]) {
@@ -902,9 +933,10 @@ function estimateMessageTokens(messages: UIMessage[]) {
   return Math.ceil(textChars / 4);
 }
 
-function getExpectedChatCredits(messages: UIMessage[]) {
+function getExpectedChatCredits(messages: UIMessage[], model: ApolloModelName) {
   return getRequiredChatCredits(
-    estimateMessageTokens(messages) + DEFAULT_EXPECTED_OUTPUT_TOKENS
+    estimateMessageTokens(messages) + DEFAULT_EXPECTED_OUTPUT_TOKENS,
+    model
   );
 }
 
@@ -1239,13 +1271,18 @@ export async function POST(request: Request) {
     const requestStartedAt = new Date();
 
     const latestUserText = extractLatestUserText(originalMessages);
+    const selectedModel = body.selectedModel ?? "apollo-apex";
     logInfo("Incoming chat request", {
       chatId: body.chatId ?? null,
-      selectedModel: body.selectedModel ?? null,
+      selectedModel,
+      creditMultiplier: getModelCreditMultiplier(selectedModel),
       messageCount: originalMessages.length,
       modelContextCount: modelContextMessages.length,
     });
-    const expectedCredits = getExpectedChatCredits(originalMessages);
+    const expectedCredits = getExpectedChatCredits(
+      originalMessages,
+      selectedModel
+    );
     const initialUsage = await consumeChatUnits(
       session.user.id,
       expectedCredits
@@ -1411,10 +1448,10 @@ export async function POST(request: Request) {
           }
         })();
 
-        const selectedModel = body.selectedModel ?? "apollo-apex";
         logInfo("Starting model stream", {
           chatId: chatSlug,
           model: selectedModel,
+          creditMultiplier: getModelCreditMultiplier(selectedModel),
           providerModel: APOLLO_LANGUAGE_MODEL_IDS[selectedModel],
         });
 
@@ -1467,21 +1504,22 @@ export async function POST(request: Request) {
           {
             chatSlug,
             chargeWidgetGeneration: async () => {
+              const widgetGenerationCredits = resolveWidgetGenerationCredits();
               const usage = await consumeChatUnits(
                 session.user.id,
-                WIDGET_GENERATION_CREDITS
+                widgetGenerationCredits
               );
               if (!usage.ok) {
                 logInfo("Widget generation over usage limit", {
                   chatId: chatSlug,
-                  credits: WIDGET_GENERATION_CREDITS,
+                  credits: widgetGenerationCredits,
                   retryAfter: usage.retryAfter?.toISOString() ?? null,
                 });
                 throw new Error("Chat usage limit reached");
               }
               apiLogger.meter("meter.chat.widget", {
                 chatId: chatSlug,
-                creditsCharged: WIDGET_GENERATION_CREDITS,
+                creditsCharged: widgetGenerationCredits,
                 model: selectedModel,
               });
             },
@@ -1761,7 +1799,12 @@ export async function POST(request: Request) {
                 try {
                   const totalUsage = await result.totalUsage;
                   const totalTokens = resolveTotalTokens(totalUsage);
-                  const requiredCredits = getRequiredChatCredits(totalTokens);
+                  const creditMultiplier =
+                    getModelCreditMultiplier(selectedModel);
+                  const requiredCredits = getRequiredChatCredits(
+                    totalTokens,
+                    selectedModel
+                  );
                   const additionalCredits = Math.max(
                     0,
                     requiredCredits - expectedCredits
@@ -1794,6 +1837,7 @@ export async function POST(request: Request) {
                   logInfo("Applied token-based chat usage", {
                     chatId: chatSlug,
                     totalTokens,
+                    creditMultiplier,
                     expectedCredits,
                     requiredCredits,
                     additionalCredits,
@@ -1805,6 +1849,7 @@ export async function POST(request: Request) {
                     inputTokens: totalUsage.inputTokens ?? null,
                     outputTokens: totalUsage.outputTokens ?? null,
                     totalTokens,
+                    creditMultiplier,
                     creditsCharged: requiredCredits,
                   });
                   apiLogger.meter("meter.chat.request", {
