@@ -17,7 +17,7 @@ export const tiers = [
     ctaText: "Start free",
     ctaLink: "/waitlist",
     features: [
-      "220 Apollo credits",
+      "330 Apollo credits",
       "2 GB storage",
       "Full workspace with file & note search",
       "Apollo AI tutor",
@@ -100,7 +100,7 @@ export const pricingTable = [
     tiers: [
       {
         title: TierName.TIER_1,
-        value: "220",
+        value: "330",
       },
       {
         title: TierName.TIER_2,

@@ -18,9 +18,9 @@ export const BILLING_PLANS: Record<
   }
 > = {
   access: {
-    chatCredits: "220",
+    chatCredits: "330",
     features: [
-      "220 Apollo credits",
+      "330 Apollo credits",
       "2 GB storage",
       "Full workspace with file & note search",
       "Apollo AI tutor",

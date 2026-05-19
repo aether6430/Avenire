@@ -38,7 +38,7 @@ const GIB = 1024 * 1024 * 1024;
 
 const PLAN_ENTITLEMENTS: Record<BillingPlan, PlanEntitlements> = {
   access: {
-    chat: { fourHourCapacity: 20, overageCapacity: 200 },
+    chat: { fourHourCapacity: 30, overageCapacity: 300 },
     features: {
       fullWorkspaceSearch: true,
       apolloTutor: true,
