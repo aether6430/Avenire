@@ -7,6 +7,7 @@ import {
   AvatarImage,
 } from "@avenire/ui/components/avatar";
 import { Button } from "@avenire/ui/components/button";
+import { DitherIdenticon } from "@avenire/ui/components/dither-identicon";
 import {
   Dialog,
   DialogContent,
@@ -48,7 +49,6 @@ import { useMemo, useState } from "react";
 import { SensitiveText } from "@/components/shared/sensitive-text";
 import { useHaptics } from "@/hooks/use-haptics";
 import { usePrivacyMode } from "@/hooks/use-privacy-mode";
-import { getFacehashUrl } from "@/lib/avatar";
 
 interface WorkspaceSummary {
   name: string;
@@ -63,18 +63,6 @@ interface WorkspaceInvitation {
   inviterName: string | null;
   organizationId: string;
   organizationName: string;
-}
-
-function getInitials(value: string) {
-  return (
-    value
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase() ?? "")
-      .join("") || "U"
-  );
 }
 
 export function NavUser({
@@ -107,14 +95,8 @@ export function NavUser({
   };
   const { isMobile, setOpenMobile } = useSidebar();
   const triggerHaptic = useHaptics();
-  const fallbackAvatar = useMemo(
-    () => getFacehashUrl(resolvedUser.name || resolvedUser.email),
-    [resolvedUser.name, resolvedUser.email]
-  );
+  const avatarSeed = resolvedUser.name || resolvedUser.email || "user";
   const privacyMode = usePrivacyMode();
-  const initials = getInitials(
-    resolvedUser.name || resolvedUser.email || "User"
-  );
   const [avatarErrored, setAvatarErrored] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [workspaceName, setWorkspaceName] = useState("");
@@ -142,9 +124,7 @@ export function NavUser({
     }
   };
 
-  const avatarSrc = avatarErrored
-    ? fallbackAvatar
-    : (resolvedUser.avatar ?? fallbackAvatar);
+  const avatarSrc = avatarErrored ? undefined : resolvedUser.avatar;
 
   const activeWorkspace = useMemo(
     () =>
@@ -169,15 +149,21 @@ export function NavUser({
               }
             >
               <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage
-                  alt={resolvedUser.name}
-                  onError={() => {
-                    setAvatarErrored(true);
-                  }}
-                  src={avatarSrc}
-                />
-                <AvatarFallback className="rounded-lg">
-                  {initials}
+                {avatarSrc ? (
+                  <AvatarImage
+                    alt={resolvedUser.name}
+                    onError={() => {
+                      setAvatarErrored(true);
+                    }}
+                    src={avatarSrc}
+                  />
+                ) : null}
+                <AvatarFallback className="rounded-lg bg-muted p-1 text-foreground">
+                  <DitherIdenticon
+                    className="size-full"
+                    color="currentColor"
+                    seed={avatarSeed}
+                  />
                 </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">

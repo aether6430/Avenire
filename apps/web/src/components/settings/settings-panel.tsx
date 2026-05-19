@@ -14,6 +14,7 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@avenire/ui/components/avatar";
+import { DitherIdenticon } from "@avenire/ui/components/dither-identicon";
 import { Badge } from "@avenire/ui/components/badge";
 import { Button } from "@avenire/ui/components/button";
 import {
@@ -71,7 +72,6 @@ import { useLocalStorage } from "usehooks-ts";
 import { DataImportsSection } from "@/components/settings/data-imports-section";
 import { SensitiveText } from "@/components/shared/sensitive-text";
 import { PetPreferencesFields } from "@/components/pets/pet-preferences-fields";
-import { getFacehashUrl } from "@/lib/avatar";
 import {
   BILLING_PLANS,
   BILLING_SETTINGS_PATH,
@@ -154,6 +154,10 @@ interface BillingUsage {
   combined: {
     totalCapacity: number;
     totalBalance: number;
+  };
+  entitlements?: {
+    features: Record<string, boolean>;
+    responseSpeed: "standard" | "priority";
   };
   plan: BillingPlanKey;
   storage: {
@@ -444,11 +448,8 @@ export function SettingsPanel({
   }, [session?.user?.image, session?.user?.name]);
 
   useEffect(() => {
-    const src =
-      session?.user?.image ??
-      getFacehashUrl(session?.user?.name ?? session?.user?.email ?? "");
-    setAvatarPreview(src);
-  }, [session?.user?.image, session?.user?.name, session?.user?.email]);
+    setAvatarPreview(session?.user?.image ?? "");
+  }, [session?.user?.image]);
 
   const selectedWorkspace = useMemo(
     () => workspaces.find((w) => w.workspaceId === activeWorkspaceId) ?? null,
@@ -940,7 +941,7 @@ export function SettingsPanel({
     ? [
         {
           kind: "credits" as const,
-          label: "Chat tokens",
+          label: "Apollo credits",
           remaining: billingUsage.chat.totalBalance,
           total: billingUsage.chat.totalCapacity,
           refillAt: billingUsage.chat.refillAt,
@@ -961,13 +962,9 @@ export function SettingsPanel({
   const selectedWorkspaceMemberCount =
     workspaceUsage?.memberCount ?? workspaceMembers.length;
 
-  const displayAvatar =
-    avatarPreview ||
-    profileImage ||
-    getFacehashUrl(profileName || session?.user?.email || "");
-  const fallbackInitials = (profileName || session?.user?.name || "U")
-    .slice(0, 2)
-    .toUpperCase();
+  const displayAvatar = avatarPreview || profileImage;
+  const avatarSeed =
+    profileName || session?.user?.name || session?.user?.email || "user";
 
   const handleManageBilling = async () => {
     setBillingStatus("Opening billing portal...");
@@ -1185,8 +1182,16 @@ export function SettingsPanel({
         {/* Mobile: compact profile header */}
         <div className="flex items-center gap-3 border-border/60 border-b px-4 py-3 md:hidden">
           <Avatar className="h-9 w-9">
-            <AvatarImage alt={profileName} src={displayAvatar} />
-            <AvatarFallback>{fallbackInitials}</AvatarFallback>
+            {displayAvatar ? (
+              <AvatarImage alt={profileName} src={displayAvatar} />
+            ) : null}
+            <AvatarFallback className="bg-muted p-1 text-foreground">
+              <DitherIdenticon
+                className="size-full"
+                color="currentColor"
+                seed={avatarSeed}
+              />
+            </AvatarFallback>
           </Avatar>
           <div className="min-w-0">
             <p className="truncate font-medium text-sm">
@@ -1256,8 +1261,16 @@ export function SettingsPanel({
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">
                       <Avatar className="h-14 w-14">
-                        <AvatarImage alt={profileName} src={displayAvatar} />
-                        <AvatarFallback>{fallbackInitials}</AvatarFallback>
+                        {displayAvatar ? (
+                          <AvatarImage alt={profileName} src={displayAvatar} />
+                        ) : null}
+                        <AvatarFallback className="bg-muted p-1.5 text-foreground">
+                          <DitherIdenticon
+                            className="size-full"
+                            color="currentColor"
+                            seed={avatarSeed}
+                          />
+                        </AvatarFallback>
                       </Avatar>
                       <div className="min-w-0">
                         <p className="font-medium text-sm">Profile photo</p>
