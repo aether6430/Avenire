@@ -2,6 +2,11 @@
 
 import { Button } from "@avenire/ui/components/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@avenire/ui/components/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
@@ -29,6 +34,7 @@ import {
   CaretDown as ChevronDown,
   Code,
   Columns as Columns3,
+  CornersOut,
   TextHOne as Heading1,
   TextHTwo as Heading2,
   TextHThree as Heading3,
@@ -139,6 +145,21 @@ import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
 
 const lowlight = createLowlight(common);
 
+const CODE_ICON_SVG = {
+  copy: '<svg viewBox="0 0 256 256" aria-hidden="true"><rect x="88" y="64" width="104" height="128" rx="8" fill="none" stroke="currentColor" stroke-width="18"/><path d="M64 160H56a8 8 0 0 1-8-8V40a8 8 0 0 1 8-8h112a8 8 0 0 1 8 8v8" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round"/></svg>',
+  edit: '<svg viewBox="0 0 256 256" aria-hidden="true"><path d="M92 216H48a8 8 0 0 1-8-8v-44L156 48a24 24 0 0 1 34 0l18 18a24 24 0 0 1 0 34Z" fill="none" stroke="currentColor" stroke-width="18" stroke-linejoin="round"/><path d="m140 64 52 52" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round"/></svg>',
+  preview: '<svg viewBox="0 0 256 256" aria-hidden="true"><path d="M24 128s40-72 104-72 104 72 104 72-40 72-104 72S24 128 24 128Z" fill="none" stroke="currentColor" stroke-width="18" stroke-linejoin="round"/><circle cx="128" cy="128" r="32" fill="none" stroke="currentColor" stroke-width="18"/></svg>',
+};
+
+const MERMAID_ICON_SVG = {
+  done: '<svg viewBox="0 0 256 256" aria-hidden="true"><path d="m40 132 56 56L216 68" fill="none" stroke="currentColor" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  edit: '<svg viewBox="0 0 256 256" aria-hidden="true"><path d="M92 216H48a8 8 0 0 1-8-8v-44L156 48a24 24 0 0 1 34 0l18 18a24 24 0 0 1 0 34Z" fill="none" stroke="currentColor" stroke-width="18" stroke-linejoin="round"/><path d="m140 64 52 52" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round"/></svg>',
+  full: '<svg viewBox="0 0 256 256" aria-hidden="true"><path d="M88 40H48a8 8 0 0 0-8 8v40M168 40h40a8 8 0 0 1 8 8v40M88 216H48a8 8 0 0 1-8-8v-40M168 216h40a8 8 0 0 0 8-8v-40" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  reset: '<svg viewBox="0 0 256 256" aria-hidden="true"><path d="M64 88H32V56" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/><path d="M65 88a80 80 0 1 1-17 52" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round"/></svg>',
+  zoomIn: '<svg viewBox="0 0 256 256" aria-hidden="true"><circle cx="112" cy="112" r="72" fill="none" stroke="currentColor" stroke-width="18"/><path d="M163 163 216 216M112 80v64M80 112h64" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round"/></svg>',
+  zoomOut: '<svg viewBox="0 0 256 256" aria-hidden="true"><circle cx="112" cy="112" r="72" fill="none" stroke="currentColor" stroke-width="18"/><path d="M163 163 216 216M80 112h64" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round"/></svg>',
+};
+
 interface LowlightTreeNode {
   children?: LowlightTreeNode[];
   properties?: {
@@ -191,6 +212,53 @@ const renderHighlightedCodePreview = (
   }
 };
 
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function highlightMermaidSource(code: string) {
+  return escapeHtml(code).replace(
+    /\b(graph|flowchart|sequenceDiagram|stateDiagram-v2|classDiagram|erDiagram|journey|gantt|pie|xychart-beta|participant|actor|subgraph|end|style|classDef|class|click|linkStyle|section|title|accTitle|accDescr)\b|(--&gt;|---|==&gt;|-.->|--x|--o)|("[^"]*"|'[^']*')/g,
+    (match) => {
+      if (match.startsWith('"') || match.startsWith("'")) {
+        return `<span class="token-string">${match}</span>`;
+      }
+      if (match.includes("&gt;") || match.includes("-")) {
+        return `<span class="token-operator">${match}</span>`;
+      }
+      return `<span class="token-keyword">${match}</span>`;
+    }
+  );
+}
+
+function getDocumentStats(editor: Editor | null): DocumentStats {
+  if (!editor) {
+    return { characters: 0, paragraphs: 0, words: 0 };
+  }
+
+  const text = editor.getText();
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  let paragraphs = 0;
+  editor.state.doc.descendants((node) => {
+    if (
+      node.type.name === "paragraph" ||
+      node.type.name === "heading" ||
+      node.type.name === "listItem"
+    ) {
+      paragraphs += 1;
+    }
+  });
+
+  return {
+    characters: text.length,
+    paragraphs,
+    words,
+  };
+}
+
 const ScribeCodeBlockLowlight = CodeBlockLowlight.extend({
   addNodeView() {
     return ({ node, editor, getPos }) => {
@@ -231,16 +299,22 @@ const ScribeCodeBlockLowlight = CodeBlockLowlight.extend({
       const copyButton = document.createElement("button");
       copyButton.type = "button";
       copyButton.className = "scribe-codeblock-button";
-      copyButton.textContent = "Copy";
+      copyButton.innerHTML = CODE_ICON_SVG.copy;
       copyButton.setAttribute("aria-label", "Copy code");
+      copyButton.title = "Copy code";
 
       const editButton = document.createElement("button");
       editButton.type = "button";
       editButton.className = "scribe-codeblock-button";
+      editButton.title = "Toggle preview";
 
       const syncButtonLabel = () => {
-        editButton.textContent =
-          dom.dataset.editing === "true" ? "Preview" : "Edit";
+        editButton.innerHTML =
+          dom.dataset.editing === "true" ? CODE_ICON_SVG.preview : CODE_ICON_SVG.edit;
+        editButton.setAttribute(
+          "aria-label",
+          dom.dataset.editing === "true" ? "Preview code" : "Edit code"
+        );
       };
 
       const syncPreview = (nextNode = node) => {
@@ -281,18 +355,18 @@ const ScribeCodeBlockLowlight = CodeBlockLowlight.extend({
       copyButton.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
-        const originalLabel = copyButton.textContent ?? "Copy";
+        const originalLabel = copyButton.innerHTML;
         void navigator.clipboard.writeText(node.textContent).then(
           () => {
-            copyButton.textContent = "Copied";
+            copyButton.innerHTML = "<span>Copied</span>";
             window.setTimeout(() => {
-              copyButton.textContent = originalLabel;
+              copyButton.innerHTML = originalLabel;
             }, 1200);
           },
           () => {
-            copyButton.textContent = "Failed";
+            copyButton.innerHTML = "<span>Failed</span>";
             window.setTimeout(() => {
-              copyButton.textContent = originalLabel;
+              copyButton.innerHTML = originalLabel;
             }, 1200);
           }
         );
@@ -503,6 +577,18 @@ interface MathPopoverState {
 
 interface WikiOpenOptions {
   openInNewPane: boolean;
+  peek?: boolean;
+}
+
+interface DocumentStats {
+  characters: number;
+  paragraphs: number;
+  words: number;
+}
+
+interface WorkspacePeekState {
+  href: string;
+  title: string;
 }
 
 interface WikiPreviewState {
@@ -760,16 +846,19 @@ const MermaidDiagramExtension = TiptapNode.create({
       const editorPanel = document.createElement("div");
       editorPanel.className = "mermaid-diagram-editor";
       editorPanel.contentEditable = "false";
+      const sourcePreview = document.createElement("pre");
+      sourcePreview.className = "mermaid-diagram-source-highlight";
       const textarea = document.createElement("textarea");
       textarea.className = "mermaid-diagram-source";
       textarea.spellcheck = false;
       textarea.setAttribute("aria-label", "Mermaid source");
-      editorPanel.appendChild(textarea);
+      editorPanel.append(sourcePreview, textarea);
       const editButton = document.createElement("button");
       editButton.type = "button";
       editButton.className = "mermaid-diagram-edit";
-      editButton.textContent = "Edit";
+      editButton.innerHTML = MERMAID_ICON_SVG.edit;
       editButton.setAttribute("aria-label", "Edit diagram");
+      editButton.title = "Edit diagram";
       const zoomControls = document.createElement("div");
       zoomControls.className = "mermaid-diagram-zoom";
       wrapper.append(editorPanel, viewport, editButton, zoomControls);
@@ -835,7 +924,7 @@ const MermaidDiagramExtension = TiptapNode.create({
           (viewportHeight - MERMAID_FIT_MARGIN_PX * 2) / naturalHeight
         );
         canvasState.zoom = clamp(
-          Math.min(fit, MERMAID_DEFAULT_SCALE),
+          Math.max(fit, 0.86),
           MERMAID_ZOOM_MIN,
           MERMAID_ZOOM_MAX
         );
@@ -879,13 +968,13 @@ const MermaidDiagramExtension = TiptapNode.create({
       };
 
       const buildControlButton = (
-        label: string,
+        icon: string,
         title: string,
         onClick: () => void
       ) => {
         const button = document.createElement("button");
         button.type = "button";
-        button.textContent = label;
+        button.innerHTML = icon;
         button.title = title;
         button.setAttribute("aria-label", title);
         button.className = "mermaid-diagram-zoom-button";
@@ -898,15 +987,15 @@ const MermaidDiagramExtension = TiptapNode.create({
       };
 
       zoomControls.append(
-        buildControlButton("+", "Zoom in", () =>
+        buildControlButton(MERMAID_ICON_SVG.zoomIn, "Zoom in", () =>
           zoomAtCenter(MERMAID_BUTTON_ZOOM_FACTOR)
         ),
-        buildControlButton("−", "Zoom out", () =>
+        buildControlButton(MERMAID_ICON_SVG.zoomOut, "Zoom out", () =>
           zoomAtCenter(1 / MERMAID_BUTTON_ZOOM_FACTOR)
         ),
-        buildControlButton("Reset", "Reset view", fitToViewport),
-        buildControlButton("Full", "Fullscreen", () =>
-          wrapper.requestFullscreen?.()
+        buildControlButton(MERMAID_ICON_SVG.reset, "Reset view", fitToViewport),
+        buildControlButton(MERMAID_ICON_SVG.full, "Expand diagram", () =>
+          wrapper.classList.toggle("is-expanded")
         )
       );
 
@@ -917,6 +1006,7 @@ const MermaidDiagramExtension = TiptapNode.create({
         if (document.activeElement !== textarea) {
           textarea.value = code;
         }
+        sourcePreview.innerHTML = highlightMermaidSource(code);
         try {
           if (!mounted) {
             return;
@@ -960,7 +1050,13 @@ const MermaidDiagramExtension = TiptapNode.create({
         event.stopPropagation();
         const nextEditing = !wrapper.classList.contains("is-editing");
         wrapper.classList.toggle("is-editing", nextEditing);
-        editButton.textContent = nextEditing ? "Done" : "Edit";
+        editButton.innerHTML = nextEditing
+          ? MERMAID_ICON_SVG.done
+          : MERMAID_ICON_SVG.edit;
+        editButton.setAttribute(
+          "aria-label",
+          nextEditing ? "Done editing diagram" : "Edit diagram"
+        );
         if (nextEditing) {
           textarea.focus();
           textarea.selectionStart = textarea.value.length;
@@ -990,12 +1086,17 @@ const MermaidDiagramExtension = TiptapNode.create({
         if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
           event.preventDefault();
           wrapper.classList.remove("is-editing");
-          editButton.textContent = "Edit";
+          editButton.innerHTML = MERMAID_ICON_SVG.edit;
           viewport.focus();
         }
       };
+      const syncSourceScroll = () => {
+        sourcePreview.scrollTop = textarea.scrollTop;
+        sourcePreview.scrollLeft = textarea.scrollLeft;
+      };
       textarea.addEventListener("input", handleSourceInput);
       textarea.addEventListener("keydown", handleSourceKeyDown);
+      textarea.addEventListener("scroll", syncSourceScroll);
 
       const handlePointerDown = (event: PointerEvent) => {
         if (event.target instanceof HTMLButtonElement) {
@@ -1103,6 +1204,7 @@ const MermaidDiagramExtension = TiptapNode.create({
           editButton.removeEventListener("click", openDiagramEditor);
           textarea.removeEventListener("input", handleSourceInput);
           textarea.removeEventListener("keydown", handleSourceKeyDown);
+          textarea.removeEventListener("scroll", syncSourceScroll);
           viewport.removeEventListener("pointerdown", handlePointerDown);
           viewport.removeEventListener("pointermove", handlePointerMove);
           viewport.removeEventListener("pointerup", handlePointerUp);
@@ -2636,6 +2738,14 @@ function AvenireEditor({
   const [tableOfContentsItems, setTableOfContentsItems] = useState<
     TableOfContentDataItem[]
   >([]);
+  const [documentStats, setDocumentStats] = useState<DocumentStats>({
+    characters: 0,
+    paragraphs: 0,
+    words: 0,
+  });
+  const [workspacePeek, setWorkspacePeek] = useState<WorkspacePeekState | null>(
+    null
+  );
   const tableContextMenuRef = useRef<HTMLDivElement | null>(null);
   const { startUpload: startImageUpload } = useUploadThing("imageUploader");
   const currentPane = useOptionalCurrentWorkspacePane();
@@ -2680,6 +2790,16 @@ function AvenireEditor({
           if (!route) {
             return;
           }
+          if (options.peek && !options.openInNewPane) {
+            const match = allWikiPagesRef.current.find(
+              (entry) => entry.id.toLowerCase() === fileIdentifier.toLowerCase()
+            );
+            setWorkspacePeek({
+              href: route,
+              title: match?.title ?? decodeURIComponent(fileIdentifier),
+            });
+            return;
+          }
           paneNavigation.navigate(route, {
             openInNewPane: options.openInNewPane,
           });
@@ -2691,6 +2811,10 @@ function AvenireEditor({
 
   const openWikiPage = useCallback(
     (page: WikiPage, options: WikiOpenOptions = { openInNewPane: false }) => {
+      if (options.peek && !options.openInNewPane) {
+        openWorkspaceFileIdentifier(page.id, options);
+        return;
+      }
       if (onOpenWikiLink) {
         onOpenWikiLink(page, options);
         return;
@@ -2863,6 +2987,7 @@ function AvenireEditor({
           event.preventDefault();
           openWorkspaceFileIdentifier(fileId, {
             openInNewPane: event.altKey,
+            peek: !event.altKey,
           });
           return true;
         }
@@ -2874,11 +2999,15 @@ function AvenireEditor({
         event.preventDefault();
         openWikiPage(page, {
           openInNewPane: event.altKey,
+          peek: !event.altKey,
         });
         return true;
       },
       handleDOMEvents: {
         mousedown(view, event) {
+          if (event.button !== 0) {
+            return false;
+          }
           const target = getEventTargetElement(event.target);
           const anchor = target?.closest(
             "a[href^='workspace-file://'], a[href^='wiki:'], a[href^='/wiki/']"
@@ -2898,13 +3027,35 @@ function AvenireEditor({
           event.stopPropagation();
           view.focus();
 
-          const options = { openInNewPane: event.altKey };
+          const options = { openInNewPane: event.altKey, peek: !event.altKey };
           if (fileId) {
             openWorkspaceFileIdentifier(fileId, options);
           } else if (page) {
             openWikiPage(page, options);
           }
 
+          return true;
+        },
+        contextmenu(_view, event) {
+          const target = getEventTargetElement(event.target);
+          const anchor = target?.closest(
+            "a[href^='workspace-file://'], a[href^='wiki:'], a[href^='/wiki/']"
+          ) as HTMLAnchorElement | null;
+          if (!anchor) {
+            return false;
+          }
+          const href = anchor.getAttribute("href");
+          const fileId = getWorkspaceFileIdFromHref(href);
+          const page = fileId ? null : resolveWikiPageFromHref(href);
+          if (!(fileId || page)) {
+            return false;
+          }
+          event.preventDefault();
+          if (fileId) {
+            openWorkspaceFileIdentifier(fileId, { openInNewPane: true });
+          } else if (page) {
+            openWikiPage(page, { openInNewPane: true });
+          }
           return true;
         },
         dragover(_view, event) {
@@ -2982,8 +3133,10 @@ function AvenireEditor({
     },
     onCreate: ({ editor }) => {
       migrateMathStrings(editor);
+      setDocumentStats(getDocumentStats(editor));
     },
     onUpdate: ({ editor }) => {
+      setDocumentStats(getDocumentStats(editor));
       onChange(
         normalizeWikiSyntax(editor.getMarkdown(), allWikiPagesRef.current)
       );
@@ -3802,7 +3955,6 @@ function AvenireEditor({
           strategy: "fixed",
           placement: "bottom-start",
           offset: 10,
-          onUpdate: () => editor.commands.updateFloatingMenuPosition(),
           flip: { padding: VIEWPORT_PADDING },
           shift: { padding: VIEWPORT_PADDING },
           scrollTarget: getScrollTarget(scrollContainerRef),
@@ -3842,7 +3994,6 @@ function AvenireEditor({
           strategy: "fixed",
           placement: "bottom-start",
           offset: 12,
-          onUpdate: () => editor.commands.updateFloatingMenuPosition(),
           flip: { padding: VIEWPORT_PADDING },
           shift: { padding: VIEWPORT_PADDING },
           scrollTarget: getScrollTarget(scrollContainerRef),
@@ -3881,6 +4032,12 @@ function AvenireEditor({
           editor={editor}
         />
         <EditorTableOfContentsRail items={tableOfContentsItems} />
+      </div>
+
+      <div aria-live="polite" className="scribe-document-stats">
+        <span>{documentStats.words.toLocaleString()} words</span>
+        <span>{documentStats.characters.toLocaleString()} characters</span>
+        <span>{documentStats.paragraphs.toLocaleString()} paragraphs</span>
       </div>
       <MathPopover
         editor={editor}
@@ -4111,6 +4268,62 @@ function AvenireEditor({
           </Button>
         </div>
       ) : null}
+
+      <Dialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setWorkspacePeek(null);
+          }
+        }}
+        open={workspacePeek !== null}
+      >
+        <DialogContent
+          className="h-[min(78vh,48rem)] overflow-hidden p-0 sm:max-w-[min(76rem,calc(100vw-3rem))]"
+          showCloseButton={false}
+        >
+          <div className="flex h-10 shrink-0 items-center justify-between border-border/60 border-b bg-background/92 px-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <DialogTitle className="truncate text-[13px]">
+                {workspacePeek?.title ?? "Preview"}
+              </DialogTitle>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                onClick={() => {
+                  if (workspacePeek) {
+                    paneNavigation.navigate(workspacePeek.href, {
+                      openInNewPane: false,
+                    });
+                    setWorkspacePeek(null);
+                  }
+                }}
+                size="icon-sm"
+                type="button"
+                variant="ghost"
+              >
+                <CornersOut className="size-3.5" />
+                <span className="sr-only">Open full page</span>
+              </Button>
+              <Button
+                onClick={() => setWorkspacePeek(null)}
+                size="icon-sm"
+                type="button"
+                variant="ghost"
+              >
+                <span aria-hidden>×</span>
+                <span className="sr-only">Close preview</span>
+              </Button>
+            </div>
+          </div>
+          {workspacePeek ? (
+            <iframe
+              className="h-[calc(100%-2.5rem)] w-full bg-background"
+              src={workspacePeek.href}
+              title={workspacePeek.title}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

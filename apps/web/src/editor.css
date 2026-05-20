@@ -22,8 +22,8 @@
 
 .scribe-document-row {
   display: grid;
-  grid-template-columns: minmax(3.125rem, 1fr) minmax(0, 45rem) minmax(
-      1rem,
+  grid-template-columns: minmax(1rem, 1fr) minmax(0, 45rem) minmax(
+      3.125rem,
       1fr
     );
   column-gap: 1rem;
@@ -138,22 +138,20 @@
   position: sticky;
   top: 6rem;
   display: block;
-  grid-column: 1;
+  grid-column: 3;
   align-self: start;
-  justify-self: end;
-  width: 3.125rem;
-  max-height: calc(100vh - 8rem);
-  margin-right: clamp(0.25rem, 2vw, 2.5rem);
+  justify-self: start;
+  width: 2rem;
+  max-height: min(34rem, calc(100vh - 8rem));
+  margin-left: clamp(0.25rem, 1.6vw, 2rem);
 }
 
 .editor-toc-rail__inner {
   position: relative;
-  width: 3.125rem;
+  width: 2rem;
   max-height: inherit;
-  overflow: visible;
-  transition:
-    width 180ms ease,
-    background-color 180ms ease;
+  overflow: hidden;
+  transition: width 180ms ease;
 }
 
 .editor-toc-rail__inner:hover,
@@ -164,9 +162,18 @@
 .editor-toc-rail__collapsed {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
-  min-height: 11rem;
-  padding: 0.85rem 0.7rem;
+  gap: 0.42rem;
+  min-height: 8rem;
+  max-height: inherit;
+  padding: 0.5rem 0.35rem;
+  overflow: hidden;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    black 12%,
+    black 88%,
+    transparent
+  );
   transition: opacity 140ms ease;
 }
 
@@ -177,8 +184,8 @@
 
 .editor-toc-rail__tick {
   display: block;
-  min-width: 1.5rem;
-  height: 2px;
+  min-width: 0.7rem;
+  height: 1px;
   background: color-mix(in oklch, var(--foreground) 42%, transparent 58%);
   transition:
     width 160ms ease,
@@ -186,19 +193,25 @@
 }
 
 .editor-toc-rail__tick.is-active {
-  height: 3px;
-  background: #2563eb;
+  height: 1px;
+  background: var(--foreground);
 }
 
 .editor-toc-rail__panel {
   position: absolute;
   inset: 0;
   overflow-y: auto;
-  background: color-mix(in oklch, var(--background) 98%, transparent 2%);
+  background: var(--background);
   border: 1px solid var(--border);
   border-radius: 0.65rem;
-  box-shadow: 0 8px 24px color-mix(in oklch, var(--foreground) 7%, transparent);
   opacity: 0;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    black 10%,
+    black 90%,
+    transparent
+  );
   transition: opacity 140ms ease;
 }
 
@@ -241,13 +254,12 @@
 }
 
 .editor-toc-rail__item.is-active {
-  color: #2563eb;
+  color: var(--foreground);
 }
 
 @media (hover: none), (pointer: coarse) {
   .editor-toc-rail__inner {
-    width: 3.5rem;
-    background: color-mix(in oklch, var(--background) 96%, transparent 4%);
+    width: 2rem;
   }
 
   .editor-toc-rail__inner:focus-within {
@@ -582,14 +594,34 @@
 
 .scribe-surface .scribe-codeblock-language {
   max-width: 8.5rem;
-  padding: 0 1.35rem 0 0.5rem;
+  padding: 0 1.7rem 0 0.55rem;
+  appearance: none;
+  color-scheme: dark;
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-repeat: no-repeat;
+  background-position:
+    calc(100% - 0.72rem) 50%,
+    calc(100% - 0.48rem) 50%;
+  background-size:
+    0.25rem 0.25rem,
+    0.25rem 0.25rem;
 }
 
 .scribe-surface .scribe-codeblock-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  min-width: 1.75rem;
   padding: 0 0.55rem;
+}
+
+.scribe-surface .scribe-codeblock-button svg,
+.scribe-surface .mermaid-diagram-edit svg,
+.scribe-surface .mermaid-diagram-zoom-button svg {
+  width: 0.9rem;
+  height: 0.9rem;
 }
 
 .scribe-surface .scribe-codeblock-language:hover,
@@ -667,6 +699,10 @@
 }
 
 .scribe-surface a[href^="wiki:"] {
+  cursor: pointer;
+}
+
+.scribe-surface a[href^="workspace-file://"] {
   cursor: pointer;
 }
 
@@ -820,6 +856,7 @@
 }
 
 .scribe-surface .mermaid-diagram-editor {
+  position: relative;
   display: none;
   min-width: 0;
   background: var(--secondary);
@@ -830,15 +867,43 @@
   display: block;
 }
 
-.scribe-surface .mermaid-diagram-source {
+.scribe-surface .mermaid-diagram-source,
+.scribe-surface .mermaid-diagram-source-highlight {
   display: block;
   width: 100%;
   height: 480px;
   padding: 0.9rem 1rem;
+  margin: 0;
+  overflow: auto;
   font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.8rem;
   line-height: 1.55;
+  tab-size: 2;
+  white-space: pre;
+}
+
+.scribe-surface .mermaid-diagram-source-highlight {
   color: var(--foreground);
+  pointer-events: none;
+}
+
+.scribe-surface .mermaid-diagram-source-highlight .token-keyword {
+  color: #ef8f52;
+}
+
+.scribe-surface .mermaid-diagram-source-highlight .token-operator {
+  color: #4c8dff;
+}
+
+.scribe-surface .mermaid-diagram-source-highlight .token-string {
+  color: #2c9a7a;
+}
+
+.scribe-surface .mermaid-diagram-source {
+  position: absolute;
+  inset: 0;
+  color: transparent;
+  caret-color: var(--foreground);
   resize: none;
   outline: none;
   background: transparent;
@@ -892,8 +957,9 @@
   top: 0.55rem;
   right: 0.55rem;
   z-index: 2;
+  width: 2rem;
   height: 1.85rem;
-  padding: 0 0.6rem;
+  padding: 0;
   font-size: 0.72rem;
   font-weight: 500;
 }
@@ -904,14 +970,15 @@
   bottom: 0.55rem;
   z-index: 2;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   gap: 0.3rem;
 }
 
 .scribe-surface .mermaid-diagram-zoom-button {
+  width: 2rem;
   min-width: 2rem;
   height: 2rem;
-  padding: 0 0.55rem;
+  padding: 0;
   font-size: 1rem;
 }
 
@@ -929,17 +996,25 @@
   border-radius: 0.45rem;
 }
 
-.scribe-surface .mermaid-diagram-wrapper:fullscreen {
-  width: 100vw;
-  height: 100vh;
+.scribe-surface .mermaid-diagram-wrapper.is-expanded {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 95;
+  width: min(76rem, calc(100vw - 3rem));
+  height: min(48rem, calc(100vh - 3rem));
   margin: 0;
-  border: 0;
-  border-radius: 0;
+  border-radius: 0.75rem;
+  box-shadow: 0 24px 80px color-mix(in oklch, black 38%, transparent);
+  transform: translate(-50%, -50%);
 }
 
-.scribe-surface .mermaid-diagram-wrapper:fullscreen .mermaid-diagram-viewport,
-.scribe-surface .mermaid-diagram-wrapper:fullscreen .mermaid-diagram-source {
-  height: 100vh;
+.scribe-surface .mermaid-diagram-wrapper.is-expanded .mermaid-diagram-viewport,
+.scribe-surface .mermaid-diagram-wrapper.is-expanded .mermaid-diagram-source,
+.scribe-surface
+  .mermaid-diagram-wrapper.is-expanded
+  .mermaid-diagram-source-highlight {
+  height: min(48rem, calc(100vh - 3rem));
 }
 
 @media (max-width: 900px) {
@@ -1024,6 +1099,20 @@
   background: var(--popover);
   border-radius: 0.375rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.scribe-document-stats {
+  position: sticky;
+  right: 1rem;
+  bottom: 0.75rem;
+  z-index: 20;
+  display: flex;
+  gap: 1.35rem;
+  justify-content: flex-end;
+  padding: 0 1rem 0.75rem;
+  font-size: 0.78rem;
+  color: var(--muted-foreground);
+  pointer-events: none;
 }
 
 .scribe-autosave-badge[data-state="saving"] {
