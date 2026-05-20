@@ -2,11 +2,6 @@
 
 import { Button } from "@avenire/ui/components/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@avenire/ui/components/dialog";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
@@ -34,7 +29,6 @@ import {
   CaretDown as ChevronDown,
   Code,
   Columns as Columns3,
-  CornersOut,
   TextHOne as Heading1,
   TextHTwo as Heading2,
   TextHThree as Heading3,
@@ -109,7 +103,6 @@ import { BubbleMenu, FloatingMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
 import { renderMermaidSVG } from "beautiful-mermaid";
 import { common, createLowlight } from "lowlight";
-import NextImage from "next/image";
 import {
   type ComponentType,
   type KeyboardEvent,
@@ -494,124 +487,6 @@ const PasteMarkdownExtension = Extension.create({
   },
 });
 
-async function _loadWikiPreviewMarkdown(input: {
-  pageId: string;
-  signal: AbortSignal;
-}) {
-  const response = await fetch(`/api/notes/${input.pageId}/sync`, {
-    cache: "no-store",
-    signal: input.signal,
-  });
-
-  if (!response.ok) {
-    return null;
-  }
-
-  const payload = (await response.json().catch(() => ({}))) as {
-    markdown?: string;
-  };
-  return payload.markdown ?? "";
-}
-
-async function loadWorkspacePeekFile(input: {
-  fileId: string;
-  signal: AbortSignal;
-  workspaceUuid: string;
-}) {
-  const response = await fetch(
-    `/api/workspaces/${input.workspaceUuid}/files/${input.fileId}`,
-    {
-      cache: "no-store",
-      signal: input.signal,
-    }
-  );
-
-  if (!response.ok) {
-    return null;
-  }
-
-  const payload = (await response.json().catch(() => ({}))) as {
-    file?: WorkspacePeekFile;
-  };
-  return payload.file ?? null;
-}
-
-function getWorkspacePeekPreviewKind(
-  file: WorkspacePeekFile
-): WorkspacePeekPreviewKind {
-  const mime = file.mimeType?.toLowerCase() ?? "";
-  const extension = file.name.includes(".")
-    ? file.name.slice(file.name.lastIndexOf(".")).toLowerCase()
-    : "";
-
-  if (
-    mime.includes("markdown") ||
-    extension === ".md" ||
-    extension === ".mdx"
-  ) {
-    return "markdown";
-  }
-  if (
-    mime.startsWith("image/") ||
-    [".avif", ".gif", ".jpeg", ".jpg", ".png", ".svg", ".webp"].includes(
-      extension
-    )
-  ) {
-    return "image";
-  }
-  if (
-    mime.startsWith("video/") ||
-    [".m4v", ".mov", ".mp4", ".ogg", ".webm"].includes(extension)
-  ) {
-    return "video";
-  }
-  if (
-    mime.startsWith("audio/") ||
-    [".aac", ".flac", ".m4a", ".mp3", ".ogg", ".wav"].includes(extension)
-  ) {
-    return "audio";
-  }
-  if (mime === "application/pdf" || extension === ".pdf") {
-    return "pdf";
-  }
-
-  return "unknown";
-}
-
-function getWorkspacePeekFileIdFromRoute(route: string, fallbackId: string) {
-  const queryIndex = route.indexOf("?");
-  if (queryIndex < 0) {
-    return fallbackId;
-  }
-
-  const params = new URLSearchParams(route.slice(queryIndex + 1));
-  return params.get("file") || fallbackId;
-}
-
-async function saveWorkspacePeekMarkdown(input: {
-  content: string;
-  fileId: string;
-  workspaceUuid: string;
-}) {
-  const response = await fetch(
-    `/api/workspaces/${input.workspaceUuid}/files/${input.fileId}/content`,
-    {
-      body: JSON.stringify({ content: input.content }),
-      headers: {
-        "Content-Type": "application/json",
-      },
-      method: "PATCH",
-    }
-  );
-
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => ({}))) as {
-      error?: string;
-    };
-    throw new Error(payload.error ?? "Could not save preview changes.");
-  }
-}
-
 interface SlashMatch {
   from: number;
   key: string;
@@ -630,7 +505,6 @@ interface MathPopoverState {
 
 interface WikiOpenOptions {
   openInNewPane: boolean;
-  peek?: boolean;
 }
 
 interface DocumentStats {
@@ -638,27 +512,6 @@ interface DocumentStats {
   paragraphs: number;
   words: number;
 }
-
-interface WorkspacePeekState {
-  fileId: string;
-  href: string;
-  title: string;
-}
-
-interface WorkspacePeekFile {
-  folderId?: string | null;
-  id: string;
-  mimeType: string | null;
-  name: string;
-}
-
-type WorkspacePeekPreviewKind =
-  | "audio"
-  | "image"
-  | "markdown"
-  | "pdf"
-  | "unknown"
-  | "video";
 
 interface WikiPreviewState {
   anchorEl: HTMLAnchorElement;
@@ -2815,23 +2668,6 @@ function AvenireEditor({
     paragraphs: 0,
     words: 0,
   });
-  const [workspacePeek, setWorkspacePeek] = useState<WorkspacePeekState | null>(
-    null
-  );
-  const [workspacePeekFile, setWorkspacePeekFile] =
-    useState<WorkspacePeekFile | null>(null);
-  const [workspacePeekMarkdown, setWorkspacePeekMarkdown] = useState("");
-  const [workspacePeekLoading, setWorkspacePeekLoading] = useState(false);
-  const [workspacePeekError, setWorkspacePeekError] = useState<string | null>(
-    null
-  );
-  const [workspacePeekSaveState, setWorkspacePeekSaveState] = useState<
-    "error" | "idle" | "saved" | "saving"
-  >("idle");
-  const workspacePeekSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null
-  );
-  const workspacePeekScrollRef = useRef<HTMLDivElement | null>(null);
   const tableContextMenuRef = useRef<HTMLDivElement | null>(null);
   const { startUpload: startImageUpload } = useUploadThing("imageUploader");
   const currentPane = useOptionalCurrentWorkspacePane();
@@ -2876,17 +2712,6 @@ function AvenireEditor({
           if (!route) {
             return;
           }
-          if (options.peek && !options.openInNewPane) {
-            const match = allWikiPagesRef.current.find(
-              (entry) => entry.id.toLowerCase() === fileIdentifier.toLowerCase()
-            );
-            setWorkspacePeek({
-              fileId: getWorkspacePeekFileIdFromRoute(route, fileIdentifier),
-              href: route,
-              title: match?.title ?? decodeURIComponent(fileIdentifier),
-            });
-            return;
-          }
           paneNavigation.navigate(route, {
             openInNewPane: options.openInNewPane,
           });
@@ -2898,10 +2723,6 @@ function AvenireEditor({
 
   const openWikiPage = useCallback(
     (page: WikiPage, options: WikiOpenOptions = { openInNewPane: false }) => {
-      if (options.peek && !options.openInNewPane) {
-        openWorkspaceFileIdentifier(page.id, options);
-        return;
-      }
       if (onOpenWikiLink) {
         onOpenWikiLink(page, options);
         return;
@@ -2925,104 +2746,6 @@ function AvenireEditor({
       window.clearTimeout(timer);
     };
   }, [inlineNotice]);
-
-  useEffect(() => {
-    if (!workspacePeek) {
-      setWorkspacePeekFile(null);
-      setWorkspacePeekMarkdown("");
-      setWorkspacePeekError(null);
-      setWorkspacePeekLoading(false);
-      setWorkspacePeekSaveState("idle");
-      return;
-    }
-
-    const controller = new AbortController();
-    setWorkspacePeekLoading(true);
-    setWorkspacePeekError(null);
-    setWorkspacePeekFile(null);
-    setWorkspacePeekMarkdown("");
-    setWorkspacePeekSaveState("idle");
-    void loadWorkspacePeekFile({
-      fileId: workspacePeek.fileId,
-      signal: controller.signal,
-      workspaceUuid,
-    })
-      .then(async (file) => {
-        if (controller.signal.aborted) {
-          return;
-        }
-        if (!file) {
-          setWorkspacePeekError("Could not load this file preview.");
-          return;
-        }
-        setWorkspacePeekFile(file);
-        if (getWorkspacePeekPreviewKind(file) !== "markdown") {
-          return;
-        }
-        const markdown = await _loadWikiPreviewMarkdown({
-          pageId: workspacePeek.fileId,
-          signal: controller.signal,
-        });
-        if (controller.signal.aborted) {
-          return;
-        }
-        if (markdown === null) {
-          setWorkspacePeekError("Could not load this markdown file.");
-          return;
-        }
-        setWorkspacePeekMarkdown(markdown);
-      })
-      .catch((error) => {
-        if (controller.signal.aborted) {
-          return;
-        }
-        setWorkspacePeekError(
-          error instanceof Error ? error.message : "Could not load this file preview."
-        );
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setWorkspacePeekLoading(false);
-        }
-      });
-
-    return () => controller.abort();
-  }, [workspacePeek, workspaceUuid]);
-
-  useEffect(() => {
-    return () => {
-      if (workspacePeekSaveTimerRef.current) {
-        clearTimeout(workspacePeekSaveTimerRef.current);
-      }
-    };
-  }, []);
-
-  const scheduleWorkspacePeekMarkdownSave = useCallback(
-    (markdown: string) => {
-      if (!workspacePeek) {
-        return;
-      }
-      if (workspacePeekSaveTimerRef.current) {
-        clearTimeout(workspacePeekSaveTimerRef.current);
-      }
-      setWorkspacePeekSaveState("saving");
-      const fileId = workspacePeek.fileId;
-      workspacePeekSaveTimerRef.current = setTimeout(() => {
-        void saveWorkspacePeekMarkdown({
-          content: markdown,
-          fileId,
-          workspaceUuid,
-        })
-          .then(() => {
-            setWorkspacePeekSaveState("saved");
-          })
-          .catch(() => {
-            setWorkspacePeekSaveState("error");
-          });
-      }, 700);
-    },
-    [workspacePeek, workspaceUuid]
-  );
 
   const normalizedDefaultValue = useMemo(
     () => normalizeWikiSyntax(defaultValue, wikiPages),
@@ -3173,7 +2896,6 @@ function AvenireEditor({
           event.preventDefault();
           openWorkspaceFileIdentifier(fileId, {
             openInNewPane: event.altKey,
-            peek: !event.altKey,
           });
           return true;
         }
@@ -3185,7 +2907,6 @@ function AvenireEditor({
         event.preventDefault();
         openWikiPage(page, {
           openInNewPane: event.altKey,
-          peek: !event.altKey,
         });
         return true;
       },
@@ -3213,7 +2934,7 @@ function AvenireEditor({
           event.stopPropagation();
           view.focus();
 
-          const options = { openInNewPane: event.altKey, peek: !event.altKey };
+          const options = { openInNewPane: event.altKey };
           if (fileId) {
             openWorkspaceFileIdentifier(fileId, options);
           } else if (page) {
@@ -4455,164 +4176,6 @@ function AvenireEditor({
         </div>
       ) : null}
 
-      <Dialog
-        onOpenChange={(open) => {
-          if (!open) {
-            setWorkspacePeek(null);
-          }
-        }}
-        open={workspacePeek !== null}
-      >
-        <DialogContent
-          className="h-[min(78vh,48rem)] overflow-hidden p-0 sm:max-w-[min(76rem,calc(100vw-3rem))]"
-          showCloseButton={false}
-        >
-          <div className="flex h-10 shrink-0 items-center justify-between border-border/60 border-b bg-background/92 px-3">
-            <div className="flex min-w-0 items-center gap-2">
-              <DialogTitle className="truncate text-[13px]">
-                {workspacePeek?.title ?? "Preview"}
-              </DialogTitle>
-            </div>
-            <div className="flex items-center gap-1">
-              <Button
-                onClick={() => {
-                  if (workspacePeek) {
-                    paneNavigation.navigate(workspacePeek.href, {
-                      openInNewPane: false,
-                    });
-                    setWorkspacePeek(null);
-                  }
-                }}
-                size="icon-sm"
-                type="button"
-                variant="ghost"
-              >
-                <CornersOut className="size-3.5" />
-                <span className="sr-only">Open full page</span>
-              </Button>
-              <Button
-                onClick={() => setWorkspacePeek(null)}
-                size="icon-sm"
-                type="button"
-                variant="ghost"
-              >
-                <span aria-hidden>×</span>
-                <span className="sr-only">Close preview</span>
-              </Button>
-            </div>
-          </div>
-          <div
-            className="h-[calc(100%-2.5rem)] overflow-y-auto bg-background"
-            ref={workspacePeekScrollRef}
-          >
-            {workspacePeekLoading ? (
-              <div className="flex h-full items-center justify-center text-muted-foreground text-xs">
-                Loading preview...
-              </div>
-            ) : workspacePeekError ? (
-              <div className="flex h-full items-center justify-center px-6 text-center text-destructive text-xs">
-                {workspacePeekError}
-              </div>
-            ) : workspacePeek && workspacePeekFile ? (
-              (() => {
-                const previewKind =
-                  getWorkspacePeekPreviewKind(workspacePeekFile);
-                const streamUrl = `/api/workspaces/${workspaceUuid}/files/${workspacePeek.fileId}/stream`;
-
-                if (previewKind === "markdown") {
-                  return (
-                    <AvenireEditor
-                      defaultValue={workspacePeekMarkdown}
-                      key={workspacePeek.fileId}
-                      noteTitle={workspacePeek.title}
-                      onChange={(markdown) => {
-                        setWorkspacePeekMarkdown(markdown);
-                        scheduleWorkspacePeekMarkdownSave(markdown);
-                      }}
-                      saveMessage={
-                        workspacePeekSaveState === "error"
-                          ? "Could not save preview changes"
-                          : undefined
-                      }
-                      saveState={workspacePeekSaveState}
-                      scrollContainerRef={workspacePeekScrollRef}
-                      wikiPages={wikiPages}
-                      workspaceUuid={workspaceUuid}
-                    />
-                  );
-                }
-
-                if (previewKind === "image") {
-                  return (
-                    <div className="flex min-h-full items-center justify-center p-6">
-                      <div className="relative h-[min(68vh,42rem)] w-full max-w-[60rem]">
-                        <NextImage
-                          alt={workspacePeekFile.name}
-                          className="rounded-md object-contain"
-                          fill
-                          sizes="min(60rem, 100vw)"
-                          src={streamUrl}
-                          unoptimized
-                        />
-                      </div>
-                    </div>
-                  );
-                }
-
-                if (previewKind === "video") {
-                  return (
-                    <div className="flex min-h-full items-center justify-center p-6">
-                      <video
-                        className="max-h-full max-w-full rounded-md"
-                        controls
-                        src={streamUrl}
-                      >
-                        <track kind="captions" />
-                      </video>
-                    </div>
-                  );
-                }
-
-                if (previewKind === "audio") {
-                  return (
-                    <div className="flex min-h-full items-center justify-center p-6">
-                      <audio className="w-full max-w-xl" controls src={streamUrl}>
-                        <track kind="captions" />
-                      </audio>
-                    </div>
-                  );
-                }
-
-                if (previewKind === "pdf") {
-                  return (
-                    <iframe
-                      className="h-full w-full border-0"
-                      src={streamUrl}
-                      title={workspacePeekFile.name}
-                    />
-                  );
-                }
-
-                return (
-                  <div className="flex h-full items-center justify-center px-6 text-center">
-                    <div className="max-w-sm">
-                      <div className="font-medium text-sm">
-                        No inline preview available
-                      </div>
-                      <div className="mt-2 text-muted-foreground text-xs">
-                        {workspacePeekFile.name}
-                        {workspacePeekFile.mimeType
-                          ? ` · ${workspacePeekFile.mimeType}`
-                          : ""}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()
-            ) : null}
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
