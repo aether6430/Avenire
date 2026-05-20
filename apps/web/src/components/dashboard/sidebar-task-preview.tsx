@@ -85,6 +85,10 @@ export function SidebarTaskPreview({
   const upcomingTasks = visibleTasks.filter((task) =>
     task.dueAt ? new Date(task.dueAt) > now : false
   );
+  const noDateTasks = visibleTasks.filter((task) => !task.dueAt);
+  const untaggedTasks = visibleTasks.filter(
+    (task) => (task.resources ?? []).length === 0
+  );
 
   const renderTaskItems = (tasks: typeof visibleTasks, emptyLabel: string) =>
     tasks.length > 0 ? (
@@ -182,6 +186,21 @@ export function SidebarTaskPreview({
               {renderTaskItems(
                 upcomingTasks,
                 "No upcoming tasks have due dates yet."
+              )}
+            </SidebarGroupContent>
+          </SidebarGroup>
+          <SidebarGroup className="mt-3">
+            <SidebarGroupLabel>No due date</SidebarGroupLabel>
+            <SidebarGroupContent>
+              {renderTaskItems(noDateTasks, "Every open task has a due date.")}
+            </SidebarGroupContent>
+          </SidebarGroup>
+          <SidebarGroup className="mt-3">
+            <SidebarGroupLabel>Untagged tasks</SidebarGroupLabel>
+            <SidebarGroupContent>
+              {renderTaskItems(
+                untaggedTasks,
+                "Every open task is linked to context."
               )}
             </SidebarGroupContent>
           </SidebarGroup>

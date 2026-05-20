@@ -2016,25 +2016,19 @@ export function FileExplorer({
 
   const filteredFolders = useMemo(() => {
     const term = query.trim().toLowerCase();
-    const activeVectorIds =
-      vectorFilteredIds && vectorFilteredIds.size > 0
-        ? vectorFilteredIds
-        : null;
+    const activeVectorIds = vectorFilteredIds;
     return activeVectorIds
-      ? folders.filter((folder) => activeVectorIds.has(folder.id))
+      ? allFolders.filter((folder) => activeVectorIds.has(folder.id))
       : term
         ? folders.filter((folder) => folder.name.toLowerCase().includes(term))
         : folders;
-  }, [folders, query, vectorFilteredIds]);
+  }, [allFolders, folders, query, vectorFilteredIds]);
 
   const filteredFiles = useMemo(() => {
     const term = query.trim().toLowerCase();
-    const activeVectorIds =
-      vectorFilteredIds && vectorFilteredIds.size > 0
-        ? vectorFilteredIds
-        : null;
+    const activeVectorIds = vectorFilteredIds;
     const base = activeVectorIds
-      ? files.filter((file) => activeVectorIds.has(file.id))
+      ? allFiles.filter((file) => activeVectorIds.has(file.id))
       : term
         ? files.filter((file) => file.name.toLowerCase().includes(term))
         : files;
@@ -2130,7 +2124,7 @@ export function FileExplorer({
         }
       });
     });
-  }, [files, propertyFilters, query, vectorFilteredIds]);
+  }, [allFiles, files, propertyFilters, query, vectorFilteredIds]);
 
   const sortedFolders = useMemo(
     () =>
@@ -2227,6 +2221,19 @@ export function FileExplorer({
     ],
     [sortedFiles, sortedFolders]
   );
+  const isSearchFilteredView =
+    query.trim().length > 0 && vectorFilteredIds !== null;
+  const searchResultByFileId = useMemo(() => {
+    const map = new Map<string, WorkspaceSearchResult>();
+    for (const result of retrievalResults) {
+      const fileId = result.fileId ?? result.id;
+      const previous = map.get(fileId);
+      if (!previous || result.score > previous.score) {
+        map.set(fileId, result);
+      }
+    }
+    return map;
+  }, [retrievalResults]);
 
   const folderSubfolderCount = useMemo(() => {
     const map = new Map<string, number>();
@@ -5203,9 +5210,14 @@ export function FileExplorer({
   }, []);
 
   const handleSearch = useCallback(
-    (_searchQuery: string, results: WorkspaceSearchResult[]) => {
-      setQuery("");
+    (searchQuery: string, results: WorkspaceSearchResult[]) => {
+      setQuery(searchQuery);
       setRetrievalResults(results);
+      setVectorFilteredIds(
+        searchQuery.trim().length > 0
+          ? new Set(results.map((result) => result.fileId ?? result.id))
+          : null
+      );
       if (results.length === 0) {
         setActiveRetrievalChunkId(null);
       }
@@ -6197,6 +6209,7 @@ export function FileExplorer({
                       <div
                         className={cn(
                           "flex flex-wrap gap-3",
+                          isSearchFilteredView && "flex-col gap-2",
                           viewMode !== "cards" && "hidden"
                         )}
                       >
@@ -6212,7 +6225,7 @@ export function FileExplorer({
                               >
                                 <Card
                                   className={cn(
-                                    "group relative cursor-pointer overflow-hidden rounded-2xl border border-transparent bg-transparent p-2 ring-0 transition",
+                                    "group relative cursor-pointer overflow-hidden rounded-md border border-transparent bg-transparent p-2 ring-0 transition",
                                     selection.selectedIds.has(folder.id) &&
                                       "border border-primary bg-primary/5",
                                     dropTargetId === folder.id &&
@@ -6275,7 +6288,9 @@ export function FileExplorer({
                                   style={{
                                     containIntrinsicSize: "214px 160px",
                                     contentVisibility: "auto",
-                                    width: 160,
+                                    width: isSearchFilteredView
+                                      ? "100%"
+                                      : 160,
                                   }}
                                 >
                                   <div
@@ -6517,6 +6532,22 @@ export function FileExplorer({
                           const fileKind = detectFileKind(file);
                           const fileCardType =
                             fileKind === "sheet" ? "document" : fileKind;
+                          const searchResult = searchResultByFileId.get(
+                            file.id
+                          );
+                          const searchMatchMeta = searchResult
+                            ? [
+                                typeof searchResult.page === "number" &&
+                                searchResult.page > 0
+                                  ? `Page ${searchResult.page}`
+                                  : null,
+                                typeof searchResult.startMs === "number"
+                                  ? `${Math.max(0, Math.round(searchResult.startMs / 1000))}s`
+                                  : null,
+                              ]
+                                .filter(Boolean)
+                                .join(" • ")
+                            : undefined;
                           return (
                             <ContextMenu key={file.id}>
                               <ContextMenuTrigger
@@ -6524,7 +6555,7 @@ export function FileExplorer({
                               >
                                 <Card
                                   className={cn(
-                                    "group grid-card-item relative cursor-pointer overflow-hidden rounded-2xl border border-transparent bg-transparent p-2 ring-0 transition",
+                                    "group grid-card-item relative cursor-pointer overflow-hidden rounded-md border border-transparent bg-transparent p-2 ring-0 transition",
                                     selection.selectedIds.has(file.id) &&
                                       "border border-primary bg-primary/5"
                                   )}
@@ -6589,7 +6620,9 @@ export function FileExplorer({
                                   style={{
                                     containIntrinsicSize: "214px 160px",
                                     contentVisibility: "auto",
-                                    width: 160,
+                                    width: isSearchFilteredView
+                                      ? "100%"
+                                      : 160,
                                   }}
                                   tabIndex={0}
                                 >
@@ -6624,6 +6657,8 @@ export function FileExplorer({
                                           file.updatedAt ?? file.createdAt
                                         )
                                       }
+                                      matchMeta={searchMatchMeta}
+                                      matchSnippet={searchResult?.snippet}
                                       name={
                                         normalizeFilePageIcon(file.page?.icon)
                                           ? `${normalizeFilePageIcon(file.page?.icon)} ${file.name}`
@@ -6672,6 +6707,9 @@ export function FileExplorer({
                                             src={file.storageUrl}
                                           />
                                         ) : undefined
+                                      }
+                                      variant={
+                                        isSearchFilteredView ? "row" : "grid"
                                       }
                                     />
                                   </CardContent>
@@ -6791,6 +6829,13 @@ export function FileExplorer({
                             </ContextMenu>
                           );
                         })}
+                        {isSearchFilteredView &&
+                        sortedFolders.length === 0 &&
+                        sortedFiles.length === 0 ? (
+                          <div className="w-full rounded-md border border-border/60 bg-card px-4 py-8 text-center text-muted-foreground text-sm">
+                            No indexed files matched this search.
+                          </div>
+                        ) : null}
                       </div>
                       {viewMode === "list" ? (
                         <div className="rounded-md bg-secondary/30">

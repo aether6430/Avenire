@@ -5,8 +5,7 @@ import {
   useMediaPlaybackSource,
 } from "@avenire/ui/media";
 import { FileCode as FileCode2, FileText } from "@phosphor-icons/react";
-import { useTheme } from "next-themes";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   primeMediaPlayback,
   releaseMediaPlaybackPrime,
@@ -31,9 +30,12 @@ interface FileCardProps {
   }>;
   fileType: FileCardType;
   lastUpdated: Date;
+  matchMeta?: string;
+  matchSnippet?: string;
   name: string;
   previewContent?: React.ReactNode;
   previewUrl?: string;
+  variant?: "grid" | "row";
 }
 
 interface MarkdownThumbnailProps {
@@ -83,18 +85,8 @@ const MARKDOWN_BLOCKQUOTE_REGEX = /^\s{0,3}>\s?/;
 const MARKDOWN_LIST_REGEX = /^\s{0,3}(?:[-*+]|(?:\d+\.))\s+/;
 const MARKDOWN_HORIZONTAL_RULE_REGEX = /^\s{0,3}(?:[-*_]\s?){3,}$/;
 const WHITESPACE_REGEX = /\s+/g;
-const WORD_SPLIT_REGEX = /\s+/;
 const THUMBNAIL_SURFACE_CLASS =
-  "relative flex h-full w-full items-center justify-center overflow-hidden rounded-md";
-
-function escapeXml(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&apos;");
-}
+  "relative flex h-full w-full items-center justify-center overflow-hidden rounded-md border border-border/60 bg-background";
 
 function stripMarkdownFrontmatter(content: string) {
   return content.replace(MARKDOWN_FRONTMATTER_REGEX, "");
@@ -128,45 +120,6 @@ function normalizeMarkdownLine(line: string) {
   return normalized;
 }
 
-function wrapTextLine(text: string, maxChars: number) {
-  const words = text.split(WORD_SPLIT_REGEX).filter(Boolean);
-  if (words.length === 0) {
-    return [];
-  }
-
-  const lines: string[] = [];
-  let current = "";
-
-  for (const word of words) {
-    const candidate = current ? `${current} ${word}` : word;
-    if (candidate.length <= maxChars) {
-      current = candidate;
-      continue;
-    }
-
-    if (current) {
-      lines.push(current);
-    }
-
-    if (word.length > maxChars) {
-      let remaining = word;
-      while (remaining.length > maxChars) {
-        lines.push(`${remaining.slice(0, maxChars - 1)}…`);
-        remaining = remaining.slice(maxChars - 1);
-      }
-      current = remaining;
-    } else {
-      current = word;
-    }
-  }
-
-  if (current) {
-    lines.push(current);
-  }
-
-  return lines;
-}
-
 function markdownToPreviewLines(markdown: string) {
   const normalized = stripMarkdownFrontmatter(markdown).replaceAll(
     "\r\n",
@@ -195,89 +148,6 @@ function markdownToPreviewLines(markdown: string) {
   }
 
   return cleanedLines;
-}
-
-function buildMarkdownThumbnailSvg(markdown: string, isDark: boolean) {
-  const width = 400;
-  const height = 250;
-  const lines = markdownToPreviewLines(markdown);
-  const headlineSource =
-    lines.find((line) => line.length > 0) ?? "Untitled note";
-  const headlineLines = wrapTextLine(headlineSource, 28).slice(0, 2);
-  const bodySource = lines.slice(
-    lines.findIndex((line) => line.length > 0) + 1
-  );
-  const bodyLines = bodySource
-    .flatMap((line) => (line ? wrapTextLine(line, 40) : [""]))
-    .slice(0, 7);
-  const palette = isDark
-    ? {
-        bodyText: "#3a3a3a",
-        innerFill: "#f7f4ee",
-        innerStroke: "rgba(17, 24, 39, 0.08)",
-        line: "rgba(17, 24, 39, 0.08)",
-        outerStart: "#1b1b1b",
-        outerEnd: "#232323",
-        titleText: "#111827",
-      }
-    : {
-        bodyText: "#4b5563",
-        innerFill: "#fffdf8",
-        innerStroke: "rgba(17, 24, 39, 0.08)",
-        line: "rgba(17, 24, 39, 0.08)",
-        outerStart: "#f7f3ea",
-        outerEnd: "#efe9dc",
-        titleText: "#111827",
-      };
-  const titleY = 46;
-  const bodyY = 88;
-  const titleLineHeight = 20;
-  const bodyLineHeight = 15;
-
-  const titleSvg = headlineLines
-    .map(
-      (line, index) =>
-        `<text x="32" y="${titleY + index * titleLineHeight}" fill="${palette.titleText}" font-family="Inter, system-ui, sans-serif" font-size="15.5" font-weight="700" letter-spacing="-0.01em">${escapeXml(line)}</text>`
-    )
-    .join("");
-
-  const bodySvg = bodyLines
-    .map((line, index) => {
-      if (!line) {
-        return "";
-      }
-      return `<text x="32" y="${bodyY + index * bodyLineHeight}" fill="${palette.bodyText}" font-family="Inter, system-ui, sans-serif" font-size="11.25" font-weight="400">${escapeXml(line)}</text>`;
-    })
-    .join("");
-
-  const lineDecorations = Array.from({ length: 6 }, (_unused, index) => {
-    const y = 106 + index * 18;
-    const widthMultiplier = [0.78, 0.94, 0.88, 0.72, 0.91, 0.64][index];
-    const x2 = 32 + 304 * widthMultiplier;
-    return `<line x1="32" y1="${y}" x2="${x2}" y2="${y}" stroke="${palette.line}" stroke-width="1" />`;
-  }).join("");
-
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="Markdown preview">
-      <defs>
-        <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stop-color="${palette.outerStart}" />
-          <stop offset="100%" stop-color="${palette.outerEnd}" />
-        </linearGradient>
-        <filter id="pageShadow" x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#000000" flood-opacity="0.16" />
-        </filter>
-      </defs>
-      <rect width="400" height="250" rx="18" fill="url(#bg)" />
-      <rect x="20" y="14" width="360" height="222" rx="14" fill="${palette.innerFill}" filter="url(#pageShadow)" />
-      <rect x="20" y="14" width="360" height="222" rx="14" fill="none" stroke="${palette.innerStroke}" />
-      <rect x="32" y="28" width="46" height="6" rx="3" fill="${palette.line}" />
-      <rect x="32" y="37" width="98" height="2" rx="1" fill="${palette.line}" opacity="0.65" />
-      ${titleSvg}
-      ${lineDecorations}
-      ${bodySvg}
-    </svg>`
-  )}`;
 }
 
 function getFileIcon(fileType: FileCardType): React.ReactNode {
@@ -313,9 +183,12 @@ export function FileCard({
   details = [],
   fileType,
   lastUpdated,
+  matchMeta,
+  matchSnippet,
   name,
   previewContent,
   previewUrl,
+  variant = "grid",
 }: FileCardProps) {
   const [timeAgo, setTimeAgo] = useState(() => formatTimeAgo(lastUpdated));
   useEffect(() => {
@@ -359,14 +232,20 @@ export function FileCard({
   return (
     <div
       className={cn(
-        "inline-flex w-full max-w-full flex-col items-center gap-2 overflow-hidden",
+        variant === "row"
+          ? "grid w-full max-w-full grid-cols-[7.5rem_minmax(0,1fr)] items-stretch gap-3 overflow-hidden"
+          : "inline-flex w-full max-w-full flex-col items-center gap-2 overflow-hidden",
         className
       )}
     >
       <div
         className={cn(
-          "group relative flex w-full min-w-0 items-center justify-center overflow-hidden rounded-xl bg-muted/70",
-          hasPreview ? "h-28" : "aspect-[4/3] h-28"
+          "group relative flex w-full min-w-0 items-center justify-center overflow-hidden rounded-md border border-border/60 bg-muted/70",
+          variant === "row"
+            ? "h-full min-h-24"
+            : hasPreview
+              ? "h-28"
+              : "aspect-[4/3] h-28"
         )}
       >
         {previewBody}
@@ -374,38 +253,52 @@ export function FileCard({
           <div className="pointer-events-none absolute inset-0 bg-black opacity-0 transition-opacity duration-300 group-hover:opacity-10" />
         ) : null}
       </div>
-      <div className="flex w-full min-w-0 max-w-full items-center justify-between gap-2">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <span className="shrink-0 text-muted-foreground">
-            {getFileIcon(fileType)}
-          </span>
-          <span
-            className="min-w-0 flex-1 truncate font-medium text-sm"
-            title={name}
-          >
-            {name}
-          </span>
-        </div>
-        <span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-          {timeAgo}
-        </span>
-      </div>
-      {details.length > 0 ? (
-        <div className="flex w-full min-w-0 flex-wrap gap-1.5">
-          {details.map((detail) => (
-            <span
-              className="inline-flex max-w-full items-center gap-1 rounded-full bg-background/75 px-2 py-0.5 text-[10px] text-muted-foreground leading-none"
-              key={`${detail.label}:${detail.value}`}
-              title={`${detail.label}: ${detail.value}`}
-            >
-              <span className="shrink-0 font-medium text-foreground/75">
-                {detail.label}
-              </span>
-              <span className="min-w-0 truncate">{detail.value}</span>
+      <div className="flex min-w-0 flex-col gap-2">
+        <div className="flex w-full min-w-0 max-w-full items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <span className="shrink-0 text-muted-foreground">
+              {getFileIcon(fileType)}
             </span>
-          ))}
+            <span
+              className="min-w-0 flex-1 truncate font-medium text-sm"
+              title={name}
+            >
+              {name}
+            </span>
+          </div>
+          <span className="shrink-0 text-muted-foreground text-xs tabular-nums">
+            {timeAgo}
+          </span>
         </div>
-      ) : null}
+        {matchSnippet ? (
+          <div className="min-w-0">
+            {matchMeta ? (
+              <p className="mb-1 truncate text-[10px] text-muted-foreground">
+                {matchMeta}
+              </p>
+            ) : null}
+            <p className="line-clamp-3 text-muted-foreground text-xs leading-5">
+              {matchSnippet}
+            </p>
+          </div>
+        ) : null}
+        {details.length > 0 ? (
+          <div className="flex w-full min-w-0 flex-wrap gap-1.5">
+            {details.map((detail) => (
+              <span
+                className="inline-flex max-w-full items-center gap-1 rounded-md bg-background/75 px-2 py-0.5 text-[10px] text-muted-foreground leading-none"
+                key={`${detail.label}:${detail.value}`}
+                title={`${detail.label}: ${detail.value}`}
+              >
+                <span className="shrink-0 font-medium text-foreground/75">
+                  {detail.label}
+                </span>
+                <span className="min-w-0 truncate">{detail.value}</span>
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -414,26 +307,33 @@ export function MarkdownThumbnail({
   className,
   content,
 }: MarkdownThumbnailProps) {
-  const { resolvedTheme } = useTheme();
   const markdownContent = typeof content === "string" ? content.trim() : "";
-  const isDark = resolvedTheme === "dark";
-  const previewSrc = useMemo(
-    () =>
-      markdownContent ? buildMarkdownThumbnailSvg(markdownContent, isDark) : "",
-    [isDark, markdownContent]
-  );
+  const lines = markdownContent ? markdownToPreviewLines(markdownContent) : [];
+  const title = lines.find((line) => line.length > 0) ?? "Untitled note";
+  const bodyStart = Math.max(0, lines.findIndex((line) => line.length > 0) + 1);
+  const bodyLines = lines.slice(bodyStart).filter(Boolean).slice(0, 4);
 
   return (
-    <div className={cn(THUMBNAIL_SURFACE_CLASS, className)}>
-      {previewSrc ? (
-        <img
-          alt=""
-          aria-hidden="true"
-          className="h-full w-full object-contain"
-          height={250}
-          src={previewSrc}
-          width={400}
-        />
+    <div className={cn(THUMBNAIL_SURFACE_CLASS, "p-2", className)}>
+      {markdownContent ? (
+        <div className="flex h-full w-full flex-col rounded-md border border-border/50 bg-card px-3 py-3 text-left">
+          <p className="line-clamp-2 font-medium text-foreground text-xs leading-4">
+            {title}
+          </p>
+          <div className="mt-2 space-y-1.5">
+            {Array.from({ length: bodyLines.length > 0 ? 4 : 3 }, (_unused, index) => (
+              <div
+                className={cn(
+                  "h-1.5 rounded-sm bg-muted",
+                  index === 1 && "w-10/12",
+                  index === 2 && "w-8/12",
+                  index === 3 && "w-9/12"
+                )}
+                key={`line-${index}`}
+              />
+            ))}
+          </div>
+        </div>
       ) : (
         <div className="flex h-full w-full items-center justify-center rounded-md bg-muted/30 text-muted-foreground">
           <FileCode2 aria-hidden="true" className="size-4" />

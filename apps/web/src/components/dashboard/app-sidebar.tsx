@@ -317,6 +317,37 @@ const DASHBOARD_FLASHCARDS_ROUTE_REGEX = /^\/workspace\/flashcards\/([^/?#]+)/;
 const DASHBOARD_FILES_FOLDER_ROUTE_REGEX =
   /^\/workspace\/files\/[^/]+\/folder\/([^/?#]+)/;
 
+function getChatDateGroup(chat: ChatSummary) {
+  const updated = new Date(chat.updatedAt || chat.lastMessageAt);
+  if (Number.isNaN(updated.getTime())) {
+    return "Older";
+  }
+
+  const now = new Date();
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  const startOfYesterday = new Date(startOfToday);
+  startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+  const previous7 = new Date(startOfToday);
+  previous7.setDate(previous7.getDate() - 7);
+  const previous30 = new Date(startOfToday);
+  previous30.setDate(previous30.getDate() - 30);
+
+  if (updated >= startOfToday) {
+    return "Today";
+  }
+  if (updated >= startOfYesterday) {
+    return "Yesterday";
+  }
+  if (updated >= previous7) {
+    return "Previous 7 days";
+  }
+  if (updated >= previous30) {
+    return "Previous 30 days";
+  }
+  return "Older";
+}
+
 function ChatListSection({
   activeChatSlug,
   editingChatSlug,
@@ -371,13 +402,34 @@ function ChatListSection({
       }
     }
 
-    nextRows.push({
-      key: "header-other",
-      title: "Other Chats",
-      type: "header",
-    });
+    const otherChatsByDate = new Map<string, ChatSummary[]>();
     for (const chat of otherChats) {
-      nextRows.push({ chat, key: `chat-${chat.slug}`, type: "chat" });
+      const group = getChatDateGroup(chat);
+      otherChatsByDate.set(group, [
+        ...(otherChatsByDate.get(group) ?? []),
+        chat,
+      ]);
+    }
+
+    for (const title of [
+      "Today",
+      "Yesterday",
+      "Previous 7 days",
+      "Previous 30 days",
+      "Older",
+    ]) {
+      const chats = otherChatsByDate.get(title) ?? [];
+      if (chats.length === 0) {
+        continue;
+      }
+      nextRows.push({
+        key: `header-${title.toLowerCase().replaceAll(" ", "-")}`,
+        title,
+        type: "header",
+      });
+      for (const chat of chats) {
+        nextRows.push({ chat, key: `chat-${chat.slug}`, type: "chat" });
+      }
     }
 
     return nextRows;

@@ -25,6 +25,7 @@ import { ScrollArea } from "@avenire/ui/components/scroll-area";
 import { Textarea } from "@avenire/ui/components/textarea";
 import { cn } from "@avenire/ui/lib/utils";
 import { BookOpenText as BookOpenCheck, Plus } from "@phosphor-icons/react";
+import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import type { Route } from "next";
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
@@ -35,6 +36,7 @@ import {
 } from "@/components/dashboard/header-portal";
 import { prefetchFlashcardSet } from "@/lib/flashcard-browser-cache";
 import type { FlashcardDashboardRecord } from "@/lib/flashcards";
+import type { MisconceptionRecord } from "@/lib/learning-data";
 import {
   useCurrentWorkspacePaneCompact,
   usePanePathname,
@@ -50,6 +52,23 @@ interface FlashcardGenerationRequest {
   subject: string;
   title?: string;
   topic: string;
+}
+
+interface MindsetOverviewPayload {
+  activeMisconceptions: MisconceptionRecord[];
+}
+
+async function loadMindsetOverview(signal?: AbortSignal) {
+  const response = await fetch("/api/workspace/overview", {
+    cache: "no-store",
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error("Unable to load mindset overview.");
+  }
+
+  return (await response.json()) as MindsetOverviewPayload;
 }
 
 async function generateOnboardingSet(
@@ -118,6 +137,11 @@ export function FlashcardsDashboard({
   const [busy, setBusy] = useState(false);
   const autoOpenCreateRef = useRef(false);
   const generationStartedRef = useRef(false);
+  const overviewQuery = useQuery({
+    queryFn: ({ signal }) => loadMindsetOverview(signal),
+    queryKey: ["mindset-overview"],
+    staleTime: 30_000,
+  });
 
   const orderedSets = useMemo(
     () =>
@@ -348,18 +372,6 @@ export function FlashcardsDashboard({
           </div>
         </HeaderActions>
         <HeaderBreadcrumbs>{headerBreadcrumbs}</HeaderBreadcrumbs>
-
-        <section className="flex flex-wrap items-center justify-between gap-3 border-border/40 border-b pb-4">
-          <div className="space-y-1">
-            <h1 className="font-semibold text-foreground text-xl tracking-tight">
-              Mindset
-            </h1>
-            <p className="text-muted-foreground text-xs">
-              Select a deck, check what is coming up, then jump straight into
-              review.
-            </p>
-          </div>
-        </section>
 
         <AnimatePresence>
           {generationLoading ? (
@@ -696,6 +708,59 @@ export function FlashcardsDashboard({
             )}
           </div>
         </motion.div>
+
+        <section className="space-y-3 border-border/50 border-t pt-4">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-medium text-foreground text-sm">
+              Misconceptions
+            </h2>
+            <p className="text-muted-foreground text-xs">
+              {overviewQuery.data?.activeMisconceptions.length ?? 0} active
+            </p>
+          </div>
+          {overviewQuery.isLoading ? (
+            <p className="text-muted-foreground text-xs">
+              Loading misconception memory...
+            </p>
+          ) : overviewQuery.data?.activeMisconceptions.length ? (
+            <div className="space-y-2">
+              {overviewQuery.data.activeMisconceptions
+                .slice(0, 6)
+                .map((misconception) => (
+                  <div
+                    className="grid gap-3 rounded-md border border-border/60 bg-card px-3 py-3 md:grid-cols-[minmax(10rem,0.36fr)_minmax(0,1fr)]"
+                    key={misconception.id}
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-foreground text-sm">
+                        {misconception.concept}
+                      </p>
+                      <p className="mt-1 truncate text-muted-foreground text-xs">
+                        {misconception.subject} / {misconception.topic}
+                      </p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="line-clamp-2 text-muted-foreground text-sm leading-5">
+                        {misconception.reason}
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Badge className="rounded-md" variant="outline">
+                          {Math.round(misconception.confidence * 100)}%
+                        </Badge>
+                        <Badge className="rounded-md" variant="outline">
+                          {misconception.source}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          ) : (
+            <p className="rounded-md border border-border/60 bg-card px-3 py-3 text-muted-foreground text-sm">
+              No active misconceptions yet.
+            </p>
+          )}
+        </section>
       </div>
     </div>
   );

@@ -28,6 +28,7 @@ import {
   type TaskStatusFilter,
   type TaskViewMode,
 } from "@/components/tasks/types";
+import { emitPetNotification } from "@/lib/pet-preferences";
 import {
   getTaskStoreSnapshot,
   patchWorkspaceTask,
@@ -44,7 +45,6 @@ import {
   type WorkspaceMemberOption,
   type WorkspaceTask,
 } from "@/lib/tasks";
-import { emitPetNotification } from "@/lib/pet-preferences";
 import { useUserSettings } from "@/lib/user-settings-client";
 import {
   usePanePathname,
@@ -540,16 +540,7 @@ export function TasksWorkspace({
       <HeaderActions>{headerActions}</HeaderActions>
 
       <div className="flex w-full flex-col gap-4 px-4 py-4 md:px-6 lg:px-8">
-        <div className="flex flex-col gap-1">
-          <h1 className="font-semibold text-foreground text-xl tracking-tight">
-            Tasks
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            Assigned, scheduled, and in progress across the current workspace.
-          </p>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-hidden border-border/70 border-t">
+        <div className="min-h-0 flex-1 overflow-hidden">
           <TaskFilters
             assigneeFilter={assigneeFilter}
             grouping={grouping}
