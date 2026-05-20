@@ -22,8 +22,8 @@
 
 .scribe-document-row {
   display: grid;
-  grid-template-columns: minmax(1rem, 1fr) minmax(0, 45rem) minmax(
-      3.125rem,
+  grid-template-columns: minmax(3.125rem, 1fr) minmax(0, 45rem) minmax(
+      1rem,
       1fr
     );
   column-gap: 1rem;
@@ -138,19 +138,19 @@
   position: sticky;
   top: 6rem;
   display: block;
-  grid-column: 3;
+  grid-column: 1;
   align-self: start;
-  justify-self: start;
+  justify-self: end;
   width: 2rem;
   max-height: min(34rem, calc(100vh - 8rem));
-  margin-left: clamp(0.25rem, 1.6vw, 2rem);
+  margin-right: clamp(0.25rem, 1.6vw, 2rem);
 }
 
 .editor-toc-rail__inner {
   position: relative;
   width: 2rem;
   max-height: inherit;
-  overflow: hidden;
+  overflow: visible;
   transition: width 180ms ease;
 }
 
@@ -199,7 +199,12 @@
 
 .editor-toc-rail__panel {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: auto;
+  bottom: auto;
+  left: 0;
+  width: min(14rem, calc(100vw - 2rem));
+  max-height: min(22rem, calc(100vh - 8rem));
   overflow-y: auto;
   background: var(--background);
   border: 1px solid var(--border);
@@ -1049,6 +1054,8 @@
   max-width: none;
   height: auto;
   overflow: visible;
+  shape-rendering: geometricPrecision;
+  text-rendering: geometricPrecision;
 }
 
 .scribe-surface .mermaid-diagram-container svg[data-xychart-colors] {

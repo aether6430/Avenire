@@ -69,7 +69,7 @@ import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import Color from "@tiptap/extension-color";
 import Highlight from "@tiptap/extension-highlight";
 import HorizontalRule from "@tiptap/extension-horizontal-rule";
-import Image from "@tiptap/extension-image";
+import TiptapImage from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import {
   BulletList,
@@ -109,6 +109,7 @@ import { BubbleMenu, FloatingMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
 import { renderMermaidSVG } from "beautiful-mermaid";
 import { common, createLowlight } from "lowlight";
+import NextImage from "next/image";
 import {
   type ComponentType,
   type KeyboardEvent,
@@ -147,8 +148,6 @@ const lowlight = createLowlight(common);
 
 const CODE_ICON_SVG = {
   copy: '<svg viewBox="0 0 256 256" aria-hidden="true"><rect x="88" y="64" width="104" height="128" rx="8" fill="none" stroke="currentColor" stroke-width="18"/><path d="M64 160H56a8 8 0 0 1-8-8V40a8 8 0 0 1 8-8h112a8 8 0 0 1 8 8v8" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round"/></svg>',
-  edit: '<svg viewBox="0 0 256 256" aria-hidden="true"><path d="M92 216H48a8 8 0 0 1-8-8v-44L156 48a24 24 0 0 1 34 0l18 18a24 24 0 0 1 0 34Z" fill="none" stroke="currentColor" stroke-width="18" stroke-linejoin="round"/><path d="m140 64 52 52" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round"/></svg>',
-  preview: '<svg viewBox="0 0 256 256" aria-hidden="true"><path d="M24 128s40-72 104-72 104 72 104 72-40 72-104 72S24 128 24 128Z" fill="none" stroke="currentColor" stroke-width="18" stroke-linejoin="round"/><circle cx="128" cy="128" r="32" fill="none" stroke="currentColor" stroke-width="18"/></svg>',
 };
 
 const MERMAID_ICON_SVG = {
@@ -266,11 +265,6 @@ const ScribeCodeBlockLowlight = CodeBlockLowlight.extend({
       dom.className = "scribe-codeblock-node";
       dom.dataset.editing = "true";
 
-      const preview = document.createElement("pre");
-      preview.className = "scribe-codeblock-preview";
-      const previewCode = document.createElement("code");
-      preview.appendChild(previewCode);
-
       const editorPre = document.createElement("pre");
       editorPre.className = "scribe-codeblock-editor";
       const contentDOM = document.createElement("code");
@@ -303,32 +297,12 @@ const ScribeCodeBlockLowlight = CodeBlockLowlight.extend({
       copyButton.setAttribute("aria-label", "Copy code");
       copyButton.title = "Copy code";
 
-      const editButton = document.createElement("button");
-      editButton.type = "button";
-      editButton.className = "scribe-codeblock-button";
-      editButton.title = "Toggle preview";
-
-      const syncButtonLabel = () => {
-        editButton.innerHTML =
-          dom.dataset.editing === "true" ? CODE_ICON_SVG.preview : CODE_ICON_SVG.edit;
-        editButton.setAttribute(
-          "aria-label",
-          dom.dataset.editing === "true" ? "Preview code" : "Edit code"
-        );
-      };
-
       const syncPreview = (nextNode = node) => {
         const language =
           typeof nextNode.attrs.language === "string"
             ? nextNode.attrs.language
             : null;
         languageSelect.value = language || "plaintext";
-        previewCode.dataset.language = language ?? "";
-        renderHighlightedCodePreview(
-          previewCode,
-          nextNode.textContent,
-          language
-        );
       };
 
       languageSelect.addEventListener("mousedown", (event) => {
@@ -372,29 +346,9 @@ const ScribeCodeBlockLowlight = CodeBlockLowlight.extend({
         );
       });
 
-      editButton.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        const nextEditing = dom.dataset.editing !== "true";
-        dom.dataset.editing = String(nextEditing);
-        syncButtonLabel();
-        if (nextEditing) {
-          const pos = getPos();
-          if (typeof pos === "number") {
-            editor
-              .chain()
-              .focus(pos + 1)
-              .run();
-          } else {
-            editor.commands.focus();
-          }
-        }
-      });
-
       syncPreview();
-      syncButtonLabel();
-      controls.append(languageSelect, copyButton, editButton);
-      dom.append(controls, preview, editorPre);
+      controls.append(languageSelect, copyButton);
+      dom.append(controls, editorPre);
 
       return {
         dom,
@@ -559,6 +513,105 @@ async function _loadWikiPreviewMarkdown(input: {
   return payload.markdown ?? "";
 }
 
+async function loadWorkspacePeekFile(input: {
+  fileId: string;
+  signal: AbortSignal;
+  workspaceUuid: string;
+}) {
+  const response = await fetch(
+    `/api/workspaces/${input.workspaceUuid}/files/${input.fileId}`,
+    {
+      cache: "no-store",
+      signal: input.signal,
+    }
+  );
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const payload = (await response.json().catch(() => ({}))) as {
+    file?: WorkspacePeekFile;
+  };
+  return payload.file ?? null;
+}
+
+function getWorkspacePeekPreviewKind(
+  file: WorkspacePeekFile
+): WorkspacePeekPreviewKind {
+  const mime = file.mimeType?.toLowerCase() ?? "";
+  const extension = file.name.includes(".")
+    ? file.name.slice(file.name.lastIndexOf(".")).toLowerCase()
+    : "";
+
+  if (
+    mime.includes("markdown") ||
+    extension === ".md" ||
+    extension === ".mdx"
+  ) {
+    return "markdown";
+  }
+  if (
+    mime.startsWith("image/") ||
+    [".avif", ".gif", ".jpeg", ".jpg", ".png", ".svg", ".webp"].includes(
+      extension
+    )
+  ) {
+    return "image";
+  }
+  if (
+    mime.startsWith("video/") ||
+    [".m4v", ".mov", ".mp4", ".ogg", ".webm"].includes(extension)
+  ) {
+    return "video";
+  }
+  if (
+    mime.startsWith("audio/") ||
+    [".aac", ".flac", ".m4a", ".mp3", ".ogg", ".wav"].includes(extension)
+  ) {
+    return "audio";
+  }
+  if (mime === "application/pdf" || extension === ".pdf") {
+    return "pdf";
+  }
+
+  return "unknown";
+}
+
+function getWorkspacePeekFileIdFromRoute(route: string, fallbackId: string) {
+  const queryIndex = route.indexOf("?");
+  if (queryIndex < 0) {
+    return fallbackId;
+  }
+
+  const params = new URLSearchParams(route.slice(queryIndex + 1));
+  return params.get("file") || fallbackId;
+}
+
+async function saveWorkspacePeekMarkdown(input: {
+  content: string;
+  fileId: string;
+  workspaceUuid: string;
+}) {
+  const response = await fetch(
+    `/api/workspaces/${input.workspaceUuid}/files/${input.fileId}/content`,
+    {
+      body: JSON.stringify({ content: input.content }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "PATCH",
+    }
+  );
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+    throw new Error(payload.error ?? "Could not save preview changes.");
+  }
+}
+
 interface SlashMatch {
   from: number;
   key: string;
@@ -587,9 +640,25 @@ interface DocumentStats {
 }
 
 interface WorkspacePeekState {
+  fileId: string;
   href: string;
   title: string;
 }
+
+interface WorkspacePeekFile {
+  folderId?: string | null;
+  id: string;
+  mimeType: string | null;
+  name: string;
+}
+
+type WorkspacePeekPreviewKind =
+  | "audio"
+  | "image"
+  | "markdown"
+  | "pdf"
+  | "unknown"
+  | "video";
 
 interface WikiPreviewState {
   anchorEl: HTMLAnchorElement;
@@ -2613,7 +2682,10 @@ function EditorTableOfContentsRail({
   items: TableOfContentDataItem[];
 }) {
   const visibleItems = items.filter(
-    (item) => item.textContent.trim().length > 0
+    (item) =>
+      item.textContent.trim().length > 0 &&
+      item.originalLevel >= 1 &&
+      item.originalLevel <= 3
   );
   const getMarkerWidth = (item: TableOfContentDataItem) => {
     if (item.originalLevel <= 1) {
@@ -2746,6 +2818,20 @@ function AvenireEditor({
   const [workspacePeek, setWorkspacePeek] = useState<WorkspacePeekState | null>(
     null
   );
+  const [workspacePeekFile, setWorkspacePeekFile] =
+    useState<WorkspacePeekFile | null>(null);
+  const [workspacePeekMarkdown, setWorkspacePeekMarkdown] = useState("");
+  const [workspacePeekLoading, setWorkspacePeekLoading] = useState(false);
+  const [workspacePeekError, setWorkspacePeekError] = useState<string | null>(
+    null
+  );
+  const [workspacePeekSaveState, setWorkspacePeekSaveState] = useState<
+    "error" | "idle" | "saved" | "saving"
+  >("idle");
+  const workspacePeekSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  const workspacePeekScrollRef = useRef<HTMLDivElement | null>(null);
   const tableContextMenuRef = useRef<HTMLDivElement | null>(null);
   const { startUpload: startImageUpload } = useUploadThing("imageUploader");
   const currentPane = useOptionalCurrentWorkspacePane();
@@ -2795,6 +2881,7 @@ function AvenireEditor({
               (entry) => entry.id.toLowerCase() === fileIdentifier.toLowerCase()
             );
             setWorkspacePeek({
+              fileId: getWorkspacePeekFileIdFromRoute(route, fileIdentifier),
               href: route,
               title: match?.title ?? decodeURIComponent(fileIdentifier),
             });
@@ -2838,6 +2925,104 @@ function AvenireEditor({
       window.clearTimeout(timer);
     };
   }, [inlineNotice]);
+
+  useEffect(() => {
+    if (!workspacePeek) {
+      setWorkspacePeekFile(null);
+      setWorkspacePeekMarkdown("");
+      setWorkspacePeekError(null);
+      setWorkspacePeekLoading(false);
+      setWorkspacePeekSaveState("idle");
+      return;
+    }
+
+    const controller = new AbortController();
+    setWorkspacePeekLoading(true);
+    setWorkspacePeekError(null);
+    setWorkspacePeekFile(null);
+    setWorkspacePeekMarkdown("");
+    setWorkspacePeekSaveState("idle");
+    void loadWorkspacePeekFile({
+      fileId: workspacePeek.fileId,
+      signal: controller.signal,
+      workspaceUuid,
+    })
+      .then(async (file) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+        if (!file) {
+          setWorkspacePeekError("Could not load this file preview.");
+          return;
+        }
+        setWorkspacePeekFile(file);
+        if (getWorkspacePeekPreviewKind(file) !== "markdown") {
+          return;
+        }
+        const markdown = await _loadWikiPreviewMarkdown({
+          pageId: workspacePeek.fileId,
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted) {
+          return;
+        }
+        if (markdown === null) {
+          setWorkspacePeekError("Could not load this markdown file.");
+          return;
+        }
+        setWorkspacePeekMarkdown(markdown);
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+        setWorkspacePeekError(
+          error instanceof Error ? error.message : "Could not load this file preview."
+        );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setWorkspacePeekLoading(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [workspacePeek, workspaceUuid]);
+
+  useEffect(() => {
+    return () => {
+      if (workspacePeekSaveTimerRef.current) {
+        clearTimeout(workspacePeekSaveTimerRef.current);
+      }
+    };
+  }, []);
+
+  const scheduleWorkspacePeekMarkdownSave = useCallback(
+    (markdown: string) => {
+      if (!workspacePeek) {
+        return;
+      }
+      if (workspacePeekSaveTimerRef.current) {
+        clearTimeout(workspacePeekSaveTimerRef.current);
+      }
+      setWorkspacePeekSaveState("saving");
+      const fileId = workspacePeek.fileId;
+      workspacePeekSaveTimerRef.current = setTimeout(() => {
+        void saveWorkspacePeekMarkdown({
+          content: markdown,
+          fileId,
+          workspaceUuid,
+        })
+          .then(() => {
+            setWorkspacePeekSaveState("saved");
+          })
+          .catch(() => {
+            setWorkspacePeekSaveState("error");
+          });
+      }, 700);
+    },
+    [workspacePeek, workspaceUuid]
+  );
 
   const normalizedDefaultValue = useMemo(
     () => normalizeWikiSyntax(defaultValue, wikiPages),
@@ -2931,7 +3116,7 @@ function AvenireEditor({
         },
         scrollParent: () => scrollContainerRef.current ?? window,
       }),
-      Image.configure({
+      TiptapImage.configure({
         allowBase64: true,
         inline: false,
         resize: {
@@ -2947,6 +3132,7 @@ function AvenireEditor({
     ],
     content: normalizedDefaultValue,
     contentType: "markdown",
+    editable: !readOnly,
     shouldRerenderOnTransaction: false,
     editorProps: {
       attributes: {
@@ -4315,13 +4501,116 @@ function AvenireEditor({
               </Button>
             </div>
           </div>
-          {workspacePeek ? (
-            <iframe
-              className="h-[calc(100%-2.5rem)] w-full bg-background"
-              src={workspacePeek.href}
-              title={workspacePeek.title}
-            />
-          ) : null}
+          <div
+            className="h-[calc(100%-2.5rem)] overflow-y-auto bg-background"
+            ref={workspacePeekScrollRef}
+          >
+            {workspacePeekLoading ? (
+              <div className="flex h-full items-center justify-center text-muted-foreground text-xs">
+                Loading preview...
+              </div>
+            ) : workspacePeekError ? (
+              <div className="flex h-full items-center justify-center px-6 text-center text-destructive text-xs">
+                {workspacePeekError}
+              </div>
+            ) : workspacePeek && workspacePeekFile ? (
+              (() => {
+                const previewKind =
+                  getWorkspacePeekPreviewKind(workspacePeekFile);
+                const streamUrl = `/api/workspaces/${workspaceUuid}/files/${workspacePeek.fileId}/stream`;
+
+                if (previewKind === "markdown") {
+                  return (
+                    <AvenireEditor
+                      defaultValue={workspacePeekMarkdown}
+                      key={workspacePeek.fileId}
+                      noteTitle={workspacePeek.title}
+                      onChange={(markdown) => {
+                        setWorkspacePeekMarkdown(markdown);
+                        scheduleWorkspacePeekMarkdownSave(markdown);
+                      }}
+                      saveMessage={
+                        workspacePeekSaveState === "error"
+                          ? "Could not save preview changes"
+                          : undefined
+                      }
+                      saveState={workspacePeekSaveState}
+                      scrollContainerRef={workspacePeekScrollRef}
+                      wikiPages={wikiPages}
+                      workspaceUuid={workspaceUuid}
+                    />
+                  );
+                }
+
+                if (previewKind === "image") {
+                  return (
+                    <div className="flex min-h-full items-center justify-center p-6">
+                      <div className="relative h-[min(68vh,42rem)] w-full max-w-[60rem]">
+                        <NextImage
+                          alt={workspacePeekFile.name}
+                          className="rounded-md object-contain"
+                          fill
+                          sizes="min(60rem, 100vw)"
+                          src={streamUrl}
+                          unoptimized
+                        />
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (previewKind === "video") {
+                  return (
+                    <div className="flex min-h-full items-center justify-center p-6">
+                      <video
+                        className="max-h-full max-w-full rounded-md"
+                        controls
+                        src={streamUrl}
+                      >
+                        <track kind="captions" />
+                      </video>
+                    </div>
+                  );
+                }
+
+                if (previewKind === "audio") {
+                  return (
+                    <div className="flex min-h-full items-center justify-center p-6">
+                      <audio className="w-full max-w-xl" controls src={streamUrl}>
+                        <track kind="captions" />
+                      </audio>
+                    </div>
+                  );
+                }
+
+                if (previewKind === "pdf") {
+                  return (
+                    <iframe
+                      className="h-full w-full border-0"
+                      src={streamUrl}
+                      title={workspacePeekFile.name}
+                    />
+                  );
+                }
+
+                return (
+                  <div className="flex h-full items-center justify-center px-6 text-center">
+                    <div className="max-w-sm">
+                      <div className="font-medium text-sm">
+                        No inline preview available
+                      </div>
+                      <div className="mt-2 text-muted-foreground text-xs">
+                        {workspacePeekFile.name}
+                        {workspacePeekFile.mimeType
+                          ? ` · ${workspacePeekFile.mimeType}`
+                          : ""}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()
+            ) : null}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
