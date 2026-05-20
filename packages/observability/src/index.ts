@@ -202,17 +202,27 @@ async function ingest(level: LogLevel, input: ObservabilityEvent) {
     return;
   }
 
-  try {
-    await posthog.captureImmediate({
-      distinctId: getDistinctId(context),
+  if (process.env.NODE_ENV !== "production") {
+    console.info("[observability-event]", {
       event: input.eventName,
+      distinctId: getDistinctId(context),
       properties,
     });
-  } catch (error) {
-    if (process.env.NODE_ENV !== "production") {
-      console.error("[posthog-capture-failed]", safeError(error));
-    }
   }
+}
+
+function toError(error: unknown) {
+  if (error instanceof Error) {
+    return error;
+  }
+
+  if (typeof error === "string") {
+    return new Error(error);
+  }
+
+  const normalized = new Error("Unknown error");
+  normalized.cause = error;
+  return normalized;
 }
 
 async function captureExceptionEvent(input: CaptureErrorInput) {
@@ -248,7 +258,7 @@ async function captureExceptionEvent(input: CaptureErrorInput) {
 
   try {
     await posthog.captureExceptionImmediate(
-      input.error,
+      toError(input.error),
       getDistinctId(errorContext),
       properties
     );

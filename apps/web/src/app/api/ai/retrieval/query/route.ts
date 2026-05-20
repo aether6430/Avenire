@@ -16,18 +16,18 @@ const querySchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const user = await getSessionUser();
   const apiLogger = createApiLogger({
     request,
     route: "/api/ai/retrieval/query",
     feature: "retrieval",
-    userId: user?.id ?? null,
   });
-  apiLogger.requestStarted();
 
   try {
+    await apiLogger.requestStarted();
+
+    const user = await getSessionUser();
     if (!user) {
-      apiLogger.requestFailed(401, "Unauthorized");
+      await apiLogger.requestFailed(401, "Unauthorized");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
       await request.json().catch(() => ({}))
     );
     if (!parsed.success) {
-      apiLogger.requestFailed(400, "Invalid payload");
+      await apiLogger.requestFailed(400, "Invalid payload");
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
 
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
       parsed.data.workspaceUuid
     );
     if (!canAccess) {
-      apiLogger.requestFailed(403, "Forbidden", {
+      await apiLogger.requestFailed(403, "Forbidden", {
         workspaceUuid: parsed.data.workspaceUuid,
       });
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
       userId: user.id,
       workspaceId: parsed.data.workspaceUuid,
     });
-    apiLogger.requestSucceeded(200, {
+    await apiLogger.requestSucceeded(200, {
       workspaceUuid: parsed.data.workspaceUuid,
       cache: result.cache,
       latencyMs: result.latencyMs,
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
       headers: { "x-rag-cache": result.cache },
     });
   } catch (error) {
-    apiLogger.requestFailed(500, error);
+    await apiLogger.requestFailed(500, error);
     return NextResponse.json(
       { error: "Failed to query retrieval index" },
       { status: 500 }
