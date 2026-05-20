@@ -22,8 +22,8 @@
 
 .scribe-document-row {
   display: grid;
-  grid-template-columns: minmax(1rem, 1fr) minmax(0, 45rem) minmax(
-      3.125rem,
+  grid-template-columns: minmax(3.125rem, 1fr) minmax(0, 45rem) minmax(
+      1rem,
       1fr
     );
   column-gap: 1rem;
@@ -138,21 +138,19 @@
   position: sticky;
   top: 6rem;
   display: block;
-  grid-column: 3;
+  grid-column: 1;
   align-self: start;
   justify-self: end;
   width: 3.125rem;
   max-height: calc(100vh - 8rem);
-  margin-right: clamp(0rem, 2vw, 2.5rem);
+  margin-right: clamp(0.25rem, 2vw, 2.5rem);
 }
 
 .editor-toc-rail__inner {
   position: relative;
   width: 3.125rem;
   max-height: inherit;
-  overflow: hidden;
-  background: color-mix(in oklch, var(--background) 92%, transparent 8%);
-  border-radius: 0.9rem;
+  overflow: visible;
   transition:
     width 180ms ease,
     background-color 180ms ease;
@@ -161,7 +159,6 @@
 .editor-toc-rail__inner:hover,
 .editor-toc-rail__inner:focus-within {
   width: min(15.25rem, calc(100vw - 2rem));
-  background: color-mix(in oklch, var(--background) 98%, transparent 2%);
 }
 
 .editor-toc-rail__collapsed {
@@ -197,6 +194,10 @@
   position: absolute;
   inset: 0;
   overflow-y: auto;
+  background: color-mix(in oklch, var(--background) 98%, transparent 2%);
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  box-shadow: 0 8px 24px color-mix(in oklch, var(--foreground) 7%, transparent);
   opacity: 0;
   transition: opacity 140ms ease;
 }
@@ -513,10 +514,20 @@
 .scribe-surface .scribe-codeblock-node {
   position: relative;
   margin: 1rem 0;
+  overflow: hidden;
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
 }
 
 .scribe-surface .scribe-codeblock-node pre {
   margin: 0;
+  border-radius: 0;
+}
+
+.scribe-surface .scribe-codeblock-node > pre {
+  padding-top: 2.75rem;
+  background: transparent;
 }
 
 .scribe-surface
@@ -528,38 +539,66 @@
   display: none;
 }
 
-.scribe-surface .scribe-codeblock-edit {
+.scribe-surface .scribe-codeblock-controls {
   position: absolute;
-  top: 0.45rem;
-  right: 0.45rem;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 1;
   display: inline-flex;
+  gap: 0.35rem;
   align-items: center;
-  justify-content: center;
-  height: 1.75rem;
-  padding: 0 0.55rem;
-  font-size: 0.72rem;
-  font-weight: 500;
-  color: var(--foreground);
-  cursor: pointer;
-  background: color-mix(in oklch, var(--background) 92%, transparent 8%);
-  border: 1px solid var(--border);
-  border-radius: 0.375rem;
+  justify-content: flex-end;
+  min-height: 2.35rem;
+  padding: 0.4rem;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in oklch, var(--secondary) 96%, var(--background) 4%),
+    color-mix(in oklch, var(--secondary) 72%, transparent 28%)
+  );
   opacity: 0;
-  transition:
-    opacity 140ms ease,
-    background-color 140ms ease;
+  transition: opacity 120ms ease;
 }
 
-.scribe-surface .scribe-codeblock-node:hover .scribe-codeblock-edit,
-.scribe-surface .scribe-codeblock-node:focus-within .scribe-codeblock-edit {
+.scribe-surface .scribe-codeblock-node:hover .scribe-codeblock-controls,
+.scribe-surface .scribe-codeblock-node:focus-within .scribe-codeblock-controls {
   opacity: 1;
 }
 
-.scribe-surface .scribe-codeblock-edit:hover {
+.scribe-surface .scribe-codeblock-language,
+.scribe-surface .scribe-codeblock-button {
+  height: 1.65rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--foreground);
+  pointer-events: auto;
+  cursor: pointer;
+  background: color-mix(in oklch, var(--background) 94%, var(--secondary) 6%);
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  transition: background-color 140ms ease;
+}
+
+.scribe-surface .scribe-codeblock-language {
+  max-width: 8.5rem;
+  padding: 0 1.35rem 0 0.5rem;
+}
+
+.scribe-surface .scribe-codeblock-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.55rem;
+}
+
+.scribe-surface .scribe-codeblock-language:hover,
+.scribe-surface .scribe-codeblock-button:hover {
   background: var(--muted);
 }
 
-.scribe-surface .scribe-codeblock-edit:focus-visible {
+.scribe-surface .scribe-codeblock-language:focus-visible,
+.scribe-surface .scribe-codeblock-button:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
@@ -766,12 +805,49 @@
 
 .scribe-surface .mermaid-diagram-wrapper {
   position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   padding: 0;
   margin: 1rem 0;
   overflow: hidden;
   background: color-mix(in oklch, var(--background) 92%, var(--muted) 8%);
   border: 1px solid var(--border);
   border-radius: 0.5rem;
+}
+
+.scribe-surface .mermaid-diagram-wrapper.is-editing {
+  grid-template-columns: minmax(15rem, 0.45fr) minmax(18rem, 1fr);
+}
+
+.scribe-surface .mermaid-diagram-editor {
+  display: none;
+  min-width: 0;
+  background: var(--secondary);
+  border-right: 1px solid var(--border);
+}
+
+.scribe-surface .mermaid-diagram-wrapper.is-editing .mermaid-diagram-editor {
+  display: block;
+}
+
+.scribe-surface .mermaid-diagram-source {
+  display: block;
+  width: 100%;
+  height: 480px;
+  padding: 0.9rem 1rem;
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--foreground);
+  resize: none;
+  outline: none;
+  background: transparent;
+  border: 0;
+}
+
+.scribe-surface .mermaid-diagram-source::selection {
+  color: var(--accent-foreground);
+  background: var(--accent);
 }
 
 .scribe-surface .mermaid-diagram-edit,
@@ -828,22 +904,57 @@
   bottom: 0.55rem;
   z-index: 2;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 0.3rem;
 }
 
 .scribe-surface .mermaid-diagram-zoom-button {
-  width: 2rem;
+  min-width: 2rem;
   height: 2rem;
+  padding: 0 0.55rem;
   font-size: 1rem;
+}
+
+.scribe-surface .mermaid-diagram-zoom-button:nth-child(n + 3) {
+  font-size: 0.72rem;
+  font-weight: 500;
 }
 
 .scribe-surface .mermaid-diagram-viewport {
   position: relative;
+  min-width: 0;
   height: 480px;
   overflow: hidden;
   touch-action: none;
   border-radius: 0.45rem;
+}
+
+.scribe-surface .mermaid-diagram-wrapper:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.scribe-surface .mermaid-diagram-wrapper:fullscreen .mermaid-diagram-viewport,
+.scribe-surface .mermaid-diagram-wrapper:fullscreen .mermaid-diagram-source {
+  height: 100vh;
+}
+
+@media (max-width: 900px) {
+  .scribe-surface .mermaid-diagram-wrapper.is-editing {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .scribe-surface .mermaid-diagram-editor {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .scribe-surface .mermaid-diagram-source {
+    height: 220px;
+  }
 }
 
 .scribe-surface .mermaid-diagram-viewport.is-dragging {

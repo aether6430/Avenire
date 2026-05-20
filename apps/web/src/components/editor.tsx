@@ -11,13 +11,6 @@ import {
   DropdownMenuTrigger,
 } from "@avenire/ui/components/dropdown-menu";
 import { Input } from "@avenire/ui/components/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@avenire/ui/components/select";
 import { Spinner } from "@avenire/ui/components/spinner";
 import {
   Tabs,
@@ -25,7 +18,6 @@ import {
   TabsList,
   TabsTrigger,
 } from "@avenire/ui/components/tabs";
-import { Textarea } from "@avenire/ui/components/textarea";
 import { cn } from "@avenire/ui/lib/utils";
 import {
   ArrowsOutLineHorizontal as BetweenHorizontalEnd,
@@ -37,7 +29,6 @@ import {
   CaretDown as ChevronDown,
   Code,
   Columns as Columns3,
-  Copy,
   TextHOne as Heading1,
   TextHTwo as Heading2,
   TextHThree as Heading3,
@@ -148,15 +139,15 @@ import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
 
 const lowlight = createLowlight(common);
 
-type LowlightTreeNode = {
-  type?: string;
-  value?: string;
-  tagName?: string;
+interface LowlightTreeNode {
+  children?: LowlightTreeNode[];
   properties?: {
     className?: string[] | string;
   };
-  children?: LowlightTreeNode[];
-};
+  tagName?: string;
+  type?: string;
+  value?: string;
+}
 
 const renderLowlightNodes = (
   parent: HTMLElement,
@@ -205,7 +196,7 @@ const ScribeCodeBlockLowlight = CodeBlockLowlight.extend({
     return ({ node, editor, getPos }) => {
       const dom = document.createElement("div");
       dom.className = "scribe-codeblock-node";
-      dom.dataset.editing = "false";
+      dom.dataset.editing = "true";
 
       const preview = document.createElement("pre");
       preview.className = "scribe-codeblock-preview";
@@ -217,13 +208,39 @@ const ScribeCodeBlockLowlight = CodeBlockLowlight.extend({
       const contentDOM = document.createElement("code");
       editorPre.appendChild(contentDOM);
 
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "scribe-codeblock-edit";
+      const controls = document.createElement("div");
+      controls.className = "scribe-codeblock-controls";
+      controls.contentEditable = "false";
+
+      const languageSelect = document.createElement("select");
+      languageSelect.className = "scribe-codeblock-language";
+      languageSelect.setAttribute("aria-label", "Code block language");
+
+      const languages = [
+        "plaintext",
+        ...Object.keys(common).sort((a, b) => a.localeCompare(b)),
+      ];
+
+      for (const language of languages) {
+        const option = document.createElement("option");
+        option.value = language;
+        option.textContent = language;
+        languageSelect.appendChild(option);
+      }
+
+      const copyButton = document.createElement("button");
+      copyButton.type = "button";
+      copyButton.className = "scribe-codeblock-button";
+      copyButton.textContent = "Copy";
+      copyButton.setAttribute("aria-label", "Copy code");
+
+      const editButton = document.createElement("button");
+      editButton.type = "button";
+      editButton.className = "scribe-codeblock-button";
 
       const syncButtonLabel = () => {
-        button.textContent =
-          dom.dataset.editing === "true" ? "Preview code" : "Edit code";
+        editButton.textContent =
+          dom.dataset.editing === "true" ? "Preview" : "Edit";
       };
 
       const syncPreview = (nextNode = node) => {
@@ -231,11 +248,57 @@ const ScribeCodeBlockLowlight = CodeBlockLowlight.extend({
           typeof nextNode.attrs.language === "string"
             ? nextNode.attrs.language
             : null;
+        languageSelect.value = language || "plaintext";
         previewCode.dataset.language = language ?? "";
-        renderHighlightedCodePreview(previewCode, nextNode.textContent, language);
+        renderHighlightedCodePreview(
+          previewCode,
+          nextNode.textContent,
+          language
+        );
       };
 
-      button.addEventListener("click", (event) => {
+      languageSelect.addEventListener("mousedown", (event) => {
+        event.stopPropagation();
+      });
+
+      languageSelect.addEventListener("change", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const pos = getPos();
+        if (typeof pos !== "number") {
+          return;
+        }
+        const value = languageSelect.value;
+        editor
+          .chain()
+          .focus(pos + 1)
+          .updateAttributes("codeBlock", {
+            language: value === "plaintext" ? null : value,
+          })
+          .run();
+      });
+
+      copyButton.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const originalLabel = copyButton.textContent ?? "Copy";
+        void navigator.clipboard.writeText(node.textContent).then(
+          () => {
+            copyButton.textContent = "Copied";
+            window.setTimeout(() => {
+              copyButton.textContent = originalLabel;
+            }, 1200);
+          },
+          () => {
+            copyButton.textContent = "Failed";
+            window.setTimeout(() => {
+              copyButton.textContent = originalLabel;
+            }, 1200);
+          }
+        );
+      });
+
+      editButton.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
         const nextEditing = dom.dataset.editing !== "true";
@@ -244,7 +307,10 @@ const ScribeCodeBlockLowlight = CodeBlockLowlight.extend({
         if (nextEditing) {
           const pos = getPos();
           if (typeof pos === "number") {
-            editor.chain().focus(pos + 1).run();
+            editor
+              .chain()
+              .focus(pos + 1)
+              .run();
           } else {
             editor.commands.focus();
           }
@@ -253,7 +319,8 @@ const ScribeCodeBlockLowlight = CodeBlockLowlight.extend({
 
       syncPreview();
       syncButtonLabel();
-      dom.append(preview, editorPre, button);
+      controls.append(languageSelect, copyButton, editButton);
+      dom.append(controls, preview, editorPre);
 
       return {
         dom,
@@ -431,11 +498,6 @@ type MathKind = "inlineMath" | "blockMath";
 interface MathPopoverState {
   draft: string;
   kind: MathKind;
-  pos: number;
-}
-
-interface MermaidPopoverState {
-  draft: string;
   pos: number;
 }
 
@@ -695,14 +757,22 @@ const MermaidDiagramExtension = TiptapNode.create({
       const container = document.createElement("div");
       container.className = "mermaid-diagram-container";
       viewport.appendChild(container);
+      const editorPanel = document.createElement("div");
+      editorPanel.className = "mermaid-diagram-editor";
+      editorPanel.contentEditable = "false";
+      const textarea = document.createElement("textarea");
+      textarea.className = "mermaid-diagram-source";
+      textarea.spellcheck = false;
+      textarea.setAttribute("aria-label", "Mermaid source");
+      editorPanel.appendChild(textarea);
       const editButton = document.createElement("button");
       editButton.type = "button";
       editButton.className = "mermaid-diagram-edit";
-      editButton.textContent = "Edit diagram";
+      editButton.textContent = "Edit";
       editButton.setAttribute("aria-label", "Edit diagram");
       const zoomControls = document.createElement("div");
       zoomControls.className = "mermaid-diagram-zoom";
-      wrapper.append(viewport, editButton, zoomControls);
+      wrapper.append(editorPanel, viewport, editButton, zoomControls);
 
       const canvasState = {
         zoom: 1,
@@ -833,6 +903,10 @@ const MermaidDiagramExtension = TiptapNode.create({
         ),
         buildControlButton("−", "Zoom out", () =>
           zoomAtCenter(1 / MERMAID_BUTTON_ZOOM_FACTOR)
+        ),
+        buildControlButton("Reset", "Reset view", fitToViewport),
+        buildControlButton("Full", "Fullscreen", () =>
+          wrapper.requestFullscreen?.()
         )
       );
 
@@ -840,6 +914,9 @@ const MermaidDiagramExtension = TiptapNode.create({
       const renderDiagram = () => {
         const code =
           (node.attrs as { code?: string }).code?.trim() || MERMAID_DEFAULT;
+        if (document.activeElement !== textarea) {
+          textarea.value = code;
+        }
         try {
           if (!mounted) {
             return;
@@ -881,15 +958,44 @@ const MermaidDiagramExtension = TiptapNode.create({
       const openDiagramEditor = (event: Event) => {
         event.preventDefault();
         event.stopPropagation();
+        const nextEditing = !wrapper.classList.contains("is-editing");
+        wrapper.classList.toggle("is-editing", nextEditing);
+        editButton.textContent = nextEditing ? "Done" : "Edit";
+        if (nextEditing) {
+          textarea.focus();
+          textarea.selectionStart = textarea.value.length;
+          textarea.selectionEnd = textarea.value.length;
+        } else {
+          viewport.focus();
+        }
+      };
+      editButton.addEventListener("click", openDiagramEditor);
+
+      const handleSourceInput = () => {
         const pos = getPos();
         if (typeof pos !== "number") {
           return;
         }
-        if (this.options.onClick) {
-          this.options.onClick(node, pos);
+        (
+          editor.commands as unknown as {
+            updateMermaidDiagram: (o: { pos: number; code: string }) => boolean;
+          }
+        ).updateMermaidDiagram({
+          pos,
+          code: textarea.value,
+        });
+      };
+
+      const handleSourceKeyDown = (event: globalThis.KeyboardEvent) => {
+        if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+          event.preventDefault();
+          wrapper.classList.remove("is-editing");
+          editButton.textContent = "Edit";
+          viewport.focus();
         }
       };
-      editButton.addEventListener("click", openDiagramEditor);
+      textarea.addEventListener("input", handleSourceInput);
+      textarea.addEventListener("keydown", handleSourceKeyDown);
 
       const handlePointerDown = (event: PointerEvent) => {
         if (event.target instanceof HTMLButtonElement) {
@@ -995,6 +1101,8 @@ const MermaidDiagramExtension = TiptapNode.create({
         destroy: () => {
           mounted = false;
           editButton.removeEventListener("click", openDiagramEditor);
+          textarea.removeEventListener("input", handleSourceInput);
+          textarea.removeEventListener("keydown", handleSourceKeyDown);
           viewport.removeEventListener("pointerdown", handlePointerDown);
           viewport.removeEventListener("pointermove", handlePointerMove);
           viewport.removeEventListener("pointerup", handlePointerUp);
@@ -1778,187 +1886,6 @@ function SelectionBubbleMenu({
   );
 }
 
-function CodeBlockOverlayControls({
-  editor,
-  onCopy,
-}: {
-  editor: Editor;
-  onCopy: (pos: number) => void;
-}) {
-  const languages = useMemo(
-    () => [
-      "plaintext",
-      ...Object.keys(common).sort((a, b) => a.localeCompare(b)),
-    ],
-    []
-  );
-  const [blocks, setBlocks] = useState<
-    Array<{
-      language: string;
-      pos: number;
-      rect: DOMRect;
-    }>
-  >([]);
-  const [hoveredBlockPos, setHoveredBlockPos] = useState<number | null>(null);
-  const [activeBlockPos, setActiveBlockPos] = useState<number | null>(null);
-
-  useEffect(() => {
-    const updateBlocks = () => {
-      const next: Array<{ language: string; pos: number; rect: DOMRect }> = [];
-
-      editor.state.doc.descendants((node, pos) => {
-        if (node.type.name !== "codeBlock") {
-          return;
-        }
-
-        const dom = editor.view.nodeDOM(pos);
-        if (!(dom instanceof HTMLElement)) {
-          return;
-        }
-
-        const rect = dom.getBoundingClientRect();
-        if (rect.width <= 0 || rect.height <= 0) {
-          return;
-        }
-
-        next.push({
-          language:
-            ((node.attrs.language as string | null | undefined) ??
-              "plaintext") ||
-            "plaintext",
-          pos,
-          rect,
-        });
-      });
-
-      setBlocks(next);
-    };
-
-    updateBlocks();
-    editor.on("transaction", updateBlocks);
-    window.addEventListener("resize", updateBlocks);
-    window.addEventListener("scroll", updateBlocks, true);
-
-    return () => {
-      editor.off("transaction", updateBlocks);
-      window.removeEventListener("resize", updateBlocks);
-      window.removeEventListener("scroll", updateBlocks, true);
-    };
-  }, [editor]);
-
-  useEffect(() => {
-    const updateActiveBlock = () => {
-      const { from } = editor.state.selection;
-      let nextActive: number | null = null;
-
-      editor.state.doc.descendants((node, pos) => {
-        if (node.type.name !== "codeBlock") {
-          return;
-        }
-
-        if (from >= pos && from <= pos + node.nodeSize) {
-          nextActive = pos;
-        }
-      });
-
-      setActiveBlockPos(nextActive);
-    };
-
-    updateActiveBlock();
-    editor.on("selectionUpdate", updateActiveBlock);
-    editor.on("transaction", updateActiveBlock);
-
-    return () => {
-      editor.off("selectionUpdate", updateActiveBlock);
-      editor.off("transaction", updateActiveBlock);
-    };
-  }, [editor]);
-
-  useEffect(() => {
-    const cleanups: Array<() => void> = [];
-
-    blocks.forEach((block) => {
-      const dom = editor.view.nodeDOM(block.pos);
-      if (!(dom instanceof HTMLElement)) {
-        return;
-      }
-
-      const handleEnter = () => setHoveredBlockPos(block.pos);
-      const handleLeave = () =>
-        setHoveredBlockPos((current) =>
-          current === block.pos ? null : current
-        );
-
-      dom.addEventListener("pointerenter", handleEnter);
-      dom.addEventListener("pointerleave", handleLeave);
-      cleanups.push(() => {
-        dom.removeEventListener("pointerenter", handleEnter);
-        dom.removeEventListener("pointerleave", handleLeave);
-      });
-    });
-
-    return () => {
-      cleanups.forEach((cleanup) => cleanup());
-    };
-  }, [blocks, editor]);
-
-  return (
-    <>
-      {blocks
-        .filter(
-          (block) =>
-            block.pos === activeBlockPos || block.pos === hoveredBlockPos
-        )
-        .map((block) => (
-          <div
-            className="fixed z-[82]"
-            key={block.pos}
-            style={{
-              left: Math.max(VIEWPORT_PADDING, block.rect.right - 176),
-              top: block.rect.top + 8,
-            }}
-          >
-            <div className="flex items-center gap-1 rounded-md border border-border bg-popover/96 p-1 shadow-md backdrop-blur">
-              <Select
-                onValueChange={(value) => {
-                  editor
-                    .chain()
-                    .focus()
-                    .setTextSelection(block.pos + 1)
-                    .updateAttributes("codeBlock", {
-                      language: value === "plaintext" ? null : value,
-                    })
-                    .run();
-                }}
-                value={block.language}
-              >
-                <SelectTrigger className="h-7 min-w-28 border-border bg-background px-2 text-xs">
-                  <SelectValue placeholder="plaintext" />
-                </SelectTrigger>
-                <SelectContent>
-                  {languages.map((language) => (
-                    <SelectItem key={language} value={language}>
-                      {language}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                onClick={() => onCopy(block.pos)}
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                <Copy className="h-3.5 w-3.5" />
-                Copy
-              </Button>
-            </div>
-          </div>
-        ))}
-    </>
-  );
-}
-
 function SlashMenu({
   query,
   commands,
@@ -2375,148 +2302,6 @@ function MathPopover({
   );
 }
 
-function MermaidPopover({
-  editor,
-  value,
-  onChange,
-  onSave,
-  onCancel,
-  onDelete,
-  scrollContainerRef,
-}: {
-  editor: Editor;
-  value: MermaidPopoverState | null;
-  onChange: (next: string) => void;
-  onSave: () => void;
-  onCancel: () => void;
-  onDelete: () => void;
-  scrollContainerRef: RefObject<HTMLDivElement | null>;
-}) {
-  const popoverRef = useRef<HTMLDivElement | null>(null);
-  const [style, setStyle] = useState<Record<string, number> | null>(null);
-
-  useEffect(() => {
-    if (!(value && popoverRef.current)) {
-      return;
-    }
-    const updatePosition = () => {
-      if (!popoverRef.current) {
-        return;
-      }
-      const anchorRect = getMathAnchorRect(editor, value.pos);
-      const popoverRect = popoverRef.current.getBoundingClientRect();
-      const left = clamp(
-        anchorRect.left,
-        VIEWPORT_PADDING,
-        window.innerWidth - popoverRect.width - VIEWPORT_PADDING
-      );
-      const canPlaceBelow =
-        anchorRect.bottom + MENU_OFFSET + popoverRect.height <
-        window.innerHeight - VIEWPORT_PADDING;
-      const top = canPlaceBelow
-        ? anchorRect.bottom + MENU_OFFSET
-        : Math.max(
-            VIEWPORT_PADDING,
-            anchorRect.top - popoverRect.height - MENU_OFFSET
-          );
-      setStyle({ left, top });
-    };
-    updatePosition();
-    const scrollTarget = scrollContainerRef.current;
-    window.addEventListener("resize", updatePosition);
-    scrollTarget?.addEventListener("scroll", updatePosition, { passive: true });
-    return () => {
-      window.removeEventListener("resize", updatePosition);
-      scrollTarget?.removeEventListener("scroll", updatePosition);
-    };
-  }, [editor, scrollContainerRef, value]);
-
-  useEffect(() => {
-    if (!value) {
-      return;
-    }
-    const handlePointerDown = (e: MouseEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (!target || popoverRef.current?.contains(target)) {
-        return;
-      }
-      if (target.closest('[data-type="mermaid-diagram"]')) {
-        return;
-      }
-      onCancel();
-    };
-    document.addEventListener("mousedown", handlePointerDown);
-    return () => document.removeEventListener("mousedown", handlePointerDown);
-  }, [onCancel, value]);
-
-  if (!value) {
-    return null;
-  }
-
-  return (
-    <div
-      className="fixed z-[90] w-[min(28rem,calc(100vw-1.25rem))] rounded-lg border border-border bg-popover p-2.5 shadow-black/10 shadow-lg"
-      ref={popoverRef}
-      style={style ?? undefined}
-    >
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <p className="font-medium text-popover-foreground text-sm">
-          Mermaid diagram
-        </p>
-        <div className="rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-          ```mermaid
-        </div>
-      </div>
-      <Textarea
-        className="min-h-32 w-full resize-y rounded-xl font-mono text-[13px] leading-6"
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => {
-          if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-            e.preventDefault();
-            onSave();
-          } else if (e.key === "Escape") {
-            e.preventDefault();
-            onCancel();
-          }
-        }}
-        spellCheck={false}
-        value={value.draft}
-      />
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <Button
-          onClick={onDelete}
-          onMouseDown={(e) => e.preventDefault()}
-          size="sm"
-          type="button"
-          variant="destructive"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          Delete
-        </Button>
-        <div className="flex gap-2">
-          <Button
-            onClick={onCancel}
-            onMouseDown={(e) => e.preventDefault()}
-            size="sm"
-            type="button"
-            variant="outline"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={onSave}
-            onMouseDown={(e) => e.preventDefault()}
-            size="sm"
-            type="button"
-          >
-            Save
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 interface ImagePopoverState {
   pos: number;
   src: string;
@@ -2831,8 +2616,6 @@ function AvenireEditor({
     index: 0,
   });
   const [mathPopover, setMathPopover] = useState<MathPopoverState | null>(null);
-  const [mermaidPopover, setMermaidPopover] =
-    useState<MermaidPopoverState | null>(null);
   const [imagePopover, setImagePopover] = useState<ImagePopoverState | null>(
     null
   );
@@ -3035,14 +2818,7 @@ function AvenireEditor({
           alwaysPreserveAspectRatio: true,
         },
       }),
-      MermaidDiagramExtension.configure({
-        onClick: (node: { attrs: { code?: string } }, pos: number) => {
-          setMermaidPopover({
-            pos,
-            draft: String(node.attrs?.code ?? MERMAID_DEFAULT),
-          });
-        },
-      }),
+      MermaidDiagramExtension,
       NoteWidgetExtension,
     ],
     content: normalizedDefaultValue,
@@ -3490,15 +3266,21 @@ function AvenireEditor({
             .insertMermaidDiagram({ pos })
             .run();
           requestAnimationFrame(() => {
-            const node = editor.state.doc.nodeAt(pos);
-            if (node?.type.name === "mermaidDiagram") {
-              setMermaidPopover({
-                pos,
-                draft: String(
-                  (node.attrs as { code?: string }).code ?? MERMAID_DEFAULT
-                ),
-              });
+            const dom = editor.view.nodeDOM(pos);
+            if (!(dom instanceof HTMLElement)) {
+              return;
             }
+            dom.classList.add("is-editing");
+            const editButton = dom.querySelector<HTMLButtonElement>(
+              ".mermaid-diagram-edit"
+            );
+            const textarea = dom.querySelector<HTMLTextAreaElement>(
+              ".mermaid-diagram-source"
+            );
+            if (editButton) {
+              editButton.textContent = "Done";
+            }
+            textarea?.focus();
           });
         },
       },
@@ -3607,26 +3389,6 @@ function AvenireEditor({
           const pos = mathPopover.pos;
           const node = editor.state.doc.nodeAt(pos);
           setMathPopover(null);
-          if (node) {
-            const after = Math.min(
-              pos + node.nodeSize,
-              editor.state.doc.content.size
-            );
-            editor.view.dispatch(
-              editor.state.tr.setSelection(
-                TextSelection.create(editor.state.doc, after)
-              )
-            );
-          }
-          editor.view.focus();
-          return;
-        }
-
-        if (mermaidPopover) {
-          event.preventDefault();
-          const pos = mermaidPopover.pos;
-          const node = editor.state.doc.nodeAt(pos);
-          setMermaidPopover(null);
           if (node) {
             const after = Math.min(
               pos + node.nodeSize,
@@ -4102,23 +3864,6 @@ function AvenireEditor({
         ) : null}
       </FloatingMenu>
 
-      <CodeBlockOverlayControls
-        editor={editor}
-        onCopy={(pos) => {
-          const activeCodeBlock = editor.state.doc.nodeAt(pos);
-
-          if (activeCodeBlock?.type.name !== "codeBlock") {
-            setInlineNotice("Could not find that code block.");
-            return;
-          }
-
-          void navigator.clipboard
-            .writeText(activeCodeBlock.textContent)
-            .then(() => setInlineNotice("Code copied."))
-            .catch(() => setInlineNotice("Could not copy code."));
-        }}
-      />
-
       <div className="scribe-frontmatter-panel scroll-fade-frame scroll-fade-bottom">
         <PropertiesTable
           className="scribe-frontmatter-table"
@@ -4211,64 +3956,6 @@ function AvenireEditor({
         }}
         scrollContainerRef={scrollContainerRef}
         value={mathPopover}
-      />
-
-      <MermaidPopover
-        editor={editor}
-        onCancel={() => setMermaidPopover(null)}
-        onChange={(next) => {
-          setMermaidPopover((current) =>
-            current ? { ...current, draft: next } : null
-          );
-          if (mermaidPopover) {
-            (
-              editor.commands as unknown as {
-                updateMermaidDiagram: (o: {
-                  pos: number;
-                  code: string;
-                }) => boolean;
-              }
-            ).updateMermaidDiagram({
-              pos: mermaidPopover.pos,
-              code: next,
-            });
-          }
-        }}
-        onDelete={() => {
-          if (!mermaidPopover) {
-            return;
-          }
-          (
-            editor.chain().focus() as unknown as {
-              deleteMermaidDiagram: (o: { pos: number }) => {
-                run: () => void;
-              };
-            }
-          )
-            .deleteMermaidDiagram({ pos: mermaidPopover.pos })
-            .run();
-          setMermaidPopover(null);
-        }}
-        onSave={() => {
-          if (!mermaidPopover) {
-            return;
-          }
-          (
-            editor.chain().focus() as unknown as {
-              updateMermaidDiagram: (o: { pos: number; code: string }) => {
-                run: () => void;
-              };
-            }
-          )
-            .updateMermaidDiagram({
-              pos: mermaidPopover.pos,
-              code: mermaidPopover.draft,
-            })
-            .run();
-          setMermaidPopover(null);
-        }}
-        scrollContainerRef={scrollContainerRef}
-        value={mermaidPopover}
       />
 
       <ImagePopover
