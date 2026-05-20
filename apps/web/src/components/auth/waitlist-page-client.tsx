@@ -70,13 +70,14 @@ export function WaitlistPageClient() {
             className="pointer-events-none max-w-xl text-3xl text-foreground leading-tight md:text-4xl"
             style={{ textShadow: "0 1px 24px rgba(0,0,0,0.65)" }}
           >
-            This room&apos;s full.
+            Early access is opening in waves.
           </h1>
           <p
             className="pointer-events-none max-w-md text-foreground/70 text-sm leading-relaxed"
             style={{ textShadow: "0 1px 16px rgba(0,0,0,0.7)" }}
           >
-            Join the waitlist and we&apos;ll email you when there&apos;s space.
+            Join the waitlist and we&apos;ll email you as soon as your invite is
+            ready.
           </p>
           <button
             className="mt-2 inline-flex h-10 items-center justify-center rounded-md bg-foreground px-5 font-medium text-background text-sm transition-opacity hover:opacity-90"
