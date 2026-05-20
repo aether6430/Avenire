@@ -201,9 +201,9 @@
 .editor-toc-rail__panel {
   position: absolute;
   top: 0;
-  right: auto;
+  right: 0;
   bottom: auto;
-  left: 0;
+  left: auto;
   width: min(14rem, calc(100vw - 2rem));
   max-height: min(22rem, calc(100vh - 8rem));
   overflow-y: auto;

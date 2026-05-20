@@ -924,7 +924,7 @@ export function DashboardSidebar({
   }, [state]);
 
   useEffect(() => {
-    if (!(activeView === "tasks" && activeWorkspace?.workspaceId)) {
+    if (!activeWorkspace?.workspaceId) {
       return;
     }
 
@@ -932,7 +932,7 @@ export function DashboardSidebar({
     void reloadWorkspaceTasks(activeWorkspace.workspaceId, {
       background: true,
     });
-  }, [activeView, activeWorkspace?.workspaceId]);
+  }, [activeWorkspace?.workspaceId]);
   const closeMobileSidebar = useCallback(() => {
     setOpenMobile(false);
   }, [setOpenMobile]);
@@ -1491,6 +1491,22 @@ export function DashboardSidebar({
     [activeWorkspace, navigate, workspaces]
   );
 
+  const activateFilesAndEmitIntent = useCallback(
+    async (intent: Parameters<typeof filesUiActions.emitIntent>[0]) => {
+      if (isMobile) {
+        setMobileSidebarView("files");
+      } else {
+        setDesktopSidebarView("files");
+      }
+
+      await navigateToFilesRoot({ openInNewPane: false });
+      window.setTimeout(() => {
+        filesUiActions.emitIntent(intent);
+      }, 0);
+    },
+    [isMobile, navigateToFilesRoot]
+  );
+
   const loadWorkspaces = useCallback(async () => {
     try {
       const response = await fetch("/api/workspaces/list", {
@@ -1833,10 +1849,7 @@ export function DashboardSidebar({
     "Mod+Shift+N",
     (event) => {
       event.preventDefault();
-      if (activeView !== "files") {
-        return;
-      }
-      filesUiActions.emitIntent("createFolder");
+      void activateFilesAndEmitIntent("createFolder");
     },
     { ignoreInputs: true }
   );
@@ -1845,10 +1858,7 @@ export function DashboardSidebar({
     "Mod+U",
     (event) => {
       event.preventDefault();
-      if (activeView !== "files") {
-        return;
-      }
-      filesUiActions.emitIntent("uploadFile");
+      void activateFilesAndEmitIntent("uploadFile");
     },
     { ignoreInputs: true }
   );
@@ -1857,10 +1867,7 @@ export function DashboardSidebar({
     "Mod+Shift+U",
     (event) => {
       event.preventDefault();
-      if (activeView !== "files") {
-        return;
-      }
-      filesUiActions.emitIntent("uploadFolder");
+      void activateFilesAndEmitIntent("uploadFolder");
     },
     { ignoreInputs: true }
   );
@@ -1968,10 +1975,7 @@ export function DashboardSidebar({
     "Mod+Shift+O",
     (event) => {
       event.preventDefault();
-      if (activeView !== "files") {
-        return;
-      }
-      filesUiActions.emitIntent("newNote");
+      void activateFilesAndEmitIntent("newNote");
     },
     { ignoreInputs: true }
   );
@@ -1980,10 +1984,7 @@ export function DashboardSidebar({
     "Mod+Shift+L",
     (event) => {
       event.preventDefault();
-      if (activeView !== "files") {
-        return;
-      }
-      filesUiActions.emitIntent("importLink");
+      void activateFilesAndEmitIntent("importLink");
     },
     { ignoreInputs: true }
   );
@@ -2332,6 +2333,7 @@ export function DashboardSidebar({
                       <DeferredFilesSidebarPanel
                         currentFileId={currentFileId}
                         currentFolderId={currentFolderId}
+                        emitGlobalFileIntent={activateFilesAndEmitIntent}
                         key={`${workspaceUuid ?? "no-workspace"}:${currentFolderId ?? "root"}:${currentFileId ?? "no-file"}`}
                         navigateToFilesRoot={navigateToFilesRoot}
                         workspaceUuid={workspaceUuid}

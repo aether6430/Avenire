@@ -52,7 +52,7 @@ import {
   type PinnedExplorerItem,
   useFilesPinsStore,
 } from "@/stores/filesPinsStore";
-import { filesUiActions } from "@/stores/filesUiStore";
+import { type FilesUiIntent, filesUiActions } from "@/stores/filesUiStore";
 
 interface SidebarFolderNode extends CommandPaletteFolderNode {}
 
@@ -314,11 +314,13 @@ function SectionButton({
 export function FilesSidebarPanel({
   currentFileId,
   currentFolderId,
+  emitGlobalFileIntent,
   navigateToFilesRoot,
   workspaceUuid,
 }: {
   currentFileId?: string;
   currentFolderId?: string;
+  emitGlobalFileIntent?: (intent: FilesUiIntent) => void | Promise<void>;
   navigateToFilesRoot: (options?: { openInNewPane?: boolean }) => Promise<void>;
   workspaceUuid: string | null;
 }) {
@@ -632,6 +634,28 @@ export function FilesSidebarPanel({
     [navigate]
   );
 
+  const emitFileIntentAfterNavigation = useCallback(
+    (intent: FilesUiIntent) => {
+      if (workspaceUuid && currentFolderId) {
+        navigateToFolder(currentFolderId, workspaceUuid);
+        window.setTimeout(() => {
+          filesUiActions.emitIntent(intent);
+        }, 0);
+        return;
+      }
+
+      if (emitGlobalFileIntent) {
+        void emitGlobalFileIntent(intent);
+        return;
+      }
+
+      window.setTimeout(() => {
+        filesUiActions.emitIntent(intent);
+      }, 0);
+    },
+    [currentFolderId, emitGlobalFileIntent, navigateToFolder, workspaceUuid]
+  );
+
   const navigateToFile = useCallback(
     (fileId: string, folderId: string, routeWorkspaceUuid: string) => {
       const href =
@@ -943,7 +967,9 @@ export function FilesSidebarPanel({
                 onClick={(event) => {
                   event.stopPropagation();
                   navigateToFolder(folder.id, workspaceUuid);
-                  filesUiActions.emitIntent("uploadFile");
+                  window.setTimeout(() => {
+                    filesUiActions.emitIntent("uploadFile");
+                  }, 0);
                 }}
                 size="icon-xs"
                 type="button"
@@ -1068,7 +1094,7 @@ export function FilesSidebarPanel({
             <Button
               className="h-7 w-7 rounded-md border border-border/60 bg-background/60 p-0 text-muted-foreground shadow-none hover:bg-muted"
               onClick={() => {
-                filesUiActions.emitIntent("newNote");
+                emitFileIntentAfterNavigation("newNote");
                 triggerHaptic("selection");
               }}
               size="icon"
@@ -1085,7 +1111,7 @@ export function FilesSidebarPanel({
               icon={FilePlus2}
               label="New Note"
               onClick={() => {
-                filesUiActions.emitIntent("newNote");
+                emitFileIntentAfterNavigation("newNote");
                 triggerHaptic("selection");
               }}
             />
@@ -1093,7 +1119,7 @@ export function FilesSidebarPanel({
               icon={LinkSimple}
               label="Import Link"
               onClick={() => {
-                filesUiActions.emitIntent("importLink");
+                emitFileIntentAfterNavigation("importLink");
                 triggerHaptic("selection");
               }}
             />

@@ -286,14 +286,16 @@ export function FileCard({
           <div className="flex w-full min-w-0 flex-wrap gap-1.5">
             {details.map((detail) => (
               <span
-                className="inline-flex max-w-full items-center gap-1 rounded-md bg-background/75 px-2 py-0.5 text-[10px] text-muted-foreground leading-none"
+                className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-md bg-background/75 px-2 py-0.5 text-[10px] text-muted-foreground leading-none"
                 key={`${detail.label}:${detail.value}`}
                 title={`${detail.label}: ${detail.value}`}
               >
                 <span className="shrink-0 font-medium text-foreground/75">
                   {detail.label}
                 </span>
-                <span className="min-w-0 truncate">{detail.value}</span>
+                <span className="min-w-0 max-w-24 truncate">
+                  {detail.value}
+                </span>
               </span>
             ))}
           </div>
@@ -309,29 +311,37 @@ export function MarkdownThumbnail({
 }: MarkdownThumbnailProps) {
   const markdownContent = typeof content === "string" ? content.trim() : "";
   const lines = markdownContent ? markdownToPreviewLines(markdownContent) : [];
-  const title = lines.find((line) => line.length > 0) ?? "Untitled note";
   const bodyStart = Math.max(0, lines.findIndex((line) => line.length > 0) + 1);
   const bodyLines = lines.slice(bodyStart).filter(Boolean).slice(0, 4);
 
   return (
     <div className={cn(THUMBNAIL_SURFACE_CLASS, "p-2", className)}>
       {markdownContent ? (
-        <div className="flex h-full w-full flex-col rounded-md border border-border/50 bg-card px-3 py-3 text-left">
-          <p className="line-clamp-2 font-medium text-foreground text-xs leading-4">
-            {title}
-          </p>
-          <div className="mt-2 space-y-1.5">
-            {Array.from({ length: bodyLines.length > 0 ? 4 : 3 }, (_unused, index) => (
+        <div className="flex h-full w-full flex-col rounded-md border border-border/50 bg-card px-2.5 py-2.5">
+          <div className="mb-2 flex items-center gap-1.5">
+            <div className="size-1.5 rounded-full bg-muted" />
+            <div className="h-1.5 w-8 rounded-sm bg-muted" />
+          </div>
+          <div className="space-y-1.5">
+            {Array.from({ length: bodyLines.length > 0 ? 6 : 5 }, (_unused, index) => (
               <div
                 className={cn(
-                  "h-1.5 rounded-sm bg-muted",
+                  "h-1 rounded-sm bg-muted",
+                  index === 0 && "w-11/12",
                   index === 1 && "w-10/12",
-                  index === 2 && "w-8/12",
-                  index === 3 && "w-9/12"
+                  index === 2 && "w-full",
+                  index === 3 && "w-8/12",
+                  index === 4 && "w-9/12",
+                  index === 5 && "w-7/12"
                 )}
                 key={`line-${index}`}
               />
             ))}
+          </div>
+          <div className="mt-auto grid grid-cols-3 gap-1.5 pt-2">
+            <div className="h-1 rounded-sm bg-muted" />
+            <div className="h-1 rounded-sm bg-muted" />
+            <div className="h-1 rounded-sm bg-muted" />
           </div>
         </div>
       ) : (
