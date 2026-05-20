@@ -1,18 +1,9 @@
-import { createRequire } from "node:module";
+import { createClient } from "redis";
 
 const DEFAULT_CONNECT_TIMEOUT_MS = 10_000;
-const DEFAULT_RECONNECT_DELAY_MS = 1_000;
+const DEFAULT_RECONNECT_DELAY_MS = 1000;
 
-type ManagedRedisClient = {
-  connect(): Promise<void>;
-  isOpen: boolean;
-  isReady: boolean;
-  on(event: "error", listener: (error: unknown) => void): unknown;
-};
-
-const requireFromWorkspaceRoot = createRequire(
-  new URL("../../../../package.json", import.meta.url)
-);
+export type ManagedRedisClient = ReturnType<typeof createClient>;
 
 function isExpectedRedisConnectionError(error: unknown) {
   return (
@@ -33,16 +24,6 @@ function normalizeRedisUrl(url: string) {
 }
 
 function createManagedRedisClient(url: string, label: string) {
-  const { createClient } = requireFromWorkspaceRoot("redis") as {
-    createClient: (options: {
-      socket: {
-        connectTimeout: number;
-        keepAlive: boolean;
-        reconnectStrategy: (retries: number) => number;
-      };
-      url: string;
-    }) => ManagedRedisClient;
-  };
   const client = createClient({
     url: normalizeRedisUrl(url),
     socket: {

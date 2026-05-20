@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
-import { ensureManagedRedisClient } from "./runtime/redis-client";
+import {
+  ensureManagedRedisClient,
+  type ManagedRedisClient,
+} from "./runtime/redis-client";
 
 const DEFAULT_TTL_SECONDS = 45;
 const RETRIEVAL_CACHE_VERSION = "v5";
@@ -20,14 +23,7 @@ export interface RecentRetrievalQuery {
   path: "fast" | "slow";
   provider: string | null;
   query: string;
-  sourceType:
-    | "pdf"
-    | "image"
-    | "video"
-    | "audio"
-    | "markdown"
-    | "link"
-    | null;
+  sourceType: "pdf" | "image" | "video" | "audio" | "markdown" | "link" | null;
   userId: string | null;
   workspaceUuid: string;
 }
@@ -83,7 +79,7 @@ function recentRetrievalQueryKey(workspaceUuid: string) {
 }
 
 export function createWorkspaceRetrievalStore(): WorkspaceRetrievalStore {
-  let client: any | null = null;
+  let client: ManagedRedisClient | null = null;
   const memoryCache = new Map<string, MemoryCacheEntry>();
   const recentRetrievalQueryMemory = new Map<string, MemoryCacheEntry>();
   const warmupLeaseMemory = new Map<string, MemoryCacheEntry>();
@@ -201,8 +197,9 @@ export function createWorkspaceRetrievalStore(): WorkspaceRetrievalStore {
             }
           })
           .filter(
-            (entry: RecentRetrievalQuery | null): entry is RecentRetrievalQuery =>
-              Boolean(entry)
+            (
+              entry: RecentRetrievalQuery | null
+            ): entry is RecentRetrievalQuery => Boolean(entry)
           );
       }
 
