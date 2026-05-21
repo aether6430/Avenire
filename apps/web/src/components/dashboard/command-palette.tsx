@@ -327,15 +327,15 @@ function matchesNeedle(value: string, needle: string) {
 }
 
 const PALETTE_GROUP_CLASS =
-  "overflow-hidden px-1 py-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-muted-foreground/60 [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider";
+  "overflow-hidden px-2 py-2 [&_[cmdk-group-heading]]:px-1.5 [&_[cmdk-group-heading]]:pb-1.5 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-muted-foreground/55 [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-normal";
 
 const PALETTE_ITEM_CLASS =
-  "group relative flex cursor-pointer select-none items-start gap-3 rounded px-2.5 py-2 text-sm outline-none data-[selected=true]:bg-primary/15 data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 hover:bg-primary/10 transition-colors duration-100";
+  "group relative flex cursor-pointer select-none items-start gap-2.5 rounded-md px-2.5 py-2 text-sm outline-none data-[selected=true]:bg-muted data-[selected=true]:text-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 hover:bg-muted/80 transition-colors duration-100";
 
-const PALETTE_ICON_CLASS = "mt-0.5 size-4 shrink-0 text-muted-foreground/70";
+const PALETTE_ICON_CLASS = "mt-0.5 size-4 shrink-0 text-muted-foreground/65";
 
 const PALETTE_CHEVRON_CLASS =
-  "mt-0.5 ml-auto size-3.5 shrink-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100 text-muted-foreground/50";
+  "mt-0.5 ml-auto size-3.5 shrink-0 opacity-0 transition-opacity duration-150 group-data-[selected=true]:opacity-100 group-hover:opacity-100 text-muted-foreground/45";
 
 export function CommandPalette({
   workspaceUuid: activeWorkspaceUuid,
@@ -1162,7 +1162,7 @@ export function CommandPalette({
 
   return (
     <CommandDialog
-      className="overflow-hidden border-border/70 bg-card/95 p-0 shadow-2xl shadow-black/20 backdrop-blur-xl sm:max-w-5xl"
+      className="overflow-hidden rounded-xl border-border/70 bg-[#202020] p-0 text-foreground shadow-[0_18px_80px_rgba(0,0,0,0.42)] sm:max-w-[58rem]"
       description="Search commands, projects, and threads..."
       largeWidth
       onOpenChange={(nextOpen) => {
@@ -1178,26 +1178,26 @@ export function CommandPalette({
       title="Command Palette"
     >
       <Command
-        className="h-[min(34rem,calc(100dvh-4rem))] min-h-0 rounded-none border-0 bg-transparent p-0 shadow-none"
+        className="h-[min(30.75rem,calc(100dvh-4rem))] min-h-0 rounded-none border-0 bg-transparent p-0 shadow-none"
         shouldFilter={false}
       >
-        <div className="border-border/70 border-b bg-secondary/65 px-4 py-1.5">
+        <div className="border-border/30 border-b px-4 py-3">
           <CommandInput
-            className="border-0 bg-transparent px-0 text-sm placeholder:text-muted-foreground/55 focus-visible:outline-none focus-visible:ring-0"
+            className="h-5 border-0 bg-transparent px-0 py-0 text-[13px] placeholder:text-muted-foreground/55 focus-visible:outline-none focus-visible:ring-0"
             onValueChange={setQuery}
-            placeholder="Run a command, open a file, or search workspace content..."
+            placeholder="Search or ask a question in Avenire's Space..."
             value={query}
           />
         </div>
         {pendingRoute ? (
-          <div className="flex items-center gap-2 border-border/70 border-t bg-secondary/50 px-4 py-3 text-muted-foreground/70 text-xs">
+          <div className="flex items-center gap-2 border-border/30 border-t bg-muted/25 px-4 py-2 text-muted-foreground/70 text-xs">
             <Spinner className="size-3.5" />
             Opening selection...
           </div>
         ) : null}
-        <div className="grid min-h-0 flex-1 grid-cols-1 border-border/70 border-t bg-background/10">
+        <div className="grid min-h-0 flex-1 grid-cols-1 bg-transparent">
           <div className="min-h-0">
-            <CommandList className="scrollbar-thin scrollbar-thumb-muted scrollbar-track-background max-h-96 min-h-0 overflow-y-auto rounded-lg">
+            <CommandList className="scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent max-h-none min-h-0 overflow-y-auto px-1 py-1">
               {searchQuery ? (
                 hasCommandMatches ? (
                   renderCommandGroups()
@@ -1565,21 +1565,29 @@ export function CommandPalette({
             </CommandList>
           </div>
         </div>
-        <div className="border-border/70 border-t bg-secondary/60 px-4 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-3 text-muted-foreground/70 text-xs">
+        <div className="border-border/25 border-t bg-[#242424] px-4 py-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-[11px] text-muted-foreground/65">
             <div className="flex items-center gap-2">
               <KbdGroup>
-                <Kbd className="px-2 py-1 text-xs">↑</Kbd>
-                <Kbd className="px-2 py-1 text-xs">↓</Kbd>
+                <Kbd className="rounded bg-black/20 px-1.5 py-0.5 text-[11px]">
+                  ↑
+                </Kbd>
+                <Kbd className="rounded bg-black/20 px-1.5 py-0.5 text-[11px]">
+                  ↓
+                </Kbd>
               </KbdGroup>
               <span className="text-muted-foreground/60">Navigate</span>
             </div>
             <div className="flex items-center gap-2">
-              <Kbd className="px-2 py-1 text-xs">Enter</Kbd>
+              <Kbd className="rounded bg-black/20 px-1.5 py-0.5 text-[11px]">
+                Enter
+              </Kbd>
               <span className="text-muted-foreground/60">Select</span>
             </div>
             <div className="flex items-center gap-2">
-              <Kbd className="px-2 py-1 text-xs">Esc</Kbd>
+              <Kbd className="rounded bg-black/20 px-1.5 py-0.5 text-[11px]">
+                Esc
+              </Kbd>
               <span className="text-muted-foreground/60">Close</span>
             </div>
           </div>

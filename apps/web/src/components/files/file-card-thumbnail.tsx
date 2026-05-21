@@ -75,80 +75,8 @@ function formatTimeAgo(date: Date): string {
   return `${diffYears}y`;
 }
 
-const MARKDOWN_FRONTMATTER_REGEX = /^---\s*\r?\n[\s\S]*?\r?\n---\s*\r?\n?/;
-const MARKDOWN_IMAGE_REGEX = /!\[([^\]]*)\]\(([^)]+)\)/g;
-const MARKDOWN_LINK_REGEX = /\[([^\]]+)\]\(([^)]+)\)/g;
-const MARKDOWN_WIKILINK_REGEX = /\[\[([^[\]|]+)(?:\|([^[\]]+))?\]\]/g;
-const MARKDOWN_INLINE_CODE_REGEX = /`([^`]+)`/g;
-const MARKDOWN_HEADING_REGEX = /^\s{0,3}#{1,6}\s+/;
-const MARKDOWN_BLOCKQUOTE_REGEX = /^\s{0,3}>\s?/;
-const MARKDOWN_LIST_REGEX = /^\s{0,3}(?:[-*+]|(?:\d+\.))\s+/;
-const MARKDOWN_HORIZONTAL_RULE_REGEX = /^\s{0,3}(?:[-*_]\s?){3,}$/;
-const WHITESPACE_REGEX = /\s+/g;
 const THUMBNAIL_SURFACE_CLASS =
   "relative flex h-full w-full items-center justify-center overflow-hidden rounded-md border border-border/60 bg-background";
-
-function stripMarkdownFrontmatter(content: string) {
-  return content.replace(MARKDOWN_FRONTMATTER_REGEX, "");
-}
-
-function normalizeMarkdownLine(line: string) {
-  const trimmed = line.trim();
-  if (!trimmed) {
-    return "";
-  }
-
-  if (MARKDOWN_HORIZONTAL_RULE_REGEX.test(trimmed)) {
-    return "";
-  }
-
-  const normalized = trimmed
-    .replace(MARKDOWN_BLOCKQUOTE_REGEX, "")
-    .replace(MARKDOWN_LIST_REGEX, "")
-    .replace(MARKDOWN_HEADING_REGEX, "")
-    .replace(MARKDOWN_IMAGE_REGEX, (_match, altText: string) => altText || "")
-    .replace(MARKDOWN_LINK_REGEX, (_match, label: string) => label || "")
-    .replace(
-      MARKDOWN_WIKILINK_REGEX,
-      (_match, target: string, label?: string) => (label ?? target).trim()
-    )
-    .replace(MARKDOWN_INLINE_CODE_REGEX, (_match, code: string) => code)
-    .replace(/[*_~]/g, "")
-    .replace(WHITESPACE_REGEX, " ")
-    .trim();
-
-  return normalized;
-}
-
-function markdownToPreviewLines(markdown: string) {
-  const normalized = stripMarkdownFrontmatter(markdown).replaceAll(
-    "\r\n",
-    "\n"
-  );
-  const rawLines = normalized.split("\n");
-  const cleanedLines: string[] = [];
-  let previousWasBlank = false;
-
-  for (const rawLine of rawLines) {
-    const line = normalizeMarkdownLine(rawLine);
-    if (!line) {
-      if (!previousWasBlank && cleanedLines.length > 0) {
-        cleanedLines.push("");
-      }
-      previousWasBlank = true;
-      continue;
-    }
-
-    cleanedLines.push(line);
-    previousWasBlank = false;
-  }
-
-  while (cleanedLines.at(-1) === "") {
-    cleanedLines.pop();
-  }
-
-  return cleanedLines;
-}
 
 function getFileIcon(fileType: FileCardType): React.ReactNode {
   if (fileType === "code") {
@@ -310,42 +238,61 @@ export function MarkdownThumbnail({
   content,
 }: MarkdownThumbnailProps) {
   const markdownContent = typeof content === "string" ? content.trim() : "";
-  const lines = markdownContent ? markdownToPreviewLines(markdownContent) : [];
-  const bodyStart = Math.max(0, lines.findIndex((line) => line.length > 0) + 1);
-  const bodyLines = lines.slice(bodyStart).filter(Boolean).slice(0, 4);
 
   return (
-    <div className={cn(THUMBNAIL_SURFACE_CLASS, "p-2", className)}>
+    <div
+      className={cn(THUMBNAIL_SURFACE_CLASS, "bg-[#151515] p-1.5", className)}
+    >
       {markdownContent ? (
-        <div className="flex h-full w-full flex-col rounded-md border border-border/50 bg-card px-2.5 py-2.5">
-          <div className="mb-2 flex items-center gap-1.5">
-            <div className="size-1.5 rounded-full bg-muted" />
-            <div className="h-1.5 w-8 rounded-sm bg-muted" />
+        <div className="flex h-full w-full flex-col overflow-hidden rounded-[5px] border border-white/8 bg-[#191919]">
+          <div className="flex h-6 shrink-0 items-center gap-1.5 border-white/8 border-b px-2">
+            <div className="size-1.5 rounded-sm bg-muted-foreground/35" />
+            <div className="h-1.5 w-14 rounded-sm bg-muted-foreground/25" />
           </div>
-          <div className="space-y-1.5">
-            {Array.from({ length: bodyLines.length > 0 ? 6 : 5 }, (_unused, index) => (
-              <div
-                className={cn(
-                  "h-1 rounded-sm bg-muted",
-                  index === 0 && "w-11/12",
-                  index === 1 && "w-10/12",
-                  index === 2 && "w-full",
-                  index === 3 && "w-8/12",
-                  index === 4 && "w-9/12",
-                  index === 5 && "w-7/12"
-                )}
-                key={`line-${index}`}
-              />
-            ))}
-          </div>
-          <div className="mt-auto grid grid-cols-3 gap-1.5 pt-2">
-            <div className="h-1 rounded-sm bg-muted" />
-            <div className="h-1 rounded-sm bg-muted" />
-            <div className="h-1 rounded-sm bg-muted" />
+          <div className="grid flex-1 grid-cols-[1.1fr_0.85fr_0.85fr] grid-rows-4 overflow-hidden">
+            {Array.from({ length: 12 }, (_unused, index) => {
+              const row = Math.floor(index / 3);
+              const column = index % 3;
+              const widths = ["w-10/12", "w-7/12", "w-8/12"];
+              return (
+                <div
+                  className={cn(
+                    "flex items-center border-white/8 border-b px-2",
+                    column > 0 && "border-l",
+                    row === 3 && "border-b-0"
+                  )}
+                  key={`cell-${index}`}
+                >
+                  {row === 0 ? (
+                    <div
+                      className={cn(
+                        "h-1.5 rounded-sm bg-muted-foreground/30",
+                        widths[column]
+                      )}
+                    />
+                  ) : (
+                    <div
+                      className={cn(
+                        "h-1 rounded-sm bg-muted-foreground/18",
+                        column === 0 && row === 1 && "w-9/12",
+                        column === 0 && row === 2 && "w-6/12",
+                        column === 0 && row === 3 && "w-8/12",
+                        column === 1 && row === 1 && "w-5/12",
+                        column === 1 && row === 2 && "w-7/12",
+                        column === 1 && row === 3 && "w-4/12",
+                        column === 2 && row === 1 && "w-7/12",
+                        column === 2 && row === 2 && "w-5/12",
+                        column === 2 && row === 3 && "w-6/12"
+                      )}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       ) : (
-        <div className="flex h-full w-full items-center justify-center rounded-md bg-muted/30 text-muted-foreground">
+        <div className="flex h-full w-full items-center justify-center rounded-[5px] bg-muted/30 text-muted-foreground">
           <FileCode2 aria-hidden="true" className="size-4" />
         </div>
       )}
@@ -460,7 +407,7 @@ export function VideoThumbnail({
       video.pause();
       video.currentTime = 0;
     };
-  }, [playOnHover, resolvedPlaybackSource]);
+  }, [playOnHover]);
 
   if (failed) {
     return (
