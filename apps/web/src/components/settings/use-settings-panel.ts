@@ -4,10 +4,12 @@ import { useSession } from "@avenire/auth/app-client";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import type {
+  SettingsInitialUser,
   TabKey,
   WorkspaceSummary,
 } from "@/components/settings/settings-panel-model";
 import {
+  createSettingsSessionFallback,
   formatBytes,
   formatCredits,
   formatRefillAt,
@@ -20,6 +22,7 @@ import { useSettingsPanelKeyboard } from "@/components/settings/use-settings-pan
 import { useSettingsPanelNavigation } from "@/components/settings/use-settings-panel-navigation";
 import { useSettingsPanelPreferences } from "@/components/settings/use-settings-panel-preferences";
 import { useSettingsPanelSudo } from "@/components/settings/use-settings-panel-sudo";
+import { useUserStore } from "@/stores/userStore";
 
 export {
   KEYBOARD_SHORTCUT_GROUPS,
@@ -39,15 +42,20 @@ export type {
 } from "@/components/settings/settings-panel-model";
 
 export function useSettingsPanel({
+  initialUser,
   initialWorkspaces,
   initialWorkspaceId,
   initialTab = "account",
 }: {
+  initialUser?: SettingsInitialUser | null;
   initialWorkspaces?: WorkspaceSummary[];
   initialWorkspaceId?: string;
   initialTab?: TabKey;
 }) {
-  const { data: session } = useSession();
+  const { data: sessionData } = useSession();
+  const bootstrapUser = useUserStore((state) => state.user);
+  const session = sessionData ?? createSettingsSessionFallback(initialUser);
+  const resolvedSessionUser = session?.user ?? bootstrapUser ?? null;
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -71,10 +79,10 @@ export function useSettingsPanel({
 
   const accountRuntime = useSettingsPanelAccount({
     currentTab,
-    sessionUser: session?.user,
+    sessionUser: resolvedSessionUser,
   });
   const sudoRuntime = useSettingsPanelSudo({ currentTab });
-  const currentUserEmail = session?.user?.email?.toLowerCase() ?? null;
+  const currentUserEmail = resolvedSessionUser?.email?.toLowerCase() ?? null;
 
   return {
     ...accountRuntime,
@@ -87,6 +95,7 @@ export function useSettingsPanel({
     currentUserEmail,
     router,
     searchParams,
+    resolvedSessionUser,
     session,
     setTheme,
     theme,

@@ -31,6 +31,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { toNextJsHandler } from "better-auth/next-js";
 import { lastLoginMethod, organization } from "better-auth/plugins";
 import { username } from "better-auth/plugins/username";
+import { parseOriginList, resolveTrustedOrigins } from "./origin-policy";
 import { waitlistPlugin } from "./waitlist";
 
 const appUrl = process.env.BETTER_AUTH_URL?.trim();
@@ -39,31 +40,6 @@ if (!appUrl) {
     "Missing BETTER_AUTH_URL. Set BETTER_AUTH_URL for auth server configuration."
   );
 }
-const EXTENSION_PROTOCOLS = new Set(["chrome-extension:", "moz-extension:"]);
-
-function parseOriginList(value?: string) {
-  return (
-    value
-      ?.split(",")
-      .map((origin) => origin.trim())
-      .filter(Boolean) ?? []
-  );
-}
-
-function isBrowserExtensionOrigin(
-  origin: string | null | undefined
-): origin is string {
-  if (!origin) {
-    return false;
-  }
-
-  try {
-    return EXTENSION_PROTOCOLS.has(new URL(origin).protocol);
-  } catch {
-    return false;
-  }
-}
-
 function getRequestOrigin(request: unknown) {
   const headers =
     request && typeof request === "object" && "headers" in request
@@ -93,10 +69,6 @@ const trustedOriginsFromEnv = parseOriginList(
 );
 const extensionOriginsFromEnv = parseOriginList(
   process.env.BETTER_AUTH_EXTENSION_ORIGINS
-);
-const emailer = new Emailer();
-const trustedOrigins = Array.from(
-  new Set([appUrl, ...trustedOriginsFromEnv, ...extensionOriginsFromEnv])
 );
 const polarAccessToken = process.env.POLAR_ACCESS_TOKEN?.trim();
 const polarServer =
@@ -150,6 +122,13 @@ const generatedBetterAuthSchema = {
   passkey: passkeyTable,
 };
 
+let emailer: Emailer | null = null;
+
+function getEmailer() {
+  emailer ??= new Emailer();
+  return emailer;
+}
+
 function buildWelcomeWorkspaceNote(input: {
   firstName?: string | null;
   workspaceName: string;
@@ -182,14 +161,13 @@ export const auth = betterAuth({
   trustedOrigins: async (request) => {
     const requestOrigin = getRequestOrigin(request);
 
-    if (
-      process.env.NODE_ENV !== "production" &&
-      isBrowserExtensionOrigin(requestOrigin)
-    ) {
-      return Array.from(new Set([...trustedOrigins, requestOrigin]));
-    }
-
-    return trustedOrigins;
+    return resolveTrustedOrigins({
+      appUrl,
+      extensionOriginsFromEnv,
+      nodeEnv: process.env.NODE_ENV,
+      requestOrigin,
+      trustedOriginsFromEnv,
+    });
   },
   database: drizzleAdapter(db, {
     provider: "pg",
@@ -202,7 +180,7 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: true,
     sendResetPassword: async ({ user, url }) => {
-      await emailer.send({
+      await getEmailer().send({
         to: [user.email],
         subject: "Reset your password",
         html: await renderPasswordResetEmail({
@@ -216,7 +194,7 @@ export const auth = betterAuth({
     sendOnSignUp: true,
     autoSignInAfterVerification: true,
     sendVerificationEmail: async ({ user, url }) => {
-      await emailer.send({
+      await getEmailer().send({
         to: [user.email],
         subject: "Verify your email",
         html: await renderVerificationEmail({
@@ -230,7 +208,7 @@ export const auth = betterAuth({
     deleteUser: {
       enabled: true,
       sendDeleteAccountVerification: async ({ user, url }) => {
-        await emailer.send({
+        await getEmailer().send({
           to: [user.email],
           subject: "Confirm account deletion",
           html: await renderDeleteAccountEmail({
@@ -293,7 +271,7 @@ export const auth = betterAuth({
               companyName: user.name ?? "there",
             });
             console.log("[auth] rendered welcome email", { email: user.email });
-            await emailer.send({
+            await getEmailer().send({
               to: [user.email],
               subject: "Welcome to Avenire",
               html,
@@ -376,7 +354,7 @@ export async function sendFileShareEmail(input: {
   shareUrl: string;
   sharedByName?: string;
 }) {
-  await emailer.send({
+  await getEmailer().send({
     to: [input.toEmail],
     subject: `${input.sharedByName ?? "Someone"} shared a file with you`,
     html: await renderFileShareNotificationEmail({
@@ -393,7 +371,7 @@ export async function sendWorkspaceShareEmail(input: {
   workspaceUrl: string;
   sharedByName?: string;
 }) {
-  await emailer.send({
+  await getEmailer().send({
     to: [input.toEmail],
     subject: `${input.sharedByName ?? "Someone"} shared a workspace with you`,
     html: await renderWorkspaceShareNotificationEmail({
@@ -409,7 +387,7 @@ export async function sendSudoVerificationCodeEmail(input: {
   code: string;
   expiresInMinutes: number;
 }) {
-  await emailer.send({
+  await getEmailer().send({
     to: [input.toEmail],
     subject: "Your Avenire security verification code",
     html: await renderSecurityVerificationCodeEmail({

@@ -4,6 +4,7 @@ import {
   type FocusEvent,
   type KeyboardEvent,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -51,6 +52,20 @@ function parseFormattedPropertyValue(type: FilePropertyType, value: string) {
 
 function normalizeEditablePropertyKey(key: string) {
   return key.trim().toLowerCase();
+}
+
+export function shouldAutoCommitDraftProperty(input: {
+  disabled: boolean;
+  isAddingProperty: boolean;
+  key: string;
+  value: string;
+}) {
+  return (
+    !input.disabled &&
+    input.isAddingProperty &&
+    normalizeEditablePropertyKey(input.key).length > 0 &&
+    input.value.trim().length > 0
+  );
 }
 
 export function PropertiesTable({
@@ -150,6 +165,27 @@ export function PropertiesTable({
     setNewValue("");
     setIsAddingProperty(false);
   }, [definitionByKey, newKey, newValue, onChange, properties, syncDefinition]);
+
+  useEffect(() => {
+    if (
+      !shouldAutoCommitDraftProperty({
+        disabled,
+        isAddingProperty,
+        key: newKey,
+        value: newValue,
+      })
+    ) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      handleAddProperty();
+    }, 800);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [disabled, handleAddProperty, isAddingProperty, newKey, newValue]);
 
   const handleDeleteProperty = useCallback(
     (key: string) => {

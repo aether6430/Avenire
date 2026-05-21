@@ -1,8 +1,10 @@
 "use client";
 
 import { Spinner } from "@avenire/ui/components/spinner";
+import dynamic from "next/dynamic";
 import { Suspense, useCallback, useRef, useState } from "react";
 import { ExplorerBrowsePane } from "@/components/files/explorer/explorer-browse-pane";
+import type { ExplorerContentDialogsProps } from "@/components/files/explorer/explorer-content-dialogs";
 import { ExplorerPreviewPane } from "@/components/files/explorer/explorer-preview-pane";
 import { useExplorerDerivedState } from "@/components/files/explorer/use-explorer-derived-state";
 import { useExplorerEditWorkflows } from "@/components/files/explorer/use-explorer-edit-workflows";
@@ -26,6 +28,14 @@ import {
 } from "@/lib/workspace-panes";
 import { filesUiActions } from "@/stores/filesUiStore";
 import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
+
+const ExplorerContentDialogs = dynamic<ExplorerContentDialogsProps>(
+  () =>
+    import("@/components/files/explorer/explorer-content-dialogs").then(
+      (module) => module.ExplorerContentDialogs
+    ),
+  { loading: () => null, ssr: false }
+);
 
 interface FileExplorerProps {
   folderUuid?: string;
@@ -157,16 +167,21 @@ export function FileExplorer({
     isCurrentFolderReadOnly,
     visibleItemIds,
   } = derivedState;
-  const noteWorkflows = useExplorerNoteWorkflows({
-    isCurrentFolderReadOnly,
-    openWorkspaceFileInFolder,
-    workspaceUuid,
-  });
-  const { createNote } = noteWorkflows;
 
   const emitSync = useCallback(() => {
     filesUiActions.emitSync(workspaceUuid);
   }, [workspaceUuid]);
+
+  const noteWorkflows = useExplorerNoteWorkflows({
+    isCurrentFolderReadOnly,
+    onNoteCreated: async () => {
+      await Promise.all([loadFolder({ silent: true }), loadTree()]);
+      emitSync();
+    },
+    openWorkspaceFileInFolder,
+    workspaceUuid,
+  });
+  const { createNote } = noteWorkflows;
 
   const editWorkflows = useExplorerEditWorkflows({
     allFolders,
@@ -304,18 +319,21 @@ export function FileExplorer({
 
   if (previewPaneProps) {
     return (
-      <Suspense
-        fallback={
-          <div className="flex h-full min-h-0 flex-1 items-center justify-center">
-            <div className="inline-flex items-center gap-2 text-muted-foreground text-sm">
-              <Spinner className="size-4" />
-              Loading preview...
+      <>
+        <ExplorerContentDialogs {...browsePaneProps.contentDialogsProps} />
+        <Suspense
+          fallback={
+            <div className="flex h-full min-h-0 flex-1 items-center justify-center">
+              <div className="inline-flex items-center gap-2 text-muted-foreground text-sm">
+                <Spinner className="size-4" />
+                Loading preview...
+              </div>
             </div>
-          </div>
-        }
-      >
-        <ExplorerPreviewPane {...previewPaneProps} />
-      </Suspense>
+          }
+        >
+          <ExplorerPreviewPane {...previewPaneProps} />
+        </Suspense>
+      </>
     );
   }
 

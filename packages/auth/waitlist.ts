@@ -47,8 +47,15 @@ export function waitlistPlugin(): BetterAuthPlugin {
             },
             session: {
               create: {
-                before: async (newSession) => {
-                  const status = await getWaitlistAccessStateByUserId(newSession.userId);
+                before: async (newSession, context) => {
+                  const authUser = await context?.context?.internalAdapter.findUserById(
+                    newSession.userId
+                  );
+                  const status = authUser?.email
+                    ? await getWaitlistAccessStateByEmail(
+                        normalizeEmail(authUser.email)
+                      )
+                    : "none";
                   if (!hasWaitlistAccess(status)) {
                     throw new APIError("FORBIDDEN", {
                       message: getWaitlistErrorCode(status),

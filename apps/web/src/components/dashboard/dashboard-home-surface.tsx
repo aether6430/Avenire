@@ -2,6 +2,7 @@
 
 import { Button } from "@avenire/ui/components/button";
 import { Spinner } from "@avenire/ui/components/spinner";
+import { useIsMobile } from "@avenire/ui/hooks/use-mobile";
 import { cn } from "@avenire/ui/lib/utils";
 import {
   Files,
@@ -98,6 +99,7 @@ export function DashboardHomeSurface({
   } = runtime;
   const homeTab = useDashboardUiStore((state) => state.homeTab);
   const insightsTab = useDashboardUiStore((state) => state.insightsTab);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     useDashboardUiStore.persist.rehydrate();
@@ -125,7 +127,9 @@ export function DashboardHomeSurface({
         <HeaderTitle>Workspace</HeaderTitle>
         <HeaderBreadcrumbs>
           <div className="min-w-0">
-            <p className="truncate text-muted-foreground text-sm">Desktop</p>
+            <p className="truncate text-muted-foreground text-sm">
+              {isMobile ? "Mobile" : "Desktop"}
+            </p>
           </div>
         </HeaderBreadcrumbs>
 

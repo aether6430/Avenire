@@ -7,7 +7,18 @@ import {
   useContext,
   useRef,
 } from "react";
-import { ParticleField } from "@/components/ui/particle-field";
+import dynamic from "next/dynamic";
+
+const ParticleField = dynamic(
+  () =>
+    import("@/components/ui/particle-field").then(
+      (module) => module.ParticleField
+    ),
+  {
+    loading: () => null,
+    ssr: false,
+  }
+);
 
 const TypingImpulseContext = createContext<MutableRefObject<number> | null>(
   null

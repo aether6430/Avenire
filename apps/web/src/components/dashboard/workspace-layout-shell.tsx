@@ -19,6 +19,7 @@ const DashboardShellLayout = dynamic<DashboardLayoutProps>(
     ),
   {
     loading: () => <WorkspaceRoutePlaceholder label="Loading workspace..." />,
+    ssr: false,
   }
 );
 

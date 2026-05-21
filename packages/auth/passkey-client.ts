@@ -2,6 +2,7 @@
 
 import { passkeyClient } from "@better-auth/passkey/client";
 import { createAuthClient } from "better-auth/react";
+import { resolveAuthClientBaseURL } from "./client-base-url";
 
 type AuthAsyncCall = (...args: any[]) => Promise<any>;
 
@@ -12,7 +13,7 @@ interface PasskeyClientFacade {
 }
 
 const client: PasskeyClientFacade = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_APP_URL,
+  baseURL: resolveAuthClientBaseURL(),
   plugins: [passkeyClient()],
 }) as PasskeyClientFacade;
 

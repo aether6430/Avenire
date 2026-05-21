@@ -3,6 +3,11 @@
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import type { ReadonlyURLSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef } from "react";
+import {
+  consumePendingWorkspaceBrowserNavigation,
+  shouldDeferWorkspacePaneBrowserReplace,
+  shouldLetBrowserRouteDrivePaneSync,
+} from "@/lib/workspace-pane-browser-navigation";
 import { buildRouteState } from "@/lib/workspace-panes";
 
 export function useWorkspacePaneBrowserSync({
@@ -34,6 +39,7 @@ export function useWorkspacePaneBrowserSync({
   }) => void;
 }) {
   const pendingBrowserSyncRef = useRef<string | null>(null);
+  const previousBrowserHrefRef = useRef<string | null>(null);
 
   const browserRoute = useMemo(
     () =>
@@ -49,6 +55,13 @@ export function useWorkspacePaneBrowserSync({
 
   useEffect(() => {
     const browserHref = `${browserRoute.pathname}${browserRoute.search}`;
+    if (consumePendingWorkspaceBrowserNavigation(browserHref)) {
+      if (pendingBrowserSyncRef.current === browserHref) {
+        pendingBrowserSyncRef.current = null;
+      }
+      return;
+    }
+
     if (pendingBrowserSyncRef.current === browserHref) {
       pendingBrowserSyncRef.current = null;
       return;
@@ -65,6 +78,28 @@ export function useWorkspacePaneBrowserSync({
 
     const nextHref = `${activePane.route.pathname}${activePane.route.search}`;
     const browserHref = `${browserRoute.pathname}${browserRoute.search}`;
+    const previousBrowserHref = previousBrowserHrefRef.current;
+    previousBrowserHrefRef.current = browserHref;
+
+    if (
+      shouldLetBrowserRouteDrivePaneSync({
+        browserHref,
+        nextHref,
+        previousBrowserHref,
+      })
+    ) {
+      return;
+    }
+
+    if (
+      shouldDeferWorkspacePaneBrowserReplace({
+        browserHref,
+        nextHref,
+      })
+    ) {
+      return;
+    }
+
     if (nextHref === browserHref) {
       if (pendingBrowserSyncRef.current === browserHref) {
         pendingBrowserSyncRef.current = null;

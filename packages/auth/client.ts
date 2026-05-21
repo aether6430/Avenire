@@ -4,21 +4,19 @@ import { createAuthClient } from "better-auth/react";
 import { lastLoginMethodClient } from "better-auth/client/plugins";
 import { passkeyClient } from "@better-auth/passkey/client";
 import { organizationClient, usernameClient } from "better-auth/client/plugins";
-import { polarClient } from "@polar-sh/better-auth/client";
+import { resolveAuthClientBaseURL } from "./client-base-url";
 
 const client = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_APP_URL,
+  baseURL: resolveAuthClientBaseURL(),
   plugins: [
     organizationClient(),
     passkeyClient(),
     usernameClient(),
     lastLoginMethodClient(),
-    polarClient(),
-  ]
+  ],
 });
 
 export const authClient = {
-  checkout: client.checkout as (...args: any[]) => Promise<any>,
   getLastUsedLoginMethod:
     client.getLastUsedLoginMethod as (() => string | null | undefined),
 };

@@ -1104,12 +1104,7 @@ export async function createFlashcardCardForUser(input: {
   const [lastCard] = await db
     .select({ ordinal: flashcardCard.ordinal })
     .from(flashcardCard)
-    .where(
-      and(
-        eq(flashcardCard.setId, input.setId),
-        isNull(flashcardCard.archivedAt)
-      )
-    )
+    .where(eq(flashcardCard.setId, input.setId))
     .orderBy(desc(flashcardCard.ordinal))
     .limit(1);
 

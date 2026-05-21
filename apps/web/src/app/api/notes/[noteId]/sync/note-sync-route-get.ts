@@ -5,6 +5,7 @@ import {
   userCanEditFile,
 } from "@/lib/file-data";
 import { deleteUploadThingFile } from "@/lib/upload-registration";
+import { normalizePageMetadataState } from "@/lib/frontmatter";
 import {
   buildNoteSyncGetResponse,
   normalizeNoteSyncId,
@@ -26,11 +27,13 @@ export async function handleNoteSyncRouteGet(input: {
     );
   }
   const { file, note, workspaceId } = accessibleNote;
+  const page = normalizePageMetadataState(file.page);
 
   if (note?.content != null) {
     return NextResponse.json(
       buildNoteSyncGetResponse({
         markdown: note.content,
+        page,
         updatedAt: note.updatedAt?.toISOString() ?? file.updatedAt,
         version: note.version ?? 0,
       })
@@ -44,6 +47,7 @@ export async function handleNoteSyncRouteGet(input: {
     return NextResponse.json(
       buildNoteSyncGetResponse({
         markdown: "",
+        page,
         updatedAt: file.updatedAt,
         version: 0,
       })
@@ -80,6 +84,7 @@ export async function handleNoteSyncRouteGet(input: {
   return NextResponse.json(
     buildNoteSyncGetResponse({
       markdown,
+      page,
       updatedAt: file.updatedAt,
       version: 0,
     })

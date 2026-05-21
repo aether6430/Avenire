@@ -22,13 +22,13 @@ describe("settings navigation runtime model", () => {
     ).toBe(false);
   });
 
-  it("redirects away from shortcuts only when no keyboard was detected", () => {
+  it("does not force a redirect away from an explicit shortcuts tab", () => {
     expect(
       shouldRedirectShortcutSettingsTab({
         currentTab: "shortcuts",
         hasKeyboardDetected: false,
       })
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldRedirectShortcutSettingsTab({
         currentTab: "shortcuts",

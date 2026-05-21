@@ -66,6 +66,22 @@ export interface BillingUsage {
   upload: MeterUsage;
 }
 
+export interface SettingsInitialUser {
+  avatar?: string | null;
+  email: string;
+  id: string;
+  name: string;
+}
+
+export interface SettingsSessionFallback {
+  user: {
+    email: string;
+    id: string;
+    image: string | null;
+    name: string;
+  };
+}
+
 export const SETTINGS_TABS = [
   { key: "account", label: "Account", icon: User },
   { key: "preferences", label: "Preferences", icon: SlidersHorizontal },
@@ -158,4 +174,21 @@ export function formatRefillAt(value: string | null) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
+}
+
+export function createSettingsSessionFallback(
+  initialUser?: SettingsInitialUser | null
+): SettingsSessionFallback | null {
+  if (!initialUser) {
+    return null;
+  }
+
+  return {
+    user: {
+      email: initialUser.email,
+      id: initialUser.id,
+      image: initialUser.avatar ?? null,
+      name: initialUser.name,
+    },
+  };
 }

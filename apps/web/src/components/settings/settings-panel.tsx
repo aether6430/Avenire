@@ -3,7 +3,11 @@
 import dynamic from "next/dynamic";
 import { SettingsPanelContent } from "./settings-panel-content";
 import { SettingsPanelDialogs } from "./settings-panel-dialogs";
-import type { TabKey, WorkspaceSummary } from "./settings-panel-model";
+import type {
+  SettingsInitialUser,
+  TabKey,
+  WorkspaceSummary,
+} from "./settings-panel-model";
 import { useSettingsPanel } from "./use-settings-panel";
 
 const DeferredAvenireEditor = dynamic(() => import("@/components/editor"), {
@@ -16,15 +20,18 @@ const DeferredAvenireEditor = dynamic(() => import("@/components/editor"), {
 });
 
 export function SettingsPanel({
+  initialUser,
   initialWorkspaces,
   initialWorkspaceId,
   initialTab = "account",
 }: {
+  initialUser?: SettingsInitialUser | null;
   initialWorkspaces?: WorkspaceSummary[];
   initialWorkspaceId?: string;
   initialTab?: TabKey;
 }) {
   const runtime = useSettingsPanel({
+    initialUser,
     initialTab,
     initialWorkspaceId,
     initialWorkspaces,

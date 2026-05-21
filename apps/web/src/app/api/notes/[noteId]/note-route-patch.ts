@@ -9,6 +9,7 @@ import {
   upsertMarkdownFileContent,
   userCanEditFile,
 } from "@/lib/file-data";
+import { invalidateWorkspaceReadCaches } from "@/lib/domain-cache";
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
 import {
   type NoteRoutePatchBody,
@@ -97,6 +98,7 @@ export async function handleNoteRoutePatch(input: {
     fileId: input.noteId,
     reason: "file.updated",
   });
+  await invalidateWorkspaceReadCaches(workspaceId);
 
   return NextResponse.json({
     page: resolved.hasPage

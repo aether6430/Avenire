@@ -44,6 +44,9 @@ describe("@avenire/auth waitlist plugin", () => {
     const plugin = waitlistPlugin();
     const hooks = plugin.init().options.databaseHooks;
     const pendingError = { message: "waitlist_pending", status: "FORBIDDEN" };
+    const findUserById = vi.fn().mockResolvedValue({
+      email: "approved@example.com",
+    });
 
     getWaitlistAccessStateByEmailMock.mockResolvedValueOnce("pending");
     hasWaitlistAccessMock.mockReturnValueOnce(false);
@@ -51,11 +54,21 @@ describe("@avenire/auth waitlist plugin", () => {
       hooks.user.create.before({ email: "User@Example.com" })
     ).rejects.toMatchObject(pendingError);
 
-    getWaitlistAccessStateByUserIdMock.mockResolvedValueOnce("approved");
+    getWaitlistAccessStateByEmailMock.mockResolvedValueOnce("approved");
     hasWaitlistAccessMock.mockReturnValueOnce(true);
     await expect(
-      hooks.session.create.before({ userId: "user_123" })
+      hooks.session.create.before(
+        { userId: "user_123" },
+        {
+          context: {
+            internalAdapter: {
+              findUserById,
+            },
+          },
+        }
+      )
     ).resolves.toBeUndefined();
+    expect(findUserById).toHaveBeenCalledWith("user_123");
   });
 
   it("guards sign-up requests before account creation", async () => {
@@ -138,5 +151,35 @@ describe("@avenire/auth waitlist plugin", () => {
         email: "user@example.com",
       })
     );
+  });
+
+  it("checks pre-session waitlist access through the Better Auth adapter user lookup", async () => {
+    const { waitlistPlugin } = await import("./waitlist");
+    const hooks = waitlistPlugin().init().options.databaseHooks;
+    const findUserById = vi.fn().mockResolvedValue({
+      email: "approved@example.com",
+    });
+
+    getWaitlistAccessStateByEmailMock.mockResolvedValueOnce("approved");
+    hasWaitlistAccessMock.mockReturnValueOnce(true);
+
+    await expect(
+      hooks.session.create.before(
+        { userId: "user_approved" },
+        {
+          context: {
+            internalAdapter: {
+              findUserById,
+            },
+          },
+        }
+      )
+    ).resolves.toBeUndefined();
+
+    expect(findUserById).toHaveBeenCalledWith("user_approved");
+    expect(getWaitlistAccessStateByEmailMock).toHaveBeenCalledWith(
+      "approved@example.com"
+    );
+    expect(getWaitlistAccessStateByUserIdMock).not.toHaveBeenCalled();
   });
 });

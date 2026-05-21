@@ -86,7 +86,15 @@ describe("workspace pane store model", () => {
         buildRouteState("/workspace/chats"),
         { createPaneId: () => "pane-other", createRowId: () => "row-other" }
       )
-    ).toBe(existing);
+    ).toEqual({
+      ...existing,
+      panes: [
+        {
+          ...existing.panes[0],
+          route: { pathname: "/workspace/chats", search: "" },
+        },
+      ],
+    });
   });
 
   it("opens panes around the source pane and parses href routes", () => {

@@ -35,9 +35,11 @@ export function SettingsPanelShell({
     hasKeyboardDetected,
     mobileTabs,
     privacyMode,
+    resolvedSessionUser,
     session,
     setTab,
   } = runtime;
+  const headerUser = resolvedSessionUser ?? session?.user ?? null;
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-background sm:rounded-xl md:flex-row">
@@ -152,8 +154,8 @@ export function SettingsPanelShell({
         <div className="flex items-center gap-3 border-border/60 border-b px-4 py-3 md:hidden">
           <Avatar className="h-9 w-9">
             <AvatarImage
-              alt={session?.user?.name ?? "User"}
-              src={displayAvatar}
+              alt={headerUser?.name ?? "User"}
+              src={displayAvatar || undefined}
             />
             <AvatarFallback>{fallbackInitials}</AvatarFallback>
           </Avatar>
@@ -162,14 +164,14 @@ export function SettingsPanelShell({
               <SensitiveText
                 className="max-w-full"
                 privacyMode={privacyMode}
-                value={session?.user?.name || "User"}
+                value={headerUser?.name || "User"}
               />
             </p>
             <p className="truncate text-muted-foreground text-xs">
               <SensitiveText
                 className="max-w-full"
                 privacyMode={privacyMode}
-                value={session?.user?.email}
+                value={headerUser?.email}
               />
             </p>
           </div>

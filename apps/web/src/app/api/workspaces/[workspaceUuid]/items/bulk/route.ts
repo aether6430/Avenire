@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { invalidateWorkspaceReadCaches } from "@/lib/domain-cache";
 import {
   getFileAssetById,
   getFolderWithAncestors,
@@ -249,10 +250,13 @@ export async function POST(
 
   const succeeded = results.filter((entry) => entry.status === "ok").length;
   if (succeeded > 0) {
-    await publishFilesInvalidationEvent({
-      workspaceUuid,
-      reason: "tree.changed",
-    });
+    await Promise.all([
+      invalidateWorkspaceReadCaches(workspaceUuid),
+      publishFilesInvalidationEvent({
+        workspaceUuid,
+        reason: "tree.changed",
+      }),
+    ]);
   }
 
   return NextResponse.json({

@@ -250,10 +250,10 @@ export function MobileStudentCalendar() {
       )}
 
       <div className="grid grid-cols-7">
-        {DAYS_SHORT.map((day) => (
+        {DAYS_SHORT.map((day, index) => (
           <div
             className="py-1 text-center font-medium text-[11px] text-muted-foreground"
-            key={day}
+            key={`${day}-${index}`}
           >
             {day}
           </div>

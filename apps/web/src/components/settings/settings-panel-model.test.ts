@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  createSettingsSessionFallback,
   formatBytes,
   formatCredits,
   formatRefillAt,
@@ -23,5 +24,24 @@ describe("settings panel model", () => {
     expect(formatCredits(1234.4)).toBe("1,234");
     expect(formatRefillAt(null)).toBe("No scheduled refill");
     expect(KEYBOARD_SHORTCUT_GROUPS[0]?.items[1]?.label).toBe("Open Files");
+  });
+
+  it("creates an explicit session fallback from a bootstrapped workspace user", () => {
+    expect(
+      createSettingsSessionFallback({
+        avatar: "https://cdn.avenire.app/avatar.png",
+        email: "owner@example.com",
+        id: "user-1",
+        name: "Owner",
+      })
+    ).toEqual({
+      user: {
+        email: "owner@example.com",
+        id: "user-1",
+        image: "https://cdn.avenire.app/avatar.png",
+        name: "Owner",
+      },
+    });
+    expect(createSettingsSessionFallback(null)).toBeNull();
   });
 });

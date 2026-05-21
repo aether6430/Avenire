@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { invalidateWorkspaceReadCaches } from "@/lib/domain-cache";
 import {
   deleteIngestionDataForFile,
   getFileAssetById,
@@ -62,15 +63,18 @@ export async function handleWorkspaceFilePatch(input: {
     return NextResponse.json({ error: "File not found" }, { status: 404 });
   }
 
-  await publishFilesInvalidationEvent({
-    workspaceUuid: input.workspaceUuid,
-    folderId: file.folderId,
-    reason: "file.updated",
-  });
-  await publishFilesInvalidationEvent({
-    workspaceUuid: input.workspaceUuid,
-    reason: "tree.changed",
-  });
+  await Promise.all([
+    invalidateWorkspaceReadCaches(input.workspaceUuid),
+    publishFilesInvalidationEvent({
+      workspaceUuid: input.workspaceUuid,
+      folderId: file.folderId,
+      reason: "file.updated",
+    }),
+    publishFilesInvalidationEvent({
+      workspaceUuid: input.workspaceUuid,
+      reason: "tree.changed",
+    }),
+  ]);
 
   return NextResponse.json({ file });
 }
@@ -101,15 +105,18 @@ export async function handleWorkspaceFileDelete(input: {
     return NextResponse.json({ error: "File not found" }, { status: 404 });
   }
 
-  await publishFilesInvalidationEvent({
-    workspaceUuid: input.workspaceUuid,
-    folderId: existing.folderId || undefined,
-    reason: "file.deleted",
-  });
-  await publishFilesInvalidationEvent({
-    workspaceUuid: input.workspaceUuid,
-    reason: "tree.changed",
-  });
+  await Promise.all([
+    invalidateWorkspaceReadCaches(input.workspaceUuid),
+    publishFilesInvalidationEvent({
+      workspaceUuid: input.workspaceUuid,
+      folderId: existing.folderId || undefined,
+      reason: "file.deleted",
+    }),
+    publishFilesInvalidationEvent({
+      workspaceUuid: input.workspaceUuid,
+      reason: "tree.changed",
+    }),
+  ]);
 
   return NextResponse.json({ ok: true });
 }

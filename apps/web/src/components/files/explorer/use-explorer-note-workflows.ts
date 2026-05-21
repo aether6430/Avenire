@@ -7,12 +7,14 @@ import type { FileRecord } from "@/components/files/explorer/shared";
 
 interface UseExplorerNoteWorkflowsOptions {
   isCurrentFolderReadOnly: boolean;
+  onNoteCreated?: (file: FileRecord) => Promise<void> | void;
   openWorkspaceFileInFolder: (folderId: string, fileId: string) => void;
   workspaceUuid: string;
 }
 
 export function useExplorerNoteWorkflows({
   isCurrentFolderReadOnly,
+  onNoteCreated,
   openWorkspaceFileInFolder,
   workspaceUuid,
 }: UseExplorerNoteWorkflowsOptions) {
@@ -65,6 +67,7 @@ export function useExplorerNoteWorkflows({
         const payload = (await response.json()) as { file?: FileRecord };
         const created = payload.file;
         if (created?.id) {
+          await onNoteCreated?.(created);
           openWorkspaceFileInFolder(parentId, created.id);
         }
       } catch (error) {
@@ -75,7 +78,7 @@ export function useExplorerNoteWorkflows({
         setNoteCreateBusy(false);
       }
     },
-    [noteCreateBusy, openWorkspaceFileInFolder, workspaceUuid]
+    [noteCreateBusy, onNoteCreated, openWorkspaceFileInFolder, workspaceUuid]
   );
 
   const openImportLinkDialog = useCallback(

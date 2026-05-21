@@ -5,6 +5,7 @@ const {
   getFileAssetByIdMock,
   getSessionUserMock,
   getWorkspaceIdForFileMock,
+  invalidateWorkspaceReadCachesMock,
   isMarkdownFileRecordMock,
   publishFilesInvalidationEventMock,
   scheduleIngestionJobMock,
@@ -16,6 +17,7 @@ const {
   getFileAssetByIdMock: vi.fn(),
   getSessionUserMock: vi.fn(),
   getWorkspaceIdForFileMock: vi.fn(),
+  invalidateWorkspaceReadCachesMock: vi.fn(),
   isMarkdownFileRecordMock: vi.fn(),
   publishFilesInvalidationEventMock: vi.fn(),
   scheduleIngestionJobMock: vi.fn(),
@@ -36,6 +38,10 @@ vi.mock("@/lib/file-data", () => ({
   updateFileAsset: updateFileAssetMock,
   upsertMarkdownFileContent: upsertMarkdownFileContentMock,
   userCanEditFile: userCanEditFileMock,
+}));
+
+vi.mock("@/lib/domain-cache", () => ({
+  invalidateWorkspaceReadCaches: invalidateWorkspaceReadCachesMock,
 }));
 
 vi.mock("@/lib/files-realtime-publisher", () => ({
@@ -308,5 +314,8 @@ describe("PATCH /api/notes/[noteId]", () => {
     expect(upsertMarkdownFileContentMock).not.toHaveBeenCalled();
     expect(scheduleIngestionJobMock).not.toHaveBeenCalled();
     expect(deleteIngestionDataForFileMock).not.toHaveBeenCalled();
+    expect(invalidateWorkspaceReadCachesMock).toHaveBeenCalledWith(
+      "workspace-1"
+    );
   });
 });

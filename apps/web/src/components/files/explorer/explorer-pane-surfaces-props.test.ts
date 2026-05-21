@@ -20,6 +20,8 @@ import { buildExplorerPaneSurfacesPreviewProps } from "@/components/files/explor
 describe("explorer pane surfaces props", () => {
   it("builds browse pane props with search bar wiring", () => {
     const searchBarProps = { marker: "search-bar" };
+    const openWorkspaceFileInFolder = vi.fn();
+    const selectFile = vi.fn();
     const result = buildExplorerPaneSurfacesBrowseProps({
       allFolders: [],
       breadcrumbs: [{ id: "parent" }] as never,
@@ -96,7 +98,8 @@ describe("explorer pane surfaces props", () => {
         navigateToFolder: () => {},
         openFileById: () => {},
         openFolderById: () => {},
-        selectFile: () => {},
+        openWorkspaceFileInFolder,
+        selectFile,
       } as never,
       noteWorkflows: {
         contentDialogProps: null,
@@ -167,6 +170,11 @@ describe("explorer pane surfaces props", () => {
         searchBarProps,
       })
     );
+
+    const browsePaneArgs = buildExplorerBrowsePanePropsMock.mock.calls[0]?.[0];
+    browsePaneArgs?.onOpenFile("file-77");
+    expect(openWorkspaceFileInFolder).toHaveBeenCalledWith("folder-1", "file-77");
+    expect(selectFile).not.toHaveBeenCalled();
   });
 
   it("builds preview pane props and returns null when no active file exists", () => {

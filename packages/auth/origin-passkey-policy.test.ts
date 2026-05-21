@@ -31,6 +31,24 @@ describe("@avenire/auth origin and passkey policy", () => {
         requestOrigin: "http://localhost:3004",
       })
     ).not.toContain("http://localhost:3004");
+    expect(
+      resolveTrustedOrigins({
+        appUrl: "http://localhost:3000",
+        trustedOriginsFromEnv: [],
+        extensionOriginsFromEnv: [],
+        nodeEnv: "production",
+        requestOrigin: "http://127.0.0.1:3000",
+      })
+    ).toContain("http://127.0.0.1:3000");
+    expect(
+      resolveTrustedOrigins({
+        appUrl: "http://localhost:3000",
+        trustedOriginsFromEnv: [],
+        extensionOriginsFromEnv: [],
+        nodeEnv: "production",
+        requestOrigin: "http://127.0.0.1:3001",
+      })
+    ).not.toContain("http://127.0.0.1:3001");
   });
 
   it("allows secure and localhost passkey origins while failing closed on loopback ip http", () => {

@@ -20,7 +20,7 @@ const {
   redisSetMock: vi.fn(),
 }));
 
-vi.mock("@/lib/chat-tools", () => ({
+vi.mock("@/lib/chat-tools/chat-tool-misconception-runtime", () => ({
   getActiveMisconceptionContext: getActiveMisconceptionContextMock,
 }));
 

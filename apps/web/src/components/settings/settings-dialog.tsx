@@ -7,16 +7,19 @@ import {
   DialogTitle,
 } from "@avenire/ui/components/dialog";
 import { SettingsPanel } from "@/components/settings/settings-panel";
+import type { SettingsInitialUser } from "@/components/settings/settings-panel-model";
 
 export function SettingsDialog({
   open,
   onOpenChange,
+  initialUser,
   initialTab,
   initialWorkspaces,
   initialWorkspaceId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialUser?: SettingsInitialUser | null;
   initialTab?:
     | "account"
     | "preferences"
@@ -41,6 +44,7 @@ export function SettingsDialog({
           <DialogTitle>Settings</DialogTitle>
         </DialogHeader>
         <SettingsPanel
+          initialUser={initialUser}
           initialTab={initialTab}
           initialWorkspaceId={initialWorkspaceId}
           initialWorkspaces={initialWorkspaces}

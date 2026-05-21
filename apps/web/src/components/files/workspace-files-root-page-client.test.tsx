@@ -2,11 +2,13 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  useRouterMock,
+  usePaneRouterMock,
+  usePaneSearchParamsMock,
   useWorkspaceBootstrapMock,
   workspaceRoutePlaceholderMock,
 } = vi.hoisted(() => ({
-  useRouterMock: vi.fn(() => ({ replace: vi.fn() })),
+  usePaneRouterMock: vi.fn(() => ({ replace: vi.fn() })),
+  usePaneSearchParamsMock: vi.fn(() => new URLSearchParams("")),
   useWorkspaceBootstrapMock: vi.fn(),
   workspaceRoutePlaceholderMock: vi.fn(
     ({ label, pending }: { label?: string; pending?: boolean }) => (
@@ -18,8 +20,9 @@ const {
   ),
 }));
 
-vi.mock("next/navigation", () => ({
-  useRouter: useRouterMock,
+vi.mock("@/lib/workspace-panes", () => ({
+  usePaneRouter: usePaneRouterMock,
+  usePaneSearchParams: usePaneSearchParamsMock,
 }));
 
 vi.mock("@/components/dashboard/workspace-bootstrap", () => ({
@@ -30,11 +33,27 @@ vi.mock("@/components/dashboard/workspace-route-placeholder", () => ({
   WorkspaceRoutePlaceholder: workspaceRoutePlaceholderMock,
 }));
 
-import { WorkspaceFilesRootPageClient } from "./workspace-files-root-page-client";
+import {
+  buildWorkspaceFilesRootRoute,
+  WorkspaceFilesRootPageClient,
+} from "./workspace-files-root-page-client";
 
 describe("WorkspaceFilesRootPageClient", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    usePaneSearchParamsMock.mockReturnValue(new URLSearchParams(""));
+  });
+
+  it("preserves pane search params when building the folder redirect route", () => {
+    expect(
+      buildWorkspaceFilesRootRoute({
+        rootFolderId: "root-1",
+        search: "file=file-1&overlay=settings",
+        workspaceId: "workspace-1",
+      })
+    ).toBe(
+      "/workspace/files/workspace-1/folder/root-1?file=file-1&overlay=settings"
+    );
   });
 
   it("renders a non-loading unavailable state when bootstrap fails", () => {

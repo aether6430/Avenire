@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
+import { invalidateWorkspaceReadCaches } from "@/lib/domain-cache";
 import {
   createFolder,
   createWorkspaceNoteFile,
@@ -162,14 +163,17 @@ export async function handleDuplicateWorkspaceFolder(input: {
     });
   }
 
-  await publishFilesInvalidationEvent({
-    workspaceUuid: input.workspaceUuid,
-    reason: "folder.created",
-  });
-  await publishFilesInvalidationEvent({
-    workspaceUuid: input.workspaceUuid,
-    reason: "tree.changed",
-  });
+  await Promise.all([
+    invalidateWorkspaceReadCaches(input.workspaceUuid),
+    publishFilesInvalidationEvent({
+      workspaceUuid: input.workspaceUuid,
+      reason: "folder.created",
+    }),
+    publishFilesInvalidationEvent({
+      workspaceUuid: input.workspaceUuid,
+      reason: "tree.changed",
+    }),
+  ]);
 
   return NextResponse.json({ folder: rootFolder }, { status: 201 });
 }

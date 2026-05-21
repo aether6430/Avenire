@@ -5,6 +5,7 @@ const {
   ensureWorkspaceAccessForUserMock,
   getFileAssetByIdMock,
   getSessionUserMock,
+  invalidateWorkspaceReadCachesMock,
   isSharedFilesVirtualFolderIdMock,
   publishFilesInvalidationEventMock,
   softDeleteFileAssetMock,
@@ -15,6 +16,7 @@ const {
   ensureWorkspaceAccessForUserMock: vi.fn(),
   getFileAssetByIdMock: vi.fn(),
   getSessionUserMock: vi.fn(),
+  invalidateWorkspaceReadCachesMock: vi.fn(),
   isSharedFilesVirtualFolderIdMock: vi.fn(),
   publishFilesInvalidationEventMock: vi.fn(),
   softDeleteFileAssetMock: vi.fn(),
@@ -33,6 +35,10 @@ vi.mock("@/lib/file-data", () => ({
 
 vi.mock("@/lib/files-realtime-publisher", () => ({
   publishFilesInvalidationEvent: publishFilesInvalidationEventMock,
+}));
+
+vi.mock("@/lib/domain-cache", () => ({
+  invalidateWorkspaceReadCaches: invalidateWorkspaceReadCachesMock,
 }));
 
 vi.mock("@/lib/workspace", () => ({
@@ -81,6 +87,7 @@ describe("/api/workspaces/[workspaceUuid]/files/[fileUuid] route", () => {
     ensureWorkspaceAccessForUserMock.mockReset();
     getFileAssetByIdMock.mockReset();
     getSessionUserMock.mockReset();
+    invalidateWorkspaceReadCachesMock.mockReset();
     isSharedFilesVirtualFolderIdMock.mockReset();
     publishFilesInvalidationEventMock.mockReset();
     softDeleteFileAssetMock.mockReset();
@@ -88,6 +95,7 @@ describe("/api/workspaces/[workspaceUuid]/files/[fileUuid] route", () => {
     userCanEditFileMock.mockReset();
 
     isSharedFilesVirtualFolderIdMock.mockReturnValue(false);
+    invalidateWorkspaceReadCachesMock.mockResolvedValue(undefined);
     publishFilesInvalidationEventMock.mockResolvedValue(undefined);
   });
 
@@ -231,6 +239,9 @@ describe("/api/workspaces/[workspaceUuid]/files/[fileUuid] route", () => {
         name: "renamed.md",
       }
     );
+    expect(invalidateWorkspaceReadCachesMock).toHaveBeenCalledWith(
+      WORKSPACE_UUID
+    );
     expect(publishFilesInvalidationEventMock).toHaveBeenCalledTimes(2);
     expect(publishFilesInvalidationEventMock).toHaveBeenNthCalledWith(1, {
       workspaceUuid: WORKSPACE_UUID,
@@ -295,6 +306,9 @@ describe("/api/workspaces/[workspaceUuid]/files/[fileUuid] route", () => {
     expect(softDeleteFileAssetMock).toHaveBeenCalledWith(
       WORKSPACE_UUID,
       FILE_UUID
+    );
+    expect(invalidateWorkspaceReadCachesMock).toHaveBeenCalledWith(
+      WORKSPACE_UUID
     );
     expect(publishFilesInvalidationEventMock).toHaveBeenCalledTimes(2);
     expect(publishFilesInvalidationEventMock).toHaveBeenNthCalledWith(1, {

@@ -189,6 +189,16 @@ export function DashboardLayout({
       </SidebarInset>
       <DeferredDashboardOverlayHost
         activeWorkspace={activeWorkspace}
+        initialUser={
+          user
+            ? {
+                avatar: user.avatar ?? null,
+                email: user.email,
+                id: user.id,
+                name: user.name,
+              }
+            : null
+        }
         initialWorkspaces={initialWorkspaces}
       />
       <div className="hidden lg:block">

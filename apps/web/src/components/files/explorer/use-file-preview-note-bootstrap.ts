@@ -3,7 +3,10 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { loadFilePreviewMarkdownNote } from "@/components/files/explorer/file-preview-note-client";
 import type { FileRecord } from "@/components/files/explorer/shared";
-import type { PageMetadataState } from "@/lib/frontmatter";
+import {
+  normalizePageMetadataState,
+  type PageMetadataState,
+} from "@/lib/frontmatter";
 import {
   type readWorkspaceMarkdownCache,
   writeWorkspaceMarkdownCache,
@@ -158,14 +161,19 @@ export function useFilePreviewNoteBootstrap({
         }
 
         const markdown = payload.markdown ?? "";
+        const page = normalizePageMetadataState(
+          payload.page ?? activePageFromFileRef.current
+        );
         setMarkdownOriginal(markdown);
         setMarkdownDraft(markdown);
         setNoteBaseContent(markdown);
+        setNotePage(page);
+        setNotePageOriginal(page);
         setLoadedMarkdownFileId(activeFile.id);
         writeWorkspaceMarkdownCache(workspaceUuid, activeFile.id, {
           body: markdown,
           content: markdown,
-          page: activePageFromFileRef.current,
+          page,
           updatedAt: payload.updatedAt ?? null,
         });
       })

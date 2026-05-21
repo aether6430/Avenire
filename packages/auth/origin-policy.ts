@@ -42,6 +42,22 @@ function isLoopbackOrigin(origin: string | null | undefined): origin is string {
   }
 }
 
+function isSameLoopbackAppOrigin(appUrl: string, requestOrigin: string) {
+  try {
+    const app = new URL(appUrl);
+    const request = new URL(requestOrigin);
+
+    return (
+      isLoopbackOrigin(app.origin) &&
+      isLoopbackOrigin(request.origin) &&
+      app.protocol === request.protocol &&
+      app.port === request.port
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function resolveTrustedOrigins(input: {
   appUrl: string;
   trustedOriginsFromEnv: string[];
@@ -59,8 +75,16 @@ export function resolveTrustedOrigins(input: {
 
   if (
     input.nodeEnv !== "production" &&
-    (isBrowserExtensionOrigin(input.requestOrigin) ||
-      isLoopbackOrigin(input.requestOrigin))
+    isBrowserExtensionOrigin(input.requestOrigin)
+  ) {
+    return Array.from(new Set([...trustedOrigins, input.requestOrigin]));
+  }
+
+  if (
+    input.requestOrigin &&
+    isLoopbackOrigin(input.requestOrigin) &&
+    (isSameLoopbackAppOrigin(input.appUrl, input.requestOrigin) ||
+      (input.nodeEnv !== "production" && isLoopbackOrigin(input.appUrl)))
   ) {
     return Array.from(new Set([...trustedOrigins, input.requestOrigin]));
   }

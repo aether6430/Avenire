@@ -64,6 +64,12 @@ export function useWorkspaceExplorerData({
     },
     [currentFolderId, workspaceUuid]
   );
+  const clearVisibleSnapshot = useCallback(() => {
+    setLoading(false);
+    setFolders([]);
+    setFiles([]);
+    setBreadcrumbs([]);
+  }, []);
 
   const loadFolder = useCallback(
     async (options?: { silent?: boolean }) => {
@@ -95,6 +101,7 @@ export function useWorkspaceExplorerData({
         );
 
         if (!payload) {
+          clearVisibleSnapshot();
           return;
         }
 
@@ -125,6 +132,8 @@ export function useWorkspaceExplorerData({
       });
       if (visibleSnapshot) {
         applyVisibleSnapshot(visibleSnapshot);
+      } else {
+        clearVisibleSnapshot();
       }
     }
 
@@ -144,11 +153,18 @@ export function useWorkspaceExplorerData({
       });
       if (visibleSnapshot) {
         applyVisibleSnapshot(visibleSnapshot);
+      } else {
+        clearVisibleSnapshot();
       }
     } catch {
-      // ignore
+      clearVisibleSnapshot();
     }
-  }, [applyVisibleSnapshot, currentFolderId, workspaceUuid]);
+  }, [
+    applyVisibleSnapshot,
+    clearVisibleSnapshot,
+    currentFolderId,
+    workspaceUuid,
+  ]);
 
   const refreshData = useCallback(() => {
     void loadFolder({ silent: true });
@@ -179,6 +195,9 @@ export function useWorkspaceExplorerData({
       currentFolderId
     );
     if (!visibleSnapshot) {
+      setFolders([]);
+      setFiles([]);
+      setBreadcrumbs([]);
       return;
     }
 

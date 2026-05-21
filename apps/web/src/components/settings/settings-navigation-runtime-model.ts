@@ -14,7 +14,7 @@ export function shouldRedirectShortcutSettingsTab(input: {
   currentTab: TabKey;
   hasKeyboardDetected: boolean;
 }) {
-  return input.currentTab === "shortcuts" && !input.hasKeyboardDetected;
+  return false;
 }
 
 export function resolveVisibleSettingsTabs(hasKeyboardDetected: boolean) {

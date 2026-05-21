@@ -6,6 +6,7 @@ import {
   DefaultChatTransport,
   lastAssistantMessageIsCompleteWithApprovalResponses,
 } from "ai";
+import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
@@ -261,7 +262,9 @@ export function useChatRuntime({
       },
       pendingChatRouteId: pendingChatRouteRef.current,
       primeNewChatHandoff,
-      replaceRoute: router.replace,
+      replaceRoute: (href) => {
+        router.replace(href as Route);
+      },
     });
   }, [primeNewChatHandoff, router]);
 

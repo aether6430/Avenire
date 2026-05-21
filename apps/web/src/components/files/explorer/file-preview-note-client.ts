@@ -4,6 +4,7 @@ import type { PageMetadataState } from "@/lib/frontmatter";
 
 export interface FilePreviewNoteLoadResponse {
   markdown?: string;
+  page?: PageMetadataState;
   updatedAt?: string | null;
   version?: number;
 }

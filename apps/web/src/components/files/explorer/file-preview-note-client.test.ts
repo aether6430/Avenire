@@ -17,6 +17,13 @@ describe("File preview note client", () => {
         new Response(
           JSON.stringify({
             markdown: "# Hello",
+            page: {
+              bannerUrl: null,
+              icon: null,
+              properties: {
+                topic: { type: "text", value: "ux" },
+              },
+            },
             updatedAt: "2026-05-12T20:55:00.000Z",
           }),
           { status: 200 }
@@ -36,6 +43,13 @@ describe("File preview note client", () => {
       loadFilePreviewMarkdownNote({ fileId: "file-1" })
     ).resolves.toEqual({
       markdown: "# Hello",
+      page: {
+        bannerUrl: null,
+        icon: null,
+        properties: {
+          topic: { type: "text", value: "ux" },
+        },
+      },
       updatedAt: "2026-05-12T20:55:00.000Z",
     });
 

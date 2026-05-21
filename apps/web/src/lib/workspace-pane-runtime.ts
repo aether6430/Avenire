@@ -1,6 +1,7 @@
 import type { Route } from "next";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import type { WorkspacePaneRouteState } from "@/lib/workspace-pane-model";
+import { markPendingWorkspaceBrowserNavigation } from "@/lib/workspace-pane-browser-navigation";
 import {
   buildRouteState,
   isInternalWorkspaceHref,
@@ -53,6 +54,7 @@ export function navigateWorkspacePane(
   }
 
   const nextHref = `${route.pathname}${route.search}` as Route;
+  markPendingWorkspaceBrowserNavigation(nextHref);
   if (replace) {
     router.replace(nextHref, { scroll });
   } else {

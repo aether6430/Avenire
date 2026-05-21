@@ -89,6 +89,10 @@ export function buildExplorerPaneSurfacesBrowseProps({
   uiState,
   uploadWorkflows,
 }: BuildExplorerPaneSurfacesBrowsePropsOptions) {
+  const openCurrentFolderFile = (fileId: string) => {
+    navigation.openWorkspaceFileInFolder(currentFolderId, fileId);
+  };
+
   const searchBarProps = searchSurface.getSearchBarProps({
     focusSearchSignal,
     onOpenFileById: navigation.openFileById,
@@ -179,7 +183,7 @@ export function buildExplorerPaneSurfacesBrowseProps({
         navigation.navigateToFolder(derivedState.parentFolder.id);
       }
     },
-    onOpenFile: navigation.selectFile,
+    onOpenFile: openCurrentFolderFile,
     onOpenFolder: navigation.navigateToFolder,
     onOpenMobileCreateMenu: uiState.openMobileCreateMenu,
     onPreviewIntentEnd: filePresentation.handlePreviewIntentEnd,

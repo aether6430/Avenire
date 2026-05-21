@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { WaitlistPageClient } from "@/components/auth/waitlist-page-client";
 import { buildPageMetadata } from "@/lib/page-metadata";
-import { getRouteSession } from "@/lib/workspace-route-context";
+import { getWorkspaceRouteContext } from "@/lib/workspace-route-context";
 
 export const dynamic = "force-dynamic";
 
@@ -13,9 +13,13 @@ export const metadata = buildPageMetadata({
 });
 
 export default async function WaitlistPage() {
-  const session = await getRouteSession();
+  const { session, workspace } = await getWorkspaceRouteContext();
 
   if (session?.user) {
+    if (workspace) {
+      redirect("/workspace");
+    }
+
     const { getUserSettings } = await import("@/lib/user-settings");
     const settings = await getUserSettings(session.user.id);
     redirect(settings.onboardingCompleted ? "/workspace" : "/onboarding");

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
+import { invalidateWorkspaceReadCaches } from "@/lib/domain-cache";
 import {
   createWorkspaceNoteFile,
   getFileAssetById,
@@ -60,14 +61,17 @@ export async function handleDuplicateWorkspaceFile(input: {
       workspaceId: input.workspaceUuid,
     });
 
-    await publishFilesInvalidationEvent({
-      workspaceUuid: input.workspaceUuid,
-      reason: "file.created",
-    });
-    await publishFilesInvalidationEvent({
-      workspaceUuid: input.workspaceUuid,
-      reason: "tree.changed",
-    });
+    await Promise.all([
+      invalidateWorkspaceReadCaches(input.workspaceUuid),
+      publishFilesInvalidationEvent({
+        workspaceUuid: input.workspaceUuid,
+        reason: "file.created",
+      }),
+      publishFilesInvalidationEvent({
+        workspaceUuid: input.workspaceUuid,
+        reason: "tree.changed",
+      }),
+    ]);
 
     return NextResponse.json({ file }, { status: 201 });
   }
@@ -93,14 +97,17 @@ export async function handleDuplicateWorkspaceFile(input: {
     sizeBytes: source.sizeBytes,
   });
 
-  await publishFilesInvalidationEvent({
-    workspaceUuid: input.workspaceUuid,
-    reason: "file.created",
-  });
-  await publishFilesInvalidationEvent({
-    workspaceUuid: input.workspaceUuid,
-    reason: "tree.changed",
-  });
+  await Promise.all([
+    invalidateWorkspaceReadCaches(input.workspaceUuid),
+    publishFilesInvalidationEvent({
+      workspaceUuid: input.workspaceUuid,
+      reason: "file.created",
+    }),
+    publishFilesInvalidationEvent({
+      workspaceUuid: input.workspaceUuid,
+      reason: "tree.changed",
+    }),
+  ]);
 
   return NextResponse.json({ file }, { status: 201 });
 }

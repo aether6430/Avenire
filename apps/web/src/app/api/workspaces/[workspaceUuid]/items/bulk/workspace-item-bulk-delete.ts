@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { invalidateWorkspaceReadCaches } from "@/lib/domain-cache";
 import {
   getFileAssetById,
   getFolderWithAncestors,
@@ -112,10 +113,13 @@ export async function handleWorkspaceItemBulkDelete(input: {
   }
 
   if (countSuccessfulWorkspaceItemBulkResults(results) > 0) {
-    await publishFilesInvalidationEvent({
-      workspaceUuid: input.workspaceUuid,
-      reason: "tree.changed",
-    });
+    await Promise.all([
+      invalidateWorkspaceReadCaches(input.workspaceUuid),
+      publishFilesInvalidationEvent({
+        workspaceUuid: input.workspaceUuid,
+        reason: "tree.changed",
+      }),
+    ]);
   }
 
   return NextResponse.json({

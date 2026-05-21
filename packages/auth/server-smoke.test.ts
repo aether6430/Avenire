@@ -175,4 +175,23 @@ describe("@avenire/auth server config", () => {
       to: ["grace@example.com"],
     });
   });
+
+  it("trusts same local app loopback aliases for production-like local runs", async () => {
+    process.env.BETTER_AUTH_URL = "http://localhost:3000";
+    process.env.NODE_ENV = "production";
+    const module = await import("./server");
+    const config = betterAuthMock.mock.calls[0][0];
+
+    await expect(
+      config.trustedOrigins({
+        headers: new Headers({ origin: "http://127.0.0.1:3000" }),
+      })
+    ).resolves.toContain("http://127.0.0.1:3000");
+    await expect(
+      config.trustedOrigins({
+        headers: new Headers({ origin: "http://127.0.0.1:3001" }),
+      })
+    ).resolves.not.toContain("http://127.0.0.1:3001");
+    expect(module.authRouteHandlers).toEqual({ GET: "GET" });
+  });
 });

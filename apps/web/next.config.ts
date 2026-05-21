@@ -8,6 +8,7 @@ loadDatabaseEnv({
 
 const nextConfig: NextConfig = {
   typedRoutes: true,
+  allowedDevOrigins: ["127.0.0.1"],
   outputFileTracingRoot: resolve(process.cwd(), "../../"),
   outputFileTracingExcludes: {
     "/*": [

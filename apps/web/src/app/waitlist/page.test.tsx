@@ -3,12 +3,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  getRouteSessionMock,
+  getWorkspaceRouteContextMock,
   getUserSettingsMock,
   redirectMock,
   waitlistPageClientMock,
 } = vi.hoisted(() => ({
-  getRouteSessionMock: vi.fn(),
+  getWorkspaceRouteContextMock: vi.fn(),
   getUserSettingsMock: vi.fn(),
   redirectMock: vi.fn((href: string) => {
     throw new Error(`redirect:${href}`);
@@ -31,7 +31,7 @@ vi.mock("@/lib/user-settings", () => ({
 }));
 
 vi.mock("@/lib/workspace-route-context", () => ({
-  getRouteSession: getRouteSessionMock,
+  getWorkspaceRouteContext: getWorkspaceRouteContextMock,
 }));
 
 import WaitlistPage, { dynamic, metadata } from "./page";
@@ -46,9 +46,26 @@ describe("waitlist page contract", () => {
     expect(dynamic).toBe("force-dynamic");
   });
 
+  it("redirects signed-in users with an existing workspace into the workspace", async () => {
+    getWorkspaceRouteContextMock.mockResolvedValueOnce({
+      session: {
+        user: { id: "user-1" },
+      },
+      workspace: { id: "workspace-1" },
+    });
+
+    await expect(WaitlistPage()).rejects.toThrow("redirect:/workspace");
+
+    expect(getUserSettingsMock).not.toHaveBeenCalled();
+    expect(redirectMock).toHaveBeenCalledWith("/workspace");
+  });
+
   it("redirects signed-in users who finished onboarding into the workspace", async () => {
-    getRouteSessionMock.mockResolvedValueOnce({
-      user: { id: "user-1" },
+    getWorkspaceRouteContextMock.mockResolvedValueOnce({
+      session: {
+        user: { id: "user-1" },
+      },
+      workspace: null,
     });
     getUserSettingsMock.mockResolvedValueOnce({
       onboardingCompleted: true,
@@ -61,8 +78,11 @@ describe("waitlist page contract", () => {
   });
 
   it("redirects signed-in users without completed onboarding into onboarding", async () => {
-    getRouteSessionMock.mockResolvedValueOnce({
-      user: { id: "user-1" },
+    getWorkspaceRouteContextMock.mockResolvedValueOnce({
+      session: {
+        user: { id: "user-1" },
+      },
+      workspace: null,
     });
     getUserSettingsMock.mockResolvedValueOnce({
       onboardingCompleted: false,
@@ -75,7 +95,10 @@ describe("waitlist page contract", () => {
   });
 
   it("renders the waitlist client for signed-out visitors", async () => {
-    getRouteSessionMock.mockResolvedValueOnce(null);
+    getWorkspaceRouteContextMock.mockResolvedValueOnce({
+      session: null,
+      workspace: null,
+    });
 
     const element = await WaitlistPage();
     const html = renderToStaticMarkup(element);

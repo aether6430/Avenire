@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { PromptMemoryBlock } from "@avenire/ai";
-import { getActiveMisconceptionContext } from "@/lib/chat-tools";
+import { getActiveMisconceptionContext } from "@/lib/chat-tools/chat-tool-misconception-runtime";
 import { buildStudentProfileContext } from "@/lib/student-profile";
 import {
   buildPromptMemoryBlocks,

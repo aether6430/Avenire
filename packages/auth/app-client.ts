@@ -1,6 +1,7 @@
 "use client";
 
 import { createAuthClient } from "better-auth/react";
+import { resolveAuthClientBaseURL } from "./client-base-url";
 
 type AuthAsyncCall = (...args: any[]) => Promise<any>;
 type AuthSyncCall<T = any> = (...args: any[]) => T;
@@ -26,7 +27,7 @@ interface AppAuthClientFacade {
 }
 
 const client: AppAuthClientFacade = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_APP_URL,
+  baseURL: resolveAuthClientBaseURL(),
 }) as AppAuthClientFacade;
 
 export const signOut = client.signOut;

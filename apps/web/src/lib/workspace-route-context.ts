@@ -1,3 +1,4 @@
+import { hasSessionCookie } from "@avenire/auth/middleware";
 import type { Route } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -53,9 +54,15 @@ export const getRouteSession = cache(async (): Promise<RouteSession> => {
     return null;
   }
 
+  const requestHeaders = await headers();
+  if (!hasSessionCookie(requestHeaders)) {
+    logRouteTiming("route-session", startTime);
+    return null;
+  }
+
   const { auth } = await import("@avenire/auth/server");
   const session = (await auth.api.getSession({
-    headers: await headers(),
+    headers: requestHeaders,
   })) as RouteSession;
   logRouteTiming("route-session", startTime);
   return session;

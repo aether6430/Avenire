@@ -1,3 +1,4 @@
+import type { PageMetadataState } from "@/lib/frontmatter";
 import { z } from "zod";
 
 const noteSyncPostPayloadSchema = z.object({
@@ -17,11 +18,13 @@ export function parseNoteSyncPostPayload(payload: unknown) {
 
 export function buildNoteSyncGetResponse(input: {
   markdown: string;
+  page: PageMetadataState;
   updatedAt: string;
   version: number;
 }) {
   return {
     markdown: input.markdown,
+    page: input.page,
     updatedAt: input.updatedAt,
     version: input.version,
   };

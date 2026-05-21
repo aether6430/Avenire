@@ -49,6 +49,13 @@ export function FilePreviewPanelSurface({
           noteCoverLinkDraft={runtime.noteCoverLinkDraft}
           noteCoverPickerTab={runtime.noteCoverPickerTab}
           noteDisplayTitle={runtime.noteDisplayTitle}
+          onPagePropertiesChange={(properties) => {
+            runtime.setNotePage((current) => ({
+              ...current,
+              properties,
+            }));
+          }}
+          onPropertyDefinitionsChange={runtime.setPropertyDefinitions}
           noteSaveState={
             runtime.activeFileIsMarkdown ? runtime.noteSaveState : undefined
           }
@@ -81,6 +88,9 @@ export function FilePreviewPanelSurface({
             runtime.setNoteCoverUrl(template.bannerUrl);
           }}
           onTriggerNoteBannerPicker={runtime.triggerNoteBannerPicker}
+          pageProperties={runtime.notePage.properties}
+          propertyDefinitions={runtime.propertyDefinitions}
+          readOnly={Boolean(runtime.activeFile.readOnly)}
           scrollContainerRef={runtime.filePreviewScrollRef}
           wikiPages={runtime.wikiLinkableFiles}
           workspaceUuid={runtime.workspaceUuid}

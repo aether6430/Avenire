@@ -5,6 +5,7 @@ import { Button } from "@avenire/ui/components/button";
 import { Input } from "@avenire/ui/components/input";
 import { ScrollArea } from "@avenire/ui/components/scroll-area";
 import {
+  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -14,7 +15,6 @@ import {
 import { cn } from "@avenire/ui/lib/utils";
 import { Trash as Trash2 } from "@phosphor-icons/react";
 import { Pencil } from "@phosphor-icons/react/Pencil";
-import { Table } from "@phosphor-icons/react/Table";
 import type {
   FlashcardCardRecord,
   FlashcardCardSnapshot,

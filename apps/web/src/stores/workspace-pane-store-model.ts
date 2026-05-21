@@ -174,7 +174,7 @@ export function ensureInitializedWorkspacePaneState(
   ids: IdFactories
 ) {
   if (state.initialized && state.panes.length > 0) {
-    return state;
+    return syncActivePaneRouteInWorkspacePaneState(state, route);
   }
 
   const rowId = ids.createRowId();

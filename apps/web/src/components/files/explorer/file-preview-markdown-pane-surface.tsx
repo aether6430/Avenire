@@ -20,6 +20,10 @@ import type {
   AvenireEditorProps,
   WikiPage,
 } from "@/components/editor/editor-core";
+import type {
+  FrontmatterProperties,
+  WorkspacePropertyDefinition,
+} from "@/lib/frontmatter";
 import type { MarkdownCoverTab } from "./file-preview-note-shared";
 import { DEFAULT_NOTE_COVER_URL } from "./file-preview-note-shared";
 
@@ -97,6 +101,10 @@ export interface FilePreviewMarkdownPaneProps {
   noteCoverLinkDraft: string;
   noteCoverPickerTab: MarkdownCoverTab;
   noteDisplayTitle: string;
+  onPagePropertiesChange: (properties: FrontmatterProperties) => void;
+  onPropertyDefinitionsChange: (
+    definitions: WorkspacePropertyDefinition[]
+  ) => void;
   noteSaveState?: "idle" | "saving" | "saved" | "error";
   onApplyDefaultNoteCover: () => void;
   onMarkdownBodyChange: (value: string) => void;
@@ -106,6 +114,9 @@ export interface FilePreviewMarkdownPaneProps {
   onSetNoteCoverUrl: (url: string | null) => void;
   onTemplateApplied: AvenireEditorProps["onTemplateApplied"];
   onTriggerNoteBannerPicker: () => void;
+  pageProperties: FrontmatterProperties;
+  propertyDefinitions: WorkspacePropertyDefinition[];
+  readOnly: boolean;
   scrollContainerRef: RefObject<HTMLDivElement | null>;
   wikiPages: WikiPage[];
   workspaceUuid: string;
@@ -126,6 +137,8 @@ export function FilePreviewMarkdownPaneSurface({
   noteCoverLinkDraft,
   noteCoverPickerTab,
   noteDisplayTitle,
+  onPagePropertiesChange,
+  onPropertyDefinitionsChange,
   noteSaveState,
   onApplyDefaultNoteCover,
   onMarkdownBodyChange,
@@ -135,6 +148,9 @@ export function FilePreviewMarkdownPaneSurface({
   onSetNoteCoverUrl,
   onTemplateApplied,
   onTriggerNoteBannerPicker,
+  pageProperties,
+  propertyDefinitions,
+  readOnly,
   scrollContainerRef,
   wikiPages,
   workspaceUuid,
@@ -381,7 +397,12 @@ export function FilePreviewMarkdownPaneSurface({
                 noteTitle={noteDisplayTitle}
                 onChange={onMarkdownBodyChange}
                 onOpenWikiLink={onOpenWikiLink}
+                onPagePropertiesChange={onPagePropertiesChange}
+                onPropertyDefinitionsChange={onPropertyDefinitionsChange}
                 onTemplateApplied={onTemplateApplied}
+                pageProperties={pageProperties}
+                propertyDefinitions={propertyDefinitions}
+                readOnly={readOnly}
                 saveState={noteSaveState}
                 scrollContainerRef={scrollContainerRef}
                 wikiPages={wikiPages}

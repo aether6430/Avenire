@@ -26,12 +26,15 @@ function renderHookValue(
 describe("useExplorerNoteWorkflows", () => {
   it("creates a markdown note and opens it in the target folder", async () => {
     const openWorkspaceFileInFolder = vi.fn();
+    const onNoteCreated = vi.fn(async () => undefined);
+    const createdFile = {
+      id: "file_123",
+      name: "Lecture 1.md",
+    };
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
-        file: {
-          id: "file_123",
-        },
+        file: createdFile,
       }),
     });
 
@@ -39,6 +42,7 @@ describe("useExplorerNoteWorkflows", () => {
 
     const hook = renderHookValue({
       isCurrentFolderReadOnly: false,
+      onNoteCreated,
       openWorkspaceFileInFolder,
       workspaceUuid: "workspace_123",
     });
@@ -67,6 +71,10 @@ describe("useExplorerNoteWorkflows", () => {
     expect(openWorkspaceFileInFolder).toHaveBeenCalledWith(
       "folder_123",
       "file_123"
+    );
+    expect(onNoteCreated).toHaveBeenCalledWith(createdFile);
+    expect(onNoteCreated.mock.invocationCallOrder[0]).toBeLessThan(
+      openWorkspaceFileInFolder.mock.invocationCallOrder[0] ?? 0
     );
   });
 

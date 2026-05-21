@@ -1,5 +1,6 @@
 import { UTApi } from "@avenire/storage";
 import { NextResponse } from "next/server";
+import { invalidateWorkspaceReadCaches } from "@/lib/domain-cache";
 import {
   permanentlyDeleteFileAsset,
   permanentlyDeleteFolder,
@@ -56,10 +57,13 @@ export async function handleWorkspaceTrashRouteRestore(input: {
   }
 
   if (results.some((entry) => entry.ok)) {
-    await publishFilesInvalidationEvent({
-      workspaceUuid: input.workspaceUuid,
-      reason: "tree.changed",
-    });
+    await Promise.all([
+      invalidateWorkspaceReadCaches(input.workspaceUuid),
+      publishFilesInvalidationEvent({
+        workspaceUuid: input.workspaceUuid,
+        reason: "tree.changed",
+      }),
+    ]);
   }
 
   return NextResponse.json({ ok: true, results });
@@ -98,10 +102,13 @@ export async function handleWorkspaceTrashRouteDelete(input: {
   await deleteWorkspaceTrashStorageObjects(Array.from(new Set(storageKeys)));
 
   if (results.some((entry) => entry.ok)) {
-    await publishFilesInvalidationEvent({
-      workspaceUuid: input.workspaceUuid,
-      reason: "tree.changed",
-    });
+    await Promise.all([
+      invalidateWorkspaceReadCaches(input.workspaceUuid),
+      publishFilesInvalidationEvent({
+        workspaceUuid: input.workspaceUuid,
+        reason: "tree.changed",
+      }),
+    ]);
   }
 
   return NextResponse.json({ ok: true, results });

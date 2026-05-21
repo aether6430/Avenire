@@ -43,9 +43,11 @@ export function ExplorerCreateMenu({
   if (isMobile) {
     return (
       <Button
+        aria-label="Create file or folder"
         className="rounded-md"
         onClick={onOpenMobileCreateMenu}
         size="icon-sm"
+        title="Create"
         type="button"
         variant="outline"
       >
@@ -59,8 +61,10 @@ export function ExplorerCreateMenu({
       <DropdownMenuTrigger
         render={
           <Button
+            aria-label="Create file or folder"
             className="rounded-md"
             size="icon-sm"
+            title="Create"
             type="button"
             variant="outline"
           />

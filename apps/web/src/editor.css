@@ -75,6 +75,7 @@
   max-height: 12.5rem;
   margin-inline: auto;
   margin-bottom: 1rem;
+  padding-inline: 1rem;
   overflow-y: auto;
   --surface-subtle: color-mix(in oklch, var(--foreground) 7%, transparent 93%);
   --text-icon-muted: color-mix(

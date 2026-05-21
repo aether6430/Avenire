@@ -24,6 +24,17 @@ export function getActiveFileLinkSourceUrl(activeFile: FileRecord) {
     : null;
 }
 
+export function getActiveMarkdownFileRoute(input: {
+  fileId: string;
+  folderId: string;
+  workspaceUuid: string;
+}) {
+  const params = new URLSearchParams();
+  params.set("file", input.fileId);
+
+  return `/workspace/files/${input.workspaceUuid}/folder/${input.folderId}?${params.toString()}`;
+}
+
 export interface FilePreviewPanelDerivedState {
   activeCustomIcon: string | null;
   activeFileSourceUrl: string;
@@ -52,7 +63,11 @@ export function buildFilePreviewPanelDerivedState(input: {
   const activeLinkSourceUrl = getActiveFileLinkSourceUrl(input.activeFile);
   const activeFileSourceUrl = input.activeFileIsMarkdown
     ? (activeLinkSourceUrl ??
-      `/api/workspaces/${input.workspaceUuid}/files/${input.activeFile.id}/stream`)
+      getActiveMarkdownFileRoute({
+        fileId: input.activeFile.id,
+        folderId: input.activeFile.folderId,
+        workspaceUuid: input.workspaceUuid,
+      }))
     : input.activeFile.storageUrl;
   const activeMediaStreamUrl = `/api/workspaces/${input.workspaceUuid}/files/${input.activeFile.id}/stream`;
   const activePlaybackDescriptor = buildVideoPlaybackDescriptor({

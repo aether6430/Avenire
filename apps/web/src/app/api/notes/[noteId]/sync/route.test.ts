@@ -77,6 +77,7 @@ import { GET, POST } from "./route";
 
 const NOTE_ID = "note-1";
 const WORKSPACE_ID = "workspace-1";
+const EMPTY_PAGE = { bannerUrl: null, icon: null, properties: {} };
 
 function noteSyncRequest(
   method: "GET" | "POST",
@@ -197,6 +198,18 @@ describe("GET /api/notes/[noteId]/sync", () => {
 
   it("returns stored markdown when the note content already exists", async () => {
     mockAccessibleNote({
+      file: {
+        page: {
+          bannerUrl: "https://example.com/banner.png",
+          icon: "A",
+          properties: {
+            topic: {
+              type: "text",
+              value: "ux",
+            },
+          },
+        },
+      },
       note: {
         content: "# Ready\n\nAlready synced.",
         updatedAt: new Date("2026-05-12T01:00:00.000Z"),
@@ -209,6 +222,16 @@ describe("GET /api/notes/[noteId]/sync", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       markdown: "# Ready\n\nAlready synced.",
+      page: {
+        bannerUrl: "https://example.com/banner.png",
+        icon: "A",
+        properties: {
+          topic: {
+            type: "text",
+            value: "ux",
+          },
+        },
+      },
       updatedAt: "2026-05-12T01:00:00.000Z",
       version: 7,
     });
@@ -231,6 +254,7 @@ describe("GET /api/notes/[noteId]/sync", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       markdown: "",
+      page: EMPTY_PAGE,
       updatedAt: "2026-05-12T00:00:00.000Z",
       version: 0,
     });
@@ -260,6 +284,7 @@ describe("GET /api/notes/[noteId]/sync", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       markdown: "# Migrated\n\nHello from storage.",
+      page: EMPTY_PAGE,
       updatedAt: "2026-05-12T00:00:00.000Z",
       version: 0,
     });

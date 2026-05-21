@@ -15,11 +15,12 @@ import { createElement } from "react";
 import { Resend } from "resend";
 
 export class Emailer {
-  private readonly client: Resend;
+  private readonly client: Resend | null;
   private readonly defaultFrom: string;
 
   constructor() {
-    this.client = new Resend(process.env.RESEND_API_KEY);
+    const apiKey = process.env.RESEND_API_KEY?.trim() ?? "";
+    this.client = apiKey ? new Resend(apiKey) : null;
     this.defaultFrom =
       process.env.EMAIL_FROM ?? "Avenire <support@avenire.space>";
   }
@@ -31,6 +32,12 @@ export class Emailer {
     from?: string;
     replyTo?: string;
   }) {
+    if (!this.client) {
+      throw new Error(
+        "Missing RESEND_API_KEY. Configure RESEND_API_KEY before sending email."
+      );
+    }
+
     const result = await this.client.emails.send({
       from: input.from ?? this.defaultFrom,
       to: input.to,
