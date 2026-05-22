@@ -9,7 +9,20 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const encoder = new TextEncoder();
-const allowedEventTypes = new Set(["chat.invalidate", "files.invalidate"]);
+const allowedEventTypes = new Set([
+  "chat.created",
+  "chat.deleted",
+  "chat.invalidate",
+  "chat.updated",
+  "file.created",
+  "file.deleted",
+  "file.updated",
+  "files.invalidate",
+  "folder.created",
+  "folder.deleted",
+  "folder.updated",
+  "tree.changed",
+]);
 
 function toSseChunk(input: {
   event: string;

@@ -35,7 +35,7 @@ import {
 } from "@/lib/chat-icons";
 import {
   createChatTools,
-  getActiveMisconceptionContext,
+  prewarmActiveMisconceptionsCache,
 } from "@/lib/chat-tools";
 import { invalidateChatReadCaches } from "@/lib/domain-cache";
 import { resolveWorkspaceForUser } from "@/lib/file-data";
@@ -64,6 +64,7 @@ import {
   getRedisSubscriber,
   setActiveStreamId,
 } from "./chat-stream-store";
+import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
 
 const DEFAULT_CHAT_TITLE = "New Chat";
 const LOG_PREFIX = "[api/chat]";
@@ -549,25 +550,15 @@ async function getCachedLearningPromptMemoryBlocks(input: {
     return cached;
   }
 
-  const [activeMisconceptionContext, studentProfileContext] = await Promise.all(
-    [
-      getActiveMisconceptionContext({
-        subject: input.subject,
-        topic: input.topic,
-        userId: input.userId,
-        workspaceId: input.workspaceId,
-      }),
-      buildStudentProfileContext({
-        subject: input.subject,
-        topic: input.topic,
-        userId: input.userId,
-        workspaceId: input.workspaceId,
-      }),
-    ]
-  );
+  const studentProfileContext = await buildStudentProfileContext({
+    subject: input.subject,
+    topic: input.topic,
+    userId: input.userId,
+    workspaceId: input.workspaceId,
+  });
 
   const blocks = buildPromptMemoryBlocks({
-    misconceptionsContext: activeMisconceptionContext,
+    misconceptionsContext: null,
     sessionSummaryContext: input.recentSummaryContext,
     studentProfileContext,
     subject: input.subject,
@@ -1252,6 +1243,24 @@ export async function POST(request: Request) {
       );
       after(async () => {
         await invalidateChatReadCaches(workspace.workspaceId);
+        const chatEventPayload = {
+          action: "created",
+          chat: createdChat,
+          chatSlug: createdChat.slug,
+          workspaceUuid: workspace.workspaceId,
+        };
+        await Promise.all([
+          publishWorkspaceStreamEvent({
+            workspaceUuid: workspace.workspaceId,
+            type: "chat.created",
+            payload: chatEventPayload,
+          }),
+          publishWorkspaceStreamEvent({
+            workspaceUuid: workspace.workspaceId,
+            type: "chat.invalidate",
+            payload: chatEventPayload,
+          }),
+        ]);
       });
       chat = createdChat;
     }
@@ -1394,7 +1403,7 @@ export async function POST(request: Request) {
               },
             });
 
-            await updateChatForUser(
+            const updatedChat = await updateChatForUser(
               session.user.id,
               chatSlug,
               {
@@ -1404,6 +1413,26 @@ export async function POST(request: Request) {
               workspace.workspaceId
             );
             await invalidateChatReadCaches(workspace.workspaceId);
+            if (updatedChat) {
+              const chatEventPayload = {
+                action: "updated",
+                chat: updatedChat,
+                chatSlug: updatedChat.slug,
+                workspaceUuid: workspace.workspaceId,
+              };
+              void Promise.all([
+                publishWorkspaceStreamEvent({
+                  workspaceUuid: workspace.workspaceId,
+                  type: "chat.updated",
+                  payload: chatEventPayload,
+                }),
+                publishWorkspaceStreamEvent({
+                  workspaceUuid: workspace.workspaceId,
+                  type: "chat.invalidate",
+                  payload: chatEventPayload,
+                }),
+              ]);
+            }
             logInfo("Persisted generated chat title", {
               chatId: chatSlug,
               name: nextMeta.title,
@@ -1593,6 +1622,19 @@ export async function POST(request: Request) {
               .join("\n\n"),
             resolvedSubject
           );
+          void prewarmActiveMisconceptionsCache({
+            subject: resolvedSubject,
+            topic: resolvedTopic,
+            userId: session.user.id,
+            workspaceId: workspace.workspaceId,
+          }).catch((error) => {
+            logWarn("Failed to prewarm active misconceptions cache", {
+              chatId: chat.id,
+              error: formatError(error),
+              subject: resolvedSubject,
+              topic: resolvedTopic,
+            });
+          });
           const promptMemoryBlocksPromise = withStartupTimeout(
             getCachedLearningPromptMemoryBlocks({
               recentSummaryContext: buildRecentSessionSummaryContext(
@@ -1629,7 +1671,7 @@ export async function POST(request: Request) {
               }
             ),
             messages: modelMessages,
-            maxOutputTokens: 10_000,
+            maxOutputTokens: 20_000,
             stopWhen: stepCountIs(8),
             tools: modelTools,
             abortSignal: request.signal,
@@ -2004,6 +2046,23 @@ export async function DELETE(request: Request) {
       await clearActiveStreamId(id, activeStreamId);
     }
     await invalidateChatReadCaches(workspace.workspaceId);
+    const chatEventPayload = {
+      action: "deleted",
+      chatSlug: id,
+      workspaceUuid: workspace.workspaceId,
+    };
+    void Promise.all([
+      publishWorkspaceStreamEvent({
+        workspaceUuid: workspace.workspaceId,
+        type: "chat.deleted",
+        payload: chatEventPayload,
+      }),
+      publishWorkspaceStreamEvent({
+        workspaceUuid: workspace.workspaceId,
+        type: "chat.invalidate",
+        payload: chatEventPayload,
+      }),
+    ]);
     apiLogger.featureUsed("chat.delete", { chatId: id });
     apiLogger.requestSucceeded(200, { chatId: id });
 

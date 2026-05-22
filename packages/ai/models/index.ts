@@ -31,7 +31,7 @@ export type ApolloModelName =
 
 export const APOLLO_LANGUAGE_MODEL_IDS: Record<ApolloModelName, string> = {
   "apollo-agent": "accounts/fireworks/models/glm-5",
-  "apollo-apex": "accounts/fireworks/routers/kimi-k2p5-turbo",
+  "apollo-apex": "accounts/fireworks/models/kimi-k2p5",
   "apex-turbo": "accounts/fireworks/routers/kimi-k2p6-turbo",
   "apollo-core": "gemini-3-flash-preview",
   "apollo-meta": "openai/gpt-oss-120b",

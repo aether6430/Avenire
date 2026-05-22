@@ -79,15 +79,25 @@ export async function PATCH(
   if (updated.workspaceId) {
     await invalidateChatReadCaches(updated.workspaceId);
 
-    void publishWorkspaceStreamEvent({
+    const chatEventPayload = {
+      action: "updated",
+      chat: updated,
+      chatSlug: updated.slug,
       workspaceUuid: updated.workspaceId,
-      type: "chat.invalidate",
-      payload: {
-        action: "updated",
-        chatSlug: updated.slug,
+    };
+
+    void Promise.all([
+      publishWorkspaceStreamEvent({
         workspaceUuid: updated.workspaceId,
-      },
-    });
+        type: "chat.updated",
+        payload: chatEventPayload,
+      }),
+      publishWorkspaceStreamEvent({
+        workspaceUuid: updated.workspaceId,
+        type: "chat.invalidate",
+        payload: chatEventPayload,
+      }),
+    ]);
   }
 
   return NextResponse.json({ chat: updated });
@@ -122,15 +132,25 @@ export async function POST(
   if (chat.workspaceId) {
     await invalidateChatReadCaches(chat.workspaceId);
 
-    void publishWorkspaceStreamEvent({
+    const chatEventPayload = {
+      action: "created",
+      chat,
+      chatSlug: chat.slug,
       workspaceUuid: chat.workspaceId,
-      type: "chat.invalidate",
-      payload: {
-        action: "created",
-        chatSlug: chat.slug,
+    };
+
+    void Promise.all([
+      publishWorkspaceStreamEvent({
         workspaceUuid: chat.workspaceId,
-      },
-    });
+        type: "chat.created",
+        payload: chatEventPayload,
+      }),
+      publishWorkspaceStreamEvent({
+        workspaceUuid: chat.workspaceId,
+        type: "chat.invalidate",
+        payload: chatEventPayload,
+      }),
+    ]);
   }
 
   return NextResponse.json({ chat }, { status: 201 });
@@ -165,15 +185,24 @@ export async function DELETE(
   if (existing?.workspaceId) {
     await invalidateChatReadCaches(existing.workspaceId);
 
-    void publishWorkspaceStreamEvent({
+    const chatEventPayload = {
+      action: "deleted",
+      chatSlug: existing.slug,
       workspaceUuid: existing.workspaceId,
-      type: "chat.invalidate",
-      payload: {
-        action: "deleted",
-        chatSlug: existing.slug,
+    };
+
+    void Promise.all([
+      publishWorkspaceStreamEvent({
         workspaceUuid: existing.workspaceId,
-      },
-    });
+        type: "chat.deleted",
+        payload: chatEventPayload,
+      }),
+      publishWorkspaceStreamEvent({
+        workspaceUuid: existing.workspaceId,
+        type: "chat.invalidate",
+        payload: chatEventPayload,
+      }),
+    ]);
   }
 
   return NextResponse.json({ ok: true });

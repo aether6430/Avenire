@@ -48,6 +48,22 @@ function cleanupMemoryCache() {
   }
 }
 
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
+  }
+
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)
+    .join(",")}}`;
+}
+
 function versionKey(namespace: string, scope: string) {
   return `${namespace}:${CACHE_VERSION}:version:${scope}`;
 }
@@ -92,7 +108,7 @@ export function createRouteCacheKey(input: {
   version: string;
 }) {
   const hash = createHash("sha256")
-    .update(JSON.stringify(input.params ?? null))
+    .update(stableStringify(input.params ?? null))
     .digest("hex");
 
   return `${input.namespace}:${CACHE_VERSION}:${input.scope}:${input.version}:${hash}`;

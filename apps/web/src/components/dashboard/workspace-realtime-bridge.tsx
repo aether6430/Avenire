@@ -6,7 +6,10 @@ import { useEffect, useRef } from "react";
 type WorkspaceInvalidationKind = "chat" | "files";
 
 interface WorkspaceInvalidationPayload {
+  action?: string | null;
   at?: number | null;
+  chat?: unknown;
+  chatSlug?: string | null;
   fileId?: string | null;
   folderId?: string | null;
   reason?: string | null;
@@ -100,7 +103,7 @@ export function WorkspaceRealtimeBridge({
 
         };
 
-        eventSource.addEventListener("files.invalidate", (event) => {
+        const parsePayload = (event: Event) => {
           let payload: WorkspaceInvalidationPayload | null = null;
           if (event instanceof MessageEvent && typeof event.data === "string") {
             try {
@@ -110,11 +113,16 @@ export function WorkspaceRealtimeBridge({
             }
           }
 
+          return payload;
+        };
+
+        eventSource.addEventListener("files.invalidate", (event) => {
+          const payload = parsePayload(event);
           handleInvalidate("files", payload);
         });
-        eventSource.addEventListener("chat.invalidate", () =>
-          handleInvalidate("chat")
-        );
+        eventSource.addEventListener("chat.invalidate", (event) => {
+          handleInvalidate("chat", parsePayload(event));
+        });
       } catch {
         scheduleReconnect();
       }

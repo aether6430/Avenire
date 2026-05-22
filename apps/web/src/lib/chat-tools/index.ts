@@ -54,6 +54,7 @@ import {
   resolveMisconceptionsForConcept,
   upsertMisconception,
 } from "@/lib/learning-data";
+import { getCachedToolResult } from "@/lib/ai-tool-result-cache";
 import { retrieveWorkspaceChunksShared } from "@/lib/retrieval-service";
 import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
 
@@ -75,6 +76,9 @@ const FILE_MANAGER_LIST_LIMIT = 120;
 const FILE_MANAGER_MAX_FILE_CHARS = 5000;
 const FILE_MANAGER_MAX_OUTPUT_TOKENS = 260;
 const MISCONCEPTION_CONTEXT_LIMIT = 5;
+const ACTIVE_MISCONCEPTIONS_CACHE_TTL_SECONDS = 60 * 5;
+
+type ActiveMisconceptionsCacheStatus = "hit" | "miss";
 
 interface FlashcardTaxonomy {
   concept: string;
@@ -202,7 +206,7 @@ export async function getActiveMisconceptionContext(params: {
     return null;
   }
 
-  const misconceptions = await getActiveMisconceptions({
+  const { misconceptions } = await getCachedActiveMisconceptions({
     limit: 24,
     subject,
     topic,
@@ -247,6 +251,52 @@ function mapMisconceptionForTool(record: MisconceptionRecord) {
     updatedAt: record.updatedAt,
     workspaceId: record.workspaceId,
   };
+}
+
+function isMisconceptionRecordArray(
+  value: unknown
+): value is MisconceptionRecord[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (entry) =>
+        entry &&
+        typeof entry === "object" &&
+        typeof (entry as { concept?: unknown }).concept === "string" &&
+        typeof (entry as { subject?: unknown }).subject === "string" &&
+        typeof (entry as { topic?: unknown }).topic === "string"
+    )
+  );
+}
+
+async function getCachedActiveMisconceptions(input: {
+  concept?: string;
+  limit?: number;
+  subject?: string;
+  topic?: string;
+  userId: string;
+  workspaceId: string;
+}): Promise<{
+  cache: ActiveMisconceptionsCacheStatus;
+  misconceptions: MisconceptionRecord[];
+}> {
+  const result = await getCachedToolResult({
+    execute: () => getActiveMisconceptions(input),
+    input: {
+      concept: input.concept,
+      limit: input.limit,
+      subject: input.subject,
+      topic: input.topic,
+    },
+    scope: {
+      userId: input.userId,
+      workspaceId: input.workspaceId,
+    },
+    toolName: "list_misconceptions",
+    ttlSeconds: ACTIVE_MISCONCEPTIONS_CACHE_TTL_SECONDS,
+    validate: isMisconceptionRecordArray,
+  });
+  return { cache: result.cache, misconceptions: result.value };
 }
 
 function formatCitationLocation(match: {
@@ -1605,7 +1655,7 @@ async function listMisconceptionsForTool(
   ctx: ChatToolContext,
   input: z.infer<typeof chatToolSchemas.list_misconceptions.input>
 ) {
-  const misconceptions = await getActiveMisconceptions({
+  const { cache, misconceptions } = await getCachedActiveMisconceptions({
     concept: input.concept,
     limit: input.limit,
     subject: input.subject,
@@ -1619,9 +1669,30 @@ async function listMisconceptionsForTool(
     misconceptions: misconceptions.map(mapMisconceptionForTool),
     summary:
       misconceptions.length > 0
-        ? `Found ${misconceptions.length} active misconception(s).`
-        : "No active misconceptions found.",
+        ? `Found ${misconceptions.length} active misconception(s). Cache ${cache}.`
+        : `No active misconceptions found. Cache ${cache}.`,
   };
+}
+
+export async function prewarmActiveMisconceptionsCache(params: {
+  subject?: string | null;
+  topic?: string | null;
+  userId: string;
+  workspaceId: string;
+}) {
+  const subject = params.subject?.trim();
+  const topic = params.topic?.trim();
+  if (!(subject && topic)) {
+    return;
+  }
+
+  await getCachedActiveMisconceptions({
+    limit: 24,
+    subject,
+    topic,
+    userId: params.userId,
+    workspaceId: params.workspaceId,
+  });
 }
 
 async function resolveMisconceptionForTool(
@@ -2431,7 +2502,7 @@ The agent decides which operations to perform based on the task.`,
     }),
     list_misconceptions: tool({
       description:
-        "List the current active misconceptions in the workspace. Use this before deciding whether to reinforce, resolve, or generate study material.",
+        "List the current active misconceptions in the workspace through the low-latency cache. Call this near the beginning of each substantive response after a brief first pass on the user's request.",
       inputSchema: chatToolSchemas.list_misconceptions.input,
       outputSchema: chatToolSchemas.list_misconceptions.output,
       execute: async (input) => listMisconceptionsForTool(ctx, input),

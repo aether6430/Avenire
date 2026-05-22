@@ -1,34 +1,34 @@
 import type { MetadataRoute } from "next";
-import { getAllSlugs } from "@/lib/blog";
+import { getAllPostMetas } from "@/lib/blog";
 import { metadataBase } from "@/lib/page-metadata";
 
+const STATIC_LAST_MODIFIED = "2026-05-20";
+
 const PUBLIC_ROUTES = [
-  "/",
-  "/about",
-  "/blog",
-  "/pricing",
-  "/privacy",
-  "/roadmap",
-  "/terms",
-  "/waitlist",
+  { path: "/", priority: 1, changeFrequency: "weekly" },
+  { path: "/about", priority: 0.6, changeFrequency: "monthly" },
+  { path: "/blog", priority: 0.8, changeFrequency: "weekly" },
+  { path: "/pricing", priority: 0.8, changeFrequency: "monthly" },
+  { path: "/privacy", priority: 0.4, changeFrequency: "yearly" },
+  { path: "/roadmap", priority: 0.6, changeFrequency: "monthly" },
+  { path: "/terms", priority: 0.4, changeFrequency: "yearly" },
+  { path: "/waitlist", priority: 0.7, changeFrequency: "monthly" },
 ] as const;
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const now = new Date();
   const base = metadataBase.toString().replace(/\/$/, "");
   const staticEntries = PUBLIC_ROUTES.map((route) => ({
-    changeFrequency: route === "/" ? "weekly" : "monthly",
-    lastModified: now,
-    priority:
-      route === "/" ? 1 : route === "/pricing" || route === "/blog" ? 0.8 : 0.6,
-    url: `${base}${route === "/" ? "" : route}`,
+    changeFrequency: route.changeFrequency,
+    lastModified: STATIC_LAST_MODIFIED,
+    priority: route.priority,
+    url: `${base}${route.path === "/" ? "" : route.path}`,
   })) satisfies MetadataRoute.Sitemap;
 
-  const blogEntries = getAllSlugs().map((slug) => ({
+  const blogEntries = getAllPostMetas().map((post) => ({
     changeFrequency: "monthly" as const,
-    lastModified: now,
+    lastModified: post.date,
     priority: 0.7,
-    url: `${base}/blog/${slug}`,
+    url: `${base}/blog/${post.slug}`,
   }));
 
   return [...staticEntries, ...blogEntries];

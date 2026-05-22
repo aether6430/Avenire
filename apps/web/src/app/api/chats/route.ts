@@ -38,14 +38,25 @@ export async function POST(request: Request) {
 
   await invalidateChatReadCaches(workspace.workspaceId);
 
-  void publishWorkspaceStreamEvent({
+  const chatEventPayload = {
+    action: "created",
+    chat,
+    chatSlug: chat.slug,
     workspaceUuid: workspace.workspaceId,
-    type: "chat.invalidate",
-    payload: {
-      action: "created",
+  };
+
+  void Promise.all([
+    publishWorkspaceStreamEvent({
       workspaceUuid: workspace.workspaceId,
-    },
-  });
+      type: "chat.created",
+      payload: chatEventPayload,
+    }),
+    publishWorkspaceStreamEvent({
+      workspaceUuid: workspace.workspaceId,
+      type: "chat.invalidate",
+      payload: chatEventPayload,
+    }),
+  ]);
 
   return NextResponse.json({ chat }, { status: 201 });
 }

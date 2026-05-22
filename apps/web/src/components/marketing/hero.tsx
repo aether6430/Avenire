@@ -12,8 +12,8 @@ export const Hero = () => {
     <Container className="border-divide flex flex-col items-center justify-center border-x px-4 pt-10 pb-10 md:pt-32 md:pb-20">
       <Badge text="For focused students and researchers" />
       <Heading className="mt-4">
-        Build the workspace <br /> behind{" "}
-        <span className="text-brand">clearer thinking</span>
+        AI study workspace for <br />
+        <span className="text-brand">notes, flashcards, quizzes, and tutoring</span>
       </Heading>
 
       <SubHeading as="p" className="mx-auto mt-6 max-w-lg">

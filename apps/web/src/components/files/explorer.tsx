@@ -840,6 +840,7 @@ interface DedupeLookupResponse {
 }
 
 interface FilesInvalidationEventPayload {
+  fileId?: string | null;
   folderId?: string | null;
   reason?: string;
   workspaceUuid?: string;
@@ -856,6 +857,27 @@ interface WebkitFileSystemFileEntry extends WebkitFileSystemEntry {
     callback: (file: File) => void,
     errorCallback?: (error: DOMException) => void
   ) => void;
+}
+
+function collectDeletedFolderIds(folders: FolderRecord[], folderId: string) {
+  const deletedIds = new Set<string>([folderId]);
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+    for (const folder of folders) {
+      if (
+        folder.parentId &&
+        deletedIds.has(folder.parentId) &&
+        !deletedIds.has(folder.id)
+      ) {
+        deletedIds.add(folder.id);
+        changed = true;
+      }
+    }
+  }
+
+  return deletedIds;
 }
 
 interface WebkitFileSystemDirectoryReader {
@@ -1450,6 +1472,12 @@ export function FileExplorer({
   const [allFiles, setAllFiles] = useState<FileRecord[]>([]);
   const [folders, setFolders] = useState<FolderRecord[]>([]);
   const [files, setFiles] = useState<FileRecord[]>([]);
+  const allFilesRef = useRef<FileRecord[]>([]);
+  const allFoldersRef = useRef<FolderRecord[]>([]);
+  const breadcrumbsRef = useRef<FolderRecord[]>([]);
+  const currentFolderIdRef = useRef("");
+  const filesRef = useRef<FileRecord[]>([]);
+  const foldersRef = useRef<FolderRecord[]>([]);
   const [breadcrumbs, setBreadcrumbs] = useState<FolderRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [downloadStatus, setDownloadStatus] = useState<string | null>(null);
@@ -1474,6 +1502,30 @@ export function FileExplorer({
       return "cards";
     }
   });
+
+  useEffect(() => {
+    allFoldersRef.current = allFolders;
+  }, [allFolders]);
+
+  useEffect(() => {
+    allFilesRef.current = allFiles;
+  }, [allFiles]);
+
+  useEffect(() => {
+    foldersRef.current = folders;
+  }, [folders]);
+
+  useEffect(() => {
+    filesRef.current = files;
+  }, [files]);
+
+  useEffect(() => {
+    breadcrumbsRef.current = breadcrumbs;
+  }, [breadcrumbs]);
+
+  useEffect(() => {
+    currentFolderIdRef.current = currentFolderId;
+  }, [currentFolderId]);
   const [hoveredPreviewFileId, setHoveredPreviewFileId] = useState<
     string | null
   >(null);
@@ -2858,6 +2910,79 @@ export function FileExplorer({
 
           invalidateWorkspaceFolderCache(workspaceUuid, detail?.folderId);
           invalidateWorkspaceMarkdownCache(workspaceUuid);
+          if (detail?.reason === "file.deleted" && detail.fileId) {
+            const nextAllFiles = allFilesRef.current.filter(
+              (file) => file.id !== detail.fileId
+            );
+            const nextFiles = filesRef.current.filter(
+              (file) => file.id !== detail.fileId
+            );
+
+            setAllFiles(nextAllFiles);
+            setFiles(nextFiles);
+            writeWorkspaceTreeCache<FolderRecord, FileRecord>(workspaceUuid, {
+              files: nextAllFiles,
+              folders: allFoldersRef.current,
+            });
+            if (currentFolderIdRef.current) {
+              writeWorkspaceFolderCache<FolderRecord, FileRecord>(
+                workspaceUuid,
+                currentFolderIdRef.current,
+                {
+                  ancestors: breadcrumbsRef.current,
+                  files: nextFiles,
+                  folders: foldersRef.current,
+                }
+              );
+            }
+            return;
+          }
+
+          if (detail?.reason === "folder.deleted" && detail.folderId) {
+            const deletedFolderIds = collectDeletedFolderIds(
+              allFoldersRef.current,
+              detail.folderId
+            );
+            if (deletedFolderIds.has(currentFolderIdRef.current)) {
+              refreshDataDebounced();
+              return;
+            }
+
+            const nextAllFolders = allFoldersRef.current.filter(
+              (folder) => !deletedFolderIds.has(folder.id)
+            );
+            const nextAllFiles = allFilesRef.current.filter(
+              (file) => !deletedFolderIds.has(file.folderId)
+            );
+            const nextFolders = foldersRef.current.filter(
+              (folder) => !deletedFolderIds.has(folder.id)
+            );
+            const nextFiles = filesRef.current.filter(
+              (file) => !deletedFolderIds.has(file.folderId)
+            );
+
+            setAllFolders(nextAllFolders);
+            setAllFiles(nextAllFiles);
+            setFolders(nextFolders);
+            setFiles(nextFiles);
+            writeWorkspaceTreeCache<FolderRecord, FileRecord>(workspaceUuid, {
+              files: nextAllFiles,
+              folders: nextAllFolders,
+            });
+            if (currentFolderIdRef.current) {
+              writeWorkspaceFolderCache<FolderRecord, FileRecord>(
+                workspaceUuid,
+                currentFolderIdRef.current,
+                {
+                  ancestors: breadcrumbsRef.current,
+                  files: nextFiles,
+                  folders: nextFolders,
+                }
+              );
+            }
+            return;
+          }
+
           refreshDataDebounced();
         });
       } catch {

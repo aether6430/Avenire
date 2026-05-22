@@ -1,8 +1,15 @@
 import { auth } from "@avenire/auth/server";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { CACHE_NAMESPACES } from "@/lib/domain-cache";
 import { resolveWorkspaceForUser } from "@/lib/file-data";
 import { listFlashcardDueCountsByDayForUser } from "@/lib/flashcards";
+import {
+  createRouteCacheKey,
+  getCachedRoute,
+  getRouteCacheVersion,
+  setCachedRoute,
+} from "@/lib/route-cache";
 
 function parseDate(value: string | null): Date | null {
   if (!value) {
@@ -38,6 +45,29 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
   }
 
+  const version = await getRouteCacheVersion(
+    CACHE_NAMESPACES.flashcards,
+    workspace.workspaceId
+  );
+  const cacheKey = createRouteCacheKey({
+    namespace: CACHE_NAMESPACES.flashcards,
+    params: {
+      from: from.toISOString().slice(0, 10),
+      route: "revision-calendar",
+      to: to.toISOString().slice(0, 10),
+    },
+    scope: workspace.workspaceId,
+    version,
+  });
+  const cached = await getCachedRoute<{ data: Record<string, unknown[]> }>(
+    cacheKey
+  );
+  if (cached) {
+    return NextResponse.json(cached, {
+      headers: { "x-flashcards-cache": "hit" },
+    });
+  }
+
   const rows = await listFlashcardDueCountsByDayForUser(
     session.user.id,
     workspace.workspaceId,
@@ -62,5 +92,9 @@ export async function GET(request: Request) {
     });
   }
 
-  return NextResponse.json({ data });
+  const payload = { data };
+  await setCachedRoute(CACHE_NAMESPACES.flashcards, cacheKey, payload);
+  return NextResponse.json(payload, {
+    headers: { "x-flashcards-cache": "miss" },
+  });
 }

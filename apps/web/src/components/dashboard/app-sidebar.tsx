@@ -139,6 +139,53 @@ const DeferredFilesSidebarPanel = dynamic(
   }
 );
 
+function isChatSummary(value: unknown): value is ChatSummary {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as Partial<ChatSummary>;
+  return (
+    typeof candidate.slug === "string" &&
+    typeof candidate.title === "string" &&
+    typeof candidate.lastMessageAt === "string"
+  );
+}
+
+function applyChatRealtimeEvent(
+  chats: ChatSummary[],
+  payload: {
+    action?: string | null;
+    chat?: unknown;
+    chatSlug?: string | null;
+  } | null
+) {
+  if (!payload?.action) {
+    return null;
+  }
+
+  if (payload.action === "deleted" && payload.chatSlug) {
+    return chats.filter((chat) => chat.slug !== payload.chatSlug);
+  }
+
+  if (
+    (payload.action === "created" || payload.action === "updated") &&
+    isChatSummary(payload.chat)
+  ) {
+    const nextChat = payload.chat;
+    const existingIndex = chats.findIndex((chat) => chat.slug === nextChat.slug);
+    if (existingIndex === -1) {
+      return [nextChat, ...chats];
+    }
+
+    return chats.map((chat) =>
+      chat.slug === nextChat.slug ? nextChat : chat
+    );
+  }
+
+  return null;
+}
+
 const DeferredNavUser = dynamic(
   () =>
     import("@/components/dashboard/nav-user").then((module) => ({
@@ -1597,6 +1644,11 @@ export function DashboardSidebar({
       const detail = (
         event as CustomEvent<{
           kind?: string;
+          payload?: {
+            action?: string | null;
+            chat?: unknown;
+            chatSlug?: string | null;
+          } | null;
           workspaceUuid?: string;
         }>
       ).detail;
@@ -1605,6 +1657,15 @@ export function DashboardSidebar({
       }
 
       if (detail.kind === "chat") {
+        const patched = applyChatRealtimeEvent(chats, detail.payload ?? null);
+        if (patched) {
+          setChats(patched);
+          if (workspaceUuid) {
+            writeCachedChats(workspaceUuid, patched);
+          }
+          return;
+        }
+
         void loadChats();
       }
     };
@@ -1619,7 +1680,7 @@ export function DashboardSidebar({
         onWorkspaceInvalidated
       );
     };
-  }, [loadChats, workspaceUuid]);
+  }, [chats, loadChats, workspaceUuid]);
 
   const createChat = async () => {
     navigate("/workspace/chats/new" as Route);

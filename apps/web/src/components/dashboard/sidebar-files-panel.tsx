@@ -59,7 +59,9 @@ interface SidebarFolderNode extends CommandPaletteFolderNode {}
 interface SidebarFileNode extends CommandPaletteFileNode {}
 
 interface FilesInvalidationEventPayload {
+  fileId?: string | null;
   folderId?: string | null;
+  reason?: string | null;
 }
 
 interface FilesRealtimeConnectionOptions {
@@ -277,6 +279,30 @@ function createFilesRealtimeConnection({
   };
 }
 
+function collectDescendantFolderIds(
+  folders: SidebarFolderNode[],
+  folderId: string
+) {
+  const descendantIds = new Set<string>([folderId]);
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+    for (const folder of folders) {
+      if (
+        folder.parentId &&
+        descendantIds.has(folder.parentId) &&
+        !descendantIds.has(folder.id)
+      ) {
+        descendantIds.add(folder.id);
+        changed = true;
+      }
+    }
+  }
+
+  return descendantIds;
+}
+
 function SectionButton({
   dragHref,
   icon: Icon,
@@ -340,6 +366,8 @@ export function FilesSidebarPanel({
   );
   const [sseConnected, setSseConnected] = useState(false);
   const fileTreePanelRef = useRef<HTMLDivElement | null>(null);
+  const fileTreeRef = useRef<SidebarFileNode[]>([]);
+  const folderTreeRef = useRef<SidebarFolderNode[]>([]);
   const lastTreeRevealTargetRef = useRef<string | null>(null);
   const lastAutoExpandedTargetRef = useRef<string | null>(null);
   const treeRefreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -402,6 +430,14 @@ export function FilesSidebarPanel({
     () => folderTree.find((folder) => folder.parentId === null)?.id ?? null,
     [folderTree]
   );
+
+  useEffect(() => {
+    folderTreeRef.current = folderTree;
+  }, [folderTree]);
+
+  useEffect(() => {
+    fileTreeRef.current = fileTree;
+  }, [fileTree]);
 
   useEffect(() => {
     commandPaletteActions.setFileIndex({
@@ -610,6 +646,52 @@ export function FilesSidebarPanel({
       onInvalidate: (detail) => {
         invalidateWorkspaceFolderCache(workspaceUuid, detail?.folderId);
         invalidateWorkspaceMarkdownCache(workspaceUuid);
+        if (detail?.reason === "file.deleted" && detail.fileId) {
+          setFileTree((previous) => {
+            const next = previous.filter((file) => file.id !== detail.fileId);
+            writeWorkspaceTreeCache<SidebarFolderNode, SidebarFileNode>(
+              workspaceUuid,
+              {
+                files: next,
+                folders: folderTreeRef.current,
+              }
+            );
+            return next;
+          });
+          return;
+        }
+
+        if (detail?.reason === "folder.deleted" && detail.folderId) {
+          const deletedFolderIds = collectDescendantFolderIds(
+            folderTreeRef.current,
+            detail.folderId
+          );
+          const nextFolders = folderTreeRef.current.filter(
+            (folder) => !deletedFolderIds.has(folder.id)
+          );
+          const nextFiles = fileTreeRef.current.filter(
+            (file) => !deletedFolderIds.has(file.folderId)
+          );
+
+          setFolderTree(nextFolders);
+          setFileTree(nextFiles);
+          setExpandedTreePaths((previous) => {
+            const next = new Set(previous);
+            for (const folderId of deletedFolderIds) {
+              next.delete(folderId);
+            }
+            return next;
+          });
+          writeWorkspaceTreeCache<SidebarFolderNode, SidebarFileNode>(
+            workspaceUuid,
+            {
+              files: nextFiles,
+              folders: nextFolders,
+            }
+          );
+          return;
+        }
+
         refreshWorkspaceTreeDebounced(workspaceUuid);
       },
       workspaceUuid,

@@ -10,11 +10,11 @@ const productLinks = [
   { label: "blog", href: "/blog" },
 ] as const;
 
-const workspaceLinks = [
-  { label: "chats", href: "/chats" },
-  { label: "files", href: "/workspace/files" },
-  { label: "flashcards", href: "/workspace/flashcards" },
-  { label: "workspace", href: "/workspace" },
+const learningLinks = [
+  { label: "AI study app", href: "/" },
+  { label: "AI tutor", href: "/blog/introducing-avenire" },
+  { label: "flashcards", href: "/pricing" },
+  { label: "research workspace", href: "/about" },
 ] as const;
 
 const companyLinks = [
@@ -78,8 +78,8 @@ export const Footer = () => {
             ))}
           </FooterColumn>
 
-          <FooterColumn title="Workspace">
-            {workspaceLinks.map((link) => (
+          <FooterColumn title="Learning">
+            {learningLinks.map((link) => (
               <FooterLink href={link.href} key={link.label}>
                 {link.label}
               </FooterLink>
