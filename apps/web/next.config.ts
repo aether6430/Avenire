@@ -30,7 +30,7 @@ const nextConfig: NextConfig = {
     "@avenire/emailer",
     "@avenire/ingestion",
   ],
-  productionBrowserSourceMaps: false,
+  productionBrowserSourceMaps: true,
 };
 
 export default nextConfig;
