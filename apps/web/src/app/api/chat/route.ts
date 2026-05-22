@@ -736,10 +736,6 @@ function pickModelTools<T extends Record<string, unknown>>(
   ) as T;
 }
 
-function modelUsesLegacyWidgetSchema(model: ApolloModelName) {
-  return model === "apollo-apex" || model === "apex-turbo";
-}
-
 function normalizeMessageFileMediaTypes(messages: UIMessage[]) {
   let changed = false;
 
@@ -1557,9 +1553,6 @@ export async function POST(request: Request) {
             rootFolderId: workspace.rootFolderId,
             userId: session.user.id,
             workspaceId: workspace.workspaceId,
-          },
-          {
-            legacyShowWidgetSchema: modelUsesLegacyWidgetSchema(selectedModel),
           }
         );
         const modelTools = pickModelTools(tools);
@@ -1665,10 +1658,7 @@ export async function POST(request: Request) {
             model: apollo.languageModel(selectedModel),
             system: APOLLO_PROMPT(
               body.userName ?? session.user.name ?? undefined,
-              promptMemoryBlocks.length > 0 ? promptMemoryBlocks : undefined,
-              {
-                useWidgetSpec: !modelUsesLegacyWidgetSchema(selectedModel),
-              }
+              promptMemoryBlocks.length > 0 ? promptMemoryBlocks : undefined
             ),
             messages: modelMessages,
             maxOutputTokens: 20_000,

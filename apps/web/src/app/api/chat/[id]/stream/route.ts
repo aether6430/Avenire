@@ -6,6 +6,7 @@ import { createResumableStreamContext } from "resumable-stream";
 import { getChatBySlugForUser } from "@/lib/chat-data";
 import { resolveWorkspaceForUser } from "@/lib/file-data";
 import {
+  clearActiveStreamId,
   getActiveStreamId,
   getRedisClient,
   getRedisSubscriber,
@@ -62,6 +63,7 @@ export async function GET(
 
     const stream = await streamContext.resumeExistingStream(activeStreamId);
     if (!stream) {
+      await clearActiveStreamId(id, activeStreamId);
       return new Response(null, {
         status: 204,
         headers: { "Cache-Control": "no-store" },
@@ -76,6 +78,7 @@ export async function GET(
     });
   } catch (error) {
     console.error("Failed to resume chat stream", { chatId: id, error });
+    await clearActiveStreamId(id, activeStreamId);
     return new Response(null, {
       status: 204,
       headers: { "Cache-Control": "no-store" },

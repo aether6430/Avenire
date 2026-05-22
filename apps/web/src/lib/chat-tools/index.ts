@@ -9,10 +9,7 @@ import {
   AVAILABLE_VISUAL_SKILLS,
   loadSkills,
 } from "@avenire/ai/skills";
-import {
-  chatToolSchemas,
-  legacyShowWidgetInputSchema,
-} from "@avenire/ai/tools";
+import { chatToolSchemas, widgetSpecSchema } from "@avenire/ai/tools";
 import { canonicalizeLearningTaxonomy } from "@avenire/database";
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
 import { logInfo } from "@avenire/observability";
@@ -96,15 +93,73 @@ interface ChatToolContext {
   workspaceId: string;
 }
 
-interface ChatToolOptions {
-  legacyShowWidgetSchema?: boolean;
-}
-
 type ExplorerFileLike = Awaited<ReturnType<typeof listWorkspaceFiles>>[number];
 
 interface WorkspacePathMaps {
   filePathById: Map<string, string>;
   folderPathById: Map<string, string>;
+}
+
+function normalizeWidgetSpecAliases(value: unknown): unknown {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return value;
+  }
+
+  const spec = value as Record<string, unknown>;
+  const normalizeNode = (nodeValue: unknown): unknown => {
+    if (
+      typeof nodeValue !== "object" ||
+      nodeValue === null ||
+      Array.isArray(nodeValue)
+    ) {
+      return nodeValue;
+    }
+
+    const node = { ...(nodeValue as Record<string, unknown>) };
+    if (node.type === "chart") {
+      const xKey =
+        typeof node.indexKey === "string"
+          ? node.indexKey
+          : typeof node.xKey === "string"
+            ? node.xKey
+            : typeof node.x === "string"
+              ? node.x
+              : typeof node.xColumn === "string"
+                ? node.xColumn
+                : undefined;
+      const yKey =
+        typeof node.yKey === "string"
+          ? node.yKey
+          : typeof node.y === "string"
+            ? node.y
+            : typeof node.yColumn === "string"
+              ? node.yColumn
+              : undefined;
+
+      if (xKey && typeof node.indexKey !== "string") {
+        node.indexKey = xKey;
+      }
+      if (!Array.isArray(node.series) && yKey) {
+        node.series = [
+          {
+            dataKey: yKey,
+            label: typeof node.yLabel === "string" ? node.yLabel : yKey,
+          },
+        ];
+      }
+    }
+
+    if (Array.isArray(node.children)) {
+      node.children = node.children.map(normalizeNode);
+    }
+
+    return node;
+  };
+
+  return {
+    ...spec,
+    root: normalizeNode(spec.root),
+  };
 }
 
 function normalizeMisconceptionField(value: string, maxLength: number) {
@@ -1869,13 +1924,8 @@ async function runWebSearch(
 }
 
 export function createChatTools(
-  ctx: ChatToolContext,
-  options: ChatToolOptions = {}
+  ctx: ChatToolContext
 ): ToolSet {
-  const showWidgetInputSchema = options.legacyShowWidgetSchema
-    ? (legacyShowWidgetInputSchema as unknown as typeof chatToolSchemas.show_widget.input)
-    : chatToolSchemas.show_widget.input;
-
   return {
     web_search: tool({
       description:
@@ -2652,33 +2702,116 @@ The agent decides which operations to perform based on the task.`,
     }),
     show_widget: tool({
       description:
-        "Render an interactive HTML/CSS/JS widget in the chat. Use for visualizations, diagrams, charts, simulations, and interactive explainers.",
-      inputSchema: showWidgetInputSchema,
-      outputSchema: chatToolSchemas.show_widget.output,
-      execute: async (input) => {
+        "Render an inline widget in chat. Use widget.type=\"spec\" for native cards, stats, charts, tables, callouts, and reports. Use widget.type=\"code\" for raw HTML/SVG/JS diagrams, simulations, mermaid, and custom interaction.",
+      inputSchema: chatToolSchemas.show_widget.input as never,
+      outputSchema: chatToolSchemas.show_widget.output as never,
+      execute: async (input: Record<string, unknown>) => {
         if (!input.i_have_seen_read_me) {
           throw new Error(
             "You must call visualize_read_me before show_widget."
           );
         }
-        await ctx.chargeWidgetGeneration?.();
+        try {
+          await ctx.chargeWidgetGeneration?.();
+        } catch (error) {
+          if (
+            error instanceof Error &&
+            error.message === "Chat usage limit reached"
+          ) {
+            return {
+              success: false,
+              details: {
+                mode: "spec" as const,
+                title: String(input.title),
+              },
+            };
+          }
 
-        const widgetCode = input.widget_code ?? "";
+          throw error;
+        }
+
+        const widget =
+          "widget" in input
+            && typeof input.widget === "object"
+            && input.widget !== null
+            ? input.widget
+            : "widget_code" in input && typeof input.widget_code === "string"
+              ? {
+                  code: input.widget_code,
+                  height:
+                    "height" in input && typeof input.height === "number"
+                      ? input.height
+                      : undefined,
+                  type: "code" as const,
+                  width:
+                    "width" in input && typeof input.width === "number"
+                      ? input.width
+                      : undefined,
+                }
+              : null;
+
+        if (!widget) {
+          throw new Error("show_widget requires a widget payload.");
+        }
+
+        const rawWidget = widget as {
+          code?: unknown;
+          height?: unknown;
+          spec?: unknown;
+          type?: unknown;
+          width?: unknown;
+        };
+        const normalizedWidget =
+          rawWidget.type === "spec"
+            ? {
+                spec: widgetSpecSchema.parse(
+                  normalizeWidgetSpecAliases(rawWidget.spec)
+                ),
+                type: "spec" as const,
+              }
+            : rawWidget.type === "code" && typeof rawWidget.code === "string"
+              ? {
+                  code: rawWidget.code,
+                  height:
+                    typeof rawWidget.height === "number"
+                      ? rawWidget.height
+                      : undefined,
+                  type: "code" as const,
+                  width:
+                    typeof rawWidget.width === "number"
+                      ? rawWidget.width
+                      : undefined,
+                }
+              : null;
+
+        if (!normalizedWidget) {
+          throw new Error(
+            'show_widget widget must be either type "spec" with spec or type "code" with code.'
+          );
+        }
+
+        const widgetCode =
+          normalizedWidget.type === "code" ? normalizedWidget.code : "";
         const isSVG = widgetCode.trimStart().startsWith("<svg");
-        const width = input.width ?? 800;
-        const height = input.height ?? 600;
+        const width =
+          normalizedWidget.type === "code"
+            ? (normalizedWidget.width ?? 800)
+            : undefined;
+        const height =
+          normalizedWidget.type === "code"
+            ? (normalizedWidget.height ?? 600)
+            : undefined;
 
         return {
           success: true,
           details: {
-            title: input.title,
+            mode: normalizedWidget.type,
+            title: String(input.title),
             width,
             height,
-            isSVG,
+            isSVG: normalizedWidget.type === "code" ? isSVG : undefined,
           },
-          widget_code: input.widget_code,
-          widget_spec: input.widget_spec,
-          filePath: null,
+          widget: normalizedWidget,
         };
       },
     }),

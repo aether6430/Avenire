@@ -2,6 +2,7 @@
 
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { AgentActivityData, UIMessage } from "@avenire/ai/message-types";
+import { widgetSpecSchema } from "@avenire/ai/tools";
 import { Button, buttonVariants } from "@avenire/ui/components/button";
 import {
   Dialog,
@@ -86,13 +87,140 @@ const getReasoningText = (part: MessagePart) => {
 const isRenderableWidgetSpec = (
   value: unknown
 ): value is ComponentProps<typeof WidgetPrimitiveRenderer>["spec"] =>
-  typeof value === "object" &&
-  value !== null &&
-  "title" in value &&
-  typeof value.title === "string" &&
-  "root" in value &&
-  typeof value.root === "object" &&
-  value.root !== null;
+  widgetSpecSchema.safeParse(normalizeWidgetSpec(value)).success;
+
+function normalizeWidgetSpec(value: unknown): unknown {
+  const record = asRecord(value);
+  if (!record) {
+    return value;
+  }
+
+  const normalizeNode = (nodeValue: unknown): unknown => {
+    const node = asRecord(nodeValue);
+    if (!node) {
+      return nodeValue;
+    }
+
+    const next: Record<string, unknown> = { ...node };
+    if (next.type === "chart") {
+      const xKey =
+        typeof next.indexKey === "string"
+          ? next.indexKey
+          : typeof next.xKey === "string"
+            ? next.xKey
+            : typeof next.x === "string"
+              ? next.x
+              : typeof next.xColumn === "string"
+                ? next.xColumn
+                : undefined;
+      const yKey =
+        typeof next.yKey === "string"
+          ? next.yKey
+          : typeof next.y === "string"
+            ? next.y
+            : typeof next.yColumn === "string"
+              ? next.yColumn
+              : undefined;
+
+      if (xKey && typeof next.indexKey !== "string") {
+        next.indexKey = xKey;
+      }
+      if (!Array.isArray(next.series) && yKey) {
+        next.series = [
+          {
+            dataKey: yKey,
+            label: typeof next.yLabel === "string" ? next.yLabel : yKey,
+          },
+        ];
+      }
+    }
+
+    if (Array.isArray(next.children)) {
+      next.children = next.children.map(normalizeNode);
+    }
+
+    return next;
+  };
+
+  return {
+    ...record,
+    root: normalizeNode(record.root),
+  };
+}
+
+function parseJsonPayload(value: unknown): unknown {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return value;
+  }
+
+  const first = trimmed[0];
+  if (first !== "{" && first !== "[") {
+    return value;
+  }
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  const hydrated = parseJsonPayload(value);
+  if (
+    typeof hydrated === "object" &&
+    hydrated !== null &&
+    !Array.isArray(hydrated)
+  ) {
+    return hydrated as Record<string, unknown>;
+  }
+
+  return null;
+}
+
+function getNestedValue(value: unknown, path: string[]): unknown {
+  let current: unknown = value;
+
+  for (const key of path) {
+    const record = asRecord(current);
+    if (!record || !(key in record)) {
+      return undefined;
+    }
+    current = record[key];
+  }
+
+  return parseJsonPayload(current);
+}
+
+function firstStringValue(...values: unknown[]) {
+  for (const value of values) {
+    const hydrated = parseJsonPayload(value);
+    if (typeof hydrated === "string" && hydrated.trim().length > 0) {
+      return hydrated;
+    }
+  }
+
+  return null;
+}
+
+function firstWidgetSpec(
+  ...values: unknown[]
+): ComponentProps<typeof WidgetPrimitiveRenderer>["spec"] | null {
+  for (const value of values) {
+    const hydrated = parseJsonPayload(value);
+    const normalized = normalizeWidgetSpec(hydrated);
+    if (isRenderableWidgetSpec(normalized)) {
+      return normalized;
+    }
+  }
+
+  return null;
+}
 
 const isToolPart = (part: MessagePart): part is ToolPart =>
   part.type.startsWith("tool-");
@@ -620,21 +748,32 @@ const PurePreviewMessage = ({
               }
 
               if (isToolPart(part) && part.type === "tool-show_widget") {
-                const input = (part as { input?: Record<string, unknown> })
-                  .input;
-                const output = (part as { output?: Record<string, unknown> })
-                  .output;
+                const input = asRecord(part.input);
+                const output = asRecord(part.output);
+                const inputWidget = asRecord(input?.widget);
+                const outputWidget = asRecord(output?.widget);
                 const widgetCode =
-                  typeof input?.widget_code === "string"
-                    ? input.widget_code
-                    : typeof output?.widget_code === "string"
-                      ? output.widget_code
-                      : "";
-                const widgetSpec = isRenderableWidgetSpec(input?.widget_spec)
-                  ? input.widget_spec
-                  : isRenderableWidgetSpec(output?.widget_spec)
-                    ? output.widget_spec
-                    : null;
+                  firstStringValue(
+                    getNestedValue(outputWidget, ["code"]),
+                    getNestedValue(inputWidget, ["code"]),
+                    getNestedValue(output, ["widget_code"]),
+                    getNestedValue(input, ["widget_code"]),
+                    getNestedValue(output, ["widget", "widget_code"]),
+                    getNestedValue(input, ["widget", "widget_code"])
+                  ) ?? "";
+
+                const widgetSpec = firstWidgetSpec(
+                  getNestedValue(outputWidget, ["spec"]),
+                  getNestedValue(inputWidget, ["spec"]),
+                  getNestedValue(output, ["widget_spec"]),
+                  getNestedValue(input, ["widget_spec"]),
+                  getNestedValue(output, ["widget_schema"]),
+                  getNestedValue(input, ["widget_schema"]),
+                  getNestedValue(output, ["widget", "widget_spec"]),
+                  getNestedValue(input, ["widget", "widget_spec"]),
+                  getNestedValue(output, ["widget", "widget_schema"]),
+                  getNestedValue(input, ["widget", "widget_schema"])
+                );
                 const title =
                   typeof input?.title === "string"
                     ? input.title
@@ -649,7 +788,10 @@ const PurePreviewMessage = ({
                       (message) => typeof message === "string"
                     )
                   : [];
-                const loadingMessage = loadingMessages.at(0) ?? "loading...";
+                const loadingMessage =
+                  output?.success === false
+                    ? "Widget unavailable."
+                    : (loadingMessages.at(0) ?? "loading...");
                 const isStreamingWidget = part.state === "input-streaming";
                 const runScripts = !isStreamingWidget;
 

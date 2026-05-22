@@ -1,7 +1,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -577,6 +577,50 @@ document.addEventListener('click', function(e) {
 </html>`;
 }
 
+function normalizeWidgetHtmlPayload(value: string): string {
+  const trimmed = value.trim();
+  const unfenced = trimmed
+    .replace(/^```(?:html|svg|xml|json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+
+  if (!unfenced.startsWith("{")) {
+    return unfenced || value;
+  }
+
+  try {
+    const parsed = JSON.parse(unfenced) as unknown;
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      !Array.isArray(parsed)
+    ) {
+      const record = parsed as Record<string, unknown>;
+      const widget =
+        typeof record.widget === "object" && record.widget !== null
+          ? (record.widget as Record<string, unknown>)
+          : null;
+      const candidates = [
+        widget?.code,
+        widget?.widget_code,
+        record.widget_code,
+        record.html,
+        record.code,
+      ];
+
+      for (const candidate of candidates) {
+        if (typeof candidate === "string" && candidate.trim().length > 0) {
+          return candidate.trim();
+        }
+      }
+    }
+  } catch {
+    return unfenced || value;
+  }
+
+  return unfenced || value;
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -595,6 +639,7 @@ export function WidgetRenderer({
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const isReadyRef = useRef(false);
+  const normalizedHtml = useMemo(() => normalizeWidgetHtmlPayload(html), [html]);
 
   const postToIframe = useCallback((data: Record<string, unknown>) => {
     const iframe = iframeRef.current;
@@ -651,8 +696,8 @@ export function WidgetRenderer({
     if (!isReadyRef.current) {
       return;
     }
-    writeContent(html, runScripts);
-  }, [html, runScripts, writeContent]);
+    writeContent(normalizedHtml, runScripts);
+  }, [normalizedHtml, runScripts, writeContent]);
 
   // Listen for messages from the iframe
   useEffect(() => {
@@ -709,7 +754,7 @@ export function WidgetRenderer({
         onLoad={() => {
           isReadyRef.current = true;
           writeCssVars();
-          writeContent(html, runScripts);
+          writeContent(normalizedHtml, runScripts);
         }}
         ref={iframeRef}
         sandbox="allow-scripts"

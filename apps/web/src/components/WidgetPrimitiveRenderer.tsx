@@ -88,6 +88,27 @@ const chartColors = [
   "var(--chart-5)",
 ];
 
+const complexityRank = new Map([
+  ["O(1)", 1],
+  ["O(log n)", 2],
+  ["O(n)", 3],
+  ["O(n log n)", 4],
+  ["O(n^2)", 5],
+  ["O(n²)", 5],
+  ["O(2^n)", 6],
+  ["O(n!)", 7],
+]);
+
+function renderChildren(
+  children: WidgetSpecNode[] | undefined,
+  keyPrefix: string
+) {
+  if (!children?.length) {
+    return null;
+  }
+  return children.map((child, index) => renderNode(child, `${keyPrefix}-${index}`));
+}
+
 function renderNode(node: WidgetSpecNode, key: string) {
   switch (node.type) {
     case "stack":
@@ -96,9 +117,7 @@ function renderNode(node: WidgetSpecNode, key: string) {
           className={cn("flex flex-col", gapClass[node.gap ?? "md"])}
           key={key}
         >
-          {node.children.map((child, index) =>
-            renderNode(child, `${key}-${index}`)
-          )}
+          {renderChildren(node.children, key)}
         </div>
       );
     case "grid":
@@ -110,9 +129,7 @@ function renderNode(node: WidgetSpecNode, key: string) {
             gridTemplateColumns: `repeat(${node.columns ?? 2}, minmax(0, 1fr))`,
           }}
         >
-          {node.children.map((child, index) =>
-            renderNode(child, `${key}-${index}`)
-          )}
+          {renderChildren(node.children, key)}
         </div>
       );
     case "section":
@@ -131,9 +148,7 @@ function renderNode(node: WidgetSpecNode, key: string) {
             </div>
           )}
           <div className="space-y-3">
-            {node.children.map((child, index) =>
-              renderNode(child, `${key}-${index}`)
-            )}
+            {renderChildren(node.children, key)}
           </div>
         </section>
       );
@@ -337,6 +352,31 @@ function PrimitiveChart({
 }: {
   node: Extract<WidgetSpecNode, { type: "chart" }>;
 }) {
+  const seriesFormatters = new Map<string, Map<number, string>>();
+  const data = node.data.map((row) => {
+    const next = { ...row };
+
+    for (const series of node.series) {
+      const value = row[series.dataKey];
+      if (typeof value !== "string") {
+        continue;
+      }
+
+      const normalized = value.replace(/\s+/g, " ").trim();
+      const rankedValue = complexityRank.get(normalized);
+      if (!rankedValue) {
+        continue;
+      }
+
+      next[series.dataKey] = rankedValue;
+      const formatter =
+        seriesFormatters.get(series.dataKey) ?? new Map<number, string>();
+      formatter.set(rankedValue, normalized);
+      seriesFormatters.set(series.dataKey, formatter);
+    }
+
+    return next;
+  });
   const config = node.series.reduce<ChartConfig>((acc, series, index) => {
     acc[series.dataKey] = {
       label: series.label ?? series.dataKey,
@@ -345,11 +385,30 @@ function PrimitiveChart({
     return acc;
   }, {});
   const chartType = node.chartType ?? node.series[0]?.type ?? "line";
+  const valueFormatter =
+    node.series.length === 1
+      ? seriesFormatters.get(node.series[0]?.dataKey ?? "")
+      : undefined;
   const common = (
     <>
       <CartesianGrid strokeDasharray="3 3" vertical={false} />
-      <XAxis axisLine={false} dataKey={node.indexKey} tickLine={false} />
-      <YAxis axisLine={false} tickLine={false} width={36} />
+      <XAxis
+        axisLine={false}
+        dataKey={node.indexKey}
+        interval={0}
+        minTickGap={8}
+        tickLine={false}
+      />
+      <YAxis
+        axisLine={false}
+        tickFormatter={
+          valueFormatter
+            ? (value) => valueFormatter.get(Number(value)) ?? String(value)
+            : undefined
+        }
+        tickLine={false}
+        width={76}
+      />
       <ChartTooltip content={<ChartTooltipContent />} />
     </>
   );
@@ -364,7 +423,7 @@ function PrimitiveChart({
       <CardContent>
         <ChartContainer className="h-[260px] w-full" config={config}>
           {chartType === "bar" ? (
-            <BarChart accessibilityLayer data={node.data}>
+            <BarChart accessibilityLayer data={data}>
               {common}
               {node.series.map((series, index) => (
                 <Bar
@@ -376,7 +435,7 @@ function PrimitiveChart({
               ))}
             </BarChart>
           ) : chartType === "area" ? (
-            <AreaChart accessibilityLayer data={node.data}>
+            <AreaChart accessibilityLayer data={data}>
               {common}
               {node.series.map((series) => (
                 <Area
@@ -391,7 +450,7 @@ function PrimitiveChart({
               ))}
             </AreaChart>
           ) : (
-            <LineChart accessibilityLayer data={node.data}>
+            <LineChart accessibilityLayer data={data}>
               {common}
               {node.series.map((series) => (
                 <Line

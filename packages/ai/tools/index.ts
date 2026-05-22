@@ -90,17 +90,6 @@ const misconceptionScopeSchema = z.object({
   topic: z.string().min(1).optional(),
 });
 
-export const legacyShowWidgetInputSchema = z
-  .object({
-    i_have_seen_read_me: z.boolean(),
-    title: z.string(),
-    widget_code: z.string(),
-    width: z.number().optional(),
-    height: z.number().optional(),
-    filename: z.string().optional(),
-  })
-  .passthrough();
-
 const widgetToneSchema = z
   .enum(["default", "muted", "info", "success", "warning", "danger"])
   .optional();
@@ -213,6 +202,14 @@ export const widgetSpecSchema = z.object({
   description: z.string().optional(),
 });
 
+const widgetPayloadSchema = z.object({
+  code: z.string().min(1).optional(),
+  height: z.number().optional(),
+  spec: z.any().optional(),
+  type: z.enum(["spec", "code"]),
+  width: z.number().optional(),
+});
+
 export type WidgetSpecNode =
   | {
       children: WidgetSpecNode[];
@@ -284,6 +281,7 @@ export type WidgetSpecNode =
   | { html: string; type: "html" };
 
 export type WidgetSpec = z.infer<typeof widgetSpecSchema>;
+export type WidgetPayload = z.infer<typeof widgetPayloadSchema>;
 
 export const chatToolSchemas = {
   web_search: {
@@ -521,34 +519,23 @@ export const chatToolSchemas = {
     }),
   },
   show_widget: {
-    input: z
-      .object({
-        i_have_seen_read_me: z.boolean(),
-        title: z.string(),
-        widget_code: z.string().optional(),
-        widget_spec: widgetSpecSchema.optional(),
-        width: z.number().optional(),
-        height: z.number().optional(),
-        filename: z.string().optional(),
-      })
-      .refine(
-        (value) => Boolean(value.widget_code) || Boolean(value.widget_spec),
-        "Provide either widget_code or widget_spec."
-      )
-      .passthrough(),
+    input: z.object({
+      i_have_seen_read_me: z.boolean(),
+      title: z.string(),
+      widget: widgetPayloadSchema,
+    }),
     output: z.object({
       success: z.boolean(),
       details: z
         .object({
+          mode: z.enum(["spec", "code"]),
           title: z.string(),
-          width: z.number(),
-          height: z.number(),
-          isSVG: z.boolean(),
+          width: z.number().optional(),
+          height: z.number().optional(),
+          isSVG: z.boolean().optional(),
         })
         .optional(),
-      widget_code: z.string().optional(),
-      widget_spec: widgetSpecSchema.optional(),
-      filePath: z.string().nullable().optional(),
+      widget: widgetPayloadSchema.optional(),
     }),
   },
 } as const;
