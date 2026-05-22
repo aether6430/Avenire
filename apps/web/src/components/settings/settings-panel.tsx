@@ -1185,10 +1185,9 @@ export function SettingsPanel({
             {displayAvatar ? (
               <AvatarImage alt={profileName} src={displayAvatar} />
             ) : null}
-            <AvatarFallback className="bg-muted p-1 text-foreground">
+            <AvatarFallback className="overflow-hidden bg-muted text-foreground">
               <DitherIdenticon
                 className="size-full"
-                color="currentColor"
                 seed={avatarSeed}
               />
             </AvatarFallback>
@@ -1264,10 +1263,9 @@ export function SettingsPanel({
                         {displayAvatar ? (
                           <AvatarImage alt={profileName} src={displayAvatar} />
                         ) : null}
-                        <AvatarFallback className="bg-muted p-1.5 text-foreground">
+                        <AvatarFallback className="overflow-hidden bg-muted text-foreground">
                           <DitherIdenticon
                             className="size-full"
-                            color="currentColor"
                             seed={avatarSeed}
                           />
                         </AvatarFallback>

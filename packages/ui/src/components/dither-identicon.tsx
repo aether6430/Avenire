@@ -34,12 +34,27 @@ function mulberry32(seed: number): () => number {
 
 type DitherIdenticonProps = {
   seed: string
-  color: string
+  color?: string
   backgroundColor?: string
   /** Logical grid size (SVG viewBox is size x size, then scaled). */
   size?: number
   className?: string
   style?: CSSProperties
+}
+
+const PALETTE = [
+  "#abc4ff",
+  "#bde0fe",
+  "#cdb4db",
+  "#ffc8dd",
+  "#ffafcc",
+  "#a8dadc",
+  "#ffd166",
+  "#95d5b2",
+] as const
+
+function colorForHash(hash: number): string {
+  return PALETTE[hash % PALETTE.length]
 }
 
 export function DitherIdenticon({
@@ -50,7 +65,9 @@ export function DitherIdenticon({
   className,
   style,
 }: DitherIdenticonProps) {
-  const rng = mulberry32(hashSeed(seed))
+  const hash = hashSeed(seed)
+  const rng = mulberry32(hash)
+  const foregroundColor = color ?? colorForHash(hash)
   const angle = rng() * Math.PI * 2
   const cos = Math.cos(angle)
   const sin = Math.sin(angle)
@@ -95,7 +112,7 @@ export function DitherIdenticon({
         key: `${x}-${y}`,
         x,
         y,
-        fill: on ? color : backgroundColor,
+        fill: on ? foregroundColor : backgroundColor,
       })
     }
   }
@@ -106,7 +123,7 @@ export function DitherIdenticon({
       style={style}
       viewBox={`0 0 ${size} ${size}`}
       xmlns="http://www.w3.org/2000/svg"
-      preserveAspectRatio="xMidYMid meet"
+      preserveAspectRatio="none"
       shapeRendering="crispEdges"
     >
       {cells.map(({ key, x, y, fill }) => (

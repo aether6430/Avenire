@@ -15,7 +15,7 @@ import {
   FileText as FileTextIcon,
   Lightning,
   Microphone,
-  Paperclip as PaperclipIcon,
+  Plus,
   Square,
 } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
@@ -65,6 +65,7 @@ const ERROR_MESSAGES: Record<InputErrorType, string> = {
 };
 
 const MAX_MENTION_RESULTS = 20;
+const TEXTAREA_MAX_HEIGHT = 160;
 const WHITESPACE_REGEX = /\s/;
 
 function readPreferredWorkspaceId() {
@@ -73,6 +74,17 @@ function readPreferredWorkspaceId() {
   }
 
   return window.localStorage.getItem("preferredWorkspaceId");
+}
+
+function syncTextareaHeight(textarea: HTMLTextAreaElement) {
+  textarea.style.height = "auto";
+  const nextHeight = Math.min(
+    textarea.scrollHeight + 2,
+    TEXTAREA_MAX_HEIGHT
+  );
+  textarea.style.height = `${nextHeight}px`;
+  textarea.style.overflowY =
+    textarea.scrollHeight > TEXTAREA_MAX_HEIGHT ? "auto" : "hidden";
 }
 
 interface WorkspaceTreeFolder {
@@ -481,8 +493,7 @@ function PureMultimodalInput({
     if (!textareaRef.current) {
       return;
     }
-    textareaRef.current.style.height = "auto";
-    textareaRef.current.style.height = `${textareaRef.current.scrollHeight + 2}px`;
+    syncTextareaHeight(textareaRef.current);
   }, [input]);
 
   useEffect(() => {
@@ -793,6 +804,7 @@ function PureMultimodalInput({
       return;
     }
     textareaRef.current.style.height = "auto";
+    textareaRef.current.style.overflowY = "hidden";
   }, []);
 
   const submitForm = useCallback(async () => {
@@ -1073,32 +1085,17 @@ function PureMultimodalInput({
               )}
             </AnimatePresence>
 
-            <div className="relative z-10 flex items-center gap-2.5">
+            <div className="relative z-10 flex min-h-9 items-end gap-1.5">
               <AttachmentsButton
                 onClick={() => fileInputRef.current?.click()}
                 status={status}
               />
-              {speechSupported ? (
-                <ComposerVoiceButton
-                  isRecording={isRecording}
-                  isRunning={isRunning}
-                  isTranscribing={isTranscribing}
-                  onToggle={() => {
-                    if (isRecording) {
-                      stopRecording();
-                      return;
-                    }
 
-                    void startRecording();
-                  }}
-                />
-              ) : null}
-
-              <div className="flex min-w-0 flex-1 items-center">
+              <div className="flex min-w-0 flex-1 items-end">
                 <Textarea
                   autoFocus
                   className={cn(
-                    "max-h-40 min-h-0 w-full flex-1 resize-none overflow-hidden border-none! bg-transparent! px-0 py-0.5 text-[#0d0d0d] text-[15px] leading-6 shadow-none! outline-none ring-0! placeholder:text-muted-foreground/65 focus-visible:border-transparent! focus-visible:ring-0! sm:text-[15px] sm:leading-6 dark:text-white [&::-webkit-scrollbar-thumb]:bg-background",
+                    "max-h-40 min-h-9 w-full flex-1 resize-none overflow-y-hidden border-none! bg-transparent! px-0 py-1.5 text-[#0d0d0d] text-[15px] leading-6 shadow-none! outline-none ring-0! placeholder:text-muted-foreground/65 focus-visible:border-transparent! focus-visible:ring-0! sm:text-[15px] sm:leading-6 dark:text-white [&::-webkit-scrollbar-thumb]:bg-background",
                     className
                   )}
                   data-testid="multimodal-input"
@@ -1159,12 +1156,27 @@ function PureMultimodalInput({
                 />
               </div>
 
-              <div className="flex shrink-0 items-center">
+              <div className="flex h-9 shrink-0 items-end gap-1.5">
                 <ComposerTurboButton
                   disabled={isRunning}
                   enabled={turboEnabled}
                   onToggle={() => onTurboChange(!turboEnabled)}
                 />
+                {speechSupported ? (
+                  <ComposerVoiceButton
+                    isRecording={isRecording}
+                    isRunning={isRunning}
+                    isTranscribing={isTranscribing}
+                    onToggle={() => {
+                      if (isRecording) {
+                        stopRecording();
+                        return;
+                      }
+
+                      void startRecording();
+                    }}
+                  />
+                ) : null}
                 <ComposerActionButton
                   canSend={canSend}
                   isRunning={isRunning}
@@ -1199,7 +1211,8 @@ function PureAttachmentsButton({
 }) {
   return (
     <Button
-      className="h-8 w-8 shrink-0 rounded-full px-0 text-muted-foreground/72 hover:text-foreground/88"
+      aria-label="Add attachment"
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full p-0 text-muted-foreground/80 hover:bg-transparent hover:text-foreground"
       data-testid="attachments-button"
       disabled={status === "submitted" || status === "streaming"}
       onClick={(event) => {
@@ -1210,7 +1223,7 @@ function PureAttachmentsButton({
       type="button"
       variant="ghost"
     >
-      <PaperclipIcon className="h-4 w-4" />
+      <Plus className="size-[18px]" weight="regular" />
     </Button>
   );
 }
@@ -1259,7 +1272,7 @@ function PureComposerVoiceButton({
       <Button
         aria-label={isRecording ? "Stop recording" : "Start voice input"}
         className={cn(
-          "relative h-9 w-9 rounded-full border border-transparent bg-transparent px-0 text-muted-foreground/72 transition-colors duration-200 hover:bg-transparent hover:text-foreground/92",
+          "relative flex h-9 w-9 items-center justify-center rounded-full border border-transparent bg-transparent p-0 text-muted-foreground/80 transition-colors duration-200 hover:bg-transparent hover:text-foreground",
           (isRecording || isTranscribing) && "text-foreground dark:text-white",
           isRecording &&
             "border-red-500/30 text-red-600 dark:border-red-400/35 dark:text-red-300"
@@ -1289,7 +1302,7 @@ function PureComposerVoiceButton({
               : { duration: 0.18, ease: "easeOut" }
           }
         >
-          <Microphone className="h-[17px] w-[17px]" weight="fill" />
+          <Microphone className="size-4" weight="regular" />
         </motion.span>
       </Button>
     </div>
@@ -1318,9 +1331,8 @@ function PureComposerTurboButton({
       aria-label={enabled ? "Disable Apex Turbo" : "Enable Apex Turbo"}
       aria-pressed={enabled}
       className={cn(
-        "mr-1.5 h-9 w-9 rounded-full border border-border/70 bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring",
-        enabled &&
-          "border-yellow-300/70 bg-yellow-100 text-yellow-900 hover:bg-yellow-100 hover:text-yellow-950 dark:border-yellow-700/70 dark:bg-yellow-500/20 dark:text-yellow-200 dark:hover:bg-yellow-500/25",
+        "flex h-9 w-9 items-center justify-center rounded-full border border-transparent bg-transparent p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring",
+        enabled && "text-yellow-700 dark:text-yellow-300",
         disabled && "opacity-60"
       )}
       data-testid="turbo-toggle-button"
@@ -1334,7 +1346,7 @@ function PureComposerTurboButton({
       variant="ghost"
     >
       <Lightning
-        className="h-[17px] w-[17px]"
+        className="size-[17px]"
         weight={enabled ? "fill" : "regular"}
       />
     </Button>
@@ -1364,7 +1376,7 @@ function PureComposerActionButton({
   return (
     <motion.div
       animate={{
-        scale: isRunning ? 1.03 : canSend ? 1 : 0.96,
+        scale: 1,
       }}
       className="relative h-9 w-9 shrink-0"
       transition={{ stiffness: 520, damping: 32, mass: 0.7, type: "spring" }}
@@ -1373,13 +1385,13 @@ function PureComposerActionButton({
         animate={{
           opacity: disabled ? 0.68 : 1,
         }}
-        className="absolute inset-0 rounded-full bg-primary shadow-[0_10px_24px_-14px_hsl(var(--primary))]"
+        className="absolute inset-0 rounded-full bg-primary shadow-[0_10px_24px_-14px_var(--primary)]"
         transition={{ duration: 0.18, ease: "easeOut" }}
       />
       <Button
         aria-label={isRunning ? "Stop generating" : "Send message"}
         className={cn(
-          "absolute inset-0 h-9 w-9 rounded-full bg-transparent text-white transition duration-200 ease-out hover:bg-transparent hover:text-white focus-visible:ring-0 dark:text-[#0d0d0d] dark:hover:bg-transparent dark:hover:text-[#0d0d0d]",
+          "absolute inset-0 flex h-9 w-9 items-center justify-center rounded-full bg-transparent p-0 text-primary-foreground transition duration-200 ease-out hover:bg-transparent hover:text-primary-foreground focus-visible:ring-0",
           disabled && "opacity-55"
         )}
         data-testid={isRunning ? "stop-button" : "send-button"}
@@ -1408,7 +1420,7 @@ function PureComposerActionButton({
               transition={{ duration: 0.18, ease: "easeOut" }}
             >
               <Square
-                className="h-[13px] w-[13px] fill-current"
+                className="size-[13px] fill-current"
                 weight="fill"
               />
             </motion.span>
@@ -1420,7 +1432,7 @@ function PureComposerActionButton({
               key="send"
               transition={{ duration: 0.18, ease: "easeOut" }}
             >
-              <ArrowUpIcon className="h-[18px] w-[18px]" weight="bold" />
+              <ArrowUpIcon className="size-[18px]" weight="bold" />
             </motion.span>
           )}
         </AnimatePresence>

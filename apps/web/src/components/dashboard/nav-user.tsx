@@ -158,10 +158,9 @@ export function NavUser({
                     src={avatarSrc}
                   />
                 ) : null}
-                <AvatarFallback className="rounded-lg bg-muted p-1 text-foreground">
+                <AvatarFallback className="overflow-hidden rounded-lg bg-muted text-foreground">
                   <DitherIdenticon
                     className="size-full"
-                    color="currentColor"
                     seed={avatarSeed}
                   />
                 </AvatarFallback>
