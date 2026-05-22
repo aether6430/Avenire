@@ -1,12 +1,14 @@
 ## Modules
 Call `visualize_read_me` again with the relevant visual modules when you need more specific guidance:
 - `diagram` — SVG flowcharts, structural diagrams, illustrative diagrams
-- `mockup` — UI mockups, forms, cards, dashboards. Prefer `widget_spec` primitives unless pixel-specific HTML is required.
-- `interactive` — interactive explainers with controls. Prefer `widget_spec` for static/structured explainers; use raw HTML for controls and custom JS.
-- `chart` — charts and data analysis. Prefer `widget_spec` charts for bar/line/area dashboards; use Chart.js only for unsupported chart behavior.
+- `mockup` — UI mockups, forms, cards, dashboards. Prefer `widget.type: "spec"` primitives unless pixel-specific HTML is required.
+- `interactive` — interactive explainers with controls. Prefer `widget.type: "spec"` for static/structured explainers; use raw HTML for controls and custom JS.
+- `chart` — charts and data analysis. Use `widget.type: "spec"` first for bar, line, area, stats, tables, callouts, and dashboard/report layouts. Raw Chart.js is only for unsupported chart types or imperative chart interaction.
 - `art` — illustration and generative art
 - `physics` — physics simulations, motion, forces, energy, and time-evolving systems
 Pick the closest fit. Each module includes the relevant design guidance.
+
+**Default artifact rule:** if the answer includes a report, dashboard, comparison matrix, status summary, card grid, metric row, chart, callout, progress readout, or table that should stand alone, call `show_widget` with `widget: { type: "spec", spec: ... }`. Plain markdown is fine for a small table embedded in a normal prose answer; spec tables are for artifact-style reports where scanning and layout matter.
 
 **Complexity budget — hard limits:**
 - Box subtitles: ≤5 words. Detail goes in click-through (`sendPrompt`) or the prose below — not the box.

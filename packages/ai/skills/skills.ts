@@ -25,12 +25,14 @@ export const SKILL_MAP = {
 ## Modules
 Call \`visualize_read_me\` again with the relevant visual modules when you need more specific guidance:
 - \`diagram\` — SVG flowcharts, structural diagrams, illustrative diagrams
-- \`mockup\` — UI mockups, forms, cards, dashboards. Prefer \`widget_spec\` primitives unless pixel-specific HTML is required.
-- \`interactive\` — interactive explainers with controls. Prefer \`widget_spec\` for static/structured explainers; use raw HTML for controls and custom JS.
-- \`chart\` — charts and data analysis. Prefer \`widget_spec\` charts for bar/line/area dashboards; use Chart.js only for unsupported chart behavior.
+- \`mockup\` — UI mockups, forms, cards, dashboards. Prefer \`widget.type: "spec"\` primitives unless pixel-specific HTML is required.
+- \`interactive\` — interactive explainers with controls. Prefer \`widget.type: "spec"\` for static/structured explainers; use raw HTML for controls and custom JS.
+- \`chart\` — charts and data analysis. Use \`widget.type: "spec"\` first for bar, line, area, stats, tables, callouts, and dashboard/report layouts. Raw Chart.js is only for unsupported chart types or imperative chart interaction.
 - \`art\` — illustration and generative art
 - \`physics\` — physics simulations, motion, forces, energy, and time-evolving systems
 Pick the closest fit. Each module includes the relevant design guidance.
+
+**Default artifact rule:** if the answer includes a report, dashboard, comparison matrix, status summary, card grid, metric row, chart, callout, progress readout, or table that should stand alone, call \`show_widget\` with \`widget: { type: "spec", spec: ... }\`. Plain markdown is fine for a small table embedded in a normal prose answer; spec tables are for artifact-style reports where scanning and layout matter.
 
 **Complexity budget — hard limits:**
 - Box subtitles: ≤5 words. Detail goes in click-through (\`sendPrompt\`) or the prose below — not the box.
@@ -48,8 +50,8 @@ These rules apply to ALL use cases.
 
 ### Philosophy
 - **Seamless**: Users shouldn't notice where claude.ai ends and your widget begins.
-- **Primitive-first**: For canvas-style artifacts, use \`widget_spec\` first-class primitives. They render with Avenire's shadcn UI components and are the default for cards, metrics, tables, sections, charts, callouts, and structured reports.
-- **Raw-code escape hatch**: Use raw \`widget_code\` HTML/SVG only when the widget needs custom drawing, custom interaction, canvas animation, imperative JS, mermaid, or third-party libraries.
+- **Primitive-first**: For canvas-style artifacts, use \`show_widget\` with \`widget: { type: "spec", spec: ... }\` first-class primitives. They render with Avenire's shadcn UI components and are the default for cards, metrics, tables, sections, charts, callouts, and structured reports.
+- **Raw-code escape hatch**: Use \`show_widget\` with \`widget: { type: "code", code: ... }\` raw HTML/SVG only when the widget needs custom drawing, custom interaction, canvas animation, imperative JS, mermaid, or third-party libraries.
 - **Compact but complete**: Inline widgets should stay compact. Canvas artifacts may include concise headings, labels, callouts, and tables inside the widget when that content is part of the artifact.
 - **No duplicated prose**: Full explanations belong in the chat response. The widget may contain short artifact text that helps the visual stand alone.
 - **Use the system as-is**: do not invent your own styling language for primitive widgets. Reuse the provided primitive nodes and theme tokens. Treat them as a contract, not inspiration.
@@ -82,7 +84,7 @@ Output streams token-by-token. Structure code so useful content appears early.
 - When placing text on a colored background (badges, pills, cards, tags), use the darkest shade from that same color family for the text — never plain black or generic gray.
 - **Corners**: use \`border-radius: var(--border-radius-md)\` (or \`-lg\` for cards) in HTML. In SVG, \`rx="4"\` is the default — larger values make pills, use only when you mean a pill.
 - **No rounded corners on single-sided borders** — if using \`border-left\` or \`border-top\` accents, set \`border-radius: 0\`. Rounded corners only work with full borders on all sides.
-- **Titles and concise artifact text are allowed in \`widget_spec\`**. For raw SVG diagrams, keep prose outside the tool unless the text is a direct label in the diagram.
+- **Titles and concise artifact text are allowed in spec widgets**. For raw SVG diagrams, keep prose outside the tool unless the text is a direct label in the diagram.
 - **Icon sizing**: When using emoji or inline SVG icons, explicitly set \`font-size: 16px\` for emoji or \`width: 16px; height: 16px\` for SVG icons. Never let icons inherit the container's font size — they will render too large. For larger decorative icons, use 24px max.
 - No tabs, carousels, or \`display: none\` sections during streaming — hidden content streams invisibly. Show all content stacked vertically. (Post-streaming JS-driven steppers are fine — see Illustrative/Interactive sections.)
 - No nested scrolling — auto-fit height.
@@ -346,12 +348,14 @@ A multi-section flowchart showing Karpathy's autoresearch framework: human-agent
 ## Modules
 Call \`visualize_read_me\` again with the relevant visual modules when you need more specific guidance:
 - \`diagram\` — SVG flowcharts, structural diagrams, illustrative diagrams
-- \`mockup\` — UI mockups, forms, cards, dashboards. Prefer \`widget_spec\` primitives unless pixel-specific HTML is required.
-- \`interactive\` — interactive explainers with controls. Prefer \`widget_spec\` for static/structured explainers; use raw HTML for controls and custom JS.
-- \`chart\` — charts and data analysis. Prefer \`widget_spec\` charts for bar/line/area dashboards; use Chart.js only for unsupported chart behavior.
+- \`mockup\` — UI mockups, forms, cards, dashboards. Prefer \`widget.type: "spec"\` primitives unless pixel-specific HTML is required.
+- \`interactive\` — interactive explainers with controls. Prefer \`widget.type: "spec"\` for static/structured explainers; use raw HTML for controls and custom JS.
+- \`chart\` — charts and data analysis. Use \`widget.type: "spec"\` first for bar, line, area, stats, tables, callouts, and dashboard/report layouts. Raw Chart.js is only for unsupported chart types or imperative chart interaction.
 - \`art\` — illustration and generative art
 - \`physics\` — physics simulations, motion, forces, energy, and time-evolving systems
 Pick the closest fit. Each module includes the relevant design guidance.
+
+**Default artifact rule:** if the answer includes a report, dashboard, comparison matrix, status summary, card grid, metric row, chart, callout, progress readout, or table that should stand alone, call \`show_widget\` with \`widget: { type: "spec", spec: ... }\`. Plain markdown is fine for a small table embedded in a normal prose answer; spec tables are for artifact-style reports where scanning and layout matter.
 
 **Complexity budget — hard limits:**
 - Box subtitles: ≤5 words. Detail goes in click-through (\`sendPrompt\`) or the prose below — not the box.
@@ -369,8 +373,8 @@ These rules apply to ALL use cases.
 
 ### Philosophy
 - **Seamless**: Users shouldn't notice where claude.ai ends and your widget begins.
-- **Primitive-first**: For canvas-style artifacts, use \`widget_spec\` first-class primitives. They render with Avenire's shadcn UI components and are the default for cards, metrics, tables, sections, charts, callouts, and structured reports.
-- **Raw-code escape hatch**: Use raw \`widget_code\` HTML/SVG only when the widget needs custom drawing, custom interaction, canvas animation, imperative JS, mermaid, or third-party libraries.
+- **Primitive-first**: For canvas-style artifacts, use \`show_widget\` with \`widget: { type: "spec", spec: ... }\` first-class primitives. They render with Avenire's shadcn UI components and are the default for cards, metrics, tables, sections, charts, callouts, and structured reports.
+- **Raw-code escape hatch**: Use \`show_widget\` with \`widget: { type: "code", code: ... }\` raw HTML/SVG only when the widget needs custom drawing, custom interaction, canvas animation, imperative JS, mermaid, or third-party libraries.
 - **Compact but complete**: Inline widgets should stay compact. Canvas artifacts may include concise headings, labels, callouts, and tables inside the widget when that content is part of the artifact.
 - **No duplicated prose**: Full explanations belong in the chat response. The widget may contain short artifact text that helps the visual stand alone.
 - **Use the system as-is**: do not invent your own styling language for primitive widgets. Reuse the provided primitive nodes and theme tokens. Treat them as a contract, not inspiration.
@@ -403,7 +407,7 @@ Output streams token-by-token. Structure code so useful content appears early.
 - When placing text on a colored background (badges, pills, cards, tags), use the darkest shade from that same color family for the text — never plain black or generic gray.
 - **Corners**: use \`border-radius: var(--border-radius-md)\` (or \`-lg\` for cards) in HTML. In SVG, \`rx="4"\` is the default — larger values make pills, use only when you mean a pill.
 - **No rounded corners on single-sided borders** — if using \`border-left\` or \`border-top\` accents, set \`border-radius: 0\`. Rounded corners only work with full borders on all sides.
-- **Titles and concise artifact text are allowed in \`widget_spec\`**. For raw SVG diagrams, keep prose outside the tool unless the text is a direct label in the diagram.
+- **Titles and concise artifact text are allowed in spec widgets**. For raw SVG diagrams, keep prose outside the tool unless the text is a direct label in the diagram.
 - **Icon sizing**: When using emoji or inline SVG icons, explicitly set \`font-size: 16px\` for emoji or \`width: 16px; height: 16px\` for SVG icons. Never let icons inherit the container's font size — they will render too large. For larger decorative icons, use 24px max.
 - No tabs, carousels, or \`display: none\` sections during streaming — hidden content streams invisibly. Show all content stacked vertically. (Post-streaming JS-driven steppers are fine — see Illustrative/Interactive sections.)
 - No nested scrolling — auto-fit height.
@@ -450,25 +454,28 @@ description: Use structured first-class widget primitives for polished canvas ar
 
 # First-class widget primitives
 
-Prefer \`widget_spec\` for canvas-style artifacts: debugging reports, docs canvases, learning dashboards, comparison cards, metric summaries, tables, charts, timelines, and structured explanations. The app renders \`widget_spec\` with first-class React components backed by \`@avenire/ui\` shadcn primitives, so the result inherits the host theme, spacing, cards, tables, badges, progress bars, and chart styling.
+Prefer \`show_widget\` with \`widget: { type: "spec", spec: ... }\` for canvas-style artifacts: debugging reports, docs canvases, learning dashboards, comparison cards, metric summaries, tables, charts, timelines, and structured explanations. The app renders spec widgets with first-class React components backed by \`@avenire/ui\` shadcn primitives, so the result inherits the host theme, spacing, cards, tables, badges, progress bars, and chart styling.
 
-Use raw \`widget_code\` only when the visual needs custom SVG geometry, canvas drawing, imperative animation, DOM event handling, sliders, steppers, simulations, mermaid, or third-party libraries. If the artifact is mostly layout, text, metrics, tables, cards, or simple charts, use \`widget_spec\`.
+Use \`widget: { type: "code", code: ... }\` only when the visual needs custom SVG geometry, canvas drawing, imperative animation, DOM event handling, sliders, steppers, simulations, mermaid, or third-party libraries. If the artifact is mostly layout, text, metrics, tables, cards, or simple charts, use a spec widget.
 
 ## Tool shape
 
-Call \`show_widget\` with either \`widget_spec\` or \`widget_code\`. For primitive widgets, omit \`widget_code\`.
+Call \`show_widget\` with a \`widget\` object. For primitive widgets, use \`type: "spec"\` and put the primitive tree in \`spec\`.
 
 \`\`\`json
 {
   "i_have_seen_read_me": true,
   "title": "Websocket pool leak debug",
-  "widget_spec": {
-    "title": "Websocket pool leak debug",
-    "description": "Incident view with request, connection, memory, and milestone evidence.",
-    "root": {
-      "type": "stack",
-      "gap": "lg",
-      "children": []
+  "widget": {
+    "type": "spec",
+    "spec": {
+      "title": "Websocket pool leak debug",
+      "description": "Incident view with request, connection, memory, and milestone evidence.",
+      "root": {
+        "type": "stack",
+        "gap": "lg",
+        "children": []
+      }
     }
   }
 }
@@ -570,13 +577,13 @@ Tones: \`default\`, \`muted\`, \`info\`, \`success\`, \`warning\`, \`danger\`.
 ## UI components
 
 ### Aesthetic
-Use \`widget_spec\` first for UI-like widgets. It renders with the host's shadcn primitives: cards, badges, tables, metric stats, sections, progress, callouts, and charts. Raw HTML is now the fallback for custom interaction, custom SVG/canvas, or controls that cannot be represented with primitives.
+Use \`widget: { type: "spec", spec: ... }\` first for UI-like widgets. It renders with the host's shadcn primitives: cards, badges, tables, metric stats, sections, progress, callouts, and charts. Raw HTML is now the fallback for custom interaction, custom SVG/canvas, or controls that cannot be represented with primitives.
 
 Flat, clean surfaces. Minimal borders. Generous whitespace. Avoid decorative gradients and shadows in primitive widgets. Everything should feel native to Avenire — like it belongs on the page, not embedded from somewhere else.
 
-This section is prescriptive. Do not freestyle component styling. Use \`widget_spec\` nodes when available; use the exact HTML recipes only when raw \`widget_code\` is necessary.
+This section is prescriptive. Do not freestyle component styling. Use spec nodes when available; use the exact HTML recipes only when raw code widgets are necessary.
 
-**Hard rule:** component CSS is for layout only. Do not invent new visual treatments for cards, controls, badges, pills, panels, or tables. If the request maps to \`widget_spec\`, use primitives. If it must be raw HTML, copy the closest pattern below.
+**Hard rule:** component CSS is for layout only. Do not invent new visual treatments for cards, controls, badges, pills, panels, or tables. If the request maps to a spec widget, use primitives. If it must be raw HTML, copy the closest pattern below.
 
 ### Tokens
 - Borders: always \`0.5px solid var(--color-border-tertiary)\` (or \`-secondary\` for emphasis)
@@ -596,7 +603,7 @@ For summary numbers (revenue, count, percentage) — surface card with muted 13p
 ### Layout
 - Editorial (explanatory content): no card wrapper, prose flows naturally
 - Card (bounded objects like a contact record, receipt): single raised card wraps the whole thing
-- Don't put tables here — output them as markdown in your response text
+- Tables in a normal prose answer can be markdown. Tables that are part of a standalone report, dashboard, comparison artifact, or data canvas should be spec \`table\` nodes.
 - If an example below matches the request, copy that structure closely instead of inventing a new component pattern.
 - If a layout works with bare semantic tags plus spacing, prefer that over additional classes or styles.
 
@@ -610,7 +617,7 @@ Contained mockups — mobile screens, chat threads, single cards, modals, small 
 ### 1. Interactive explainer — learn how something works
 *"Explain how compound interest works" / "Teach me about sorting algorithms"*
 
-Use \`widget_spec\` if the explainer is static or only needs metrics, tables, and simple charts. Use raw HTML for interactive controls — sliders, buttons, live state displays, imperative charts. Keep long prose explanations in your normal response text; labels and short artifact text may be inside the widget.
+Use a spec widget if the explainer is static or only needs metrics, tables, and simple charts. Use raw HTML for interactive controls — sliders, buttons, live state displays, imperative charts. Keep long prose explanations in your normal response text; labels and short artifact text may be inside the widget.
 
 \`\`\`html
 <div style="display: flex; align-items: center; gap: 12px; margin: 0 0 1.5rem;">
@@ -634,18 +641,18 @@ Use \`sendPrompt()\` to let users ask follow-ups: \`sendPrompt('What if I increa
 ### 2. Compare options — decision making
 *"Compare pricing and features of these products" / "Help me choose between React and Vue"*
 
-Use \`widget_spec\` with a \`grid\` of \`card\` nodes, \`badge\` nodes for differentiators, and a compact \`table\` only when rows are the clearest representation. Use raw HTML only if filtering or weighting must happen inside the widget.
+Use a spec widget with a \`grid\` of \`card\` nodes, \`badge\` nodes for differentiators, and a compact \`table\` only when rows are the clearest representation. Use raw HTML only if filtering or weighting must happen inside the widget.
 
 - Use \`repeat(auto-fit, minmax(160px, 1fr))\` for responsive columns
 - Each option in a card. Use badges for key differentiators.
 - Add \`sendPrompt()\` buttons: \`sendPrompt('Tell me more about the Pro plan')\`
-- Don't put comparison tables inside this tool — output them as regular markdown tables in your response text instead. The tool is for the visual card grid only.
+- Use spec tables for dense artifact comparisons. Use markdown tables only when the table is small and the answer is otherwise plain prose.
 - When one option is recommended or "most popular", accent its card with \`border: 2px solid var(--color-border-info)\` only (2px is deliberate — the only exception to the 0.5px rule, used to accent featured items) — keep the same background and border as the other cards. Add a small badge (e.g. "Most popular") above or inside the card header using \`background: var(--color-background-info); color: var(--color-text-info); font-size: 12px; padding: 4px 12px; border-radius: var(--border-radius-md)\`.
 
 ### 3. Data record — bounded UI object
 *"Show me a Salesforce contact card" / "Create a receipt for this order"*
 
-Use \`widget_spec\` with a single \`card\`, short \`text\` rows, \`badge\` for status, and \`divider\` for sections. Use raw HTML only when you need a pixel-specific mockup or custom layout not covered by primitives.
+Use a spec widget with a single \`card\`, short \`text\` rows, \`badge\` for status, and \`divider\` for sections. Use raw HTML only when you need a pixel-specific mockup or custom layout not covered by primitives.
 
 \`\`\`html
 <div style="background: var(--color-background-primary); border-radius: var(--border-radius-lg); border: 0.5px solid var(--color-border-tertiary); padding: 1rem 1.25rem;">
@@ -753,11 +760,20 @@ Canvas widgets should not hardcode one palette and hope it survives theme change
 Use the current theme as the source of truth, then redraw the canvas whenever the theme changes. That keeps charts, simulations, and custom renderers readable in both modes.
 
 
-## Charts (Chart.js)
+## Charts
 
-Prefer \`widget_spec\` \`chart\` for bar, line, and area charts, especially when paired with stats, tables, sections, or callouts. It uses the app's shadcn/Recharts chart system and should be the default for dashboards and analytical canvases.
+Use \`widget: { type: "spec", spec: ... }\` for normal charts and analytical canvases. Bar, line, and area charts belong in spec widgets, especially when paired with stats, tables, sections, progress rows, or callouts. The app renders these with native React/Recharts components and the shared UI theme.
 
-Use raw Chart.js in \`widget_code\` only when you need a chart type not covered by primitives, custom plugin behavior, imperative interaction, multiple synchronized canvases, or highly custom annotations.
+Use raw Chart.js in \`widget: { type: "code", code: ... }\` only when the request needs a chart type not covered by primitives, custom plugin behavior, imperative interaction, multiple synchronized canvases, or highly custom annotations. Do not use Chart.js for ordinary dashboards.
+
+For spec charts:
+- Include a specific title.
+- Use rounded display values.
+- Pair important charts with a small stat grid or callout when it improves scanning.
+- Use \`table\` nodes for supporting artifact data; use markdown tables only for small tables in a normal prose answer.
+- Keep series count small enough to read at chat width.
+
+## Raw Chart.js fallback
 
 \`\`\`html
 <div style="position: relative; width: 100%; height: 300px;">
@@ -776,7 +792,7 @@ Use raw Chart.js in \`widget_code\` only when you need a chart type not covered 
 </script>
 \`\`\`
 
-**Chart.js rules**:
+Rules for raw Chart.js only:
 - Canvas cannot resolve CSS variables. Use hardcoded hex or Chart.js defaults.
 - Wrap \`<canvas>\` in \`<div>\` with explicit \`height\` and \`position: relative\`.
 - **Canvas sizing**: set height ONLY on the wrapper div, never on the canvas element itself. Use position: relative on the wrapper and responsive: true, maintainAspectRatio: false in Chart.js options. Never set CSS height directly on canvas — this causes wrong dimensions, especially for horizontal bar charts.
@@ -804,7 +820,7 @@ plugins: { legend: { display: false } }
 
 Include the value/percentage in each label when the data is categorical (pie, donut, single-series bar). Position the legend above the chart (\`margin-bottom\`) or below (\`margin-top\`) — not inside the canvas.
 
-**Dashboard layout** — wrap summary numbers in metric cards (see UI fragment) above the chart. Chart canvas flows below without a card wrapper. Use \`sendPrompt()\` for drill-down: \`sendPrompt('Break down Q4 by region')\`.
+For dashboard layout, prefer spec widgets with stats above the chart and supporting details below it. Use raw Chart.js only after the primitive chart cannot represent the requested behavior.
 
 `,
     sourceIds: ["preamble","modules","core-design-system","when-nothing-fits","first-class-primitives","ui-components","color-palette","charts-chart-js"] as const,
@@ -815,11 +831,20 @@ Include the value/percentage in each label when the data is categorical (pie, do
     description: null,
     section: "visual-guidelines",
     path: "sections/visual-guidelines/charts_chart_js.md",
-    content: `## Charts (Chart.js)
+    content: `## Charts
 
-Prefer \`widget_spec\` \`chart\` for bar, line, and area charts, especially when paired with stats, tables, sections, or callouts. It uses the app's shadcn/Recharts chart system and should be the default for dashboards and analytical canvases.
+Use \`widget: { type: "spec", spec: ... }\` for normal charts and analytical canvases. Bar, line, and area charts belong in spec widgets, especially when paired with stats, tables, sections, progress rows, or callouts. The app renders these with native React/Recharts components and the shared UI theme.
 
-Use raw Chart.js in \`widget_code\` only when you need a chart type not covered by primitives, custom plugin behavior, imperative interaction, multiple synchronized canvases, or highly custom annotations.
+Use raw Chart.js in \`widget: { type: "code", code: ... }\` only when the request needs a chart type not covered by primitives, custom plugin behavior, imperative interaction, multiple synchronized canvases, or highly custom annotations. Do not use Chart.js for ordinary dashboards.
+
+For spec charts:
+- Include a specific title.
+- Use rounded display values.
+- Pair important charts with a small stat grid or callout when it improves scanning.
+- Use \`table\` nodes for supporting artifact data; use markdown tables only for small tables in a normal prose answer.
+- Keep series count small enough to read at chat width.
+
+## Raw Chart.js fallback
 
 \`\`\`html
 <div style="position: relative; width: 100%; height: 300px;">
@@ -838,7 +863,7 @@ Use raw Chart.js in \`widget_code\` only when you need a chart type not covered 
 </script>
 \`\`\`
 
-**Chart.js rules**:
+Rules for raw Chart.js only:
 - Canvas cannot resolve CSS variables. Use hardcoded hex or Chart.js defaults.
 - Wrap \`<canvas>\` in \`<div>\` with explicit \`height\` and \`position: relative\`.
 - **Canvas sizing**: set height ONLY on the wrapper div, never on the canvas element itself. Use position: relative on the wrapper and responsive: true, maintainAspectRatio: false in Chart.js options. Never set CSS height directly on canvas — this causes wrong dimensions, especially for horizontal bar charts.
@@ -866,7 +891,7 @@ plugins: { legend: { display: false } }
 
 Include the value/percentage in each label when the data is categorical (pie, donut, single-series bar). Position the legend above the chart (\`margin-bottom\`) or below (\`margin-top\`) — not inside the canvas.
 
-**Dashboard layout** — wrap summary numbers in metric cards (see UI fragment) above the chart. Chart canvas flows below without a card wrapper. Use \`sendPrompt()\` for drill-down: \`sendPrompt('Break down Q4 by region')\`.
+For dashboard layout, prefer spec widgets with stats above the chart and supporting details below it. Use raw Chart.js only after the primitive chart cannot represent the requested behavior.
 `,
   },
   "color-palette": {
@@ -1130,8 +1155,8 @@ These rules apply to ALL use cases.
 
 ### Philosophy
 - **Seamless**: Users shouldn't notice where claude.ai ends and your widget begins.
-- **Primitive-first**: For canvas-style artifacts, use \`widget_spec\` first-class primitives. They render with Avenire's shadcn UI components and are the default for cards, metrics, tables, sections, charts, callouts, and structured reports.
-- **Raw-code escape hatch**: Use raw \`widget_code\` HTML/SVG only when the widget needs custom drawing, custom interaction, canvas animation, imperative JS, mermaid, or third-party libraries.
+- **Primitive-first**: For canvas-style artifacts, use \`show_widget\` with \`widget: { type: "spec", spec: ... }\` first-class primitives. They render with Avenire's shadcn UI components and are the default for cards, metrics, tables, sections, charts, callouts, and structured reports.
+- **Raw-code escape hatch**: Use \`show_widget\` with \`widget: { type: "code", code: ... }\` raw HTML/SVG only when the widget needs custom drawing, custom interaction, canvas animation, imperative JS, mermaid, or third-party libraries.
 - **Compact but complete**: Inline widgets should stay compact. Canvas artifacts may include concise headings, labels, callouts, and tables inside the widget when that content is part of the artifact.
 - **No duplicated prose**: Full explanations belong in the chat response. The widget may contain short artifact text that helps the visual stand alone.
 - **Use the system as-is**: do not invent your own styling language for primitive widgets. Reuse the provided primitive nodes and theme tokens. Treat them as a contract, not inspiration.
@@ -1164,7 +1189,7 @@ Output streams token-by-token. Structure code so useful content appears early.
 - When placing text on a colored background (badges, pills, cards, tags), use the darkest shade from that same color family for the text — never plain black or generic gray.
 - **Corners**: use \`border-radius: var(--border-radius-md)\` (or \`-lg\` for cards) in HTML. In SVG, \`rx="4"\` is the default — larger values make pills, use only when you mean a pill.
 - **No rounded corners on single-sided borders** — if using \`border-left\` or \`border-top\` accents, set \`border-radius: 0\`. Rounded corners only work with full borders on all sides.
-- **Titles and concise artifact text are allowed in \`widget_spec\`**. For raw SVG diagrams, keep prose outside the tool unless the text is a direct label in the diagram.
+- **Titles and concise artifact text are allowed in spec widgets**. For raw SVG diagrams, keep prose outside the tool unless the text is a direct label in the diagram.
 - **Icon sizing**: When using emoji or inline SVG icons, explicitly set \`font-size: 16px\` for emoji or \`width: 16px; height: 16px\` for SVG icons. Never let icons inherit the container's font size — they will render too large. For larger decorative icons, use 24px max.
 - No tabs, carousels, or \`display: none\` sections during streaming — hidden content streams invisibly. Show all content stacked vertically. (Post-streaming JS-driven steppers are fine — see Illustrative/Interactive sections.)
 - No nested scrolling — auto-fit height.
@@ -1208,12 +1233,14 @@ A global function that sends a message to chat as if the user typed it. Use it w
 ## Modules
 Call \`visualize_read_me\` again with the relevant visual modules when you need more specific guidance:
 - \`diagram\` — SVG flowcharts, structural diagrams, illustrative diagrams
-- \`mockup\` — UI mockups, forms, cards, dashboards. Prefer \`widget_spec\` primitives unless pixel-specific HTML is required.
-- \`interactive\` — interactive explainers with controls. Prefer \`widget_spec\` for static/structured explainers; use raw HTML for controls and custom JS.
-- \`chart\` — charts and data analysis. Prefer \`widget_spec\` charts for bar/line/area dashboards; use Chart.js only for unsupported chart behavior.
+- \`mockup\` — UI mockups, forms, cards, dashboards. Prefer \`widget.type: "spec"\` primitives unless pixel-specific HTML is required.
+- \`interactive\` — interactive explainers with controls. Prefer \`widget.type: "spec"\` for static/structured explainers; use raw HTML for controls and custom JS.
+- \`chart\` — charts and data analysis. Use \`widget.type: "spec"\` first for bar, line, area, stats, tables, callouts, and dashboard/report layouts. Raw Chart.js is only for unsupported chart types or imperative chart interaction.
 - \`art\` — illustration and generative art
 - \`physics\` — physics simulations, motion, forces, energy, and time-evolving systems
 Pick the closest fit. Each module includes the relevant design guidance.
+
+**Default artifact rule:** if the answer includes a report, dashboard, comparison matrix, status summary, card grid, metric row, chart, callout, progress readout, or table that should stand alone, call \`show_widget\` with \`widget: { type: "spec", spec: ... }\`. Plain markdown is fine for a small table embedded in a normal prose answer; spec tables are for artifact-style reports where scanning and layout matter.
 
 **Complexity budget — hard limits:**
 - Box subtitles: ≤5 words. Detail goes in click-through (\`sendPrompt\`) or the prose below — not the box.
@@ -1231,8 +1258,8 @@ These rules apply to ALL use cases.
 
 ### Philosophy
 - **Seamless**: Users shouldn't notice where claude.ai ends and your widget begins.
-- **Primitive-first**: For canvas-style artifacts, use \`widget_spec\` first-class primitives. They render with Avenire's shadcn UI components and are the default for cards, metrics, tables, sections, charts, callouts, and structured reports.
-- **Raw-code escape hatch**: Use raw \`widget_code\` HTML/SVG only when the widget needs custom drawing, custom interaction, canvas animation, imperative JS, mermaid, or third-party libraries.
+- **Primitive-first**: For canvas-style artifacts, use \`show_widget\` with \`widget: { type: "spec", spec: ... }\` first-class primitives. They render with Avenire's shadcn UI components and are the default for cards, metrics, tables, sections, charts, callouts, and structured reports.
+- **Raw-code escape hatch**: Use \`show_widget\` with \`widget: { type: "code", code: ... }\` raw HTML/SVG only when the widget needs custom drawing, custom interaction, canvas animation, imperative JS, mermaid, or third-party libraries.
 - **Compact but complete**: Inline widgets should stay compact. Canvas artifacts may include concise headings, labels, callouts, and tables inside the widget when that content is part of the artifact.
 - **No duplicated prose**: Full explanations belong in the chat response. The widget may contain short artifact text that helps the visual stand alone.
 - **Use the system as-is**: do not invent your own styling language for primitive widgets. Reuse the provided primitive nodes and theme tokens. Treat them as a contract, not inspiration.
@@ -1265,7 +1292,7 @@ Output streams token-by-token. Structure code so useful content appears early.
 - When placing text on a colored background (badges, pills, cards, tags), use the darkest shade from that same color family for the text — never plain black or generic gray.
 - **Corners**: use \`border-radius: var(--border-radius-md)\` (or \`-lg\` for cards) in HTML. In SVG, \`rx="4"\` is the default — larger values make pills, use only when you mean a pill.
 - **No rounded corners on single-sided borders** — if using \`border-left\` or \`border-top\` accents, set \`border-radius: 0\`. Rounded corners only work with full borders on all sides.
-- **Titles and concise artifact text are allowed in \`widget_spec\`**. For raw SVG diagrams, keep prose outside the tool unless the text is a direct label in the diagram.
+- **Titles and concise artifact text are allowed in spec widgets**. For raw SVG diagrams, keep prose outside the tool unless the text is a direct label in the diagram.
 - **Icon sizing**: When using emoji or inline SVG icons, explicitly set \`font-size: 16px\` for emoji or \`width: 16px; height: 16px\` for SVG icons. Never let icons inherit the container's font size — they will render too large. For larger decorative icons, use 24px max.
 - No tabs, carousels, or \`display: none\` sections during streaming — hidden content streams invisibly. Show all content stacked vertically. (Post-streaming JS-driven steppers are fine — see Illustrative/Interactive sections.)
 - No nested scrolling — auto-fit height.
@@ -2589,25 +2616,28 @@ description: Use structured first-class widget primitives for polished canvas ar
 
 # First-class widget primitives
 
-Prefer \`widget_spec\` for canvas-style artifacts: debugging reports, docs canvases, learning dashboards, comparison cards, metric summaries, tables, charts, timelines, and structured explanations. The app renders \`widget_spec\` with first-class React components backed by \`@avenire/ui\` shadcn primitives, so the result inherits the host theme, spacing, cards, tables, badges, progress bars, and chart styling.
+Prefer \`show_widget\` with \`widget: { type: "spec", spec: ... }\` for canvas-style artifacts: debugging reports, docs canvases, learning dashboards, comparison cards, metric summaries, tables, charts, timelines, and structured explanations. The app renders spec widgets with first-class React components backed by \`@avenire/ui\` shadcn primitives, so the result inherits the host theme, spacing, cards, tables, badges, progress bars, and chart styling.
 
-Use raw \`widget_code\` only when the visual needs custom SVG geometry, canvas drawing, imperative animation, DOM event handling, sliders, steppers, simulations, mermaid, or third-party libraries. If the artifact is mostly layout, text, metrics, tables, cards, or simple charts, use \`widget_spec\`.
+Use \`widget: { type: "code", code: ... }\` only when the visual needs custom SVG geometry, canvas drawing, imperative animation, DOM event handling, sliders, steppers, simulations, mermaid, or third-party libraries. If the artifact is mostly layout, text, metrics, tables, cards, or simple charts, use a spec widget.
 
 ## Tool shape
 
-Call \`show_widget\` with either \`widget_spec\` or \`widget_code\`. For primitive widgets, omit \`widget_code\`.
+Call \`show_widget\` with a \`widget\` object. For primitive widgets, use \`type: "spec"\` and put the primitive tree in \`spec\`.
 
 \`\`\`json
 {
   "i_have_seen_read_me": true,
   "title": "Websocket pool leak debug",
-  "widget_spec": {
-    "title": "Websocket pool leak debug",
-    "description": "Incident view with request, connection, memory, and milestone evidence.",
-    "root": {
-      "type": "stack",
-      "gap": "lg",
-      "children": []
+  "widget": {
+    "type": "spec",
+    "spec": {
+      "title": "Websocket pool leak debug",
+      "description": "Incident view with request, connection, memory, and milestone evidence.",
+      "root": {
+        "type": "stack",
+        "gap": "lg",
+        "children": []
+      }
     }
   }
 }
@@ -2943,12 +2973,14 @@ When creating multiple cards from a topic:
 ## Modules
 Call \`visualize_read_me\` again with the relevant visual modules when you need more specific guidance:
 - \`diagram\` — SVG flowcharts, structural diagrams, illustrative diagrams
-- \`mockup\` — UI mockups, forms, cards, dashboards. Prefer \`widget_spec\` primitives unless pixel-specific HTML is required.
-- \`interactive\` — interactive explainers with controls. Prefer \`widget_spec\` for static/structured explainers; use raw HTML for controls and custom JS.
-- \`chart\` — charts and data analysis. Prefer \`widget_spec\` charts for bar/line/area dashboards; use Chart.js only for unsupported chart behavior.
+- \`mockup\` — UI mockups, forms, cards, dashboards. Prefer \`widget.type: "spec"\` primitives unless pixel-specific HTML is required.
+- \`interactive\` — interactive explainers with controls. Prefer \`widget.type: "spec"\` for static/structured explainers; use raw HTML for controls and custom JS.
+- \`chart\` — charts and data analysis. Use \`widget.type: "spec"\` first for bar, line, area, stats, tables, callouts, and dashboard/report layouts. Raw Chart.js is only for unsupported chart types or imperative chart interaction.
 - \`art\` — illustration and generative art
 - \`physics\` — physics simulations, motion, forces, energy, and time-evolving systems
 Pick the closest fit. Each module includes the relevant design guidance.
+
+**Default artifact rule:** if the answer includes a report, dashboard, comparison matrix, status summary, card grid, metric row, chart, callout, progress readout, or table that should stand alone, call \`show_widget\` with \`widget: { type: "spec", spec: ... }\`. Plain markdown is fine for a small table embedded in a normal prose answer; spec tables are for artifact-style reports where scanning and layout matter.
 
 **Complexity budget — hard limits:**
 - Box subtitles: ≤5 words. Detail goes in click-through (\`sendPrompt\`) or the prose below — not the box.
@@ -2966,8 +2998,8 @@ These rules apply to ALL use cases.
 
 ### Philosophy
 - **Seamless**: Users shouldn't notice where claude.ai ends and your widget begins.
-- **Primitive-first**: For canvas-style artifacts, use \`widget_spec\` first-class primitives. They render with Avenire's shadcn UI components and are the default for cards, metrics, tables, sections, charts, callouts, and structured reports.
-- **Raw-code escape hatch**: Use raw \`widget_code\` HTML/SVG only when the widget needs custom drawing, custom interaction, canvas animation, imperative JS, mermaid, or third-party libraries.
+- **Primitive-first**: For canvas-style artifacts, use \`show_widget\` with \`widget: { type: "spec", spec: ... }\` first-class primitives. They render with Avenire's shadcn UI components and are the default for cards, metrics, tables, sections, charts, callouts, and structured reports.
+- **Raw-code escape hatch**: Use \`show_widget\` with \`widget: { type: "code", code: ... }\` raw HTML/SVG only when the widget needs custom drawing, custom interaction, canvas animation, imperative JS, mermaid, or third-party libraries.
 - **Compact but complete**: Inline widgets should stay compact. Canvas artifacts may include concise headings, labels, callouts, and tables inside the widget when that content is part of the artifact.
 - **No duplicated prose**: Full explanations belong in the chat response. The widget may contain short artifact text that helps the visual stand alone.
 - **Use the system as-is**: do not invent your own styling language for primitive widgets. Reuse the provided primitive nodes and theme tokens. Treat them as a contract, not inspiration.
@@ -3000,7 +3032,7 @@ Output streams token-by-token. Structure code so useful content appears early.
 - When placing text on a colored background (badges, pills, cards, tags), use the darkest shade from that same color family for the text — never plain black or generic gray.
 - **Corners**: use \`border-radius: var(--border-radius-md)\` (or \`-lg\` for cards) in HTML. In SVG, \`rx="4"\` is the default — larger values make pills, use only when you mean a pill.
 - **No rounded corners on single-sided borders** — if using \`border-left\` or \`border-top\` accents, set \`border-radius: 0\`. Rounded corners only work with full borders on all sides.
-- **Titles and concise artifact text are allowed in \`widget_spec\`**. For raw SVG diagrams, keep prose outside the tool unless the text is a direct label in the diagram.
+- **Titles and concise artifact text are allowed in spec widgets**. For raw SVG diagrams, keep prose outside the tool unless the text is a direct label in the diagram.
 - **Icon sizing**: When using emoji or inline SVG icons, explicitly set \`font-size: 16px\` for emoji or \`width: 16px; height: 16px\` for SVG icons. Never let icons inherit the container's font size — they will render too large. For larger decorative icons, use 24px max.
 - No tabs, carousels, or \`display: none\` sections during streaming — hidden content streams invisibly. Show all content stacked vertically. (Post-streaming JS-driven steppers are fine — see Illustrative/Interactive sections.)
 - No nested scrolling — auto-fit height.
@@ -3047,25 +3079,28 @@ description: Use structured first-class widget primitives for polished canvas ar
 
 # First-class widget primitives
 
-Prefer \`widget_spec\` for canvas-style artifacts: debugging reports, docs canvases, learning dashboards, comparison cards, metric summaries, tables, charts, timelines, and structured explanations. The app renders \`widget_spec\` with first-class React components backed by \`@avenire/ui\` shadcn primitives, so the result inherits the host theme, spacing, cards, tables, badges, progress bars, and chart styling.
+Prefer \`show_widget\` with \`widget: { type: "spec", spec: ... }\` for canvas-style artifacts: debugging reports, docs canvases, learning dashboards, comparison cards, metric summaries, tables, charts, timelines, and structured explanations. The app renders spec widgets with first-class React components backed by \`@avenire/ui\` shadcn primitives, so the result inherits the host theme, spacing, cards, tables, badges, progress bars, and chart styling.
 
-Use raw \`widget_code\` only when the visual needs custom SVG geometry, canvas drawing, imperative animation, DOM event handling, sliders, steppers, simulations, mermaid, or third-party libraries. If the artifact is mostly layout, text, metrics, tables, cards, or simple charts, use \`widget_spec\`.
+Use \`widget: { type: "code", code: ... }\` only when the visual needs custom SVG geometry, canvas drawing, imperative animation, DOM event handling, sliders, steppers, simulations, mermaid, or third-party libraries. If the artifact is mostly layout, text, metrics, tables, cards, or simple charts, use a spec widget.
 
 ## Tool shape
 
-Call \`show_widget\` with either \`widget_spec\` or \`widget_code\`. For primitive widgets, omit \`widget_code\`.
+Call \`show_widget\` with a \`widget\` object. For primitive widgets, use \`type: "spec"\` and put the primitive tree in \`spec\`.
 
 \`\`\`json
 {
   "i_have_seen_read_me": true,
   "title": "Websocket pool leak debug",
-  "widget_spec": {
-    "title": "Websocket pool leak debug",
-    "description": "Incident view with request, connection, memory, and milestone evidence.",
-    "root": {
-      "type": "stack",
-      "gap": "lg",
-      "children": []
+  "widget": {
+    "type": "spec",
+    "spec": {
+      "title": "Websocket pool leak debug",
+      "description": "Incident view with request, connection, memory, and milestone evidence.",
+      "root": {
+        "type": "stack",
+        "gap": "lg",
+        "children": []
+      }
     }
   }
 }
@@ -3167,13 +3202,13 @@ Tones: \`default\`, \`muted\`, \`info\`, \`success\`, \`warning\`, \`danger\`.
 ## UI components
 
 ### Aesthetic
-Use \`widget_spec\` first for UI-like widgets. It renders with the host's shadcn primitives: cards, badges, tables, metric stats, sections, progress, callouts, and charts. Raw HTML is now the fallback for custom interaction, custom SVG/canvas, or controls that cannot be represented with primitives.
+Use \`widget: { type: "spec", spec: ... }\` first for UI-like widgets. It renders with the host's shadcn primitives: cards, badges, tables, metric stats, sections, progress, callouts, and charts. Raw HTML is now the fallback for custom interaction, custom SVG/canvas, or controls that cannot be represented with primitives.
 
 Flat, clean surfaces. Minimal borders. Generous whitespace. Avoid decorative gradients and shadows in primitive widgets. Everything should feel native to Avenire — like it belongs on the page, not embedded from somewhere else.
 
-This section is prescriptive. Do not freestyle component styling. Use \`widget_spec\` nodes when available; use the exact HTML recipes only when raw \`widget_code\` is necessary.
+This section is prescriptive. Do not freestyle component styling. Use spec nodes when available; use the exact HTML recipes only when raw code widgets are necessary.
 
-**Hard rule:** component CSS is for layout only. Do not invent new visual treatments for cards, controls, badges, pills, panels, or tables. If the request maps to \`widget_spec\`, use primitives. If it must be raw HTML, copy the closest pattern below.
+**Hard rule:** component CSS is for layout only. Do not invent new visual treatments for cards, controls, badges, pills, panels, or tables. If the request maps to a spec widget, use primitives. If it must be raw HTML, copy the closest pattern below.
 
 ### Tokens
 - Borders: always \`0.5px solid var(--color-border-tertiary)\` (or \`-secondary\` for emphasis)
@@ -3193,7 +3228,7 @@ For summary numbers (revenue, count, percentage) — surface card with muted 13p
 ### Layout
 - Editorial (explanatory content): no card wrapper, prose flows naturally
 - Card (bounded objects like a contact record, receipt): single raised card wraps the whole thing
-- Don't put tables here — output them as markdown in your response text
+- Tables in a normal prose answer can be markdown. Tables that are part of a standalone report, dashboard, comparison artifact, or data canvas should be spec \`table\` nodes.
 - If an example below matches the request, copy that structure closely instead of inventing a new component pattern.
 - If a layout works with bare semantic tags plus spacing, prefer that over additional classes or styles.
 
@@ -3207,7 +3242,7 @@ Contained mockups — mobile screens, chat threads, single cards, modals, small 
 ### 1. Interactive explainer — learn how something works
 *"Explain how compound interest works" / "Teach me about sorting algorithms"*
 
-Use \`widget_spec\` if the explainer is static or only needs metrics, tables, and simple charts. Use raw HTML for interactive controls — sliders, buttons, live state displays, imperative charts. Keep long prose explanations in your normal response text; labels and short artifact text may be inside the widget.
+Use a spec widget if the explainer is static or only needs metrics, tables, and simple charts. Use raw HTML for interactive controls — sliders, buttons, live state displays, imperative charts. Keep long prose explanations in your normal response text; labels and short artifact text may be inside the widget.
 
 \`\`\`html
 <div style="display: flex; align-items: center; gap: 12px; margin: 0 0 1.5rem;">
@@ -3231,18 +3266,18 @@ Use \`sendPrompt()\` to let users ask follow-ups: \`sendPrompt('What if I increa
 ### 2. Compare options — decision making
 *"Compare pricing and features of these products" / "Help me choose between React and Vue"*
 
-Use \`widget_spec\` with a \`grid\` of \`card\` nodes, \`badge\` nodes for differentiators, and a compact \`table\` only when rows are the clearest representation. Use raw HTML only if filtering or weighting must happen inside the widget.
+Use a spec widget with a \`grid\` of \`card\` nodes, \`badge\` nodes for differentiators, and a compact \`table\` only when rows are the clearest representation. Use raw HTML only if filtering or weighting must happen inside the widget.
 
 - Use \`repeat(auto-fit, minmax(160px, 1fr))\` for responsive columns
 - Each option in a card. Use badges for key differentiators.
 - Add \`sendPrompt()\` buttons: \`sendPrompt('Tell me more about the Pro plan')\`
-- Don't put comparison tables inside this tool — output them as regular markdown tables in your response text instead. The tool is for the visual card grid only.
+- Use spec tables for dense artifact comparisons. Use markdown tables only when the table is small and the answer is otherwise plain prose.
 - When one option is recommended or "most popular", accent its card with \`border: 2px solid var(--color-border-info)\` only (2px is deliberate — the only exception to the 0.5px rule, used to accent featured items) — keep the same background and border as the other cards. Add a small badge (e.g. "Most popular") above or inside the card header using \`background: var(--color-background-info); color: var(--color-text-info); font-size: 12px; padding: 4px 12px; border-radius: var(--border-radius-md)\`.
 
 ### 3. Data record — bounded UI object
 *"Show me a Salesforce contact card" / "Create a receipt for this order"*
 
-Use \`widget_spec\` with a single \`card\`, short \`text\` rows, \`badge\` for status, and \`divider\` for sections. Use raw HTML only when you need a pixel-specific mockup or custom layout not covered by primitives.
+Use a spec widget with a single \`card\`, short \`text\` rows, \`badge\` for status, and \`divider\` for sections. Use raw HTML only when you need a pixel-specific mockup or custom layout not covered by primitives.
 
 \`\`\`html
 <div style="background: var(--color-background-primary); border-radius: var(--border-radius-lg); border: 0.5px solid var(--color-border-tertiary); padding: 1rem 1.25rem;">
@@ -3420,12 +3455,14 @@ When the user asks for calculus, algebra, set theory, geometry, graph interpreta
 ## Modules
 Call \`visualize_read_me\` again with the relevant visual modules when you need more specific guidance:
 - \`diagram\` — SVG flowcharts, structural diagrams, illustrative diagrams
-- \`mockup\` — UI mockups, forms, cards, dashboards. Prefer \`widget_spec\` primitives unless pixel-specific HTML is required.
-- \`interactive\` — interactive explainers with controls. Prefer \`widget_spec\` for static/structured explainers; use raw HTML for controls and custom JS.
-- \`chart\` — charts and data analysis. Prefer \`widget_spec\` charts for bar/line/area dashboards; use Chart.js only for unsupported chart behavior.
+- \`mockup\` — UI mockups, forms, cards, dashboards. Prefer \`widget.type: "spec"\` primitives unless pixel-specific HTML is required.
+- \`interactive\` — interactive explainers with controls. Prefer \`widget.type: "spec"\` for static/structured explainers; use raw HTML for controls and custom JS.
+- \`chart\` — charts and data analysis. Use \`widget.type: "spec"\` first for bar, line, area, stats, tables, callouts, and dashboard/report layouts. Raw Chart.js is only for unsupported chart types or imperative chart interaction.
 - \`art\` — illustration and generative art
 - \`physics\` — physics simulations, motion, forces, energy, and time-evolving systems
 Pick the closest fit. Each module includes the relevant design guidance.
+
+**Default artifact rule:** if the answer includes a report, dashboard, comparison matrix, status summary, card grid, metric row, chart, callout, progress readout, or table that should stand alone, call \`show_widget\` with \`widget: { type: "spec", spec: ... }\`. Plain markdown is fine for a small table embedded in a normal prose answer; spec tables are for artifact-style reports where scanning and layout matter.
 
 **Complexity budget — hard limits:**
 - Box subtitles: ≤5 words. Detail goes in click-through (\`sendPrompt\`) or the prose below — not the box.
@@ -3443,8 +3480,8 @@ These rules apply to ALL use cases.
 
 ### Philosophy
 - **Seamless**: Users shouldn't notice where claude.ai ends and your widget begins.
-- **Primitive-first**: For canvas-style artifacts, use \`widget_spec\` first-class primitives. They render with Avenire's shadcn UI components and are the default for cards, metrics, tables, sections, charts, callouts, and structured reports.
-- **Raw-code escape hatch**: Use raw \`widget_code\` HTML/SVG only when the widget needs custom drawing, custom interaction, canvas animation, imperative JS, mermaid, or third-party libraries.
+- **Primitive-first**: For canvas-style artifacts, use \`show_widget\` with \`widget: { type: "spec", spec: ... }\` first-class primitives. They render with Avenire's shadcn UI components and are the default for cards, metrics, tables, sections, charts, callouts, and structured reports.
+- **Raw-code escape hatch**: Use \`show_widget\` with \`widget: { type: "code", code: ... }\` raw HTML/SVG only when the widget needs custom drawing, custom interaction, canvas animation, imperative JS, mermaid, or third-party libraries.
 - **Compact but complete**: Inline widgets should stay compact. Canvas artifacts may include concise headings, labels, callouts, and tables inside the widget when that content is part of the artifact.
 - **No duplicated prose**: Full explanations belong in the chat response. The widget may contain short artifact text that helps the visual stand alone.
 - **Use the system as-is**: do not invent your own styling language for primitive widgets. Reuse the provided primitive nodes and theme tokens. Treat them as a contract, not inspiration.
@@ -3477,7 +3514,7 @@ Output streams token-by-token. Structure code so useful content appears early.
 - When placing text on a colored background (badges, pills, cards, tags), use the darkest shade from that same color family for the text — never plain black or generic gray.
 - **Corners**: use \`border-radius: var(--border-radius-md)\` (or \`-lg\` for cards) in HTML. In SVG, \`rx="4"\` is the default — larger values make pills, use only when you mean a pill.
 - **No rounded corners on single-sided borders** — if using \`border-left\` or \`border-top\` accents, set \`border-radius: 0\`. Rounded corners only work with full borders on all sides.
-- **Titles and concise artifact text are allowed in \`widget_spec\`**. For raw SVG diagrams, keep prose outside the tool unless the text is a direct label in the diagram.
+- **Titles and concise artifact text are allowed in spec widgets**. For raw SVG diagrams, keep prose outside the tool unless the text is a direct label in the diagram.
 - **Icon sizing**: When using emoji or inline SVG icons, explicitly set \`font-size: 16px\` for emoji or \`width: 16px; height: 16px\` for SVG icons. Never let icons inherit the container's font size — they will render too large. For larger decorative icons, use 24px max.
 - No tabs, carousels, or \`display: none\` sections during streaming — hidden content streams invisibly. Show all content stacked vertically. (Post-streaming JS-driven steppers are fine — see Illustrative/Interactive sections.)
 - No nested scrolling — auto-fit height.
@@ -3524,25 +3561,28 @@ description: Use structured first-class widget primitives for polished canvas ar
 
 # First-class widget primitives
 
-Prefer \`widget_spec\` for canvas-style artifacts: debugging reports, docs canvases, learning dashboards, comparison cards, metric summaries, tables, charts, timelines, and structured explanations. The app renders \`widget_spec\` with first-class React components backed by \`@avenire/ui\` shadcn primitives, so the result inherits the host theme, spacing, cards, tables, badges, progress bars, and chart styling.
+Prefer \`show_widget\` with \`widget: { type: "spec", spec: ... }\` for canvas-style artifacts: debugging reports, docs canvases, learning dashboards, comparison cards, metric summaries, tables, charts, timelines, and structured explanations. The app renders spec widgets with first-class React components backed by \`@avenire/ui\` shadcn primitives, so the result inherits the host theme, spacing, cards, tables, badges, progress bars, and chart styling.
 
-Use raw \`widget_code\` only when the visual needs custom SVG geometry, canvas drawing, imperative animation, DOM event handling, sliders, steppers, simulations, mermaid, or third-party libraries. If the artifact is mostly layout, text, metrics, tables, cards, or simple charts, use \`widget_spec\`.
+Use \`widget: { type: "code", code: ... }\` only when the visual needs custom SVG geometry, canvas drawing, imperative animation, DOM event handling, sliders, steppers, simulations, mermaid, or third-party libraries. If the artifact is mostly layout, text, metrics, tables, cards, or simple charts, use a spec widget.
 
 ## Tool shape
 
-Call \`show_widget\` with either \`widget_spec\` or \`widget_code\`. For primitive widgets, omit \`widget_code\`.
+Call \`show_widget\` with a \`widget\` object. For primitive widgets, use \`type: "spec"\` and put the primitive tree in \`spec\`.
 
 \`\`\`json
 {
   "i_have_seen_read_me": true,
   "title": "Websocket pool leak debug",
-  "widget_spec": {
-    "title": "Websocket pool leak debug",
-    "description": "Incident view with request, connection, memory, and milestone evidence.",
-    "root": {
-      "type": "stack",
-      "gap": "lg",
-      "children": []
+  "widget": {
+    "type": "spec",
+    "spec": {
+      "title": "Websocket pool leak debug",
+      "description": "Incident view with request, connection, memory, and milestone evidence.",
+      "root": {
+        "type": "stack",
+        "gap": "lg",
+        "children": []
+      }
     }
   }
 }
@@ -3644,13 +3684,13 @@ Tones: \`default\`, \`muted\`, \`info\`, \`success\`, \`warning\`, \`danger\`.
 ## UI components
 
 ### Aesthetic
-Use \`widget_spec\` first for UI-like widgets. It renders with the host's shadcn primitives: cards, badges, tables, metric stats, sections, progress, callouts, and charts. Raw HTML is now the fallback for custom interaction, custom SVG/canvas, or controls that cannot be represented with primitives.
+Use \`widget: { type: "spec", spec: ... }\` first for UI-like widgets. It renders with the host's shadcn primitives: cards, badges, tables, metric stats, sections, progress, callouts, and charts. Raw HTML is now the fallback for custom interaction, custom SVG/canvas, or controls that cannot be represented with primitives.
 
 Flat, clean surfaces. Minimal borders. Generous whitespace. Avoid decorative gradients and shadows in primitive widgets. Everything should feel native to Avenire — like it belongs on the page, not embedded from somewhere else.
 
-This section is prescriptive. Do not freestyle component styling. Use \`widget_spec\` nodes when available; use the exact HTML recipes only when raw \`widget_code\` is necessary.
+This section is prescriptive. Do not freestyle component styling. Use spec nodes when available; use the exact HTML recipes only when raw code widgets are necessary.
 
-**Hard rule:** component CSS is for layout only. Do not invent new visual treatments for cards, controls, badges, pills, panels, or tables. If the request maps to \`widget_spec\`, use primitives. If it must be raw HTML, copy the closest pattern below.
+**Hard rule:** component CSS is for layout only. Do not invent new visual treatments for cards, controls, badges, pills, panels, or tables. If the request maps to a spec widget, use primitives. If it must be raw HTML, copy the closest pattern below.
 
 ### Tokens
 - Borders: always \`0.5px solid var(--color-border-tertiary)\` (or \`-secondary\` for emphasis)
@@ -3670,7 +3710,7 @@ For summary numbers (revenue, count, percentage) — surface card with muted 13p
 ### Layout
 - Editorial (explanatory content): no card wrapper, prose flows naturally
 - Card (bounded objects like a contact record, receipt): single raised card wraps the whole thing
-- Don't put tables here — output them as markdown in your response text
+- Tables in a normal prose answer can be markdown. Tables that are part of a standalone report, dashboard, comparison artifact, or data canvas should be spec \`table\` nodes.
 - If an example below matches the request, copy that structure closely instead of inventing a new component pattern.
 - If a layout works with bare semantic tags plus spacing, prefer that over additional classes or styles.
 
@@ -3684,7 +3724,7 @@ Contained mockups — mobile screens, chat threads, single cards, modals, small 
 ### 1. Interactive explainer — learn how something works
 *"Explain how compound interest works" / "Teach me about sorting algorithms"*
 
-Use \`widget_spec\` if the explainer is static or only needs metrics, tables, and simple charts. Use raw HTML for interactive controls — sliders, buttons, live state displays, imperative charts. Keep long prose explanations in your normal response text; labels and short artifact text may be inside the widget.
+Use a spec widget if the explainer is static or only needs metrics, tables, and simple charts. Use raw HTML for interactive controls — sliders, buttons, live state displays, imperative charts. Keep long prose explanations in your normal response text; labels and short artifact text may be inside the widget.
 
 \`\`\`html
 <div style="display: flex; align-items: center; gap: 12px; margin: 0 0 1.5rem;">
@@ -3708,18 +3748,18 @@ Use \`sendPrompt()\` to let users ask follow-ups: \`sendPrompt('What if I increa
 ### 2. Compare options — decision making
 *"Compare pricing and features of these products" / "Help me choose between React and Vue"*
 
-Use \`widget_spec\` with a \`grid\` of \`card\` nodes, \`badge\` nodes for differentiators, and a compact \`table\` only when rows are the clearest representation. Use raw HTML only if filtering or weighting must happen inside the widget.
+Use a spec widget with a \`grid\` of \`card\` nodes, \`badge\` nodes for differentiators, and a compact \`table\` only when rows are the clearest representation. Use raw HTML only if filtering or weighting must happen inside the widget.
 
 - Use \`repeat(auto-fit, minmax(160px, 1fr))\` for responsive columns
 - Each option in a card. Use badges for key differentiators.
 - Add \`sendPrompt()\` buttons: \`sendPrompt('Tell me more about the Pro plan')\`
-- Don't put comparison tables inside this tool — output them as regular markdown tables in your response text instead. The tool is for the visual card grid only.
+- Use spec tables for dense artifact comparisons. Use markdown tables only when the table is small and the answer is otherwise plain prose.
 - When one option is recommended or "most popular", accent its card with \`border: 2px solid var(--color-border-info)\` only (2px is deliberate — the only exception to the 0.5px rule, used to accent featured items) — keep the same background and border as the other cards. Add a small badge (e.g. "Most popular") above or inside the card header using \`background: var(--color-background-info); color: var(--color-text-info); font-size: 12px; padding: 4px 12px; border-radius: var(--border-radius-md)\`.
 
 ### 3. Data record — bounded UI object
 *"Show me a Salesforce contact card" / "Create a receipt for this order"*
 
-Use \`widget_spec\` with a single \`card\`, short \`text\` rows, \`badge\` for status, and \`divider\` for sections. Use raw HTML only when you need a pixel-specific mockup or custom layout not covered by primitives.
+Use a spec widget with a single \`card\`, short \`text\` rows, \`badge\` for status, and \`divider\` for sections. Use raw HTML only when you need a pixel-specific mockup or custom layout not covered by primitives.
 
 \`\`\`html
 <div style="background: var(--color-background-primary); border-radius: var(--border-radius-lg); border: 0.5px solid var(--color-border-tertiary); padding: 1rem 1.25rem;">
@@ -3838,12 +3878,14 @@ Use the current theme as the source of truth, then redraw the canvas whenever th
     content: `## Modules
 Call \`visualize_read_me\` again with the relevant visual modules when you need more specific guidance:
 - \`diagram\` — SVG flowcharts, structural diagrams, illustrative diagrams
-- \`mockup\` — UI mockups, forms, cards, dashboards. Prefer \`widget_spec\` primitives unless pixel-specific HTML is required.
-- \`interactive\` — interactive explainers with controls. Prefer \`widget_spec\` for static/structured explainers; use raw HTML for controls and custom JS.
-- \`chart\` — charts and data analysis. Prefer \`widget_spec\` charts for bar/line/area dashboards; use Chart.js only for unsupported chart behavior.
+- \`mockup\` — UI mockups, forms, cards, dashboards. Prefer \`widget.type: "spec"\` primitives unless pixel-specific HTML is required.
+- \`interactive\` — interactive explainers with controls. Prefer \`widget.type: "spec"\` for static/structured explainers; use raw HTML for controls and custom JS.
+- \`chart\` — charts and data analysis. Use \`widget.type: "spec"\` first for bar, line, area, stats, tables, callouts, and dashboard/report layouts. Raw Chart.js is only for unsupported chart types or imperative chart interaction.
 - \`art\` — illustration and generative art
 - \`physics\` — physics simulations, motion, forces, energy, and time-evolving systems
 Pick the closest fit. Each module includes the relevant design guidance.
+
+**Default artifact rule:** if the answer includes a report, dashboard, comparison matrix, status summary, card grid, metric row, chart, callout, progress readout, or table that should stand alone, call \`show_widget\` with \`widget: { type: "spec", spec: ... }\`. Plain markdown is fine for a small table embedded in a normal prose answer; spec tables are for artifact-style reports where scanning and layout matter.
 
 **Complexity budget — hard limits:**
 - Box subtitles: ≤5 words. Detail goes in click-through (\`sendPrompt\`) or the prose below — not the box.
@@ -4092,12 +4134,14 @@ Use this module for simulations where motion over time is the point: orbits, pen
 ## Modules
 Call \`visualize_read_me\` again with the relevant visual modules when you need more specific guidance:
 - \`diagram\` — SVG flowcharts, structural diagrams, illustrative diagrams
-- \`mockup\` — UI mockups, forms, cards, dashboards. Prefer \`widget_spec\` primitives unless pixel-specific HTML is required.
-- \`interactive\` — interactive explainers with controls. Prefer \`widget_spec\` for static/structured explainers; use raw HTML for controls and custom JS.
-- \`chart\` — charts and data analysis. Prefer \`widget_spec\` charts for bar/line/area dashboards; use Chart.js only for unsupported chart behavior.
+- \`mockup\` — UI mockups, forms, cards, dashboards. Prefer \`widget.type: "spec"\` primitives unless pixel-specific HTML is required.
+- \`interactive\` — interactive explainers with controls. Prefer \`widget.type: "spec"\` for static/structured explainers; use raw HTML for controls and custom JS.
+- \`chart\` — charts and data analysis. Use \`widget.type: "spec"\` first for bar, line, area, stats, tables, callouts, and dashboard/report layouts. Raw Chart.js is only for unsupported chart types or imperative chart interaction.
 - \`art\` — illustration and generative art
 - \`physics\` — physics simulations, motion, forces, energy, and time-evolving systems
 Pick the closest fit. Each module includes the relevant design guidance.
+
+**Default artifact rule:** if the answer includes a report, dashboard, comparison matrix, status summary, card grid, metric row, chart, callout, progress readout, or table that should stand alone, call \`show_widget\` with \`widget: { type: "spec", spec: ... }\`. Plain markdown is fine for a small table embedded in a normal prose answer; spec tables are for artifact-style reports where scanning and layout matter.
 
 **Complexity budget — hard limits:**
 - Box subtitles: ≤5 words. Detail goes in click-through (\`sendPrompt\`) or the prose below — not the box.
@@ -4115,8 +4159,8 @@ These rules apply to ALL use cases.
 
 ### Philosophy
 - **Seamless**: Users shouldn't notice where claude.ai ends and your widget begins.
-- **Primitive-first**: For canvas-style artifacts, use \`widget_spec\` first-class primitives. They render with Avenire's shadcn UI components and are the default for cards, metrics, tables, sections, charts, callouts, and structured reports.
-- **Raw-code escape hatch**: Use raw \`widget_code\` HTML/SVG only when the widget needs custom drawing, custom interaction, canvas animation, imperative JS, mermaid, or third-party libraries.
+- **Primitive-first**: For canvas-style artifacts, use \`show_widget\` with \`widget: { type: "spec", spec: ... }\` first-class primitives. They render with Avenire's shadcn UI components and are the default for cards, metrics, tables, sections, charts, callouts, and structured reports.
+- **Raw-code escape hatch**: Use \`show_widget\` with \`widget: { type: "code", code: ... }\` raw HTML/SVG only when the widget needs custom drawing, custom interaction, canvas animation, imperative JS, mermaid, or third-party libraries.
 - **Compact but complete**: Inline widgets should stay compact. Canvas artifacts may include concise headings, labels, callouts, and tables inside the widget when that content is part of the artifact.
 - **No duplicated prose**: Full explanations belong in the chat response. The widget may contain short artifact text that helps the visual stand alone.
 - **Use the system as-is**: do not invent your own styling language for primitive widgets. Reuse the provided primitive nodes and theme tokens. Treat them as a contract, not inspiration.
@@ -4149,7 +4193,7 @@ Output streams token-by-token. Structure code so useful content appears early.
 - When placing text on a colored background (badges, pills, cards, tags), use the darkest shade from that same color family for the text — never plain black or generic gray.
 - **Corners**: use \`border-radius: var(--border-radius-md)\` (or \`-lg\` for cards) in HTML. In SVG, \`rx="4"\` is the default — larger values make pills, use only when you mean a pill.
 - **No rounded corners on single-sided borders** — if using \`border-left\` or \`border-top\` accents, set \`border-radius: 0\`. Rounded corners only work with full borders on all sides.
-- **Titles and concise artifact text are allowed in \`widget_spec\`**. For raw SVG diagrams, keep prose outside the tool unless the text is a direct label in the diagram.
+- **Titles and concise artifact text are allowed in spec widgets**. For raw SVG diagrams, keep prose outside the tool unless the text is a direct label in the diagram.
 - **Icon sizing**: When using emoji or inline SVG icons, explicitly set \`font-size: 16px\` for emoji or \`width: 16px; height: 16px\` for SVG icons. Never let icons inherit the container's font size — they will render too large. For larger decorative icons, use 24px max.
 - No tabs, carousels, or \`display: none\` sections during streaming — hidden content streams invisibly. Show all content stacked vertically. (Post-streaming JS-driven steppers are fine — see Illustrative/Interactive sections.)
 - No nested scrolling — auto-fit height.
@@ -5222,13 +5266,13 @@ Before placing text in a box, check: does (text width + 2×padding) fit the cont
     content: `## UI components
 
 ### Aesthetic
-Use \`widget_spec\` first for UI-like widgets. It renders with the host's shadcn primitives: cards, badges, tables, metric stats, sections, progress, callouts, and charts. Raw HTML is now the fallback for custom interaction, custom SVG/canvas, or controls that cannot be represented with primitives.
+Use \`widget: { type: "spec", spec: ... }\` first for UI-like widgets. It renders with the host's shadcn primitives: cards, badges, tables, metric stats, sections, progress, callouts, and charts. Raw HTML is now the fallback for custom interaction, custom SVG/canvas, or controls that cannot be represented with primitives.
 
 Flat, clean surfaces. Minimal borders. Generous whitespace. Avoid decorative gradients and shadows in primitive widgets. Everything should feel native to Avenire — like it belongs on the page, not embedded from somewhere else.
 
-This section is prescriptive. Do not freestyle component styling. Use \`widget_spec\` nodes when available; use the exact HTML recipes only when raw \`widget_code\` is necessary.
+This section is prescriptive. Do not freestyle component styling. Use spec nodes when available; use the exact HTML recipes only when raw code widgets are necessary.
 
-**Hard rule:** component CSS is for layout only. Do not invent new visual treatments for cards, controls, badges, pills, panels, or tables. If the request maps to \`widget_spec\`, use primitives. If it must be raw HTML, copy the closest pattern below.
+**Hard rule:** component CSS is for layout only. Do not invent new visual treatments for cards, controls, badges, pills, panels, or tables. If the request maps to a spec widget, use primitives. If it must be raw HTML, copy the closest pattern below.
 
 ### Tokens
 - Borders: always \`0.5px solid var(--color-border-tertiary)\` (or \`-secondary\` for emphasis)
@@ -5248,7 +5292,7 @@ For summary numbers (revenue, count, percentage) — surface card with muted 13p
 ### Layout
 - Editorial (explanatory content): no card wrapper, prose flows naturally
 - Card (bounded objects like a contact record, receipt): single raised card wraps the whole thing
-- Don't put tables here — output them as markdown in your response text
+- Tables in a normal prose answer can be markdown. Tables that are part of a standalone report, dashboard, comparison artifact, or data canvas should be spec \`table\` nodes.
 - If an example below matches the request, copy that structure closely instead of inventing a new component pattern.
 - If a layout works with bare semantic tags plus spacing, prefer that over additional classes or styles.
 
@@ -5262,7 +5306,7 @@ Contained mockups — mobile screens, chat threads, single cards, modals, small 
 ### 1. Interactive explainer — learn how something works
 *"Explain how compound interest works" / "Teach me about sorting algorithms"*
 
-Use \`widget_spec\` if the explainer is static or only needs metrics, tables, and simple charts. Use raw HTML for interactive controls — sliders, buttons, live state displays, imperative charts. Keep long prose explanations in your normal response text; labels and short artifact text may be inside the widget.
+Use a spec widget if the explainer is static or only needs metrics, tables, and simple charts. Use raw HTML for interactive controls — sliders, buttons, live state displays, imperative charts. Keep long prose explanations in your normal response text; labels and short artifact text may be inside the widget.
 
 \`\`\`html
 <div style="display: flex; align-items: center; gap: 12px; margin: 0 0 1.5rem;">
@@ -5286,18 +5330,18 @@ Use \`sendPrompt()\` to let users ask follow-ups: \`sendPrompt('What if I increa
 ### 2. Compare options — decision making
 *"Compare pricing and features of these products" / "Help me choose between React and Vue"*
 
-Use \`widget_spec\` with a \`grid\` of \`card\` nodes, \`badge\` nodes for differentiators, and a compact \`table\` only when rows are the clearest representation. Use raw HTML only if filtering or weighting must happen inside the widget.
+Use a spec widget with a \`grid\` of \`card\` nodes, \`badge\` nodes for differentiators, and a compact \`table\` only when rows are the clearest representation. Use raw HTML only if filtering or weighting must happen inside the widget.
 
 - Use \`repeat(auto-fit, minmax(160px, 1fr))\` for responsive columns
 - Each option in a card. Use badges for key differentiators.
 - Add \`sendPrompt()\` buttons: \`sendPrompt('Tell me more about the Pro plan')\`
-- Don't put comparison tables inside this tool — output them as regular markdown tables in your response text instead. The tool is for the visual card grid only.
+- Use spec tables for dense artifact comparisons. Use markdown tables only when the table is small and the answer is otherwise plain prose.
 - When one option is recommended or "most popular", accent its card with \`border: 2px solid var(--color-border-info)\` only (2px is deliberate — the only exception to the 0.5px rule, used to accent featured items) — keep the same background and border as the other cards. Add a small badge (e.g. "Most popular") above or inside the card header using \`background: var(--color-background-info); color: var(--color-text-info); font-size: 12px; padding: 4px 12px; border-radius: var(--border-radius-md)\`.
 
 ### 3. Data record — bounded UI object
 *"Show me a Salesforce contact card" / "Create a receipt for this order"*
 
-Use \`widget_spec\` with a single \`card\`, short \`text\` rows, \`badge\` for status, and \`divider\` for sections. Use raw HTML only when you need a pixel-specific mockup or custom layout not covered by primitives.
+Use a spec widget with a single \`card\`, short \`text\` rows, \`badge\` for status, and \`divider\` for sections. Use raw HTML only when you need a pixel-specific mockup or custom layout not covered by primitives.
 
 \`\`\`html
 <div style="background: var(--color-background-primary); border-radius: var(--border-radius-lg); border: 0.5px solid var(--color-border-tertiary); padding: 1rem 1.25rem;">
