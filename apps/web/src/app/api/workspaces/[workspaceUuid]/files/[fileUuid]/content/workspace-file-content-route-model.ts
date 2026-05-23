@@ -16,6 +16,8 @@ export interface WorkspaceFileContentRouteBody {
   storageUrl?: string;
 }
 
+export const WORKSPACE_FILE_CONTENT_ERROR = "Unable to replace file content.";
+
 export interface ResolvedWorkspaceFileContentRouteBody {
   content: string | null;
   mimeType: string | null;
@@ -52,4 +54,11 @@ export function isValidWorkspaceFileBinaryReplacement(input: {
     Number.isFinite(input.sizeBytes) &&
     input.sizeBytes >= 0
   );
+}
+
+export function resolveWorkspaceFileContentRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
 }

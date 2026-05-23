@@ -216,6 +216,15 @@ export const toAgentActivityActions = (
                 }
               : undefined,
           };
+        case "misconception":
+          if (!action.value) {
+            return null;
+          }
+          return {
+            kind: "misconception",
+            pending: action.pending,
+            value: action.value,
+          };
         case "search":
           if (!action.value) {
             return null;

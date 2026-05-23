@@ -1,37 +1,40 @@
 import { NextResponse } from "next/server";
-import { createApiLogger } from "@/lib/observability";
-import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
+import { resolveWorkspaceShareRouteContext } from "../workspace-share-route-context";
+import {
+  resolveWorkspaceShareTeamRouteError,
+  WORKSPACE_SHARE_TEAM_ERROR,
+} from "./workspace-share-team-model";
 import { handleWorkspaceShareTeamPost } from "./workspace-share-team-post";
 
 export async function POST(
   request: Request,
   context: { params: Promise<{ workspaceUuid: string }> }
 ) {
-  const user = await getSessionUser();
-  const apiLogger = createApiLogger({
-    request,
-    route: "/api/workspaces/[workspaceUuid]/share/team",
-    feature: "workspace-sharing",
-    userId: user?.id ?? null,
-  });
-  void apiLogger.requestStarted();
+  try {
+    const routeContext = await resolveWorkspaceShareRouteContext({
+      context,
+      request,
+      route: "/api/workspaces/[workspaceUuid]/share/team",
+    });
+    if ("response" in routeContext) {
+      return routeContext.response;
+    }
 
-  if (!user) {
-    void apiLogger.requestFailed(401, "Unauthorized");
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return await handleWorkspaceShareTeamPost({
+      apiLogger: routeContext.apiLogger,
+      request,
+      user: routeContext.user,
+      workspaceUuid: routeContext.workspaceUuid,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: resolveWorkspaceShareTeamRouteError(
+          error,
+          WORKSPACE_SHARE_TEAM_ERROR
+        ),
+      },
+      { status: 500 }
+    );
   }
-
-  const { workspaceUuid } = await context.params;
-  const canAccess = await ensureWorkspaceAccessForUser(user.id, workspaceUuid);
-  if (!canAccess) {
-    void apiLogger.requestFailed(403, "Forbidden", { workspaceUuid });
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  return await handleWorkspaceShareTeamPost({
-    apiLogger,
-    request,
-    user,
-    workspaceUuid,
-  });
 }

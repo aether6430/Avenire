@@ -5,7 +5,7 @@ export const metadata = buildPageMetadata({
   description:
     "Compare Avenire pricing for AI-powered learning, research, and interactive study workflows.",
   path: "/pricing",
-  title: "Simple pricing for serious study",
+  title: "Pricing",
 });
 
 export const dynamic = "force-static";

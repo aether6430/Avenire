@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -12,8 +14,17 @@ const { dataImportsSectionMock } = vi.hoisted(() => ({
   ),
 }));
 
-vi.mock("next/dynamic", () => ({
-  default: () => dataImportsSectionMock,
+vi.mock("@/components/settings/data-imports-surface", () => ({
+  DataImportsSurface: dataImportsSectionMock,
+}));
+
+vi.mock("@/components/settings/use-data-imports", () => ({
+  useDataImports: () => ({
+    destinationRuntime: {},
+    onBack: () => {},
+    onSelectSource: () => {},
+    selectedSource: null,
+  }),
 }));
 
 vi.mock("@avenire/ui/components/input", () => ({
@@ -28,6 +39,19 @@ vi.mock("@avenire/ui/components/kbd", () => ({
 }));
 
 describe("settings misc sections", () => {
+  const settingsMiscSectionsSource = readFileSync(
+    resolve(import.meta.dirname, "./settings-misc-sections.tsx"),
+    "utf8"
+  );
+  const settingsPanelContentSource = readFileSync(
+    resolve(import.meta.dirname, "./settings-panel-content.tsx"),
+    "utf8"
+  );
+  const removedShortcutsWrapperFile = resolve(
+    import.meta.dirname,
+    "./settings-shortcuts-tab-shell.tsx"
+  );
+
   it("renders the data imports and retention surface", () => {
     const html = renderToStaticMarkup(
       <SettingsDataSection
@@ -47,6 +71,15 @@ describe("settings misc sections", () => {
     expect(html).toContain('data-imports-section="1"');
     expect(html).toContain("Data Retention");
     expect(html).toContain("Deleted files and folders are moved to Trash");
+    expect(settingsMiscSectionsSource).toContain(
+      'from "@/components/settings/data-imports-surface"'
+    );
+    expect(settingsMiscSectionsSource).toContain(
+      'from "@/components/settings/use-data-imports"'
+    );
+    expect(settingsMiscSectionsSource).not.toContain(
+      'from "@/components/settings/data-imports-section"'
+    );
   });
 
   it("renders the explicit empty shortcuts search state", () => {
@@ -95,5 +128,21 @@ describe("settings misc sections", () => {
     expect(html).toContain(">Cmd<");
     expect(html).toContain(">K<");
     expect(html).toContain(">B<");
+  });
+
+  it("keeps shortcuts composition in settings-panel-content without the old tab-shell wrapper file", () => {
+    expect(settingsPanelContentSource).toContain(
+      'from "@/components/settings/settings-misc-sections"'
+    );
+    expect(settingsPanelContentSource).toContain(
+      'from "@/components/settings/use-settings-panel-shortcuts"'
+    );
+    expect(settingsPanelContentSource).toContain(
+      "function ReadySettingsShortcutsSection"
+    );
+    expect(settingsPanelContentSource).not.toContain(
+      'from "@/components/settings/settings-shortcuts-tab-shell"'
+    );
+    expect(existsSync(removedShortcutsWrapperFile)).toBe(false);
   });
 });

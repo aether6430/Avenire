@@ -85,7 +85,6 @@ describe("FilePreviewPanelSurface", () => {
             propertyDefinitions: [{ key: "topic", options: [], type: "text" }],
             query: "",
             setAudioLoadFailed: () => {},
-            setCircleToAiEnabled: () => {},
             setNoteCoverLinkDraft: () => {},
             setNoteCoverPickerTab: () => {},
             setNoteCoverUrl: () => {},

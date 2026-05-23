@@ -83,6 +83,7 @@ export function DashboardSidebarFooter({
         <DeferredNavUser
           activeWorkspaceId={runtime.workspaceUuid}
           invitations={runtime.invitations}
+          invitationsErrorMessage={runtime.invitationsErrorMessage}
           invitationsLoadFailed={runtime.invitationsLoadFailed}
           invitationsLoading={runtime.invitationsLoading}
           onAcceptInvitation={(invitationId) => {
@@ -98,6 +99,7 @@ export function DashboardSidebarFooter({
           user={user}
           workspaceActionStatus={runtime.workspaceActionStatus}
           workspaces={runtime.workspaces}
+          workspacesErrorMessage={runtime.workspacesErrorMessage}
           workspacesLoadFailed={runtime.workspacesLoadFailed}
           workspacesLoading={runtime.workspacesLoading}
         />

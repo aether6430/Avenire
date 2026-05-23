@@ -7,7 +7,6 @@ import { useCallback, useEffect, useState } from "react";
 import {
   resolveMobileSettingsTabs,
   resolveVisibleSettingsTabs,
-  shouldRedirectShortcutSettingsTab,
   shouldSyncSettingsLocalTab,
 } from "@/components/settings/settings-navigation-runtime-model";
 import type { TabKey } from "@/components/settings/settings-panel-model";
@@ -57,17 +56,6 @@ export function useSettingsPanelNavigation({
     },
     [currentTab, pathname, router, searchParams]
   );
-
-  useEffect(() => {
-    if (
-      shouldRedirectShortcutSettingsTab({
-        currentTab,
-        hasKeyboardDetected,
-      })
-    ) {
-      setTab("account");
-    }
-  }, [currentTab, hasKeyboardDetected, setTab]);
 
   const visibleTabs = resolveVisibleSettingsTabs(hasKeyboardDetected);
   const mobileTabs = resolveMobileSettingsTabs(visibleTabs);

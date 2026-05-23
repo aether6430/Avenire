@@ -18,6 +18,8 @@ describe("rolling reasoning", () => {
 
     expect(html).toContain("Reasoning");
     expect(html).toContain("ready");
+    expect(html).toContain('hidden=""');
+    expect(html).toContain("whitespace-pre-wrap");
     expect(html).toContain("Step one");
     expect(html).toContain("Step two");
   });

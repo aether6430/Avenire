@@ -5,14 +5,28 @@ import {
   userCanAccessWorkspace,
   userCanEditFolder,
 } from "@/lib/file-data";
-import { normalizeExtensionRouteUuidInput } from "./extension-route-model";
+import {
+  resolveExtensionPresetId,
+  resolveExtensionWorkspaceUuid,
+} from "./extension-route-model";
 
 export async function resolveAccessibleExtensionWorkspaceContext(input: {
   userId: string;
   workspaceUuid: string;
 }) {
-  const workspaceUuid = normalizeExtensionRouteUuidInput(input.workspaceUuid);
-  const canAccess = await userCanAccessWorkspace(input.userId, workspaceUuid);
+  const workspaceUuid = resolveExtensionWorkspaceUuid(input.workspaceUuid);
+  if (!workspaceUuid.success) {
+    return {
+      success: false as const,
+      error: workspaceUuid.error,
+      status: 400,
+    };
+  }
+
+  const canAccess = await userCanAccessWorkspace(
+    input.userId,
+    workspaceUuid.value
+  );
   if (!canAccess) {
     return {
       success: false as const,
@@ -23,7 +37,7 @@ export async function resolveAccessibleExtensionWorkspaceContext(input: {
 
   const summaries = await listWorkspacesForUser(input.userId);
   const workspace = summaries.find(
-    (entry) => entry.workspaceId === workspaceUuid
+    (entry) => entry.workspaceId === workspaceUuid.value
   );
   if (!workspace) {
     return {
@@ -36,7 +50,7 @@ export async function resolveAccessibleExtensionWorkspaceContext(input: {
   return {
     success: true as const,
     workspace,
-    workspaceUuid,
+    workspaceUuid: workspaceUuid.value,
   };
 }
 
@@ -94,9 +108,17 @@ export async function getOwnedExtensionDestinationPreset(input: {
   presetId: string;
   userId: string;
 }) {
-  const presetId = normalizeExtensionRouteUuidInput(input.presetId);
+  const presetId = resolveExtensionPresetId(input.presetId);
+  if (!presetId.success) {
+    return {
+      success: false as const,
+      error: presetId.error,
+      status: 400,
+    };
+  }
+
   const destination = await getExtensionDestinationPreset({
-    presetId,
+    presetId: presetId.value,
     userId: input.userId,
   });
   if (!destination) {
@@ -110,6 +132,6 @@ export async function getOwnedExtensionDestinationPreset(input: {
   return {
     success: true as const,
     destination,
-    presetId,
+    presetId: presetId.value,
   };
 }

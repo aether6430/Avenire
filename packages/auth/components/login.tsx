@@ -226,7 +226,9 @@ export function LoginForm({
                 type="button"
                 variant="outline"
               >
-                {isJoiningWaitlist ? "Joining waitlist..." : "Join waitlist"}
+                {isJoiningWaitlist
+                  ? "Joining the waitlist..."
+                  : "Join the waitlist"}
               </Button>
             ) : null}
           </div>

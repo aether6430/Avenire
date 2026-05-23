@@ -2,13 +2,26 @@ import { auth } from "@avenire/auth/server";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { getUserUsageOverview } from "@/lib/billing-usage";
+import {
+  BILLING_USAGE_LOAD_ERROR,
+  resolveBillingUsageRouteError,
+} from "./billing-usage-route-model";
 
 export async function handleBillingUsageGet() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const usage = await getUserUsageOverview(session.user.id);
-  return NextResponse.json({ usage });
+    const usage = await getUserUsageOverview(session.user.id);
+    return NextResponse.json({ usage });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: resolveBillingUsageRouteError(error, BILLING_USAGE_LOAD_ERROR),
+      },
+      { status: 500 }
+    );
+  }
 }

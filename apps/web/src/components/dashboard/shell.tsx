@@ -6,13 +6,14 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { Suspense, useEffect, useState } from "react";
 import { DashboardSidebar } from "@/components/dashboard/app-sidebar";
+import { useCommandPalette } from "@/components/dashboard/use-command-palette";
 import { WorkspacePaneRenderer } from "@/components/dashboard/workspace-pane-renderer";
 import { ChatPet } from "@/components/pets/chat-pet";
 
-const DeferredCommandPalette = dynamic(
+const DeferredCommandPaletteSurface = dynamic(
   () =>
-    import("@/components/dashboard/command-palette").then((module) => ({
-      default: module.CommandPalette,
+    import("@/components/dashboard/command-palette-surface").then((module) => ({
+      default: module.CommandPaletteSurface,
     })),
   { loading: () => null }
 );
@@ -43,22 +44,6 @@ const DeferredUploadActivityPanel = dynamic(
   { loading: () => null }
 );
 
-const DeferredSettingsDialog = dynamic(
-  () =>
-    import("@/components/settings/settings-dialog").then((module) => ({
-      default: module.SettingsDialog,
-    })),
-  { loading: () => null }
-);
-
-const DeferredTrashDialog = dynamic(
-  () =>
-    import("@/components/dashboard/trash-dialog").then((module) => ({
-      default: module.TrashDialog,
-    })),
-  { loading: () => null }
-);
-
 const DeferredDashboardOverlayHost = dynamic(
   () =>
     import("@/components/dashboard/dashboard-overlay-host").then((module) => ({
@@ -66,6 +51,27 @@ const DeferredDashboardOverlayHost = dynamic(
     })),
   { loading: () => null }
 );
+
+function ReadyCommandPalette({
+  workspaceUuid,
+  workspaces = [],
+}: {
+  workspaceUuid?: string;
+  workspaces?: Array<{
+    logo: string | null;
+    workspaceId: string;
+    organizationId: string;
+    rootFolderId: string;
+    name: string;
+  }>;
+}) {
+  const runtime = useCommandPalette({
+    workspaceUuid,
+    workspaces,
+  });
+
+  return <DeferredCommandPaletteSurface runtime={runtime} />;
+}
 
 export interface DashboardLayoutProps {
   activeChatSlug?: string;
@@ -179,7 +185,7 @@ export function DashboardLayout({
               currentUserName={user?.name}
               workspaceUuid={activeWorkspace?.workspaceId}
             />
-            <DeferredCommandPalette
+            <ReadyCommandPalette
               workspaces={initialWorkspaces}
               workspaceUuid={activeWorkspace?.workspaceId}
             />

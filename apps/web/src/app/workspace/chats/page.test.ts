@@ -1,32 +1,36 @@
+import { Suspense } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-const { redirectMock } = vi.hoisted(() => ({
-  redirectMock: vi.fn((href: string) => {
-    throw new Error(`redirect:${href}`);
-  }),
+const { workspaceChatNewPageClientMock, workspaceRoutePlaceholderMock } =
+  vi.hoisted(() => ({
+    workspaceChatNewPageClientMock: vi.fn(() => null),
+    workspaceRoutePlaceholderMock: vi.fn(() => null),
+  }));
+
+vi.mock("@/components/dashboard/workspace-chat-new-page-client", () => ({
+  WorkspaceChatNewPageClient: workspaceChatNewPageClientMock,
 }));
 
-vi.mock("next/navigation", () => ({
-  redirect: redirectMock,
+vi.mock("@/components/dashboard/workspace-route-placeholder", () => ({
+  WorkspaceRoutePlaceholder: workspaceRoutePlaceholderMock,
 }));
 
-import WorkspaceChatsPage from "./page";
+import WorkspaceChatsPage, { metadata } from "./page";
 
 describe("WorkspaceChatsPage", () => {
-  it("redirects the legacy empty chats route to the canonical new-method route", async () => {
-    await expect(
-      WorkspaceChatsPage({
-        searchParams: Promise.resolve({
-          overlay: "settings",
-          settingsTab: "data",
-        }),
-      })
-    ).rejects.toThrow(
-      "redirect:/workspace/chats/new?overlay=settings&settingsTab=data"
-    );
+  it("keeps page metadata aligned to the live Methods product surface", () => {
+    expect(metadata.title).toBe("Methods — Avenire");
+  });
 
-    expect(redirectMock).toHaveBeenCalledWith(
-      "/workspace/chats/new?overlay=settings&settingsTab=data"
-    );
+  it("renders the shared new-method client behind the loading placeholder", () => {
+    const element = WorkspaceChatsPage();
+
+    expect(element.type).toBe(Suspense);
+    expect(element.props.children.type).toBe(workspaceChatNewPageClientMock);
+    expect(element.props.children.props).toEqual({});
+    expect(element.props.fallback.type).toBe(workspaceRoutePlaceholderMock);
+    expect(element.props.fallback.props).toEqual({
+      label: "Loading Method...",
+    });
   });
 });

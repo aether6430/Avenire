@@ -6,6 +6,7 @@ import {
   createAvatarUploadStartState,
   resolveAvatarFallbackInitials,
   resolveAvatarPreviewSource,
+  resolveAvatarSeed,
   resolveDisplayAvatar,
   resolveUploadedAvatarUrl,
 } from "@/components/settings/settings-avatar-runtime-model";
@@ -25,7 +26,7 @@ describe("settings avatar runtime model", () => {
         image: null,
         name: "Owner",
       })
-    ).toContain("Owner");
+    ).toBe("");
 
     expect(
       resolveDisplayAvatar({
@@ -43,6 +44,14 @@ describe("settings avatar runtime model", () => {
         sessionUser: { email: "owner@example.com" },
       })
     ).toBe("https://cdn.avenire.app/profile.png");
+    expect(
+      resolveDisplayAvatar({
+        avatarPreview: "",
+        profileImage: "",
+        profileName: "Owner",
+        sessionUser: { email: "owner@example.com" },
+      })
+    ).toBe("");
 
     expect(
       resolveAvatarFallbackInitials({
@@ -56,6 +65,12 @@ describe("settings avatar runtime model", () => {
         sessionUser: { name: "Ada" },
       })
     ).toBe("AD");
+    expect(
+      resolveAvatarSeed({
+        profileName: "",
+        sessionUser: { email: "owner@example.com", name: "Ada" },
+      })
+    ).toBe("Ada");
   });
 
   it("derives upload start, success, missing-url, and finish states", () => {

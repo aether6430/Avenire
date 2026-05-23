@@ -35,6 +35,14 @@ describe("flashcards sidebar panel client", () => {
           }),
           { status: 200 }
         )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: "flashcards sidebar offline",
+          }),
+          { status: 503 }
+        )
       );
 
     await expect(loadFlashcardsSidebarSets()).resolves.toEqual([
@@ -59,8 +67,12 @@ describe("flashcards sidebar panel client", () => {
     ).resolves.toEqual({
       setId: null,
       status:
-        "The mindset set was created, but it could not be opened automatically.",
+        "The Mindset Set was created, but it could not be opened automatically.",
     });
+
+    await expect(loadFlashcardsSidebarSets()).rejects.toThrow(
+      "flashcards sidebar offline"
+    );
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
@@ -78,6 +90,13 @@ describe("flashcards sidebar panel client", () => {
           title: "Thermodynamics",
         }),
         method: "POST",
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      "/api/flashcards/sets",
+      expect.objectContaining({
+        cache: "no-store",
       })
     );
   });

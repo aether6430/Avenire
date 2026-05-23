@@ -101,6 +101,7 @@ export function useSettingsWorkspaceManagement({
     workspaceIconStatus: icon.workspaceIconStatus,
     workspaceIconUploading: icon.workspaceIconUploading,
     workspaceMembers: members.workspaceMembers,
+    workspaceMembersErrorMessage: members.workspaceMembersErrorMessage,
     workspaceMembersLoadFailed: members.workspaceMembersLoadFailed,
     workspaceMembersLoading: members.workspaceMembersLoading,
     workspaceName,
@@ -110,7 +111,12 @@ export function useSettingsWorkspaceManagement({
     workspaceUsageLoading: usage.workspaceUsageLoading,
     workspaceUsageStatus: usage.workspaceUsageStatus,
     workspaces,
+    workspacesErrorMessage: directory.workspacesErrorMessage,
     workspacesLoadFailed,
     workspacesLoading,
   };
 }
+
+export type SettingsWorkspaceManagementRuntime = ReturnType<
+  typeof useSettingsWorkspaceManagement
+>;

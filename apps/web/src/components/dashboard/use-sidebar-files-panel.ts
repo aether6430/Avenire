@@ -11,16 +11,18 @@ import { useSidebarFilesPanelTree } from "@/components/dashboard/use-sidebar-fil
 import { useHaptics } from "@/hooks/use-haptics";
 import { commandPaletteActions } from "@/stores/commandPaletteStore";
 import { useFilesPinsStore } from "@/stores/filesPinsStore";
-import { filesUiActions } from "@/stores/filesUiStore";
+import { type FilesUiIntent, filesUiActions } from "@/stores/filesUiStore";
 
 export function useSidebarFilesPanel({
   currentFileId,
   currentFolderId,
+  emitGlobalFileIntent,
   navigateToFilesRoot,
   workspaceUuid,
 }: {
   currentFileId?: string;
   currentFolderId?: string;
+  emitGlobalFileIntent?: (intent: FilesUiIntent) => Promise<void> | void;
   navigateToFilesRoot: (options?: { openInNewPane?: boolean }) => Promise<void>;
   workspaceUuid: string | null;
 }) {
@@ -59,6 +61,7 @@ export function useSidebarFilesPanel({
   );
   const selectedItemId = currentFileId ?? currentFolderId;
   const filesTreeState = getSidebarFilesTreeState({
+    errorMessage: tree.errorMessage,
     filteredFolderCount: filteredTree.folders.length,
     folderCount: tree.folderTree.length,
     loadFailed: tree.loadFailed,
@@ -110,19 +113,48 @@ export function useSidebarFilesPanel({
     });
   }, []);
 
+  const emitFileIntentAfterNavigation = useCallback(
+    (intent: FilesUiIntent) => {
+      if (workspaceUuid && currentFolderId) {
+        navigation.navigateToFolder(currentFolderId, workspaceUuid);
+        window.setTimeout(() => {
+          filesUiActions.emitIntent(intent);
+        }, 0);
+        triggerHaptic("selection");
+        return;
+      }
+
+      if (emitGlobalFileIntent) {
+        void emitGlobalFileIntent(intent);
+        triggerHaptic("selection");
+        return;
+      }
+
+      window.setTimeout(() => {
+        filesUiActions.emitIntent(intent);
+      }, 0);
+      triggerHaptic("selection");
+    },
+    [
+      currentFolderId,
+      emitGlobalFileIntent,
+      navigation,
+      triggerHaptic,
+      workspaceUuid,
+    ]
+  );
+
   const createNewNote = useCallback(() => {
-    filesUiActions.emitIntent("newNote");
-    triggerHaptic("selection");
-  }, [triggerHaptic]);
+    emitFileIntentAfterNavigation("newNote");
+  }, [emitFileIntentAfterNavigation]);
 
   const importLink = useCallback(() => {
-    filesUiActions.emitIntent("importLink");
-    triggerHaptic("selection");
-  }, [triggerHaptic]);
+    emitFileIntentAfterNavigation("importLink");
+  }, [emitFileIntentAfterNavigation]);
 
   const uploadFile = useCallback(() => {
-    filesUiActions.emitIntent("uploadFile");
-  }, []);
+    emitFileIntentAfterNavigation("uploadFile");
+  }, [emitFileIntentAfterNavigation]);
 
   return {
     createNewNote,

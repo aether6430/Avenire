@@ -73,6 +73,55 @@ describe("/api/flashcards/sets/[setId] route", () => {
     expect(deleteResponse.status).toBe(401);
   });
 
+  it.each([
+    {
+      body: undefined,
+      method: "GET" as const,
+    },
+    {
+      body: { title: "Mindset set" },
+      method: "PATCH" as const,
+    },
+    {
+      body: undefined,
+      method: "DELETE" as const,
+    },
+  ])("fails closed from $method when workspace context lookup throws before flashcard set route handling begins", async ({
+    body,
+    method,
+  }) => {
+    getWorkspaceContextForUserMock.mockRejectedValueOnce(
+      new Error("flashcard set auth offline")
+    );
+
+    const response =
+      method === "GET"
+        ? await GET(new Request("http://localhost:3003"), {
+            params: Promise.resolve({ setId: validSetId }),
+          })
+        : method === "PATCH"
+          ? await PATCH(
+              new Request("http://localhost:3003", {
+                body: JSON.stringify(body),
+                method: "PATCH",
+              }),
+              { params: Promise.resolve({ setId: validSetId }) }
+            )
+          : await DELETE(new Request("http://localhost:3003"), {
+              params: Promise.resolve({ setId: validSetId }),
+            });
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "flashcard set auth offline",
+    });
+    expect(getFlashcardSetForUserMock).not.toHaveBeenCalled();
+    expect(updateFlashcardSetForUserMock).not.toHaveBeenCalled();
+    expect(archiveFlashcardSetForUserMock).not.toHaveBeenCalled();
+    expect(invalidateFlashcardReadCachesMock).not.toHaveBeenCalled();
+    expect(publishWorkspaceStreamEventMock).not.toHaveBeenCalled();
+  });
+
   it("loads a set and returns 404 when it does not exist", async () => {
     getWorkspaceContextForUserMock.mockResolvedValue({
       user: { id: "user-1" },
@@ -99,6 +148,25 @@ describe("/api/flashcards/sets/[setId] route", () => {
     expect(okResponse.status).toBe(200);
     await expect(okResponse.json()).resolves.toEqual({
       set: { id: validSetId, title: "Mindset set" },
+    });
+  });
+
+  it("returns a 500 json error when set loading throws", async () => {
+    getWorkspaceContextForUserMock.mockResolvedValue({
+      user: { id: "user-1" },
+      workspace: { workspaceId: "workspace-1" },
+    });
+    getFlashcardSetForUserMock.mockRejectedValueOnce(
+      new Error("set detail offline")
+    );
+
+    const response = await GET(new Request("http://localhost:3003"), {
+      params: Promise.resolve({ setId: validSetId }),
+    });
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "set detail offline",
     });
   });
 
@@ -135,7 +203,7 @@ describe("/api/flashcards/sets/[setId] route", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      error: "Provide at least one mindset set field: title, description, tags",
+      error: "Provide at least one Mindset Set field: title, description, tags",
     });
 
     updateFlashcardSetForUserMock.mockResolvedValue({
@@ -205,6 +273,31 @@ describe("/api/flashcards/sets/[setId] route", () => {
     });
   });
 
+  it("returns a 500 json error when a set update throws before invalidation", async () => {
+    getWorkspaceContextForUserMock.mockResolvedValue({
+      user: { id: "user-1" },
+      workspace: { workspaceId: "workspace-1" },
+    });
+    updateFlashcardSetForUserMock.mockRejectedValueOnce(
+      new Error("set update offline")
+    );
+
+    const response = await PATCH(
+      new Request("http://localhost:3003", {
+        body: JSON.stringify({ title: "Mindset set" }),
+        method: "PATCH",
+      }),
+      { params: Promise.resolve({ setId: validSetId }) }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "set update offline",
+    });
+    expect(invalidateFlashcardReadCachesMock).not.toHaveBeenCalled();
+    expect(publishWorkspaceStreamEventMock).not.toHaveBeenCalled();
+  });
+
   it("archives a set and publishes invalidation events", async () => {
     getWorkspaceContextForUserMock.mockResolvedValue({
       user: { id: "user-1" },
@@ -241,5 +334,26 @@ describe("/api/flashcards/sets/[setId] route", () => {
       type: "flashcards.invalidate",
       workspaceUuid: "workspace-1",
     });
+  });
+
+  it("returns a 500 json error when set archival throws before invalidation", async () => {
+    getWorkspaceContextForUserMock.mockResolvedValue({
+      user: { id: "user-1" },
+      workspace: { workspaceId: "workspace-1" },
+    });
+    archiveFlashcardSetForUserMock.mockRejectedValueOnce(
+      new Error("set archive offline")
+    );
+
+    const response = await DELETE(new Request("http://localhost:3003"), {
+      params: Promise.resolve({ setId: validSetId }),
+    });
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "set archive offline",
+    });
+    expect(invalidateFlashcardReadCachesMock).not.toHaveBeenCalled();
+    expect(publishWorkspaceStreamEventMock).not.toHaveBeenCalled();
   });
 });

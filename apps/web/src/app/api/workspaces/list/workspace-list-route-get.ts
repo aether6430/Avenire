@@ -4,12 +4,12 @@ import { getSessionUser } from "@/lib/workspace";
 import { resolveWorkspaceDirectoryRouteError } from "../workspace-directory-route-model";
 
 export async function handleWorkspaceListRouteGet() {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
+    const user = await getSessionUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const workspaces = await listWorkspacesForUser(user.id);
     return NextResponse.json({ workspaces });
   } catch (error) {

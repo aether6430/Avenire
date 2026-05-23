@@ -6,6 +6,7 @@ import {
   resolveChatWorkspaceInitialMessages,
   resolveChatWorkspaceMeta,
   shouldLoadChatShareSuggestions,
+  shouldRenderStreamingChatRouteFallback,
 } from "@/components/dashboard/chat-workspace-model";
 
 describe("chat workspace model", () => {
@@ -26,6 +27,12 @@ describe("chat workspace model", () => {
         pendingMessages,
       })
     ).toBe(pendingMessages);
+    expect(
+      resolveChatWorkspaceInitialMessages({
+        initialMessages: [],
+        pendingMessages: null,
+      })
+    ).toEqual([]);
 
     expect(
       buildChatWorkspaceRoute({
@@ -96,6 +103,52 @@ describe("chat workspace model", () => {
         currentChatSlug: "chat-123",
         isShareDialogOpen: false,
         shareEmail: "ada@example.com",
+      })
+    ).toBe(false);
+  });
+
+  it("keeps a just-created chat route rendered while its stream is still active", () => {
+    expect(
+      shouldRenderStreamingChatRouteFallback({
+        handoffMessageCount: 0,
+        hasChat: false,
+        isError: false,
+        isPending: true,
+        isStreaming: true,
+        slug: "chat-new",
+      })
+    ).toBe(true);
+
+    expect(
+      shouldRenderStreamingChatRouteFallback({
+        handoffMessageCount: 2,
+        hasChat: false,
+        isError: false,
+        isPending: true,
+        isStreaming: false,
+        slug: "chat-new",
+      })
+    ).toBe(true);
+
+    expect(
+      shouldRenderStreamingChatRouteFallback({
+        handoffMessageCount: 0,
+        hasChat: false,
+        isError: true,
+        isPending: false,
+        isStreaming: true,
+        slug: "chat-new",
+      })
+    ).toBe(false);
+
+    expect(
+      shouldRenderStreamingChatRouteFallback({
+        handoffMessageCount: 0,
+        hasChat: false,
+        isError: false,
+        isPending: true,
+        isStreaming: true,
+        slug: "new",
       })
     ).toBe(false);
   });

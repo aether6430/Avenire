@@ -64,11 +64,11 @@ export function WorkspacePaneRenderer() {
       handlePaneDragOver={runtime.handlePaneDragOver}
       handlePaneDragStart={runtime.handlePaneDragStart}
       handlePaneDrop={runtime.handlePaneDrop}
+      handlePaneLayout={runtime.handlePaneLayout}
+      handleRowLayout={runtime.handleRowLayout}
       openPane={runtime.openPane}
       paneCount={runtime.paneCount}
       paneRows={runtime.paneRows}
-      startPaneResize={runtime.startPaneResize}
-      startRowResize={runtime.startRowResize}
     />
   );
 }

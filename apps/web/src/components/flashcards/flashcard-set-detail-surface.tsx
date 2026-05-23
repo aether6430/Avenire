@@ -108,7 +108,7 @@ export function FlashcardSetDetailSurface({
                     </h1>
                     <p className="text-muted-foreground text-sm">
                       {set.description ??
-                        "No description set for this mindset set."}
+                        "No description set for this Mindset Set."}
                     </p>
                   </div>
                   {drillFilters.length > 0 ? (
@@ -188,45 +188,37 @@ export function FlashcardSetDetailSurface({
             </Button>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-md bg-secondary/40 px-4 py-3">
-              <p className="text-[11px] text-muted-foreground uppercase tracking-[0.15em]">
-                Mindset Set Profile
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Badge className="rounded-md" variant="outline">
-                  {set.sourceType === "ai-generated"
-                    ? "AI-generated"
-                    : "Manual"}
-                </Badge>
-                <Badge className="rounded-md" variant="outline">
-                  {setEnrollmentLabel}
-                </Badge>
-                <Badge className="rounded-md" variant="outline">
-                  {set.cardCount} cards
-                </Badge>
-              </div>
-              <p className="mt-3 text-muted-foreground text-xs">
-                {set.stateCounts.killed} killed ·{" "}
-                {set.stateCounts.learning + set.stateCounts.relearning} in
-                progress
-              </p>
-            </div>
-            <div className="rounded-md bg-secondary/40 px-4 py-3">
-              <p className="text-[11px] text-muted-foreground uppercase tracking-[0.15em]">
-                Study context
-              </p>
-              <div className="mt-3 space-y-2 text-muted-foreground text-xs">
-                <p>{set.reviewCountToday} studied today</p>
-                <p>{set.reviewCount7d} reviews in the last 7 days</p>
-                <p>
-                  {set.lastStudiedAt
-                    ? `Last studied ${new Date(set.lastStudiedAt).toLocaleDateString()}`
-                    : "Not studied yet"}
-                </p>
-                <p>Updated {new Date(set.updatedAt).toLocaleDateString()}</p>
-              </div>
-            </div>
+          <div className="flex flex-wrap gap-2 border-border/50 border-y py-3">
+            <Badge className="rounded-md" variant="outline">
+              {set.sourceType === "ai-generated" ? "AI-generated" : "Manual"}
+            </Badge>
+            <Badge className="rounded-md" variant="outline">
+              {setEnrollmentLabel}
+            </Badge>
+            <Badge className="rounded-md" variant="outline">
+              {set.cardCount} cards
+            </Badge>
+            <Badge className="rounded-md" variant="outline">
+              {set.stateCounts.killed} killed
+            </Badge>
+            <Badge className="rounded-md" variant="outline">
+              {set.stateCounts.learning + set.stateCounts.relearning} in
+              progress
+            </Badge>
+            <Badge className="rounded-md" variant="outline">
+              {set.reviewCountToday} studied today
+            </Badge>
+            <Badge className="rounded-md" variant="outline">
+              {set.reviewCount7d} reviews in 7d
+            </Badge>
+            <Badge className="rounded-md" variant="outline">
+              {set.lastStudiedAt
+                ? `Last ${new Date(set.lastStudiedAt).toLocaleDateString()}`
+                : "Not studied yet"}
+            </Badge>
+            <Badge className="rounded-md" variant="outline">
+              Updated {new Date(set.updatedAt).toLocaleDateString()}
+            </Badge>
           </div>
 
           {studyOpen ? (

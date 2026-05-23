@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { SettingsSecuritySection } from "@/components/settings/settings-security-section";
@@ -12,6 +14,7 @@ function createRuntime(
     dangerStatus: null,
     deleteAccount: async () => {},
     passkeys: [],
+    passkeysErrorMessage: null,
     passkeysLoadFailed: false,
     passkeysLoading: false,
     passkeysStatus: null,
@@ -25,6 +28,19 @@ function createRuntime(
     ...overrides,
   } as unknown as SettingsPanelRuntime;
 }
+
+const settingsPanelContentFile = resolve(
+  import.meta.dirname,
+  "./settings-panel-content.tsx"
+);
+const passkeysHookFile = resolve(
+  import.meta.dirname,
+  "./use-settings-panel-passkeys.ts"
+);
+const removedWrapperFile = resolve(
+  import.meta.dirname,
+  "./settings-security-tab-shell.tsx"
+);
 
 describe("SettingsSecuritySection", () => {
   it("renders an explicit loading state while passkeys are still resolving", () => {
@@ -41,11 +57,14 @@ describe("SettingsSecuritySection", () => {
   it("renders an explicit failure state when passkeys cannot be loaded", () => {
     const html = renderToStaticMarkup(
       <SettingsSecuritySection
-        runtime={createRuntime({ passkeysLoadFailed: true })}
+        runtime={createRuntime({
+          passkeysErrorMessage: "passkeys backend offline",
+          passkeysLoadFailed: true,
+        })}
       />
     );
 
-    expect(html).toContain("Unable to load passkeys.");
+    expect(html).toContain("passkeys backend offline");
     expect(html).not.toContain("No passkeys registered.");
   });
 
@@ -92,5 +111,36 @@ describe("SettingsSecuritySection", () => {
     );
 
     expect(html).toContain("No passkeys registered.");
+  });
+
+  it("keeps security composition in settings-panel-content without the old tab-shell wrapper file", () => {
+    const settingsPanelContentSource = readFileSync(
+      settingsPanelContentFile,
+      "utf8"
+    );
+    const passkeysHookSource = readFileSync(passkeysHookFile, "utf8");
+
+    expect(settingsPanelContentSource).toContain(
+      'from "@/components/settings/settings-security-section"'
+    );
+    expect(settingsPanelContentSource).toContain(
+      'from "@/components/settings/use-settings-panel-account-danger"'
+    );
+    expect(settingsPanelContentSource).toContain(
+      'from "@/components/settings/use-settings-panel-passkeys"'
+    );
+    expect(settingsPanelContentSource).toContain(
+      "function ReadySettingsSecuritySection"
+    );
+    expect(settingsPanelContentSource).not.toContain(
+      'from "@/components/settings/settings-security-tab-shell"'
+    );
+    expect(passkeysHookSource).toContain("response = await fetch");
+    expect(passkeysHookSource).toContain("resolveRemovePasskeyStatus({");
+    expect(passkeysHookSource).toContain("error: payload.error");
+    expect(passkeysHookSource).not.toContain(
+      "setPasskeysStatus(resolveRemovePasskeyStatus(response.ok))"
+    );
+    expect(existsSync(removedWrapperFile)).toBe(false);
   });
 });

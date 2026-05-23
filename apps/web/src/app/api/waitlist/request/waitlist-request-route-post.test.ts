@@ -150,4 +150,30 @@ describe("waitlist request route post", () => {
       error: "db offline",
     });
   });
+
+  it("fails closed when the request route wrapper throws before the handler can finish", async () => {
+    vi.resetModules();
+
+    const handleWaitlistRequestPostMock = vi
+      .fn()
+      .mockRejectedValue(new Error("waitlist wrapper offline"));
+
+    vi.doMock("./waitlist-request-route-post", () => ({
+      handleWaitlistRequestPost: handleWaitlistRequestPostMock,
+    }));
+
+    const { POST } = await import("./route");
+
+    const response = await POST(
+      new Request("https://avenire.space/api/waitlist/request", {
+        body: JSON.stringify({ email: "person@example.com" }),
+        method: "POST",
+      })
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "waitlist wrapper offline",
+    });
+  });
 });

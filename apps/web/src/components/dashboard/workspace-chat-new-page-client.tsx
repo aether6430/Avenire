@@ -19,7 +19,7 @@ export function WorkspaceChatNewPageClient({
   if (status === "error") {
     return (
       <WorkspaceRoutePlaceholder
-        label="Unable to load method."
+        label="Unable to load Method."
         pending={false}
       />
     );
@@ -35,7 +35,7 @@ export function WorkspaceChatNewPageClient({
   }
 
   if (!(status === "ready" && user && workspace)) {
-    return <WorkspaceRoutePlaceholder label="Loading method..." />;
+    return <WorkspaceRoutePlaceholder label="Loading Method..." />;
   }
 
   return (

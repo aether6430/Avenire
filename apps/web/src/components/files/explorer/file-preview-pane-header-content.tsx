@@ -28,7 +28,6 @@ import {
   ShareNetwork as Share2,
   SlidersHorizontal,
   Trash as Trash2,
-  MagicWand as WandSparkles,
   X,
 } from "@phosphor-icons/react";
 import { DownloadSimple as ArrowDownToLine } from "@phosphor-icons/react/DownloadSimple";
@@ -39,10 +38,7 @@ import type {
   FileRecord,
   FolderRecord,
 } from "@/components/files/explorer/shared";
-import {
-  canUseFilePreviewPaneCircleToAi,
-  getFilePreviewPaneHeaderMoveTargets,
-} from "./file-preview-pane-header-model";
+import { getFilePreviewPaneHeaderMoveTargets } from "./file-preview-pane-header-model";
 import { toUpdatedLabel } from "./shared";
 
 function isRenderableIconUrl(icon: string) {
@@ -112,7 +108,6 @@ interface FilePreviewPaneHeaderActionsProps {
   activeFileSourceUrl: string;
   allFolders: FolderRecord[];
   canClosePane: boolean;
-  circleToAiEnabled: boolean;
   closePane: (paneId: string) => void;
   currentInfoEntries: ExplorerSurfaceInfoEntry[];
   deleteContextActionItems: (itemId: string, kind: "file" | "folder") => void;
@@ -127,9 +122,7 @@ interface FilePreviewPaneHeaderActionsProps {
   ) => void;
   hardReingestContextActionItems: (itemId: string) => void;
   isCurrentPinned: boolean;
-  isImage: boolean;
   isPdf: boolean;
-  isVideo: boolean;
   moveContextActionItemsToFolder: (
     itemId: string,
     kind: "file" | "folder",
@@ -148,7 +141,6 @@ interface FilePreviewPaneHeaderActionsProps {
   openRenameFileDialog: (file: FileRecord) => void;
   paneId: string;
   pdfInvertColors: boolean;
-  setCircleToAiEnabled: Dispatch<SetStateAction<boolean>>;
   setPdfInvertColors: Dispatch<SetStateAction<boolean>>;
   toggleCurrentPinnedItem: () => void;
 }
@@ -158,7 +150,6 @@ export function FilePreviewPaneHeaderActions({
   activeFileSourceUrl,
   allFolders,
   canClosePane,
-  circleToAiEnabled,
   closePane,
   currentInfoEntries,
   deleteContextActionItems,
@@ -166,9 +157,7 @@ export function FilePreviewPaneHeaderActions({
   duplicateContextActionItems,
   hardReingestContextActionItems,
   isCurrentPinned,
-  isImage,
   isPdf,
-  isVideo,
   moveContextActionItemsToFolder,
   openFileShareDialog,
   openPane,
@@ -176,7 +165,6 @@ export function FilePreviewPaneHeaderActions({
   openRenameFileDialog,
   paneId,
   pdfInvertColors,
-  setCircleToAiEnabled,
   setPdfInvertColors,
   toggleCurrentPinnedItem,
 }: FilePreviewPaneHeaderActionsProps) {
@@ -206,20 +194,6 @@ export function FilePreviewPaneHeaderActions({
           align="end"
           className="w-56 border border-border/60 bg-background shadow-md"
         >
-          {canUseFilePreviewPaneCircleToAi({
-            isImage,
-            isPdf,
-            isVideo,
-          }) ? (
-            <DropdownMenuItem
-              onClick={() => {
-                setCircleToAiEnabled((current) => !current);
-              }}
-            >
-              <WandSparkles className="size-3.5" />
-              {circleToAiEnabled ? "Stop Circle to AI" : "Circle to AI"}
-            </DropdownMenuItem>
-          ) : null}
           {isPdf ? (
             <DropdownMenuCheckboxItem
               checked={pdfInvertColors}

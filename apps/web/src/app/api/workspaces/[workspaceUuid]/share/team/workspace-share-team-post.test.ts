@@ -122,6 +122,8 @@ describe("workspace share team post", () => {
       workspaceUuid: "workspace-1",
     });
     expect(missingResponse.status).toBe(404);
+    expect(sendWorkspaceShareEmailMock).not.toHaveBeenCalled();
+    expect(resolveAppBaseUrlMock).not.toHaveBeenCalled();
 
     listMembersMock.mockResolvedValueOnce({
       members: [
@@ -152,6 +154,42 @@ describe("workspace share team post", () => {
     await expect(forbiddenResponse.json()).resolves.toEqual({
       error: "Only admins can share this workspace",
     });
+    expect(sendWorkspaceShareEmailMock).not.toHaveBeenCalled();
+    expect(resolveAppBaseUrlMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a 500 json error when team recipient lookup throws before queueing email work", async () => {
+    const apiLogger = createApiLoggerStub();
+    listMembersMock.mockRejectedValueOnce(new Error("members offline"));
+
+    const response = await handleWorkspaceShareTeamPost({
+      apiLogger: apiLogger as never,
+      request: new Request(
+        "https://avenire.app/api/workspaces/workspace-1/share/team",
+        {
+          method: "POST",
+        }
+      ),
+      user: { id: "user-1", name: "Owner" },
+      workspaceUuid: "workspace-1",
+    });
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "members offline",
+    });
+    expect(sendWorkspaceShareEmailMock).not.toHaveBeenCalled();
+    expect(afterMock).not.toHaveBeenCalled();
+    expect(apiLogger.requestSucceeded).not.toHaveBeenCalled();
+    expect(apiLogger.requestFailed).toHaveBeenCalledWith(
+      500,
+      expect.objectContaining({
+        message: "members offline",
+      }),
+      {
+        workspaceUuid: "workspace-1",
+      }
+    );
   });
 
   it("queues team share emails and tolerates delivery failures in the async after hook", async () => {

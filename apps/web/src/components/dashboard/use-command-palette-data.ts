@@ -38,6 +38,9 @@ export interface CommandPaletteDataState {
   workspaceTasks: ReturnType<
     typeof useCommandPaletteWorkspaceTasks
   >["workspaceTasks"];
+  workspaceTasksErrorMessage: ReturnType<
+    typeof useCommandPaletteWorkspaceTasks
+  >["workspaceTasksErrorMessage"];
   workspaceTasksLoadFailed: ReturnType<
     typeof useCommandPaletteWorkspaceTasks
   >["workspaceTasksLoadFailed"];
@@ -86,7 +89,11 @@ export function useCommandPaletteData({
     open,
     resolvedWorkspaceUuid,
   });
-  const { workspaceTasks, workspaceTasksLoadFailed } = taskState;
+  const {
+    workspaceTasks,
+    workspaceTasksErrorMessage,
+    workspaceTasksLoadFailed,
+  } = taskState;
 
   const cachedChats = useMemo<ChatSummary[]>(
     () =>
@@ -133,6 +140,7 @@ export function useCommandPaletteData({
     retrievalSearchItems,
     searchItems,
     workspaceTasks,
+    workspaceTasksErrorMessage,
     workspaceTasksLoadFailed,
   };
 }

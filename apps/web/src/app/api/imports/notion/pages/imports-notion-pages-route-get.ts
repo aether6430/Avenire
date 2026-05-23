@@ -9,6 +9,7 @@ export async function handleNotionPagesRouteGet(input: { userId: string }) {
   } catch (error) {
     const failure = resolveImportExecutionRouteError(error, {
       fallback: "Unable to load Notion pages.",
+      status: 500,
     });
     return NextResponse.json(
       { error: failure.error },

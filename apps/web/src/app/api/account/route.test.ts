@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -29,6 +31,19 @@ vi.mock("@/lib/workspace", () => ({
   getSessionUser: getSessionUserMock,
 }));
 
+const accountRouteSource = readFileSync(
+  resolve(import.meta.dirname, "route.ts"),
+  "utf8"
+);
+const accountRouteDeleteSource = readFileSync(
+  resolve(import.meta.dirname, "account-route-delete.ts"),
+  "utf8"
+);
+const accountRouteModelSource = readFileSync(
+  resolve(import.meta.dirname, "account-route-model.ts"),
+  "utf8"
+);
+
 import { DELETE } from "./route";
 
 describe("/api/account route", () => {
@@ -51,6 +66,18 @@ describe("/api/account route", () => {
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
+  });
+
+  it("fails closed when session lookup throws before account deletion handling begins", async () => {
+    getSessionUserMock.mockRejectedValue(new Error("account auth offline"));
+
+    const response = await DELETE();
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "account auth offline",
+    });
+    expect(deleteAuthUserByIdMock).not.toHaveBeenCalled();
   });
 
   it("requires a valid sudo cookie before account deletion", async () => {
@@ -82,6 +109,18 @@ describe("/api/account route", () => {
     });
   });
 
+  it("fails closed with an explicit delete error when account deletion throws", async () => {
+    getSessionUserMock.mockResolvedValue({ id: "user-1" });
+    deleteAuthUserByIdMock.mockRejectedValue(new Error("delete offline"));
+
+    const response = await DELETE();
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "delete offline",
+    });
+  });
+
   it("deletes the account and clears the sudo cookie", async () => {
     getSessionUserMock.mockResolvedValue({ id: "user-1" });
     deleteAuthUserByIdMock.mockResolvedValue({ id: "user-1" });
@@ -94,5 +133,21 @@ describe("/api/account route", () => {
       name: "avenire_sudo",
       value: "",
     });
+  });
+
+  it("keeps the account route wrapper aligned to its dedicated delete handler boundary", () => {
+    expect(accountRouteSource).toContain("./account-route-delete");
+    expect(accountRouteSource).toContain("./account-route-model");
+    expect(accountRouteSource).toContain(
+      "return await handleAccountRouteDelete"
+    );
+    expect(accountRouteSource).not.toContain("deleteAuthUserById(");
+    expect(accountRouteSource).not.toContain("validateSudoCookie(");
+    expect(accountRouteSource).not.toContain("cookies(");
+
+    expect(accountRouteDeleteSource).toContain("deleteAuthUserById");
+    expect(accountRouteDeleteSource).toContain("validateSudoCookie");
+    expect(accountRouteModelSource).toContain("buildAccountDeleteSuccessBody");
+    expect(accountRouteModelSource).toContain("resolveAccountDeleteFailure");
   });
 });

@@ -57,6 +57,27 @@ describe("/api/flashcards/review route", () => {
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
   });
 
+  it("fails closed when workspace context lookup throws before review handling begins", async () => {
+    getWorkspaceContextForUserMock.mockRejectedValueOnce(
+      new Error("review auth offline")
+    );
+
+    const response = await POST(
+      new Request("http://localhost:3003/api/flashcards/review", {
+        body: JSON.stringify({}),
+        method: "POST",
+      })
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "review auth offline",
+    });
+    expect(reviewFlashcardForUserMock).not.toHaveBeenCalled();
+    expect(invalidateFlashcardReadCachesMock).not.toHaveBeenCalled();
+    expect(publishWorkspaceStreamEventMock).not.toHaveBeenCalled();
+  });
+
   it("rejects invalid review payloads", async () => {
     getWorkspaceContextForUserMock.mockResolvedValue({
       user: { id: "user-1" },
@@ -145,5 +166,62 @@ describe("/api/flashcards/review route", () => {
       type: "flashcards.invalidate",
       workspaceUuid: "workspace-1",
     });
+  });
+
+  it("returns a 500 json error when flashcard review throws before invalidation", async () => {
+    getWorkspaceContextForUserMock.mockResolvedValue({
+      user: { id: "user-1" },
+      workspace: { workspaceId: "workspace-1" },
+    });
+    reviewFlashcardForUserMock.mockRejectedValueOnce(
+      new Error("review offline")
+    );
+
+    const response = await POST(
+      new Request("http://localhost:3003/api/flashcards/review", {
+        body: JSON.stringify({
+          cardId: "card-1",
+          rating: "good",
+        }),
+        method: "POST",
+      })
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "review offline",
+    });
+    expect(invalidateFlashcardReadCachesMock).not.toHaveBeenCalled();
+    expect(publishWorkspaceStreamEventMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a 500 json error when review cache invalidation throws after review", async () => {
+    getWorkspaceContextForUserMock.mockResolvedValue({
+      user: { id: "user-1" },
+      workspace: { workspaceId: "workspace-1" },
+    });
+    reviewFlashcardForUserMock.mockResolvedValue({
+      nextDueAt: "2026-05-14T00:00:00.000Z",
+      rating: "good",
+    });
+    invalidateFlashcardReadCachesMock.mockRejectedValueOnce(
+      new Error("review cache offline")
+    );
+
+    const response = await POST(
+      new Request("http://localhost:3003/api/flashcards/review", {
+        body: JSON.stringify({
+          cardId: "card-1",
+          rating: "good",
+        }),
+        method: "POST",
+      })
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "review cache offline",
+    });
+    expect(publishWorkspaceStreamEventMock).not.toHaveBeenCalled();
   });
 });

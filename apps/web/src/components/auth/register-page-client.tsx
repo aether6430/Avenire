@@ -1,30 +1,20 @@
 "use client";
 
-import dynamic from "next/dynamic";
+import { RegisterForm } from "@avenire/auth/components/register";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ParticleFormFrame } from "@/components/auth/particle-form-frame";
 import { AuthShell } from "@/components/auth-shell";
 
-const RegisterForm = dynamic(
-  () =>
-    import("@avenire/auth/components/register").then(
-      (module) => module.RegisterForm
-    ),
-  {
-    loading: () => (
-      <div className="p-5 text-muted-foreground text-sm md:p-6">
-        Loading registration...
-      </div>
-    ),
-    ssr: false,
-  }
-);
+function getSingleValue(value: string | null) {
+  return value ?? undefined;
+}
 
-export function RegisterPageClient({
-  callbackURL = "/onboarding",
-}: {
-  callbackURL?: string;
-}) {
+export function RegisterPageClient() {
+  const searchParams = useSearchParams();
+  const callbackURL =
+    getSingleValue(searchParams.get("callbackURL")) ?? "/onboarding";
+
   return (
     <AuthShell>
       <div className="w-full max-w-lg">

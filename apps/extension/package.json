@@ -1,8 +1,8 @@
 {
-	"name": "@avenire/extension",
-	"version": "0.0.0",
-	"private": true,
-	"type": "module",
+  "name": "@avenire/extension",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
 	"scripts": {
 		"build": "pnpm run build:chrome",
 		"build:chrome": "node ./scripts/build.mjs --target=chrome",
@@ -13,8 +13,8 @@
     "lint": "biome check scripts src",
     "format": "biome format --write scripts src"
 	},
-	"dependencies": {
-		"defuddle": "^0.15.0",
-		"esbuild": "^0.27.5"
-	}
+  "dependencies": {
+    "defuddle": "^0.15.0",
+    "esbuild": "^0.27.5"
+  }
 }

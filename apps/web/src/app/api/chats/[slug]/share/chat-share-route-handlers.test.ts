@@ -197,4 +197,160 @@ describe("chat share route handlers", () => {
       }
     );
   });
+
+  it("wires chat share wrappers through the shared context and delegated handlers", async () => {
+    vi.resetModules();
+
+    const resolveContextMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        response: Response.json(
+          { error: "chat share offline" },
+          { status: 500 }
+        ),
+      })
+      .mockResolvedValueOnce({
+        apiLogger: createApiLoggerStub(),
+        chat: { slug: "chat-1" },
+        slug: "chat-1",
+        user: { email: "owner@example.com", id: "user-1" },
+        workspaceUuid: "workspace-1",
+      })
+      .mockResolvedValueOnce({
+        apiLogger: createApiLoggerStub(),
+        chat: { slug: "chat-1" },
+        slug: "chat-1",
+        user: { email: "owner@example.com", id: "user-1" },
+        workspaceUuid: "workspace-1",
+      })
+      .mockResolvedValueOnce({
+        apiLogger: createApiLoggerStub(),
+        chat: { slug: "chat-1" },
+        slug: "chat-1",
+        user: { email: "owner@example.com", id: "user-1" },
+        workspaceUuid: "workspace-1",
+      });
+    const grantsWrapperHandlerMock = vi
+      .fn()
+      .mockResolvedValue(Response.json({ ok: "grants" }));
+    const linkWrapperHandlerMock = vi
+      .fn()
+      .mockResolvedValue(Response.json({ ok: "link" }));
+    const suggestionsWrapperHandlerMock = vi
+      .fn()
+      .mockResolvedValue(Response.json({ ok: "suggestions" }));
+
+    vi.doMock("@/app/api/chats/[slug]/share/chat-share-route-context", () => ({
+      resolveChatShareRouteContext: resolveContextMock,
+    }));
+    vi.doMock(
+      "@/app/api/chats/[slug]/share/grants/chat-share-grants-post",
+      () => ({
+        handleChatShareGrantsPost: grantsWrapperHandlerMock,
+      })
+    );
+    vi.doMock("@/app/api/chats/[slug]/share/link/chat-share-link-post", () => ({
+      handleChatShareLinkPost: linkWrapperHandlerMock,
+    }));
+    vi.doMock(
+      "@/app/api/chats/[slug]/share/suggestions/chat-share-suggestions-get",
+      () => ({
+        handleChatShareSuggestionsGet: suggestionsWrapperHandlerMock,
+      })
+    );
+
+    const { POST: postGrants } = await import("./grants/route");
+    const { POST: postLink } = await import("./link/route");
+    const { GET: getSuggestions } = await import("./suggestions/route");
+
+    let response = await postGrants(
+      new Request("https://avenire.app/api/chats/chat-1/share/grants", {
+        body: JSON.stringify({ email: "friend@example.com" }),
+        method: "POST",
+      }),
+      {
+        params: Promise.resolve({ slug: "chat-1" }),
+      }
+    );
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "chat share offline",
+    });
+    expect(grantsWrapperHandlerMock).not.toHaveBeenCalled();
+
+    response = await postGrants(
+      new Request("https://avenire.app/api/chats/chat-1/share/grants", {
+        body: JSON.stringify({ email: "friend@example.com" }),
+        method: "POST",
+      }),
+      {
+        params: Promise.resolve({ slug: "chat-1" }),
+      }
+    );
+    await expect(response.json()).resolves.toEqual({ ok: "grants" });
+    expect(grantsWrapperHandlerMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        request: expect.any(Request),
+        slug: "chat-1",
+        workspaceUuid: "workspace-1",
+      })
+    );
+
+    response = await postLink(
+      new Request("https://avenire.app/api/chats/chat-1/share/link", {
+        method: "POST",
+      }),
+      {
+        params: Promise.resolve({ slug: "chat-1" }),
+      }
+    );
+    await expect(response.json()).resolves.toEqual({ ok: "link" });
+    expect(linkWrapperHandlerMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        request: expect.any(Request),
+        slug: "chat-1",
+        workspaceUuid: "workspace-1",
+      })
+    );
+
+    response = await getSuggestions(
+      new Request(
+        "https://avenire.app/api/chats/chat-1/share/suggestions?q=fr"
+      ),
+      {
+        params: Promise.resolve({ slug: "chat-1" }),
+      }
+    );
+    await expect(response.json()).resolves.toEqual({ ok: "suggestions" });
+    expect(suggestionsWrapperHandlerMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        request: expect.any(Request),
+        slug: "chat-1",
+        workspaceUuid: "workspace-1",
+      })
+    );
+
+    resolveContextMock.mockResolvedValueOnce({
+      apiLogger: createApiLoggerStub(),
+      chat: { slug: "chat-1" },
+      slug: "chat-1",
+      user: { email: "owner@example.com", id: "user-1" },
+      workspaceUuid: "workspace-1",
+    });
+    suggestionsWrapperHandlerMock.mockRejectedValueOnce(
+      new Error("chat share wrapper handler offline")
+    );
+    response = await getSuggestions(
+      new Request(
+        "https://avenire.app/api/chats/chat-1/share/suggestions?q=fr"
+      ),
+      {
+        params: Promise.resolve({ slug: "chat-1" }),
+      }
+    );
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "chat share wrapper handler offline",
+    });
+  });
 });

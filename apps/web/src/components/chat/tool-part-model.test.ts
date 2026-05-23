@@ -23,7 +23,7 @@ describe("tool part model", () => {
     expect(action).toMatchObject({
       kind: "flashcards",
       pending: true,
-      value: "mindset set",
+      value: "Mindset Set",
     });
   });
 

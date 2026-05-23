@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -18,6 +20,11 @@ vi.mock("@/lib/workspace", () => ({
   ensureWorkspaceAccessForUser: ensureWorkspaceAccessForUserMock,
   getSessionUser: getSessionUserMock,
 }));
+
+const workspaceShareSuggestionsRouteSource = readFileSync(
+  resolve(import.meta.dirname, "route.ts"),
+  "utf8"
+);
 
 import { GET } from "./route";
 
@@ -42,6 +49,49 @@ describe("/api/workspaces/[workspaceUuid]/share/suggestions route", () => {
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
+  });
+
+  it("fails closed when session lookup throws before share suggestions access checks begin", async () => {
+    getSessionUserMock.mockRejectedValueOnce(
+      new Error("share suggestions auth offline")
+    );
+
+    const response = await GET(
+      new Request(
+        "http://localhost:3003/api/workspaces/workspace-1/share/suggestions"
+      ),
+      { params: Promise.resolve({ workspaceUuid: "workspace-1" }) }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "share suggestions auth offline",
+    });
+    expect(ensureWorkspaceAccessForUserMock).not.toHaveBeenCalled();
+    expect(listWorkspaceShareSuggestionsMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when workspace access lookup throws before share suggestions loading begins", async () => {
+    getSessionUserMock.mockResolvedValue({
+      id: "user-1",
+      email: "alex@example.com",
+    });
+    ensureWorkspaceAccessForUserMock.mockRejectedValueOnce(
+      new Error("share suggestions access offline")
+    );
+
+    const response = await GET(
+      new Request(
+        "http://localhost:3003/api/workspaces/workspace-1/share/suggestions"
+      ),
+      { params: Promise.resolve({ workspaceUuid: "workspace-1" }) }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "share suggestions access offline",
+    });
+    expect(listWorkspaceShareSuggestionsMock).not.toHaveBeenCalled();
   });
 
   it("returns forbidden when the user cannot access the workspace", async () => {
@@ -89,5 +139,42 @@ describe("/api/workspaces/[workspaceUuid]/share/suggestions route", () => {
       query: "bea",
       limit: 8,
     });
+  });
+
+  it("fails closed with an explicit suggestions error when lookup throws", async () => {
+    getSessionUserMock.mockResolvedValue({
+      id: "user-1",
+      email: "alex@example.com",
+    });
+    listWorkspaceShareSuggestionsMock.mockRejectedValue(
+      new Error("suggestions offline")
+    );
+
+    const response = await GET(
+      new Request(
+        "http://localhost:3003/api/workspaces/workspace-1/share/suggestions?q=bea"
+      ),
+      { params: Promise.resolve({ workspaceUuid: "workspace-1" }) }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "suggestions offline",
+    });
+  });
+
+  it("keeps workspace share suggestions routing on the shared share-route context instead of inlining auth/access preflight", () => {
+    expect(workspaceShareSuggestionsRouteSource).toContain(
+      "../workspace-share-route-context"
+    );
+    expect(workspaceShareSuggestionsRouteSource).toContain(
+      "resolveWorkspaceShareRouteContext"
+    );
+    expect(workspaceShareSuggestionsRouteSource).not.toContain(
+      "getSessionUser("
+    );
+    expect(workspaceShareSuggestionsRouteSource).not.toContain(
+      "ensureWorkspaceAccessForUser("
+    );
   });
 });

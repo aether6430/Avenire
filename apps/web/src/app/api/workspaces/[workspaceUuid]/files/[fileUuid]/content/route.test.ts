@@ -84,6 +84,35 @@ describe("/api/workspaces/[workspaceUuid]/files/[fileUuid]/content route", () =>
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
   });
 
+  it("fails closed when session lookup throws before content replacement handling begins", async () => {
+    getSessionUserMock.mockRejectedValueOnce(new Error("content auth offline"));
+
+    const response = await PATCH(
+      new Request(
+        "http://localhost:3003/api/workspaces/workspace-1/files/file-1/content",
+        {
+          method: "PATCH",
+          body: JSON.stringify({ content: "# Updated" }),
+        }
+      ),
+      {
+        params: Promise.resolve({
+          workspaceUuid: "workspace-1",
+          fileUuid: "file-1",
+        }),
+      }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "content auth offline",
+    });
+    expect(userCanEditFileMock).not.toHaveBeenCalled();
+    expect(getFileAssetByIdMock).not.toHaveBeenCalled();
+    expect(upsertMarkdownFileContentMock).not.toHaveBeenCalled();
+    expect(replaceFileAssetContentMock).not.toHaveBeenCalled();
+  });
+
   it("returns read-only file when the user cannot edit it", async () => {
     getSessionUserMock.mockResolvedValue({ id: "user-1" });
     userCanEditFileMock.mockResolvedValue(false);
@@ -344,5 +373,35 @@ describe("/api/workspaces/[workspaceUuid]/files/[fileUuid]/content route", () =>
       reason: "file.updated",
     });
     expect(deleteUploadThingFileMock).toHaveBeenCalledWith("old-binary-key");
+  });
+
+  it("fails closed with an explicit content error when file replacement runtime throws", async () => {
+    getSessionUserMock.mockResolvedValue({ id: "user-1" });
+    userCanEditFileMock.mockResolvedValue(true);
+    getFileAssetByIdMock.mockRejectedValue(new Error("content offline"));
+
+    const response = await PATCH(
+      new Request(
+        "http://localhost:3003/api/workspaces/workspace-1/files/file-1/content",
+        {
+          method: "PATCH",
+          body: JSON.stringify({ content: "# Updated" }),
+        }
+      ),
+      {
+        params: Promise.resolve({
+          workspaceUuid: "workspace-1",
+          fileUuid: "file-1",
+        }),
+      }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "content offline",
+    });
+    expect(upsertMarkdownFileContentMock).not.toHaveBeenCalled();
+    expect(replaceFileAssetContentMock).not.toHaveBeenCalled();
+    expect(publishFilesInvalidationEventMock).not.toHaveBeenCalled();
   });
 });

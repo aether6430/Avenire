@@ -1,4 +1,5 @@
 export function getSidebarChatListState(input: {
+  errorMessage?: string | null;
   loadFailed: boolean;
   loading: boolean;
   otherCount: number;
@@ -15,7 +16,9 @@ export function getSidebarChatListState(input: {
 
   if (input.loadFailed && totalCount === 0) {
     return {
-      description: "Try again in a moment to reload your recent methods.",
+      description:
+        input.errorMessage?.trim() ||
+        "Try again in a moment to reload your recent methods.",
       title: "Unable to load methods.",
     };
   }

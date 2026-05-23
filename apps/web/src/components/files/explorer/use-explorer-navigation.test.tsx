@@ -49,7 +49,6 @@ describe("useExplorerNavigation", () => {
 
     hook.navigateToFolder("folder_b");
     hook.selectFile("file_b", {
-      circleToAi: true,
       retrievalChunkId: "chunk_1",
     });
     hook.openFileById("file_b");
@@ -61,7 +60,7 @@ describe("useExplorerNavigation", () => {
       "/workspace/files/workspace_123/folder/folder_b"
     );
     expect(replace).toHaveBeenCalledWith(
-      "/workspace/files/workspace_123/folder/folder_a?pane=right&file=file_b&retrievalChunk=chunk_1&circleToAi=1"
+      "/workspace/files/workspace_123/folder/folder_a?pane=right&file=file_b&retrievalChunk=chunk_1"
     );
     expect(push).toHaveBeenCalledWith(
       "/workspace/files/workspace_123/folder/folder_b?file=file_b"

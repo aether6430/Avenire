@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -33,6 +35,11 @@ vi.mock("@/components/dashboard/workspace-route-placeholder", () => ({
   WorkspaceRoutePlaceholder: workspaceRoutePlaceholderMock,
 }));
 
+const workspaceFilesRootPageClientSource = readFileSync(
+  resolve(import.meta.dirname, "workspace-files-root-page-client.tsx"),
+  "utf8"
+);
+
 import {
   buildWorkspaceFilesRootRoute,
   WorkspaceFilesRootPageClient,
@@ -54,6 +61,16 @@ describe("WorkspaceFilesRootPageClient", () => {
     ).toBe(
       "/workspace/files/workspace-1/folder/root-1?file=file-1&overlay=settings"
     );
+
+    expect(
+      buildWorkspaceFilesRootRoute({
+        rootFolderId: "root-1",
+        search: "?file=file-1&overlay=settings",
+        workspaceId: "workspace-1",
+      })
+    ).toBe(
+      "/workspace/files/workspace-1/folder/root-1?file=file-1&overlay=settings"
+    );
   });
 
   it("renders a non-loading unavailable state when bootstrap fails", () => {
@@ -65,7 +82,7 @@ describe("WorkspaceFilesRootPageClient", () => {
 
     const html = renderToStaticMarkup(<WorkspaceFilesRootPageClient />);
 
-    expect(html).toContain('data-label="Unable to load files."');
+    expect(html).toContain('data-label="Unable to open files."');
     expect(html).toContain('data-pending="false"');
   });
 
@@ -107,7 +124,23 @@ describe("WorkspaceFilesRootPageClient", () => {
 
     const html = renderToStaticMarkup(<WorkspaceFilesRootPageClient />);
 
-    expect(html).toContain('data-label="Loading files..."');
+    expect(html).toContain('data-label="Opening files..."');
     expect(html).toContain('data-pending="true"');
+  });
+
+  it("keeps the root files route client limited to redirect-building and placeholder states", () => {
+    expect(workspaceFilesRootPageClientSource).toContain(
+      "buildWorkspaceFilesRootRoute"
+    );
+    expect(workspaceFilesRootPageClientSource).toContain(
+      "WorkspaceRoutePlaceholder"
+    );
+    expect(workspaceFilesRootPageClientSource).not.toContain("<FileExplorer");
+    expect(workspaceFilesRootPageClientSource).not.toContain(
+      "useWorkspaceExplorerData("
+    );
+    expect(workspaceFilesRootPageClientSource).not.toContain(
+      "useExplorerRuntime("
+    );
   });
 });

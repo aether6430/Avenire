@@ -52,7 +52,7 @@ describe("WorkspaceFlashcardSetPage metadata", () => {
     expect(metadata.title).toBe("Intro to Computers — Avenire");
   });
 
-  it("publishes Mindset set not found when the set cannot be resolved", async () => {
+  it("publishes Mindset Set not found when the set cannot be resolved", async () => {
     getWorkspaceRouteContextMock.mockResolvedValueOnce({
       session: { user: { id: "user-1" } },
       workspace: { workspaceId: "workspace-1" },
@@ -63,6 +63,32 @@ describe("WorkspaceFlashcardSetPage metadata", () => {
       params: Promise.resolve({ setId: "missing-set" }),
     });
 
-    expect(metadata.title).toBe("Mindset set not found. — Avenire");
+    expect(metadata.title).toBe("Mindset Set not found. — Avenire");
+  });
+
+  it("fails closed to Mindset Set when workspace context or set lookup throws", async () => {
+    getWorkspaceRouteContextMock.mockRejectedValueOnce(
+      new Error("flashcards page offline")
+    );
+
+    let metadata = await generateMetadata({
+      params: Promise.resolve({ setId: "set-1" }),
+    });
+
+    expect(metadata.title).toBe("Mindset Set — Avenire");
+
+    getWorkspaceRouteContextMock.mockResolvedValueOnce({
+      session: { user: { id: "user-1" } },
+      workspace: { workspaceId: "workspace-1" },
+    });
+    getFlashcardSetForUserMock.mockRejectedValueOnce(
+      new Error("flashcards lookup offline")
+    );
+
+    metadata = await generateMetadata({
+      params: Promise.resolve({ setId: "set-1" }),
+    });
+
+    expect(metadata.title).toBe("Mindset Set — Avenire");
   });
 });

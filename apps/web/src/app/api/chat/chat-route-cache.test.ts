@@ -99,6 +99,24 @@ describe("chat route cache", () => {
         workspaceId: "workspace-1",
       })
     ).toBe(key);
+
+    expect(
+      cache.buildLearningContextCacheKey({
+        recentSummaryUpdatedAt: " 2026-05-18T10:00:00.000Z ",
+        subject: " Physics ",
+        topic: " Torque ",
+        userId: "user-1",
+        workspaceId: "workspace-1",
+      })
+    ).toBe(
+      cache.buildLearningContextCacheKey({
+        recentSummaryUpdatedAt: "2026-05-18t10:00:00.000z",
+        subject: "physics",
+        topic: "torque",
+        userId: "user-1",
+        workspaceId: "workspace-1",
+      })
+    );
   });
 
   it("marks session-close seen via redis but fails open when redis errors", async () => {
@@ -152,7 +170,7 @@ describe("chat route cache", () => {
       topic: "Torque",
     });
     expect(redisSetMock).toHaveBeenCalledWith(
-      "chat-learning-context:v1::user-1:workspace-1:Physics:Torque:2026-05-18T10:00:00.000Z",
+      "chat-learning-context:v1::user-1:workspace-1:physics:torque:2026-05-18t10:00:00.000z",
       JSON.stringify(blocks),
       { EX: 10_800 }
     );

@@ -1,9 +1,10 @@
-import { UTApi } from "@avenire/storage";
+import { getStorageUrl } from "@avenire/storage";
 import { NextResponse } from "next/server";
 import { listWorkspaceFiles, resolveWorkspaceForUser } from "@/lib/file-data";
 import {
-  hydrateUploadThingServerFiles,
+  FILES_ROUTE_LOAD_ERROR,
   mapWorkspaceFileToServerFile,
+  resolveFilesRouteError,
 } from "./files-route-model";
 
 export async function handleFilesRouteGet(input: {
@@ -16,7 +17,6 @@ export async function handleFilesRouteGet(input: {
   }
 
   try {
-    const utapi = new UTApi({ token: input.uploadThingToken });
     const workspace = await resolveWorkspaceForUser(
       input.userId,
       input.activeOrganizationId
@@ -33,14 +33,25 @@ export async function handleFilesRouteGet(input: {
       return NextResponse.json({ files: [] });
     }
 
-    const urlsResponse = await utapi.getFileUrls(files.map((file) => file.key));
+    const hydrated = await Promise.all(
+      files.map(async (file) => ({
+        ...file,
+        url: await getStorageUrl(file.key).catch(() => ""),
+      }))
+    );
+
     return NextResponse.json({
-      files: hydrateUploadThingServerFiles({
-        files,
-        urls: urlsResponse.data,
-      }),
+      files: hydrated
+        .filter((file) => file.url.length > 0)
+        .sort((a, b) => b.uploadedAt - a.uploadedAt),
     });
-  } catch {
-    return NextResponse.json({ files: [] }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: resolveFilesRouteError(error, FILES_ROUTE_LOAD_ERROR),
+        files: [],
+      },
+      { status: 500 }
+    );
   }
 }

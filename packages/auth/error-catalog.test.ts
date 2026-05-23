@@ -24,9 +24,21 @@ describe("@avenire/auth error catalog", () => {
     });
     expect(getErrorMessageA("USER_ALREADY_EXISTS")?.source).toBe("email");
     expect(
+      getErrorMessageA("YOU_CANT_UNLINK_YOUR_LAST_ACCOUNT")?.userMessage
+    ).toBe("This is your last account, and it can't be unlinked.");
+    expect(getErrorMessageA("YOU_CANT_UNLINK_YOUR_LAST_ACCOUNT")?.source).toBe(
+      "user"
+    );
+    expect(
       getErrorMessageA(WAITLIST_ERROR_NONE.toUpperCase())?.userMessage
     ).toBe("This email does not have access yet.");
     expect(getErrorMessageB("USER_ALREADY_EXISTS")?.source).toBe("email");
+    expect(
+      getErrorMessageB("YOU_CANT_UNLINK_YOUR_LAST_ACCOUNT")?.userMessage
+    ).toBe("This is your last account, and it can't be unlinked.");
+    expect(getErrorMessageB("YOU_CANT_UNLINK_YOUR_LAST_ACCOUNT")?.source).toBe(
+      "user"
+    );
     expect(getErrorMessageB(WAITLIST_ERROR_NONE.toUpperCase())?.source).toBe(
       "email"
     );

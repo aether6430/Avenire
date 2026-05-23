@@ -195,6 +195,44 @@ describe("/api/uploads/sessions/[sessionId]/parts/[partNumber] route", () => {
     });
   });
 
+  it("fails closed when multipart storage throws unexpectedly after route validation succeeds", async () => {
+    const apiLogger = createApiLoggerStub();
+    createApiLoggerMock.mockReturnValueOnce(apiLogger);
+    getUploadSessionMock.mockResolvedValue(createSession());
+    writeMultipartPartMock.mockRejectedValueOnce(
+      new Error("multipart offline")
+    );
+
+    const response = await PUT(
+      new Request(
+        "http://localhost:3003/api/uploads/sessions/session-1/parts/4?token=token-4",
+        {
+          method: "PUT",
+          body: "chunk",
+        }
+      ),
+      {
+        params: Promise.resolve({
+          sessionId: "session-1",
+          partNumber: "4",
+        }),
+      }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "multipart offline",
+    });
+    expect(apiLogger.requestFailed).toHaveBeenCalledWith(
+      500,
+      expect.any(Error),
+      expect.objectContaining({
+        partNumber: 4,
+        sessionId: "session-1",
+      })
+    );
+  });
+
   it("stores valid multipart chunks and returns etag metadata", async () => {
     getUploadSessionMock.mockResolvedValue(createSession());
     writeMultipartPartMock.mockResolvedValue({

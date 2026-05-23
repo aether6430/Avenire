@@ -13,6 +13,7 @@ function createRuntime(
     persistUserSettings: async () => {},
     petAccessory: "none",
     petName: "Auri",
+    preferencesErrorMessage: null,
     preferencesLoadFailed: false,
     preferencesLoading: false,
     preferencesStatus: null,
@@ -48,11 +49,14 @@ describe("SettingsPreferencesSection", () => {
   it("shows explicit failure copy instead of rendering remote preference defaults", () => {
     const html = renderToStaticMarkup(
       <SettingsPreferencesSection
-        runtime={createRuntime({ preferencesLoadFailed: true })}
+        runtime={createRuntime({
+          preferencesErrorMessage: "preferences backend offline",
+          preferencesLoadFailed: true,
+        })}
       />
     );
 
-    expect(html).toContain("Unable to load preferences.");
+    expect(html).toContain("preferences backend offline");
     expect(html).toContain("Privacy mode");
     expect(html).toContain("Chat send shortcut");
     expect(html).not.toContain("Email me receipts");

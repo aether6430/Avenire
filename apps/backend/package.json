@@ -9,7 +9,6 @@
     "build": "tsc --noEmit",
     "start": "tsx src/server.ts",
     "start:ingestion": "tsx src/ingestion-worker.ts",
-    "test": "tsx --test src/load-env.test.ts",
     "lint": "biome check .",
     "check-types": "tsc --noEmit",
     "format": "biome format --write ."

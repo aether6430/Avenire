@@ -14,6 +14,7 @@ export function shouldLoadRemotePreferences(input: {
 
 export function createRemotePreferencesLoadStartState() {
   return {
+    preferencesErrorMessage: null,
     preferencesLoadFailed: false,
     preferencesLoading: true,
     preferencesStatus: "Loading preferences...",
@@ -28,17 +29,22 @@ export function createRemotePreferencesLoadSuccessState(
     emailReceipts: settings.emailReceipts,
     petAccessory: settings.petAccessory,
     petName: settings.petName,
+    preferencesErrorMessage: null,
     preferencesLoadFailed: false,
     preferencesLoading: false,
     preferencesStatus: null,
   };
 }
 
-export function createRemotePreferencesLoadFailureState() {
+export function createRemotePreferencesLoadFailureState(
+  errorMessage?: string | null
+) {
   return {
+    preferencesErrorMessage:
+      errorMessage?.trim() || "Unable to load preferences.",
     preferencesLoadFailed: true,
     preferencesLoading: false,
-    preferencesStatus: "Unable to load preferences.",
+    preferencesStatus: errorMessage?.trim() || "Unable to load preferences.",
   };
 }
 

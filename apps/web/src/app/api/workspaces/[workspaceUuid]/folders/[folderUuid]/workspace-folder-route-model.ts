@@ -20,6 +20,10 @@ export function buildWorkspaceFolderRoutePayload<
   };
 }
 
+export const WORKSPACE_FOLDER_LOAD_ERROR = "Unable to load folder.";
+export const WORKSPACE_FOLDER_UPDATE_ERROR = "Unable to update folder.";
+export const WORKSPACE_FOLDER_DELETE_ERROR = "Unable to delete folder.";
+
 export function collectWorkspaceFolderTreeChangedParentIds(
   oldParentId: string | null,
   nextParentId: string | null
@@ -29,4 +33,11 @@ export function collectWorkspaceFolderTreeChangedParentIds(
 
 export function canManageWorkspaceFolderRole(role: string | null | undefined) {
   return role === "owner" || role === "admin";
+}
+
+export function resolveWorkspaceFolderRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
 }

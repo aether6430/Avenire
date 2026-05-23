@@ -1,21 +1,37 @@
 import { NextResponse } from "next/server";
 import { getFlashcardSetForUser } from "@/lib/flashcards";
-import { resolveFlashcardSetDetailResponse } from "../flashcard-sets-route-model";
+import {
+  FLASHCARD_SET_DETAIL_LOAD_ERROR,
+  resolveFlashcardSetDetailResponse,
+  resolveFlashcardSetsRouteError,
+} from "../flashcard-sets-route-model";
 
 export async function handleFlashcardSetRouteGet(input: {
   setId: string;
   userId: string;
   workspaceId: string;
 }) {
-  const set = await getFlashcardSetForUser(
-    input.userId,
-    input.workspaceId,
-    input.setId
-  );
+  try {
+    const set = await getFlashcardSetForUser(
+      input.userId,
+      input.workspaceId,
+      input.setId
+    );
 
-  if (!set) {
-    return NextResponse.json({ error: "Set not found" }, { status: 404 });
+    if (!set) {
+      return NextResponse.json({ error: "Set not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(resolveFlashcardSetDetailResponse({ set }));
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: resolveFlashcardSetsRouteError(
+          error,
+          FLASHCARD_SET_DETAIL_LOAD_ERROR
+        ),
+      },
+      { status: 500 }
+    );
   }
-
-  return NextResponse.json(resolveFlashcardSetDetailResponse({ set }));
 }

@@ -49,13 +49,14 @@ describe("dashboard sidebar workspaces model", () => {
     expect(
       getSidebarWorkspaceListState({
         activeWorkspaceLabel: "Alpha",
+        errorMessage: "workspace backend offline",
         loadFailed: true,
         loading: false,
         workspaceCount: 0,
       })
     ).toEqual({
-      emptyMessage: "Unable to load workspaces.",
-      subtitle: "Unable to load workspaces.",
+      emptyMessage: "workspace backend offline",
+      subtitle: "workspace backend offline",
     });
 
     expect(
@@ -85,13 +86,14 @@ describe("dashboard sidebar workspaces model", () => {
 
     expect(
       getSidebarInvitationsState({
+        errorMessage: "invites backend offline",
         invitationCount: 0,
         loadFailed: true,
         loading: false,
       })
     ).toEqual({
-      emptyMessage: "Unable to load invites.",
-      subtitle: "Unable to load invites.",
+      emptyMessage: "invites backend offline",
+      subtitle: "invites backend offline",
     });
 
     expect(

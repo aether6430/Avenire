@@ -5,7 +5,7 @@ import type {
 import { formatBytes } from "@/components/files/explorer/shared";
 import type { WorkspaceFileIndex } from "@/lib/workspace-file-index";
 
-const DEFAULT_RETRIEVAL_LIMIT = 8;
+const DEFAULT_RETRIEVAL_LIMIT = 24;
 const MAX_SEARCH_SNIPPET_LENGTH = 420;
 
 export type WorkspaceSearchType = "file" | "folder";
@@ -72,6 +72,8 @@ const normalizeNeedle = (value: string) => value.trim().toLowerCase();
 
 function sanitizeWorkspaceSearchSnippet(value: string): string {
   const cleaned = value
+    .replace(/\[https?:\/\/[^\]\s]+,\s*p\.?\s*\d+\]\s*/gi, "")
+    .replace(/https?:\/\/\S+/gi, "")
     .replace(/[^\x20-\x7E\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();

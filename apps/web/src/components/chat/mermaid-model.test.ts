@@ -4,6 +4,7 @@ import {
   buildZoomedMermaidViewState,
   clampMermaidScale,
   fixMermaidQuotes,
+  resolveMermaidExportBackground,
   stripUnsafeSvg,
 } from "@/components/chat/mermaid-model";
 
@@ -68,5 +69,18 @@ describe("mermaid model", () => {
       translateX: 50,
       translateY: 0,
     });
+  });
+
+  it("prefers theme-aware export backgrounds before falling back", () => {
+    expect(
+      resolveMermaidExportBackground({
+        canvasBackground: "  #141414  ",
+        background: "#fcfcfc",
+      })
+    ).toBe("#141414");
+    expect(resolveMermaidExportBackground({ background: "  #fcfcfc  " })).toBe(
+      "#fcfcfc"
+    );
+    expect(resolveMermaidExportBackground({})).toBe("#fcfcfc");
   });
 });

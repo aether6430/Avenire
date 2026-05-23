@@ -5,6 +5,7 @@ const {
   consumeChatUnitsMock,
   getActiveStreamIdMock,
   getLatestSessionSummaryForChatMock,
+  getModelCreditMultiplierMock,
   invalidateChatReadCachesMock,
   isAbortLikeErrorMock,
   logErrorMock,
@@ -20,6 +21,7 @@ const {
   consumeChatUnitsMock: vi.fn(),
   getActiveStreamIdMock: vi.fn(),
   getLatestSessionSummaryForChatMock: vi.fn(),
+  getModelCreditMultiplierMock: vi.fn(),
   invalidateChatReadCachesMock: vi.fn(),
   isAbortLikeErrorMock: vi.fn(),
   logErrorMock: vi.fn(),
@@ -65,6 +67,7 @@ vi.mock("./chat-route-logging", () => ({
 
 vi.mock("./chat-route-model", () => ({
   getPersistedMessages: getPersistedMessagesMock,
+  getModelCreditMultiplier: getModelCreditMultiplierMock,
   getRequiredChatCredits: getRequiredChatCreditsMock,
   resolveTotalTokens: resolveTotalTokensMock,
 }));
@@ -87,6 +90,7 @@ describe("chat route persisted finish", () => {
     getLatestSessionSummaryForChatMock.mockResolvedValue({ id: "summary-1" });
     persistSessionSummaryForCompletedTurnMock.mockResolvedValue(undefined);
     resolveTotalTokensMock.mockReturnValue(2500);
+    getModelCreditMultiplierMock.mockReturnValue(1);
     getRequiredChatCreditsMock.mockReturnValue(3);
     consumeChatUnitsMock.mockResolvedValue({ ok: true });
     isAbortLikeErrorMock.mockReturnValue(false);
@@ -112,6 +116,7 @@ describe("chat route persisted finish", () => {
       originalMessages: [{ id: "user-1", role: "user" }] as never,
       requestStartedAt: new Date("2026-05-18T00:00:00.000Z"),
       responseMessage: { id: "assistant-1", role: "assistant" } as never,
+      expectedCredits: 1,
       result: {
         totalUsage: Promise.resolve({
           inputTokens: 1500,
@@ -139,11 +144,16 @@ describe("chat route persisted finish", () => {
         workspaceId: "workspace-1",
       })
     );
+    expect(getRequiredChatCreditsMock).toHaveBeenCalledWith(
+      2500,
+      "apollo-apex"
+    );
     expect(consumeChatUnitsMock).toHaveBeenCalledWith("user-1", 2);
     expect(apiLogger.meter).toHaveBeenCalledWith(
       "meter.chat.tokens",
       expect.objectContaining({
         chatId: "chat-1",
+        creditMultiplier: 1,
         creditsCharged: 3,
         totalTokens: 2500,
       })
@@ -170,6 +180,7 @@ describe("chat route persisted finish", () => {
       originalMessages: [{ id: "user-1", role: "user" }] as never,
       requestStartedAt: new Date("2026-05-18T00:00:00.000Z"),
       responseMessage: { id: "assistant-1", role: "assistant" } as never,
+      expectedCredits: 1,
       result: {
         totalUsage: Promise.resolve({ totalTokens: 1000 }),
       },

@@ -7,6 +7,7 @@ const workspaceFolderCreatePayloadSchema = z.object({
 
 export const WORKSPACE_FOLDER_CREATE_INVALID_PAYLOAD_ERROR =
   "Missing parentId or name";
+export const WORKSPACE_FOLDER_CREATE_ERROR = "Unable to create folder";
 
 export function normalizeWorkspaceFoldersRouteWorkspaceId(
   workspaceUuid: string
@@ -60,4 +61,11 @@ export function buildWorkspaceFolderCreateResponse(input: { folder: unknown }) {
   return {
     folder: input.folder,
   };
+}
+
+export function resolveWorkspaceFolderCreateRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
 }

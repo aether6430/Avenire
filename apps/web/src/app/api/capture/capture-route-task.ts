@@ -2,7 +2,11 @@ import { createTaskForUser } from "@avenire/database/task-data";
 import { NextResponse } from "next/server";
 import { invalidateTaskListCache } from "@/lib/tasks-cache";
 import type { CaptureRequestBody } from "./capture-route-model";
-import { resolveTaskCapturePayload } from "./capture-route-model";
+import {
+  CAPTURE_TASK_ERROR,
+  resolveCaptureRouteError,
+  resolveTaskCapturePayload,
+} from "./capture-route-model";
 
 export async function handleCaptureTask(input: {
   body: CaptureRequestBody;
@@ -28,10 +32,9 @@ export async function handleCaptureTask(input: {
   } catch (error) {
     return NextResponse.json(
       {
-        error:
-          error instanceof Error ? error.message : "Unable to capture task.",
+        error: resolveCaptureRouteError(error, CAPTURE_TASK_ERROR),
       },
-      { status: 400 }
+      { status: 500 }
     );
   }
 }

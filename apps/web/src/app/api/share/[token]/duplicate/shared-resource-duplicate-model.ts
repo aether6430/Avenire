@@ -4,6 +4,8 @@ import { z } from "zod";
 export const sharedResourceDuplicateSchema = z.object({
   workspaceId: z.string().min(1),
 });
+export const SHARED_RESOURCE_DUPLICATE_ERROR =
+  "Unable to duplicate shared resource.";
 
 export interface SharedDuplicateFolderLike {
   id: string;
@@ -99,4 +101,11 @@ export function buildSharedResourceDuplicateFolderRoute(input: {
   workspaceId: string;
 }) {
   return `/workspace/files/${input.workspaceId}/folder/${input.folderId}`;
+}
+
+export function resolveSharedResourceDuplicateError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
 }

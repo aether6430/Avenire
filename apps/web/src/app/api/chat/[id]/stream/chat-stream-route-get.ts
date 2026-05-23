@@ -19,6 +19,14 @@ export async function handleChatStreamRouteGet(input: {
   sessionUserId: string;
   workspaceOrganizationId: string | null;
 }) {
+  const activeStreamId = await getActiveStreamId(input.chatSlug);
+  if (!activeStreamId) {
+    return new Response(null, {
+      status: 204,
+      headers: buildChatStreamNoStoreHeaders(),
+    });
+  }
+
   const workspace = await resolveWorkspaceForUser(
     input.sessionUserId,
     input.workspaceOrganizationId
@@ -33,11 +41,6 @@ export async function handleChatStreamRouteGet(input: {
     workspace.workspaceId
   );
   if (!chat) {
-    return new Response(null, { status: 404 });
-  }
-
-  const activeStreamId = await getActiveStreamId(input.chatSlug);
-  if (!activeStreamId) {
     return new Response(null, {
       status: 204,
       headers: buildChatStreamNoStoreHeaders(),

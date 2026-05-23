@@ -17,6 +17,8 @@ export interface DuplicateFolderLike {
   parentId: string | null;
 }
 
+export const WORKSPACE_ITEM_DUPLICATE_ERROR = "Unable to duplicate item.";
+
 export function resolveDuplicateName(
   existingNames: string[],
   requestedName: string
@@ -92,4 +94,11 @@ export function collectDuplicateDescendants(
   return workspaceFolders
     .filter(isDescendantOfSource)
     .sort((left, right) => getDepth(left.id) - getDepth(right.id));
+}
+
+export function resolveWorkspaceItemDuplicateRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
 }

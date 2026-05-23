@@ -1,8 +1,12 @@
 import type { BillingPeriod, PaidPlan } from "@avenire/payments/plans";
+import { resolveAppBaseUrl } from "@/lib/app-base-url";
 import { DEFAULT_SETTINGS_BILLING_RETURN_PATH } from "@/lib/settings-overlay-route";
 
 const BILLING_PERIODS: BillingPeriod[] = ["monthly", "yearly"];
 const PAID_PLANS: PaidPlan[] = ["core", "scholar"];
+
+export const BILLING_CHECKOUT_ROUTE_FAILURE_PATH = `${DEFAULT_SETTINGS_BILLING_RETURN_PATH}&error=checkout`;
+export const BILLING_PORTAL_ROUTE_ERROR = "Unable to create portal session";
 
 function isBillingPeriod(value: string | null): value is BillingPeriod {
   return Boolean(value && BILLING_PERIODS.includes(value as BillingPeriod));
@@ -13,7 +17,14 @@ function isPaidPlan(value: string | null): value is PaidPlan {
 }
 
 export function resolveBillingAppBaseUrl(request: Request) {
-  return process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin;
+  const requestOrigin = new URL(request.url).origin;
+  const requestHost = new URL(request.url).hostname;
+
+  if (requestHost.startsWith("billing.")) {
+    return requestOrigin;
+  }
+
+  return resolveAppBaseUrl(request);
 }
 
 export function resolveCheckoutSelection(request: Request) {
@@ -32,4 +43,15 @@ export function resolvePortalReturnPath(value: unknown) {
   return typeof value === "string" && value.startsWith("/")
     ? value
     : DEFAULT_SETTINGS_BILLING_RETURN_PATH;
+}
+
+export function buildBillingCheckoutFailureUrl(request: Request) {
+  return new URL(
+    BILLING_CHECKOUT_ROUTE_FAILURE_PATH,
+    resolveBillingAppBaseUrl(request)
+  );
+}
+
+export function resolveBillingRouteError(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
 }

@@ -20,8 +20,11 @@ describe("settings security runtime model", () => {
     ]);
     expect(normalizePasskeysPayload({})).toEqual([]);
 
-    expect(createPasskeysRefreshFailureState()).toEqual({
+    expect(
+      createPasskeysRefreshFailureState("passkeys backend offline")
+    ).toEqual({
       passkeys: [],
+      passkeysErrorMessage: "passkeys backend offline",
       passkeysLoadFailed: true,
     });
     expect(
@@ -32,6 +35,7 @@ describe("settings security runtime model", () => {
       passkeys: [
         { deviceType: "MacBook Pro", id: "passkey-1", name: "Primary" },
       ],
+      passkeysErrorMessage: null,
       passkeysLoadFailed: false,
     });
   });
@@ -41,8 +45,18 @@ describe("settings security runtime model", () => {
     expect(resolveAddPasskeyStatus({ error: "boom" })).toBe(
       "Unable to add passkey."
     );
-    expect(resolveRemovePasskeyStatus(true)).toBe("Passkey removed.");
-    expect(resolveRemovePasskeyStatus(false)).toBe("Unable to remove passkey.");
+    expect(resolveRemovePasskeyStatus({ responseOk: true })).toBe(
+      "Passkey removed."
+    );
+    expect(
+      resolveRemovePasskeyStatus({
+        error: "Passkey already removed.",
+        responseOk: false,
+      })
+    ).toBe("Passkey already removed.");
+    expect(resolveRemovePasskeyStatus({ responseOk: false })).toBe(
+      "Unable to remove passkey."
+    );
   });
 
   it("resolves account-delete outcomes and sudo gating", () => {

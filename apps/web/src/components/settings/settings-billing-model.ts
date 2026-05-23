@@ -2,6 +2,7 @@ import { PLAN_LABELS } from "@/components/settings/settings-panel-model";
 
 export function getBillingPlanLabel(input: {
   billingUsagePlan: "access" | "core" | "scholar" | null;
+  errorMessage?: string | null;
   loadFailed: boolean;
   loading: boolean;
 }) {
@@ -10,7 +11,7 @@ export function getBillingPlanLabel(input: {
   }
 
   if (input.loadFailed) {
-    return "Plan unavailable";
+    return input.errorMessage?.trim() || "Plan unavailable";
   }
 
   if (input.billingUsagePlan) {
@@ -21,6 +22,7 @@ export function getBillingPlanLabel(input: {
 }
 
 export function getBillingValueState(input: {
+  errorMessage?: string | null;
   loadFailed: boolean;
   loading: boolean;
   readyLabel: string;
@@ -34,7 +36,7 @@ export function getBillingValueState(input: {
 
   if (input.loadFailed) {
     return {
-      label: "Unavailable",
+      label: input.errorMessage?.trim() || "Unavailable",
       showSpinner: false,
     };
   }

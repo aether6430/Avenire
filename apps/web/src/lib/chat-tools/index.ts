@@ -1,9 +1,6 @@
 import { type ToolSet, tool } from "@avenire/ai";
 import type { AgentActivityData } from "@avenire/ai/message-types";
-import {
-  chatToolSchemas,
-  legacyShowWidgetInputSchema,
-} from "@avenire/ai/tools";
+import { chatToolSchemas } from "@avenire/ai/tools";
 import { executeGetDueCards } from "@/lib/chat-tools/chat-tool-due-cards-runtime";
 import {
   improveMisconceptionForTool,
@@ -19,7 +16,7 @@ import {
 } from "@/lib/chat-tools/chat-tool-study-runtime";
 import {
   executeLoadSkill,
-  executeShowWidget,
+  executeShowWidgetWithOptions,
   executeVisualizeReadMe,
   runWebSearch,
 } from "@/lib/chat-tools/chat-tool-utility-runtime";
@@ -31,6 +28,7 @@ import {
 
 interface ChatToolContext {
   agentActivityId: string;
+  chargeWidgetGeneration?: () => Promise<void>;
   chatSlug: string;
   emitAgentActivity?: (data: AgentActivityData) => void;
   rootFolderId: string;
@@ -38,18 +36,7 @@ interface ChatToolContext {
   workspaceId: string;
 }
 
-interface ChatToolOptions {
-  legacyShowWidgetSchema?: boolean;
-}
-
-export function createChatTools(
-  ctx: ChatToolContext,
-  options: ChatToolOptions = {}
-): ToolSet {
-  const showWidgetInputSchema = options.legacyShowWidgetSchema
-    ? (legacyShowWidgetInputSchema as unknown as typeof chatToolSchemas.show_widget.input)
-    : chatToolSchemas.show_widget.input;
-
+export function createChatTools(ctx: ChatToolContext): ToolSet {
   return {
     web_search: tool({
       description:
@@ -113,7 +100,7 @@ The agent decides which operations to perform based on the task.`,
     }),
     list_misconceptions: tool({
       description:
-        "List the current active misconceptions in the workspace. Use this before deciding whether to reinforce, resolve, or generate study material.",
+        "List the current active misconceptions in the workspace through the low-latency cache. Call this near the beginning of each substantive response after a brief first pass on the user's request.",
       inputSchema: chatToolSchemas.list_misconceptions.input,
       outputSchema: chatToolSchemas.list_misconceptions.output,
       execute: async (input) => listMisconceptionsForTool(ctx, input),
@@ -141,14 +128,14 @@ The agent decides which operations to perform based on the task.`,
     }),
     generate_flashcards: tool({
       description:
-        "Generate a persisted mindset set from a file, search query, or provided source text. Use only when the user explicitly asks for a mindset set, flashcards, mindset cards, or study cards.",
+        "Generate a persisted Mindset Set from a file, search query, or provided source text. Use only when the user explicitly asks for a Mindset Set, flashcards, mindset cards, or study cards.",
       inputSchema: chatToolSchemas.generate_flashcards.input,
       outputSchema: chatToolSchemas.generate_flashcards.output,
       execute: async (input) => generateFlashcardsFromSource(ctx, input),
     }),
     generate_flashcards_from_misconception: tool({
       description:
-        "Generate a mindset set from an active misconception so the user can train the correct model directly.",
+        "Generate a Mindset Set from an active misconception so the user can train the correct model directly.",
       inputSchema: chatToolSchemas.generate_flashcards_from_misconception.input,
       outputSchema:
         chatToolSchemas.generate_flashcards_from_misconception.output,
@@ -185,9 +172,12 @@ The agent decides which operations to perform based on the task.`,
     show_widget: tool({
       description:
         "Render an interactive HTML/CSS/JS widget in the chat. Use for visualizations, diagrams, charts, simulations, and interactive explainers.",
-      inputSchema: showWidgetInputSchema,
+      inputSchema: chatToolSchemas.show_widget.input,
       outputSchema: chatToolSchemas.show_widget.output,
-      execute: async (input) => executeShowWidget(input),
+      execute: async (input) =>
+        executeShowWidgetWithOptions(input, {
+          chargeWidgetGeneration: ctx.chargeWidgetGeneration,
+        }),
     }),
   };
 }

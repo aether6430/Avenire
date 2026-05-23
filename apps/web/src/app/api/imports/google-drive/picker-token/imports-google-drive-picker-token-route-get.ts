@@ -11,7 +11,6 @@ export async function handleGoogleDrivePickerTokenRouteGet(input: {
   } catch (error) {
     const failure = resolveImportExecutionRouteError(error, {
       fallback: "Unable to get a Google Drive access token.",
-      status: 409,
     });
     return NextResponse.json(
       { error: failure.error },

@@ -15,6 +15,7 @@ const MOBILE_PANEL_MAX_HEIGHT_CLASS = "max-h-[85svh]";
 
 interface UploadActivityMobileSurfaceProps {
   completedCount: number;
+  errorMessage?: string | null;
   failedCount: number;
   isOpen: boolean;
   loadFailed: boolean;
@@ -27,6 +28,7 @@ interface UploadActivityMobileSurfaceProps {
 
 export function UploadActivityMobileSurface({
   completedCount,
+  errorMessage,
   failedCount,
   isOpen,
   loadFailed,
@@ -60,6 +62,7 @@ export function UploadActivityMobileSurface({
         </DrawerHeader>
         <UploadActivityBody
           completedCount={completedCount}
+          errorMessage={errorMessage}
           failedCount={failedCount}
           loadFailed={loadFailed}
           loading={loading}

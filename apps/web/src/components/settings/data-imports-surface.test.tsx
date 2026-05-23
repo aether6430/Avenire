@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -36,6 +38,11 @@ const destinationRuntime = {
 };
 
 describe("DataImportsSurface", () => {
+  const dataImportsSurfaceSource = readFileSync(
+    resolve(import.meta.dirname, "./data-imports-surface.tsx"),
+    "utf8"
+  );
+
   it("labels icon-only back and refresh controls explicitly", () => {
     const sourceSelectedHtml = renderToStaticMarkup(
       <DataImportsSurface
@@ -62,5 +69,23 @@ describe("DataImportsSurface", () => {
       'aria-label="Back to import sources"'
     );
     expect(sourcePickerHtml).toContain('aria-label="Refresh import overview"');
+    expect(dataImportsSurfaceSource).toContain(
+      'import("@/components/settings/data-imports-google-step-shell")'
+    );
+    expect(dataImportsSurfaceSource).toContain(
+      'import("@/components/settings/data-imports-notion-step-shell")'
+    );
+    expect(dataImportsSurfaceSource).toContain(
+      'from "./data-imports-source-picker"'
+    );
+    expect(dataImportsSurfaceSource).not.toContain(
+      'from "@/components/settings/use-data-imports-google"'
+    );
+    expect(dataImportsSurfaceSource).not.toContain(
+      'from "@/components/settings/use-data-imports-notion"'
+    );
+    expect(dataImportsSurfaceSource).not.toContain(
+      'from "@/components/settings/data-imports-client"'
+    );
   });
 });

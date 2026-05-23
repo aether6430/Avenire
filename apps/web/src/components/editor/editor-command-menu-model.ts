@@ -18,6 +18,7 @@ import {
 } from "@phosphor-icons/react";
 import type { Editor } from "@tiptap/react";
 import type { Dispatch, SetStateAction } from "react";
+import { readAiRouteTextResponse } from "@/components/editor/editor-ai-response";
 import {
   type AiAction,
   clamp,
@@ -121,17 +122,7 @@ export function createSlashCommands({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, text: source }),
       });
-
-      if (!response.ok) {
-        throw new Error("AI request failed");
-      }
-
-      const payload = (await response.json()) as { text?: string };
-      const generated = payload.text?.trim();
-
-      if (!generated) {
-        throw new Error("No text generated");
-      }
+      const generated = await readAiRouteTextResponse(response);
 
       const from = target.from;
 
@@ -148,8 +139,12 @@ export function createSlashCommands({
         generatedLength: generated.length,
         original: source,
       });
-    } catch {
-      setInlineNotice("Could not generate text right now.");
+    } catch (error) {
+      setInlineNotice(
+        error instanceof Error
+          ? error.message
+          : "Could not generate text right now."
+      );
     } finally {
       setAiLoading(null);
     }

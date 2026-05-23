@@ -159,4 +159,156 @@ describe("workspace folder share route handlers", () => {
       error: "User not found",
     });
   });
+
+  it("wires folder share wrappers through the shared context and delegated handlers", async () => {
+    vi.resetModules();
+
+    const resolveContextMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        response: Response.json(
+          { error: "folder share offline" },
+          { status: 500 }
+        ),
+      })
+      .mockResolvedValueOnce({
+        apiLogger: createApiLoggerStub(),
+        folder: { folder: { name: "Docs" } },
+        folderUuid: "folder-1",
+        user: { id: "user-1" },
+        workspaceUuid: "workspace-1",
+      })
+      .mockResolvedValueOnce({
+        apiLogger: createApiLoggerStub(),
+        folder: { folder: { name: "Docs" } },
+        folderUuid: "folder-1",
+        user: { id: "user-1" },
+        workspaceUuid: "workspace-1",
+      });
+    const grantsWrapperHandlerMock = vi
+      .fn()
+      .mockResolvedValue(Response.json({ ok: "grants" }));
+    const linkWrapperHandlerMock = vi
+      .fn()
+      .mockResolvedValue(Response.json({ ok: "link" }));
+
+    vi.doMock(
+      "@/app/api/workspaces/[workspaceUuid]/folders/[folderUuid]/share/workspace-folder-share-route-context",
+      () => ({
+        resolveWorkspaceFolderShareRouteContext: resolveContextMock,
+      })
+    );
+    vi.doMock(
+      "@/app/api/workspaces/[workspaceUuid]/folders/[folderUuid]/share/grants/workspace-folder-share-grants-post",
+      () => ({
+        handleWorkspaceFolderShareGrantsPost: grantsWrapperHandlerMock,
+      })
+    );
+    vi.doMock(
+      "@/app/api/workspaces/[workspaceUuid]/folders/[folderUuid]/share/link/workspace-folder-share-link-post",
+      () => ({
+        handleWorkspaceFolderShareLinkPost: linkWrapperHandlerMock,
+      })
+    );
+
+    const { POST: postGrants } = await import("./grants/route");
+    const { POST: postLink } = await import("./link/route");
+
+    let response = await postGrants(
+      new Request(
+        "https://avenire.app/api/workspaces/workspace-1/folders/folder-1/share/grants",
+        {
+          body: JSON.stringify({ email: "friend@example.com" }),
+          method: "POST",
+        }
+      ),
+      {
+        params: Promise.resolve({
+          folderUuid: "folder-1",
+          workspaceUuid: "workspace-1",
+        }),
+      }
+    );
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "folder share offline",
+    });
+    expect(grantsWrapperHandlerMock).not.toHaveBeenCalled();
+
+    response = await postGrants(
+      new Request(
+        "https://avenire.app/api/workspaces/workspace-1/folders/folder-1/share/grants",
+        {
+          body: JSON.stringify({ email: "friend@example.com" }),
+          method: "POST",
+        }
+      ),
+      {
+        params: Promise.resolve({
+          folderUuid: "folder-1",
+          workspaceUuid: "workspace-1",
+        }),
+      }
+    );
+    await expect(response.json()).resolves.toEqual({ ok: "grants" });
+    expect(grantsWrapperHandlerMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        folderUuid: "folder-1",
+        request: expect.any(Request),
+        workspaceUuid: "workspace-1",
+      })
+    );
+
+    response = await postLink(
+      new Request(
+        "https://avenire.app/api/workspaces/workspace-1/folders/folder-1/share/link",
+        {
+          method: "POST",
+        }
+      ),
+      {
+        params: Promise.resolve({
+          folderUuid: "folder-1",
+          workspaceUuid: "workspace-1",
+        }),
+      }
+    );
+    await expect(response.json()).resolves.toEqual({ ok: "link" });
+    expect(linkWrapperHandlerMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        folderUuid: "folder-1",
+        request: expect.any(Request),
+        workspaceUuid: "workspace-1",
+      })
+    );
+
+    resolveContextMock.mockResolvedValueOnce({
+      apiLogger: createApiLoggerStub(),
+      folder: { folder: { name: "Docs" } },
+      folderUuid: "folder-1",
+      user: { id: "user-1" },
+      workspaceUuid: "workspace-1",
+    });
+    linkWrapperHandlerMock.mockRejectedValueOnce(
+      new Error("folder share wrapper handler offline")
+    );
+    response = await postLink(
+      new Request(
+        "https://avenire.app/api/workspaces/workspace-1/folders/folder-1/share/link",
+        {
+          method: "POST",
+        }
+      ),
+      {
+        params: Promise.resolve({
+          folderUuid: "folder-1",
+          workspaceUuid: "workspace-1",
+        }),
+      }
+    );
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "folder share wrapper handler offline",
+    });
+  });
 });

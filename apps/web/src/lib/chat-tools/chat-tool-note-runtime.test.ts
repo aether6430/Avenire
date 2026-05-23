@@ -88,6 +88,21 @@ describe("chat tool note runtime", () => {
     });
   });
 
+  it("fails closed when the model body only repeats the top-level title heading", async () => {
+    generateTextMock.mockResolvedValue({
+      output: {
+        bodyMarkdown: "# Momentum Review",
+        title: "Momentum Review",
+      },
+    });
+
+    await expect(
+      generateNoteDraftFromTask({
+        task: "Create a note about momentum review",
+      })
+    ).rejects.toThrow("Unable to generate note content.");
+  });
+
   it("rewrites notes through the model output", async () => {
     generateTextMock.mockResolvedValue({
       output: {
@@ -102,6 +117,22 @@ describe("chat tool note runtime", () => {
         task: "Improve it",
       })
     ).resolves.toBe("# Updated\n\nBody\n");
+  });
+
+  it("fails closed when the rewrite model returns blank markdown", async () => {
+    generateTextMock.mockResolvedValue({
+      output: {
+        markdown: "   ",
+      },
+    });
+
+    await expect(
+      rewriteNoteFromTask({
+        currentMarkdown: "# Old",
+        fileName: "old.md",
+        task: "Improve it",
+      })
+    ).rejects.toThrow("Unable to rewrite the requested note.");
   });
 
   it("updates tags via page metadata and no-ops when there is no directive", async () => {
@@ -147,6 +178,16 @@ describe("chat tool note runtime", () => {
         workspaceId: "workspace-1",
       })
     ).resolves.toBe(file);
+
+    updateFileAssetMock.mockResolvedValueOnce(null);
+    await expect(
+      updateFileTags({
+        file,
+        tagDirective: { action: "replace", tags: ["review"] },
+        userId: "user-1",
+        workspaceId: "workspace-1",
+      })
+    ).rejects.toThrow("Unable to update note tags.");
   });
 
   it("resolves note folders from existing hints or creates Notes", async () => {
@@ -191,6 +232,17 @@ describe("chat tool note runtime", () => {
         },
         maps,
         "Missing"
+      )
+    ).rejects.toThrow("The requested folder could not be found.");
+
+    await expect(
+      resolveCreateNoteFolder(
+        {
+          rootFolderId: "root-1",
+          userId: "user-1",
+          workspaceId: "workspace-1",
+        },
+        maps
       )
     ).resolves.toBe("notes-1");
     expect(createFolderMock).toHaveBeenCalledWith(

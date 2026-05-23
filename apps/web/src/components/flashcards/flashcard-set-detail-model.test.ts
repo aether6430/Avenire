@@ -1,9 +1,16 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildFlashcardDrillQuery,
   getFlashcardEnrollmentLabel,
   readFlashcardTaxonomyField,
 } from "@/components/flashcards/flashcard-set-detail-model";
+
+const setDetailModelSource = readFileSync(
+  resolve(import.meta.dirname, "./flashcard-set-detail-model.ts"),
+  "utf8"
+);
 
 describe("flashcard set detail model", () => {
   it("serializes drill filters into repeatable query params", () => {
@@ -38,5 +45,18 @@ describe("flashcard set detail model", () => {
       )
     ).toBe("Entropy");
     expect(readFlashcardTaxonomyField({ concept: 42 }, "concept")).toBe("");
+  });
+
+  it("keeps detail model helpers pure and free of fetch/runtime side effects", () => {
+    expect(setDetailModelSource).toContain("export const RATING_STYLES");
+    expect(setDetailModelSource).toContain(
+      "export function buildFlashcardDrillQuery"
+    );
+    expect(setDetailModelSource).toContain(
+      "export function getFlashcardEnrollmentLabel"
+    );
+    expect(setDetailModelSource).not.toContain("fetch(");
+    expect(setDetailModelSource).not.toContain("useState(");
+    expect(setDetailModelSource).not.toContain("window.");
   });
 });

@@ -26,6 +26,9 @@ describe("widget renderer model", () => {
     expect(canvasBlock).toContain("--canvas-grid-strong");
 
     expect(documentHtml).toContain('class="dark"');
+    expect(documentHtml).toContain("min-height: 100%");
+    expect(documentHtml).toContain("overflow-x: auto");
+    expect(documentHtml).toContain("overflow-y: hidden");
     expect(documentHtml).toContain("window.sendMessage = function(text)");
     expect(documentHtml).toContain(
       "window._setContent = function(html, runScripts)"
@@ -35,5 +38,14 @@ describe("widget renderer model", () => {
       "window.parent.postMessage({ type: 'avenire:resize'"
     );
     expect(documentHtml).toContain("morphdom-umd.min.js");
+    expect(documentHtml).toContain("|| '#fcfcfc'");
+    expect(documentHtml).toContain("|| '#141414f0'");
+    expect(documentHtml).toContain("|| '#14141414'");
+    expect(documentHtml).toContain("|| '#141414f0'");
+    expect(documentHtml).not.toContain("|| '#ffffff'");
+    expect(documentHtml).not.toContain("|| '#37352f'");
+    expect(documentHtml).not.toContain("|| '#1b2733'");
+    expect(documentHtml).not.toContain("|| '#fafafa'");
+    expect(documentHtml).not.toContain("rgba(55, 53, 47, 0.09)");
   });
 });

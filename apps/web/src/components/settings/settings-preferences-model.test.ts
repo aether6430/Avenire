@@ -15,11 +15,12 @@ describe("settings preferences model", () => {
 
     expect(
       getRemotePreferencesState({
+        errorMessage: "preferences backend offline",
         loadFailed: true,
         loading: false,
       })
     ).toEqual({
-      message: "Unable to load preferences.",
+      message: "preferences backend offline",
       ready: false,
     });
 

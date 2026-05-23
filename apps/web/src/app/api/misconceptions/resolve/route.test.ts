@@ -42,6 +42,26 @@ describe("/api/misconceptions/resolve route", () => {
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
   });
 
+  it("fails closed when workspace context lookup throws before misconception resolution begins", async () => {
+    getWorkspaceContextForUserMock.mockRejectedValue(
+      new Error("misconception resolve auth offline")
+    );
+
+    const response = await POST(
+      new Request("http://localhost:3003/api/misconceptions/resolve", {
+        body: JSON.stringify({}),
+        method: "POST",
+      })
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "misconception resolve auth offline",
+    });
+    expect(resolveMisconceptionsForConceptMock).not.toHaveBeenCalled();
+    expect(recomputeConceptMasteryMock).not.toHaveBeenCalled();
+  });
+
   it("rejects missing required fields", async () => {
     getWorkspaceContextForUserMock.mockResolvedValue({
       user: { id: "user-1" },

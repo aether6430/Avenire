@@ -1,8 +1,12 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   getTaskStoreSnapshotMock,
+  primeWorkspaceTaskStoreMock,
+  reloadWorkspaceTasksMock,
   replaceMock,
   subscribeToTaskStoreMock,
   updateWorkspaceTaskStatusWithRollbackMock,
@@ -13,6 +17,8 @@ const {
   useUserSettingsMock,
 } = vi.hoisted(() => ({
   getTaskStoreSnapshotMock: vi.fn(),
+  primeWorkspaceTaskStoreMock: vi.fn(),
+  reloadWorkspaceTasksMock: vi.fn(),
   replaceMock: vi.fn(),
   subscribeToTaskStoreMock: vi.fn(() => () => {}),
   updateWorkspaceTaskStatusWithRollbackMock: vi.fn(),
@@ -30,8 +36,8 @@ const {
 vi.mock("@/lib/task-client-store", () => ({
   getTaskStoreSnapshot: getTaskStoreSnapshotMock,
   patchWorkspaceTask: vi.fn(),
-  primeWorkspaceTaskStore: vi.fn(),
-  reloadWorkspaceTasks: vi.fn(),
+  primeWorkspaceTaskStore: primeWorkspaceTaskStoreMock,
+  reloadWorkspaceTasks: reloadWorkspaceTasksMock,
   removeWorkspaceTask: vi.fn(),
   setWorkspaceTaskError: vi.fn(),
   subscribeToTaskStore: subscribeToTaskStoreMock,
@@ -57,6 +63,23 @@ vi.mock("@/components/tasks/tasks-mutation-runtime", () => ({
   updateWorkspaceTaskStatusWithRollback:
     updateWorkspaceTaskStatusWithRollbackMock,
 }));
+
+const useTasksWorkspaceSource = readFileSync(
+  resolve(import.meta.dirname, "use-tasks-workspace.ts"),
+  "utf8"
+);
+const tasksWorkspaceModelSource = readFileSync(
+  resolve(import.meta.dirname, "tasks-workspace-model.ts"),
+  "utf8"
+);
+const tasksWorkspaceRuntimeModelSource = readFileSync(
+  resolve(import.meta.dirname, "tasks-workspace-runtime-model.ts"),
+  "utf8"
+);
+const taskClientStoreBarrelSource = readFileSync(
+  resolve(import.meta.dirname, "../../lib/task-client-store.ts"),
+  "utf8"
+);
 
 import { useTasksWorkspace } from "@/components/tasks/use-tasks-workspace";
 
@@ -105,6 +128,7 @@ describe("useTasksWorkspace", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     usePaneRouterMock.mockReturnValue({ replace: replaceMock });
+    reloadWorkspaceTasksMock.mockResolvedValue(undefined);
     getTaskStoreSnapshotMock.mockReturnValue({
       loadFailed: false,
       loading: false,
@@ -191,5 +215,51 @@ describe("useTasksWorkspace", () => {
     expect(replaceMock).toHaveBeenCalledWith("/workspace/tasks?pane=1", {
       scroll: false,
     });
+  });
+
+  it("keeps only the priming load effect and does not reintroduce a duplicate mount reload", () => {
+    expect(useTasksWorkspaceSource).toContain(
+      "primeWorkspaceTaskStore(workspaceId);"
+    );
+    expect(useTasksWorkspaceSource).toContain(
+      "void reloadWorkspaceTasks(workspaceId);"
+    );
+    expect(useTasksWorkspaceSource).not.toContain(
+      `useEffect(() => {
+    void reloadWorkspaceTasks(workspaceId, { background: true });
+  }, [workspaceId]);`
+    );
+  });
+
+  it("keeps the tasks hook composed from split workspace models, mutations, and store modules", () => {
+    expect(useTasksWorkspaceSource).toContain(
+      "@/components/tasks/tasks-workspace-model"
+    );
+    expect(useTasksWorkspaceSource).toContain(
+      "@/components/tasks/tasks-workspace-runtime-model"
+    );
+    expect(useTasksWorkspaceSource).toContain(
+      "@/components/tasks/tasks-mutation-runtime"
+    );
+    expect(useTasksWorkspaceSource).toContain("@/lib/task-client-store");
+    expect(useTasksWorkspaceSource).toContain("buildGroupedTasks");
+    expect(useTasksWorkspaceSource).toContain(
+      "resolveTasksWorkspaceCreateState"
+    );
+    expect(useTasksWorkspaceSource).toContain("reloadWorkspaceTasks");
+    expect(useTasksWorkspaceSource).not.toContain('fetch("/api/tasks');
+    expect(useTasksWorkspaceSource).not.toContain("readCachedTasks(");
+    expect(useTasksWorkspaceSource).not.toContain("writeCachedTasks(");
+
+    expect(tasksWorkspaceModelSource).toContain(
+      "export function buildGroupedTasks"
+    );
+    expect(tasksWorkspaceRuntimeModelSource).toContain(
+      "export function resolveTasksWorkspaceCreateState"
+    );
+    expect(taskClientStoreBarrelSource).toContain("export {");
+    expect(taskClientStoreBarrelSource).toContain(
+      'from "@/lib/task-client-store-runtime"'
+    );
   });
 });

@@ -29,6 +29,7 @@ export function filterFlashcardsSidebarSets(
 }
 
 export function getFlashcardsSidebarSetsState(input: {
+  errorMessage?: string | null;
   filteredSetCount: number;
   loadFailed: boolean;
   loading: boolean;
@@ -36,30 +37,32 @@ export function getFlashcardsSidebarSetsState(input: {
 }) {
   if (input.loading && input.totalSetCount === 0) {
     return {
-      description: "Mindset sets are still loading.",
-      title: "Loading mindset sets...",
+      description: "Mindset Sets are still loading.",
+      title: "Loading Mindset Sets...",
     };
   }
 
   if (input.loadFailed && input.totalSetCount === 0) {
     return {
-      description: "Try again in a moment to reload your mindset sets.",
-      title: "Unable to load mindset sets.",
+      description:
+        input.errorMessage?.trim() ||
+        "Try again in a moment to reload your Mindset Sets.",
+      title: "Unable to load Mindset Sets.",
     };
   }
 
   if (input.totalSetCount === 0) {
     return {
-      description: "Create a mindset set to start studying.",
-      title: "No mindset sets yet",
+      description: "Create a Mindset Set to start studying.",
+      title: "No Mindset Sets yet",
     };
   }
 
   if (input.filteredSetCount === 0) {
     return {
       description:
-        "Try a shorter search or clear the filters to reveal more mindset sets.",
-      title: "No matching mindset sets",
+        "Try a shorter search or clear the filters to reveal more Mindset Sets.",
+      title: "No matching Mindset Sets",
     };
   }
 

@@ -1,7 +1,19 @@
+import { NextResponse } from "next/server";
+import { resolveMisconceptionRouteError } from "../misconception-route-model";
 import { handleMisconceptionImproveRoutePost } from "./misconception-improve-route-post";
 
 export async function POST(request: Request) {
-  return await handleMisconceptionImproveRoutePost({
-    request,
-  });
+  try {
+    return await handleMisconceptionImproveRoutePost({
+      request,
+    });
+  } catch (error) {
+    const failure = resolveMisconceptionRouteError(error, {
+      fallback: "Unable to improve misconceptions.",
+    });
+    return NextResponse.json(
+      { error: failure.error },
+      { status: failure.status }
+    );
+  }
 }

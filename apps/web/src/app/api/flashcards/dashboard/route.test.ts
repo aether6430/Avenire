@@ -62,6 +62,23 @@ describe("/api/flashcards/dashboard route", () => {
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
   });
 
+  it("fails closed when workspace context lookup throws before dashboard loading begins", async () => {
+    getWorkspaceContextForUserMock.mockRejectedValueOnce(
+      new Error("dashboard auth offline")
+    );
+
+    const response = await GET();
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "dashboard auth offline",
+    });
+    expect(getRouteCacheVersionMock).not.toHaveBeenCalled();
+    expect(getCachedRouteMock).not.toHaveBeenCalled();
+    expect(getFlashcardDashboardForUserMock).not.toHaveBeenCalled();
+    expect(setCachedRouteMock).not.toHaveBeenCalled();
+  });
+
   it("returns cached dashboard payloads with a hit header", async () => {
     getWorkspaceContextForUserMock.mockResolvedValue({
       user: { id: "user-1" },
@@ -95,6 +112,7 @@ describe("/api/flashcards/dashboard route", () => {
     await expect(response.json()).resolves.toEqual({
       error: "Dashboard not found",
     });
+    expect(setCachedRouteMock).not.toHaveBeenCalled();
   });
 
   it("loads and caches dashboard payloads on a cache miss", async () => {
@@ -128,5 +146,46 @@ describe("/api/flashcards/dashboard route", () => {
         },
       }
     );
+  });
+
+  it("returns a 500 json error when dashboard loading throws on a cache miss", async () => {
+    getWorkspaceContextForUserMock.mockResolvedValue({
+      user: { id: "user-1" },
+      workspace: { workspaceId: "workspace-1" },
+    });
+    getCachedRouteMock.mockResolvedValue(null);
+    getFlashcardDashboardForUserMock.mockRejectedValueOnce(
+      new Error("dashboard offline")
+    );
+
+    const response = await GET();
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "dashboard offline",
+    });
+    expect(setCachedRouteMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a 500 json error when dashboard cache persistence throws after loading", async () => {
+    getWorkspaceContextForUserMock.mockResolvedValue({
+      user: { id: "user-1" },
+      workspace: { workspaceId: "workspace-1" },
+    });
+    getCachedRouteMock.mockResolvedValue(null);
+    getFlashcardDashboardForUserMock.mockResolvedValue({
+      dueCount: 7,
+      sets: [{ id: "set-1" }],
+    });
+    setCachedRouteMock.mockRejectedValueOnce(
+      new Error("dashboard cache offline")
+    );
+
+    const response = await GET();
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "dashboard cache offline",
+    });
   });
 });

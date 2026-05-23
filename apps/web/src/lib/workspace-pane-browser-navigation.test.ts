@@ -5,6 +5,7 @@ import {
   resetPendingWorkspaceBrowserNavigationForTest,
   shouldDeferWorkspacePaneBrowserReplace,
   shouldLetBrowserRouteDrivePaneSync,
+  shouldSkipInitialHydratedWorkspacePaneSync,
 } from "@/lib/workspace-pane-browser-navigation";
 
 describe("workspace pane browser navigation", () => {
@@ -27,9 +28,7 @@ describe("workspace pane browser navigation", () => {
     markPendingWorkspaceBrowserNavigation("/workspace/files?file=file-1");
 
     expect(
-      consumePendingWorkspaceBrowserNavigation(
-        "/workspace/files?file=file-1"
-      )
+      consumePendingWorkspaceBrowserNavigation("/workspace/files?file=file-1")
     ).toBe(true);
 
     expect(
@@ -66,6 +65,29 @@ describe("workspace pane browser navigation", () => {
         browserHref: "/workspace/files",
         nextHref: "/workspace/tasks",
         previousBrowserHref: "/workspace/files",
+      })
+    ).toBe(false);
+  });
+
+  it("lets hydrated persisted panes own the first browser-sync pass", () => {
+    expect(
+      shouldSkipInitialHydratedWorkspacePaneSync({
+        hasHandledInitialHydratedRoute: false,
+        paneCount: 2,
+      })
+    ).toBe(true);
+
+    expect(
+      shouldSkipInitialHydratedWorkspacePaneSync({
+        hasHandledInitialHydratedRoute: true,
+        paneCount: 2,
+      })
+    ).toBe(false);
+
+    expect(
+      shouldSkipInitialHydratedWorkspacePaneSync({
+        hasHandledInitialHydratedRoute: false,
+        paneCount: 0,
       })
     ).toBe(false);
   });

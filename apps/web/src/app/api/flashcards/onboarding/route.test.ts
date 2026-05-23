@@ -77,6 +77,28 @@ describe("/api/flashcards/onboarding route", () => {
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
   });
 
+  it("fails closed when workspace context lookup throws before onboarding generation begins", async () => {
+    getWorkspaceContextForUserMock.mockRejectedValueOnce(
+      new Error("onboarding auth offline")
+    );
+
+    const response = await POST(
+      new Request("http://localhost:3003/api/flashcards/onboarding", {
+        method: "POST",
+        body: JSON.stringify({}),
+      })
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "onboarding auth offline",
+    });
+    expect(generateTextMock).not.toHaveBeenCalled();
+    expect(createFlashcardSetForUserMock).not.toHaveBeenCalled();
+    expect(createFlashcardCardForUserMock).not.toHaveBeenCalled();
+    expect(invalidateFlashcardReadCachesMock).not.toHaveBeenCalled();
+  });
+
   it("rejects invalid onboarding payloads including whitespace-only fields", async () => {
     getWorkspaceContextForUserMock.mockResolvedValue({
       user: { id: "user-1" },
@@ -135,8 +157,36 @@ describe("/api/flashcards/onboarding route", () => {
 
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toEqual({
-      error: "Unable to create mindset set.",
+      error: "Unable to create Mindset Set.",
     });
+  });
+
+  it("returns a 500 json error when onboarding generation throws before set persistence", async () => {
+    getWorkspaceContextForUserMock.mockResolvedValue({
+      user: { id: "user-1" },
+      workspace: { workspaceId: "workspace-1" },
+    });
+    generateTextMock.mockRejectedValueOnce(new Error("generation offline"));
+
+    const response = await POST(
+      new Request("http://localhost:3003/api/flashcards/onboarding", {
+        method: "POST",
+        body: JSON.stringify({
+          concept: "Closures",
+          reason: "mixed up scope",
+          subject: "JavaScript",
+          topic: "Functions",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "generation offline",
+    });
+    expect(createFlashcardSetForUserMock).not.toHaveBeenCalled();
+    expect(createFlashcardCardForUserMock).not.toHaveBeenCalled();
+    expect(invalidateFlashcardReadCachesMock).not.toHaveBeenCalled();
   });
 
   it("creates a generated onboarding set, persists cards, and invalidates caches", async () => {
@@ -203,13 +253,27 @@ describe("/api/flashcards/onboarding route", () => {
     expect(languageModelMock).toHaveBeenCalledWith("apollo-core");
     expect(generateTextMock).toHaveBeenCalledWith(
       expect.objectContaining({
+        prompt: expect.stringContaining(
+          "Create a clean Mindset Set from the misconception source."
+        ),
+      })
+    );
+    expect(generateTextMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.stringContaining(
+          "Make the Mindset Set practical for a student reviewing the concept."
+        ),
+      })
+    );
+    expect(generateTextMock).toHaveBeenCalledWith(
+      expect.objectContaining({
         prompt: expect.stringContaining("Return exactly 2 cards."),
       })
     );
     expect(generateTextMock).toHaveBeenCalledWith(
       expect.objectContaining({
         prompt: expect.stringContaining(
-          "Generate mindset cards that confront the wrong model"
+          "Generate cards for a Mindset Set that confront the wrong model"
         ),
       })
     );
@@ -242,6 +306,51 @@ describe("/api/flashcards/onboarding route", () => {
     expect(invalidateFlashcardReadCachesMock).toHaveBeenCalledWith(
       "workspace-1"
     );
+  });
+
+  it("returns a 500 json error when onboarding cache invalidation throws after persistence", async () => {
+    getWorkspaceContextForUserMock.mockResolvedValue({
+      user: { id: "user-1" },
+      workspace: { workspaceId: "workspace-1" },
+    });
+    generateTextMock.mockResolvedValue({
+      output: {
+        cards: [
+          {
+            backMarkdown: "Back 1",
+            frontMarkdown: "Front 1",
+            notesMarkdown: null,
+            tags: ["tag-1"],
+          },
+        ],
+        title: "Generated title",
+      },
+    });
+    createFlashcardSetForUserMock.mockResolvedValue({
+      id: "set-1",
+      title: "Generated title",
+    });
+    createFlashcardCardForUserMock.mockResolvedValue({ id: "card-1" });
+    invalidateFlashcardReadCachesMock.mockRejectedValueOnce(
+      new Error("onboarding cache offline")
+    );
+
+    const response = await POST(
+      new Request("http://localhost:3003/api/flashcards/onboarding", {
+        method: "POST",
+        body: JSON.stringify({
+          concept: "Closures",
+          reason: "mixed up scope",
+          subject: "JavaScript",
+          topic: "Functions",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "onboarding cache offline",
+    });
   });
 
   it("prefers the provided title over the generated one when creating the set", async () => {

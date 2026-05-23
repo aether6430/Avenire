@@ -120,7 +120,17 @@ export function summarizeUploadQueue(queue: FilesActivityItem[]) {
   };
 }
 
+export function resolveUploadActivityErrorMessage(
+  error: unknown,
+  fallback = "Unable to load upload activity."
+) {
+  return error instanceof Error && error.message.trim().length > 0
+    ? error.message
+    : fallback;
+}
+
 export function getUploadActivityEmptyState(input: {
+  errorMessage?: string | null;
   itemCount: number;
   loadFailed: boolean;
   loading: boolean;
@@ -135,6 +145,7 @@ export function getUploadActivityEmptyState(input: {
   if (input.loadFailed && input.itemCount === 0) {
     return {
       description:
+        input.errorMessage?.trim() ||
         "Try again in a moment to reload recent uploads and ingestion jobs.",
       title: "Unable to load upload activity.",
     };

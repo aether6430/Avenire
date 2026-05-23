@@ -1,12 +1,11 @@
-import { ChatCircle, Envelope, GithubLogo } from "@phosphor-icons/react/ssr";
-import Link from "next/link";
+import { ChatCircle, Envelope } from "@phosphor-icons/react/ssr";
 import { AvenireMark } from "@/components/branding/AvenireMark";
 import { Container } from "./container";
 
 const workspaceLinks = [
   { label: "Methods", href: "/chats" },
   { label: "Files", href: "/workspace/files" },
-  { label: "Mindset sets", href: "/workspace/flashcards" },
+  { label: "Mindset Sets", href: "/workspace/flashcards" },
   { label: "Workspace", href: "/workspace" },
 ] as const;
 
@@ -24,11 +23,6 @@ const companyLinks = [
 ] as const;
 
 const communityLinks = [
-  {
-    label: "GitHub",
-    href: "https://github.com/thedamod/Avenire",
-    icon: GithubLogo,
-  },
   {
     label: "Discord",
     href: "https://discord.gg/avenire",
@@ -54,15 +48,12 @@ export const Footer = () => {
 
         <div className="relative z-10 grid gap-12 md:grid-cols-[1.1fr_1fr_1fr_1fr_auto]">
           <div className="max-w-xs">
-            <Link
-              className="inline-flex items-center gap-2 text-white"
-              href="/"
-            >
+            <a className="inline-flex items-center gap-2 text-white" href="/">
               <AvenireMark className="size-5 text-brand" />
               <span className="font-medium text-xl tracking-tight">
                 Avenire
               </span>
-            </Link>
+            </a>
             <p className="mt-4 max-w-[17rem] text-sm text-white/52 leading-6">
               Study, research, and reason through hard ideas in one connected AI
               workspace.
@@ -164,10 +155,9 @@ function FooterLink({
       </a>
     );
   }
-
   return (
-    <Link className={className} href={href as any}>
+    <a className={className} href={href}>
       {children}
-    </Link>
+    </a>
   );
 }

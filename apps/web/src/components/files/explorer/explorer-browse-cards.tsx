@@ -23,6 +23,7 @@ export function ExplorerBrowseCards({
   hoveredPreviewFileId,
   interactions,
   isMobile,
+  isSearchFilteredView,
   itemActionTargetSelector,
   onChangeFolderBanner,
   onCreateFolderHere,
@@ -33,6 +34,7 @@ export function ExplorerBrowseCards({
   onResetFolderBanner,
   selectedCardPropertyDefinitions,
   selection,
+  searchResultByFileId,
   setItemRowRef,
   sortedFiles,
   sortedFolders,
@@ -55,6 +57,7 @@ export function ExplorerBrowseCards({
   | "hoveredPreviewFileId"
   | "interactions"
   | "isMobile"
+  | "isSearchFilteredView"
   | "itemActionTargetSelector"
   | "onChangeFolderBanner"
   | "onCreateFolderHere"
@@ -65,6 +68,7 @@ export function ExplorerBrowseCards({
   | "onResetFolderBanner"
   | "selectedCardPropertyDefinitions"
   | "selection"
+  | "searchResultByFileId"
   | "setItemRowRef"
   | "sortedFiles"
   | "sortedFolders"
@@ -108,7 +112,9 @@ export function ExplorerBrowseCards({
 
   return (
     <div
-      className={`flex flex-wrap gap-3 ${viewMode !== "cards" ? "hidden" : ""}`}
+      className={`flex flex-wrap gap-3 ${
+        isSearchFilteredView ? "flex-col gap-2" : ""
+      } ${viewMode !== "cards" ? "hidden" : ""}`}
     >
       {sortedFolders.map((folder) => {
         const counts = {
@@ -125,6 +131,7 @@ export function ExplorerBrowseCards({
             folder={folder}
             isDropTarget={dropTargetId === folder.id}
             isMobile={isMobile}
+            isSearchFilteredView={isSearchFilteredView}
             isSelected={selection.selectedIds.has(folder.id)}
             key={folder.id}
             onChangeBanner={() => onChangeFolderBanner(folder.id)}
@@ -160,6 +167,19 @@ export function ExplorerBrowseCards({
       {sortedFiles.map((file) => {
         const fileKind = getFileKind(file);
         const fileActionProps = getFileItemActionProps(file);
+        const searchResult = searchResultByFileId.get(file.id);
+        const searchMatchMeta = searchResult
+          ? [
+              typeof searchResult.page === "number" && searchResult.page > 0
+                ? `Page ${searchResult.page}`
+                : null,
+              typeof searchResult.startMs === "number"
+                ? `${Math.max(0, Math.round(searchResult.startMs / 1000))}s`
+                : null,
+            ]
+              .filter(Boolean)
+              .join(" • ")
+          : undefined;
 
         return (
           <ExplorerFileCard
@@ -171,6 +191,7 @@ export function ExplorerBrowseCards({
             fileType={fileKind}
             isMobile={isMobile}
             isPreviewing={hoveredPreviewFileId === file.id}
+            isSearchFilteredView={isSearchFilteredView}
             isSelected={selection.selectedIds.has(file.id)}
             key={file.id}
             onBlur={() => onPreviewIntentEnd(file)}
@@ -201,11 +222,21 @@ export function ExplorerBrowseCards({
               selection.setItemSelected(file.id, checked)
             }
             rowRef={getItemRowRef(file.id)}
+            searchMatchMeta={searchMatchMeta}
+            searchMatchSnippet={searchResult?.snippet}
             selectedCardPropertyDefinitions={selectedCardPropertyDefinitions}
             selectionControlCaptureProps={selectionControlCaptureProps}
           />
         );
       })}
+
+      {isSearchFilteredView &&
+      sortedFolders.length === 0 &&
+      sortedFiles.length === 0 ? (
+        <div className="w-full rounded-md border border-border/60 bg-card px-4 py-8 text-center text-muted-foreground text-sm">
+          No indexed files matched this search.
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -71,6 +71,26 @@ describe("/api/workspaces/[workspaceUuid]/folders route", () => {
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
   });
 
+  it("fails closed when session lookup throws before folder creation handling begins", async () => {
+    getSessionUserMock.mockRejectedValue(new Error("folders auth offline"));
+
+    const response = await POST(
+      new Request("http://localhost:3003/api/workspaces/workspace-1/folders", {
+        method: "POST",
+        body: JSON.stringify({ parentId: null, name: "Notes" }),
+      }),
+      {
+        params: Promise.resolve({ workspaceUuid: "workspace-1" }),
+      }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "folders auth offline",
+    });
+    expect(createFolderMock).not.toHaveBeenCalled();
+  });
+
   it("returns invalid payload for missing or blank create input", async () => {
     getSessionUserMock.mockResolvedValue({ id: "user-1" });
 
@@ -256,5 +276,64 @@ describe("/api/workspaces/[workspaceUuid]/folders route", () => {
     expect(invalidateWorkspaceReadCachesMock).toHaveBeenCalledWith(
       "workspace-1"
     );
+  });
+
+  it("returns a 500 json error when folder creation throws before invalidation work", async () => {
+    getSessionUserMock.mockResolvedValue({ id: "user-1" });
+    userCanEditFolderMock.mockResolvedValue(true);
+    createFolderMock.mockRejectedValueOnce(new Error("folder create offline"));
+
+    const response = await POST(
+      new Request("http://localhost:3003/api/workspaces/workspace-1/folders", {
+        method: "POST",
+        body: JSON.stringify({
+          parentId: "parent-1",
+          name: "Notes",
+        }),
+      }),
+      {
+        params: Promise.resolve({ workspaceUuid: "workspace-1" }),
+      }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "folder create offline",
+    });
+    expect(publishFilesInvalidationEventMock).not.toHaveBeenCalled();
+    expect(invalidateWorkspaceReadCachesMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a 500 json error when post-create invalidation throws", async () => {
+    getSessionUserMock.mockResolvedValue({ id: "user-1" });
+    userCanEditFolderMock.mockResolvedValue(true);
+    createFolderMock.mockResolvedValue({
+      id: "folder-1",
+      name: "Lecture Notes",
+      parentId: "parent-1",
+    });
+    publishFilesInvalidationEventMock.mockRejectedValueOnce(
+      new Error("folder sync offline")
+    );
+
+    const response = await POST(
+      new Request("http://localhost:3003/api/workspaces/workspace-1/folders", {
+        method: "POST",
+        body: JSON.stringify({
+          parentId: "parent-1",
+          name: "Lecture Notes",
+        }),
+      }),
+      {
+        params: Promise.resolve({ workspaceUuid: "workspace-1" }),
+      }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "folder sync offline",
+    });
+    expect(publishFilesInvalidationEventMock).toHaveBeenCalledTimes(1);
+    expect(invalidateWorkspaceReadCachesMock).not.toHaveBeenCalled();
   });
 });

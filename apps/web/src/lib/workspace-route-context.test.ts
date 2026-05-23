@@ -55,6 +55,23 @@ describe("workspace route session lookup", () => {
     expect(getSessionMock).not.toHaveBeenCalled();
   });
 
+  it("fails closed before any auth lookup when the server auth runtime is not configured", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    process.env.BETTER_AUTH_URL = "";
+    process.env.DATABASE_URL = "";
+
+    const { getRouteSession } = await import("./workspace-route-context");
+
+    await expect(getRouteSession()).resolves.toBeNull();
+
+    expect(headersMock).not.toHaveBeenCalled();
+    expect(hasSessionCookieMock).not.toHaveBeenCalled();
+    expect(getSessionMock).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[auth] skipping server session lookup because BETTER_AUTH_URL or DATABASE_URL is missing"
+    );
+  });
+
   it("delegates to Better Auth when the request includes a session cookie", async () => {
     const requestHeaders = new Headers([
       ["cookie", "better-auth.session_token=session-token"],

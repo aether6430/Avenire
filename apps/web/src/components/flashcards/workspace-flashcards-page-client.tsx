@@ -3,7 +3,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
-import { FlashcardsDashboard } from "@/components/flashcards/dashboard";
+import type { FlashcardsDashboardProps } from "@/components/flashcards/flashcards-dashboard-model";
+import { FlashcardsDashboardSurface } from "@/components/flashcards/flashcards-dashboard-surface";
+import { useFlashcardsDashboard } from "@/components/flashcards/use-flashcards-dashboard";
 import type { FlashcardDashboardRecord } from "@/lib/flashcards";
 import { usePaneSearchParams } from "@/lib/workspace-panes";
 
@@ -20,6 +22,12 @@ interface FlashcardGenerationRequest {
   topic: string;
 }
 
+function ReadyFlashcardsDashboard(props: FlashcardsDashboardProps) {
+  const runtime = useFlashcardsDashboard(props);
+
+  return <FlashcardsDashboardSurface runtime={runtime} />;
+}
+
 async function loadFlashcardsDashboard(signal?: AbortSignal) {
   const response = await fetch("/api/flashcards/dashboard", {
     cache: "no-store",
@@ -31,7 +39,11 @@ async function loadFlashcardsDashboard(signal?: AbortSignal) {
   }
 
   if (!response.ok) {
-    throw new Error("Unable to load mindset sets dashboard.");
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+
+    throw new Error(payload.error?.trim() || "Unable to load Mindset Sets.");
   }
 
   return (await response.json()) as FlashcardsDashboardPayload;
@@ -63,7 +75,7 @@ export function WorkspaceFlashcardsPageClient() {
   if (status === "error") {
     return (
       <WorkspaceRoutePlaceholder
-        label="Unable to load mindset sets."
+        label="Unable to load Mindset Sets."
         pending={false}
       />
     );
@@ -79,13 +91,17 @@ export function WorkspaceFlashcardsPageClient() {
   }
 
   if (!(status === "ready" && user && workspace)) {
-    return <WorkspaceRoutePlaceholder label="Loading mindset sets..." />;
+    return <WorkspaceRoutePlaceholder label="Loading Mindset Sets..." />;
   }
 
   if (dashboardQuery.isError) {
     return (
       <WorkspaceRoutePlaceholder
-        label="Unable to load mindset sets."
+        label={
+          dashboardQuery.error instanceof Error
+            ? dashboardQuery.error.message
+            : "Unable to load Mindset Sets."
+        }
         pending={false}
       />
     );
@@ -94,18 +110,18 @@ export function WorkspaceFlashcardsPageClient() {
   if (dashboardQuery.data === null) {
     return (
       <WorkspaceRoutePlaceholder
-        label="Mindset sets unavailable."
+        label="Mindset Sets unavailable."
         pending={false}
       />
     );
   }
 
   if (dashboardQuery.isPending || !dashboardQuery.data?.dashboard) {
-    return <WorkspaceRoutePlaceholder label="Loading mindset sets..." />;
+    return <WorkspaceRoutePlaceholder label="Loading Mindset Sets..." />;
   }
 
   return (
-    <FlashcardsDashboard
+    <ReadyFlashcardsDashboard
       generationRequest={generationRequest}
       initialDashboard={dashboardQuery.data.dashboard}
     />

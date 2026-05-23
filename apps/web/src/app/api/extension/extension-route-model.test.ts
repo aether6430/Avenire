@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  EXTENSION_INVALID_PARENT_ID_ERROR,
   EXTENSION_INVALID_PAYLOAD_ERROR,
+  EXTENSION_INVALID_PRESET_ID_ERROR,
+  EXTENSION_INVALID_WORKSPACE_ID_ERROR,
   normalizeExtensionRouteUuidInput,
   parseExtensionDestinationPayload,
+  resolveExtensionPresetId,
   resolveExtensionRouteError,
   resolveExtensionWorkspaceFolderParentId,
+  resolveExtensionWorkspaceUuid,
   serializeExtensionDestination,
 } from "@/app/api/extension/extension-route-model";
 
@@ -38,16 +43,51 @@ describe("extension route model", () => {
   it("resolves folder parents, serializes destinations, and maps extension route errors", () => {
     expect(
       resolveExtensionWorkspaceFolderParentId({
-        parentId: "  parent-1  ",
-        rootFolderId: "root-1",
+        parentId: "  550e8400-e29b-41d4-a716-446655440002  ",
+        rootFolderId: "550e8400-e29b-41d4-a716-446655440001",
       })
-    ).toBe("parent-1");
+    ).toEqual({
+      parentId: "550e8400-e29b-41d4-a716-446655440002",
+      success: true,
+    });
     expect(
       resolveExtensionWorkspaceFolderParentId({
         parentId: "",
-        rootFolderId: "root-1",
+        rootFolderId: "550e8400-e29b-41d4-a716-446655440001",
       })
-    ).toBe("root-1");
+    ).toEqual({
+      parentId: "550e8400-e29b-41d4-a716-446655440001",
+      success: true,
+    });
+    expect(
+      resolveExtensionWorkspaceFolderParentId({
+        parentId: "parent-1",
+        rootFolderId: "550e8400-e29b-41d4-a716-446655440001",
+      })
+    ).toEqual({
+      error: EXTENSION_INVALID_PARENT_ID_ERROR,
+      success: false,
+    });
+    expect(
+      resolveExtensionWorkspaceUuid("  550e8400-e29b-41d4-a716-446655440000  ")
+    ).toEqual({
+      success: true,
+      value: "550e8400-e29b-41d4-a716-446655440000",
+    });
+    expect(resolveExtensionWorkspaceUuid("workspace-1")).toEqual({
+      error: EXTENSION_INVALID_WORKSPACE_ID_ERROR,
+      success: false,
+    });
+    expect(
+      resolveExtensionPresetId("  550e8400-e29b-41d4-a716-446655440003  ")
+    ).toEqual({
+      success: true,
+      value: "550e8400-e29b-41d4-a716-446655440003",
+    });
+    expect(resolveExtensionPresetId("preset-1")).toEqual({
+      error: EXTENSION_INVALID_PRESET_ID_ERROR,
+      success: false,
+    });
 
     expect(
       serializeExtensionDestination({

@@ -3,6 +3,9 @@ export interface WorkspaceTrashMutationItem {
   kind: "file" | "folder";
 }
 
+export const WORKSPACE_TRASH_LOAD_ERROR = "Unable to load trash.";
+export const WORKSPACE_TRASH_MUTATION_ERROR = "Unable to update trash.";
+
 export interface WorkspaceTrashMutationBody {
   items?: WorkspaceTrashMutationItem[];
   operation?: "restore" | "delete";
@@ -48,4 +51,11 @@ export function filterWorkspaceTrashStorageKeys(storageKeys: string[]) {
   return storageKeys.filter(
     (storageKey) => storageKey && !storageKey.startsWith("virtual:duplicate:")
   );
+}
+
+export function resolveWorkspaceTrashRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
 }

@@ -2,6 +2,9 @@ export function buildWorkspaceFileShareUrl(baseUrl: string, token: string) {
   return `${baseUrl}/share/${token}`;
 }
 
+export const WORKSPACE_FILE_SHARE_CONTEXT_ERROR =
+  "Unable to load file share context.";
+
 export function normalizeWorkspaceFileSharePermission(
   permission?: unknown
 ): "viewer" | "editor" {
@@ -18,4 +21,11 @@ export function parseWorkspaceFileShareGrantBody(body: {
     email: email.length > 0 ? email : null,
     permission: normalizeWorkspaceFileSharePermission(body.permission),
   };
+}
+
+export function resolveWorkspaceFileShareRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
 }

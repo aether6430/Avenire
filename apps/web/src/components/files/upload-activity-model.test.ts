@@ -5,6 +5,7 @@ import {
   getUploadActivityEmptyState,
   mapIngestionEventStatus,
   mapRecentJobStatus,
+  resolveUploadActivityErrorMessage,
   shouldEnableUploadActivityLiveQueries,
   summarizeUploadQueue,
   updateIngestionQueueItem,
@@ -102,13 +103,13 @@ describe("upload activity model", () => {
 
     expect(
       getUploadActivityEmptyState({
+        errorMessage: "Recent uploads timed out.",
         itemCount: 0,
         loadFailed: true,
         loading: false,
       })
     ).toEqual({
-      description:
-        "Try again in a moment to reload recent uploads and ingestion jobs.",
+      description: "Recent uploads timed out.",
       title: "Unable to load upload activity.",
     });
 
@@ -131,6 +132,15 @@ describe("upload activity model", () => {
         loading: false,
       })
     ).toBeNull();
+  });
+
+  it("resolves safe upload activity error messages from runtime failures", () => {
+    expect(
+      resolveUploadActivityErrorMessage(new Error("Recent uploads timed out."))
+    ).toBe("Recent uploads timed out.");
+    expect(resolveUploadActivityErrorMessage("boom")).toBe(
+      "Unable to load upload activity."
+    );
   });
 
   it("only enables upload activity live queries when the files route needs them", () => {

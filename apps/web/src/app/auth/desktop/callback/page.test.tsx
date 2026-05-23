@@ -24,6 +24,8 @@ describe("desktop callback page contract", () => {
     expect(html).toContain("Authorization code:");
     expect(html).toContain("Received");
     expect(html).toContain("Session state:");
+    expect(html).toContain("Open workspace on web");
+    expect(html).not.toContain("Continue to workspace");
   });
 
   it("renders an incomplete handoff state when callback params are missing", async () => {
@@ -36,5 +38,6 @@ describe("desktop callback page contract", () => {
       "This sign-in handoff is incomplete. Return to Avenire Desktop and try again from there."
     );
     expect(html).toContain("Missing");
+    expect(html).toContain("Open workspace on web");
   });
 });

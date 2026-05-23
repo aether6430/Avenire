@@ -3,6 +3,7 @@
 import { NodeSelection } from "@tiptap/pm/state";
 import { type Editor, useEditor, useEditorState } from "@tiptap/react";
 import { useCallback, useMemo, useRef } from "react";
+import { readAiRouteTextResponse } from "@/components/editor/editor-ai-response";
 import {
   type AvenireEditorProps,
   type MathKind,
@@ -17,7 +18,6 @@ import {
   useEditorSupportSync,
 } from "@/components/editor/use-editor-support-state";
 import { useEditorTableTools } from "@/components/editor/use-editor-table-tools";
-import { isMarkdownNoteTemplateTargetEmpty } from "@/lib/markdown-note-template";
 import { resolveWorkspaceFileRoute } from "@/lib/workspace-file-navigation";
 import {
   useOptionalCurrentWorkspacePane,
@@ -25,14 +25,45 @@ import {
 } from "@/lib/workspace-panes";
 import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
 
+interface DocumentStats {
+  characters: number;
+  paragraphs: number;
+  words: number;
+}
+
+function getDocumentStats(editor: Editor | null): DocumentStats {
+  if (!editor) {
+    return { characters: 0, paragraphs: 0, words: 0 };
+  }
+
+  const text = editor.getText();
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  let paragraphs = 0;
+
+  editor.state.doc.descendants((node) => {
+    if (
+      node.type.name === "paragraph" ||
+      node.type.name === "heading" ||
+      node.type.name === "listItem"
+    ) {
+      paragraphs += 1;
+    }
+  });
+
+  return {
+    characters: text.length,
+    paragraphs,
+    words,
+  };
+}
+
 export function useAvenireEditor({
-  createdBy,
+  createdBy: _createdBy,
   defaultValue,
   noteTitle,
   onChange,
   onPagePropertiesChange,
   onPropertyDefinitionsChange,
-  onTemplateApplied,
   pageProperties = {},
   propertyDefinitions = [],
   readOnly = false,
@@ -116,8 +147,6 @@ export function useAvenireEditor({
     inlineNotice,
     mathPopover,
     mermaidPopover,
-    noteTemplates,
-    recentTemplateIds,
     setAiLoading,
     setAiReview,
     setImagePopover,
@@ -126,13 +155,10 @@ export function useAvenireEditor({
     setInlineNotice,
     setMathPopover,
     setMermaidPopover,
-    setRecentTemplateIds,
     setTableOfContentsItems,
     startImageUpload,
     tableOfContentsItems,
-  } = useEditorSupportState({
-    workspaceUuid,
-  });
+  } = useEditorSupportState();
 
   const openMathEditor = useCallback(
     (editor: Editor, kind: MathKind, pos: number) => {
@@ -173,8 +199,8 @@ export function useAvenireEditor({
     selector: ({ editor }) => {
       if (!editor) {
         return {
+          documentStats: { characters: 0, paragraphs: 0, words: 0 },
           imageSelection: null,
-          showEmptyTemplateActions: false,
         };
       }
 
@@ -189,18 +215,15 @@ export function useAvenireEditor({
           : null;
 
       return {
+        documentStats: getDocumentStats(editor),
         imageSelection,
-        showEmptyTemplateActions: isMarkdownNoteTemplateTargetEmpty(
-          editor.getMarkdown(),
-          noteTitle
-        ),
       };
     },
   });
 
   const resolvedEditorUiState = editorUiState ?? {
+    documentStats: { characters: 0, paragraphs: 0, words: 0 },
     imageSelection: null,
-    showEmptyTemplateActions: false,
   };
 
   useEditorSupportSync({
@@ -247,12 +270,37 @@ export function useAvenireEditor({
     setTableContextMenu,
   } = useEditorTableTools({ editor });
 
+  const summarizeCurrentPage = useCallback(async () => {
+    const markdown = editor?.getMarkdown().trim() ?? "";
+    if (!markdown) {
+      setInlineNotice("There is no page content to summarize yet.");
+      return null;
+    }
+
+    try {
+      const response = await fetch("/api/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "summarize", text: markdown }),
+      });
+
+      return await readAiRouteTextResponse(response);
+    } catch (error) {
+      setInlineNotice(
+        error instanceof Error
+          ? error.message
+          : "Could not summarize this page right now."
+      );
+      return null;
+    }
+  }, [editor, setInlineNotice]);
+
   return {
     activePaneId,
     activeSlashIndex,
     activeWikiIndex,
     aiReview,
-    createdBy,
+    documentStats: resolvedEditorUiState.documentStats,
     editor,
     filteredSlashCommands,
     filteredWikiPages,
@@ -262,15 +310,12 @@ export function useAvenireEditor({
     inlineNotice,
     mathPopover,
     mermaidPopover,
-    noteTemplates,
     noteTitle,
     onPagePropertiesChange,
     onPropertyDefinitionsChange,
-    onTemplateApplied,
     pageProperties,
     propertyDefinitions,
     readOnly,
-    recentTemplateIds,
     resolvedEditorUiState,
     saveMessage,
     saveState,
@@ -282,11 +327,11 @@ export function useAvenireEditor({
     setInlineNotice,
     setMathPopover,
     setMermaidPopover,
-    setRecentTemplateIds,
     setSlashNav,
     setTableContextMenu,
     setWikiNav,
     startImageUpload,
+    summarizeCurrentPage,
     tableActions,
     tableContextMenu,
     tableContextMenuRef,

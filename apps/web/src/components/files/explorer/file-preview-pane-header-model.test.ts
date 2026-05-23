@@ -1,42 +1,8 @@
 import { describe, expect, it } from "vitest";
-import {
-  canUseFilePreviewPaneCircleToAi,
-  getFilePreviewPaneHeaderMoveTargets,
-} from "@/components/files/explorer/file-preview-pane-header-model";
+import { getFilePreviewPaneHeaderMoveTargets } from "@/components/files/explorer/file-preview-pane-header-model";
 import type { FolderRecord } from "@/components/files/explorer/shared";
 
 describe("file preview pane header model", () => {
-  it("enables Circle to AI only for preview kinds that support it", () => {
-    expect(
-      canUseFilePreviewPaneCircleToAi({
-        isImage: false,
-        isPdf: false,
-        isVideo: false,
-      })
-    ).toBe(false);
-    expect(
-      canUseFilePreviewPaneCircleToAi({
-        isImage: true,
-        isPdf: false,
-        isVideo: false,
-      })
-    ).toBe(true);
-    expect(
-      canUseFilePreviewPaneCircleToAi({
-        isImage: false,
-        isPdf: true,
-        isVideo: false,
-      })
-    ).toBe(true);
-    expect(
-      canUseFilePreviewPaneCircleToAi({
-        isImage: false,
-        isPdf: false,
-        isVideo: true,
-      })
-    ).toBe(true);
-  });
-
   it("filters move targets down to writable folders and caps the list", () => {
     const folders = Array.from({ length: 24 }, (_, index) => ({
       id: `folder-${index + 1}`,

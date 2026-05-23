@@ -6,8 +6,6 @@ import type { WorkspaceSearchResult } from "@/components/files/search-model";
 const FILE_RETRIEVAL_CONTEXT_KEY = "file-explorer-retrieval-context-v1";
 
 interface UseExplorerRetrievalBridgeOptions {
-  openFolderById: (folderId: string) => void;
-  openSearchResult: (result: WorkspaceSearchResult) => void;
   selectedRetrievalChunkParam: string | null;
   workspaceUuid: string;
 }
@@ -33,8 +31,6 @@ function readStoredExplorerRetrievalContext(
 }
 
 export function useExplorerRetrievalBridge({
-  openFolderById,
-  openSearchResult,
   selectedRetrievalChunkParam,
   workspaceUuid,
 }: UseExplorerRetrievalBridgeOptions) {
@@ -121,24 +117,9 @@ export function useExplorerRetrievalBridge({
     []
   );
 
-  const handleSelectResult = useCallback(
-    (result: WorkspaceSearchResult) => {
-      if (result.type === "folder") {
-        setActiveRetrievalChunkId(null);
-        openFolderById(result.id);
-        return;
-      }
-
-      setActiveRetrievalChunkId(result.chunkId ?? null);
-      openSearchResult(result);
-    },
-    [openFolderById, openSearchResult]
-  );
-
   return {
     activeRetrievalChunkId,
     handleSearch,
-    handleSelectResult,
     query,
     retrievalResults,
   };

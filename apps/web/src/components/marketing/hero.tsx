@@ -7,28 +7,23 @@ import { SubHeading } from "./subheading";
 
 export const Hero = () => {
   return (
-    <Container className="flex flex-col items-center justify-center border-divide border-x px-4 pt-14 pb-10 md:pt-20 md:pb-14">
+    <Container className="flex flex-col items-center justify-center border-divide border-x px-4 pt-10 pb-10 md:pt-32 md:pb-20">
       <Badge text="For focused students and researchers" />
-      <Heading className="mt-4 max-w-5xl">
-        AI Learning Workspace <br />
-        for <span className="text-brand">clearer thinking</span>
+      <Heading className="mt-4">
+        Build the workspace <br /> behind{" "}
+        <span className="text-brand">clearer thinking</span>
       </Heading>
 
-      <SubHeading as="p" className="mx-auto mt-5 max-w-2xl">
+      <SubHeading as="p" className="mx-auto mt-6 max-w-lg">
         Avenire turns notes, files, questions, and study sessions into one
         connected AI learning workspace for clearer thinking through hard ideas.
       </SubHeading>
 
-      <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-        <Button as={Link} className="min-w-40 py-3" href="/waitlist">
-          Join waitlist
+      <div className="mt-6 flex items-center gap-4">
+        <Button as={Link} href="/waitlist">
+          Start learning
         </Button>
-        <Button
-          as={Link}
-          className="min-w-32 py-3 text-white/88"
-          href="/pricing"
-          variant="secondary"
-        >
+        <Button as={Link} href="/pricing" variant="secondary">
           See plans
         </Button>
       </div>

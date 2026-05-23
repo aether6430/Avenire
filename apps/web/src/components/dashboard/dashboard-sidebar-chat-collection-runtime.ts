@@ -55,8 +55,12 @@ export async function loadDashboardSidebarChats(input: {
   try {
     const response = await input.fetchChats();
     if (!response.ok) {
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
       return {
         chats: [] as ChatSummary[],
+        errorMessage: payload.error?.trim() || "Unable to load methods.",
         loadFailed: true,
       };
     }
@@ -72,11 +76,16 @@ export async function loadDashboardSidebarChats(input: {
 
     return {
       chats,
+      errorMessage: null,
       loadFailed: false,
     };
-  } catch {
+  } catch (error) {
     return {
       chats: [] as ChatSummary[],
+      errorMessage:
+        error instanceof Error && error.message.trim().length > 0
+          ? error.message
+          : "Unable to load methods.",
       loadFailed: true,
     };
   }

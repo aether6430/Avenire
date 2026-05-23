@@ -5,6 +5,7 @@ import {
 } from "@/lib/workspace-event-stream";
 import {
   buildRealtimeSseHeaders,
+  isSupportedRealtimeEventType,
   resolveRealtimeEventsQuery,
   toRealtimeEventChunk,
   toRealtimeSseChunk,
@@ -19,6 +20,13 @@ export async function handleRealtimeEventsRouteGet(input: {
   const query = resolveRealtimeEventsQuery(input.request);
   if (!query.workspaceUuid) {
     return new Response("Missing workspaceUuid", { status: 400 });
+  }
+
+  if (
+    query.eventTypeFilter &&
+    !isSupportedRealtimeEventType(query.eventTypeFilter)
+  ) {
+    return new Response("Unsupported eventType", { status: 400 });
   }
 
   const canAccess = await ensureWorkspaceAccessForUser(
@@ -50,12 +58,13 @@ export async function handleRealtimeEventsRouteGet(input: {
           return;
         }
 
-        write(
-          toRealtimeEventChunk({
-            event,
-            workspaceUuid: query.workspaceUuid,
-          })
-        );
+        const chunk = toRealtimeEventChunk({
+          event,
+          workspaceUuid: query.workspaceUuid,
+        });
+        if (chunk) {
+          write(chunk);
+        }
       };
 
       const close = () => {

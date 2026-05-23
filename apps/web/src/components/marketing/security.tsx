@@ -55,7 +55,7 @@ export const Security = () => {
             className="mt-4 mb-8 inline-block w-full md:w-auto"
             href="/waitlist"
           >
-            Join waitlist
+            Join the waitlist
           </Button>
         </div>
         <div className="grid gap-3">

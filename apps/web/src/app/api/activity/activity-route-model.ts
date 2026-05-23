@@ -13,6 +13,7 @@ export interface ActivityEvent {
 
 const DEFAULT_ACTIVITY_LIMIT = 10;
 const MAX_ACTIVITY_LIMIT = 50;
+export const ACTIVITY_ROUTE_LOAD_ERROR = "Unable to load activity.";
 
 export function resolveActivityRouteLimit(limitRaw: string | null) {
   const parsed = Number.parseInt(limitRaw ?? "", 10);
@@ -63,4 +64,8 @@ export function sortActivityEvents(events: ActivityEvent[]) {
   return [...events].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
+}
+
+export function resolveActivityRouteError(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
 }

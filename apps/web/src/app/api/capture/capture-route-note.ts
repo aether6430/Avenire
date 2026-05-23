@@ -3,7 +3,11 @@ import { createWorkspaceNoteFile } from "@/lib/file-data";
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
 import { ensureNotesFolder } from "@/lib/quick-capture";
 import type { CaptureRequestBody } from "./capture-route-model";
-import { resolveNoteCapturePayload } from "./capture-route-model";
+import {
+  CAPTURE_NOTE_ERROR,
+  resolveCaptureRouteError,
+  resolveNoteCapturePayload,
+} from "./capture-route-model";
 
 export async function handleCaptureNote(input: {
   body: CaptureRequestBody;
@@ -19,32 +23,41 @@ export async function handleCaptureNote(input: {
     );
   }
 
-  const notesFolder = await ensureNotesFolder({
-    rootFolderId: input.rootFolderId,
-    userId: input.userId,
-    workspaceId: input.workspaceId,
-  });
+  try {
+    const notesFolder = await ensureNotesFolder({
+      rootFolderId: input.rootFolderId,
+      userId: input.userId,
+      workspaceId: input.workspaceId,
+    });
 
-  const note = await createWorkspaceNoteFile({
-    content: payload.content
-      ? `# ${payload.title}\n\n${payload.content}\n`
-      : `# ${payload.title}\n`,
-    folderId: notesFolder.id,
-    metadata: { type: "note", quickCapture: true },
-    name: payload.title,
-    userId: input.userId,
-    workspaceId: input.workspaceId,
-  });
+    const note = await createWorkspaceNoteFile({
+      content: payload.content
+        ? `# ${payload.title}\n\n${payload.content}\n`
+        : `# ${payload.title}\n`,
+      folderId: notesFolder.id,
+      metadata: { type: "note", quickCapture: true },
+      name: payload.title,
+      userId: input.userId,
+      workspaceId: input.workspaceId,
+    });
 
-  await publishFilesInvalidationEvent({
-    folderId: notesFolder.id,
-    reason: "file.created",
-    workspaceUuid: input.workspaceId,
-  });
-  await publishFilesInvalidationEvent({
-    reason: "tree.changed",
-    workspaceUuid: input.workspaceId,
-  });
+    await publishFilesInvalidationEvent({
+      folderId: notesFolder.id,
+      reason: "file.created",
+      workspaceUuid: input.workspaceId,
+    });
+    await publishFilesInvalidationEvent({
+      reason: "tree.changed",
+      workspaceUuid: input.workspaceId,
+    });
 
-  return NextResponse.json({ kind: "note", note }, { status: 201 });
+    return NextResponse.json({ kind: "note", note }, { status: 201 });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: resolveCaptureRouteError(error, CAPTURE_NOTE_ERROR),
+      },
+      { status: 500 }
+    );
+  }
 }

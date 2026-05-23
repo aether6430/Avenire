@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -29,6 +31,11 @@ vi.mock("@/lib/workspace", () => ({
 vi.mock("./workspace-share-team-post", () => ({
   handleWorkspaceShareTeamPost: handleWorkspaceShareTeamPostMock,
 }));
+
+const workspaceShareTeamRouteSource = readFileSync(
+  resolve(import.meta.dirname, "route.ts"),
+  "utf8"
+);
 
 import { POST } from "./route";
 
@@ -68,6 +75,38 @@ describe("workspace share team route", () => {
     expect(handleWorkspaceShareTeamPostMock).not.toHaveBeenCalled();
   });
 
+  it("fails closed when top-level session lookup throws before team-share handling begins", async () => {
+    getSessionUserMock.mockRejectedValue(
+      new Error("workspace share team auth offline")
+    );
+
+    const response = await POST(new Request("https://avenire.space"), {
+      params: Promise.resolve({ workspaceUuid: "workspace-1" }),
+    });
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "workspace share team auth offline",
+    });
+    expect(handleWorkspaceShareTeamPostMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when workspace access lookup throws before team-share handling begins", async () => {
+    ensureWorkspaceAccessForUserMock.mockRejectedValue(
+      new Error("workspace share team access offline")
+    );
+
+    const response = await POST(new Request("https://avenire.space"), {
+      params: Promise.resolve({ workspaceUuid: "workspace-1" }),
+    });
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "workspace share team access offline",
+    });
+    expect(handleWorkspaceShareTeamPostMock).not.toHaveBeenCalled();
+  });
+
   it("delegates successful team-share requests through the resolved route context", async () => {
     const request = new Request("https://avenire.space");
     const response = await POST(request, {
@@ -87,5 +126,18 @@ describe("workspace share team route", () => {
       queued: true,
       recipients: 2,
     });
+  });
+
+  it("keeps workspace share team routing on the shared share-route context instead of inlining auth/access preflight", () => {
+    expect(workspaceShareTeamRouteSource).toContain(
+      "../workspace-share-route-context"
+    );
+    expect(workspaceShareTeamRouteSource).toContain(
+      "resolveWorkspaceShareRouteContext"
+    );
+    expect(workspaceShareTeamRouteSource).not.toContain("getSessionUser(");
+    expect(workspaceShareTeamRouteSource).not.toContain(
+      "ensureWorkspaceAccessForUser("
+    );
   });
 });

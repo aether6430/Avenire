@@ -25,6 +25,24 @@ import { getUserSettingsSnapshot } from "@/lib/user-settings-client";
 
 const lowlight = createLowlight(common);
 
+const CODE_ICON_SVG = {
+  copy: '<svg viewBox="0 0 256 256" aria-hidden="true"><rect x="88" y="64" width="104" height="128" rx="8" fill="none" stroke="currentColor" stroke-width="18"/><path d="M64 160H56a8 8 0 0 1-8-8V40a8 8 0 0 1 8-8h112a8 8 0 0 1 8 8v8" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round"/></svg>',
+  edit: '<svg viewBox="0 0 256 256" aria-hidden="true"><path d="M92 216H48a8 8 0 0 1-8-8v-44L156 48a24 24 0 0 1 34 0l18 18a24 24 0 0 1 0 34Z" fill="none" stroke="currentColor" stroke-width="18" stroke-linejoin="round"/><path d="m140 64 52 52" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round"/></svg>',
+  preview:
+    '<svg viewBox="0 0 256 256" aria-hidden="true"><path d="M24 128s40-72 104-72 104 72 104 72-40 72-104 72S24 128 24 128Z" fill="none" stroke="currentColor" stroke-width="18" stroke-linejoin="round"/><circle cx="128" cy="128" r="32" fill="none" stroke="currentColor" stroke-width="18"/></svg>',
+};
+
+const MERMAID_ICON_SVG = {
+  edit: '<svg viewBox="0 0 256 256" aria-hidden="true"><path d="M92 216H48a8 8 0 0 1-8-8v-44L156 48a24 24 0 0 1 34 0l18 18a24 24 0 0 1 0 34Z" fill="none" stroke="currentColor" stroke-width="18" stroke-linejoin="round"/><path d="m140 64 52 52" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round"/></svg>',
+  full: '<svg viewBox="0 0 256 256" aria-hidden="true"><path d="M88 40H48a8 8 0 0 0-8 8v40M168 40h40a8 8 0 0 1 8 8v40M88 216H48a8 8 0 0 1-8-8v-40M168 216h40a8 8 0 0 0 8-8v-40" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  reset:
+    '<svg viewBox="0 0 256 256" aria-hidden="true"><path d="M64 88H32V56" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/><path d="M65 88a80 80 0 1 1-17 52" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round"/></svg>',
+  zoomIn:
+    '<svg viewBox="0 0 256 256" aria-hidden="true"><circle cx="112" cy="112" r="72" fill="none" stroke="currentColor" stroke-width="18"/><path d="M163 163 216 216M112 80v64M80 112h64" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round"/></svg>',
+  zoomOut:
+    '<svg viewBox="0 0 256 256" aria-hidden="true"><circle cx="112" cy="112" r="72" fill="none" stroke="currentColor" stroke-width="18"/><path d="M163 163 216 216M80 112h64" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round"/></svg>',
+};
+
 interface LowlightTreeNode {
   children?: LowlightTreeNode[];
   properties?: {
@@ -94,13 +112,47 @@ export const ScribeCodeBlockLowlight = CodeBlockLowlight.extend({
       const contentDOM = document.createElement("code");
       editorPre.appendChild(contentDOM);
 
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "scribe-codeblock-edit";
+      const controls = document.createElement("div");
+      controls.className = "scribe-codeblock-controls";
+      controls.contentEditable = "false";
+
+      const languageSelect = document.createElement("select");
+      languageSelect.className = "scribe-codeblock-language";
+      languageSelect.setAttribute("aria-label", "Code block language");
+
+      const languages = [
+        "plaintext",
+        ...Object.keys(common).sort((a, b) => a.localeCompare(b)),
+      ];
+
+      for (const language of languages) {
+        const option = document.createElement("option");
+        option.value = language;
+        option.textContent = language;
+        languageSelect.appendChild(option);
+      }
+
+      const copyButton = document.createElement("button");
+      copyButton.type = "button";
+      copyButton.className = "scribe-codeblock-button";
+      copyButton.innerHTML = CODE_ICON_SVG.copy;
+      copyButton.setAttribute("aria-label", "Copy code");
+      copyButton.title = "Copy code";
+
+      const editButton = document.createElement("button");
+      editButton.type = "button";
+      editButton.className = "scribe-codeblock-button";
+      editButton.title = "Toggle preview";
 
       const syncButtonLabel = () => {
-        button.textContent =
-          dom.dataset.editing === "true" ? "Preview code" : "Edit code";
+        editButton.innerHTML =
+          dom.dataset.editing === "true"
+            ? CODE_ICON_SVG.preview
+            : CODE_ICON_SVG.edit;
+        editButton.setAttribute(
+          "aria-label",
+          dom.dataset.editing === "true" ? "Preview code" : "Edit code"
+        );
       };
 
       const syncPreview = (nextNode = node) => {
@@ -108,6 +160,7 @@ export const ScribeCodeBlockLowlight = CodeBlockLowlight.extend({
           typeof nextNode.attrs.language === "string"
             ? nextNode.attrs.language
             : null;
+        languageSelect.value = language || "plaintext";
         previewCode.dataset.language = language ?? "";
         renderHighlightedCodePreview(
           previewCode,
@@ -116,7 +169,60 @@ export const ScribeCodeBlockLowlight = CodeBlockLowlight.extend({
         );
       };
 
-      button.addEventListener("click", (event) => {
+      languageSelect.addEventListener("mousedown", (event) => {
+        event.stopPropagation();
+      });
+
+      languageSelect.addEventListener("change", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const pos = getPos();
+        if (typeof pos !== "number") {
+          return;
+        }
+        const value = languageSelect.value;
+        editor
+          .chain()
+          .focus(pos + 1)
+          .updateAttributes("codeBlock", {
+            language: value === "plaintext" ? null : value,
+          })
+          .run();
+      });
+
+      copyButton.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const originalLabel = copyButton.innerHTML;
+        const writeText = globalThis.navigator?.clipboard?.writeText?.bind(
+          globalThis.navigator.clipboard
+        );
+
+        if (!writeText) {
+          copyButton.innerHTML = "<span>Failed</span>";
+          window.setTimeout(() => {
+            copyButton.innerHTML = originalLabel;
+          }, 1200);
+          return;
+        }
+
+        void writeText(node.textContent).then(
+          () => {
+            copyButton.innerHTML = "<span>Copied</span>";
+            window.setTimeout(() => {
+              copyButton.innerHTML = originalLabel;
+            }, 1200);
+          },
+          () => {
+            copyButton.innerHTML = "<span>Failed</span>";
+            window.setTimeout(() => {
+              copyButton.innerHTML = originalLabel;
+            }, 1200);
+          }
+        );
+      });
+
+      editButton.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
         const nextEditing = dom.dataset.editing !== "true";
@@ -135,9 +241,10 @@ export const ScribeCodeBlockLowlight = CodeBlockLowlight.extend({
         }
       });
 
-      dom.append(preview, editorPre, button);
       syncPreview();
       syncButtonLabel();
+      controls.append(languageSelect, copyButton, editButton);
+      dom.append(controls, preview, editorPre);
 
       return {
         dom,
@@ -377,8 +484,9 @@ export const MermaidDiagramExtension = TiptapNode.create({
       const editButton = document.createElement("button");
       editButton.type = "button";
       editButton.className = "mermaid-diagram-edit";
-      editButton.textContent = "Edit diagram";
+      editButton.innerHTML = MERMAID_ICON_SVG.edit;
       editButton.setAttribute("aria-label", "Edit diagram");
+      editButton.title = "Edit diagram";
       const zoomControls = document.createElement("div");
       zoomControls.className = "mermaid-diagram-zoom";
       wrapper.append(viewport, editButton, zoomControls);
@@ -488,13 +596,13 @@ export const MermaidDiagramExtension = TiptapNode.create({
       };
 
       const buildControlButton = (
-        label: string,
+        icon: string,
         title: string,
         onClick: () => void
       ) => {
         const button = document.createElement("button");
         button.type = "button";
-        button.textContent = label;
+        button.innerHTML = icon;
         button.title = title;
         button.setAttribute("aria-label", title);
         button.className = "mermaid-diagram-zoom-button";
@@ -507,11 +615,15 @@ export const MermaidDiagramExtension = TiptapNode.create({
       };
 
       zoomControls.append(
-        buildControlButton("+", "Zoom in", () =>
+        buildControlButton(MERMAID_ICON_SVG.zoomIn, "Zoom in", () =>
           zoomAtCenter(MERMAID_BUTTON_ZOOM_FACTOR)
         ),
-        buildControlButton("−", "Zoom out", () =>
+        buildControlButton(MERMAID_ICON_SVG.zoomOut, "Zoom out", () =>
           zoomAtCenter(1 / MERMAID_BUTTON_ZOOM_FACTOR)
+        ),
+        buildControlButton(MERMAID_ICON_SVG.reset, "Reset view", fitToViewport),
+        buildControlButton(MERMAID_ICON_SVG.full, "Expand diagram", () =>
+          wrapper.classList.toggle("is-expanded")
         )
       );
 

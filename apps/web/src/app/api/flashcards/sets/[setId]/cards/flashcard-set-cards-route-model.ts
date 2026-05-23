@@ -46,6 +46,8 @@ const flashcardSetCardCreatePayloadSchema = z.object({
 
 export const FLASHCARD_SET_CARD_INVALID_PAYLOAD_ERROR =
   "frontMarkdown, backMarkdown, and source with subject, topic, and concept are required";
+export const FLASHCARD_SET_CARD_CREATE_ERROR =
+  "Unable to create Mindset Set card.";
 
 export function parseFlashcardSetCardCreatePayload(payload: unknown) {
   return flashcardSetCardCreatePayloadSchema.safeParse(payload);
@@ -66,4 +68,11 @@ export function resolveFlashcardSetCardInvalidateEventPayload(input: {
     setId: input.setId,
     workspaceUuid: input.workspaceUuid,
   };
+}
+
+export function resolveFlashcardSetCardRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
 }

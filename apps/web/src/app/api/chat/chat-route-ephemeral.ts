@@ -21,6 +21,7 @@ import {
 } from "./chat-route-logging";
 import {
   extractLatestUserText,
+  getExpectedChatCredits,
   normalizeMessageFileMediaTypes,
   pickModelTools,
 } from "./chat-route-model";
@@ -53,8 +54,12 @@ export async function handleEphemeralChatRequest({
   workspace,
 }: HandleEphemeralChatRequestOptions) {
   const originalMessages = normalizeMessageFileMediaTypes(body.messages ?? []);
+  const selectedModel = body.selectedModel ?? "apollo-apex";
 
-  const initialUsage = await consumeChatUnits(sessionUser.id, 1);
+  const initialUsage = await consumeChatUnits(
+    sessionUser.id,
+    getExpectedChatCredits(originalMessages, selectedModel)
+  );
   if (!initialUsage.ok) {
     const retryAfter = initialUsage.retryAfter?.toISOString() ?? null;
     apiLogger.rateLimited("chat", retryAfter, { chatId: "ephemeral" });
@@ -66,8 +71,6 @@ export async function handleEphemeralChatRequest({
       { status: 429 }
     );
   }
-
-  const selectedModel = body.selectedModel ?? "apollo-apex";
   try {
     const selectionBase64 = body.selectionBase64?.trim() ?? "";
     if (!selectionBase64) {
@@ -81,9 +84,9 @@ export async function handleEphemeralChatRequest({
     const selectionMediaType = body.selectionMediaType?.trim() || "image/png";
     const selectionBuffer = Buffer.from(selectionBase64, "base64");
     const latestUserText = extractLatestUserText(originalMessages);
-    const haloTools = createChatTools({
+    const selectionTools = createChatTools({
       agentActivityId: randomUUID(),
-      chatSlug: `halo-ephemeral:${randomUUID()}`,
+      chatSlug: `selection-ephemeral:${randomUUID()}`,
       emitAgentActivity: () => undefined,
       rootFolderId: workspace.rootFolderId,
       userId: sessionUser.id,
@@ -92,11 +95,11 @@ export async function handleEphemeralChatRequest({
     const priorMessages = await convertToModelMessages(
       originalMessages.slice(0, -1),
       {
-        tools: haloTools,
+        tools: selectionTools,
       }
     );
     const selectionPrompt = latestUserText.trim();
-    const haloSystemPrompt = APOLLO_PROMPT(
+    const selectionSystemPrompt = APOLLO_PROMPT(
       body.userName ?? sessionUser.name ?? undefined,
       [
         "The selected image is evidence, not the task.",
@@ -109,7 +112,7 @@ export async function handleEphemeralChatRequest({
     );
     const result = streamText({
       model: apollo.languageModel(selectedModel),
-      system: haloSystemPrompt,
+      system: selectionSystemPrompt,
       messages: [
         ...priorMessages,
         {
@@ -127,7 +130,10 @@ export async function handleEphemeralChatRequest({
           ],
         },
       ],
-      tools: pickModelTools(haloTools, ["show_widget", "visualize_read_me"]),
+      tools: pickModelTools(selectionTools, [
+        "show_widget",
+        "visualize_read_me",
+      ]),
       maxOutputTokens: 5000,
       stopWhen: stepCountIs(8),
       temperature: 0.2,

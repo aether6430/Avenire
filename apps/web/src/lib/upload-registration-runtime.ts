@@ -1,12 +1,11 @@
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
-import { UTApi } from "@avenire/storage";
-import { consumeUploadUnits } from "@/lib/billing-metering";
+import { deleteStorageFiles } from "@avenire/storage";
+import { canStoreBytesForUser } from "@/lib/database-billing-metering";
 import {
   createWorkspaceNoteFile,
   getFileAssetByContentHash,
   getFileAssetByStorageKey,
   registerFileAsset,
-  softDeleteFileAsset,
 } from "@/lib/file-data";
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
 import { hasSuccessfulIngestionForFile } from "@/lib/ingestion-data";
@@ -134,6 +133,16 @@ export async function registerWorkspaceMarkdownNote(input: {
     }
   }
 
+  const noteBytes = new TextEncoder().encode(normalizedNote.content).byteLength;
+  const storage = await canStoreBytesForUser(input.userId, noteBytes);
+  if (!storage.ok) {
+    throw Object.assign(new Error("Storage limit reached"), {
+      code: "STORAGE_LIMIT",
+      limitBytes: storage.limitBytes,
+      usedBytes: storage.usedBytes,
+    });
+  }
+
   const file = await createWorkspaceNoteFile({
     workspaceId: input.workspaceUuid,
     userId: input.userId,
@@ -184,8 +193,7 @@ export async function deleteUploadThingFile(
   }
 
   try {
-    const utapi = new UTApi({ token: process.env.UPLOADTHING_TOKEN });
-    await utapi.deleteFiles([storageKey]);
+    await deleteStorageFiles([storageKey]);
   } catch {
     // Best effort cleanup.
   }
@@ -285,6 +293,19 @@ export async function registerWorkspaceUploadedFile(
     }
   }
 
+  const storage = await canStoreBytesForUser(
+    input.userId,
+    normalizedUpload.sizeBytes
+  );
+  if (!storage.ok) {
+    await deleteUploadThingFile(input.storageKey);
+    throw Object.assign(new Error("Storage limit reached"), {
+      code: "STORAGE_LIMIT",
+      limitBytes: storage.limitBytes,
+      usedBytes: storage.usedBytes,
+    });
+  }
+
   const file = await registerFileAsset(input.workspaceUuid, input.userId, {
     folderId: input.folderId,
     storageKey: normalizedUpload.storageKey,
@@ -297,16 +318,6 @@ export async function registerWorkspaceUploadedFile(
     hashComputedBy: normalizedHash ? (input.hashComputedBy ?? "client") : null,
     hashVerificationStatus: normalizedHash ? "pending" : null,
   });
-
-  const usage = await consumeUploadUnits(input.userId, 1);
-  if (!usage.ok) {
-    await deleteUploadThingFile(input.storageKey);
-    await softDeleteFileAsset(input.workspaceUuid, file.id);
-    throw Object.assign(new Error("Upload usage limit reached"), {
-      code: "UPLOAD_RATE_LIMIT",
-      retryAfter: usage.retryAfter?.toISOString() ?? null,
-    });
-  }
 
   const ingestionJob = await scheduleIngestionJob({
     workspaceId: input.workspaceUuid,

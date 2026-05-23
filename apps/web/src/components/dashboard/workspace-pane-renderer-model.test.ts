@@ -5,6 +5,7 @@ import {
   getPaneDropRegion,
   normalizePreviewPaneSizes,
   type RenderablePane,
+  shouldPersistWorkspacePanelLayout,
 } from "@/components/dashboard/workspace-pane-renderer-model";
 
 describe("workspace pane renderer model", () => {
@@ -160,5 +161,43 @@ describe("workspace pane renderer model", () => {
       "__workspace-pane-drop-preview__",
     ]);
     expect(rows[1]?.panes[0]?.route.pathname).toBe("/workspace/tasks");
+  });
+
+  it("skips persisting transient or unchanged panel layouts", () => {
+    expect(
+      shouldPersistWorkspacePanelLayout({
+        currentSizes: [50, 50],
+        draggedPaneId: "pane-a",
+        hasPreviewPane: false,
+        nextSizes: [60, 40],
+      })
+    ).toBe(false);
+
+    expect(
+      shouldPersistWorkspacePanelLayout({
+        currentSizes: [50, 50],
+        draggedPaneId: null,
+        hasPreviewPane: true,
+        nextSizes: [60, 40],
+      })
+    ).toBe(false);
+
+    expect(
+      shouldPersistWorkspacePanelLayout({
+        currentSizes: [50, 50],
+        draggedPaneId: null,
+        hasPreviewPane: false,
+        nextSizes: [50.05, 49.95],
+      })
+    ).toBe(false);
+
+    expect(
+      shouldPersistWorkspacePanelLayout({
+        currentSizes: [50, 50],
+        draggedPaneId: null,
+        hasPreviewPane: false,
+        nextSizes: [62, 38],
+      })
+    ).toBe(true);
   });
 });

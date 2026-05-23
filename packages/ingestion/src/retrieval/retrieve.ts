@@ -866,6 +866,9 @@ export const retrieveRelevantChunks = async (
 }> => {
   const start = performance.now();
   const normalizedQuery = normalizeRetrievalQuery(query);
+  if (!normalizedQuery) {
+    throw new Error("A retrieval query is required.");
+  }
   const visualIntent = hasVisualIntent(normalizedQuery);
   const audioIntent = hasAudioIntent(normalizedQuery);
   const documentIntent = hasDocumentIntent(normalizedQuery);
@@ -881,7 +884,16 @@ export const retrieveRelevantChunks = async (
     limit * config.retrievalCandidateMultiplier
   );
 
-  const expandedQuery = await expandQuery(normalizedQuery);
+  const expandedQuery = await expandQuery(normalizedQuery).catch((error) => {
+    logWarn({
+      eventName: "retrieval.query_expansion_fallback",
+      payload: {
+        error: safeError(error),
+        query: normalizedQuery,
+      },
+    });
+    return null;
+  });
   const searchQueries = dedupeQueries([
     normalizedQuery,
     expandedQuery ?? "",
@@ -972,6 +984,49 @@ export const retrieveRelevantChunks = async (
     ])
   );
   let rerankFallbackUsed = false;
+
+  if (rerankCandidates.length === 0) {
+    const corpus = options?.corpus ?? (await vectorStore.corpusStats());
+    const assembled = {
+      context: "",
+      results: [] as RetrievedCandidate[],
+      tokenCount: 0,
+      truncated: false,
+    };
+    const latencyMs = Math.round(performance.now() - start);
+    const telemetry = buildRetrievalDecisionTelemetry({
+      audioIntent,
+      assembled,
+      corpus,
+      documentIntent,
+      expandedQuery,
+      latencyMs,
+      learnerSignalBoosts,
+      mergedCandidates,
+      normalizedQuery,
+      options,
+      queryCount: searchQueries.length,
+      querySearchResults,
+      rerankCandidates,
+      rerankFallbackUsed,
+      reranked: [],
+      sortedCandidates,
+      visualIntent,
+    });
+
+    logInfo({
+      eventName: "retrieval.decision",
+      payload: telemetry as unknown as Record<string, unknown>,
+    });
+
+    return {
+      context: "",
+      decision: telemetry,
+      latencyMs,
+      corpus,
+      results: [],
+    };
+  }
 
   const reranked = await rerank({
     model: apollo.rerankingModel("apollo-reranking"),
@@ -1314,6 +1369,9 @@ export const retrieveRelevantChunksAdaptive = async (
 ): Promise<RetrievalPathResult> => {
   const start = performance.now();
   const normalizedQuery = normalizeRetrievalQuery(query);
+  if (!normalizedQuery) {
+    throw new Error("A retrieval query is required.");
+  }
   const visualIntent = hasVisualIntent(normalizedQuery);
   const audioIntent = hasAudioIntent(normalizedQuery);
   const documentIntent = hasDocumentIntent(normalizedQuery);

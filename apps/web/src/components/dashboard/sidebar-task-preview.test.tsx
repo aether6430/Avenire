@@ -67,9 +67,31 @@ describe("SidebarTaskPreview", () => {
       />
     );
 
-    expect(html).toContain("Unable to load tasks.");
+    expect(html).toContain("Could not load tasks right now.");
     expect(html).not.toContain("Nothing is due right now.");
     expect(html).not.toContain("No upcoming tasks have due dates yet.");
+  });
+
+  it("keeps the due/upcoming empty-state copy visible when the sidebar has no matching open tasks but did load successfully", () => {
+    getTaskStoreSnapshotMock.mockReturnValue({
+      errorMessage: null,
+      loadFailed: false,
+      loading: false,
+      tasks: [],
+      workspaceUuid: "workspace-1",
+    });
+
+    const html = renderToStaticMarkup(
+      <SidebarTaskPreview
+        activeWorkspaceId="workspace-1"
+        closeMobileSidebar={() => {}}
+        navigate={() => {}}
+      />
+    );
+
+    expect(html).toContain("Nothing is due right now.");
+    expect(html).toContain("No upcoming tasks have due dates yet.");
+    expect(html).not.toContain("Unable to load tasks.");
   });
 
   it("exposes explicit sidebar action labels for searching tasks and creating a task", () => {
@@ -117,6 +139,16 @@ describe("SidebarTaskPreview", () => {
           title: "Upcoming item",
           workspaceId: "workspace-1",
         },
+        {
+          assignee: { email: null, name: "Ada" },
+          description: null,
+          dueAt: null,
+          id: "task-3",
+          resources: [],
+          status: "planned",
+          title: "Context-free item",
+          workspaceId: "workspace-1",
+        },
       ],
       workspaceUuid: "workspace-1",
     });
@@ -131,6 +163,8 @@ describe("SidebarTaskPreview", () => {
 
     expect(html).toContain("Due Tasks");
     expect(html).toContain("Upcoming Tasks");
+    expect(html).toContain("No due date");
+    expect(html).toContain("Untagged tasks");
     expect(html).toContain("Search Tasks...");
   });
 });

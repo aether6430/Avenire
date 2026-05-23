@@ -1,13 +1,13 @@
 import type { ApolloModelName } from "@avenire/ai";
 import type { UIMessage } from "@avenire/ai/message-types";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { consumeChatUnits } from "@/lib/billing-metering";
 import {
   createChatForUser,
-  getChatBySlugForUser,
-  isChatOwnerForUser,
+  getWritableChatBySlugForUser,
   saveMessagesForChatSlug,
 } from "@/lib/chat-data";
+import { prewarmActiveMisconceptionsCache } from "@/lib/chat-tools/chat-tool-misconception-runtime";
 import { invalidateChatReadCaches } from "@/lib/domain-cache";
 import type { createApiLogger } from "@/lib/observability";
 import {
@@ -16,9 +16,10 @@ import {
   getIdempotencyState,
   tryAcquireIdempotencyLock,
 } from "./chat-route-cache";
-import { formatError, logError, logInfo } from "./chat-route-logging";
+import { formatError, logError, logInfo, logWarn } from "./chat-route-logging";
 import {
   DEFAULT_CHAT_TITLE,
+  getExpectedChatCredits,
   normalizeMessageFileMediaTypes,
   stripNonHttpFileParts,
   trimMessagesForModelContext,
@@ -57,6 +58,7 @@ export async function handlePersistedChatRequest({
 
   try {
     let chatSlug: string = body.chatId?.trim() ?? "";
+    const selectedModel = body.selectedModel ?? "apollo-apex";
     if (!chatSlug) {
       apiLogger.requestFailed(400, "Missing chatId");
       return NextResponse.json({ error: "Missing chatId" }, { status: 400 });
@@ -67,9 +69,12 @@ export async function handlePersistedChatRequest({
       normalizeMessageFileMediaTypes(body.messages ?? [])
     );
     const modelContextMessages = trimMessagesForModelContext(originalMessages);
+    const shouldCreateChat =
+      originalMessages.some((message) => message.role === "user") &&
+      chatSlug !== "new";
 
     type ExistingChat = NonNullable<
-      Awaited<ReturnType<typeof getChatBySlugForUser>>
+      Awaited<ReturnType<typeof getWritableChatBySlugForUser>>
     >;
     type CreatedChat = Awaited<ReturnType<typeof createChatForUser>>;
     let chat: ExistingChat | CreatedChat | null = null;
@@ -121,18 +126,20 @@ export async function handlePersistedChatRequest({
         workspace.workspaceId,
         DEFAULT_CHAT_TITLE
       );
-      await invalidateChatReadCaches(workspace.workspaceId);
+      after(async () => {
+        await invalidateChatReadCaches(workspace.workspaceId);
+      });
       chat = createdChat;
       chatCreatedFromNew = true;
       chatSlug = createdChat.slug;
     } else {
-      chat = await getChatBySlugForUser(
+      chat = await getWritableChatBySlugForUser(
         sessionUser.id,
         chatSlug,
         workspace.workspaceId
       );
 
-      if (!chat) {
+      if (!(chat || shouldCreateChat)) {
         apiLogger.requestFailed(404, "Method not found", {
           chatId: chatSlug,
         });
@@ -141,22 +148,29 @@ export async function handlePersistedChatRequest({
           { status: 404 }
         );
       }
-      if (
-        Boolean(chat.readOnly) ||
-        !(await isChatOwnerForUser(
-          sessionUser.id,
-          chatSlug,
-          workspace.workspaceId
-        ))
-      ) {
-        apiLogger.requestFailed(403, "Read-only method", {
+      if (chat?.readOnly) {
+        apiLogger.requestFailed(403, "Read-only Method", {
           chatId: chatSlug,
         });
         return NextResponse.json(
-          { error: "Read-only method" },
+          { error: "Read-only Method" },
           { status: 403 }
         );
       }
+    }
+
+    if (!chat && shouldCreateChat) {
+      const createdChat = await createChatForUser(
+        sessionUser.id,
+        workspace.workspaceId,
+        DEFAULT_CHAT_TITLE,
+        chatSlug
+      );
+      after(async () => {
+        await invalidateChatReadCaches(workspace.workspaceId);
+      });
+      chat = createdChat;
+      chatCreatedFromNew = true;
     }
 
     if (!chat) {
@@ -168,17 +182,6 @@ export async function handlePersistedChatRequest({
         { status: 500 }
       );
     }
-
-    const requestStartedAt = new Date();
-    const startupContext = await loadPersistedChatStartupContext({
-      chatDbId: chat.id,
-      chatSlug,
-      messages: originalMessages,
-      modelContextMessages,
-      selectedModel: body.selectedModel ?? null,
-      sessionUserId: sessionUser.id,
-      workspaceId: workspace.workspaceId,
-    });
 
     if (idempotencyHeader && !idempotencyRedisKey) {
       idempotencyRedisKey = buildChatIdempotencyRedisKey({
@@ -220,7 +223,39 @@ export async function handlePersistedChatRequest({
       }
     }
 
-    const initialUsage = await consumeChatUnits(sessionUser.id, 1);
+    const requestStartedAt = new Date();
+    const startupContext = await loadPersistedChatStartupContext({
+      chatDbId: chat.id,
+      chatSlug,
+      messages: originalMessages,
+      modelContextMessages,
+      selectedModel: body.selectedModel ?? null,
+      sessionUserId: sessionUser.id,
+      workspaceId: workspace.workspaceId,
+    });
+
+    void prewarmActiveMisconceptionsCache({
+      subject: startupContext.resolvedSubject,
+      topic: startupContext.resolvedTopic,
+      userId: sessionUser.id,
+      workspaceId: workspace.workspaceId,
+    }).catch((error) => {
+      logWarn("Failed to prewarm active misconceptions cache", {
+        chatId: chat.id,
+        error: formatError(error),
+        subject: startupContext.resolvedSubject,
+        topic: startupContext.resolvedTopic,
+      });
+    });
+
+    const expectedCredits = getExpectedChatCredits(
+      originalMessages,
+      selectedModel
+    );
+    const initialUsage = await consumeChatUnits(
+      sessionUser.id,
+      expectedCredits
+    );
     if (!initialUsage.ok) {
       const retryAfter = initialUsage.retryAfter?.toISOString() ?? null;
       apiLogger.rateLimited("chat", retryAfter, { chatId: chatSlug });
@@ -244,7 +279,9 @@ export async function handlePersistedChatRequest({
           originalMessages,
           workspace.workspaceId
         );
-        await invalidateChatReadCaches(workspace.workspaceId);
+        after(async () => {
+          await invalidateChatReadCaches(workspace.workspaceId);
+        });
         logInfo("Persisted user messages before stream", {
           chatId: chatSlug,
           messageCount: originalMessages.length,
@@ -279,6 +316,7 @@ export async function handlePersistedChatRequest({
       originalMessages,
       request,
       requestStartedAt,
+      expectedCredits,
       sessionUser,
       startupContext,
       workspace,

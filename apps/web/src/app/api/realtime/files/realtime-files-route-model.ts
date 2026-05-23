@@ -6,6 +6,8 @@ export function resolveRealtimeFilesQuery(request: Request) {
   };
 }
 
+export const REALTIME_FILES_ROUTE_ERROR = "Unable to start realtime stream.";
+
 export function toRealtimeFilesInvalidateChunk(
   payload: Record<string, unknown>
 ) {
@@ -18,4 +20,11 @@ export function buildRealtimeFilesHeaders() {
     Connection: "keep-alive",
     "Content-Type": "text/event-stream",
   };
+}
+
+export function resolveRealtimeFilesRouteError(
+  error: unknown,
+  fallback = REALTIME_FILES_ROUTE_ERROR
+) {
+  return error instanceof Error ? error.message : fallback;
 }

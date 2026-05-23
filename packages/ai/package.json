@@ -6,6 +6,7 @@
   "exports": {
     ".": "./index.ts",
     "./message-types": "./message-type.ts",
+    "./misconception-signals": "./misconception-signals.ts",
     "./models": "./models/index.ts",
     "./prompts": "./prompts/index.ts",
     "./skills": "./skills/index.ts",

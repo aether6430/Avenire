@@ -1,11 +1,4 @@
-export function buildWorkspaceFileReingestRateLimitPayload(
-  retryAfter: Date | null | undefined
-) {
-  return {
-    error: "Upload usage limit reached",
-    retryAfter: retryAfter?.toISOString() ?? null,
-  };
-}
+export const WORKSPACE_FILE_REINGEST_ERROR = "Unable to reingest file.";
 
 export function buildWorkspaceFileReingestStreamEvent(input: {
   createdAt: string;
@@ -23,4 +16,11 @@ export function buildWorkspaceFileReingestStreamEvent(input: {
     type: "ingestion.job" as const,
     workspaceId: input.workspaceUuid,
   };
+}
+
+export function resolveWorkspaceFileReingestRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
 }

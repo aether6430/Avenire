@@ -67,6 +67,51 @@ describe("/api/workspaces/[workspaceUuid]/tasks/resources route", () => {
     await expect(response.json()).resolves.toEqual({ error: "Forbidden" });
   });
 
+  it("fails closed when top-level session or access lookup throws before resource loading begins", async () => {
+    getSessionUserMock.mockRejectedValueOnce(
+      new Error("task resources auth offline")
+    );
+
+    let response = await GET(
+      new Request(
+        "http://localhost:3003/api/workspaces/workspace-1/tasks/resources"
+      ),
+      {
+        params: Promise.resolve({ workspaceUuid: "workspace-1" }),
+      }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "task resources auth offline",
+    });
+    expect(listWorkspaceFilesMock).not.toHaveBeenCalled();
+    expect(listWorkspaceFoldersMock).not.toHaveBeenCalled();
+    expect(listChatsForUserMock).not.toHaveBeenCalled();
+
+    getSessionUserMock.mockResolvedValueOnce({ id: "user-1" });
+    ensureWorkspaceAccessForUserMock.mockRejectedValueOnce(
+      new Error("task resources access offline")
+    );
+
+    response = await GET(
+      new Request(
+        "http://localhost:3003/api/workspaces/workspace-1/tasks/resources"
+      ),
+      {
+        params: Promise.resolve({ workspaceUuid: "workspace-1" }),
+      }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "task resources access offline",
+    });
+    expect(listWorkspaceFilesMock).not.toHaveBeenCalled();
+    expect(listWorkspaceFoldersMock).not.toHaveBeenCalled();
+    expect(listChatsForUserMock).not.toHaveBeenCalled();
+  });
+
   it("returns filtered resource options from files, folders, and chats", async () => {
     getSessionUserMock.mockResolvedValue({ id: "user-1" });
     ensureWorkspaceAccessForUserMock.mockResolvedValue(true);
@@ -111,6 +156,30 @@ describe("/api/workspaces/[workspaceUuid]/tasks/resources route", () => {
           title: "Math Method",
         },
       ],
+    });
+  });
+
+  it("returns a 500 json error when task resource loading throws", async () => {
+    getSessionUserMock.mockResolvedValue({ id: "user-1" });
+    ensureWorkspaceAccessForUserMock.mockResolvedValue(true);
+    listWorkspaceFilesMock.mockRejectedValueOnce(
+      new Error("resources offline")
+    );
+    listWorkspaceFoldersMock.mockResolvedValue([]);
+    listChatsForUserMock.mockResolvedValue([]);
+
+    const response = await GET(
+      new Request(
+        "http://localhost:3003/api/workspaces/workspace-1/tasks/resources?q=method"
+      ),
+      {
+        params: Promise.resolve({ workspaceUuid: "workspace-1" }),
+      }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "resources offline",
     });
   });
 });

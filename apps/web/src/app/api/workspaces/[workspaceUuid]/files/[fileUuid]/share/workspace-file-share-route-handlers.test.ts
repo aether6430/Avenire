@@ -111,6 +111,9 @@ describe("workspace file share route handlers", () => {
     await expect(missingEmailResponse.json()).resolves.toEqual({
       error: "Missing email",
     });
+    expect(grantResourceToUserByEmailMock).not.toHaveBeenCalled();
+    expect(createResourceShareLinkMock).not.toHaveBeenCalled();
+    expect(sendFileShareEmailMock).not.toHaveBeenCalled();
 
     const successContext = createContext();
     const successResponse = await handleWorkspaceFileShareGrantsPost({
@@ -197,5 +200,157 @@ describe("workspace file share route handlers", () => {
       shareUrl: "https://avenire.app/share/token-123",
     });
     logSpy.mockRestore();
+  });
+
+  it("wires file share wrappers through the shared context and delegated handlers", async () => {
+    vi.resetModules();
+
+    const resolveContextMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        response: Response.json(
+          { error: "file share offline" },
+          { status: 500 }
+        ),
+      })
+      .mockResolvedValueOnce({
+        apiLogger: createApiLoggerStub(),
+        file: { name: "Plan.md" },
+        fileUuid: "file-1",
+        user: { id: "user-1", name: "Owner" },
+        workspaceUuid: "workspace-1",
+      })
+      .mockResolvedValueOnce({
+        apiLogger: createApiLoggerStub(),
+        file: { name: "Plan.md" },
+        fileUuid: "file-1",
+        user: { id: "user-1", name: "Owner" },
+        workspaceUuid: "workspace-1",
+      });
+    const grantsWrapperHandlerMock = vi
+      .fn()
+      .mockResolvedValue(Response.json({ ok: "grants" }));
+    const linkWrapperHandlerMock = vi
+      .fn()
+      .mockResolvedValue(Response.json({ ok: "link" }));
+
+    vi.doMock(
+      "@/app/api/workspaces/[workspaceUuid]/files/[fileUuid]/share/workspace-file-share-route-context",
+      () => ({
+        resolveWorkspaceFileShareRouteContext: resolveContextMock,
+      })
+    );
+    vi.doMock(
+      "@/app/api/workspaces/[workspaceUuid]/files/[fileUuid]/share/grants/workspace-file-share-grants-post",
+      () => ({
+        handleWorkspaceFileShareGrantsPost: grantsWrapperHandlerMock,
+      })
+    );
+    vi.doMock(
+      "@/app/api/workspaces/[workspaceUuid]/files/[fileUuid]/share/link/workspace-file-share-link-post",
+      () => ({
+        handleWorkspaceFileShareLinkPost: linkWrapperHandlerMock,
+      })
+    );
+
+    const { POST: postGrants } = await import("./grants/route");
+    const { POST: postLink } = await import("./link/route");
+
+    let response = await postGrants(
+      new Request(
+        "https://avenire.app/api/workspaces/workspace-1/files/file-1/share/grants",
+        {
+          body: JSON.stringify({ email: "friend@example.com" }),
+          method: "POST",
+        }
+      ),
+      {
+        params: Promise.resolve({
+          fileUuid: "file-1",
+          workspaceUuid: "workspace-1",
+        }),
+      }
+    );
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "file share offline",
+    });
+    expect(grantsWrapperHandlerMock).not.toHaveBeenCalled();
+
+    response = await postGrants(
+      new Request(
+        "https://avenire.app/api/workspaces/workspace-1/files/file-1/share/grants",
+        {
+          body: JSON.stringify({ email: "friend@example.com" }),
+          method: "POST",
+        }
+      ),
+      {
+        params: Promise.resolve({
+          fileUuid: "file-1",
+          workspaceUuid: "workspace-1",
+        }),
+      }
+    );
+    await expect(response.json()).resolves.toEqual({ ok: "grants" });
+    expect(grantsWrapperHandlerMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fileUuid: "file-1",
+        request: expect.any(Request),
+        workspaceUuid: "workspace-1",
+      })
+    );
+
+    response = await postLink(
+      new Request(
+        "https://avenire.app/api/workspaces/workspace-1/files/file-1/share/link",
+        {
+          method: "POST",
+        }
+      ),
+      {
+        params: Promise.resolve({
+          fileUuid: "file-1",
+          workspaceUuid: "workspace-1",
+        }),
+      }
+    );
+    await expect(response.json()).resolves.toEqual({ ok: "link" });
+    expect(linkWrapperHandlerMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fileUuid: "file-1",
+        request: expect.any(Request),
+        workspaceUuid: "workspace-1",
+      })
+    );
+
+    resolveContextMock.mockResolvedValueOnce({
+      apiLogger: createApiLoggerStub(),
+      file: { name: "Plan.md" },
+      fileUuid: "file-1",
+      user: { id: "user-1", name: "Owner" },
+      workspaceUuid: "workspace-1",
+    });
+    linkWrapperHandlerMock.mockRejectedValueOnce(
+      new Error("file share wrapper handler offline")
+    );
+    response = await postLink(
+      new Request(
+        "https://avenire.app/api/workspaces/workspace-1/files/file-1/share/link",
+        {
+          method: "POST",
+        }
+      ),
+      {
+        params: Promise.resolve({
+          fileUuid: "file-1",
+          workspaceUuid: "workspace-1",
+        }),
+      }
+    );
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "file share wrapper handler offline",
+    });
   });
 });

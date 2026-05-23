@@ -250,7 +250,7 @@ export function useCommandPaletteNavigation({
       {
         key: "new-flashcard",
         label: "New Mindset Set",
-        description: "Create a workspace mindset set",
+        description: "Create a workspace Mindset Set",
         icon: Sparkles,
         group: "Create",
         searchTerms: ["study", "cards", "flashcards", "mindset"],

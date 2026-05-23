@@ -5,6 +5,7 @@ import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
 import { resolveChatDirectoryRouteContext } from "./chat-directory-route-context";
 import {
   buildChatDirectoryInvalidateEvent,
+  buildChatDirectorySpecificEvent,
   normalizeChatDirectoryCreateInput,
   resolveChatDirectoryRouteError,
 } from "./chat-directory-route-model";
@@ -30,12 +31,22 @@ export async function handleChatDirectoryRoutePost(input: {
 
     await invalidateChatReadCaches(context.workspace.workspaceId);
 
-    void publishWorkspaceStreamEvent(
-      buildChatDirectoryInvalidateEvent({
-        action: "created",
-        workspaceUuid: context.workspace.workspaceId,
-      })
-    );
+    void Promise.all([
+      publishWorkspaceStreamEvent(
+        buildChatDirectorySpecificEvent({
+          action: "created",
+          chat,
+          workspaceUuid: context.workspace.workspaceId,
+        })
+      ),
+      publishWorkspaceStreamEvent(
+        buildChatDirectoryInvalidateEvent({
+          action: "created",
+          chat,
+          workspaceUuid: context.workspace.workspaceId,
+        })
+      ),
+    ]);
 
     return NextResponse.json({ chat }, { status: 201 });
   } catch (error) {

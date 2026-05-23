@@ -6,13 +6,19 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    const user = await getSessionUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  return await handleTranscriptionsPost({
-    request,
-    userId: user.id,
-  });
+    return await handleTranscriptionsPost({
+      request,
+      userId: user.id,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unable to transcribe audio.";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

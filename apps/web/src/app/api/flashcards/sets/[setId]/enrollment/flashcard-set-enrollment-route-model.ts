@@ -7,6 +7,8 @@ const flashcardSetEnrollmentPayloadSchema = z.object({
 
 export const FLASHCARD_SET_ENROLLMENT_INVALID_PAYLOAD_ERROR =
   "status must be active or paused and newCardsPerDay must be an integer between 1 and 100";
+export const FLASHCARD_SET_ENROLLMENT_UPDATE_ERROR =
+  "Unable to update Mindset Set enrollment.";
 
 export function parseFlashcardSetEnrollmentPayload(payload: unknown) {
   return flashcardSetEnrollmentPayloadSchema.safeParse(payload);
@@ -14,4 +16,11 @@ export function parseFlashcardSetEnrollmentPayload(payload: unknown) {
 
 export function normalizeFlashcardSetId(setId: string) {
   return setId.trim();
+}
+
+export function resolveFlashcardSetEnrollmentRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
 }

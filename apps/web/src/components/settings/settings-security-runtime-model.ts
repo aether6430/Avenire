@@ -4,9 +4,12 @@ export function normalizePasskeysPayload(payload: unknown): PasskeyEntry[] {
   return Array.isArray(payload) ? (payload as PasskeyEntry[]) : [];
 }
 
-export function createPasskeysRefreshFailureState() {
+export function createPasskeysRefreshFailureState(
+  errorMessage?: string | null
+) {
   return {
     passkeys: [] as PasskeyEntry[],
+    passkeysErrorMessage: errorMessage?.trim() || "Unable to load passkeys.",
     passkeysLoadFailed: true,
   };
 }
@@ -14,6 +17,7 @@ export function createPasskeysRefreshFailureState() {
 export function createPasskeysRefreshSuccessState(payload: unknown) {
   return {
     passkeys: normalizePasskeysPayload(payload),
+    passkeysErrorMessage: null,
     passkeysLoadFailed: false,
   };
 }
@@ -24,8 +28,13 @@ export function resolveAddPasskeyStatus(
   return result?.error ? "Unable to add passkey." : "Passkey added.";
 }
 
-export function resolveRemovePasskeyStatus(responseOk: boolean) {
-  return responseOk ? "Passkey removed." : "Unable to remove passkey.";
+export function resolveRemovePasskeyStatus(input: {
+  error?: string | null;
+  responseOk: boolean;
+}) {
+  return input.responseOk
+    ? "Passkey removed."
+    : input.error?.trim() || "Unable to remove passkey.";
 }
 
 export function shouldRequestSudoForAccountDelete(sudoActive: boolean) {

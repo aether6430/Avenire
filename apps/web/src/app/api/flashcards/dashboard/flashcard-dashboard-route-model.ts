@@ -1,5 +1,8 @@
 import { CACHE_NAMESPACES } from "@/lib/domain-cache";
 
+export const FLASHCARD_DASHBOARD_LOAD_ERROR =
+  "Unable to load Mindset Sets dashboard.";
+
 export function buildFlashcardDashboardCacheKeyInput(input: {
   version: string;
   workspaceId: string;
@@ -18,4 +21,11 @@ export function resolveFlashcardDashboardResponse(input: {
   return {
     dashboard: input.dashboard,
   };
+}
+
+export function resolveFlashcardDashboardRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
 }

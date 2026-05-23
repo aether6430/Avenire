@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -41,6 +43,15 @@ vi.mock("./workspace-share-members-get", () => ({
 vi.mock("./workspace-share-members-post", () => ({
   handleWorkspaceShareMembersPost: handleWorkspaceShareMembersPostMock,
 }));
+
+const workspaceShareMembersRouteSource = readFileSync(
+  resolve(import.meta.dirname, "route.ts"),
+  "utf8"
+);
+const workspaceShareRouteContextSource = readFileSync(
+  resolve(import.meta.dirname, "../workspace-share-route-context.ts"),
+  "utf8"
+);
 
 import { DELETE, GET, POST } from "./route";
 
@@ -86,6 +97,78 @@ describe("workspace share members route", () => {
     expect(handleWorkspaceShareMembersPostMock).not.toHaveBeenCalled();
   });
 
+  it("fails closed when top-level session lookup throws before share-member handlers run", async () => {
+    const request = new Request("https://avenire.space");
+    const context = {
+      params: Promise.resolve({ workspaceUuid: "workspace-1" }),
+    };
+
+    getSessionUserMock.mockRejectedValueOnce(new Error("members auth offline"));
+    let response = await GET(request, context);
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "members auth offline",
+    });
+    expect(handleWorkspaceShareMembersGetMock).not.toHaveBeenCalled();
+
+    getSessionUserMock.mockRejectedValueOnce(
+      new Error("members invite auth offline")
+    );
+    response = await POST(request, context);
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "members invite auth offline",
+    });
+    expect(handleWorkspaceShareMembersPostMock).not.toHaveBeenCalled();
+
+    getSessionUserMock.mockRejectedValueOnce(
+      new Error("members remove auth offline")
+    );
+    response = await DELETE(request, context);
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "members remove auth offline",
+    });
+    expect(handleWorkspaceShareMembersDeleteMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when workspace access lookup throws before share-member handlers run", async () => {
+    const request = new Request("https://avenire.space");
+    const context = {
+      params: Promise.resolve({ workspaceUuid: "workspace-1" }),
+    };
+
+    ensureWorkspaceAccessForUserMock.mockRejectedValueOnce(
+      new Error("members access offline")
+    );
+    let response = await GET(request, context);
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "members access offline",
+    });
+    expect(handleWorkspaceShareMembersGetMock).not.toHaveBeenCalled();
+
+    ensureWorkspaceAccessForUserMock.mockRejectedValueOnce(
+      new Error("members invite access offline")
+    );
+    response = await POST(request, context);
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "members invite access offline",
+    });
+    expect(handleWorkspaceShareMembersPostMock).not.toHaveBeenCalled();
+
+    ensureWorkspaceAccessForUserMock.mockRejectedValueOnce(
+      new Error("members remove access offline")
+    );
+    response = await DELETE(request, context);
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "members remove access offline",
+    });
+    expect(handleWorkspaceShareMembersDeleteMock).not.toHaveBeenCalled();
+  });
+
   it("delegates GET, POST, and DELETE through the resolved workspace share context", async () => {
     const request = new Request("https://avenire.space");
     const context = {
@@ -115,5 +198,24 @@ describe("workspace share members route", () => {
     await expect(getResponse.json()).resolves.toEqual({ members: [] });
     await expect(postResponse.json()).resolves.toEqual({ status: "invited" });
     await expect(deleteResponse.json()).resolves.toEqual({ status: "removed" });
+  });
+
+  it("keeps workspace share members routing on the shared share-route context instead of inlining auth/access preflight", () => {
+    expect(workspaceShareMembersRouteSource).toContain(
+      "../workspace-share-route-context"
+    );
+    expect(workspaceShareMembersRouteSource).toContain(
+      "resolveWorkspaceShareRouteContext"
+    );
+    expect(workspaceShareMembersRouteSource).not.toContain("getSessionUser(");
+    expect(workspaceShareMembersRouteSource).not.toContain(
+      "ensureWorkspaceAccessForUser("
+    );
+
+    expect(workspaceShareRouteContextSource).toContain("createApiLogger");
+    expect(workspaceShareRouteContextSource).toContain("getSessionUser");
+    expect(workspaceShareRouteContextSource).toContain(
+      "ensureWorkspaceAccessForUser"
+    );
   });
 });

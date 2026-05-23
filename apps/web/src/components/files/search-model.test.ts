@@ -102,7 +102,8 @@ describe("workspace search model helpers", () => {
         items,
         results: [
           {
-            content: "  Intro  text\nwith noise  ",
+            content:
+              "  [https://avenire.space/demo, p.4] Intro  text\nwith noise https://example.com/source  ",
             fileId: "file-a",
             rerankScore: 0.91,
             title: "Welcome",
@@ -116,7 +117,8 @@ describe("workspace search model helpers", () => {
         endMs: null,
         fileId: "file-a",
         folderId: "folder-a",
-        highlightText: "Intro  text\nwith noise",
+        highlightText:
+          "[https://avenire.space/demo, p.4] Intro  text\nwith noise https://example.com/source",
         id: "file-a",
         page: null,
         path: "Docs/Welcome.md",
@@ -129,6 +131,22 @@ describe("workspace search model helpers", () => {
         workspaceUuid: "workspace-1",
       },
     ]);
+  });
+
+  it("keeps broader retrieval result sets instead of silently capping them to 8 items", () => {
+    const results = Array.from({ length: 10 }, (_unused, index) => ({
+      content: `Result ${index + 1}`,
+      fileId: "file-a",
+      rerankScore: 1 - index * 0.01,
+      title: `Result ${index + 1}`,
+    }));
+
+    expect(
+      mapWorkspaceRetrievalResults({
+        items,
+        results,
+      })
+    ).toHaveLength(10);
   });
 
   it("keeps retrieval errors readable for command palette and search surfaces", () => {

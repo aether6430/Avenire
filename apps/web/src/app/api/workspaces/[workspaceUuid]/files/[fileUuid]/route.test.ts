@@ -110,6 +110,43 @@ describe("/api/workspaces/[workspaceUuid]/files/[fileUuid] route", () => {
     });
   });
 
+  it.each([
+    {
+      body: undefined,
+      method: "GET" as const,
+    },
+    {
+      body: { name: "renamed.md" },
+      method: "PATCH" as const,
+    },
+    {
+      body: undefined,
+      method: "DELETE" as const,
+    },
+  ])("fails closed from $method when session lookup throws before file route handling begins", async ({
+    body,
+    method,
+  }) => {
+    getSessionUserMock.mockRejectedValueOnce(
+      new Error("file route auth offline")
+    );
+
+    const response =
+      method === "GET"
+        ? await GET(routeRequest("GET"), FILE_ROUTE_PARAMS)
+        : method === "PATCH"
+          ? await PATCH(routeRequest("PATCH", body), FILE_ROUTE_PARAMS)
+          : await DELETE(routeRequest("DELETE"), FILE_ROUTE_PARAMS);
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "file route auth offline",
+    });
+    expect(ensureWorkspaceAccessForUserMock).not.toHaveBeenCalled();
+    expect(userCanEditFileMock).not.toHaveBeenCalled();
+    expect(getFileAssetByIdMock).not.toHaveBeenCalled();
+  });
+
   it("returns forbidden from GET when the user cannot access the workspace", async () => {
     mockSessionUser();
     ensureWorkspaceAccessForUserMock.mockResolvedValue(false);
@@ -142,6 +179,21 @@ describe("/api/workspaces/[workspaceUuid]/files/[fileUuid] route", () => {
         mimeType: "text/markdown",
         name: "notes.md",
       },
+    });
+  });
+
+  it("returns a 500 json error from GET when file lookup throws after access succeeds", async () => {
+    mockSessionUser();
+    ensureWorkspaceAccessForUserMock.mockResolvedValue(true);
+    getFileAssetByIdMock.mockRejectedValueOnce(
+      new Error("file lookup offline")
+    );
+
+    const response = await GET(routeRequest("GET"), FILE_ROUTE_PARAMS);
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "file lookup offline",
     });
   });
 
@@ -254,6 +306,26 @@ describe("/api/workspaces/[workspaceUuid]/files/[fileUuid] route", () => {
     });
   });
 
+  it("returns a 500 json error from PATCH when file persistence throws before invalidation work", async () => {
+    mockSessionUser();
+    userCanEditFileMock.mockResolvedValue(true);
+    updateFileAssetMock.mockRejectedValueOnce(new Error("file update offline"));
+
+    const response = await PATCH(
+      routeRequest("PATCH", {
+        name: "renamed.md",
+      }),
+      FILE_ROUTE_PARAMS
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "file update offline",
+    });
+    expect(invalidateWorkspaceReadCachesMock).not.toHaveBeenCalled();
+    expect(publishFilesInvalidationEventMock).not.toHaveBeenCalled();
+  });
+
   it.each([
     {
       error: "Read-only file",
@@ -320,5 +392,28 @@ describe("/api/workspaces/[workspaceUuid]/files/[fileUuid] route", () => {
       workspaceUuid: WORKSPACE_UUID,
       reason: "tree.changed",
     });
+  });
+
+  it("returns a 500 json error from DELETE when deletion side effects throw before success", async () => {
+    mockSessionUser();
+    userCanEditFileMock.mockResolvedValue(true);
+    getFileAssetByIdMock.mockResolvedValue({
+      id: FILE_UUID,
+      folderId: "folder-1",
+      name: "notes.md",
+    });
+    deleteIngestionDataForFileMock.mockRejectedValueOnce(
+      new Error("delete pipeline offline")
+    );
+
+    const response = await DELETE(routeRequest("DELETE"), FILE_ROUTE_PARAMS);
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "delete pipeline offline",
+    });
+    expect(softDeleteFileAssetMock).not.toHaveBeenCalled();
+    expect(invalidateWorkspaceReadCachesMock).not.toHaveBeenCalled();
+    expect(publishFilesInvalidationEventMock).not.toHaveBeenCalled();
   });
 });

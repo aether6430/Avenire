@@ -12,7 +12,8 @@ import {
   HeaderBreadcrumbs,
   HeaderTitle,
 } from "@/components/dashboard/header-portal";
-import { FlashcardSetDetail } from "@/components/flashcards/set-detail";
+import { FlashcardSetDetailSurface } from "@/components/flashcards/flashcard-set-detail-surface";
+import { useFlashcardSetDetail } from "@/components/flashcards/use-flashcard-set-detail";
 import {
   readCachedFlashcardSet,
   removeCachedFlashcardSet,
@@ -20,6 +21,24 @@ import {
 } from "@/lib/flashcard-browser-cache";
 import { normalizeFlashcardSetId } from "@/lib/flashcard-set-id";
 import type { FlashcardSetRecord, FlashcardTaxonomy } from "@/lib/flashcards";
+
+function ReadyFlashcardSetDetail({
+  initialDrillFilters,
+  initialSet,
+  initialStudyOpen = false,
+}: {
+  initialDrillFilters: FlashcardTaxonomy[];
+  initialSet: FlashcardSetRecord;
+  initialStudyOpen?: boolean;
+}) {
+  const runtime = useFlashcardSetDetail({
+    initialDrillFilters,
+    initialSet,
+    initialStudyOpen,
+  });
+
+  return <FlashcardSetDetailSurface runtime={runtime} />;
+}
 
 function hasMatchingVersion(
   current: FlashcardSetRecord | null,
@@ -30,8 +49,8 @@ function hasMatchingVersion(
 
 function readMindsetError(status: number) {
   return status === 404
-    ? "Mindset set not found."
-    : "Unable to load mindset set.";
+    ? "Mindset Set not found."
+    : "Unable to load Mindset Set.";
 }
 
 function parseDrillFilters(rawDrill: string | string[] | undefined) {
@@ -83,10 +102,10 @@ function LoadingShell() {
     <div className="flex h-full items-center justify-center bg-background px-4 py-8">
       <div className="w-full max-w-2xl rounded-2xl border border-border/50 bg-card/80 p-6 shadow-sm">
         <p className="text-[11px] text-muted-foreground uppercase tracking-[0.22em]">
-          Loading mindset set
+          Loading Mindset Set
         </p>
         <h1 className="mt-2 font-semibold text-2xl tracking-tight">
-          Opening mindset set
+          Opening Mindset Set
         </h1>
         <div className="mt-6 space-y-3">
           <div className="h-5 w-1/2 animate-pulse rounded-full bg-muted" />
@@ -127,7 +146,7 @@ export function FlashcardSetPageClient({
     () => cachedSet === null && normalizedSetId !== null
   );
   const [error, setError] = useState<string | null>(() =>
-    normalizedSetId ? null : "Mindset set not found."
+    normalizedSetId ? null : "Mindset Set not found."
   );
   const loadedSetIdRef = useRef(cachedSet?.id ?? null);
 
@@ -148,7 +167,7 @@ export function FlashcardSetPageClient({
       const force = options?.force ?? false;
       if (!normalizedSetId) {
         startTransition(() => {
-          setError("Mindset set not found.");
+          setError("Mindset Set not found.");
           setLoading(false);
         });
         return;
@@ -202,7 +221,7 @@ export function FlashcardSetPageClient({
         setError(
           fetchError instanceof Error
             ? fetchError.message
-            : "Unable to load mindset set."
+            : "Unable to load Mindset Set."
         );
         setLoading(false);
       }
@@ -244,7 +263,7 @@ export function FlashcardSetPageClient({
     return (
       <>
         <HeaderTitle>Mindset Set</HeaderTitle>
-        <DetailPageBreadcrumbs title="Opening mindset set" />
+        <DetailPageBreadcrumbs title="Opening Mindset Set" />
         <LoadingShell />
       </>
     );
@@ -264,7 +283,7 @@ export function FlashcardSetPageClient({
               {error}
             </h1>
             <p className="mt-2 text-muted-foreground text-sm">
-              Try going back to the mindset sets list and opening it again.
+              Try going back to the Mindset Sets list and opening it again.
             </p>
           </div>
         </div>
@@ -276,14 +295,14 @@ export function FlashcardSetPageClient({
     return (
       <>
         <HeaderTitle>Mindset Set</HeaderTitle>
-        <DetailPageBreadcrumbs title="Opening mindset set" />
+        <DetailPageBreadcrumbs title="Opening Mindset Set" />
         <LoadingShell />
       </>
     );
   }
 
   return (
-    <FlashcardSetDetail
+    <ReadyFlashcardSetDetail
       initialDrillFilters={initialDrillFilters}
       initialSet={set}
       initialStudyOpen={autoStudy}

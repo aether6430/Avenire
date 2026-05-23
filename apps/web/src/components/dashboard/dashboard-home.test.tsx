@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
@@ -15,6 +17,11 @@ vi.mock("@/components/dashboard/use-dashboard-home", () => ({
 }));
 
 import { DashboardHome } from "@/components/dashboard/dashboard-home";
+
+const removedOverviewSidebarSyncFile = resolve(
+  import.meta.dirname,
+  "./overview-sidebar-sync.tsx"
+);
 
 describe("DashboardHome", () => {
   it("wires the dashboard home runtime into the surface", () => {
@@ -48,6 +55,7 @@ describe("DashboardHome", () => {
       }),
       undefined
     );
+    expect(existsSync(removedOverviewSidebarSyncFile)).toBe(false);
     expect(html).toContain("DASHBOARD_HOME_SURFACE");
   });
 });

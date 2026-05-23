@@ -13,7 +13,7 @@ import {
 import { isIP } from "node:net";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import { UTApi, UTFile } from "@avenire/storage";
+import { uploadStorageFile } from "@avenire/storage";
 import type { VideoDeliveryRecord } from "@/lib/file-data";
 import { isTrustedStorageUrl } from "@/lib/file-data";
 import {
@@ -250,7 +250,6 @@ async function analyzeVideo(inputPath: string): Promise<VideoAnalysis> {
 }
 
 async function uploadBufferedFiles(
-  utapi: UTApi,
   files: Array<{
     name: string;
     path: string;
@@ -267,20 +266,22 @@ async function uploadBufferedFiles(
         ...file,
       }))
     );
-    const results = await utapi.uploadFiles(
-      prepared.map(
-        (file) => new UTFile([file.bytes], file.name, { type: file.type })
+    const results = await Promise.all(
+      prepared.map((file) =>
+        uploadStorageFile({
+          body: file.bytes,
+          contentType: file.type,
+          name: file.name,
+        })
       )
     );
-    const normalizedResults = Array.isArray(results) ? results : [results];
 
-    for (const [offset, result] of normalizedResults.entries()) {
-      const uploadedFile = result?.data;
+    for (const [offset, uploadedFile] of results.entries()) {
       const source = prepared[offset];
       if (
         !(source && uploadedFile) ||
         typeof uploadedFile.key !== "string" ||
-        typeof uploadedFile.ufsUrl !== "string"
+        typeof uploadedFile.url !== "string"
       ) {
         throw new Error(
           `Failed to upload generated asset batch for ${source?.name ?? "unknown asset"}`
@@ -292,7 +293,7 @@ async function uploadBufferedFiles(
         name: source.name,
         sizeBytes: source.bytes.byteLength,
         storageKey: uploadedFile.key,
-        storageUrl: uploadedFile.ufsUrl,
+        storageUrl: uploadedFile.url,
       });
     }
   }
@@ -300,11 +301,12 @@ async function uploadBufferedFiles(
   return uploaded;
 }
 
-async function uploadSingleAsset(
-  utapi: UTApi,
-  file: { name: string; path: string; type: string }
-) {
-  const uploaded = await uploadBufferedFiles(utapi, [file]);
+async function uploadSingleAsset(file: {
+  name: string;
+  path: string;
+  type: string;
+}) {
+  const uploaded = await uploadBufferedFiles([file]);
   const asset = uploaded.get(file.name);
   if (!asset) {
     throw new Error(`Failed to upload ${file.name}`);
@@ -313,7 +315,6 @@ async function uploadSingleAsset(
 }
 
 async function createPosterAsset(
-  utapi: UTApi,
   inputPath: string,
   assetStem: string,
   analysis: VideoAnalysis,
@@ -341,7 +342,7 @@ async function createPosterAsset(
     posterPath,
   ]);
 
-  return await uploadSingleAsset(utapi, {
+  return await uploadSingleAsset({
     name: basename(posterPath),
     path: posterPath,
     type: "image/jpeg",
@@ -349,7 +350,6 @@ async function createPosterAsset(
 }
 
 async function generateHlsAssets(
-  utapi: UTApi,
   inputPath: string,
   assetStem: string,
   analysis: VideoAnalysis,
@@ -452,7 +452,6 @@ async function generateHlsAssets(
     mediaObjectNames.push(variant.initFileName);
   }
   const uploadedMediaObjects = await uploadBufferedFiles(
-    utapi,
     Array.from(new Set(mediaObjectNames)).map((name) => ({
       name,
       path: join(hlsDir, name),
@@ -491,7 +490,7 @@ async function generateHlsAssets(
       rewritten.endsWith("\n") ? rewritten : `${rewritten}\n`
     );
 
-    const playlistAsset = await uploadSingleAsset(utapi, {
+    const playlistAsset = await uploadSingleAsset({
       name: variant.playlistName,
       path: rewrittenPath,
       type: "application/vnd.apple.mpegurl",
@@ -532,7 +531,7 @@ async function generateHlsAssets(
   ].join("\n");
   await writeFile(masterManifestPath, masterManifest);
 
-  const masterManifestAsset = await uploadSingleAsset(utapi, {
+  const masterManifestAsset = await uploadSingleAsset({
     name: masterManifestName,
     path: masterManifestPath,
     type: "application/vnd.apple.mpegurl",
@@ -666,15 +665,13 @@ export async function optimizeAndReuploadVideo(
       );
     }
 
-    const utapi = new UTApi({ token: uploadThingToken });
-    const progressive = await uploadSingleAsset(utapi, {
+    const progressive = await uploadSingleAsset({
       name: buildMp4Name(input.sourceName),
       path: optimizedPath,
       type: "video/mp4",
     });
 
     const poster = await createPosterAsset(
-      utapi,
       optimizedPath,
       assetStem,
       analysis,
@@ -688,13 +685,7 @@ export async function optimizeAndReuploadVideo(
       sourceSizeBytes: downloadedBytes,
     });
     const hls = shouldCreateHls
-      ? await generateHlsAssets(
-          utapi,
-          optimizedPath,
-          assetStem,
-          analysis,
-          hlsDir
-        )
+      ? await generateHlsAssets(optimizedPath, assetStem, analysis, hlsDir)
       : null;
 
     return {

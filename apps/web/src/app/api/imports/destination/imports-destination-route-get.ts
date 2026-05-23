@@ -9,6 +9,7 @@ export async function handleImportsDestinationGet(input: { userId: string }) {
   } catch (error) {
     const failure = resolveImportsRouteError(error, {
       fallback: "Unable to load import destination.",
+      status: 500,
     });
     return NextResponse.json(
       { error: failure.error },

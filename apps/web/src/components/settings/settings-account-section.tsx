@@ -5,6 +5,7 @@ import {
 } from "@avenire/ui/components/avatar";
 import { Badge } from "@avenire/ui/components/badge";
 import { Button } from "@avenire/ui/components/button";
+import { DitherIdenticon } from "@avenire/ui/components/dither-identicon";
 import { Input } from "@avenire/ui/components/input";
 import { Globe, LinkBreak as Unlink } from "@phosphor-icons/react";
 import { Camera, GithubLogo as Github } from "@phosphor-icons/react/ssr";
@@ -20,12 +21,13 @@ export function SettingsAccountSection({
 }) {
   const {
     accounts,
+    accountsErrorMessage,
     accountsLoadFailed,
     accountsLoading,
     accountsStatus,
+    avatarSeed,
     avatarUploading,
     displayAvatar,
-    fallbackInitials,
     fileInputRef,
     handleAvatarFileChange,
     isSavingProfile,
@@ -40,6 +42,7 @@ export function SettingsAccountSection({
   } = runtime;
   const accountsStateMessage = getConnectedAccountsStateMessage({
     accountCount: accounts.length,
+    errorMessage: accountsErrorMessage,
     loadFailed: accountsLoadFailed,
     loading: accountsLoading,
   });
@@ -64,8 +67,12 @@ export function SettingsAccountSection({
           <div className="space-y-4">
             <div className="flex items-center gap-3">
               <Avatar className="h-14 w-14">
-                <AvatarImage alt={profileName} src={displayAvatar} />
-                <AvatarFallback>{fallbackInitials}</AvatarFallback>
+                {displayAvatar ? (
+                  <AvatarImage alt={profileName} src={displayAvatar} />
+                ) : null}
+                <AvatarFallback className="overflow-hidden bg-muted text-foreground">
+                  <DitherIdenticon className="size-full" seed={avatarSeed} />
+                </AvatarFallback>
               </Avatar>
               <div className="min-w-0">
                 <p className="font-medium text-sm">Profile photo</p>

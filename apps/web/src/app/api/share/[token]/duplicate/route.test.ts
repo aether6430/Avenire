@@ -124,6 +124,24 @@ describe("shared resource duplicate route", () => {
     expect(unknownWorkspace.status).toBe(404);
   });
 
+  it("fails closed when session lookup throws before shared-resource duplication lookups begin", async () => {
+    getSessionUserMock.mockRejectedValueOnce(new Error("share auth offline"));
+
+    const response = await POST(new Request("https://avenire.app"), {
+      params: Promise.resolve({ token: "token-1" }),
+    });
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "share auth offline",
+    });
+    expect(resolveResourceShareLinkMock).not.toHaveBeenCalled();
+    expect(canUserAccessSharedResourceMock).not.toHaveBeenCalled();
+    expect(listWorkspacesForUserMock).not.toHaveBeenCalled();
+    expect(duplicateSharedFileIntoWorkspaceMock).not.toHaveBeenCalled();
+    expect(duplicateSharedFolderIntoWorkspaceMock).not.toHaveBeenCalled();
+  });
+
   it("duplicates shared files into the selected workspace with the built destination route", async () => {
     const response = await POST(
       new Request("https://avenire.app", {
@@ -187,5 +205,26 @@ describe("shared resource duplicate route", () => {
       "/workspace/files/workspace-1/folder/folder-copy"
     );
     expect(response.status).toBe(200);
+  });
+
+  it("fails closed with an explicit duplicate error when pre-duplication lookups throw", async () => {
+    resolveResourceShareLinkMock.mockRejectedValue(new Error("share offline"));
+
+    const response = await POST(
+      new Request("https://avenire.app", {
+        body: JSON.stringify({ workspaceId: "workspace-1" }),
+        method: "POST",
+      }),
+      {
+        params: Promise.resolve({ token: "token-1" }),
+      }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "share offline",
+    });
+    expect(duplicateSharedFileIntoWorkspaceMock).not.toHaveBeenCalled();
+    expect(duplicateSharedFolderIntoWorkspaceMock).not.toHaveBeenCalled();
   });
 });

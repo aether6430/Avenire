@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -46,6 +48,12 @@ vi.mock("@/lib/workspace", () => ({
 
 import { GET, POST } from "./route";
 
+const workspacesRouteFile = resolve(import.meta.dirname, "./route.ts");
+const workspacesRouteModelFile = resolve(
+  import.meta.dirname,
+  "./workspaces-route-model.ts"
+);
+
 describe("GET /api/workspaces", () => {
   beforeEach(() => {
     createOrganizationMock.mockReset();
@@ -85,6 +93,32 @@ describe("GET /api/workspaces", () => {
       rootFolderUuid: "root-1",
     });
   });
+
+  it("fails closed with an explicit load error when workspace context resolution throws", async () => {
+    getWorkspaceContextForUserMock.mockRejectedValue(
+      new Error("workspace context offline")
+    );
+
+    const response = await GET();
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "workspace context offline",
+    });
+  });
+
+  it("keeps route-level fallback helpers in the shared workspaces route model", () => {
+    const routeSource = readFileSync(workspacesRouteFile, "utf8");
+
+    expect(routeSource).toContain('from "./workspaces-route-model"');
+    expect(routeSource).not.toContain(
+      'const WORKSPACE_ROUTE_LOAD_ERROR = "Unable to load workspace."'
+    );
+    expect(routeSource).not.toContain(
+      'const WORKSPACE_ROUTE_CREATE_ERROR = "Unable to create workspace."'
+    );
+    expect(existsSync(workspacesRouteModelFile)).toBe(true);
+  });
 });
 
 describe("POST /api/workspaces", () => {
@@ -112,6 +146,27 @@ describe("POST /api/workspaces", () => {
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
+  });
+
+  it("fails closed when session lookup throws before workspace creation begins", async () => {
+    getSessionUserMock.mockRejectedValueOnce(
+      new Error("workspaces auth offline")
+    );
+
+    const response = await POST(
+      new Request("http://localhost:3003/api/workspaces", {
+        method: "POST",
+        body: JSON.stringify({ name: "Physics Lab" }),
+      })
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "workspaces auth offline",
+    });
+    expect(listWorkspacesForUserMock).not.toHaveBeenCalled();
+    expect(createOrganizationMock).not.toHaveBeenCalled();
+    expect(resolveWorkspaceForUserMock).not.toHaveBeenCalled();
   });
 
   it("reuses an existing workspace with the same trimmed name", async () => {
@@ -185,5 +240,25 @@ describe("POST /api/workspaces", () => {
         name: "New Physics Lab",
       },
     });
+  });
+
+  it("fails closed with an explicit create error when workspace creation lookups throw", async () => {
+    getSessionUserMock.mockResolvedValue({ id: "user-1" });
+    listWorkspacesForUserMock.mockRejectedValue(
+      new Error("workspace write offline")
+    );
+
+    const response = await POST(
+      new Request("http://localhost:3003/api/workspaces", {
+        method: "POST",
+        body: JSON.stringify({ name: "Physics Lab" }),
+      })
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "workspace write offline",
+    });
+    expect(createOrganizationMock).not.toHaveBeenCalled();
   });
 });

@@ -1,21 +1,29 @@
 import { isIP } from "node:net";
 
-const PRIVATE_V4_PREFIXES = [
-  "10.",
-  "127.",
-  "169.254.",
-  "172.16.",
-  "172.17.",
-  "172.18.",
-  "172.19.",
-  "172.2",
-  "172.30.",
-  "172.31.",
-  "192.168.",
-  "0.",
-];
-
 const PRIVATE_V6_PREFIXES = ["::1", "fc", "fd", "fe80"];
+
+function isPrivateIpv4Host(host: string) {
+  const octets = host.split(".").map((segment) => Number.parseInt(segment, 10));
+  if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet))) {
+    return false;
+  }
+
+  const [first, second, third, fourth] = octets;
+  if (
+    [first, second, third, fourth].some((octet) => octet < 0 || octet > 255)
+  ) {
+    return false;
+  }
+
+  return (
+    first === 0 ||
+    first === 10 ||
+    first === 127 ||
+    (first === 169 && second === 254) ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168)
+  );
+}
 
 export const assertSafeUrl = (value: string): URL => {
   let parsed: URL;
@@ -37,10 +45,7 @@ export const assertSafeUrl = (value: string): URL => {
   }
 
   const ipType = isIP(host);
-  if (
-    ipType === 4 &&
-    PRIVATE_V4_PREFIXES.some((prefix) => host.startsWith(prefix))
-  ) {
+  if (ipType === 4 && isPrivateIpv4Host(host)) {
     throw new Error("Private IPv4 URLs are not allowed for ingestion.");
   }
 

@@ -2,7 +2,7 @@
 
 import { useSidebar } from "@avenire/ui/components/sidebar";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useDashboardSidebarChats } from "@/components/dashboard/use-dashboard-sidebar-chats";
 import { useDashboardSidebarHotkeys } from "@/components/dashboard/use-dashboard-sidebar-hotkeys";
 import { useDashboardSidebarOverlayActions } from "@/components/dashboard/use-dashboard-sidebar-overlay-actions";
@@ -22,6 +22,7 @@ import {
 } from "@/lib/task-client-store";
 import { useWorkspaceSurfaceNavigation } from "@/lib/workspace-panes";
 import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
+import { type FilesUiIntent, filesUiActions } from "@/stores/filesUiStore";
 
 export function useDashboardSidebar({
   activeWorkspace,
@@ -126,7 +127,7 @@ export function useDashboardSidebar({
   });
 
   useEffect(() => {
-    if (!(activeView === "tasks" && activeWorkspace?.workspaceId)) {
+    if (!activeWorkspace?.workspaceId) {
       return;
     }
 
@@ -134,7 +135,28 @@ export function useDashboardSidebar({
     void reloadWorkspaceTasks(activeWorkspace.workspaceId, {
       background: true,
     });
-  }, [activeView, activeWorkspace?.workspaceId]);
+  }, [activeWorkspace?.workspaceId]);
+
+  const activateFilesAndEmitIntent = useCallback(
+    async (intent: FilesUiIntent) => {
+      if (isMobile) {
+        setMobileSidebarView("files");
+      } else {
+        setDesktopSidebarView("files");
+      }
+
+      await workspaceRuntime.navigateToFilesRoot({ openInNewPane: false });
+      window.setTimeout(() => {
+        filesUiActions.emitIntent(intent);
+      }, 0);
+    },
+    [
+      isMobile,
+      setDesktopSidebarView,
+      setMobileSidebarView,
+      workspaceRuntime.navigateToFilesRoot,
+    ]
+  );
   const { warmWorkspaceSection } = useDashboardSidebarWarmup({
     activeView,
     currentFolderId,
@@ -162,6 +184,7 @@ export function useDashboardSidebar({
     activeView,
     chats: chatsRuntime.chats,
     createChat: chatsRuntime.createChat,
+    emitFileIntent: activateFilesAndEmitIntent,
     isChatsRoute,
     navigate,
     navigateToFilesRoot: workspaceRuntime.navigateToFilesRoot,
@@ -178,6 +201,7 @@ export function useDashboardSidebar({
     activeView,
     activeWorkspace,
     chatActionStatus: chatsRuntime.chatActionStatus,
+    chatsErrorMessage: chatsRuntime.chatsErrorMessage,
     chatsLoadFailed: chatsRuntime.chatsLoadFailed,
     chatsLoading: chatsRuntime.chatsLoading,
     chatSearchQuery: chatsRuntime.chatSearchQuery,
@@ -194,10 +218,12 @@ export function useDashboardSidebar({
     desktopSidebarView,
     editingChatSlug: chatsRuntime.editingChatSlug,
     editingTitle: chatsRuntime.editingTitle,
+    emitFileIntent: activateFilesAndEmitIntent,
     filteredOtherChats: chatsRuntime.filteredOtherChats,
     filteredPinnedChats: chatsRuntime.filteredPinnedChats,
     isChatSearchOpen: chatsRuntime.isChatSearchOpen,
     invitations: workspaceRuntime.invitations,
+    invitationsErrorMessage: workspaceRuntime.invitationsErrorMessage,
     invitationsLoadFailed: workspaceRuntime.invitationsLoadFailed,
     invitationsLoading: workspaceRuntime.invitationsLoading,
     isChatsRoute,
@@ -222,7 +248,6 @@ export function useDashboardSidebar({
     routeWorkspaceUuid,
     router,
     searchParams,
-    setActiveChatSlugOverride: chatsRuntime.setActiveChatSlugOverride,
     setChatSearchQuery: chatsRuntime.setChatSearchQuery,
     setDesktopSidebarView,
     setEditingChatSlug: chatsRuntime.setEditingChatSlug,
@@ -240,6 +265,7 @@ export function useDashboardSidebar({
     workspaceBootstrapStatus,
     workspaceUuid,
     workspaces: workspaceRuntime.workspaces,
+    workspacesErrorMessage: workspaceRuntime.workspacesErrorMessage,
     workspacesLoadFailed: workspaceRuntime.workspacesLoadFailed,
     workspacesLoading: workspaceRuntime.workspacesLoading,
   };

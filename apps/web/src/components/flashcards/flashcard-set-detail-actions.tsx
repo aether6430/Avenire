@@ -94,7 +94,7 @@ export function FlashcardSetDetailActions({
           <DialogHeader>
             <DialogTitle>Edit mindset</DialogTitle>
             <DialogDescription>
-              Update the title and description for this mindset set.
+              Update the title and description for this Mindset Set.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">

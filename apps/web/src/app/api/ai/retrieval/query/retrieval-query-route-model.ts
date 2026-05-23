@@ -26,3 +26,12 @@ export function parseRetrievalQueryBody(body: unknown) {
 export function buildRetrievalQuerySuccessHeaders(cache: string) {
   return { "x-rag-cache": cache };
 }
+
+export const RETRIEVAL_QUERY_ROUTE_ERROR = "Failed to query retrieval index";
+
+export function resolveRetrievalQueryRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
+}

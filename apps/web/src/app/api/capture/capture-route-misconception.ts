@@ -2,7 +2,11 @@ import { recomputeConceptMastery } from "@avenire/database";
 import { NextResponse } from "next/server";
 import { upsertMisconception } from "@/lib/learning-data";
 import type { CaptureRequestBody } from "./capture-route-model";
-import { resolveMisconceptionCapturePayload } from "./capture-route-model";
+import {
+  CAPTURE_MISCONCEPTION_ERROR,
+  resolveCaptureRouteError,
+  resolveMisconceptionCapturePayload,
+} from "./capture-route-model";
 
 export async function handleCaptureMisconception(input: {
   body: CaptureRequestBody;
@@ -19,30 +23,39 @@ export async function handleCaptureMisconception(input: {
     );
   }
 
-  const misconception = await upsertMisconception({
-    confidence: payload.confidence,
-    concept: payload.concept,
-    evidenceClass: "manual",
-    reason: payload.reason,
-    source: "manual",
-    sourceSessionId: null,
-    status: "confirmed",
-    subject: payload.subject,
-    topic: payload.topic,
-    userId: input.userId,
-    workspaceId: input.workspaceId,
-  });
+  try {
+    const misconception = await upsertMisconception({
+      confidence: payload.confidence,
+      concept: payload.concept,
+      evidenceClass: "manual",
+      reason: payload.reason,
+      source: "manual",
+      sourceSessionId: null,
+      status: "confirmed",
+      subject: payload.subject,
+      topic: payload.topic,
+      userId: input.userId,
+      workspaceId: input.workspaceId,
+    });
 
-  await recomputeConceptMastery({
-    concept: payload.concept,
-    subject: payload.subject,
-    topic: payload.topic,
-    userId: input.userId,
-    workspaceId: input.workspaceId,
-  });
+    await recomputeConceptMastery({
+      concept: payload.concept,
+      subject: payload.subject,
+      topic: payload.topic,
+      userId: input.userId,
+      workspaceId: input.workspaceId,
+    });
 
-  return NextResponse.json(
-    { kind: "misconception", misconception },
-    { status: 201 }
-  );
+    return NextResponse.json(
+      { kind: "misconception", misconception },
+      { status: 201 }
+    );
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: resolveCaptureRouteError(error, CAPTURE_MISCONCEPTION_ERROR),
+      },
+      { status: 500 }
+    );
+  }
 }

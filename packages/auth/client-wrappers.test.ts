@@ -1,7 +1,10 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const createAuthClientMock = vi.fn();
 const passkeyClientMock = vi.fn(() => "passkey-plugin");
+const polarClientMock = vi.fn(() => "polar-plugin");
 const organizationClientMock = vi.fn(() => "organization-plugin");
 const usernameClientMock = vi.fn(() => "username-plugin");
 const lastLoginMethodClientMock = vi.fn(() => "last-login-plugin");
@@ -14,6 +17,10 @@ vi.mock("@better-auth/passkey/client", () => ({
   passkeyClient: passkeyClientMock,
 }));
 
+vi.mock("@polar-sh/better-auth/client", () => ({
+  polarClient: polarClientMock,
+}));
+
 vi.mock("better-auth/client/plugins", () => ({
   lastLoginMethodClient: lastLoginMethodClientMock,
   organizationClient: organizationClientMock,
@@ -23,6 +30,14 @@ vi.mock("better-auth/client/plugins", () => ({
 const sharedClient = {
   $ERROR_CODES: { SAMPLE: true },
   changePassword: vi.fn(),
+  checkout: vi.fn(),
+  customer: {
+    portal: vi.fn(),
+    state: vi.fn(),
+    subscriptions: {
+      list: vi.fn(),
+    },
+  },
   deleteUser: vi.fn(),
   getLastUsedLoginMethod: vi.fn(),
   getSession: vi.fn(),
@@ -52,6 +67,11 @@ const sharedClient = {
   useSession: vi.fn(),
 };
 
+const passkeyClientSource = readFileSync(
+  resolve(import.meta.dirname, "./passkey-client.ts"),
+  "utf8"
+);
+
 describe("@avenire/auth client wrappers", () => {
   beforeEach(() => {
     vi.resetModules();
@@ -67,6 +87,13 @@ describe("@avenire/auth client wrappers", () => {
 
     expect(createAuthClientMock).toHaveBeenCalledWith({
       baseURL: "https://app.avenire.test",
+      plugins: [
+        "organization-plugin",
+        "passkey-plugin",
+        "username-plugin",
+        "last-login-plugin",
+        "polar-plugin",
+      ],
     });
     for (const key of [
       "$ERROR_CODES",
@@ -105,8 +132,11 @@ describe("@avenire/auth client wrappers", () => {
         "passkey-plugin",
         "username-plugin",
         "last-login-plugin",
+        "polar-plugin",
       ],
     });
+    expect(module.authClient.checkout).toBe(sharedClient.checkout);
+    expect(module.authClient.customer).toBe(sharedClient.customer);
     expect(module.authClient.getLastUsedLoginMethod).toBe(
       sharedClient.getLastUsedLoginMethod
     );
@@ -123,9 +153,17 @@ describe("@avenire/auth client wrappers", () => {
 
     await module.addPasskey();
 
+    expect(passkeyClientSource).toContain('from "./client"');
+    expect(passkeyClientSource).not.toContain("createAuthClient(");
     expect(createAuthClientMock).toHaveBeenCalledWith({
       baseURL: "https://app.avenire.test",
-      plugins: ["passkey-plugin"],
+      plugins: [
+        "organization-plugin",
+        "passkey-plugin",
+        "username-plugin",
+        "last-login-plugin",
+        "polar-plugin",
+      ],
     });
     expect(sharedClient.passkey.addPasskey).toHaveBeenCalledWith({
       name: "Avenire Passkey",

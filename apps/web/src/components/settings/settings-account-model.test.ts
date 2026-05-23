@@ -14,10 +14,11 @@ describe("settings account model", () => {
     expect(
       getConnectedAccountsStateMessage({
         accountCount: 0,
+        errorMessage: "accounts backend offline",
         loadFailed: true,
         loading: false,
       })
-    ).toBe("Unable to load linked accounts.");
+    ).toBe("accounts backend offline");
 
     expect(
       getConnectedAccountsStateMessage({

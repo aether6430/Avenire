@@ -1,6 +1,9 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  applySidebarFilesRealtimeInvalidation,
   buildSidebarAutoExpandedAncestorIds,
   buildSidebarRootExpandedIds,
   collectSidebarDeletedFolderIds,
@@ -12,6 +15,31 @@ import {
   type SidebarFileNode,
   type SidebarFolderNode,
 } from "@/components/dashboard/sidebar-files-panel-model";
+
+const sidebarFilesPanelSource = readFileSync(
+  resolve(import.meta.dirname, "./sidebar-files-panel.tsx"),
+  "utf8"
+);
+const sidebarFilesPanelHookSource = readFileSync(
+  resolve(import.meta.dirname, "./use-sidebar-files-panel.ts"),
+  "utf8"
+);
+const sidebarFilesPanelTreeSource = readFileSync(
+  resolve(import.meta.dirname, "./use-sidebar-files-panel-tree.ts"),
+  "utf8"
+);
+const sidebarFilesPanelNavigationSource = readFileSync(
+  resolve(import.meta.dirname, "./use-sidebar-files-panel-navigation.ts"),
+  "utf8"
+);
+const sidebarFilesPanelMutationsSource = readFileSync(
+  resolve(import.meta.dirname, "./use-sidebar-files-panel-mutations.ts"),
+  "utf8"
+);
+const sidebarFilesPanelModelSource = readFileSync(
+  resolve(import.meta.dirname, "./sidebar-files-panel-model.ts"),
+  "utf8"
+);
 
 const folderTree: SidebarFolderNode[] = [
   {
@@ -102,6 +130,40 @@ describe("sidebar files panel model", () => {
     expect(filtered.files).toEqual([]);
   });
 
+  it("applies realtime invalidation payloads for deleted files and folders", () => {
+    expect(
+      applySidebarFilesRealtimeInvalidation({
+        detail: {
+          fileId: "file-a",
+          reason: "file.deleted",
+        },
+        expandedTreePaths: new Set(["root", "notes"]),
+        fileTree,
+        folderTree,
+      })
+    ).toEqual({
+      expandedTreePaths: new Set(["root", "notes"]),
+      fileTree: [fileTree[1]],
+      folderTree,
+    });
+
+    expect(
+      applySidebarFilesRealtimeInvalidation({
+        detail: {
+          folderId: "notes",
+          reason: "folder.deleted",
+        },
+        expandedTreePaths: new Set(["root", "notes", "archive"]),
+        fileTree,
+        folderTree,
+      })
+    ).toEqual({
+      expandedTreePaths: new Set(["root"]),
+      fileTree: [],
+      folderTree: [folderTree[0]],
+    });
+  });
+
   it("keeps files sidebar tree loading, failure, and ready states distinct", () => {
     expect(
       getSidebarFilesTreeState({
@@ -119,6 +181,7 @@ describe("sidebar files panel model", () => {
 
     expect(
       getSidebarFilesTreeState({
+        errorMessage: "tree backend offline",
         filteredFolderCount: 0,
         folderCount: 0,
         loadFailed: true,
@@ -127,7 +190,7 @@ describe("sidebar files panel model", () => {
         workspaceUuid: "workspace-1",
       })
     ).toEqual({
-      label: "Unable to load files.",
+      label: "tree backend offline",
       showTree: false,
     });
 
@@ -196,5 +259,52 @@ describe("sidebar files panel model", () => {
       files: fileTree,
       folders: folderTree,
     });
+  });
+
+  it("keeps files sidebar ownership split between the thin wrapper, orchestration hook, pure model helpers, and dedicated navigation/tree/mutation hooks", () => {
+    expect(sidebarFilesPanelSource).toContain(
+      "@/components/dashboard/sidebar-files-panel-surface"
+    );
+    expect(sidebarFilesPanelSource).toContain(
+      "@/components/dashboard/use-sidebar-files-panel"
+    );
+    expect(sidebarFilesPanelSource).not.toContain("fetch(");
+    expect(sidebarFilesPanelSource).not.toContain("EventSource");
+
+    expect(sidebarFilesPanelHookSource).toContain(
+      "@/components/dashboard/sidebar-files-panel-model"
+    );
+    expect(sidebarFilesPanelHookSource).toContain(
+      "@/components/dashboard/use-sidebar-files-panel-navigation"
+    );
+    expect(sidebarFilesPanelHookSource).toContain(
+      "@/components/dashboard/use-sidebar-files-panel-tree"
+    );
+    expect(sidebarFilesPanelHookSource).toContain(
+      "@/components/dashboard/use-sidebar-files-panel-mutations"
+    );
+    expect(sidebarFilesPanelHookSource).not.toContain("new EventSource(");
+    expect(sidebarFilesPanelHookSource).not.toContain(
+      "fetch(`/api/workspaces/"
+    );
+
+    expect(sidebarFilesPanelModelSource).toContain(
+      "export function getSidebarFilesTreeState"
+    );
+    expect(sidebarFilesPanelModelSource).toContain(
+      "export function filterSidebarTreeBySearchQuery"
+    );
+    expect(sidebarFilesPanelModelSource).not.toContain("fetch(");
+    expect(sidebarFilesPanelModelSource).not.toContain("useState(");
+
+    expect(sidebarFilesPanelTreeSource).toContain(
+      "createFilesRealtimeConnection"
+    );
+    expect(sidebarFilesPanelTreeSource).toContain("loadWorkspaceTreePayload");
+    expect(sidebarFilesPanelTreeSource).toContain("writeWorkspaceTreePayload");
+    expect(sidebarFilesPanelNavigationSource).toContain(
+      "useWorkspaceSurfaceNavigation"
+    );
+    expect(sidebarFilesPanelMutationsSource).toContain("/items/bulk");
   });
 });

@@ -159,4 +159,41 @@ describe("/api/workspaces/invitations/[invitationId] route", () => {
       error: "Invitation not found",
     });
   });
+
+  it("returns a 500 json error when session lookup throws before invitation handling begins", async () => {
+    getSessionUserMock.mockRejectedValueOnce(new Error("session offline"));
+
+    const response = await POST(
+      new Request("http://localhost:3003/api/workspaces/invitations/invite-1", {
+        body: JSON.stringify({ action: "accept" }),
+        method: "POST",
+      }),
+      { params: Promise.resolve({ invitationId: "invite-1" }) }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "session offline",
+    });
+    expect(respondToInvitationForUserMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when route param resolution throws before invitation handling begins", async () => {
+    const response = await POST(
+      new Request("http://localhost:3003/api/workspaces/invitations/invite-1", {
+        body: JSON.stringify({ action: "accept" }),
+        method: "POST",
+      }),
+      {
+        params: Promise.reject(new Error("invitation params offline")),
+      }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "invitation params offline",
+    });
+    expect(getSessionUserMock).not.toHaveBeenCalled();
+    expect(respondToInvitationForUserMock).not.toHaveBeenCalled();
+  });
 });

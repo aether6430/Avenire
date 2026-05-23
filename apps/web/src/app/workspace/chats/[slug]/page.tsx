@@ -14,27 +14,36 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const session = await getRouteSession();
+  const fallbackTitle = slug === "new" ? "New Method" : "Method";
 
-  if (!session?.user || slug === "new") {
+  try {
+    const session = await getRouteSession();
+
+    if (!session?.user || slug === "new") {
+      return buildPageMetadata({
+        noIndex: true,
+        title: fallbackTitle,
+      });
+    }
+
+    const chat = await getChatBySlugForUser(session.user.id, slug);
+
     return buildPageMetadata({
       noIndex: true,
-      title: slug === "new" ? "New Method" : "Method",
+      title: chat?.title ?? "Method",
+    });
+  } catch {
+    return buildPageMetadata({
+      noIndex: true,
+      title: fallbackTitle,
     });
   }
-
-  const chat = await getChatBySlugForUser(session.user.id, slug);
-
-  return buildPageMetadata({
-    noIndex: true,
-    title: chat?.title ?? "Method",
-  });
 }
 
 export default function WorkspaceChatSlugPage() {
   return (
     <Suspense
-      fallback={<WorkspaceRoutePlaceholder label="Loading method..." />}
+      fallback={<WorkspaceRoutePlaceholder label="Loading Method..." />}
     >
       <WorkspaceChatRoutePageClient />
     </Suspense>

@@ -2,11 +2,15 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
+import { parseDashboardWorkspaceInvalidationPayload } from "@/components/dashboard/dashboard-sidebar-chat-events-runtime";
 
 type WorkspaceInvalidationKind = "chat" | "files" | "flashcards";
 
 interface WorkspaceInvalidationPayload {
+  action?: string | null;
   at?: number | null;
+  chat?: unknown;
+  chatSlug?: string | null;
   fileId?: string | null;
   folderId?: string | null;
   reason?: string | null;
@@ -37,7 +41,13 @@ export function WorkspaceRealtimeBridge({
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!workspaceUuid) {
+    const realtimeRoute =
+      pathname === "/workspace" ||
+      pathname.startsWith("/workspace/chats") ||
+      pathname.startsWith("/workspace/files") ||
+      pathname.startsWith("/workspace/flashcards");
+
+    if (!(workspaceUuid && realtimeRoute)) {
       return;
     }
 
@@ -98,21 +108,22 @@ export function WorkspaceRealtimeBridge({
           // duplicate mindset-set fetches and a full remount of the study UI.
         };
 
-        eventSource.addEventListener("files.invalidate", (event) => {
-          let payload: WorkspaceInvalidationPayload | null = null;
-          if (event instanceof MessageEvent && typeof event.data === "string") {
-            try {
-              payload = JSON.parse(event.data) as WorkspaceInvalidationPayload;
-            } catch {
-              payload = null;
-            }
+        const parsePayload = (event: Event) => {
+          if (!(event instanceof MessageEvent)) {
+            return null;
           }
 
-          handleInvalidate("files", payload);
+          return parseDashboardWorkspaceInvalidationPayload(
+            event.data
+          ) as WorkspaceInvalidationPayload | null;
+        };
+
+        eventSource.addEventListener("files.invalidate", (event) => {
+          handleInvalidate("files", parsePayload(event));
         });
-        eventSource.addEventListener("chat.invalidate", () =>
-          handleInvalidate("chat")
-        );
+        eventSource.addEventListener("chat.invalidate", (event) => {
+          handleInvalidate("chat", parsePayload(event));
+        });
         eventSource.addEventListener("flashcards.invalidate", () =>
           handleInvalidate("flashcards")
         );

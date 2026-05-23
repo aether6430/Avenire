@@ -1,3 +1,12 @@
+export const WORKSPACE_FILE_PLAYBACK_ERROR = "Unable to load playback";
+
+export function resolveWorkspaceFilePlaybackRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
+}
+
 export function shouldSyncWorkspaceFilePlaybackDelivery(input: {
   videoDelivery?: {
     status?: string | null;

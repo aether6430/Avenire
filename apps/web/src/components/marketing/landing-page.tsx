@@ -4,10 +4,12 @@ import { AgenticIntelligence } from "@/components/marketing/agentic-intelligence
 import { Benefits } from "@/components/marketing/benefits";
 import { CTA } from "@/components/marketing/cta";
 import { DivideX } from "@/components/marketing/divide";
+import { FAQs } from "@/components/marketing/faqs";
 import { Hero } from "@/components/marketing/hero";
 import { HeroImage } from "@/components/marketing/hero-image";
 import { HowItWorks } from "@/components/marketing/how-it-works";
 import { MarketingPageShell } from "@/components/marketing/page-shell";
+import { PricingClientBoundary } from "@/components/marketing/pricing-client-boundary";
 import { Security } from "@/components/marketing/security";
 
 export function LandingPage() {
@@ -23,7 +25,11 @@ export function LandingPage() {
       <DivideX />
       <Benefits />
       <DivideX />
+      <PricingClientBoundary />
+      <DivideX />
       <Security />
+      <DivideX />
+      <FAQs />
       <DivideX />
       <CTA />
     </MarketingPageShell>

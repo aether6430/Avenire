@@ -6,6 +6,7 @@ import {
   fetchRevisionData,
   fetchUpcomingTasks,
   type RevisionData,
+  resolveStudentCalendarRevisionDataError,
   resolveStudentCalendarUpcomingTasksError,
   type UpcomingTask,
 } from "@/components/student-calendar-model";
@@ -144,11 +145,7 @@ export function useStudentCalendarRangeData({
           return;
         }
 
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Unable to load revision calendar."
-        );
+        setError(resolveStudentCalendarRevisionDataError(err));
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false);

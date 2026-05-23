@@ -116,6 +116,24 @@ describe("chat tool note agent runtime", () => {
     expect(result.notes[0]?.title).toBe("momentum-review.md");
   });
 
+  it("fails closed when note creation persistence returns null", async () => {
+    listWorkspaceFilesMock.mockResolvedValue([]);
+    generateNoteDraftFromTaskMock.mockResolvedValue({
+      bodyMarkdown: "Momentum is conserved.",
+      title: "Momentum Review",
+    });
+    resolveCreateNoteFolderMock.mockResolvedValue("folder-1");
+    createWorkspaceNoteFileMock.mockResolvedValue(null);
+
+    await expect(
+      executeNoteAgent(ctx, {
+        task: 'Create a note called "Momentum Review"',
+      } as never)
+    ).rejects.toThrow("Unable to create the requested note.");
+    expect(publishTreeMutationEventsMock).not.toHaveBeenCalled();
+    expect(enqueueIngestionForFileMock).not.toHaveBeenCalled();
+  });
+
   it("reads the targeted note when asked to show it", async () => {
     const file = {
       id: "file-1",
@@ -133,6 +151,55 @@ describe("chat tool note agent runtime", () => {
 
     expect(result.operation).toBe("read");
     expect(result.notes[0]?.contentPreview).toContain("Momentum summary");
+  });
+
+  it("fails closed when a targeted note read cannot load the requested file body", async () => {
+    const file = {
+      id: "file-1",
+      name: "momentum.md",
+      updatedAt: "2026-05-17T00:00:00.000Z",
+      page: null,
+    };
+    listWorkspaceFilesMock.mockResolvedValue([file]);
+    findTargetNoteFileMock.mockReturnValue(file);
+    fetchWorkspaceFileTextMock.mockRejectedValueOnce(
+      new Error("note body offline")
+    );
+
+    await expect(
+      executeNoteAgent(ctx, {
+        task: 'Show note "momentum"',
+      } as never)
+    ).rejects.toThrow("note body offline");
+  });
+
+  it("fails closed when an explicit targeted note read cannot find the requested note", async () => {
+    listWorkspaceFilesMock.mockResolvedValue([]);
+    findTargetNoteFileMock.mockReturnValue(null);
+
+    await expect(
+      executeNoteAgent(ctx, {
+        task: "Show workspace-file://file-1",
+      } as never)
+    ).rejects.toThrow("The requested note could not be found.");
+  });
+
+  it("fails closed when an explicit targeted note has no readable content", async () => {
+    const file = {
+      id: "file-1",
+      name: "momentum.md",
+      updatedAt: "2026-05-17T00:00:00.000Z",
+      page: null,
+    };
+    listWorkspaceFilesMock.mockResolvedValue([file]);
+    findTargetNoteFileMock.mockReturnValue(file);
+    fetchWorkspaceFileTextMock.mockResolvedValueOnce("   ");
+
+    await expect(
+      executeNoteAgent(ctx, {
+        task: "Show workspace-file://file-1",
+      } as never)
+    ).rejects.toThrow("The requested note has no readable content.");
   });
 
   it("updates the targeted note and refreshes ingestion state", async () => {
@@ -154,15 +221,102 @@ describe("chat tool note agent runtime", () => {
     updateFileTagsMock.mockResolvedValue(file);
 
     const result = await executeNoteAgent(ctx, {
-      task: 'Update note "momentum"',
+      task: "Update workspace-file://file-1 with a clearer explanation",
     } as never);
 
     expect(result.operation).toBe("updated");
+    expect(findTargetNoteFileMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requireExplicitTarget: true,
+        task: "Update workspace-file://file-1 with a clearer explanation",
+      })
+    );
     expect(deleteIngestionDataForFileMock).toHaveBeenCalledWith(
       "workspace-1",
       "file-1"
     );
     expect(enqueueIngestionForFileMock).toHaveBeenCalled();
+  });
+
+  it("refuses note updates that do not include an exact path or file id target", async () => {
+    const file = {
+      folderId: "folder-1",
+      id: "file-1",
+      name: "momentum.md",
+      updatedAt: "2026-05-17T00:00:00.000Z",
+      page: null,
+    };
+    listWorkspaceFilesMock.mockResolvedValue([file]);
+    findTargetNoteFileMock.mockReturnValue(null);
+
+    const result = await executeNoteAgent(ctx, {
+      task: 'Update note called "momentum"',
+    } as never);
+
+    expect(result.operation).toBe("updated");
+    expect(findTargetNoteFileMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requireExplicitTarget: true,
+        task: 'Update note called "momentum"',
+      })
+    );
+    expect(result.notes).toEqual([]);
+    expect(userCanEditFileMock).not.toHaveBeenCalled();
+    expect(updateNoteContentMock).not.toHaveBeenCalled();
+    expect(deleteIngestionDataForFileMock).not.toHaveBeenCalled();
+    expect(enqueueIngestionForFileMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when an explicit note update target cannot be found", async () => {
+    listWorkspaceFilesMock.mockResolvedValue([]);
+    findTargetNoteFileMock.mockReturnValue(null);
+
+    await expect(
+      executeNoteAgent(ctx, {
+        task: "Update workspace-file://file-1 with a clearer explanation",
+      } as never)
+    ).rejects.toThrow("The requested note could not be found.");
+  });
+
+  it("fails closed when an explicit note update target is read-only", async () => {
+    const file = {
+      folderId: "folder-1",
+      id: "file-1",
+      name: "momentum.md",
+      updatedAt: "2026-05-17T00:00:00.000Z",
+      page: null,
+    };
+    listWorkspaceFilesMock.mockResolvedValue([file]);
+    findTargetNoteFileMock.mockReturnValue(file);
+    userCanEditFileMock.mockResolvedValue(false);
+
+    await expect(
+      executeNoteAgent(ctx, {
+        task: "Update workspace-file://file-1 with a clearer explanation",
+      } as never)
+    ).rejects.toThrow("The requested note is read-only.");
+  });
+
+  it("fails closed when an explicit note update target cannot be persisted", async () => {
+    const file = {
+      folderId: "folder-1",
+      id: "file-1",
+      name: "momentum.md",
+      updatedAt: "2026-05-17T00:00:00.000Z",
+      page: null,
+    };
+    listWorkspaceFilesMock.mockResolvedValue([file]);
+    findTargetNoteFileMock.mockReturnValue(file);
+    userCanEditFileMock.mockResolvedValue(true);
+    fetchWorkspaceFileTextMock.mockResolvedValue("Old content");
+    rewriteNoteFromTaskMock.mockResolvedValue("New content\n");
+    updateNoteContentMock.mockResolvedValue(null);
+
+    await expect(
+      executeNoteAgent(ctx, {
+        task: "Update workspace-file://file-1 with a clearer explanation",
+      } as never)
+    ).rejects.toThrow("Unable to update the requested note.");
   });
 
   it("lists notes when there is no explicit note action", async () => {

@@ -1,4 +1,6 @@
 export const SUDO_REQUEST_COOLDOWN_MS = 45_000;
+export const SUDO_ROUTE_STATUS_ERROR = "Unable to load sudo status.";
+export const SUDO_ROUTE_ACTION_ERROR = "Unable to process sudo action.";
 
 export function resolveSudoStatus(expiresAt: Date | null) {
   const expiresInSeconds = expiresAt
@@ -28,4 +30,8 @@ export function isSudoChallengeRateLimited(createdAt: Date | null) {
   return Boolean(
     createdAt && Date.now() - createdAt.getTime() < SUDO_REQUEST_COOLDOWN_MS
   );
+}
+
+export function resolveSudoRouteError(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
 }

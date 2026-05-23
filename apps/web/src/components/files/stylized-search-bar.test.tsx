@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
@@ -20,21 +22,21 @@ vi.mock("@/components/files/use-stylized-search-bar", () => ({
 
 import StylizedSearchBar from "@/components/files/stylized-search-bar";
 
+const stylizedSearchBarRuntimeFile = resolve(
+  import.meta.dirname,
+  "./use-stylized-search-bar.ts"
+);
+
 describe("StylizedSearchBar", () => {
   it("wires the search runtime hook into the surface", () => {
+    const runtimeSource = readFileSync(stylizedSearchBarRuntimeFile, "utf8");
     useStylizedSearchBarMock.mockReturnValue({
-      aiSummary: "",
       containerRef: { current: null },
       isSearching: false,
-      isSummaryStreaming: false,
-      openResult: () => {},
       query: "",
       retrievalError: null,
       results: [],
-      selectedValue: "",
       setQuery: () => {},
-      setSelectedValue: () => {},
-      showResults: false,
       triggerSearch: () => {},
       workspaceUuid: "workspace-1",
     });
@@ -52,16 +54,11 @@ describe("StylizedSearchBar", () => {
       initialResults: [],
       items: [],
       onApplyWorkspaceFilter: undefined,
-      onOpenFileById: undefined,
-      onOpenFolderById: undefined,
       onSearch: undefined,
-      onSelectResult: undefined,
-      selectedResultChunkId: undefined,
       workspaceUuid: "workspace-1",
     });
     expect(StylizedSearchBarSurfaceMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        filePathById: undefined,
         maxWidth: "max-w-5xl",
         placeholder: "Search anything...",
         runtime: expect.objectContaining({
@@ -70,6 +67,8 @@ describe("StylizedSearchBar", () => {
       }),
       undefined
     );
+    expect(runtimeSource).toContain("queryWorkspaceRetrievalApi({");
+    expect(runtimeSource).not.toContain("limit: 8");
     expect(html).toContain("STYLIZED_SEARCH_SURFACE");
   });
 });

@@ -7,6 +7,7 @@ function createRuntime(
   overrides: Partial<SettingsPanelRuntime> = {}
 ): SettingsPanelRuntime {
   return {
+    billingErrorMessage: null,
     billingLoadFailed: false,
     billingLoading: false,
     billingMeters: [],
@@ -16,6 +17,7 @@ function createRuntime(
     currentTab: "billing",
     emailReceipts: false,
     handleManageBilling: async () => {},
+    handleUpgradePlan: async () => {},
     hasPaidPlan: false,
     persistUserSettings: async () => {},
     preferencesLoadFailed: false,
@@ -28,20 +30,42 @@ function createRuntime(
 }
 
 describe("SettingsBillingSection", () => {
-  it("renders explicit unavailable billing states instead of loading placeholders after a usage failure", () => {
+  it("renders explicit loading billing and preferences states while the tab is hydrating", () => {
     const html = renderToStaticMarkup(
       <SettingsBillingSection
         runtime={createRuntime({
-          billingLoadFailed: true,
-          billingStatus: "Unable to load billing usage.",
-          currentPlanLabel: "Plan unavailable",
+          billingLoading: true,
+          billingStatus: "Loading usage...",
+          currentPlanLabel: "Loading plan...",
+          preferencesLoading: true,
         })}
       />
     );
 
-    expect(html).toContain("Unable to load billing usage.");
-    expect(html).toContain("Plan unavailable");
-    expect(html.match(/Unavailable/g)?.length).toBe(3);
+    expect(html).toContain("Loading plan...");
+    expect(html.match(/Loading\.\.\./g)?.length).toBe(2);
+    expect(html.match(/Refills loading\.\.\./g)?.length).toBe(1);
+    expect(html).toContain("Storage loading...");
+    expect(html).toContain("Loading preferences...");
+    expect(html).toContain("Loading usage...");
+    expect(html).not.toContain("Unavailable");
+  });
+
+  it("renders explicit unavailable billing states instead of loading placeholders after a usage failure", () => {
+    const html = renderToStaticMarkup(
+      <SettingsBillingSection
+        runtime={createRuntime({
+          billingErrorMessage: "billing usage offline",
+          billingLoadFailed: true,
+          billingStatus: "billing usage offline",
+          currentPlanLabel: "billing usage offline",
+        })}
+      />
+    );
+
+    expect(html.match(/billing usage offline/g)?.length).toBe(3);
+    expect(html).not.toContain("Plan unavailable");
+    expect(html).not.toContain(">Unavailable<");
     expect(html).not.toContain("Loading plan");
   });
 
@@ -66,6 +90,7 @@ describe("SettingsBillingSection", () => {
         runtime={createRuntime({
           billingMeters: [
             {
+              kind: "credits",
               label: "Method credits",
               refillLabel: "Refills monthly",
               totalLabel: "40",
@@ -90,22 +115,18 @@ describe("SettingsBillingSection", () => {
         runtime={createRuntime({
           billingMeters: [
             {
-              label: "Total credits",
-              refillAt: "2026-05-20T00:00:00.000Z",
-              remaining: 1230,
-              total: 2050,
-            },
-            {
+              kind: "credits",
               label: "Method credits",
               refillAt: "2026-05-20T00:00:00.000Z",
               remaining: 1200,
               total: 2000,
             },
             {
-              label: "Upload credits",
-              refillAt: "2026-05-20T00:00:00.000Z",
-              remaining: 30,
-              total: 50,
+              kind: "storage",
+              label: "Storage",
+              remaining: 2048,
+              total: 4096,
+              used: 2048,
             },
           ],
           billingStatus: "Billing portal ready.",
@@ -119,11 +140,13 @@ describe("SettingsBillingSection", () => {
     );
 
     expect(html).toContain("Core Plan");
-    expect(html).toContain("Total credits");
-    expect(html).toContain("1,230");
-    expect(html).toContain("/ 2,050");
     expect(html).toContain("Method credits");
-    expect(html).toContain("Upload credits");
+    expect(html).toContain("1,200");
+    expect(html).toContain("/ 2,000");
+    expect(html).toContain("Storage");
+    expect(html).toContain("2.0 KB");
+    expect(html).toContain("/ 4.0 KB");
+    expect(html).toContain("2.0 KB available");
     expect(html).toContain("Email me receipts");
     expect(html).toContain("Preferences saved.");
     expect(html).toContain("Manage Billing &amp; Invoices");
@@ -144,5 +167,20 @@ describe("SettingsBillingSection", () => {
     expect(html).toContain("Free Plan");
     expect(html).toContain(">View Plans<");
     expect(html).not.toContain("Manage Billing &amp; Invoices");
+  });
+
+  it("keeps shared plan features aligned with Methods and Mindset Sets wording", () => {
+    const html = renderToStaticMarkup(
+      <SettingsBillingSection
+        runtime={createRuntime({
+          currentPlanLabel: "Access Plan",
+        })}
+      />
+    );
+
+    expect(html).toContain("Methods, notes, and workspace search");
+    expect(html).toContain("Mindset Sets with spaced repetition");
+    expect(html).not.toContain("Full workspace with file &amp; note search");
+    expect(html).not.toContain("Flashcards with spaced repetition");
   });
 });

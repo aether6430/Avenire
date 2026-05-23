@@ -1,30 +1,53 @@
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { getOnboardingDashboardCards } from "./onboarding-dashboard-cards-model";
+
+const removedOnboardingDashboardCardsModelFile = path.resolve(
+  import.meta.dirname,
+  "./onboarding-dashboard-cards-model.ts"
+);
+
+const removedOnboardingStepPreviewFile = path.resolve(
+  import.meta.dirname,
+  "./onboarding-modal-step-preview.tsx"
+);
+const removedOnboardingMisconceptionsStepFile = path.resolve(
+  import.meta.dirname,
+  "./onboarding-modal-misconceptions-step.tsx"
+);
+const dashboardHomeMisconceptionDialogFile = path.resolve(
+  import.meta.dirname,
+  "./dashboard-home-misconception-dialog.tsx"
+);
+const dashboardSidebarWorkspaceHomeFile = path.resolve(
+  import.meta.dirname,
+  "./dashboard-sidebar-workspace-home.tsx"
+);
 
 describe("onboarding dashboard cards model", () => {
-  it("keeps the dashboard sample cards aligned with current product actions", () => {
-    expect(getOnboardingDashboardCards()).toEqual([
-      {
-        action: "Open Method",
-        bg: "border-border/70 bg-background",
-        kind: "chat-probe",
-        sub: "Gauss' Law · Electric Flux",
-        title: "Fix your misconception",
-      },
-      {
-        action: "Start Review",
-        bg: "border-border/70 bg-background",
-        kind: "review",
-        sub: "Based on your FSRS schedule",
-        title: "5 mindset cards due today",
-      },
-      {
-        action: "Open Mindset Set",
-        bg: "border-border/70 bg-background",
-        kind: "mindset-set",
-        sub: "Electrostatics - Chapter 1",
-        title: "Revisit your mindset set",
-      },
-    ]);
+  it("keeps the dead onboarding dashboard cards model removed while the live dashboard copy still points at Methods and Mindset Sets", () => {
+    const dashboardHomeMisconceptionDialogSource = readFileSync(
+      dashboardHomeMisconceptionDialogFile,
+      "utf8"
+    );
+    const dashboardSidebarWorkspaceHomeSource = readFileSync(
+      dashboardSidebarWorkspaceHomeFile,
+      "utf8"
+    );
+
+    expect(existsSync(removedOnboardingDashboardCardsModelFile)).toBe(false);
+    expect(existsSync(removedOnboardingStepPreviewFile)).toBe(false);
+    expect(existsSync(removedOnboardingMisconceptionsStepFile)).toBe(false);
+
+    expect(dashboardHomeMisconceptionDialogSource).toContain(
+      "Generate Mindset Set"
+    );
+    expect(dashboardHomeMisconceptionDialogSource).not.toContain(
+      "Generate mindset set"
+    );
+    expect(dashboardSidebarWorkspaceHomeSource).toContain('label="New Method"');
+    expect(dashboardSidebarWorkspaceHomeSource).toContain(
+      'label="Open Mindset Sets"'
+    );
   });
 });

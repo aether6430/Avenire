@@ -16,6 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@avenire/ui/components/dialog";
+import { DitherIdenticon } from "@avenire/ui/components/dither-identicon";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,7 +42,6 @@ import { useMemo, useState } from "react";
 import { SensitiveText } from "@/components/shared/sensitive-text";
 import { useHaptics } from "@/hooks/use-haptics";
 import { usePrivacyMode } from "@/hooks/use-privacy-mode";
-import { getFacehashUrl } from "@/lib/avatar";
 import type { WorkspaceSummary } from "./command-palette-model";
 import {
   getSidebarInvitationsState,
@@ -53,18 +53,6 @@ import {
   WorkspaceSwitchMenuSection,
 } from "./nav-user-menu-sections";
 
-function getInitials(value: string) {
-  return (
-    value
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase() ?? "")
-      .join("") || "U"
-  );
-}
-
 export function NavUser({
   user,
   workspaces = [],
@@ -72,8 +60,10 @@ export function NavUser({
   activeWorkspaceId,
   workspacesLoadFailed = false,
   workspacesLoading = false,
+  workspacesErrorMessage = null,
   invitationsLoadFailed = false,
   invitationsLoading = false,
+  invitationsErrorMessage = null,
   workspaceActionStatus = null,
   onSwitchWorkspace,
   onCreateWorkspace,
@@ -90,8 +80,10 @@ export function NavUser({
   activeWorkspaceId?: string | null;
   workspacesLoadFailed?: boolean;
   workspacesLoading?: boolean;
+  workspacesErrorMessage?: string | null;
   invitationsLoadFailed?: boolean;
   invitationsLoading?: boolean;
+  invitationsErrorMessage?: string | null;
   workspaceActionStatus?: string | null;
   onSwitchWorkspace?: (workspace: WorkspaceSummary) => void;
   onCreateWorkspace?: (name: string) => Promise<void> | void;
@@ -105,14 +97,8 @@ export function NavUser({
   };
   const { isMobile, setOpenMobile } = useSidebar();
   const triggerHaptic = useHaptics();
-  const fallbackAvatar = useMemo(
-    () => getFacehashUrl(resolvedUser.name || resolvedUser.email),
-    [resolvedUser.name, resolvedUser.email]
-  );
+  const avatarSeed = resolvedUser.name || resolvedUser.email || "user";
   const privacyMode = usePrivacyMode();
-  const initials = getInitials(
-    resolvedUser.name || resolvedUser.email || "User"
-  );
   const [avatarErrored, setAvatarErrored] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [workspaceName, setWorkspaceName] = useState("");
@@ -140,9 +126,7 @@ export function NavUser({
     }
   };
 
-  const avatarSrc = avatarErrored
-    ? fallbackAvatar
-    : (resolvedUser.avatar ?? fallbackAvatar);
+  const avatarSrc = avatarErrored ? undefined : resolvedUser.avatar;
 
   const activeWorkspace = useMemo(
     () =>
@@ -154,11 +138,13 @@ export function NavUser({
   const activeWorkspaceLabel = activeWorkspace?.name ?? "Active workspace";
   const workspaceListState = getSidebarWorkspaceListState({
     activeWorkspaceLabel,
+    errorMessage: workspacesErrorMessage,
     loadFailed: workspacesLoadFailed,
     loading: workspacesLoading,
     workspaceCount: workspaces.length,
   });
   const invitationsState = getSidebarInvitationsState({
+    errorMessage: invitationsErrorMessage,
     invitationCount: invitations.length,
     loadFailed: invitationsLoadFailed,
     loading: invitationsLoading,
@@ -178,15 +164,17 @@ export function NavUser({
               }
             >
               <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage
-                  alt={resolvedUser.name}
-                  onError={() => {
-                    setAvatarErrored(true);
-                  }}
-                  src={avatarSrc}
-                />
-                <AvatarFallback className="rounded-lg">
-                  {initials}
+                {avatarSrc ? (
+                  <AvatarImage
+                    alt={resolvedUser.name}
+                    onError={() => {
+                      setAvatarErrored(true);
+                    }}
+                    src={avatarSrc}
+                  />
+                ) : null}
+                <AvatarFallback className="overflow-hidden rounded-lg bg-muted text-foreground">
+                  <DitherIdenticon className="size-full" seed={avatarSeed} />
                 </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">

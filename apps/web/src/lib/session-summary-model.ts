@@ -1,13 +1,7 @@
 import type { UIMessage } from "@avenire/ai/message-types";
-import {
-  canonicalizeLearningTaxonomy,
-  type SessionSummaryRecord,
-} from "@avenire/database";
+import type { SessionSummaryRecord } from "@avenire/database";
 import { z } from "zod";
-import {
-  inferTopicLabel,
-  normalizeSubjectLabel,
-} from "@/lib/subject-detection";
+import { normalizeSubjectLabel } from "@/lib/subject-detection";
 
 export const MAX_SUMMARY_LIST_ITEMS = 12;
 const MAX_MISCONCEPTION_CANDIDATES = 3;
@@ -99,26 +93,14 @@ export function normalizeMisconceptionCandidate(
     candidate.topic,
     MAX_MISCONCEPTION_TOPIC_LENGTH
   );
-  const sessionSubject = normalizeSubjectLabel(context?.sessionSubject ?? null);
-  const inferredTopic = sessionSubject
-    ? inferTopicLabel(
-        [boundedConcept, boundedReason, context?.transcript ?? ""].join("\n"),
-        sessionSubject
-      )
-    : null;
-  const canonical = canonicalizeLearningTaxonomy({
-    concept: boundedConcept,
-    subject: sessionSubject ?? boundedSubject,
-    text: [boundedConcept, boundedReason, context?.transcript ?? ""].join("\n"),
-    topic: inferredTopic ?? boundedTopic,
-  });
+  const candidateSubject = normalizeSubjectLabel(boundedSubject);
 
   return {
     confidence: Math.min(1, Math.max(0, candidate.confidence)),
-    concept: canonical?.concept ?? boundedConcept,
+    concept: boundedConcept,
     reason: boundedReason,
-    subject: canonical?.subject ?? sessionSubject ?? boundedSubject,
-    topic: canonical?.topic ?? inferredTopic ?? boundedTopic,
+    subject: candidateSubject ?? boundedSubject,
+    topic: boundedTopic,
   };
 }
 
@@ -210,7 +192,7 @@ function summarizeToolPart(
       const cardCount = Array.isArray(part.output.cards)
         ? part.output.cards.length
         : 0;
-      return `Generated ${cardCount} mindset cards in "${normalizeText(part.output.title)}".`;
+      return `Generated ${cardCount} cards in Mindset Set "${normalizeText(part.output.title)}".`;
     }
     case "tool-quiz_me": {
       const questionCount =

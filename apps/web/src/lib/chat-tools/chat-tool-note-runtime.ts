@@ -52,9 +52,12 @@ export async function generateNoteDraftFromTask(input: {
 
   const title = sanitizeNoteTitle(input.titleHint ?? result.output.title);
   const body = stripLeadingTitleHeading(result.output.bodyMarkdown, title);
+  if (!body) {
+    throw new Error("Unable to generate note content.");
+  }
 
   return {
-    bodyMarkdown: body.length > 0 ? body : result.output.bodyMarkdown.trim(),
+    bodyMarkdown: body,
     title,
   };
 }
@@ -79,7 +82,12 @@ export async function rewriteNoteFromTask(input: {
     temperature: 0.2,
   });
 
-  return `${result.output.markdown.trim()}\n`;
+  const markdown = result.output.markdown.trim();
+  if (!markdown) {
+    throw new Error("Unable to rewrite the requested note.");
+  }
+
+  return `${markdown}\n`;
 }
 
 export async function updateFileTags(params: {
@@ -126,8 +134,11 @@ export async function updateFileTags(params: {
       },
     }
   );
+  if (!nextFile) {
+    throw new Error("Unable to update note tags.");
+  }
 
-  return nextFile ?? params.file;
+  return nextFile;
 }
 
 async function ensureNotesFolder(input: NoteRuntimeContext) {
@@ -160,6 +171,8 @@ export async function resolveCreateNoteFolder(
       await ensureWritableTargetFolder(ctx, existingFolderId);
       return existingFolderId;
     }
+
+    throw new Error("The requested folder could not be found.");
   }
 
   const notesFolder = await ensureNotesFolder(ctx);

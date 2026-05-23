@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildFilePreviewMediaModel } from "@/components/files/explorer/file-preview-media-model";
 import type { FileRecord } from "@/components/files/explorer/shared";
@@ -29,6 +31,8 @@ const baseRetrievalModel = {
   videoRetrievalRanges: [],
   videoSeekToMs: null,
 };
+
+const pdfViewerFile = path.resolve(import.meta.dirname, "../pdf-viewer.tsx");
 
 function buildFile(overrides: Partial<FileRecord> = {}): FileRecord {
   return {
@@ -74,6 +78,16 @@ function createMediaModel(
 }
 
 describe("File preview media model", () => {
+  it("keeps the pdf viewer shell borderless and no longer resets dock inputs on resolved page or zoom changes", () => {
+    const source = readFileSync(pdfViewerFile, "utf8");
+
+    expect(source).toContain(
+      '"relative flex h-[500px] w-full flex-col overflow-hidden border-0 bg-background"'
+    );
+    expect(source).not.toContain("useEffect(() => {\n    setPageInput(\"\");");
+    expect(source).not.toContain("useEffect(() => {\n    setZoomInput(\"\");");
+  });
+
   it("builds a pdf viewer model with retrieval highlights", () => {
     const model = createMediaModel({
       isPdf: true,
@@ -84,7 +98,6 @@ describe("File preview media model", () => {
     });
 
     expect(model).toEqual({
-      circleToAiFileKind: "pdf",
       kind: "pdf",
       pdfViewer: {
         highlightPage: 4,
@@ -105,7 +118,6 @@ describe("File preview media model", () => {
     });
 
     expect(imageModel).toEqual({
-      circleToAiFileKind: "image",
       imageViewer: {
         src: "https://cdn.example.com/image.png",
       },
@@ -154,7 +166,6 @@ describe("File preview media model", () => {
     });
 
     expect(videoModel).toMatchObject({
-      circleToAiFileKind: "video",
       kind: "video",
       videoPlayer: {
         activeRangeIndex: 1,

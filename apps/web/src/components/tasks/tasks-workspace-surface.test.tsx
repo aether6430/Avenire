@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -19,6 +21,7 @@ function createRuntime(
     draft: null,
     dropStatus: null,
     draggedTaskId: null,
+    errorMessage: null,
     groupedTasks: [],
     grouping: "status",
     handleCreateTask: () => {},
@@ -57,15 +60,41 @@ function createRuntime(
   } as unknown as TasksWorkspaceRuntime;
 }
 
+const taskDetailPaneFile = path.resolve(
+  import.meta.dirname,
+  "./task-detail-pane.tsx"
+);
+const taskMobileSheetFile = path.resolve(
+  import.meta.dirname,
+  "./task-mobile-sheet.tsx"
+);
+
 describe("TasksWorkspaceSurface", () => {
   it("renders an explicit task load failure instead of falling through to the empty filtered-view state", () => {
     const html = renderToStaticMarkup(
-      <TasksWorkspaceSurface runtime={createRuntime({ loadFailed: true })} />
+      <TasksWorkspaceSurface
+        runtime={createRuntime({
+          errorMessage: "Could not load tasks right now.",
+          loadFailed: true,
+        })}
+      />
     );
 
     expect(html).toContain("Unable to load tasks.");
-    expect(html).toContain("Try again in a moment or refresh the workspace.");
+    expect(html).toContain("Could not load tasks right now.");
     expect(html).not.toContain("No tasks match this view");
+  });
+
+  it("renders an explicit filtered empty-state message when no tasks match the current view", () => {
+    const html = renderToStaticMarkup(
+      <TasksWorkspaceSurface runtime={createRuntime({ tasks: [] })} />
+    );
+
+    expect(html).toContain("No tasks match this view");
+    expect(html).toContain(
+      "Try a different filter, or create the first task for this workspace."
+    );
+    expect(html).not.toContain("Loading tasks...");
   });
 
   it("keeps the task search field visible in the main workspace surface", () => {
@@ -75,5 +104,20 @@ describe("TasksWorkspaceSurface", () => {
 
     expect(html).toContain("Search Tasks...");
     expect(html).not.toContain("Search tasks...");
+    expect(html).not.toContain(
+      "Assigned, scheduled, and in progress across the current workspace."
+    );
+  });
+
+  it("keeps the task editor headings aligned between the sheet shell and the detail pane", () => {
+    const taskDetailPaneSource = readFileSync(taskDetailPaneFile, "utf8");
+    const taskMobileSheetSource = readFileSync(taskMobileSheetFile, "utf8");
+
+    expect(taskDetailPaneSource).toContain('"New Task"');
+    expect(taskDetailPaneSource).toContain('"Task Details"');
+    expect(taskDetailPaneSource).not.toContain('"New task"');
+    expect(taskDetailPaneSource).not.toContain('"Task details"');
+    expect(taskMobileSheetSource).toContain('"New Task"');
+    expect(taskMobileSheetSource).toContain('"Task Details"');
   });
 });

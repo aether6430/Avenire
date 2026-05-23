@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
@@ -14,6 +16,19 @@ vi.mock("node:dns/promises", () => ({
 vi.mock("@/lib/file-data", () => ({
   isTrustedStorageUrl: isTrustedStorageUrlMock,
 }));
+
+const videoOptimizationBarrelSource = readFileSync(
+  resolve(import.meta.dirname, "video-optimization.ts"),
+  "utf8"
+);
+const videoOptimizationModelSource = readFileSync(
+  resolve(import.meta.dirname, "video-optimization-model.ts"),
+  "utf8"
+);
+const videoOptimizationRuntimeSource = readFileSync(
+  resolve(import.meta.dirname, "video-optimization-runtime.ts"),
+  "utf8"
+);
 
 import {
   optimizeAndReuploadVideo,
@@ -78,5 +93,32 @@ describe("video optimization runtime", () => {
     ).resolves.toBeNull();
 
     process.env.UPLOADTHING_TOKEN = previousToken;
+  });
+
+  it("keeps video optimization split between a thin barrel, pure planning model helpers, and side-effect runtime execution", () => {
+    expect(videoOptimizationBarrelSource).toContain(
+      "@/lib/video-optimization-runtime"
+    );
+    expect(videoOptimizationBarrelSource).not.toContain("lookup(");
+    expect(videoOptimizationBarrelSource).not.toContain("uploadStorageFile(");
+    expect(videoOptimizationBarrelSource).not.toContain("spawn(");
+
+    expect(videoOptimizationModelSource).toContain(
+      "export function buildHlsVariants"
+    );
+    expect(videoOptimizationModelSource).toContain(
+      "export function isPrivateOrLocalAddress"
+    );
+    expect(videoOptimizationModelSource).toContain(
+      "export function rewritePlaylistReferences"
+    );
+    expect(videoOptimizationModelSource).not.toContain("lookup(");
+    expect(videoOptimizationModelSource).not.toContain("uploadStorageFile(");
+
+    expect(videoOptimizationRuntimeSource).toContain("lookup");
+    expect(videoOptimizationRuntimeSource).toContain("uploadStorageFile");
+    expect(videoOptimizationRuntimeSource).toContain("spawn");
+    expect(videoOptimizationRuntimeSource).toContain("buildHlsVariants");
+    expect(videoOptimizationRuntimeSource).toContain("shouldGenerateHls");
   });
 });

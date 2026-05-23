@@ -22,6 +22,7 @@ export function ExplorerBrowseList({
   getFolderItemActionProps,
   interactions,
   isMobile,
+  isSearchFilteredView,
   itemActionTargetSelector,
   listMeasureElement,
   listTotalSize,
@@ -49,6 +50,7 @@ export function ExplorerBrowseList({
   | "getFolderItemActionProps"
   | "interactions"
   | "isMobile"
+  | "isSearchFilteredView"
   | "itemActionTargetSelector"
   | "listMeasureElement"
   | "listTotalSize"
@@ -63,6 +65,14 @@ export function ExplorerBrowseList({
 >) {
   if (viewMode !== "list") {
     return null;
+  }
+
+  if (isSearchFilteredView && explorerEntries.length === 0) {
+    return (
+      <div className="rounded-md border border-border/60 bg-card px-4 py-8 text-center text-muted-foreground text-sm">
+        No indexed files matched this search.
+      </div>
+    );
   }
 
   const selectionControlCaptureProps =

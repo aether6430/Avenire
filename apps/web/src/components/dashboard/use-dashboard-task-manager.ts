@@ -29,7 +29,7 @@ export function useDashboardTaskManager({
   workspaceId: string;
 }) {
   const [editingTask, setEditingTask] = useState<WorkspaceTask | null>(null);
-  const { loadFailed, loading, tasks } = useSyncExternalStore(
+  const { errorMessage, loadFailed, loading, tasks } = useSyncExternalStore(
     subscribeToTaskStore,
     getTaskStoreSnapshot,
     getTaskStoreSnapshot
@@ -113,6 +113,7 @@ export function useDashboardTaskManager({
 
   const displayTasks = sortedTasks.slice(0, 10);
   const taskManagerState = getDashboardTaskManagerState({
+    errorMessage,
     loadFailed,
     loading,
     visibleTaskCount: sortedTasks.length,
@@ -120,6 +121,7 @@ export function useDashboardTaskManager({
 
   return {
     displayTasks,
+    errorMessage,
     editingTask,
     handleDeleteTask,
     handleToggleTask,

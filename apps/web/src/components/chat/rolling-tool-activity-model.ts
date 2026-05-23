@@ -189,7 +189,7 @@ export function toRollingToolAction(part: ToolPart): ActivityAction | null {
               title: part.output.title,
             }
           : undefined,
-      value: part.input?.title ?? "mindset set",
+      value: part.input?.title ?? "Mindset Set",
     };
   }
 
@@ -206,6 +206,25 @@ export function toRollingToolAction(part: ToolPart): ActivityAction | null {
             }
           : undefined,
       value: part.input?.title ?? "quiz",
+    };
+  }
+
+  if (part.type === "tool-log_misconception") {
+    const output = isOutputAvailable(part) ? part.output : null;
+    const misconception = output?.misconception;
+
+    return {
+      kind: "misconception",
+      pending: isPending(part),
+      preview: misconception
+        ? {
+            confidence: misconception.confidence,
+            concept: misconception.concept,
+            topic: misconception.topic,
+          }
+        : undefined,
+      value:
+        misconception?.concept ?? part.input?.concept ?? "misconception memory",
     };
   }
 

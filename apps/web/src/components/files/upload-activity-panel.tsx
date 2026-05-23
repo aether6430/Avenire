@@ -14,6 +14,7 @@ export function UploadActivityPanel() {
     return (
       <UploadActivityMobileSurface
         completedCount={activity.completedCount}
+        errorMessage={activity.recentJobsErrorMessage}
         failedCount={activity.failedCount}
         isOpen={activity.isQueueVisible}
         loadFailed={activity.recentJobsLoadFailed}
@@ -29,6 +30,7 @@ export function UploadActivityPanel() {
   return (
     <UploadActivityDesktopSurface
       completedCount={activity.completedCount}
+      errorMessage={activity.recentJobsErrorMessage}
       failedCount={activity.failedCount}
       isOpen={activity.isQueueVisible}
       loadFailed={activity.recentJobsLoadFailed}

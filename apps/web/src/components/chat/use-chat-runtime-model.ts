@@ -48,7 +48,9 @@ export interface ChatRuntime {
   ) => Promise<void>;
   setAttachments: React.Dispatch<React.SetStateAction<Attachment[]>>;
   setInput: React.Dispatch<React.SetStateAction<string>>;
+  setTurboEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   status: ChatRuntimeStatus;
+  turboEnabled: boolean;
   workspaceUuid: string;
 }
 
@@ -109,6 +111,16 @@ export function shouldHydrateInitialChatMessages(input: {
 
 export function shouldResumeChatStream(chatId: string) {
   return chatId !== "new";
+}
+
+export function shouldResumeChatStreamOnWindowActivation({
+  chatId,
+  visibilityState,
+}: {
+  chatId: string;
+  visibilityState: DocumentVisibilityState | "hidden" | "visible";
+}) {
+  return shouldResumeChatStream(chatId) && visibilityState !== "hidden";
 }
 
 export function getChatStatusPetNotification(status: ChatRuntimeStatus) {

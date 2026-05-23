@@ -53,6 +53,7 @@ describe("settings remote preferences runtime model", () => {
       petName: "Auri",
     });
     expect(createRemotePreferencesLoadStartState()).toEqual({
+      preferencesErrorMessage: null,
       preferencesLoadFailed: false,
       preferencesLoading: true,
       preferencesStatus: "Loading preferences...",
@@ -62,14 +63,18 @@ describe("settings remote preferences runtime model", () => {
       emailReceipts: false,
       petAccessory: "glasses",
       petName: "Auri",
+      preferencesErrorMessage: null,
       preferencesLoadFailed: false,
       preferencesLoading: false,
       preferencesStatus: null,
     });
-    expect(createRemotePreferencesLoadFailureState()).toEqual({
+    expect(
+      createRemotePreferencesLoadFailureState("preferences backend offline")
+    ).toEqual({
+      preferencesErrorMessage: "preferences backend offline",
       preferencesLoadFailed: true,
       preferencesLoading: false,
-      preferencesStatus: "Unable to load preferences.",
+      preferencesStatus: "preferences backend offline",
     });
     expect(createRemotePreferencesSaveStartState()).toEqual({
       preferencesStatus: "Saving preferences...",

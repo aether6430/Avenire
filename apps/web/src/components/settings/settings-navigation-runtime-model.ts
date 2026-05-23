@@ -10,13 +10,6 @@ export function shouldSyncSettingsLocalTab(input: {
   return input.localTab !== input.initialTab;
 }
 
-export function shouldRedirectShortcutSettingsTab(input: {
-  currentTab: TabKey;
-  hasKeyboardDetected: boolean;
-}) {
-  return false;
-}
-
 export function resolveVisibleSettingsTabs(hasKeyboardDetected: boolean) {
   return SETTINGS_TABS.filter(
     (tab) => tab.key !== "shortcuts" || hasKeyboardDetected

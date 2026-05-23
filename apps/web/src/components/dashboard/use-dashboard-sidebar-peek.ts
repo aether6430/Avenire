@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+export const DASHBOARD_SIDEBAR_PEEK_CLOSE_DELAY_MS = 90;
+
 export function resolveDashboardSidebarPeekHovered(input: {
   action: "close" | "open";
   current: boolean;
@@ -11,7 +13,11 @@ export function resolveDashboardSidebarPeekHovered(input: {
     return input.current;
   }
 
-  return input.action === "open";
+  return input.action === "open" ? true : input.current;
+}
+
+export function resolveDashboardSidebarPeekCloseDelayMs(state: string) {
+  return state === "collapsed" ? DASHBOARD_SIDEBAR_PEEK_CLOSE_DELAY_MS : 0;
 }
 
 export function useDashboardSidebarPeek({
@@ -69,13 +75,11 @@ export function useDashboardSidebarPeek({
       peekCloseTimerRef.current = null;
     }
 
-    setPeekHovered((current) =>
-      resolveDashboardSidebarPeekHovered({
-        action: "close",
-        current,
-        state,
-      })
-    );
+    const closeDelayMs = resolveDashboardSidebarPeekCloseDelayMs(state);
+    peekCloseTimerRef.current = setTimeout(() => {
+      setPeekHovered(false);
+      peekCloseTimerRef.current = null;
+    }, closeDelayMs);
   }, [state]);
 
   return {

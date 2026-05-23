@@ -151,6 +151,10 @@ const errorCodes = {
     userMessage: "This is your last account, and it can't be unlinked.",
     source: "user"
   },
+  YOU_CANT_UNLINK_YOUR_LAST_ACCOUNT: {
+    userMessage: "This is your last account, and it can't be unlinked.",
+    source: "user"
+  },
   FAILED_TO_UPDATE_PASSKEY: {
     userMessage: "We couldn't update your passkey. Please try again later.",
     source: "server"

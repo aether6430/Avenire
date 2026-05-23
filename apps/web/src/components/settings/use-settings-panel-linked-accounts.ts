@@ -22,6 +22,9 @@ export function useSettingsPanelLinkedAccounts({
   currentTab: string;
 }) {
   const [accounts, setAccounts] = useState<AccountEntry[]>([]);
+  const [accountsErrorMessage, setAccountsErrorMessage] = useState<
+    string | null
+  >(null);
   const [accountsLoadFailed, setAccountsLoadFailed] = useState(false);
   const [accountsLoading, setAccountsLoading] = useState(false);
   const [accountsStatus, setAccountsStatus] = useState<string | null>(null);
@@ -30,14 +33,19 @@ export function useSettingsPanelLinkedAccounts({
   const refreshAccounts = useCallback(async () => {
     setAccountsLoading(true);
     setAccountsLoadFailed(false);
+    setAccountsErrorMessage(null);
     try {
       const result = await listAccounts();
       const next = createAccountsRefreshSuccessState(result);
       setAccounts(next.accounts);
+      setAccountsErrorMessage(next.accountsErrorMessage);
       setAccountsLoadFailed(next.accountsLoadFailed);
-    } catch {
-      const next = createAccountsRefreshFailureState();
+    } catch (error) {
+      const next = createAccountsRefreshFailureState(
+        error instanceof Error ? error.message : null
+      );
       setAccounts(next.accounts);
+      setAccountsErrorMessage(next.accountsErrorMessage);
       setAccountsLoadFailed(next.accountsLoadFailed);
     } finally {
       setAccountsLoading(false);
@@ -68,12 +76,14 @@ export function useSettingsPanelLinkedAccounts({
 
   const unlinkProviderAccount = async (account: AccountEntry) => {
     const providerId = account.providerId;
-    if (!providerId) {
+    const accountId = account.accountId ?? account.id;
+    if (!(providerId && accountId)) {
+      setAccountsStatus(resolveUnlinkAccountStatus({ error: true }));
       return;
     }
 
     const result = await unlinkAccount({
-      accountId: account.accountId ?? "",
+      accountId,
       providerId,
     });
     setAccountsStatus(resolveUnlinkAccountStatus(result));
@@ -82,6 +92,7 @@ export function useSettingsPanelLinkedAccounts({
 
   return {
     accounts,
+    accountsErrorMessage,
     accountsLoadFailed,
     accountsLoading,
     accountsStatus,

@@ -6,39 +6,55 @@ import {
   getTaskListCacheVersion,
   setCachedTaskList,
 } from "@/lib/tasks-cache";
-import { resolveTasksRouteListQuery } from "./tasks-route-model";
+import {
+  resolveTaskRouteError,
+  resolveTasksRouteListQuery,
+  TASK_LIST_LOAD_ERROR,
+} from "./tasks-route-model";
 
 export async function handleTasksRouteGet(input: {
   request: Request;
   workspaceId: string;
 }) {
-  const query = resolveTasksRouteListQuery(input.request);
-  const version = await getTaskListCacheVersion(input.workspaceId);
-  const cacheKey = createTaskListCacheKey({
-    assigneeUserId: query.assigneeUserId,
-    dueBefore: query.dueBefore,
-    includeCompleted: query.includeCompleted,
-    limit: query.limit,
-    status: query.status,
-    version,
-    workspaceUuid: input.workspaceId,
-  });
-  const cached = await getCachedTaskList<{ tasks: unknown[] }>(cacheKey);
-  if (cached) {
-    return NextResponse.json(cached, {
-      headers: { "x-tasks-cache": "hit" },
+  try {
+    const query = resolveTasksRouteListQuery(input.request);
+    const version = await getTaskListCacheVersion(input.workspaceId);
+    const cacheKey = createTaskListCacheKey({
+      assigneeUserId: query.assigneeUserId,
+      dueBefore: query.dueBefore,
+      includeCompleted: query.includeCompleted,
+      limit: query.limit,
+      status: query.status,
+      version,
+      workspaceUuid: input.workspaceId,
     });
+    const cached = await getCachedTaskList<{ tasks: unknown[] }>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, {
+        headers: { "x-tasks-cache": "hit" },
+      });
+    }
+
+    const tasks = await listTasksForUser(input.workspaceId, {
+      assigneeUserId: query.assigneeUserId,
+      dueBefore: query.dueBefore ? new Date(query.dueBefore) : undefined,
+      includeCompleted: query.includeCompleted,
+      limit: query.limit,
+      status: query.status,
+    });
+
+    await setCachedTaskList(cacheKey, { tasks });
+
+    return NextResponse.json(
+      { tasks },
+      { headers: { "x-tasks-cache": "miss" } }
+    );
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: resolveTaskRouteError(error, TASK_LIST_LOAD_ERROR),
+      },
+      { status: 500 }
+    );
   }
-
-  const tasks = await listTasksForUser(input.workspaceId, {
-    assigneeUserId: query.assigneeUserId,
-    dueBefore: query.dueBefore ? new Date(query.dueBefore) : undefined,
-    includeCompleted: query.includeCompleted,
-    limit: query.limit,
-    status: query.status,
-  });
-
-  await setCachedTaskList(cacheKey, { tasks });
-
-  return NextResponse.json({ tasks }, { headers: { "x-tasks-cache": "miss" } });
 }

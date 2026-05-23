@@ -27,7 +27,6 @@ import {
   ShareNetwork as Share2,
   SlidersHorizontal,
   Trash as Trash2,
-  MagicWand as WandSparkles,
 } from "@phosphor-icons/react";
 import { DownloadSimple as ArrowDownToLine } from "@phosphor-icons/react/DownloadSimple";
 import type { FolderRecord } from "@/components/files/explorer/shared";
@@ -45,7 +44,6 @@ export interface ExplorerItemActionsProps {
   folders: FolderRecord[];
   kind: ExplorerItemActionKind;
   name: string;
-  onCircleToAi?: () => void;
   onDelete: () => void;
   onDownload: () => void;
   onDuplicate: () => void;
@@ -66,7 +64,6 @@ export function ExplorerItemActions({
   folders,
   kind,
   name,
-  onCircleToAi,
   onDelete,
   onDownload,
   onDuplicate,
@@ -112,12 +109,6 @@ export function ExplorerItemActions({
         align="end"
         className={cn("w-56 bg-background", COMPACT_MENU_SURFACE_CLASS)}
       >
-        {onCircleToAi ? (
-          <DropdownMenuItem onClick={onCircleToAi}>
-            <WandSparkles className="size-3.5" />
-            Circle to AI
-          </DropdownMenuItem>
-        ) : null}
         <DropdownMenuSub>
           <DropdownMenuSubTrigger className={ACTION_ROW_CLASS}>
             <Info className="size-3.5" />

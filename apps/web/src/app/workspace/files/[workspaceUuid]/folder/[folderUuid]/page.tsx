@@ -49,65 +49,72 @@ export async function generateMetadata({
   params: Promise<{ folderUuid: string; workspaceUuid: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<Metadata> {
-  const [{ folderUuid, workspaceUuid }, query, context] = await Promise.all([
-    params,
-    searchParams,
-    getWorkspaceRouteContext(),
-  ]);
+  try {
+    const [{ folderUuid, workspaceUuid }, query, context] = await Promise.all([
+      params,
+      searchParams,
+      getWorkspaceRouteContext(),
+    ]);
 
-  if (!context.session?.user) {
-    return buildPageMetadata({
-      noIndex: true,
-      title: "Files",
-    });
-  }
-
-  const workspaces = await listWorkspacesForUser(context.session.user.id);
-  const requestedWorkspace =
-    workspaces.find((workspace) => workspace.workspaceId === workspaceUuid) ??
-    null;
-
-  if (!requestedWorkspace) {
-    return buildPageMetadata({
-      noIndex: true,
-      title: "Files",
-    });
-  }
-
-  const fileId = normalizeQueryValue(query.file);
-  if (fileId) {
-    const accessibleNote = await getAccessibleMarkdownNoteForUser({
-      fileId,
-      userId: context.session.user.id,
-    });
-
-    if (accessibleNote?.workspaceId === workspaceUuid) {
-      const fallbackTitle = stripMarkdownExtension(accessibleNote.file.name);
+    if (!context.session?.user) {
       return buildPageMetadata({
         noIndex: true,
-        title:
-          getMarkdownDisplayTitle(
-            accessibleNote.note?.content ?? "",
-            fallbackTitle
-          ).trim() || fallbackTitle,
+        title: "Files",
       });
     }
+
+    const workspaces = await listWorkspacesForUser(context.session.user.id);
+    const requestedWorkspace =
+      workspaces.find((workspace) => workspace.workspaceId === workspaceUuid) ??
+      null;
+
+    if (!requestedWorkspace) {
+      return buildPageMetadata({
+        noIndex: true,
+        title: "Files",
+      });
+    }
+
+    const fileId = normalizeQueryValue(query.file);
+    if (fileId) {
+      const accessibleNote = await getAccessibleMarkdownNoteForUser({
+        fileId,
+        userId: context.session.user.id,
+      });
+
+      if (accessibleNote?.workspaceId === workspaceUuid) {
+        const fallbackTitle = stripMarkdownExtension(accessibleNote.file.name);
+        return buildPageMetadata({
+          noIndex: true,
+          title:
+            getMarkdownDisplayTitle(
+              accessibleNote.note?.content ?? "",
+              fallbackTitle
+            ).trim() || fallbackTitle,
+        });
+      }
+    }
+
+    const folder = await getFolderWithAncestors(
+      workspaceUuid,
+      folderUuid,
+      context.session.user.id
+    );
+
+    return buildPageMetadata({
+      noIndex: true,
+      title: resolveWorkspaceFilesPageTitle({
+        folderName: folder?.folder?.name ?? null,
+        isAtWorkspaceRoot: requestedWorkspace.rootFolderId === folderUuid,
+        workspaceName: requestedWorkspace.name,
+      }),
+    });
+  } catch {
+    return buildPageMetadata({
+      noIndex: true,
+      title: "Files",
+    });
   }
-
-  const folder = await getFolderWithAncestors(
-    workspaceUuid,
-    folderUuid,
-    context.session.user.id
-  );
-
-  return buildPageMetadata({
-    noIndex: true,
-    title: resolveWorkspaceFilesPageTitle({
-      folderName: folder?.folder?.name ?? null,
-      isAtWorkspaceRoot: requestedWorkspace.rootFolderId === folderUuid,
-      workspaceName: requestedWorkspace.name,
-    }),
-  });
 }
 
 export default async function WorkspaceFolderPage({

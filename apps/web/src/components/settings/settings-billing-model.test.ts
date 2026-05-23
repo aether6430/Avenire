@@ -17,10 +17,11 @@ describe("settings billing model", () => {
     expect(
       getBillingPlanLabel({
         billingUsagePlan: null,
+        errorMessage: "billing usage offline",
         loadFailed: true,
         loading: false,
       })
-    ).toBe("Plan unavailable");
+    ).toBe("billing usage offline");
 
     expect(
       getBillingPlanLabel({
@@ -43,12 +44,13 @@ describe("settings billing model", () => {
 
     expect(
       getBillingValueState({
+        errorMessage: "billing usage offline",
         loadFailed: true,
         loading: false,
         readyLabel: "1,200",
       })
     ).toEqual({
-      label: "Unavailable",
+      label: "billing usage offline",
       showSpinner: false,
     });
 

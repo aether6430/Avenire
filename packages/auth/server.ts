@@ -1,8 +1,4 @@
-import {
-  createWorkspaceForUser,
-  createWorkspaceNoteFile,
-  db,
-} from "@avenire/database";
+import { db } from "@avenire/database";
 import {
   account,
   invitation,
@@ -13,25 +9,25 @@ import {
   user,
   verification,
 } from "@avenire/database/auth-schema";
-import {
-  Emailer,
-  renderDeleteAccountEmail,
-  renderFileShareNotificationEmail,
-  renderPasswordResetEmail,
-  renderSecurityVerificationCodeEmail,
-  renderVerificationEmail,
-  renderWelcomeEmail,
-  renderWorkspaceShareNotificationEmail,
-} from "@avenire/emailer";
 import { passkey } from "@better-auth/passkey";
 import { checkout, polar, portal } from "@polar-sh/better-auth";
 import { Polar } from "@polar-sh/sdk";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { toNextJsHandler } from "better-auth/next-js";
+import { nextCookies, toNextJsHandler } from "better-auth/next-js";
 import { lastLoginMethod, organization } from "better-auth/plugins";
 import { username } from "better-auth/plugins/username";
 import { parseOriginList, resolveTrustedOrigins } from "./origin-policy";
+import {
+  sendDeleteAccountVerificationEmail,
+  sendFileShareEmail,
+  sendResetPasswordEmail,
+  sendSudoVerificationCodeEmail,
+  sendVerificationEmail,
+  sendWelcomeEmail,
+  sendWorkspaceShareEmail,
+} from "./server-mailers";
+import { provisionWelcomeWorkspaceForUser } from "./server-workspace-bootstrap";
 import { waitlistPlugin } from "./waitlist";
 
 const appUrl = process.env.BETTER_AUTH_URL?.trim();
@@ -122,41 +118,6 @@ const generatedBetterAuthSchema = {
   passkey: passkeyTable,
 };
 
-let emailer: Emailer | null = null;
-
-function getEmailer() {
-  emailer ??= new Emailer();
-  return emailer;
-}
-
-function buildWelcomeWorkspaceNote(input: {
-  firstName?: string | null;
-  workspaceName: string;
-}) {
-  const name = input.firstName?.trim() || "there";
-
-  return `# Welcome to Avenire
-
-Hi ${name},
-
-I set up **${input.workspaceName}** for you. This is your starting point for the first study loop.
-
-## Your first three moves
-
-1. Upload a file so Avenire has something real to work from.
-2. Generate flashcards from that file to turn it into something you can review.
-3. Ask a question about the file and use Apollo to explain the parts that still feel unclear.
-
-## What to do next
-
-- Keep adding files as you study.
-- Revisit flashcards before they decay.
-- Use Apollo when you want a deeper explanation instead of a shorter answer.
-
-I left this note here so you always have a clean way to get started, ${name}.
-`;
-}
-
 export const auth = betterAuth({
   trustedOrigins: async (request) => {
     const requestOrigin = getRequestOrigin(request);
@@ -180,13 +141,10 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: true,
     sendResetPassword: async ({ user, url }) => {
-      await getEmailer().send({
-        to: [user.email],
-        subject: "Reset your password",
-        html: await renderPasswordResetEmail({
-          name: user.name ?? "there",
-          resetLink: url,
-        }),
+      await sendResetPasswordEmail({
+        email: user.email,
+        name: user.name,
+        resetLink: url,
       });
     },
   },
@@ -194,13 +152,10 @@ export const auth = betterAuth({
     sendOnSignUp: true,
     autoSignInAfterVerification: true,
     sendVerificationEmail: async ({ user, url }) => {
-      await getEmailer().send({
-        to: [user.email],
-        subject: "Verify your email",
-        html: await renderVerificationEmail({
-          name: user.name ?? "there",
-          confirmationLink: url,
-        }),
+      await sendVerificationEmail({
+        confirmationLink: url,
+        email: user.email,
+        name: user.name,
       });
     },
   },
@@ -208,13 +163,10 @@ export const auth = betterAuth({
     deleteUser: {
       enabled: true,
       sendDeleteAccountVerification: async ({ user, url }) => {
-        await getEmailer().send({
-          to: [user.email],
-          subject: "Confirm account deletion",
-          html: await renderDeleteAccountEmail({
-            name: user.name ?? "there",
-            confirmationLink: url,
-          }),
+        await sendDeleteAccountVerificationEmail({
+          confirmationLink: url,
+          email: user.email,
+          name: user.name,
         });
       },
     },
@@ -267,14 +219,9 @@ export const auth = betterAuth({
       create: {
         after: async (user) => {
           try {
-            const html = await renderWelcomeEmail({
-              companyName: user.name ?? "there",
-            });
-            console.log("[auth] rendered welcome email", { email: user.email });
-            await getEmailer().send({
-              to: [user.email],
-              subject: "Welcome to Avenire",
-              html,
+            await sendWelcomeEmail({
+              email: user.email,
+              name: user.name,
             });
           } catch (error) {
             console.error("[auth] failed to send welcome email", {
@@ -283,21 +230,10 @@ export const auth = betterAuth({
             });
           }
           try {
-            const workspaceNameBase =
-              user.name ?? user.email.split("@")[0] ?? "workspace";
-            const workspace = await createWorkspaceForUser(
-              user.id,
-              `${workspaceNameBase}'s Workspace`
-            );
-            await createWorkspaceNoteFile({
-              content: buildWelcomeWorkspaceNote({
-                firstName: user.name,
-                workspaceName: workspace.name,
-              }),
-              folderId: workspace.rootFolderId,
-              name: "Welcome to Avenire.md",
+            await provisionWelcomeWorkspaceForUser({
+              email: user.email,
+              name: user.name,
               userId: user.id,
-              workspaceId: workspace.workspaceId,
             });
           } catch (error) {
             console.error("Failed to create default workspace", error);
@@ -321,7 +257,10 @@ export const auth = betterAuth({
                     checkout({
                       products: polarCheckoutProducts,
                       authenticatedUsersOnly: true,
-                      successUrl: "/settings?tab=billing&checkout=success",
+                      returnUrl:
+                        "/workspace?overlay=settings&settingsTab=billing",
+                      successUrl:
+                        "/workspace?overlay=settings&settingsTab=billing&checkout=success",
                     }),
                   ]
                 : []),
@@ -337,6 +276,7 @@ export const auth = betterAuth({
       rpName: "Avenire",
       origin: appUrl,
     }),
+    nextCookies(),
   ],
   onAPIError: {
     throw: false,
@@ -347,52 +287,8 @@ export const auth = betterAuth({
 export const authRouteHandlers = toNextJsHandler(auth);
 
 export type Session = typeof auth.$Infer.Session;
-
-export async function sendFileShareEmail(input: {
-  toEmail: string;
-  fileName: string;
-  shareUrl: string;
-  sharedByName?: string;
-}) {
-  await getEmailer().send({
-    to: [input.toEmail],
-    subject: `${input.sharedByName ?? "Someone"} shared a file with you`,
-    html: await renderFileShareNotificationEmail({
-      fileName: input.fileName,
-      shareUrl: input.shareUrl,
-      sharedByName: input.sharedByName,
-    }),
-  });
-}
-
-export async function sendWorkspaceShareEmail(input: {
-  toEmail: string;
-  workspaceName: string;
-  workspaceUrl: string;
-  sharedByName?: string;
-}) {
-  await getEmailer().send({
-    to: [input.toEmail],
-    subject: `${input.sharedByName ?? "Someone"} shared a workspace with you`,
-    html: await renderWorkspaceShareNotificationEmail({
-      workspaceName: input.workspaceName,
-      workspaceUrl: input.workspaceUrl,
-      sharedByName: input.sharedByName,
-    }),
-  });
-}
-
-export async function sendSudoVerificationCodeEmail(input: {
-  toEmail: string;
-  code: string;
-  expiresInMinutes: number;
-}) {
-  await getEmailer().send({
-    to: [input.toEmail],
-    subject: "Your Avenire security verification code",
-    html: await renderSecurityVerificationCodeEmail({
-      code: input.code,
-      expiresInMinutes: input.expiresInMinutes,
-    }),
-  });
-}
+export {
+  sendFileShareEmail,
+  sendSudoVerificationCodeEmail,
+  sendWorkspaceShareEmail,
+};

@@ -1,20 +1,16 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
 import type { TasksWorkspaceProps } from "@/components/tasks/tasks-workspace-model";
+import { TasksWorkspaceSurface } from "@/components/tasks/tasks-workspace-surface";
+import { useTasksWorkspace } from "@/components/tasks/use-tasks-workspace";
 
-const TasksWorkspace = dynamic<TasksWorkspaceProps>(
-  () =>
-    import("@/components/tasks/tasks-workspace").then(
-      (module) => module.TasksWorkspace
-    ),
-  {
-    loading: () => <WorkspaceRoutePlaceholder label="Loading tasks..." />,
-    ssr: false,
-  }
-);
+function ReadyTasksWorkspace(props: TasksWorkspaceProps) {
+  const runtime = useTasksWorkspace(props);
+
+  return <TasksWorkspaceSurface runtime={runtime} />;
+}
 
 export function WorkspaceTasksPageClient() {
   const { status, user, workspace } = useWorkspaceBootstrap();
@@ -42,7 +38,7 @@ export function WorkspaceTasksPageClient() {
   }
 
   return (
-    <TasksWorkspace
+    <ReadyTasksWorkspace
       currentUserAvatar={user.image ?? undefined}
       currentUserEmail={user.email}
       currentUserId={user.id}

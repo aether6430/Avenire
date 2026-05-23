@@ -21,7 +21,7 @@ export const CTA = () => {
         Bring your notes, files, and ideas <br /> into one learning workspace
       </SectionHeading>
       <Button as={Link} className="relative z-20 mt-4" href="/waitlist">
-        Join waitlist
+        Join the waitlist
       </Button>
     </Container>
   );

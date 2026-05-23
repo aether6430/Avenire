@@ -5,25 +5,10 @@ import { Sparkle as Sparkles } from "@phosphor-icons/react";
 import type { Route } from "next";
 import dynamic from "next/dynamic";
 import type { DashboardSidebarRuntime } from "@/components/dashboard/use-dashboard-sidebar";
+import { FlashcardsSidebarPanelSurface } from "@/components/flashcards/flashcards-sidebar-panel-surface";
+import { useFlashcardsSidebarPanel } from "@/components/flashcards/use-flashcards-sidebar-panel";
 import { DashboardSidebarChatPanel } from "./dashboard-sidebar-chat-panel";
 import { SidebarEmptyState } from "./dashboard-sidebar-shared";
-
-const FlashcardsSidebarPanel = dynamic(
-  () =>
-    import("@/components/flashcards/sidebar-panel").then((module) => ({
-      default: module.FlashcardsSidebarPanel,
-    })),
-  {
-    loading: () => (
-      <div className="absolute inset-0 flex items-start p-4">
-        <div className="inline-flex items-center gap-2 text-muted-foreground text-xs">
-          <Spinner className="size-3.5" />
-          Loading mindset sets...
-        </div>
-      </div>
-    ),
-  }
-);
 
 const DeferredFilesSidebarPanel = dynamic(
   () =>
@@ -41,6 +26,24 @@ const DeferredFilesSidebarPanel = dynamic(
     ),
   }
 );
+
+function ReadyFlashcardsSidebarPanel({
+  active,
+  activeSetId,
+  workspaceUuid,
+}: {
+  active: boolean;
+  activeSetId?: string;
+  workspaceUuid: string | null;
+}) {
+  const runtime = useFlashcardsSidebarPanel({
+    active,
+    activeSetId: activeSetId ?? undefined,
+    workspaceUuid: workspaceUuid ?? undefined,
+  });
+
+  return <FlashcardsSidebarPanelSurface runtime={runtime} />;
+}
 
 const DeferredSidebarTaskPreview = dynamic(
   () =>
@@ -196,6 +199,7 @@ export function DashboardSidebarMountedViews({
           <DeferredFilesSidebarPanel
             currentFileId={currentFileId}
             currentFolderId={currentFolderId}
+            emitGlobalFileIntent={runtime.emitFileIntent}
             key={`${workspaceUuid ?? "no-workspace"}:${currentFolderId ?? "root"}:${currentFileId ?? "no-file"}`}
             navigateToFilesRoot={navigateToFilesRoot}
             workspaceUuid={workspaceUuid}
@@ -213,7 +217,7 @@ export function DashboardSidebarMountedViews({
         }
       >
         {mountedViews.has("flashcards") ? (
-          <FlashcardsSidebarPanel
+          <ReadyFlashcardsSidebarPanel
             active={sidebarView === "flashcards"}
             activeSetId={currentFlashcardSetId}
             workspaceUuid={workspaceUuid}

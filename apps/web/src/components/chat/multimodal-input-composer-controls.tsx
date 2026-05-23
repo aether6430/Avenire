@@ -5,8 +5,9 @@ import type { UIMessage } from "@avenire/ai/message-types";
 import { Button } from "@avenire/ui/components/button";
 import { Textarea } from "@avenire/ui/components/textarea";
 import { cn } from "@avenire/ui/lib/utils";
-import { Microphone, PaperclipIcon, Square } from "@phosphor-icons/react";
+import { Microphone, Plus, Square } from "@phosphor-icons/react";
 import { ArrowUpIcon } from "@phosphor-icons/react/ArrowUp";
+import { Lightning } from "@phosphor-icons/react/Lightning";
 import { AnimatePresence, motion } from "motion/react";
 import { memo } from "react";
 import type { MultimodalInputRuntime } from "@/components/chat/use-multimodal-input";
@@ -36,6 +37,8 @@ export function MultimodalInputComposerControls({
     | "status"
     | "stop"
     | "textareaRef"
+    | "onTurboChange"
+    | "turboEnabled"
   >;
 }) {
   const {
@@ -59,6 +62,8 @@ export function MultimodalInputComposerControls({
     status,
     stop,
     textareaRef,
+    onTurboChange,
+    turboEnabled,
   } = runtime;
 
   return (
@@ -67,20 +72,12 @@ export function MultimodalInputComposerControls({
         onClick={() => fileInputRef.current?.click()}
         status={status}
       />
-      {speechSupported ? (
-        <ComposerVoiceButton
-          isRecording={isRecording}
-          isRunning={isRunning}
-          isTranscribing={isTranscribing}
-          onToggle={startOrStopRecording}
-        />
-      ) : null}
 
       <div className="flex min-w-0 flex-1 items-center">
         <Textarea
           autoFocus
           className={cn(
-            "max-h-40 min-h-0 w-full flex-1 resize-none overflow-hidden border-none! bg-transparent! px-0 py-0.5 text-[#0d0d0d] text-[15px] leading-6 shadow-none! outline-none ring-0! placeholder:text-muted-foreground/65 focus-visible:border-transparent! focus-visible:ring-0! sm:text-[15px] sm:leading-6 dark:text-white [&::-webkit-scrollbar-thumb]:bg-background",
+            "max-h-40 min-h-9 w-full flex-1 resize-none overflow-y-hidden border-none! bg-transparent! px-0 py-1.5 text-[#0d0d0d] text-[15px] leading-6 shadow-none! outline-none ring-0! placeholder:text-muted-foreground/65 focus-visible:border-transparent! focus-visible:ring-0! sm:text-[15px] sm:leading-6 dark:text-white [&::-webkit-scrollbar-thumb]:bg-background",
             className
           )}
           data-testid="multimodal-input"
@@ -99,6 +96,19 @@ export function MultimodalInputComposerControls({
       </div>
 
       <div className="flex shrink-0 items-center">
+        <ComposerTurboButton
+          disabled={isRunning}
+          enabled={turboEnabled}
+          onToggle={() => onTurboChange(!turboEnabled)}
+        />
+        {speechSupported ? (
+          <ComposerVoiceButton
+            isRecording={isRecording}
+            isRunning={isRunning}
+            isTranscribing={isTranscribing}
+            onToggle={startOrStopRecording}
+          />
+        ) : null}
         <ComposerActionButton
           canSend={canSend}
           isRunning={isRunning}
@@ -119,7 +129,8 @@ function PureAttachmentsButton({
 }) {
   return (
     <Button
-      className="h-8 w-8 shrink-0 rounded-full px-0 text-muted-foreground/72 hover:text-foreground/88"
+      aria-label="Add attachment"
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full p-0 text-muted-foreground/80 hover:bg-transparent hover:text-foreground"
       data-testid="attachments-button"
       disabled={status === "submitted" || status === "streaming"}
       onClick={(event) => {
@@ -130,7 +141,7 @@ function PureAttachmentsButton({
       type="button"
       variant="ghost"
     >
-      <PaperclipIcon className="h-4 w-4" />
+      <Plus className="size-[18px]" weight="regular" />
     </Button>
   );
 }
@@ -222,6 +233,50 @@ const ComposerVoiceButton = memo(
     prevProps.isRecording === nextProps.isRecording &&
     prevProps.isRunning === nextProps.isRunning &&
     prevProps.isTranscribing === nextProps.isTranscribing
+);
+
+function PureComposerTurboButton({
+  disabled,
+  enabled,
+  onToggle,
+}: {
+  disabled: boolean;
+  enabled: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <Button
+      aria-label={enabled ? "Disable Apex Turbo" : "Enable Apex Turbo"}
+      aria-pressed={enabled}
+      className={cn(
+        "mr-1.5 h-9 w-9 rounded-full border border-border/70 bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring",
+        enabled &&
+          "border-yellow-300/70 bg-yellow-100 text-yellow-900 hover:bg-yellow-100 hover:text-yellow-950 dark:border-yellow-700/70 dark:bg-yellow-500/20 dark:text-yellow-200 dark:hover:bg-yellow-500/25",
+        disabled && "opacity-60"
+      )}
+      data-testid="turbo-toggle-button"
+      disabled={disabled}
+      onClick={(event) => {
+        event.preventDefault();
+        onToggle();
+      }}
+      size="icon"
+      type="button"
+      variant="ghost"
+    >
+      <Lightning
+        className="h-[17px] w-[17px]"
+        weight={enabled ? "fill" : "regular"}
+      />
+    </Button>
+  );
+}
+
+const ComposerTurboButton = memo(
+  PureComposerTurboButton,
+  (prevProps, nextProps) =>
+    prevProps.disabled === nextProps.disabled &&
+    prevProps.enabled === nextProps.enabled
 );
 
 function PureComposerActionButton({

@@ -1,13 +1,13 @@
 ## UI components
 
 ### Aesthetic
-Use `widget_spec` first for UI-like widgets. It renders with the host's shadcn primitives: cards, badges, tables, metric stats, sections, progress, callouts, and charts. Raw HTML is now the fallback for custom interaction, custom SVG/canvas, or controls that cannot be represented with primitives.
+Use `widget: { type: "spec", spec: ... }` first for UI-like widgets. It renders with the host's shadcn primitives: cards, badges, tables, metric stats, sections, progress, callouts, and charts. Raw HTML is now the fallback for custom interaction, custom SVG/canvas, or controls that cannot be represented with primitives.
 
 Flat, clean surfaces. Minimal borders. Generous whitespace. Avoid decorative gradients and shadows in primitive widgets. Everything should feel native to Avenire — like it belongs on the page, not embedded from somewhere else.
 
-This section is prescriptive. Do not freestyle component styling. Use `widget_spec` nodes when available; use the exact HTML recipes only when raw `widget_code` is necessary.
+This section is prescriptive. Do not freestyle component styling. Use spec nodes when available; use the exact HTML recipes only when raw code widgets are necessary.
 
-**Hard rule:** component CSS is for layout only. Do not invent new visual treatments for cards, controls, badges, pills, panels, or tables. If the request maps to `widget_spec`, use primitives. If it must be raw HTML, copy the closest pattern below.
+**Hard rule:** component CSS is for layout only. Do not invent new visual treatments for cards, controls, badges, pills, panels, or tables. If the request maps to a spec widget, use primitives. If it must be raw HTML, copy the closest pattern below.
 
 ### Tokens
 - Borders: always `0.5px solid var(--color-border-tertiary)` (or `-secondary` for emphasis)
@@ -27,7 +27,7 @@ For summary numbers (revenue, count, percentage) — surface card with muted 13p
 ### Layout
 - Editorial (explanatory content): no card wrapper, prose flows naturally
 - Card (bounded objects like a contact record, receipt): single raised card wraps the whole thing
-- Don't put tables here — output them as markdown in your response text
+- Tables in a normal prose answer can be markdown. Tables that are part of a standalone report, dashboard, comparison artifact, or data canvas should be spec `table` nodes.
 - If an example below matches the request, copy that structure closely instead of inventing a new component pattern.
 - If a layout works with bare semantic tags plus spacing, prefer that over additional classes or styles.
 
@@ -41,7 +41,7 @@ Contained mockups — mobile screens, chat threads, single cards, modals, small 
 ### 1. Interactive explainer — learn how something works
 *"Explain how compound interest works" / "Teach me about sorting algorithms"*
 
-Use `widget_spec` if the explainer is static or only needs metrics, tables, and simple charts. Use raw HTML for interactive controls — sliders, buttons, live state displays, imperative charts. Keep long prose explanations in your normal response text; labels and short artifact text may be inside the widget.
+Use a spec widget if the explainer is static or only needs metrics, tables, and simple charts. Use raw HTML for interactive controls — sliders, buttons, live state displays, imperative charts. Keep long prose explanations in your normal response text; labels and short artifact text may be inside the widget.
 
 ```html
 <div style="display: flex; align-items: center; gap: 12px; margin: 0 0 1.5rem;">
@@ -65,18 +65,18 @@ Use `sendPrompt()` to let users ask follow-ups: `sendPrompt('What if I increase 
 ### 2. Compare options — decision making
 *"Compare pricing and features of these products" / "Help me choose between React and Vue"*
 
-Use `widget_spec` with a `grid` of `card` nodes, `badge` nodes for differentiators, and a compact `table` only when rows are the clearest representation. Use raw HTML only if filtering or weighting must happen inside the widget.
+Use a spec widget with a `grid` of `card` nodes, `badge` nodes for differentiators, and a compact `table` only when rows are the clearest representation. Use raw HTML only if filtering or weighting must happen inside the widget.
 
 - Use `repeat(auto-fit, minmax(160px, 1fr))` for responsive columns
 - Each option in a card. Use badges for key differentiators.
 - Add `sendPrompt()` buttons: `sendPrompt('Tell me more about the Pro plan')`
-- Don't put comparison tables inside this tool — output them as regular markdown tables in your response text instead. The tool is for the visual card grid only.
+- Use spec tables for dense artifact comparisons. Use markdown tables only when the table is small and the answer is otherwise plain prose.
 - When one option is recommended or "most popular", accent its card with `border: 2px solid var(--color-border-info)` only (2px is deliberate — the only exception to the 0.5px rule, used to accent featured items) — keep the same background and border as the other cards. Add a small badge (e.g. "Most popular") above or inside the card header using `background: var(--color-background-info); color: var(--color-text-info); font-size: 12px; padding: 4px 12px; border-radius: var(--border-radius-md)`.
 
 ### 3. Data record — bounded UI object
 *"Show me a Salesforce contact card" / "Create a receipt for this order"*
 
-Use `widget_spec` with a single `card`, short `text` rows, `badge` for status, and `divider` for sections. Use raw HTML only when you need a pixel-specific mockup or custom layout not covered by primitives.
+Use a spec widget with a single `card`, short `text` rows, `badge` for status, and `divider` for sections. Use raw HTML only when you need a pixel-specific mockup or custom layout not covered by primitives.
 
 ```html
 <div style="background: var(--color-background-primary); border-radius: var(--border-radius-lg); border: 0.5px solid var(--color-border-tertiary); padding: 1rem 1.25rem;">

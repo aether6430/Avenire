@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -20,6 +22,11 @@ vi.mock("@/components/settings/data-imports-client", () => ({
 import { useDataImportsDestination } from "@/components/settings/use-data-imports-destination";
 
 type HookValue = ReturnType<typeof useDataImportsDestination>;
+
+const useDataImportsDestinationSource = readFileSync(
+  resolve(import.meta.dirname, "./use-data-imports-destination.ts"),
+  "utf8"
+);
 
 function renderHookValue(
   options: Parameters<typeof useDataImportsDestination>[0]
@@ -123,5 +130,13 @@ describe("useDataImportsDestination", () => {
       "Choose and save an import destination first."
     );
     expect(saveDataImportDestinationMock).not.toHaveBeenCalled();
+    expect(useDataImportsDestinationSource).toContain(
+      'from "@/components/settings/data-imports-client"'
+    );
+    expect(useDataImportsDestinationSource).toContain(
+      'from "@/components/settings/settings-data-imports-destination-runtime-model"'
+    );
+    expect(useDataImportsDestinationSource).not.toContain("fetch(");
+    expect(useDataImportsDestinationSource).not.toContain("/api/imports/");
   });
 });

@@ -1,6 +1,13 @@
+import { CACHE_NAMESPACES } from "@/lib/domain-cache";
+
 function parseRevisionCalendarDate(value: string | null) {
   const trimmed = value?.trim();
   if (!trimmed) {
+    return null;
+  }
+
+  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) {
     return null;
   }
 
@@ -9,7 +16,37 @@ function parseRevisionCalendarDate(value: string | null) {
     return null;
   }
 
+  const [, year, month, day] = match;
+  if (
+    parsed.getUTCFullYear() !== Number(year) ||
+    parsed.getUTCMonth() + 1 !== Number(month) ||
+    parsed.getUTCDate() !== Number(day)
+  ) {
+    return null;
+  }
+
   return parsed;
+}
+
+export const FLASHCARDS_REVISION_CALENDAR_LOAD_ERROR =
+  "Unable to load revision calendar.";
+
+export function buildFlashcardsRevisionCalendarCacheKeyInput(input: {
+  from: Date;
+  to: Date;
+  version: string;
+  workspaceId: string;
+}) {
+  return {
+    namespace: CACHE_NAMESPACES.flashcards,
+    params: {
+      from: input.from.toISOString().slice(0, 10),
+      route: "revision-calendar",
+      to: input.to.toISOString().slice(0, 10),
+    },
+    scope: input.workspaceId,
+    version: input.version,
+  };
 }
 
 export function resolveFlashcardsRevisionCalendarActiveOrganizationId(session: {
@@ -60,4 +97,11 @@ export function buildFlashcardsRevisionCalendarResponse(input: {
   }
 
   return { data };
+}
+
+export function resolveFlashcardsRevisionCalendarRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
 }

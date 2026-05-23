@@ -1,8 +1,8 @@
-import type React from "react";
 import {
   BrainIcon,
   FingerprintIcon,
   MouseBoxIcon,
+  NativeIcon,
   RealtimeSyncIcon,
   SDKIcon,
 } from "@/components/marketing/icons/bento-icons";
@@ -11,15 +11,11 @@ import { Container } from "../container";
 import { SectionHeading } from "../section-heading";
 import { SubHeading } from "../subheading";
 import { Card, CardDescription, CardTitle } from "./card";
-import { TextToWorkflowBuilderSkeleton } from "./skeletons";
-import { LLMModelSelectorSkeleton } from "./static-skeletons";
-
-interface Tab {
-  description: string;
-  icon: React.FC<React.SVGProps<SVGSVGElement>>;
-  id: string;
-  title: string;
-}
+import {
+  LLMModelSelectorSkeleton,
+  NativeToolsIntegrationSkeleton,
+  TextToWorkflowBuilderSkeleton,
+} from "./skeletons";
 
 export const AgenticIntelligence = () => {
   return (
@@ -54,9 +50,23 @@ export const AgenticIntelligence = () => {
             </div>
             <CardDescription>
               Capture what went wrong during a session, then turn that gap into
-              targeted mindset cards and future review.
+              targeted Mindset Sets and future review.
             </CardDescription>
             <TextToWorkflowBuilderSkeleton />
+          </Card>
+        </div>
+        <div className="w-full">
+          <Card className="relative w-full max-w-none overflow-hidden bg-neutral-900/60">
+            <div className="mask-radial-from-10% pointer-events-none absolute inset-0 h-full w-full bg-[repeating-linear-gradient(315deg,_var(--pattern-fg)_0,_var(--pattern-fg)_1px,_transparent_0,_transparent_50%)] bg-[size:12px_12px] opacity-50" />
+            <div className="flex items-center gap-2">
+              <NativeIcon />
+              <CardTitle>Native learning tools</CardTitle>
+            </div>
+            <CardDescription>
+              Keep source files, editable notes, concept graphs, AI help, and
+              review cards in one connected study surface.
+            </CardDescription>
+            <NativeToolsIntegrationSkeleton />
           </Card>
         </div>
         <div className="grid grid-cols-1 gap-10 border-divide border-t md:grid-cols-3">
@@ -86,7 +96,7 @@ export const AgenticIntelligence = () => {
               <CardTitle>Spaced repetition loop</CardTitle>
             </div>
             <CardDescription>
-              Turn missed ideas into mindset cards and review prompts tied back
+              Turn missed ideas into Mindset Sets and review prompts tied back
               to the exact note or source.
             </CardDescription>
           </Card>

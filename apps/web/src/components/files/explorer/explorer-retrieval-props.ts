@@ -1,9 +1,8 @@
 import type { ComponentProps } from "react";
-import type { FilePreviewPanel } from "@/components/files/explorer/file-preview-panel";
+import type { FilePreviewPanelProps } from "@/components/files/explorer/file-preview-panel-types";
 import type { StylizedSearchBar } from "@/components/files/stylized-search-bar";
 
 type SearchBarProps = ComponentProps<typeof StylizedSearchBar>;
-type FilePreviewPanelProps = ComponentProps<typeof FilePreviewPanel>;
 
 export type ExplorerSearchBarProps = SearchBarProps;
 export type ExplorerFilePreviewRetrievalProps = Pick<
@@ -12,15 +11,11 @@ export type ExplorerFilePreviewRetrievalProps = Pick<
 >;
 
 interface BuildExplorerSearchBarPropsOptions {
-  activeRetrievalChunkId: SearchBarProps["selectedResultChunkId"];
   focusSearchSignal: SearchBarProps["focusSignal"];
   handleApplyWorkspaceFilter: NonNullable<
     SearchBarProps["onApplyWorkspaceFilter"]
   >;
   handleSearch: NonNullable<SearchBarProps["onSearch"]>;
-  handleSelectResult: NonNullable<SearchBarProps["onSelectResult"]>;
-  onOpenFileById: NonNullable<SearchBarProps["onOpenFileById"]>;
-  onOpenFolderById: NonNullable<SearchBarProps["onOpenFolderById"]>;
   query: SearchBarProps["initialQuery"];
   retrievalResults: SearchBarProps["initialResults"];
   searchableItems: SearchBarProps["items"];
@@ -31,13 +26,9 @@ interface BuildExplorerFilePreviewRetrievalPropsOptions
   extends ExplorerFilePreviewRetrievalProps {}
 
 export function buildExplorerSearchBarProps({
-  activeRetrievalChunkId,
   focusSearchSignal,
   handleApplyWorkspaceFilter,
   handleSearch,
-  handleSelectResult,
-  onOpenFileById,
-  onOpenFolderById,
   query,
   retrievalResults,
   searchableItems,
@@ -50,12 +41,8 @@ export function buildExplorerSearchBarProps({
     items: searchableItems,
     maxWidth: "max-w-none",
     onApplyWorkspaceFilter: handleApplyWorkspaceFilter,
-    onOpenFileById,
-    onOpenFolderById,
     onSearch: handleSearch,
-    onSelectResult: handleSelectResult,
     placeholder: "Search anything...",
-    selectedResultChunkId: activeRetrievalChunkId,
     workspaceUuid,
   };
 }

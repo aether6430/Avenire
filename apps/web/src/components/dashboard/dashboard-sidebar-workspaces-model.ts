@@ -14,6 +14,7 @@ export function shouldSyncActiveOrganization(input: {
 
 export function getSidebarWorkspaceListState(input: {
   activeWorkspaceLabel: string;
+  errorMessage?: string | null;
   loadFailed: boolean;
   loading: boolean;
   workspaceCount: number;
@@ -27,8 +28,8 @@ export function getSidebarWorkspaceListState(input: {
 
   if (input.loadFailed && input.workspaceCount === 0) {
     return {
-      emptyMessage: "Unable to load workspaces.",
-      subtitle: "Unable to load workspaces.",
+      emptyMessage: input.errorMessage?.trim() || "Unable to load workspaces.",
+      subtitle: input.errorMessage?.trim() || "Unable to load workspaces.",
     };
   }
 
@@ -46,6 +47,7 @@ export function getSidebarWorkspaceListState(input: {
 }
 
 export function getSidebarInvitationsState(input: {
+  errorMessage?: string | null;
   invitationCount: number;
   loadFailed: boolean;
   loading: boolean;
@@ -59,8 +61,8 @@ export function getSidebarInvitationsState(input: {
 
   if (input.loadFailed && input.invitationCount === 0) {
     return {
-      emptyMessage: "Unable to load invites.",
-      subtitle: "Unable to load invites.",
+      emptyMessage: input.errorMessage?.trim() || "Unable to load invites.",
+      subtitle: input.errorMessage?.trim() || "Unable to load invites.",
     };
   }
 

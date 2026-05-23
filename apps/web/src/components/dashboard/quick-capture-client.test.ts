@@ -109,4 +109,71 @@ describe("quick capture client", () => {
       })
     );
   });
+
+  it("fails closed with route-provided errors for task and note capture failures", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: "Task failed." }), {
+          status: 400,
+        })
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 500 }));
+
+    await expect(
+      submitQuickCaptureTask({
+        currentUserId: "user-1",
+        task: {
+          assigneeUserId: "",
+          description: "",
+          dueAt: "",
+          priority: "normal",
+          resources: [],
+          selectedAssignee: null,
+          title: "Broken task",
+        },
+        taskMode: "create",
+      })
+    ).rejects.toThrow("Task failed.");
+
+    await expect(
+      submitQuickCaptureNote({
+        content: "body",
+        title: "Broken note",
+      })
+    ).rejects.toThrow("Unable to capture item.");
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "/api/capture",
+      expect.objectContaining({
+        method: "POST",
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "/api/capture",
+      expect.objectContaining({
+        method: "POST",
+      })
+    );
+  });
+
+  it("fails closed with route-provided errors for misconception capture failures", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: "Misconception failed." }), {
+        status: 422,
+      })
+    );
+
+    await expect(
+      submitQuickCaptureMisconception({
+        concept: "Entropy",
+        confidence: "0.85",
+        reason: "Confused with enthalpy",
+        subject: "Chemistry",
+        topic: "Thermodynamics",
+      })
+    ).rejects.toThrow("Misconception failed.");
+  });
 });

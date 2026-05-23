@@ -51,6 +51,7 @@ export function useDashboardSidebarWorkspaces({
   const {
     loadWorkspaces,
     workspaces,
+    workspacesErrorMessage,
     workspacesLoadFailed,
     workspacesLoading,
   } = workspaceListRuntime;
@@ -130,6 +131,7 @@ export function useDashboardSidebarWorkspaces({
   return {
     createWorkspace,
     invitations: invitationsRuntime.invitations,
+    invitationsErrorMessage: invitationsRuntime.invitationsErrorMessage,
     invitationsLoadFailed: invitationsRuntime.invitationsLoadFailed,
     invitationsLoading: invitationsRuntime.invitationsLoading,
     loadInvitations: invitationsRuntime.loadInvitations,
@@ -140,6 +142,7 @@ export function useDashboardSidebarWorkspaces({
     switchWorkspace,
     workspaceActionStatus,
     workspaces,
+    workspacesErrorMessage,
     workspacesLoadFailed,
     workspacesLoading,
   };

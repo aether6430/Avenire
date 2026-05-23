@@ -13,11 +13,9 @@ import { File } from "@phosphor-icons/react/File";
 import { motion } from "motion/react";
 import type { Attachment } from "@/components/chat/attachment";
 import type { PreviewAttachmentRuntime } from "@/components/chat/use-preview-attachment";
-import {
-  PreviewAttachmentHoverPreview,
-  PreviewAttachmentModal,
-  PreviewAttachmentPillIcon,
-} from "./preview-attachment-content";
+import { PreviewAttachmentHoverPreview } from "./preview-attachment-hover-preview";
+import { PreviewAttachmentModal } from "./preview-attachment-modal";
+import { PreviewAttachmentPillIcon } from "./preview-attachment-thumbnail";
 
 interface PreviewAttachmentVariantProps {
   attachment: Partial<Attachment>;

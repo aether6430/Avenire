@@ -64,10 +64,15 @@ export async function executeSearchMaterials(
   ctx: WorkspaceAgentRuntimeContext,
   input: SearchMaterialsInput
 ) {
+  const query = input.query.trim();
+  if (!query) {
+    throw new Error("A workspace search query is required.");
+  }
+
   const { matches } = await resolveWorkspaceSearchMatches({
     workspaceId: ctx.workspaceId,
     userId: ctx.userId,
-    query: input.query,
+    query,
     limit: input.limit ?? DEFAULT_SEARCH_LIMIT,
     mode: input.mode ?? "auto",
     sourceType: input.sourceType,
@@ -76,7 +81,7 @@ export async function executeSearchMaterials(
   return {
     citationMarkdown: buildCitationMarkdown(matches),
     matches,
-    query: input.query,
+    query,
     totalMatches: matches.length,
   };
 }
@@ -85,14 +90,19 @@ export async function executeAvenireAgent(
   ctx: WorkspaceAgentRuntimeContext,
   input: AvenireAgentInput
 ) {
+  const query = input.query.trim();
+  if (!query) {
+    throw new Error("A workspace search query is required.");
+  }
+
   const maxMatches = input.maxMatches ?? AGENT_DEFAULT_MATCH_LIMIT;
   const maxFiles = input.maxFiles ?? AGENT_DEFAULT_MAX_FILES;
   const activityActions: AgentActivityAction[] = [
     {
       kind: "search",
       pending: true,
-      value: input.query,
-      preview: { query: input.query, matches: [] },
+      value: query,
+      preview: { query, matches: [] },
     },
   ];
 
@@ -101,7 +111,7 @@ export async function executeAvenireAgent(
   const { maps, matches } = await resolveWorkspaceSearchMatches({
     workspaceId: ctx.workspaceId,
     userId: ctx.userId,
-    query: input.query,
+    query,
     limit: maxMatches,
     sourceType: undefined,
   });
@@ -113,6 +123,9 @@ export async function executeAvenireAgent(
     sourceType: match.sourceType,
     workspacePath: match.workspacePath,
   }));
+  const selectableMatches = indexedMatches.filter(
+    (match): match is typeof match & { fileId: string } => Boolean(match.fileId)
+  );
 
   const searchMatches = matches
     .map((match) => match.workspacePath)
@@ -122,19 +135,19 @@ export async function executeAvenireAgent(
   activityActions[0] = {
     kind: "search",
     pending: false,
-    value: input.query,
-    preview: { query: input.query, matches: searchMatches },
+    value: query,
+    preview: { query, matches: searchMatches },
   };
   emitAgentActivityUpdate(ctx, activityActions, "running");
 
   let selectedFileIds: string[] = [];
-  if (indexedMatches.length > 0) {
+  if (selectableMatches.length > 0) {
     const selection = await generateText({
       model: apollo.languageModel("apollo-agent"),
       output: Output.object({ schema: agentSelectionSchema }),
       prompt: buildAgentSelectionPrompt({
         query: input.query,
-        matches: indexedMatches,
+        matches: selectableMatches,
         maxFiles,
       }),
     });
@@ -145,13 +158,13 @@ export async function executeAvenireAgent(
           (index) =>
             Number.isFinite(index) &&
             index >= 0 &&
-            index < indexedMatches.length
+            index < selectableMatches.length
         )
       )
     ).slice(0, maxFiles);
 
     selectedFileIds = selectedIndices
-      .map((index) => indexedMatches[index]?.fileId)
+      .map((index) => selectableMatches[index]?.fileId)
       .filter((fileId): fileId is string => Boolean(fileId));
   }
 
@@ -168,6 +181,16 @@ export async function executeAvenireAgent(
 
   if (selectedFileIds.length > 0) {
     emitAgentActivityUpdate(ctx, activityActions, "running");
+  } else if (selectableMatches.length > 0) {
+    emitAgentActivityUpdate(ctx, activityActions, "done");
+    return {
+      citationMarkdown: buildCitationMarkdown(matches),
+      citations: matches.slice(0, maxMatches),
+      context: "No relevant workspace content found.",
+      files: [],
+      query,
+      summary: "No relevant workspace content found.",
+    };
   }
 
   const files: Array<{
@@ -203,6 +226,18 @@ export async function executeAvenireAgent(
     }
   }
 
+  if (selectedFileIds.length > 0 && files.length === 0) {
+    emitAgentActivityUpdate(ctx, activityActions, "done");
+    return {
+      citationMarkdown: buildCitationMarkdown(matches),
+      citations: matches.slice(0, maxMatches),
+      context: "No relevant workspace content found.",
+      files: [],
+      query,
+      summary: "No relevant workspace content found.",
+    };
+  }
+
   const contextBlocks =
     files.length > 0
       ? files.map(
@@ -215,13 +250,25 @@ export async function executeAvenireAgent(
           );
 
   const context = contextBlocks.join("\n\n").trim();
+  if (!context) {
+    emitAgentActivityUpdate(ctx, activityActions, "done");
+    return {
+      citationMarkdown: buildCitationMarkdown(matches),
+      citations: matches.slice(0, maxMatches),
+      context: "No relevant workspace content found.",
+      files,
+      query,
+      summary: "No relevant workspace content found.",
+    };
+  }
+
   const summaryResult = await generateText({
     model: apollo.languageModel("apollo-agent"),
     prompt: [
       "Summarize the retrieved workspace context for the user's query.",
       "Use 2-4 concise sentences.",
       "If nothing relevant was found, say that clearly.",
-      `Query: ${input.query}`,
+      `Query: ${query}`,
       "Context:",
       context || "No relevant workspace content found.",
     ].join("\n\n"),
@@ -237,7 +284,7 @@ export async function executeAvenireAgent(
     citations: matches.slice(0, maxMatches),
     context: context || "No relevant workspace content found.",
     files,
-    query: input.query,
+    query,
     summary,
   };
 }
@@ -246,6 +293,11 @@ export async function executeFileManagerAgent(
   ctx: WorkspaceAgentRuntimeContext,
   input: FileManagerAgentInput
 ) {
+  const task = input.task.trim();
+  if (!task) {
+    throw new Error("A file manager task is required.");
+  }
+
   const maxFiles = input.maxFiles ?? FILE_MANAGER_DEFAULT_MAX_FILES;
   const activityActions: AgentActivityAction[] = [
     {
@@ -289,7 +341,7 @@ export async function executeFileManagerAgent(
       prompt: buildFileManagerSelectionPrompt({
         files: candidateFiles,
         maxFiles,
-        task: input.task,
+        task,
       }),
     });
 
@@ -321,6 +373,13 @@ export async function executeFileManagerAgent(
 
   if (selectedFileIds.length > 0) {
     emitAgentActivityUpdate(ctx, activityActions, "running");
+  } else {
+    emitAgentActivityUpdate(ctx, activityActions, "done");
+    return {
+      files: [],
+      summary: "No relevant files found.",
+      task,
+    };
   }
 
   const filesToInspect: Array<{
@@ -357,6 +416,15 @@ export async function executeFileManagerAgent(
     }
   }
 
+  if (selectedFileIds.length > 0 && filesToInspect.length === 0) {
+    emitAgentActivityUpdate(ctx, activityActions, "done");
+    return {
+      files: [],
+      summary: "No relevant files found.",
+      task: input.task,
+    };
+  }
+
   const context =
     filesToInspect.length > 0
       ? filesToInspect
@@ -370,6 +438,15 @@ export async function executeFileManagerAgent(
           )
           .join("\n\n");
 
+  if (!context) {
+    emitAgentActivityUpdate(ctx, activityActions, "done");
+    return {
+      files: filesToInspect,
+      summary: "No relevant files found.",
+      task,
+    };
+  }
+
   const summaryResult = await generateText({
     model: apollo.languageModel("apollo-agent"),
     prompt: [
@@ -377,7 +454,7 @@ export async function executeFileManagerAgent(
       "Summarize the relevant workspace files for the task.",
       "Do not claim that any files were moved or deleted unless that already happened outside this tool.",
       "If the task is ambiguous, say what still needs clarification.",
-      `Task: ${input.task}`,
+      `Task: ${task}`,
       "Context:",
       context || "No relevant files found.",
     ].join("\n\n"),
@@ -390,6 +467,6 @@ export async function executeFileManagerAgent(
   return {
     files: filesToInspect,
     summary: summaryResult.text.trim() || "No relevant files found.",
-    task: input.task,
+    task,
   };
 }

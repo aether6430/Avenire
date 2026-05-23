@@ -1,10 +1,17 @@
 import { resolve } from "node:path";
-import { loadDatabaseEnv } from "@avenire/database/load-env";
+import { config as loadEnv } from "dotenv";
 import type { NextConfig } from "next";
 
-loadDatabaseEnv({
-  packageRootDir: resolve(process.cwd(), "../../packages/database"),
-});
+const initialNodeEnv = process.env.NODE_ENV;
+
+loadEnv({ path: resolve(process.cwd(), "../../.env") });
+loadEnv({ path: resolve(process.cwd(), "../../.env.local"), override: true });
+
+if (initialNodeEnv === undefined) {
+  Reflect.deleteProperty(process.env, "NODE_ENV");
+} else {
+  Reflect.set(process.env, "NODE_ENV", initialNodeEnv);
+}
 
 const nextConfig: NextConfig = {
   typedRoutes: true,
@@ -38,17 +45,21 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  transpilePackages: ["@avenire/ai", "@avenire/database"],
-  serverExternalPackages: [
-    "@ai-sdk/baseten",
-    "@better-auth/passkey",
-    "@notionhq/client",
+  transpilePackages: [
+    "@avenire/ui",
     "@avenire/auth",
+    "@avenire/ai",
     "@avenire/storage",
+    "@avenire/payments",
+    "@avenire/database",
     "@avenire/emailer",
     "@avenire/ingestion",
-    "@avenire/payments",
+  ],
+  serverExternalPackages: [
+    "@ai-sdk/baseten",
     "@basetenlabs/performance-client",
+    "@better-auth/passkey",
+    "@notionhq/client",
     "@polar-sh/better-auth",
     "better-auth",
     "defuddle",

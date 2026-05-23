@@ -8,6 +8,7 @@ const {
   getSessionUserMock,
   isMarkdownFileRecordMock,
   isTrustedStorageUrlMock,
+  syncMuxVideoDeliveryForFileMock,
 } = vi.hoisted(() => ({
   ensureWorkspaceAccessForUserMock: vi.fn(),
   fetchMock: vi.fn(),
@@ -16,6 +17,7 @@ const {
   getSessionUserMock: vi.fn(),
   isMarkdownFileRecordMock: vi.fn(),
   isTrustedStorageUrlMock: vi.fn(),
+  syncMuxVideoDeliveryForFileMock: vi.fn(),
 }));
 
 vi.mock("@/lib/file-data", () => ({
@@ -30,7 +32,15 @@ vi.mock("@/lib/workspace", () => ({
   getSessionUser: getSessionUserMock,
 }));
 
+vi.mock("@/lib/video-delivery-sync", () => ({
+  syncMuxVideoDeliveryForFile: syncMuxVideoDeliveryForFileMock,
+}));
+
 import { GET } from "./route";
+
+async function importPlaybackRoute() {
+  return import("../playback/route");
+}
 
 describe("/api/workspaces/[workspaceUuid]/files/[fileUuid]/stream route", () => {
   beforeEach(() => {
@@ -41,6 +51,7 @@ describe("/api/workspaces/[workspaceUuid]/files/[fileUuid]/stream route", () => 
     getSessionUserMock.mockReset();
     isMarkdownFileRecordMock.mockReset();
     isTrustedStorageUrlMock.mockReset();
+    syncMuxVideoDeliveryForFileMock.mockReset();
 
     vi.stubGlobal("fetch", fetchMock);
     isTrustedStorageUrlMock.mockReturnValue(true);
@@ -68,6 +79,53 @@ describe("/api/workspaces/[workspaceUuid]/files/[fileUuid]/stream route", () => 
     expect(response.status).toBe(401);
     await expect(response.text()).resolves.toBe("Unauthorized");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when session lookup throws before file stream access checks begin", async () => {
+    getSessionUserMock.mockRejectedValueOnce(new Error("stream auth offline"));
+
+    const response = await GET(
+      new Request(
+        "http://localhost:3003/api/workspaces/workspace-1/files/file-1/stream"
+      ),
+      {
+        params: Promise.resolve({
+          workspaceUuid: "workspace-1",
+          fileUuid: "file-1",
+        }),
+      }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.text()).resolves.toBe("stream auth offline");
+    expect(ensureWorkspaceAccessForUserMock).not.toHaveBeenCalled();
+    expect(getFileAssetByIdMock).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when session lookup throws before file playback access checks begin", async () => {
+    getSessionUserMock.mockRejectedValueOnce(
+      new Error("playback auth offline")
+    );
+    const { GET: playbackGet } = await importPlaybackRoute();
+
+    const response = await playbackGet(
+      new Request(
+        "http://localhost:3003/api/workspaces/workspace-1/files/file-1/playback"
+      ),
+      {
+        params: Promise.resolve({
+          workspaceUuid: "workspace-1",
+          fileUuid: "file-1",
+        }),
+      }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.text()).resolves.toBe("playback auth offline");
+    expect(ensureWorkspaceAccessForUserMock).not.toHaveBeenCalled();
+    expect(getFileAssetByIdMock).not.toHaveBeenCalled();
+    expect(syncMuxVideoDeliveryForFileMock).not.toHaveBeenCalled();
   });
 
   it("returns forbidden when the user cannot access the workspace", async () => {
@@ -118,6 +176,82 @@ describe("/api/workspaces/[workspaceUuid]/files/[fileUuid]/stream route", () => 
     expect(response.headers.get("content-type")).toBe(
       "text/markdown; charset=utf-8"
     );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a 500 text error when file lookup throws before upstream streaming begins", async () => {
+    getSessionUserMock.mockResolvedValue({ id: "user-1" });
+    ensureWorkspaceAccessForUserMock.mockResolvedValue(true);
+    getFileAssetByIdMock.mockRejectedValueOnce(
+      new Error("stream lookup offline")
+    );
+
+    const response = await GET(
+      new Request(
+        "http://localhost:3003/api/workspaces/workspace-1/files/file-1/stream"
+      ),
+      {
+        params: Promise.resolve({
+          workspaceUuid: "workspace-1",
+          fileUuid: "file-1",
+        }),
+      }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.text()).resolves.toBe("stream lookup offline");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a 500 text error when playback file lookup throws before response shaping begins", async () => {
+    getSessionUserMock.mockResolvedValue({ id: "user-1" });
+    ensureWorkspaceAccessForUserMock.mockResolvedValue(true);
+    getFileAssetByIdMock.mockRejectedValueOnce(
+      new Error("playback lookup offline")
+    );
+    const { GET: playbackGet } = await importPlaybackRoute();
+
+    const response = await playbackGet(
+      new Request(
+        "http://localhost:3003/api/workspaces/workspace-1/files/file-1/playback"
+      ),
+      {
+        params: Promise.resolve({
+          workspaceUuid: "workspace-1",
+          fileUuid: "file-1",
+        }),
+      }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.text()).resolves.toBe("playback lookup offline");
+    expect(syncMuxVideoDeliveryForFileMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a 500 text error when markdown note content loading throws", async () => {
+    getSessionUserMock.mockResolvedValue({ id: "user-1" });
+    ensureWorkspaceAccessForUserMock.mockResolvedValue(true);
+    getFileAssetByIdMock.mockResolvedValue({
+      id: "file-1",
+      storageUrl: "https://cdn.example.com/file.md",
+    });
+    isMarkdownFileRecordMock.mockReturnValue(true);
+    getNoteContentMock.mockRejectedValueOnce(new Error("note body offline"));
+
+    const response = await GET(
+      new Request(
+        "http://localhost:3003/api/workspaces/workspace-1/files/file-1/stream"
+      ),
+      {
+        params: Promise.resolve({
+          workspaceUuid: "workspace-1",
+          fileUuid: "file-1",
+        }),
+      }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.text()).resolves.toBe("note body offline");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

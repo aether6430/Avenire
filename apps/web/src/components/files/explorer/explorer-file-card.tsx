@@ -72,6 +72,7 @@ interface ExplorerFileCardProps {
   fileType: ExplorerCardFileType;
   isMobile: boolean;
   isPreviewing: boolean;
+  isSearchFilteredView: boolean;
   isSelected: boolean;
   onBlur: React.FocusEventHandler<HTMLDivElement>;
   onClick: React.MouseEventHandler<HTMLDivElement>;
@@ -93,6 +94,8 @@ interface ExplorerFileCardProps {
   onShare: () => void;
   onToggleSelected: (checked: boolean) => void;
   rowRef: (node: HTMLDivElement | null) => void;
+  searchMatchMeta?: string;
+  searchMatchSnippet?: string;
   selectedCardPropertyDefinitions: WorkspacePropertyDefinition[];
   selectionControlCaptureProps: SelectionControlCaptureProps;
 }
@@ -106,6 +109,7 @@ export function ExplorerFileCard({
   fileType,
   isMobile,
   isPreviewing,
+  isSearchFilteredView,
   isSelected,
   onBlur,
   onClick,
@@ -125,6 +129,8 @@ export function ExplorerFileCard({
   onPointerUp,
   onRename,
   onShare,
+  searchMatchMeta,
+  searchMatchSnippet,
   onToggleSelected,
   rowRef,
   selectedCardPropertyDefinitions,
@@ -145,8 +151,11 @@ export function ExplorerFileCard({
     fileType,
     isPreviewing,
     isWarmed,
+    matchMeta: searchMatchMeta,
+    matchSnippet: searchMatchSnippet,
     openedCached,
     selectedCardPropertyDefinitions,
+    variant: isSearchFilteredView ? "row" : "grid",
   });
 
   return (
@@ -155,6 +164,7 @@ export function ExplorerFileCard({
         <Card
           className={cn(
             "group grid-card-item relative cursor-pointer overflow-hidden rounded-2xl border border-transparent bg-transparent p-2 ring-0 transition",
+            isSearchFilteredView && "rounded-md",
             isSelected && "border border-primary bg-primary/5"
           )}
           data-select-item="true"
@@ -171,7 +181,7 @@ export function ExplorerFileCard({
           style={{
             containIntrinsicSize: "214px 160px",
             contentVisibility: "auto",
-            width: 160,
+            width: isSearchFilteredView ? "100%" : 160,
           }}
           tabIndex={0}
           {...dragProps}
@@ -196,6 +206,8 @@ export function ExplorerFileCard({
               details={model.details}
               fileType={model.resolvedFileType}
               lastUpdated={new Date(file.updatedAt ?? file.createdAt)}
+              matchMeta={model.matchMeta}
+              matchSnippet={model.matchSnippet}
               name={model.displayName}
               previewContent={
                 model.preview.kind === "image" ? (
@@ -229,6 +241,7 @@ export function ExplorerFileCard({
                   />
                 ) : undefined
               }
+              variant={model.variant}
             />
           </CardContent>
         </Card>

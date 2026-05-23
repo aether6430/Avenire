@@ -1,6 +1,5 @@
 import { resolve } from "node:path";
-import { loadDatabaseEnv } from "@avenire/database/load-env";
+import { config as loadEnv } from "dotenv";
 
-loadDatabaseEnv({
-  packageRootDir: resolve(process.cwd(), "../../packages/database"),
-});
+loadEnv({ path: resolve(process.cwd(), "../../.env") });
+loadEnv({ path: resolve(process.cwd(), "../../.env.local"), override: true });

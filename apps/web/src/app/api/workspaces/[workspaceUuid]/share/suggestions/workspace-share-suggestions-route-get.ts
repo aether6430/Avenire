@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { listWorkspaceShareSuggestions } from "@/lib/file-data";
-import { resolveWorkspaceShareSuggestionsQuery } from "./workspace-share-suggestions-route-model";
+import {
+  resolveWorkspaceShareSuggestionsQuery,
+  resolveWorkspaceShareSuggestionsRouteError,
+  WORKSPACE_SHARE_SUGGESTIONS_ERROR,
+} from "./workspace-share-suggestions-route-model";
 
 export async function handleWorkspaceShareSuggestionsRouteGet(input: {
   request: Request;
@@ -10,14 +14,26 @@ export async function handleWorkspaceShareSuggestionsRouteGet(input: {
   };
   workspaceUuid: string;
 }) {
-  const query = resolveWorkspaceShareSuggestionsQuery(input.request);
-  const suggestions = await listWorkspaceShareSuggestions({
-    workspaceId: input.workspaceUuid,
-    userId: input.user.id,
-    userEmail: input.user.email,
-    query,
-    limit: 8,
-  });
+  try {
+    const query = resolveWorkspaceShareSuggestionsQuery(input.request);
+    const suggestions = await listWorkspaceShareSuggestions({
+      workspaceId: input.workspaceUuid,
+      userId: input.user.id,
+      userEmail: input.user.email,
+      query,
+      limit: 8,
+    });
 
-  return NextResponse.json({ suggestions });
+    return NextResponse.json({ suggestions });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: resolveWorkspaceShareSuggestionsRouteError(
+          error,
+          WORKSPACE_SHARE_SUGGESTIONS_ERROR
+        ),
+      },
+      { status: 500 }
+    );
+  }
 }

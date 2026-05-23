@@ -8,6 +8,7 @@ import {
   createAvatarUploadStartState,
   resolveAvatarFallbackInitials,
   resolveAvatarPreviewSource,
+  resolveAvatarSeed,
   resolveDisplayAvatar,
   resolveUploadedAvatarUrl,
 } from "@/components/settings/settings-avatar-runtime-model";
@@ -98,8 +99,13 @@ export function useSettingsPanelAvatar({
     profileName,
     sessionUser,
   });
+  const avatarSeed = resolveAvatarSeed({
+    profileName,
+    sessionUser,
+  });
 
   return {
+    avatarSeed,
     avatarPreview,
     avatarUploading,
     displayAvatar,

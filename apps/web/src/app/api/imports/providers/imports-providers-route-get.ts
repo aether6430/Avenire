@@ -9,6 +9,7 @@ export async function handleImportsProvidersGet(input: { userId: string }) {
   } catch (error) {
     const failure = resolveImportsRouteError(error, {
       fallback: "Unable to load import settings.",
+      status: 500,
     });
     return NextResponse.json(
       { error: failure.error },

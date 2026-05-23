@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
@@ -18,6 +20,19 @@ vi.mock("@/lib/media-playback", () => ({
   ),
   getPlaybackSourcePrimaryUrl: getPlaybackSourcePrimaryUrlMock,
 }));
+
+const filePreviewCacheBarrelSource = readFileSync(
+  resolve(import.meta.dirname, "./file-preview-cache.ts"),
+  "utf8"
+);
+const filePreviewCacheModelSource = readFileSync(
+  resolve(import.meta.dirname, "./file-preview-cache-model.ts"),
+  "utf8"
+);
+const filePreviewCacheRuntimeSource = readFileSync(
+  resolve(import.meta.dirname, "./file-preview-cache-runtime.ts"),
+  "utf8"
+);
 
 import {
   getCachedPreviewUrl,
@@ -136,6 +151,43 @@ describe("file preview cache runtime", () => {
     ).toBe("warm");
   });
 
+  it("retries a cold hls entry instead of leaving the failed warm attempt stuck until ttl expiry", async () => {
+    const playbackSource = {
+      fallbackUrl: "https://cdn.example.com/video-retry.mp4",
+      kind: "hls",
+      manifestUrl: "https://cdn.example.com/master-retry.m3u8",
+    } as const;
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("manifest offline"))
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => "#EXTM3U\nvariant.m3u8\n",
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () =>
+          '#EXTM3U\n#EXT-X-MAP:URI="init.mp4"\nsegment-000.m4s\n',
+      })
+      .mockResolvedValue({
+        ok: true,
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await primeMediaPlayback(playbackSource, {
+      posterUrl: "https://cdn.example.com/poster.jpg",
+    });
+    expect(getWarmState(playbackSource)).toBe("cold");
+
+    releaseMediaPlaybackPrime(playbackSource);
+
+    await primeMediaPlayback(playbackSource, {
+      posterUrl: "https://cdn.example.com/poster.jpg",
+    });
+    expect(getWarmState(playbackSource)).toBe("warm");
+    expect(fetchMock).toHaveBeenCalledTimes(7);
+  });
+
   it("resolves cached playback sources and exposes stable cache keys", () => {
     const source = {
       kind: "progressive",
@@ -148,5 +200,36 @@ describe("file preview cache runtime", () => {
     expect(resolveCachedPlaybackSource(source)).toMatchObject({
       kind: "progressive",
     });
+  });
+
+  it("keeps file preview caching split between a thin barrel, pure cache helpers, and browser/runtime warming logic", () => {
+    expect(filePreviewCacheBarrelSource).toContain(
+      "@/lib/file-preview-cache-model"
+    );
+    expect(filePreviewCacheBarrelSource).toContain(
+      "@/lib/file-preview-cache-runtime"
+    );
+    expect(filePreviewCacheBarrelSource).not.toContain(
+      "document.createElement"
+    );
+    expect(filePreviewCacheBarrelSource).not.toContain("fetch(");
+
+    expect(filePreviewCacheModelSource).toContain(
+      "export function buildWarmFetchInit"
+    );
+    expect(filePreviewCacheModelSource).toContain(
+      "export function parseWarmMediaUrls"
+    );
+    expect(filePreviewCacheModelSource).toContain(
+      "export function shouldCachePreviewBlob"
+    );
+    expect(filePreviewCacheModelSource).not.toContain("document.createElement");
+    expect(filePreviewCacheModelSource).not.toContain("fetch(");
+
+    expect(filePreviewCacheRuntimeSource).toContain("document.createElement");
+    expect(filePreviewCacheRuntimeSource).toContain("fetch(");
+    expect(filePreviewCacheRuntimeSource).toContain("buildWarmFetchInit");
+    expect(filePreviewCacheRuntimeSource).toContain("parseWarmMediaUrls");
+    expect(filePreviewCacheRuntimeSource).toContain("shouldCachePreviewBlob");
   });
 });

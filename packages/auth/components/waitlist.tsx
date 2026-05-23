@@ -158,7 +158,7 @@ export function WaitlistForm({ className, ...props }: React.ComponentProps<"form
         </div>
 
         <Button className="w-full" type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Joining waitlist..." : "Join waitlist"}
+          {isSubmitting ? "Joining the waitlist..." : "Join the waitlist"}
         </Button>
       </div>
     </form>

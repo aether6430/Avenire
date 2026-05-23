@@ -107,6 +107,9 @@ export async function executeNoteAgent(
       userId: ctx.userId,
       workspaceId: ctx.workspaceId,
     });
+    if (!file) {
+      throw new Error("Unable to create the requested note.");
+    }
 
     await publishTreeMutationEvents({
       fileId: file.id,
@@ -136,27 +139,49 @@ export async function executeNoteAgent(
     task.includes("what")
   ) {
     operation = "read";
+    const requestedDestination = parseRequestedNoteDestination(input.task);
+    const hasExplicitTarget = Boolean(
+      requestedDestination.fileName ||
+        input.task.match(/workspace-file:\/\/[a-z0-9-]+/i) ||
+        input.task.match(/\bfile\s*id\b\s*[:=]\s*([a-z0-9-]+)/i) ||
+        input.task.match(/\bfileId\b\s*[:=]\s*([a-z0-9-]+)/i)
+    );
     const targetNote = findTargetNoteFile({
       maps,
       noteFiles,
       task: input.task,
     });
+    if (!targetNote && hasExplicitTarget) {
+      throw new Error("The requested note could not be found.");
+    }
+
     const relevantNotes = targetNote
       ? [targetNote]
       : noteFiles.slice(0, maxNotes);
     for (const file of relevantNotes) {
       try {
         const content = await fetchWorkspaceFileText(file, 500);
+        const trimmedContent = content.trim();
+        if (!trimmedContent) {
+          if (targetNote?.id === file.id) {
+            throw new Error("The requested note has no readable content.");
+          }
+          continue;
+        }
         notes.push({
-          contentPreview: content.slice(0, 500),
+          contentPreview: trimmedContent.slice(0, 500),
           fileId: file.id,
           tags: getFileTags(file),
           title: file.name,
           updatedAt: file.updatedAt,
-          wordCount: content.split(/\s+/).length,
+          wordCount: trimmedContent.split(/\s+/).length,
           workspacePath: maps.filePathById.get(file.id) ?? file.name,
         });
-      } catch {}
+      } catch (error) {
+        if (targetNote?.id === file.id) {
+          throw error;
+        }
+      }
     }
   } else if (
     task.includes("update") ||
@@ -164,9 +189,17 @@ export async function executeNoteAgent(
     task.includes("append")
   ) {
     operation = "updated";
+    const requestedDestination = parseRequestedNoteDestination(input.task);
+    const hasExplicitTarget = Boolean(
+      requestedDestination.fileName ||
+        input.task.match(/workspace-file:\/\/[a-z0-9-]+/i) ||
+        input.task.match(/\bfile\s*id\b\s*[:=]\s*([a-z0-9-]+)/i) ||
+        input.task.match(/\bfileId\b\s*[:=]\s*([a-z0-9-]+)/i)
+    );
     const noteFile = findTargetNoteFile({
       maps,
       noteFiles,
+      requireExplicitTarget: true,
       task: input.task,
     });
     if (noteFile) {
@@ -217,8 +250,14 @@ export async function executeNoteAgent(
             wordCount: nextContent.split(/\s+/).length,
             workspacePath: maps.filePathById.get(noteFile.id) ?? noteFile.name,
           });
+        } else if (hasExplicitTarget) {
+          throw new Error("Unable to update the requested note.");
         }
+      } else if (hasExplicitTarget) {
+        throw new Error("The requested note is read-only.");
       }
+    } else if (hasExplicitTarget) {
+      throw new Error("The requested note could not be found.");
     }
   } else {
     operation = "listed";

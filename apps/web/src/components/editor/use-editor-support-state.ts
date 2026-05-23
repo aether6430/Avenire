@@ -9,26 +9,14 @@ import type {
   MathPopoverState,
   MermaidPopoverState,
 } from "@/components/editor/editor-core";
-import {
-  getImagePickerTab,
-  loadRecentTemplateIds,
-  loadWorkspaceNoteTemplates,
-} from "@/components/editor/editor-core";
-import {
-  getDefaultNoteTemplates,
-  type NoteTemplate,
-} from "@/lib/note-templates";
+import { getImagePickerTab } from "@/components/editor/editor-core";
 import {
   NOTE_WIDGET_INSERT_EVENT,
   type NoteWidgetPayload,
 } from "@/lib/note-widgets";
 import { useUploadThing } from "@/lib/uploadthing";
 
-export function useEditorSupportState({
-  workspaceUuid,
-}: {
-  workspaceUuid: string;
-}) {
+export function useEditorSupportState() {
   const [mathPopover, setMathPopover] = useState<MathPopoverState | null>(null);
   const [mermaidPopover, setMermaidPopover] =
     useState<MermaidPopoverState | null>(null);
@@ -44,19 +32,10 @@ export function useEditorSupportState({
     original: string;
   } | null>(null);
   const [inlineNotice, setInlineNotice] = useState<string | null>(null);
-  const [noteTemplates, setNoteTemplates] = useState<NoteTemplate[]>(() =>
-    getDefaultNoteTemplates()
-  );
-  const [recentTemplateIds, setRecentTemplateIds] = useState<string[]>([]);
   const [tableOfContentsItems, setTableOfContentsItems] = useState<
     TableOfContentDataItem[]
   >([]);
   const { startUpload: startImageUpload } = useUploadThing("imageUploader");
-
-  useEffect(() => {
-    setNoteTemplates(loadWorkspaceNoteTemplates(workspaceUuid));
-    setRecentTemplateIds(loadRecentTemplateIds(workspaceUuid));
-  }, [workspaceUuid]);
 
   useEffect(() => {
     if (!inlineNotice) {
@@ -79,8 +58,6 @@ export function useEditorSupportState({
     inlineNotice,
     mathPopover,
     mermaidPopover,
-    noteTemplates,
-    recentTemplateIds,
     setAiLoading,
     setAiReview,
     setImagePopover,
@@ -89,7 +66,6 @@ export function useEditorSupportState({
     setInlineNotice,
     setMathPopover,
     setMermaidPopover,
-    setRecentTemplateIds,
     setTableOfContentsItems,
     startImageUpload,
     tableOfContentsItems,

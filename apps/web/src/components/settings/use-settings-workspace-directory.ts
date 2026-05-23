@@ -31,6 +31,9 @@ export function useSettingsWorkspaceDirectory({
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(
     initialWorkspaceId ?? initialWorkspaces?.[0]?.workspaceId ?? ""
   );
+  const [workspacesErrorMessage, setWorkspacesErrorMessage] = useState<
+    string | null
+  >(null);
   const [workspaceStatus, setWorkspaceStatus] = useState<string | null>(null);
   const [workspaceName, setWorkspaceName] = useState("");
   const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
@@ -50,14 +53,25 @@ export function useSettingsWorkspaceDirectory({
   const refreshWorkspaces = useCallback(async () => {
     setWorkspacesLoading(true);
     setWorkspacesLoadFailed(false);
+    setWorkspacesErrorMessage(null);
     try {
       const nextWorkspaces = await loadWorkspacesList();
       setWorkspaces(nextWorkspaces);
+      setWorkspacesErrorMessage(null);
       setWorkspacesLoadFailed(false);
-      if (!activeWorkspaceId && nextWorkspaces[0]) {
-        setActiveWorkspaceId(nextWorkspaces[0].workspaceId);
+      if (
+        !nextWorkspaces.some(
+          (workspace) => workspace.workspaceId === activeWorkspaceId
+        )
+      ) {
+        setActiveWorkspaceId(nextWorkspaces[0]?.workspaceId ?? "");
       }
-    } catch {
+    } catch (error) {
+      setWorkspacesErrorMessage(
+        error instanceof Error && error.message.trim().length > 0
+          ? error.message
+          : "Unable to load workspaces."
+      );
       setWorkspacesLoadFailed(true);
     } finally {
       setWorkspacesLoading(false);
@@ -117,6 +131,8 @@ export function useSettingsWorkspaceDirectory({
       setWorkspaceDeleteConfirm("");
       if (result.workspaces.length > 0) {
         setActiveWorkspaceId(result.workspaces[0].workspaceId);
+      } else {
+        setActiveWorkspaceId("");
       }
       setWorkspaceStatus("Workspace deleted.");
     } catch (error) {
@@ -147,6 +163,7 @@ export function useSettingsWorkspaceDirectory({
     workspaceName,
     workspaceStatus,
     workspaces,
+    workspacesErrorMessage,
     workspacesLoadFailed,
     workspacesLoading,
   };

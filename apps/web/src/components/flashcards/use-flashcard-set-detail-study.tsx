@@ -130,14 +130,18 @@ export function useFlashcardSetDetailStudy({
       resetReviewCardState();
       setReviewCardIndex(0);
       setStudyStatus("ready");
-    } catch {
+    } catch (error) {
       setStudyQueue([]);
       setStudySessionTotal(0);
       setStudySessionReviewed(0);
       setStudyIndex(0);
       resetReviewCardState();
       setReviewCardIndex(0);
-      setStudyError("Unable to load this review session right now.");
+      setStudyError(
+        error instanceof Error
+          ? error.message
+          : "Unable to load this review session right now."
+      );
       setStudyStatus("error");
     }
   }, [drillFilters, resetReviewCardState, setId, setReviewCardIndex]);
@@ -196,8 +200,12 @@ export function useFlashcardSetDetailStudy({
         if (studyIndex >= studyQueue.length - 1) {
           await onRefreshSet();
         }
-      } catch {
-        setStudyError("We couldn't record that rating. Try again.");
+      } catch (error) {
+        setStudyError(
+          error instanceof Error
+            ? error.message
+            : "We couldn't record that rating. Try again."
+        );
       } finally {
         setReviewBusy(false);
       }

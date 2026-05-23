@@ -113,6 +113,100 @@ describe("imports route wrappers", () => {
     });
   });
 
+  it("fails closed with explicit 500 responses when session lookup throws before wrapper delegation", async () => {
+    getSessionUserMock.mockRejectedValueOnce(new Error("imports auth offline"));
+
+    let response = await getImportsProviders();
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "imports auth offline",
+    });
+    expect(handleImportsProvidersGetMock).not.toHaveBeenCalled();
+
+    getSessionUserMock.mockRejectedValueOnce(
+      new Error("destination auth offline")
+    );
+    response = await getImportsDestination();
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "destination auth offline",
+    });
+    expect(handleImportsDestinationGetMock).not.toHaveBeenCalled();
+
+    getSessionUserMock.mockRejectedValueOnce(
+      new Error("destination save auth offline")
+    );
+    response = await putImportsDestination(
+      new Request("https://avenire.space/api/imports/destination", {
+        body: JSON.stringify({}),
+        method: "PUT",
+      })
+    );
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "destination save auth offline",
+    });
+    expect(handleImportsDestinationPutMock).not.toHaveBeenCalled();
+
+    getSessionUserMock.mockRejectedValueOnce(new Error("folders auth offline"));
+    response = await getImportsDestinationFolders(
+      new Request("https://avenire.space/api/imports/destination/folders")
+    );
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "folders auth offline",
+    });
+    expect(handleImportsDestinationFoldersGetMock).not.toHaveBeenCalled();
+
+    getSessionUserMock.mockRejectedValueOnce(new Error("notion auth offline"));
+    response = await getNotionPages();
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "notion auth offline",
+    });
+    expect(handleNotionPagesRouteGetMock).not.toHaveBeenCalled();
+
+    getSessionUserMock.mockRejectedValueOnce(
+      new Error("google picker auth offline")
+    );
+    response = await getGoogleDrivePickerToken();
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "google picker auth offline",
+    });
+    expect(handleGoogleDrivePickerTokenRouteGetMock).not.toHaveBeenCalled();
+
+    getSessionUserMock.mockRejectedValueOnce(
+      new Error("google import auth offline")
+    );
+    response = await postGoogleDriveImport(
+      new Request("https://avenire.space/api/imports/google-drive/import", {
+        body: JSON.stringify({}),
+        method: "POST",
+      })
+    );
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "google import auth offline",
+    });
+    expect(handleGoogleDriveImportRoutePostMock).not.toHaveBeenCalled();
+
+    getSessionUserMock.mockRejectedValueOnce(
+      new Error("notion import auth offline")
+    );
+    response = await postNotionImport(
+      new Request("https://avenire.space/api/imports/notion/import", {
+        body: JSON.stringify({}),
+        method: "POST",
+      })
+    );
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "notion import auth offline",
+    });
+    expect(handleNotionImportRoutePostMock).not.toHaveBeenCalled();
+  });
+
   it("delegates imports route wrappers through their dedicated handlers", async () => {
     const request = new Request("https://avenire.space");
 

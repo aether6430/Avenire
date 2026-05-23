@@ -1,41 +1,37 @@
-"use client";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { describe, expect, it } from "vitest";
 
-import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+const messagePartsFile = resolve(import.meta.dirname, "./message-parts.tsx");
+const flashcardStudyDialogFile = resolve(
+  import.meta.dirname,
+  "../flashcards/flashcard-set-detail-study-dialog.tsx"
+);
+const removedMarkdownWrapperFile = resolve(
+  import.meta.dirname,
+  "./markdown.tsx"
+);
 
-const { MemoizedMarkdownSurfaceMock } = vi.hoisted(() => ({
-  MemoizedMarkdownSurfaceMock: vi.fn(() => <div>MARKDOWN_SURFACE</div>),
-}));
-
-vi.mock("@/components/chat/markdown-surface", () => ({
-  MemoizedMarkdownSurface: MemoizedMarkdownSurfaceMock,
-}));
-
-import { Markdown } from "@/components/chat/markdown";
-
-describe("Markdown", () => {
-  it("passes the render props through to the markdown surface", () => {
-    const html = renderToStaticMarkup(
-      <Markdown
-        className="chat-copy"
-        content="**hello**"
-        id="msg-1"
-        parseIncompleteMarkdown={false}
-        textSize="small"
-        workspaceUuid="workspace-1"
-      />
+describe("Markdown ownership", () => {
+  it("routes live markdown rendering through markdown-surface directly after the wrapper collapse", () => {
+    const messagePartsSource = readFileSync(messagePartsFile, "utf8");
+    const flashcardStudyDialogSource = readFileSync(
+      flashcardStudyDialogFile,
+      "utf8"
     );
 
-    expect(MemoizedMarkdownSurfaceMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        className: "chat-copy",
-        content: "**hello**",
-        parseIncompleteMarkdown: false,
-        textSize: "small",
-        workspaceUuid: "workspace-1",
-      }),
-      undefined
+    expect(messagePartsSource).toContain(
+      'import("@/components/chat/markdown-surface")'
     );
-    expect(html).toContain("MARKDOWN_SURFACE");
+    expect(messagePartsSource).not.toContain(
+      'import("@/components/chat/markdown")'
+    );
+    expect(flashcardStudyDialogSource).toContain(
+      'from "@/components/chat/markdown-surface"'
+    );
+    expect(flashcardStudyDialogSource).not.toContain(
+      'from "@/components/chat/markdown"'
+    );
+    expect(existsSync(removedMarkdownWrapperFile)).toBe(false);
   });
 });

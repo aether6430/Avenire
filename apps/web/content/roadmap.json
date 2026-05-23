@@ -57,8 +57,8 @@
   },
   {
     "id": "flashcards-srs",
-    "title": "Flashcards with SRS",
-    "description": "Generate spaced-repetition flashcards from notes and study material.",
+    "title": "Mindset Sets with SRS",
+    "description": "Generate spaced-repetition Mindset Sets from notes and study material.",
     "status": "shipped",
     "category": "Core Product"
   },
@@ -124,13 +124,6 @@
     "description": "Graphs, charts, and diagramming tools for turning complex ideas into something visible.",
     "status": "shipped",
     "category": "Core Product"
-  },
-  {
-    "id": "circle-to-ai",
-    "title": "Circle to AI (Halo)",
-    "description": "A quick capture flow for circling content and turning it into an AI prompt or task.",
-    "status": "shipped",
-    "category": "Capture"
   },
   {
     "id": "hybrid-search",

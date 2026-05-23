@@ -2,10 +2,7 @@
 
 import { EditorContent } from "@tiptap/react";
 import dynamic from "next/dynamic";
-import {
-  EditorTableOfContentsRail,
-  EmptyNoteTemplateActions,
-} from "@/components/editor/editor-overlays";
+import { EditorTableOfContentsRail } from "@/components/editor/editor-overlays";
 import type { PropertiesTableProps } from "@/components/editor/properties-table";
 import type { AvenireEditorRuntime } from "@/components/use-avenire-editor";
 
@@ -23,21 +20,15 @@ export function EditorDocumentBody({
   runtime: AvenireEditorRuntime;
 }) {
   const {
-    createdBy,
+    documentStats,
     editor,
-    noteTemplates,
-    noteTitle,
     onPagePropertiesChange,
     onPropertyDefinitionsChange,
-    onTemplateApplied,
     pageProperties,
     propertyDefinitions,
     readOnly,
-    recentTemplateIds,
-    resolvedEditorUiState,
-    setRecentTemplateIds,
+    summarizeCurrentPage,
     tableOfContentsItems,
-    workspaceUuid,
   } = runtime;
 
   if (!editor) {
@@ -53,6 +44,7 @@ export function EditorDocumentBody({
           disabled={readOnly}
           onChange={(properties) => onPagePropertiesChange?.(properties)}
           onDefinitionsChange={onPropertyDefinitionsChange}
+          onSummarizePage={summarizeCurrentPage}
           properties={pageProperties}
         />
       </div>
@@ -65,23 +57,11 @@ export function EditorDocumentBody({
         <EditorTableOfContentsRail items={tableOfContentsItems} />
       </div>
 
-      {resolvedEditorUiState.showEmptyTemplateActions ? (
-        <EmptyNoteTemplateActions
-          createdBy={createdBy}
-          editor={editor}
-          noteTemplates={noteTemplates}
-          noteTitle={noteTitle}
-          onTemplateApplied={onTemplateApplied}
-          onTemplateUsed={(templateId) =>
-            setRecentTemplateIds((current) => [
-              templateId,
-              ...current.filter((entry) => entry !== templateId),
-            ])
-          }
-          recentTemplateIds={recentTemplateIds}
-          workspaceUuid={workspaceUuid}
-        />
-      ) : null}
+      <div aria-live="polite" className="scribe-document-stats">
+        <span>{documentStats.words.toLocaleString()} words</span>
+        <span>{documentStats.characters.toLocaleString()} characters</span>
+        <span>{documentStats.paragraphs.toLocaleString()} paragraphs</span>
+      </div>
     </>
   );
 }

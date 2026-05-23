@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   IMPORT_DESTINATION_INVALID_PAYLOAD_ERROR,
+  IMPORT_DESTINATION_INVALID_WORKSPACE_ID_ERROR,
   IMPORT_DESTINATION_WORKSPACE_REQUIRED_ERROR,
   normalizeImportRouteUuidInput,
   parseImportDestinationPayload,
@@ -34,12 +35,20 @@ describe("imports route model", () => {
   });
 
   it("resolves required workspace ids and explicit import route errors", () => {
-    expect(resolveImportDestinationWorkspaceId("  workspace-1  ")).toEqual({
+    expect(
+      resolveImportDestinationWorkspaceId(
+        "  550e8400-e29b-41d4-a716-446655440000  "
+      )
+    ).toEqual({
       success: true,
-      workspaceId: "workspace-1",
+      workspaceId: "550e8400-e29b-41d4-a716-446655440000",
     });
     expect(resolveImportDestinationWorkspaceId("")).toEqual({
       error: IMPORT_DESTINATION_WORKSPACE_REQUIRED_ERROR,
+      success: false,
+    });
+    expect(resolveImportDestinationWorkspaceId("workspace-1")).toEqual({
+      error: IMPORT_DESTINATION_INVALID_WORKSPACE_ID_ERROR,
       success: false,
     });
 
@@ -49,7 +58,7 @@ describe("imports route model", () => {
       })
     ).toEqual({
       error: "imports offline",
-      status: 400,
+      status: 500,
     });
   });
 });

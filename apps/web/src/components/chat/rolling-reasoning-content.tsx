@@ -4,7 +4,6 @@ import { cn } from "@avenire/ui/lib/utils";
 import type { ComponentProps } from "react";
 import { memo } from "react";
 import {
-  buildOccurrenceKey,
   ROW_HEIGHT,
   VISIBLE_ROWS,
   WINDOW_HEIGHT,
@@ -12,7 +11,6 @@ import {
 
 export type ReasoningContentProps = ComponentProps<"div"> & {
   children: string;
-  workspaceUuid?: string;
 };
 
 export const ReasoningContent = memo(
@@ -21,7 +19,6 @@ export const ReasoningContent = memo(
       .split("\n")
       .map((line) => line.trimEnd())
       .filter((line) => line.length > 0);
-    const seenLineKeys = new Map<string, number>();
 
     return (
       <div
@@ -46,7 +43,7 @@ export const ReasoningContent = memo(
           }}
         />
         <div
-          className="relative z-10 font-mono text-[11px] text-foreground/40"
+          className="relative z-10 whitespace-pre-wrap break-words pl-4 font-mono text-[11px] text-foreground/22 leading-[22px]"
           style={{
             willChange: "transform",
             transform: `translateY(${
@@ -57,17 +54,7 @@ export const ReasoningContent = memo(
             transition: "transform 220ms ease-out",
           }}
         >
-          {lines.map((line) => (
-            <div
-              className="flex items-start gap-2 pl-4"
-              key={buildOccurrenceKey(line, seenLineKeys)}
-              style={{ minHeight: ROW_HEIGHT }}
-            >
-              <span className="whitespace-pre-wrap break-words leading-5">
-                {line}
-              </span>
-            </div>
-          ))}
+          {lines.join("\n")}
         </div>
       </div>
     );

@@ -19,16 +19,16 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 export async function POST(request: Request) {
-  const session = await auth.api.getSession({ headers: await headers() });
   const apiLogger = createApiLogger({
     request,
     route: "/api/chat",
     feature: "chat",
-    userId: session?.user?.id ?? null,
   });
-  apiLogger.requestStarted();
 
   try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    apiLogger.requestStarted();
+
     if (!session?.user) {
       apiLogger.requestFailed(401, "Unauthorized");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -113,16 +113,16 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const session = await auth.api.getSession({ headers: await headers() });
   const apiLogger = createApiLogger({
     request,
     route: "/api/chat",
     feature: "chat",
-    userId: session?.user?.id ?? null,
   });
-  apiLogger.requestStarted();
 
   try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    apiLogger.requestStarted();
+
     if (!session?.user) {
       apiLogger.requestFailed(401, "Unauthorized");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

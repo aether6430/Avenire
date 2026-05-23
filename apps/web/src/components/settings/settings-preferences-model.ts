@@ -1,4 +1,5 @@
 export function getRemotePreferencesState(input: {
+  errorMessage?: string | null;
   loadFailed: boolean;
   loading: boolean;
 }) {
@@ -11,7 +12,7 @@ export function getRemotePreferencesState(input: {
 
   if (input.loadFailed) {
     return {
-      message: "Unable to load preferences.",
+      message: input.errorMessage?.trim() || "Unable to load preferences.",
       ready: false,
     };
   }

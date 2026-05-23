@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -30,6 +32,15 @@ import { useDataImportsGoogle } from "@/components/settings/use-data-imports-goo
 
 type HookValue = ReturnType<typeof useDataImportsGoogle>;
 
+const useDataImportsGoogleFile = resolve(
+  import.meta.dirname,
+  "./use-data-imports-google.ts"
+);
+const removedImportsSharedFile = resolve(
+  import.meta.dirname,
+  "../../lib/imports-shared.ts"
+);
+
 function renderHookValue(
   options: Parameters<typeof useDataImportsGoogle>[0]
 ): HookValue {
@@ -58,6 +69,7 @@ describe("useDataImportsGoogle", () => {
   });
 
   it("routes Google connection through social auth with import callback/scopes", async () => {
+    const source = readFileSync(useDataImportsGoogleFile, "utf8");
     const hook = renderHookValue({
       ensureSavedDestination: async () => null,
       googleStatus: null,
@@ -75,6 +87,9 @@ describe("useDataImportsGoogle", () => {
         provider: "google",
       })
     );
+    expect(source).toContain('from "@/lib/imports-google-scopes"');
+    expect(source).not.toContain('from "@/lib/imports-shared"');
+    expect(existsSync(removedImportsSharedFile)).toBe(false);
   });
 
   it("opens the picker only after saving destination and then imports selected files", async () => {

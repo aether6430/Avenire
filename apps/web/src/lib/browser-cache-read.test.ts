@@ -1,5 +1,24 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { readBrowserCache } from "@/lib/browser-cache-read";
+
+const browserCacheBarrelSource = readFileSync(
+  resolve(import.meta.dirname, "./browser-cache.ts"),
+  "utf8"
+);
+const browserCacheReadSource = readFileSync(
+  resolve(import.meta.dirname, "./browser-cache-read.ts"),
+  "utf8"
+);
+const browserCacheWriteSource = readFileSync(
+  resolve(import.meta.dirname, "./browser-cache-write.ts"),
+  "utf8"
+);
+const browserCacheRemoveSource = readFileSync(
+  resolve(import.meta.dirname, "./browser-cache-remove.ts"),
+  "utf8"
+);
 
 function createLocalStorageMock(
   initialEntries: Record<string, string> = {}
@@ -98,5 +117,32 @@ describe("browser cache read", () => {
         (value): value is string => typeof value === "string"
       )
     ).toBeNull();
+  });
+
+  it("keeps browser cache split between a thin barrel and dedicated read/write/remove helpers", () => {
+    expect(browserCacheBarrelSource).toContain(
+      'export { readBrowserCache } from "@/lib/browser-cache-read";'
+    );
+    expect(browserCacheBarrelSource).toContain(
+      'export { writeBrowserCache } from "@/lib/browser-cache-write";'
+    );
+    expect(browserCacheBarrelSource).toContain(
+      'export { removeBrowserCache } from "@/lib/browser-cache-remove";'
+    );
+    expect(browserCacheBarrelSource).not.toContain("window.localStorage");
+
+    expect(browserCacheReadSource).toContain("window.localStorage.getItem");
+    expect(browserCacheReadSource).not.toContain("setItem(");
+    expect(browserCacheReadSource).not.toContain("removeItem(");
+
+    expect(browserCacheWriteSource).toContain("window.localStorage.setItem");
+    expect(browserCacheWriteSource).not.toContain("getItem(");
+    expect(browserCacheWriteSource).not.toContain("removeItem(");
+
+    expect(browserCacheRemoveSource).toContain(
+      "window.localStorage.removeItem"
+    );
+    expect(browserCacheRemoveSource).not.toContain("getItem(");
+    expect(browserCacheRemoveSource).not.toContain("setItem(");
   });
 });

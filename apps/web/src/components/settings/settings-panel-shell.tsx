@@ -7,6 +7,7 @@ import {
 } from "@avenire/ui/components/avatar";
 import { Badge } from "@avenire/ui/components/badge";
 import { Button } from "@avenire/ui/components/button";
+import { DitherIdenticon } from "@avenire/ui/components/dither-identicon";
 import {
   CreditCard,
   Database,
@@ -30,8 +31,8 @@ export function SettingsPanelShell({
   const {
     currentPlanLabel,
     currentTab,
+    avatarSeed,
     displayAvatar,
-    fallbackInitials,
     hasKeyboardDetected,
     mobileTabs,
     privacyMode,
@@ -153,11 +154,15 @@ export function SettingsPanelShell({
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="flex items-center gap-3 border-border/60 border-b px-4 py-3 md:hidden">
           <Avatar className="h-9 w-9">
-            <AvatarImage
-              alt={headerUser?.name ?? "User"}
-              src={displayAvatar || undefined}
-            />
-            <AvatarFallback>{fallbackInitials}</AvatarFallback>
+            {displayAvatar ? (
+              <AvatarImage
+                alt={headerUser?.name ?? "User"}
+                src={displayAvatar || undefined}
+              />
+            ) : null}
+            <AvatarFallback className="overflow-hidden bg-muted text-foreground">
+              <DitherIdenticon className="size-full" seed={avatarSeed} />
+            </AvatarFallback>
           </Avatar>
           <div className="min-w-0">
             <p className="truncate font-medium text-sm">

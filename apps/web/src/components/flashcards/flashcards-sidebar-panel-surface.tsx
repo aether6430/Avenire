@@ -43,6 +43,7 @@ export function FlashcardsSidebarPanelSurface({
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const reviewHref = runtime.getReviewHref();
   const setsState = getFlashcardsSidebarSetsState({
+    errorMessage: runtime.setsErrorMessage,
     filteredSetCount: runtime.filteredSets.length,
     loadFailed: runtime.setsLoadFailed,
     loading: runtime.setsLoading,

@@ -217,7 +217,9 @@ export async function persistSessionSummaryForCompletedTurn(input: {
           ? `Misconceptions already detected by tools: ${misconceptionsDetected.join(", ")}`
           : "Misconceptions already detected by tools: none",
         "For subject, use an established subject label such as Mathematics, Physics, Chemistry, Biology, Computer Science, History, Literature, or Economics.",
+        "For each misconceptionCandidate, classify subject and topic from that candidate's concept, reason, and the local transcript evidence. Do not copy the session subject when the candidate is about a different field.",
         "For misconceptionCandidates, keep concept labels short and specific, ideally under 180 characters, and keep subject/topic labels concise.",
+        "For misconceptionCandidates.topic, use the most specific standard topic label justified by the candidate evidence; if uncertain, use a broad topic within the candidate subject rather than an unrelated session topic.",
         "For misconceptionCandidates, return objects with concept, subject, topic, reason, and confidence.",
         "Session transcript:",
         transcript,

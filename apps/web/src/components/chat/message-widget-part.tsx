@@ -27,6 +27,84 @@ const WidgetRenderer = dynamic(
   { ssr: false }
 );
 
+function resolveWidgetPayload(
+  value: Record<string, unknown> | undefined
+): Record<string, unknown> | null {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value.widget === "object" && value.widget !== null) {
+    return value.widget as Record<string, unknown>;
+  }
+
+  return null;
+}
+
+function resolveWidgetCode(
+  input: Record<string, unknown> | undefined,
+  output: Record<string, unknown> | undefined
+) {
+  const inputWidget = resolveWidgetPayload(input);
+  if (
+    inputWidget?.type === "code" &&
+    typeof inputWidget.code === "string" &&
+    inputWidget.code.length > 0
+  ) {
+    return inputWidget.code;
+  }
+
+  const outputWidget = resolveWidgetPayload(output);
+  if (
+    outputWidget?.type === "code" &&
+    typeof outputWidget.code === "string" &&
+    outputWidget.code.length > 0
+  ) {
+    return outputWidget.code;
+  }
+
+  if (typeof input?.widget_code === "string") {
+    return input.widget_code;
+  }
+
+  if (typeof output?.widget_code === "string") {
+    return output.widget_code;
+  }
+
+  return "";
+}
+
+function resolveWidgetSpec(
+  input: Record<string, unknown> | undefined,
+  output: Record<string, unknown> | undefined
+) {
+  const inputWidget = resolveWidgetPayload(input);
+  if (
+    inputWidget?.type === "spec" &&
+    isRenderableWidgetSpec(inputWidget.spec)
+  ) {
+    return inputWidget.spec;
+  }
+
+  const outputWidget = resolveWidgetPayload(output);
+  if (
+    outputWidget?.type === "spec" &&
+    isRenderableWidgetSpec(outputWidget.spec)
+  ) {
+    return outputWidget.spec;
+  }
+
+  if (isRenderableWidgetSpec(input?.widget_spec)) {
+    return input.widget_spec;
+  }
+
+  if (isRenderableWidgetSpec(output?.widget_spec)) {
+    return output.widget_spec;
+  }
+
+  return null;
+}
+
 export function MessageWidgetPart({
   openNoteInsertDialog,
   part,
@@ -38,17 +116,8 @@ export function MessageWidgetPart({
 }) {
   const input = (part as { input?: Record<string, unknown> }).input;
   const output = (part as { output?: Record<string, unknown> }).output;
-  const widgetCode =
-    typeof input?.widget_code === "string"
-      ? input.widget_code
-      : typeof output?.widget_code === "string"
-        ? output.widget_code
-        : "";
-  const widgetSpec = isRenderableWidgetSpec(input?.widget_spec)
-    ? input.widget_spec
-    : isRenderableWidgetSpec(output?.widget_spec)
-      ? output.widget_spec
-      : null;
+  const widgetCode = resolveWidgetCode(input, output);
+  const widgetSpec = resolveWidgetSpec(input, output);
   const title =
     typeof input?.title === "string"
       ? input.title

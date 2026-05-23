@@ -18,6 +18,9 @@ const requestSchema = z.object({
   files: z.array(itemSchema).min(1).max(200),
 });
 
+export const WORKSPACE_FILE_DEDUPE_LOOKUP_ERROR =
+  "Unable to check for duplicate files.";
+
 export type WorkspaceFileDedupeLookupRequest = z.infer<typeof requestSchema>;
 
 interface WorkspaceFileDedupeLookupExistingFile {
@@ -61,4 +64,11 @@ export function buildWorkspaceFileDedupeLookupResult(input: {
       sizeBytes: input.existing.sizeBytes,
     },
   };
+}
+
+export function resolveWorkspaceFileDedupeLookupRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
 }

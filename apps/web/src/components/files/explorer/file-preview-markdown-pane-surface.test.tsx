@@ -44,7 +44,6 @@ describe("FilePreviewMarkdownPaneSurface", () => {
           onPagePropertiesChange,
           onPropertyDefinitionsChange,
           onSetNoteCoverUrl: () => {},
-          onTemplateApplied: () => {},
           onTriggerNoteBannerPicker: () => {},
           pageProperties: {
             topic: {
@@ -80,5 +79,53 @@ describe("FilePreviewMarkdownPaneSurface", () => {
       undefined
     );
     expect(html).toContain("EDITOR");
+  });
+
+  it("keeps the editor mounted even when the pane is inactive", () => {
+    const html = renderToStaticMarkup(
+      <FilePreviewMarkdownPaneSurface
+        {...({
+          activeFileId: "file-2",
+          activeFileIsMarkdown: true,
+          activeFileName: "dormant.md",
+          editorCreatedBy: "Ada",
+          isMarkdownReady: true,
+          isPaneActive: false,
+          markdownBody: "# Dormant",
+          markdownError: null,
+          markdownLoading: false,
+          noteBannerUploadBusy: false,
+          noteBannerUrl: null,
+          noteCoverLinkDraft: "",
+          noteCoverPickerTab: "gallery",
+          noteDisplayTitle: "Dormant Note",
+          onApplyDefaultNoteCover: () => {},
+          onMarkdownBodyChange: () => {},
+          onNoteCoverLinkDraftChange: () => {},
+          onNoteCoverPickerTabChange: () => {},
+          onOpenWikiLink: () => {},
+          onPagePropertiesChange: () => {},
+          onPropertyDefinitionsChange: () => {},
+          onSetNoteCoverUrl: () => {},
+          onTriggerNoteBannerPicker: () => {},
+          pageProperties: {},
+          propertyDefinitions: [],
+          readOnly: false,
+          scrollContainerRef: { current: null },
+          wikiPages: [],
+          workspaceUuid: "workspace-1",
+        } as never)}
+      />
+    );
+
+    expect(AvenireEditorMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        defaultValue: "# Dormant",
+        noteTitle: "Dormant Note",
+      }),
+      undefined
+    );
+    expect(html).toContain("EDITOR");
+    expect(html).not.toContain("Loading markdown...");
   });
 });

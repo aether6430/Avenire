@@ -21,8 +21,14 @@ export async function executeGetDueCards(
   ctx: DueCardsRuntimeContext,
   input: DueCardsInput
 ) {
+  const concept = input.concept?.trim() || undefined;
+  const subject = input.subject?.trim() || undefined;
+  const topic = input.topic?.trim() || undefined;
+  const hasScope = Boolean(subject || topic || concept);
   const [dashboard, dueCards] = await Promise.all([
-    getFlashcardDashboardForUser(ctx.userId, ctx.workspaceId),
+    hasScope
+      ? Promise.resolve(null)
+      : getFlashcardDashboardForUser(ctx.userId, ctx.workspaceId),
     listDueFlashcardsForUser({
       limit: 100,
       userId: ctx.userId,
@@ -30,28 +36,19 @@ export async function executeGetDueCards(
     }),
   ]);
 
-  const hasScope = Boolean(input.subject || input.topic || input.concept);
-  const matchingCardIds = hasScope
-    ? new Set(
-        (dashboard?.cardSnapshots ?? [])
-          .filter((snapshot) => {
-            const taxonomy = normalizeFlashcardTaxonomy(snapshot.card.source);
-            return Boolean(
-              taxonomy &&
-                matchesTaxonomyScope(taxonomy, {
-                  concept: input.concept,
-                  subject: input.subject,
-                  topic: input.topic,
-                })
-            );
-          })
-          .map((snapshot) => snapshot.card.id)
-      )
-    : null;
-  const filteredDueCards =
-    matchingCardIds && hasScope
-      ? dueCards.filter((entry) => matchingCardIds.has(entry.card.id))
-      : dueCards;
+  const filteredDueCards = hasScope
+    ? dueCards.filter((entry) => {
+        const taxonomy = normalizeFlashcardTaxonomy(entry.card.source);
+        return Boolean(
+          taxonomy &&
+            matchesTaxonomyScope(taxonomy, {
+              concept,
+              subject,
+              topic,
+            })
+        );
+      })
+    : dueCards;
   const previewDueCards = filteredDueCards.slice(
     0,
     input.limit ?? DEFAULT_DUE_CARD_LIMIT
@@ -69,6 +66,6 @@ export async function executeGetDueCards(
     })),
     totalDueCount: hasScope
       ? filteredDueCards.length
-      : (dashboard?.dueCount ?? 0),
+      : (dashboard?.dueCount ?? filteredDueCards.length),
   };
 }

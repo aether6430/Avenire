@@ -4,13 +4,15 @@ import {
   buildPromptMemoryBlocks,
   DEFAULT_CHAT_TITLE,
   fallbackChatNameFromText,
+  getExpectedChatCredits,
+  getModelCreditMultiplier,
   getPersistedMessages,
   getRequiredChatCredits,
   isPromptMemoryBlockArray,
-  modelUsesLegacyWidgetSchema,
   normalizeMessageFileMediaTypes,
   pickModelTools,
   resolveTotalTokens,
+  resolveWidgetGenerationCredits,
   sanitizeChatName,
   shouldGenerateTitle,
   stripNonHttpFileParts,
@@ -168,23 +170,28 @@ describe("chat route model", () => {
         )
       )
     ).toEqual(["avenire_agent"]);
-    expect(modelUsesLegacyWidgetSchema("apollo-apex")).toBe(true);
   });
 
   it("resolves total tokens, required credits, and persisted message ordering", () => {
     vi.stubEnv("CHAT_TOKENS_PER_CREDIT", "1000");
-
-    expect(resolveTotalTokens({ inputTokens: 700, outputTokens: 300 })).toBe(
-      1000
-    );
-    expect(resolveTotalTokens({ totalTokens: 2500 })).toBe(2500);
-    expect(getRequiredChatCredits(2500)).toBe(3);
+    vi.stubEnv("TURBO_MODEL_CREDIT_MULTIPLIER", "2");
+    vi.stubEnv("WIDGET_GENERATION_CREDITS", "20");
 
     const userMessage = buildMessage({
       id: "user-1",
       parts: [{ text: "Need help", type: "text" }] as never[],
       role: "user",
     });
+
+    expect(resolveTotalTokens({ inputTokens: 700, outputTokens: 300 })).toBe(
+      1000
+    );
+    expect(resolveTotalTokens({ totalTokens: 2500 })).toBe(2500);
+    expect(getRequiredChatCredits(2500)).toBe(3);
+    expect(getRequiredChatCredits(2500, "apex-turbo")).toBe(6);
+    expect(getExpectedChatCredits([userMessage], "apex-turbo")).toBe(6);
+    expect(getModelCreditMultiplier("apex-turbo")).toBe(2);
+    expect(resolveWidgetGenerationCredits()).toBe(20);
     const responseMessage = buildMessage({
       id: "assistant-1",
       parts: [{ text: "Sure", type: "text" }] as never[],

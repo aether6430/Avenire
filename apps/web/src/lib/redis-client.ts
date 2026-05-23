@@ -1,3 +1,4 @@
+import { normalizeRedisUrl } from "@avenire/ingestion/runtime/redis-client";
 import { createClient } from "redis";
 
 const DEFAULT_CONNECT_TIMEOUT_MS = 10_000;
@@ -8,7 +9,7 @@ export type ManagedRedisClient = ReturnType<typeof createClient>;
 export function isExpectedRedisConnectionError(error: unknown) {
   return (
     error instanceof Error &&
-    /Socket closed unexpectedly|The client is closed|Connection is closed|disconnect/i.test(
+    /Socket closed unexpectedly|The client is closed|Connection is closed|Invalid URL|disconnect/i.test(
       error.message
     )
   );
@@ -19,7 +20,7 @@ export function createManagedRedisClient(
   label: string
 ): ManagedRedisClient {
   const client = createClient({
-    url,
+    url: normalizeRedisUrl(url),
     socket: {
       connectTimeout: DEFAULT_CONNECT_TIMEOUT_MS,
       keepAlive: true,

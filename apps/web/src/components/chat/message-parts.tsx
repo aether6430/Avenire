@@ -3,6 +3,7 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { UIMessage } from "@avenire/ai/message-types";
 import dynamic from "next/dynamic";
+import type { MarkdownRenderProps } from "@/components/chat/markdown-model";
 import type {
   MessagePart,
   MessageWidgetInsertionPayload,
@@ -35,8 +36,11 @@ const MessageWidgetPart = dynamic(
   { ssr: false }
 );
 
-const MarkdownLazy = dynamic(
-  () => import("@/components/chat/markdown").then((module) => module.Markdown),
+const MarkdownLazy = dynamic<MarkdownRenderProps>(
+  () =>
+    import("@/components/chat/markdown-surface").then(
+      (module) => module.MemoizedMarkdownSurface
+    ),
   {
     loading: () => null,
     ssr: false,
@@ -61,7 +65,7 @@ function AnimatedMarkdown({
   workspaceUuid: string;
 }) {
   return (
-    <MarkdownLazy content={content} id={id} workspaceUuid={workspaceUuid} />
+    <MarkdownLazy content={content} key={id} workspaceUuid={workspaceUuid} />
   );
 }
 
@@ -136,7 +140,6 @@ export function MessageRenderParts({
                 isStreaming
               )}
               key={key}
-              workspaceUuid={workspaceUuid}
             />
           );
         }

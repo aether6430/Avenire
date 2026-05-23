@@ -70,7 +70,6 @@ describe("file preview pane header content", () => {
         activeFileSourceUrl="https://example.com/notes.pdf"
         allFolders={[{ id: "folder-1", name: "Folder", parentId: null }]}
         canClosePane
-        circleToAiEnabled
         closePane={() => {}}
         currentInfoEntries={[{ label: "Type", value: "PDF" }]}
         deleteContextActionItems={() => {}}
@@ -78,9 +77,7 @@ describe("file preview pane header content", () => {
         duplicateContextActionItems={() => {}}
         hardReingestContextActionItems={() => {}}
         isCurrentPinned
-        isImage={false}
         isPdf
-        isVideo={false}
         moveContextActionItemsToFolder={() => {}}
         openFileShareDialog={() => {}}
         openPane={() => {}}
@@ -88,13 +85,11 @@ describe("file preview pane header content", () => {
         openRenameFileDialog={() => {}}
         paneId="pane-1"
         pdfInvertColors
-        setCircleToAiEnabled={() => {}}
         setPdfInvertColors={() => {}}
         toggleCurrentPinnedItem={() => {}}
       />
     );
 
-    expect(html).toContain("Stop Circle to AI");
     expect(html).toContain("PDF dark mode");
     expect(html).toContain("Unpin");
     expect(html).toContain("Metadata");

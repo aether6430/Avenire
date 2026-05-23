@@ -75,6 +75,24 @@ describe("workspace file share route context", () => {
     expect(ensureWorkspaceAccessForUserMock).not.toHaveBeenCalled();
   });
 
+  it("fails closed when shared file share context lookup throws before the handler runs", async () => {
+    getSessionUserMock.mockRejectedValueOnce(
+      new Error("file share auth offline")
+    );
+
+    const result = await resolveWorkspaceFileShareRouteContext(createInput());
+
+    expect("response" in result).toBe(true);
+    if ("response" in result) {
+      expect(result.response.status).toBe(500);
+      await expect(result.response.json()).resolves.toEqual({
+        error: "file share auth offline",
+      });
+    }
+    expect(ensureWorkspaceAccessForUserMock).not.toHaveBeenCalled();
+    expect(getFileAssetByIdMock).not.toHaveBeenCalled();
+  });
+
   it("rejects forbidden users and missing files", async () => {
     ensureWorkspaceAccessForUserMock.mockResolvedValueOnce(false);
 

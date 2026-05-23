@@ -19,14 +19,12 @@ export function useDashboardSidebarChatActions({
   chats,
   navigate,
   refreshRoute,
-  setActiveChatSlugOverride,
   setChats,
 }: {
   activeChatSlug: string;
   chats: ChatSummary[];
   navigate: SidebarNavigate;
   refreshRoute: () => void;
-  setActiveChatSlugOverride: (value: string | null) => void;
   setChats: React.Dispatch<React.SetStateAction<ChatSummary[]>>;
 }) {
   const [chatActionStatus, setChatActionStatus] = useState<string | null>(null);
@@ -49,7 +47,7 @@ export function useDashboardSidebarChatActions({
     );
 
     if (!data?.chat) {
-      setChatActionStatus("Unable to update method.");
+      setChatActionStatus("Unable to update Method.");
       return;
     }
 
@@ -69,7 +67,7 @@ export function useDashboardSidebarChatActions({
     );
 
     if (!response.ok) {
-      setChatActionStatus("Unable to delete method.");
+      setChatActionStatus("Unable to delete Method.");
       return;
     }
 
@@ -77,7 +75,6 @@ export function useDashboardSidebarChatActions({
     setChats(remaining);
 
     if (activeChatSlug === chatSlug) {
-      setActiveChatSlugOverride(null);
       navigate("/workspace/chats/new" as Route);
       refreshRoute();
     }

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  applySidebarFilesRealtimeInvalidation,
   buildSidebarAutoExpandedAncestorIds,
   buildSidebarRootExpandedIds,
   createFilesRealtimeConnection,
@@ -14,6 +15,7 @@ import { invalidateWorkspaceMarkdownCache } from "@/lib/workspace-markdown-cache
 import {
   loadWorkspaceTreePayload,
   readCachedWorkspaceTreePayload,
+  resolveWorkspaceTreeClientError,
   writeWorkspaceTreePayload,
 } from "@/lib/workspace-tree-client";
 
@@ -28,6 +30,7 @@ export function useSidebarFilesPanelTree({
 }) {
   const [folderTree, setFolderTree] = useState<SidebarFolderNode[]>([]);
   const [fileTree, setFileTree] = useState<SidebarFileNode[]>([]);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [expandedTreePaths, setExpandedTreePaths] = useState<Set<string>>(
@@ -35,6 +38,9 @@ export function useSidebarFilesPanelTree({
   );
 
   const fileTreePanelRef = useRef<HTMLDivElement | null>(null);
+  const expandedTreePathsRef = useRef<Set<string>>(new Set());
+  const fileTreeRef = useRef<SidebarFileNode[]>([]);
+  const folderTreeRef = useRef<SidebarFolderNode[]>([]);
   const lastTreeRevealTargetRef = useRef<string | null>(null);
   const lastAutoExpandedTargetRef = useRef<string | null>(null);
   const treeRefreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -55,9 +61,22 @@ export function useSidebarFilesPanelTree({
     [folderTree]
   );
 
+  useEffect(() => {
+    expandedTreePathsRef.current = expandedTreePaths;
+  }, [expandedTreePaths]);
+
+  useEffect(() => {
+    fileTreeRef.current = fileTree;
+  }, [fileTree]);
+
+  useEffect(() => {
+    folderTreeRef.current = folderTree;
+  }, [folderTree]);
+
   const loadWorkspaceTree = useCallback(async (workspaceId: string) => {
     setLoading(true);
     setLoadFailed(false);
+    setErrorMessage(null);
     const cached = readCachedWorkspaceTreePayload<
       SidebarFolderNode,
       SidebarFileNode
@@ -73,15 +92,18 @@ export function useSidebarFilesPanelTree({
         SidebarFileNode
       >(workspaceId);
       if (!payload) {
+        setErrorMessage("Unable to load files.");
         setLoadFailed(true);
         return;
       }
 
       setFolderTree(payload.folders);
       setFileTree(payload.files);
+      setErrorMessage(null);
       setLoadFailed(false);
       writeWorkspaceTreePayload(workspaceId, payload);
-    } catch {
+    } catch (error) {
+      setErrorMessage(resolveWorkspaceTreeClientError(error));
       setLoadFailed(true);
     } finally {
       setLoading(false);
@@ -228,6 +250,22 @@ export function useSidebarFilesPanelTree({
       onInvalidate: (detail) => {
         invalidateWorkspaceFolderCache(workspaceUuid, detail?.folderId);
         invalidateWorkspaceMarkdownCache(workspaceUuid);
+        const nextTree = applySidebarFilesRealtimeInvalidation({
+          detail,
+          expandedTreePaths: expandedTreePathsRef.current,
+          fileTree: fileTreeRef.current,
+          folderTree: folderTreeRef.current,
+        });
+        if (nextTree) {
+          setExpandedTreePaths(nextTree.expandedTreePaths);
+          setFileTree(nextTree.fileTree);
+          setFolderTree(nextTree.folderTree);
+          writeWorkspaceTreePayload(workspaceUuid, {
+            files: nextTree.fileTree,
+            folders: nextTree.folderTree,
+          });
+          return;
+        }
         refreshWorkspaceTreeDebounced(workspaceUuid);
       },
       workspaceUuid,
@@ -244,6 +282,7 @@ export function useSidebarFilesPanelTree({
   }, [refreshWorkspaceTreeDebounced, workspaceUuid]);
 
   return {
+    errorMessage,
     expandedTreePathIds,
     fileTree,
     fileTreePanelRef,

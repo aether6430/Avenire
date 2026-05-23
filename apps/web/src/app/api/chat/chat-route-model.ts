@@ -1,9 +1,12 @@
-import type { PromptMemoryBlock } from "@avenire/ai";
+import type { ApolloModelName, PromptMemoryBlock } from "@avenire/ai";
 import type { UIMessage } from "@avenire/ai/message-types";
 import { normalizeMediaType } from "@/lib/media-type";
 
 export const DEFAULT_CHAT_TITLE = "New Method";
-const DEFAULT_CHAT_TOKENS_PER_CREDIT = 4000;
+const DEFAULT_CHAT_TOKENS_PER_CREDIT = 1000;
+const DEFAULT_EXPECTED_OUTPUT_TOKENS = 2000;
+const DEFAULT_WIDGET_GENERATION_CREDITS = 20;
+const DEFAULT_TURBO_MODEL_CREDIT_MULTIPLIER = 2;
 const WHITESPACE_PATTERN = /\s+/g;
 export const DEFAULT_THINKING_MESSAGES = [
   "Thinking through the details",
@@ -257,10 +260,6 @@ export function pickModelTools<T extends Record<string, unknown>>(
   ) as T;
 }
 
-export function modelUsesLegacyWidgetSchema(model: string) {
-  return model === "apollo-apex";
-}
-
 export function normalizeMessageFileMediaTypes(messages: UIMessage[]) {
   let changed = false;
 
@@ -323,6 +322,34 @@ function resolveChatTokensPerCredit() {
   return raw;
 }
 
+function resolveTurboModelCreditMultiplier() {
+  const raw = Number.parseFloat(
+    process.env.TURBO_MODEL_CREDIT_MULTIPLIER ?? ""
+  );
+  if (!Number.isFinite(raw) || raw < 1) {
+    return DEFAULT_TURBO_MODEL_CREDIT_MULTIPLIER;
+  }
+  return raw;
+}
+
+export function resolveWidgetGenerationCredits() {
+  const raw = Number.parseInt(process.env.WIDGET_GENERATION_CREDITS ?? "", 10);
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return DEFAULT_WIDGET_GENERATION_CREDITS;
+  }
+  return raw;
+}
+
+export function modelUsesTurboCreditMultiplier(model: ApolloModelName) {
+  return model === "apex-turbo";
+}
+
+export function getModelCreditMultiplier(model: ApolloModelName) {
+  return modelUsesTurboCreditMultiplier(model)
+    ? resolveTurboModelCreditMultiplier()
+    : 1;
+}
+
 export function resolveTotalTokens(usage: {
   totalTokens?: number;
   inputTokens?: number;
@@ -342,9 +369,31 @@ export function resolveTotalTokens(usage: {
   return inputTokens + outputTokens;
 }
 
-export function getRequiredChatCredits(totalTokens: number) {
+export function getRequiredChatCredits(
+  totalTokens: number,
+  model: ApolloModelName = "apollo-apex"
+) {
   const tokensPerCredit = resolveChatTokensPerCredit();
-  return Math.max(1, Math.ceil(totalTokens / tokensPerCredit));
+  const baseCredits = Math.max(1, Math.ceil(totalTokens / tokensPerCredit));
+  return Math.ceil(baseCredits * getModelCreditMultiplier(model));
+}
+
+function estimateMessageTokens(messages: UIMessage[]) {
+  const textChars = messages.reduce(
+    (total, message) => total + extractMessageText(message).length,
+    0
+  );
+  return Math.ceil(textChars / 4);
+}
+
+export function getExpectedChatCredits(
+  messages: UIMessage[],
+  model: ApolloModelName = "apollo-apex"
+) {
+  return getRequiredChatCredits(
+    estimateMessageTokens(messages) + DEFAULT_EXPECTED_OUTPUT_TOKENS,
+    model
+  );
 }
 
 export function getPersistedMessages(input: {

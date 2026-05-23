@@ -8,6 +8,7 @@ import {
   type IngestionJobEvent,
   mapIngestionEventStatus,
   mapRecentJobStatus,
+  resolveUploadActivityErrorMessage,
   shouldEnableUploadActivityLiveQueries,
   summarizeUploadQueue,
   updateIngestionQueueItem,
@@ -92,6 +93,9 @@ export function useUploadActivityPanel() {
     queryKey: ["upload-activity", activeWorkspaceUuid],
     staleTime: 30_000,
   });
+  const recentJobsErrorMessage = recentJobsQuery.isError
+    ? resolveUploadActivityErrorMessage(recentJobsQuery.error)
+    : null;
 
   useEffect(() => {
     if (!(activeWorkspaceUuid && liveQueriesEnabled)) {
@@ -320,6 +324,7 @@ export function useUploadActivityPanel() {
     handleClose,
     isQueueVisible,
     queue,
+    recentJobsErrorMessage,
     recentJobsLoadFailed,
     recentJobsLoading: recentJobsQuery.isPending,
     uploadCount: queueSummary.uploadCount,

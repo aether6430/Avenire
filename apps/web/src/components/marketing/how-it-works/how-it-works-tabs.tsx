@@ -46,9 +46,9 @@ export function HowItWorksTabs() {
       {
         title: "Turn gaps into review",
         description:
-          "Save explanations into markdown, generate mindset sets, and schedule review around the concepts you missed",
+          "Save explanations into markdown, generate Mindset Sets, and schedule review around the concepts you missed",
         mobileDescription:
-          "Convert missed concepts into notes, mindset cards, and scheduled review.",
+          "Convert missed concepts into notes, Mindset Sets, and scheduled review.",
         icon: ThirdIcon,
         id: "deploy",
         skeleton: <DeployAndScaleSkeleton />,

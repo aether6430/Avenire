@@ -1,25 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
+  canStoreBytesMock,
   createApiLoggerMock,
   createUploadSessionMock,
   ensureWorkspaceAccessForUserMock,
   getSessionUserMock,
-  getUserUsageOverviewMock,
   normalizeSha256Mock,
   userCanEditFolderMock,
 } = vi.hoisted(() => ({
+  canStoreBytesMock: vi.fn(),
   createApiLoggerMock: vi.fn(),
   createUploadSessionMock: vi.fn(),
   ensureWorkspaceAccessForUserMock: vi.fn(),
   getSessionUserMock: vi.fn(),
-  getUserUsageOverviewMock: vi.fn(),
   normalizeSha256Mock: vi.fn(),
   userCanEditFolderMock: vi.fn(),
 }));
 
-vi.mock("@/lib/billing-usage", () => ({
-  getUserUsageOverview: getUserUsageOverviewMock,
+vi.mock("@/lib/billing", () => ({
+  canStoreBytes: canStoreBytesMock,
 }));
 
 vi.mock("@/lib/file-data", () => ({
@@ -55,11 +55,11 @@ function createApiLoggerStub() {
 
 describe("/api/uploads/sessions route", () => {
   beforeEach(() => {
+    canStoreBytesMock.mockReset();
     createApiLoggerMock.mockReset();
     createUploadSessionMock.mockReset();
     ensureWorkspaceAccessForUserMock.mockReset();
     getSessionUserMock.mockReset();
-    getUserUsageOverviewMock.mockReset();
     normalizeSha256Mock.mockReset();
     userCanEditFolderMock.mockReset();
 
@@ -67,6 +67,12 @@ describe("/api/uploads/sessions route", () => {
     normalizeSha256Mock.mockImplementation(
       (value: string | null | undefined) => value ?? null
     );
+    canStoreBytesMock.mockResolvedValue({
+      ok: true,
+      limitBytes: 2 * 1024 * 1024 * 1024,
+      remainingBytes: 2 * 1024 * 1024 * 1024,
+      usedBytes: 0,
+    });
   });
 
   it("returns unauthorized when there is no signed-in user", async () => {
@@ -81,6 +87,24 @@ describe("/api/uploads/sessions route", () => {
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
+  });
+
+  it("fails closed when session lookup throws before upload session creation begins", async () => {
+    getSessionUserMock.mockRejectedValue(new Error("upload auth offline"));
+
+    const response = await POST(
+      new Request("http://localhost:3003/api/uploads/sessions", {
+        method: "POST",
+        body: JSON.stringify({}),
+      })
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "upload auth offline",
+    });
+    expect(ensureWorkspaceAccessForUserMock).not.toHaveBeenCalled();
+    expect(createUploadSessionMock).not.toHaveBeenCalled();
   });
 
   it("rejects invalid payloads", async () => {
@@ -140,14 +164,15 @@ describe("/api/uploads/sessions route", () => {
     });
   });
 
-  it("returns upload usage limit reached when the user has no upload balance", async () => {
+  it("returns storage limit reached when the upload would exceed the user's plan", async () => {
     getSessionUserMock.mockResolvedValue({ id: "user-1" });
     ensureWorkspaceAccessForUserMock.mockResolvedValue(true);
     userCanEditFolderMock.mockResolvedValue(true);
-    getUserUsageOverviewMock.mockResolvedValue({
-      upload: {
-        totalBalance: 0,
-      },
+    canStoreBytesMock.mockResolvedValueOnce({
+      ok: false,
+      limitBytes: 2048,
+      remainingBytes: 0,
+      usedBytes: 2048,
     });
 
     const response = await POST(
@@ -163,21 +188,20 @@ describe("/api/uploads/sessions route", () => {
       })
     );
 
+    expect(canStoreBytesMock).toHaveBeenCalledWith("user-1", 1024);
     expect(response.status).toBe(429);
     await expect(response.json()).resolves.toEqual({
-      error: "Upload usage limit reached",
+      error: "Storage limit reached",
+      limitBytes: 2048,
+      usedBytes: 2048,
     });
+    expect(createUploadSessionMock).not.toHaveBeenCalled();
   });
 
   it("creates an upload session with trimmed names and normalized checksums", async () => {
     getSessionUserMock.mockResolvedValue({ id: "user-1" });
     ensureWorkspaceAccessForUserMock.mockResolvedValue(true);
     userCanEditFolderMock.mockResolvedValue(true);
-    getUserUsageOverviewMock.mockResolvedValue({
-      upload: {
-        totalBalance: 3,
-      },
-    });
     createUploadSessionMock.mockResolvedValue({
       id: "session-1",
       userId: "user-1",
@@ -222,6 +246,33 @@ describe("/api/uploads/sessions route", () => {
       mimeType: "video/mp4",
       sizeBytes: 1024,
       checksumSha256: "abc123",
+    });
+  });
+
+  it("fails closed with an explicit session creation error when session persistence throws", async () => {
+    getSessionUserMock.mockResolvedValue({ id: "user-1" });
+    ensureWorkspaceAccessForUserMock.mockResolvedValue(true);
+    userCanEditFolderMock.mockResolvedValue(true);
+    createUploadSessionMock.mockRejectedValue(
+      new Error("session store offline")
+    );
+
+    const response = await POST(
+      new Request("http://localhost:3003/api/uploads/sessions", {
+        method: "POST",
+        body: JSON.stringify({
+          workspaceUuid: "11111111-1111-4111-8111-111111111111",
+          folderId: "22222222-2222-4222-8222-222222222222",
+          name: "lecture.mp4",
+          mimeType: "video/mp4",
+          sizeBytes: 1024,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "session store offline",
     });
   });
 });

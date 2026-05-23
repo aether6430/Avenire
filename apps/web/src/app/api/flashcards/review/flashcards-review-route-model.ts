@@ -30,6 +30,7 @@ const flashcardsReviewPayloadSchema = z.object({
 
 export const FLASHCARDS_REVIEW_INVALID_PAYLOAD_ERROR =
   "cardId and a valid rating are required";
+export const FLASHCARDS_REVIEW_ERROR = "Unable to submit review.";
 
 export function parseFlashcardsReviewPayload(payload: unknown) {
   return flashcardsReviewPayloadSchema.safeParse(payload);
@@ -44,4 +45,11 @@ export function buildFlashcardsReviewInvalidateEventPayload(input: {
     cardId: input.cardId,
     workspaceUuid: input.workspaceUuid,
   };
+}
+
+export function resolveFlashcardsReviewRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
 }

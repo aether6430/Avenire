@@ -1,10 +1,17 @@
 "use client";
 
-import { DesktopStudentCalendar } from "@/components/student-calendar-desktop";
+import { DesktopStudentCalendarSurface } from "@/components/student-calendar-desktop-surface";
 import { MobileStudentCalendar } from "@/components/student-calendar-mobile";
 import { useStudentCalendarDesktopLayout } from "@/components/use-student-calendar-data";
+import { useStudentCalendarDesktop } from "@/components/use-student-calendar-desktop";
 
 export function StudentCalendar() {
   const isDesktop = useStudentCalendarDesktopLayout();
-  return isDesktop ? <DesktopStudentCalendar /> : <MobileStudentCalendar />;
+  const desktopRuntime = useStudentCalendarDesktop();
+
+  return isDesktop ? (
+    <DesktopStudentCalendarSurface runtime={desktopRuntime} />
+  ) : (
+    <MobileStudentCalendar />
+  );
 }

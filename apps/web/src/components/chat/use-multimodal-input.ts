@@ -55,6 +55,7 @@ export interface MultimodalInputRuntime {
   isTranscribing: boolean;
   mentionItemRefs: React.MutableRefObject<Array<HTMLDivElement | null>>;
   mentionSuggestions: MentionableWorkspaceFile[];
+  onTurboChange: (enabled: boolean) => void;
   placeholder: string;
   removeAttachment: (attachmentId: string) => void;
   runSubmitForm: () => void;
@@ -66,6 +67,7 @@ export interface MultimodalInputRuntime {
   stop: () => void;
   submittableAttachments: Attachment[];
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+  turboEnabled: boolean;
   workspaceFilesLoaded: boolean;
 }
 
@@ -75,10 +77,12 @@ export function useMultimodalInput({
   className,
   handleSubmit,
   input,
+  onTurboChange,
   setAttachments,
   setInput,
   status,
   stop,
+  turboEnabled,
   workspaceUuid,
 }: {
   attachments: Attachment[];
@@ -89,10 +93,12 @@ export function useMultimodalInput({
     files: Attachment[]
   ) => void | Promise<void>;
   input: string;
+  onTurboChange: (enabled: boolean) => void;
   setAttachments: Dispatch<SetStateAction<Attachment[]>>;
   setInput: (input: string) => void;
   status: UseChatHelpers<UIMessage>["status"];
   stop: () => void;
+  turboEnabled: boolean;
   workspaceUuid: string;
 }): MultimodalInputRuntime {
   const { width } = useWindowSize();
@@ -252,6 +258,8 @@ export function useMultimodalInput({
     stop,
     submittableAttachments: attachmentRuntime.submittableAttachments,
     textareaRef: composerState.textareaRef,
+    onTurboChange,
+    turboEnabled,
     workspaceFilesLoaded: mentionRuntime.workspaceFilesLoaded,
   };
 }

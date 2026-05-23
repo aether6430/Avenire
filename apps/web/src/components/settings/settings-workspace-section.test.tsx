@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { SettingsWorkspaceSection } from "@/components/settings/settings-workspace-section";
@@ -16,8 +18,6 @@ function createRuntime(
     inviteWorkspaceMember: async () => {},
     isCreatingWorkspace: false,
     isInvitingMember: false,
-    noteTemplates: [],
-    openNoteTemplateEditor: () => {},
     privacyMode: false,
     removeWorkspaceMember: async () => {},
     saveWorkspaceIcon: async () => false,
@@ -33,7 +33,6 @@ function createRuntime(
     selectedWorkspaceMemberCount: 0,
     session: null,
     setActiveWorkspaceId: () => {},
-    setNoteTemplates: () => {},
     setTheme: () => {},
     setWorkspaceDeleteConfirm: () => {},
     setWorkspaceEmail: () => {},
@@ -48,10 +47,12 @@ function createRuntime(
     workspaceIconStatus: null,
     workspaceIconUploading: false,
     workspaceMembers: [],
+    workspaceMembersErrorMessage: null,
     workspaceMembersLoadFailed: false,
     workspaceMembersLoading: false,
     workspaceName: "",
     workspaceStatus: null,
+    workspacesErrorMessage: null,
     workspacesLoadFailed: false,
     workspacesLoading: false,
     workspaceUsageLoadFailed: false,
@@ -62,6 +63,19 @@ function createRuntime(
     ...overrides,
   } as unknown as SettingsPanelRuntime;
 }
+
+const settingsPanelContentFile = resolve(
+  import.meta.dirname,
+  "./settings-panel-content.tsx"
+);
+const workspaceDirectoryHookFile = resolve(
+  import.meta.dirname,
+  "./use-settings-workspace-directory.ts"
+);
+const removedWrapperFile = resolve(
+  import.meta.dirname,
+  "./settings-workspace-tab-shell.tsx"
+);
 
 describe("SettingsWorkspaceSection", () => {
   it("renders an explicit loading state while workspace members are still resolving", () => {
@@ -78,11 +92,14 @@ describe("SettingsWorkspaceSection", () => {
   it("renders an explicit error when workspace members fail to load", () => {
     const html = renderToStaticMarkup(
       <SettingsWorkspaceSection
-        runtime={createRuntime({ workspaceMembersLoadFailed: true })}
+        runtime={createRuntime({
+          workspaceMembersErrorMessage: "members backend offline",
+          workspaceMembersLoadFailed: true,
+        })}
       />
     );
 
-    expect(html).toContain("Unable to load workspace members.");
+    expect(html).toContain("members backend offline");
     expect(html).not.toContain("No members found.");
   });
 
@@ -151,12 +168,68 @@ describe("SettingsWorkspaceSection", () => {
         runtime={createRuntime({
           selectedWorkspace: null,
           workspaces: [],
+          workspacesErrorMessage: "workspace directory offline",
           workspacesLoadFailed: true,
         })}
       />
     );
 
-    expect(html).toContain("Unable to load workspaces.");
+    expect(html).toContain("workspace directory offline");
     expect(html).not.toContain("No workspaces yet.");
+  });
+
+  it("renders the real empty workspace copy only when no workspaces exist and the list has loaded", () => {
+    const html = renderToStaticMarkup(
+      <SettingsWorkspaceSection
+        runtime={createRuntime({
+          selectedWorkspace: null,
+          workspaces: [],
+          workspacesLoadFailed: false,
+          workspacesLoading: false,
+        })}
+      />
+    );
+
+    expect(html).toContain("No workspaces yet.");
+    expect(html.match(/No workspaces yet\./g)?.length).toBe(2);
+    expect(html).not.toContain(
+      "Select a workspace to inspect its storage and members."
+    );
+    expect(html).not.toContain("Loading workspaces...");
+    expect(html).not.toContain("Unable to load workspaces.");
+  });
+
+  it("keeps workspace settings composition in settings-panel-content without the old tab-shell wrapper file", () => {
+    const settingsPanelContentSource = readFileSync(
+      settingsPanelContentFile,
+      "utf8"
+    );
+    const workspaceDirectoryHookSource = readFileSync(
+      workspaceDirectoryHookFile,
+      "utf8"
+    );
+
+    expect(settingsPanelContentSource).toContain(
+      'from "@/components/settings/settings-workspace-section"'
+    );
+    expect(settingsPanelContentSource).toContain(
+      'from "@/components/settings/use-settings-workspace-management"'
+    );
+    expect(settingsPanelContentSource).toContain(
+      "function ReadySettingsWorkspaceSection"
+    );
+    expect(settingsPanelContentSource).toContain("deleteSelectedWorkspace");
+    expect(settingsPanelContentSource).not.toContain(
+      'from "@/components/settings/use-settings-panel-workspace"'
+    );
+    expect(workspaceDirectoryHookSource).toContain(
+      'setWorkspaceStatus("Workspace deleted.")'
+    );
+    expect(workspaceDirectoryHookSource).toContain("nextWorkspaces.some");
+    expect(workspaceDirectoryHookSource).toContain(
+      'setActiveWorkspaceId(nextWorkspaces[0]?.workspaceId ?? "")'
+    );
+    expect(workspaceDirectoryHookSource).toContain('setActiveWorkspaceId("")');
+    expect(existsSync(removedWrapperFile)).toBe(false);
   });
 });

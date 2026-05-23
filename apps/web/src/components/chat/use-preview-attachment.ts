@@ -73,11 +73,13 @@ export function usePreviewAttachment({
     () =>
       buildPreviewAttachmentCapabilities({
         contentType,
+        file,
         name,
         previewUrl,
+        source,
         status,
       }),
-    [contentType, name, previewUrl, status]
+    [contentType, file, name, previewUrl, source, status]
   );
 
   useEffect(() => {

@@ -51,9 +51,16 @@ const flashcardSetUpdatePayloadSchema = z
   );
 
 export const FLASHCARD_SET_INVALID_PAYLOAD_ERROR =
-  "Invalid mindset set payload";
+  "Invalid Mindset Set payload";
 export const FLASHCARD_SET_UPDATE_ERROR =
-  "Provide at least one mindset set field: title, description, tags";
+  "Provide at least one Mindset Set field: title, description, tags";
+export const FLASHCARD_SET_LIST_LOAD_ERROR = "Unable to load Mindset Sets.";
+export const FLASHCARD_SET_CREATE_ERROR = "Could not create the Mindset Set.";
+export const FLASHCARD_SET_DETAIL_LOAD_ERROR = "Unable to load Mindset Set.";
+export const FLASHCARD_SET_DETAIL_UPDATE_ERROR =
+  "Unable to update Mindset Set.";
+export const FLASHCARD_SET_DETAIL_DELETE_ERROR =
+  "Unable to delete Mindset Set.";
 
 export function parseFlashcardSetCreatePayload(payload: unknown) {
   return flashcardSetCreatePayloadSchema.safeParse(payload);
@@ -81,4 +88,11 @@ export function resolveFlashcardSetInvalidateEventPayload(input: {
     setId: input.setId,
     workspaceUuid: input.workspaceUuid,
   };
+}
+
+export function resolveFlashcardSetsRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
 }

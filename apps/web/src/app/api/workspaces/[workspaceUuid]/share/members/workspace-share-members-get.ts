@@ -6,6 +6,8 @@ import type { createApiLogger } from "@/lib/observability";
 import {
   filterWorkspaceShareMembers,
   normalizeOrganizationMembers,
+  resolveWorkspaceShareMembersRouteError,
+  WORKSPACE_SHARE_MEMBERS_LIST_ERROR,
 } from "./workspace-share-members-model";
 
 interface HandleWorkspaceShareMembersGetOptions {
@@ -23,60 +25,80 @@ export async function handleWorkspaceShareMembersGet({
   user,
   workspaceUuid,
 }: HandleWorkspaceShareMembersGetOptions) {
-  const summaries = await listWorkspacesForUser(user.id);
-  const summary = summaries.find((item) => item.workspaceId === workspaceUuid);
-  if (!summary) {
-    void apiLogger.requestFailed(404, "Workspace not found", { workspaceUuid });
-    return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
-  }
-
-  const membersResult = await auth.api.listMembers({
-    query: {
-      organizationId: summary.organizationId,
-    },
-    headers: await headers(),
-  });
-
-  const query = request.url
-    ? (new URL(request.url).searchParams.get("q") ?? "")
-    : "";
-  const normalizedQuery = query.trim().toLowerCase();
-  const mappedMembers = filterWorkspaceShareMembers({
-    members: normalizeOrganizationMembers(membersResult),
-    query,
-  });
-
-  if (
-    normalizedQuery &&
-    !mappedMembers.some((member) =>
-      [member.name ?? "", member.email ?? "", member.userId ?? ""]
-        .join(" ")
-        .toLowerCase()
-        .includes(normalizedQuery)
-    )
-  ) {
-    const fallbackUser = await findAuthUserByEmail(normalizedQuery);
-    if (fallbackUser) {
-      mappedMembers.unshift({
-        avatar: null,
-        email: fallbackUser.email ?? null,
-        id: null,
-        name: fallbackUser.name ?? null,
-        role: "external",
-        userId: fallbackUser.id,
+  try {
+    const summaries = await listWorkspacesForUser(user.id);
+    const summary = summaries.find(
+      (item) => item.workspaceId === workspaceUuid
+    );
+    if (!summary) {
+      void apiLogger.requestFailed(404, "Workspace not found", {
+        workspaceUuid,
       });
+      return NextResponse.json(
+        { error: "Workspace not found" },
+        { status: 404 }
+      );
     }
+
+    const membersResult = await auth.api.listMembers({
+      query: {
+        organizationId: summary.organizationId,
+      },
+      headers: await headers(),
+    });
+
+    const query = request.url
+      ? (new URL(request.url).searchParams.get("q") ?? "")
+      : "";
+    const normalizedQuery = query.trim().toLowerCase();
+    const mappedMembers = filterWorkspaceShareMembers({
+      members: normalizeOrganizationMembers(membersResult),
+      query,
+    });
+
+    if (
+      normalizedQuery &&
+      !mappedMembers.some((member) =>
+        [member.name ?? "", member.email ?? "", member.userId ?? ""]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedQuery)
+      )
+    ) {
+      const fallbackUser = await findAuthUserByEmail(normalizedQuery);
+      if (fallbackUser) {
+        mappedMembers.unshift({
+          avatar: null,
+          email: fallbackUser.email ?? null,
+          id: null,
+          name: fallbackUser.name ?? null,
+          role: "external",
+          userId: fallbackUser.id,
+        });
+      }
+    }
+
+    void apiLogger.featureUsed("workspace.sharing.members.listed", {
+      workspaceUuid,
+    });
+    void apiLogger.requestSucceeded(200, {
+      workspaceUuid,
+      memberCount: mappedMembers.length,
+    });
+
+    return NextResponse.json({
+      members: mappedMembers,
+    });
+  } catch (error) {
+    void apiLogger.requestFailed(500, error, { workspaceUuid });
+    return NextResponse.json(
+      {
+        error: resolveWorkspaceShareMembersRouteError(
+          error,
+          WORKSPACE_SHARE_MEMBERS_LIST_ERROR
+        ),
+      },
+      { status: 500 }
+    );
   }
-
-  void apiLogger.featureUsed("workspace.sharing.members.listed", {
-    workspaceUuid,
-  });
-  void apiLogger.requestSucceeded(200, {
-    workspaceUuid,
-    memberCount: mappedMembers.length,
-  });
-
-  return NextResponse.json({
-    members: mappedMembers,
-  });
 }

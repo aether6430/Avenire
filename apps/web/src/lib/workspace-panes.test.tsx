@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -31,6 +33,23 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/stores/workspacePaneStore", () => ({
   useWorkspacePaneStore: useWorkspacePaneStoreMock,
 }));
+
+const workspacePanesSource = readFileSync(
+  resolve(import.meta.dirname, "./workspace-panes.tsx"),
+  "utf8"
+);
+const workspacePaneModelSource = readFileSync(
+  resolve(import.meta.dirname, "./workspace-pane-model.ts"),
+  "utf8"
+);
+const workspacePaneRuntimeSource = readFileSync(
+  resolve(import.meta.dirname, "./workspace-pane-runtime.ts"),
+  "utf8"
+);
+const workspacePaneBrowserNavigationSource = readFileSync(
+  resolve(import.meta.dirname, "./workspace-pane-browser-navigation.ts"),
+  "utf8"
+);
 
 import {
   useCurrentWorkspacePane,
@@ -231,5 +250,47 @@ describe("workspace panes", () => {
     expect(router.replace).toHaveBeenCalledWith("/workspace/files?tab=pinned", {
       scroll: false,
     });
+  });
+
+  it("keeps workspace pane ownership split between provider/hooks, route-state model helpers, runtime navigation, and browser-sync guards", () => {
+    expect(workspacePanesSource).toContain("@/lib/workspace-pane-model");
+    expect(workspacePanesSource).toContain("@/lib/workspace-pane-runtime");
+    expect(workspacePanesSource).toContain("createPaneRouter");
+    expect(workspacePanesSource).toContain("createWorkspaceSurfaceNavigator");
+    expect(workspacePanesSource).not.toContain("WORKSPACE_PANE_DRAG_MIME");
+    expect(workspacePanesSource).not.toContain(
+      "pendingWorkspaceBrowserNavigation"
+    );
+
+    expect(workspacePaneModelSource).toContain(
+      "export function setWorkspacePaneDragData"
+    );
+    expect(workspacePaneModelSource).toContain(
+      "export function buildRouteState"
+    );
+    expect(workspacePaneModelSource).not.toContain("router.push(");
+    expect(workspacePaneModelSource).not.toContain(
+      "markPendingWorkspaceBrowserNavigation("
+    );
+
+    expect(workspacePaneRuntimeSource).toContain(
+      "markPendingWorkspaceBrowserNavigation"
+    );
+    expect(workspacePaneRuntimeSource).toContain("buildRouteState");
+    expect(workspacePaneRuntimeSource).toContain(
+      "export function navigateWorkspacePane"
+    );
+    expect(workspacePaneRuntimeSource).not.toContain(
+      "WORKSPACE_PANE_DRAG_MIME"
+    );
+
+    expect(workspacePaneBrowserNavigationSource).toContain(
+      "markPendingWorkspaceBrowserNavigation"
+    );
+    expect(workspacePaneBrowserNavigationSource).toContain(
+      "shouldDeferWorkspacePaneBrowserReplace"
+    );
+    expect(workspacePaneBrowserNavigationSource).not.toContain("router.push(");
+    expect(workspacePaneBrowserNavigationSource).not.toContain("DataTransfer");
   });
 });

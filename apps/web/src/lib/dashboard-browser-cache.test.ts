@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   readCachedChats,
@@ -11,6 +13,15 @@ import {
 } from "@/lib/dashboard-browser-cache";
 import type { FlashcardSetSummary } from "@/lib/flashcards";
 import type { WorkspaceTask } from "@/lib/tasks";
+
+const dashboardBrowserCacheSource = readFileSync(
+  resolve(import.meta.dirname, "./dashboard-browser-cache.ts"),
+  "utf8"
+);
+const flashcardBrowserCacheSource = readFileSync(
+  resolve(import.meta.dirname, "./flashcard-browser-cache.ts"),
+  "utf8"
+);
 
 function createLocalStorageMock(
   initialEntries: Record<string, string> = {}
@@ -233,5 +244,25 @@ describe("dashboard browser cache", () => {
     expect(readCachedFlashcardSets("workspace-1")).toBeNull();
     expect(readCachedTasks("workspace-1")).toBeNull();
     expect(readCachedWorkspaces()).toBeNull();
+  });
+
+  it("keeps dashboard caches on the shared browser-cache helpers while flashcard detail prefetch remains isolated in its own module", () => {
+    expect(dashboardBrowserCacheSource).toContain("@/lib/browser-cache-read");
+    expect(dashboardBrowserCacheSource).toContain("@/lib/browser-cache-write");
+    expect(dashboardBrowserCacheSource).not.toContain("window.localStorage");
+    expect(dashboardBrowserCacheSource).not.toContain(
+      "normalizeFlashcardSetId"
+    );
+    expect(dashboardBrowserCacheSource).not.toContain(
+      "/api/flashcards/sets/${"
+    );
+
+    expect(flashcardBrowserCacheSource).toContain("@/lib/browser-cache-read");
+    expect(flashcardBrowserCacheSource).toContain("@/lib/browser-cache-write");
+    expect(flashcardBrowserCacheSource).toContain("normalizeFlashcardSetId");
+    expect(flashcardBrowserCacheSource).toContain("/api/flashcards/sets/");
+    expect(flashcardBrowserCacheSource).toContain(
+      "window.localStorage.removeItem"
+    );
   });
 });

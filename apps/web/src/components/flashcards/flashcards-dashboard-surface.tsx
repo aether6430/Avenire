@@ -33,7 +33,7 @@ export function FlashcardsDashboardSurface({
               type="button"
             >
               <BookOpenCheck className="size-4" />
-              Go to mindset set
+              Go to Mindset Set
             </Button>
             <FlashcardsDashboardCreateDialog runtime={runtime} />
           </div>
@@ -46,18 +46,6 @@ export function FlashcardsDashboardSurface({
           </div>
         </HeaderBreadcrumbs>
 
-        <section className="flex flex-wrap items-center justify-between gap-3 border-border/40 border-b pb-4">
-          <div className="space-y-1">
-            <h1 className="font-semibold text-foreground text-xl tracking-tight">
-              Mindset Sets
-            </h1>
-            <p className="text-muted-foreground text-xs">
-              Select a mindset set, check what is coming up, then jump straight
-              into review.
-            </p>
-          </div>
-        </section>
-
         <AnimatePresence>
           {runtime.generationLoading ? (
             <motion.div
@@ -69,14 +57,14 @@ export function FlashcardsDashboardSurface({
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-1">
                   <p className="text-muted-foreground text-xs uppercase tracking-[0.18em]">
-                    Generating mindset set
+                    Generating Mindset Set
                   </p>
                   <h2 className="font-semibold text-foreground text-lg tracking-tight">
-                    Building your mindset set from onboarding
+                    Building your Mindset Set from onboarding
                   </h2>
                   <p className="max-w-2xl text-muted-foreground text-sm leading-6">
                     The set is being generated now. Once it is ready, you will
-                    land directly in the mindset set view.
+                    land directly in the Mindset Set view.
                   </p>
                 </div>
                 <div className="rounded-full bg-secondary px-3 py-1 text-muted-foreground text-xs uppercase tracking-[0.15em]">

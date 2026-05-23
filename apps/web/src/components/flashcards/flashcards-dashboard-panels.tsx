@@ -28,7 +28,7 @@ function FlashcardsDashboardDeckList({
           <EmptyMedia variant="icon">
             <BookOpenCheck className="size-4" />
           </EmptyMedia>
-          <EmptyTitle>No mindset sets yet</EmptyTitle>
+          <EmptyTitle>No Mindset Sets yet</EmptyTitle>
         </EmptyHeader>
         <EmptyContent>
           <EmptyDescription>
@@ -89,7 +89,7 @@ function FlashcardsDashboardSelectedDeck({
   if (!selectedSet) {
     return (
       <div className="px-4 py-8 text-center text-muted-foreground text-xs">
-        Select a mindset set to keep going.
+        Select a Mindset Set to keep going.
       </div>
     );
   }
@@ -114,45 +114,32 @@ function FlashcardsDashboardSelectedDeck({
         </div>
       </div>
       <div className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-md bg-secondary/40 px-4 py-3">
-            <p className="text-[11px] text-muted-foreground uppercase tracking-[0.15em]">
-              Mindset Set Profile
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Badge className="rounded-md" variant="outline">
-                {selectedSet.sourceType === "ai-generated"
-                  ? "AI-generated"
-                  : "Manual"}
-              </Badge>
-              <Badge className="rounded-md" variant="outline">
-                {getFlashcardEnrollmentLabel(selectedSet.enrollmentStatus)}
-              </Badge>
-              <Badge className="rounded-md" variant="outline">
-                {selectedSet.cardCount} cards
-              </Badge>
-            </div>
-            <p className="mt-3 text-muted-foreground text-xs">
-              {selectedSet.description ?? "No description yet."}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-border/45 bg-muted/10 px-4 py-3">
-            <p className="text-[11px] text-muted-foreground uppercase tracking-[0.18em]">
-              Study context
-            </p>
-            <div className="mt-3 space-y-2 text-muted-foreground text-xs">
-              <p>
-                {selectedSet.lastStudiedAt
-                  ? `Last studied ${new Date(
-                      selectedSet.lastStudiedAt
-                    ).toLocaleDateString()}`
-                  : "Not studied yet"}
-              </p>
-              <p>
-                Updated {new Date(selectedSet.updatedAt).toLocaleDateString()}
-              </p>
-            </div>
-          </div>
+        <div className="flex flex-wrap gap-2 border-border/50 border-y py-3">
+          <Badge className="rounded-md" variant="outline">
+            {selectedSet.sourceType === "ai-generated"
+              ? "AI-generated"
+              : "Manual"}
+          </Badge>
+          <Badge className="rounded-md" variant="outline">
+            {getFlashcardEnrollmentLabel(selectedSet.enrollmentStatus)}
+          </Badge>
+          <Badge className="rounded-md" variant="outline">
+            {selectedSet.cardCount} cards
+          </Badge>
+          <Badge className="rounded-md" variant="outline">
+            {selectedSet.reviewCountToday} studied today
+          </Badge>
+          <Badge className="rounded-md" variant="outline">
+            {selectedSet.reviewCount7d} reviews in 7d
+          </Badge>
+          <Badge className="rounded-md" variant="outline">
+            {selectedSet.lastStudiedAt
+              ? `Last ${new Date(selectedSet.lastStudiedAt).toLocaleDateString()}`
+              : "Not studied yet"}
+          </Badge>
+          <Badge className="rounded-md" variant="outline">
+            Updated {new Date(selectedSet.updatedAt).toLocaleDateString()}
+          </Badge>
         </div>
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
@@ -166,7 +153,7 @@ function FlashcardsDashboardSelectedDeck({
           <div className="space-y-2">
             {selectedSnapshots.length === 0 ? (
               <p className="text-muted-foreground text-xs">
-                No cards tracked for this mindset yet.
+                No cards tracked for this Mindset Set yet.
               </p>
             ) : (
               selectedSnapshots.slice(0, 3).map((snapshot) => (
@@ -201,7 +188,7 @@ function FlashcardsDashboardSelectedDeck({
             onMouseEnter={() => runtime.prefetchSet(selectedSet.id)}
             type="button"
           >
-            Open mindset set
+            Open Mindset Set
           </Button>
           <Button
             onClick={() => runtime.openSet(selectedSet.id)}
@@ -223,18 +210,75 @@ export function FlashcardsDashboardPanels({
   runtime: FlashcardsDashboardRuntime;
 }) {
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(18rem,0.88fr)_minmax(0,1.12fr)]">
-      <div className="min-w-0">
-        <h2 className="font-medium text-foreground text-sm">Mindset Sets</h2>
-        <p className="text-muted-foreground text-xs">
-          Pick a mindset set and jump into review.
-        </p>
-        <FlashcardsDashboardDeckList runtime={runtime} />
+    <div className="space-y-6">
+      <div className="grid gap-6 xl:grid-cols-[minmax(18rem,0.88fr)_minmax(0,1.12fr)]">
+        <div className="min-w-0">
+          <h2 className="font-medium text-foreground text-sm">Mindset Sets</h2>
+          <p className="text-muted-foreground text-xs">
+            Pick a Mindset Set and jump into review.
+          </p>
+          <FlashcardsDashboardDeckList runtime={runtime} />
+        </div>
+
+        <div className="min-w-0">
+          <FlashcardsDashboardSelectedDeck runtime={runtime} />
+        </div>
       </div>
 
-      <div className="min-w-0">
-        <FlashcardsDashboardSelectedDeck runtime={runtime} />
-      </div>
+      <section className="space-y-3 border-border/50 border-t pt-4">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-medium text-foreground text-sm">
+            Misconceptions
+          </h2>
+          <p className="text-muted-foreground text-xs">
+            {runtime.activeMisconceptions.length} active
+          </p>
+        </div>
+        {runtime.mindsetOverviewLoading ? (
+          <p className="text-muted-foreground text-xs">
+            Loading misconception memory...
+          </p>
+        ) : runtime.mindsetOverviewErrorMessage ? (
+          <p className="rounded-md border border-border/60 bg-card px-3 py-3 text-muted-foreground text-sm">
+            {runtime.mindsetOverviewErrorMessage}
+          </p>
+        ) : runtime.activeMisconceptions.length > 0 ? (
+          <div className="space-y-2">
+            {runtime.activeMisconceptions.slice(0, 6).map((misconception) => (
+              <div
+                className="grid gap-3 rounded-md border border-border/60 bg-card px-3 py-3 md:grid-cols-[minmax(10rem,0.36fr)_minmax(0,1fr)]"
+                key={misconception.id}
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-foreground text-sm">
+                    {misconception.concept}
+                  </p>
+                  <p className="mt-1 truncate text-muted-foreground text-xs">
+                    {misconception.subject} / {misconception.topic}
+                  </p>
+                </div>
+                <div className="min-w-0">
+                  <p className="line-clamp-2 text-muted-foreground text-sm leading-5">
+                    {misconception.reason}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Badge className="rounded-md" variant="outline">
+                      {Math.round(misconception.confidence * 100)}%
+                    </Badge>
+                    <Badge className="rounded-md" variant="outline">
+                      {misconception.source}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-md border border-border/60 bg-card px-3 py-3 text-muted-foreground text-sm">
+            No active misconceptions yet.
+          </p>
+        )}
+      </section>
     </div>
   );
 }

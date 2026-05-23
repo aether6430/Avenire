@@ -6,6 +6,7 @@ import { isTypingTarget } from "@/components/dashboard/dashboard-sidebar-runtime
 import type { DashboardSidebarView } from "@/components/dashboard/sidebar-startup";
 import type { ChatSummary } from "@/lib/chat-data";
 import { commandPaletteActions } from "@/stores/commandPaletteStore";
+import type { FilesUiIntent } from "@/stores/filesUiStore";
 import { filesUiActions } from "@/stores/filesUiStore";
 
 type SidebarNavigate = (
@@ -27,6 +28,7 @@ export function useDashboardSidebarHotkeys({
   activeView,
   chats,
   createChat,
+  emitFileIntent,
   isChatsRoute,
   navigate,
   navigateToFilesRoot,
@@ -37,6 +39,7 @@ export function useDashboardSidebarHotkeys({
   activeView: DashboardSidebarView;
   chats: ChatSummary[];
   createChat: () => Promise<void>;
+  emitFileIntent: (intent: FilesUiIntent) => Promise<void> | void;
   isChatsRoute: boolean;
   navigate: SidebarNavigate;
   navigateToFilesRoot: (options?: { openInNewPane?: boolean }) => Promise<void>;
@@ -115,9 +118,7 @@ export function useDashboardSidebarHotkeys({
     "Mod+Shift+N",
     (event) => {
       event.preventDefault();
-      if (activeView === "files") {
-        filesUiActions.emitIntent("createFolder");
-      }
+      void emitFileIntent("createFolder");
     },
     { ignoreInputs: true }
   );
@@ -126,9 +127,7 @@ export function useDashboardSidebarHotkeys({
     "Mod+U",
     (event) => {
       event.preventDefault();
-      if (activeView === "files") {
-        filesUiActions.emitIntent("uploadFile");
-      }
+      void emitFileIntent("uploadFile");
     },
     { ignoreInputs: true }
   );
@@ -137,9 +136,7 @@ export function useDashboardSidebarHotkeys({
     "Mod+Shift+U",
     (event) => {
       event.preventDefault();
-      if (activeView === "files") {
-        filesUiActions.emitIntent("uploadFolder");
-      }
+      void emitFileIntent("uploadFolder");
     },
     { ignoreInputs: true }
   );
@@ -240,9 +237,7 @@ export function useDashboardSidebarHotkeys({
     "Mod+Shift+O",
     (event) => {
       event.preventDefault();
-      if (activeView === "files") {
-        filesUiActions.emitIntent("newNote");
-      }
+      void emitFileIntent("newNote");
     },
     { ignoreInputs: true }
   );
@@ -251,9 +246,7 @@ export function useDashboardSidebarHotkeys({
     "Mod+Shift+L",
     (event) => {
       event.preventDefault();
-      if (activeView === "files") {
-        filesUiActions.emitIntent("importLink");
-      }
+      void emitFileIntent("importLink");
     },
     { ignoreInputs: true }
   );

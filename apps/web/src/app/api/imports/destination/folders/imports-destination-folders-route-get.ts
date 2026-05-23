@@ -25,6 +25,7 @@ export async function handleImportsDestinationFoldersGet(input: {
   } catch (error) {
     const failure = resolveImportsRouteError(error, {
       fallback: "Unable to load folders.",
+      status: 500,
     });
     return NextResponse.json(
       { error: failure.error },

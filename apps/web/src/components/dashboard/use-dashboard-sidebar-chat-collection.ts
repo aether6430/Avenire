@@ -29,6 +29,9 @@ export function useDashboardSidebarChatCollection({
   workspaceUuid: string | null;
 }) {
   const [chats, setChats] = useState<ChatSummary[]>(initialChats);
+  const [chatsErrorMessage, setChatsErrorMessage] = useState<string | null>(
+    null
+  );
   const [chatsLoadFailed, setChatsLoadFailed] = useState(false);
   const [chatsLoading, setChatsLoading] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -77,6 +80,7 @@ export function useDashboardSidebarChatCollection({
       writeCachedChats,
     });
     setChats(result.chats);
+    setChatsErrorMessage(result.errorMessage);
     setChatsLoadFailed(result.loadFailed);
     setChatsLoading(false);
   }, [workspaceUuid]);
@@ -111,6 +115,7 @@ export function useDashboardSidebarChatCollection({
 
   return {
     chats,
+    chatsErrorMessage,
     chatsLoadFailed,
     chatsLoading,
     loadChats,

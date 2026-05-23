@@ -1,5 +1,8 @@
 import type { Route } from "next";
-import { getWorkspaceTreePayload } from "@/lib/workspace-tree-client";
+import {
+  getWorkspaceTreePayload,
+  loadWorkspaceTreePayload,
+} from "@/lib/workspace-tree-client";
 import { createWorkspaceTreePathResolver } from "@/lib/workspace-tree-read-model";
 
 export async function resolveWorkspaceFileRoute(
@@ -19,22 +22,33 @@ export async function resolveWorkspaceFileRoute(
     trimmedIdentifier.includes("/") || trimmedIdentifier.includes(".");
 
   if (isLikelyWorkspacePath) {
-    const payload = await getWorkspaceTreePayload(workspaceUuid, {
+    const cachedPayload = await getWorkspaceTreePayload(workspaceUuid, {
       preferCache: true,
     });
-    if (!payload) {
+    if (!cachedPayload) {
       return null;
     }
-    const matchedFile =
-      createWorkspaceTreePathResolver(payload).findFileByWorkspacePath(
+    const cachedResolver = createWorkspaceTreePathResolver(cachedPayload);
+    const cachedMatch =
+      cachedResolver.findFileByWorkspacePath(trimmedIdentifier);
+    if (cachedMatch) {
+      return `/workspace/files/${workspaceUuid}/folder/${cachedMatch.folderId}?file=${cachedMatch.id}` as Route;
+    }
+
+    const freshPayload = await loadWorkspaceTreePayload(workspaceUuid);
+    if (!freshPayload) {
+      return null;
+    }
+    const freshMatch =
+      createWorkspaceTreePathResolver(freshPayload).findFileByWorkspacePath(
         trimmedIdentifier
       );
 
-    if (!matchedFile) {
+    if (!freshMatch) {
       return null;
     }
 
-    return `/workspace/files/${workspaceUuid}/folder/${matchedFile.folderId}?file=${matchedFile.id}` as Route;
+    return `/workspace/files/${workspaceUuid}/folder/${freshMatch.folderId}?file=${freshMatch.id}` as Route;
   }
 
   const response = await fetch(

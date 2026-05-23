@@ -5,6 +5,8 @@ import { ensureWorkspaceAccessForUser } from "@/lib/workspace";
 import {
   buildRetrievalQuerySuccessHeaders,
   parseRetrievalQueryBody,
+  RETRIEVAL_QUERY_ROUTE_ERROR,
+  resolveRetrievalQueryRouteError,
 } from "./retrieval-query-route-model";
 
 export async function handleRetrievalQueryRoutePost(input: {
@@ -17,7 +19,7 @@ export async function handleRetrievalQueryRoutePost(input: {
       await input.request.json().catch(() => ({}))
     );
     if (!parsed.success) {
-      input.apiLogger.requestFailed(400, "Invalid payload");
+      await input.apiLogger.requestFailed(400, "Invalid payload");
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
 
@@ -26,7 +28,7 @@ export async function handleRetrievalQueryRoutePost(input: {
       parsed.data.workspaceUuid
     );
     if (!canAccess) {
-      input.apiLogger.requestFailed(403, "Forbidden", {
+      await input.apiLogger.requestFailed(403, "Forbidden", {
         workspaceUuid: parsed.data.workspaceUuid,
       });
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -43,7 +45,7 @@ export async function handleRetrievalQueryRoutePost(input: {
       workspaceId: parsed.data.workspaceUuid,
     });
 
-    input.apiLogger.requestSucceeded(200, {
+    await input.apiLogger.requestSucceeded(200, {
       workspaceUuid: parsed.data.workspaceUuid,
       cache: result.cache,
       latencyMs: result.latencyMs,
@@ -54,9 +56,14 @@ export async function handleRetrievalQueryRoutePost(input: {
       headers: buildRetrievalQuerySuccessHeaders(result.cache),
     });
   } catch (error) {
-    input.apiLogger.requestFailed(500, error);
+    await input.apiLogger.requestFailed(500, error);
     return NextResponse.json(
-      { error: "Failed to query retrieval index" },
+      {
+        error: resolveRetrievalQueryRouteError(
+          error,
+          RETRIEVAL_QUERY_ROUTE_ERROR
+        ),
+      },
       { status: 500 }
     );
   }

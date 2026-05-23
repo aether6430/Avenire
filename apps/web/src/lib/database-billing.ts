@@ -1,5 +1,14 @@
-export type { BillingPlan, UsageMeterType } from "@avenire/database";
-export { consumeUsageUnits } from "@/lib/database-billing-metering";
+export type {
+  BillingFeature,
+  BillingPlan,
+  UsageMeterType,
+} from "@avenire/database";
+export {
+  canStoreBytesForUser,
+  consumeUsageUnits,
+  restoreUsageUnits,
+  userHasBillingFeature,
+} from "@/lib/database-billing-metering";
 export {
   findUserIdByPolarCustomerId,
   getBillingCustomerByUserId,

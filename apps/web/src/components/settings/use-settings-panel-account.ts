@@ -32,6 +32,7 @@ export function useSettingsPanelAccount({
   const linkedAccounts = useSettingsPanelLinkedAccounts({ currentTab });
   const {
     accounts,
+    accountsErrorMessage,
     accountsLoadFailed,
     accountsLoading,
     accountsStatus,
@@ -51,9 +52,11 @@ export function useSettingsPanelAccount({
 
   return {
     accounts,
+    accountsErrorMessage,
     accountsLoadFailed,
     accountsLoading,
     accountsStatus,
+    avatarSeed: avatar.avatarSeed,
     avatarPreview: avatar.avatarPreview,
     avatarUploading: avatar.avatarUploading,
     displayAvatar: avatar.displayAvatar,

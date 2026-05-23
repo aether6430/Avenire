@@ -28,6 +28,9 @@ html, body {
   font-size: 14px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  min-height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
   padding: 12px;
 }
 
@@ -232,15 +235,15 @@ window._readTheme = function() {
   var rootStyle = getComputedStyle(document.documentElement);
   return {
     mode: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
-    background: rootStyle.getPropertyValue('--canvas-background').trim() || rootStyle.getPropertyValue('--background').trim() || '#ffffff',
-    surface: rootStyle.getPropertyValue('--canvas-surface').trim() || rootStyle.getPropertyValue('--card').trim() || '#ffffff',
-    text: rootStyle.getPropertyValue('--canvas-text').trim() || rootStyle.getPropertyValue('--foreground').trim() || '#37352f',
+    background: rootStyle.getPropertyValue('--canvas-background').trim() || rootStyle.getPropertyValue('--background').trim() || '#fcfcfc',
+    surface: rootStyle.getPropertyValue('--canvas-surface').trim() || rootStyle.getPropertyValue('--card').trim() || '#fcfcfc',
+    text: rootStyle.getPropertyValue('--canvas-text').trim() || rootStyle.getPropertyValue('--foreground').trim() || '#141414f0',
     muted: rootStyle.getPropertyValue('--canvas-muted').trim() || rootStyle.getPropertyValue('--muted-foreground').trim() || '#9b9a97',
-    border: rootStyle.getPropertyValue('--canvas-border').trim() || rootStyle.getPropertyValue('--border').trim() || 'rgba(55, 53, 47, 0.09)',
-    primary: rootStyle.getPropertyValue('--canvas-primary').trim() || rootStyle.getPropertyValue('--primary').trim() || '#abcfff',
-    primaryForeground: rootStyle.getPropertyValue('--canvas-primary-foreground').trim() || rootStyle.getPropertyValue('--primary-foreground').trim() || '#1b2733',
-    accent: rootStyle.getPropertyValue('--canvas-accent').trim() || rootStyle.getPropertyValue('--secondary').trim() || '#fafafa',
-    accentForeground: rootStyle.getPropertyValue('--canvas-accent-foreground').trim() || rootStyle.getPropertyValue('--secondary-foreground').trim() || '#37352f',
+    border: rootStyle.getPropertyValue('--canvas-border').trim() || rootStyle.getPropertyValue('--border').trim() || '#14141414',
+    primary: rootStyle.getPropertyValue('--canvas-primary').trim() || rootStyle.getPropertyValue('--primary').trim() || '#abc4ff',
+    primaryForeground: rootStyle.getPropertyValue('--canvas-primary-foreground').trim() || rootStyle.getPropertyValue('--primary-foreground').trim() || '#141414f0',
+    accent: rootStyle.getPropertyValue('--canvas-accent').trim() || rootStyle.getPropertyValue('--secondary').trim() || '#f8f8f8',
+    accentForeground: rootStyle.getPropertyValue('--canvas-accent-foreground').trim() || rootStyle.getPropertyValue('--secondary-foreground').trim() || '#141414bd',
     grid: rootStyle.getPropertyValue('--canvas-grid').trim() || 'rgba(0,0,0,0.08)',
     gridStrong: rootStyle.getPropertyValue('--canvas-grid-strong').trim() || 'rgba(0,0,0,0.16)',
   };

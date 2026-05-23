@@ -1,4 +1,7 @@
 {
   "extends": "@avenire/typescript-config/base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM"]
+  },
   "include": ["*.ts", "models/**/*.ts", "prompts/**/*.ts", "tools/**/*.ts"]
 }

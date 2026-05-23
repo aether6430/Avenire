@@ -5,6 +5,7 @@ import { DashboardSidebarChatPanel } from "./dashboard-sidebar-chat-panel";
 const baseProps = {
   activeChatSlug: "",
   chatActionStatus: null,
+  chatsErrorMessage: null,
   chatSearchQuery: "",
   editingChatSlug: null,
   editingTitle: "",
@@ -28,11 +29,16 @@ const baseProps = {
 describe("DashboardSidebarChatPanel", () => {
   it("renders the methods chrome around explicit chat load failures", () => {
     const html = renderToStaticMarkup(
-      <DashboardSidebarChatPanel {...baseProps} chatsLoadFailed />
+      <DashboardSidebarChatPanel
+        {...baseProps}
+        chatsErrorMessage="chat history offline"
+        chatsLoadFailed
+      />
     );
 
     expect(html).toContain("Methods");
     expect(html).toContain("Unable to load methods.");
+    expect(html).toContain("chat history offline");
     expect(html).not.toContain("No methods yet");
   });
 
@@ -40,11 +46,11 @@ describe("DashboardSidebarChatPanel", () => {
     const html = renderToStaticMarkup(
       <DashboardSidebarChatPanel
         {...baseProps}
-        chatActionStatus="Unable to update method."
+        chatActionStatus="Unable to update Method."
       />
     );
 
-    expect(html).toContain("Unable to update method.");
+    expect(html).toContain("Unable to update Method.");
   });
 
   it("only renders the local methods search field when search is open", () => {

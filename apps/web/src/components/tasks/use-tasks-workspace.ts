@@ -80,6 +80,7 @@ export function useTasksWorkspace({
   const searchParams = usePaneSearchParams();
   const { recordRoute } = usePaneWorkspaceHistoryActions();
   const {
+    errorMessage,
     loadFailed,
     loading,
     tasks: allTasks,
@@ -179,10 +180,6 @@ export function useTasksWorkspace({
     return () => {
       window.removeEventListener(TASKS_REFRESH_EVENT, refresh);
     };
-  }, [workspaceId]);
-
-  useEffect(() => {
-    void reloadWorkspaceTasks(workspaceId, { background: true });
   }, [workspaceId]);
 
   useEffect(() => {
@@ -408,6 +405,7 @@ export function useTasksWorkspace({
     dropStatus,
     draggedTaskId,
     draft,
+    errorMessage,
     groupedTasks,
     grouping,
     handleCreateTask,

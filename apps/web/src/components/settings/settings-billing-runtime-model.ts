@@ -4,10 +4,12 @@ import type {
 } from "@/components/settings/settings-panel-model";
 
 export interface BillingMeterLike {
+  kind: "credits" | "storage";
   label: string;
-  refillAt: string | null;
+  refillAt?: string | null;
   remaining: number;
   total: number;
+  used?: number;
 }
 
 export function shouldLoadInitialBillingUsage(input: {
@@ -26,6 +28,7 @@ export function shouldPollBillingUsage(input: {
 
 export function createBillingUsageLoadStartState(showLoading: boolean) {
   return {
+    billingErrorMessage: null,
     billingLoadFailed: false,
     billingLoading: showLoading,
     billingStatus: showLoading ? "Loading usage..." : null,
@@ -37,6 +40,7 @@ export function createBillingUsageLoadSuccessState(
   showLoading: boolean
 ) {
   return {
+    billingErrorMessage: null,
     billingLoadFailed: false,
     billingLoading: false,
     billingStatus: showLoading ? null : undefined,
@@ -44,18 +48,23 @@ export function createBillingUsageLoadSuccessState(
   };
 }
 
+function resolveBillingUsageErrorMessage(error: unknown) {
+  return error instanceof Error
+    ? error.message
+    : "Unable to load billing usage.";
+}
+
 export function createBillingUsageLoadFailureState(
   error: unknown,
   showLoading: boolean
 ) {
+  const billingErrorMessage = resolveBillingUsageErrorMessage(error);
+
   return {
+    billingErrorMessage,
     billingLoadFailed: true,
     billingLoading: false,
-    billingStatus: showLoading
-      ? error instanceof Error
-        ? error.message
-        : "Unable to load billing usage."
-      : undefined,
+    billingStatus: showLoading ? billingErrorMessage : undefined,
     billingUsage: null,
   };
 }
@@ -69,22 +78,18 @@ export function createSettingsBillingMeters(
 
   return [
     {
-      label: "Total credits",
-      remaining: billingUsage.combined.totalBalance,
-      total: billingUsage.combined.totalCapacity,
-      refillAt: billingUsage.chat.refillAt ?? billingUsage.upload.refillAt,
-    },
-    {
+      kind: "credits",
       label: "Method credits",
       remaining: billingUsage.chat.totalBalance,
       total: billingUsage.chat.totalCapacity,
       refillAt: billingUsage.chat.refillAt,
     },
     {
-      label: "Upload credits",
-      remaining: billingUsage.upload.totalBalance,
-      total: billingUsage.upload.totalCapacity,
-      refillAt: billingUsage.upload.refillAt,
+      kind: "storage",
+      label: "Storage",
+      remaining: billingUsage.storage.remainingBytes,
+      total: billingUsage.storage.limitBytes,
+      used: billingUsage.storage.usedBytes,
     },
   ];
 }

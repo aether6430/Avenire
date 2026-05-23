@@ -1,90 +1,66 @@
-import type { Route } from "next";
 import type { ChatSummary } from "@/lib/chat-data";
 import type {
-  ChatCreatedDetail,
   ChatNameUpdatedDetail,
   ChatStreamStatusDetail,
 } from "@/lib/chat-events";
 
-type SidebarNavigate = (
-  href: string,
-  navigateOptions?: {
-    openInNewPane?: boolean;
-    replace?: boolean;
-    scroll?: boolean;
-  }
-) => void;
+export interface DashboardWorkspaceInvalidationPayload {
+  action?: string | null;
+  chat?: unknown;
+  chatSlug?: string | null;
+  fileId?: string | null;
+  folderId?: string | null;
+  reason?: string | null;
+  workspaceUuid?: string | null;
+}
 
-export function resolveDashboardPendingCreatedChat(input: {
-  activeChatSlug: string;
-  detail: ChatCreatedDetail;
-  pathname: string;
-  workspaceUuid: string | null;
-}) {
-  if (
-    !(
-      input.pathname === "/workspace/chats/new" ||
-      input.activeChatSlug === "new" ||
-      input.detail.fromId === "new"
-    )
-  ) {
+export function parseDashboardWorkspaceInvalidationPayload(
+  raw: string | null | undefined
+): DashboardWorkspaceInvalidationPayload | null {
+  if (typeof raw !== "string") {
     return null;
   }
 
-  const timestamp = new Date().toISOString();
-  return {
-    activeChatSlugOverride: input.detail.id,
-    navigateTo: `/workspace/chats/${input.detail.id}` as Route,
-    pendingCreatedChat: {
-      branching: null,
-      createdAt: timestamp,
-      icon: null,
-      id: input.detail.id,
-      lastMessageAt: timestamp,
-      pinned: false,
-      slug: input.detail.id,
-      title: input.detail.title,
-      updatedAt: timestamp,
-      workspaceId: input.workspaceUuid,
-    } satisfies ChatSummary,
-  };
+  try {
+    return JSON.parse(raw) as DashboardWorkspaceInvalidationPayload;
+  } catch {
+    return null;
+  }
+}
+
+function isDashboardRealtimeChatSummary(value: unknown): value is ChatSummary {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as Partial<ChatSummary>;
+  return (
+    typeof candidate.slug === "string" &&
+    typeof candidate.title === "string" &&
+    typeof candidate.lastMessageAt === "string"
+  );
 }
 
 export function applyDashboardChatNameUpdate(input: {
   detail: ChatNameUpdatedDetail;
-  pendingCreatedChat: ChatSummary | null;
   previousChats: ChatSummary[];
 }) {
   const timestamp = new Date().toISOString();
-  const nextPendingCreatedChat =
-    input.pendingCreatedChat?.slug === input.detail.id
+
+  return input.previousChats.map((chat) =>
+    chat.slug === input.detail.id
       ? {
-          ...input.pendingCreatedChat,
-          icon: input.detail.icon ?? input.pendingCreatedChat.icon ?? null,
+          ...chat,
           title: input.detail.name,
+          icon: input.detail.icon ?? chat.icon ?? null,
           updatedAt: timestamp,
         }
-      : input.pendingCreatedChat;
-
-  return {
-    chats: input.previousChats.map((chat) =>
-      chat.slug === input.detail.id
-        ? {
-            ...chat,
-            title: input.detail.name,
-            icon: input.detail.icon ?? chat.icon ?? null,
-            updatedAt: timestamp,
-          }
-        : chat
-    ),
-    pendingCreatedChat: nextPendingCreatedChat,
-  };
+      : chat
+  );
 }
 
 export function applyDashboardChatStreamStatus(input: {
   detail: ChatStreamStatusDetail;
-  pendingCreatedChat: ChatSummary | null;
-  previousChats: ChatSummary[];
   previousPendingChatSlug: string | null;
 }) {
   if (
@@ -92,39 +68,34 @@ export function applyDashboardChatStreamStatus(input: {
     input.detail.status === "streaming"
   ) {
     return {
-      chats: input.previousChats,
       pendingChatSlug: input.detail.chatId,
-      pendingCreatedChat: input.pendingCreatedChat,
+      shouldReload: true,
     };
   }
 
-  if (!(input.detail.status === "ready" || input.detail.status === "error")) {
+  if (input.detail.status === "ready") {
     return {
-      chats: input.previousChats,
-      pendingChatSlug: input.previousPendingChatSlug,
-      pendingCreatedChat: input.pendingCreatedChat,
+      pendingChatSlug:
+        input.previousPendingChatSlug === input.detail.chatId
+          ? null
+          : input.previousPendingChatSlug,
+      shouldReload: true,
     };
   }
 
-  const shouldInsertPendingCreatedChat =
-    input.detail.status === "ready" &&
-    input.pendingCreatedChat?.slug === input.detail.chatId &&
-    !input.previousChats.some(
-      (chat) => chat.slug === input.pendingCreatedChat?.slug
-    );
+  if (input.detail.status === "error") {
+    return {
+      pendingChatSlug:
+        input.previousPendingChatSlug === input.detail.chatId
+          ? null
+          : input.previousPendingChatSlug,
+      shouldReload: false,
+    };
+  }
 
   return {
-    chats: shouldInsertPendingCreatedChat
-      ? [input.pendingCreatedChat!, ...input.previousChats]
-      : input.previousChats,
-    pendingChatSlug:
-      input.previousPendingChatSlug === input.detail.chatId
-        ? null
-        : input.previousPendingChatSlug,
-    pendingCreatedChat:
-      input.detail.status === "ready" || input.detail.status === "error"
-        ? null
-        : input.pendingCreatedChat,
+    pendingChatSlug: input.previousPendingChatSlug,
+    shouldReload: false,
   };
 }
 
@@ -137,6 +108,59 @@ export function shouldReloadDashboardChatsForInvalidation(input: {
       input.detail.workspaceUuid === input.workspaceUuid &&
       input.detail.kind === "chat"
   );
+}
+
+export function applyDashboardChatInvalidation(input: {
+  detail:
+    | {
+        kind?: string;
+        payload?: DashboardWorkspaceInvalidationPayload | null;
+        workspaceUuid?: string;
+      }
+    | null
+    | undefined;
+  previousChats: ChatSummary[];
+  workspaceUuid: string | null;
+}) {
+  if (
+    !(
+      input.detail?.workspaceUuid &&
+      input.detail.workspaceUuid === input.workspaceUuid &&
+      input.detail.kind === "chat" &&
+      input.detail.payload?.action
+    )
+  ) {
+    return null;
+  }
+
+  if (
+    input.detail.payload.action === "deleted" &&
+    input.detail.payload.chatSlug
+  ) {
+    return input.previousChats.filter(
+      (chat) => chat.slug !== input.detail?.payload?.chatSlug
+    );
+  }
+
+  if (
+    (input.detail.payload.action === "created" ||
+      input.detail.payload.action === "updated") &&
+    isDashboardRealtimeChatSummary(input.detail.payload.chat)
+  ) {
+    const nextChat = input.detail.payload.chat;
+    const existingIndex = input.previousChats.findIndex(
+      (chat) => chat.slug === nextChat.slug
+    );
+    if (existingIndex === -1) {
+      return [nextChat, ...input.previousChats];
+    }
+
+    return input.previousChats.map((chat) =>
+      chat.slug === nextChat.slug ? nextChat : chat
+    );
+  }
+
+  return null;
 }
 
 export function resolveDashboardChatSessionScope(input: {

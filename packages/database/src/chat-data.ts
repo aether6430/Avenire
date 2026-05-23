@@ -214,16 +214,17 @@ export async function listChatsForUser(
 export async function createChatForUser(
   userId: string,
   workspaceId: string,
-  title?: string
+  title?: string,
+  slug?: string
 ) {
   const now = new Date();
   const cleanTitle = sanitizeTitle(title);
-  const slug = randomUUID();
+  const resolvedSlug = slug?.trim() || randomUUID();
   const newThread: typeof chatThread.$inferInsert = {
     id: randomUUID(),
     userId,
     workspaceId,
-    slug,
+    slug: resolvedSlug,
     branching: null,
     title: cleanTitle,
     pinned: false,
@@ -364,6 +365,31 @@ export async function getChatBySlugForUser(
     sharedLocked: true,
     ownerUserId: thread.userId,
   };
+}
+
+export async function getWritableChatBySlugForUser(
+  userId: string,
+  slug: string,
+  workspaceId?: string | null
+) {
+  const [thread] = await db
+    .select()
+    .from(chatThread)
+    .where(
+      and(
+        eq(chatThread.slug, slug),
+        workspaceId ? eq(chatThread.workspaceId, workspaceId) : undefined
+      )
+    )
+    .limit(1);
+
+  return thread
+    ? {
+        ...mapChatSummary(thread),
+        readOnly: thread.userId !== userId,
+        ownerUserId: thread.userId,
+      }
+    : null;
 }
 
 export async function getChatBySlug(slug: string) {

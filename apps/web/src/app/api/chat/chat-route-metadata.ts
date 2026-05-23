@@ -28,6 +28,7 @@ export function resolveChatTitleModel(): ApolloModelName {
     "apollo-sprint",
     "apollo-core",
     "apollo-apex",
+    "apex-turbo",
     "apollo-agent",
     "apollo-meta",
     "apollo-tiny",
@@ -50,7 +51,8 @@ export async function generateChatMetadata(
   latestUserText: string,
   abortSignal?: AbortSignal
 ) {
-  if (!latestUserText) {
+  const trimmedLatestUserText = latestUserText.trim();
+  if (!trimmedLatestUserText) {
     logInfo("Skipping chat title generation: latest user text missing");
     return null;
   }
@@ -60,7 +62,7 @@ export async function generateChatMetadata(
     logInfo("Generating chat title", {
       model: apollo.languageModel(modelName),
       providerModel: APOLLO_LANGUAGE_MODEL_IDS[modelName],
-      sourceLength: latestUserText.length,
+      sourceLength: trimmedLatestUserText.length,
     });
 
     const { text } = await generateText({
@@ -74,7 +76,7 @@ export async function generateChatMetadata(
         CHAT_ICON_NAMES.join(", "),
         "Return ONLY valid JSON with this shape:",
         '{"title":"...","icon":"..."}',
-        `User message: ${latestUserText}`,
+        `User message: ${trimmedLatestUserText}`,
       ].join("\n"),
       maxOutputTokens: 64,
       temperature: 0.2,
@@ -113,11 +115,11 @@ export async function generateChatMetadata(
     }
 
     const normalized = parsedTitle ? sanitizeChatName(parsedTitle) : "";
-    const fallback = fallbackChatNameFromText(latestUserText);
+    const fallback = fallbackChatNameFromText(trimmedLatestUserText);
     const accepted =
       normalized.length > 0 &&
       (normalized.length >= 8 ||
-        latestUserText.trim().length <= normalized.length + 4);
+        trimmedLatestUserText.length <= normalized.length + 4);
     logInfo("Generated chat title result", {
       raw: text,
       normalized,
@@ -137,7 +139,7 @@ export async function generateChatMetadata(
     }
     logError("Failed to generate chat title", { error });
     return {
-      title: fallbackChatNameFromText(latestUserText),
+      title: fallbackChatNameFromText(trimmedLatestUserText),
       icon: DEFAULT_CHAT_ICON,
     };
   }

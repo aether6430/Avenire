@@ -23,7 +23,6 @@ interface BuildFilePreviewMediaModelOptions {
 export type FilePreviewMediaModel =
   | {
       kind: "pdf";
-      circleToAiFileKind: "pdf";
       pdfViewer: {
         highlightPage: number | null;
         highlightText: string;
@@ -32,7 +31,6 @@ export type FilePreviewMediaModel =
     }
   | {
       kind: "video";
-      circleToAiFileKind: "video";
       videoPlayer: {
         activeRangeIndex: number | null;
         captionsSrc?: string;
@@ -55,7 +53,6 @@ export type FilePreviewMediaModel =
     }
   | {
       kind: "image";
-      circleToAiFileKind: "image";
       imageViewer: {
         src: string;
       };
@@ -86,7 +83,6 @@ export function buildFilePreviewMediaModel({
 }: BuildFilePreviewMediaModelOptions): FilePreviewMediaModel {
   if (isPdf) {
     return {
-      circleToAiFileKind: "pdf",
       kind: "pdf",
       pdfViewer: {
         highlightPage: retrievalModel.pdfHighlightPage,
@@ -98,7 +94,6 @@ export function buildFilePreviewMediaModel({
 
   if (isVideo && !videoLoadFailed) {
     return {
-      circleToAiFileKind: "video",
       kind: "video",
       videoPlayer: {
         activeRangeIndex: retrievalModel.activeRangeIndex,
@@ -124,7 +119,6 @@ export function buildFilePreviewMediaModel({
 
   if (isImage) {
     return {
-      circleToAiFileKind: "image",
       imageViewer: {
         src: activeFileSourceUrl,
       },

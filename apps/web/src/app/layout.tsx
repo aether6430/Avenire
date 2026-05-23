@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { metadataBase } from "@/lib/page-metadata";
 import "./globals.css";
@@ -37,7 +37,7 @@ const defaultOgImage = {
   alt: "Avenire — AI learning workspace",
   height: 630,
   type: "image/png",
-  url: "/api/og?title=Avenire&description=Learn%20with%20context",
+  url: "/api/og?template=home",
   width: 1200,
 };
 
@@ -49,6 +49,14 @@ export const metadata: Metadata = {
   },
   description,
   manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { type: "image/svg+xml", url: "/favicon.svg" },
+      { type: "image/png", url: "/branding/avenire-logo-full.png" },
+    ],
+    shortcut: "/favicon.svg",
+    apple: "/branding/avenire-logo-full.png",
+  },
   openGraph: {
     description,
     siteName: "Avenire",
@@ -68,6 +76,13 @@ export const metadata: Metadata = {
       },
     ],
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { color: "#fcfcfc", media: "(prefers-color-scheme: light)" },
+    { color: "#141414", media: "(prefers-color-scheme: dark)" },
+  ],
 };
 
 export default function RootLayout({

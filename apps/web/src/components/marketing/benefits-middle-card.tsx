@@ -4,7 +4,7 @@ import { DivideX } from "./divide";
 import { LogoSVG } from "./logo";
 
 export function BenefitsMiddleCard() {
-  const texts = ["Misconception logged", "Mindset ready", "Context synced"];
+  const texts = ["Misconception logged", "Mindset Set ready", "Context synced"];
   const progressItems = [
     { label: "Sources linked", width: "86%", delay: "0.4s" },
     { label: "Notes updated", width: "74%", delay: "0.5s" },

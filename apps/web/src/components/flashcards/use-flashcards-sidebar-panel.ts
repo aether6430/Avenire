@@ -53,6 +53,7 @@ export function useFlashcardsSidebarPanel({
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [createStatus, setCreateStatus] = useState<string | null>(null);
+  const [setsErrorMessage, setSetsErrorMessage] = useState<string | null>(null);
   const [setsLoadFailed, setSetsLoadFailed] = useState(false);
   const [setsLoading, setSetsLoading] = useState(false);
 
@@ -64,21 +65,22 @@ export function useFlashcardsSidebarPanel({
 
       setSetsLoading(true);
       setSetsLoadFailed(false);
+      setSetsErrorMessage(null);
       try {
         const nextSets = await loadFlashcardsSidebarSets(signal);
-        if (!nextSets) {
-          setSets([]);
-          setSetsLoadFailed(true);
-          return;
-        }
-
         setSets(nextSets);
         setSetsLoadFailed(false);
+        setSetsErrorMessage(null);
         if (setsWorkspaceRef.current === workspaceUuid) {
           writeCachedFlashcardSets(workspaceUuid, nextSets);
         }
-      } catch {
+      } catch (error) {
         setSets([]);
+        setSetsErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "Unable to load Mindset Sets."
+        );
         setSetsLoadFailed(true);
       } finally {
         setSetsLoading(false);
@@ -278,6 +280,7 @@ export function useFlashcardsSidebarPanel({
     searchQuery,
     setCreateOpen,
     setDescription,
+    setsErrorMessage,
     setSearchQuery,
     setsLoadFailed,
     setsLoading,

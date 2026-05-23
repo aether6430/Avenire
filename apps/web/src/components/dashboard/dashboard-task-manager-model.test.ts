@@ -20,12 +20,13 @@ describe("dashboard task manager model", () => {
 
     expect(
       getDashboardTaskManagerState({
+        errorMessage: "Could not load tasks right now.",
         loadFailed: true,
         loading: false,
         visibleTaskCount: 0,
       })
     ).toEqual({
-      description: "Try again in a moment or refresh the workspace.",
+      description: "Could not load tasks right now.",
       showSpinner: false,
       title: "Unable to load tasks.",
     });

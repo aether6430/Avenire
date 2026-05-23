@@ -64,6 +64,7 @@ export async function handleDuplicateWorkspaceFile(input: {
     await Promise.all([
       invalidateWorkspaceReadCaches(input.workspaceUuid),
       publishFilesInvalidationEvent({
+        fileId: file.id,
         workspaceUuid: input.workspaceUuid,
         reason: "file.created",
       }),
@@ -100,6 +101,7 @@ export async function handleDuplicateWorkspaceFile(input: {
   await Promise.all([
     invalidateWorkspaceReadCaches(input.workspaceUuid),
     publishFilesInvalidationEvent({
+      fileId: file.id,
       workspaceUuid: input.workspaceUuid,
       reason: "file.created",
     }),

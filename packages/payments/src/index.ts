@@ -1,7 +1,33 @@
 import { Polar } from "@polar-sh/sdk";
-import { WebhookVerificationError, validateEvent } from "@polar-sh/sdk/webhooks";
+import {
+  WebhookVerificationError,
+  validateEvent,
+} from "@polar-sh/sdk/webhooks";
 
 type PolarServer = "sandbox" | "production";
+
+function describePolarError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return { value: error };
+  }
+
+  const record = error as Record<string, unknown>;
+  return {
+    body: record.body,
+    code: record.code,
+    message: record.message,
+    name: record.name,
+    status: record.status,
+    statusCode: record.statusCode,
+  };
+}
+
+function logPaymentError(message: string, payload: Record<string, unknown>) {
+  const logger = Reflect.get(globalThis, "console") as
+    | { error?: (message?: unknown, ...optionalParams: unknown[]) => void }
+    | undefined;
+  logger?.error?.(message, payload);
+}
 
 function getPolarServer(): PolarServer {
   const configured = process.env.POLAR_SERVER;
@@ -68,19 +94,101 @@ export function mapProductIdToPlan(productId?: string | null): PaidPlan | null {
   return planByProduct.get(productId) ?? null;
 }
 
+export async function ensurePolarCustomer(input: {
+  userId: string;
+  email: string;
+  name?: string | null;
+}) {
+  const polar = getPolarClient();
+
+  try {
+    return await polar.customers.getExternal({ externalId: input.userId });
+  } catch {
+    // Existing users may predate Better Auth's Polar customer creation hook.
+  }
+
+  const existingByEmail = await polar.customers.list({
+    email: input.email,
+    limit: 10,
+  });
+
+  for await (const page of existingByEmail) {
+    const customer = page.result.items.find(
+      (item) =>
+        typeof item.email === "string" &&
+        item.email.toLowerCase() === input.email.toLowerCase()
+    );
+
+    if (!customer) {
+      continue;
+    }
+
+    if (customer.externalId && customer.externalId !== input.userId) {
+      throw new Error(
+        `Polar customer ${customer.id} is already linked to external id ${customer.externalId}`
+      );
+    }
+
+    if (customer.externalId === input.userId) {
+      return customer;
+    }
+
+    return polar.customers.update({
+      id: customer.id,
+      customerUpdate: {
+        externalId: input.userId,
+        name: input.name ?? customer.name ?? null,
+      },
+    });
+  }
+
+  return polar.customers.create({
+    email: input.email,
+    externalId: input.userId,
+    name: input.name ?? null,
+  });
+}
+
+export async function getActiveSubscriptionForExternalCustomer(
+  externalCustomerId: string
+) {
+  const polar = getPolarClient();
+  try {
+    const result = await polar.subscriptions.list({
+      active: true,
+      externalCustomerId,
+      limit: 10,
+      sorting: ["-started_at"],
+    });
+
+    for await (const page of result) {
+      return page.result.items[0] ?? null;
+    }
+  } catch (error) {
+    logPaymentError("[payments] failed to list Polar subscriptions", {
+      error: describePolarError(error),
+      externalCustomerId,
+      polarServer: getPolarServer(),
+    });
+    throw error;
+  }
+
+  return null;
+}
+
 export async function validatePolarWebhook(
   payload: string,
-  headers: Record<string, string>,
+  headers: Record<string, string>
 ) {
   return handlePolarWebhook(
     payload,
-    headers["polar-signature"] ?? headers["Polar-Signature"] ?? null,
+    headers["polar-signature"] ?? headers["Polar-Signature"] ?? null
   );
 }
 
 export async function handlePolarWebhook(
   payload: string,
-  signatureHeader: string | null | undefined,
+  signatureHeader: string | null | undefined
 ) {
   const secret = (process.env.POLAR_WEBHOOK_SECRET ?? "").trim();
   const signature = signatureHeader?.trim();
@@ -99,12 +207,49 @@ export async function handlePolarWebhook(
   }
 }
 
-export async function createCustomerPortalLink(customerId: string, returnUrl?: string) {
+export async function createCustomerPortalLink(
+  customerId: string,
+  returnUrl?: string
+) {
   const polar = getPolarClient();
-  return polar.customerSessions.create({
-    customerId,
-    returnUrl: returnUrl ?? null,
-  });
+  try {
+    return await polar.customerSessions.create({
+      customerId,
+      returnUrl: returnUrl ?? null,
+    });
+  } catch (error) {
+    logPaymentError("[payments] failed to create Polar customer portal link", {
+      customerId,
+      error: describePolarError(error),
+      hasReturnUrl: Boolean(returnUrl),
+      polarServer: getPolarServer(),
+    });
+    throw error;
+  }
+}
+
+export async function createCustomerPortalLinkForExternalCustomer(
+  externalCustomerId: string,
+  returnUrl?: string
+) {
+  const polar = getPolarClient();
+  try {
+    return await polar.customerSessions.create({
+      externalCustomerId,
+      returnUrl: returnUrl ?? null,
+    });
+  } catch (error) {
+    logPaymentError(
+      "[payments] failed to create Polar external customer portal link",
+      {
+        error: describePolarError(error),
+        externalCustomerId,
+        hasReturnUrl: Boolean(returnUrl),
+        polarServer: getPolarServer(),
+      }
+    );
+    throw error;
+  }
 }
 
 export async function createCheckoutSession(input: {
@@ -118,7 +263,9 @@ export async function createCheckoutSession(input: {
   const polar = getPolarClient();
   const productId = getProductId(input.plan, input.billing);
   if (!productId) {
-    throw new Error(`Missing Polar product id for ${input.plan}/${input.billing}`);
+    throw new Error(
+      `Missing Polar product id for ${input.plan}/${input.billing}`
+    );
   }
 
   try {
@@ -135,6 +282,14 @@ export async function createCheckoutSession(input: {
       returnUrl: input.returnUrl,
     });
   } catch (error) {
+    logPaymentError("[payments] failed to create Polar checkout", {
+      billing: input.billing,
+      error: describePolarError(error),
+      plan: input.plan,
+      polarServer: getPolarServer(),
+      productId,
+      userId: input.userId,
+    });
     if (
       error &&
       typeof error === "object" &&

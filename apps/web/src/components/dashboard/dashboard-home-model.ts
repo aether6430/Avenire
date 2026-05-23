@@ -36,6 +36,7 @@ export interface WeakPointGroup {
 
 export function getDashboardActivityStateMessage(input: {
   activityCount: number;
+  errorMessage?: string | null;
   loadFailed: boolean;
   loading: boolean;
 }) {
@@ -48,7 +49,7 @@ export function getDashboardActivityStateMessage(input: {
 
   if (input.loadFailed && input.activityCount === 0) {
     return {
-      message: "Unable to load activity.",
+      message: input.errorMessage?.trim() || "Unable to load activity.",
       showSpinner: false,
     };
   }
@@ -61,6 +62,15 @@ export function getDashboardActivityStateMessage(input: {
   }
 
   return null;
+}
+
+export function resolveDashboardActivityErrorMessage(
+  error: unknown,
+  fallback = "Unable to load activity."
+) {
+  return error instanceof Error && error.message.trim().length > 0
+    ? error.message
+    : fallback;
 }
 
 export function buildDashboardDrillQuery(concepts: FlashcardTaxonomy[]) {
@@ -149,6 +159,6 @@ export function buildMisconceptionFlashcardPrompt(
   misconception: MisconceptionRecord
 ) {
   return encodeURIComponent(
-    `Generate a mindset set from this misconception and focus on correcting the wrong model.\n\nConcept: ${misconception.concept}\nSubject: ${misconception.subject}\nTopic: ${misconception.topic}\nReason: ${misconception.reason}\n\nUse the misconception tools if needed, then create the mindset set from the wrong model and the corrected model.`
+    `Generate a Mindset Set from this misconception and focus on correcting the wrong model.\n\nConcept: ${misconception.concept}\nSubject: ${misconception.subject}\nTopic: ${misconception.topic}\nReason: ${misconception.reason}\n\nUse the misconception tools if needed, then create the Mindset Set from the wrong model and the corrected model.`
   );
 }

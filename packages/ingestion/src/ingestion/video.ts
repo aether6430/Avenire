@@ -492,10 +492,11 @@ export const ingestVideo = async (input: {
     caption?: string;
   }>;
 }): Promise<CanonicalResource> => {
-  const source = input.url?.trim() || `video:inline:${crypto.randomUUID()}`;
+  const normalizedUrl = input.url?.trim();
+  const source = normalizedUrl || `video:inline:${crypto.randomUUID()}`;
   const startedAtMs = Date.now();
-  if (input.url) {
-    assertSafeUrl(input.url);
+  if (normalizedUrl) {
+    assertSafeUrl(normalizedUrl);
   }
 
   let transcript = input.transcript?.trim() ?? "";
@@ -503,9 +504,9 @@ export const ingestVideo = async (input: {
   let keyframes = input.keyframes;
   let transcriptionError: string | undefined;
 
-  if (input.url && (!(transcript && keyframes) || keyframes.length === 0)) {
+  if (normalizedUrl && (!(transcript && keyframes) || keyframes.length === 0)) {
     const resolveStartedAt = Date.now();
-    const sourceForFfmpeg = await resolveVideoMediaSource(input.url);
+    const sourceForFfmpeg = await resolveVideoMediaSource(normalizedUrl);
     logVideoStageTiming({
       stage: "resolve-media-source",
       durationMs: Date.now() - resolveStartedAt,
@@ -569,8 +570,8 @@ export const ingestVideo = async (input: {
         : transcription.segments;
       transcriptionError = transcription.error;
     } else if (shouldTranscribe) {
-      if (canFallbackToLinkExtraction(input.url)) {
-        const link = await ingestLink(input.url);
+      if (canFallbackToLinkExtraction(normalizedUrl)) {
+        const link = await ingestLink(normalizedUrl);
         transcript = link.chunks.map((chunk) => chunk.content).join("\n\n");
       } else {
         transcript = "";
@@ -584,9 +585,9 @@ export const ingestVideo = async (input: {
       // Keyframes are optional for successful ingestion if transcript exists.
       keyframes = [];
     }
-  } else if ((!keyframes || keyframes.length === 0) && input.url) {
+  } else if ((!keyframes || keyframes.length === 0) && normalizedUrl) {
     try {
-      const sourceForFfmpeg = await resolveVideoMediaSource(input.url);
+      const sourceForFfmpeg = await resolveVideoMediaSource(normalizedUrl);
       keyframes = await extractKeyframesFromResolvedUrl(sourceForFfmpeg);
     } catch {
       keyframes = [];

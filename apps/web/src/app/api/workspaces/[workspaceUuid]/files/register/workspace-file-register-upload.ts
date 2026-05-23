@@ -4,6 +4,7 @@ import { registerWorkspaceUploadedFile } from "@/lib/upload-registration";
 import { scheduleAsyncVideoDeliveryOptimization } from "@/lib/video-delivery-optimization";
 import {
   classifyStoredFileType,
+  WORKSPACE_FILE_REGISTER_ERROR,
   type WorkspaceFileRegisterBody,
   type WorkspaceFileRegisterLogger,
 } from "./workspace-file-register-model";
@@ -52,21 +53,14 @@ export async function registerWorkspaceStoredUpload(input: {
       hashComputedBy: input.body.hashComputedBy,
     });
   } catch (error) {
-    const isRateLimit =
-      (error as { code?: string } | null | undefined)?.code ===
-      "UPLOAD_RATE_LIMIT";
-    const retryAfter =
-      (error as { retryAfter?: string | null } | null | undefined)
-        ?.retryAfter ?? null;
-    if (isRateLimit) {
-      void input.apiLogger.rateLimited("upload", retryAfter, {
+    const isStorageLimit =
+      (error as { code?: string } | null | undefined)?.code === "STORAGE_LIMIT";
+    if (isStorageLimit) {
+      void input.apiLogger.rateLimited("storage", null, {
         workspaceUuid: input.workspaceUuid,
       });
       return NextResponse.json(
-        {
-          error: "Upload usage limit reached",
-          retryAfter,
-        },
+        { error: "Storage limit reached" },
         { status: 429 }
       );
     }
@@ -75,7 +69,7 @@ export async function registerWorkspaceStoredUpload(input: {
       workspaceUuid: input.workspaceUuid,
     });
     return NextResponse.json(
-      { error: "Failed to register file" },
+      { error: WORKSPACE_FILE_REGISTER_ERROR },
       { status: 500 }
     );
   }

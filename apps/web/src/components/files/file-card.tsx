@@ -1,6 +1,7 @@
 import { cn } from "@avenire/ui/lib/utils";
 import { FileCode as FileCode2 } from "@phosphor-icons/react";
 import Image from "next/image";
+import { useEffect, useState } from "react";
 import { formatTimeAgo } from "./file-card-thumbnail-model";
 
 export type FileCardType =
@@ -20,9 +21,12 @@ interface FileCardProps {
   }>;
   fileType: FileCardType;
   lastUpdated: Date;
+  matchMeta?: string;
+  matchSnippet?: string;
   name: string;
   previewContent?: React.ReactNode;
   previewUrl?: string;
+  variant?: "grid" | "row";
 }
 
 function getFileIcon(fileType: FileCardType): React.ReactNode {
@@ -58,11 +62,24 @@ export function FileCard({
   details = [],
   fileType,
   lastUpdated,
+  matchMeta,
+  matchSnippet,
   name,
   previewContent,
   previewUrl,
+  variant = "grid",
 }: FileCardProps) {
-  const timeAgo = formatTimeAgo(lastUpdated);
+  const [timeAgo, setTimeAgo] = useState(() => formatTimeAgo(lastUpdated));
+  useEffect(() => {
+    setTimeAgo(formatTimeAgo(lastUpdated));
+    const interval = setInterval(() => {
+      setTimeAgo(formatTimeAgo(lastUpdated));
+    }, 60_000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [lastUpdated]);
 
   const hasPreview = Boolean(previewContent || previewUrl);
   let previewBody: React.ReactNode = null;
@@ -97,14 +114,20 @@ export function FileCard({
   return (
     <div
       className={cn(
-        "inline-flex w-full max-w-full flex-col items-center gap-2 overflow-hidden",
+        variant === "row"
+          ? "grid w-full max-w-full grid-cols-[7.5rem_minmax(0,1fr)] items-stretch gap-3 overflow-hidden"
+          : "inline-flex w-full max-w-full flex-col items-center gap-2 overflow-hidden",
         className
       )}
     >
       <div
         className={cn(
-          "group relative flex w-full min-w-0 items-center justify-center overflow-hidden rounded-xl bg-muted/70",
-          hasPreview ? "h-28" : "aspect-[4/3] h-28"
+          "group relative flex w-full min-w-0 items-center justify-center overflow-hidden rounded-md border border-border/60 bg-muted/70",
+          variant === "row"
+            ? "h-full min-h-24"
+            : hasPreview
+              ? "h-28"
+              : "aspect-[4/3] h-28"
         )}
       >
         {previewBody}
@@ -112,38 +135,54 @@ export function FileCard({
           <div className="pointer-events-none absolute inset-0 bg-black opacity-0 transition-opacity duration-300 group-hover:opacity-10" />
         ) : null}
       </div>
-      <div className="flex w-full min-w-0 max-w-full items-center justify-between gap-2">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <span className="shrink-0 text-muted-foreground">
-            {getFileIcon(fileType)}
-          </span>
-          <span
-            className="min-w-0 flex-1 truncate font-medium text-sm"
-            title={name}
-          >
-            {name}
-          </span>
-        </div>
-        <span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-          {timeAgo}
-        </span>
-      </div>
-      {details.length > 0 ? (
-        <div className="flex w-full min-w-0 flex-wrap gap-1.5">
-          {details.map((detail) => (
-            <span
-              className="inline-flex max-w-full items-center gap-1 rounded-full bg-background/75 px-2 py-0.5 text-[10px] text-muted-foreground leading-none"
-              key={`${detail.label}:${detail.value}`}
-              title={`${detail.label}: ${detail.value}`}
-            >
-              <span className="shrink-0 font-medium text-foreground/75">
-                {detail.label}
-              </span>
-              <span className="min-w-0 truncate">{detail.value}</span>
+      <div className="flex min-w-0 flex-col gap-2">
+        <div className="flex w-full min-w-0 max-w-full items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <span className="shrink-0 text-muted-foreground">
+              {getFileIcon(fileType)}
             </span>
-          ))}
+            <span
+              className="min-w-0 flex-1 truncate font-medium text-sm"
+              title={name}
+            >
+              {name}
+            </span>
+          </div>
+          <span className="shrink-0 text-muted-foreground text-xs tabular-nums">
+            {timeAgo}
+          </span>
         </div>
-      ) : null}
+        {matchSnippet ? (
+          <div className="min-w-0">
+            {matchMeta ? (
+              <p className="mb-1 truncate text-[10px] text-muted-foreground">
+                {matchMeta}
+              </p>
+            ) : null}
+            <p className="line-clamp-3 text-muted-foreground text-xs leading-5">
+              {matchSnippet}
+            </p>
+          </div>
+        ) : null}
+        {details.length > 0 ? (
+          <div className="flex w-full min-w-0 flex-wrap gap-1.5">
+            {details.map((detail) => (
+              <span
+                className="inline-flex max-w-full items-center gap-1 rounded-md bg-background/75 px-2 py-0.5 text-[10px] text-muted-foreground leading-none"
+                key={`${detail.label}:${detail.value}`}
+                title={`${detail.label}: ${detail.value}`}
+              >
+                <span className="shrink-0 font-medium text-foreground/75">
+                  {detail.label}
+                </span>
+                <span className="min-w-0 max-w-24 truncate">
+                  {detail.value}
+                </span>
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

@@ -32,6 +32,15 @@ export interface WorkspaceFileRegisterLogger {
   ) => unknown;
 }
 
+export const WORKSPACE_FILE_REGISTER_ERROR = "Failed to register file";
+
+export function resolveWorkspaceFileRegisterRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
+}
+
 export function classifyStoredFileType(mimeType: string | null) {
   if (!mimeType) {
     return "unknown";

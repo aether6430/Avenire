@@ -17,6 +17,15 @@ const memoryLearningContextCache = new Map<
   { expiresAtMs: number; value: PromptMemoryBlock[] }
 >();
 
+function normalizeLearningContextScopePart(value: string | null | undefined) {
+  if (typeof value !== "string") {
+    return "none";
+  }
+
+  const trimmed = value.trim().toLowerCase();
+  return trimmed.length > 0 ? trimmed : "none";
+}
+
 export function buildSessionCloseKey(input: {
   chatId: string;
   sessionId: string;
@@ -56,9 +65,9 @@ export function buildLearningContextCacheKey(input: {
     LEARNING_CONTEXT_CACHE_PREFIX,
     input.userId,
     input.workspaceId,
-    input.subject ?? "none",
-    input.topic ?? "none",
-    input.recentSummaryUpdatedAt ?? "none",
+    normalizeLearningContextScopePart(input.subject),
+    normalizeLearningContextScopePart(input.topic),
+    normalizeLearningContextScopePart(input.recentSummaryUpdatedAt),
   ].join(":");
 }
 

@@ -7,22 +7,17 @@ const {
   getProviderAccessTokenMock,
   registerWorkspaceUploadedFileMock,
   requireDataImportDestinationMock,
-  utApiUploadFilesMock,
+  uploadStorageFileMock,
 } = vi.hoisted(() => ({
   deleteUploadThingFileMock: vi.fn(),
   getProviderAccessTokenMock: vi.fn(),
   registerWorkspaceUploadedFileMock: vi.fn(),
   requireDataImportDestinationMock: vi.fn(),
-  utApiUploadFilesMock: vi.fn(),
+  uploadStorageFileMock: vi.fn(),
 }));
 
 vi.mock("@avenire/storage", () => ({
-  UTApi: vi.fn(function UTApiMock() {
-    return {
-      uploadFiles: utApiUploadFilesMock,
-    };
-  }),
-  UTFile: vi.fn(),
+  uploadStorageFile: uploadStorageFileMock,
 }));
 
 vi.mock("@/lib/imports-provider-runtime", () => ({
@@ -60,7 +55,7 @@ describe("imports google drive runtime", () => {
     getProviderAccessTokenMock.mockReset();
     registerWorkspaceUploadedFileMock.mockReset();
     requireDataImportDestinationMock.mockReset();
-    utApiUploadFilesMock.mockReset();
+    uploadStorageFileMock.mockReset();
   });
 
   it("parses google drive import payloads and returns picker token", async () => {
@@ -83,11 +78,9 @@ describe("imports google drive runtime", () => {
       updatedAt: new Date("2026-05-17T00:00:00.000Z"),
       workspaceId: "workspace-1",
     });
-    utApiUploadFilesMock.mockResolvedValue({
-      data: {
-        key: "uploaded-key",
-        ufsUrl: "https://cdn.example.com/file.pdf",
-      },
+    uploadStorageFileMock.mockResolvedValue({
+      key: "uploaded-key",
+      url: "https://cdn.example.com/file.pdf",
     });
     registerWorkspaceUploadedFileMock.mockResolvedValue({
       file: { id: "file-1", name: "Guide.pdf" },

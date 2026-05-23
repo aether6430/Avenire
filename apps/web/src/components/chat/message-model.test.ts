@@ -68,6 +68,7 @@ describe("message model", () => {
       toAgentActivityActions({
         actions: [
           { kind: "edit", path: "foo.ts", pending: true },
+          { kind: "misconception", pending: false, value: "Impulse" },
           {
             kind: "search",
             pending: false,
@@ -80,6 +81,7 @@ describe("message model", () => {
       })
     ).toEqual([
       { kind: "edit", path: "foo.ts", pending: true },
+      { kind: "misconception", pending: false, value: "Impulse" },
       {
         kind: "search",
         pending: false,

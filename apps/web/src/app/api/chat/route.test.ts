@@ -18,6 +18,7 @@ const {
   getActiveMisconceptionContextMock,
   getActiveStreamIdMock,
   getChatBySlugForUserMock,
+  getWritableChatBySlugForUserMock,
   getLatestSessionSummaryForChatMock,
   getMessagesByChatSlugForUserMock,
   getRecentRelevantSessionSummaryMock,
@@ -57,6 +58,7 @@ const {
   getActiveMisconceptionContextMock: vi.fn(),
   getActiveStreamIdMock: vi.fn(),
   getChatBySlugForUserMock: vi.fn(),
+  getWritableChatBySlugForUserMock: vi.fn(),
   getLatestSessionSummaryForChatMock: vi.fn(),
   getMessagesByChatSlugForUserMock: vi.fn(),
   getRecentRelevantSessionSummaryMock: vi.fn(),
@@ -118,6 +120,7 @@ vi.mock("@/lib/chat-data", () => ({
   deleteChatForUser: deleteChatForUserMock,
   getChatBySlugForUser: getChatBySlugForUserMock,
   getMessagesByChatSlugForUser: getMessagesByChatSlugForUserMock,
+  getWritableChatBySlugForUser: getWritableChatBySlugForUserMock,
   isChatOwnerForUser: isChatOwnerForUserMock,
   saveMessagesForChatSlug: saveMessagesForChatSlugMock,
   updateChatForUser: updateChatForUserMock,
@@ -213,6 +216,7 @@ function resetChatRouteMocks() {
     getActiveMisconceptionContextMock,
     getActiveStreamIdMock,
     getChatBySlugForUserMock,
+    getWritableChatBySlugForUserMock,
     getLatestSessionSummaryForChatMock,
     getMessagesByChatSlugForUserMock,
     getRecentRelevantSessionSummaryMock,
@@ -281,6 +285,20 @@ describe("/api/chat route", () => {
     });
   });
 
+  it("returns a 500 json error from POST when session lookup throws before workspace resolution", async () => {
+    authGetSessionMock.mockRejectedValueOnce(new Error("chat session offline"));
+
+    await expect(
+      readErrorResponse(
+        await POST(chatRouteRequest("POST", { chatId: "new", messages: [] }))
+      )
+    ).resolves.toEqual({
+      body: { error: "Internal server error" },
+      status: 500,
+    });
+    expect(resolveWorkspaceForUserMock).not.toHaveBeenCalled();
+  });
+
   it.each([
     {
       body: { messages: [] },
@@ -317,7 +335,7 @@ describe("/api/chat route", () => {
       name: "returns 404 from persisted chat when the requested chat does not exist",
       prepare: () => {
         mockAuthorizedChatRequest();
-        getChatBySlugForUserMock.mockResolvedValue(null);
+        getWritableChatBySlugForUserMock.mockResolvedValue(null);
       },
       status: 404,
     },
@@ -356,5 +374,18 @@ describe("/api/chat route", () => {
       body: { error: "Missing chat id" },
       status: 400,
     });
+  });
+
+  it("returns a 500 json error from DELETE when session lookup throws before chat deletion", async () => {
+    authGetSessionMock.mockRejectedValueOnce(new Error("chat delete offline"));
+
+    await expect(
+      readErrorResponse(await DELETE(chatRouteRequest("DELETE")))
+    ).resolves.toEqual({
+      body: { error: "Internal server error" },
+      status: 500,
+    });
+    expect(resolveWorkspaceForUserMock).not.toHaveBeenCalled();
+    expect(deleteChatForUserMock).not.toHaveBeenCalled();
   });
 });

@@ -81,6 +81,9 @@ describe("/api/workspaces/[workspaceUuid]/tree route", () => {
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
+    expect(getRouteCacheVersionMock).not.toHaveBeenCalled();
+    expect(createRouteCacheKeyMock).not.toHaveBeenCalled();
+    expect(getCachedRouteMock).not.toHaveBeenCalled();
   });
 
   it("returns forbidden when the user cannot access the workspace", async () => {
@@ -96,6 +99,48 @@ describe("/api/workspaces/[workspaceUuid]/tree route", () => {
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toEqual({ error: "Forbidden" });
+    expect(getRouteCacheVersionMock).not.toHaveBeenCalled();
+    expect(createRouteCacheKeyMock).not.toHaveBeenCalled();
+    expect(getCachedRouteMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when top-level session or access lookup throws before tree loading begins", async () => {
+    getSessionUserMock.mockRejectedValueOnce(new Error("tree auth offline"));
+
+    let response = await GET(
+      new Request("http://localhost:3003/api/workspaces/workspace-1/tree"),
+      {
+        params: Promise.resolve({ workspaceUuid: "workspace-1" }),
+      }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "tree auth offline",
+    });
+    expect(getRouteCacheVersionMock).not.toHaveBeenCalled();
+    expect(createRouteCacheKeyMock).not.toHaveBeenCalled();
+    expect(getCachedRouteMock).not.toHaveBeenCalled();
+
+    getSessionUserMock.mockResolvedValueOnce({ id: "user-1" });
+    ensureWorkspaceAccessForUserMock.mockRejectedValueOnce(
+      new Error("tree access offline")
+    );
+
+    response = await GET(
+      new Request("http://localhost:3003/api/workspaces/workspace-1/tree"),
+      {
+        params: Promise.resolve({ workspaceUuid: "workspace-1" }),
+      }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "tree access offline",
+    });
+    expect(getRouteCacheVersionMock).not.toHaveBeenCalled();
+    expect(createRouteCacheKeyMock).not.toHaveBeenCalled();
+    expect(getCachedRouteMock).not.toHaveBeenCalled();
   });
 
   it("returns cached payloads without loading files and folders again", async () => {
@@ -144,6 +189,15 @@ describe("/api/workspaces/[workspaceUuid]/tree route", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("x-workspace-tree-cache")).toBe("miss");
+    expect(getRouteCacheVersionMock).toHaveBeenCalledWith(
+      "workspaceTree",
+      "workspace-1"
+    );
+    expect(createRouteCacheKeyMock).toHaveBeenCalledWith({
+      namespace: "workspaceTree",
+      scope: "workspace-1",
+      version: "version-1",
+    });
     await expect(response.json()).resolves.toEqual({
       files: [
         {
@@ -186,5 +240,26 @@ describe("/api/workspaces/[workspaceUuid]/tree route", () => {
         folders: [{ id: "folder-1", name: "Folder 1", parentId: null }],
       }
     );
+  });
+
+  it("returns a 500 json error when tree hydration throws before ingestion flags and cache writes", async () => {
+    getSessionUserMock.mockResolvedValue({ id: "user-1" });
+    getCachedRouteMock.mockResolvedValue(null);
+    listWorkspaceFoldersMock.mockRejectedValueOnce(new Error("tree offline"));
+    listWorkspaceFilesMock.mockResolvedValue([]);
+
+    const response = await GET(
+      new Request("http://localhost:3003/api/workspaces/workspace-1/tree"),
+      {
+        params: Promise.resolve({ workspaceUuid: "workspace-1" }),
+      }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "tree offline",
+    });
+    expect(getIngestionFlagsByFileIdsMock).not.toHaveBeenCalled();
+    expect(setCachedRouteMock).not.toHaveBeenCalled();
   });
 });

@@ -46,7 +46,11 @@ async function loadWorkspaceOverview(
   });
 
   if (!response.ok) {
-    throw new Error("Unable to load workspace overview.");
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+
+    throw new Error(payload.error?.trim() || "Unable to load workspace.");
   }
 
   return (await response.json()) as WorkspaceOverviewPayload;
@@ -91,7 +95,11 @@ export function WorkspaceOverviewPageClient() {
   if (overviewQuery.isError) {
     return (
       <WorkspaceRoutePlaceholder
-        label="Unable to load workspace."
+        label={
+          overviewQuery.error instanceof Error
+            ? overviewQuery.error.message
+            : "Unable to load workspace."
+        }
         pending={false}
       />
     );

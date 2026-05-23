@@ -32,7 +32,7 @@ describe("SidebarFilesPanelSurface", () => {
         currentFolderId={undefined}
         deleteTreeItems={async () => {}}
         expandedTreePathIds={[]}
-        filesTreeLabel="Unable to load files."
+        filesTreeLabel="tree backend offline"
         fileTree={[]}
         fileTreePanelRef={{ current: null }}
         folderTree={[]}
@@ -57,7 +57,7 @@ describe("SidebarFilesPanelSurface", () => {
       />
     );
 
-    expect(html).toContain('data-tree-label="Unable to load files."');
+    expect(html).toContain('data-tree-label="tree backend offline"');
   });
 
   it("renders the local files search field only when search is open", () => {
@@ -126,5 +126,42 @@ describe("SidebarFilesPanelSurface", () => {
 
     expect(closedHtml).not.toContain("Search Files...");
     expect(openHtml).toContain("Search Files...");
+  });
+
+  it("passes an explicit no-match label through to the tree section while search is open", () => {
+    const html = renderToStaticMarkup(
+      <SidebarFilesPanelSurface
+        createNewNote={() => {}}
+        currentFileId={undefined}
+        currentFolderId={undefined}
+        deleteTreeItems={async () => {}}
+        expandedTreePathIds={[]}
+        filesTreeLabel="No matching files."
+        fileTree={[]}
+        fileTreePanelRef={{ current: null }}
+        folderTree={[]}
+        handlePaneIntent={() => false}
+        handleTreeMoveItem={() => {}}
+        importLink={() => {}}
+        isSearchOpen={true}
+        navigateToFile={() => {}}
+        navigateToFilesRoot={async () => {}}
+        navigateToFolder={() => {}}
+        onExpandedChange={() => {}}
+        openFileInNewPane={() => {}}
+        openFolderInNewPane={() => {}}
+        pinnedFiles={[]}
+        pinnedFolders={[]}
+        searchQuery="entropy"
+        selectedItemId={undefined}
+        setSearchQuery={() => {}}
+        toggleSearch={() => {}}
+        uploadFile={() => {}}
+        workspaceUuid="workspace-1"
+      />
+    );
+
+    expect(html).toContain('data-tree-label="No matching files."');
+    expect(html).toContain("Search Files...");
   });
 });

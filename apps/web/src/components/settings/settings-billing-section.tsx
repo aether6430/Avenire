@@ -1,6 +1,5 @@
 import { Button } from "@avenire/ui/components/button";
 import { Spinner } from "@avenire/ui/components/spinner";
-import type { Route } from "next";
 import { getBillingValueState } from "@/components/settings/settings-billing-model";
 import {
   Divider,
@@ -10,10 +9,12 @@ import {
 } from "@/components/settings/settings-panel-content-shared";
 import { getRemotePreferencesState } from "@/components/settings/settings-preferences-model";
 import {
+  formatBytes,
   formatCredits,
   formatRefillAt,
   type SettingsPanelRuntime,
 } from "@/components/settings/use-settings-panel";
+import { BILLING_PLANS, formatInr } from "@/lib/billing-plans";
 
 export function SettingsBillingSection({
   runtime,
@@ -21,6 +22,7 @@ export function SettingsBillingSection({
   runtime: SettingsPanelRuntime;
 }) {
   const {
+    billingErrorMessage,
     billingLoadFailed,
     billingLoading,
     billingMeters,
@@ -28,15 +30,20 @@ export function SettingsBillingSection({
     billingUsage,
     emailReceipts,
     handleManageBilling,
+    handleUpgradePlan,
     hasPaidPlan,
     persistUserSettings,
     preferencesStatus,
-    router,
     setEmailReceipts,
     currentPlanLabel,
     preferencesLoadFailed,
     preferencesLoading,
   } = runtime;
+  const normalizedBillingStatus = billingStatus?.trim() || null;
+  const normalizedBillingErrorMessage = billingErrorMessage?.trim() || null;
+  const showBillingStatus =
+    normalizedBillingStatus !== null &&
+    normalizedBillingStatus !== normalizedBillingErrorMessage;
   const remotePreferencesState = getRemotePreferencesState({
     loadFailed: preferencesLoadFailed,
     loading: preferencesLoading,
@@ -48,47 +55,53 @@ export function SettingsBillingSection({
   const billingMeterCards =
     billingMeters.length > 0
       ? billingMeters.map((meter) => ({
+          kind: meter.kind,
           label: meter.label,
-          refillLabel: `Refills ${formatRefillAt(meter.refillAt)}`,
-          totalLabel: formatCredits(meter.total),
+          refillLabel:
+            meter.kind === "storage"
+              ? `${formatBytes(meter.remaining)} available`
+              : `Refills ${formatRefillAt(meter.refillAt ?? null)}`,
+          totalLabel:
+            meter.kind === "storage"
+              ? formatBytes(meter.total)
+              : formatCredits(meter.total),
+          usedLabel:
+            meter.kind === "storage" ? formatBytes(meter.used ?? 0) : null,
           valueState: getBillingValueState({
             loadFailed: false,
             loading: false,
-            readyLabel: formatCredits(meter.remaining),
+            readyLabel:
+              meter.kind === "storage"
+                ? formatBytes(meter.used ?? 0)
+                : formatCredits(meter.remaining),
           }),
         }))
       : [
           {
-            label: "Total credits",
-            refillLabel: billingLoadFailed
-              ? "Usage unavailable"
-              : "Refills loading...",
-            totalLabel: null,
-            valueState: getBillingValueState({
-              loadFailed: billingLoadFailed,
-              loading: billingLoading,
-              readyLabel: "0",
-            }),
-          },
-          {
+            kind: "credits" as const,
             label: "Method credits",
             refillLabel: billingLoadFailed
               ? "Usage unavailable"
               : "Refills loading...",
             totalLabel: null,
+            usedLabel: null,
             valueState: getBillingValueState({
+              errorMessage: billingErrorMessage,
               loadFailed: billingLoadFailed,
               loading: billingLoading,
               readyLabel: "0",
             }),
           },
           {
-            label: "Upload credits",
+            kind: "storage" as const,
+            label: "Storage",
             refillLabel: billingLoadFailed
               ? "Usage unavailable"
-              : "Refills loading...",
+              : "Storage loading...",
             totalLabel: null,
+            usedLabel: null,
             valueState: getBillingValueState({
+              errorMessage: billingErrorMessage,
               loadFailed: billingLoadFailed,
               loading: billingLoading,
               readyLabel: "0",
@@ -132,12 +145,12 @@ export function SettingsBillingSection({
             </div>
           ))}
         </div>
-        {billingStatus ? (
+        {showBillingStatus ? (
           <p className="mt-2 inline-flex items-center gap-2 text-muted-foreground text-xs">
-            {billingStatus.startsWith("Loading") ? (
+            {normalizedBillingStatus.startsWith("Loading") ? (
               <Spinner className="size-3.5" />
             ) : null}
-            {billingStatus}
+            {normalizedBillingStatus}
           </p>
         ) : null}
       </Section>
@@ -148,36 +161,29 @@ export function SettingsBillingSection({
         <div className="grid gap-4 sm:grid-cols-3">
           <PlanCard
             current={billingUsage?.plan === "access"}
-            features={[
-              "Small monthly limits for basic usage",
-              "Basic models only",
-            ]}
-            name="Free"
+            features={BILLING_PLANS.access.features}
+            name={BILLING_PLANS.access.label}
             onUpgrade={null}
-            price="$0/month"
+            price={`${formatInr(BILLING_PLANS.access.monthly)}/month`}
           />
           <PlanCard
             current={billingUsage?.plan === "core"}
-            features={[
-              "Expanded monthly limits for more flexibility",
-              "Access to all models",
-              "File uploads and web search",
-            ]}
+            features={BILLING_PLANS.core.features}
             name="Core"
-            onUpgrade={() => router.push("/pricing" as Route)}
+            onUpgrade={() => {
+              void handleUpgradePlan("core");
+            }}
             popular
-            price="$8/month"
+            price={`${formatInr(BILLING_PLANS.core.monthly)}/month`}
           />
           <PlanCard
             current={billingUsage?.plan === "scholar"}
-            features={[
-              "Over 10× Core limits for power users",
-              "Includes everything in Core",
-              "Priority support",
-            ]}
+            features={BILLING_PLANS.scholar.features}
             name="Scholar"
-            onUpgrade={() => router.push("/pricing" as Route)}
-            price="$50/month"
+            onUpgrade={() => {
+              void handleUpgradePlan("scholar");
+            }}
+            price={`${formatInr(BILLING_PLANS.scholar.monthly)}/month`}
           />
         </div>
       </Section>
@@ -225,12 +231,12 @@ export function SettingsBillingSection({
         >
           {hasPaidPlan ? "Manage Billing & Invoices" : "View Plans"}
         </Button>
-        {billingStatus ? (
+        {showBillingStatus ? (
           <p className="mt-2 inline-flex items-center gap-2 text-muted-foreground text-xs">
-            {billingStatus.startsWith("Loading") ? (
+            {normalizedBillingStatus.startsWith("Loading") ? (
               <Spinner className="size-3.5" />
             ) : null}
-            {billingStatus}
+            {normalizedBillingStatus}
           </p>
         ) : null}
       </Section>

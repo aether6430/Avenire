@@ -11,11 +11,16 @@ import type {
 } from "@/components/chat/use-chat-runtime-model";
 import { getChatErrorMessage } from "@/lib/chat-errors";
 import type {
-  ChatCreatedDetail,
   ChatNameUpdatedDetail,
   ChatStreamStatusDetail,
 } from "@/lib/chat-events";
 import type { PetNotificationDetail } from "@/lib/pet-preferences";
+
+interface ChatCreatedDetail {
+  fromId: string;
+  id: string;
+  title: string;
+}
 
 export function handleChatRuntimeDataPart(input: {
   dataPart: { data: unknown; type: string };
@@ -274,6 +279,7 @@ export async function flushChatRuntimeAutoPrompt(input: {
   }
 
   if (!prompt) {
+    input.setLastAutoPrompt(null);
     return false;
   }
 

@@ -77,30 +77,39 @@ export function formatPreviewAttachmentFileSize(sizeBytes?: number | null) {
 
 export function buildPreviewAttachmentCapabilities({
   contentType,
+  file,
   name,
   previewUrl,
+  source,
   status,
-}: Pick<Partial<Attachment>, "contentType" | "name" | "status"> & {
+}: Pick<
+  Partial<Attachment>,
+  "contentType" | "file" | "name" | "source" | "status"
+> & {
   previewUrl?: string | null;
 }): PreviewAttachmentCapabilities {
   const isCodePreview = isPreviewAttachmentCodeLike(contentType, name);
+  const isLocalAttachment = source === "local";
+  const canUseUrlPreview = Boolean(
+    previewUrl && (status === "completed" || isLocalAttachment)
+  );
+  const canUseCodePreview = Boolean(
+    isCodePreview && (file || canUseUrlPreview)
+  );
   const isImagePreview = Boolean(
-    contentType?.startsWith("image") && previewUrl && status === "completed"
+    contentType?.startsWith("image") && canUseUrlPreview
   );
   const isVideoPreview = Boolean(
-    contentType?.startsWith("video") && previewUrl && status === "completed"
+    contentType?.startsWith("video") && canUseUrlPreview
   );
   const isPdfPreview = Boolean(
-    contentType === "application/pdf" && previewUrl && status === "completed"
+    contentType === "application/pdf" && canUseUrlPreview
   );
 
   return {
-    canPreview:
-      status === "completed" &&
-      Boolean(
-        (isImagePreview || isVideoPreview || isPdfPreview || isCodePreview) &&
-          previewUrl
-      ),
+    canPreview: Boolean(
+      isImagePreview || isVideoPreview || isPdfPreview || canUseCodePreview
+    ),
     isCodePreview,
     isImagePreview,
     isPdfPreview,

@@ -1,5 +1,6 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import type { Route } from "next";
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -15,6 +16,7 @@ import {
   findSelectedFlashcardSnapshots,
 } from "@/components/flashcards/flashcards-dashboard-model";
 import { prefetchFlashcardSet } from "@/lib/flashcard-browser-cache";
+import type { MisconceptionRecord } from "@/lib/learning-data";
 import {
   useCurrentWorkspacePaneCompact,
   usePanePathname,
@@ -22,6 +24,29 @@ import {
   usePaneSearchParams,
 } from "@/lib/workspace-panes";
 import { usePaneWorkspaceHistoryActions } from "@/stores/workspaceHistoryStore";
+
+interface MindsetOverviewPayload {
+  activeMisconceptions: MisconceptionRecord[];
+}
+
+async function loadMindsetOverview(signal?: AbortSignal) {
+  const response = await fetch("/api/workspace/overview", {
+    cache: "no-store",
+    signal,
+  });
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+
+    throw new Error(
+      payload.error?.trim() || "Unable to load misconception memory."
+    );
+  }
+
+  return (await response.json()) as MindsetOverviewPayload;
+}
 
 export function useFlashcardsDashboard({
   generationRequest,
@@ -45,6 +70,11 @@ export function useFlashcardsDashboard({
   const [busy, setBusy] = useState(false);
   const autoOpenCreateRef = useRef(false);
   const generationStartedRef = useRef(false);
+  const overviewQuery = useQuery({
+    queryFn: ({ signal }) => loadMindsetOverview(signal),
+    queryKey: ["mindset-overview"],
+    staleTime: 30_000,
+  });
 
   const orderedSets = useMemo(
     () => buildOrderedFlashcardSets(dashboard),
@@ -167,6 +197,7 @@ export function useFlashcardsDashboard({
   };
 
   return {
+    activeMisconceptions: overviewQuery.data?.activeMisconceptions ?? [],
     busy,
     createOpen,
     createSet,
@@ -176,6 +207,9 @@ export function useFlashcardsDashboard({
     generationError,
     generationLoading,
     isMobile,
+    mindsetOverviewErrorMessage:
+      overviewQuery.error instanceof Error ? overviewQuery.error.message : null,
+    mindsetOverviewLoading: overviewQuery.isLoading,
     openReviewTarget,
     openSet,
     orderedSets,

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WorkspaceTask } from "@/lib/tasks";
 
@@ -47,6 +49,19 @@ function buildTask(
     ...overrides,
   } as WorkspaceTask;
 }
+
+const taskClientStoreBarrelSource = readFileSync(
+  resolve(import.meta.dirname, "task-client-store.ts"),
+  "utf8"
+);
+const taskClientStoreRuntimeSource = readFileSync(
+  resolve(import.meta.dirname, "task-client-store-runtime.ts"),
+  "utf8"
+);
+const taskClientStoreModelSource = readFileSync(
+  resolve(import.meta.dirname, "task-client-store-model.ts"),
+  "utf8"
+);
 
 async function loadRuntime() {
   return import("@/lib/task-client-store-runtime");
@@ -181,5 +196,34 @@ describe("task client store runtime", () => {
       tasks: [expect.objectContaining({ id: "task-2" })],
     });
     expect(toastErrorMock).toHaveBeenCalledWith("Save failed.");
+  });
+
+  it("keeps the task store split between a thin barrel, pure snapshot model, and runtime side effects", () => {
+    expect(taskClientStoreBarrelSource).toContain(
+      "@/lib/task-client-store-model"
+    );
+    expect(taskClientStoreBarrelSource).toContain(
+      "@/lib/task-client-store-runtime"
+    );
+    expect(taskClientStoreBarrelSource).not.toContain("toast.error");
+    expect(taskClientStoreBarrelSource).not.toContain('fetch("/api/tasks');
+    expect(taskClientStoreBarrelSource).not.toContain("readCachedTasks(");
+
+    expect(taskClientStoreRuntimeSource).toContain("readCachedTasks");
+    expect(taskClientStoreRuntimeSource).toContain("writeCachedTasks");
+    expect(taskClientStoreRuntimeSource).toContain("toast.error");
+    expect(taskClientStoreRuntimeSource).toContain(
+      'fetch("/api/tasks?includeCompleted=true"'
+    );
+    expect(taskClientStoreRuntimeSource).toContain("applyTaskStoreError");
+
+    expect(taskClientStoreModelSource).toContain(
+      "export function createPrimedTaskStoreSnapshot"
+    );
+    expect(taskClientStoreModelSource).toContain(
+      "export function applyPatchedTaskToSnapshot"
+    );
+    expect(taskClientStoreModelSource).not.toContain("toast.error");
+    expect(taskClientStoreModelSource).not.toContain('fetch("/api/tasks');
   });
 });

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   IMPORT_EXECUTION_INVALID_PAYLOAD_ERROR,
+  IMPORT_EXECUTION_PROVIDER_UNAVAILABLE_STATUS,
+  IMPORT_EXECUTION_RUNTIME_ERROR_STATUS,
   parseGoogleDriveImportRoutePayload,
   parseNotionImportRoutePayload,
   resolveImportExecutionRouteError,
@@ -24,7 +26,7 @@ describe("imports execution route model", () => {
     });
   });
 
-  it("normalizes and validates notion import payloads and errors", () => {
+  it("normalizes and validates notion import payloads and import execution errors", () => {
     expect(
       parseNotionImportRoutePayload({
         pageIds: [" page-1 ", "page-2"],
@@ -46,7 +48,19 @@ describe("imports execution route model", () => {
       })
     ).toEqual({
       error: "notion offline",
-      status: 400,
+      status: IMPORT_EXECUTION_RUNTIME_ERROR_STATUS,
+    });
+
+    expect(
+      resolveImportExecutionRouteError(
+        new Error("google account is not connected."),
+        {
+          fallback: "Unable to import files.",
+        }
+      )
+    ).toEqual({
+      error: "google account is not connected.",
+      status: IMPORT_EXECUTION_PROVIDER_UNAVAILABLE_STATUS,
     });
   });
 });

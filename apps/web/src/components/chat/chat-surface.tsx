@@ -10,9 +10,10 @@ import {
   EMPTY_COMPOSER_SHELL_CLASSNAME,
   FLOATING_COMPOSER_SHELL_CLASSNAME,
 } from "@/components/chat/chat-model";
-import { Messages } from "@/components/chat/messages";
+import { ChatMessagesSurface } from "@/components/chat/messages-surface";
 import { MultimodalInput } from "@/components/chat/multimodal-input";
 import { Overview } from "@/components/chat/overview";
+import { useChatMessages } from "@/components/chat/use-chat-messages";
 
 export function ChatSurface({
   activeReplyMessageId,
@@ -37,8 +38,10 @@ export function ChatSurface({
   sendMessage,
   setAttachments,
   setInput,
+  setTurboEnabled,
   status,
   title,
+  turboEnabled,
   userName,
   workspaceUuid,
 }: {
@@ -69,11 +72,35 @@ export function ChatSurface({
   sendMessage: (message: any, options?: any) => Promise<any>;
   setAttachments: React.Dispatch<React.SetStateAction<Attachment[]>>;
   setInput: React.Dispatch<React.SetStateAction<string>>;
+  setTurboEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   status: "submitted" | "streaming" | "ready" | "error";
   title: string;
+  turboEnabled: boolean;
   userName?: string;
   workspaceUuid: string;
 }) {
+  const messagesProps = {
+    activeReplyMessageId,
+    agentActivity: agentActivity as any,
+    bottomSpacerHeight,
+    chatId,
+    error,
+    isReadonly,
+    messages: displayedMessages,
+    messagesContainerRef,
+    messagesContentRef,
+    onRegenerate: regenerateFromMessage,
+    replyMinHeight: ACTIVE_REPLY_MIN_HEIGHT,
+    sendMessage: sendMessage as any,
+    status,
+    workspaceUuid,
+  };
+  const messagesRuntime = useChatMessages({
+    messages: messagesProps.messages,
+    messagesContainerRef: messagesProps.messagesContainerRef,
+    messagesContentRef: messagesProps.messagesContentRef,
+    status: messagesProps.status,
+  });
   const inputCard = (centered = false) => (
     <div
       className={
@@ -87,10 +114,12 @@ export function ChatSurface({
         centered={centered}
         handleSubmit={handleSubmit}
         input={input}
+        onTurboChange={setTurboEnabled}
         setAttachments={setAttachments}
         setInput={setInput}
         status={status}
         stop={handleStop}
+        turboEnabled={turboEnabled}
         workspaceUuid={workspaceUuid}
       />
     </div>
@@ -103,21 +132,9 @@ export function ChatSurface({
     >
       <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col">
         {layoutState.hasConversationSurface && (
-          <Messages
-            activeReplyMessageId={activeReplyMessageId}
-            agentActivity={agentActivity as any}
-            bottomSpacerHeight={bottomSpacerHeight}
-            chatId={chatId}
-            error={error}
-            isReadonly={isReadonly}
-            messages={displayedMessages}
-            messagesContainerRef={messagesContainerRef}
-            messagesContentRef={messagesContentRef}
-            onRegenerate={regenerateFromMessage}
-            replyMinHeight={ACTIVE_REPLY_MIN_HEIGHT}
-            sendMessage={sendMessage as any}
-            status={status}
-            workspaceUuid={workspaceUuid}
+          <ChatMessagesSurface
+            props={messagesProps}
+            runtime={messagesRuntime}
           />
         )}
 

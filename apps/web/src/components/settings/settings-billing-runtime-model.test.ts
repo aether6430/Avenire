@@ -40,6 +40,7 @@ describe("settings billing runtime model", () => {
 
   it("creates billing load start, success, and failure states", () => {
     expect(createBillingUsageLoadStartState(true)).toEqual({
+      billingErrorMessage: null,
       billingLoadFailed: false,
       billingLoading: true,
       billingStatus: "Loading usage...",
@@ -54,19 +55,20 @@ describe("settings billing runtime model", () => {
             totalCapacity: 20,
           },
           combined: {
-            totalBalance: 14,
-            totalCapacity: 24,
+            totalBalance: 12,
+            totalCapacity: 20,
           },
           plan: "core",
-          upload: {
-            refillAt: "2026-05-20T00:00:00.000Z",
-            totalBalance: 2,
-            totalCapacity: 4,
+          storage: {
+            limitBytes: 2048,
+            remainingBytes: 1536,
+            usedBytes: 512,
           },
         } as never,
         true
       )
     ).toEqual({
+      billingErrorMessage: null,
       billingLoadFailed: false,
       billingLoading: false,
       billingStatus: null,
@@ -78,12 +80,14 @@ describe("settings billing runtime model", () => {
     expect(
       createBillingUsageLoadFailureState(new Error("usage offline"), true)
     ).toEqual({
+      billingErrorMessage: "usage offline",
       billingLoadFailed: true,
       billingLoading: false,
       billingStatus: "usage offline",
       billingUsage: null,
     });
     expect(createBillingUsageLoadFailureState("boom", false)).toEqual({
+      billingErrorMessage: "Unable to load billing usage.",
       billingLoadFailed: true,
       billingLoading: false,
       billingStatus: undefined,
@@ -99,35 +103,31 @@ describe("settings billing runtime model", () => {
         totalCapacity: 2000,
       },
       combined: {
-        totalBalance: 1230,
-        totalCapacity: 2050,
+        totalBalance: 1200,
+        totalCapacity: 2000,
       },
       plan: "core",
-      upload: {
-        refillAt: "2026-05-21T00:00:00.000Z",
-        totalBalance: 30,
-        totalCapacity: 50,
+      storage: {
+        limitBytes: 10_240,
+        remainingBytes: 2048,
+        usedBytes: 8192,
       },
     } as never;
 
     expect(createSettingsBillingMeters(usage)).toEqual([
       {
-        label: "Total credits",
-        refillAt: "2026-05-20T00:00:00.000Z",
-        remaining: 1230,
-        total: 2050,
-      },
-      {
+        kind: "credits",
         label: "Method credits",
         refillAt: "2026-05-20T00:00:00.000Z",
         remaining: 1200,
         total: 2000,
       },
       {
-        label: "Upload credits",
-        refillAt: "2026-05-21T00:00:00.000Z",
-        remaining: 30,
-        total: 50,
+        kind: "storage",
+        label: "Storage",
+        remaining: 2048,
+        total: 10_240,
+        used: 8192,
       },
     ]);
     expect(createSettingsBillingMeters(null)).toEqual([]);

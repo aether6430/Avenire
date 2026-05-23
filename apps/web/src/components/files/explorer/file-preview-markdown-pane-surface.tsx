@@ -15,7 +15,6 @@ import { DownloadSimple as ArrowDownToLine } from "@phosphor-icons/react/Downloa
 import dynamic from "next/dynamic";
 import Image, { type ImageLoader } from "next/image";
 import type { RefObject } from "react";
-import { Markdown } from "@/components/chat/markdown";
 import type {
   AvenireEditorProps,
   WikiPage,
@@ -64,35 +63,12 @@ const NOTE_COVER_GALLERY = [
   },
 ] as const;
 
-function InactiveMarkdownPreview({
-  content,
-  fileId,
-  workspaceUuid,
-}: {
-  content: string;
-  fileId: string;
-  workspaceUuid: string;
-}) {
-  return (
-    <div className="mx-auto w-full max-w-[45rem] px-4 py-8 sm:px-10 sm:py-10">
-      <Markdown
-        className="text-sm"
-        content={content}
-        id={`inactive-note-preview:${fileId}`}
-        parseIncompleteMarkdown={false}
-        workspaceUuid={workspaceUuid}
-      />
-    </div>
-  );
-}
-
 export interface FilePreviewMarkdownPaneProps {
   activeFileId: string;
   activeFileIsMarkdown: boolean;
   activeFileName: string;
   editorCreatedBy: string;
   isMarkdownReady: boolean;
-  isPaneActive: boolean;
   markdownBody: string;
   markdownError: string | null;
   markdownLoading: boolean;
@@ -101,18 +77,17 @@ export interface FilePreviewMarkdownPaneProps {
   noteCoverLinkDraft: string;
   noteCoverPickerTab: MarkdownCoverTab;
   noteDisplayTitle: string;
-  onPagePropertiesChange: (properties: FrontmatterProperties) => void;
-  onPropertyDefinitionsChange: (
-    definitions: WorkspacePropertyDefinition[]
-  ) => void;
   noteSaveState?: "idle" | "saving" | "saved" | "error";
   onApplyDefaultNoteCover: () => void;
   onMarkdownBodyChange: (value: string) => void;
   onNoteCoverLinkDraftChange: (value: string) => void;
   onNoteCoverPickerTabChange: (value: MarkdownCoverTab) => void;
   onOpenWikiLink: AvenireEditorProps["onOpenWikiLink"];
+  onPagePropertiesChange: (properties: FrontmatterProperties) => void;
+  onPropertyDefinitionsChange: (
+    definitions: WorkspacePropertyDefinition[]
+  ) => void;
   onSetNoteCoverUrl: (url: string | null) => void;
-  onTemplateApplied: AvenireEditorProps["onTemplateApplied"];
   onTriggerNoteBannerPicker: () => void;
   pageProperties: FrontmatterProperties;
   propertyDefinitions: WorkspacePropertyDefinition[];
@@ -128,7 +103,6 @@ export function FilePreviewMarkdownPaneSurface({
   activeFileName,
   editorCreatedBy,
   isMarkdownReady,
-  isPaneActive,
   markdownBody,
   markdownError,
   markdownLoading,
@@ -146,7 +120,6 @@ export function FilePreviewMarkdownPaneSurface({
   onNoteCoverPickerTabChange,
   onOpenWikiLink,
   onSetNoteCoverUrl,
-  onTemplateApplied,
   onTriggerNoteBannerPicker,
   pageProperties,
   propertyDefinitions,
@@ -389,32 +362,23 @@ export function FilePreviewMarkdownPaneSurface({
                 </div>
               </div>
             ) : null}
-            {isPaneActive ? (
-              <AvenireEditor
-                createdBy={editorCreatedBy}
-                defaultValue={markdownBody}
-                key={activeFileId}
-                noteTitle={noteDisplayTitle}
-                onChange={onMarkdownBodyChange}
-                onOpenWikiLink={onOpenWikiLink}
-                onPagePropertiesChange={onPagePropertiesChange}
-                onPropertyDefinitionsChange={onPropertyDefinitionsChange}
-                onTemplateApplied={onTemplateApplied}
-                pageProperties={pageProperties}
-                propertyDefinitions={propertyDefinitions}
-                readOnly={readOnly}
-                saveState={noteSaveState}
-                scrollContainerRef={scrollContainerRef}
-                wikiPages={wikiPages}
-                workspaceUuid={workspaceUuid}
-              />
-            ) : (
-              <InactiveMarkdownPreview
-                content={markdownBody}
-                fileId={activeFileId}
-                workspaceUuid={workspaceUuid}
-              />
-            )}
+            <AvenireEditor
+              createdBy={editorCreatedBy}
+              defaultValue={markdownBody}
+              key={activeFileId}
+              noteTitle={noteDisplayTitle}
+              onChange={onMarkdownBodyChange}
+              onOpenWikiLink={onOpenWikiLink}
+              onPagePropertiesChange={onPagePropertiesChange}
+              onPropertyDefinitionsChange={onPropertyDefinitionsChange}
+              pageProperties={pageProperties}
+              propertyDefinitions={propertyDefinitions}
+              readOnly={readOnly}
+              saveState={noteSaveState}
+              scrollContainerRef={scrollContainerRef}
+              wikiPages={wikiPages}
+              workspaceUuid={workspaceUuid}
+            />
           </div>
         )}
       </div>

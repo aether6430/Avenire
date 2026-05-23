@@ -24,7 +24,7 @@ export async function generateFlashcardsOnboardingSet(
   const setId = payload.set?.id;
   if (!setId) {
     throw new Error(
-      "Mindset generation finished, but it could not be opened automatically."
+      "Mindset Set generation finished, but it could not be opened automatically."
     );
   }
 
@@ -43,9 +43,13 @@ export async function createFlashcardSet(input: {
   });
 
   if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+
     return {
       setId: null,
-      status: "Could not create the mindset set.",
+      status: payload.error?.trim() || "Could not create the Mindset Set.",
     };
   }
 
@@ -57,7 +61,7 @@ export async function createFlashcardSet(input: {
     return {
       setId: null,
       status:
-        "The mindset set was created, but it could not be opened automatically.",
+        "The Mindset Set was created, but it could not be opened automatically.",
     };
   }
 

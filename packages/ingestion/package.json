@@ -16,6 +16,10 @@
       "types": "./src/queue.ts",
       "default": "./dist/queue.js"
     },
+    "./runtime/redis-client": {
+      "types": "./src/runtime/redis-client.ts",
+      "default": "./dist/runtime/redis-client.js"
+    },
     "./workspace-retrieval": {
       "types": "./src/workspace-retrieval.ts",
       "default": "./dist/workspace-retrieval.js"
@@ -41,11 +45,11 @@
     "@mistralai/mistralai": "^1.14.1",
     "defuddle": "^0.15.0",
     "linkedom": "^0.18.12",
-    "@tavily/core": "^0.7.2",
+    "@tavily/core": "^0.7.3",
     "abso-ai": "^0.0.9",
     "ai": "^6.0.141",
     "bullmq": "^5.70.4",
-    "drizzle-orm": "0.45.1",
+    "drizzle-orm": "0.45.2",
     "pdfjs-dist": "^5.4.624",
     "redis": "^5.11.0",
     "zod": "^4.3.6"
@@ -56,6 +60,6 @@
     "@types/node": "25.4.0",
     "typescript": "5.9.3",
     "vite": "7.3.1",
-    "vitest": "^4.1.2"
+    "vitest": "^4.1.6"
   }
 }

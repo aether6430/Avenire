@@ -1,21 +1,25 @@
 import { NextResponse } from "next/server";
 import { createApiLogger } from "@/lib/observability";
 import { getSessionUser } from "@/lib/workspace";
+import {
+  RETRIEVAL_QUERY_ROUTE_ERROR,
+  resolveRetrievalQueryRouteError,
+} from "./retrieval-query-route-model";
 import { handleRetrievalQueryRoutePost } from "./retrieval-query-route-post";
 
 export async function POST(request: Request) {
-  const user = await getSessionUser();
   const apiLogger = createApiLogger({
     request,
     route: "/api/ai/retrieval/query",
     feature: "retrieval",
-    userId: user?.id ?? null,
   });
-  apiLogger.requestStarted();
 
   try {
+    await apiLogger.requestStarted();
+
+    const user = await getSessionUser();
     if (!user) {
-      apiLogger.requestFailed(401, "Unauthorized");
+      await apiLogger.requestFailed(401, "Unauthorized");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -25,9 +29,14 @@ export async function POST(request: Request) {
       userId: user.id,
     });
   } catch (error) {
-    apiLogger.requestFailed(500, error);
+    await apiLogger.requestFailed(500, error);
     return NextResponse.json(
-      { error: "Failed to query retrieval index" },
+      {
+        error: resolveRetrievalQueryRouteError(
+          error,
+          RETRIEVAL_QUERY_ROUTE_ERROR
+        ),
+      },
       { status: 500 }
     );
   }

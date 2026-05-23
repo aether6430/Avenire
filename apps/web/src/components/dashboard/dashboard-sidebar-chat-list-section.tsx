@@ -39,12 +39,14 @@ import { ChatIcon } from "@/components/chat/chat-icon";
 import type { ChatSummary } from "@/lib/chat-data";
 import { isChatIconName } from "@/lib/chat-icons";
 import { setWorkspacePaneDragData } from "@/lib/workspace-panes";
+import { buildDashboardSidebarChatRows } from "./dashboard-sidebar-chat-runtime-model";
 import { getSidebarChatListState } from "./dashboard-sidebar-chats-model";
 import { SidebarEmptyState } from "./dashboard-sidebar-shared";
 
 export function ChatListSection({
   activeChatSlug,
   chatActionStatus,
+  chatsErrorMessage,
   chatsLoadFailed,
   chatsLoading,
   editingChatSlug,
@@ -63,6 +65,7 @@ export function ChatListSection({
 }: {
   activeChatSlug: string;
   chatActionStatus?: string | null;
+  chatsErrorMessage?: string | null;
   chatsLoadFailed?: boolean;
   chatsLoading?: boolean;
   editingChatSlug: string | null;
@@ -80,45 +83,21 @@ export function ChatListSection({
   otherChats: ChatSummary[];
 }) {
   const chatListState = getSidebarChatListState({
+    errorMessage: chatsErrorMessage,
     loadFailed: Boolean(chatsLoadFailed),
     loading: Boolean(chatsLoading),
     otherCount: otherChats.length,
     pinnedCount: pinnedChats.length,
   });
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const rows = useMemo<
-    Array<
-      | { key: string; type: "header"; title: string }
-      | { chat: ChatSummary; key: string; type: "chat" }
-    >
-  >(() => {
-    const nextRows: Array<
-      | { key: string; type: "header"; title: string }
-      | { chat: ChatSummary; key: string; type: "chat" }
-    > = [];
-
-    if (pinnedChats.length > 0) {
-      nextRows.push({
-        key: "header-pinned",
-        title: "Pinned Methods",
-        type: "header",
-      });
-      for (const chat of pinnedChats) {
-        nextRows.push({ chat, key: `chat-${chat.slug}`, type: "chat" });
-      }
-    }
-
-    nextRows.push({
-      key: "header-other",
-      title: "Other Methods",
-      type: "header",
-    });
-    for (const chat of otherChats) {
-      nextRows.push({ chat, key: `chat-${chat.slug}`, type: "chat" });
-    }
-
-    return nextRows;
-  }, [otherChats, pinnedChats]);
+  const rows = useMemo(
+    () =>
+      buildDashboardSidebarChatRows({
+        otherChats,
+        pinnedChats,
+      }),
+    [otherChats, pinnedChats]
+  );
 
   const virtualizer = useVirtualizer({
     count: rows.length,

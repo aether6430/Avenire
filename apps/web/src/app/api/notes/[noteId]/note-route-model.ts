@@ -22,6 +22,8 @@ export interface ResolvedNoteRoutePatchUpdate {
   trimmedContent: string;
 }
 
+export const NOTE_UPDATE_ERROR = "Unable to update note.";
+
 export function resolveNoteRoutePatchUpdate(input: {
   body: NoteRoutePatchBody;
   existingPage: PageMetadataState | null | undefined;
@@ -60,4 +62,8 @@ export function resolveNoteRoutePatchUpdate(input: {
     nextPage,
     trimmedContent,
   };
+}
+
+export function resolveNoteRouteError(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
 }

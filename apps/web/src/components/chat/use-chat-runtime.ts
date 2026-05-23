@@ -35,6 +35,7 @@ import {
   getCompletedAssistantMessageId,
   shouldHydrateInitialChatMessages,
   shouldResumeChatStream,
+  shouldResumeChatStreamOnWindowActivation,
   type UseChatRuntimeProps,
   willExceedChatAttachmentLimit,
 } from "@/components/chat/use-chat-runtime-model";
@@ -56,13 +57,12 @@ import {
 } from "@/components/chat/use-chat-runtime-runtime";
 import { useChatScroll } from "@/components/chat/use-chat-scroll";
 import {
-  CHAT_CREATED_EVENT,
   CHAT_NAME_UPDATED_EVENT,
   CHAT_STREAM_FINISHED_EVENT,
   CHAT_STREAM_STATUS_EVENT,
-  type ChatCreatedDetail,
   type ChatNameUpdatedDetail,
   type ChatStreamStatusDetail,
+  rememberChatStreamStatus,
 } from "@/lib/chat-events";
 import { emitPetNotification } from "@/lib/pet-preferences";
 import { chatMessageHandoffActions } from "@/stores/chat-message-handoff-store";
@@ -77,6 +77,7 @@ export function useChatRuntime({
   const [chatId, setChatId] = useState(id);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [input, setInput] = useState("");
+  const [turboEnabled, setTurboEnabled] = useState(false);
   const [agentActivity, setAgentActivity] = useState<AgentActivityData | null>(
     null
   );
@@ -87,6 +88,8 @@ export function useChatRuntime({
   const pendingNewChatMessagesRef = useRef<UIMessage[] | null>(null);
   const pendingChatRouteRef = useRef<string | null>(null);
   const autoPromptSentRef = useRef<string | null>(null);
+
+  const activeSelectedModel = turboEnabled ? "apex-turbo" : selectedModel;
 
   const handleError = useCallback((error: Error) => {
     reactToChatRuntimeError({
@@ -104,10 +107,10 @@ export function useChatRuntime({
         api: "/api/chat",
         body: {
           chatId,
-          selectedModel,
+          selectedModel: activeSelectedModel,
         },
       }),
-    [chatId, selectedModel]
+    [activeSelectedModel, chatId]
   );
 
   const {
@@ -130,11 +133,6 @@ export function useChatRuntime({
           primeNewChatHandoff(detail.id);
           setChatId(detail.id);
           pendingChatRouteRef.current = detail.id;
-          window.dispatchEvent(
-            new CustomEvent<ChatCreatedDetail>(CHAT_CREATED_EVENT, {
-              detail,
-            })
-          );
         },
         onChatName: (detail) => {
           window.dispatchEvent(
@@ -238,6 +236,33 @@ export function useChatRuntime({
   }, [id, resumeStream]);
 
   useEffect(() => {
+    if (!shouldResumeChatStream(id)) {
+      return;
+    }
+
+    const resumeExistingStream = () => {
+      if (
+        !shouldResumeChatStreamOnWindowActivation({
+          chatId: id,
+          visibilityState: document.visibilityState,
+        })
+      ) {
+        return;
+      }
+
+      resumeStream().catch(() => undefined);
+    };
+
+    window.addEventListener("focus", resumeExistingStream);
+    document.addEventListener("visibilitychange", resumeExistingStream);
+
+    return () => {
+      window.removeEventListener("focus", resumeExistingStream);
+      document.removeEventListener("visibilitychange", resumeExistingStream);
+    };
+  }, [id, resumeStream]);
+
+  useEffect(() => {
     void flushChatRuntimeAutoPrompt({
       chatId: id,
       getAutoPromptToSend,
@@ -281,6 +306,7 @@ export function useChatRuntime({
         );
       },
       onStatus: (detail) => {
+        rememberChatStreamStatus(detail);
         window.dispatchEvent(
           new CustomEvent<ChatStreamStatusDetail>(CHAT_STREAM_STATUS_EVENT, {
             detail,
@@ -403,7 +429,9 @@ export function useChatRuntime({
     sendMessage,
     setAttachments,
     setInput,
+    setTurboEnabled,
     status,
+    turboEnabled,
     workspaceUuid,
   };
 }

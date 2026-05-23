@@ -2,13 +2,15 @@
 
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import type { ReadonlyURLSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   consumePendingWorkspaceBrowserNavigation,
   shouldDeferWorkspacePaneBrowserReplace,
   shouldLetBrowserRouteDrivePaneSync,
+  shouldSkipInitialHydratedWorkspacePaneSync,
 } from "@/lib/workspace-pane-browser-navigation";
 import { buildRouteState } from "@/lib/workspace-panes";
+import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
 
 export function useWorkspacePaneBrowserSync({
   activePaneId,
@@ -40,6 +42,10 @@ export function useWorkspacePaneBrowserSync({
 }) {
   const pendingBrowserSyncRef = useRef<string | null>(null);
   const previousBrowserHrefRef = useRef<string | null>(null);
+  const initialHydratedRouteHandledRef = useRef(false);
+  const [paneStoreHydrated, setPaneStoreHydrated] = useState(() =>
+    useWorkspacePaneStore.persist.hasHydrated()
+  );
 
   const browserRoute = useMemo(
     () =>
@@ -50,10 +56,46 @@ export function useWorkspacePaneBrowserSync({
   );
 
   useEffect(() => {
-    ensureInitialized(browserRoute);
-  }, [browserRoute, ensureInitialized]);
+    if (paneStoreHydrated) {
+      return;
+    }
+
+    const unsubscribe = useWorkspacePaneStore.persist.onFinishHydration(() => {
+      setPaneStoreHydrated(true);
+    });
+
+    if (useWorkspacePaneStore.persist.hasHydrated()) {
+      setPaneStoreHydrated(true);
+    }
+
+    return unsubscribe;
+  }, [paneStoreHydrated]);
 
   useEffect(() => {
+    if (!paneStoreHydrated) {
+      return;
+    }
+
+    ensureInitialized(browserRoute);
+  }, [browserRoute, ensureInitialized, paneStoreHydrated]);
+
+  useEffect(() => {
+    if (!paneStoreHydrated) {
+      return;
+    }
+
+    if (
+      shouldSkipInitialHydratedWorkspacePaneSync({
+        hasHandledInitialHydratedRoute: initialHydratedRouteHandledRef.current,
+        paneCount: panes.length,
+      })
+    ) {
+      initialHydratedRouteHandledRef.current = true;
+      return;
+    }
+
+    initialHydratedRouteHandledRef.current = true;
+
     const browserHref = `${browserRoute.pathname}${browserRoute.search}`;
     if (consumePendingWorkspaceBrowserNavigation(browserHref)) {
       if (pendingBrowserSyncRef.current === browserHref) {
@@ -68,9 +110,18 @@ export function useWorkspacePaneBrowserSync({
     }
 
     syncActivePaneFromBrowser(browserRoute);
-  }, [browserRoute, syncActivePaneFromBrowser]);
+  }, [
+    browserRoute,
+    paneStoreHydrated,
+    panes.length,
+    syncActivePaneFromBrowser,
+  ]);
 
   useEffect(() => {
+    if (!paneStoreHydrated) {
+      return;
+    }
+
     const activePane = panes.find((pane) => pane.id === activePaneId);
     if (!activePane) {
       return;
@@ -109,7 +160,14 @@ export function useWorkspacePaneBrowserSync({
 
     pendingBrowserSyncRef.current = nextHref;
     router.replace(nextHref as never);
-  }, [activePaneId, browserRoute.pathname, browserRoute.search, panes, router]);
+  }, [
+    activePaneId,
+    browserRoute.pathname,
+    browserRoute.search,
+    paneStoreHydrated,
+    panes,
+    router,
+  ]);
 
   useEffect(() => {
     setActiveHeaderPaneId(activePaneId);

@@ -3,6 +3,10 @@ import {
   normalizePageMetadataState,
 } from "@/lib/frontmatter";
 
+export const WORKSPACE_FILE_LOAD_ERROR = "Unable to load file.";
+export const WORKSPACE_FILE_UPDATE_ERROR = "Unable to update file.";
+export const WORKSPACE_FILE_DELETE_ERROR = "Unable to delete file.";
+
 export function buildWorkspaceFileRouteSummary(file: {
   id: string;
   folderId: string | null;
@@ -43,4 +47,11 @@ export function resolveWorkspaceFileRoutePatchMetadata(input: {
         ...(nextPage === undefined ? {} : { page: nextPage }),
       }
     : undefined;
+}
+
+export function resolveWorkspaceFileRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
 }

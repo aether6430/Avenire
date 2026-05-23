@@ -25,11 +25,27 @@ describe("@avenire/auth middleware", () => {
       type: "redirect",
       url: new URL("/login", "https://app.avenire.test/workspace/files"),
     });
+    expect((await import("./middleware")).hasSessionCookie(new Headers())).toBe(
+      false
+    );
+
+    await expect(
+      authMiddleware({
+        nextUrl: { pathname: "/pricing" },
+        url: "https://app.avenire.test/pricing",
+      } as never)
+    ).resolves.toEqual({ type: "next" });
 
     vi.resetModules();
     vi.clearAllMocks();
     getSessionCookieMock.mockReturnValue("session-token");
     const module = await import("./middleware");
+    await expect(
+      module.authMiddleware({
+        nextUrl: { pathname: "/workspace/files" },
+        url: "https://app.avenire.test/workspace/files",
+      } as never)
+    ).resolves.toEqual({ type: "next" });
     await expect(
       module.authMiddleware({
         nextUrl: { pathname: "/pricing" },

@@ -51,6 +51,7 @@ describe("FlashcardsSidebarPanelSurface", () => {
           setCreateOpen: () => {},
           setDescription: () => {},
           setSearchQuery: () => {},
+          setsErrorMessage: null,
           setTitle: () => {},
           sets: [],
           setsLoadFailed: false,
@@ -64,7 +65,7 @@ describe("FlashcardsSidebarPanelSurface", () => {
     expect(html).toContain("Review");
     expect(html).toContain("Mindset Sets");
     expect(html).not.toContain(">Sets<");
-    expect(html).toContain("No mindset sets yet");
+    expect(html).toContain("No Mindset Sets yet");
     expect(html).not.toContain("No sets yet");
   });
 
@@ -93,6 +94,7 @@ describe("FlashcardsSidebarPanelSurface", () => {
           setCreateOpen: () => {},
           setDescription: () => {},
           setSearchQuery: () => {},
+          setsErrorMessage: "flashcards sidebar offline",
           setTitle: () => {},
           sets: [],
           setsLoadFailed: true,
@@ -103,9 +105,10 @@ describe("FlashcardsSidebarPanelSurface", () => {
       />
     );
 
-    expect(html).toContain("Unable to load mindset sets.");
-    expect(html).toContain(
-      "Try again in a moment to reload your mindset sets."
+    expect(html).toContain("Unable to load Mindset Sets.");
+    expect(html).toContain("flashcards sidebar offline");
+    expect(html).not.toContain(
+      "Try again in a moment to reload your Mindset Sets."
     );
     expect(html).not.toContain("No sets yet");
   });
@@ -135,6 +138,7 @@ describe("FlashcardsSidebarPanelSurface", () => {
           setCreateOpen: () => {},
           setDescription: () => {},
           setSearchQuery: () => {},
+          setsErrorMessage: null,
           setTitle: () => {},
           sets: [],
           setsLoadFailed: false,
@@ -168,6 +172,7 @@ describe("FlashcardsSidebarPanelSurface", () => {
           setCreateOpen: () => {},
           setDescription: () => {},
           setSearchQuery: () => {},
+          setsErrorMessage: null,
           setTitle: () => {},
           sets: [],
           setsLoadFailed: false,

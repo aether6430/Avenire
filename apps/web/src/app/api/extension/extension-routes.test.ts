@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -59,6 +61,27 @@ vi.mock("./destinations/[id]/extension-destination-route-delete", () => ({
     handleExtensionDestinationRouteDeleteMock,
 }));
 
+const extensionDestinationsRouteSource = readFileSync(
+  resolve(import.meta.dirname, "destinations/route.ts"),
+  "utf8"
+);
+const extensionDestinationByIdRouteSource = readFileSync(
+  resolve(import.meta.dirname, "destinations/[id]/route.ts"),
+  "utf8"
+);
+const extensionMeRouteSource = readFileSync(
+  resolve(import.meta.dirname, "me/route.ts"),
+  "utf8"
+);
+const extensionWorkspacesRouteSource = readFileSync(
+  resolve(import.meta.dirname, "workspaces/route.ts"),
+  "utf8"
+);
+const extensionWorkspaceFoldersRouteSource = readFileSync(
+  resolve(import.meta.dirname, "workspaces/[workspaceUuid]/folders/route.ts"),
+  "utf8"
+);
+
 import { DELETE, PATCH } from "./destinations/[id]/route";
 import {
   GET as getDestinations,
@@ -105,6 +128,80 @@ describe("extension routes", () => {
       error: "Unauthorized",
     });
     expect(handleExtensionMeRouteGetMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when top-level session lookup throws before extension handlers run", async () => {
+    const request = new Request("https://avenire.space");
+    const params = Promise.resolve({ workspaceUuid: "workspace-1" });
+    const destinationParams = Promise.resolve({ id: "preset-1" });
+
+    getSessionUserMock.mockRejectedValueOnce(new Error("extension me offline"));
+    let response = await getMe();
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "extension me offline",
+    });
+    expect(handleExtensionMeRouteGetMock).not.toHaveBeenCalled();
+
+    getSessionUserMock.mockRejectedValueOnce(
+      new Error("extension workspaces offline")
+    );
+    response = await getWorkspaces();
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "extension workspaces offline",
+    });
+    expect(handleExtensionWorkspacesRouteGetMock).not.toHaveBeenCalled();
+
+    getSessionUserMock.mockRejectedValueOnce(
+      new Error("extension folders offline")
+    );
+    response = await getWorkspaceFolders(request, { params });
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "extension folders offline",
+    });
+    expect(handleExtensionWorkspaceFoldersRouteGetMock).not.toHaveBeenCalled();
+
+    getSessionUserMock.mockRejectedValueOnce(
+      new Error("extension destinations offline")
+    );
+    response = await getDestinations();
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "extension destinations offline",
+    });
+    expect(handleExtensionDestinationsRouteGetMock).not.toHaveBeenCalled();
+
+    getSessionUserMock.mockRejectedValueOnce(
+      new Error("extension destination save offline")
+    );
+    response = await postDestination(request);
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "extension destination save offline",
+    });
+    expect(handleExtensionDestinationsRoutePostMock).not.toHaveBeenCalled();
+
+    getSessionUserMock.mockRejectedValueOnce(
+      new Error("extension destination patch offline")
+    );
+    response = await PATCH(request, { params: destinationParams });
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "extension destination patch offline",
+    });
+    expect(handleExtensionDestinationRoutePatchMock).not.toHaveBeenCalled();
+
+    getSessionUserMock.mockRejectedValueOnce(
+      new Error("extension destination delete offline")
+    );
+    response = await DELETE(request, { params: destinationParams });
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "extension destination delete offline",
+    });
+    expect(handleExtensionDestinationRouteDeleteMock).not.toHaveBeenCalled();
   });
 
   it("delegates extension route wrappers through their dedicated handlers", async () => {
@@ -159,5 +256,53 @@ describe("extension routes", () => {
       destination: { id: "preset-1" },
     });
     expect(deleted.status).toBe(204);
+  });
+
+  it("keeps extension route wrappers delegating through dedicated handlers and shared route-model errors", () => {
+    expect(extensionDestinationsRouteSource).toContain(
+      "../extension-route-model"
+    );
+    expect(extensionDestinationsRouteSource).toContain(
+      "./extension-destinations-route-get"
+    );
+    expect(extensionDestinationsRouteSource).toContain(
+      "./extension-destinations-route-post"
+    );
+    expect(extensionDestinationsRouteSource).not.toContain(
+      "createExtensionDestinationPreset("
+    );
+    expect(extensionDestinationsRouteSource).not.toContain(
+      "listExtensionDestinationPresets("
+    );
+
+    expect(extensionDestinationByIdRouteSource).toContain(
+      "../../extension-route-model"
+    );
+    expect(extensionDestinationByIdRouteSource).toContain(
+      "./extension-destination-route-patch"
+    );
+    expect(extensionDestinationByIdRouteSource).toContain(
+      "./extension-destination-route-delete"
+    );
+    expect(extensionDestinationByIdRouteSource).not.toContain(
+      "updateExtensionDestinationPreset("
+    );
+    expect(extensionDestinationByIdRouteSource).not.toContain(
+      "deleteExtensionDestinationPreset("
+    );
+
+    expect(extensionMeRouteSource).toContain("./extension-me-route-get");
+    expect(extensionWorkspacesRouteSource).toContain(
+      "./extension-workspaces-route-get"
+    );
+    expect(extensionWorkspaceFoldersRouteSource).toContain(
+      "./extension-workspace-folders-route-get"
+    );
+    expect(extensionWorkspacesRouteSource).not.toContain(
+      "listWorkspacesForUser("
+    );
+    expect(extensionWorkspaceFoldersRouteSource).not.toContain(
+      "listWorkspaceFolders("
+    );
   });
 });

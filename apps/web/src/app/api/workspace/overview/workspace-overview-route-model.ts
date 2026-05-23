@@ -5,6 +5,9 @@ export function resolveWorkspaceOverviewRouteQuery(request: Request) {
   return { requestedSubject };
 }
 
+export const WORKSPACE_OVERVIEW_LOAD_ERROR =
+  "Unable to load workspace overview.";
+
 export function buildWorkspaceOverviewPayload(input: {
   activeMisconceptions: unknown[];
   flashcardSets: unknown[];
@@ -17,4 +20,11 @@ export function buildWorkspaceOverviewPayload(input: {
     weakestConcepts: input.weakestConcepts,
     weakestDrillTarget: input.weakestDrillTarget,
   };
+}
+
+export function resolveWorkspaceOverviewRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
 }

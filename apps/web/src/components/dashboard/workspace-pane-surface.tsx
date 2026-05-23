@@ -151,7 +151,7 @@ export function WorkspacePaneSurface({
   );
 
   return (
-    <div className="w-full min-w-0" ref={surfaceRef}>
+    <div className="h-full w-full min-w-0" ref={surfaceRef}>
       <WorkspacePaneProvider
         isActive={isActive}
         isCompact={isCompact}

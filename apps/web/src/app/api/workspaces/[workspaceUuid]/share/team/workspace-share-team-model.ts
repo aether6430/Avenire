@@ -1,5 +1,8 @@
 import { normalizeOrganizationMembers } from "../members/workspace-share-members-model";
 
+export const WORKSPACE_SHARE_TEAM_ERROR =
+  "Unable to share workspace with the team.";
+
 export function buildWorkspaceTeamRecipients(input: {
   currentUserId: string;
   membersResult: unknown;
@@ -18,4 +21,11 @@ export function buildWorkspaceTeamRecipients(input: {
         typeof member.email === "string" &&
         member.email.trim().length > 0
     );
+}
+
+export function resolveWorkspaceShareTeamRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
 }

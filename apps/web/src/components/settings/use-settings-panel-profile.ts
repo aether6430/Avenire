@@ -3,6 +3,7 @@
 import { updateUser } from "@avenire/auth/app-client";
 import { useEffect, useState } from "react";
 import {
+  createProfileSaveFailureState,
   createProfileSaveStartState,
   resolveProfileSaveStatus,
   syncProfileDraftFromSession,
@@ -43,6 +44,10 @@ export function useSettingsPanelProfile({
       });
       setProfileStatus(resolveProfileSaveStatus(result));
       return !result.error;
+    } catch {
+      const failure = createProfileSaveFailureState();
+      setProfileStatus(failure.profileStatus);
+      return false;
     } finally {
       setIsSavingProfile(false);
     }

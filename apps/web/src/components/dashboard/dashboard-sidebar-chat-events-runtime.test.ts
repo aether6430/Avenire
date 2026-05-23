@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyDashboardChatInvalidation,
   applyDashboardChatNameUpdate,
   applyDashboardChatStreamStatus,
+  parseDashboardWorkspaceInvalidationPayload,
   resolveDashboardChatSessionScope,
-  resolveDashboardPendingCreatedChat,
   shouldReloadDashboardChatsForInvalidation,
   shouldStartDashboardChatSessionCloseTimer,
 } from "@/components/dashboard/dashboard-sidebar-chat-events-runtime";
@@ -25,76 +26,57 @@ function buildChat(overrides: Record<string, unknown>) {
 }
 
 describe("dashboard sidebar chat events runtime", () => {
-  it("creates pending chats only when a new-chat flow is active", () => {
-    const created = resolveDashboardPendingCreatedChat({
-      activeChatSlug: "new",
-      detail: { fromId: "new", id: "chat-2", title: "Torque Review" },
-      pathname: "/workspace/chats/new",
-      workspaceUuid: "workspace-1",
-    });
-
-    expect(created).toMatchObject({
-      activeChatSlugOverride: "chat-2",
-      navigateTo: "/workspace/chats/chat-2",
-      pendingCreatedChat: expect.objectContaining({
-        slug: "chat-2",
-        title: "Torque Review",
-        workspaceId: "workspace-1",
-      }),
-    });
-
-    expect(
-      resolveDashboardPendingCreatedChat({
-        activeChatSlug: "chat-1",
-        detail: { fromId: "chat-1", id: "chat-2", title: "Torque Review" },
-        pathname: "/workspace/chats/chat-1",
-        workspaceUuid: "workspace-1",
-      })
-    ).toBeNull();
-  });
-
   it("applies chat-name and stream-status updates deterministically", () => {
-    const pendingCreatedChat = buildChat({
-      slug: "chat-2",
-      title: "Draft title",
-    });
     const renamed = applyDashboardChatNameUpdate({
       detail: { icon: "sparkles", id: "chat-2", name: "Torque Review" },
-      pendingCreatedChat,
       previousChats: [buildChat({ slug: "chat-2", title: "Old title" })],
     });
 
-    expect(renamed.chats[0]).toMatchObject({
-      icon: "sparkles",
-      title: "Torque Review",
-    });
-    expect(renamed.pendingCreatedChat).toMatchObject({
+    expect(renamed[0]).toMatchObject({
       icon: "sparkles",
       title: "Torque Review",
     });
 
     const submitted = applyDashboardChatStreamStatus({
       detail: { chatId: "chat-2", status: "submitted" },
-      pendingCreatedChat,
-      previousChats: [],
       previousPendingChatSlug: null,
     });
     expect(submitted).toMatchObject({
       pendingChatSlug: "chat-2",
+      shouldReload: true,
     });
 
     const ready = applyDashboardChatStreamStatus({
       detail: { chatId: "chat-2", status: "ready" },
-      pendingCreatedChat,
-      previousChats: [],
       previousPendingChatSlug: "chat-2",
     });
-    expect(ready.chats).toEqual([pendingCreatedChat]);
     expect(ready.pendingChatSlug).toBeNull();
-    expect(ready.pendingCreatedChat).toBeNull();
+    expect(ready.shouldReload).toBe(true);
+
+    const errored = applyDashboardChatStreamStatus({
+      detail: { chatId: "chat-2", status: "error" },
+      previousPendingChatSlug: "chat-2",
+    });
+    expect(errored.pendingChatSlug).toBeNull();
+    expect(errored.shouldReload).toBe(false);
   });
 
   it("derives invalidation reload and session-close timer conditions explicitly", () => {
+    expect(
+      parseDashboardWorkspaceInvalidationPayload(
+        JSON.stringify({
+          action: "updated",
+          chatSlug: "chat-1",
+          workspaceUuid: "workspace-1",
+        })
+      )
+    ).toEqual({
+      action: "updated",
+      chatSlug: "chat-1",
+      workspaceUuid: "workspace-1",
+    });
+    expect(parseDashboardWorkspaceInvalidationPayload("{broken")).toBeNull();
+
     expect(
       shouldReloadDashboardChatsForInvalidation({
         detail: { kind: "chat", workspaceUuid: "workspace-1" },
@@ -107,6 +89,85 @@ describe("dashboard sidebar chat events runtime", () => {
         workspaceUuid: "workspace-1",
       })
     ).toBe(false);
+
+    expect(
+      applyDashboardChatInvalidation({
+        detail: {
+          kind: "chat",
+          payload: {
+            action: "deleted",
+            chatSlug: "chat-1",
+          },
+          workspaceUuid: "workspace-1",
+        },
+        previousChats: [
+          buildChat({ slug: "chat-1" }),
+          buildChat({ id: "chat-2", slug: "chat-2", title: "Second chat" }),
+        ],
+        workspaceUuid: "workspace-1",
+      })
+    ).toEqual([
+      buildChat({ id: "chat-2", slug: "chat-2", title: "Second chat" }),
+    ]);
+
+    expect(
+      applyDashboardChatInvalidation({
+        detail: {
+          kind: "chat",
+          payload: {
+            action: "created",
+            chat: buildChat({
+              id: "chat-3",
+              slug: "chat-3",
+              title: "Created chat",
+            }),
+          },
+          workspaceUuid: "workspace-1",
+        },
+        previousChats: [buildChat({ slug: "chat-1" })],
+        workspaceUuid: "workspace-1",
+      })
+    ).toEqual([
+      buildChat({
+        id: "chat-3",
+        slug: "chat-3",
+        title: "Created chat",
+      }),
+      buildChat({ slug: "chat-1" }),
+    ]);
+
+    expect(
+      applyDashboardChatInvalidation({
+        detail: {
+          kind: "chat",
+          payload: {
+            action: "updated",
+            chat: buildChat({
+              slug: "chat-1",
+              title: "Updated title",
+            }),
+          },
+          workspaceUuid: "workspace-1",
+        },
+        previousChats: [buildChat({ slug: "chat-1" })],
+        workspaceUuid: "workspace-1",
+      })
+    ).toEqual([buildChat({ slug: "chat-1", title: "Updated title" })]);
+
+    expect(
+      applyDashboardChatInvalidation({
+        detail: {
+          kind: "chat",
+          payload: {
+            action: "updated",
+            chat: { slug: "broken" },
+          },
+          workspaceUuid: "workspace-1",
+        },
+        previousChats: [buildChat({ slug: "chat-1" })],
+        workspaceUuid: "workspace-1",
+      })
+    ).toBeNull();
 
     const scope = resolveDashboardChatSessionScope({
       activeChatSlug: "chat-1",

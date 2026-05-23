@@ -44,5 +44,37 @@ describe("preview attachment model", () => {
         status: "completed",
       }).canPreview
     ).toBe(false);
+
+    expect(
+      buildPreviewAttachmentCapabilities({
+        contentType: "text/plain",
+        file: new File(["hello"], "note.txt", { type: "text/plain" }),
+        name: "note.txt",
+        source: "local",
+        status: "pending",
+      })
+    ).toEqual({
+      canPreview: true,
+      isCodePreview: true,
+      isImagePreview: false,
+      isPdfPreview: false,
+      isVideoPreview: false,
+    });
+
+    expect(
+      buildPreviewAttachmentCapabilities({
+        contentType: "image/png",
+        name: "diagram.png",
+        previewUrl: "blob:https://app.example.com/diagram",
+        source: "local",
+        status: "pending",
+      })
+    ).toEqual({
+      canPreview: true,
+      isCodePreview: false,
+      isImagePreview: true,
+      isPdfPreview: false,
+      isVideoPreview: false,
+    });
   });
 });

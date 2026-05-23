@@ -64,6 +64,28 @@ describe("/api/flashcards/review/queue route", () => {
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
+    expect(getRouteCacheVersionMock).not.toHaveBeenCalled();
+    expect(createRouteCacheKeyMock).not.toHaveBeenCalled();
+    expect(getCachedRouteMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when workspace context lookup throws before review queue loading begins", async () => {
+    getWorkspaceContextForUserMock.mockRejectedValueOnce(
+      new Error("review queue auth offline")
+    );
+
+    const response = await GET(
+      new Request("http://localhost:3003/api/flashcards/review/queue")
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "review queue auth offline",
+    });
+    expect(getRouteCacheVersionMock).not.toHaveBeenCalled();
+    expect(createRouteCacheKeyMock).not.toHaveBeenCalled();
+    expect(getCachedRouteMock).not.toHaveBeenCalled();
+    expect(listDueFlashcardsForUserMock).not.toHaveBeenCalled();
   });
 
   it("returns cached queue payloads with a hit header", async () => {
@@ -85,6 +107,7 @@ describe("/api/flashcards/review/queue route", () => {
       queue: [{ id: "card-1" }],
     });
     expect(listDueFlashcardsForUserMock).not.toHaveBeenCalled();
+    expect(setCachedRouteMock).not.toHaveBeenCalled();
   });
 
   it("loads and caches a normalized queue on a cache miss", async () => {
@@ -143,5 +166,26 @@ describe("/api/flashcards/review/queue route", () => {
         queue: [{ id: "card-2" }],
       }
     );
+  });
+
+  it("returns a 500 json error when queue loading throws on a cache miss", async () => {
+    getWorkspaceContextForUserMock.mockResolvedValue({
+      user: { id: "user-1" },
+      workspace: { workspaceId: "workspace-1" },
+    });
+    getCachedRouteMock.mockResolvedValue(null);
+    listDueFlashcardsForUserMock.mockRejectedValueOnce(
+      new Error("review queue offline")
+    );
+
+    const response = await GET(
+      new Request("http://localhost:3003/api/flashcards/review/queue")
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "review queue offline",
+    });
+    expect(setCachedRouteMock).not.toHaveBeenCalled();
   });
 });

@@ -40,7 +40,7 @@ export function MutationBlock({ action }: { action: MutationAction }) {
       >
         <span className="font-semibold text-foreground/72">Mindset Set</span>
         <span className="font-mono text-[12px] text-foreground/62">
-          {action.preview?.title || action.value || "mindset set"}
+          {action.preview?.title || action.value || "Mindset Set"}
         </span>
         {action.pending ? (
           <span className="font-mono text-[11px] text-foreground/28">
@@ -110,6 +110,40 @@ export function MutationBlock({ action }: { action: MutationAction }) {
         {action.pending ? (
           <span className="font-mono text-[11px] text-foreground/28">
             creating
+            <ThinkingDots />
+          </span>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (action.kind === "misconception") {
+    const confidence =
+      typeof action.preview?.confidence === "number"
+        ? `${Math.round(action.preview.confidence * 100)}%`
+        : null;
+
+    return (
+      <div
+        className="mb-1 flex items-baseline gap-2 text-sm"
+        role="listitem"
+        style={{
+          opacity: 1,
+          transform: "translateY(0)",
+        }}
+      >
+        <span className="font-semibold text-foreground/72">Misconception</span>
+        <span className="min-w-0 truncate font-mono text-[12px] text-foreground/62">
+          {action.preview?.concept || action.value || "learning memory"}
+        </span>
+        {confidence ? (
+          <span className="font-mono text-[11px] text-foreground/35">
+            {confidence}
+          </span>
+        ) : null}
+        {action.pending ? (
+          <span className="font-mono text-[11px] text-foreground/28">
+            checking
             <ThinkingDots />
           </span>
         ) : null}

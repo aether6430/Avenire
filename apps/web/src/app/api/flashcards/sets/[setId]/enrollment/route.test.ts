@@ -48,6 +48,27 @@ describe("/api/flashcards/sets/[setId]/enrollment route", () => {
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
   });
 
+  it("fails closed when workspace context lookup throws before enrollment handling begins", async () => {
+    getWorkspaceContextForUserMock.mockRejectedValueOnce(
+      new Error("flashcard enrollment auth offline")
+    );
+
+    const response = await POST(
+      new Request("http://localhost:3003", {
+        body: JSON.stringify({}),
+        method: "POST",
+      }),
+      { params: Promise.resolve({ setId: "set-1" }) }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "flashcard enrollment auth offline",
+    });
+    expect(upsertFlashcardSetEnrollmentForUserMock).not.toHaveBeenCalled();
+    expect(invalidateFlashcardReadCachesMock).not.toHaveBeenCalled();
+  });
+
   it("rejects invalid enrollment payloads", async () => {
     getWorkspaceContextForUserMock.mockResolvedValue({
       user: { id: "user-1" },
@@ -123,6 +144,63 @@ describe("/api/flashcards/sets/[setId]/enrollment route", () => {
     expect(invalidateFlashcardReadCachesMock).toHaveBeenCalledWith(
       "workspace-1"
     );
+  });
+
+  it("returns a 500 json error when enrollment upsert throws before invalidation", async () => {
+    getWorkspaceContextForUserMock.mockResolvedValue({
+      user: { id: "user-1" },
+      workspace: { workspaceId: "workspace-1" },
+    });
+    upsertFlashcardSetEnrollmentForUserMock.mockRejectedValueOnce(
+      new Error("enrollment offline")
+    );
+
+    const response = await POST(
+      new Request("http://localhost:3003", {
+        body: JSON.stringify({
+          status: "active",
+        }),
+        method: "POST",
+      }),
+      { params: Promise.resolve({ setId: "set-1" }) }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "enrollment offline",
+    });
+    expect(invalidateFlashcardReadCachesMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a 500 json error when enrollment cache invalidation throws after upsert", async () => {
+    getWorkspaceContextForUserMock.mockResolvedValue({
+      user: { id: "user-1" },
+      workspace: { workspaceId: "workspace-1" },
+    });
+    upsertFlashcardSetEnrollmentForUserMock.mockResolvedValue({
+      newCardsPerDay: 12,
+      setId: "set-1",
+      status: "paused",
+    });
+    invalidateFlashcardReadCachesMock.mockRejectedValueOnce(
+      new Error("enrollment cache offline")
+    );
+
+    const response = await POST(
+      new Request("http://localhost:3003", {
+        body: JSON.stringify({
+          newCardsPerDay: 12,
+          status: "paused",
+        }),
+        method: "POST",
+      }),
+      { params: Promise.resolve({ setId: "set-1" }) }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "enrollment cache offline",
+    });
   });
 
   it("returns 404 when the target set cannot be resolved", async () => {

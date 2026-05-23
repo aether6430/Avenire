@@ -30,12 +30,15 @@ export async function generateMetadata({
     return {};
   }
   const canonical = `/blog/${slug}`;
+  const imageUrl = new URL("/api/og", metadataBase);
+  imageUrl.searchParams.set("template", "blog");
+  imageUrl.searchParams.set("title", post.title);
+  imageUrl.searchParams.set("category", post.tags[0] ?? "AI Learning");
+  imageUrl.searchParams.set("date", post.date);
+  imageUrl.searchParams.set("readingTime", post.readingTime);
   const image = post.coverImage
     ? new URL(post.coverImage, metadataBase).toString()
-    : new URL(
-        `/api/og?title=${encodeURIComponent(post.title)}`,
-        metadataBase
-      ).toString();
+    : imageUrl.toString();
 
   return {
     alternates: {
@@ -51,12 +54,12 @@ export async function generateMetadata({
       type: "article",
       url: canonical,
     },
-    title: post.title,
+    title: `${post.title} | Avenire Blog`,
     twitter: {
       card: "summary_large_image",
       description: post.description,
       images: [image],
-      title: post.title,
+      title: `${post.title} | Avenire Blog`,
     },
   };
 }
@@ -68,12 +71,15 @@ function buildArticleSchema(slug: string) {
   }
 
   const canonical = new URL(`/blog/${slug}`, metadataBase).toString();
+  const imageUrl = new URL("/api/og", metadataBase);
+  imageUrl.searchParams.set("template", "blog");
+  imageUrl.searchParams.set("title", post.title);
+  imageUrl.searchParams.set("category", post.tags[0] ?? "AI Learning");
+  imageUrl.searchParams.set("date", post.date);
+  imageUrl.searchParams.set("readingTime", post.readingTime);
   const image = post.coverImage
     ? new URL(post.coverImage, metadataBase).toString()
-    : new URL(
-        `/api/og?title=${encodeURIComponent(post.title)}`,
-        metadataBase
-      ).toString();
+    : imageUrl.toString();
 
   return {
     "@context": "https://schema.org",

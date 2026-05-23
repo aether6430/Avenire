@@ -1,10 +1,13 @@
 "use client";
 
+import { authClient, useSession } from "@avenire/auth/client";
 import Link from "next/link";
 import type React from "react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { tiers } from "@/components/marketing/constants/pricing";
 import { CheckIcon } from "@/components/marketing/icons/card-icons";
+import { resolvePricingCallToAction } from "@/components/marketing/pricing-cta-model";
+import { formatInr } from "@/lib/billing-plans";
 import { type BillingCycle, BillingCycleTabs } from "./billing-cycle-tabs";
 import { Button } from "./button";
 import { Container } from "./container";
@@ -18,8 +21,26 @@ export function PricingPlans({
   onCycleChange?: (cycle: BillingCycle) => void;
 }) {
   const [localCycle, setLocalCycle] = useState<BillingCycle>("monthly");
+  const { data: session } = useSession();
   const cycle = controlledCycle ?? localCycle;
   const setCycle = onCycleChange ?? setLocalCycle;
+  const isSignedIn = Boolean(session?.user);
+  const handleCheckout = useCallback(
+    async (checkoutSlug: string, fallbackHref: string) => {
+      try {
+        await authClient.checkout({
+          slug: checkoutSlug,
+        });
+      } catch (error) {
+        console.error(
+          "[marketing/pricing] failed to start Better Auth checkout",
+          error
+        );
+        window.location.href = fallbackHref;
+      }
+    },
+    []
+  );
 
   return (
     <section>
@@ -31,6 +52,13 @@ export function PricingPlans({
         <div className="grid grid-cols-1 divide-y divide-divide md:grid-cols-3 md:divide-x md:divide-y-0">
           {tiers.map((tier) => {
             const price = cycle === "monthly" ? tier.monthly : tier.yearly;
+            const cta = resolvePricingCallToAction({
+              cycle,
+              isSignedIn,
+              signedOutHref: tier.ctaLink,
+              signedOutLabel: tier.ctaText,
+              tierName: tier.title,
+            });
 
             return (
               <div
@@ -45,7 +73,7 @@ export function PricingPlans({
                 </p>
                 <div className="mt-6 flex items-end gap-2">
                   <span className="font-medium text-3xl text-white tabular-nums">
-                    ${price}
+                    {formatInr(price)}
                   </span>
                   <span className="pb-1 font-normal text-sm text-white/56">
                     /seat {cycle === "monthly" ? "monthly" : "yearly"}
@@ -57,14 +85,27 @@ export function PricingPlans({
                     <Step key={tierFeature}>{tierFeature}</Step>
                   ))}
                 </div>
-                <Button
-                  as={Link}
-                  className="mt-8 w-full"
-                  href={tier.ctaLink as any}
-                  variant={tier.featured ? "brand" : "secondary"}
-                >
-                  {tier.ctaText}
-                </Button>
+                {cta.kind === "link" ? (
+                  <Button
+                    as={Link}
+                    className="mt-8 w-full"
+                    href={cta.href as any}
+                    variant={tier.featured ? "brand" : "secondary"}
+                  >
+                    {cta.label}
+                  </Button>
+                ) : (
+                  <Button
+                    className="mt-8 w-full"
+                    onClick={() => {
+                      void handleCheckout(cta.checkoutSlug, cta.fallbackHref);
+                    }}
+                    type="button"
+                    variant={tier.featured ? "brand" : "secondary"}
+                  >
+                    {cta.label}
+                  </Button>
+                )}
               </div>
             );
           })}

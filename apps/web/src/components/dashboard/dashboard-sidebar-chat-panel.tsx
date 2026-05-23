@@ -15,6 +15,7 @@ import { SectionHeader, SectionIconAction } from "./dashboard-sidebar-shared";
 export function DashboardSidebarChatPanel({
   activeChatSlug,
   chatActionStatus,
+  chatsErrorMessage,
   chatsLoadFailed,
   chatsLoading,
   chatSearchQuery,
@@ -38,6 +39,7 @@ export function DashboardSidebarChatPanel({
 }: {
   activeChatSlug: string;
   chatActionStatus?: string | null;
+  chatsErrorMessage?: string | null;
   chatsLoadFailed?: boolean;
   chatsLoading?: boolean;
   chatSearchQuery: string;
@@ -103,6 +105,7 @@ export function DashboardSidebarChatPanel({
       <ChatListSection
         activeChatSlug={activeChatSlug}
         chatActionStatus={chatActionStatus}
+        chatsErrorMessage={chatsErrorMessage}
         chatsLoadFailed={chatsLoadFailed}
         chatsLoading={chatsLoading}
         editingChatSlug={editingChatSlug}

@@ -117,7 +117,7 @@ export function MessageGeneratedArtifacts({
           href={`/workspace/flashcards/${mindsetSet.setId}`}
           key={mindsetSet.setId}
         >
-          <span>Open mindset set</span>
+          <span>Open Mindset Set</span>
           <span className="max-w-[18rem] truncate text-foreground/70">
             {mindsetSet.title}
           </span>

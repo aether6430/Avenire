@@ -102,6 +102,7 @@ describe("dashboard sidebar chat collection runtime", () => {
 
     expect(success).toEqual({
       chats: [buildChat({ id: "chat-2" })],
+      errorMessage: null,
       loadFailed: false,
     });
     expect(writeCachedChats).toHaveBeenCalledWith("workspace-1", [
@@ -109,13 +110,17 @@ describe("dashboard sidebar chat collection runtime", () => {
     ]);
 
     const failed = await loadDashboardSidebarChats({
-      fetchChats: async () => new Response(null, { status: 500 }),
+      fetchChats: async () =>
+        new Response(JSON.stringify({ error: "chat history offline" }), {
+          status: 500,
+        }),
       trackedWorkspaceUuid: "workspace-1",
       workspaceUuid: "workspace-1",
       writeCachedChats,
     });
     expect(failed).toEqual({
       chats: [],
+      errorMessage: "chat history offline",
       loadFailed: true,
     });
 

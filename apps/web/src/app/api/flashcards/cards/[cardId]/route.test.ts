@@ -62,6 +62,52 @@ describe("/api/flashcards/cards/[cardId] route", () => {
     expect(deleteResponse.status).toBe(401);
   });
 
+  it.each([
+    {
+      body: {
+        source: {
+          concept: "Closures",
+          subject: "JavaScript",
+          topic: "Functions",
+        },
+      },
+      method: "PATCH" as const,
+    },
+    {
+      body: undefined,
+      method: "DELETE" as const,
+    },
+  ])("fails closed from $method when workspace context lookup throws before flashcard card route handling begins", async ({
+    body,
+    method,
+  }) => {
+    getWorkspaceContextForUserMock.mockRejectedValueOnce(
+      new Error("flashcard card auth offline")
+    );
+
+    const response =
+      method === "PATCH"
+        ? await PATCH(
+            new Request("http://localhost:3003", {
+              body: JSON.stringify(body),
+              method: "PATCH",
+            }),
+            { params: Promise.resolve({ cardId: "card-1" }) }
+          )
+        : await DELETE(new Request("http://localhost:3003"), {
+            params: Promise.resolve({ cardId: "card-1" }),
+          });
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "flashcard card auth offline",
+    });
+    expect(updateFlashcardCardForUserMock).not.toHaveBeenCalled();
+    expect(archiveFlashcardCardForUserMock).not.toHaveBeenCalled();
+    expect(invalidateFlashcardReadCachesMock).not.toHaveBeenCalled();
+    expect(publishWorkspaceStreamEventMock).not.toHaveBeenCalled();
+  });
+
   it("rejects invalid patch payloads", async () => {
     getWorkspaceContextForUserMock.mockResolvedValue({
       user: { id: "user-1" },
@@ -154,6 +200,71 @@ describe("/api/flashcards/cards/[cardId] route", () => {
     });
   });
 
+  it("returns a 500 json error when card update throws before invalidation work", async () => {
+    getWorkspaceContextForUserMock.mockResolvedValue({
+      user: { id: "user-1" },
+      workspace: { workspaceId: "workspace-1" },
+    });
+    updateFlashcardCardForUserMock.mockRejectedValueOnce(
+      new Error("card update offline")
+    );
+
+    const response = await PATCH(
+      new Request("http://localhost:3003", {
+        body: JSON.stringify({
+          source: {
+            concept: "Closures",
+            subject: "JavaScript",
+            topic: "Functions",
+          },
+        }),
+        method: "PATCH",
+      }),
+      { params: Promise.resolve({ cardId: "card-1" }) }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "card update offline",
+    });
+    expect(invalidateFlashcardReadCachesMock).not.toHaveBeenCalled();
+    expect(publishWorkspaceStreamEventMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a 500 json error when card cache invalidation throws after update", async () => {
+    getWorkspaceContextForUserMock.mockResolvedValue({
+      user: { id: "user-1" },
+      workspace: { workspaceId: "workspace-1" },
+    });
+    updateFlashcardCardForUserMock.mockResolvedValue({
+      id: "card-1",
+      setId: "set-1",
+    });
+    invalidateFlashcardReadCachesMock.mockRejectedValueOnce(
+      new Error("card cache offline")
+    );
+
+    const response = await PATCH(
+      new Request("http://localhost:3003", {
+        body: JSON.stringify({
+          source: {
+            concept: "Closures",
+            subject: "JavaScript",
+            topic: "Functions",
+          },
+        }),
+        method: "PATCH",
+      }),
+      { params: Promise.resolve({ cardId: "card-1" }) }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "card cache offline",
+    });
+    expect(publishWorkspaceStreamEventMock).not.toHaveBeenCalled();
+  });
+
   it("returns 404 when a card update cannot be persisted", async () => {
     getWorkspaceContextForUserMock.mockResolvedValue({
       user: { id: "user-1" },
@@ -223,5 +334,26 @@ describe("/api/flashcards/cards/[cardId] route", () => {
       type: "flashcards.invalidate",
       workspaceUuid: "workspace-1",
     });
+  });
+
+  it("returns a 500 json error when card archival throws before invalidation", async () => {
+    getWorkspaceContextForUserMock.mockResolvedValue({
+      user: { id: "user-1" },
+      workspace: { workspaceId: "workspace-1" },
+    });
+    archiveFlashcardCardForUserMock.mockRejectedValueOnce(
+      new Error("card archive offline")
+    );
+
+    const response = await DELETE(new Request("http://localhost:3003"), {
+      params: Promise.resolve({ cardId: "card-1" }),
+    });
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "card archive offline",
+    });
+    expect(invalidateFlashcardReadCachesMock).not.toHaveBeenCalled();
+    expect(publishWorkspaceStreamEventMock).not.toHaveBeenCalled();
   });
 });

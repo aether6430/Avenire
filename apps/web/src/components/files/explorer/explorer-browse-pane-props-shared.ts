@@ -59,6 +59,7 @@ export type NoteWorkflowContentDialogProps = Omit<
 >;
 
 export interface BuildExplorerBrowsePanePropsOptions {
+  allFiles: BrowseSurfaceProps["sortedFiles"];
   allFolders: BrowseSurfaceProps["allFolders"];
   availablePropertyDefinitions: ControlsProps["availablePropertyDefinitions"];
   bannerInputRef: ExplorerBrowsePaneProps["bannerInputRef"];
@@ -109,6 +110,7 @@ export interface BuildExplorerBrowsePanePropsOptions {
   interactions: BrowseSurfaceProps["interactions"];
   isCurrentFolderReadOnly: ControlsProps["isCurrentFolderReadOnly"];
   isMobile: ExplorerBrowsePaneProps["isMobile"];
+  isSearchFilteredView: BrowseSurfaceProps["isSearchFilteredView"];
   itemActionTargetSelector: BrowseSurfaceProps["itemActionTargetSelector"];
   listMeasureElement: BrowseSurfaceProps["listMeasureElement"];
   listTotalSize: BrowseSurfaceProps["listTotalSize"];
@@ -152,6 +154,7 @@ export interface BuildExplorerBrowsePanePropsOptions {
   propertyFiltersForUi: ControlsProps["propertyFiltersForUi"];
   scrollRef: ShellProps["scrollRef"];
   searchBarProps: ExplorerSearchBarProps;
+  searchResultByFileId: BrowseSurfaceProps["searchResultByFileId"];
   selectedCardPropertyDefinitions: ControlsProps["selectedCardPropertyDefinitions"];
   selectedCount: MobileActionsProps["selectedCount"];
   selectedIds: ReadonlySet<string>;

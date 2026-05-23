@@ -39,6 +39,8 @@ export const workspaceFileRegisterBulkRequestSchema = z.object({
   files: z.array(workspaceFileRegisterBulkFileSchema).min(1).max(200),
 });
 
+export const WORKSPACE_FILE_REGISTER_BULK_ERROR = "Bulk registration failed";
+
 export type WorkspaceFileRegisterBulkFile = z.infer<
   typeof workspaceFileRegisterBulkFileSchema
 >;
@@ -96,4 +98,11 @@ export function buildWorkspaceFileRegisterBulkSummary(
     succeeded,
     failed: results.length - succeeded,
   };
+}
+
+export function resolveWorkspaceFileRegisterBulkRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
 }

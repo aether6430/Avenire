@@ -2,21 +2,25 @@
 
 import { SidebarFilesPanelSurface } from "@/components/dashboard/sidebar-files-panel-surface";
 import { useSidebarFilesPanel } from "@/components/dashboard/use-sidebar-files-panel";
+import type { FilesUiIntent } from "@/stores/filesUiStore";
 
 export function FilesSidebarPanel({
   currentFileId,
   currentFolderId,
+  emitGlobalFileIntent,
   navigateToFilesRoot,
   workspaceUuid,
 }: {
   currentFileId?: string;
   currentFolderId?: string;
+  emitGlobalFileIntent?: (intent: FilesUiIntent) => Promise<void> | void;
   navigateToFilesRoot: (options?: { openInNewPane?: boolean }) => Promise<void>;
   workspaceUuid: string | null;
 }) {
   const runtime = useSidebarFilesPanel({
     currentFileId,
     currentFolderId,
+    emitGlobalFileIntent,
     navigateToFilesRoot,
     workspaceUuid,
   });

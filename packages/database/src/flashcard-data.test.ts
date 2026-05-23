@@ -20,4 +20,18 @@ describe("flashcard-data ordinal allocation", () => {
     );
     expect(ordinalLookup).not.toContain("isNull(flashcardCard.archivedAt)");
   });
+
+  it("keeps flashcard taxonomy normalization delegated to the shared helper module", () => {
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "flashcard-data.ts"),
+      "utf8"
+    );
+
+    expect(source).toContain('from "./flashcard-taxonomy"');
+    expect(source).toContain(
+      'export { normalizeFlashcardTaxonomy } from "./flashcard-taxonomy";'
+    );
+    expect(source).not.toContain("function normalizeFlashcardTaxonomy(");
+    expect(source).not.toContain("function assertFlashcardTaxonomy(");
+  });
 });

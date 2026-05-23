@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  consumeUploadUnitsMock,
   deleteIngestionDataForFileMock,
   getFileAssetByIdMock,
   getSessionUserMock,
@@ -10,7 +9,6 @@ const {
   scheduleIngestionJobMock,
   userCanEditFileMock,
 } = vi.hoisted(() => ({
-  consumeUploadUnitsMock: vi.fn(),
   deleteIngestionDataForFileMock: vi.fn(),
   getFileAssetByIdMock: vi.fn(),
   getSessionUserMock: vi.fn(),
@@ -22,10 +20,6 @@ const {
 
 vi.mock("@avenire/ingestion/queue", () => ({
   scheduleIngestionJob: scheduleIngestionJobMock,
-}));
-
-vi.mock("@/lib/billing-metering", () => ({
-  consumeUploadUnits: consumeUploadUnitsMock,
 }));
 
 vi.mock("@/lib/file-data", () => ({
@@ -53,7 +47,6 @@ import { POST } from "./route";
 
 describe("/api/workspaces/[workspaceUuid]/files/[fileUuid]/reingest route", () => {
   beforeEach(() => {
-    consumeUploadUnitsMock.mockReset();
     deleteIngestionDataForFileMock.mockReset();
     getFileAssetByIdMock.mockReset();
     getSessionUserMock.mockReset();
@@ -84,6 +77,34 @@ describe("/api/workspaces/[workspaceUuid]/files/[fileUuid]/reingest route", () =
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
+  });
+
+  it("fails closed when session lookup throws before reingest handling begins", async () => {
+    getSessionUserMock.mockRejectedValueOnce(
+      new Error("reingest auth offline")
+    );
+
+    const response = await POST(
+      new Request(
+        "http://localhost:3003/api/workspaces/workspace-1/files/file-1/reingest",
+        { method: "POST" }
+      ),
+      {
+        params: Promise.resolve({
+          workspaceUuid: "workspace-1",
+          fileUuid: "file-1",
+        }),
+      }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "reingest auth offline",
+    });
+    expect(userCanEditFileMock).not.toHaveBeenCalled();
+    expect(getFileAssetByIdMock).not.toHaveBeenCalled();
+    expect(deleteIngestionDataForFileMock).not.toHaveBeenCalled();
+    expect(scheduleIngestionJobMock).not.toHaveBeenCalled();
   });
 
   it("returns read-only file when the user cannot edit the file", async () => {
@@ -129,17 +150,14 @@ describe("/api/workspaces/[workspaceUuid]/files/[fileUuid]/reingest route", () =
     await expect(response.json()).resolves.toEqual({ error: "File not found" });
   });
 
-  it("returns a rate-limit payload when upload units are exhausted", async () => {
+  it("queues reingest work without a separate upload-credit gate", async () => {
     getSessionUserMock.mockResolvedValue({ id: "user-1" });
     userCanEditFileMock.mockResolvedValue(true);
     getFileAssetByIdMock.mockResolvedValue({
       folderId: "folder-1",
       id: "file-1",
     });
-    consumeUploadUnitsMock.mockResolvedValue({
-      ok: false,
-      retryAfter: new Date("2026-05-13T10:00:00.000Z"),
-    });
+    scheduleIngestionJobMock.mockResolvedValue({ id: "job-0" });
 
     const response = await POST(
       new Request(
@@ -154,11 +172,14 @@ describe("/api/workspaces/[workspaceUuid]/files/[fileUuid]/reingest route", () =
       }
     );
 
-    expect(response.status).toBe(429);
+    expect(response.status).toBe(202);
     await expect(response.json()).resolves.toEqual({
-      error: "Upload usage limit reached",
-      retryAfter: "2026-05-13T10:00:00.000Z",
+      job: { id: "job-0" },
     });
+    expect(deleteIngestionDataForFileMock).toHaveBeenCalledWith(
+      "workspace-1",
+      "file-1"
+    );
   });
 
   it("queues a reingest job and publishes realtime side effects", async () => {
@@ -168,7 +189,6 @@ describe("/api/workspaces/[workspaceUuid]/files/[fileUuid]/reingest route", () =
       folderId: "folder-1",
       id: "file-1",
     });
-    consumeUploadUnitsMock.mockResolvedValue({ ok: true });
     scheduleIngestionJobMock.mockResolvedValue({ id: "job-1" });
 
     const response = await POST(
@@ -217,7 +237,6 @@ describe("/api/workspaces/[workspaceUuid]/files/[fileUuid]/reingest route", () =
     getSessionUserMock.mockResolvedValue({ id: "user-1" });
     userCanEditFileMock.mockResolvedValue(true);
     getFileAssetByIdMock.mockResolvedValue({ folderId: null, id: "file-1" });
-    consumeUploadUnitsMock.mockResolvedValue({ ok: true });
     scheduleIngestionJobMock.mockResolvedValue({ id: "job-2" });
     publishFilesInvalidationEventMock.mockRejectedValueOnce(new Error("boom"));
     publishWorkspaceStreamEventMock.mockRejectedValueOnce(new Error("boom"));
@@ -237,5 +256,33 @@ describe("/api/workspaces/[workspaceUuid]/files/[fileUuid]/reingest route", () =
 
     expect(response.status).toBe(202);
     await expect(response.json()).resolves.toEqual({ job: { id: "job-2" } });
+  });
+
+  it("fails closed with an explicit reingest error when file reingest runtime throws", async () => {
+    getSessionUserMock.mockResolvedValue({ id: "user-1" });
+    userCanEditFileMock.mockResolvedValue(true);
+    getFileAssetByIdMock.mockRejectedValue(new Error("reingest offline"));
+
+    const response = await POST(
+      new Request(
+        "http://localhost:3003/api/workspaces/workspace-1/files/file-1/reingest",
+        { method: "POST" }
+      ),
+      {
+        params: Promise.resolve({
+          workspaceUuid: "workspace-1",
+          fileUuid: "file-1",
+        }),
+      }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "reingest offline",
+    });
+    expect(deleteIngestionDataForFileMock).not.toHaveBeenCalled();
+    expect(scheduleIngestionJobMock).not.toHaveBeenCalled();
+    expect(publishFilesInvalidationEventMock).not.toHaveBeenCalled();
+    expect(publishWorkspaceStreamEventMock).not.toHaveBeenCalled();
   });
 });

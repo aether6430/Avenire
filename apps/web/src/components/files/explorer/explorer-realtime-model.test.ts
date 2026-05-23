@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyExplorerFilesRealtimeInvalidation,
   applyExplorerIngestionJobEvent,
+  collectExplorerDeletedFolderIds,
   parseExplorerFilesInvalidationPayload,
   parseExplorerIngestionJobEventPayload,
   shouldEnableExplorerRealtime,
 } from "@/components/files/explorer/explorer-realtime-model";
 import type { ExplorerUploadQueueItem } from "@/components/files/explorer/explorer-upload-model";
+import type {
+  FileRecord,
+  FolderRecord,
+} from "@/components/files/explorer/shared";
 
 describe("Explorer realtime model", () => {
   it("parses realtime payloads safely", () => {
@@ -91,5 +97,79 @@ describe("Explorer realtime model", () => {
         },
       ])
     ).toBe(true);
+  });
+
+  it("filters explorer tree state after deleted file and folder invalidations", () => {
+    const allFolders: FolderRecord[] = [
+      {
+        id: "root",
+        name: "Workspace",
+        parentId: null,
+      },
+      {
+        id: "notes",
+        name: "Notes",
+        parentId: "root",
+      },
+      {
+        id: "archive",
+        name: "Archive",
+        parentId: "notes",
+      },
+    ];
+    const allFiles: FileRecord[] = [
+      {
+        createdAt: "2026-05-22T00:00:00.000Z",
+        folderId: "notes",
+        id: "file-a",
+        mimeType: "text/markdown",
+        name: "Welcome.md",
+        sizeBytes: 128,
+        storageUrl: "/welcome",
+      },
+      {
+        createdAt: "2026-05-22T00:00:00.000Z",
+        folderId: "archive",
+        id: "file-b",
+        mimeType: "application/pdf",
+        name: "Old.pdf",
+        sizeBytes: 256,
+        storageUrl: "/old",
+      },
+    ];
+
+    expect(collectExplorerDeletedFolderIds(allFolders, "notes")).toEqual(
+      new Set(["notes", "archive"])
+    );
+
+    expect(
+      applyExplorerFilesRealtimeInvalidation({
+        allFiles,
+        allFolders,
+        detail: {
+          fileId: "file-a",
+          reason: "file.deleted",
+        },
+      })
+    ).toEqual({
+      allFiles: [allFiles[1]],
+      allFolders,
+      deletedFolderIds: new Set(),
+    });
+
+    expect(
+      applyExplorerFilesRealtimeInvalidation({
+        allFiles,
+        allFolders,
+        detail: {
+          folderId: "notes",
+          reason: "folder.deleted",
+        },
+      })
+    ).toEqual({
+      allFiles: [],
+      allFolders: [allFolders[0]],
+      deletedFolderIds: new Set(["notes", "archive"]),
+    });
   });
 });

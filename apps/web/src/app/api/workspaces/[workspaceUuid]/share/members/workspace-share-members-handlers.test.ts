@@ -167,6 +167,34 @@ describe("workspace share members handlers", () => {
     });
   });
 
+  it("returns a 500 json error when workspace-member lookup throws before success logging", async () => {
+    listMembersMock.mockRejectedValueOnce(new Error("members offline"));
+    const apiLogger = createApiLoggerStub();
+
+    const response = await handleWorkspaceShareMembersGet({
+      apiLogger: apiLogger as never,
+      request: new Request(
+        "https://avenire.app/api/workspaces/workspace-1/share/members?q=invitee@example.com"
+      ),
+      user: { id: "user-1" },
+      workspaceUuid: "workspace-1",
+    });
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "members offline",
+    });
+    expect(findAuthUserByEmailMock).not.toHaveBeenCalled();
+    expect(apiLogger.requestSucceeded).not.toHaveBeenCalled();
+    expect(apiLogger.requestFailed).toHaveBeenCalledWith(
+      500,
+      expect.objectContaining({
+        message: "members offline",
+      }),
+      { workspaceUuid: "workspace-1" }
+    );
+  });
+
   it("rejects non-admin member invites and handles invalid-email plus already-member updates", async () => {
     listWorkspaceMembersMock.mockResolvedValueOnce([
       {
@@ -227,6 +255,40 @@ describe("workspace share members handlers", () => {
       role: "admin",
       status: "updated",
     });
+  });
+
+  it("returns a 500 json error when member invitation creation throws before email delivery", async () => {
+    createWorkspaceInvitationByEmailMock.mockRejectedValueOnce(
+      new Error("invite service offline")
+    );
+    const apiLogger = createApiLoggerStub();
+
+    const response = await handleWorkspaceShareMembersPost({
+      apiLogger: apiLogger as never,
+      request: {
+        json: vi.fn().mockResolvedValue({
+          email: "invitee@example.com",
+          role: "member",
+        }),
+      } as never,
+      user: { id: "user-1", name: "Owner" },
+      workspaceUuid: "workspace-1",
+    });
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "invite service offline",
+    });
+    expect(sendWorkspaceShareEmailMock).not.toHaveBeenCalled();
+    expect(resolveAppBaseUrlMock).not.toHaveBeenCalled();
+    expect(apiLogger.requestSucceeded).not.toHaveBeenCalled();
+    expect(apiLogger.requestFailed).toHaveBeenCalledWith(
+      500,
+      expect.objectContaining({
+        message: "invite service offline",
+      }),
+      { workspaceUuid: "workspace-1" }
+    );
   });
 
   it("invites members, tolerates share-email failures, and removes members with explicit failures", async () => {
@@ -301,10 +363,10 @@ describe("workspace share members handlers", () => {
       user: { id: "user-1" },
       workspaceUuid: "workspace-1",
     });
-    expect(deleteResponse.status).toBe(400);
+    expect(deleteResponse.status).toBe(500);
     await expect(deleteResponse.json()).resolves.toEqual({
-      detail: "cannot remove",
-      error: "Unable to remove member",
+      error: "cannot remove",
     });
+    expect(deleteLogger.requestSucceeded).not.toHaveBeenCalled();
   });
 });

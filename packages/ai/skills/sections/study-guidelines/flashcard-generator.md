@@ -1,13 +1,13 @@
 ---
 name: flashcard-creator
-description: Create mindset cards for spaced repetition learning using concise markdown front/back cards with optional notes and tags. Use when creating mindset cards, study flashcards, vocabulary cards, memorization aids, or spaced repetition materials from notes or topics. Triggers - create flashcards, make flashcards, create mindset cards, spaced repetition, memory cards, study cards.
+description: Create cards for Mindset Sets used in spaced repetition learning using concise markdown front/back cards with optional notes and tags. Use when creating Mindset Sets, study flashcards, vocabulary cards, memorization aids, or spaced repetition materials from notes or topics. Triggers - create flashcards, make flashcards, create mindset cards, spaced repetition, memory cards, study cards.
 ---
  
-# Mindset Card Creator
+# Mindset Set Card Creator
  
-Generate effective mindset cards optimized for spaced repetition learning.
+Generate effective cards for Mindset Sets optimized for spaced repetition learning.
 
-When operating inside chat, use the `generate_flashcards` tool to create the actual persisted mindset set. Use this skill to decide what cards to make and how to structure them, then hand the content off to the tool instead of emitting an ad hoc set in plain text.
+When operating inside chat, use the `generate_flashcards` tool to create the actual persisted Mindset Set. Use this skill to decide what cards to make and how to structure them, then hand the content off to the tool instead of emitting an ad hoc set in plain text.
 
 The persisted tool format is:
 - `frontMarkdown`: the prompt or cue

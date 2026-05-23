@@ -1,8 +1,11 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  consumeUploadUnitsMock,
+  canStoreBytesForUserMock,
   createWorkspaceNoteFileMock,
+  deleteStorageFilesMock,
   getFileAssetByContentHashMock,
   getFileAssetByStorageKeyMock,
   hasSuccessfulIngestionForFileMock,
@@ -11,9 +14,8 @@ const {
   registerFileAssetMock,
   scheduleIngestionJobMock,
   softDeleteFileAssetMock,
-  utApiDeleteFilesMock,
 } = vi.hoisted(() => ({
-  consumeUploadUnitsMock: vi.fn(),
+  canStoreBytesForUserMock: vi.fn(),
   createWorkspaceNoteFileMock: vi.fn(),
   getFileAssetByContentHashMock: vi.fn(),
   getFileAssetByStorageKeyMock: vi.fn(),
@@ -23,7 +25,7 @@ const {
   registerFileAssetMock: vi.fn(),
   scheduleIngestionJobMock: vi.fn(),
   softDeleteFileAssetMock: vi.fn(),
-  utApiDeleteFilesMock: vi.fn(),
+  deleteStorageFilesMock: vi.fn(),
 }));
 
 vi.mock("@avenire/ingestion/queue", () => ({
@@ -31,15 +33,11 @@ vi.mock("@avenire/ingestion/queue", () => ({
 }));
 
 vi.mock("@avenire/storage", () => ({
-  UTApi: vi.fn(function UTApiMock() {
-    return {
-      deleteFiles: utApiDeleteFilesMock,
-    };
-  }),
+  deleteStorageFiles: deleteStorageFilesMock,
 }));
 
-vi.mock("@/lib/billing-metering", () => ({
-  consumeUploadUnits: consumeUploadUnitsMock,
+vi.mock("@/lib/database-billing-metering", () => ({
+  canStoreBytesForUser: canStoreBytesForUserMock,
 }));
 
 vi.mock("@/lib/file-data", () => ({
@@ -82,6 +80,19 @@ vi.mock("@/lib/upload-registration-model", () => ({
   ),
 }));
 
+const uploadRegistrationBarrelSource = readFileSync(
+  resolve(import.meta.dirname, "upload-registration.ts"),
+  "utf8"
+);
+const uploadRegistrationModelSource = readFileSync(
+  resolve(import.meta.dirname, "upload-registration-model.ts"),
+  "utf8"
+);
+const uploadRegistrationRuntimeSource = readFileSync(
+  resolve(import.meta.dirname, "upload-registration-runtime.ts"),
+  "utf8"
+);
+
 import {
   deleteUploadThingFile,
   registerWorkspaceMarkdownNote,
@@ -90,7 +101,7 @@ import {
 
 describe("upload registration runtime", () => {
   beforeEach(() => {
-    consumeUploadUnitsMock.mockReset();
+    canStoreBytesForUserMock.mockReset();
     createWorkspaceNoteFileMock.mockReset();
     getFileAssetByContentHashMock.mockReset();
     getFileAssetByStorageKeyMock.mockReset();
@@ -100,7 +111,13 @@ describe("upload registration runtime", () => {
     registerFileAssetMock.mockReset();
     scheduleIngestionJobMock.mockReset();
     softDeleteFileAssetMock.mockReset();
-    utApiDeleteFilesMock.mockReset();
+    deleteStorageFilesMock.mockReset();
+    canStoreBytesForUserMock.mockResolvedValue({
+      ok: true,
+      limitBytes: 2 * 1024 * 1024 * 1024,
+      remainingBytes: 2 * 1024 * 1024 * 1024,
+      usedBytes: 0,
+    });
   });
 
   it("deduplicates markdown notes when an existing content hash already exists", async () => {
@@ -145,7 +162,7 @@ describe("upload registration runtime", () => {
   it("cleans up uploadthing files best-effort", async () => {
     process.env.UPLOADTHING_TOKEN = "token";
     await deleteUploadThingFile("key-1");
-    expect(utApiDeleteFilesMock).toHaveBeenCalledWith(["key-1"]);
+    expect(deleteStorageFilesMock).toHaveBeenCalledWith(["key-1"]);
   });
 
   it("delegates markdown uploaded files through markdown note registration", async () => {
@@ -173,17 +190,43 @@ describe("upload registration runtime", () => {
     expect(result.status).toBe("created");
   });
 
-  it("registers binary uploads and rolls back on usage-limit failure", async () => {
+  it("registers binary uploads without a separate upload-credit gate", async () => {
     registerFileAssetMock.mockResolvedValue({ id: "file-4" });
-    consumeUploadUnitsMock.mockResolvedValue({
-      ok: false,
-      retryAfter: new Date("2026-05-17T12:00:00.000Z"),
-    });
+    scheduleIngestionJobMock.mockResolvedValue({ id: "job-4" });
     getFileAssetByStorageKeyMock.mockResolvedValue(null);
+
+    const result = await registerWorkspaceUploadedFile({
+      contentHashSha256: "hash-1",
+      folderId: "folder-1",
+      mimeType: "application/pdf",
+      name: "guide.pdf",
+      sizeBytes: 42,
+      storageKey: "binary-key",
+      storageUrl: "https://cdn.example.com/guide.pdf",
+      userId: "user-1",
+      workspaceUuid: "workspace-1",
+    });
+
+    expect(result).toMatchObject({
+      status: "created",
+      file: { id: "file-4" },
+      ingestionJob: { id: "job-4" },
+    });
+    expect(softDeleteFileAssetMock).not.toHaveBeenCalled();
+    expect(deleteStorageFilesMock).not.toHaveBeenCalled();
+  });
+
+  it("cleans up uploaded binaries and fails closed when storage quota is exceeded", async () => {
+    getFileAssetByStorageKeyMock.mockResolvedValue(null);
+    canStoreBytesForUserMock.mockResolvedValueOnce({
+      ok: false,
+      limitBytes: 2048,
+      remainingBytes: 0,
+      usedBytes: 2048,
+    });
 
     await expect(
       registerWorkspaceUploadedFile({
-        contentHashSha256: "hash-1",
         folderId: "folder-1",
         mimeType: "application/pdf",
         name: "guide.pdf",
@@ -194,10 +237,50 @@ describe("upload registration runtime", () => {
         workspaceUuid: "workspace-1",
       })
     ).rejects.toMatchObject({
-      code: "UPLOAD_RATE_LIMIT",
+      code: "STORAGE_LIMIT",
+      limitBytes: 2048,
+      usedBytes: 2048,
     });
 
-    expect(softDeleteFileAssetMock).toHaveBeenCalled();
-    expect(utApiDeleteFilesMock).toHaveBeenCalledWith(["binary-key"]);
+    expect(registerFileAssetMock).not.toHaveBeenCalled();
+    expect(deleteStorageFilesMock).toHaveBeenCalledWith(["binary-key"]);
+  });
+
+  it("keeps upload registration split between typed barrel exports, pure normalization helpers, and side-effect runtime work", () => {
+    expect(uploadRegistrationBarrelSource).toContain(
+      "export interface UploadRegistrationInput"
+    );
+    expect(uploadRegistrationBarrelSource).toContain(
+      "@/lib/upload-registration-model"
+    );
+    expect(uploadRegistrationBarrelSource).toContain(
+      "@/lib/upload-registration-runtime"
+    );
+    expect(uploadRegistrationBarrelSource).not.toContain(
+      "scheduleIngestionJob("
+    );
+    expect(uploadRegistrationBarrelSource).not.toContain("deleteStorageFiles(");
+    expect(uploadRegistrationBarrelSource).not.toContain("registerFileAsset(");
+
+    expect(uploadRegistrationModelSource).toContain(
+      "export function extractMarkdownNotePayload"
+    );
+    expect(uploadRegistrationModelSource).toContain(
+      "export function normalizeUploadThingStorageUrl"
+    );
+    expect(uploadRegistrationModelSource).not.toContain(
+      "scheduleIngestionJob("
+    );
+    expect(uploadRegistrationModelSource).not.toContain("deleteStorageFiles(");
+
+    expect(uploadRegistrationRuntimeSource).toContain("scheduleIngestionJob");
+    expect(uploadRegistrationRuntimeSource).toContain("deleteStorageFiles");
+    expect(uploadRegistrationRuntimeSource).toContain("registerFileAsset");
+    expect(uploadRegistrationRuntimeSource).toContain(
+      "publishWorkspaceStreamEvent"
+    );
+    expect(uploadRegistrationRuntimeSource).toContain(
+      "extractMarkdownNotePayload"
+    );
   });
 });

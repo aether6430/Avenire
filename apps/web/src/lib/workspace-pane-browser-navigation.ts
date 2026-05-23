@@ -1,11 +1,9 @@
 const PENDING_BROWSER_NAVIGATION_TTL_MS = 2000;
 
-let pendingWorkspaceBrowserNavigation:
-  | {
-      href: string;
-      timestamp: number;
-    }
-  | null = null;
+let pendingWorkspaceBrowserNavigation: {
+  href: string;
+  timestamp: number;
+} | null = null;
 
 function isPendingBrowserNavigationFresh() {
   return (
@@ -60,6 +58,16 @@ export function shouldLetBrowserRouteDrivePaneSync({
   }
 
   return previousBrowserHref === null || previousBrowserHref !== browserHref;
+}
+
+export function shouldSkipInitialHydratedWorkspacePaneSync({
+  hasHandledInitialHydratedRoute,
+  paneCount,
+}: {
+  hasHandledInitialHydratedRoute: boolean;
+  paneCount: number;
+}) {
+  return !hasHandledInitialHydratedRoute && paneCount > 0;
 }
 
 export function consumePendingWorkspaceBrowserNavigation(href: string) {

@@ -184,6 +184,36 @@ describe("GET /api/notes/[noteId]/sync", () => {
     });
   });
 
+  it("fails closed when session lookup throws before note sync handlers run", async () => {
+    getSessionUserMock.mockRejectedValueOnce(
+      new Error("note sync auth offline")
+    );
+
+    await expect(
+      readErrorResponse(await GET(noteSyncRequest("GET"), noteSyncParams()))
+    ).resolves.toEqual({
+      body: { error: "note sync auth offline" },
+      status: 500,
+    });
+    expect(getAccessibleMarkdownNoteForUserMock).not.toHaveBeenCalled();
+
+    getSessionUserMock.mockRejectedValueOnce(
+      new Error("note sync save auth offline")
+    );
+    await expect(
+      readErrorResponse(
+        await POST(
+          noteSyncRequest("POST", { base: "# A", current: "# B" }),
+          noteSyncParams()
+        )
+      )
+    ).resolves.toEqual({
+      body: { error: "note sync save auth offline" },
+      status: 500,
+    });
+    expect(getWorkspaceIdForFileMock).not.toHaveBeenCalled();
+  });
+
   it("returns not found when the note is not accessible", async () => {
     mockSessionUser();
     getAccessibleMarkdownNoteForUserMock.mockResolvedValue(null);
@@ -301,6 +331,21 @@ describe("GET /api/notes/[noteId]/sync", () => {
       workspaceId: "workspace-1",
     });
     expect(deleteUploadThingFileMock).toHaveBeenCalledWith("old-key");
+  });
+
+  it("fails closed with an explicit load error when note accessibility lookup throws", async () => {
+    mockSessionUser();
+    getAccessibleMarkdownNoteForUserMock.mockRejectedValue(
+      new Error("note sync offline")
+    );
+
+    await expect(
+      readErrorResponse(await GET(noteSyncRequest("GET"), noteSyncParams()))
+    ).resolves.toEqual({
+      body: { error: "note sync offline" },
+      status: 500,
+    });
+    expect(afterMock).not.toHaveBeenCalled();
   });
 
   it("skips markdown migration when the user can no longer edit the file", async () => {
@@ -499,5 +544,30 @@ describe("POST /api/notes/[noteId]/sync", () => {
     await expect(response.json()).resolves.toEqual({
       error: "Unable to sync note",
     });
+  });
+
+  it("fails closed with an explicit sync error when note sync runtime throws", async () => {
+    mockEditableSyncNote({ content: "alpha", version: 2 });
+    getNoteContentMock.mockRejectedValue(new Error("sync offline"));
+
+    await expect(
+      readErrorResponse(
+        await POST(
+          noteSyncRequest("POST", {
+            base: "alpha",
+            current: "alpha\nbeta",
+          }),
+          noteSyncParams()
+        )
+      )
+    ).resolves.toEqual({
+      body: { error: "sync offline" },
+      status: 500,
+    });
+    expect(upsertMarkdownFileContentMock).not.toHaveBeenCalled();
+    expect(scheduleIngestionJobMock).not.toHaveBeenCalled();
+    expect(deleteIngestionDataForFileMock).not.toHaveBeenCalled();
+    expect(publishFilesInvalidationEventMock).not.toHaveBeenCalled();
+    expect(invalidateWorkspaceReadCachesMock).not.toHaveBeenCalled();
   });
 });

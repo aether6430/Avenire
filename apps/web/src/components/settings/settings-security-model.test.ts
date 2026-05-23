@@ -13,11 +13,12 @@ describe("settings security model", () => {
 
     expect(
       getPasskeysStateMessage({
+        errorMessage: "passkeys backend offline",
         loadFailed: true,
         loading: false,
         passkeyCount: 0,
       })
-    ).toBe("Unable to load passkeys.");
+    ).toBe("passkeys backend offline");
 
     expect(
       getPasskeysStateMessage({

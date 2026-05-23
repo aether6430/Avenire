@@ -1,9 +1,11 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  buildMarkdownThumbnailSvg,
   formatTimeAgo,
   markdownToPreviewLines,
 } from "@/components/files/file-card-thumbnail-model";
+import { MarkdownThumbnail } from "@/components/files/markdown-thumbnail";
 
 describe("file-card thumbnail model", () => {
   afterEach(() => {
@@ -43,18 +45,16 @@ Inline \`code\` and [link](https://example.com)
     ]);
   });
 
-  it("builds an svg data url for markdown thumbnails", () => {
-    const src = buildMarkdownThumbnailSvg(
-      "# Hello world\n\nThis is the body.",
-      false
+  it("renders a darker document-grid markdown thumbnail shell instead of an SVG snapshot", () => {
+    const html = renderToStaticMarkup(
+      createElement(MarkdownThumbnail, {
+        content: "# Hello world\n\nThis is the body.",
+      })
     );
 
-    expect(src.startsWith("data:image/svg+xml;charset=utf-8,")).toBe(true);
-    expect(decodeURIComponent(src.split(",")[1] ?? "")).toContain(
-      "Hello world"
-    );
-    expect(decodeURIComponent(src.split(",")[1] ?? "")).toContain(
-      "This is the body."
-    );
+    expect(html).toContain("bg-[#151515]");
+    expect(html).toContain("grid-cols-[1.1fr_0.85fr_0.85fr]");
+    expect(html).toContain("border-white/8");
+    expect(html).not.toContain("<img");
   });
 });

@@ -20,6 +20,7 @@ export function buildExplorerBrowseSurfaceProps({
   hoveredPreviewFileId,
   interactions,
   isMobile,
+  isSearchFilteredView,
   itemActionTargetSelector,
   listMeasureElement,
   listTotalSize,
@@ -33,6 +34,7 @@ export function buildExplorerBrowseSurfaceProps({
   onResetFolderBanner,
   selectedCardPropertyDefinitions,
   selection,
+  searchResultByFileId,
   setItemRowRefMap,
   sortedFiles,
   sortedFolders,
@@ -56,6 +58,7 @@ export function buildExplorerBrowseSurfaceProps({
     hoveredPreviewFileId,
     interactions,
     isMobile,
+    isSearchFilteredView,
     itemActionTargetSelector,
     listMeasureElement,
     listTotalSize,
@@ -69,6 +72,7 @@ export function buildExplorerBrowseSurfaceProps({
     onResetFolderBanner,
     selectedCardPropertyDefinitions,
     selection,
+    searchResultByFileId,
     setItemRowRef: (itemId, node) => {
       if (!node) {
         setItemRowRefMap.current.delete(itemId);

@@ -8,18 +8,11 @@ describe("Explorer retrieval props", () => {
   it("builds the shared search bar props for explorer retrieval/search wiring", () => {
     const handleApplyWorkspaceFilter = vi.fn();
     const handleSearch = vi.fn();
-    const handleSelectResult = vi.fn();
-    const openFileById = vi.fn();
-    const openFolderById = vi.fn();
 
     const searchBarProps = buildExplorerSearchBarProps({
-      activeRetrievalChunkId: "chunk-1",
       focusSearchSignal: 3,
       handleApplyWorkspaceFilter,
       handleSearch,
-      handleSelectResult,
-      onOpenFileById: openFileById,
-      onOpenFolderById: openFolderById,
       query: "neural",
       retrievalResults: [
         {
@@ -56,12 +49,8 @@ describe("Explorer retrieval props", () => {
       initialQuery: "neural",
       maxWidth: "max-w-none",
       onApplyWorkspaceFilter: handleApplyWorkspaceFilter,
-      onOpenFileById: openFileById,
-      onOpenFolderById: openFolderById,
       onSearch: handleSearch,
-      onSelectResult: handleSelectResult,
       placeholder: "Search anything...",
-      selectedResultChunkId: "chunk-1",
       workspaceUuid: "workspace-1",
     });
     expect(searchBarProps.initialResults).toHaveLength(1);

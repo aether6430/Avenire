@@ -65,6 +65,48 @@ describe("/api/tasks route", () => {
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
+    expect(getTaskListCacheVersionMock).not.toHaveBeenCalled();
+    expect(createTaskListCacheKeyMock).not.toHaveBeenCalled();
+    expect(getCachedTaskListMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      body: undefined,
+      method: "GET" as const,
+    },
+    {
+      body: { title: "Do it" },
+      method: "POST" as const,
+    },
+  ])("fails closed from $method when workspace context lookup throws before tasks route handling begins", async ({
+    body,
+    method,
+  }) => {
+    getWorkspaceContextForUserMock.mockRejectedValueOnce(
+      new Error("tasks auth offline")
+    );
+
+    const response =
+      method === "GET"
+        ? await GET(
+            new Request("http://localhost:3003/api/tasks?status=planned")
+          )
+        : await POST(
+            new Request("http://localhost:3003/api/tasks", {
+              method: "POST",
+              body: JSON.stringify(body),
+            })
+          );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "tasks auth offline",
+    });
+    expect(getTaskListCacheVersionMock).not.toHaveBeenCalled();
+    expect(createTaskForUserMock).not.toHaveBeenCalled();
+    expect(listTasksForUserMock).not.toHaveBeenCalled();
+    expect(invalidateTaskListCacheMock).not.toHaveBeenCalled();
   });
 
   it("returns cached task lists from GET with a hit header", async () => {
@@ -85,6 +127,7 @@ describe("/api/tasks route", () => {
       tasks: [{ id: "task-1" }],
     });
     expect(listTasksForUserMock).not.toHaveBeenCalled();
+    expect(setCachedTaskListMock).not.toHaveBeenCalled();
   });
 
   it("loads and caches task lists from GET on a cache miss", async () => {
@@ -115,6 +158,24 @@ describe("/api/tasks route", () => {
     expect(setCachedTaskListMock).toHaveBeenCalledWith("tasks-cache-key", {
       tasks: [{ id: "task-2" }],
     });
+  });
+
+  it("fails closed from GET when task list loading throws before cache fill", async () => {
+    getWorkspaceContextForUserMock.mockResolvedValue({
+      workspace: { workspaceId: "workspace-1" },
+    });
+    getCachedTaskListMock.mockResolvedValue(null);
+    listTasksForUserMock.mockRejectedValue(new Error("tasks offline"));
+
+    const response = await GET(
+      new Request("http://localhost:3003/api/tasks?status=planned")
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "tasks offline",
+    });
+    expect(setCachedTaskListMock).not.toHaveBeenCalled();
   });
 
   it("requires a title when creating tasks", async () => {
@@ -187,7 +248,7 @@ describe("/api/tasks route", () => {
       })
     );
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(500);
     await expect(response.json()).resolves.toEqual({ error: "Nope" });
   });
 });

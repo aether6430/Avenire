@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import {
   createContext,
   type MutableRefObject,
@@ -7,7 +8,6 @@ import {
   useContext,
   useRef,
 } from "react";
-import dynamic from "next/dynamic";
 
 const ParticleField = dynamic(
   () =>
@@ -51,8 +51,10 @@ export function AuthShell({
         <div className="mx-auto flex min-h-svh w-full max-w-[1320px]">
           <section className="relative hidden min-h-svh w-[48%] overflow-hidden border-border/60 border-r md:block lg:w-1/2">
             <ParticleField
+              adaptToTheme={false}
               align="center"
               className="absolute inset-0"
+              color="rgba(255, 255, 255, 0.92)"
               denseParticles
               dotSize={1}
               mouseForce={34}
@@ -89,10 +91,10 @@ export function AuthShell({
                 ) : (
                   <>
                     <div className="font-mono text-[11px] text-muted-foreground uppercase tracking-[0.3em]">
-                      A study-first workspace
+                      A quieter internet
                     </div>
                     <p className="mt-3 text-xl leading-snug md:text-2xl">
-                      Built for deep study, research, and interactive reasoning.
+                      Built for people who prefer focus over noise.
                     </p>
                   </>
                 )}

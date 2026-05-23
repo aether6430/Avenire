@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -10,8 +12,22 @@ import {
   getWeekStartUtc,
   type RevisionData,
   resolveStudentCalendarPopoverPos,
+  resolveStudentCalendarRevisionDataError,
   resolveStudentCalendarUpcomingTasksError,
 } from "@/components/student-calendar-model";
+
+const studentCalendarModelSource = readFileSync(
+  resolve(import.meta.dirname, "./student-calendar-model.ts"),
+  "utf8"
+);
+const studentCalendarDataHookSource = readFileSync(
+  resolve(import.meta.dirname, "./use-student-calendar-data.ts"),
+  "utf8"
+);
+const studentCalendarDesktopHookSource = readFileSync(
+  resolve(import.meta.dirname, "./use-student-calendar-desktop.ts"),
+  "utf8"
+);
 
 describe("student calendar model", () => {
   it("builds padded mobile month cells across surrounding months", () => {
@@ -72,6 +88,12 @@ describe("student calendar model", () => {
   });
 
   it("keeps upcoming-task load errors readable", () => {
+    expect(
+      resolveStudentCalendarRevisionDataError(new Error("calendar offline"))
+    ).toBe("calendar offline");
+    expect(resolveStudentCalendarRevisionDataError(null)).toBe(
+      "Unable to load revision calendar."
+    );
     expect(resolveStudentCalendarUpcomingTasksError(new Error("boom"))).toBe(
       "boom"
     );
@@ -119,5 +141,34 @@ describe("student calendar model", () => {
       originX: "180px",
       top: 208,
     });
+  });
+
+  it("keeps date math and fetch/error helpers in the shared model while reactive loading stays in the calendar hooks", () => {
+    expect(studentCalendarModelSource).toContain(
+      "export async function fetchRevisionData"
+    );
+    expect(studentCalendarModelSource).toContain(
+      "export async function fetchUpcomingTasks"
+    );
+    expect(studentCalendarModelSource).toContain(
+      "export const buildMobileMonthCells"
+    );
+    expect(studentCalendarModelSource).not.toContain("useEffect(");
+    expect(studentCalendarModelSource).not.toContain("useState(");
+    expect(studentCalendarModelSource).not.toContain("IntersectionObserver");
+
+    expect(studentCalendarDataHookSource).toContain("useEffect");
+    expect(studentCalendarDataHookSource).toContain("useState");
+    expect(studentCalendarDataHookSource).toContain("IntersectionObserver");
+    expect(studentCalendarDataHookSource).toContain("fetchRevisionData");
+    expect(studentCalendarDataHookSource).toContain("fetchUpcomingTasks");
+
+    expect(studentCalendarDesktopHookSource).toContain(
+      "buildTasksByDay(upcomingTasks)"
+    );
+    expect(studentCalendarDesktopHookSource).toContain(
+      "calculateMonthDueTotal"
+    );
+    expect(studentCalendarDesktopHookSource).not.toContain('fetch("/api/');
   });
 });

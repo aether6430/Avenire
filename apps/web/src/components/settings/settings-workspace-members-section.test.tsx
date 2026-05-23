@@ -35,6 +35,7 @@ describe("SettingsWorkspaceMembersSection", () => {
         setWorkspaceEmail={() => {}}
         workspaceEmail=""
         workspaceMembers={[]}
+        workspaceMembersErrorMessage={null}
         workspaceMembersLoadFailed={false}
         workspaceMembersLoading
         workspaceStatus={null}
@@ -53,12 +54,37 @@ describe("SettingsWorkspaceMembersSection", () => {
         setWorkspaceEmail={() => {}}
         workspaceEmail=""
         workspaceMembers={[]}
+        workspaceMembersErrorMessage="members backend offline"
         workspaceMembersLoadFailed
         workspaceMembersLoading={false}
         workspaceStatus={null}
       />
     );
-    expect(failedHtml).toContain("Unable to load workspace members.");
+    expect(failedHtml).toContain("members backend offline");
+  });
+
+  it("renders the real empty member copy when the workspace has no members loaded yet", () => {
+    const html = renderToStaticMarkup(
+      <SettingsWorkspaceMembersSection
+        currentUserEmail="owner@example.com"
+        inviteWorkspaceMember={async () => {}}
+        isInvitingMember={false}
+        privacyMode={false}
+        removeWorkspaceMember={async () => {}}
+        selectedWorkspaceMemberCount={0}
+        setWorkspaceEmail={() => {}}
+        workspaceEmail=""
+        workspaceMembers={[]}
+        workspaceMembersErrorMessage={null}
+        workspaceMembersLoadFailed={false}
+        workspaceMembersLoading={false}
+        workspaceStatus={null}
+      />
+    );
+
+    expect(html).toContain("0 total");
+    expect(html).toContain("No members found.");
+    expect(html).toContain(">Add member<");
   });
 
   it("renders current-user and removable-member states explicitly", () => {
@@ -88,6 +114,7 @@ describe("SettingsWorkspaceMembersSection", () => {
             userId: "user-2",
           },
         ]}
+        workspaceMembersErrorMessage={null}
         workspaceMembersLoadFailed={false}
         workspaceMembersLoading={false}
         workspaceStatus="Invite sent."

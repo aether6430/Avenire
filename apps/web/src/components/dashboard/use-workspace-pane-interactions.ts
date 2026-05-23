@@ -28,9 +28,6 @@ export function useWorkspacePaneInteractions({
   panes,
   reorderPanes,
   setPaneRoute,
-  setPaneSizes,
-  setRowSizes,
-  rows,
 }: {
   focusPane: (paneId: string) => void;
   movePaneToSplit: (
@@ -51,7 +48,6 @@ export function useWorkspacePaneInteractions({
   ) => void;
   panes: RenderablePane[];
   reorderPanes: (draggedPaneId: string, targetPaneId: string) => void;
-  rows: Array<{ id: string; size: number }>;
   setPaneRoute: (
     paneId: string,
     route: {
@@ -59,8 +55,6 @@ export function useWorkspacePaneInteractions({
       search: string;
     }
   ) => void;
-  setPaneSizes: (rowId: string, nextSizes: number[]) => void;
-  setRowSizes: (nextSizes: number[]) => void;
 }) {
   const [draggedPaneId, setDraggedPaneId] = useState<string | null>(null);
   const [dropPreview, setDropPreview] = useState<PaneDropPreview | null>(null);
@@ -109,100 +103,6 @@ export function useWorkspacePaneInteractions({
       });
     },
     []
-  );
-
-  const startPaneResize = useCallback(
-    (targetId: string, index: number, startClientX: number) => {
-      const container = containerRef.current;
-      if (!container) {
-        return;
-      }
-
-      const startingSizes = panes
-        .filter((pane) => pane.rowId === targetId)
-        .map((pane) => pane.size);
-      const bounds = container.getBoundingClientRect();
-      const containerSize = bounds.width;
-      if (containerSize <= 0) {
-        return;
-      }
-
-      const handlePointerMove = (event: PointerEvent) => {
-        const delta = event.clientX - startClientX;
-        const deltaPercent = (delta / containerSize) * 100;
-        const leftSize = Math.max(20, startingSizes[index]! + deltaPercent);
-        const rightSize = Math.max(
-          20,
-          startingSizes[index + 1]! - deltaPercent
-        );
-        const adjustedTotal = leftSize + rightSize;
-        const fixedLeft =
-          (leftSize / adjustedTotal) *
-          (startingSizes[index]! + startingSizes[index + 1]!);
-        const fixedRight =
-          (rightSize / adjustedTotal) *
-          (startingSizes[index]! + startingSizes[index + 1]!);
-        const nextSizes = [...startingSizes];
-        nextSizes[index] = fixedLeft;
-        nextSizes[index + 1] = fixedRight;
-        setPaneSizes(targetId, nextSizes);
-      };
-
-      const handlePointerUp = () => {
-        window.removeEventListener("pointermove", handlePointerMove);
-        window.removeEventListener("pointerup", handlePointerUp);
-      };
-
-      window.addEventListener("pointermove", handlePointerMove);
-      window.addEventListener("pointerup", handlePointerUp, { once: true });
-    },
-    [panes, setPaneSizes]
-  );
-
-  const startRowResize = useCallback(
-    (index: number, startClientY: number) => {
-      const container = containerRef.current;
-      if (!container) {
-        return;
-      }
-
-      const startingSizes = rows.map((row) => row.size);
-      const bounds = container.getBoundingClientRect();
-      const containerSize = bounds.height;
-      if (containerSize <= 0) {
-        return;
-      }
-
-      const handlePointerMove = (event: PointerEvent) => {
-        const delta = event.clientY - startClientY;
-        const deltaPercent = (delta / containerSize) * 100;
-        const topSize = Math.max(18, startingSizes[index]! + deltaPercent);
-        const bottomSize = Math.max(
-          18,
-          startingSizes[index + 1]! - deltaPercent
-        );
-        const adjustedTotal = topSize + bottomSize;
-        const fixedTop =
-          (topSize / adjustedTotal) *
-          (startingSizes[index]! + startingSizes[index + 1]!);
-        const fixedBottom =
-          (bottomSize / adjustedTotal) *
-          (startingSizes[index]! + startingSizes[index + 1]!);
-        const nextSizes = [...startingSizes];
-        nextSizes[index] = fixedTop;
-        nextSizes[index + 1] = fixedBottom;
-        setRowSizes(nextSizes);
-      };
-
-      const handlePointerUp = () => {
-        window.removeEventListener("pointermove", handlePointerMove);
-        window.removeEventListener("pointerup", handlePointerUp);
-      };
-
-      window.addEventListener("pointermove", handlePointerMove);
-      window.addEventListener("pointerup", handlePointerUp, { once: true });
-    },
-    [rows, setRowSizes]
   );
 
   const handlePaneDrop = useCallback(
@@ -368,7 +268,5 @@ export function useWorkspacePaneInteractions({
     handlePaneDragStart,
     handlePaneDrop,
     rowDropTargetId,
-    startPaneResize,
-    startRowResize,
   };
 }

@@ -1,5 +1,6 @@
 export function getConnectedAccountsStateMessage(input: {
   accountCount: number;
+  errorMessage?: string | null;
   loadFailed: boolean;
   loading: boolean;
 }) {
@@ -8,7 +9,7 @@ export function getConnectedAccountsStateMessage(input: {
   }
 
   if (input.loadFailed && input.accountCount === 0) {
-    return "Unable to load linked accounts.";
+    return input.errorMessage?.trim() || "Unable to load linked accounts.";
   }
 
   if (input.accountCount === 0) {

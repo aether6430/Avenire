@@ -45,7 +45,9 @@ describe("Chat", () => {
       sendMessage: async () => {},
       setAttachments: () => {},
       setInput: () => {},
+      setTurboEnabled: () => {},
       status: "ready",
+      turboEnabled: false,
       workspaceUuid: "workspace-1",
     });
 

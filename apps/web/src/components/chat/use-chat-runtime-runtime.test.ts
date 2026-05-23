@@ -397,6 +397,23 @@ describe("use chat runtime runtime", () => {
       })
     ).toBe(false);
     expect(setLastAutoPrompt).toHaveBeenLastCalledWith(null);
+
+    setLastAutoPrompt.mockClear();
+    const noPromptResolver = vi.fn(() => null);
+    expect(
+      await flushChatRuntimeAutoPrompt({
+        chatId: "new",
+        getAutoPromptToSend: noPromptResolver as never,
+        initialPrompt: "Focus on algebra",
+        lastAutoPrompt: "Focus on algebra",
+        messageCount: 1,
+        sendMessage,
+        setLastAutoPrompt,
+        status: "ready",
+      })
+    ).toBe(false);
+    expect(setLastAutoPrompt).toHaveBeenCalledWith(null);
+    expect(sendMessage).toHaveBeenCalledTimes(1);
   });
 
   it("publishes completed replies only once when the status transition warrants it", () => {

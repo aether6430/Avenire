@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -52,6 +54,19 @@ vi.mock("@/lib/workspace", () => ({
   getWorkspaceContextForUser: getWorkspaceContextForUserMock,
 }));
 
+const workspaceOverviewRouteSource = readFileSync(
+  resolve(import.meta.dirname, "route.ts"),
+  "utf8"
+);
+const workspaceOverviewRouteGetSource = readFileSync(
+  resolve(import.meta.dirname, "workspace-overview-route-get.ts"),
+  "utf8"
+);
+const workspaceOverviewRouteModelSource = readFileSync(
+  resolve(import.meta.dirname, "workspace-overview-route-model.ts"),
+  "utf8"
+);
+
 import { GET } from "./route";
 
 describe("/api/workspace/overview route", () => {
@@ -85,6 +100,28 @@ describe("/api/workspace/overview route", () => {
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
+    expect(getRouteCacheVersionMock).not.toHaveBeenCalled();
+    expect(createRouteCacheKeyMock).not.toHaveBeenCalled();
+    expect(getCachedRouteMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when workspace context lookup throws before overview loading begins", async () => {
+    getWorkspaceContextForUserMock.mockRejectedValueOnce(
+      new Error("overview auth offline")
+    );
+
+    const response = await GET(
+      new Request("http://localhost:3003/api/workspace/overview")
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "overview auth offline",
+    });
+    expect(getRouteCacheVersionMock).not.toHaveBeenCalled();
+    expect(createRouteCacheKeyMock).not.toHaveBeenCalled();
+    expect(getCachedRouteMock).not.toHaveBeenCalled();
+    expect(listFlashcardSetSummariesForUserMock).not.toHaveBeenCalled();
   });
 
   it("returns cached overview payloads with a hit header", async () => {
@@ -112,6 +149,7 @@ describe("/api/workspace/overview route", () => {
       weakestDrillTarget: null,
     });
     expect(listFlashcardSetSummariesForUserMock).not.toHaveBeenCalled();
+    expect(setCachedRouteMock).not.toHaveBeenCalled();
   });
 
   it("loads, derives, and caches overview payloads on a cache miss", async () => {
@@ -132,6 +170,16 @@ describe("/api/workspace/overview route", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("x-workspace-overview-cache")).toBe("miss");
+    expect(getRouteCacheVersionMock).toHaveBeenCalledWith(
+      "workspace:overview",
+      "workspace-1"
+    );
+    expect(createRouteCacheKeyMock).toHaveBeenCalledWith({
+      namespace: "workspace:overview",
+      params: { subject: "math" },
+      scope: "workspace-1",
+      version: "v1",
+    });
     await expect(response.json()).resolves.toEqual({
       activeMisconceptions: [{ id: "m-1" }],
       flashcardSets: [{ id: "set-1" }],
@@ -142,6 +190,13 @@ describe("/api/workspace/overview route", () => {
       { id: "dash-1" },
       [{ id: "concept-1" }]
     );
+    expect(getActiveMisconceptionsMock).toHaveBeenCalledWith({
+      includeCandidates: true,
+      limit: 12,
+      subject: "math",
+      userId: "user-1",
+      workspaceId: "workspace-1",
+    });
     expect(setCachedRouteMock).toHaveBeenCalledWith(
       "workspace:overview",
       "workspace-overview-cache-key",
@@ -152,6 +207,27 @@ describe("/api/workspace/overview route", () => {
         weakestDrillTarget: { id: "drill-1" },
       }
     );
+  });
+
+  it("returns a 500 json error when the critical flashcard set loader throws on a cache miss", async () => {
+    getWorkspaceContextForUserMock.mockResolvedValue({
+      user: { id: "user-1" },
+      workspace: { workspaceId: "workspace-1" },
+    });
+    getCachedRouteMock.mockResolvedValue(null);
+    listFlashcardSetSummariesForUserMock.mockRejectedValueOnce(
+      new Error("overview sets offline")
+    );
+
+    const response = await GET(
+      new Request("http://localhost:3003/api/workspace/overview?subject=math")
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "overview sets offline",
+    });
+    expect(setCachedRouteMock).not.toHaveBeenCalled();
   });
 
   it("falls back gracefully when non-critical overview loaders fail", async () => {
@@ -184,5 +260,77 @@ describe("/api/workspace/overview route", () => {
       weakestDrillTarget: null,
     });
     expect(consoleErrorSpy).toHaveBeenCalledTimes(3);
+    expect(setCachedRouteMock).toHaveBeenCalledWith(
+      "workspace:overview",
+      "workspace-overview-cache-key",
+      {
+        activeMisconceptions: [],
+        flashcardSets: [{ id: "set-1" }],
+        weakestConcepts: [],
+        weakestDrillTarget: null,
+      }
+    );
+  });
+
+  it("returns a 500 json error when overview cache persistence throws after successful loading", async () => {
+    getWorkspaceContextForUserMock.mockResolvedValue({
+      user: { id: "user-1" },
+      workspace: { workspaceId: "workspace-1" },
+    });
+    getCachedRouteMock.mockResolvedValue(null);
+    listFlashcardSetSummariesForUserMock.mockResolvedValue([{ id: "set-1" }]);
+    getWeakestConceptsMock.mockResolvedValue([{ id: "concept-1" }]);
+    getActiveMisconceptionsMock.mockResolvedValue([{ id: "m-1" }]);
+    getFlashcardDashboardForUserMock.mockResolvedValue({ id: "dash-1" });
+    resolveWeakestConceptDrillTargetMock.mockReturnValue({ id: "drill-1" });
+    setCachedRouteMock.mockRejectedValueOnce(
+      new Error("overview cache offline")
+    );
+
+    const response = await GET(
+      new Request("http://localhost:3003/api/workspace/overview?subject=math")
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "overview cache offline",
+    });
+  });
+
+  it("keeps the overview route split between a thin wrapper, dedicated loader, and pure route-model helpers", () => {
+    expect(workspaceOverviewRouteSource).toContain(
+      "./workspace-overview-route-get"
+    );
+    expect(workspaceOverviewRouteSource).toContain(
+      "./workspace-overview-route-model"
+    );
+    expect(workspaceOverviewRouteSource).toContain(
+      "return await handleWorkspaceOverviewRouteGet"
+    );
+    expect(workspaceOverviewRouteSource).not.toContain("getRouteCacheVersion(");
+    expect(workspaceOverviewRouteSource).not.toContain("getCachedRoute(");
+    expect(workspaceOverviewRouteSource).not.toContain(
+      "listFlashcardSetSummariesForUser("
+    );
+
+    expect(workspaceOverviewRouteGetSource).toContain("getRouteCacheVersion");
+    expect(workspaceOverviewRouteGetSource).toContain("getCachedRoute");
+    expect(workspaceOverviewRouteGetSource).toContain(
+      "listFlashcardSetSummariesForUser"
+    );
+    expect(workspaceOverviewRouteGetSource).toContain(
+      "buildWorkspaceOverviewPayload"
+    );
+
+    expect(workspaceOverviewRouteModelSource).toContain(
+      "resolveWorkspaceOverviewRouteQuery"
+    );
+    expect(workspaceOverviewRouteModelSource).toContain(
+      "buildWorkspaceOverviewPayload"
+    );
+    expect(workspaceOverviewRouteModelSource).not.toContain("getCachedRoute(");
+    expect(workspaceOverviewRouteModelSource).not.toContain(
+      "listFlashcardSetSummariesForUser("
+    );
   });
 });

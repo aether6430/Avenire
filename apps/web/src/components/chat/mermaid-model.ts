@@ -23,6 +23,15 @@ export function stripUnsafeSvg(svg: string) {
     );
 }
 
+export function resolveMermaidExportBackground(input: {
+  background?: string | null;
+  canvasBackground?: string | null;
+}) {
+  return (
+    input.canvasBackground?.trim() || input.background?.trim() || "#fcfcfc"
+  );
+}
+
 export function clampMermaidScale(scale: number) {
   return Math.min(Math.max(scale, MIN_SCALE), MAX_SCALE);
 }

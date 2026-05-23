@@ -48,6 +48,28 @@ describe("session summary model", () => {
     expect(candidate.confidence).toBe(1);
     expect(candidate.concept).toBe("Momentum");
     expect(candidate.subject).toBe("Physics");
+    expect(candidate.topic).toBe("Collisions");
+  });
+
+  it("keeps candidate-local subject/topic instead of rewriting them from stale session context", () => {
+    const candidate = normalizeMisconceptionCandidate(
+      {
+        confidence: 0.7,
+        concept: " essential amino acids biomolecules NCERT ",
+        reason: " Mixing up amino acid roles. ",
+        subject: " Biology ",
+        topic: " Biomolecules ",
+      },
+      {
+        sessionSubject: "Physics",
+        transcript:
+          "A stale session subject should not override candidate-local evidence.",
+      }
+    );
+
+    expect(candidate.concept).toBe("essential amino acids biomolecules NCERT");
+    expect(candidate.subject).toBe("Biology");
+    expect(candidate.topic).toBe("Biomolecules");
   });
 
   it("strips assistant meta lines and detects confusion signals", () => {
@@ -97,7 +119,7 @@ describe("session summary model", () => {
     expect(extractFlashcardsCreated(messages)).toBe(2);
     expect(extractMisconceptions(messages)).toEqual(["Momentum"]);
     expect(buildTranscript(messages)).toContain(
-      "TOOL: Generated 2 mindset cards"
+      'TOOL: Generated 2 cards in Mindset Set "Momentum set".'
     );
   });
 

@@ -33,7 +33,7 @@ const WorkspaceFlashcardsPageClient = dynamic(
     ),
   {
     loading: () => (
-      <WorkspaceRoutePlaceholder label="Loading mindset sets..." />
+      <WorkspaceRoutePlaceholder label="Loading Mindset Sets..." />
     ),
     ssr: false,
   }
@@ -56,7 +56,7 @@ const WorkspaceChatNewPageClient = dynamic(
       (module) => module.WorkspaceChatNewPageClient
     ),
   {
-    loading: () => <WorkspaceRoutePlaceholder label="Loading method..." />,
+    loading: () => <WorkspaceRoutePlaceholder label="Loading Method..." />,
     ssr: false,
   }
 );
@@ -67,7 +67,7 @@ const WorkspaceChatRoutePageClient = dynamic(
       (module) => module.WorkspaceChatRoutePageClient
     ),
   {
-    loading: () => <WorkspaceRoutePlaceholder label="Loading method..." />,
+    loading: () => <WorkspaceRoutePlaceholder label="Loading Method..." />,
     ssr: false,
   }
 );
@@ -89,7 +89,7 @@ const FlashcardSetPageClient = dynamic(
       (module) => module.FlashcardSetPageClient
     ),
   {
-    loading: () => <WorkspaceRoutePlaceholder label="Loading mindset set..." />,
+    loading: () => <WorkspaceRoutePlaceholder label="Loading Mindset Set..." />,
     ssr: false,
   }
 );

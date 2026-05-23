@@ -73,6 +73,12 @@ describe("study tool helpers", () => {
     expect(buildMisconceptionStudySource(misconception)).toContain(
       "Misconception: Thinks momentum is not conserved in isolated collisions"
     );
+    expect(buildMisconceptionStudySource(misconception)).toContain(
+      "Create cards for a Mindset Set"
+    );
+    expect(buildMisconceptionStudySource(misconception)).not.toContain(
+      "Create mindset cards"
+    );
   });
 
   it("maps misconception records for tool output", () => {

@@ -8,6 +8,7 @@ export {
   getMessagesByChatSlug,
   getMessagesByChatSlugForUser,
   getOrCreateLatestChatForUser,
+  getWritableChatBySlugForUser,
   isChatOwnerForUser,
   listChatsForUser,
   saveMessagesForChatSlug,

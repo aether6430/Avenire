@@ -8,6 +8,8 @@ import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstra
 import {
   buildRenderablePaneRows,
   type RenderablePane,
+  type RenderablePaneRow,
+  shouldPersistWorkspacePanelLayout,
 } from "@/components/dashboard/workspace-pane-renderer-model";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useHeaderStore } from "@/stores/header-store";
@@ -57,10 +59,7 @@ export function useWorkspacePaneRenderer() {
     openPane,
     panes: panes as RenderablePane[],
     reorderPanes,
-    rows,
     setPaneRoute,
-    setPaneSizes,
-    setRowSizes,
   });
   const {
     containerRef,
@@ -74,8 +73,6 @@ export function useWorkspacePaneRenderer() {
     handlePaneDragOver,
     handlePaneDragStart,
     handlePaneDrop,
-    startPaneResize,
-    startRowResize,
   } = interactions;
   const paneRows = useMemo(
     () =>
@@ -87,6 +84,37 @@ export function useWorkspacePaneRenderer() {
       ),
     [rows, panes, dropPreview, draggedPaneId]
   );
+  const handleRowLayout = (nextSizes: number[]) => {
+    if (
+      !shouldPersistWorkspacePanelLayout({
+        currentSizes: paneRows.map((row) => row.size),
+        draggedPaneId,
+        hasPreviewPane: paneRows.some((row) =>
+          row.panes.some((pane) => pane.isDropPreview)
+        ),
+        nextSizes,
+      })
+    ) {
+      return;
+    }
+
+    setRowSizes(nextSizes);
+  };
+
+  const handlePaneLayout = (row: RenderablePaneRow, nextSizes: number[]) => {
+    if (
+      !shouldPersistWorkspacePanelLayout({
+        currentSizes: row.panes.map((pane) => pane.size),
+        draggedPaneId,
+        hasPreviewPane: row.panes.some((pane) => pane.isDropPreview),
+        nextSizes,
+      })
+    ) {
+      return;
+    }
+
+    setPaneSizes(row.id, nextSizes);
+  };
 
   return {
     activePaneId,
@@ -104,13 +132,13 @@ export function useWorkspacePaneRenderer() {
     handlePaneDragOver,
     handlePaneDragStart,
     handlePaneDrop,
+    handlePaneLayout,
+    handleRowLayout,
     isMobile,
     openPane,
     panes,
     paneRows,
     paneCount: panes.length,
-    startPaneResize,
-    startRowResize,
     status,
     workspace,
   };

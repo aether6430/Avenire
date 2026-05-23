@@ -1,5 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
+import { normalizePostgresConnectionString } from "./connection-string";
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -11,7 +12,7 @@ const isVercel = Boolean(process.env.VERCEL);
 const poolMax = Number.parseInt(process.env.PG_POOL_MAX ?? "", 10);
 
 export const pool = new Pool({
-  connectionString,
+  connectionString: normalizePostgresConnectionString(connectionString),
   allowExitOnIdle: true,
   connectionTimeoutMillis: 10_000,
   idleTimeoutMillis: 10_000,

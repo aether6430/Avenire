@@ -2,7 +2,10 @@
 
 import { measureElement, useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useState } from "react";
-import { shouldEnableExplorerRealtime } from "@/components/files/explorer/explorer-realtime-model";
+import {
+  type ExplorerFilesInvalidationPayload,
+  shouldEnableExplorerRealtime,
+} from "@/components/files/explorer/explorer-realtime-model";
 import type { ExplorerUploadQueueItem } from "@/components/files/explorer/explorer-upload-model";
 import type {
   FileRecord,
@@ -31,6 +34,9 @@ const FILE_EXPLORER_LIST_ROW_ESTIMATE = 52;
 interface UseExplorerRuntimeOptions {
   allFiles: FileRecord[];
   allFolders: FolderRecord[];
+  applyFilesInvalidation: (
+    detail: ExplorerFilesInvalidationPayload | null
+  ) => boolean;
   breadcrumbs: FolderRecord[];
   contextActionIdsRef: React.MutableRefObject<{
     itemId: string;
@@ -64,6 +70,7 @@ interface UseExplorerRuntimeOptions {
 export function useExplorerRuntime({
   allFiles,
   allFolders,
+  applyFilesInvalidation,
   breadcrumbs,
   contextActionIdsRef,
   currentFolderId,
@@ -206,6 +213,7 @@ export function useExplorerRuntime({
   });
 
   useExplorerRealtimeSync({
+    applyFilesInvalidation,
     enabled: realtimeReady && shouldEnableExplorerRealtime(workspaceQueue),
     refreshDataDebounced,
     setUploadQueue,

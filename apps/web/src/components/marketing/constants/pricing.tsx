@@ -1,5 +1,6 @@
 import { CheckIcon } from "@/components/marketing/icons/card-icons";
 import { CloseIcon } from "@/components/marketing/icons/general";
+import { BILLING_PLANS } from "@/lib/billing-plans";
 
 export const TIER_NAMES = {
   TIER_1: "Access",
@@ -13,80 +14,36 @@ export const tiers = [
   {
     title: TIER_NAMES.TIER_1,
     subtitle: "Start learning with AI",
-    monthly: 0,
-    yearly: 0,
-    ctaText: "Join waitlist",
+    monthly: BILLING_PLANS.access.monthly,
+    yearly: BILLING_PLANS.access.yearly,
+    ctaText: "Start free",
     ctaLink: "/waitlist",
-    features: [
-      "Core AI methods workspace",
-      "Basic mindset generation",
-      "Interactive graphs, limited",
-      "Whiteboard reasoning tools",
-      "7 day session history",
-      "Community prompt library",
-      "Standard response speed",
-      "One personal workspace",
-    ],
+    features: BILLING_PLANS.access.features,
   },
   {
     title: TIER_NAMES.TIER_2,
     subtitle: "For daily study workflows",
-    monthly: 5,
-    yearly: 45,
-    ctaText: "Join waitlist",
+    monthly: BILLING_PLANS.core.monthly,
+    yearly: BILLING_PLANS.core.yearly,
+    ctaText: "Join the waitlist",
     ctaLink: "/waitlist",
-    features: [
-      "Everything in Access",
-      "Advanced reasoning sessions",
-      "Full graph and plot tools",
-      "Smart spaced repetition",
-      "Notebook memory across sessions",
-      "Markdown and PDF export",
-      "Priority generation queue",
-      "Extended context windows",
-    ],
+    features: BILLING_PLANS.core.features,
     featured: true,
   },
   {
     title: TIER_NAMES.TIER_3,
     subtitle: "For research heavy work",
-    monthly: 15,
-    yearly: 150,
-    ctaText: "Join waitlist",
+    monthly: BILLING_PLANS.scholar.monthly,
+    yearly: BILLING_PLANS.scholar.yearly,
+    ctaText: "Join the waitlist",
     ctaLink: "/waitlist",
-    features: [
-      "Everything in Core",
-      "Deep Research synthesis",
-      "High context long sessions",
-      "AI video explanations",
-      "Document research workflows",
-      "Mastery tracking analytics",
-      "Custom study plans",
-      "Early experimental features",
-    ],
+    features: BILLING_PLANS.scholar.features,
   },
 ];
 
 export const pricingTable = [
   {
-    title: "Workspace seats",
-    tiers: [
-      {
-        title: TIER_NAMES.TIER_1,
-        value: "1",
-      },
-      {
-        title: TIER_NAMES.TIER_2,
-        value: "1",
-      },
-      {
-        title: TIER_NAMES.TIER_3,
-        value: "3",
-      },
-    ],
-  },
-  {
-    title: "Two-factor authentication",
+    title: "Core AI methods workspace",
     tiers: [
       {
         title: TIER_NAMES.TIER_1,
@@ -103,7 +60,109 @@ export const pricingTable = [
     ],
   },
   {
-    title: "AI file and note search",
+    title: "Apollo AI tutor",
+    tiers: [
+      {
+        title: TIER_NAMES.TIER_1,
+        value: <CheckIcon className="mx-auto size-5 text-gray-600" />,
+      },
+      {
+        title: TIER_NAMES.TIER_2,
+        value: <CheckIcon className="mx-auto size-5 text-gray-600" />,
+      },
+      {
+        title: TIER_NAMES.TIER_3,
+        value: <CheckIcon className="mx-auto size-5 text-gray-600" />,
+      },
+    ],
+  },
+  {
+    title: "Apollo credits",
+    tiers: [
+      {
+        title: TIER_NAMES.TIER_1,
+        value: BILLING_PLANS.access.chatCredits,
+      },
+      {
+        title: TIER_NAMES.TIER_2,
+        value: BILLING_PLANS.core.chatCredits,
+      },
+      {
+        title: TIER_NAMES.TIER_3,
+        value: BILLING_PLANS.scholar.chatCredits,
+      },
+    ],
+  },
+  {
+    title: "Storage",
+    tiers: [
+      {
+        title: TIER_NAMES.TIER_1,
+        value: BILLING_PLANS.access.storage,
+      },
+      {
+        title: TIER_NAMES.TIER_2,
+        value: BILLING_PLANS.core.storage,
+      },
+      {
+        title: TIER_NAMES.TIER_3,
+        value: BILLING_PLANS.scholar.storage,
+      },
+    ],
+  },
+  {
+    title: "Interactive concept widgets",
+    tiers: [
+      {
+        title: TIER_NAMES.TIER_1,
+        value: <CheckIcon className="mx-auto size-5 text-gray-600" />,
+      },
+      {
+        title: TIER_NAMES.TIER_2,
+        value: <CheckIcon className="mx-auto size-5 text-gray-600" />,
+      },
+      {
+        title: TIER_NAMES.TIER_3,
+        value: <CheckIcon className="mx-auto size-5 text-gray-600" />,
+      },
+    ],
+  },
+  {
+    title: "Misconception detection",
+    tiers: [
+      {
+        title: TIER_NAMES.TIER_1,
+        value: <CheckIcon className="mx-auto size-5 text-gray-600" />,
+      },
+      {
+        title: TIER_NAMES.TIER_2,
+        value: <CheckIcon className="mx-auto size-5 text-gray-600" />,
+      },
+      {
+        title: TIER_NAMES.TIER_3,
+        value: <CheckIcon className="mx-auto size-5 text-gray-600" />,
+      },
+    ],
+  },
+  {
+    title: "Mindset Sets",
+    tiers: [
+      {
+        title: TIER_NAMES.TIER_1,
+        value: <CheckIcon className="mx-auto size-5 text-gray-600" />,
+      },
+      {
+        title: TIER_NAMES.TIER_2,
+        value: <CheckIcon className="mx-auto size-5 text-gray-600" />,
+      },
+      {
+        title: TIER_NAMES.TIER_3,
+        value: <CheckIcon className="mx-auto size-5 text-gray-600" />,
+      },
+    ],
+  },
+  {
+    title: "Priority response queue",
     tiers: [
       {
         title: TIER_NAMES.TIER_1,
@@ -120,7 +179,24 @@ export const pricingTable = [
     ],
   },
   {
-    title: "Deep Research mode",
+    title: "Response speed",
+    tiers: [
+      {
+        title: TIER_NAMES.TIER_1,
+        value: "Standard",
+      },
+      {
+        title: TIER_NAMES.TIER_2,
+        value: "Priority",
+      },
+      {
+        title: TIER_NAMES.TIER_3,
+        value: "Priority",
+      },
+    ],
+  },
+  {
+    title: "Mastery tracking & analytics",
     tiers: [
       {
         title: TIER_NAMES.TIER_1,
@@ -133,108 +209,6 @@ export const pricingTable = [
       {
         title: TIER_NAMES.TIER_3,
         value: <CheckIcon className="mx-auto size-5 text-gray-600" />,
-      },
-    ],
-  },
-  {
-    title: "Monthly AI credits",
-    tiers: [
-      {
-        title: TIER_NAMES.TIER_1,
-        value: "Starter",
-      },
-      {
-        title: TIER_NAMES.TIER_2,
-        value: "Expanded",
-      },
-      {
-        title: TIER_NAMES.TIER_3,
-        value: "Unlimited",
-      },
-    ],
-  },
-  {
-    title: "Markdown and PDF export",
-    tiers: [
-      {
-        title: TIER_NAMES.TIER_1,
-        value: <CloseIcon className="mx-auto size-5 text-gray-600" />,
-      },
-      {
-        title: TIER_NAMES.TIER_2,
-        value: <CheckIcon className="mx-auto size-5 text-gray-600" />,
-      },
-      {
-        title: TIER_NAMES.TIER_3,
-        value: <CheckIcon className="mx-auto size-5 text-gray-600" />,
-      },
-    ],
-  },
-  {
-    title: "Session history",
-    tiers: [
-      {
-        title: TIER_NAMES.TIER_1,
-        value: "7 days",
-      },
-      {
-        title: TIER_NAMES.TIER_2,
-        value: "Unlimited",
-      },
-      {
-        title: TIER_NAMES.TIER_3,
-        value: "Unlimited",
-      },
-    ],
-  },
-  {
-    title: "Spaced repetition",
-    tiers: [
-      {
-        title: TIER_NAMES.TIER_1,
-        value: <CloseIcon className="mx-auto size-5 text-gray-600" />,
-      },
-      {
-        title: TIER_NAMES.TIER_2,
-        value: <CheckIcon className="mx-auto size-5 text-gray-600" />,
-      },
-      {
-        title: TIER_NAMES.TIER_3,
-        value: <CheckIcon className="mx-auto size-5 text-gray-600" />,
-      },
-    ],
-  },
-  {
-    title: "Video explanations",
-    tiers: [
-      {
-        title: TIER_NAMES.TIER_1,
-        value: <CloseIcon className="mx-auto size-5 text-gray-600" />,
-      },
-      {
-        title: TIER_NAMES.TIER_2,
-        value: <CheckIcon className="mx-auto size-5 text-gray-600" />,
-      },
-      {
-        title: TIER_NAMES.TIER_3,
-        value: <CheckIcon className="mx-auto size-5 text-gray-600" />,
-      },
-    ],
-  },
-  {
-    title: "Context window",
-    tiers: [
-      {
-        title: TIER_NAMES.TIER_1,
-        value: "Basic",
-      },
-      {
-        title: TIER_NAMES.TIER_2,
-        value: "Extended",
-      },
-      {
-        title: TIER_NAMES.TIER_3,
-        value: "Unlimited",
       },
     ],
   },
@@ -251,12 +225,12 @@ export const pricingTable = [
       },
       {
         title: TIER_NAMES.TIER_3,
-        value: "Unlimited",
+        value: <CheckIcon className="mx-auto size-5 text-gray-600" />,
       },
     ],
   },
   {
-    title: "Priority generation",
+    title: "Early experimental features",
     tiers: [
       {
         title: TIER_NAMES.TIER_1,
@@ -264,79 +238,11 @@ export const pricingTable = [
       },
       {
         title: TIER_NAMES.TIER_2,
-        value: <CheckIcon className="mx-auto size-5 text-gray-600" />,
-      },
-      {
-        title: TIER_NAMES.TIER_3,
-        value: <CheckIcon className="mx-auto size-5 text-gray-600" />,
-      },
-    ],
-  },
-  {
-    title: "Experimental features",
-    tiers: [
-      {
-        title: TIER_NAMES.TIER_1,
         value: <CloseIcon className="mx-auto size-5 text-gray-600" />,
       },
       {
-        title: TIER_NAMES.TIER_2,
-        value: <CheckIcon className="mx-auto size-5 text-gray-600" />,
-      },
-      {
         title: TIER_NAMES.TIER_3,
         value: <CheckIcon className="mx-auto size-5 text-gray-600" />,
-      },
-    ],
-  },
-  {
-    title: "Workspace notebooks",
-    tiers: [
-      {
-        title: TIER_NAMES.TIER_1,
-        value: "1",
-      },
-      {
-        title: TIER_NAMES.TIER_2,
-        value: "5",
-      },
-      {
-        title: TIER_NAMES.TIER_3,
-        value: "Unlimited",
-      },
-    ],
-  },
-  {
-    title: "Support",
-    tiers: [
-      {
-        title: TIER_NAMES.TIER_1,
-        value: "Community",
-      },
-      {
-        title: TIER_NAMES.TIER_2,
-        value: "Priority",
-      },
-      {
-        title: TIER_NAMES.TIER_3,
-        value: "Priority",
-      },
-    ],
-  },
-  {
-    title: "Mindset Sets",
-    tiers: [
-      {
-        title: TIER_NAMES.TIER_1,
-        value: "3",
-      },
-      {
-        title: TIER_NAMES.TIER_2,
-        value: "Unlimited",
-      },
-      {
-        title: TIER_NAMES.TIER_3,
-        value: "Unlimited",
       },
     ],
   },

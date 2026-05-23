@@ -10,6 +10,7 @@ import {
   getCompletedAssistantMessageId,
   shouldHydrateInitialChatMessages,
   shouldResumeChatStream,
+  shouldResumeChatStreamOnWindowActivation,
   willExceedChatAttachmentLimit,
 } from "@/components/chat/use-chat-runtime-model";
 
@@ -118,6 +119,24 @@ describe("use chat runtime model", () => {
     ).toBe(false);
     expect(shouldResumeChatStream("new")).toBe(false);
     expect(shouldResumeChatStream("chat-1")).toBe(true);
+    expect(
+      shouldResumeChatStreamOnWindowActivation({
+        chatId: "new",
+        visibilityState: "visible",
+      })
+    ).toBe(false);
+    expect(
+      shouldResumeChatStreamOnWindowActivation({
+        chatId: "chat-1",
+        visibilityState: "hidden",
+      })
+    ).toBe(false);
+    expect(
+      shouldResumeChatStreamOnWindowActivation({
+        chatId: "chat-1",
+        visibilityState: "visible",
+      })
+    ).toBe(true);
   });
 
   it("derives the submitted pet notification and completed assistant reply id", () => {

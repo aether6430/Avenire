@@ -40,18 +40,18 @@ describe("extension route context", () => {
       {
         name: "Aveniri",
         organizationId: "org-1",
-        rootFolderId: "root-1",
-        workspaceId: "workspace-1",
+        rootFolderId: "550e8400-e29b-41d4-a716-446655440001",
+        workspaceId: "550e8400-e29b-41d4-a716-446655440000",
       },
     ]);
     listWorkspaceFoldersMock.mockResolvedValue([
       {
-        id: "folder-1",
+        id: "550e8400-e29b-41d4-a716-446655440002",
         name: "Inbox",
       },
     ]);
     getExtensionDestinationPresetMock.mockResolvedValue({
-      id: "preset-1",
+      id: "550e8400-e29b-41d4-a716-446655440003",
     });
   });
 
@@ -59,19 +59,21 @@ describe("extension route context", () => {
     expect(
       await resolveAccessibleExtensionWorkspaceContext({
         userId: "user-1",
-        workspaceUuid: "  workspace-1  ",
+        workspaceUuid: "  550e8400-e29b-41d4-a716-446655440000  ",
       })
     ).toEqual({
       success: true,
-      workspace: expect.objectContaining({ workspaceId: "workspace-1" }),
-      workspaceUuid: "workspace-1",
+      workspace: expect.objectContaining({
+        workspaceId: "550e8400-e29b-41d4-a716-446655440000",
+      }),
+      workspaceUuid: "550e8400-e29b-41d4-a716-446655440000",
     });
 
     userCanAccessWorkspaceMock.mockResolvedValueOnce(false);
     expect(
       await resolveAccessibleExtensionWorkspaceContext({
         userId: "user-1",
-        workspaceUuid: "workspace-1",
+        workspaceUuid: "550e8400-e29b-41d4-a716-446655440000",
       })
     ).toEqual({
       error: "Forbidden",
@@ -83,34 +85,50 @@ describe("extension route context", () => {
     expect(
       await resolveAccessibleExtensionWorkspaceContext({
         userId: "user-1",
-        workspaceUuid: "workspace-1",
+        workspaceUuid: "550e8400-e29b-41d4-a716-446655440000",
       })
     ).toEqual({
       error: "Workspace not found",
       status: 404,
       success: false,
     });
+
+    expect(
+      await resolveAccessibleExtensionWorkspaceContext({
+        userId: "user-1",
+        workspaceUuid: "workspace-1",
+      })
+    ).toEqual({
+      error: "Invalid workspaceUuid",
+      status: 400,
+      success: false,
+    });
+    expect(userCanAccessWorkspaceMock).toHaveBeenCalledTimes(3);
   });
 
   it("resolves destination workspace/folder context and rejects read-only or missing folders", async () => {
     expect(
       await resolveExtensionDestinationWorkspaceFolderContext({
-        folderId: "folder-1",
+        folderId: "550e8400-e29b-41d4-a716-446655440002",
         userId: "user-1",
-        workspaceId: "workspace-1",
+        workspaceId: "550e8400-e29b-41d4-a716-446655440000",
       })
     ).toEqual({
-      folder: expect.objectContaining({ id: "folder-1" }),
+      folder: expect.objectContaining({
+        id: "550e8400-e29b-41d4-a716-446655440002",
+      }),
       success: true,
-      workspace: expect.objectContaining({ workspaceId: "workspace-1" }),
+      workspace: expect.objectContaining({
+        workspaceId: "550e8400-e29b-41d4-a716-446655440000",
+      }),
     });
 
     userCanEditFolderMock.mockResolvedValueOnce(false);
     expect(
       await resolveExtensionDestinationWorkspaceFolderContext({
-        folderId: "folder-1",
+        folderId: "550e8400-e29b-41d4-a716-446655440002",
         userId: "user-1",
-        workspaceId: "workspace-1",
+        workspaceId: "550e8400-e29b-41d4-a716-446655440000",
       })
     ).toEqual({
       error: "Read-only folder",
@@ -121,9 +139,9 @@ describe("extension route context", () => {
     listWorkspaceFoldersMock.mockResolvedValueOnce([]);
     expect(
       await resolveExtensionDestinationWorkspaceFolderContext({
-        folderId: "folder-1",
+        folderId: "550e8400-e29b-41d4-a716-446655440002",
         userId: "user-1",
-        workspaceId: "workspace-1",
+        workspaceId: "550e8400-e29b-41d4-a716-446655440000",
       })
     ).toEqual({
       error: "Folder not found",
@@ -135,24 +153,35 @@ describe("extension route context", () => {
   it("resolves owned destination presets and fails closed for missing presets", async () => {
     expect(
       await getOwnedExtensionDestinationPreset({
-        presetId: "  preset-1  ",
+        presetId: "  550e8400-e29b-41d4-a716-446655440003  ",
         userId: "user-1",
       })
     ).toEqual({
-      destination: { id: "preset-1" },
-      presetId: "preset-1",
+      destination: { id: "550e8400-e29b-41d4-a716-446655440003" },
+      presetId: "550e8400-e29b-41d4-a716-446655440003",
       success: true,
     });
 
     getExtensionDestinationPresetMock.mockResolvedValueOnce(null);
     expect(
       await getOwnedExtensionDestinationPreset({
-        presetId: "preset-1",
+        presetId: "550e8400-e29b-41d4-a716-446655440003",
         userId: "user-1",
       })
     ).toEqual({
       error: "Destination not found",
       status: 404,
+      success: false,
+    });
+
+    expect(
+      await getOwnedExtensionDestinationPreset({
+        presetId: "preset-1",
+        userId: "user-1",
+      })
+    ).toEqual({
+      error: "Invalid presetId",
+      status: 400,
       success: false,
     });
   });

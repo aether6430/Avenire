@@ -55,6 +55,28 @@ describe("/api/flashcards/sets/[setId]/cards route", () => {
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
   });
 
+  it("fails closed when workspace context lookup throws before flashcard set card creation begins", async () => {
+    getWorkspaceContextForUserMock.mockRejectedValueOnce(
+      new Error("flashcard set card auth offline")
+    );
+
+    const response = await POST(
+      new Request("http://localhost:3003", {
+        body: JSON.stringify({}),
+        method: "POST",
+      }),
+      { params: Promise.resolve({ setId: "set-1" }) }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "flashcard set card auth offline",
+    });
+    expect(createFlashcardCardForUserMock).not.toHaveBeenCalled();
+    expect(invalidateFlashcardReadCachesMock).not.toHaveBeenCalled();
+    expect(publishWorkspaceStreamEventMock).not.toHaveBeenCalled();
+  });
+
   it("rejects invalid create payloads", async () => {
     getWorkspaceContextForUserMock.mockResolvedValue({
       user: { id: "user-1" },
@@ -159,6 +181,75 @@ describe("/api/flashcards/sets/[setId]/cards route", () => {
       type: "flashcards.invalidate",
       workspaceUuid: "workspace-1",
     });
+  });
+
+  it("returns a 500 json error when card creation throws before invalidation work", async () => {
+    getWorkspaceContextForUserMock.mockResolvedValue({
+      user: { id: "user-1" },
+      workspace: { workspaceId: "workspace-1" },
+    });
+    createFlashcardCardForUserMock.mockRejectedValueOnce(
+      new Error("card create offline")
+    );
+
+    const response = await POST(
+      new Request("http://localhost:3003", {
+        body: JSON.stringify({
+          backMarkdown: "Back",
+          frontMarkdown: "Front",
+          source: {
+            concept: "Closures",
+            subject: "JavaScript",
+            topic: "Functions",
+          },
+        }),
+        method: "POST",
+      }),
+      { params: Promise.resolve({ setId: "set-1" }) }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "card create offline",
+    });
+    expect(invalidateFlashcardReadCachesMock).not.toHaveBeenCalled();
+    expect(publishWorkspaceStreamEventMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a 500 json error when card cache invalidation throws after creation", async () => {
+    getWorkspaceContextForUserMock.mockResolvedValue({
+      user: { id: "user-1" },
+      workspace: { workspaceId: "workspace-1" },
+    });
+    createFlashcardCardForUserMock.mockResolvedValue({
+      id: "card-1",
+      setId: "set-1",
+    });
+    invalidateFlashcardReadCachesMock.mockRejectedValueOnce(
+      new Error("cards cache offline")
+    );
+
+    const response = await POST(
+      new Request("http://localhost:3003", {
+        body: JSON.stringify({
+          backMarkdown: "Back",
+          frontMarkdown: "Front",
+          source: {
+            concept: "Closures",
+            subject: "JavaScript",
+            topic: "Functions",
+          },
+        }),
+        method: "POST",
+      }),
+      { params: Promise.resolve({ setId: "set-1" }) }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "cards cache offline",
+    });
+    expect(publishWorkspaceStreamEventMock).not.toHaveBeenCalled();
   });
 
   it("returns 404 when the parent set cannot be resolved", async () => {

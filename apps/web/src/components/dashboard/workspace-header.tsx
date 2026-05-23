@@ -46,7 +46,7 @@ export function WorkspaceHeader({
   const isHome = pathname === homeHref;
 
   const segmentedGroupClass =
-    "self-center shrink-0 divide-x divide-border/60 overflow-hidden rounded-md border border-border/60 bg-background shadow-sm";
+    "self-center divide-x divide-border/60 overflow-hidden rounded-md border border-border/60 bg-background shadow-sm";
   const segmentedIconButtonClass =
     "size-7 rounded-none border-0 bg-transparent text-foreground shadow-none hover:bg-muted/70 disabled:bg-transparent";
   const shouldUseCompactDesktop = compact;
@@ -61,11 +61,11 @@ export function WorkspaceHeader({
       >
         <div
           className={cn(
-            "grid w-full shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center px-3",
+            "flex w-full shrink-0 flex-row items-center px-3",
             shouldUseCompactDesktop ? "min-h-10 gap-1.5" : "min-h-11 gap-1"
           )}
         >
-          <div className="flex min-w-0 items-center gap-2 overflow-hidden">
+          <div className="flex w-full min-w-0 items-center gap-1">
             <SidebarTrigger className="size-8 shrink-0 md:hidden" />
             <ButtonGroup className={segmentedGroupClass}>
               <Button
@@ -84,7 +84,7 @@ export function WorkspaceHeader({
                 <ArrowLeft className="size-3.5" />
               </Button>
               <Button
-                aria-label="Go home"
+                aria-label="Open workspace"
                 className={segmentedIconButtonClass}
                 disabled={isHome}
                 onClick={() => {
@@ -112,11 +112,11 @@ export function WorkspaceHeader({
                 <ArrowRight className="size-3.5" />
               </Button>
             </ButtonGroup>
-            <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
-              <div className="flex size-6 shrink-0 items-center justify-center text-muted-foreground">
+            <div className="flex w-full min-w-0 items-center gap-1">
+              <div className="flex size-5 shrink-0 items-center justify-center text-muted-foreground">
                 {leadingIcon ?? (
                   <div
-                    className="flex size-6 shrink-0 items-center justify-center text-muted-foreground empty:hidden"
+                    className="flex size-5 shrink-0 items-center justify-center text-muted-foreground empty:hidden"
                     id="workspace-header-leading-icon"
                   />
                 )}
@@ -144,8 +144,8 @@ export function WorkspaceHeader({
               </div>
             </div>
           </div>
-          <div className="no-scrollbar flex min-w-0 shrink-0 items-center justify-end gap-1 overflow-x-auto pl-3 pr-4">
-            <div className="flex min-w-0 shrink-0 items-center justify-end gap-1">
+          <div className="no-scrollbar flex w-full min-w-0 items-center justify-end gap-1 overflow-x-auto pr-4">
+            <div className="flex min-w-0 items-center justify-end gap-1">
               {actions}
             </div>
             {trailingActions ? (
@@ -182,8 +182,8 @@ export function WorkspaceHeader({
           }}
         />
 
-        <div className="relative grid h-10 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-3">
-          <div className="flex min-w-0 shrink-0 items-center gap-1">
+        <div className="relative flex h-10 items-center gap-1.5 px-3">
+          <div className="flex shrink-0 items-center gap-1">
             <SidebarTrigger className="size-8 md:hidden" />
             <ButtonGroup className={segmentedGroupClass}>
               <Button
@@ -202,7 +202,7 @@ export function WorkspaceHeader({
                 <ArrowLeft className="size-3.5" />
               </Button>
               <Button
-                aria-label="Go home"
+                aria-label="Open workspace"
                 className={segmentedIconButtonClass}
                 disabled={isHome}
                 onClick={() => {
@@ -231,7 +231,7 @@ export function WorkspaceHeader({
               </Button>
             </ButtonGroup>
           </div>
-          <div className="min-w-0 overflow-hidden text-center">
+          <div className="min-w-0 flex-1 overflow-hidden text-center">
             {breadcrumbs ?? (
               <div id="workspace-header-breadcrumbs">
                 {title ? (

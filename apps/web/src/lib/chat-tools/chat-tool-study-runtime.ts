@@ -48,8 +48,13 @@ export async function resolveStudySource(
   }
 ) {
   if (typeof input.sourceText === "string") {
+    const sourceText = input.sourceText.trim();
+    if (!sourceText) {
+      throw new Error("A study source is required.");
+    }
+
     return {
-      content: input.sourceText.trim().slice(0, STUDY_SOURCE_CHAR_LIMIT),
+      content: sourceText.slice(0, STUDY_SOURCE_CHAR_LIMIT),
       title: "Selected content",
     };
   }
@@ -64,16 +69,23 @@ export async function resolveStudySource(
     const title = maps.filePathById.get(file.id) ?? file.name;
 
     if (isMarkdownFile(file)) {
+      const content = (
+        await fetchWorkspaceFileText(file, STUDY_SOURCE_CHAR_LIMIT)
+      ).trim();
+      if (!content) {
+        throw new Error(
+          "The selected file does not have ingested text available yet."
+        );
+      }
+
       return {
-        content: (
-          await fetchWorkspaceFileText(file, STUDY_SOURCE_CHAR_LIMIT)
-        ).trim(),
+        content,
         title,
       };
     }
 
     const summary = await getIngestionSummaryForFile(ctx.workspaceId, file.id);
-    const content = summary.resources
+    const content = (summary?.resources ?? [])
       .flatMap((resource) => resource.chunks)
       .map((chunk) => chunk.content.trim())
       .filter(Boolean)
@@ -226,7 +238,7 @@ export async function createStudySetWithCards(params: {
   }
 
   for (const card of params.cards) {
-    await createFlashcardCardForUser({
+    const createdCard = await createFlashcardCardForUser({
       backMarkdown: card.backMarkdown,
       frontMarkdown: card.frontMarkdown,
       kind: card.kind,
@@ -238,6 +250,9 @@ export async function createStudySetWithCards(params: {
       userId: params.userId,
       workspaceId: params.workspaceId,
     });
+    if (!createdCard) {
+      throw new Error("Unable to persist every generated study card.");
+    }
   }
 
   return (
@@ -260,7 +275,7 @@ export async function generateFlashcardsFromSource(
     model: apollo.languageModel("apollo-core"),
     output: Output.object({ schema: flashcardGenerationSchema }),
     prompt: [
-      "Create a clean mindset set from the study material.",
+      "Create a clean Mindset Set from the study material.",
       "Write concise markdown front/back pairs.",
       `Return exactly ${Math.max(1, Math.min(input.count ?? 10, 24))} cards.`,
       "Avoid duplicate cards.",

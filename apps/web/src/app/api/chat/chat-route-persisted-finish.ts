@@ -13,6 +13,7 @@ import { persistSessionSummaryForCompletedTurn } from "@/lib/session-summaries";
 import { markIdempotencyDone } from "./chat-route-cache";
 import { isAbortLikeError, logError, logInfo } from "./chat-route-logging";
 import {
+  getModelCreditMultiplier,
   getPersistedMessages,
   getRequiredChatCredits,
   resolveTotalTokens,
@@ -35,6 +36,7 @@ interface HandlePersistedChatStreamFinishOptions {
   apiLogger: ReturnType<typeof createApiLogger>;
   chat: ExistingChat | CreatedChat;
   chatSlug: string;
+  expectedCredits: number;
   idempotencyLockAcquired: boolean;
   idempotencyRedisKey: string | null;
   isContinuation: boolean;
@@ -65,6 +67,7 @@ export async function handlePersistedChatStreamFinish({
   requestStartedAt,
   responseMessage,
   result,
+  expectedCredits,
   selectedModel,
   sessionUser,
   streamId,
@@ -137,8 +140,12 @@ export async function handlePersistedChatStreamFinish({
     try {
       const totalUsage = await result.totalUsage;
       const totalTokens = resolveTotalTokens(totalUsage);
-      const requiredCredits = getRequiredChatCredits(totalTokens);
-      const additionalCredits = Math.max(0, requiredCredits - 1);
+      const creditMultiplier = getModelCreditMultiplier(selectedModel);
+      const requiredCredits = getRequiredChatCredits(
+        totalTokens,
+        selectedModel
+      );
+      const additionalCredits = Math.max(0, requiredCredits - expectedCredits);
 
       if (additionalCredits > 0) {
         const meteredUsage = await consumeChatUnits(
@@ -158,6 +165,8 @@ export async function handlePersistedChatStreamFinish({
       logInfo("Applied token-based chat usage", {
         chatId: chatSlug,
         totalTokens,
+        creditMultiplier,
+        expectedCredits,
         requiredCredits,
         additionalCredits,
       });
@@ -167,6 +176,7 @@ export async function handlePersistedChatStreamFinish({
         inputTokens: totalUsage.inputTokens ?? null,
         outputTokens: totalUsage.outputTokens ?? null,
         totalTokens,
+        creditMultiplier,
         creditsCharged: requiredCredits,
       });
       apiLogger.meter("meter.chat.request", {

@@ -15,6 +15,7 @@ export const PREVIEW_ROW_ID = "__preview-row__";
 export const PREVIEW_PANE_MIN_SIZE = 28;
 export const WORKSPACE_PANE_REORDER_MIME =
   "application/x-avenire-workspace-pane-id";
+const PANEL_LAYOUT_SIZE_EPSILON = 0.25;
 
 export interface RenderablePane {
   id: string;
@@ -171,6 +172,30 @@ export function normalizePreviewPaneSizes<
     ...pane,
     size,
   }));
+}
+
+export function shouldPersistWorkspacePanelLayout(input: {
+  currentSizes: number[];
+  draggedPaneId: string | null;
+  hasPreviewPane: boolean;
+  nextSizes: number[];
+}) {
+  if (input.draggedPaneId || input.hasPreviewPane) {
+    return false;
+  }
+
+  if (
+    input.currentSizes.length === 0 ||
+    input.currentSizes.length !== input.nextSizes.length
+  ) {
+    return false;
+  }
+
+  return input.currentSizes.some(
+    (size, index) =>
+      Math.abs(size - (input.nextSizes[index] ?? size)) >
+      PANEL_LAYOUT_SIZE_EPSILON
+  );
 }
 
 function normalizeRenderableRowSizes(rows: RenderablePaneRow[]) {

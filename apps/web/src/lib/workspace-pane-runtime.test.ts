@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createPaneRouter,
@@ -6,6 +8,15 @@ import {
   navigateWorkspacePane,
   type WorkspacePaneContextValue,
 } from "@/lib/workspace-pane-runtime";
+
+const workspacePaneRuntimeSource = readFileSync(
+  resolve(import.meta.dirname, "./workspace-pane-runtime.ts"),
+  "utf8"
+);
+const workspacePaneBrowserNavigationSource = readFileSync(
+  resolve(import.meta.dirname, "./workspace-pane-browser-navigation.ts"),
+  "utf8"
+);
 
 function createRouterMock() {
   return {
@@ -123,5 +134,27 @@ describe("workspace pane runtime", () => {
     const download = new AnchorMock();
     download.download = true;
     expect(findNavigableAnchor(download)).toBeNull();
+  });
+
+  it("keeps browser-route deferral in the dedicated browser-navigation helper instead of inlining it into pane runtime entrypoints", () => {
+    expect(workspacePaneRuntimeSource).toContain(
+      "@/lib/workspace-pane-browser-navigation"
+    );
+    expect(workspacePaneRuntimeSource).toContain(
+      "markPendingWorkspaceBrowserNavigation"
+    );
+    expect(workspacePaneRuntimeSource).not.toContain(
+      "PENDING_BROWSER_NAVIGATION_TTL_MS"
+    );
+    expect(workspacePaneRuntimeSource).not.toContain(
+      "pendingWorkspaceBrowserNavigation"
+    );
+
+    expect(workspacePaneBrowserNavigationSource).toContain(
+      "PENDING_BROWSER_NAVIGATION_TTL_MS"
+    );
+    expect(workspacePaneBrowserNavigationSource).toContain(
+      "pendingWorkspaceBrowserNavigation"
+    );
   });
 });

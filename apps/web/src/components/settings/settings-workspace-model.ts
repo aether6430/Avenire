@@ -1,4 +1,5 @@
 export function getWorkspaceMembersStateMessage(input: {
+  errorMessage?: string | null;
   loading: boolean;
   loadFailed: boolean;
   memberCount: number;
@@ -8,7 +9,7 @@ export function getWorkspaceMembersStateMessage(input: {
   }
 
   if (input.loadFailed && input.memberCount === 0) {
-    return "Unable to load workspace members.";
+    return input.errorMessage?.trim() || "Unable to load workspace members.";
   }
 
   if (input.memberCount === 0) {
@@ -19,6 +20,7 @@ export function getWorkspaceMembersStateMessage(input: {
 }
 
 export function getWorkspaceListStateMessage(input: {
+  errorMessage?: string | null;
   loading: boolean;
   loadFailed: boolean;
   workspaceCount: number;
@@ -28,7 +30,7 @@ export function getWorkspaceListStateMessage(input: {
   }
 
   if (input.loadFailed && input.workspaceCount === 0) {
-    return "Unable to load workspaces.";
+    return input.errorMessage?.trim() || "Unable to load workspaces.";
   }
 
   if (input.workspaceCount === 0) {

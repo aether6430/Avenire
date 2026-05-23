@@ -113,6 +113,7 @@ describe("chat route ephemeral", () => {
       error: "Chat usage limit reached",
       retryAfter: "2026-05-18T02:00:00.000Z",
     });
+    expect(consumeChatUnitsMock).toHaveBeenCalledWith("user-1", 2);
     expect(apiLogger.rateLimited).toHaveBeenCalledWith(
       "chat",
       "2026-05-18T02:00:00.000Z",
@@ -148,6 +149,7 @@ describe("chat route ephemeral", () => {
     });
 
     expect(response.status).toBe(200);
+    expect(consumeChatUnitsMock).toHaveBeenCalledWith("user-1", 3);
     expect(convertToModelMessagesMock).toHaveBeenCalledWith(
       [
         {
@@ -157,6 +159,11 @@ describe("chat route ephemeral", () => {
         },
       ],
       { tools: createChatToolsMock.mock.results[0]?.value }
+    );
+    expect(createChatToolsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatSlug: expect.stringMatching(/^selection-ephemeral:/),
+      })
     );
     expect(APOLLO_PROMPT_MOCK).toHaveBeenCalledWith(
       "Avenire User",

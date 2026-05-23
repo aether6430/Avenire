@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
-import { getChatBySlugForUser, isChatOwnerForUser } from "@/lib/chat-data";
+import {
+  getChatBySlugForUser,
+  getWritableChatBySlugForUser,
+} from "@/lib/chat-data";
 import { createApiLogger } from "@/lib/observability";
 import { getSessionUser } from "@/lib/workspace";
+import {
+  CHAT_SHARE_CONTEXT_ERROR,
+  resolveChatShareRouteError,
+} from "./chat-share-route-model";
 
 interface MissingChatPolicy {
   error: string;
@@ -29,70 +36,89 @@ export async function resolveChatShareRouteContext(input: {
   missingWorkspace: MissingWorkspacePolicy;
   requireOwnedChatRecord?: boolean;
 }) {
-  const user = await getSessionUser();
   const { slug } = await input.params;
   const apiLogger = createApiLogger({
     request: input.request,
     route: input.route,
     feature: "chat-sharing",
-    userId: user?.id ?? null,
+    userId: null,
   });
   void apiLogger.requestStarted();
 
-  if (!user) {
-    void apiLogger.requestFailed(401, "Unauthorized");
-    return {
-      response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
-    };
-  }
+  try {
+    const user = await getSessionUser();
+    if (!user) {
+      void apiLogger.requestFailed(401, "Unauthorized");
+      return {
+        response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+      };
+    }
 
-  const chat = await getChatBySlugForUser(user.id, slug);
-  if (!chat || (input.requireOwnedChatRecord && chat.ownerUserId !== user.id)) {
-    void apiLogger.requestFailed(
-      input.missingChat.status,
-      input.missingChat.error,
-      {
-        slug,
-      }
+    const chat = await getChatBySlugForUser(user.id, slug);
+    if (
+      !chat ||
+      (input.requireOwnedChatRecord && chat.ownerUserId !== user.id)
+    ) {
+      void apiLogger.requestFailed(
+        input.missingChat.status,
+        input.missingChat.error,
+        {
+          slug,
+        }
+      );
+      return {
+        response: NextResponse.json(
+          { error: input.missingChat.error },
+          { status: input.missingChat.status }
+        ),
+      };
+    }
+
+    const writableChat = await getWritableChatBySlugForUser(
+      user.id,
+      slug,
+      chat.workspaceId
     );
+    if (writableChat?.readOnly) {
+      void apiLogger.requestFailed(403, "Read-only Method", { slug });
+      return {
+        response: NextResponse.json(
+          { error: "Read-only Method" },
+          { status: 403 }
+        ),
+      };
+    }
+
+    if (!chat.workspaceId) {
+      void apiLogger.requestFailed(
+        input.missingWorkspace.status,
+        input.missingWorkspace.error,
+        { slug }
+      );
+      return {
+        response: NextResponse.json(
+          { error: input.missingWorkspace.error },
+          { status: input.missingWorkspace.status }
+        ),
+      };
+    }
+
+    return {
+      apiLogger,
+      chat,
+      slug,
+      user,
+      workspaceUuid: chat.workspaceId,
+    } satisfies ChatShareRouteContext;
+  } catch (error) {
+    void apiLogger.requestFailed(500, error, { slug });
     return {
       response: NextResponse.json(
-        { error: input.missingChat.error },
-        { status: input.missingChat.status }
+        {
+          error: resolveChatShareRouteError(error, CHAT_SHARE_CONTEXT_ERROR),
+        },
+        { status: 500 }
       ),
     };
   }
-
-  const isOwner = await isChatOwnerForUser(user.id, slug, chat.workspaceId);
-  if (!isOwner) {
-    void apiLogger.requestFailed(403, "Read-only method", { slug });
-    return {
-      response: NextResponse.json(
-        { error: "Read-only method" },
-        { status: 403 }
-      ),
-    };
-  }
-
-  if (!chat.workspaceId) {
-    void apiLogger.requestFailed(
-      input.missingWorkspace.status,
-      input.missingWorkspace.error,
-      { slug }
-    );
-    return {
-      response: NextResponse.json(
-        { error: input.missingWorkspace.error },
-        { status: input.missingWorkspace.status }
-      ),
-    };
-  }
-
-  return {
-    apiLogger,
-    chat,
-    slug,
-    user,
-    workspaceUuid: chat.workspaceId,
-  } satisfies ChatShareRouteContext;
 }

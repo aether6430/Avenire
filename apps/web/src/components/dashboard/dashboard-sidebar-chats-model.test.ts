@@ -17,13 +17,14 @@ describe("dashboard sidebar chats model", () => {
 
     expect(
       getSidebarChatListState({
+        errorMessage: "chat history offline",
         loadFailed: true,
         loading: false,
         otherCount: 0,
         pinnedCount: 0,
       })
     ).toEqual({
-      description: "Try again in a moment to reload your recent methods.",
+      description: "chat history offline",
       title: "Unable to load methods.",
     });
 

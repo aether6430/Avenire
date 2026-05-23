@@ -36,7 +36,7 @@ interface UseExplorerItemActionPropsOptions {
   onSelectFile: (
     fileId: string,
     options?: {
-      circleToAi?: boolean;
+      retrievalChunkId?: string | null;
     }
   ) => void;
   openFileShareDialog: (file: FileRecord) => void;
@@ -160,13 +160,6 @@ export function useExplorerItemActionProps({
         folders: allFolders,
         kind: "file",
         name: file.name,
-        onCircleToAi:
-          previewKind.isPdf || previewKind.isImage || previewKind.isVideo
-            ? () =>
-                onSelectFile(file.id, {
-                  circleToAi: true,
-                })
-            : undefined,
         onDelete: () => {
           deleteContextActionItems(file.id, "file");
         },
@@ -229,7 +222,6 @@ export function useExplorerItemActionProps({
       isPinned,
       moveContextActionItemsToFolder,
       onOpenPropertiesItem,
-      onSelectFile,
       openFileShareDialog,
       openRenameFileDialog,
       togglePinnedItem,

@@ -1,3 +1,4 @@
+import { getYearlyDiscountPercent } from "@/lib/billing-plans";
 import { cn } from "@/lib/utils";
 
 export type BillingCycle = "monthly" | "yearly";
@@ -8,7 +9,11 @@ const cycleTabs: Array<{
   value: BillingCycle;
 }> = [
   { label: "Monthly", value: "monthly" },
-  { badge: "Save 20%", label: "Yearly", value: "yearly" },
+  {
+    badge: `Save ${getYearlyDiscountPercent("core")}%`,
+    label: "Yearly",
+    value: "yearly",
+  },
 ];
 
 export function BillingCycleTabs({
@@ -36,7 +41,7 @@ export function BillingCycleTabs({
             className={cn(
               "inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 font-medium text-sm transition duration-150",
               isActive
-                ? "bg-brand text-[#1b2733]"
+                ? "bg-brand text-[var(--primary-foreground)]"
                 : "text-white/68 hover:bg-white/6 hover:text-white"
             )}
             key={tab.value}
@@ -49,7 +54,7 @@ export function BillingCycleTabs({
                 className={cn(
                   "rounded-full px-2 py-0.5 text-[11px]",
                   isActive
-                    ? "bg-black/10 text-[#1b2733]"
+                    ? "bg-black/10 text-[var(--primary-foreground)]"
                     : "bg-brand/12 text-brand"
                 )}
               >

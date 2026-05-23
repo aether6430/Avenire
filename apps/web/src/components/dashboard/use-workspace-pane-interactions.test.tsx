@@ -66,10 +66,7 @@ function createOptions() {
       },
     ],
     reorderPanes: vi.fn(),
-    rows: [{ id: "row-1", size: 100 }],
     setPaneRoute: vi.fn(),
-    setPaneSizes: vi.fn(),
-    setRowSizes: vi.fn(),
   } satisfies Parameters<typeof useWorkspacePaneInteractions>[0];
 }
 

@@ -5,25 +5,28 @@ description: Use structured first-class widget primitives for polished canvas ar
 
 # First-class widget primitives
 
-Prefer `widget_spec` for canvas-style artifacts: debugging reports, docs canvases, learning dashboards, comparison cards, metric summaries, tables, charts, timelines, and structured explanations. The app renders `widget_spec` with first-class React components backed by `@avenire/ui` shadcn primitives, so the result inherits the host theme, spacing, cards, tables, badges, progress bars, and chart styling.
+Prefer `show_widget` with `widget: { type: "spec", spec: ... }` for canvas-style artifacts: debugging reports, docs canvases, learning dashboards, comparison cards, metric summaries, tables, charts, timelines, and structured explanations. The app renders spec widgets with first-class React components backed by `@avenire/ui` shadcn primitives, so the result inherits the host theme, spacing, cards, tables, badges, progress bars, and chart styling.
 
-Use raw `widget_code` only when the visual needs custom SVG geometry, canvas drawing, imperative animation, DOM event handling, sliders, steppers, simulations, mermaid, or third-party libraries. If the artifact is mostly layout, text, metrics, tables, cards, or simple charts, use `widget_spec`.
+Use `widget: { type: "code", code: ... }` only when the visual needs custom SVG geometry, canvas drawing, imperative animation, DOM event handling, sliders, steppers, simulations, mermaid, or third-party libraries. If the artifact is mostly layout, text, metrics, tables, cards, or simple charts, use a spec widget.
 
 ## Tool shape
 
-Call `show_widget` with either `widget_spec` or `widget_code`. For primitive widgets, omit `widget_code`.
+Call `show_widget` with a `widget` object. For primitive widgets, use `type: "spec"` and put the primitive tree in `spec`.
 
 ```json
 {
   "i_have_seen_read_me": true,
   "title": "Websocket pool leak debug",
-  "widget_spec": {
-    "title": "Websocket pool leak debug",
-    "description": "Incident view with request, connection, memory, and milestone evidence.",
-    "root": {
-      "type": "stack",
-      "gap": "lg",
-      "children": []
+  "widget": {
+    "type": "spec",
+    "spec": {
+      "title": "Websocket pool leak debug",
+      "description": "Incident view with request, connection, memory, and milestone evidence.",
+      "root": {
+        "type": "stack",
+        "gap": "lg",
+        "children": []
+      }
     }
   }
 }

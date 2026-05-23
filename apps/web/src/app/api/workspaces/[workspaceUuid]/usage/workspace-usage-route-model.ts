@@ -7,6 +7,8 @@ type WorkspaceMemberRecord = Awaited<
   ReturnType<typeof import("@/lib/file-data").listWorkspaceMembers>
 >[number];
 
+export const WORKSPACE_USAGE_LOAD_ERROR = "Unable to load workspace stats.";
+
 export function countIndexedWorkspaceFiles(
   files: Pick<ExplorerFileRecord, "id">[],
   ingestionFlags: Record<string, boolean>
@@ -42,4 +44,11 @@ export function buildWorkspaceUsagePayload(input: {
       ),
     },
   };
+}
+
+export function resolveWorkspaceUsageRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
 }

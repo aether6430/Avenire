@@ -6,6 +6,14 @@ export function resolveChatStreamActiveOrganizationId(session: {
   return session.session?.activeOrganizationId ?? null;
 }
 
+export function buildChatStreamUnauthorizedResponse() {
+  return new Response(null, { status: 401 });
+}
+
+export function buildChatStreamInternalErrorResponse() {
+  return new Response(null, { status: 500 });
+}
+
 export function buildChatStreamNoStoreHeaders() {
   return {
     "Cache-Control": "no-store",

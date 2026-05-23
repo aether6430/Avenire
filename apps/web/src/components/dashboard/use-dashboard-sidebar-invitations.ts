@@ -28,18 +28,28 @@ export function useDashboardSidebarInvitations({
   const [invitations, setInvitations] = useState<DashboardSidebarInvitation[]>(
     []
   );
+  const [invitationsErrorMessage, setInvitationsErrorMessage] = useState<
+    string | null
+  >(null);
   const [invitationsLoadFailed, setInvitationsLoadFailed] = useState(false);
   const [invitationsLoading, setInvitationsLoading] = useState(false);
 
   const loadInvitations = useCallback(async () => {
     setInvitationsLoading(true);
     setInvitationsLoadFailed(false);
+    setInvitationsErrorMessage(null);
     try {
       const response = await fetch("/api/workspaces/invitations", {
         cache: "no-store",
       });
       if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
         setInvitations([]);
+        setInvitationsErrorMessage(
+          payload.error?.trim() || "Unable to load invites."
+        );
         setInvitationsLoadFailed(true);
         return;
       }
@@ -47,9 +57,15 @@ export function useDashboardSidebarInvitations({
         invitations?: DashboardSidebarInvitation[];
       };
       setInvitations(payload.invitations ?? []);
+      setInvitationsErrorMessage(null);
       setInvitationsLoadFailed(false);
-    } catch {
+    } catch (error) {
       setInvitations([]);
+      setInvitationsErrorMessage(
+        error instanceof Error && error.message.trim().length > 0
+          ? error.message
+          : "Unable to load invites."
+      );
       setInvitationsLoadFailed(true);
     } finally {
       setInvitationsLoading(false);
@@ -117,6 +133,7 @@ export function useDashboardSidebarInvitations({
 
   return {
     invitations,
+    invitationsErrorMessage,
     invitationsLoadFailed,
     invitationsLoading,
     loadInvitations,

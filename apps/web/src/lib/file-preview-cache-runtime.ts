@@ -272,6 +272,49 @@ function warmHlsPlayback(input: {
   };
 }
 
+async function startWarmEntry(input: {
+  entry: WarmEntry;
+  key: string;
+  options: {
+    mediaType?: "audio" | "video";
+    posterUrl?: string | null;
+    sizeBytes?: number | null;
+    surface?: "attachment" | "thumbnail" | "viewer";
+  };
+  playbackSource: MediaPlaybackSource;
+}) {
+  const { entry, key, options, playbackSource } = input;
+
+  entry.source = playbackSource;
+  entry.state = "warming";
+  entry.touchedAt = now();
+  preconnectOrigin(getPlaybackSourcePrimaryUrl(playbackSource));
+
+  if (playbackSource.kind === "progressive") {
+    if (options.mediaType === "audio" || options.mediaType === "video") {
+      entry.cleanup = warmProgressiveMedia({
+        entry,
+        key,
+        mediaType: options.mediaType,
+      });
+    } else {
+      entry.state = "warm";
+    }
+
+    if (shouldCachePreviewBlob(options.mediaType ?? null, options.sizeBytes)) {
+      await primePreviewBlob(key, entry, playbackSource.url);
+    }
+    return;
+  }
+
+  entry.cleanup = warmHlsPlayback({
+    entry,
+    key,
+    posterUrl: options.posterUrl,
+  });
+  await entry.cachePromise;
+}
+
 export function markFileOpened(fileId: string) {
   openedFiles.delete(fileId);
   openedFiles.set(fileId, now());
@@ -302,6 +345,15 @@ export async function primeMediaPlayback(
   if (existing) {
     existing.refs += 1;
     existing.touchedAt = now();
+    if (existing.state === "cold" && !existing.cachePromise) {
+      await startWarmEntry({
+        entry: existing,
+        key,
+        options,
+        playbackSource,
+      });
+      return;
+    }
     if (
       playbackSource.kind === "progressive" &&
       shouldCachePreviewBlob(options.mediaType ?? null, options.sizeBytes)
@@ -318,30 +370,12 @@ export async function primeMediaPlayback(
     touchedAt: now(),
   };
   warmByKey.set(key, entry);
-
-  preconnectOrigin(getPlaybackSourcePrimaryUrl(playbackSource));
-  if (playbackSource.kind === "progressive") {
-    if (options.mediaType === "audio" || options.mediaType === "video") {
-      entry.cleanup = warmProgressiveMedia({
-        entry,
-        key,
-        mediaType: options.mediaType,
-      });
-    } else {
-      entry.state = "warm";
-    }
-    if (shouldCachePreviewBlob(options.mediaType ?? null, options.sizeBytes)) {
-      await primePreviewBlob(key, entry, playbackSource.url);
-    }
-    return;
-  }
-
-  entry.cleanup = warmHlsPlayback({
+  await startWarmEntry({
     entry,
     key,
-    posterUrl: options.posterUrl,
+    options,
+    playbackSource,
   });
-  await entry.cachePromise;
 }
 
 export async function primeFilePreview(

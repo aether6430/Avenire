@@ -38,9 +38,9 @@ export function FlashcardsSidebarPanelCreateDialog({
       </DialogTrigger>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Create mindset set</DialogTitle>
+          <DialogTitle>Create Mindset Set</DialogTitle>
           <DialogDescription>
-            Create a workspace-level mindset set.
+            Create a workspace-level Mindset Set.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -72,7 +72,7 @@ export function FlashcardsSidebarPanelCreateDialog({
             }}
             type="button"
           >
-            Create mindset set
+            Create Mindset Set
           </Button>
         </DialogFooter>
       </DialogContent>

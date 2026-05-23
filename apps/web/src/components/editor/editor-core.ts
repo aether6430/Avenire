@@ -6,12 +6,6 @@ import type {
   FrontmatterProperties,
   WorkspacePropertyDefinition,
 } from "@/lib/frontmatter";
-import {
-  getDefaultNoteTemplates,
-  getNoteTemplateStorageKey,
-  getRecentNoteTemplateStorageKey,
-  type NoteTemplate,
-} from "@/lib/note-templates";
 
 export const MENU_OFFSET = 10;
 export const VIEWPORT_PADDING = 12;
@@ -35,7 +29,12 @@ const WORKSPACE_FILE_LINK_REGEX = /^workspace-file:\/\/(.+)$/i;
 
 export type ImagePickerTab = "upload" | "link";
 export type MathKind = "inlineMath" | "blockMath";
-export type AiAction = "explain" | "elaborate" | "simplify";
+export type AiAction =
+  | "elaborate"
+  | "explain"
+  | "improve"
+  | "proofread"
+  | "simplify";
 
 export interface SlashMatch {
   from: number;
@@ -103,7 +102,6 @@ export interface AvenireEditorProps {
   onPropertyDefinitionsChange?: (
     definitions: WorkspacePropertyDefinition[]
   ) => void;
-  onTemplateApplied?: (template: NoteTemplate, rendered: string) => void;
   pageProperties?: FrontmatterProperties;
   propertyDefinitions?: WorkspacePropertyDefinition[];
   readOnly?: boolean;
@@ -138,75 +136,6 @@ export function insertMarkdownContent(editor: Editor, markdown: string) {
 
   const json = editor.markdown.parse(markdown);
   editor.commands.setContent(json);
-}
-
-export function loadWorkspaceNoteTemplates(workspaceUuid: string) {
-  try {
-    const raw = window.localStorage.getItem(
-      getNoteTemplateStorageKey(workspaceUuid)
-    );
-    const parsed = JSON.parse(raw ?? "[]") as unknown;
-    if (!Array.isArray(parsed)) {
-      return getDefaultNoteTemplates();
-    }
-    const templates = parsed
-      .map((entry) => {
-        if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-          return null;
-        }
-        const candidate = entry as Partial<NoteTemplate>;
-        const id = typeof candidate.id === "string" ? candidate.id.trim() : "";
-        const name =
-          typeof candidate.name === "string" ? candidate.name.trim() : "";
-        const content =
-          typeof candidate.content === "string" ? candidate.content : "";
-        const bannerUrl =
-          typeof candidate.bannerUrl === "string" &&
-          candidate.bannerUrl.trim().length > 0
-            ? candidate.bannerUrl.trim()
-            : null;
-        return id && name && content ? { id, name, content, bannerUrl } : null;
-      })
-      .filter((entry): entry is NoteTemplate => Boolean(entry));
-
-    return templates.length > 0 ? templates : getDefaultNoteTemplates();
-  } catch {
-    return getDefaultNoteTemplates();
-  }
-}
-
-export function loadRecentTemplateIds(workspaceUuid: string) {
-  try {
-    const raw = window.localStorage.getItem(
-      getRecentNoteTemplateStorageKey(workspaceUuid)
-    );
-    const parsed = JSON.parse(raw ?? "[]") as unknown;
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-    return parsed
-      .filter((entry): entry is string => typeof entry === "string")
-      .slice(0, 6);
-  } catch {
-    return [];
-  }
-}
-
-export function persistRecentTemplate(
-  workspaceUuid: string,
-  templateId: string
-) {
-  try {
-    const existing = loadRecentTemplateIds(workspaceUuid).filter(
-      (entry) => entry !== templateId
-    );
-    window.localStorage.setItem(
-      getRecentNoteTemplateStorageKey(workspaceUuid),
-      JSON.stringify([templateId, ...existing].slice(0, 6))
-    );
-  } catch {
-    return;
-  }
 }
 
 export function clamp(value: number, min: number, max: number) {

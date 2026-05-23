@@ -54,13 +54,9 @@ export function useDashboardSidebarChats({
   const [chatSearchQuery, setChatSearchQuery] = useState("");
   const [isChatSearchOpen, setIsChatSearchOpen] = useState(false);
   const [pendingChatSlug, setPendingChatSlug] = useState<string | null>(null);
-  const [activeChatSlugOverride, setActiveChatSlugOverride] = useState<
-    string | null
-  >(null);
 
   const activeChatSlug = resolveDashboardSidebarActiveChatSlug({
     activeChatSlugFromPath,
-    activeChatSlugOverride,
     activeChatSlugProp,
   });
 
@@ -75,8 +71,14 @@ export function useDashboardSidebarChats({
     sidebarView,
     workspaceUuid,
   });
-  const { chats, chatsLoadFailed, chatsLoading, loadChats, setChats } =
-    collection;
+  const {
+    chats,
+    chatsErrorMessage,
+    chatsLoadFailed,
+    chatsLoading,
+    loadChats,
+    setChats,
+  } = collection;
 
   const primaryChatRoute = useMemo<Route>(
     () =>
@@ -87,11 +89,7 @@ export function useDashboardSidebarChats({
     [activeChatSlug, chats]
   );
   useDashboardSidebarChatEvents({
-    activeChatSlug,
     loadChats,
-    navigate,
-    pathname,
-    setActiveChatSlugOverride,
     setChats,
     setPendingChatSlug,
     workspaceUuid,
@@ -101,7 +99,6 @@ export function useDashboardSidebarChats({
     chats,
     navigate,
     refreshRoute,
-    setActiveChatSlugOverride,
     setChats,
   });
   const { chatActionStatus, createChat, deleteChat, updateChat } = actions;
@@ -132,6 +129,7 @@ export function useDashboardSidebarChats({
     activeChatSlug,
     chatActionStatus,
     chats,
+    chatsErrorMessage,
     chatsLoadFailed,
     chatsLoading,
     chatSearchQuery,
@@ -146,7 +144,6 @@ export function useDashboardSidebarChats({
     pendingChatSlug,
     pinnedChats,
     primaryChatRoute,
-    setActiveChatSlugOverride,
     setChatSearchQuery,
     setEditingChatSlug,
     setEditingTitle,

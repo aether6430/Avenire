@@ -62,8 +62,16 @@ export interface BillingUsage {
     totalCapacity: number;
     totalBalance: number;
   };
+  entitlements?: {
+    features: Record<string, boolean>;
+    responseSpeed: "priority" | "standard";
+  };
   plan: "access" | "core" | "scholar";
-  upload: MeterUsage;
+  storage: {
+    limitBytes: number;
+    remainingBytes: number;
+    usedBytes: number;
+  };
 }
 
 export interface SettingsInitialUser {
@@ -103,23 +111,26 @@ export const KEYBOARD_SHORTCUT_GROUPS = [
   {
     name: "General",
     items: [
-      { label: "Command Palette", keys: ["Ctrl", "Shift", "K"] },
-      { label: "Open Files", keys: ["Ctrl", "K"] },
+      { label: "Command Palette", keys: ["Ctrl", "Shift", "P"] },
+      { label: "Open Files", keys: ["Ctrl", "4"] },
     ],
   },
   {
     name: "Workspace",
     items: [
-      { label: "Toggle Sidebar", keys: ["Ctrl", "B"] },
-      { label: "Open Model Picker", keys: ["Ctrl", "/"] },
-      { label: "Show or hide pet", keys: ["Ctrl", "Shift", "Y"] },
+      { label: "Create Folder", keys: ["Ctrl", "Shift", "N"] },
+      { label: "Upload File", keys: ["Ctrl", "U"] },
+      { label: "Upload Folder", keys: ["Ctrl", "Shift", "U"] },
+      { label: "Open Selection", keys: ["Ctrl", "O"] },
+      { label: "Move Selection Up", keys: ["Ctrl", "Shift", "M"] },
     ],
   },
   {
     name: "Editing",
     items: [
-      { label: "New Method", keys: ["Ctrl", "Shift", "O"] },
-      { label: "Delete Current Method", keys: ["Ctrl", "Shift", "⌫"] },
+      { label: "New Method", keys: ["Ctrl", "N"] },
+      { label: "New Note", keys: ["Ctrl", "Shift", "O"] },
+      { label: "Import Link", keys: ["Ctrl", "Shift", "L"] },
     ],
   },
 ] as const;
@@ -134,12 +145,12 @@ export const PLAN_LABELS: Record<string, string> = {
 
 export const THEME_PREVIEW = {
   light: {
-    outer: "#ffffff",
-    inner: "#37352f",
+    outer: "#fcfcfc",
+    inner: "#141414f0",
   },
   dark: {
     outer: "#141414",
-    inner: "rgba(255, 255, 255, 0.9)",
+    inner: "#e4e4e4eb",
   },
 } as const;
 

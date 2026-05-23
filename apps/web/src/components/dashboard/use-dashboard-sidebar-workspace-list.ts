@@ -20,6 +20,9 @@ export function useDashboardSidebarWorkspaceList({
   const [workspaces, setWorkspaces] = useState<
     DashboardSidebarWorkspaceSummary[]
   >(() => readCachedWorkspaces() ?? initialWorkspaces);
+  const [workspacesErrorMessage, setWorkspacesErrorMessage] = useState<
+    string | null
+  >(null);
   const [workspacesLoadFailed, setWorkspacesLoadFailed] = useState(false);
   const [workspacesLoading, setWorkspacesLoading] = useState(false);
 
@@ -50,11 +53,18 @@ export function useDashboardSidebarWorkspaceList({
   const loadWorkspaces = useCallback(async () => {
     setWorkspacesLoading(true);
     setWorkspacesLoadFailed(false);
+    setWorkspacesErrorMessage(null);
     try {
       const response = await fetch("/api/workspaces/list", {
         cache: "no-store",
       });
       if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        setWorkspacesErrorMessage(
+          payload.error?.trim() || "Unable to load workspaces."
+        );
         setWorkspacesLoadFailed(true);
         return;
       }
@@ -63,6 +73,7 @@ export function useDashboardSidebarWorkspaceList({
       };
       const nextWorkspaces = payload.workspaces ?? [];
       setWorkspaces(nextWorkspaces);
+      setWorkspacesErrorMessage(null);
       setWorkspacesLoadFailed(false);
       writeCachedWorkspaces(
         nextWorkspaces.map((workspace) => ({
@@ -70,7 +81,12 @@ export function useDashboardSidebarWorkspaceList({
           organizationId: workspace.organizationId ?? "",
         }))
       );
-    } catch {
+    } catch (error) {
+      setWorkspacesErrorMessage(
+        error instanceof Error && error.message.trim().length > 0
+          ? error.message
+          : "Unable to load workspaces."
+      );
       setWorkspacesLoadFailed(true);
     } finally {
       setWorkspacesLoading(false);
@@ -100,6 +116,7 @@ export function useDashboardSidebarWorkspaceList({
   return {
     loadWorkspaces,
     workspaces,
+    workspacesErrorMessage,
     workspacesLoadFailed,
     workspacesLoading,
   };

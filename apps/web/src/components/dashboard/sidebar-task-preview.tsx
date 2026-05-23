@@ -19,6 +19,7 @@ import {
   subscribeToTaskStore,
 } from "@/lib/task-client-store";
 import { formatTaskDueDate, getTaskStatusLabel } from "@/lib/tasks";
+import { getSidebarTaskPreviewState } from "./sidebar-task-preview-model";
 
 function SectionButton({
   label,
@@ -90,6 +91,15 @@ export function SidebarTaskPreview({
   const upcomingTasks = visibleTasks.filter((task) =>
     task.dueAt ? new Date(task.dueAt) > now : false
   );
+  const noDateTasks = visibleTasks.filter((task) => !task.dueAt);
+  const untaggedTasks = visibleTasks.filter(
+    (task) => (task.resources ?? []).length === 0
+  );
+  const previewState = getSidebarTaskPreviewState({
+    errorMessage,
+    loadFailed,
+    visibleTaskCount: visibleTasks.length,
+  });
 
   const renderTaskItems = (tasks: typeof visibleTasks, emptyLabel: string) =>
     tasks.length > 0 ? (
@@ -177,13 +187,12 @@ export function SidebarTaskPreview({
             ref={searchInputRef}
             value={searchQuery}
           />
-          {loadFailed ? (
+          {previewState.message ? (
             <p className="px-2 py-3 text-muted-foreground text-xs">
-              {errorMessage?.trim()
-                ? "Unable to load tasks."
-                : "Unable to load tasks."}
+              {previewState.message}
             </p>
-          ) : (
+          ) : null}
+          {previewState.showSections ? (
             <>
               <SidebarGroup className="mt-3">
                 <SidebarGroupLabel>Due Tasks</SidebarGroupLabel>
@@ -200,8 +209,26 @@ export function SidebarTaskPreview({
                   )}
                 </SidebarGroupContent>
               </SidebarGroup>
+              <SidebarGroup className="mt-3">
+                <SidebarGroupLabel>No due date</SidebarGroupLabel>
+                <SidebarGroupContent>
+                  {renderTaskItems(
+                    noDateTasks,
+                    "Every open task has a due date."
+                  )}
+                </SidebarGroupContent>
+              </SidebarGroup>
+              <SidebarGroup className="mt-3">
+                <SidebarGroupLabel>Untagged tasks</SidebarGroupLabel>
+                <SidebarGroupContent>
+                  {renderTaskItems(
+                    untaggedTasks,
+                    "Every open task is linked to context."
+                  )}
+                </SidebarGroupContent>
+              </SidebarGroup>
             </>
-          )}
+          ) : null}
         </SidebarGroupContent>
       </SidebarGroup>
     </div>

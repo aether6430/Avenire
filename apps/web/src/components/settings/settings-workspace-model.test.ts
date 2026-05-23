@@ -17,11 +17,12 @@ describe("settings workspace model", () => {
 
     expect(
       getWorkspaceMembersStateMessage({
+        errorMessage: "members backend offline",
         loading: false,
         loadFailed: true,
         memberCount: 0,
       })
-    ).toBe("Unable to load workspace members.");
+    ).toBe("members backend offline");
 
     expect(
       getWorkspaceMembersStateMessage({
@@ -86,11 +87,12 @@ describe("settings workspace model", () => {
 
     expect(
       getWorkspaceListStateMessage({
+        errorMessage: "workspace directory offline",
         loading: false,
         loadFailed: true,
         workspaceCount: 0,
       })
-    ).toBe("Unable to load workspaces.");
+    ).toBe("workspace directory offline");
 
     expect(
       getWorkspaceListStateMessage({

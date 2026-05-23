@@ -1,6 +1,6 @@
 "use client";
 
-import { FilePreviewMarkdownPane } from "./file-preview-markdown-pane";
+import { FilePreviewMarkdownPaneSurface } from "./file-preview-markdown-pane-surface";
 import { FilePreviewMediaPane } from "./file-preview-media-pane";
 import { FilePreviewPropertiesDialog } from "./file-preview-properties-dialog";
 import type { FilePreviewPanelRuntime } from "./use-file-preview-panel";
@@ -30,7 +30,7 @@ export function FilePreviewPanelSurface({
         readOnly={Boolean(runtime.activeFile.readOnly)}
       />
       {runtime.derivedState.isMarkdown ? (
-        <FilePreviewMarkdownPane
+        <FilePreviewMarkdownPaneSurface
           activeFileId={runtime.activeFile.id}
           activeFileIsMarkdown={runtime.activeFileIsMarkdown}
           activeFileName={runtime.activeFile.name}
@@ -40,7 +40,6 @@ export function FilePreviewPanelSurface({
             ""
           }
           isMarkdownReady={runtime.isMarkdownReady}
-          isPaneActive={runtime.isPaneActive}
           markdownBody={runtime.markdownBody}
           markdownError={runtime.markdownError}
           markdownLoading={runtime.markdownLoading}
@@ -49,13 +48,6 @@ export function FilePreviewPanelSurface({
           noteCoverLinkDraft={runtime.noteCoverLinkDraft}
           noteCoverPickerTab={runtime.noteCoverPickerTab}
           noteDisplayTitle={runtime.noteDisplayTitle}
-          onPagePropertiesChange={(properties) => {
-            runtime.setNotePage((current) => ({
-              ...current,
-              properties,
-            }));
-          }}
-          onPropertyDefinitionsChange={runtime.setPropertyDefinitions}
           noteSaveState={
             runtime.activeFileIsMarkdown ? runtime.noteSaveState : undefined
           }
@@ -83,10 +75,14 @@ export function FilePreviewPanelSurface({
               { sourcePaneId: runtime.paneId }
             );
           }}
-          onSetNoteCoverUrl={runtime.setNoteCoverUrl}
-          onTemplateApplied={(template) => {
-            runtime.setNoteCoverUrl(template.bannerUrl);
+          onPagePropertiesChange={(properties) => {
+            runtime.setNotePage((current) => ({
+              ...current,
+              properties,
+            }));
           }}
+          onPropertyDefinitionsChange={runtime.setPropertyDefinitions}
+          onSetNoteCoverUrl={runtime.setNoteCoverUrl}
           onTriggerNoteBannerPicker={runtime.triggerNoteBannerPicker}
           pageProperties={runtime.notePage.properties}
           propertyDefinitions={runtime.propertyDefinitions}
@@ -97,19 +93,16 @@ export function FilePreviewPanelSurface({
         />
       ) : (
         <FilePreviewMediaPane
-          circleToAiEnabled={runtime.circleToAiEnabled}
           fallbackHighlightText={runtime.query}
           fileName={runtime.activeFile.name}
           model={runtime.mediaModel}
           onAudioError={() => {
             runtime.setAudioLoadFailed(true);
           }}
-          onCircleToAiEnabledChange={runtime.setCircleToAiEnabled}
           onVideoError={() => {
             runtime.setVideoLoadFailed(true);
           }}
           pdfInvertColors={runtime.pdfInvertColors}
-          workspaceUuid={runtime.workspaceUuid}
         />
       )}
     </div>

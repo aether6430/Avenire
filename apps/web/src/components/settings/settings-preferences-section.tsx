@@ -29,6 +29,7 @@ export function SettingsPreferencesSection({
     completedTasksAtTop,
     emailReceipts,
     persistUserSettings,
+    preferencesErrorMessage,
     preferencesLoadFailed,
     preferencesLoading,
     preferencesStatus,
@@ -45,6 +46,7 @@ export function SettingsPreferencesSection({
     petName,
   } = runtime;
   const remotePreferencesState = getRemotePreferencesState({
+    errorMessage: preferencesErrorMessage,
     loadFailed: preferencesLoadFailed,
     loading: preferencesLoading,
   });

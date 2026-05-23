@@ -33,6 +33,12 @@ export interface QuizPreview {
   title: string;
 }
 
+export interface MisconceptionPreview {
+  concept?: string;
+  confidence?: number;
+  topic?: string;
+}
+
 export type ActivityAction =
   | {
       error?: string;
@@ -84,6 +90,12 @@ export type ActivityAction =
       pending: boolean;
       preview?: QuizPreview;
       value: string;
+    }
+  | {
+      kind: "misconception";
+      pending: boolean;
+      preview?: MisconceptionPreview;
+      value: string;
     };
 
 export type ExploreAction = Extract<
@@ -107,6 +119,7 @@ const ROLLING_TOOL_TYPES = new Set([
   "tool-file_manager_agent",
   "tool-generate_flashcards",
   "tool-get_due_cards",
+  "tool-log_misconception",
   "tool-note_agent",
   "tool-quiz_me",
   "tool-web_search",

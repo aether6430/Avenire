@@ -91,16 +91,19 @@ function UpcomingFlashcardList({
 
 function DashboardHomeActivityList({
   activities,
+  errorMessage,
   loadFailed,
   loading,
 }: {
   activities: ActivityEvent[];
+  errorMessage: string | null;
   loadFailed: boolean;
   loading: boolean;
 }) {
   let content: ReactNode;
   const activityStateMessage = getDashboardActivityStateMessage({
     activityCount: activities.length,
+    errorMessage,
     loadFailed,
     loading,
   });
@@ -141,6 +144,7 @@ function DashboardHomeActivityList({
 
 export function DashboardHomeColumns({
   activeMisconceptions,
+  activityErrorMessage,
   activityLoadFailed,
   activities,
   currentUserId,
@@ -158,6 +162,7 @@ export function DashboardHomeColumns({
   DashboardTaskManager,
 }: {
   activeMisconceptions: MisconceptionRecord[];
+  activityErrorMessage: string | null;
   activityLoadFailed: boolean;
   activities: ActivityEvent[];
   currentUserId: string;
@@ -201,6 +206,7 @@ export function DashboardHomeColumns({
             <div className="h-full min-h-0 overflow-y-auto pr-1">
               <DashboardHomeActivityList
                 activities={activities}
+                errorMessage={activityErrorMessage}
                 loadFailed={activityLoadFailed}
                 loading={loadingActivities}
               />

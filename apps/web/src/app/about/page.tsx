@@ -12,7 +12,7 @@ export const metadata = buildPageMetadata({
   description:
     "Learn what Avenire is building and why we think AI should deepen understanding instead of replacing it.",
   path: "/about",
-  title: "Why Avenire Exists",
+  title: "About",
 });
 
 export const dynamic = "force-static";
@@ -59,14 +59,16 @@ export default function AboutPage() {
   return (
     <MarketingPageShell>
       <MarketingPageFrame>
-        <p className="mb-4 font-medium text-brand text-xs uppercase tracking-widest">
-          About
-        </p>
-        <article className="border-divide border-t pt-8 font-mono text-[13px] md:text-[14px]">
-          <Markdown components={mdxComponents} remarkPlugins={[remarkGfm]}>
-            {source}
-          </Markdown>
-        </article>
+        <div className="mx-auto max-w-[56rem]">
+          <p className="mb-4 font-medium text-brand text-xs uppercase tracking-widest">
+            About
+          </p>
+          <article className="border-divide border-t pt-8 font-mono text-[13px] md:text-[14px]">
+            <Markdown components={mdxComponents} remarkPlugins={[remarkGfm]}>
+              {source}
+            </Markdown>
+          </article>
+        </div>
       </MarketingPageFrame>
     </MarketingPageShell>
   );

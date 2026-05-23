@@ -7,20 +7,17 @@ import type { ReactNode } from "react";
 import { useEffect, useId, useState } from "react";
 import { ReasoningContent } from "./rolling-reasoning-content";
 import { ThinkingDots } from "./rolling-reasoning-shared";
-import { Shimmer } from "./shimmer";
 
 export interface ReasoningActionProps {
   className?: string;
   content: string;
   isStreaming: boolean;
-  workspaceUuid?: string;
 }
 
 export function ReasoningAction({
   className,
   content,
   isStreaming,
-  workspaceUuid,
 }: ReasoningActionProps) {
   if (!content) {
     return null;
@@ -31,33 +28,30 @@ export function ReasoningAction({
       className={className}
       content={content}
       isStreaming={isStreaming}
-      workspaceUuid={workspaceUuid}
     />
   );
 }
 
 function ReasoningPanel({
   content,
+  id,
   open,
-  workspaceUuid,
 }: {
   content: string;
+  id: string;
   open: boolean;
-  workspaceUuid?: string;
 }) {
   return (
     <div
+      className={cn(
+        "overflow-hidden transition-[height,opacity] duration-300 ease-out",
+        open ? "h-auto opacity-100" : "h-0 opacity-0"
+      )}
+      hidden={!open}
+      id={id}
       role="region"
-      style={{
-        maxHeight: open ? "12rem" : "0px",
-        opacity: open ? 1 : 0,
-        overflow: "hidden",
-        transition: "max-height 360ms ease, opacity 360ms ease",
-      }}
     >
-      <ReasoningContent workspaceUuid={workspaceUuid}>
-        {content}
-      </ReasoningContent>
+      <ReasoningContent>{content}</ReasoningContent>
     </div>
   );
 }
@@ -66,7 +60,6 @@ function ReasoningBlock({
   className,
   content,
   isStreaming,
-  workspaceUuid,
 }: ReasoningActionProps) {
   const [open, setOpen] = useState(false);
   const triggerId = useId();
@@ -94,9 +87,9 @@ function ReasoningBlock({
           className="flex h-7 items-center gap-2"
           role="status"
         >
-          <Shimmer as="span" className="font-semibold text-foreground text-sm">
+          <span className="font-semibold text-foreground/32 text-sm">
             Reasoning
-          </Shimmer>
+          </span>
           {summary ? (
             <span aria-hidden="true" className="text-[11px] text-foreground/26">
               {summary}
@@ -139,8 +132,8 @@ function ReasoningBlock({
       {content ? (
         <ReasoningPanel
           content={content}
+          id={panelId}
           open={isStreaming || open}
-          workspaceUuid={workspaceUuid}
         />
       ) : null}
     </div>
@@ -174,9 +167,9 @@ export function RollingStatusHeader({
         className={cn("flex h-7 items-center gap-2", className)}
         role="status"
       >
-        <Shimmer as="span" className="font-semibold text-foreground text-sm">
+        <span className="font-semibold text-foreground/32 text-sm">
           {title}
-        </Shimmer>
+        </span>
         {summary ? (
           <span aria-hidden="true" className="text-[11px] text-foreground/26">
             {summary}

@@ -39,12 +39,18 @@ describe("explorer file card model", () => {
       fileType: "sheet",
       isPreviewing: false,
       isWarmed: false,
+      matchMeta: "Page 4 • 12s",
+      matchSnippet: "Electrostatics recap in file content.",
       openedCached: false,
       selectedCardPropertyDefinitions: definitions,
+      variant: "row",
     });
 
     expect(model.displayName).toBe("sparkles Welcome");
+    expect(model.matchMeta).toBe("Page 4 • 12s");
+    expect(model.matchSnippet).toBe("Electrostatics recap in file content.");
     expect(model.resolvedFileType).toBe("document");
+    expect(model.variant).toBe("row");
     expect(model.details).toEqual([
       { label: "priority", value: "3" },
       { label: "status", value: "Open" },

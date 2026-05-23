@@ -16,6 +16,8 @@ function PureMultimodalInput({
   setAttachments,
   handleSubmit,
   stop,
+  turboEnabled,
+  onTurboChange,
   workspaceUuid,
   className,
   centered = false,
@@ -30,6 +32,8 @@ function PureMultimodalInput({
     files: Attachment[]
   ) => void | Promise<void>;
   stop: () => void;
+  turboEnabled: boolean;
+  onTurboChange: (enabled: boolean) => void;
   workspaceUuid: string;
   className?: string;
   centered?: boolean;
@@ -40,10 +44,12 @@ function PureMultimodalInput({
     className,
     handleSubmit,
     input,
+    onTurboChange,
     setAttachments,
     setInput,
     status,
     stop,
+    turboEnabled,
     workspaceUuid,
   });
 
@@ -55,6 +61,7 @@ export const MultimodalInput = memo(
   (prevProps, nextProps) =>
     prevProps.input === nextProps.input &&
     prevProps.status === nextProps.status &&
+    prevProps.turboEnabled === nextProps.turboEnabled &&
     prevProps.attachments === nextProps.attachments &&
     prevProps.workspaceUuid === nextProps.workspaceUuid
 );

@@ -14,7 +14,7 @@ import {
   type IFlashcard,
   type useFlashcardArray,
 } from "react-quizlet-flashcard";
-import { Markdown } from "@/components/chat/markdown";
+import { MemoizedMarkdownSurface as Markdown } from "@/components/chat/markdown-surface";
 import {
   BACK_FACE_MAX_FONT_SIZE,
   BACK_FACE_MIN_FONT_SIZE,
@@ -121,7 +121,6 @@ export function StudyCardFace({
                 "text-balance text-center [&_li]:text-left [&_p]:text-center"
             )}
             content={content}
-            id={id}
             parseIncompleteMarkdown={false}
           />
           {notes ? (
@@ -132,7 +131,6 @@ export function StudyCardFace({
               <Markdown
                 className="max-w-none text-[0.92em] text-card-foreground leading-[1.6] [&_code:not(pre_code)]:rounded-md [&_code:not(pre_code)]:border [&_code:not(pre_code)]:border-border [&_code:not(pre_code)]:bg-secondary [&_code:not(pre_code)]:px-1.5 [&_code:not(pre_code)]:py-0.5 [&_pre.shiki]:rounded-xl [&_pre.shiki]:border [&_pre.shiki]:border-border [&_pre.shiki]:bg-secondary"
                 content={notes}
-                id={`${id}-notes`}
                 parseIncompleteMarkdown={false}
               />
             </div>

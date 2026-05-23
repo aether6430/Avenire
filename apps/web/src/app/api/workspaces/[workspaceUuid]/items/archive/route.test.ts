@@ -80,6 +80,56 @@ describe("/api/workspaces/[workspaceUuid]/items/archive route", () => {
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
   });
 
+  it("fails closed when session lookup throws before archive access checks begin", async () => {
+    authGetSessionMock.mockRejectedValueOnce(new Error("archive auth offline"));
+
+    const response = await POST(
+      new Request(
+        "http://localhost:3003/api/workspaces/workspace-1/items/archive",
+        {
+          method: "POST",
+          body: JSON.stringify({}),
+        }
+      ),
+      { params: Promise.resolve({ workspaceUuid: "workspace-1" }) }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "archive auth offline",
+    });
+    expect(userCanAccessWorkspaceMock).not.toHaveBeenCalled();
+    expect(getFileAssetByIdMock).not.toHaveBeenCalled();
+    expect(listWorkspaceFilesMock).not.toHaveBeenCalled();
+    expect(listWorkspaceFoldersMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when workspace access lookup throws before archive selection begins", async () => {
+    authGetSessionMock.mockResolvedValue({ user: { id: "user-1" } });
+    userCanAccessWorkspaceMock.mockRejectedValueOnce(
+      new Error("archive access offline")
+    );
+
+    const response = await POST(
+      new Request(
+        "http://localhost:3003/api/workspaces/workspace-1/items/archive",
+        {
+          method: "POST",
+          body: JSON.stringify({ items: [{ id: "file-1", kind: "file" }] }),
+        }
+      ),
+      { params: Promise.resolve({ workspaceUuid: "workspace-1" }) }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "archive access offline",
+    });
+    expect(getFileAssetByIdMock).not.toHaveBeenCalled();
+    expect(listWorkspaceFilesMock).not.toHaveBeenCalled();
+    expect(listWorkspaceFoldersMock).not.toHaveBeenCalled();
+  });
+
   it("returns invalid payload when no archiveable items are requested", async () => {
     authGetSessionMock.mockResolvedValue({ user: { id: "user-1" } });
     userCanAccessWorkspaceMock.mockResolvedValue(true);
@@ -130,6 +180,38 @@ describe("/api/workspaces/[workspaceUuid]/items/archive route", () => {
     );
     expect(response.headers.get("content-disposition")).toContain("Notes.md");
     await expect(response.text()).resolves.toBe("# Notes");
+  });
+
+  it("returns a 500 json error when single-file archive loading throws during payload fetch", async () => {
+    authGetSessionMock.mockResolvedValue({ user: { id: "user-1" } });
+    userCanAccessWorkspaceMock.mockResolvedValue(true);
+    getFileAssetByIdMock.mockResolvedValue({
+      id: "file-1",
+      name: "Binary.bin",
+      storageUrl: "https://cdn.example.com/binary.bin",
+      mimeType: "application/octet-stream",
+    });
+    isMarkdownFileRecordMock.mockReturnValue(false);
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response("boom", { status: 503 }));
+
+    const response = await POST(
+      new Request(
+        "http://localhost:3003/api/workspaces/workspace-1/items/archive",
+        {
+          method: "POST",
+          body: JSON.stringify({ id: "file-1", kind: "file" }),
+        }
+      ),
+      { params: Promise.resolve({ workspaceUuid: "workspace-1" }) }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "Unable to fetch file payload: 503",
+    });
+    fetchSpy.mockRestore();
   });
 
   it("returns a zipped folder archive with sanitized nested file paths", async () => {
@@ -213,6 +295,33 @@ describe("/api/workspaces/[workspaceUuid]/items/archive route", () => {
         "utf8"
       )
     ).toBe("Lecture content");
+  });
+
+  it("returns a 500 json error when folder archive selection throws before producing a zip", async () => {
+    authGetSessionMock.mockResolvedValue({ user: { id: "user-1" } });
+    userCanAccessWorkspaceMock.mockResolvedValue(true);
+    listWorkspaceFoldersMock.mockRejectedValueOnce(
+      new Error("archive index offline")
+    );
+    listWorkspaceFilesMock.mockResolvedValue([]);
+
+    const response = await POST(
+      new Request(
+        "http://localhost:3003/api/workspaces/workspace-1/items/archive",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            items: [{ id: "folder-root", kind: "folder" }],
+          }),
+        }
+      ),
+      { params: Promise.resolve({ workspaceUuid: "workspace-1" }) }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "archive index offline",
+    });
   });
 
   it("returns not found when asked to archive a missing folder", async () => {

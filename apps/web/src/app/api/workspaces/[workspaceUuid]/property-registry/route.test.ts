@@ -89,4 +89,33 @@ describe("/api/workspaces/[workspaceUuid]/property-registry route", () => {
       error: "database offline",
     });
   });
+
+  it("returns a 500 json error when workspace support context lookup throws", async () => {
+    getSessionUserMock.mockRejectedValueOnce(
+      new Error("support context offline")
+    );
+
+    const response = await GET(new Request("http://localhost:3003"), {
+      params: Promise.resolve({ workspaceUuid: "workspace-1" }),
+    });
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "support context offline",
+    });
+    expect(listWorkspacePropertyRegistryMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a 500 json error when wrapper params resolution throws", async () => {
+    const response = await GET(new Request("http://localhost:3003"), {
+      params: Promise.reject(new Error("property registry params offline")),
+    });
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "property registry params offline",
+    });
+    expect(getSessionUserMock).not.toHaveBeenCalled();
+    expect(listWorkspacePropertyRegistryMock).not.toHaveBeenCalled();
+  });
 });

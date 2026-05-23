@@ -15,12 +15,15 @@ export function useCommandPaletteWorkspaceTasks({
   open: boolean;
   resolvedWorkspaceUuid: string | null;
 }) {
-  const { loadFailed: workspaceTasksLoadFailed, tasks: cachedTasks } =
-    useSyncExternalStore(
-      subscribeToTaskStore,
-      getTaskStoreSnapshot,
-      getTaskStoreSnapshot
-    );
+  const {
+    errorMessage: workspaceTasksErrorMessage,
+    loadFailed: workspaceTasksLoadFailed,
+    tasks: cachedTasks,
+  } = useSyncExternalStore(
+    subscribeToTaskStore,
+    getTaskStoreSnapshot,
+    getTaskStoreSnapshot
+  );
 
   useEffect(() => {
     if (!(open && resolvedWorkspaceUuid)) {
@@ -40,6 +43,7 @@ export function useCommandPaletteWorkspaceTasks({
   );
 
   return {
+    workspaceTasksErrorMessage,
     workspaceTasks,
     workspaceTasksLoadFailed,
   };

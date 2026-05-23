@@ -147,16 +147,23 @@ export async function deleteWorkspaceById(workspaceId: string) {
     error?: string;
     workspaces?: WorkspaceSummary[];
   }>(response);
+  const errorMessage = getWorkspaceError(
+    payload,
+    "Unable to delete workspace."
+  );
 
-  if (response.status === 403) {
+  if (
+    response.status === 403 &&
+    errorMessage === "Sudo verification required"
+  ) {
     return {
       status: "sudo_required" as const,
-      error: getWorkspaceError(payload, "Verification required."),
+      error: errorMessage,
     };
   }
 
   if (!response.ok) {
-    throw new Error(getWorkspaceError(payload, "Unable to delete workspace."));
+    throw new Error(errorMessage);
   }
 
   return {

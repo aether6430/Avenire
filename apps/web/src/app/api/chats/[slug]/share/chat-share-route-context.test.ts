@@ -3,12 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   createApiLoggerMock,
   getChatBySlugForUserMock,
+  getWritableChatBySlugForUserMock,
   getSessionUserMock,
   isChatOwnerForUserMock,
   loggerStub,
 } = vi.hoisted(() => ({
   createApiLoggerMock: vi.fn(),
   getChatBySlugForUserMock: vi.fn(),
+  getWritableChatBySlugForUserMock: vi.fn(),
   getSessionUserMock: vi.fn(),
   isChatOwnerForUserMock: vi.fn(),
   loggerStub: {
@@ -19,6 +21,7 @@ const {
 
 vi.mock("@/lib/chat-data", () => ({
   getChatBySlugForUser: getChatBySlugForUserMock,
+  getWritableChatBySlugForUser: getWritableChatBySlugForUserMock,
   isChatOwnerForUser: isChatOwnerForUserMock,
 }));
 
@@ -63,6 +66,12 @@ describe("chat share route context", () => {
     });
     getChatBySlugForUserMock.mockResolvedValue({
       ownerUserId: "user-1",
+      slug: "chat-1",
+      workspaceId: "workspace-1",
+    });
+    getWritableChatBySlugForUserMock.mockResolvedValue({
+      ownerUserId: "user-1",
+      readOnly: false,
       slug: "chat-1",
       workspaceId: "workspace-1",
     });
@@ -118,16 +127,22 @@ describe("chat share route context", () => {
   });
 
   it("rejects read-only viewers and chats without a workspace", async () => {
-    isChatOwnerForUserMock.mockResolvedValueOnce(false);
+    getWritableChatBySlugForUserMock.mockResolvedValueOnce({
+      ownerUserId: "user-1",
+      readOnly: true,
+      slug: "chat-1",
+      workspaceId: "workspace-1",
+    });
 
     const readOnly = await resolveChatShareRouteContext(createInput());
     expect("response" in readOnly).toBe(true);
     if ("response" in readOnly) {
       expect(readOnly.response.status).toBe(403);
       await expect(readOnly.response.json()).resolves.toEqual({
-        error: "Read-only method",
+        error: "Read-only Method",
       });
     }
+    expect(isChatOwnerForUserMock).not.toHaveBeenCalled();
 
     getChatBySlugForUserMock.mockResolvedValueOnce({
       ownerUserId: "user-1",
@@ -164,5 +179,20 @@ describe("chat share route context", () => {
       workspaceUuid: "workspace-1",
     });
     expect(loggerStub.requestStarted).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns a 500 json error when session lookup throws before chat resolution", async () => {
+    getSessionUserMock.mockRejectedValueOnce(new Error("chat share offline"));
+
+    const result = await resolveChatShareRouteContext(createInput());
+
+    expect("response" in result).toBe(true);
+    if ("response" in result) {
+      expect(result.response.status).toBe(500);
+      await expect(result.response.json()).resolves.toEqual({
+        error: "chat share offline",
+      });
+    }
+    expect(getChatBySlugForUserMock).not.toHaveBeenCalled();
   });
 });

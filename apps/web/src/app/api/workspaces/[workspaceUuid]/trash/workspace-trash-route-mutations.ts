@@ -1,4 +1,4 @@
-import { UTApi } from "@avenire/storage";
+import { deleteStorageFiles } from "@avenire/storage";
 import { NextResponse } from "next/server";
 import { invalidateWorkspaceReadCaches } from "@/lib/domain-cache";
 import {
@@ -27,8 +27,7 @@ export async function deleteWorkspaceTrashStorageObjects(
   }
 
   try {
-    const utapi = new UTApi({ token: process.env.UPLOADTHING_TOKEN });
-    await utapi.deleteFiles(deletableKeys);
+    await deleteStorageFiles(deletableKeys);
   } catch {
     // Best effort cleanup.
   }
@@ -57,8 +56,21 @@ export async function handleWorkspaceTrashRouteRestore(input: {
   }
 
   if (results.some((entry) => entry.ok)) {
+    const specificInvalidations = results
+      .filter((entry) => entry.ok)
+      .map((entry) =>
+        publishFilesInvalidationEvent({
+          workspaceUuid: input.workspaceUuid,
+          reason: entry.kind === "file" ? "file.created" : "folder.created",
+          ...(entry.kind === "file"
+            ? { fileId: entry.id }
+            : { folderId: entry.id }),
+        })
+      );
+
     await Promise.all([
       invalidateWorkspaceReadCaches(input.workspaceUuid),
+      ...specificInvalidations,
       publishFilesInvalidationEvent({
         workspaceUuid: input.workspaceUuid,
         reason: "tree.changed",
@@ -102,8 +114,21 @@ export async function handleWorkspaceTrashRouteDelete(input: {
   await deleteWorkspaceTrashStorageObjects(Array.from(new Set(storageKeys)));
 
   if (results.some((entry) => entry.ok)) {
+    const specificInvalidations = results
+      .filter((entry) => entry.ok)
+      .map((entry) =>
+        publishFilesInvalidationEvent({
+          workspaceUuid: input.workspaceUuid,
+          reason: entry.kind === "file" ? "file.deleted" : "folder.deleted",
+          ...(entry.kind === "file"
+            ? { fileId: entry.id }
+            : { folderId: entry.id }),
+        })
+      );
+
     await Promise.all([
       invalidateWorkspaceReadCaches(input.workspaceUuid),
+      ...specificInvalidations,
       publishFilesInvalidationEvent({
         workspaceUuid: input.workspaceUuid,
         reason: "tree.changed",

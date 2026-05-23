@@ -166,6 +166,7 @@ export async function handleDuplicateWorkspaceFolder(input: {
   await Promise.all([
     invalidateWorkspaceReadCaches(input.workspaceUuid),
     publishFilesInvalidationEvent({
+      folderId: rootFolder.id,
       workspaceUuid: input.workspaceUuid,
       reason: "folder.created",
     }),

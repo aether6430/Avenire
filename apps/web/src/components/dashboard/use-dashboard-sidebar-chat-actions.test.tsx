@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -8,6 +10,11 @@ vi.mock("@/components/dashboard/dashboard-sidebar-runtime-model", () => ({
 }));
 
 import { useDashboardSidebarChatActions } from "@/components/dashboard/use-dashboard-sidebar-chat-actions";
+
+const sidebarChatActionsFile = resolve(
+  import.meta.dirname,
+  "./use-dashboard-sidebar-chat-actions.ts"
+);
 
 type HookValue = ReturnType<typeof useDashboardSidebarChatActions>;
 
@@ -54,7 +61,6 @@ describe("useDashboardSidebarChatActions", () => {
       chats: [buildChat({ slug: "chat-1" }), buildChat({ slug: "chat-2" })],
       navigate,
       refreshRoute: vi.fn(),
-      setActiveChatSlugOverride: vi.fn(),
       setChats,
     });
 
@@ -84,16 +90,15 @@ describe("useDashboardSidebarChatActions", () => {
   });
 
   it("surfaces explicit action errors and clears active chat selection after successful delete", async () => {
+    const source = readFileSync(sidebarChatActionsFile, "utf8");
     const navigate = vi.fn();
     const refreshRoute = vi.fn();
-    const setActiveChatSlugOverride = vi.fn();
     const setChats = vi.fn();
     const hook = renderHookValue({
       activeChatSlug: "chat-1",
       chats: [buildChat({ slug: "chat-1" }), buildChat({ slug: "chat-2" })],
       navigate,
       refreshRoute,
-      setActiveChatSlugOverride,
       setChats,
     });
 
@@ -102,15 +107,21 @@ describe("useDashboardSidebarChatActions", () => {
     );
     await hook.deleteChat("chat-1");
     expect(setChats).not.toHaveBeenCalled();
-    expect(setActiveChatSlugOverride).not.toHaveBeenCalled();
     expect(navigate).not.toHaveBeenCalled();
+    expect(source).toContain('setChatActionStatus("Unable to update Method.")');
+    expect(source).toContain('setChatActionStatus("Unable to delete Method.")');
+    expect(source).not.toContain(
+      'setChatActionStatus("Unable to update method.")'
+    );
+    expect(source).not.toContain(
+      'setChatActionStatus("Unable to delete method.")'
+    );
 
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(null, { status: 200 })
     );
     await hook.deleteChat("chat-1");
     expect(setChats).toHaveBeenLastCalledWith([buildChat({ slug: "chat-2" })]);
-    expect(setActiveChatSlugOverride).toHaveBeenCalledWith(null);
     expect(navigate).toHaveBeenCalledWith("/workspace/chats/new");
     expect(refreshRoute).toHaveBeenCalled();
   });

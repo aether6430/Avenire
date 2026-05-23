@@ -164,6 +164,63 @@ describe("/api/workspaces/[workspaceUuid]/folders/[folderUuid] route", () => {
     });
   });
 
+  it.each([
+    {
+      body: undefined,
+      method: "GET" as const,
+    },
+    {
+      body: { name: "Renamed" },
+      method: "PATCH" as const,
+    },
+    {
+      body: undefined,
+      method: "DELETE" as const,
+    },
+  ])("fails closed from $method when session lookup throws before folder route handling begins", async ({
+    body,
+    method,
+  }) => {
+    getSessionUserMock.mockRejectedValueOnce(
+      new Error("folder route auth offline")
+    );
+
+    const response =
+      method === "GET"
+        ? await GET(folderRouteRequest("GET"), FOLDER_ROUTE_PARAMS)
+        : method === "PATCH"
+          ? await PATCH(folderRouteRequest("PATCH", body), FOLDER_ROUTE_PARAMS)
+          : await DELETE(folderRouteRequest("DELETE"), FOLDER_ROUTE_PARAMS);
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "folder route auth offline",
+    });
+    expect(userCanViewFolderMock).not.toHaveBeenCalled();
+    expect(userCanEditFolderMock).not.toHaveBeenCalled();
+    expect(getRouteCacheVersionMock).not.toHaveBeenCalled();
+    expect(listWorkspaceMembersMock).not.toHaveBeenCalled();
+    expect(updateFolderMock).not.toHaveBeenCalled();
+    expect(softDeleteFolderMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed for GET when folder view preflight throws before folder loading begins", async () => {
+    mockSessionUser();
+    userCanViewFolderMock.mockRejectedValueOnce(
+      new Error("folder view gate offline")
+    );
+
+    const response = await GET(folderRouteRequest("GET"), FOLDER_ROUTE_PARAMS);
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "folder view gate offline",
+    });
+    expect(getRouteCacheVersionMock).not.toHaveBeenCalled();
+    expect(getFolderWithAncestorsMock).not.toHaveBeenCalled();
+    expect(listFolderContentsForUserMock).not.toHaveBeenCalled();
+  });
+
   it("returns cached GET payloads without loading folder data again", async () => {
     mockSessionUser();
     userCanViewFolderMock.mockResolvedValue(true);
@@ -208,6 +265,28 @@ describe("/api/workspaces/[workspaceUuid]/folders/[folderUuid] route", () => {
     });
   });
 
+  it("returns a 500 json error on GET when folder hydration throws before ingestion lookup", async () => {
+    mockSessionUser();
+    userCanViewFolderMock.mockResolvedValue(true);
+    getCachedRouteMock.mockResolvedValue(null);
+    getFolderWithAncestorsMock.mockRejectedValueOnce(
+      new Error("folder load offline")
+    );
+    listFolderContentsForUserMock.mockResolvedValue({
+      folders: [],
+      files: [],
+    });
+
+    const response = await GET(folderRouteRequest("GET"), FOLDER_ROUTE_PARAMS);
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "folder load offline",
+    });
+    expect(getIngestionFlagsByFileIdsMock).not.toHaveBeenCalled();
+    expect(setCachedRouteMock).not.toHaveBeenCalled();
+  });
+
   it.each([
     {
       error: "Read-only folder",
@@ -247,6 +326,39 @@ describe("/api/workspaces/[workspaceUuid]/folders/[folderUuid] route", () => {
       body: { error },
       status,
     });
+  });
+
+  it.each([
+    {
+      method: "PATCH" as const,
+    },
+    {
+      method: "DELETE" as const,
+    },
+  ])("fails closed from $method when folder edit preflight throws before mutation handling begins", async ({
+    method,
+  }) => {
+    mockSessionUser();
+    userCanEditFolderMock.mockRejectedValueOnce(
+      new Error("folder edit gate offline")
+    );
+
+    const response =
+      method === "PATCH"
+        ? await PATCH(
+            folderRouteRequest("PATCH", { name: "Renamed" }),
+            FOLDER_ROUTE_PARAMS
+          )
+        : await DELETE(folderRouteRequest("DELETE"), FOLDER_ROUTE_PARAMS);
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "folder edit gate offline",
+    });
+    expect(listWorkspaceMembersMock).not.toHaveBeenCalled();
+    expect(getFolderWithAncestorsMock).not.toHaveBeenCalled();
+    expect(updateFolderMock).not.toHaveBeenCalled();
+    expect(softDeleteFolderMock).not.toHaveBeenCalled();
   });
 
   it("updates folders, invalidates both affected parents, and clears read caches", async () => {
@@ -301,6 +413,34 @@ describe("/api/workspaces/[workspaceUuid]/folders/[folderUuid] route", () => {
     );
   });
 
+  it("returns a 500 json error for PATCH when folder persistence throws before invalidation", async () => {
+    mockSessionUser();
+    userCanEditFolderMock.mockResolvedValue(true);
+    listWorkspaceMembersMock.mockResolvedValue([
+      {
+        userId: "user-1",
+        role: "owner",
+      },
+    ]);
+    getFolderWithAncestorsMock.mockResolvedValue({
+      folder: { id: FOLDER_UUID, parentId: "parent-old" },
+      ancestors: [],
+    });
+    updateFolderMock.mockRejectedValueOnce(new Error("folder update offline"));
+
+    const response = await PATCH(
+      folderRouteRequest("PATCH", { name: "Renamed" }),
+      FOLDER_ROUTE_PARAMS
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "folder update offline",
+    });
+    expect(publishFilesInvalidationEventMock).not.toHaveBeenCalled();
+    expect(invalidateWorkspaceReadCachesMock).not.toHaveBeenCalled();
+  });
+
   it("blocks deleting the shared virtual folder", async () => {
     mockSessionUser();
     userCanEditFolderMock.mockResolvedValue(true);
@@ -346,5 +486,31 @@ describe("/api/workspaces/[workspaceUuid]/folders/[folderUuid] route", () => {
     expect(invalidateWorkspaceReadCachesMock).toHaveBeenCalledWith(
       WORKSPACE_UUID
     );
+  });
+
+  it("returns a 500 json error for DELETE when folder deletion throws before invalidation", async () => {
+    mockSessionUser();
+    userCanEditFolderMock.mockResolvedValue(true);
+    listWorkspaceMembersMock.mockResolvedValue([
+      {
+        userId: "user-1",
+        role: "admin",
+      },
+    ]);
+    softDeleteFolderMock.mockRejectedValueOnce(
+      new Error("folder delete offline")
+    );
+
+    const response = await DELETE(
+      folderRouteRequest("DELETE"),
+      FOLDER_ROUTE_PARAMS
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "folder delete offline",
+    });
+    expect(publishFilesInvalidationEventMock).not.toHaveBeenCalled();
+    expect(invalidateWorkspaceReadCachesMock).not.toHaveBeenCalled();
   });
 });

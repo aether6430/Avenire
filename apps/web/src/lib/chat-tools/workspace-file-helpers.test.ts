@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
+const { getFileAssetByIdMock } = vi.hoisted(() => ({
+  getFileAssetByIdMock: vi.fn(),
+}));
+
 vi.mock("@/lib/file-data", () => ({
-  getFileAssetById: vi.fn(),
+  getFileAssetById: getFileAssetByIdMock,
   getNoteContent: vi.fn(),
   isMarkdownFileRecord: vi.fn(),
   isSharedFilesVirtualFolderId: vi.fn(),
@@ -28,6 +32,7 @@ import {
   getWorkspacePathForFile,
   mapSearchResultsToCitations,
   normalizeWorkspacePath,
+  resolveFileExcerpt,
   resolveFileIdByPathHint,
   resolveFolderIdByPathHint,
   type WorkspacePathMaps,
@@ -121,6 +126,34 @@ describe("chat tool workspace file helpers", () => {
     ).toBe("file-2");
   });
 
+  it("resolves explicit file ids and can require exact targets for note updates", () => {
+    const maps = buildMaps();
+    const notes = [
+      buildNoteFile({ id: "file-1", name: "lecture-plan.md" }),
+      buildNoteFile({ id: "file-2", name: "momentum-review.md" }),
+    ];
+
+    expect(
+      findTargetNoteFile({
+        maps,
+        noteFiles: notes,
+        requireExplicitTarget: true,
+        task: "Update workspace-file://file-2 with a stronger summary",
+      })?.id
+    ).toBe("file-2");
+
+    expect(
+      findTargetNoteFile({
+        maps,
+        noteFiles: [
+          buildNoteFile({ id: "file-2", name: "Momentum Review.md" }),
+        ],
+        requireExplicitTarget: true,
+        task: 'Update note called "Momentum Review"',
+      })
+    ).toBeNull();
+  });
+
   it("maps search results to citations with workspace paths", () => {
     const maps = buildMaps();
     const citations = mapSearchResultsToCitations({
@@ -128,15 +161,27 @@ describe("chat tool workspace file helpers", () => {
       results: [
         {
           chunkId: "chunk-1",
-          content: "Momentum is conserved.",
+          content: "  Momentum is conserved.  ",
           endMs: null,
           fileId: "file-2",
           page: 4,
           score: 0.92,
-          source: "Momentum Review",
+          source: " Momentum Review ",
           sourceType: "file",
           startMs: null,
-          title: "Momentum Review",
+          title: " Momentum Review ",
+        },
+        {
+          chunkId: "chunk-2",
+          content: "  Snippet from a link result.  ",
+          endMs: null,
+          fileId: null,
+          page: null,
+          score: 0.41,
+          source: " https://example.com/resource ",
+          sourceType: "link",
+          startMs: null,
+          title: " Linked resource ",
         },
       ],
     });
@@ -154,6 +199,18 @@ describe("chat tool workspace file helpers", () => {
         title: "Momentum Review",
         workspacePath: "Physics/Week 2/momentum-review.md",
       },
+      {
+        chunkId: "chunk-2",
+        endMs: null,
+        fileId: null,
+        page: null,
+        score: 0.41,
+        snippet: "Snippet from a link result.",
+        sourceType: "link",
+        startMs: null,
+        title: "Linked resource",
+        workspacePath: "Linked resource",
+      },
     ]);
 
     expect(
@@ -162,5 +219,30 @@ describe("chat tool workspace file helpers", () => {
         buildMaps()
       )
     ).toBe("fallback.md");
+  });
+
+  it("treats whitespace-only markdown excerpts as unreadable", async () => {
+    getFileAssetByIdMock.mockResolvedValueOnce(
+      buildNoteFile({
+        id: "file-1",
+        name: "empty.md",
+        storageUrl: "https://example.com/empty.md",
+      })
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("   ", { status: 200 }))
+    );
+
+    await expect(
+      resolveFileExcerpt({
+        fileId: "file-1",
+        maps: buildMaps(),
+        maxChars: 500,
+        workspaceId: "workspace-1",
+      })
+    ).resolves.toBeNull();
+
+    vi.unstubAllGlobals();
   });
 });

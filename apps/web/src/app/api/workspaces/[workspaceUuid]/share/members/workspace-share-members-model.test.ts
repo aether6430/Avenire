@@ -5,6 +5,7 @@ import {
   filterWorkspaceShareMembers,
   normalizeOrganizationMembers,
   resolveInviteRole,
+  resolveWorkspaceShareMembersRouteError,
 } from "./workspace-share-members-model";
 
 describe("workspace share members model", () => {
@@ -73,5 +74,20 @@ describe("workspace share members model", () => {
     expect(canManageWorkspaceMembers("owner")).toBe(true);
     expect(canManageWorkspaceMembers("admin")).toBe(true);
     expect(canManageWorkspaceMembers("member")).toBe(false);
+  });
+
+  it("prefers thrown error messages and falls back conservatively", () => {
+    expect(
+      resolveWorkspaceShareMembersRouteError(
+        new Error("members offline"),
+        "Unable to load workspace members."
+      )
+    ).toBe("members offline");
+    expect(
+      resolveWorkspaceShareMembersRouteError(
+        { code: "UNKNOWN" },
+        "Unable to load workspace members."
+      )
+    ).toBe("Unable to load workspace members.");
   });
 });

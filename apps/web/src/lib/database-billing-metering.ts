@@ -1,1 +1,6 @@
-export { consumeUsageUnits } from "@avenire/database";
+export {
+  canStoreBytesForUser,
+  consumeUsageUnits,
+  restoreUsageUnits,
+  userHasBillingFeature,
+} from "@avenire/database";

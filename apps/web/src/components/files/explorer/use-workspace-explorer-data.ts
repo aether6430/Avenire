@@ -7,6 +7,10 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  applyExplorerFilesRealtimeInvalidation,
+  type ExplorerFilesInvalidationPayload,
+} from "@/components/files/explorer/explorer-realtime-model";
 import type {
   FileRecord,
   FolderRecord,
@@ -24,6 +28,7 @@ import { writeWorkspaceFolderCache } from "@/lib/workspace-folder-cache";
 import {
   loadWorkspaceTreePayload,
   readCachedWorkspaceTreePayload,
+  writeWorkspaceTreePayload,
 } from "@/lib/workspace-tree-client";
 
 interface UseWorkspaceExplorerDataInput {
@@ -44,7 +49,22 @@ export function useWorkspaceExplorerData({
   const [propertyDefinitions, setPropertyDefinitions] = useState<
     WorkspacePropertyDefinition[]
   >([]);
+  const allFilesRef = useRef<FileRecord[]>([]);
+  const allFoldersRef = useRef<FolderRecord[]>([]);
+  const currentFolderIdRef = useRef(currentFolderId);
   const refreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    allFilesRef.current = allFiles;
+  }, [allFiles]);
+
+  useEffect(() => {
+    allFoldersRef.current = allFolders;
+  }, [allFolders]);
+
+  useEffect(() => {
+    currentFolderIdRef.current = currentFolderId;
+  }, [currentFolderId]);
 
   const applyVisibleSnapshot = useCallback(
     (snapshot: {
@@ -112,7 +132,7 @@ export function useWorkspaceExplorerData({
         }
       }
     },
-    [applyVisibleSnapshot, currentFolderId, workspaceUuid]
+    [applyVisibleSnapshot, clearVisibleSnapshot, currentFolderId, workspaceUuid]
   );
 
   const loadTree = useCallback(async () => {
@@ -180,6 +200,44 @@ export function useWorkspaceExplorerData({
       refreshData();
     }, 300);
   }, [refreshData]);
+
+  const applyFilesInvalidation = useCallback(
+    (detail: ExplorerFilesInvalidationPayload | null) => {
+      const nextTree = applyExplorerFilesRealtimeInvalidation({
+        allFiles: allFilesRef.current,
+        allFolders: allFoldersRef.current,
+        detail,
+      });
+      if (!nextTree) {
+        return false;
+      }
+
+      if (nextTree.deletedFolderIds.has(currentFolderIdRef.current)) {
+        return false;
+      }
+
+      const nextSnapshot = deriveWorkspaceFolderSnapshotFromTree({
+        folderId: currentFolderIdRef.current,
+        treePayload: {
+          files: nextTree.allFiles,
+          folders: nextTree.allFolders,
+        },
+      });
+      if (!nextSnapshot) {
+        return false;
+      }
+
+      setAllFiles(nextTree.allFiles);
+      setAllFolders(nextTree.allFolders);
+      applyVisibleSnapshot(nextSnapshot);
+      writeWorkspaceTreePayload(workspaceUuid, {
+        files: nextTree.allFiles,
+        folders: nextTree.allFolders,
+      });
+      return true;
+    },
+    [applyVisibleSnapshot, workspaceUuid]
+  );
 
   useLayoutEffect(() => {
     if (!(workspaceUuid && currentFolderId)) {
@@ -259,6 +317,7 @@ export function useWorkspaceExplorerData({
     propertyDefinitions,
     refreshData,
     refreshDataDebounced,
+    applyFilesInvalidation,
     setPropertyDefinitions,
   };
 }

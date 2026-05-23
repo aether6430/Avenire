@@ -5,6 +5,7 @@ const {
   branchChatForUserMock,
   deleteChatForUserMock,
   getChatBySlugForUserMock,
+  getWritableChatBySlugForUserMock,
   getMessagesByChatSlugForUserMock,
   headersMock,
   invalidateChatReadCachesMock,
@@ -16,6 +17,7 @@ const {
   branchChatForUserMock: vi.fn(),
   deleteChatForUserMock: vi.fn(),
   getChatBySlugForUserMock: vi.fn(),
+  getWritableChatBySlugForUserMock: vi.fn(),
   getMessagesByChatSlugForUserMock: vi.fn(),
   headersMock: vi.fn(),
   invalidateChatReadCachesMock: vi.fn(),
@@ -40,6 +42,7 @@ vi.mock("@/lib/chat-data", () => ({
   branchChatForUser: branchChatForUserMock,
   deleteChatForUser: deleteChatForUserMock,
   getChatBySlugForUser: getChatBySlugForUserMock,
+  getWritableChatBySlugForUser: getWritableChatBySlugForUserMock,
   getMessagesByChatSlugForUser: getMessagesByChatSlugForUserMock,
   isChatOwnerForUser: isChatOwnerForUserMock,
   updateChatForUser: updateChatForUserMock,
@@ -84,6 +87,11 @@ function routeRequest(
 function mockAuthorizedChatAccess(owner: boolean) {
   authGetSessionMock.mockResolvedValue(SESSION_USER);
   getChatBySlugForUserMock.mockResolvedValue(CHAT_RECORD);
+  getWritableChatBySlugForUserMock.mockResolvedValue({
+    ...CHAT_RECORD,
+    ownerUserId: "user-1",
+    readOnly: !owner,
+  });
   isChatOwnerForUserMock.mockResolvedValue(owner);
 }
 
@@ -101,6 +109,7 @@ describe("/api/chats/[slug] route", () => {
     branchChatForUserMock.mockReset();
     deleteChatForUserMock.mockReset();
     getChatBySlugForUserMock.mockReset();
+    getWritableChatBySlugForUserMock.mockReset();
     getMessagesByChatSlugForUserMock.mockReset();
     headersMock.mockReset();
     invalidateChatReadCachesMock.mockReset();
@@ -119,6 +128,49 @@ describe("/api/chats/[slug] route", () => {
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
+  });
+
+  it.each([
+    {
+      body: undefined,
+      method: "GET" as const,
+    },
+    {
+      body: { title: "New title" },
+      method: "PATCH" as const,
+    },
+    {
+      body: undefined,
+      method: "POST" as const,
+    },
+    {
+      body: undefined,
+      method: "DELETE" as const,
+    },
+  ])("fails closed from $method when session lookup throws before chat route handling begins", async ({
+    body,
+    method,
+  }) => {
+    authGetSessionMock.mockRejectedValueOnce(new Error("chat auth offline"));
+
+    const response =
+      method === "GET"
+        ? await GET(routeRequest("GET"), CHAT_ROUTE_PARAMS)
+        : method === "PATCH"
+          ? await PATCH(routeRequest("PATCH", body), CHAT_ROUTE_PARAMS)
+          : method === "POST"
+            ? await POST(routeRequest("POST"), CHAT_ROUTE_PARAMS)
+            : await DELETE(routeRequest("DELETE"), CHAT_ROUTE_PARAMS);
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "chat auth offline",
+    });
+    expect(getChatBySlugForUserMock).not.toHaveBeenCalled();
+    expect(getMessagesByChatSlugForUserMock).not.toHaveBeenCalled();
+    expect(updateChatForUserMock).not.toHaveBeenCalled();
+    expect(branchChatForUserMock).not.toHaveBeenCalled();
+    expect(deleteChatForUserMock).not.toHaveBeenCalled();
   });
 
   it("returns chat not found from GET when the slug is missing for the user", async () => {
@@ -147,10 +199,24 @@ describe("/api/chats/[slug] route", () => {
     });
   });
 
+  it("returns a 500 json error from GET when chat loading throws", async () => {
+    authGetSessionMock.mockResolvedValue(SESSION_USER);
+    getChatBySlugForUserMock.mockRejectedValueOnce(
+      new Error("chat detail offline")
+    );
+
+    const response = await GET(routeRequest("GET"), CHAT_ROUTE_PARAMS);
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "chat detail offline",
+    });
+  });
+
   it.each([
     {
-      expected: { error: "Read-only method", status: 403 },
-      name: "returns read-only method from PATCH when the user is not the owner",
+      expected: { error: "Read-only Method", status: 403 },
+      name: "returns read-only Method from PATCH when the user is not the owner",
       prepare: () => mockAuthorizedChatAccess(false),
     },
     {
@@ -212,15 +278,51 @@ describe("/api/chats/[slug] route", () => {
       "workspace-1"
     );
     expect(invalidateChatReadCachesMock).toHaveBeenCalledWith("workspace-1");
-    expect(publishWorkspaceStreamEventMock).toHaveBeenCalledWith({
+    expect(publishWorkspaceStreamEventMock).toHaveBeenNthCalledWith(1, {
       workspaceUuid: "workspace-1",
-      type: "chat.invalidate",
+      type: "chat.updated",
       payload: {
         action: "updated",
+        chat: {
+          ...CHAT_RECORD,
+          title: "New title",
+        },
         chatSlug: "chat-1",
         workspaceUuid: "workspace-1",
       },
     });
+    expect(publishWorkspaceStreamEventMock).toHaveBeenNthCalledWith(2, {
+      workspaceUuid: "workspace-1",
+      type: "chat.invalidate",
+      payload: {
+        action: "updated",
+        chat: {
+          ...CHAT_RECORD,
+          title: "New title",
+        },
+        chatSlug: "chat-1",
+        workspaceUuid: "workspace-1",
+      },
+    });
+  });
+
+  it("returns a 500 json error from PATCH when chat mutation throws before invalidation", async () => {
+    mockAuthorizedChatAccess(true);
+    updateChatForUserMock.mockRejectedValueOnce(
+      new Error("chat patch offline")
+    );
+
+    const response = await PATCH(
+      routeRequest("PATCH", { title: "New title" }),
+      CHAT_ROUTE_PARAMS
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "chat patch offline",
+    });
+    expect(invalidateChatReadCachesMock).not.toHaveBeenCalled();
+    expect(publishWorkspaceStreamEventMock).not.toHaveBeenCalled();
   });
 
   it("returns read-only method from POST when the user is not the owner", async () => {
@@ -229,9 +331,10 @@ describe("/api/chats/[slug] route", () => {
     await expect(
       readRouteError(await POST(routeRequest("POST"), CHAT_ROUTE_PARAMS))
     ).resolves.toEqual({
-      body: { error: "Read-only method" },
+      body: { error: "Read-only Method" },
       status: 403,
     });
+    expect(isChatOwnerForUserMock).not.toHaveBeenCalled();
   });
 
   it("branches a chat and publishes invalidation from POST", async () => {
@@ -252,21 +355,54 @@ describe("/api/chats/[slug] route", () => {
       },
     });
     expect(invalidateChatReadCachesMock).toHaveBeenCalledWith("workspace-1");
-    expect(publishWorkspaceStreamEventMock).toHaveBeenCalledWith({
+    expect(publishWorkspaceStreamEventMock).toHaveBeenNthCalledWith(1, {
+      workspaceUuid: "workspace-1",
+      type: "chat.created",
+      payload: {
+        action: "created",
+        chat: {
+          slug: "chat-2",
+          workspaceId: "workspace-1",
+        },
+        chatSlug: "chat-2",
+        workspaceUuid: "workspace-1",
+      },
+    });
+    expect(publishWorkspaceStreamEventMock).toHaveBeenNthCalledWith(2, {
       workspaceUuid: "workspace-1",
       type: "chat.invalidate",
       payload: {
         action: "created",
+        chat: {
+          slug: "chat-2",
+          workspaceId: "workspace-1",
+        },
         chatSlug: "chat-2",
         workspaceUuid: "workspace-1",
       },
     });
   });
 
+  it("returns a 500 json error from POST when chat branching throws before invalidation", async () => {
+    mockAuthorizedChatAccess(true);
+    branchChatForUserMock.mockRejectedValueOnce(
+      new Error("chat branch offline")
+    );
+
+    const response = await POST(routeRequest("POST"), CHAT_ROUTE_PARAMS);
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "chat branch offline",
+    });
+    expect(invalidateChatReadCachesMock).not.toHaveBeenCalled();
+    expect(publishWorkspaceStreamEventMock).not.toHaveBeenCalled();
+  });
+
   it.each([
     {
-      expected: { error: "Read-only method", status: 403 },
-      name: "returns read-only method from DELETE when the user is not the owner",
+      expected: { error: "Read-only Method", status: 403 },
+      name: "returns read-only Method from DELETE when the user is not the owner",
       prepare: () => mockAuthorizedChatAccess(false),
     },
     {
@@ -298,14 +434,41 @@ describe("/api/chats/[slug] route", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ ok: true });
     expect(invalidateChatReadCachesMock).toHaveBeenCalledWith("workspace-1");
-    expect(publishWorkspaceStreamEventMock).toHaveBeenCalledWith({
+    expect(publishWorkspaceStreamEventMock).toHaveBeenNthCalledWith(1, {
       workspaceUuid: "workspace-1",
-      type: "chat.invalidate",
+      type: "chat.deleted",
       payload: {
         action: "deleted",
+        chat: CHAT_RECORD,
         chatSlug: "chat-1",
         workspaceUuid: "workspace-1",
       },
     });
+    expect(publishWorkspaceStreamEventMock).toHaveBeenNthCalledWith(2, {
+      workspaceUuid: "workspace-1",
+      type: "chat.invalidate",
+      payload: {
+        action: "deleted",
+        chat: CHAT_RECORD,
+        chatSlug: "chat-1",
+        workspaceUuid: "workspace-1",
+      },
+    });
+  });
+
+  it("returns a 500 json error from DELETE when chat deletion throws before invalidation", async () => {
+    mockAuthorizedChatAccess(true);
+    deleteChatForUserMock.mockRejectedValueOnce(
+      new Error("chat delete offline")
+    );
+
+    const response = await DELETE(routeRequest("DELETE"), CHAT_ROUTE_PARAMS);
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "chat delete offline",
+    });
+    expect(invalidateChatReadCachesMock).not.toHaveBeenCalled();
+    expect(publishWorkspaceStreamEventMock).not.toHaveBeenCalled();
   });
 });

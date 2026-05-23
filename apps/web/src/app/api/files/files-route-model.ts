@@ -7,6 +7,8 @@ export interface UploadThingServerFile {
   url: string;
 }
 
+export const FILES_ROUTE_LOAD_ERROR = "Unable to load files.";
+
 export function inferUploadThingServerFileContentType(name: string) {
   const extension = name.split(".").pop()?.toLowerCase();
 
@@ -73,4 +75,8 @@ export function resolveFilesRouteActiveOrganizationId(session: {
   session?: { activeOrganizationId?: string | null };
 }) {
   return session.session?.activeOrganizationId ?? null;
+}
+
+export function resolveFilesRouteError(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
 }

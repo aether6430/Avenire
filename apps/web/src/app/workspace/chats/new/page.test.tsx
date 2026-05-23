@@ -32,7 +32,7 @@ describe("WorkspaceChatsNewPage", () => {
     });
     expect(element.props.fallback.type).toBe(workspaceRoutePlaceholderMock);
     expect(element.props.fallback.props).toEqual({
-      label: "Loading method...",
+      label: "Loading Method...",
     });
   });
 });

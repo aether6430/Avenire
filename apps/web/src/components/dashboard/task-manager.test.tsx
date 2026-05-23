@@ -53,7 +53,7 @@ describe("DashboardTaskManager", () => {
     );
 
     expect(html).toContain("Unable to load tasks.");
-    expect(html).toContain("Try again in a moment or refresh the workspace.");
+    expect(html).toContain("Could not load tasks right now.");
     expect(html).not.toContain("No tasks due today");
   });
 });

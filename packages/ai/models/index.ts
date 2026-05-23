@@ -8,6 +8,7 @@ import { customProvider } from "ai";
 const APOLLO_MODEL_SPRINT = "apollo-sprint";
 const APOLLO_MODEL_CORE = "apollo-core";
 const APOLLO_MODEL_APEX = "apollo-apex";
+const APOLLO_MODEL_APEX_TURBO = "apex-turbo";
 const APOLLO_MODEL_AGENT = "apollo-agent";
 const APOLLO_MODEL_META = "apollo-meta";
 const APOLLO_MODEL_TINY = "apollo-tiny";
@@ -23,6 +24,7 @@ export type ApolloModelName =
   | typeof APOLLO_MODEL_SPRINT
   | typeof APOLLO_MODEL_CORE
   | typeof APOLLO_MODEL_APEX
+  | typeof APOLLO_MODEL_APEX_TURBO
   | typeof APOLLO_MODEL_AGENT
   | typeof APOLLO_MODEL_META
   | typeof APOLLO_MODEL_TINY;
@@ -30,6 +32,7 @@ export type ApolloModelName =
 export const APOLLO_LANGUAGE_MODEL_IDS: Record<ApolloModelName, string> = {
   "apollo-agent": "accounts/fireworks/models/glm-5",
   "apollo-apex": "accounts/fireworks/models/kimi-k2p5",
+  "apex-turbo": "accounts/fireworks/routers/kimi-k2p6-turbo",
   "apollo-core": "gemini-3-flash-preview",
   "apollo-meta": "openai/gpt-oss-120b",
   "apollo-sprint": "mistral-small-latest",
@@ -56,6 +59,7 @@ export const apollo = customProvider({
   languageModels: {
     "apollo-sprint": mistral("mistral-small-latest"),
     "apollo-apex": fireworks(APOLLO_LANGUAGE_MODEL_IDS["apollo-apex"]),
+    "apex-turbo": fireworks(APOLLO_LANGUAGE_MODEL_IDS["apex-turbo"]),
     "apollo-core": gemini("gemini-3-flash-preview"),
     "apollo-agent": fireworks("accounts/fireworks/models/glm-5"),
     "apollo-meta": groq(APOLLO_LANGUAGE_MODEL_IDS["apollo-meta"]),

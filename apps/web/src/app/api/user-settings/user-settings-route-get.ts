@@ -1,7 +1,20 @@
 import { NextResponse } from "next/server";
 import { getUserSettings } from "@/lib/user-settings";
+import {
+  resolveUserSettingsRouteError,
+  USER_SETTINGS_LOAD_ERROR,
+} from "./user-settings-route-model";
 
 export async function handleUserSettingsRouteGet(userId: string) {
-  const settings = await getUserSettings(userId);
-  return NextResponse.json({ settings });
+  try {
+    const settings = await getUserSettings(userId);
+    return NextResponse.json({ settings });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: resolveUserSettingsRouteError(error, USER_SETTINGS_LOAD_ERROR),
+      },
+      { status: 500 }
+    );
+  }
 }

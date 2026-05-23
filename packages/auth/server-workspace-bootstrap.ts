@@ -13,7 +13,7 @@ I set up **${input.workspaceName}** for you. This is your starting point for the
 ## Your first three moves
 
 1. Upload a file so Avenire has something real to work from.
-2. Generate a mindset set from that file so you can start reviewing it right away.
+2. Generate a Mindset Set from that file so you can start reviewing it right away.
 3. Ask a question about the file and use Apollo to explain the parts that still feel unclear.
 
 ## What to do next

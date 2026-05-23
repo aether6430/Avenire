@@ -1,7 +1,7 @@
 import { extractLinkPreview } from "@avenire/ingestion/link";
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
 import { NextResponse } from "next/server";
-import { consumeUploadUnits } from "@/lib/billing-metering";
+import { canStoreBytes } from "@/lib/billing";
 import {
   createWorkspaceNoteFile,
   isSharedFilesVirtualFolderId,
@@ -54,32 +54,32 @@ export async function handleWorkspaceLinksPost(input: {
   }
 
   const linkPreview = await extractLinkPreview(normalizedUrl);
-  const usage = await consumeUploadUnits(input.userId, 1);
-  if (!usage.ok) {
-    return NextResponse.json(
-      {
-        error: "Upload usage limit reached",
-        retryAfter: usage.retryAfter?.toISOString() ?? null,
-      },
-      { status: 429 }
-    );
-  }
-
   const { fileName, noteTitle } = deriveWorkspaceLinkDocumentTitle({
     requestedName,
     previewTitle: linkPreview.title ?? "",
     normalizedUrl,
   });
+  const content = buildWorkspaceLinkNoteContent({
+    title: noteTitle,
+    url: normalizedUrl,
+  });
+  const storage = await canStoreBytes(
+    input.userId,
+    Buffer.byteLength(content, "utf8")
+  );
+  if (!storage.ok) {
+    return NextResponse.json(
+      { error: "Storage limit reached" },
+      { status: 429 }
+    );
+  }
 
   const file = await createWorkspaceNoteFile({
     workspaceId: input.workspaceUuid,
     userId: input.userId,
     folderId,
     name: fileName,
-    content: buildWorkspaceLinkNoteContent({
-      title: noteTitle,
-      url: normalizedUrl,
-    }),
+    content,
     metadata: {
       type: "note",
       resourceType: "link-resource",

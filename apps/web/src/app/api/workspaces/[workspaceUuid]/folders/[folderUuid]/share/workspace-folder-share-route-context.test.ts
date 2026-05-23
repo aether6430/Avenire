@@ -78,6 +78,24 @@ describe("workspace folder share route context", () => {
     expect(ensureWorkspaceAccessForUserMock).not.toHaveBeenCalled();
   });
 
+  it("fails closed when shared folder share context lookup throws before the handler runs", async () => {
+    getSessionUserMock.mockRejectedValueOnce(
+      new Error("folder share auth offline")
+    );
+
+    const result = await resolveWorkspaceFolderShareRouteContext(createInput());
+
+    expect("response" in result).toBe(true);
+    if ("response" in result) {
+      expect(result.response.status).toBe(500);
+      await expect(result.response.json()).resolves.toEqual({
+        error: "folder share auth offline",
+      });
+    }
+    expect(ensureWorkspaceAccessForUserMock).not.toHaveBeenCalled();
+    expect(getFolderWithAncestorsMock).not.toHaveBeenCalled();
+  });
+
   it("rejects forbidden users and missing folders", async () => {
     ensureWorkspaceAccessForUserMock.mockResolvedValueOnce(false);
 

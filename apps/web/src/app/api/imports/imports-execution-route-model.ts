@@ -9,6 +9,8 @@ const notionImportRoutePayloadSchema = z.object({
 });
 
 export const IMPORT_EXECUTION_INVALID_PAYLOAD_ERROR = "Invalid payload";
+export const IMPORT_EXECUTION_PROVIDER_UNAVAILABLE_STATUS = 409;
+export const IMPORT_EXECUTION_RUNTIME_ERROR_STATUS = 500;
 
 function normalizeImportExecutionIds(value: unknown) {
   if (!Array.isArray(value)) {
@@ -97,8 +99,22 @@ export function resolveImportExecutionRouteError(
     status?: number;
   }
 ) {
+  const errorMessage = error instanceof Error ? error.message : input.fallback;
+  const normalized = errorMessage.trim().toLowerCase();
+  const isProviderReadinessError =
+    normalized.includes("import is not configured.") ||
+    normalized.includes("account is not connected.") ||
+    normalized.includes("account must be reconnected.") ||
+    normalized.includes("missing drive import scopes.") ||
+    normalized.includes("unable to get a valid google access token.") ||
+    normalized.includes("unable to get a valid notion access token.");
+
   return {
-    error: error instanceof Error ? error.message : input.fallback,
-    status: input.status ?? 400,
+    error: errorMessage,
+    status:
+      input.status ??
+      (isProviderReadinessError
+        ? IMPORT_EXECUTION_PROVIDER_UNAVAILABLE_STATUS
+        : IMPORT_EXECUTION_RUNTIME_ERROR_STATUS),
   };
 }

@@ -1,7 +1,8 @@
 "use client";
 
 import { ArrowsSplit } from "@phosphor-icons/react";
-import type { DragEvent, RefObject } from "react";
+import { type DragEvent, Fragment, type RefObject } from "react";
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import type {
   PaneDropPreview,
   RenderablePaneRow,
@@ -79,6 +80,8 @@ export interface WorkspacePaneDesktopLayoutProps {
     targetPaneId: string,
     forcedRegion?: "bottom" | "center" | "left" | "right" | "top"
   ) => void;
+  handlePaneLayout: (row: RenderablePaneRow, nextSizes: number[]) => void;
+  handleRowLayout: (nextSizes: number[]) => void;
   openPane: (
     href: string,
     options?: {
@@ -89,12 +92,14 @@ export interface WorkspacePaneDesktopLayoutProps {
   ) => void;
   paneCount: number;
   paneRows: RenderablePaneRow[];
-  startPaneResize: (
-    targetId: string,
-    index: number,
-    startClientX: number
-  ) => void;
-  startRowResize: (index: number, startClientY: number) => void;
+}
+
+function buildPaneLayoutKey(row: RenderablePaneRow) {
+  return `${row.id}:${row.panes.map((pane) => pane.id).join("|")}`;
+}
+
+function buildRowLayoutKey(rows: RenderablePaneRow[]) {
+  return rows.map(buildPaneLayoutKey).join("||");
 }
 
 export function WorkspacePaneDesktopLayout({
@@ -112,11 +117,11 @@ export function WorkspacePaneDesktopLayout({
   handlePaneDragOver,
   handlePaneDragStart,
   handlePaneDrop,
+  handlePaneLayout,
+  handleRowLayout,
   openPane,
   paneCount,
   paneRows,
-  startPaneResize,
-  startRowResize,
 }: WorkspacePaneDesktopLayoutProps) {
   return (
     <div
@@ -129,128 +134,126 @@ export function WorkspacePaneDesktopLayout({
         onDragOver={handleContainerDragOver}
         onDrop={handleContainerDrop}
       >
-        {paneRows.map((row, rowIndex) => (
-          <div className="contents" key={row.id}>
-            <div
-              className="flex min-h-0 w-full shrink-0"
-              style={{
-                height: `${row.size}%`,
-                transition: draggedPaneId
-                  ? "height 180ms cubic-bezier(0.22, 1, 0.36, 1)"
-                  : undefined,
-              }}
-            >
-              {row.panes.map((pane, paneIndex) => {
-                const isPreviewPane = Boolean(pane.isDropPreview);
-                const dropTargetPaneId = isPreviewPane
-                  ? (pane.previewTargetPaneId ?? dropPreview?.paneId ?? pane.id)
-                  : pane.id;
-                const isActive = pane.id === activePaneId;
-                const isMultiPane = paneCount > 1 && !isPreviewPane;
-                return (
-                  <div
-                    className="flex min-w-0 shrink-0"
-                    key={pane.id}
-                    style={{
-                      transition: draggedPaneId
-                        ? "width 180ms cubic-bezier(0.22, 1, 0.36, 1)"
-                        : undefined,
-                      width: `${pane.size}%`,
-                    }}
-                  >
-                    <WorkspacePaneSurface
-                      dropRegion={
-                        dropPreview?.paneId === pane.id
-                          ? dropPreview.region
-                          : null
-                      }
-                      isActive={isActive}
-                      isDragging={pane.id === draggedPaneId}
-                      isMultiPane={isMultiPane}
-                      isPreviewPane={isPreviewPane}
-                      onClose={() => {
-                        if (!isPreviewPane) {
-                          closePane(pane.id);
-                        }
-                      }}
-                      onDragEnd={handlePaneDragEnd}
-                      onDragLeave={handlePaneDragLeave}
-                      onDragOver={(event) => {
-                        handlePaneDragOver(
-                          event,
-                          pane.id,
-                          isPreviewPane,
-                          dropTargetPaneId
-                        );
-                      }}
-                      onDragStart={(event) => {
-                        handlePaneDragStart(event, pane.id);
-                      }}
-                      onDrop={(event) => {
-                        event.stopPropagation();
-                        handlePaneDrop(
-                          event,
-                          dropTargetPaneId,
-                          isPreviewPane ? dropPreview?.region : undefined
-                        );
-                      }}
-                      onFocus={() => {
-                        if (!isPreviewPane) {
-                          focusPane(pane.id);
-                        }
-                      }}
-                      onSplitHorizontal={() =>
-                        !isPreviewPane &&
-                        openPane("/workspace", {
-                          sourcePaneId: pane.id,
-                          splitDirection: "horizontal",
-                          splitPlacement: "after",
-                        })
-                      }
-                      onSplitVertical={() =>
-                        !isPreviewPane &&
-                        openPane("/workspace", {
-                          sourcePaneId: pane.id,
-                          splitDirection: "vertical",
-                          splitPlacement: "after",
-                        })
-                      }
-                      pane={pane}
-                    />
-                    {paneIndex < row.panes.length - 1 ? (
-                      <div
-                        aria-hidden="true"
-                        className="relative z-20 w-3 shrink-0 cursor-col-resize bg-border/35 transition-colors hover:bg-border/75"
-                        onPointerDown={(event) => {
-                          event.preventDefault();
-                          startPaneResize(row.id, paneIndex, event.clientX);
-                        }}
-                      >
-                        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/70">
-                          <ArrowsSplit className="size-3.5" />
-                        </div>
-                      </div>
-                    ) : null}
+        <PanelGroup
+          className="min-h-0 flex-1"
+          direction="vertical"
+          key={buildRowLayoutKey(paneRows)}
+          onLayout={handleRowLayout}
+        >
+          {paneRows.map((row, rowIndex) => (
+            <Fragment key={row.id}>
+              <Panel defaultSize={row.size} minSize={18} order={rowIndex + 1}>
+                <PanelGroup
+                  className="h-full min-w-0"
+                  direction="horizontal"
+                  key={buildPaneLayoutKey(row)}
+                  onLayout={(nextSizes) => {
+                    handlePaneLayout(row, nextSizes);
+                  }}
+                >
+                  {row.panes.map((pane, paneIndex) => {
+                    const isPreviewPane = Boolean(pane.isDropPreview);
+                    const dropTargetPaneId = isPreviewPane
+                      ? (pane.previewTargetPaneId ??
+                        dropPreview?.paneId ??
+                        pane.id)
+                      : pane.id;
+                    const isActive = pane.id === activePaneId;
+                    const isMultiPane = paneCount > 1 && !isPreviewPane;
+
+                    return (
+                      <Fragment key={pane.id}>
+                        <Panel
+                          defaultSize={pane.size}
+                          minSize={20}
+                          order={paneIndex + 1}
+                        >
+                          <div className="flex h-full min-h-0 w-full min-w-0">
+                            <WorkspacePaneSurface
+                              dropRegion={
+                                dropPreview?.paneId === pane.id
+                                  ? dropPreview.region
+                                  : null
+                              }
+                              isActive={isActive}
+                              isDragging={pane.id === draggedPaneId}
+                              isMultiPane={isMultiPane}
+                              isPreviewPane={isPreviewPane}
+                              onClose={() => {
+                                if (!isPreviewPane) {
+                                  closePane(pane.id);
+                                }
+                              }}
+                              onDragEnd={handlePaneDragEnd}
+                              onDragLeave={handlePaneDragLeave}
+                              onDragOver={(event) => {
+                                handlePaneDragOver(
+                                  event,
+                                  pane.id,
+                                  isPreviewPane,
+                                  dropTargetPaneId
+                                );
+                              }}
+                              onDragStart={(event) => {
+                                handlePaneDragStart(event, pane.id);
+                              }}
+                              onDrop={(event) => {
+                                event.stopPropagation();
+                                handlePaneDrop(
+                                  event,
+                                  dropTargetPaneId,
+                                  isPreviewPane
+                                    ? dropPreview?.region
+                                    : undefined
+                                );
+                              }}
+                              onFocus={() => {
+                                if (!isPreviewPane) {
+                                  focusPane(pane.id);
+                                }
+                              }}
+                              onSplitHorizontal={() =>
+                                !isPreviewPane &&
+                                openPane("/workspace", {
+                                  sourcePaneId: pane.id,
+                                  splitDirection: "horizontal",
+                                  splitPlacement: "after",
+                                })
+                              }
+                              onSplitVertical={() =>
+                                !isPreviewPane &&
+                                openPane("/workspace", {
+                                  sourcePaneId: pane.id,
+                                  splitDirection: "vertical",
+                                  splitPlacement: "after",
+                                })
+                              }
+                              pane={pane}
+                            />
+                          </div>
+                        </Panel>
+                        {paneIndex < row.panes.length - 1 ? (
+                          <PanelResizeHandle className="relative z-20 w-3 shrink-0 bg-border/35 transition-colors hover:bg-border/75 data-[resize-handle-active]:bg-border/75">
+                            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/70">
+                              <ArrowsSplit className="size-3.5" />
+                            </div>
+                          </PanelResizeHandle>
+                        ) : null}
+                      </Fragment>
+                    );
+                  })}
+                </PanelGroup>
+              </Panel>
+              {rowIndex < paneRows.length - 1 ? (
+                <PanelResizeHandle className="relative z-20 h-3 shrink-0 bg-border/35 transition-colors hover:bg-border/75 data-[resize-handle-active]:bg-border/75">
+                  <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/70">
+                    <ArrowsSplit className="size-3.5 rotate-90" />
                   </div>
-                );
-              })}
-            </div>
-            {rowIndex < paneRows.length - 1 ? (
-              <div
-                aria-hidden="true"
-                className="relative z-20 h-3 shrink-0 cursor-row-resize bg-border/35 transition-colors hover:bg-border/75"
-                onPointerDown={(event) => {
-                  event.preventDefault();
-                  startRowResize(rowIndex, event.clientY);
-                }}
-              >
-                <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/70">
-                  <ArrowsSplit className="size-3.5 rotate-90" />
-                </div>
-              </div>
-            ) : null}
-          </div>
-        ))}
+                </PanelResizeHandle>
+              ) : null}
+            </Fragment>
+          ))}
+        </PanelGroup>
       </div>
     </div>
   );

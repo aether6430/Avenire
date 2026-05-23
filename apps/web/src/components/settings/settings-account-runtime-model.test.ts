@@ -3,6 +3,7 @@ import {
   createAccountsRefreshFailureState,
   createAccountsRefreshSuccessState,
   createLinkAccountStatus,
+  createProfileSaveFailureState,
   createProfileSaveStartState,
   resolveLinkAccountFailureStatus,
   resolveProfileSaveStatus,
@@ -44,14 +45,28 @@ describe("settings account runtime model", () => {
       accounts: [
         { accountId: "github-user", id: "account-1", providerId: "github" },
       ],
+      accountsErrorMessage: null,
       accountsLoadFailed: false,
     });
     expect(createAccountsRefreshSuccessState({})).toEqual({
       accounts: [],
+      accountsErrorMessage: null,
       accountsLoadFailed: false,
     });
-    expect(createAccountsRefreshFailureState()).toEqual({
+    expect(
+      createAccountsRefreshSuccessState({
+        data: { accountId: "github-user" },
+      })
+    ).toEqual({
       accounts: [],
+      accountsErrorMessage: "Unable to load linked accounts.",
+      accountsLoadFailed: true,
+    });
+    expect(
+      createAccountsRefreshFailureState("accounts backend offline")
+    ).toEqual({
+      accounts: [],
+      accountsErrorMessage: "accounts backend offline",
       accountsLoadFailed: true,
     });
   });
@@ -84,6 +99,9 @@ describe("settings account runtime model", () => {
     expect(createProfileSaveStartState()).toEqual({
       isSavingProfile: true,
       profileStatus: "Saving...",
+    });
+    expect(createProfileSaveFailureState()).toEqual({
+      profileStatus: "Unable to update profile.",
     });
     expect(resolveProfileSaveStatus({})).toBe("Profile updated.");
     expect(resolveProfileSaveStatus({ error: "boom" })).toBe(

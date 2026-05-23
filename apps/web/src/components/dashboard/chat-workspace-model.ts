@@ -83,3 +83,29 @@ export function shouldLoadChatShareSuggestions({
     shareEmail.trim().length > 0
   );
 }
+
+export function shouldRenderStreamingChatRouteFallback({
+  handoffMessageCount,
+  hasChat,
+  isError,
+  isPending,
+  isStreaming,
+  slug,
+}: {
+  handoffMessageCount: number;
+  hasChat: boolean;
+  isError: boolean;
+  isPending: boolean;
+  isStreaming: boolean;
+  slug: string;
+}) {
+  if (slug === "new" || isError) {
+    return false;
+  }
+
+  if (isPending && handoffMessageCount > 0) {
+    return true;
+  }
+
+  return isStreaming && (isPending || !hasChat);
+}

@@ -124,7 +124,7 @@ function QuizToolOutput({
           className="font-mono text-[11px] text-foreground/40 underline underline-offset-2 hover:text-foreground/60"
           href={`/workspace/flashcards/${setId}`}
         >
-          open mindset set
+          Open Mindset Set
         </a>
       </div>
       <div className="space-y-3">
@@ -356,7 +356,7 @@ export function ChatToolPartSurface({ part }: { part: ToolPart }) {
     if (part.type === "tool-generate_flashcards") {
       return (
         <ToolPendingCard
-          description="Generating a mindset set from the current context."
+          description="Generating a Mindset Set from the current context."
           label="creating"
           title={part.input?.title ?? "Mindset Set"}
         />

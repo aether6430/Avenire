@@ -11,7 +11,7 @@ export const metadata = buildPageMetadata({
 export default function WorkspaceFlashcardsPage() {
   return (
     <Suspense
-      fallback={<WorkspaceRoutePlaceholder label="Loading mindset sets..." />}
+      fallback={<WorkspaceRoutePlaceholder label="Loading Mindset Sets..." />}
     >
       <WorkspaceFlashcardsPageClient />
     </Suspense>

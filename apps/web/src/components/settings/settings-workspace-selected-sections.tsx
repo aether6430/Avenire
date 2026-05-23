@@ -1,7 +1,6 @@
 "use client";
 
 import { SettingsWorkspaceMembersSection } from "@/components/settings/settings-workspace-members-section";
-import { SettingsWorkspaceNoteTemplatesSection } from "@/components/settings/settings-workspace-note-templates-section";
 import type { SettingsWorkspaceSelectedSectionsProps } from "@/components/settings/settings-workspace-selected-sections-types";
 import { SettingsWorkspaceStatsSection } from "@/components/settings/settings-workspace-stats-section";
 
@@ -16,11 +15,6 @@ export function SettingsWorkspaceSelectedSections(
         workspaceUsageLoading={props.workspaceUsageLoading}
         workspaceUsageStatus={props.workspaceUsageStatus}
       />
-      <SettingsWorkspaceNoteTemplatesSection
-        noteTemplates={props.noteTemplates}
-        openNoteTemplateEditor={props.openNoteTemplateEditor}
-        setNoteTemplates={props.setNoteTemplates}
-      />
       <SettingsWorkspaceMembersSection
         currentUserEmail={props.currentUserEmail}
         inviteWorkspaceMember={props.inviteWorkspaceMember}
@@ -31,6 +25,7 @@ export function SettingsWorkspaceSelectedSections(
         setWorkspaceEmail={props.setWorkspaceEmail}
         workspaceEmail={props.workspaceEmail}
         workspaceMembers={props.workspaceMembers}
+        workspaceMembersErrorMessage={props.workspaceMembersErrorMessage}
         workspaceMembersLoadFailed={props.workspaceMembersLoadFailed}
         workspaceMembersLoading={props.workspaceMembersLoading}
         workspaceStatus={props.workspaceStatus}

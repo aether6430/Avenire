@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -105,6 +106,7 @@ describe("workspace item duplicate handlers", () => {
       WORKSPACE_UUID
     );
     expect(publishFilesInvalidationEventMock).toHaveBeenCalledWith({
+      fileId: "file-copy",
       reason: "file.created",
       workspaceUuid: WORKSPACE_UUID,
     });
@@ -146,6 +148,7 @@ describe("workspace item duplicate handlers", () => {
       WORKSPACE_UUID
     );
     expect(publishFilesInvalidationEventMock).toHaveBeenCalledWith({
+      folderId: "folder-copy",
       reason: "folder.created",
       workspaceUuid: WORKSPACE_UUID,
     });
@@ -153,5 +156,158 @@ describe("workspace item duplicate handlers", () => {
       reason: "tree.changed",
       workspaceUuid: WORKSPACE_UUID,
     });
+  });
+
+  it("fails closed when route-level session lookup throws before duplicate handling begins", async () => {
+    vi.resetModules();
+
+    const ensureWorkspaceAccessForUserMock = vi.fn();
+    const getSessionUserMock = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("duplicate auth offline"));
+    const handleDuplicateWorkspaceFileMock = vi.fn();
+    const handleDuplicateWorkspaceFolderMock = vi.fn();
+
+    vi.doMock("@/lib/workspace", () => ({
+      ensureWorkspaceAccessForUser: ensureWorkspaceAccessForUserMock,
+      getSessionUser: getSessionUserMock,
+    }));
+    vi.doMock("./workspace-item-duplicate-file", () => ({
+      handleDuplicateWorkspaceFile: handleDuplicateWorkspaceFileMock,
+    }));
+    vi.doMock("./workspace-item-duplicate-folder", () => ({
+      handleDuplicateWorkspaceFolder: handleDuplicateWorkspaceFolderMock,
+    }));
+
+    try {
+      const { POST } = await import("./route");
+
+      const response = await POST(
+        new Request(
+          `http://localhost:3003/api/workspaces/${WORKSPACE_UUID}/items/duplicate`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              id: "file-1",
+              kind: "file",
+            }),
+          }
+        ),
+        {
+          params: Promise.resolve({ workspaceUuid: WORKSPACE_UUID }),
+        }
+      );
+
+      expect(response.status).toBe(500);
+      await expect(response.json()).resolves.toEqual({
+        error: "duplicate auth offline",
+      });
+      expect(ensureWorkspaceAccessForUserMock).not.toHaveBeenCalled();
+      expect(handleDuplicateWorkspaceFileMock).not.toHaveBeenCalled();
+      expect(handleDuplicateWorkspaceFolderMock).not.toHaveBeenCalled();
+    } finally {
+      vi.doUnmock("@/lib/workspace");
+      vi.doUnmock("./workspace-item-duplicate-file");
+      vi.doUnmock("./workspace-item-duplicate-folder");
+      vi.resetModules();
+    }
+  });
+
+  it("delegates file and folder duplicate requests through the real route wrapper", async () => {
+    vi.resetModules();
+
+    const ensureWorkspaceAccessForUserMock = vi.fn().mockResolvedValue(true);
+    const getSessionUserMock = vi.fn().mockResolvedValue({ id: "user-1" });
+    const handleDuplicateWorkspaceFileMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        NextResponse.json({ file: { id: "file-copy" } }, { status: 201 })
+      );
+    const handleDuplicateWorkspaceFolderMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        NextResponse.json({ folder: { id: "folder-copy" } }, { status: 201 })
+      );
+
+    vi.doMock("@/lib/workspace", () => ({
+      ensureWorkspaceAccessForUser: ensureWorkspaceAccessForUserMock,
+      getSessionUser: getSessionUserMock,
+    }));
+    vi.doMock("./workspace-item-duplicate-file", () => ({
+      handleDuplicateWorkspaceFile: handleDuplicateWorkspaceFileMock,
+    }));
+    vi.doMock("./workspace-item-duplicate-folder", () => ({
+      handleDuplicateWorkspaceFolder: handleDuplicateWorkspaceFolderMock,
+    }));
+
+    try {
+      const { POST } = await import("./route");
+
+      let response = await POST(
+        new Request(
+          `http://localhost:3003/api/workspaces/${WORKSPACE_UUID}/items/duplicate`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              id: "file-1",
+              kind: "file",
+              parentId: "folder-2",
+            }),
+          }
+        ),
+        {
+          params: Promise.resolve({ workspaceUuid: WORKSPACE_UUID }),
+        }
+      );
+
+      expect(response.status).toBe(201);
+      expect(ensureWorkspaceAccessForUserMock).toHaveBeenNthCalledWith(
+        1,
+        "user-1",
+        WORKSPACE_UUID
+      );
+      expect(handleDuplicateWorkspaceFileMock).toHaveBeenCalledWith({
+        fileId: "file-1",
+        parentId: "folder-2",
+        userId: "user-1",
+        workspaceUuid: WORKSPACE_UUID,
+      });
+      expect(handleDuplicateWorkspaceFolderMock).not.toHaveBeenCalled();
+
+      response = await POST(
+        new Request(
+          `http://localhost:3003/api/workspaces/${WORKSPACE_UUID}/items/duplicate`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              id: "folder-1",
+              kind: "folder",
+              parentId: "folder-9",
+            }),
+          }
+        ),
+        {
+          params: Promise.resolve({ workspaceUuid: WORKSPACE_UUID }),
+        }
+      );
+
+      expect(response.status).toBe(201);
+      expect(ensureWorkspaceAccessForUserMock).toHaveBeenNthCalledWith(
+        2,
+        "user-1",
+        WORKSPACE_UUID
+      );
+      expect(handleDuplicateWorkspaceFolderMock).toHaveBeenCalledWith({
+        folderId: "folder-1",
+        parentId: "folder-9",
+        userId: "user-1",
+        workspaceUuid: WORKSPACE_UUID,
+      });
+    } finally {
+      vi.doUnmock("@/lib/workspace");
+      vi.doUnmock("./workspace-item-duplicate-file");
+      vi.doUnmock("./workspace-item-duplicate-folder");
+      vi.resetModules();
+    }
   });
 });

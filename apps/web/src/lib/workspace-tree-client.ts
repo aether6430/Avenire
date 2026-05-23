@@ -59,6 +59,15 @@ function normalizeWorkspaceTreePayload<
   } satisfies WorkspaceTreePayload<TFolder, TFile>;
 }
 
+export function resolveWorkspaceTreeClientError(
+  error: unknown,
+  fallback = "Unable to load files."
+) {
+  return error instanceof Error && error.message.trim().length > 0
+    ? error.message
+    : fallback;
+}
+
 export function readCachedWorkspaceTreePayload<
   TFolder extends WorkspaceTreeFolderLike,
   TFile extends WorkspaceTreeFileLike,
@@ -94,7 +103,11 @@ export async function loadWorkspaceTreePayload<
       });
 
       if (!response.ok) {
-        return null;
+        const payload = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+
+        throw new Error(payload.error?.trim() || "Unable to load files.");
       }
 
       const payload = normalizeWorkspaceTreePayload<TFolder, TFile>(

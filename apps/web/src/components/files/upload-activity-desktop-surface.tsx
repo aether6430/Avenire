@@ -8,6 +8,7 @@ const DESKTOP_PANEL_MAX_HEIGHT_CLASS = "max-h-[min(70vh,42rem)]";
 
 interface UploadActivityDesktopSurfaceProps {
   completedCount: number;
+  errorMessage?: string | null;
   failedCount: number;
   isOpen: boolean;
   loadFailed: boolean;
@@ -20,6 +21,7 @@ interface UploadActivityDesktopSurfaceProps {
 
 export function UploadActivityDesktopSurface({
   completedCount,
+  errorMessage,
   failedCount,
   isOpen,
   loadFailed,
@@ -41,6 +43,7 @@ export function UploadActivityDesktopSurface({
     >
       <UploadActivityBody
         completedCount={completedCount}
+        errorMessage={errorMessage}
         failedCount={failedCount}
         loadFailed={loadFailed}
         loading={loading}

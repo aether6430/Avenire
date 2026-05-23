@@ -76,6 +76,7 @@ describe("Mindset dialog copy", () => {
           generationError: null,
           generationLoading: false,
           isMobile: false,
+          mindsetOverviewErrorMessage: null,
           openReviewTarget: () => {},
           openSet: () => {},
           orderedSets: [],
@@ -96,8 +97,8 @@ describe("Mindset dialog copy", () => {
     );
 
     expect(html).toContain("New Mindset Set");
-    expect(html).toContain("Create mindset set");
-    expect(html).toContain("Shared mindset sets stay at workspace scope.");
+    expect(html).toContain("Create Mindset Set");
+    expect(html).toContain("Shared Mindset Sets stay at workspace scope.");
     expect(html).not.toContain("New Set");
     expect(html).not.toContain("Create set");
   });
@@ -140,7 +141,7 @@ describe("Mindset dialog copy", () => {
 
     expect(html).toContain("Edit mindset");
     expect(html).toContain(
-      "Update the title and description for this mindset set."
+      "Update the title and description for this Mindset Set."
     );
     expect(html).not.toContain("Edit set");
     expect(html).not.toContain("for this set.");

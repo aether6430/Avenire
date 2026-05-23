@@ -38,8 +38,11 @@ export type ExplorerFileCardPreviewModel =
 export interface ExplorerFileCardModel {
   details: ExplorerFileCardDetail[];
   displayName: string;
+  matchMeta?: string;
+  matchSnippet?: string;
   preview: ExplorerFileCardPreviewModel;
   resolvedFileType: FileCardType;
+  variant: "grid" | "row";
 }
 
 export function buildExplorerFileCardModel(input: {
@@ -48,8 +51,11 @@ export function buildExplorerFileCardModel(input: {
   fileType: ExplorerCardFileType;
   isPreviewing: boolean;
   isWarmed: boolean;
+  matchMeta?: string;
+  matchSnippet?: string;
   openedCached: boolean;
   selectedCardPropertyDefinitions: WorkspacePropertyDefinition[];
+  variant?: "grid" | "row";
 }): ExplorerFileCardModel {
   const { isImage, isMarkdown, isPdf, isVideo } = detectPreviewKind(input.file);
   const fileProperties = getFileProperties(input.file);
@@ -78,17 +84,21 @@ export function buildExplorerFileCardModel(input: {
     : input.displayName;
   const resolvedFileType: FileCardType =
     input.fileType === "sheet" ? "document" : input.fileType;
+  const variant = input.variant ?? "grid";
 
   if (isImage) {
     return {
       details,
       displayName,
+      matchMeta: input.matchMeta,
+      matchSnippet: input.matchSnippet,
       preview: {
         alt: input.file.name,
         kind: "image",
         src: input.file.storageUrl,
       },
       resolvedFileType,
+      variant,
     };
   }
 
@@ -102,6 +112,8 @@ export function buildExplorerFileCardModel(input: {
     return {
       details,
       displayName,
+      matchMeta: input.matchMeta,
+      matchSnippet: input.matchSnippet,
       preview: {
         kind: "video",
         openedCached: input.openedCached || input.isWarmed,
@@ -116,6 +128,7 @@ export function buildExplorerFileCardModel(input: {
         warm: input.isPreviewing,
       },
       resolvedFileType,
+      variant,
     };
   }
 
@@ -123,11 +136,14 @@ export function buildExplorerFileCardModel(input: {
     return {
       details,
       displayName,
+      matchMeta: input.matchMeta,
+      matchSnippet: input.matchSnippet,
       preview: {
         content: input.file.noteContent ?? null,
         kind: "markdown",
       },
       resolvedFileType,
+      variant,
     };
   }
 
@@ -135,18 +151,24 @@ export function buildExplorerFileCardModel(input: {
     return {
       details,
       displayName,
+      matchMeta: input.matchMeta,
+      matchSnippet: input.matchSnippet,
       preview: {
         kind: "pdf",
         src: input.file.storageUrl,
       },
       resolvedFileType,
+      variant,
     };
   }
 
   return {
     details,
     displayName,
+    matchMeta: input.matchMeta,
+    matchSnippet: input.matchSnippet,
     preview: { kind: "none" },
     resolvedFileType,
+    variant,
   };
 }

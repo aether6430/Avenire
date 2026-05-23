@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   importGoogleDriveFiles,
@@ -9,6 +11,11 @@ import {
 } from "@/components/settings/data-imports-client";
 
 describe("data imports client", () => {
+  const dataImportsClientSource = readFileSync(
+    resolve(import.meta.dirname, "./data-imports-client.ts"),
+    "utf8"
+  );
+
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -182,5 +189,20 @@ describe("data imports client", () => {
         method: "POST",
       })
     );
+    expect(dataImportsClientSource).toContain('"/api/imports/providers"');
+    expect(dataImportsClientSource).toContain('"/api/imports/destination"');
+    expect(dataImportsClientSource).toContain('"/api/imports/notion/pages"');
+    expect(dataImportsClientSource).toContain('"/api/imports/notion/import"');
+    expect(dataImportsClientSource).toContain(
+      '"/api/imports/google-drive/picker-token"'
+    );
+    expect(dataImportsClientSource).toContain(
+      '"/api/imports/google-drive/import"'
+    );
+    expect(dataImportsClientSource).not.toContain("linkSocial(");
+    expect(dataImportsClientSource).not.toContain(
+      "selectGoogleDriveImportFileIds"
+    );
+    expect(dataImportsClientSource).not.toContain("getDataImportsCallbackUrl");
   });
 });

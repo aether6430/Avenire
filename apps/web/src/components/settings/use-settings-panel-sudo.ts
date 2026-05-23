@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   createSudoActionRequestState,
   createSudoCodeRequestStartState,
+  createSudoStatusFailureState,
   createSudoVerifyStartState,
   createSudoVerifySuccessState,
   resolveSudoCodeRequestStatus,
@@ -26,16 +27,30 @@ export function useSettingsPanelSudo({ currentTab }: { currentTab: string }) {
   const securityLoadedRef = useRef(false);
 
   const refreshSudoStatus = useCallback(async () => {
-    const response = await fetch("/api/security/sudo", { cache: "no-store" });
-    if (!response.ok) {
-      setSudoActive(false);
-      setSudoStatus(null);
+    try {
+      const response = await fetch("/api/security/sudo", { cache: "no-store" });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        const next = createSudoStatusFailureState(payload.error);
+        setSudoActive(next.sudoActive);
+        setSudoStatus(next.sudoStatus);
+        return;
+      }
+
+      const payload = (await response.json()) as { active?: boolean };
+      const next = resolveSudoStatusPayload(Boolean(payload.active));
+      setSudoActive(next.sudoActive);
+      setSudoStatus(next.sudoStatus);
+    } catch (error) {
+      const next = createSudoStatusFailureState(
+        error instanceof Error ? error.message : null
+      );
+      setSudoActive(next.sudoActive);
+      setSudoStatus(next.sudoStatus);
       return;
     }
-    const payload = (await response.json()) as { active?: boolean };
-    const next = resolveSudoStatusPayload(Boolean(payload.active));
-    setSudoActive(next.sudoActive);
-    setSudoStatus(next.sudoStatus);
   }, []);
 
   const requestSudoForAction = (
@@ -60,7 +75,15 @@ export function useSettingsPanelSudo({ currentTab }: { currentTab: string }) {
         body: JSON.stringify({ action: "request" }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
-      });
+      }).catch(() => null);
+      if (!response) {
+        const next = resolveSudoCodeRequestStatus({
+          responseOk: false,
+        });
+        setSudoStatus(next.sudoStatus);
+        return;
+      }
+
       const payload = (await response.json().catch(() => ({}))) as {
         error?: string;
       };
@@ -84,7 +107,14 @@ export function useSettingsPanelSudo({ currentTab }: { currentTab: string }) {
         body: JSON.stringify({ action: "verify", code: sudoCode.trim() }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
-      });
+      }).catch(() => null);
+      if (!response) {
+        const next = resolveSudoVerifyFailureState("Unable to verify code.");
+        setSudoActive(next.sudoActive);
+        setSudoStatus(next.sudoStatus);
+        setSudoVerifyingCode(next.sudoVerifyingCode);
+        return;
+      }
 
       if (!response.ok) {
         const payload = (await response.json().catch(() => ({}))) as {

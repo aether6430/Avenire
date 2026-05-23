@@ -54,4 +54,19 @@ describe("SettingsWorkspaceStatsSection", () => {
     expect(html).toContain("19");
     expect(html).toContain("3 pending ingestion");
   });
+
+  it("renders zeroed loaded values and the waiting-ingestion copy before usage arrives", () => {
+    const html = renderToStaticMarkup(
+      <SettingsWorkspaceStatsSection
+        workspaceUsage={null}
+        workspaceUsageLoadFailed={false}
+        workspaceUsageLoading={false}
+        workspaceUsageStatus={null}
+      />
+    );
+
+    expect(html).toContain("Live workspace totals");
+    expect(html).toContain("0 B");
+    expect(html).toContain("Waiting for ingestion status.");
+  });
 });

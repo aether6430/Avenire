@@ -8,6 +8,7 @@ describe("DashboardHomeColumns", () => {
       <DashboardHomeColumns
         activeMisconceptions={[]}
         activities={[]}
+        activityErrorMessage="activity backend offline"
         activityLoadFailed
         currentUserId="user-1"
         DashboardTaskManager={() => <div>tasks</div>}
@@ -25,7 +26,56 @@ describe("DashboardHomeColumns", () => {
       />
     );
 
-    expect(html).toContain("Unable to load activity.");
+    expect(html).toContain("activity backend offline");
     expect(html).not.toContain("No recent activity.");
+  });
+
+  it("renders explicit empty states for weak concepts and upcoming mindset review", () => {
+    const weakPointsHtml = renderToStaticMarkup(
+      <DashboardHomeColumns
+        activeMisconceptions={[]}
+        activities={[]}
+        activityErrorMessage={null}
+        activityLoadFailed={false}
+        currentUserId="user-1"
+        DashboardTaskManager={() => <div>tasks</div>}
+        flashcardSets={[]}
+        homeTab="tasks"
+        insightsTab="weak-points"
+        loadingActivities={false}
+        onHomeTabChange={() => {}}
+        onInsightsTabChange={() => {}}
+        onSelectMisconception={() => {}}
+        onStartReview={() => {}}
+        weakestDrillTarget={null}
+        weakPointGroups={[]}
+        workspaceId="workspace-1"
+      />
+    );
+
+    const upcomingHtml = renderToStaticMarkup(
+      <DashboardHomeColumns
+        activeMisconceptions={[]}
+        activities={[]}
+        activityErrorMessage={null}
+        activityLoadFailed={false}
+        currentUserId="user-1"
+        DashboardTaskManager={() => <div>tasks</div>}
+        flashcardSets={[]}
+        homeTab="tasks"
+        insightsTab="upcoming"
+        loadingActivities={false}
+        onHomeTabChange={() => {}}
+        onInsightsTabChange={() => {}}
+        onSelectMisconception={() => {}}
+        onStartReview={() => {}}
+        weakestDrillTarget={null}
+        weakPointGroups={[]}
+        workspaceId="workspace-1"
+      />
+    );
+
+    expect(weakPointsHtml).toContain("No recent concepts yet");
+    expect(upcomingHtml).toContain("Nothing is waiting right now.");
   });
 });

@@ -3,14 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 
 const {
   SettingsWorkspaceMembersSectionMock,
-  SettingsWorkspaceNoteTemplatesSectionMock,
   SettingsWorkspaceStatsSectionMock,
 } = vi.hoisted(() => ({
   SettingsWorkspaceMembersSectionMock: vi.fn(() => (
     <div>WORKSPACE_MEMBERS</div>
-  )),
-  SettingsWorkspaceNoteTemplatesSectionMock: vi.fn(() => (
-    <div>WORKSPACE_TEMPLATES</div>
   )),
   SettingsWorkspaceStatsSectionMock: vi.fn(() => <div>WORKSPACE_STATS</div>),
 }));
@@ -18,14 +14,6 @@ const {
 vi.mock("@/components/settings/settings-workspace-members-section", () => ({
   SettingsWorkspaceMembersSection: SettingsWorkspaceMembersSectionMock,
 }));
-
-vi.mock(
-  "@/components/settings/settings-workspace-note-templates-section",
-  () => ({
-    SettingsWorkspaceNoteTemplatesSection:
-      SettingsWorkspaceNoteTemplatesSectionMock,
-  })
-);
 
 vi.mock("@/components/settings/settings-workspace-stats-section", () => ({
   SettingsWorkspaceStatsSection: SettingsWorkspaceStatsSectionMock,
@@ -39,16 +27,14 @@ describe("SettingsWorkspaceSelectedSections", () => {
       currentUserEmail: "owner@example.com",
       inviteWorkspaceMember: async () => undefined,
       isInvitingMember: false,
-      noteTemplates: [],
-      openNoteTemplateEditor: () => undefined,
       privacyMode: false,
       removeWorkspaceMember: async () => undefined,
       selectedWorkspace: { name: "Workspace" },
       selectedWorkspaceMemberCount: 1,
-      setNoteTemplates: () => undefined,
       setWorkspaceEmail: () => undefined,
       workspaceEmail: "",
       workspaceMembers: [],
+      workspaceMembersErrorMessage: null,
       workspaceMembersLoadFailed: false,
       workspaceMembersLoading: false,
       workspaceStatus: null,
@@ -71,14 +57,6 @@ describe("SettingsWorkspaceSelectedSections", () => {
       },
       undefined
     );
-    expect(SettingsWorkspaceNoteTemplatesSectionMock).toHaveBeenCalledWith(
-      {
-        noteTemplates: [],
-        openNoteTemplateEditor: props.openNoteTemplateEditor,
-        setNoteTemplates: props.setNoteTemplates,
-      },
-      undefined
-    );
     expect(SettingsWorkspaceMembersSectionMock).toHaveBeenCalledWith(
       expect.objectContaining({
         currentUserEmail: "owner@example.com",
@@ -87,7 +65,6 @@ describe("SettingsWorkspaceSelectedSections", () => {
       undefined
     );
     expect(html).toContain("WORKSPACE_STATS");
-    expect(html).toContain("WORKSPACE_TEMPLATES");
     expect(html).toContain("WORKSPACE_MEMBERS");
   });
 });

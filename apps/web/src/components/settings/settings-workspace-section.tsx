@@ -7,10 +7,17 @@ import { Button } from "@avenire/ui/components/button";
 import { Input } from "@avenire/ui/components/input";
 import { Check, Warning as TriangleAlert, Users } from "@phosphor-icons/react";
 import { Camera } from "@phosphor-icons/react/ssr";
-import type { SettingsWorkspaceSectionRuntime } from "@/components/settings/settings-workspace-tab-shell";
+import type { SettingsWorkspaceManagementRuntime } from "@/components/settings/use-settings-workspace-management";
 import { Divider, Section } from "./settings-panel-content-shared";
 import { getWorkspaceListStateMessage } from "./settings-workspace-model";
 import { SettingsWorkspaceSelectedSections } from "./settings-workspace-selected-sections";
+
+export interface SettingsWorkspaceSectionRuntime
+  extends SettingsWorkspaceManagementRuntime {
+  currentUserEmail: string | null;
+  deleteSelectedWorkspace: () => Promise<void>;
+  privacyMode: boolean;
+}
 
 export function SettingsWorkspaceSection({
   runtime,
@@ -26,8 +33,6 @@ export function SettingsWorkspaceSection({
     inviteWorkspaceMember,
     isCreatingWorkspace,
     isInvitingMember,
-    noteTemplates,
-    openNoteTemplateEditor,
     privacyMode,
     removeWorkspaceMember,
     saveWorkspaceIcon,
@@ -35,7 +40,6 @@ export function SettingsWorkspaceSection({
     selectedWorkspaceInitial,
     selectedWorkspaceMemberCount,
     setActiveWorkspaceId,
-    setNoteTemplates,
     setWorkspaceDeleteConfirm,
     setWorkspaceEmail,
     setWorkspaceIconDraft,
@@ -50,10 +54,12 @@ export function SettingsWorkspaceSection({
     workspaceName,
     workspaceStatus,
     workspaces,
+    workspacesErrorMessage,
     workspacesLoadFailed,
     workspacesLoading,
   } = runtime;
   const workspaceListStateMessage = getWorkspaceListStateMessage({
+    errorMessage: workspacesErrorMessage,
     loading: workspacesLoading,
     loadFailed: workspacesLoadFailed,
     workspaceCount: workspaces.length,
@@ -137,16 +143,16 @@ export function SettingsWorkspaceSection({
               currentUserEmail={currentUserEmail}
               inviteWorkspaceMember={inviteWorkspaceMember}
               isInvitingMember={isInvitingMember}
-              noteTemplates={noteTemplates}
-              openNoteTemplateEditor={openNoteTemplateEditor}
               privacyMode={privacyMode}
               removeWorkspaceMember={removeWorkspaceMember}
               selectedWorkspace={selectedWorkspace}
               selectedWorkspaceMemberCount={selectedWorkspaceMemberCount}
-              setNoteTemplates={setNoteTemplates}
               setWorkspaceEmail={setWorkspaceEmail}
               workspaceEmail={workspaceEmail}
               workspaceMembers={runtime.workspaceMembers}
+              workspaceMembersErrorMessage={
+                runtime.workspaceMembersErrorMessage
+              }
               workspaceMembersLoadFailed={runtime.workspaceMembersLoadFailed}
               workspaceMembersLoading={runtime.workspaceMembersLoading}
               workspaceStatus={workspaceStatus}

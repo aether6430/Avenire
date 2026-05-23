@@ -60,74 +60,91 @@ describe("extension route handlers", () => {
       {
         name: "Aveniri",
         organizationId: "org-1",
-        rootFolderId: "root-1",
-        workspaceId: "workspace-1",
+        rootFolderId: "550e8400-e29b-41d4-a716-446655440001",
+        workspaceId: "550e8400-e29b-41d4-a716-446655440000",
       },
     ]);
     listWorkspaceFoldersMock.mockResolvedValue([
-      { id: "root-1", name: "Workspace", parentId: null },
-      { id: "folder-1", name: "Inbox", parentId: "root-1" },
+      {
+        id: "550e8400-e29b-41d4-a716-446655440001",
+        name: "Workspace",
+        parentId: null,
+      },
+      {
+        id: "550e8400-e29b-41d4-a716-446655440002",
+        name: "Inbox",
+        parentId: "550e8400-e29b-41d4-a716-446655440001",
+      },
     ]);
     getFolderWithAncestorsMock.mockResolvedValue({
-      ancestors: [{ id: "root-1", name: "Workspace" }],
-      folder: { id: "folder-1", name: "Inbox", parentId: "root-1" },
+      ancestors: [
+        { id: "550e8400-e29b-41d4-a716-446655440001", name: "Workspace" },
+      ],
+      folder: {
+        id: "550e8400-e29b-41d4-a716-446655440002",
+        name: "Inbox",
+        parentId: "550e8400-e29b-41d4-a716-446655440001",
+      },
     });
     resolveAccessibleExtensionWorkspaceContextMock.mockResolvedValue({
       success: true,
       workspace: {
         name: "Aveniri",
         organizationId: "org-1",
-        rootFolderId: "root-1",
-        workspaceId: "workspace-1",
+        rootFolderId: "550e8400-e29b-41d4-a716-446655440001",
+        workspaceId: "550e8400-e29b-41d4-a716-446655440000",
       },
-      workspaceUuid: "workspace-1",
+      workspaceUuid: "550e8400-e29b-41d4-a716-446655440000",
     });
     listExtensionDestinationPresetsMock.mockResolvedValue([
       {
         createdAt: new Date("2026-05-18T00:00:00.000Z"),
-        folderId: "folder-1",
+        folderId: "550e8400-e29b-41d4-a716-446655440002",
         folderName: "Inbox",
-        id: "preset-1",
+        id: "550e8400-e29b-41d4-a716-446655440003",
         label: "Inbox",
         organizationId: "org-1",
         updatedAt: new Date("2026-05-18T01:00:00.000Z"),
-        workspaceId: "workspace-1",
+        workspaceId: "550e8400-e29b-41d4-a716-446655440000",
         workspaceName: "Aveniri",
       },
     ]);
     resolveExtensionDestinationWorkspaceFolderContextMock.mockResolvedValue({
-      folder: { id: "folder-1", name: "Inbox" },
+      folder: {
+        id: "550e8400-e29b-41d4-a716-446655440002",
+        name: "Inbox",
+      },
       success: true,
       workspace: {
         name: "Aveniri",
         organizationId: "org-1",
-        workspaceId: "workspace-1",
+        workspaceId: "550e8400-e29b-41d4-a716-446655440000",
       },
     });
     createExtensionDestinationPresetMock.mockResolvedValue({
       createdAt: new Date("2026-05-18T00:00:00.000Z"),
-      folderId: "folder-1",
+      folderId: "550e8400-e29b-41d4-a716-446655440002",
       folderName: "Inbox",
-      id: "preset-1",
+      id: "550e8400-e29b-41d4-a716-446655440003",
       label: "Inbox",
       organizationId: "org-1",
       updatedAt: new Date("2026-05-18T01:00:00.000Z"),
-      workspaceId: "workspace-1",
+      workspaceId: "550e8400-e29b-41d4-a716-446655440000",
       workspaceName: "Aveniri",
     });
     getOwnedExtensionDestinationPresetMock.mockResolvedValue({
-      destination: { id: "preset-1" },
+      destination: { id: "550e8400-e29b-41d4-a716-446655440003" },
       success: true,
     });
     updateExtensionDestinationPresetMock.mockResolvedValue({
       createdAt: new Date("2026-05-18T00:00:00.000Z"),
-      folderId: "folder-1",
+      folderId: "550e8400-e29b-41d4-a716-446655440002",
       folderName: "Inbox",
-      id: "preset-1",
+      id: "550e8400-e29b-41d4-a716-446655440003",
       label: "Inbox",
       organizationId: "org-1",
       updatedAt: new Date("2026-05-18T01:00:00.000Z"),
-      workspaceId: "workspace-1",
+      workspaceId: "550e8400-e29b-41d4-a716-446655440000",
       workspaceName: "Aveniri",
     });
     deleteExtensionDestinationPresetMock.mockResolvedValue(true);
@@ -154,15 +171,15 @@ describe("extension route handlers", () => {
     await expect(workspaces.json()).resolves.toEqual({
       workspaces: [
         expect.objectContaining({
-          workspaceId: "workspace-1",
+          workspaceId: "550e8400-e29b-41d4-a716-446655440000",
         }),
       ],
     });
     await expect(destinations.json()).resolves.toEqual({
       destinations: [
         expect.objectContaining({
-          folderId: "folder-1",
-          id: "preset-1",
+          folderId: "550e8400-e29b-41d4-a716-446655440002",
+          id: "550e8400-e29b-41d4-a716-446655440003",
         }),
       ],
     });
@@ -182,17 +199,23 @@ describe("extension route handlers", () => {
   it("loads extension folders and handles inaccessible or missing folder contexts", async () => {
     const response = await handleExtensionWorkspaceFoldersRouteGet({
       request: new Request(
-        "https://avenire.space/api/extension/workspaces/workspace-1/folders?parentId=folder-1"
+        "https://avenire.space/api/extension/workspaces/550e8400-e29b-41d4-a716-446655440000/folders?parentId=550e8400-e29b-41d4-a716-446655440002"
       ),
       userId: "user-1",
-      workspaceUuid: "workspace-1",
+      workspaceUuid: "550e8400-e29b-41d4-a716-446655440000",
     });
 
     await expect(response.json()).resolves.toEqual({
-      ancestors: [{ id: "root-1", name: "Workspace" }],
-      currentFolder: { id: "folder-1", name: "Inbox", parentId: "root-1" },
+      ancestors: [
+        { id: "550e8400-e29b-41d4-a716-446655440001", name: "Workspace" },
+      ],
+      currentFolder: {
+        id: "550e8400-e29b-41d4-a716-446655440002",
+        name: "Inbox",
+        parentId: "550e8400-e29b-41d4-a716-446655440001",
+      },
       folders: [],
-      rootFolderId: "root-1",
+      rootFolderId: "550e8400-e29b-41d4-a716-446655440001",
     });
 
     resolveAccessibleExtensionWorkspaceContextMock.mockResolvedValueOnce({
@@ -203,9 +226,22 @@ describe("extension route handlers", () => {
     const forbidden = await handleExtensionWorkspaceFoldersRouteGet({
       request: new Request("https://avenire.space"),
       userId: "user-1",
-      workspaceUuid: "workspace-1",
+      workspaceUuid: "550e8400-e29b-41d4-a716-446655440000",
     });
     expect(forbidden.status).toBe(403);
+
+    const invalidParent = await handleExtensionWorkspaceFoldersRouteGet({
+      request: new Request(
+        "https://avenire.space/api/extension/workspaces/550e8400-e29b-41d4-a716-446655440000/folders?parentId=folder-1"
+      ),
+      userId: "user-1",
+      workspaceUuid: "550e8400-e29b-41d4-a716-446655440000",
+    });
+    expect(invalidParent.status).toBe(400);
+    await expect(invalidParent.json()).resolves.toEqual({
+      error: "Invalid parentId",
+    });
+    expect(listWorkspaceFoldersMock).toHaveBeenCalledTimes(1);
   });
 
   it("creates, updates, and deletes extension destinations with explicit failure paths", async () => {
@@ -223,17 +259,19 @@ describe("extension route handlers", () => {
     expect(created.status).toBe(201);
 
     const patched = await handleExtensionDestinationRoutePatch({
-      params: Promise.resolve({ id: "preset-1" }),
+      params: Promise.resolve({ id: "550e8400-e29b-41d4-a716-446655440003" }),
       request,
       userId: "user-1",
     });
     await expect(patched.json()).resolves.toEqual({
-      destination: expect.objectContaining({ id: "preset-1" }),
+      destination: expect.objectContaining({
+        id: "550e8400-e29b-41d4-a716-446655440003",
+      }),
     });
 
     deleteExtensionDestinationPresetMock.mockResolvedValueOnce(false);
     const missingDelete = await handleExtensionDestinationRouteDelete({
-      params: Promise.resolve({ id: "preset-1" }),
+      params: Promise.resolve({ id: "550e8400-e29b-41d4-a716-446655440003" }),
       userId: "user-1",
     });
     expect(missingDelete.status).toBe(404);

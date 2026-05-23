@@ -112,6 +112,7 @@ export function FileExplorer({
     propertyDefinitions,
     refreshData,
     refreshDataDebounced,
+    applyFilesInvalidation,
     setPropertyDefinitions,
   } = useWorkspaceExplorerData({
     currentFolderId,
@@ -127,16 +128,9 @@ export function FileExplorer({
     searchParams,
     workspaceUuid,
   });
-  const {
-    navigateToFolder,
-    openFolderById,
-    openSearchResult,
-    openWorkspaceFileInFolder,
-    selectFile,
-  } = navigation;
+  const { navigateToFolder, openWorkspaceFileInFolder, selectFile } =
+    navigation;
   const searchSurface = useExplorerSearchSurface({
-    onOpenFolderById: openFolderById,
-    onOpenSearchResult: openSearchResult,
     selectedRetrievalChunkParam,
     workspaceUuid,
   });
@@ -148,6 +142,8 @@ export function FileExplorer({
   });
   const { propertyFilters } = propertyControls;
   const derivedState = useExplorerDerivedState({
+    allFiles,
+    allFolders,
     breadcrumbs,
     files,
     folders,
@@ -223,6 +219,7 @@ export function FileExplorer({
     navigation,
     noteWorkflows,
     onOpenMobileCreateMenu: openMobileCreateMenu,
+    applyFilesInvalidation,
     refreshDataDebounced,
     viewMode,
     visibleItemIds,

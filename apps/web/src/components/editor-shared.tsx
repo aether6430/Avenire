@@ -27,12 +27,9 @@ export {
   getWorkspaceFileIdFromHref,
   insertMarkdownContent,
   insertWikiLink,
-  loadRecentTemplateIds,
-  loadWorkspaceNoteTemplates,
   MENU_OFFSET,
   MERMAID_DEFAULT,
   normalizeWikiSyntax,
-  persistRecentTemplate,
   VIEWPORT_PADDING,
 } from "@/components/editor/editor-core";
 
@@ -48,7 +45,6 @@ export {
 export {
   CodeBlockOverlayControls,
   EditorTableOfContentsRail,
-  EmptyNoteTemplateActions,
   SelectionBubbleMenu,
   SlashMenu,
   WikiMenu,

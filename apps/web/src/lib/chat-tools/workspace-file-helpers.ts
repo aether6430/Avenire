@@ -311,8 +311,19 @@ export async function publishTreeMutationEvents(input: {
 export function findTargetNoteFile(params: {
   maps: WorkspacePathMaps;
   noteFiles: ExplorerFileLike[];
+  requireExplicitTarget?: boolean;
   task: string;
 }) {
+  const explicitFileId =
+    params.task.match(/workspace-file:\/\/([a-z0-9-]+)/i)?.[1]?.trim() ??
+    params.task.match(/\bfile\s*id\b\s*[:=]\s*([a-z0-9-]+)/i)?.[1]?.trim() ??
+    params.task.match(/\bfileId\b\s*[:=]\s*([a-z0-9-]+)/i)?.[1]?.trim() ??
+    null;
+
+  if (explicitFileId) {
+    return params.noteFiles.find((file) => file.id === explicitFileId) ?? null;
+  }
+
   const destination = parseRequestedNoteDestination(params.task);
   const directPath =
     (destination.folderHint && destination.fileName
@@ -322,6 +333,10 @@ export function findTargetNoteFile(params: {
 
   if (resolvedByPath) {
     return params.noteFiles.find((file) => file.id === resolvedByPath) ?? null;
+  }
+
+  if (params.requireExplicitTarget) {
+    return null;
   }
 
   const normalizedTitle = stripNoteExtension(
@@ -349,14 +364,14 @@ export function mapSearchResultsToCitations(params: {
     fileId: match.fileId,
     page: match.page ?? null,
     score: match.score,
-    snippet: match.content,
+    snippet: match.content.trim(),
     sourceType: match.sourceType,
     startMs: match.startMs ?? null,
-    title: match.title ?? null,
+    title: match.title?.trim() ?? null,
     workspacePath:
       (match.fileId ? params.maps.filePathById.get(match.fileId) : null) ??
-      match.title ??
-      match.source,
+      match.title?.trim() ??
+      match.source.trim(),
   }));
 }
 
@@ -406,6 +421,9 @@ export async function resolveFileExcerpt(params: {
       maps: params.maps,
       maxChars: params.maxChars,
     });
+    if (!result.content.trim()) {
+      return null;
+    }
 
     return {
       excerpt: result.content,

@@ -1,8 +1,13 @@
 import type { ExplorerUploadQueueItem } from "@/components/files/explorer/explorer-upload-model";
+import type {
+  FileRecord,
+  FolderRecord,
+} from "@/components/files/explorer/shared";
 
 export interface ExplorerFilesInvalidationPayload {
+  fileId?: string | null;
   folderId?: string | null;
-  reason?: string;
+  reason?: string | null;
   workspaceUuid?: string;
 }
 
@@ -78,4 +83,63 @@ export function shouldEnableExplorerRealtime(queue: ExplorerUploadQueueItem[]) {
       item.status === "uploading" ||
       item.status === "ingesting"
   );
+}
+
+export function collectExplorerDeletedFolderIds(
+  folders: FolderRecord[],
+  folderId: string
+) {
+  const deletedIds = new Set<string>([folderId]);
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+    for (const folder of folders) {
+      if (
+        folder.parentId &&
+        deletedIds.has(folder.parentId) &&
+        !deletedIds.has(folder.id)
+      ) {
+        deletedIds.add(folder.id);
+        changed = true;
+      }
+    }
+  }
+
+  return deletedIds;
+}
+
+export function applyExplorerFilesRealtimeInvalidation(input: {
+  allFiles: FileRecord[];
+  allFolders: FolderRecord[];
+  detail: ExplorerFilesInvalidationPayload | null;
+}) {
+  if (input.detail?.reason === "file.deleted" && input.detail.fileId) {
+    return {
+      allFiles: input.allFiles.filter(
+        (file) => file.id !== input.detail?.fileId
+      ),
+      allFolders: input.allFolders,
+      deletedFolderIds: new Set<string>(),
+    };
+  }
+
+  if (input.detail?.reason === "folder.deleted" && input.detail.folderId) {
+    const deletedFolderIds = collectExplorerDeletedFolderIds(
+      input.allFolders,
+      input.detail.folderId
+    );
+
+    return {
+      allFiles: input.allFiles.filter(
+        (file) => !deletedFolderIds.has(file.folderId)
+      ),
+      allFolders: input.allFolders.filter(
+        (folder) => !deletedFolderIds.has(folder.id)
+      ),
+      deletedFolderIds,
+    };
+  }
+
+  return null;
 }

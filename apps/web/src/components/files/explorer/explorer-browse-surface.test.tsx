@@ -1,5 +1,7 @@
 "use client";
 
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
@@ -15,6 +17,15 @@ vi.mock("@/components/files/explorer/explorer-browse-cards", () => ({
 vi.mock("@/components/files/explorer/explorer-browse-list", () => ({
   ExplorerBrowseList: ExplorerBrowseListMock,
 }));
+
+const fileExplorerSource = readFileSync(
+  resolve(import.meta.dirname, "../explorer.tsx"),
+  "utf8"
+);
+const explorerBrowsePaneSource = readFileSync(
+  resolve(import.meta.dirname, "explorer-browse-pane.tsx"),
+  "utf8"
+);
 
 import { ExplorerBrowseSurface } from "@/components/files/explorer/explorer-browse-surface";
 
@@ -46,6 +57,7 @@ describe("ExplorerBrowseSurface", () => {
         stopItemSelectionEvent: () => {},
       },
       isMobile: false,
+      isSearchFilteredView: false,
       itemActionTargetSelector: "[data-item-actions]",
       listMeasureElement: () => {},
       listTotalSize: 0,
@@ -64,6 +76,7 @@ describe("ExplorerBrowseSurface", () => {
         setItemSelected: () => {},
         toggleSelection: () => {},
       },
+      searchResultByFileId: new Map(),
       setItemRowRef: () => {},
       sortedFiles: [],
       sortedFolders: [],
@@ -77,5 +90,29 @@ describe("ExplorerBrowseSurface", () => {
     expect(ExplorerBrowseListMock).toHaveBeenCalledTimes(1);
     expect(html).toContain("EXPLORER_BROWSE_CARDS");
     expect(html).toContain("EXPLORER_BROWSE_LIST");
+  });
+
+  it("keeps the top-level explorer on split orchestration hooks and browse/preview panes", () => {
+    expect(fileExplorerSource).toContain(
+      "@/components/files/explorer/use-explorer-shell"
+    );
+    expect(fileExplorerSource).toContain(
+      "@/components/files/explorer/use-workspace-explorer-data"
+    );
+    expect(fileExplorerSource).toContain(
+      "@/components/files/explorer/use-explorer-runtime"
+    );
+    expect(fileExplorerSource).toContain(
+      "@/components/files/explorer/use-explorer-pane-surfaces"
+    );
+    expect(fileExplorerSource).toContain("ExplorerBrowsePane");
+    expect(fileExplorerSource).toContain("ExplorerPreviewPane");
+    expect(fileExplorerSource).not.toContain("buildExplorerBrowsePaneProps(");
+    expect(fileExplorerSource).not.toContain("buildExplorerPreviewPaneProps(");
+
+    expect(explorerBrowsePaneSource).toContain("StylizedSearchBar");
+    expect(explorerBrowsePaneSource).toContain("ExplorerControls");
+    expect(explorerBrowsePaneSource).toContain("ExplorerCanvasShell");
+    expect(explorerBrowsePaneSource).toContain("ExplorerBrowseSurface");
   });
 });

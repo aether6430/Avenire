@@ -1,5 +1,5 @@
-import type { PageMetadataState } from "@/lib/frontmatter";
 import { z } from "zod";
+import type { PageMetadataState } from "@/lib/frontmatter";
 
 const noteSyncPostPayloadSchema = z.object({
   base: z.string(),
@@ -7,6 +7,8 @@ const noteSyncPostPayloadSchema = z.object({
 });
 
 export const NOTE_SYNC_INVALID_PAYLOAD_ERROR = "Invalid sync payload";
+export const NOTE_SYNC_GET_ERROR = "Unable to load note sync.";
+export const NOTE_SYNC_POST_ERROR = "Unable to sync note.";
 
 export function normalizeNoteSyncId(noteId: string) {
   return noteId.trim();
@@ -42,4 +44,8 @@ export function buildNoteSyncPostResponse(input: {
     updatedAt: input.updatedAt,
     version: input.version,
   };
+}
+
+export function resolveNoteSyncRouteError(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
 }

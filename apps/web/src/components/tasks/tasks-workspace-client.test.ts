@@ -1,9 +1,20 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   deleteWorkspaceTaskRecord,
   saveWorkspaceTaskDraft,
   updateWorkspaceTaskStatus,
 } from "@/components/tasks/tasks-workspace-client";
+
+const tasksWorkspaceClientSource = readFileSync(
+  resolve(import.meta.dirname, "tasks-workspace-client.ts"),
+  "utf8"
+);
+const tasksWorkspaceModelSource = readFileSync(
+  resolve(import.meta.dirname, "tasks-workspace-model.ts"),
+  "utf8"
+);
 
 describe("tasks workspace client", () => {
   afterEach(() => {
@@ -106,5 +117,24 @@ describe("tasks workspace client", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/tasks/task-4", {
       method: "DELETE",
     });
+  });
+
+  it("keeps payload shaping in the shared tasks workspace model instead of the fetch client", () => {
+    expect(tasksWorkspaceClientSource).toContain(
+      "@/components/tasks/tasks-workspace-model"
+    );
+    expect(tasksWorkspaceClientSource).toContain(
+      "buildTaskPayload(input.draft)"
+    );
+    expect(tasksWorkspaceClientSource).toContain("parseTaskWorkspaceResponse");
+    expect(tasksWorkspaceClientSource).not.toContain(
+      "title: draft.title.trim()"
+    );
+    expect(tasksWorkspaceClientSource).not.toContain(
+      "description: draft.description.trim()"
+    );
+    expect(tasksWorkspaceModelSource).toContain(
+      "export function buildTaskPayload"
+    );
   });
 });

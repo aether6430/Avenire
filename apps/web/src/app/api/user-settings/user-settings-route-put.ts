@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { upsertUserSettings } from "@/lib/user-settings";
 import {
   parseUserSettingsUpdatePayload,
+  resolveUserSettingsRouteError,
+  USER_SETTINGS_SAVE_ERROR,
   USER_SETTINGS_UPDATE_ERROR,
 } from "./user-settings-route-model";
 
@@ -24,6 +26,15 @@ export async function handleUserSettingsRoutePut(input: {
     );
   }
 
-  const settings = await upsertUserSettings(input.userId, parsed.data);
-  return NextResponse.json({ settings });
+  try {
+    const settings = await upsertUserSettings(input.userId, parsed.data);
+    return NextResponse.json({ settings });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: resolveUserSettingsRouteError(error, USER_SETTINGS_SAVE_ERROR),
+      },
+      { status: 500 }
+    );
+  }
 }

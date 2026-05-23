@@ -1,4 +1,5 @@
 export const WORKSPACE_FILE_STREAM_CHUNK_BYTES = 4 * 1024 * 1024;
+export const WORKSPACE_FILE_STREAM_ERROR = "Unable to stream file";
 
 export function normalizeWorkspaceFileStreamSingleRange(input: {
   rangeHeader: string;
@@ -105,4 +106,11 @@ export function buildWorkspaceFileStreamResponseHeaders(input: {
   headers.set("vary", "Range, Cookie");
 
   return headers;
+}
+
+export function resolveWorkspaceFileStreamRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
 }

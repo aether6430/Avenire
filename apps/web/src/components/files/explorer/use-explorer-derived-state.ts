@@ -13,6 +13,8 @@ import {
 } from "@/components/files/explorer/workspace-folder-browse-model";
 
 interface UseExplorerDerivedStateOptions {
+  allFiles: FileRecord[];
+  allFolders: FolderRecord[];
   breadcrumbs: FolderRecord[];
   files: FileRecord[];
   folders: FolderRecord[];
@@ -25,6 +27,8 @@ interface UseExplorerDerivedStateOptions {
 }
 
 export function useExplorerDerivedState({
+  allFiles,
+  allFolders,
   breadcrumbs,
   files,
   folders,
@@ -49,6 +53,8 @@ export function useExplorerDerivedState({
   const browseState = useMemo(
     () =>
       buildWorkspaceFolderBrowseModel({
+        allFiles,
+        allFolders,
         files,
         folders,
         propertyFilters,
@@ -56,7 +62,16 @@ export function useExplorerDerivedState({
         sortState,
         vectorFilteredIds,
       }),
-    [files, folders, propertyFilters, query, sortState, vectorFilteredIds]
+    [
+      allFiles,
+      allFolders,
+      files,
+      folders,
+      propertyFilters,
+      query,
+      sortState,
+      vectorFilteredIds,
+    ]
   );
 
   return {

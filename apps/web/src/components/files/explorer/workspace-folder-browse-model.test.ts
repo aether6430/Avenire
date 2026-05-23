@@ -73,6 +73,42 @@ describe("workspace folder browse model", () => {
     };
 
     const model = buildWorkspaceFolderBrowseModel({
+      allFiles: [
+        buildFile({
+          id: "file-a",
+          name: "Alpha.md",
+          page: {
+            ...EMPTY_PAGE_METADATA_STATE,
+            properties: {
+              priority: { type: "number", value: 3 },
+              status: { type: "select", value: "Open" },
+            },
+          },
+        }),
+        buildFile({
+          id: "file-b",
+          name: "Beta.md",
+          page: {
+            ...EMPTY_PAGE_METADATA_STATE,
+            properties: {
+              priority: { type: "number", value: 1 },
+              status: { type: "select", value: "Open" },
+            },
+          },
+        }),
+        buildFile({
+          id: "file-c",
+          name: "Gamma.md",
+          page: {
+            ...EMPTY_PAGE_METADATA_STATE,
+            properties: {
+              priority: { type: "number", value: 2 },
+              status: { type: "select", value: "Closed" },
+            },
+          },
+        }),
+      ],
+      allFolders: [buildFolder({ id: "folder-a", name: "Specs" })],
       files: [
         buildFile({
           id: "file-a",
@@ -151,14 +187,16 @@ describe("workspace folder browse model", () => {
     };
 
     const model = buildWorkspaceFolderBrowseModel({
-      files: [
+      allFiles: [
         buildFile({ id: "file-a", name: "Inbox.md" }),
         buildFile({ id: "file-b", name: "Launch plan.md" }),
       ],
-      folders: [
+      allFolders: [
         buildFolder({ id: "folder-a", name: "Archive" }),
         buildFolder({ id: "folder-b", name: "Launch" }),
       ],
+      files: [],
+      folders: [],
       propertyFilters: [],
       query: "this term matches nothing",
       sortState,
@@ -170,5 +208,34 @@ describe("workspace folder browse model", () => {
     ]);
     expect(model.filteredFiles.map((file) => file.id)).toEqual(["file-a"]);
     expect(model.visibleItemIds).toEqual(["folder-b", "file-a"]);
+  });
+
+  it("keeps an empty vector filter distinct from the unfiltered folder view", () => {
+    const sortState: SortState = {
+      direction: "asc",
+      key: "name",
+      kind: "builtin",
+    };
+
+    const model = buildWorkspaceFolderBrowseModel({
+      allFiles: [
+        buildFile({ id: "file-a", name: "Inbox.md" }),
+        buildFile({ id: "file-b", name: "Launch plan.md" }),
+      ],
+      allFolders: [
+        buildFolder({ id: "folder-a", name: "Archive" }),
+        buildFolder({ id: "folder-b", name: "Launch" }),
+      ],
+      files: [buildFile({ id: "file-c", name: "Current folder file.md" })],
+      folders: [buildFolder({ id: "folder-c", name: "Current folder" })],
+      propertyFilters: [],
+      query: "launch",
+      sortState,
+      vectorFilteredIds: new Set(),
+    });
+
+    expect(model.filteredFolders).toEqual([]);
+    expect(model.filteredFiles).toEqual([]);
+    expect(model.visibleItemIds).toEqual([]);
   });
 });

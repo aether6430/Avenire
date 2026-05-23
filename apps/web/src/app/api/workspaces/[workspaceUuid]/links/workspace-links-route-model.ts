@@ -1,3 +1,12 @@
+export const WORKSPACE_LINKS_CREATE_ERROR = "Unable to create workspace link.";
+
+export function resolveWorkspaceLinksRouteError(
+  error: unknown,
+  fallback = WORKSPACE_LINKS_CREATE_ERROR
+) {
+  return error instanceof Error ? error.message : fallback;
+}
+
 export function normalizeWorkspaceLinkUrl(value: unknown) {
   if (typeof value !== "string") {
     return null;

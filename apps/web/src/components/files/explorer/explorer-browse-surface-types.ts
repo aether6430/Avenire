@@ -8,6 +8,7 @@ import type {
   FolderRecord,
 } from "@/components/files/explorer/shared";
 import type { ExplorerEntry } from "@/components/files/explorer/workspace-folder-browse-model";
+import type { WorkspaceSearchResult } from "@/components/files/search-model";
 import type { WorkspacePropertyDefinition } from "@/lib/frontmatter";
 
 export interface ExplorerBrowseSelectionApi {
@@ -75,6 +76,7 @@ export interface ExplorerBrowseSurfaceProps {
   hoveredPreviewFileId: string | null;
   interactions: ExplorerBrowseInteractionsApi;
   isMobile: boolean;
+  isSearchFilteredView: boolean;
   itemActionTargetSelector: string;
   listMeasureElement: React.RefCallback<HTMLDivElement>;
   listTotalSize: number;
@@ -86,6 +88,7 @@ export interface ExplorerBrowseSurfaceProps {
   onPreviewIntentEnd: (file: FileRecord) => void;
   onPreviewIntentStart: (file: FileRecord) => void;
   onResetFolderBanner: (folderId: string) => void;
+  searchResultByFileId: Map<string, WorkspaceSearchResult>;
   selectedCardPropertyDefinitions: WorkspacePropertyDefinition[];
   selection: ExplorerBrowseSelectionApi;
   setItemRowRef: (itemId: string, node: HTMLDivElement | null) => void;

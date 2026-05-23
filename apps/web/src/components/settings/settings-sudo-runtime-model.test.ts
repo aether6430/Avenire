@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createSudoActionRequestState,
   createSudoCodeRequestStartState,
+  createSudoStatusFailureState,
   createSudoVerifyStartState,
   createSudoVerifySuccessState,
   resolveSudoCodeRequestStatus,
@@ -70,6 +71,14 @@ describe("settings sudo runtime model", () => {
       sudoRequestingCode: false,
       sudoStatus: "Email disabled.",
     });
+    expect(
+      resolveSudoCodeRequestStatus({
+        responseOk: false,
+      })
+    ).toEqual({
+      sudoRequestingCode: false,
+      sudoStatus: "Unable to send code.",
+    });
   });
 
   it("creates deterministic states for sudo refresh and verification outcomes", () => {
@@ -80,6 +89,14 @@ describe("settings sudo runtime model", () => {
     expect(resolveSudoStatusPayload(false)).toEqual({
       sudoActive: false,
       sudoStatus: null,
+    });
+    expect(createSudoStatusFailureState("sudo backend offline")).toEqual({
+      sudoActive: false,
+      sudoStatus: "sudo backend offline",
+    });
+    expect(createSudoStatusFailureState()).toEqual({
+      sudoActive: false,
+      sudoStatus: "Unable to load sudo status.",
     });
     expect(createSudoVerifyStartState()).toEqual({
       sudoStatus: "Verifying code...",

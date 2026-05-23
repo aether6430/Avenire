@@ -148,31 +148,25 @@ export async function finalizeUploadSessionCompletion({
       });
     }
 
-    const isRateLimit =
-      (error as { code?: string } | null | undefined)?.code ===
-      "UPLOAD_RATE_LIMIT";
-    const retryAfter =
-      (error as { retryAfter?: string | null } | null | undefined)
-        ?.retryAfter ?? null;
+    const isStorageLimit =
+      (error as { code?: string } | null | undefined)?.code === "STORAGE_LIMIT";
 
-    void apiLogger.requestFailed(isRateLimit ? 429 : 500, error, {
+    void apiLogger.requestFailed(isStorageLimit ? 429 : 500, error, {
       completionDurationMs: Date.now() - requestStartedAt,
       workspaceUuid: session.workspaceUuid,
       sessionId: session.id,
-      retryAfter,
       sessionUploadDurationMs: Math.max(0, Date.now() - sessionStartedAt),
       sizeBytes: sizeBytes ?? null,
     });
 
     return NextResponse.json(
       {
-        error: isRateLimit
-          ? "Upload usage limit reached"
+        error: isStorageLimit
+          ? "Storage limit reached"
           : "Upload finalize failed",
-        retryAfter,
         session: failedSession,
       },
-      { status: isRateLimit ? 429 : 500 }
+      { status: isStorageLimit ? 429 : 500 }
     );
   }
 }

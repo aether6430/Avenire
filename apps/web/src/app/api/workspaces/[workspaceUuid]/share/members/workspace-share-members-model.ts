@@ -9,8 +9,20 @@ export const workspaceShareRemoveSchema = z.object({
   memberIdOrEmail: z.string().trim().min(1),
 });
 
+export const WORKSPACE_SHARE_MEMBERS_LIST_ERROR =
+  "Unable to load workspace members.";
+export const WORKSPACE_SHARE_MEMBERS_INVITE_ERROR = "Unable to add member.";
+export const WORKSPACE_SHARE_MEMBERS_REMOVE_ERROR = "Unable to remove member.";
+
 export function resolveInviteRole(role?: string) {
   return role === "admin" ? "admin" : "member";
+}
+
+export function resolveWorkspaceShareMembersRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
 }
 
 export function buildWorkspaceShareUrl(input: {

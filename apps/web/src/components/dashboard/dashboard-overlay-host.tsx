@@ -8,7 +8,10 @@ import {
   clearWorkspaceSettingsOverlayRoute,
   parseRequestedSettingsTab,
 } from "@/components/dashboard/dashboard-overlay-route-model";
-import type { SettingsInitialUser } from "@/components/settings/settings-panel-model";
+import type {
+  SettingsInitialUser,
+  WorkspaceSummary,
+} from "@/components/settings/settings-panel-model";
 import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
 
 const DeferredSettingsDialog = dynamic(
@@ -39,13 +42,7 @@ export function DashboardOverlayHost({
     workspaceId: string;
   } | null;
   initialUser?: SettingsInitialUser | null;
-  initialWorkspaces?: Array<{
-    logo: string | null;
-    workspaceId: string;
-    organizationId: string;
-    rootFolderId: string;
-    name: string;
-  }>;
+  initialWorkspaces?: WorkspaceSummary[];
 }) {
   const pathname = usePathname();
   const router = useRouter();

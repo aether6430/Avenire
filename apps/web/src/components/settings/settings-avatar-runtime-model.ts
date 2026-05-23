@@ -1,5 +1,3 @@
-import { getFacehashUrl } from "@/lib/avatar";
-
 export function resolveAvatarPreviewSource(
   sessionUser?: {
     email?: string | null;
@@ -7,10 +5,7 @@ export function resolveAvatarPreviewSource(
     name?: string | null;
   } | null
 ) {
-  return (
-    sessionUser?.image ??
-    getFacehashUrl(sessionUser?.name ?? sessionUser?.email ?? "")
-  );
+  return sessionUser?.image ?? "";
 }
 
 export function resolveDisplayAvatar(input: {
@@ -21,10 +16,21 @@ export function resolveDisplayAvatar(input: {
     email?: string | null;
   } | null;
 }) {
+  return input.avatarPreview || input.profileImage || "";
+}
+
+export function resolveAvatarSeed(input: {
+  profileName: string;
+  sessionUser?: {
+    email?: string | null;
+    name?: string | null;
+  } | null;
+}) {
   return (
-    input.avatarPreview ||
-    input.profileImage ||
-    getFacehashUrl(input.profileName || input.sessionUser?.email || "")
+    input.profileName ||
+    input.sessionUser?.name ||
+    input.sessionUser?.email ||
+    "user"
   );
 }
 

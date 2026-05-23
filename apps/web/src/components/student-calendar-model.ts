@@ -170,6 +170,12 @@ export const formatTaskDue = (dueAt: string | null) => {
   });
 };
 
+export function resolveStudentCalendarRevisionDataError(error: unknown) {
+  return error instanceof Error
+    ? error.message
+    : "Unable to load revision calendar.";
+}
+
 export async function fetchRevisionData(
   from: string,
   to: string,
@@ -181,7 +187,13 @@ export async function fetchRevisionData(
   });
 
   if (!response.ok) {
-    throw new Error("Unable to load revision calendar.");
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+
+    throw new Error(
+      payload.error?.trim() || "Unable to load revision calendar."
+    );
   }
 
   const payload = (await response.json()) as { data?: RevisionData };
@@ -194,7 +206,11 @@ export async function fetchUpcomingTasks(): Promise<UpcomingTask[]> {
   });
 
   if (!response.ok) {
-    throw new Error("Unable to load upcoming tasks.");
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+
+    throw new Error(payload.error?.trim() || "Unable to load upcoming tasks.");
   }
 
   const payload = (await response.json()) as { tasks?: UpcomingTask[] };

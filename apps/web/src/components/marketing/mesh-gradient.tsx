@@ -172,7 +172,7 @@ export const MeshGradient: React.FC<MeshGradientProps> = ({
     const parseColors = () => {
       const resolved = [...colors];
       while (resolved.length < 5) {
-        resolved.push(resolved.at(-1) ?? "#ffffff");
+        resolved.push(resolved.at(-1) ?? "#fcfcfc");
       }
       const rgb = resolved.slice(0, 5).map((c) => {
         const [r, g, b] = resolveCssColorToRGB(c);

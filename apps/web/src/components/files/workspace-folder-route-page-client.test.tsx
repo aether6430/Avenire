@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -29,6 +31,11 @@ vi.mock("@/lib/workspace-panes", () => ({
   usePanePathname: usePanePathnameMock,
 }));
 
+const workspaceFolderRoutePageClientSource = readFileSync(
+  resolve(import.meta.dirname, "workspace-folder-route-page-client.tsx"),
+  "utf8"
+);
+
 import { WorkspaceFolderRoutePageClient } from "@/components/files/workspace-folder-route-page-client";
 
 describe("WorkspaceFolderRoutePageClient", () => {
@@ -49,5 +56,24 @@ describe("WorkspaceFolderRoutePageClient", () => {
 
     expect(html).toContain("This file view isn&#x27;t available.");
     expect(html).toContain('data-pending="false"');
+  });
+
+  it("keeps the folder route client delegating into FileExplorer instead of inlining explorer runtime logic", () => {
+    expect(workspaceFolderRoutePageClientSource).toContain(
+      "@/components/files/explorer"
+    );
+    expect(workspaceFolderRoutePageClientSource).toContain(
+      "WorkspaceRoutePlaceholder"
+    );
+    expect(workspaceFolderRoutePageClientSource).toContain("<FileExplorer");
+    expect(workspaceFolderRoutePageClientSource).not.toContain(
+      "useWorkspaceExplorerData("
+    );
+    expect(workspaceFolderRoutePageClientSource).not.toContain(
+      "useExplorerRuntime("
+    );
+    expect(workspaceFolderRoutePageClientSource).not.toContain(
+      "useExplorerShell("
+    );
   });
 });

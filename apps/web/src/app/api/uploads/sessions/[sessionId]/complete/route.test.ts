@@ -4,6 +4,7 @@ const {
   assembleMultipartPartsToFileMock,
   clearMultipartPartsMock,
   createApiLoggerMock,
+  deleteStorageFilesMock,
   getSessionUserMock,
   getUploadSessionMock,
   normalizeSha256Mock,
@@ -11,13 +12,13 @@ const {
   registerWorkspaceUploadedFileMock,
   saveUploadSessionMock,
   scheduleAsyncVideoDeliveryOptimizationMock,
+  uploadStorageFileMock,
   userCanEditFolderMock,
-  utApiDeleteFilesMock,
-  utApiUploadFilesMock,
 } = vi.hoisted(() => ({
   assembleMultipartPartsToFileMock: vi.fn(),
   clearMultipartPartsMock: vi.fn(),
   createApiLoggerMock: vi.fn(),
+  deleteStorageFilesMock: vi.fn(),
   getSessionUserMock: vi.fn(),
   getUploadSessionMock: vi.fn(),
   normalizeSha256Mock: vi.fn(),
@@ -25,9 +26,8 @@ const {
   registerWorkspaceUploadedFileMock: vi.fn(),
   saveUploadSessionMock: vi.fn(),
   scheduleAsyncVideoDeliveryOptimizationMock: vi.fn(),
+  uploadStorageFileMock: vi.fn(),
   userCanEditFolderMock: vi.fn(),
-  utApiDeleteFilesMock: vi.fn(),
-  utApiUploadFilesMock: vi.fn(),
 }));
 
 vi.mock("node:fs", () => ({
@@ -35,11 +35,8 @@ vi.mock("node:fs", () => ({
 }));
 
 vi.mock("@avenire/storage", () => ({
-  UTApi: vi.fn().mockImplementation(() => ({
-    deleteFiles: utApiDeleteFilesMock,
-    uploadFiles: utApiUploadFilesMock,
-  })),
-  UTFile: vi.fn(),
+  deleteStorageFiles: deleteStorageFilesMock,
+  uploadStorageFile: uploadStorageFileMock,
 }));
 
 vi.mock("@/lib/file-data", () => ({
@@ -108,6 +105,7 @@ describe("/api/uploads/sessions/[sessionId]/complete route", () => {
     assembleMultipartPartsToFileMock.mockReset();
     clearMultipartPartsMock.mockReset();
     createApiLoggerMock.mockReset();
+    deleteStorageFilesMock.mockReset();
     getSessionUserMock.mockReset();
     getUploadSessionMock.mockReset();
     normalizeSha256Mock.mockReset();
@@ -115,9 +113,8 @@ describe("/api/uploads/sessions/[sessionId]/complete route", () => {
     registerWorkspaceUploadedFileMock.mockReset();
     saveUploadSessionMock.mockReset();
     scheduleAsyncVideoDeliveryOptimizationMock.mockReset();
+    uploadStorageFileMock.mockReset();
     userCanEditFolderMock.mockReset();
-    utApiDeleteFilesMock.mockReset();
-    utApiUploadFilesMock.mockReset();
 
     createApiLoggerMock.mockReturnValue(createApiLoggerStub());
     normalizeSha256Mock.mockImplementation(
@@ -141,6 +138,29 @@ describe("/api/uploads/sessions/[sessionId]/complete route", () => {
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
+  });
+
+  it("fails closed when session lookup throws before upload completion begins", async () => {
+    getSessionUserMock.mockRejectedValue(
+      new Error("upload completion auth offline")
+    );
+
+    const response = await POST(
+      new Request(
+        "http://localhost:3003/api/uploads/sessions/session-1/complete",
+        {
+          method: "POST",
+          body: JSON.stringify({}),
+        }
+      ),
+      { params: Promise.resolve({ sessionId: "session-1" }) }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "upload completion auth offline",
+    });
+    expect(getUploadSessionMock).not.toHaveBeenCalled();
   });
 
   it("returns not found when the session does not exist", async () => {
@@ -249,7 +269,7 @@ describe("/api/uploads/sessions/[sessionId]/complete route", () => {
     });
   });
 
-  it("returns upload usage limit reached when registration is rate limited", async () => {
+  it("returns storage limit reached when registration exceeds plan storage", async () => {
     const session = createSession();
     getSessionUserMock.mockResolvedValue({ id: "user-1" });
     getUploadSessionMock.mockResolvedValue(session);
@@ -289,8 +309,7 @@ describe("/api/uploads/sessions/[sessionId]/complete route", () => {
         },
       });
     registerWorkspaceUploadedFileMock.mockRejectedValue({
-      code: "UPLOAD_RATE_LIMIT",
-      retryAfter: "2026-05-13T12:00:00.000Z",
+      code: "STORAGE_LIMIT",
     });
 
     const response = await POST(
@@ -312,8 +331,7 @@ describe("/api/uploads/sessions/[sessionId]/complete route", () => {
 
     expect(response.status).toBe(429);
     await expect(response.json()).resolves.toMatchObject({
-      error: "Upload usage limit reached",
-      retryAfter: "2026-05-13T12:00:00.000Z",
+      error: "Storage limit reached",
     });
   });
 });

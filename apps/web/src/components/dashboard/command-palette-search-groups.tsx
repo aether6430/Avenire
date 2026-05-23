@@ -14,7 +14,6 @@ import {
   Sparkle as Sparkles,
 } from "@phosphor-icons/react";
 import { CaretRight as ChevronRight } from "@phosphor-icons/react/CaretRight";
-import type { CommandPaletteRuntime } from "./command-palette-groups-types";
 import {
   buildCommandPaletteMethodValue,
   buildCommandPaletteMindsetSetValue,
@@ -23,6 +22,9 @@ import {
   PALETTE_ICON_CLASS,
   PALETTE_ITEM_CLASS,
 } from "./command-palette-model";
+import type { useCommandPalette } from "./use-command-palette";
+
+type CommandPaletteRuntime = ReturnType<typeof useCommandPalette>;
 
 function renderCommandGroups(runtime: CommandPaletteRuntime) {
   return (

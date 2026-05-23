@@ -13,7 +13,10 @@ declare namespace NodeJS {
     BETTER_AUTH_URL?: string;
     CHAT_PROFILE_LOGS?: string;
     CHAT_TOKENS_PER_CREDIT?: string;
+    TURBO_MODEL_CREDIT_MULTIPLIER?: string;
+    WIDGET_GENERATION_CREDITS?: string;
     COHERE_API_KEY?: string;
+    COHERE_EMBEDDING_DIMENSIONS?: string;
     COHERE_TEST_ADAPTIVE_MODE?: string;
     COHERE_TEST_RPM_GUARD_ENABLED?: string;
     COHERE_TEST_SAFE_MODE?: string;

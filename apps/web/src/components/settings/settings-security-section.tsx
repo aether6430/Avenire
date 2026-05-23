@@ -3,9 +3,28 @@ import { Button } from "@avenire/ui/components/button";
 import { Input } from "@avenire/ui/components/input";
 import { Shield, Warning as TriangleAlert } from "@phosphor-icons/react";
 import { Key } from "@phosphor-icons/react/ssr";
-import type { SettingsSecuritySectionRuntime } from "@/components/settings/settings-security-tab-shell";
+import type { PasskeyEntry } from "@/components/settings/settings-panel-model";
 import { Divider, Section } from "./settings-panel-content-shared";
 import { getPasskeysStateMessage } from "./settings-security-model";
+
+export interface SettingsSecuritySectionRuntime {
+  accountDeleteConfirm: string;
+  addPasskey: () => Promise<void>;
+  dangerStatus: string | null;
+  deleteAccount: () => Promise<void>;
+  passkeys: PasskeyEntry[];
+  passkeysErrorMessage: string | null;
+  passkeysLoadFailed: boolean;
+  passkeysLoading: boolean;
+  passkeysStatus: string | null;
+  removePasskey: (id: string) => Promise<void>;
+  revokeOtherDeviceSessions: () => Promise<void>;
+  sessionsStatus: string | null;
+  setAccountDeleteConfirm: (value: string) => void;
+  sudoActive: boolean;
+  sudoStatus: string | null;
+  verifySudoSession: () => Promise<void>;
+}
 
 export function SettingsSecuritySection({
   runtime,
@@ -18,6 +37,7 @@ export function SettingsSecuritySection({
     deleteAccount,
     dangerStatus,
     passkeys,
+    passkeysErrorMessage,
     passkeysLoadFailed,
     passkeysLoading,
     passkeysStatus,
@@ -30,6 +50,7 @@ export function SettingsSecuritySection({
     verifySudoSession,
   } = runtime;
   const passkeysStateMessage = getPasskeysStateMessage({
+    errorMessage: passkeysErrorMessage,
     loadFailed: passkeysLoadFailed,
     loading: passkeysLoading,
     passkeyCount: passkeys.length,

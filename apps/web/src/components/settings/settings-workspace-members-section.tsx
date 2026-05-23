@@ -17,6 +17,7 @@ export function SettingsWorkspaceMembersSection({
   setWorkspaceEmail,
   workspaceEmail,
   workspaceMembers,
+  workspaceMembersErrorMessage,
   workspaceMembersLoadFailed,
   workspaceMembersLoading,
   workspaceStatus,
@@ -31,11 +32,13 @@ export function SettingsWorkspaceMembersSection({
   | "setWorkspaceEmail"
   | "workspaceEmail"
   | "workspaceMembers"
+  | "workspaceMembersErrorMessage"
   | "workspaceMembersLoadFailed"
   | "workspaceMembersLoading"
   | "workspaceStatus"
 >) {
   const workspaceMembersStateMessage = getWorkspaceMembersStateMessage({
+    errorMessage: workspaceMembersErrorMessage,
     loading: workspaceMembersLoading,
     loadFailed: workspaceMembersLoadFailed,
     memberCount: workspaceMembers.length,

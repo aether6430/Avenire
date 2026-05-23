@@ -7,6 +7,7 @@ describe("UploadActivityBody", () => {
     const html = renderToStaticMarkup(
       <UploadActivityBody
         completedCount={0}
+        errorMessage="Recent uploads timed out."
         failedCount={0}
         loadFailed
         loading={false}
@@ -18,9 +19,7 @@ describe("UploadActivityBody", () => {
     );
 
     expect(html).toContain("Unable to load upload activity.");
-    expect(html).toContain(
-      "Try again in a moment to reload recent uploads and ingestion jobs."
-    );
+    expect(html).toContain("Recent uploads timed out.");
     expect(html).not.toContain("No activity yet");
   });
 });

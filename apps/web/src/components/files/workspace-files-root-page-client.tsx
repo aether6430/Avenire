@@ -11,7 +11,7 @@ export function buildWorkspaceFilesRootRoute(input: {
   search: string;
   workspaceId: string;
 }) {
-  const suffix = input.search.trim();
+  const suffix = input.search.trim().replace(/^\?+/, "");
   return `/workspace/files/${input.workspaceId}/folder/${input.rootFolderId}${suffix ? `?${suffix}` : ""}` as Route;
 }
 
@@ -52,7 +52,7 @@ export function WorkspaceFilesRootPageClient({
   if (status === "error") {
     return (
       <WorkspaceRoutePlaceholder
-        label="Unable to load files."
+        label="Unable to open files."
         pending={false}
       />
     );
@@ -73,5 +73,5 @@ export function WorkspaceFilesRootPageClient({
     );
   }
 
-  return <WorkspaceRoutePlaceholder label="Loading files..." />;
+  return <WorkspaceRoutePlaceholder label="Opening files..." />;
 }

@@ -6,6 +6,8 @@ export type FilePropertyType =
   | "select"
   | "text";
 
+export type NumberPropertyDisplay = "bar" | "number" | "ring";
+
 interface BaseFileProperty<T extends FilePropertyType, TValue> {
   type: T;
   value: TValue;
@@ -15,7 +17,10 @@ export type FilePropertyValue =
   | BaseFileProperty<"checkbox", boolean>
   | BaseFileProperty<"date", string | null>
   | BaseFileProperty<"multi_select", string[]>
-  | BaseFileProperty<"number", number | null>
+  | (BaseFileProperty<"number", number | null> & {
+      display?: NumberPropertyDisplay;
+      total?: number | null;
+    })
   | BaseFileProperty<"select", string | null>
   | BaseFileProperty<"text", string | null>;
 
@@ -79,6 +84,14 @@ function normalizeNumber(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function normalizeNumberPropertyDisplay(
+  value: unknown
+): NumberPropertyDisplay | undefined {
+  return value === "bar" || value === "number" || value === "ring"
+    ? value
+    : undefined;
+}
+
 function normalizeStringArray(value: unknown) {
   if (!Array.isArray(value)) {
     return [];
@@ -113,7 +126,12 @@ export function normalizePropertyValue(
         value: normalizeStringArray(record.value),
       };
     case "number":
-      return { type: "number", value: normalizeNumber(record.value) };
+      return {
+        type: "number",
+        value: normalizeNumber(record.value),
+        display: normalizeNumberPropertyDisplay(record.display),
+        total: normalizeNumber(record.total),
+      };
     case "select":
       return { type: "select", value: normalizeString(record.value) };
     case "text":
@@ -227,6 +245,7 @@ export function setPropertyValue(
       };
     case "number":
       return {
+        ...property,
         type: "number",
         value:
           typeof value === "string" && value.trim().length > 0

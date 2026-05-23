@@ -9,6 +9,16 @@ import {
   serializeChatInputDraft,
 } from "./chat-input-storage";
 
+const TEXTAREA_MAX_HEIGHT = 160;
+
+function syncTextareaHeight(textarea: HTMLTextAreaElement) {
+  textarea.style.height = "auto";
+  const nextHeight = Math.min(textarea.scrollHeight + 2, TEXTAREA_MAX_HEIGHT);
+  textarea.style.height = `${nextHeight}px`;
+  textarea.style.overflowY =
+    textarea.scrollHeight > TEXTAREA_MAX_HEIGHT ? "auto" : "hidden";
+}
+
 export function useMultimodalInputComposerState({
   effectiveWorkspaceUuid,
   input,
@@ -73,6 +83,7 @@ export function useMultimodalInputComposerState({
       return;
     }
     textareaRef.current.style.height = "auto";
+    textareaRef.current.style.overflowY = "hidden";
   }, []);
 
   const clearDraftValue = useCallback(() => {
@@ -136,8 +147,7 @@ export function useMultimodalInputComposerState({
     if (!textareaRef.current) {
       return;
     }
-    textareaRef.current.style.height = "auto";
-    textareaRef.current.style.height = `${textareaRef.current.scrollHeight + 2}px`;
+    syncTextareaHeight(textareaRef.current);
   }, [input]);
 
   useEffect(() => {
@@ -197,7 +207,7 @@ export function useMultimodalInputComposerState({
       ? "Listening..."
       : isTranscribing
         ? "Transcribing..."
-        : "What do you want to know?",
+        : "What do you want to learn?",
     setDraftValue,
     speechSupported,
     startOrStopRecording,

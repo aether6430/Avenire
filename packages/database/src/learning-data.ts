@@ -100,6 +100,7 @@ export interface UpsertMisconceptionInput {
 
 export interface GetActiveMisconceptionsInput {
   concept?: string;
+  includeCandidates?: boolean;
   limit?: number;
   subject?: string;
   topic?: string;
@@ -215,6 +216,9 @@ const DEFAULT_MASTERY_LIMIT = 200;
 const DEFAULT_RECENT_RATING_LIMIT = 100;
 const MISCONCEPTION_PROMOTION_EVIDENCE_THRESHOLD = 3;
 const MISCONCEPTION_PROMOTION_LOOKBACK_MS = 45 * 24 * 60 * 60 * 1000;
+const ACTIVE_MISCONCEPTION_STATUSES = ["candidate", "confirmed"] as const;
+const isActiveMisconceptionStatus = (status: MisconceptionStatus) =>
+  (ACTIVE_MISCONCEPTION_STATUSES as readonly string[]).includes(status);
 
 const normalizeText = (value: unknown, maxLength: number): string | null => {
   if (typeof value !== "string") {
@@ -398,7 +402,7 @@ const normalizeNullableJson = (
 const mapMisconceptionRow = (
   row: typeof misconception.$inferSelect
 ): MisconceptionRecord => ({
-  active: row.status === "confirmed",
+  active: row.active,
   decayedAt: row.decayedAt?.toISOString() ?? null,
   confidence: row.confidence,
   concept: row.concept,
@@ -557,7 +561,7 @@ export async function upsertMisconception(
           await tx
             .insert(misconception)
             .values({
-              active: baseStatus === "confirmed",
+              active: isActiveMisconceptionStatus(baseStatus),
               confidence: confidence ?? 0,
               concept,
               decayedAt: null,
@@ -644,7 +648,7 @@ export async function upsertMisconception(
       const [updated] = await tx
         .update(misconception)
         .set({
-          active: nextStatus === "confirmed",
+          active: isActiveMisconceptionStatus(nextStatus),
           confidence: nextConfidence,
           concept,
           decayedAt: null,
@@ -740,7 +744,9 @@ export async function getActiveMisconceptions(
         input.workspaceId
           ? eq(misconception.workspaceId, input.workspaceId)
           : undefined,
-        eq(misconception.status, "confirmed"),
+        input.includeCandidates
+          ? inArray(misconception.status, ["candidate", "confirmed"])
+          : eq(misconception.status, "confirmed"),
         subject ? eq(misconception.subject, subject) : undefined,
         topic ? eq(misconception.topic, topic) : undefined,
         concept ? eq(misconception.concept, concept) : undefined

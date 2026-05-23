@@ -1,9 +1,13 @@
 "use client";
 
-import { createAuthClient } from "better-auth/react";
-import { lastLoginMethodClient } from "better-auth/client/plugins";
 import { passkeyClient } from "@better-auth/passkey/client";
-import { organizationClient, usernameClient } from "better-auth/client/plugins";
+import { polarClient } from "@polar-sh/better-auth/client";
+import {
+  lastLoginMethodClient,
+  organizationClient,
+  usernameClient,
+} from "better-auth/client/plugins";
+import { createAuthClient } from "better-auth/react";
 import { resolveAuthClientBaseURL } from "./client-base-url";
 
 const client = createAuthClient({
@@ -13,12 +17,23 @@ const client = createAuthClient({
     passkeyClient(),
     usernameClient(),
     lastLoginMethodClient(),
+    polarClient(),
   ],
 });
 
 export const authClient = {
-  getLastUsedLoginMethod:
-    client.getLastUsedLoginMethod as (() => string | null | undefined),
+  checkout: client.checkout as (...args: any[]) => Promise<any>,
+  customer: client.customer as {
+    portal: (...args: any[]) => Promise<any>;
+    state: (...args: any[]) => Promise<any>;
+    subscriptions: {
+      list: (...args: any[]) => Promise<any>;
+    };
+  },
+  getLastUsedLoginMethod: client.getLastUsedLoginMethod as () =>
+    | string
+    | null
+    | undefined,
 };
 
 export const signIn = {
@@ -35,8 +50,9 @@ export const signOut = client.signOut;
 export const useSession = client.useSession;
 export const getSession = client.getSession;
 export const $ERROR_CODES = client.$ERROR_CODES;
-export const sendVerificationEmail =
-  client.sendVerificationEmail as (...args: any[]) => Promise<any>;
+export const sendVerificationEmail = client.sendVerificationEmail as (
+  ...args: any[]
+) => Promise<any>;
 export const linkSocial = client.linkSocial;
 export const updateUser = client.updateUser as (...args: any[]) => Promise<any>;
 export const listAccounts = client.listAccounts;
@@ -47,6 +63,13 @@ export const revokeSessions = client.revokeSessions;
 export const revokeOtherSessions = client.revokeOtherSessions;
 export const deleteUser = client.deleteUser;
 export const changePassword = client.changePassword;
-export const requestPasswordReset =
-  client.requestPasswordReset as (...args: any[]) => Promise<any>;
+export const requestPasswordReset = client.requestPasswordReset as (
+  ...args: any[]
+) => Promise<any>;
 export const resetPassword = client.resetPassword;
+
+export async function addPasskey() {
+  return client.passkey.addPasskey({
+    name: "Avenire Passkey",
+  });
+}

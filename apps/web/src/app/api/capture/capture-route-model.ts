@@ -1,6 +1,10 @@
 import type { TaskResourceLink } from "@avenire/database/task-data";
 
 export type CaptureKind = "task" | "note" | "misconception";
+export const CAPTURE_ROUTE_ERROR = "Unable to capture item.";
+export const CAPTURE_TASK_ERROR = "Unable to capture task.";
+export const CAPTURE_NOTE_ERROR = "Unable to capture note.";
+export const CAPTURE_MISCONCEPTION_ERROR = "Unable to capture misconception.";
 
 export interface CaptureRequestBody {
   assigneeUserId?: unknown;
@@ -104,4 +108,8 @@ function resolveTaskCaptureResources(resources: unknown): TaskResourceLink[] {
       typeof record.title === "string"
     );
   });
+}
+
+export function resolveCaptureRouteError(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
 }

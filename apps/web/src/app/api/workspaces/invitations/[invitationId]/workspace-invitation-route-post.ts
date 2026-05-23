@@ -13,20 +13,20 @@ export async function handleWorkspaceInvitationRoutePost(input: {
   invitationId: string;
   request: Request;
 }) {
-  const sessionUser = await getSessionUser();
-  if (!sessionUser) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const parsed = parseWorkspaceInvitationAction(
-    (await input.request.json().catch(() => ({}))) as { action?: unknown },
-    input.invitationId
-  );
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error }, { status: 400 });
-  }
-
   try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const parsed = parseWorkspaceInvitationAction(
+      (await input.request.json().catch(() => ({}))) as { action?: unknown },
+      input.invitationId
+    );
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+
     const result = await respondToInvitationForUser({
       invitationId: parsed.data.invitationId,
       userId: sessionUser.id,

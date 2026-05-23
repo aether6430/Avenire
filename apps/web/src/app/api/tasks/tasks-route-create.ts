@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { invalidateTaskListCache } from "@/lib/tasks-cache";
 import {
   resolveTaskCreatePayload,
+  resolveTaskRouteError,
+  TASK_CREATE_ERROR,
   type TaskRouteBody,
 } from "./tasks-route-model";
 
@@ -33,10 +35,9 @@ export async function handleTasksRoutePost(input: {
   } catch (error) {
     return NextResponse.json(
       {
-        error:
-          error instanceof Error ? error.message : "Unable to create task.",
+        error: resolveTaskRouteError(error, TASK_CREATE_ERROR),
       },
-      { status: 400 }
+      { status: 500 }
     );
   }
 }

@@ -167,6 +167,35 @@ describe("/api/workspaces/[workspaceUuid]/files/register route", () => {
     });
   });
 
+  it("fails closed when session lookup throws before file registration handling begins", async () => {
+    const apiLogger = createApiLoggerStub();
+    createApiLoggerMock.mockReturnValueOnce(apiLogger);
+    getSessionUserMock.mockRejectedValue(
+      new Error("file register auth offline")
+    );
+
+    const response = await POST(
+      registerRequest({
+        folderId: "folder-1",
+        name: "notes.md",
+        content: "# Notes",
+      }),
+      REGISTER_ROUTE_PARAMS
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "file register auth offline",
+    });
+    expect(createWorkspaceNoteFileMock).not.toHaveBeenCalled();
+    expect(registerWorkspaceUploadedFileMock).not.toHaveBeenCalled();
+    expect(apiLogger.requestSucceeded).not.toHaveBeenCalled();
+    expect(apiLogger.requestFailed).toHaveBeenCalledWith(
+      500,
+      expect.any(Error)
+    );
+  });
+
   it("creates markdown notes with merged page metadata and publishes invalidation events", async () => {
     mockSessionUser();
     userCanEditFolderMock.mockResolvedValue(true);
@@ -235,13 +264,89 @@ describe("/api/workspaces/[workspaceUuid]/files/register route", () => {
     );
   });
 
-  it("returns upload usage limit reached when stored upload registration is rate limited", async () => {
+  it("returns a 500 json error when note creation throws before invalidation work begins", async () => {
+    mockSessionUser();
+    userCanEditFolderMock.mockResolvedValue(true);
+    const apiLogger = createApiLoggerStub();
+    createApiLoggerMock.mockReturnValueOnce(apiLogger);
+    createWorkspaceNoteFileMock.mockRejectedValueOnce(
+      new Error("note storage offline")
+    );
+
+    const response = await POST(
+      registerRequest({
+        folderId: "folder-1",
+        name: "notes.md",
+        content: "# Notes",
+      }),
+      REGISTER_ROUTE_PARAMS
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "Failed to register file",
+    });
+    expect(publishFilesInvalidationEventMock).not.toHaveBeenCalled();
+    expect(invalidateWorkspaceReadCachesMock).not.toHaveBeenCalled();
+    expect(apiLogger.requestSucceeded).not.toHaveBeenCalled();
+    expect(apiLogger.requestFailed).toHaveBeenCalledWith(
+      500,
+      expect.objectContaining({
+        message: "note storage offline",
+      }),
+      {
+        workspaceUuid: WORKSPACE_UUID,
+      }
+    );
+  });
+
+  it("returns a 500 json error when note invalidation publishing throws after file creation", async () => {
+    mockSessionUser();
+    userCanEditFolderMock.mockResolvedValue(true);
+    const apiLogger = createApiLoggerStub();
+    createApiLoggerMock.mockReturnValueOnce(apiLogger);
+    createWorkspaceNoteFileMock.mockResolvedValueOnce({
+      id: "file-1",
+      mimeType: "text/markdown",
+      sizeBytes: 12,
+    });
+    publishFilesInvalidationEventMock.mockRejectedValueOnce(
+      new Error("realtime offline")
+    );
+
+    const response = await POST(
+      registerRequest({
+        folderId: "folder-1",
+        name: "notes.md",
+        content: "# Notes",
+      }),
+      REGISTER_ROUTE_PARAMS
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "Failed to register file",
+    });
+    expect(publishFilesInvalidationEventMock).toHaveBeenCalledTimes(1);
+    expect(invalidateWorkspaceReadCachesMock).not.toHaveBeenCalled();
+    expect(apiLogger.requestSucceeded).not.toHaveBeenCalled();
+    expect(apiLogger.requestFailed).toHaveBeenCalledWith(
+      500,
+      expect.objectContaining({
+        message: "realtime offline",
+      }),
+      {
+        workspaceUuid: WORKSPACE_UUID,
+      }
+    );
+  });
+
+  it("returns storage limit reached when stored upload registration exceeds plan storage", async () => {
     mockSessionUser();
     userCanEditFolderMock.mockResolvedValue(true);
     registerWorkspaceUploadedFileMock.mockRejectedValue(
-      Object.assign(new Error("limit"), {
-        code: "UPLOAD_RATE_LIMIT",
-        retryAfter: "60",
+      Object.assign(new Error("storage full"), {
+        code: "STORAGE_LIMIT",
       })
     );
 
@@ -258,8 +363,7 @@ describe("/api/workspaces/[workspaceUuid]/files/register route", () => {
 
     expect(response.status).toBe(429);
     await expect(response.json()).resolves.toEqual({
-      error: "Upload usage limit reached",
-      retryAfter: "60",
+      error: "Storage limit reached",
     });
   });
 

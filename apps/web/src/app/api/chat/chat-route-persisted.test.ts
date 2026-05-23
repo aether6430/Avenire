@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
+  afterMock,
   buildPersistedChatStreamResponseMock,
   buildChatIdempotencyRedisKeyMock,
   clearIdempotencyKeyMock,
@@ -8,15 +9,19 @@ const {
   createChatForUserMock,
   formatErrorMock,
   getChatBySlugForUserMock,
+  getWritableChatBySlugForUserMock,
   getIdempotencyStateMock,
   invalidateChatReadCachesMock,
   isChatOwnerForUserMock,
   loadPersistedChatStartupContextMock,
   logErrorMock,
   logInfoMock,
+  logWarnMock,
+  prewarmActiveMisconceptionsCacheMock,
   saveMessagesForChatSlugMock,
   tryAcquireIdempotencyLockMock,
 } = vi.hoisted(() => ({
+  afterMock: vi.fn(),
   buildPersistedChatStreamResponseMock: vi.fn(),
   buildChatIdempotencyRedisKeyMock: vi.fn(),
   clearIdempotencyKeyMock: vi.fn(),
@@ -26,12 +31,15 @@ const {
     error instanceof Error ? error.message : String(error)
   ),
   getChatBySlugForUserMock: vi.fn(),
+  getWritableChatBySlugForUserMock: vi.fn(),
   getIdempotencyStateMock: vi.fn(),
   invalidateChatReadCachesMock: vi.fn(),
   isChatOwnerForUserMock: vi.fn(),
   loadPersistedChatStartupContextMock: vi.fn(),
   logErrorMock: vi.fn(),
   logInfoMock: vi.fn(),
+  logWarnMock: vi.fn(),
+  prewarmActiveMisconceptionsCacheMock: vi.fn(),
   saveMessagesForChatSlugMock: vi.fn(),
   tryAcquireIdempotencyLockMock: vi.fn(),
 }));
@@ -43,6 +51,7 @@ vi.mock("@/lib/billing-metering", () => ({
 vi.mock("@/lib/chat-data", () => ({
   createChatForUser: createChatForUserMock,
   getChatBySlugForUser: getChatBySlugForUserMock,
+  getWritableChatBySlugForUser: getWritableChatBySlugForUserMock,
   isChatOwnerForUser: isChatOwnerForUserMock,
   saveMessagesForChatSlug: saveMessagesForChatSlugMock,
 }));
@@ -50,6 +59,16 @@ vi.mock("@/lib/chat-data", () => ({
 vi.mock("@/lib/domain-cache", () => ({
   invalidateChatReadCaches: invalidateChatReadCachesMock,
 }));
+
+vi.mock("next/server", async () => {
+  const actual =
+    await vi.importActual<typeof import("next/server")>("next/server");
+
+  return {
+    ...actual,
+    after: afterMock,
+  };
+});
 
 vi.mock("./chat-route-cache", () => ({
   buildChatIdempotencyRedisKey: buildChatIdempotencyRedisKeyMock,
@@ -62,10 +81,15 @@ vi.mock("./chat-route-logging", () => ({
   formatError: formatErrorMock,
   logError: logErrorMock,
   logInfo: logInfoMock,
+  logWarn: logWarnMock,
 }));
 
 vi.mock("./chat-route-persisted-context", () => ({
   loadPersistedChatStartupContext: loadPersistedChatStartupContextMock,
+}));
+
+vi.mock("@/lib/chat-tools/chat-tool-misconception-runtime", () => ({
+  prewarmActiveMisconceptionsCache: prewarmActiveMisconceptionsCacheMock,
 }));
 
 vi.mock("./chat-route-persisted-stream", () => ({
@@ -96,6 +120,7 @@ function createRequest(body: Record<string, unknown>, idempotencyKey?: string) {
 describe("chat route persisted request", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    afterMock.mockImplementation(() => undefined);
     buildChatIdempotencyRedisKeyMock.mockReturnValue("idem-1");
     getIdempotencyStateMock.mockResolvedValue(null);
     tryAcquireIdempotencyLockMock.mockResolvedValue(true);
@@ -115,6 +140,13 @@ describe("chat route persisted request", () => {
       resolvedTopic: "Torque",
       workspaceSubjectSummary: null,
     });
+    prewarmActiveMisconceptionsCacheMock.mockReset();
+    prewarmActiveMisconceptionsCacheMock.mockResolvedValue(undefined);
+    saveMessagesForChatSlugMock.mockResolvedValue(undefined);
+    invalidateChatReadCachesMock.mockResolvedValue(undefined);
+    getChatBySlugForUserMock.mockReset();
+    getWritableChatBySlugForUserMock.mockReset();
+    isChatOwnerForUserMock.mockReset();
     buildPersistedChatStreamResponseMock.mockResolvedValue(
       new Response("ok", { status: 200 })
     );
@@ -151,6 +183,162 @@ describe("chat route persisted request", () => {
         idempotencyKey: "idem-key",
       })
     );
+  });
+
+  it("short-circuits duplicate existing-chat requests before startup context loads", async () => {
+    getWritableChatBySlugForUserMock.mockResolvedValue({
+      id: "chat-db-2",
+      readOnly: false,
+      slug: "chat-2",
+      title: "Existing Method",
+    });
+    getIdempotencyStateMock.mockResolvedValue({ status: "done" });
+    const apiLogger = createApiLoggerStub();
+
+    const response = await handlePersistedChatRequest({
+      apiLogger: apiLogger as never,
+      body: {
+        chatId: "chat-2",
+        messages: [],
+      },
+      request: createRequest({ chatId: "chat-2", messages: [] }, "idem-key"),
+      sessionUser: { id: "user-1" },
+      workspace: {
+        rootFolderId: "root-1",
+        workspaceId: "workspace-1",
+      },
+    });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      chatId: "chat-2",
+      error: "Duplicate request",
+    });
+    expect(loadPersistedChatStartupContextMock).not.toHaveBeenCalled();
+    expect(consumeChatUnitsMock).not.toHaveBeenCalled();
+    expect(isChatOwnerForUserMock).not.toHaveBeenCalled();
+  });
+
+  it("short-circuits in-progress existing-chat requests before startup context loads", async () => {
+    getWritableChatBySlugForUserMock.mockResolvedValue({
+      id: "chat-db-2",
+      readOnly: false,
+      slug: "chat-2",
+      title: "Existing Method",
+    });
+    tryAcquireIdempotencyLockMock.mockResolvedValue(false);
+    const apiLogger = createApiLoggerStub();
+
+    const response = await handlePersistedChatRequest({
+      apiLogger: apiLogger as never,
+      body: {
+        chatId: "chat-2",
+        messages: [],
+      },
+      request: createRequest({ chatId: "chat-2", messages: [] }, "idem-key"),
+      sessionUser: { id: "user-1" },
+      workspace: {
+        rootFolderId: "root-1",
+        workspaceId: "workspace-1",
+      },
+    });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      chatId: "chat-2",
+      error: "Request already in progress",
+    });
+    expect(loadPersistedChatStartupContextMock).not.toHaveBeenCalled();
+    expect(consumeChatUnitsMock).not.toHaveBeenCalled();
+    expect(isChatOwnerForUserMock).not.toHaveBeenCalled();
+  });
+
+  it("creates a concrete new chat when a writable slug does not exist yet but a user message is present", async () => {
+    getWritableChatBySlugForUserMock.mockResolvedValue(null);
+    const apiLogger = createApiLoggerStub();
+
+    const response = await handlePersistedChatRequest({
+      apiLogger: apiLogger as never,
+      body: {
+        chatId: "chat-concrete-1",
+        messages: [
+          {
+            id: "message-1",
+            parts: [{ text: "Explain torque", type: "text" }],
+            role: "user",
+          },
+        ],
+      },
+      request: createRequest(
+        {
+          chatId: "chat-concrete-1",
+          messages: [
+            {
+              id: "message-1",
+              parts: [{ text: "Explain torque", type: "text" }],
+              role: "user",
+            },
+          ],
+        },
+        "idem-key"
+      ),
+      sessionUser: { id: "user-1" },
+      workspace: {
+        rootFolderId: "root-1",
+        workspaceId: "workspace-1",
+      },
+    });
+
+    expect(response.status).toBe(200);
+    expect(createChatForUserMock).toHaveBeenCalledWith(
+      "user-1",
+      "workspace-1",
+      "New Method",
+      "chat-concrete-1"
+    );
+    expect(buildPersistedChatStreamResponseMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatCreatedFromNew: true,
+        chatSlug: "chat-concrete-1",
+      })
+    );
+    expect(loadPersistedChatStartupContextMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatSlug: "chat-concrete-1",
+      })
+    );
+  });
+
+  it("returns read-only method from the writable helper without loading startup context", async () => {
+    getWritableChatBySlugForUserMock.mockResolvedValue({
+      id: "chat-db-2",
+      readOnly: true,
+      slug: "chat-2",
+      title: "Shared Method",
+    });
+    const apiLogger = createApiLoggerStub();
+
+    const response = await handlePersistedChatRequest({
+      apiLogger: apiLogger as never,
+      body: {
+        chatId: "chat-2",
+        messages: [],
+      },
+      request: createRequest({ chatId: "chat-2", messages: [] }, "idem-key"),
+      sessionUser: { id: "user-1" },
+      workspace: {
+        rootFolderId: "root-1",
+        workspaceId: "workspace-1",
+      },
+    });
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      error: "Read-only Method",
+    });
+    expect(loadPersistedChatStartupContextMock).not.toHaveBeenCalled();
+    expect(consumeChatUnitsMock).not.toHaveBeenCalled();
+    expect(isChatOwnerForUserMock).not.toHaveBeenCalled();
   });
 
   it("creates a new chat, persists normalized user messages, and delegates to the persisted stream builder", async () => {
@@ -238,8 +426,11 @@ describe("chat route persisted request", () => {
       ],
       "workspace-1"
     );
+    expect(consumeChatUnitsMock).toHaveBeenCalledWith("user-1", 3);
+    expect(afterMock).toHaveBeenCalledTimes(2);
     expect(buildPersistedChatStreamResponseMock).toHaveBeenCalledWith(
       expect.objectContaining({
+        expectedCredits: 3,
         chatCreatedFromNew: true,
         chatSlug: "chat-1",
         idempotencyLockAcquired: true,
@@ -260,6 +451,38 @@ describe("chat route persisted request", () => {
         ],
       })
     );
+  });
+
+  it("prewarms the active misconception cache after startup context resolution", async () => {
+    const apiLogger = createApiLoggerStub();
+
+    const response = await handlePersistedChatRequest({
+      apiLogger: apiLogger as never,
+      body: {
+        chatId: "new",
+        messages: [{ id: "message-1", parts: [], role: "user" }],
+      },
+      request: createRequest(
+        {
+          chatId: "new",
+          messages: [{ id: "message-1", parts: [], role: "user" }],
+        },
+        "idem-key"
+      ),
+      sessionUser: { id: "user-1" },
+      workspace: {
+        rootFolderId: "root-1",
+        workspaceId: "workspace-1",
+      },
+    });
+
+    expect(response.status).toBe(200);
+    expect(prewarmActiveMisconceptionsCacheMock).toHaveBeenCalledWith({
+      subject: "Physics",
+      topic: "Torque",
+      userId: "user-1",
+      workspaceId: "workspace-1",
+    });
   });
 
   it("clears the idempotency key and returns 429 when initial usage is over limit", async () => {
@@ -286,6 +509,7 @@ describe("chat route persisted request", () => {
       retryAfter: "2026-05-18T01:00:00.000Z",
     });
     expect(clearIdempotencyKeyMock).toHaveBeenCalledWith("idem-1");
+    expect(consumeChatUnitsMock).toHaveBeenCalledWith("user-1", 2);
     expect(apiLogger.rateLimited).toHaveBeenCalledWith(
       "chat",
       "2026-05-18T01:00:00.000Z",
@@ -326,6 +550,48 @@ describe("chat route persisted request", () => {
       500,
       "Failed to save user messages",
       { chatId: "chat-1" }
+    );
+  });
+
+  it("does not fail the request when post-save chat cache invalidation is deferred", async () => {
+    invalidateChatReadCachesMock.mockRejectedValue(
+      new Error("cache invalidate failed")
+    );
+    getWritableChatBySlugForUserMock.mockResolvedValue({
+      id: "chat-db-2",
+      readOnly: false,
+      slug: "chat-2",
+      title: "Existing Method",
+    });
+    const apiLogger = createApiLoggerStub();
+
+    const response = await handlePersistedChatRequest({
+      apiLogger: apiLogger as never,
+      body: {
+        chatId: "chat-2",
+        messages: [{ id: "message-1", parts: [], role: "user" }],
+      },
+      request: createRequest(
+        {
+          chatId: "chat-2",
+          messages: [{ id: "message-1", parts: [], role: "user" }],
+        },
+        "idem-key"
+      ),
+      sessionUser: { id: "user-1" },
+      workspace: {
+        rootFolderId: "root-1",
+        workspaceId: "workspace-1",
+      },
+    });
+
+    expect(response.status).toBe(200);
+    expect(afterMock).toHaveBeenCalledTimes(1);
+    expect(buildPersistedChatStreamResponseMock).toHaveBeenCalled();
+    expect(apiLogger.requestFailed).not.toHaveBeenCalledWith(
+      500,
+      "Failed to save user messages",
+      expect.anything()
     );
   });
 });

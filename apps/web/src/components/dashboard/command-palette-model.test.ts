@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildCommandPaletteFileTargetRoute,
@@ -10,15 +12,21 @@ import {
   shouldReplaceCommandPaletteFileRoute,
 } from "./command-palette-model";
 
+const commandPaletteNavigationFile = path.resolve(
+  import.meta.dirname,
+  "./use-command-palette-navigation.ts"
+);
+
 describe("command palette model", () => {
   it("keeps command palette task loading failure distinct from an absent task group", () => {
     expect(
       getCommandPaletteTasksState({
+        errorMessage: "Could not load tasks right now.",
         loadFailed: true,
         taskCount: 0,
       })
     ).toEqual({
-      message: "Unable to load tasks.",
+      message: "Could not load tasks right now.",
       showGroup: true,
     });
 
@@ -114,7 +122,7 @@ describe("command palette model", () => {
         description: "Electrostatics review",
         label: "Chapter 1",
       })
-    ).toBe("Chapter 1 Electrostatics review mindset set flashcard");
+    ).toBe("Chapter 1 Electrostatics review Mindset Set flashcard");
 
     expect(
       buildCommandPaletteRecentMethodValue({
@@ -128,6 +136,17 @@ describe("command palette model", () => {
         id: "set-1",
         title: "Electrostatics",
       })
-    ).toBe("Electrostatics set-1 mindset set flashcard");
+    ).toBe("Electrostatics set-1 Mindset Set flashcard");
+
+    const commandPaletteNavigationSource = readFileSync(
+      commandPaletteNavigationFile,
+      "utf8"
+    );
+    expect(commandPaletteNavigationSource).toContain(
+      'description: "Create a workspace Mindset Set"'
+    );
+    expect(commandPaletteNavigationSource).not.toContain(
+      'description: "Create a workspace mindset set"'
+    );
   });
 });

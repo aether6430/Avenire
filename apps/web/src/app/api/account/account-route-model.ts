@@ -14,3 +14,9 @@ export function buildAccountDeleteSuccessBody() {
     ok: true,
   };
 }
+
+export const ACCOUNT_DELETE_ERROR = "Unable to delete account.";
+
+export function resolveAccountDeleteError(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -19,6 +21,19 @@ vi.mock("@/lib/workspace", () => ({
   getWorkspaceContextForUser: getWorkspaceContextForUserMock,
 }));
 
+const activityRouteSource = readFileSync(
+  resolve(import.meta.dirname, "route.ts"),
+  "utf8"
+);
+const activityRouteGetSource = readFileSync(
+  resolve(import.meta.dirname, "activity-route-get.ts"),
+  "utf8"
+);
+const activityRouteModelSource = readFileSync(
+  resolve(import.meta.dirname, "activity-route-model.ts"),
+  "utf8"
+);
+
 import { GET } from "./route";
 
 describe("/api/activity route", () => {
@@ -37,6 +52,23 @@ describe("/api/activity route", () => {
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
+  });
+
+  it("fails closed when workspace context lookup throws before activity queries run", async () => {
+    getWorkspaceContextForUserMock.mockRejectedValue(
+      new Error("activity context offline")
+    );
+
+    const response = await GET(
+      new Request("http://localhost:3003/api/activity?limit=6")
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "activity context offline",
+    });
+    expect(listChatsForUserMock).not.toHaveBeenCalled();
+    expect(listWorkspaceFilesMock).not.toHaveBeenCalled();
   });
 
   it("returns a mixed activity feed sorted by most recent update", async () => {
@@ -150,5 +182,36 @@ describe("/api/activity route", () => {
     data = (await response.json()) as { events: unknown[] };
     expect(response.status).toBe(200);
     expect(data.events).toHaveLength(50);
+  });
+
+  it("fails closed with an explicit load error when activity queries throw", async () => {
+    getWorkspaceContextForUserMock.mockResolvedValue({
+      user: { id: "user-1" },
+      workspace: { workspaceId: "workspace-1" },
+    });
+    listChatsForUserMock.mockRejectedValue(new Error("activity offline"));
+
+    const response = await GET(
+      new Request("http://localhost:3003/api/activity?limit=6")
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "activity offline",
+    });
+    expect(listWorkspaceFilesMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps the activity route wrapper aligned to its dedicated query handler boundary", () => {
+    expect(activityRouteSource).toContain("./activity-route-get");
+    expect(activityRouteSource).toContain("./activity-route-model");
+    expect(activityRouteSource).toContain("return await handleActivityGet");
+    expect(activityRouteSource).not.toContain("listChatsForUser(");
+    expect(activityRouteSource).not.toContain("listWorkspaceFiles(");
+
+    expect(activityRouteGetSource).toContain("listChatsForUser");
+    expect(activityRouteGetSource).toContain("listWorkspaceFiles");
+    expect(activityRouteModelSource).toContain("resolveActivityRouteLimit");
+    expect(activityRouteModelSource).toContain("sortActivityEvents");
   });
 });

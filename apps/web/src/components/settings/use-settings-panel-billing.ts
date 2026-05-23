@@ -6,6 +6,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   loadBillingPortalUrl,
   loadBillingUsage,
+  openProviderBillingPortal,
+  startProviderCheckout,
 } from "@/components/settings/settings-billing-client";
 import { getBillingPlanLabel } from "@/components/settings/settings-billing-model";
 import {
@@ -36,6 +38,9 @@ export function useSettingsPanelBilling({
   searchParams: ReadonlyURLSearchParams;
 }) {
   const [billingUsage, setBillingUsage] = useState<BillingUsage | null>(null);
+  const [billingErrorMessage, setBillingErrorMessage] = useState<string | null>(
+    null
+  );
   const [billingLoadFailed, setBillingLoadFailed] = useState(false);
   const [billingLoading, setBillingLoading] = useState(false);
   const [billingStatus, setBillingStatus] = useState<string | null>(null);
@@ -43,6 +48,7 @@ export function useSettingsPanelBilling({
 
   const refreshBillingUsage = useCallback(async (showLoading = false) => {
     const loadingState = createBillingUsageLoadStartState(showLoading);
+    setBillingErrorMessage(loadingState.billingErrorMessage);
     setBillingLoading(loadingState.billingLoading);
     setBillingLoadFailed(loadingState.billingLoadFailed);
     setBillingStatus(loadingState.billingStatus);
@@ -54,6 +60,7 @@ export function useSettingsPanelBilling({
         showLoading
       );
       setBillingUsage(successState.billingUsage);
+      setBillingErrorMessage(successState.billingErrorMessage);
       setBillingLoadFailed(successState.billingLoadFailed);
       if (successState.billingStatus !== undefined) {
         setBillingStatus(successState.billingStatus);
@@ -64,6 +71,7 @@ export function useSettingsPanelBilling({
         showLoading
       );
       setBillingUsage(failureState.billingUsage);
+      setBillingErrorMessage(failureState.billingErrorMessage);
       setBillingLoadFailed(failureState.billingLoadFailed);
       if (failureState.billingStatus !== undefined) {
         setBillingStatus(failureState.billingStatus);
@@ -106,6 +114,7 @@ export function useSettingsPanelBilling({
   const hasPaidPlan = hasSettingsPaidPlan(billingUsage);
   const currentPlanLabel = getBillingPlanLabel({
     billingUsagePlan: billingUsage?.plan ?? null,
+    errorMessage: billingErrorMessage,
     loadFailed: billingLoadFailed,
     loading: billingLoading,
   });
@@ -131,13 +140,40 @@ export function useSettingsPanelBilling({
 
     setBillingStatus("Opening billing portal...");
     try {
+      await openProviderBillingPortal();
+      return;
+    } catch (error) {
+      console.error(
+        "[settings] failed to open Better Auth Polar portal",
+        error
+      );
+    }
+
+    try {
       window.location.href = await loadBillingPortalUrl(billingReturnPath);
     } catch (error) {
       setBillingStatus(resolveManageBillingStatus(error));
     }
   };
 
+  const handleUpgradePlan = async (plan: "core" | "scholar") => {
+    setBillingStatus("Opening checkout...");
+    try {
+      await startProviderCheckout(plan);
+      return;
+    } catch (error) {
+      console.error("[settings] failed to start Better Auth checkout", error);
+    }
+
+    const params = new URLSearchParams({
+      billing: "monthly",
+      plan,
+    });
+    window.location.href = `/api/billing/checkout?${params.toString()}`;
+  };
+
   return {
+    billingErrorMessage,
     billingLoadFailed,
     billingLoading,
     billingMeters,
@@ -145,6 +181,7 @@ export function useSettingsPanelBilling({
     billingUsage,
     currentPlanLabel,
     handleManageBilling,
+    handleUpgradePlan,
     hasPaidPlan,
   };
 }

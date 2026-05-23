@@ -9,13 +9,13 @@ const {
   workspaceFolderRoutePageClientMock,
   workspaceRoutePlaceholderMock,
 } = vi.hoisted(() => ({
-    getAccessibleMarkdownNoteForUserMock: vi.fn(),
-    getFolderWithAncestorsMock: vi.fn(),
-    getWorkspaceRouteContextMock: vi.fn(),
-    listWorkspacesForUserMock: vi.fn(),
-    workspaceFolderRoutePageClientMock: vi.fn(() => null),
-    workspaceRoutePlaceholderMock: vi.fn(() => null),
-  }));
+  getAccessibleMarkdownNoteForUserMock: vi.fn(),
+  getFolderWithAncestorsMock: vi.fn(),
+  getWorkspaceRouteContextMock: vi.fn(),
+  listWorkspacesForUserMock: vi.fn(),
+  workspaceFolderRoutePageClientMock: vi.fn(() => null),
+  workspaceRoutePlaceholderMock: vi.fn(() => null),
+}));
 
 vi.mock("@/components/dashboard/workspace-route-placeholder", () => ({
   WorkspaceRoutePlaceholder: workspaceRoutePlaceholderMock,
@@ -100,6 +100,47 @@ describe("WorkspaceFolderPage", () => {
     });
 
     expect(metadata.title).toBe("Lecture Notes — Avenire");
+  });
+
+  it("fails closed to Files when context or downstream folder metadata lookups throw", async () => {
+    getWorkspaceRouteContextMock.mockRejectedValueOnce(
+      new Error("folder page offline")
+    );
+
+    let metadata = await generateMetadata({
+      params: Promise.resolve({
+        folderUuid: "folder-2",
+        workspaceUuid: "workspace-1",
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata.title).toBe("Files — Avenire");
+
+    getWorkspaceRouteContextMock.mockResolvedValueOnce({
+      session: { user: { id: "user-1" } },
+      workspace: { rootFolderId: "root-folder", workspaceId: "workspace-1" },
+    });
+    listWorkspacesForUserMock.mockResolvedValueOnce([
+      {
+        name: "Dev Workspace",
+        rootFolderId: "root-folder",
+        workspaceId: "workspace-1",
+      },
+    ]);
+    getFolderWithAncestorsMock.mockRejectedValueOnce(
+      new Error("folder offline")
+    );
+
+    metadata = await generateMetadata({
+      params: Promise.resolve({
+        folderUuid: "folder-2",
+        workspaceUuid: "workspace-1",
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata.title).toBe("Files — Avenire");
   });
 
   it("passes explicit route params into the client page", async () => {

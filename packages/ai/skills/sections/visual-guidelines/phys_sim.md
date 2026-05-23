@@ -150,12 +150,12 @@ Use this module for simulations where motion over time is the point: orbits, pen
 
   function updateTheme() {
     const style = getComputedStyle(document.documentElement);
-    colors.bg = style.getPropertyValue('--canvas-background').trim() || style.getPropertyValue('--background').trim() || '#ffffff';
-    colors.surface = style.getPropertyValue('--canvas-surface').trim() || style.getPropertyValue('--card').trim() || '#ffffff';
-    colors.text = style.getPropertyValue('--canvas-text').trim() || style.getPropertyValue('--foreground').trim() || '#37352f';
-    colors.muted = style.getPropertyValue('--canvas-muted').trim() || style.getPropertyValue('--muted-foreground').trim() || '#9b9a97';
-    colors.border = style.getPropertyValue('--canvas-border').trim() || style.getPropertyValue('--border').trim() || 'rgba(55, 53, 47, 0.09)';
-    colors.primary = style.getPropertyValue('--canvas-primary').trim() || style.getPropertyValue('--primary').trim() || '#abcfff';
+    colors.bg = style.getPropertyValue('--canvas-background').trim() || style.getPropertyValue('--background').trim() || '#fcfcfc';
+    colors.surface = style.getPropertyValue('--canvas-surface').trim() || style.getPropertyValue('--card').trim() || '#fcfcfc';
+    colors.text = style.getPropertyValue('--canvas-text').trim() || style.getPropertyValue('--foreground').trim() || '#141414f0';
+    colors.muted = style.getPropertyValue('--canvas-muted').trim() || style.getPropertyValue('--muted-foreground').trim() || '#1414148a';
+    colors.border = style.getPropertyValue('--canvas-border').trim() || style.getPropertyValue('--border').trim() || '#14141414';
+    colors.primary = style.getPropertyValue('--canvas-primary').trim() || style.getPropertyValue('--primary').trim() || '#abc4ff';
     colors.grid = style.getPropertyValue('--canvas-grid').trim() || 'rgba(0,0,0,0.08)';
   }
 

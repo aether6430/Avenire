@@ -56,6 +56,8 @@ const flashcardCardUpdatePayloadSchema = z.object({
 
 export const FLASHCARD_CARD_INVALID_PAYLOAD_ERROR =
   "source with subject, topic, and concept is required for flashcard update";
+export const FLASHCARD_CARD_UPDATE_ERROR = "Unable to update flashcard.";
+export const FLASHCARD_CARD_DELETE_ERROR = "Unable to delete flashcard.";
 
 export function parseFlashcardCardUpdatePayload(payload: unknown) {
   return flashcardCardUpdatePayloadSchema.safeParse(payload);
@@ -77,4 +79,11 @@ export function resolveFlashcardCardInvalidateEventPayload(input: {
     setId: input.setId,
     workspaceUuid: input.workspaceUuid,
   };
+}
+
+export function resolveFlashcardCardRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
 }

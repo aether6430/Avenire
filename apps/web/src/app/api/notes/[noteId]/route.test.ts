@@ -119,6 +119,20 @@ describe("PATCH /api/notes/[noteId]", () => {
     });
   });
 
+  it("fails closed when session lookup throws before note patch handling begins", async () => {
+    getSessionUserMock.mockRejectedValue(new Error("note auth offline"));
+
+    await expect(
+      readErrorResponse(
+        await PATCH(patchRequest({ content: "# Hello" }), NOTE_ROUTE_PARAMS)
+      )
+    ).resolves.toEqual({
+      body: { error: "note auth offline" },
+      status: 500,
+    });
+    expect(getWorkspaceIdForFileMock).not.toHaveBeenCalled();
+  });
+
   it("returns not found when the note has no workspace mapping", async () => {
     getSessionUserMock.mockResolvedValue(SESSION_USER);
     getWorkspaceIdForFileMock.mockResolvedValue(null);

@@ -23,6 +23,7 @@ import {
   buildZoomedMermaidViewState,
   fixMermaidQuotes,
   type MermaidViewState,
+  resolveMermaidExportBackground,
   stripUnsafeSvg,
 } from "@/components/chat/mermaid-model";
 
@@ -261,7 +262,11 @@ export function MermaidDiagram({
       await new Promise<void>((resolve, reject) => {
         const img = new Image();
         img.onload = () => {
-          ctx.fillStyle = "#ffffff";
+          const rootStyle = getComputedStyle(document.documentElement);
+          ctx.fillStyle = resolveMermaidExportBackground({
+            background: rootStyle.getPropertyValue("--background"),
+            canvasBackground: rootStyle.getPropertyValue("--canvas-background"),
+          });
           ctx.fillRect(0, 0, width, height);
           ctx.drawImage(img, 0, 0, width, height);
           URL.revokeObjectURL(svgUrl);

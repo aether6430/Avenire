@@ -116,17 +116,26 @@ export async function publishFilesInvalidationEvent(
       })
     );
 
-    await publishWorkspaceStreamEvent({
+    const eventPayload = {
+      at: payload.at ?? Date.now(),
+      folderId: payload.folderId ?? null,
+      fileId: payload.fileId ?? null,
+      reason: payload.reason,
       workspaceUuid: payload.workspaceUuid,
-      type: "files.invalidate",
-      payload: {
-        at: payload.at ?? Date.now(),
-        folderId: payload.folderId ?? null,
-        fileId: payload.fileId ?? null,
-        reason: payload.reason,
+    };
+
+    await Promise.all([
+      publishWorkspaceStreamEvent({
         workspaceUuid: payload.workspaceUuid,
-      },
-    });
+        type: "files.invalidate",
+        payload: eventPayload,
+      }),
+      publishWorkspaceStreamEvent({
+        workspaceUuid: payload.workspaceUuid,
+        type: payload.reason,
+        payload: eventPayload,
+      }),
+    ]);
   } catch (error) {
     console.error("Failed to publish files invalidation event", {
       payload,

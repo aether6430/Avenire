@@ -50,6 +50,26 @@ describe("/api/transcriptions route", () => {
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
   });
 
+  it("fails closed when session lookup throws before transcription handling begins", async () => {
+    getSessionUserMock.mockRejectedValue(
+      new Error("transcriptions auth offline")
+    );
+
+    const response = await POST(
+      new Request("http://localhost:3003/api/transcriptions", {
+        method: "POST",
+        body: new FormData(),
+      })
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "transcriptions auth offline",
+    });
+    expect(ensureWorkspaceAccessForUserMock).not.toHaveBeenCalled();
+    expect(transcribeMock).not.toHaveBeenCalled();
+  });
+
   it("returns invalid form data when the request payload cannot be parsed", async () => {
     getSessionUserMock.mockResolvedValue({ id: "user-1" });
 

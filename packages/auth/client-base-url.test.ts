@@ -32,4 +32,13 @@ describe("resolveAuthClientBaseURL", () => {
 
     expect(resolveAuthClientBaseURL()).toBe("https://app.avenire.test");
   });
+
+  it("fails closed to the configured value when the app URL is malformed", () => {
+    process.env.NEXT_PUBLIC_APP_URL = "not a valid url";
+    vi.stubGlobal("window", {
+      location: { origin: "http://127.0.0.1:3000" },
+    });
+
+    expect(resolveAuthClientBaseURL()).toBe("not a valid url");
+  });
 });

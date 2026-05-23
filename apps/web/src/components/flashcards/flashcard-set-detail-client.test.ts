@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   archiveFlashcardSetCard,
@@ -11,6 +13,14 @@ import {
 } from "@/components/flashcards/flashcard-set-detail-client";
 
 const validSetId = "c729fdf9-945d-46bf-927b-a86b8ee90a07";
+const setDetailClientSource = readFileSync(
+  resolve(import.meta.dirname, "./flashcard-set-detail-client.ts"),
+  "utf8"
+);
+const setDetailModelSource = readFileSync(
+  resolve(import.meta.dirname, "./flashcard-set-detail-model.ts"),
+  "utf8"
+);
 
 describe("flashcard set detail client", () => {
   afterEach(() => {
@@ -160,5 +170,54 @@ describe("flashcard set detail client", () => {
         method: "POST",
       })
     );
+  });
+
+  it("preserves safe api error text for review-queue and review-submit failures", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: "review queue offline" }), {
+          status: 503,
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: "review submit offline" }), {
+          status: 503,
+        })
+      );
+
+    await expect(
+      loadFlashcardReviewSession({
+        drillFilters: [],
+        setId: "set-1",
+      })
+    ).rejects.toThrow("review queue offline");
+
+    await expect(
+      submitFlashcardCardReview({
+        cardId: "card-1",
+        rating: "good",
+      })
+    ).rejects.toThrow("review submit offline");
+  });
+
+  it("keeps detail api transport in the client module while drill-query and enrollment labels stay in the pure model", () => {
+    expect(setDetailClientSource).toContain(
+      'from "@/components/flashcards/flashcard-set-detail-model"'
+    );
+    expect(setDetailClientSource).toContain("fetch(`/api/flashcards/sets/${");
+    expect(setDetailClientSource).toContain("/api/flashcards/review");
+    expect(setDetailClientSource).toContain("/api/flashcards/review/queue?");
+    expect(setDetailClientSource).not.toContain("useState(");
+    expect(setDetailClientSource).not.toContain("useEffect(");
+    expect(setDetailClientSource).not.toContain("HeaderTitle");
+
+    expect(setDetailModelSource).toContain(
+      "export function buildFlashcardDrillQuery"
+    );
+    expect(setDetailModelSource).toContain(
+      "export function getFlashcardEnrollmentLabel"
+    );
+    expect(setDetailModelSource).not.toContain("fetch(");
+    expect(setDetailModelSource).not.toContain("useState(");
   });
 });

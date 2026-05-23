@@ -1,7 +1,17 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { SectionIconAction } from "./dashboard-sidebar-shared";
+
+const tooltipSource = readFileSync(
+  resolve(
+    import.meta.dirname,
+    "../../../../../packages/ui/src/components/tooltip.tsx"
+  ),
+  "utf8"
+);
 
 vi.mock("@avenire/ui/components/button", () => ({
   Button: ({
@@ -70,5 +80,15 @@ describe("SectionIconAction", () => {
     );
 
     expect(html).toContain('aria-label="Search Methods"');
+  });
+
+  it("keeps the shared tooltip chrome aligned to the popover-based upstream contract", () => {
+    expect(tooltipSource).toContain("border border-border bg-popover");
+    expect(tooltipSource).toContain("text-popover-foreground");
+    expect(tooltipSource).toContain("shadow-sm");
+    expect(tooltipSource).toContain("bg-popover fill-popover");
+    expect(tooltipSource).not.toContain(
+      "bg-foreground px-3 py-1.5 text-background"
+    );
   });
 });

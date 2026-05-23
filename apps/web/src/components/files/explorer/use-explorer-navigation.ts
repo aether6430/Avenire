@@ -72,7 +72,6 @@ export function useExplorerNavigation({
     (
       fileId: string | null,
       options?: {
-        circleToAi?: boolean;
         retrievalChunkId?: string | null;
       }
     ) => {
@@ -82,7 +81,6 @@ export function useExplorerNavigation({
 
       const targetRoute = buildExplorerFileRoute({
         baseSearchParams: searchParams.toString(),
-        circleToAi: options?.circleToAi,
         fileId,
         folderId: currentFolderId,
         retrievalChunkId: options?.retrievalChunkId,

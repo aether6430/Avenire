@@ -4,8 +4,8 @@ These rules apply to ALL use cases.
 
 ### Philosophy
 - **Seamless**: Users shouldn't notice where claude.ai ends and your widget begins.
-- **Primitive-first**: For canvas-style artifacts, use `widget_spec` first-class primitives. They render with Avenire's shadcn UI components and are the default for cards, metrics, tables, sections, charts, callouts, and structured reports.
-- **Raw-code escape hatch**: Use raw `widget_code` HTML/SVG only when the widget needs custom drawing, custom interaction, canvas animation, imperative JS, mermaid, or third-party libraries.
+- **Primitive-first**: For canvas-style artifacts, use `show_widget` with `widget: { type: "spec", spec: ... }` first-class primitives. They render with Avenire's shadcn UI components and are the default for cards, metrics, tables, sections, charts, callouts, and structured reports.
+- **Raw-code escape hatch**: Use `show_widget` with `widget: { type: "code", code: ... }` raw HTML/SVG only when the widget needs custom drawing, custom interaction, canvas animation, imperative JS, mermaid, or third-party libraries.
 - **Compact but complete**: Inline widgets should stay compact. Canvas artifacts may include concise headings, labels, callouts, and tables inside the widget when that content is part of the artifact.
 - **No duplicated prose**: Full explanations belong in the chat response. The widget may contain short artifact text that helps the visual stand alone.
 - **Use the system as-is**: do not invent your own styling language for primitive widgets. Reuse the provided primitive nodes and theme tokens. Treat them as a contract, not inspiration.
@@ -38,7 +38,7 @@ Output streams token-by-token. Structure code so useful content appears early.
 - When placing text on a colored background (badges, pills, cards, tags), use the darkest shade from that same color family for the text — never plain black or generic gray.
 - **Corners**: use `border-radius: var(--border-radius-md)` (or `-lg` for cards) in HTML. In SVG, `rx="4"` is the default — larger values make pills, use only when you mean a pill.
 - **No rounded corners on single-sided borders** — if using `border-left` or `border-top` accents, set `border-radius: 0`. Rounded corners only work with full borders on all sides.
-- **Titles and concise artifact text are allowed in `widget_spec`**. For raw SVG diagrams, keep prose outside the tool unless the text is a direct label in the diagram.
+- **Titles and concise artifact text are allowed in spec widgets**. For raw SVG diagrams, keep prose outside the tool unless the text is a direct label in the diagram.
 - **Icon sizing**: When using emoji or inline SVG icons, explicitly set `font-size: 16px` for emoji or `width: 16px; height: 16px` for SVG icons. Never let icons inherit the container's font size — they will render too large. For larger decorative icons, use 24px max.
 - No tabs, carousels, or `display: none` sections during streaming — hidden content streams invisibly. Show all content stacked vertically. (Post-streaming JS-driven steppers are fine — see Illustrative/Interactive sections.)
 - No nested scrolling — auto-fit height.

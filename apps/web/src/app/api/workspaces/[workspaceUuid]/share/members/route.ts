@@ -1,102 +1,110 @@
 import { NextResponse } from "next/server";
-import { createApiLogger } from "@/lib/observability";
-import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
+import { resolveWorkspaceShareRouteContext } from "../workspace-share-route-context";
 import { handleWorkspaceShareMembersDelete } from "./workspace-share-members-delete";
 import { handleWorkspaceShareMembersGet } from "./workspace-share-members-get";
+import {
+  resolveWorkspaceShareMembersRouteError,
+  WORKSPACE_SHARE_MEMBERS_INVITE_ERROR,
+  WORKSPACE_SHARE_MEMBERS_LIST_ERROR,
+  WORKSPACE_SHARE_MEMBERS_REMOVE_ERROR,
+} from "./workspace-share-members-model";
 import { handleWorkspaceShareMembersPost } from "./workspace-share-members-post";
-
-async function resolveWorkspaceShareRouteContext(
-  request: Request,
-  context: { params: Promise<{ workspaceUuid: string }> }
-) {
-  const user = await getSessionUser();
-  const apiLogger = createApiLogger({
-    request,
-    route: "/api/workspaces/[workspaceUuid]/share/members",
-    feature: "workspace-sharing",
-    userId: user?.id ?? null,
-  });
-  void apiLogger.requestStarted();
-
-  if (!user) {
-    void apiLogger.requestFailed(401, "Unauthorized");
-    return {
-      response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
-    };
-  }
-
-  const { workspaceUuid } = await context.params;
-  const canAccess = await ensureWorkspaceAccessForUser(user.id, workspaceUuid);
-  if (!canAccess) {
-    void apiLogger.requestFailed(403, "Forbidden", { workspaceUuid });
-    return {
-      response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
-    };
-  }
-
-  return {
-    apiLogger,
-    user,
-    workspaceUuid,
-  };
-}
 
 export async function POST(
   request: Request,
   context: { params: Promise<{ workspaceUuid: string }> }
 ) {
-  const routeContext = await resolveWorkspaceShareRouteContext(
-    request,
-    context
-  );
-  if ("response" in routeContext) {
-    return routeContext.response;
-  }
+  try {
+    const routeContext = await resolveWorkspaceShareRouteContext({
+      context,
+      request,
+      route: "/api/workspaces/[workspaceUuid]/share/members",
+    });
+    if ("response" in routeContext) {
+      return routeContext.response;
+    }
 
-  return await handleWorkspaceShareMembersPost({
-    apiLogger: routeContext.apiLogger,
-    request,
-    user: routeContext.user,
-    workspaceUuid: routeContext.workspaceUuid,
-  });
+    return await handleWorkspaceShareMembersPost({
+      apiLogger: routeContext.apiLogger,
+      request,
+      user: routeContext.user,
+      workspaceUuid: routeContext.workspaceUuid,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: resolveWorkspaceShareMembersRouteError(
+          error,
+          WORKSPACE_SHARE_MEMBERS_INVITE_ERROR
+        ),
+      },
+      { status: 500 }
+    );
+  }
 }
 
 export async function GET(
   request: Request,
   context: { params: Promise<{ workspaceUuid: string }> }
 ) {
-  const routeContext = await resolveWorkspaceShareRouteContext(
-    request,
-    context
-  );
-  if ("response" in routeContext) {
-    return routeContext.response;
-  }
+  try {
+    const routeContext = await resolveWorkspaceShareRouteContext({
+      context,
+      request,
+      route: "/api/workspaces/[workspaceUuid]/share/members",
+    });
+    if ("response" in routeContext) {
+      return routeContext.response;
+    }
 
-  return await handleWorkspaceShareMembersGet({
-    apiLogger: routeContext.apiLogger,
-    request,
-    user: routeContext.user,
-    workspaceUuid: routeContext.workspaceUuid,
-  });
+    return await handleWorkspaceShareMembersGet({
+      apiLogger: routeContext.apiLogger,
+      request,
+      user: routeContext.user,
+      workspaceUuid: routeContext.workspaceUuid,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: resolveWorkspaceShareMembersRouteError(
+          error,
+          WORKSPACE_SHARE_MEMBERS_LIST_ERROR
+        ),
+      },
+      { status: 500 }
+    );
+  }
 }
 
 export async function DELETE(
   request: Request,
   context: { params: Promise<{ workspaceUuid: string }> }
 ) {
-  const routeContext = await resolveWorkspaceShareRouteContext(
-    request,
-    context
-  );
-  if ("response" in routeContext) {
-    return routeContext.response;
-  }
+  try {
+    const routeContext = await resolveWorkspaceShareRouteContext({
+      context,
+      request,
+      route: "/api/workspaces/[workspaceUuid]/share/members",
+    });
+    if ("response" in routeContext) {
+      return routeContext.response;
+    }
 
-  return await handleWorkspaceShareMembersDelete({
-    apiLogger: routeContext.apiLogger,
-    request,
-    user: routeContext.user,
-    workspaceUuid: routeContext.workspaceUuid,
-  });
+    return await handleWorkspaceShareMembersDelete({
+      apiLogger: routeContext.apiLogger,
+      request,
+      user: routeContext.user,
+      workspaceUuid: routeContext.workspaceUuid,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: resolveWorkspaceShareMembersRouteError(
+          error,
+          WORKSPACE_SHARE_MEMBERS_REMOVE_ERROR
+        ),
+      },
+      { status: 500 }
+    );
+  }
 }

@@ -158,7 +158,10 @@ export async function loadFlashcardReviewSession({
   );
 
   if (!response.ok) {
-    throw new Error("Failed to load review queue");
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+    throw new Error(payload.error?.trim() || "Failed to load review queue");
   }
 
   const payload = (await response.json()) as {
@@ -184,6 +187,9 @@ export async function submitFlashcardCardReview({
   });
 
   if (!response.ok) {
-    throw new Error("Failed to submit review");
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+    throw new Error(payload.error?.trim() || "Failed to submit review");
   }
 }

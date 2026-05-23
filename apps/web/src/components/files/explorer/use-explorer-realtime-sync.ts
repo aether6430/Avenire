@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import {
   applyExplorerIngestionJobEvent,
+  type ExplorerFilesInvalidationPayload,
   parseExplorerFilesInvalidationPayload,
   parseExplorerIngestionJobEventPayload,
 } from "@/components/files/explorer/explorer-realtime-model";
@@ -11,6 +12,9 @@ import { invalidateWorkspaceFolderCache } from "@/lib/workspace-folder-cache";
 import { invalidateWorkspaceMarkdownCache } from "@/lib/workspace-markdown-cache";
 
 interface UseExplorerRealtimeSyncOptions {
+  applyFilesInvalidation: (
+    detail: ExplorerFilesInvalidationPayload | null
+  ) => boolean;
   enabled: boolean;
   refreshDataDebounced: () => void;
   setUploadQueue: (
@@ -22,6 +26,7 @@ interface UseExplorerRealtimeSyncOptions {
 }
 
 export function useExplorerRealtimeSync({
+  applyFilesInvalidation,
   enabled,
   refreshDataDebounced,
   setUploadQueue,
@@ -88,6 +93,9 @@ export function useExplorerRealtimeSync({
 
           invalidateWorkspaceFolderCache(workspaceUuid, detail?.folderId);
           invalidateWorkspaceMarkdownCache(workspaceUuid);
+          if (applyFilesInvalidation(detail)) {
+            return;
+          }
           refreshDataDebounced();
         });
       } catch {
@@ -105,7 +113,7 @@ export function useExplorerRealtimeSync({
         filesInvalidateRetryTimerRef.current = null;
       }
     };
-  }, [enabled, refreshDataDebounced, workspaceUuid]);
+  }, [applyFilesInvalidation, enabled, refreshDataDebounced, workspaceUuid]);
 
   useEffect(() => {
     if (!(enabled && workspaceUuid)) {

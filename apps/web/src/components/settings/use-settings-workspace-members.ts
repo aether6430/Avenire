@@ -31,6 +31,8 @@ export function useSettingsWorkspaceMembers({
   const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMember[]>(
     []
   );
+  const [workspaceMembersErrorMessage, setWorkspaceMembersErrorMessage] =
+    useState<string | null>(null);
   const [workspaceMembersLoadFailed, setWorkspaceMembersLoadFailed] =
     useState(false);
   const [workspaceMembersLoading, setWorkspaceMembersLoading] = useState(false);
@@ -40,11 +42,18 @@ export function useSettingsWorkspaceMembers({
   const refreshMembers = useCallback(async (workspaceId: string) => {
     setWorkspaceMembersLoading(true);
     setWorkspaceMembersLoadFailed(false);
+    setWorkspaceMembersErrorMessage(null);
     try {
       setWorkspaceMembers(await loadWorkspaceMembers(workspaceId));
+      setWorkspaceMembersErrorMessage(null);
       setWorkspaceMembersLoadFailed(false);
-    } catch {
+    } catch (error) {
       setWorkspaceMembers([]);
+      setWorkspaceMembersErrorMessage(
+        error instanceof Error && error.message.trim().length > 0
+          ? error.message
+          : "Unable to load workspace members."
+      );
       setWorkspaceMembersLoadFailed(true);
     } finally {
       setWorkspaceMembersLoading(false);
@@ -111,6 +120,7 @@ export function useSettingsWorkspaceMembers({
     setWorkspaceEmail,
     workspaceEmail,
     workspaceMembers,
+    workspaceMembersErrorMessage,
     workspaceMembersLoadFailed,
     workspaceMembersLoading,
   };

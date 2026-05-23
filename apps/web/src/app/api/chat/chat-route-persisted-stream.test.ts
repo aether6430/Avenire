@@ -497,6 +497,61 @@ describe("chat route persisted stream", () => {
     );
   });
 
+  it("sets the new active stream id before waiting for the previous stream lookup", async () => {
+    let resolvePreviousStreamId: ((value: string | null) => void) | null = null;
+    const previousStreamIdPromise = new Promise<string | null>((resolve) => {
+      resolvePreviousStreamId = resolve;
+    });
+
+    getActiveStreamIdMock.mockReset();
+    getActiveStreamIdMock.mockReturnValueOnce(previousStreamIdPromise);
+    setActiveStreamIdMock.mockResolvedValue(undefined);
+
+    const pendingResponse = buildPersistedChatStreamResponse({
+      apiLogger: {
+        requestSucceeded: vi.fn(),
+      } as never,
+      body: {
+        chatId: "chat-order",
+      },
+      chat: {
+        id: "chat-db-order",
+        title: "Existing Method",
+      } as never,
+      chatCreatedFromNew: false,
+      chatSlug: "chat-order",
+      idempotencyLockAcquired: false,
+      idempotencyRedisKey: null,
+      modelContextMessages: [],
+      originalMessages: [],
+      request: new Request("http://localhost/api/chat"),
+      requestStartedAt: new Date("2026-05-18T00:00:00.000Z"),
+      sessionUser: { id: "user-1" },
+      startupContext: {
+        latestUserText: "",
+        recentRelevantSummary: null,
+        resolvedSubject: null,
+        resolvedTopic: null,
+        workspaceSubjectSummary: null,
+      },
+      workspace: {
+        rootFolderId: "root-1",
+        workspaceId: "workspace-1",
+      },
+    });
+
+    await Promise.resolve();
+
+    expect(setActiveStreamIdMock).toHaveBeenCalledWith(
+      "chat-order",
+      "stream-1"
+    );
+
+    resolvePreviousStreamId?.("previous-stream");
+    const response = await pendingResponse;
+    expect(response.status).toBe(200);
+  });
+
   it("logs resumable stream creation failures and clears the active stream id", async () => {
     const writer = {
       merge: vi.fn(),

@@ -15,6 +15,7 @@ import {
   buildMisconceptionTutorPrompt,
   type DashboardHomeProps,
   groupDashboardWeakPoints,
+  resolveDashboardActivityErrorMessage,
 } from "@/components/dashboard/dashboard-home-model";
 import { prefetchFlashcardSet } from "@/lib/flashcard-browser-cache";
 import type { MisconceptionRecord } from "@/lib/learning-data";
@@ -38,6 +39,9 @@ export function useDashboardHome({
   const { navigate } = useWorkspacePaneNavigation();
   const { recordRoute } = usePaneWorkspaceHistoryActions();
   const [activities, setActivities] = useState<ActivityEvent[]>([]);
+  const [activityErrorMessage, setActivityErrorMessage] = useState<
+    string | null
+  >(null);
   const [activityLoadFailed, setActivityLoadFailed] = useState(false);
   const [loadingActivities, setLoadingActivities] = useState(true);
   const [selectedMisconception, setSelectedMisconception] =
@@ -62,13 +66,21 @@ export function useDashboardHome({
         if (response.ok) {
           const data = (await response.json()) as { events: ActivityEvent[] };
           setActivities(data.events);
+          setActivityErrorMessage(null);
           setActivityLoadFailed(false);
         } else {
+          const payload = (await response.json().catch(() => ({}))) as {
+            error?: string;
+          };
           setActivities([]);
+          setActivityErrorMessage(
+            payload.error?.trim() || "Unable to load activity."
+          );
           setActivityLoadFailed(true);
         }
-      } catch {
+      } catch (error) {
         setActivities([]);
+        setActivityErrorMessage(resolveDashboardActivityErrorMessage(error));
         setActivityLoadFailed(true);
       } finally {
         setLoadingActivities(false);
@@ -164,6 +176,7 @@ export function useDashboardHome({
 
   return {
     activeMisconceptions,
+    activityErrorMessage,
     activityLoadFailed,
     activities,
     compactGreeting,

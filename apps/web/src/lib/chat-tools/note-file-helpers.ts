@@ -137,7 +137,7 @@ export function buildNoteContent(params: { content: string; title: string }) {
 export function stripLeadingTitleHeading(markdown: string, title: string) {
   const escapedTitle = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return markdown
-    .replace(new RegExp(`^#\\s+${escapedTitle}\\s*\\n+`, "i"), "")
+    .replace(new RegExp(`^#\\s+${escapedTitle}\\s*(?:\\n+|$)`, "i"), "")
     .trim();
 }
 

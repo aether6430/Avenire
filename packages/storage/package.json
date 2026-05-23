@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@uploadthing/react": "7.3.3",
+    "files-sdk": "^1.2.0",
     "next": "16.2.6",
     "uploadthing": "7.7.4"
   },

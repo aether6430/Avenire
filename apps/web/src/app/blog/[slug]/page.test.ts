@@ -75,10 +75,13 @@ describe("BlogPostPage", () => {
     });
 
     expect(metadata.title).toBe(
-      "Introducing Avenire: Interactive AI Learning That Builds Understanding"
+      "Introducing Avenire: Interactive AI Learning That Builds Understanding | Avenire Blog"
     );
     expect(metadata.twitter?.title).toBe(
-      "Introducing Avenire: Interactive AI Learning That Builds Understanding"
+      "Introducing Avenire: Interactive AI Learning That Builds Understanding | Avenire Blog"
+    );
+    expect(String(metadata.openGraph?.images?.[0])).toContain(
+      "/api/og?template=blog&title=Introducing+Avenire%3A+Interactive+AI+Learning+That+Builds+Understanding&category=AI+Learning&date=2026-02-23T00%3A00%3A00.000Z&readingTime=1+min+read"
     );
   });
 

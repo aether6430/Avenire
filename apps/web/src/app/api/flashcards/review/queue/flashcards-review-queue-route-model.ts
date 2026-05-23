@@ -2,6 +2,7 @@ import type { FlashcardTaxonomy } from "@/lib/flashcards";
 
 const FLASHCARDS_REVIEW_QUEUE_DEFAULT_LIMIT = 20;
 const FLASHCARDS_REVIEW_QUEUE_MAX_LIMIT = 100;
+export const FLASHCARDS_REVIEW_QUEUE_LOAD_ERROR = "Failed to load review queue";
 
 function clampReviewQueueLimit(raw: string | null) {
   const parsed = Number.parseInt(raw ?? "", 10);
@@ -61,4 +62,11 @@ export function resolveFlashcardsReviewQueueResponse(input: {
   queue: unknown[];
 }) {
   return input;
+}
+
+export function resolveFlashcardsReviewQueueRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
 }

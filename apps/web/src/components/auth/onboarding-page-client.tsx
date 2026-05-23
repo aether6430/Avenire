@@ -14,6 +14,7 @@ import { AuthShell } from "@/components/auth-shell";
 import { MeshGradient } from "@/components/marketing/mesh-gradient";
 import { PetPreferencesFields } from "@/components/pets/pet-preferences-fields";
 import { DEFAULT_PET_NAME, type PetAccessory } from "@/lib/pet-preferences";
+import { loadUserSettings } from "@/lib/user-settings-client";
 
 const AppleHelloEffect = dynamic(
   () =>
@@ -42,11 +43,11 @@ const STEPS = [
   },
   {
     body: [
-      "Generate a first mindset set from the material you just added.",
+      "Generate a first Mindset Set from the material you just added.",
       "Keep the cards tight enough to study and easy enough to revise later.",
     ],
     eyebrow: "Turn it into practice",
-    title: "Build the first mindset set.",
+    title: "Build the first Mindset Set.",
   },
   {
     body: [
@@ -68,6 +69,7 @@ export function OnboardingPageClient({
   const [step, setStep] = useState(0);
   const [isFinishing, setIsFinishing] = useState(false);
   const [showFlush, setShowFlush] = useState(false);
+  const [isHelloLeaving, setIsHelloLeaving] = useState(false);
   const [helloLocale, setHelloLocale] = useState<HelloLocale>(
     initialHelloLocale ?? "en"
   );
@@ -83,6 +85,42 @@ export function OnboardingPageClient({
   }, [initialHelloLocale]);
 
   useEffect(() => {
+    let cancelled = false;
+
+    loadUserSettings()
+      .then((settings) => {
+        if (cancelled) {
+          return;
+        }
+
+        const redirectTo = resolveOnboardingClientRedirect({
+          error: null,
+          settings,
+        });
+        if (redirectTo) {
+          router.replace(redirectTo);
+        }
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+
+        const redirectTo = resolveOnboardingClientRedirect({
+          error,
+          settings: null,
+        });
+        if (redirectTo) {
+          router.replace(redirectTo);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  useEffect(() => {
     if (!showFlush) {
       return;
     }
@@ -90,7 +128,7 @@ export function OnboardingPageClient({
     const timeout = window.setTimeout(() => {
       router.push("/workspace");
       router.refresh();
-    }, 4200);
+    }, 5200);
 
     return () => window.clearTimeout(timeout);
   }, [router, showFlush]);
@@ -113,6 +151,9 @@ export function OnboardingPageClient({
         throw new Error("Unable to complete onboarding.");
       }
 
+      setHelloLocale(
+        initialHelloLocale ?? resolveAppleHelloLocale(navigator.languages)
+      );
       setShowFlush(true);
     } catch {
       setIsFinishing(false);
@@ -124,17 +165,21 @@ export function OnboardingPageClient({
       <AnimatePresence>
         {showFlush ? (
           <motion.div
-            animate={{ clipPath: "inset(0% 0% 0% 0%)" }}
+            animate={{
+              clipPath: isHelloLeaving
+                ? "inset(0% 0% 0% 100%)"
+                : "inset(0% 0% 0% 0%)",
+            }}
             className="fixed inset-0 z-[100] overflow-hidden bg-background text-white"
             exit={{ opacity: 0 }}
             initial={{ clipPath: "inset(0% 100% 0% 0%)" }}
-            transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.85, ease: [0.22, 1, 0.36, 1] }}
           >
             <MeshGradient
               className="absolute inset-0"
-              colors={["#101827", "#f45d48", "#2f80ed", "#f5c04e", "#18b788"]}
+              colors={["#06111f", "#ff4f7b", "#4f8cff", "#ffd166", "#20e3b2"]}
               resolutionScale={0.9}
-              speed={0.85}
+              speed={1.05}
             />
             <motion.div
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -149,10 +194,14 @@ export function OnboardingPageClient({
               <AppleHelloEffect
                 className="h-auto max-h-32 w-full max-w-[min(78vw,720px)] drop-shadow-[0_18px_50px_rgba(0,0,0,0.28)]"
                 durationScale={0.72}
+                key={helloLocale}
                 locale={helloLocale}
                 onAnimationComplete={() => {
-                  router.push("/workspace");
-                  router.refresh();
+                  setIsHelloLeaving(true);
+                  window.setTimeout(() => {
+                    router.push("/workspace");
+                    router.refresh();
+                  }, 720);
                 }}
               />
             </motion.div>
@@ -190,17 +239,25 @@ export function OnboardingPageClient({
           </div>
         </div>
 
-        <div className="relative mt-8 min-h-[22rem] max-w-md sm:min-h-[21rem]">
+        <motion.div
+          className="mt-8 max-w-md"
+          layout
+          transition={{
+            layout: { duration: 0.36, ease: [0.22, 1, 0.36, 1] },
+          }}
+        >
           <AnimatePresence initial={false} mode="wait">
             <motion.div
               animate={{ filter: "blur(0px)", opacity: 1, y: 0 }}
-              className="absolute inset-0"
+              className="min-h-[22rem] sm:min-h-[21rem]"
               exit={{ filter: "blur(8px)", opacity: 0, y: -10 }}
               initial={{ filter: "blur(10px)", opacity: 0, y: 12 }}
               key={step}
+              layout
               transition={{
                 duration: 0.28,
                 ease: [0.22, 1, 0.36, 1],
+                layout: { duration: 0.36, ease: [0.22, 1, 0.36, 1] },
               }}
             >
               <div className="font-mono text-[11px] text-muted-foreground uppercase tracking-[0.3em]">
@@ -225,7 +282,13 @@ export function OnboardingPageClient({
                 ))}
               </div>
               {isPetStep ? (
-                <div className="mt-6 rounded-2xl border border-border/70 bg-background/70 p-4 shadow-sm">
+                <motion.div
+                  className="mt-6 rounded-2xl border border-border/70 bg-background/70 p-4 shadow-sm"
+                  layout
+                  transition={{
+                    layout: { duration: 0.36, ease: [0.22, 1, 0.36, 1] },
+                  }}
+                >
                   <PetPreferencesFields
                     accessory={petAccessory}
                     accessoryDescription="Pick an accessory for your pet. The pet stays hidden until the workspace opens."
@@ -236,44 +299,71 @@ export function OnboardingPageClient({
                     onAccessoryChange={setPetAccessory}
                     onNameChange={setPetName}
                   />
-                </div>
+                </motion.div>
               ) : null}
             </motion.div>
           </AnimatePresence>
-        </div>
+        </motion.div>
 
-        <div className="mt-8 flex items-center justify-between">
-          <Button
-            disabled={step === 0 || isFinishing}
-            onClick={() => setStep((value) => Math.max(0, value - 1))}
-            type="button"
-            variant="ghost"
-          >
-            Back
-          </Button>
+        <motion.div
+          className="mt-8 flex items-center justify-between"
+          layout="position"
+          transition={{
+            layout: { duration: 0.36, ease: [0.22, 1, 0.36, 1] },
+          }}
+        >
+          <motion.div layout="position">
+            <Button
+              disabled={step === 0 || isFinishing}
+              onClick={() => setStep((value) => Math.max(0, value - 1))}
+              type="button"
+              variant="ghost"
+            >
+              Back
+            </Button>
+          </motion.div>
 
-          {step < STEPS.length - 1 ? (
-            <Button
-              onClick={() =>
-                setStep((value) => Math.min(STEPS.length - 1, value + 1))
-              }
-              type="button"
-            >
-              Continue
-            </Button>
-          ) : (
-            <Button
-              disabled={isFinishing}
-              onClick={() => {
-                void finishOnboarding();
-              }}
-              type="button"
-            >
-              {isFinishing ? "Entering workspace..." : "Enter workspace"}
-            </Button>
-          )}
-        </div>
+          <motion.div layout="position">
+            {step < STEPS.length - 1 ? (
+              <Button
+                onClick={() =>
+                  setStep((value) => Math.min(STEPS.length - 1, value + 1))
+                }
+                type="button"
+              >
+                Continue
+              </Button>
+            ) : (
+              <Button
+                disabled={isFinishing}
+                onClick={() => {
+                  void finishOnboarding();
+                }}
+                type="button"
+              >
+                {isFinishing ? "Entering workspace..." : "Enter workspace"}
+              </Button>
+            )}
+          </motion.div>
+        </motion.div>
       </div>
     </AuthShell>
   );
+}
+
+export function resolveOnboardingClientRedirect(input: {
+  error: Error | null;
+  settings: {
+    onboardingCompleted?: boolean;
+  } | null;
+}) {
+  if (input.error) {
+    return "/login?callbackURL=/onboarding";
+  }
+
+  if (input.settings?.onboardingCompleted) {
+    return "/workspace";
+  }
+
+  return null;
 }

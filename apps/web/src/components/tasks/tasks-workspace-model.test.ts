@@ -136,12 +136,13 @@ describe("tasks workspace model", () => {
 
     expect(
       getTasksWorkspaceSurfaceState({
+        errorMessage: "Could not load tasks right now.",
         loadFailed: true,
         loading: false,
         visibleTaskCount: 0,
       })
     ).toEqual({
-      description: "Try again in a moment or refresh the workspace.",
+      description: "Could not load tasks right now.",
       showSpinner: false,
       title: "Unable to load tasks.",
     });

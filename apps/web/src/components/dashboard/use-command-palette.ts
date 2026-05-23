@@ -77,6 +77,7 @@ export function useCommandPalette({
     retrievalResults: search.retrievalResults,
     retrievalError: search.retrievalError,
     isRetrieving: search.isRetrieving,
+    workspaceTasksErrorMessage: data.workspaceTasksErrorMessage,
     workspaceTasksLoadFailed: data.workspaceTasksLoadFailed,
     workspaceTasks: data.workspaceTasks,
     recentItems: data.recentItems,

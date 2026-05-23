@@ -2,6 +2,7 @@ import { z } from "zod";
 
 const FLASHCARDS_ONBOARDING_DEFAULT_CARD_COUNT = 5;
 const FLASHCARDS_ONBOARDING_MAX_CARD_COUNT = 12;
+export const FLASHCARDS_ONBOARDING_ERROR = "Unable to generate mindset.";
 
 const requiredTrimmedString = (maxLength: number) =>
   z.preprocess((value) => {
@@ -83,7 +84,7 @@ export function buildFlashcardsOnboardingStudySource(
     `Subject: ${input.subject}`,
     `Topic: ${input.topic}`,
     `Reason: ${input.reason}`,
-    "Generate mindset cards that confront the wrong model, then teach the correct one.",
+    "Generate cards for a Mindset Set that confront the wrong model, then teach the correct one.",
     "Keep the cards concise, specific, and directly useful for review.",
   ].join("\n");
 }
@@ -103,10 +104,10 @@ export function buildFlashcardsOnboardingPrompt(input: {
   const titleHint = input.title ?? "Concept correction";
 
   return [
-    "Create a clean mindset set from the misconception source.",
+    "Create a clean Mindset Set from the misconception source.",
     `Return exactly ${cardCount} cards.`,
     "Use markdown for front and back content.",
-    "Make the mindset set practical for a student reviewing the concept.",
+    "Make the Mindset Set practical for a student reviewing the concept.",
     "Avoid fluff and avoid duplicate cards.",
     `Mindset title hint: ${titleHint}`,
     `Source material:\n${input.source}`,
@@ -117,4 +118,11 @@ export function resolveFlashcardsOnboardingResponse(
   response: FlashcardsOnboardingResponse
 ) {
   return response;
+}
+
+export function resolveFlashcardsOnboardingRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
 }

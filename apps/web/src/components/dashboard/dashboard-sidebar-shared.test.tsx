@@ -5,6 +5,7 @@ import { ChatListSection } from "./dashboard-sidebar-chat-list-section";
 const baseProps = {
   activeChatSlug: "",
   chatActionStatus: null,
+  chatsErrorMessage: null,
   editingChatSlug: null,
   editingTitle: "",
   onCancelRename: () => {},
@@ -32,10 +33,15 @@ describe("ChatListSection", () => {
 
   it("renders an explicit failure state when chats cannot be loaded", () => {
     const html = renderToStaticMarkup(
-      <ChatListSection {...baseProps} chatsLoadFailed />
+      <ChatListSection
+        {...baseProps}
+        chatsErrorMessage="chat history offline"
+        chatsLoadFailed
+      />
     );
 
     expect(html).toContain("Unable to load methods.");
+    expect(html).toContain("chat history offline");
     expect(html).not.toContain("No methods yet");
   });
 
@@ -43,10 +49,10 @@ describe("ChatListSection", () => {
     const html = renderToStaticMarkup(
       <ChatListSection
         {...baseProps}
-        chatActionStatus="Unable to update method."
+        chatActionStatus="Unable to update Method."
       />
     );
 
-    expect(html).toContain("Unable to update method.");
+    expect(html).toContain("Unable to update Method.");
   });
 });

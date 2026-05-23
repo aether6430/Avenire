@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
@@ -53,6 +55,27 @@ vi.mock("@/lib/video-delivery-core", () => ({
 vi.mock("@/lib/video-optimization", () => ({
   optimizeAndReuploadVideo: optimizeAndReuploadVideoMock,
 }));
+
+const videoDeliveryEntrySource = readFileSync(
+  resolve(import.meta.dirname, "video-delivery.ts"),
+  "utf8"
+);
+const videoDeliveryCoreSource = readFileSync(
+  resolve(import.meta.dirname, "video-delivery-core.ts"),
+  "utf8"
+);
+const videoDeliveryOptimizationEntrySource = readFileSync(
+  resolve(import.meta.dirname, "video-delivery-optimization.ts"),
+  "utf8"
+);
+const videoDeliveryOptimizationRuntimeSource = readFileSync(
+  resolve(import.meta.dirname, "video-delivery-optimization-runtime.ts"),
+  "utf8"
+);
+const videoDeliverySyncSource = readFileSync(
+  resolve(import.meta.dirname, "video-delivery-sync.ts"),
+  "utf8"
+);
 
 import {
   runLegacyVideoOptimization,
@@ -176,5 +199,63 @@ describe("video delivery optimization runtime", () => {
 
     expect(optimizeAndReuploadVideoMock).toHaveBeenCalled();
     expect(updateFileAssetStorageMetadataMock).toHaveBeenCalled();
+  });
+
+  it("keeps video delivery split between thin entries, pure core helpers, runtime optimization, and sync reconciliation", () => {
+    expect(videoDeliveryEntrySource).toContain(
+      "@/lib/video-delivery-optimization"
+    );
+    expect(videoDeliveryEntrySource).toContain("@/lib/video-delivery-sync");
+    expect(videoDeliveryEntrySource).not.toContain("createMuxAssetFromUrl(");
+    expect(videoDeliveryEntrySource).not.toContain(
+      "updateFileAssetStorageMetadata("
+    );
+    expect(videoDeliveryEntrySource).not.toContain("optimizeAndReuploadVideo(");
+
+    expect(videoDeliveryOptimizationEntrySource).toContain(
+      'import "server-only";'
+    );
+    expect(videoDeliveryOptimizationEntrySource).toContain(
+      "@/lib/video-delivery-optimization-runtime"
+    );
+
+    expect(videoDeliveryCoreSource).toContain(
+      "export function buildPendingVideoDelivery"
+    );
+    expect(videoDeliveryCoreSource).toContain(
+      "export function buildMuxVideoDelivery"
+    );
+    expect(videoDeliveryCoreSource).toContain(
+      "export function canOptimizeVideoDelivery"
+    );
+    expect(videoDeliveryCoreSource).not.toContain(
+      "updateFileAssetStorageMetadata("
+    );
+    expect(videoDeliveryCoreSource).not.toContain(
+      "publishFilesInvalidationEvent("
+    );
+
+    expect(videoDeliveryOptimizationRuntimeSource).toContain(
+      "updateFileAssetStorageMetadata"
+    );
+    expect(videoDeliveryOptimizationRuntimeSource).toContain(
+      "publishFilesInvalidationEvent"
+    );
+    expect(videoDeliveryOptimizationRuntimeSource).toContain(
+      "createMuxAssetFromUrl"
+    );
+    expect(videoDeliveryOptimizationRuntimeSource).toContain(
+      "optimizeAndReuploadVideo"
+    );
+    expect(videoDeliveryOptimizationRuntimeSource).toContain(
+      "buildPendingVideoDelivery"
+    );
+    expect(videoDeliveryOptimizationRuntimeSource).toContain(
+      "buildMuxVideoDelivery"
+    );
+
+    expect(videoDeliverySyncSource).toContain("getMuxAsset");
+    expect(videoDeliverySyncSource).toContain("buildMuxVideoDelivery");
+    expect(videoDeliverySyncSource).toContain("updateFileAssetStorageMetadata");
   });
 });

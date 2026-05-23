@@ -84,6 +84,29 @@ describe("/api/capture route", () => {
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
   });
 
+  it("fails closed when workspace context lookup throws before capture kind resolution begins", async () => {
+    getWorkspaceContextForUserMock.mockRejectedValueOnce(
+      new Error("capture auth offline")
+    );
+
+    const response = await POST(
+      new Request("http://localhost:3003/api/capture", {
+        method: "POST",
+        body: JSON.stringify({ kind: "task" }),
+      })
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "capture auth offline",
+    });
+    expect(createTaskForUserMock).not.toHaveBeenCalled();
+    expect(ensureNotesFolderMock).not.toHaveBeenCalled();
+    expect(createWorkspaceNoteFileMock).not.toHaveBeenCalled();
+    expect(upsertMisconceptionMock).not.toHaveBeenCalled();
+    expect(recomputeConceptMasteryMock).not.toHaveBeenCalled();
+  });
+
   it("rejects invalid capture kinds", async () => {
     getWorkspaceContextForUserMock.mockResolvedValue({
       user: { id: "user-1" },
@@ -158,6 +181,30 @@ describe("/api/capture route", () => {
     expect(invalidateTaskListCacheMock).toHaveBeenCalledWith("workspace-1");
   });
 
+  it("fails closed with an explicit task capture error when task persistence throws", async () => {
+    getWorkspaceContextForUserMock.mockResolvedValue({
+      user: { id: "user-1" },
+      workspace: { workspaceId: "workspace-1" },
+    });
+    createTaskForUserMock.mockRejectedValue(new Error("task offline"));
+
+    const response = await POST(
+      new Request("http://localhost:3003/api/capture", {
+        method: "POST",
+        body: JSON.stringify({
+          kind: "task",
+          title: "Finish docs",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "task offline",
+    });
+    expect(invalidateTaskListCacheMock).not.toHaveBeenCalled();
+  });
+
   it("creates quick-capture notes under the ensured notes folder and publishes invalidation events", async () => {
     getWorkspaceContextForUserMock.mockResolvedValue({
       user: { id: "user-1" },
@@ -199,6 +246,34 @@ describe("/api/capture route", () => {
       workspaceId: "workspace-1",
     });
     expect(publishFilesInvalidationEventMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("fails closed with an explicit note capture error when note creation throws", async () => {
+    getWorkspaceContextForUserMock.mockResolvedValue({
+      user: { id: "user-1" },
+      workspace: {
+        rootFolderId: "root-1",
+        workspaceId: "workspace-1",
+      },
+    });
+    ensureNotesFolderMock.mockResolvedValue({ id: "notes-folder-1" });
+    createWorkspaceNoteFileMock.mockRejectedValue(new Error("note offline"));
+
+    const response = await POST(
+      new Request("http://localhost:3003/api/capture", {
+        method: "POST",
+        body: JSON.stringify({
+          kind: "note",
+          title: "Note title",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "note offline",
+    });
+    expect(publishFilesInvalidationEventMock).not.toHaveBeenCalled();
   });
 
   it("creates misconceptions with normalized payloads and recomputes concept mastery", async () => {
@@ -247,5 +322,34 @@ describe("/api/capture route", () => {
       userId: "user-1",
       workspaceId: "workspace-1",
     });
+  });
+
+  it("fails closed with an explicit misconception capture error when persistence throws", async () => {
+    getWorkspaceContextForUserMock.mockResolvedValue({
+      user: { id: "user-1" },
+      workspace: { workspaceId: "workspace-1" },
+    });
+    upsertMisconceptionMock.mockRejectedValue(
+      new Error("misconception offline")
+    );
+
+    const response = await POST(
+      new Request("http://localhost:3003/api/capture", {
+        method: "POST",
+        body: JSON.stringify({
+          kind: "misconception",
+          subject: "JavaScript",
+          topic: "Functions",
+          concept: "Closures",
+          reason: "mixed up scope",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "misconception offline",
+    });
+    expect(recomputeConceptMasteryMock).not.toHaveBeenCalled();
   });
 });

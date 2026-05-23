@@ -8,7 +8,9 @@ export interface SidebarFolderNode extends CommandPaletteFolderNode {}
 export interface SidebarFileNode extends CommandPaletteFileNode {}
 
 export interface FilesInvalidationEventPayload {
+  fileId?: string | null;
   folderId?: string | null;
+  reason?: string | null;
 }
 
 interface FilesRealtimeConnectionOptions {
@@ -22,6 +24,7 @@ export interface SidebarTreeMutationItem {
 }
 
 export function getSidebarFilesTreeState(input: {
+  errorMessage?: string | null;
   filteredFolderCount: number;
   folderCount: number;
   loadFailed: boolean;
@@ -45,7 +48,7 @@ export function getSidebarFilesTreeState(input: {
 
   if (input.loadFailed && input.folderCount === 0) {
     return {
-      label: "Unable to load files.",
+      label: input.errorMessage?.trim() || "Unable to load files.",
       showTree: false,
     };
   }
@@ -362,4 +365,55 @@ export function filterSidebarTreeAfterDelete({
     ),
     folders: folderTree.filter((folder) => !folderIdsToRemove.has(folder.id)),
   };
+}
+
+export function applySidebarFilesRealtimeInvalidation({
+  detail,
+  expandedTreePaths,
+  fileTree,
+  folderTree,
+}: {
+  detail: FilesInvalidationEventPayload | null;
+  expandedTreePaths: Set<string>;
+  fileTree: SidebarFileNode[];
+  folderTree: SidebarFolderNode[];
+}) {
+  if (detail?.reason === "file.deleted" && detail.fileId) {
+    const filtered = filterSidebarTreeAfterDelete({
+      fileTree,
+      folderIdsToRemove: new Set<string>(),
+      folderTree,
+      items: [{ id: detail.fileId, kind: "file" }],
+    });
+
+    return {
+      expandedTreePaths,
+      fileTree: filtered.files,
+      folderTree: filtered.folders,
+    };
+  }
+
+  if (detail?.reason === "folder.deleted" && detail.folderId) {
+    const folderIdsToRemove = collectSidebarDeletedFolderIds(folderTree, [
+      { id: detail.folderId, kind: "folder" },
+    ]);
+    const filtered = filterSidebarTreeAfterDelete({
+      fileTree,
+      folderIdsToRemove,
+      folderTree,
+      items: [{ id: detail.folderId, kind: "folder" }],
+    });
+    const nextExpandedTreePaths = new Set(expandedTreePaths);
+    for (const folderId of folderIdsToRemove) {
+      nextExpandedTreePaths.delete(folderId);
+    }
+
+    return {
+      expandedTreePaths: nextExpandedTreePaths,
+      fileTree: filtered.files,
+      folderTree: filtered.folders,
+    };
+  }
+
+  return null;
 }

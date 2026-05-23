@@ -8,7 +8,11 @@ export async function loadFlashcardsSidebarSets(signal?: AbortSignal) {
     signal,
   });
   if (!response.ok) {
-    return null;
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+
+    throw new Error(payload.error?.trim() || "Unable to load Mindset Sets.");
   }
 
   const payload = (await response.json()) as {
@@ -32,7 +36,7 @@ export async function createFlashcardsSidebarSet({
   if (!response.ok) {
     return {
       setId: null,
-      status: "Unable to create the mindset set right now.",
+      status: "Unable to create the Mindset Set right now.",
     };
   }
 
@@ -45,6 +49,6 @@ export async function createFlashcardsSidebarSet({
     setId,
     status: setId
       ? null
-      : "The mindset set was created, but it could not be opened automatically.",
+      : "The Mindset Set was created, but it could not be opened automatically.",
   };
 }

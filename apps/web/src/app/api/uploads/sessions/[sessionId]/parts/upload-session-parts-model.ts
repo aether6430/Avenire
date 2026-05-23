@@ -2,6 +2,8 @@ import { z } from "zod";
 
 export { resolveUploadSessionMaxPartBytes } from "../../upload-session-route-model";
 
+export const UPLOAD_SESSION_PART_UPLOAD_ERROR = "Unable to upload part.";
+
 export const uploadSessionPartsSchema = z.object({
   partNumbers: z.array(z.number().int().positive()).min(1).max(10_000),
 });
@@ -30,4 +32,11 @@ export function buildUploadSessionPartUploadUrl(input: {
   );
   uploadUrl.searchParams.set("token", input.token);
   return uploadUrl.toString();
+}
+
+export function resolveUploadSessionPartRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
 }

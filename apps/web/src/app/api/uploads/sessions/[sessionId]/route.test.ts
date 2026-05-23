@@ -35,6 +35,25 @@ describe("/api/uploads/sessions/[sessionId] route", () => {
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
   });
 
+  it("fails closed when session lookup throws before upload session detail loading begins", async () => {
+    getSessionUserMock.mockRejectedValue(
+      new Error("upload session auth offline")
+    );
+
+    const response = await GET(
+      new Request("http://localhost:3003/api/uploads/sessions/session-1"),
+      {
+        params: Promise.resolve({ sessionId: "session-1" }),
+      }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "upload session auth offline",
+    });
+    expect(getUploadSessionMock).not.toHaveBeenCalled();
+  });
+
   it("returns not found when the session does not exist", async () => {
     getSessionUserMock.mockResolvedValue({ id: "user-1" });
     getUploadSessionMock.mockResolvedValue(null);
@@ -96,6 +115,23 @@ describe("/api/uploads/sessions/[sessionId] route", () => {
         folderId: "folder-1",
         name: "lecture.mp4",
       },
+    });
+  });
+
+  it("fails closed with an explicit load error when session lookups throw", async () => {
+    getSessionUserMock.mockResolvedValue({ id: "user-1" });
+    getUploadSessionMock.mockRejectedValue(new Error("session lookup offline"));
+
+    const response = await GET(
+      new Request("http://localhost:3003/api/uploads/sessions/session-1"),
+      {
+        params: Promise.resolve({ sessionId: "session-1" }),
+      }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "session lookup offline",
     });
   });
 });

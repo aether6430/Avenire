@@ -10,6 +10,7 @@ const {
 } = vi.hoisted(() => ({
   APOLLO_LANGUAGE_MODEL_IDS_MOCK: {
     "apollo-apex": "provider-apollo-apex",
+    "apex-turbo": "provider-apex-turbo",
     "apollo-meta": "provider-apollo-meta",
     "apollo-sprint": "provider-apollo-sprint",
     "apollo-tiny": "provider-apollo-tiny",
@@ -58,6 +59,9 @@ describe("chat route metadata", () => {
     vi.stubEnv("CHAT_TITLE_MODEL", "apollo-apex");
     expect(resolveChatTitleModel()).toBe("apollo-apex");
 
+    vi.stubEnv("CHAT_TITLE_MODEL", "apex-turbo");
+    expect(resolveChatTitleModel()).toBe("apex-turbo");
+
     vi.stubEnv("CHAT_TITLE_MODEL", "apollo-sprint");
     expect(resolveChatTitleModel()).toBe("apollo-meta");
 
@@ -65,8 +69,10 @@ describe("chat route metadata", () => {
     expect(resolveChatTitleModel()).toBe("apollo-sprint");
   });
 
-  it("falls back cleanly when latest user text is missing or generateText returns empty", async () => {
+  it("fails closed on empty or whitespace-only latest user text and falls back cleanly when generateText returns empty", async () => {
     await expect(generateChatMetadata("")).resolves.toBeNull();
+    await expect(generateChatMetadata("   ")).resolves.toBeNull();
+    expect(generateTextMock).not.toHaveBeenCalled();
 
     generateTextMock.mockResolvedValue({ text: "   " });
     await expect(generateChatMetadata("Explain torque")).resolves.toEqual({

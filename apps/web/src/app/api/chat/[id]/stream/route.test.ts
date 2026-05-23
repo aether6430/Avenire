@@ -105,12 +105,27 @@ describe("/api/chat/[id]/stream route", () => {
     expect(response.status).toBe(401);
   });
 
-  it("returns not found when the workspace or chat cannot be resolved", async () => {
+  it("returns 500 when session lookup throws before stream resolution", async () => {
+    authGetSessionMock.mockRejectedValueOnce(new Error("chat stream offline"));
+
+    const response = await GET(
+      new Request("http://localhost:3003/api/chat/chat-1/stream"),
+      {
+        params: Promise.resolve({ id: "chat-1" }),
+      }
+    );
+
+    expect(response.status).toBe(500);
+    expect(resolveWorkspaceForUserMock).not.toHaveBeenCalled();
+  });
+
+  it("returns not found when the workspace cannot be resolved and 204 when the chat stream cannot be resumed", async () => {
     authGetSessionMock.mockResolvedValue({
       session: { activeOrganizationId: "org-1" },
       user: { id: "user-1" },
     });
     resolveWorkspaceForUserMock.mockResolvedValue(null);
+    getActiveStreamIdMock.mockResolvedValue("stream-1");
 
     let response = await GET(
       new Request("http://localhost:3003/api/chat/chat-1/stream"),
@@ -121,24 +136,22 @@ describe("/api/chat/[id]/stream route", () => {
     resolveWorkspaceForUserMock.mockResolvedValue({
       workspaceId: "workspace-1",
     });
+    getActiveStreamIdMock.mockResolvedValue("stream-1");
     getChatBySlugForUserMock.mockResolvedValue(null);
 
     response = await GET(
       new Request("http://localhost:3003/api/chat/chat-1/stream"),
       { params: Promise.resolve({ id: "chat-1" }) }
     );
-    expect(response.status).toBe(404);
+    expect(response.status).toBe(204);
+    expect(response.headers.get("cache-control")).toBe("no-store");
   });
 
-  it("returns 204 with no-store when there is no active stream id", async () => {
+  it("returns 204 with no-store when there is no active stream id before any workspace lookup", async () => {
     authGetSessionMock.mockResolvedValue({
       session: { activeOrganizationId: "org-1" },
       user: { id: "user-1" },
     });
-    resolveWorkspaceForUserMock.mockResolvedValue({
-      workspaceId: "workspace-1",
-    });
-    getChatBySlugForUserMock.mockResolvedValue({ id: "db-chat-1" });
     getActiveStreamIdMock.mockResolvedValue(null);
 
     const response = await GET(
@@ -148,6 +161,8 @@ describe("/api/chat/[id]/stream route", () => {
 
     expect(response.status).toBe(204);
     expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(resolveWorkspaceForUserMock).not.toHaveBeenCalled();
+    expect(getChatBySlugForUserMock).not.toHaveBeenCalled();
   });
 
   it("clears stale active stream ids when the resumable stream is gone", async () => {

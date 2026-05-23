@@ -67,6 +67,7 @@ function statusMeta(status: FilesActivityItem["status"]) {
 
 interface UploadActivityBodyProps {
   completedCount: number;
+  errorMessage?: string | null;
   failedCount: number;
   loadFailed?: boolean;
   loading?: boolean;
@@ -79,6 +80,7 @@ interface UploadActivityBodyProps {
 
 export function UploadActivityBody({
   completedCount,
+  errorMessage,
   failedCount,
   loadFailed = false,
   loading = false,
@@ -89,6 +91,7 @@ export function UploadActivityBody({
   useDrawerClose = false,
 }: UploadActivityBodyProps) {
   const emptyState = getUploadActivityEmptyState({
+    errorMessage,
     itemCount: queue.length,
     loadFailed,
     loading,

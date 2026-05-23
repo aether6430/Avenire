@@ -1,6 +1,20 @@
 import type { BillingPeriod, PaidPlan } from "./plans";
 import { getPolarRuntimeServer, polarFetch } from "./polar-client";
 
+function describePolarResponse(status: number, message: string) {
+  return {
+    message: message || `Polar checkout request failed (${status})`,
+    statusCode: status,
+  };
+}
+
+function logPaymentError(message: string, payload: Record<string, unknown>) {
+  const logger = Reflect.get(globalThis, "console") as
+    | { error?: (message?: unknown, ...optionalParams: unknown[]) => void }
+    | undefined;
+  logger?.error?.(message, payload);
+}
+
 function getProductId(plan: PaidPlan, billing: BillingPeriod) {
   const key = `${plan}_${billing}` as const;
   const productIds: Record<typeof key, string | undefined> = {
@@ -47,6 +61,14 @@ export async function createCheckoutSession(input: {
 
     if (!response.ok) {
       const message = await response.text().catch(() => "");
+      logPaymentError("[payments] failed to create Polar checkout", {
+        billing: input.billing,
+        error: describePolarResponse(response.status, message),
+        plan: input.plan,
+        polarServer: getPolarRuntimeServer(),
+        productId,
+        userId: input.userId,
+      });
       const error = Object.assign(
         new Error(
           message || `Polar checkout request failed (${response.status})`

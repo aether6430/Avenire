@@ -13,7 +13,11 @@ import {
   getRouteCacheVersion,
   setCachedRoute,
 } from "@/lib/route-cache";
-import { buildWorkspaceFolderRoutePayload } from "./workspace-folder-route-model";
+import {
+  buildWorkspaceFolderRoutePayload,
+  resolveWorkspaceFolderRouteError,
+  WORKSPACE_FOLDER_LOAD_ERROR,
+} from "./workspace-folder-route-model";
 
 async function hydrateWorkspaceFolderNoteContent(input: {
   markdownFiles: Array<{ id: string; storageUrl: string }>;
@@ -49,62 +53,78 @@ export async function handleWorkspaceFolderGet(input: {
   userId: string;
   workspaceUuid: string;
 }) {
-  const version = await getRouteCacheVersion(
-    CACHE_NAMESPACES.workspaceFolder,
-    input.workspaceUuid
-  );
-  const cacheKey = createRouteCacheKey({
-    namespace: CACHE_NAMESPACES.workspaceFolder,
-    params: { folderUuid: input.folderUuid },
-    scope: input.workspaceUuid,
-    version,
-  });
-  const cached = await getCachedRoute<{
-    ancestors: unknown[];
-    files: unknown[];
-    folder: unknown;
-    folders: unknown[];
-  }>(cacheKey);
-  if (cached) {
-    return NextResponse.json(cached, {
-      headers: { "x-workspace-folder-cache": "hit" },
+  try {
+    const version = await getRouteCacheVersion(
+      CACHE_NAMESPACES.workspaceFolder,
+      input.workspaceUuid
+    );
+    const cacheKey = createRouteCacheKey({
+      namespace: CACHE_NAMESPACES.workspaceFolder,
+      params: { folderUuid: input.folderUuid },
+      scope: input.workspaceUuid,
+      version,
     });
+    const cached = await getCachedRoute<{
+      ancestors: unknown[];
+      files: unknown[];
+      folder: unknown;
+      folders: unknown[];
+    }>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, {
+        headers: { "x-workspace-folder-cache": "hit" },
+      });
+    }
+
+    const [folder, children] = await Promise.all([
+      getFolderWithAncestors(
+        input.workspaceUuid,
+        input.folderUuid,
+        input.userId
+      ),
+      listFolderContentsForUser(
+        input.workspaceUuid,
+        input.folderUuid,
+        input.userId
+      ),
+    ]);
+    if (!folder) {
+      return NextResponse.json({ error: "Folder not found" }, { status: 404 });
+    }
+
+    const files = children.files ?? [];
+    const markdownFiles = files.filter((file) => isMarkdownFileRecord(file));
+    const [ingestionFlags, noteContentByFileId] = await Promise.all([
+      getIngestionFlagsByFileIds(
+        input.workspaceUuid,
+        files.map((file) => file.id)
+      ),
+      hydrateWorkspaceFolderNoteContent({
+        markdownFiles,
+      }),
+    ]);
+
+    const payload = buildWorkspaceFolderRoutePayload({
+      folder: folder.folder,
+      ancestors: folder.ancestors,
+      folders: children.folders,
+      files,
+      ingestionFlags,
+      noteContentByFileId,
+    });
+    await setCachedRoute(CACHE_NAMESPACES.workspaceFolder, cacheKey, payload);
+    return NextResponse.json(payload, {
+      headers: { "x-workspace-folder-cache": "miss" },
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: resolveWorkspaceFolderRouteError(
+          error,
+          WORKSPACE_FOLDER_LOAD_ERROR
+        ),
+      },
+      { status: 500 }
+    );
   }
-
-  const [folder, children] = await Promise.all([
-    getFolderWithAncestors(input.workspaceUuid, input.folderUuid, input.userId),
-    listFolderContentsForUser(
-      input.workspaceUuid,
-      input.folderUuid,
-      input.userId
-    ),
-  ]);
-  if (!folder) {
-    return NextResponse.json({ error: "Folder not found" }, { status: 404 });
-  }
-
-  const files = children.files ?? [];
-  const markdownFiles = files.filter((file) => isMarkdownFileRecord(file));
-  const [ingestionFlags, noteContentByFileId] = await Promise.all([
-    getIngestionFlagsByFileIds(
-      input.workspaceUuid,
-      files.map((file) => file.id)
-    ),
-    hydrateWorkspaceFolderNoteContent({
-      markdownFiles,
-    }),
-  ]);
-
-  const payload = buildWorkspaceFolderRoutePayload({
-    folder: folder.folder,
-    ancestors: folder.ancestors,
-    folders: children.folders,
-    files,
-    ingestionFlags,
-    noteContentByFileId,
-  });
-  await setCachedRoute(CACHE_NAMESPACES.workspaceFolder, cacheKey, payload);
-  return NextResponse.json(payload, {
-    headers: { "x-workspace-folder-cache": "miss" },
-  });
 }

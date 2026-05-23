@@ -85,6 +85,7 @@ describe("useCommandPaletteData", () => {
       searchItems: [{ id: "search-1" }],
     });
     useCommandPaletteWorkspaceTasksMock.mockReturnValue({
+      workspaceTasksErrorMessage: null,
       workspaceTasks: [{ id: "task-1", title: "Focus" }],
       workspaceTasksLoadFailed: false,
     });
@@ -159,6 +160,7 @@ describe("useCommandPaletteData", () => {
     expect(hook.retrievalSearchItems).toEqual([{ id: "retrieval-1" }]);
     expect(hook.searchItems).toEqual([{ id: "search-1" }]);
     expect(hook.workspaceTasks).toEqual([{ id: "task-1", title: "Focus" }]);
+    expect(hook.workspaceTasksErrorMessage).toBeNull();
     expect(hook.workspaceTasksLoadFailed).toBe(false);
   });
 
@@ -183,5 +185,33 @@ describe("useCommandPaletteData", () => {
     expect(hook.cachedFlashcardSets).toEqual([]);
     expect(hook.recentChats).toEqual([]);
     expect(hook.recentFlashcardSets).toEqual([]);
+  });
+
+  it("passes through the workspace task load error message from the task hook", () => {
+    useCommandPaletteWorkspaceTasksMock.mockReturnValueOnce({
+      workspaceTasksErrorMessage: "Could not load tasks right now.",
+      workspaceTasks: [],
+      workspaceTasksLoadFailed: true,
+    });
+
+    const hook = renderHookValue({
+      activeFileId: null,
+      currentFilesFolderId: null,
+      currentFilesWorkspaceUuid: "workspace-1",
+      fileIndexByWorkspace: {},
+      open: true,
+      recentFileIdsByWorkspace: {},
+      resolvedWorkspaceUuid: "workspace-1",
+      router: {
+        prefetch: vi.fn(),
+      } as never,
+      workspaces: [],
+    });
+
+    expect(hook.workspaceTasks).toEqual([]);
+    expect(hook.workspaceTasksErrorMessage).toBe(
+      "Could not load tasks right now."
+    );
+    expect(hook.workspaceTasksLoadFailed).toBe(true);
   });
 });

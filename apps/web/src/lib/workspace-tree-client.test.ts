@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getWorkspaceTreePayload,
   loadWorkspaceTreePayload,
+  resolveWorkspaceTreeClientError,
 } from "@/lib/workspace-tree-client";
 
 function createDeferred<T>() {
@@ -108,5 +109,26 @@ describe("workspace tree client", () => {
       folders: [{ id: "folder-b", name: "Docs", parentId: "root-b" }],
     });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed with a readable error when the tree route returns a non-ok response", async () => {
+    vi.stubGlobal("window", {
+      localStorage: createLocalStorageMock(),
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        json: async () => ({ error: "tree backend offline" }),
+        ok: false,
+      })
+    );
+
+    await expect(loadWorkspaceTreePayload("workspace-c")).rejects.toThrow(
+      "tree backend offline"
+    );
+    expect(
+      resolveWorkspaceTreeClientError(new Error("tree backend offline"))
+    ).toBe("tree backend offline");
   });
 });

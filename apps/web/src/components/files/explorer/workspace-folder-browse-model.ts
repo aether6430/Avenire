@@ -27,6 +27,8 @@ export type SortState =
     };
 
 interface BuildWorkspaceFolderBrowseModelInput {
+  allFiles: FileRecord[];
+  allFolders: FolderRecord[];
   files: FileRecord[];
   folders: FolderRecord[];
   propertyFilters: PropertyFilterState[];
@@ -202,6 +204,8 @@ function compareFiles(
 }
 
 export function buildWorkspaceFolderBrowseModel({
+  allFiles,
+  allFolders,
   files,
   folders,
   propertyFilters,
@@ -210,17 +214,16 @@ export function buildWorkspaceFolderBrowseModel({
   vectorFilteredIds,
 }: BuildWorkspaceFolderBrowseModelInput) {
   const term = query.trim().toLowerCase();
-  const activeVectorIds =
-    vectorFilteredIds && vectorFilteredIds.size > 0 ? vectorFilteredIds : null;
+  const activeVectorIds = vectorFilteredIds;
 
   const filteredFolders = activeVectorIds
-    ? folders.filter((folder) => activeVectorIds.has(folder.id))
+    ? allFolders.filter((folder) => activeVectorIds.has(folder.id))
     : term
       ? folders.filter((folder) => folder.name.toLowerCase().includes(term))
       : folders;
 
   const candidateFiles = activeVectorIds
-    ? files.filter((file) => activeVectorIds.has(file.id))
+    ? allFiles.filter((file) => activeVectorIds.has(file.id))
     : term
       ? files.filter((file) => file.name.toLowerCase().includes(term))
       : files;

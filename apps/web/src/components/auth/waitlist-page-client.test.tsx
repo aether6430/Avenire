@@ -11,10 +11,6 @@ const { particleFieldMock, waitlistFormMock } = vi.hoisted(() => ({
   ),
 }));
 
-vi.mock("next/dynamic", () => ({
-  default: vi.fn(() => waitlistFormMock),
-}));
-
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) =>
     createElement("a", { href }, children),
@@ -22,6 +18,10 @@ vi.mock("next/link", () => ({
 
 vi.mock("@/components/ui/particle-field", () => ({
   ParticleField: particleFieldMock,
+}));
+
+vi.mock("@avenire/auth/components/waitlist", () => ({
+  WaitlistForm: waitlistFormMock,
 }));
 
 vi.mock("@avenire/ui/components/dialog", () => ({
@@ -44,21 +44,31 @@ describe("WaitlistPageClient", () => {
     const html = renderToStaticMarkup(<WaitlistPageClient />);
 
     expect(particleFieldMock).toHaveBeenCalledTimes(1);
+    expect(particleFieldMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        adaptToTheme: false,
+        color: "rgba(255, 255, 255, 0.92)",
+        src: "/figures/empty-room.png",
+      }),
+      undefined
+    );
     expect(html).toContain('data-particle-field="1"');
     expect(html).toContain("Invite-only, for now");
-    expect(html).toContain("Join the waitlist");
-    expect(html).toContain("This room&#x27;s full for now.");
-    expect(html).toContain(">Join waitlist<");
+    expect(html).toContain("Early access is opening in waves.");
+    expect(html).toContain(
+      "Join the waitlist and we&#x27;ll email you as soon as your invite is ready."
+    );
+    expect(html).toContain(">Join the waitlist<");
     expect(html).toContain('href="/terms"');
     expect(html).toContain('href="/privacy"');
   });
 
-  it("does not render the waitlist dialog or form before the CTA is opened", () => {
+  it("keeps the waitlist dialog shell and form mounted even before the CTA is opened", () => {
     const html = renderToStaticMarkup(<WaitlistPageClient />);
 
-    expect(waitlistFormMock).not.toHaveBeenCalled();
-    expect(html).not.toContain('data-dialog="1"');
-    expect(html).not.toContain('data-waitlist-form="1"');
+    expect(waitlistFormMock).toHaveBeenCalledTimes(1);
+    expect(html).toContain('data-dialog="1"');
+    expect(html).toContain('data-waitlist-form="1"');
     expect(html).toContain("Joining the waitlist means you agree");
   });
 });

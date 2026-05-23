@@ -2,7 +2,7 @@ import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-const { useIsMobileMock, useDashboardUiStoreMock } = vi.hoisted(() => ({
+const { useDashboardUiStoreMock } = vi.hoisted(() => ({
   useDashboardUiStoreMock: Object.assign(
     (selector: (state: { homeTab: string; insightsTab: string }) => unknown) =>
       selector({ homeTab: "tasks", insightsTab: "weak-points" }),
@@ -12,7 +12,6 @@ const { useIsMobileMock, useDashboardUiStoreMock } = vi.hoisted(() => ({
       },
     }
   ),
-  useIsMobileMock: vi.fn(() => false),
 }));
 
 vi.mock("@avenire/ui/components/button", () => ({
@@ -30,10 +29,6 @@ vi.mock("@avenire/ui/components/spinner", () => ({
 vi.mock("@avenire/ui/lib/utils", () => ({
   cn: (...values: Array<string | false | null | undefined>) =>
     values.filter(Boolean).join(" "),
-}));
-
-vi.mock("@avenire/ui/hooks/use-mobile", () => ({
-  useIsMobile: useIsMobileMock,
 }));
 
 vi.mock("next/dynamic", () => ({
@@ -66,14 +61,13 @@ vi.mock("@/components/dashboard/quick-capture-dialog", () => ({
 import { DashboardHomeSurface } from "@/components/dashboard/dashboard-home-surface";
 
 describe("DashboardHomeSurface", () => {
-  it("labels the breadcrumb as mobile on narrow mobile layouts", () => {
-    useIsMobileMock.mockReturnValue(true);
-
+  it("labels the workspace header breadcrumb as overview", () => {
     const html = renderToStaticMarkup(
       <DashboardHomeSurface
         currentUserId="user-1"
         runtime={{
           activeMisconceptions: [],
+          activityErrorMessage: null,
           activityLoadFailed: false,
           activities: [],
           compactGreeting: "Compact greeting",
@@ -101,7 +95,10 @@ describe("DashboardHomeSurface", () => {
       />
     );
 
-    expect(html).toContain("Mobile");
+    expect(html).toContain('data-title="1"');
+    expect(html).toContain(">Workspace<");
+    expect(html).toContain(">Overview<");
+    expect(html).not.toContain(">Mobile<");
     expect(html).not.toContain(">Desktop<");
   });
 });

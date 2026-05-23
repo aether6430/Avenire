@@ -20,6 +20,7 @@ export interface TaskGroupBucket {
 }
 
 export function getTasksWorkspaceSurfaceState(input: {
+  errorMessage?: string | null;
   loadFailed: boolean;
   loading: boolean;
   visibleTaskCount: number;
@@ -34,7 +35,9 @@ export function getTasksWorkspaceSurfaceState(input: {
 
   if (input.loadFailed && input.visibleTaskCount === 0) {
     return {
-      description: "Try again in a moment or refresh the workspace.",
+      description:
+        input.errorMessage?.trim() ||
+        "Try again in a moment or refresh the workspace.",
       showSpinner: false,
       title: "Unable to load tasks.",
     };

@@ -7,6 +7,9 @@ export interface WorkspaceArchiveItem {
   kind: WorkspaceArchiveItemKind;
 }
 
+export const WORKSPACE_ITEM_ARCHIVE_ERROR =
+  "Unable to prepare archive download.";
+
 export function resolveRequestedArchiveItems(
   input: unknown
 ): WorkspaceArchiveItem[] {
@@ -103,4 +106,11 @@ export function addArchiveEntry(
     }
     copyIndex += 1;
   }
+}
+
+export function resolveWorkspaceItemArchiveError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
 }

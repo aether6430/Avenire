@@ -8,7 +8,6 @@ import type {
   ReadPreview,
   SearchPreview,
 } from "@/components/chat/rolling-tool-activity-types";
-import { Shimmer } from "@/components/chat/shimmer";
 import { cn } from "@/lib/utils";
 import { ThinkingDots } from "./rolling-reasoning";
 import {
@@ -57,7 +56,7 @@ function RollingWindow({ items }: { items: ExploreItem[] }) {
               key={itemKeys[index]}
               style={{ height: ROW_HEIGHT }}
             >
-              <span className="w-14 shrink-0 font-semibold text-[11px] text-foreground/45">
+              <span className="w-11 shrink-0 font-semibold text-[11px] text-foreground/45">
                 {item.label}
               </span>
               <span className="truncate font-mono text-[11px] text-foreground/22">
@@ -101,13 +100,13 @@ function ReadPreviewPanel({
         transition: "max-height 240ms ease, opacity 240ms ease",
       }}
     >
-      <div className="mt-0.5 mb-1.5 ml-[60px] overflow-hidden rounded border border-foreground/[0.07] bg-foreground/[0.025]">
+      <div className="mt-0.5 mb-1.5 ml-[48px] overflow-hidden rounded border border-foreground/[0.07] bg-foreground/[0.025]">
         <div className="border-foreground/[0.06] border-b px-2.5 pt-1.5 pb-1">
           <span className="block truncate font-mono text-[10px] text-foreground/28">
             {preview.path}
           </span>
         </div>
-        <pre className="overflow-hidden px-2.5 py-1.5 font-mono text-[10.5px] text-foreground/32 leading-[1.55]">
+        <pre className="overflow-hidden whitespace-pre-wrap break-words px-2.5 py-1.5 font-mono text-[10.5px] text-foreground/32 leading-[1.55]">
           {lines.join("\n")}
         </pre>
       </div>
@@ -137,7 +136,7 @@ function SearchPreviewPanel({
         transition: "max-height 240ms ease, opacity 240ms ease",
       }}
     >
-      <div className="mt-0.5 mb-1.5 ml-[60px] overflow-hidden rounded border border-foreground/[0.07] bg-foreground/[0.025]">
+      <div className="mt-0.5 mb-1.5 ml-[48px] overflow-hidden rounded border border-foreground/[0.07] bg-foreground/[0.025]">
         <div className="border-foreground/[0.06] border-b px-2.5 pt-1.5 pb-1">
           <span className="font-mono text-[10px] text-foreground/28">
             {preview.matches.length} match
@@ -189,7 +188,7 @@ function AccordionFileRow({
       className="flex items-baseline gap-2 pl-4"
       style={{ height: ROW_HEIGHT }}
     >
-      <span className="w-14 shrink-0 font-semibold text-[11px] text-foreground/32">
+      <span className="w-11 shrink-0 font-semibold text-[11px] text-foreground/32">
         {item.label}
       </span>
       <span className="flex-1 truncate font-mono text-[11px] text-foreground/20">
@@ -213,10 +212,8 @@ function AccordionFileRow({
 
   return (
     <li
-      style={{
-        opacity: parentOpen ? 1 : 0,
-        transition: `opacity 160ms ease ${parentOpen ? index * 25 : 0}ms`,
-      }}
+      className="fade-in-0 animate-in duration-150"
+      style={{ animationDelay: parentOpen ? `${index * 25}ms` : undefined }}
     >
       {hasPreview ? (
         <button
@@ -268,25 +265,27 @@ function AccordionPanel({
 
   return (
     <div
+      aria-hidden={!open}
+      className={cn(
+        "grid overflow-hidden transition-[grid-template-rows,opacity] duration-300 ease-out",
+        open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+      )}
+      hidden={!open}
       id={id}
       role="region"
-      style={{
-        maxHeight: open ? "24rem" : "0px",
-        opacity: open ? 1 : 0,
-        overflow: "hidden",
-        transition: "max-height 360ms ease, opacity 360ms ease",
-      }}
     >
-      <ul aria-label="Files accessed" className="mt-[3px]">
-        {items.map((item, index) => (
-          <AccordionFileRow
-            index={index}
-            item={item}
-            key={itemKeys[index]}
-            parentOpen={open}
-          />
-        ))}
-      </ul>
+      <div className="min-h-0 overflow-hidden">
+        <ul aria-label="Files accessed" className="mt-[3px]">
+          {items.map((item, index) => (
+            <AccordionFileRow
+              index={index}
+              item={item}
+              key={itemKeys[index]}
+              parentOpen={open}
+            />
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
@@ -346,9 +345,9 @@ export function ExploreBlock({
           className="flex h-7 items-center gap-2"
           role="status"
         >
-          <Shimmer as="span" className="font-semibold text-foreground text-sm">
+          <span className="font-semibold text-foreground/32 text-sm">
             Exploring
-          </Shimmer>
+          </span>
           {summary ? (
             <span aria-hidden="true" className="text-[11px] text-foreground/26">
               {summary}

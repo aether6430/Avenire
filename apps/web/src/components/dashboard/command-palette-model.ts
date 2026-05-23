@@ -79,12 +79,13 @@ export function shouldReplaceCommandPaletteFileRoute(options: {
 }
 
 export function getCommandPaletteTasksState(input: {
+  errorMessage?: string | null;
   loadFailed: boolean;
   taskCount: number;
 }) {
   if (input.loadFailed && input.taskCount === 0) {
     return {
-      message: "Unable to load tasks.",
+      message: input.errorMessage?.trim() || "Unable to load tasks.",
       showGroup: true,
     };
   }
@@ -106,7 +107,7 @@ export function buildCommandPaletteMindsetSetValue(input: {
   description: string;
   label: string;
 }) {
-  return `${input.label} ${input.description} mindset set flashcard`;
+  return `${input.label} ${input.description} Mindset Set flashcard`;
 }
 
 export function buildCommandPaletteRecentMethodValue(input: {
@@ -120,7 +121,7 @@ export function buildCommandPaletteRecentMindsetSetValue(input: {
   id: string;
   title: string;
 }) {
-  return `${input.title} ${input.id} mindset set flashcard`;
+  return `${input.title} ${input.id} Mindset Set flashcard`;
 }
 
 export const FILE_FUSE_OPTIONS = {
@@ -187,13 +188,13 @@ export function matchesNeedle(value: string, needle: string) {
 }
 
 export const PALETTE_GROUP_CLASS =
-  "overflow-hidden px-1 py-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-muted-foreground/60 [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider";
+  "overflow-hidden px-2 py-2 [&_[cmdk-group-heading]]:px-1.5 [&_[cmdk-group-heading]]:pb-1.5 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-muted-foreground/55 [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-normal";
 
 export const PALETTE_ITEM_CLASS =
-  "group relative flex cursor-pointer select-none items-start gap-3 rounded px-2.5 py-2 text-sm outline-none data-[selected=true]:bg-primary/15 data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 hover:bg-primary/10 transition-colors duration-100";
+  "group relative flex cursor-pointer select-none items-start gap-2.5 rounded-md px-2.5 py-2 text-sm outline-none data-[selected=true]:bg-muted data-[selected=true]:text-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 hover:bg-muted/80 transition-colors duration-100";
 
 export const PALETTE_ICON_CLASS =
-  "mt-0.5 size-4 shrink-0 text-muted-foreground/70";
+  "mt-0.5 size-4 shrink-0 text-muted-foreground/65";
 
 export const PALETTE_CHEVRON_CLASS =
-  "mt-0.5 ml-auto size-3.5 shrink-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100 text-muted-foreground/50";
+  "mt-0.5 ml-auto size-3.5 shrink-0 text-muted-foreground/45 opacity-0 transition-opacity duration-150 group-data-[selected=true]:opacity-100 group-hover:opacity-100";

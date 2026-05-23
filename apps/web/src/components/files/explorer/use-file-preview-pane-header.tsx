@@ -13,7 +13,6 @@ import {
   FilePreviewPaneHeaderBreadcrumbs,
   FilePreviewPaneHeaderLeadingIcon,
 } from "./file-preview-pane-header-content";
-import { canUseFilePreviewPaneCircleToAi } from "./file-preview-pane-header-model";
 
 interface UseFilePreviewPaneHeaderOptions {
   activeCustomIcon: string | null;
@@ -23,8 +22,6 @@ interface UseFilePreviewPaneHeaderOptions {
   activeLinkSourceUrl: string | null;
   allFolders: FolderRecord[];
   canClosePane: boolean;
-  circleToAiEnabled: boolean;
-  circleToAiParam: string | null;
   closePane: (paneId: string) => void;
   currentInfoEntries: ExplorerSurfaceInfoEntry[];
   deleteContextActionItems: (itemId: string, kind: "file" | "folder") => void;
@@ -39,9 +36,7 @@ interface UseFilePreviewPaneHeaderOptions {
   ) => void;
   hardReingestContextActionItems: (itemId: string) => void;
   isCurrentPinned: boolean;
-  isImage: boolean;
   isPdf: boolean;
-  isVideo: boolean;
   markdownDisplayTitle: string;
   moveContextActionItemsToFolder: (
     itemId: string,
@@ -61,7 +56,6 @@ interface UseFilePreviewPaneHeaderOptions {
   openRenameFileDialog: (file: FileRecord) => void;
   paneId: string;
   pdfInvertColors: boolean;
-  setCircleToAiEnabled: Dispatch<SetStateAction<boolean>>;
   setPdfInvertColors: Dispatch<SetStateAction<boolean>>;
   toggleCurrentPinnedItem: () => void;
 }
@@ -74,8 +68,6 @@ export function useFilePreviewPaneHeader({
   activeLinkSourceUrl,
   allFolders,
   canClosePane,
-  circleToAiEnabled,
-  circleToAiParam,
   closePane,
   currentInfoEntries,
   deleteContextActionItems,
@@ -83,9 +75,7 @@ export function useFilePreviewPaneHeader({
   duplicateContextActionItems,
   hardReingestContextActionItems,
   isCurrentPinned,
-  isImage,
   isPdf,
-  isVideo,
   markdownDisplayTitle,
   moveContextActionItemsToFolder,
   openPropertiesDialog,
@@ -94,24 +84,10 @@ export function useFilePreviewPaneHeader({
   openRenameFileDialog,
   paneId,
   pdfInvertColors,
-  setCircleToAiEnabled,
   setPdfInvertColors,
   toggleCurrentPinnedItem,
 }: UseFilePreviewPaneHeaderOptions) {
   const { resetHeaderContext, setHeaderContext } = usePaneHeaderActions();
-
-  useEffect(() => {
-    if (
-      circleToAiParam === "1" &&
-      canUseFilePreviewPaneCircleToAi({
-        isImage,
-        isPdf,
-        isVideo,
-      })
-    ) {
-      setCircleToAiEnabled(true);
-    }
-  }, [circleToAiParam, isImage, isPdf, isVideo, setCircleToAiEnabled]);
 
   useEffect(() => {
     setHeaderContext({
@@ -135,7 +111,6 @@ export function useFilePreviewPaneHeader({
           activeFileSourceUrl={activeFileSourceUrl}
           allFolders={allFolders}
           canClosePane={canClosePane}
-          circleToAiEnabled={circleToAiEnabled}
           closePane={closePane}
           currentInfoEntries={currentInfoEntries}
           deleteContextActionItems={deleteContextActionItems}
@@ -143,9 +118,7 @@ export function useFilePreviewPaneHeader({
           duplicateContextActionItems={duplicateContextActionItems}
           hardReingestContextActionItems={hardReingestContextActionItems}
           isCurrentPinned={isCurrentPinned}
-          isImage={isImage}
           isPdf={isPdf}
-          isVideo={isVideo}
           moveContextActionItemsToFolder={moveContextActionItemsToFolder}
           openFileShareDialog={openFileShareDialog}
           openPane={openPane}
@@ -153,7 +126,6 @@ export function useFilePreviewPaneHeader({
           openRenameFileDialog={openRenameFileDialog}
           paneId={paneId}
           pdfInvertColors={pdfInvertColors}
-          setCircleToAiEnabled={setCircleToAiEnabled}
           setPdfInvertColors={setPdfInvertColors}
           toggleCurrentPinnedItem={toggleCurrentPinnedItem}
         />
@@ -171,7 +143,6 @@ export function useFilePreviewPaneHeader({
     activeLinkSourceUrl,
     allFolders,
     canClosePane,
-    circleToAiEnabled,
     closePane,
     currentInfoEntries,
     deleteContextActionItems,
@@ -179,9 +150,7 @@ export function useFilePreviewPaneHeader({
     duplicateContextActionItems,
     hardReingestContextActionItems,
     isCurrentPinned,
-    isImage,
     isPdf,
-    isVideo,
     markdownDisplayTitle,
     moveContextActionItemsToFolder,
     openPropertiesDialog,
@@ -191,7 +160,6 @@ export function useFilePreviewPaneHeader({
     paneId,
     pdfInvertColors,
     resetHeaderContext,
-    setCircleToAiEnabled,
     setHeaderContext,
     setPdfInvertColors,
     toggleCurrentPinnedItem,

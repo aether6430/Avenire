@@ -1,70 +1,48 @@
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { shouldLoadShareSuggestions } from "@/components/files/explorer/share-dialog-suggestions-model";
+
+const removedHelperFile = resolve(
+  import.meta.dirname,
+  "./share-dialog-suggestions-model.ts"
+);
+const shareDialogFile = resolve(import.meta.dirname, "./share-dialog.tsx");
+const useShareSuggestionListFile = resolve(
+  import.meta.dirname,
+  "./use-share-suggestion-list.ts"
+);
+const useExplorerShareDialogsFile = resolve(
+  import.meta.dirname,
+  "./use-explorer-share-dialogs.ts"
+);
 
 describe("share dialog suggestions model", () => {
-  it("stays idle while the dialog is closed", () => {
-    expect(
-      shouldLoadShareSuggestions({
-        isAtWorkspaceRoot: false,
-        open: false,
-        scope: "file",
-        variant: "file",
-        workspaceUuid: "workspace-1",
-      })
-    ).toBe(false);
+  it("keeps the live suggestion hook fail-closed when the dialog is disabled or the workspace is missing", () => {
+    const source = readFileSync(useShareSuggestionListFile, "utf8");
+
+    expect(source).toContain("if (!(enabled && workspaceUuid))");
+    expect(source).toContain("setSuggestions([]);");
+    expect(source).toContain(
+      "void loadShareSuggestions(query, setSuggestions);"
+    );
   });
 
-  it("loads file suggestions only for the file dialog", () => {
-    expect(
-      shouldLoadShareSuggestions({
-        isAtWorkspaceRoot: false,
-        open: true,
-        scope: "file",
-        variant: "file",
-        workspaceUuid: "workspace-1",
-      })
-    ).toBe(true);
+  it("keeps the live share dialog and explorer share hook routing suggestions through the current file/folder/workspace branches", () => {
+    const shareDialogSource = readFileSync(shareDialogFile, "utf8");
+    const shareDialogsSource = readFileSync(
+      useExplorerShareDialogsFile,
+      "utf8"
+    );
 
-    expect(
-      shouldLoadShareSuggestions({
-        isAtWorkspaceRoot: false,
-        open: true,
-        scope: "file",
-        variant: "folder",
-        workspaceUuid: "workspace-1",
-      })
-    ).toBe(false);
+    expect(shareDialogSource).toContain('variant === "file"');
+    expect(shareDialogSource).toContain("<ShareDialogFileContent");
+    expect(shareDialogSource).toContain("<ShareDialogWorkspaceContent");
+    expect(shareDialogSource).toContain("<ShareDialogFolderContent");
+    expect(shareDialogsSource).toContain("if (!workspaceUuid)");
+    expect(shareDialogsSource).toContain("onResult([]);");
   });
 
-  it("distinguishes workspace and folder suggestion scopes", () => {
-    expect(
-      shouldLoadShareSuggestions({
-        isAtWorkspaceRoot: true,
-        open: true,
-        scope: "workspace",
-        variant: "folder",
-        workspaceUuid: "workspace-1",
-      })
-    ).toBe(true);
-
-    expect(
-      shouldLoadShareSuggestions({
-        isAtWorkspaceRoot: true,
-        open: true,
-        scope: "folder",
-        variant: "folder",
-        workspaceUuid: "workspace-1",
-      })
-    ).toBe(false);
-
-    expect(
-      shouldLoadShareSuggestions({
-        isAtWorkspaceRoot: false,
-        open: true,
-        scope: "folder",
-        variant: "folder",
-        workspaceUuid: "workspace-1",
-      })
-    ).toBe(true);
+  it("keeps the dead suggestions helper removed", () => {
+    expect(existsSync(removedHelperFile)).toBe(false);
   });
 });

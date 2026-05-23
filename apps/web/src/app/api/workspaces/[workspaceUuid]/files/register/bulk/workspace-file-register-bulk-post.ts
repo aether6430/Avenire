@@ -12,6 +12,8 @@ import { scheduleAsyncVideoDeliveryOptimization } from "@/lib/video-delivery-opt
 import {
   buildWorkspaceFileRegisterBulkSummary,
   isWorkspaceFileRegisterBulkNotePayload,
+  resolveWorkspaceFileRegisterBulkRouteError,
+  WORKSPACE_FILE_REGISTER_BULK_ERROR,
   type WorkspaceFileRegisterBulkRequest,
   type WorkspaceFileRegisterBulkResult,
 } from "./workspace-file-register-bulk-model";
@@ -32,126 +34,138 @@ export async function postWorkspaceFileRegisterBulk(input: {
   userId: string;
   workspaceUuid: string;
 }) {
-  const dedupeMode = input.body.dedupeMode ?? "allow";
-  const results: WorkspaceFileRegisterBulkResult[] = [];
-  const canEditByFolderId = new Map<string, boolean>();
-  const folderIds = [
-    ...new Set(
-      input.body.files
-        .map((file) => file.folderId)
-        .filter(
-          (folderId) =>
-            !isSharedFilesVirtualFolderId(folderId, input.workspaceUuid)
-        )
-    ),
-  ];
+  try {
+    const dedupeMode = input.body.dedupeMode ?? "allow";
+    const results: WorkspaceFileRegisterBulkResult[] = [];
+    const canEditByFolderId = new Map<string, boolean>();
+    const folderIds = [
+      ...new Set(
+        input.body.files
+          .map((file) => file.folderId)
+          .filter(
+            (folderId) =>
+              !isSharedFilesVirtualFolderId(folderId, input.workspaceUuid)
+          )
+      ),
+    ];
 
-  await Promise.all(
-    folderIds.map(async (folderId) => {
-      const canEdit = await userCanEditFolder({
-        workspaceId: input.workspaceUuid,
-        folderId,
-        userId: input.userId,
-      });
-      canEditByFolderId.set(folderId, canEdit);
-    })
-  );
-
-  for (const fileInput of input.body.files) {
-    try {
-      if (
-        isSharedFilesVirtualFolderId(fileInput.folderId, input.workspaceUuid)
-      ) {
-        results.push(
-          buildWorkspaceFileRegisterBulkFailedResult({
-            clientUploadId: fileInput.clientUploadId,
-            error: "Cannot create items in Shared Files",
-          })
-        );
-        continue;
-      }
-
-      const canEdit = canEditByFolderId.get(fileInput.folderId) ?? false;
-      if (!canEdit) {
-        results.push(
-          buildWorkspaceFileRegisterBulkFailedResult({
-            clientUploadId: fileInput.clientUploadId,
-            error: "Read-only folder",
-          })
-        );
-        continue;
-      }
-
-      const registrationResult = isWorkspaceFileRegisterBulkNotePayload(
-        fileInput
-      )
-        ? await registerWorkspaceMarkdownNote({
-            content: fileInput.content,
-            dedupeMode,
-            folderId: fileInput.folderId,
-            metadata: fileInput.metadata,
-            name: fileInput.name,
-            userId: input.userId,
-            workspaceUuid: input.workspaceUuid,
-          })
-        : await registerWorkspaceUploadedFile({
-            workspaceUuid: input.workspaceUuid,
-            userId: input.userId,
-            folderId: fileInput.folderId,
-            storageKey: fileInput.storageKey,
-            storageUrl: fileInput.storageUrl,
-            name: fileInput.name,
-            mimeType: fileInput.mimeType,
-            sizeBytes: fileInput.sizeBytes,
-            metadata: fileInput.metadata,
-            contentHashSha256: fileInput.contentHashSha256,
-            hashComputedBy: fileInput.hashComputedBy,
-            dedupeMode,
-          });
-
-      results.push({
-        clientUploadId: fileInput.clientUploadId,
-        status: "ok",
-        file: { id: registrationResult.file.id },
-        ingestionJob: registrationResult.ingestionJob,
-      });
-
-      if (
-        registrationResult.status === "created" &&
-        registrationResult.file.mimeType?.startsWith("video/")
-      ) {
-        scheduleAsyncVideoDeliveryOptimization({
-          file: registrationResult.file,
+    await Promise.all(
+      folderIds.map(async (folderId) => {
+        const canEdit = await userCanEditFolder({
+          workspaceId: input.workspaceUuid,
+          folderId,
           userId: input.userId,
-          workspaceUuid: input.workspaceUuid,
         });
-      }
-    } catch (error) {
-      const isRateLimit =
-        (error as { code?: string } | null | undefined)?.code ===
-        "UPLOAD_RATE_LIMIT";
-      results.push(
-        buildWorkspaceFileRegisterBulkFailedResult({
+        canEditByFolderId.set(folderId, canEdit);
+      })
+    );
+
+    for (const fileInput of input.body.files) {
+      try {
+        if (
+          isSharedFilesVirtualFolderId(fileInput.folderId, input.workspaceUuid)
+        ) {
+          results.push(
+            buildWorkspaceFileRegisterBulkFailedResult({
+              clientUploadId: fileInput.clientUploadId,
+              error: "Cannot create items in Shared Files",
+            })
+          );
+          continue;
+        }
+
+        const canEdit = canEditByFolderId.get(fileInput.folderId) ?? false;
+        if (!canEdit) {
+          results.push(
+            buildWorkspaceFileRegisterBulkFailedResult({
+              clientUploadId: fileInput.clientUploadId,
+              error: "Read-only folder",
+            })
+          );
+          continue;
+        }
+
+        const registrationResult = isWorkspaceFileRegisterBulkNotePayload(
+          fileInput
+        )
+          ? await registerWorkspaceMarkdownNote({
+              content: fileInput.content,
+              dedupeMode,
+              folderId: fileInput.folderId,
+              metadata: fileInput.metadata,
+              name: fileInput.name,
+              userId: input.userId,
+              workspaceUuid: input.workspaceUuid,
+            })
+          : await registerWorkspaceUploadedFile({
+              workspaceUuid: input.workspaceUuid,
+              userId: input.userId,
+              folderId: fileInput.folderId,
+              storageKey: fileInput.storageKey,
+              storageUrl: fileInput.storageUrl,
+              name: fileInput.name,
+              mimeType: fileInput.mimeType,
+              sizeBytes: fileInput.sizeBytes,
+              metadata: fileInput.metadata,
+              contentHashSha256: fileInput.contentHashSha256,
+              hashComputedBy: fileInput.hashComputedBy,
+              dedupeMode,
+            });
+
+        results.push({
           clientUploadId: fileInput.clientUploadId,
-          error: isRateLimit
-            ? "Upload usage limit reached"
-            : error instanceof Error
-              ? error.message
-              : "Registration failed",
-        })
-      );
+          status: "ok",
+          file: { id: registrationResult.file.id },
+          ingestionJob: registrationResult.ingestionJob,
+        });
+
+        if (
+          registrationResult.status === "created" &&
+          registrationResult.file.mimeType?.startsWith("video/")
+        ) {
+          scheduleAsyncVideoDeliveryOptimization({
+            file: registrationResult.file,
+            userId: input.userId,
+            workspaceUuid: input.workspaceUuid,
+          });
+        }
+      } catch (error) {
+        const isStorageLimit =
+          (error as { code?: string } | null | undefined)?.code ===
+          "STORAGE_LIMIT";
+        results.push(
+          buildWorkspaceFileRegisterBulkFailedResult({
+            clientUploadId: fileInput.clientUploadId,
+            error: isStorageLimit
+              ? "Storage limit reached"
+              : error instanceof Error
+                ? error.message
+                : "Registration failed",
+          })
+        );
+      }
     }
+
+    const summary = buildWorkspaceFileRegisterBulkSummary(results);
+
+    if (summary.succeeded > 0) {
+      await invalidateWorkspaceReadCaches(input.workspaceUuid);
+    }
+
+    return NextResponse.json({
+      ok: true,
+      summary,
+      results,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: resolveWorkspaceFileRegisterBulkRouteError(
+          error,
+          WORKSPACE_FILE_REGISTER_BULK_ERROR
+        ),
+      },
+      { status: 500 }
+    );
   }
-
-  const summary = buildWorkspaceFileRegisterBulkSummary(results);
-
-  if (summary.succeeded > 0) {
-    await invalidateWorkspaceReadCaches(input.workspaceUuid);
-  }
-
-  return NextResponse.json({
-    ok: true,
-    summary,
-    results,
-  });
 }

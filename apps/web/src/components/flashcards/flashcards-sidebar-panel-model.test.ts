@@ -48,42 +48,46 @@ describe("flashcards sidebar panel model", () => {
   it("keeps sidebar set loading, failure, and empty states distinct", () => {
     expect(
       getFlashcardsSidebarSetsState({
+        errorMessage: null,
         filteredSetCount: 0,
         loadFailed: false,
         loading: true,
         totalSetCount: 0,
       })
     ).toEqual({
-      description: "Mindset sets are still loading.",
-      title: "Loading mindset sets...",
+      description: "Mindset Sets are still loading.",
+      title: "Loading Mindset Sets...",
     });
 
     expect(
       getFlashcardsSidebarSetsState({
+        errorMessage: "flashcards sidebar offline",
         filteredSetCount: 0,
         loadFailed: true,
         loading: false,
         totalSetCount: 0,
       })
     ).toEqual({
-      description: "Try again in a moment to reload your mindset sets.",
-      title: "Unable to load mindset sets.",
+      description: "flashcards sidebar offline",
+      title: "Unable to load Mindset Sets.",
     });
 
     expect(
       getFlashcardsSidebarSetsState({
+        errorMessage: null,
         filteredSetCount: 0,
         loadFailed: false,
         loading: false,
         totalSetCount: 0,
       })
     ).toEqual({
-      description: "Create a mindset set to start studying.",
-      title: "No mindset sets yet",
+      description: "Create a Mindset Set to start studying.",
+      title: "No Mindset Sets yet",
     });
 
     expect(
       getFlashcardsSidebarSetsState({
+        errorMessage: null,
         filteredSetCount: 0,
         loadFailed: false,
         loading: false,
@@ -91,12 +95,13 @@ describe("flashcards sidebar panel model", () => {
       })
     ).toEqual({
       description:
-        "Try a shorter search or clear the filters to reveal more mindset sets.",
-      title: "No matching mindset sets",
+        "Try a shorter search or clear the filters to reveal more Mindset Sets.",
+      title: "No matching Mindset Sets",
     });
 
     expect(
       getFlashcardsSidebarSetsState({
+        errorMessage: null,
         filteredSetCount: 2,
         loadFailed: false,
         loading: false,

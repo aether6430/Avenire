@@ -59,6 +59,7 @@ interface BuildPersistedChatStreamResponseOptions {
   chat: ExistingChat | CreatedChat;
   chatCreatedFromNew: boolean;
   chatSlug: string;
+  expectedCredits: number;
   idempotencyLockAcquired: boolean;
   idempotencyRedisKey: string | null;
   modelContextMessages: UIMessage[];
@@ -88,14 +89,16 @@ export async function buildPersistedChatStreamResponse({
   originalMessages,
   request,
   requestStartedAt,
+  expectedCredits,
   sessionUser,
   startupContext,
   workspace,
 }: BuildPersistedChatStreamResponseOptions): Promise<Response> {
   const streamId = randomUUID();
   let streamSettled = false;
-  const previousStreamId = await getActiveStreamId(chatSlug);
+  const previousStreamIdPromise = getActiveStreamId(chatSlug);
   await setActiveStreamId(chatSlug, streamId);
+  const previousStreamId = await previousStreamIdPromise;
   if (previousStreamId) {
     await clearActiveStreamId(chatSlug, previousStreamId);
   }
@@ -307,6 +310,7 @@ export async function buildPersistedChatStreamResponse({
               requestStartedAt,
               responseMessage: responseMessage as unknown as UIMessage,
               result,
+              expectedCredits,
               selectedModel,
               sessionUser,
               streamId,

@@ -8,7 +8,8 @@ import {
 } from "@avenire/ui/components/command";
 import { Kbd, KbdGroup } from "@avenire/ui/components/kbd";
 import { Spinner } from "@avenire/ui/components/spinner";
-import { CommandPaletteGroups } from "@/components/dashboard/command-palette-groups";
+import { CommandPaletteBrowseGroups } from "@/components/dashboard/command-palette-browse-groups";
+import { CommandPaletteSearchGroups } from "@/components/dashboard/command-palette-search-groups";
 import type { useCommandPalette } from "@/components/dashboard/use-command-palette";
 
 type CommandPaletteRuntime = ReturnType<typeof useCommandPalette>;
@@ -20,7 +21,7 @@ export function CommandPaletteSurface({
 }) {
   return (
     <CommandDialog
-      className="overflow-hidden border-border/70 bg-card/95 p-0 shadow-2xl shadow-black/20 backdrop-blur-xl sm:max-w-5xl"
+      className="overflow-hidden rounded-xl border-border/70 bg-[#202020] p-0 text-foreground shadow-[0_18px_80px_rgba(0,0,0,0.42)] sm:max-w-[58rem]"
       description="Search commands, methods, files, tasks, and workspace content."
       largeWidth
       onOpenChange={runtime.handleDialogOpenChange}
@@ -29,45 +30,57 @@ export function CommandPaletteSurface({
       title="Command Palette"
     >
       <Command
-        className="h-[min(34rem,calc(100dvh-4rem))] min-h-0 rounded-none border-0 bg-transparent p-0 shadow-none"
+        className="h-[min(30.75rem,calc(100dvh-4rem))] min-h-0 rounded-none border-0 bg-transparent p-0 shadow-none"
         shouldFilter={false}
       >
-        <div className="border-border/70 border-b bg-secondary/65 px-4 py-1.5">
+        <div className="border-border/30 border-b px-4 py-3">
           <CommandInput
-            className="border-0 bg-transparent px-0 text-sm placeholder:text-muted-foreground/55 focus-visible:outline-none focus-visible:ring-0"
+            className="h-5 border-0 bg-transparent px-0 py-0 text-[13px] placeholder:text-muted-foreground/55 focus-visible:outline-none focus-visible:ring-0"
             onValueChange={runtime.setQuery}
             placeholder="Run a command, open a method or file, or search workspace content..."
             value={runtime.query}
           />
         </div>
         {runtime.pendingRoute ? (
-          <div className="flex items-center gap-2 border-border/70 border-t bg-secondary/50 px-4 py-3 text-muted-foreground/70 text-xs">
+          <div className="flex items-center gap-2 border-border/30 border-t bg-muted/25 px-4 py-2 text-muted-foreground/70 text-xs">
             <Spinner className="size-3.5" />
             Opening selection...
           </div>
         ) : null}
-        <div className="grid min-h-0 flex-1 grid-cols-1 border-border/70 border-t bg-background/10">
+        <div className="grid min-h-0 flex-1 grid-cols-1 bg-transparent">
           <div className="min-h-0">
-            <CommandList className="scrollbar-thin scrollbar-thumb-muted scrollbar-track-background max-h-96 min-h-0 overflow-y-auto rounded-lg">
-              <CommandPaletteGroups runtime={runtime} />
+            <CommandList className="scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent max-h-none min-h-0 overflow-y-auto px-1 py-1">
+              {runtime.searchQuery ? (
+                <CommandPaletteSearchGroups runtime={runtime} />
+              ) : (
+                <CommandPaletteBrowseGroups runtime={runtime} />
+              )}
             </CommandList>
           </div>
         </div>
-        <div className="border-border/70 border-t bg-secondary/60 px-4 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-3 text-muted-foreground/70 text-xs">
+        <div className="border-border/25 border-t bg-[#242424] px-4 py-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-[11px] text-muted-foreground/65">
             <div className="flex items-center gap-2">
               <KbdGroup>
-                <Kbd className="px-2 py-1 text-xs">↑</Kbd>
-                <Kbd className="px-2 py-1 text-xs">↓</Kbd>
+                <Kbd className="rounded bg-black/20 px-1.5 py-0.5 text-[11px]">
+                  ↑
+                </Kbd>
+                <Kbd className="rounded bg-black/20 px-1.5 py-0.5 text-[11px]">
+                  ↓
+                </Kbd>
               </KbdGroup>
               <span className="text-muted-foreground/60">Navigate</span>
             </div>
             <div className="flex items-center gap-2">
-              <Kbd className="px-2 py-1 text-xs">Enter</Kbd>
+              <Kbd className="rounded bg-black/20 px-1.5 py-0.5 text-[11px]">
+                Enter
+              </Kbd>
               <span className="text-muted-foreground/60">Select</span>
             </div>
             <div className="flex items-center gap-2">
-              <Kbd className="px-2 py-1 text-xs">Esc</Kbd>
+              <Kbd className="rounded bg-black/20 px-1.5 py-0.5 text-[11px]">
+                Esc
+              </Kbd>
               <span className="text-muted-foreground/60">Close</span>
             </div>
           </div>

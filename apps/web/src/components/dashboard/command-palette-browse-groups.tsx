@@ -13,7 +13,6 @@ import {
 } from "@phosphor-icons/react";
 import { CaretRight as ChevronRight } from "@phosphor-icons/react/CaretRight";
 import { formatTaskDueDate } from "@/lib/tasks";
-import type { CommandPaletteRuntime } from "./command-palette-groups-types";
 import {
   buildCommandPaletteRecentMethodValue,
   buildCommandPaletteRecentMindsetSetValue,
@@ -24,6 +23,9 @@ import {
   PALETTE_ITEM_CLASS,
 } from "./command-palette-model";
 import { CommandPaletteSearchGroups } from "./command-palette-search-groups";
+import type { useCommandPalette } from "./use-command-palette";
+
+type CommandPaletteRuntime = ReturnType<typeof useCommandPalette>;
 
 export function CommandPaletteBrowseGroups({
   runtime,
@@ -31,6 +33,7 @@ export function CommandPaletteBrowseGroups({
   runtime: CommandPaletteRuntime;
 }) {
   const commandPaletteTasksState = getCommandPaletteTasksState({
+    errorMessage: runtime.workspaceTasksErrorMessage,
     loadFailed: runtime.workspaceTasksLoadFailed,
     taskCount: runtime.workspaceTasks.length,
   });

@@ -14,6 +14,12 @@ export interface TaskRouteBody {
   title?: string;
 }
 
+export const TASK_LIST_LOAD_ERROR = "Unable to load tasks.";
+export const TASK_CREATE_ERROR = "Unable to create task.";
+export const TASK_LOAD_ERROR = "Unable to load task.";
+export const TASK_UPDATE_ERROR = "Unable to update task.";
+export const TASK_DELETE_ERROR = "Unable to delete task.";
+
 function isTaskStatus(value: string | null): value is TaskStatus {
   return (
     value === "planned" ||
@@ -82,4 +88,8 @@ export function resolveTaskUpdatePayload(body: TaskRouteBody) {
     status: body.status,
     title: body.title,
   };
+}
+
+export function resolveTaskRouteError(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
 }

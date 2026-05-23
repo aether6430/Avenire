@@ -4,17 +4,12 @@ import type { UIMessage } from "@avenire/ai/message-types";
 import { useEffect, useRef } from "react";
 import { resolveChatWorkspaceInitialMessages } from "@/components/dashboard/chat-workspace-model";
 import {
-  CHAT_CREATED_EVENT,
   CHAT_NAME_UPDATED_EVENT,
   CHAT_STREAM_STATUS_EVENT,
-  type ChatCreatedDetail,
   type ChatNameUpdatedDetail,
   type ChatStreamStatusDetail,
 } from "@/lib/chat-events";
-import {
-  chatMessageHandoffActions,
-  useChatMessageHandoffStore,
-} from "@/stores/chat-message-handoff-store";
+import { chatMessageHandoffActions } from "@/stores/chat-message-handoff-store";
 
 export function useChatWorkspaceLifecycle({
   chatIcon,
@@ -81,44 +76,6 @@ export function useChatWorkspaceLifecycle({
 
     setResolvedInitialMessages(initialMessages);
   }, [initialMessages, setResolvedInitialMessages]);
-
-  useEffect(() => {
-    const onChatCreated = (event: Event) => {
-      const detail = (event as CustomEvent<ChatCreatedDetail>).detail;
-      if (!(detail?.id && detail?.fromId)) {
-        return;
-      }
-      if (chatSlug !== "new" && detail.fromId !== chatSlug) {
-        return;
-      }
-      if (chatSlug === "new") {
-        return;
-      }
-
-      const pendingMessages =
-        useChatMessageHandoffStore.getState().messagesByChatId[detail.id] ??
-        null;
-      if (pendingMessages) {
-        setResolvedInitialMessages(pendingMessages);
-      }
-      setActiveChatSlug(detail.id);
-      setChatMetaOverride(null);
-      resetShareState();
-      setIsPending(false);
-    };
-
-    window.addEventListener(CHAT_CREATED_EVENT, onChatCreated);
-    return () => {
-      window.removeEventListener(CHAT_CREATED_EVENT, onChatCreated);
-    };
-  }, [
-    chatSlug,
-    resetShareState,
-    setActiveChatSlug,
-    setChatMetaOverride,
-    setIsPending,
-    setResolvedInitialMessages,
-  ]);
 
   useEffect(() => {
     const onChatNameUpdated = (event: Event) => {

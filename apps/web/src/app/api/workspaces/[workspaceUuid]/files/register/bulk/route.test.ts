@@ -124,6 +124,35 @@ describe("/api/workspaces/[workspaceUuid]/files/register/bulk route", () => {
     });
   });
 
+  it("fails closed when session lookup throws before bulk registration handling begins", async () => {
+    getSessionUserMock.mockRejectedValue(
+      new Error("bulk register auth offline")
+    );
+
+    await expect(
+      readErrorResponse(
+        await POST(
+          bulkRegisterRequest({
+            files: [
+              {
+                clientUploadId: "client-note",
+                folderId: noteFolderId,
+                name: "notes.md",
+                content: "# Notes",
+              },
+            ],
+          }),
+          bulkRouteParams()
+        )
+      )
+    ).resolves.toEqual({
+      body: { error: "bulk register auth offline" },
+      status: 500,
+    });
+    expect(registerWorkspaceMarkdownNoteMock).not.toHaveBeenCalled();
+    expect(registerWorkspaceUploadedFileMock).not.toHaveBeenCalled();
+  });
+
   it("processes mixed note and upload registrations, caches folder permissions by unique editable folder, and invalidates caches after successful items", async () => {
     mockSessionUser();
     userCanEditFolderMock.mockImplementation(
@@ -265,6 +294,35 @@ describe("/api/workspaces/[workspaceUuid]/files/register/bulk route", () => {
     );
   });
 
+  it("returns a 500 json error when folder permission preflight throws before processing items", async () => {
+    mockSessionUser();
+    userCanEditFolderMock.mockRejectedValueOnce(
+      new Error("bulk permission offline")
+    );
+
+    const response = await POST(
+      bulkRegisterRequest({
+        files: [
+          {
+            clientUploadId: "client-note",
+            folderId: noteFolderId,
+            name: "notes.md",
+            content: "# Notes",
+          },
+        ],
+      }),
+      bulkRouteParams()
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "bulk permission offline",
+    });
+    expect(registerWorkspaceMarkdownNoteMock).not.toHaveBeenCalled();
+    expect(registerWorkspaceUploadedFileMock).not.toHaveBeenCalled();
+    expect(invalidateWorkspaceReadCachesMock).not.toHaveBeenCalled();
+  });
+
   it("maps per-item rate limits and generic failures without invalidating caches when nothing succeeds", async () => {
     mockSessionUser();
     userCanEditFolderMock.mockResolvedValue(true);
@@ -272,8 +330,8 @@ describe("/api/workspaces/[workspaceUuid]/files/register/bulk route", () => {
       new Error("Unable to register note")
     );
     registerWorkspaceUploadedFileMock.mockRejectedValue(
-      Object.assign(new Error("limit"), {
-        code: "UPLOAD_RATE_LIMIT",
+      Object.assign(new Error("storage full"), {
+        code: "STORAGE_LIMIT",
       })
     );
 
@@ -318,7 +376,7 @@ describe("/api/workspaces/[workspaceUuid]/files/register/bulk route", () => {
         {
           clientUploadId: "client-upload",
           status: "failed",
-          error: "Upload usage limit reached",
+          error: "Storage limit reached",
         },
       ],
     });
@@ -347,5 +405,40 @@ describe("/api/workspaces/[workspaceUuid]/files/register/bulk route", () => {
     });
     expect(scheduleAsyncVideoDeliveryOptimizationMock).not.toHaveBeenCalled();
     expect(invalidateWorkspaceReadCachesMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a 500 json error when cache invalidation throws after successful registrations", async () => {
+    mockSessionUser();
+    userCanEditFolderMock.mockResolvedValue(true);
+    registerWorkspaceMarkdownNoteMock.mockResolvedValue({
+      file: {
+        id: "note-1",
+        mimeType: "text/markdown",
+      },
+      ingestionJob: null,
+      status: "created",
+    });
+    invalidateWorkspaceReadCachesMock.mockRejectedValueOnce(
+      new Error("bulk cache offline")
+    );
+
+    const response = await POST(
+      bulkRegisterRequest({
+        files: [
+          {
+            clientUploadId: "client-note",
+            folderId: noteFolderId,
+            name: "notes.md",
+            content: "# Notes",
+          },
+        ],
+      }),
+      bulkRouteParams()
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "bulk cache offline",
+    });
   });
 });

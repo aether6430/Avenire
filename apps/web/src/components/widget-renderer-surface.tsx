@@ -20,14 +20,15 @@ export function WidgetRendererSurface({
       className={`relative w-full overflow-visible rounded-lg bg-card ${className}`}
     >
       {isStreaming ? (
-        <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden rounded-lg bg-background/5 backdrop-blur-[0.5px]">
+        <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden rounded-lg bg-background/[0.03] backdrop-blur-[0.5px]">
           <div
-            className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-foreground/5 to-transparent"
-            style={{ animation: "shimmer 2.5s infinite linear" }}
+            className="absolute inset-0 bg-foreground/[0.035]"
+            style={{ animation: "widgetPulse 1.6s ease-in-out infinite" }}
           />
           <style>{`
-            @keyframes shimmer {
-              100% { transform: translateX(100%); }
+            @keyframes widgetPulse {
+              0%, 100% { opacity: 0.18; }
+              50% { opacity: 0.42; }
             }
           `}</style>
         </div>

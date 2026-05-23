@@ -8,7 +8,6 @@ interface BuildExplorerFolderRouteOptions {
 interface BuildExplorerFileRouteOptions
   extends BuildExplorerFolderRouteOptions {
   baseSearchParams?: string;
-  circleToAi?: boolean;
   fileId?: string | null;
   retrievalChunkId?: string | null;
 }
@@ -22,7 +21,6 @@ export function buildExplorerFolderRoute({
 
 export function buildExplorerFileRoute({
   baseSearchParams,
-  circleToAi,
   fileId,
   folderId,
   retrievalChunkId,
@@ -42,11 +40,7 @@ export function buildExplorerFileRoute({
     params.delete("retrievalChunk");
   }
 
-  if (circleToAi) {
-    params.set("circleToAi", "1");
-  } else {
-    params.delete("circleToAi");
-  }
+  params.delete("circleToAi");
 
   const query = params.toString();
   const folderRoute = buildExplorerFolderRoute({ folderId, workspaceUuid });

@@ -1,13 +1,5 @@
 import type { FolderRecord } from "@/components/files/explorer/shared";
 
-export function canUseFilePreviewPaneCircleToAi(options: {
-  isImage: boolean;
-  isPdf: boolean;
-  isVideo: boolean;
-}) {
-  return options.isPdf || options.isImage || options.isVideo;
-}
-
 export function getFilePreviewPaneHeaderMoveTargets(
   allFolders: FolderRecord[]
 ) {

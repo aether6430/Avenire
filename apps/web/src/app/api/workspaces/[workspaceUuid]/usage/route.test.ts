@@ -70,6 +70,41 @@ describe("/api/workspaces/[workspaceUuid]/usage route", () => {
     await expect(response.json()).resolves.toEqual({ error: "Forbidden" });
   });
 
+  it("fails closed when top-level session or access lookup throws before usage loading begins", async () => {
+    getSessionUserMock.mockRejectedValueOnce(new Error("usage auth offline"));
+
+    let response = await GET(
+      new Request("http://localhost:3003/api/workspaces/workspace-1/usage"),
+      { params: Promise.resolve({ workspaceUuid: "workspace-1" }) }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "usage auth offline",
+    });
+    expect(listWorkspaceFoldersMock).not.toHaveBeenCalled();
+    expect(listWorkspaceFilesMock).not.toHaveBeenCalled();
+    expect(listWorkspaceMembersMock).not.toHaveBeenCalled();
+
+    getSessionUserMock.mockResolvedValueOnce({ id: "user-1" });
+    ensureWorkspaceAccessForUserMock.mockRejectedValueOnce(
+      new Error("usage access offline")
+    );
+
+    response = await GET(
+      new Request("http://localhost:3003/api/workspaces/workspace-1/usage"),
+      { params: Promise.resolve({ workspaceUuid: "workspace-1" }) }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "usage access offline",
+    });
+    expect(listWorkspaceFoldersMock).not.toHaveBeenCalled();
+    expect(listWorkspaceFilesMock).not.toHaveBeenCalled();
+    expect(listWorkspaceMembersMock).not.toHaveBeenCalled();
+  });
+
   it("returns usage counts derived from workspace resources", async () => {
     getSessionUserMock.mockResolvedValue({ id: "user-1" });
     listWorkspaceFoldersMock.mockResolvedValue([
@@ -107,5 +142,23 @@ describe("/api/workspaces/[workspaceUuid]/usage route", () => {
       "file-1",
       "file-2",
     ]);
+  });
+
+  it("returns a 500 json error when workspace usage loading throws before ingestion flags are queried", async () => {
+    getSessionUserMock.mockResolvedValue({ id: "user-1" });
+    listWorkspaceFoldersMock.mockRejectedValueOnce(new Error("usage offline"));
+    listWorkspaceFilesMock.mockResolvedValue([]);
+    listWorkspaceMembersMock.mockResolvedValue([]);
+
+    const response = await GET(
+      new Request("http://localhost:3003/api/workspaces/workspace-1/usage"),
+      { params: Promise.resolve({ workspaceUuid: "workspace-1" }) }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "usage offline",
+    });
+    expect(getIngestionFlagsByFileIdsMock).not.toHaveBeenCalled();
   });
 });

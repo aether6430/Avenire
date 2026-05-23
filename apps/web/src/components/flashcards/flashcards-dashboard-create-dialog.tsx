@@ -29,9 +29,9 @@ export function FlashcardsDashboardCreateDialog({
       </DialogTrigger>
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>Create mindset set</DialogTitle>
+          <DialogTitle>Create Mindset Set</DialogTitle>
           <DialogDescription>
-            Shared mindset sets stay at workspace scope. Review history stays
+            Shared Mindset Sets stay at workspace scope. Review history stays
             personal.
           </DialogDescription>
         </DialogHeader>
@@ -77,7 +77,7 @@ export function FlashcardsDashboardCreateDialog({
             }}
             type="button"
           >
-            Create mindset set
+            Create Mindset Set
           </Button>
         </DialogFooter>
       </DialogContent>

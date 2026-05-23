@@ -1,10 +1,11 @@
-import { loadDatabaseEnv } from "@avenire/database/load-env";
+import { resolve } from "node:path";
+import { listWaitlistEntries } from "@avenire/database";
+import { pool } from "@avenire/database/client";
 import { Emailer, renderWaitlistWelcomeEmail } from "@avenire/emailer";
+import { config as loadEnv } from "dotenv";
 
-loadDatabaseEnv();
-
-const { listWaitlistEntries } = await import("@avenire/database");
-const { pool } = await import("@avenire/database/client");
+loadEnv({ path: resolve(process.cwd(), "../../.env") });
+loadEnv({ path: resolve(process.cwd(), "../../.env.local"), override: true });
 
 const PUBLIC_BASE_URL = "https://avenire.space";
 

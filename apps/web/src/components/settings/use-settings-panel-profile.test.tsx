@@ -70,5 +70,8 @@ describe("useSettingsPanelProfile", () => {
 
     updateUserMock.mockResolvedValueOnce({ error: "boom" });
     await expect(hook.saveProfile()).resolves.toBe(false);
+
+    updateUserMock.mockRejectedValueOnce(new Error("network offline"));
+    await expect(hook.saveProfile()).resolves.toBe(false);
   });
 });

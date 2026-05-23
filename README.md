@@ -5,7 +5,7 @@
 # Avenire
 
 Avenire is an AI learning workspace for turning source material into notes,
-retrieval context, mindset sets, tasks, and guided chat. The repository is a
+retrieval context, Mindset Sets, tasks, and guided chat. The repository is a
 working monorepo, not a demo snapshot: the web app, backend worker, shared AI
 packages, ingestion pipeline, and deployment docs all live here.
 
@@ -14,7 +14,7 @@ packages, ingestion pipeline, and deployment docs all live here.
 - methods and guided chat with retrieval over workspace material
 - notes and rich document editing
 - files, uploads, ingestion, and search
-- mindset sets, misconceptions, and study workflows
+- Mindset Sets, misconceptions, and study workflows
 - tasks, calendar, and workspace coordination
 - public marketing and legal pages
 
@@ -24,7 +24,7 @@ The repository uses a few product terms that matter when you are navigating the
 workspace or changing copy:
 
 - `Methods` are persistent guided chat threads tied to workspace context.
-- `Mindset sets` are the study/review sets generated from material,
+- `Mindset Sets` are the study/review sets generated from material,
   misconceptions, or manual editing.
 - `Files` is the document and asset workspace, not a generic admin surface.
 - `Apollo` is the branded workspace assistant that tutors, explains, and works

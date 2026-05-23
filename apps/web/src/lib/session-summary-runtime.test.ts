@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
@@ -53,6 +55,19 @@ vi.mock("@/lib/ai-provider-errors", () => ({
     (error: { code?: string }) => error?.code === "PROVIDER_NOT_CONFIGURED"
   ),
 }));
+
+const sessionSummariesBarrelSource = readFileSync(
+  resolve(import.meta.dirname, "session-summaries.ts"),
+  "utf8"
+);
+const sessionSummaryModelSource = readFileSync(
+  resolve(import.meta.dirname, "session-summary-model.ts"),
+  "utf8"
+);
+const sessionSummaryRuntimeSource = readFileSync(
+  resolve(import.meta.dirname, "session-summary-runtime.ts"),
+  "utf8"
+);
 
 import type { UIMessage } from "@avenire/ai/message-types";
 import {
@@ -197,5 +212,32 @@ describe("session summary runtime", () => {
     });
 
     expect(summary?.subject).toBe("Physics");
+  });
+
+  it("keeps session summaries split between a server-only barrel, pure model helpers, and ai/database runtime work", () => {
+    expect(sessionSummariesBarrelSource).toContain('import "server-only";');
+    expect(sessionSummariesBarrelSource).toContain(
+      "@/lib/session-summary-model"
+    );
+    expect(sessionSummariesBarrelSource).toContain(
+      "@/lib/session-summary-runtime"
+    );
+    expect(sessionSummariesBarrelSource).not.toContain("generateText(");
+    expect(sessionSummariesBarrelSource).not.toContain("createSessionSummary(");
+
+    expect(sessionSummaryModelSource).toContain(
+      "export function buildTranscript"
+    );
+    expect(sessionSummaryModelSource).toContain(
+      "export function resolveSessionWindow"
+    );
+    expect(sessionSummaryModelSource).not.toContain("generateText(");
+    expect(sessionSummaryModelSource).not.toContain("createSessionSummary(");
+
+    expect(sessionSummaryRuntimeSource).toContain("generateText");
+    expect(sessionSummaryRuntimeSource).toContain("createSessionSummary");
+    expect(sessionSummaryRuntimeSource).toContain("upsertMisconception");
+    expect(sessionSummaryRuntimeSource).toContain("buildTranscript");
+    expect(sessionSummaryRuntimeSource).toContain("resolveSessionWindow");
   });
 });

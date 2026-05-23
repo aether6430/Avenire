@@ -20,15 +20,48 @@ type VisualizeReadMeInput = z.infer<
 type ShowWidgetInput = z.infer<
   typeof import("@avenire/ai/tools").chatToolSchemas["show_widget"]["input"]
 >;
+type WidgetPayload = import("@avenire/ai/tools").WidgetPayload;
+
+interface LegacyShowWidgetInput {
+  filename?: string;
+  height?: number;
+  i_have_seen_read_me: boolean;
+  title: string;
+  widget_code?: string;
+  width?: number;
+}
+
+function isWidgetPayload(value: unknown): value is WidgetPayload {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const payload = value as Partial<WidgetPayload>;
+
+  if (payload.type === "code") {
+    return typeof payload.code === "string" && payload.code.trim().length > 0;
+  }
+
+  if (payload.type === "spec") {
+    return !!payload.spec;
+  }
+
+  return false;
+}
 
 export async function runWebSearch(input: WebSearchInput) {
+  const query = input.query.trim();
+  if (!query) {
+    throw new Error("A web search query is required.");
+  }
+
   const apiKey = process.env.TAVILY_API_KEY?.trim();
   if (!apiKey) {
     throw new Error("TAVILY_API_KEY is required for web_search.");
   }
 
   const client = tavily({ apiKey });
-  const response = await client.search(input.query, {
+  const response = await client.search(query, {
     includeAnswer: input.includeAnswer ?? true,
     includeFavicon: true,
     maxResults: input.maxResults ?? DEFAULT_WEB_SEARCH_LIMIT,
@@ -40,21 +73,27 @@ export async function runWebSearch(input: WebSearchInput) {
     answer: response.answer?.trim() || undefined,
     query: response.query,
     results: response.results.map((result) => ({
-      content: result.content,
+      content: result.content.trim(),
       favicon: result.favicon,
       publishedDate: result.publishedDate,
       score: result.score,
-      title: result.title,
-      url: result.url,
+      title: result.title.trim(),
+      url: result.url.trim(),
     })),
     totalResults: response.results.length,
   };
 }
 
 export async function executeLoadSkill(input: LoadSkillInput) {
-  const skills = input.skills.filter((skillName) =>
-    AVAILABLE_STUDY_SKILLS.includes(
-      skillName as (typeof AVAILABLE_STUDY_SKILLS)[number]
+  const skills = Array.from(
+    new Set(
+      input.skills
+        .map((skillName) => skillName.trim())
+        .filter((skillName) =>
+          AVAILABLE_STUDY_SKILLS.includes(
+            skillName as (typeof AVAILABLE_STUDY_SKILLS)[number]
+          )
+        )
     )
   );
   if (skills.length === 0) {
@@ -67,9 +106,15 @@ export async function executeLoadSkill(input: LoadSkillInput) {
 }
 
 export async function executeVisualizeReadMe(input: VisualizeReadMeInput) {
-  const modules = input.modules.filter((moduleName) =>
-    AVAILABLE_VISUAL_SKILLS.includes(
-      moduleName as (typeof AVAILABLE_VISUAL_SKILLS)[number]
+  const modules = Array.from(
+    new Set(
+      input.modules
+        .map((moduleName) => moduleName.trim())
+        .filter((moduleName) =>
+          AVAILABLE_VISUAL_SKILLS.includes(
+            moduleName as (typeof AVAILABLE_VISUAL_SKILLS)[number]
+          )
+        )
     )
   );
   if (modules.length === 0) {
@@ -81,26 +126,81 @@ export async function executeVisualizeReadMe(input: VisualizeReadMeInput) {
   };
 }
 
-export async function executeShowWidget(input: ShowWidgetInput) {
+function normalizeShowWidgetPayload(
+  input: ShowWidgetInput | LegacyShowWidgetInput
+): WidgetPayload {
+  if ("widget" in input && isWidgetPayload(input.widget)) {
+    const widget = input.widget;
+    return widget.type === "code" && typeof widget.code === "string"
+      ? {
+          ...widget,
+          code: widget.code.trim(),
+        }
+      : widget;
+  }
+
+  const legacyInput = input as Partial<LegacyShowWidgetInput>;
+  const legacyCode = legacyInput.widget_code?.trim() ?? "";
+
+  if (!legacyCode) {
+    throw new Error("show_widget requires a non-empty widget payload.");
+  }
+
+  return {
+    code: legacyCode,
+    height: legacyInput.height,
+    type: "code",
+    width: legacyInput.width,
+  };
+}
+
+export async function executeShowWidget(
+  input: ShowWidgetInput | LegacyShowWidgetInput
+) {
+  return executeShowWidgetWithOptions(input);
+}
+
+export async function executeShowWidgetWithOptions(
+  input: ShowWidgetInput | LegacyShowWidgetInput,
+  options?: {
+    chargeWidgetGeneration?: () => Promise<void>;
+  }
+) {
   if (!input.i_have_seen_read_me) {
     throw new Error("You must call visualize_read_me before show_widget.");
   }
 
-  const widgetCode = input.widget_code ?? "";
-  const isSVG = widgetCode.trimStart().startsWith("<svg");
-  const width = input.width ?? 800;
-  const height = input.height ?? 600;
+  if (options?.chargeWidgetGeneration) {
+    await options.chargeWidgetGeneration();
+  }
+
+  const widget = normalizeShowWidgetPayload(input);
+
+  if (widget.type === "code") {
+    const widgetCode = widget.code ?? "";
+    const isSVG = widgetCode.trimStart().startsWith("<svg");
+
+    return {
+      success: true,
+      details: {
+        height: widget.height ?? 600,
+        isSVG,
+        mode: "code" as const,
+        title: input.title,
+        width: widget.width ?? 800,
+      },
+      widget,
+    };
+  }
 
   return {
     success: true,
     details: {
+      height: widget.height,
+      mode: "spec" as const,
       title: input.title,
-      width,
-      height,
-      isSVG,
+      width: widget.width,
     },
-    widget_code: input.widget_code,
-    widget_spec: input.widget_spec,
-    filePath: null,
+    widget,
   };
 }

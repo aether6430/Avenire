@@ -9,10 +9,7 @@ import {
   releaseMediaPlaybackPrime,
 } from "@/lib/file-preview-cache";
 import { buildProgressivePlaybackSource } from "@/lib/media-playback";
-import {
-  useCurrentWorkspacePane,
-  usePaneSearchParams,
-} from "@/lib/workspace-panes";
+import { useCurrentWorkspacePane } from "@/lib/workspace-panes";
 import { useUserStore } from "@/stores/userStore";
 import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
 import { buildFilePreviewMediaModel } from "./file-preview-media-model";
@@ -47,12 +44,10 @@ export function useFilePreviewPanel({
 }: FilePreviewPanelProps) {
   const filePreviewScrollRef = useRef<HTMLDivElement | null>(null);
   const [pdfInvertColors, setPdfInvertColors] = useState(true);
-  const [circleToAiEnabled, setCircleToAiEnabled] = useState(false);
   const [videoLoadFailed, setVideoLoadFailed] = useState(false);
   const [audioLoadFailed, setAudioLoadFailed] = useState(false);
   const [mediaStreamFailed, setMediaStreamFailed] = useState(false);
   const [propertiesOpen, setPropertiesOpen] = useState(false);
-  const searchParams = usePaneSearchParams();
   const { isActive: isPaneActive, paneId } = useCurrentWorkspacePane();
   const closePane = useWorkspacePaneStore((state) => state.closePane);
   const openPane = useWorkspacePaneStore((state) => state.openPane);
@@ -64,7 +59,6 @@ export function useFilePreviewPanel({
         name: currentUser.name ?? null,
       }
     : null;
-  const circleToAiParam = searchParams.get("circleToAi");
   const canClosePane = paneCount > 1;
 
   const {
@@ -98,9 +92,6 @@ export function useFilePreviewPanel({
 
   useEffect(() => {
     setPropertiesOpen(false);
-  }, []);
-  useEffect(() => {
-    setCircleToAiEnabled(false);
   }, []);
 
   const derivedState = useMemo(
@@ -235,8 +226,6 @@ export function useFilePreviewPanel({
     activeLinkSourceUrl: derivedState.activeLinkSourceUrl,
     allFolders,
     canClosePane,
-    circleToAiEnabled,
-    circleToAiParam,
     closePane,
     currentInfoEntries,
     deleteContextActionItems,
@@ -244,9 +233,7 @@ export function useFilePreviewPanel({
     duplicateContextActionItems,
     hardReingestContextActionItems,
     isCurrentPinned,
-    isImage: derivedState.isImage,
     isPdf: derivedState.isPdf,
-    isVideo: derivedState.isVideo,
     markdownDisplayTitle,
     moveContextActionItemsToFolder,
     openPropertiesDialog: () => setPropertiesOpen(true),
@@ -255,7 +242,6 @@ export function useFilePreviewPanel({
     openRenameFileDialog,
     paneId,
     pdfInvertColors,
-    setCircleToAiEnabled,
     setPdfInvertColors,
     toggleCurrentPinnedItem,
   });
@@ -266,7 +252,6 @@ export function useFilePreviewPanel({
     allFiles,
     applyDefaultNoteCover,
     audioLoadFailed,
-    circleToAiEnabled,
     currentUser: previewUser,
     derivedState,
     filePreviewScrollRef,
@@ -294,7 +279,6 @@ export function useFilePreviewPanel({
     propertyDefinitions,
     query,
     setAudioLoadFailed,
-    setCircleToAiEnabled,
     setNoteCoverLinkDraft,
     setNoteCoverPickerTab,
     setNoteCoverUrl,

@@ -58,7 +58,7 @@ describe("flashcards dashboard client", () => {
         topic: "Thermodynamics",
       })
     ).rejects.toThrow(
-      "Mindset generation finished, but it could not be opened automatically."
+      "Mindset Set generation finished, but it could not be opened automatically."
     );
   });
 
@@ -77,6 +77,14 @@ describe("flashcards dashboard client", () => {
         new Response(JSON.stringify({ set: {} }), {
           status: 200,
         })
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: "dashboard create offline",
+          }),
+          { status: 503 }
+        )
       );
 
     await expect(
@@ -99,7 +107,18 @@ describe("flashcards dashboard client", () => {
     ).resolves.toEqual({
       setId: null,
       status:
-        "The mindset set was created, but it could not be opened automatically.",
+        "The Mindset Set was created, but it could not be opened automatically.",
+    });
+
+    await expect(
+      createFlashcardSet({
+        description: "",
+        tags: [],
+        title: "Offline response",
+      })
+    ).resolves.toEqual({
+      setId: null,
+      status: "dashboard create offline",
     });
 
     expect(fetchMock).toHaveBeenNthCalledWith(

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildDashboardSidebarChatRows,
   filterDashboardSidebarChats,
+  getDashboardSidebarChatDateGroup,
   resolveDashboardSidebarActiveChatSlug,
   resolveDashboardSidebarPrimaryChatRoute,
   toggleDashboardSidebarChatSearchState,
@@ -22,10 +24,9 @@ describe("dashboard sidebar chat runtime model", () => {
     expect(
       resolveDashboardSidebarActiveChatSlug({
         activeChatSlugFromPath: "",
-        activeChatSlugOverride: "override-chat",
         activeChatSlugProp: "prop-chat",
       })
-    ).toBe("override-chat");
+    ).toBe("prop-chat");
 
     expect(
       resolveDashboardSidebarPrimaryChatRoute({
@@ -80,6 +81,66 @@ describe("dashboard sidebar chat runtime model", () => {
       "chat-a",
     ]);
     expect(result.filteredOtherChats).toEqual([]);
+  });
+
+  it("groups unpinned chats by recency without disturbing pinned methods", () => {
+    const now = new Date("2026-05-21T12:00:00.000Z");
+    const rows = buildDashboardSidebarChatRows({
+      now,
+      pinnedChats: [
+        buildChat({ pinned: true, slug: "pinned", title: "Pinned" }),
+      ],
+      otherChats: [
+        buildChat({
+          slug: "today",
+          title: "Today",
+          updatedAt: "2026-05-21T09:00:00.000Z",
+        }),
+        buildChat({
+          slug: "yesterday",
+          title: "Yesterday",
+          updatedAt: "2026-05-20T09:00:00.000Z",
+        }),
+        buildChat({
+          slug: "week",
+          title: "Week",
+          updatedAt: "2026-05-16T09:00:00.000Z",
+        }),
+        buildChat({
+          slug: "month",
+          title: "Month",
+          updatedAt: "2026-05-02T09:00:00.000Z",
+        }),
+        buildChat({
+          slug: "older",
+          title: "Older",
+          updatedAt: "2026-04-01T09:00:00.000Z",
+        }),
+      ],
+    });
+
+    expect(
+      rows.filter((row) => row.type === "header").map((row) => row.title)
+    ).toEqual([
+      "Pinned Methods",
+      "Today",
+      "Yesterday",
+      "Previous 7 days",
+      "Previous 30 days",
+      "Older",
+    ]);
+  });
+
+  it("falls back to lastMessageAt when updatedAt is invalid", () => {
+    expect(
+      getDashboardSidebarChatDateGroup(
+        {
+          lastMessageAt: "2026-05-20T10:00:00.000Z",
+          updatedAt: "not-a-date",
+        },
+        new Date("2026-05-21T12:00:00.000Z")
+      )
+    ).toBe("Yesterday");
   });
 
   it("toggles sidebar chat search state and clears the query only when closing", () => {

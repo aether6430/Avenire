@@ -182,4 +182,32 @@ describe("@avenire/auth waitlist plugin", () => {
     );
     expect(getWaitlistAccessStateByUserIdMock).not.toHaveBeenCalled();
   });
+
+  it("fails closed when the Better Auth adapter cannot resolve a user email for session creation", async () => {
+    const { waitlistPlugin } = await import("./waitlist");
+    const hooks = waitlistPlugin().init().options.databaseHooks;
+    const findUserById = vi.fn().mockResolvedValue(null);
+
+    hasWaitlistAccessMock.mockReturnValueOnce(false);
+
+    await expect(
+      hooks.session.create.before(
+        { userId: "user_missing" },
+        {
+          context: {
+            internalAdapter: {
+              findUserById,
+            },
+          },
+        }
+      )
+    ).rejects.toMatchObject({
+      message: "waitlist_not_found",
+      status: "FORBIDDEN",
+    });
+
+    expect(findUserById).toHaveBeenCalledWith("user_missing");
+    expect(getWaitlistAccessStateByEmailMock).not.toHaveBeenCalled();
+    expect(getWaitlistAccessStateByUserIdMock).not.toHaveBeenCalled();
+  });
 });

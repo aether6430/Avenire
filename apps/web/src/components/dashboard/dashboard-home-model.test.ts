@@ -6,6 +6,7 @@ import {
   formatDashboardRelativeTime,
   getDashboardActivityStateMessage,
   groupDashboardWeakPoints,
+  resolveDashboardActivityErrorMessage,
 } from "@/components/dashboard/dashboard-home-model";
 
 describe("dashboard home model", () => {
@@ -122,7 +123,7 @@ describe("dashboard home model", () => {
     ).toContain("Help me fix this misconception.");
     expect(
       decodeURIComponent(buildMisconceptionFlashcardPrompt(misconception))
-    ).toContain("Generate a mindset set from this misconception");
+    ).toContain("Generate a Mindset Set from this misconception");
   });
 
   it("keeps dashboard activity loading, failure, and empty states distinct", () => {
@@ -140,11 +141,12 @@ describe("dashboard home model", () => {
     expect(
       getDashboardActivityStateMessage({
         activityCount: 0,
+        errorMessage: "activity backend offline",
         loadFailed: true,
         loading: false,
       })
     ).toEqual({
-      message: "Unable to load activity.",
+      message: "activity backend offline",
       showSpinner: false,
     });
 
@@ -166,5 +168,16 @@ describe("dashboard home model", () => {
         loading: false,
       })
     ).toBeNull();
+  });
+
+  it("keeps dashboard activity errors readable", () => {
+    expect(
+      resolveDashboardActivityErrorMessage(
+        new Error("activity backend offline")
+      )
+    ).toBe("activity backend offline");
+    expect(resolveDashboardActivityErrorMessage(null)).toBe(
+      "Unable to load activity."
+    );
   });
 });

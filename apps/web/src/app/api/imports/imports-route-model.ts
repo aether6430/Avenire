@@ -4,8 +4,11 @@ const importDestinationPayloadSchema = z.object({
   folderId: z.string().uuid(),
   workspaceId: z.string().uuid(),
 });
+const importDestinationWorkspaceIdSchema = z.string().uuid();
 
 export const IMPORT_DESTINATION_INVALID_PAYLOAD_ERROR = "Invalid payload";
+export const IMPORT_DESTINATION_INVALID_WORKSPACE_ID_ERROR =
+  "Invalid workspaceId";
 export const IMPORT_DESTINATION_WORKSPACE_REQUIRED_ERROR =
   "workspaceId is required";
 
@@ -80,9 +83,17 @@ export function resolveImportDestinationWorkspaceId(
     };
   }
 
+  const parsed = importDestinationWorkspaceIdSchema.safeParse(normalized);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: IMPORT_DESTINATION_INVALID_WORKSPACE_ID_ERROR,
+    };
+  }
+
   return {
     success: true,
-    workspaceId: normalized,
+    workspaceId: parsed.data,
   };
 }
 
@@ -95,6 +106,6 @@ export function resolveImportsRouteError(
 ) {
   return {
     error: error instanceof Error ? error.message : input.fallback,
-    status: input.status ?? 400,
+    status: input.status ?? 500,
   };
 }

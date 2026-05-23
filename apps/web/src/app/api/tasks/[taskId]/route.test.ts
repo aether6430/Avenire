@@ -54,6 +54,61 @@ describe("/api/tasks/[taskId] route", () => {
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
   });
 
+  it.each([
+    {
+      body: undefined,
+      method: "GET" as const,
+    },
+    {
+      body: { title: "Updated" },
+      method: "PATCH" as const,
+    },
+    {
+      body: undefined,
+      method: "DELETE" as const,
+    },
+  ])("fails closed from $method when workspace context lookup throws before task route handling begins", async ({
+    body,
+    method,
+  }) => {
+    getWorkspaceContextForUserMock.mockRejectedValueOnce(
+      new Error("task auth offline")
+    );
+
+    const response =
+      method === "GET"
+        ? await GET(new Request("http://localhost:3003/api/tasks/task-1"), {
+            params: Promise.resolve({ taskId: "task-1" }),
+          })
+        : method === "PATCH"
+          ? await PATCH(
+              new Request("http://localhost:3003/api/tasks/task-1", {
+                method: "PATCH",
+                body: JSON.stringify(body),
+              }),
+              {
+                params: Promise.resolve({ taskId: "task-1" }),
+              }
+            )
+          : await DELETE(
+              new Request("http://localhost:3003/api/tasks/task-1", {
+                method: "DELETE",
+              }),
+              {
+                params: Promise.resolve({ taskId: "task-1" }),
+              }
+            );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "task auth offline",
+    });
+    expect(getTaskForUserMock).not.toHaveBeenCalled();
+    expect(updateTaskForUserMock).not.toHaveBeenCalled();
+    expect(deleteTaskForUserMock).not.toHaveBeenCalled();
+    expect(invalidateTaskListCacheMock).not.toHaveBeenCalled();
+  });
+
   it("returns not found from GET when the task does not exist", async () => {
     getWorkspaceContextForUserMock.mockResolvedValue({
       workspace: { workspaceId: "workspace-1" },
@@ -87,6 +142,26 @@ describe("/api/tasks/[taskId] route", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ task: { id: "task-1" } });
     expect(invalidateTaskListCacheMock).toHaveBeenCalledWith("workspace-1");
+  });
+
+  it("fails closed from GET when task loading throws", async () => {
+    getWorkspaceContextForUserMock.mockResolvedValue({
+      workspace: { workspaceId: "workspace-1" },
+    });
+    getTaskForUserMock.mockRejectedValue(new Error("task load offline"));
+
+    const response = await GET(
+      new Request("http://localhost:3003/api/tasks/task-1"),
+      {
+        params: Promise.resolve({ taskId: "task-1" }),
+      }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "task load offline",
+    });
+    expect(invalidateTaskListCacheMock).not.toHaveBeenCalled();
   });
 
   it("updates tasks from PATCH with normalized dueAt semantics", async () => {
@@ -142,7 +217,7 @@ describe("/api/tasks/[taskId] route", () => {
       }
     );
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(500);
     await expect(response.json()).resolves.toEqual({ error: "Nope" });
   });
 
@@ -183,5 +258,27 @@ describe("/api/tasks/[taskId] route", () => {
 
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({ error: "Task not found" });
+  });
+
+  it("fails closed from DELETE when task deletion throws", async () => {
+    getWorkspaceContextForUserMock.mockResolvedValue({
+      workspace: { workspaceId: "workspace-1" },
+    });
+    deleteTaskForUserMock.mockRejectedValue(new Error("delete offline"));
+
+    const response = await DELETE(
+      new Request("http://localhost:3003/api/tasks/task-1", {
+        method: "DELETE",
+      }),
+      {
+        params: Promise.resolve({ taskId: "task-1" }),
+      }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "delete offline",
+    });
+    expect(invalidateTaskListCacheMock).not.toHaveBeenCalled();
   });
 });

@@ -61,6 +61,43 @@ describe("/api/workspaces/[workspaceUuid]/files/dedupe/lookup route", () => {
     await expect(response.json()).resolves.toEqual({ error: "Forbidden" });
   });
 
+  it("fails closed when top-level session or access lookup throws before dedupe handling begins", async () => {
+    getSessionUserMock.mockRejectedValueOnce(new Error("dedupe auth offline"));
+
+    let response = await POST(
+      new Request(
+        "http://localhost:3003/api/workspaces/workspace-1/files/dedupe/lookup",
+        { method: "POST", body: "{}" }
+      ),
+      { params: Promise.resolve({ workspaceUuid: "workspace-1" }) }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "dedupe auth offline",
+    });
+    expect(getFileAssetByContentHashMock).not.toHaveBeenCalled();
+
+    getSessionUserMock.mockResolvedValueOnce({ id: "user-1" });
+    ensureWorkspaceAccessForUserMock.mockRejectedValueOnce(
+      new Error("dedupe access offline")
+    );
+
+    response = await POST(
+      new Request(
+        "http://localhost:3003/api/workspaces/workspace-1/files/dedupe/lookup",
+        { method: "POST", body: "{}" }
+      ),
+      { params: Promise.resolve({ workspaceUuid: "workspace-1" }) }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "dedupe access offline",
+    });
+    expect(getFileAssetByContentHashMock).not.toHaveBeenCalled();
+  });
+
   it("returns invalid payload for malformed requests", async () => {
     getSessionUserMock.mockResolvedValue({ id: "user-1" });
 
@@ -172,6 +209,41 @@ describe("/api/workspaces/[workspaceUuid]/files/dedupe/lookup route", () => {
           },
         },
       ],
+    });
+  });
+
+  it("returns a 500 json error when dedupe lookup throws before results can be built", async () => {
+    getSessionUserMock.mockResolvedValue({ id: "user-1" });
+    getFileAssetByContentHashMock.mockRejectedValueOnce(
+      new Error("dedupe lookup offline")
+    );
+
+    const response = await POST(
+      new Request(
+        "http://localhost:3003/api/workspaces/workspace-1/files/dedupe/lookup",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            files: [
+              {
+                clientUploadId: "upload-3",
+                folderId: "11111111-1111-4111-8111-111111111111",
+                hashSha256:
+                  "abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+                mimeType: "application/pdf",
+                name: "Doc.pdf",
+                sizeBytes: 42,
+              },
+            ],
+          }),
+        }
+      ),
+      { params: Promise.resolve({ workspaceUuid: "workspace-1" }) }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "dedupe lookup offline",
     });
   });
 });

@@ -10,6 +10,7 @@ import type { useExplorerWorkspaceIndexState } from "@/components/files/explorer
 interface BuildExplorerPaneSurfacesBrowsePropsOptions
   extends Pick<
     UseExplorerPaneSurfacesOptions,
+    | "allFiles"
     | "allFolders"
     | "breadcrumbs"
     | "currentFolderId"
@@ -52,6 +53,7 @@ interface BuildExplorerPaneSurfacesBrowsePropsOptions
 }
 
 export function buildExplorerPaneSurfacesBrowseProps({
+  allFiles,
   allFolders,
   breadcrumbs,
   currentFolderId,
@@ -89,18 +91,29 @@ export function buildExplorerPaneSurfacesBrowseProps({
   uiState,
   uploadWorkflows,
 }: BuildExplorerPaneSurfacesBrowsePropsOptions) {
+  const isSearchFilteredView =
+    searchSurface.query.trim().length > 0 &&
+    searchSurface.vectorFilteredIds !== null;
+  const searchResultByFileId = new Map();
+  for (const result of searchSurface.retrievalResults) {
+    const fileId = result.fileId ?? result.id;
+    const previous = searchResultByFileId.get(fileId);
+    if (!previous || result.score > previous.score) {
+      searchResultByFileId.set(fileId, result);
+    }
+  }
+
   const openCurrentFolderFile = (fileId: string) => {
     navigation.openWorkspaceFileInFolder(currentFolderId, fileId);
   };
 
   const searchBarProps = searchSurface.getSearchBarProps({
     focusSearchSignal,
-    onOpenFileById: navigation.openFileById,
-    onOpenFolderById: navigation.openFolderById,
     searchableItems,
   });
 
   return buildExplorerBrowsePaneProps({
+    allFiles,
     allFolders,
     availablePropertyDefinitions: propertyControls.availablePropertyDefinitions,
     bannerInputRef: editWorkflows.bannerInputRef,
@@ -161,6 +174,7 @@ export function buildExplorerPaneSurfacesBrowseProps({
     },
     isCurrentFolderReadOnly: derivedState.isCurrentFolderReadOnly,
     isMobile,
+    isSearchFilteredView,
     itemActionTargetSelector:
       "[data-item-actions='true'], [data-selection-control='true'], button, a, input, textarea, select, label",
     listMeasureElement,
@@ -224,6 +238,7 @@ export function buildExplorerPaneSurfacesBrowseProps({
     selectedIds: selection.getSelectedIds(),
     selection,
     selectionRect: selection.selectionRect,
+    searchResultByFileId,
     setItemRowRefMap: itemRefs,
     setMobileConfirmAction: uiState.setMobileConfirmAction,
     setMobileCreateMenuOpen: uiState.setMobileCreateMenuOpen,

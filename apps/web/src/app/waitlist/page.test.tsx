@@ -57,6 +57,7 @@ describe("waitlist page contract", () => {
     await expect(WaitlistPage()).rejects.toThrow("redirect:/workspace");
 
     expect(getUserSettingsMock).not.toHaveBeenCalled();
+    expect(waitlistPageClientMock).not.toHaveBeenCalled();
     expect(redirectMock).toHaveBeenCalledWith("/workspace");
   });
 

@@ -1,4 +1,5 @@
 export function getPasskeysStateMessage(input: {
+  errorMessage?: string | null;
   loadFailed: boolean;
   loading: boolean;
   passkeyCount: number;
@@ -8,7 +9,7 @@ export function getPasskeysStateMessage(input: {
   }
 
   if (input.loadFailed && input.passkeyCount === 0) {
-    return "Unable to load passkeys.";
+    return input.errorMessage?.trim() || "Unable to load passkeys.";
   }
 
   if (input.passkeyCount === 0) {

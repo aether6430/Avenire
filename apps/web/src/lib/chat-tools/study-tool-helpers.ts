@@ -101,7 +101,7 @@ export function buildMisconceptionStudySource(
     `Subject: ${misconception.subject}`,
     `Topic: ${misconception.topic}`,
     `Misconception: ${misconception.reason}`,
-    "Create mindset cards that confront the wrong model directly, then replace it with the correct reasoning.",
+    "Create cards for a Mindset Set that confront the wrong model directly, then replace it with the correct reasoning.",
   ].join("\n");
 }
 

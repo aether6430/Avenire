@@ -1,9 +1,21 @@
 "use client";
 
+import { revokeOtherSessions } from "@avenire/auth/app-client";
 import dynamic from "next/dynamic";
+import { useState } from "react";
+import { SettingsShortcutsSection } from "@/components/settings/settings-misc-sections";
 import type { WorkspaceSummary } from "@/components/settings/settings-panel-model";
 import { SettingsPanelShell } from "@/components/settings/settings-panel-shell";
+import {
+  SettingsSecuritySection,
+  type SettingsSecuritySectionRuntime,
+} from "@/components/settings/settings-security-section";
+import { SettingsWorkspaceSection } from "@/components/settings/settings-workspace-section";
 import type { SettingsPanelRuntime } from "@/components/settings/use-settings-panel";
+import { useSettingsPanelAccountDanger } from "@/components/settings/use-settings-panel-account-danger";
+import { useSettingsPanelPasskeys } from "@/components/settings/use-settings-panel-passkeys";
+import { useSettingsPanelShortcuts } from "@/components/settings/use-settings-panel-shortcuts";
+import { useSettingsWorkspaceManagement } from "@/components/settings/use-settings-workspace-management";
 
 const SettingsAccountSection = dynamic(
   () =>
@@ -29,14 +41,6 @@ const SettingsDataSection = dynamic(
   { ssr: false }
 );
 
-const SettingsShortcutsSection = dynamic(
-  () =>
-    import("@/components/settings/settings-shortcuts-tab-shell").then(
-      (module) => module.SettingsShortcutsTabShell
-    ),
-  { ssr: false }
-);
-
 const SettingsPreferencesSection = dynamic(
   () =>
     import("@/components/settings/settings-preferences-section").then(
@@ -45,21 +49,109 @@ const SettingsPreferencesSection = dynamic(
   { ssr: false }
 );
 
-const SettingsSecuritySection = dynamic(
-  () =>
-    import("@/components/settings/settings-security-tab-shell").then(
-      (module) => module.SettingsSecurityTabShell
-    ),
-  { ssr: false }
-);
+function ReadySettingsWorkspaceSection({
+  currentTab,
+  currentUserEmail,
+  initialWorkspaceId,
+  initialWorkspaces,
+  privacyMode,
+  refreshSudoStatus,
+  requestSudoForAction,
+}: {
+  currentTab: SettingsPanelRuntime["currentTab"];
+  currentUserEmail: string | null;
+  initialWorkspaceId?: string;
+  initialWorkspaces?: WorkspaceSummary[];
+  privacyMode: boolean;
+  refreshSudoStatus: () => Promise<void>;
+  requestSudoForAction: (
+    actionLabel: string,
+    action: () => Promise<void>
+  ) => void;
+}) {
+  const runtime = useSettingsWorkspaceManagement({
+    currentTab,
+    initialWorkspaceId,
+    initialWorkspaces,
+    refreshSudoStatus,
+    requestSudoForAction,
+  });
 
-const SettingsWorkspaceSection = dynamic(
-  () =>
-    import("@/components/settings/settings-workspace-tab-shell").then(
-      (module) => module.SettingsWorkspaceTabShell
-    ),
-  { ssr: false }
-);
+  return (
+    <SettingsWorkspaceSection
+      runtime={{
+        ...runtime,
+        currentUserEmail,
+        deleteSelectedWorkspace: runtime.runDeleteWorkspace,
+        privacyMode,
+      }}
+    />
+  );
+}
+
+function ReadySettingsShortcutsSection() {
+  const runtime = useSettingsPanelShortcuts();
+
+  return <SettingsShortcutsSection {...runtime} />;
+}
+
+function ReadySettingsSecuritySection({
+  currentTab,
+  requestSudoForAction,
+  setSudoActive,
+  sudoActive,
+  sudoStatus,
+  verifySudoSession,
+}: {
+  currentTab: SettingsPanelRuntime["currentTab"];
+  requestSudoForAction: (
+    actionLabel: string,
+    action: () => Promise<void>
+  ) => void;
+  setSudoActive: (active: boolean) => void;
+  sudoActive: boolean;
+  sudoStatus: string | null;
+  verifySudoSession: () => Promise<void>;
+}) {
+  const [sessionsStatus, setSessionsStatus] = useState<string | null>(null);
+  const passkeysRuntime = useSettingsPanelPasskeys({ currentTab });
+  const accountDanger = useSettingsPanelAccountDanger({
+    requestSudoForAction,
+    setSudoActive,
+    sudoActive,
+  });
+
+  const revokeOtherDeviceSessions = async () => {
+    setSessionsStatus("Signing out other devices...");
+    const result = await revokeOtherSessions();
+    setSessionsStatus(
+      result.error
+        ? "Unable to sign out other devices."
+        : "Signed out from other devices."
+    );
+  };
+
+  const runtime: SettingsSecuritySectionRuntime = {
+    accountDeleteConfirm: accountDanger.accountDeleteConfirm,
+    addPasskey: passkeysRuntime.addPasskey,
+    dangerStatus: accountDanger.dangerStatus,
+    deleteAccount: accountDanger.deleteAccount,
+    passkeys: passkeysRuntime.passkeys,
+    passkeysErrorMessage: passkeysRuntime.passkeysErrorMessage,
+    passkeysLoadFailed: passkeysRuntime.passkeysLoadFailed,
+    passkeysLoading: passkeysRuntime.passkeysLoading,
+    passkeysStatus: passkeysRuntime.passkeysStatus,
+    removePasskey: passkeysRuntime.removePasskey,
+    revokeOtherDeviceSessions,
+    sessionsStatus,
+    setAccountDeleteConfirm: accountDanger.setAccountDeleteConfirm,
+    sudoActive,
+    sudoStatus,
+    verifySudoSession,
+  };
+
+  return <SettingsSecuritySection runtime={runtime} />;
+}
 
 function renderCurrentTab(
   runtime: SettingsPanelRuntime,
@@ -75,7 +167,7 @@ function renderCurrentTab(
       return <SettingsBillingSection runtime={runtime} />;
     case "security":
       return (
-        <SettingsSecuritySection
+        <ReadySettingsSecuritySection
           currentTab={runtime.currentTab}
           requestSudoForAction={runtime.requestSudoForAction}
           setSudoActive={runtime.setSudoActive}
@@ -88,7 +180,7 @@ function renderCurrentTab(
       return <SettingsPreferencesSection runtime={runtime} />;
     case "workspace":
       return (
-        <SettingsWorkspaceSection
+        <ReadySettingsWorkspaceSection
           currentTab={runtime.currentTab}
           currentUserEmail={runtime.currentUserEmail}
           initialWorkspaceId={input.initialWorkspaceId}
@@ -96,7 +188,6 @@ function renderCurrentTab(
           privacyMode={runtime.privacyMode}
           refreshSudoStatus={runtime.refreshSudoStatus}
           requestSudoForAction={runtime.requestSudoForAction}
-          session={runtime.session}
         />
       );
     case "data":
@@ -107,7 +198,7 @@ function renderCurrentTab(
         />
       );
     case "shortcuts":
-      return <SettingsShortcutsSection />;
+      return <ReadySettingsShortcutsSection />;
     default:
       return null;
   }

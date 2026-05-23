@@ -17,8 +17,8 @@ import {
 import { Button } from "@avenire/ui/components/button";
 import { cn } from "@avenire/ui/lib/utils";
 import { ArrowLeft, ArrowRight } from "@phosphor-icons/react";
-import { m } from "framer-motion";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { m } from "motion/react";
 import "pdfjs-dist/web/pdf_viewer.css";
 
 function normalizePdfSearchText(value: string) {
@@ -150,18 +150,6 @@ function PdfFloatingDock() {
     () => String(Math.round((zoom || 1) * 100)),
     [zoom]
   );
-
-  useEffect(() => {
-    if (resolvedPage) {
-      setPageInput("");
-    }
-  }, [resolvedPage]);
-
-  useEffect(() => {
-    if (resolvedZoom) {
-      setZoomInput("");
-    }
-  }, [resolvedZoom]);
 
   useEffect(() => {
     const node = viewportRef.current;
@@ -356,7 +344,7 @@ function PDFViewer({
   return (
     <Root
       className={cn(
-        "relative flex h-[500px] w-full flex-col overflow-hidden rounded-lg border",
+        "relative flex h-[500px] w-full flex-col overflow-hidden border-0 bg-background",
         className
       )}
       loader={<div className="p-4">Loading...</div>}

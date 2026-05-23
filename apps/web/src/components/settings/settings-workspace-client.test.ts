@@ -100,7 +100,10 @@ describe("settings workspace client", () => {
         })
       )
       .mockResolvedValueOnce(
-        jsonResponse({ error: "Verification required." }, 403)
+        jsonResponse({ error: "Sudo verification required" }, 403)
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ error: "Only owners can delete workspaces" }, 403)
       );
 
     const mutationCases = [
@@ -178,7 +181,7 @@ describe("settings workspace client", () => {
       {
         run: () => deleteWorkspaceById("workspace-1"),
         expected: {
-          error: "Verification required.",
+          error: "Sudo verification required",
           status: "sudo_required",
         },
         request: ["/api/workspaces/workspace-1", { method: "DELETE" }] as const,
@@ -189,5 +192,16 @@ describe("settings workspace client", () => {
       await expect(testCase.run()).resolves.toEqual(testCase.expected);
       expect(fetchMock).toHaveBeenNthCalledWith(index + 1, ...testCase.request);
     }
+
+    await expect(deleteWorkspaceById("workspace-1")).rejects.toThrow(
+      "Only owners can delete workspaces"
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      7,
+      "/api/workspaces/workspace-1",
+      {
+        method: "DELETE",
+      }
+    );
   });
 });

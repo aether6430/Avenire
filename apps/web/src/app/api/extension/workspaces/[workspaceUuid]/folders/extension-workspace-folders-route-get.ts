@@ -28,19 +28,27 @@ export async function handleExtensionWorkspaceFoldersRouteGet(input: {
       parentId: url.searchParams.get("parentId"),
       rootFolderId: workspaceContext.workspace.rootFolderId,
     });
+    if (!currentParentId.success) {
+      return NextResponse.json(
+        { error: currentParentId.error },
+        { status: 400 }
+      );
+    }
 
     const folders = await listWorkspaceFolders(
       workspaceContext.workspaceUuid,
       input.userId
     );
-    const currentFolder = folders.find((entry) => entry.id === currentParentId);
+    const currentFolder = folders.find(
+      (entry) => entry.id === currentParentId.parentId
+    );
     if (!currentFolder) {
       return NextResponse.json({ error: "Folder not found" }, { status: 404 });
     }
 
     const withAncestors = await getFolderWithAncestors(
       workspaceContext.workspaceUuid,
-      currentFolder.id,
+      currentParentId.parentId,
       input.userId
     );
     if (!withAncestors) {

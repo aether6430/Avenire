@@ -2,6 +2,9 @@ import type { listChatsForUser } from "@/lib/chat-data";
 import type { listWorkspaceFiles, listWorkspaceFolders } from "@/lib/file-data";
 import type { WorkspaceTaskResourceOption } from "@/lib/tasks";
 
+export const WORKSPACE_TASK_RESOURCES_LOAD_ERROR =
+  "Unable to load task resources.";
+
 export function normalizeWorkspaceTaskResourcesQuery(value: unknown) {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
@@ -58,4 +61,11 @@ export function filterWorkspaceTaskResourceOptions(
       .toLowerCase()
       .includes(query)
   );
+}
+
+export function resolveWorkspaceTaskResourcesRouteError(
+  error: unknown,
+  fallback: string
+) {
+  return error instanceof Error ? error.message : fallback;
 }

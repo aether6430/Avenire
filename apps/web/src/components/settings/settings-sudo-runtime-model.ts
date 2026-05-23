@@ -25,6 +25,13 @@ export function resolveSudoStatusPayload(active: boolean | undefined) {
       };
 }
 
+export function createSudoStatusFailureState(error?: string | null) {
+  return {
+    sudoActive: false,
+    sudoStatus: error?.trim() || "Unable to load sudo status.",
+  };
+}
+
 export function createSudoActionRequestState(actionLabel: string) {
   return {
     sudoActionLabel: actionLabel,

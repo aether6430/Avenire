@@ -123,4 +123,32 @@ describe("/api/workspaces/[workspaceUuid]/files/[fileUuid]/captions.vtt route", 
     expect(response.status).toBe(500);
     await expect(response.text()).resolves.toBe("Unable to load captions.");
   });
+
+  it("returns a 500 text error when workspace support context lookup throws", async () => {
+    getSessionUserMock.mockRejectedValueOnce(
+      new Error("support context offline")
+    );
+
+    const response = await GET(new Request("http://localhost:3003"), {
+      params: Promise.resolve({
+        fileUuid: "file-1",
+        workspaceUuid: "workspace-1",
+      }),
+    });
+
+    expect(response.status).toBe(500);
+    await expect(response.text()).resolves.toBe("support context offline");
+    expect(listFileTranscriptCuesMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a 500 text error when wrapper params resolution throws", async () => {
+    const response = await GET(new Request("http://localhost:3003"), {
+      params: Promise.reject(new Error("captions params offline")),
+    });
+
+    expect(response.status).toBe(500);
+    await expect(response.text()).resolves.toBe("captions params offline");
+    expect(getSessionUserMock).not.toHaveBeenCalled();
+    expect(listFileTranscriptCuesMock).not.toHaveBeenCalled();
+  });
 });

@@ -79,4 +79,19 @@ describe("useSettingsPanelLinkedAccounts", () => {
     });
     expect(listAccountsMock).toHaveBeenCalledTimes(1);
   });
+
+  it("fails closed when a linked account is missing the identity needed for unlinking", async () => {
+    const hook = renderHookValue({
+      currentTab: "account",
+    });
+
+    await hook.unlinkProviderAccount({
+      accountId: undefined,
+      id: undefined,
+      providerId: "github",
+    } as never);
+
+    expect(unlinkAccountMock).not.toHaveBeenCalled();
+    expect(listAccountsMock).not.toHaveBeenCalled();
+  });
 });

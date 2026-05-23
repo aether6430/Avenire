@@ -5,28 +5,44 @@ import {
   listWorkspaceMembers,
 } from "@/lib/file-data";
 import { getIngestionFlagsByFileIds } from "@/lib/ingestion-data";
-import { buildWorkspaceUsagePayload } from "./workspace-usage-route-model";
+import {
+  buildWorkspaceUsagePayload,
+  resolveWorkspaceUsageRouteError,
+  WORKSPACE_USAGE_LOAD_ERROR,
+} from "./workspace-usage-route-model";
 
 export async function handleWorkspaceUsageRouteGet(input: {
   workspaceUuid: string;
 }) {
-  const [folders, files, members] = await Promise.all([
-    listWorkspaceFolders(input.workspaceUuid),
-    listWorkspaceFiles(input.workspaceUuid),
-    listWorkspaceMembers(input.workspaceUuid),
-  ]);
+  try {
+    const [folders, files, members] = await Promise.all([
+      listWorkspaceFolders(input.workspaceUuid),
+      listWorkspaceFiles(input.workspaceUuid),
+      listWorkspaceMembers(input.workspaceUuid),
+    ]);
 
-  const ingestionFlags = await getIngestionFlagsByFileIds(
-    input.workspaceUuid,
-    files.map((file) => file.id)
-  );
+    const ingestionFlags = await getIngestionFlagsByFileIds(
+      input.workspaceUuid,
+      files.map((file) => file.id)
+    );
 
-  return NextResponse.json(
-    buildWorkspaceUsagePayload({
-      files,
-      folders,
-      ingestionFlags,
-      members,
-    })
-  );
+    return NextResponse.json(
+      buildWorkspaceUsagePayload({
+        files,
+        folders,
+        ingestionFlags,
+        members,
+      })
+    );
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: resolveWorkspaceUsageRouteError(
+          error,
+          WORKSPACE_USAGE_LOAD_ERROR
+        ),
+      },
+      { status: 500 }
+    );
+  }
 }

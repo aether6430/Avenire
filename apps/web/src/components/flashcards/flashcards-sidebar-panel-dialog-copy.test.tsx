@@ -88,8 +88,8 @@ describe("FlashcardsSidebarPanelCreateDialog copy", () => {
       />
     );
 
-    expect(html).toContain("Create mindset set");
-    expect(html).toContain("Create a workspace-level mindset set.");
+    expect(html).toContain("Create Mindset Set");
+    expect(html).toContain("Create a workspace-level Mindset Set.");
     expect(html).not.toContain("Create Set");
   });
 });

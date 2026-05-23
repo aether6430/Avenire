@@ -84,6 +84,28 @@ describe("/api/uploads/sessions/[sessionId]/parts route", () => {
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
   });
 
+  it("fails closed when session lookup throws before multipart bootstrap begins", async () => {
+    getSessionUserMock.mockRejectedValue(new Error("multipart auth offline"));
+
+    const response = await POST(
+      new Request(
+        "http://localhost:3003/api/uploads/sessions/session-1/parts",
+        {
+          method: "POST",
+          body: JSON.stringify({ partNumbers: [1] }),
+        }
+      ),
+      { params: Promise.resolve({ sessionId: "session-1" }) }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "multipart auth offline",
+    });
+    expect(getUploadSessionMock).not.toHaveBeenCalled();
+    expect(saveUploadSessionMock).not.toHaveBeenCalled();
+  });
+
   it("returns not found, forbidden, and expired session states", async () => {
     getSessionUserMock.mockResolvedValue({ id: "user-1" });
 
@@ -220,5 +242,28 @@ describe("/api/uploads/sessions/[sessionId]/parts route", () => {
       partNumber: 3,
       ttlSeconds: 15 * 60,
     });
+  });
+
+  it("fails closed with an explicit parts error when multipart bootstrap throws", async () => {
+    getSessionUserMock.mockResolvedValue({ id: "user-1" });
+    getUploadSessionMock.mockRejectedValue(new Error("parts offline"));
+
+    const response = await POST(
+      new Request(
+        "http://localhost:3003/api/uploads/sessions/session-1/parts",
+        {
+          method: "POST",
+          body: JSON.stringify({ partNumbers: [1] }),
+        }
+      ),
+      { params: Promise.resolve({ sessionId: "session-1" }) }
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "parts offline",
+    });
+    expect(saveUploadSessionMock).not.toHaveBeenCalled();
+    expect(createUploadSessionPartTokenMock).not.toHaveBeenCalled();
   });
 });

@@ -46,6 +46,34 @@ describe("/api/user-settings route", () => {
     });
   });
 
+  it("fails closed when session lookup throws before user settings handlers run", async () => {
+    getSessionUserMock.mockRejectedValueOnce(
+      new Error("settings auth offline")
+    );
+
+    let response = await GET();
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "settings auth offline",
+    });
+    expect(getUserSettingsMock).not.toHaveBeenCalled();
+
+    getSessionUserMock.mockRejectedValueOnce(
+      new Error("settings save auth offline")
+    );
+    response = await PUT(
+      new Request("http://localhost:3003/api/user-settings", {
+        body: JSON.stringify({ emailReceipts: true }),
+        method: "PUT",
+      })
+    );
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "settings save auth offline",
+    });
+    expect(upsertUserSettingsMock).not.toHaveBeenCalled();
+  });
+
   it("loads persisted settings for the signed-in user", async () => {
     getSessionUserMock.mockResolvedValue({ id: "user-1" });
     getUserSettingsMock.mockResolvedValue({
@@ -69,6 +97,18 @@ describe("/api/user-settings route", () => {
       },
     });
     expect(getUserSettingsMock).toHaveBeenCalledWith("user-1");
+  });
+
+  it("fails closed with an explicit load error when user settings cannot be read", async () => {
+    getSessionUserMock.mockResolvedValue({ id: "user-1" });
+    getUserSettingsMock.mockRejectedValue(new Error("settings offline"));
+
+    const response = await GET();
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "settings offline",
+    });
   });
 
   it("rejects invalid JSON bodies and empty updates", async () => {
@@ -123,7 +163,7 @@ describe("/api/user-settings route", () => {
       emailReceipts: true,
       onboardingCompleted: true,
       petAccessory: "flower",
-      petName: "Auri Prime Extended Name That Wi",
+      petName: "Auri Prime",
     });
 
     const response = await PUT(
@@ -132,8 +172,8 @@ describe("/api/user-settings route", () => {
           completedTasksAtTop: false,
           emailReceipts: true,
           onboardingCompleted: true,
-          petAccessory: "  flower  ",
-          petName: "  Auri Prime Extended Name That Will Be Trimmed  ",
+          petAccessory: "  Flower  ",
+          petName: "  Auri   Prime  ",
         }),
         method: "PUT",
       })
@@ -146,7 +186,7 @@ describe("/api/user-settings route", () => {
         emailReceipts: true,
         onboardingCompleted: true,
         petAccessory: "flower",
-        petName: "Auri Prime Extended Name That Wi",
+        petName: "Auri Prime",
       },
     });
     expect(upsertUserSettingsMock).toHaveBeenCalledWith("user-1", {
@@ -154,7 +194,24 @@ describe("/api/user-settings route", () => {
       emailReceipts: true,
       onboardingCompleted: true,
       petAccessory: "flower",
-      petName: "Auri Prime Extended Name That Wi",
+      petName: "Auri Prime",
+    });
+  });
+
+  it("fails closed with an explicit save error when persistence throws", async () => {
+    getSessionUserMock.mockResolvedValue({ id: "user-1" });
+    upsertUserSettingsMock.mockRejectedValue(new Error("write failed"));
+
+    const response = await PUT(
+      new Request("http://localhost:3003/api/user-settings", {
+        body: JSON.stringify({ emailReceipts: true }),
+        method: "PUT",
+      })
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "write failed",
     });
   });
 });

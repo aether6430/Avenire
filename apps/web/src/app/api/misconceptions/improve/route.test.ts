@@ -42,6 +42,26 @@ describe("/api/misconceptions/improve route", () => {
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
   });
 
+  it("fails closed when workspace context lookup throws before misconception improvement begins", async () => {
+    getWorkspaceContextForUserMock.mockRejectedValue(
+      new Error("misconception improve auth offline")
+    );
+
+    const response = await POST(
+      new Request("http://localhost:3003/api/misconceptions/improve", {
+        body: JSON.stringify({}),
+        method: "POST",
+      })
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "misconception improve auth offline",
+    });
+    expect(improveMisconceptionsForConceptMock).not.toHaveBeenCalled();
+    expect(recomputeConceptMasteryMock).not.toHaveBeenCalled();
+  });
+
   it("rejects missing required fields", async () => {
     getWorkspaceContextForUserMock.mockResolvedValue({
       user: { id: "user-1" },

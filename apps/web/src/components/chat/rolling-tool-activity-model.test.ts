@@ -36,6 +36,32 @@ describe("rolling tool activity model", () => {
     });
   });
 
+  it("maps misconception tool output into a misconception activity preview", () => {
+    const action = toRollingToolAction({
+      input: { concept: "Impulse" },
+      output: {
+        misconception: {
+          concept: "Impulse",
+          confidence: 0.82,
+          topic: "Collisions",
+        },
+      },
+      state: "output-available",
+      type: "tool-log_misconception",
+    } as never);
+
+    expect(action).toEqual({
+      kind: "misconception",
+      pending: false,
+      preview: {
+        concept: "Impulse",
+        confidence: 0.82,
+        topic: "Collisions",
+      },
+      value: "Impulse",
+    });
+  });
+
   it("groups adjacent explore actions and summarizes the explored work", () => {
     const groups = groupRollingToolActions([
       {
@@ -99,5 +125,13 @@ describe("rolling tool activity model", () => {
         type: "tool-avenire_agent",
       } as never)
     ).toBe(false);
+
+    expect(
+      isRollingToolPart({
+        input: { concept: "Impulse" },
+        state: "input-available",
+        type: "tool-log_misconception",
+      } as never)
+    ).toBe(true);
   });
 });

@@ -1,22 +1,15 @@
 import { Input } from "@avenire/ui/components/input";
 import { Kbd, KbdGroup } from "@avenire/ui/components/kbd";
 import { Key } from "@phosphor-icons/react";
-import dynamic from "next/dynamic";
+import { DataImportsSurface } from "@/components/settings/data-imports-surface";
 import {
   Divider,
   Section,
 } from "@/components/settings/settings-panel-content-shared";
 import type { WorkspaceSummary } from "@/components/settings/settings-panel-model";
+import { useDataImports } from "@/components/settings/use-data-imports";
 import type { SettingsPanelRuntime } from "@/components/settings/use-settings-panel";
 import type { useSettingsPanelShortcuts } from "@/components/settings/use-settings-panel-shortcuts";
-
-const DataImportsSection = dynamic(
-  () =>
-    import("@/components/settings/data-imports-section").then(
-      (module) => module.DataImportsSection
-    ),
-  { ssr: false }
-);
 
 export function SettingsDataSection({
   runtime,
@@ -25,13 +18,15 @@ export function SettingsDataSection({
   runtime: SettingsPanelRuntime;
   workspaces: WorkspaceSummary[];
 }) {
+  const surfaceProps = useDataImports({ workspaces });
+
   return (
     <>
       <Section
         description="Connect external sources and import them through the existing note and upload pipelines."
         title="Data Imports"
       >
-        <DataImportsSection workspaces={workspaces} />
+        <DataImportsSurface {...surfaceProps} />
       </Section>
 
       <Divider />

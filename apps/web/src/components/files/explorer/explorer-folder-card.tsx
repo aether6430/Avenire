@@ -37,6 +37,7 @@ interface ExplorerFolderCardProps {
   folder: FolderRecord;
   isDropTarget: boolean;
   isMobile: boolean;
+  isSearchFilteredView: boolean;
   isSelected: boolean;
   onChangeBanner: () => void;
   onClick: React.MouseEventHandler<HTMLDivElement>;
@@ -67,6 +68,7 @@ export function ExplorerFolderCard({
   folder,
   isDropTarget,
   isMobile,
+  isSearchFilteredView,
   isSelected,
   onChangeBanner,
   onClick,
@@ -100,6 +102,7 @@ export function ExplorerFolderCard({
         <Card
           className={cn(
             "group relative cursor-pointer overflow-hidden rounded-2xl border border-transparent bg-transparent p-2 ring-0 transition",
+            isSearchFilteredView && "rounded-md",
             isSelected && "border border-primary bg-primary/5",
             isDropTarget &&
               "border-primary/80 bg-primary/20 shadow-[0_0_0_1px_rgba(59,130,246,0.25)] ring-2 ring-primary/60"
@@ -115,7 +118,7 @@ export function ExplorerFolderCard({
           style={{
             containIntrinsicSize: "214px 160px",
             contentVisibility: "auto",
-            width: 160,
+            width: isSearchFilteredView ? "100%" : 160,
           }}
           {...dragProps}
         >

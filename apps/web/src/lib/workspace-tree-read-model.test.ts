@@ -1,8 +1,19 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildWorkspaceTreeFileIndex,
   createWorkspaceTreePathResolver,
 } from "@/lib/workspace-tree-read-model";
+
+const workspaceTreeClientSource = readFileSync(
+  resolve(import.meta.dirname, "./workspace-tree-client.ts"),
+  "utf8"
+);
+const workspaceTreeReadModelSource = readFileSync(
+  resolve(import.meta.dirname, "./workspace-tree-read-model.ts"),
+  "utf8"
+);
 
 const snapshot = {
   files: [
@@ -54,5 +65,28 @@ describe("workspace tree read model", () => {
         workspacePath: "Docs/Welcome.md",
       },
     ]);
+  });
+
+  it("keeps workspace tree loading split between the browser client/cache layer and the pure path/index read model", () => {
+    expect(workspaceTreeClientSource).toContain("@/lib/workspace-tree-cache");
+    expect(workspaceTreeClientSource).toContain(
+      "export async function loadWorkspaceTreePayload"
+    );
+    expect(workspaceTreeClientSource).toContain("fetch(`/api/workspaces/");
+    expect(workspaceTreeClientSource).toContain("writeWorkspaceTreePayload");
+
+    expect(workspaceTreeReadModelSource).toContain(
+      "export function createWorkspaceTreePathResolver"
+    );
+    expect(workspaceTreeReadModelSource).toContain(
+      "export function buildWorkspaceTreeFileIndex"
+    );
+    expect(workspaceTreeReadModelSource).not.toContain("fetch(");
+    expect(workspaceTreeReadModelSource).not.toContain(
+      "readWorkspaceTreeCache("
+    );
+    expect(workspaceTreeReadModelSource).not.toContain(
+      "writeWorkspaceTreeCache("
+    );
   });
 });

@@ -25,6 +25,9 @@ export function useSettingsPanelRemotePreferences({
 }) {
   const [preferencesLoadFailed, setPreferencesLoadFailed] = useState(false);
   const [preferencesLoading, setPreferencesLoading] = useState(true);
+  const [preferencesErrorMessage, setPreferencesErrorMessage] = useState<
+    string | null
+  >(null);
   const [preferencesStatus, setPreferencesStatus] = useState<string | null>(
     null
   );
@@ -41,6 +44,7 @@ export function useSettingsPanelRemotePreferences({
 
   const refreshUserSettings = useCallback(async () => {
     const startState = createRemotePreferencesLoadStartState();
+    setPreferencesErrorMessage(startState.preferencesErrorMessage);
     setPreferencesLoading(startState.preferencesLoading);
     setPreferencesLoadFailed(startState.preferencesLoadFailed);
     setPreferencesStatus(startState.preferencesStatus);
@@ -51,11 +55,15 @@ export function useSettingsPanelRemotePreferences({
       setCompletedTasksAtTop(successState.completedTasksAtTop);
       setPetName(successState.petName);
       setPetAccessory(successState.petAccessory);
+      setPreferencesErrorMessage(successState.preferencesErrorMessage);
       setPreferencesLoadFailed(successState.preferencesLoadFailed);
       setPreferencesStatus(successState.preferencesStatus);
       setPreferencesLoading(successState.preferencesLoading);
-    } catch {
-      const failureState = createRemotePreferencesLoadFailureState();
+    } catch (error) {
+      const failureState = createRemotePreferencesLoadFailureState(
+        error instanceof Error ? error.message : null
+      );
+      setPreferencesErrorMessage(failureState.preferencesErrorMessage);
       setPreferencesLoadFailed(failureState.preferencesLoadFailed);
       setPreferencesStatus(failureState.preferencesStatus);
       setPreferencesLoading(failureState.preferencesLoading);
@@ -102,6 +110,7 @@ export function useSettingsPanelRemotePreferences({
     persistUserSettings,
     petAccessory,
     petName,
+    preferencesErrorMessage,
     preferencesLoadFailed,
     preferencesLoading,
     preferencesStatus,

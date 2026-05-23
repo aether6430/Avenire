@@ -1,9 +1,8 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import type { DashboardLayoutProps } from "@/components/dashboard/shell";
+import { Suspense, useEffect } from "react";
+import { DashboardLayout as DashboardShellLayout } from "@/components/dashboard/shell";
 import {
   useWorkspaceBootstrap,
   WorkspaceBootstrapProvider,
@@ -11,17 +10,6 @@ import {
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
 import { AppQueryProvider } from "@/components/query-provider";
 import { ThemeProvider } from "@/components/theme-provider";
-
-const DashboardShellLayout = dynamic<DashboardLayoutProps>(
-  () =>
-    import("@/components/dashboard/shell").then(
-      (module) => module.DashboardLayout
-    ),
-  {
-    loading: () => <WorkspaceRoutePlaceholder label="Loading workspace..." />,
-    ssr: false,
-  }
-);
 
 function WorkspaceLayoutFrame({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -38,22 +26,26 @@ function WorkspaceLayoutFrame({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <DashboardShellLayout
-      activeWorkspace={workspace}
-      initialWorkspaces={workspaces}
-      user={
-        user
-          ? {
-              avatar: user.image ?? undefined,
-              email: user.email,
-              id: user.id,
-              name: user.name ?? user.email,
-            }
-          : undefined
-      }
+    <Suspense
+      fallback={<WorkspaceRoutePlaceholder label="Loading workspace..." />}
     >
-      {children}
-    </DashboardShellLayout>
+      <DashboardShellLayout
+        activeWorkspace={workspace}
+        initialWorkspaces={workspaces}
+        user={
+          user
+            ? {
+                avatar: user.image ?? undefined,
+                email: user.email,
+                id: user.id,
+                name: user.name ?? user.email,
+              }
+            : undefined
+        }
+      >
+        {children}
+      </DashboardShellLayout>
+    </Suspense>
   );
 }
 

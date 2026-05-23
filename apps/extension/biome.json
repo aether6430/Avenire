@@ -1,6 +1,6 @@
 {
-	"extends": ["../../biome.json"],
-	"javascript": {
-		"globals": ["chrome"]
-	}
+  "extends": ["../../biome.json"],
+  "javascript": {
+    "globals": ["chrome"]
+  }
 }

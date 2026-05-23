@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -31,6 +33,12 @@ vi.mock("@/lib/file-data", () => ({
 
 import { GET } from "./route";
 
+const workspaceBootstrapRouteFile = resolve(import.meta.dirname, "./route.ts");
+const workspaceBootstrapRouteModelFile = resolve(
+  import.meta.dirname,
+  "./workspace-bootstrap-route-model.ts"
+);
+
 describe("GET /api/workspace/bootstrap", () => {
   beforeEach(() => {
     getSessionMock.mockReset();
@@ -47,6 +55,19 @@ describe("GET /api/workspace/bootstrap", () => {
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
+  });
+
+  it("fails closed when session lookup throws before workspace bootstrap loading begins", async () => {
+    getSessionMock.mockRejectedValueOnce(new Error("bootstrap auth offline"));
+
+    const response = await GET();
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "bootstrap auth offline",
+    });
+    expect(resolveWorkspaceForUserMock).not.toHaveBeenCalled();
+    expect(listWorkspacesForUserMock).not.toHaveBeenCalled();
   });
 
   it("returns the signed-in user with the active workspace summary", async () => {
@@ -137,5 +158,40 @@ describe("GET /api/workspace/bootstrap", () => {
       },
       workspaces: [],
     });
+  });
+
+  it("fails closed with an explicit bootstrap error when workspace loading throws", async () => {
+    getSessionMock.mockResolvedValue({
+      user: {
+        email: "dev@avenire.local",
+        id: "user-1",
+        image: null,
+        name: "Dev User",
+      },
+      session: {
+        activeOrganizationId: "org-1",
+      },
+    });
+    resolveWorkspaceForUserMock.mockRejectedValue(
+      new Error("bootstrap offline")
+    );
+
+    const response = await GET();
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "bootstrap offline",
+    });
+    expect(listWorkspacesForUserMock).toHaveBeenCalledWith("user-1");
+  });
+
+  it("keeps workspace bootstrap fallback helpers in the dedicated route model file", () => {
+    const routeSource = readFileSync(workspaceBootstrapRouteFile, "utf8");
+
+    expect(routeSource).toContain('from "./workspace-bootstrap-route-model"');
+    expect(routeSource).not.toContain(
+      'const WORKSPACE_BOOTSTRAP_LOAD_ERROR = "Unable to load workspace bootstrap."'
+    );
+    expect(existsSync(workspaceBootstrapRouteModelFile)).toBe(true);
   });
 });

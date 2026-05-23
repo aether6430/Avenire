@@ -156,6 +156,7 @@ export function useExplorerPaneSurfaces({
   });
 
   const browsePaneProps = buildExplorerPaneSurfacesBrowseProps({
+    allFiles,
     allFolders,
     breadcrumbs,
     currentFolderId,

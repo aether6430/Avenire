@@ -46,14 +46,13 @@ describe("Explorer navigation model", () => {
 
     expect(
       buildExplorerFileRoute({
-        circleToAi: true,
         fileId: "file-3",
         folderId: "folder-3",
         retrievalChunkId: "chunk-b",
         workspaceUuid: "workspace-1",
       })
     ).toBe(
-      "/workspace/files/workspace-1/folder/folder-3?file=file-3&retrievalChunk=chunk-b&circleToAi=1"
+      "/workspace/files/workspace-1/folder/folder-3?file=file-3&retrievalChunk=chunk-b"
     );
   });
 

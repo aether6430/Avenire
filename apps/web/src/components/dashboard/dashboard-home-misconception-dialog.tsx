@@ -70,7 +70,7 @@ export function DashboardHomeMisconceptionDialog({
                   variant="outline"
                 >
                   <BookOpenCheck className="size-4" />
-                  Generate mindset set
+                  Generate Mindset Set
                 </Button>
                 <Button
                   onClick={() => {

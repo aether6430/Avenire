@@ -21,7 +21,8 @@ vi.mock("ai", () => ({
 vi.mock("@avenire/ai", () => ({
   APOLLO_INGESTION_COHERE_EMBED_MODEL: "cohere-embed-model",
   APOLLO_INGESTION_GROQ_TRANSCRIPTION_MODEL: "groq-transcription-model",
-  APOLLO_INGESTION_MISTRAL_IMAGE_DESCRIPTION_MODEL: "mistral-image-description-model",
+  APOLLO_INGESTION_MISTRAL_IMAGE_DESCRIPTION_MODEL:
+    "mistral-image-description-model",
   APOLLO_INGESTION_MISTRAL_OCR_MODEL: "mistral-ocr-model",
   apollo: {
     rerankingModel: mocks.rerankingModel,
@@ -64,7 +65,8 @@ import {
 } from "./retrieve";
 
 const makeCandidate = (
-  overrides: Partial<VectorSearchResult> & Pick<VectorSearchResult, "chunkId" | "resourceId">
+  overrides: Partial<VectorSearchResult> &
+    Pick<VectorSearchResult, "chunkId" | "resourceId">
 ): VectorSearchResult => ({
   chunkId: overrides.chunkId,
   chunkIndex: overrides.chunkIndex ?? 0,
@@ -129,13 +131,12 @@ describe("retrieve helpers", () => {
       score: 0.4,
     });
 
-    const fused = fuseCandidatesByRrf([
-      [shared, shared, other],
-      [alsoShared],
-    ]);
+    const fused = fuseCandidatesByRrf([[shared, shared, other], [alsoShared]]);
 
     expect(fused).toHaveLength(2);
-    expect(fused.find((candidate) => candidate.chunkId === "shared")).toMatchObject({
+    expect(
+      fused.find((candidate) => candidate.chunkId === "shared")
+    ).toMatchObject({
       score: 0.8,
     });
     expect(
@@ -146,16 +147,28 @@ describe("retrieve helpers", () => {
   });
 
   it("scores lexical, phrase, trigram, and intent helpers as expected", () => {
-    expect(getPreferredSourceTypes({ visual: true, audio: false, document: false })).toEqual(
-      new Set(["video", "image"])
-    );
-    expect(getPreferredSourceTypes({ visual: true, audio: true, document: false })).toBeNull();
+    expect(
+      getPreferredSourceTypes({ visual: true, audio: false, document: false })
+    ).toEqual(new Set(["video", "image"]));
+    expect(
+      getPreferredSourceTypes({ visual: true, audio: true, document: false })
+    ).toBeNull();
 
     expect(
-      lexicalOverlapScore("cell membrane transport", "Transport across the cell membrane")
+      lexicalOverlapScore(
+        "cell membrane transport",
+        "Transport across the cell membrane"
+      )
     ).toBeCloseTo(1);
-    expect(exactPhraseScore("semi permeable membrane", "A semi permeable membrane regulates flow")).toBe(1);
-    expect(extractTrigramQuery('find "ATP synthase" citation')).toBe("ATP synthase");
+    expect(
+      exactPhraseScore(
+        "semi permeable membrane",
+        "A semi permeable membrane regulates flow"
+      )
+    ).toBe(1);
+    expect(extractTrigramQuery('find "ATP synthase" citation')).toBe(
+      "ATP synthase"
+    );
     expect(extractTrigramQuery("renderGraphQLSchema for tests")).toBe(
       "renderGraphQLSchema for tests"
     );
@@ -169,16 +182,20 @@ describe("retrieve helpers", () => {
       title: "Cell lecture",
       page: 8,
       startMs: 5000,
-      endMs: 15000,
+      endMs: 15_000,
     });
 
-    expect(formatDuration(3723000)).toBe("1:02:03");
+    expect(formatDuration(3_723_000)).toBe("1:02:03");
     expect(formatChunkLocation(timedChunk)).toEqual(["p.8", "0:05-0:15"]);
-    expect(formatChunkHeader(timedChunk)).toBe("[Cell lecture, p.8, 0:05-0:15]");
+    expect(formatChunkHeader(timedChunk)).toBe(
+      "[Cell lecture, p.8, 0:05-0:15]"
+    );
     expect(isLikelyNoisyText("x264 cabac deblock threads=16")).toBe(true);
     expect(isLikelyNoisyText("Hello π")).toBe(false);
     expect(
-      isFragmentaryChunk(`lowercase ${Array.from({ length: 25 }, () => "fragment").join(" ")}`)
+      isFragmentaryChunk(
+        `lowercase ${Array.from({ length: 25 }, () => "fragment").join(" ")}`
+      )
     ).toBe(true);
     expect(isFragmentaryChunk("Short unfinished fragment")).toBe(false);
   });
@@ -268,7 +285,10 @@ describe("retrieveRelevantChunks", () => {
   it("prefers visual sources, expands fragmentary chunks with adjacent context, and returns corpus stats", async () => {
     mocks.expandQuery.mockResolvedValue("cell membrane diagram labeled");
     mocks.embedMultimodal.mockResolvedValue({
-      embeddings: [[0.1, 0.2], [0.3, 0.4]],
+      embeddings: [
+        [0.1, 0.2],
+        [0.3, 0.4],
+      ],
     });
     mocks.rerank.mockResolvedValue({
       ranking: [
@@ -287,7 +307,7 @@ describe("retrieveRelevantChunks", () => {
       title: "Cell lecture",
       content: `lowercase ${Array.from({ length: 30 }, () => "membrane").join(" ")}`,
       startMs: 5000,
-      endMs: 15000,
+      endMs: 15_000,
       score: 0.62,
     });
     const imageChunk = makeCandidate({
@@ -386,6 +406,51 @@ describe("retrieveRelevantChunks", () => {
     expect(result.context).toContain("[Cell lecture, 0:05-0:15]");
   });
 
+  it("falls back to the normalized query when query expansion throws", async () => {
+    mocks.expandQuery.mockRejectedValue(new Error("expansion offline"));
+    mocks.embedMultimodal.mockResolvedValue({
+      embeddings: [[0.1, 0.2]],
+    });
+    mocks.rerank.mockResolvedValue({
+      ranking: [{ originalIndex: 0, score: 0.91 }],
+    });
+
+    const pdfChunk = makeCandidate({
+      chunkId: "pdf-1",
+      resourceId: "res-pdf",
+      sourceType: "pdf",
+      title: "Membrane paper",
+      content: "Quoted paragraph about a semi permeable membrane.",
+      score: 0.77,
+    });
+
+    const vectorStore: VectorStore = {
+      corpusStats: vi.fn(async () => ({
+        chunks: 1,
+        embeddings: 1,
+        resources: 1,
+      })),
+      getAdjacentChunks: vi.fn(async () => []),
+      search: vi.fn(async () => [pdfChunk]),
+      searchLexical: vi.fn(async () => []),
+      searchTrigram: vi.fn(async () => []),
+    };
+
+    const result = await retrieveRelevantChunks(vectorStore, "osmosis", {
+      limit: 1,
+      userId: "user-1",
+      workspaceId: "workspace-1",
+    });
+
+    expect(mocks.embedMultimodal).toHaveBeenCalledWith(
+      [{ type: "text", text: "osmosis" }],
+      {
+        inputType: "search_query",
+      }
+    );
+    expect(result.results[0]?.chunkId).toBe("pdf-1");
+  });
+
   it("falls back to Cohere reranking when the primary reranker fails", async () => {
     mocks.expandQuery.mockResolvedValue(null);
     mocks.embedMultimodal.mockResolvedValue({
@@ -452,6 +517,58 @@ describe("retrieveRelevantChunks", () => {
     expect(getAdjacentChunks).not.toHaveBeenCalled();
   });
 
+  it("short-circuits before reranking when search returns no candidates", async () => {
+    mocks.expandQuery.mockResolvedValue(null);
+    mocks.embedMultimodal.mockResolvedValue({
+      embeddings: [[0.7, 0.8]],
+    });
+    mocks.rerank.mockResolvedValue({ ranking: [] });
+    mocks.rerankByCohereWithQueryEmbedding.mockResolvedValue([]);
+
+    const vectorStore: VectorStore = {
+      corpusStats: vi.fn(async () => ({
+        chunks: 0,
+        embeddings: 0,
+        resources: 0,
+      })),
+      getAdjacentChunks: vi.fn(async () => []),
+      search: vi.fn(async () => []),
+      searchLexical: vi.fn(async () => []),
+      searchTrigram: vi.fn(async () => []),
+    };
+
+    const result = await retrieveRelevantChunks(vectorStore, "osmosis", {
+      limit: 2,
+    });
+
+    expect(result.results).toEqual([]);
+    expect(result.context).toBe("");
+    expect(result.decision.candidateCount).toBe(0);
+    expect(mocks.rerank).not.toHaveBeenCalled();
+  });
+
+  it("fails closed on whitespace-only retrieval queries before embeddings or search run", async () => {
+    const vectorStore: VectorStore = {
+      corpusStats: vi.fn(async () => ({
+        chunks: 0,
+        embeddings: 0,
+        resources: 0,
+      })),
+      getAdjacentChunks: vi.fn(async () => []),
+      search: vi.fn(async () => []),
+      searchLexical: vi.fn(async () => []),
+      searchTrigram: vi.fn(async () => []),
+    };
+
+    await expect(
+      retrieveRelevantChunks(vectorStore, "   ", {
+        limit: 2,
+      })
+    ).rejects.toThrow("A retrieval query is required.");
+
+    expect(mocks.embedMultimodal).not.toHaveBeenCalled();
+  });
+
   it("can route ordinary auto queries without source hints onto the fast path", async () => {
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(1);
     try {
@@ -499,5 +616,27 @@ describe("retrieveRelevantChunks", () => {
     } finally {
       randomSpy.mockRestore();
     }
+  });
+
+  it("fails closed on whitespace-only adaptive retrieval queries before embeddings or search run", async () => {
+    const vectorStore: VectorStore = {
+      corpusStats: vi.fn(async () => ({
+        chunks: 0,
+        embeddings: 0,
+        resources: 0,
+      })),
+      getAdjacentChunks: vi.fn(async () => []),
+      search: vi.fn(async () => []),
+      searchLexical: vi.fn(async () => []),
+      searchTrigram: vi.fn(async () => []),
+    };
+
+    await expect(
+      retrieveRelevantChunksAdaptive(vectorStore, "   ", {
+        limit: 1,
+      })
+    ).rejects.toThrow("A retrieval query is required.");
+
+    expect(mocks.embedMultimodal).not.toHaveBeenCalled();
   });
 });

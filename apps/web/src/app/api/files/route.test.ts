@@ -1,19 +1,19 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   authGetSessionMock,
-  getFileUrlsMock,
+  getStorageUrlMock,
   headersMock,
   listWorkspaceFilesMock,
   resolveWorkspaceForUserMock,
-  utApiMock,
 } = vi.hoisted(() => ({
   authGetSessionMock: vi.fn(),
-  getFileUrlsMock: vi.fn(),
+  getStorageUrlMock: vi.fn(),
   headersMock: vi.fn(),
   listWorkspaceFilesMock: vi.fn(),
   resolveWorkspaceForUserMock: vi.fn(),
-  utApiMock: vi.fn(),
 }));
 
 vi.mock("@avenire/auth/server", () => ({
@@ -25,7 +25,7 @@ vi.mock("@avenire/auth/server", () => ({
 }));
 
 vi.mock("@avenire/storage", () => ({
-  UTApi: utApiMock,
+  getStorageUrl: getStorageUrlMock,
 }));
 
 vi.mock("next/headers", () => ({
@@ -36,6 +36,19 @@ vi.mock("@/lib/file-data", () => ({
   listWorkspaceFiles: listWorkspaceFilesMock,
   resolveWorkspaceForUser: resolveWorkspaceForUserMock,
 }));
+
+const filesRouteSource = readFileSync(
+  resolve(import.meta.dirname, "route.ts"),
+  "utf8"
+);
+const filesRouteGetSource = readFileSync(
+  resolve(import.meta.dirname, "files-route-get.ts"),
+  "utf8"
+);
+const filesRouteModelSource = readFileSync(
+  resolve(import.meta.dirname, "files-route-model.ts"),
+  "utf8"
+);
 
 import { GET } from "./route";
 
@@ -48,18 +61,12 @@ describe("/api/files route", () => {
 
   beforeEach(() => {
     authGetSessionMock.mockReset();
-    getFileUrlsMock.mockReset();
+    getStorageUrlMock.mockReset();
     headersMock.mockReset();
     listWorkspaceFilesMock.mockReset();
     resolveWorkspaceForUserMock.mockReset();
-    utApiMock.mockReset();
 
     headersMock.mockResolvedValue(new Headers());
-    utApiMock.mockImplementation(function UTApi() {
-      return {
-        getFileUrls: getFileUrlsMock,
-      };
-    });
     if (originalUploadThingToken === undefined) {
       clearEnvVar("UPLOADTHING_TOKEN");
     } else {
@@ -74,6 +81,19 @@ describe("/api/files route", () => {
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({ files: [] });
+  });
+
+  it("fails closed when session lookup throws before file loading begins", async () => {
+    authGetSessionMock.mockRejectedValue(new Error("session offline"));
+
+    const response = await GET();
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "session offline",
+      files: [],
+    });
+    expect(resolveWorkspaceForUserMock).not.toHaveBeenCalled();
   });
 
   it("returns an empty list when UploadThing is not configured", async () => {
@@ -118,7 +138,7 @@ describe("/api/files route", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ files: [] });
-    expect(getFileUrlsMock).not.toHaveBeenCalled();
+    expect(getStorageUrlMock).not.toHaveBeenCalled();
   });
 
   it("hydrates and sorts workspace files with UploadThing urls", async () => {
@@ -146,12 +166,9 @@ describe("/api/files route", () => {
         storageKey: "file-2",
       },
     ]);
-    getFileUrlsMock.mockResolvedValue({
-      data: [
-        { key: "file-1", url: "https://files.example/1" },
-        { key: "file-2", url: "https://files.example/2" },
-      ],
-    });
+    getStorageUrlMock.mockImplementation(async (key: string) =>
+      key === "file-1" ? "https://files.example/1" : "https://files.example/2"
+    );
 
     const response = await GET();
 
@@ -176,10 +193,11 @@ describe("/api/files route", () => {
         },
       ],
     });
-    expect(getFileUrlsMock).toHaveBeenCalledWith(["file-1", "file-2"]);
+    expect(getStorageUrlMock).toHaveBeenCalledWith("file-1");
+    expect(getStorageUrlMock).toHaveBeenCalledWith("file-2");
   });
 
-  it("returns a stable 500 response when UploadThing hydration throws", async () => {
+  it("fails soft with an empty file list when storage url hydration throws", async () => {
     authGetSessionMock.mockResolvedValue({
       session: { activeOrganizationId: "org-1" },
       user: { id: "user-1" },
@@ -197,11 +215,46 @@ describe("/api/files route", () => {
         storageKey: "file-1",
       },
     ]);
-    getFileUrlsMock.mockRejectedValue(new Error("boom"));
+    getStorageUrlMock.mockRejectedValue(new Error("boom"));
+
+    const response = await GET();
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ files: [] });
+  });
+
+  it("fails closed with an explicit load error when file queries throw", async () => {
+    authGetSessionMock.mockResolvedValue({
+      session: { activeOrganizationId: "org-1" },
+      user: { id: "user-1" },
+    });
+    process.env.UPLOADTHING_TOKEN = "ut-token";
+    resolveWorkspaceForUserMock.mockRejectedValue(new Error("files offline"));
 
     const response = await GET();
 
     expect(response.status).toBe(500);
-    await expect(response.json()).resolves.toEqual({ files: [] });
+    await expect(response.json()).resolves.toEqual({
+      error: "files offline",
+      files: [],
+    });
+    expect(listWorkspaceFilesMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps the files route wrapper aligned to its dedicated loading handler boundary", () => {
+    expect(filesRouteSource).toContain("./files-route-get");
+    expect(filesRouteSource).toContain("./files-route-model");
+    expect(filesRouteSource).toContain("return await handleFilesRouteGet");
+    expect(filesRouteSource).not.toContain("getStorageUrl(");
+    expect(filesRouteSource).not.toContain("listWorkspaceFiles(");
+    expect(filesRouteSource).not.toContain("resolveWorkspaceForUser(");
+
+    expect(filesRouteGetSource).toContain("getStorageUrl");
+    expect(filesRouteGetSource).toContain("listWorkspaceFiles");
+    expect(filesRouteGetSource).toContain("resolveWorkspaceForUser");
+    expect(filesRouteModelSource).toContain(
+      "inferUploadThingServerFileContentType"
+    );
+    expect(filesRouteModelSource).toContain("mapWorkspaceFileToServerFile");
   });
 });

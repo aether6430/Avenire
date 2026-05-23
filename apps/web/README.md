@@ -7,7 +7,7 @@ and the authenticated workspace product.
 
 - `src/app` — App Router pages and API routes
 - `src/components` — product surfaces such as methods, files, dashboard,
-  editor, mindset sets, tasks, settings, and marketing
+  editor, Mindset Sets, tasks, settings, and marketing
 - `src/lib` — shared frontend/server helpers used by routes and UI
 - `src/stores` — client state stores
 - `content/legal` — legal markdown rendered by public routes
@@ -15,7 +15,7 @@ and the authenticated workspace product.
 ## Product surfaces
 
 - public marketing, pricing, blog, privacy, terms, and about pages
-- authenticated workspace with methods, notes, files, tasks, and mindset sets
+- authenticated workspace with methods, notes, files, tasks, and Mindset Sets
 - API routes for retrieval, uploads, workspace file operations, and sharing
 
 ## Product language
@@ -23,7 +23,7 @@ and the authenticated workspace product.
 Within the web app, a few labels carry specific product meaning:
 
 - `Methods` are saved workspace chat threads.
-- `Mindset sets` are the review/study sets surfaced in the flashcards area.
+- `Mindset Sets` are the review/study sets surfaced in their own workspace area.
 - `Files` is the document workspace and explorer surface.
 - `Apollo` is the branded assistant that powers the tutoring/chat experience.
 
@@ -56,7 +56,7 @@ boundaries inside `apps/web`:
   onboarding, and cross-surface orchestration
 - `src/components/chat` — method conversation UI, tool output rendering,
   markdown, composer behavior, and assistant chrome
-- `src/components/flashcards` — mindset set dashboard, sidebar, set detail, and
+- `src/components/flashcards` — Mindset Set dashboard, sidebar, set detail, and
   review/study flows
 - `src/components/files` — files explorer, previews, uploads, circle-to-AI
   search, and sharing
