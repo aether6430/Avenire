@@ -53,6 +53,7 @@ import {
 } from "@/lib/dashboard-browser-cache";
 import { prefetchFlashcardSet } from "@/lib/flashcard-browser-cache";
 import type { FlashcardSetSummary } from "@/lib/flashcards";
+import type { MisconceptionRecord } from "@/lib/learning-data";
 import {
   setWorkspacePaneDragData,
   useWorkspaceSurfaceNavigation,
@@ -80,6 +81,9 @@ export function FlashcardsSidebarPanel({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeMisconceptions, setActiveMisconceptions] = useState<
+    MisconceptionRecord[]
+  >([]);
   const [busy, setBusy] = useState(false);
 
   const loadSets = useCallback(
@@ -103,6 +107,17 @@ export function FlashcardsSidebarPanel({
       setSets(nextSets);
       if (setsWorkspaceRef.current === workspaceUuid) {
         writeCachedFlashcardSets(workspaceUuid, nextSets);
+      }
+
+      const overviewResponse = await fetch("/api/workspace/overview", {
+        cache: "no-store",
+        signal,
+      });
+      if (overviewResponse.ok) {
+        const overviewPayload = (await overviewResponse.json()) as {
+          activeMisconceptions?: MisconceptionRecord[];
+        };
+        setActiveMisconceptions(overviewPayload.activeMisconceptions ?? []);
       }
     },
     [workspaceUuid]
@@ -319,7 +334,7 @@ export function FlashcardsSidebarPanel({
                 draggable
                 onClick={(event) => {
                   const href = reviewTarget
-                    ? (`/workspace/flashcards/${reviewTarget.id}` as Route)
+                    ? (`/workspace/flashcards/${reviewTarget.id}?study=1` as Route)
                     : ("/workspace/flashcards" as Route);
                   if (handlePaneIntent(event, href)) {
                     return;
@@ -332,13 +347,13 @@ export function FlashcardsSidebarPanel({
                 }}
                 onContextMenu={(event) => {
                   const href = reviewTarget
-                    ? (`/workspace/flashcards/${reviewTarget.id}` as Route)
+                    ? (`/workspace/flashcards/${reviewTarget.id}?study=1` as Route)
                     : ("/workspace/flashcards" as Route);
                   handlePaneIntent(event, href);
                 }}
                 onDragStart={(event) => {
                   const href = reviewTarget
-                    ? (`/workspace/flashcards/${reviewTarget.id}` as Route)
+                    ? (`/workspace/flashcards/${reviewTarget.id}?study=1` as Route)
                     : ("/workspace/flashcards" as Route);
                   setWorkspacePaneDragData(event.dataTransfer, href);
                 }}
@@ -358,7 +373,7 @@ export function FlashcardsSidebarPanel({
                 }}
               >
                 <BookOpenCheck className="size-4" />
-                <span>Review Due</span>
+                <span>Start review</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
 
@@ -384,12 +399,43 @@ export function FlashcardsSidebarPanel({
                 }}
               >
                 <MessageSquareDashed className="size-4" />
-                <span>Import From Method</span>
+                <span>Mindset overview</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>
+
+      {activeMisconceptions.length > 0 ? (
+        <SidebarGroup>
+          <SidebarGroupLabel>Misconceptions</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {activeMisconceptions.slice(0, 5).map((misconception) => (
+                <SidebarMenuItem key={misconception.id}>
+                  <SidebarMenuButton
+                    onClick={(event) => {
+                      const href = "/workspace/flashcards" as Route;
+                      if (handlePaneIntent(event, href)) {
+                        return;
+                      }
+                      navigateToFlashcards(href);
+                    }}
+                    onContextMenu={(event) => {
+                      handlePaneIntent(event, "/workspace/flashcards" as Route);
+                    }}
+                  >
+                    <Badge className="rounded-md" variant="outline">
+                      {Math.round(misconception.confidence * 100)}%
+                    </Badge>
+                    <span className="truncate">{misconception.concept}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      ) : null}
 
       <SidebarGroup className="min-h-0 flex-1">
         <div className="flex items-center justify-between gap-2">

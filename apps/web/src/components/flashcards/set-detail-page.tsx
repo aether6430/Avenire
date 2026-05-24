@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { FlashcardSetDetail } from "@/components/flashcards/set-detail";
+import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
 import {
   readCachedFlashcardSet,
   removeCachedFlashcardSet,
@@ -60,27 +61,8 @@ function parseDrillFilters(rawDrill: string | string[] | undefined) {
   });
 }
 
-function LoadingShell({ setId }: { setId: string }) {
-  return (
-    <div className="flex h-full items-center justify-center bg-background px-4 py-8">
-      <div className="w-full max-w-2xl rounded-2xl border border-border/50 bg-card/80 p-6 shadow-sm">
-        <p className="text-[11px] text-muted-foreground uppercase tracking-[0.22em]">
-          Loading mindset
-        </p>
-        <h1 className="mt-2 font-semibold text-2xl tracking-tight">
-          Opening deck {setId}
-        </h1>
-        <div className="mt-6 space-y-3">
-          <div className="h-5 w-1/2 animate-pulse rounded-full bg-muted" />
-          <div className="h-32 animate-pulse rounded-2xl bg-muted/70" />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="h-24 animate-pulse rounded-2xl bg-muted/60" />
-            <div className="h-24 animate-pulse rounded-2xl bg-muted/60" />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+function LoadingShell() {
+  return <WorkspaceRoutePlaceholder label="Loading Mindset" />;
 }
 
 export function FlashcardSetPageClient({
@@ -201,7 +183,7 @@ export function FlashcardSetPageClient({
   }, [loadSet]);
 
   if (loading && !set) {
-    return <LoadingShell setId={setId} />;
+    return <LoadingShell />;
   }
 
   if (error && !set) {
@@ -223,7 +205,7 @@ export function FlashcardSetPageClient({
   }
 
   if (!set) {
-    return <LoadingShell setId={setId} />;
+    return <LoadingShell />;
   }
 
   return (

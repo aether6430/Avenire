@@ -10,9 +10,7 @@ export const metadata = buildPageMetadata({
 
 export default function WorkspaceFlashcardsPage() {
   return (
-    <Suspense
-      fallback={<WorkspaceRoutePlaceholder label="Loading flashcards..." />}
-    >
+    <Suspense fallback={<WorkspaceRoutePlaceholder label="Loading Mindset" />}>
       <WorkspaceFlashcardsPageClient />
     </Suspense>
   );

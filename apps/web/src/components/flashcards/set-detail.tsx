@@ -51,6 +51,7 @@ import {
   HeaderBreadcrumbs,
   HeaderLeadingIcon,
 } from "@/components/dashboard/header-portal";
+import { StabilityCurves } from "@/components/flashcards/stability-curves";
 import { writeCachedFlashcardSet } from "@/lib/flashcard-browser-cache";
 import type {
   FlashcardCardRecord,
@@ -61,7 +62,11 @@ import type {
   FlashcardTaxonomy,
 } from "@/lib/flashcards";
 import { emitPetNotification } from "@/lib/pet-preferences";
-import { usePanePathname, usePaneRouter } from "@/lib/workspace-panes";
+import {
+  usePanePathname,
+  usePaneRouter,
+  usePaneSearchParams,
+} from "@/lib/workspace-panes";
 import { usePaneWorkspaceHistoryActions } from "@/stores/workspaceHistoryStore";
 
 type Rating = "again" | "hard" | "good" | "easy";
@@ -278,6 +283,7 @@ export function FlashcardSetDetail({
 }) {
   const router = usePaneRouter();
   const pathname = usePanePathname();
+  const searchParams = usePaneSearchParams();
   const { recordRoute } = usePaneWorkspaceHistoryActions();
   const [set, setSet] = useState(initialSet);
   const [studyDeck, setStudyDeck] = useState(initialQueue ?? []);
@@ -315,6 +321,13 @@ export function FlashcardSetDetail({
   useEffect(() => {
     recordRoute(pathname);
   }, [pathname, recordRoute]);
+
+  useEffect(() => {
+    if (searchParams.get("study") !== "1") {
+      return;
+    }
+    setStudyOpen(true);
+  }, [searchParams]);
   const [drillFilters, _setDrillFilters] = useState(initialDrillFilters);
   const deferredSearch = useDeferredValue(search);
   const headerLeadingIcon = useMemo(
@@ -1111,6 +1124,8 @@ export function FlashcardSetDetail({
             </Badge>
           </div>
 
+          <StabilityCurves snapshots={set.cardSnapshots} />
+
           <Dialog
             onOpenChange={(open) => {
               setStudyOpen(open);
@@ -1128,7 +1143,7 @@ export function FlashcardSetDetail({
             open={studyOpen}
           >
             <DialogContent
-              className="h-[100dvh] w-full overflow-hidden border-border/60 p-0 sm:h-[88vh] sm:w-[min(42rem,calc(100vw-1.5rem))]"
+              className="h-[100dvh] w-screen max-w-none overflow-hidden rounded-none border-0 p-0 sm:h-[92vh] sm:w-[96vw] sm:max-w-[1200px] sm:rounded-xl sm:border lg:max-w-[1280px]"
               largeWidth
             >
               <div className="relative flex h-full flex-col overflow-hidden bg-background">

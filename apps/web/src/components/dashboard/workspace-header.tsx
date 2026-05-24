@@ -65,7 +65,7 @@ export function WorkspaceHeader({
             shouldUseCompactDesktop ? "min-h-10 gap-1.5" : "min-h-11 gap-1"
           )}
         >
-          <div className="flex w-full min-w-0 items-center gap-1">
+          <div className="flex min-w-0 flex-1 items-center gap-1">
             <SidebarTrigger className="size-8 shrink-0 md:hidden" />
             <ButtonGroup className={segmentedGroupClass}>
               <Button
@@ -144,8 +144,8 @@ export function WorkspaceHeader({
               </div>
             </div>
           </div>
-          <div className="no-scrollbar flex w-full min-w-0 items-center justify-end gap-1 overflow-x-auto pr-4">
-            <div className="flex min-w-0 items-center justify-end gap-1">
+          <div className="no-scrollbar flex max-w-[52%] shrink-0 items-center justify-end gap-1 overflow-x-auto pr-4">
+            <div className="flex min-w-max items-center justify-end gap-1">
               {actions}
             </div>
             {trailingActions ? (
@@ -245,7 +245,7 @@ export function WorkspaceHeader({
             )}
           </div>
 
-          <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex max-w-[44%] shrink-0 items-center justify-end gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {actions}
             {trailingActions}
           </div>

@@ -310,8 +310,32 @@ export function DashboardHome({
       `Generate a flashcard set from this misconception and focus on correcting the wrong model.\n\nConcept: ${misconception.concept}\nSubject: ${misconception.subject}\nTopic: ${misconception.topic}\nReason: ${misconception.reason}\n\nUse the misconception tools if needed, then create the flashcard set from the wrong model and the corrected model.`
     );
 
-  const resolveMisconception = async (misconception: MisconceptionRecord) => {
-    const response = await fetch("/api/misconceptions/resolve", {
+  const adjustMisconceptionConfidence = async (
+    misconception: MisconceptionRecord,
+    delta: number
+  ) => {
+    const response = await fetch("/api/misconceptions/improve", {
+      body: JSON.stringify({
+        concept: misconception.concept,
+        delta,
+        subject: misconception.subject,
+        topic: misconception.topic,
+      }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+
+    if (response.ok) {
+      router.refresh();
+      setSelectedMisconception({
+        ...misconception,
+        confidence: Math.min(1, Math.max(0, misconception.confidence + delta)),
+      });
+    }
+  };
+
+  const clearMisconception = async (misconception: MisconceptionRecord) => {
+    const response = await fetch("/api/misconceptions/delete", {
       body: JSON.stringify({
         concept: misconception.concept,
         subject: misconception.subject,
@@ -714,95 +738,135 @@ export function DashboardHome({
         }}
         open={selectedMisconception !== null}
       >
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="h-[100dvh] w-screen max-w-none overflow-hidden rounded-none border-0 p-0 sm:h-[92vh] sm:w-[96vw] sm:max-w-[1200px] sm:rounded-xl sm:border lg:max-w-[1280px]">
           {selectedMisconception ? (
-            <>
-              <DialogHeader>
-                <DialogTitle>{selectedMisconception.concept}</DialogTitle>
-                <DialogDescription>
+            <div className="flex h-full min-h-0 flex-col bg-background">
+              <DialogHeader className="border-border/50 border-b px-5 py-5 sm:px-8 sm:py-7">
+                <DialogTitle className="max-w-4xl text-balance font-semibold text-2xl leading-tight sm:text-3xl">
+                  {selectedMisconception.concept}
+                </DialogTitle>
+                <DialogDescription className="text-sm sm:text-base">
                   {selectedMisconception.subject} /{" "}
                   {selectedMisconception.topic}
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4">
-                <p className="text-foreground text-sm">
-                  {selectedMisconception.reason}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <Badge className="rounded-md" variant="outline">
-                    Confidence{" "}
-                    {Math.round(selectedMisconception.confidence * 100)}%
-                  </Badge>
-                  <Badge className="rounded-md" variant="outline">
-                    {selectedMisconception.source}
-                  </Badge>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    onClick={() => {
-                      const prompt = promptForMisconception(
-                        selectedMisconception
-                      );
-                      navigate(`/workspace/chats/new?prompt=${prompt}`);
-                    }}
-                    type="button"
-                  >
-                    <MessageSquareText className="size-4" />
-                    Method with AI
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      const prompt = promptForFlashcards(selectedMisconception);
-                      navigate(`/workspace/chats/new?prompt=${prompt}`);
-                    }}
-                    type="button"
-                    variant="outline"
-                  >
-                    <BookOpenCheck className="size-4" />
-                    Generate mindset
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      fetch("/api/misconceptions/improve", {
-                        body: JSON.stringify({
-                          concept: selectedMisconception.concept,
-                          subject: selectedMisconception.subject,
-                          topic: selectedMisconception.topic,
-                        }),
-                        headers: { "Content-Type": "application/json" },
-                        method: "POST",
-                      })
-                        .then((response) => {
-                          if (!response.ok) {
-                            throw new Error("Unable to improve misconception.");
+              <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-8 sm:py-8">
+                <div className="grid w-full gap-10 lg:grid-cols-[minmax(0,1fr)_22rem]">
+                  <div className="max-w-4xl space-y-8">
+                    <section>
+                      <h3 className="font-medium text-muted-foreground text-sm">
+                        Misconception summary
+                      </h3>
+                      <p className="mt-3 text-foreground text-xl leading-8">
+                        {selectedMisconception.blocks?.summary ??
+                          selectedMisconception.reason}
+                      </p>
+                    </section>
+                    <section className="border-border/50 border-t pt-6">
+                      <h3 className="font-medium text-muted-foreground text-sm">
+                        Corrected mental model
+                      </h3>
+                      <p className="mt-3 text-foreground text-base leading-7">
+                        {selectedMisconception.blocks?.correctedMentalModel ??
+                          "Open this with AI to build a corrected model from the misconception evidence."}
+                      </p>
+                    </section>
+                    <section className="border-border/50 border-t pt-6">
+                      <h3 className="font-medium text-muted-foreground text-sm">
+                        Short explanation
+                      </h3>
+                      <p className="mt-3 text-muted-foreground text-base leading-7">
+                        {selectedMisconception.blocks?.explanation ??
+                          selectedMisconception.reason}
+                      </p>
+                    </section>
+                  </div>
+                  <aside className="space-y-5">
+                    <div className="border-border/50 border-b pb-5">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <p className="font-medium text-muted-foreground text-sm">
+                          Concept confidence
+                        </p>
+                        <p className="font-semibold text-foreground text-2xl">
+                          {Math.round(selectedMisconception.confidence * 100)}%
+                        </p>
+                      </div>
+                      <p className="mt-2 text-muted-foreground text-xs leading-5">
+                        Estimate of how stable the learner's understanding is
+                        for this concept.
+                      </p>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <Button
+                          className="justify-center"
+                          onClick={() =>
+                            adjustMisconceptionConfidence(
+                              selectedMisconception,
+                              -0.1
+                            ).catch(() => undefined)
                           }
-                          return response.json();
-                        })
-                        .then(() => {
-                          setSelectedMisconception(null);
-                          router.refresh();
-                        })
-                        .catch(() => undefined);
-                    }}
-                    type="button"
-                    variant="outline"
-                  >
-                    Improve mastery
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      resolveMisconception(selectedMisconception).catch(
-                        () => undefined
-                      );
-                    }}
-                    type="button"
-                    variant="secondary"
-                  >
-                    Clear misconception
-                  </Button>
+                          type="button"
+                          variant="outline"
+                        >
+                          Decrease
+                        </Button>
+                        <Button
+                          className="justify-center"
+                          onClick={() =>
+                            adjustMisconceptionConfidence(
+                              selectedMisconception,
+                              0.1
+                            ).catch(() => undefined)
+                          }
+                          type="button"
+                          variant="outline"
+                        >
+                          Increase
+                        </Button>
+                      </div>
+                    </div>
+                    <Button
+                      className="w-full justify-start"
+                      onClick={() => {
+                        const prompt = promptForMisconception(
+                          selectedMisconception
+                        );
+                        navigate(`/workspace/chats/new?prompt=${prompt}`);
+                      }}
+                      type="button"
+                      variant="outline"
+                    >
+                      <MessageSquareText className="size-4" />
+                      Method with AI
+                    </Button>
+                    <Button
+                      className="w-full justify-start"
+                      onClick={() => {
+                        const prompt =
+                          promptForFlashcards(selectedMisconception);
+                        navigate(`/workspace/chats/new?prompt=${prompt}`);
+                      }}
+                      type="button"
+                      variant="outline"
+                    >
+                      <BookOpenCheck className="size-4" />
+                      Generate mindset
+                    </Button>
+                    <Button
+                      className="w-full justify-start"
+                      onClick={() => {
+                        clearMisconception(selectedMisconception).catch(
+                          () => undefined
+                        );
+                      }}
+                      type="button"
+                      variant="destructive"
+                    >
+                      Clear misconception
+                    </Button>
+                  </aside>
                 </div>
               </div>
-            </>
+            </div>
           ) : null}
         </DialogContent>
       </Dialog>

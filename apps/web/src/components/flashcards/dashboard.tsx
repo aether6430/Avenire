@@ -24,7 +24,11 @@ import { Label } from "@avenire/ui/components/label";
 import { ScrollArea } from "@avenire/ui/components/scroll-area";
 import { Textarea } from "@avenire/ui/components/textarea";
 import { cn } from "@avenire/ui/lib/utils";
-import { BookOpenText as BookOpenCheck, Plus } from "@phosphor-icons/react";
+import {
+  BookOpenText as BookOpenCheck,
+  ChatText as MessageSquareText,
+  Plus,
+} from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import type { Route } from "next";
@@ -34,6 +38,7 @@ import {
   HeaderBreadcrumbs,
   HeaderLeadingIcon,
 } from "@/components/dashboard/header-portal";
+import { StabilityCurves } from "@/components/flashcards/stability-curves";
 import { prefetchFlashcardSet } from "@/lib/flashcard-browser-cache";
 import type { FlashcardDashboardRecord } from "@/lib/flashcards";
 import type { MisconceptionRecord } from "@/lib/learning-data";
@@ -135,6 +140,8 @@ export function FlashcardsDashboard({
     generationRequest !== null
   );
   const [busy, setBusy] = useState(false);
+  const [selectedMisconception, setSelectedMisconception] =
+    useState<MisconceptionRecord | null>(null);
   const autoOpenCreateRef = useRef(false);
   const generationStartedRef = useRef(false);
   const overviewQuery = useQuery({
@@ -285,6 +292,59 @@ export function FlashcardsDashboard({
       });
     } finally {
       setBusy(false);
+    }
+  };
+
+  const promptForMisconception = (misconception: MisconceptionRecord) =>
+    encodeURIComponent(
+      `Help me fix this misconception.\n\nConcept: ${misconception.concept}\nSubject: ${misconception.subject}\nTopic: ${misconception.topic}\nReason: ${misconception.reason}\n\nFirst check the current misconception context, then teach the correct model, and test me with a few questions.`
+    );
+
+  const promptForFlashcards = (misconception: MisconceptionRecord) =>
+    encodeURIComponent(
+      `Generate a flashcard set from this misconception and focus on correcting the wrong model.\n\nConcept: ${misconception.concept}\nSubject: ${misconception.subject}\nTopic: ${misconception.topic}\nReason: ${misconception.reason}\n\nUse the misconception tools if needed, then create the flashcard set from the wrong model and the corrected model.`
+    );
+
+  const adjustMisconceptionConfidence = async (
+    misconception: MisconceptionRecord,
+    delta: number
+  ) => {
+    const response = await fetch("/api/misconceptions/improve", {
+      body: JSON.stringify({
+        concept: misconception.concept,
+        delta,
+        subject: misconception.subject,
+        topic: misconception.topic,
+      }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+
+    if (response.ok) {
+      await overviewQuery.refetch();
+      router.refresh();
+      setSelectedMisconception({
+        ...misconception,
+        confidence: Math.min(1, Math.max(0, misconception.confidence + delta)),
+      });
+    }
+  };
+
+  const clearMisconception = async (misconception: MisconceptionRecord) => {
+    const response = await fetch("/api/misconceptions/delete", {
+      body: JSON.stringify({
+        concept: misconception.concept,
+        subject: misconception.subject,
+        topic: misconception.topic,
+      }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+
+    if (response.ok) {
+      setSelectedMisconception(null);
+      await overviewQuery.refetch();
+      router.refresh();
     }
   };
 
@@ -622,6 +682,7 @@ export function FlashcardsDashboard({
                       </div>
                     </div>
                   </div>
+                  <StabilityCurves snapshots={selectedSnapshots} />
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-[11px] text-muted-foreground uppercase tracking-[0.15em]">
@@ -727,9 +788,11 @@ export function FlashcardsDashboard({
               {overviewQuery.data.activeMisconceptions
                 .slice(0, 6)
                 .map((misconception) => (
-                  <div
-                    className="grid gap-3 rounded-md border border-border/60 bg-card px-3 py-3 md:grid-cols-[minmax(10rem,0.36fr)_minmax(0,1fr)]"
+                  <button
+                    className="grid w-full cursor-pointer gap-3 rounded-md border border-border/60 bg-card px-3 py-3 text-left transition-colors hover:bg-secondary/70 md:grid-cols-[minmax(10rem,0.36fr)_minmax(0,1fr)]"
                     key={misconception.id}
+                    onClick={() => setSelectedMisconception(misconception)}
+                    type="button"
                   >
                     <div className="min-w-0">
                       <p className="truncate font-medium text-foreground text-sm">
@@ -752,7 +815,7 @@ export function FlashcardsDashboard({
                         </Badge>
                       </div>
                     </div>
-                  </div>
+                  </button>
                 ))}
             </div>
           ) : (
@@ -762,6 +825,146 @@ export function FlashcardsDashboard({
           )}
         </section>
       </div>
+      <Dialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedMisconception(null);
+          }
+        }}
+        open={selectedMisconception !== null}
+      >
+        <DialogContent className="h-[100dvh] w-screen max-w-none overflow-hidden rounded-none border-0 p-0 sm:h-[92vh] sm:w-[96vw] sm:max-w-[1200px] sm:rounded-xl sm:border lg:max-w-[1280px]">
+          {selectedMisconception ? (
+            <div className="flex h-full min-h-0 flex-col bg-background">
+              <DialogHeader className="border-border/50 border-b px-5 py-5 sm:px-8 sm:py-7">
+                <DialogTitle className="max-w-4xl text-balance font-semibold text-2xl leading-tight sm:text-3xl">
+                  {selectedMisconception.concept}
+                </DialogTitle>
+                <DialogDescription className="text-sm sm:text-base">
+                  {selectedMisconception.subject} /{" "}
+                  {selectedMisconception.topic}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-8 sm:py-8">
+                <div className="grid w-full gap-10 lg:grid-cols-[minmax(0,1fr)_22rem]">
+                  <div className="max-w-4xl space-y-8">
+                    <section>
+                      <h3 className="font-medium text-muted-foreground text-sm">
+                        Misconception summary
+                      </h3>
+                      <p className="mt-3 text-foreground text-xl leading-8">
+                        {selectedMisconception.blocks?.summary ??
+                          selectedMisconception.reason}
+                      </p>
+                    </section>
+                    <section className="border-border/50 border-t pt-6">
+                      <h3 className="font-medium text-muted-foreground text-sm">
+                        Corrected mental model
+                      </h3>
+                      <p className="mt-3 text-foreground text-base leading-7">
+                        {selectedMisconception.blocks?.correctedMentalModel ??
+                          "Open this with AI to build a corrected model from the misconception evidence."}
+                      </p>
+                    </section>
+                    <section className="border-border/50 border-t pt-6">
+                      <h3 className="font-medium text-muted-foreground text-sm">
+                        Short explanation
+                      </h3>
+                      <p className="mt-3 text-muted-foreground text-base leading-7">
+                        {selectedMisconception.blocks?.explanation ??
+                          selectedMisconception.reason}
+                      </p>
+                    </section>
+                  </div>
+                  <aside className="space-y-5">
+                    <div className="border-border/50 border-b pb-5">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <p className="font-medium text-muted-foreground text-sm">
+                          Concept confidence
+                        </p>
+                        <p className="font-semibold text-foreground text-2xl">
+                          {Math.round(selectedMisconception.confidence * 100)}%
+                        </p>
+                      </div>
+                      <p className="mt-2 text-muted-foreground text-xs leading-5">
+                        Estimate of how stable the learner's understanding is
+                        for this concept.
+                      </p>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <Button
+                          className="justify-center"
+                          onClick={() =>
+                            adjustMisconceptionConfidence(
+                              selectedMisconception,
+                              -0.1
+                            ).catch(() => undefined)
+                          }
+                          type="button"
+                          variant="outline"
+                        >
+                          Decrease
+                        </Button>
+                        <Button
+                          className="justify-center"
+                          onClick={() =>
+                            adjustMisconceptionConfidence(
+                              selectedMisconception,
+                              0.1
+                            ).catch(() => undefined)
+                          }
+                          type="button"
+                          variant="outline"
+                        >
+                          Increase
+                        </Button>
+                      </div>
+                    </div>
+                    <Button
+                      className="w-full justify-start"
+                      onClick={() => {
+                        const prompt = promptForMisconception(
+                          selectedMisconception
+                        );
+                        router.push(`/workspace/chats/new?prompt=${prompt}`);
+                      }}
+                      type="button"
+                      variant="outline"
+                    >
+                      <MessageSquareText className="size-4" />
+                      Method with AI
+                    </Button>
+                    <Button
+                      className="w-full justify-start"
+                      onClick={() => {
+                        const prompt =
+                          promptForFlashcards(selectedMisconception);
+                        router.push(`/workspace/chats/new?prompt=${prompt}`);
+                      }}
+                      type="button"
+                      variant="outline"
+                    >
+                      <BookOpenCheck className="size-4" />
+                      Generate mindset
+                    </Button>
+                    <Button
+                      className="w-full justify-start"
+                      onClick={() => {
+                        clearMisconception(selectedMisconception).catch(
+                          () => undefined
+                        );
+                      }}
+                      type="button"
+                      variant="destructive"
+                    >
+                      Clear misconception
+                    </Button>
+                  </aside>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

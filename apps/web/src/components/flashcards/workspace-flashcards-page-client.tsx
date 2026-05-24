@@ -69,11 +69,11 @@ export function WorkspaceFlashcardsPageClient() {
       : null;
 
   if (!(status === "ready" && user && workspace)) {
-    return <WorkspaceRoutePlaceholder label="Loading flashcards..." />;
+    return <WorkspaceRoutePlaceholder label="Loading Mindset" />;
   }
 
   if (dashboardQuery.isPending || !dashboardQuery.data?.dashboard) {
-    return <WorkspaceRoutePlaceholder label="Loading flashcards..." />;
+    return <WorkspaceRoutePlaceholder label="Loading Mindset" />;
   }
 
   return (
