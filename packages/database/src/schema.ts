@@ -594,6 +594,10 @@ export const misconception = pgTable(
     topic: text("topic").notNull(),
     concept: text("concept").notNull(),
     reason: text("reason").notNull(),
+    blocks: jsonb("blocks")
+      .notNull()
+      .$type<Record<string, unknown>>()
+      .default({}),
     source: text("source").notNull().default("review"),
     status: text("status").notNull().default("candidate"),
     evidenceClass: text("evidence_class").notNull().default("session"),

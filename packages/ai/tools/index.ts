@@ -71,6 +71,14 @@ const webSearchResultSchema = z.object({
 });
 
 const misconceptionSchema = z.object({
+  blocks: z
+    .object({
+      correctedMentalModel: z.string().optional(),
+      explanation: z.string().optional(),
+      summary: z.string().optional(),
+    })
+    .nullable()
+    .optional(),
   confidence: z.number().min(0).max(1),
   concept: z.string(),
   createdAt: z.string(),
@@ -443,6 +451,13 @@ export const chatToolSchemas = {
   },
   log_misconception: {
     input: z.object({
+      blocks: z
+        .object({
+          correctedMentalModel: z.string().min(1),
+          explanation: z.string().min(1),
+          summary: z.string().min(1),
+        })
+        .optional(),
       confidence: z.number().min(0).max(1),
       concept: z.string().min(1),
       reason: z.string().min(1),

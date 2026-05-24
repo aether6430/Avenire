@@ -1,4 +1,5 @@
 import {
+  adjustMisconceptionConfidenceForConcept,
   improveMisconceptionsForConcept,
   recomputeConceptMastery,
 } from "@avenire/database";
@@ -17,6 +18,7 @@ export async function POST(request: Request) {
 
   const body = (await request.json().catch(() => ({}))) as {
     concept?: unknown;
+    delta?: unknown;
     decay?: unknown;
     resolveThreshold?: unknown;
     subject?: unknown;
@@ -28,6 +30,8 @@ export async function POST(request: Request) {
   const topic = normalizeText(body.topic);
   const decayRaw =
     typeof body.decay === "number" ? body.decay : Number(body.decay);
+  const deltaRaw =
+    typeof body.delta === "number" ? body.delta : Number(body.delta);
   const resolveThresholdRaw =
     typeof body.resolveThreshold === "number"
       ? body.resolveThreshold
@@ -40,17 +44,26 @@ export async function POST(request: Request) {
     );
   }
 
-  const improved = await improveMisconceptionsForConcept({
-    concept,
-    decay: Number.isFinite(decayRaw) ? decayRaw : undefined,
-    resolveThreshold: Number.isFinite(resolveThresholdRaw)
-      ? resolveThresholdRaw
-      : undefined,
-    subject,
-    topic,
-    userId: ctx.user.id,
-    workspaceId: ctx.workspace.workspaceId,
-  });
+  const improved = Number.isFinite(deltaRaw)
+    ? await adjustMisconceptionConfidenceForConcept({
+        concept,
+        delta: deltaRaw,
+        subject,
+        topic,
+        userId: ctx.user.id,
+        workspaceId: ctx.workspace.workspaceId,
+      })
+    : await improveMisconceptionsForConcept({
+        concept,
+        decay: Number.isFinite(decayRaw) ? decayRaw : undefined,
+        resolveThreshold: Number.isFinite(resolveThresholdRaw)
+          ? resolveThresholdRaw
+          : undefined,
+        subject,
+        topic,
+        userId: ctx.user.id,
+        workspaceId: ctx.workspace.workspaceId,
+      });
 
   await recomputeConceptMastery({
     concept,

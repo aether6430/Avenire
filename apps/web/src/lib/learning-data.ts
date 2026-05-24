@@ -1,6 +1,8 @@
 export type { MisconceptionRecord } from "@avenire/database";
 
 export {
+  adjustMisconceptionConfidenceForConcept,
+  deleteMisconceptionsForConcept,
   getActiveMisconceptions,
   getMasteryBySubject,
   getMisconceptionById,

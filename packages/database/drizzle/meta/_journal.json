@@ -127,6 +127,13 @@
       "when": 1777852800001,
       "tag": "0018_active_misconception_candidates",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1779580800000,
+      "tag": "0019_misconception_blocks",
+      "breakpoints": true
     }
   ]
 }

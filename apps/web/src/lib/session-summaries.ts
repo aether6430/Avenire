@@ -18,7 +18,7 @@ const DEFAULT_SESSION_INACTIVITY_WINDOW_MS = 30 * 60 * 1000;
 const SUMMARY_MODEL = "apollo-sprint";
 const MAX_SUMMARY_LIST_ITEMS = 12;
 const MAX_MISCONCEPTION_CANDIDATES = 3;
-const MIN_AUTOMATIC_MISCONCEPTION_CONFIDENCE = 0.45;
+const MIN_AUTOMATIC_MISCONCEPTION_CONFIDENCE = 0;
 const MAX_MISCONCEPTION_CONCEPT_LENGTH = 180;
 const MAX_MISCONCEPTION_REASON_LENGTH = 600;
 const MAX_MISCONCEPTION_SUBJECT_LENGTH = 120;
@@ -27,6 +27,13 @@ const SUMMARY_META_LINE_PATTERN =
   /^(the user\b|the assistant\b|i should\b|i need to\b|let me\b|this is (?:a|an)\b|based on\b|given the phrasing\b|\*\*key\b|key (?:requirements|findings|constraints|considerations)\b)/i;
 
 const misconceptionCandidateSchema = z.object({
+  blocks: z
+    .object({
+      correctedMentalModel: z.string().min(1),
+      explanation: z.string().min(1),
+      summary: z.string().min(1),
+    })
+    .optional(),
   confidence: z.number().min(0).max(1),
   concept: z.string().min(1),
   reason: z.string().min(1),
@@ -101,6 +108,21 @@ function normalizeMisconceptionCandidate(
   const candidateSubject = normalizeSubjectLabel(boundedSubject);
 
   return {
+    ...(candidate.blocks
+      ? {
+          blocks: {
+            correctedMentalModel: normalizeBoundedText(
+              candidate.blocks.correctedMentalModel,
+              600
+            ),
+            explanation: normalizeBoundedText(
+              candidate.blocks.explanation,
+              700
+            ),
+            summary: normalizeBoundedText(candidate.blocks.summary, 360),
+          },
+        }
+      : {}),
     confidence: Math.min(1, Math.max(0, candidate.confidence)),
     concept: boundedConcept,
     reason: boundedReason,
@@ -338,6 +360,7 @@ async function persistAutomaticMisconceptions(input: {
   const results = await Promise.allSettled(
     eligibleCandidates.map((candidate) =>
       upsertMisconception({
+        blocks: candidate.blocks,
         confidence: candidate.confidence,
         concept: candidate.concept,
         evidenceClass: "session",
@@ -535,7 +558,9 @@ export async function persistSessionSummaryForCompletedTurn(input: {
       "For each misconceptionCandidate, classify subject and topic from that candidate's concept, reason, and the local transcript evidence. Do not copy the session subject when the candidate is about a different field.",
       "For misconceptionCandidates, keep concept labels short and specific, ideally under 180 characters, and keep subject/topic labels concise.",
       "For misconceptionCandidates.topic, use the most specific standard topic label justified by the candidate evidence; if uncertain, use a broad topic within the candidate subject rather than an unrelated session topic.",
-      "For misconceptionCandidates, return objects with concept, subject, topic, reason, and confidence.",
+      "For misconceptionCandidates, return objects with concept, subject, topic, reason, confidence, and blocks.",
+      "For misconceptionCandidates.confidence, estimate the learner's current confidence or stability with the concept from 0 to 1. Use lower values for shaky understanding, not your classifier certainty.",
+      "For misconceptionCandidates.blocks, write summary as the misconception in one short sentence, correctedMentalModel as the replacement model the learner should use, and explanation as a short explanation that connects the correction to the original mistake.",
       "Session transcript:",
       transcript,
     ].join("\n\n"),
