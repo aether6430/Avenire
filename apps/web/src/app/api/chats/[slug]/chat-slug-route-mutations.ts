@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
 import {
   branchChatForUser,
   deleteChatForUser,
   getWritableChatBySlugForUser,
   updateChatForUser,
-} from "@/lib/chat-data";
+} from "@avenire/database";
+import { after, NextResponse } from "next/server";
 import { invalidateChatReadCaches } from "@/lib/domain-cache";
 import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
 import {
@@ -16,6 +16,42 @@ import {
   normalizeChatSlugPatch,
   resolveChatSlugRouteError,
 } from "./chat-slug-route-model";
+
+function scheduleChatMutationFollowUp(input: {
+  action: "created" | "deleted" | "updated";
+  chat: {
+    slug: string;
+    workspaceId: string;
+  };
+  publishedChat: unknown;
+}) {
+  after(async () => {
+    try {
+      await invalidateChatReadCaches(input.chat.workspaceId);
+    } catch {
+      // Best-effort cache cleanup after the mutation is already committed.
+    }
+
+    await Promise.allSettled([
+      publishWorkspaceStreamEvent(
+        buildSpecificChatEvent({
+          workspaceUuid: input.chat.workspaceId,
+          chatSlug: input.chat.slug,
+          action: input.action,
+          chat: input.publishedChat,
+        })
+      ),
+      publishWorkspaceStreamEvent(
+        buildChatInvalidateEvent({
+          workspaceUuid: input.chat.workspaceId,
+          chatSlug: input.chat.slug,
+          action: input.action,
+          chat: input.publishedChat,
+        })
+      ),
+    ]);
+  });
+}
 
 async function resolveOwnedChatMutationContext(input: {
   userId: string;
@@ -60,26 +96,14 @@ export async function handleChatSlugPatch(input: {
     }
 
     if (updated.workspaceId) {
-      await invalidateChatReadCaches(updated.workspaceId);
-
-      void Promise.all([
-        publishWorkspaceStreamEvent(
-          buildSpecificChatEvent({
-            workspaceUuid: updated.workspaceId,
-            chatSlug: updated.slug,
-            action: "updated",
-            chat: updated,
-          })
-        ),
-        publishWorkspaceStreamEvent(
-          buildChatInvalidateEvent({
-            workspaceUuid: updated.workspaceId,
-            chatSlug: updated.slug,
-            action: "updated",
-            chat: updated,
-          })
-        ),
-      ]);
+      scheduleChatMutationFollowUp({
+        action: "updated",
+        chat: {
+          slug: updated.slug,
+          workspaceId: updated.workspaceId,
+        },
+        publishedChat: updated,
+      });
     }
 
     return NextResponse.json({ chat: updated });
@@ -117,26 +141,14 @@ export async function handleChatSlugBranch(input: {
     }
 
     if (chat.workspaceId) {
-      await invalidateChatReadCaches(chat.workspaceId);
-
-      void Promise.all([
-        publishWorkspaceStreamEvent(
-          buildSpecificChatEvent({
-            workspaceUuid: chat.workspaceId,
-            chatSlug: chat.slug,
-            action: "created",
-            chat,
-          })
-        ),
-        publishWorkspaceStreamEvent(
-          buildChatInvalidateEvent({
-            workspaceUuid: chat.workspaceId,
-            chatSlug: chat.slug,
-            action: "created",
-            chat,
-          })
-        ),
-      ]);
+      scheduleChatMutationFollowUp({
+        action: "created",
+        chat: {
+          slug: chat.slug,
+          workspaceId: chat.workspaceId,
+        },
+        publishedChat: chat,
+      });
     }
 
     return NextResponse.json({ chat }, { status: 201 });
@@ -174,26 +186,14 @@ export async function handleChatSlugDelete(input: {
     }
 
     if (context.chat?.workspaceId) {
-      await invalidateChatReadCaches(context.chat.workspaceId);
-
-      void Promise.all([
-        publishWorkspaceStreamEvent(
-          buildSpecificChatEvent({
-            workspaceUuid: context.chat.workspaceId,
-            chatSlug: context.chat.slug,
-            action: "deleted",
-            chat: deleted,
-          })
-        ),
-        publishWorkspaceStreamEvent(
-          buildChatInvalidateEvent({
-            workspaceUuid: context.chat.workspaceId,
-            chatSlug: context.chat.slug,
-            action: "deleted",
-            chat: deleted,
-          })
-        ),
-      ]);
+      scheduleChatMutationFollowUp({
+        action: "deleted",
+        chat: {
+          slug: context.chat.slug,
+          workspaceId: context.chat.workspaceId,
+        },
+        publishedChat: deleted,
+      });
     }
 
     return NextResponse.json({ ok: true });

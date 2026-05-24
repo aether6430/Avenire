@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   applyChatScrollMetrics,
@@ -5,9 +7,16 @@ import {
   type ChatScrollListenerContainer,
   followChatScrollIfNeeded,
   handleLatestUserMessageForScroll,
+  INITIAL_BOTTOM_SCROLL_MESSAGE_THRESHOLD,
   initializeChatScrollState,
   schedulePinnedLatestChatMessage,
+  shouldEnableInitialChatAutoScroll,
 } from "@/components/chat/use-chat-scroll-runtime";
+
+const useChatScrollSource = readFileSync(
+  resolve(import.meta.dirname, "./use-chat-scroll.ts"),
+  "utf8"
+);
 
 function createListenerContainer(
   overrides: Partial<ChatScrollListenerContainer> = {}
@@ -75,6 +84,19 @@ describe("use chat scroll runtime", () => {
 
   it("initializes and resets latest-user scroll state only when needed", () => {
     expect(
+      shouldEnableInitialChatAutoScroll({
+        isStreaming: false,
+        messageCount: INITIAL_BOTTOM_SCROLL_MESSAGE_THRESHOLD,
+      })
+    ).toBe(false);
+    expect(
+      shouldEnableInitialChatAutoScroll({
+        isStreaming: false,
+        messageCount: INITIAL_BOTTOM_SCROLL_MESSAGE_THRESHOLD + 1,
+      })
+    ).toBe(true);
+
+    expect(
       initializeChatScrollState({
         hasInitializedLayout: false,
         isStreaming: false,
@@ -82,11 +104,28 @@ describe("use chat scroll runtime", () => {
         messageCount: 2,
       })
     ).toEqual({
+      autoScrollEnabled: false,
+      hasInitializedLayout: true,
+      lastStreamPinnedMessageId: null,
+      lastUserMessageId: "user-1",
+      shouldScrollToBottom: false,
+      shouldScrollToTop: true,
+    });
+
+    expect(
+      initializeChatScrollState({
+        hasInitializedLayout: false,
+        isStreaming: false,
+        latestUserMessageId: "user-1",
+        messageCount: INITIAL_BOTTOM_SCROLL_MESSAGE_THRESHOLD + 1,
+      })
+    ).toEqual({
       autoScrollEnabled: true,
       hasInitializedLayout: true,
       lastStreamPinnedMessageId: null,
       lastUserMessageId: "user-1",
       shouldScrollToBottom: true,
+      shouldScrollToTop: false,
     });
 
     expect(
@@ -155,5 +194,45 @@ describe("use chat scroll runtime", () => {
 
     detach();
     expect(container.removeEventListener).toHaveBeenCalled();
+  });
+
+  it("wraps requestAnimationFrame and cancelAnimationFrame before handing them to the runtime helper", () => {
+    expect(useChatScrollSource).toContain(
+      "cancelAnimationFrame: (handle) => {"
+    );
+    expect(useChatScrollSource).toContain(
+      "window.cancelAnimationFrame(handle);"
+    );
+    expect(useChatScrollSource).toContain(
+      "requestAnimationFrame: (callback) => {"
+    );
+    expect(useChatScrollSource).toContain(
+      "return window.requestAnimationFrame(callback);"
+    );
+    expect(useChatScrollSource).not.toContain(
+      "cancelAnimationFrame: window.cancelAnimationFrame"
+    );
+    expect(useChatScrollSource).not.toContain(
+      "requestAnimationFrame: window.requestAnimationFrame"
+    );
+  });
+
+  it("derives the initial auto-scroll state from the short-thread policy instead of always starting true", () => {
+    expect(useChatScrollSource).toContain("shouldEnableInitialChatAutoScroll");
+    expect(useChatScrollSource).toContain(
+      "const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(() =>"
+    );
+  });
+
+  it("pins short persisted threads to the top while late layout settles instead of relying on a single initial scroll", () => {
+    expect(useChatScrollSource).toContain(
+      "const pinTopDuringSettle = useCallback(() => {"
+    );
+    expect(useChatScrollSource).toContain(
+      "const resizeObserver = new ResizeObserver(() => {"
+    );
+    expect(useChatScrollSource).toContain("container.scrollTo({");
+    expect(useChatScrollSource).toContain("top: 0,");
+    expect(useChatScrollSource).toContain("pinTopDuringSettle();");
   });
 });

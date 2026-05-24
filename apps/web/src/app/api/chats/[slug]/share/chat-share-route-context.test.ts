@@ -19,7 +19,7 @@ const {
   },
 }));
 
-vi.mock("@/lib/chat-data", () => ({
+vi.mock("@avenire/database", () => ({
   getChatBySlugForUser: getChatBySlugForUserMock,
   getWritableChatBySlugForUser: getWritableChatBySlugForUserMock,
   isChatOwnerForUser: isChatOwnerForUserMock,

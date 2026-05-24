@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { parseOriginList, resolveTrustedOrigins } from "./origin-policy";
-import { isPasskeyOriginSupported } from "./passkey-origin";
 
 describe("@avenire/auth origin and passkey policy", () => {
   it("parses trusted-origin environment lists by trimming values and dropping empties", () => {
@@ -67,20 +66,5 @@ describe("@avenire/auth origin and passkey policy", () => {
         requestOrigin: "not an origin",
       })
     ).toEqual(["http://localhost:3000", "chrome-extension://abc123"]);
-  });
-
-  it("allows secure and localhost passkey origins while failing closed on loopback ip http", () => {
-    const supports = (hostname: string, protocol: string) =>
-      isPasskeyOriginSupported({ hostname, protocol });
-
-    expect([
-      supports("avenire.space", "https:"),
-      supports("localhost", "http:"),
-      supports("app.localhost", "http:"),
-      supports("127.0.0.1", "http:"),
-      supports("::1", "http:"),
-      supports("LOCALHOST", "HTTP:"),
-      supports("Avenire.Space", "HTTPS:"),
-    ]).toEqual([true, true, true, false, false, true, true]);
   });
 });

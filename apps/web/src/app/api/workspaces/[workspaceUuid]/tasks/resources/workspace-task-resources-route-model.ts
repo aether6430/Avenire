@@ -1,4 +1,4 @@
-import type { listChatsForUser } from "@/lib/chat-data";
+import type { listChatsForUser } from "@avenire/database";
 import type { listWorkspaceFiles, listWorkspaceFolders } from "@/lib/file-data";
 import type { WorkspaceTaskResourceOption } from "@/lib/tasks";
 

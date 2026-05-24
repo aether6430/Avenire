@@ -1,31 +1,42 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { PreviewAttachmentShellProps } from "./preview-attachment-shell-props";
+import type { Attachment } from "@/components/chat/attachment";
+import {
+  type PreviewAttachmentRuntime,
+  usePreviewAttachment,
+} from "./use-preview-attachment";
 
-// ─── Pan/Pinch Image Viewer ───────────────────────────────────────────────────
+interface PreviewAttachmentShellProps {
+  attachment: Partial<Attachment>;
+  onRemove?: (attachmentId: string) => void;
+  workspaceUuid?: string;
+}
 
-const MIN_SCALE = 1;
-const PreviewAttachmentDefaultShell = dynamic<PreviewAttachmentShellProps>(
+type PreviewAttachmentVariantProps = PreviewAttachmentShellProps & {
+  runtime: PreviewAttachmentRuntime;
+};
+
+const PreviewAttachmentDefault = dynamic<PreviewAttachmentVariantProps>(
   () =>
-    import("@/components/chat/preview-attachment-default-shell").then(
-      (module) => module.PreviewAttachmentDefaultShell
+    import("@/components/chat/preview-attachment-variants").then(
+      (module) => module.PreviewAttachmentDefault
     ),
   { ssr: false }
 );
 
-const PreviewAttachmentComposerShell = dynamic<PreviewAttachmentShellProps>(
+const PreviewAttachmentComposer = dynamic<PreviewAttachmentVariantProps>(
   () =>
-    import("@/components/chat/preview-attachment-composer-shell").then(
-      (module) => module.PreviewAttachmentComposerShell
+    import("@/components/chat/preview-attachment-variants").then(
+      (module) => module.PreviewAttachmentComposer
     ),
   { ssr: false }
 );
 
-const PreviewAttachmentTagShell = dynamic<PreviewAttachmentShellProps>(
+const PreviewAttachmentTag = dynamic<PreviewAttachmentVariantProps>(
   () =>
-    import("@/components/chat/preview-attachment-tag-shell").then(
-      (module) => module.PreviewAttachmentTagShell
+    import("@/components/chat/preview-attachment-variants").then(
+      (module) => module.PreviewAttachmentTag
     ),
   { ssr: false }
 );
@@ -38,19 +49,24 @@ export function PreviewAttachment({
 }: PreviewAttachmentShellProps & {
   variant?: "composer" | "default" | "tag";
 }) {
+  const runtime = usePreviewAttachment({
+    attachment,
+    workspaceUuid,
+  });
   const shellProps = {
     attachment,
     onRemove,
+    runtime,
     workspaceUuid,
   };
 
   if (variant === "composer") {
-    return <PreviewAttachmentComposerShell {...shellProps} />;
+    return <PreviewAttachmentComposer {...shellProps} />;
   }
 
   if (variant === "tag") {
-    return <PreviewAttachmentTagShell {...shellProps} />;
+    return <PreviewAttachmentTag {...shellProps} />;
   }
 
-  return <PreviewAttachmentDefaultShell {...shellProps} />;
+  return <PreviewAttachmentDefault {...shellProps} />;
 }

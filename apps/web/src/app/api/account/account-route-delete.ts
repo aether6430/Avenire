@@ -1,6 +1,6 @@
+import { deleteAuthUserById } from "@avenire/database";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { deleteAuthUserById } from "@/lib/account-data";
 import { SUDO_COOKIE_NAME, validateSudoCookie } from "@/lib/sudo";
 import {
   ACCOUNT_DELETE_ERROR,

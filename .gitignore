@@ -1,4 +1,6 @@
 .agents
+.DS_Store
+**/.DS_Store
 node_modules
 .pnpm-store
 .next
@@ -15,7 +17,6 @@ coverage
 /apps/web/*.jpg
 /apps/web/*.jpeg
 /apps/web/*.webp
-Ingestion/
 
 drizzle/
 !packages/database/drizzle/
@@ -26,11 +27,18 @@ context
 .vercel
 .env*.local
 /reference/
-/instruction.md
 /logs/
 /docs/*-current.md
 /.ccb/
 /.playwright-cli/
 /output/
+/notes.md
+/instruction.md
+/TODO.md
+/apps/web/AGENTS.md
+/apps/web/CLAUDE.md
+/screenshots/
+/screenshots/T*.png
+/screenshots/T*.svg
 # CocoIndex Code (ccc)
 /.cocoindex_code/

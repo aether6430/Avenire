@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { DataImportsSurface } from "./data-imports-surface";
+import { DataImportsSurface } from "./settings-misc-sections";
 
 vi.mock("next/dynamic", () => ({
   default: () => () => null,
@@ -39,7 +39,7 @@ const destinationRuntime = {
 
 describe("DataImportsSurface", () => {
   const dataImportsSurfaceSource = readFileSync(
-    resolve(import.meta.dirname, "./data-imports-surface.tsx"),
+    resolve(import.meta.dirname, "./settings-misc-sections.tsx"),
     "utf8"
   );
 
@@ -70,13 +70,13 @@ describe("DataImportsSurface", () => {
     );
     expect(sourcePickerHtml).toContain('aria-label="Refresh import overview"');
     expect(dataImportsSurfaceSource).toContain(
-      'import("@/components/settings/data-imports-google-step-shell")'
+      'import("@/components/settings/data-imports-google-step")'
     );
     expect(dataImportsSurfaceSource).toContain(
-      'import("@/components/settings/data-imports-notion-step-shell")'
+      'import("@/components/settings/data-imports-notion-step")'
     );
     expect(dataImportsSurfaceSource).toContain(
-      'from "./data-imports-source-picker"'
+      'from "@/components/settings/data-imports-source-picker"'
     );
     expect(dataImportsSurfaceSource).not.toContain(
       'from "@/components/settings/use-data-imports-google"'

@@ -7,6 +7,18 @@ import {
   shouldIgnoreAutoScrollToggle,
 } from "@/components/chat/chat-scroll-model";
 
+export const INITIAL_BOTTOM_SCROLL_MESSAGE_THRESHOLD = 8;
+
+export function shouldEnableInitialChatAutoScroll(input: {
+  isStreaming: boolean;
+  messageCount: number;
+}) {
+  return (
+    input.isStreaming ||
+    input.messageCount > INITIAL_BOTTOM_SCROLL_MESSAGE_THRESHOLD
+  );
+}
+
 interface ChatScrollStyleTarget {
   style: {
     setProperty: (key: string, value: string) => void;
@@ -68,11 +80,16 @@ export function initializeChatScrollState(input: {
   }
 
   return {
-    autoScrollEnabled: true,
+    autoScrollEnabled: shouldEnableInitialChatAutoScroll(input),
     hasInitializedLayout: true,
     lastStreamPinnedMessageId: null,
     lastUserMessageId: input.latestUserMessageId ?? null,
-    shouldScrollToBottom: !input.isStreaming,
+    shouldScrollToBottom:
+      !input.isStreaming &&
+      input.messageCount > INITIAL_BOTTOM_SCROLL_MESSAGE_THRESHOLD,
+    shouldScrollToTop:
+      !input.isStreaming &&
+      input.messageCount <= INITIAL_BOTTOM_SCROLL_MESSAGE_THRESHOLD,
   };
 }
 

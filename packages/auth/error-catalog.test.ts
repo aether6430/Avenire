@@ -1,12 +1,7 @@
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import {
-  ERROR_CODES as ERROR_CODES_A,
-  getErrorMessage as getErrorMessageA,
-} from "./error_codes";
-import {
-  ERROR_CODES as ERROR_CODES_B,
-  getErrorMessage as getErrorMessageB,
-} from "./error_messages";
+import { getErrorMessage } from "./error_codes";
 import { getBrowser, parseUserAgent } from "./parse-user-agent";
 import {
   getWaitlistErrorDetails,
@@ -14,39 +9,25 @@ import {
 } from "./waitlist-shared";
 
 describe("@avenire/auth error catalog", () => {
-  it("keeps the duplicated maps and waitlist messages in sync", () => {
-    expect(ERROR_CODES_A.size).toBeGreaterThan(10);
-    expect(ERROR_CODES_A).toEqual(ERROR_CODES_B);
-    expect(ERROR_CODES_A.get("WAITLIST_PENDING")).toEqual({
-      email: [
-        "This email is on the waitlist, but it has not been approved yet.",
-      ],
-    });
-    expect(getErrorMessageA("USER_ALREADY_EXISTS")?.source).toBe("email");
+  it("keeps a single auth error helper and the waitlist messages aligned", () => {
+    expect(getErrorMessage("USER_ALREADY_EXISTS")?.source).toBe("email");
     expect(
-      getErrorMessageA("YOU_CANT_UNLINK_YOUR_LAST_ACCOUNT")?.userMessage
+      getErrorMessage("YOU_CANT_UNLINK_YOUR_LAST_ACCOUNT")?.userMessage
     ).toBe("This is your last account, and it can't be unlinked.");
-    expect(getErrorMessageA("YOU_CANT_UNLINK_YOUR_LAST_ACCOUNT")?.source).toBe(
+    expect(getErrorMessage("YOU_CANT_UNLINK_YOUR_LAST_ACCOUNT")?.source).toBe(
       "user"
     );
     expect(
-      getErrorMessageA(WAITLIST_ERROR_NONE.toUpperCase())?.userMessage
+      getErrorMessage(WAITLIST_ERROR_NONE.toUpperCase())?.userMessage
     ).toBe("This email does not have access yet.");
-    expect(getErrorMessageB("USER_ALREADY_EXISTS")?.source).toBe("email");
-    expect(
-      getErrorMessageB("YOU_CANT_UNLINK_YOUR_LAST_ACCOUNT")?.userMessage
-    ).toBe("This is your last account, and it can't be unlinked.");
-    expect(getErrorMessageB("YOU_CANT_UNLINK_YOUR_LAST_ACCOUNT")?.source).toBe(
-      "user"
-    );
-    expect(getErrorMessageB(WAITLIST_ERROR_NONE.toUpperCase())?.source).toBe(
+    expect(getErrorMessage(WAITLIST_ERROR_NONE.toUpperCase())?.source).toBe(
       "email"
     );
-    expect(getErrorMessageB("WAITLIST_PENDING")?.source).toBe("email");
+    expect(getErrorMessage("WAITLIST_PENDING")?.source).toBe("email");
     expect(
-      getErrorMessageA("ANYTHING", "not been approved yet")?.userMessage
+      getErrorMessage("ANYTHING", "not been approved yet")?.userMessage
     ).toBe("This email is on the waitlist, but it has not been approved yet.");
-    expect(getErrorMessageB("UNKNOWN_CODE")?.source).toBe("server");
+    expect(getErrorMessage("UNKNOWN_CODE")?.source).toBe("server");
     expect(
       getWaitlistErrorDetails(" waitlist_not_found ")?.canJoinWaitlist
     ).toBe(true);
@@ -54,6 +35,21 @@ describe("@avenire/auth error catalog", () => {
       false
     );
     expect(getWaitlistErrorDetails("other")).toBeNull();
+    expect(
+      existsSync(resolve(import.meta.dirname, "./error_messages.ts"))
+    ).toBe(false);
+  });
+
+  it("does not keep the removed error_messages surface in package exports", () => {
+    const packageJson = readFileSync(
+      resolve(import.meta.dirname, "./package.json"),
+      "utf8"
+    );
+
+    expect(packageJson).not.toContain('"./error_messages"');
+    expect(packageJson).toContain(
+      '"build": "rm -rf dist && tsc -p tsconfig.dist.json"'
+    );
   });
 
   it("parses browsers and summarized user-agent labels", () => {

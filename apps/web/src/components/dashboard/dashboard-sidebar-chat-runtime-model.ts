@@ -1,5 +1,5 @@
+import type { ChatSummary } from "@avenire/database";
 import type { Route } from "next";
-import type { ChatSummary } from "@/lib/chat-data";
 
 export type DashboardSidebarChatRow =
   | { key: string; type: "header"; title: string }

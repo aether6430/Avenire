@@ -49,10 +49,6 @@ vi.mock("@/lib/file-data", () => ({
   userCanEditFolder: userCanEditFolderMock,
 }));
 
-vi.mock("@/lib/imports-data-import-preset", () => ({
-  DATA_IMPORT_PRESET_LABEL: "Data Import",
-}));
-
 vi.mock("@/lib/imports-google-scopes", () => ({
   GOOGLE_IMPORT_SCOPES: [
     "https://www.googleapis.com/auth/drive.readonly",
@@ -137,7 +133,7 @@ describe("imports provider runtime", () => {
         folderId: "folder-1",
         folderName: "Imports",
         id: "preset-1",
-        label: "Data Import",
+        label: "Avenire Data Import",
         organizationId: "org-1",
         updatedAt: new Date("2026-05-17T00:00:00.000Z"),
         workspaceId: "workspace-1",
@@ -209,7 +205,7 @@ describe("imports provider runtime", () => {
       folderId: "folder-1",
       folderName: "Imports",
       id: "preset-1",
-      label: "Data Import",
+      label: "Avenire Data Import",
       organizationId: "org-1",
       updatedAt: new Date("2026-05-17T00:00:00.000Z"),
       workspaceId: "workspace-1",
@@ -220,7 +216,7 @@ describe("imports provider runtime", () => {
       .mockResolvedValueOnce([
         {
           id: "preset-1",
-          label: "Data Import",
+          label: "Avenire Data Import",
         },
       ]);
     getExtensionDestinationPresetMock.mockResolvedValue({
@@ -244,5 +240,10 @@ describe("imports provider runtime", () => {
 
     const required = await requireDataImportDestination("user-1");
     expect(required.folderId).toBe("folder-1");
+  });
+
+  it("owns the data import preset label inside the provider runtime instead of a separate one-line wrapper file", async () => {
+    const source = await import("@/lib/imports-provider-runtime");
+    expect(source.DATA_IMPORT_PRESET_LABEL).toBe("Avenire Data Import");
   });
 });

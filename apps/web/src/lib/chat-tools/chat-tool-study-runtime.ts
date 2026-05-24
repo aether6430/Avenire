@@ -1,6 +1,7 @@
 import { generateText, Output } from "@avenire/ai";
 import { apollo } from "@avenire/ai/models";
 import type { chatToolSchemas } from "@avenire/ai/tools";
+import { getIngestionSummaryForFile } from "@avenire/database";
 import type { z } from "zod";
 import { resolveMisconceptionSeed } from "@/lib/chat-tools/chat-tool-misconception-runtime";
 import {
@@ -27,7 +28,6 @@ import {
   getFlashcardSetForUser,
   normalizeFlashcardTaxonomy,
 } from "@/lib/flashcards";
-import { getIngestionSummaryForFile } from "@/lib/ingestion-data";
 import { retrieveWorkspaceChunksShared } from "@/lib/retrieval-service";
 
 const STUDY_SOURCE_CHAR_LIMIT = 18_000;

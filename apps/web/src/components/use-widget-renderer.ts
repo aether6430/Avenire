@@ -2,11 +2,11 @@
 
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useRef } from "react";
+import { buildIframeDocument } from "@/components/widget-renderer-iframe-document";
 import {
   buildCssVarBlock,
-  buildIframeDocument,
   extractThemeVars,
-} from "@/components/widget-renderer-model";
+} from "@/components/widget-renderer-theme";
 
 export function useWidgetRenderer({
   html,

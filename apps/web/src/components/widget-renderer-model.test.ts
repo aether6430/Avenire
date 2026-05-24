@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { buildIframeDocument } from "@/components/widget-renderer-iframe-document";
 import {
   buildCanvasThemeBlock,
   buildCssVarBlock,
-  buildIframeDocument,
-} from "@/components/widget-renderer-model";
+} from "@/components/widget-renderer-theme";
 
 describe("widget renderer model", () => {
   it("serializes host css vars into a root block", () => {

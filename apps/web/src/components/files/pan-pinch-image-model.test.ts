@@ -1,9 +1,20 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildPanPinchZoomTransform,
   clampPanPinchTransform,
   isPanPinchDoubleTap,
 } from "@/components/files/pan-pinch-image-model";
+
+const panPinchViewerSource = readFileSync(
+  resolve(import.meta.dirname, "./pan-pinch-image-viewer.tsx"),
+  "utf8"
+);
+const panPinchHookSource = readFileSync(
+  resolve(import.meta.dirname, "./use-pan-pinch-image-viewer.ts"),
+  "utf8"
+);
 
 describe("pan-pinch image model", () => {
   it("clamps transform scale and offsets to container bounds", () => {
@@ -58,5 +69,14 @@ describe("pan-pinch image model", () => {
         elapsedMs: 320,
       })
     ).toBe(false);
+  });
+
+  it("resets both loaded state and transform state when the displayed image source changes", () => {
+    expect(panPinchViewerSource).toContain(
+      "useEffect(() => {\n    void src;\n    setLoaded(false);\n  }, [src]);"
+    );
+    expect(panPinchHookSource).toContain(
+      "useEffect(() => {\n    void src;\n    pointersRef.current.clear();\n    dragOriginRef.current = null;\n    lastPinchDistanceRef.current = null;\n    lastTapRef.current = null;\n    resetView();\n  }, [resetView, src]);"
+    );
   });
 });

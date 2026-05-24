@@ -1,5 +1,6 @@
 "use client";
 
+import type { ChatSummary } from "@avenire/database";
 import { useSidebar } from "@avenire/ui/components/sidebar";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -15,7 +16,6 @@ import { useDashboardSidebarWarmup } from "@/components/dashboard/use-dashboard-
 import { useDashboardSidebarWorkspaces } from "@/components/dashboard/use-dashboard-sidebar-workspaces";
 import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
 import { useHaptics } from "@/hooks/use-haptics";
-import type { ChatSummary } from "@/lib/chat-data";
 import {
   primeWorkspaceTaskStore,
   reloadWorkspaceTasks,
@@ -66,11 +66,15 @@ export function useDashboardSidebar({
     routeWorkspaceUuid,
     searchParams,
   } = useDashboardSidebarRouteState();
-  const { closePeekSidebar, isPeekabooActive, openPeekSidebar } =
-    useDashboardSidebarPeek({
-      isMobile,
-      state,
-    });
+  const {
+    closePeekSidebar,
+    isPeekabooActive,
+    openPeekSidebar,
+    suppressPeekUntilLeave,
+  } = useDashboardSidebarPeek({
+    isMobile,
+    state,
+  });
   const { deferredStartupReady } = useDashboardSidebarStartup();
   const {
     activeTabValue,
@@ -236,6 +240,7 @@ export function useDashboardSidebar({
     navigate,
     navigateToFilesRoot: workspaceRuntime.navigateToFilesRoot,
     openPeekSidebar,
+    suppressPeekUntilLeave,
     openSettings,
     openTrash,
     openUploadActivity,

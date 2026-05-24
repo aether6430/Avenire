@@ -1,14 +1,30 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  hasHydratedWorkspacePaneStore,
+  subscribeWorkspacePaneHydration,
+} from "@/components/dashboard/use-workspace-pane-browser-sync";
+import { WorkspacePaneRenderer } from "@/components/dashboard/workspace-pane-renderer";
 
 const {
   useWorkspacePaneRendererMock,
+  useWorkspacePaneStoreMock,
   workspacePaneDesktopLayoutMock,
   workspacePaneMobileLayoutMock,
   workspaceRoutePlaceholderMock,
 } = vi.hoisted(() => ({
   useWorkspacePaneRendererMock: vi.fn(),
+  useWorkspacePaneStoreMock: {
+    persist: undefined as
+      | undefined
+      | {
+          hasHydrated: () => boolean;
+          onFinishHydration: (callback: () => void) => () => void;
+        },
+  },
   workspacePaneDesktopLayoutMock: vi.fn(() =>
     createElement("div", { "data-pane-desktop": "1" })
   ),
@@ -37,11 +53,19 @@ vi.mock("@/components/dashboard/workspace-route-placeholder", () => ({
   WorkspaceRoutePlaceholder: workspaceRoutePlaceholderMock,
 }));
 
-import { WorkspacePaneRenderer } from "@/components/dashboard/workspace-pane-renderer";
+vi.mock("@/stores/workspacePaneStore", () => ({
+  useWorkspacePaneStore: useWorkspacePaneStoreMock,
+}));
+
+const workspacePaneSurfaceSource = readFileSync(
+  resolve(import.meta.dirname, "./workspace-pane-layout.tsx"),
+  "utf8"
+);
 
 describe("WorkspacePaneRenderer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useWorkspacePaneStoreMock.persist = undefined;
   });
 
   it("shows a non-loading unavailable state when workspace bootstrap fails", () => {
@@ -81,5 +105,38 @@ describe("WorkspacePaneRenderer", () => {
 
     expect(html).toContain('data-label="Loading workspace..."');
     expect(html).toContain('data-pending="true"');
+  });
+
+  it("fails closed when the pane store persist api is unavailable and delegates when hydration helpers exist", () => {
+    const callback = vi.fn();
+    const unsubscribe = subscribeWorkspacePaneHydration(callback);
+
+    expect(hasHydratedWorkspacePaneStore()).toBe(false);
+    expect(typeof unsubscribe).toBe("function");
+    unsubscribe();
+    expect(callback).not.toHaveBeenCalled();
+
+    const delegatedCallback = vi.fn();
+    const delegatedUnsubscribe = vi.fn();
+
+    useWorkspacePaneStoreMock.persist = {
+      hasHydrated: () => true,
+      onFinishHydration: (handler) => {
+        handler();
+        return delegatedUnsubscribe;
+      },
+    };
+
+    const stop = subscribeWorkspacePaneHydration(delegatedCallback);
+
+    expect(hasHydratedWorkspacePaneStore()).toBe(true);
+    expect(delegatedCallback).toHaveBeenCalledTimes(1);
+    stop();
+    expect(delegatedUnsubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it("omits the generic close-pane action when the layout only has one pane", () => {
+    expect(workspacePaneSurfaceSource).toContain("{isMultiPane ? (");
+    expect(workspacePaneSurfaceSource).toContain("Close pane");
   });
 });

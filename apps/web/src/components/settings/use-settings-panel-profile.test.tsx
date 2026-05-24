@@ -5,7 +5,7 @@ const { updateUserMock } = vi.hoisted(() => ({
   updateUserMock: vi.fn(),
 }));
 
-vi.mock("@avenire/auth/app-client", () => ({
+vi.mock("@avenire/auth/client", () => ({
   updateUser: updateUserMock,
 }));
 

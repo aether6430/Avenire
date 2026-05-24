@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
 import {
   getChatBySlugForUser,
   getWritableChatBySlugForUser,
-} from "@/lib/chat-data";
+} from "@avenire/database";
+import { NextResponse } from "next/server";
 import { createApiLogger } from "@/lib/observability";
 import { getSessionUser } from "@/lib/workspace";
 import {

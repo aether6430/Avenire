@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { execSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createElement } from "react";
@@ -96,6 +97,18 @@ describe("WorkspaceLayout", () => {
       ),
       "utf8"
     );
+    const serviceWorkerSource = readFileSync(
+      join(directory, "../../components/pwa/ServiceWorkerRegistration.tsx"),
+      "utf8"
+    );
+    const workerScriptSource = readFileSync(
+      join(directory, "../../../public/sw.js"),
+      "utf8"
+    );
+    const gitignoreSource = readFileSync(
+      join(directory, "../../../../../.gitignore"),
+      "utf8"
+    );
 
     expect(layoutSource).toContain("WorkspaceLayoutClientEffects");
     expect(layoutSource).toContain("<WorkspaceLayoutClientEffects />");
@@ -106,13 +119,57 @@ describe("WorkspaceLayout", () => {
     expect(shellSource).toContain("Suspense");
     expect(shellSource).toContain("DashboardLayout as DashboardShellLayout");
     expect(shellSource).not.toContain("dynamic(");
-    expect(shellSource).toContain("<ThemeProvider>");
+    expect(shellSource).toContain("ThemeProvider as NextThemesProvider");
+    expect(shellSource).toContain('storageKey="avenire-theme"');
+    expect(shellSource).toContain('defaultTheme="light"');
+    expect(shellSource).toContain("enableSystem={false}");
     expect(shellSource.indexOf("<main ")).toBeLessThan(
-      shellSource.indexOf("<ThemeProvider>")
+      shellSource.indexOf("<NextThemesProvider")
     );
     expect(clientEffectsSource).toContain("ServiceWorkerRegistration");
     expect(clientEffectsSource).toContain(
       '<Toaster closeButton position="top-right" richColors />'
     );
+    expect(serviceWorkerSource).toContain(
+      "navigator.serviceWorker.getRegistrations()"
+    );
+    expect(serviceWorkerSource).toContain('cacheName.startsWith("avenire-")');
+    expect(serviceWorkerSource).toContain("window.location.hostname");
+    expect(serviceWorkerSource).toContain("clearLocalServiceWorkers()");
+    expect(serviceWorkerSource).toContain(
+      'navigator.serviceWorker.register("/sw.js")'
+    );
+    expect(workerScriptSource).toContain("IS_LOCAL_HOST");
+    expect(workerScriptSource).toContain("self.registration.unregister()");
+    expect(workerScriptSource).toContain("if (IS_LOCAL_HOST) {");
+    expect(gitignoreSource).toContain(".DS_Store");
+    expect(gitignoreSource).toContain("**/.DS_Store");
+    expect(gitignoreSource).not.toContain("\ndocs/\n");
+    expect(gitignoreSource).not.toContain("\nwritings/\n");
+    expect(gitignoreSource).not.toContain("\nIngestion/\n");
+    expect(gitignoreSource).not.toContain("\n/instruction.md\n");
+    expect(gitignoreSource).toContain("/screenshots/T*.png");
+    expect(gitignoreSource).toContain("/screenshots/T*.svg");
+  });
+
+  it("keeps tracked screenshot artifacts anchored by notes.md instead of leaving orphan operator images in git history", () => {
+    const directory = dirname(fileURLToPath(import.meta.url));
+    const repoRoot = join(directory, "../../../../../");
+    const notesSource = readFileSync(join(repoRoot, "notes.md"), "utf8");
+    const trackedScreenshots = execSync("git ls-files screenshots", {
+      cwd: repoRoot,
+      encoding: "utf8",
+    })
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .filter((file) => existsSync(join(repoRoot, file)));
+
+    const orphanedScreenshots = trackedScreenshots.filter((file) => {
+      const baseName = file.replace(/^screenshots\//, "");
+      return !(notesSource.includes(baseName) || notesSource.includes(file));
+    });
+
+    expect(orphanedScreenshots).toEqual([]);
   });
 });

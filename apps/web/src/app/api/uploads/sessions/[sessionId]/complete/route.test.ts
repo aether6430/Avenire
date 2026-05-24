@@ -62,7 +62,7 @@ vi.mock("@/lib/upload-session-store", () => ({
   saveUploadSession: saveUploadSessionMock,
 }));
 
-vi.mock("@/lib/video-delivery-optimization", () => ({
+vi.mock("@/lib/video-delivery-optimization-runtime", () => ({
   scheduleAsyncVideoDeliveryOptimization:
     scheduleAsyncVideoDeliveryOptimizationMock,
 }));

@@ -1,9 +1,14 @@
-import { RouteToasterLayout } from "@/components/route-toaster-layout";
+import { RouteToasterClient } from "@/components/route-toaster-client";
 
 export default function WaitlistLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return <RouteToasterLayout>{children}</RouteToasterLayout>;
+  return (
+    <>
+      {children}
+      <RouteToasterClient />
+    </>
+  );
 }

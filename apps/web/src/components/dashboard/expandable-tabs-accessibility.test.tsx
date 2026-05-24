@@ -31,6 +31,23 @@ describe("ExpandableTabs accessibility", () => {
     expect(countOccurrences(html, ">Tasks<")).toBe(1);
   });
 
+  it("can keep icon positions stable without rendering a visible selected label", () => {
+    const html = renderToStaticMarkup(
+      <ExpandableTabs
+        allowDeselect={false}
+        items={[
+          { icon: MessageSquare, label: "Methods", value: "chat" },
+          { icon: ListChecks, label: "Tasks", value: "tasks" },
+        ]}
+        showSelectedLabel={false}
+        value="chat"
+      />
+    );
+
+    expect(countOccurrences(html, ">Methods<")).toBe(1);
+    expect(countOccurrences(html, ">Tasks<")).toBe(1);
+  });
+
   it("keeps the remaining shared motion surfaces on motion/react instead of framer-motion", () => {
     const files = [
       path.resolve(

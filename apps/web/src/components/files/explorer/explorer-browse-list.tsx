@@ -1,9 +1,7 @@
 "use client";
 
-import {
-  ExplorerFileListRow,
-  ExplorerFolderListRow,
-} from "@/components/files/explorer/explorer-list-rows";
+import { ExplorerFileListRow } from "@/components/files/explorer/explorer-file-list-row";
+import { ExplorerFolderListRow } from "@/components/files/explorer/explorer-folder-list-row";
 import type { ExplorerBrowseSurfaceProps } from "./explorer-browse-surface-types";
 import { buildSelectionControlCaptureProps } from "./explorer-browse-surface-types";
 

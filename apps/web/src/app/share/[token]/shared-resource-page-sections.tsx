@@ -1,5 +1,6 @@
 import type { Route } from "next";
 import Link from "next/link";
+import { MemoizedMarkdownSurface } from "@/components/chat/markdown-surface";
 import { SharedResourceActions } from "@/components/files/shared-resource-actions";
 
 interface SharedResourceSectionWorkspaces {
@@ -63,7 +64,7 @@ export function SharedFileResourcePage({
 export function SharedMethodResourcePage({
   heading,
   messages,
-  workspaceHref,
+  openWorkspaceHref,
 }: {
   heading: string;
   messages: Array<{
@@ -71,7 +72,7 @@ export function SharedMethodResourcePage({
     role: string;
     parts: Array<{ type: string; text?: string }>;
   }>;
-  workspaceHref: Route;
+  openWorkspaceHref: Route;
 }) {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col p-6">
@@ -95,9 +96,18 @@ export function SharedMethodResourcePage({
                 <p className="mb-1 text-muted-foreground text-xs uppercase">
                   {message.role}
                 </p>
-                <p className="whitespace-pre-wrap text-sm">
-                  {textPart?.text ?? "[non-text content]"}
-                </p>
+                {textPart?.text ? (
+                  <MemoizedMarkdownSurface
+                    className="text-sm [&_p]:my-0"
+                    content={textPart.text}
+                    parseIncompleteMarkdown={false}
+                    textSize="small"
+                  />
+                ) : (
+                  <p className="whitespace-pre-wrap text-sm">
+                    [non-text content]
+                  </p>
+                )}
               </div>
             );
           })
@@ -105,7 +115,7 @@ export function SharedMethodResourcePage({
       </div>
       <Link
         className="mt-4 inline-flex h-10 items-center justify-center rounded-md border px-4 text-sm"
-        href={workspaceHref}
+        href={openWorkspaceHref}
       >
         Open method in workspace
       </Link>

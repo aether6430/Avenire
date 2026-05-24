@@ -1,18 +1,16 @@
 "use client";
 
-import { Button } from "@avenire/ui/components/button";
 import { ExpandableTabs } from "@avenire/ui/components/expandable-tabs";
 import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupLabel,
+  SidebarTrigger,
 } from "@avenire/ui/components/sidebar";
 import { TooltipProvider } from "@avenire/ui/components/tooltip";
-import { cn } from "@avenire/ui/lib/utils";
 import {
   ListChecks,
   Chat as MessageSquare,
-  SidebarSimple,
   Sparkle as Sparkles,
 } from "@phosphor-icons/react";
 import { Files } from "@phosphor-icons/react/Files";
@@ -35,10 +33,11 @@ export function DashboardSidebarContent({
     setDesktopSidebarView,
     setMobileSidebarView,
     sidebarView,
+    isPeekabooActive,
     state,
-    toggleSidebar,
     warmWorkspaceSection,
   } = runtime;
+  const showSidebarBody = isMobile || state !== "collapsed" || isPeekabooActive;
 
   return (
     <SidebarContent>
@@ -48,25 +47,7 @@ export function DashboardSidebarContent({
             <SidebarGroupLabel className="h-auto flex-1 px-0">
               Workspace
             </SidebarGroupLabel>
-            <Button
-              aria-label={
-                state === "expanded" ? "Collapse sidebar" : "Expand sidebar"
-              }
-              className="size-7 shrink-0 rounded-md"
-              onClick={() => {
-                toggleSidebar();
-              }}
-              size="icon-sm"
-              type="button"
-              variant="ghost"
-            >
-              <SidebarSimple
-                className={cn(
-                  "size-4 transition-transform duration-300",
-                  state === "expanded" ? "rotate-180" : "rotate-0"
-                )}
-              />
-            </Button>
+            <SidebarTrigger className="hidden size-7 shrink-0 text-muted-foreground hover:text-foreground md:inline-flex" />
           </div>
           <ExpandableTabs
             allowDeselect={false}
@@ -127,22 +108,25 @@ export function DashboardSidebarContent({
               }
             }}
             persistenceKey="dashboard-workspace-tabs"
+            showSelectedLabel={false}
             value={activeTabValue}
           />
         </SidebarGroup>
         <div className="relative min-h-0 flex-1 overflow-hidden">
-          {sidebarView === "workspace" ? (
-            <DashboardSidebarWorkspaceHome
-              closeMobileSidebar={closeMobileSidebar}
-              isMobile={isMobile}
-              navigate={navigate}
-              navigateToFilesRoot={navigateToFilesRoot}
-              primaryFilesRoute={primaryFilesRoute}
-              setDesktopSidebarView={setDesktopSidebarView}
-            />
-          ) : (
-            <DashboardSidebarMountedViews runtime={runtime} />
-          )}
+          {showSidebarBody ? (
+            sidebarView === "workspace" ? (
+              <DashboardSidebarWorkspaceHome
+                closeMobileSidebar={closeMobileSidebar}
+                isMobile={isMobile}
+                navigate={navigate}
+                navigateToFilesRoot={navigateToFilesRoot}
+                primaryFilesRoute={primaryFilesRoute}
+                setDesktopSidebarView={setDesktopSidebarView}
+              />
+            ) : (
+              <DashboardSidebarMountedViews runtime={runtime} />
+            )
+          ) : null}
         </div>
       </TooltipProvider>
     </SidebarContent>

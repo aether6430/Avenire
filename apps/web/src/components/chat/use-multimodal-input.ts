@@ -12,6 +12,7 @@ import { useMultimodalInputAttachments } from "@/components/chat/use-multimodal-
 import { useMultimodalInputComposerState } from "@/components/chat/use-multimodal-input-composer-state";
 import { useMultimodalInputMentions } from "@/components/chat/use-multimodal-input-mentions";
 import { useMultimodalInputSubmission } from "@/components/chat/use-multimodal-input-submission";
+import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
 import {
   CHAT_COMPOSER_SEND_MODE_STORAGE_KEY,
   type ChatComposerSendMode,
@@ -23,6 +24,7 @@ import { useCurrentWorkspacePaneCompact } from "@/lib/workspace-panes";
 
 export interface MultimodalInputRuntime {
   attachments: Attachment[];
+  autoFocusEnabled: boolean;
   canSend: boolean;
   centered: boolean;
   className?: string;
@@ -67,6 +69,7 @@ export interface MultimodalInputRuntime {
   stop: () => void;
   submittableAttachments: Attachment[];
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+  turboAvailable: boolean;
   turboEnabled: boolean;
   workspaceFilesLoaded: boolean;
 }
@@ -103,6 +106,8 @@ export function useMultimodalInput({
 }): MultimodalInputRuntime {
   const { width } = useWindowSize();
   const isMobile = useCurrentWorkspacePaneCompact();
+  const autoFocusEnabled = !(isMobile || width < 768);
+  const { ai } = useWorkspaceBootstrap();
   const MAX_FILES = 3;
   const [sendMode] = useLocalStorage<ChatComposerSendMode>(
     CHAT_COMPOSER_SEND_MODE_STORAGE_KEY,
@@ -221,6 +226,7 @@ export function useMultimodalInput({
 
   return {
     attachments,
+    autoFocusEnabled,
     canSend: submissionRuntime.canSend,
     className,
     centered,
@@ -258,6 +264,7 @@ export function useMultimodalInput({
     stop,
     submittableAttachments: attachmentRuntime.submittableAttachments,
     textareaRef: composerState.textareaRef,
+    turboAvailable: ai.apexTurboAvailable,
     onTurboChange,
     turboEnabled,
     workspaceFilesLoaded: mentionRuntime.workspaceFilesLoaded,

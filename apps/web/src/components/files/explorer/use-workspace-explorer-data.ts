@@ -140,21 +140,27 @@ export function useWorkspaceExplorerData({
       return;
     }
 
+    const applyTreePayload = (treePayload: {
+      files: FileRecord[];
+      folders: FolderRecord[];
+    }) => {
+      setAllFolders(treePayload.folders);
+      setAllFiles(treePayload.files);
+
+      const visibleSnapshot = deriveWorkspaceFolderSnapshotFromTree({
+        folderId: currentFolderId,
+        treePayload,
+      });
+      if (visibleSnapshot) {
+        applyVisibleSnapshot(visibleSnapshot);
+      }
+    };
+
     const cached = readCachedWorkspaceTreePayload<FolderRecord, FileRecord>(
       workspaceUuid
     );
     if (cached) {
-      setAllFolders(cached.folders);
-      setAllFiles(cached.files);
-      const visibleSnapshot = deriveWorkspaceFolderSnapshotFromTree({
-        folderId: currentFolderId,
-        treePayload: cached,
-      });
-      if (visibleSnapshot) {
-        applyVisibleSnapshot(visibleSnapshot);
-      } else {
-        clearVisibleSnapshot();
-      }
+      applyTreePayload(cached);
     }
 
     try {
@@ -165,26 +171,12 @@ export function useWorkspaceExplorerData({
         return;
       }
 
-      setAllFolders(payload.folders);
-      setAllFiles(payload.files);
-      const visibleSnapshot = deriveWorkspaceFolderSnapshotFromTree({
-        folderId: currentFolderId,
-        treePayload: payload,
-      });
-      if (visibleSnapshot) {
-        applyVisibleSnapshot(visibleSnapshot);
-      } else {
-        clearVisibleSnapshot();
-      }
+      applyTreePayload(payload);
     } catch {
-      clearVisibleSnapshot();
+      // Keep the currently visible folder snapshot when a background tree refresh
+      // fails or returns a tree that cannot resolve the active folder.
     }
-  }, [
-    applyVisibleSnapshot,
-    clearVisibleSnapshot,
-    currentFolderId,
-    workspaceUuid,
-  ]);
+  }, [applyVisibleSnapshot, currentFolderId, workspaceUuid]);
 
   const refreshData = useCallback(() => {
     void loadFolder({ silent: true });

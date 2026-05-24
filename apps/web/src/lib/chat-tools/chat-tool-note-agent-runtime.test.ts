@@ -32,6 +32,10 @@ const {
   userCanEditFileMock: vi.fn(),
 }));
 
+vi.mock("@avenire/database", () => ({
+  deleteIngestionDataForFile: deleteIngestionDataForFileMock,
+}));
+
 vi.mock("@/lib/chat-tools/workspace-file-helpers", () => ({
   buildWorkspacePathMaps: buildWorkspacePathMapsMock,
   fetchWorkspaceFileText: fetchWorkspaceFileTextMock,
@@ -53,10 +57,6 @@ vi.mock("@/lib/file-data", () => ({
   listWorkspaceFiles: listWorkspaceFilesMock,
   updateNoteContent: updateNoteContentMock,
   userCanEditFile: userCanEditFileMock,
-}));
-
-vi.mock("@/lib/ingestion-data", () => ({
-  deleteIngestionDataForFile: deleteIngestionDataForFileMock,
 }));
 
 import { executeNoteAgent } from "@/lib/chat-tools/chat-tool-note-agent-runtime";

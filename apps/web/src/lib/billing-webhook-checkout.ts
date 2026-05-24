@@ -1,13 +1,13 @@
+import {
+  upsertBillingCustomer,
+  upsertBillingSubscription,
+} from "@avenire/database";
 import { mapProductIdToPlan } from "@avenire/payments/plans";
 import {
   getEventString,
   getMetadata,
   toPaidPlanOrNull,
 } from "@/lib/billing-webhook-shared";
-import {
-  upsertBillingCustomer,
-  upsertBillingSubscription,
-} from "@/lib/database-billing-subscriptions";
 
 export async function applyPolarCheckoutWebhookEvent(event: {
   type: string;

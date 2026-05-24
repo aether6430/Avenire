@@ -3,7 +3,7 @@
 export const PROGRAMMATIC_SCROLL_GRACE_MS = 220;
 export const USER_SCROLL_INTENT_WINDOW_MS = 720;
 export const AUTO_SCROLL_RESUME_THRESHOLD_PX = 64;
-export const TOP_ANCHOR_OFFSET_PX = 32;
+export const TOP_ANCHOR_OFFSET_PX = 96;
 export const LAYOUT_SETTLE_MS = 600;
 
 export interface ChatScrollBox {

@@ -1,61 +1,30 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
-
-const { DashboardHomeSurfaceMock, useDashboardHomeMock } = vi.hoisted(() => ({
-  DashboardHomeSurfaceMock: vi.fn(() => <div>DASHBOARD_HOME_SURFACE</div>),
-  useDashboardHomeMock: vi.fn(),
-}));
-
-vi.mock("@/components/dashboard/dashboard-home-surface", () => ({
-  DashboardHomeSurface: DashboardHomeSurfaceMock,
-}));
-
-vi.mock("@/components/dashboard/use-dashboard-home", () => ({
-  useDashboardHome: useDashboardHomeMock,
-}));
-
-import { DashboardHome } from "@/components/dashboard/dashboard-home";
+import { describe, expect, it } from "vitest";
 
 const removedOverviewSidebarSyncFile = resolve(
   import.meta.dirname,
   "./overview-sidebar-sync.tsx"
 );
+const removedDashboardHomeWrapperFile = resolve(
+  import.meta.dirname,
+  "./dashboard-home.tsx"
+);
+const workspaceOverviewPageClientSource = readFileSync(
+  resolve(import.meta.dirname, "./workspace-overview-page-client.tsx"),
+  "utf8"
+);
 
 describe("DashboardHome", () => {
-  it("wires the dashboard home runtime into the surface", () => {
-    useDashboardHomeMock.mockReturnValue({
-      greeting: { description: "desc", headline: "headline" },
-      weakPointGroups: [],
-    });
-
-    const props = {
-      activeMisconceptions: [],
-      currentUserId: "user-1",
-      flashcardSets: [],
-      rootFolderId: "root-1",
-      weakestConcepts: [],
-      weakestDrillTarget: null,
-      workspaceId: "workspace-1",
-    };
-
-    const html = renderToStaticMarkup(<DashboardHome {...props} />);
-
-    expect(useDashboardHomeMock).toHaveBeenCalledWith(props);
-    expect(DashboardHomeSurfaceMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        currentUserId: "user-1",
-        weakestDrillTarget: null,
-        workspaceId: "workspace-1",
-        runtime: expect.objectContaining({
-          greeting: { description: "desc", headline: "headline" },
-          weakPointGroups: [],
-        }),
-      }),
-      undefined
-    );
+  it("keeps the old dashboard-home wrapper removed and wires overview directly into the surface owner", () => {
     expect(existsSync(removedOverviewSidebarSyncFile)).toBe(false);
-    expect(html).toContain("DASHBOARD_HOME_SURFACE");
+    expect(existsSync(removedDashboardHomeWrapperFile)).toBe(false);
+    expect(workspaceOverviewPageClientSource).toContain("useDashboardHome");
+    expect(workspaceOverviewPageClientSource).toContain(
+      "@/components/dashboard/dashboard-home-surface"
+    );
+    expect(workspaceOverviewPageClientSource).not.toContain(
+      '@/components/dashboard/dashboard-home"'
+    );
   });
 });

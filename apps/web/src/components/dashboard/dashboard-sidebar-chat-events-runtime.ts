@@ -1,4 +1,4 @@
-import type { ChatSummary } from "@/lib/chat-data";
+import type { ChatSummary } from "@avenire/database";
 import type {
   ChatNameUpdatedDetail,
   ChatStreamStatusDetail,

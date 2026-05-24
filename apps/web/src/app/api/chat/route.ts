@@ -1,18 +1,22 @@
 import type { ApolloModelName } from "@avenire/ai";
 import type { UIMessage } from "@avenire/ai/message-types";
 import { auth } from "@avenire/auth/server";
+import {
+  bootstrapFlashcardLearningAutomation,
+  deleteChatForUser,
+} from "@avenire/database";
 import { headers } from "next/headers";
-import { NextResponse } from "next/server";
-import { deleteChatForUser } from "@/lib/chat-data";
+import { after, NextResponse } from "next/server";
 import { invalidateChatReadCaches } from "@/lib/domain-cache";
 import { resolveWorkspaceForUser } from "@/lib/file-data";
-import "@/lib/learning-automation";
 import { createApiLogger } from "@/lib/observability";
 import { handleEphemeralChatRequest } from "./chat-route-ephemeral";
 import { formatError, logError } from "./chat-route-logging";
 import { handlePersistedChatRequest } from "./chat-route-persisted";
 import { handleSessionCloseChatRequest } from "./chat-route-session-close";
 import { clearActiveStreamId, getActiveStreamId } from "./chat-stream-store";
+
+bootstrapFlashcardLearningAutomation();
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -161,11 +165,29 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Method not found" }, { status: 404 });
     }
 
-    const activeStreamId = await getActiveStreamId(id);
-    if (activeStreamId) {
-      await clearActiveStreamId(id, activeStreamId);
-    }
-    await invalidateChatReadCaches(workspace.workspaceId);
+    after(async () => {
+      try {
+        const activeStreamId = await getActiveStreamId(id);
+        if (activeStreamId) {
+          await clearActiveStreamId(id, activeStreamId);
+        }
+      } catch (error) {
+        logError("Chat delete stream cleanup failed", {
+          chatId: id,
+          error: formatError(error),
+        });
+      }
+
+      try {
+        await invalidateChatReadCaches(workspace.workspaceId);
+      } catch (error) {
+        logError("Chat delete cache invalidation failed", {
+          chatId: id,
+          error: formatError(error),
+          workspaceId: workspace.workspaceId,
+        });
+      }
+    });
     apiLogger.featureUsed("chat.delete", { chatId: id });
     apiLogger.requestSucceeded(200, { chatId: id });
 

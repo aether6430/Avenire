@@ -1,4 +1,4 @@
-import { listFileTranscriptCues } from "@/lib/ingestion-data";
+import { listFileTranscriptCues } from "@avenire/database";
 import { resolveWorkspaceSupportRouteContext } from "../../../workspace-support-route-context";
 import {
   buildWorkspaceCaptionsVtt,

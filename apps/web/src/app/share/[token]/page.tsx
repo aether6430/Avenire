@@ -1,8 +1,8 @@
 import { auth } from "@avenire/auth/server";
+import { getMessagesByChatSlug } from "@avenire/database";
 import type { Route } from "next";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import { getMessagesByChatSlug } from "@/lib/chat-data";
 import {
   canUserAccessSharedResource,
   getFileAssetById,
@@ -168,7 +168,11 @@ export default async function SharedResourcePage({
           resourceType: "chat",
         })}
         messages={messages}
-        workspaceHref={`/workspace/chats/${link.resourceId}` as Route}
+        openWorkspaceHref={
+          (session?.user
+            ? `/workspace/chats/${link.resourceId}`
+            : `/login?callbackURL=${encodeURIComponent(`/share/${token}`)}`) as Route
+        }
       />
     );
   }

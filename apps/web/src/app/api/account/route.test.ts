@@ -18,7 +18,7 @@ vi.mock("next/headers", () => ({
   cookies: cookiesMock,
 }));
 
-vi.mock("@/lib/account-data", () => ({
+vi.mock("@avenire/database", () => ({
   deleteAuthUserById: deleteAuthUserByIdMock,
 }));
 
@@ -146,6 +146,7 @@ describe("/api/account route", () => {
     expect(accountRouteSource).not.toContain("cookies(");
 
     expect(accountRouteDeleteSource).toContain("deleteAuthUserById");
+    expect(accountRouteDeleteSource).toContain('from "@avenire/database"');
     expect(accountRouteDeleteSource).toContain("validateSudoCookie");
     expect(accountRouteModelSource).toContain("buildAccountDeleteSuccessBody");
     expect(accountRouteModelSource).toContain("resolveAccountDeleteFailure");

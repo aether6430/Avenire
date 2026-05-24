@@ -9,8 +9,6 @@ import {
   type WorkspacePropertyDefinition,
 } from "@/lib/frontmatter";
 
-export { loadWorkspaceTreePayload } from "@/lib/workspace-tree-client";
-
 interface WorkspaceFolderPayload {
   ancestors: FolderRecord[];
   files: FileRecord[];

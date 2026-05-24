@@ -20,6 +20,7 @@ describe("UploadActivityBody", () => {
 
     expect(html).toContain("Unable to load upload activity.");
     expect(html).toContain("Recent uploads timed out.");
+    expect(html).toContain('data-slot="empty"');
     expect(html).not.toContain("No activity yet");
   });
 });

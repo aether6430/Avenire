@@ -10,7 +10,7 @@ const {
   listFileTranscriptCuesMock: vi.fn(),
 }));
 
-vi.mock("@/lib/ingestion-data", () => ({
+vi.mock("@avenire/database", () => ({
   listFileTranscriptCues: listFileTranscriptCuesMock,
 }));
 

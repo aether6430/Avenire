@@ -1,10 +1,10 @@
 "use client";
 
+import type { ChatSummary } from "@avenire/database";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import type { Route } from "next";
 import { isTypingTarget } from "@/components/dashboard/dashboard-sidebar-runtime-model";
 import type { DashboardSidebarView } from "@/components/dashboard/sidebar-startup";
-import type { ChatSummary } from "@/lib/chat-data";
 import { commandPaletteActions } from "@/stores/commandPaletteStore";
 import type { FilesUiIntent } from "@/stores/filesUiStore";
 import { filesUiActions } from "@/stores/filesUiStore";

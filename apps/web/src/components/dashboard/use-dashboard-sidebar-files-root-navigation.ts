@@ -3,7 +3,7 @@
 import type { Route } from "next";
 import { useCallback, useMemo } from "react";
 import type { DashboardSidebarWorkspaceSummary } from "@/components/dashboard/dashboard-sidebar-runtime-model";
-import { readPreferredWorkspaceId } from "@/components/dashboard/dashboard-sidebar-runtime-model";
+import { readPreferredWorkspaceId } from "@/lib/preferred-workspace-storage";
 
 type SidebarNavigate = (
   href: string,

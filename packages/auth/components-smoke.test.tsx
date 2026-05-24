@@ -2,7 +2,6 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { ChangePasswordForm } from "./components/change-password";
 import * as Icons from "./components/icons";
 import { RegisterForm } from "./components/register";
 import { WaitlistForm } from "./components/waitlist";
@@ -54,7 +53,6 @@ describe("@avenire/auth component smoke", () => {
     );
     const waitlistMarkup = renderToStaticMarkup(<WaitlistForm />);
     const registerMarkup = renderToStaticMarkup(<RegisterForm />);
-    const changePasswordMarkup = renderToStaticMarkup(<ChangePasswordForm />);
 
     expect(iconMarkup).toContain("lucide-github");
     expect(iconMarkup).toContain("animate-spin");
@@ -88,8 +86,5 @@ describe("@avenire/auth component smoke", () => {
     expect(loginSource).toContain("Joining the waitlist...");
     expect(loginSource).not.toContain('"Join waitlist"');
     expect(loginSource).not.toContain('"Joining waitlist..."');
-    expect(changePasswordMarkup).toContain("Change Password");
-    expect(changePasswordMarkup).toContain("New Password");
-    expect(changePasswordMarkup).toContain("Confirm New Password");
   });
 });

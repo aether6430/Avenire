@@ -8,6 +8,7 @@ const {
   getFolderWithAncestorsMock,
   getNoteContentMock,
   invalidateWorkspaceReadCachesMock,
+  isSharedFilesVirtualFolderIdMock,
   isMarkdownFileRecordMock,
   listWorkspaceFilesMock,
   listWorkspaceFoldersMock,
@@ -20,6 +21,7 @@ const {
   getFolderWithAncestorsMock: vi.fn(),
   getNoteContentMock: vi.fn(),
   invalidateWorkspaceReadCachesMock: vi.fn(),
+  isSharedFilesVirtualFolderIdMock: vi.fn(),
   isMarkdownFileRecordMock: vi.fn(),
   listWorkspaceFilesMock: vi.fn(),
   listWorkspaceFoldersMock: vi.fn(),
@@ -37,6 +39,7 @@ vi.mock("@/lib/file-data", () => ({
   getFileAssetById: getFileAssetByIdMock,
   getFolderWithAncestors: getFolderWithAncestorsMock,
   getNoteContent: getNoteContentMock,
+  isSharedFilesVirtualFolderId: isSharedFilesVirtualFolderIdMock,
   isMarkdownFileRecord: isMarkdownFileRecordMock,
   listWorkspaceFiles: listWorkspaceFilesMock,
   listWorkspaceFolders: listWorkspaceFoldersMock,
@@ -60,6 +63,7 @@ describe("workspace item duplicate handlers", () => {
     getFolderWithAncestorsMock.mockReset();
     getNoteContentMock.mockReset();
     invalidateWorkspaceReadCachesMock.mockReset();
+    isSharedFilesVirtualFolderIdMock.mockReset();
     isMarkdownFileRecordMock.mockReset();
     listWorkspaceFilesMock.mockReset();
     listWorkspaceFoldersMock.mockReset();
@@ -67,6 +71,7 @@ describe("workspace item duplicate handlers", () => {
     registerFileAssetMock.mockReset();
 
     invalidateWorkspaceReadCachesMock.mockResolvedValue(undefined);
+    isSharedFilesVirtualFolderIdMock.mockReturnValue(false);
     publishFilesInvalidationEventMock.mockResolvedValue(undefined);
   });
 
@@ -82,6 +87,9 @@ describe("workspace item duplicate handlers", () => {
     listWorkspaceFilesMock.mockResolvedValue([
       { folderId: "folder-1", name: "Welcome.md" },
     ]);
+    getFolderWithAncestorsMock.mockResolvedValue({
+      folder: { id: "folder-1" },
+    });
     createWorkspaceNoteFileMock.mockResolvedValue({
       folderId: "folder-1",
       id: "file-copy",
@@ -156,6 +164,49 @@ describe("workspace item duplicate handlers", () => {
       reason: "tree.changed",
       workspaceUuid: WORKSPACE_UUID,
     });
+  });
+
+  it("fails closed when duplicate targets point at Shared Files or a missing folder", async () => {
+    getFileAssetByIdMock.mockResolvedValue({
+      folderId: "folder-1",
+      id: "file-1",
+      name: "Welcome.md",
+      storageUrl: "https://example.test/welcome.md",
+    });
+    isSharedFilesVirtualFolderIdMock.mockImplementation(
+      (folderId: string) => folderId === "shared-folder"
+    );
+
+    let response = await handleDuplicateWorkspaceFile({
+      fileId: "file-1",
+      parentId: "shared-folder",
+      userId: "user-1",
+      workspaceUuid: WORKSPACE_UUID,
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Cannot create items in Shared Files",
+    });
+    expect(getFolderWithAncestorsMock).not.toHaveBeenCalled();
+    expect(createWorkspaceNoteFileMock).not.toHaveBeenCalled();
+    expect(registerFileAssetMock).not.toHaveBeenCalled();
+
+    getFolderWithAncestorsMock.mockResolvedValueOnce(null);
+    response = await handleDuplicateWorkspaceFolder({
+      folderId: "folder-1",
+      parentId: "folder-missing",
+      userId: "user-1",
+      workspaceUuid: WORKSPACE_UUID,
+    });
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({
+      error: "Folder not found",
+    });
+    expect(createFolderMock).not.toHaveBeenCalled();
+    expect(invalidateWorkspaceReadCachesMock).not.toHaveBeenCalled();
+    expect(publishFilesInvalidationEventMock).not.toHaveBeenCalled();
   });
 
   it("fails closed when route-level session lookup throws before duplicate handling begins", async () => {

@@ -116,16 +116,14 @@ describe("/api/uploadthing route", () => {
     });
   });
 
-  it("keeps uploadthing routing on the shared upload router and the extracted upload error helper", () => {
+  it("keeps uploadthing routing on the shared upload router while leaving upload errors in the dedicated helper", () => {
     expect(uploadRouteSource).toContain('from "@/lib/upload"');
     expect(uploadRouteSource).toContain("const handlers = createRouteHandler");
     expect(uploadRouteSource).toContain("return await handlers.GET(request)");
     expect(uploadRouteSource).toContain("return await handlers.POST(request)");
 
-    expect(uploadLibSource).toContain(
-      'export { getUploadErrorMessage } from "@/lib/upload-error-message";'
-    );
     expect(uploadLibSource).toContain("export const router: FileRouter = {");
+    expect(uploadLibSource).not.toContain("getUploadErrorMessage");
     expect(uploadLibSource).not.toContain("interface UploadThingError");
     expect(uploadLibSource).not.toContain("UPLOADTHING_ERROR_CODES");
 

@@ -290,12 +290,13 @@ export function usePanPinchImageViewer({
   }, [doubleTapZoom, minScale, resetView, zoomTo]);
 
   useEffect(() => {
+    void src;
     pointersRef.current.clear();
     dragOriginRef.current = null;
     lastPinchDistanceRef.current = null;
     lastTapRef.current = null;
     resetView();
-  }, [resetView]);
+  }, [resetView, src]);
 
   useEffect(() => {
     if (!preventNativeGestures) {

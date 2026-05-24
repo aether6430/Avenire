@@ -1,15 +1,15 @@
 import type { ApolloModelName } from "@avenire/ai";
 import type { UIMessage } from "@avenire/ai/message-types";
-import { getLatestSessionSummaryForChat } from "@avenire/database";
-import { consumeChatUnits } from "@/lib/billing-metering";
 import {
   type createChatForUser,
   type getChatBySlugForUser,
+  getLatestSessionSummaryForChat,
   saveMessagesForChatSlug,
-} from "@/lib/chat-data";
+} from "@avenire/database";
+import { consumeChatUnits } from "@/lib/billing-metering";
 import { invalidateChatReadCaches } from "@/lib/domain-cache";
 import type { createApiLogger } from "@/lib/observability";
-import { persistSessionSummaryForCompletedTurn } from "@/lib/session-summaries";
+import { persistSessionSummaryForCompletedTurn } from "@/lib/session-summary-runtime";
 import { markIdempotencyDone } from "./chat-route-cache";
 import { isAbortLikeError, logError, logInfo } from "./chat-route-logging";
 import {
@@ -100,7 +100,17 @@ export async function handlePersistedChatStreamFinish({
       persistedMessages,
       workspace.workspaceId
     );
-    await invalidateChatReadCaches(workspace.workspaceId);
+
+    try {
+      await invalidateChatReadCaches(workspace.workspaceId);
+    } catch (error) {
+      logError("Failed to invalidate chat read caches after stream", {
+        chatId: chatSlug,
+        error,
+        workspaceId: workspace.workspaceId,
+      });
+    }
+
     logInfo("Persisted streamed messages", {
       chatId: chatSlug,
       messageCount: persistedMessages.length,
@@ -206,9 +216,24 @@ export async function handlePersistedChatStreamFinish({
       error,
     });
   } finally {
-    await clearActiveStreamId(chatSlug, streamId);
+    try {
+      await clearActiveStreamId(chatSlug, streamId);
+    } catch (error) {
+      logError("Failed to clear active stream id after finish", {
+        chatId: chatSlug,
+        error,
+      });
+    }
     if (idempotencyRedisKey && idempotencyLockAcquired) {
-      await markIdempotencyDone(idempotencyRedisKey, chatSlug);
+      try {
+        await markIdempotencyDone(idempotencyRedisKey, chatSlug);
+      } catch (error) {
+        logError("Failed to mark idempotency done after finish", {
+          chatId: chatSlug,
+          error,
+          idempotencyRedisKey,
+        });
+      }
     }
     logInfo("Cleared active stream id", { chatId: chatSlug });
   }

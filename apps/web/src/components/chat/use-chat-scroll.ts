@@ -23,6 +23,7 @@ import {
   handleLatestUserMessageForScroll,
   initializeChatScrollState,
   schedulePinnedLatestChatMessage,
+  shouldEnableInitialChatAutoScroll,
 } from "@/components/chat/use-chat-scroll-runtime";
 
 export function useChatScroll(options: {
@@ -52,7 +53,12 @@ export function useChatScroll(options: {
   const lastStreamPinnedMessageIdRef = useRef<string | null>(null);
   const programmaticScrollUntilRef = useRef(0);
   const userIntentUntilRef = useRef(0);
-  const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true);
+  const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(() =>
+    shouldEnableInitialChatAutoScroll({
+      isStreaming,
+      messageCount,
+    })
+  );
   const isAutoScrollEnabledRef = useRef(isAutoScrollEnabled);
 
   useEffect(() => {
@@ -131,6 +137,55 @@ export function useChatScroll(options: {
     },
     [markProgrammaticScroll]
   );
+
+  const scrollToTop = useCallback(
+    (behavior: ScrollBehavior = "auto") => {
+      const container = containerRef.current;
+      if (!container) {
+        return;
+      }
+
+      markProgrammaticScroll();
+      container.scrollTo({
+        behavior,
+        top: 0,
+      });
+    },
+    [markProgrammaticScroll]
+  );
+
+  const pinTopDuringSettle = useCallback(() => {
+    const container = containerRef.current;
+    const content = contentRef.current;
+    if (!(container && content)) {
+      return;
+    }
+
+    clearSettleObserver();
+    scrollToTop("auto");
+
+    const pinTop = () => {
+      container.scrollTo({
+        behavior: "auto",
+        top: 0,
+      });
+    };
+
+    const resizeObserver = new ResizeObserver(() => {
+      pinTop();
+    });
+
+    resizeObserver.observe(container);
+    resizeObserver.observe(content);
+    Array.from(content.children).forEach((child) => {
+      resizeObserver.observe(child);
+    });
+
+    settleObserverRef.current = resizeObserver;
+    settleTimerRef.current = setTimeout(() => {
+      clearSettleObserver();
+    }, LAYOUT_SETTLE_MS);
+  }, [clearSettleObserver, scrollToTop]);
 
   const _pinMessageDuringSettle = useCallback(
     (messageId: string, initialBehavior: ScrollBehavior = "auto") => {
@@ -260,8 +315,19 @@ export function useChatScroll(options: {
 
     if (nextState.shouldScrollToBottom) {
       scrollToBottom("auto");
+      return;
     }
-  }, [isStreaming, latestUserMessageId, messageCount, scrollToBottom]);
+
+    if (nextState.shouldScrollToTop) {
+      pinTopDuringSettle();
+    }
+  }, [
+    isStreaming,
+    latestUserMessageId,
+    messageCount,
+    pinTopDuringSettle,
+    scrollToBottom,
+  ]);
 
   useLayoutEffect(() => {
     const nextState = handleLatestUserMessageForScroll({
@@ -281,11 +347,15 @@ export function useChatScroll(options: {
 
   useLayoutEffect(() => {
     const scheduled = schedulePinnedLatestChatMessage({
-      cancelAnimationFrame: window.cancelAnimationFrame,
+      cancelAnimationFrame: (handle) => {
+        window.cancelAnimationFrame(handle);
+      },
       isStreaming,
       lastStreamPinnedMessageId: lastStreamPinnedMessageIdRef.current,
       latestUserMessageId,
-      requestAnimationFrame: window.requestAnimationFrame,
+      requestAnimationFrame: (callback) => {
+        return window.requestAnimationFrame(callback);
+      },
       scrollToMessageTop,
       wasStreaming: previousStreamingRef.current,
     });

@@ -1,6 +1,6 @@
 "use client";
 
-import { addPasskey as addPasskeyClient } from "@avenire/auth/passkey-client";
+import { addPasskey as addPasskeyClient } from "@avenire/auth/client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PasskeyEntry } from "@/components/settings/settings-panel-model";
 import {

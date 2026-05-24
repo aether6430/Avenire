@@ -4,10 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { MessageGeneratedArtifacts } from "@/components/chat/message-generated-artifacts";
 
-const toolPartSurfaceFile = resolve(
-  import.meta.dirname,
-  "./tool-part-surface.tsx"
-);
+const toolPartSurfaceFile = resolve(import.meta.dirname, "./tool-part.tsx");
 const rollingToolMutationBlockFile = resolve(
   import.meta.dirname,
   "./rolling-tool-activity-mutation-block.tsx"

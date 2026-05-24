@@ -6,7 +6,7 @@ import {
   saveUploadSession,
   type UploadSessionRecord,
 } from "@/lib/upload-session-store";
-import { scheduleAsyncVideoDeliveryOptimization } from "@/lib/video-delivery-optimization";
+import { scheduleAsyncVideoDeliveryOptimization } from "@/lib/video-delivery-optimization-runtime";
 import { buildUploadCompletionSuccessResponse } from "./upload-session-complete-model";
 import { cleanupUploadedStorageObject } from "./upload-session-complete-storage";
 

@@ -1,5 +1,10 @@
 "use client";
 
+export { CodeBlockOverlayControls } from "@/components/editor/editor-code-block-overlay-controls";
+export {
+  SlashMenu,
+  WikiMenu,
+} from "@/components/editor/editor-command-overlays";
 export type {
   AiAction,
   AvenireEditorProps,
@@ -14,7 +19,6 @@ export type {
   WikiOpenOptions,
   WikiPage,
 } from "@/components/editor/editor-core";
-
 export {
   clamp,
   clearSlashText,
@@ -32,7 +36,6 @@ export {
   normalizeWikiSyntax,
   VIEWPORT_PADDING,
 } from "@/components/editor/editor-core";
-
 export {
   BlockMathExtension,
   InlineMathExtension,
@@ -41,17 +44,8 @@ export {
   ScribeCodeBlockLowlight,
   TaskListSortExtension,
 } from "@/components/editor/editor-extensions";
-
-export {
-  CodeBlockOverlayControls,
-  EditorTableOfContentsRail,
-  SelectionBubbleMenu,
-  SlashMenu,
-  WikiMenu,
-} from "@/components/editor/editor-overlays";
-
-export {
-  ImagePopover,
-  MathPopover,
-  MermaidPopover,
-} from "@/components/editor/editor-popovers";
+export { ImagePopover } from "@/components/editor/editor-image-popover";
+export { MathPopover } from "@/components/editor/editor-math-popover";
+export { MermaidPopover } from "@/components/editor/editor-mermaid-popover";
+export { SelectionBubbleMenu } from "@/components/editor/editor-selection-bubble-menu";
+export { EditorTableOfContentsRail } from "@/components/editor/editor-table-of-contents-rail";

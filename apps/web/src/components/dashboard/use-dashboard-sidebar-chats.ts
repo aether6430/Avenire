@@ -1,5 +1,6 @@
 "use client";
 
+import type { ChatSummary } from "@avenire/database";
 import type { Route } from "next";
 import { useMemo, useState } from "react";
 import {
@@ -13,7 +14,6 @@ import { useDashboardSidebarChatActions } from "@/components/dashboard/use-dashb
 import { useDashboardSidebarChatCollection } from "@/components/dashboard/use-dashboard-sidebar-chat-collection";
 import { useDashboardSidebarChatEvents } from "@/components/dashboard/use-dashboard-sidebar-chat-events";
 import { useDashboardSidebarChatSessionClose } from "@/components/dashboard/use-dashboard-sidebar-chat-session-close";
-import type { ChatSummary } from "@/lib/chat-data";
 
 type SidebarNavigate = (
   href: string,

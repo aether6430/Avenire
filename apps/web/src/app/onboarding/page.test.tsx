@@ -26,7 +26,7 @@ vi.mock("@/components/auth/onboarding-page-client", () => ({
   OnboardingPageClient: onboardingPageClientMock,
 }));
 
-vi.mock("@/lib/user-settings", () => ({
+vi.mock("@avenire/database", () => ({
   getUserSettings: getUserSettingsMock,
 }));
 

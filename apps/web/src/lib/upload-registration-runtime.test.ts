@@ -36,8 +36,9 @@ vi.mock("@avenire/storage", () => ({
   deleteStorageFiles: deleteStorageFilesMock,
 }));
 
-vi.mock("@/lib/database-billing-metering", () => ({
+vi.mock("@avenire/database", () => ({
   canStoreBytesForUser: canStoreBytesForUserMock,
+  hasSuccessfulIngestionForFile: hasSuccessfulIngestionForFileMock,
 }));
 
 vi.mock("@/lib/file-data", () => ({
@@ -50,10 +51,6 @@ vi.mock("@/lib/file-data", () => ({
 
 vi.mock("@/lib/files-realtime-publisher", () => ({
   publishFilesInvalidationEvent: publishFilesInvalidationEventMock,
-}));
-
-vi.mock("@/lib/ingestion-data", () => ({
-  hasSuccessfulIngestionForFile: hasSuccessfulIngestionForFileMock,
 }));
 
 vi.mock("@/lib/workspace-event-stream", () => ({
@@ -157,6 +154,16 @@ describe("upload registration runtime", () => {
     expect(result.status).toBe("created");
     expect(createWorkspaceNoteFileMock).toHaveBeenCalled();
     expect(scheduleIngestionJobMock).toHaveBeenCalled();
+    expect(publishFilesInvalidationEventMock).toHaveBeenNthCalledWith(1, {
+      fileId: "file-2",
+      folderId: "folder-1",
+      reason: "file.created",
+      workspaceUuid: "workspace-1",
+    });
+    expect(publishFilesInvalidationEventMock).toHaveBeenNthCalledWith(2, {
+      reason: "tree.changed",
+      workspaceUuid: "workspace-1",
+    });
   });
 
   it("cleans up uploadthing files best-effort", async () => {
@@ -211,6 +218,16 @@ describe("upload registration runtime", () => {
       status: "created",
       file: { id: "file-4" },
       ingestionJob: { id: "job-4" },
+    });
+    expect(publishFilesInvalidationEventMock).toHaveBeenNthCalledWith(1, {
+      fileId: "file-4",
+      folderId: "folder-1",
+      reason: "file.created",
+      workspaceUuid: "workspace-1",
+    });
+    expect(publishFilesInvalidationEventMock).toHaveBeenNthCalledWith(2, {
+      reason: "tree.changed",
+      workspaceUuid: "workspace-1",
     });
     expect(softDeleteFileAssetMock).not.toHaveBeenCalled();
     expect(deleteStorageFilesMock).not.toHaveBeenCalled();
@@ -281,6 +298,12 @@ describe("upload registration runtime", () => {
     );
     expect(uploadRegistrationRuntimeSource).toContain(
       "extractMarkdownNotePayload"
+    );
+    expect(uploadRegistrationRuntimeSource).toContain(
+      'from "@avenire/database"'
+    );
+    expect(uploadRegistrationRuntimeSource).not.toContain(
+      "@/lib/database-billing-metering"
     );
   });
 });

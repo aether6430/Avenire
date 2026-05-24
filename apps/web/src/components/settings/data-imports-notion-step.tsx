@@ -10,8 +10,9 @@ import {
   ArrowClockwise as Refresh,
 } from "@phosphor-icons/react";
 import { DownloadSimple as Download } from "@phosphor-icons/react/DownloadSimple";
-import type { DataImportsNotionStepProps } from "./data-imports-model";
 import {
+  type DataImportsDestinationRuntime,
+  type DataImportsNotionStepProps,
   EMPTY_IMPORT_PROVIDER_STATUS,
   formatImportTimestamp,
   getImportProviderStateLabel,
@@ -20,6 +21,7 @@ import {
   DataImportsDestinationFields,
   ImportProviderStatusIcon,
 } from "./data-imports-shared";
+import { useDataImportsNotion } from "./use-data-imports-notion";
 
 export function DataImportsNotionStep({
   destinationProps,
@@ -177,5 +179,36 @@ export function DataImportsNotionStep({
         </>
       ) : null}
     </div>
+  );
+}
+
+export function DataImportsNotionStepShell({
+  destinationRuntime,
+}: {
+  destinationRuntime: DataImportsDestinationRuntime;
+}) {
+  const notionRuntime = useDataImportsNotion({
+    ensureSavedDestination: destinationRuntime.ensureSavedDestination,
+    loadOverview: destinationRuntime.loadOverview,
+    notionStatus: destinationRuntime.notionStatus,
+  });
+
+  return (
+    <DataImportsNotionStep
+      destinationProps={destinationRuntime.destinationProps}
+      notionImporting={notionRuntime.notionImporting}
+      notionImportStatus={notionRuntime.notionImportStatus}
+      notionLoading={notionRuntime.notionLoading}
+      notionPages={notionRuntime.notionPages}
+      onConnectNotion={notionRuntime.connectNotion}
+      onImportSelectedNotionPages={
+        notionRuntime.handleImportSelectedNotionPages
+      }
+      onLoadNotionPages={notionRuntime.handleLoadNotionPages}
+      onToggleNotionPage={notionRuntime.toggleNotionPage}
+      selectedNotionPageIds={notionRuntime.selectedNotionPageIds}
+      selectedPagesCount={notionRuntime.selectedPagesCount}
+      status={destinationRuntime.notionStatus}
+    />
   );
 }

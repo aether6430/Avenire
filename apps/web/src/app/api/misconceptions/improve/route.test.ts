@@ -1,16 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
+  adjustMisconceptionConfidenceForConceptMock,
   getWorkspaceContextForUserMock,
   improveMisconceptionsForConceptMock,
   recomputeConceptMasteryMock,
 } = vi.hoisted(() => ({
+  adjustMisconceptionConfidenceForConceptMock: vi.fn(),
   getWorkspaceContextForUserMock: vi.fn(),
   improveMisconceptionsForConceptMock: vi.fn(),
   recomputeConceptMasteryMock: vi.fn(),
 }));
 
 vi.mock("@avenire/database", () => ({
+  adjustMisconceptionConfidenceForConcept:
+    adjustMisconceptionConfidenceForConceptMock,
   improveMisconceptionsForConcept: improveMisconceptionsForConceptMock,
   recomputeConceptMastery: recomputeConceptMasteryMock,
 }));
@@ -23,6 +27,7 @@ import { POST } from "./route";
 
 describe("/api/misconceptions/improve route", () => {
   beforeEach(() => {
+    adjustMisconceptionConfidenceForConceptMock.mockReset();
     getWorkspaceContextForUserMock.mockReset();
     improveMisconceptionsForConceptMock.mockReset();
     recomputeConceptMasteryMock.mockReset();
@@ -60,6 +65,51 @@ describe("/api/misconceptions/improve route", () => {
     });
     expect(improveMisconceptionsForConceptMock).not.toHaveBeenCalled();
     expect(recomputeConceptMasteryMock).not.toHaveBeenCalled();
+  });
+
+  it("uses delta-based confidence adjustment when delta is provided", async () => {
+    getWorkspaceContextForUserMock.mockResolvedValue({
+      user: { id: "user-1" },
+      workspace: { workspaceId: "workspace-1" },
+    });
+    adjustMisconceptionConfidenceForConceptMock.mockResolvedValue([
+      { active: true },
+    ]);
+    recomputeConceptMasteryMock.mockResolvedValue(undefined);
+
+    const response = await POST(
+      new Request("http://localhost:3003/api/misconceptions/improve", {
+        body: JSON.stringify({
+          concept: "  Fractions  ",
+          delta: "0.1",
+          subject: "  Math  ",
+          topic: "  Division  ",
+        }),
+        method: "POST",
+      })
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      improvedCount: 1,
+      resolvedCount: 0,
+    });
+    expect(adjustMisconceptionConfidenceForConceptMock).toHaveBeenCalledWith({
+      concept: "Fractions",
+      delta: 0.1,
+      subject: "Math",
+      topic: "Division",
+      userId: "user-1",
+      workspaceId: "workspace-1",
+    });
+    expect(improveMisconceptionsForConceptMock).not.toHaveBeenCalled();
+    expect(recomputeConceptMasteryMock).toHaveBeenCalledWith({
+      concept: "Fractions",
+      subject: "Math",
+      topic: "Division",
+      userId: "user-1",
+      workspaceId: "workspace-1",
+    });
   });
 
   it("rejects missing required fields", async () => {

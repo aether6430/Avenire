@@ -1,5 +1,5 @@
+import { listChatsForUser } from "@avenire/database";
 import { NextResponse } from "next/server";
-import { listChatsForUser } from "@/lib/chat-data";
 import { CACHE_NAMESPACES } from "@/lib/domain-cache";
 import {
   createRouteCacheKey,

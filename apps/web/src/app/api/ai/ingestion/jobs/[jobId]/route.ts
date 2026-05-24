@@ -1,10 +1,16 @@
+import { getIngestionJobByIdForWorkspace } from "@avenire/database";
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/workspace";
-import {
-  INGESTION_JOB_LOAD_ERROR,
-  resolveIngestionJobsRouteError,
-} from "../ingestion-jobs-route-model";
-import { handleIngestionJobRouteGet } from "./ingestion-job-route-get";
+import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
+
+const INGESTION_JOB_LOAD_ERROR = "Unable to load ingestion job.";
+
+function resolveIngestionJobsRouteError(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
+function resolveIngestionJobWorkspaceUuid(request: Request) {
+  return new URL(request.url).searchParams.get("workspaceUuid")?.trim() ?? "";
+}
 
 export async function GET(
   request: Request,
@@ -16,11 +22,29 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    return await handleIngestionJobRouteGet({
-      request,
-      userId: user.id,
-      params: context.params,
-    });
+    const workspaceUuid = resolveIngestionJobWorkspaceUuid(request);
+    if (!workspaceUuid) {
+      return NextResponse.json(
+        { error: "Missing workspaceUuid" },
+        { status: 400 }
+      );
+    }
+
+    const canAccess = await ensureWorkspaceAccessForUser(
+      user.id,
+      workspaceUuid
+    );
+    if (!canAccess) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const { jobId } = await context.params;
+    const job = await getIngestionJobByIdForWorkspace(workspaceUuid, jobId);
+    if (!job) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ job });
   } catch (error) {
     return NextResponse.json(
       {

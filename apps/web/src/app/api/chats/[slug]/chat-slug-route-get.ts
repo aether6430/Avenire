@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
 import {
   getChatBySlugForUser,
   getMessagesByChatSlugForUser,
-} from "@/lib/chat-data";
+} from "@avenire/database";
+import { NextResponse } from "next/server";
 import {
   CHAT_SLUG_LOAD_ERROR,
   resolveChatSlugRouteError,

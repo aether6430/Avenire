@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildExplorerRegisterFilePayload,
+  buildExplorerUploadPreflightInput,
   type ExplorerPreparedUpload,
 } from "@/components/files/explorer/explorer-upload-batch";
 
@@ -60,6 +61,28 @@ describe("Explorer upload batch", () => {
       sizeBytes: 6,
       storageKey: undefined,
       storageUrl: undefined,
+    });
+  });
+
+  it("builds upload preflight input for the resolved target folder and passes through the computed checksum", () => {
+    const file = new File(["binary"], "nested/clip.mp4", {
+      type: "video/mp4",
+    });
+
+    expect(
+      buildExplorerUploadPreflightInput({
+        contentHashSha256:
+          "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        file,
+        targetFolderId: "folder-child",
+        workspaceUuid: "workspace-1",
+      })
+    ).toEqual({
+      checksumSha256:
+        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      file,
+      folderId: "folder-child",
+      workspaceUuid: "workspace-1",
     });
   });
 });

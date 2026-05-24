@@ -1,7 +1,5 @@
 import { type FileRouter, storage } from "@avenire/storage";
 
-export { getUploadErrorMessage } from "@/lib/upload-error-message";
-
 export const router: FileRouter = {
   imageUploader: storage(
     {

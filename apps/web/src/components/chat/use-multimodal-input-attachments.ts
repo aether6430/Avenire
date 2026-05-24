@@ -7,7 +7,7 @@ import {
   createLocalAttachment,
   revokeAttachmentUrl,
 } from "@/components/chat/attachment";
-import { getUploadErrorMessage } from "@/lib/upload";
+import { getUploadErrorMessage } from "@/lib/upload-error-message";
 import { useUploadThing } from "@/lib/uploadthing";
 
 export function useMultimodalInputAttachments({

@@ -19,14 +19,25 @@ describe("route-level toaster ownership", () => {
     expect(ROOT_LAYOUT_SOURCE).not.toContain(
       '<Toaster closeButton position="top-right" richColors />'
     );
+    const authLayoutSource = readFileSync(
+      resolve(APP_ROOT, "(auth)/layout.tsx"),
+      "utf8"
+    );
+    const waitlistLayoutSource = readFileSync(
+      resolve(APP_ROOT, "waitlist/layout.tsx"),
+      "utf8"
+    );
+
     expect(existsSync(resolve(APP_ROOT, "(auth)/layout.tsx"))).toBe(true);
     expect(existsSync(resolve(APP_ROOT, "waitlist/layout.tsx"))).toBe(true);
     expect(
       existsSync(resolve(import.meta.dirname, "route-toaster-layout.tsx"))
-    ).toBe(true);
+    ).toBe(false);
     expect(
       existsSync(resolve(import.meta.dirname, "route-toaster-client.tsx"))
     ).toBe(true);
+    expect(authLayoutSource).toContain("RouteToasterClient");
+    expect(waitlistLayoutSource).toContain("RouteToasterClient");
   });
 
   it("keeps the richer shared toaster class contract for toast chrome and actions", () => {

@@ -37,8 +37,9 @@ export function PanPinchImageViewer({
   });
 
   useEffect(() => {
+    void src;
     setLoaded(false);
-  }, []);
+  }, [src]);
 
   return (
     <div

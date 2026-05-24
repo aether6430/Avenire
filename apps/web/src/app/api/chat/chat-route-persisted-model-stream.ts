@@ -14,7 +14,7 @@ import { consumeChatUnits } from "@/lib/billing-metering";
 import { createChatTools } from "@/lib/chat-tools";
 import { detectMisconceptionSignals } from "@/lib/misconception-signal-detector";
 import type { createApiLogger } from "@/lib/observability";
-import { buildRecentSessionSummaryContext } from "@/lib/session-summaries";
+import { buildRecentSessionSummaryContext } from "@/lib/session-summary-model";
 import { getCachedLearningPromptMemoryBlocks } from "./chat-route-cache";
 import { formatError, logError, logInfo, logWarn } from "./chat-route-logging";
 import {

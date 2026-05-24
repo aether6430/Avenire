@@ -40,6 +40,10 @@ const {
   userCanViewFolderMock: vi.fn(),
 }));
 
+vi.mock("@avenire/database", () => ({
+  getIngestionFlagsByFileIds: getIngestionFlagsByFileIdsMock,
+}));
+
 vi.mock("@/lib/domain-cache", () => ({
   CACHE_NAMESPACES: {
     workspaceFolder: "workspaceFolder",
@@ -62,10 +66,6 @@ vi.mock("@/lib/file-data", () => ({
 
 vi.mock("@/lib/files-realtime-publisher", () => ({
   publishFilesInvalidationEvent: publishFilesInvalidationEventMock,
-}));
-
-vi.mock("@/lib/ingestion-data", () => ({
-  getIngestionFlagsByFileIds: getIngestionFlagsByFileIdsMock,
 }));
 
 vi.mock("@/lib/route-cache", () => ({

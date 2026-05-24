@@ -13,8 +13,8 @@ import { isRenderableWidgetSpec } from "@/components/chat/message-model";
 
 const WidgetPrimitiveRenderer = dynamic(
   () =>
-    import("@/components/WidgetPrimitiveRenderer").then(
-      (module) => module.WidgetPrimitiveRenderer
+    import("@/components/widget-primitive-render-content").then(
+      (module) => module.WidgetPrimitiveRenderContent
     ),
   { ssr: false }
 );

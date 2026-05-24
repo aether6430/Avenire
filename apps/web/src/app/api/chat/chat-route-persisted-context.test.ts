@@ -24,7 +24,7 @@ vi.mock("@avenire/database", () => ({
   getRecentRelevantSessionSummary: getRecentRelevantSessionSummaryMock,
 }));
 
-vi.mock("@/lib/session-summaries", () => ({
+vi.mock("@/lib/session-summary-runtime", () => ({
   getWorkspaceSubjectSummary: getWorkspaceSubjectSummaryMock,
 }));
 

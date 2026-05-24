@@ -5,6 +5,7 @@ import { STATIC_ASSETS } from "@/lib/static-assets";
 export const PET_VISIBILITY_STORAGE_KEY = "avenire:pet:visible";
 export const PET_POSITION_STORAGE_KEY = "avenire:pet:position";
 export const PET_NOTIFICATION_EVENT = "avenire:pet-notification";
+export const PET_VISIBILITY_CHANGED_EVENT = "avenire:pet-visibility-changed";
 
 export type PetAccessory =
   | "none"
@@ -88,5 +89,26 @@ export function getPetOption(accessory: PetAccessory) {
 export function emitPetNotification(detail: PetNotificationDetail) {
   window.dispatchEvent(
     new CustomEvent<PetNotificationDetail>(PET_NOTIFICATION_EVENT, { detail })
+  );
+}
+
+export function getStoredPetVisibility() {
+  if (typeof window === "undefined") {
+    return true;
+  }
+
+  return window.localStorage.getItem(PET_VISIBILITY_STORAGE_KEY) !== "false";
+}
+
+export function setStoredPetVisibility(visible: boolean) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(PET_VISIBILITY_STORAGE_KEY, String(visible));
+  window.dispatchEvent(
+    new CustomEvent(PET_VISIBILITY_CHANGED_EVENT, {
+      detail: { visible },
+    })
   );
 }

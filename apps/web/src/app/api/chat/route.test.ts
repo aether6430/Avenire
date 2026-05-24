@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   APOLLO_LANGUAGE_MODEL_IDS_MOCK,
+  afterMock,
   authGetSessionMock,
+  bootstrapFlashcardLearningAutomationMock,
   buildRecentSessionSummaryContextMock,
   clearActiveStreamIdMock,
   consumeChatUnitsMock,
@@ -41,7 +43,9 @@ const {
   buildStudentProfileContextMock,
 } = vi.hoisted(() => ({
   APOLLO_LANGUAGE_MODEL_IDS_MOCK: { "apollo-apex": "apollo-apex-provider" },
+  afterMock: vi.fn(),
   authGetSessionMock: vi.fn(),
+  bootstrapFlashcardLearningAutomationMock: vi.fn(),
   buildRecentSessionSummaryContextMock: vi.fn(),
   buildStudentProfileContextMock: vi.fn(),
   clearActiveStreamIdMock: vi.fn(),
@@ -107,6 +111,16 @@ vi.mock("next/headers", () => ({
   headers: headersMock,
 }));
 
+vi.mock("next/server", async () => {
+  const actual =
+    await vi.importActual<typeof import("next/server")>("next/server");
+
+  return {
+    ...actual,
+    after: afterMock,
+  };
+});
+
 vi.mock("resumable-stream", () => ({
   createResumableStreamContext: createResumableStreamContextMock,
 }));
@@ -115,11 +129,15 @@ vi.mock("@/lib/billing-metering", () => ({
   consumeChatUnits: consumeChatUnitsMock,
 }));
 
-vi.mock("@/lib/chat-data", () => ({
+vi.mock("@avenire/database", () => ({
+  bootstrapFlashcardLearningAutomation:
+    bootstrapFlashcardLearningAutomationMock,
   createChatForUser: createChatForUserMock,
   deleteChatForUser: deleteChatForUserMock,
   getChatBySlugForUser: getChatBySlugForUserMock,
+  getLatestSessionSummaryForChat: getLatestSessionSummaryForChatMock,
   getMessagesByChatSlugForUser: getMessagesByChatSlugForUserMock,
+  getRecentRelevantSessionSummary: getRecentRelevantSessionSummaryMock,
   getWritableChatBySlugForUser: getWritableChatBySlugForUserMock,
   isChatOwnerForUser: isChatOwnerForUserMock,
   saveMessagesForChatSlug: saveMessagesForChatSlugMock,
@@ -139,17 +157,15 @@ vi.mock("@/lib/file-data", () => ({
   resolveWorkspaceForUser: resolveWorkspaceForUserMock,
 }));
 
-vi.mock("@avenire/database", () => ({
-  getLatestSessionSummaryForChat: getLatestSessionSummaryForChatMock,
-  getRecentRelevantSessionSummary: getRecentRelevantSessionSummaryMock,
-}));
-
 vi.mock("@/lib/observability", () => ({
   createApiLogger: createApiLoggerMock,
 }));
 
-vi.mock("@/lib/session-summaries", () => ({
+vi.mock("@/lib/session-summary-model", () => ({
   buildRecentSessionSummaryContext: buildRecentSessionSummaryContextMock,
+}));
+
+vi.mock("@/lib/session-summary-runtime", () => ({
   getWorkspaceSubjectSummary: getWorkspaceSubjectSummaryMock,
   persistSessionSummaryForCompletedTurn:
     persistSessionSummaryForCompletedTurnMock,
@@ -171,8 +187,6 @@ vi.mock("./chat-stream-store", () => ({
   getRedisSubscriber: getRedisSubscriberMock,
   setActiveStreamId: setActiveStreamIdMock,
 }));
-
-vi.mock("@/lib/learning-automation", () => ({}));
 
 import { DELETE, POST } from "./route";
 
@@ -200,6 +214,7 @@ function createApiLoggerStub() {
 function resetChatRouteMocks() {
   for (const mock of [
     authGetSessionMock,
+    bootstrapFlashcardLearningAutomationMock,
     buildRecentSessionSummaryContextMock,
     buildStudentProfileContextMock,
     clearActiveStreamIdMock,
@@ -268,6 +283,11 @@ describe("/api/chat route", () => {
   beforeEach(() => {
     resetChatRouteMocks();
 
+    afterMock.mockImplementation(
+      async (callback: () => Promise<void> | void) => {
+        await callback();
+      }
+    );
     headersMock.mockResolvedValue(new Headers());
     createApiLoggerMock.mockReturnValue(createApiLoggerStub());
   });
@@ -387,5 +407,39 @@ describe("/api/chat route", () => {
     });
     expect(resolveWorkspaceForUserMock).not.toHaveBeenCalled();
     expect(deleteChatForUserMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps chat deletion successful even when deferred stream cleanup or cache invalidation fails", async () => {
+    mockAuthorizedChatRequest();
+    deleteChatForUserMock.mockResolvedValue(true);
+    getActiveStreamIdMock.mockResolvedValue("stream-1");
+    clearActiveStreamIdMock.mockRejectedValueOnce(
+      new Error("stream cleanup offline")
+    );
+    invalidateChatReadCachesMock.mockRejectedValueOnce(
+      new Error("chat cache offline")
+    );
+
+    const apiLogger = createApiLoggerStub();
+    createApiLoggerMock.mockReturnValueOnce(apiLogger);
+
+    const response = await DELETE(
+      chatRouteRequest("DELETE", undefined, "?id=chat-1")
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ ok: true });
+    expect(afterMock).toHaveBeenCalledTimes(1);
+    expect(deleteChatForUserMock).toHaveBeenCalledWith(
+      "user-1",
+      "chat-1",
+      "workspace-1"
+    );
+    expect(getActiveStreamIdMock).toHaveBeenCalledWith("chat-1");
+    expect(clearActiveStreamIdMock).toHaveBeenCalledWith("chat-1", "stream-1");
+    expect(invalidateChatReadCachesMock).toHaveBeenCalledWith("workspace-1");
+    expect(apiLogger.requestSucceeded).toHaveBeenCalledWith(200, {
+      chatId: "chat-1",
+    });
   });
 });

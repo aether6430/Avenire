@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { AgentActivityData, UIMessage } from "@avenire/ai/message-types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -16,6 +18,11 @@ import {
   shouldClearChatRuntimeAgentActivity,
 } from "@/components/chat/use-chat-runtime-runtime";
 
+const useChatRuntimeSource = readFileSync(
+  resolve(import.meta.dirname, "./use-chat-runtime.ts"),
+  "utf8"
+);
+
 function buildMessage(
   overrides: Partial<UIMessage> & Pick<UIMessage, "id" | "role">
 ): UIMessage {
@@ -31,6 +38,18 @@ function buildMessage(
 describe("use chat runtime runtime", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("tracks pending chat route ids in state so the new-chat route flush effect reruns after chat creation", () => {
+    expect(useChatRuntimeSource).toContain(
+      "const [pendingChatRouteId, setPendingChatRouteId]"
+    );
+    expect(useChatRuntimeSource).toContain("setPendingChatRouteId(detail.id);");
+    expect(useChatRuntimeSource).toContain(
+      "pendingChatRoute: pendingChatRouteId"
+    );
+    expect(useChatRuntimeSource).toContain("pendingChatRouteId,");
+    expect(useChatRuntimeSource).not.toContain("pendingChatRouteRef.current");
   });
 
   it("routes chat-created, chat-name, and agent-activity data parts only when payloads are valid", () => {

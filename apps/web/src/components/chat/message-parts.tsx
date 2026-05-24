@@ -49,7 +49,7 @@ const MarkdownLazy = dynamic<MarkdownRenderProps>(
 
 const ReasoningAction = dynamic(
   () =>
-    import("@/components/chat/rolling-reasoning").then(
+    import("@/components/chat/rolling-reasoning-action").then(
       (module) => module.ReasoningAction
     ),
   { ssr: false }

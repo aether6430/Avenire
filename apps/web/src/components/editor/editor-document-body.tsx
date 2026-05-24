@@ -2,7 +2,7 @@
 
 import { EditorContent } from "@tiptap/react";
 import dynamic from "next/dynamic";
-import { EditorTableOfContentsRail } from "@/components/editor/editor-overlays";
+import { EditorTableOfContentsRail } from "@/components/editor/editor-table-of-contents-rail";
 import type { PropertiesTableProps } from "@/components/editor/properties-table";
 import type { AvenireEditorRuntime } from "@/components/use-avenire-editor";
 

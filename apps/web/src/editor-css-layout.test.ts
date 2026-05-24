@@ -30,6 +30,7 @@ const editorSelectionBubbleMenu = readFileSync(
 describe("editor.css responsive note layout", () => {
   it("keeps frontmatter rows away from the mobile viewport edge", () => {
     expect(editorCss).toContain(".scribe-frontmatter-panel");
+    expect(editorCss).toContain("padding-inline: clamp(1rem, 4vw, 1.25rem);");
     expect(editorCss).toContain("padding-inline: clamp(1rem, 3vw, 3rem);");
     expect(editorCss).toContain("overflow: visible;");
     expect(editorCss).toContain(
@@ -50,6 +51,11 @@ describe("editor.css responsive note layout", () => {
     expect(editorCss).toContain("width: 2rem;");
     expect(editorCss).toContain("overflow: visible;");
     expect(editorCss).toContain("border: 1px solid var(--border);");
+    expect(editorCss).toContain("pointer-events: none;");
+    expect(editorCss).toContain("pointer-events: auto;");
+    expect(editorCss).not.toContain(
+      "width: min(15.25rem, calc(100vw - 2rem));"
+    );
     expect(editorCss).toContain(".scribe-document-row");
     expect(editorCss).toContain("grid-template-columns: minmax(3.125rem, 1fr)");
     expect(editorCss).toContain("grid-column: 2;");

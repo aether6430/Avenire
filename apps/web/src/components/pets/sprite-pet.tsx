@@ -76,7 +76,8 @@ export function SpritePet({
         backgroundRepeat: "no-repeat",
         backgroundSize: `${size.backgroundWidth}px ${size.backgroundHeight}px`,
         backgroundPosition: `${-frame * size.width}px ${-definition.row * size.height}px`,
-        imageRendering: "auto",
+        imageRendering: "pixelated",
+        willChange: "background-position",
       }}
     />
   );

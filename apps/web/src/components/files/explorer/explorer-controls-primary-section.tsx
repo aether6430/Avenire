@@ -48,7 +48,7 @@ export function ExplorerControlsPrimarySection({
   onUploadFolder: () => void;
 }) {
   return (
-    <div className="flex min-w-0 items-center gap-2">
+    <div className="flex min-w-0 items-center gap-2 max-[340px]:w-full max-[340px]:flex-wrap max-[340px]:items-start max-[340px]:gap-y-2">
       {canNavigateUp ? (
         <Button
           aria-label="Go to parent folder"
@@ -85,23 +85,25 @@ export function ExplorerControlsPrimarySection({
       >
         <RotateCw className="size-3.5" />
       </Button>
-      <div className="min-w-0">
-        <h1 className="truncate font-semibold text-[1.9rem] tracking-tight">
+      <div className="min-w-0 max-[340px]:order-3 max-[340px]:basis-full">
+        <h1 className="line-clamp-2 font-semibold text-[1.45rem] leading-tight tracking-tight max-[340px]:text-[1.2rem] max-[340px]:leading-snug sm:truncate sm:text-[1.9rem]">
           {currentLocationTitle}
         </h1>
       </div>
-      <ExplorerCreateMenu
-        currentFolderId={currentFolderId}
-        isCurrentFolderReadOnly={isCurrentFolderReadOnly}
-        isMobile={isMobile}
-        menuSurfaceClass={menuSurfaceClass}
-        onCreateFolder={onCreateFolder}
-        onCreateNote={onCreateNote}
-        onImportLink={onImportLink}
-        onOpenMobileCreateMenu={onOpenMobileCreateMenu}
-        onUploadFile={onUploadFile}
-        onUploadFolder={onUploadFolder}
-      />
+      <div className="max-[340px]:order-2 max-[340px]:ml-auto">
+        <ExplorerCreateMenu
+          currentFolderId={currentFolderId}
+          isCurrentFolderReadOnly={isCurrentFolderReadOnly}
+          isMobile={isMobile}
+          menuSurfaceClass={menuSurfaceClass}
+          onCreateFolder={onCreateFolder}
+          onCreateNote={onCreateNote}
+          onImportLink={onImportLink}
+          onOpenMobileCreateMenu={onOpenMobileCreateMenu}
+          onUploadFile={onUploadFile}
+          onUploadFolder={onUploadFolder}
+        />
+      </div>
     </div>
   );
 }

@@ -1,11 +1,13 @@
+import { bootstrapFlashcardLearningAutomation } from "@avenire/database";
 import { NextResponse } from "next/server";
-import "@/lib/learning-automation";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
 import {
   FLASHCARDS_REVIEW_ERROR,
   resolveFlashcardsReviewRouteError,
 } from "./flashcards-review-route-model";
 import { handleFlashcardsReviewRoutePost } from "./flashcards-review-route-post";
+
+bootstrapFlashcardLearningAutomation();
 
 export async function POST(request: Request) {
   try {

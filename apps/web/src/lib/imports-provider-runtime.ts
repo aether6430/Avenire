@@ -12,8 +12,9 @@ import {
   updateExtensionDestinationPreset,
 } from "@avenire/database";
 import { userCanEditFolder } from "@/lib/file-data";
-import { DATA_IMPORT_PRESET_LABEL } from "@/lib/imports-data-import-preset";
 import { GOOGLE_IMPORT_SCOPES } from "@/lib/imports-google-scopes";
+
+export const DATA_IMPORT_PRESET_LABEL = "Avenire Data Import";
 
 interface AuthAccountRecord {
   accessToken: string | null;

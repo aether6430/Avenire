@@ -48,7 +48,8 @@ export function useShareDialogWorkspaceContent({
     setWorkspaceMembersLoadFailed(false);
     try {
       const members = await loadWorkspaceShareMembers({ workspaceUuid });
-      if (!members) {
+      if (members === null) {
+        setWorkspaceMembersLoadFailed(true);
         return;
       }
       setWorkspaceMembers(members);

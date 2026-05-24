@@ -12,7 +12,7 @@ import {
   resolveDisplayAvatar,
   resolveUploadedAvatarUrl,
 } from "@/components/settings/settings-avatar-runtime-model";
-import { getUploadErrorMessage } from "@/lib/upload";
+import { getUploadErrorMessage } from "@/lib/upload-error-message";
 import { useUploadThing } from "@/lib/uploadthing";
 
 interface SettingsSessionUser {

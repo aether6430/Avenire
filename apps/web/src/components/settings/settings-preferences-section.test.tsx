@@ -73,6 +73,7 @@ describe("SettingsPreferencesSection", () => {
     expect(html).toContain(
       "Name your pet and choose an accessory for workspace surfaces."
     );
+    expect(html).toContain("Show workspace pet");
     expect(html).not.toContain("Personalize AI");
   });
 
@@ -93,6 +94,7 @@ describe("SettingsPreferencesSection", () => {
     expect(html).toContain(">top<");
     expect(html).toContain("Chat send shortcut");
     expect(html).toContain(">enter<");
+    expect(html).toContain("Show workspace pet");
     expect(html).toContain("Pet name");
     expect(html).toContain("Accessory");
     expect(html).toContain("Appearance");

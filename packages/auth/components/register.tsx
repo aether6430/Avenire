@@ -23,6 +23,9 @@ import { GithubIcon, GoogleIcon, LoadingIcon } from "./icons";
 const VERIFICATION_RESEND_COOLDOWN_SECONDS = 60;
 const VERIFICATION_EMAIL_STORAGE_KEY = "auth:verification-email";
 
+const socialButtonClassName =
+  "relative h-11 w-full justify-center gap-2 rounded-2xl border-border/60 bg-muted/30 text-foreground/80 shadow-none transition-colors hover:border-border hover:bg-muted/55";
+
 const clockSubscribers = new Set<() => void>();
 let clockInterval: number | null = null;
 let currentClockNow = 0;
@@ -534,7 +537,7 @@ export function RegisterForm({
 
             <div className="grid grid-cols-2 gap-4">
               <Button
-                className="relative w-full justify-center transition-all"
+                className={socialButtonClassName}
                 onClick={() => {
                   signIn.social({
                     provider: "google",
@@ -554,7 +557,7 @@ export function RegisterForm({
                 Google
               </Button>
               <Button
-                className="relative w-full justify-center transition-all"
+                className={socialButtonClassName}
                 onClick={() => {
                   signIn.social({
                     provider: "github",

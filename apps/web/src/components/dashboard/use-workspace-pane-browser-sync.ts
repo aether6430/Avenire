@@ -12,6 +12,16 @@ import {
 import { buildRouteState } from "@/lib/workspace-panes";
 import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
 
+export function hasHydratedWorkspacePaneStore() {
+  return Boolean(useWorkspacePaneStore.persist?.hasHydrated?.());
+}
+
+export function subscribeWorkspacePaneHydration(onHydrated: () => void) {
+  return (
+    useWorkspacePaneStore.persist?.onFinishHydration?.(onHydrated) ?? (() => {})
+  );
+}
+
 export function useWorkspacePaneBrowserSync({
   activePaneId,
   ensureInitialized,
@@ -43,8 +53,8 @@ export function useWorkspacePaneBrowserSync({
   const pendingBrowserSyncRef = useRef<string | null>(null);
   const previousBrowserHrefRef = useRef<string | null>(null);
   const initialHydratedRouteHandledRef = useRef(false);
-  const [paneStoreHydrated, setPaneStoreHydrated] = useState(() =>
-    useWorkspacePaneStore.persist.hasHydrated()
+  const [paneStoreHydrated, setPaneStoreHydrated] = useState(
+    hasHydratedWorkspacePaneStore
   );
 
   const browserRoute = useMemo(
@@ -60,11 +70,11 @@ export function useWorkspacePaneBrowserSync({
       return;
     }
 
-    const unsubscribe = useWorkspacePaneStore.persist.onFinishHydration(() => {
+    const unsubscribe = subscribeWorkspacePaneHydration(() => {
       setPaneStoreHydrated(true);
     });
 
-    if (useWorkspacePaneStore.persist.hasHydrated()) {
+    if (hasHydratedWorkspacePaneStore()) {
       setPaneStoreHydrated(true);
     }
 

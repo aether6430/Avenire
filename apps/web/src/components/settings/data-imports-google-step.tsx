@@ -4,7 +4,10 @@ import { Button } from "@avenire/ui/components/button";
 import { Spinner } from "@avenire/ui/components/spinner";
 import { Globe, LinkIcon } from "@phosphor-icons/react";
 import { DownloadSimple as Download } from "@phosphor-icons/react/DownloadSimple";
-import type { DataImportsGoogleStepProps } from "./data-imports-model";
+import type {
+  DataImportsDestinationRuntime,
+  DataImportsGoogleStepProps,
+} from "./data-imports-model";
 import {
   EMPTY_IMPORT_PROVIDER_STATUS,
   getImportProviderStateLabel,
@@ -13,6 +16,7 @@ import {
   DataImportsDestinationFields,
   ImportProviderStatusIcon,
 } from "./data-imports-shared";
+import { useDataImportsGoogle } from "./use-data-imports-google";
 
 export function DataImportsGoogleStep({
   destinationProps,
@@ -91,5 +95,37 @@ export function DataImportsGoogleStep({
         </div>
       </div>
     </div>
+  );
+}
+
+export function DataImportsGoogleStepShell({
+  destinationRuntime,
+}: {
+  destinationRuntime: DataImportsDestinationRuntime;
+}) {
+  const pickerApiKey =
+    process.env.NEXT_PUBLIC_GOOGLE_PICKER_API_KEY?.trim() ?? "";
+  const pickerAppId =
+    process.env.NEXT_PUBLIC_GOOGLE_PICKER_APP_ID?.trim() ?? "";
+
+  const googleRuntime = useDataImportsGoogle({
+    ensureSavedDestination: destinationRuntime.ensureSavedDestination,
+    googleStatus: destinationRuntime.googleStatus,
+    hasSelectedDestination: destinationRuntime.hasSelectedDestination,
+    loadOverview: destinationRuntime.loadOverview,
+    pickerApiKey,
+    pickerAppId,
+  });
+
+  return (
+    <DataImportsGoogleStep
+      destinationProps={destinationRuntime.destinationProps}
+      driveImporting={googleRuntime.driveImporting}
+      driveImportStatus={googleRuntime.driveImportStatus}
+      googleImportBlockedReason={googleRuntime.googleImportBlockedReason}
+      onConnectGoogleDrive={googleRuntime.connectGoogleDrive}
+      onOpenGooglePicker={googleRuntime.handleOpenGooglePicker}
+      status={destinationRuntime.googleStatus}
+    />
   );
 }

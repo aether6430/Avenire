@@ -80,7 +80,7 @@ export function ExplorerControls({
   viewMode,
 }: ExplorerControlsProps) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 px-4 pb-4">
+    <div className="flex flex-wrap items-center justify-between gap-3 px-4 pb-4 max-[340px]:items-stretch max-[340px]:justify-start max-[340px]:gap-y-2">
       <ExplorerControlsPrimarySection
         canNavigateUp={canNavigateUp}
         canRedoFileOperation={canRedoFileOperation}

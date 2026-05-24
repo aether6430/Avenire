@@ -1,5 +1,5 @@
+import { createChatForUser } from "@avenire/database";
 import { NextResponse } from "next/server";
-import { createChatForUser } from "@/lib/chat-data";
 import { invalidateChatReadCaches } from "@/lib/domain-cache";
 import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
 import { resolveChatDirectoryRouteContext } from "./chat-directory-route-context";

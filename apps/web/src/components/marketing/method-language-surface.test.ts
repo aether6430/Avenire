@@ -175,6 +175,10 @@ describe("method language surfaces", () => {
     expect(navbarSource).toContain("Join the waitlist");
     expect(navbarSource).not.toContain("Join waitlist");
     expect(navbarSource).toContain('Button as="a"');
+    expect(navbarSource).toContain("h-11");
+    expect(navbarSource).toContain("whitespace-nowrap");
+    expect(navbarSource).toContain("max-[340px]:px-3");
+    expect(navbarSource).toContain("max-[340px]:text-[13px]");
     expect(marketingButtonSource).toContain("text-[var(--primary-foreground)]");
     expect(marketingButtonSource).not.toContain("text-[#1b2733]");
     expect(billingCycleTabsSource).toContain(

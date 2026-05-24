@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const dashboardSurfaceFile = path.resolve(
   import.meta.dirname,
-  "./flashcards-dashboard-surface.tsx"
+  "./workspace-flashcards-page-client.tsx"
 );
 const workspacePageClientFile = path.resolve(
   import.meta.dirname,
@@ -16,7 +16,7 @@ const workspaceFlashcardsPageFile = path.resolve(
 );
 const setDetailSurfaceFile = path.resolve(
   import.meta.dirname,
-  "./flashcard-set-detail-surface.tsx"
+  "./set-detail-page.tsx"
 );
 const setDetailClientFile = path.resolve(
   import.meta.dirname,

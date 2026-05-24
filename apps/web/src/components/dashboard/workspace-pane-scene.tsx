@@ -2,18 +2,8 @@
 
 import dynamic from "next/dynamic";
 import { useMemo } from "react";
+import { WorkspaceOverviewPageClient } from "@/components/dashboard/workspace-overview-page-client";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
-
-const WorkspaceOverviewPageClient = dynamic(
-  () =>
-    import("@/components/dashboard/workspace-overview-page-client").then(
-      (module) => module.WorkspaceOverviewPageClient
-    ),
-  {
-    loading: () => <WorkspaceRoutePlaceholder label="Loading workspace..." />,
-    ssr: false,
-  }
-);
 
 const WorkspaceTasksPageClient = dynamic(
   () =>

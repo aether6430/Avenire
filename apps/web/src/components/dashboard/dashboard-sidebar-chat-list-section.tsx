@@ -1,5 +1,6 @@
 "use client";
 
+import type { ChatSummary } from "@avenire/database";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,7 +37,6 @@ import { measureElement, useVirtualizer } from "@tanstack/react-virtual";
 import type { Route } from "next";
 import { useMemo, useRef } from "react";
 import { ChatIcon } from "@/components/chat/chat-icon";
-import type { ChatSummary } from "@/lib/chat-data";
 import { isChatIconName } from "@/lib/chat-icons";
 import { setWorkspacePaneDragData } from "@/lib/workspace-panes";
 import { buildDashboardSidebarChatRows } from "./dashboard-sidebar-chat-runtime-model";

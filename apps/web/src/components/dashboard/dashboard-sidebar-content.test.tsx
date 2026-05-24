@@ -21,6 +21,19 @@ vi.mock("@/components/dashboard/dashboard-sidebar-workspace-home", () => ({
   DashboardSidebarWorkspaceHome: DashboardSidebarWorkspaceHomeMock,
 }));
 
+vi.mock("@avenire/ui/components/sidebar", () => ({
+  SidebarContent: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  SidebarGroup: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  SidebarGroupLabel: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  SidebarTrigger: () => <button type="button">Toggle Sidebar</button>,
+}));
+
 import { DashboardSidebarContent } from "@/components/dashboard/dashboard-sidebar-content";
 
 describe("DashboardSidebarContent", () => {

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { getSessionUserMock, getUserSettingsMock, upsertUserSettingsMock } =
@@ -7,7 +9,7 @@ const { getSessionUserMock, getUserSettingsMock, upsertUserSettingsMock } =
     upsertUserSettingsMock: vi.fn(),
   }));
 
-vi.mock("@/lib/user-settings", () => ({
+vi.mock("@avenire/database", () => ({
   getUserSettings: getUserSettingsMock,
   upsertUserSettings: upsertUserSettingsMock,
 }));
@@ -17,6 +19,15 @@ vi.mock("@/lib/workspace", () => ({
 }));
 
 import { GET, PUT } from "./route";
+
+const userSettingsRouteGetSource = readFileSync(
+  resolve(import.meta.dirname, "./user-settings-route-get.ts"),
+  "utf8"
+);
+const userSettingsRoutePutSource = readFileSync(
+  resolve(import.meta.dirname, "./user-settings-route-put.ts"),
+  "utf8"
+);
 
 describe("/api/user-settings route", () => {
   beforeEach(() => {
@@ -213,5 +224,12 @@ describe("/api/user-settings route", () => {
     await expect(response.json()).resolves.toEqual({
       error: "write failed",
     });
+  });
+
+  it("reads and writes user settings directly through the database package", () => {
+    expect(userSettingsRouteGetSource).toContain('from "@avenire/database"');
+    expect(userSettingsRoutePutSource).toContain('from "@avenire/database"');
+    expect(userSettingsRouteGetSource).not.toContain("@/lib/user-settings");
+    expect(userSettingsRoutePutSource).not.toContain("@/lib/user-settings");
   });
 });

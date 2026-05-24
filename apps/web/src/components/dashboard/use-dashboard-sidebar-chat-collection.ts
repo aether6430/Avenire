@@ -1,5 +1,6 @@
 "use client";
 
+import type { ChatSummary } from "@avenire/database";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   loadDashboardSidebarChats,
@@ -9,7 +10,6 @@ import {
 } from "@/components/dashboard/dashboard-sidebar-chat-collection-runtime";
 import type { DashboardSidebarView } from "@/components/dashboard/sidebar-startup";
 import { shouldLoadChatsForSidebar } from "@/components/dashboard/sidebar-startup";
-import type { ChatSummary } from "@/lib/chat-data";
 import {
   readCachedChats,
   writeCachedChats,

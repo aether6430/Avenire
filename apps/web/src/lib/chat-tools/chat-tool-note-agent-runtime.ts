@@ -1,3 +1,4 @@
+import { deleteIngestionDataForFile } from "@avenire/database";
 import type { z } from "zod";
 import {
   enqueueIngestionForFile,
@@ -26,7 +27,6 @@ import {
   updateNoteContent,
   userCanEditFile,
 } from "@/lib/file-data";
-import { deleteIngestionDataForFile } from "@/lib/ingestion-data";
 
 interface NoteAgentRuntimeContext {
   rootFolderId: string;

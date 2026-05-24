@@ -26,7 +26,7 @@ vi.mock("@/components/auth/waitlist-page-client", () => ({
   WaitlistPageClient: waitlistPageClientMock,
 }));
 
-vi.mock("@/lib/user-settings", () => ({
+vi.mock("@avenire/database", () => ({
   getUserSettings: getUserSettingsMock,
 }));
 

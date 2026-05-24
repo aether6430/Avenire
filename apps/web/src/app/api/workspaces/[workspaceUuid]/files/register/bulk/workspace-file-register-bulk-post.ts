@@ -8,7 +8,7 @@ import {
   registerWorkspaceMarkdownNote,
   registerWorkspaceUploadedFile,
 } from "@/lib/upload-registration";
-import { scheduleAsyncVideoDeliveryOptimization } from "@/lib/video-delivery-optimization";
+import { scheduleAsyncVideoDeliveryOptimization } from "@/lib/video-delivery-optimization-runtime";
 import {
   buildWorkspaceFileRegisterBulkSummary,
   isWorkspaceFileRegisterBulkNotePayload,

@@ -121,6 +121,31 @@ describe("chat route ephemeral", () => {
     );
   });
 
+  it("returns 400 without consuming chat units when the selection image is missing", async () => {
+    const apiLogger = createApiLoggerStub();
+
+    const response = await handleEphemeralChatRequest({
+      apiLogger: apiLogger as never,
+      body: {
+        messages: [],
+        selectionBase64: "   ",
+      },
+      request: new Request("http://localhost/api/chat"),
+      sessionUser: { id: "user-1" },
+      workspace: { rootFolderId: "root-1", workspaceId: "workspace-1" },
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Missing selection image",
+    });
+    expect(consumeChatUnitsMock).not.toHaveBeenCalled();
+    expect(apiLogger.requestFailed).toHaveBeenCalledWith(
+      400,
+      "Missing selection image"
+    );
+  });
+
   it("builds the ephemeral multimodal stream and filters tools for selection inspection", async () => {
     const apiLogger = createApiLoggerStub();
     const response = await handleEphemeralChatRequest({

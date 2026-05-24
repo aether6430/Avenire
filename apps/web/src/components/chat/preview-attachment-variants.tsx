@@ -8,19 +8,101 @@ import {
   TooltipTrigger,
 } from "@avenire/ui/components/tooltip";
 import { cn } from "@avenire/ui/lib/utils";
-import { X } from "@phosphor-icons/react";
+import { SpinnerGap as LoaderIcon, X } from "@phosphor-icons/react";
 import { File } from "@phosphor-icons/react/File";
 import { motion } from "motion/react";
+import Image from "next/image";
 import type { Attachment } from "@/components/chat/attachment";
 import type { PreviewAttachmentRuntime } from "@/components/chat/use-preview-attachment";
-import { PreviewAttachmentHoverPreview } from "./preview-attachment-hover-preview";
-import { PreviewAttachmentModal } from "./preview-attachment-modal";
-import { PreviewAttachmentPillIcon } from "./preview-attachment-thumbnail";
+import {
+  InlineVideoPreview,
+  PreviewAttachmentModal,
+} from "./preview-attachment-modal";
 
 interface PreviewAttachmentVariantProps {
   attachment: Partial<Attachment>;
   onRemove?: (attachmentId: string) => void;
   runtime: PreviewAttachmentRuntime;
+}
+
+function PreviewAttachmentHoverPreview({
+  capabilities,
+  contentType,
+  name,
+  playbackDescriptor,
+  status,
+  textPreview,
+  url,
+}: {
+  capabilities: PreviewAttachmentRuntime["capabilities"];
+  contentType?: string;
+  name?: string;
+  playbackDescriptor: PreviewAttachmentRuntime["playbackDescriptor"];
+  status?: string;
+  textPreview: string | null;
+  url?: string;
+}) {
+  if (capabilities.isImagePreview && url) {
+    return (
+      <div className="max-w-xs">
+        <Image
+          alt={name ?? "Preview"}
+          className="max-h-48 max-w-full rounded-md object-cover"
+          height={192}
+          src={url}
+          unoptimized
+          width={320}
+        />
+      </div>
+    );
+  }
+
+  if (capabilities.isVideoPreview && url && status === "completed") {
+    return (
+      <div className="max-w-xs">
+        {playbackDescriptor ? (
+          <InlineVideoPreview
+            autoPlay
+            className="max-h-48 max-w-full rounded-md"
+            playbackSource={playbackDescriptor.preferredSource}
+            posterUrl={playbackDescriptor.posterUrl}
+          />
+        ) : (
+          <video className="max-h-48 max-w-full rounded-md" controls src={url}>
+            <track kind="captions" />
+          </video>
+        )}
+      </div>
+    );
+  }
+
+  if (capabilities.isCodePreview && textPreview) {
+    return (
+      <div className="max-w-xs rounded-md bg-muted p-3">
+        <pre className="whitespace-pre-wrap font-mono text-xs">
+          {textPreview.substring(0, 300) +
+            (textPreview.length > 300 ? "..." : "")}
+        </pre>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function PreviewAttachmentPillIcon({ status }: { status?: string }) {
+  const isBusy = status === "uploading" || status === "pending";
+
+  return (
+    <div className="relative flex h-5 w-5 shrink-0 items-center justify-center text-muted-foreground">
+      <File className="h-4 w-4" />
+      {isBusy ? (
+        <span className="absolute -right-0.5 -bottom-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-background">
+          <LoaderIcon className="h-2.5 w-2.5 animate-spin text-muted-foreground" />
+        </span>
+      ) : null}
+    </div>
+  );
 }
 
 function renderPreviewFallback({

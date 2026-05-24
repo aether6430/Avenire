@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildWorkspaceSettingsOverlayRoute,
-  clearWorkspaceSettingsOverlayRoute,
+  buildSettingsOverlayRoute,
+  clearSettingsOverlayRoute,
   parseRequestedSettingsTab,
-} from "@/components/dashboard/dashboard-overlay-route-model";
+} from "@/lib/settings-overlay-route";
 
 describe("dashboard overlay route model", () => {
   it("parses only supported settings tabs", () => {
@@ -18,7 +18,7 @@ describe("dashboard overlay route model", () => {
     const searchParams = new URLSearchParams("prompt=focus&foo=bar");
 
     expect(
-      buildWorkspaceSettingsOverlayRoute({
+      buildSettingsOverlayRoute({
         pathname: "/workspace/chats/new",
         searchParams,
         tab: "security",
@@ -34,7 +34,7 @@ describe("dashboard overlay route model", () => {
     );
 
     expect(
-      clearWorkspaceSettingsOverlayRoute({
+      clearSettingsOverlayRoute({
         pathname: "/workspace/chats/new",
         searchParams,
       })

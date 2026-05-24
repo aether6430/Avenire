@@ -1,6 +1,9 @@
-const CACHE_NAME = "avenire-static-v2";
+const CACHE_NAME = "avenire-static-v3";
 const STATIC_ASSET_PATH_PATTERN =
   /\.(?:css|js|ico|png|jpg|jpeg|svg|webp|woff2?)$/i;
+const IS_LOCAL_HOST = ["localhost", "127.0.0.1", "::1", "[::1]"].includes(
+  self.location.hostname
+);
 
 const PRECACHE_URLS = [
   "/",
@@ -12,6 +15,11 @@ const PRECACHE_URLS = [
 ];
 
 self.addEventListener("install", (event) => {
+  if (IS_LOCAL_HOST) {
+    self.skipWaiting();
+    return;
+  }
+
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
   );
@@ -19,6 +27,18 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
+  if (IS_LOCAL_HOST) {
+    event.waitUntil(
+      caches
+        .keys()
+        .then((cacheNames) =>
+          Promise.all(cacheNames.map((name) => caches.delete(name)))
+        )
+        .then(() => self.registration.unregister())
+    );
+    return;
+  }
+
   event.waitUntil(
     caches
       .keys()
@@ -34,6 +54,10 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  if (IS_LOCAL_HOST) {
+    return;
+  }
+
   const { request } = event;
   const url = new URL(request.url);
 

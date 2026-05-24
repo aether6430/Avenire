@@ -214,6 +214,76 @@ describe("/api/workspaces/[workspaceUuid]/items/bulk route", () => {
     });
   });
 
+  it("fails folder moves cleanly when the target is the folder itself or one of its descendants", async () => {
+    const folderId = "44444444-4444-4444-8444-444444444444";
+    const descendantId = "55555555-5555-4555-8555-555555555555";
+
+    userCanEditFolderMock.mockResolvedValue(true);
+    getFolderWithAncestorsMock.mockResolvedValue({
+      ancestors: [{ id: folderId }],
+      folder: { id: descendantId },
+    });
+
+    let response = await POST(
+      routeRequest({
+        items: [{ id: folderId, kind: "folder" }],
+        operation: "move",
+        targetFolderId: folderId,
+      }),
+      BULK_ROUTE_PARAMS
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      results: [
+        {
+          error: "Cannot move a folder into itself",
+          id: folderId,
+          kind: "folder",
+          status: "failed",
+        },
+      ],
+      summary: { failed: 1, succeeded: 0, total: 1 },
+    });
+    expect(getFolderWithAncestorsMock).not.toHaveBeenCalled();
+    expect(updateFolderMock).not.toHaveBeenCalled();
+    expect(invalidateWorkspaceReadCachesMock).not.toHaveBeenCalled();
+    expect(publishFilesInvalidationEventMock).not.toHaveBeenCalled();
+
+    getFolderWithAncestorsMock.mockClear();
+    updateFolderMock.mockClear();
+
+    response = await POST(
+      routeRequest({
+        items: [{ id: folderId, kind: "folder" }],
+        operation: "move",
+        targetFolderId: descendantId,
+      }),
+      BULK_ROUTE_PARAMS
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      results: [
+        {
+          error: "Cannot move a folder into its descendant",
+          id: folderId,
+          kind: "folder",
+          status: "failed",
+        },
+      ],
+      summary: { failed: 1, succeeded: 0, total: 1 },
+    });
+    expect(getFolderWithAncestorsMock).toHaveBeenCalledWith(
+      WORKSPACE_UUID,
+      descendantId,
+      "user-1"
+    );
+    expect(updateFolderMock).not.toHaveBeenCalled();
+    expect(invalidateWorkspaceReadCachesMock).not.toHaveBeenCalled();
+    expect(publishFilesInvalidationEventMock).not.toHaveBeenCalled();
+  });
+
   it("does not invalidate workspace read caches when every bulk item fails", async () => {
     userCanEditFileMock.mockResolvedValue(true);
     getFileAssetByIdMock.mockResolvedValue(null);

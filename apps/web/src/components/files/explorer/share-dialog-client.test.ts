@@ -159,6 +159,16 @@ describe("Share dialog client", () => {
     }
   });
 
+  it("returns null when the workspace members list cannot be loaded", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      jsonResponse(null, 500)
+    );
+
+    await expect(
+      loadWorkspaceShareMembers({ workspaceUuid: "workspace-2" })
+    ).resolves.toBeNull();
+  });
+
   it("returns resource-specific workspace sharing failures", async () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(jsonResponse(null, 500))

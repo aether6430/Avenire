@@ -58,6 +58,8 @@ describe("WaitlistPageClient", () => {
     expect(html).toContain(
       "Join the waitlist and we&#x27;ll email you as soon as your invite is ready."
     );
+    expect(html).toContain("bg-background/40");
+    expect(html).toContain("backdrop-blur-sm");
     expect(html).toContain(">Join the waitlist<");
     expect(html).toContain('href="/terms"');
     expect(html).toContain('href="/privacy"');

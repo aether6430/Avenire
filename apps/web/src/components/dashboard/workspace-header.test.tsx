@@ -47,25 +47,32 @@ describe("WorkspaceHeader", () => {
   it("keeps navigation, leading icon, title, and actions in the calmer flex layout", () => {
     const html = renderToStaticMarkup(<WorkspaceHeader />);
 
-    expect(html).toContain("flex-row");
     expect(html).toContain("self-center divide-x");
-    expect(html).toContain("flex w-full min-w-0 items-center gap-1");
-    expect(html).toContain("flex size-5 shrink-0");
+    expect(html).toContain(
+      "relative flex w-full items-center gap-1.5 px-3 h-11"
+    );
+    expect(html).toContain("flex min-w-0 flex-1 items-center gap-1");
+    expect(html).toContain(
+      "no-scrollbar flex max-w-[52%] shrink-0 items-center justify-end gap-1 overflow-x-auto pr-4"
+    );
     expect(html).toContain("Welcome to Avenire");
     expect(html).toContain("Actions");
-    expect(html).toContain('aria-label="Open workspace"');
-    expect(html).not.toContain('aria-label="Go home"');
+    expect(html).toContain('aria-label="Go home"');
+    expect(html).not.toContain('aria-label="Open workspace"');
     expect(html).not.toContain("grid-cols-[minmax(0,1fr)_auto]");
   });
 
   it("keeps the compact header centered while letting the title column flex", () => {
     const html = renderToStaticMarkup(<WorkspaceHeader compact />);
 
-    expect(html).toContain("relative flex h-10 items-center gap-1.5 px-3");
+    expect(html).toContain("relative flex items-center gap-1.5 px-3 h-11");
     expect(html).toContain("min-w-0 flex-1 overflow-hidden text-center");
     expect(html).toContain("Welcome to Avenire");
-    expect(html).toContain('aria-label="Open workspace"');
-    expect(html).not.toContain('aria-label="Go home"');
+    expect(html).toContain('aria-label="Go home"');
+    expect(html).not.toContain('aria-label="Open workspace"');
+    expect(html).toContain(
+      "flex max-w-[44%] shrink-0 items-center justify-end gap-1 overflow-x-auto"
+    );
     expect(html).not.toContain("grid-cols-[auto_minmax(0,1fr)_auto]");
   });
 
@@ -76,7 +83,7 @@ describe("WorkspaceHeader", () => {
       "utf8"
     );
     const chatWorkspaceSource = readFileSync(
-      join(directory, "chat-workspace-surface.tsx"),
+      join(directory, "chat-workspace.tsx"),
       "utf8"
     );
 

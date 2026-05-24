@@ -1,3 +1,4 @@
+import { getActiveMisconceptions } from "@avenire/database";
 import { NextResponse } from "next/server";
 import { CACHE_NAMESPACES } from "@/lib/domain-cache";
 import {
@@ -6,7 +7,6 @@ import {
   listFlashcardSetSummariesForUser,
   resolveWeakestConceptDrillTarget,
 } from "@/lib/flashcards";
-import { getActiveMisconceptions } from "@/lib/learning-data";
 import {
   createRouteCacheKey,
   getCachedRoute,

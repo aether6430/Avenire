@@ -52,20 +52,12 @@ vi.mock("@/lib/video-delivery-core", () => ({
   isAsyncVideoOptimizationEnabled: isAsyncVideoOptimizationEnabledMock,
 }));
 
-vi.mock("@/lib/video-optimization", () => ({
+vi.mock("@/lib/video-optimization-runtime", () => ({
   optimizeAndReuploadVideo: optimizeAndReuploadVideoMock,
 }));
 
-const videoDeliveryEntrySource = readFileSync(
-  resolve(import.meta.dirname, "video-delivery.ts"),
-  "utf8"
-);
 const videoDeliveryCoreSource = readFileSync(
   resolve(import.meta.dirname, "video-delivery-core.ts"),
-  "utf8"
-);
-const videoDeliveryOptimizationEntrySource = readFileSync(
-  resolve(import.meta.dirname, "video-delivery-optimization.ts"),
   "utf8"
 );
 const videoDeliveryOptimizationRuntimeSource = readFileSync(
@@ -201,24 +193,7 @@ describe("video delivery optimization runtime", () => {
     expect(updateFileAssetStorageMetadataMock).toHaveBeenCalled();
   });
 
-  it("keeps video delivery split between thin entries, pure core helpers, runtime optimization, and sync reconciliation", () => {
-    expect(videoDeliveryEntrySource).toContain(
-      "@/lib/video-delivery-optimization"
-    );
-    expect(videoDeliveryEntrySource).toContain("@/lib/video-delivery-sync");
-    expect(videoDeliveryEntrySource).not.toContain("createMuxAssetFromUrl(");
-    expect(videoDeliveryEntrySource).not.toContain(
-      "updateFileAssetStorageMetadata("
-    );
-    expect(videoDeliveryEntrySource).not.toContain("optimizeAndReuploadVideo(");
-
-    expect(videoDeliveryOptimizationEntrySource).toContain(
-      'import "server-only";'
-    );
-    expect(videoDeliveryOptimizationEntrySource).toContain(
-      "@/lib/video-delivery-optimization-runtime"
-    );
-
+  it("keeps video delivery split between pure core helpers, runtime optimization, and sync reconciliation", () => {
     expect(videoDeliveryCoreSource).toContain(
       "export function buildPendingVideoDelivery"
     );

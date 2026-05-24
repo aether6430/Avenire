@@ -1,6 +1,6 @@
 "use client";
 
-import { linkSocial } from "@avenire/auth/app-client";
+import { linkSocial } from "@avenire/auth/client";
 import { useCallback, useEffect, useState } from "react";
 import {
   importNotionPages,

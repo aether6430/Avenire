@@ -4,8 +4,8 @@ import type { Route } from "next";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import type { ReadonlyURLSearchParams } from "next/navigation";
 import { useCallback } from "react";
-import { buildWorkspaceSettingsOverlayRoute } from "@/components/dashboard/dashboard-overlay-route-model";
 import type { HapticFeedbackType } from "@/hooks/use-haptics";
+import { buildSettingsOverlayRoute } from "@/lib/settings-overlay-route";
 import { filesUiActions } from "@/stores/filesUiStore";
 
 export function useDashboardSidebarOverlayActions({
@@ -60,7 +60,7 @@ export function useDashboardSidebarOverlayActions({
     void triggerHaptic("selection");
     openOverlayAfterCollapse(() => {
       router.replace(
-        buildWorkspaceSettingsOverlayRoute({
+        buildSettingsOverlayRoute({
           pathname,
           searchParams,
           tab: "account",

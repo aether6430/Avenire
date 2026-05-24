@@ -20,10 +20,16 @@ vi.mock("@avenire/ui/components/sidebar", () => ({
   SidebarMenuItem: ({ children }: { children: ReactNode }) => (
     <div>{children}</div>
   ),
-  useSidebar: () => ({ isMobile: false }),
 }));
 
-import { FlashcardsSidebarPanelSurface } from "@/components/flashcards/flashcards-sidebar-panel-surface";
+vi.mock(
+  "@/components/flashcards/flashcards-sidebar-panel-create-dialog",
+  () => ({
+    FlashcardsSidebarPanelCreateDialog: () => <div>CREATE_DIALOG</div>,
+  })
+);
+
+import { FlashcardsSidebarPanelSurface } from "@/components/dashboard/dashboard-sidebar-mounted-views";
 
 describe("FlashcardsSidebarPanelSurface", () => {
   it("uses explicit review and mindset set wording instead of generic set titles", () => {

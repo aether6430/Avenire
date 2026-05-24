@@ -43,6 +43,19 @@ interface MutationResult {
   status: "ok" | "failed";
 }
 
+function buildWorkspaceBulkFailedResult(input: {
+  error: string;
+  id: string;
+  kind: "file" | "folder";
+}): MutationResult {
+  return {
+    error: input.error,
+    id: input.id,
+    kind: input.kind,
+    status: "failed",
+  };
+}
+
 export async function POST(
   request: Request,
   context: { params: Promise<{ workspaceUuid: string }> }
@@ -227,6 +240,38 @@ export async function POST(
             });
             continue;
           }
+
+          if (item.id === payload.targetFolderId) {
+            results.push(
+              buildWorkspaceBulkFailedResult({
+                error: "Cannot move a folder into itself",
+                id: item.id,
+                kind: item.kind,
+              })
+            );
+            continue;
+          }
+
+          const targetFolderTree = await getFolderWithAncestors(
+            workspaceUuid,
+            payload.targetFolderId,
+            user.id
+          );
+          if (
+            targetFolderTree?.ancestors.some(
+              (ancestor) => ancestor.id === item.id
+            )
+          ) {
+            results.push(
+              buildWorkspaceBulkFailedResult({
+                error: "Cannot move a folder into its descendant",
+                id: item.id,
+                kind: item.kind,
+              })
+            );
+            continue;
+          }
+
           const updated = await updateFolder(workspaceUuid, item.id, user.id, {
             parentId: payload.targetFolderId,
           });

@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   loadWorkspaceFolderPayload,
   loadWorkspacePropertyDefinitionsPayload,
-  loadWorkspaceTreePayload,
 } from "@/components/files/explorer/workspace-data-loader";
+import { loadWorkspaceTreePayload } from "@/lib/workspace-tree-client";
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void;

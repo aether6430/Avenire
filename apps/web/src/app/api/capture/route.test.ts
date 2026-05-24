@@ -22,6 +22,7 @@ const {
 
 vi.mock("@avenire/database", () => ({
   recomputeConceptMastery: recomputeConceptMasteryMock,
+  upsertMisconception: upsertMisconceptionMock,
 }));
 
 vi.mock("@avenire/database/task-data", () => ({
@@ -34,10 +35,6 @@ vi.mock("@/lib/file-data", () => ({
 
 vi.mock("@/lib/files-realtime-publisher", () => ({
   publishFilesInvalidationEvent: publishFilesInvalidationEventMock,
-}));
-
-vi.mock("@/lib/learning-data", () => ({
-  upsertMisconception: upsertMisconceptionMock,
 }));
 
 vi.mock("@/lib/quick-capture", () => ({

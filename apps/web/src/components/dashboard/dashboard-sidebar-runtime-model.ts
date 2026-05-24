@@ -2,8 +2,6 @@
 
 import type { DashboardSidebarView } from "@/components/dashboard/sidebar-startup";
 
-export { readPreferredWorkspaceId } from "@/lib/preferred-workspace-storage";
-
 export interface DashboardSidebarWorkspaceSummary {
   name: string;
   organizationId?: string;

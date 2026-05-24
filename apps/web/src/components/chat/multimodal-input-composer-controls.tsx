@@ -20,6 +20,7 @@ export function MultimodalInputComposerControls({
     | "canSend"
     | "className"
     | "fileInputRef"
+    | "autoFocusEnabled"
     | "handleTextareaChange"
     | "handleTextareaClick"
     | "handleTextareaKeyDown"
@@ -37,6 +38,7 @@ export function MultimodalInputComposerControls({
     | "status"
     | "stop"
     | "textareaRef"
+    | "turboAvailable"
     | "onTurboChange"
     | "turboEnabled"
   >;
@@ -45,6 +47,7 @@ export function MultimodalInputComposerControls({
     canSend,
     className,
     fileInputRef,
+    autoFocusEnabled,
     handleTextareaChange,
     handleTextareaClick,
     handleTextareaKeyDown,
@@ -62,6 +65,7 @@ export function MultimodalInputComposerControls({
     status,
     stop,
     textareaRef,
+    turboAvailable,
     onTurboChange,
     turboEnabled,
   } = runtime;
@@ -75,7 +79,7 @@ export function MultimodalInputComposerControls({
 
       <div className="flex min-w-0 flex-1 items-center">
         <Textarea
-          autoFocus
+          autoFocus={autoFocusEnabled}
           className={cn(
             "max-h-40 min-h-9 w-full flex-1 resize-none overflow-y-hidden border-none! bg-transparent! px-0 py-1.5 text-[#0d0d0d] text-[15px] leading-6 shadow-none! outline-none ring-0! placeholder:text-muted-foreground/65 focus-visible:border-transparent! focus-visible:ring-0! sm:text-[15px] sm:leading-6 dark:text-white [&::-webkit-scrollbar-thumb]:bg-background",
             className
@@ -95,12 +99,14 @@ export function MultimodalInputComposerControls({
         />
       </div>
 
-      <div className="flex shrink-0 items-center">
-        <ComposerTurboButton
-          disabled={isRunning}
-          enabled={turboEnabled}
-          onToggle={() => onTurboChange(!turboEnabled)}
-        />
+      <div className="flex shrink-0 items-center gap-1.5">
+        {turboAvailable ? (
+          <ComposerTurboButton
+            disabled={isRunning}
+            enabled={turboEnabled}
+            onToggle={() => onTurboChange(!turboEnabled)}
+          />
+        ) : null}
         {speechSupported ? (
           <ComposerVoiceButton
             isRecording={isRecording}
@@ -249,7 +255,7 @@ function PureComposerTurboButton({
       aria-label={enabled ? "Disable Apex Turbo" : "Enable Apex Turbo"}
       aria-pressed={enabled}
       className={cn(
-        "mr-1.5 h-9 w-9 rounded-full border border-border/70 bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring",
+        "h-9 w-9 rounded-full border border-border/70 bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring",
         enabled &&
           "border-yellow-300/70 bg-yellow-100 text-yellow-900 hover:bg-yellow-100 hover:text-yellow-950 dark:border-yellow-700/70 dark:bg-yellow-500/20 dark:text-yellow-200 dark:hover:bg-yellow-500/25",
         disabled && "opacity-60"

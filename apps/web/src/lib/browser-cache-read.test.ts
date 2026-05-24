@@ -3,10 +3,6 @@ import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { readBrowserCache } from "@/lib/browser-cache-read";
 
-const browserCacheBarrelSource = readFileSync(
-  resolve(import.meta.dirname, "./browser-cache.ts"),
-  "utf8"
-);
 const browserCacheReadSource = readFileSync(
   resolve(import.meta.dirname, "./browser-cache-read.ts"),
   "utf8"
@@ -119,18 +115,7 @@ describe("browser cache read", () => {
     ).toBeNull();
   });
 
-  it("keeps browser cache split between a thin barrel and dedicated read/write/remove helpers", () => {
-    expect(browserCacheBarrelSource).toContain(
-      'export { readBrowserCache } from "@/lib/browser-cache-read";'
-    );
-    expect(browserCacheBarrelSource).toContain(
-      'export { writeBrowserCache } from "@/lib/browser-cache-write";'
-    );
-    expect(browserCacheBarrelSource).toContain(
-      'export { removeBrowserCache } from "@/lib/browser-cache-remove";'
-    );
-    expect(browserCacheBarrelSource).not.toContain("window.localStorage");
-
+  it("keeps browser cache responsibilities isolated in dedicated read/write/remove helpers", () => {
     expect(browserCacheReadSource).toContain("window.localStorage.getItem");
     expect(browserCacheReadSource).not.toContain("setItem(");
     expect(browserCacheReadSource).not.toContain("removeItem(");

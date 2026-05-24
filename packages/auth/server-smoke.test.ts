@@ -4,9 +4,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const betterAuthMock = vi.fn(() => ({ api: {} }));
 const checkoutMock = vi.fn(() => "checkout-plugin");
+const cookiesMock = vi.fn();
+const createAuthMiddlewareMock = vi.fn((handler) => handler);
 const drizzleAdapterMock = vi.fn(() => "drizzle-adapter");
-const nextCookiesMock = vi.fn(() => "next-cookies-plugin");
-const toNextJsHandlerMock = vi.fn(() => ({ GET: "GET" }));
 const lastLoginMethodMock = vi.fn(() => "last-login-plugin");
 const organizationMock = vi.fn(() => "organization-plugin");
 const usernameMock = vi.fn(() => "username-plugin");
@@ -68,12 +68,14 @@ vi.mock("@polar-sh/better-auth", () => ({
 }));
 vi.mock("@polar-sh/sdk", () => ({ Polar: polarSdkMock }));
 vi.mock("better-auth", () => ({ betterAuth: betterAuthMock }));
+vi.mock("better-auth/api", () => ({
+  createAuthMiddleware: createAuthMiddlewareMock,
+}));
 vi.mock("better-auth/adapters/drizzle", () => ({
   drizzleAdapter: drizzleAdapterMock,
 }));
-vi.mock("better-auth/next-js", () => ({
-  nextCookies: nextCookiesMock,
-  toNextJsHandler: toNextJsHandlerMock,
+vi.mock("next/headers", () => ({
+  cookies: cookiesMock,
 }));
 vi.mock("better-auth/plugins", () => ({
   lastLoginMethod: lastLoginMethodMock,
@@ -86,6 +88,8 @@ describe("@avenire/auth server config", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    cookiesMock.mockReset();
+    createAuthMiddlewareMock.mockClear();
     Object.assign(process.env, {
       AUTH_GITHUB_ID: "github-id",
       AUTH_GITHUB_SECRET: "github-secret",
@@ -121,13 +125,25 @@ describe("@avenire/auth server config", () => {
 
     expect(serverSource).toContain('from "./server-mailers"');
     expect(serverSource).toContain('from "./server-workspace-bootstrap"');
+    expect(serverSource).toContain('from "better-auth/api"');
+    expect(serverSource).toContain('from "next/headers"');
     expect(serverSource).not.toContain('from "@avenire/emailer"');
     expect(serverSource).not.toContain("function buildWelcomeWorkspaceNote(");
+    expect(serverSource).not.toContain('from "better-auth/next-js"');
 
     expect(drizzleAdapterMock).toHaveBeenCalled();
+    expect(createAuthMiddlewareMock).toHaveBeenCalledTimes(1);
     expect(lastLoginMethodMock).toHaveBeenCalled();
     expect(waitlistPluginMock).toHaveBeenCalled();
-    expect(module.authRouteHandlers).toEqual({ GET: "GET" });
+    expect(module.authRouteHandlers).toEqual(
+      expect.objectContaining({
+        DELETE: expect.any(Function),
+        GET: expect.any(Function),
+        PATCH: expect.any(Function),
+        POST: expect.any(Function),
+        PUT: expect.any(Function),
+      })
+    );
     expect(config.onAPIError.errorURL).toBe("https://app.avenire.test/login");
     expect(config.socialProviders.google.clientId).toBe("google-id");
     expect(config.socialProviders.github.clientId).toBe("github-id");
@@ -147,7 +163,9 @@ describe("@avenire/auth server config", () => {
       "username-plugin",
       "organization-plugin",
       "passkey-plugin",
-      "next-cookies-plugin",
+      expect.objectContaining({
+        id: "next-cookies",
+      }),
     ]);
 
     await expect(
@@ -266,7 +284,9 @@ describe("@avenire/auth server config", () => {
       "username-plugin",
       "organization-plugin",
       "passkey-plugin",
-      "next-cookies-plugin",
+      expect.objectContaining({
+        id: "next-cookies",
+      }),
     ]);
   });
 
@@ -286,6 +306,14 @@ describe("@avenire/auth server config", () => {
         headers: new Headers({ origin: "http://127.0.0.1:3001" }),
       })
     ).resolves.not.toContain("http://127.0.0.1:3001");
-    expect(module.authRouteHandlers).toEqual({ GET: "GET" });
+    expect(module.authRouteHandlers).toEqual(
+      expect.objectContaining({
+        DELETE: expect.any(Function),
+        GET: expect.any(Function),
+        PATCH: expect.any(Function),
+        POST: expect.any(Function),
+        PUT: expect.any(Function),
+      })
+    );
   });
 });

@@ -3,12 +3,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
-  Reasoning,
   ReasoningAction,
+  RollingStatusHeader,
+} from "@/components/chat/rolling-reasoning-action";
+import {
+  Reasoning,
   ReasoningContent,
   ReasoningTrigger,
-  RollingStatusHeader,
-} from "@/components/chat/rolling-reasoning";
+} from "@/components/chat/rolling-reasoning-provider";
 
 describe("rolling reasoning", () => {
   it("renders a non-streaming reasoning action with ready summary", () => {

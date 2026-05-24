@@ -46,10 +46,10 @@ export function WorkspaceHeader({
   const isHome = pathname === homeHref;
 
   const segmentedGroupClass =
-    "self-center divide-x divide-border/60 overflow-hidden rounded-md border border-border/60 bg-background shadow-sm";
+    "self-center divide-x divide-border/55 overflow-hidden rounded-xl border border-border/60 bg-background/95 shadow-sm";
   const segmentedIconButtonClass =
-    "size-7 rounded-none border-0 bg-transparent text-foreground shadow-none hover:bg-muted/70 disabled:bg-transparent";
-  const shouldUseCompactDesktop = compact;
+    "size-8 rounded-none border-0 bg-transparent text-foreground shadow-none hover:bg-muted/70 disabled:bg-transparent";
+  const headerHeightClass = "h-11";
 
   if (!compact) {
     return (
@@ -61,11 +61,11 @@ export function WorkspaceHeader({
       >
         <div
           className={cn(
-            "flex w-full shrink-0 flex-row items-center px-3",
-            shouldUseCompactDesktop ? "min-h-10 gap-1.5" : "min-h-11 gap-1"
+            "relative flex w-full items-center gap-1.5 px-3",
+            headerHeightClass
           )}
         >
-          <div className="flex w-full min-w-0 items-center gap-1">
+          <div className="flex min-w-0 flex-1 items-center gap-1">
             <SidebarTrigger className="size-8 shrink-0 md:hidden" />
             <ButtonGroup className={segmentedGroupClass}>
               <Button
@@ -84,7 +84,7 @@ export function WorkspaceHeader({
                 <ArrowLeft className="size-3.5" />
               </Button>
               <Button
-                aria-label="Open workspace"
+                aria-label="Go home"
                 className={segmentedIconButtonClass}
                 disabled={isHome}
                 onClick={() => {
@@ -128,14 +128,7 @@ export function WorkspaceHeader({
                     id="workspace-header-breadcrumbs"
                   >
                     {title ? (
-                      <h1
-                        className={cn(
-                          "truncate font-medium text-foreground",
-                          shouldUseCompactDesktop
-                            ? "text-xs leading-4"
-                            : "text-[13px] leading-5"
-                        )}
-                      >
+                      <h1 className="truncate font-medium text-[13px] text-foreground leading-5">
                         {title}
                       </h1>
                     ) : null}
@@ -144,8 +137,8 @@ export function WorkspaceHeader({
               </div>
             </div>
           </div>
-          <div className="no-scrollbar flex w-full min-w-0 items-center justify-end gap-1 overflow-x-auto pr-4">
-            <div className="flex min-w-0 items-center justify-end gap-1">
+          <div className="no-scrollbar flex max-w-[52%] shrink-0 items-center justify-end gap-1 overflow-x-auto pr-4">
+            <div className="flex min-w-max items-center justify-end gap-1">
               {actions}
             </div>
             {trailingActions ? (
@@ -182,7 +175,12 @@ export function WorkspaceHeader({
           }}
         />
 
-        <div className="relative flex h-10 items-center gap-1.5 px-3">
+        <div
+          className={cn(
+            "relative flex items-center gap-1.5 px-3",
+            headerHeightClass
+          )}
+        >
           <div className="flex shrink-0 items-center gap-1">
             <SidebarTrigger className="size-8 md:hidden" />
             <ButtonGroup className={segmentedGroupClass}>
@@ -202,7 +200,7 @@ export function WorkspaceHeader({
                 <ArrowLeft className="size-3.5" />
               </Button>
               <Button
-                aria-label="Open workspace"
+                aria-label="Go home"
                 className={segmentedIconButtonClass}
                 disabled={isHome}
                 onClick={() => {
@@ -245,13 +243,15 @@ export function WorkspaceHeader({
             )}
           </div>
 
-          <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex max-w-[44%] shrink-0 items-center justify-end gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {actions}
             {trailingActions}
           </div>
         </div>
       </header>
-      {isOverlayCompact ? <div className="h-10 shrink-0" /> : null}
+      {isOverlayCompact ? (
+        <div className={`${headerHeightClass} shrink-0`} />
+      ) : null}
     </>
   );
 }

@@ -1,4 +1,5 @@
 import { auth } from "@avenire/auth/server";
+import { getBillingCustomerByUserId } from "@avenire/database";
 import {
   createCustomerPortalLink,
   createCustomerPortalLinkForExternalCustomer,
@@ -6,7 +7,6 @@ import {
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { ensureUserBillingRecords } from "@/lib/billing";
-import { getBillingCustomerByUserId } from "@/lib/database-billing-subscriptions";
 import { createApiLogger } from "@/lib/observability";
 import {
   BILLING_PORTAL_ROUTE_ERROR,

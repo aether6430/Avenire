@@ -1,9 +1,9 @@
 "use client";
 
+import type { ChatSummary } from "@avenire/database";
 import type { Route } from "next";
 import { useState } from "react";
 import { parseDashboardSidebarResponse } from "@/components/dashboard/dashboard-sidebar-runtime-model";
-import type { ChatSummary } from "@/lib/chat-data";
 
 type SidebarNavigate = (
   href: string,

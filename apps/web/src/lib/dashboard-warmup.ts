@@ -1,7 +1,7 @@
 "use client";
 
+import type { ChatSummary } from "@avenire/database";
 import type { Route } from "next";
-import type { ChatSummary } from "@/lib/chat-data";
 import {
   writeCachedChats,
   writeCachedFlashcardSets,

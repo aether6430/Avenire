@@ -16,11 +16,11 @@ vi.mock(
   })
 );
 
-import { FilePreviewPanelSurface } from "@/components/files/explorer/file-preview-panel-surface";
+import { FilePreviewPanelSurface } from "@/components/files/explorer/explorer-preview-pane";
 
 const filePreviewPanelSurfaceFile = resolve(
   import.meta.dirname,
-  "./file-preview-panel-surface.tsx"
+  "./explorer-preview-pane.tsx"
 );
 const removedWrapperFile = resolve(
   import.meta.dirname,

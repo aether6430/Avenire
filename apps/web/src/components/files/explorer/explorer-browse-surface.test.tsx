@@ -27,7 +27,7 @@ const explorerBrowsePaneSource = readFileSync(
   "utf8"
 );
 
-import { ExplorerBrowseSurface } from "@/components/files/explorer/explorer-browse-surface";
+import { ExplorerBrowseSurface } from "@/components/files/explorer/explorer-browse-pane";
 
 describe("ExplorerBrowseSurface", () => {
   it("wires shared browse props into the cards and list owners", () => {
@@ -114,5 +114,8 @@ describe("ExplorerBrowseSurface", () => {
     expect(explorerBrowsePaneSource).toContain("ExplorerControls");
     expect(explorerBrowsePaneSource).toContain("ExplorerCanvasShell");
     expect(explorerBrowsePaneSource).toContain("ExplorerBrowseSurface");
+    expect(explorerBrowsePaneSource).not.toContain(
+      'from "./explorer-browse-surface"'
+    );
   });
 });

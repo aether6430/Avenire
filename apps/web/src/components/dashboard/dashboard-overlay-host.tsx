@@ -4,14 +4,14 @@ import type { Route } from "next";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
-import {
-  clearWorkspaceSettingsOverlayRoute,
-  parseRequestedSettingsTab,
-} from "@/components/dashboard/dashboard-overlay-route-model";
 import type {
   SettingsInitialUser,
   WorkspaceSummary,
 } from "@/components/settings/settings-panel-model";
+import {
+  clearSettingsOverlayRoute,
+  parseRequestedSettingsTab,
+} from "@/lib/settings-overlay-route";
 import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
 
 const DeferredSettingsDialog = dynamic(
@@ -82,7 +82,7 @@ export function DashboardOverlayHost({
                 searchParams.has("settingsTab")
               ) {
                 router.replace(
-                  clearWorkspaceSettingsOverlayRoute({
+                  clearSettingsOverlayRoute({
                     pathname,
                     searchParams,
                   }) as Route

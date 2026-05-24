@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -67,8 +67,8 @@ const sharedClient = {
   useSession: vi.fn(),
 };
 
-const passkeyClientSource = readFileSync(
-  resolve(import.meta.dirname, "./passkey-client.ts"),
+const clientSource = readFileSync(
+  resolve(import.meta.dirname, "./client.ts"),
   "utf8"
 );
 
@@ -78,44 +78,6 @@ describe("@avenire/auth client wrappers", () => {
     vi.clearAllMocks();
     process.env.NEXT_PUBLIC_APP_URL = "https://app.avenire.test";
     createAuthClientMock.mockReturnValue(sharedClient);
-  });
-
-  it("wires app-client exports to the shared auth client", async () => {
-    const module = await import("./app-client");
-    const exportsMap = module as Record<string, unknown>;
-    const sharedMap = sharedClient as Record<string, unknown>;
-
-    expect(createAuthClientMock).toHaveBeenCalledWith({
-      baseURL: "https://app.avenire.test",
-      plugins: [
-        "organization-plugin",
-        "passkey-plugin",
-        "username-plugin",
-        "last-login-plugin",
-        "polar-plugin",
-      ],
-    });
-    for (const key of [
-      "$ERROR_CODES",
-      "changePassword",
-      "deleteUser",
-      "getSession",
-      "linkSocial",
-      "listAccounts",
-      "listSessions",
-      "requestPasswordReset",
-      "resetPassword",
-      "revokeOtherSessions",
-      "revokeSession",
-      "revokeSessions",
-      "sendVerificationEmail",
-      "signOut",
-      "unlinkAccount",
-      "updateUser",
-      "useSession",
-    ]) {
-      expect(exportsMap[key]).toBe(sharedMap[key]);
-    }
   });
 
   it("configures the main client with the expected plugins and exports", async () => {
@@ -146,15 +108,19 @@ describe("@avenire/auth client wrappers", () => {
     expect(module.signOut).toBe(sharedClient.signOut);
     expect(module.getSession).toBe(sharedClient.getSession);
     expect(module.useSession).toBe(sharedClient.useSession);
+    expect(module.linkSocial).toBe(sharedClient.linkSocial);
+    expect(module.listAccounts).toBe(sharedClient.listAccounts);
+    expect(module.listSessions).toBe(sharedClient.listSessions);
+    expect(module.updateUser).toBe(sharedClient.updateUser);
+    expect(module.revokeOtherSessions).toBe(sharedClient.revokeOtherSessions);
   });
 
-  it("wraps passkey registration with the Avenire label", async () => {
-    const module = await import("./passkey-client");
+  it("keeps passkey registration owned by the main client module with the Avenire label", async () => {
+    const module = await import("./client");
 
     await module.addPasskey();
 
-    expect(passkeyClientSource).toContain('from "./client"');
-    expect(passkeyClientSource).not.toContain("createAuthClient(");
+    expect(clientSource).toContain("export async function addPasskey()");
     expect(createAuthClientMock).toHaveBeenCalledWith({
       baseURL: "https://app.avenire.test",
       plugins: [
@@ -168,5 +134,14 @@ describe("@avenire/auth client wrappers", () => {
     expect(sharedClient.passkey.addPasskey).toHaveBeenCalledWith({
       name: "Avenire Passkey",
     });
+    expect(
+      existsSync(resolve(import.meta.dirname, "./passkey-client.ts"))
+    ).toBe(false);
+  });
+
+  it("does not keep a second app-client wrapper once the main client owns the public helpers directly", () => {
+    expect(existsSync(resolve(import.meta.dirname, "./app-client.ts"))).toBe(
+      false
+    );
   });
 });

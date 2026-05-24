@@ -60,7 +60,7 @@ vi.mock("@/components/files/shared-resource-actions", () => ({
   SharedResourceActions: sharedResourceActionsMock,
 }));
 
-vi.mock("@/lib/chat-data", () => ({
+vi.mock("@avenire/database", () => ({
   getMessagesByChatSlug: getMessagesByChatSlugMock,
 }));
 
@@ -167,6 +167,24 @@ describe("SharedResourcePage", () => {
     expect(html).toContain("No method messages yet.");
     expect(html).toContain('href="/workspace/chats/chat-1"');
     expect(html).toContain("Open method in workspace");
+  });
+
+  it("preserves the shared method callback when an anonymous viewer uses the workspace CTA", async () => {
+    resolveResourceShareLinkMock.mockResolvedValueOnce({
+      resourceId: "chat-1",
+      resourceType: "chat",
+      workspaceId: "workspace-1",
+    });
+    getSessionMock.mockResolvedValueOnce(null);
+    canUserAccessSharedResourceMock.mockResolvedValueOnce(true);
+    getMessagesByChatSlugMock.mockResolvedValueOnce([]);
+
+    const element = await SharedResourcePage({
+      params: Promise.resolve({ token: "token-1" }),
+    });
+    const html = renderToStaticMarkup(element);
+
+    expect(html).toContain('href="/login?callbackURL=%2Fshare%2Ftoken-1"');
   });
 
   it("renders the Access denied heading for denied folder links", async () => {

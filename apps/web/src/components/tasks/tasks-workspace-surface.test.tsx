@@ -3,8 +3,8 @@ import path from "node:path";
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { TasksWorkspaceSurface } from "@/components/tasks/tasks-workspace-surface";
 import type { TasksWorkspaceRuntime } from "@/components/tasks/use-tasks-workspace";
+import { TasksWorkspaceSurface } from "@/components/tasks/workspace-tasks-page-client";
 
 vi.mock("@/components/dashboard/header-portal", () => ({
   HeaderActions: ({ children }: { children: ReactNode }) => <>{children}</>,

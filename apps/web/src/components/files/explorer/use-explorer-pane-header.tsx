@@ -205,13 +205,12 @@ export function useExplorerPaneHeader({
               <Columns className="size-3.5" />
               Split right
             </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={!canClosePane}
-              onClick={() => closePane(paneId)}
-            >
-              <X className="size-3.5" />
-              Close pane
-            </DropdownMenuItem>
+            {canClosePane ? (
+              <DropdownMenuItem onClick={() => closePane(paneId)}>
+                <X className="size-3.5" />
+                Close pane
+              </DropdownMenuItem>
+            ) : null}
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <Info className="size-3.5" />

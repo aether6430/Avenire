@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   deserializeChatInputDraft,
   serializeChatInputDraft,
-} from "./chat-input-storage";
+} from "./use-multimodal-input-composer-state";
 
 describe("chat input storage", () => {
   it("keeps raw legacy string drafts readable", () => {

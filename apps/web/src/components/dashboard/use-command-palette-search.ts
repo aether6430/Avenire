@@ -1,5 +1,6 @@
 "use client";
 
+import type { ChatSummary } from "@avenire/database";
 import { useQuery } from "@tanstack/react-query";
 import Fuse from "fuse.js";
 import { useMemo } from "react";
@@ -22,7 +23,6 @@ import {
   queryWorkspaceRetrievalApi,
   resolveWorkspaceRetrievalError,
 } from "@/components/files/search-model";
-import type { ChatSummary } from "@/lib/chat-data";
 import type { FlashcardSetSummary } from "@/lib/flashcards";
 import type { WorkspaceBrowseItem } from "@/lib/workspace-browse-model";
 

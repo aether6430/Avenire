@@ -92,6 +92,44 @@ describe("use chat runtime model", () => {
     });
   });
 
+  it("builds a regeneration request from a synthetic failed assistant placeholder when the real messages end on the user turn", () => {
+    const messages = [
+      {
+        id: "u1",
+        parts: [{ text: "Explain Gauss law", type: "text" }],
+        role: "user",
+      },
+      {
+        id: "a1",
+        parts: [{ text: "First answer", type: "text" }],
+        role: "assistant",
+      },
+      {
+        id: "u2",
+        parts: [{ text: "Give one example", type: "text" }],
+        role: "user",
+      },
+    ] as UIMessage[];
+
+    expect(buildRegenerationRequest(messages, "assistant-error-u2")).toEqual({
+      message: {
+        text: "Give one example",
+      },
+      preservedMessages: [
+        {
+          id: "u1",
+          parts: [{ text: "Explain Gauss law", type: "text" }],
+          role: "user",
+        },
+        {
+          id: "a1",
+          parts: [{ text: "First answer", type: "text" }],
+          role: "assistant",
+        },
+      ],
+    });
+  });
+
   it("keeps attachment-limit messaging explicit", () => {
     expect(
       willExceedChatAttachmentLimit({

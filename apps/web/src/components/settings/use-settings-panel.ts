@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession } from "@avenire/auth/app-client";
+import { useSession } from "@avenire/auth/client";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import type {

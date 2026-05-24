@@ -29,8 +29,8 @@ import type {
   PaletteCommandItem,
   WorkspaceSummary,
 } from "@/components/dashboard/command-palette-model";
-import { buildWorkspaceSettingsOverlayRoute } from "@/components/dashboard/dashboard-overlay-route-model";
 import { useCommandPaletteFileActions } from "@/components/dashboard/use-command-palette-file-actions";
+import { buildSettingsOverlayRoute } from "@/lib/settings-overlay-route";
 import { commandPaletteActions } from "@/stores/commandPaletteStore";
 import { quickCaptureActions } from "@/stores/quickCaptureStore";
 
@@ -97,7 +97,7 @@ export function useCommandPaletteNavigation({
         | "shortcuts"
     ) => {
       const currentUrl = new URL(currentRoute, "http://localhost");
-      const targetRoute = buildWorkspaceSettingsOverlayRoute({
+      const targetRoute = buildSettingsOverlayRoute({
         pathname: currentUrl.pathname,
         searchParams: currentUrl.searchParams,
         tab: tab ?? "account",

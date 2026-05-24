@@ -1,9 +1,8 @@
 import type { AgentActivityData, UIMessage } from "@avenire/ai/message-types";
-import type { ComponentProps } from "react";
+import type { WidgetSpec } from "@avenire/ai/tools";
 import type { Attachment } from "@/components/chat/attachment";
 import type { ActivityAction } from "@/components/chat/rolling-tool-activity-types";
 import { isRollingToolPart } from "@/components/chat/rolling-tool-activity-types";
-import type { WidgetPrimitiveRenderer } from "@/components/WidgetPrimitiveRenderer";
 
 export type MessagePart = UIMessage["parts"][number];
 export type ToolPart = Extract<MessagePart, { type: `tool-${string}` }>;
@@ -73,9 +72,7 @@ export const getReasoningText = (part: MessagePart) => {
   return "";
 };
 
-export const isRenderableWidgetSpec = (
-  value: unknown
-): value is ComponentProps<typeof WidgetPrimitiveRenderer>["spec"] =>
+export const isRenderableWidgetSpec = (value: unknown): value is WidgetSpec =>
   typeof value === "object" &&
   value !== null &&
   "title" in value &&

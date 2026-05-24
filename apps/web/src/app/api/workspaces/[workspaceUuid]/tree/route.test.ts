@@ -22,6 +22,10 @@ const {
   setCachedRouteMock: vi.fn(),
 }));
 
+vi.mock("@avenire/database", () => ({
+  getIngestionFlagsByFileIds: getIngestionFlagsByFileIdsMock,
+}));
+
 vi.mock("@/lib/domain-cache", () => ({
   CACHE_NAMESPACES: {
     workspaceTree: "workspaceTree",
@@ -31,10 +35,6 @@ vi.mock("@/lib/domain-cache", () => ({
 vi.mock("@/lib/file-data", () => ({
   listWorkspaceFiles: listWorkspaceFilesMock,
   listWorkspaceFolders: listWorkspaceFoldersMock,
-}));
-
-vi.mock("@/lib/ingestion-data", () => ({
-  getIngestionFlagsByFileIds: getIngestionFlagsByFileIdsMock,
 }));
 
 vi.mock("@/lib/route-cache", () => ({

@@ -107,8 +107,10 @@ export async function handleWorkspaceTrashRouteDelete(input: {
     }
 
     const keys = await permanentlyDeleteFolder(input.workspaceUuid, item.id);
-    storageKeys.push(...keys);
-    results.push({ id: item.id, kind: item.kind, ok: true });
+    if (keys) {
+      storageKeys.push(...keys);
+    }
+    results.push({ id: item.id, kind: item.kind, ok: Boolean(keys) });
   }
 
   await deleteWorkspaceTrashStorageObjects(Array.from(new Set(storageKeys)));

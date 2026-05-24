@@ -20,6 +20,13 @@ export function resolveDashboardSidebarPeekCloseDelayMs(state: string) {
   return state === "collapsed" ? DASHBOARD_SIDEBAR_PEEK_CLOSE_DELAY_MS : 0;
 }
 
+export function canOpenDashboardSidebarPeek(input: {
+  state: string;
+  suppressed: boolean;
+}) {
+  return input.state === "collapsed" && !input.suppressed;
+}
+
 export function useDashboardSidebarPeek({
   isMobile,
   state,
@@ -29,6 +36,7 @@ export function useDashboardSidebarPeek({
 }) {
   const [peekHovered, setPeekHovered] = useState(false);
   const peekCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const peekSuppressedRef = useRef(false);
   const isPeekabooActive = !isMobile && state === "collapsed" && peekHovered;
 
   useEffect(() => {
@@ -47,7 +55,12 @@ export function useDashboardSidebarPeek({
   }, []);
 
   const openPeekSidebar = useCallback(() => {
-    if (state !== "collapsed") {
+    if (
+      !canOpenDashboardSidebarPeek({
+        state,
+        suppressed: peekSuppressedRef.current,
+      })
+    ) {
       return;
     }
 
@@ -78,13 +91,20 @@ export function useDashboardSidebarPeek({
     const closeDelayMs = resolveDashboardSidebarPeekCloseDelayMs(state);
     peekCloseTimerRef.current = setTimeout(() => {
       setPeekHovered(false);
+      peekSuppressedRef.current = false;
       peekCloseTimerRef.current = null;
     }, closeDelayMs);
   }, [state]);
+
+  const suppressPeekUntilLeave = useCallback(() => {
+    peekSuppressedRef.current = true;
+    setPeekHovered(false);
+  }, []);
 
   return {
     closePeekSidebar,
     isPeekabooActive,
     openPeekSidebar,
+    suppressPeekUntilLeave,
   };
 }

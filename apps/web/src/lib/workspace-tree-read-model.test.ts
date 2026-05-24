@@ -14,6 +14,13 @@ const workspaceTreeReadModelSource = readFileSync(
   resolve(import.meta.dirname, "./workspace-tree-read-model.ts"),
   "utf8"
 );
+const workspaceExplorerDataHookSource = readFileSync(
+  resolve(
+    import.meta.dirname,
+    "../components/files/explorer/use-workspace-explorer-data.ts"
+  ),
+  "utf8"
+);
 
 const snapshot = {
   files: [
@@ -87,6 +94,18 @@ describe("workspace tree read model", () => {
     );
     expect(workspaceTreeReadModelSource).not.toContain(
       "writeWorkspaceTreeCache("
+    );
+  });
+
+  it("keeps explorer tree reloads from clearing an already visible folder snapshot on refresh misses", () => {
+    expect(workspaceExplorerDataHookSource).toContain(
+      "const applyTreePayload = (treePayload:"
+    );
+    expect(workspaceExplorerDataHookSource).not.toContain(
+      "} catch {\n      clearVisibleSnapshot();\n    }"
+    );
+    expect(workspaceExplorerDataHookSource).not.toContain(
+      "if (visibleSnapshot) {\n        applyVisibleSnapshot(visibleSnapshot);\n      } else {\n        clearVisibleSnapshot();\n      }"
     );
   });
 });

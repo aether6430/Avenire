@@ -1,5 +1,5 @@
 import { and, desc, eq } from "drizzle-orm";
-import { account } from "./auth-schema";
+import { account, user } from "./auth-schema";
 import { db } from "./client";
 
 const authAccountSelection = {
@@ -38,4 +38,13 @@ export async function getLatestAuthAccountForUser(input: {
 }) {
   const [record] = await listAuthAccountsForUser(input);
   return record ?? null;
+}
+
+export async function deleteAuthUserById(userId: string) {
+  const [deleted] = await db
+    .delete(user)
+    .where(eq(user.id, userId))
+    .returning({ id: user.id });
+
+  return deleted ?? null;
 }

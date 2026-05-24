@@ -1,10 +1,10 @@
+import type { MisconceptionRecord } from "@avenire/database";
 import type {
   ConceptDrillTarget,
   ConceptMasteryRecord,
   FlashcardSetSummary,
   FlashcardTaxonomy,
 } from "@/lib/flashcards";
-import type { MisconceptionRecord } from "@/lib/learning-data";
 
 export interface DashboardHomeProps {
   activeMisconceptions: MisconceptionRecord[];

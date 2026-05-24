@@ -1,6 +1,6 @@
 "use client";
 
-import { getSession } from "@avenire/auth/app-client";
+import { getSession } from "@avenire/auth/client";
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 

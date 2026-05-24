@@ -1,24 +1,19 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 const {
-  FlashcardsDashboardSurfaceMock,
   useFlashcardsDashboardMock,
   usePaneSearchParamsMock,
   useQueryMock,
   useWorkspaceBootstrapMock,
 } = vi.hoisted(() => ({
-  FlashcardsDashboardSurfaceMock: vi.fn(() => <div>FLASHCARDS_SURFACE</div>),
   useFlashcardsDashboardMock: vi.fn(),
   usePaneSearchParamsMock: vi.fn(),
   useQueryMock: vi.fn(),
   useWorkspaceBootstrapMock: vi.fn(),
-}));
-
-vi.mock("@/components/flashcards/flashcards-dashboard-surface", () => ({
-  FlashcardsDashboardSurface: FlashcardsDashboardSurfaceMock,
 }));
 
 vi.mock("@/components/flashcards/use-flashcards-dashboard", () => ({
@@ -37,6 +32,30 @@ vi.mock("@/components/dashboard/workspace-route-placeholder", () => ({
   WorkspaceRoutePlaceholder: () => <div>PLACEHOLDER</div>,
 }));
 
+vi.mock("@/components/dashboard/header-portal", () => ({
+  HeaderActions: ({ children }: { children: ReactNode }) => <>{children}</>,
+  HeaderBreadcrumbs: ({ children }: { children: ReactNode }) => <>{children}</>,
+  HeaderLeadingIcon: ({ children }: { children: ReactNode }) => <>{children}</>,
+  HeaderTitle: ({ children }: { children: ReactNode }) => <>{children}</>,
+}));
+
+vi.mock("@/components/flashcards/flashcards-dashboard-create-dialog", () => ({
+  FlashcardsDashboardCreateDialog: () => <div>CREATE_DIALOG</div>,
+}));
+
+vi.mock("@/components/flashcards/flashcards-dashboard-panels", () => ({
+  FlashcardsDashboardPanels: () => <div>FLASHCARDS_PANELS</div>,
+}));
+
+vi.mock(
+  "@/components/flashcards/flashcards-dashboard-misconception-dialog",
+  () => ({
+    FlashcardsDashboardMisconceptionDialog: () => (
+      <div>FLASHCARDS_MISCONCEPTION_DIALOG</div>
+    ),
+  })
+);
+
 vi.mock("@/lib/workspace-panes", () => ({
   usePaneSearchParams: usePaneSearchParamsMock,
 }));
@@ -54,10 +73,6 @@ const flashcardsDashboardHookSource = readFileSync(
 );
 const flashcardsDashboardClientSource = readFileSync(
   resolve(import.meta.dirname, "./flashcards-dashboard-client.ts"),
-  "utf8"
-);
-const flashcardsDashboardSurfaceSource = readFileSync(
-  resolve(import.meta.dirname, "./flashcards-dashboard-surface.tsx"),
   "utf8"
 );
 const flashcardsDashboardPanelsSource = readFileSync(
@@ -93,10 +108,39 @@ describe("WorkspaceFlashcardsPageClient ready branch", () => {
       isPending: false,
     });
     useFlashcardsDashboardMock.mockReturnValue({
+      activeMisconceptions: [],
+      adjustMisconceptionConfidence: async () => {},
       busy: false,
+      clearMisconception: async () => {},
+      createOpen: false,
+      createSet: async () => {},
+      createStatus: null,
+      dashboard: { cardSnapshots: [], sets: [] },
+      description: "",
+      generationError: null,
+      generationLoading: false,
+      isMobile: false,
+      mindsetOverviewErrorMessage: null,
+      mindsetOverviewLoading: false,
+      openMisconceptionFlashcards: () => {},
+      openMisconceptionTutor: () => {},
+      openReviewTarget: () => {},
+      openSet: () => {},
       orderedSets: [],
+      prefetchSet: () => {},
       reviewTarget: null,
+      selectedMisconception: null,
       selectedSet: null,
+      selectedSetId: null,
+      selectedSnapshots: [],
+      setCreateOpen: () => {},
+      setDescription: () => {},
+      setSelectedMisconception: () => {},
+      setSelectedSetId: () => {},
+      setTags: () => {},
+      setTitle: () => {},
+      tags: "",
+      title: "",
     });
 
     const html = renderToStaticMarkup(<WorkspaceFlashcardsPageClient />);
@@ -108,22 +152,13 @@ describe("WorkspaceFlashcardsPageClient ready branch", () => {
         sets: [],
       },
     });
-    expect(FlashcardsDashboardSurfaceMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        runtime: expect.objectContaining({
-          busy: false,
-          orderedSets: [],
-          reviewTarget: null,
-          selectedSet: null,
-        }),
-      }),
-      undefined
-    );
     expect(existsSync(removedWrapperFile)).toBe(false);
-    expect(html).toContain("FLASHCARDS_SURFACE");
+    expect(html).toContain("CREATE_DIALOG");
+    expect(html).toContain("FLASHCARDS_MISCONCEPTION_DIALOG");
+    expect(html).toContain("FLASHCARDS_PANELS");
   });
 
-  it("keeps the flashcards dashboard split between page-client gating, dashboard runtime hook, fetch client, pure model helpers, and presentational surface/panels", () => {
+  it("keeps the flashcards dashboard split between page-client gating, dashboard runtime hook, fetch client, pure model helpers, and presentational panels", () => {
     expect(workspaceFlashcardsPageClientSource).toContain(
       "@/components/dashboard/workspace-bootstrap"
     );
@@ -135,7 +170,7 @@ describe("WorkspaceFlashcardsPageClient ready branch", () => {
       "@/components/flashcards/use-flashcards-dashboard"
     );
     expect(workspaceFlashcardsPageClientSource).toContain(
-      "@/components/flashcards/flashcards-dashboard-surface"
+      "export function FlashcardsDashboardSurface"
     );
     expect(workspaceFlashcardsPageClientSource).not.toContain("./dashboard");
     expect(workspaceFlashcardsPageClientSource).not.toContain(
@@ -176,13 +211,18 @@ describe("WorkspaceFlashcardsPageClient ready branch", () => {
     expect(flashcardsDashboardModelSource).not.toContain("fetch(");
     expect(flashcardsDashboardModelSource).not.toContain("useQuery");
 
-    expect(flashcardsDashboardSurfaceSource).toContain(
+    expect(workspaceFlashcardsPageClientSource).toContain(
       "FlashcardsDashboardCreateDialog"
     );
-    expect(flashcardsDashboardSurfaceSource).toContain(
+    expect(workspaceFlashcardsPageClientSource).toContain(
+      "FlashcardsDashboardMisconceptionDialog"
+    );
+    expect(workspaceFlashcardsPageClientSource).toContain(
       "FlashcardsDashboardPanels"
     );
-    expect(flashcardsDashboardSurfaceSource).not.toContain("useQuery");
+    expect(workspaceFlashcardsPageClientSource).not.toContain(
+      "@/components/flashcards/flashcards-dashboard-surface"
+    );
     expect(flashcardsDashboardPanelsSource).toContain(
       "getFlashcardEnrollmentLabel"
     );

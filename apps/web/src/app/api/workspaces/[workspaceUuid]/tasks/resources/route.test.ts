@@ -14,7 +14,7 @@ const {
   listWorkspaceFoldersMock: vi.fn(),
 }));
 
-vi.mock("@/lib/chat-data", () => ({
+vi.mock("@avenire/database", () => ({
   listChatsForUser: listChatsForUserMock,
 }));
 

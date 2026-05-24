@@ -1,11 +1,26 @@
 "use client";
 
+import { Badge } from "@avenire/ui/components/badge";
+import { Button } from "@avenire/ui/components/button";
+import { Input } from "@avenire/ui/components/input";
+import {
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from "@avenire/ui/components/sidebar";
 import { Spinner } from "@avenire/ui/components/spinner";
-import { Sparkle as Sparkles } from "@phosphor-icons/react";
+import { MagnifyingGlass, Sparkle as Sparkles } from "@phosphor-icons/react";
+import { BookOpenText as BookOpenCheck } from "@phosphor-icons/react/BookOpenText";
 import type { Route } from "next";
 import dynamic from "next/dynamic";
+import { useEffect, useRef } from "react";
 import type { DashboardSidebarRuntime } from "@/components/dashboard/use-dashboard-sidebar";
-import { FlashcardsSidebarPanelSurface } from "@/components/flashcards/flashcards-sidebar-panel-surface";
+import { FlashcardsSidebarPanelCreateDialog } from "@/components/flashcards/flashcards-sidebar-panel-create-dialog";
+import { getFlashcardsSidebarSetsState } from "@/components/flashcards/flashcards-sidebar-panel-model";
+import type { FlashcardsSidebarPanelRuntime } from "@/components/flashcards/use-flashcards-sidebar-panel";
 import { useFlashcardsSidebarPanel } from "@/components/flashcards/use-flashcards-sidebar-panel";
 import { DashboardSidebarChatPanel } from "./dashboard-sidebar-chat-panel";
 import { SidebarEmptyState } from "./dashboard-sidebar-shared";
@@ -27,22 +42,157 @@ const DeferredFilesSidebarPanel = dynamic(
   }
 );
 
-function ReadyFlashcardsSidebarPanel({
-  active,
-  activeSetId,
-  workspaceUuid,
+function SparklineChip({ due, newCount }: { due: number; newCount: number }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <Badge variant="outline">{due}</Badge>
+      <Badge variant="secondary">{newCount}</Badge>
+    </span>
+  );
+}
+
+export function FlashcardsSidebarPanelSurface({
+  runtime,
 }: {
-  active: boolean;
-  activeSetId?: string;
-  workspaceUuid: string | null;
+  runtime: FlashcardsSidebarPanelRuntime;
 }) {
-  const runtime = useFlashcardsSidebarPanel({
-    active,
-    activeSetId: activeSetId ?? undefined,
-    workspaceUuid: workspaceUuid ?? undefined,
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const reviewHref = runtime.getReviewHref();
+  const setsState = getFlashcardsSidebarSetsState({
+    errorMessage: runtime.setsErrorMessage,
+    filteredSetCount: runtime.filteredSets.length,
+    loadFailed: runtime.setsLoadFailed,
+    loading: runtime.setsLoading,
+    totalSetCount: runtime.sets.length,
   });
 
-  return <FlashcardsSidebarPanelSurface runtime={runtime} />;
+  useEffect(() => {
+    if (runtime.isSearchOpen) {
+      searchInputRef.current?.focus();
+    }
+  }, [runtime.isSearchOpen]);
+
+  return (
+    <div className="no-scrollbar absolute inset-0 overflow-y-auto">
+      <SidebarGroup>
+        <div className="flex items-center justify-between gap-2">
+          <SidebarGroupLabel>Review</SidebarGroupLabel>
+          <div className="flex items-center gap-1">
+            <Button
+              aria-label="Search Mindset Sets"
+              className="h-7 w-7 rounded-md border border-border/60 bg-background/60 p-0 text-muted-foreground shadow-none hover:bg-muted"
+              onClick={runtime.toggleSearch}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <MagnifyingGlass className="size-3.5" />
+            </Button>
+            <FlashcardsSidebarPanelCreateDialog runtime={runtime} />
+          </div>
+        </div>
+        <SidebarGroupContent>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                draggable
+                onClick={(event) => runtime.handleEntryClick(event, reviewHref)}
+                onContextMenu={(event) =>
+                  runtime.handleEntryContextMenu(event, reviewHref)
+                }
+                onDragStart={(event) =>
+                  runtime.handleEntryDragStart(event, reviewHref)
+                }
+                onFocus={() => {
+                  if (runtime.reviewTarget) {
+                    runtime.prefetchSet(runtime.reviewTarget.id);
+                  }
+                }}
+                onMouseEnter={() => {
+                  if (runtime.reviewTarget) {
+                    runtime.prefetchSet(runtime.reviewTarget.id);
+                  }
+                }}
+              >
+                <BookOpenCheck className="size-4" />
+                <span>Review Due</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+
+      <SidebarGroup className="min-h-0 flex-1">
+        <div className="flex items-center justify-between gap-2">
+          <SidebarGroupLabel>Mindset Sets</SidebarGroupLabel>
+          <Button
+            aria-label="Search Mindset Sets"
+            className="h-7 w-7 rounded-md border border-border/60 bg-background/60 p-0 text-muted-foreground shadow-none hover:bg-muted"
+            onClick={runtime.toggleSearch}
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <MagnifyingGlass className="size-3.5" />
+          </Button>
+        </div>
+        <SidebarGroupContent>
+          {runtime.isSearchOpen || runtime.searchQuery ? (
+            <Input
+              className="mt-2 h-8"
+              onChange={(event) => runtime.setSearchQuery(event.target.value)}
+              placeholder="Search Mindset Sets..."
+              ref={searchInputRef}
+              value={runtime.searchQuery}
+            />
+          ) : null}
+          {setsState ? (
+            <div className="rounded-xl border border-border/50 bg-background/60 px-4 py-4 text-center">
+              <p className="font-medium text-foreground text-xs">
+                {setsState.title}
+              </p>
+              <p className="mt-2 text-[11px] text-muted-foreground leading-relaxed">
+                {setsState.description}
+              </p>
+            </div>
+          ) : (
+            <SidebarMenu>
+              {runtime.filteredSets.map((set) => {
+                const href = runtime.getSetHref(set.id);
+                return (
+                  <SidebarMenuItem key={set.id}>
+                    <SidebarMenuButton
+                      draggable
+                      isActive={runtime.activeSetId === set.id}
+                      onClick={(event) => runtime.handleEntryClick(event, href)}
+                      onContextMenu={(event) =>
+                        runtime.handleEntryContextMenu(event, href)
+                      }
+                      onDragStart={(event) =>
+                        runtime.handleEntryDragStart(event, href)
+                      }
+                      onFocus={() => {
+                        runtime.prefetchSet(set.id);
+                      }}
+                      onMouseEnter={() => {
+                        runtime.prefetchSet(set.id);
+                      }}
+                    >
+                      <SparklineChip
+                        due={set.dueCount}
+                        newCount={set.newCount}
+                      />
+                      <span className="truncate">{set.title}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          )}
+        </SidebarGroupContent>
+      </SidebarGroup>
+    </div>
+  );
 }
 
 const DeferredSidebarTaskPreview = dynamic(
@@ -92,6 +242,11 @@ export function DashboardSidebarMountedViews({
     updateChat,
     workspaceUuid,
   } = runtime;
+  const flashcardsSidebarRuntime = useFlashcardsSidebarPanel({
+    active: sidebarView === "flashcards",
+    activeSetId: currentFlashcardSetId ?? undefined,
+    workspaceUuid: workspaceUuid ?? undefined,
+  });
 
   if (sidebarView === "tasks") {
     return (
@@ -121,8 +276,10 @@ export function DashboardSidebarMountedViews({
         aria-hidden={sidebarView !== "chat"}
         className={
           mountedViews.has("chat")
-            ? `absolute inset-0 overflow-y-auto ${
-                sidebarView === "chat" ? "" : "pointer-events-none hidden"
+            ? `absolute inset-0 overflow-y-auto transition-opacity duration-150 ${
+                sidebarView === "chat"
+                  ? "opacity-100"
+                  : "pointer-events-none opacity-0"
               }`
             : "hidden"
         }
@@ -189,8 +346,10 @@ export function DashboardSidebarMountedViews({
         aria-hidden={sidebarView !== "files"}
         className={
           mountedViews.has("files")
-            ? `absolute inset-0 ${
-                sidebarView === "files" ? "" : "pointer-events-none hidden"
+            ? `absolute inset-0 transition-opacity duration-150 ${
+                sidebarView === "files"
+                  ? "opacity-100"
+                  : "pointer-events-none opacity-0"
               }`
             : "hidden"
         }
@@ -210,18 +369,16 @@ export function DashboardSidebarMountedViews({
         aria-hidden={sidebarView !== "flashcards"}
         className={
           mountedViews.has("flashcards")
-            ? `absolute inset-0 ${
-                sidebarView === "flashcards" ? "" : "pointer-events-none hidden"
+            ? `absolute inset-0 transition-opacity duration-150 ${
+                sidebarView === "flashcards"
+                  ? "opacity-100"
+                  : "pointer-events-none opacity-0"
               }`
             : "hidden"
         }
       >
         {mountedViews.has("flashcards") ? (
-          <ReadyFlashcardsSidebarPanel
-            active={sidebarView === "flashcards"}
-            activeSetId={currentFlashcardSetId}
-            workspaceUuid={workspaceUuid}
-          />
+          <FlashcardsSidebarPanelSurface runtime={flashcardsSidebarRuntime} />
         ) : null}
       </div>
     </>

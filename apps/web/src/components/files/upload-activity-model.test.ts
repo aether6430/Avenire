@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   createIngestionQueueItem,
@@ -10,6 +12,11 @@ import {
   summarizeUploadQueue,
   updateIngestionQueueItem,
 } from "@/components/files/upload-activity-model";
+
+const uploadActivityHookSource = readFileSync(
+  resolve(import.meta.dirname, "./use-upload-activity-panel.ts"),
+  "utf8"
+);
 
 describe("upload activity model", () => {
   it("maps ingestion and recent-job statuses into queue statuses", () => {
@@ -140,6 +147,12 @@ describe("upload activity model", () => {
     ).toBe("Recent uploads timed out.");
     expect(resolveUploadActivityErrorMessage("boom")).toBe(
       "Unable to load upload activity."
+    );
+  });
+
+  it("keeps the recent-jobs loader wired to the route-provided safe error text on non-ok responses", () => {
+    expect(uploadActivityHookSource).toContain(
+      'throw new Error(payload.error?.trim() || "Unable to load upload activity.");'
     );
   });
 

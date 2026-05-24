@@ -27,7 +27,7 @@ vi.mock("@/components/chat/rolling-tool-activity-model", () => ({
 import {
   RollingAgentActivity,
   RollingToolActivity,
-} from "@/components/chat/rolling-tool-activity-surface";
+} from "@/components/chat/rolling-tool-activity-body";
 
 describe("rolling tool activity surface", () => {
   it("wires tool parts into grouped body rendering", () => {

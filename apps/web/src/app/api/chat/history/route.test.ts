@@ -34,7 +34,7 @@ vi.mock("next/headers", () => ({
   headers: headersMock,
 }));
 
-vi.mock("@/lib/chat-data", () => ({
+vi.mock("@avenire/database", () => ({
   listChatsForUser: listChatsForUserMock,
 }));
 

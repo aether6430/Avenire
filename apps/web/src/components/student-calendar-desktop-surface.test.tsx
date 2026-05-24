@@ -4,10 +4,10 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { DesktopStudentCalendarSurface } from "@/components/student-calendar-desktop-surface";
+import { DesktopStudentCalendarSurface } from "@/components/student-calendar";
 
 const studentCalendarDesktopSurfaceSource = readFileSync(
-  resolve(import.meta.dirname, "./student-calendar-desktop-surface.tsx"),
+  resolve(import.meta.dirname, "./student-calendar.tsx"),
   "utf8"
 );
 const studentCalendarSharedSource = readFileSync(

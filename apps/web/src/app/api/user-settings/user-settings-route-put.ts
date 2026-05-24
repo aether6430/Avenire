@@ -1,5 +1,5 @@
+import { upsertUserSettings } from "@avenire/database";
 import { NextResponse } from "next/server";
-import { upsertUserSettings } from "@/lib/user-settings";
 import {
   parseUserSettingsUpdatePayload,
   resolveUserSettingsRouteError,

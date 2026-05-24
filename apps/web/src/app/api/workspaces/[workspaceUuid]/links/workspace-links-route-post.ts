@@ -110,6 +110,7 @@ export async function handleWorkspaceLinksPost(input: {
   await Promise.allSettled([
     publishFilesInvalidationEvent({
       workspaceUuid: input.workspaceUuid,
+      fileId: file.id,
       folderId,
       reason: "file.created",
     }),

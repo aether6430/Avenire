@@ -1,6 +1,6 @@
+import { getChatBySlugForUser } from "@avenire/database";
 import { after } from "next/server";
 import { createResumableStreamContext } from "resumable-stream";
-import { getChatBySlugForUser } from "@/lib/chat-data";
 import { resolveWorkspaceForUser } from "@/lib/file-data";
 import {
   clearActiveStreamId,

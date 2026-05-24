@@ -1,5 +1,6 @@
 "use client";
 
+import type { ChatSummary } from "@avenire/database";
 import { type Dispatch, type SetStateAction, useEffect } from "react";
 import {
   applyDashboardChatInvalidation,
@@ -7,7 +8,6 @@ import {
   applyDashboardChatStreamStatus,
   shouldReloadDashboardChatsForInvalidation,
 } from "@/components/dashboard/dashboard-sidebar-chat-events-runtime";
-import type { ChatSummary } from "@/lib/chat-data";
 import {
   CHAT_NAME_UPDATED_EVENT,
   CHAT_STREAM_STATUS_EVENT,

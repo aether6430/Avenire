@@ -83,6 +83,7 @@ describe("SectionIconAction", () => {
   });
 
   it("keeps the shared tooltip chrome aligned to the popover-based upstream contract", () => {
+    expect(tooltipSource).toContain("pointer-events-none");
     expect(tooltipSource).toContain("border border-border bg-popover");
     expect(tooltipSource).toContain("text-popover-foreground");
     expect(tooltipSource).toContain("shadow-sm");

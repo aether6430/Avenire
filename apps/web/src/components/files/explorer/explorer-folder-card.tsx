@@ -116,14 +116,12 @@ export function ExplorerFolderCard({
           onPointerUp={onPointerUp}
           ref={rowRef}
           style={{
-            containIntrinsicSize: "214px 160px",
-            contentVisibility: "auto",
             width: isSearchFilteredView ? "100%" : 160,
           }}
           {...dragProps}
         >
           <div
-            className="absolute top-2 left-2 z-20 rounded-md bg-background/90 p-1 shadow-sm backdrop-blur-sm"
+            className="absolute top-2 left-2 z-20"
             data-selection-control="true"
             onClickCapture={selectionControlCaptureProps.onClickCapture}
             onMouseDownCapture={selectionControlCaptureProps.onMouseDownCapture}
@@ -135,14 +133,11 @@ export function ExplorerFolderCard({
           </div>
           <CardContent className="space-y-2 px-0 pt-0">
             <div className="group relative flex h-28 w-full min-w-0 items-center justify-center overflow-hidden rounded-lg border border-border/45 bg-muted/70 p-1.5">
-              <FolderGlyph
-                className="transition-transform duration-300 ease-out group-hover:scale-[1.03]"
-                previewKinds={previewKinds}
-              />
+              <FolderGlyph previewKinds={previewKinds} />
             </div>
             <div className="flex w-full min-w-0 max-w-full items-center justify-between gap-2">
               <div className="flex min-w-0 flex-1 items-center gap-2">
-                <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-medium text-[10px] text-muted-foreground">
+                <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 font-medium text-[10px] text-muted-foreground">
                   folder
                 </span>
                 <span

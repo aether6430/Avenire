@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  linkSocial,
-  listAccounts,
-  unlinkAccount,
-} from "@avenire/auth/app-client";
+import { linkSocial, listAccounts, unlinkAccount } from "@avenire/auth/client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   createAccountsRefreshFailureState,

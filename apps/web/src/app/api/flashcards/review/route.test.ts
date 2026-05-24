@@ -1,15 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
+  bootstrapFlashcardLearningAutomationMock,
   getWorkspaceContextForUserMock,
   invalidateFlashcardReadCachesMock,
   publishWorkspaceStreamEventMock,
   reviewFlashcardForUserMock,
 } = vi.hoisted(() => ({
+  bootstrapFlashcardLearningAutomationMock: vi.fn(),
   getWorkspaceContextForUserMock: vi.fn(),
   invalidateFlashcardReadCachesMock: vi.fn(),
   publishWorkspaceStreamEventMock: vi.fn(),
   reviewFlashcardForUserMock: vi.fn(),
+}));
+
+vi.mock("@avenire/database", () => ({
+  bootstrapFlashcardLearningAutomation:
+    bootstrapFlashcardLearningAutomationMock,
 }));
 
 vi.mock("@/lib/domain-cache", () => ({
@@ -28,12 +35,11 @@ vi.mock("@/lib/workspace-event-stream", () => ({
   publishWorkspaceStreamEvent: publishWorkspaceStreamEventMock,
 }));
 
-vi.mock("@/lib/learning-automation", () => ({}));
-
 import { POST } from "./route";
 
 describe("/api/flashcards/review route", () => {
   beforeEach(() => {
+    bootstrapFlashcardLearningAutomationMock.mockReset();
     getWorkspaceContextForUserMock.mockReset();
     invalidateFlashcardReadCachesMock.mockReset();
     publishWorkspaceStreamEventMock.mockReset();

@@ -1,11 +1,11 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getSessionMock, getUserUsageOverviewMock, headersMock } = vi.hoisted(
+const { getSessionMock, getUsageOverviewMock, headersMock } = vi.hoisted(
   () => ({
     getSessionMock: vi.fn(),
-    getUserUsageOverviewMock: vi.fn(),
+    getUsageOverviewMock: vi.fn(),
     headersMock: vi.fn(),
   })
 );
@@ -22,13 +22,17 @@ vi.mock("next/headers", () => ({
   headers: headersMock,
 }));
 
-vi.mock("@/lib/billing-usage", () => ({
-  getUserUsageOverview: getUserUsageOverviewMock,
+vi.mock("@avenire/database", () => ({
+  getUsageOverview: getUsageOverviewMock,
 }));
 
 import { handleBillingUsageGet } from "./billing-usage-get";
 
 const billingUsageRouteFile = resolve(import.meta.dirname, "./route.ts");
+const billingUsageGetFile = resolve(
+  import.meta.dirname,
+  "./billing-usage-get.ts"
+);
 const billingUsageRouteModelFile = resolve(
   import.meta.dirname,
   "./billing-usage-route-model.ts"
@@ -43,7 +47,7 @@ describe("billing usage get", () => {
         id: "user-1",
       },
     });
-    getUserUsageOverviewMock.mockResolvedValue({
+    getUsageOverviewMock.mockResolvedValue({
       currentPeriodCreditsUsed: 12,
     });
   });
@@ -57,7 +61,7 @@ describe("billing usage get", () => {
     await expect(response.json()).resolves.toEqual({
       error: "Unauthorized",
     });
-    expect(getUserUsageOverviewMock).not.toHaveBeenCalled();
+    expect(getUsageOverviewMock).not.toHaveBeenCalled();
   });
 
   it("fails closed when session lookup throws before usage loading begins", async () => {
@@ -69,13 +73,13 @@ describe("billing usage get", () => {
     await expect(response.json()).resolves.toEqual({
       error: "billing usage offline",
     });
-    expect(getUserUsageOverviewMock).not.toHaveBeenCalled();
+    expect(getUsageOverviewMock).not.toHaveBeenCalled();
   });
 
   it("returns usage for the signed-in user", async () => {
     const response = await handleBillingUsageGet();
 
-    expect(getUserUsageOverviewMock).toHaveBeenCalledWith("user-1");
+    expect(getUsageOverviewMock).toHaveBeenCalledWith("user-1");
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       usage: {
@@ -146,11 +150,13 @@ describe("billing usage get", () => {
 
   it("keeps billing usage fallback helpers in the dedicated route model file", () => {
     const routeSource = readFileSync(billingUsageRouteFile, "utf8");
+    const billingUsageGetSource = readFileSync(billingUsageGetFile, "utf8");
 
     expect(routeSource).toContain('from "./billing-usage-route-model"');
-    expect(routeSource).not.toContain(
-      'const BILLING_USAGE_LOAD_ERROR = "Unable to load billing usage."'
+    expect(billingUsageGetSource).toContain('from "@avenire/database"');
+    expect(billingUsageGetSource).not.toContain("@/lib/billing-usage");
+    expect(readFileSync(billingUsageRouteModelFile, "utf8")).toContain(
+      'export const BILLING_USAGE_LOAD_ERROR = "Unable to load billing usage."'
     );
-    expect(existsSync(billingUsageRouteModelFile)).toBe(true);
   });
 });

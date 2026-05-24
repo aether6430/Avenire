@@ -1,8 +1,8 @@
+import { deleteIngestionDataForFile } from "@avenire/database";
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
 import { NextResponse } from "next/server";
 import { getFileAssetById, userCanEditFile } from "@/lib/file-data";
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
-import { deleteIngestionDataForFile } from "@/lib/ingestion-data";
 import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
 import {
   buildWorkspaceFileReingestStreamEvent,

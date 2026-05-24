@@ -2,11 +2,11 @@ import {
   detectMisconceptionSignals as detectMisconceptionSignalsCore,
   type MisconceptionSignalResult,
 } from "@avenire/ai/misconception-signals";
-import { getCachedToolResult } from "@/lib/ai-tool-result-cache";
 import {
   getActiveMisconceptions,
   type MisconceptionRecord,
-} from "@/lib/learning-data";
+} from "@avenire/database";
+import { getCachedToolResult } from "@/lib/ai-tool-result-cache";
 
 const MAX_ACTIVE_MISCONCEPTIONS = 32;
 const ACTIVE_MISCONCEPTION_SIGNAL_CACHE_TTL_SECONDS = 60 * 5;

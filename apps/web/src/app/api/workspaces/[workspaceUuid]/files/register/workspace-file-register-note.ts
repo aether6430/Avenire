@@ -48,6 +48,7 @@ export async function registerWorkspaceNoteFromContent(input: {
 
     await publishFilesInvalidationEvent({
       workspaceUuid: input.workspaceUuid,
+      fileId: file.id,
       folderId: input.body.folderId,
       reason: "file.created",
     });

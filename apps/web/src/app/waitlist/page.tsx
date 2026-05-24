@@ -20,7 +20,7 @@ export default async function WaitlistPage() {
       redirect("/workspace");
     }
 
-    const { getUserSettings } = await import("@/lib/user-settings");
+    const { getUserSettings } = await import("@avenire/database");
     const settings = await getUserSettings(session.user.id);
     redirect(settings.onboardingCompleted ? "/workspace" : "/onboarding");
   }

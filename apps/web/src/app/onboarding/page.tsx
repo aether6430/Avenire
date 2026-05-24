@@ -1,7 +1,7 @@
+import { getUserSettings } from "@avenire/database";
 import { redirect } from "next/navigation";
 import { OnboardingPageClient } from "@/components/auth/onboarding-page-client";
 import { buildPageMetadata } from "@/lib/page-metadata";
-import { getUserSettings } from "@/lib/user-settings";
 import { getRouteSession } from "@/lib/workspace-route-context";
 
 export const metadata = buildPageMetadata({

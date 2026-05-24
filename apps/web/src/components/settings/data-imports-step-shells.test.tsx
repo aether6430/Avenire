@@ -20,13 +20,25 @@ const {
   useDataImportsNotionMock: vi.fn(),
 }));
 
-vi.mock("@/components/settings/data-imports-google-step", () => ({
-  DataImportsGoogleStep: dataImportsGoogleStepMock,
-}));
+vi.mock("@/components/settings/data-imports-google-step", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/components/settings/data-imports-google-step")
+  >("@/components/settings/data-imports-google-step");
+  return {
+    ...actual,
+    DataImportsGoogleStep: dataImportsGoogleStepMock,
+  };
+});
 
-vi.mock("@/components/settings/data-imports-notion-step", () => ({
-  DataImportsNotionStep: dataImportsNotionStepMock,
-}));
+vi.mock("@/components/settings/data-imports-notion-step", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/components/settings/data-imports-notion-step")
+  >("@/components/settings/data-imports-notion-step");
+  return {
+    ...actual,
+    DataImportsNotionStep: dataImportsNotionStepMock,
+  };
+});
 
 vi.mock("@/components/settings/use-data-imports-google", () => ({
   useDataImportsGoogle: useDataImportsGoogleMock,
@@ -36,16 +48,23 @@ vi.mock("@/components/settings/use-data-imports-notion", () => ({
   useDataImportsNotion: useDataImportsNotionMock,
 }));
 
-import { DataImportsGoogleStepShell } from "@/components/settings/data-imports-google-step-shell";
-import { DataImportsNotionStepShell } from "@/components/settings/data-imports-notion-step-shell";
+vi.mock("@/components/settings/data-imports-shared", () => ({
+  DataImportsDestinationFields: () =>
+    createElement("div", { "data-destination-fields": "1" }),
+  ImportProviderStatusIcon: () =>
+    createElement("span", { "data-provider-icon": "1" }),
+}));
+
+import { DataImportsGoogleStepShell } from "@/components/settings/data-imports-google-step";
+import { DataImportsNotionStepShell } from "@/components/settings/data-imports-notion-step";
 
 describe("data imports step shells", () => {
   const googleStepShellSource = readFileSync(
-    resolve(import.meta.dirname, "./data-imports-google-step-shell.tsx"),
+    resolve(import.meta.dirname, "./data-imports-google-step.tsx"),
     "utf8"
   );
   const notionStepShellSource = readFileSync(
-    resolve(import.meta.dirname, "./data-imports-notion-step-shell.tsx"),
+    resolve(import.meta.dirname, "./data-imports-notion-step.tsx"),
     "utf8"
   );
 
@@ -104,14 +123,17 @@ describe("data imports step shells", () => {
       loadOverview: destinationRuntime.loadOverview,
       notionStatus: destinationRuntime.notionStatus,
     });
-    expect(googleHtml).toContain('data-google-step="1"');
-    expect(notionHtml).toContain('data-notion-step="1"');
+    expect(googleHtml).toContain("Google Drive");
+    expect(notionHtml).toContain("Notion");
+    expect(googleHtml).toContain('data-destination-fields="1"');
+    expect(notionHtml).not.toContain('data-destination-fields="1"');
     expect(googleStepShellSource).toContain(
-      'from "@/components/settings/data-imports-google-step"'
+      "export function DataImportsGoogleStepShell"
     );
     expect(googleStepShellSource).toContain(
-      'from "@/components/settings/use-data-imports-google"'
+      "export function DataImportsGoogleStep"
     );
+    expect(googleStepShellSource).toContain('from "./use-data-imports-google"');
     expect(googleStepShellSource).toContain(
       "NEXT_PUBLIC_GOOGLE_PICKER_API_KEY"
     );
@@ -119,11 +141,12 @@ describe("data imports step shells", () => {
     expect(googleStepShellSource).not.toContain("loadGooglePickerToken(");
     expect(googleStepShellSource).not.toContain("linkSocial(");
     expect(notionStepShellSource).toContain(
-      'from "@/components/settings/data-imports-notion-step"'
+      "export function DataImportsNotionStepShell"
     );
     expect(notionStepShellSource).toContain(
-      'from "@/components/settings/use-data-imports-notion"'
+      "export function DataImportsNotionStep"
     );
+    expect(notionStepShellSource).toContain('from "./use-data-imports-notion"');
     expect(notionStepShellSource).not.toContain("loadNotionImportPages(");
     expect(notionStepShellSource).not.toContain("linkSocial(");
   });

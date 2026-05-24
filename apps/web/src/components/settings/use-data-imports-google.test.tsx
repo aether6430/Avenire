@@ -15,7 +15,7 @@ const {
   selectGoogleDriveImportFileIdsMock: vi.fn(),
 }));
 
-vi.mock("@avenire/auth/app-client", () => ({
+vi.mock("@avenire/auth/client", () => ({
   linkSocial: linkSocialMock,
 }));
 

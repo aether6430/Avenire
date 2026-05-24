@@ -5,14 +5,14 @@ import {
   createUIMessageStreamResponse,
 } from "@avenire/ai";
 import type { UIMessage } from "@avenire/ai/message-types";
-import { after } from "next/server";
-import { createResumableStreamContext } from "resumable-stream";
 import {
   type createChatForUser,
   type getChatBySlugForUser,
   saveMessagesForChatSlug,
   updateChatForUser,
-} from "@/lib/chat-data";
+} from "@avenire/database";
+import { after } from "next/server";
+import { createResumableStreamContext } from "resumable-stream";
 import { invalidateChatReadCaches } from "@/lib/domain-cache";
 import type { createApiLogger } from "@/lib/observability";
 import { clearIdempotencyKey, markIdempotencyDone } from "./chat-route-cache";

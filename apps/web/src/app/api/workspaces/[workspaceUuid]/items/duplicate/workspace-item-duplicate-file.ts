@@ -4,8 +4,10 @@ import { invalidateWorkspaceReadCaches } from "@/lib/domain-cache";
 import {
   createWorkspaceNoteFile,
   getFileAssetById,
+  getFolderWithAncestors,
   getNoteContent,
   isMarkdownFileRecord,
+  isSharedFilesVirtualFolderId,
   listWorkspaceFiles,
   registerFileAsset,
 } from "@/lib/file-data";
@@ -38,6 +40,22 @@ export async function handleDuplicateWorkspaceFile(input: {
   }
 
   const targetFolderId = input.parentId ?? source.folderId;
+  if (isSharedFilesVirtualFolderId(targetFolderId, input.workspaceUuid)) {
+    return NextResponse.json(
+      { error: "Cannot create items in Shared Files" },
+      { status: 400 }
+    );
+  }
+
+  const targetFolder = await getFolderWithAncestors(
+    input.workspaceUuid,
+    targetFolderId,
+    input.userId
+  );
+  if (!targetFolder?.folder) {
+    return NextResponse.json({ error: "Folder not found" }, { status: 404 });
+  }
+
   const workspaceFiles = await listWorkspaceFiles(
     input.workspaceUuid,
     input.userId

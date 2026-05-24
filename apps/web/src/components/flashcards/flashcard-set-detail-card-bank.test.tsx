@@ -1,6 +1,13 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { FlashcardSetDetailCardBank } from "@/components/flashcards/flashcard-set-detail-card-bank";
+
+const source = readFileSync(
+  resolve(import.meta.dirname, "./flashcard-set-detail-card-bank.tsx"),
+  "utf8"
+);
 
 describe("FlashcardSetDetailCardBank", () => {
   it("renders card rows inside a real table instead of an icon", () => {
@@ -39,5 +46,11 @@ describe("FlashcardSetDetailCardBank", () => {
     expect(html).toContain("Back answer");
     expect(html).toContain("ux");
     expect(html).not.toContain("<svg><thead");
+  });
+
+  it("keeps a dedicated stacked mobile layout instead of forcing the desktop table into a narrow viewport", () => {
+    expect(source).toContain("sm:hidden");
+    expect(source).toContain("hidden sm:block");
+    expect(source).toContain("MobileCardBankRow");
   });
 });

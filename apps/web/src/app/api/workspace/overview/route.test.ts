@@ -39,7 +39,7 @@ vi.mock("@/lib/flashcards", () => ({
   resolveWeakestConceptDrillTarget: resolveWeakestConceptDrillTargetMock,
 }));
 
-vi.mock("@/lib/learning-data", () => ({
+vi.mock("@avenire/database", () => ({
   getActiveMisconceptions: getActiveMisconceptionsMock,
 }));
 

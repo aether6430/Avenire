@@ -5,21 +5,11 @@ import { resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-const {
-  DesktopStudentCalendarSurfaceMock,
-  useStudentCalendarDesktopLayoutMock,
-  useStudentCalendarDesktopMock,
-} = vi.hoisted(() => ({
-  DesktopStudentCalendarSurfaceMock: vi.fn(() => (
-    <div>DESKTOP_STUDENT_CALENDAR_SURFACE</div>
-  )),
-  useStudentCalendarDesktopMock: vi.fn(),
-  useStudentCalendarDesktopLayoutMock: vi.fn(),
-}));
-
-vi.mock("@/components/student-calendar-desktop-surface", () => ({
-  DesktopStudentCalendarSurface: DesktopStudentCalendarSurfaceMock,
-}));
+const { useStudentCalendarDesktopLayoutMock, useStudentCalendarDesktopMock } =
+  vi.hoisted(() => ({
+    useStudentCalendarDesktopMock: vi.fn(),
+    useStudentCalendarDesktopLayoutMock: vi.fn(),
+  }));
 
 vi.mock("@/components/use-student-calendar-desktop", () => ({
   useStudentCalendarDesktop: useStudentCalendarDesktopMock,
@@ -39,6 +29,10 @@ const removedWrapperFile = resolve(
   import.meta.dirname,
   "./student-calendar-desktop.tsx"
 );
+const removedSurfaceFile = resolve(
+  import.meta.dirname,
+  "./student-calendar-desktop-surface.tsx"
+);
 const studentCalendarSource = readFileSync(
   resolve(import.meta.dirname, "./student-calendar.tsx"),
   "utf8"
@@ -53,7 +47,7 @@ const studentCalendarDesktopHookSource = readFileSync(
 );
 
 describe("StudentCalendar desktop branch", () => {
-  it("wires the desktop calendar runtime straight into the desktop surface without the old wrapper file", () => {
+  it("wires the desktop calendar runtime straight into the desktop surface owned by student-calendar.tsx", () => {
     useStudentCalendarDesktopLayoutMock.mockReturnValue(true);
     useStudentCalendarDesktopMock.mockReturnValue({
       activeItems: [],
@@ -84,23 +78,15 @@ describe("StudentCalendar desktop branch", () => {
     const html = renderToStaticMarkup(<StudentCalendar />);
 
     expect(useStudentCalendarDesktopMock).toHaveBeenCalledTimes(1);
-    expect(DesktopStudentCalendarSurfaceMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        runtime: expect.objectContaining({
-          headerLabel: "May 2026",
-          mode: "month",
-          totalDue: 0,
-        }),
-      }),
-      undefined
-    );
     expect(existsSync(removedWrapperFile)).toBe(false);
-    expect(html).toContain("DESKTOP_STUDENT_CALENDAR_SURFACE");
+    expect(existsSync(removedSurfaceFile)).toBe(false);
+    expect(html).toContain("May 2026");
+    expect(html).toContain("cards due");
   });
 
-  it("keeps the calendar entrypoint on split layout/data hooks instead of the removed desktop wrapper", () => {
+  it("keeps the calendar entrypoint on split layout/data hooks with the desktop surface now owned in student-calendar.tsx", () => {
     expect(studentCalendarSource).toContain(
-      "@/components/student-calendar-desktop-surface"
+      "export function DesktopStudentCalendarSurface"
     );
     expect(studentCalendarSource).toContain(
       "@/components/student-calendar-mobile"
@@ -111,7 +97,16 @@ describe("StudentCalendar desktop branch", () => {
     expect(studentCalendarSource).toContain(
       "@/components/use-student-calendar-desktop"
     );
-    expect(studentCalendarSource).not.toContain("./student-calendar-desktop");
+    expect(studentCalendarSource).toContain("./student-calendar-desktop-grid");
+    expect(studentCalendarSource).toContain(
+      "./student-calendar-desktop-day-popover"
+    );
+    expect(studentCalendarSource).not.toContain(
+      "@/components/student-calendar-desktop-surface"
+    );
+    expect(studentCalendarSource).not.toContain(
+      "./student-calendar-desktop-surface"
+    );
 
     expect(studentCalendarDataHookSource).toContain(
       "export function useStudentCalendarDesktopLayout"

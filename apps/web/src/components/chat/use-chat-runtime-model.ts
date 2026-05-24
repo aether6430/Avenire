@@ -172,16 +172,35 @@ export function buildRegenerationRequest(
   message: SendMessageInput;
   preservedMessages: UIMessage[];
 } | null {
-  const targetIndex = messages.findIndex(
+  let targetIndex = messages.findIndex(
     (message) => message.id === assistantMessageId
   );
-  if (targetIndex <= 0 || messages[targetIndex]?.role !== "assistant") {
-    return null;
-  }
+  let userIndex = -1;
 
-  let userIndex = targetIndex - 1;
-  while (userIndex >= 0 && messages[userIndex]?.role !== "user") {
-    userIndex -= 1;
+  if (targetIndex > 0 && messages[targetIndex]?.role === "assistant") {
+    userIndex = targetIndex - 1;
+    while (userIndex >= 0 && messages[userIndex]?.role !== "user") {
+      userIndex -= 1;
+    }
+  } else {
+    const syntheticFailedReplyPrefix = "assistant-error-";
+    const syntheticDraftReplyPrefix = "assistant-draft-";
+    const syntheticUserId = assistantMessageId.startsWith(
+      syntheticFailedReplyPrefix
+    )
+      ? assistantMessageId.slice(syntheticFailedReplyPrefix.length)
+      : assistantMessageId.startsWith(syntheticDraftReplyPrefix)
+        ? assistantMessageId.slice(syntheticDraftReplyPrefix.length)
+        : null;
+
+    if (!syntheticUserId) {
+      return null;
+    }
+
+    userIndex = messages.findIndex(
+      (message) => message.id === syntheticUserId && message.role === "user"
+    );
+    targetIndex = userIndex + 1;
   }
   if (userIndex < 0) {
     return null;

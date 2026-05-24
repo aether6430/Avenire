@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -39,11 +39,15 @@ vi.mock("@/components/chat/messages-surface", () => ({
   ChatMessagesSurface: ChatMessagesSurfaceMock,
 }));
 
-import { ChatSurface } from "@/components/chat/chat-surface";
+import { ChatSurface } from "@/components/chat/chat";
 
 const removedMessagesWrapperFile = resolve(
   import.meta.dirname,
   "./messages.tsx"
+);
+const messagesSurfaceSource = readFileSync(
+  resolve(import.meta.dirname, "./messages-surface.tsx"),
+  "utf8"
 );
 
 describe("ChatSurface messages branch", () => {
@@ -126,5 +130,24 @@ describe("ChatSurface messages branch", () => {
     );
     expect(existsSync(removedMessagesWrapperFile)).toBe(false);
     expect(html).toContain("MESSAGES_SURFACE");
+  });
+
+  it("keeps short past-turn threads on a normal flow layout instead of absolute virtualization", () => {
+    expect(messagesSurfaceSource).toContain(
+      "const shouldVirtualizePastTurns = runtime.pastTurnMessages.length > 6;"
+    );
+    expect(messagesSurfaceSource).toContain(
+      '<div className="flex flex-col gap-6 pb-6">'
+    );
+    expect(messagesSurfaceSource).toContain("data-message-id={message.id}");
+  });
+
+  it("keeps the message error content aligned inside a single body row", () => {
+    expect(messagesSurfaceSource).toContain(
+      'className="flex items-start gap-3 px-4 py-3 sm:items-center"'
+    );
+    expect(messagesSurfaceSource).toContain(
+      "If the issue repeats, try again or contact support."
+    );
   });
 });

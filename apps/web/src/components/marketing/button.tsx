@@ -22,7 +22,7 @@ export const Button = <T extends React.ElementType = "button">({
     <Component
       {...props}
       className={cn(
-        "block rounded-2xl px-6 py-2 text-center font-medium text-sm transition duration-150 active:scale-[0.98] sm:text-base",
+        "inline-flex h-10 items-center justify-center rounded-[1.15rem] px-4.5 py-2 text-center font-semibold text-[15px] leading-none tracking-[-0.01em] transition duration-150 [font-family:inherit] active:scale-[0.98]",
         variant === "primary"
           ? "bg-brand text-[var(--primary-foreground)] shadow-[0_0_32px_-18px_var(--color-brand)] hover:bg-brand/90"
           : variant === "brand"

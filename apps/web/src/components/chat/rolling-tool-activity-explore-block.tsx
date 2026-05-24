@@ -9,7 +9,7 @@ import type {
   SearchPreview,
 } from "@/components/chat/rolling-tool-activity-types";
 import { cn } from "@/lib/utils";
-import { ThinkingDots } from "./rolling-reasoning";
+import { ThinkingDots } from "./rolling-reasoning-shared";
 import {
   buildOccurrenceKeys,
   ROW_HEIGHT,

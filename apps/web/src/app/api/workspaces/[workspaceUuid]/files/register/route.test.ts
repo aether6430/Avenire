@@ -50,7 +50,7 @@ vi.mock("@/lib/upload-registration", () => ({
   registerWorkspaceUploadedFile: registerWorkspaceUploadedFileMock,
 }));
 
-vi.mock("@/lib/video-delivery-optimization", () => ({
+vi.mock("@/lib/video-delivery-optimization-runtime", () => ({
   scheduleAsyncVideoDeliveryOptimization:
     scheduleAsyncVideoDeliveryOptimizationMock,
 }));
@@ -259,6 +259,16 @@ describe("/api/workspaces/[workspaceUuid]/files/register route", () => {
       },
     });
     expect(publishFilesInvalidationEventMock).toHaveBeenCalledTimes(2);
+    expect(publishFilesInvalidationEventMock).toHaveBeenNthCalledWith(1, {
+      fileId: "file-1",
+      folderId: "folder-1",
+      reason: "file.created",
+      workspaceUuid: WORKSPACE_UUID,
+    });
+    expect(publishFilesInvalidationEventMock).toHaveBeenNthCalledWith(2, {
+      reason: "tree.changed",
+      workspaceUuid: WORKSPACE_UUID,
+    });
     expect(invalidateWorkspaceReadCachesMock).toHaveBeenCalledWith(
       WORKSPACE_UUID
     );

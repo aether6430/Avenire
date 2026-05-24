@@ -18,6 +18,10 @@ const {
   userCanEditFileMock: vi.fn(),
 }));
 
+vi.mock("@avenire/database", () => ({
+  deleteIngestionDataForFile: deleteIngestionDataForFileMock,
+}));
+
 vi.mock("@avenire/ingestion/queue", () => ({
   scheduleIngestionJob: scheduleIngestionJobMock,
 }));
@@ -29,10 +33,6 @@ vi.mock("@/lib/file-data", () => ({
 
 vi.mock("@/lib/files-realtime-publisher", () => ({
   publishFilesInvalidationEvent: publishFilesInvalidationEventMock,
-}));
-
-vi.mock("@/lib/ingestion-data", () => ({
-  deleteIngestionDataForFile: deleteIngestionDataForFileMock,
 }));
 
 vi.mock("@/lib/workspace", () => ({

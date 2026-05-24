@@ -48,7 +48,7 @@ vi.mock("@/lib/billing-metering", () => ({
   consumeChatUnits: consumeChatUnitsMock,
 }));
 
-vi.mock("@/lib/chat-data", () => ({
+vi.mock("@avenire/database", () => ({
   createChatForUser: createChatForUserMock,
   getChatBySlugForUser: getChatBySlugForUserMock,
   getWritableChatBySlugForUser: getWritableChatBySlugForUserMock,

@@ -1,6 +1,8 @@
-import { recomputeConceptMastery } from "@avenire/database";
+import {
+  recomputeConceptMastery,
+  upsertMisconception,
+} from "@avenire/database";
 import { NextResponse } from "next/server";
-import { upsertMisconception } from "@/lib/learning-data";
 import type { CaptureRequestBody } from "./capture-route-model";
 import {
   CAPTURE_MISCONCEPTION_ERROR,

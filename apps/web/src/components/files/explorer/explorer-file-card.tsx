@@ -179,15 +179,13 @@ export function ExplorerFileCard({
           onPointerUp={onPointerUp}
           ref={rowRef}
           style={{
-            containIntrinsicSize: "214px 160px",
-            contentVisibility: "auto",
             width: isSearchFilteredView ? "100%" : 160,
           }}
           tabIndex={0}
           {...dragProps}
         >
           <div
-            className="absolute top-2 left-2 z-20 rounded-md bg-background/90 p-1 shadow-sm backdrop-blur-sm"
+            className="absolute top-2 left-2 z-20"
             data-selection-control="true"
             onClickCapture={selectionControlCaptureProps.onClickCapture}
             onMouseDownCapture={selectionControlCaptureProps.onMouseDownCapture}

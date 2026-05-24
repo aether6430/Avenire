@@ -1,5 +1,6 @@
 "use client";
 
+import type { MisconceptionRecord } from "@avenire/database";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import {
@@ -18,7 +19,6 @@ import {
   resolveDashboardActivityErrorMessage,
 } from "@/components/dashboard/dashboard-home-model";
 import { prefetchFlashcardSet } from "@/lib/flashcard-browser-cache";
-import type { MisconceptionRecord } from "@/lib/learning-data";
 import { buildWorkspaceGreeting } from "@/lib/workspace-greeting";
 import {
   useCurrentWorkspacePaneCompact,

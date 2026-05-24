@@ -36,21 +36,18 @@ const {
 
 vi.mock("@avenire/database", () => ({
   getLatestSessionSummaryForChat: getLatestSessionSummaryForChatMock,
+  saveMessagesForChatSlug: saveMessagesForChatSlugMock,
 }));
 
 vi.mock("@/lib/billing-metering", () => ({
   consumeChatUnits: consumeChatUnitsMock,
 }));
 
-vi.mock("@/lib/chat-data", () => ({
-  saveMessagesForChatSlug: saveMessagesForChatSlugMock,
-}));
-
 vi.mock("@/lib/domain-cache", () => ({
   invalidateChatReadCaches: invalidateChatReadCachesMock,
 }));
 
-vi.mock("@/lib/session-summaries", () => ({
+vi.mock("@/lib/session-summary-runtime", () => ({
   persistSessionSummaryForCompletedTurn:
     persistSessionSummaryForCompletedTurnMock,
 }));
@@ -162,6 +159,56 @@ describe("chat route persisted finish", () => {
     expect(markIdempotencyDoneMock).toHaveBeenCalledWith("idem-1", "chat-1");
   });
 
+  it("keeps summary persistence, usage accounting, and cleanup running when chat cache invalidation fails", async () => {
+    invalidateChatReadCachesMock.mockRejectedValueOnce(
+      new Error("chat finish cache offline")
+    );
+    const apiLogger = {
+      featureUsed: vi.fn(),
+      meter: vi.fn(),
+    };
+
+    await handlePersistedChatStreamFinish({
+      apiLogger: apiLogger as never,
+      chat: {
+        id: "chat-db-1",
+        lastMessageAt: "2026-05-17T12:00:00.000Z",
+      } as never,
+      chatSlug: "chat-1",
+      idempotencyLockAcquired: true,
+      idempotencyRedisKey: "idem-1",
+      isContinuation: false,
+      messages: [{ id: "assistant-1", role: "assistant" }] as never,
+      originalMessages: [{ id: "user-1", role: "user" }] as never,
+      requestStartedAt: new Date("2026-05-18T00:00:00.000Z"),
+      responseMessage: { id: "assistant-1", role: "assistant" } as never,
+      expectedCredits: 1,
+      result: {
+        totalUsage: Promise.resolve({
+          inputTokens: 1500,
+          outputTokens: 1000,
+        }),
+      },
+      selectedModel: "apollo-apex",
+      sessionUser: { id: "user-1" },
+      streamId: "stream-1",
+      workspace: { workspaceId: "workspace-1" },
+    });
+
+    expect(invalidateChatReadCachesMock).toHaveBeenCalledWith("workspace-1");
+    expect(logErrorMock).toHaveBeenCalledWith(
+      "Failed to invalidate chat read caches after stream",
+      expect.objectContaining({
+        chatId: "chat-1",
+        workspaceId: "workspace-1",
+      })
+    );
+    expect(persistSessionSummaryForCompletedTurnMock).toHaveBeenCalled();
+    expect(consumeChatUnitsMock).toHaveBeenCalledWith("user-1", 2);
+    expect(clearActiveStreamIdMock).toHaveBeenCalledWith("chat-1", "stream-1");
+    expect(markIdempotencyDoneMock).toHaveBeenCalledWith("idem-1", "chat-1");
+  });
+
   it("skips stale streams but still clears active stream state and idempotency markers", async () => {
     getActiveStreamIdMock.mockResolvedValue("different-stream");
     const apiLogger = {
@@ -193,5 +240,50 @@ describe("chat route persisted finish", () => {
     expect(saveMessagesForChatSlugMock).not.toHaveBeenCalled();
     expect(clearActiveStreamIdMock).toHaveBeenCalledWith("chat-2", "stream-1");
     expect(markIdempotencyDoneMock).toHaveBeenCalledWith("idem-2", "chat-2");
+  });
+
+  it("keeps idempotency completion running when stream cleanup fails in finally", async () => {
+    clearActiveStreamIdMock.mockRejectedValueOnce(
+      new Error("finish cleanup offline")
+    );
+    const apiLogger = {
+      featureUsed: vi.fn(),
+      meter: vi.fn(),
+    };
+
+    await handlePersistedChatStreamFinish({
+      apiLogger: apiLogger as never,
+      chat: {
+        id: "chat-db-1",
+        lastMessageAt: "2026-05-17T12:00:00.000Z",
+      } as never,
+      chatSlug: "chat-1",
+      idempotencyLockAcquired: true,
+      idempotencyRedisKey: "idem-1",
+      isContinuation: false,
+      messages: [{ id: "assistant-1", role: "assistant" }] as never,
+      originalMessages: [{ id: "user-1", role: "user" }] as never,
+      requestStartedAt: new Date("2026-05-18T00:00:00.000Z"),
+      responseMessage: { id: "assistant-1", role: "assistant" } as never,
+      expectedCredits: 1,
+      result: {
+        totalUsage: Promise.resolve({
+          inputTokens: 1500,
+          outputTokens: 1000,
+        }),
+      },
+      selectedModel: "apollo-apex",
+      sessionUser: { id: "user-1" },
+      streamId: "stream-1",
+      workspace: { workspaceId: "workspace-1" },
+    });
+
+    expect(logErrorMock).toHaveBeenCalledWith(
+      "Failed to clear active stream id after finish",
+      expect.objectContaining({
+        chatId: "chat-1",
+      })
+    );
+    expect(markIdempotencyDoneMock).toHaveBeenCalledWith("idem-1", "chat-1");
   });
 });

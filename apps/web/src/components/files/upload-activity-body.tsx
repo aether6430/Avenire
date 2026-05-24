@@ -3,6 +3,7 @@
 import { Button } from "@avenire/ui/components/button";
 import { DrawerClose } from "@avenire/ui/components/drawer";
 import {
+  Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
@@ -16,7 +17,6 @@ import {
   X,
   XCircle,
 } from "@phosphor-icons/react";
-import { Empty } from "@phosphor-icons/react/Empty";
 import { Warning as AlertCircle } from "@phosphor-icons/react/Warning";
 import type { FilesActivityItem } from "@/stores/filesActivityStore";
 import {

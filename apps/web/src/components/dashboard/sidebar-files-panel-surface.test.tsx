@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { SidebarFilesPanelSurface } from "@/components/dashboard/sidebar-files-panel-surface";
+import { SidebarFilesPanelSurface } from "@/components/dashboard/sidebar-files-panel";
 
 vi.mock("@/components/dashboard/sidebar-files-panel-actions-section", () => ({
   SidebarFilesPanelActionsSection: () => <div data-actions="1" />,

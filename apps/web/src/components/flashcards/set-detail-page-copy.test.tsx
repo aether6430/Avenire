@@ -21,11 +21,11 @@ const setDetailHookSource = readFileSync(
   resolve(import.meta.dirname, "./use-flashcard-set-detail.tsx"),
   "utf8"
 );
-const setDetailSurfaceSource = readFileSync(
-  resolve(import.meta.dirname, "./flashcard-set-detail-surface.tsx"),
-  "utf8"
-);
 const removedWrapperFile = resolve(import.meta.dirname, "./set-detail.tsx");
+const removedSurfaceFile = resolve(
+  import.meta.dirname,
+  "./flashcard-set-detail-surface.tsx"
+);
 
 describe("FlashcardSetPageClient copy", () => {
   it("uses product-facing recovery copy when the mindset set id is invalid", () => {
@@ -43,21 +43,19 @@ describe("FlashcardSetPageClient copy", () => {
     );
     expect(html).not.toContain("opening the set again");
     expect(setDetailPageSource).toContain(
-      'from "@/components/flashcards/flashcard-set-detail-surface"'
-    );
-    expect(setDetailPageSource).toContain(
       'from "@/components/flashcards/use-flashcard-set-detail"'
+    );
+    expect(setDetailPageSource).not.toContain(
+      'from "@/components/flashcards/flashcard-set-detail-surface"'
     );
     expect(setDetailPageSource).not.toContain(
       'from "@/components/flashcards/set-detail"'
     );
     expect(existsSync(removedWrapperFile)).toBe(false);
+    expect(existsSync(removedSurfaceFile)).toBe(false);
   });
 
-  it("keeps set-detail ownership split between page gating, runtime hook composition, and presentational surface", () => {
-    expect(setDetailPageSource).toContain(
-      'from "@/components/flashcards/flashcard-set-detail-surface"'
-    );
+  it("keeps set-detail ownership split between page gating, runtime hook composition, and presentational shell in the owner file", () => {
     expect(setDetailPageSource).toContain(
       'from "@/components/flashcards/use-flashcard-set-detail"'
     );
@@ -80,10 +78,10 @@ describe("FlashcardSetPageClient copy", () => {
     expect(setDetailHookSource).not.toContain("HeaderTitle");
     expect(setDetailHookSource).not.toContain("<FlashcardSetDetailCardBank");
 
-    expect(setDetailSurfaceSource).toContain("FlashcardSetDetailActions");
-    expect(setDetailSurfaceSource).toContain("FlashcardSetDetailCardBank");
-    expect(setDetailSurfaceSource).toContain("FlashcardSetDetailStudyRuntime");
-    expect(setDetailSurfaceSource).not.toContain("loadFlashcardReviewSession(");
-    expect(setDetailSurfaceSource).not.toContain("submitFlashcardCardReview(");
+    expect(setDetailPageSource).toContain("FlashcardSetDetailActions");
+    expect(setDetailPageSource).toContain("FlashcardSetDetailCardBank");
+    expect(setDetailPageSource).toContain("FlashcardSetDetailStudyRuntime");
+    expect(setDetailPageSource).not.toContain("loadFlashcardReviewSession(");
+    expect(setDetailPageSource).not.toContain("submitFlashcardCardReview(");
   });
 });

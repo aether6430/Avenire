@@ -1,4 +1,5 @@
 import {
+  adjustMisconceptionConfidenceForConcept,
   improveMisconceptionsForConcept,
   recomputeConceptMastery,
 } from "@avenire/database";
@@ -20,6 +21,7 @@ export async function handleMisconceptionImproveRoutePost(input: {
   const parsed = parseMisconceptionImproveInput(
     (await input.request.json().catch(() => ({}))) as {
       concept?: unknown;
+      delta?: unknown;
       decay?: unknown;
       resolveThreshold?: unknown;
       subject?: unknown;
@@ -31,11 +33,25 @@ export async function handleMisconceptionImproveRoutePost(input: {
   }
 
   try {
-    const improved = await improveMisconceptionsForConcept({
-      ...parsed.data,
-      userId: ctx.user.id,
-      workspaceId: ctx.workspace.workspaceId,
-    });
+    const improved =
+      typeof parsed.data.delta === "number"
+        ? await adjustMisconceptionConfidenceForConcept({
+            concept: parsed.data.concept,
+            delta: parsed.data.delta,
+            subject: parsed.data.subject,
+            topic: parsed.data.topic,
+            userId: ctx.user.id,
+            workspaceId: ctx.workspace.workspaceId,
+          })
+        : await improveMisconceptionsForConcept({
+            concept: parsed.data.concept,
+            decay: parsed.data.decay,
+            resolveThreshold: parsed.data.resolveThreshold,
+            subject: parsed.data.subject,
+            topic: parsed.data.topic,
+            userId: ctx.user.id,
+            workspaceId: ctx.workspace.workspaceId,
+          });
 
     await recomputeConceptMastery({
       concept: parsed.data.concept,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getSidebarTaskPreviewState } from "./sidebar-task-preview-model";
+import { getSidebarTaskPreviewState } from "./sidebar-task-preview";
 
 describe("sidebar task preview model", () => {
   it("keeps sidebar task preview load failure distinct from an empty due/upcoming state", () => {

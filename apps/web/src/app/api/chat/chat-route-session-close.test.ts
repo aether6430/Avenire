@@ -29,15 +29,12 @@ const {
 }));
 
 vi.mock("@avenire/database", () => ({
-  getLatestSessionSummaryForChat: getLatestSessionSummaryForChatMock,
-}));
-
-vi.mock("@/lib/chat-data", () => ({
   getChatBySlugForUser: getChatBySlugForUserMock,
+  getLatestSessionSummaryForChat: getLatestSessionSummaryForChatMock,
   getMessagesByChatSlugForUser: getMessagesByChatSlugForUserMock,
 }));
 
-vi.mock("@/lib/session-summaries", () => ({
+vi.mock("@/lib/session-summary-runtime", () => ({
   persistSessionSummaryForCompletedTurn:
     persistSessionSummaryForCompletedTurnMock,
 }));
@@ -135,6 +132,34 @@ describe("chat route session close", () => {
     );
   });
 
+  it("keeps session-close processing running when the dedupe key write fails", async () => {
+    markSessionCloseSeenMock.mockRejectedValueOnce(
+      new Error("session-close dedupe offline")
+    );
+    const apiLogger = createApiLoggerStub();
+
+    const response = await handleSessionCloseChatRequest({
+      apiLogger: apiLogger as never,
+      chatId: "chat-1",
+      sessionId: "session-1",
+      userId: "user-1",
+      workspaceId: "workspace-1",
+    });
+
+    expect(response.status).toBe(202);
+    await expect(response.json()).resolves.toEqual({ ok: true });
+    expect(logWarnMock).toHaveBeenCalledWith(
+      "Failed to mark session close dedupe key; continuing",
+      expect.objectContaining({
+        chatId: "chat-1",
+        error: "session-close dedupe offline",
+        sessionId: "session-1",
+        workspaceId: "workspace-1",
+      })
+    );
+    expect(persistSessionSummaryForCompletedTurnMock).toHaveBeenCalled();
+  });
+
   it("returns 404 for missing chats and ignores empty message histories", async () => {
     const apiLogger = createApiLoggerStub();
     getChatBySlugForUserMock.mockResolvedValueOnce(null);
@@ -164,6 +189,7 @@ describe("chat route session close", () => {
       ok: true,
       ignored: true,
     });
+    expect(markSessionCloseSeenMock).not.toHaveBeenCalled();
   });
 
   it("persists a forced session summary boundary and tolerates latest-summary lookup failures", async () => {
@@ -199,5 +225,25 @@ describe("chat route session close", () => {
         error: "summary failed",
       })
     );
+  });
+
+  it("does not burn the dedupe key when chat message loading fails before session-close processing starts", async () => {
+    getMessagesByChatSlugForUserMock.mockRejectedValueOnce(
+      new Error("session-close messages offline")
+    );
+    const apiLogger = createApiLoggerStub();
+
+    await expect(
+      handleSessionCloseChatRequest({
+        apiLogger: apiLogger as never,
+        chatId: "chat-1",
+        sessionId: "session-1",
+        userId: "user-1",
+        workspaceId: "workspace-1",
+      })
+    ).rejects.toThrow("session-close messages offline");
+
+    expect(markSessionCloseSeenMock).not.toHaveBeenCalled();
+    expect(persistSessionSummaryForCompletedTurnMock).not.toHaveBeenCalled();
   });
 });

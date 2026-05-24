@@ -98,6 +98,9 @@ describe("GET /api/workspace/bootstrap", () => {
     const response = await GET();
 
     await expect(response.json()).resolves.toEqual({
+      ai: {
+        apexTurboAvailable: false,
+      },
       user: {
         email: "dev@avenire.local",
         id: "user-1",
@@ -143,6 +146,9 @@ describe("GET /api/workspace/bootstrap", () => {
     const response = await GET();
 
     await expect(response.json()).resolves.toEqual({
+      ai: {
+        apexTurboAvailable: false,
+      },
       user: {
         email: "dev@avenire.local",
         id: "user-1",

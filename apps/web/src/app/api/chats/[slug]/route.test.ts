@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
+  afterMock,
   authGetSessionMock,
   branchChatForUserMock,
   deleteChatForUserMock,
@@ -13,6 +14,7 @@ const {
   publishWorkspaceStreamEventMock,
   updateChatForUserMock,
 } = vi.hoisted(() => ({
+  afterMock: vi.fn(),
   authGetSessionMock: vi.fn(),
   branchChatForUserMock: vi.fn(),
   deleteChatForUserMock: vi.fn(),
@@ -38,7 +40,17 @@ vi.mock("next/headers", () => ({
   headers: headersMock,
 }));
 
-vi.mock("@/lib/chat-data", () => ({
+vi.mock("next/server", async () => {
+  const actual =
+    await vi.importActual<typeof import("next/server")>("next/server");
+
+  return {
+    ...actual,
+    after: afterMock,
+  };
+});
+
+vi.mock("@avenire/database", () => ({
   branchChatForUser: branchChatForUserMock,
   deleteChatForUser: deleteChatForUserMock,
   getChatBySlugForUser: getChatBySlugForUserMock,
@@ -106,6 +118,7 @@ async function readRouteError(response: Response | undefined) {
 describe("/api/chats/[slug] route", () => {
   beforeEach(() => {
     authGetSessionMock.mockReset();
+    afterMock.mockReset();
     branchChatForUserMock.mockReset();
     deleteChatForUserMock.mockReset();
     getChatBySlugForUserMock.mockReset();
@@ -118,6 +131,11 @@ describe("/api/chats/[slug] route", () => {
     updateChatForUserMock.mockReset();
 
     headersMock.mockResolvedValue(new Headers());
+    afterMock.mockImplementation(
+      async (callback: () => Promise<void> | void) => {
+        await callback();
+      }
+    );
     publishWorkspaceStreamEventMock.mockResolvedValue(undefined);
   });
 
@@ -325,6 +343,35 @@ describe("/api/chats/[slug] route", () => {
     expect(publishWorkspaceStreamEventMock).not.toHaveBeenCalled();
   });
 
+  it("keeps PATCH successful when deferred invalidation follow-up fails", async () => {
+    mockAuthorizedChatAccess(true);
+    updateChatForUserMock.mockResolvedValue({
+      ...CHAT_RECORD,
+      title: "New title",
+    });
+    invalidateChatReadCachesMock.mockRejectedValueOnce(
+      new Error("chat patch cache offline")
+    );
+    publishWorkspaceStreamEventMock.mockRejectedValueOnce(
+      new Error("chat patch event offline")
+    );
+
+    const response = await PATCH(
+      routeRequest("PATCH", { title: "New title" }),
+      CHAT_ROUTE_PARAMS
+    );
+
+    assertResponseDefined(response);
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      chat: {
+        ...CHAT_RECORD,
+        title: "New title",
+      },
+    });
+    expect(afterMock).toHaveBeenCalledTimes(1);
+  });
+
   it("returns read-only method from POST when the user is not the owner", async () => {
     mockAuthorizedChatAccess(false);
 
@@ -399,6 +446,32 @@ describe("/api/chats/[slug] route", () => {
     expect(publishWorkspaceStreamEventMock).not.toHaveBeenCalled();
   });
 
+  it("keeps POST branching successful when deferred invalidation follow-up fails", async () => {
+    mockAuthorizedChatAccess(true);
+    branchChatForUserMock.mockResolvedValue({
+      slug: "chat-2",
+      workspaceId: "workspace-1",
+    });
+    invalidateChatReadCachesMock.mockRejectedValueOnce(
+      new Error("chat branch cache offline")
+    );
+    publishWorkspaceStreamEventMock.mockRejectedValueOnce(
+      new Error("chat branch event offline")
+    );
+
+    const response = await POST(routeRequest("POST"), CHAT_ROUTE_PARAMS);
+
+    assertResponseDefined(response);
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toEqual({
+      chat: {
+        slug: "chat-2",
+        workspaceId: "workspace-1",
+      },
+    });
+    expect(afterMock).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     {
       expected: { error: "Read-only Method", status: 403 },
@@ -470,5 +543,23 @@ describe("/api/chats/[slug] route", () => {
     });
     expect(invalidateChatReadCachesMock).not.toHaveBeenCalled();
     expect(publishWorkspaceStreamEventMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps DELETE successful when deferred invalidation follow-up fails", async () => {
+    mockAuthorizedChatAccess(true);
+    deleteChatForUserMock.mockResolvedValue(CHAT_RECORD);
+    invalidateChatReadCachesMock.mockRejectedValueOnce(
+      new Error("chat delete cache offline")
+    );
+    publishWorkspaceStreamEventMock.mockRejectedValueOnce(
+      new Error("chat delete event offline")
+    );
+
+    const response = await DELETE(routeRequest("DELETE"), CHAT_ROUTE_PARAMS);
+
+    assertResponseDefined(response);
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ ok: true });
+    expect(afterMock).toHaveBeenCalledTimes(1);
   });
 });

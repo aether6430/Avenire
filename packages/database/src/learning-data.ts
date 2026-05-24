@@ -28,8 +28,15 @@ export type MisconceptionEvidenceClass =
   | "session"
   | "tool";
 
+export interface MisconceptionBlocks {
+  correctedMentalModel?: string;
+  explanation?: string;
+  summary?: string;
+}
+
 export interface MisconceptionRecord {
   active: boolean;
+  blocks: MisconceptionBlocks | null;
   concept: string;
   confidence: number;
   createdAt: string;
@@ -82,6 +89,7 @@ export interface ConceptMasterySubjectRecord {
 }
 
 export interface UpsertMisconceptionInput {
+  blocks?: MisconceptionBlocks | null;
   concept: string;
   confidence?: number;
   evidenceClass?: MisconceptionEvidenceClass | string;
@@ -135,6 +143,24 @@ export interface ImproveMisconceptionForConceptInput {
   decay?: number;
   observedAt?: Date;
   resolveThreshold?: number;
+  subject?: string;
+  topic?: string;
+  userId: string;
+  workspaceId?: string | null;
+}
+
+export interface AdjustMisconceptionConfidenceForConceptInput {
+  concept: string;
+  delta: number;
+  observedAt?: Date;
+  subject?: string;
+  topic?: string;
+  userId: string;
+  workspaceId?: string | null;
+}
+
+export interface DeleteMisconceptionsForConceptInput {
+  concept: string;
   subject?: string;
   topic?: string;
   userId: string;
@@ -399,10 +425,34 @@ const normalizeNullableJson = (
     ? (value as Record<string, unknown>)
     : null;
 
+const normalizeMisconceptionBlocks = (
+  value: unknown
+): MisconceptionBlocks | null => {
+  if (!(value && typeof value === "object" && !Array.isArray(value))) {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const summary = normalizeText(record.summary, 360);
+  const correctedMentalModel = normalizeText(record.correctedMentalModel, 600);
+  const explanation = normalizeText(record.explanation, 700);
+
+  if (!(summary || correctedMentalModel || explanation)) {
+    return null;
+  }
+
+  return {
+    ...(summary ? { summary } : {}),
+    ...(correctedMentalModel ? { correctedMentalModel } : {}),
+    ...(explanation ? { explanation } : {}),
+  };
+};
+
 const mapMisconceptionRow = (
   row: typeof misconception.$inferSelect
 ): MisconceptionRecord => ({
   active: row.active,
+  blocks: normalizeMisconceptionBlocks(row.blocks),
   decayedAt: row.decayedAt?.toISOString() ?? null,
   confidence: row.confidence,
   concept: row.concept,
@@ -513,6 +563,8 @@ export async function upsertMisconception(
     throw new Error("Missing required taxonomy fields.");
   }
   const reason = normalizeRequiredText(input.reason, "reason", 600);
+  const blocks = normalizeMisconceptionBlocks(input.blocks);
+  const blocksJson = (blocks ?? {}) as Record<string, unknown>;
   const confidence = normalizeScore(input.confidence);
   const source = input.source ?? "review";
   const evidenceClass =
@@ -562,6 +614,7 @@ export async function upsertMisconception(
             .insert(misconception)
             .values({
               active: isActiveMisconceptionStatus(baseStatus),
+              blocks: blocksJson,
               confidence: confidence ?? 0,
               concept,
               decayedAt: null,
@@ -649,6 +702,9 @@ export async function upsertMisconception(
         .update(misconception)
         .set({
           active: isActiveMisconceptionStatus(nextStatus),
+          blocks: (blocks ??
+            normalizeMisconceptionBlocks(persisted.blocks) ??
+            {}) as Record<string, unknown>,
           confidence: nextConfidence,
           concept,
           decayedAt: null,
@@ -928,6 +984,95 @@ export async function improveMisconceptionsForConcept(
         concept,
         decay,
         resolvedCount: rows.filter((row) => row.status === "decayed").length,
+        subject: subject ?? null,
+        topic: topic ?? null,
+        userId: input.userId,
+        workspaceId: input.workspaceId ?? null,
+      },
+    });
+  }
+
+  return rows.map(mapMisconceptionRow);
+}
+
+export async function adjustMisconceptionConfidenceForConcept(
+  input: AdjustMisconceptionConfidenceForConceptInput
+): Promise<MisconceptionRecord[]> {
+  const taxonomy = normalizeCanonicalTaxonomy({
+    concept: input.concept,
+    subject: input.subject,
+    topic: input.topic,
+  });
+  const concept = taxonomy.concept;
+  const subject = taxonomy.subject ?? null;
+  const topic = taxonomy.topic ?? null;
+  if (!concept) {
+    throw new Error("Missing required field: concept.");
+  }
+
+  const delta = Math.min(0.5, Math.max(-0.5, input.delta));
+  const observedAt = input.observedAt ?? new Date();
+  const nextConfidence = sql<number>`least(1, greatest(0, ${misconception.confidence} + ${delta}))`;
+
+  const rows = await db
+    .update(misconception)
+    .set({
+      confidence: nextConfidence,
+      updatedAt: observedAt,
+    })
+    .where(
+      and(
+        eq(misconception.userId, input.userId),
+        input.workspaceId
+          ? eq(misconception.workspaceId, input.workspaceId)
+          : undefined,
+        inArray(misconception.status, ["candidate", "confirmed"]),
+        eq(misconception.concept, concept),
+        subject ? eq(misconception.subject, subject) : undefined,
+        topic ? eq(misconception.topic, topic) : undefined
+      )
+    )
+    .returning();
+
+  return rows.map(mapMisconceptionRow);
+}
+
+export async function deleteMisconceptionsForConcept(
+  input: DeleteMisconceptionsForConceptInput
+): Promise<MisconceptionRecord[]> {
+  const taxonomy = normalizeCanonicalTaxonomy({
+    concept: input.concept,
+    subject: input.subject,
+    topic: input.topic,
+  });
+  const concept = taxonomy.concept;
+  const subject = taxonomy.subject ?? null;
+  const topic = taxonomy.topic ?? null;
+  if (!concept) {
+    throw new Error("Missing required field: concept.");
+  }
+
+  const rows = await db
+    .delete(misconception)
+    .where(
+      and(
+        eq(misconception.userId, input.userId),
+        input.workspaceId
+          ? eq(misconception.workspaceId, input.workspaceId)
+          : undefined,
+        eq(misconception.concept, concept),
+        subject ? eq(misconception.subject, subject) : undefined,
+        topic ? eq(misconception.topic, topic) : undefined
+      )
+    )
+    .returning();
+
+  if (rows.length > 0) {
+    logInfo({
+      eventName: "misconception.deleted",
+      payload: {
+        concept,
+        count: rows.length,
         subject: subject ?? null,
         topic: topic ?? null,
         userId: input.userId,

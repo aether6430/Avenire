@@ -1,9 +1,4 @@
 import {
-  ensurePolarCustomer,
-  getActiveSubscriptionForExternalCustomer,
-  mapProductIdToPlan,
-} from "@avenire/payments";
-import {
   type BillingFeature,
   type BillingPlan,
   canStoreBytesForUser,
@@ -15,9 +10,14 @@ import {
   upsertBillingCustomer,
   upsertBillingSubscription,
   userHasBillingFeature,
-} from "@/lib/database-billing";
+} from "@avenire/database";
+import {
+  ensurePolarCustomer,
+  getActiveSubscriptionForExternalCustomer,
+  mapProductIdToPlan,
+} from "@avenire/payments";
 
-export { getUserUsageOverview } from "@/lib/billing-usage";
+export { getUsageOverview as getUserUsageOverview } from "@avenire/database";
 export { applyPolarWebhookEvent } from "@/lib/billing-webhook";
 
 function toBillingPlan(input: string | null | undefined): BillingPlan {

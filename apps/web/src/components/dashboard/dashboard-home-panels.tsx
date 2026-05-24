@@ -1,7 +1,9 @@
 "use client";
 
+import type { MisconceptionRecord } from "@avenire/database";
 import { Badge } from "@avenire/ui/components/badge";
 import {
+  Empty,
   EmptyContent,
   EmptyDescription,
   EmptyHeader,
@@ -20,13 +22,11 @@ import {
   Warning as TriangleAlert,
 } from "@phosphor-icons/react";
 import { ArrowRight } from "@phosphor-icons/react/ArrowRight";
-import { Empty } from "@phosphor-icons/react/Empty";
 import type { Route } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { prefetchFlashcardSet } from "@/lib/flashcard-browser-cache";
 import type { ConceptDrillTarget, FlashcardSetSummary } from "@/lib/flashcards";
-import type { MisconceptionRecord } from "@/lib/learning-data";
 import type { ActivityEvent, WeakPointGroup } from "./dashboard-home-model";
 import {
   buildDashboardDrillQuery,

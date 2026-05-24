@@ -17,11 +17,11 @@ export function MarkdownThumbnail({
 
   return (
     <div
-      className={cn(THUMBNAIL_SURFACE_CLASS, "bg-[#151515] p-1.5", className)}
+      className={cn(THUMBNAIL_SURFACE_CLASS, "bg-muted/65 p-1.5", className)}
     >
       {markdownContent ? (
-        <div className="flex h-full w-full flex-col overflow-hidden rounded-[5px] border border-white/8 bg-[#191919]">
-          <div className="flex h-6 shrink-0 items-center gap-1.5 border-white/8 border-b px-2">
+        <div className="flex h-full w-full flex-col overflow-hidden rounded-[5px] border border-border/60 bg-background/95 shadow-sm">
+          <div className="flex h-6 shrink-0 items-center gap-1.5 border-border/60 border-b px-2">
             <div className="size-1.5 rounded-sm bg-muted-foreground/35" />
             <div className="h-1.5 w-14 rounded-sm bg-muted-foreground/25" />
           </div>
@@ -34,7 +34,7 @@ export function MarkdownThumbnail({
               return (
                 <div
                   className={cn(
-                    "flex items-center border-white/8 border-b px-2",
+                    "flex items-center border-border/50 border-b px-2",
                     column > 0 && "border-l",
                     row === 3 && "border-b-0"
                   )}

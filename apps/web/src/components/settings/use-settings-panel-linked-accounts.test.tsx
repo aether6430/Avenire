@@ -9,7 +9,7 @@ const { linkSocialMock, listAccountsMock, unlinkAccountMock } = vi.hoisted(
   })
 );
 
-vi.mock("@avenire/auth/app-client", () => ({
+vi.mock("@avenire/auth/client", () => ({
   linkSocial: linkSocialMock,
   listAccounts: listAccountsMock,
   unlinkAccount: unlinkAccountMock,

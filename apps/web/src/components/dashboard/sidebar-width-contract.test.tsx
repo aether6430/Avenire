@@ -9,12 +9,19 @@ describe("sidebar width contract", () => {
     ];
 
     for (const relativePath of files) {
-      const source = readFileSync(new URL(relativePath, import.meta.url), "utf8");
+      const source = readFileSync(
+        new URL(relativePath, import.meta.url),
+        "utf8"
+      );
 
       expect(source).not.toContain("w-(--sidebar-width)");
       expect(source).not.toContain("w-(--sidebar-width-icon)");
+      expect(source).not.toContain("(--spacing(4))");
       expect(source).toContain("w-[var(--sidebar-width)]");
       expect(source).toContain("w-[var(--sidebar-width-icon)]");
+      expect(source).toContain("calc(");
+      expect(source).toContain("SIDEBAR_WIDTH_ICON");
+      expect(source).toContain("1rem");
     }
   });
 });

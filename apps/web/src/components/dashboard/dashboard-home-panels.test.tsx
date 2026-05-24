@@ -53,6 +53,28 @@ describe("DashboardHomeColumns", () => {
       />
     );
 
+    const misconceptionsHtml = renderToStaticMarkup(
+      <DashboardHomeColumns
+        activeMisconceptions={[]}
+        activities={[]}
+        activityErrorMessage={null}
+        activityLoadFailed={false}
+        currentUserId="user-1"
+        DashboardTaskManager={() => <div>tasks</div>}
+        flashcardSets={[]}
+        homeTab="tasks"
+        insightsTab="misconceptions"
+        loadingActivities={false}
+        onHomeTabChange={() => {}}
+        onInsightsTabChange={() => {}}
+        onSelectMisconception={() => {}}
+        onStartReview={() => {}}
+        weakestDrillTarget={null}
+        weakPointGroups={[]}
+        workspaceId="workspace-1"
+      />
+    );
+
     const upcomingHtml = renderToStaticMarkup(
       <DashboardHomeColumns
         activeMisconceptions={[]}
@@ -76,6 +98,8 @@ describe("DashboardHomeColumns", () => {
     );
 
     expect(weakPointsHtml).toContain("No recent concepts yet");
+    expect(weakPointsHtml).toContain('data-slot="empty"');
+    expect(misconceptionsHtml).toContain('data-slot="empty"');
     expect(upcomingHtml).toContain("Nothing is waiting right now.");
   });
 });

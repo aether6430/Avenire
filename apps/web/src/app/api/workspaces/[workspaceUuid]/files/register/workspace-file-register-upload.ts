@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { invalidateWorkspaceReadCaches } from "@/lib/domain-cache";
 import { registerWorkspaceUploadedFile } from "@/lib/upload-registration";
-import { scheduleAsyncVideoDeliveryOptimization } from "@/lib/video-delivery-optimization";
+import { scheduleAsyncVideoDeliveryOptimization } from "@/lib/video-delivery-optimization-runtime";
 import {
   classifyStoredFileType,
   WORKSPACE_FILE_REGISTER_ERROR,

@@ -1,6 +1,6 @@
 "use client";
 
-import { updateUser } from "@avenire/auth/app-client";
+import { updateUser } from "@avenire/auth/client";
 import { useEffect, useState } from "react";
 import {
   createProfileSaveFailureState,

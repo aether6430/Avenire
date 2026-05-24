@@ -1,5 +1,5 @@
+import { listChatsForUser } from "@avenire/database";
 import { NextResponse } from "next/server";
-import { listChatsForUser } from "@/lib/chat-data";
 import { listWorkspaceFiles, listWorkspaceFolders } from "@/lib/file-data";
 import {
   buildWorkspaceTaskChatOption,

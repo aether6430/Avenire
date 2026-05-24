@@ -53,7 +53,7 @@ vi.mock("resumable-stream", () => ({
   createResumableStreamContext: createResumableStreamContextMock,
 }));
 
-vi.mock("@/lib/chat-data", () => ({
+vi.mock("@avenire/database", () => ({
   getChatBySlugForUser: getChatBySlugForUserMock,
 }));
 

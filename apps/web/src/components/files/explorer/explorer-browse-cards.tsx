@@ -1,9 +1,7 @@
 "use client";
 
-import {
-  ExplorerFileCard,
-  ExplorerFolderCard,
-} from "@/components/files/explorer/explorer-cards";
+import { ExplorerFileCard } from "@/components/files/explorer/explorer-file-card";
+import { ExplorerFolderCard } from "@/components/files/explorer/explorer-folder-card";
 import type { ExplorerBrowseSurfaceProps } from "./explorer-browse-surface-types";
 import { buildSelectionControlCaptureProps } from "./explorer-browse-surface-types";
 

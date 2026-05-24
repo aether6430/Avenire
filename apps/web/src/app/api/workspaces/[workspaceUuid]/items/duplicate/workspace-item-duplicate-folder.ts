@@ -7,6 +7,7 @@ import {
   getFolderWithAncestors,
   getNoteContent,
   isMarkdownFileRecord,
+  isSharedFilesVirtualFolderId,
   listWorkspaceFiles,
   listWorkspaceFolders,
   registerFileAsset,
@@ -59,6 +60,27 @@ export async function handleDuplicateWorkspaceFolder(input: {
   }
 
   const targetParentId = input.parentId ?? sourceFolder.parentId;
+  if (
+    targetParentId &&
+    isSharedFilesVirtualFolderId(targetParentId, input.workspaceUuid)
+  ) {
+    return NextResponse.json(
+      { error: "Cannot create items in Shared Files" },
+      { status: 400 }
+    );
+  }
+
+  if (targetParentId) {
+    const targetParent = await getFolderWithAncestors(
+      input.workspaceUuid,
+      targetParentId,
+      input.userId
+    );
+    if (!targetParent?.folder) {
+      return NextResponse.json({ error: "Folder not found" }, { status: 404 });
+    }
+  }
+
   const siblingNames = workspaceFolders
     .filter((folder) => folder.parentId === targetParentId)
     .map((folder) => folder.name);

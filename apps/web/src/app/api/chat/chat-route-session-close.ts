@@ -1,11 +1,11 @@
-import { getLatestSessionSummaryForChat } from "@avenire/database";
-import { after, NextResponse } from "next/server";
 import {
   getChatBySlugForUser,
+  getLatestSessionSummaryForChat,
   getMessagesByChatSlugForUser,
-} from "@/lib/chat-data";
+} from "@avenire/database";
+import { after, NextResponse } from "next/server";
 import type { createApiLogger } from "@/lib/observability";
-import { persistSessionSummaryForCompletedTurn } from "@/lib/session-summaries";
+import { persistSessionSummaryForCompletedTurn } from "@/lib/session-summary-runtime";
 import { buildSessionCloseKey, markSessionCloseSeen } from "./chat-route-cache";
 import { formatError, logError, logWarn } from "./chat-route-logging";
 
@@ -39,15 +39,6 @@ export async function handleSessionCloseChatRequest({
     userId,
     workspaceId,
   });
-  const shouldProcess = await markSessionCloseSeen(dedupeKey);
-  if (!shouldProcess) {
-    apiLogger.requestSucceeded(202, {
-      chatId,
-      kind: "session-close",
-      deduped: true,
-    });
-    return NextResponse.json({ ok: true, deduped: true }, { status: 202 });
-  }
 
   const chat = await getChatBySlugForUser(userId, chatId, workspaceId);
   if (!chat) {
@@ -67,6 +58,26 @@ export async function handleSessionCloseChatRequest({
       ignored: true,
     });
     return NextResponse.json({ ok: true, ignored: true }, { status: 202 });
+  }
+
+  let shouldProcess = true;
+  try {
+    shouldProcess = await markSessionCloseSeen(dedupeKey);
+  } catch (error) {
+    logWarn("Failed to mark session close dedupe key; continuing", {
+      chatId,
+      error: formatError(error),
+      sessionId,
+      workspaceId,
+    });
+  }
+  if (!shouldProcess) {
+    apiLogger.requestSucceeded(202, {
+      chatId,
+      kind: "session-close",
+      deduped: true,
+    });
+    return NextResponse.json({ ok: true, deduped: true }, { status: 202 });
   }
 
   const latestSummary = await getLatestSessionSummaryForChat(chat.id).catch(

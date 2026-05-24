@@ -1,6 +1,7 @@
 "use client";
 
-import { revokeOtherSessions } from "@avenire/auth/app-client";
+import { revokeOtherSessions } from "@avenire/auth/client";
+import { AnimatePresence, motion } from "motion/react";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import { SettingsShortcutsSection } from "@/components/settings/settings-misc-sections";
@@ -87,12 +88,6 @@ function ReadySettingsWorkspaceSection({
       }}
     />
   );
-}
-
-function ReadySettingsShortcutsSection() {
-  const runtime = useSettingsPanelShortcuts();
-
-  return <SettingsShortcutsSection {...runtime} />;
 }
 
 function ReadySettingsSecuritySection({
@@ -197,8 +192,6 @@ function renderCurrentTab(
           workspaces={input.initialWorkspaces ?? []}
         />
       );
-    case "shortcuts":
-      return <ReadySettingsShortcutsSection />;
     default:
       return null;
   }
@@ -213,9 +206,25 @@ export function SettingsPanelContent({
   initialWorkspaces?: WorkspaceSummary[];
   runtime: SettingsPanelRuntime;
 }) {
+  const shortcutsRuntime = useSettingsPanelShortcuts();
+
   return (
     <SettingsPanelShell runtime={runtime}>
-      {renderCurrentTab(runtime, { initialWorkspaceId, initialWorkspaces })}
+      <AnimatePresence initial={false} mode="wait">
+        <motion.div
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 6 }}
+          initial={{ opacity: 0, y: 6 }}
+          key={runtime.currentTab}
+          transition={{ duration: 0.18, ease: "easeOut" }}
+        >
+          {runtime.currentTab === "shortcuts" ? (
+            <SettingsShortcutsSection {...shortcutsRuntime} />
+          ) : (
+            renderCurrentTab(runtime, { initialWorkspaceId, initialWorkspaces })
+          )}
+        </motion.div>
+      </AnimatePresence>
     </SettingsPanelShell>
   );
 }

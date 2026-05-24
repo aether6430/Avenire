@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
-const { getFileAssetByIdMock } = vi.hoisted(() => ({
-  getFileAssetByIdMock: vi.fn(),
+const { getFileAssetByIdMock, getIngestionSummaryForFileMock } = vi.hoisted(
+  () => ({
+    getFileAssetByIdMock: vi.fn(),
+    getIngestionSummaryForFileMock: vi.fn(),
+  })
+);
+
+vi.mock("@avenire/database", () => ({
+  getIngestionSummaryForFile: getIngestionSummaryForFileMock,
 }));
 
 vi.mock("@/lib/file-data", () => ({
@@ -16,10 +23,6 @@ vi.mock("@/lib/file-data", () => ({
 
 vi.mock("@/lib/files-realtime-publisher", () => ({
   publishFilesInvalidationEvent: vi.fn(),
-}));
-
-vi.mock("@/lib/ingestion-data", () => ({
-  getIngestionSummaryForFile: vi.fn(),
 }));
 
 vi.mock("@/lib/retrieval-service", () => ({

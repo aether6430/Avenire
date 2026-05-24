@@ -1,12 +1,12 @@
 import type { ApolloModelName } from "@avenire/ai";
 import type { UIMessage } from "@avenire/ai/message-types";
-import { after, NextResponse } from "next/server";
-import { consumeChatUnits } from "@/lib/billing-metering";
 import {
   createChatForUser,
   getWritableChatBySlugForUser,
   saveMessagesForChatSlug,
-} from "@/lib/chat-data";
+} from "@avenire/database";
+import { after, NextResponse } from "next/server";
+import { consumeChatUnits } from "@/lib/billing-metering";
 import { prewarmActiveMisconceptionsCache } from "@/lib/chat-tools/chat-tool-misconception-runtime";
 import { invalidateChatReadCaches } from "@/lib/domain-cache";
 import type { createApiLogger } from "@/lib/observability";

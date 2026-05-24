@@ -1,11 +1,11 @@
 "use client";
 
+import type { ChatSummary } from "@avenire/database";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { useMemo } from "react";
 import type { WorkspaceSummary } from "@/components/dashboard/command-palette-model";
 import { useCommandPaletteWorkspaceBrowse } from "@/components/dashboard/use-command-palette-workspace-browse";
 import { useCommandPaletteWorkspaceTasks } from "@/components/dashboard/use-command-palette-workspace-tasks";
-import type { ChatSummary } from "@/lib/chat-data";
 import {
   readCachedChats,
   readCachedFlashcardSets,

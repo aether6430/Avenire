@@ -1,7 +1,7 @@
 import { auth } from "@avenire/auth/server";
+import { getUsageOverview } from "@avenire/database";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-import { getUserUsageOverview } from "@/lib/billing-usage";
 import {
   BILLING_USAGE_LOAD_ERROR,
   resolveBillingUsageRouteError,
@@ -14,7 +14,7 @@ export async function handleBillingUsageGet() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const usage = await getUserUsageOverview(session.user.id);
+    const usage = await getUsageOverview(session.user.id);
     return NextResponse.json({ usage });
   } catch (error) {
     return NextResponse.json(

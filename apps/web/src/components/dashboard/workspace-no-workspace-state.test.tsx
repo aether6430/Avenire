@@ -71,12 +71,15 @@ vi.mock("@/components/dashboard/workspace-route-placeholder", () => ({
   WorkspaceRoutePlaceholder: workspaceRoutePlaceholderMock,
 }));
 
-vi.mock("@/components/dashboard/dashboard-home", () => ({
-  DashboardHome: () => createElement("div"),
+vi.mock("@/components/dashboard/dashboard-home-surface", () => ({
+  DashboardHomeSurface: () => createElement("div"),
 }));
 
-vi.mock("@/components/tasks/tasks-workspace-surface", () => ({
-  TasksWorkspaceSurface: () => createElement("div"),
+vi.mock("@/components/dashboard/use-dashboard-home", () => ({
+  useDashboardHome: () => ({
+    greeting: { description: "desc", headline: "headline" },
+    weakPointGroups: [],
+  }),
 }));
 
 vi.mock("@/components/tasks/use-tasks-workspace", () => ({
@@ -89,10 +92,6 @@ vi.mock("@/components/tasks/use-tasks-workspace", () => ({
 
 vi.mock("@/components/dashboard/chat-workspace", () => ({
   ChatWorkspace: chatWorkspaceMock,
-}));
-
-vi.mock("@/components/flashcards/flashcards-dashboard-surface", () => ({
-  FlashcardsDashboardSurface: () => createElement("div"),
 }));
 
 vi.mock("@/components/flashcards/use-flashcards-dashboard", () => ({
@@ -345,7 +344,11 @@ describe("workspace no-workspace state", () => {
     );
     expect(workspaceOverviewPageClientSource).toContain("useQuery");
     expect(workspaceOverviewPageClientSource).toContain(
-      "dynamic<DashboardHomeProps>"
+      "@/components/dashboard/dashboard-home-surface"
+    );
+    expect(workspaceOverviewPageClientSource).toContain("useDashboardHome(");
+    expect(workspaceOverviewPageClientSource).not.toContain(
+      '@/components/dashboard/dashboard-home"'
     );
     expect(workspaceOverviewPageClientSource).toContain(
       'label="Loading workspace..."'

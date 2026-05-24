@@ -16,14 +16,14 @@ const {
   listWorkspaceMembersMock: vi.fn(),
 }));
 
+vi.mock("@avenire/database", () => ({
+  getIngestionFlagsByFileIds: getIngestionFlagsByFileIdsMock,
+}));
+
 vi.mock("@/lib/file-data", () => ({
   listWorkspaceFiles: listWorkspaceFilesMock,
   listWorkspaceFolders: listWorkspaceFoldersMock,
   listWorkspaceMembers: listWorkspaceMembersMock,
-}));
-
-vi.mock("@/lib/ingestion-data", () => ({
-  getIngestionFlagsByFileIds: getIngestionFlagsByFileIdsMock,
 }));
 
 vi.mock("@/lib/workspace", () => ({

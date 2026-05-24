@@ -8,14 +8,8 @@ import {
   SettingsShortcutsSection,
 } from "@/components/settings/settings-misc-sections";
 
-const { dataImportsSectionMock } = vi.hoisted(() => ({
-  dataImportsSectionMock: vi.fn(() =>
-    createElement("div", { "data-imports-section": "1" })
-  ),
-}));
-
-vi.mock("@/components/settings/data-imports-surface", () => ({
-  DataImportsSurface: dataImportsSectionMock,
+vi.mock("next/dynamic", () => ({
+  default: () => () => null,
 }));
 
 vi.mock("@/components/settings/use-data-imports", () => ({
@@ -68,17 +62,17 @@ describe("settings misc sections", () => {
     );
 
     expect(html).toContain("Data Imports");
-    expect(html).toContain('data-imports-section="1"');
+    expect(html).toContain("Select a source to get started");
     expect(html).toContain("Data Retention");
     expect(html).toContain("Deleted files and folders are moved to Trash");
     expect(settingsMiscSectionsSource).toContain(
-      'from "@/components/settings/data-imports-surface"'
+      "export function DataImportsSurface"
     );
     expect(settingsMiscSectionsSource).toContain(
       'from "@/components/settings/use-data-imports"'
     );
     expect(settingsMiscSectionsSource).not.toContain(
-      'from "@/components/settings/data-imports-section"'
+      'from "@/components/settings/data-imports-surface"'
     );
   });
 
@@ -137,7 +131,8 @@ describe("settings misc sections", () => {
     expect(settingsPanelContentSource).toContain(
       'from "@/components/settings/use-settings-panel-shortcuts"'
     );
-    expect(settingsPanelContentSource).toContain(
+    expect(settingsPanelContentSource).toContain("useSettingsPanelShortcuts()");
+    expect(settingsPanelContentSource).not.toContain(
       "function ReadySettingsShortcutsSection"
     );
     expect(settingsPanelContentSource).not.toContain(

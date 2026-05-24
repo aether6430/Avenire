@@ -1,3 +1,11 @@
+import {
+  getActiveMisconceptions,
+  improveMisconceptionsForConcept,
+  type MisconceptionRecord,
+  recomputeConceptMastery,
+  resolveMisconceptionsForConcept,
+  upsertMisconception,
+} from "@avenire/database";
 import { logInfo } from "@avenire/observability";
 import {
   getCachedToolResult,
@@ -9,14 +17,6 @@ import {
   mapMisconceptionForTool,
   normalizeMisconceptionSubjectKey,
 } from "@/lib/chat-tools/study-tool-helpers";
-import {
-  getActiveMisconceptions,
-  improveMisconceptionsForConcept,
-  type MisconceptionRecord,
-  recomputeConceptMastery,
-  resolveMisconceptionsForConcept,
-  upsertMisconception,
-} from "@/lib/learning-data";
 
 interface MisconceptionRuntimeContext {
   chatSlug: string;
@@ -418,6 +418,7 @@ export async function resolveMisconceptionSeed(
     misconceptions[0] ??
     ({
       active: true,
+      blocks: null,
       decayedAt: null,
       confidence: 0.85,
       concept,

@@ -1,8 +1,10 @@
 "use client";
 
+import type { MisconceptionRecord } from "@avenire/database";
 import { useQuery } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import type { DashboardHomeProps } from "@/components/dashboard/dashboard-home-model";
+import { useDashboardHome } from "@/components/dashboard/use-dashboard-home";
 import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
 import type {
@@ -10,18 +12,22 @@ import type {
   ConceptMasteryRecord,
   FlashcardSetSummary,
 } from "@/lib/flashcards";
-import type { MisconceptionRecord } from "@/lib/learning-data";
 import { usePaneSearchParams } from "@/lib/workspace-panes";
+import type { DashboardHomeRuntime } from "./use-dashboard-home";
 
-const DashboardHome = dynamic<DashboardHomeProps>(
-  () =>
-    import("@/components/dashboard/dashboard-home").then(
-      (module) => module.DashboardHome
-    ),
-  {
-    loading: () => <WorkspaceRoutePlaceholder label="Loading workspace..." />,
-    ssr: false,
+const DashboardHomeSurface = dynamic<
+  Pick<
+    DashboardHomeProps,
+    "currentUserId" | "weakestDrillTarget" | "workspaceId"
+  > & {
+    runtime: DashboardHomeRuntime;
   }
+>(
+  () =>
+    import("@/components/dashboard/dashboard-home-surface").then(
+      (module) => module.DashboardHomeSurface
+    ),
+  { loading: () => null }
 );
 
 interface WorkspaceOverviewPayload {
@@ -54,6 +60,19 @@ async function loadWorkspaceOverview(
   }
 
   return (await response.json()) as WorkspaceOverviewPayload;
+}
+
+function WorkspaceOverviewHome(props: DashboardHomeProps) {
+  const runtime = useDashboardHome(props);
+
+  return (
+    <DashboardHomeSurface
+      currentUserId={props.currentUserId}
+      runtime={runtime}
+      weakestDrillTarget={props.weakestDrillTarget}
+      workspaceId={props.workspaceId}
+    />
+  );
 }
 
 export function WorkspaceOverviewPageClient() {
@@ -110,7 +129,7 @@ export function WorkspaceOverviewPageClient() {
   }
 
   return (
-    <DashboardHome
+    <WorkspaceOverviewHome
       activeMisconceptions={overviewQuery.data.activeMisconceptions}
       currentUserId={user.id}
       flashcardSets={overviewQuery.data.flashcardSets}

@@ -1,3 +1,4 @@
+import { getIngestionSummaryForFile } from "@avenire/database";
 import {
   parseRequestedNoteDestination,
   stripNoteExtension,
@@ -12,7 +13,6 @@ import {
   userCanEditFolder,
 } from "@/lib/file-data";
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
-import { getIngestionSummaryForFile } from "@/lib/ingestion-data";
 import { retrieveWorkspaceChunksShared } from "@/lib/retrieval-service";
 
 const DEFAULT_NOTE_MAX_CHARS = 16_000;

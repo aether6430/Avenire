@@ -1,6 +1,6 @@
 import type { UIMessage } from "@avenire/ai/message-types";
 import { getRecentRelevantSessionSummary } from "@avenire/database";
-import { getWorkspaceSubjectSummary } from "@/lib/session-summaries";
+import { getWorkspaceSubjectSummary } from "@/lib/session-summary-runtime";
 import {
   inferTopicLabel,
   normalizeSubjectLabel,

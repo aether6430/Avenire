@@ -151,7 +151,8 @@ describe("SettingsPanelShell", () => {
     expect(settingsPanelContentSource).toContain(
       "function ReadySettingsWorkspaceSection"
     );
-    expect(settingsPanelContentSource).toContain(
+    expect(settingsPanelContentSource).toContain("useSettingsPanelShortcuts()");
+    expect(settingsPanelContentSource).not.toContain(
       "function ReadySettingsShortcutsSection"
     );
     expect(settingsPanelContentSource).toContain(
@@ -164,11 +165,19 @@ describe("SettingsPanelShell", () => {
     expect(settingsPanelContentSource).toContain('case "preferences"');
     expect(settingsPanelContentSource).toContain('case "workspace"');
     expect(settingsPanelContentSource).toContain('case "data"');
-    expect(settingsPanelContentSource).toContain('case "shortcuts"');
+    expect(settingsPanelContentSource).toContain(
+      'runtime.currentTab === "shortcuts"'
+    );
+    expect(settingsPanelContentSource).not.toContain('case "shortcuts"');
     expect(settingsPanelContentSource).toContain("revokeOtherSessions");
     expect(settingsPanelShellSource).not.toContain("SettingsAccountSection");
     expect(settingsPanelShellSource).not.toContain("SettingsBillingSection");
     expect(settingsPanelShellSource).not.toContain("Verify Sensitive Action");
+    expect(settingsPanelShellSource).toContain("no-scrollbar flex shrink-0");
+    expect(settingsPanelShellSource).toContain("overflow-x-auto");
+    expect(settingsPanelShellSource).toContain(
+      'scrollbarGutter: "stable both-edges"'
+    );
     expect(settingsPanelDialogsSource).toContain("Verify Sensitive Action");
     expect(settingsPanelDialogsSource).toContain("Resend Code");
     expect(settingsPanelDialogsSource).toContain("Verify and Continue");

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildExplorerFileListRowModel,
@@ -27,6 +29,11 @@ function buildFile(overrides: Partial<FileRecord> = {}): FileRecord {
     ...overrides,
   };
 }
+
+const fileListRowSource = readFileSync(
+  resolve(import.meta.dirname, "./explorer-file-list-row.tsx"),
+  "utf8"
+);
 
 describe("explorer list row model", () => {
   it("builds folder row labels and updated text", () => {
@@ -58,5 +65,13 @@ describe("explorer list row model", () => {
       { label: "priority", value: "2" },
       { label: "status", value: "Open" },
     ]);
+  });
+
+  it("keeps narrow list rows readable by stacking metadata instead of pushing it into a desktop-only side rail", () => {
+    expect(fileListRowSource).toContain("sm:flex-row");
+    expect(fileListRowSource).toContain("break-words");
+    expect(fileListRowSource).toContain("sm:truncate");
+    expect(fileListRowSource).toContain("sm:items-end");
+    expect(fileListRowSource).not.toContain("ml-auto flex items-start gap-4");
   });
 });

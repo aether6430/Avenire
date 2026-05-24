@@ -1,5 +1,6 @@
 "use client";
 
+import type { ChatSummary } from "@avenire/database";
 import { Input } from "@avenire/ui/components/input";
 import {
   SidebarGroup,
@@ -8,7 +9,6 @@ import {
 import { PlusCircle } from "@phosphor-icons/react";
 import { MagnifyingGlass } from "@phosphor-icons/react/MagnifyingGlass";
 import { useEffect, useRef } from "react";
-import type { ChatSummary } from "@/lib/chat-data";
 import { ChatListSection } from "./dashboard-sidebar-chat-list-section";
 import { SectionHeader, SectionIconAction } from "./dashboard-sidebar-shared";
 

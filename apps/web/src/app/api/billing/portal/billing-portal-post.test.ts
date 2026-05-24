@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -47,7 +49,7 @@ vi.mock("next/headers", () => ({
   headers: headersMock,
 }));
 
-vi.mock("@/lib/database-billing-subscriptions", () => ({
+vi.mock("@avenire/database", () => ({
   getBillingCustomerByUserId: getBillingCustomerByUserIdMock,
 }));
 
@@ -56,6 +58,11 @@ vi.mock("@/lib/observability", () => ({
 }));
 
 import { handleBillingPortalPost } from "./billing-portal-post";
+
+const billingPortalPostSource = readFileSync(
+  resolve(import.meta.dirname, "./billing-portal-post.ts"),
+  "utf8"
+);
 
 describe("billing portal post", () => {
   beforeEach(() => {
@@ -269,5 +276,12 @@ describe("billing portal post", () => {
       vi.doUnmock("./billing-portal-post");
       vi.resetModules();
     }
+  });
+
+  it("reads billing customers from the database package directly", () => {
+    expect(billingPortalPostSource).toContain('from "@avenire/database"');
+    expect(billingPortalPostSource).not.toContain(
+      "@/lib/database-billing-subscriptions"
+    );
   });
 });

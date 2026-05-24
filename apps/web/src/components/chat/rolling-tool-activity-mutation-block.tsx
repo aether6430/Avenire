@@ -1,7 +1,7 @@
 "use client";
 
 import type { MutationAction } from "@/components/chat/rolling-tool-activity-types";
-import { ThinkingDots } from "./rolling-reasoning";
+import { ThinkingDots } from "./rolling-reasoning-shared";
 
 export function MutationBlock({ action }: { action: MutationAction }) {
   if (action.kind === "error") {

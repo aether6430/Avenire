@@ -3389,7 +3389,7 @@ export async function permanentlyDeleteFolder(
     )
     .limit(1);
   if (!folder) {
-    return [];
+    return null;
   }
 
   const descendants = await collectDescendantFolderIdsIncludingDeleted(

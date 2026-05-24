@@ -11,11 +11,13 @@ import { FileImage, XCircle } from "@phosphor-icons/react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import type { ExplorerBrowsePaneProps } from "@/components/files/explorer/explorer-browse-pane-props-shared";
+import type { ExplorerBrowseSurfaceProps } from "@/components/files/explorer/explorer-browse-surface-types";
 import type { ExplorerContentDialogsProps } from "@/components/files/explorer/explorer-content-dialogs";
 import type { ExplorerMobileActionsProps } from "@/components/files/explorer/explorer-mobile-actions";
 import type { ShareDialogProps } from "@/components/files/explorer/share-dialog";
 import StylizedSearchBar from "../stylized-search-bar";
-import { ExplorerBrowseSurface } from "./explorer-browse-surface";
+import { ExplorerBrowseCards } from "./explorer-browse-cards";
+import { ExplorerBrowseList } from "./explorer-browse-list";
 import { ExplorerCanvasShell } from "./explorer-canvas-shell";
 import { ExplorerControls } from "./explorer-controls";
 
@@ -42,6 +44,15 @@ const ExplorerMobileActions = dynamic<ExplorerMobileActionsProps>(
     ),
   { loading: () => null, ssr: false }
 );
+
+export function ExplorerBrowseSurface(props: ExplorerBrowseSurfaceProps) {
+  return (
+    <>
+      <ExplorerBrowseCards {...props} />
+      <ExplorerBrowseList {...props} />
+    </>
+  );
+}
 
 export function ExplorerBrowsePane({
   bannerInputRef,

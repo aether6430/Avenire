@@ -51,7 +51,7 @@ export function ExplorerControlsSecondarySection({
   viewMode: "cards" | "list";
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2 max-[340px]:w-full max-[340px]:gap-y-2">
       <PropertyFilters
         fields={propertyFilterFields}
         filters={propertyFiltersForUi}

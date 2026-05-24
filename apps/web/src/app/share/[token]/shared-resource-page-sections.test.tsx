@@ -13,6 +13,11 @@ vi.mock("next/link", () => ({
     createElement("a", { href }, children),
 }));
 
+vi.mock("@/components/chat/markdown-surface", () => ({
+  MemoizedMarkdownSurface: ({ content }: { content: string }) =>
+    createElement("div", { "data-markdown": "1" }, content),
+}));
+
 vi.mock("@/components/files/shared-resource-actions", () => ({
   SharedResourceActions: sharedResourceActionsMock,
 }));
@@ -67,7 +72,7 @@ describe("shared resource page sections", () => {
       <SharedMethodResourcePage
         heading="Shared method"
         messages={[]}
-        workspaceHref={"/workspace/chats/chat-1"}
+        openWorkspaceHref={"/workspace/chats/chat-1"}
       />
     );
 
@@ -84,12 +89,31 @@ describe("shared resource page sections", () => {
             role: "assistant",
           },
         ]}
-        workspaceHref={"/workspace/chats/chat-1"}
+        openWorkspaceHref={"/workspace/chats/chat-1"}
       />
     );
 
     expect(nonTextHtml).toContain("assistant");
     expect(nonTextHtml).toContain("[non-text content]");
+  });
+
+  it("renders message markdown through the shared markdown surface", () => {
+    const html = renderToStaticMarkup(
+      <SharedMethodResourcePage
+        heading="Shared method"
+        messages={[
+          {
+            id: "assistant-1",
+            parts: [{ text: "**bold** and $p = mv$", type: "text" }],
+            role: "assistant",
+          },
+        ]}
+        openWorkspaceHref={"/workspace/chats/chat-1"}
+      />
+    );
+
+    expect(html).toContain('data-markdown="1"');
+    expect(html).toContain("**bold** and $p = mv$");
   });
 
   it("renders shared folder empty states and linked file entries", () => {

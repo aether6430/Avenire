@@ -1,6 +1,9 @@
+import {
+  canStoreBytesForUser,
+  hasSuccessfulIngestionForFile,
+} from "@avenire/database";
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
 import { deleteStorageFiles } from "@avenire/storage";
-import { canStoreBytesForUser } from "@/lib/database-billing-metering";
 import {
   createWorkspaceNoteFile,
   getFileAssetByContentHash,
@@ -8,7 +11,6 @@ import {
   registerFileAsset,
 } from "@/lib/file-data";
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
-import { hasSuccessfulIngestionForFile } from "@/lib/ingestion-data";
 import type {
   UploadRegistrationInput,
   UploadRegistrationResult,
@@ -47,6 +49,7 @@ async function publishRegisteredUpload(input: {
     tasks.push(
       publishFilesInvalidationEvent({
         workspaceUuid: input.workspaceUuid,
+        fileId: input.file.id,
         folderId: input.folderId,
         reason: "file.created",
       }),

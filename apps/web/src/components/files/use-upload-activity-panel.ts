@@ -28,7 +28,10 @@ async function loadRecentIngestionJobs(input: {
   );
 
   if (!response.ok) {
-    throw new Error("Unable to load upload activity.");
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+    throw new Error(payload.error?.trim() || "Unable to load upload activity.");
   }
 
   const payload = (await response.json()) as {

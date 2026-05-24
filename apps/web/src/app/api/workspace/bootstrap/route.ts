@@ -35,6 +35,9 @@ export async function GET() {
         : null) ?? null;
 
     return NextResponse.json({
+      ai: {
+        apexTurboAvailable: Boolean(process.env.FIREWORKS_API_KEY?.trim()),
+      },
       user: {
         email: session.user.email,
         id: session.user.id,

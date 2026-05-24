@@ -80,7 +80,7 @@ describe("/api/files route", () => {
     const response = await GET();
 
     expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({ files: [] });
+    await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
   });
 
   it("fails closed when session lookup throws before file loading begins", async () => {

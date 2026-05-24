@@ -2,6 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@avenire/database", () => ({
   canonicalizeLearningTaxonomy: vi.fn(() => null),
+  getActiveMisconceptions: getActiveMisconceptionsMock,
+  improveMisconceptionsForConcept: improveMisconceptionsForConceptMock,
+  recomputeConceptMastery: recomputeConceptMasteryMock,
+  resolveMisconceptionsForConcept: resolveMisconceptionsForConceptMock,
+  upsertMisconception: upsertMisconceptionMock,
 }));
 
 const {
@@ -22,14 +27,6 @@ const {
 
 vi.mock("@avenire/observability", () => ({
   logInfo: logInfoMock,
-}));
-
-vi.mock("@/lib/learning-data", () => ({
-  getActiveMisconceptions: getActiveMisconceptionsMock,
-  improveMisconceptionsForConcept: improveMisconceptionsForConceptMock,
-  recomputeConceptMastery: recomputeConceptMasteryMock,
-  resolveMisconceptionsForConcept: resolveMisconceptionsForConceptMock,
-  upsertMisconception: upsertMisconceptionMock,
 }));
 
 import {

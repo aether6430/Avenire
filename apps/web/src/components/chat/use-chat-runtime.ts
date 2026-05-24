@@ -77,6 +77,9 @@ export function useChatRuntime({
   const [chatId, setChatId] = useState(id);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [input, setInput] = useState("");
+  const [pendingChatRouteId, setPendingChatRouteId] = useState<string | null>(
+    null
+  );
   const [turboEnabled, setTurboEnabled] = useState(false);
   const [agentActivity, setAgentActivity] = useState<AgentActivityData | null>(
     null
@@ -86,7 +89,6 @@ export function useChatRuntime({
   const previousStatusRef = useRef<string | null>(null);
   const messagesRef = useRef<UIMessage[]>(initialMessages);
   const pendingNewChatMessagesRef = useRef<UIMessage[] | null>(null);
-  const pendingChatRouteRef = useRef<string | null>(null);
   const autoPromptSentRef = useRef<string | null>(null);
 
   const activeSelectedModel = turboEnabled ? "apex-turbo" : selectedModel;
@@ -132,7 +134,7 @@ export function useChatRuntime({
         onChatCreated: (detail) => {
           primeNewChatHandoff(detail.id);
           setChatId(detail.id);
-          pendingChatRouteRef.current = detail.id;
+          setPendingChatRouteId(detail.id);
         },
         onChatName: (detail) => {
           window.dispatchEvent(
@@ -174,10 +176,10 @@ export function useChatRuntime({
     () =>
       getChatLayoutState({
         displayedMessages,
-        pendingChatRoute: pendingChatRouteRef.current,
+        pendingChatRoute: pendingChatRouteId,
         status,
       }),
-    [displayedMessages, status]
+    [displayedMessages, pendingChatRouteId, status]
   );
 
   useEffect(() => {
@@ -203,13 +205,13 @@ export function useChatRuntime({
         currentMessages: messagesRef.current,
         message,
         options,
-        pendingChatRouteId: pendingChatRouteRef.current,
+        pendingChatRouteId,
         setPendingNewChatMessages: (messages) => {
           pendingNewChatMessagesRef.current = messages;
         },
       });
     },
-    [append, chatId]
+    [append, chatId, pendingChatRouteId]
   );
 
   const handleStop = useCallback(() => {
@@ -280,18 +282,18 @@ export function useChatRuntime({
   useEffect(() => {
     flushPendingChatRuntimeRoute({
       clearPendingChatRoute: () => {
-        pendingChatRouteRef.current = null;
+        setPendingChatRouteId(null);
       },
       clearPendingNewChatMessages: () => {
         pendingNewChatMessagesRef.current = null;
       },
-      pendingChatRouteId: pendingChatRouteRef.current,
+      pendingChatRouteId,
       primeNewChatHandoff,
       replaceRoute: (href) => {
         router.replace(href as Route);
       },
     });
-  }, [primeNewChatHandoff, router]);
+  }, [pendingChatRouteId, primeNewChatHandoff, router]);
 
   useEffect(() => {
     publishChatRuntimeStatus({

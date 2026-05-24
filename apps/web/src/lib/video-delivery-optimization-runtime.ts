@@ -18,7 +18,7 @@ import {
   canOptimizeVideoDelivery,
   isAsyncVideoOptimizationEnabled,
 } from "@/lib/video-delivery-core";
-import { optimizeAndReuploadVideo } from "@/lib/video-optimization";
+import { optimizeAndReuploadVideo } from "@/lib/video-optimization-runtime";
 
 const MUX_POLL_INTERVAL_MS = Math.max(
   2000,

@@ -1,6 +1,6 @@
 import { sendSudoVerificationCodeEmail } from "@avenire/auth/server";
+import { getLatestActiveSudoChallenge } from "@avenire/database";
 import { NextResponse } from "next/server";
-import { getLatestActiveSudoChallenge } from "@/lib/database-sudo";
 import {
   createSudoChallenge,
   invalidateSudoChallenge,

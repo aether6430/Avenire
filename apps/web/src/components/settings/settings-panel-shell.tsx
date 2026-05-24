@@ -209,7 +209,10 @@ export function SettingsPanelShell({
           })}
         </div>
 
-        <div className="flex-1 space-y-6 overflow-y-auto px-4 py-5 md:space-y-8 md:px-8 md:py-6">
+        <div
+          className="flex-1 space-y-6 overflow-y-auto px-4 py-5 md:space-y-8 md:px-8 md:py-6"
+          style={{ scrollbarGutter: "stable both-edges" }}
+        >
           {children}
         </div>
       </div>

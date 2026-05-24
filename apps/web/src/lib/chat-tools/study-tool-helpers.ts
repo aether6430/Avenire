@@ -1,5 +1,7 @@
-import { canonicalizeLearningTaxonomy } from "@avenire/database";
-import type { MisconceptionRecord } from "@/lib/learning-data";
+import {
+  canonicalizeLearningTaxonomy,
+  type MisconceptionRecord,
+} from "@avenire/database";
 
 export const MISCONCEPTION_CONTEXT_LIMIT = 5;
 

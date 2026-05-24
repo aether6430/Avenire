@@ -1,5 +1,6 @@
 "use client";
 
+import type { MisconceptionRecord } from "@avenire/database";
 import { Badge } from "@avenire/ui/components/badge";
 import { Button } from "@avenire/ui/components/button";
 import {
@@ -11,7 +12,6 @@ import {
 } from "@avenire/ui/components/dialog";
 import { ChatText as MessageSquareText } from "@phosphor-icons/react";
 import { BookOpenText as BookOpenCheck } from "@phosphor-icons/react/BookOpenText";
-import type { MisconceptionRecord } from "@/lib/learning-data";
 
 export function DashboardHomeMisconceptionDialog({
   misconception,

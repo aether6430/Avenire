@@ -4,18 +4,21 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 const {
-  FilePreviewMarkdownPaneMock,
+  FilePreviewMarkdownPaneSurfaceMock,
   FilePreviewMediaPaneMock,
   FilePreviewPropertiesDialogMock,
 } = vi.hoisted(() => ({
-  FilePreviewMarkdownPaneMock: vi.fn(() => <div>MARKDOWN_PANE</div>),
+  FilePreviewMarkdownPaneSurfaceMock: vi.fn(() => <div>MARKDOWN_PANE</div>),
   FilePreviewMediaPaneMock: vi.fn(() => <div>MEDIA_PANE</div>),
   FilePreviewPropertiesDialogMock: vi.fn(() => <div>PROPERTIES_DIALOG</div>),
 }));
 
-vi.mock("@/components/files/explorer/file-preview-markdown-pane", () => ({
-  FilePreviewMarkdownPane: FilePreviewMarkdownPaneMock,
-}));
+vi.mock(
+  "@/components/files/explorer/file-preview-markdown-pane-surface",
+  () => ({
+    FilePreviewMarkdownPaneSurface: FilePreviewMarkdownPaneSurfaceMock,
+  })
+);
 
 vi.mock("@/components/files/explorer/file-preview-media-pane", () => ({
   FilePreviewMediaPane: FilePreviewMediaPaneMock,
@@ -25,7 +28,7 @@ vi.mock("@/components/files/explorer/file-preview-properties-dialog", () => ({
   FilePreviewPropertiesDialog: FilePreviewPropertiesDialogMock,
 }));
 
-import { FilePreviewPanelSurface } from "@/components/files/explorer/file-preview-panel-surface";
+import { FilePreviewPanelSurface } from "@/components/files/explorer/explorer-preview-pane";
 
 describe("FilePreviewPanelSurface", () => {
   it("wires inline note property state through the markdown pane", () => {
@@ -108,7 +111,7 @@ describe("FilePreviewPanelSurface", () => {
       }),
       undefined
     );
-    expect(FilePreviewMarkdownPaneMock).toHaveBeenCalledWith(
+    expect(FilePreviewMarkdownPaneSurfaceMock).toHaveBeenCalledWith(
       expect.objectContaining({
         onPagePropertiesChange: expect.any(Function),
         onPropertyDefinitionsChange: setPropertyDefinitionsMock,
@@ -119,7 +122,8 @@ describe("FilePreviewPanelSurface", () => {
       undefined
     );
 
-    const markdownPaneProps = FilePreviewMarkdownPaneMock.mock.calls[0]?.[0];
+    const markdownPaneProps =
+      FilePreviewMarkdownPaneSurfaceMock.mock.calls[0]?.[0];
     markdownPaneProps.onPagePropertiesChange(nextProperties);
 
     expect(setNotePageMock).toHaveBeenCalledTimes(1);

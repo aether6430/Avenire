@@ -412,4 +412,37 @@ describe("/api/workspaces/[workspaceUuid] route", () => {
     expect(createWorkspaceNoteFileMock).not.toHaveBeenCalled();
     expect(scheduleIngestionJobMock).not.toHaveBeenCalled();
   });
+
+  it("creates workspace link notes with explicit file-created invalidation payloads", async () => {
+    getSessionUserMock.mockResolvedValue({ id: "user-1" });
+    const { POST } = await importWorkspaceLinksRoute();
+
+    const response = await POST(
+      new Request("http://localhost:3003/api/workspaces/workspace-1/links", {
+        body: JSON.stringify({
+          folderId: "folder-1",
+          name: "Saved Link",
+          url: "https://example.com/resource",
+        }),
+        method: "POST",
+      }),
+      { params: Promise.resolve({ workspaceUuid: "workspace-1" }) }
+    );
+
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toEqual({
+      file: { id: "file-1" },
+      ingestionJob: { id: "job-1" },
+    });
+    expect(publishFilesInvalidationEventMock).toHaveBeenNthCalledWith(1, {
+      fileId: "file-1",
+      folderId: "folder-1",
+      reason: "file.created",
+      workspaceUuid: "workspace-1",
+    });
+    expect(publishFilesInvalidationEventMock).toHaveBeenNthCalledWith(2, {
+      reason: "tree.changed",
+      workspaceUuid: "workspace-1",
+    });
+  });
 });

@@ -97,34 +97,38 @@ export function ExplorerFileListRow({
           <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted/60">
             {icon}
           </div>
-          <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <p className="min-w-0 truncate font-medium text-sm">{file.name}</p>
-          </div>
-          <div className="ml-auto flex items-start gap-4 text-muted-foreground text-xs">
-            <div className="flex flex-col items-end gap-1">
-              <span className="min-w-[110px] text-right tabular-nums">
-                {sizeLabel}
-              </span>
-              <span className="min-w-[72px] text-right tabular-nums">
-                {updatedLabel}
-              </span>
+          <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+            <div className="min-w-0 flex-1">
+              <p className="min-w-0 break-words font-medium text-sm sm:truncate">
+                {file.name}
+              </p>
             </div>
-            {propertyChips.length > 0 ? (
-              <div className="flex max-w-[22rem] flex-wrap justify-end gap-1.5">
-                {propertyChips.map((chip) => (
-                  <span
-                    className="inline-flex max-w-full items-center gap-1 rounded-md border border-border/50 bg-background/75 px-2 py-0.5 text-[10px] text-muted-foreground leading-none"
-                    key={chip.label}
-                    title={`${chip.label}: ${chip.value}`}
-                  >
-                    <span className="shrink-0 font-medium text-foreground/75">
-                      {chip.label}
-                    </span>
-                    <span className="min-w-0 truncate">{chip.value}</span>
-                  </span>
-                ))}
+            <div className="flex min-w-0 flex-col gap-2 text-muted-foreground text-xs sm:items-end">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:flex-col sm:items-end sm:gap-1">
+                <span className="tabular-nums sm:min-w-[110px] sm:text-right">
+                  {sizeLabel}
+                </span>
+                <span className="tabular-nums sm:min-w-[72px] sm:text-right">
+                  {updatedLabel}
+                </span>
               </div>
-            ) : null}
+              {propertyChips.length > 0 ? (
+                <div className="flex max-w-full flex-wrap gap-1.5 sm:max-w-[22rem] sm:justify-end">
+                  {propertyChips.map((chip) => (
+                    <span
+                      className="inline-flex max-w-full items-center gap-1 rounded-full border border-border/50 bg-background/75 px-2 py-0.5 text-[10px] text-muted-foreground leading-none"
+                      key={chip.label}
+                      title={`${chip.label}: ${chip.value}`}
+                    >
+                      <span className="shrink-0 font-medium text-foreground/75">
+                        {chip.label}
+                      </span>
+                      <span className="min-w-0 truncate">{chip.value}</span>
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </div>
         </>
       )}

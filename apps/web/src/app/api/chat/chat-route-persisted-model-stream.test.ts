@@ -64,7 +64,7 @@ vi.mock("@/lib/chat-tools", () => ({
   createChatTools: createChatToolsMock,
 }));
 
-vi.mock("@/lib/learning-data", () => ({
+vi.mock("@avenire/database", () => ({
   getActiveMisconceptions: getActiveMisconceptionsForDetectorMock,
 }));
 
@@ -72,7 +72,7 @@ vi.mock("@/lib/misconception-signal-detector", () => ({
   detectMisconceptionSignals: detectMisconceptionSignalsMock,
 }));
 
-vi.mock("@/lib/session-summaries", () => ({
+vi.mock("@/lib/session-summary-model", () => ({
   buildRecentSessionSummaryContext: buildRecentSessionSummaryContextMock,
 }));
 

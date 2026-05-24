@@ -2,8 +2,6 @@
 
 import type { WorkspaceSummary } from "@/components/settings/settings-panel-model";
 
-export type { WorkspaceSummary } from "@/components/settings/settings-panel-model";
-
 export interface ImportProviderStatus {
   accountId: string | null;
   configured: boolean;

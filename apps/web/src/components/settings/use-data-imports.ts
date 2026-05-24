@@ -2,8 +2,8 @@ import { useMemo, useState } from "react";
 import type {
   DataImportsSurfaceProps,
   SelectedImportSource,
-  WorkspaceSummary,
 } from "@/components/settings/data-imports-model";
+import type { WorkspaceSummary } from "@/components/settings/settings-panel-model";
 import { useDataImportsDestination } from "@/components/settings/use-data-imports-destination";
 
 export function useDataImports({

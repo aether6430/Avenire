@@ -5,6 +5,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@avenire/ui/components/select";
+import { useEffect, useState } from "react";
 import { PetPreferencesFields } from "@/components/pets/pet-preferences-fields";
 import {
   Divider,
@@ -16,7 +17,11 @@ import {
   type SettingsPanelRuntime,
   THEME_PREVIEW,
 } from "@/components/settings/use-settings-panel";
-import { DEFAULT_PET_NAME } from "@/lib/pet-preferences";
+import {
+  DEFAULT_PET_NAME,
+  getStoredPetVisibility,
+  setStoredPetVisibility,
+} from "@/lib/pet-preferences";
 import { cn } from "@/lib/utils";
 
 export function SettingsPreferencesSection({
@@ -24,6 +29,7 @@ export function SettingsPreferencesSection({
 }: {
   runtime: SettingsPanelRuntime;
 }) {
+  const [petVisible, setPetVisible] = useState(true);
   const {
     chatComposerSendMode,
     completedTasksAtTop,
@@ -54,6 +60,10 @@ export function SettingsPreferencesSection({
     preferencesStatus &&
     !(preferencesLoading || preferencesLoadFailed) &&
     !preferencesStatus.startsWith("Loading");
+
+  useEffect(() => {
+    setPetVisible(getStoredPetVisibility());
+  }, []);
 
   return (
     <>
@@ -159,6 +169,15 @@ export function SettingsPreferencesSection({
         title="Personalize pet"
       >
         <div className="space-y-5">
+          <ToggleRow
+            checked={petVisible}
+            description="Hide or show the floating workspace pet on this device."
+            label="Show workspace pet"
+            onCheckedChange={(nextValue) => {
+              setPetVisible(nextValue);
+              setStoredPetVisibility(nextValue);
+            }}
+          />
           {remotePreferencesState.ready ? (
             <PetPreferencesFields
               accessory={petAccessory}

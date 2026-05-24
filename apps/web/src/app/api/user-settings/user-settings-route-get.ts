@@ -1,5 +1,5 @@
+import { getUserSettings } from "@avenire/database";
 import { NextResponse } from "next/server";
-import { getUserSettings } from "@/lib/user-settings";
 import {
   resolveUserSettingsRouteError,
   USER_SETTINGS_LOAD_ERROR,

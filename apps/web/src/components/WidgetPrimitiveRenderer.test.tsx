@@ -9,9 +9,9 @@ vi.mock("@/components/widget-primitive-render-content", () => ({
   WidgetPrimitiveRenderContent: WidgetPrimitiveRenderContentMock,
 }));
 
-import { WidgetPrimitiveRenderer } from "@/components/WidgetPrimitiveRenderer";
+import { WidgetPrimitiveRenderContent } from "@/components/widget-primitive-render-content";
 
-describe("WidgetPrimitiveRenderer", () => {
+describe("WidgetPrimitiveRenderContent entry", () => {
   it("passes the widget spec through to the extracted content owner", () => {
     const spec = {
       root: {
@@ -22,7 +22,7 @@ describe("WidgetPrimitiveRenderer", () => {
     };
 
     const html = renderToStaticMarkup(
-      <WidgetPrimitiveRenderer spec={spec as never} />
+      <WidgetPrimitiveRenderContent spec={spec as never} />
     );
 
     expect(WidgetPrimitiveRenderContentMock).toHaveBeenCalledWith(

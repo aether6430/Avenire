@@ -12,11 +12,12 @@ import {
 import { passkey } from "@better-auth/passkey";
 import { checkout, polar, portal } from "@polar-sh/better-auth";
 import { Polar } from "@polar-sh/sdk";
+import { createAuthMiddleware } from "better-auth/api";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { nextCookies, toNextJsHandler } from "better-auth/next-js";
 import { lastLoginMethod, organization } from "better-auth/plugins";
 import { username } from "better-auth/plugins/username";
+import { cookies } from "next/headers";
 import { parseOriginList, resolveTrustedOrigins } from "./origin-policy";
 import {
   sendDeleteAccountVerificationEmail,
@@ -29,6 +30,214 @@ import {
 } from "./server-mailers";
 import { provisionWelcomeWorkspaceForUser } from "./server-workspace-bootstrap";
 import { waitlistPlugin } from "./waitlist";
+
+interface NextJsCompatibleAuth {
+  handler?: (request: Request) => Promise<Response>;
+}
+
+function toNextJsHandler(auth: NextJsCompatibleAuth) {
+  const handler = async (request: Request) => {
+    return "handler" in auth && typeof auth.handler === "function"
+      ? auth.handler(request)
+      : (auth as (request: Request) => Promise<Response>)(request);
+  };
+
+  return {
+    GET: handler,
+    POST: handler,
+    PATCH: handler,
+    PUT: handler,
+    DELETE: handler,
+  };
+}
+
+function nextCookies() {
+  return {
+    id: "next-cookies",
+    hooks: {
+      after: [
+        {
+          matcher() {
+            return true;
+          },
+          handler: createAuthMiddleware(async (ctx) => {
+            const returned = ctx.context.responseHeaders;
+            if ("_flag" in ctx && ctx._flag === "router") {
+              return;
+            }
+
+            if (!(returned instanceof Headers)) {
+              return;
+            }
+
+            const setCookieHeader = returned.get("set-cookie");
+            if (!setCookieHeader) {
+              return;
+            }
+
+            const cookieStore = await cookies().catch((error) => {
+              if (
+                error instanceof Error &&
+                error.message.startsWith(
+                  "`cookies` was called outside a request scope."
+                )
+              ) {
+                return null;
+              }
+
+              throw error;
+            });
+
+            if (!cookieStore) {
+              return;
+            }
+
+            for (const cookieValue of splitSetCookieHeader(setCookieHeader)) {
+              const parsed = parseSetCookieHeaderValue(cookieValue);
+              if (!parsed) {
+                continue;
+              }
+
+              try {
+                cookieStore.set(parsed.name, decodeURIComponent(parsed.value), {
+                  domain: parsed.attributes.domain,
+                  httpOnly: parsed.attributes.httpOnly,
+                  maxAge: parsed.attributes.maxAge,
+                  path: parsed.attributes.path,
+                  sameSite: parsed.attributes.sameSite,
+                  secure: parsed.attributes.secure,
+                });
+              } catch {
+                // Ignore cookie store writes that Next rejects for a given request.
+              }
+            }
+          }),
+        },
+      ],
+    },
+  };
+}
+
+function splitSetCookieHeader(headerValue: string) {
+  const values: string[] = [];
+  let current = "";
+  let inExpiresAttribute = false;
+
+  for (let index = 0; index < headerValue.length; index += 1) {
+    const character = headerValue[index];
+    const lowerSlice = headerValue.slice(index, index + 8).toLowerCase();
+
+    if (!inExpiresAttribute && lowerSlice === "expires=") {
+      inExpiresAttribute = true;
+    }
+
+    if (character === "," && !inExpiresAttribute) {
+      values.push(current.trim());
+      current = "";
+      continue;
+    }
+
+    current += character;
+
+    if (inExpiresAttribute && character === ";") {
+      inExpiresAttribute = false;
+    }
+  }
+
+  if (current.trim()) {
+    values.push(current.trim());
+  }
+
+  return values;
+}
+
+function parseSetCookieHeaderValue(headerValue: string) {
+  const segments = headerValue
+    .split(";")
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+  const [nameValue, ...attributes] = segments;
+
+  if (!nameValue) {
+    return null;
+  }
+
+  const separatorIndex = nameValue.indexOf("=");
+  if (separatorIndex <= 0) {
+    return null;
+  }
+
+  const name = nameValue.slice(0, separatorIndex).trim();
+  const value = nameValue.slice(separatorIndex + 1);
+
+  if (!name) {
+    return null;
+  }
+
+  const parsedAttributes: {
+    domain?: string;
+    httpOnly?: boolean;
+    maxAge?: number;
+    path?: string;
+    sameSite?: "lax" | "none" | "strict";
+    secure?: boolean;
+  } = {};
+
+  for (const attribute of attributes) {
+    const [rawKey, ...rawValueParts] = attribute.split("=");
+    const key = rawKey?.trim().toLowerCase();
+    const rawValue = rawValueParts.join("=").trim();
+
+    if (!key) {
+      continue;
+    }
+
+    if (key === "domain" && rawValue) {
+      parsedAttributes.domain = rawValue;
+      continue;
+    }
+
+    if (key === "path" && rawValue) {
+      parsedAttributes.path = rawValue;
+      continue;
+    }
+
+    if (key === "httponly") {
+      parsedAttributes.httpOnly = true;
+      continue;
+    }
+
+    if (key === "secure") {
+      parsedAttributes.secure = true;
+      continue;
+    }
+
+    if (key === "max-age" && rawValue) {
+      const maxAge = Number.parseInt(rawValue, 10);
+      if (Number.isFinite(maxAge)) {
+        parsedAttributes.maxAge = maxAge;
+      }
+      continue;
+    }
+
+    if (key === "samesite" && rawValue) {
+      const sameSite = rawValue.toLowerCase();
+      if (
+        sameSite === "lax" ||
+        sameSite === "none" ||
+        sameSite === "strict"
+      ) {
+        parsedAttributes.sameSite = sameSite;
+      }
+    }
+  }
+
+  return {
+    attributes: parsedAttributes,
+    name,
+    value,
+  };
+}
 
 const appUrl = process.env.BETTER_AUTH_URL?.trim();
 if (!appUrl) {

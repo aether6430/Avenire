@@ -8,8 +8,8 @@ import {
   ArrowCounterClockwise as RefreshCcw,
 } from "@phosphor-icons/react";
 import type { Route } from "next";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { usePaneRouter } from "@/lib/workspace-panes";
 
 function extractText(message: UIMessage) {
   return message.parts
@@ -30,7 +30,7 @@ export function ChatActions({
   message: UIMessage;
   onRegenerate?: (messageId: string) => void;
 }) {
-  const router = useRouter();
+  const router = usePaneRouter();
 
   const copyMessage = async () => {
     const text = extractText(message);
@@ -60,7 +60,6 @@ export function ChatActions({
     }
 
     router.push(`/workspace/chats/${data.chat.slug}` as Route);
-    router.refresh();
   };
 
   return (

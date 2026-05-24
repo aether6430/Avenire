@@ -95,7 +95,7 @@ export function FileCard({
       <div className="h-full w-full overflow-hidden rounded-md">
         <Image
           alt={name}
-          className="h-full w-full rounded-md object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+          className="h-full w-full rounded-md object-contain"
           height={168}
           src={previewUrl}
           unoptimized
@@ -135,7 +135,7 @@ export function FileCard({
           <div className="pointer-events-none absolute inset-0 bg-black opacity-0 transition-opacity duration-300 group-hover:opacity-10" />
         ) : null}
       </div>
-      <div className="flex min-w-0 flex-col gap-2">
+      <div className="flex w-full min-w-0 flex-col gap-2">
         <div className="flex w-full min-w-0 max-w-full items-center justify-between gap-2">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <span className="shrink-0 text-muted-foreground">
@@ -168,14 +168,14 @@ export function FileCard({
           <div className="flex w-full min-w-0 flex-wrap gap-1.5">
             {details.map((detail) => (
               <span
-                className="inline-flex max-w-full items-center gap-1 rounded-md bg-background/75 px-2 py-0.5 text-[10px] text-muted-foreground leading-none"
+                className="inline-flex max-w-full items-center gap-1 rounded-full bg-background/75 px-2 py-0.5 text-[10px] text-muted-foreground leading-none"
                 key={`${detail.label}:${detail.value}`}
                 title={`${detail.label}: ${detail.value}`}
               >
                 <span className="shrink-0 font-medium text-foreground/75">
                   {detail.label}
                 </span>
-                <span className="min-w-0 max-w-24 truncate">
+                <span className="min-w-0 max-w-full truncate">
                   {detail.value}
                 </span>
               </span>

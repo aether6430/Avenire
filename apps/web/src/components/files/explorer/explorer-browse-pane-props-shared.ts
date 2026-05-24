@@ -4,7 +4,7 @@ import type {
   MutableRefObject,
   RefObject,
 } from "react";
-import type { ExplorerBrowseSurface } from "@/components/files/explorer/explorer-browse-surface";
+import type { ExplorerBrowseSurfaceProps } from "@/components/files/explorer/explorer-browse-surface-types";
 import type { ExplorerCanvasShell } from "@/components/files/explorer/explorer-canvas-shell";
 import type { ExplorerContentDialogsProps } from "@/components/files/explorer/explorer-content-dialogs";
 import type { ExplorerControls } from "@/components/files/explorer/explorer-controls";
@@ -16,7 +16,7 @@ import type { FolderRecord } from "@/components/files/explorer/shared";
 export interface ExplorerBrowsePaneProps {
   bannerInputRef: RefObject<HTMLInputElement | null>;
   bannerUploadBusy: boolean;
-  browseSurfaceProps: ComponentProps<typeof ExplorerBrowseSurface>;
+  browseSurfaceProps: ExplorerBrowseSurfaceProps;
   contentDialogsProps: ExplorerContentDialogsProps;
   controlsProps: ComponentProps<typeof ExplorerControls>;
   currentFolder: FolderRecord | null;

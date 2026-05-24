@@ -69,88 +69,167 @@ export function FlashcardSetDetailCardBank({
         </div>
       </div>
       <div className="min-w-0">
-        <ScrollArea className="h-[30rem] w-full rounded-md">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Card</TableHead>
-                <TableHead>State</TableHead>
-                <TableHead>Due</TableHead>
-                <TableHead>Tags</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredCards.map((card) => {
-                const snapshot = snapshotByCardId.get(card.id) ?? null;
+        <div className="space-y-3 sm:hidden">
+          {filteredCards.map((card) => (
+            <MobileCardBankRow
+              card={card}
+              key={card.id}
+              onArchiveCard={onArchiveCard}
+              onEditCard={onEditCard}
+              snapshot={snapshotByCardId.get(card.id) ?? null}
+            />
+          ))}
+        </div>
+        <div className="hidden sm:block">
+          <ScrollArea className="h-[30rem] w-full rounded-md">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Card</TableHead>
+                  <TableHead>State</TableHead>
+                  <TableHead>Due</TableHead>
+                  <TableHead>Tags</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredCards.map((card) => {
+                  const snapshot = snapshotByCardId.get(card.id) ?? null;
 
-                return (
-                  <TableRow key={card.id}>
-                    <TableCell className="align-top">
-                      <div className="space-y-2">
-                        <p className="line-clamp-2 text-foreground text-sm">
-                          {card.frontMarkdown}
-                        </p>
-                        <p className="line-clamp-2 text-muted-foreground text-xs">
-                          {card.backMarkdown}
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell className="align-top">
-                      {snapshot ? (
-                        <FlashcardStateBadge state={snapshot.displayState} />
-                      ) : null}
-                    </TableCell>
-                    <TableCell className="align-top text-muted-foreground text-xs">
-                      {snapshot?.dueAt
-                        ? new Date(snapshot.dueAt).toLocaleString()
-                        : "Not scheduled"}
-                    </TableCell>
-                    <TableCell className="align-top">
-                      <div className="flex flex-wrap gap-1.5">
-                        {card.tags.length > 0 ? (
-                          card.tags.map((tag) => (
-                            <Badge
-                              className="rounded-md"
-                              key={tag}
-                              variant="outline"
-                            >
-                              {tag}
-                            </Badge>
-                          ))
-                        ) : (
-                          <span className="text-muted-foreground text-xs">
-                            No tags
-                          </span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="align-top">
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={() => onEditCard(card)}
-                          size="icon-sm"
-                          type="button"
-                          variant="outline"
-                        >
-                          <Pencil className="size-3.5" />
-                        </Button>
-                        <Button
-                          onClick={() => onArchiveCard(card.id)}
-                          size="icon-sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </ScrollArea>
+                  return (
+                    <TableRow key={card.id}>
+                      <TableCell className="align-top">
+                        <div className="space-y-2">
+                          <p className="line-clamp-2 text-foreground text-sm">
+                            {card.frontMarkdown}
+                          </p>
+                          <p className="line-clamp-2 text-muted-foreground text-xs">
+                            {card.backMarkdown}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="align-top">
+                        {snapshot ? (
+                          <FlashcardStateBadge state={snapshot.displayState} />
+                        ) : null}
+                      </TableCell>
+                      <TableCell className="align-top text-muted-foreground text-xs">
+                        {snapshot?.dueAt
+                          ? new Date(snapshot.dueAt).toLocaleString()
+                          : "Not scheduled"}
+                      </TableCell>
+                      <TableCell className="align-top">
+                        <div className="flex flex-wrap gap-1.5">
+                          {card.tags.length > 0 ? (
+                            card.tags.map((tag) => (
+                              <Badge
+                                className="rounded-md"
+                                key={tag}
+                                variant="outline"
+                              >
+                                {tag}
+                              </Badge>
+                            ))
+                          ) : (
+                            <span className="text-muted-foreground text-xs">
+                              No tags
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="align-top">
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => onEditCard(card)}
+                            size="icon-sm"
+                            type="button"
+                            variant="outline"
+                          >
+                            <Pencil className="size-3.5" />
+                          </Button>
+                          <Button
+                            onClick={() => onArchiveCard(card.id)}
+                            size="icon-sm"
+                            type="button"
+                            variant="ghost"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MobileCardBankRow({
+  card,
+  onArchiveCard,
+  onEditCard,
+  snapshot,
+}: {
+  card: FlashcardCardRecord;
+  onArchiveCard: (cardId: string) => void;
+  onEditCard: (card: FlashcardCardRecord) => void;
+  snapshot: FlashcardCardSnapshot | null;
+}) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-card/60 p-3">
+      <div className="space-y-2">
+        <p className="line-clamp-2 text-foreground text-sm">
+          {card.frontMarkdown}
+        </p>
+        <p className="line-clamp-2 text-muted-foreground text-xs">
+          {card.backMarkdown}
+        </p>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {snapshot ? (
+          <FlashcardStateBadge state={snapshot.displayState} />
+        ) : null}
+        <span className="text-muted-foreground text-xs">
+          {snapshot?.dueAt
+            ? `Due ${new Date(snapshot.dueAt).toLocaleDateString()}`
+            : "Not scheduled"}
+        </span>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {card.tags.length > 0 ? (
+          card.tags.map((tag) => (
+            <Badge className="rounded-md" key={tag} variant="outline">
+              {tag}
+            </Badge>
+          ))
+        ) : (
+          <span className="text-muted-foreground text-xs">No tags</span>
+        )}
+      </div>
+      <div className="mt-3 flex gap-2">
+        <Button
+          className="flex-1"
+          onClick={() => onEditCard(card)}
+          type="button"
+          variant="outline"
+        >
+          <Pencil className="mr-2 size-3.5" />
+          Edit
+        </Button>
+        <Button
+          className="flex-1"
+          onClick={() => onArchiveCard(card.id)}
+          type="button"
+          variant="ghost"
+        >
+          <Trash2 className="mr-2 size-3.5" />
+          Archive
+        </Button>
       </div>
     </div>
   );

@@ -55,29 +55,30 @@ export async function handleEphemeralChatRequest({
 }: HandleEphemeralChatRequestOptions) {
   const originalMessages = normalizeMessageFileMediaTypes(body.messages ?? []);
   const selectedModel = body.selectedModel ?? "apollo-apex";
+  const selectionBase64 = body.selectionBase64?.trim() ?? "";
 
-  const initialUsage = await consumeChatUnits(
-    sessionUser.id,
-    getExpectedChatCredits(originalMessages, selectedModel)
-  );
-  if (!initialUsage.ok) {
-    const retryAfter = initialUsage.retryAfter?.toISOString() ?? null;
-    apiLogger.rateLimited("chat", retryAfter, { chatId: "ephemeral" });
-    return NextResponse.json(
-      {
-        error: "Chat usage limit reached",
-        retryAfter,
-      },
-      { status: 429 }
-    );
-  }
   try {
-    const selectionBase64 = body.selectionBase64?.trim() ?? "";
     if (!selectionBase64) {
       apiLogger.requestFailed(400, "Missing selection image");
       return NextResponse.json(
         { error: "Missing selection image" },
         { status: 400 }
+      );
+    }
+
+    const initialUsage = await consumeChatUnits(
+      sessionUser.id,
+      getExpectedChatCredits(originalMessages, selectedModel)
+    );
+    if (!initialUsage.ok) {
+      const retryAfter = initialUsage.retryAfter?.toISOString() ?? null;
+      apiLogger.rateLimited("chat", retryAfter, { chatId: "ephemeral" });
+      return NextResponse.json(
+        {
+          error: "Chat usage limit reached",
+          retryAfter,
+        },
+        { status: 429 }
       );
     }
 

@@ -3,16 +3,16 @@
 import { Badge } from "@avenire/ui/components/badge";
 import { Button } from "@avenire/ui/components/button";
 import {
+  Empty,
   EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
 } from "@avenire/ui/components/empty";
-import { ScrollArea } from "@avenire/ui/components/scroll-area";
 import { cn } from "@avenire/ui/lib/utils";
 import { BookOpenText as BookOpenCheck } from "@phosphor-icons/react/BookOpenText";
-import { Empty } from "@phosphor-icons/react/Empty";
+import { StabilityCurves } from "@/components/flashcards/stability-curves";
 import type { FlashcardsDashboardRuntime } from "@/components/flashcards/use-flashcards-dashboard";
 import { getFlashcardEnrollmentLabel } from "./flashcard-set-detail-model";
 
@@ -73,9 +73,9 @@ function FlashcardsDashboardDeckList({
   }
 
   return (
-    <ScrollArea className="max-h-[16rem]">
+    <div className="no-scrollbar max-h-[16rem] overflow-y-auto pr-1">
       <div className="space-y-2 p-1">{content}</div>
-    </ScrollArea>
+    </div>
   );
 }
 
@@ -107,37 +107,33 @@ function FlashcardsDashboardSelectedDeck({
             </p>
           </div>
           {selectedSet.dueCount > 0 ? (
-            <Badge className="rounded-md" variant="outline">
-              {selectedSet.dueCount} due
-            </Badge>
+            <Badge variant="outline">{selectedSet.dueCount} due</Badge>
           ) : null}
         </div>
       </div>
       <div className="space-y-4">
         <div className="flex flex-wrap gap-2 border-border/50 border-y py-3">
-          <Badge className="rounded-md" variant="outline">
+          <Badge variant="outline">
             {selectedSet.sourceType === "ai-generated"
               ? "AI-generated"
               : "Manual"}
           </Badge>
-          <Badge className="rounded-md" variant="outline">
+          <Badge variant="outline">
             {getFlashcardEnrollmentLabel(selectedSet.enrollmentStatus)}
           </Badge>
-          <Badge className="rounded-md" variant="outline">
-            {selectedSet.cardCount} cards
-          </Badge>
-          <Badge className="rounded-md" variant="outline">
+          <Badge variant="outline">{selectedSet.cardCount} cards</Badge>
+          <Badge variant="outline">
             {selectedSet.reviewCountToday} studied today
           </Badge>
-          <Badge className="rounded-md" variant="outline">
+          <Badge variant="outline">
             {selectedSet.reviewCount7d} reviews in 7d
           </Badge>
-          <Badge className="rounded-md" variant="outline">
+          <Badge variant="outline">
             {selectedSet.lastStudiedAt
               ? `Last ${new Date(selectedSet.lastStudiedAt).toLocaleDateString()}`
               : "Not studied yet"}
           </Badge>
-          <Badge className="rounded-md" variant="outline">
+          <Badge variant="outline">
             Updated {new Date(selectedSet.updatedAt).toLocaleDateString()}
           </Badge>
         </div>
@@ -172,7 +168,7 @@ function FlashcardsDashboardSelectedDeck({
                           : "Not scheduled"}
                       </p>
                     </div>
-                    <Badge className="shrink-0 rounded-md" variant="outline">
+                    <Badge className="shrink-0" variant="outline">
                       {snapshot.displayState}
                     </Badge>
                   </div>
@@ -181,6 +177,7 @@ function FlashcardsDashboardSelectedDeck({
             )}
           </div>
         </div>
+        <StabilityCurves snapshots={selectedSnapshots} />
         <div className="flex gap-2">
           <Button
             className="flex-1"
@@ -245,9 +242,11 @@ export function FlashcardsDashboardPanels({
         ) : runtime.activeMisconceptions.length > 0 ? (
           <div className="space-y-2">
             {runtime.activeMisconceptions.slice(0, 6).map((misconception) => (
-              <div
-                className="grid gap-3 rounded-md border border-border/60 bg-card px-3 py-3 md:grid-cols-[minmax(10rem,0.36fr)_minmax(0,1fr)]"
+              <button
+                className="grid w-full cursor-pointer gap-3 rounded-md border border-border/60 bg-card px-3 py-3 text-left transition-colors hover:bg-secondary/70 md:grid-cols-[minmax(10rem,0.36fr)_minmax(0,1fr)]"
                 key={misconception.id}
+                onClick={() => runtime.setSelectedMisconception(misconception)}
+                type="button"
               >
                 <div className="min-w-0">
                   <p className="truncate font-medium text-foreground text-sm">
@@ -270,7 +269,7 @@ export function FlashcardsDashboardPanels({
                     </Badge>
                   </div>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         ) : (

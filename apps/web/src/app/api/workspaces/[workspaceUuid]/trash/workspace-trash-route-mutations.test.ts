@@ -126,6 +126,27 @@ describe("workspace trash route mutations", () => {
     });
   });
 
+  it("fails folder deletion cleanly when the trashed folder no longer exists", async () => {
+    permanentlyDeleteFolderMock.mockResolvedValue(null);
+
+    const response = await handleWorkspaceTrashRouteDelete({
+      body: {
+        items: [{ id: "folder-1", kind: "folder" }],
+        operation: "delete",
+      },
+      workspaceUuid: WORKSPACE_UUID,
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      ok: true,
+      results: [{ id: "folder-1", kind: "folder", ok: false }],
+    });
+    expect(deleteStorageFilesMock).not.toHaveBeenCalled();
+    expect(invalidateWorkspaceReadCachesMock).not.toHaveBeenCalled();
+    expect(publishFilesInvalidationEventMock).not.toHaveBeenCalled();
+  });
+
   it("fails closed when route-level session, access, or delegated trash handling throws", async () => {
     vi.resetModules();
 

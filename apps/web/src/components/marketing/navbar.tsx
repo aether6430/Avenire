@@ -31,13 +31,17 @@ export const Navbar = () => {
           <div className="flex items-center gap-2">
             <Button
               as="a"
-              className="px-4 py-2 text-sm"
+              className="h-11 whitespace-nowrap px-4 text-sm max-[340px]:px-3 max-[340px]:text-[13px]"
               href="/login"
               variant="secondary"
             >
               Log in
             </Button>
-            <Button as="a" className="px-4 py-2 text-sm" href="/waitlist">
+            <Button
+              as="a"
+              className="h-11 whitespace-nowrap px-4 text-sm max-[340px]:px-3 max-[340px]:text-[13px]"
+              href="/waitlist"
+            >
               Join the waitlist
             </Button>
           </div>

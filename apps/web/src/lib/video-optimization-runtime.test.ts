@@ -17,10 +17,6 @@ vi.mock("@/lib/file-data", () => ({
   isTrustedStorageUrl: isTrustedStorageUrlMock,
 }));
 
-const videoOptimizationBarrelSource = readFileSync(
-  resolve(import.meta.dirname, "video-optimization.ts"),
-  "utf8"
-);
 const videoOptimizationModelSource = readFileSync(
   resolve(import.meta.dirname, "video-optimization-model.ts"),
   "utf8"
@@ -95,14 +91,7 @@ describe("video optimization runtime", () => {
     process.env.UPLOADTHING_TOKEN = previousToken;
   });
 
-  it("keeps video optimization split between a thin barrel, pure planning model helpers, and side-effect runtime execution", () => {
-    expect(videoOptimizationBarrelSource).toContain(
-      "@/lib/video-optimization-runtime"
-    );
-    expect(videoOptimizationBarrelSource).not.toContain("lookup(");
-    expect(videoOptimizationBarrelSource).not.toContain("uploadStorageFile(");
-    expect(videoOptimizationBarrelSource).not.toContain("spawn(");
-
+  it("keeps video optimization split between pure planning model helpers and side-effect runtime execution", () => {
     expect(videoOptimizationModelSource).toContain(
       "export function buildHlsVariants"
     );

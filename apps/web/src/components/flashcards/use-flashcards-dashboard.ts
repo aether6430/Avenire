@@ -1,8 +1,14 @@
 "use client";
 
+import type { MisconceptionRecord } from "@avenire/database";
 import { useQuery } from "@tanstack/react-query";
 import type { Route } from "next";
+import { useRouter } from "next/navigation";
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
+import {
+  buildMisconceptionFlashcardPrompt,
+  buildMisconceptionTutorPrompt,
+} from "@/components/dashboard/dashboard-home-model";
 import {
   createFlashcardSet,
   generateFlashcardsOnboardingSet,
@@ -16,7 +22,6 @@ import {
   findSelectedFlashcardSnapshots,
 } from "@/components/flashcards/flashcards-dashboard-model";
 import { prefetchFlashcardSet } from "@/lib/flashcard-browser-cache";
-import type { MisconceptionRecord } from "@/lib/learning-data";
 import {
   useCurrentWorkspacePaneCompact,
   usePanePathname,
@@ -52,6 +57,7 @@ export function useFlashcardsDashboard({
   generationRequest,
   initialDashboard,
 }: FlashcardsDashboardProps) {
+  const appRouter = useRouter();
   const router = usePaneRouter();
   const pathname = usePanePathname();
   const searchParams = usePaneSearchParams();
@@ -68,6 +74,8 @@ export function useFlashcardsDashboard({
     generationRequest !== null
   );
   const [busy, setBusy] = useState(false);
+  const [selectedMisconception, setSelectedMisconception] =
+    useState<MisconceptionRecord | null>(null);
   const autoOpenCreateRef = useRef(false);
   const generationStartedRef = useRef(false);
   const overviewQuery = useQuery({
@@ -196,9 +204,74 @@ export function useFlashcardsDashboard({
     prefetchFlashcardSet(setId).catch(() => undefined);
   };
 
+  const openMisconceptionTutor = (misconception: MisconceptionRecord) => {
+    router.push(
+      `/workspace/chats/new?prompt=${buildMisconceptionTutorPrompt(
+        misconception
+      )}` as Route
+    );
+  };
+
+  const openMisconceptionFlashcards = (misconception: MisconceptionRecord) => {
+    router.push(
+      `/workspace/chats/new?prompt=${buildMisconceptionFlashcardPrompt(
+        misconception
+      )}` as Route
+    );
+  };
+
+  const adjustMisconceptionConfidence = async (
+    misconception: MisconceptionRecord,
+    delta: number
+  ) => {
+    const response = await fetch("/api/misconceptions/improve", {
+      body: JSON.stringify({
+        concept: misconception.concept,
+        delta,
+        subject: misconception.subject,
+        topic: misconception.topic,
+      }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      return;
+    }
+
+    await overviewQuery.refetch();
+    appRouter.refresh();
+    setSelectedMisconception({
+      ...misconception,
+      confidence: Math.min(1, Math.max(0, misconception.confidence + delta)),
+    });
+  };
+
+  const clearMisconception = async (misconception: MisconceptionRecord) => {
+    const response = await fetch("/api/misconceptions/delete", {
+      body: JSON.stringify({
+        concept: misconception.concept,
+        subject: misconception.subject,
+        topic: misconception.topic,
+      }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      return;
+    }
+
+    setSelectedMisconception(null);
+    await overviewQuery.refetch();
+    appRouter.refresh();
+  };
+
   return {
     activeMisconceptions: overviewQuery.data?.activeMisconceptions ?? [],
+    adjustMisconceptionConfidence,
     busy,
+    clearMisconception,
     createOpen,
     createSet,
     createStatus,
@@ -210,16 +283,20 @@ export function useFlashcardsDashboard({
     mindsetOverviewErrorMessage:
       overviewQuery.error instanceof Error ? overviewQuery.error.message : null,
     mindsetOverviewLoading: overviewQuery.isLoading,
+    openMisconceptionFlashcards,
+    openMisconceptionTutor,
     openReviewTarget,
     openSet,
     orderedSets,
     prefetchSet,
     reviewTarget,
+    selectedMisconception,
     selectedSet,
     selectedSetId,
     selectedSnapshots,
     setCreateOpen,
     setDescription,
+    setSelectedMisconception,
     setSelectedSetId,
     setTags,
     setTitle,

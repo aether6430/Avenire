@@ -12,6 +12,7 @@ function normalizeOptionalNumber(value: unknown) {
 
 export function parseMisconceptionImproveInput(input: {
   concept?: unknown;
+  delta?: unknown;
   decay?: unknown;
   resolveThreshold?: unknown;
   subject?: unknown;
@@ -21,6 +22,7 @@ export function parseMisconceptionImproveInput(input: {
       success: true;
       data: {
         concept: string;
+        delta: number | undefined;
         decay: number | undefined;
         resolveThreshold: number | undefined;
         subject: string;
@@ -46,6 +48,7 @@ export function parseMisconceptionImproveInput(input: {
     success: true,
     data: {
       concept,
+      delta: normalizeOptionalNumber(input.delta),
       decay: normalizeOptionalNumber(input.decay),
       resolveThreshold: normalizeOptionalNumber(input.resolveThreshold),
       subject,

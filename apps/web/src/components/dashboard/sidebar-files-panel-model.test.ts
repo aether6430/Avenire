@@ -261,12 +261,21 @@ describe("sidebar files panel model", () => {
     });
   });
 
-  it("keeps files sidebar ownership split between the thin wrapper, orchestration hook, pure model helpers, and dedicated navigation/tree/mutation hooks", () => {
+  it("keeps files sidebar ownership split between the orchestration wrapper, pure model helpers, and dedicated navigation/tree/mutation hooks", () => {
     expect(sidebarFilesPanelSource).toContain(
-      "@/components/dashboard/sidebar-files-panel-surface"
+      "@/components/dashboard/sidebar-files-panel-actions-section"
+    );
+    expect(sidebarFilesPanelSource).toContain(
+      "@/components/dashboard/sidebar-files-panel-pinned-section"
+    );
+    expect(sidebarFilesPanelSource).toContain(
+      "@/components/dashboard/sidebar-files-panel-tree-section"
     );
     expect(sidebarFilesPanelSource).toContain(
       "@/components/dashboard/use-sidebar-files-panel"
+    );
+    expect(sidebarFilesPanelSource).not.toContain(
+      "@/components/dashboard/sidebar-files-panel-surface"
     );
     expect(sidebarFilesPanelSource).not.toContain("fetch(");
     expect(sidebarFilesPanelSource).not.toContain("EventSource");

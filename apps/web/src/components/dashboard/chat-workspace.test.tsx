@@ -1,23 +1,36 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-const { ChatWorkspaceSurfaceMock, useChatWorkspaceMock } = vi.hoisted(() => ({
-  ChatWorkspaceSurfaceMock: vi.fn(() => <div>CHAT_WORKSPACE_SURFACE</div>),
+const { useChatWorkspaceMock } = vi.hoisted(() => ({
   useChatWorkspaceMock: vi.fn(),
-}));
-
-vi.mock("@/components/dashboard/chat-workspace-surface", () => ({
-  ChatWorkspaceSurface: ChatWorkspaceSurfaceMock,
 }));
 
 vi.mock("@/components/dashboard/use-chat-workspace", () => ({
   useChatWorkspace: useChatWorkspaceMock,
 }));
 
+vi.mock("@/components/dashboard/header-portal", () => ({
+  HeaderActions: ({ children }: { children: ReactNode }) => <>{children}</>,
+  HeaderBreadcrumbs: ({ children }: { children: ReactNode }) => <>{children}</>,
+  HeaderTitle: ({ children }: { children: ReactNode }) => <>{children}</>,
+}));
+
+vi.mock("@/components/chat/chat", () => ({
+  Chat: () => <div>CHAT_SURFACE</div>,
+}));
+
 import { ChatWorkspace } from "@/components/dashboard/chat-workspace";
 
+const chatWorkspaceSource = readFileSync(
+  resolve(import.meta.dirname, "./chat-workspace.tsx"),
+  "utf8"
+);
+
 describe("ChatWorkspace", () => {
-  it("wires the chat workspace runtime into the surface", () => {
+  it("wires the chat workspace runtime directly in the owner file after removing the intermediate surface", () => {
     useChatWorkspaceMock.mockReturnValue({
       canShare: false,
       currentChatSlug: "chat-1",
@@ -45,16 +58,14 @@ describe("ChatWorkspace", () => {
     const html = renderToStaticMarkup(<ChatWorkspace {...props} />);
 
     expect(useChatWorkspaceMock).toHaveBeenCalledWith(props);
-    expect(ChatWorkspaceSurfaceMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        runtime: expect.objectContaining({
-          currentChatSlug: "chat-1",
-          title: "Method",
-          workspaceUuid: "workspace-1",
-        }),
-      }),
-      undefined
+    expect(chatWorkspaceSource).not.toContain(
+      "@/components/dashboard/chat-workspace-surface"
     );
-    expect(html).toContain("CHAT_WORKSPACE_SURFACE");
+    expect(html).toContain("CHAT_SURFACE");
+  });
+
+  it("routes workspace methods through the core Gemini-backed chat model by default", () => {
+    expect(chatWorkspaceSource).toContain('selectedModel="apollo-core"');
+    expect(chatWorkspaceSource).not.toContain('selectedModel="apollo-apex"');
   });
 });

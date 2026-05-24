@@ -11,7 +11,6 @@ import {
   type DataImportsDestinationRuntime,
   type ImportDestination,
   type ImportProviderStatus,
-  type WorkspaceSummary,
 } from "@/components/settings/data-imports-model";
 import {
   createDataImportFoldersLoadFailureState,
@@ -24,6 +23,7 @@ import {
   shouldLoadDestinationFolders,
   shouldReuseSavedImportDestination,
 } from "@/components/settings/settings-data-imports-destination-runtime-model";
+import type { WorkspaceSummary } from "@/components/settings/settings-panel-model";
 
 export function useDataImportsDestination({
   workspaces,

@@ -3,7 +3,7 @@
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import type { WorkspaceSummary } from "@/components/settings/settings-panel-model";
 import { updateWorkspaceLogo } from "@/components/settings/settings-workspace-client";
-import { getUploadErrorMessage } from "@/lib/upload";
+import { getUploadErrorMessage } from "@/lib/upload-error-message";
 import { useUploadThing } from "@/lib/uploadthing";
 
 export function useSettingsWorkspaceIcon({

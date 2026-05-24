@@ -1,3 +1,4 @@
+import { getIngestionFlagsByFileIds } from "@avenire/database";
 import { NextResponse } from "next/server";
 import { CACHE_NAMESPACES } from "@/lib/domain-cache";
 import {
@@ -6,7 +7,6 @@ import {
   listFolderContentsForUser,
   listNoteContentByFileIds,
 } from "@/lib/file-data";
-import { getIngestionFlagsByFileIds } from "@/lib/ingestion-data";
 import {
   createRouteCacheKey,
   getCachedRoute,

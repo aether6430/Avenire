@@ -43,9 +43,9 @@ export function useDashboardSidebarWarmup({
 
       if (section === "flashcards") {
         routerPrefetch("/workspace/flashcards" as Route);
-        import(
-          "@/components/flashcards/flashcards-sidebar-panel-surface"
-        ).catch(() => undefined);
+        import("@/components/dashboard/dashboard-sidebar-mounted-views").catch(
+          () => undefined
+        );
         warmWorkspaceSurface("flashcards", {
           rootFolderId: rootFolderId ?? null,
           workspaceUuid,
@@ -93,9 +93,9 @@ export function useDashboardSidebarWarmup({
         import("@/components/dashboard/sidebar-files-panel").catch(
           () => undefined
         );
-        import(
-          "@/components/flashcards/flashcards-sidebar-panel-surface"
-        ).catch(() => undefined);
+        import("@/components/dashboard/dashboard-sidebar-mounted-views").catch(
+          () => undefined
+        );
         import("@/components/dashboard/task-manager").catch(() => undefined);
         import("@/components/student-calendar").catch(() => undefined);
         warmDashboardBackground({

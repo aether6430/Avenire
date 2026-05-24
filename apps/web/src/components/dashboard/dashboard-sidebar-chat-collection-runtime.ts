@@ -1,4 +1,4 @@
-import type { ChatSummary } from "@/lib/chat-data";
+import type { ChatSummary } from "@avenire/database";
 
 export function resolveSidebarChatsFromInitial(input: {
   initialChats: ChatSummary[];

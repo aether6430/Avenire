@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@avenire/database", () => ({
   canonicalizeLearningTaxonomy: vi.fn(() => null),
+  getIngestionSummaryForFile: getIngestionSummaryForFileMock,
 }));
 
 const {
@@ -55,10 +56,6 @@ vi.mock("@/lib/flashcards", () => ({
   getFlashcardDashboardForUser: getFlashcardDashboardForUserMock,
   getFlashcardSetForUser: getFlashcardSetForUserMock,
   normalizeFlashcardTaxonomy: normalizeFlashcardTaxonomyMock,
-}));
-
-vi.mock("@/lib/ingestion-data", () => ({
-  getIngestionSummaryForFile: getIngestionSummaryForFileMock,
 }));
 
 vi.mock("@/lib/retrieval-service", () => ({

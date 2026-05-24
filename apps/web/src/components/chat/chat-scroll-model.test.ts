@@ -8,6 +8,7 @@ import {
   isNearBottom,
   resolveAutoScrollEnabled,
   shouldIgnoreAutoScrollToggle,
+  TOP_ANCHOR_OFFSET_PX,
 } from "@/components/chat/chat-scroll-model";
 
 describe("chat scroll model", () => {
@@ -70,5 +71,9 @@ describe("chat scroll model", () => {
     expect(isChatScrollIntentKey("PageDown")).toBe(true);
     expect(isChatScrollIntentKey("End")).toBe(true);
     expect(isChatScrollIntentKey("Enter")).toBe(false);
+  });
+
+  it("keeps the pinned latest-turn anchor offset high enough to clear the mobile workspace header", () => {
+    expect(TOP_ANCHOR_OFFSET_PX).toBe(96);
   });
 });

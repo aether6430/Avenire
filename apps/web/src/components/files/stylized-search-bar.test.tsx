@@ -1,19 +1,10 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-const { StylizedSearchBarSurfaceMock, useStylizedSearchBarMock } = vi.hoisted(
-  () => ({
-    StylizedSearchBarSurfaceMock: vi.fn(() => (
-      <div>STYLIZED_SEARCH_SURFACE</div>
-    )),
-    useStylizedSearchBarMock: vi.fn(),
-  })
-);
-
-vi.mock("@/components/files/stylized-search-bar-surface", () => ({
-  StylizedSearchBarSurface: StylizedSearchBarSurfaceMock,
+const { useStylizedSearchBarMock } = vi.hoisted(() => ({
+  useStylizedSearchBarMock: vi.fn(),
 }));
 
 vi.mock("@/components/files/use-stylized-search-bar", () => ({
@@ -26,10 +17,19 @@ const stylizedSearchBarRuntimeFile = resolve(
   import.meta.dirname,
   "./use-stylized-search-bar.ts"
 );
+const removedSurfaceFile = resolve(
+  import.meta.dirname,
+  "./stylized-search-bar-surface.tsx"
+);
+const stylizedSearchBarFile = resolve(
+  import.meta.dirname,
+  "./stylized-search-bar.tsx"
+);
 
 describe("StylizedSearchBar", () => {
-  it("wires the search runtime hook into the surface", () => {
+  it("wires the search runtime hook directly after removing the intermediate surface file", () => {
     const runtimeSource = readFileSync(stylizedSearchBarRuntimeFile, "utf8");
+    const componentSource = readFileSync(stylizedSearchBarFile, "utf8");
     useStylizedSearchBarMock.mockReturnValue({
       containerRef: { current: null },
       isSearching: false,
@@ -42,6 +42,7 @@ describe("StylizedSearchBar", () => {
     });
 
     const props = {
+      initialQuery: "thermo",
       items: [],
       workspaceUuid: "workspace-1",
     };
@@ -50,25 +51,20 @@ describe("StylizedSearchBar", () => {
 
     expect(useStylizedSearchBarMock).toHaveBeenCalledWith({
       focusSignal: undefined,
-      initialQuery: "",
       initialResults: [],
+      initialQuery: "thermo",
       items: [],
       onApplyWorkspaceFilter: undefined,
       onSearch: undefined,
       workspaceUuid: "workspace-1",
     });
-    expect(StylizedSearchBarSurfaceMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        maxWidth: "max-w-5xl",
-        placeholder: "Search anything...",
-        runtime: expect.objectContaining({
-          workspaceUuid: "workspace-1",
-        }),
-      }),
-      undefined
+    expect(existsSync(removedSurfaceFile)).toBe(false);
+    expect(componentSource).not.toContain(
+      "@/components/files/stylized-search-bar-surface"
     );
+    expect(componentSource).toContain("Searching indexed workspace content");
     expect(runtimeSource).toContain("queryWorkspaceRetrievalApi({");
     expect(runtimeSource).not.toContain("limit: 8");
-    expect(html).toContain("STYLIZED_SEARCH_SURFACE");
+    expect(html).toContain("Search anything...");
   });
 });

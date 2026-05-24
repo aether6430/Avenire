@@ -13,7 +13,7 @@ import {
   shouldHashForClientDedupe,
 } from "@/components/files/explorer/explorer-upload-model";
 import type { FolderRecord } from "@/components/files/explorer/shared";
-import { getUploadErrorMessage } from "@/lib/upload";
+import { getUploadErrorMessage } from "@/lib/upload-error-message";
 import { requestUploadPreflight } from "@/lib/upload-preflight";
 import {
   applyExplorerDedupeHitsToQueue,
@@ -71,6 +71,20 @@ interface RunExplorerUploadBatchOptions {
   ) => void;
   startUpload: (files: File[]) => Promise<UploadResultLike[] | undefined>;
   workspaceUuid: string;
+}
+
+export function buildExplorerUploadPreflightInput(input: {
+  contentHashSha256?: string;
+  file: File;
+  targetFolderId: string;
+  workspaceUuid: string;
+}) {
+  return {
+    checksumSha256: input.contentHashSha256,
+    file: input.file,
+    folderId: input.targetFolderId,
+    workspaceUuid: input.workspaceUuid,
+  };
 }
 
 export function buildExplorerRegisterFilePayload(
@@ -318,11 +332,14 @@ export async function runExplorerUploadBatch({
           targetFolderId,
         });
       } else {
-        await requestUploadPreflight({
-          file: entry.candidate.file,
-          folderId: currentFolderId,
-          workspaceUuid,
-        });
+        await requestUploadPreflight(
+          buildExplorerUploadPreflightInput({
+            contentHashSha256: hashByQueueId.get(entry.queueItemId),
+            file: entry.candidate.file,
+            targetFolderId,
+            workspaceUuid,
+          })
+        );
         const uploaded = ((await startUpload([entry.candidate.file])) ?? [])[0];
         if (!(uploaded?.key && uploaded.ufsUrl)) {
           throw new Error("Upload returned no file metadata");

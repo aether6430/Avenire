@@ -8,7 +8,7 @@ const { getChatBySlugForUserMock, getRouteSessionMock } = vi.hoisted(() => ({
   getRouteSessionMock: vi.fn(),
 }));
 
-vi.mock("@/lib/chat-data", () => ({
+vi.mock("@avenire/database", () => ({
   getChatBySlugForUser: getChatBySlugForUserMock,
 }));
 

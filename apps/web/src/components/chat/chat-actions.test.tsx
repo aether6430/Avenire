@@ -13,10 +13,9 @@ vi.mock("@avenire/ui/components/button", () => ({
   }) => <button aria-label={ariaLabel}>{children}</button>,
 }));
 
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({
+vi.mock("@/lib/workspace-panes", () => ({
+  usePaneRouter: () => ({
     push: () => {},
-    refresh: () => {},
   }),
 }));
 

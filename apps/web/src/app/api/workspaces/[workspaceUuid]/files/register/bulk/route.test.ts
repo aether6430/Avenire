@@ -32,7 +32,7 @@ vi.mock("@/lib/upload-registration", () => ({
   registerWorkspaceUploadedFile: registerWorkspaceUploadedFileMock,
 }));
 
-vi.mock("@/lib/video-delivery-optimization", () => ({
+vi.mock("@/lib/video-delivery-optimization-runtime", () => ({
   scheduleAsyncVideoDeliveryOptimization:
     scheduleAsyncVideoDeliveryOptimizationMock,
 }));
