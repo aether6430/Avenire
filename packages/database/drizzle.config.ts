@@ -1,7 +1,8 @@
-import { config as loadEnv } from "dotenv";
-import { defineConfig } from "drizzle-kit";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { config as loadEnv } from "dotenv";
+import { defineConfig } from "drizzle-kit";
+import { normalizePostgresConnectionString } from "./src/connection-string";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 loadEnv({ path: resolve(currentDir, "../../.env") });
@@ -20,6 +21,6 @@ export default defineConfig({
   schema: ["./src/schema.ts", "./src/auth-schema.ts"],
   out: "./drizzle",
   dbCredentials: {
-    url: databaseUrl
-  }
+    url: normalizePostgresConnectionString(databaseUrl),
+  },
 });

@@ -4,22 +4,45 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./index.ts",
-    "./client": "./client.ts",
-    "./server": "./server.ts",
-    "./components/login": "./components/login.tsx",
-    "./components/register": "./components/register.tsx",
-    "./components/waitlist": "./components/waitlist.tsx",
-    "./components/icons": "./components/icons.tsx",
-    "./types": "./types.ts",
-    "./error_messages": "./error_messages.ts",
-    "./middleware": "./middleware.ts",
-    "./parse-user-agent": "./parse-user-agent.ts"
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "default": "./dist/server.js"
+    },
+    "./components/login": {
+      "types": "./dist/components/login.d.ts",
+      "default": "./dist/components/login.js"
+    },
+    "./components/register": {
+      "types": "./dist/components/register.d.ts",
+      "default": "./dist/components/register.js"
+    },
+    "./components/waitlist": {
+      "types": "./dist/components/waitlist.d.ts",
+      "default": "./dist/components/waitlist.js"
+    },
+    "./components/icons": {
+      "types": "./dist/components/icons.d.ts",
+      "default": "./dist/components/icons.js"
+    },
+    "./middleware": {
+      "types": "./dist/middleware.d.ts",
+      "default": "./dist/middleware.js"
+    },
+    "./parse-user-agent": {
+      "types": "./dist/parse-user-agent.d.ts",
+      "default": "./dist/parse-user-agent.js"
+    }
   },
   "scripts": {
-    "build": "tsc --noEmit",
+    "build": "rm -rf dist && tsc -p tsconfig.dist.json",
     "lint": "biome check .",
-    "check-types": "tsc --noEmit",
+    "check-types": "tsc --noEmit -p tsconfig.dist.json",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage.enabled true --coverage.provider v8 --coverage.reporter text-summary --coverage.reporter json-summary --coverage.include '*.ts' --coverage.include 'components/**/*.{ts,tsx}' --coverage.exclude '**/*.d.ts' --coverage.exclude '**/*.test.*'",
     "format": "biome format --write .",
     "auth:generate": "better-auth generate --config ./server.ts --output ../database/src/auth-schema.ts --yes"
   },
@@ -27,21 +50,26 @@
     "@avenire/database": "workspace:*",
     "@avenire/emailer": "workspace:*",
     "@avenire/ui": "workspace:*",
-    "@better-auth/passkey": "1.4.21",
+    "@better-auth/passkey": "1.6.11",
     "@phosphor-icons/react": "^2.1.10",
-    "@polar-sh/better-auth": "latest",
-    "@polar-sh/sdk": "^0.46.4",
-    "better-auth": "1.4.21",
-    "next": "^16.2.6",
-    "react": "^19.2.4",
+    "@polar-sh/better-auth": "1.8.4",
+    "@polar-sh/sdk": "0.47.1",
+    "better-auth": "1.6.11",
+    "next": "16.2.6",
+    "react": "^19.2.6",
     "sonner": "^2.0.7",
-    "zod": "latest"
+    "zod": "4.3.6"
   },
   "devDependencies": {
     "@avenire/env-types": "workspace:*",
     "@avenire/typescript-config": "workspace:*",
     "@better-auth/cli": "1.4.21",
-    "@types/react": "latest",
-    "typescript": "5.9.3"
+    "@types/node": "25.3.5",
+    "@types/react": "19.2.14",
+    "@vitest/coverage-v8": "4.1.7",
+    "react-dom": "^19.2.6",
+    "typescript": "5.9.3",
+    "vite": "7.3.1",
+    "vitest": "4.1.7"
   }
 }

@@ -1,48 +1,37 @@
-"use client"
+"use client";
 
-import type { CSSProperties } from "react"
+import type { CSSProperties } from "react";
 
-/** row-major 4x4 Bayer 0..15 */
 const BAYER_4: readonly number[] = [
   0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5,
-]
+];
 
 function hashSeed(seed: string): number {
-  let h = 2166136261
+  let hash = 2_166_136_261;
 
-  for (let i = 0; i < seed.length; i++) {
-    h ^= seed.charCodeAt(i)
-    h = Math.imul(h, 16777619)
+  for (let index = 0; index < seed.length; index += 1) {
+    hash ^= seed.charCodeAt(index);
+    hash = Math.imul(hash, 16_777_619);
   }
 
-  return h >>> 0
+  return hash >>> 0;
 }
 
 function mulberry32(seed: number): () => number {
-  let a = seed >>> 0
+  let value = seed >>> 0;
 
   return () => {
-    a |= 0
-    a = (a + 0x6d2b79f5) | 0
+    value |= 0;
+    value = (value + 0x6d_2b_79_f5) | 0;
 
-    let t = Math.imul(a ^ (a >>> 15), a | 1)
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    let next = Math.imul(value ^ (value >>> 15), value | 1);
+    next ^= next + Math.imul(next ^ (next >>> 7), next | 61);
 
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
+    return ((next ^ (next >>> 14)) >>> 0) / 4_294_967_296;
+  };
 }
 
-type DitherIdenticonProps = {
-  seed: string
-  color?: string
-  backgroundColor?: string
-  /** Logical grid size (SVG viewBox is size x size, then scaled). */
-  size?: number
-  className?: string
-  style?: CSSProperties
-}
-
-const PALETTE = [
+const IDENTICON_PALETTE = [
   "#abc4ff",
   "#bde0fe",
   "#cdb4db",
@@ -51,84 +40,91 @@ const PALETTE = [
   "#a8dadc",
   "#ffd166",
   "#95d5b2",
-] as const
+] as const;
 
-function colorForHash(hash: number): string {
-  return PALETTE[hash % PALETTE.length]
+function resolveIdenticonColor(hash: number): string {
+  return IDENTICON_PALETTE[hash % IDENTICON_PALETTE.length] ?? "#abc4ff";
+}
+
+interface DitherIdenticonProps {
+  backgroundColor?: string;
+  className?: string;
+  color?: string;
+  seed: string;
+  size?: number;
+  style?: CSSProperties;
 }
 
 export function DitherIdenticon({
-  seed,
-  color,
   backgroundColor = "transparent",
-  size = 32,
   className,
+  color,
+  seed,
+  size = 32,
   style,
 }: DitherIdenticonProps) {
-  const hash = hashSeed(seed)
-  const rng = mulberry32(hash)
-  const foregroundColor = color ?? colorForHash(hash)
-  const angle = rng() * Math.PI * 2
-  const cos = Math.cos(angle)
-  const sin = Math.sin(angle)
-  const center = (size - 1) / 2
-  const denom = size / 2
+  const hash = hashSeed(seed);
+  const random = mulberry32(hash);
+  const foregroundColor = color ?? resolveIdenticonColor(hash);
+  const angle = random() * Math.PI * 2;
+  const cosine = Math.cos(angle);
+  const sine = Math.sin(angle);
+  const center = (size - 1) / 2;
+  const denominator = size / 2;
 
-  const cells: { key: string; x: number; y: number; fill: string }[] = []
+  const cells: { fill: string; key: string; x: number; y: number }[] = [];
 
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const nx = (x - center) / denom
-      const ny = (y - center) / denom
-
-      const outside = nx * nx + ny * ny > 1
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const normalizedX = (x - center) / denominator;
+      const normalizedY = (y - center) / denominator;
+      const outside = normalizedX * normalizedX + normalizedY * normalizedY > 1;
 
       if (outside) {
         cells.push({
+          fill: backgroundColor,
           key: `${x}-${y}`,
           x,
           y,
-          fill: backgroundColor,
-        })
-        continue
+        });
+        continue;
       }
 
-      // 1 = solid foreground, 0 = background (gradient direction from seed).
-      let intensity = 0.5 + 0.5 * (nx * cos + ny * sin)
-      intensity -= (rng() - 0.5) * 0.08
+      let intensity = 0.5 + 0.5 * (normalizedX * cosine + normalizedY * sine);
+      intensity -= (random() - 0.5) * 0.08;
 
       if (intensity < 0) {
-        intensity = 0
+        intensity = 0;
       }
 
       if (intensity > 1) {
-        intensity = 1
+        intensity = 1;
       }
 
-      const bayer = (BAYER_4[(y % 4) * 4 + (x % 4)] + 0.5) / 16
-      const on = intensity >= bayer
+      const bayer = (BAYER_4[(y % 4) * 4 + (x % 4)] + 0.5) / 16;
+      const on = intensity >= bayer;
 
       cells.push({
+        fill: on ? foregroundColor : backgroundColor,
         key: `${x}-${y}`,
         x,
         y,
-        fill: on ? foregroundColor : backgroundColor,
-      })
+      });
     }
   }
 
   return (
     <svg
       className={className}
+      preserveAspectRatio="none"
+      shapeRendering="crispEdges"
       style={style}
       viewBox={`0 0 ${size} ${size}`}
       xmlns="http://www.w3.org/2000/svg"
-      preserveAspectRatio="none"
-      shapeRendering="crispEdges"
     >
-      {cells.map(({ key, x, y, fill }) => (
-        <rect key={key} x={x} y={y} width={1} height={1} fill={fill} />
+      {cells.map(({ fill, key, x, y }) => (
+        <rect fill={fill} height={1} key={key} width={1} x={x} y={y} />
       ))}
     </svg>
-  )
+  );
 }

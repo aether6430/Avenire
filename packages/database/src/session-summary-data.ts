@@ -1,14 +1,14 @@
 import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { db } from "./client";
-import { sessionSummary } from "./schema";
 import { canonicalizeSubjectLabel } from "./learning-taxonomy";
+import { sessionSummary } from "./schema";
 
 export interface SessionSummaryRecord {
   chatId: string;
   conceptsCovered: string[];
   createdAt: string;
-  endPosition: number;
   endedAt: string;
+  endPosition: number;
   flashcardsCreated: number;
   id: string;
   misconceptionsDetected: string[];
@@ -26,12 +26,12 @@ export interface CreateSessionSummaryInput {
   chatId: string;
   conceptsCovered: string[];
   endedAt: Date;
+  endPosition: number;
   flashcardsCreated: number;
   id?: string;
   misconceptionsDetected: string[];
   startedAt: Date;
   startPosition: number;
-  endPosition: number;
   subject?: string | null;
   subjectConfidence?: number | null;
   summaryText: string;
@@ -58,7 +58,9 @@ const SESSION_SUMMARY_RELATION = "session_summaries";
 
 function isMissingSessionSummarySchemaError(error: unknown) {
   const message =
-    error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+    error instanceof Error
+      ? error.message.toLowerCase()
+      : String(error).toLowerCase();
 
   return (
     message.includes(SESSION_SUMMARY_RELATION) &&
@@ -90,7 +92,11 @@ function normalizeStringList(values: string[] | undefined, maxItems: number) {
   ).slice(0, maxItems);
 }
 
-function normalizeRequiredText(value: unknown, fieldName: string, maxLength: number) {
+function normalizeRequiredText(
+  value: unknown,
+  fieldName: string,
+  maxLength: number
+) {
   const normalized = normalizeText(value, maxLength);
   if (!normalized) {
     throw new Error(`Missing required field: ${fieldName}.`);
@@ -135,7 +141,9 @@ const mapSessionSummaryRow = (
   row: typeof sessionSummary.$inferSelect
 ): SessionSummaryRecord => ({
   chatId: row.chatId,
-  conceptsCovered: Array.isArray(row.conceptsCovered) ? row.conceptsCovered : [],
+  conceptsCovered: Array.isArray(row.conceptsCovered)
+    ? row.conceptsCovered
+    : [],
   createdAt: row.createdAt.toISOString(),
   endPosition: row.endPosition,
   endedAt: row.endedAt.toISOString(),

@@ -1,9 +1,11 @@
-import { listSessionSummariesForUser } from "@avenire/database";
+import {
+  getActiveMisconceptions,
+  listSessionSummariesForUser,
+} from "@avenire/database";
 import {
   getFlashcardDashboardForUser,
   listMasterySubjectsForUser,
 } from "@/lib/flashcards";
-import { getActiveMisconceptions } from "@/lib/learning-data";
 
 interface StudentProfile {
   dynamic: {

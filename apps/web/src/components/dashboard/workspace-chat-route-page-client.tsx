@@ -4,6 +4,7 @@ import type { UIMessage } from "@avenire/ai/message-types";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { ChatWorkspace } from "@/components/dashboard/chat-workspace";
+import { shouldRenderStreamingChatRouteFallback } from "@/components/dashboard/chat-workspace-model";
 import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
 import {
@@ -12,7 +13,8 @@ import {
   isChatStreamActive,
   rememberChatStreamStatus,
 } from "@/lib/chat-events";
-import { usePanePathname } from "@/lib/workspace-panes";
+import { usePanePathname, usePaneRouter } from "@/lib/workspace-panes";
+import { useChatMessageHandoffStore } from "@/stores/chat-message-handoff-store";
 
 interface ChatRoutePayload {
   chat?: {
@@ -35,7 +37,11 @@ async function loadChatRoute(slug: string, signal?: AbortSignal) {
   }
 
   if (!response.ok) {
-    throw new Error("Unable to load chat.");
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+
+    throw new Error(payload.error?.trim() || "Unable to load Method.");
   }
 
   return (await response.json()) as ChatRoutePayload;
@@ -47,13 +53,26 @@ export function WorkspaceChatRoutePageClient({
   slug?: string;
 }) {
   const pathname = usePanePathname();
+  const router = usePaneRouter();
   const { status, user, workspace } = useWorkspaceBootstrap();
+  const isLegacyEmptyChatRoute =
+    pathname === "/workspace/chats" && slugProp === undefined;
   const slug =
     slugProp ?? pathname.match(/^\/workspace\/chats\/([^/?#]+)/)?.[1] ?? "new";
+  const handoffMessages = useChatMessageHandoffStore(
+    (state) => state.messagesByChatId[slug] ?? null
+  );
   const [streamingChatIds, setStreamingChatIds] = useState<Set<string>>(() =>
     isChatStreamActive(slug) ? new Set([slug]) : new Set()
   );
   const isSlugStreaming = streamingChatIds.has(slug);
+
+  useEffect(() => {
+    if (isLegacyEmptyChatRoute) {
+      router.replace("/workspace/chats/new");
+    }
+  }, [isLegacyEmptyChatRoute, router]);
+
   const chatQuery = useQuery({
     enabled:
       status === "ready" &&
@@ -67,6 +86,7 @@ export function WorkspaceChatRoutePageClient({
     if (!isChatStreamActive(slug)) {
       return;
     }
+
     setStreamingChatIds((current) => {
       if (current.has(slug)) {
         return current;
@@ -102,8 +122,32 @@ export function WorkspaceChatRoutePageClient({
     };
   }, []);
 
+  useEffect(() => {
+    if (chatQuery.data === null && !isSlugStreaming) {
+      router.replace("/workspace/chats/new");
+    }
+  }, [chatQuery.data, isSlugStreaming, router]);
+
+  if (status === "error") {
+    return (
+      <WorkspaceRoutePlaceholder
+        label="Unable to load Method."
+        pending={false}
+      />
+    );
+  }
+
+  if (status === "ready" && user && !workspace) {
+    return (
+      <WorkspaceRoutePlaceholder
+        label="Create a workspace to continue."
+        pending={false}
+      />
+    );
+  }
+
   if (!(status === "ready" && user && workspace)) {
-    return <WorkspaceRoutePlaceholder label="Loading method..." />;
+    return <WorkspaceRoutePlaceholder label="Loading Method..." />;
   }
 
   if (slug === "new") {
@@ -121,27 +165,45 @@ export function WorkspaceChatRoutePageClient({
     );
   }
 
-  if (chatQuery.isPending || chatQuery.data === null) {
-    if (!isSlugStreaming) {
-      return <WorkspaceRoutePlaceholder label="Loading method..." />;
-    }
-
+  if (chatQuery.isError) {
     return (
-      <ChatWorkspace
-        chatIcon={null}
-        chatSlug={slug}
-        chatTitle="New Method"
-        initialMessages={[]}
-        initialPrompt={null}
-        isReadonly={false}
-        userName={user.name ?? undefined}
-        workspaceUuid={workspace.workspaceId}
+      <WorkspaceRoutePlaceholder
+        label={
+          chatQuery.error instanceof Error
+            ? chatQuery.error.message
+            : "Unable to load Method."
+        }
+        pending={false}
       />
     );
   }
 
-  if (!chatQuery.data?.chat) {
-    return <WorkspaceRoutePlaceholder label="Loading method..." />;
+  if (chatQuery.isPending || !chatQuery.data?.chat) {
+    if (
+      shouldRenderStreamingChatRouteFallback({
+        handoffMessageCount: handoffMessages?.length ?? 0,
+        hasChat: Boolean(chatQuery.data?.chat),
+        isError: chatQuery.isError,
+        isPending: chatQuery.isPending,
+        isStreaming: isSlugStreaming,
+        slug,
+      })
+    ) {
+      return (
+        <ChatWorkspace
+          chatIcon={null}
+          chatSlug={slug}
+          chatTitle="New Method"
+          initialMessages={[]}
+          initialPrompt={null}
+          isReadonly={false}
+          userName={user.name ?? undefined}
+          workspaceUuid={workspace.workspaceId}
+        />
+      );
+    }
+
+    return <WorkspaceRoutePlaceholder label="Loading Method..." />;
   }
 
   return (

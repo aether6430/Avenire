@@ -1,13 +1,37 @@
-import { Toaster } from "@avenire/ui/components/sonner";
 import type { Metadata, Viewport } from "next";
-import { Inconsolata, Inter, Lora } from "next/font/google";
 import localFont from "next/font/local";
-import { ServiceWorkerRegistration } from "@/components/pwa/ServiceWorkerRegistration";
-import { PostHogTracker } from "@/components/analytics/posthog-tracker";
 import { metadataBase } from "@/lib/page-metadata";
-import { Suspense } from "react";
-import "react-quizlet-flashcard/dist/index.css";
 import "./globals.css";
+
+const fontSans = localFont({
+  src: "./fonts/inter-latin-variable.woff2",
+  variable: "--font-sans",
+  display: "swap",
+  weight: "100 900",
+});
+
+const fontSerif = localFont({
+  src: "./fonts/lora-latin-variable.woff2",
+  variable: "--font-serif",
+  display: "swap",
+  weight: "400 700",
+});
+
+const fontMono = localFont({
+  src: "./fonts/inconsolata-latin-variable.woff2",
+  variable: "--font-mono",
+  display: "swap",
+  weight: "200 900",
+});
+
+const fonde = localFont({
+  src: "./fonde.ttf",
+  variable: "--font-fonde",
+  display: "swap",
+});
+
+const description =
+  "Avenire is an AI learning workspace for deep study, research, and interactive reasoning. Upload notes, ask better questions, and turn complexity into understanding.";
 
 const defaultOgImage = {
   alt: "Avenire — AI learning workspace",
@@ -17,35 +41,13 @@ const defaultOgImage = {
   width: 1200,
 };
 
-const fontSans = Inter({
-  subsets: ["latin"],
-  variable: "--font-sans",
-});
-
-const fontSerif = Lora({
-  subsets: ["latin"],
-  variable: "--font-serif",
-});
-
-const fontMono = Inconsolata({
-  subsets: ["latin"],
-  variable: "--font-mono",
-});
-
-const fonde = localFont({
-  src: "./fonde.ttf",
-  variable: "--font-serif",
-  display: "swap",
-});
-
 export const metadata: Metadata = {
   metadataBase,
   title: {
     default: "Avenire",
     template: "%s",
   },
-  description:
-    "Avenire is an AI learning workspace for deep study, research, and interactive reasoning. Upload notes, ask better questions, and turn complexity into understanding.",
+  description,
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -56,8 +58,7 @@ export const metadata: Metadata = {
     apple: "/branding/avenire-logo-full.png",
   },
   openGraph: {
-    description:
-      "Avenire is an AI learning workspace for deep study, research, and interactive reasoning. Upload notes, ask better questions, and turn complexity into understanding.",
+    description,
     siteName: "Avenire",
     title: "Avenire",
     type: "website",
@@ -79,7 +80,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { color: "#ffffff", media: "(prefers-color-scheme: light)" },
+    { color: "#fcfcfc", media: "(prefers-color-scheme: light)" },
     { color: "#141414", media: "(prefers-color-scheme: dark)" },
   ],
 };
@@ -100,12 +101,7 @@ export default function RootLayout({
           } as React.CSSProperties
         }
       >
-        <ServiceWorkerRegistration />
-        <Suspense fallback={null}>
-          <PostHogTracker />
-        </Suspense>
         {children}
-        <Toaster closeButton position="top-right" richColors />
       </body>
     </html>
   );

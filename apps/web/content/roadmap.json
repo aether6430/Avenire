@@ -57,8 +57,8 @@
   },
   {
     "id": "flashcards-srs",
-    "title": "Flashcards with SRS",
-    "description": "Generate spaced-repetition flashcards from notes and study material.",
+    "title": "Mindset Sets with SRS",
+    "description": "Generate spaced-repetition Mindset Sets from notes and study material.",
     "status": "shipped",
     "category": "Core Product"
   },

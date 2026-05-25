@@ -1,24 +1,30 @@
-import type { UIMessage } from "../../ai/message-type";
-import { and, asc, desc, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
+import { and, asc, desc, eq, isNotNull, isNull, or } from "drizzle-orm";
+import type { UIMessage } from "../../ai/message-type";
 import { member } from "./auth-schema";
 import { db } from "./client";
-import { chatMessage, chatThread, resourceShareGrant, resourceShareLink, workspace } from "./schema";
+import {
+  chatMessage,
+  chatThread,
+  resourceShareGrant,
+  resourceShareLink,
+  workspace,
+} from "./schema";
 
 export interface ChatSummary {
-  id: string;
-  slug: string;
   branching: string | null;
-  title: string;
+  createdAt: string;
   icon: string | null;
+  id: string;
+  lastMessageAt: string;
+  ownerUserId?: string;
   pinned: boolean;
-  workspaceId: string | null;
   readOnly?: boolean;
   sharedLocked?: boolean;
-  ownerUserId?: string;
-  createdAt: string;
+  slug: string;
+  title: string;
   updatedAt: string;
-  lastMessageAt: string;
+  workspaceId: string | null;
 }
 
 type ChatSummaryRecord = Pick<
@@ -77,7 +83,7 @@ async function listSharedChatSlugSet(input: {
           eq(chatThread.userId, input.ownerUserId),
           input.workspaceId
             ? eq(chatThread.workspaceId, input.workspaceId)
-            : undefined,
+            : undefined
         )
       );
     for (const row of grants) {
@@ -94,7 +100,7 @@ async function listSharedChatSlugSet(input: {
           eq(chatThread.userId, input.ownerUserId),
           input.workspaceId
             ? eq(chatThread.workspaceId, input.workspaceId)
-            : undefined,
+            : undefined
         )
       );
     for (const row of links) {
@@ -109,7 +115,7 @@ async function listSharedChatSlugSet(input: {
       .where(
         and(
           eq(resourceShareGrant.resourceType, "chat"),
-          eq(resourceShareGrant.granteeUserId, input.granteeUserId),
+          eq(resourceShareGrant.granteeUserId, input.granteeUserId)
         )
       );
     for (const row of grants) {
@@ -125,7 +131,10 @@ const sanitizeTitle = (title?: string | null) => {
   return clean?.length ? clean.slice(0, 120) : "New Chat";
 };
 
-export async function listChatsForUser(userId: string, workspaceId?: string | null) {
+export async function listChatsForUser(
+  userId: string,
+  workspaceId?: string | null
+) {
   const visibleThreads = await db
     .select({ thread: chatThread, memberUserId: member.userId })
     .from(chatThread)
@@ -143,7 +152,7 @@ export async function listChatsForUser(userId: string, workspaceId?: string | nu
         or(
           eq(chatThread.userId, userId),
           isNull(chatThread.workspaceId),
-          and(isNotNull(chatThread.workspaceId), eq(member.userId, userId)),
+          and(isNotNull(chatThread.workspaceId), eq(member.userId, userId))
         )
       )
     )
@@ -157,8 +166,8 @@ export async function listChatsForUser(userId: string, workspaceId?: string | nu
       and(
         eq(resourceShareGrant.resourceType, "chat"),
         eq(resourceShareGrant.granteeUserId, userId),
-        workspaceId ? eq(chatThread.workspaceId, workspaceId) : undefined,
-      ),
+        workspaceId ? eq(chatThread.workspaceId, workspaceId) : undefined
+      )
     )
     .orderBy(desc(chatThread.lastMessageAt));
 
@@ -196,7 +205,9 @@ export async function listChatsForUser(userId: string, workspaceId?: string | nu
     if (a.pinned !== b.pinned) {
       return a.pinned ? -1 : 1;
     }
-    return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
+    return (
+      new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+    );
   });
 }
 
@@ -204,16 +215,16 @@ export async function createChatForUser(
   userId: string,
   workspaceId: string,
   title?: string,
-  slugOverride?: string
+  slug?: string
 ) {
   const now = new Date();
   const cleanTitle = sanitizeTitle(title);
-  const slug = slugOverride ?? randomUUID();
+  const resolvedSlug = slug?.trim() || randomUUID();
   const newThread: typeof chatThread.$inferInsert = {
     id: randomUUID(),
     userId,
     workspaceId,
-    slug,
+    slug: resolvedSlug,
     branching: null,
     title: cleanTitle,
     pinned: false,
@@ -226,7 +237,11 @@ export async function createChatForUser(
   return mapChatSummary(thread);
 }
 
-export async function branchChatForUser(userId: string, slug: string, workspaceId?: string | null) {
+export async function branchChatForUser(
+  userId: string,
+  slug: string,
+  workspaceId?: string | null
+) {
   const [source] = await db
     .select()
     .from(chatThread)
@@ -234,7 +249,7 @@ export async function branchChatForUser(userId: string, slug: string, workspaceI
       and(
         eq(chatThread.userId, userId),
         eq(chatThread.slug, slug),
-        workspaceId ? eq(chatThread.workspaceId, workspaceId) : undefined,
+        workspaceId ? eq(chatThread.workspaceId, workspaceId) : undefined
       )
     )
     .limit(1);
@@ -276,7 +291,7 @@ export async function branchChatForUser(userId: string, slug: string, workspaceI
         role: message.role,
         payload: message.payload,
         createdAt: now,
-      })),
+      }))
     );
   }
 
@@ -286,7 +301,7 @@ export async function branchChatForUser(userId: string, slug: string, workspaceI
 export async function getChatBySlugForUser(
   userId: string,
   slug: string,
-  workspaceId?: string | null,
+  workspaceId?: string | null
 ) {
   const [thread] = await db
     .select()
@@ -294,7 +309,7 @@ export async function getChatBySlugForUser(
     .where(
       and(
         eq(chatThread.slug, slug),
-        workspaceId ? eq(chatThread.workspaceId, workspaceId) : undefined,
+        workspaceId ? eq(chatThread.workspaceId, workspaceId) : undefined
       )
     )
     .limit(1);
@@ -316,7 +331,10 @@ export async function getChatBySlugForUser(
     };
   }
 
-  if (thread.workspaceId && (await hasWorkspaceMembership(userId, thread.workspaceId))) {
+  if (
+    thread.workspaceId &&
+    (await hasWorkspaceMembership(userId, thread.workspaceId))
+  ) {
     return {
       ...mapChatSummary(thread),
       readOnly: true,
@@ -332,7 +350,7 @@ export async function getChatBySlugForUser(
       and(
         eq(resourceShareGrant.resourceType, "chat"),
         eq(resourceShareGrant.resourceId, slug),
-        eq(resourceShareGrant.granteeUserId, userId),
+        eq(resourceShareGrant.granteeUserId, userId)
       )
     )
     .limit(1);
@@ -352,7 +370,7 @@ export async function getChatBySlugForUser(
 export async function getWritableChatBySlugForUser(
   userId: string,
   slug: string,
-  workspaceId?: string | null,
+  workspaceId?: string | null
 ) {
   const [thread] = await db
     .select()
@@ -360,7 +378,7 @@ export async function getWritableChatBySlugForUser(
     .where(
       and(
         eq(chatThread.slug, slug),
-        workspaceId ? eq(chatThread.workspaceId, workspaceId) : undefined,
+        workspaceId ? eq(chatThread.workspaceId, workspaceId) : undefined
       )
     )
     .limit(1);
@@ -387,7 +405,7 @@ export async function getChatBySlug(slug: string) {
 export async function getMessagesByChatSlugForUser(
   userId: string,
   slug: string,
-  workspaceId?: string | null,
+  workspaceId?: string | null
 ) {
   const chat = await getChatBySlugForUser(userId, slug, workspaceId);
   if (!chat) {
@@ -403,7 +421,11 @@ export async function getMessagesByChatSlugForUser(
   return rows.map((row) => row.payload as unknown as UIMessage);
 }
 
-export async function isChatOwnerForUser(userId: string, slug: string, workspaceId?: string | null) {
+export async function isChatOwnerForUser(
+  userId: string,
+  slug: string,
+  workspaceId?: string | null
+) {
   const [thread] = await db
     .select({ id: chatThread.id })
     .from(chatThread)
@@ -411,7 +433,7 @@ export async function isChatOwnerForUser(userId: string, slug: string, workspace
       and(
         eq(chatThread.userId, userId),
         eq(chatThread.slug, slug),
-        workspaceId ? eq(chatThread.workspaceId, workspaceId) : undefined,
+        workspaceId ? eq(chatThread.workspaceId, workspaceId) : undefined
       )
     )
     .limit(1);
@@ -443,7 +465,7 @@ export async function updateChatForUser(
   userId: string,
   slug: string,
   updates: { title?: string; pinned?: boolean; icon?: string | null },
-  workspaceId?: string | null,
+  workspaceId?: string | null
 ) {
   const nextTitle = updates.title ? sanitizeTitle(updates.title) : undefined;
   const nextIcon = updates.icon === undefined ? undefined : updates.icon;
@@ -462,7 +484,7 @@ export async function updateChatForUser(
       and(
         eq(chatThread.userId, userId),
         eq(chatThread.slug, slug),
-        workspaceId ? eq(chatThread.workspaceId, workspaceId) : undefined,
+        workspaceId ? eq(chatThread.workspaceId, workspaceId) : undefined
       )
     )
     .returning();
@@ -470,14 +492,18 @@ export async function updateChatForUser(
   return thread ? mapChatSummary(thread) : null;
 }
 
-export async function deleteChatForUser(userId: string, slug: string, workspaceId?: string | null) {
+export async function deleteChatForUser(
+  userId: string,
+  slug: string,
+  workspaceId?: string | null
+) {
   const [deleted] = await db
     .delete(chatThread)
     .where(
       and(
         eq(chatThread.userId, userId),
         eq(chatThread.slug, slug),
-        workspaceId ? eq(chatThread.workspaceId, workspaceId) : undefined,
+        workspaceId ? eq(chatThread.workspaceId, workspaceId) : undefined
       )
     )
     .returning();
@@ -489,7 +515,7 @@ export async function saveMessagesForChatSlug(
   userId: string,
   slug: string,
   messages: UIMessage[],
-  workspaceId?: string | null,
+  workspaceId?: string | null
 ) {
   const [thread] = await db
     .select()
@@ -498,7 +524,7 @@ export async function saveMessagesForChatSlug(
       and(
         eq(chatThread.userId, userId),
         eq(chatThread.slug, slug),
-        workspaceId ? eq(chatThread.workspaceId, workspaceId) : undefined,
+        workspaceId ? eq(chatThread.workspaceId, workspaceId) : undefined
       )
     )
     .limit(1);
@@ -520,7 +546,7 @@ export async function saveMessagesForChatSlug(
           role: message.role,
           payload: message as unknown as Record<string, unknown>,
           createdAt: now,
-        })),
+        }))
       );
     }
 
@@ -542,11 +568,19 @@ export async function saveMessagesForChatSlug(
   return updated ? mapChatSummary(updated) : null;
 }
 
-export async function getOrCreateLatestChatForUser(userId: string, workspaceId: string) {
+export async function getOrCreateLatestChatForUser(
+  userId: string,
+  workspaceId: string
+) {
   const [latest] = await db
     .select()
     .from(chatThread)
-    .where(and(eq(chatThread.userId, userId), eq(chatThread.workspaceId, workspaceId)))
+    .where(
+      and(
+        eq(chatThread.userId, userId),
+        eq(chatThread.workspaceId, workspaceId)
+      )
+    )
     .orderBy(desc(chatThread.pinned), desc(chatThread.lastMessageAt))
     .limit(1);
 

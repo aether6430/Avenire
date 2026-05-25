@@ -23,6 +23,14 @@ import {
   emitFlashcardReviewEvent,
 } from "./flashcard-review-events";
 import {
+  assertFlashcardTaxonomy,
+  type FlashcardTaxonomy,
+  normalizeFlashcardTaxonomy,
+} from "./flashcard-taxonomy";
+
+export { normalizeFlashcardTaxonomy } from "./flashcard-taxonomy";
+
+import {
   flashcardCard,
   flashcardReviewLog,
   flashcardReviewState,
@@ -30,16 +38,10 @@ import {
   flashcardSetEnrollment,
   workspace,
 } from "./schema";
-import { canonicalizeLearningTaxonomy } from "./learning-taxonomy";
 
 export type FlashcardSourceType = "manual" | "ai-generated";
 export type FlashcardCardKind = "flashcard" | "multiple_choice_quiz";
 export type FlashcardEnrollmentStatus = "active" | "paused";
-export interface FlashcardTaxonomy {
-  concept: string;
-  subject: string;
-  topic: string;
-}
 export type FlashcardDisplayState =
   | "new"
   | "learning"
@@ -217,60 +219,6 @@ function sanitizeTags(value: string[] | undefined | null) {
     .map((tag) => tag.trim())
     .filter(Boolean)
     .slice(0, 12);
-}
-
-function sanitizeTaxonomyField(
-  value: unknown,
-  fieldName: keyof FlashcardTaxonomy
-) {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  return trimmed.slice(0, fieldName === "concept" ? 180 : 120);
-}
-
-export function normalizeFlashcardTaxonomy(
-  value: unknown
-): FlashcardTaxonomy | null {
-  if (!(value && typeof value === "object" && !Array.isArray(value))) {
-    return null;
-  }
-
-  const record = value as Record<string, unknown>;
-  const subject = sanitizeTaxonomyField(record.subject, "subject");
-  const topic = sanitizeTaxonomyField(record.topic, "topic");
-  const concept = sanitizeTaxonomyField(record.concept, "concept");
-
-  if (!(subject && topic && concept)) {
-    return null;
-  }
-
-  return canonicalizeLearningTaxonomy({
-    concept,
-    subject,
-    text: [subject, topic, concept].join(" "),
-    topic,
-  });
-}
-
-export function assertFlashcardTaxonomy(
-  value: unknown,
-  context: string
-): FlashcardTaxonomy {
-  const taxonomy = normalizeFlashcardTaxonomy(value);
-  if (!taxonomy) {
-    throw new Error(
-      `Missing canonical flashcard taxonomy for ${context}: subject, topic, and concept are required.`
-    );
-  }
-
-  return taxonomy;
 }
 
 function buildFlashcardSource(
@@ -1158,21 +1106,13 @@ export async function createFlashcardCardForUser(input: {
   const [lastCard] = await db
     .select({ ordinal: flashcardCard.ordinal })
     .from(flashcardCard)
-    .where(
-      and(
-        eq(flashcardCard.setId, input.setId),
-        isNull(flashcardCard.archivedAt)
-      )
-    )
+    .where(eq(flashcardCard.setId, input.setId))
     .orderBy(desc(flashcardCard.ordinal))
     .limit(1);
 
   const now = new Date();
   const kind = sanitizeCardKind(input.kind);
-  const taxonomy = assertFlashcardTaxonomy(
-    input.source,
-    "flashcard creation"
-  );
+  const taxonomy = assertFlashcardTaxonomy(input.source, "flashcard creation");
   const [created] = await db
     .insert(flashcardCard)
     .values({
@@ -1222,10 +1162,7 @@ export async function updateFlashcardCardForUser(input: {
   }
 
   const kind = sanitizeCardKind(input.kind ?? existing.card.kind);
-  const taxonomy = assertFlashcardTaxonomy(
-    input.source,
-    "flashcard update"
-  );
+  const taxonomy = assertFlashcardTaxonomy(input.source, "flashcard update");
   const [updated] = await db
     .update(flashcardCard)
     .set({
@@ -1389,9 +1326,11 @@ export async function listDueFlashcardsForUser(
     if (filterKeys) {
       const taxonomy = normalizeFlashcardTaxonomy(card.source);
       if (
-        !taxonomy ||
-        !filterKeys.has(
-          `${taxonomy.subject}::${taxonomy.topic}::${taxonomy.concept}`
+        !(
+          taxonomy &&
+          filterKeys.has(
+            `${taxonomy.subject}::${taxonomy.topic}::${taxonomy.concept}`
+          )
         )
       ) {
         continue;

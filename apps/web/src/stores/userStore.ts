@@ -4,7 +4,7 @@ import { getSession } from "@avenire/auth/client";
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 
-interface User {
+export interface User {
   email: string;
   id: string;
   image: string | null;

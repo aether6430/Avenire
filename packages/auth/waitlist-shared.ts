@@ -1,7 +1,9 @@
 export const WAITLIST_ERROR_NONE = "waitlist_not_found";
 export const WAITLIST_ERROR_PENDING = "waitlist_pending";
 
-function getWaitlistErrorMessage(error: typeof WAITLIST_ERROR_NONE | typeof WAITLIST_ERROR_PENDING) {
+function getWaitlistErrorMessage(
+  error: typeof WAITLIST_ERROR_NONE | typeof WAITLIST_ERROR_PENDING
+) {
   return error === WAITLIST_ERROR_PENDING
     ? "This email is on the waitlist, but it has not been approved yet."
     : "This email does not have access yet.";

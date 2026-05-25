@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { and, count, eq, sql } from "drizzle-orm";
+import { user } from "./auth-schema";
 import { db } from "./client";
 import {
   billingCustomer,
@@ -7,7 +8,6 @@ import {
   fileAsset,
   usageMeter,
 } from "./schema";
-import { user } from "./auth-schema";
 
 export type BillingPlan = "access" | "core" | "scholar";
 export type BillingFeature =
@@ -568,9 +568,7 @@ export async function getUsageOverview(userId: string) {
     rows = await db
       .select()
       .from(usageMeter)
-      .where(
-        and(eq(usageMeter.userId, userId), eq(usageMeter.meter, "chat"))
-      );
+      .where(and(eq(usageMeter.userId, userId), eq(usageMeter.meter, "chat")));
   } catch (error) {
     if (!isMissingBillingTableError(error)) {
       throw error;

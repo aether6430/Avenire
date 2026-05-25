@@ -2,8 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Footer } from "@/components/marketing/footer";
-import { Navbar } from "@/components/marketing/navbar";
+import {
+  MarketingPageFrame,
+  MarketingPageShell,
+} from "@/components/marketing/page-shell";
 import { buildPageMetadata } from "@/lib/page-metadata";
 
 export const metadata = buildPageMetadata({
@@ -41,16 +43,10 @@ const mdxComponents = {
     <p className="mb-4 text-white/70 leading-relaxed" {...props} />
   ),
   ul: (props: React.HTMLAttributes<HTMLUListElement>) => (
-    <ul
-      className="my-3 ml-5 list-disc space-y-2 text-white/70"
-      {...props}
-    />
+    <ul className="my-3 ml-5 list-disc space-y-2 text-white/70" {...props} />
   ),
   ol: (props: React.HTMLAttributes<HTMLOListElement>) => (
-    <ol
-      className="my-3 ml-5 list-decimal space-y-2 text-white/70"
-      {...props}
-    />
+    <ol className="my-3 ml-5 list-decimal space-y-2 text-white/70" {...props} />
   ),
   li: (props: React.HTMLAttributes<HTMLLIElement>) => (
     <li className="leading-relaxed" {...props} />
@@ -72,20 +68,12 @@ export default function PrivacyPage() {
   const source = fs.readFileSync(policyPath, "utf-8");
 
   return (
-    <main className="avenire-marketing-scope dark min-h-screen bg-neutral-950 text-neutral-100">
-      <Navbar />
-
-      <section className="px-4 pt-32 pb-24">
-        <div className="mx-auto max-w-[72rem] border-divide border-x border-y px-4 py-8 md:px-8">
-          <div className="mx-auto max-w-[48rem]">
-            <Markdown components={mdxComponents} remarkPlugins={[remarkGfm]}>
-              {source}
-            </Markdown>
-          </div>
-        </div>
-      </section>
-
-      <Footer />
-    </main>
+    <MarketingPageShell>
+      <MarketingPageFrame contentClassName="max-w-[48rem]">
+        <Markdown components={mdxComponents} remarkPlugins={[remarkGfm]}>
+          {source}
+        </Markdown>
+      </MarketingPageFrame>
+    </MarketingPageShell>
   );
 }

@@ -1,10 +1,10 @@
 export const Star = (props: React.SVGProps<SVGSVGElement>) => {
   return (
     <svg
-      width="15"
+      fill="none"
       height="14"
       viewBox="0 0 15 14"
-      fill="none"
+      width="15"
       xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
@@ -12,9 +12,9 @@ export const Star = (props: React.SVGProps<SVGSVGElement>) => {
         d="M7.1141 2.01454C7.24855 1.74216 7.31577 1.60596 7.40703 1.56245C7.48644 1.52459 7.57869 1.52459 7.65809 1.56245C7.74935 1.60596 7.81658 1.74215 7.95103 2.01454L9.22659 4.59868C9.26628 4.6791 9.28613 4.7193 9.31513 4.75052C9.34081 4.77816 9.37161 4.80056 9.40582 4.81646C9.44446 4.83443 9.48882 4.84092 9.57756 4.85389L12.4308 5.27093C12.7313 5.31485 12.8815 5.33681 12.951 5.41019C13.0115 5.47404 13.0399 5.56177 13.0284 5.64897C13.0152 5.74919 12.9064 5.85512 12.6889 6.06699L10.6251 8.07718C10.5607 8.13984 10.5286 8.17117 10.5078 8.20845C10.4894 8.24146 10.4776 8.27773 10.4731 8.31523C10.4679 8.35759 10.4755 8.40185 10.4907 8.49037L10.9777 11.3297C11.0291 11.6291 11.0547 11.7789 11.0065 11.8677C10.9645 11.945 10.8898 11.9993 10.8033 12.0153C10.7039 12.0337 10.5695 11.963 10.3005 11.8216L7.74977 10.4802C7.6703 10.4384 7.63056 10.4175 7.58869 10.4093C7.55163 10.402 7.5135 10.402 7.47643 10.4093C7.43457 10.4175 7.39483 10.4384 7.31535 10.4802L4.76459 11.8216C4.49567 11.963 4.36121 12.0337 4.26179 12.0153C4.17528 11.9993 4.10064 11.945 4.05865 11.8677C4.01039 11.7789 4.03607 11.6291 4.08743 11.3297L4.5744 8.49037C4.58958 8.40185 4.59717 8.35759 4.59204 8.31523C4.58749 8.27773 4.5757 8.24146 4.55732 8.20845C4.53656 8.17117 4.5044 8.13984 4.44006 8.07718L2.37621 6.06699C2.15869 5.85512 2.04993 5.74919 2.03669 5.64897C2.02518 5.56177 2.05362 5.47404 2.11411 5.41019C2.18364 5.33681 2.33387 5.31485 2.63433 5.27093L5.48757 4.85389C5.5763 4.84092 5.62067 4.83443 5.6593 4.81646C5.69351 4.80056 5.72431 4.77816 5.74999 4.75052C5.779 4.7193 5.79884 4.6791 5.83854 4.59868L7.1141 2.01454Z"
         fill="currentColor"
         stroke="currentColor"
-        strokeWidth="1.16667"
         strokeLinecap="round"
         strokeLinejoin="round"
+        strokeWidth="1.16667"
       />
     </svg>
   );
@@ -23,10 +23,10 @@ export const Star = (props: React.SVGProps<SVGSVGElement>) => {
 export const SlackLogo = (props: React.SVGProps<SVGSVGElement>) => {
   return (
     <svg
-      width="13"
+      fill="none"
       height="13"
       viewBox="0 0 13 13"
-      fill="none"
+      width="13"
       xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
@@ -69,21 +69,21 @@ export const SlackLogo = (props: React.SVGProps<SVGSVGElement>) => {
 export const OpenAILogo = (props: React.SVGProps<SVGSVGElement>) => {
   return (
     <svg
-      width="13"
+      fill="none"
       height="13"
       viewBox="0 0 13 13"
-      fill="none"
+      width="13"
       xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
       <mask
+        height="13"
         id="mask0_557_586"
-        style={{ maskType: "luminance" }}
         maskUnits="userSpaceOnUse"
+        style={{ maskType: "luminance" }}
+        width="13"
         x="0"
         y="0"
-        width="13"
-        height="13"
       >
         <path d="M12.6081 0.5H0.5V12.5H12.6081V0.5Z" fill="white" />
       </mask>
@@ -100,10 +100,10 @@ export const OpenAILogo = (props: React.SVGProps<SVGSVGElement>) => {
 export const MetaLogo = (props: React.SVGProps<SVGSVGElement>) => {
   return (
     <svg
-      width="16"
+      fill="none"
       height="11"
       viewBox="0 0 16 11"
-      fill="none"
+      width="16"
       xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
@@ -118,10 +118,10 @@ export const MetaLogo = (props: React.SVGProps<SVGSVGElement>) => {
 export const AnthropicLogo = (props: React.SVGProps<SVGSVGElement>) => {
   return (
     <svg
-      width="12"
+      fill="none"
       height="12"
       viewBox="0 0 12 12"
-      fill="none"
+      width="12"
       xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
@@ -136,40 +136,40 @@ export const AnthropicLogo = (props: React.SVGProps<SVGSVGElement>) => {
 export const ForkIcon = (props: React.SVGProps<SVGSVGElement>) => {
   return (
     <svg
-      width="14"
+      fill="none"
       height="14"
       viewBox="0 0 14 14"
-      fill="none"
+      width="14"
       xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
       <path
         d="M10.2 11.8609C11.0698 11.8609 11.775 11.1558 11.775 10.2859C11.775 9.41609 11.0698 8.71094 10.2 8.71094C9.33015 8.71094 8.625 9.41609 8.625 10.2859C8.625 11.1558 9.33015 11.8609 10.2 11.8609Z"
         stroke="currentColor"
-        strokeWidth="1.05"
         strokeLinecap="round"
         strokeLinejoin="round"
+        strokeWidth="1.05"
       />
       <path
         d="M3.9002 5.56089C4.77004 5.56089 5.4752 4.85574 5.4752 3.98589C5.4752 3.11604 4.77004 2.41089 3.9002 2.41089C3.03035 2.41089 2.3252 3.11604 2.3252 3.98589C2.3252 4.85574 3.03035 5.56089 3.9002 5.56089Z"
         stroke="currentColor"
-        strokeWidth="1.05"
         strokeLinecap="round"
         strokeLinejoin="round"
+        strokeWidth="1.05"
       />
       <path
         d="M7.5752 3.98608H9.1502C9.42867 3.98608 9.69574 4.09671 9.89266 4.29362C10.0896 4.49053 10.2002 4.75761 10.2002 5.03608V8.71108"
         stroke="currentColor"
-        strokeWidth="1.05"
         strokeLinecap="round"
         strokeLinejoin="round"
+        strokeWidth="1.05"
       />
       <path
         d="M6.5249 10.286H4.9499C4.67142 10.286 4.40435 10.1754 4.20744 9.9785C4.01053 9.78158 3.8999 9.51451 3.8999 9.23603V5.56104"
         stroke="currentColor"
-        strokeWidth="1.05"
         strokeLinecap="round"
         strokeLinejoin="round"
+        strokeWidth="1.05"
       />
     </svg>
   );
@@ -178,10 +178,10 @@ export const ForkIcon = (props: React.SVGProps<SVGSVGElement>) => {
 export const LinearLogo = (props: React.SVGProps<SVGSVGElement>) => {
   return (
     <svg
-      width="29"
+      fill="none"
       height="29"
       viewBox="0 0 29 29"
-      fill="none"
+      width="29"
       xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
@@ -196,10 +196,10 @@ export const LinearLogo = (props: React.SVGProps<SVGSVGElement>) => {
 export const SupabaseLogo = (props: React.SVGProps<SVGSVGElement>) => {
   return (
     <svg
-      width="30"
+      fill="none"
       height="31"
       viewBox="0 0 30 31"
-      fill="none"
+      width="30"
       xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
@@ -220,33 +220,33 @@ export const SupabaseLogo = (props: React.SVGProps<SVGSVGElement>) => {
       </g>
       <defs>
         <linearGradient
+          gradientUnits="userSpaceOnUse"
           id="paint0_linear_550_104"
           x1="14.459"
-          y1="15.1774"
           x2="25.2306"
+          y1="15.1774"
           y2="19.695"
-          gradientUnits="userSpaceOnUse"
         >
           <stop stopColor="#249361" />
           <stop offset="1" stopColor="#3ECF8E" />
         </linearGradient>
         <linearGradient
+          gradientUnits="userSpaceOnUse"
           id="paint1_linear_550_104"
           x1="9.68344"
-          y1="8.63883"
           x2="14.5958"
+          y1="8.63883"
           y2="17.8862"
-          gradientUnits="userSpaceOnUse"
         >
           <stop />
           <stop offset="1" stopOpacity="0" />
         </linearGradient>
         <clipPath id="clip0_550_104">
           <rect
-            width="29.4"
-            height="30"
             fill="white"
+            height="30"
             transform="translate(0 0.5)"
+            width="29.4"
           />
         </clipPath>
       </defs>
@@ -257,10 +257,10 @@ export const SupabaseLogo = (props: React.SVGProps<SVGSVGElement>) => {
 export const NotionLogo = (props: React.SVGProps<SVGSVGElement>) => {
   return (
     <svg
-      width="800px"
+      fill="none"
       height="800px"
       viewBox="0 0 15 15"
-      fill="none"
+      width="800px"
       xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
@@ -275,18 +275,18 @@ export const NotionLogo = (props: React.SVGProps<SVGSVGElement>) => {
 export const CloseIcon = (props: React.SVGProps<SVGSVGElement>) => {
   return (
     <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
       fill="none"
+      height="24"
       stroke="currentColor"
-      strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+      width="24"
+      xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
-      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M0 0h24v24H0z" fill="none" stroke="none" />
       <path d="M18 6l-12 12" />
       <path d="M6 6l12 12" />
     </svg>
@@ -296,18 +296,18 @@ export const CloseIcon = (props: React.SVGProps<SVGSVGElement>) => {
 export const HamburgerIcon = (props: React.SVGProps<SVGSVGElement>) => {
   return (
     <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
       fill="none"
+      height="24"
       stroke="currentColor"
-      strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+      width="24"
+      xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
-      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M0 0h24v24H0z" fill="none" stroke="none" />
       <path d="M4 6l16 0" />
       <path d="M4 12l16 0" />
       <path d="M4 18l16 0" />
@@ -318,10 +318,10 @@ export const HamburgerIcon = (props: React.SVGProps<SVGSVGElement>) => {
 export const LinkedInIcon = (props: React.SVGProps<SVGSVGElement>) => {
   return (
     <svg
-      width="28"
+      fill="none"
       height="28"
       viewBox="0 0 28 28"
-      fill="none"
+      width="28"
       xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
@@ -336,10 +336,10 @@ export const LinkedInIcon = (props: React.SVGProps<SVGSVGElement>) => {
 export const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => {
   return (
     <svg
-      width="29"
+      fill="none"
       height="29"
       viewBox="0 0 29 29"
-      fill="none"
+      width="29"
       xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
@@ -364,10 +364,10 @@ export const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => {
       <defs>
         <clipPath id="clip0_389_3626">
           <rect
-            width="22.4"
-            height="22.4"
             fill="white"
+            height="22.4"
             transform="translate(2.96875 3.7081)"
+            width="22.4"
           />
         </clipPath>
       </defs>
@@ -378,22 +378,22 @@ export const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => {
 export const FacebookIcon = (props: React.SVGProps<SVGSVGElement>) => {
   return (
     <svg
-      width="29"
+      fill="none"
       height="29"
       viewBox="0 0 29 29"
-      fill="none"
+      width="29"
       xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
       <g clipPath="url(#clip0_389_3636)">
         <mask
+          height="32"
           id="mask0_389_3636"
-          style={{ maskType: "luminance" }}
           maskUnits="userSpaceOnUse"
+          style={{ maskType: "luminance" }}
+          width="32"
           x="-1"
           y="-2"
-          width="32"
-          height="32"
         >
           <path
             d="M-0.714844 -1.70559H30.6451V29.6544H-0.714844V-1.70559Z"
@@ -414,10 +414,10 @@ export const FacebookIcon = (props: React.SVGProps<SVGSVGElement>) => {
       <defs>
         <clipPath id="clip0_389_3636">
           <rect
-            width="22.4"
-            height="22.4"
             fill="white"
+            height="22.4"
             transform="translate(3.76562 2.77499)"
+            width="22.4"
           />
         </clipPath>
       </defs>
@@ -428,10 +428,10 @@ export const FacebookIcon = (props: React.SVGProps<SVGSVGElement>) => {
 export const AppleIcon = (props: React.SVGProps<SVGSVGElement>) => {
   return (
     <svg
-      width="29"
+      fill="none"
       height="29"
       viewBox="0 0 29 29"
-      fill="none"
+      width="29"
       xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
@@ -444,10 +444,10 @@ export const AppleIcon = (props: React.SVGProps<SVGSVGElement>) => {
       <defs>
         <clipPath id="clip0_389_3652">
           <rect
-            width="18.2336"
-            height="22.4"
             fill="white"
+            height="22.4"
             transform="translate(5.01953 3.7081)"
+            width="18.2336"
           />
         </clipPath>
       </defs>
@@ -458,14 +458,14 @@ export const AppleIcon = (props: React.SVGProps<SVGSVGElement>) => {
 export const MoonIcon = (props: React.SVGProps<SVGSVGElement>) => {
   return (
     <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
+      fill="currentColor"
       height="24"
       viewBox="0 0 24 24"
-      fill="currentColor"
+      width="24"
+      xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
-      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M0 0h24v24H0z" fill="none" stroke="none" />
       <path d="M12 1.992a10 10 0 1 0 9.236 13.838c.341 -.82 -.476 -1.644 -1.298 -1.31a6.5 6.5 0 0 1 -6.864 -10.787l.077 -.08c.551 -.63 .113 -1.653 -.758 -1.653h-.266l-.068 -.006l-.06 -.002z" />
     </svg>
   );
@@ -474,14 +474,14 @@ export const MoonIcon = (props: React.SVGProps<SVGSVGElement>) => {
 export const SunIcon = (props: React.SVGProps<SVGSVGElement>) => {
   return (
     <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
+      fill="currentColor"
       height="24"
       viewBox="0 0 24 24"
-      fill="currentColor"
+      width="24"
+      xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
-      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M0 0h24v24H0z" fill="none" stroke="none" />
       <path d="M12 19a1 1 0 0 1 .993 .883l.007 .117v1a1 1 0 0 1 -1.993 .117l-.007 -.117v-1a1 1 0 0 1 1 -1z" />
       <path d="M18.313 16.91l.094 .083l.7 .7a1 1 0 0 1 -1.32 1.497l-.094 -.083l-.7 -.7a1 1 0 0 1 1.218 -1.567l.102 .07z" />
       <path d="M7.007 16.993a1 1 0 0 1 .083 1.32l-.083 .094l-.7 .7a1 1 0 0 1 -1.497 -1.32l.083 -.094l.7 -.7a1 1 0 0 1 1.414 0z" />

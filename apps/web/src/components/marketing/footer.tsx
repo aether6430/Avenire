@@ -1,42 +1,35 @@
-import { ChatCircle, Envelope, GithubLogo } from "@phosphor-icons/react/ssr";
-import Link from "next/link";
+import { ChatCircle, Envelope } from "@phosphor-icons/react/ssr";
 import { AvenireMark } from "@/components/branding/AvenireMark";
 import { Container } from "./container";
 
-const productLinks = [
-  { label: "home", href: "/" },
-  { label: "pricing", href: "/pricing" },
-  { label: "roadmap", href: "/roadmap" },
-  { label: "blog", href: "/blog" },
+const workspaceLinks = [
+  { label: "Methods", href: "/chats" },
+  { label: "Files", href: "/workspace/files" },
+  { label: "Mindset Sets", href: "/workspace/flashcards" },
+  { label: "Workspace", href: "/workspace" },
 ] as const;
 
-const learningLinks = [
-  { label: "AI study app", href: "/" },
-  { label: "AI tutor", href: "/blog/introducing-avenire" },
-  { label: "flashcards", href: "/pricing" },
-  { label: "research workspace", href: "/about" },
+const productLinks = [
+  { label: "Pricing", href: "/pricing" },
+  { label: "Roadmap", href: "/roadmap" },
+  { label: "Blog", href: "/blog" },
 ] as const;
 
 const companyLinks = [
-  { label: "about", href: "/about" },
-  { label: "privacy", href: "/privacy" },
-  { label: "terms", href: "/terms" },
-  { label: "contact", href: "mailto:support@avenire.space", external: true },
+  { label: "About", href: "/about" },
+  { label: "Privacy", href: "/privacy" },
+  { label: "Terms", href: "/terms" },
+  { label: "Contact", href: "mailto:support@avenire.space", external: true },
 ] as const;
 
 const communityLinks = [
   {
-    label: "github",
-    href: "https://github.com/thedamod/Avenire",
-    icon: GithubLogo,
-  },
-  {
-    label: "discord",
+    label: "Discord",
     href: "https://discord.gg/avenire",
     icon: ChatCircle,
   },
   {
-    label: "email",
+    label: "Email",
     href: "mailto:support@avenire.space",
     icon: Envelope,
   },
@@ -55,15 +48,12 @@ export const Footer = () => {
 
         <div className="relative z-10 grid gap-12 md:grid-cols-[1.1fr_1fr_1fr_1fr_auto]">
           <div className="max-w-xs">
-            <Link
-              className="inline-flex items-center gap-2 text-white"
-              href="/"
-            >
+            <a className="inline-flex items-center gap-2 text-white" href="/">
               <AvenireMark className="size-5 text-brand" />
               <span className="font-medium text-xl tracking-tight">
                 Avenire
               </span>
-            </Link>
+            </a>
             <p className="mt-4 max-w-[17rem] text-sm text-white/52 leading-6">
               Study, research, and reason through hard ideas in one connected AI
               workspace.
@@ -78,8 +68,8 @@ export const Footer = () => {
             ))}
           </FooterColumn>
 
-          <FooterColumn title="Learning">
-            {learningLinks.map((link) => (
+          <FooterColumn title="Workspace">
+            {workspaceLinks.map((link) => (
               <FooterLink href={link.href} key={link.label}>
                 {link.label}
               </FooterLink>
@@ -165,10 +155,9 @@ function FooterLink({
       </a>
     );
   }
-
   return (
-    <Link className={className} href={href as any}>
+    <a className={className} href={href}>
       {children}
-    </Link>
+    </a>
   );
 }

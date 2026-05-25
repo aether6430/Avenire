@@ -1,5 +1,9 @@
+import { redirect } from "next/navigation";
 import { WaitlistPageClient } from "@/components/auth/waitlist-page-client";
 import { buildPageMetadata } from "@/lib/page-metadata";
+import { getWorkspaceRouteContext } from "@/lib/workspace-route-context";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = buildPageMetadata({
   description:
@@ -8,6 +12,18 @@ export const metadata = buildPageMetadata({
   title: "Join the waitlist",
 });
 
-export default function WaitlistPage() {
+export default async function WaitlistPage() {
+  const { session, workspace } = await getWorkspaceRouteContext();
+
+  if (session?.user) {
+    if (workspace) {
+      redirect("/workspace");
+    }
+
+    const { getUserSettings } = await import("@avenire/database");
+    const settings = await getUserSettings(session.user.id);
+    redirect(settings.onboardingCompleted ? "/workspace" : "/onboarding");
+  }
+
   return <WaitlistPageClient />;
 }

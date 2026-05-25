@@ -132,3 +132,33 @@ export function detectPreviewKind(file: FileRecord) {
     isMarkdown: mime.includes("markdown") || markdownExt.has(ext),
   };
 }
+
+export function normalizeFilePageIcon(icon: string | null | undefined) {
+  if (typeof icon !== "string") {
+    return null;
+  }
+
+  const trimmed = icon.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://") ||
+    trimmed.startsWith("/") ||
+    trimmed.startsWith("data:image/")
+  ) {
+    return trimmed;
+  }
+
+  return trimmed.slice(0, 8);
+}
+
+export function getInlineMarkdownSeed(file: FileRecord) {
+  if (!detectPreviewKind(file).isMarkdown) {
+    return null;
+  }
+
+  return typeof file.noteContent === "string" ? file.noteContent : null;
+}

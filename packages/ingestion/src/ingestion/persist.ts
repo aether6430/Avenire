@@ -18,18 +18,25 @@ import type { CanonicalResource } from "./types";
 const NOTE_CHUNK_STRATEGY_VERSION = "note-v1";
 
 const normalizeChunkText = (value: string): string =>
-  value.trim().replace(/\r\n/g, "\n").replace(/\u00A0/g, " ").normalize("NFC");
+  value
+    .trim()
+    .replace(/\r\n/g, "\n")
+    .replace(/\u00A0/g, " ")
+    .normalize("NFC");
 
 const hashChunkContent = (value: string): string =>
   createHash("sha256")
-    .update(`${NOTE_CHUNK_STRATEGY_VERSION}:${normalizeChunkText(value)}`, "utf8")
+    .update(
+      `${NOTE_CHUNK_STRATEGY_VERSION}:${normalizeChunkText(value)}`,
+      "utf8"
+    )
     .digest("hex");
 
-type StoredChunk = {
-  id: string;
+interface StoredChunk {
   chunkIndex: number;
   contentHash: string | null;
-};
+  id: string;
+}
 
 type IncomingChunk = CanonicalResource["chunks"][number] & {
   contentHash: string;
@@ -83,7 +90,10 @@ const diffNoteChunks = (stored: StoredChunk[], incoming: IncomingChunk[]) => {
 const isIncrementalNoteResource = (
   resource: CanonicalResource,
   fileId: string | null
-): boolean => resource.sourceType === "markdown" && Boolean(fileId) && resource.source.startsWith("note:");
+): boolean =>
+  resource.sourceType === "markdown" &&
+  Boolean(fileId) &&
+  resource.source.startsWith("note:");
 
 const splitIntoBatches = <T>(values: T[], batchSize: number): T[][] => {
   if (values.length === 0) {
@@ -219,7 +229,9 @@ export const persistCanonicalResource = async (
         insertedChunkRows.map((row) => [row.chunkIndex, row])
       );
       const insertedChunks = incomingChunks.filter((chunk) =>
-        diff.toInsert.some((candidate) => candidate.chunkIndex === chunk.chunkIndex)
+        diff.toInsert.some(
+          (candidate) => candidate.chunkIndex === chunk.chunkIndex
+        )
       );
       const batches = splitIntoBatches(
         insertedChunks,
@@ -237,7 +249,7 @@ export const persistCanonicalResource = async (
           const rows = batch.map((chunk, index) => {
             const row = chunkByIndex.get(chunk.chunkIndex);
             const vector = vectors[index];
-            if (!row || !vector) {
+            if (!(row && vector)) {
               throw new Error(
                 `Missing incremental note embedding for chunkIndex=${chunk.chunkIndex}`
               );
@@ -250,7 +262,10 @@ export const persistCanonicalResource = async (
             };
           });
 
-          for (const dbBatch of splitIntoBatches(rows, config.ingestionDbBatchSize)) {
+          for (const dbBatch of splitIntoBatches(
+            rows,
+            config.ingestionDbBatchSize
+          )) {
             await insertIngestionEmbeddings({ rows: dbBatch });
           }
         }
@@ -290,7 +305,10 @@ export const persistCanonicalResource = async (
     insertedChunkRows.map((row) => [row.chunkIndex, row])
   );
 
-  const batches = splitIntoBatches(resource.chunks, config.ingestionEmbedBatchSize);
+  const batches = splitIntoBatches(
+    resource.chunks,
+    config.ingestionEmbedBatchSize
+  );
   const embedStartedAtMs = Date.now();
   let dbInsertMs = 0;
   await runWithConcurrency(
@@ -323,7 +341,10 @@ export const persistCanonicalResource = async (
         };
       });
 
-      for (const dbBatch of splitIntoBatches(rows, config.ingestionDbBatchSize)) {
+      for (const dbBatch of splitIntoBatches(
+        rows,
+        config.ingestionDbBatchSize
+      )) {
         const dbBatchStartedAt = Date.now();
         await insertIngestionEmbeddings({ rows: dbBatch });
         dbInsertMs += Date.now() - dbBatchStartedAt;

@@ -1,6 +1,6 @@
+import { tavily } from "@tavily/core";
 import Defuddle from "defuddle";
 import { parseHTML } from "linkedom";
-import { tavily } from "@tavily/core";
 import { config } from "../config";
 import { assertSafeUrl } from "../utils/safety";
 import { semanticChunkText } from "./chunking";
@@ -9,17 +9,17 @@ import type { CanonicalResource } from "./types";
 
 type LinkExtractionMode = "provider" | "defuddle" | "tavily";
 
-export type LinkPreview = {
-  favicon: string | null;
-  mode: LinkExtractionMode;
-  title: string | null;
+export interface LinkPreview {
   content: string;
-  provider?: string;
+  favicon: string | null;
   mediaUrls: string[];
-};
+  mode: LinkExtractionMode;
+  provider?: string;
+  title: string | null;
+}
 
 const extractViaTavily = async (
-  url: string,
+  url: string
 ): Promise<{ title: string | null; content: string }> => {
   if (!config.tavilyApiKey) {
     throw new Error("TAVILY_API_KEY is required for tavily link extraction.");
@@ -40,7 +40,12 @@ const extractViaTavily = async (
   };
 
   const item = payload.results?.[0] ?? payload;
-  const content = (item.rawContent ?? item.raw_content ?? item.content ?? "").trim();
+  const content = (
+    item.rawContent ??
+    item.raw_content ??
+    item.content ??
+    ""
+  ).trim();
   if (!content) {
     throw new Error(`Tavily returned empty content for ${url}`);
   }
@@ -67,7 +72,8 @@ const fetchHtml = async (url: string): Promise<string> => {
   return response.text();
 };
 
-const normalizeWhitespace = (value: string) => value.replace(/\s+/g, " ").trim();
+const normalizeWhitespace = (value: string) =>
+  value.replace(/\s+/g, " ").trim();
 
 const escapeForPattern = (value: string) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -76,7 +82,7 @@ const getMetaValue = (html: string, property: string): string | null => {
   const escaped = escapeForPattern(property);
   const pattern = new RegExp(
     `<meta[^>]+(?:property|name)=["']${escaped}["'][^>]+content=["']([^"']+)["'][^>]*>`,
-    "i",
+    "i"
   );
   const match = html.match(pattern);
   return match?.[1]?.trim() ?? null;
@@ -99,7 +105,7 @@ const getPlainTextFromHtml = (html: string): string => {
       .replace(/<style[\s\S]*?<\/style>/gi, " ")
       .replace(/<[^>]+>/g, " ")
       .replace(/&nbsp;/gi, " ")
-      .replace(/&amp;/gi, "&"),
+      .replace(/&amp;/gi, "&")
   );
 };
 
@@ -136,12 +142,9 @@ const isProbablyLongFormPage = (html: string): boolean => {
   return getWordCount(getPlainTextFromHtml(html)) >= 650;
 };
 
-const resolveFaviconUrl = (
-  url: URL,
-  document: Document,
-): string | null => {
+const resolveFaviconUrl = (url: URL, document: Document): string | null => {
   const iconLinks = Array.from(
-    document.querySelectorAll("link[rel][href]"),
+    document.querySelectorAll("link[rel][href]")
   ).filter((element) => {
     const rel = element.getAttribute("rel")?.toLowerCase() ?? "";
     return (
@@ -162,9 +165,7 @@ const resolveFaviconUrl = (
       if (resolved.protocol === "http:" || resolved.protocol === "https:") {
         return resolved.toString();
       }
-    } catch {
-      continue;
-    }
+    } catch {}
   }
 
   try {
@@ -176,7 +177,7 @@ const resolveFaviconUrl = (
 
 const extractDefuddleContent = async (
   url: URL,
-  html: string,
+  html: string
 ): Promise<{ title: string | null; content: string } | null> => {
   try {
     const { document } = parseHTML(html);
@@ -200,9 +201,13 @@ const extractDefuddleContent = async (
   }
 };
 
-export const extractLinkPreview = async (inputUrl: string): Promise<LinkPreview> => {
+export const extractLinkPreview = async (
+  inputUrl: string
+): Promise<LinkPreview> => {
   const safeUrl = assertSafeUrl(inputUrl);
-  const providerExtraction = await extractFromSupportedProvider(safeUrl.toString());
+  const providerExtraction = await extractFromSupportedProvider(
+    safeUrl.toString()
+  );
   let html: string | null = null;
   let favicon: string | null = null;
 
@@ -249,7 +254,9 @@ export const extractLinkPreview = async (inputUrl: string): Promise<LinkPreview>
   };
 };
 
-export const ingestLink = async (inputUrl: string): Promise<CanonicalResource> => {
+export const ingestLink = async (
+  inputUrl: string
+): Promise<CanonicalResource> => {
   const safeUrl = assertSafeUrl(inputUrl);
   const preview = await extractLinkPreview(safeUrl.toString());
 

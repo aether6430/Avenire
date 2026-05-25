@@ -1,94 +1,58 @@
 import { NextResponse } from "next/server";
-import {
-  CACHE_NAMESPACES,
-  invalidateFlashcardReadCaches,
-} from "@/lib/domain-cache";
-import {
-  createFlashcardSetForUser,
-  listFlashcardSetSummariesForUser,
-} from "@/lib/flashcards";
-import {
-  createRouteCacheKey,
-  getCachedRoute,
-  getRouteCacheVersion,
-  setCachedRoute,
-} from "@/lib/route-cache";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
-import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
+import { handleFlashcardSetsRouteGet } from "./flashcard-sets-route-get";
+import {
+  FLASHCARD_SET_CREATE_ERROR,
+  FLASHCARD_SET_LIST_LOAD_ERROR,
+  resolveFlashcardSetsRouteError,
+} from "./flashcard-sets-route-model";
+import { handleFlashcardSetsRoutePost } from "./flashcard-sets-route-post";
 
 export async function GET() {
-  const ctx = await getWorkspaceContextForUser();
-  if (!ctx) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    const ctx = await getWorkspaceContextForUser();
+    if (!ctx) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const version = await getRouteCacheVersion(
-    CACHE_NAMESPACES.flashcards,
-    ctx.workspace.workspaceId
-  );
-  const cacheKey = createRouteCacheKey({
-    namespace: CACHE_NAMESPACES.flashcards,
-    params: { route: "sets" },
-    scope: ctx.workspace.workspaceId,
-    version,
-  });
-  const cached = await getCachedRoute<{ sets: unknown[] }>(cacheKey);
-  if (cached) {
-    return NextResponse.json(cached, {
-      headers: { "x-flashcards-cache": "hit" },
+    return await handleFlashcardSetsRouteGet({
+      userId: ctx.user.id,
+      workspaceId: ctx.workspace.workspaceId,
     });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: resolveFlashcardSetsRouteError(
+          error,
+          FLASHCARD_SET_LIST_LOAD_ERROR
+        ),
+      },
+      { status: 500 }
+    );
   }
-
-  const sets = await listFlashcardSetSummariesForUser(
-    ctx.user.id,
-    ctx.workspace.workspaceId
-  );
-
-  const payload = { sets };
-  await setCachedRoute(CACHE_NAMESPACES.flashcards, cacheKey, payload);
-  return NextResponse.json(payload, {
-    headers: { "x-flashcards-cache": "miss" },
-  });
 }
 
 export async function POST(request: Request) {
-  const ctx = await getWorkspaceContextForUser();
-  if (!ctx) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    const ctx = await getWorkspaceContextForUser();
+    if (!ctx) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const body = (await request.json().catch(() => ({}))) as {
-    description?: string | null;
-    tags?: string[];
-    title?: string;
-  };
-
-  const set = await createFlashcardSetForUser({
-    description: body.description,
-    tags: body.tags,
-    title: body.title,
-    userId: ctx.user.id,
-    workspaceId: ctx.workspace.workspaceId,
-  });
-
-  if (!set) {
+    return await handleFlashcardSetsRoutePost({
+      request,
+      userId: ctx.user.id,
+      workspaceId: ctx.workspace.workspaceId,
+    });
+  } catch (error) {
     return NextResponse.json(
-      { error: "Unable to create set" },
-      { status: 400 }
+      {
+        error: resolveFlashcardSetsRouteError(
+          error,
+          FLASHCARD_SET_CREATE_ERROR
+        ),
+      },
+      { status: 500 }
     );
   }
-
-  await invalidateFlashcardReadCaches(ctx.workspace.workspaceId);
-
-  void publishWorkspaceStreamEvent({
-    workspaceUuid: ctx.workspace.workspaceId,
-    type: "flashcards.invalidate",
-    payload: {
-      action: "created",
-      setId: set.id,
-      workspaceUuid: ctx.workspace.workspaceId,
-    },
-  });
-
-  return NextResponse.json({ set }, { status: 201 });
 }

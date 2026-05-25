@@ -12,10 +12,10 @@ const MARK_PATH =
 
 const fontData = Promise.all([
   fetch(new URL("./fonts/tt-neoris-trial-regular.woff", import.meta.url)).then(
-    (res) => res.arrayBuffer()
+    (response) => response.arrayBuffer()
   ),
   fetch(new URL("./fonts/departure-mono-regular.otf", import.meta.url)).then(
-    (res) => res.arrayBuffer()
+    (response) => response.arrayBuffer()
   ),
 ]);
 
@@ -46,13 +46,7 @@ const site = {
   position: "absolute",
 } as const;
 
-function Logo({
-  left,
-  top,
-}: {
-  left: number;
-  top: number;
-}) {
+function Logo({ left, top }: { left: number; top: number }) {
   return (
     <div
       style={{
@@ -351,6 +345,7 @@ export async function GET(request: Request) {
   const date = formatShortDate(searchParams.get("date"));
   const readingTime = searchParams.get("readingTime") ?? "4 min";
   const eyebrow = searchParams.get("eyebrow") ?? "Study widgets";
+
   const [ttNeoris, departureMono] = await fontData;
 
   const image =

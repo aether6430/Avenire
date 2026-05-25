@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <rect width="1280" height="720" fill="#111827"/>
+  <rect x="48" y="48" width="1184" height="624" rx="20" fill="#1f2937" stroke="#374151"/>
+  <text x="96" y="170" fill="#f9fafb" font-family="Arial, sans-serif" font-size="40">Retroactive Screenshot Unavailable</text>
+  <text x="96" y="240" fill="#d1d5db" font-family="Arial, sans-serif" font-size="28">This bug was discovered before screenshot capture became mandatory.</text>
+  <text x="96" y="300" fill="#d1d5db" font-family="Arial, sans-serif" font-size="28">Use the current notes entry and later screenshots as the authoritative artifact.</text>
+</svg>

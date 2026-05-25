@@ -1,8 +1,9 @@
+import { getSessionCookie } from "better-auth/cookies";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { getSessionCookie } from "better-auth/cookies";
 
-const isProtectedRoute = (request: NextRequest) => request.nextUrl.pathname.startsWith("/workspace");
+const isProtectedRoute = (request: NextRequest) =>
+  request.nextUrl.pathname.startsWith("/workspace");
 
 export const authMiddleware = async (request: NextRequest) => {
   const session = hasSessionCookie(request);

@@ -1,88 +1,103 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useEffect, useState } from "react"
-import { Button } from "@avenire/ui/components/button"
-import { Input } from "@avenire/ui/components/input"
-import { Label } from "@avenire/ui/components/label"
-import { toast } from "sonner"
-import { Envelope as Mail } from "@phosphor-icons/react"
-import { z } from "zod"
+import { Button } from "@avenire/ui/components/button";
+import { Input } from "@avenire/ui/components/input";
+import { Label } from "@avenire/ui/components/label";
+import { Envelope as Mail } from "@phosphor-icons/react";
+import type React from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { z } from "zod";
 
 const waitlistSchema = z.object({
-  email: z.string().email("Invalid email address").nonempty("Email is required"),
-})
+  email: z
+    .string()
+    .email("Invalid email address")
+    .nonempty("Email is required"),
+});
 
-export function WaitlistForm({ className, ...props }: React.ComponentProps<"form">) {
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [email, setEmail] = useState("")
-  const [waitlistStatus, setWaitlistStatus] = useState<"idle" | "loading" | "none" | "pending" | "approved" | "registered">("idle")
-  const [waitlistStatusMessage, setWaitlistStatusMessage] = useState<string | null>(null)
+export function WaitlistForm({
+  className,
+  ...props
+}: React.ComponentProps<"form">) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [email, setEmail] = useState("");
+  const [waitlistStatus, setWaitlistStatus] = useState<
+    "idle" | "loading" | "none" | "pending" | "approved" | "registered"
+  >("idle");
+  const [waitlistStatusMessage, setWaitlistStatusMessage] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
-    const trimmedEmail = email.trim()
+    const trimmedEmail = email.trim();
     if (!trimmedEmail) {
-      setWaitlistStatus("idle")
-      setWaitlistStatusMessage(null)
-      return
+      setWaitlistStatus("idle");
+      setWaitlistStatusMessage(null);
+      return;
     }
 
-    const controller = new AbortController()
+    const controller = new AbortController();
     const timeout = window.setTimeout(() => {
-      setWaitlistStatus("loading")
+      setWaitlistStatus("loading");
       void (async () => {
         try {
-          const response = await fetch(`/api/waitlist/status?email=${encodeURIComponent(trimmedEmail)}`, {
-            signal: controller.signal,
-            cache: "no-store",
-          })
+          const response = await fetch(
+            `/api/waitlist/status?email=${encodeURIComponent(trimmedEmail)}`,
+            {
+              signal: controller.signal,
+              cache: "no-store",
+            }
+          );
           if (!response.ok) {
-            setWaitlistStatus("none")
-            setWaitlistStatusMessage(null)
-            return
+            setWaitlistStatus("none");
+            setWaitlistStatusMessage(null);
+            return;
           }
 
           const payload = (await response.json()) as {
             status?: "none" | "pending" | "approved" | "registered";
-          }
-          const status = payload.status ?? "none"
-          setWaitlistStatus(status)
+          };
+          const status = payload.status ?? "none";
+          setWaitlistStatus(status);
           setWaitlistStatusMessage(
             status === "pending"
               ? "This email is on the waitlist, but it hasn't been approved yet."
               : status === "approved"
                 ? "This email has been approved. Use the registration link from your approval email."
-              : status === "registered"
-                ? "This email already has access."
-                : null,
-          )
+                : status === "registered"
+                  ? "This email already has access."
+                  : null
+          );
         } catch {
           if (controller.signal.aborted) {
-            return
+            return;
           }
-          setWaitlistStatus("none")
-          setWaitlistStatusMessage(null)
+          setWaitlistStatus("none");
+          setWaitlistStatusMessage(null);
         }
-      })()
-    }, 300)
+      })();
+    }, 300);
 
     return () => {
-      controller.abort()
-      window.clearTimeout(timeout)
-    }
-  }, [email])
+      controller.abort();
+      window.clearTimeout(timeout);
+    };
+  }, [email]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    setIsSubmitting(true)
+    event.preventDefault();
+    setIsSubmitting(true);
 
-    const result = waitlistSchema.safeParse({ email })
+    const result = waitlistSchema.safeParse({ email });
     if (!result.success) {
-      const formattedErrors = result.error.format()
-      setWaitlistStatus("none")
-      setWaitlistStatusMessage(formattedErrors.email?._errors.join(", ") ?? null)
-      setIsSubmitting(false)
-      return
+      const formattedErrors = result.error.format();
+      setWaitlistStatus("none");
+      setWaitlistStatusMessage(
+        formattedErrors.email?._errors.join(", ") ?? null
+      );
+      setIsSubmitting(false);
+      return;
     }
 
     try {
@@ -90,77 +105,82 @@ export function WaitlistForm({ className, ...props }: React.ComponentProps<"form
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim() }),
-      })
+      });
 
       if (!response.ok) {
-        throw new Error("Unable to join the waitlist.")
+        throw new Error("Unable to join the waitlist.");
       }
 
       const payload = (await response.json()) as {
         status?: "pending" | "approved" | "registered";
-      }
-      const nextStatus = payload.status ?? "pending"
-      setWaitlistStatus(nextStatus)
+      };
+      const nextStatus = payload.status ?? "pending";
+      setWaitlistStatus(nextStatus);
       setWaitlistStatusMessage(
         nextStatus === "approved"
           ? "This email has already been approved. Use the registration link from your approval email."
-        : nextStatus === "registered"
-          ? "This email already has access."
-          : "You're on the waitlist now. We’ll email you when access opens.",
-      )
+          : nextStatus === "registered"
+            ? "This email already has access."
+            : "You're on the waitlist now. We’ll email you when access opens."
+      );
       toast("You're on the waitlist", {
         description: `We saved ${email.trim()} for access.`,
-      })
+      });
     } catch (error) {
       toast.error("Oops! Something went wrong", {
-        description: error instanceof Error ? error.message : "Unable to join the waitlist.",
-      })
+        description:
+          error instanceof Error
+            ? error.message
+            : "Unable to join the waitlist.",
+      });
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   return (
     <form className={className} onSubmit={handleSubmit} {...props}>
       <div className="flex flex-col gap-5 p-5 md:p-6">
         <div className="space-y-2 text-left">
-          <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-foreground/55">
+          <p className="font-mono text-[11px] text-foreground/55 uppercase tracking-[0.3em]">
             Request access
           </p>
-          <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+          <h2 className="font-semibold text-2xl text-foreground tracking-tight">
             Join the waitlist
           </h2>
-          <p className="text-sm text-foreground/70">
+          <p className="text-foreground/70 text-sm">
             Leave your email and we’ll let you know when access opens.
           </p>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="email" className="text-sm font-medium">
+          <Label className="font-medium text-sm" htmlFor="email">
             Email
           </Label>
           <div className="relative">
-            <Mail className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+            <Mail className="pointer-events-none absolute top-1/2 left-3 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
             <Input
+              autoComplete="email"
+              className="pl-10 transition-all focus:ring-2 focus:ring-primary/20"
               id="email"
-              type="email"
+              onChange={(event) => setEmail(event.target.value)}
               placeholder="m@example.com"
               required
-              className="pl-10 transition-all focus:ring-2 focus:ring-primary/20"
+              type="email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              autoComplete="email"
             />
           </div>
           {waitlistStatusMessage ? (
-            <p className="text-xs text-muted-foreground">{waitlistStatusMessage}</p>
+            <p className="text-muted-foreground text-xs">
+              {waitlistStatusMessage}
+            </p>
           ) : null}
         </div>
 
-        <Button className="w-full" type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Joining waitlist..." : "Join waitlist"}
+        <Button className="w-full" disabled={isSubmitting} type="submit">
+          {isSubmitting ? "Joining the waitlist..." : "Join the waitlist"}
         </Button>
       </div>
     </form>
-  )
+  );
 }

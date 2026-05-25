@@ -1,4 +1,4 @@
-import { PricingPageClient } from "@/components/landing/pricing-page-client";
+import { PricingPage as PricingPageSurface } from "@/components/marketing/pricing-page";
 import { buildPageMetadata } from "@/lib/page-metadata";
 
 export const metadata = buildPageMetadata({
@@ -11,5 +11,5 @@ export const metadata = buildPageMetadata({
 export const dynamic = "force-static";
 
 export default function PricingPage() {
-  return <PricingPageClient />;
+  return <PricingPageSurface />;
 }

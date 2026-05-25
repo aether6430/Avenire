@@ -2,13 +2,13 @@ import { ArrowLeft, Calendar, Clock, Tag } from "@phosphor-icons/react/ssr";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import Markdown from "react-markdown";
 import type { ElementType } from "react";
+import Markdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import { Footer } from "@/components/marketing/footer";
-import { Navbar } from "@/components/marketing/navbar";
+import { Container } from "@/components/marketing/container";
+import { MarketingPageShell } from "@/components/marketing/page-shell";
 import { getAllSlugs, getPostBySlug } from "@/lib/blog";
 import { metadataBase } from "@/lib/page-metadata";
 
@@ -122,6 +122,10 @@ function formatDate(iso: string) {
   });
 }
 
+function stripLeadingMarkdownH1(content: string) {
+  return content.replace(/^#\s+.+?(?:\r?\n){1,2}/, "");
+}
+
 const mdxComponents = {
   h1: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
     <h1
@@ -148,16 +152,16 @@ const mdxComponents = {
     <p className="mb-5 text-white/70 leading-relaxed" {...props} />
   ),
   ul: (props: React.HTMLAttributes<HTMLUListElement>) => (
-    <ul className="my-4 ml-6 list-none space-y-2" {...props} />
+    <ul
+      className="my-4 ml-6 list-disc space-y-2 marker:text-brand"
+      {...props}
+    />
   ),
   ol: (props: React.HTMLAttributes<HTMLOListElement>) => (
     <ol className="my-4 ml-6 list-outside list-decimal space-y-2" {...props} />
   ),
   li: (props: React.HTMLAttributes<HTMLLIElement>) => (
-    <li
-      className="pl-1 text-white/70 leading-relaxed before:mr-2 before:text-brand before:content-['—']"
-      {...props}
-    />
+    <li className="pl-1 text-white/70 leading-relaxed" {...props} />
   ),
   a: (props: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
     <a
@@ -179,7 +183,7 @@ const mdxComponents = {
   ),
   code: (props: React.HTMLAttributes<HTMLElement>) => (
     <code
-      className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-white/80 text-sm"
+      className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-sm text-white/80"
       {...props}
     />
   ),
@@ -206,108 +210,96 @@ export default async function BlogPostPage({
   }
 
   return (
-    <main className="avenire-marketing-scope dark min-h-screen bg-neutral-950 text-neutral-100">
+    <MarketingPageShell>
       {articleSchema ? (
         <script
           dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
           type="application/ld+json"
         />
       ) : null}
-      <Navbar />
 
-      <article className="px-4 pt-32 pb-24">
-        <div className="mx-auto max-w-[72rem] border-divide border-x border-y px-4 py-8 md:px-8">
-        <div className="mx-auto max-w-2xl">
-          {/* Back link */}
-          <Link
-            className="group mb-10 inline-flex items-center gap-1.5 text-white/50 text-sm transition-colors hover:text-white"
-            href="/blog"
-          >
-            <ArrowLeftIcon className="size-4 transition-transform group-hover:-translate-x-0.5" />
-            All posts
-          </Link>
-
-          {/* Tags */}
-          {post.tags.length > 0 && (
-            <div className="mb-5 flex flex-wrap gap-2">
-              {post.tags.map((tag) => (
-                <span
-                  className="inline-flex items-center gap-1 rounded-full border border-brand/20 bg-brand/10 px-2.5 py-0.5 font-medium text-brand text-xs"
-                  key={tag}
-                >
-                  <TagIcon className="size-2.5" />
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {post.coverImage && (
-            <div className="mb-8 overflow-hidden rounded-xl border border-divide">
-              <Image
-                alt={post.title}
-                className="h-auto w-full object-cover"
-                height={900}
-                priority
-                src={post.coverImage}
-                width={1600}
-              />
-            </div>
-          )}
-
-          {/* Title */}
-          <h1 className="mb-4 font-semibold text-3xl text-white leading-tight tracking-tight md:text-4xl">
-            {post.title}
-          </h1>
-
-          {/* Description */}
-          {post.description && (
-            <p className="mb-8 text-lg text-white/60 leading-relaxed">
-              {post.description}
-            </p>
-          )}
-
-          {/* Meta */}
-          <div className="mb-10 flex flex-wrap items-center gap-4 border-divide border-b pb-8 text-white/45 text-sm">
-            <span className="font-medium text-white/62">
-              {post.author}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <CalendarIcon className="size-3.5" />
-              {formatDate(post.date)}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <ClockIcon className="size-3.5" />
-              {post.readingTime}
-            </span>
-          </div>
-
-          {/* MDX Content */}
-          <div className="prose-avenire">
-            <Markdown
-              components={mdxComponents}
-              rehypePlugins={[rehypeKatex]}
-              remarkPlugins={[remarkGfm, remarkMath]}
-            >
-              {post.content}
-            </Markdown>
-          </div>
-
-          {/* Footer navigation */}
-          <div className="mt-16 border-divide border-t pt-8">
+      <article className="px-4 pt-28 pb-24 md:pt-12">
+        <Container className="border-divide border-x px-4 py-12 md:px-8 md:py-16">
+          <div className="mx-auto max-w-2xl">
             <Link
-              className="group inline-flex items-center gap-1.5 text-white/50 text-sm transition-colors hover:text-brand"
+              className="group mb-10 inline-flex items-center gap-1.5 text-sm text-white/50 transition-colors hover:text-white"
               href="/blog"
             >
-              <ArrowLeftIcon className="size-4 transition-transform group-hover:-translate-x-0.5" />
-              Back to all posts
+              <ArrowLeft className="size-4 transition-transform group-hover:-translate-x-0.5" />
+              All posts
             </Link>
-          </div>
-        </div>
-        </div>
-      </article>
 
-      <Footer />
-    </main>
+            {post.tags.length > 0 && (
+              <div className="mb-5 flex flex-wrap gap-2">
+                {post.tags.map((tag) => (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full border border-brand/20 bg-brand/10 px-2.5 py-0.5 font-medium text-brand text-xs"
+                    key={tag}
+                  >
+                    <Tag className="size-2.5" />
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {post.coverImage && (
+              <div className="mb-8 overflow-hidden rounded-xl border border-divide">
+                <Image
+                  alt={post.title}
+                  className="h-auto w-full object-cover"
+                  height={900}
+                  priority
+                  src={post.coverImage}
+                  width={1600}
+                />
+              </div>
+            )}
+
+            <h1 className="mb-4 font-semibold text-3xl text-white leading-tight tracking-tight md:text-4xl">
+              {post.title}
+            </h1>
+
+            {post.description && (
+              <p className="mb-8 text-lg text-white/60 leading-relaxed">
+                {post.description}
+              </p>
+            )}
+
+            <div className="mb-10 flex flex-wrap items-center gap-4 border-divide border-b pb-8 text-sm text-white/45">
+              <span className="font-medium text-white/62">{post.author}</span>
+              <span className="flex items-center gap-1.5">
+                <Calendar className="size-3.5" />
+                {formatDate(post.date)}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Clock className="size-3.5" />
+                {post.readingTime}
+              </span>
+            </div>
+
+            <div className="prose-avenire">
+              <Markdown
+                components={mdxComponents}
+                rehypePlugins={[rehypeKatex]}
+                remarkPlugins={[remarkGfm, remarkMath]}
+              >
+                {stripLeadingMarkdownH1(post.content)}
+              </Markdown>
+            </div>
+
+            <div className="mt-16 border-divide border-t pt-8">
+              <Link
+                className="group inline-flex items-center gap-1.5 text-sm text-white/50 transition-colors hover:text-brand"
+                href="/blog"
+              >
+                <ArrowLeft className="size-4 transition-transform group-hover:-translate-x-0.5" />
+                Back to all posts
+              </Link>
+            </div>
+          </div>
+        </Container>
+      </article>
+    </MarketingPageShell>
   );
 }

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { AvenireMark } from "@/components/branding/AvenireMark";
 
 export const LogoSVG = (props: React.SVGProps<SVGSVGElement>) => {
@@ -7,11 +6,11 @@ export const LogoSVG = (props: React.SVGProps<SVGSVGElement>) => {
 
 export const Logo = () => {
   return (
-    <Link href="/" className="flex items-center gap-2">
-      <LogoSVG className="size-5 text-brand" />
-      <span className="text-2xl font-medium tracking-tight text-white">
+    <a className="flex items-center gap-2.5 text-white" href="/">
+      <LogoSVG className="size-4 text-brand" />
+      <span className="font-semibold text-[1.1rem] tracking-tight">
         Avenire
       </span>
-    </Link>
+    </a>
   );
 };

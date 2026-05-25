@@ -1,13 +1,15 @@
 import { createHash } from "node:crypto";
-import type { RedisClientType } from "redis";
-import { ensureManagedRedisClient } from "@/lib/redis-client";
+import {
+  ensureManagedRedisClient,
+  type ManagedRedisClient,
+} from "@/lib/redis-client";
 
 const redisUrl = process.env.REDIS_URL;
 const CACHE_VERSION = "v1";
 const DEFAULT_TTL_SECONDS = 60;
 const VERSION_TTL_SECONDS = 60 * 60 * 24;
 
-let client: RedisClientType | null = null;
+let client: ManagedRedisClient | null = null;
 
 interface MemoryCacheEntry {
   expiresAtMs: number;
@@ -24,10 +26,7 @@ function toPositiveInt(raw: string | undefined, fallback: number) {
 
 function resolveTtlSeconds(namespace: string) {
   const envKey = `${namespace.toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_CACHE_TTL_SECONDS`;
-  return Math.max(
-    10,
-    toPositiveInt(process.env[envKey], DEFAULT_TTL_SECONDS)
-  );
+  return Math.max(10, toPositiveInt(process.env[envKey], DEFAULT_TTL_SECONDS));
 }
 
 async function getRedisClient() {

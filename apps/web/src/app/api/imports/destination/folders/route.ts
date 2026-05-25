@@ -1,35 +1,27 @@
 import { NextResponse } from "next/server";
-import { listImportDestinationFolders } from "@/lib/imports";
 import { getSessionUser } from "@/lib/workspace";
+import { resolveImportsRouteError } from "../../imports-route-model";
+import { handleImportsDestinationFoldersGet } from "./imports-destination-folders-route-get";
 
 export async function GET(request: Request) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const url = new URL(request.url);
-  const workspaceId = url.searchParams.get("workspaceId")?.trim() ?? "";
-  if (!workspaceId) {
-    return NextResponse.json(
-      { error: "workspaceId is required" },
-      { status: 400 }
-    );
-  }
-
   try {
-    const payload = await listImportDestinationFolders({
+    const user = await getSessionUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    return await handleImportsDestinationFoldersGet({
+      request,
       userId: user.id,
-      workspaceId,
     });
-    return NextResponse.json(payload);
   } catch (error) {
+    const failure = resolveImportsRouteError(error, {
+      fallback: "Unable to load folders.",
+      status: 500,
+    });
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error ? error.message : "Unable to load folders.",
-      },
-      { status: 400 }
+      { error: failure.error },
+      { status: failure.status }
     );
   }
 }

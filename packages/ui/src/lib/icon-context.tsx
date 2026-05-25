@@ -18,7 +18,6 @@ import {
   iconMap,
 } from "@/lib/icon-map";
 
-// Re-export types for consumers
 export type { IconComponent, IconLibrary, IconName } from "@/lib/icon-map";
 
 interface IconContextValue {
@@ -28,10 +27,6 @@ interface IconContextValue {
 
 const IconContext = createContext<IconContextValue | null>(null);
 
-/**
- * Returns the current icon library and setter.
- * Throws if used outside IconProvider.
- */
 function useIconLibrary() {
   const ctx = useContext(IconContext);
   if (!ctx) {
@@ -40,10 +35,6 @@ function useIconLibrary() {
   return ctx;
 }
 
-/**
- * Returns a single icon component for the given name.
- * Falls back to Phosphor if no provider is present.
- */
 function useIcon(name: IconName): IconComponent {
   const ctx = useContext(IconContext);
   if (!ctx) {
@@ -52,10 +43,6 @@ function useIcon(name: IconName): IconComponent {
   return iconMap[ctx.iconLibrary][name];
 }
 
-/**
- * Returns the full icon map for the current library.
- * Falls back to Phosphor if no provider is present.
- */
 function useIcons(): Record<IconName, IconComponent> {
   const ctx = useContext(IconContext);
   const lib = ctx?.iconLibrary ?? "phosphor";
@@ -76,7 +63,6 @@ function IconProvider({
     setIconLibraryState(next);
   }, []);
 
-  // Global keyboard shortcut: I to cycle icon library
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "i" && e.key !== "I") {

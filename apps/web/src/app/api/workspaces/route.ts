@@ -7,97 +7,120 @@ import {
   resolveWorkspaceForUser,
 } from "@/lib/file-data";
 import { getSessionUser, getWorkspaceContextForUser } from "@/lib/workspace";
+import {
+  resolveWorkspaceRouteError,
+  WORKSPACE_ROUTE_CREATE_ERROR,
+  WORKSPACE_ROUTE_LOAD_ERROR,
+} from "./workspaces-route-model";
 
 export async function GET() {
-  const ctx = await getWorkspaceContextForUser();
-  if (!ctx) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    const ctx = await getWorkspaceContextForUser();
+    if (!ctx) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  return NextResponse.json({
-    workspaceUuid: ctx.workspace.workspaceId,
-    organizationId: ctx.workspace.organizationId,
-    rootFolderUuid: ctx.workspace.rootFolderId,
-  });
+    return NextResponse.json({
+      workspaceUuid: ctx.workspace.workspaceId,
+      organizationId: ctx.workspace.organizationId,
+      rootFolderUuid: ctx.workspace.rootFolderId,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: resolveWorkspaceRouteError(error, WORKSPACE_ROUTE_LOAD_ERROR),
+      },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request: Request) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    const user = await getSessionUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const body = (await request.json().catch(() => ({}))) as { name?: string };
-  const trimmed = body.name?.trim().slice(0, 80) || "New Workspace";
-  const slugBase =
-    trimmed
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "")
-      .slice(0, 40) || "workspace";
-  const slug = `${slugBase}-${randomUUID().slice(0, 8)}`;
-  const existingSummaries = await listWorkspacesForUser(user.id);
-  const existingWorkspace = existingSummaries.find(
-    (entry) => entry.name.trim().toLowerCase() === trimmed.toLowerCase()
-  );
-  if (existingWorkspace) {
-    const resolvedExisting = await resolveWorkspaceForUser(
-      user.id,
-      existingWorkspace.organizationId
+    const body = (await request.json().catch(() => ({}))) as { name?: string };
+    const trimmed = body.name?.trim().slice(0, 80) || "New Workspace";
+    const slugBase =
+      trimmed
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "")
+        .slice(0, 40) || "workspace";
+    const slug = `${slugBase}-${randomUUID().slice(0, 8)}`;
+    const existingSummaries = await listWorkspacesForUser(user.id);
+    const existingWorkspace = existingSummaries.find(
+      (entry) => entry.name.trim().toLowerCase() === trimmed.toLowerCase()
     );
-    if (resolvedExisting) {
-      return NextResponse.json(
-        {
-          workspace: {
-            ...resolvedExisting,
-            logo: existingWorkspace.logo,
-            name: existingWorkspace.name,
+    if (existingWorkspace) {
+      const resolvedExisting = await resolveWorkspaceForUser(
+        user.id,
+        existingWorkspace.organizationId
+      );
+      if (resolvedExisting) {
+        return NextResponse.json(
+          {
+            workspace: {
+              ...resolvedExisting,
+              logo: existingWorkspace.logo,
+              name: existingWorkspace.name,
+            },
           },
-        },
-        { status: 200 }
+          { status: 200 }
+        );
+      }
+    }
+
+    const org = await auth.api.createOrganization({
+      body: {
+        name: trimmed,
+        slug,
+        keepCurrentActiveOrganization: false,
+        userId: user.id,
+      },
+      headers: await headers(),
+    });
+
+    if (!org?.id) {
+      return NextResponse.json(
+        { error: "Unable to create workspace" },
+        { status: 400 }
       );
     }
-  }
 
-  const org = await auth.api.createOrganization({
-    body: {
-      name: trimmed,
-      slug,
-      keepCurrentActiveOrganization: false,
-      userId: user.id,
-    },
-    headers: await headers(),
-  });
+    const workspace = await resolveWorkspaceForUser(user.id, org.id);
+    if (!workspace) {
+      return NextResponse.json(
+        { error: "Unable to resolve workspace" },
+        { status: 500 }
+      );
+    }
+    if (workspace.organizationId !== org.id) {
+      return NextResponse.json(
+        { error: "Unable to resolve workspace" },
+        { status: 500 }
+      );
+    }
 
-  if (!org?.id) {
     return NextResponse.json(
-      { error: "Unable to create workspace" },
-      { status: 400 }
-    );
-  }
-
-  const workspace = await resolveWorkspaceForUser(user.id, org.id);
-  if (!workspace) {
-    return NextResponse.json(
-      { error: "Unable to resolve workspace" },
-      { status: 500 }
-    );
-  }
-  if (workspace.organizationId !== org.id) {
-    return NextResponse.json(
-      { error: "Unable to resolve workspace" },
-      { status: 500 }
-    );
-  }
-
-  return NextResponse.json(
-    {
-      workspace: {
-        ...workspace,
-        logo: null,
-        name: trimmed,
+      {
+        workspace: {
+          ...workspace,
+          logo: null,
+          name: trimmed,
+        },
       },
-    },
-    { status: 201 }
-  );
+      { status: 201 }
+    );
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: resolveWorkspaceRouteError(error, WORKSPACE_ROUTE_CREATE_ERROR),
+      },
+      { status: 500 }
+    );
+  }
 }

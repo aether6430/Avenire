@@ -1,15 +1,16 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import type React from "react";
+import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
-type MeshGradientProps = {
+interface MeshGradientProps {
   className?: string;
   colors?: string[];
-  speed?: number;
-  resolutionScale?: number;
   paused?: boolean;
-};
+  resolutionScale?: number;
+  speed?: number;
+}
 
 function resolveCssColorToRGB(color: string): [number, number, number] {
   const el = document.createElement("div");
@@ -18,11 +19,13 @@ function resolveCssColorToRGB(color: string): [number, number, number] {
   const computed = getComputedStyle(el).color;
   document.body.removeChild(el);
   const match = computed.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
-  if (!match) return [241, 116, 99];
+  if (!match) {
+    return [241, 116, 99];
+  }
   return [
-    parseInt(match[1], 10),
-    parseInt(match[2], 10),
-    parseInt(match[3], 10),
+    Number.parseInt(match[1], 10),
+    Number.parseInt(match[2], 10),
+    Number.parseInt(match[3], 10),
   ];
 }
 
@@ -38,13 +41,17 @@ export const MeshGradient: React.FC<MeshGradientProps> = ({
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) {
+      return;
+    }
 
     const glCtx = canvas.getContext("webgl", {
       premultipliedAlpha: true,
       alpha: true,
     });
-    if (!glCtx) return;
+    if (!glCtx) {
+      return;
+    }
     const gl: WebGLRenderingContext = glCtx;
 
     const getDpr = () =>
@@ -133,7 +140,9 @@ export const MeshGradient: React.FC<MeshGradientProps> = ({
 
     const vs = compile(gl.VERTEX_SHADER, vertexSrc);
     const fs = compile(gl.FRAGMENT_SHADER, fragmentSrc);
-    if (!vs || !fs) return;
+    if (!(vs && fs)) {
+      return;
+    }
 
     const program = gl.createProgram()!;
     gl.attachShader(program, vs);
@@ -143,7 +152,8 @@ export const MeshGradient: React.FC<MeshGradientProps> = ({
       console.error("Program link error", gl.getProgramInfoLog(program));
       return;
     }
-    gl.useProgram(program);
+    const applyProgram = gl.useProgram.bind(gl);
+    applyProgram(program);
 
     const buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -161,8 +171,9 @@ export const MeshGradient: React.FC<MeshGradientProps> = ({
 
     const parseColors = () => {
       const resolved = [...colors];
-      while (resolved.length < 5)
-        resolved.push(resolved[resolved.length - 1] ?? "#ffffff");
+      while (resolved.length < 5) {
+        resolved.push(resolved.at(-1) ?? "#fcfcfc");
+      }
       const rgb = resolved.slice(0, 5).map((c) => {
         const [r, g, b] = resolveCssColorToRGB(c);
         return [r / 255, g / 255, b / 255] as [number, number, number];
@@ -170,7 +181,7 @@ export const MeshGradient: React.FC<MeshGradientProps> = ({
       return rgb.flat();
     };
 
-    let mouse: { x: number; y: number } = { x: 0.0, y: 0.0 };
+    const mouse: { x: number; y: number } = { x: 0.0, y: 0.0 };
     const handleMouse = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
       const x = (e.clientX - rect.left) / rect.width;
@@ -181,7 +192,7 @@ export const MeshGradient: React.FC<MeshGradientProps> = ({
     window.addEventListener("mousemove", handleMouse);
 
     const prefersReduced = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
+      "(prefers-reduced-motion: reduce)"
     ).matches;
 
     const resize = () => {
@@ -202,7 +213,7 @@ export const MeshGradient: React.FC<MeshGradientProps> = ({
     const colorArray = new Float32Array(parseColors());
     gl.uniform3fv(uColors, colorArray);
 
-    let start = performance.now();
+    const start = performance.now();
     const loop = () => {
       const now = performance.now();
       const t =
@@ -215,10 +226,12 @@ export const MeshGradient: React.FC<MeshGradientProps> = ({
     rafRef.current = requestAnimationFrame(loop);
 
     return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+      }
       window.removeEventListener("resize", resize);
       window.removeEventListener("mousemove", handleMouse);
-      gl.useProgram(null);
+      applyProgram(null);
       gl.deleteProgram(program);
       gl.deleteShader(vs!);
       gl.deleteShader(fs!);
@@ -226,7 +239,7 @@ export const MeshGradient: React.FC<MeshGradientProps> = ({
     };
   }, [colors, speed, resolutionScale, paused]);
 
-  return <canvas ref={canvasRef} className={cn("h-full w-full", className)} />;
+  return <canvas className={cn("h-full w-full", className)} ref={canvasRef} />;
 };
 
 export default MeshGradient;

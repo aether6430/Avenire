@@ -1,14 +1,15 @@
 "use client";
+import type React from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import React, { useEffect, useRef, useState } from "react";
 
 interface PixelatedCanvasProps {
-  isActive: boolean;
+  backgroundColor?: string;
   className?: string;
-  size?: number;
   duration?: number;
   fillColor?: string;
-  backgroundColor?: string;
+  isActive: boolean;
+  size?: number;
 }
 
 export const PixelatedCanvas: React.FC<PixelatedCanvasProps> = ({
@@ -25,7 +26,7 @@ export const PixelatedCanvas: React.FC<PixelatedCanvasProps> = ({
 
   const SQUARE_SIZE = size;
 
-  const resolveColor = (color: string): string => {
+  const resolveColor = useCallback((color: string): string => {
     if (typeof window !== "undefined" && canvasRef.current) {
       const div = document.createElement("div");
       div.style.color = color;
@@ -35,11 +36,11 @@ export const PixelatedCanvas: React.FC<PixelatedCanvasProps> = ({
       return computedColor;
     }
     return color;
-  };
+  }, []);
 
   useEffect(() => {
     const updateDimensions = () => {
-      if (canvasRef.current && canvasRef.current.parentElement) {
+      if (canvasRef.current?.parentElement) {
         const parent = canvasRef.current.parentElement;
         const width = parent.clientWidth;
         const height = parent.clientHeight;
@@ -60,14 +61,17 @@ export const PixelatedCanvas: React.FC<PixelatedCanvasProps> = ({
     }
 
     const canvas = canvasRef.current;
-    if (!canvas || dimensions.width === 0 || dimensions.height === 0) return;
+    if (!canvas || dimensions.width === 0 || dimensions.height === 0) {
+      return;
+    }
 
-    // Calculate grid dimensions
     const cols = Math.floor(dimensions.width / SQUARE_SIZE);
     const rows = Math.floor(dimensions.height / SQUARE_SIZE);
     const totalSquares = cols * rows;
 
-    if (totalSquares === 0) return;
+    if (totalSquares === 0) {
+      return;
+    }
 
     const allSquares = Array.from({ length: totalSquares }, (_, i) => i);
 
@@ -101,14 +105,18 @@ export const PixelatedCanvas: React.FC<PixelatedCanvasProps> = ({
         cancelAnimationFrame(animationId);
       }
     };
-  }, [isActive, dimensions]);
+  }, [isActive, dimensions, SQUARE_SIZE, duration]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || dimensions.width === 0 || dimensions.height === 0) return;
+    if (!canvas || dimensions.width === 0 || dimensions.height === 0) {
+      return;
+    }
 
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!ctx) {
+      return;
+    }
 
     if (
       canvas.width !== dimensions.width ||
@@ -136,12 +144,19 @@ export const PixelatedCanvas: React.FC<PixelatedCanvasProps> = ({
         }
       }
     }
-  }, [filledSquares, dimensions, fillColor, backgroundColor]);
+  }, [
+    filledSquares,
+    dimensions,
+    fillColor,
+    backgroundColor,
+    SQUARE_SIZE,
+    resolveColor,
+  ]);
 
   return (
     <canvas
+      className={cn("h-full w-full", className)}
       ref={canvasRef}
-      className={cn("w-full h-full", className)}
       style={{ imageRendering: "pixelated" }}
     />
   );

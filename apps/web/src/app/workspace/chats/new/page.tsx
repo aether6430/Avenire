@@ -11,7 +11,7 @@ export const metadata = buildPageMetadata({
 export default function WorkspaceChatsNewPage() {
   return (
     <Suspense
-      fallback={<WorkspaceRoutePlaceholder label="Loading method..." />}
+      fallback={<WorkspaceRoutePlaceholder label="Loading Method..." />}
     >
       <WorkspaceChatNewPageClient allowPrompt />
     </Suspense>

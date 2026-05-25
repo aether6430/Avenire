@@ -18,16 +18,16 @@
     "build": "tsc --noEmit",
     "lint": "biome check .",
     "check-types": "tsc --noEmit",
-    "format": "biome format --write .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "format": "biome format --write ."
   },
   "dependencies": {
     "@ai-sdk/cohere": "^3.0.25",
     "@ai-sdk/fireworks": "^2.0.42",
-    "@ai-sdk/google": "latest",
-    "@ai-sdk/groq": "latest",
+    "@ai-sdk/google": "3.0.43",
+    "@ai-sdk/groq": "3.0.29",
     "@ai-sdk/mistral": "^3.0.21",
-    "@openrouter/ai-sdk-provider": "latest",
+    "@openrouter/ai-sdk-provider": "2.3.0",
     "ai": "^6.0.141",
     "ai-sdk-ollama": "^3.8.0",
     "zod": "^4.3.6"
@@ -35,8 +35,9 @@
   "devDependencies": {
     "@avenire/env-types": "workspace:*",
     "@avenire/typescript-config": "workspace:*",
+    "@types/node": "25.3.5",
     "typescript": "5.9.3",
-    "vitest": "^4.1.6"
+    "vitest": "4.1.7"
   },
   "engines": {
     "bun": ">=1.0.0"

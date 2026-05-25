@@ -11,12 +11,22 @@ const posthogHost =
   process.env.NEXT_PUBLIC_POSTHOG_HOST ??
   "https://us.i.posthog.com";
 
-const posthog = posthogKey
-  ? new PostHog(posthogKey, {
-      host: posthogHost,
-      enableExceptionAutocapture: true,
-    })
-  : null;
+let posthogClient: PostHog | null | undefined;
+
+function getPosthogClient() {
+  if (posthogClient !== undefined) {
+    return posthogClient;
+  }
+
+  posthogClient = posthogKey
+    ? new PostHog(posthogKey, {
+        host: posthogHost,
+        enableExceptionAutocapture: true,
+      })
+    : null;
+
+  return posthogClient;
+}
 
 const aiTelemetryGlobal = globalThis as typeof globalThis & {
   __avenirePostHogAiSdk?: NodeSDK;
@@ -321,6 +331,8 @@ async function ingest(level: LogLevel, input: ObservabilityEvent) {
     ...payload,
   };
 
+  const posthog = getPosthogClient();
+
   if (!posthog) {
     if (process.env.NODE_ENV !== "production") {
       console.info("[posthog-disabled]", {
@@ -381,6 +393,8 @@ async function captureExceptionEvent(input: CaptureErrorInput) {
     ...payload,
     error: safeError(input.error),
   };
+
+  const posthog = getPosthogClient();
 
   if (!posthog) {
     if (process.env.NODE_ENV !== "production") {
@@ -460,6 +474,7 @@ export async function logEvent(
 }
 
 export async function flushObservability() {
+  const posthog = getPosthogClient();
   if (!posthog) {
     return;
   }
@@ -468,6 +483,7 @@ export async function flushObservability() {
 }
 
 export function shutdownObservability(timeoutMs = 5000) {
+  const posthog = getPosthogClient();
   if (!posthog) {
     return;
   }

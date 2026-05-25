@@ -1,44 +1,24 @@
-import { deleteStorageFiles } from "@avenire/storage";
 import { NextResponse } from "next/server";
-import { purgeTrashOlderThan } from "@/lib/file-data";
-
-const RETENTION_DAYS = 30;
-
-function isAuthorized(request: Request) {
-  const token = process.env.MAINTENANCE_CRON_TOKEN;
-  if (!token) {
-    return false;
-  }
-
-  const authHeader = request.headers.get("authorization") ?? "";
-  const expected = `Bearer ${token}`;
-  return authHeader === expected;
-}
+import {
+  isAuthorizedMaintenanceRequest,
+  resolveMaintenanceRouteError,
+} from "../../maintenance-route-model";
+import { handleMaintenanceTrashPurgeRoutePost } from "./maintenance-trash-purge-route-post";
 
 export async function POST(request: Request) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000);
-  const result = await purgeTrashOlderThan(cutoff);
-  const deletableKeys = result.storageKeys.filter(
-    (storageKey) => !storageKey.startsWith("virtual:duplicate:")
-  );
-
-  if (process.env.UPLOADTHING_TOKEN && deletableKeys.length > 0) {
-    try {
-      await deleteStorageFiles(deletableKeys);
-    } catch {
-      // Best effort physical cleanup.
+  try {
+    if (!isAuthorizedMaintenanceRequest(request)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-  }
 
-  return NextResponse.json({
-    ok: true,
-    retentionDays: RETENTION_DAYS,
-    cutoff: cutoff.toISOString(),
-    filesPurged: result.fileCount,
-    foldersPurged: result.folderCount,
-  });
+    return await handleMaintenanceTrashPurgeRoutePost();
+  } catch (error) {
+    const failure = resolveMaintenanceRouteError(error, {
+      fallback: "Unable to purge trash.",
+    });
+    return NextResponse.json(
+      { error: failure.error },
+      { status: failure.status }
+    );
+  }
 }

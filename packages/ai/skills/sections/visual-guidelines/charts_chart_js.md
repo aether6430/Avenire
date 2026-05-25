@@ -1,17 +1,8 @@
 ## Charts
 
-Use `widget: { type: "spec", spec: ... }` for normal charts and analytical canvases. Bar, line, and area charts belong in spec widgets, especially when paired with stats, tables, sections, progress rows, or callouts. The app renders these with native React/Recharts components and the shared UI theme.
+Prefer `widget.type: "spec"` `chart` for bar, line, and area charts, especially when paired with stats, tables, sections, or callouts. It uses the app's shadcn/Recharts chart system and should be the default for dashboards and analytical canvases.
 
-Use raw Chart.js in `widget: { type: "code", code: ... }` only when the request needs a chart type not covered by primitives, custom plugin behavior, imperative interaction, multiple synchronized canvases, or highly custom annotations. Do not use Chart.js for ordinary dashboards.
-
-For spec charts:
-- Include a specific title.
-- Use rounded display values.
-- Pair important charts with a small stat grid or callout when it improves scanning.
-- Use `table` nodes for supporting artifact data; use markdown tables only for small tables in a normal prose answer.
-- Keep series count small enough to read at chat width.
-
-## Raw Chart.js fallback
+Use raw Chart.js in `widget: { type: "code", code: ... }` only when you need a chart type not covered by primitives, custom plugin behavior, imperative interaction, multiple synchronized canvases, or highly custom annotations.
 
 ```html
 <div style="position: relative; width: 100%; height: 300px;">

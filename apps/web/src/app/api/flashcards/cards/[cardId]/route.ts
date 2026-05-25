@@ -1,111 +1,70 @@
-import { assertFlashcardTaxonomy } from "@avenire/database";
 import { NextResponse } from "next/server";
-import { invalidateFlashcardReadCaches } from "@/lib/domain-cache";
-import {
-  archiveFlashcardCardForUser,
-  updateFlashcardCardForUser,
-} from "@/lib/flashcards";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
-import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
+import {
+  FLASHCARD_CARD_DELETE_ERROR,
+  FLASHCARD_CARD_UPDATE_ERROR,
+  resolveFlashcardCardRouteError,
+} from "./flashcard-card-route-model";
+import {
+  handleFlashcardCardRouteDelete,
+  handleFlashcardCardRoutePatch,
+} from "./flashcard-card-route-mutations";
 
 export async function PATCH(
   request: Request,
   context: { params: Promise<{ cardId: string }> }
 ) {
-  const ctx = await getWorkspaceContextForUser();
-  if (!ctx) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const body = (await request.json().catch(() => ({}))) as {
-    backMarkdown?: string;
-    frontMarkdown?: string;
-    notesMarkdown?: string | null;
-    source?: Record<string, unknown>;
-    tags?: string[];
-  };
-  const { cardId } = await context.params;
-
-  let taxonomy: ReturnType<typeof assertFlashcardTaxonomy> | null = null;
   try {
-    taxonomy = assertFlashcardTaxonomy(body.source, "flashcard update");
-  } catch {
+    const ctx = await getWorkspaceContextForUser();
+    if (!ctx) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { cardId } = await context.params;
+    return await handleFlashcardCardRoutePatch({
+      cardId,
+      request,
+      userId: ctx.user.id,
+      workspaceId: ctx.workspace.workspaceId,
+    });
+  } catch (error) {
     return NextResponse.json(
       {
-        error:
-          "source with subject, topic, and concept is required for flashcard update",
+        error: resolveFlashcardCardRouteError(
+          error,
+          FLASHCARD_CARD_UPDATE_ERROR
+        ),
       },
-      { status: 400 }
+      { status: 500 }
     );
   }
-  const source = {
-    ...(body.source ?? {}),
-    ...(taxonomy ?? {}),
-  };
-
-  const card = await updateFlashcardCardForUser({
-    backMarkdown: body.backMarkdown,
-    cardId,
-    frontMarkdown: body.frontMarkdown,
-    notesMarkdown: body.notesMarkdown,
-    source,
-    tags: body.tags,
-    userId: ctx.user.id,
-    workspaceId: ctx.workspace.workspaceId,
-  });
-
-  if (!card) {
-    return NextResponse.json({ error: "Card not found" }, { status: 404 });
-  }
-
-  await invalidateFlashcardReadCaches(ctx.workspace.workspaceId);
-
-  void publishWorkspaceStreamEvent({
-    workspaceUuid: ctx.workspace.workspaceId,
-    type: "flashcards.invalidate",
-    payload: {
-      action: "updated",
-      cardId: card.id,
-      setId: card.setId,
-      workspaceUuid: ctx.workspace.workspaceId,
-    },
-  });
-
-  return NextResponse.json({ card });
 }
 
 export async function DELETE(
   _request: Request,
   context: { params: Promise<{ cardId: string }> }
 ) {
-  const ctx = await getWorkspaceContextForUser();
-  if (!ctx) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    const ctx = await getWorkspaceContextForUser();
+    if (!ctx) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const { cardId } = await context.params;
-  const card = await archiveFlashcardCardForUser(
-    ctx.user.id,
-    ctx.workspace.workspaceId,
-    cardId
-  );
-
-  if (!card) {
-    return NextResponse.json({ error: "Card not found" }, { status: 404 });
-  }
-
-  await invalidateFlashcardReadCaches(ctx.workspace.workspaceId);
-
-  void publishWorkspaceStreamEvent({
-    workspaceUuid: ctx.workspace.workspaceId,
-    type: "flashcards.invalidate",
-    payload: {
-      action: "deleted",
+    const { cardId } = await context.params;
+    return await handleFlashcardCardRouteDelete({
       cardId,
-      setId: card.setId,
-      workspaceUuid: ctx.workspace.workspaceId,
-    },
-  });
-
-  return NextResponse.json({ ok: true });
+      userId: ctx.user.id,
+      workspaceId: ctx.workspace.workspaceId,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: resolveFlashcardCardRouteError(
+          error,
+          FLASHCARD_CARD_DELETE_ERROR
+        ),
+      },
+      { status: 500 }
+    );
+  }
 }

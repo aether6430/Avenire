@@ -1,7 +1,10 @@
 "use client";
 
+import type { MisconceptionRecord } from "@avenire/database";
 import { useQuery } from "@tanstack/react-query";
-import { DashboardHome } from "@/components/dashboard/dashboard-home";
+import dynamic from "next/dynamic";
+import type { DashboardHomeProps } from "@/components/dashboard/dashboard-home-model";
+import { useDashboardHome } from "@/components/dashboard/use-dashboard-home";
 import { useWorkspaceBootstrap } from "@/components/dashboard/workspace-bootstrap";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
 import type {
@@ -9,8 +12,23 @@ import type {
   ConceptMasteryRecord,
   FlashcardSetSummary,
 } from "@/lib/flashcards";
-import type { MisconceptionRecord } from "@/lib/learning-data";
 import { usePaneSearchParams } from "@/lib/workspace-panes";
+import type { DashboardHomeRuntime } from "./use-dashboard-home";
+
+const DashboardHomeSurface = dynamic<
+  Pick<
+    DashboardHomeProps,
+    "currentUserId" | "weakestDrillTarget" | "workspaceId"
+  > & {
+    runtime: DashboardHomeRuntime;
+  }
+>(
+  () =>
+    import("@/components/dashboard/dashboard-home-surface").then(
+      (module) => module.DashboardHomeSurface
+    ),
+  { loading: () => null }
+);
 
 interface WorkspaceOverviewPayload {
   activeMisconceptions: MisconceptionRecord[];
@@ -34,10 +52,27 @@ async function loadWorkspaceOverview(
   });
 
   if (!response.ok) {
-    throw new Error("Unable to load workspace overview.");
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+
+    throw new Error(payload.error?.trim() || "Unable to load workspace.");
   }
 
   return (await response.json()) as WorkspaceOverviewPayload;
+}
+
+function WorkspaceOverviewHome(props: DashboardHomeProps) {
+  const runtime = useDashboardHome(props);
+
+  return (
+    <DashboardHomeSurface
+      currentUserId={props.currentUserId}
+      runtime={runtime}
+      weakestDrillTarget={props.weakestDrillTarget}
+      workspaceId={props.workspaceId}
+    />
+  );
 }
 
 export function WorkspaceOverviewPageClient() {
@@ -54,8 +89,39 @@ export function WorkspaceOverviewPageClient() {
     ],
   });
 
+  if (status === "error") {
+    return (
+      <WorkspaceRoutePlaceholder
+        label="Unable to load workspace."
+        pending={false}
+      />
+    );
+  }
+
+  if (status === "ready" && user && !workspace) {
+    return (
+      <WorkspaceRoutePlaceholder
+        label="Create a workspace to continue."
+        pending={false}
+      />
+    );
+  }
+
   if (!(status === "ready" && user && workspace)) {
     return <WorkspaceRoutePlaceholder />;
+  }
+
+  if (overviewQuery.isError) {
+    return (
+      <WorkspaceRoutePlaceholder
+        label={
+          overviewQuery.error instanceof Error
+            ? overviewQuery.error.message
+            : "Unable to load workspace."
+        }
+        pending={false}
+      />
+    );
   }
 
   if (overviewQuery.isPending || !overviewQuery.data) {
@@ -63,7 +129,7 @@ export function WorkspaceOverviewPageClient() {
   }
 
   return (
-    <DashboardHome
+    <WorkspaceOverviewHome
       activeMisconceptions={overviewQuery.data.activeMisconceptions}
       currentUserId={user.id}
       flashcardSets={overviewQuery.data.flashcardSets}

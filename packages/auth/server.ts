@@ -1,4 +1,4 @@
-import { createWorkspaceForUser, createWorkspaceNoteFile, db } from "@avenire/database";
+import { db } from "@avenire/database";
 import {
   account,
   invitation,
@@ -9,52 +9,238 @@ import {
   user,
   verification,
 } from "@avenire/database/auth-schema";
-import {
-  Emailer,
-  renderDeleteAccountEmail,
-  renderFileShareNotificationEmail,
-  renderPasswordResetEmail,
-  renderSecurityVerificationCodeEmail,
-  renderVerificationEmail,
-  renderWelcomeEmail,
-  renderWorkspaceShareNotificationEmail
-} from "@avenire/emailer";
-import { betterAuth } from "better-auth";
-import { createAuthMiddleware } from "better-auth/api";
-import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { nextCookies, toNextJsHandler } from "better-auth/next-js";
-import { lastLoginMethod, organization } from "better-auth/plugins";
+import { passkey } from "@better-auth/passkey";
 import { checkout, polar, portal } from "@polar-sh/better-auth";
 import { Polar } from "@polar-sh/sdk";
-import { passkey } from "@better-auth/passkey";
+import { betterAuth } from "better-auth";
+import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { createAuthMiddleware } from "better-auth/api";
+import { lastLoginMethod, organization } from "better-auth/plugins";
 import { username } from "better-auth/plugins/username";
+import { cookies } from "next/headers";
+import { parseOriginList, resolveTrustedOrigins } from "./origin-policy";
+import {
+  sendDeleteAccountVerificationEmail,
+  sendFileShareEmail,
+  sendResetPasswordEmail,
+  sendSudoVerificationCodeEmail,
+  sendVerificationEmail,
+  sendWelcomeEmail,
+  sendWorkspaceShareEmail,
+} from "./server-mailers";
+import { provisionWelcomeWorkspaceForUser } from "./server-workspace-bootstrap";
 import { waitlistPlugin } from "./waitlist";
+
+interface NextJsCompatibleAuth {
+  handler?: (request: Request) => Promise<Response>;
+}
+
+function toNextJsHandler(auth: NextJsCompatibleAuth) {
+  const handler = async (request: Request) => {
+    return "handler" in auth && typeof auth.handler === "function"
+      ? auth.handler(request)
+      : (auth as (request: Request) => Promise<Response>)(request);
+  };
+
+  return {
+    GET: handler,
+    POST: handler,
+    PATCH: handler,
+    PUT: handler,
+    DELETE: handler,
+  };
+}
+
+function nextCookies() {
+  return {
+    id: "next-cookies",
+    hooks: {
+      after: [
+        {
+          matcher() {
+            return true;
+          },
+          handler: createAuthMiddleware(async (ctx) => {
+            const returned = ctx.context.responseHeaders;
+            if ("_flag" in ctx && ctx._flag === "router") {
+              return;
+            }
+
+            if (!(returned instanceof Headers)) {
+              return;
+            }
+
+            const setCookieHeader = returned.get("set-cookie");
+            if (!setCookieHeader) {
+              return;
+            }
+
+            const cookieStore = await cookies().catch((error) => {
+              if (
+                error instanceof Error &&
+                error.message.startsWith(
+                  "`cookies` was called outside a request scope."
+                )
+              ) {
+                return null;
+              }
+
+              throw error;
+            });
+
+            if (!cookieStore) {
+              return;
+            }
+
+            for (const cookieValue of splitSetCookieHeader(setCookieHeader)) {
+              const parsed = parseSetCookieHeaderValue(cookieValue);
+              if (!parsed) {
+                continue;
+              }
+
+              try {
+                cookieStore.set(parsed.name, decodeURIComponent(parsed.value), {
+                  domain: parsed.attributes.domain,
+                  httpOnly: parsed.attributes.httpOnly,
+                  maxAge: parsed.attributes.maxAge,
+                  path: parsed.attributes.path,
+                  sameSite: parsed.attributes.sameSite,
+                  secure: parsed.attributes.secure,
+                });
+              } catch {
+                // Ignore cookie store writes that Next rejects for a given request.
+              }
+            }
+          }),
+        },
+      ],
+    },
+  };
+}
+
+function splitSetCookieHeader(headerValue: string) {
+  const values: string[] = [];
+  let current = "";
+  let inExpiresAttribute = false;
+
+  for (let index = 0; index < headerValue.length; index += 1) {
+    const character = headerValue[index];
+    const lowerSlice = headerValue.slice(index, index + 8).toLowerCase();
+
+    if (!inExpiresAttribute && lowerSlice === "expires=") {
+      inExpiresAttribute = true;
+    }
+
+    if (character === "," && !inExpiresAttribute) {
+      values.push(current.trim());
+      current = "";
+      continue;
+    }
+
+    current += character;
+
+    if (inExpiresAttribute && character === ";") {
+      inExpiresAttribute = false;
+    }
+  }
+
+  if (current.trim()) {
+    values.push(current.trim());
+  }
+
+  return values;
+}
+
+function parseSetCookieHeaderValue(headerValue: string) {
+  const segments = headerValue
+    .split(";")
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+  const [nameValue, ...attributes] = segments;
+
+  if (!nameValue) {
+    return null;
+  }
+
+  const separatorIndex = nameValue.indexOf("=");
+  if (separatorIndex <= 0) {
+    return null;
+  }
+
+  const name = nameValue.slice(0, separatorIndex).trim();
+  const value = nameValue.slice(separatorIndex + 1);
+
+  if (!name) {
+    return null;
+  }
+
+  const parsedAttributes: {
+    domain?: string;
+    httpOnly?: boolean;
+    maxAge?: number;
+    path?: string;
+    sameSite?: "lax" | "none" | "strict";
+    secure?: boolean;
+  } = {};
+
+  for (const attribute of attributes) {
+    const [rawKey, ...rawValueParts] = attribute.split("=");
+    const key = rawKey?.trim().toLowerCase();
+    const rawValue = rawValueParts.join("=").trim();
+
+    if (!key) {
+      continue;
+    }
+
+    if (key === "domain" && rawValue) {
+      parsedAttributes.domain = rawValue;
+      continue;
+    }
+
+    if (key === "path" && rawValue) {
+      parsedAttributes.path = rawValue;
+      continue;
+    }
+
+    if (key === "httponly") {
+      parsedAttributes.httpOnly = true;
+      continue;
+    }
+
+    if (key === "secure") {
+      parsedAttributes.secure = true;
+      continue;
+    }
+
+    if (key === "max-age" && rawValue) {
+      const maxAge = Number.parseInt(rawValue, 10);
+      if (Number.isFinite(maxAge)) {
+        parsedAttributes.maxAge = maxAge;
+      }
+      continue;
+    }
+
+    if (key === "samesite" && rawValue) {
+      const sameSite = rawValue.toLowerCase();
+      if (sameSite === "lax" || sameSite === "none" || sameSite === "strict") {
+        parsedAttributes.sameSite = sameSite;
+      }
+    }
+  }
+
+  return {
+    attributes: parsedAttributes,
+    name,
+    value,
+  };
+}
 
 const appUrl = process.env.BETTER_AUTH_URL?.trim();
 if (!appUrl) {
-  throw new Error("Missing BETTER_AUTH_URL. Set BETTER_AUTH_URL for auth server configuration.");
+  throw new Error(
+    "Missing BETTER_AUTH_URL. Set BETTER_AUTH_URL for auth server configuration."
+  );
 }
-const EXTENSION_PROTOCOLS = new Set(["chrome-extension:", "moz-extension:"]);
-
-function parseOriginList(value?: string) {
-  return value
-    ?.split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean) ?? [];
-}
-
-function isBrowserExtensionOrigin(origin: string | null | undefined): origin is string {
-  if (!origin) {
-    return false;
-  }
-
-  try {
-    return EXTENSION_PROTOCOLS.has(new URL(origin).protocol);
-  } catch {
-    return false;
-  }
-}
-
 function getRequestOrigin(request: unknown) {
   const headers =
     request && typeof request === "object" && "headers" in request
@@ -79,14 +265,15 @@ function getRequestOrigin(request: unknown) {
   return null;
 }
 
-const trustedOriginsFromEnv = parseOriginList(process.env.BETTER_AUTH_TRUSTED_ORIGINS);
-const extensionOriginsFromEnv = parseOriginList(process.env.BETTER_AUTH_EXTENSION_ORIGINS);
-const emailer = new Emailer();
-const trustedOrigins = Array.from(
-  new Set([appUrl, ...trustedOriginsFromEnv, ...extensionOriginsFromEnv]),
+const trustedOriginsFromEnv = parseOriginList(
+  process.env.BETTER_AUTH_TRUSTED_ORIGINS
+);
+const extensionOriginsFromEnv = parseOriginList(
+  process.env.BETTER_AUTH_EXTENSION_ORIGINS
 );
 const polarAccessToken = process.env.POLAR_ACCESS_TOKEN?.trim();
-const polarServer = process.env.POLAR_SERVER === "production" ? "production" : "sandbox";
+const polarServer =
+  process.env.POLAR_SERVER === "production" ? "production" : "sandbox";
 const polarClient = polarAccessToken
   ? new Polar({
       accessToken: polarAccessToken,
@@ -122,7 +309,9 @@ const polarCheckoutProducts = [
       slug: product.slug,
     };
   })
-  .filter((product): product is { productId: string; slug: string } => Boolean(product));
+  .filter((product): product is { productId: string; slug: string } =>
+    Boolean(product)
+  );
 const generatedBetterAuthSchema = {
   user,
   session,
@@ -134,88 +323,65 @@ const generatedBetterAuthSchema = {
   passkey: passkeyTable,
 };
 
-function buildWelcomeWorkspaceNote(input: {
-  firstName?: string | null;
-  workspaceName: string;
-}) {
-  const name = input.firstName?.trim() || "there";
-
-  return `# Welcome to Avenire
-
-Hi ${name},
-
-I set up **${input.workspaceName}** for you. This is your starting point for the first study loop.
-
-## Your first three moves
-
-1. Upload a file so Avenire has something real to work from.
-2. Generate flashcards from that file to turn it into something you can review.
-3. Ask a question about the file and use Apollo to explain the parts that still feel unclear.
-
-## What to do next
-
-- Keep adding files as you study.
-- Revisit flashcards before they decay.
-- Use Apollo when you want a deeper explanation instead of a shorter answer.
-
-I left this note here so you always have a clean way to get started, ${name}.
-`;
-}
-
 export const auth = betterAuth({
   trustedOrigins: async (request) => {
     const requestOrigin = getRequestOrigin(request);
 
-    if (process.env.NODE_ENV !== "production" && isBrowserExtensionOrigin(requestOrigin)) {
-      return Array.from(new Set([...trustedOrigins, requestOrigin]));
-    }
-
-    return trustedOrigins;
+    return resolveTrustedOrigins({
+      appUrl,
+      extensionOriginsFromEnv,
+      nodeEnv: process.env.NODE_ENV,
+      requestOrigin,
+      trustedOriginsFromEnv,
+    });
   },
-  database: drizzleAdapter(db, { provider: "pg", schema: generatedBetterAuthSchema }),
+  database: drizzleAdapter(db, {
+    provider: "pg",
+    schema: generatedBetterAuthSchema,
+  }),
   session: {
-    updateAge: 60 * 60
+    updateAge: 60 * 60,
   },
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,
     sendResetPassword: async ({ user, url }) => {
-      await emailer.send({
-        to: [user.email],
-        subject: "Reset your password",
-        html: await renderPasswordResetEmail({ name: user.name ?? "there", resetLink: url })
+      await sendResetPasswordEmail({
+        email: user.email,
+        name: user.name,
+        resetLink: url,
       });
-    }
+    },
   },
   emailVerification: {
     sendOnSignUp: true,
     autoSignInAfterVerification: true,
     sendVerificationEmail: async ({ user, url }) => {
-      await emailer.send({
-        to: [user.email],
-        subject: "Verify your email",
-        html: await renderVerificationEmail({ name: user.name ?? "there", confirmationLink: url })
+      await sendVerificationEmail({
+        confirmationLink: url,
+        email: user.email,
+        name: user.name,
       });
-    }
+    },
   },
   user: {
     deleteUser: {
       enabled: true,
       sendDeleteAccountVerification: async ({ user, url }) => {
-        await emailer.send({
-          to: [user.email],
-          subject: "Confirm account deletion",
-          html: await renderDeleteAccountEmail({ name: user.name ?? "there", confirmationLink: url })
+        await sendDeleteAccountVerificationEmail({
+          confirmationLink: url,
+          email: user.email,
+          name: user.name,
         });
-      }
-    }
+      },
+    },
   },
   account: {
     accountLinking: {
       enabled: true,
       allowDifferentEmails: true,
-      trustedProviders: ["google", "github", "notion"]
-    }
+      trustedProviders: ["google", "github", "notion"],
+    },
   },
   socialProviders: {
     ...(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET
@@ -227,9 +393,9 @@ export const auth = betterAuth({
             prompt: "select_account consent",
             mapProfileToUser: (profile) => ({
               name: profile.given_name ?? profile.name,
-              username: profile.name
-            })
-          }
+              username: profile.name,
+            }),
+          },
         }
       : {}),
     ...(process.env.AUTH_NOTION_ID && process.env.AUTH_NOTION_SECRET
@@ -237,7 +403,7 @@ export const auth = betterAuth({
           notion: {
             clientId: process.env.AUTH_NOTION_ID,
             clientSecret: process.env.AUTH_NOTION_SECRET,
-          }
+          },
         }
       : {}),
     ...(process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET
@@ -247,50 +413,39 @@ export const auth = betterAuth({
             clientSecret: process.env.AUTH_GITHUB_SECRET,
             mapProfileToUser: (profile) => ({
               name: profile.name,
-              username: profile.name
-            })
-          }
-      }
-    : {})
+              username: profile.name,
+            }),
+          },
+        }
+      : {}),
   },
   databaseHooks: {
     user: {
       create: {
         after: async (user) => {
           try {
-            const html = await renderWelcomeEmail({ companyName: user.name ?? "there" });
-            console.log("[auth] rendered welcome email", { email: user.email });
-            await emailer.send({
-              to: [user.email],
-              subject: "Welcome to Avenire",
-              html,
+            await sendWelcomeEmail({
+              email: user.email,
+              name: user.name,
             });
           } catch (error) {
-              console.error("[auth] failed to send welcome email", { error, email: user.email });
+            console.error("[auth] failed to send welcome email", {
+              error,
+              email: user.email,
+            });
           }
           try {
-            const workspaceNameBase =
-              user.name ?? user.email.split("@")[0] ?? "workspace";
-            const workspace = await createWorkspaceForUser(
-              user.id,
-              `${workspaceNameBase}'s Workspace`
-            );
-            await createWorkspaceNoteFile({
-              content: buildWelcomeWorkspaceNote({
-                firstName: user.name,
-                workspaceName: workspace.name,
-              }),
-              folderId: workspace.rootFolderId,
-              name: "Welcome to Avenire.md",
+            await provisionWelcomeWorkspaceForUser({
+              email: user.email,
+              name: user.name,
               userId: user.id,
-              workspaceId: workspace.workspaceId,
             });
           } catch (error) {
             console.error("Failed to create default workspace", error);
           }
-        }
-      } 
-    }
+        },
+      },
+    },
   },
   plugins: [
     lastLoginMethod(),
@@ -319,70 +474,26 @@ export const auth = betterAuth({
         ]
       : []),
     username({
-      usernameValidator: () => true
+      usernameValidator: () => true,
     }),
     organization(),
     passkey({
       rpName: "Avenire",
-      origin: appUrl
+      origin: appUrl,
     }),
-    nextCookies()
+    nextCookies(),
   ],
   onAPIError: {
     throw: false,
     errorURL: `${appUrl.replace(/\/$/, "")}/login`,
-  }
+  },
 });
 
 export const authRouteHandlers = toNextJsHandler(auth);
 
 export type Session = typeof auth.$Infer.Session;
-
-export async function sendFileShareEmail(input: {
-  toEmail: string;
-  fileName: string;
-  shareUrl: string;
-  sharedByName?: string;
-}) {
-  await emailer.send({
-    to: [input.toEmail],
-    subject: `${input.sharedByName ?? "Someone"} shared a file with you`,
-    html: await renderFileShareNotificationEmail({
-      fileName: input.fileName,
-      shareUrl: input.shareUrl,
-      sharedByName: input.sharedByName,
-    }),
-  });
-}
-
-export async function sendWorkspaceShareEmail(input: {
-  toEmail: string;
-  workspaceName: string;
-  workspaceUrl: string;
-  sharedByName?: string;
-}) {
-  await emailer.send({
-    to: [input.toEmail],
-    subject: `${input.sharedByName ?? "Someone"} shared a workspace with you`,
-    html: await renderWorkspaceShareNotificationEmail({
-      workspaceName: input.workspaceName,
-      workspaceUrl: input.workspaceUrl,
-      sharedByName: input.sharedByName,
-    }),
-  });
-}
-
-export async function sendSudoVerificationCodeEmail(input: {
-  toEmail: string;
-  code: string;
-  expiresInMinutes: number;
-}) {
-  await emailer.send({
-    to: [input.toEmail],
-    subject: "Your Avenire security verification code",
-    html: await renderSecurityVerificationCodeEmail({
-      code: input.code,
-      expiresInMinutes: input.expiresInMinutes,
-    }),
-  });
-}
+export {
+  sendFileShareEmail,
+  sendSudoVerificationCodeEmail,
+  sendWorkspaceShareEmail,
+};

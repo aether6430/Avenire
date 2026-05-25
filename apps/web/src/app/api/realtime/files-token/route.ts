@@ -1,48 +1,29 @@
 import { NextResponse } from "next/server";
-import { createFilesRealtimeToken } from "@/lib/files-realtime-token";
-import { ensureWorkspaceAccessForUser, getSessionUser } from "@/lib/workspace";
+import { getSessionUser } from "@/lib/workspace";
+import { resolveRealtimeFilesTokenRouteError } from "./realtime-files-token-route-model";
+import { handleRealtimeFilesTokenRoutePost } from "./realtime-files-token-route-post";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const user = await getSessionUser();
+  try {
+    const user = await getSessionUser();
 
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const body = (await request.json().catch(() => ({}))) as {
-    workspaceUuid?: string;
-  };
-
-  const workspaceUuid = body.workspaceUuid?.trim();
-
-  if (!workspaceUuid) {
+    return await handleRealtimeFilesTokenRoutePost({
+      request,
+      userId: user.id,
+    });
+  } catch (error) {
     return NextResponse.json(
-      { error: "Missing workspaceUuid" },
-      { status: 400 }
+      {
+        error: resolveRealtimeFilesTokenRouteError(error),
+      },
+      { status: 500 }
     );
   }
-
-  const hasAccess = await ensureWorkspaceAccessForUser(user.id, workspaceUuid);
-
-  if (!hasAccess) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  if (!process.env.SSE_TOKEN_SECRET) {
-    return NextResponse.json(
-      { error: "Realtime unavailable" },
-      { status: 503 }
-    );
-  }
-
-  const token = createFilesRealtimeToken({
-    userId: user.id,
-    workspaceUuid,
-    ttlSeconds: 60,
-  });
-
-  return NextResponse.json({ expiresInSeconds: 60, token });
 }

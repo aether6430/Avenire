@@ -1,6 +1,8 @@
-import { apollo, generateText } from "@avenire/ai";
+import { generateText } from "@avenire/ai";
+import { apollo } from "@avenire/ai/models";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { createApiLogger } from "@/lib/observability";
 import { getSessionUser } from "@/lib/workspace";
 
 const aiEditSchema = z.object({
@@ -34,24 +36,52 @@ const prompts: Record<z.infer<typeof aiEditSchema>["action"], string> = {
 };
 
 export async function POST(request: Request) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const parsed = aiEditSchema.safeParse(await request.json().catch(() => ({})));
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
-  }
-
-  const { action, text } = parsed.data;
-  const result = await generateText({
-    model: apollo.languageModel("apollo-meta"),
-    system: prompts[action],
-    prompt: text,
-    temperature: 0.2,
-    maxOutputTokens: action === "summarize" ? 120 : 900,
+  const apiLogger = createApiLogger({
+    request,
+    route: "/api/ai",
+    feature: "editor_ai",
   });
 
-  return NextResponse.json({ text: result.text.trim() });
+  try {
+    await apiLogger.requestStarted();
+
+    const user = await getSessionUser();
+    if (!user) {
+      await apiLogger.requestFailed(401, "Unauthorized");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const parsed = aiEditSchema.safeParse(
+      await request.json().catch(() => ({}))
+    );
+    if (!parsed.success) {
+      await apiLogger.requestFailed(400, "Invalid payload");
+      return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    }
+
+    const { action, text } = parsed.data;
+    const result = await generateText({
+      maxOutputTokens: action === "summarize" ? 120 : 900,
+      model: apollo.languageModel("apollo-meta"),
+      prompt: text,
+      system: prompts[action],
+      temperature: 0.2,
+    });
+
+    const generatedText = result.text.trim();
+
+    await apiLogger.requestSucceeded(200, {
+      action,
+      generatedLength: generatedText.length,
+      textLength: text.length,
+    });
+
+    return NextResponse.json({ text: generatedText });
+  } catch (error) {
+    await apiLogger.requestFailed(500, error);
+    return NextResponse.json(
+      { error: "Unable to complete AI edit." },
+      { status: 500 }
+    );
+  }
 }

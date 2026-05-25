@@ -6,15 +6,23 @@ interface RequestErrorContext {
   routeType?: string;
 }
 
-type ReportErrorInput = {
+interface ReportErrorInput {
   context?: Record<string, unknown>;
   error: unknown;
   eventName?: string;
   payload?: Record<string, unknown>;
+}
+
+type RuntimeProcessEnv = NodeJS.ProcessEnv & {
+  NEXT_RUNTIME?: string;
 };
 
+function getNextRuntime(env: NodeJS.ProcessEnv = process.env) {
+  return (env as RuntimeProcessEnv).NEXT_RUNTIME;
+}
+
 async function reportRuntimeError(input: ReportErrorInput) {
-  if (process.env.NEXT_RUNTIME === "edge") {
+  if (getNextRuntime() === "edge") {
     return;
   }
 
@@ -46,11 +54,11 @@ function getHeader(
     (headers as Record<string, string | string[] | undefined>)[
       name.toLowerCase()
     ];
-  return Array.isArray(value) ? value[0] ?? null : value ?? null;
+  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
 }
 
 export function register() {
-  if (process.env.NEXT_RUNTIME === "edge") {
+  if (getNextRuntime() === "edge") {
     return;
   }
 

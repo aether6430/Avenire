@@ -1,7 +1,4 @@
-"use client";
-
-import { motion } from "motion/react";
-import type { CSSProperties, ElementType, JSX } from "react";
+import type { CSSProperties, ElementType } from "react";
 import { memo, useMemo } from "react";
 
 import { cn } from "@/lib/utils";
@@ -34,12 +31,6 @@ const ShimmerComponent = ({
   duration = 2,
   spread = 2,
 }: TextShimmerProps) => {
-  const MotionComponent = useMemo(() => {
-    return Component === "span"
-      ? motion.span
-      : motion.create(Component as keyof JSX.IntrinsicElements);
-  }, [Component]);
-
   const dynamicSpread = useMemo(
     () => Math.max(8, (children?.length ?? 0) * spread),
     [children, spread]
@@ -50,20 +41,16 @@ const ShimmerComponent = ({
       <span aria-hidden="true" className="text-foreground/48">
         {children}
       </span>
-      <MotionComponent
-        animate={{ backgroundPosition: "0% center" }}
+      <Component
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 text-transparent drop-shadow-[0_0_10px_hsl(var(--primary)/0.28)]"
-        initial={{ backgroundPosition: "100% center" }}
-        style={createShimmerStyle(dynamicSpread)}
-        transition={{
-          duration,
-          ease: "linear",
-          repeat: Number.POSITIVE_INFINITY,
+        style={{
+          ...createShimmerStyle(dynamicSpread),
+          animation: `avenire-text-shimmer ${duration}s linear infinite`,
         }}
       >
         {children}
-      </MotionComponent>
+      </Component>
     </span>
   );
 };

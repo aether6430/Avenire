@@ -1,6 +1,5 @@
 "use client";
 
-// ── Phosphor ────────────────────────────────────────────────
 import {
   ArrowRight as PhArrowRight,
   Bell as PhBell,
@@ -39,8 +38,6 @@ import {
   X as PhX,
 } from "@phosphor-icons/react";
 import type { ComponentType } from "react";
-
-// ── Types ───────────────────────────────────────────────────
 
 export interface IconComponentProps {
   className?: string;
@@ -95,10 +92,7 @@ export const iconLibraryLabels: Record<IconLibrary, string> = {
   phosphor: "Phosphor",
 };
 
-// ── Adapter Factories ───────────────────────────────────────
-
-// Phosphor: uses filled paths per weight variant, not CSS stroke.
-// Map numeric strokeWidth → discrete weight prop.
+// Phosphor uses filled paths per weight variant, so map strokeWidth to a discrete weight prop.
 type PhosphorWeight = "thin" | "light" | "regular" | "bold";
 function phosphor(
   Icon: ComponentType<{
@@ -117,8 +111,6 @@ function phosphor(
     return <Icon className={className} size={size} weight={weight} />;
   };
 }
-
-// ── Icon Maps ───────────────────────────────────────────────
 
 const phosphorMap: Record<IconName, IconComponent> = {
   "chevron-right": phosphor(PhCaretRight),
@@ -157,8 +149,6 @@ const phosphorMap: Record<IconName, IconComponent> = {
   check: phosphor(PhCheck),
   "rotate-ccw": phosphor(PhRotateCcw),
 };
-
-// ── Unified Map ─────────────────────────────────────────────
 
 export const iconMap: Record<IconLibrary, Record<IconName, IconComponent>> = {
   phosphor: phosphorMap,

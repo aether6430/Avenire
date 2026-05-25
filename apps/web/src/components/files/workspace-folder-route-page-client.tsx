@@ -19,7 +19,12 @@ export function WorkspaceFolderRoutePageClient({
   const workspaceUuid = workspaceUuidProp ?? match?.[1] ?? null;
 
   if (!(folderUuid && workspaceUuid)) {
-    return <WorkspaceRoutePlaceholder label="Loading files..." />;
+    return (
+      <WorkspaceRoutePlaceholder
+        label="This file view isn't available."
+        pending={false}
+      />
+    );
   }
 
   return <FileExplorer folderUuid={folderUuid} workspaceUuid={workspaceUuid} />;

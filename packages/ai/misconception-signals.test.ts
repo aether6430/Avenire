@@ -10,7 +10,8 @@ const baseMisconception: MisconceptionSignalRecord = {
   confidence: 0.82,
   concept: "Newton's third law",
   id: "misconception-1",
-  reason: "The learner thinks the heavier object applies a larger force in an interaction.",
+  reason:
+    "The learner thinks the heavier object applies a larger force in an interaction.",
   subject: "Physics",
   topic: "Forces",
   updatedAt: "2026-05-13T00:00:00.000Z",
@@ -48,7 +49,8 @@ describe("misconception signals", () => {
     });
 
     const result = await detectMisconceptionSignals({
-      latestUserText: "I think the heavier cart pushes harder than the lighter cart.",
+      latestUserText:
+        "I think the heavier cart pushes harder than the lighter cart.",
       misconceptions: [
         baseMisconception,
         {

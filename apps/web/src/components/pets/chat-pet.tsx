@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@avenire/ui/components/button";
+import { X } from "@phosphor-icons/react";
 import {
   type PointerEvent as ReactPointerEvent,
   useCallback,
@@ -12,22 +13,17 @@ import {
 import {
   DEFAULT_PET_NAME,
   getPetOption,
+  getStoredPetVisibility,
   PET_NOTIFICATION_EVENT,
   PET_POSITION_STORAGE_KEY,
-  PET_VISIBILITY_STORAGE_KEY,
+  PET_VISIBILITY_CHANGED_EVENT,
   type PetAnimationName,
   type PetNotificationDetail,
+  setStoredPetVisibility,
 } from "@/lib/pet-preferences";
 import { useUserSettings } from "@/lib/user-settings-client";
 import { cn } from "@/lib/utils";
 import { SpritePet } from "./sprite-pet";
-
-function getStoredVisibility() {
-  if (typeof window === "undefined") {
-    return false;
-  }
-  return window.localStorage.getItem(PET_VISIBILITY_STORAGE_KEY) === "true";
-}
 
 const PET_SCALE = 0.45;
 const PET_SIZE = {
@@ -106,9 +102,10 @@ function savePosition(position: PetPosition) {
 
 export function ChatPet() {
   const { settings } = useUserSettings();
-  const [visible, setVisible] = useState(getStoredVisibility);
+  const [hydrated, setHydrated] = useState(false);
+  const [visible, setVisible] = useState(true);
   const [animation, setAnimation] = useState<PetAnimationName>("idle");
-  const [position, setPosition] = useState(getStoredPosition);
+  const [position, setPosition] = useState<PetPosition>({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [notification, setNotification] =
     useState<PetNotificationDetail | null>(null);
@@ -122,6 +119,12 @@ export function ChatPet() {
     () => getPetOption(settings.petAccessory),
     [settings.petAccessory]
   );
+
+  useEffect(() => {
+    setVisible(getStoredPetVisibility());
+    setPosition(getStoredPosition());
+    setHydrated(true);
+  }, []);
 
   const showNotification = useCallback((detail: PetNotificationDetail) => {
     if (clearNotificationRef.current) {
@@ -175,13 +178,26 @@ export function ChatPet() {
       event.preventDefault();
       setVisible((current) => {
         const next = !current;
-        window.localStorage.setItem(PET_VISIBILITY_STORAGE_KEY, String(next));
+        setStoredPetVisibility(next);
         return next;
       });
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  useEffect(() => {
+    const syncVisibility = () => {
+      setVisible(getStoredPetVisibility());
+    };
+
+    window.addEventListener(PET_VISIBILITY_CHANGED_EVENT, syncVisibility);
+    window.addEventListener("storage", syncVisibility);
+    return () => {
+      window.removeEventListener(PET_VISIBILITY_CHANGED_EVENT, syncVisibility);
+      window.removeEventListener("storage", syncVisibility);
+    };
   }, []);
 
   useEffect(() => {
@@ -268,19 +284,34 @@ export function ChatPet() {
     [animation, isDragging, notification]
   );
 
-  if (!visible) {
+  if (!(hydrated && visible)) {
     return null;
   }
 
   return (
     <div
       aria-label={`${petName}, your workspace pet`}
-      className="pointer-events-none fixed top-0 left-0 z-[120] flex items-start justify-center"
+      className="group/pet pointer-events-none fixed top-0 left-0 z-[45] flex items-start justify-center"
       role="status"
       style={{
         transform: `translate3d(${position.x}px, ${position.y}px, 0)`,
       }}
     >
+      <Button
+        aria-label={`Hide ${petName}`}
+        className="pointer-events-auto absolute -top-1 -right-1 z-10 h-6 w-6 rounded-full border border-border/60 bg-background/92 p-0 text-muted-foreground opacity-0 shadow-sm backdrop-blur transition-opacity hover:bg-background hover:text-foreground focus-visible:opacity-100 group-focus-within/pet:opacity-100 group-hover/pet:opacity-100"
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setStoredPetVisibility(false);
+          setVisible(false);
+        }}
+        size="icon-xs"
+        type="button"
+        variant="ghost"
+      >
+        <X className="size-3" />
+      </Button>
       <Button
         aria-label={`Interact with ${petName}`}
         className={cn(
@@ -335,6 +366,7 @@ export function ChatPet() {
         ) : null}
         <SpritePet
           animation={animation}
+          key={animation}
           onAnimationComplete={() => {
             if (!isDragging) {
               setAnimation("idle");

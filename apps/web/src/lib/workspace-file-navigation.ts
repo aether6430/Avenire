@@ -1,4 +1,9 @@
 import type { Route } from "next";
+import {
+  getWorkspaceTreePayload,
+  loadWorkspaceTreePayload,
+} from "@/lib/workspace-tree-client";
+import { createWorkspaceTreePathResolver } from "@/lib/workspace-tree-read-model";
 
 export async function resolveWorkspaceFileRoute(
   workspaceUuid: string,
@@ -17,72 +22,33 @@ export async function resolveWorkspaceFileRoute(
     trimmedIdentifier.includes("/") || trimmedIdentifier.includes(".");
 
   if (isLikelyWorkspacePath) {
-    const response = await fetch(`/api/workspaces/${workspaceUuid}/tree`, {
-      cache: "no-store",
+    const cachedPayload = await getWorkspaceTreePayload(workspaceUuid, {
+      preferCache: true,
     });
-    if (!response.ok) {
+    if (!cachedPayload) {
+      return null;
+    }
+    const cachedResolver = createWorkspaceTreePathResolver(cachedPayload);
+    const cachedMatch =
+      cachedResolver.findFileByWorkspacePath(trimmedIdentifier);
+    if (cachedMatch) {
+      return `/workspace/files/${workspaceUuid}/folder/${cachedMatch.folderId}?file=${cachedMatch.id}` as Route;
+    }
+
+    const freshPayload = await loadWorkspaceTreePayload(workspaceUuid);
+    if (!freshPayload) {
+      return null;
+    }
+    const freshMatch =
+      createWorkspaceTreePathResolver(freshPayload).findFileByWorkspacePath(
+        trimmedIdentifier
+      );
+
+    if (!freshMatch) {
       return null;
     }
 
-    const payload = (await response.json()) as {
-      files?: Array<{
-        folderId: string;
-        id: string;
-        name: string;
-      }>;
-      folders?: Array<{
-        id: string;
-        name: string;
-        parentId: string | null;
-      }>;
-    };
-    const folderById = new Map(
-      (payload.folders ?? []).map((folder) => [folder.id, folder])
-    );
-    const folderPathCache = new Map<string, string>();
-    const resolveFolderPath = (folderId: string | null): string => {
-      if (!folderId) {
-        return "";
-      }
-      const cached = folderPathCache.get(folderId);
-      if (cached !== undefined) {
-        return cached;
-      }
-
-      const segments: string[] = [];
-      let cursor: string | null = folderId;
-      const seen = new Set<string>();
-      while (cursor) {
-        if (seen.has(cursor)) {
-          break;
-        }
-        seen.add(cursor);
-        const folder = folderById.get(cursor);
-        if (!folder || folder.parentId === null) {
-          break;
-        }
-        segments.push(folder.name);
-        cursor = folder.parentId;
-      }
-
-      const resolvedPath = segments.reverse().join("/");
-      folderPathCache.set(folderId, resolvedPath);
-      return resolvedPath;
-    };
-
-    const matchedFile = (payload.files ?? []).find((file) => {
-      const parentPath = resolveFolderPath(file.folderId);
-      const workspacePath = parentPath
-        ? `${parentPath}/${file.name}`
-        : file.name;
-      return workspacePath === trimmedIdentifier;
-    });
-
-    if (!matchedFile) {
-      return null;
-    }
-
-    return `/workspace/files/${workspaceUuid}/folder/${matchedFile.folderId}?file=${matchedFile.id}` as Route;
+    return `/workspace/files/${workspaceUuid}/folder/${freshMatch.folderId}?file=${freshMatch.id}` as Route;
   }
 
   const response = await fetch(

@@ -4,20 +4,40 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./checkout": {
+      "types": "./src/checkout.ts",
+      "default": "./dist/checkout.js"
+    },
+    "./plans": {
+      "types": "./src/plans.ts",
+      "default": "./dist/plans.js"
+    },
+    "./portal": {
+      "types": "./src/portal.ts",
+      "default": "./dist/portal.js"
+    },
+    "./webhooks": {
+      "types": "./src/webhooks.ts",
+      "default": "./dist/webhooks.js"
+    }
   },
   "scripts": {
-    "build": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json",
     "lint": "biome check .",
-    "check-types": "tsc --noEmit",
+    "check-types": "tsc --noEmit -p tsconfig.build.json",
     "format": "biome format --write ."
   },
   "dependencies": {
-    "@polar-sh/sdk": "^0.46.4"
+    "@polar-sh/sdk": "0.47.1"
   },
   "devDependencies": {
     "@avenire/env-types": "workspace:*",
     "@avenire/typescript-config": "workspace:*",
+    "@types/node": "25.3.5",
     "typescript": "5.9.3"
   },
   "engines": {

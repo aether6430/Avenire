@@ -5,9 +5,28 @@ import type * as React from "react";
 
 import { cn } from "../lib/utils";
 import { Button } from "./button";
+import { useDeferredUnmountRoot } from "./deferred-unmount";
 
-function AlertDialog({ ...props }: AlertDialogPrimitive.Root.Props) {
-  return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />;
+function AlertDialog({
+  actionsRef,
+  onOpenChange,
+  onOpenChangeComplete,
+  ...props
+}: AlertDialogPrimitive.Root.Props) {
+  const exitPresence = useDeferredUnmountRoot({
+    actionsRef,
+    exitDurationMs: 320,
+    onOpenChange,
+    onOpenChangeComplete,
+  });
+
+  return (
+    <AlertDialogPrimitive.Root
+      data-slot="alert-dialog"
+      {...props}
+      {...exitPresence}
+    />
+  );
 }
 
 function AlertDialogTrigger({ ...props }: AlertDialogPrimitive.Trigger.Props) {

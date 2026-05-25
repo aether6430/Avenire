@@ -1,235 +1,55 @@
 "use client";
 
-import type { UIMessage } from "@avenire/ai/message-types";
+import dynamic from "next/dynamic";
+import { useMemo, useState } from "react";
+import type { ActivityAction } from "@/components/chat/rolling-tool-activity-types";
 import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@avenire/ui/components/card";
-import { motion } from "motion/react";
-import { type ReactNode, useMemo, useState } from "react";
+  buildAgentActionsFromToolPart,
+  type CompletedToolPart,
+  getToolLabel,
+  HIDDEN_TOOL_TYPES,
+  TOOL_LABELS,
+  type ToolPart,
+} from "@/components/chat/tool-part-model";
 import {
-  type ActivityAction,
-  RollingAgentActivity,
-} from "@/components/chat/rolling-tool-activity";
-import { ChatSpinnerGlyph } from "@/components/chat/spinner";
-import { FlashcardDeckStack } from "@/components/flashcards/deck-stack";
+  ToolError,
+  ToolPending,
+  ToolPendingCard,
+  ToolRow,
+} from "@/components/chat/tool-part-shared";
+import { MindsetCardStack } from "@/components/flashcards/mindset-card-stack";
 import { cn } from "@/lib/utils";
 
-// Tool types that should be completely hidden from the UI
-const HIDDEN_TOOL_TYPES = new Set([
-  "tool-ingestion_job",
-  "tool-ingest_file",
-  "tool-background_task",
-  "tool-system_call",
-  "tool-internal",
-]);
+const RollingAgentActivity = dynamic(
+  () =>
+    import("@/components/chat/rolling-tool-activity-body").then(
+      (module) => module.RollingAgentActivity
+    ),
+  { ssr: false }
+);
 
-// Human-readable labels for known tool types
-const TOOL_LABELS: Record<string, string> = {
-  "tool-note_agent": "Notes",
-  "tool-search_materials": "Search",
-  "tool-web_search": "Web search",
-  "tool-generate_flashcards": "Flashcards",
-  "tool-get_due_cards": "Due cards",
-  "tool-quiz_me": "Quiz",
-  "tool-load_skill": "Skill",
-  "tool-visualize_read_me": "Visual guide",
-  "tool-show_widget": "Widget",
-  "tool-avenire_agent": "Research",
-  "tool-file_manager_agent": "Files",
-};
+function buildOccurrenceKeys<T>(
+  items: readonly T[],
+  toBaseKey: (item: T) => string
+) {
+  const seenKeys = new Map<string, number>();
+  return items.map((item) => {
+    const baseKey = toBaseKey(item);
+    const occurrence = seenKeys.get(baseKey) ?? 0;
+    seenKeys.set(baseKey, occurrence + 1);
+    return occurrence === 0 ? baseKey : `${baseKey}-${occurrence}`;
+  });
+}
 
-function getToolLabel(toolType: string): string {
+function MarkdownContent({ content }: { content: string }) {
   return (
-    TOOL_LABELS[toolType] ??
-    toolType
-      .replace(/^tool-/, "")
-      .replace(/_/g, " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase())
+    <div className="prose prose-sm dark:prose-invert max-w-none">
+      <p className="whitespace-pre-wrap">{content}</p>
+    </div>
   );
 }
 
-type ToolPart = Extract<UIMessage["parts"][number], { type: `tool-${string}` }>;
-type CompletedToolPart = Extract<ToolPart, { state: "output-available" }>;
-
-function extractQueryFromPart(part: ToolPart): string {
-  if ("input" in part && part.input) {
-    if ("query" in part.input) {
-      return String((part.input as { query?: string }).query ?? "");
-    }
-    if ("task" in part.input) {
-      return String((part.input as { task?: string }).task ?? "");
-    }
-  }
-  if (part.state === "output-available" && "output" in part) {
-    if ("query" in part.output) {
-      return String((part.output as { query?: string }).query ?? "");
-    }
-    if ("task" in part.output) {
-      return String((part.output as { task?: string }).task ?? "");
-    }
-  }
-  return "";
-}
-
-function extractCitationMatches(part: ToolPart): string[] {
-  if (part.state !== "output-available" || !("citations" in part.output)) {
-    return [];
-  }
-  if (!Array.isArray(part.output.citations)) {
-    return [];
-  }
-  return part.output.citations
-    .map((citation) =>
-      typeof citation.workspacePath === "string" ? citation.workspacePath : null
-    )
-    .filter((path): path is string => Boolean(path))
-    .slice(0, 6);
-}
-
-function extractFileReadActions(part: ToolPart): ActivityAction[] {
-  if (part.state !== "output-available" || !("files" in part.output)) {
-    return [];
-  }
-  const files = Array.isArray(part.output.files) ? part.output.files : [];
-  const actions: ActivityAction[] = [];
-  for (const file of files) {
-    if (!file || typeof file.workspacePath !== "string") {
-      continue;
-    }
-    const maybeExcerpt = (file as { excerpt?: unknown }).excerpt;
-    if (typeof maybeExcerpt !== "string") {
-      continue;
-    }
-    actions.push({
-      kind: "read",
-      pending: false,
-      value: file.workspacePath,
-      preview: {
-        content: maybeExcerpt,
-        path: file.workspacePath,
-      },
-    });
-  }
-  return actions;
-}
-
-function buildAgentActionsFromToolPart(part: ToolPart): ActivityAction[] {
-  if (
-    part.type !== "tool-avenire_agent" &&
-    part.type !== "tool-file_manager_agent"
-  ) {
-    return [];
-  }
-
-  const taskLabel =
-    part.type === "tool-avenire_agent" ? "query" : "workspace files";
-  const query = extractQueryFromPart(part);
-  const actions: ActivityAction[] = [];
-
-  if (query) {
-    if (part.type === "tool-avenire_agent") {
-      const matches = extractCitationMatches(part);
-      actions.push({
-        kind: "search",
-        pending: part.state !== "output-available",
-        value: query,
-        preview:
-          matches.length > 0
-            ? {
-                query,
-                matches,
-              }
-            : undefined,
-      });
-    } else {
-      actions.push({
-        kind: "list",
-        pending: part.state !== "output-available",
-        value: taskLabel,
-      });
-    }
-  }
-
-  actions.push(...extractFileReadActions(part));
-  return actions;
-}
-
-export function ToolRow({
-  children,
-  label,
-}: {
-  children: ReactNode;
-  label: string;
-}) {
-  return (
-    <motion.div
-      animate={{ opacity: 1, y: 0 }}
-      className="mb-1 flex items-baseline gap-2 text-sm"
-      initial={{ opacity: 0, y: 5 }}
-      transition={{ duration: 0.28, ease: "easeOut" }}
-    >
-      <span className="font-semibold text-foreground/72">{label}</span>
-      {children}
-    </motion.div>
-  );
-}
-
-function ToolPending({ label }: { label: string }) {
-  return (
-    <ToolRow label={label}>
-      <span className="font-mono text-[11px] text-foreground/28">
-        running...
-      </span>
-    </ToolRow>
-  );
-}
-
-function ToolPendingCard({
-  description,
-  label,
-  title,
-}: {
-  description: string;
-  label: string;
-  title: string;
-}) {
-  return (
-    <Card className="mb-2 max-w-[28rem] border-border/40 bg-card/90" size="sm">
-      <CardHeader className="gap-0.5">
-        <CardTitle className="text-sm">{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-        <CardAction>
-          <div className="inline-flex items-center gap-2 text-muted-foreground">
-            <span className="font-mono text-[11px]">{label}</span>
-            <ChatSpinnerGlyph className="size-4" />
-          </div>
-        </CardAction>
-      </CardHeader>
-      <CardContent>
-        <div className="rounded-lg border border-border/35 bg-muted/30 px-3 py-2 font-mono text-[11px] text-foreground/48">
-          {title}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ToolError({ errorText, label }: { errorText: string; label: string }) {
-  return (
-    <ToolRow label={label}>
-      <span className="font-mono text-[12px] text-destructive/80">
-        {errorText}
-      </span>
-    </ToolRow>
-  );
-}
-
-function FlashcardDeckComponent({
+function MindsetSetPreview({
   cards,
   setId,
   title,
@@ -241,7 +61,7 @@ function FlashcardDeckComponent({
   setId: string;
   title: string;
 }) {
-  const deckCards = useMemo(
+  const previewCards = useMemo(
     () =>
       cards.map((card, index) => ({
         back: <MarkdownContent content={card.backMarkdown} />,
@@ -265,22 +85,14 @@ function FlashcardDeckComponent({
 
   return (
     <div className="mb-2">
-      <FlashcardDeckStack
+      <MindsetCardStack
         autoAdvanceMs={3800}
-        cards={deckCards}
+        cards={previewCards}
         className="max-w-[28rem]"
-        deckLabel={title}
         showCounter
-        showDeckLabel
+        showStackLabel
+        stackLabel={title}
       />
-    </div>
-  );
-}
-
-function MarkdownContent({ content }: { content: string }) {
-  return (
-    <div className="prose prose-sm dark:prose-invert max-w-none">
-      <p className="whitespace-pre-wrap">{content}</p>
     </div>
   );
 }
@@ -301,6 +113,15 @@ function QuizToolOutput({
   title: string;
 }) {
   const [answers, setAnswers] = useState<Record<number, number>>({});
+  const questionKeys = useMemo(
+    () =>
+      buildOccurrenceKeys(
+        questions,
+        (question) =>
+          `${setId}:${question.frontMarkdown}:${question.backMarkdown}:${question.correctOptionIndex}:${question.options.join("\u0001")}`
+      ),
+    [questions, setId]
+  );
 
   return (
     <div className="mb-2 space-y-2">
@@ -315,17 +136,21 @@ function QuizToolOutput({
           className="font-mono text-[11px] text-foreground/40 underline underline-offset-2 hover:text-foreground/60"
           href={`/workspace/flashcards/${setId}`}
         >
-          open set
+          Open Mindset Set
         </a>
       </div>
       <div className="space-y-3">
         {questions.map((question, index) => {
           const selected = answers[index];
           const answered = typeof selected === "number";
+          const optionKeys = buildOccurrenceKeys(
+            question.options,
+            (option) => `${questionKeys[index]}:${option}`
+          );
           return (
             <div
               className="rounded-lg border border-border/40 p-3"
-              key={`${setId}-${index}`}
+              key={questionKeys[index]}
             >
               <p className="mb-2 font-medium text-sm">
                 {index + 1}. {question.frontMarkdown}
@@ -347,7 +172,7 @@ function QuizToolOutput({
                         !answered && "border-border/40 hover:bg-muted/50"
                       )}
                       disabled={answered}
-                      key={`${setId}-${index}-${optionIndex}`}
+                      key={optionKeys[optionIndex]}
                       onClick={() =>
                         setAnswers((current) => ({
                           ...current,
@@ -381,89 +206,17 @@ function QuizToolOutput({
   );
 }
 
-export function ChatToolPart({ part }: { part: ToolPart }) {
-  // Suppress internal/infrastructure tools entirely
-  if (HIDDEN_TOOL_TYPES.has(part.type)) {
-    return null;
-  }
-
-  if (
-    part.type === "tool-avenire_agent" ||
-    part.type === "tool-file_manager_agent"
-  ) {
-    const actions = buildAgentActionsFromToolPart(part);
-    if (actions.length === 0) {
-      return null;
-    }
-    return (
-      <RollingAgentActivity
-        actions={actions}
-        isStreaming={part.state !== "output-available"}
-      />
-    );
-  }
-
-  if (part.state === "input-streaming" || part.state === "input-available") {
-    if (part.type === "tool-note_agent") {
-      return (
-        <ToolPendingCard
-          description="Creating or updating workspace notes."
-          label="writing"
-          title={part.input?.task ?? "Workspace notes"}
-        />
-      );
-    }
-
-    if (part.type === "tool-generate_flashcards") {
-      return (
-        <ToolPendingCard
-          description="Generating a flashcard set from the current context."
-          label="creating"
-          title={part.input?.title ?? "Flashcards"}
-        />
-      );
-    }
-
-    return <ToolPending label={getToolLabel(part.type)} />;
-  }
-
-  if (part.state === "output-error") {
-    // Don't surface errors for tools not in the known set — these are
-    // likely infrastructure/background tool failures not relevant to the user.
-    if (!TOOL_LABELS[part.type]) {
-      return null;
-    }
-    const errorText = part.errorText;
-    return <ToolError errorText={errorText} label={getToolLabel(part.type)} />;
-  }
-
-  if (part.state !== "output-available") {
-    // Don't show awaiting state for unknown tools
-    if (!TOOL_LABELS[part.type]) {
-      return null;
-    }
-    return (
-      <ToolRow label={getToolLabel(part.type)}>
-        <span className="font-mono text-[11px] text-foreground/28">
-          awaiting output
-        </span>
-      </ToolRow>
-    );
-  }
-
-  const completedPart: CompletedToolPart = part;
-
-  switch (completedPart.type) {
+function ToolCompletedOutput({ part }: { part: CompletedToolPart }) {
+  switch (part.type) {
     case "tool-note_agent":
       return (
         <div className="mb-2 space-y-1">
           <ToolRow label="Notes">
             <span className="font-mono text-[11px] text-foreground/28">
-              {completedPart.output.operation}{" "}
-              {completedPart.output.notes.length} note(s)
+              {part.output.operation} {part.output.notes.length} note(s)
             </span>
           </ToolRow>
-          {completedPart.output.notes.slice(0, 3).map((note) => (
+          {part.output.notes.slice(0, 3).map((note) => (
             <div
               className="ml-0 rounded-md border border-border/30 p-2"
               key={note.fileId}
@@ -483,13 +236,13 @@ export function ChatToolPart({ part }: { part: ToolPart }) {
         <div className="mb-2 space-y-1">
           <ToolRow label="Search">
             <span className="font-mono text-[12px] text-foreground/62">
-              {completedPart.output.query}
+              {part.output.query}
             </span>
             <span className="font-mono text-[11px] text-foreground/28">
-              {completedPart.output.totalMatches} matches
+              {part.output.totalMatches} matches
             </span>
           </ToolRow>
-          {completedPart.output.matches.slice(0, 4).map((match) => (
+          {part.output.matches.slice(0, 4).map((match) => (
             <div
               className="ml-0 rounded-md border border-border/30 p-2"
               key={match.chunkId}
@@ -509,21 +262,21 @@ export function ChatToolPart({ part }: { part: ToolPart }) {
         <div className="mb-2 space-y-1">
           <ToolRow label="Web search">
             <span className="font-mono text-[12px] text-foreground/62">
-              {completedPart.output.query}
+              {part.output.query}
             </span>
             <span className="font-mono text-[11px] text-foreground/28">
-              {completedPart.output.totalResults} results
+              {part.output.totalResults} results
             </span>
           </ToolRow>
-          {typeof completedPart.output.answer === "string" &&
-          completedPart.output.answer.length > 0 ? (
+          {typeof part.output.answer === "string" &&
+          part.output.answer.length > 0 ? (
             <div className="ml-0 rounded-md border border-border/30 p-2">
               <p className="whitespace-pre-wrap font-mono text-[11px] text-foreground/50">
-                {completedPart.output.answer}
+                {part.output.answer}
               </p>
             </div>
           ) : null}
-          {completedPart.output.results.slice(0, 4).map((result) => (
+          {part.output.results.slice(0, 4).map((result) => (
             <div
               className="ml-0 rounded-md border border-border/30 p-2"
               key={result.url}
@@ -540,10 +293,10 @@ export function ChatToolPart({ part }: { part: ToolPart }) {
       );
     case "tool-generate_flashcards":
       return (
-        <FlashcardDeckComponent
-          cards={completedPart.output.cards ?? []}
-          setId={completedPart.output.setId}
-          title={completedPart.output.title}
+        <MindsetSetPreview
+          cards={part.output.cards ?? []}
+          setId={part.output.setId}
+          title={part.output.title}
         />
       );
     case "tool-get_due_cards":
@@ -551,10 +304,10 @@ export function ChatToolPart({ part }: { part: ToolPart }) {
         <div className="mb-2 space-y-1">
           <ToolRow label="Due cards">
             <span className="font-mono text-[11px] text-foreground/28">
-              {completedPart.output.totalDueCount} due today
+              {part.output.totalDueCount} due today
             </span>
           </ToolRow>
-          {completedPart.output.dueCards.slice(0, 3).map((card) => (
+          {part.output.dueCards.slice(0, 3).map((card) => (
             <div
               className="ml-0 rounded-md border border-border/30 p-2"
               key={card.cardId}
@@ -574,9 +327,9 @@ export function ChatToolPart({ part }: { part: ToolPart }) {
     case "tool-quiz_me":
       return (
         <QuizToolOutput
-          questions={completedPart.output.questions}
-          setId={completedPart.output.setId}
-          title={completedPart.output.title}
+          questions={part.output.questions}
+          setId={part.output.setId}
+          title={part.output.title}
         />
       );
     case "tool-load_skill":
@@ -598,4 +351,79 @@ export function ChatToolPart({ part }: { part: ToolPart }) {
     default:
       return null;
   }
+}
+
+export function ChatToolPartSurface({ part }: { part: ToolPart }) {
+  if (part.state === "input-streaming" || part.state === "input-available") {
+    if (part.type === "tool-note_agent") {
+      return (
+        <ToolPendingCard
+          description="Creating or updating workspace notes."
+          label="writing"
+          title={part.input?.task ?? "Workspace notes"}
+        />
+      );
+    }
+
+    if (part.type === "tool-generate_flashcards") {
+      return (
+        <ToolPendingCard
+          description="Generating a Mindset Set from the current context."
+          label="creating"
+          title={part.input?.title ?? "Mindset Set"}
+        />
+      );
+    }
+
+    return <ToolPending label={getToolLabel(part.type)} />;
+  }
+
+  if (part.state === "output-error") {
+    if (!TOOL_LABELS[part.type]) {
+      return null;
+    }
+    return (
+      <ToolError errorText={part.errorText} label={getToolLabel(part.type)} />
+    );
+  }
+
+  if (part.state !== "output-available") {
+    if (!TOOL_LABELS[part.type]) {
+      return null;
+    }
+    return (
+      <ToolRow label={getToolLabel(part.type)}>
+        <span className="font-mono text-[11px] text-foreground/28">
+          awaiting output
+        </span>
+      </ToolRow>
+    );
+  }
+
+  return <ToolCompletedOutput part={part} />;
+}
+
+export function ChatToolPart({ part }: { part: ToolPart }) {
+  if (HIDDEN_TOOL_TYPES.has(part.type)) {
+    return null;
+  }
+
+  if (
+    part.type === "tool-avenire_agent" ||
+    part.type === "tool-file_manager_agent"
+  ) {
+    const actions: ActivityAction[] = buildAgentActionsFromToolPart(part);
+    if (actions.length === 0) {
+      return null;
+    }
+
+    return (
+      <RollingAgentActivity
+        actions={actions}
+        isStreaming={part.state !== "output-available"}
+      />
+    );
+  }
+
+  return <ChatToolPartSurface part={part} />;
 }

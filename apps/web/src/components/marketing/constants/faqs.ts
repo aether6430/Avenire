@@ -2,12 +2,12 @@ export const faqs = [
   {
     question: "What exactly does Avenire do?",
     answer:
-      "Avenire gives you an AI workspace for notes, files, chats, flashcards, graphing, and research. It is built around helping you understand and organize hard material instead of scattering work across separate tools.",
+      "Avenire gives you an AI workspace for notes, files, methods, Mindset Sets, graphing, and research. It is built around helping you understand and organize hard material instead of scattering work across separate tools.",
   },
   {
     question: "How do I get started?",
     answer:
-      "Create an account, add a workspace, then start with a chat, note, or uploaded file. You can ask questions, generate study material, or turn useful answers into markdown notes.",
+      "Create an account, add a workspace, then start with a method, note, or uploaded file. You can ask questions, generate study material, or turn useful answers into markdown notes.",
   },
   {
     question: "Can I use my own notes and files?",
@@ -17,7 +17,7 @@ export const faqs = [
   {
     question: "What makes Avenire different from a normal chatbot?",
     answer:
-      "Avenire is built around the whole learning loop: file search, interactive sessions, misconception logging, editable markdown notes, graphing, flashcards, and spaced repetition.",
+      "Avenire is built around the whole learning loop: file search, interactive sessions, misconception logging, editable markdown notes, graphing, Mindset Sets, and spaced repetition.",
   },
   {
     question: "Does Avenire replace my note app?",

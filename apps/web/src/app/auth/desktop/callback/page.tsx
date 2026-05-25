@@ -5,7 +5,7 @@ import { buildPageMetadata } from "@/lib/page-metadata";
 export const dynamic = "force-dynamic";
 export const metadata = buildPageMetadata({
   noIndex: true,
-  title: "Desktop Sign-In Callback",
+  title: "Return to Avenire Desktop",
 });
 
 interface DesktopCallbackPageProps {
@@ -32,25 +32,30 @@ export default async function DesktopCallbackPage({
   const params = await searchParams;
   const code = getParam(params, "code");
   const state = getParam(params, "state");
+  const hasCode = Boolean(code);
+  const hasState = Boolean(state);
+  const handoffReady = hasCode && hasState;
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-2xl flex-col justify-center gap-6 px-6 py-14">
-      <h1 className="font-semibold text-3xl">Desktop Sign-In Callback</h1>
+      <h1 className="font-semibold text-3xl">Return to Avenire Desktop</h1>
       <p className="text-muted-foreground">
-        The desktop runtime reached this callback route. Code exchange wiring is
-        not complete yet, but deep-link routing is active.
+        {handoffReady
+          ? "Your sign-in details are ready. Return to the desktop app to continue."
+          : "This sign-in handoff is incomplete. Return to Avenire Desktop and try again from there."}
       </p>
       <div className="rounded-md border bg-card p-4 text-sm">
         <p>
-          <strong>code:</strong> {code ?? "(missing)"}
+          <strong>Authorization code:</strong>{" "}
+          {hasCode ? "Received" : "Missing"}
         </p>
         <p>
-          <strong>state:</strong> {state ?? "(missing)"}
+          <strong>Session state:</strong> {hasState ? "Received" : "Missing"}
         </p>
       </div>
       <div>
         <Link className="underline" href={"/workspace" as Route}>
-          Continue to workspace
+          Open workspace on web
         </Link>
       </div>
     </main>

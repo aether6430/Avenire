@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { normalizeFlashcardTaxonomy } from "./flashcard-data";
+import {
+  assertFlashcardTaxonomy,
+  normalizeFlashcardTaxonomy,
+} from "./flashcard-taxonomy";
 import {
   canonicalizeLearningTaxonomy,
   canonicalizeSubjectLabel,
@@ -72,5 +75,20 @@ describe("learning-taxonomy", () => {
       topic: "Biomolecules",
       concept: "essential amino acids biomolecules NCERT",
     });
+  });
+
+  it("rejects incomplete flashcard taxonomy with the shared explicit error contract", () => {
+    expect(() =>
+      assertFlashcardTaxonomy(
+        {
+          concept: "  ",
+          subject: "biology",
+          topic: "biomolecules",
+        },
+        "flashcard creation"
+      )
+    ).toThrow(
+      "Missing canonical flashcard taxonomy for flashcard creation: subject, topic, and concept are required."
+    );
   });
 });

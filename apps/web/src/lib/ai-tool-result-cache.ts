@@ -1,9 +1,13 @@
 import { createHash } from "node:crypto";
-import type { RedisClientType } from "redis";
-import { ensureManagedRedisClient } from "@/lib/redis-client";
+import {
+  ensureManagedRedisClient,
+  type ManagedRedisClient,
+} from "@/lib/redis-client";
 
 const DEFAULT_TOOL_RESULT_CACHE_TTL_SECONDS = 60 * 5;
 const TOOL_RESULT_CACHE_PREFIX = "ai-tool-result:v1:";
+const TOOL_RESULT_SCOPE_VERSION_PREFIX = "ai-tool-result-scope:v1:";
+const DEFAULT_TOOL_RESULT_SCOPE_VERSION = "0";
 
 type CacheStatus = "hit" | "miss";
 
@@ -13,7 +17,7 @@ interface MemoryCacheEntry {
 }
 
 interface CacheDependencies {
-  getRedisClient?: () => Promise<RedisClientType | null>;
+  getRedisClient?: () => Promise<ManagedRedisClient | null>;
   memoryCache?: Map<string, MemoryCacheEntry>;
   nowMs?: () => number;
 }
@@ -32,8 +36,9 @@ export interface CachedToolResultInput<T> {
   validate?: (value: unknown) => value is T;
 }
 
-let redisClient: RedisClientType | null = null;
+let redisClient: ManagedRedisClient | null = null;
 const memoryCache = new Map<string, MemoryCacheEntry>();
+const scopeVersionCache = new Map<string, string>();
 
 function stableStringify(value: unknown): string {
   if (value === null || typeof value !== "object") {
@@ -55,6 +60,7 @@ export function createToolResultCacheKey(input: {
   input: unknown;
   scope: Record<string, unknown>;
   toolName: string;
+  version?: string;
 }) {
   const digest = createHash("sha256")
     .update(
@@ -62,11 +68,28 @@ export function createToolResultCacheKey(input: {
         input: input.input,
         scope: input.scope,
         toolName: input.toolName,
+        version: input.version ?? DEFAULT_TOOL_RESULT_SCOPE_VERSION,
       })
     )
     .digest("hex");
 
   return `${TOOL_RESULT_CACHE_PREFIX}${input.toolName}:${digest}`;
+}
+
+export function createToolResultScopeVersionKey(input: {
+  scope: Record<string, unknown>;
+  toolName: string;
+}) {
+  const digest = createHash("sha256")
+    .update(
+      stableStringify({
+        scope: input.scope,
+        toolName: input.toolName,
+      })
+    )
+    .digest("hex");
+
+  return `${TOOL_RESULT_SCOPE_VERSION_PREFIX}${input.toolName}:${digest}`;
 }
 
 async function getDefaultRedisClient() {
@@ -104,13 +127,79 @@ function readMemoryCache<T>(
   return entry.value as T;
 }
 
+async function getToolResultScopeVersion(
+  input: {
+    scope: Record<string, unknown>;
+    toolName: string;
+  },
+  dependencies: CacheDependencies = {}
+) {
+  const key = createToolResultScopeVersionKey(input);
+  const cachedVersion = scopeVersionCache.get(key);
+  if (cachedVersion) {
+    return cachedVersion;
+  }
+
+  try {
+    const client =
+      dependencies.getRedisClient !== undefined
+        ? await dependencies.getRedisClient()
+        : await getDefaultRedisClient();
+    const persistedVersion = await client?.get(key);
+    if (persistedVersion) {
+      scopeVersionCache.set(key, persistedVersion);
+      return persistedVersion;
+    }
+  } catch {
+    // Version reads are best-effort.
+  }
+
+  return DEFAULT_TOOL_RESULT_SCOPE_VERSION;
+}
+
+export async function invalidateToolResultScope(
+  input: {
+    scope: Record<string, unknown>;
+    toolName: string;
+  },
+  dependencies: CacheDependencies = {}
+) {
+  const key = createToolResultScopeVersionKey(input);
+  const currentVersion = await getToolResultScopeVersion(input, dependencies);
+  const parsedVersion = Number.parseInt(currentVersion, 10);
+  const nextVersion = Number.isFinite(parsedVersion)
+    ? String(parsedVersion + 1)
+    : String(Date.now());
+
+  scopeVersionCache.set(key, nextVersion);
+
+  try {
+    const client =
+      dependencies.getRedisClient !== undefined
+        ? await dependencies.getRedisClient()
+        : await getDefaultRedisClient();
+    await client?.set(key, nextVersion);
+  } catch {
+    // Invalidation is best-effort; stale cache is preferable to failed mutations.
+  }
+}
+
 export async function getCachedToolResult<T>(
   input: CachedToolResultInput<T>,
   dependencies: CacheDependencies = {}
 ): Promise<CachedToolResult<T>> {
-  const ttlSeconds =
-    input.ttlSeconds ?? DEFAULT_TOOL_RESULT_CACHE_TTL_SECONDS;
-  const key = createToolResultCacheKey(input);
+  const ttlSeconds = input.ttlSeconds ?? DEFAULT_TOOL_RESULT_CACHE_TTL_SECONDS;
+  const version = await getToolResultScopeVersion(
+    {
+      scope: input.scope,
+      toolName: input.toolName,
+    },
+    dependencies
+  );
+  const key = createToolResultCacheKey({
+    ...input,
+    version,
+  });
   const cache = dependencies.memoryCache ?? memoryCache;
   const nowMs = dependencies.nowMs?.() ?? Date.now();
 

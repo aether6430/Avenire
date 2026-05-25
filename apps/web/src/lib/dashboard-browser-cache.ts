@@ -1,7 +1,6 @@
-"use client";
-
-import { readBrowserCache, writeBrowserCache } from "@/lib/browser-cache";
-import type { ChatSummary } from "@/lib/chat-data";
+import type { ChatSummary } from "@avenire/database";
+import { readBrowserCache } from "@/lib/browser-cache-read";
+import { writeBrowserCache } from "@/lib/browser-cache-write";
 import type { FlashcardSetSummary } from "@/lib/flashcards";
 import type { WorkspaceTask } from "@/lib/tasks";
 

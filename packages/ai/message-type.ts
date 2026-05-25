@@ -3,24 +3,24 @@ import type { ChatUITools } from "./tools";
 
 type DataPartsMap<T extends Record<string, unknown>> = T;
 
-export type AgentActivityAction = {
+export interface AgentActivityAction {
   kind: "edit" | "list" | "misconception" | "read" | "search";
-  pending: boolean;
-  value?: string;
   path?: string;
+  pending: boolean;
   preview?: {
     content?: string;
     matches?: string[];
     path?: string;
     query?: string;
   };
-};
+  value?: string;
+}
 
-export type AgentActivityData = {
+export interface AgentActivityData {
   actions: AgentActivityAction[];
   id: string;
   status: "done" | "running";
-};
+}
 
 type ChatUIData = DataPartsMap<{
   agent_activity: AgentActivityData;
@@ -28,6 +28,11 @@ type ChatUIData = DataPartsMap<{
     icon?: string | null;
     id: string;
     name: string;
+  };
+  chatCreated: {
+    fromId: string;
+    id: string;
+    title: string;
   };
   thinkingMessages: {
     id: string;

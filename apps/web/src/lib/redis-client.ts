@@ -1,7 +1,10 @@
+import { normalizeRedisUrl } from "@avenire/ingestion/runtime/redis-client";
 import { createClient } from "redis";
 
 const DEFAULT_CONNECT_TIMEOUT_MS = 10_000;
 const DEFAULT_RECONNECT_DELAY_MS = 1000;
+
+export type ManagedRedisClient = ReturnType<typeof createClient>;
 
 export function isExpectedRedisConnectionError(error: unknown) {
   return (
@@ -12,16 +15,10 @@ export function isExpectedRedisConnectionError(error: unknown) {
   );
 }
 
-function normalizeRedisUrl(url: string) {
-  const trimmed = url.trim();
-  if (!trimmed || /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) {
-    return trimmed;
-  }
-
-  return `redis://${trimmed}`;
-}
-
-export function createManagedRedisClient(url: string, label: string) {
+export function createManagedRedisClient(
+  url: string,
+  label: string
+): ManagedRedisClient {
   const client = createClient({
     url: normalizeRedisUrl(url),
     socket: {
@@ -44,10 +41,10 @@ export function createManagedRedisClient(url: string, label: string) {
 }
 
 export async function ensureManagedRedisClient(
-  client: any | null,
+  client: ManagedRedisClient | null,
   url: string,
   label: string
-) {
+): Promise<ManagedRedisClient | null> {
   const nextClient = client ?? createManagedRedisClient(url, label);
 
   if (nextClient.isOpen && nextClient.isReady) {

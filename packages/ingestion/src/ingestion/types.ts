@@ -1,29 +1,35 @@
-export type IngestSourceType = 'pdf' | 'image' | 'video' | 'audio' | 'markdown' | 'link';
+export type IngestSourceType =
+  | "pdf"
+  | "image"
+  | "video"
+  | "audio"
+  | "markdown"
+  | "link";
 
 export type ChunkKind =
-  | 'concept'
-  | 'intuition'
-  | 'derivation'
-  | 'proof'
-  | 'example'
-  | 'mistake'
-  | 'visualization'
-  | 'generic';
+  | "concept"
+  | "intuition"
+  | "derivation"
+  | "proof"
+  | "example"
+  | "mistake"
+  | "visualization"
+  | "generic";
 
-export type CanonicalChunk = {
+export interface CanonicalChunk {
   chunkIndex: number;
   content: string;
-  kind: ChunkKind;
   embeddingInput?:
-    | { type: 'text'; text: string }
+    | { type: "text"; text: string }
     | {
-        type: 'multimodal';
+        type: "multimodal";
         content: Array<
-          | { type: 'text'; text: string }
-          | { type: 'image_url'; image_url: string }
-          | { type: 'image_base64'; image_base64: string; mimeType?: string }
+          | { type: "text"; text: string }
+          | { type: "image_url"; image_url: string }
+          | { type: "image_base64"; image_base64: string; mimeType?: string }
         >;
       };
+  kind: ChunkKind;
   metadata: {
     page?: number;
     startMs?: number;
@@ -32,41 +38,37 @@ export type CanonicalChunk = {
     source: string;
     provider?: string;
     topic?: string;
-    difficulty?: 'beginner' | 'intermediate' | 'advanced';
+    difficulty?: "beginner" | "intermediate" | "advanced";
     prerequisites?: string[];
-    modality?: 'text' | 'image' | 'video' | 'mixed';
+    modality?: "text" | "image" | "video" | "mixed";
     extra?: Record<string, unknown>;
   };
-};
+}
 
-export type CanonicalResource = {
-  sourceType: IngestSourceType;
-  source: string;
-  provider?: string;
-  title?: string;
-  metadata?: Record<string, unknown>;
+export interface CanonicalResource {
   chunks: CanonicalChunk[];
-};
+  metadata?: Record<string, unknown>;
+  provider?: string;
+  source: string;
+  sourceType: IngestSourceType;
+  title?: string;
+}
 
-export type IngestPdfInput = {
-  type: 'pdf';
-  urls: string[];
+export interface IngestPdfInput {
   includeImageBase64?: boolean;
-};
+  type: "pdf";
+  urls: string[];
+}
 
-export type IngestImageInput = {
-  type: 'image';
-  url?: string;
+export interface IngestImageInput {
   base64?: string;
-  title?: string;
   contextText?: string;
-};
-
-export type IngestVideoInput = {
-  type: 'video';
-  url?: string;
-  transcript?: string;
   title?: string;
+  type: "image";
+  url?: string;
+}
+
+export interface IngestVideoInput {
   keyframes?: Array<{
     timestampMs: number;
     imageBase64?: string;
@@ -75,19 +77,23 @@ export type IngestVideoInput = {
     ocrText?: string;
     caption?: string;
   }>;
-};
+  title?: string;
+  transcript?: string;
+  type: "video";
+  url?: string;
+}
 
-export type IngestMarkdownInput = {
-  type: 'markdown';
+export interface IngestMarkdownInput {
   markdown: string;
   source?: string;
   title?: string;
-};
+  type: "markdown";
+}
 
-export type IngestLinkInput = {
-  type: 'link';
+export interface IngestLinkInput {
+  type: "link";
   url: string;
-};
+}
 
 export type IngestInput =
   | IngestPdfInput
@@ -96,7 +102,7 @@ export type IngestInput =
   | IngestMarkdownInput
   | IngestLinkInput;
 
-export type IngestResponse = {
+export interface IngestResponse {
   resources: Array<{
     resourceId: string;
     sourceType: IngestSourceType;
@@ -104,4 +110,4 @@ export type IngestResponse = {
     provider?: string;
     chunks: number;
   }>;
-};
+}

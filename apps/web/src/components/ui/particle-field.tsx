@@ -6,6 +6,13 @@ import {
   useRef,
   useSyncExternalStore,
 } from "react";
+import {
+  randomParticleSpringJitter,
+  resolveParticleFieldDrawBox,
+  resolveParticleFieldFillColor,
+  shouldKeepParticleTarget,
+  shuffleParticleIndices,
+} from "@/components/ui/particle-field-model";
 
 interface Particle {
   alpha: number;
@@ -68,57 +75,6 @@ function getServerDarkSnapshot() {
   return true;
 }
 
-const TYPING_IMPULSE_ADD = 0.14;
-const TYPING_IMPULSE_CAP = 1.35;
-const SUBMIT_IMPULSE_PRIMARY = 0.52;
-const SUBMIT_IMPULSE_SECOND_MS = 120;
-const SUBMIT_IMPULSE_SECONDARY = 0.2;
-
-export function pulseParticleTypingImpulse(
-  impulseRef: MutableRefObject<number>,
-  amount = TYPING_IMPULSE_ADD
-) {
-  impulseRef.current = Math.min(
-    impulseRef.current + amount,
-    TYPING_IMPULSE_CAP
-  );
-}
-
-export function pulseParticleSubmitImpulse(
-  impulseRef: MutableRefObject<number>
-) {
-  pulseParticleTypingImpulse(impulseRef, SUBMIT_IMPULSE_PRIMARY);
-  window.setTimeout(() => {
-    pulseParticleTypingImpulse(impulseRef, SUBMIT_IMPULSE_SECONDARY);
-  }, SUBMIT_IMPULSE_SECOND_MS);
-}
-
-export function bumpParticleTypingImpulse(
-  impulseRef: MutableRefObject<number>,
-  event: Pick<
-    KeyboardEvent,
-    "altKey" | "ctrlKey" | "key" | "metaKey" | "repeat"
-  >
-) {
-  if (event.repeat || event.metaKey || event.ctrlKey || event.altKey) {
-    return;
-  }
-
-  const isPrintable = event.key.length === 1;
-  const isTextEditKey =
-    isPrintable ||
-    event.key === "Backspace" ||
-    event.key === "Delete" ||
-    event.key === "Enter" ||
-    event.key === " ";
-
-  if (!isTextEditKey) {
-    return;
-  }
-
-  pulseParticleTypingImpulse(impulseRef, TYPING_IMPULSE_ADD);
-}
-
 function useDocumentDark() {
   return useSyncExternalStore(
     subscribeDocumentDark,
@@ -148,11 +104,11 @@ export function ParticleField({
   const normalizedSrc = typeof src === "string" ? src : src.src;
   const isDark = useDocumentDark();
   const fillColorRef = useRef(color);
-  fillColorRef.current = adaptToTheme
-    ? isDark
-      ? "rgba(255, 255, 255, 0.92)"
-      : "rgba(10, 12, 16, 1)"
-    : color;
+  fillColorRef.current = resolveParticleFieldFillColor({
+    adaptToTheme,
+    color,
+    isDark,
+  });
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -228,21 +184,15 @@ export function ParticleField({
         return [];
       }
 
-      const srcRatio = image.width / image.height;
-      const dstRatio = width / height;
-      let drawWidth = width;
-      let drawHeight = height;
-
-      if (srcRatio > dstRatio) {
-        drawHeight = height;
-        drawWidth = height * srcRatio;
-      } else {
-        drawWidth = width;
-        drawHeight = width / srcRatio;
-      }
-
-      drawWidth *= renderScaleRef.current;
-      drawHeight *= renderScaleRef.current;
+      const drawBox = resolveParticleFieldDrawBox({
+        align: alignRef.current,
+        height,
+        imageHeight: image.height,
+        imageWidth: image.width,
+        renderScale: renderScaleRef.current,
+        width,
+      });
+      const { drawHeight, drawWidth } = drawBox;
 
       const sampleWidth = Math.max(
         80,
@@ -272,13 +222,10 @@ export function ParticleField({
       ).data;
       const cellWidth = drawWidth / sampleWidth;
       const cellHeight = drawHeight / sampleHeight;
-      clusterWidth = drawWidth;
-      clusterHeight = drawHeight;
-      offsetX = (width - clusterWidth) / 2;
-      offsetY =
-        alignRef.current === "bottom"
-          ? height - clusterHeight - Math.min(40, height * 0.04)
-          : (height - clusterHeight) / 2;
+      clusterWidth = drawBox.clusterWidth;
+      clusterHeight = drawBox.clusterHeight;
+      offsetX = drawBox.offsetX;
+      offsetY = drawBox.offsetY;
 
       const targets: ParticleTarget[] = [];
 
@@ -299,18 +246,14 @@ export function ParticleField({
           }
 
           const luminance = brightness / 255;
-          if (!denseParticlesRef.current) {
-            const keep =
-              luminance > 0.8
-                ? true
-                : luminance > 0.5
-                  ? Math.random() < 0.85
-                  : luminance > 0.25
-                    ? Math.random() < 0.55
-                    : Math.random() < 0.28;
-            if (!keep) {
-              continue;
-            }
+          if (
+            !shouldKeepParticleTarget({
+              denseParticles: denseParticlesRef.current,
+              luminance,
+              randomValue: Math.random(),
+            })
+          ) {
+            continue;
           }
 
           const px = (offsetX + x * cellWidth + cellWidth / 2) * dpr;
@@ -327,8 +270,6 @@ export function ParticleField({
       return targets;
     };
 
-    const randomSpringJitter = () => 0.9 + Math.random() * 0.2;
-
     const buildFresh = (image: HTMLImageElement) => {
       if (!(image.width && image.height)) {
         return;
@@ -344,26 +285,12 @@ export function ParticleField({
         oy: target.oy,
         phase: Math.random() * Math.PI * 2,
         size: target.size,
-        springJitter: randomSpringJitter(),
+        springJitter: randomParticleSpringJitter(),
         vx: 0,
         vy: 0,
         x: target.ox + (Math.random() - 0.5) * 40,
         y: target.oy + (Math.random() - 0.5) * 40,
       }));
-    };
-
-    const shuffleIndices = (length: number) => {
-      const values = new Array<number>(length);
-      for (let index = 0; index < length; index++) {
-        values[index] = index;
-      }
-      for (let index = length - 1; index > 0; index--) {
-        const swapIndex = (Math.random() * (index + 1)) | 0;
-        const value = values[index];
-        values[index] = values[swapIndex]!;
-        values[swapIndex] = value!;
-      }
-      return values;
     };
 
     const morphTo = (image: HTMLImageElement) => {
@@ -381,8 +308,8 @@ export function ParticleField({
       const particleCount = particles.length;
       const targetCount = targets.length;
       const matched = Math.min(particleCount, targetCount);
-      const particleOrder = shuffleIndices(particleCount);
-      const targetOrder = shuffleIndices(targetCount);
+      const particleOrder = shuffleParticleIndices(particleCount);
+      const targetOrder = shuffleParticleIndices(targetCount);
 
       for (let index = 0; index < matched; index++) {
         const particle = particles[particleOrder[index]!]!;
@@ -392,7 +319,7 @@ export function ParticleField({
         particle.size = target.size;
         particle.alpha = target.alpha;
         particle.fading = false;
-        particle.springJitter = randomSpringJitter();
+        particle.springJitter = randomParticleSpringJitter();
       }
 
       for (let index = matched; index < particleCount; index++) {
@@ -411,7 +338,7 @@ export function ParticleField({
           oy: target.oy,
           phase: Math.random() * Math.PI * 2,
           size: target.size,
-          springJitter: randomSpringJitter(),
+          springJitter: randomParticleSpringJitter(),
           vx: 0,
           vy: 0,
           x: target.ox + Math.cos(angle) * distance,

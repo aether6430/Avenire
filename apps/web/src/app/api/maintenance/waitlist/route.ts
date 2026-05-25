@@ -1,81 +1,45 @@
-import {
-  approveWaitlistEntry,
-  getWaitlistEntryByEmail,
-  listWaitlistEntries,
-  normalizeEmail,
-} from "@avenire/database";
-import { Emailer, renderWaitlistApprovalEmail } from "@avenire/emailer";
 import { NextResponse } from "next/server";
-import { resolveAppBaseUrl } from "@/lib/app-base-url";
-
-const emailer = new Emailer();
-
-function isAuthorized(request: Request) {
-  const token = process.env.MAINTENANCE_CRON_TOKEN;
-  if (!token) {
-    return false;
-  }
-
-  const authHeader = request.headers.get("authorization") ?? "";
-  return authHeader === `Bearer ${token}`;
-}
-
-function resolvePublicEmailBaseUrl(request: Request) {
-  const baseUrl = resolveAppBaseUrl(request);
-  return baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1")
-    ? "https://avenire.space"
-    : baseUrl;
-}
+import {
+  isAuthorizedMaintenanceRequest,
+  resolveMaintenanceRouteError,
+} from "../maintenance-route-model";
+import { handleMaintenanceWaitlistRouteGet } from "./maintenance-waitlist-route-get";
+import { handleMaintenanceWaitlistRoutePost } from "./maintenance-waitlist-route-post";
 
 export async function GET(request: Request) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    if (!isAuthorizedMaintenanceRequest(request)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    return await handleMaintenanceWaitlistRouteGet();
+  } catch (error) {
+    const failure = resolveMaintenanceRouteError(error, {
+      fallback: "Unable to list waitlist entries.",
+    });
+    return NextResponse.json(
+      { error: failure.error },
+      { status: failure.status }
+    );
   }
-
-  const waitlist = await listWaitlistEntries({
-    status: ["pending", "approved"],
-    limit: 200,
-  });
-
-  return NextResponse.json({ ok: true, waitlist });
 }
 
 export async function POST(request: Request) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const body = (await request.json().catch(() => ({}))) as { email?: string };
-  const email = body.email?.trim() ?? "";
-
-  if (!email) {
-    return NextResponse.json({ error: "Email is required." }, { status: 400 });
-  }
-
-  const previousEntry = await getWaitlistEntryByEmail(normalizeEmail(email));
-  const entry = await approveWaitlistEntry(normalizeEmail(email));
-  if (entry.status === "approved" && previousEntry?.status !== "approved") {
-    try {
-      const baseUrl = resolvePublicEmailBaseUrl(request);
-      await emailer.send({
-        to: [entry.email],
-        subject: "You're approved for Avenire",
-        html: await renderWaitlistApprovalEmail({
-          name: entry.email.split("@")[0] ?? "there",
-          loginUrl: `${baseUrl}/register`,
-        }),
-        replyTo: "support@avenire.space",
-      });
-    } catch (error) {
-      console.error(
-        "[api/maintenance/waitlist] failed to send approval email",
-        {
-          error,
-          email,
-        }
-      );
+  try {
+    if (!isAuthorizedMaintenanceRequest(request)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-  }
 
-  return NextResponse.json({ ok: true, waitlist: entry });
+    return await handleMaintenanceWaitlistRoutePost({
+      request,
+    });
+  } catch (error) {
+    const failure = resolveMaintenanceRouteError(error, {
+      fallback: "Unable to approve waitlist entry.",
+    });
+    return NextResponse.json(
+      { error: failure.error },
+      { status: failure.status }
+    );
+  }
 }

@@ -29,10 +29,10 @@ async function logAuthHandlerResult(
 
     if (logRoute || response.status >= 500) {
       console.info("[api/auth] billing provider response", {
+        elapsedMs: Date.now() - startedAt,
         method,
         pathname: url.pathname,
         status: response.status,
-        elapsedMs: Date.now() - startedAt,
       });
     }
 
@@ -40,19 +40,19 @@ async function logAuthHandlerResult(
       const responseForLog = response.clone();
       const body = await responseForLog.text().catch(() => "");
       console.error("[api/auth] provider route returned 500", {
+        body: body.slice(0, 2000),
         method,
         pathname: url.pathname,
         status: response.status,
-        body: body.slice(0, 2000),
       });
     }
 
     return response;
   } catch (error) {
     console.error("[api/auth] provider route threw", {
+      error,
       method,
       pathname: url.pathname,
-      error,
     });
     throw error;
   }

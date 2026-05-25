@@ -5,7 +5,7 @@ import { useAuthTypingImpulse } from "@/components/auth-shell";
 import {
   bumpParticleTypingImpulse,
   pulseParticleSubmitImpulse,
-} from "@/components/ui/particle-field";
+} from "@/components/ui/particle-field-impulse";
 import { cn } from "@/lib/utils";
 
 export function ParticleFormFrame({

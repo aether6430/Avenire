@@ -45,10 +45,7 @@ export function PostHogTracker() {
   const enteredAtRef = useRef<number>(Date.now());
   const currentPathRef = useRef<string>("");
 
-  const search = useMemo(
-    () => searchParams?.toString() ?? "",
-    [searchParams]
-  );
+  const search = useMemo(() => searchParams?.toString() ?? "", [searchParams]);
 
   useEffect(() => {
     const path = `${pathname}${search ? `?${search}` : ""}`;

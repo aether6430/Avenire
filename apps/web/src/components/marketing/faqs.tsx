@@ -1,53 +1,37 @@
-"use client";
-import React, { useState } from "react";
-import { SubHeading } from "./subheading";
-import { Container } from "./container";
-import { SectionHeading } from "./seciton-heading";
+import Link from "next/link";
+import type React from "react";
+import { faqs } from "@/components/marketing/constants/faqs";
 import { Badge } from "./badge";
 import { Button } from "./button";
+import { Container } from "./container";
 import { DivideX } from "./divide";
-import { faqs } from "@/components/marketing/constants/faqs";
-import { AnimatePresence, motion } from "motion/react";
+import { SectionHeading } from "./section-heading";
+import { SubHeading } from "./subheading";
 
-const ChevronDownIcon = (
-  props: React.SVGProps<SVGSVGElement> & { rotated?: boolean },
-) => {
-  const { rotated, className, ...rest } = props;
+const ChevronDownIcon = (props: React.SVGProps<SVGSVGElement>) => {
   return (
     <svg
-      width="16"
+      className={props.className}
+      fill="none"
       height="16"
       viewBox="0 0 16 16"
-      fill="none"
+      width="16"
       xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      {...rest}
     >
       <path
         d="M3.75 6.5L8 10.75L12.25 6.5"
         stroke="currentColor"
-        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
+        strokeWidth="1.5"
       />
     </svg>
   );
 };
 
 export const FAQs = () => {
-  const [openItems, setOpenItems] = useState<Set<number>>(new Set());
-
-  const toggle = (index: number) => {
-    setOpenItems((prev) => {
-      const next = new Set(prev);
-      if (next.has(index)) next.delete(index);
-      else next.add(index);
-      return next;
-    });
-  };
-
   return (
-    <Container className="border-divide flex flex-col items-center border-x pt-12">
+    <Container className="flex flex-col items-center border-divide border-x pt-12">
       <Badge text="FAQs" />
       <SectionHeading className="mt-4">
         Frequently Asked Questions
@@ -58,97 +42,47 @@ export const FAQs = () => {
         learning.
       </SubHeading>
       <div className="mt-8 mb-12 flex w-full flex-col justify-center gap-4 px-4 sm:flex-row">
-        <Button variant="primary" className="w-full sm:w-auto">
-          Read Blog
+        <Button as={Link} className="w-full sm:w-auto" href="/blog">
+          Read blog
         </Button>
         <Button
           as="a"
+          className="w-full sm:w-auto"
           href="mailto:support@avenire.space"
           variant="secondary"
-          className="w-full sm:w-auto"
         >
           Contact Us
         </Button>
       </div>
       <DivideX />
-      <div className="divide-divide w-full divide-y">
+      <div className="w-full divide-y divide-divide">
         {faqs.map((item, index) => (
-          <AccordionItem
-            key={item.question}
-            index={index}
-            question={item.question}
-            answer={item.answer}
-            isOpen={openItems.has(index)}
-            onToggle={() => toggle(index)}
-          />
+          <details className="group" key={item.question}>
+            <summary
+              className="flex cursor-pointer list-none items-center justify-between gap-4 px-8 py-6 text-left [&::-webkit-details-marker]:hidden"
+              id={`faq-summary-${index}`}
+            >
+              <span className="font-medium text-base text-charcoal-700 dark:text-neutral-100">
+                {item.question}
+              </span>
+              <span className="inline-flex size-6 items-center justify-center rounded-md bg-white text-charcoal-700 shadow-aceternity transition-transform duration-200 group-open:rotate-180 dark:bg-neutral-950">
+                <ChevronDownIcon className="dark:text-neutral-100" />
+              </span>
+            </summary>
+            <div
+              aria-labelledby={`faq-summary-${index}`}
+              className="overflow-hidden px-8 pb-5"
+              role="region"
+            >
+              <div className="pr-2 pl-2 sm:pr-0 sm:pl-0">
+                <p className="text-gray-600 dark:text-neutral-400">
+                  {item.answer}
+                </p>
+              </div>
+            </div>
+          </details>
         ))}
       </div>
     </Container>
-  );
-};
-
-const AccordionItem = ({
-  index,
-  question,
-  answer,
-  isOpen,
-  onToggle,
-}: {
-  index: number;
-  question: string;
-  answer: string;
-  isOpen: boolean;
-  onToggle: () => void;
-}) => {
-  return (
-    <div className="group">
-      <button
-        type="button"
-        aria-expanded={isOpen}
-        aria-controls={`faq-panel-${index}`}
-        onClick={onToggle}
-        className="flex w-full items-center justify-between gap-4 px-8 py-6 text-left"
-      >
-        <span className="text-charcoal-700 text-base font-medium dark:text-neutral-100">
-          {question}
-        </span>
-        <motion.span
-          className="text-charcoal-700 shadow-aceternity inline-flex size-6 items-center justify-center rounded-md bg-white dark:bg-neutral-950"
-          initial={false}
-          animate={{ rotate: isOpen ? 180 : 0 }}
-          transition={{ duration: 0.25 }}
-        >
-          <ChevronDownIcon className="dark:text-neutral-100" />
-        </motion.span>
-      </button>
-
-      <motion.div
-        id={`faq-panel-${index}`}
-        role="region"
-        aria-hidden={!isOpen}
-        initial={false}
-        animate={{ height: isOpen ? "auto" : 0, opacity: isOpen ? 1 : 0 }}
-        transition={{ height: { duration: 0.35 }, opacity: { duration: 0.2 } }}
-        className="overflow-hidden px-8"
-        onClick={onToggle}
-      >
-        <div className="pr-2 pb-5 pl-2 sm:pr-0 sm:pl-0">
-          <AnimatePresence mode="popLayout">
-            {isOpen && (
-              <motion.p
-                key="content"
-                initial={{ y: -6, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: -6, opacity: 0 }}
-                transition={{ duration: 0.25 }}
-                className="text-gray-600 dark:text-neutral-400"
-              >
-                {answer}
-              </motion.p>
-            )}
-          </AnimatePresence>
-        </div>
-      </motion.div>
-    </div>
   );
 };

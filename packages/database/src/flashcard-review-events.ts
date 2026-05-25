@@ -2,8 +2,11 @@ import type {
   FlashcardCardRecord,
   FlashcardSourceType,
 } from "./flashcard-data";
-import { normalizeFlashcardTaxonomy } from "./flashcard-data";
-import type { FlashcardRating, FlashcardReviewStateName } from "./flashcard-fsrs";
+import type {
+  FlashcardRating,
+  FlashcardReviewStateName,
+} from "./flashcard-fsrs";
+import { normalizeFlashcardTaxonomy } from "./flashcard-taxonomy";
 
 export interface FlashcardSourceTaxonomy {
   concept: string | null;
@@ -34,8 +37,8 @@ export interface FlashcardReviewCommittedEvent {
 }
 
 export interface FlashcardMisconceptionSignal {
-  confidence: number;
   concept: string;
+  confidence: number;
   reason: string;
   source: "fsrs_signal";
   subject: string | null;
@@ -46,16 +49,16 @@ export interface FlashcardMisconceptionSignal {
 
 export interface FlashcardMasteryRecomputeSignal {
   concept: string;
-  topic: string | null;
-  subject: string | null;
   reviewedAt: string;
+  subject: string | null;
+  topic: string | null;
   userId: string;
   workspaceId: string;
 }
 
 export interface FlashcardReviewLearningActions {
-  misconception: FlashcardMisconceptionSignal | null;
   mastery: FlashcardMasteryRecomputeSignal | null;
+  misconception: FlashcardMisconceptionSignal | null;
   resolveMisconception: FlashcardMasteryRecomputeSignal | null;
 }
 
@@ -215,9 +218,7 @@ export function subscribeFlashcardReviewEvents(
   };
 }
 
-export function emitFlashcardReviewEvent(
-  event: FlashcardReviewCommittedEvent
-) {
+export function emitFlashcardReviewEvent(event: FlashcardReviewCommittedEvent) {
   for (const listener of listeners) {
     try {
       void Promise.resolve(listener(event)).catch((error) => {

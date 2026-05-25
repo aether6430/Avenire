@@ -15,7 +15,7 @@ function retentionForDay(stability: number, day: number) {
     return 0;
   }
 
-  return Math.pow(1 + day / (9 * stability), -1) * 100;
+  return (1 + day / (9 * stability)) ** -1 * 100;
 }
 
 function median(values: number[]) {
@@ -56,7 +56,9 @@ export function StabilityCurves({
   const dueSoonCount = states.filter(
     (state) => new Date(state.dueAt).getTime() <= Date.now() + 7 * DAY_MS
   ).length;
-  const matureCount = states.filter((state) => state.scheduledDays >= 21).length;
+  const matureCount = states.filter(
+    (state) => state.scheduledDays >= 21
+  ).length;
   const chartData = Array.from({ length: 15 }, (_, index) => {
     const day = Math.round((index / 14) * horizonDays);
     const values = stabilities.map((stability) =>
@@ -64,8 +66,8 @@ export function StabilityCurves({
     );
     return {
       day,
-      median: medianStability ? retentionForDay(medianStability, day) : null,
       lower: values.length ? Math.min(...values) : null,
+      median: medianStability ? retentionForDay(medianStability, day) : null,
       upper: values.length ? Math.max(...values) : null,
     };
   });
@@ -90,20 +92,16 @@ export function StabilityCurves({
           </div>
           <div>
             <p className="text-muted-foreground">7d due</p>
-            <p className="mt-0.5 font-medium text-foreground">
-              {dueSoonCount}
-            </p>
+            <p className="mt-0.5 font-medium text-foreground">{dueSoonCount}</p>
           </div>
           <div>
             <p className="text-muted-foreground">Mature</p>
-            <p className="mt-0.5 font-medium text-foreground">
-              {matureCount}
-            </p>
+            <p className="mt-0.5 font-medium text-foreground">{matureCount}</p>
           </div>
         </div>
       </div>
       <ChartContainer
-        className="h-56 aspect-auto px-2 py-3"
+        className="aspect-auto h-56 px-2 py-3"
         config={{
           lower: { color: "var(--chart-4)", label: "Weakest" },
           median: { color: "var(--chart-2)", label: "Median" },

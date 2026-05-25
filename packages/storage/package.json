@@ -4,24 +4,35 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./index.ts",
-    "./client": "./client.ts",
-    "./ssr": "./ssr.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    },
+    "./ssr": {
+      "types": "./dist/ssr.d.ts",
+      "default": "./dist/ssr.js"
+    }
   },
   "scripts": {
-    "build": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json",
     "lint": "biome check .",
-    "check-types": "tsc --noEmit",
+    "check-types": "tsc --noEmit -p tsconfig.build.json",
     "format": "biome format --write ."
   },
   "dependencies": {
-    "@uploadthing/react": "latest",
+    "@uploadthing/react": "7.3.3",
     "files-sdk": "^1.2.0",
-    "uploadthing": "latest"
+    "next": "16.2.6",
+    "uploadthing": "7.7.4"
   },
   "devDependencies": {
     "@avenire/env-types": "workspace:*",
     "@avenire/typescript-config": "workspace:*",
+    "@types/node": "25.3.5",
     "typescript": "5.9.3"
   },
   "engines": {

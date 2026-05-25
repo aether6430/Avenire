@@ -74,10 +74,17 @@ export function useMediaPlaybackSource(input: {
   const hlsRef = useRef<Hls | null>(null);
   const [controllerState, setControllerState] =
     useState<MediaPlaybackController>(DEFAULT_PLAYBACK_CONTROLLER);
-  const sourceKey =
-    playbackSource.kind === "hls"
-      ? `hls:${playbackSource.manifestUrl}|${playbackSource.fallbackUrl}`
-      : `progressive:${playbackSource.url}`;
+  const isHlsSource = playbackSource.kind === "hls";
+  const progressiveUrl =
+    playbackSource.kind === "progressive" ? playbackSource.url : null;
+  const fallbackUrl =
+    playbackSource.kind === "hls" ? playbackSource.fallbackUrl : null;
+  const manifestUrl =
+    playbackSource.kind === "hls" ? playbackSource.manifestUrl : null;
+  const hlsProvider =
+    playbackSource.kind === "hls" && playbackSource.provider === "mux"
+      ? "mux"
+      : "hls";
 
   const applyControllerState = useCallback(
     (input: Partial<Omit<MediaPlaybackController, "setSelectedQualityId">>) => {
@@ -190,13 +197,13 @@ export function useMediaPlaybackSource(input: {
     let hlsInstance: Hls | null = null;
 
     const applyFallback = () => {
-      if (fallbackApplied || playbackSource.kind !== "hls") {
+      if (fallbackApplied || !fallbackUrl) {
         return;
       }
       fallbackApplied = true;
-      setMediaUrl(media, playbackSource.fallbackUrl);
+      setMediaUrl(media, fallbackUrl);
       applyControllerState({
-        provider: playbackSource.provider === "mux" ? "mux" : "hls",
+        provider: hlsProvider,
         qualities: [],
         selectedQualityId: "auto",
       });
@@ -209,14 +216,16 @@ export function useMediaPlaybackSource(input: {
 
     media.addEventListener("error", handleMediaError);
 
-    if (playbackSource.kind === "progressive") {
+    if (!isHlsSource) {
       hlsRef.current = null;
       applyControllerState({
         provider: "progressive",
         qualities: [],
         selectedQualityId: "auto",
       });
-      setMediaUrl(media, playbackSource.url);
+      if (progressiveUrl) {
+        setMediaUrl(media, progressiveUrl);
+      }
       return () => {
         media.removeEventListener("error", handleMediaError);
       };
@@ -233,11 +242,13 @@ export function useMediaPlaybackSource(input: {
           if (canUseNativeHls(media)) {
             hlsRef.current = null;
             applyControllerState({
-              provider: playbackSource.provider === "mux" ? "mux" : "hls",
+              provider: hlsProvider,
               qualities: [],
               selectedQualityId: "auto",
             });
-            setMediaUrl(media, playbackSource.manifestUrl);
+            if (manifestUrl) {
+              setMediaUrl(media, manifestUrl);
+            }
             return;
           }
           applyFallback();
@@ -260,13 +271,16 @@ export function useMediaPlaybackSource(input: {
         let mediaRecoveryAttempts = 0;
         let networkRecoveryAttempts = 0;
 
-        const provider = playbackSource.provider === "mux" ? "mux" : "hls";
         const syncQualities = () => {
           const selectedQualityId =
             typeof hls.currentLevel === "number" && hls.currentLevel >= 0
               ? String(hls.currentLevel)
               : "auto";
-          updateQualityOptions(hls.levels ?? [], provider, selectedQualityId);
+          updateQualityOptions(
+            hls.levels ?? [],
+            hlsProvider,
+            selectedQualityId
+          );
         };
 
         hls.on(Hls.Events.ERROR, (_event, data) => {
@@ -300,7 +314,9 @@ export function useMediaPlaybackSource(input: {
           if (cancelled) {
             return;
           }
-          hls.loadSource(playbackSource.manifestUrl);
+          if (manifestUrl) {
+            hls.loadSource(manifestUrl);
+          }
         });
       })
       .catch(() => {
@@ -312,16 +328,19 @@ export function useMediaPlaybackSource(input: {
       media.removeEventListener("error", handleMediaError);
       hlsInstance?.destroy();
       hlsRef.current = null;
-      if (playbackSource.kind === "hls") {
+      if (isHlsSource) {
         resetMediaUrl(media);
       }
     };
   }, [
     applyControllerState,
+    fallbackUrl,
+    hlsProvider,
+    isHlsSource,
+    manifestUrl,
     mediaRef,
-    sourceKey,
+    progressiveUrl,
     updateQualityOptions,
-    playbackSource,
   ]);
 
   return {

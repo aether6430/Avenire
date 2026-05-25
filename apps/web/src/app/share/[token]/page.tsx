@@ -1,10 +1,8 @@
 import { auth } from "@avenire/auth/server";
+import { getMessagesByChatSlug } from "@avenire/database";
 import type { Route } from "next";
 import { headers } from "next/headers";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { SharedResourceActions } from "@/components/files/shared-resource-actions";
-import { getMessagesByChatSlug } from "@/lib/chat-data";
 import {
   canUserAccessSharedResource,
   getFileAssetById,
@@ -14,11 +12,74 @@ import {
   resolveResourceShareLink,
 } from "@/lib/file-data";
 import { buildPageMetadata } from "@/lib/page-metadata";
+import {
+  getSharedResourceMissingPageTitle,
+  getSharedResourcePageHeading,
+  type SharedResourcePageResourceType,
+} from "./shared-resource-page-model";
+import {
+  SharedFileResourcePage,
+  SharedFolderResourcePage,
+  SharedMethodResourcePage,
+  SharedResourceAccessDeniedPage,
+} from "./shared-resource-page-sections";
 
-export const metadata = buildPageMetadata({
-  noIndex: true,
-  title: "Shared resource",
-});
+export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ token: string }>;
+}) {
+  const { token } = await params;
+  const link = await resolveResourceShareLink(token);
+
+  if (!link) {
+    return buildPageMetadata({
+      noIndex: true,
+      title: getSharedResourceMissingPageTitle(),
+    });
+  }
+
+  const session = await auth.api.getSession({ headers: await headers() });
+  const hasAccess = await canUserAccessSharedResource({
+    link,
+    userId: session?.user?.id,
+  });
+
+  if (hasAccess && link.resourceType === "file") {
+    const file = await getFileAssetById(link.workspaceId, link.resourceId);
+
+    if (!file) {
+      return buildPageMetadata({
+        noIndex: true,
+        title: getSharedResourceMissingPageTitle(),
+      });
+    }
+  }
+
+  if (hasAccess && link.resourceType === "folder") {
+    const folder = await getFolderWithAncestors(
+      link.workspaceId,
+      link.resourceId
+    );
+
+    if (!folder?.folder) {
+      return buildPageMetadata({
+        noIndex: true,
+        title: getSharedResourceMissingPageTitle(),
+      });
+    }
+  }
+
+  return buildPageMetadata({
+    noIndex: true,
+    title: getSharedResourcePageHeading({
+      hasAccess,
+      resourceType: link.resourceType as SharedResourcePageResourceType,
+    }),
+  });
+}
 
 export default async function SharedResourcePage({
   params,
@@ -46,12 +107,13 @@ export default async function SharedResourcePage({
         redirect(`/login?callbackURL=${encodeURIComponent(`/share/${token}`)}`);
       }
       return (
-        <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center p-6 text-center">
-          <h1 className="font-semibold text-2xl">Access denied</h1>
-          <p className="mt-2 text-muted-foreground">
-            You do not have access to this file.
-          </p>
-        </main>
+        <SharedResourceAccessDeniedPage
+          heading={getSharedResourcePageHeading({
+            hasAccess: false,
+            resourceType: "file",
+          })}
+          resourceLabel="file"
+        />
       );
     }
 
@@ -61,23 +123,16 @@ export default async function SharedResourcePage({
     }
 
     return (
-      <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center p-6 text-center">
-        <h1 className="font-semibold text-2xl">Shared file</h1>
-        <p className="mt-2 text-muted-foreground">{file.name}</p>
-        <a
-          className="mx-auto mt-6 inline-flex h-10 items-center justify-center rounded-md border px-4 text-sm"
-          href={file.storageUrl}
-          rel="noopener noreferrer"
-          target="_blank"
-        >
-          Open file
-        </a>
-        <SharedResourceActions
-          resourceLabel="file"
-          token={token}
-          workspaces={workspaces}
-        />
-      </main>
+      <SharedFileResourcePage
+        fileName={file.name}
+        heading={getSharedResourcePageHeading({
+          hasAccess: true,
+          resourceType: "file",
+        })}
+        storageUrl={file.storageUrl}
+        token={token}
+        workspaces={workspaces}
+      />
     );
   }
 
@@ -94,54 +149,31 @@ export default async function SharedResourcePage({
 
     if (!hasAccess) {
       return (
-        <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center p-6 text-center">
-          <h1 className="font-semibold text-2xl">Access denied</h1>
-          <p className="mt-2 text-muted-foreground">
-            You do not have access to this method.
-          </p>
-        </main>
+        <SharedResourceAccessDeniedPage
+          heading={getSharedResourcePageHeading({
+            hasAccess: false,
+            resourceType: "chat",
+          })}
+          resourceLabel="method"
+        />
       );
     }
 
     const messages = (await getMessagesByChatSlug(link.resourceId)) ?? [];
 
     return (
-      <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col p-6">
-        <h1 className="mb-4 font-semibold text-2xl">Shared method</h1>
-        <div className="space-y-3 rounded-lg border bg-card p-4">
-          {messages.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              No messages available.
-            </p>
-          ) : (
-            messages.map((message) => {
-              const textPart = message.parts.find(
-                (part): part is { text: string; type: "text" } =>
-                  part.type === "text"
-              );
-              return (
-                <div
-                  className="rounded-md border bg-background p-3"
-                  key={message.id}
-                >
-                  <p className="mb-1 text-muted-foreground text-xs uppercase">
-                    {message.role}
-                  </p>
-                  <p className="whitespace-pre-wrap text-sm">
-                    {textPart?.text ?? "[non-text content]"}
-                  </p>
-                </div>
-              );
-            })
-          )}
-        </div>
-        <Link
-          className="mt-4 inline-flex h-10 items-center justify-center rounded-md border px-4 text-sm"
-          href={"/workspace" as Route}
-        >
-          Open workspace
-        </Link>
-      </main>
+      <SharedMethodResourcePage
+        heading={getSharedResourcePageHeading({
+          hasAccess: true,
+          resourceType: "chat",
+        })}
+        messages={messages}
+        openWorkspaceHref={
+          (session?.user
+            ? `/workspace/chats/${link.resourceId}`
+            : `/login?callbackURL=${encodeURIComponent(`/share/${token}`)}`) as Route
+        }
+      />
     );
   }
 
@@ -161,12 +193,13 @@ export default async function SharedResourcePage({
 
     if (!hasAccess) {
       return (
-        <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center p-6 text-center">
-          <h1 className="font-semibold text-2xl">Access denied</h1>
-          <p className="mt-2 text-muted-foreground">
-            You do not have access to this folder.
-          </p>
-        </main>
+        <SharedResourceAccessDeniedPage
+          heading={getSharedResourcePageHeading({
+            hasAccess: false,
+            resourceType: "folder",
+          })}
+          resourceLabel="folder"
+        />
       );
     }
 
@@ -183,48 +216,17 @@ export default async function SharedResourcePage({
     );
 
     return (
-      <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col p-6">
-        <h1 className="mb-2 font-semibold text-2xl">Shared folder</h1>
-        <p className="mb-4 text-muted-foreground text-sm">
-          {folder.folder.name}
-        </p>
-        <div className="rounded-lg border bg-card p-4">
-          <p className="font-medium text-sm">Folders</p>
-          {children.folders.length === 0 ? (
-            <p className="mt-1 text-muted-foreground text-sm">No subfolders</p>
-          ) : (
-            <ul className="mt-2 space-y-1 text-sm">
-              {children.folders.map((entry) => (
-                <li key={entry.id}>[Folder] {entry.name}</li>
-              ))}
-            </ul>
-          )}
-          <p className="mt-4 font-medium text-sm">Manage</p>
-          {children.files.length === 0 ? (
-            <p className="mt-1 text-muted-foreground text-sm">No files</p>
-          ) : (
-            <ul className="mt-2 space-y-1 text-sm">
-              {children.files.map((entry) => (
-                <li key={entry.id}>
-                  <a
-                    className="underline"
-                    href={entry.storageUrl}
-                    rel="noopener noreferrer"
-                    target="_blank"
-                  >
-                    {entry.name}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <SharedResourceActions
-          resourceLabel="folder"
-          token={token}
-          workspaces={workspaces}
-        />
-      </main>
+      <SharedFolderResourcePage
+        files={children.files}
+        folderName={folder.folder.name}
+        folders={children.folders}
+        heading={getSharedResourcePageHeading({
+          hasAccess: true,
+          resourceType: "folder",
+        })}
+        token={token}
+        workspaces={workspaces}
+      />
     );
   }
 

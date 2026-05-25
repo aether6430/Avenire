@@ -1,5 +1,8 @@
 import { Polar } from "@polar-sh/sdk";
-import { WebhookVerificationError, validateEvent } from "@polar-sh/sdk/webhooks";
+import {
+  validateEvent,
+  WebhookVerificationError,
+} from "@polar-sh/sdk/webhooks";
 
 type PolarServer = "sandbox" | "production";
 
@@ -10,13 +13,20 @@ function describePolarError(error: unknown) {
 
   const record = error as Record<string, unknown>;
   return {
-    name: record.name,
-    message: record.message,
-    statusCode: record.statusCode,
-    status: record.status,
-    code: record.code,
     body: record.body,
+    code: record.code,
+    message: record.message,
+    name: record.name,
+    status: record.status,
+    statusCode: record.statusCode,
   };
+}
+
+function logPaymentError(message: string, payload: Record<string, unknown>) {
+  const logger = Reflect.get(globalThis, "console") as
+    | { error?: (message?: unknown, ...optionalParams: unknown[]) => void }
+    | undefined;
+  logger?.error?.(message, payload);
 }
 
 function getPolarServer(): PolarServer {
@@ -104,7 +114,9 @@ export async function ensurePolarCustomer(input: {
 
   for await (const page of existingByEmail) {
     const customer = page.result.items.find(
-      (item) => item.email.toLowerCase() === input.email.toLowerCase()
+      (item) =>
+        typeof item.email === "string" &&
+        item.email.toLowerCase() === input.email.toLowerCase()
     );
 
     if (!customer) {
@@ -138,7 +150,7 @@ export async function ensurePolarCustomer(input: {
 }
 
 export async function getActiveSubscriptionForExternalCustomer(
-  externalCustomerId: string,
+  externalCustomerId: string
 ) {
   const polar = getPolarClient();
   try {
@@ -153,10 +165,10 @@ export async function getActiveSubscriptionForExternalCustomer(
       return page.result.items[0] ?? null;
     }
   } catch (error) {
-    console.error("[payments] failed to list Polar subscriptions", {
+    logPaymentError("[payments] failed to list Polar subscriptions", {
+      error: describePolarError(error),
       externalCustomerId,
       polarServer: getPolarServer(),
-      error: describePolarError(error),
     });
     throw error;
   }
@@ -166,22 +178,22 @@ export async function getActiveSubscriptionForExternalCustomer(
 
 export async function validatePolarWebhook(
   payload: string,
-  headers: Record<string, string>,
+  headers: Record<string, string>
 ) {
   return handlePolarWebhook(
     payload,
-    headers["polar-signature"] ?? headers["Polar-Signature"] ?? null,
+    headers["polar-signature"] ?? headers["Polar-Signature"] ?? null
   );
 }
 
 export async function handlePolarWebhook(
   payload: string,
-  signatureHeader: string | null | undefined,
+  signatureHeader: string | null | undefined
 ) {
   const secret = (process.env.POLAR_WEBHOOK_SECRET ?? "").trim();
   const signature = signatureHeader?.trim();
 
-  if (!secret || !signature) {
+  if (!(secret && signature)) {
     return null;
   }
 
@@ -195,7 +207,10 @@ export async function handlePolarWebhook(
   }
 }
 
-export async function createCustomerPortalLink(customerId: string, returnUrl?: string) {
+export async function createCustomerPortalLink(
+  customerId: string,
+  returnUrl?: string
+) {
   const polar = getPolarClient();
   try {
     return await polar.customerSessions.create({
@@ -203,11 +218,11 @@ export async function createCustomerPortalLink(customerId: string, returnUrl?: s
       returnUrl: returnUrl ?? null,
     });
   } catch (error) {
-    console.error("[payments] failed to create Polar customer portal link", {
+    logPaymentError("[payments] failed to create Polar customer portal link", {
       customerId,
+      error: describePolarError(error),
       hasReturnUrl: Boolean(returnUrl),
       polarServer: getPolarServer(),
-      error: describePolarError(error),
     });
     throw error;
   }
@@ -215,7 +230,7 @@ export async function createCustomerPortalLink(customerId: string, returnUrl?: s
 
 export async function createCustomerPortalLinkForExternalCustomer(
   externalCustomerId: string,
-  returnUrl?: string,
+  returnUrl?: string
 ) {
   const polar = getPolarClient();
   try {
@@ -224,12 +239,15 @@ export async function createCustomerPortalLinkForExternalCustomer(
       returnUrl: returnUrl ?? null,
     });
   } catch (error) {
-    console.error("[payments] failed to create Polar external customer portal link", {
-      externalCustomerId,
-      hasReturnUrl: Boolean(returnUrl),
-      polarServer: getPolarServer(),
-      error: describePolarError(error),
-    });
+    logPaymentError(
+      "[payments] failed to create Polar external customer portal link",
+      {
+        error: describePolarError(error),
+        externalCustomerId,
+        hasReturnUrl: Boolean(returnUrl),
+        polarServer: getPolarServer(),
+      }
+    );
     throw error;
   }
 }
@@ -245,7 +263,9 @@ export async function createCheckoutSession(input: {
   const polar = getPolarClient();
   const productId = getProductId(input.plan, input.billing);
   if (!productId) {
-    throw new Error(`Missing Polar product id for ${input.plan}/${input.billing}`);
+    throw new Error(
+      `Missing Polar product id for ${input.plan}/${input.billing}`
+    );
   }
 
   try {
@@ -262,13 +282,13 @@ export async function createCheckoutSession(input: {
       returnUrl: input.returnUrl,
     });
   } catch (error) {
-    console.error("[payments] failed to create Polar checkout", {
-      plan: input.plan,
+    logPaymentError("[payments] failed to create Polar checkout", {
       billing: input.billing,
-      userId: input.userId,
-      productId,
-      polarServer: getPolarServer(),
       error: describePolarError(error),
+      plan: input.plan,
+      polarServer: getPolarServer(),
+      productId,
+      userId: input.userId,
     });
     if (
       error &&

@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
-import { listPendingInvitationsForEmail } from "@/lib/file-data";
-import { getSessionUser } from "@/lib/workspace";
+import { resolveWorkspaceDirectoryRouteError } from "../workspace-directory-route-model";
+import { handleWorkspaceInvitationsRouteGet } from "./workspace-invitations-route-get";
 
 export async function GET() {
-  const sessionUser = await getSessionUser();
-  if (!sessionUser) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    return await handleWorkspaceInvitationsRouteGet();
+  } catch (error) {
+    const failure = resolveWorkspaceDirectoryRouteError(error, {
+      fallback: "Unable to load invitations.",
+    });
+    return NextResponse.json(
+      { error: failure.error },
+      { status: failure.status }
+    );
   }
-
-  const invitations = await listPendingInvitationsForEmail(sessionUser.email);
-  return NextResponse.json({ invitations });
 }

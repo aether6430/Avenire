@@ -114,7 +114,7 @@ export function FileMediaPlayer({
 
   useEffect(() => {
     setAutoplayMuted(false);
-  }, [playbackSource]);
+  }, []);
 
   useEffect(() => {
     const media = mediaRef.current;
@@ -136,7 +136,7 @@ export function FileMediaPlayer({
     return () => {
       media.removeEventListener("loadedmetadata", applySeek);
     };
-  }, [seekToMs, playbackSource]);
+  }, [seekToMs]);
 
   useEffect(() => {
     const media = mediaRef.current;
@@ -187,7 +187,7 @@ export function FileMediaPlayer({
       cancelled = true;
       media.removeEventListener("loadedmetadata", onLoadedMetadata);
     };
-  }, [playbackSource]);
+  }, []);
 
   if (!isVideo) {
     return (
@@ -243,7 +243,7 @@ export function FileMediaPlayer({
       )}
       label={name}
     >
-      <div className="relative flex min-h-0 flex-1 w-full items-center justify-center bg-black">
+      <div className="relative flex min-h-0 w-full flex-1 items-center justify-center bg-black">
         <MediaPlayerVideo
           autoPlay
           className="h-full w-full bg-black object-contain"

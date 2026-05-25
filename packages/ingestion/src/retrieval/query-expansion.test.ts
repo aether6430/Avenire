@@ -42,6 +42,26 @@ describe("expandQuery", () => {
     );
   });
 
+  it("keeps only the first usable expansion line from multi-line numbered output", async () => {
+    mocks.generateText.mockResolvedValue({
+      text: "1. diffusion across a semipermeable membrane\n2. osmosis in plant cells",
+    });
+
+    await expect(expandQuery("osmosis")).resolves.toBe(
+      "diffusion across a semipermeable membrane"
+    );
+  });
+
+  it("skips empty bullet-only lines and keeps the first usable expansion line", async () => {
+    mocks.generateText.mockResolvedValue({
+      text: "1.\nDiffusion across a semipermeable membrane",
+    });
+
+    await expect(expandQuery("osmosis")).resolves.toBe(
+      "Diffusion across a semipermeable membrane"
+    );
+  });
+
   it("returns null when the model produces the same query after normalization", async () => {
     mocks.generateText.mockResolvedValue({
       text: "```json\n  OSMOSIS \n```",

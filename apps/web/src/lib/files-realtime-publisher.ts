@@ -1,8 +1,8 @@
-import type { RedisClientType } from "redis";
 import {
   createManagedRedisClient,
   ensureManagedRedisClient,
   isExpectedRedisConnectionError,
+  type ManagedRedisClient,
 } from "@/lib/redis-client";
 import { publishWorkspaceStreamEvent } from "./workspace-event-stream";
 
@@ -24,7 +24,7 @@ interface FilesInvalidationPayload {
 }
 
 const redisUrl = process.env.REDIS_URL;
-type PublisherClient = RedisClientType;
+type PublisherClient = ManagedRedisClient;
 
 let publisher: PublisherClient | null = null;
 let publisherInitPromise: Promise<PublisherClient> | null = null;
@@ -33,7 +33,7 @@ function workspaceChannel(workspaceUuid: string) {
   return `files:workspace:${workspaceUuid}`;
 }
 
-async function getPublisher() {
+async function getPublisher(): Promise<PublisherClient> {
   if (!redisUrl) {
     throw new Error("REDIS_URL is not configured");
   }
@@ -79,7 +79,9 @@ export function hasFilesRealtimeConfigured() {
   return Boolean(redisUrl && process.env.SSE_TOKEN_SECRET);
 }
 
-export async function createFilesRealtimeSubscriber(workspaceUuid: string) {
+export async function createFilesRealtimeSubscriber(
+  workspaceUuid: string
+): Promise<{ channel: string; subscriber: PublisherClient }> {
   const base = await getPublisher();
   const subscriber = base.duplicate();
 

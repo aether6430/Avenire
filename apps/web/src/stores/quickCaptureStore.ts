@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import type { CaptureKind } from "@/components/dashboard/quick-capture-dialog";
+import type { CaptureKind } from "@/components/dashboard/quick-capture-model";
 
 interface QuickCaptureState {
   kind: CaptureKind | null;

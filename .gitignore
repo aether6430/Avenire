@@ -1,9 +1,12 @@
 .agents
+.DS_Store
+**/.DS_Store
 node_modules
 .pnpm-store
 .next
 .turbo
 dist
+coverage
 *.tsbuildinfo
 .env
 .env.*
@@ -14,15 +17,27 @@ dist
 /apps/web/*.jpg
 /apps/web/*.jpeg
 /apps/web/*.webp
-Ingestion/
 
 drizzle/
 !packages/database/drizzle/
 !packages/database/drizzle/**
 
 context
-docs/
-writings/
 
 .vercel
 .env*.local
+/reference/
+/logs/
+/docs/*-current.md
+/.ccb/
+/.playwright-cli/
+/output/
+/notes.md
+/TODO.md
+/apps/web/AGENTS.md
+/apps/web/CLAUDE.md
+/screenshots/
+/screenshots/T*.png
+/screenshots/T*.svg
+# CocoIndex Code (ccc)
+/.cocoindex_code/

@@ -51,7 +51,7 @@ export function TaskMobileSheet({
         <div className="flex h-full min-h-0 min-w-0 flex-col">
           <SheetHeader className="border-border/70 border-b px-4 py-4 sm:px-6">
             <SheetTitle>
-              {mode === "create" ? "New task" : "Task details"}
+              {mode === "create" ? "New Task" : "Task Details"}
             </SheetTitle>
             <SheetDescription>
               Keep the editor lightweight and precise on small screens.

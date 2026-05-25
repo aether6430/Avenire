@@ -59,44 +59,46 @@ export function WaitlistPageClient() {
               "radial-gradient(420px 220px at 50% 78%, color-mix(in srgb, var(--background) 85%, transparent) 0%, transparent 70%)",
           }}
         />
-        <div className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-4 px-6 pb-16 text-center">
-          <div
-            className="pointer-events-none font-mono text-[11px] text-foreground/55 uppercase tracking-[0.3em]"
-            style={{ textShadow: "0 1px 16px rgba(0,0,0,0.7)" }}
-          >
-            Invite-only, for now
+        <div className="absolute inset-x-0 bottom-0 flex flex-col items-center px-6 pb-16 text-center">
+          <div className="flex w-full max-w-xl flex-col items-center gap-4 rounded-[1.75rem] bg-background/40 px-4 py-5 backdrop-blur-sm sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none">
+            <div
+              className="pointer-events-none font-mono text-[11px] text-foreground/55 uppercase tracking-[0.3em]"
+              style={{ textShadow: "0 1px 16px rgba(0,0,0,0.7)" }}
+            >
+              Invite-only, for now
+            </div>
+            <h1
+              className="pointer-events-none max-w-xl text-3xl text-foreground leading-tight md:text-4xl"
+              style={{ textShadow: "0 1px 24px rgba(0,0,0,0.65)" }}
+            >
+              Early access is opening in waves.
+            </h1>
+            <p
+              className="pointer-events-none max-w-md text-foreground/70 text-sm leading-relaxed"
+              style={{ textShadow: "0 1px 16px rgba(0,0,0,0.7)" }}
+            >
+              Join the waitlist and we&apos;ll email you as soon as your invite
+              is ready.
+            </p>
+            <button
+              className="mt-2 inline-flex h-10 items-center justify-center rounded-md bg-foreground px-5 font-medium text-background text-sm transition-opacity hover:opacity-90"
+              onClick={() => setIsDialogOpen(true)}
+              type="button"
+            >
+              Join the waitlist
+            </button>
+            <p className="max-w-md text-foreground/55 text-xs">
+              Joining the waitlist means you agree to our{" "}
+              <Link className="underline underline-offset-4" href="/terms">
+                Terms
+              </Link>{" "}
+              and{" "}
+              <Link className="underline underline-offset-4" href="/privacy">
+                Privacy Policy
+              </Link>
+              .
+            </p>
           </div>
-          <h1
-            className="pointer-events-none max-w-xl text-3xl text-foreground leading-tight md:text-4xl"
-            style={{ textShadow: "0 1px 24px rgba(0,0,0,0.65)" }}
-          >
-            Early access is opening in waves.
-          </h1>
-          <p
-            className="pointer-events-none max-w-md text-foreground/70 text-sm leading-relaxed"
-            style={{ textShadow: "0 1px 16px rgba(0,0,0,0.7)" }}
-          >
-            Join the waitlist and we&apos;ll email you as soon as your invite is
-            ready.
-          </p>
-          <button
-            className="mt-2 inline-flex h-10 items-center justify-center rounded-md bg-foreground px-5 font-medium text-background text-sm transition-opacity hover:opacity-90"
-            onClick={() => setIsDialogOpen(true)}
-            type="button"
-          >
-            Join the waitlist
-          </button>
-          <p className="max-w-md text-foreground/55 text-xs">
-            Joining the waitlist means you agree to our{" "}
-            <Link className="underline underline-offset-4" href="/terms">
-              Terms
-            </Link>{" "}
-            and{" "}
-            <Link className="underline underline-offset-4" href="/privacy">
-              Privacy Policy
-            </Link>
-            .
-          </p>
         </div>
       </div>
 

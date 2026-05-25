@@ -1,43 +1,36 @@
-import { auth } from "@avenire/auth/server";
-import { headers } from "next/headers";
-import { NextResponse } from "next/server";
-import { getChatBySlugForUser, isChatOwnerForUser } from "@/lib/chat-data";
-import { listWorkspaceShareSuggestions } from "@/lib/file-data";
+import { resolveChatShareRouteContext } from "../chat-share-route-context";
+import {
+  CHAT_SHARE_CONTEXT_ERROR,
+  resolveChatShareRouteError,
+} from "../chat-share-route-model";
+import { handleChatShareSuggestionsGet } from "./chat-share-suggestions-get";
 
 export async function GET(
   request: Request,
   context: { params: Promise<{ slug: string }> }
 ) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    const routeContext = await resolveChatShareRouteContext({
+      request,
+      route: "/api/chats/[slug]/share/suggestions",
+      params: context.params,
+      missingChat: { status: 404, error: "Method not found" },
+      missingWorkspace: { status: 404, error: "Workspace not found" },
+    });
+    if ("response" in routeContext) {
+      return routeContext.response;
+    }
 
-  const { slug } = await context.params;
-  const chat = await getChatBySlugForUser(session.user.id, slug);
-  if (!chat) {
-    return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+    return await handleChatShareSuggestionsGet({
+      ...routeContext,
+      request,
+    });
+  } catch (error) {
+    return Response.json(
+      {
+        error: resolveChatShareRouteError(error, CHAT_SHARE_CONTEXT_ERROR),
+      },
+      { status: 500 }
+    );
   }
-  const isOwner = await isChatOwnerForUser(
-    session.user.id,
-    slug,
-    chat.workspaceId
-  );
-  if (!isOwner) {
-    return NextResponse.json({ error: "Read-only chat" }, { status: 403 });
-  }
-  if (!chat.workspaceId) {
-    return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
-  }
-
-  const query = new URL(request.url).searchParams.get("q") ?? "";
-  const suggestions = await listWorkspaceShareSuggestions({
-    workspaceId: chat.workspaceId,
-    userId: session.user.id,
-    userEmail: session.user.email,
-    query,
-    limit: 8,
-  });
-
-  return NextResponse.json({ suggestions });
 }

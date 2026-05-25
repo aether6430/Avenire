@@ -22,11 +22,11 @@ export const BILLING_PLANS: Record<
     features: [
       "330 Apollo credits",
       "2 GB storage",
-      "Full workspace with file & note search",
+      "Methods, notes, and workspace search",
       "Apollo AI tutor",
       "Interactive concept widgets",
       "Misconception detection",
-      "Flashcards with spaced repetition",
+      "Mindset Sets with spaced repetition",
       "Standard response speed",
     ],
     label: "Access",

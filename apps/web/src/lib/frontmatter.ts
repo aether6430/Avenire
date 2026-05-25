@@ -6,12 +6,12 @@ export type FilePropertyType =
   | "select"
   | "text";
 
+export type NumberPropertyDisplay = "bar" | "number" | "ring";
+
 interface BaseFileProperty<T extends FilePropertyType, TValue> {
   type: T;
   value: TValue;
 }
-
-export type NumberPropertyDisplay = "bar" | "number" | "ring";
 
 export type FilePropertyValue =
   | BaseFileProperty<"checkbox", boolean>
@@ -84,8 +84,12 @@ function normalizeNumber(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
-function normalizeNumberDisplay(value: unknown): NumberPropertyDisplay {
-  return value === "bar" || value === "ring" ? value : "number";
+function normalizeNumberPropertyDisplay(
+  value: unknown
+): NumberPropertyDisplay | undefined {
+  return value === "bar" || value === "number" || value === "ring"
+    ? value
+    : undefined;
 }
 
 function normalizeStringArray(value: unknown) {
@@ -125,7 +129,7 @@ export function normalizePropertyValue(
       return {
         type: "number",
         value: normalizeNumber(record.value),
-        display: normalizeNumberDisplay(record.display),
+        display: normalizeNumberPropertyDisplay(record.display),
         total: normalizeNumber(record.total),
       };
     case "select":

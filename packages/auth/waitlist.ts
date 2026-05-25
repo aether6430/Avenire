@@ -1,5 +1,3 @@
-import { APIError, type BetterAuthPlugin } from "better-auth";
-import { createAuthMiddleware } from "better-auth/api";
 import {
   getWaitlistAccessStateByEmail,
   getWaitlistAccessStateByUserId,
@@ -8,10 +6,9 @@ import {
   normalizeEmail,
   type WaitlistAccessState,
 } from "@avenire/database";
-import {
-  WAITLIST_ERROR_NONE,
-  WAITLIST_ERROR_PENDING,
-} from "./waitlist-shared";
+import { APIError, type BetterAuthPlugin } from "better-auth";
+import { createAuthMiddleware } from "better-auth/api";
+import { WAITLIST_ERROR_NONE, WAITLIST_ERROR_PENDING } from "./waitlist-shared";
 
 function getEmailFromBody(body: unknown) {
   if (!body || typeof body !== "object") {
@@ -36,7 +33,9 @@ export function waitlistPlugin(): BetterAuthPlugin {
             user: {
               create: {
                 before: async (newUser) => {
-                  const status = await getWaitlistAccessStateByEmail(newUser.email);
+                  const status = await getWaitlistAccessStateByEmail(
+                    newUser.email
+                  );
                   if (!hasWaitlistAccess(status)) {
                     throw new APIError("FORBIDDEN", {
                       message: getWaitlistErrorCode(status),
@@ -47,8 +46,16 @@ export function waitlistPlugin(): BetterAuthPlugin {
             },
             session: {
               create: {
-                before: async (newSession) => {
-                  const status = await getWaitlistAccessStateByUserId(newSession.userId);
+                before: async (newSession, context) => {
+                  const authUser =
+                    await context?.context?.internalAdapter.findUserById(
+                      newSession.userId
+                    );
+                  const status = authUser?.email
+                    ? await getWaitlistAccessStateByEmail(
+                        normalizeEmail(authUser.email)
+                      )
+                    : "none";
                   if (!hasWaitlistAccess(status)) {
                     throw new APIError("FORBIDDEN", {
                       message: getWaitlistErrorCode(status),
@@ -71,10 +78,14 @@ export function waitlistPlugin(): BetterAuthPlugin {
           handler: createAuthMiddleware(async (ctx) => {
             const email = getEmailFromBody(ctx.body);
             if (!email) {
-              throw new APIError("BAD_REQUEST", { message: "Email is required." });
+              throw new APIError("BAD_REQUEST", {
+                message: "Email is required.",
+              });
             }
 
-            const status = await getWaitlistAccessStateByEmail(normalizeEmail(email));
+            const status = await getWaitlistAccessStateByEmail(
+              normalizeEmail(email)
+            );
             if (!hasWaitlistAccess(status)) {
               throw new APIError("FORBIDDEN", {
                 message: getWaitlistErrorCode(status),
@@ -99,7 +110,9 @@ export function waitlistPlugin(): BetterAuthPlugin {
               return;
             }
 
-            const status = await getWaitlistAccessStateByUserId(newSession.user.id);
+            const status = await getWaitlistAccessStateByUserId(
+              newSession.user.id
+            );
             if (!hasWaitlistAccess(status)) {
               ctx.context.setNewSession(null);
               throw new APIError("FORBIDDEN", {

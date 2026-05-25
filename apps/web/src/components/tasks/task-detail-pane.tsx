@@ -82,7 +82,7 @@ export function TaskDetailPane({
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
             <h2 className="font-medium text-foreground text-sm">
-              {mode === "create" ? "New task" : "Task details"}
+              {mode === "create" ? "New Task" : "Task Details"}
             </h2>
             <p className="text-muted-foreground text-xs/relaxed">
               {mode === "create"

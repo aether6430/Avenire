@@ -1,11 +1,11 @@
-import { LandingPageClient } from "@/components/landing/landing-page-client";
+import { LandingPage } from "@/components/marketing/landing-page";
 import { buildPageMetadata, metadataBase } from "@/lib/page-metadata";
 
 export const metadata = buildPageMetadata({
   description:
-    "Upload notes, PDFs, and study materials. Avenire helps you ask questions, create flashcards, find weak spots, and review with an AI tutor.",
+    "Upload notes, PDFs, and study materials. Avenire turns them into methods, Mindset Sets, weak-spot review, and guided AI explanations for clearer thinking.",
   path: "/",
-  title: "AI Study App for Notes, Flashcards, Quizzes, and Tutoring",
+  title: "AI Learning Workspace for Notes, Methods, and Mindset Sets",
 });
 
 export const dynamic = "force-static";
@@ -29,11 +29,11 @@ export default function Page() {
         "@type": "SoftwareApplication",
         applicationCategory: "EducationalApplication",
         description:
-          "An AI study app that helps students learn from notes, PDFs, and source materials with tutoring, flashcards, quizzes, and interactive reasoning.",
+          "An AI learning workspace that helps students learn from notes, PDFs, and source materials with guided methods, Mindset Sets, and interactive reasoning.",
         featureList: [
-          "AI tutor for student questions",
+          "Guided methods for hard questions",
           "Study from notes and PDFs",
-          "Flashcard and quiz generation",
+          "Mindset Set generation and review",
           "Misconception tracking",
           "Connected study workspace",
         ],
@@ -62,7 +62,7 @@ export default function Page() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
         type="application/ld+json"
       />
-      <LandingPageClient />
+      <LandingPage />
     </>
   );
 }

@@ -1,7 +1,8 @@
 {
   "extends": "@avenire/typescript-config/react-library.json",
   "compilerOptions": {
-    "baseUrl": "."
+    "baseUrl": ".",
+    "types": ["node", "@avenire/env-types"]
   },
   "include": ["*.ts", "components/**/*.tsx"]
 }

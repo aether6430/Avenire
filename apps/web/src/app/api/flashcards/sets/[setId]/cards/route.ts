@@ -1,79 +1,37 @@
-import { assertFlashcardTaxonomy } from "@avenire/database";
 import { NextResponse } from "next/server";
-import { invalidateFlashcardReadCaches } from "@/lib/domain-cache";
-import { createFlashcardCardForUser } from "@/lib/flashcards";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
-import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
+import {
+  FLASHCARD_SET_CARD_CREATE_ERROR,
+  resolveFlashcardSetCardRouteError,
+} from "./flashcard-set-cards-route-model";
+import { handleFlashcardSetCardsRoutePost } from "./flashcard-set-cards-route-post";
 
 export async function POST(
   request: Request,
   context: { params: Promise<{ setId: string }> }
 ) {
-  const ctx = await getWorkspaceContextForUser();
-  if (!ctx) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { setId } = await context.params;
-  const body = (await request.json().catch(() => ({}))) as {
-    backMarkdown?: string;
-    frontMarkdown?: string;
-    notesMarkdown?: string | null;
-    source?: Record<string, unknown>;
-    tags?: string[];
-  };
-
-  if (!(body.frontMarkdown?.trim() && body.backMarkdown?.trim())) {
-    return NextResponse.json(
-      { error: "frontMarkdown and backMarkdown are required" },
-      { status: 400 }
-    );
-  }
-
-  let taxonomy: ReturnType<typeof assertFlashcardTaxonomy> | null = null;
   try {
-    taxonomy = assertFlashcardTaxonomy(body.source, "flashcard creation");
-  } catch {
+    const ctx = await getWorkspaceContextForUser();
+    if (!ctx) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { setId } = await context.params;
+    return await handleFlashcardSetCardsRoutePost({
+      request,
+      setId,
+      userId: ctx.user.id,
+      workspaceId: ctx.workspace.workspaceId,
+    });
+  } catch (error) {
     return NextResponse.json(
       {
-        error:
-          "source with subject, topic, and concept is required for flashcard creation",
+        error: resolveFlashcardSetCardRouteError(
+          error,
+          FLASHCARD_SET_CARD_CREATE_ERROR
+        ),
       },
-      { status: 400 }
+      { status: 500 }
     );
   }
-  const source = {
-    ...(body.source ?? {}),
-    ...(taxonomy ?? {}),
-  };
-
-  const card = await createFlashcardCardForUser({
-    backMarkdown: body.backMarkdown,
-    frontMarkdown: body.frontMarkdown,
-    notesMarkdown: body.notesMarkdown,
-    setId,
-    source,
-    tags: body.tags,
-    userId: ctx.user.id,
-    workspaceId: ctx.workspace.workspaceId,
-  });
-
-  if (!card) {
-    return NextResponse.json({ error: "Set not found" }, { status: 404 });
-  }
-
-  await invalidateFlashcardReadCaches(ctx.workspace.workspaceId);
-
-  void publishWorkspaceStreamEvent({
-    workspaceUuid: ctx.workspace.workspaceId,
-    type: "flashcards.invalidate",
-    payload: {
-      action: "created",
-      cardId: card.id,
-      setId,
-      workspaceUuid: ctx.workspace.workspaceId,
-    },
-  });
-
-  return NextResponse.json({ card }, { status: 201 });
 }

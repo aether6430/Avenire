@@ -16,8 +16,26 @@ export function WorkspaceChatNewPageClient({
     ? searchParams.get("prompt")?.trim() || null
     : null;
 
+  if (status === "error") {
+    return (
+      <WorkspaceRoutePlaceholder
+        label="Unable to load Method."
+        pending={false}
+      />
+    );
+  }
+
+  if (status === "ready" && user && !workspace) {
+    return (
+      <WorkspaceRoutePlaceholder
+        label="Create a workspace to continue."
+        pending={false}
+      />
+    );
+  }
+
   if (!(status === "ready" && user && workspace)) {
-    return <WorkspaceRoutePlaceholder label="Loading method..." />;
+    return <WorkspaceRoutePlaceholder label="Loading Method..." />;
   }
 
   return (

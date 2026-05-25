@@ -1,0 +1,28 @@
+{
+  "extends": "@avenire/typescript-config/react-library.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/content/*": ["./content/*"],
+      "@/*": ["./src/*"],
+      "@avenire/emailer": ["../../packages/emailer/index.ts"]
+    },
+    "allowJs": true
+  },
+  "include": [
+    "src/components/**/*.ts",
+    "src/components/**/*.tsx",
+    "src/hooks/**/*.ts",
+    "src/lib/**/*.ts",
+    "src/stores/**/*.ts",
+    "src/types/**/*.ts",
+    "src/instrumentation.ts",
+    "src/proxy.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "src/app/**/*",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx"
+  ]
+}

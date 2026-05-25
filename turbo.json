@@ -3,7 +3,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".next/**", "apps/*/.next/**"],
+      "outputs": [],
       "env": [
         "DATABASE_URL",
         "BETTER_AUTH_SECRET",
@@ -37,6 +37,60 @@
         "SSE_TOKEN_SECRET"
       ]
     },
+    "@avenire/web#build": {
+      "outputs": [".next/**"],
+      "env": [
+        "DATABASE_URL",
+        "BETTER_AUTH_SECRET",
+        "BETTER_AUTH_EXTENSION_ORIGINS",
+        "BETTER_AUTH_TRUSTED_ORIGINS",
+        "BETTER_AUTH_URL",
+        "AUTH_GOOGLE_ID",
+        "AUTH_GOOGLE_SECRET",
+        "AUTH_GITHUB_ID",
+        "AUTH_GITHUB_SECRET",
+        "GEMINI_API_KEY",
+        "ZAI_API_KEY",
+        "OPENROUTER_API_KEY",
+        "GROQ_API_KEY",
+        "RESEND_API_KEY",
+        "EMAIL_FROM",
+        "POSTHOG_KEY",
+        "POSTHOG_HOST",
+        "POLAR_ACCESS_TOKEN",
+        "POLAR_WEBHOOK_SECRET",
+        "POLAR_ORGANIZATION_ID",
+        "UPLOADTHING_TOKEN",
+        "REDIS_URL",
+        "SSE_TOKEN_SECRET",
+        "NODE_ENV",
+        "VERCEL_ENV"
+      ]
+    },
+    "@avenire/payments#build": {
+      "outputs": ["dist/**"]
+    },
+    "@avenire/ingestion#build": {
+      "outputs": ["dist/**"]
+    },
+    "@avenire/storage#build": {
+      "outputs": ["dist/**"]
+    },
+    "@avenire/ui#build": {
+      "outputs": ["dist/**"]
+    },
+    "@avenire/auth#build": {
+      "outputs": ["dist/**"]
+    },
+    "@avenire/emailer#build": {
+      "outputs": ["dist/**"]
+    },
+    "@avenire/emails#build": {
+      "outputs": ["dist/**"]
+    },
+    "@avenire/extension#build": {
+      "outputs": ["dist/**"]
+    },
     "dev": {
       "cache": false,
       "persistent": true
@@ -46,6 +100,10 @@
     },
     "check-types": {
       "dependsOn": ["^check-types"]
+    },
+    "test": {
+      "dependsOn": ["^test"],
+      "outputs": []
     },
     "format": {}
   }

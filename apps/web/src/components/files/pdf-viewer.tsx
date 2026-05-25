@@ -17,7 +17,7 @@ import {
 import { Button } from "@avenire/ui/components/button";
 import { cn } from "@avenire/ui/lib/utils";
 import { ArrowLeft, ArrowRight } from "@phosphor-icons/react";
-import { m } from "framer-motion";
+import { m } from "motion/react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "pdfjs-dist/web/pdf_viewer.css";
 

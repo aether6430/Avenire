@@ -1,8 +1,5 @@
 import { generateText } from "ai";
-import {
-  APOLLO_INGESTION_COHERE_EMBED_MODEL,
-  apollo,
-} from "./models";
+import { APOLLO_INGESTION_COHERE_EMBED_MODEL, apollo } from "./models";
 import type { PromptMemoryBlock } from "./prompts/chat";
 
 const COHERE_EMBED_URL = "https://api.cohere.com/v2/embed";
@@ -18,8 +15,8 @@ const DETECTOR_PROVIDER_TIMEOUT_MS = 850;
 type CohereEmbedInputType = "search_document" | "search_query";
 
 export interface MisconceptionSignalRecord {
-  confidence: number;
   concept: string;
+  confidence: number;
   id: string;
   reason: string;
   subject: string;
@@ -160,10 +157,8 @@ function extractEmbeddingsFromResponse(json: unknown): number[][] {
     embeddings?: number[][] | { float?: number[][] };
   };
 
-  if (Array.isArray(value.embeddings)) {
-    if (Array.isArray(value.embeddings[0])) {
-      return value.embeddings as number[][];
-    }
+  if (Array.isArray(value.embeddings) && Array.isArray(value.embeddings[0])) {
+    return value.embeddings as number[][];
   }
 
   if (
@@ -220,6 +215,7 @@ export async function embedMisconceptionSignalTexts(input: {
       `Cohere embeddings length mismatch: expected ${input.texts.length}, received ${embeddings.length}.`
     );
   }
+
   return embeddings;
 }
 
@@ -388,9 +384,9 @@ export async function detectMisconceptionSignals(input: {
   abortSignal?: AbortSignal;
   latestUserText: string;
   misconceptions: MisconceptionSignalRecord[];
+  options?: MisconceptionSignalDetectorOptions;
   subject: string | null;
   topic: string | null;
-  options?: MisconceptionSignalDetectorOptions;
 }): Promise<MisconceptionSignalResult | null> {
   const latestUserText = normalizeDetectorText(input.latestUserText).slice(
     0,

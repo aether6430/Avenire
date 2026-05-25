@@ -52,6 +52,7 @@ function normalizeFileName(name: string) {
   if (!trimmed) {
     return "file";
   }
+
   return trimmed.replace(/[/\\]/g, "-").replace(/\s+/g, " ").slice(0, 180);
 }
 
@@ -87,6 +88,7 @@ export async function uploadStorageFile(
     : {};
   const files = getUploadThingFiles();
   const result = await files.upload(key, input.body, options);
+
   return {
     ...result,
     url: await files.url(result.key),
@@ -111,6 +113,7 @@ export async function deleteStorageFiles(keys: string[]) {
       if (legacyKeys.length === 0) {
         return;
       }
+
       const { UTApi } = await import("uploadthing/server");
       const utapi = new UTApi({ token: process.env.UPLOADTHING_TOKEN });
       await utapi.deleteFiles(legacyKeys).catch(() => undefined);

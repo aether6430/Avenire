@@ -3,18 +3,18 @@
 
 export type SkillSection = "study-guidelines" | "visual-guidelines";
 
-export type SkillDefinition = {
-  id: string;
-  title: string;
-  description: string | null;
-  section: SkillSection;
-  path: string | null;
+export interface SkillDefinition {
   content: string;
+  description: string | null;
+  id: string;
+  path: string | null;
+  section: SkillSection;
   sourceIds?: readonly string[];
-};
+  title: string;
+}
 
 export const SKILL_MAP = {
-  "art": {
+  art: {
     id: "art",
     title: "Art",
     description: "Visual generation guidelines bundle for art.",
@@ -288,7 +288,15 @@ Use \`show_widget\` with raw SVG. Same technical rules (viewBox, safe area) but 
 - If you include a raw SVG few-shot example here, prepend the mandatory \`<!-- PLAN ... -->\` block first.
 
 `,
-    sourceIds: ["preamble","modules","core-design-system","when-nothing-fits","svg-setup","mathematical-svg-reference","art-and-illustration"] as const,
+    sourceIds: [
+      "preamble",
+      "modules",
+      "core-design-system",
+      "when-nothing-fits",
+      "svg-setup",
+      "mathematical-svg-reference",
+      "art-and-illustration",
+    ] as const,
   },
   "art-and-illustration": {
     id: "art-and-illustration",
@@ -313,7 +321,8 @@ Use \`show_widget\` with raw SVG. Same technical rules (viewBox, safe area) but 
   "auto-llm-example": {
     id: "auto-llm-example",
     title: "Autonomous LLM Research Agent Flow",
-    description: "Reference example showing an autonomous LLM research agent flowchart.",
+    description:
+      "Reference example showing an autonomous LLM research agent flowchart.",
     section: "study-guidelines",
     path: "sections/study-guidelines/examples/auto-llm.md",
     content: `---
@@ -337,7 +346,7 @@ A multi-section flowchart showing Karpathy's autoresearch framework: human-agent
 
 `,
   },
-  "chart": {
+  chart: {
     id: "chart",
     title: "Chart",
     description: "Visual generation guidelines bundle for chart.",
@@ -762,18 +771,9 @@ Use the current theme as the source of truth, then redraw the canvas whenever th
 
 ## Charts
 
-Use \`widget: { type: "spec", spec: ... }\` for normal charts and analytical canvases. Bar, line, and area charts belong in spec widgets, especially when paired with stats, tables, sections, progress rows, or callouts. The app renders these with native React/Recharts components and the shared UI theme.
+Prefer \`widget.type: "spec"\` \`chart\` for bar, line, and area charts, especially when paired with stats, tables, sections, or callouts. It uses the app's shadcn/Recharts chart system and should be the default for dashboards and analytical canvases.
 
-Use raw Chart.js in \`widget: { type: "code", code: ... }\` only when the request needs a chart type not covered by primitives, custom plugin behavior, imperative interaction, multiple synchronized canvases, or highly custom annotations. Do not use Chart.js for ordinary dashboards.
-
-For spec charts:
-- Include a specific title.
-- Use rounded display values.
-- Pair important charts with a small stat grid or callout when it improves scanning.
-- Use \`table\` nodes for supporting artifact data; use markdown tables only for small tables in a normal prose answer.
-- Keep series count small enough to read at chat width.
-
-## Raw Chart.js fallback
+Use raw Chart.js in \`widget: { type: "code", code: ... }\` only when you need a chart type not covered by primitives, custom plugin behavior, imperative interaction, multiple synchronized canvases, or highly custom annotations.
 
 \`\`\`html
 <div style="position: relative; width: 100%; height: 300px;">
@@ -823,7 +823,16 @@ Include the value/percentage in each label when the data is categorical (pie, do
 For dashboard layout, prefer spec widgets with stats above the chart and supporting details below it. Use raw Chart.js only after the primitive chart cannot represent the requested behavior.
 
 `,
-    sourceIds: ["preamble","modules","core-design-system","when-nothing-fits","first-class-primitives","ui-components","color-palette","charts-chart-js"] as const,
+    sourceIds: [
+      "preamble",
+      "modules",
+      "core-design-system",
+      "when-nothing-fits",
+      "first-class-primitives",
+      "ui-components",
+      "color-palette",
+      "charts-chart-js",
+    ] as const,
   },
   "charts-chart-js": {
     id: "charts-chart-js",
@@ -833,18 +842,9 @@ For dashboard layout, prefer spec widgets with stats above the chart and support
     path: "sections/visual-guidelines/charts_chart_js.md",
     content: `## Charts
 
-Use \`widget: { type: "spec", spec: ... }\` for normal charts and analytical canvases. Bar, line, and area charts belong in spec widgets, especially when paired with stats, tables, sections, progress rows, or callouts. The app renders these with native React/Recharts components and the shared UI theme.
+Prefer \`widget.type: "spec"\` \`chart\` for bar, line, and area charts, especially when paired with stats, tables, sections, or callouts. It uses the app's shadcn/Recharts chart system and should be the default for dashboards and analytical canvases.
 
-Use raw Chart.js in \`widget: { type: "code", code: ... }\` only when the request needs a chart type not covered by primitives, custom plugin behavior, imperative interaction, multiple synchronized canvases, or highly custom annotations. Do not use Chart.js for ordinary dashboards.
-
-For spec charts:
-- Include a specific title.
-- Use rounded display values.
-- Pair important charts with a small stat grid or callout when it improves scanning.
-- Use \`table\` nodes for supporting artifact data; use markdown tables only for small tables in a normal prose answer.
-- Keep series count small enough to read at chat width.
-
-## Raw Chart.js fallback
+Use raw Chart.js in \`widget: { type: "code", code: ... }\` only when you need a chart type not covered by primitives, custom plugin behavior, imperative interaction, multiple synchronized canvases, or highly custom annotations.
 
 \`\`\`html
 <div style="position: relative; width: 100%; height: 300px;">
@@ -990,7 +990,8 @@ Use the current theme as the source of truth, then redraw the canvas whenever th
   "concept-explainer": {
     id: "concept-explainer",
     title: "Concept Explainer",
-    description: "ELI5-style explanations with analogies and multiple examples. Explains concepts at different levels (ELI5, high school, undergraduate, graduate). Uses real-world analogies and visual metaphors. Use when explaining difficult concepts, clarifying confusing topics, or learning new subjects. Triggers - explain concept, ELI5, explain like I'm 5, what is, how does, why does, analogy for, simple explanation.",
+    description:
+      "ELI5-style explanations with analogies and multiple examples. Explains concepts at different levels (ELI5, high school, undergraduate, graduate). Uses real-world analogies and visual metaphors. Use when explaining difficult concepts, clarifying confusing topics, or learning new subjects. Triggers - explain concept, ELI5, explain like I'm 5, what is, how does, why does, analogy for, simple explanation.",
     section: "study-guidelines",
     path: "sections/study-guidelines/concept-explainer.md",
     content: `---
@@ -1222,7 +1223,7 @@ A global function that sends a message to chat as if the user typed it. Use it w
 \`<a href="https://...">\` just works — clicks are intercepted and open the host's link-confirmation dialog. Or call \`openLink(url)\` directly.
 `,
   },
-  "diagram": {
+  diagram: {
     id: "diagram",
     title: "Diagram",
     description: "Visual generation guidelines bundle for diagram.",
@@ -2069,7 +2070,16 @@ Note what's *not* here: no boxes labelled "multi-head attention", no arrows labe
 These are starting points, not ceilings. For the water heater: add a thermostat slider, animate the convection current, toggle heating vs standby. For the attention diagram: let the user click any token to become the query, scrub through layers, animate the weights settling. The goal is always to *show* how the thing works, not just *label* it.
 
 `,
-    sourceIds: ["preamble","modules","core-design-system","when-nothing-fits","color-palette","svg-setup","mathematical-svg-reference","diagram-types"] as const,
+    sourceIds: [
+      "preamble",
+      "modules",
+      "core-design-system",
+      "when-nothing-fits",
+      "color-palette",
+      "svg-setup",
+      "mathematical-svg-reference",
+      "diagram-types",
+    ] as const,
   },
   "diagram-types": {
     id: "diagram-types",
@@ -2580,7 +2590,8 @@ These are starting points, not ceilings. For the water heater: add a thermostat 
   "electricity-grid-flow-example": {
     id: "electricity-grid-flow-example",
     title: "Electricity Grid: Generation to Consumption",
-    description: "Reference example showing power generation to consumption flow layout.",
+    description:
+      "Reference example showing power generation to consumption flow layout.",
     section: "study-guidelines",
     path: "sections/study-guidelines/examples/electricity-grid-flow.md",
     content: `---
@@ -2606,7 +2617,8 @@ A left-to-right flow diagram showing electricity from generation sources through
   "first-class-primitives": {
     id: "first-class-primitives",
     title: "First-class widget primitives",
-    description: "Use structured first-class widget primitives for polished canvas artifacts rendered with the Avenire shadcn UI system.",
+    description:
+      "Use structured first-class widget primitives for polished canvas artifacts rendered with the Avenire shadcn UI system.",
     section: "visual-guidelines",
     path: "sections/visual-guidelines/first_class_primitives.md",
     content: `---
@@ -2738,20 +2750,21 @@ Tones: \`default\`, \`muted\`, \`info\`, \`success\`, \`warning\`, \`danger\`.
   },
   "flashcard-creator": {
     id: "flashcard-creator",
-    title: "Flashcard Creator",
-    description: "Create flashcards for spaced repetition learning using concise markdown front/back cards with optional notes and tags. Use when creating study flashcards, vocabulary cards, memorization aids, or spaced repetition materials from notes or topics. Triggers - create flashcards, make flashcards, spaced repetition, memory cards, study cards.",
+    title: "Mindset Set Card Creator",
+    description:
+      "Create cards for Mindset Sets used in spaced repetition learning using concise markdown front/back cards with optional notes and tags. Use when creating Mindset Sets, study flashcards, vocabulary cards, memorization aids, or spaced repetition materials from notes or topics. Triggers - create flashcards, make flashcards, create mindset cards, spaced repetition, memory cards, study cards.",
     section: "study-guidelines",
     path: "sections/study-guidelines/flashcard-generator.md",
     content: `---
 name: flashcard-creator
-description: Create flashcards for spaced repetition learning using concise markdown front/back cards with optional notes and tags. Use when creating study flashcards, vocabulary cards, memorization aids, or spaced repetition materials from notes or topics. Triggers - create flashcards, make flashcards, spaced repetition, memory cards, study cards.
+description: Create cards for Mindset Sets used in spaced repetition learning using concise markdown front/back cards with optional notes and tags. Use when creating Mindset Sets, study flashcards, vocabulary cards, memorization aids, or spaced repetition materials from notes or topics. Triggers - create flashcards, make flashcards, create mindset cards, spaced repetition, memory cards, study cards.
 ---
  
-# Flashcard Creator
+# Mindset Set Card Creator
  
-Generate effective flashcards optimized for spaced repetition learning.
+Generate effective cards for Mindset Sets optimized for spaced repetition learning.
 
-When operating inside chat, use the \`generate_flashcards\` tool to create the actual persisted deck. Use this skill to decide what cards to make and how to structure them, then hand the content off to the tool instead of emitting an ad hoc deck in plain text.
+When operating inside chat, use the \`generate_flashcards\` tool to create the actual persisted Mindset Set. Use this skill to decide what cards to make and how to structure them, then hand the content off to the tool instead of emitting an ad hoc set in plain text.
 
 The persisted tool format is:
 - \`frontMarkdown\`: the prompt or cue
@@ -2888,7 +2901,7 @@ Prophase → Metaphase → Anaphase → Telophase
  
 ## Step 5: Tool Output Format
 
-Return each flashcard as a structured card:
+Return each mindset card as a structured card:
  
 \`\`\`
 frontMarkdown: [Question or cue]
@@ -2920,10 +2933,10 @@ tags: biology, genetics
 When creating multiple cards from a topic:
  
 \`\`\`markdown
-# [Topic] Flashcards
+# [Topic] Mindset Cards
  
 **Total Cards:** [Number]
-**Deck Name:** [Subject]::[Topic]
+**Mindset Set Title:** [Subject]::[Topic]
 **Tags:** [tag1] [tag2]
  
 ---
@@ -2962,7 +2975,7 @@ When creating multiple cards from a topic:
 - [ ] Any equations use \`$...$\` or \`$$...$$\` formatting, never \`\`\`latex fences
 `,
   },
-  "interactive": {
+  interactive: {
     id: "interactive",
     title: "Interactive",
     description: "Visual generation guidelines bundle for interactive.",
@@ -3385,7 +3398,15 @@ Canvas widgets should not hardcode one palette and hope it survives theme change
 Use the current theme as the source of truth, then redraw the canvas whenever the theme changes. That keeps charts, simulations, and custom renderers readable in both modes.
 
 `,
-    sourceIds: ["preamble","modules","core-design-system","when-nothing-fits","first-class-primitives","ui-components","color-palette"] as const,
+    sourceIds: [
+      "preamble",
+      "modules",
+      "core-design-system",
+      "when-nothing-fits",
+      "first-class-primitives",
+      "ui-components",
+      "color-palette",
+    ] as const,
   },
   "mathematical-svg-reference": {
     id: "mathematical-svg-reference",
@@ -3444,7 +3465,7 @@ When the user asks for calculus, algebra, set theory, geometry, graph interpreta
 - If a diagram needs more than one paragraph of explanation, split the prose into chat text and keep the SVG visual.
 `,
   },
-  "mockup": {
+  mockup: {
     id: "mockup",
     title: "Mockup",
     description: "Visual generation guidelines bundle for mockup.",
@@ -3867,9 +3888,17 @@ Canvas widgets should not hardcode one palette and hope it survives theme change
 Use the current theme as the source of truth, then redraw the canvas whenever the theme changes. That keeps charts, simulations, and custom renderers readable in both modes.
 
 `,
-    sourceIds: ["preamble","modules","core-design-system","when-nothing-fits","first-class-primitives","ui-components","color-palette"] as const,
+    sourceIds: [
+      "preamble",
+      "modules",
+      "core-design-system",
+      "when-nothing-fits",
+      "first-class-primitives",
+      "ui-components",
+      "color-palette",
+    ] as const,
   },
-  "modules": {
+  modules: {
     id: "modules",
     title: "Modules",
     description: null,
@@ -4055,12 +4084,12 @@ Use this module for simulations where motion over time is the point: orbits, pen
 
   function updateTheme() {
     const style = getComputedStyle(document.documentElement);
-    colors.bg = style.getPropertyValue('--canvas-background').trim() || style.getPropertyValue('--background').trim() || '#ffffff';
-    colors.surface = style.getPropertyValue('--canvas-surface').trim() || style.getPropertyValue('--card').trim() || '#ffffff';
-    colors.text = style.getPropertyValue('--canvas-text').trim() || style.getPropertyValue('--foreground').trim() || '#37352f';
-    colors.muted = style.getPropertyValue('--canvas-muted').trim() || style.getPropertyValue('--muted-foreground').trim() || '#9b9a97';
-    colors.border = style.getPropertyValue('--canvas-border').trim() || style.getPropertyValue('--border').trim() || 'rgba(55, 53, 47, 0.09)';
-    colors.primary = style.getPropertyValue('--canvas-primary').trim() || style.getPropertyValue('--primary').trim() || '#abcfff';
+    colors.bg = style.getPropertyValue('--canvas-background').trim() || style.getPropertyValue('--background').trim() || '#fcfcfc';
+    colors.surface = style.getPropertyValue('--canvas-surface').trim() || style.getPropertyValue('--card').trim() || '#fcfcfc';
+    colors.text = style.getPropertyValue('--canvas-text').trim() || style.getPropertyValue('--foreground').trim() || '#141414f0';
+    colors.muted = style.getPropertyValue('--canvas-muted').trim() || style.getPropertyValue('--muted-foreground').trim() || '#1414148a';
+    colors.border = style.getPropertyValue('--canvas-border').trim() || style.getPropertyValue('--border').trim() || '#14141414';
+    colors.primary = style.getPropertyValue('--canvas-primary').trim() || style.getPropertyValue('--primary').trim() || '#abc4ff';
     colors.grid = style.getPropertyValue('--canvas-grid').trim() || 'rgba(0,0,0,0.08)';
   }
 
@@ -4123,7 +4152,7 @@ Use this module for simulations where motion over time is the point: orbits, pen
 - Do not use checkbox UI or KaTeX-dependent equation blocks in this module.
 `,
   },
-  "physics": {
+  physics: {
     id: "physics",
     title: "Physics",
     description: "Visual generation guidelines bundle for physics.",
@@ -4385,12 +4414,12 @@ Use this module for simulations where motion over time is the point: orbits, pen
 
   function updateTheme() {
     const style = getComputedStyle(document.documentElement);
-    colors.bg = style.getPropertyValue('--canvas-background').trim() || style.getPropertyValue('--background').trim() || '#ffffff';
-    colors.surface = style.getPropertyValue('--canvas-surface').trim() || style.getPropertyValue('--card').trim() || '#ffffff';
-    colors.text = style.getPropertyValue('--canvas-text').trim() || style.getPropertyValue('--foreground').trim() || '#37352f';
-    colors.muted = style.getPropertyValue('--canvas-muted').trim() || style.getPropertyValue('--muted-foreground').trim() || '#9b9a97';
-    colors.border = style.getPropertyValue('--canvas-border').trim() || style.getPropertyValue('--border').trim() || 'rgba(55, 53, 47, 0.09)';
-    colors.primary = style.getPropertyValue('--canvas-primary').trim() || style.getPropertyValue('--primary').trim() || '#abcfff';
+    colors.bg = style.getPropertyValue('--canvas-background').trim() || style.getPropertyValue('--background').trim() || '#fcfcfc';
+    colors.surface = style.getPropertyValue('--canvas-surface').trim() || style.getPropertyValue('--card').trim() || '#fcfcfc';
+    colors.text = style.getPropertyValue('--canvas-text').trim() || style.getPropertyValue('--foreground').trim() || '#141414f0';
+    colors.muted = style.getPropertyValue('--canvas-muted').trim() || style.getPropertyValue('--muted-foreground').trim() || '#1414148a';
+    colors.border = style.getPropertyValue('--canvas-border').trim() || style.getPropertyValue('--border').trim() || '#14141414';
+    colors.primary = style.getPropertyValue('--canvas-primary').trim() || style.getPropertyValue('--primary').trim() || '#abc4ff';
     colors.grid = style.getPropertyValue('--canvas-grid').trim() || 'rgba(0,0,0,0.08)';
   }
 
@@ -4453,15 +4482,21 @@ Use this module for simulations where motion over time is the point: orbits, pen
 - Do not use checkbox UI or KaTeX-dependent equation blocks in this module.
 
 `,
-    sourceIds: ["preamble","modules","core-design-system","when-nothing-fits","phys-sim"] as const,
+    sourceIds: [
+      "preamble",
+      "modules",
+      "core-design-system",
+      "when-nothing-fits",
+      "phys-sim",
+    ] as const,
   },
-  "preamble": {
+  preamble: {
     id: "preamble",
     title: "Imagine — Visual Creation Suite",
     description: null,
     section: "visual-guidelines",
     path: "sections/visual-guidelines/preamble.md",
-    content: `# Imagine — Visual Creation Suite`,
+    content: "# Imagine — Visual Creation Suite",
   },
   "quiz-creator": {
     id: "quiz-creator",
@@ -4648,7 +4683,8 @@ A structural example for showing layered device anatomy, internal modules, and h
   "sn2-reaction-mechanism-example": {
     id: "sn2-reaction-mechanism-example",
     title: "SN2 Reaction Mechanism",
-    description: "Reference example showing an SN2 chemistry mechanism diagram.",
+    description:
+      "Reference example showing an SN2 chemistry mechanism diagram.",
     section: "study-guidelines",
     path: "sections/study-guidelines/examples/sn2-reaction-mechanism.md",
     content: `---
@@ -4674,7 +4710,8 @@ A chemistry diagram showing the bimolecular nucleophilic substitution mechanism 
   "study-notes-creator": {
     id: "study-notes-creator",
     title: "Study Notes Creator",
-    description: "Create organized, visual study notes with folder structures, diagrams, and example-based learning from source materials (PDFs, lecture notes, documentation). Use when creating structured learning materials, exam preparation notes, or educational documentation. Triggers - organize study notes, create visual learning materials, generate notes with diagrams, exam prep notes, example-based learning.",
+    description:
+      "Create organized, visual study notes with folder structures, diagrams, and example-based learning from source materials (PDFs, lecture notes, documentation). Use when creating structured learning materials, exam preparation notes, or educational documentation. Triggers - organize study notes, create visual learning materials, generate notes with diagrams, exam prep notes, example-based learning.",
     section: "study-guidelines",
     path: "sections/study-guidelines/study-notes-creator.md",
     content: `---
@@ -4999,7 +5036,8 @@ Brief description.
   "summary-generator": {
     id: "summary-generator",
     title: "Summary Generator",
-    description: "Condense lengthy materials into digestible summaries. Creates bullet-point summaries, Cornell notes, and cheat sheets with key terms highlighted. Use when summarizing textbooks, lectures, articles, or any study material. Triggers - summarize, create summary, condense notes, key points, cheat sheet, quick summary, TL;DR.",
+    description:
+      "Condense lengthy materials into digestible summaries. Creates bullet-point summaries, Cornell notes, and cheat sheets with key terms highlighted. Use when summarizing textbooks, lectures, articles, or any study material. Triggers - summarize, create summary, condense notes, key points, cheat sheet, quick summary, TL;DR.",
     section: "study-guidelines",
     path: "sections/study-guidelines/summary-generator.md",
     content: `---
@@ -5379,9 +5417,26 @@ Pick the closest use case below and adapt. When nothing fits cleanly:
 
 export type SkillId = keyof typeof SKILL_MAP;
 
-export const AVAILABLE_STUDY_SKILLS = ["auto-llm-example","concept-explainer","electricity-grid-flow-example","flashcard-creator","quiz-creator","smartphone-layer-anatomy-example","sn2-reaction-mechanism-example","study-notes-creator","summary-generator"] as const;
+export const AVAILABLE_STUDY_SKILLS = [
+  "auto-llm-example",
+  "concept-explainer",
+  "electricity-grid-flow-example",
+  "flashcard-creator",
+  "quiz-creator",
+  "smartphone-layer-anatomy-example",
+  "sn2-reaction-mechanism-example",
+  "study-notes-creator",
+  "summary-generator",
+] as const;
 
-export const AVAILABLE_VISUAL_SKILLS = ["art","chart","diagram","interactive","mockup","physics"] as const;
+export const AVAILABLE_VISUAL_SKILLS = [
+  "art",
+  "chart",
+  "diagram",
+  "interactive",
+  "mockup",
+  "physics",
+] as const;
 
 export const AVAILABLE_SKILLS = Object.keys(SKILL_MAP) as SkillId[];
 
@@ -5394,7 +5449,9 @@ export function loadSkills(skillIds: string[]) {
   let content = "";
 
   for (const skillId of skillIds) {
-    if (seen.has(skillId)) continue;
+    if (seen.has(skillId)) {
+      continue;
+    }
     seen.add(skillId);
 
     const skill = getSkill(skillId);
@@ -5402,7 +5459,9 @@ export function loadSkills(skillIds: string[]) {
       throw new Error(`Unknown skill: ${skillId}`);
     }
 
-    if (content) content += "\n\n";
+    if (content) {
+      content += "\n\n";
+    }
     content += skill.content.trimEnd();
   }
 

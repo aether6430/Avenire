@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { Suspense, useEffect } from "react";
 import { DashboardLayout as DashboardShellLayout } from "@/components/dashboard/shell";
 import {
@@ -9,7 +10,6 @@ import {
 } from "@/components/dashboard/workspace-bootstrap";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
 import { AppQueryProvider } from "@/components/query-provider";
-import { ThemeProvider } from "@/components/theme-provider";
 
 function WorkspaceLayoutFrame({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -55,14 +55,20 @@ export function WorkspaceLayoutShell({
   children: React.ReactNode;
 }) {
   return (
-    <ThemeProvider>
-      <main className="h-svh overflow-hidden bg-background text-foreground">
+    <main className="h-svh overflow-hidden bg-background text-foreground">
+      <NextThemesProvider
+        attribute="class"
+        defaultTheme="light"
+        disableTransitionOnChange={false}
+        enableSystem={false}
+        storageKey="avenire-theme"
+      >
         <AppQueryProvider>
           <WorkspaceBootstrapProvider>
             <WorkspaceLayoutFrame>{children}</WorkspaceLayoutFrame>
           </WorkspaceBootstrapProvider>
         </AppQueryProvider>
-      </main>
-    </ThemeProvider>
+      </NextThemesProvider>
+    </main>
   );
 }

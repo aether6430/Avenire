@@ -210,13 +210,31 @@ export const widgetSpecSchema = z.object({
   description: z.string().optional(),
 });
 
-const widgetPayloadSchema = z.object({
-  code: z.string().min(1).optional(),
-  height: z.number().optional(),
-  spec: z.any().optional(),
-  type: z.enum(["spec", "code"]),
-  width: z.number().optional(),
-});
+const widgetPayloadSchema = z
+  .object({
+    code: z.string().min(1).optional(),
+    height: z.number().optional(),
+    spec: widgetSpecSchema.optional(),
+    type: z.enum(["spec", "code"]),
+    width: z.number().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.type === "code" && !value.code) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Provide widget.code when widget.type is code.",
+        path: ["code"],
+      });
+    }
+
+    if (value.type === "spec" && !value.spec) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Provide widget.spec when widget.type is spec.",
+        path: ["spec"],
+      });
+    }
+  });
 
 export type WidgetSpecNode =
   | {
@@ -423,9 +441,7 @@ export const chatToolSchemas = {
     input: z.object({
       skills: z
         .array(
-          z.enum(
-            AVAILABLE_STUDY_SKILLS as unknown as [string, ...string[]]
-          )
+          z.enum(AVAILABLE_STUDY_SKILLS as unknown as [string, ...string[]])
         )
         .min(1),
     }),
@@ -438,9 +454,7 @@ export const chatToolSchemas = {
     input: z.object({
       modules: z
         .array(
-          z.enum(
-            AVAILABLE_VISUAL_SKILLS as unknown as [string, ...string[]]
-          )
+          z.enum(AVAILABLE_VISUAL_SKILLS as unknown as [string, ...string[]])
         )
         .min(1),
     }),

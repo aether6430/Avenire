@@ -1,7 +1,7 @@
 "use client";
 
+import type { ChatSummary } from "@avenire/database";
 import type { Route } from "next";
-import type { ChatSummary } from "@/lib/chat-data";
 import {
   writeCachedChats,
   writeCachedFlashcardSets,
@@ -148,7 +148,7 @@ export async function warmWorkspaceSurface(
 export function warmDashboardRoutes(router: {
   prefetch: (href: Route) => void;
 }) {
-  router.prefetch("/workspace/chats" as Route);
+  router.prefetch("/workspace/chats/new" as Route);
   router.prefetch("/workspace/flashcards" as Route);
   router.prefetch("/workspace/files" as Route);
 }

@@ -5,13 +5,13 @@ import { buildPageMetadata } from "@/lib/page-metadata";
 
 export const metadata = buildPageMetadata({
   noIndex: true,
-  title: "Chats",
+  title: "Methods",
 });
 
 export default function WorkspaceChatsPage() {
   return (
     <Suspense
-      fallback={<WorkspaceRoutePlaceholder label="Loading method..." />}
+      fallback={<WorkspaceRoutePlaceholder label="Loading Method..." />}
     >
       <WorkspaceChatNewPageClient />
     </Suspense>

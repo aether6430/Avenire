@@ -1,85 +1,185 @@
 <p align="center">
-<img height=80 src="https://github.com/thedamod/Avenire/blob/main/apps/web/public/branding/avenire-logo-full.png?raw=true">
+  <img height="80" src="https://github.com/thedamod/Avenire/blob/main/apps/web/public/branding/avenire-logo-full.png?raw=true" alt="Avenire logo">
 </p>
 
-# Avenire: Illuminate Your Learning & Research Journey
+# Avenire
 
-Welcome to Avenire, a project showcasing the architecture and features of a platform designed to revolutionize how one might learn, conduct research, and create compelling educational content. Its mission was to empower users—students, educators, researchers, or lifelong learners—with intelligent, AI-driven tools to transform complex information into profound understanding. This repository serves as a look into Avenire's design and implementation.
+Avenire is an AI learning workspace for turning source material into notes,
+retrieval context, Mindset Sets, tasks, and guided chat. The repository is a
+working monorepo, not a demo snapshot: the web app, backend worker, shared AI
+packages, ingestion pipeline, and deployment docs all live here.
 
-Avenire was conceived around the synergy of human intellect and artificial intelligence, aiming for an intuitive, supportive, and powerful platform experience. This codebase reflects that design philosophy.
+## What the product covers
 
-## What's Inside This Monorepo?
+- methods and guided chat with retrieval over workspace material
+- notes and rich document editing
+- files, uploads, ingestion, and search
+- Mindset Sets, misconceptions, and study workflows
+- tasks, calendar, and workspace coordination
+- public marketing and legal pages
 
-This Avenire project is organized as a **Turborepo** monorepo. This structure was chosen to manage its applications and shared packages efficiently, ensuring consistency and accelerating development. Here's an overview of its components:
+## Product language
 
-### Applications (`apps/`)
+The repository uses a few product terms that matter when you are navigating the
+workspace or changing copy:
 
-These are demonstrative applications showcasing how the Avenire vision could be realized:
+- `Methods` are persistent guided chat threads tied to workspace context.
+- `Mindset Sets` are the study/review sets generated from material,
+  misconceptions, or manual editing.
+- `Files` is the document and asset workspace, not a generic admin surface.
+- `Apollo` is the branded workspace assistant that tutors, explains, and works
+  across those surfaces.
 
--   **`web`**: The `web` application, built with Next.js, demonstrates how a user might interact with Apollo (the platform's AI assistant), engage with courses, and manage a dashboard. It showcases features like an advanced chat interface, user authentication, and file uploading, illustrating a suite of tools designed for deep learning and research.
-    *   [Learn more about the design of `apps/web`](apps/web/README.md)
+When docs or UI copy talk about a generic `chat`, it usually describes the
+interaction style. When the product refers to the saved workspace surface, the
+preferred user-facing label is `Method` / `Methods`.
 
--   **`emails`**: This application manages email templates using React Email. It demonstrates how communications—from welcome messages to important notifications—could be handled in a clear, consistent, and engaging manner.
-    *   [Learn more about the design of `apps/emails`](apps/emails/README.md)
+## Monorepo map
 
-### Core Packages (`packages/`)
+### Apps
 
-These packages represent the foundational building blocks and shared logic designed for the Avenire platform:
+- `apps/web` — main Next.js product surface, authenticated workspace UI, public
+  site, and most API routes
+- `apps/backend` — HTTP backend runtime plus ingestion worker entrypoints
+- `apps/emails` — React Email templates
+- `apps/extension` — browser extension surface
 
--   **`@avenire/ai`**: This package was the engine for **Apollo**, Avenire's primary AI assistant. It's designed to manage various language models, employ sophisticated prompting strategies, and equip an AI with advanced tools like deep research capabilities and automated course generation.
-    *   [Dive into the architecture of `@avenire/ai`](packages/ai/README.md)
+### Shared packages
 
--   **`@avenire/auth`**: Designed to provide robust and flexible authentication. It demonstrates support for email/password, social logins (Google, GitHub), and modern passkey (WebAuthn) authentication, showing how user accounts could be secured and made accessible.
-    *   [Explore the design of `@avenire/auth`](packages/auth/README.md)
+- `packages/ai` — prompts, tool wiring, study skills, and model orchestration
+- `packages/auth` — authentication and session flows
+- `packages/database` — schema and database access
+- `packages/ingestion` — ingest, chunking, embeddings, retrieval helpers, and
+  queue logic
+- `packages/storage` — storage/upload helpers
+- `packages/ui` — shared UI primitives
 
--   **`@avenire/database`**: The conceptual data backbone, designed with Drizzle ORM and PostgreSQL. It shows how user information, chat histories, course content, and application settings could be securely stored, ensuring data integrity and fast access.
-    *   [Understand the structure of `@avenire/database`](packages/database/README.md)
+## Getting started
 
--   **`@avenire/emailer`**: This package handles the reliable delivery of transactional emails. It illustrates how account verifications and notifications could be managed.
-    *   [Discover the design of `@avenire/emailer`](packages/emailer/README.md)
+### Prerequisites
 
--   **`@avenire/storage`**: Manages file uploads, powered by UploadThing. This demonstrates how users could enrich learning materials, research documents, and collaborative efforts with various media types.
-    *   [Check out the architecture of `@avenire/storage`](packages/storage/README.md)
+- `pnpm`
+- `bun` for the repo's prebuild and local Next.js workflow
 
--   **`@avenire/ui`**: The source of Avenire's consistent user interface design. Built using the Shadcn UI methodology, it provides a comprehensive set of accessible and customizable components, illustrating how Avenire aimed for a pleasant user experience.
-    *   [See the component design of `@avenire/ui`](packages/ui/README.md)
+### Local setup
 
--   **`@avenire/typescript-config`**: Contains shared TypeScript configurations, demonstrating a commitment to code consistency and quality across the monorepo.
+1. Install dependencies:
 
-## Exploring the Architecture
+   ```bash
+   pnpm install
+   ```
 
-This repository is primarily intended for those interested in understanding the architecture and implementation details of a complex, AI-driven web application. You are encouraged to:
+2. Create local env config:
 
--   **Browse the code:** Explore how different features are implemented across the applications and packages.
--   **Study the interactions:** See how various components and services are designed to work together.
--   **Refer to package READMEs:** Each package has its own README detailing its specific role, key modules, and design choices. These are valuable resources for a deeper architectural understanding.
+   ```bash
+   cp .env.example .env.local
+   ```
 
-While the code is available for review, please note the licensing terms below. Direct setup and execution of the project may require significant configuration of environment variables and external service integrations, which are not detailed here as the project is for demonstrative purposes.
+   The repo-root `.env.local` file is the default local config for the product.
+   `apps/backend/.env.local` is only needed for backend-specific overrides.
 
-## Key Technologies Used
+3. Start the workspace:
 
-Avenire was designed and built with a modern, powerful, and scalable technology stack:
+   ```bash
+   pnpm dev
+   ```
 
--   **TypeScript**: For robust static typing and improved code quality.
--   **Next.js (App Router)**: For our primary web application, enabling server-side rendering, advanced routing, and a great developer experience.
--   **Turborepo**: For efficient monorepo management, build caching, and task orchestration.
--   **React**: For building dynamic and interactive user interfaces.
--   **Drizzle ORM & PostgreSQL**: For our database layer, providing type-safe database access.
--   **AI / Machine Learning**:
-    -   Vercel AI SDK: For integrating and managing AI model interactions.
-    -   Various model providers (Google Gemini/Gemma, OpenRouter, Groq) to power Apollo.
--   **Tailwind CSS**: For utility-first CSS styling, enabling rapid UI development.
--   **Shadcn UI**: Methodology for building our component library, based on Radix UI primitives.
--   **Resend**: For sending transactional emails.
--   **UploadThing**: For handling file uploads.
--   **pnpm**: As the package manager used across this monorepo.
+That runs the app-level `dev` scripts through Turbo. The main product surface is
+`apps/web`, whose default dev server runs on port `3000`.
+
+### Local integrity check
+
+On macOS, some repos can end up with `dataless` placeholder files instead of
+fully materialized local content. When that happens, normal file reads, type
+checks, or lint passes can hang in ways that look like tool bugs.
+
+Run:
+
+```bash
+pnpm doctor:dataless
+```
+
+The default output now shows a grouped summary plus a small sample path list.
+If you want to attempt a bounded local warm-up of placeholder files, run:
+
+```bash
+pnpm doctor:dataless:materialize
+```
+
+If it reports placeholder files, treat that as a local workspace integrity
+problem first and materialize the files before trusting other verifier results.
+The root `pnpm lint`, `pnpm check-types`, `pnpm test`, `pnpm test:budget`,
+`pnpm test:coverage:repo`, `pnpm build`, and `pnpm dev` commands now fail fast
+on that condition instead of drifting into misleading verifier hangs.
+
+## Commands that matter
+
+### Repo-wide
+
+- `pnpm dev`
+- `pnpm build`
+- `pnpm test`
+- `pnpm test:budget`
+- `pnpm test:coverage:repo`
+- `pnpm doctor:dataless`
+- `pnpm check-types`
+- `pnpm lint`
+- `pnpm db:generate`
+- `pnpm db:migrate`
+
+### Web app
+
+- `pnpm --filter @avenire/web dev`
+- `pnpm --filter @avenire/web test`
+- `pnpm --filter @avenire/web test:coverage`
+- `pnpm --filter @avenire/web check-types`
+
+### Coverage verifiers
+
+- `pnpm --filter @avenire/web test:coverage` — direct whole-app V8 coverage for
+  the web product surface
+- `pnpm test:coverage:repo` — repo-level conservative lower-bound coverage
+  report; runs direct coverage for the tested packages and counts the remaining
+  packages as `0` covered in the aggregate
+- `pnpm test:budget` — repo-wide and per-package source/test LOC ceiling check
+
+### What the gates mean
+
+- `pnpm build` — runs the repo build graph, including the production `@avenire/web`
+  build and package-level build gates
+- `pnpm check-types` — runs the repo-wide type gate across the active packages
+- `pnpm test` — runs the retained runtime, route, model, and UI suites
+- `pnpm test:budget` — enforces the test-volume ceiling both repo-wide and per
+  package
+- `pnpm test:coverage:repo` — enforces the conservative repo-level coverage
+  floor using direct V8 coverage where it exists and `0` covered LOC elsewhere
+
+### Backend
+
+- `pnpm --filter @avenire/backend dev`
+- `pnpm --filter @avenire/backend dev:ingestion`
+- `pnpm --filter @avenire/backend start`
+- `pnpm --filter @avenire/backend start:ingestion`
+
+## Where to read next
+
+- [Architecture](ARCHITECTURE.md) — system-level map of storage, ingestion,
+  retrieval, chat, and runtime layers
+- [Docs Index](docs/README.md) — navigation for deployment and operational docs
+- [Environment guide](docs/environment.md) — local env loading and variable layout
+- [Local workspace integrity](docs/local-workspace-integrity.md) — how to detect and fix macOS `dataless` placeholder files before trusting verifier hangs
+- [Migration guide](docs/migrations.md) — database migration commands and history
+- [Web app guide](apps/web/README.md) — layout of the Next.js product surface
+- [Railway deployment](docs/railway.md) — production deployment notes
+
+## Repository status
+
+This repo is actively being tightened into a more coherent product foundation.
+The recent work has focused on reliability, route coverage, structural
+ownership, and public-facing coherence. Public repository docs should point to
+source, tests, and operating guides rather than local operator artifacts.
 
 ## License
 
-© 2024 The Avenire Project Developers. All Rights Reserved.
-
-The Avenire project source code is made available for educational and demonstrative purposes. Please see the [LICENSE](LICENSE) file for detailed terms and conditions regarding its use.
-
----
-
-Thank you for your interest in Avenire. We're thrilled to have you join us on this journey to reshape the future of learning and research!
+No standalone `LICENSE` file is currently included in this repository. Until a
+license is added, treat the code as all rights reserved.

@@ -2,8 +2,9 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
+import { parseDashboardWorkspaceInvalidationPayload } from "@/components/dashboard/dashboard-sidebar-chat-events-runtime";
 
-type WorkspaceInvalidationKind = "chat" | "files";
+type WorkspaceInvalidationKind = "chat" | "files" | "flashcards";
 
 interface WorkspaceInvalidationPayload {
   action?: string | null;
@@ -43,7 +44,8 @@ export function WorkspaceRealtimeBridge({
     const realtimeRoute =
       pathname === "/workspace" ||
       pathname.startsWith("/workspace/chats") ||
-      pathname.startsWith("/workspace/files");
+      pathname.startsWith("/workspace/files") ||
+      pathname.startsWith("/workspace/flashcards");
 
     if (!(workspaceUuid && realtimeRoute)) {
       return;
@@ -101,28 +103,30 @@ export function WorkspaceRealtimeBridge({
             router.refresh();
           }
 
+          // Mindset screens already handle this via client-side invalidation.
+          // Avoid forcing an RSC refresh on every review mutation, which causes
+          // duplicate mindset-set fetches and a full remount of the study UI.
         };
 
         const parsePayload = (event: Event) => {
-          let payload: WorkspaceInvalidationPayload | null = null;
-          if (event instanceof MessageEvent && typeof event.data === "string") {
-            try {
-              payload = JSON.parse(event.data) as WorkspaceInvalidationPayload;
-            } catch {
-              payload = null;
-            }
+          if (!(event instanceof MessageEvent)) {
+            return null;
           }
 
-          return payload;
+          return parseDashboardWorkspaceInvalidationPayload(
+            event.data
+          ) as WorkspaceInvalidationPayload | null;
         };
 
         eventSource.addEventListener("files.invalidate", (event) => {
-          const payload = parsePayload(event);
-          handleInvalidate("files", payload);
+          handleInvalidate("files", parsePayload(event));
         });
         eventSource.addEventListener("chat.invalidate", (event) => {
           handleInvalidate("chat", parsePayload(event));
         });
+        eventSource.addEventListener("flashcards.invalidate", () =>
+          handleInvalidate("flashcards")
+        );
       } catch {
         scheduleReconnect();
       }

@@ -8,8 +8,8 @@ import {
   ArrowCounterClockwise as RefreshCcw,
 } from "@phosphor-icons/react";
 import type { Route } from "next";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { usePaneRouter } from "@/lib/workspace-panes";
 
 function extractText(message: UIMessage) {
   return message.parts
@@ -30,7 +30,7 @@ export function ChatActions({
   message: UIMessage;
   onRegenerate?: (messageId: string) => void;
 }) {
-  const router = useRouter();
+  const router = usePaneRouter();
 
   const copyMessage = async () => {
     const text = extractText(message);
@@ -60,12 +60,12 @@ export function ChatActions({
     }
 
     router.push(`/workspace/chats/${data.chat.slug}` as Route);
-    router.refresh();
   };
 
   return (
     <div className="mt-2 flex items-center gap-2">
       <Button
+        aria-label="Copy message"
         className="h-9 w-9"
         onClick={copyMessage}
         size="icon"
@@ -75,6 +75,7 @@ export function ChatActions({
         <Copy className="size-4" />
       </Button>
       <Button
+        aria-label="Branch method"
         className="h-9 w-9"
         onClick={branchChat}
         size="icon"
@@ -85,6 +86,7 @@ export function ChatActions({
       </Button>
       {onRegenerate && message.role === "assistant" && (
         <Button
+          aria-label="Regenerate response"
           className="h-9 w-9"
           onClick={() => {
             onRegenerate(message.id);

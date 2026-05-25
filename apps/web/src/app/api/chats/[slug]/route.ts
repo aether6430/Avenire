@@ -1,16 +1,19 @@
 import { auth } from "@avenire/auth/server";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { handleChatSlugGet } from "./chat-slug-route-get";
 import {
-  branchChatForUser,
-  deleteChatForUser,
-  getChatBySlugForUser,
-  getMessagesByChatSlugForUser,
-  isChatOwnerForUser,
-  updateChatForUser,
-} from "@/lib/chat-data";
-import { invalidateChatReadCaches } from "@/lib/domain-cache";
-import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
+  CHAT_SLUG_BRANCH_ERROR,
+  CHAT_SLUG_DELETE_ERROR,
+  CHAT_SLUG_LOAD_ERROR,
+  CHAT_SLUG_UPDATE_ERROR,
+  resolveChatSlugRouteError,
+} from "./chat-slug-route-model";
+import {
+  handleChatSlugBranch,
+  handleChatSlugDelete,
+  handleChatSlugPatch,
+} from "./chat-slug-route-mutations";
 
 async function getSessionUser() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -21,189 +24,101 @@ export async function GET(
   _request: Request,
   context: { params: Promise<{ slug: string }> }
 ) {
-  const user = await getSessionUser();
+  try {
+    const user = await getSessionUser();
 
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { slug } = await context.params;
+    return await handleChatSlugGet({
+      slug,
+      userId: user.id,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: resolveChatSlugRouteError(error, CHAT_SLUG_LOAD_ERROR) },
+      { status: 500 }
+    );
   }
-
-  const { slug } = await context.params;
-  const chat = await getChatBySlugForUser(user.id, slug);
-
-  if (!chat) {
-    return NextResponse.json({ error: "Chat not found" }, { status: 404 });
-  }
-
-  const messages = (await getMessagesByChatSlugForUser(user.id, slug)) ?? [];
-
-  return NextResponse.json({ chat, messages });
 }
 
 export async function PATCH(
   request: Request,
   context: { params: Promise<{ slug: string }> }
 ) {
-  const user = await getSessionUser();
+  try {
+    const user = await getSessionUser();
 
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const { slug } = await context.params;
-  const chat = await getChatBySlugForUser(user.id, slug);
-  const isOwner = await isChatOwnerForUser(user.id, slug, chat?.workspaceId);
-  if (!isOwner) {
-    return NextResponse.json({ error: "Read-only chat" }, { status: 403 });
-  }
-  const body = (await request.json().catch(() => ({}))) as {
-    title?: string;
-    pinned?: boolean;
-    icon?: string | null;
-  };
-
-  const updated = await updateChatForUser(
-    user.id,
-    slug,
-    {
-      title: body.title,
-      pinned: body.pinned,
-      icon: body.icon,
-    },
-    chat?.workspaceId
-  );
-
-  if (!updated) {
-    return NextResponse.json({ error: "Chat not found" }, { status: 404 });
-  }
-
-  if (updated.workspaceId) {
-    await invalidateChatReadCaches(updated.workspaceId);
-
-    const chatEventPayload = {
-      action: "updated",
-      chat: updated,
-      chatSlug: updated.slug,
-      workspaceUuid: updated.workspaceId,
+    const { slug } = await context.params;
+    const body = (await request.json().catch(() => ({}))) as {
+      title?: string;
+      pinned?: boolean;
+      icon?: string | null;
     };
 
-    void Promise.all([
-      publishWorkspaceStreamEvent({
-        workspaceUuid: updated.workspaceId,
-        type: "chat.updated",
-        payload: chatEventPayload,
-      }),
-      publishWorkspaceStreamEvent({
-        workspaceUuid: updated.workspaceId,
-        type: "chat.invalidate",
-        payload: chatEventPayload,
-      }),
-    ]);
+    return await handleChatSlugPatch({
+      body,
+      slug,
+      userId: user.id,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: resolveChatSlugRouteError(error, CHAT_SLUG_UPDATE_ERROR) },
+      { status: 500 }
+    );
   }
-
-  return NextResponse.json({ chat: updated });
 }
 
 export async function POST(
   _request: Request,
   context: { params: Promise<{ slug: string }> }
 ) {
-  const user = await getSessionUser();
+  try {
+    const user = await getSessionUser();
 
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { slug } = await context.params;
+    return await handleChatSlugBranch({
+      slug,
+      userId: user.id,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: resolveChatSlugRouteError(error, CHAT_SLUG_BRANCH_ERROR) },
+      { status: 500 }
+    );
   }
-
-  const { slug } = await context.params;
-  const existing = await getChatBySlugForUser(user.id, slug);
-  const isOwner = await isChatOwnerForUser(
-    user.id,
-    slug,
-    existing?.workspaceId
-  );
-  if (!isOwner) {
-    return NextResponse.json({ error: "Read-only chat" }, { status: 403 });
-  }
-  const chat = await branchChatForUser(user.id, slug, existing?.workspaceId);
-
-  if (!chat) {
-    return NextResponse.json({ error: "Chat not found" }, { status: 404 });
-  }
-
-  if (chat.workspaceId) {
-    await invalidateChatReadCaches(chat.workspaceId);
-
-    const chatEventPayload = {
-      action: "created",
-      chat,
-      chatSlug: chat.slug,
-      workspaceUuid: chat.workspaceId,
-    };
-
-    void Promise.all([
-      publishWorkspaceStreamEvent({
-        workspaceUuid: chat.workspaceId,
-        type: "chat.created",
-        payload: chatEventPayload,
-      }),
-      publishWorkspaceStreamEvent({
-        workspaceUuid: chat.workspaceId,
-        type: "chat.invalidate",
-        payload: chatEventPayload,
-      }),
-    ]);
-  }
-
-  return NextResponse.json({ chat }, { status: 201 });
 }
 
 export async function DELETE(
   _request: Request,
   context: { params: Promise<{ slug: string }> }
 ) {
-  const user = await getSessionUser();
+  try {
+    const user = await getSessionUser();
 
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { slug } = await context.params;
+    return await handleChatSlugDelete({
+      slug,
+      userId: user.id,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: resolveChatSlugRouteError(error, CHAT_SLUG_DELETE_ERROR) },
+      { status: 500 }
+    );
   }
-
-  const { slug } = await context.params;
-  const existing = await getChatBySlugForUser(user.id, slug);
-  const isOwner = await isChatOwnerForUser(
-    user.id,
-    slug,
-    existing?.workspaceId
-  );
-  if (!isOwner) {
-    return NextResponse.json({ error: "Read-only chat" }, { status: 403 });
-  }
-  const deleted = await deleteChatForUser(user.id, slug, existing?.workspaceId);
-
-  if (!deleted) {
-    return NextResponse.json({ error: "Chat not found" }, { status: 404 });
-  }
-
-  if (existing?.workspaceId) {
-    await invalidateChatReadCaches(existing.workspaceId);
-
-    const chatEventPayload = {
-      action: "deleted",
-      chatSlug: existing.slug,
-      workspaceUuid: existing.workspaceId,
-    };
-
-    void Promise.all([
-      publishWorkspaceStreamEvent({
-        workspaceUuid: existing.workspaceId,
-        type: "chat.deleted",
-        payload: chatEventPayload,
-      }),
-      publishWorkspaceStreamEvent({
-        workspaceUuid: existing.workspaceId,
-        type: "chat.invalidate",
-        payload: chatEventPayload,
-      }),
-    ]);
-  }
-
-  return NextResponse.json({ ok: true });
 }

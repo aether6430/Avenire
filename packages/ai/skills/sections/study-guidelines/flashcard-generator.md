@@ -1,13 +1,13 @@
 ---
 name: flashcard-creator
-description: Create flashcards for spaced repetition learning using concise markdown front/back cards with optional notes and tags. Use when creating study flashcards, vocabulary cards, memorization aids, or spaced repetition materials from notes or topics. Triggers - create flashcards, make flashcards, spaced repetition, memory cards, study cards.
+description: Create cards for Mindset Sets used in spaced repetition learning using concise markdown front/back cards with optional notes and tags. Use when creating Mindset Sets, study flashcards, vocabulary cards, memorization aids, or spaced repetition materials from notes or topics. Triggers - create flashcards, make flashcards, create mindset cards, spaced repetition, memory cards, study cards.
 ---
  
-# Flashcard Creator
+# Mindset Set Card Creator
  
-Generate effective flashcards optimized for spaced repetition learning.
+Generate effective cards for Mindset Sets optimized for spaced repetition learning.
 
-When operating inside chat, use the `generate_flashcards` tool to create the actual persisted deck. Use this skill to decide what cards to make and how to structure them, then hand the content off to the tool instead of emitting an ad hoc deck in plain text.
+When operating inside chat, use the `generate_flashcards` tool to create the actual persisted Mindset Set. Use this skill to decide what cards to make and how to structure them, then hand the content off to the tool instead of emitting an ad hoc set in plain text.
 
 The persisted tool format is:
 - `frontMarkdown`: the prompt or cue
@@ -144,7 +144,7 @@ Prophase → Metaphase → Anaphase → Telophase
  
 ## Step 5: Tool Output Format
 
-Return each flashcard as a structured card:
+Return each mindset card as a structured card:
  
 ```
 frontMarkdown: [Question or cue]
@@ -176,10 +176,10 @@ tags: biology, genetics
 When creating multiple cards from a topic:
  
 ```markdown
-# [Topic] Flashcards
+# [Topic] Mindset Cards
  
 **Total Cards:** [Number]
-**Deck Name:** [Subject]::[Topic]
+**Mindset Set Title:** [Subject]::[Topic]
 **Tags:** [tag1] [tag2]
  
 ---

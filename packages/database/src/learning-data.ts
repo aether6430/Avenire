@@ -1,6 +1,11 @@
-import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { logInfo } from "@avenire/observability";
+import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { db } from "./client";
+import type { FlashcardRating } from "./flashcard-fsrs";
+import {
+  canonicalizeLearningTaxonomy,
+  canonicalizeSubjectLabel,
+} from "./learning-taxonomy";
 import {
   conceptMastery,
   flashcardCard,
@@ -10,8 +15,6 @@ import {
   misconception,
   misconceptionEvidence,
 } from "./schema";
-import type { FlashcardRating } from "./flashcard-fsrs";
-import { canonicalizeLearningTaxonomy, canonicalizeSubjectLabel } from "./learning-taxonomy";
 
 export type MisconceptionSource = "manual" | "review" | "tool" | "auto";
 export type MisconceptionStatus =
@@ -25,15 +28,21 @@ export type MisconceptionEvidenceClass =
   | "session"
   | "tool";
 
+export interface MisconceptionBlocks {
+  correctedMentalModel?: string;
+  explanation?: string;
+  summary?: string;
+}
+
 export interface MisconceptionRecord {
   active: boolean;
   blocks: MisconceptionBlocks | null;
-  decayedAt: string | null;
-  confidence: number;
   concept: string;
+  confidence: number;
   createdAt: string;
-  evidenceCount: number;
+  decayedAt: string | null;
   evidenceClass: string;
+  evidenceCount: number;
   evidenceRootId: string | null;
   evidenceSpan: unknown | null;
   firstSeenAt: string;
@@ -44,8 +53,8 @@ export interface MisconceptionRecord {
   resolvedAt: string | null;
   source: string;
   sourceSessionId: string | null;
-  subject: string;
   status: MisconceptionStatus;
+  subject: string;
   topic: string;
   updatedAt: string;
   userId: string;
@@ -87,20 +96,20 @@ export interface ConceptMasterySubjectRecord {
 
 export interface UpsertMisconceptionInput {
   blocks?: MisconceptionBlocks | null;
-  confidence?: number;
   concept: string;
+  confidence?: number;
   evidenceClass?: MisconceptionEvidenceClass | string;
   evidenceRootId?: string | null;
   evidenceSpan?: Record<string, unknown> | null;
+  observedAt?: Date;
   reason: string;
   source?: MisconceptionSource | string;
   sourceSessionId?: string | null;
+  status?: MisconceptionStatus;
   subject: string;
   topic: string;
-  status?: MisconceptionStatus;
   userId: string;
   workspaceId: string;
-  observedAt?: Date;
 }
 
 export interface GetActiveMisconceptionsInput {
@@ -431,10 +440,7 @@ const normalizeMisconceptionBlocks = (
 
   const record = value as Record<string, unknown>;
   const summary = normalizeText(record.summary, 360);
-  const correctedMentalModel = normalizeText(
-    record.correctedMentalModel,
-    600
-  );
+  const correctedMentalModel = normalizeText(record.correctedMentalModel, 600);
   const explanation = normalizeText(record.explanation, 700);
 
   if (!(summary || correctedMentalModel || explanation)) {
@@ -581,186 +587,182 @@ export async function upsertMisconception(
     source,
     sourceSessionId,
   });
-  const evidenceCutoff = new Date(now.getTime() - MISCONCEPTION_PROMOTION_LOOKBACK_MS);
+  const evidenceCutoff = new Date(
+    now.getTime() - MISCONCEPTION_PROMOTION_LOOKBACK_MS
+  );
 
-  const {
-    created,
-    insertedEvidence,
-    previousStatus,
-    row,
-  } = await db.transaction(async (tx) => {
-    const [existing] = await tx
-      .select()
-      .from(misconception)
-      .where(
-        and(
-          eq(misconception.workspaceId, input.workspaceId),
-          eq(misconception.userId, input.userId),
-          eq(misconception.subject, subject),
-          eq(misconception.topic, topic),
-          eq(misconception.concept, concept)
+  const { created, insertedEvidence, previousStatus, row } =
+    await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(misconception)
+        .where(
+          and(
+            eq(misconception.workspaceId, input.workspaceId),
+            eq(misconception.userId, input.userId),
+            eq(misconception.subject, subject),
+            eq(misconception.topic, topic),
+            eq(misconception.concept, concept)
+          )
         )
-      )
-      .limit(1);
+        .limit(1);
 
-    const baseStatus: MisconceptionStatus =
-      requestedStatus ??
-      (existing?.status === "confirmed" || sourceStatus === "confirmed"
-        ? "confirmed"
-        : "candidate");
-
-    const persisted =
-      existing ??
-      (
-        await tx
-          .insert(misconception)
-          .values({
-            active: isActiveMisconceptionStatus(baseStatus),
-            blocks: blocksJson,
-            confidence: confidence ?? 0,
-            concept,
-            decayedAt: null,
-            evidenceClass,
-            evidenceCount: 0,
-            evidenceRootId,
-            evidenceSpan: input.evidenceSpan ?? null,
-            firstSeenAt: now,
-            lastSeenAt: now,
-            promotedAt: baseStatus === "confirmed" ? now : null,
-            reason,
-            resolvedAt: null,
-            source,
-            sourceSessionId,
-            status: baseStatus,
-            subject,
-            topic,
-            updatedAt: now,
-            userId: input.userId,
-            workspaceId: input.workspaceId,
-          })
-          .returning()
-      )[0];
-
-    if (!persisted) {
-      throw new Error("Failed to upsert misconception.");
-    }
-
-    const insertedEvidence =
-      (
-        await tx
-          .insert(misconceptionEvidence)
-          .values({
-            confidence: confidence ?? 0,
-            evidenceClass,
-            evidenceKey,
-            evidenceRootId,
-            evidenceSpan: input.evidenceSpan ?? null,
-            misconceptionId: persisted.id,
-            observedAt: now,
-            sourceSessionId,
-            userId: input.userId,
-            workspaceId: input.workspaceId,
-          })
-          .onConflictDoNothing()
-          .returning({ id: misconceptionEvidence.id })
-      ).length > 0;
-
-    const [evidenceStats] = await tx
-      .select({
-        distinctEvidenceClassCount:
-          sql<number>`count(distinct ${misconceptionEvidence.evidenceClass})`,
-        distinctEvidenceRootCount: sql<number>`count(distinct coalesce(${misconceptionEvidence.evidenceRootId}, ${misconceptionEvidence.sourceSessionId}, ${misconceptionEvidence.evidenceKey}))`,
-      })
-      .from(misconceptionEvidence)
-      .where(
-        and(
-          eq(misconceptionEvidence.misconceptionId, persisted.id),
-          gte(misconceptionEvidence.observedAt, evidenceCutoff)
-        )
-      );
-
-    const distinctEvidenceRootCount = Number(
-      evidenceStats?.distinctEvidenceRootCount ?? 0
-    );
-    const promotesFromIndependentEvidence =
-      !requestedStatus &&
-      persisted.status !== "confirmed" &&
-      sourceStatus === "candidate" &&
-      distinctEvidenceRootCount >= MISCONCEPTION_PROMOTION_EVIDENCE_THRESHOLD;
-    const nextStatus: MisconceptionStatus =
-      requestedStatus ??
-      (persisted.status === "confirmed"
-        ? "confirmed"
-        : sourceStatus === "confirmed"
+      const baseStatus: MisconceptionStatus =
+        requestedStatus ??
+        (existing?.status === "confirmed" || sourceStatus === "confirmed"
           ? "confirmed"
-          : promotesFromIndependentEvidence
+          : "candidate");
+
+      const persisted =
+        existing ??
+        (
+          await tx
+            .insert(misconception)
+            .values({
+              active: isActiveMisconceptionStatus(baseStatus),
+              blocks: blocksJson,
+              confidence: confidence ?? 0,
+              concept,
+              decayedAt: null,
+              evidenceClass,
+              evidenceCount: 0,
+              evidenceRootId,
+              evidenceSpan: input.evidenceSpan ?? null,
+              firstSeenAt: now,
+              lastSeenAt: now,
+              promotedAt: baseStatus === "confirmed" ? now : null,
+              reason,
+              resolvedAt: null,
+              source,
+              sourceSessionId,
+              status: baseStatus,
+              subject,
+              topic,
+              updatedAt: now,
+              userId: input.userId,
+              workspaceId: input.workspaceId,
+            })
+            .returning()
+        )[0];
+
+      if (!persisted) {
+        throw new Error("Failed to upsert misconception.");
+      }
+
+      const insertedEvidence =
+        (
+          await tx
+            .insert(misconceptionEvidence)
+            .values({
+              confidence: confidence ?? 0,
+              evidenceClass,
+              evidenceKey,
+              evidenceRootId,
+              evidenceSpan: input.evidenceSpan ?? null,
+              misconceptionId: persisted.id,
+              observedAt: now,
+              sourceSessionId,
+              userId: input.userId,
+              workspaceId: input.workspaceId,
+            })
+            .onConflictDoNothing()
+            .returning({ id: misconceptionEvidence.id })
+        ).length > 0;
+
+      const [evidenceStats] = await tx
+        .select({
+          distinctEvidenceClassCount: sql<number>`count(distinct ${misconceptionEvidence.evidenceClass})`,
+          distinctEvidenceRootCount: sql<number>`count(distinct coalesce(${misconceptionEvidence.evidenceRootId}, ${misconceptionEvidence.sourceSessionId}, ${misconceptionEvidence.evidenceKey}))`,
+        })
+        .from(misconceptionEvidence)
+        .where(
+          and(
+            eq(misconceptionEvidence.misconceptionId, persisted.id),
+            gte(misconceptionEvidence.observedAt, evidenceCutoff)
+          )
+        );
+
+      const distinctEvidenceRootCount = Number(
+        evidenceStats?.distinctEvidenceRootCount ?? 0
+      );
+      const promotesFromIndependentEvidence =
+        !requestedStatus &&
+        persisted.status !== "confirmed" &&
+        sourceStatus === "candidate" &&
+        distinctEvidenceRootCount >= MISCONCEPTION_PROMOTION_EVIDENCE_THRESHOLD;
+      const nextStatus: MisconceptionStatus =
+        requestedStatus ??
+        (persisted.status === "confirmed"
+          ? "confirmed"
+          : sourceStatus === "confirmed"
             ? "confirmed"
-            : "candidate");
-    const nextConfidence =
-      confidence === null
-        ? persisted.confidence
-        : Math.max(persisted.confidence, confidence);
+            : promotesFromIndependentEvidence
+              ? "confirmed"
+              : "candidate");
+      const nextConfidence =
+        confidence === null
+          ? persisted.confidence
+          : Math.max(persisted.confidence, confidence);
 
-    const [updated] = await tx
-      .update(misconception)
-      .set({
-        active: isActiveMisconceptionStatus(nextStatus),
-        blocks: (blocks ??
-          normalizeMisconceptionBlocks(persisted.blocks) ??
-          {}) as Record<string, unknown>,
-        confidence: nextConfidence,
-        concept,
-        decayedAt: null,
-        evidenceClass,
-        evidenceCount: distinctEvidenceRootCount,
-        evidenceRootId,
-        evidenceSpan: input.evidenceSpan ?? persisted.evidenceSpan ?? null,
-        lastSeenAt: now,
-        promotedAt:
-          nextStatus === "confirmed"
-            ? persisted.promotedAt ?? now
-            : persisted.promotedAt ?? null,
-        reason,
-        resolvedAt: null,
-        source,
-        sourceSessionId,
-        status: nextStatus,
-        subject,
-        topic,
-        updatedAt: now,
-      })
-      .where(eq(misconception.id, persisted.id))
-      .returning();
+      const [updated] = await tx
+        .update(misconception)
+        .set({
+          active: isActiveMisconceptionStatus(nextStatus),
+          blocks: (blocks ??
+            normalizeMisconceptionBlocks(persisted.blocks) ??
+            {}) as Record<string, unknown>,
+          confidence: nextConfidence,
+          concept,
+          decayedAt: null,
+          evidenceClass,
+          evidenceCount: distinctEvidenceRootCount,
+          evidenceRootId,
+          evidenceSpan: input.evidenceSpan ?? persisted.evidenceSpan ?? null,
+          lastSeenAt: now,
+          promotedAt:
+            nextStatus === "confirmed"
+              ? (persisted.promotedAt ?? now)
+              : (persisted.promotedAt ?? null),
+          reason,
+          resolvedAt: null,
+          source,
+          sourceSessionId,
+          status: nextStatus,
+          subject,
+          topic,
+          updatedAt: now,
+        })
+        .where(eq(misconception.id, persisted.id))
+        .returning();
 
-    if (!updated) {
-      throw new Error("Failed to upsert misconception.");
-    }
+      if (!updated) {
+        throw new Error("Failed to upsert misconception.");
+      }
 
-    return {
-      created: !existing,
-      insertedEvidence,
-      previousStatus: existing?.status ?? null,
-      row: updated,
-    };
-  });
+      return {
+        created: !existing,
+        insertedEvidence,
+        previousStatus: existing?.status ?? null,
+        row: updated,
+      };
+    });
 
   if (!row) {
     throw new Error("Failed to upsert misconception.");
   }
 
   logInfo({
-    eventName:
-      created
-        ? row.status === "confirmed"
-          ? "misconception.candidate.promoted"
-          : "misconception.candidate.created"
-        : row.status === "confirmed" && previousStatus !== "confirmed"
-          ? "misconception.candidate.promoted"
-          : row.status === "confirmed" && insertedEvidence
-            ? "misconception.confirmed.reinforced"
-            : insertedEvidence
-              ? "misconception.candidate.reinforced"
-              : "misconception.candidate.duplicate_ignored",
+    eventName: created
+      ? row.status === "confirmed"
+        ? "misconception.candidate.promoted"
+        : "misconception.candidate.created"
+      : row.status === "confirmed" && previousStatus !== "confirmed"
+        ? "misconception.candidate.promoted"
+        : row.status === "confirmed" && insertedEvidence
+          ? "misconception.confirmed.reinforced"
+          : insertedEvidence
+            ? "misconception.candidate.reinforced"
+            : "misconception.candidate.duplicate_ignored",
     payload: {
       active: row.active,
       confidence: row.confidence,

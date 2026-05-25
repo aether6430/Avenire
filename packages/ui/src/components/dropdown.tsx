@@ -1,38 +1,40 @@
 "use client";
 
+import { AnimatePresence, m } from "motion/react";
 import {
+  createContext,
+  forwardRef,
+  type HTMLAttributes,
+  type ReactNode,
+  useContext,
+  useEffect,
   useRef,
   useState,
-  useEffect,
-  createContext,
-  useContext,
-  forwardRef,
-  type ReactNode,
-  type HTMLAttributes,
 } from "react";
-import { AnimatePresence, m } from "framer-motion";
-import { cn } from "../lib/utils";
-import { springs } from "../lib/springs";
 import { useProximityHover } from "../hooks/use-proximity-hover";
 import { useShape } from "../lib/shape-context";
+import { springs } from "../lib/springs";
+import { cn } from "../lib/utils";
 
 interface DropdownContextValue {
-  registerItem: (index: number, element: HTMLElement | null) => void;
   activeIndex: number | null;
   checkedIndex?: number;
+  registerItem: (index: number, element: HTMLElement | null) => void;
 }
 
 const DropdownContext = createContext<DropdownContextValue | null>(null);
 
 export function useDropdown() {
   const ctx = useContext(DropdownContext);
-  if (!ctx) throw new Error("useDropdown must be used within a Dropdown");
+  if (!ctx) {
+    throw new Error("useDropdown must be used within a Dropdown");
+  }
   return ctx;
 }
 
 interface DropdownProps extends HTMLAttributes<HTMLDivElement> {
-  children: ReactNode;
   checkedIndex?: number;
+  children: ReactNode;
 }
 
 const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
@@ -50,29 +52,33 @@ const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
 
     useEffect(() => {
       measureItems();
-    }, [measureItems, children]);
+    }, [measureItems]);
 
     const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
     const activeRect = activeIndex !== null ? itemRects[activeIndex] : null;
-    const checkedRect =
-      checkedIndex != null ? itemRects[checkedIndex] : null;
+    const checkedRect = checkedIndex != null ? itemRects[checkedIndex] : null;
     const focusRect = focusedIndex !== null ? itemRects[focusedIndex] : null;
     const isHoveringOther =
       activeIndex !== null && activeIndex !== checkedIndex;
     const shape = useShape();
 
     return (
-      <DropdownContext.Provider value={{ registerItem, activeIndex, checkedIndex }}>
+      <DropdownContext.Provider
+        value={{ registerItem, activeIndex, checkedIndex }}
+      >
         <div
-          ref={(node) => {
-            (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
-            if (typeof ref === "function") ref(node);
-            else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
+          className={cn(
+            `relative flex w-72 max-w-full flex-col gap-0.5 ${shape.container} select-none border border-border/60 bg-card p-1 shadow-[0_4px_12px_rgba(0,0,0,0.02)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)]`,
+            className
+          )}
+          onBlur={(e) => {
+            if (containerRef.current?.contains(e.relatedTarget as Node)) {
+              return;
+            }
+            setFocusedIndex(null);
+            setActiveIndex(null);
           }}
-          onMouseEnter={handlers.onMouseEnter}
-          onMouseMove={handlers.onMouseMove}
-          onMouseLeave={handlers.onMouseLeave}
           onFocus={(e) => {
             const indexAttr = (e.target as HTMLElement)
               .closest("[data-proximity-index]")
@@ -85,19 +91,22 @@ const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
               );
             }
           }}
-          onBlur={(e) => {
-            if (containerRef.current?.contains(e.relatedTarget as Node)) return;
-            setFocusedIndex(null);
-            setActiveIndex(null);
-          }}
           onKeyDown={(e) => {
             const items = Array.from(
-              containerRef.current?.querySelectorAll('[role="menuitemradio"]') ?? []
+              containerRef.current?.querySelectorAll(
+                '[role="menuitemradio"]'
+              ) ?? []
             ) as HTMLElement[];
             const currentIdx = items.indexOf(e.target as HTMLElement);
-            if (currentIdx === -1) return;
+            if (currentIdx === -1) {
+              return;
+            }
 
-            if (["ArrowDown", "ArrowUp", "ArrowRight", "ArrowLeft"].includes(e.key)) {
+            if (
+              ["ArrowDown", "ArrowUp", "ArrowRight", "ArrowLeft"].includes(
+                e.key
+              )
+            ) {
               e.preventDefault();
               const next = ["ArrowDown", "ArrowRight"].includes(e.key)
                 ? (currentIdx + 1) % items.length
@@ -108,22 +117,29 @@ const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
               items[0]?.focus();
             } else if (e.key === "End") {
               e.preventDefault();
-              items[items.length - 1]?.focus();
+              items.at(-1)?.focus();
+            }
+          }}
+          onMouseEnter={handlers.onMouseEnter}
+          onMouseLeave={handlers.onMouseLeave}
+          onMouseMove={handlers.onMouseMove}
+          ref={(node) => {
+            (
+              containerRef as React.MutableRefObject<HTMLDivElement | null>
+            ).current = node;
+            if (typeof ref === "function") {
+              ref(node);
+            } else if (ref) {
+              (ref as React.MutableRefObject<HTMLDivElement | null>).current =
+                node;
             }
           }}
           role="menu"
-          className={cn(
-            `relative flex flex-col gap-0.5 w-72 max-w-full ${shape.container} bg-card shadow-[0_4px_12px_rgba(0,0,0,0.02)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-border/60 p-1 select-none`,
-            className
-          )}
           {...props}
         >
-          {/* Selected background */}
           <AnimatePresence>
             {checkedRect && (
               <m.div
-                className={`absolute ${shape.bg} bg-selected/50 dark:bg-accent/40 pointer-events-none`}
-                initial={false}
                 animate={{
                   top: checkedRect.top,
                   left: checkedRect.left,
@@ -131,7 +147,9 @@ const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
                   height: checkedRect.height,
                   opacity: isHoveringOther ? 0.8 : 1,
                 }}
+                className={`absolute ${shape.bg} pointer-events-none bg-selected/50 dark:bg-accent/40`}
                 exit={{ opacity: 0, transition: { duration: 0.12 } }}
+                initial={false}
                 transition={{
                   ...springs.moderate,
                   opacity: { duration: 0.08 },
@@ -140,19 +158,9 @@ const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
             )}
           </AnimatePresence>
 
-          {/* Hover background */}
           <AnimatePresence>
             {activeRect && (
               <m.div
-                key={sessionRef.current}
-                className={`absolute ${shape.bg} bg-accent/40 dark:bg-accent/25 pointer-events-none`}
-                initial={{
-                  opacity: 0,
-                  top: checkedRect?.top ?? activeRect.top,
-                  left: checkedRect?.left ?? activeRect.left,
-                  width: checkedRect?.width ?? activeRect.width,
-                  height: checkedRect?.height ?? activeRect.height,
-                }}
                 animate={{
                   opacity: 1,
                   top: activeRect.top,
@@ -160,7 +168,16 @@ const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
                   width: activeRect.width,
                   height: activeRect.height,
                 }}
+                className={`absolute ${shape.bg} pointer-events-none bg-accent/40 dark:bg-accent/25`}
                 exit={{ opacity: 0, transition: { duration: 0.06 } }}
+                initial={{
+                  opacity: 0,
+                  top: checkedRect?.top ?? activeRect.top,
+                  left: checkedRect?.left ?? activeRect.left,
+                  width: checkedRect?.width ?? activeRect.width,
+                  height: checkedRect?.height ?? activeRect.height,
+                }}
+                key={sessionRef.current}
                 transition={{
                   ...springs.fast,
                   opacity: { duration: 0.08 },
@@ -169,19 +186,18 @@ const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
             )}
           </AnimatePresence>
 
-          {/* Focus ring */}
           <AnimatePresence>
             {focusRect && (
               <m.div
-                className={`absolute ${shape.focusRing} pointer-events-none z-20 border border-[#6B97FF]`}
-                initial={false}
                 animate={{
                   left: focusRect.left - 2,
                   top: focusRect.top - 2,
                   width: focusRect.width + 4,
                   height: focusRect.height + 4,
                 }}
+                className={`absolute ${shape.focusRing} pointer-events-none z-20 border border-[#6B97FF]`}
                 exit={{ opacity: 0, transition: { duration: 0.06 } }}
+                initial={false}
                 transition={{
                   ...springs.fast,
                   opacity: { duration: 0.08 },
@@ -199,37 +215,27 @@ const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
 
 Dropdown.displayName = "Dropdown";
 
-// ---------------------------------------------------------------------------
-// DropdownLabel
-// ---------------------------------------------------------------------------
-
-const DropdownLabel = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div
-      ref={ref}
-      className={cn(
-        "px-2 py-1.5 text-[11px] text-muted-foreground",
-        className
-      )}
-      {...props}
-    />
-  )
-);
+const DropdownLabel = forwardRef<
+  HTMLDivElement,
+  HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div
+    className={cn("px-2 py-1.5 text-[11px] text-muted-foreground", className)}
+    ref={ref}
+    {...props}
+  />
+));
 
 DropdownLabel.displayName = "DropdownLabel";
-
-// ---------------------------------------------------------------------------
-// DropdownSeparator
-// ---------------------------------------------------------------------------
 
 const DropdownSeparator = forwardRef<
   HTMLDivElement,
   HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
   <div
+    className={cn("-mx-1 my-1 h-px bg-border/60", className)}
     ref={ref}
     role="separator"
-    className={cn("my-1 -mx-1 h-px bg-border/60", className)}
     {...props}
   />
 ));

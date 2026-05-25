@@ -138,8 +138,8 @@
   position: sticky;
   top: 6rem;
   display: block;
-  grid-column: 1;
   grid-row: 1;
+  grid-column: 1;
   align-self: start;
   justify-self: end;
   width: 2rem;
@@ -152,12 +152,6 @@
   width: 2rem;
   max-height: inherit;
   overflow: visible;
-  transition: width 180ms ease;
-}
-
-.editor-toc-rail__inner:hover,
-.editor-toc-rail__inner:focus-within {
-  width: min(15.25rem, calc(100vw - 2rem));
 }
 
 .editor-toc-rail__collapsed {
@@ -207,6 +201,7 @@
   width: min(14rem, calc(100vw - 2rem));
   max-height: min(22rem, calc(100vh - 8rem));
   overflow-y: auto;
+  pointer-events: none;
   background: var(--background);
   border: 1px solid var(--border);
   border-radius: 0.65rem;
@@ -223,6 +218,7 @@
 
 .editor-toc-rail__inner:hover .editor-toc-rail__panel,
 .editor-toc-rail__inner:focus-within .editor-toc-rail__panel {
+  pointer-events: auto;
   opacity: 1;
 }
 
@@ -264,14 +260,6 @@
 }
 
 @media (hover: none), (pointer: coarse) {
-  .editor-toc-rail__inner {
-    width: 2rem;
-  }
-
-  .editor-toc-rail__inner:focus-within {
-    width: min(15.25rem, calc(100vw - 2rem));
-  }
-
   .editor-toc-rail__inner:focus-within .editor-toc-rail__collapsed {
     opacity: 0;
   }
@@ -284,6 +272,14 @@
 @media (max-width: 1023px) {
   .scribe-document-row {
     display: block;
+    padding-inline: 0;
+  }
+
+  .scribe-frontmatter-panel {
+    padding-inline: clamp(1rem, 4vw, 1.25rem);
+  }
+
+  .scribe-frontmatter-table {
     padding-inline: 0;
   }
 
@@ -1015,29 +1011,6 @@
   transform: translate(-50%, -50%);
 }
 
-.scribe-surface .mermaid-diagram-wrapper.is-expanded .mermaid-diagram-viewport,
-.scribe-surface .mermaid-diagram-wrapper.is-expanded .mermaid-diagram-source,
-.scribe-surface
-  .mermaid-diagram-wrapper.is-expanded
-  .mermaid-diagram-source-highlight {
-  height: min(48rem, calc(100vh - 3rem));
-}
-
-@media (max-width: 900px) {
-  .scribe-surface .mermaid-diagram-wrapper.is-editing {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .scribe-surface .mermaid-diagram-editor {
-    border-right: 0;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .scribe-surface .mermaid-diagram-source {
-    height: 220px;
-  }
-}
-
 .scribe-surface .mermaid-diagram-viewport.is-dragging {
   cursor: grabbing;
 }
@@ -1094,6 +1067,20 @@
   font-size: 0.8rem;
   color: var(--muted-foreground);
   white-space: pre-wrap;
+}
+
+.scribe-document-stats {
+  position: sticky;
+  right: 1rem;
+  bottom: 0.75rem;
+  z-index: 20;
+  display: flex;
+  gap: 1.35rem;
+  justify-content: flex-end;
+  padding: 0 1rem 0.75rem;
+  font-size: 0.78rem;
+  color: var(--muted-foreground);
+  pointer-events: none;
 }
 
 .scribe-autosave-badge {

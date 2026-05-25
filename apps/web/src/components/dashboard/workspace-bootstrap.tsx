@@ -30,13 +30,19 @@ export interface WorkspaceBootstrapWorkspace {
   workspaceId: string;
 }
 
+export interface WorkspaceBootstrapAi {
+  apexTurboAvailable: boolean;
+}
+
 interface WorkspaceBootstrapPayload {
+  ai: WorkspaceBootstrapAi;
   user: WorkspaceBootstrapUser | null;
   workspace: WorkspaceBootstrapWorkspace | null;
   workspaces: WorkspaceBootstrapWorkspace[];
 }
 
 interface WorkspaceBootstrapContextValue {
+  ai: WorkspaceBootstrapAi;
   error: Error | null;
   refresh: () => Promise<unknown>;
   status: "error" | "loading" | "ready" | "unauthorized";
@@ -148,6 +154,7 @@ export function WorkspaceBootstrapProvider({
           : "ready";
 
     return {
+      ai: query.data?.ai ?? { apexTurboAvailable: false },
       error: query.error ?? null,
       refresh: query.refetch,
       status,

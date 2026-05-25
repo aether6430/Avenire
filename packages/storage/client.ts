@@ -1,1 +1,1 @@
-export * from "@uploadthing/react";
+export { generateReactHelpers } from "@uploadthing/react";

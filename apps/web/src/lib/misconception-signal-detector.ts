@@ -5,7 +5,7 @@ import {
 import {
   getActiveMisconceptions,
   type MisconceptionRecord,
-} from "@/lib/learning-data";
+} from "@avenire/database";
 import { getCachedToolResult } from "@/lib/ai-tool-result-cache";
 
 const MAX_ACTIVE_MISCONCEPTIONS = 32;
@@ -47,7 +47,7 @@ export async function detectMisconceptionSignals(input: {
   userId: string;
   workspaceId: string;
 }): Promise<MisconceptionSignalResult | null> {
-  if (!input.latestUserText.trim() || !process.env.COHERE_API_KEY?.trim()) {
+  if (!(input.latestUserText.trim() && process.env.COHERE_API_KEY?.trim())) {
     return null;
   }
 
