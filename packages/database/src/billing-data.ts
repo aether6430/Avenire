@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, sql } from "drizzle-orm";
+import { and, count, eq, sql } from "drizzle-orm";
 import { db } from "./client";
 import {
   billingCustomer,
@@ -7,6 +7,7 @@ import {
   fileAsset,
   usageMeter,
 } from "./schema";
+import { user } from "./auth-schema";
 
 export type BillingPlan = "access" | "core" | "scholar";
 export type BillingFeature =
@@ -815,4 +816,67 @@ export async function getBillingSubscriptionByUserId(userId: string) {
     .limit(1);
 
   return row ?? null;
+}
+
+const PAYING_SUBSCRIPTION_STATUSES = new Set([
+  "active",
+  "trialing",
+  "past_due",
+]);
+
+const PLAN_MONTHLY_PRICE_INR: Record<string, number> = {
+  access: 0,
+  core: 450,
+  scholar: 1350,
+};
+
+export async function getAdminBillingAnalytics() {
+  const [userCount] = await db.select({ value: count() }).from(user);
+
+  const subscriptions = await db
+    .select({
+      plan: billingSubscription.plan,
+      status: billingSubscription.status,
+      polarProductId: billingSubscription.polarProductId,
+      currentPeriodEnd: billingSubscription.currentPeriodEnd,
+      updatedAt: billingSubscription.updatedAt,
+      userEmail: user.email,
+    })
+    .from(billingSubscription)
+    .leftJoin(user, eq(billingSubscription.userId, user.id));
+
+  const byPlan = new Map<string, number>();
+  let payingUsers = 0;
+  for (const subscription of subscriptions) {
+    const plan = subscription.plan || "access";
+    byPlan.set(plan, (byPlan.get(plan) ?? 0) + 1);
+    if (PAYING_SUBSCRIPTION_STATUSES.has(subscription.status)) {
+      payingUsers += 1;
+    }
+  }
+
+  const totalUsers = userCount?.value ?? 0;
+  const nonPayingUsers = Math.max(totalUsers - payingUsers, 0);
+  const estimatedMrrInr = subscriptions.reduce((total, subscription) => {
+    if (!PAYING_SUBSCRIPTION_STATUSES.has(subscription.status)) {
+      return total;
+    }
+
+    return total + (PLAN_MONTHLY_PRICE_INR[subscription.plan] ?? 0);
+  }, 0);
+
+  return {
+    estimatedMrrInr,
+    totalUsers,
+    payingUsers,
+    nonPayingUsers,
+    byPlan: Array.from(byPlan.entries()).map(([plan, users]) => ({
+      plan,
+      users,
+    })),
+    subscriptions: subscriptions.map((subscription) => ({
+      ...subscription,
+      userEmail: subscription.userEmail ?? "unknown",
+    })),
+  };
 }

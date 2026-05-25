@@ -65,6 +65,49 @@ function SidebarProvider({
   const isMobile = useIsMobile();
   const [openMobile, setOpenMobile] = React.useState(false);
 
+  React.useEffect(() => {
+    const scrollTimers = new WeakMap<Element, ReturnType<typeof setTimeout>>();
+    const activeTimers = new Set<ReturnType<typeof setTimeout>>();
+
+    const handleScroll = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      const scrollElement = target.closest(".sidebar-fade-scrollbar");
+      if (!scrollElement) {
+        return;
+      }
+
+      scrollElement.setAttribute("data-scrolling", "true");
+      const existingTimer = scrollTimers.get(scrollElement);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+        activeTimers.delete(existingTimer);
+      }
+
+      const nextTimer = setTimeout(() => {
+        scrollElement.setAttribute("data-scrolling", "false");
+        scrollTimers.delete(scrollElement);
+        activeTimers.delete(nextTimer);
+      }, 800);
+      scrollTimers.set(scrollElement, nextTimer);
+      activeTimers.add(nextTimer);
+    };
+
+    document.addEventListener("scroll", handleScroll, {
+      capture: true,
+      passive: true,
+    });
+
+    return () => {
+      document.removeEventListener("scroll", handleScroll, { capture: true });
+      activeTimers.forEach((timer) => clearTimeout(timer));
+      activeTimers.clear();
+    };
+  }, []);
+
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
   const [_open, _setOpen] = React.useState(defaultOpen);

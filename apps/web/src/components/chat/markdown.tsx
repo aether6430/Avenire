@@ -42,6 +42,7 @@ interface MarkdownProps {
   className?: string;
   content: string;
   id: string;
+  minimal?: boolean;
   parseIncompleteMarkdown?: boolean;
   textSize?: "default" | "small";
   workspaceUuid?: string;
@@ -369,6 +370,7 @@ function CodeRenderer({
 const MemoizedMarkdown = memo(
   ({
     content,
+    minimal = false,
     parseIncompleteMarkdown = true,
     className,
     textSize = "default",
@@ -406,16 +408,45 @@ const MemoizedMarkdown = memo(
             h6: "mt-6 mb-2 font-semibold text-sm",
           };
 
+    const minimalOverrides = minimal
+      ? {
+          img: () => null,
+          table: () => null,
+          thead: () => null,
+          tbody: () => null,
+          tr: () => null,
+          th: () => null,
+          td: () => null,
+          pre: ({ children }: any) => {
+            const codeElement = children as any;
+            const codeText =
+              codeElement?.props?.children ?? "";
+            return (
+              <div className="rounded bg-muted/30 px-3 py-2 my-2">
+                <code className="whitespace-pre-wrap break-words text-xs text-muted-foreground">
+                  {typeof codeText === "string"
+                    ? codeText.slice(0, 300)
+                    : "[code block]"}
+                </code>
+              </div>
+            );
+          },
+        }
+      : {};
+
     return (
       <div
         className={cn(
-          "prose prose-sm dark:prose-invert prose-blockquote:my-2 prose-hr:my-3 prose-ol:my-2 prose-p:my-2 prose-pre:my-3 prose-ul:my-2 max-w-full break-words",
-          sizeClasses.body,
+          minimal
+            ? "max-w-full break-words space-y-1"
+            : "prose prose-sm dark:prose-invert prose-blockquote:my-2 prose-hr:my-3 prose-ol:my-2 prose-p:my-2 prose-pre:my-3 prose-ul:my-2 max-w-full break-words",
+          minimal && textSize !== "default" ? "" : sizeClasses.body,
           className
         )}
       >
         <ReactMarkdown
           components={{
+            ...minimalOverrides,
             code: CodeRenderer,
             ol: ({ children, className, ...props }: any) => (
               <ol
@@ -595,6 +626,7 @@ const MemoizedMarkdown = memo(
   },
   (prev, next) =>
     prev.content === next.content &&
+    prev.minimal === next.minimal &&
     prev.parseIncompleteMarkdown === next.parseIncompleteMarkdown &&
     prev.className === next.className &&
     prev.textSize === next.textSize &&
@@ -606,6 +638,7 @@ MemoizedMarkdown.displayName = "MemoizedMarkdown";
 export const Markdown = memo(function Markdown({
   content,
   id,
+  minimal,
   parseIncompleteMarkdown,
   className,
   textSize,
@@ -616,6 +649,7 @@ export const Markdown = memo(function Markdown({
       className={className}
       content={content}
       key={id}
+      minimal={minimal}
       parseIncompleteMarkdown={parseIncompleteMarkdown}
       textSize={textSize}
       workspaceUuid={workspaceUuid}

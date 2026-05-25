@@ -3,7 +3,11 @@ import { desc, eq, inArray } from "drizzle-orm";
 import { db } from "./client";
 import { user, waitlist } from "./auth-schema";
 
-export type WaitlistStatus = "pending" | "approved" | "registered";
+export type WaitlistStatus =
+  | "pending"
+  | "approved"
+  | "registered"
+  | "rejected";
 export type WaitlistAccessState = WaitlistStatus | "none";
 
 export interface WaitlistEntry {
@@ -33,7 +37,9 @@ function mapWaitlistEntry(entry: {
         ? "registered"
         : entry.status === "approved"
           ? "approved"
-          : "pending",
+          : entry.status === "rejected"
+            ? "rejected"
+            : "pending",
     requestedAt: entry.requestedAt,
     processedAt: entry.processedAt,
   };
@@ -184,6 +190,28 @@ export async function approveWaitlistEntry(email: string) {
     });
 
   return mapWaitlistEntry(entry);
+}
+
+export async function rejectWaitlistEntry(email: string) {
+  const normalizedEmail = normalizeEmail(email);
+  const now = new Date();
+
+  const [entry] = await db
+    .update(waitlist)
+    .set({
+      status: "rejected",
+      processedAt: now,
+    })
+    .where(eq(waitlist.email, normalizedEmail))
+    .returning({
+      id: waitlist.id,
+      email: waitlist.email,
+      status: waitlist.status,
+      requestedAt: waitlist.requestedAt,
+      processedAt: waitlist.processedAt,
+    });
+
+  return entry ? mapWaitlistEntry(entry) : null;
 }
 
 export async function markWaitlistRegistered(email: string) {

@@ -130,6 +130,18 @@ export function OnboardingPageClient({
         throw new Error("Unable to complete onboarding.");
       }
 
+      void fetch("/api/analytics/capture", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event: "onboarding.completed",
+          properties: {
+            path: "/onboarding",
+          },
+        }),
+        keepalive: true,
+      });
+
       setHelloLocale(
         initialHelloLocale ?? resolveAppleHelloLocale(navigator.languages)
       );

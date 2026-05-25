@@ -471,8 +471,8 @@ export function FlashcardSetDetail({
     );
   } else if (activeCard) {
     studySessionContent = (
-      <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-8">
-        <div className="flex w-full items-end justify-between gap-4 px-0.5">
+      <div className="mx-auto flex w-full max-w-3xl min-h-0 flex-1 flex-col items-center gap-6">
+        <div className="flex w-full shrink-0 items-end justify-between gap-4 px-0.5">
           <div className="min-w-0">
             <p className="font-medium text-[0.68rem] text-muted-foreground uppercase tracking-[0.22em]">
               Review Progress
@@ -491,6 +491,7 @@ export function FlashcardSetDetail({
           </div>
         </div>
         <FlashcardArray
+          className="flex-1 w-full min-h-0"
           deck={reviewDeckCards}
           flipArrayHook={reviewArrayHook}
         />
@@ -1163,8 +1164,8 @@ export function FlashcardSetDetail({
                   </div>
                 </DialogHeader>
 
-                <div className="relative flex min-h-0 flex-1 flex-col gap-2.5 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-4 md:px-5 md:py-4">
-                  <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden py-1">
+                <div className="relative flex min-h-0 flex-1 flex-col gap-3 px-3 py-3 sm:gap-5 sm:px-5 sm:py-4 md:px-6 md:py-5">
+                  <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden py-2">
                     {studySessionContent}
                   </div>
 

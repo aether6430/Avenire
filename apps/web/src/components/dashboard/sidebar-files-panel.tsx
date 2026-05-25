@@ -1299,7 +1299,7 @@ export function FilesSidebarPanel({
           {workspaceUuid && folderTree.length > 0 ? (
             <div className="h-full min-w-0 pr-1">
               <TreeView
-                className="h-full min-w-0 overflow-y-auto rounded-xl"
+                className="sidebar-fade-scrollbar h-full min-w-0 overflow-y-auto rounded-xl"
                 data={sidebarTreeData}
                 expandedItemIds={expandedTreePathIds}
                 onExpandedChange={(itemIds) => {

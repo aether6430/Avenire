@@ -1091,7 +1091,7 @@ function PureMultimodalInput({
                 status={status}
               />
 
-              <div className="flex min-w-0 flex-1 items-end">
+              <div className={cn("flex min-w-0 flex-1", centered ? "items-center" : "items-end")}>
                 <Textarea
                   autoFocus
                   className={cn(

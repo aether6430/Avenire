@@ -12,7 +12,7 @@ import {
 import { chatToolSchemas, widgetSpecSchema } from "@avenire/ai/tools";
 import { canonicalizeLearningTaxonomy } from "@avenire/database";
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
-import { logInfo } from "@avenire/observability";
+import { logInfo, logWarn, reportError } from "@avenire/observability";
 import { tavily } from "@tavily/core";
 import { z } from "zod";
 import {
@@ -100,9 +100,82 @@ interface WorkspacePathMaps {
   folderPathById: Map<string, string>;
 }
 
-function normalizeWidgetSpecAliases(value: unknown): unknown {
+const WIDGET_SPEC_TONES = new Set([
+  "default",
+  "muted",
+  "info",
+  "success",
+  "warning",
+  "danger",
+]);
+
+const WIDGET_TEXT_WEIGHTS = new Set(["regular", "medium"]);
+const WIDGET_CHART_TYPES = new Set(["bar", "line", "area"]);
+
+function sanitizeWidgetSpecNode(
+  value: unknown,
+  issues: string[] = []
+): unknown {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return value;
+  }
+
+  const node = { ...(value as Record<string, unknown>) };
+
+  if ("tone" in node && !WIDGET_SPEC_TONES.has(String(node.tone))) {
+    issues.push("invalid_tone");
+    node.tone = "default";
+  }
+  if ("weight" in node && !WIDGET_TEXT_WEIGHTS.has(String(node.weight))) {
+    issues.push("invalid_weight");
+    delete node.weight;
+  }
+  if (
+    "chartType" in node &&
+    !WIDGET_CHART_TYPES.has(String(node.chartType))
+  ) {
+    issues.push("invalid_chart_type");
+    node.chartType = "line";
+  }
+
+  if (node.type === "chart") {
+    if (Array.isArray(node.series)) {
+      node.series = node.series.map((seriesValue) => {
+        if (
+          typeof seriesValue !== "object" ||
+          seriesValue === null ||
+          Array.isArray(seriesValue)
+        ) {
+          return seriesValue;
+        }
+
+        const series = { ...(seriesValue as Record<string, unknown>) };
+        if ("type" in series && !WIDGET_CHART_TYPES.has(String(series.type))) {
+          issues.push("invalid_series_type");
+          delete series.type;
+        }
+        return series;
+      });
+    }
+  }
+
+  if (Array.isArray(node.children)) {
+    node.children = node.children.map((child) =>
+      sanitizeWidgetSpecNode(child, issues)
+    );
+  }
+
+  return node;
+}
+
+function normalizeWidgetSpecAliases(value: unknown): {
+  issues: string[];
+  value: unknown;
+} {
+  const issues: string[] = [];
+
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return { issues, value };
   }
 
   const spec = value as Record<string, unknown>;
@@ -137,9 +210,11 @@ function normalizeWidgetSpecAliases(value: unknown): unknown {
               : undefined;
 
       if (xKey && typeof node.indexKey !== "string") {
+        issues.push("chart_index_key_alias");
         node.indexKey = xKey;
       }
       if (!Array.isArray(node.series) && yKey) {
+        issues.push("chart_series_alias");
         node.series = [
           {
             dataKey: yKey,
@@ -157,8 +232,28 @@ function normalizeWidgetSpecAliases(value: unknown): unknown {
   };
 
   return {
-    ...spec,
-    root: normalizeNode(spec.root),
+    issues,
+    value: {
+      ...spec,
+      root: sanitizeWidgetSpecNode(normalizeNode(spec.root), issues),
+    },
+  };
+}
+
+function buildWidgetSpecFallback(title: string) {
+  return {
+    description: "Avenire rendered a simplified version of this widget.",
+    root: {
+      children: [
+        {
+          text: "The full widget could not be displayed in this view.",
+          tone: "muted",
+          type: "text",
+        },
+      ],
+      type: "card",
+    },
+    title,
   };
 }
 
@@ -2763,12 +2858,60 @@ The agent decides which operations to perform based on the task.`,
           type?: unknown;
           width?: unknown;
         };
+        const title = String(input.title || "Widget");
         const normalizedWidget =
           rawWidget.type === "spec"
             ? {
-                spec: widgetSpecSchema.parse(
-                  normalizeWidgetSpecAliases(rawWidget.spec)
-                ),
+                spec: (() => {
+                  const normalized = normalizeWidgetSpecAliases(rawWidget.spec);
+                  const parsed = widgetSpecSchema.safeParse(normalized.value);
+                  if (parsed.success) {
+                    if (normalized.issues.length > 0) {
+                      void logWarn({
+                        context: {
+                          chatSlug: ctx.chatSlug,
+                          feature: "show_widget",
+                          route: "/api/chat",
+                          service: "web",
+                          userId: ctx.userId,
+                          workspaceId: ctx.workspaceId,
+                        },
+                        eventName: "show_widget.spec.normalized",
+                        payload: {
+                          issues: Array.from(new Set(normalized.issues)),
+                          issueCount: normalized.issues.length,
+                        },
+                      });
+                    }
+                    return parsed.data;
+                  }
+
+                  void reportError({
+                    context: {
+                      chatSlug: ctx.chatSlug,
+                      feature: "show_widget",
+                      route: "/api/chat",
+                      service: "web",
+                      userId: ctx.userId,
+                      workspaceId: ctx.workspaceId,
+                    },
+                    error: new Error("show_widget spec validation failed"),
+                    eventName: "show_widget.spec.validation_failed",
+                    payload: {
+                      issues: Array.from(new Set(normalized.issues)),
+                      issueCount: normalized.issues.length,
+                      validationIssues: parsed.error.issues
+                        .slice(0, 12)
+                        .map((issue) => ({
+                          code: issue.code,
+                          path: issue.path.join("."),
+                          message: issue.message,
+                        })),
+                    },
+                  });
+
+                  return buildWidgetSpecFallback(title);
+                })(),
                 type: "spec" as const,
               }
             : rawWidget.type === "code" && typeof rawWidget.code === "string"
@@ -2808,7 +2951,7 @@ The agent decides which operations to perform based on the task.`,
           success: true,
           details: {
             mode: normalizedWidget.type,
-            title: String(input.title),
+            title,
             width,
             height,
             isSVG: normalizedWidget.type === "code" ? isSVG : undefined,
