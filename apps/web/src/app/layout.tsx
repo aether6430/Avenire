@@ -3,9 +3,11 @@ import type { Metadata, Viewport } from "next";
 import { Inconsolata, Inter, Lora } from "next/font/google";
 import localFont from "next/font/local";
 import { ServiceWorkerRegistration } from "@/components/pwa/ServiceWorkerRegistration";
+import { PostHogTracker } from "@/components/analytics/posthog-tracker";
 import { metadataBase } from "@/lib/page-metadata";
-import "./globals.css";
+import { Suspense } from "react";
 import "react-quizlet-flashcard/dist/index.css";
+import "./globals.css";
 
 const defaultOgImage = {
   alt: "Avenire — AI learning workspace",
@@ -99,6 +101,9 @@ export default function RootLayout({
         }
       >
         <ServiceWorkerRegistration />
+        <Suspense fallback={null}>
+          <PostHogTracker />
+        </Suspense>
         {children}
         <Toaster closeButton position="top-right" richColors />
       </body>

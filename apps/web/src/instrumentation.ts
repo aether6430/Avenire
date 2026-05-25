@@ -54,6 +54,10 @@ export function register() {
     return;
   }
 
+  void import("@avenire/observability").then(({ registerAiObservability }) => {
+    registerAiObservability();
+  });
+
   const runtimeProcess = (
     globalThis as typeof globalThis & {
       process?: { on?: unknown };
