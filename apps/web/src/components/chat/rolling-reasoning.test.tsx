@@ -6,9 +6,9 @@ import {
   ReasoningAction,
   RollingStatusHeader,
 } from "@/components/chat/rolling-reasoning-action";
+import { ReasoningContent } from "@/components/chat/rolling-reasoning-content";
 import {
   Reasoning,
-  ReasoningContent,
   ReasoningTrigger,
 } from "@/components/chat/rolling-reasoning-provider";
 

@@ -1,7 +1,7 @@
 import { Polar } from "@polar-sh/sdk";
 import {
-  WebhookVerificationError,
   validateEvent,
+  WebhookVerificationError,
 } from "@polar-sh/sdk/webhooks";
 
 type PolarServer = "sandbox" | "production";
@@ -193,7 +193,7 @@ export async function handlePolarWebhook(
   const secret = (process.env.POLAR_WEBHOOK_SECRET ?? "").trim();
   const signature = signatureHeader?.trim();
 
-  if (!secret || !signature) {
+  if (!(secret && signature)) {
     return null;
   }
 

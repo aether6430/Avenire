@@ -12,9 +12,9 @@ import {
 import { passkey } from "@better-auth/passkey";
 import { checkout, polar, portal } from "@polar-sh/better-auth";
 import { Polar } from "@polar-sh/sdk";
-import { createAuthMiddleware } from "better-auth/api";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { createAuthMiddleware } from "better-auth/api";
 import { lastLoginMethod, organization } from "better-auth/plugins";
 import { username } from "better-auth/plugins/username";
 import { cookies } from "next/headers";
@@ -222,11 +222,7 @@ function parseSetCookieHeaderValue(headerValue: string) {
 
     if (key === "samesite" && rawValue) {
       const sameSite = rawValue.toLowerCase();
-      if (
-        sameSite === "lax" ||
-        sameSite === "none" ||
-        sameSite === "strict"
-      ) {
+      if (sameSite === "lax" || sameSite === "none" || sameSite === "strict") {
         parsedAttributes.sameSite = sameSite;
       }
     }

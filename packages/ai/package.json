@@ -18,6 +18,7 @@
     "build": "tsc --noEmit",
     "lint": "biome check .",
     "check-types": "tsc --noEmit",
+    "test": "vitest run",
     "format": "biome format --write ."
   },
   "dependencies": {
@@ -34,7 +35,8 @@
   "devDependencies": {
     "@avenire/env-types": "workspace:*",
     "@avenire/typescript-config": "workspace:*",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "^4.1.6"
   },
   "engines": {
     "bun": ">=1.0.0"

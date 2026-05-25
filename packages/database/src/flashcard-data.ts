@@ -27,7 +27,9 @@ import {
   type FlashcardTaxonomy,
   normalizeFlashcardTaxonomy,
 } from "./flashcard-taxonomy";
+
 export { normalizeFlashcardTaxonomy } from "./flashcard-taxonomy";
+
 import {
   flashcardCard,
   flashcardReviewLog,

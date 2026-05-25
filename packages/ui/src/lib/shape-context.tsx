@@ -2,11 +2,11 @@
 
 import {
   createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
   type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
 } from "react";
 
 type ShapeVariant = "pill" | "rounded";
@@ -14,13 +14,13 @@ type ShapeVariant = "pill" | "rounded";
 const shapeOrder: ShapeVariant[] = ["rounded", "pill"];
 
 interface ShapeClasses {
-  item: string;
   bg: string;
-  focusRing: string;
-  mergedBg: string;
-  container: string;
   button: string;
+  container: string;
+  focusRing: string;
   input: string;
+  item: string;
+  mergedBg: string;
 }
 
 const shapeMap: Record<ShapeVariant, ShapeClasses> = {
@@ -45,22 +45,26 @@ const shapeMap: Record<ShapeVariant, ShapeClasses> = {
 };
 
 interface ShapeContextValue {
-  shape: ShapeVariant;
-  setShape: (shape: ShapeVariant) => void;
   classes: ShapeClasses;
+  setShape: (shape: ShapeVariant) => void;
+  shape: ShapeVariant;
 }
 
 const ShapeContext = createContext<ShapeContextValue | null>(null);
 
 function useShape(): ShapeClasses {
   const ctx = useContext(ShapeContext);
-  if (!ctx) return shapeMap.pill;
+  if (!ctx) {
+    return shapeMap.pill;
+  }
   return ctx.classes;
 }
 
 function useShapeContext() {
   const ctx = useContext(ShapeContext);
-  if (!ctx) throw new Error("useShapeContext must be used within a ShapeProvider");
+  if (!ctx) {
+    throw new Error("useShapeContext must be used within a ShapeProvider");
+  }
   return ctx;
 }
 
@@ -88,10 +92,20 @@ function ShapeProvider({
   // Global keyboard shortcut: R to cycle radius
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "r" && e.key !== "R") return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key !== "r" && e.key !== "R") {
+        return;
+      }
+      if (e.metaKey || e.ctrlKey || e.altKey) {
+        return;
+      }
       const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) return;
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        (e.target as HTMLElement)?.isContentEditable
+      ) {
+        return;
+      }
       e.preventDefault();
       transitionShape(() => {
         setShapeState((prev) => {
@@ -105,7 +119,9 @@ function ShapeProvider({
   }, []);
 
   return (
-    <ShapeContext.Provider value={{ shape, setShape, classes: shapeMap[shape] }}>
+    <ShapeContext.Provider
+      value={{ shape, setShape, classes: shapeMap[shape] }}
+    >
       {children}
     </ShapeContext.Provider>
   );

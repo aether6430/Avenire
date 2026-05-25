@@ -10,12 +10,10 @@ import {
   CalendarBlank,
   CaretDown,
   CaretRight,
-  CheckSquare,
   Copy,
   DotsSixVertical,
   Hash,
   Info,
-  ListBullets,
   Plus,
   Sparkle,
   TextT,
@@ -23,23 +21,19 @@ import {
 } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "motion/react";
 import {
-  type FocusEvent,
-  type KeyboardEvent,
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+  formatDateValue,
+  getOptionColorClass,
+  getPropertyTypeItem,
+  NUMBER_DISPLAY_ITEMS,
+  PROPERTY_TYPE_ITEMS,
+  parseLocalDateTimeValue,
+  toLocalDateValue,
+} from "@/components/editor/properties-table-model";
+import { usePropertiesTable } from "@/components/editor/use-properties-table";
 import {
-  createEmptyProperty,
-  type FilePropertyType,
-  type FilePropertyValue,
   type FrontmatterProperties,
   formatPropertyValue,
-  type NumberPropertyDisplay,
   normalizeFrontmatterProperties,
-  normalizePropertyOptions,
-  setPropertyValue,
   type WorkspacePropertyDefinition,
 } from "@/lib/frontmatter";
 import { cn } from "@/lib/utils";
@@ -54,159 +48,6 @@ export interface PropertiesTableProps {
   properties: FrontmatterProperties;
 }
 
-const PROPERTY_TYPE_ITEMS: Array<{
-  icon: typeof TextT;
-  label: string;
-  type: FilePropertyType;
-}> = [
-  { icon: TextT, label: "Text", type: "text" },
-  { icon: Hash, label: "Number", type: "number" },
-  { icon: CheckSquare, label: "Select", type: "select" },
-  { icon: ListBullets, label: "Multi-select", type: "multi_select" },
-  { icon: CalendarBlank, label: "Date", type: "date" },
-  { icon: CheckSquare, label: "Checkbox", type: "checkbox" },
-];
-
-const NUMBER_DISPLAY_ITEMS: Array<{
-  label: string;
-  value: NumberPropertyDisplay;
-}> = [
-  { label: "Number", value: "number" },
-  { label: "Bar", value: "bar" },
-  { label: "Ring", value: "ring" },
-];
-
-const OPTION_COLOR_CLASSES = [
-  "bg-[#6f5878] text-white",
-  "bg-[#5f5f64] text-white",
-  "bg-[#795b29] text-white",
-  "bg-[#8a4f45] text-white",
-  "bg-[#3f6b55] text-white",
-  "bg-[#4b6380] text-white",
-];
-
-function getOptionColorClass(option: string) {
-  const index =
-    Array.from(option).reduce((total, char) => total + char.charCodeAt(0), 0) %
-    OPTION_COLOR_CLASSES.length;
-  return OPTION_COLOR_CLASSES[index];
-}
-
-function parseFormattedPropertyValue(type: FilePropertyType, value: string) {
-  if (type === "checkbox") {
-    return value.trim().toLowerCase() === "true";
-  }
-
-  if (type === "number") {
-    const parsed = Number(value.trim());
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  if (type === "multi_select") {
-    return value
-      .split(",")
-      .map((entry) => entry.trim())
-      .filter(Boolean);
-  }
-
-  return value;
-}
-
-function normalizeEditablePropertyKey(key: string) {
-  return key.trim().toLowerCase();
-}
-
-function padDatePart(value: number) {
-  return String(value).padStart(2, "0");
-}
-
-function parseLocalDateTimeValue(value: string | null) {
-  if (!value) {
-    return null;
-  }
-
-  const [datePart, timePart] = value.split("T");
-  const dateSegments = datePart?.split("-").map((segment) => Number(segment));
-  if (
-    !dateSegments ||
-    dateSegments.length !== 3 ||
-    dateSegments.some((segment) => Number.isNaN(segment))
-  ) {
-    return null;
-  }
-
-  const [year, month, day] = dateSegments;
-  const date = new Date(year, month - 1, day);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  return {
-    date,
-    time:
-      typeof timePart === "string" && /^\d{2}:\d{2}/.test(timePart)
-        ? timePart.slice(0, 5)
-        : "",
-  };
-}
-
-function toLocalDateValue(date: Date, time: string) {
-  const datePart = `${date.getFullYear()}-${padDatePart(
-    date.getMonth() + 1
-  )}-${padDatePart(date.getDate())}`;
-  return time ? `${datePart}T${time}` : datePart;
-}
-
-function formatDateValue(value: string | null) {
-  const parsed = parseLocalDateTimeValue(value);
-  if (!parsed) {
-    return "Select";
-  }
-
-  const dateLabel = parsed.date.toLocaleDateString("en-US", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-
-  return parsed.time ? `${dateLabel} ${parsed.time}` : dateLabel;
-}
-
-function getPropertyTypeItem(type: FilePropertyType) {
-  return (
-    PROPERTY_TYPE_ITEMS.find((item) => item.type === type) ??
-    PROPERTY_TYPE_ITEMS[0]
-  );
-}
-
-function convertPropertyType(
-  property: FilePropertyValue,
-  type: FilePropertyType
-): FilePropertyValue {
-  if (property.type === type) {
-    return property;
-  }
-
-  return setPropertyValue(
-    createEmptyProperty(type),
-    formatPropertyValue(property)
-  );
-}
-
-export function shouldAutoCommitDraftProperty(input: {
-  disabled: boolean;
-  isAddingProperty: boolean;
-  key: string;
-  value: string;
-}) {
-  return (
-    !input.disabled &&
-    input.isAddingProperty &&
-    normalizeEditablePropertyKey(input.key).length > 0 &&
-    input.value.trim().length > 0
-  );
-}
-
 export function PropertiesTable({
   className,
   definitions = [],
@@ -216,447 +57,51 @@ export function PropertiesTable({
   onSummarizePage,
   properties,
 }: PropertiesTableProps) {
-  const [isAddingProperty, setIsAddingProperty] = useState(false);
-  const [newKey, setNewKey] = useState("");
-  const [newValue, setNewValue] = useState("");
-  const [newType, setNewType] = useState<FilePropertyType>("text");
-  const [optionDraft, setOptionDraft] = useState("");
-  const [valueOptionDraft, setValueOptionDraft] = useState("");
-  const [collapsed, setCollapsed] = useState(false);
-  const [typePickerKey, setTypePickerKey] = useState<string | null>(null);
-  const [openPropertyEditorKey, setOpenPropertyEditorKey] = useState<
-    string | null
-  >(null);
-  const [propertyPickerOpen, setPropertyPickerOpen] = useState(false);
-  const [summarizing, setSummarizing] = useState(false);
-  const newKeyInputRef = useRef<HTMLInputElement | null>(null);
-
-  const definitionByKey = useMemo(
-    () =>
-      new Map(
-        definitions.map((definition) => [
-          normalizeEditablePropertyKey(definition.key),
-          { ...definition, key: normalizeEditablePropertyKey(definition.key) },
-        ])
-      ),
-    [definitions]
-  );
-
-  const syncDefinition = useCallback(
-    (key: string, type: FilePropertyType, options: string[] = []) => {
-      if (!onDefinitionsChange) {
-        return;
-      }
-
-      const trimmedKey = normalizeEditablePropertyKey(key);
-      if (!trimmedKey) {
-        return;
-      }
-
-      const nextOptions = normalizePropertyOptions(options);
-      const nextDefinitions = [...definitions];
-      const existingIndex = nextDefinitions.findIndex(
-        (definition) =>
-          normalizeEditablePropertyKey(definition.key) === trimmedKey
-      );
-
-      if (existingIndex >= 0) {
-        nextDefinitions[existingIndex] = {
-          ...nextDefinitions[existingIndex],
-          key: trimmedKey,
-          options:
-            type === "select" || type === "multi_select"
-              ? normalizePropertyOptions([
-                  ...nextDefinitions[existingIndex]?.options,
-                  ...nextOptions,
-                ])
-              : [],
-          type,
-        };
-      } else {
-        nextDefinitions.push({
-          key: trimmedKey,
-          options:
-            type === "select" || type === "multi_select" ? nextOptions : [],
-          type,
-        });
-      }
-
-      onDefinitionsChange(
-        nextDefinitions.sort((left, right) => left.key.localeCompare(right.key))
-      );
-    },
-    [definitions, onDefinitionsChange]
-  );
-
-  const getDefinitionOptions = useCallback(
-    (
-      key: string,
-      property = normalizeFrontmatterProperties(properties)[key]
-    ) => {
-      const normalizedKey = normalizeEditablePropertyKey(key);
-      const definition = definitionByKey.get(normalizedKey);
-      const seededOptions =
-        property?.type === "select" && property.value
-          ? [property.value]
-          : property?.type === "multi_select"
-            ? property.value
-            : [];
-
-      return normalizePropertyOptions([
-        ...(definition?.options ?? []),
-        ...seededOptions,
-      ]);
-    },
-    [definitionByKey, properties]
-  );
-
-  const handleAddProperty = useCallback(() => {
-    const trimmedKey = normalizeEditablePropertyKey(newKey);
-    const nextProperties = normalizeFrontmatterProperties(properties);
-    if (!(trimmedKey && !nextProperties[trimmedKey])) {
-      return;
-    }
-
-    const definition = definitionByKey.get(trimmedKey);
-    const propertyType = definition?.type ?? newType;
-    const nextProperty = createEmptyProperty(propertyType);
-    const seededProperty =
-      newValue.trim().length > 0
-        ? setPropertyValue(nextProperty, newValue)
-        : nextProperty;
-
-    onChange(
-      normalizeFrontmatterProperties({
-        ...nextProperties,
-        [trimmedKey]: seededProperty,
-      })
-    );
-    syncDefinition(trimmedKey, propertyType);
-    setOpenPropertyEditorKey(trimmedKey);
-    setNewKey("");
-    setNewValue("");
-    setNewType("text");
-    setIsAddingProperty(false);
-  }, [
-    definitionByKey,
+  const {
+    collapsed,
+    focusNewKeyInput,
+    getDefinitionOptions,
+    handleAddProperty,
+    handleAddPropertyOfType,
+    handleAddPropertyOption,
+    handleDeleteProperty,
+    handleDuplicateProperty,
+    handleEntryBlur,
+    handleEntryKeyDown,
+    handleFormattedPropertyValueChange,
+    handleNumberDisplayChange,
+    handlePropertyTypeChange,
+    handlePropertyValueChange,
+    handleRenameProperty,
+    isAddingProperty,
     newKey,
+    newKeyInputRef,
     newType,
     newValue,
-    onChange,
-    properties,
+    openPropertyEditorKey,
+    optionDraft,
+    propertyPickerOpen,
+    setCollapsed,
+    setIsAddingProperty,
+    setNewKey,
+    setNewType,
+    setNewValue,
+    setOpenPropertyEditorKey,
+    setOptionDraft,
+    setPropertyPickerOpen,
+    setTypePickerKey,
+    setValueOptionDraft,
+    summarizing,
     syncDefinition,
-  ]);
-
-  const handleAddPropertyOfType = useCallback(
-    async (type: FilePropertyType, keyHint?: string) => {
-      const normalizedProperties = normalizeFrontmatterProperties(properties);
-      let key = normalizeEditablePropertyKey(keyHint ?? type);
-      if (key === "multi_select") {
-        key = "multi-select";
-      }
-      let counter = 2;
-      const baseKey = key;
-      while (normalizedProperties[key]) {
-        key = `${baseKey} ${counter}`;
-        counter += 1;
-      }
-
-      let nextProperty = createEmptyProperty(type);
-      if (keyHint === "summary" && onSummarizePage) {
-        setSummarizing(true);
-        const summary = await onSummarizePage().finally(() =>
-          setSummarizing(false)
-        );
-        if (!summary) {
-          return;
-        }
-        key = normalizedProperties.summary ? `summary ${counter}` : "summary";
-        nextProperty = setPropertyValue(nextProperty, summary);
-      }
-
-      onChange(
-        normalizeFrontmatterProperties({
-          ...normalizedProperties,
-          [key]: nextProperty,
-        })
-      );
-      syncDefinition(key, type);
-      setIsAddingProperty(false);
-      setPropertyPickerOpen(false);
-      setOpenPropertyEditorKey(key);
-      setNewType("text");
-      return key;
-    },
-    [onChange, onSummarizePage, properties, syncDefinition]
-  );
-
-  const handleAddPropertyOption = useCallback(
-    (key: string) => {
-      const normalizedKey = normalizeEditablePropertyKey(key);
-      const normalizedProperties = normalizeFrontmatterProperties(properties);
-      const property = normalizedProperties[normalizedKey];
-      const option = optionDraft.trim();
-
-      if (
-        !(
-          option &&
-          property &&
-          (property.type === "select" || property.type === "multi_select")
-        )
-      ) {
-        return;
-      }
-
-      syncDefinition(normalizedKey, property.type, [option]);
-      setOptionDraft("");
-    },
-    [optionDraft, properties, syncDefinition]
-  );
-
-  const handleDuplicateProperty = useCallback(
-    (key: string) => {
-      const normalizedKey = normalizeEditablePropertyKey(key);
-      const normalizedProperties = normalizeFrontmatterProperties(properties);
-      const property = normalizedProperties[normalizedKey];
-      if (!property) {
-        return;
-      }
-
-      const baseKey = `${normalizedKey} copy`;
-      let nextKey = baseKey;
-      let counter = 2;
-      while (normalizedProperties[nextKey]) {
-        nextKey = `${baseKey} ${counter}`;
-        counter += 1;
-      }
-
-      const nextProperty =
-        property.type === "multi_select"
-          ? { ...property, value: [...property.value] }
-          : { ...property };
-
-      onChange(
-        normalizeFrontmatterProperties({
-          ...normalizedProperties,
-          [nextKey]: nextProperty,
-        })
-      );
-      syncDefinition(
-        nextKey,
-        property.type,
-        getDefinitionOptions(normalizedKey)
-      );
-      setOpenPropertyEditorKey(nextKey);
-    },
-    [getDefinitionOptions, onChange, properties, syncDefinition]
-  );
-
-  const handleDeleteProperty = useCallback(
-    (key: string) => {
-      const normalizedKey = normalizeEditablePropertyKey(key);
-      const normalizedProperties = normalizeFrontmatterProperties(properties);
-      const { [normalizedKey]: _removed, ...rest } = normalizedProperties;
-      onChange(rest);
-      setOpenPropertyEditorKey(null);
-    },
-    [onChange, properties]
-  );
-
-  const handlePropertyTypeChange = useCallback(
-    (key: string, type: FilePropertyType) => {
-      const normalizedKey = normalizeEditablePropertyKey(key);
-      const normalizedProperties = normalizeFrontmatterProperties(properties);
-      const property = normalizedProperties[normalizedKey];
-      if (!property) {
-        return;
-      }
-
-      const nextProperty = convertPropertyType(property, type);
-      onChange(
-        normalizeFrontmatterProperties({
-          ...normalizedProperties,
-          [normalizedKey]: nextProperty,
-        })
-      );
-      syncDefinition(
-        normalizedKey,
-        type,
-        nextProperty.type === "select" && nextProperty.value
-          ? [nextProperty.value]
-          : nextProperty.type === "multi_select"
-            ? nextProperty.value
-            : []
-      );
-    },
-    [onChange, properties, syncDefinition]
-  );
-
-  const handleNumberDisplayChange = useCallback(
-    (
-      key: string,
-      patch: Partial<{
-        display: NumberPropertyDisplay;
-        total: number | null;
-      }>
-    ) => {
-      const normalizedKey = normalizeEditablePropertyKey(key);
-      const normalizedProperties = normalizeFrontmatterProperties(properties);
-      const property = normalizedProperties[normalizedKey];
-      if (!(property?.type === "number")) {
-        return;
-      }
-
-      onChange(
-        normalizeFrontmatterProperties({
-          ...normalizedProperties,
-          [normalizedKey]: {
-            ...property,
-            ...patch,
-          },
-        })
-      );
-    },
-    [onChange, properties]
-  );
-
-  const handleRenameProperty = useCallback(
-    (key: string, nextKey: string) => {
-      const normalizedKey = normalizeEditablePropertyKey(key);
-      const trimmedKey = normalizeEditablePropertyKey(nextKey);
-      const normalizedProperties = normalizeFrontmatterProperties(properties);
-      if (
-        !(
-          trimmedKey &&
-          trimmedKey !== normalizedKey &&
-          !normalizedProperties[trimmedKey]
-        )
-      ) {
-        return;
-      }
-
-      const nextEntries = Object.entries(normalizedProperties).map(
-        ([entryKey, value]) =>
-          entryKey === normalizedKey
-            ? ([trimmedKey, value] as const)
-            : ([entryKey, value] as const)
-      );
-      onChange(Object.fromEntries(nextEntries));
-
-      const definition = definitionByKey.get(normalizedKey);
-      if (definition && onDefinitionsChange) {
-        onDefinitionsChange(
-          definitions
-            .map((entry) =>
-              normalizeEditablePropertyKey(entry.key) === normalizedKey
-                ? { ...entry, key: trimmedKey }
-                : entry
-            )
-            .sort((left, right) => left.key.localeCompare(right.key))
-        );
-      }
-    },
-    [definitionByKey, definitions, onChange, onDefinitionsChange, properties]
-  );
-
-  const handlePropertyValueChange = useCallback(
-    (key: string, nextValue: unknown) => {
-      const normalizedKey = normalizeEditablePropertyKey(key);
-      const normalizedProperties = normalizeFrontmatterProperties(properties);
-      const property = normalizedProperties[normalizedKey];
-      if (!property) {
-        return;
-      }
-
-      const nextProperty = setPropertyValue(property, nextValue);
-      onChange(
-        normalizeFrontmatterProperties({
-          ...normalizedProperties,
-          [normalizedKey]: nextProperty,
-        })
-      );
-
-      if (nextProperty.type === "select" && nextProperty.value) {
-        syncDefinition(normalizedKey, nextProperty.type, [nextProperty.value]);
-      }
-      if (nextProperty.type === "multi_select") {
-        syncDefinition(normalizedKey, nextProperty.type, nextProperty.value);
-      }
-    },
-    [onChange, properties, syncDefinition]
-  );
-
-  const handleFormattedPropertyValueChange = useCallback(
-    (key: string, nextValue: string) => {
-      const property =
-        normalizeFrontmatterProperties(properties)[
-          normalizeEditablePropertyKey(key)
-        ];
-      if (!property) {
-        return;
-      }
-
-      handlePropertyValueChange(
-        key,
-        parseFormattedPropertyValue(property.type, nextValue)
-      );
-    },
-    [handlePropertyValueChange, properties]
-  );
-
-  const focusNewKeyInput = useCallback(() => {
-    window.requestAnimationFrame(() => {
-      newKeyInputRef.current?.focus();
-    });
-  }, []);
-
-  const handleEntryBlur = useCallback(
-    (event: FocusEvent<HTMLInputElement>, key: string) => {
-      const row = event.currentTarget.closest("[data-property-row]");
-      const next = event.relatedTarget as Node | null;
-      if (next && row?.contains(next)) {
-        return;
-      }
-
-      if (key.trim().length === 0) {
-        handleDeleteProperty(key);
-      }
-    },
-    [handleDeleteProperty]
-  );
-
-  const handleEntryKeyDown = useCallback(
-    (
-      event: KeyboardEvent<HTMLInputElement>,
-      key: string,
-      field: "key" | "value"
-    ) => {
-      const property =
-        normalizeFrontmatterProperties(properties)[
-          normalizeEditablePropertyKey(key)
-        ];
-      if (!property) {
-        return;
-      }
-
-      if (event.key === "Enter" && field === "value") {
-        event.preventDefault();
-        focusNewKeyInput();
-        return;
-      }
-
-      if (
-        event.key === "Backspace" &&
-        field === "key" &&
-        key.trim().length === 0 &&
-        formatPropertyValue(property).trim().length === 0
-      ) {
-        event.preventDefault();
-        handleDeleteProperty(key);
-      }
-    },
-    [focusNewKeyInput, handleDeleteProperty, properties]
-  );
+    typePickerKey,
+    valueOptionDraft,
+  } = usePropertiesTable({
+    definitions,
+    onChange,
+    onDefinitionsChange,
+    onSummarizePage,
+    properties,
+  });
 
   const renderPropertyValueEditor = (key: string) => {
     const normalizedProperties = normalizeFrontmatterProperties(properties);

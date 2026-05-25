@@ -1,11 +1,17 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect, type RefObject } from "react";
+import {
+  type RefObject,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 export interface ItemRect {
-  top: number;
   height: number;
   left: number;
+  top: number;
   width: number;
 }
 
@@ -15,16 +21,16 @@ interface UseProximityHoverOptions {
 
 interface UseProximityHoverReturn {
   activeIndex: number | null;
-  setActiveIndex: (index: number | null) => void;
-  itemRects: ItemRect[];
-  sessionRef: RefObject<number>;
   handlers: {
     onMouseMove: (e: React.MouseEvent) => void;
     onMouseEnter: () => void;
     onMouseLeave: () => void;
   };
-  registerItem: (index: number, element: HTMLElement | null) => void;
+  itemRects: ItemRect[];
   measureItems: () => void;
+  registerItem: (index: number, element: HTMLElement | null) => void;
+  sessionRef: RefObject<number>;
+  setActiveIndex: (index: number | null) => void;
 }
 
 export function useProximityHover<T extends HTMLElement>(
@@ -52,7 +58,9 @@ export function useProximityHover<T extends HTMLElement>(
 
   const measureItems = useCallback(() => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container) {
+      return;
+    }
     const rects: ItemRect[] = [];
     itemsRef.current.forEach((element, index) => {
       // Use offset* instead of getBoundingClientRect so measurements are
@@ -83,27 +91,35 @@ export function useProximityHover<T extends HTMLElement>(
       rafIdRef.current = requestAnimationFrame(() => {
         rafIdRef.current = null;
         const container = containerRef.current;
-        if (!container) return;
+        if (!container) {
+          return;
+        }
 
         const containerRect = container.getBoundingClientRect();
         const mousePos = axis === "x" ? mouseX : mouseY;
 
         let closestIndex: number | null = null;
-        let closestDistance = Infinity;
+        let closestDistance = Number.POSITIVE_INFINITY;
         let containingIndex: number | null = null;
 
         const rects = itemRectsRef.current;
         // Convert content-relative rects to viewport coords using live scroll
-        const scrollOffset = axis === "x" ? container.scrollLeft : container.scrollTop;
-        const borderOffset = axis === "x" ? container.clientLeft : container.clientTop;
-        const containerEdge = axis === "x" ? containerRect.left : containerRect.top;
+        const scrollOffset =
+          axis === "x" ? container.scrollLeft : container.scrollTop;
+        const borderOffset =
+          axis === "x" ? container.clientLeft : container.clientTop;
+        const containerEdge =
+          axis === "x" ? containerRect.left : containerRect.top;
 
         for (let index = 0; index < rects.length; index++) {
           const r = rects[index];
-          if (!r) continue;
+          if (!r) {
+            continue;
+          }
 
           const contentPos = axis === "x" ? r.left : r.top;
-          const itemStart = containerEdge + borderOffset + contentPos - scrollOffset;
+          const itemStart =
+            containerEdge + borderOffset + contentPos - scrollOffset;
           const itemSize = axis === "x" ? r.width : r.height;
           const itemEnd = itemStart + itemSize;
 

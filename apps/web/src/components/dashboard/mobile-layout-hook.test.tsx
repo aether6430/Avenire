@@ -9,7 +9,10 @@ describe("useIsMobile source", () => {
     ];
 
     for (const relativePath of sourceFiles) {
-      const source = readFileSync(new URL(relativePath, import.meta.url), "utf8");
+      const source = readFileSync(
+        new URL(relativePath, import.meta.url),
+        "utf8"
+      );
 
       expect(source).toContain("useEffect");
       expect(source).not.toContain("useLayoutEffect");

@@ -253,7 +253,7 @@ export function MobileStudentCalendar() {
         {DAYS_SHORT.map((day, index) => (
           <div
             className="py-1 text-center font-medium text-[11px] text-muted-foreground"
-            key={`${day}-${index}`}
+            key={day}
           >
             {day}
           </div>

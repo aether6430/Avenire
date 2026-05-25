@@ -109,18 +109,42 @@ export function shouldHydrateInitialChatMessages(input: {
   return input.initialMessageCount > 0 && input.messageCount === 0;
 }
 
-export function shouldResumeChatStream(chatId: string) {
-  return chatId !== "new";
+export function shouldResumeChatStream({
+  chatId,
+  initialMessageCount,
+  lastMessageRole,
+  status,
+}: {
+  chatId: string;
+  initialMessageCount: number;
+  lastMessageRole: string | undefined;
+  status: ChatRuntimeStatus;
+}) {
+  return (
+    chatId !== "new" &&
+    initialMessageCount > 0 &&
+    lastMessageRole === "user" &&
+    status === "ready"
+  );
 }
 
 export function shouldResumeChatStreamOnWindowActivation({
   chatId,
+  initialMessageCount,
+  status,
   visibilityState,
 }: {
   chatId: string;
+  initialMessageCount: number;
+  status: ChatRuntimeStatus;
   visibilityState: DocumentVisibilityState | "hidden" | "visible";
 }) {
-  return shouldResumeChatStream(chatId) && visibilityState !== "hidden";
+  return (
+    chatId !== "new" &&
+    initialMessageCount > 0 &&
+    status === "ready" &&
+    visibilityState !== "hidden"
+  );
 }
 
 export function getChatStatusPetNotification(status: ChatRuntimeStatus) {

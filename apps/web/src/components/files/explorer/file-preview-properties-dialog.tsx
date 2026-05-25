@@ -50,14 +50,14 @@ export function FilePreviewPropertiesDialog({
 }: FilePreviewPropertiesDialogProps) {
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="max-h-[85vh] max-w-[calc(100vw-1rem)] overflow-hidden rounded-lg border border-border/60 bg-background p-0 shadow-md sm:max-w-[26rem]">
+      <DialogContent className="max-w-[calc(100vw-1rem)] overflow-visible rounded-lg border border-border/60 bg-background p-0 shadow-md sm:max-w-[26rem]">
         <DialogHeader className="border-border/60 border-b px-4 py-3">
           <DialogTitle className="flex items-center gap-2 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.16em]">
             <SlidersHorizontal className="size-3" />
             Properties
           </DialogTitle>
         </DialogHeader>
-        <div className="max-h-[70vh] overflow-y-auto overflow-x-hidden p-3.5">
+        <div className="overflow-visible p-3.5">
           <PropertiesTable
             className="mx-0 mb-0 max-w-none border-0 px-0 pt-0 pb-0 sm:px-0"
             definitions={definitions}

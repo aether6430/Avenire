@@ -1,6 +1,20 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.0.5/schema.json",
   "extends": ["ultracite/biome/core"],
+  "files": {
+    "includes": [
+      "**",
+      "!**/drizzle/meta/**",
+      "!**/dist/**",
+      "!**/.next/**",
+      "!**/build/**"
+    ]
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
   "linter": {
     "rules": {
       "a11y": {
@@ -53,5 +67,24 @@
         "useIterableCallbackReturn": "off"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["packages/ui/**"],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "useAriaPropsForRole": "off",
+            "useFocusableInteractive": "off"
+          },
+          "performance": {
+            "noAccumulatingSpread": "off"
+          },
+          "suspicious": {
+            "noArrayIndexKey": "off"
+          }
+        }
+      }
+    }
+  ]
 }

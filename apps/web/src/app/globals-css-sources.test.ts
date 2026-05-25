@@ -10,7 +10,9 @@ const globalsCss = readFileSync(
 describe("globals.css Tailwind source boundaries", () => {
   it("scans app source instead of the entire apps/web directory", () => {
     expect(globalsCss).toContain('@source "../**/*.{js,ts,jsx,tsx}";');
-    expect(globalsCss).not.toContain('@source "../../../**/*.{js,ts,jsx,tsx}";');
+    expect(globalsCss).not.toContain(
+      '@source "../../../**/*.{js,ts,jsx,tsx}";'
+    );
   });
 
   it("avoids broad package globs that pull compiled workspace artifacts into Tailwind", () => {

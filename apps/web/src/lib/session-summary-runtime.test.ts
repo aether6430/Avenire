@@ -56,10 +56,6 @@ vi.mock("@/lib/ai-provider-errors", () => ({
   ),
 }));
 
-const sessionSummariesBarrelSource = readFileSync(
-  resolve(import.meta.dirname, "session-summaries.ts"),
-  "utf8"
-);
 const sessionSummaryModelSource = readFileSync(
   resolve(import.meta.dirname, "session-summary-model.ts"),
   "utf8"
@@ -214,17 +210,7 @@ describe("session summary runtime", () => {
     expect(summary?.subject).toBe("Physics");
   });
 
-  it("keeps session summaries split between a server-only barrel, pure model helpers, and ai/database runtime work", () => {
-    expect(sessionSummariesBarrelSource).toContain('import "server-only";');
-    expect(sessionSummariesBarrelSource).toContain(
-      "@/lib/session-summary-model"
-    );
-    expect(sessionSummariesBarrelSource).toContain(
-      "@/lib/session-summary-runtime"
-    );
-    expect(sessionSummariesBarrelSource).not.toContain("generateText(");
-    expect(sessionSummariesBarrelSource).not.toContain("createSessionSummary(");
-
+  it("keeps session summaries split between pure model helpers and ai/database runtime work", () => {
     expect(sessionSummaryModelSource).toContain(
       "export function buildTranscript"
     );

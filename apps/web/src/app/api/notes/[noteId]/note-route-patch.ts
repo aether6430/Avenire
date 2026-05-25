@@ -1,5 +1,6 @@
 import { scheduleIngestionJob } from "@avenire/ingestion/queue";
 import { NextResponse } from "next/server";
+import { invalidateWorkspaceReadCaches } from "@/lib/domain-cache";
 import {
   deleteIngestionDataForFile,
   getFileAssetById,
@@ -9,7 +10,6 @@ import {
   upsertMarkdownFileContent,
   userCanEditFile,
 } from "@/lib/file-data";
-import { invalidateWorkspaceReadCaches } from "@/lib/domain-cache";
 import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
 import {
   type NoteRoutePatchBody,

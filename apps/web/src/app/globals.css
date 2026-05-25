@@ -61,6 +61,8 @@
   --color-canvas: var(--avenire-marketing-canvas);
   --color-canvas-fill: var(--avenire-marketing-canvas-fill);
   --color-footer-link: var(--avenire-marketing-footer-link);
+  font-family: var(--font-primary);
+  color-scheme: dark;
   background-color: #050506;
   background-image:
     linear-gradient(#050506, #050506),
@@ -71,17 +73,13 @@
       transparent 1px,
       transparent 12px
     );
+  background-repeat: repeat-y, repeat;
   background-position:
     center top,
     left top;
-  background-repeat:
-    repeat-y,
-    repeat;
   background-size:
     min(72rem, calc(100% - 2rem)) 100%,
     12px 12px;
-  color-scheme: dark;
-  font-family: var(--font-primary);
 }
 
 .avenire-marketing-scope :where(.bg-gray-100) {

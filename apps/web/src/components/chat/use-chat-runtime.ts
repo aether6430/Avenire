@@ -90,6 +90,7 @@ export function useChatRuntime({
   const messagesRef = useRef<UIMessage[]>(initialMessages);
   const pendingNewChatMessagesRef = useRef<UIMessage[] | null>(null);
   const autoPromptSentRef = useRef<string | null>(null);
+  const initialMessagesCountRef = useRef(initialMessages.length);
 
   const activeSelectedModel = turboEnabled ? "apex-turbo" : selectedModel;
 
@@ -231,14 +232,21 @@ export function useChatRuntime({
   }, [initialMessages, messages.length, setMessages]);
 
   useEffect(() => {
-    if (!shouldResumeChatStream(id)) {
+    if (
+      !shouldResumeChatStream({
+        chatId: id,
+        initialMessageCount: initialMessagesCountRef.current,
+        lastMessageRole: messages.at(-1)?.role,
+        status,
+      })
+    ) {
       return;
     }
     resumeStream().catch(() => undefined);
-  }, [id, resumeStream]);
+  }, [id, messages, resumeStream, status]);
 
   useEffect(() => {
-    if (!shouldResumeChatStream(id)) {
+    if (id === "new" || initialMessagesCountRef.current === 0) {
       return;
     }
 
@@ -246,6 +254,8 @@ export function useChatRuntime({
       if (
         !shouldResumeChatStreamOnWindowActivation({
           chatId: id,
+          initialMessageCount: initialMessagesCountRef.current,
+          status,
           visibilityState: document.visibilityState,
         })
       ) {
@@ -262,7 +272,7 @@ export function useChatRuntime({
       window.removeEventListener("focus", resumeExistingStream);
       document.removeEventListener("visibilitychange", resumeExistingStream);
     };
-  }, [id, resumeStream]);
+  }, [id, resumeStream, status]);
 
   useEffect(() => {
     void flushChatRuntimeAutoPrompt({

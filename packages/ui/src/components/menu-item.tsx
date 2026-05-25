@@ -1,18 +1,18 @@
 "use client";
 
-import { useRef, useEffect, forwardRef, type HTMLAttributes } from "react";
-import type { IconComponent } from "../lib/icon-context";
 import { AnimatePresence, m } from "motion/react";
-import { useDropdown } from "./dropdown";
-import { cn } from "../lib/utils";
+import { forwardRef, type HTMLAttributes, useEffect, useRef } from "react";
 import { fontWeights } from "../lib/font-weight";
+import type { IconComponent } from "../lib/icon-context";
 import { useShape } from "../lib/shape-context";
+import { cn } from "../lib/utils";
+import { useDropdown } from "./dropdown";
 
 interface MenuItemProps extends HTMLAttributes<HTMLDivElement> {
-  icon: IconComponent;
-  label: string;
-  index: number;
   checked?: boolean;
+  icon: IconComponent;
+  index: number;
+  label: string;
   onSelect?: () => void;
 }
 
@@ -40,16 +40,13 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
 
     return (
       <div
-        ref={(node) => {
-          (internalRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
-          if (typeof ref === "function") ref(node);
-          else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
-        }}
-        data-proximity-index={index}
-        tabIndex={index === (checkedIndex ?? 0) ? 0 : -1}
-        role="menuitemradio"
         aria-checked={!!checked}
         aria-label={label}
+        className={cn(
+          `relative z-10 flex items-center gap-2 ${shape.item} cursor-pointer px-2 py-2 outline-none`,
+          className
+        )}
+        data-proximity-index={index}
         onClick={onSelect}
         onKeyDown={(e) => {
           if (e.key === " " || e.key === "Enter") {
@@ -57,41 +54,46 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
             onSelect?.();
           }
         }}
-        className={cn(
-          `relative z-10 flex items-center gap-2 ${shape.item} px-2 py-2 cursor-pointer outline-none`,
-          className
-        )}
+        ref={(node) => {
+          (
+            internalRef as React.MutableRefObject<HTMLDivElement | null>
+          ).current = node;
+          if (typeof ref === "function") {
+            ref(node);
+          } else if (ref) {
+            (ref as React.MutableRefObject<HTMLDivElement | null>).current =
+              node;
+          }
+        }}
+        role="menuitemradio"
+        tabIndex={index === (checkedIndex ?? 0) ? 0 : -1}
         {...props}
       >
         <span className="inline-grid">
-          <span className="col-start-1 row-start-1 invisible">
+          <span className="invisible col-start-1 row-start-1">
             <Icon size={16} strokeWidth={2} />
           </span>
           <Icon
-            size={16}
-            strokeWidth={isActive || checked ? 2 : 1.5}
             className={cn(
               "col-start-1 row-start-1 transition-[color,stroke-width] duration-80",
-              isActive || checked
-                ? "text-foreground"
-                : "text-muted-foreground"
+              isActive || checked ? "text-foreground" : "text-muted-foreground"
             )}
+            size={16}
+            strokeWidth={isActive || checked ? 2 : 1.5}
           />
         </span>
         <span className="inline-grid flex-1 text-[13px]">
           <span
-            className="col-start-1 row-start-1 invisible"
-            style={{ fontVariationSettings: fontWeights.semibold }}
             aria-hidden="true"
+            className="invisible col-start-1 row-start-1"
+            style={{ fontVariationSettings: fontWeights.semibold }}
           >
             {label}
           </span>
           <span
             className={cn(
               "col-start-1 row-start-1 transition-[color,font-variation-settings] duration-80",
-              isActive || checked
-                ? "text-foreground"
-                : "text-muted-foreground"
+              isActive || checked ? "text-foreground" : "text-muted-foreground"
             )}
             style={{
               fontVariationSettings: checked
@@ -105,31 +107,31 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
         <AnimatePresence>
           {checked && (
             <m.svg
-              key="check"
-              width={16}
-              height={16}
-              viewBox="0 0 24 24"
+              animate={{ opacity: 1 }}
+              className="shrink-0 text-foreground"
+              exit={{ opacity: 1 }}
               fill="none"
+              height={16}
+              initial={{ opacity: 1 }}
+              key="check"
               stroke="currentColor"
-              strokeWidth={2}
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="text-foreground shrink-0"
-              initial={{ opacity: 1 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 1 }}
+              strokeWidth={2}
+              viewBox="0 0 24 24"
+              width={16}
             >
               <m.path
-                d="M4 12L9 17L20 6"
-                initial={{ pathLength: skipAnimation ? 1 : 0 }}
                 animate={{
                   pathLength: 1,
                   transition: { duration: 0.08, ease: "easeOut" },
                 }}
+                d="M4 12L9 17L20 6"
                 exit={{
                   pathLength: 0,
                   transition: { duration: 0.04, ease: "easeIn" },
                 }}
+                initial={{ pathLength: skipAnimation ? 1 : 0 }}
               />
             </m.svg>
           )}

@@ -45,16 +45,17 @@ Inline \`code\` and [link](https://example.com)
     ]);
   });
 
-  it("renders a darker document-grid markdown thumbnail shell instead of an SVG snapshot", () => {
+  it("renders a theme-aware document-grid markdown thumbnail shell instead of an SVG snapshot", () => {
     const html = renderToStaticMarkup(
       createElement(MarkdownThumbnail, {
         content: "# Hello world\n\nThis is the body.",
       })
     );
 
-    expect(html).toContain("bg-[#151515]");
+    expect(html).toContain("bg-muted/65");
+    expect(html).toContain("bg-background/95");
     expect(html).toContain("grid-cols-[1.1fr_0.85fr_0.85fr]");
-    expect(html).toContain("border-white/8");
+    expect(html).toContain("border-border/60");
     expect(html).not.toContain("<img");
   });
 });

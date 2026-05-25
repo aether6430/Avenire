@@ -207,6 +207,8 @@ export function useFilePreviewNoteBootstrap({
     setMarkdownLoading,
     setMarkdownOriginal,
     setNoteBaseContent,
+    setNotePage,
+    setNotePageOriginal,
     workspaceUuid,
   ]);
 }

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   buildFilePreviewPanelDerivedState,
-  getActiveMarkdownFileRoute,
   getActiveFileLinkSourceUrl,
+  getActiveMarkdownFileRoute,
 } from "@/components/files/explorer/file-preview-panel-model";
 import type { FileRecord } from "@/components/files/explorer/shared";
 import type { WorkspaceSearchResult } from "@/components/files/search-model";

@@ -155,23 +155,75 @@ describe("use chat runtime model", () => {
         messageCount: 2,
       })
     ).toBe(false);
-    expect(shouldResumeChatStream("new")).toBe(false);
-    expect(shouldResumeChatStream("chat-1")).toBe(true);
+    expect(
+      shouldResumeChatStream({
+        chatId: "new",
+        initialMessageCount: 2,
+        lastMessageRole: "user",
+        status: "ready",
+      })
+    ).toBe(false);
+    expect(
+      shouldResumeChatStream({
+        chatId: "chat-1",
+        initialMessageCount: 0,
+        lastMessageRole: "user",
+        status: "ready",
+      })
+    ).toBe(false);
+    expect(
+      shouldResumeChatStream({
+        chatId: "chat-1",
+        initialMessageCount: 2,
+        lastMessageRole: "assistant",
+        status: "ready",
+      })
+    ).toBe(false);
+    expect(
+      shouldResumeChatStream({
+        chatId: "chat-1",
+        initialMessageCount: 2,
+        lastMessageRole: "user",
+        status: "streaming",
+      })
+    ).toBe(false);
+    expect(
+      shouldResumeChatStream({
+        chatId: "chat-1",
+        initialMessageCount: 2,
+        lastMessageRole: "user",
+        status: "ready",
+      })
+    ).toBe(true);
     expect(
       shouldResumeChatStreamOnWindowActivation({
         chatId: "new",
+        initialMessageCount: 2,
+        status: "ready",
         visibilityState: "visible",
       })
     ).toBe(false);
     expect(
       shouldResumeChatStreamOnWindowActivation({
         chatId: "chat-1",
+        initialMessageCount: 2,
+        status: "ready",
         visibilityState: "hidden",
       })
     ).toBe(false);
     expect(
       shouldResumeChatStreamOnWindowActivation({
         chatId: "chat-1",
+        initialMessageCount: 2,
+        status: "streaming",
+        visibilityState: "visible",
+      })
+    ).toBe(false);
+    expect(
+      shouldResumeChatStreamOnWindowActivation({
+        chatId: "chat-1",
+        initialMessageCount: 2,
+        status: "ready",
         visibilityState: "visible",
       })
     ).toBe(true);

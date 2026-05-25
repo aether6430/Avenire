@@ -43,7 +43,7 @@ export function DesktopMonthGrid({
         {DAYS_SHORT_DESKTOP.map((day, index) => (
           <div
             className="py-1.5 text-center font-medium text-[11px] text-muted-foreground"
-            key={`${day}-${index}`}
+            key={day}
           >
             {day}
           </div>

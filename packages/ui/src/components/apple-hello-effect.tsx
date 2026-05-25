@@ -1,24 +1,24 @@
-"use client"
+"use client";
 
-import type { TargetAndTransition } from "motion/react"
-import { motion } from "motion/react"
-import type { ComponentProps, ComponentType } from "react"
+import type { TargetAndTransition } from "motion/react";
+import { motion } from "motion/react";
+import type { ComponentProps, ComponentType } from "react";
 
-import { cn } from "../lib/utils"
-import { AppleHelloEffectEnglish } from "./apple-hello-effect-english"
-import { AppleHelloEffectHindi } from "./apple-hello-effect-hindi"
-import { AppleHelloEffectSpanish } from "./apple-hello-effect-spanish"
-import { AppleHelloEffectVietnamese } from "./apple-hello-effect-vietnamese"
+import { cn } from "../lib/utils";
+import { AppleHelloEffectEnglish } from "./apple-hello-effect-english";
+import { AppleHelloEffectHindi } from "./apple-hello-effect-hindi";
+import { AppleHelloEffectSpanish } from "./apple-hello-effect-spanish";
+import { AppleHelloEffectVietnamese } from "./apple-hello-effect-vietnamese";
 
 type HelloEffectProps = Omit<
   ComponentProps<typeof motion.svg>,
   "durationScale" | "onAnimationComplete"
 > & {
-  durationScale?: number
-  onAnimationComplete?: () => void
-}
+  durationScale?: number;
+  onAnimationComplete?: () => void;
+};
 
-type HelloLocale = "ar" | "en" | "es" | "hi" | "it" | "ja" | "vi" | "zh-Hans"
+type HelloLocale = "ar" | "en" | "es" | "hi" | "it" | "ja" | "vi" | "zh-Hans";
 
 const COUNTRY_LOCALE_MAP: Partial<Record<string, HelloLocale>> = {
   AR: "es",
@@ -46,17 +46,17 @@ const COUNTRY_LOCALE_MAP: Partial<Record<string, HelloLocale>> = {
   UY: "es",
   VE: "es",
   VN: "vi",
-}
+};
 
 const initialProps: TargetAndTransition = {
   pathLength: 0,
   opacity: 0,
-}
+};
 
 const animateProps: TargetAndTransition = {
   pathLength: 1,
   opacity: 1,
-}
+};
 
 const PATH_EFFECTS = {
   ar: {
@@ -118,49 +118,78 @@ const PATH_EFFECTS = {
       "M403.707 75.6837C422.797 90.3686 435.947 115.611 438.198 149.629C440.928 189.828 430.506 210.175 412.64 210.175C392.293 210.175 369.96 179.902 368.968 153.103C368.471 138.711 373.698 129.274 387.578 122.334C408.67 111.664 452.59 112.905 484.104 124.567",
     ],
   },
-} satisfies Record<string, { durationScale: number; paths: string[]; title: string; viewBox: string }>
+} satisfies Record<
+  string,
+  { durationScale: number; paths: string[]; title: string; viewBox: string }
+>;
 
-const COMPONENT_EFFECTS: Partial<Record<HelloLocale, ComponentType<HelloEffectProps>>> = {
+const COMPONENT_EFFECTS: Partial<
+  Record<HelloLocale, ComponentType<HelloEffectProps>>
+> = {
   en: AppleHelloEffectEnglish,
   es: AppleHelloEffectSpanish,
   hi: AppleHelloEffectHindi,
   vi: AppleHelloEffectVietnamese,
-}
+};
 
 function normalizeLocale(input: string): HelloLocale | null {
-  const locale = input.toLowerCase()
-  if (locale.startsWith("ar")) return "ar"
-  if (locale.startsWith("es")) return "es"
-  if (locale.startsWith("hi")) return "hi"
-  if (locale.startsWith("it")) return "it"
-  if (locale.startsWith("ja")) return "ja"
-  if (locale.startsWith("vi")) return "vi"
-  if (locale.startsWith("zh")) return "zh-Hans"
-  if (locale.startsWith("en")) return "en"
-  return null
+  const locale = input.toLowerCase();
+  if (locale.startsWith("ar")) {
+    return "ar";
+  }
+  if (locale.startsWith("es")) {
+    return "es";
+  }
+  if (locale.startsWith("hi")) {
+    return "hi";
+  }
+  if (locale.startsWith("it")) {
+    return "it";
+  }
+  if (locale.startsWith("ja")) {
+    return "ja";
+  }
+  if (locale.startsWith("vi")) {
+    return "vi";
+  }
+  if (locale.startsWith("zh")) {
+    return "zh-Hans";
+  }
+  if (locale.startsWith("en")) {
+    return "en";
+  }
+  return null;
 }
 
-export function resolveAppleHelloLocale(languages: readonly string[]): HelloLocale {
+export function resolveAppleHelloLocale(
+  languages: readonly string[]
+): HelloLocale {
   for (const language of languages) {
-    const region = language.split("-")[1]?.toUpperCase()
+    const region = language.split("-")[1]?.toUpperCase();
     if (region) {
-      const locale = COUNTRY_LOCALE_MAP[region]
-      if (locale) return locale
+      const locale = COUNTRY_LOCALE_MAP[region];
+      if (locale) {
+        return locale;
+      }
     }
   }
 
   for (const language of languages) {
-    const locale = normalizeLocale(language)
-    if (locale) return locale
+    const locale = normalizeLocale(language);
+    if (locale) {
+      return locale;
+    }
   }
-  return "en"
+  return "en";
 }
 
 export function resolveAppleHelloLocaleFromCountry(
-  countryCode: string | null | undefined,
+  countryCode: string | null | undefined
 ): HelloLocale | null {
-  if (!countryCode) return null
-  return COUNTRY_LOCALE_MAP[countryCode.toUpperCase()] ?? null
+  if (!countryCode) {
+    return null;
+  }
+  return COUNTRY_LOCALE_MAP[countryCode.toUpperCase()] ?? null;
 }
 
 function PathHelloEffect({
@@ -172,65 +201,66 @@ function PathHelloEffect({
   svgViewBox,
   ...props
 }: HelloEffectProps & {
-  label: string
-  paths: string[]
-  svgViewBox: string
+  label: string;
+  paths: string[];
+  svgViewBox: string;
 }) {
-  const scale = durationScale ?? 1
+  const scale = durationScale ?? 1;
 
   return (
     <motion.svg
       className={cn("h-20", className)}
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox={svgViewBox}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="14.8883"
-      strokeLinecap="round"
-      initial={{ opacity: 1 }}
       exit={{ opacity: 0 }}
+      fill="none"
+      initial={{ opacity: 1 }}
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeWidth="14.8883"
       transition={{ duration: 0.5 }}
+      viewBox={svgViewBox}
+      xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
       <title>{label}</title>
       {paths.map((path, index) => {
-        const delay = index * 0.34 * scale
-        const isLast = index === paths.length - 1
+        const delay = index * 0.34 * scale;
+        const isLast = index === paths.length - 1;
 
         return (
           <motion.path
+            animate={animateProps}
             d={path}
             initial={initialProps}
-            animate={animateProps}
+            key={`${label}-${index}`}
+            onAnimationComplete={isLast ? onAnimationComplete : undefined}
             transition={{
               duration: 0.65 * scale,
               ease: "easeInOut",
               delay,
               opacity: { duration: 0.25 * scale, delay },
             }}
-            onAnimationComplete={isLast ? onAnimationComplete : undefined}
-            key={`${label}-${index}`}
           />
-        )
+        );
       })}
     </motion.svg>
-  )
+  );
 }
 
 export function AppleHelloEffect({
   locale,
   ...props
 }: HelloEffectProps & {
-  locale?: HelloLocale
+  locale?: HelloLocale;
 }) {
-  const targetLocale = locale ?? "en"
-  const Component = COMPONENT_EFFECTS[targetLocale]
+  const targetLocale = locale ?? "en";
+  const Component = COMPONENT_EFFECTS[targetLocale];
 
   if (Component) {
-    return <Component {...props} />
+    return <Component {...props} />;
   }
 
-  const effect = PATH_EFFECTS[targetLocale as keyof typeof PATH_EFFECTS] ?? PATH_EFFECTS.it
+  const effect =
+    PATH_EFFECTS[targetLocale as keyof typeof PATH_EFFECTS] ?? PATH_EFFECTS.it;
   return (
     <PathHelloEffect
       durationScale={effect.durationScale}
@@ -239,5 +269,5 @@ export function AppleHelloEffect({
       svgViewBox={effect.viewBox}
       {...props}
     />
-  )
+  );
 }

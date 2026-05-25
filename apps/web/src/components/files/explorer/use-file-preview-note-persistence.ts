@@ -208,7 +208,7 @@ export function useFilePreviewNotePersistence({
   ]);
 
   useEffect(() => {
-    if (activeFile.readOnly || !activeFileIsMarkdown) {
+    if (activeFile.readOnly) {
       return;
     }
 
@@ -229,12 +229,7 @@ export function useFilePreviewNotePersistence({
         window.clearTimeout(fileMetadataSaveTimerRef.current);
       }
     };
-  }, [
-    activeFile.readOnly,
-    activeFileIsMarkdown,
-    notePageDirty,
-    saveFileMetadata,
-  ]);
+  }, [activeFile.readOnly, notePageDirty, saveFileMetadata]);
 
   useEffect(() => {
     if (!(workspaceUuid && activeFileIsMarkdown)) {

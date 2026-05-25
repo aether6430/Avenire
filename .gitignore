@@ -33,7 +33,6 @@ context
 /.playwright-cli/
 /output/
 /notes.md
-/instruction.md
 /TODO.md
 /apps/web/AGENTS.md
 /apps/web/CLAUDE.md

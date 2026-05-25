@@ -2,8 +2,7 @@
 
 import type { ChatSummary } from "@avenire/database";
 import { Button } from "@avenire/ui/components/button";
-import { Sidebar } from "@avenire/ui/components/sidebar";
-import { SidebarFooter } from "@avenire/ui/components/sidebar";
+import { Sidebar, SidebarFooter } from "@avenire/ui/components/sidebar";
 import { cn } from "@avenire/ui/lib/utils";
 import { Trash as Trash2, Waves } from "@phosphor-icons/react";
 import { Gear as Settings } from "@phosphor-icons/react/Gear";

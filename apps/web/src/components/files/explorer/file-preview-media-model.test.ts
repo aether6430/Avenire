@@ -84,8 +84,8 @@ describe("File preview media model", () => {
     expect(source).toContain(
       '"relative flex h-[500px] w-full flex-col overflow-hidden border-0 bg-background"'
     );
-    expect(source).not.toContain("useEffect(() => {\n    setPageInput(\"\");");
-    expect(source).not.toContain("useEffect(() => {\n    setZoomInput(\"\");");
+    expect(source).not.toContain('useEffect(() => {\n    setPageInput("");');
+    expect(source).not.toContain('useEffect(() => {\n    setZoomInput("");');
   });
 
   it("builds a pdf viewer model with retrieval highlights", () => {
