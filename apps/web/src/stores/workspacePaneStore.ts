@@ -130,7 +130,6 @@ export const useWorkspacePaneStore = create<WorkspacePaneStoreState>()(
         activePaneId: state.activePaneId,
         initialized: state.initialized,
         panes: state.panes,
-        rows: state.rows,
       }),
       storage: createJSONStorage(() => localStorage),
       merge: (persistedState, currentState) =>

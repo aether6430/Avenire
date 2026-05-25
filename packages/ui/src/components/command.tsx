@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from "./dialog";
 
-function Command({
+function CommandRoot({
   className,
   ...props
 }: React.ComponentProps<typeof CommandPrimitive>) {
@@ -35,7 +35,7 @@ function CommandDialog({
   children,
   className,
   largeWidth = false,
-  showCloseButton = true,
+  showCloseButton = false,
   ...props
 }: Omit<React.ComponentProps<typeof Dialog>, "children"> & {
   children?: React.ReactNode;
@@ -66,8 +66,15 @@ function CommandDialog({
 
 function CommandInput({
   className,
+  wrapperClassName,
+  inputGroupClassName,
+  showSearchIcon = true,
   ...props
-}: React.ComponentProps<typeof CommandPrimitive.Input>) {
+}: React.ComponentProps<typeof CommandPrimitive.Input> & {
+  wrapperClassName?: string;
+  inputGroupClassName?: string;
+  showSearchIcon?: boolean;
+}) {
   return (
     <div
       className="flex h-8 items-center gap-3 px-3"
@@ -102,12 +109,42 @@ function CommandList({
   );
 }
 
+function CommandSplit({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      className={cn(
+        "grid min-h-0 flex-1 gap-8 md:grid-cols-[minmax(0,1fr)_19.25rem]",
+        className
+      )}
+      data-slot="command-split"
+      {...props}
+    />
+  );
+}
+
+function CommandPreview({
+  className,
+  ...props
+}: React.ComponentProps<"aside">) {
+  return (
+    <aside
+      className={cn(
+        "hidden min-h-0 overflow-hidden rounded-lg border border-border/60 bg-background/95 shadow-xl md:block",
+        className
+      )}
+      data-slot="command-preview"
+      {...props}
+    />
+  );
+}
+
 function CommandEmpty({
+  className,
   ...props
 }: React.ComponentProps<typeof CommandPrimitive.Empty>) {
   return (
     <CommandPrimitive.Empty
-      className="py-6 text-center text-sm"
+      className={cn("py-6 text-center text-sm", className)}
       data-slot="command-empty"
       {...props}
     />
@@ -145,6 +182,7 @@ function CommandSeparator({
 
 function CommandItem({
   className,
+  children,
   ...props
 }: React.ComponentProps<typeof CommandPrimitive.Item>) {
   return (
@@ -155,7 +193,9 @@ function CommandItem({
       )}
       data-slot="command-item"
       {...props}
-    />
+    >
+      {children}
+    </CommandPrimitive.Item>
   );
 }
 
@@ -175,6 +215,18 @@ function CommandShortcut({
   );
 }
 
+const Command = Object.assign(CommandRoot, {
+  Input: CommandInput,
+  List: CommandList,
+  Empty: CommandEmpty,
+  Group: CommandGroup,
+  Item: CommandItem,
+  Shortcut: CommandShortcut,
+  Separator: CommandSeparator,
+  Split: CommandSplit,
+  Preview: CommandPreview,
+});
+
 export {
   Command,
   CommandDialog,
@@ -185,4 +237,6 @@ export {
   CommandItem,
   CommandShortcut,
   CommandSeparator,
+  CommandSplit,
+  CommandPreview,
 };

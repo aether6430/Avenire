@@ -71,9 +71,9 @@ describe("learning-taxonomy", () => {
         topic: "biomolecules",
       })
     ).toEqual({
-      concept: "essential amino acids biomolecules NCERT",
       subject: "Biology",
       topic: "Biomolecules",
+      concept: "essential amino acids biomolecules NCERT",
     });
   });
 

@@ -1,3 +1,6 @@
+import { resourceFromAttributes } from "@opentelemetry/resources";
+import { NodeSDK } from "@opentelemetry/sdk-node";
+import { PostHogSpanProcessor } from "@posthog/ai/otel";
 import { PostHog } from "posthog-node";
 
 const service = process.env.OBSERVABILITY_SERVICE ?? "web";
@@ -25,6 +28,10 @@ function getPosthogClient() {
   return posthogClient;
 }
 
+const aiTelemetryGlobal = globalThis as typeof globalThis & {
+  __avenirePostHogAiSdk?: NodeSDK;
+};
+
 export type LogLevel = "info" | "warn" | "error" | "meter";
 
 export interface ObservabilityContext {
@@ -48,6 +55,26 @@ export interface CaptureErrorInput {
   error: unknown;
   eventName?: string;
   payload?: Record<string, unknown>;
+}
+
+export interface AiTelemetryInput {
+  chatId?: string | null;
+  feature?: string | null;
+  functionId: string;
+  metadata?: Record<string, string | number | boolean | null | undefined>;
+  model?: string | null;
+  providerModel?: string | null;
+  requestId?: string | null;
+  userId?: string | null;
+  workspaceId?: string | null;
+}
+
+export interface AiTelemetrySettings {
+  functionId: string;
+  isEnabled: boolean;
+  metadata: Record<string, string | number | boolean>;
+  recordInputs: boolean;
+  recordOutputs: boolean;
 }
 
 const REDACTED_KEYS = new Set([
@@ -92,6 +119,27 @@ function shouldEnableObservability() {
   return process.env.NODE_ENV === "production";
 }
 
+function shouldEnableAiObservability() {
+  const envValue = process.env.OBSERVABILITY_AI_ENABLED;
+  if (envValue === "false") {
+    return false;
+  }
+
+  if (envValue === "true") {
+    return true;
+  }
+
+  return shouldEnableObservability();
+}
+
+function shouldRecordAiInputs() {
+  return process.env.OBSERVABILITY_AI_RECORD_INPUTS === "true";
+}
+
+function shouldRecordAiOutputs() {
+  return process.env.OBSERVABILITY_AI_RECORD_OUTPUTS === "true";
+}
+
 function getSampleRate() {
   const raw = Number.parseFloat(process.env.OBSERVABILITY_SAMPLE_RATE ?? "1");
   if (!Number.isFinite(raw)) {
@@ -122,6 +170,88 @@ function getDistinctId(context: ObservabilityContext) {
   }
 
   return `service:${service}`;
+}
+
+function getAiDistinctId(input: AiTelemetryInput) {
+  if (input.userId) {
+    return input.userId;
+  }
+
+  if (input.workspaceId) {
+    return `workspace:${input.workspaceId}`;
+  }
+
+  if (input.requestId) {
+    return `request:${input.requestId}`;
+  }
+
+  return `service:${service}`;
+}
+
+function compactMetadata(
+  value: Record<string, string | number | boolean | null | undefined>
+) {
+  return Object.fromEntries(
+    Object.entries(value).filter(
+      (entry): entry is [string, string | number | boolean] => {
+        const [, entryValue] = entry;
+        return (
+          typeof entryValue === "string" ||
+          typeof entryValue === "number" ||
+          typeof entryValue === "boolean"
+        );
+      }
+    )
+  );
+}
+
+export function registerAiObservability() {
+  if (!(shouldEnableAiObservability() && posthogKey)) {
+    return false;
+  }
+
+  if (aiTelemetryGlobal.__avenirePostHogAiSdk) {
+    return true;
+  }
+
+  const sdk = new NodeSDK({
+    resource: resourceFromAttributes({
+      "service.name": service,
+      "service.namespace": "avenire",
+      "telemetry.sdk.name": "@avenire/observability",
+    }),
+    spanProcessors: [
+      new PostHogSpanProcessor({
+        apiKey: posthogKey,
+        host: posthogHost,
+      }),
+    ],
+  });
+
+  sdk.start();
+  aiTelemetryGlobal.__avenirePostHogAiSdk = sdk;
+  return true;
+}
+
+export function buildAiTelemetry(input: AiTelemetryInput): AiTelemetrySettings {
+  return {
+    isEnabled: shouldEnableAiObservability() && Boolean(posthogKey),
+    recordInputs: shouldRecordAiInputs(),
+    recordOutputs: shouldRecordAiOutputs(),
+    functionId: input.functionId,
+    metadata: compactMetadata({
+      posthog_distinct_id: getAiDistinctId(input),
+      chat_id: input.chatId,
+      conversation_id: input.chatId,
+      feature: input.feature ?? "ai",
+      model: input.model,
+      provider_model: input.providerModel,
+      request_id: input.requestId,
+      service,
+      workspace_id: input.workspaceId,
+      ...input.metadata,
+    }),
+  };
 }
 
 function redactValue(value: unknown): unknown {
@@ -181,20 +311,6 @@ export function safeError(error: unknown) {
   return { message: "Unknown error", value: redactValue(error) };
 }
 
-function toError(error: unknown) {
-  if (error instanceof Error) {
-    return error;
-  }
-
-  if (typeof error === "string") {
-    return new Error(error);
-  }
-
-  const normalized = new Error("Unknown error");
-  normalized.cause = error;
-  return normalized;
-}
-
 async function ingest(level: LogLevel, input: ObservabilityEvent) {
   if (!shouldEnableObservability()) {
     return;
@@ -235,6 +351,26 @@ async function ingest(level: LogLevel, input: ObservabilityEvent) {
       properties,
     });
   }
+
+  posthog.capture({
+    distinctId: getDistinctId(context),
+    event: input.eventName,
+    properties,
+  });
+}
+
+function toError(error: unknown) {
+  if (error instanceof Error) {
+    return error;
+  }
+
+  if (typeof error === "string") {
+    return new Error(error);
+  }
+
+  const normalized = new Error("Unknown error");
+  normalized.cause = error;
+  return normalized;
 }
 
 async function captureExceptionEvent(input: CaptureErrorInput) {

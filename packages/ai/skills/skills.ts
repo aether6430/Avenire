@@ -769,7 +769,7 @@ Canvas widgets should not hardcode one palette and hope it survives theme change
 Use the current theme as the source of truth, then redraw the canvas whenever the theme changes. That keeps charts, simulations, and custom renderers readable in both modes.
 
 
-## Charts (Chart.js)
+## Charts
 
 Prefer \`widget.type: "spec"\` \`chart\` for bar, line, and area charts, especially when paired with stats, tables, sections, or callouts. It uses the app's shadcn/Recharts chart system and should be the default for dashboards and analytical canvases.
 
@@ -792,7 +792,7 @@ Use raw Chart.js in \`widget: { type: "code", code: ... }\` only when you need a
 </script>
 \`\`\`
 
-**Chart.js rules**:
+Rules for raw Chart.js only:
 - Canvas cannot resolve CSS variables. Use hardcoded hex or Chart.js defaults.
 - Wrap \`<canvas>\` in \`<div>\` with explicit \`height\` and \`position: relative\`.
 - **Canvas sizing**: set height ONLY on the wrapper div, never on the canvas element itself. Use position: relative on the wrapper and responsive: true, maintainAspectRatio: false in Chart.js options. Never set CSS height directly on canvas — this causes wrong dimensions, especially for horizontal bar charts.
@@ -820,7 +820,7 @@ plugins: { legend: { display: false } }
 
 Include the value/percentage in each label when the data is categorical (pie, donut, single-series bar). Position the legend above the chart (\`margin-bottom\`) or below (\`margin-top\`) — not inside the canvas.
 
-**Dashboard layout** — wrap summary numbers in metric cards (see UI fragment) above the chart. Chart canvas flows below without a card wrapper. Use \`sendPrompt()\` for drill-down: \`sendPrompt('Break down Q4 by region')\`.
+For dashboard layout, prefer spec widgets with stats above the chart and supporting details below it. Use raw Chart.js only after the primitive chart cannot represent the requested behavior.
 
 `,
     sourceIds: [
@@ -840,7 +840,7 @@ Include the value/percentage in each label when the data is categorical (pie, do
     description: null,
     section: "visual-guidelines",
     path: "sections/visual-guidelines/charts_chart_js.md",
-    content: `## Charts (Chart.js)
+    content: `## Charts
 
 Prefer \`widget.type: "spec"\` \`chart\` for bar, line, and area charts, especially when paired with stats, tables, sections, or callouts. It uses the app's shadcn/Recharts chart system and should be the default for dashboards and analytical canvases.
 
@@ -863,7 +863,7 @@ Use raw Chart.js in \`widget: { type: "code", code: ... }\` only when you need a
 </script>
 \`\`\`
 
-**Chart.js rules**:
+Rules for raw Chart.js only:
 - Canvas cannot resolve CSS variables. Use hardcoded hex or Chart.js defaults.
 - Wrap \`<canvas>\` in \`<div>\` with explicit \`height\` and \`position: relative\`.
 - **Canvas sizing**: set height ONLY on the wrapper div, never on the canvas element itself. Use position: relative on the wrapper and responsive: true, maintainAspectRatio: false in Chart.js options. Never set CSS height directly on canvas — this causes wrong dimensions, especially for horizontal bar charts.
@@ -891,7 +891,7 @@ plugins: { legend: { display: false } }
 
 Include the value/percentage in each label when the data is categorical (pie, donut, single-series bar). Position the legend above the chart (\`margin-bottom\`) or below (\`margin-top\`) — not inside the canvas.
 
-**Dashboard layout** — wrap summary numbers in metric cards (see UI fragment) above the chart. Chart canvas flows below without a card wrapper. Use \`sendPrompt()\` for drill-down: \`sendPrompt('Break down Q4 by region')\`.
+For dashboard layout, prefer spec widgets with stats above the chart and supporting details below it. Use raw Chart.js only after the primitive chart cannot represent the requested behavior.
 `,
   },
   "color-palette": {

@@ -219,7 +219,7 @@ export function createEmptyProperty(type: FilePropertyType): FilePropertyValue {
     case "multi_select":
       return { type: "multi_select", value: [] };
     case "number":
-      return { type: "number", value: null };
+      return { type: "number", value: null, display: "number", total: null };
     case "select":
       return { type: "select", value: null };
     case "text":

@@ -64,6 +64,7 @@
     "@avenire/env-types": "workspace:*",
     "@avenire/typescript-config": "workspace:*",
     "@better-auth/cli": "1.4.21",
+    "@types/node": "25.3.5",
     "@types/react": "19.2.14",
     "@vitest/coverage-v8": "4.1.7",
     "react-dom": "^19.2.6",

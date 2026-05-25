@@ -2,6 +2,7 @@ import { ArrowLeft, Calendar, Clock, Tag } from "@phosphor-icons/react/ssr";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { ElementType } from "react";
 import Markdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
@@ -10,6 +11,11 @@ import { Container } from "@/components/marketing/container";
 import { MarketingPageShell } from "@/components/marketing/page-shell";
 import { getAllSlugs, getPostBySlug } from "@/lib/blog";
 import { metadataBase } from "@/lib/page-metadata";
+
+const ArrowLeftIcon = ArrowLeft as ElementType;
+const CalendarIcon = Calendar as ElementType;
+const ClockIcon = Clock as ElementType;
+const TagIcon = Tag as ElementType;
 
 export const dynamic = "force-static";
 export const dynamicParams = false;

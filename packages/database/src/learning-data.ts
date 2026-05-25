@@ -61,6 +61,12 @@ export interface MisconceptionRecord {
   workspaceId: string;
 }
 
+export interface MisconceptionBlocks {
+  correctedMentalModel?: string;
+  explanation?: string;
+  summary?: string;
+}
+
 export interface ConceptMasteryRecord {
   activeMisconceptionCount: number;
   concept: string;

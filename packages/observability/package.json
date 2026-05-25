@@ -5,7 +5,7 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./src/index.ts",
       "default": "./dist/index.js"
     }
   },
@@ -16,6 +16,9 @@
     "format": "biome format --write ."
   },
   "dependencies": {
+    "@opentelemetry/resources": "^2.7.1",
+    "@opentelemetry/sdk-node": "^0.218.0",
+    "@posthog/ai": "^7.19.2",
     "posthog-node": "^5.33.2"
   },
   "devDependencies": {

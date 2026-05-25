@@ -213,3 +213,94 @@
     font-size: 16px !important;
   }
 }
+
+/* =============================================
+   react-quizlet-flashcard theme overrides
+   Make the library use the app's design tokens
+   instead of its hardcoded defaults.
+   ============================================= */
+
+/* Wrapper — fluid width, remove default gap */
+.flashcard-array-wrapper {
+  --border-radius: 0.75rem;
+  --back-bg: transparent !important;
+  --front-bg: transparent !important;
+  --box-shadow: none;
+  --prev-arrow-color: var(--foreground);
+  --next-arrow-color: var(--foreground);
+  --disabled-arrow-color: var(--muted-foreground);
+  gap: 0;
+  width: 100% !important;
+  max-width: 100%;
+}
+
+/* Array — fill available space, use app perspective */
+.flashcard-array {
+  width: 100% !important;
+  height: 100%;
+  min-height: 22rem;
+  perspective: 1600px;
+}
+
+/* Hide sibling cards that the library renders off-screen */
+.flashcard-array > .flashcard-wrapper:nth-child(1),
+.flashcard-array > .flashcard-wrapper:nth-child(3) {
+  width: 0 !important;
+}
+
+/* Center card — fill the array */
+.flashcard-array > .flashcard-wrapper:nth-child(2) {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Card wrapper — remove fixed 560×340, use fluid sizing */
+.flashcard-wrapper {
+  position: relative;
+  bottom: auto;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 22rem;
+  border-radius: var(--border-radius, 0.75rem);
+  box-shadow: none;
+  perspective: 1600px;
+}
+
+/* Card container */
+.flashcard {
+  border-radius: inherit;
+}
+
+/* Card faces — use app theme tokens instead of hardcoded white/black */
+.flashcard__front,
+.flashcard__back {
+  color: var(--card-foreground) !important;
+  background: var(--card) !important;
+  border: 1px solid var(--border);
+  border-radius: inherit;
+  box-shadow: none !important;
+}
+
+.flashcard__front {
+  z-index: 2;
+}
+
+/* Rating controls (fallback if ever shown) */
+.flashcard-array__controls button svg path[data-name="Left"],
+.flashcard-array__controls button svg path[data-name="Right"] {
+  fill: var(--foreground) !important;
+}
+.flashcard-array__controls button:disabled svg path {
+  fill: var(--muted-foreground) !important;
+}
+.flashcard-array__controls--count {
+  color: var(--foreground);
+}
+
+/* Progress bar (fallback if ever shown) */
+.flashcard-array__progress-bar {
+  background-color: var(--secondary) !important;
+}
+.flashcard-array__progress-bar .flashcard-array__progress-bar-fill {
+  background-color: var(--primary) !important;
+}

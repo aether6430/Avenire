@@ -284,10 +284,6 @@ pnpm build
   - Touch-optimized interactions
   - File explorer haptics
 
-- **Halo Search and Workspace UX Refinements**
-  - Advanced search capabilities
-  - Workspace navigation improvements
-
 - **Notes to Markdown-Backed Files** (`packages/ingestion/src/ingestion/markdown.ts`)
   - Markdown-native note storage
   - Virtual file support (`virtual:note:*`, `virtual:markdown:*`)

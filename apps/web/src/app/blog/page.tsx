@@ -2,11 +2,17 @@ import { ArrowRight, Calendar, Clock, Tag } from "@phosphor-icons/react/ssr";
 import type { Route } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import type { ElementType } from "react";
 import { Container } from "@/components/marketing/container";
 import { MarketingPageShell } from "@/components/marketing/page-shell";
 import type { PostMeta } from "@/lib/blog";
 import { getAllPostMetas } from "@/lib/blog";
 import { buildPageMetadata } from "@/lib/page-metadata";
+
+const ArrowRightIcon = ArrowRight as ElementType;
+const CalendarIcon = Calendar as ElementType;
+const ClockIcon = Clock as ElementType;
+const TagIcon = Tag as ElementType;
 
 export const metadata = buildPageMetadata({
   description:
@@ -47,7 +53,7 @@ function FeaturedPostCard({ post }: { post: PostMeta }) {
                 className="inline-flex items-center gap-1 rounded-full border border-brand/20 bg-brand/10 px-2.5 py-0.5 font-medium text-brand text-xs"
                 key={tag}
               >
-                <Tag className="size-2.5" />
+                <TagIcon className="size-2.5" />
                 {tag}
               </span>
             ))}
@@ -67,17 +73,17 @@ function FeaturedPostCard({ post }: { post: PostMeta }) {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-4 text-white/48 text-xs">
               <span className="flex items-center gap-1.5">
-                <Calendar className="size-3.5" />
+                <CalendarIcon className="size-3.5" />
                 {formatDate(post.date)}
               </span>
               <span className="flex items-center gap-1.5">
-                <Clock className="size-3.5" />
+                <ClockIcon className="size-3.5" />
                 {post.readingTime}
               </span>
               <span className="font-medium text-white/62">{post.author}</span>
             </div>
             <span className="flex items-center gap-1 font-medium text-brand text-sm transition-all duration-200 group-hover:gap-2">
-              Read more <ArrowRight className="size-4" />
+              Read more <ArrowRightIcon className="size-4" />
             </span>
           </div>
         </div>

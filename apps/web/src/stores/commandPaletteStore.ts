@@ -14,6 +14,9 @@ export interface CommandPaletteFileNode {
   folderId: string;
   id: string;
   name: string;
+  page?: {
+    bannerUrl: string | null;
+  } | null;
   readOnly?: boolean;
 }
 

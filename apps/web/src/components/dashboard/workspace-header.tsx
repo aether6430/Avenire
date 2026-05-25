@@ -245,7 +245,7 @@ export function WorkspaceHeader({
             )}
           </div>
 
-          <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex max-w-[44%] shrink-0 items-center justify-end gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {actions}
             {trailingActions}
           </div>

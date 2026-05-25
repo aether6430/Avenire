@@ -1,3 +1,24 @@
+/// <reference types="react" />
+
+import type {} from "@phosphor-icons/react";
+import type {} from "@phosphor-icons/react/ssr";
+
+declare module "@phosphor-icons/react" {
+  interface IconProps {
+    "aria-hidden"?: boolean | "true" | "false";
+    className?: string;
+    strokeWidth?: number;
+  }
+}
+
+declare module "@phosphor-icons/react/ssr" {
+  interface IconProps {
+    "aria-hidden"?: boolean | "true" | "false";
+    className?: string;
+    strokeWidth?: number;
+  }
+}
+
 declare namespace NodeJS {
   interface ProcessEnv {
     AUTH_GITHUB_ID?: string;
@@ -57,6 +78,7 @@ declare namespace NodeJS {
     NEXT_PUBLIC_GOOGLE_PICKER_APP_ID?: string;
     NEXT_PUBLIC_POSTHOG_HOST?: string;
     NEXT_PUBLIC_POSTHOG_KEY?: string;
+    NEXT_PUBLIC_POSTHOG_UI_HOST?: string;
     NEXT_PUBLIC_UPLOAD_DEDUPE_HASH_MAX_BYTES?: string;
     NEXT_PUBLIC_UPLOAD_PREUPLOAD_DEDUPE?: string;
     NODE_ENV?: string;
@@ -76,12 +98,16 @@ declare namespace NodeJS {
     POLAR_WEBHOOK_SECRET?: string;
     POSTHOG_HOST?: string;
     POSTHOG_KEY?: string;
+    POSTHOG_PERSONAL_API_KEY?: string;
+    POSTHOG_PROJECT_ID?: string;
+    POSTHOG_UI_HOST?: string;
+    ADMIN_API_TOKEN?: string;
     REDIS_URL?: string;
     RESEND_API_KEY?: string;
     RETRIEVAL_QUERY_CACHE_TTL_SECONDS?: string;
     RETRIEVAL_SUMMARY_VALIDATION_MIN_CONFIDENCE?: string;
     UPLOADTHING_TOKEN?: string;
-UPLOAD_SESSION_MAX_PART_BYTES?: string;
+    UPLOAD_SESSION_MAX_PART_BYTES?: string;
     VIDEO_OPT_FETCH_TIMEOUT_MS?: string;
     VERCEL_URL?: string;
     WORKSPACE_EVENTS_STREAM_BLOCK_MS?: string;

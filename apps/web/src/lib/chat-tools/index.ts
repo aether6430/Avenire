@@ -93,7 +93,7 @@ The agent decides which operations to perform based on the task.`,
     }),
     log_misconception: tool({
       description:
-        "Record a misconception only when the user explicitly reports a durable misunderstanding or the conversation clearly establishes a wrong mental model. Do not use it for normal questions, feature checks, or one-off clarifications.",
+        "Record a misconception only when the user explicitly reports a durable misunderstanding or the conversation clearly establishes a wrong mental model. Use confidence for the learner's current confidence with the concept, not classifier certainty. Do not use it for normal questions, feature checks, or one-off clarifications.",
       inputSchema: chatToolSchemas.log_misconception.input,
       outputSchema: chatToolSchemas.log_misconception.output,
       execute: async (input) => logMisconceptionForTool(ctx, input),

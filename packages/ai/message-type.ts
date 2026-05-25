@@ -24,15 +24,15 @@ export interface AgentActivityData {
 
 type ChatUIData = DataPartsMap<{
   agent_activity: AgentActivityData;
-  chatCreated: {
-    fromId: string;
-    id: string;
-    title: string;
-  };
   chatName: {
     icon?: string | null;
     id: string;
     name: string;
+  };
+  chatCreated: {
+    fromId: string;
+    id: string;
+    title: string;
   };
   thinkingMessages: {
     id: string;
