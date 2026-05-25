@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import Markdown from "react-markdown";
+import type { ElementType } from "react";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -10,6 +11,11 @@ import { Footer } from "@/components/marketing/footer";
 import { Navbar } from "@/components/marketing/navbar";
 import { getAllSlugs, getPostBySlug } from "@/lib/blog";
 import { metadataBase } from "@/lib/page-metadata";
+
+const ArrowLeftIcon = ArrowLeft as ElementType;
+const CalendarIcon = Calendar as ElementType;
+const ClockIcon = Clock as ElementType;
+const TagIcon = Tag as ElementType;
 
 export const dynamic = "force-static";
 export const dynamicParams = false;
@@ -217,7 +223,7 @@ export default async function BlogPostPage({
             className="group mb-10 inline-flex items-center gap-1.5 text-white/50 text-sm transition-colors hover:text-white"
             href="/blog"
           >
-            <ArrowLeft className="size-4 transition-transform group-hover:-translate-x-0.5" />
+            <ArrowLeftIcon className="size-4 transition-transform group-hover:-translate-x-0.5" />
             All posts
           </Link>
 
@@ -229,7 +235,7 @@ export default async function BlogPostPage({
                   className="inline-flex items-center gap-1 rounded-full border border-brand/20 bg-brand/10 px-2.5 py-0.5 font-medium text-brand text-xs"
                   key={tag}
                 >
-                  <Tag className="size-2.5" />
+                  <TagIcon className="size-2.5" />
                   {tag}
                 </span>
               ))}
@@ -267,11 +273,11 @@ export default async function BlogPostPage({
               {post.author}
             </span>
             <span className="flex items-center gap-1.5">
-              <Calendar className="size-3.5" />
+              <CalendarIcon className="size-3.5" />
               {formatDate(post.date)}
             </span>
             <span className="flex items-center gap-1.5">
-              <Clock className="size-3.5" />
+              <ClockIcon className="size-3.5" />
               {post.readingTime}
             </span>
           </div>
@@ -293,7 +299,7 @@ export default async function BlogPostPage({
               className="group inline-flex items-center gap-1.5 text-white/50 text-sm transition-colors hover:text-brand"
               href="/blog"
             >
-              <ArrowLeft className="size-4 transition-transform group-hover:-translate-x-0.5" />
+              <ArrowLeftIcon className="size-4 transition-transform group-hover:-translate-x-0.5" />
               Back to all posts
             </Link>
           </div>

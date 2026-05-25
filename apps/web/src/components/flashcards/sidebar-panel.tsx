@@ -258,7 +258,7 @@ export function FlashcardsSidebarPanel({
   }, [searchQuery, sets]);
 
   return (
-    <div className="absolute inset-0 overflow-y-auto">
+    <div className="sidebar-fade-scrollbar absolute inset-0 overflow-y-auto">
       <SidebarGroup>
         <div className="flex items-center justify-between gap-2">
           <SidebarGroupLabel>Mindset</SidebarGroupLabel>

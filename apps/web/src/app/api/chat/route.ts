@@ -44,6 +44,7 @@ import {
   getLatestSessionSummaryForChat,
   getRecentRelevantSessionSummary,
 } from "@avenire/database";
+import { buildAiTelemetry } from "@avenire/observability";
 import { normalizeMediaType } from "@/lib/media-type";
 import { detectMisconceptionSignals } from "@/lib/misconception-signal-detector";
 import { createApiLogger } from "@/lib/observability";
@@ -570,7 +571,8 @@ async function getCachedLearningPromptMemoryBlocks(input: {
 
 async function generateChatMetadata(
   latestUserText: string,
-  abortSignal?: AbortSignal
+  abortSignal?: AbortSignal,
+  telemetry?: ReturnType<typeof buildAiTelemetry>
 ) {
   if (!latestUserText) {
     logInfo("Skipping chat title generation: latest user text missing");
@@ -600,6 +602,7 @@ async function generateChatMetadata(
       maxOutputTokens: 64,
       temperature: 0.2,
       abortSignal,
+      experimental_telemetry: telemetry,
     });
 
     if (!text || text.trim().length === 0) {
@@ -1277,6 +1280,14 @@ export async function POST(request: Request) {
 
     const latestUserText = extractLatestUserText(originalMessages);
     const selectedModel = body.selectedModel ?? "apollo-apex";
+    const chatTelemetryBase = {
+      chatId: chatSlug,
+      feature: "chat",
+      model: selectedModel,
+      providerModel: APOLLO_LANGUAGE_MODEL_IDS[selectedModel],
+      userId: session.user.id,
+      workspaceId: workspace.workspaceId,
+    };
     logInfo("Incoming chat request", {
       chatId: body.chatId ?? null,
       selectedModel,
@@ -1379,7 +1390,11 @@ export async function POST(request: Request) {
           try {
             const nextMeta = await generateChatMetadata(
               latestUserTextForMetadata,
-              request.signal
+              request.signal,
+              buildAiTelemetry({
+                ...chatTelemetryBase,
+                functionId: "chat.metadata",
+              })
             );
             if (!nextMeta?.title) {
               return;
@@ -1668,6 +1683,10 @@ export async function POST(request: Request) {
             experimental_transform: smoothStream({
               delayInMs: null,
               chunking: "word",
+            }),
+            experimental_telemetry: buildAiTelemetry({
+              ...chatTelemetryBase,
+              functionId: "chat.response",
             }),
             onChunk: async ({ chunk }) => {
               try {
