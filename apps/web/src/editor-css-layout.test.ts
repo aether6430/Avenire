@@ -26,6 +26,12 @@ const editorSelectionBubbleMenu = readFileSync(
     encoding: "utf8",
   }
 );
+const editorPropertiesTable = readFileSync(
+  resolve(import.meta.dirname, "./components/editor/properties-table.tsx"),
+  {
+    encoding: "utf8",
+  }
+);
 
 describe("editor.css responsive note layout", () => {
   it("keeps frontmatter rows away from the mobile viewport edge", () => {
@@ -36,6 +42,8 @@ describe("editor.css responsive note layout", () => {
     expect(editorCss).toContain(
       '.scribe-frontmatter-table :where(input, button, [role="button"])'
     );
+    expect(editorPropertiesTable).toContain("sm:-mx-3 sm:px-3");
+    expect(editorPropertiesTable).not.toContain('className="group -mx-3');
     expect(editorCss).not.toContain("max-height: 12.5rem;");
   });
 

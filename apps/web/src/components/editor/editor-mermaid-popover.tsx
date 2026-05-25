@@ -4,6 +4,7 @@ import { Button } from "@avenire/ui/components/button";
 import { Textarea } from "@avenire/ui/components/textarea";
 import { Trash as Trash2 } from "@phosphor-icons/react";
 import type { Editor } from "@tiptap/react";
+import { AnimatePresence, motion } from "motion/react";
 import type { RefObject } from "react";
 import { useRef } from "react";
 import type { MermaidPopoverState } from "@/components/editor/editor-core";
@@ -45,70 +46,76 @@ export function MermaidPopover({
       Boolean(target.closest('[data-type="mermaid-diagram"]')),
   });
 
-  if (!value) {
-    return null;
-  }
-
   return (
-    <div
-      className="fixed z-[90] w-[min(28rem,calc(100vw-1.25rem))] rounded-lg border border-border bg-popover p-2.5 shadow-black/10 shadow-lg"
-      ref={popoverRef}
-      style={style ?? undefined}
-    >
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <p className="font-medium text-popover-foreground text-sm">
-          Mermaid diagram
-        </p>
-        <div className="rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-          ```mermaid
-        </div>
-      </div>
-      <Textarea
-        className="min-h-32 w-full resize-y rounded-xl font-mono text-[13px] leading-6"
-        onChange={(event) => onChange(event.target.value)}
-        onKeyDown={(event) => {
-          if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-            event.preventDefault();
-            onSave();
-          } else if (event.key === "Escape") {
-            event.preventDefault();
-            onCancel();
-          }
-        }}
-        spellCheck={false}
-        value={value.draft}
-      />
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <Button
-          onClick={onDelete}
-          onMouseDown={(event) => event.preventDefault()}
-          size="sm"
-          type="button"
-          variant="destructive"
+    <AnimatePresence>
+      {value ? (
+        <motion.div
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          className="fixed z-[90] w-[min(28rem,calc(100vw-1.25rem))] rounded-lg border border-border bg-popover p-2.5 shadow-black/10 shadow-lg"
+          data-motion-managed="true"
+          data-slot="editor-floating-popover"
+          exit={{ opacity: 0, scale: 0.98, y: -2 }}
+          initial={{ opacity: 0, scale: 0.98, y: -2 }}
+          ref={popoverRef}
+          style={style ?? undefined}
+          transition={{ duration: 0.16, ease: "easeOut" }}
         >
-          <Trash2 className="h-3.5 w-3.5" />
-          Delete
-        </Button>
-        <div className="flex gap-2">
-          <Button
-            onClick={onCancel}
-            onMouseDown={(event) => event.preventDefault()}
-            size="sm"
-            type="button"
-            variant="outline"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={onSave}
-            onMouseDown={(event) => event.preventDefault()}
-            size="sm"
-            type="button"
-          >
-            Save
-          </Button>
-        </div>
-      </div>
-    </div>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p className="font-medium text-popover-foreground text-sm">
+              Mermaid diagram
+            </p>
+            <div className="rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
+              ```mermaid
+            </div>
+          </div>
+          <Textarea
+            className="min-h-32 w-full resize-y rounded-xl font-mono text-[13px] leading-6"
+            onChange={(event) => onChange(event.target.value)}
+            onKeyDown={(event) => {
+              if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                event.preventDefault();
+                onSave();
+              } else if (event.key === "Escape") {
+                event.preventDefault();
+                onCancel();
+              }
+            }}
+            spellCheck={false}
+            value={value.draft}
+          />
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <Button
+              onClick={onDelete}
+              onMouseDown={(event) => event.preventDefault()}
+              size="sm"
+              type="button"
+              variant="destructive"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete
+            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={onCancel}
+                onMouseDown={(event) => event.preventDefault()}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={onSave}
+                onMouseDown={(event) => event.preventDefault()}
+                size="sm"
+                type="button"
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
   );
 }

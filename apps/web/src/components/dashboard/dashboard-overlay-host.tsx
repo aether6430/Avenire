@@ -8,6 +8,7 @@ import type {
   SettingsInitialUser,
   WorkspaceSummary,
 } from "@/components/settings/settings-panel-model";
+import { useDeferredPresence } from "@/hooks/use-deferred-presence";
 import {
   clearSettingsOverlayRoute,
   parseRequestedSettingsTab,
@@ -64,10 +65,13 @@ export function DashboardOverlayHost({
   );
   const resolvedSettingsOpen = settingsOpen || settingsRequestedFromRoute;
   const resolvedSettingsTab = requestedSettingsTab ?? settingsTab ?? "account";
+  const trashDialogOpen = trashOpen && Boolean(activeWorkspace?.workspaceId);
+  const renderSettingsDialog = useDeferredPresence(resolvedSettingsOpen);
+  const renderTrashDialog = useDeferredPresence(trashDialogOpen);
 
   return (
     <>
-      {resolvedSettingsOpen ? (
+      {renderSettingsDialog ? (
         <DeferredSettingsDialog
           initialTab={resolvedSettingsTab}
           initialUser={initialUser}
@@ -96,11 +100,11 @@ export function DashboardOverlayHost({
           open={resolvedSettingsOpen}
         />
       ) : null}
-      {trashOpen && activeWorkspace?.workspaceId ? (
+      {renderTrashDialog ? (
         <DeferredTrashDialog
           onOpenChange={setTrashOpen}
-          open={trashOpen}
-          workspaceUuid={activeWorkspace.workspaceId}
+          open={trashDialogOpen}
+          workspaceUuid={activeWorkspace?.workspaceId ?? null}
         />
       ) : null}
     </>

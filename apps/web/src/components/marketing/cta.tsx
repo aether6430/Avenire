@@ -50,17 +50,16 @@ export const CTAOrbit: React.FC<CTAOrbitProps> = ({
   ];
   const total = nodes.length;
 
-  // Compute ring weights (fewer inner, more outer): proportional 1..numRings
-  const weights = Array.from({ length: numRings }, (_, i) => i + 1); // [1,2,...]
+  // Weight outer rings more heavily so the orbit reads dense at the edges.
+  const weights = Array.from({ length: numRings }, (_, i) => i + 1);
   const weightSum = weights.reduce((a, b) => a + b, 0);
   const countsBase = weights.map((w) => Math.floor((total * w) / weightSum));
   let remainder = total - countsBase.reduce((a, b) => a + b, 0);
-  // Distribute remainder from outermost inward to favor outer rings
   for (let i = numRings - 1; i >= 0 && remainder > 0; i--) {
     countsBase[i] += 1;
     remainder--;
   }
-  const counts: number[] = countsBase; // inner→outer
+  const counts: number[] = countsBase;
 
   let cursor = 0;
   const rings: string[][] = counts.map((count) => {
@@ -69,7 +68,6 @@ export const CTAOrbit: React.FC<CTAOrbitProps> = ({
     return slice;
   });
 
-  // Dynamic ring scales (inner→outer)
   const innerScale = 0.42;
   const outerScale = 0.94;
   const ringScaleFactors: number[] =

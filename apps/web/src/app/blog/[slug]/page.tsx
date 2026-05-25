@@ -215,7 +215,6 @@ export default async function BlogPostPage({
       <article className="px-4 pt-28 pb-24 md:pt-12">
         <Container className="border-divide border-x px-4 py-12 md:px-8 md:py-16">
           <div className="mx-auto max-w-2xl">
-            {/* Back link */}
             <Link
               className="group mb-10 inline-flex items-center gap-1.5 text-sm text-white/50 transition-colors hover:text-white"
               href="/blog"
@@ -224,7 +223,6 @@ export default async function BlogPostPage({
               All posts
             </Link>
 
-            {/* Tags */}
             {post.tags.length > 0 && (
               <div className="mb-5 flex flex-wrap gap-2">
                 {post.tags.map((tag) => (
@@ -252,19 +250,16 @@ export default async function BlogPostPage({
               </div>
             )}
 
-            {/* Title */}
             <h1 className="mb-4 font-semibold text-3xl text-white leading-tight tracking-tight md:text-4xl">
               {post.title}
             </h1>
 
-            {/* Description */}
             {post.description && (
               <p className="mb-8 text-lg text-white/60 leading-relaxed">
                 {post.description}
               </p>
             )}
 
-            {/* Meta */}
             <div className="mb-10 flex flex-wrap items-center gap-4 border-divide border-b pb-8 text-sm text-white/45">
               <span className="font-medium text-white/62">{post.author}</span>
               <span className="flex items-center gap-1.5">
@@ -277,7 +272,6 @@ export default async function BlogPostPage({
               </span>
             </div>
 
-            {/* MDX Content */}
             <div className="prose-avenire">
               <Markdown
                 components={mdxComponents}
@@ -288,7 +282,6 @@ export default async function BlogPostPage({
               </Markdown>
             </div>
 
-            {/* Footer navigation */}
             <div className="mt-16 border-divide border-t pt-8">
               <Link
                 className="group inline-flex items-center gap-1.5 text-sm text-white/50 transition-colors hover:text-brand"

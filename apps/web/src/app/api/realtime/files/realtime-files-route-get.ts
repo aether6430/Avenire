@@ -71,13 +71,13 @@ export async function handleRealtimeFilesRouteGet(request: Request) {
         try {
           await subscriber.unsubscribe(channel);
         } catch {
-          // ignore
+          // Ignore unsubscribe failures during stream shutdown.
         }
 
         try {
           await subscriber.quit();
         } catch {
-          // ignore
+          // Ignore Redis quit failures during stream shutdown.
         }
       };
 
@@ -138,13 +138,13 @@ export async function handleRealtimeFilesRouteGet(request: Request) {
       try {
         await subscriber.unsubscribe(channel);
       } catch {
-        // ignore
+        // Ignore unsubscribe failures during stream cancellation.
       }
 
       try {
         await subscriber.quit();
       } catch {
-        // ignore
+        // Ignore Redis quit failures during stream cancellation.
       }
     },
   });

@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
-  <rect width="1280" height="720" fill="#0f172a"/>
-  <rect x="48" y="48" width="1184" height="624" rx="20" fill="#1e293b" stroke="#334155"/>
-  <text x="96" y="170" fill="#f8fafc" font-family="Arial, sans-serif" font-size="40">After-Fix Screenshot Pending</text>
-  <text x="96" y="240" fill="#cbd5e1" font-family="Arial, sans-serif" font-size="28">The scenario is still red or not yet verified after a fixer pass.</text>
-  <text x="96" y="300" fill="#cbd5e1" font-family="Arial, sans-serif" font-size="28">Replace this placeholder with a real post-fix screenshot after retest.</text>
-</svg>

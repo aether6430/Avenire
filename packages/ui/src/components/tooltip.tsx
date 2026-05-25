@@ -3,6 +3,7 @@
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
 
 import { cn } from "../lib/utils";
+import { useDeferredUnmountRoot } from "./deferred-unmount";
 
 function TooltipProvider({
   delay = 0,
@@ -17,8 +18,22 @@ function TooltipProvider({
   );
 }
 
-function Tooltip({ ...props }: TooltipPrimitive.Root.Props) {
-  return <TooltipPrimitive.Root data-slot="tooltip" {...props} />;
+function Tooltip({
+  actionsRef,
+  onOpenChange,
+  onOpenChangeComplete,
+  ...props
+}: TooltipPrimitive.Root.Props) {
+  const exitPresence = useDeferredUnmountRoot({
+    actionsRef,
+    exitDurationMs: 260,
+    onOpenChange,
+    onOpenChangeComplete,
+  });
+
+  return (
+    <TooltipPrimitive.Root data-slot="tooltip" {...props} {...exitPresence} />
+  );
 }
 
 function TooltipTrigger({ ...props }: TooltipPrimitive.Trigger.Props) {

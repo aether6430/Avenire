@@ -103,7 +103,7 @@ export function useProximityHover<T extends HTMLElement>(
         let containingIndex: number | null = null;
 
         const rects = itemRectsRef.current;
-        // Convert content-relative rects to viewport coords using live scroll
+        // Convert content-relative rects to viewport coords using live scroll.
         const scrollOffset =
           axis === "x" ? container.scrollLeft : container.scrollTop;
         const borderOffset =
@@ -154,7 +154,6 @@ export function useProximityHover<T extends HTMLElement>(
     setActiveIndex(null);
   }, []);
 
-  // Clean up rAF on unmount
   useEffect(() => {
     return () => {
       if (rafIdRef.current !== null) {

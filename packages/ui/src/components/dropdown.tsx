@@ -137,7 +137,6 @@ const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
           role="menu"
           {...props}
         >
-          {/* Selected background */}
           <AnimatePresence>
             {checkedRect && (
               <m.div
@@ -159,7 +158,6 @@ const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
             )}
           </AnimatePresence>
 
-          {/* Hover background */}
           <AnimatePresence>
             {activeRect && (
               <m.div
@@ -188,7 +186,6 @@ const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
             )}
           </AnimatePresence>
 
-          {/* Focus ring */}
           <AnimatePresence>
             {focusRect && (
               <m.div
@@ -218,10 +215,6 @@ const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
 
 Dropdown.displayName = "Dropdown";
 
-// ---------------------------------------------------------------------------
-// DropdownLabel
-// ---------------------------------------------------------------------------
-
 const DropdownLabel = forwardRef<
   HTMLDivElement,
   HTMLAttributes<HTMLDivElement>
@@ -234,10 +227,6 @@ const DropdownLabel = forwardRef<
 ));
 
 DropdownLabel.displayName = "DropdownLabel";
-
-// ---------------------------------------------------------------------------
-// DropdownSeparator
-// ---------------------------------------------------------------------------
 
 const DropdownSeparator = forwardRef<
   HTMLDivElement,

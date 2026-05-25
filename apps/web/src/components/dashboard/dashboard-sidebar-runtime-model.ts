@@ -17,10 +17,7 @@ export interface DashboardSidebarInvitation {
   organizationName: string;
 }
 
-export type DashboardSidebarMountedView = Exclude<
-  DashboardSidebarView,
-  "workspace" | null
->;
+export type DashboardSidebarMountedView = Exclude<DashboardSidebarView, null>;
 
 export const DASHBOARD_FLASHCARDS_ROUTE_REGEX =
   /^\/workspace\/flashcards\/([^/?#]+)/;
@@ -118,9 +115,6 @@ export function deriveDashboardSidebarRouteView(options: {
   if (isChatsRoute) {
     return "chat";
   }
-  if (pathname === "/workspace") {
-    return "workspace";
-  }
 
   return null;
 }
@@ -210,37 +204,25 @@ export function resolveDashboardSidebarSurfaceView(options: {
 export function resolveDashboardSidebarActiveTabValue(
   sidebarView: Exclude<DashboardSidebarView, null>
 ) {
-  return sidebarView === "workspace" ? null : sidebarView;
+  return sidebarView;
 }
 
 export function resolveInitialDashboardSidebarView(options: {
   activeView: DashboardSidebarView;
-  isMobile: boolean;
 }) {
-  if (options.isMobile) {
-    return options.activeView ?? "workspace";
-  }
-
-  if (options.activeView === "files") {
-    return "workspace";
-  }
-
-  return options.activeView ?? "workspace";
+  return options.activeView ?? "chat";
 }
 
 export function resolveInitialMountedDashboardSidebarViews(options: {
   activeView: DashboardSidebarView;
-  isMobile: boolean;
 }) {
-  if (!(options.activeView && options.activeView !== "workspace")) {
+  const initialView = options.activeView ?? "chat";
+
+  if (initialView === "files") {
     return new Set<DashboardSidebarMountedView>();
   }
 
-  if (!options.isMobile && options.activeView === "files") {
-    return new Set<DashboardSidebarMountedView>();
-  }
-
-  return new Set([options.activeView]);
+  return new Set([initialView]);
 }
 
 export function getNextMountedDashboardSidebarViews(options: {
@@ -249,7 +231,7 @@ export function getNextMountedDashboardSidebarViews(options: {
 }) {
   const { mountedViews, sidebarView } = options;
 
-  if (sidebarView === "workspace" || mountedViews.has(sidebarView)) {
+  if (mountedViews.has(sidebarView)) {
     return mountedViews;
   }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { FloatingMenu } from "@tiptap/react/menus";
+import { AnimatePresence, motion } from "motion/react";
 import dynamic from "next/dynamic";
 import {
   clearSlashText,
@@ -110,24 +111,34 @@ export function EditorFloatingLayer({
         }
         updateDelay={0}
       >
-        {visibleWikiMatch ? (
-          <WikiMenu
-            activeIndex={activeWikiIndex}
-            onPick={(index) => {
-              const page = filteredWikiPages[index];
-              if (!page) {
-                return;
-              }
-              insertWikiLink(editor, page.title, wikiPages, {
-                from: visibleWikiMatch.from,
-                to: visibleWikiMatch.to,
-              });
-              setWikiNav({ key: null, index: 0 });
-            }}
-            pages={filteredWikiPages}
-            query={visibleWikiMatch.query}
-          />
-        ) : null}
+        <AnimatePresence>
+          {visibleWikiMatch ? (
+            <motion.div
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.98, y: -2 }}
+              initial={{ opacity: 0, scale: 0.98, y: -2 }}
+              key="wiki-menu"
+              transition={{ duration: 0.16, ease: "easeOut" }}
+            >
+              <WikiMenu
+                activeIndex={activeWikiIndex}
+                onPick={(index) => {
+                  const page = filteredWikiPages[index];
+                  if (!page) {
+                    return;
+                  }
+                  insertWikiLink(editor, page.title, wikiPages, {
+                    from: visibleWikiMatch.from,
+                    to: visibleWikiMatch.to,
+                  });
+                  setWikiNav({ key: null, index: 0 });
+                }}
+                pages={filteredWikiPages}
+                query={visibleWikiMatch.query}
+              />
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
       </FloatingMenu>
 
       <FloatingMenu
@@ -150,14 +161,24 @@ export function EditorFloatingLayer({
         }
         updateDelay={0}
       >
-        {visibleSlashMatch ? (
-          <SlashMenu
-            activeIndex={activeSlashIndex}
-            commands={filteredSlashCommands}
-            onPick={executeSlashCommand}
-            query={visibleSlashMatch.query}
-          />
-        ) : null}
+        <AnimatePresence>
+          {visibleSlashMatch ? (
+            <motion.div
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.98, y: -2 }}
+              initial={{ opacity: 0, scale: 0.98, y: -2 }}
+              key="slash-menu"
+              transition={{ duration: 0.16, ease: "easeOut" }}
+            >
+              <SlashMenu
+                activeIndex={activeSlashIndex}
+                commands={filteredSlashCommands}
+                onPick={executeSlashCommand}
+                query={visibleSlashMatch.query}
+              />
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
       </FloatingMenu>
 
       <CodeBlockOverlayControls

@@ -171,7 +171,10 @@ export const ConnectYourTooklsSkeleton = () => {
       >
         <div className="absolute top-3 right-3 flex size-9 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white/[0.05] shadow-black/25 shadow-lg sm:size-10">
           <Scale className="bg-neutral-900/80 dark:bg-neutral-900/80" />
-          <StudyToken className="relative z-20 size-6" label="AI" />
+          <Sparkle
+            className="relative z-20 size-5 text-brand sm:size-6"
+            weight="fill"
+          />
         </div>
         <div className="mt-2 flex items-center gap-2 pr-12 sm:mt-4">
           <IntegrationsLogo className="dark:text-neutral-200" />
@@ -605,7 +608,6 @@ const LeftSVG = (props: React.SVGProps<SVGSVGElement>) => {
         fill="url(#gradient-one)"
         mask="url(#path-1-inside-1_557_1106)"
       />
-      {/* <rect d={path} width="128" height="97" fill="url(#gradient-one)" /> */}
       <defs>
         <motion.linearGradient
           animate={{
@@ -671,8 +673,6 @@ const RightSVG = (props: React.SVGProps<SVGSVGElement>) => {
         fill="url(#gradient-two)"
         mask="url(#path-1-inside-1_557_1107)"
       />
-      {/* <rect d={PATH} width="128" height="97" fill="url(#gradient-two)" /> */}
-
       <defs>
         <motion.linearGradient
           animate={{

@@ -239,7 +239,7 @@ export async function waitForWorkspaceStreamEvents(input: {
     try {
       await client.disconnect();
     } catch {
-      // ignore
+      // Ignore disconnect failures after polling has already finished.
     }
   }
 }

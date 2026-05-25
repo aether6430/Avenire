@@ -81,7 +81,7 @@ export async function handleRealtimeEventsRouteGet(input: {
         try {
           controller.close();
         } catch {
-          // no-op
+          // Ignore duplicate stream close attempts.
         }
       };
 

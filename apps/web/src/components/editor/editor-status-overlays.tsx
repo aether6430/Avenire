@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@avenire/ui/components/button";
+import { AnimatePresence, motion } from "motion/react";
 import dynamic from "next/dynamic";
 import type { AvenireEditorRuntime } from "@/components/use-avenire-editor";
 
@@ -264,40 +265,58 @@ export function EditorStatusOverlays({
         value={imagePopover}
       />
 
-      {tableContextMenu.open && tableState?.active ? (
-        <div
-          className="fixed z-[85] w-56 rounded-md border border-border bg-popover p-1 shadow-lg"
-          onMouseDown={(event) => event.preventDefault()}
-          ref={tableContextMenuRef}
-          style={{ left: tableContextMenu.x, top: tableContextMenu.y }}
-        >
-          {tableActions.map((action) => {
-            const Icon = action.icon;
+      <AnimatePresence>
+        {tableContextMenu.open && tableState?.active ? (
+          <motion.div
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="fixed z-[85] w-56 rounded-md border border-border bg-popover p-1 shadow-lg"
+            data-motion-managed="true"
+            data-slot="editor-floating-popover"
+            exit={{ opacity: 0, scale: 0.98, y: -2 }}
+            initial={{ opacity: 0, scale: 0.98, y: -2 }}
+            onMouseDown={(event) => event.preventDefault()}
+            ref={tableContextMenuRef}
+            style={{ left: tableContextMenu.x, top: tableContextMenu.y }}
+            transition={{ duration: 0.16, ease: "easeOut" }}
+          >
+            {tableActions.map((action) => {
+              const Icon = action.icon;
 
-            return (
-              <button
-                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={action.disabled}
-                key={action.id}
-                onClick={() => {
-                  action.run();
-                  setTableContextMenu({ open: false, x: 0, y: 0 });
-                }}
-                type="button"
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {action.label}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
+              return (
+                <button
+                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={action.disabled}
+                  key={action.id}
+                  onClick={() => {
+                    action.run();
+                    setTableContextMenu({ open: false, x: 0, y: 0 });
+                  }}
+                  type="button"
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {action.label}
+                </button>
+              );
+            })}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
-      {inlineNotice ? (
-        <div className="absolute right-3 bottom-3 z-[90] rounded-md border border-border bg-popover px-3 py-2 text-popover-foreground text-xs shadow-md">
-          {inlineNotice}
-        </div>
-      ) : null}
+      <AnimatePresence>
+        {inlineNotice ? (
+          <motion.div
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="absolute right-3 bottom-3 z-[90] rounded-md border border-border bg-popover px-3 py-2 text-popover-foreground text-xs shadow-md"
+            data-motion-managed="true"
+            data-slot="editor-status-popover"
+            exit={{ opacity: 0, scale: 0.98, y: 4 }}
+            initial={{ opacity: 0, scale: 0.98, y: 4 }}
+            transition={{ duration: 0.16, ease: "easeOut" }}
+          >
+            {inlineNotice}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       {saveState && saveState !== "idle" ? (
         <div
@@ -314,43 +333,53 @@ export function EditorStatusOverlays({
         </div>
       ) : null}
 
-      {aiReview ? (
-        <div className="absolute right-3 bottom-3 z-[90] flex items-center gap-2 rounded-md border border-border bg-popover px-3 py-2 text-popover-foreground text-xs shadow-md">
-          <span>Keep generated text?</span>
-          <Button
-            onClick={() => {
-              editor
-                .chain()
-                .focus()
-                .deleteRange({
-                  from: aiReview.from,
-                  to: aiReview.from + aiReview.generatedLength,
-                })
-                .insertContentAt(aiReview.from, aiReview.original)
-                .setTextSelection({
-                  from: aiReview.from,
-                  to: aiReview.from + aiReview.original.length,
-                })
-                .run();
-              setAiReview(null);
-            }}
-            onMouseDown={(event) => event.preventDefault()}
-            size="xs"
-            type="button"
-            variant="outline"
+      <AnimatePresence>
+        {aiReview ? (
+          <motion.div
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="absolute right-3 bottom-3 z-[90] flex items-center gap-2 rounded-md border border-border bg-popover px-3 py-2 text-popover-foreground text-xs shadow-md"
+            data-motion-managed="true"
+            data-slot="editor-status-popover"
+            exit={{ opacity: 0, scale: 0.98, y: 4 }}
+            initial={{ opacity: 0, scale: 0.98, y: 4 }}
+            transition={{ duration: 0.16, ease: "easeOut" }}
           >
-            Deny
-          </Button>
-          <Button
-            onClick={() => setAiReview(null)}
-            onMouseDown={(event) => event.preventDefault()}
-            size="xs"
-            type="button"
-          >
-            Accept
-          </Button>
-        </div>
-      ) : null}
+            <span>Keep generated text?</span>
+            <Button
+              onClick={() => {
+                editor
+                  .chain()
+                  .focus()
+                  .deleteRange({
+                    from: aiReview.from,
+                    to: aiReview.from + aiReview.generatedLength,
+                  })
+                  .insertContentAt(aiReview.from, aiReview.original)
+                  .setTextSelection({
+                    from: aiReview.from,
+                    to: aiReview.from + aiReview.original.length,
+                  })
+                  .run();
+                setAiReview(null);
+              }}
+              onMouseDown={(event) => event.preventDefault()}
+              size="xs"
+              type="button"
+              variant="outline"
+            >
+              Deny
+            </Button>
+            <Button
+              onClick={() => setAiReview(null)}
+              onMouseDown={(event) => event.preventDefault()}
+              size="xs"
+              type="button"
+            >
+              Accept
+            </Button>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </>
   );
 }

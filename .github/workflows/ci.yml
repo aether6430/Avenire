@@ -40,10 +40,19 @@ jobs:
         run: bun packages/ai/skills/scripts/generator.ts
 
       - name: Lint
-        run: pnpm exec turbo run lint
+        run: pnpm lint
 
       - name: Type check
-        run: pnpm exec turbo run check-types
+        run: pnpm check-types
 
       - name: Test
-        run: pnpm exec turbo run test
+        run: pnpm test
+
+      - name: Test budget
+        run: pnpm test:budget
+
+      - name: Coverage floor
+        run: pnpm test:coverage:repo
+
+      - name: Build
+        run: pnpm build

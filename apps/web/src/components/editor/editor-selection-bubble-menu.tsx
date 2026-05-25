@@ -269,7 +269,10 @@ export function SelectionBubbleMenu({
       updateDelay={0}
     >
       {aiLoading ? (
-        <div className="flex min-w-56 items-center justify-between gap-3 rounded-lg border border-border bg-popover px-3 py-2 text-[13px] shadow-black/5 shadow-lg">
+        <div
+          className="flex min-w-56 items-center justify-between gap-3 rounded-lg border border-border bg-popover px-3 py-2 text-[13px] shadow-black/5 shadow-lg"
+          data-slot="editor-floating-popover"
+        >
           <span className="flex min-w-0 items-center gap-2 text-[var(--text-muted)]">
             <Sparkle
               className="h-3.5 w-3.5 text-[var(--accent-color,#3b82f6)]"
@@ -286,7 +289,10 @@ export function SelectionBubbleMenu({
           <span className="h-3 w-3 animate-pulse rounded-sm bg-[var(--text-muted)]" />
         </div>
       ) : (
-        <div className="flex items-center gap-1 rounded-xl border border-border bg-popover p-1 shadow-black/5 shadow-lg">
+        <div
+          className="flex items-center gap-1 rounded-xl border border-border bg-popover p-1 shadow-black/5 shadow-lg"
+          data-slot="editor-floating-popover"
+        >
           <DropdownMenu>
             <DropdownMenuTrigger
               className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[var(--accent-color,#3b82f6)] hover:bg-accent"

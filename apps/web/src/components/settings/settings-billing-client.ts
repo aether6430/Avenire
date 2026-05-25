@@ -51,7 +51,7 @@ function planFromPolarCustomerState(
     return metadataPlan;
   }
 
-  // Product ids need server-side env mapping; avoid guessing in the client.
+  // Product IDs need server-side env mapping; avoid guessing in the client.
   if (subscription.productId) {
     return null;
   }

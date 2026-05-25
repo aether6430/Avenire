@@ -21,15 +21,15 @@ export function useDashboardSidebarViewState({
 }) {
   const [desktopSidebarView, setDesktopSidebarView] =
     useState<SidebarSurfaceView>(() =>
-      resolveInitialDashboardSidebarView({ activeView, isMobile: false })
+      resolveInitialDashboardSidebarView({ activeView })
     );
   const [mobileSidebarView, setMobileSidebarView] =
     useState<SidebarSurfaceView>(() =>
-      resolveInitialDashboardSidebarView({ activeView, isMobile: true })
+      resolveInitialDashboardSidebarView({ activeView })
     );
   const [mountedViews, setMountedViews] = useState<
-    Set<Exclude<DashboardSidebarView, "workspace" | null>>
-  >(() => resolveInitialMountedDashboardSidebarViews({ activeView, isMobile }));
+    Set<Exclude<DashboardSidebarView, null>>
+  >(() => resolveInitialMountedDashboardSidebarViews({ activeView }));
 
   const sidebarView = resolveDashboardSidebarSurfaceView({
     desktopSidebarView,
@@ -46,6 +46,19 @@ export function useDashboardSidebarViewState({
       })
     );
   }, [sidebarView]);
+
+  useEffect(() => {
+    if (!activeView) {
+      return;
+    }
+
+    if (isMobile) {
+      setMobileSidebarView(activeView);
+      return;
+    }
+
+    setDesktopSidebarView(activeView);
+  }, [activeView, isMobile]);
 
   return {
     activeTabValue,

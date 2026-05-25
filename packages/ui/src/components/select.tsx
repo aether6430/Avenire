@@ -8,8 +8,22 @@ import {
 } from "@phosphor-icons/react";
 import type * as React from "react";
 import { cn } from "../lib/utils";
+import { useDeferredUnmountRoot } from "./deferred-unmount";
 
-const Select = SelectPrimitive.Root;
+function Select<Value, Multiple extends boolean | undefined = false>({
+  actionsRef,
+  onOpenChange,
+  onOpenChangeComplete,
+  ...props
+}: SelectPrimitive.Root.Props<Value, Multiple>) {
+  const exitPresence = useDeferredUnmountRoot({
+    actionsRef,
+    onOpenChange,
+    onOpenChangeComplete,
+  });
+
+  return <SelectPrimitive.Root {...props} {...exitPresence} />;
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (

@@ -15,6 +15,7 @@ export function FlashcardSetDetailStudyRuntime({
   initialQueue,
   onOpenChange,
   onRefreshSet,
+  open,
   refreshToken,
   setId,
   setTitle,
@@ -23,6 +24,7 @@ export function FlashcardSetDetailStudyRuntime({
   initialQueue?: FlashcardReviewQueueItem[];
   onOpenChange: (open: boolean) => void;
   onRefreshSet: () => Promise<void>;
+  open: boolean;
   refreshToken: number;
   setId: string;
   setTitle: string;
@@ -58,7 +60,7 @@ export function FlashcardSetDetailStudyRuntime({
       onSubmitReview={(rating) => {
         void studyRuntime.submitReview(rating);
       }}
-      open
+      open={open}
       reviewArrayHook={studyRuntime.reviewArrayHook}
       reviewBusy={studyRuntime.reviewBusy}
       reviewCards={studyRuntime.reviewCards}

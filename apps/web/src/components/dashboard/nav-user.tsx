@@ -35,6 +35,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@avenire/ui/components/sidebar";
+import { cn } from "@avenire/ui/lib/utils";
 import {
   Check,
   CaretUpDown as ChevronsUpDown,
@@ -91,7 +92,7 @@ function WorkspaceSwitchMenuSection({
           </p>
         </div>
       </DropdownMenuSubTrigger>
-      <DropdownMenuSubContent className="min-w-64">
+      <DropdownMenuSubContent className="min-w-64 border border-border/70 bg-popover shadow-[0_8px_24px_rgba(0,0,0,0.12)] ring-0">
         {switchWorkspaceEmptyMessage ? (
           <DropdownMenuItem disabled>
             <Building2 className="size-4" />
@@ -144,7 +145,7 @@ function WorkspaceInvitesMenuSection({
           <p className="text-[10px] text-muted-foreground">{subtitle}</p>
         </div>
       </DropdownMenuSubTrigger>
-      <DropdownMenuSubContent className="min-w-72">
+      <DropdownMenuSubContent className="min-w-72 border border-border/70 bg-popover shadow-[0_8px_24px_rgba(0,0,0,0.12)] ring-0">
         {emptyMessage ? (
           <DropdownMenuItem disabled>
             <Mail className="size-4" />
@@ -199,6 +200,7 @@ function WorkspaceInvitesMenuSection({
 
 export function NavUser({
   user,
+  compact = false,
   workspaces = [],
   invitations = [],
   activeWorkspaceId,
@@ -219,6 +221,7 @@ export function NavUser({
     email: string;
     avatar?: string;
   };
+  compact?: boolean;
   workspaces?: WorkspaceSummary[];
   invitations?: WorkspaceInvitation[];
   activeWorkspaceId?: string | null;
@@ -302,12 +305,22 @@ export function NavUser({
             <DropdownMenuTrigger
               render={
                 <SidebarMenuButton
-                  className="hit-area data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-                  size="lg"
+                  className={cn(
+                    "hit-area",
+                    compact
+                      ? "mx-auto size-8! justify-center rounded-full p-0! hover:bg-transparent data-[state=open]:bg-transparent"
+                      : "h-[3.25rem]! gap-2.5 rounded-full! p-2! hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground data-[state=open]:bg-sidebar-accent/70 data-[state=open]:text-sidebar-accent-foreground"
+                  )}
+                  size={compact ? "default" : "lg"}
                 />
               }
             >
-              <Avatar className="h-8 w-8 rounded-lg">
+              <Avatar
+                className={cn(
+                  "rounded-full after:border-0",
+                  compact ? "size-8!" : "size-9!"
+                )}
+              >
                 {avatarSrc ? (
                   <AvatarImage
                     alt={resolvedUser.name}
@@ -317,27 +330,31 @@ export function NavUser({
                     src={avatarSrc}
                   />
                 ) : null}
-                <AvatarFallback className="overflow-hidden rounded-lg bg-muted text-foreground">
-                  <DitherIdenticon className="size-full" seed={avatarSeed} />
+                <AvatarFallback className="overflow-hidden rounded-full bg-transparent text-foreground">
+                  <DitherIdenticon className="size-full!" seed={avatarSeed} />
                 </AvatarFallback>
               </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <SensitiveText
-                  className="truncate font-medium"
-                  privacyMode={privacyMode}
-                  value={resolvedUser.name}
-                />
-                <SensitiveText
-                  className="truncate text-xs"
-                  privacyMode={privacyMode}
-                  value={resolvedUser.email}
-                />
-              </div>
-              <ChevronsUpDown className="ml-auto size-4" />
+              {compact ? null : (
+                <>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <SensitiveText
+                      className="truncate font-medium"
+                      privacyMode={privacyMode}
+                      value={resolvedUser.name}
+                    />
+                    <SensitiveText
+                      className="truncate text-xs"
+                      privacyMode={privacyMode}
+                      value={resolvedUser.email}
+                    />
+                  </div>
+                  <ChevronsUpDown className="ml-auto size-4" />
+                </>
+              )}
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              className="w-(--radix-dropdown-menu-trigger-width) min-w-64 rounded-lg"
+              className="w-(--radix-dropdown-menu-trigger-width) min-w-64 rounded-lg border border-border/70 bg-popover shadow-[0_8px_24px_rgba(0,0,0,0.12)] ring-0"
               side={isMobile ? "bottom" : "right"}
               sideOffset={4}
             >
@@ -379,6 +396,7 @@ export function NavUser({
                   void triggerHaptic("selection");
                   void handleSignOut();
                 }}
+                variant="destructive"
               >
                 <LogOut />
                 {signingOut ? "Signing out..." : "Log out"}

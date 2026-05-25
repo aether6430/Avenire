@@ -212,7 +212,7 @@ export async function markIdempotencyDone(key: string, chatSlug: string) {
       }
     );
   } catch {
-    // ignore idempotency mark failures
+    // Ignore idempotency mark failures.
   }
 }
 
@@ -221,6 +221,6 @@ export async function clearIdempotencyKey(key: string) {
     const client = await getRedisClient();
     await client.del(key);
   } catch {
-    // ignore idempotency cleanup failures
+    // Ignore idempotency cleanup failures.
   }
 }

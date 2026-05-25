@@ -4,9 +4,23 @@ import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 import type * as React from "react";
 
 import { cn } from "../lib/utils";
+import { useDeferredUnmountRoot } from "./deferred-unmount";
 
-function Popover({ ...props }: PopoverPrimitive.Root.Props) {
-  return <PopoverPrimitive.Root data-slot="popover" {...props} />;
+function Popover({
+  actionsRef,
+  onOpenChange,
+  onOpenChangeComplete,
+  ...props
+}: PopoverPrimitive.Root.Props) {
+  const exitPresence = useDeferredUnmountRoot({
+    actionsRef,
+    onOpenChange,
+    onOpenChangeComplete,
+  });
+
+  return (
+    <PopoverPrimitive.Root data-slot="popover" {...props} {...exitPresence} />
+  );
 }
 
 function PopoverTrigger({ ...props }: PopoverPrimitive.Trigger.Props) {

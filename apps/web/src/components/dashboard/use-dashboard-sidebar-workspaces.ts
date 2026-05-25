@@ -96,7 +96,7 @@ export function useDashboardSidebarWorkspaces({
             message = payload.error;
           }
         } catch {
-          // ignore parse errors
+          // Ignore malformed error payloads.
         }
         throw new Error(message);
       }

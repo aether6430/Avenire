@@ -1,5 +1,4 @@
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import "./env";
 import {
   appendIngestionJobEvent,
   beginIngestionJob,
@@ -29,14 +28,8 @@ import {
   shutdownObservability,
 } from "@avenire/observability";
 import { serve } from "@hono/node-server";
-import { config as loadEnv } from "dotenv";
 import { Hono } from "hono";
 import { publishWorkspaceStreamEvent } from "./workspace-event-stream";
-
-// Prefer backend-local env; keep repo root as fallback.
-const here = fileURLToPath(new URL(".", import.meta.url));
-loadEnv({ path: resolve(here, "../.env") });
-loadEnv({ path: resolve(here, "../../../.env"), override: false });
 
 const port = Number.parseInt(
   process.env.PORT ?? process.env.INGESTION_WORKER_PORT ?? "3010",

@@ -26,6 +26,7 @@ vi.mock("@avenire/auth/server", () => ({
 
 const originalBetterAuthUrl = process.env.BETTER_AUTH_URL;
 const originalDatabaseUrl = process.env.DATABASE_URL;
+const originalNodeEnv = process.env.NODE_ENV;
 
 describe("workspace route session lookup", () => {
   beforeEach(() => {
@@ -37,8 +38,10 @@ describe("workspace route session lookup", () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     process.env.BETTER_AUTH_URL = originalBetterAuthUrl;
     process.env.DATABASE_URL = originalDatabaseUrl;
+    process.env.NODE_ENV = originalNodeEnv;
   });
 
   it("returns null without hitting the auth server when the request has no session cookie", async () => {
@@ -59,6 +62,7 @@ describe("workspace route session lookup", () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     process.env.BETTER_AUTH_URL = "";
     process.env.DATABASE_URL = "";
+    process.env.NODE_ENV = "development";
 
     const { getRouteSession } = await import("./workspace-route-context");
 

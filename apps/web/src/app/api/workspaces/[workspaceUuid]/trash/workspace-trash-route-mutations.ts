@@ -29,7 +29,7 @@ export async function deleteWorkspaceTrashStorageObjects(
   try {
     await deleteStorageFiles(deletableKeys);
   } catch {
-    // Best effort cleanup.
+    // Best-effort cleanup.
   }
 }
 

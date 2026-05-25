@@ -407,7 +407,7 @@ export function PropertiesTable({
                 return (
                   <motion.div
                     animate={{ height: "auto", opacity: 1 }}
-                    className="group -mx-3 flex items-center gap-3 rounded-lg px-3 py-1.5"
+                    className="group flex items-center gap-3 rounded-lg py-1.5 sm:-mx-3 sm:px-3"
                     data-property-row
                     exit={{ height: 0, opacity: 0 }}
                     initial={{ height: 0, opacity: 0 }}
@@ -733,7 +733,7 @@ export function PropertiesTable({
           {isAddingProperty && !collapsed ? (
             <motion.div
               animate={{ height: "auto", opacity: 1 }}
-              className="group -mx-3 flex items-center gap-3 rounded-lg px-3 py-1.5"
+              className="group flex items-center gap-3 rounded-lg py-1.5 sm:-mx-3 sm:px-3"
               data-property-row
               exit={{ height: 0, opacity: 0 }}
               initial={{ height: 0, opacity: 0 }}

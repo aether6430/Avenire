@@ -3,7 +3,6 @@ export type DashboardSidebarView =
   | "files"
   | "flashcards"
   | "tasks"
-  | "workspace"
   | null;
 
 export function shouldWarmAllWorkspaceSurfacesOnStartup(

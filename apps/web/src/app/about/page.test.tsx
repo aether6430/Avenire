@@ -67,6 +67,13 @@ describe("about page contract", () => {
       ),
       "utf8"
     );
+    const navbarClientSource = readFileSync(
+      path.resolve(
+        import.meta.dirname,
+        "../../components/marketing/navbar-client.tsx"
+      ),
+      "utf8"
+    );
     const footerSource = readFileSync(
       path.resolve(
         import.meta.dirname,
@@ -81,9 +88,15 @@ describe("about page contract", () => {
 
     expect(navbarSource).not.toContain('"use client"');
     expect(navbarSource).not.toContain("dynamic(");
-    expect(navbarSource).toContain('Button as="a"');
-    expect(navbarSource).toContain('href="/login"');
-    expect(navbarSource).toContain('href="/waitlist"');
+    expect(navbarSource).toContain("FloatingNav");
+    expect(navbarSource).toContain("MobileNav");
+    expect(navbarClientSource).toContain('"use client"');
+    expect(navbarClientSource).toContain("getSession");
+    expect(navbarClientSource).toContain('"/workspace"');
+    expect(navbarClientSource).toContain('"/login"');
+    expect(navbarClientSource).toContain("Open App");
+    expect(navbarClientSource).toContain("Log in");
+    expect(navbarClientSource).toContain('href="/waitlist"');
     expect(footerSource).not.toContain('from "next/link"');
     expect(logoSource).not.toContain('from "next/link"');
   });

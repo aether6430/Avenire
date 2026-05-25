@@ -7,9 +7,27 @@ import {
 } from "@phosphor-icons/react";
 import type * as React from "react";
 import { cn } from "../lib/utils";
+import { useDeferredUnmountRoot } from "./deferred-unmount";
 
-function ContextMenu({ ...props }: ContextMenuPrimitive.Root.Props) {
-  return <ContextMenuPrimitive.Root data-slot="context-menu" {...props} />;
+function ContextMenu({
+  actionsRef,
+  onOpenChange,
+  onOpenChangeComplete,
+  ...props
+}: ContextMenuPrimitive.Root.Props) {
+  const exitPresence = useDeferredUnmountRoot({
+    actionsRef,
+    onOpenChange,
+    onOpenChangeComplete,
+  });
+
+  return (
+    <ContextMenuPrimitive.Root
+      data-slot="context-menu"
+      {...props}
+      {...exitPresence}
+    />
+  );
 }
 
 function ContextMenuPortal({ ...props }: ContextMenuPrimitive.Portal.Props) {
@@ -103,7 +121,7 @@ function ContextMenuItem({
   return (
     <ContextMenuPrimitive.Item
       className={cn(
-        "group/context-menu-item relative flex min-h-7 cursor-default select-none items-center gap-2 rounded-md px-2 py-1 text-xs/relaxed outline-hidden focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-disabled:pointer-events-none data-inset:pl-7.5 data-[variant=destructive]:text-destructive data-disabled:opacity-50 data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 [&_svg:not([class*='size-'])]:size-3.5 [&_svg]:pointer-events-none [&_svg]:shrink-0 data-[variant=destructive]:*:[svg]:text-destructive",
+        "group/context-menu-item relative flex min-h-7 cursor-default select-none items-center gap-2 rounded-md px-2 py-1 text-xs/relaxed outline-hidden not-data-[variant=destructive]:hover:bg-accent not-data-[variant=destructive]:hover:text-accent-foreground not-data-[variant=destructive]:hover:**:text-accent-foreground not-data-[variant=destructive]:focus:bg-accent not-data-[variant=destructive]:focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-[variant=destructive]:data-highlighted:bg-destructive/10 data-[variant=destructive]:data-highlighted:text-destructive data-disabled:pointer-events-none not-data-[variant=destructive]:data-highlighted:bg-accent data-inset:pl-7.5 data-[variant=destructive]:text-destructive not-data-[variant=destructive]:data-highlighted:text-accent-foreground data-disabled:opacity-50 data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive data-[variant=destructive]:hover:bg-destructive/10 data-[variant=destructive]:hover:text-destructive data-[variant=destructive]:data-highlighted:**:text-destructive not-data-[variant=destructive]:data-highlighted:**:text-accent-foreground data-[variant=destructive]:focus:**:text-destructive data-[variant=destructive]:hover:**:text-destructive dark:data-[variant=destructive]:data-highlighted:bg-destructive/20 dark:data-[variant=destructive]:focus:bg-destructive/20 dark:data-[variant=destructive]:hover:bg-destructive/20 [&_svg:not([class*='size-'])]:size-3.5 [&_svg]:pointer-events-none [&_svg]:shrink-0 data-[variant=destructive]:[&_svg]:text-destructive",
         className
       )}
       data-inset={inset}

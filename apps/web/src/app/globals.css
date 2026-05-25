@@ -1,7 +1,7 @@
 @import "@avenire/ui/styles.css";
 
 @source "../**/*.{js,ts,jsx,tsx}";
-@source "../../../../packages/ui/components/**/*.{ts,tsx}";
+@source "../../../../packages/ui/src/components/sidebar.tsx";
 @source "../../../../packages/auth/components/**/*.{ts,tsx}";
 
 @theme {

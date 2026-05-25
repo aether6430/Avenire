@@ -2076,7 +2076,7 @@ function MediaPlayerSeek(props: MediaPlayerSeekProps) {
       collisionDataRef.current = null;
       lastSeekCommitTimeRef.current = Date.now();
 
-      // Reset movement tracking after seek commit
+      // Reset movement tracking after seek commit.
       pointerEnterTimeRef.current = Date.now();
       horizontalMovementRef.current = 0;
       verticalMovementRef.current = 0;
@@ -2307,7 +2307,6 @@ function MediaPlayerSeek(props: MediaPlayerSeekProps) {
                     {thumbnail.coords ? (
                       <div style={spriteStyle} />
                     ) : (
-                      // biome-ignore lint/performance/noImgElement: dynamic thumbnail URLs from media don't work well with Next.js Image optimization
                       <img
                         alt={`Preview at ${hoverTime}`}
                         className="size-full object-cover"
@@ -3371,9 +3370,7 @@ export {
   MediaPlayerSettings,
   MediaPlayerPortal,
   MediaPlayerTooltip,
-  //
   useMediaSelector as useMediaPlayer,
   useStore as useMediaPlayerStore,
-  //
   type MediaPlayerProps,
 };

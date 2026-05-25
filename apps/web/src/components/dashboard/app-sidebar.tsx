@@ -3,6 +3,7 @@
 import type { ChatSummary } from "@avenire/database";
 import { Button } from "@avenire/ui/components/button";
 import { Sidebar, SidebarFooter } from "@avenire/ui/components/sidebar";
+import { Skeleton } from "@avenire/ui/components/skeleton";
 import { cn } from "@avenire/ui/lib/utils";
 import { Trash as Trash2, Waves } from "@phosphor-icons/react";
 import { Gear as Settings } from "@phosphor-icons/react/Gear";
@@ -22,8 +23,21 @@ const DeferredNavUser = dynamic(
     import("@/components/dashboard/nav-user").then((module) => ({
       default: module.NavUser,
     })),
-  { loading: () => <div className="h-14" /> }
+  { loading: () => <NavUserSkeleton /> }
 );
+
+function NavUserSkeleton() {
+  return (
+    <div className="flex h-[3.25rem] items-center gap-2.5 rounded-full px-2">
+      <Skeleton className="size-9 rounded-full" />
+      <div className="min-w-0 flex-1 space-y-2">
+        <Skeleton className="h-3.5 w-24" />
+        <Skeleton className="h-3 w-36 max-w-full" />
+      </div>
+      <Skeleton className="size-4 rounded-md" />
+    </div>
+  );
+}
 
 export function DashboardSidebar({
   user,
@@ -57,6 +71,10 @@ export function DashboardSidebar({
     initialChats,
     initialWorkspaces,
   });
+  const isCollapsedRail =
+    !runtime.isMobile &&
+    runtime.state === "collapsed" &&
+    !runtime.isPeekabooActive;
 
   return (
     <Sidebar
@@ -71,8 +89,18 @@ export function DashboardSidebar({
     >
       <DashboardSidebarContent runtime={runtime} />
       <SidebarFooter>
-        <div className="mb-2 flex items-center justify-between gap-2 px-2">
-          <div className="flex items-center gap-1">
+        <div
+          className={cn(
+            "mb-2 flex items-center px-2",
+            isCollapsedRail ? "justify-center px-0" : "justify-between gap-2"
+          )}
+        >
+          <div
+            className={cn(
+              "flex items-center gap-1",
+              isCollapsedRail && "flex-col gap-2"
+            )}
+          >
             <Button
               className="hit-area h-8 w-8"
               onClick={() => {
@@ -125,6 +153,7 @@ export function DashboardSidebar({
         {runtime.deferredStartupReady ? (
           <DeferredNavUser
             activeWorkspaceId={runtime.workspaceUuid}
+            compact={isCollapsedRail}
             invitations={runtime.invitations}
             invitationsErrorMessage={runtime.invitationsErrorMessage}
             invitationsLoadFailed={runtime.invitationsLoadFailed}
@@ -147,7 +176,7 @@ export function DashboardSidebar({
             workspacesLoading={runtime.workspacesLoading}
           />
         ) : (
-          <div className="h-14" />
+          <NavUserSkeleton />
         )}
       </SidebarFooter>
     </Sidebar>

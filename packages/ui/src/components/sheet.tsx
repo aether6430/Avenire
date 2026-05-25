@@ -5,9 +5,22 @@ import { XIcon } from "@phosphor-icons/react";
 import type * as React from "react";
 import { cn } from "../lib/utils";
 import { Button } from "./button";
+import { useDeferredUnmountRoot } from "./deferred-unmount";
 
-function Sheet({ ...props }: SheetPrimitive.Root.Props) {
-  return <SheetPrimitive.Root data-slot="sheet" {...props} />;
+function Sheet({
+  actionsRef,
+  onOpenChange,
+  onOpenChangeComplete,
+  ...props
+}: SheetPrimitive.Root.Props) {
+  const exitPresence = useDeferredUnmountRoot({
+    actionsRef,
+    exitDurationMs: 340,
+    onOpenChange,
+    onOpenChangeComplete,
+  });
+
+  return <SheetPrimitive.Root data-slot="sheet" {...props} {...exitPresence} />;
 }
 
 function SheetTrigger({ ...props }: SheetPrimitive.Trigger.Props) {

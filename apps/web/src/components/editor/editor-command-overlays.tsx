@@ -22,7 +22,11 @@ export function SlashMenu({
   }, [activeIndex]);
 
   return (
-    <div className="w-80 overflow-hidden rounded-md border border-border bg-popover p-1 shadow-black/8 shadow-lg">
+    <div
+      className="w-80 overflow-hidden rounded-md border border-border bg-popover p-1 shadow-black/8 shadow-lg"
+      data-motion-managed="true"
+      data-slot="editor-command-menu"
+    >
       <div className="border-border border-b px-3 py-2 text-[11px] text-muted-foreground">
         Slash commands {query ? `for “${query}”` : ""}
       </div>
@@ -91,7 +95,11 @@ export function WikiMenu({
   }, [activeIndex]);
 
   return (
-    <div className="w-80 overflow-hidden rounded-md border border-border bg-popover p-1 shadow-black/8 shadow-lg">
+    <div
+      className="w-80 overflow-hidden rounded-md border border-border bg-popover p-1 shadow-black/8 shadow-lg"
+      data-motion-managed="true"
+      data-slot="editor-command-menu"
+    >
       <div className="border-border border-b px-3 py-2 text-[11px] text-muted-foreground">
         Wiki links {query ? `for “${query}”` : ""}
       </div>

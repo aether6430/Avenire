@@ -12,7 +12,7 @@ import {
   SidebarMenuItem,
 } from "@avenire/ui/components/sidebar";
 import { Spinner } from "@avenire/ui/components/spinner";
-import { MagnifyingGlass, Sparkle as Sparkles } from "@phosphor-icons/react";
+import { MagnifyingGlass } from "@phosphor-icons/react";
 import { BookOpenText as BookOpenCheck } from "@phosphor-icons/react/BookOpenText";
 import type { Route } from "next";
 import dynamic from "next/dynamic";
@@ -23,7 +23,6 @@ import { getFlashcardsSidebarSetsState } from "@/components/flashcards/flashcard
 import type { FlashcardsSidebarPanelRuntime } from "@/components/flashcards/use-flashcards-sidebar-panel";
 import { useFlashcardsSidebarPanel } from "@/components/flashcards/use-flashcards-sidebar-panel";
 import { DashboardSidebarChatPanel } from "./dashboard-sidebar-chat-panel";
-import { SidebarEmptyState } from "./dashboard-sidebar-shared";
 
 const DeferredFilesSidebarPanel = dynamic(
   () =>
@@ -248,30 +247,28 @@ export function DashboardSidebarMountedViews({
     workspaceUuid: workspaceUuid ?? undefined,
   });
 
-  if (sidebarView === "tasks") {
-    return (
-      <DeferredSidebarTaskPreview
-        activeWorkspaceId={activeWorkspace?.workspaceId}
-        closeMobileSidebar={closeMobileSidebar}
-        navigate={navigate}
-      />
-    );
-  }
-
-  if (!sidebarView) {
-    return (
-      <div className="absolute inset-0 flex items-start p-4">
-        <SidebarEmptyState
-          description="Pick a workspace surface above to load its actions, shortcuts, and context."
-          icon={Sparkles}
-          title="Choose a surface"
-        />
-      </div>
-    );
-  }
-
   return (
     <>
+      <div
+        aria-hidden={sidebarView !== "tasks"}
+        className={
+          sidebarView === "tasks" || mountedViews.has("tasks")
+            ? `absolute inset-0 transition-opacity duration-150 ${
+                sidebarView === "tasks"
+                  ? "opacity-100"
+                  : "pointer-events-none opacity-0"
+              }`
+            : "hidden"
+        }
+      >
+        {sidebarView === "tasks" || mountedViews.has("tasks") ? (
+          <DeferredSidebarTaskPreview
+            activeWorkspaceId={activeWorkspace?.workspaceId}
+            closeMobileSidebar={closeMobileSidebar}
+            navigate={navigate}
+          />
+        ) : null}
+      </div>
       <div
         aria-hidden={sidebarView !== "chat"}
         className={
@@ -345,7 +342,7 @@ export function DashboardSidebarMountedViews({
       <div
         aria-hidden={sidebarView !== "files"}
         className={
-          mountedViews.has("files")
+          sidebarView === "files" || mountedViews.has("files")
             ? `absolute inset-0 transition-opacity duration-150 ${
                 sidebarView === "files"
                   ? "opacity-100"
@@ -354,7 +351,7 @@ export function DashboardSidebarMountedViews({
             : "hidden"
         }
       >
-        {sidebarView === "files" ? (
+        {sidebarView === "files" || mountedViews.has("files") ? (
           <DeferredFilesSidebarPanel
             currentFileId={currentFileId}
             currentFolderId={currentFolderId}

@@ -9,6 +9,7 @@ import {
 import * as React from "react";
 import { cn } from "../lib/utils";
 import { Button } from "./button";
+import { useDeferredUnmountRoot } from "./deferred-unmount";
 import {
   InputGroup,
   InputGroupAddon,
@@ -16,7 +17,18 @@ import {
   InputGroupInput,
 } from "./input-group";
 
-const Combobox = ComboboxPrimitive.Root;
+function Combobox<Value, Multiple extends boolean | undefined = false>({
+  actionsRef,
+  onOpenChange,
+  ...props
+}: ComboboxPrimitive.Root.Props<Value, Multiple>) {
+  const exitPresence = useDeferredUnmountRoot({
+    actionsRef,
+    onOpenChange,
+  });
+
+  return <ComboboxPrimitive.Root {...props} {...exitPresence} />;
+}
 
 function ComboboxValue({ ...props }: ComboboxPrimitive.Value.Props) {
   return <ComboboxPrimitive.Value data-slot="combobox-value" {...props} />;

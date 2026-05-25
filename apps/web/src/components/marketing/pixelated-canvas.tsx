@@ -65,7 +65,6 @@ export const PixelatedCanvas: React.FC<PixelatedCanvasProps> = ({
       return;
     }
 
-    // Calculate grid dimensions
     const cols = Math.floor(dimensions.width / SQUARE_SIZE);
     const rows = Math.floor(dimensions.height / SQUARE_SIZE);
     const totalSquares = cols * rows;

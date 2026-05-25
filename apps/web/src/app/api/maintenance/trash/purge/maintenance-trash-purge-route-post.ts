@@ -23,7 +23,7 @@ export async function handleMaintenanceTrashPurgeRoutePost() {
       try {
         await deleteStorageFiles(Array.from(new Set(deletableKeys)));
       } catch {
-        // Best effort physical cleanup.
+        // Best-effort physical cleanup.
       }
     }
 

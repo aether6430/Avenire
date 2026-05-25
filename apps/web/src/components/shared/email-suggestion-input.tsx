@@ -66,11 +66,13 @@ export function EmailSuggestionInput({
       />
       <div
         className={cn(
-          "absolute top-full z-50 mt-1 w-full rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md transition-opacity",
+          "absolute top-full z-50 mt-1 w-full rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md transition-[opacity,transform] duration-[160ms] ease-out",
           open
-            ? "pointer-events-auto opacity-100"
-            : "pointer-events-none opacity-0"
+            ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
+            : "pointer-events-none -translate-y-0.5 scale-[0.98] opacity-0"
         )}
+        data-motion-managed="true"
+        data-slot="editor-floating-popover"
       >
         <Command shouldFilter={false}>
           <CommandList>

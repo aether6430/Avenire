@@ -33,7 +33,7 @@
     "build": "tsc -p tsconfig.build.json",
     "lint": "biome check .",
     "check-types": "tsc --noEmit -p tsconfig.build.json",
-    "test": "vitest run",
+    "test": "vitest run --dir src",
     "test:coverage": "vitest run --coverage.enabled true --coverage.provider v8 --coverage.reporter text-summary --coverage.reporter json-summary --coverage.include 'src/**/*.ts' --coverage.exclude 'src/**/*.d.ts' --coverage.exclude 'src/**/*.test.*'",
     "format": "biome format --write ."
   },
@@ -58,8 +58,9 @@
     "@avenire/env-types": "workspace:*",
     "@avenire/typescript-config": "workspace:*",
     "@types/node": "25.4.0",
+    "@vitest/coverage-v8": "4.1.7",
     "typescript": "5.9.3",
     "vite": "7.3.1",
-    "vitest": "^4.1.6"
+    "vitest": "4.1.7"
   }
 }

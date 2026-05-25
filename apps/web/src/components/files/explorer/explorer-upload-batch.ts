@@ -279,7 +279,7 @@ export async function runExplorerUploadBatch({
           });
         }
       } catch {
-        // Best effort. Fallback is normal upload path.
+        // Best-effort lookup. Fallback is the normal upload path.
       }
     }
   }

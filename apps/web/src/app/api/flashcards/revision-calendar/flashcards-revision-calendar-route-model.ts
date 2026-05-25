@@ -50,9 +50,17 @@ export function buildFlashcardsRevisionCalendarCacheKeyInput(input: {
 }
 
 export function resolveFlashcardsRevisionCalendarActiveOrganizationId(session: {
-  session?: { activeOrganizationId?: string | null };
+  session?: unknown;
 }) {
-  return session.session?.activeOrganizationId ?? null;
+  const sessionDetails = session.session;
+  if (!sessionDetails || typeof sessionDetails !== "object") {
+    return null;
+  }
+
+  const activeOrganizationId = (
+    sessionDetails as { activeOrganizationId?: unknown }
+  ).activeOrganizationId;
+  return typeof activeOrganizationId === "string" ? activeOrganizationId : null;
 }
 
 export function parseFlashcardsRevisionCalendarRequest(request: Request) {

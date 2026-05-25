@@ -144,13 +144,10 @@ export function ExpandableTabs({
     <div
       aria-label="Workspace section"
       className={cn(
-        "grid w-full gap-1 rounded-xl border border-sidebar-border/80 bg-sidebar p-1",
+        "inline-flex w-full items-center gap-1 rounded-xl border border-sidebar-border/80 bg-sidebar p-1",
         className
       )}
       role="tablist"
-      style={{
-        gridTemplateColumns: `repeat(${Math.max(1, items.length)}, minmax(0, 1fr))`,
-      }}
     >
       {items.map((item, index) => {
         const Icon = item.icon;
@@ -161,12 +158,11 @@ export function ExpandableTabs({
             aria-controls={`expandable-tab-panel-${item.value}`}
             aria-selected={isSelected}
             className={cn(
-              "relative inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg px-2 py-1.5 font-medium text-sidebar-foreground text-xs outline-hidden ring-sidebar-ring transition-colors focus-visible:ring-2",
-              isSelected
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground",
+              "relative inline-flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg px-2 py-1.5 font-medium text-xs outline-hidden ring-sidebar-ring transition-colors focus-visible:ring-2",
               item.disabled && "pointer-events-none opacity-50"
             )}
+            data-selected={isSelected ? "true" : undefined}
+            data-slot="expandable-tabs-trigger"
             disabled={item.disabled}
             id={`expandable-tab-${item.value}`}
             key={item.value}

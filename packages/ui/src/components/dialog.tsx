@@ -5,9 +5,24 @@ import { XIcon } from "@phosphor-icons/react";
 import type * as React from "react";
 import { cn } from "../lib/utils";
 import { Button } from "./button";
+import { useDeferredUnmountRoot } from "./deferred-unmount";
 
-function Dialog({ ...props }: DialogPrimitive.Root.Props) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />;
+function Dialog({
+  actionsRef,
+  onOpenChange,
+  onOpenChangeComplete,
+  ...props
+}: DialogPrimitive.Root.Props) {
+  const exitPresence = useDeferredUnmountRoot({
+    actionsRef,
+    exitDurationMs: 320,
+    onOpenChange,
+    onOpenChangeComplete,
+  });
+
+  return (
+    <DialogPrimitive.Root data-slot="dialog" {...props} {...exitPresence} />
+  );
 }
 
 function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {
@@ -24,6 +39,7 @@ function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
 
 function DialogOverlay({
   className,
+  style,
   ...props
 }: DialogPrimitive.Backdrop.Props) {
   return (
@@ -33,6 +49,11 @@ function DialogOverlay({
         className
       )}
       data-slot="dialog-overlay"
+      style={{
+        backgroundColor: "rgba(0, 0, 0, 0.72)",
+        backdropFilter: "blur(2px)",
+        ...style,
+      }}
       {...props}
     />
   );
@@ -43,6 +64,7 @@ function DialogContent({
   children,
   largeWidth = false,
   showCloseButton = true,
+  style,
   ...props
 }: DialogPrimitive.Popup.Props & {
   largeWidth?: boolean;
@@ -53,11 +75,16 @@ function DialogContent({
       <DialogOverlay />
       <DialogPrimitive.Popup
         className={cn(
-          "data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-background p-4 text-xs/relaxed outline-none ring-1 ring-foreground/10 duration-100 data-closed:animate-out data-open:animate-in",
+          "data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-background p-4 text-xs/relaxed shadow-[0_22px_80px_rgba(0,0,0,0.18)] outline-none ring-1 ring-foreground/10 duration-100 data-closed:animate-out data-open:animate-in dark:shadow-[0_22px_80px_rgba(0,0,0,0.42)]",
           largeWidth ? "sm:max-w-4xl lg:max-w-5xl" : "sm:max-w-sm",
           className
         )}
         data-slot="dialog-content"
+        style={{
+          boxShadow:
+            "0 0 0 1px rgba(20, 20, 20, 0.08), 0 22px 80px rgba(0, 0, 0, 0.18)",
+          ...style,
+        }}
         {...props}
       >
         {children}

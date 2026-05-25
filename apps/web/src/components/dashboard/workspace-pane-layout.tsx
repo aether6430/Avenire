@@ -212,12 +212,12 @@ export function WorkspacePaneSurface({
         render={
           <button
             aria-label="Pane actions"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border/60 bg-background text-muted-foreground shadow-sm transition hover:bg-muted/70 hover:text-foreground"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border/60 bg-background text-muted-foreground shadow-sm transition hover:bg-muted/70 hover:text-foreground"
             type="button"
           />
         }
       >
-        <MoreHorizontal className="size-4" />
+        <MoreHorizontal className="size-3.5" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48 rounded-xl p-1.5">
         <DropdownMenuItem onClick={onSplitHorizontal}>
@@ -231,10 +231,7 @@ export function WorkspacePaneSurface({
         {isMultiPane ? (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              onClick={onClose}
-            >
+            <DropdownMenuItem onClick={onClose} variant="destructive">
               <X className="mr-2 size-4" />
               Close pane
             </DropdownMenuItem>
@@ -260,6 +257,7 @@ export function WorkspacePaneSurface({
             isPreviewPane &&
               "border border-primary/35 border-dashed bg-primary/[0.04] shadow-[inset_0_0_0_1px_rgba(59,130,246,0.08)]"
           )}
+          data-slot="workspace-pane-surface"
           onClick={onFocus}
           onDragLeave={onDragLeave}
           onDragOver={onDragOver}
@@ -373,7 +371,7 @@ export function WorkspacePaneDesktopLayout({
         onDrop={handleContainerDrop}
       >
         <PanelGroup
-          className="min-h-0 flex-1"
+          className="workspace-pane-panel-group min-h-0 flex-1"
           direction="vertical"
           key={buildRowLayoutKey(paneRows)}
           onLayout={handleRowLayout}
@@ -382,7 +380,7 @@ export function WorkspacePaneDesktopLayout({
             <Fragment key={row.id}>
               <Panel defaultSize={row.size} minSize={18} order={rowIndex + 1}>
                 <PanelGroup
-                  className="h-full min-w-0"
+                  className="workspace-pane-panel-group h-full min-w-0"
                   direction="horizontal"
                   key={buildPaneLayoutKey(row)}
                   onLayout={(nextSizes) => {

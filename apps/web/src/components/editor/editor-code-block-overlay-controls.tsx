@@ -11,6 +11,7 @@ import {
 import { Copy } from "@phosphor-icons/react/Copy";
 import type { Editor } from "@tiptap/react";
 import { common } from "lowlight";
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 import { VIEWPORT_PADDING } from "./editor-core";
 
@@ -139,22 +140,29 @@ export function CodeBlockOverlayControls({
   }, [blocks, editor]);
 
   return (
-    <>
+    <AnimatePresence>
       {blocks
         .filter(
           (block) =>
             block.pos === activeBlockPos || block.pos === hoveredBlockPos
         )
         .map((block) => (
-          <div
+          <motion.div
+            animate={{ opacity: 1, scale: 1, y: 0 }}
             className="fixed z-[82]"
+            exit={{ opacity: 0, scale: 0.98, y: -2 }}
+            initial={{ opacity: 0, scale: 0.98, y: -2 }}
             key={block.pos}
             style={{
               left: Math.max(VIEWPORT_PADDING, block.rect.right - 176),
               top: block.rect.top + 8,
             }}
+            transition={{ duration: 0.16, ease: "easeOut" }}
           >
-            <div className="flex items-center gap-1 rounded-md border border-border bg-popover/96 p-1 shadow-md backdrop-blur">
+            <div
+              className="flex items-center gap-1 rounded-md border border-border bg-popover/96 p-1 shadow-md backdrop-blur"
+              data-slot="editor-floating-popover"
+            >
               <Select
                 onValueChange={(value) => {
                   editor
@@ -189,8 +197,8 @@ export function CodeBlockOverlayControls({
                 Copy
               </Button>
             </div>
-          </div>
+          </motion.div>
         ))}
-    </>
+    </AnimatePresence>
   );
 }

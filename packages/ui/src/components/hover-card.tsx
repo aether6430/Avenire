@@ -3,9 +3,27 @@
 import { PreviewCard as PreviewCardPrimitive } from "@base-ui/react/preview-card";
 
 import { cn } from "../lib/utils";
+import { useDeferredUnmountRoot } from "./deferred-unmount";
 
-function HoverCard({ ...props }: PreviewCardPrimitive.Root.Props) {
-  return <PreviewCardPrimitive.Root data-slot="hover-card" {...props} />;
+function HoverCard({
+  actionsRef,
+  onOpenChange,
+  onOpenChangeComplete,
+  ...props
+}: PreviewCardPrimitive.Root.Props) {
+  const exitPresence = useDeferredUnmountRoot({
+    actionsRef,
+    onOpenChange,
+    onOpenChangeComplete,
+  });
+
+  return (
+    <PreviewCardPrimitive.Root
+      data-slot="hover-card"
+      {...props}
+      {...exitPresence}
+    />
+  );
 }
 
 function HoverCardTrigger({ ...props }: PreviewCardPrimitive.Trigger.Props) {

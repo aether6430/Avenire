@@ -112,7 +112,7 @@ export async function GET(request: Request) {
             try {
               controller.close();
             } catch {
-              // no-op
+              // Ignore duplicate stream close attempts.
             }
           };
 
@@ -198,7 +198,7 @@ export async function GET(request: Request) {
           try {
             controller.close();
           } catch {
-            // no-op
+            // Ignore duplicate stream close attempts.
           }
         };
 

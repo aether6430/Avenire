@@ -62,8 +62,6 @@ function SidebarProvider({
   const isMobile = useIsMobile();
   const [openMobile, setOpenMobile] = React.useState(false);
 
-  // This is the internal state of the sidebar.
-  // We use openProp and setOpenProp for control from outside the component.
   const [_open, _setOpen] = React.useState(defaultOpen);
   const open = openProp ?? _open;
   const setOpen = React.useCallback(
@@ -78,12 +76,10 @@ function SidebarProvider({
     [setOpenProp, open]
   );
 
-  // Helper to toggle the sidebar.
   const toggleSidebar = React.useCallback(() => {
     return isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open);
   }, [isMobile, setOpen]);
 
-  // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
@@ -99,8 +95,6 @@ function SidebarProvider({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [toggleSidebar]);
 
-  // We add a state so that we can do data-state="expanded" or "collapsed".
-  // This makes it easier to style the sidebar with Tailwind classes.
   const state = open ? "expanded" : "collapsed";
 
   const contextValue = React.useMemo<SidebarContextProps>(
@@ -146,6 +140,7 @@ function Sidebar({
   className,
   children,
   dir,
+  style,
   ...props
 }: React.ComponentProps<"div"> & {
   side?: "left" | "right";
@@ -162,6 +157,20 @@ function Sidebar({
     variant === "floating" || variant === "inset"
       ? `calc(${SIDEBAR_WIDTH_ICON} + 1rem + 2px)`
       : SIDEBAR_WIDTH_ICON;
+  const sidebarGapStyle =
+    state === "collapsed" && collapsible === "offcanvas"
+      ? undefined
+      : ({
+          width: collapsesToIcon ? collapsedGapWidth : "var(--sidebar-width)",
+        } as React.CSSProperties);
+  const sidebarContainerStyle =
+    state === "collapsed" && collapsible === "offcanvas"
+      ? undefined
+      : ({
+          width: collapsesToIcon
+            ? collapsedContainerWidth
+            : "var(--sidebar-width)",
+        } as React.CSSProperties);
 
   if (collapsible === "none") {
     return (
@@ -171,6 +180,7 @@ function Sidebar({
           className
         )}
         data-slot="sidebar"
+        style={style}
         {...props}
       >
         {children}
@@ -213,7 +223,6 @@ function Sidebar({
       data-state={state}
       data-variant={variant}
     >
-      {/* This is what handles the sidebar gap on desktop */}
       <div
         className={cn(
           "relative w-[var(--sidebar-width)] bg-transparent transition-[width] duration-200 ease-linear",
@@ -224,16 +233,11 @@ function Sidebar({
             : "group-data-[collapsible=icon]:w-[var(--sidebar-width-icon)]"
         )}
         data-slot="sidebar-gap"
-        style={
-          collapsesToIcon
-            ? ({ width: collapsedGapWidth } as React.CSSProperties)
-            : undefined
-        }
+        style={sidebarGapStyle}
       />
       <div
         className={cn(
           "fixed inset-y-0 z-10 hidden h-svh w-[var(--sidebar-width)] bg-sidebar transition-[left,right,width] duration-200 ease-linear data-[side=right]:right-0 data-[side=left]:left-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)] data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] md:flex",
-          // Adjust the padding for floating and inset variants.
           variant === "floating" || variant === "inset"
             ? "p-2"
             : "group-data-[collapsible=icon]:w-[var(--sidebar-width-icon)] group-data-[side=left]:border-r group-data-[side=right]:border-l",
@@ -241,12 +245,11 @@ function Sidebar({
         )}
         data-side={side}
         data-slot="sidebar-container"
-        style={
-          collapsesToIcon
-            ? ({ width: collapsedContainerWidth } as React.CSSProperties)
-            : undefined
-        }
         {...props}
+        style={{
+          ...sidebarContainerStyle,
+          ...(style as React.CSSProperties | undefined),
+        }}
       >
         <div
           className="flex size-full flex-col bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:shadow-sm group-data-[variant=floating]:ring-1 group-data-[variant=floating]:ring-sidebar-border"
@@ -641,7 +644,6 @@ function SidebarMenuSkeleton({
 }: React.ComponentProps<"div"> & {
   showIcon?: boolean;
 }) {
-  // Random width between 50 to 90%.
   const [width] = React.useState(() => {
     return `${Math.floor(Math.random() * 40) + 50}%`;
   });

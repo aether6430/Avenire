@@ -123,7 +123,7 @@ export function useMultimodalInputComposerState({
     try {
       window.localStorage.removeItem("chat-input");
     } catch {
-      // ignore localStorage errors in restricted contexts
+      // Ignore localStorage errors in restricted contexts.
     }
   }, []);
 

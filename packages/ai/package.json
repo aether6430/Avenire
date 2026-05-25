@@ -36,7 +36,7 @@
     "@avenire/env-types": "workspace:*",
     "@avenire/typescript-config": "workspace:*",
     "typescript": "5.9.3",
-    "vitest": "^4.1.6"
+    "vitest": "4.1.7"
   },
   "engines": {
     "bun": ">=1.0.0"

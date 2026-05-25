@@ -198,7 +198,7 @@ export async function deleteUploadThingFile(
   try {
     await deleteStorageFiles([storageKey]);
   } catch {
-    // Best effort cleanup.
+    // Best-effort cleanup.
   }
 }
 

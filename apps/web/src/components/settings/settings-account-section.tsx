@@ -53,43 +53,35 @@ export function SettingsAccountSection({
         description="Update your display name and avatar."
         title="Profile"
       >
-        <div className="max-w-md space-y-3">
-          <div className="space-y-1">
-            <label className="font-medium text-muted-foreground text-xs">
+        <div className="max-w-xl space-y-5 pb-6">
+          <div className="space-y-1.5">
+            <label className="block font-medium text-muted-foreground text-xs">
               Display Name
             </label>
             <Input
+              className="max-w-md"
               onChange={(event) => setProfileName(event.target.value)}
               placeholder="Your name"
               value={profileName}
             />
           </div>
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <Avatar className="h-14 w-14">
-                {displayAvatar ? (
-                  <AvatarImage alt={profileName} src={displayAvatar} />
-                ) : null}
-                <AvatarFallback className="overflow-hidden bg-muted text-foreground">
-                  <DitherIdenticon className="size-full" seed={avatarSeed} />
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0">
-                <p className="font-medium text-sm">Profile photo</p>
-                <p className="text-muted-foreground text-xs">
-                  Upload an image and we will save the CDN URL to your account
-                  automatically.
-                </p>
-              </div>
+          <div className="grid gap-x-4 gap-y-3 sm:grid-cols-[4rem_minmax(0,1fr)]">
+            <Avatar className="size-16 self-start rounded-full">
+              {displayAvatar ? (
+                <AvatarImage alt={profileName} src={displayAvatar} />
+              ) : null}
+              <AvatarFallback className="overflow-hidden rounded-full bg-muted text-foreground">
+                <DitherIdenticon className="size-full" seed={avatarSeed} />
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 pt-1">
+              <p className="font-medium text-sm">Profile photo</p>
+              <p className="max-w-md text-muted-foreground text-xs">
+                Upload an image and we will save the CDN URL to your account
+                automatically.
+              </p>
             </div>
-            <input
-              accept="image/*"
-              className="hidden"
-              onChange={handleAvatarFileChange}
-              ref={fileInputRef}
-              type="file"
-            />
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <div className="flex flex-wrap gap-2 sm:col-start-2">
               <Button
                 disabled={avatarUploading}
                 onClick={() => fileInputRef.current?.click()}
@@ -100,18 +92,25 @@ export function SettingsAccountSection({
                 <Camera className="mr-2 h-4 w-4" />
                 {avatarUploading ? "Uploading..." : "Upload Avatar"}
               </Button>
+              <Button
+                disabled={isSavingProfile || isUploadingAvatar}
+                onClick={() => {
+                  void saveProfile();
+                }}
+                size="sm"
+                type="button"
+              >
+                Save Changes
+              </Button>
             </div>
+            <input
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarFileChange}
+              ref={fileInputRef}
+              type="file"
+            />
           </div>
-          <Button
-            disabled={isSavingProfile || isUploadingAvatar}
-            onClick={() => {
-              void saveProfile();
-            }}
-            size="sm"
-            type="button"
-          >
-            Save Changes
-          </Button>
           {profileStatus ? (
             <p className="text-muted-foreground text-xs">{profileStatus}</p>
           ) : null}
@@ -124,7 +123,7 @@ export function SettingsAccountSection({
         description="Link your Google or GitHub account for social sign-in."
         title="Connected Providers"
       >
-        <div className="space-y-3">
+        <div className="max-w-xl space-y-3">
           <div className="flex flex-wrap gap-2">
             <Button
               onClick={() => {
@@ -157,17 +156,17 @@ export function SettingsAccountSection({
             ) : (
               accounts.map((account) => (
                 <div
-                  className="flex items-center justify-between px-0 py-1.5"
+                  className="flex items-center justify-between gap-3 py-1.5"
                   key={
                     account.id ?? `${account.providerId}-${account.accountId}`
                   }
                 >
-                  <div className="flex items-center gap-2">
-                    <Badge className="text-xs" variant="outline">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Badge className="shrink-0 text-xs" variant="outline">
                       {account.providerId ?? "email"}
                     </Badge>
                     <SensitiveText
-                      className="max-w-[180px] text-muted-foreground text-xs"
+                      className="min-w-0 truncate text-muted-foreground text-xs"
                       privacyMode={privacyMode}
                       value={account.accountId ?? account.id}
                     />

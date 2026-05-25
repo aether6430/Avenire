@@ -126,7 +126,7 @@ export function useExplorerPaneHeader({
             render={
               <Button
                 aria-label="Workspace actions"
-                className="h-9 w-9 rounded-md border border-border/60 bg-background text-foreground shadow-sm hover:bg-muted/70"
+                className="h-7 w-7 rounded-md border border-border/60 bg-background text-foreground shadow-sm hover:bg-muted/70"
                 size="icon"
                 type="button"
                 variant="ghost"
@@ -206,7 +206,10 @@ export function useExplorerPaneHeader({
               Split right
             </DropdownMenuItem>
             {canClosePane ? (
-              <DropdownMenuItem onClick={() => closePane(paneId)}>
+              <DropdownMenuItem
+                onClick={() => closePane(paneId)}
+                variant="destructive"
+              >
                 <X className="size-3.5" />
                 Close pane
               </DropdownMenuItem>

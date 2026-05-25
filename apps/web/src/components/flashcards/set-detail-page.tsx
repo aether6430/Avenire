@@ -21,6 +21,7 @@ import { FlashcardSetDetailActions } from "@/components/flashcards/flashcard-set
 import { FlashcardSetDetailCardBank } from "@/components/flashcards/flashcard-set-detail-card-bank";
 import type { FlashcardSetDetailRuntime } from "@/components/flashcards/use-flashcard-set-detail";
 import { useFlashcardSetDetail } from "@/components/flashcards/use-flashcard-set-detail";
+import { useDeferredPresence } from "@/hooks/use-deferred-presence";
 import {
   readCachedFlashcardSet,
   removeCachedFlashcardSet,
@@ -96,6 +97,7 @@ export function FlashcardSetDetailSurface({
       <p className="truncate text-muted-foreground text-xs">{set.title}</p>
     </div>
   );
+  const renderStudyRuntime = useDeferredPresence(studyOpen);
 
   return (
     <div className="h-full overflow-y-auto bg-background">
@@ -237,12 +239,13 @@ export function FlashcardSetDetailSurface({
             </Badge>
           </div>
 
-          {studyOpen ? (
+          {renderStudyRuntime ? (
             <FlashcardSetDetailStudyRuntime
               drillFilters={drillFilters}
               initialQueue={initialQueue}
               onOpenChange={handleStudyOpenChange}
               onRefreshSet={loadSet}
+              open={studyOpen}
               refreshToken={studyRefreshToken}
               setId={set.id}
               setTitle={set.title}

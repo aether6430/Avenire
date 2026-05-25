@@ -45,16 +45,13 @@ import { Kbd } from "./kbd";
 import { ScrollArea } from "./scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip";
 
-// i18n Configuration Interface
 export interface FilterI18nConfig {
-  // UI Labels
   addFilter: string;
   addFilterTitle: string;
   defaultColor: string;
   defaultCurrency: string;
   false: string;
 
-  // Helper functions
   helpers: {
     formatOperator: (operator: string) => string;
   };
@@ -63,7 +60,6 @@ export interface FilterI18nConfig {
   noFieldsFound: string;
   noResultsFound: string;
 
-  // Operators
   operators: {
     is: string;
     isNot: string;
@@ -94,7 +90,6 @@ export interface FilterI18nConfig {
   };
   percent: string;
 
-  // Placeholders
   placeholders: {
     enterField: (fieldType: string) => string;
     selectField: string;
@@ -110,7 +105,6 @@ export interface FilterI18nConfig {
   true: string;
   typeAndPressEnter: string;
 
-  // Validation
   validation: {
     invalidEmail: string;
     invalidUrl: string;
@@ -119,9 +113,7 @@ export interface FilterI18nConfig {
   };
 }
 
-// Default English i18n configuration
 export const DEFAULT_I18N: FilterI18nConfig = {
-  // UI Labels
   addFilter: "Filter",
   searchFields: "Filter...",
   noFieldsFound: "No filters found.",
@@ -140,7 +132,6 @@ export const DEFAULT_I18N: FilterI18nConfig = {
   defaultColor: "#000000",
   addFilterTitle: "Add filter",
 
-  // Operators
   operators: {
     is: "is",
     isNot: "is not",
@@ -170,7 +161,6 @@ export const DEFAULT_I18N: FilterI18nConfig = {
     notEmpty: "is not empty",
   },
 
-  // Placeholders
   placeholders: {
     enterField: (fieldType: string) => `Enter ${fieldType}...`,
     selectField: "Select...",
@@ -179,12 +169,10 @@ export const DEFAULT_I18N: FilterI18nConfig = {
     enterValue: "Enter value...",
   },
 
-  // Helper functions
   helpers: {
     formatOperator: (operator: string) => operator.replace(/_/g, " "),
   },
 
-  // Validation
   validation: {
     invalidEmail: "Invalid email format",
     invalidUrl: "Invalid URL format",
@@ -193,7 +181,6 @@ export const DEFAULT_I18N: FilterI18nConfig = {
   },
 };
 
-// Context for all Filter component props
 interface FilterContextValue {
   allowMultiple?: boolean;
   className?: string;
@@ -218,7 +205,6 @@ const FilterContext = createContext<FilterContextValue>({
 
 const useFilterContext = () => useContext(FilterContext);
 
-// Container variant for filters wrapper
 const filtersContainerVariants = cva("flex flex-wrap items-center", {
   variants: {
     variant: {
@@ -261,7 +247,6 @@ function FilterInput<T = unknown>({
     }
   }, [props.autoFocus]);
 
-  // Validation function to check if input matches pattern
   const validateInput = (value: string, pattern?: string): boolean => {
     if (!(pattern && value)) {
       return true;
@@ -270,25 +255,20 @@ function FilterInput<T = unknown>({
     return regex.test(value);
   };
 
-  // Get validation message for field type
   const getValidationMessage = (): string => {
     return context.i18n.validation.invalid;
   };
 
-  // Handle blur event - validate when user leaves input
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     const value = e.target.value;
     const pattern = field?.pattern || props.pattern;
 
-    // Only validate if there's a value and (pattern or validation function)
     if (value && (pattern || field?.validation)) {
       let valid = true;
       let customMessage = "";
 
-      // If there's a custom validation function, use it
       if (field?.validation) {
         const result = field.validation(value);
-        // Handle both boolean and object return types
         if (typeof result === "boolean") {
           valid = result;
         } else {
@@ -296,7 +276,6 @@ function FilterInput<T = unknown>({
           customMessage = result.message || "";
         }
       } else if (pattern) {
-        // Use pattern validation
         valid = validateInput(value, pattern);
       }
 
@@ -305,18 +284,14 @@ function FilterInput<T = unknown>({
         valid ? "" : customMessage || getValidationMessage()
       );
     } else {
-      // Reset validation state for empty values or no validation
       setIsValid(true);
       setValidationMessage("");
     }
 
-    // Call the original onBlur if provided
     onBlur?.(e);
   };
 
-  // Handle keydown event - hide validation error when user starts typing
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    // Hide validation error when user starts typing (any key except special keys)
     if (
       !(
         isValid ||
@@ -335,7 +310,6 @@ function FilterInput<T = unknown>({
       setValidationMessage("");
     }
 
-    // Call the original onKeyDown if provided
     onKeyDown?.(e);
   };
 
@@ -428,7 +402,6 @@ function FilterRemoveButton({
   );
 }
 
-// Generic types for flexible filter system
 export interface FilterOption<T = unknown> {
   className?: string;
   icon?: React.ReactNode;
@@ -443,7 +416,6 @@ export interface FilterOperator {
   value: string;
 }
 
-// Custom renderer props interface
 export interface CustomRendererProps<T = unknown> {
   field: FilterFieldConfig<T>;
   onChange: (values: T[]) => void;
@@ -451,13 +423,11 @@ export interface CustomRendererProps<T = unknown> {
   values: T[];
 }
 
-// Grouped field configuration interface
 export interface FilterFieldGroup<T = unknown> {
   fields: FilterFieldConfig<T>[];
   group?: string;
 }
 
-// Union type for both flat and grouped field configurations
 export type FilterFieldsConfig<T = unknown> =
   | FilterFieldConfig<T>[]
   | FilterFieldGroup<T>[];
@@ -470,12 +440,9 @@ export interface FilterFieldConfig<T = unknown> {
     values: T[],
     options: FilterOption<T>[]
   ) => React.ReactNode;
-  // Default operator to use when creating a filter for this field
   defaultOperator?: string;
   fields?: FilterFieldConfig<T>[];
-  // Group-level configuration
   group?: string;
-  // Grouping options (legacy support)
   groupLabel?: string;
   icon?: React.ReactNode;
   key?: string;
@@ -485,13 +452,10 @@ export interface FilterFieldConfig<T = unknown> {
   menuPopupClassName?: string;
   min?: number;
   offLabel?: string;
-  // Input event handlers
   onInputChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  // Boolean field options
   onLabel?: string;
   onValueChange?: (values: T[]) => void;
   operators?: FilterOperator[];
-  // Field-specific options
   options?: FilterOption<T>[];
   pattern?: string;
   placeholder?: string;
@@ -503,18 +467,15 @@ export interface FilterFieldConfig<T = unknown> {
   validation?: (
     value: unknown
   ) => boolean | { valid: boolean; message?: string };
-  // Controlled values support for this field
   value?: T[];
 }
 
-// Helper functions to handle both flat and grouped field configurations
 const isFieldGroup = <T = unknown>(
   item: FilterFieldConfig<T> | FilterFieldGroup<T>
 ): item is FilterFieldGroup<T> => {
   return "fields" in item && Array.isArray(item.fields);
 };
 
-// Helper function to check if a FilterFieldConfig is a group-level configuration
 const isGroupLevelField = <T = unknown>(
   field: FilterFieldConfig<T>
 ): boolean => {
@@ -528,7 +489,6 @@ const flattenFields = <T = unknown>(
     if (isFieldGroup(item)) {
       return [...acc, ...item.fields];
     }
-    // Handle group-level fields (new structure)
     if (isGroupLevelField(item)) {
       return [...acc, ...item.fields!];
     }
@@ -542,7 +502,6 @@ const getFieldsMap = <T = unknown>(
   const flatFields = flattenFields(fields);
   return flatFields.reduce(
     (acc, field) => {
-      // Only add fields that have a key (skip group-level configurations)
       if (field.key) {
         acc[field.key] = field;
       }
@@ -552,7 +511,6 @@ const getFieldsMap = <T = unknown>(
   );
 };
 
-// Helper function to create operators from i18n config
 const createOperatorsFromI18n = (
   i18n: FilterI18nConfig
 ): Record<string, FilterOperator[]> => ({
@@ -589,11 +547,9 @@ const createOperatorsFromI18n = (
   ],
 });
 
-// Default operators for different field types (using default i18n)
 export const DEFAULT_OPERATORS: Record<string, FilterOperator[]> =
   createOperatorsFromI18n(DEFAULT_I18N);
 
-// Helper function to get operators for a field
 const getOperatorsForField = <T = unknown>(
   field: FilterFieldConfig<T>,
   values: T[],
@@ -605,15 +561,12 @@ const getOperatorsForField = <T = unknown>(
 
   const operators = createOperatorsFromI18n(i18n);
 
-  // Determine field type for operator selection
   let fieldType = field.type || "select";
 
-  // If it's a select field but has multiple values, treat as multiselect
   if (fieldType === "select" && values.length > 1) {
     fieldType = "multiselect";
   }
 
-  // If it's a multiselect field or has multiselect operators, use multiselect operators
   if (fieldType === "multiselect" || field.type === "multiselect") {
     return operators.multiselect;
   }
@@ -637,7 +590,6 @@ function FilterOperatorDropdown<T = unknown>({
   const context = useFilterContext();
   const operators = getOperatorsForField(field, values, context.i18n);
 
-  // Find the operator label, with fallback to formatted operator name
   const operatorLabel =
     operators.find((op) => op.value === operator)?.label ||
     context.i18n.helpers.formatOperator(operator);
@@ -734,8 +686,8 @@ function SelectOptionsPopover<T = unknown>({
   const unselectedOptions =
     field.options?.filter((opt) => !effectiveValues.includes(opt.value)) || [];
 
-  // Filter options based on search input
-  const filteredSelectedOptions = selectedOptions; // Keep all selected visible
+  // Keep selected options visible while search narrows only the remaining options.
+  const filteredSelectedOptions = selectedOptions;
   const filteredUnselectedOptions = unselectedOptions.filter((opt) =>
     opt.label.toLowerCase().includes(searchInput.toLowerCase())
   );
@@ -847,7 +799,6 @@ function SelectOptionsPopover<T = unknown>({
               </div>
             )}
 
-            {/* Selected items */}
             {filteredSelectedOptions.length > 0 && (
               <DropdownMenuGroup className="px-1">
                 {filteredSelectedOptions.map((option, index) => {
@@ -894,13 +845,11 @@ function SelectOptionsPopover<T = unknown>({
               </DropdownMenuGroup>
             )}
 
-            {/* Separator */}
             {filteredSelectedOptions.length > 0 &&
               filteredUnselectedOptions.length > 0 && (
                 <DropdownMenuSeparator className="mx-0" />
               )}
 
-            {/* Available items */}
             {filteredUnselectedOptions.length > 0 && (
               <DropdownMenuGroup className="px-1">
                 {filteredUnselectedOptions.map((option, index) => {
@@ -1492,8 +1441,7 @@ export function Filters<T = unknown>({
     }
   }, [addFilterOpen]);
 
-  // Track which filter instance is being built in the current Add Filter menu session
-  // Maps fieldKey -> unique filterId created during this open session
+  // Keep a stable filter ID per field during one Add Filter menu session.
   const [sessionFilterIds, setSessionFilterIds] = useState<
     Record<string, string>
   >({});

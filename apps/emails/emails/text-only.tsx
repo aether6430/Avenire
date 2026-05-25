@@ -1,6 +1,3 @@
-// Get the full source code, including the theme and Tailwind config:
-// https://github.com/resend/react-email/tree/canary/apps/demo/emails
-
 import {
   Body,
   Container,
