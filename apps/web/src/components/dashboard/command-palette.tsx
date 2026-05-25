@@ -3,7 +3,6 @@
 import {
   Command,
   CommandDialog,
-  CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
@@ -22,10 +21,13 @@ import {
   FileText,
   Folder,
   FolderPlus,
+  Funnel as ListFilter,
   LinkSimple,
   ListChecks,
+  MagnifyingGlass as Search,
   ChatText as MessageSquareText,
   Moon,
+  SidebarSimple,
   Gear as Settings,
   Sparkle as Sparkles,
   Sun,
@@ -35,15 +37,17 @@ import { useQuery } from "@tanstack/react-query";
 import Fuse from "fuse.js";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useWorkspaceSurfaceNavigation } from "@/lib/workspace-panes";
 import { useTheme } from "next-themes";
 import {
-  startTransition,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
+import type { ElementType, ReactNode } from "react";
 import type { WorkspaceSearchResult } from "@/components/files/stylized-search-bar";
 import type { ChatSummary } from "@/lib/chat-data";
 import {
@@ -68,8 +72,10 @@ import {
   useCommandPaletteStore,
 } from "@/stores/commandPaletteStore";
 import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
+import { Markdown } from "@/components/chat/markdown";
 import { filesUiActions } from "@/stores/filesUiStore";
 import { quickCaptureActions } from "@/stores/quickCaptureStore";
+import { cn } from "@/lib/utils";
 
 type PaletteItemType = "file" | "folder";
 type PaletteSearchType = "chat" | "flashcard";
@@ -78,6 +84,9 @@ interface PaletteItem {
   folderId?: string;
   id: string;
   name: string;
+  page?: {
+    bannerUrl: string | null;
+  } | null;
   path: string;
   type: PaletteItemType;
   workspaceName: string;
@@ -108,7 +117,8 @@ const FILE_FUSE_OPTIONS = {
   includeScore: true,
   ignoreLocation: true,
   keys: ["name", "path", "workspaceName"],
-  threshold: 0.45,
+  threshold: 0.34,
+  useExtendedSearch: true,
 };
 
 const FILE_RESULTS_LIMIT = 8;
@@ -127,6 +137,9 @@ interface WorkspaceTreePayload {
     folderId: string;
     id: string;
     name: string;
+    page?: {
+      bannerUrl: string | null;
+    } | null;
     readOnly?: boolean;
   }>;
   folders?: Array<{
@@ -137,21 +150,22 @@ interface WorkspaceTreePayload {
   }>;
 }
 
-async function hydrateWorkspaceIndex(workspace: WorkspaceSummary) {
-  const cached = readWorkspaceTreeCache<
-    {
-      id: string;
-      name: string;
-      parentId: string | null;
-      readOnly?: boolean;
-    },
-    {
-      folderId: string;
-      id: string;
-      name: string;
-      readOnly?: boolean;
-    }
-  >(workspace.workspaceId);
+  async function hydrateWorkspaceIndex(workspace: WorkspaceSummary) {
+    const cached = readWorkspaceTreeCache<
+      {
+        id: string;
+        name: string;
+        parentId: string | null;
+        readOnly?: boolean;
+      },
+      {
+        folderId: string;
+        id: string;
+        name: string;
+        page?: { bannerUrl: string | null } | null;
+        readOnly?: boolean;
+      }
+    >(workspace.workspaceId);
 
   if (cached) {
     commandPaletteActions.setFileIndex({
@@ -180,6 +194,7 @@ async function hydrateWorkspaceIndex(workspace: WorkspaceSummary) {
     folderId: file.folderId,
     id: file.id,
     name: file.name,
+    page: file.page ?? null,
     readOnly: file.readOnly,
   }));
 
@@ -326,13 +341,30 @@ function matchesNeedle(value: string, needle: string) {
   return value.toLowerCase().includes(needle);
 }
 
-const PALETTE_GROUP_CLASS =
-  "overflow-hidden px-2 py-2 [&_[cmdk-group-heading]]:px-1.5 [&_[cmdk-group-heading]]:pb-1.5 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-muted-foreground/55 [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-normal";
+function normalizeSearch(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function formatShortcut(shortcut: string) {
+  return shortcut
+    .replace(/Cmd|Meta/gi, "⌘")
+    .replace(/Ctrl/gi, "Ctrl")
+    .replace(/Shift/gi, "Shift")
+    .replace(/Alt|Option/gi, "Alt")
+    .split("+")
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function renderPaletteIcon(icon: unknown, className: string) {
+  const IconComponent = icon as ElementType;
+  return <IconComponent className={className} />;
+}
 
 const PALETTE_ITEM_CLASS =
-  "group relative flex cursor-pointer select-none items-start gap-2.5 rounded-md px-2.5 py-2 text-sm outline-none data-[selected=true]:bg-muted data-[selected=true]:text-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 hover:bg-muted/80 transition-colors duration-100";
+  "min-h-8 rounded-lg px-2 text-[0.8125rem] text-zinc-300 data-selected:bg-white/12 data-selected:text-zinc-50 data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50";
 
-const PALETTE_ICON_CLASS = "mt-0.5 size-4 shrink-0 text-muted-foreground/65";
+const PALETTE_ICON_CLASS = "mt-0.5 size-[0.95rem] shrink-0 text-zinc-400";
 
 const PALETTE_CHEVRON_CLASS =
   "mt-0.5 ml-auto size-3.5 shrink-0 opacity-0 transition-opacity duration-150 group-data-[selected=true]:opacity-100 group-hover:opacity-100 text-muted-foreground/45";
@@ -347,6 +379,9 @@ export function CommandPalette({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { navigate: paneNavigate } = useWorkspaceSurfaceNavigation({
+    panesEnabled: true,
+  });
   const setSettingsOpen = useDashboardOverlayStore(
     (state) => state.setSettingsOpen
   );
@@ -370,8 +405,14 @@ export function CommandPalette({
 
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [pendingRoute, setPendingRoute] = useState<string | null>(null);
+  const [selectedValue, setSelectedValue] = useState("");
+  const [showPreview, setShowPreview] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterMode, setFilterMode] = useState<"All" | "Commands" | "Files">(
+    "All"
+  );
   const resolvedWorkspaceUuid = activeWorkspaceUuid ?? workspaceUuid ?? null;
+  const ctrlHeldRef = useRef(false);
 
   const currentRoute = useMemo(() => {
     const nextQuery = searchParams.toString();
@@ -414,17 +455,9 @@ export function CommandPalette({
 
     setQuery("");
     setDebouncedQuery("");
-    setPendingRoute(null);
+    setSelectedValue("");
+    hydratedWorkspacesRef.current.clear();
   }, [open]);
-
-  useEffect(() => {
-    if (!pendingRoute || currentRoute !== pendingRoute) {
-      return;
-    }
-
-    setPendingRoute(null);
-    commandPaletteActions.close();
-  }, [currentRoute, pendingRoute]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -461,19 +494,20 @@ export function CommandPalette({
     );
   }, [activeFileId, currentFilesWorkspaceUuid]);
 
+  const hydratedWorkspacesRef = useRef(new Set<string>());
+
   useEffect(() => {
     if (!open) {
       return;
     }
 
     for (const workspace of workspaces) {
-      const existingIndex = fileIndexByWorkspace[workspace.workspaceId];
-      if (existingIndex?.files.length || existingIndex?.folders.length) {
-        continue;
+      if (!hydratedWorkspacesRef.current.has(workspace.workspaceId)) {
+        hydratedWorkspacesRef.current.add(workspace.workspaceId);
+        void hydrateWorkspaceIndex(workspace);
       }
-      void hydrateWorkspaceIndex(workspace);
     }
-  }, [fileIndexByWorkspace, open, workspaces]);
+  }, [open, workspaces]);
 
   const workspaceItems = useMemo(() => {
     const folderPathMaps = new Map<string, Map<string, string>>();
@@ -547,6 +581,7 @@ export function CommandPalette({
           folderId: file.folderId,
           id: file.id,
           name: file.name,
+          page: file.page ?? null,
           path: folderPath ? `${folderPath}/${file.name}` : file.name,
           type: "file",
           workspaceName: workspace.name,
@@ -615,29 +650,45 @@ export function CommandPalette({
     [resolvedWorkspaceUuid]
   );
 
-  const openFilesRoute = useCallback(() => {
-    const targetWorkspace = workspaces.find(
-      (entry) => entry.workspaceId === resolvedWorkspaceUuid
-    );
-    const targetRoute =
-      targetWorkspace?.workspaceId && targetWorkspace.rootFolderId
-        ? (`/workspace/files/${targetWorkspace.workspaceId}/folder/${targetWorkspace.rootFolderId}` as Route)
-        : targetWorkspace?.workspaceId
-          ? (`/workspace/files/${targetWorkspace.workspaceId}` as Route)
-          : ("/workspace/files" as Route);
+  const openFilesRoute = useCallback(
+    (options?: { openInNewPane?: boolean }) => {
+      const targetWorkspace = workspaces.find(
+        (entry) => entry.workspaceId === resolvedWorkspaceUuid
+      );
+      const targetRoute =
+        targetWorkspace?.workspaceId && targetWorkspace.rootFolderId
+          ? (`/workspace/files/${targetWorkspace.workspaceId}/folder/${targetWorkspace.rootFolderId}` as Route)
+          : targetWorkspace?.workspaceId
+            ? (`/workspace/files/${targetWorkspace.workspaceId}` as Route)
+            : ("/workspace/files" as Route);
 
-    router.prefetch(targetRoute);
-    setPendingRoute(targetRoute);
-
-    startTransition(() => {
-      if (currentRoute === targetRoute) {
+      if (!options?.openInNewPane && currentRoute === targetRoute) {
         commandPaletteActions.close();
         return;
       }
 
-      router.push(targetRoute);
-    });
-  }, [currentRoute, resolvedWorkspaceUuid, router, workspaces]);
+      router.prefetch(targetRoute);
+      paneNavigate(targetRoute, { openInNewPane: options?.openInNewPane });
+      commandPaletteActions.close();
+    },
+    [currentRoute, paneNavigate, resolvedWorkspaceUuid, router, workspaces]
+  );
+
+  const navigateTo = useCallback(
+    (route: Route, options?: { openInNewPane?: boolean }) => {
+      const href = typeof route === "string" ? route : String(route);
+
+      if (!options?.openInNewPane && currentRoute === href) {
+        commandPaletteActions.close();
+        return;
+      }
+
+      router.prefetch(route);
+      paneNavigate(href, { openInNewPane: options?.openInNewPane });
+      commandPaletteActions.close();
+    },
+    [currentRoute, paneNavigate, router]
+  );
 
   const handleFileIntent = useCallback(
     (intent: Parameters<typeof filesUiActions.emitIntent>[0]) => {
@@ -702,7 +753,7 @@ export function CommandPalette({
         group: "General",
         searchTerms: ["files", "explorer", "folders", "workspace"],
         onSelect: () => {
-          openFilesRoute();
+          openFilesRoute({ openInNewPane: ctrlHeldRef.current });
         },
       },
       {
@@ -714,10 +765,7 @@ export function CommandPalette({
         searchTerms: ["tasks", "todo", "planner", "upcoming"],
         shortcut: "Ctrl+3",
         onSelect: () => {
-          startTransition(() => {
-            router.push("/workspace/tasks" as Route);
-          });
-          commandPaletteActions.close();
+          navigateTo("/workspace/tasks" as Route, { openInNewPane: ctrlHeldRef.current });
         },
       },
       {
@@ -740,10 +788,7 @@ export function CommandPalette({
         searchTerms: ["chat", "thread", "method"],
         shortcut: "Ctrl+N",
         onSelect: () => {
-          startTransition(() => {
-            router.push("/workspace/chats/new" as Route);
-          });
-          commandPaletteActions.close();
+          navigateTo("/workspace/chats/new" as Route, { openInNewPane: ctrlHeldRef.current });
         },
       },
       {
@@ -780,10 +825,7 @@ export function CommandPalette({
         group: "Create",
         searchTerms: ["study", "cards", "flashcards"],
         onSelect: () => {
-          startTransition(() => {
-            router.push("/workspace/flashcards?create=1" as Route);
-          });
-          commandPaletteActions.close();
+          navigateTo("/workspace/flashcards?create=1" as Route, { openInNewPane: ctrlHeldRef.current });
         },
       },
       {
@@ -845,7 +887,7 @@ export function CommandPalette({
     ]
   );
 
-  const trimmedQuery = debouncedQuery.trim().toLowerCase();
+  const trimmedQuery = normalizeSearch(debouncedQuery);
   const searchQuery = trimmedQuery;
 
   const filteredCommands = useMemo(() => {
@@ -908,24 +950,36 @@ export function CommandPalette({
         type: "flashcard",
       }));
   }, [cachedFlashcardSets, searchQuery]);
-  const shouldSearchFiles =
-    Boolean(searchQuery) &&
-    !hasCommandMatches &&
-    chatResults.length === 0 &&
-    flashcardResults.length === 0 &&
-    searchItems.length > 0;
+  const shouldSearchFiles = Boolean(searchQuery) && searchItems.length > 0;
 
   const fuzzyResults = useMemo(() => {
     if (!shouldSearchFiles) {
       return [];
     }
 
-    return fuse
+    const seen = new Set<string>();
+    const directMatches = searchItems.filter((item) =>
+      matchesNeedle(
+        `${item.name} ${item.path} ${item.workspaceName} ${item.type}`,
+        searchQuery
+      )
+    );
+    const fuzzyMatches = fuse
       .search(searchQuery)
       .filter((result) => (result.score ?? 1) <= FILE_FUSE_OPTIONS.threshold)
-      .slice(0, FILE_RESULTS_LIMIT)
       .map((result) => result.item);
-  }, [fuse, searchQuery, shouldSearchFiles]);
+
+    return [...directMatches, ...fuzzyMatches]
+      .filter((item) => {
+        const key = `${item.workspaceUuid}:${item.type}:${item.id}`;
+        if (seen.has(key)) {
+          return false;
+        }
+        seen.add(key);
+        return true;
+      })
+      .slice(0, FILE_RESULTS_LIMIT);
+  }, [fuse, searchItems, searchQuery, shouldSearchFiles]);
 
   const fileSearchFingerprint = useMemo(
     () =>
@@ -961,18 +1015,11 @@ export function CommandPalette({
       searchQuery,
       fileSearchFingerprint,
     ],
-    enabled: Boolean(
-      open &&
-        shouldSearchFiles &&
-        fuzzyResults.length === 0 &&
-        resolvedWorkspaceUuid
-    ),
+    enabled: Boolean(open && shouldSearchFiles && resolvedWorkspaceUuid),
   });
 
   const retrievalResults =
-    fuzzyResults.length > 0 || hasCommandMatches
-      ? []
-      : (retrievalQuery.data ?? []);
+    fuzzyResults.length > 0 ? [] : (retrievalQuery.data ?? []);
   const isRetrieving = retrievalQuery.isFetching;
 
   useEffect(() => {
@@ -1007,17 +1054,14 @@ export function CommandPalette({
   ]);
 
   const handleOpenFolder = useCallback(
-    (item: PaletteItem) => {
+    (item: PaletteItem, openInNewPane?: boolean) => {
       const targetRoute =
         `/workspace/files/${item.workspaceUuid}/folder/${item.id}` as Route;
       router.prefetch(targetRoute);
-      setPendingRoute(targetRoute);
-
-      startTransition(() => {
-        router.push(targetRoute);
-      });
+      paneNavigate(targetRoute, { openInNewPane });
+      commandPaletteActions.close();
     },
-    [router]
+    [paneNavigate, router]
   );
 
   const handleOpenFile = useCallback(
@@ -1025,22 +1069,24 @@ export function CommandPalette({
       workspaceId: string,
       fileId: string,
       folderId: string | undefined,
-      options?: { retrievalChunkId?: string | null }
+      options?: { retrievalChunkId?: string | null; openInNewPane?: boolean }
     ) => {
       commandPaletteActions.recordRecentFile(workspaceId, fileId);
       const workspace = workspaces.find(
         (entry) => entry.workspaceId === workspaceId
       );
+      const alreadyOnTarget =
+        currentFilesWorkspaceUuid === workspaceId &&
+        currentFilesFolderId === folderId;
+      const replace = alreadyOnTarget && !options?.openInNewPane;
 
       if (!folderId) {
         const fallbackRoute = workspace?.rootFolderId
           ? (`/workspace/files/${workspaceId}/folder/${workspace.rootFolderId}` as Route)
           : (`/workspace/files/${workspaceId}` as Route);
         router.prefetch(fallbackRoute);
-        setPendingRoute(fallbackRoute);
-        startTransition(() => {
-          router.push(fallbackRoute);
-        });
+        paneNavigate(fallbackRoute, { openInNewPane: options?.openInNewPane });
+        commandPaletteActions.close();
         return;
       }
 
@@ -1053,24 +1099,14 @@ export function CommandPalette({
       const targetRoute =
         `/workspace/files/${workspaceId}/folder/${folderId}?${params.toString()}` as Route;
       router.prefetch(targetRoute);
-      setPendingRoute(targetRoute);
-
-      startTransition(() => {
-        if (
-          currentFilesWorkspaceUuid === workspaceId &&
-          currentFilesFolderId === folderId
-        ) {
-          router.replace(targetRoute);
-        } else {
-          router.push(targetRoute);
-        }
-      });
+      paneNavigate(targetRoute, { openInNewPane: options?.openInNewPane, replace });
+      commandPaletteActions.close();
     },
-    [currentFilesFolderId, currentFilesWorkspaceUuid, router, workspaces]
+    [currentFilesFolderId, currentFilesWorkspaceUuid, paneNavigate, router, workspaces]
   );
 
   const openSearchResult = useCallback(
-    (result: WorkspaceSearchResult) => {
+    (result: WorkspaceSearchResult, openInNewPane?: boolean) => {
       if (!resolvedWorkspaceUuid) {
         return;
       }
@@ -1085,40 +1121,158 @@ export function CommandPalette({
         targetFile?.folderId ?? currentFilesFolderId ?? undefined;
 
       handleOpenFile(resolvedWorkspaceUuid, targetFileId, targetFolderId, {
+        openInNewPane,
         retrievalChunkId: result.chunkId ?? null,
       });
     },
     [currentFilesFolderId, fileItems, handleOpenFile, resolvedWorkspaceUuid]
   );
 
+  const previewItems = useMemo(() => {
+    const items: Array<
+      | { kind: "command"; value: string; item: PaletteCommandItem }
+      | { kind: "file"; value: string; item: PaletteItem }
+      | { kind: "chat"; value: string; item: PaletteSearchItem }
+      | { kind: "flashcard"; value: string; item: PaletteSearchItem }
+      | { kind: "content"; value: string; item: WorkspaceSearchResult }
+      | { kind: "task"; value: string; item: (typeof workspaceTasks)[number] }
+    > = [];
+
+    if (searchQuery) {
+      for (const item of filteredCommands.general) {
+        items.push({ kind: "command", value: `command-${item.key}`, item });
+      }
+      for (const item of filteredCommands.create) {
+        items.push({ kind: "command", value: `command-${item.key}`, item });
+      }
+      for (const item of chatResults) {
+        items.push({ kind: "chat", value: `chat-${item.id}`, item });
+      }
+      for (const item of flashcardResults) {
+        items.push({ kind: "flashcard", value: `flashcard-${item.id}`, item });
+      }
+      for (const item of fuzzyResults) {
+        items.push({ kind: "file", value: `${item.type}-${item.id}`, item });
+      }
+      for (const item of retrievalResults) {
+        items.push({
+          kind: "content",
+          value: `retrieval-${item.id}-${item.chunkId ?? "main"}`,
+          item,
+        });
+      }
+      return items;
+    }
+
+    for (const item of workspaceTasks) {
+      items.push({ kind: "task", value: `task-${item.id}`, item });
+    }
+    for (const item of recentItems) {
+      items.push({ kind: "file", value: `recent-${item.id}`, item });
+    }
+    for (const item of cachedChats.slice(0, 6)) {
+      items.push({
+        kind: "chat",
+        value: `recent-chat-${item.slug}`,
+        item: {
+          description: item.slug,
+          id: item.id,
+          label: item.title,
+          meta: new Date(item.updatedAt).toLocaleDateString(),
+          path: `/workspace/chats/${item.slug}`,
+          type: "chat",
+        },
+      });
+    }
+    for (const item of cachedFlashcardSets.slice(0, 6)) {
+      items.push({
+        kind: "flashcard",
+        value: `recent-flashcard-${item.id}`,
+        item: {
+          description: `${item.dueCount + item.newCount} ready`,
+          id: item.id,
+          label: item.title,
+          meta: new Date(item.updatedAt).toLocaleDateString(),
+          path: `/workspace/flashcards/${item.id}`,
+          type: "flashcard",
+        },
+      });
+    }
+    for (const item of filteredCommands.general) {
+      items.push({ kind: "command", value: `command-${item.key}`, item });
+    }
+    for (const item of filteredCommands.create) {
+      items.push({ kind: "command", value: `command-${item.key}`, item });
+    }
+    return items;
+  }, [
+    cachedChats,
+    cachedFlashcardSets,
+    chatResults,
+    filteredCommands.create,
+    filteredCommands.general,
+    flashcardResults,
+    fuzzyResults,
+    recentItems,
+    retrievalResults,
+    searchQuery,
+    workspaceTasks,
+  ]);
+
+  const hasResults = previewItems.length > 0;
+
+  useEffect(() => {
+    if (previewItems.length === 0) {
+      setSelectedValue("");
+      return;
+    }
+    if (!previewItems.some((item) => item.value === selectedValue)) {
+      setSelectedValue(previewItems[0].value);
+    }
+  }, [previewItems, selectedValue]);
+
+  const selectedPreview =
+    previewItems.find((item) => item.value === selectedValue) ??
+    previewItems[0] ??
+    null;
+
   const renderCommandGroups = () => (
     <>
       {filteredCommands.general.length > 0 ? (
-        <CommandGroup className={PALETTE_GROUP_CLASS} heading="General">
+        <CommandGroup heading="General">
           {filteredCommands.general.map((item) => (
             <CommandItem
               className={PALETTE_ITEM_CLASS}
               key={item.key}
               onSelect={() => item.onSelect()}
-              value={[item.label, item.description, ...item.searchTerms].join(
-                " "
-              )}
+              value={`command-${item.key}`}
             >
-              <item.icon className={PALETTE_ICON_CLASS} />
-              <div className="min-w-0">
-                <p className="font-medium text-foreground/90 text-sm">
+              {renderPaletteIcon(item.icon, PALETTE_ICON_CLASS)}
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium text-zinc-100/90">
                   {item.label}
                 </p>
-                <p className="text-muted-foreground/60 text-xs">
+                <p className="truncate text-[0.6875rem] text-zinc-500">
                   {item.description}
                 </p>
               </div>
               {item.shortcut ? (
-                <CommandShortcut className="mt-0.5 text-muted-foreground/50 tracking-normal">
-                  {item.shortcut}
-                </CommandShortcut>
+                <span className="ml-auto flex shrink-0 items-center gap-0.5">
+                  <KbdGroup>
+                    {formatShortcut(item.shortcut).map((key) => (
+                      <Kbd
+                        className="h-5 min-w-5 rounded bg-black/20 px-1.5 text-[10px] font-medium text-zinc-400"
+                        key={key}
+                      >
+                        {key}
+                      </Kbd>
+                    ))}
+                  </KbdGroup>
+                </span>
               ) : null}
-              <ChevronRight className={PALETTE_CHEVRON_CLASS} />
+              <CommandShortcut>
+                {renderPaletteIcon(ChevronRight, PALETTE_CHEVRON_CLASS)}
+              </CommandShortcut>
             </CommandItem>
           ))}
         </CommandGroup>
@@ -1128,31 +1282,40 @@ export function CommandPalette({
         <CommandSeparator />
       ) : null}
       {filteredCommands.create.length > 0 ? (
-        <CommandGroup className={PALETTE_GROUP_CLASS} heading="Create">
+        <CommandGroup heading="Create">
           {filteredCommands.create.map((item) => (
             <CommandItem
               className={PALETTE_ITEM_CLASS}
               key={item.key}
               onSelect={() => item.onSelect()}
-              value={[item.label, item.description, ...item.searchTerms].join(
-                " "
-              )}
+              value={`command-${item.key}`}
             >
-              <item.icon className={PALETTE_ICON_CLASS} />
-              <div className="min-w-0">
-                <p className="font-medium text-foreground/90 text-sm">
+              {renderPaletteIcon(item.icon, PALETTE_ICON_CLASS)}
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium text-zinc-100/90">
                   {item.label}
                 </p>
-                <p className="text-muted-foreground/60 text-xs">
+                <p className="truncate text-[0.6875rem] text-zinc-500">
                   {item.description}
                 </p>
               </div>
               {item.shortcut ? (
-                <CommandShortcut className="mt-0.5 text-muted-foreground/50 tracking-normal">
-                  {item.shortcut}
-                </CommandShortcut>
+                <span className="ml-auto flex shrink-0 items-center gap-0.5">
+                  <KbdGroup>
+                    {formatShortcut(item.shortcut).map((key) => (
+                      <Kbd
+                        className="h-5 min-w-5 rounded bg-black/20 px-1.5 text-[10px] font-medium text-zinc-400"
+                        key={key}
+                      >
+                        {key}
+                      </Kbd>
+                    ))}
+                  </KbdGroup>
+                </span>
               ) : null}
-              <ChevronRight className={PALETTE_CHEVRON_CLASS} />
+              <CommandShortcut>
+                {renderPaletteIcon(ChevronRight, PALETTE_CHEVRON_CLASS)}
+              </CommandShortcut>
             </CommandItem>
           ))}
         </CommandGroup>
@@ -1162,74 +1325,165 @@ export function CommandPalette({
 
   return (
     <CommandDialog
-      className="overflow-hidden rounded-xl border-border/70 bg-[#202020] p-0 text-foreground shadow-[0_18px_80px_rgba(0,0,0,0.42)] sm:max-w-[58rem]"
-      description="Search commands, projects, and threads..."
-      largeWidth
+      open={open}
       onOpenChange={(nextOpen) => {
         if (!nextOpen) {
           commandPaletteActions.close();
           return;
         }
-
         commandPaletteActions.open();
       }}
-      open={open}
-      showCloseButton={false}
       title="Command Palette"
+      description="Search commands, projects, and threads..."
+      showCloseButton={false}
+      className={cn(
+        "top-[4.5vh]! h-[min(78vh,39.5rem)] translate-y-0! gap-0! border-0! bg-transparent! p-0! shadow-none! ring-0!",
+        open && "transition-[width,height,max-width] duration-200 ease-out",
+        showPreview
+          ? "w-[min(calc(100vw-2rem),56.75rem)]! max-w-[56.75rem]!"
+          : "w-[min(calc(100vw-2rem),34rem)]! max-w-[34rem]!"
+      )}
     >
       <Command
-        className="h-[min(30.75rem,calc(100dvh-4rem))] min-h-0 rounded-none border-0 bg-transparent p-0 shadow-none"
+        label="Command Palette"
+        value={selectedValue}
+        onValueChange={setSelectedValue}
         shouldFilter={false}
+        loop
+        onKeyDown={(e) => {
+          ctrlHeldRef.current = e.ctrlKey || e.metaKey;
+        }}
+        onKeyUp={(e) => {
+          if (e.key === "Control" || e.key === "Meta") {
+            ctrlHeldRef.current = false;
+          }
+        }}
+        className="h-full w-full rounded-[1.05rem]! border-zinc-700/70 bg-[#161616]/94 p-3 text-zinc-100 shadow-[0_24px_90px_rgba(0,0,0,0.48)]"
       >
-        <div className="border-border/30 border-b px-4 py-3">
+        <div className="flex h-10 items-center gap-3 px-2 text-zinc-300">
+          {renderPaletteIcon(Search, "size-[1.05rem] text-zinc-400")}
           <CommandInput
-            className="h-5 border-0 bg-transparent px-0 py-0 text-[13px] placeholder:text-muted-foreground/55 focus-visible:outline-none focus-visible:ring-0"
-            onValueChange={setQuery}
             placeholder="Search or ask a question in Avenire's Space..."
             value={query}
+            onValueChange={setQuery}
+            spellCheck={false}
+            showSearchIcon={false}
+            wrapperClassName="flex-1 p-0!"
+            inputGroupClassName="h-9! rounded-none! border-0! bg-transparent! p-0! shadow-none! ring-0! dark:bg-transparent!"
+            className="h-9 bg-transparent! text-[0.9rem] text-zinc-100 placeholder:text-zinc-500"
           />
-        </div>
-        {pendingRoute ? (
-          <div className="flex items-center gap-2 border-border/30 border-t bg-muted/25 px-4 py-2 text-muted-foreground/70 text-xs">
-            <Spinner className="size-3.5" />
-            Opening selection...
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              aria-label="Toggle filters"
+              aria-pressed={showFilters}
+              onClick={() => setShowFilters((visible) => !visible)}
+              className={cn(
+                "grid size-7 place-items-center rounded-full border border-white/12 text-zinc-400 transition-colors hover:bg-white/8 hover:text-zinc-100",
+                showFilters && "border-blue-500/30 bg-blue-500/15 text-blue-300"
+              )}
+            >
+              {renderPaletteIcon(ListFilter, "size-4")}
+            </button>
+            <button
+              type="button"
+              aria-label="Toggle preview"
+              aria-pressed={showPreview}
+              onClick={() => setShowPreview((visible) => !visible)}
+              className={cn(
+                "grid size-7 place-items-center rounded-md text-zinc-400 transition-colors hover:bg-white/8 hover:text-zinc-100",
+                showPreview && "text-blue-400"
+              )}
+            >
+              {renderPaletteIcon(SidebarSimple, "size-4")}
+            </button>
           </div>
-        ) : null}
-        <div className="grid min-h-0 flex-1 grid-cols-1 bg-transparent">
-          <div className="min-h-0">
-            <CommandList className="scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent max-h-none min-h-0 overflow-y-auto px-1 py-1">
+        </div>
+
+        <div
+          className={cn(
+            "grid transition-[grid-template-rows,opacity] duration-200 ease-out",
+            showFilters ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+          )}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="flex items-center gap-2 px-2 pb-4 pt-2 text-xs text-zinc-400">
+              {(["All", "Commands", "Files"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setFilterMode(mode)}
+                  className={cn(
+                    "rounded-md border border-white/10 px-2.5 py-1 transition-colors hover:bg-white/8 hover:text-zinc-100",
+                    filterMode === mode && "border-blue-500/30 bg-blue-500/15 text-blue-300"
+                  )}
+                >
+                  {mode}
+                </button>
+              ))}
+              {filterMode !== "All" || query ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilterMode("All");
+                    setQuery("");
+                  }}
+                  className="ml-auto rounded-md px-2.5 py-1 text-zinc-500 transition-colors hover:bg-white/8 hover:text-zinc-200"
+                >
+                  Clear
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        {hasResults ? (
+          <Command.Split
+            className={cn(
+              "transition-[grid-template-columns,gap] duration-200 ease-out",
+              !showPreview && "md:grid-cols-[minmax(0,1fr)]"
+            )}
+          >
+            <CommandList className="max-h-none pr-2">
               {searchQuery ? (
+                searchItems.length > 0 ||
+                resolvedWorkspaceUuid ||
                 hasCommandMatches ? (
-                  renderCommandGroups()
-                ) : searchItems.length > 0 || resolvedWorkspaceUuid ? (
                   <>
+                    {hasCommandMatches ? (
+                      <>
+                        {renderCommandGroups()}
+                        {chatResults.length > 0 ||
+                        flashcardResults.length > 0 ||
+                        fuzzyResults.length > 0 ||
+                        isRetrieving ||
+                        retrievalResults.length > 0 ? (
+                          <CommandSeparator />
+                        ) : null}
+                      </>
+                    ) : null}
                     {chatResults.length > 0 ? (
-                      <CommandGroup
-                        className={PALETTE_GROUP_CLASS}
-                        heading="Chats"
-                      >
+                      <CommandGroup heading="Chats">
                         {chatResults.map((chat) => (
                           <CommandItem
                             className={PALETTE_ITEM_CLASS}
                             key={`chat-${chat.id}`}
-                            onSelect={() => {
-                              startTransition(() => {
-                                router.push(chat.path as Route);
-                              });
-                              commandPaletteActions.close();
-                            }}
-                            value={`${chat.label} ${chat.description} chat`}
+                            onSelect={() => navigateTo(chat.path as Route, { openInNewPane: ctrlHeldRef.current })}
+                            value={`chat-${chat.id}`}
                           >
-                            <MessageSquareText className={PALETTE_ICON_CLASS} />
-                            <div className="min-w-0">
-                              <p className="truncate font-medium text-foreground/90 text-sm">
+                            {renderPaletteIcon(
+                              MessageSquareText,
+                              PALETTE_ICON_CLASS
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-medium text-zinc-100/90">
                                 {chat.label}
                               </p>
-                              <p className="truncate text-muted-foreground/60 text-xs">
+                              <p className="truncate text-[0.6875rem] text-zinc-500">
                                 {chat.description}
                               </p>
                             </div>
-                            <span className="mt-0.5 shrink-0 whitespace-nowrap text-muted-foreground/50 text-xs">
+                            <span className="mt-0.5 shrink-0 whitespace-nowrap text-[0.6875rem] text-zinc-500">
                               {chat.meta}
                             </span>
                           </CommandItem>
@@ -1239,32 +1493,27 @@ export function CommandPalette({
                     {flashcardResults.length > 0 ? (
                       <>
                         {chatResults.length > 0 ? <CommandSeparator /> : null}
-                        <CommandGroup
-                          className={PALETTE_GROUP_CLASS}
-                          heading="Flashcards"
-                        >
+                        <CommandGroup heading="Flashcards">
                           {flashcardResults.map((set) => (
                             <CommandItem
                               className={PALETTE_ITEM_CLASS}
                               key={`flashcard-${set.id}`}
-                              onSelect={() => {
-                                startTransition(() => {
-                                  router.push(set.path as Route);
-                                });
-                                commandPaletteActions.close();
-                              }}
-                              value={`${set.label} ${set.description} flashcard`}
+                               onSelect={() => navigateTo(set.path as Route, { openInNewPane: ctrlHeldRef.current })}
+                               value={`flashcard-${set.id}`}
                             >
-                              <Sparkles className={PALETTE_ICON_CLASS} />
-                              <div className="min-w-0">
-                                <p className="truncate font-medium text-foreground/90 text-sm">
+                              {renderPaletteIcon(
+                                Sparkles,
+                                PALETTE_ICON_CLASS
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate font-medium text-zinc-100/90">
                                   {set.label}
                                 </p>
-                                <p className="truncate text-muted-foreground/60 text-xs">
+                                <p className="truncate text-[0.6875rem] text-zinc-500">
                                   {set.description}
                                 </p>
                               </div>
-                              <span className="mt-0.5 shrink-0 whitespace-nowrap text-muted-foreground/50 text-xs">
+                              <span className="mt-0.5 shrink-0 whitespace-nowrap text-[0.6875rem] text-zinc-500">
                                 {set.meta}
                               </span>
                             </CommandItem>
@@ -1278,45 +1527,46 @@ export function CommandPalette({
                       </>
                     ) : null}
                     {fuzzyResults.length > 0 ? (
-                      <CommandGroup
-                        className={PALETTE_GROUP_CLASS}
-                        heading="Files and folders"
-                      >
+                      <CommandGroup heading="Files and folders">
                         {fuzzyResults.map((item) => (
                           <CommandItem
                             className={PALETTE_ITEM_CLASS}
                             key={`${item.type}-${item.id}`}
                             onSelect={() => {
                               if (item.type === "folder") {
-                                handleOpenFolder(item);
+                                handleOpenFolder(item, ctrlHeldRef.current);
                                 return;
                               }
-
                               handleOpenFile(
                                 item.workspaceUuid,
                                 item.id,
-                                item.folderId
+                                item.folderId,
+                                { openInNewPane: ctrlHeldRef.current }
                               );
                             }}
-                            value={`${item.workspaceName} ${item.name} ${item.path} ${item.type}`}
+                            value={`${item.type}-${item.id}`}
                           >
-                            {item.type === "folder" ? (
-                              <Folder className={PALETTE_ICON_CLASS} />
-                            ) : (
-                              <FileText className={PALETTE_ICON_CLASS} />
+                            {renderPaletteIcon(
+                              item.type === "folder" ? Folder : FileText,
+                              PALETTE_ICON_CLASS
                             )}
-                            <div className="min-w-0">
-                              <p className="truncate font-medium text-foreground/90 text-sm">
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-medium text-zinc-100/90">
                                 {item.name}
                               </p>
-                              <p className="truncate text-muted-foreground/60 text-xs">
+                              <p className="truncate text-[0.6875rem] text-zinc-500">
                                 {item.path}
                               </p>
-                              <p className="truncate text-muted-foreground/50 text-xs">
+                              <p className="truncate text-[0.6875rem] text-zinc-500">
                                 {item.workspaceName}
                               </p>
                             </div>
-                            <ChevronRight className={PALETTE_CHEVRON_CLASS} />
+                            <CommandShortcut>
+                              {renderPaletteIcon(
+                                ChevronRight,
+                                PALETTE_CHEVRON_CLASS
+                              )}
+                            </CommandShortcut>
                           </CommandItem>
                         ))}
                       </CommandGroup>
@@ -1324,18 +1574,15 @@ export function CommandPalette({
 
                     {fuzzyResults.length === 0 &&
                     (isRetrieving || retrievalResults.length > 0) ? (
-                      <CommandGroup
-                        className={PALETTE_GROUP_CLASS}
-                        heading="Content search"
-                      >
+                      <CommandGroup heading="Content search">
                         {isRetrieving ? (
                           <CommandItem
                             className={PALETTE_ITEM_CLASS}
                             disabled
-                            value="searching workspace content"
+                            value="searching-workspace-content"
                           >
                             <Spinner className={PALETTE_ICON_CLASS} />
-                            <span className="text-muted-foreground/60 text-sm">
+                            <span className="text-zinc-500 text-sm">
                               Searching workspace content...
                             </span>
                           </CommandItem>
@@ -1362,23 +1609,31 @@ export function CommandPalette({
                               className={PALETTE_ITEM_CLASS}
                               key={`retrieval-${result.id}-${result.chunkId ?? "main"}`}
                               onSelect={() => {
-                                openSearchResult(result);
+                                openSearchResult(result, ctrlHeldRef.current);
                               }}
-                              value={`${result.title} ${filePath} ${result.snippet}`}
+                              value={`retrieval-${result.id}-${result.chunkId ?? "main"}`}
                             >
-                              <FileText className={PALETTE_ICON_CLASS} />
-                              <div className="min-w-0">
-                                <p className="truncate font-medium text-foreground/90 text-sm">
+                              {renderPaletteIcon(
+                                FileText,
+                                PALETTE_ICON_CLASS
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate font-medium text-zinc-100/90">
                                   {result.title}
                                 </p>
-                                <p className="truncate text-muted-foreground/60 text-xs">
+                                <p className="truncate text-[0.6875rem] text-zinc-500">
                                   {filePath}
                                 </p>
-                                <p className="truncate text-muted-foreground/50 text-xs">
+                                <p className="truncate text-[0.6875rem] text-zinc-500">
                                   {result.snippet}
                                 </p>
                               </div>
-                              <ChevronRight className={PALETTE_CHEVRON_CLASS} />
+                              <CommandShortcut>
+                                {renderPaletteIcon(
+                                  ChevronRight,
+                                  PALETTE_CHEVRON_CLASS
+                                )}
+                              </CommandShortcut>
                             </CommandItem>
                           );
                         })}
@@ -1387,62 +1642,51 @@ export function CommandPalette({
 
                     {fuzzyResults.length === 0 &&
                     !isRetrieving &&
-                    retrievalResults.length === 0 ? (
-                      <CommandEmpty className="py-8 text-center text-muted-foreground/70 text-sm">
-                        No matching commands, files, or content found.
-                      </CommandEmpty>
-                    ) : null}
+                    retrievalResults.length === 0 &&
+                    !hasCommandMatches &&
+                    chatResults.length === 0 &&
+                    flashcardResults.length === 0 ? null : null}
                   </>
-                ) : (
-                  <CommandEmpty className="py-8 text-center text-muted-foreground/70 text-sm">
-                    No matching commands found. Workspace files are still
-                    indexing.
-                  </CommandEmpty>
-                )
+                ) : null
               ) : (
                 <>
                   {workspaceTasks.length > 0 ? (
-                    <CommandGroup
-                      className={PALETTE_GROUP_CLASS}
-                      heading="Upcoming tasks"
-                    >
+                    <CommandGroup heading="Upcoming tasks">
                       {workspaceTasks.map((task) => (
                         <CommandItem
                           className={PALETTE_ITEM_CLASS}
                           key={`task-${task.id}`}
-                          onSelect={() => {
-                            startTransition(() => {
-                              router.push(
-                                `/workspace/tasks?task=${task.id}` as Route
-                              );
-                            });
-                            commandPaletteActions.close();
-                          }}
-                          value={`${task.title} ${task.description ?? ""} ${task.assignee?.name ?? ""} task`}
+                          onSelect={() => navigateTo(`/workspace/tasks?task=${task.id}` as Route, { openInNewPane: ctrlHeldRef.current })}
+                          value={`task-${task.id}`}
                         >
-                          <ListChecks className={PALETTE_ICON_CLASS} />
-                          <div className="min-w-0">
-                            <p className="truncate font-medium text-foreground/90 text-sm">
+                          {renderPaletteIcon(
+                            ListChecks,
+                            PALETTE_ICON_CLASS
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium text-zinc-100/90">
                               {task.title}
                             </p>
-                            <p className="truncate text-muted-foreground/60 text-xs">
+                            <p className="truncate text-[0.6875rem] text-zinc-500">
                               {formatTaskDueDate(task.dueAt)}
                               {task.assignee?.name
                                 ? ` • ${task.assignee.name}`
                                 : ""}
                             </p>
                           </div>
-                          <ChevronRight className={PALETTE_CHEVRON_CLASS} />
+                          <CommandShortcut>
+                            {renderPaletteIcon(
+                              ChevronRight,
+                              PALETTE_CHEVRON_CLASS
+                            )}
+                          </CommandShortcut>
                         </CommandItem>
                       ))}
                     </CommandGroup>
                   ) : null}
                   {workspaceTasks.length > 0 ? <CommandSeparator /> : null}
                   {recentItems.length > 0 ? (
-                    <CommandGroup
-                      className={PALETTE_GROUP_CLASS}
-                      heading="Recent files"
-                    >
+                    <CommandGroup heading="Recent files">
                       {recentItems.map((item) => (
                         <CommandItem
                           className={PALETTE_ITEM_CLASS}
@@ -1451,23 +1695,30 @@ export function CommandPalette({
                             handleOpenFile(
                               item.workspaceUuid,
                               item.id,
-                              item.folderId
+                              item.folderId,
+                              { openInNewPane: ctrlHeldRef.current }
                             );
                           }}
-                          value={`${item.name} ${item.path} recent`}
+                          value={`recent-${item.id}`}
                         >
-                          <ClockCounterClockwise
-                            className={PALETTE_ICON_CLASS}
-                          />
-                          <div className="min-w-0">
-                            <p className="truncate font-medium text-foreground/90 text-sm">
+                          {renderPaletteIcon(
+                            ClockCounterClockwise,
+                            PALETTE_ICON_CLASS
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium text-zinc-100/90">
                               {item.name}
                             </p>
-                            <p className="truncate text-muted-foreground/60 text-xs">
+                            <p className="truncate text-[0.6875rem] text-zinc-500">
                               {item.path}
                             </p>
                           </div>
-                          <ChevronRight className={PALETTE_CHEVRON_CLASS} />
+                          <CommandShortcut>
+                            {renderPaletteIcon(
+                              ChevronRight,
+                              PALETTE_CHEVRON_CLASS
+                            )}
+                          </CommandShortcut>
                         </CommandItem>
                       ))}
                     </CommandGroup>
@@ -1475,10 +1726,7 @@ export function CommandPalette({
                   {recentItems.length > 0 ? <CommandSeparator /> : null}
                   {cachedChats.length > 0 ? (
                     <>
-                      <CommandGroup
-                        className={PALETTE_GROUP_CLASS}
-                        heading="Recent chats"
-                      >
+                      <CommandGroup heading="Recent chats">
                         {cachedChats
                           .slice()
                           .sort((left, right) =>
@@ -1489,28 +1737,27 @@ export function CommandPalette({
                             <CommandItem
                               className={PALETTE_ITEM_CLASS}
                               key={`recent-chat-${chat.slug}`}
-                              onSelect={() => {
-                                startTransition(() => {
-                                  router.push(
-                                    `/workspace/chats/${chat.slug}` as Route
-                                  );
-                                });
-                                commandPaletteActions.close();
-                              }}
-                              value={`${chat.title} ${chat.slug} chat`}
+                              onSelect={() => navigateTo(`/workspace/chats/${chat.slug}` as Route, { openInNewPane: ctrlHeldRef.current })}
+                               value={`recent-chat-${chat.slug}`}
                             >
-                              <MessageSquareText
-                                className={PALETTE_ICON_CLASS}
-                              />
-                              <div className="min-w-0">
-                                <p className="truncate font-medium text-foreground/90 text-sm">
+                              {renderPaletteIcon(
+                                MessageSquareText,
+                                PALETTE_ICON_CLASS
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate font-medium text-zinc-100/90">
                                   {chat.title}
                                 </p>
-                                <p className="truncate text-muted-foreground/60 text-xs">
+                                <p className="truncate text-[0.6875rem] text-zinc-500">
                                   {chat.slug}
                                 </p>
                               </div>
-                              <ChevronRight className={PALETTE_CHEVRON_CLASS} />
+                              <CommandShortcut>
+                                {renderPaletteIcon(
+                                  ChevronRight,
+                                  PALETTE_CHEVRON_CLASS
+                                )}
+                              </CommandShortcut>
                             </CommandItem>
                           ))}
                       </CommandGroup>
@@ -1519,10 +1766,7 @@ export function CommandPalette({
                   ) : null}
                   {cachedFlashcardSets.length > 0 ? (
                     <>
-                      <CommandGroup
-                        className={PALETTE_GROUP_CLASS}
-                        heading="Recent flashcards"
-                      >
+                      <CommandGroup heading="Recent flashcards">
                         {cachedFlashcardSets
                           .slice()
                           .sort((left, right) =>
@@ -1533,26 +1777,27 @@ export function CommandPalette({
                             <CommandItem
                               className={PALETTE_ITEM_CLASS}
                               key={`recent-flashcard-${set.id}`}
-                              onSelect={() => {
-                                startTransition(() => {
-                                  router.push(
-                                    `/workspace/flashcards/${set.id}` as Route
-                                  );
-                                });
-                                commandPaletteActions.close();
-                              }}
-                              value={`${set.title} ${set.id} flashcard`}
+                              onSelect={() => navigateTo(`/workspace/flashcards/${set.id}` as Route, { openInNewPane: ctrlHeldRef.current })}
+                               value={`recent-flashcard-${set.id}`}
                             >
-                              <Sparkles className={PALETTE_ICON_CLASS} />
-                              <div className="min-w-0">
-                                <p className="truncate font-medium text-foreground/90 text-sm">
+                              {renderPaletteIcon(
+                                Sparkles,
+                                PALETTE_ICON_CLASS
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate font-medium text-zinc-100/90">
                                   {set.title}
                                 </p>
-                                <p className="truncate text-muted-foreground/60 text-xs">
+                                <p className="truncate text-[0.6875rem] text-zinc-500">
                                   {set.dueCount + set.newCount} ready
                                 </p>
                               </div>
-                              <ChevronRight className={PALETTE_CHEVRON_CLASS} />
+                              <CommandShortcut>
+                                {renderPaletteIcon(
+                                  ChevronRight,
+                                  PALETTE_CHEVRON_CLASS
+                                )}
+                              </CommandShortcut>
                             </CommandItem>
                           ))}
                       </CommandGroup>
@@ -1563,36 +1808,374 @@ export function CommandPalette({
                 </>
               )}
             </CommandList>
+            {showPreview ? (
+              <Command.Preview className="bg-[#161616]/85">
+                <PalettePreview item={selectedPreview} workspaceUuid={resolvedWorkspaceUuid} />
+              </Command.Preview>
+            ) : null}
+          </Command.Split>
+        ) : (
+          <div className="grid min-h-0 flex-1 place-items-center px-4 text-center">
+            <div className="space-y-1 text-sm">
+              <p className="font-medium text-zinc-400">No results</p>
+              <p className="text-zinc-500">
+                {query
+                  ? "No matching commands, files, or content found."
+                  : "No recent items yet."}
+              </p>
+              {query && resolvedWorkspaceUuid ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (retrievalQuery.refetch) {
+                      retrievalQuery.refetch();
+                    }
+                  }}
+                  className="text-blue-400 transition-colors hover:text-blue-300"
+                >
+                  Retrieve from Workspace instead?
+                </button>
+              ) : null}
+            </div>
           </div>
-        </div>
-        <div className="border-border/25 border-t bg-[#242424] px-4 py-2.5">
-          <div className="flex flex-wrap items-center justify-between gap-3 text-[11px] text-muted-foreground/65">
-            <div className="flex items-center gap-2">
-              <KbdGroup>
-                <Kbd className="rounded bg-black/20 px-1.5 py-0.5 text-[11px]">
-                  ↑
-                </Kbd>
-                <Kbd className="rounded bg-black/20 px-1.5 py-0.5 text-[11px]">
-                  ↓
-                </Kbd>
-              </KbdGroup>
-              <span className="text-muted-foreground/60">Navigate</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Kbd className="rounded bg-black/20 px-1.5 py-0.5 text-[11px]">
-                Enter
-              </Kbd>
-              <span className="text-muted-foreground/60">Select</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Kbd className="rounded bg-black/20 px-1.5 py-0.5 text-[11px]">
-                Esc
-              </Kbd>
-              <span className="text-muted-foreground/60">Close</span>
-            </div>
-          </div>
+        )}
+
+        <div className="mt-3 flex h-6 items-center justify-between border-t border-white/10 px-2 pt-2 text-xs text-zinc-500">
+          <span>Ctrl+Enter Open in new tab</span>
+          <button
+            type="button"
+            aria-label="Open settings"
+            onClick={() => openSettings("shortcuts")}
+            className="grid size-6 place-items-center rounded-md text-zinc-500 transition-colors hover:bg-white/8 hover:text-zinc-200"
+          >
+            {renderPaletteIcon(Settings, "size-4")}
+          </button>
         </div>
       </Command>
     </CommandDialog>
+  );
+}
+
+function MarkdownFilePreview({
+  fileUrl,
+  item,
+}: {
+  fileUrl: string;
+  item: PaletteItem;
+}) {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["command-palette-preview-markdown", item.id],
+    queryFn: async ({ signal }) => {
+      const response = await fetch(fileUrl, {
+        cache: "no-store",
+        signal,
+      });
+      if (!response.ok) return null;
+      const text = await response.text();
+      return text;
+    },
+    enabled: true,
+  });
+
+  const bannerUrl = item.page?.bannerUrl?.trim() || null;
+
+  return (
+    <div className="flex h-full flex-col">
+      {bannerUrl ? (
+        <div className="relative h-24 w-full flex-shrink-0 overflow-hidden bg-white/[0.015]">
+          <img
+            alt={`${item.name} cover`}
+            className="h-full w-full object-cover"
+            src={bannerUrl}
+          />
+        </div>
+      ) : (
+        <div className="relative flex h-[4.5rem] flex-shrink-0 items-start border-white/[0.05] border-b bg-white/[0.015] px-5 pt-3">
+          {renderPaletteIcon(
+            FileText,
+            "absolute bottom-[-1rem] left-5 size-8 text-zinc-200"
+          )}
+        </div>
+      )}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="px-5 pt-3">
+          <p className="truncate text-[0.6875rem] text-zinc-500">
+            {item.path}
+          </p>
+          <h2 className="line-clamp-2 text-sm font-semibold tracking-normal text-zinc-50">
+            {item.name}
+          </h2>
+        </div>
+        <div className="mt-3 min-h-0 flex-1 overflow-y-auto px-5 pb-5">
+          {isLoading ? (
+            <div className="flex items-center gap-2 text-xs text-zinc-500">
+              <Spinner className="size-3" />
+              Loading content...
+            </div>
+          ) : data ? (
+            <Markdown
+              content={data}
+              id={item.id}
+              minimal
+              textSize="small"
+              workspaceUuid={item.workspaceUuid}
+            />
+          ) : (
+            <p className="text-xs text-zinc-500">
+              {isError ? "Failed to load content" : "No content available"}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PalettePreview({
+  item,
+  workspaceUuid,
+}: {
+  item:
+    | { kind: "command"; item: PaletteCommandItem; value: string }
+    | { kind: "file"; item: PaletteItem; value: string }
+    | { kind: "chat"; item: PaletteSearchItem; value: string }
+    | { kind: "flashcard"; item: PaletteSearchItem; value: string }
+    | { kind: "content"; item: WorkspaceSearchResult; value: string }
+    | {
+        kind: "task";
+        item: ReturnType<typeof getTaskStoreSnapshot>["tasks"][number];
+        value: string;
+      }
+    | null;
+  workspaceUuid?: string | null;
+}) {
+  if (!item) {
+    return (
+      <div className="grid h-full place-items-center p-6 text-center text-zinc-500 text-sm">
+        No selection
+      </div>
+    );
+  }
+
+  if (item.kind === "file") {
+    const nameLower = item.item.name.toLowerCase();
+    const isMarkdown =
+      item.item.type === "file" &&
+      (nameLower.endsWith(".md") ||
+        nameLower.endsWith(".markdown") ||
+        nameLower.endsWith(".txt"));
+    const isImage =
+      item.item.type === "file" &&
+      /\.(png|jpg|jpeg|gif|webp|svg)$/i.test(nameLower);
+    const isPdf = item.item.type === "file" && nameLower.endsWith(".pdf");
+    const isVideo =
+      item.item.type === "file" &&
+      /\.(mp4|webm|mov)$/i.test(nameLower);
+
+    const fileUrl =
+      item.item.type === "file" && workspaceUuid
+        ? `/api/workspaces/${workspaceUuid}/files/${item.item.id}/stream`
+        : null;
+
+    if (isImage && fileUrl) {
+      return (
+        <PreviewShell
+          icon={FileText}
+          label={item.item.type === "folder" ? "Folder" : "Image"}
+          title={item.item.name}
+        >
+          <div className="overflow-hidden rounded-lg border border-white/10">
+            <img
+              alt={item.item.name}
+              className="max-h-48 w-full object-contain"
+              src={fileUrl}
+            />
+          </div>
+          <p className="mt-3 truncate text-[0.6875rem] text-zinc-500">
+            {item.item.path}
+          </p>
+        </PreviewShell>
+      );
+    }
+
+    if (isPdf || isVideo) {
+      return (
+        <PreviewShell
+          icon={FileText}
+          label={isPdf ? "PDF" : "Video"}
+          title={item.item.name}
+        >
+          <p className="text-sm leading-6 text-zinc-400">
+            {item.item.path}
+          </p>
+          <p className="mt-3 text-[0.6875rem] text-zinc-500">
+            {item.item.workspaceName}
+          </p>
+        </PreviewShell>
+      );
+    }
+
+    if (isMarkdown && fileUrl) {
+      return <MarkdownFilePreview fileUrl={fileUrl} item={item.item} />;
+    }
+
+    const bannerUrl = item.item.page?.bannerUrl?.trim() || null;
+
+    return (
+      <div className="flex h-full flex-col">
+        {bannerUrl ? (
+          <div className="relative h-24 w-full flex-shrink-0 overflow-hidden bg-white/[0.015]">
+            <img
+              alt={`${item.item.name} cover`}
+              className="h-full w-full object-cover"
+              src={bannerUrl}
+            />
+          </div>
+        ) : (
+          <div className="relative flex h-[4.5rem] flex-shrink-0 items-start justify-between border-white/[0.05] border-b bg-white/[0.015] px-5 pt-3">
+            {renderPaletteIcon(
+              item.item.type === "folder" ? Folder : FileText,
+              "absolute bottom-[-1rem] left-5 size-8 text-zinc-200"
+            )}
+            <span className="ml-auto rounded border border-white/10 px-2 py-1 text-[11px] text-zinc-500">
+              {item.item.type === "folder" ? "Folder" : "File"}
+            </span>
+          </div>
+        )}
+        <div className="flex flex-1 flex-col px-5 pt-9">
+          <p className="mb-3 truncate text-[0.6875rem] text-zinc-500">
+            {item.item.path}
+          </p>
+          <h2 className="line-clamp-3 text-lg font-semibold tracking-normal text-zinc-50">
+            {item.item.name}
+          </h2>
+          <p className="mt-auto pb-5 text-xs text-zinc-500">
+            {item.item.workspaceName}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (item.kind === "content") {
+    return (
+      <PreviewShell
+        icon={FileText}
+        label="Content match"
+        title={item.item.title}
+      >
+        <p className="line-clamp-6 text-sm leading-6 text-zinc-400">
+          {item.item.snippet}
+        </p>
+      </PreviewShell>
+    );
+  }
+
+  if (item.kind === "command") {
+    const Icon = item.item.icon;
+    return (
+      <PreviewShell icon={Icon} label={item.item.group} title={item.item.label}>
+        <p className="text-sm leading-6 text-zinc-400">
+          {item.item.description}
+        </p>
+        {item.item.shortcut ? (
+          <KbdGroup className="mt-4">
+            {formatShortcut(item.item.shortcut).map((key) => (
+              <Kbd className="bg-white/8 text-zinc-300" key={key}>
+                {key}
+              </Kbd>
+            ))}
+          </KbdGroup>
+        ) : null}
+      </PreviewShell>
+    );
+  }
+
+  if (item.kind === "task") {
+    const task = item.item;
+    return (
+      <PreviewShell icon={ListChecks} label="Task" title={task.title}>
+        <div className="space-y-2 text-sm text-zinc-400">
+          {task.dueAt ? (
+            <div className="flex items-center gap-2">
+              <span className="text-[0.6875rem] text-zinc-500">Due</span>
+              <span>{formatTaskDueDate(task.dueAt)}</span>
+            </div>
+          ) : null}
+          {task.assignee?.name ? (
+            <div className="flex items-center gap-2">
+              <span className="text-[0.6875rem] text-zinc-500">Assignee</span>
+              <span>{task.assignee.name}</span>
+            </div>
+          ) : null}
+          {task.priority ? (
+            <div className="flex items-center gap-2">
+              <span className="text-[0.6875rem] text-zinc-500">Priority</span>
+              <span className="capitalize">{task.priority.toLowerCase()}</span>
+            </div>
+          ) : null}
+          {task.resources && task.resources.length > 0 ? (
+            <div className="flex items-center gap-2">
+              <span className="text-[0.6875rem] text-zinc-500">Resources</span>
+              <span>{task.resources.length}</span>
+            </div>
+          ) : null}
+          {task.status ? (
+            <div className="flex items-center gap-2">
+              <span className="text-[0.6875rem] text-zinc-500">Status</span>
+              <span className="capitalize">{task.status.toLowerCase()}</span>
+            </div>
+          ) : null}
+          {task.description ? (
+            <p className="line-clamp-3 pt-1 text-[0.8125rem] text-zinc-400">
+              {task.description}
+            </p>
+          ) : null}
+        </div>
+      </PreviewShell>
+    );
+  }
+
+  const Icon = item.kind === "chat" ? MessageSquareText : Sparkles;
+  const label = item.kind === "chat" ? "Chat" : "Flashcard set";
+  return (
+    <PreviewShell icon={Icon} label={label} title={item.item.label}>
+      <p className="text-sm leading-6 text-zinc-400">
+        {item.item.description}
+      </p>
+      <p className="mt-2 text-[0.6875rem] text-zinc-500">
+        {item.item.meta}
+      </p>
+    </PreviewShell>
+  );
+}
+
+function PreviewShell({
+  children,
+  icon: Icon,
+  label,
+  title,
+}: {
+  children: ReactNode;
+  icon: ElementType;
+  label: string;
+  title: string;
+}) {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="relative flex h-[4.5rem] items-start border-white/[0.05] border-b bg-white/[0.015] px-5 pt-3">
+        {renderPaletteIcon(
+          Icon,
+          "absolute bottom-[-1rem] left-5 size-8 text-zinc-300"
+        )}
+      </div>
+      <div className="flex flex-1 flex-col px-5 pt-9">
+        <p className="mb-3 text-[0.6875rem] text-zinc-500">{label}</p>
+        <h2 className="line-clamp-3 text-lg font-semibold tracking-normal text-zinc-50">
+          {title}
+        </h2>
+        <div className="mt-5 min-h-0">{children}</div>
+      </div>
+    </div>
   );
 }

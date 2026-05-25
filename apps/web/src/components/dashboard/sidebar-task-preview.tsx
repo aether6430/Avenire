@@ -127,7 +127,7 @@ export function SidebarTaskPreview({
     );
 
   return (
-    <div className="absolute inset-0 overflow-y-auto px-2 py-2">
+    <div className="sidebar-fade-scrollbar absolute inset-0 overflow-y-auto px-2 py-2">
       <SidebarGroup>
         <div className="flex items-center justify-between gap-2">
           <SidebarGroupLabel>Tasks</SidebarGroupLabel>
