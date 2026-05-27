@@ -5,7 +5,8 @@
     "outDir": "dist",
     "noEmit": false,
     "jsx": "react-jsx",
-    "declaration": true
+    "declaration": true,
+    "types": ["node", "@avenire/env-types"]
   },
   "include": ["emails/**/*.ts", "emails/**/*.tsx"]
 }
