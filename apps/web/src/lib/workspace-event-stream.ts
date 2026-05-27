@@ -1,8 +1,8 @@
-import type { RedisClientType } from "redis";
 import {
   createManagedRedisClient,
   ensureManagedRedisClient,
   isExpectedRedisConnectionError,
+  type ManagedRedisClient,
 } from "@/lib/redis-client";
 
 export interface WorkspaceStreamEvent {
@@ -18,7 +18,7 @@ const redisUrl = process.env.REDIS_URL;
 const DEFAULT_MAX_LEN = 5000;
 const DEFAULT_BLOCK_MS = 15_000;
 
-let publisher: RedisClientType | null = null;
+let publisher: ManagedRedisClient | null = null;
 
 function getStreamKey(workspaceUuid: string) {
   return `workspace:events:${workspaceUuid}`;
@@ -113,7 +113,7 @@ export async function publishWorkspaceStreamEvent(input: {
     return null;
   }
 
-  let client: RedisClientType;
+  let client: ManagedRedisClient;
   try {
     client = await getPublisherClient();
   } catch (error) {
@@ -178,7 +178,7 @@ export async function listWorkspaceStreamEvents(input: {
     return [] as WorkspaceStreamEvent[];
   }
 
-  let client: RedisClientType;
+  let client: ManagedRedisClient;
   try {
     client = await getPublisherClient();
   } catch (error) {

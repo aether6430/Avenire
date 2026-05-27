@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@avenire/observability", () => ({
@@ -15,18 +17,30 @@ vi.mock("./runtime/redis-client", () => ({
   ensureManagedRedisClient: vi.fn(),
 }));
 
+import * as retrieveModule from "./retrieval/retrieve";
+import * as redisClientModule from "./runtime/redis-client";
 import {
   queryWorkspaceWithAdapters,
-  warmWorkspaceWithAdapters,
   type WorkspaceRetrievalQuery,
+  warmWorkspaceWithAdapters,
 } from "./workspace-retrieval";
-import { createWorkspaceRetrievalStore } from "./workspace-retrieval-cache";
-import * as redisClientModule from "./runtime/redis-client";
-import * as retrieveModule from "./retrieval/retrieve";
 import type {
   RecentRetrievalQuery,
   WorkspaceRetrievalStore,
 } from "./workspace-retrieval-cache";
+import { createWorkspaceRetrievalStore } from "./workspace-retrieval-cache";
+
+const backendWorkspaceEventStreamSource = readFileSync(
+  resolve(
+    import.meta.dirname,
+    "../../../apps/backend/src/workspace-event-stream.ts"
+  ),
+  "utf8"
+);
+const ingestionPackageSource = readFileSync(
+  resolve(import.meta.dirname, "../package.json"),
+  "utf8"
+);
 
 const mockRetrieveRelevantChunksAdaptive =
   retrieveModule.retrieveRelevantChunksAdaptive as unknown as ReturnType<
@@ -46,11 +60,13 @@ function createStoreStub(input?: {
   const recentQueries = input?.recentQueries ?? [];
 
   const store: WorkspaceRetrievalStore = {
-    acquireWarmupLease: vi.fn(
-      input?.acquireWarmupLease ?? (async () => true)
+    acquireWarmupLease: vi.fn(input?.acquireWarmupLease ?? (async () => true)),
+    createCacheKey: vi.fn(
+      (params) => `cache:${params.workspaceUuid}:${params.query}`
     ),
-    createCacheKey: vi.fn((params) => `cache:${params.workspaceUuid}:${params.query}`),
-    getCachedResult: vi.fn(async (key) => (cachedResults.get(key) ?? null) as never),
+    getCachedResult: vi.fn(
+      async (key) => (cachedResults.get(key) ?? null) as never
+    ),
     listRecentQueries: vi.fn(async () => recentQueries),
     recordRecentQuery: vi.fn(async (query) => {
       recentQueries.unshift(query);
@@ -74,7 +90,9 @@ function createAdapters(input?: {
     name: string;
     page?: {
       properties?: {
-        aliases?: { type: "text"; value: string } | { type: "multi_select"; value: string[] };
+        aliases?:
+          | { type: "text"; value: string }
+          | { type: "multi_select"; value: string[] };
         tags?: { type: "multi_select"; value: string[] };
         title?: { value: string };
       };
@@ -121,7 +139,7 @@ function createAdapters(input?: {
 describe("workspace retrieval", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    delete process.env.REDIS_URL;
+    process.env.REDIS_URL = "";
     mockRetrieveRelevantChunksAdaptive.mockResolvedValue({
       ambiguityReasons: [],
       confidence: 0.91,
@@ -324,6 +342,29 @@ describe("workspace retrieval", () => {
     expect(adapters.store.listRecentQueries).toHaveBeenCalledWith("ws_1");
     expect(adapters.listSessionSummaries).toHaveBeenCalled();
     expect(adapters.listWorkspaceFiles).toHaveBeenCalledWith("ws_1");
+  });
+
+  it("normalizes bare redis host strings through the shared ingestion export used by backend stream publishers", async () => {
+    const actual = await vi.importActual<
+      typeof import("./runtime/redis-client")
+    >("./runtime/redis-client");
+
+    expect(actual.normalizeRedisUrl("localhost:6379")).toBe(
+      "redis://localhost:6379"
+    );
+    expect(actual.normalizeRedisUrl(" redis://cache.internal:6379 ")).toBe(
+      "redis://cache.internal:6379"
+    );
+    expect(backendWorkspaceEventStreamSource).toContain(
+      'from "@avenire/ingestion/runtime/redis-client"'
+    );
+    expect(backendWorkspaceEventStreamSource).not.toContain(
+      "function normalizeRedisUrl("
+    );
+    expect(ingestionPackageSource).toContain('"./runtime/redis-client"');
+    expect(ingestionPackageSource).toContain(
+      '"default": "./dist/runtime/redis-client.js"'
+    );
   });
 
   it("resolves REDIS_URL at call time", async () => {

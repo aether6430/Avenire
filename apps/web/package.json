@@ -6,9 +6,11 @@
     "dev": "bun --bun next dev --port 3000",
     "build": "([ \"$NODE_ENV\" = \"production\" ] || [ \"$VERCEL_ENV\" = \"production\" ]) && bun run check-types; next build",
     "start": "next start -p $PORT",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "lint": "biome check .",
     "send-pending-waitlist-emails": "bun scripts/send-pending-waitlist-emails.ts",
-    "check-types": "tsc --noEmit",
+    "check-types": "tsc --noEmit -p tsconfig.check.json",
     "format": "biome format --write ."
   },
   "dependencies": {
@@ -104,6 +106,9 @@
     "@types/node": "25.3.5",
     "@types/react": "latest",
     "@types/react-dom": "latest",
-    "tailwindcss": "latest"
+    "@vitest/coverage-v8": "4.1.7",
+    "dotenv": "17.3.1",
+    "tailwindcss": "latest",
+    "vitest": "4.1.7"
   }
 }

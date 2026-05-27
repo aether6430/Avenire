@@ -39,8 +39,8 @@ const toTranscriptCues = (
   return resource.chunks
     .filter(
       (chunk) =>
-        (chunk.metadata.extra as Record<string, unknown> | undefined)?.section ===
-          "video-transcript" &&
+        (chunk.metadata.extra as Record<string, unknown> | undefined)
+          ?.section === "video-transcript" &&
         typeof chunk.metadata.startMs === "number" &&
         typeof chunk.metadata.endMs === "number"
     )
@@ -160,14 +160,7 @@ const inferMimeTypeFromName = (fileName: string): string | null => {
     return "video/*";
   }
 
-  const audioExtensions = [
-    ".mp3",
-    ".wav",
-    ".m4a",
-    ".aac",
-    ".ogg",
-    ".flac",
-  ];
+  const audioExtensions = [".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac"];
   if (audioExtensions.some((extension) => normalizedName.endsWith(extension))) {
     return "audio/*";
   }
@@ -222,7 +215,10 @@ const normalizeUploadThingStorageUrl = (
 const resolveIngestionStorageUrl = (
   storageUrl: string,
   storageKey?: string | null
-) => assertSafeUrl(normalizeUploadThingStorageUrl(storageUrl, storageKey)).toString();
+) =>
+  assertSafeUrl(
+    normalizeUploadThingStorageUrl(storageUrl, storageKey)
+  ).toString();
 
 async function readTextResponseWithLimit(
   response: Response,
@@ -306,13 +302,12 @@ async function fetchRemoteText(url: string) {
         Object.assign(wrapped, { retryable: false });
       }
       lastError = wrapped;
-      const retryable =
-        !(
-          typeof wrapped === "object" &&
-          wrapped !== null &&
-          "retryable" in wrapped &&
-          (wrapped as { retryable?: boolean }).retryable === false
-        );
+      const retryable = !(
+        typeof wrapped === "object" &&
+        wrapped !== null &&
+        "retryable" in wrapped &&
+        (wrapped as { retryable?: boolean }).retryable === false
+      );
       if (attempt < attempts && retryable) {
         await sleep(Math.min(2500, 200 * 2 ** (attempt - 1)));
         continue;

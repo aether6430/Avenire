@@ -1,292 +1,68 @@
 import { auth } from "@avenire/auth/server";
-import { zipSync } from "fflate";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { userCanAccessWorkspace } from "@/lib/file-data";
+import { buildWorkspaceItemSingleDownload } from "./workspace-item-archive-file";
 import {
-  getFileAssetById,
-  getFolderWithAncestors,
-  getNoteContent,
-  isMarkdownFileRecord,
-  listWorkspaceFiles,
-  listWorkspaceFolders,
-  userCanAccessWorkspace,
-} from "@/lib/file-data";
-
-interface ArchiveBody {
-  id?: string;
-  items?: Array<{ id?: string; kind?: "file" | "folder" }>;
-  kind?: "file" | "folder";
-}
-
-function sanitizeArchiveSegment(value: string) {
-  return value.replace(/[\\/:*?"<>|]+/g, "-").trim() || "untitled";
-}
-
-function createDownloadResponse(input: {
-  bytes: Uint8Array;
-  contentType: string;
-  fileName: string;
-}) {
-  const escapedFileName = input.fileName.replace(/"/g, '\\"');
-  const encodedFileName = encodeURIComponent(input.fileName);
-
-  return new NextResponse(Buffer.from(input.bytes), {
-    headers: {
-      "Content-Disposition": `attachment; filename="${escapedFileName}"; filename*=UTF-8''${encodedFileName}`,
-      "Content-Type": input.contentType,
-    },
-  });
-}
-
-async function fetchFileBytes(url: string) {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Unable to fetch file payload: ${response.status}`);
-  }
-  return new Uint8Array(await response.arrayBuffer());
-}
-
-async function buildFileArchiveEntry(
-  workspaceUuid: string,
-  fileId: string
-): Promise<{ entryName: string; fileName: string; bytes: Uint8Array } | null> {
-  const file = await getFileAssetById(workspaceUuid, fileId);
-  if (!file) {
-    return null;
-  }
-
-  const fileName = sanitizeArchiveSegment(file.name);
-  if (isMarkdownFileRecord(file)) {
-    const note = await getNoteContent(file.id);
-    const content =
-      note?.content ??
-      (await fetch(file.storageUrl)
-        .then((response) => (response.ok ? response.text() : ""))
-        .catch(() => ""));
-
-    return {
-      entryName: fileName,
-      fileName,
-      bytes: Buffer.from(content, "utf8"),
-    };
-  }
-
-  return {
-    entryName: fileName,
-    fileName,
-    bytes: await fetchFileBytes(file.storageUrl),
-  };
-}
-
-async function buildSingleFileDownload(
-  workspaceUuid: string,
-  fileId: string
-): Promise<{
-  bytes: Uint8Array;
-  contentType: string;
-  fileName: string;
-} | null> {
-  const file = await getFileAssetById(workspaceUuid, fileId);
-  if (!file) {
-    return null;
-  }
-
-  if (isMarkdownFileRecord(file)) {
-    const note = await getNoteContent(file.id);
-    const content =
-      note?.content ??
-      (await fetch(file.storageUrl)
-        .then((response) => (response.ok ? response.text() : ""))
-        .catch(() => ""));
-
-    return {
-      bytes: Buffer.from(content, "utf8"),
-      contentType: "text/markdown; charset=utf-8",
-      fileName: file.name,
-    };
-  }
-
-  return {
-    bytes: await fetchFileBytes(file.storageUrl),
-    contentType: file.mimeType ?? "application/octet-stream",
-    fileName: file.name,
-  };
-}
-
-function addArchiveEntry(
-  archiveEntries: Record<string, Uint8Array>,
-  requestedPath: string,
-  bytes: Uint8Array
-) {
-  if (!archiveEntries[requestedPath]) {
-    archiveEntries[requestedPath] = bytes;
-    return;
-  }
-
-  const lastSlashIndex = requestedPath.lastIndexOf("/");
-  const dirname =
-    lastSlashIndex >= 0 ? requestedPath.slice(0, lastSlashIndex) : "";
-  const basename =
-    lastSlashIndex >= 0
-      ? requestedPath.slice(lastSlashIndex + 1)
-      : requestedPath;
-  const dotIndex = basename.lastIndexOf(".");
-  const base = dotIndex > 0 ? basename.slice(0, dotIndex) : basename;
-  const extension = dotIndex > 0 ? basename.slice(dotIndex) : "";
-
-  let copyIndex = 1;
-  while (copyIndex < 10_000) {
-    const candidateName = `${base} (${copyIndex})${extension}`;
-    const candidatePath = dirname
-      ? `${dirname}/${candidateName}`
-      : candidateName;
-    if (!archiveEntries[candidatePath]) {
-      archiveEntries[candidatePath] = bytes;
-      return;
-    }
-    copyIndex += 1;
-  }
-}
+  createArchiveDownloadResponse,
+  resolveRequestedArchiveItems,
+  resolveWorkspaceItemArchiveError,
+  WORKSPACE_ITEM_ARCHIVE_ERROR,
+} from "./workspace-item-archive-model";
+import { handleWorkspaceItemArchiveSelection } from "./workspace-item-archive-selection";
 
 export async function POST(
   request: Request,
   context: { params: Promise<{ workspaceUuid: string }> }
 ) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { workspaceUuid } = await context.params;
-  const canAccess = await userCanAccessWorkspace(
-    session.user.id,
-    workspaceUuid
-  );
-  if (!canAccess) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const body = (await request.json().catch(() => ({}))) as ArchiveBody;
-  const requestedItems =
-    body.items?.filter(
-      (
-        item
-      ): item is {
-        id: string;
-        kind: "file" | "folder";
-      } => Boolean(item?.id && item?.kind)
-    ) ?? [];
-
-  if (requestedItems.length === 0 && body.id && body.kind) {
-    requestedItems.push({ id: body.id, kind: body.kind });
-  }
-
-  if (requestedItems.length === 0) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
-  }
-
-  const archiveEntries: Record<string, Uint8Array> = {};
-  const archiveName = requestedItems.length === 1 ? "archive" : "selection";
-
-  if (requestedItems.length === 1 && requestedItems[0]?.kind === "file") {
-    const singleFile = await buildSingleFileDownload(
-      workspaceUuid,
-      requestedItems[0].id
-    );
-    if (!singleFile) {
-      return NextResponse.json({ error: "File not found" }, { status: 404 });
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    return createDownloadResponse(singleFile);
-  }
+    const { workspaceUuid } = await context.params;
+    const canAccess = await userCanAccessWorkspace(
+      session.user.id,
+      workspaceUuid
+    );
+    if (!canAccess) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
-  const includesFolder = requestedItems.some((item) => item.kind === "folder");
-  const [workspaceFolders, workspaceFiles] = includesFolder
-    ? await Promise.all([
-        listWorkspaceFolders(workspaceUuid, session.user.id),
-        listWorkspaceFiles(workspaceUuid, session.user.id),
-      ])
-    : [[], []];
+    const requestedItems = resolveRequestedArchiveItems(
+      await request.json().catch(() => ({}))
+    );
+    if (requestedItems.length === 0) {
+      return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    }
 
-  const folderById = new Map(
-    workspaceFolders.map((folder) => [folder.id, folder])
-  );
-
-  for (const item of requestedItems) {
-    if (item.kind === "file") {
-      const entry = await buildFileArchiveEntry(workspaceUuid, item.id);
-      if (!entry) {
+    if (requestedItems.length === 1 && requestedItems[0]?.kind === "file") {
+      const singleFile = await buildWorkspaceItemSingleDownload(
+        workspaceUuid,
+        requestedItems[0].id
+      );
+      if (!singleFile) {
         return NextResponse.json({ error: "File not found" }, { status: 404 });
       }
 
-      addArchiveEntry(archiveEntries, entry.entryName, entry.bytes);
-      continue;
+      return createArchiveDownloadResponse(singleFile);
     }
 
-    const folderTree = await getFolderWithAncestors(
+    return await handleWorkspaceItemArchiveSelection({
+      requestedItems,
+      userId: session.user.id,
       workspaceUuid,
-      item.id,
-      session.user.id
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: resolveWorkspaceItemArchiveError(
+          error,
+          WORKSPACE_ITEM_ARCHIVE_ERROR
+        ),
+      },
+      { status: 500 }
     );
-    if (!folderTree?.folder) {
-      return NextResponse.json({ error: "Folder not found" }, { status: 404 });
-    }
-
-    const sourceFolder = workspaceFolders.find(
-      (folder) => folder.id === item.id
-    );
-    if (!sourceFolder) {
-      return NextResponse.json({ error: "Folder not found" }, { status: 404 });
-    }
-
-    const sourceFolderIds = new Set<string>([sourceFolder.id]);
-
-    for (const folder of workspaceFolders) {
-      let cursor = folder.parentId;
-      while (cursor) {
-        if (cursor === sourceFolder.id) {
-          sourceFolderIds.add(folder.id);
-          break;
-        }
-        cursor = folderById.get(cursor)?.parentId ?? null;
-      }
-    }
-
-    const rootFolderName = sanitizeArchiveSegment(sourceFolder.name);
-    for (const file of workspaceFiles.filter((entry) =>
-      sourceFolderIds.has(entry.folderId)
-    )) {
-      const pathSegments = [rootFolderName];
-      let cursor: string | null = file.folderId;
-      const folderSegments: string[] = [];
-      while (cursor && cursor !== sourceFolder.id) {
-        const folder = folderById.get(cursor);
-        if (!folder) {
-          break;
-        }
-        folderSegments.unshift(sanitizeArchiveSegment(folder.name));
-        cursor = folder.parentId;
-      }
-      pathSegments.push(...folderSegments);
-
-      const entry = await buildFileArchiveEntry(workspaceUuid, file.id);
-      if (!entry) {
-        continue;
-      }
-
-      addArchiveEntry(
-        archiveEntries,
-        [...pathSegments, entry.fileName].join("/"),
-        entry.bytes
-      );
-    }
   }
-
-  const zipBytes = zipSync(archiveEntries, { level: 0 });
-  const archiveFileName = `${archiveName}.zip`;
-  return createDownloadResponse({
-    bytes: zipBytes,
-    contentType: "application/zip",
-    fileName: archiveFileName,
-  });
 }

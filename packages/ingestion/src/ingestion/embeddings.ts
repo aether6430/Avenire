@@ -1,21 +1,21 @@
-import { cosineSimilarity } from 'ai';
-import { config } from '../config';
+import { cosineSimilarity } from "ai";
+import { config } from "../config";
 
-export type MultimodalInput = {
+export interface MultimodalInput {
   content: Array<
-    | { type: 'text'; text: string }
-    | { type: 'image_url'; image_url: string }
-    | { type: 'image_base64'; image_base64: string; mimeType?: string }
+    | { type: "text"; text: string }
+    | { type: "image_url"; image_url: string }
+    | { type: "image_base64"; image_base64: string; mimeType?: string }
   >;
-};
+}
 
-type CohereEmbedInputType = 'search_document' | 'search_query';
+type CohereEmbedInputType = "search_document" | "search_query";
 
-const COHERE_EMBED_URL = 'https://api.cohere.com/v2/embed';
+const COHERE_EMBED_URL = "https://api.cohere.com/v2/embed";
 const ONE_MINUTE_MS = 60_000;
 
 const sleep = async (ms: number): Promise<void> =>
-  new Promise(resolve => {
+  new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
 
@@ -23,7 +23,7 @@ const estimateInputTokens = (value: MultimodalInput): number => {
   let total = 0;
 
   for (const part of value.content) {
-    if (part.type === 'text') {
+    if (part.type === "text") {
       total += Math.ceil(part.text.length / 4);
       continue;
     }
@@ -127,8 +127,7 @@ const reserveCohereTokens = async (requestTokens: number): Promise<void> => {
 
 const reserveCohereRequest = async (): Promise<void> => {
   if (
-    !config.cohereTestSafeMode ||
-    !config.cohereTestRpmGuardEnabled ||
+    !(config.cohereTestSafeMode && config.cohereTestRpmGuardEnabled) ||
     config.cohereRpmLimit <= 0
   ) {
     return;
@@ -154,7 +153,7 @@ const reserveCohereRequest = async (): Promise<void> => {
 
 const splitByTokenBudget = (
   values: MultimodalInput[],
-  tokenBudget: number,
+  tokenBudget: number
 ): MultimodalInput[][] => {
   const out: MultimodalInput[][] = [];
   let current: MultimodalInput[] = [];
@@ -180,7 +179,9 @@ const splitByTokenBudget = (
 };
 
 const parseRetryAfterMs = (value: string | null): number | null => {
-  if (!value) return null;
+  if (!value) {
+    return null;
+  }
 
   const seconds = Number.parseFloat(value);
   if (Number.isFinite(seconds) && seconds > 0) {
@@ -199,56 +200,61 @@ const isTrialTokenRateLimit = (detail: string): boolean =>
   /trial token rate limit exceeded|tokens per minute/i.test(detail);
 
 const toCohereContent = (
-  input: MultimodalInput,
-): Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }> => {
-  return input.content.map(part => {
-    if (part.type === 'text') {
-      return { type: 'text', text: part.text };
+  input: MultimodalInput
+): Array<
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } }
+> => {
+  return input.content.map((part) => {
+    if (part.type === "text") {
+      return { type: "text", text: part.text };
     }
 
-    if (part.type === 'image_url') {
-      return { type: 'image_url', image_url: { url: part.image_url } };
+    if (part.type === "image_url") {
+      return { type: "image_url", image_url: { url: part.image_url } };
     }
 
     return {
-      type: 'image_url',
+      type: "image_url",
       image_url: {
-        url: `data:${part.mimeType || 'image/jpeg'};base64,${part.image_base64}`,
+        url: `data:${part.mimeType || "image/jpeg"};base64,${part.image_base64}`,
       },
     };
   });
 };
 
 const batchHasImageContent = (values: MultimodalInput[]): boolean =>
-  values.some(value =>
+  values.some((value) =>
     value.content.some(
-      part => part.type === 'image_base64' || part.type === 'image_url',
-    ),
+      (part) => part.type === "image_base64" || part.type === "image_url"
+    )
   );
 
 const toTextOnlyInput = (value: MultimodalInput): MultimodalInput => {
   const text = value.content
     .filter(
       (
-        part,
+        part
       ): part is {
-        type: 'text';
+        type: "text";
         text: string;
-      } => part.type === 'text',
+      } => part.type === "text"
     )
-    .map(part => part.text.trim())
+    .map((part) => part.text.trim())
     .filter(Boolean)
-    .join('\n\n')
+    .join("\n\n")
     .trim();
 
   return {
-    content: [{ type: 'text', text: text || 'Image content' }],
+    content: [{ type: "text", text: text || "Image content" }],
   };
 };
 
 const extractEmbeddingsFromResponse = (json: any): number[][] => {
   if (Array.isArray(json?.embeddings)) {
-    if (json.embeddings.length === 0) return [];
+    if (json.embeddings.length === 0) {
+      return [];
+    }
 
     if (Array.isArray(json.embeddings[0])) {
       return json.embeddings as number[][];
@@ -279,13 +285,13 @@ const fetchCohereEmbeddings = async (params: {
 }): Promise<Response> => {
   const requestTokens = params.values.reduce(
     (sum, item) => sum + estimateInputTokens(item),
-    0,
+    0
   );
   const requestTokenBudget = getPerRequestTokenBudget();
 
   if (requestTokens > requestTokenBudget) {
     throw new Error(
-      `Single cohere request token estimate (${requestTokens}) exceeds budget (${requestTokenBudget}).`,
+      `Single cohere request token estimate (${requestTokens}) exceeds budget (${requestTokenBudget}).`
     );
   }
 
@@ -295,17 +301,17 @@ const fetchCohereEmbeddings = async (params: {
   for (let attempt = 1; ; attempt += 1) {
     await reserveCohereRequest();
     const response = await fetch(COHERE_EMBED_URL, {
-      method: 'POST',
+      method: "POST",
       headers: {
         Authorization: `Bearer ${config.cohereApiKey}`,
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         model: config.cohereEmbedModel,
         input_type: params.inputType,
-        embedding_types: ['float'],
+        embedding_types: ["float"],
         output_dimension: config.embeddingDimensions,
-        inputs: params.values.map(value => ({
+        inputs: params.values.map((value) => ({
           content: toCohereContent(value),
         })),
       }),
@@ -323,15 +329,21 @@ const fetchCohereEmbeddings = async (params: {
       return response;
     }
 
-    const detail = await response.text().catch(() => '');
+    const detail = await response.text().catch(() => "");
     const isTrial429 = isTrialTokenRateLimit(detail);
-    if (isTrial429 && config.cohereTestSafeMode && config.cohereTestAdaptiveMode) {
+    if (
+      isTrial429 &&
+      config.cohereTestSafeMode &&
+      config.cohereTestAdaptiveMode
+    ) {
       const downRatio = Number.isFinite(config.cohereTestTpmStepDownRatio)
         ? Math.min(0.9, Math.max(0.1, config.cohereTestTpmStepDownRatio))
         : 0.5;
       adaptiveTpmLimit = Math.max(
         Math.max(1, config.cohereTestTpmMinCap),
-        Math.floor(Math.max(adaptiveTpmLimit, config.cohereTestTpmMinCap) * downRatio)
+        Math.floor(
+          Math.max(adaptiveTpmLimit, config.cohereTestTpmMinCap) * downRatio
+        )
       );
     }
     const maxAttemptsReached = attempt >= config.cohereRetryMaxAttempts;
@@ -353,8 +365,8 @@ const fetchCohereEmbeddings = async (params: {
       }
     }
 
-    const retryAfterMs = parseRetryAfterMs(response.headers.get('retry-after'));
-    const fallbackDelay = config.cohereRetryBaseDelayMs * Math.pow(2, attempt - 1);
+    const retryAfterMs = parseRetryAfterMs(response.headers.get("retry-after"));
+    const fallbackDelay = config.cohereRetryBaseDelayMs * 2 ** (attempt - 1);
     const trialDelay = isTrialTokenRateLimit(detail) ? ONE_MINUTE_MS : 0;
     await sleep(Math.max(retryAfterMs ?? 0, fallbackDelay, trialDelay));
   }
@@ -362,7 +374,7 @@ const fetchCohereEmbeddings = async (params: {
 
 export const embedMultimodal = async (
   values: MultimodalInput[],
-  options?: { inputType?: CohereEmbedInputType },
+  options?: { inputType?: CohereEmbedInputType }
 ): Promise<{ model: string; embeddings: number[][] }> => {
   if (values.length === 0) {
     return {
@@ -371,7 +383,7 @@ export const embedMultimodal = async (
     };
   }
 
-  const inputType = options?.inputType ?? 'search_document';
+  const inputType = options?.inputType ?? "search_document";
   const batches = splitByTokenBudget(values, getPerRequestTokenBudget());
   const embeddings: number[][] = [];
 
@@ -389,12 +401,12 @@ export const embedMultimodal = async (
 
       if (!shouldFallbackToText) {
         throw new Error(
-          `Cohere embeddings request failed (${response.status}): ${detail}`,
+          `Cohere embeddings request failed (${response.status}): ${detail}`
         );
       }
 
       console.warn(
-        `Cohere multimodal embedding failed (${response.status}): ${detail.slice(0, 800)}; retrying batch with text-only fallback.`,
+        `Cohere multimodal embedding failed (${response.status}): ${detail.slice(0, 800)}; retrying batch with text-only fallback.`
       );
 
       response = await fetchCohereEmbeddings({
@@ -405,7 +417,7 @@ export const embedMultimodal = async (
       if (!response.ok) {
         const fallbackDetail = await response.text();
         throw new Error(
-          `Cohere embeddings request failed after text-only fallback (${response.status}): ${fallbackDetail}`,
+          `Cohere embeddings request failed after text-only fallback (${response.status}): ${fallbackDetail}`
         );
       }
     }
@@ -415,7 +427,7 @@ export const embedMultimodal = async (
 
     if (batchEmbeddings.length !== batch.length) {
       throw new Error(
-        `Cohere embeddings length mismatch: expected ${batch.length}, received ${batchEmbeddings.length}.`,
+        `Cohere embeddings length mismatch: expected ${batch.length}, received ${batchEmbeddings.length}.`
       );
     }
 
@@ -429,28 +441,32 @@ export const embedMultimodal = async (
 };
 
 export const textToMultimodalInput = (text: string): MultimodalInput => ({
-  content: [{ type: 'text', text }],
+  content: [{ type: "text", text }],
 });
 
-export const rerankByCohereWithQueryEmbedding = async <T extends { content: string }>(
+export const rerankByCohereWithQueryEmbedding = async <
+  T extends { content: string },
+>(
   queryEmbedding: number[],
   candidates: T[],
-  topN: number,
+  topN: number
 ): Promise<Array<T & { rerankScore: number }>> => {
   if (candidates.length === 0) {
     return [];
   }
 
   const { embeddings } = await embedMultimodal(
-    candidates.map(candidate => textToMultimodalInput(candidate.content)),
-    { inputType: 'search_document' },
+    candidates.map((candidate) => textToMultimodalInput(candidate.content)),
+    { inputType: "search_document" }
   );
 
   return candidates
     .map((candidate, index) => {
       const candidateEmbedding = embeddings[index];
       if (!candidateEmbedding) {
-        throw new Error(`Missing candidate embedding in rerank at index ${index}.`);
+        throw new Error(
+          `Missing candidate embedding in rerank at index ${index}.`
+        );
       }
 
       return {

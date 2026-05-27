@@ -1,0 +1,47 @@
+{
+  "extends": "@avenire/typescript-config/react-library.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/content/*": ["./content/*"],
+      "@/*": ["./src/*"],
+      "@avenire/ai": ["../../packages/ai/index.ts"],
+      "@avenire/ai/*": ["../../packages/ai/*"],
+      "@avenire/auth/*": ["../../packages/auth/*"],
+      "@avenire/database": ["../../packages/database/src/index.ts"],
+      "@avenire/database/*": ["../../packages/database/src/*"],
+      "@avenire/emailer": ["../../packages/emailer/index.ts"],
+      "@avenire/emailer/*": ["../../packages/emailer/*"],
+      "@avenire/ingestion": ["../../packages/ingestion/src/index.ts"],
+      "@avenire/ingestion/*": ["../../packages/ingestion/src/*"],
+      "@avenire/observability": ["../../packages/observability/src/index.ts"],
+      "@avenire/observability/*": ["../../packages/observability/src/*"],
+      "@avenire/payments": ["../../packages/payments/src/index.ts"],
+      "@avenire/payments/*": ["../../packages/payments/src/*"],
+      "@avenire/storage": ["../../packages/storage/index.ts"],
+      "@avenire/storage/*": ["../../packages/storage/*"],
+      "@avenire/ui": ["../../packages/ui/src/index.ts"],
+      "@avenire/ui/*": ["../../packages/ui/src/*"]
+    },
+    "allowJs": true,
+    "declaration": false,
+    "declarationMap": false
+  },
+  "include": [
+    "src/app/**/*.ts",
+    "src/app/**/*.tsx",
+    "src/components/**/*.ts",
+    "src/components/**/*.tsx",
+    "src/hooks/**/*.ts",
+    "src/lib/**/*.ts",
+    "src/stores/**/*.ts",
+    "src/types/**/*.ts",
+    "src/instrumentation.ts",
+    "src/proxy.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx"
+  ]
+}

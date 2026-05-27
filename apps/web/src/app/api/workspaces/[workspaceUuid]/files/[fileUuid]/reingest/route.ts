@@ -1,63 +1,36 @@
-import { scheduleIngestionJob } from "@avenire/ingestion/queue";
 import { NextResponse } from "next/server";
-import { getFileAssetById, userCanEditFile } from "@/lib/file-data";
-import { publishFilesInvalidationEvent } from "@/lib/files-realtime-publisher";
-import { deleteIngestionDataForFile } from "@/lib/ingestion-data";
 import { getSessionUser } from "@/lib/workspace";
-import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
+import {
+  resolveWorkspaceFileReingestRouteError,
+  WORKSPACE_FILE_REINGEST_ERROR,
+} from "./workspace-file-reingest-route-model";
+import { handleWorkspaceFileReingestPost } from "./workspace-file-reingest-route-post";
 
 export async function POST(
   _request: Request,
   context: { params: Promise<{ workspaceUuid: string; fileUuid: string }> }
 ) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    const user = await getSessionUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const { workspaceUuid, fileUuid } = await context.params;
-  const canEdit = await userCanEditFile({
-    workspaceId: workspaceUuid,
-    fileId: fileUuid,
-    userId: user.id,
-  });
-  if (!canEdit) {
-    return NextResponse.json({ error: "Read-only file" }, { status: 403 });
-  }
-
-  const file = await getFileAssetById(workspaceUuid, fileUuid);
-  if (!file) {
-    return NextResponse.json({ error: "File not found" }, { status: 404 });
-  }
-
-  await deleteIngestionDataForFile(workspaceUuid, fileUuid);
-  const job = await scheduleIngestionJob({
-    workspaceId: workspaceUuid,
-    fileId: fileUuid,
-    sourceType: "manual.reingest",
-  });
-
-  await Promise.allSettled([
-    publishFilesInvalidationEvent({
+    const { workspaceUuid, fileUuid } = await context.params;
+    return await handleWorkspaceFileReingestPost({
+      fileUuid,
+      userId: user.id,
       workspaceUuid,
-      folderId: file.folderId || undefined,
-      reason: "file.updated",
-    }),
-    publishWorkspaceStreamEvent({
-      workspaceUuid,
-      type: "ingestion.job",
-      payload: {
-        createdAt: new Date().toISOString(),
-        eventType: "job.queued",
-        jobId: job.id,
-        payload: {
-          status: "queued",
-          source: "manual.reingest",
-        },
-        workspaceId: workspaceUuid,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: resolveWorkspaceFileReingestRouteError(
+          error,
+          WORKSPACE_FILE_REINGEST_ERROR
+        ),
       },
-    }),
-  ]);
-
-  return NextResponse.json({ job }, { status: 202 });
+      { status: 500 }
+    );
+  }
 }
