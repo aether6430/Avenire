@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { normalizeFlashcardTaxonomy } from "./flashcard-data";
 import {
   canonicalizeLearningTaxonomy,
   canonicalizeSubjectLabel,
+  normalizeFlashcardTaxonomy,
 } from "./learning-taxonomy";
 
 describe("learning-taxonomy", () => {

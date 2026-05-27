@@ -38,6 +38,7 @@ export interface CachedToolResultInput<T> {
 
 let redisClient: ManagedRedisClient | null = null;
 const memoryCache = new Map<string, MemoryCacheEntry>();
+const memoryScopeVersions = new Map<string, string>();
 
 function stableStringify(value: unknown): string {
   if (value === null || typeof value !== "object") {
@@ -133,7 +134,8 @@ export async function getCachedToolResult<T>(
   const ttlSeconds =
     input.ttlSeconds ?? DEFAULT_TOOL_RESULT_CACHE_TTL_SECONDS;
   const scopeVersionKey = createToolResultScopeVersionKey(input);
-  let version = DEFAULT_TOOL_RESULT_SCOPE_VERSION;
+  let version =
+    memoryScopeVersions.get(scopeVersionKey) ?? DEFAULT_TOOL_RESULT_SCOPE_VERSION;
   const cache = dependencies.memoryCache ?? memoryCache;
   const nowMs = dependencies.nowMs?.() ?? Date.now();
 
@@ -199,6 +201,7 @@ export async function invalidateToolResultScope(input: {
 }) {
   const key = createToolResultScopeVersionKey(input);
   const version = Date.now().toString(36);
+  memoryScopeVersions.set(key, version);
 
   try {
     const client = await getDefaultRedisClient();
