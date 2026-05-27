@@ -118,6 +118,9 @@ importers:
       '@react-email/preview-server':
         specifier: 5.2.10
         version: 5.2.10(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(sass@1.98.0)
+      '@types/node':
+        specifier: 25.4.0
+        version: 25.4.0
       '@types/react':
         specifier: latest
         version: 19.2.14
@@ -456,6 +459,9 @@ importers:
       '@avenire/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
+      '@types/node':
+        specifier: 25.4.0
+        version: 25.4.0
       typescript:
         specifier: 5.9.3
         version: 5.9.3
@@ -576,6 +582,9 @@ importers:
       '@avenire/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
+      '@types/node':
+        specifier: 25.4.0
+        version: 25.4.0
       '@types/react':
         specifier: latest
         version: 19.2.14
