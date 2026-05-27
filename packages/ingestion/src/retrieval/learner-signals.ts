@@ -2,12 +2,12 @@ import { db } from "@avenire/database";
 import { sql } from "drizzle-orm";
 import type { VectorSearchResult } from "./vector-store";
 
-type LearnerSignal = {
+interface LearnerSignal {
   boost: number;
   matchedConcepts: string[];
   misconceptionBoost: number;
   stabilityBoost: number;
-};
+}
 
 const normalizeLabel = (value: unknown): string | null => {
   if (typeof value !== "string") {
@@ -127,7 +127,7 @@ export async function getLearnerSignalBoosts(input: {
     `),
   ]);
 
-  const stabilityEntries: Array<[string, number]> = [];
+  const stabilityEntries: [string, number][] = [];
   for (const row of stabilityRows.rows as Array<{
     concept: string;
     stability: number | null;
@@ -145,7 +145,7 @@ export async function getLearnerSignalBoosts(input: {
     ]);
   }
 
-  const misconceptionEntries: Array<[string, number]> = [];
+  const misconceptionEntries: [string, number][] = [];
   for (const row of misconceptionRows.rows as Array<{
     concept: string;
     confidence: number | null;
@@ -157,10 +157,7 @@ export async function getLearnerSignalBoosts(input: {
 
     const confidence =
       row.confidence === null ? 0 : Math.max(0, Number(row.confidence) || 0);
-    misconceptionEntries.push([
-      concept,
-      Math.min(1.12, 1 + confidence * 0.08),
-    ]);
+    misconceptionEntries.push([concept, Math.min(1.12, 1 + confidence * 0.08)]);
   }
 
   const stabilityBoostByConcept = new Map<string, number>(stabilityEntries);
@@ -172,7 +169,8 @@ export async function getLearnerSignalBoosts(input: {
     input.candidates.map((candidate) => {
       const matchedConcepts = extractConceptLabels(candidate.metadata);
       const stabilityBoost = matchedConcepts.reduce(
-        (best, concept) => Math.max(best, stabilityBoostByConcept.get(concept) ?? 1),
+        (best, concept) =>
+          Math.max(best, stabilityBoostByConcept.get(concept) ?? 1),
         1
       );
       const misconceptionBoost = matchedConcepts.reduce(

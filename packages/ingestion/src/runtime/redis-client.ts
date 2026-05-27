@@ -14,7 +14,7 @@ function isExpectedRedisConnectionError(error: unknown) {
   );
 }
 
-function normalizeRedisUrl(url: string) {
+export function normalizeRedisUrl(url: string) {
   const trimmed = url.trim();
   if (!trimmed || /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) {
     return trimmed;
@@ -23,7 +23,10 @@ function normalizeRedisUrl(url: string) {
   return `redis://${trimmed}`;
 }
 
-function createManagedRedisClient(url: string, label: string) {
+export function createManagedRedisClient(
+  url: string,
+  label: string
+): ManagedRedisClient {
   const client = createClient({
     url: normalizeRedisUrl(url),
     socket: {
@@ -49,7 +52,7 @@ export async function ensureManagedRedisClient(
   client: ManagedRedisClient | null,
   url: string,
   label: string
-) {
+): Promise<ManagedRedisClient | null> {
   const nextClient = client ?? createManagedRedisClient(url, label);
 
   if (nextClient.isOpen && nextClient.isReady) {

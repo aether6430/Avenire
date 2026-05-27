@@ -1,4 +1,4 @@
-import type { CanonicalChunk, ChunkKind, IngestSourceType } from './types';
+import type { CanonicalChunk, ChunkKind, IngestSourceType } from "./types";
 
 const TOKENS_PER_WORD = 1.33;
 const TARGET_CHUNK_TOKENS = 320;
@@ -13,7 +13,8 @@ const TARGET_CHUNK_WORDS = wordsFromTokens(TARGET_CHUNK_TOKENS);
 const MAX_CHUNK_WORDS = wordsFromTokens(MAX_CHUNK_TOKENS);
 const OVERLAP_WORDS = wordsFromTokens(OVERLAP_TOKENS);
 
-const normalizeWhitespace = (value: string): string => value.replace(/\s+/g, ' ').trim();
+const normalizeWhitespace = (value: string): string =>
+  value.replace(/\s+/g, " ").trim();
 
 const HEADING_PATTERN =
   /^(?:#{1,6}\s+.+|\*\*[^*]{2,160}\*\*|(?:chapter|section|unit|lesson)\b.+)$/i;
@@ -24,17 +25,32 @@ const SOLVED_EXAMPLE_PATTERN =
 
 const inferKind = (content: string): ChunkKind => {
   const text = content.toLowerCase();
-  if (/\b(proof|qed|lemma|theorem|corollary)\b/.test(text)) return 'proof';
-  if (/\b(example|for instance|e\.g\.)\b/.test(text)) return 'example';
-  if (/\b(derive|derivation|therefore|hence)\b/.test(text)) return 'derivation';
-  if (/\b(intuition|think of|imagine)\b/.test(text)) return 'intuition';
-  if (/\b(common mistake|pitfall|misconception|wrong)\b/.test(text)) return 'mistake';
-  if (/\b(figure|diagram|plot|visual)\b/.test(text)) return 'visualization';
-  if (/^#{1,6}\s/.test(content) || /\b(definition|concept)\b/.test(text)) return 'concept';
-  return 'generic';
+  if (/\b(proof|qed|lemma|theorem|corollary)\b/.test(text)) {
+    return "proof";
+  }
+  if (/\b(example|for instance|e\.g\.)\b/.test(text)) {
+    return "example";
+  }
+  if (/\b(derive|derivation|therefore|hence)\b/.test(text)) {
+    return "derivation";
+  }
+  if (/\b(intuition|think of|imagine)\b/.test(text)) {
+    return "intuition";
+  }
+  if (/\b(common mistake|pitfall|misconception|wrong)\b/.test(text)) {
+    return "mistake";
+  }
+  if (/\b(figure|diagram|plot|visual)\b/.test(text)) {
+    return "visualization";
+  }
+  if (/^#{1,6}\s/.test(content) || /\b(definition|concept)\b/.test(text)) {
+    return "concept";
+  }
+  return "generic";
 };
 
-const isHeadingBlock = (value: string): boolean => HEADING_PATTERN.test(value.trim());
+const isHeadingBlock = (value: string): boolean =>
+  HEADING_PATTERN.test(value.trim());
 
 const isEquationBlock = (value: string): boolean => {
   const normalized = value.trim();
@@ -43,10 +59,10 @@ const isEquationBlock = (value: string): boolean => {
   }
 
   return normalized
-    .split('\n')
-    .map(line => line.trim())
+    .split("\n")
+    .map((line) => line.trim())
     .filter(Boolean)
-    .every(line => EQUATION_PATTERN.test(line));
+    .every((line) => EQUATION_PATTERN.test(line));
 };
 
 const isSolvedExampleBlock = (value: string): boolean =>
@@ -54,15 +70,15 @@ const isSolvedExampleBlock = (value: string): boolean =>
 
 const splitChunkByWords = (
   text: string,
-  buildChunk: (content: string) => CanonicalChunk,
+  buildChunk: (content: string) => CanonicalChunk
 ): CanonicalChunk[] => {
-  const words = text.split(' ');
+  const words = text.split(" ");
   const chunks: CanonicalChunk[] = [];
 
   let start = 0;
   while (start < words.length) {
     const end = Math.min(words.length, start + TARGET_CHUNK_WORDS);
-    const window = words.slice(start, end).join(' ').trim();
+    const window = words.slice(start, end).join(" ").trim();
     if (window) {
       chunks.push(buildChunk(window));
     }
@@ -88,11 +104,13 @@ export const semanticChunkText = (params: {
   baseMetadata?: Record<string, unknown>;
 }): CanonicalChunk[] => {
   const text = params.text.trim();
-  if (!text) return [];
+  if (!text) {
+    return [];
+  }
 
   const paragraphs = text
     .split(/\n\s*\n+/)
-    .map(segment => normalizeWhitespace(segment))
+    .map((segment) => normalizeWhitespace(segment))
     .filter(Boolean);
 
   const chunks: CanonicalChunk[] = [];
@@ -107,7 +125,7 @@ export const semanticChunkText = (params: {
       page: params.page,
       startMs: params.startMs,
       endMs: params.endMs,
-      modality: 'text',
+      modality: "text",
       extra: params.baseMetadata,
     },
   });
@@ -130,7 +148,7 @@ export const semanticChunkText = (params: {
         index += 1;
       }
 
-      chunks.push(buildChunk(collected.join('\n\n')));
+      chunks.push(buildChunk(collected.join("\n\n")));
       continue;
     }
 
@@ -143,7 +161,7 @@ export const semanticChunkText = (params: {
         }
 
         if (
-          collected.join('\n\n').split(' ').length >= TARGET_CHUNK_WORDS ||
+          collected.join("\n\n").split(" ").length >= TARGET_CHUNK_WORDS ||
           isEquationBlock(next)
         ) {
           break;
@@ -153,7 +171,7 @@ export const semanticChunkText = (params: {
         index += 1;
       }
 
-      chunks.push(buildChunk(collected.join('\n\n')));
+      chunks.push(buildChunk(collected.join("\n\n")));
       continue;
     }
 
@@ -162,7 +180,7 @@ export const semanticChunkText = (params: {
       continue;
     }
 
-    const words = paragraph.split(' ');
+    const words = paragraph.split(" ");
     if (words.length <= MAX_CHUNK_WORDS) {
       chunks.push(buildChunk(paragraph));
       continue;

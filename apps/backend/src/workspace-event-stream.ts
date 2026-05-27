@@ -1,30 +1,22 @@
+import { normalizeRedisUrl } from "@avenire/ingestion/runtime/redis-client";
 import { createClient, type RedisClientType } from "redis";
 
 const redisUrl = process.env.REDIS_URL;
-const DEFAULT_MAX_LEN = 5_000;
+const DEFAULT_MAX_LEN = 5000;
 
 let publisher: RedisClientType | null = null;
 
 export interface WorkspaceStreamEvent {
   id: string;
-  workspaceUuid: string;
-  type: string;
   payload: Record<string, unknown>;
-  ts: number;
   requestId: string;
+  ts: number;
+  type: string;
+  workspaceUuid: string;
 }
 
 function getStreamKey(workspaceUuid: string) {
   return `workspace:events:${workspaceUuid}`;
-}
-
-function normalizeRedisUrl(url: string) {
-  const trimmed = url.trim();
-  if (!trimmed || /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) {
-    return trimmed;
-  }
-
-  return `redis://${trimmed}`;
 }
 
 function toPositiveInt(raw: string | undefined, fallback: number) {
@@ -40,7 +32,10 @@ async function getPublisherClient() {
   if (!publisher) {
     publisher = createClient({ url: normalizeRedisUrl(redisUrl) });
     publisher.on("error", (error) => {
-      console.error("Redis publisher error in backend workspace-event-stream", error);
+      console.error(
+        "Redis publisher error in backend workspace-event-stream",
+        error
+      );
     });
   }
 

@@ -14,9 +14,10 @@ export const ingestAudio = async (input: {
 }): Promise<CanonicalResource> => {
   const source = assertSafeUrl(input.url).toString();
   const audioBytes = await extractAudioFromVideoUrl(source);
-  let transcription:
-    | { text: string; segments: Array<{ startMs: number; endMs: number; text: string }> }
-    | null = null;
+  let transcription: {
+    text: string;
+    segments: Array<{ startMs: number; endMs: number; text: string }>;
+  } | null = null;
   let transcriptionError: string | null = null;
   try {
     transcription = await transcribeAudio(audioBytes);
@@ -26,7 +27,7 @@ export const ingestAudio = async (input: {
   }
 
   const transcript = cleanTranscriptText(transcription?.text ?? "");
-  if (!transcript && !input.title) {
+  if (!(transcript || input.title)) {
     throw new Error(
       transcriptionError
         ? `Audio transcription failed and no fallback metadata available: ${transcriptionError}`

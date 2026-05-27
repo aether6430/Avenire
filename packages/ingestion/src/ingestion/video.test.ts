@@ -32,10 +32,14 @@ vi.mock("../config", () => ({
   },
 }));
 
+import { extractKeyframesFromVideoUrl } from "../utils/ffmpeg";
+import { assertSafeUrl } from "../utils/safety";
+import { extractFromSupportedProvider } from "./provider-extractors";
 import {
   buildVideoResource,
   canFallbackToLinkExtraction,
   cleanTranscriptText,
+  ingestVideo,
   isDirectMediaUrl,
   isLowQualityTranscript,
   splitTranscriptByTime,
@@ -43,11 +47,13 @@ import {
 
 describe("video helpers", () => {
   it("cleans transcript text and drops codec noise", () => {
-    expect(cleanTranscriptText("Hello\u0000   world\uFFFD")).toBe("Hello world");
+    expect(cleanTranscriptText("Hello\u0000   world\uFFFD")).toBe(
+      "Hello world"
+    );
     expect(cleanTranscriptText("x264 cabac deblock threads=16")).toBe("");
-    expect(
-      cleanTranscriptText("1 2 3 4 5 6 7 8 lecture content")
-    ).toBe("lecture content");
+    expect(cleanTranscriptText("1 2 3 4 5 6 7 8 lecture content")).toBe(
+      "lecture content"
+    );
   });
 
   it("builds transcript windows from explicit segments and filters empty results", () => {
@@ -75,16 +81,18 @@ describe("video helpers", () => {
 
   it("builds transcript windows from timestamped lines", () => {
     expect(
-      splitTranscriptByTime(["00:05 Opening concept", "00:25 Follow up detail"].join("\n"))
+      splitTranscriptByTime(
+        ["00:05 Opening concept", "00:25 Follow up detail"].join("\n")
+      )
     ).toEqual([
       {
         startMs: 5000,
-        endMs: 25000,
+        endMs: 25_000,
         text: "Opening concept",
       },
       {
-        startMs: 25000,
-        endMs: 55000,
+        startMs: 25_000,
+        endMs: 55_000,
         text: "Follow up detail",
       },
     ]);
@@ -97,21 +105,23 @@ describe("video helpers", () => {
     expect(windows).toHaveLength(2);
     expect(windows[0]).toMatchObject({
       startMs: 0,
-      endMs: 30000,
+      endMs: 30_000,
     });
     expect(windows[1]).toMatchObject({
-      startMs: 30000,
-      endMs: 60000,
+      startMs: 30_000,
+      endMs: 60_000,
     });
   });
 
   it("detects low-quality transcripts", () => {
     expect(isLowQualityTranscript("")).toBe(true);
+    expect(isLowQualityTranscript("one two three four five six seven")).toBe(
+      true
+    );
     expect(
-      isLowQualityTranscript("one two three four five six seven")
-    ).toBe(true);
-    expect(
-      isLowQualityTranscript(Array.from({ length: 20 }, () => "repeat").join(" "))
+      isLowQualityTranscript(
+        Array.from({ length: 20 }, () => "repeat").join(" ")
+      )
     ).toBe(true);
     expect(
       isLowQualityTranscript(
@@ -121,12 +131,20 @@ describe("video helpers", () => {
   });
 
   it("detects direct media URLs and link-extraction fallbacks", () => {
-    expect(isDirectMediaUrl("https://cdn.example.com/video.mp4?download=1")).toBe(true);
+    expect(
+      isDirectMediaUrl("https://cdn.example.com/video.mp4?download=1")
+    ).toBe(true);
     expect(isDirectMediaUrl("https://example.com/watch?v=123")).toBe(false);
 
-    expect(canFallbackToLinkExtraction("https://example.com/watch?v=123")).toBe(true);
-    expect(canFallbackToLinkExtraction("https://cdn.example.com/video.mp4")).toBe(false);
-    expect(canFallbackToLinkExtraction("ftp://example.com/video.mp4")).toBe(false);
+    expect(canFallbackToLinkExtraction("https://example.com/watch?v=123")).toBe(
+      true
+    );
+    expect(
+      canFallbackToLinkExtraction("https://cdn.example.com/video.mp4")
+    ).toBe(false);
+    expect(canFallbackToLinkExtraction("ftp://example.com/video.mp4")).toBe(
+      false
+    );
     expect(canFallbackToLinkExtraction("notaurl")).toBe(false);
   });
 
@@ -152,7 +170,7 @@ describe("video helpers", () => {
           caption: "Slide overview",
         },
         {
-          timestampMs: 10000,
+          timestampMs: 10_000,
           labels: ["ignored without image"],
         },
       ],
@@ -199,7 +217,9 @@ describe("video helpers", () => {
         },
       },
     });
-    expect(resource.chunks[1]?.content).toContain("Definition of entropy for beginners");
+    expect(resource.chunks[1]?.content).toContain(
+      "Definition of entropy for beginners"
+    );
     expect(resource.chunks[2]).toMatchObject({
       chunkIndex: 2,
       metadata: {
@@ -243,6 +263,31 @@ describe("video helpers", () => {
         ]),
       },
     });
-    expect(resource.chunks[3]?.content).toContain("Nearby transcript: Definition of entropy for beginners");
+    expect(resource.chunks[3]?.content).toContain(
+      "Nearby transcript: Definition of entropy for beginners"
+    );
+  });
+
+  it("treats whitespace-only URLs as absent inline video sources", async () => {
+    vi.clearAllMocks();
+
+    const transcript = Array.from(
+      { length: 20 },
+      (_, index) => `concept${index + 1}`
+    ).join(" ");
+
+    const resource = await ingestVideo({
+      url: "   ",
+      transcript,
+    });
+
+    expect(assertSafeUrl).not.toHaveBeenCalled();
+    expect(extractFromSupportedProvider).not.toHaveBeenCalled();
+    expect(extractKeyframesFromVideoUrl).not.toHaveBeenCalled();
+    expect(resource.source).toMatch(/^video:inline:/);
+    expect(resource.metadata).toMatchObject({
+      hasTranscript: true,
+      keyframeCount: 0,
+    });
   });
 });

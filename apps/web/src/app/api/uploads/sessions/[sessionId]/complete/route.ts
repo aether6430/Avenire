@@ -1,388 +1,191 @@
-import { openAsBlob } from "node:fs";
-import { deleteStorageFiles, uploadStorageFile } from "@avenire/storage";
 import { NextResponse } from "next/server";
-import { z } from "zod";
+import { resolveApiErrorMessage } from "@/lib/api-error-message";
 import { userCanEditFolder } from "@/lib/file-data";
 import { createApiLogger } from "@/lib/observability";
-import {
-  assembleMultipartPartsToFile,
-  clearMultipartParts,
-} from "@/lib/upload-multipart-store";
-import {
-  normalizeSha256,
-  registerWorkspaceUploadedFile,
-} from "@/lib/upload-registration";
-import {
-  getUploadSession,
-  saveUploadSession,
-} from "@/lib/upload-session-store";
-import { scheduleAsyncVideoDeliveryOptimization } from "@/lib/video-delivery";
+import { normalizeSha256 } from "@/lib/upload-registration";
+import { getUploadSession } from "@/lib/upload-session-store";
 import { getSessionUser } from "@/lib/workspace";
-
-const completeSchema = z
-  .object({
-    storageKey: z.string().min(1).optional(),
-    storageUrl: z.string().url().optional(),
-    mimeType: z.string().nullable().optional(),
-    sizeBytes: z.number().int().nonnegative().optional(),
-    checksumSha256: z.string().optional(),
-    metadata: z.record(z.string(), z.unknown()).optional(),
-    multipart: z
-      .object({
-        partNumbers: z.array(z.number().int().positive()).optional(),
-      })
-      .optional(),
-  })
-  .refine(
-    (value) =>
-      (Boolean(value.storageKey) &&
-        Boolean(value.storageUrl) &&
-        typeof value.sizeBytes === "number") ||
-      Boolean(value.multipart),
-    {
-      message:
-        "Provide direct upload metadata or multipart completion payload.",
-    }
-  );
-
-function asNullableString(value: string | null | undefined) {
-  const trimmed = (value ?? "").trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-async function uploadMultipartAsSingleObject(input: {
-  sessionId: string;
-  name: string;
-  mimeType: string | null;
-  expectedPartNumbers?: number[];
-}) {
-  if (!process.env.UPLOADTHING_TOKEN) {
-    throw Object.assign(new Error("UPLOADTHING_TOKEN missing"), {
-      code: "UPLOADTHING_UNAVAILABLE",
-    });
-  }
-
-  const assembled = await assembleMultipartPartsToFile(input.sessionId);
-  if (
-    Array.isArray(input.expectedPartNumbers) &&
-    input.expectedPartNumbers.length > 0
-  ) {
-    const normalizedExpected = [
-      ...new Set(
-        input.expectedPartNumbers.map((value) => Math.max(1, Math.trunc(value)))
-      ),
-    ].sort((a, b) => a - b);
-    const normalizedActual = [...assembled.partNumbers].sort((a, b) => a - b);
-    if (
-      JSON.stringify(normalizedExpected) !== JSON.stringify(normalizedActual)
-    ) {
-      throw Object.assign(new Error("Multipart part list mismatch"), {
-        code: "MULTIPART_PART_MISMATCH",
-      });
-    }
-  }
-  const assembledBlob = await openAsBlob(assembled.path, {
-    type: input.mimeType ?? undefined,
-  });
-  const uploaded = await uploadStorageFile({
-    body: assembledBlob,
-    contentType: input.mimeType,
-    name: input.name,
-  });
-
-  return {
-    checksumSha256: assembled.checksumSha256,
-    partNumbers: assembled.partNumbers,
-    partCount: assembled.partCount,
-    sizeBytes: assembled.totalSizeBytes,
-    storageKey: uploaded.key,
-    storageUrl: uploaded.url,
-  };
-}
+import { finalizeUploadSessionCompletion } from "./upload-session-complete-finalize";
+import {
+  asNullableString,
+  buildUploadCompletionReplayResponse,
+  completeSchema,
+} from "./upload-session-complete-model";
+import { completeMultipartUploadSession } from "./upload-session-complete-storage";
 
 export async function POST(
   request: Request,
   context: { params: Promise<{ sessionId: string }> }
 ) {
-  const requestStartedAt = Date.now();
-  const user = await getSessionUser();
-  const apiLogger = createApiLogger({
-    request,
-    route: "/api/uploads/sessions/[sessionId]/complete",
-    feature: "uploads",
-    userId: user?.id ?? null,
-  });
-  void apiLogger.requestStarted();
-
-  if (!user) {
-    void apiLogger.requestFailed(401, "Unauthorized");
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { sessionId } = await context.params;
-  const session = await getUploadSession(sessionId);
-  if (!session) {
-    void apiLogger.requestFailed(404, "Session not found");
-    return NextResponse.json({ error: "Session not found" }, { status: 404 });
-  }
-
-  if (session.userId !== user.id) {
-    void apiLogger.requestFailed(403, "Forbidden");
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-  if (new Date(session.expiresAt).getTime() <= Date.now()) {
-    void apiLogger.requestFailed(410, "Session expired");
-    return NextResponse.json({ error: "Session expired" }, { status: 410 });
-  }
-
-  const canEdit = await userCanEditFolder({
-    workspaceId: session.workspaceUuid,
-    folderId: session.folderId,
-    userId: user.id,
-  });
-  if (!canEdit) {
-    void apiLogger.requestFailed(403, "Read-only folder");
-    return NextResponse.json({ error: "Read-only folder" }, { status: 403 });
-  }
-
-  const parsed = completeSchema.safeParse(
-    await request.json().catch(() => ({}))
-  );
-  if (!parsed.success) {
-    void apiLogger.requestFailed(400, "Invalid payload");
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
-  }
-
-  const sessionStartedAt = new Date(session.createdAt).getTime();
-
-  if (session.result?.fileId) {
-    void apiLogger.requestSucceeded(200, {
-      completionDurationMs: Date.now() - requestStartedAt,
-      workspaceUuid: session.workspaceUuid,
-      sessionId: session.id,
-      fileId: session.result.fileId,
-      idempotentReplay: true,
-      sessionUploadDurationMs: Math.max(0, Date.now() - sessionStartedAt),
-      sizeBytes: session.upload?.sizeBytes ?? session.sizeBytes,
+  try {
+    const requestStartedAt = Date.now();
+    const user = await getSessionUser();
+    const apiLogger = createApiLogger({
+      request,
+      route: "/api/uploads/sessions/[sessionId]/complete",
+      feature: "uploads",
+      userId: user?.id ?? null,
     });
-    return NextResponse.json(
-      {
-        ok: true,
-        session,
-        fileId: session.result.fileId,
-        ingestionJobId: session.result.ingestionJobId,
-        deduplicated: session.result.deduplicated,
-      },
-      { status: 200 }
-    );
-  }
+    void apiLogger.requestStarted();
 
-  let storageKey = parsed.data.storageKey;
-  let storageUrl = parsed.data.storageUrl;
-  let sizeBytes = parsed.data.sizeBytes;
-  let checksumSha256 = normalizeSha256(parsed.data.checksumSha256);
-  let multipartPartCount = 0;
+    if (!user) {
+      void apiLogger.requestFailed(401, "Unauthorized");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  if (!(storageKey && storageUrl) || typeof sizeBytes !== "number") {
-    try {
-      const multipartUpload = await uploadMultipartAsSingleObject({
-        sessionId,
-        name: session.name,
-        mimeType: asNullableString(parsed.data.mimeType) ?? session.mimeType,
-        expectedPartNumbers: parsed.data.multipart?.partNumbers,
-      });
-      storageKey = multipartUpload.storageKey;
-      storageUrl = multipartUpload.storageUrl;
-      sizeBytes = multipartUpload.sizeBytes;
-      checksumSha256 = checksumSha256 ?? multipartUpload.checksumSha256;
-      multipartPartCount = multipartUpload.partCount;
-    } catch (error) {
-      const isUnavailable =
-        (error as { code?: string } | null | undefined)?.code ===
-        "UPLOADTHING_UNAVAILABLE";
-      const isPartMismatch =
-        (error as { code?: string } | null | undefined)?.code ===
-        "MULTIPART_PART_MISMATCH";
-      void apiLogger.requestFailed(isUnavailable ? 503 : 500, error, {
+    const { sessionId } = await context.params;
+    const session = await getUploadSession(sessionId);
+    if (!session) {
+      void apiLogger.requestFailed(404, "Session not found");
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+    }
+
+    if (session.userId !== user.id) {
+      void apiLogger.requestFailed(403, "Forbidden");
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    if (new Date(session.expiresAt).getTime() <= Date.now()) {
+      void apiLogger.requestFailed(410, "Session expired");
+      return NextResponse.json({ error: "Session expired" }, { status: 410 });
+    }
+
+    const canEdit = await userCanEditFolder({
+      workspaceId: session.workspaceUuid,
+      folderId: session.folderId,
+      userId: user.id,
+    });
+    if (!canEdit) {
+      void apiLogger.requestFailed(403, "Read-only folder");
+      return NextResponse.json({ error: "Read-only folder" }, { status: 403 });
+    }
+
+    const sessionStartedAt = new Date(session.createdAt).getTime();
+
+    if (session.result?.fileId) {
+      void apiLogger.requestSucceeded(200, {
+        completionDurationMs: Date.now() - requestStartedAt,
         workspaceUuid: session.workspaceUuid,
         sessionId: session.id,
+        fileId: session.result.fileId,
+        idempotentReplay: true,
+        sessionUploadDurationMs: Math.max(0, Date.now() - sessionStartedAt),
+        sizeBytes: session.upload?.sizeBytes ?? session.sizeBytes,
       });
-      return NextResponse.json(
-        {
-          error: isPartMismatch
-            ? "Multipart parts mismatch"
-            : isUnavailable
-              ? "Multipart completion unavailable"
-              : "Multipart completion failed",
-        },
-        { status: isPartMismatch ? 422 : isUnavailable ? 503 : 500 }
-      );
-    }
-  }
-
-  if (!(storageKey && storageUrl) || typeof sizeBytes !== "number") {
-    void apiLogger.requestFailed(
-      400,
-      "Missing upload metadata after completion"
-    );
-    return NextResponse.json(
-      { error: "Missing upload metadata after completion" },
-      { status: 400 }
-    );
-  }
-
-  const expectedChecksum = normalizeSha256(session.checksumSha256);
-  if (
-    expectedChecksum &&
-    checksumSha256 &&
-    expectedChecksum !== checksumSha256
-  ) {
-    void apiLogger.requestFailed(422, "Checksum mismatch");
-    return NextResponse.json({ error: "Checksum mismatch" }, { status: 422 });
-  }
-
-  if (session.sizeBytes > 0 && sizeBytes !== session.sizeBytes) {
-    void apiLogger.requestFailed(422, "Size mismatch");
-    return NextResponse.json({ error: "Size mismatch" }, { status: 422 });
-  }
-
-  if (
-    session.mimeType &&
-    parsed.data.mimeType &&
-    session.mimeType !== parsed.data.mimeType
-  ) {
-    void apiLogger.requestFailed(422, "MIME type mismatch");
-    return NextResponse.json({ error: "MIME type mismatch" }, { status: 422 });
-  }
-
-  const uploadedSession = await saveUploadSession({
-    ...session,
-    status: "uploaded",
-    upload: {
-      storageKey,
-      storageUrl,
-      mimeType: asNullableString(parsed.data.mimeType) ?? session.mimeType,
-      sizeBytes,
-      checksumSha256,
-    },
-  });
-
-  const verifiedSession = await saveUploadSession({
-    ...uploadedSession,
-    status: "verified",
-  });
-
-  try {
-    const result = await registerWorkspaceUploadedFile({
-      workspaceUuid: session.workspaceUuid,
-      userId: user.id,
-      folderId: session.folderId,
-      storageKey,
-      storageUrl,
-      name: session.name,
-      mimeType: parsed.data.mimeType ?? session.mimeType,
-      sizeBytes,
-      metadata: parsed.data.metadata,
-      contentHashSha256: checksumSha256 ?? session.checksumSha256,
-      hashComputedBy: "client",
-    });
-
-    const completedSession = await saveUploadSession({
-      ...verifiedSession,
-      status: "ingestion_queued",
-      result: {
-        fileId: result.file.id,
-        ingestionJobId: result.ingestionJob?.id ?? null,
-        deduplicated: result.status === "deduplicated",
-      },
-    });
-
-    if (
-      result.status === "created" &&
-      result.file.mimeType?.startsWith("video/")
-    ) {
-      scheduleAsyncVideoDeliveryOptimization({
-        file: result.file,
-        userId: user.id,
-        workspaceUuid: session.workspaceUuid,
-      });
+      return buildUploadCompletionReplayResponse({ session });
     }
 
-    await clearMultipartParts(sessionId);
-
-    void apiLogger.requestSucceeded(200, {
-      completionDurationMs: Date.now() - requestStartedAt,
-      workspaceUuid: session.workspaceUuid,
-      sessionId: session.id,
-      fileId: result.file.id,
-      ingestionJobId: result.ingestionJob?.id ?? null,
-      deduplicated: result.status === "deduplicated",
-      multipartPartCount: multipartPartCount || undefined,
-      sessionUploadDurationMs: Math.max(0, Date.now() - sessionStartedAt),
-      sizeBytes,
-    });
-    void apiLogger.info("upload.session.completed", {
-      completionDurationMs: Date.now() - requestStartedAt,
-      deduplicated: result.status === "deduplicated",
-      multipartPartCount: multipartPartCount || undefined,
-      sessionId: session.id,
-      sessionUploadDurationMs: Math.max(0, Date.now() - sessionStartedAt),
-      sizeBytes,
-      workspaceUuid: session.workspaceUuid,
-    });
-    return NextResponse.json(
-      {
-        ok: true,
-        session: completedSession,
-        file: result.file,
-        ingestionJob: result.ingestionJob,
-      },
-      { status: 200 }
+    const parsed = completeSchema.safeParse(
+      await request.json().catch(() => ({}))
     );
-  } catch (error) {
-    const failedSession = await saveUploadSession({
-      ...verifiedSession,
-      status: "failed",
-    });
-    const cleanupStorageKey =
-      verifiedSession.upload?.storageKey ??
-      session.upload?.storageKey ??
-      storageKey ??
-      null;
-    if (cleanupStorageKey && process.env.UPLOADTHING_TOKEN) {
+    if (!parsed.success) {
+      void apiLogger.requestFailed(400, "Invalid payload");
+      return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    }
+
+    let storageKey = parsed.data.storageKey;
+    let storageUrl = parsed.data.storageUrl;
+    let sizeBytes = parsed.data.sizeBytes;
+    let checksumSha256 = normalizeSha256(parsed.data.checksumSha256);
+    let multipartPartCount = 0;
+
+    if (!(storageKey && storageUrl) || typeof sizeBytes !== "number") {
       try {
-        await deleteStorageFiles([cleanupStorageKey]);
-      } catch (cleanupError) {
-        void apiLogger.warn("upload.cleanup.failed", {
+        const multipartUpload = await completeMultipartUploadSession({
+          sessionId,
+          name: session.name,
+          mimeType: asNullableString(parsed.data.mimeType) ?? session.mimeType,
+          expectedPartNumbers: parsed.data.multipart?.partNumbers,
+        });
+        storageKey = multipartUpload.storageKey;
+        storageUrl = multipartUpload.storageUrl;
+        sizeBytes = multipartUpload.sizeBytes;
+        checksumSha256 = checksumSha256 ?? multipartUpload.checksumSha256;
+        multipartPartCount = multipartUpload.partCount;
+      } catch (error) {
+        const isUnavailable =
+          (error as { code?: string } | null | undefined)?.code ===
+          "UPLOADTHING_UNAVAILABLE";
+        const isPartMismatch =
+          (error as { code?: string } | null | undefined)?.code ===
+          "MULTIPART_PART_MISMATCH";
+        void apiLogger.requestFailed(isUnavailable ? 503 : 500, error, {
           workspaceUuid: session.workspaceUuid,
           sessionId: session.id,
-          storageKey: cleanupStorageKey,
-          error:
-            cleanupError instanceof Error
-              ? { name: cleanupError.name, message: cleanupError.message }
-              : { message: "Unknown cleanup error" },
         });
+        return NextResponse.json(
+          {
+            error: isPartMismatch
+              ? "Multipart parts mismatch"
+              : isUnavailable
+                ? "Multipart completion unavailable"
+                : "Multipart completion failed",
+          },
+          { status: isPartMismatch ? 422 : isUnavailable ? 503 : 500 }
+        );
       }
     }
-    const isStorageLimit =
-      (error as { code?: string } | null | undefined)?.code ===
-      "STORAGE_LIMIT";
 
-    void apiLogger.requestFailed(isStorageLimit ? 429 : 500, error, {
-      completionDurationMs: Date.now() - requestStartedAt,
-      workspaceUuid: session.workspaceUuid,
-      sessionId: session.id,
-      sessionUploadDurationMs: Math.max(0, Date.now() - sessionStartedAt),
-      sizeBytes: sizeBytes ?? null,
+    if (!(storageKey && storageUrl) || typeof sizeBytes !== "number") {
+      void apiLogger.requestFailed(
+        400,
+        "Missing upload metadata after completion"
+      );
+      return NextResponse.json(
+        { error: "Missing upload metadata after completion" },
+        { status: 400 }
+      );
+    }
+
+    const expectedChecksum = normalizeSha256(session.checksumSha256);
+    if (
+      expectedChecksum &&
+      checksumSha256 &&
+      expectedChecksum !== checksumSha256
+    ) {
+      void apiLogger.requestFailed(422, "Checksum mismatch");
+      return NextResponse.json({ error: "Checksum mismatch" }, { status: 422 });
+    }
+
+    if (session.sizeBytes > 0 && sizeBytes !== session.sizeBytes) {
+      void apiLogger.requestFailed(422, "Size mismatch");
+      return NextResponse.json({ error: "Size mismatch" }, { status: 422 });
+    }
+
+    if (
+      session.mimeType &&
+      parsed.data.mimeType &&
+      session.mimeType !== parsed.data.mimeType
+    ) {
+      void apiLogger.requestFailed(422, "MIME type mismatch");
+      return NextResponse.json(
+        { error: "MIME type mismatch" },
+        { status: 422 }
+      );
+    }
+
+    return await finalizeUploadSessionCompletion({
+      apiLogger,
+      checksumSha256,
+      metadata: parsed.data.metadata,
+      mimeType: asNullableString(parsed.data.mimeType) ?? session.mimeType,
+      multipartPartCount,
+      requestStartedAt,
+      session,
+      sessionId,
+      sizeBytes,
+      storageKey,
+      storageUrl,
+      user,
     });
+  } catch (error) {
     return NextResponse.json(
       {
-        error: isStorageLimit
-          ? "Storage limit reached"
-          : "Upload finalize failed",
-        session: failedSession,
+        error: resolveApiErrorMessage(
+          error,
+          "Unable to complete upload session."
+        ),
       },
-      { status: isStorageLimit ? 429 : 500 }
+      { status: 500 }
     );
   }
 }

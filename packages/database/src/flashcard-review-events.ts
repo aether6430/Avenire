@@ -2,8 +2,8 @@ import type {
   FlashcardCardRecord,
   FlashcardSourceType,
 } from "./flashcard-data";
-import { normalizeFlashcardTaxonomy } from "./flashcard-data";
 import type { FlashcardRating, FlashcardReviewStateName } from "./flashcard-fsrs";
+import { normalizeFlashcardTaxonomy } from "./learning-taxonomy";
 
 export interface FlashcardSourceTaxonomy {
   concept: string | null;

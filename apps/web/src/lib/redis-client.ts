@@ -43,11 +43,13 @@ export function createManagedRedisClient(url: string, label: string) {
   return client;
 }
 
+export type ManagedRedisClient = ReturnType<typeof createManagedRedisClient>;
+
 export async function ensureManagedRedisClient(
-  client: any | null,
+  client: ManagedRedisClient | null,
   url: string,
   label: string
-) {
+): Promise<ManagedRedisClient | null> {
   const nextClient = client ?? createManagedRedisClient(url, label);
 
   if (nextClient.isOpen && nextClient.isReady) {

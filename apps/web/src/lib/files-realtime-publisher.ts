@@ -1,8 +1,8 @@
-import type { RedisClientType } from "redis";
 import {
   createManagedRedisClient,
   ensureManagedRedisClient,
   isExpectedRedisConnectionError,
+  type ManagedRedisClient,
 } from "@/lib/redis-client";
 import { publishWorkspaceStreamEvent } from "./workspace-event-stream";
 
@@ -24,7 +24,7 @@ interface FilesInvalidationPayload {
 }
 
 const redisUrl = process.env.REDIS_URL;
-type PublisherClient = RedisClientType;
+type PublisherClient = ManagedRedisClient;
 
 let publisher: PublisherClient | null = null;
 let publisherInitPromise: Promise<PublisherClient> | null = null;

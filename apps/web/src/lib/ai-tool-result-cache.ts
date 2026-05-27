@@ -1,9 +1,13 @@
 import { createHash } from "node:crypto";
-import type { RedisClientType } from "redis";
-import { ensureManagedRedisClient } from "@/lib/redis-client";
+import {
+  ensureManagedRedisClient,
+  type ManagedRedisClient,
+} from "@/lib/redis-client";
 
 const DEFAULT_TOOL_RESULT_CACHE_TTL_SECONDS = 60 * 5;
 const TOOL_RESULT_CACHE_PREFIX = "ai-tool-result:v1:";
+const TOOL_RESULT_SCOPE_VERSION_PREFIX = "ai-tool-result-scope:v1:";
+const DEFAULT_TOOL_RESULT_SCOPE_VERSION = "0";
 
 type CacheStatus = "hit" | "miss";
 
@@ -13,7 +17,7 @@ interface MemoryCacheEntry {
 }
 
 interface CacheDependencies {
-  getRedisClient?: () => Promise<RedisClientType | null>;
+  getRedisClient?: () => Promise<ManagedRedisClient | null>;
   memoryCache?: Map<string, MemoryCacheEntry>;
   nowMs?: () => number;
 }
@@ -32,8 +36,9 @@ export interface CachedToolResultInput<T> {
   validate?: (value: unknown) => value is T;
 }
 
-let redisClient: RedisClientType | null = null;
+let redisClient: ManagedRedisClient | null = null;
 const memoryCache = new Map<string, MemoryCacheEntry>();
+const memoryScopeVersions = new Map<string, string>();
 
 function stableStringify(value: unknown): string {
   if (value === null || typeof value !== "object") {
@@ -55,6 +60,7 @@ export function createToolResultCacheKey(input: {
   input: unknown;
   scope: Record<string, unknown>;
   toolName: string;
+  version?: string;
 }) {
   const digest = createHash("sha256")
     .update(
@@ -62,11 +68,28 @@ export function createToolResultCacheKey(input: {
         input: input.input,
         scope: input.scope,
         toolName: input.toolName,
+        version: input.version ?? DEFAULT_TOOL_RESULT_SCOPE_VERSION,
       })
     )
     .digest("hex");
 
   return `${TOOL_RESULT_CACHE_PREFIX}${input.toolName}:${digest}`;
+}
+
+export function createToolResultScopeVersionKey(input: {
+  scope: Record<string, unknown>;
+  toolName: string;
+}) {
+  const digest = createHash("sha256")
+    .update(
+      stableStringify({
+        scope: input.scope,
+        toolName: input.toolName,
+      })
+    )
+    .digest("hex");
+
+  return `${TOOL_RESULT_SCOPE_VERSION_PREFIX}${input.toolName}:${digest}`;
 }
 
 async function getDefaultRedisClient() {
@@ -110,9 +133,23 @@ export async function getCachedToolResult<T>(
 ): Promise<CachedToolResult<T>> {
   const ttlSeconds =
     input.ttlSeconds ?? DEFAULT_TOOL_RESULT_CACHE_TTL_SECONDS;
-  const key = createToolResultCacheKey(input);
+  const scopeVersionKey = createToolResultScopeVersionKey(input);
+  let version =
+    memoryScopeVersions.get(scopeVersionKey) ?? DEFAULT_TOOL_RESULT_SCOPE_VERSION;
   const cache = dependencies.memoryCache ?? memoryCache;
   const nowMs = dependencies.nowMs?.() ?? Date.now();
+
+  try {
+    const client =
+      dependencies.getRedisClient !== undefined
+        ? await dependencies.getRedisClient()
+        : await getDefaultRedisClient();
+    version = (await client?.get(scopeVersionKey)) ?? version;
+  } catch {
+    // Cache scope reads are best-effort.
+  }
+
+  const key = createToolResultCacheKey({ ...input, version });
 
   const memoryValue = readMemoryCache(cache, key, nowMs, input.validate);
   if (memoryValue !== null) {
@@ -156,4 +193,20 @@ export async function getCachedToolResult<T>(
   }
 
   return { cache: "miss", value };
+}
+
+export async function invalidateToolResultScope(input: {
+  scope: Record<string, unknown>;
+  toolName: string;
+}) {
+  const key = createToolResultScopeVersionKey(input);
+  const version = Date.now().toString(36);
+  memoryScopeVersions.set(key, version);
+
+  try {
+    const client = await getDefaultRedisClient();
+    await client?.set(key, version, { EX: DEFAULT_TOOL_RESULT_CACHE_TTL_SECONDS });
+  } catch {
+    // Cache invalidation is best-effort.
+  }
 }

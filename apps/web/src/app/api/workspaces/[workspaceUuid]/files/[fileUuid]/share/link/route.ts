@@ -1,42 +1,37 @@
-import { auth } from "@avenire/auth/server";
-import { headers } from "next/headers";
-import { NextResponse } from "next/server";
-import { resolveAppBaseUrl } from "@/lib/app-base-url";
+import { resolveWorkspaceFileShareRouteContext } from "../workspace-file-share-route-context";
 import {
-  createResourceShareLink,
-  userCanAccessWorkspace,
-} from "@/lib/file-data";
+  resolveWorkspaceFileShareRouteError,
+  WORKSPACE_FILE_SHARE_CONTEXT_ERROR,
+} from "../workspace-file-share-route-model";
+import { handleWorkspaceFileShareLinkPost } from "./workspace-file-share-link-post";
 
 export async function POST(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ workspaceUuid: string; fileUuid: string }> }
 ) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const routeContext = await resolveWorkspaceFileShareRouteContext({
+      request,
+      params: context.params,
+      route: "/api/workspaces/[workspaceUuid]/files/[fileUuid]/share/link",
+    });
+    if ("response" in routeContext) {
+      return routeContext.response;
+    }
+
+    return await handleWorkspaceFileShareLinkPost({
+      ...routeContext,
+      request,
+    });
+  } catch (error) {
+    return Response.json(
+      {
+        error: resolveWorkspaceFileShareRouteError(
+          error,
+          WORKSPACE_FILE_SHARE_CONTEXT_ERROR
+        ),
+      },
+      { status: 500 }
+    );
   }
-
-  const { workspaceUuid, fileUuid } = await context.params;
-  const canAccess = await userCanAccessWorkspace(
-    session.user.id,
-    workspaceUuid
-  );
-  if (!canAccess) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const link = await createResourceShareLink({
-    workspaceId: workspaceUuid,
-    resourceType: "file",
-    resourceId: fileUuid,
-    createdBy: session.user.id,
-    expiresInDays: 7,
-    allowPublic: true,
-  });
-
-  const baseUrl = resolveAppBaseUrl(_request);
-  return NextResponse.json({
-    link,
-    shareUrl: `${baseUrl}/share/${link.token}`,
-  });
 }

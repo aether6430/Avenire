@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { assertSafeUrl } from "../utils/safety";
 import { semanticChunkText } from "./chunking";
 
 const makeWordSequence = (count: number): string =>
@@ -96,12 +97,30 @@ describe("semanticChunkText", () => {
   it("infers chunk kinds from the content", () => {
     const cases = [
       { text: "Lemma: therefore the proof is complete.", kind: "proof" },
-      { text: "For instance, this example explains the rule.", kind: "example" },
-      { text: "Hence the derivation follows from the identity.", kind: "derivation" },
-      { text: "Imagine the field lines bending around the charge.", kind: "intuition" },
-      { text: "A common mistake is to drop the negative sign.", kind: "mistake" },
-      { text: "The diagram below shows the visual arrangement.", kind: "visualization" },
-      { text: "Definition: a group is a concept with closure.", kind: "concept" },
+      {
+        text: "For instance, this example explains the rule.",
+        kind: "example",
+      },
+      {
+        text: "Hence the derivation follows from the identity.",
+        kind: "derivation",
+      },
+      {
+        text: "Imagine the field lines bending around the charge.",
+        kind: "intuition",
+      },
+      {
+        text: "A common mistake is to drop the negative sign.",
+        kind: "mistake",
+      },
+      {
+        text: "The diagram below shows the visual arrangement.",
+        kind: "visualization",
+      },
+      {
+        text: "Definition: a group is a concept with closure.",
+        kind: "concept",
+      },
       { text: "Plain text with none of the special markers.", kind: "generic" },
     ] as const;
 
@@ -129,5 +148,14 @@ describe("semanticChunkText", () => {
     expect(chunks[1]?.content.startsWith("word205 word206 word207")).toBe(true);
     expect(chunks[0]?.content.includes("word240")).toBe(true);
     expect(chunks[1]?.content.includes("word340")).toBe(true);
+  });
+
+  it("allows public 172.200.x.x urls while still blocking private 172.20.x.x ingestion hosts", () => {
+    expect(assertSafeUrl("https://172.200.10.5/resource").toString()).toBe(
+      "https://172.200.10.5/resource"
+    );
+    expect(() => assertSafeUrl("https://172.20.10.5/resource")).toThrow(
+      "Private IPv4 URLs are not allowed for ingestion."
+    );
   });
 });

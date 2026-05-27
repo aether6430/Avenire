@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
-import type { RedisClientType } from "redis";
-import { ensureManagedRedisClient } from "@/lib/redis-client";
+import {
+  ensureManagedRedisClient,
+  type ManagedRedisClient,
+} from "@/lib/redis-client";
 
 export type UploadSessionStatus =
   | "created"
@@ -40,7 +42,7 @@ export interface UploadSessionRecord {
 const redisUrl = process.env.REDIS_URL;
 const SESSION_TTL_SECONDS = 24 * 60 * 60;
 
-let client: RedisClientType | null = null;
+let client: ManagedRedisClient | null = null;
 
 interface MemorySessionEntry {
   expiresAtMs: number;

@@ -1,14 +1,14 @@
 import { apollo } from "@avenire/ai";
-import { experimental_transcribe as transcribe } from 'ai';
+import { experimental_transcribe as transcribe } from "ai";
 
-export type TranscriptSegment = {
-  startMs: number;
+export interface TranscriptSegment {
   endMs: number;
+  startMs: number;
   text: string;
-};
+}
 
 export const transcribeAudio = async (
-  audioBytes: Uint8Array,
+  audioBytes: Uint8Array
 ): Promise<{ text: string; segments: TranscriptSegment[] }> => {
   let result: Awaited<ReturnType<typeof transcribe>>;
   try {
@@ -17,8 +17,8 @@ export const transcribeAudio = async (
       audio: audioBytes,
       providerOptions: {
         groq: {
-          responseFormat: 'verbose_json',
-          timestampGranularities: ['segment'],
+          responseFormat: "verbose_json",
+          timestampGranularities: ["segment"],
         },
       },
     });
@@ -33,17 +33,20 @@ export const transcribeAudio = async (
   }
 
   const segments = (result.segments ?? [])
-    .map(segment => ({
+    .map((segment) => ({
       startMs: Math.floor((segment.startSecond ?? 0) * 1000),
       endMs: Math.floor((segment.endSecond ?? 0) * 1000),
       text: segment.text,
     }))
-    .filter(segment => segment.text.trim().length > 0);
+    .filter((segment) => segment.text.trim().length > 0);
 
   return {
     text:
       result.text?.trim() ||
-      segments.map(segment => segment.text).join(' ').trim(),
+      segments
+        .map((segment) => segment.text)
+        .join(" ")
+        .trim(),
     segments,
   };
 };

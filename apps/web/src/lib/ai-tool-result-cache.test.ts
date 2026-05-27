@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, expect, it } from "vitest";
 import {
   createToolResultCacheKey,
   getCachedToolResult,
@@ -18,7 +17,7 @@ describe("AI tool result cache", () => {
       toolName: "list_misconceptions",
     });
 
-    assert.equal(first, second);
+    expect(first).toBe(second);
   });
 
   it("returns the in-memory cached value without executing the tool again", async () => {
@@ -47,10 +46,10 @@ describe("AI tool result cache", () => {
       nowMs: () => 2000,
     });
 
-    assert.equal(miss.cache, "miss");
-    assert.equal(hit.cache, "hit");
-    assert.deepEqual(hit.value, [{ concept: "velocity" }]);
-    assert.equal(calls, 1);
+    expect(miss.cache).toBe("miss");
+    expect(hit.cache).toBe("hit");
+    expect(hit.value).toEqual([{ concept: "velocity" }]);
+    expect(calls).toBe(1);
   });
 
   it("reads and writes Redis with the configured TTL", async () => {
@@ -83,10 +82,10 @@ describe("AI tool result cache", () => {
       }
     );
 
-    assert.equal(result.cache, "miss");
-    assert.equal(writes.length, 1);
-    assert.deepEqual(writes[0]?.options, { EX: 300 });
-    assert.deepEqual(JSON.parse(writes[0]?.value ?? "null"), [
+    expect(result.cache).toBe("miss");
+    expect(writes).toHaveLength(1);
+    expect(writes[0]?.options).toEqual({ EX: 300 });
+    expect(JSON.parse(writes[0]?.value ?? "null")).toEqual([
       { concept: "acceleration" },
     ]);
   });

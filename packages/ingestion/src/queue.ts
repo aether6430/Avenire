@@ -4,6 +4,7 @@ import {
 } from "@avenire/database";
 import { reportError } from "@avenire/observability";
 import { Queue, Worker } from "bullmq";
+import { normalizeRedisUrl } from "./runtime/redis-client";
 
 export const INGESTION_QUEUE_NAME = "avenire-ingestion";
 const INGESTION_JOB_NAME = "process";
@@ -47,7 +48,7 @@ function getRedisUrl() {
     throw new Error("REDIS_URL is required for BullMQ ingestion jobs.");
   }
 
-  return redisUrl;
+  return normalizeRedisUrl(redisUrl);
 }
 
 function getQueue() {

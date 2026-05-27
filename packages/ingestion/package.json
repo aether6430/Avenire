@@ -7,13 +7,16 @@
     ".": "./src/index.ts",
     "./link": "./src/ingestion/link.ts",
     "./queue": "./src/queue.ts",
+    "./runtime/redis-client": "./src/runtime/redis-client.ts",
+    "./workspace-retrieval": "./src/workspace-retrieval.ts",
     "./types": "./src/ingestion/types.ts"
   },
   "scripts": {
-    "build": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json",
     "lint": "biome check .",
-    "check-types": "tsc --noEmit",
-    "test": "vitest run",
+    "check-types": "tsc --noEmit -p tsconfig.build.json",
+    "test": "vitest run --dir src",
+    "test:coverage": "vitest run --coverage.enabled true --coverage.provider v8 --coverage.reporter text-summary --coverage.reporter json-summary --coverage.include 'src/**/*.ts' --coverage.exclude 'src/**/*.d.ts' --coverage.exclude 'src/**/*.test.*'",
     "format": "biome format --write ."
   },
   "dependencies": {
@@ -22,13 +25,13 @@
     "@avenire/database": "workspace:*",
     "@avenire/observability": "workspace:*",
     "@mistralai/mistralai": "^1.14.1",
+    "defuddle": "^0.15.0",
+    "linkedom": "^0.18.12",
     "@tavily/core": "^0.7.3",
     "abso-ai": "^0.0.9",
     "ai": "^6.0.141",
     "bullmq": "^5.70.4",
-    "defuddle": "^0.15.0",
-    "drizzle-orm": "^0.45.2",
-    "linkedom": "^0.18.12",
+    "drizzle-orm": "0.45.2",
     "pdfjs-dist": "^5.4.624",
     "redis": "^5.11.0",
     "zod": "^4.3.6"
@@ -36,8 +39,10 @@
   "devDependencies": {
     "@avenire/env-types": "workspace:*",
     "@avenire/typescript-config": "workspace:*",
-    "@types/node": "latest",
-    "typescript": "latest",
-    "vitest": "^4.1.6"
+    "@types/node": "25.4.0",
+    "@vitest/coverage-v8": "4.1.7",
+    "typescript": "5.9.3",
+    "vite": "7.3.1",
+    "vitest": "4.1.7"
   }
 }

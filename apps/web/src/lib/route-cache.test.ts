@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, expect, it } from "vitest";
 import { createRouteCacheKey } from "./route-cache";
 
 describe("route cache", () => {
@@ -25,7 +24,7 @@ describe("route cache", () => {
       version: "1",
     });
 
-    assert.equal(first, second);
+    expect(first).toBe(second);
   });
 
   it("separates route keys by namespace, scope, and version", () => {
@@ -36,8 +35,7 @@ describe("route cache", () => {
       version: "1",
     });
 
-    assert.notEqual(
-      base,
+    expect(base).not.toBe(
       createRouteCacheKey({
         namespace: "workspace",
         params: { route: "revision-calendar" },
@@ -45,8 +43,7 @@ describe("route cache", () => {
         version: "1",
       })
     );
-    assert.notEqual(
-      base,
+    expect(base).not.toBe(
       createRouteCacheKey({
         namespace: "flashcards",
         params: { route: "revision-calendar" },
@@ -54,8 +51,7 @@ describe("route cache", () => {
         version: "1",
       })
     );
-    assert.notEqual(
-      base,
+    expect(base).not.toBe(
       createRouteCacheKey({
         namespace: "flashcards",
         params: { route: "revision-calendar" },

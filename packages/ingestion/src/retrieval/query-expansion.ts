@@ -30,9 +30,14 @@ export async function expandQuery(query: string): Promise<string | null> {
     maxOutputTokens: 64,
   });
 
-  const expanded = normalizeExpansion(
-    stripCodeFences(text).replace(/^(?:[-*•]|\d+[.)])\s*/g, "")
-  );
+  const stripped = stripCodeFences(text);
+  const expanded =
+    stripped
+      .split(/\n+/)
+      .map((line) =>
+        normalizeExpansion(line.replace(/^(?:[-*•]|\d+[.)])\s*/g, ""))
+      )
+      .find(Boolean) ?? "";
 
   if (!expanded || expanded.toLowerCase() === normalizedQuery.toLowerCase()) {
     return null;
