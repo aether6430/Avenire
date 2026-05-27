@@ -363,7 +363,7 @@ describe("workspace retrieval", () => {
     );
     expect(ingestionPackageSource).toContain('"./runtime/redis-client"');
     expect(ingestionPackageSource).toContain(
-      '"default": "./dist/runtime/redis-client.js"'
+      '"./runtime/redis-client": "./src/runtime/redis-client.ts"'
     );
   });
 
