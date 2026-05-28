@@ -4,6 +4,7 @@ import { Inconsolata, Inter, Lora } from "next/font/google";
 import localFont from "next/font/local";
 import { ServiceWorkerRegistration } from "@/components/pwa/ServiceWorkerRegistration";
 import { PostHogTracker } from "@/components/analytics/posthog-tracker";
+import { ScrollbarActivity } from "@/components/scrollbar-activity";
 import { metadataBase } from "@/lib/page-metadata";
 import { Suspense } from "react";
 import "react-quizlet-flashcard/dist/index.css";
@@ -101,6 +102,7 @@ export default function RootLayout({
         }
       >
         <ServiceWorkerRegistration />
+        <ScrollbarActivity />
         <Suspense fallback={null}>
           <PostHogTracker />
         </Suspense>
