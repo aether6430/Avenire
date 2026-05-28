@@ -743,6 +743,342 @@ export const conceptMastery = pgTable(
   ]
 );
 
+export const method = pgTable(
+  "method",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    title: text("title").notNull(),
+    status: text("status").notNull().default("active"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("method_workspace_type_updated_idx").on(
+      table.workspaceId,
+      table.type,
+      table.updatedAt
+    ),
+    index("method_user_status_idx").on(table.userId, table.status),
+  ]
+);
+
+export const courseMap = pgTable(
+  "course_map",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    methodId: uuid("method_id")
+      .notNull()
+      .references(() => method.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    subject: text("subject"),
+    status: text("status").notNull().default("draft"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("course_map_method_idx").on(table.methodId),
+    index("course_map_workspace_status_idx").on(table.workspaceId, table.status),
+  ]
+);
+
+export const courseMapVersion = pgTable(
+  "course_map_version",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    courseMapId: uuid("course_map_id")
+      .notNull()
+      .references(() => courseMap.id, { onDelete: "cascade" }),
+    versionNumber: integer("version_number").notNull(),
+    snapshot: jsonb("snapshot")
+      .notNull()
+      .$type<Record<string, unknown>>()
+      .default({}),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("course_map_version_map_number_uidx").on(
+      table.courseMapId,
+      table.versionNumber
+    ),
+    index("course_map_version_map_created_idx").on(
+      table.courseMapId,
+      table.createdAt
+    ),
+  ]
+);
+
+export const courseMethod = pgTable(
+  "course_method",
+  {
+    methodId: uuid("method_id")
+      .primaryKey()
+      .references(() => method.id, { onDelete: "cascade" }),
+    activeCourseMapId: uuid("active_course_map_id").references(
+      () => courseMap.id,
+      { onDelete: "set null" }
+    ),
+    currentVersionId: uuid("current_version_id").references(
+      () => courseMapVersion.id,
+      { onDelete: "set null" }
+    ),
+    settings: jsonb("settings")
+      .notNull()
+      .$type<Record<string, unknown>>()
+      .default({}),
+    sourceRefs: jsonb("source_refs")
+      .notNull()
+      .$type<Array<Record<string, unknown>>>()
+      .default([]),
+  },
+  (table) => [
+    index("course_method_active_map_idx").on(table.activeCourseMapId),
+    index("course_method_current_version_idx").on(table.currentVersionId),
+  ]
+);
+
+export const courseMapNode = pgTable(
+  "course_map_node",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    courseMapId: uuid("course_map_id")
+      .notNull()
+      .references(() => courseMap.id, { onDelete: "cascade" }),
+    currentVersionId: uuid("current_version_id")
+      .notNull()
+      .references(() => courseMapVersion.id, { onDelete: "cascade" }),
+    parentId: uuid("parent_id"),
+    title: text("title").notNull(),
+    nodeType: text("node_type").notNull().default("topic"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    examWeight: real("exam_weight").notNull().default(0),
+    userPriority: real("user_priority").notNull().default(0),
+    estimatedEffortMinutes: integer("estimated_effort_minutes"),
+    difficulty: real("difficulty"),
+    prerequisiteNodeIds: jsonb("prerequisite_node_ids")
+      .notNull()
+      .$type<string[]>()
+      .default([]),
+    groundingState: text("grounding_state").notNull().default("ai_suggested"),
+    verificationState: text("verification_state")
+      .notNull()
+      .default("needs_review"),
+    sourceRefs: jsonb("source_refs")
+      .notNull()
+      .$type<Array<Record<string, unknown>>>()
+      .default([]),
+    taxonomySubject: text("taxonomy_subject"),
+    taxonomyTopic: text("taxonomy_topic"),
+    taxonomyConcept: text("taxonomy_concept"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("course_map_node_map_parent_order_idx").on(
+      table.courseMapId,
+      table.parentId,
+      table.sortOrder
+    ),
+    index("course_map_node_version_idx").on(table.currentVersionId),
+    index("course_map_node_taxonomy_idx").on(
+      table.taxonomySubject,
+      table.taxonomyTopic,
+      table.taxonomyConcept
+    ),
+  ]
+);
+
+export const studySprint = pgTable(
+  "study_sprint",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    courseMapId: uuid("course_map_id")
+      .notNull()
+      .references(() => courseMap.id, { onDelete: "cascade" }),
+    courseMapVersionId: uuid("course_map_version_id")
+      .notNull()
+      .references(() => courseMapVersion.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    deadline: timestamp("deadline", { withTimezone: true }).notNull(),
+    dailyTimeBudgetMinutes: integer("daily_time_budget_minutes")
+      .notNull()
+      .default(60),
+    targetReadiness: real("target_readiness").notNull().default(0.8),
+    status: text("status").notNull().default("active"),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("study_sprint_map_status_idx").on(table.courseMapId, table.status),
+    index("study_sprint_workspace_user_status_idx").on(
+      table.workspaceId,
+      table.userId,
+      table.status
+    ),
+  ]
+);
+
+export const sprintPlanItem = pgTable(
+  "sprint_plan_item",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sprintId: uuid("sprint_id")
+      .notNull()
+      .references(() => studySprint.id, { onDelete: "cascade" }),
+    courseMapNodeId: uuid("course_map_node_id")
+      .notNull()
+      .references(() => courseMapNode.id, { onDelete: "cascade" }),
+    plannedFor: timestamp("planned_for", { withTimezone: true }).notNull(),
+    estimatedMinutes: integer("estimated_minutes").notNull(),
+    itemType: text("item_type").notNull(),
+    status: text("status").notNull().default("proposed"),
+    rationale: text("rationale").notNull(),
+    linkedTaskId: uuid("linked_task_id").references(() => task.id, {
+      onDelete: "set null",
+    }),
+    sourceRefs: jsonb("source_refs")
+      .notNull()
+      .$type<Array<Record<string, unknown>>>()
+      .default([]),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("sprint_plan_item_sprint_status_idx").on(table.sprintId, table.status),
+    index("sprint_plan_item_node_idx").on(table.courseMapNodeId),
+    index("sprint_plan_item_task_idx").on(table.linkedTaskId),
+  ]
+);
+
+export const courseMapPatch = pgTable(
+  "course_map_patch",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    courseMapId: uuid("course_map_id")
+      .notNull()
+      .references(() => courseMap.id, { onDelete: "cascade" }),
+    baseVersionId: uuid("base_version_id")
+      .notNull()
+      .references(() => courseMapVersion.id, { onDelete: "cascade" }),
+    proposedBy: text("proposed_by").notNull().default("ai"),
+    reason: text("reason").notNull(),
+    status: text("status").notNull().default("pending"),
+    operations: jsonb("operations")
+      .notNull()
+      .$type<Array<Record<string, unknown>>>()
+      .default([]),
+    sourceRefs: jsonb("source_refs")
+      .notNull()
+      .$type<Array<Record<string, unknown>>>()
+      .default([]),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("course_map_patch_map_status_idx").on(table.courseMapId, table.status),
+    index("course_map_patch_base_version_idx").on(table.baseVersionId),
+  ]
+);
+
+export const learningEvent = pgTable(
+  "learning_event",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    courseMethodId: uuid("course_method_id")
+      .notNull()
+      .references(() => method.id, { onDelete: "cascade" }),
+    courseMapId: uuid("course_map_id")
+      .notNull()
+      .references(() => courseMap.id, { onDelete: "cascade" }),
+    courseMapVersionId: uuid("course_map_version_id")
+      .notNull()
+      .references(() => courseMapVersion.id, { onDelete: "cascade" }),
+    courseMapNodeId: uuid("course_map_node_id")
+      .notNull()
+      .references(() => courseMapNode.id, { onDelete: "cascade" }),
+    sprintId: uuid("sprint_id").references(() => studySprint.id, {
+      onDelete: "set null",
+    }),
+    sourceType: text("source_type").notNull(),
+    sourceTable: text("source_table"),
+    sourceId: text("source_id"),
+    direction: text("direction").notNull(),
+    evidenceStrength: text("evidence_strength").notNull(),
+    payload: jsonb("payload")
+      .notNull()
+      .$type<Record<string, unknown>>()
+      .default({}),
+    observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("learning_event_node_observed_idx").on(
+      table.courseMapNodeId,
+      table.observedAt
+    ),
+    index("learning_event_sprint_observed_idx").on(
+      table.sprintId,
+      table.observedAt
+    ),
+    index("learning_event_source_idx").on(table.sourceTable, table.sourceId),
+  ]
+);
+
 export const billingCustomer = pgTable(
   "billing_customer",
   {
