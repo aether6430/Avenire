@@ -201,7 +201,7 @@ const DeferredSidebarTaskPreview = dynamic(
     })),
   {
     loading: () => (
-      <div className="sidebar-fade-scrollbar absolute inset-0 overflow-y-auto px-4 py-4 text-muted-foreground text-xs">
+      <div className="absolute inset-0 overflow-y-auto px-4 py-4 text-muted-foreground text-xs">
         Loading tasks...
       </div>
     ),
@@ -507,10 +507,7 @@ function ChatListSection({
 
   return (
     <div className="min-h-0 flex-1 overflow-hidden">
-      <div
-        className="sidebar-fade-scrollbar h-full overflow-y-auto px-2 pb-2"
-        ref={scrollRef}
-      >
+      <div className="h-full overflow-y-auto px-2 pb-2" ref={scrollRef}>
         <div
           className="relative w-full"
           style={{ height: `${virtualizer.getTotalSize()}px` }}
@@ -2178,7 +2175,7 @@ export function DashboardSidebar({
             </SidebarGroup>
             <div className="relative min-h-0 flex-1 overflow-hidden">
               {sidebarView === "workspace" ? (
-                <div className="sidebar-fade-scrollbar absolute inset-0 overflow-y-auto px-2 py-2">
+                <div className="absolute inset-0 overflow-y-auto px-2 py-2">
                   <SidebarGroup>
                     <SidebarGroupLabel>Workspace Home</SidebarGroupLabel>
                     <SidebarGroupContent>
@@ -2293,7 +2290,7 @@ export function DashboardSidebar({
                     aria-hidden={sidebarView !== "chat"}
                     className={
                       mountedViews.has("chat")
-                        ? `sidebar-fade-scrollbar absolute inset-0 overflow-y-auto ${
+                        ? `absolute inset-0 overflow-y-auto ${
                             sidebarView === "chat"
                               ? ""
                               : "pointer-events-none hidden"
@@ -2310,7 +2307,9 @@ export function DashboardSidebar({
                                 icon={MagnifyingGlass}
                                 label="Search methods"
                                 onClick={() => {
-                                  commandPaletteActions.open();
+                                  commandPaletteActions.open({
+                                    scope: "chats",
+                                  });
                                 }}
                               />
                               <SectionIconAction

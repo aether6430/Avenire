@@ -19,6 +19,7 @@ import {
   subscribeToTaskStore,
 } from "@/lib/task-client-store";
 import { formatTaskDueDate, getTaskStatusLabel } from "@/lib/tasks";
+import { commandPaletteActions } from "@/stores/commandPaletteStore";
 
 function SectionButton({
   label,
@@ -127,7 +128,7 @@ export function SidebarTaskPreview({
     );
 
   return (
-    <div className="sidebar-fade-scrollbar absolute inset-0 overflow-y-auto px-2 py-2">
+    <div className="absolute inset-0 overflow-y-auto px-2 py-2">
       <SidebarGroup>
         <div className="flex items-center justify-between gap-2">
           <SidebarGroupLabel>Tasks</SidebarGroupLabel>
@@ -135,8 +136,7 @@ export function SidebarTaskPreview({
             <Button
               className="h-7 w-7 rounded-md border border-border/60 bg-background/60 p-0 text-muted-foreground shadow-none hover:bg-muted"
               onClick={() => {
-                closeMobileSidebar();
-                navigate("/workspace/tasks" as Route);
+                commandPaletteActions.open({ scope: "tasks" });
               }}
               size="icon"
               type="button"

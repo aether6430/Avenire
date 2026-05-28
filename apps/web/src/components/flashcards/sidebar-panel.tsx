@@ -258,7 +258,7 @@ export function FlashcardsSidebarPanel({
   }, [searchQuery, sets]);
 
   return (
-    <div className="sidebar-fade-scrollbar absolute inset-0 overflow-y-auto">
+    <div className="absolute inset-0 overflow-y-auto">
       <SidebarGroup>
         <div className="flex items-center justify-between gap-2">
           <SidebarGroupLabel>Mindset</SidebarGroupLabel>
@@ -266,7 +266,7 @@ export function FlashcardsSidebarPanel({
             <Button
               className="h-7 w-7 rounded-md border border-border/60 bg-background/60 p-0 text-muted-foreground shadow-none hover:bg-muted"
               onClick={() => {
-                commandPaletteActions.open();
+                commandPaletteActions.open({ scope: "mindset" });
               }}
               size="icon"
               type="button"
@@ -415,14 +415,22 @@ export function FlashcardsSidebarPanel({
                 <SidebarMenuItem key={misconception.id}>
                   <SidebarMenuButton
                     onClick={(event) => {
-                      const href = "/workspace/flashcards" as Route;
+                      const href =
+                        `/workspace/flashcards?misconception=${encodeURIComponent(
+                          misconception.id
+                        )}` as Route;
                       if (handlePaneIntent(event, href)) {
                         return;
                       }
                       navigateToFlashcards(href);
                     }}
                     onContextMenu={(event) => {
-                      handlePaneIntent(event, "/workspace/flashcards" as Route);
+                      handlePaneIntent(
+                        event,
+                        `/workspace/flashcards?misconception=${encodeURIComponent(
+                          misconception.id
+                        )}` as Route
+                      );
                     }}
                   >
                     <Badge className="rounded-md" variant="outline">
@@ -438,20 +446,7 @@ export function FlashcardsSidebarPanel({
       ) : null}
 
       <SidebarGroup className="min-h-0 flex-1">
-        <div className="flex items-center justify-between gap-2">
-          <SidebarGroupLabel>Sets</SidebarGroupLabel>
-          <Button
-            className="h-7 w-7 rounded-md border border-border/60 bg-background/60 p-0 text-muted-foreground shadow-none hover:bg-muted"
-            onClick={() => {
-              commandPaletteActions.open();
-            }}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <MagnifyingGlass className="size-3.5" />
-          </Button>
-        </div>
+        <SidebarGroupLabel>Sets</SidebarGroupLabel>
         <SidebarGroupContent>
           <Input
             className="mb-2 hidden h-8"
