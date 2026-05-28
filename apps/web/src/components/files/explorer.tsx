@@ -305,6 +305,22 @@ function getFileProperties(file: FileRecord): FrontmatterProperties {
   return file.page?.properties ?? {};
 }
 
+function isPropertyValueFilterable(property: FilePropertyValue) {
+  switch (property.type) {
+    case "checkbox":
+      return true;
+    case "date":
+    case "text":
+      return Boolean(property.value?.trim());
+    case "multi_select":
+      return property.value.length > 0;
+    case "number":
+      return property.value !== null;
+    case "select":
+      return Boolean(property.value?.trim());
+  }
+}
+
 function formatCardPropertyValue(property: FilePropertyValue) {
   if (property.type === "checkbox") {
     return property.value ? "Yes" : "No";
@@ -317,21 +333,24 @@ function mergePropertyDefinitions(
   files: FileRecord[],
   definitions: WorkspacePropertyDefinition[]
 ) {
-  const merged = new Map<string, WorkspacePropertyDefinition>(
-    definitions.map((definition) => [definition.key, definition])
-  );
+  const liveProperties = new Map<string, WorkspacePropertyDefinition>();
 
   for (const file of files) {
     for (const [key, property] of Object.entries(getFileProperties(file))) {
-      const existing = merged.get(key);
+      if (!isPropertyValueFilterable(property)) {
+        continue;
+      }
+
+      const existing = liveProperties.get(key);
       const options =
         property.type === "multi_select"
           ? property.value
           : property.type === "select" && property.value
             ? [property.value]
             : [];
+
       if (!existing) {
-        merged.set(key, {
+        liveProperties.set(key, {
           key,
           options,
           type: property.type,
@@ -339,12 +358,42 @@ function mergePropertyDefinitions(
         continue;
       }
 
-      merged.set(key, {
+      liveProperties.set(key, {
         ...existing,
         options: Array.from(new Set([...existing.options, ...options])).sort(
           (left, right) => left.localeCompare(right)
         ),
       });
+    }
+  }
+
+  const merged = new Map<string, WorkspacePropertyDefinition>(
+    definitions
+      .filter((definition) => liveProperties.has(definition.key))
+      .map((definition) => [definition.key, definition])
+  );
+
+  for (const [key, property] of liveProperties) {
+    const existing = merged.get(key);
+    if (!existing) {
+      merged.set(key, property);
+      continue;
+    }
+
+    merged.set(key, {
+      ...existing,
+      options: Array.from(
+        new Set([...existing.options, ...property.options])
+      ).sort((left, right) => left.localeCompare(right)),
+    });
+  }
+
+  for (const [key, property] of Array.from(merged)) {
+    if (
+      (property.type === "multi_select" || property.type === "select") &&
+      property.options.length === 0
+    ) {
+      merged.delete(key);
     }
   }
 

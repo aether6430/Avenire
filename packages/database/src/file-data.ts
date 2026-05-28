@@ -9,6 +9,7 @@ import {
   isNull,
   lte,
   ne,
+  notInArray,
   or,
   sql,
 } from "drizzle-orm";
@@ -661,6 +662,62 @@ function collectPropertyRegistryEntries(
         workspaceId: string;
       } => Boolean(entry)
     );
+}
+
+function collectWorkspacePropertyRegistryEntriesFromFiles(
+  workspaceId: string,
+  files: Array<{ metadata: Record<string, unknown> }>
+) {
+  const byKey = new Map<
+    string,
+    {
+      key: string;
+      options: string[];
+      type: FilePropertyType;
+      workspaceId: string;
+    }
+  >();
+
+  for (const file of files) {
+    const metadata = asObjectRecord(file.metadata);
+    const page = mapFilePageRecord(metadata?.page);
+    if (!page) {
+      continue;
+    }
+
+    for (const entry of collectPropertyRegistryEntries(
+      workspaceId,
+      page.properties
+    )) {
+      const existing = byKey.get(entry.key);
+      if (!existing) {
+        byKey.set(entry.key, {
+          workspaceId,
+          key: entry.key,
+          type: entry.type,
+          options: entry.options,
+        });
+        continue;
+      }
+
+      if (existing.type !== entry.type) {
+        continue;
+      }
+
+      existing.options = normalizeSelectOptions([
+        ...existing.options,
+        ...entry.options,
+      ]);
+    }
+  }
+
+  return Array.from(byKey.values()).filter((entry) => {
+    if (entry.type === "multi_select" || entry.type === "select") {
+      return entry.options.length > 0;
+    }
+
+    return true;
+  });
 }
 
 function mapWorkspacePropertyRegistry(
@@ -3002,11 +3059,80 @@ export async function replaceFileAssetContent(
 }
 
 export async function listWorkspacePropertyRegistry(workspaceId: string) {
-  const rows = await db
-    .select()
-    .from(workspacePropertyRegistry)
-    .where(eq(workspacePropertyRegistry.workspaceId, workspaceId))
-    .orderBy(asc(workspacePropertyRegistry.key));
+  const rows = await db.transaction(async (tx) => {
+    const activeFiles = await tx
+      .select({ metadata: fileAsset.metadata })
+      .from(fileAsset)
+      .where(
+        and(
+          eq(fileAsset.workspaceId, workspaceId),
+          isNull(fileAsset.deletedAt)
+        )
+      );
+
+    const activeEntries = collectWorkspacePropertyRegistryEntriesFromFiles(
+      workspaceId,
+      activeFiles
+    );
+    const activeKeys = activeEntries.map((entry) => entry.key);
+
+    if (activeKeys.length === 0) {
+      await tx
+        .delete(workspacePropertyRegistry)
+        .where(eq(workspacePropertyRegistry.workspaceId, workspaceId));
+    } else {
+      await tx
+        .delete(workspacePropertyRegistry)
+        .where(
+          and(
+            eq(workspacePropertyRegistry.workspaceId, workspaceId),
+            notInArray(workspacePropertyRegistry.key, activeKeys)
+          )
+        );
+    }
+
+    for (const entry of activeEntries) {
+      const [existing] = await tx
+        .select()
+        .from(workspacePropertyRegistry)
+        .where(
+          and(
+            eq(workspacePropertyRegistry.workspaceId, workspaceId),
+            eq(workspacePropertyRegistry.key, entry.key)
+          )
+        )
+        .limit(1);
+
+      if (!existing) {
+        const now = new Date();
+        await tx.insert(workspacePropertyRegistry).values({
+          ...entry,
+          createdAt: now,
+          updatedAt: now,
+          lastUsedAt: now,
+        });
+        continue;
+      }
+
+      if (existing.type !== entry.type) {
+        continue;
+      }
+
+      await tx
+        .update(workspacePropertyRegistry)
+        .set({
+          options: entry.options,
+          updatedAt: new Date(),
+        })
+        .where(eq(workspacePropertyRegistry.id, existing.id));
+    }
+
+    return tx
+      .select()
+      .from(workspacePropertyRegistry)
+      .where(eq(workspacePropertyRegistry.workspaceId, workspaceId))
+      .orderBy(asc(workspacePropertyRegistry.key));
+  });
 
   return rows
     .filter((row): row is typeof workspacePropertyRegistry.$inferSelect =>
