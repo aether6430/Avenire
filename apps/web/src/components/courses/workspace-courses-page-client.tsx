@@ -301,6 +301,11 @@ export function WorkspaceCoursesPageClient() {
   useEffect(() => {
     if (searchParams.get("create") === "1") {
       setCreateOpen(true);
+      const title = searchParams.get("title")?.trim();
+      if (title) {
+        setCourseTitle((current) => current || title);
+        setCourseTopics((current) => current || title);
+      }
     }
   }, [searchParams]);
 

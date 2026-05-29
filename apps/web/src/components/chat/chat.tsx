@@ -10,6 +10,7 @@ import {
   lastAssistantMessageIsCompleteWithApprovalResponses,
 } from "ai";
 import { AnimatePresence, motion } from "motion/react";
+import type { Route } from "next";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
@@ -24,6 +25,7 @@ import {
 } from "@/lib/chat-events";
 import { normalizeMediaType } from "@/lib/media-type";
 import { emitPetNotification } from "@/lib/pet-preferences";
+import { useWorkspaceSurfaceNavigation } from "@/lib/workspace-panes";
 import { type Attachment, createLocalAttachment } from "./attachment";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
@@ -48,6 +50,14 @@ const ACTIVE_REPLY_MIN_HEIGHT = "calc(100dvh - 250px)";
 const EMPTY_COMPOSER_SHELL_CLASSNAME = "mx-auto mb-3 w-full max-w-3xl";
 const FLOATING_COMPOSER_SHELL_CLASSNAME = "mx-auto mb-3 w-full max-w-3xl";
 
+function parseCourseCommand(input: string) {
+  const trimmed = input.trim();
+  if (!/^\/course(?:\s|$)/i.test(trimmed)) {
+    return null;
+  }
+  return trimmed.replace(/^\/course/i, "").trim();
+}
+
 export function Chat({
   id,
   initialMessages,
@@ -57,6 +67,7 @@ export function Chat({
   workspaceUuid,
   userName,
 }: ChatProps) {
+  const { navigate } = useWorkspaceSurfaceNavigation({ panesEnabled: true });
   const [chatId, setChatId] = useState(() =>
     id === "new" ? crypto.randomUUID() : id
   );
@@ -403,6 +414,21 @@ export function Chat({
   );
 
   const handleSubmit = async (inputValue: string, files: Attachment[]) => {
+    const courseTitle = parseCourseCommand(inputValue);
+    if (courseTitle !== null) {
+      const params = new URLSearchParams();
+      params.set("create", "1");
+      if (courseTitle) {
+        params.set("title", courseTitle);
+      }
+      navigate(`/workspace/courses?${params.toString()}` as Route);
+      toast.message("Opening course draft creator", {
+        description:
+          "Review the draft map before starting a sprint or creating tasks.",
+      });
+      return;
+    }
+
     const localFileParts: FileUIPart[] = files
       .filter((attachment) => attachment.source === "local")
       .flatMap((attachment) => {
