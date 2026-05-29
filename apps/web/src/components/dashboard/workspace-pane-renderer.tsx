@@ -41,6 +41,7 @@ import { WorkspaceChatRoutePageClient } from "@/components/dashboard/workspace-c
 import { WorkspaceHeader } from "@/components/dashboard/workspace-header";
 import { WorkspaceOverviewPageClient } from "@/components/dashboard/workspace-overview-page-client";
 import { WorkspaceRoutePlaceholder } from "@/components/dashboard/workspace-route-placeholder";
+import { WorkspaceCoursesPageClient } from "@/components/courses/workspace-courses-page-client";
 import { WorkspaceFilesRootPageClient } from "@/components/files/workspace-files-root-page-client";
 import { WorkspaceFolderRoutePageClient } from "@/components/files/workspace-folder-route-page-client";
 import { FlashcardSetPageClient } from "@/components/flashcards/set-detail-page";
@@ -79,6 +80,10 @@ function WorkspacePaneScene({
 
   if (pathname === "/workspace/tasks") {
     return <WorkspaceTasksPageClient />;
+  }
+
+  if (pathname === "/workspace/courses") {
+    return <WorkspaceCoursesPageClient />;
   }
 
   if (pathname === "/workspace/flashcards") {
