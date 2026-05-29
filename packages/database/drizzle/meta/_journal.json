@@ -134,13 +134,6 @@
       "when": 1779580800000,
       "tag": "0019_misconception_blocks",
       "breakpoints": true
-    },
-    {
-      "idx": 19,
-      "version": "7",
-      "when": 1780012800000,
-      "tag": "0020_course_methods",
-      "breakpoints": true
     }
   ]
 }
