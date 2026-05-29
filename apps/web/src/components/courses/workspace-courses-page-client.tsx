@@ -17,14 +17,30 @@ import { Progress } from "@avenire/ui/components/progress";
 import { Textarea } from "@avenire/ui/components/textarea";
 import { cn } from "@avenire/ui/lib/utils";
 import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  ArrowsOutCardinal,
   CalendarBlank,
+  CaretDown,
+  CaretRight,
   CheckCircle,
   Clock,
+  FileText,
   Flag,
   Graph,
   ListChecks,
   MapTrifold,
+  MagnifyingGlass,
   Plus,
+  Sparkle,
   Warning,
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -110,6 +126,40 @@ interface SprintPlanPayload {
   planItems: SprintPlanItem[];
 }
 
+interface DraftOutlineNode {
+  estimatedEffortMinutes: number;
+  examWeight: number;
+  focusRecommended: boolean;
+  groundingState: "ai_suggested" | "user_added";
+  id: string;
+  nodeType: "module" | "topic" | "subtopic";
+  parentId: string | null;
+  riskPrompts: string[];
+  sortOrder: number;
+  sourceRefs: Array<{
+    label?: string;
+    type: "manual" | "url" | "file" | "note";
+    url?: string;
+  }>;
+  title: string;
+  userPriority: number;
+  verificationState: "ai_suggested" | "needs_review" | "user_added";
+}
+
+interface GenerateOutlinePayload {
+  outline: {
+    nodes: DraftOutlineNode[];
+    sourceRefs: DraftOutlineNode["sourceRefs"];
+    summary: {
+      focusCount: number;
+      groundedCount: number;
+      sourceCount: number;
+    };
+    title: string;
+  };
+  sourceErrors: string[];
+}
+
 interface CreateCourseResponse {
   course: {
     method: {
@@ -181,6 +231,37 @@ function statusTone(value: number) {
   return "text-destructive";
 }
 
+function remapDraftNodesForCreation(nodes: DraftOutlineNode[]) {
+  const idByDraftId = new Map(
+    nodes.map((node) => [node.id, crypto.randomUUID()])
+  );
+
+  return nodes.map((node, index) => ({
+    difficulty: null,
+    estimatedEffortMinutes: node.estimatedEffortMinutes,
+    examWeight: node.examWeight,
+    groundingState: node.groundingState,
+    id: idByDraftId.get(node.id),
+    nodeType: node.nodeType,
+    parentId: node.parentId ? (idByDraftId.get(node.parentId) ?? null) : null,
+    prerequisiteNodeIds: [],
+    sortOrder: index,
+    sourceRefs: [
+      ...node.sourceRefs,
+      ...node.riskPrompts.slice(0, 1).map((prompt) => ({
+        label: `Risk area: ${prompt}`,
+        type: "manual" as const,
+      })),
+    ],
+    taxonomyConcept: node.title,
+    taxonomySubject: null,
+    taxonomyTopic: null,
+    title: node.title,
+    userPriority: node.userPriority,
+    verificationState: node.verificationState,
+  }));
+}
+
 export function WorkspaceCoursesPageClient() {
   const queryClient = useQueryClient();
   const searchParams = usePaneSearchParams();
@@ -191,10 +272,19 @@ export function WorkspaceCoursesPageClient() {
   const [createOpen, setCreateOpen] = useState(
     searchParams.get("create") === "1"
   );
+  const [courseExam, setCourseExam] = useState("");
   const [courseTitle, setCourseTitle] = useState("");
-  const [courseSubject, setCourseSubject] = useState("");
+  const [courseTopic, setCourseTopic] = useState("");
+  const [courseMaterial, setCourseMaterial] = useState("");
   const [courseTopics, setCourseTopics] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
+  const [outlineNodes, setOutlineNodes] = useState<DraftOutlineNode[]>([]);
+  const [outlineSourceErrors, setOutlineSourceErrors] = useState<string[]>([]);
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    })
+  );
 
   const methodsQuery = useQuery({
     enabled: status === "ready" && Boolean(user?.id && workspace?.workspaceId),
@@ -241,31 +331,80 @@ export function WorkspaceCoursesPageClient() {
     },
   });
 
+  const generateOutlineMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch("/api/course-methods/generate-outline", {
+        body: JSON.stringify({
+          docText: courseMaterial.trim() || undefined,
+          exam: courseExam.trim() || undefined,
+          subtopics: courseTopics.trim() || undefined,
+          topic: courseTopic.trim() || courseTitle.trim(),
+          useWeb: true,
+          useWorkspace: true,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        throw new Error(payload?.error ?? "Unable to generate outline.");
+      }
+
+      return (await response.json()) as GenerateOutlinePayload;
+    },
+    onSuccess: (payload) => {
+      setCourseTitle((current) => current || payload.outline.title);
+      setOutlineNodes(payload.outline.nodes);
+      setOutlineSourceErrors(payload.sourceErrors);
+      setCreateError(null);
+    },
+    onError: (error) => {
+      setCreateError(
+        error instanceof Error ? error.message : "Unable to generate outline."
+      );
+    },
+  });
+
   const createCourseMutation = useMutation({
     mutationFn: async () => {
-      const topics = courseTopics
-        .split("\n")
-        .map((topic) => topic.trim())
-        .filter(Boolean);
-      const nodes = (topics.length > 0 ? topics : [courseTitle.trim()]).map(
-        (title, index) => ({
-          estimatedEffortMinutes: 30,
-          examWeight: index === 0 ? 1 : 0,
-          groundingState: "user_added" as const,
-          nodeType: "topic" as const,
-          sortOrder: index,
-          title,
-          userPriority: index === 0 ? 1 : 0,
-          verificationState: "user_added" as const,
-        })
-      );
+      const title =
+        courseTitle.trim() ||
+        [courseExam.trim(), courseTopic.trim()].filter(Boolean).join(" ") ||
+        outlineNodes[0]?.title?.trim();
+      const nodes =
+        outlineNodes.length > 0
+          ? remapDraftNodesForCreation(outlineNodes)
+          : (courseTopics
+              .split("\n")
+              .map((topic) => topic.trim())
+              .filter(Boolean).length
+              ? courseTopics
+                  .split("\n")
+                  .map((topic) => topic.trim())
+                  .filter(Boolean)
+              : [title]
+            ).map((nodeTitle, index) => ({
+              estimatedEffortMinutes: 30,
+              examWeight: index === 0 ? 1 : 0,
+              groundingState: "user_added" as const,
+              nodeType: "topic" as const,
+              sortOrder: index,
+              title: nodeTitle,
+              userPriority: index === 0 ? 1 : 0,
+              verificationState: "user_added" as const,
+            }));
 
       const response = await fetch("/api/course-methods", {
         body: JSON.stringify({
           nodes,
-          sourceRefs: [{ type: "manual", label: "Created in Courses" }],
-          subject: courseSubject.trim() || null,
-          title: courseTitle.trim(),
+          sourceRefs: [
+            { type: "manual", label: "Created from course outline builder" },
+          ],
+          subject: courseTopic.trim() || null,
+          title,
         }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
@@ -283,9 +422,13 @@ export function WorkspaceCoursesPageClient() {
     onSuccess: async (payload) => {
       setCreateOpen(false);
       setCreateError(null);
+      setCourseExam("");
+      setCourseMaterial("");
       setCourseTitle("");
-      setCourseSubject("");
+      setCourseTopic("");
       setCourseTopics("");
+      setOutlineNodes([]);
+      setOutlineSourceErrors([]);
       setSelectedMethodId(payload.course.method.id);
       await queryClient.invalidateQueries({
         queryKey: ["course-methods", workspace?.workspaceId ?? null],
@@ -304,10 +447,71 @@ export function WorkspaceCoursesPageClient() {
       const title = searchParams.get("title")?.trim();
       if (title) {
         setCourseTitle((current) => current || title);
-        setCourseTopics((current) => current || title);
+        setCourseTopic((current) => current || title);
       }
     }
   }, [searchParams]);
+
+  const updateOutlineNode = (
+    nodeId: string,
+    patch: Partial<DraftOutlineNode>
+  ) => {
+    setOutlineNodes((current) =>
+      current.map((node) => (node.id === nodeId ? { ...node, ...patch } : node))
+    );
+  };
+
+  const handleOutlineDragEnd = (event: DragEndEvent) => {
+    const activeId = String(event.active.id);
+    const overId = event.over ? String(event.over.id) : null;
+    if (!overId || activeId === overId || !activeId.startsWith("outline:")) {
+      return;
+    }
+
+    const draggedId = activeId.replace("outline:", "");
+    const dropTarget = overId.replace(/^outline-drop:/, "");
+    const childTarget = overId.startsWith("outline-child:")
+      ? overId.replace("outline-child:", "")
+      : null;
+
+    setOutlineNodes((current) => {
+      const dragged = current.find((node) => node.id === draggedId);
+      if (!dragged) {
+        return current;
+      }
+
+      const withoutDragged = current.filter((node) => node.id !== draggedId);
+      const targetId = childTarget ?? dropTarget;
+      const targetIndex = withoutDragged.findIndex(
+        (node) => node.id === targetId
+      );
+      if (targetIndex < 0) {
+        return current;
+      }
+
+      const target = withoutDragged[targetIndex];
+      const nextDragged = {
+        ...dragged,
+        parentId: childTarget ? target.id : target.parentId,
+        nodeType:
+          childTarget && dragged.nodeType === "module"
+            ? ("topic" as const)
+            : dragged.nodeType,
+      };
+      const next = [...withoutDragged];
+      next.splice(childTarget ? targetIndex + 1 : targetIndex, 0, nextDragged);
+      return next.map((node, index) => ({ ...node, sortOrder: index }));
+    });
+  };
+
+  const canGenerateOutline = Boolean(
+    (courseTopic.trim() || courseTitle.trim()) &&
+      !generateOutlineMutation.isPending
+  );
+  const canCreateCourse = Boolean(
+    (courseTitle.trim() || courseTopic.trim() || outlineNodes[0]?.title) &&
+      !createCourseMutation.isPending
+  );
 
   const overview = overviewQuery.data?.overview ?? null;
   const nodes = overview?.nodes ?? [];
@@ -354,52 +558,155 @@ export function WorkspaceCoursesPageClient() {
               <Plus className="size-4" />
               New course
             </DialogTrigger>
-            <DialogContent className="max-w-xl">
+            <DialogContent className="max-h-[88vh] max-w-5xl overflow-hidden p-0">
               <DialogHeader>
-                <DialogTitle>New course</DialogTitle>
-                <DialogDescription>
-                  Create the first map version. Sprints and tasks stay separate
-                  until you commit work.
-                </DialogDescription>
+                <div className="border-border border-b px-5 py-4">
+                  <DialogTitle className="flex items-center gap-2">
+                    <Sparkle className="size-4 text-primary" />
+                    Generate Course Method
+                  </DialogTitle>
+                  <DialogDescription>
+                    Start with an exam and topic, then review the draft map
+                    before it becomes a Course Method.
+                  </DialogDescription>
+                </div>
               </DialogHeader>
-              <div className="grid gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="course-title">Title</Label>
-                  <Input
-                    id="course-title"
-                    onChange={(event) => setCourseTitle(event.target.value)}
-                    placeholder="Physics 2 exam sprint"
-                    value={courseTitle}
-                  />
+              <div className="grid min-h-0 gap-0 overflow-hidden lg:grid-cols-[340px_minmax(0,1fr)]">
+                <div className="space-y-4 overflow-y-auto border-border border-b p-5 lg:border-r lg:border-b-0">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="course-exam">Exam</Label>
+                    <Input
+                      id="course-exam"
+                      onChange={(event) => setCourseExam(event.target.value)}
+                      placeholder="A Level Physics"
+                      value={courseExam}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="course-topic">Topic</Label>
+                    <Input
+                      id="course-topic"
+                      onChange={(event) => setCourseTopic(event.target.value)}
+                      placeholder="Mechanics"
+                      value={courseTopic}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="course-title">Course title</Label>
+                    <Input
+                      id="course-title"
+                      onChange={(event) => setCourseTitle(event.target.value)}
+                      placeholder="A Level Mechanics"
+                      value={courseTitle}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="course-topics">Optional subtopics</Label>
+                    <Textarea
+                      id="course-topics"
+                      onChange={(event) => setCourseTopics(event.target.value)}
+                      placeholder={
+                        "Forces and motion\nMoments\nCircular motion"
+                      }
+                      rows={7}
+                      value={courseTopics}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="course-material">
+                      Optional source notes
+                    </Label>
+                    <Textarea
+                      id="course-material"
+                      onChange={(event) =>
+                        setCourseMaterial(event.target.value)
+                      }
+                      placeholder="Paste syllabus points or document excerpts"
+                      rows={5}
+                      value={courseMaterial}
+                    />
+                  </div>
+                  <Button
+                    className="w-full"
+                    disabled={!canGenerateOutline}
+                    onClick={() => generateOutlineMutation.mutate()}
+                    type="button"
+                  >
+                    <MagnifyingGlass className="size-4" />
+                    {generateOutlineMutation.isPending
+                      ? "Generating"
+                      : "Generate outline"}
+                  </Button>
+                  {outlineSourceErrors.length ? (
+                    <div className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-warning text-xs">
+                      {outlineSourceErrors[0]}
+                    </div>
+                  ) : null}
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="course-subject">Subject</Label>
-                  <Input
-                    id="course-subject"
-                    onChange={(event) => setCourseSubject(event.target.value)}
-                    placeholder="Physics"
-                    value={courseSubject}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="course-topics">Map topics</Label>
-                  <Textarea
-                    id="course-topics"
-                    onChange={(event) => setCourseTopics(event.target.value)}
-                    placeholder={"Gauss's law\nElectric potential\nCapacitors"}
-                    rows={6}
-                    value={courseTopics}
-                  />
+
+                <div className="min-h-[520px] overflow-y-auto p-5">
+                  {outlineNodes.length ? (
+                    <DndContext
+                      collisionDetection={closestCenter}
+                      onDragEnd={handleOutlineDragEnd}
+                      sensors={sensors}
+                    >
+                      <div className="mb-4 grid gap-2 md:grid-cols-3">
+                        <OutlineStat
+                          icon={<MapTrifold className="size-4" />}
+                          label="Nodes"
+                          value={String(outlineNodes.length)}
+                        />
+                        <OutlineStat
+                          icon={<Flag className="size-4" />}
+                          label="Focus"
+                          value={String(
+                            outlineNodes.filter((node) => node.focusRecommended)
+                              .length
+                          )}
+                        />
+                        <OutlineStat
+                          icon={<FileText className="size-4" />}
+                          label="Grounded"
+                          value={String(
+                            outlineNodes.filter(
+                              (node) => node.sourceRefs.length > 0
+                            ).length
+                          )}
+                        />
+                      </div>
+                      <div className="divide-y divide-border rounded-md border border-border">
+                        {outlineNodes.map((node) => (
+                          <OutlineNodeRow
+                            key={node.id}
+                            node={node}
+                            onChange={updateOutlineNode}
+                          />
+                        ))}
+                      </div>
+                    </DndContext>
+                  ) : (
+                    <div className="flex min-h-[460px] flex-col items-center justify-center gap-3 rounded-md border border-dashed border-border bg-secondary/30 px-6 text-center">
+                      <Sparkle className="size-8 text-primary" />
+                      <div>
+                        <p className="font-medium text-sm">
+                          Generate a draft map
+                        </p>
+                        <p className="mt-1 max-w-sm text-muted-foreground text-sm">
+                          If subtopics are blank, the outline is assembled from
+                          workspace retrieval and web search results.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               {createError ? (
-                <p className="text-destructive text-xs">{createError}</p>
+                <p className="px-5 text-destructive text-xs">{createError}</p>
               ) : null}
-              <DialogFooter>
+              <DialogFooter className="border-border border-t px-5 py-4">
                 <Button
-                  disabled={
-                    createCourseMutation.isPending || !courseTitle.trim()
-                  }
+                  disabled={!canCreateCourse}
                   onClick={() => createCourseMutation.mutate()}
                   type="button"
                 >
@@ -668,6 +975,165 @@ function ReadinessRows({ nodes }: { nodes: CourseNode[] }) {
           <Progress value={value * 100} />
         </div>
       ))}
+    </div>
+  );
+}
+
+function OutlineStat({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="min-w-0 rounded-md border border-border bg-background px-3 py-2">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-muted-foreground text-xs">{label}</span>
+        <span className="text-muted-foreground">{icon}</span>
+      </div>
+      <p className="mt-1 font-semibold text-lg">{value}</p>
+    </div>
+  );
+}
+
+function OutlineNodeRow({
+  node,
+  onChange,
+}: {
+  node: DraftOutlineNode;
+  onChange: (nodeId: string, patch: Partial<DraftOutlineNode>) => void;
+}) {
+  const {
+    attributes,
+    isDragging,
+    listeners,
+    setNodeRef: setDragRef,
+    transform,
+  } = useDraggable({ id: `outline:${node.id}` });
+  const { isOver: isRowOver, setNodeRef: setRowDropRef } = useDroppable({
+    id: `outline-drop:${node.id}`,
+  });
+  const { isOver: isChildOver, setNodeRef: setChildDropRef } = useDroppable({
+    id: `outline-child:${node.id}`,
+  });
+  const depth = node.parentId ? 1 : 0;
+  const style = transform
+    ? {
+        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+      }
+    : undefined;
+
+  return (
+    <div
+      className={cn(
+        "bg-card transition-colors",
+        isRowOver ? "bg-accent/50" : null,
+        isDragging ? "relative z-20 opacity-80" : null
+      )}
+      ref={setRowDropRef}
+    >
+      <div
+        className="grid min-h-16 gap-3 px-3 py-2 md:grid-cols-[minmax(0,1fr)_150px_130px]"
+        ref={setDragRef}
+        style={{ ...style, paddingLeft: `${12 + depth * 24}px` }}
+      >
+        <div className="flex min-w-0 items-start gap-2">
+          <button
+            aria-label={`Drag ${node.title}`}
+            className="mt-1 rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            type="button"
+            {...attributes}
+            {...listeners}
+          >
+            <ArrowsOutCardinal className="size-4" />
+          </button>
+          <button
+            aria-label={
+              node.parentId ? "Make top-level topic" : "Keep as top-level topic"
+            }
+            className="mt-1 rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            disabled={!node.parentId}
+            onClick={() => onChange(node.id, { parentId: null })}
+            type="button"
+          >
+            {node.parentId ? (
+              <CaretRight className="size-4" />
+            ) : (
+              <CaretDown className="size-4" />
+            )}
+          </button>
+          <div className="min-w-0 flex-1">
+            <Input
+              aria-label="Topic title"
+              className="h-8 border-transparent bg-transparent px-0 font-medium text-sm shadow-none focus-visible:border-input focus-visible:px-2"
+              onChange={(event) =>
+                onChange(node.id, { title: event.target.value })
+              }
+              value={node.title}
+            />
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
+              <Badge variant="secondary">{node.nodeType}</Badge>
+              <span>{node.sourceRefs.length} sources</span>
+              {node.verificationState === "needs_review" ? (
+                <span className="text-warning">needs review</span>
+              ) : null}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
+          {[1, 2, 3, 4, 5].map((value) => (
+            <button
+              aria-label={`Set importance ${value}`}
+              className={cn(
+                "h-7 w-7 rounded border border-border text-xs transition-colors",
+                node.userPriority >= value
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-background text-muted-foreground hover:bg-accent"
+              )}
+              key={value}
+              onClick={() =>
+                onChange(node.id, {
+                  examWeight: value / 5,
+                  userPriority: value,
+                })
+              }
+              type="button"
+            >
+              {value}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <button
+            className={cn(
+              "rounded-md border px-2.5 py-1.5 text-xs transition-colors",
+              node.focusRecommended
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-background text-muted-foreground hover:bg-accent"
+            )}
+            onClick={() =>
+              onChange(node.id, { focusRecommended: !node.focusRecommended })
+            }
+            type="button"
+          >
+            Focus
+          </button>
+          <div
+            className={cn(
+              "h-7 flex-1 rounded border border-dashed text-center text-muted-foreground text-xs leading-7",
+              isChildOver
+                ? "border-primary bg-primary/10 text-foreground"
+                : null
+            )}
+            ref={setChildDropRef}
+          >
+            Drop under
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
