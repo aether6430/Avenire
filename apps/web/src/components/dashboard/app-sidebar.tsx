@@ -43,7 +43,6 @@ import {
   Files,
   GitBranch,
   ListChecks,
-  MapTrifold,
   MagnifyingGlass,
   Chat as MessageSquare,
   DotsThree as MoreHorizontal,
@@ -174,14 +173,14 @@ function applyChatRealtimeEvent(
     isChatSummary(payload.chat)
   ) {
     const nextChat = payload.chat;
-    const existingIndex = chats.findIndex(
-      (chat) => chat.slug === nextChat.slug
-    );
+    const existingIndex = chats.findIndex((chat) => chat.slug === nextChat.slug);
     if (existingIndex === -1) {
       return [nextChat, ...chats];
     }
 
-    return chats.map((chat) => (chat.slug === nextChat.slug ? nextChat : chat));
+    return chats.map((chat) =>
+      chat.slug === nextChat.slug ? nextChat : chat
+    );
   }
 
   return null;
@@ -2197,26 +2196,6 @@ export function DashboardSidebar({
                             }
                             event.preventDefault();
                             navigate("/workspace/chats/new" as Route, {
-                              openInNewPane: true,
-                            });
-                          }}
-                        />
-                        <SectionButton
-                          dragHref={"/workspace/courses" as Route}
-                          icon={MapTrifold}
-                          label="Open Courses"
-                          onClick={(event) => {
-                            closeMobileSidebar();
-                            navigate("/workspace/courses" as Route, {
-                              openInNewPane: !isMobile && event.altKey,
-                            });
-                          }}
-                          onContextMenu={(event) => {
-                            if (isMobile) {
-                              return;
-                            }
-                            event.preventDefault();
-                            navigate("/workspace/courses" as Route, {
                               openInNewPane: true,
                             });
                           }}
