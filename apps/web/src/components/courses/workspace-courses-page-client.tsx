@@ -2,19 +2,7 @@
 
 import { Badge } from "@avenire/ui/components/badge";
 import { Button } from "@avenire/ui/components/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@avenire/ui/components/dialog";
-import { Input } from "@avenire/ui/components/input";
-import { Label } from "@avenire/ui/components/label";
 import { Progress } from "@avenire/ui/components/progress";
-import { Textarea } from "@avenire/ui/components/textarea";
 import { cn } from "@avenire/ui/lib/utils";
 import {
   CalendarBlank,
@@ -29,7 +17,7 @@ import {
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   HeaderActions,
   HeaderBreadcrumbs,
@@ -110,14 +98,6 @@ interface SprintPlanPayload {
   planItems: SprintPlanItem[];
 }
 
-interface CreateCourseResponse {
-  course: {
-    method: {
-      id: string;
-    };
-  };
-}
-
 async function loadCourseMethods(signal?: AbortSignal) {
   const response = await fetch("/api/course-methods", {
     cache: "no-store",
@@ -188,13 +168,6 @@ export function WorkspaceCoursesPageClient() {
   const [selectedMethodId, setSelectedMethodId] = useState<string | null>(
     searchParams.get("method")
   );
-  const [createOpen, setCreateOpen] = useState(
-    searchParams.get("create") === "1"
-  );
-  const [courseTitle, setCourseTitle] = useState("");
-  const [courseSubject, setCourseSubject] = useState("");
-  const [courseTopics, setCourseTopics] = useState("");
-  const [createError, setCreateError] = useState<string | null>(null);
 
   const methodsQuery = useQuery({
     enabled: status === "ready" && Boolean(user?.id && workspace?.workspaceId),
@@ -241,69 +214,6 @@ export function WorkspaceCoursesPageClient() {
     },
   });
 
-  const createCourseMutation = useMutation({
-    mutationFn: async () => {
-      const topics = courseTopics
-        .split("\n")
-        .map((topic) => topic.trim())
-        .filter(Boolean);
-      const nodes = (topics.length > 0 ? topics : [courseTitle.trim()]).map(
-        (title, index) => ({
-          estimatedEffortMinutes: 30,
-          examWeight: index === 0 ? 1 : 0,
-          groundingState: "user_added" as const,
-          nodeType: "topic" as const,
-          sortOrder: index,
-          title,
-          userPriority: index === 0 ? 1 : 0,
-          verificationState: "user_added" as const,
-        })
-      );
-
-      const response = await fetch("/api/course-methods", {
-        body: JSON.stringify({
-          nodes,
-          sourceRefs: [{ type: "manual", label: "Created in Courses" }],
-          subject: courseSubject.trim() || null,
-          title: courseTitle.trim(),
-        }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      });
-
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as {
-          error?: string;
-        } | null;
-        throw new Error(payload?.error ?? "Unable to create course.");
-      }
-
-      return (await response.json()) as CreateCourseResponse;
-    },
-    onSuccess: async (payload) => {
-      setCreateOpen(false);
-      setCreateError(null);
-      setCourseTitle("");
-      setCourseSubject("");
-      setCourseTopics("");
-      setSelectedMethodId(payload.course.method.id);
-      await queryClient.invalidateQueries({
-        queryKey: ["course-methods", workspace?.workspaceId ?? null],
-      });
-    },
-    onError: (error) => {
-      setCreateError(
-        error instanceof Error ? error.message : "Unable to create course."
-      );
-    },
-  });
-
-  useEffect(() => {
-    if (searchParams.get("create") === "1") {
-      setCreateOpen(true);
-    }
-  }, [searchParams]);
-
   const overview = overviewQuery.data?.overview ?? null;
   const nodes = overview?.nodes ?? [];
   const planItems = planItemsQuery.data?.planItems ?? [];
@@ -344,65 +254,10 @@ export function WorkspaceCoursesPageClient() {
           </div>
         </HeaderBreadcrumbs>
         <HeaderActions>
-          <Dialog onOpenChange={setCreateOpen} open={createOpen}>
-            <DialogTrigger render={<Button size="sm" type="button" />}>
-              <Plus className="size-4" />
-              New course
-            </DialogTrigger>
-            <DialogContent className="max-w-xl">
-              <DialogHeader>
-                <DialogTitle>New course</DialogTitle>
-                <DialogDescription>
-                  Create the first map version. Sprints and tasks stay separate
-                  until you commit work.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="course-title">Title</Label>
-                  <Input
-                    id="course-title"
-                    onChange={(event) => setCourseTitle(event.target.value)}
-                    placeholder="Physics 2 exam sprint"
-                    value={courseTitle}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="course-subject">Subject</Label>
-                  <Input
-                    id="course-subject"
-                    onChange={(event) => setCourseSubject(event.target.value)}
-                    placeholder="Physics"
-                    value={courseSubject}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="course-topics">Map topics</Label>
-                  <Textarea
-                    id="course-topics"
-                    onChange={(event) => setCourseTopics(event.target.value)}
-                    placeholder={"Gauss's law\nElectric potential\nCapacitors"}
-                    rows={6}
-                    value={courseTopics}
-                  />
-                </div>
-              </div>
-              {createError ? (
-                <p className="text-destructive text-xs">{createError}</p>
-              ) : null}
-              <DialogFooter>
-                <Button
-                  disabled={
-                    createCourseMutation.isPending || !courseTitle.trim()
-                  }
-                  onClick={() => createCourseMutation.mutate()}
-                  type="button"
-                >
-                  Create course
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Button disabled size="sm" type="button" variant="outline">
+            <Plus className="size-4" />
+            New course
+          </Button>
         </HeaderActions>
 
         <div className="grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
