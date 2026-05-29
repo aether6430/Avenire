@@ -106,19 +106,6 @@ import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
 import { useFilesPinsStore } from "@/stores/filesPinsStore";
 import { filesUiActions } from "@/stores/filesUiStore";
 
-interface CourseMethodSummary {
-  activeCourseMapId: string | null;
-  currentVersionId: string | null;
-  id: string;
-  status: string;
-  title: string;
-  updatedAt: string;
-}
-
-interface CourseMethodsPayload {
-  methods?: CourseMethodSummary[];
-}
-
 const FlashcardsSidebarPanel = dynamic(
   () =>
     import("@/components/flashcards/sidebar-panel").then((module) => ({
@@ -577,69 +564,6 @@ function ChatListSection({
   );
 }
 
-function CourseListSection({
-  activeCourseId,
-  courses,
-  onSelect,
-  onSelectInNewPane,
-}: {
-  activeCourseId: string | null;
-  courses: CourseMethodSummary[];
-  onSelect: (courseId: string) => void;
-  onSelectInNewPane: (courseId: string) => void;
-}) {
-  if (courses.length === 0) {
-    return null;
-  }
-
-  return (
-    <SidebarGroup className="pb-1">
-      <SidebarGroupLabel>Courses</SidebarGroupLabel>
-      <SidebarGroupContent>
-        <SidebarMenu>
-          {courses.map((course) => (
-            <SidebarMenuItem key={course.id}>
-              <SidebarMenuButton
-                className="group/course h-8 min-w-0"
-                draggable
-                isActive={activeCourseId === course.id}
-                onClick={(event) => {
-                  if (event.altKey) {
-                    event.preventDefault();
-                    onSelectInNewPane(course.id);
-                    return;
-                  }
-                  onSelect(course.id);
-                }}
-                onContextMenu={(event) => {
-                  event.preventDefault();
-                  onSelectInNewPane(course.id);
-                }}
-                onDragStart={(event) => {
-                  setWorkspacePaneDragData(
-                    event.dataTransfer,
-                    `/workspace/courses?method=${course.id}` as Route
-                  );
-                }}
-              >
-                <MapTrifold className="size-4 shrink-0 text-muted-foreground" />
-                <Tooltip>
-                  <TooltipTrigger render={<span className="truncate" />}>
-                    {course.title}
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <span className="max-w-72 break-words">{course.title}</span>
-                  </TooltipContent>
-                </Tooltip>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
-        </SidebarMenu>
-      </SidebarGroupContent>
-    </SidebarGroup>
-  );
-}
-
 function ChatListItem({
   activeChatSlug,
   chat,
@@ -890,7 +814,6 @@ export function DashboardSidebar({
   const [editingChatSlug, setEditingChatSlug] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [chatSearchQuery, setChatSearchQuery] = useState("");
-  const [courseMethods, setCourseMethods] = useState<CourseMethodSummary[]>([]);
   const [pendingChatSlug, setPendingChatSlug] = useState<string | null>(null);
   const [workspaceUuid, setWorkspaceUuid] = useState<string | null>(
     activeWorkspace?.workspaceId ?? null
@@ -920,12 +843,6 @@ export function DashboardSidebar({
   const setTrashOpen = useDashboardOverlayStore((state) => state.setTrashOpen);
   const isChatsRoute =
     pathname === "/workspace/chats" || pathname.startsWith("/workspace/chats/");
-  const activeCourseId = useMemo(() => {
-    if (!pathname.startsWith("/workspace/courses")) {
-      return null;
-    }
-    return searchParams.get("method");
-  }, [pathname, searchParams]);
   const activeChatSlugFromPath = useMemo(() => {
     const match = pathname.match(/^\/workspace\/chats\/([^/?#]+)/);
     if (!match?.[1] || match[1] === "new") {
@@ -958,7 +875,7 @@ export function DashboardSidebar({
     routeView = "tasks";
   } else if (pathname.startsWith("/workspace/files")) {
     routeView = "files";
-  } else if (isChatsRoute || pathname.startsWith("/workspace/courses")) {
+  } else if (isChatsRoute) {
     routeView = "chat";
   } else if (pathname === "/workspace") {
     routeView = "workspace";
@@ -1343,45 +1260,12 @@ export function DashboardSidebar({
     }
   }, [workspaceUuid]);
 
-  const loadCourseMethods = useCallback(async () => {
-    if (!workspaceUuid) {
-      setCourseMethods([]);
-      return;
-    }
-
-    try {
-      const response = await fetch("/api/course-methods", {
-        cache: "no-store",
-      });
-      const payload = await parseResponse<CourseMethodsPayload>(response);
-      setCourseMethods(payload?.methods ?? []);
-    } catch {
-      setCourseMethods([]);
-    }
-  }, [workspaceUuid]);
-
   useEffect(() => {
     if (!(deferredStartupReady || activeView === "chat" || isChatsRoute)) {
       return;
     }
     loadChats().catch(() => undefined);
   }, [activeView, deferredStartupReady, isChatsRoute, loadChats]);
-
-  useEffect(() => {
-    if (
-      !(deferredStartupReady || activeView === "chat" || isChatsRoute) ||
-      !workspaceUuid
-    ) {
-      return;
-    }
-    loadCourseMethods().catch(() => undefined);
-  }, [
-    activeView,
-    deferredStartupReady,
-    isChatsRoute,
-    loadCourseMethods,
-    workspaceUuid,
-  ]);
 
   useEffect(() => {
     if (deferredStartupReady || typeof window === "undefined") {
@@ -1594,17 +1478,6 @@ export function DashboardSidebar({
           : true
       ),
     [chatSearchNeedle, otherChats]
-  );
-  const filteredCourseMethods = useMemo(
-    () =>
-      courseMethods
-        .filter((course) =>
-          chatSearchNeedle
-            ? course.title.toLowerCase().includes(chatSearchNeedle)
-            : true
-        )
-        .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)),
-    [chatSearchNeedle, courseMethods]
   );
 
   const navigateToFilesRoot = useCallback(
@@ -2484,26 +2357,6 @@ export function DashboardSidebar({
                         />
                       </SidebarGroupContent>
                     </SidebarGroup>
-
-                    <CourseListSection
-                      activeCourseId={activeCourseId}
-                      courses={filteredCourseMethods}
-                      onSelect={(courseId) => {
-                        setEditingChatSlug(null);
-                        setEditingTitle("");
-                        navigate(
-                          `/workspace/courses?method=${courseId}` as Route
-                        );
-                      }}
-                      onSelectInNewPane={(courseId) => {
-                        setEditingChatSlug(null);
-                        setEditingTitle("");
-                        navigate(
-                          `/workspace/courses?method=${courseId}` as Route,
-                          { openInNewPane: true }
-                        );
-                      }}
-                    />
 
                     <ChatListSection
                       activeChatSlug={activeChatSlug}

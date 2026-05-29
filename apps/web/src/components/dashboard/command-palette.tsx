@@ -29,7 +29,6 @@ import {
   Funnel as ListFilter,
   LinkSimple,
   ListChecks,
-  MapTrifold,
   MagnifyingGlass as Search,
   ChatText as MessageSquareText,
   Moon,
@@ -85,12 +84,11 @@ import { quickCaptureActions } from "@/stores/quickCaptureStore";
 import { cn } from "@/lib/utils";
 
 type PaletteItemType = "file" | "folder";
-type PaletteSearchType = "chat" | "course" | "flashcard" | "misconception";
+type PaletteSearchType = "chat" | "flashcard" | "misconception";
 type PaletteResultKind =
   | "chat"
   | "command"
   | "content"
-  | "course"
   | "file"
   | "flashcard"
   | "folder"
@@ -130,19 +128,6 @@ interface PaletteSearchItem {
 
 interface MindsetOverviewPayload {
   activeMisconceptions?: MisconceptionRecord[];
-}
-
-interface CourseMethodSummary {
-  activeCourseMapId: string | null;
-  currentVersionId: string | null;
-  id: string;
-  status: string;
-  title: string;
-  updatedAt: string;
-}
-
-interface CourseMethodsPayload {
-  methods?: CourseMethodSummary[];
 }
 
 interface PaletteCommandItem {
@@ -195,24 +180,24 @@ interface WorkspaceTreePayload {
 }
 
 async function hydrateWorkspaceIndex(workspace: WorkspaceSummary) {
-  const cached = readWorkspaceTreeCache<
-    {
-      id: string;
-      name: string;
-      parentId: string | null;
-      readOnly?: boolean;
-    },
-    {
-      folderId: string;
-      id: string;
-      name: string;
-      page?: {
-        bannerUrl: string | null;
-        properties?: Record<string, unknown> | null;
-      } | null;
-      readOnly?: boolean;
-    }
-  >(workspace.workspaceId);
+    const cached = readWorkspaceTreeCache<
+      {
+        id: string;
+        name: string;
+        parentId: string | null;
+        readOnly?: boolean;
+      },
+      {
+        folderId: string;
+        id: string;
+        name: string;
+        page?: {
+          bannerUrl: string | null;
+          properties?: Record<string, unknown> | null;
+        } | null;
+        readOnly?: boolean;
+      }
+    >(workspace.workspaceId);
 
   if (cached) {
     commandPaletteActions.setFileIndex({
@@ -269,19 +254,6 @@ async function loadMindsetOverview(signal?: AbortSignal) {
   }
 
   return (await response.json()) as MindsetOverviewPayload;
-}
-
-async function loadCourseMethods(signal?: AbortSignal) {
-  const response = await fetch("/api/course-methods", {
-    cache: "no-store",
-    signal,
-  });
-
-  if (!response.ok) {
-    return { methods: [] } satisfies CourseMethodsPayload;
-  }
-
-  return (await response.json()) as CourseMethodsPayload;
 }
 
 async function queryWorkspaceRetrieval(input: {
@@ -631,8 +603,7 @@ const PALETTE_NUMBER_OPERATORS = [
 const PALETTE_ITEM_CLASS =
   "min-h-8 rounded-lg px-2 text-[0.8125rem] text-muted-foreground data-selected:bg-accent data-selected:text-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50";
 
-const PALETTE_ICON_CLASS =
-  "mt-0.5 size-[0.95rem] shrink-0 text-muted-foreground";
+const PALETTE_ICON_CLASS = "mt-0.5 size-[0.95rem] shrink-0 text-muted-foreground";
 
 const PALETTE_CHEVRON_CLASS =
   "mt-0.5 ml-auto size-3.5 shrink-0 opacity-0 transition-opacity duration-150 group-data-[selected=true]:opacity-100 group-hover:opacity-100 text-muted-foreground/45";
@@ -692,7 +663,7 @@ export function CommandPalette({
         return kind === "flashcard";
       }
       if (scope === "chats") {
-        return kind === "chat" || kind === "course";
+        return kind === "chat";
       }
       if (scope === "tasks") {
         return kind === "task";
@@ -772,16 +743,7 @@ export function CommandPalette({
   const mindsetOverviewQuery = useQuery({
     queryFn: ({ signal }) => loadMindsetOverview(signal),
     queryKey: ["command-palette", "mindset-overview", resolvedWorkspaceUuid],
-    enabled: Boolean(
-      open && resolvedWorkspaceUuid && scopeAllows("misconception")
-    ),
-    staleTime: 30_000,
-  });
-
-  const courseMethodsQuery = useQuery({
-    queryFn: ({ signal }) => loadCourseMethods(signal),
-    queryKey: ["command-palette", "course-methods", resolvedWorkspaceUuid],
-    enabled: Boolean(open && resolvedWorkspaceUuid && scopeAllows("course")),
+    enabled: Boolean(open && resolvedWorkspaceUuid && scopeAllows("misconception")),
     staleTime: 30_000,
   });
 
@@ -927,16 +889,15 @@ export function CommandPalette({
   );
   const folderItemsForFilters = useMemo(
     () =>
-      folderItems.filter(
-        (item) =>
-          scopeAllows("folder") &&
-          matchesPaletteFilters(
-            "folder",
-            {
-              "folder:workspace": { type: "text", value: item.workspaceName },
-            },
-            paletteFilters
-          )
+      folderItems.filter((item) =>
+        scopeAllows("folder") &&
+        matchesPaletteFilters(
+          "folder",
+          {
+            "folder:workspace": { type: "text", value: item.workspaceName },
+          },
+          paletteFilters
+        )
       ),
     [folderItems, paletteFilters, scopeAllows]
   );
@@ -946,10 +907,7 @@ export function CommandPalette({
       ? [resolvedWorkspaceUuid]
       : workspaces.map((workspace) => workspace.workspaceId);
     const fileByWorkspaceAndId = new Map(
-      fileItemsForFilters.map((file) => [
-        `${file.workspaceUuid}:${file.id}`,
-        file,
-      ])
+      fileItemsForFilters.map((file) => [`${file.workspaceUuid}:${file.id}`, file])
     );
     const items: PaletteItem[] = [];
 
@@ -964,12 +922,7 @@ export function CommandPalette({
     }
 
     return items.slice(0, 8);
-  }, [
-    fileItemsForFilters,
-    recentFileIdsByWorkspace,
-    resolvedWorkspaceUuid,
-    workspaces,
-  ]);
+  }, [fileItemsForFilters, recentFileIdsByWorkspace, resolvedWorkspaceUuid, workspaces]);
 
   const searchItems = useMemo(
     () => [...fileItemsForFilters, ...folderItemsForFilters],
@@ -1106,7 +1059,6 @@ export function CommandPalette({
           { label: "Files", value: "file" },
           { label: "Folders", value: "folder" },
           { label: "Tasks", value: "task" },
-          { label: "Courses", value: "course" },
           { label: "Chats", value: "chat" },
           { label: "Cards", value: "flashcard" },
           { label: "Misconceptions", value: "misconception" },
@@ -1177,17 +1129,6 @@ export function CommandPalette({
         type: "text",
         defaultOperator: "contains",
         operators: PALETTE_TEXT_OPERATORS,
-      },
-      {
-        key: "course:status",
-        label: "course status",
-        type: "select",
-        defaultOperator: "eq",
-        operators: PALETTE_SELECT_OPERATORS,
-        options: ["active", "archived"].map((value) => ({
-          label: value,
-          value,
-        })),
       },
       {
         key: "card:source",
@@ -1340,19 +1281,6 @@ export function CommandPalette({
         },
       },
       {
-        key: "open-courses",
-        label: "Open Courses",
-        description: "Open course methods and active study sprints",
-        icon: MapTrifold,
-        group: "General",
-        searchTerms: ["courses", "course methods", "study sprint", "goal"],
-        onSelect: () => {
-          navigateTo("/workspace/courses" as Route, {
-            openInNewPane: ctrlHeldRef.current,
-          });
-        },
-      },
-      {
         key: "open-tasks",
         label: "Open Tasks",
         description: "Open the dedicated task workspace",
@@ -1361,9 +1289,7 @@ export function CommandPalette({
         searchTerms: ["tasks", "todo", "planner", "upcoming"],
         shortcut: "Ctrl+3",
         onSelect: () => {
-          navigateTo("/workspace/tasks" as Route, {
-            openInNewPane: ctrlHeldRef.current,
-          });
+          navigateTo("/workspace/tasks" as Route, { openInNewPane: ctrlHeldRef.current });
         },
       },
       {
@@ -1386,22 +1312,7 @@ export function CommandPalette({
         searchTerms: ["chat", "thread", "method"],
         shortcut: "Ctrl+N",
         onSelect: () => {
-          navigateTo("/workspace/chats/new" as Route, {
-            openInNewPane: ctrlHeldRef.current,
-          });
-        },
-      },
-      {
-        key: "new-course",
-        label: "New Course",
-        description: "Create a course map and start planning study sprints",
-        icon: MapTrifold,
-        group: "Create",
-        searchTerms: ["course", "study sprint", "goal mode", "map"],
-        onSelect: () => {
-          navigateTo("/workspace/courses?create=1" as Route, {
-            openInNewPane: ctrlHeldRef.current,
-          });
+          navigateTo("/workspace/chats/new" as Route, { openInNewPane: ctrlHeldRef.current });
         },
       },
       {
@@ -1438,9 +1349,7 @@ export function CommandPalette({
         group: "Create",
         searchTerms: ["study", "cards", "flashcards"],
         onSelect: () => {
-          navigateTo("/workspace/flashcards?create=1" as Route, {
-            openInNewPane: ctrlHeldRef.current,
-          });
+          navigateTo("/workspace/flashcards?create=1" as Route, { openInNewPane: ctrlHeldRef.current });
         },
       },
       {
@@ -1503,94 +1412,75 @@ export function CommandPalette({
   );
   const commandItemsForFilters = useMemo(
     () =>
-      commandItems.filter(
-        (item) =>
-          scopeAllows("command") &&
-          matchesPaletteFilters(
-            "command",
-            {
-              "command:group": { type: "select", value: item.group },
-            },
-            paletteFilters
-          )
+      commandItems.filter((item) =>
+        scopeAllows("command") &&
+        matchesPaletteFilters(
+          "command",
+          {
+            "command:group": { type: "select", value: item.group },
+          },
+          paletteFilters
+        )
       ),
     [commandItems, paletteFilters, scopeAllows]
   );
   const workspaceTasksForFilters = useMemo(
     () =>
-      workspaceTasks.filter(
-        (task) =>
-          scopeAllows("task") &&
-          matchesPaletteFilters(
-            "task",
-            {
-              "task:status": { type: "select", value: task.status },
-              "task:priority": { type: "select", value: task.priority },
-              "task:assignee": {
-                type: "text",
-                value: [task.assignee?.name, task.assignee?.email]
-                  .filter(Boolean)
-                  .join(" "),
-              },
-              "task:due": { type: "date", value: task.dueAt },
-              "task:resources": {
-                type: "number",
-                value: task.resources.length,
-              },
+      workspaceTasks.filter((task) =>
+        scopeAllows("task") &&
+        matchesPaletteFilters(
+          "task",
+          {
+            "task:status": { type: "select", value: task.status },
+            "task:priority": { type: "select", value: task.priority },
+            "task:assignee": {
+              type: "text",
+              value: [task.assignee?.name, task.assignee?.email]
+                .filter(Boolean)
+                .join(" "),
             },
-            paletteFilters
-          )
+            "task:due": { type: "date", value: task.dueAt },
+            "task:resources": {
+              type: "number",
+              value: task.resources.length,
+            },
+          },
+          paletteFilters
+        )
       ),
     [paletteFilters, scopeAllows, workspaceTasks]
   );
   const cachedChatsForFilters = useMemo(
     () =>
-      cachedChats.filter(
-        (chat) =>
-          scopeAllows("chat") &&
-          matchesPaletteFilters(
-            "chat",
-            {
-              "chat:pinned": { type: "boolean", value: chat.pinned },
-              "chat:workspace": { type: "text", value: chat.workspaceId },
-            },
-            paletteFilters
-          )
+      cachedChats.filter((chat) =>
+        scopeAllows("chat") &&
+        matchesPaletteFilters(
+          "chat",
+          {
+            "chat:pinned": { type: "boolean", value: chat.pinned },
+            "chat:workspace": { type: "text", value: chat.workspaceId },
+          },
+          paletteFilters
+        )
       ),
     [cachedChats, paletteFilters, scopeAllows]
   );
   const cachedFlashcardSetsForFilters = useMemo(
     () =>
-      cachedFlashcardSets.filter(
-        (set) =>
-          scopeAllows("flashcard") &&
-          matchesPaletteFilters(
-            "flashcard",
-            {
-              "card:source": { type: "select", value: set.sourceType },
-              "card:tags": { type: "multi_select", value: set.tags },
-              "card:due": { type: "number", value: set.dueCount },
-              "card:new": { type: "number", value: set.newCount },
-            },
-            paletteFilters
-          )
+      cachedFlashcardSets.filter((set) =>
+        scopeAllows("flashcard") &&
+        matchesPaletteFilters(
+          "flashcard",
+          {
+            "card:source": { type: "select", value: set.sourceType },
+            "card:tags": { type: "multi_select", value: set.tags },
+            "card:due": { type: "number", value: set.dueCount },
+            "card:new": { type: "number", value: set.newCount },
+          },
+          paletteFilters
+        )
       ),
     [cachedFlashcardSets, paletteFilters, scopeAllows]
-  );
-  const courseMethodsForFilters = useMemo(
-    () =>
-      (courseMethodsQuery.data?.methods ?? []).filter(
-        (course) =>
-          scopeAllows("course") &&
-          matchesPaletteFilters(
-            "course",
-            {
-              "course:status": { type: "select", value: course.status },
-            },
-            paletteFilters
-          )
-      ),
-    [courseMethodsQuery.data?.methods, paletteFilters, scopeAllows]
   );
 
   const trimmedQuery = normalizeSearch(debouncedQuery);
@@ -1599,12 +1489,8 @@ export function CommandPalette({
   const filteredCommands = useMemo(() => {
     if (!searchQuery) {
       return {
-        create: commandItemsForFilters.filter(
-          (item) => item.group === "Create"
-        ),
-        general: commandItemsForFilters.filter(
-          (item) => item.group === "General"
-        ),
+        create: commandItemsForFilters.filter((item) => item.group === "Create"),
+        general: commandItemsForFilters.filter((item) => item.group === "General"),
       };
     }
 
@@ -1619,27 +1505,30 @@ export function CommandPalette({
 
   const hasCommandMatches =
     filteredCommands.general.length > 0 || filteredCommands.create.length > 0;
-  const taskResults = useMemo(() => {
-    if (!searchQuery) {
-      return [];
-    }
+  const taskResults = useMemo(
+    () => {
+      if (!searchQuery) {
+        return [];
+      }
 
-    return workspaceTasksForFilters
-      .filter((task) =>
-        matchesNeedle(
-          [
-            task.title,
-            task.description ?? "",
-            task.status,
-            task.priority ?? "",
-            task.assignee?.name ?? "",
-            task.assignee?.email ?? "",
-          ].join(" "),
-          searchQuery
+      return workspaceTasksForFilters
+        .filter((task) =>
+          matchesNeedle(
+            [
+              task.title,
+              task.description ?? "",
+              task.status,
+              task.priority ?? "",
+              task.assignee?.name ?? "",
+              task.assignee?.email ?? "",
+            ].join(" "),
+            searchQuery
+          )
         )
-      )
-      .slice(0, 8);
-  }, [searchQuery, workspaceTasksForFilters]);
+        .slice(0, 8);
+    },
+    [searchQuery, workspaceTasksForFilters]
+  );
   const chatResults = useMemo<PaletteSearchItem[]>(() => {
     if (!searchQuery) {
       return [];
@@ -1663,28 +1552,6 @@ export function CommandPalette({
         type: "chat",
       }));
   }, [cachedChatsForFilters, searchQuery]);
-  const courseResults = useMemo<PaletteSearchItem[]>(() => {
-    const courses = courseMethodsForFilters
-      .filter((course) =>
-        searchQuery
-          ? matchesNeedle(`${course.title} ${course.status}`, searchQuery)
-          : true
-      )
-      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
-      .slice(0, 8);
-
-    return courses.map((course) => ({
-      description:
-        course.currentVersionId && course.activeCourseMapId
-          ? "Course map ready"
-          : "Needs map setup",
-      id: course.id,
-      label: course.title,
-      meta: new Date(course.updatedAt).toLocaleDateString(),
-      path: `/workspace/courses?method=${course.id}`,
-      type: "course",
-    }));
-  }, [courseMethodsForFilters, searchQuery]);
   const flashcardResults = useMemo<PaletteSearchItem[]>(() => {
     if (!searchQuery) {
       return [];
@@ -1912,19 +1779,10 @@ export function CommandPalette({
       const targetRoute =
         `/workspace/files/${workspaceId}/folder/${folderId}?${params.toString()}` as Route;
       router.prefetch(targetRoute);
-      paneNavigate(targetRoute, {
-        openInNewPane: options?.openInNewPane,
-        replace,
-      });
+      paneNavigate(targetRoute, { openInNewPane: options?.openInNewPane, replace });
       commandPaletteActions.close();
     },
-    [
-      currentFilesFolderId,
-      currentFilesWorkspaceUuid,
-      paneNavigate,
-      router,
-      workspaces,
-    ]
+    [currentFilesFolderId, currentFilesWorkspaceUuid, paneNavigate, router, workspaces]
   );
 
   const openSearchResult = useCallback(
@@ -1955,15 +1813,10 @@ export function CommandPalette({
       | { kind: "command"; value: string; item: PaletteCommandItem }
       | { kind: "file"; value: string; item: PaletteItem }
       | { kind: "chat"; value: string; item: PaletteSearchItem }
-      | { kind: "course"; value: string; item: PaletteSearchItem }
       | { kind: "flashcard"; value: string; item: PaletteSearchItem }
       | { kind: "misconception"; value: string; item: PaletteSearchItem }
       | { kind: "content"; value: string; item: WorkspaceSearchResult }
-      | {
-          kind: "task";
-          value: string;
-          item: (typeof workspaceTasksForFilters)[number];
-        }
+      | { kind: "task"; value: string; item: (typeof workspaceTasksForFilters)[number] }
     > = [];
 
     if (searchQuery) {
@@ -1975,9 +1828,6 @@ export function CommandPalette({
       }
       for (const item of chatResults) {
         items.push({ kind: "chat", value: `chat-${item.id}`, item });
-      }
-      for (const item of courseResults) {
-        items.push({ kind: "course", value: `course-${item.id}`, item });
       }
       for (const item of flashcardResults) {
         items.push({ kind: "flashcard", value: `flashcard-${item.id}`, item });
@@ -2025,13 +1875,6 @@ export function CommandPalette({
         },
       });
     }
-    for (const item of courseResults.slice(0, 6)) {
-      items.push({
-        kind: "course",
-        value: `recent-course-${item.id}`,
-        item,
-      });
-    }
     for (const item of cachedFlashcardSetsForFilters.slice(0, 6)) {
       items.push({
         kind: "flashcard",
@@ -2064,7 +1907,6 @@ export function CommandPalette({
     cachedChatsForFilters,
     cachedFlashcardSetsForFilters,
     chatResults,
-    courseResults,
     filteredCommands.create,
     filteredCommands.general,
     flashcardResults,
@@ -2261,9 +2103,7 @@ export function CommandPalette({
         <div
           className={cn(
             "grid transition-[grid-template-rows,opacity] duration-200 ease-out",
-            showFilters
-              ? "grid-rows-[1fr] opacity-100"
-              : "grid-rows-[0fr] opacity-0"
+            showFilters ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
           )}
         >
           <div className="min-h-0 overflow-hidden">
@@ -2316,7 +2156,6 @@ export function CommandPalette({
                       <>
                         {renderCommandGroups()}
                         {chatResults.length > 0 ||
-                        courseResults.length > 0 ||
                         flashcardResults.length > 0 ||
                         misconceptionResults.length > 0 ||
                         fuzzyResults.length > 0 ||
@@ -2332,11 +2171,7 @@ export function CommandPalette({
                           <CommandItem
                             className={PALETTE_ITEM_CLASS}
                             key={`chat-${chat.id}`}
-                            onSelect={() =>
-                              navigateTo(chat.path as Route, {
-                                openInNewPane: ctrlHeldRef.current,
-                              })
-                            }
+                            onSelect={() => navigateTo(chat.path as Route, { openInNewPane: ctrlHeldRef.current })}
                             value={`chat-${chat.id}`}
                           >
                             {renderPaletteIcon(
@@ -2358,59 +2193,21 @@ export function CommandPalette({
                         ))}
                       </CommandGroup>
                     ) : null}
-                    {courseResults.length > 0 ? (
-                      <>
-                        {chatResults.length > 0 ? <CommandSeparator /> : null}
-                        <CommandGroup heading="Courses">
-                          {courseResults.map((course) => (
-                            <CommandItem
-                              className={PALETTE_ITEM_CLASS}
-                              key={`course-${course.id}`}
-                              onSelect={() =>
-                                navigateTo(course.path as Route, {
-                                  openInNewPane: ctrlHeldRef.current,
-                                })
-                              }
-                              value={`course-${course.id}`}
-                            >
-                              {renderPaletteIcon(
-                                MapTrifold,
-                                PALETTE_ICON_CLASS
-                              )}
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate font-medium text-foreground">
-                                  {course.label}
-                                </p>
-                                <p className="truncate text-[0.6875rem] text-muted-foreground">
-                                  {course.description}
-                                </p>
-                              </div>
-                              <span className="mt-0.5 shrink-0 whitespace-nowrap text-[0.6875rem] text-muted-foreground">
-                                {course.meta}
-                              </span>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </>
-                    ) : null}
                     {flashcardResults.length > 0 ? (
                       <>
-                        {chatResults.length > 0 || courseResults.length > 0 ? (
-                          <CommandSeparator />
-                        ) : null}
+                        {chatResults.length > 0 ? <CommandSeparator /> : null}
                         <CommandGroup heading="Flashcards">
                           {flashcardResults.map((set) => (
                             <CommandItem
                               className={PALETTE_ITEM_CLASS}
                               key={`flashcard-${set.id}`}
-                              onSelect={() =>
-                                navigateTo(set.path as Route, {
-                                  openInNewPane: ctrlHeldRef.current,
-                                })
-                              }
-                              value={`flashcard-${set.id}`}
+                               onSelect={() => navigateTo(set.path as Route, { openInNewPane: ctrlHeldRef.current })}
+                               value={`flashcard-${set.id}`}
                             >
-                              {renderPaletteIcon(Sparkles, PALETTE_ICON_CLASS)}
+                              {renderPaletteIcon(
+                                Sparkles,
+                                PALETTE_ICON_CLASS
+                              )}
                               <div className="min-w-0 flex-1">
                                 <p className="truncate font-medium text-foreground">
                                   {set.label}
@@ -2436,9 +2233,8 @@ export function CommandPalette({
                     ) : null}
                     {misconceptionResults.length > 0 ? (
                       <>
-                        {chatResults.length > 0 ||
-                        courseResults.length > 0 ||
-                        flashcardResults.length > 0 ? (
+                        {(chatResults.length > 0 ||
+                          flashcardResults.length > 0) ? (
                           <CommandSeparator />
                         ) : null}
                         <CommandGroup heading="Misconceptions">
@@ -2481,10 +2277,9 @@ export function CommandPalette({
                     ) : null}
                     {taskResults.length > 0 ? (
                       <>
-                        {chatResults.length > 0 ||
-                        courseResults.length > 0 ||
-                        flashcardResults.length > 0 ||
-                        misconceptionResults.length > 0 ? (
+                        {(chatResults.length > 0 ||
+                          flashcardResults.length > 0 ||
+                          misconceptionResults.length > 0) ? (
                           <CommandSeparator />
                         ) : null}
                         <CommandGroup heading="Tasks">
@@ -2618,7 +2413,10 @@ export function CommandPalette({
                               }}
                               value={`retrieval-${result.id}-${result.chunkId ?? "main"}`}
                             >
-                              {renderPaletteIcon(FileText, PALETTE_ICON_CLASS)}
+                              {renderPaletteIcon(
+                                FileText,
+                                PALETTE_ICON_CLASS
+                              )}
                               <div className="min-w-0 flex-1">
                                 <p className="truncate font-medium text-foreground">
                                   {result.title}
@@ -2647,12 +2445,9 @@ export function CommandPalette({
                     retrievalResults.length === 0 &&
                     !hasCommandMatches &&
                     chatResults.length === 0 &&
-                    courseResults.length === 0 &&
                     taskResults.length === 0 &&
                     flashcardResults.length === 0 &&
-                    misconceptionResults.length === 0
-                      ? null
-                      : null}
+                    misconceptionResults.length === 0 ? null : null}
                   </>
                 ) : null
               ) : (
@@ -2663,15 +2458,13 @@ export function CommandPalette({
                         <CommandItem
                           className={PALETTE_ITEM_CLASS}
                           key={`task-${task.id}`}
-                          onSelect={() =>
-                            navigateTo(
-                              `/workspace/tasks?task=${task.id}` as Route,
-                              { openInNewPane: ctrlHeldRef.current }
-                            )
-                          }
+                          onSelect={() => navigateTo(`/workspace/tasks?task=${task.id}` as Route, { openInNewPane: ctrlHeldRef.current })}
                           value={`task-${task.id}`}
                         >
-                          {renderPaletteIcon(ListChecks, PALETTE_ICON_CLASS)}
+                          {renderPaletteIcon(
+                            ListChecks,
+                            PALETTE_ICON_CLASS
+                          )}
                           <div className="min-w-0 flex-1">
                             <p className="truncate font-medium text-foreground">
                               {task.title}
@@ -2693,9 +2486,7 @@ export function CommandPalette({
                       ))}
                     </CommandGroup>
                   ) : null}
-                  {workspaceTasksForFilters.length > 0 ? (
-                    <CommandSeparator />
-                  ) : null}
+                  {workspaceTasksForFilters.length > 0 ? <CommandSeparator /> : null}
                   {recentItems.length > 0 ? (
                     <CommandGroup heading="Recent files">
                       {recentItems.map((item) => (
@@ -2748,13 +2539,8 @@ export function CommandPalette({
                             <CommandItem
                               className={PALETTE_ITEM_CLASS}
                               key={`recent-chat-${chat.slug}`}
-                              onSelect={() =>
-                                navigateTo(
-                                  `/workspace/chats/${chat.slug}` as Route,
-                                  { openInNewPane: ctrlHeldRef.current }
-                                )
-                              }
-                              value={`recent-chat-${chat.slug}`}
+                              onSelect={() => navigateTo(`/workspace/chats/${chat.slug}` as Route, { openInNewPane: ctrlHeldRef.current })}
+                               value={`recent-chat-${chat.slug}`}
                             >
                               {renderPaletteIcon(
                                 MessageSquareText,
@@ -2780,41 +2566,6 @@ export function CommandPalette({
                       <CommandSeparator />
                     </>
                   ) : null}
-                  {courseResults.length > 0 ? (
-                    <>
-                      <CommandGroup heading="Current courses">
-                        {courseResults.slice(0, 6).map((course) => (
-                          <CommandItem
-                            className={PALETTE_ITEM_CLASS}
-                            key={`recent-course-${course.id}`}
-                            onSelect={() =>
-                              navigateTo(course.path as Route, {
-                                openInNewPane: ctrlHeldRef.current,
-                              })
-                            }
-                            value={`recent-course-${course.id}`}
-                          >
-                            {renderPaletteIcon(MapTrifold, PALETTE_ICON_CLASS)}
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate font-medium text-foreground">
-                                {course.label}
-                              </p>
-                              <p className="truncate text-[0.6875rem] text-muted-foreground">
-                                {course.description}
-                              </p>
-                            </div>
-                            <CommandShortcut>
-                              {renderPaletteIcon(
-                                ChevronRight,
-                                PALETTE_CHEVRON_CLASS
-                              )}
-                            </CommandShortcut>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                      <CommandSeparator />
-                    </>
-                  ) : null}
                   {cachedFlashcardSetsForFilters.length > 0 ? (
                     <>
                       <CommandGroup heading="Recent flashcards">
@@ -2828,15 +2579,13 @@ export function CommandPalette({
                             <CommandItem
                               className={PALETTE_ITEM_CLASS}
                               key={`recent-flashcard-${set.id}`}
-                              onSelect={() =>
-                                navigateTo(
-                                  `/workspace/flashcards/${set.id}` as Route,
-                                  { openInNewPane: ctrlHeldRef.current }
-                                )
-                              }
-                              value={`recent-flashcard-${set.id}`}
+                              onSelect={() => navigateTo(`/workspace/flashcards/${set.id}` as Route, { openInNewPane: ctrlHeldRef.current })}
+                               value={`recent-flashcard-${set.id}`}
                             >
-                              {renderPaletteIcon(Sparkles, PALETTE_ICON_CLASS)}
+                              {renderPaletteIcon(
+                                Sparkles,
+                                PALETTE_ICON_CLASS
+                              )}
                               <div className="min-w-0 flex-1">
                                 <p className="truncate font-medium text-foreground">
                                   {set.title}
@@ -2860,36 +2609,34 @@ export function CommandPalette({
                   {misconceptionResults.length > 0 ? (
                     <>
                       <CommandGroup heading="Misconceptions">
-                        {misconceptionResults
-                          .slice(0, 6)
-                          .map((misconception) => (
-                            <CommandItem
-                              className={PALETTE_ITEM_CLASS}
-                              key={`misconception-${misconception.id}`}
-                              onSelect={() =>
-                                navigateTo(misconception.path as Route, {
-                                  openInNewPane: ctrlHeldRef.current,
-                                })
-                              }
-                              value={`misconception-${misconception.id}`}
-                            >
-                              {renderPaletteIcon(
-                                TriangleAlert,
-                                PALETTE_ICON_CLASS
-                              )}
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate font-medium text-foreground">
-                                  {misconception.label}
-                                </p>
-                                <p className="truncate text-[0.6875rem] text-muted-foreground">
-                                  {misconception.description}
-                                </p>
-                              </div>
-                              <span className="mt-0.5 shrink-0 whitespace-nowrap text-[0.6875rem] text-muted-foreground">
-                                {misconception.meta}
-                              </span>
-                            </CommandItem>
-                          ))}
+                        {misconceptionResults.slice(0, 6).map((misconception) => (
+                          <CommandItem
+                            className={PALETTE_ITEM_CLASS}
+                            key={`misconception-${misconception.id}`}
+                            onSelect={() =>
+                              navigateTo(misconception.path as Route, {
+                                openInNewPane: ctrlHeldRef.current,
+                              })
+                            }
+                            value={`misconception-${misconception.id}`}
+                          >
+                            {renderPaletteIcon(
+                              TriangleAlert,
+                              PALETTE_ICON_CLASS
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-medium text-foreground">
+                                {misconception.label}
+                              </p>
+                              <p className="truncate text-[0.6875rem] text-muted-foreground">
+                                {misconception.description}
+                              </p>
+                            </div>
+                            <span className="mt-0.5 shrink-0 whitespace-nowrap text-[0.6875rem] text-muted-foreground">
+                              {misconception.meta}
+                            </span>
+                          </CommandItem>
+                        ))}
                       </CommandGroup>
                       <CommandSeparator />
                     </>
@@ -2900,10 +2647,7 @@ export function CommandPalette({
             </CommandList>
             {showPreview ? (
               <Command.Preview className="bg-popover">
-                <PalettePreview
-                  item={selectedPreview}
-                  workspaceUuid={resolvedWorkspaceUuid}
-                />
+                <PalettePreview item={selectedPreview} workspaceUuid={resolvedWorkspaceUuid} />
               </Command.Preview>
             ) : null}
           </Command.Split>
@@ -3032,7 +2776,6 @@ function PalettePreview({
     | { kind: "command"; item: PaletteCommandItem; value: string }
     | { kind: "file"; item: PaletteItem; value: string }
     | { kind: "chat"; item: PaletteSearchItem; value: string }
-    | { kind: "course"; item: PaletteSearchItem; value: string }
     | { kind: "flashcard"; item: PaletteSearchItem; value: string }
     | { kind: "misconception"; item: PaletteSearchItem; value: string }
     | { kind: "content"; item: WorkspaceSearchResult; value: string }
@@ -3064,7 +2807,8 @@ function PalettePreview({
       /\.(png|jpg|jpeg|gif|webp|svg)$/i.test(nameLower);
     const isPdf = item.item.type === "file" && nameLower.endsWith(".pdf");
     const isVideo =
-      item.item.type === "file" && /\.(mp4|webm|mov)$/i.test(nameLower);
+      item.item.type === "file" &&
+      /\.(mp4|webm|mov)$/i.test(nameLower);
 
     const fileUrl =
       item.item.type === "file" && workspaceUuid
@@ -3192,41 +2936,31 @@ function PalettePreview({
         <div className="space-y-2 text-sm text-muted-foreground">
           {task.dueAt ? (
             <div className="flex items-center gap-2">
-              <span className="text-[0.6875rem] text-muted-foreground">
-                Due
-              </span>
+              <span className="text-[0.6875rem] text-muted-foreground">Due</span>
               <span>{formatTaskDueDate(task.dueAt)}</span>
             </div>
           ) : null}
           {task.assignee?.name ? (
             <div className="flex items-center gap-2">
-              <span className="text-[0.6875rem] text-muted-foreground">
-                Assignee
-              </span>
+              <span className="text-[0.6875rem] text-muted-foreground">Assignee</span>
               <span>{task.assignee.name}</span>
             </div>
           ) : null}
           {task.priority ? (
             <div className="flex items-center gap-2">
-              <span className="text-[0.6875rem] text-muted-foreground">
-                Priority
-              </span>
+              <span className="text-[0.6875rem] text-muted-foreground">Priority</span>
               <span className="capitalize">{task.priority.toLowerCase()}</span>
             </div>
           ) : null}
           {task.resources && task.resources.length > 0 ? (
             <div className="flex items-center gap-2">
-              <span className="text-[0.6875rem] text-muted-foreground">
-                Resources
-              </span>
+              <span className="text-[0.6875rem] text-muted-foreground">Resources</span>
               <span>{task.resources.length}</span>
             </div>
           ) : null}
           {task.status ? (
             <div className="flex items-center gap-2">
-              <span className="text-[0.6875rem] text-muted-foreground">
-                Status
-              </span>
+              <span className="text-[0.6875rem] text-muted-foreground">Status</span>
               <span className="capitalize">{task.status.toLowerCase()}</span>
             </div>
           ) : null}
@@ -3243,19 +2977,15 @@ function PalettePreview({
   const Icon =
     item.kind === "chat"
       ? MessageSquareText
-      : item.kind === "course"
-        ? MapTrifold
-        : item.kind === "misconception"
-          ? TriangleAlert
-          : Sparkles;
+      : item.kind === "misconception"
+        ? TriangleAlert
+        : Sparkles;
   const label =
     item.kind === "chat"
       ? "Chat"
-      : item.kind === "course"
-        ? "Course Method"
-        : item.kind === "misconception"
-          ? "Misconception"
-          : "Flashcard set";
+      : item.kind === "misconception"
+        ? "Misconception"
+        : "Flashcard set";
   return (
     <PreviewShell icon={Icon} label={label} title={item.item.label}>
       <p className="text-sm leading-6 text-muted-foreground">
