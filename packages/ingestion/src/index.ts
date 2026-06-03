@@ -7,6 +7,15 @@ export { assertRequiredSecrets } from "./config";
 export { ingestStoredFile };
 export { extractLinkPreview, ingestLink } from "./ingestion/link";
 export { PostgresVectorStore } from "./retrieval/postgres-vector-store";
+export type {
+  RetrievalQualityCandidate,
+  RetrievalQualitySignal,
+  RetrievalQualitySignalInput,
+} from "./retrieval/quality";
+export {
+  computeRetrievalQualitySignal,
+  logRetrievalQualitySignal,
+} from "./retrieval/quality";
 export type { RetrievalDecisionTelemetry } from "./retrieval/retrieve";
 export {
   normalizeRetrievalQuery,

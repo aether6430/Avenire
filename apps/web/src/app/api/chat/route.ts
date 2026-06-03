@@ -15,6 +15,10 @@ import {
 } from "@avenire/ai";
 import type { AgentActivityData, UIMessage } from "@avenire/ai/message-types";
 import { auth } from "@avenire/auth/server";
+import {
+  logRetrievalQualitySignal,
+  type RetrievalQualityCandidate,
+} from "@avenire/ingestion";
 import { headers } from "next/headers";
 import { after, NextResponse } from "next/server";
 import { createResumableStreamContext } from "resumable-stream";
@@ -382,6 +386,98 @@ function extractLatestUserText(messages: UIMessage[]) {
       ? ((latestUserMessage as { text?: string }).text ?? "").trim()
       : "";
   return text;
+}
+
+function extractAssistantText(message: UIMessage) {
+  return message.parts
+    .map((part) =>
+      part.type === "text" && typeof part.text === "string" ? part.text : ""
+    )
+    .join("\n")
+    .trim();
+}
+
+function collectRetrievalQualityCandidates(message: UIMessage) {
+  const candidates: RetrievalQualityCandidate[] = [];
+  const queries = new Set<string>();
+
+  for (const part of message.parts) {
+    const toolPart = part as {
+      output?: unknown;
+      state?: string;
+      type: string;
+    };
+    if (
+      !toolPart.type.startsWith("tool-") ||
+      toolPart.state !== "output-available"
+    ) {
+      continue;
+    }
+
+    const output = toolPart.output as {
+      citations?: Array<Record<string, unknown>>;
+      matches?: Array<Record<string, unknown>>;
+      query?: unknown;
+    };
+    if (typeof output.query === "string" && output.query.trim()) {
+      queries.add(output.query.trim());
+    }
+
+    const rows = Array.isArray(output.matches)
+      ? output.matches
+      : Array.isArray(output.citations)
+        ? output.citations
+        : [];
+
+    for (const row of rows) {
+      if (typeof row.chunkId !== "string") {
+        continue;
+      }
+
+      candidates.push({
+        chunkId: row.chunkId,
+        content:
+          typeof row.snippet === "string"
+            ? row.snippet
+            : typeof row.content === "string"
+              ? row.content
+              : null,
+        fileId: typeof row.fileId === "string" ? row.fileId : null,
+        score: typeof row.score === "number" ? row.score : null,
+        sourceType:
+          typeof row.sourceType === "string" ? row.sourceType : null,
+      });
+    }
+  }
+
+  return {
+    candidates,
+    query: Array.from(queries).join("\n"),
+  };
+}
+
+function logCompletedTurnRetrievalQuality(input: {
+  assistantMessage: UIMessage;
+  chatSlug: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  const assistantText = extractAssistantText(input.assistantMessage);
+  const { candidates, query } = collectRetrievalQualityCandidates(
+    input.assistantMessage
+  );
+  if (!assistantText || candidates.length === 0) {
+    return;
+  }
+
+  logRetrievalQualitySignal({
+    assistantText,
+    candidates,
+    chatId: input.chatSlug,
+    query,
+    userId: input.userId,
+    workspaceId: input.workspaceId,
+  });
 }
 
 function buildDetectedSubjectContext(subject: string | null) {
@@ -1808,6 +1904,12 @@ export async function POST(request: Request) {
                   persistedMessages,
                   workspace.workspaceId
                 );
+                logCompletedTurnRetrievalQuality({
+                  assistantMessage: responseMessage as unknown as UIMessage,
+                  chatSlug,
+                  userId: session.user.id,
+                  workspaceId: workspace.workspaceId,
+                });
                 await invalidateChatReadCaches(workspace.workspaceId);
                 logInfo("Persisted streamed messages", {
                   chatId: chatSlug,
