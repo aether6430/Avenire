@@ -48,6 +48,8 @@ import {
   applyModalityScoreAdjustments,
   buildChunkContext,
   buildContextAwareResults,
+  buildSpladeExpansionQuery,
+  decomposeQuery,
   dedupeQueries,
   diversifyByResource,
   exactPhraseScore,
@@ -143,6 +145,29 @@ describe("retrieve helpers", () => {
       fused.find((candidate) => candidate.chunkId === "shared")?.fusionScore
     ).toBeGreaterThan(
       fused.find((candidate) => candidate.chunkId === "other")?.fusionScore ?? 0
+    );
+  });
+
+  it("decomposes compound queries and builds sparse SPLADE-style expansions", () => {
+    expect(
+      decomposeQuery(
+        'Compare "GraphQL resolver" with calculateEigenValue and F = ma'
+      )
+    ).toEqual([
+      "GraphQL resolver",
+      'Compare "GraphQL resolver"',
+      "calculateEigenValue",
+      "F = ma",
+    ]);
+
+    expect(buildSpladeExpansionQuery("calculateEigenValue F = ma")).toContain(
+      "calculate"
+    );
+    expect(buildSpladeExpansionQuery("calculateEigenValue F = ma")).toContain(
+      "eigen"
+    );
+    expect(buildSpladeExpansionQuery("calculateEigenValue F = ma")).toContain(
+      "ma"
     );
   });
 
