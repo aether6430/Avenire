@@ -54,40 +54,7 @@ export function WorkspaceHeader({
   const shouldUseCompactDesktop = compact;
 
   if (isMobile) {
-    return (
-      <>
-        <header
-          className={cn(
-            overlay
-              ? "fixed top-0 right-0 left-0 z-40 w-full"
-              : "sticky top-0 z-40 w-full",
-            className
-          )}
-          style={
-            overlay ? { paddingTop: "env(safe-area-inset-top)" } : undefined
-          }
-        >
-          <div className="border-border/45 border-b bg-background/92 backdrop-blur-xl">
-            <div className="flex h-12 items-center gap-3 px-4">
-              <div className="min-w-0 flex-1">
-                {breadcrumbs ?? (
-                  <div id="workspace-header-breadcrumbs">
-                    <h1 className="truncate font-semibold text-[15px] text-foreground leading-5">
-                      {title || "Avenire"}
-                    </h1>
-                  </div>
-                )}
-              </div>
-              <div className="flex max-w-[48%] shrink-0 items-center justify-end gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {actions}
-                {trailingActions}
-              </div>
-            </div>
-          </div>
-        </header>
-        {overlay ? <div className="h-12 shrink-0" /> : null}
-      </>
-    );
+    return null;
   }
 
   if (!compact) {
