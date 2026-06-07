@@ -1157,13 +1157,13 @@ export function FilesSidebarPanel({
       ref={fileTreePanelRef}
     >
       <SidebarGroup>
-        <div className="flex items-center justify-between gap-2">
-          <SidebarGroupLabel>
+        <div className="flex items-center justify-between gap-2 px-0.5 md:px-0">
+          <SidebarGroupLabel className="sr-only md:not-sr-only">
             {sseConnected ? "Manage Live" : "Manage"}
           </SidebarGroupLabel>
           <div className="flex items-center gap-1">
             <Button
-              className="h-7 w-7 rounded-md border border-border/60 bg-background/60 p-0 text-muted-foreground shadow-none hover:bg-muted"
+              className="h-7 w-7 rounded-full border border-border/50 bg-background/45 p-0 text-muted-foreground shadow-none hover:bg-muted md:rounded-md"
               onClick={() => {
                 commandPaletteActions.open({ scope: "files" });
               }}
@@ -1174,7 +1174,7 @@ export function FilesSidebarPanel({
               <MagnifyingGlass className="size-3.5" />
             </Button>
             <Button
-              className="h-7 w-7 rounded-md border border-border/60 bg-background/60 p-0 text-muted-foreground shadow-none hover:bg-muted"
+              className="h-7 w-7 rounded-full border border-border/50 bg-background/45 p-0 text-muted-foreground shadow-none hover:bg-muted md:rounded-md"
               onClick={() => {
                 emitFileIntentAfterNavigation("newNote");
                 triggerHaptic("selection");
@@ -1187,7 +1187,7 @@ export function FilesSidebarPanel({
             </Button>
           </div>
         </div>
-        <SidebarGroupContent>
+        <SidebarGroupContent className="hidden md:block">
           <SidebarMenu>
             <SectionButton
               icon={FilePlus2}
@@ -1294,7 +1294,9 @@ export function FilesSidebarPanel({
             </SidebarGroupContent>
           </>
         ) : null}
-        <SidebarGroupLabel>Your Files</SidebarGroupLabel>
+        <SidebarGroupLabel className="mt-1 md:mt-0">
+          Your Files
+        </SidebarGroupLabel>
         <SidebarGroupContent className="min-h-0">
           {workspaceUuid && folderTree.length > 0 ? (
             <div className="h-full min-w-0 pr-1">
