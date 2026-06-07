@@ -403,7 +403,7 @@ export function DashboardHome({
           </div>
         </HeaderBreadcrumbs>
 
-        <div className="-mx-6 overflow-hidden rounded-none md:-mx-12 lg:-mx-16">
+        <div className="-mx-6 hidden overflow-hidden rounded-none md:block md:-mx-12 lg:-mx-16">
           <img
             alt="Workspace banner"
             className="h-28 w-full object-cover md:h-40"
@@ -413,18 +413,18 @@ export function DashboardHome({
           />
         </div>
 
-        <div className="flex w-full flex-wrap justify-around gap-1.5">
+        <div className="grid w-full grid-cols-6 items-center gap-1.5 rounded-full bg-foreground/[0.035] p-1 ring-1 ring-border/35 md:flex md:flex-wrap md:justify-around md:bg-transparent md:p-0 md:ring-0">
           <QuickCaptureDialog
             currentUserId={currentUserId}
             initialKind="task"
             trigger={
               <Button
-                className="h-8 gap-1.5 rounded-md px-2.5 text-muted-foreground text-sm"
+                className="h-8 min-w-0 gap-1 rounded-full px-0 text-muted-foreground text-xs md:px-2.5 md:text-sm"
                 type="button"
                 variant="ghost"
               >
                 <Plus className="size-3.5" />
-                Task
+                <span className="sr-only md:not-sr-only">Task</span>
               </Button>
             }
             workspaceUuid={workspaceId}
@@ -434,12 +434,12 @@ export function DashboardHome({
             initialKind="note"
             trigger={
               <Button
-                className="h-8 gap-1.5 rounded-md px-2.5 text-muted-foreground text-sm"
+                className="h-8 min-w-0 gap-1 rounded-full px-0 text-muted-foreground text-xs md:px-2.5 md:text-sm"
                 type="button"
                 variant="ghost"
               >
                 <FileText className="size-3.5" />
-                Note
+                <span className="sr-only md:not-sr-only">Note</span>
               </Button>
             }
           />
@@ -448,18 +448,18 @@ export function DashboardHome({
             initialKind="misconception"
             trigger={
               <Button
-                className="h-8 gap-1.5 rounded-md px-2.5 text-muted-foreground text-sm"
+                className="h-8 min-w-0 gap-1 rounded-full px-0 text-muted-foreground text-xs md:px-2.5 md:text-sm"
                 type="button"
                 variant="ghost"
               >
                 <TriangleAlert className="size-3.5" />
-                Misconception
+                <span className="sr-only md:not-sr-only">Misconception</span>
               </Button>
             }
           />
 
           <Button
-            className="h-8 gap-1.5 rounded-md px-2.5 text-muted-foreground text-sm"
+            className="h-8 min-w-0 gap-1 rounded-full px-0 text-muted-foreground text-xs md:px-2.5 md:text-sm"
             onClick={() => {
               navigate("/workspace/chats");
             }}
@@ -467,11 +467,11 @@ export function DashboardHome({
             variant="ghost"
           >
             <MessageSquareText className="size-3.5" />
-            Method
+            <span className="sr-only md:not-sr-only">Method</span>
           </Button>
 
           <Button
-            className="h-8 gap-1.5 rounded-md px-2.5 text-muted-foreground text-sm"
+            className="h-8 min-w-0 gap-1 rounded-full px-0 text-muted-foreground text-xs md:px-2.5 md:text-sm"
             onClick={() => {
               navigate("/workspace/flashcards");
             }}
@@ -479,11 +479,11 @@ export function DashboardHome({
             variant="ghost"
           >
             <BookOpenCheck className="size-3.5" />
-            Mindset
+            <span className="sr-only md:not-sr-only">Mindset</span>
           </Button>
 
           <Button
-            className="h-8 gap-1.5 rounded-md px-2.5 text-muted-foreground text-sm"
+            className="h-8 min-w-0 gap-1 rounded-full px-0 text-muted-foreground text-xs md:px-2.5 md:text-sm"
             onClick={() => {
               navigate(
                 `/workspace/files/${workspaceId}/folder/${rootFolderId}` as Route
@@ -493,15 +493,15 @@ export function DashboardHome({
             variant="ghost"
           >
             <Files className="size-3.5" />
-            Manage
+            <span className="sr-only md:not-sr-only">Manage</span>
           </Button>
         </div>
 
-        <div className="mt-2 min-w-0">
+        <div className="mt-1 min-w-0 md:mt-2">
           <h1
             className={cn(
               "max-w-full truncate text-balance font-semibold text-foreground tracking-tight",
-              isCompactPane ? "text-2xl" : "text-3xl"
+              isCompactPane ? "text-[1.7rem]" : "text-3xl"
             )}
             title={greeting.headline}
           >
@@ -518,10 +518,10 @@ export function DashboardHome({
           </p>
         </div>
 
-        <div className="mt-3 grid items-stretch gap-6 xl:grid-cols-[minmax(16rem,0.6fr)_minmax(0,1.4fr)]">
-          <div className="flex h-[20rem] flex-col overflow-hidden sm:h-[23rem] xl:h-[26rem]">
+        <div className="mt-2 grid items-stretch gap-4 md:mt-3 md:gap-6 xl:grid-cols-[minmax(16rem,0.6fr)_minmax(0,1.4fr)]">
+          <div className="flex h-[17rem] flex-col overflow-hidden sm:h-[23rem] xl:h-[26rem]">
             <Tabs
-              className="flex h-full min-h-0 flex-col space-y-4"
+              className="flex h-full min-h-0 flex-col space-y-2 md:space-y-4"
               onValueChange={(value) => {
                 if (value === "tasks" || value === "activity") {
                   dashboardUiActions.setHomeTab(value);
@@ -549,9 +549,9 @@ export function DashboardHome({
             </Tabs>
           </div>
 
-          <div className="flex h-[24rem] flex-col overflow-hidden sm:h-[27rem] xl:h-[30rem]">
+          <div className="flex h-[20rem] flex-col overflow-hidden sm:h-[27rem] xl:h-[30rem]">
             <Tabs
-              className="flex h-full min-h-0 flex-col space-y-4"
+              className="flex h-full min-h-0 flex-col space-y-2 md:space-y-4"
               onValueChange={(value) => {
                 if (
                   value === "weak-points" ||
@@ -841,8 +841,9 @@ export function DashboardHome({
                     <Button
                       className="w-full justify-start"
                       onClick={() => {
-                        const prompt =
-                          promptForFlashcards(selectedMisconception);
+                        const prompt = promptForFlashcards(
+                          selectedMisconception
+                        );
                         navigate(`/workspace/chats/new?prompt=${prompt}`);
                       }}
                       type="button"

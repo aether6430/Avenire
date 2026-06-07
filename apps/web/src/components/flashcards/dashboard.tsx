@@ -364,11 +364,12 @@ export function FlashcardsDashboard({
 
   return (
     <div className="h-full overflow-y-auto bg-background">
-      <div className="flex w-full flex-col gap-4 px-4 py-4 md:px-6 lg:px-8">
+      <div className="flex w-full flex-col gap-3 px-4 py-4 md:gap-4 md:px-6 lg:px-8">
         <HeaderLeadingIcon>{headerLeadingIcon}</HeaderLeadingIcon>
         <HeaderActions>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
             <Button
+              className="h-8 rounded-full px-3 text-xs md:h-9 md:rounded-md md:text-sm"
               disabled={!reviewTarget}
               onClick={() => {
                 if (!reviewTarget) {
@@ -384,9 +385,16 @@ export function FlashcardsDashboard({
               Go to deck
             </Button>
             <Dialog onOpenChange={setCreateOpen} open={createOpen}>
-              <DialogTrigger render={<Button variant="outline" />}>
+              <DialogTrigger
+                render={
+                  <Button
+                    className="h-8 rounded-full px-3 text-xs md:h-9 md:rounded-md md:text-sm"
+                    variant="outline"
+                  />
+                }
+              >
                 <Plus className="size-4" />
-                New Set
+                <span className="hidden sm:inline">New Set</span>
               </DialogTrigger>
               <DialogContent className="max-w-xl">
                 <DialogHeader>
@@ -504,13 +512,13 @@ export function FlashcardsDashboard({
 
         <motion.div
           animate={{ opacity: 1, y: 0 }}
-          className="grid gap-6 xl:grid-cols-[minmax(18rem,0.88fr)_minmax(0,1.12fr)]"
+          className="grid gap-4 md:gap-6 xl:grid-cols-[minmax(18rem,0.88fr)_minmax(0,1.12fr)]"
           initial={{ opacity: 0, y: 8 }}
           transition={{ duration: 0.22, ease: "easeOut" }}
         >
           <div className="min-w-0">
             <h2 className="font-medium text-foreground text-sm">Decks</h2>
-            <p className="text-muted-foreground text-xs">
+            <p className="mb-2 text-muted-foreground text-xs md:mb-0">
               Pick a deck and jump into review.
             </p>
             {isMobile ? (
@@ -536,8 +544,8 @@ export function FlashcardsDashboard({
                     return (
                       <button
                         className={cn(
-                          "flex w-full cursor-pointer items-start justify-between gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-secondary",
-                          isSelected && "bg-secondary"
+                          "flex w-full cursor-pointer items-start justify-between gap-3 rounded-md px-2.5 py-2 text-left transition-colors hover:bg-secondary md:px-3 md:py-2.5",
+                          isSelected && "bg-secondary/70"
                         )}
                         key={set.id}
                         onClick={() => setSelectedSetId(set.id)}
@@ -550,7 +558,7 @@ export function FlashcardsDashboard({
                         type="button"
                       >
                         <div className="min-w-0">
-                          <p className="truncate text-foreground text-sm">
+                          <p className="truncate text-foreground text-[13px] md:text-sm">
                             {set.title}
                           </p>
                           <p className="mt-1 text-[11px] text-muted-foreground">
@@ -640,10 +648,10 @@ export function FlashcardsDashboard({
                 <div className="pb-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 space-y-1">
-                      <h2 className="truncate font-medium text-base text-foreground">
+                      <h2 className="truncate font-medium text-[15px] text-foreground md:text-base">
                         {selectedSet.title}
                       </h2>
-                      <p className="line-clamp-2 text-muted-foreground text-sm">
+                      <p className="line-clamp-2 text-muted-foreground text-xs md:text-sm">
                         {selectedSet.description ?? "No description yet."}
                       </p>
                     </div>
@@ -656,7 +664,7 @@ export function FlashcardsDashboard({
                 </div>
                 <div className="space-y-4">
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-md bg-secondary/40 px-4 py-3">
+                    <div className="rounded-md bg-secondary/30 px-3 py-3 md:px-4">
                       <p className="text-[11px] text-muted-foreground uppercase tracking-[0.15em]">
                         Deck profile
                       </p>
@@ -677,7 +685,7 @@ export function FlashcardsDashboard({
                         {selectedSet.description ?? "No description yet."}
                       </p>
                     </div>
-                    <div className="rounded-2xl border border-border/45 bg-muted/10 px-4 py-3">
+                    <div className="rounded-md bg-secondary/20 px-3 py-3 md:px-4">
                       <p className="text-[11px] text-muted-foreground uppercase tracking-[0.18em]">
                         Study context
                       </p>
@@ -714,7 +722,7 @@ export function FlashcardsDashboard({
                       ) : (
                         selectedSnapshots.slice(0, 3).map((snapshot) => (
                           <div
-                            className="rounded-md bg-secondary/40 px-3 py-3"
+                            className="rounded-md bg-secondary/30 px-3 py-2.5 md:py-3"
                             key={snapshot.card.id}
                           >
                             <div className="flex items-start justify-between gap-3">
@@ -803,7 +811,7 @@ export function FlashcardsDashboard({
                 .slice(0, 6)
                 .map((misconception) => (
                   <button
-                    className="grid w-full cursor-pointer gap-3 rounded-md border border-border/60 bg-card px-3 py-3 text-left transition-colors hover:bg-secondary/70 md:grid-cols-[minmax(10rem,0.36fr)_minmax(0,1fr)]"
+                    className="grid w-full cursor-pointer gap-2 rounded-md bg-secondary/25 px-3 py-2.5 text-left transition-colors hover:bg-secondary/60 md:gap-3 md:border md:border-border/60 md:bg-card md:py-3 md:grid-cols-[minmax(10rem,0.36fr)_minmax(0,1fr)]"
                     key={misconception.id}
                     onClick={() => setSelectedMisconception(misconception)}
                     type="button"
@@ -958,8 +966,9 @@ export function FlashcardsDashboard({
                     <Button
                       className="w-full justify-start"
                       onClick={() => {
-                        const prompt =
-                          promptForFlashcards(selectedMisconception);
+                        const prompt = promptForFlashcards(
+                          selectedMisconception
+                        );
                         router.push(`/workspace/chats/new?prompt=${prompt}`);
                       }}
                       type="button"

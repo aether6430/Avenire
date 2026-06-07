@@ -78,10 +78,7 @@ function readPreferredWorkspaceId() {
 
 function syncTextareaHeight(textarea: HTMLTextAreaElement) {
   textarea.style.height = "auto";
-  const nextHeight = Math.min(
-    textarea.scrollHeight + 2,
-    TEXTAREA_MAX_HEIGHT
-  );
+  const nextHeight = Math.min(textarea.scrollHeight + 2, TEXTAREA_MAX_HEIGHT);
   textarea.style.height = `${nextHeight}px`;
   textarea.style.overflowY =
     textarea.scrollHeight > TEXTAREA_MAX_HEIGHT ? "auto" : "hidden";
@@ -980,7 +977,7 @@ function PureMultimodalInput({
       data-empty={!canSend}
       data-running={isRunning}
     >
-      <div className="relative flex w-full grow flex-col overflow-visible rounded-[1.65rem] bg-[#141411]/86 ring-1 ring-white/8 ring-inset shadow-[0_16px_48px_-30px_rgba(0,0,0,0.95)] backdrop-blur-2xl transition-colors duration-150 focus-within:ring-white/14 md:rounded-[28px] md:bg-[#f8f8f8] md:shadow-none md:backdrop-blur-none md:ring-[#e5e5e5] md:focus-within:ring-[#d7d7d7] dark:bg-[#141411]/86 dark:ring-white/8 dark:focus-within:ring-white/14 md:dark:bg-[#212121] md:dark:ring-[#2f2f2f] md:dark:focus-within:ring-[#424242]">
+      <div className="relative flex w-full grow flex-col overflow-visible rounded-full bg-[#141411]/82 ring-1 ring-white/7 ring-inset shadow-[0_14px_44px_-28px_rgba(0,0,0,0.95)] backdrop-blur-2xl transition-colors duration-150 focus-within:bg-[#171714]/90 focus-within:ring-white/13 md:rounded-[28px] md:bg-[#f8f8f8] md:shadow-none md:backdrop-blur-none md:ring-[#e5e5e5] md:focus-within:ring-[#d7d7d7] dark:bg-[#141411]/82 dark:ring-white/7 dark:focus-within:bg-[#171714]/90 dark:focus-within:ring-white/13 md:dark:bg-[#212121] md:dark:ring-[#2f2f2f] md:dark:focus-within:ring-[#424242]">
         <input
           className="pointer-events-none fixed -top-4 -left-4 size-0.5 opacity-0"
           multiple
@@ -990,7 +987,7 @@ function PureMultimodalInput({
           type="file"
         />
 
-        <div className="relative px-2.5 py-2 md:px-3 md:py-2">
+        <div className="relative px-2 py-1.5 md:px-3 md:py-2">
           <AnimatePresence initial={false}>
             {attachments.length > 0 ? (
               <motion.div
@@ -1085,17 +1082,22 @@ function PureMultimodalInput({
               )}
             </AnimatePresence>
 
-            <div className="relative z-10 flex min-h-8 items-end gap-1 md:min-h-9 md:gap-1.5">
+            <div className="relative z-10 flex min-h-7 items-end gap-0.5 md:min-h-9 md:gap-1.5">
               <AttachmentsButton
                 onClick={() => fileInputRef.current?.click()}
                 status={status}
               />
 
-              <div className={cn("flex min-w-0 flex-1", centered ? "items-center" : "items-end")}>
+              <div
+                className={cn(
+                  "flex min-w-0 flex-1",
+                  centered ? "items-center" : "items-end"
+                )}
+              >
                 <Textarea
                   autoFocus
                   className={cn(
-                    "max-h-32 min-h-8 w-full flex-1 resize-none overflow-y-hidden border-none! bg-transparent! px-0 py-1 text-[16px] text-white/86 leading-6 shadow-none! outline-none ring-0! placeholder:text-white/32 focus-visible:border-transparent! focus-visible:ring-0! md:max-h-40 md:min-h-9 md:py-1.5 md:text-[15px] md:text-[#0d0d0d] md:leading-6 md:placeholder:text-muted-foreground/65 dark:text-white md:dark:text-white [&::-webkit-scrollbar-thumb]:bg-background",
+                    "max-h-28 min-h-7 w-full flex-1 resize-none overflow-y-hidden border-none! bg-transparent! px-0 py-0.5 text-[15px] text-white/86 leading-6 shadow-none! outline-none ring-0! placeholder:text-white/32 focus-visible:border-transparent! focus-visible:ring-0! md:max-h-40 md:min-h-9 md:py-1.5 md:text-[15px] md:text-[#0d0d0d] md:leading-6 md:placeholder:text-muted-foreground/65 dark:text-white md:dark:text-white [&::-webkit-scrollbar-thumb]:bg-background",
                     className
                   )}
                   data-testid="multimodal-input"
@@ -1156,12 +1158,14 @@ function PureMultimodalInput({
                 />
               </div>
 
-              <div className="flex h-8 shrink-0 items-end gap-1 md:h-9 md:gap-1.5">
-                <ComposerTurboButton
-                  disabled={isRunning}
-                  enabled={turboEnabled}
-                  onToggle={() => onTurboChange(!turboEnabled)}
-                />
+              <div className="flex h-7 shrink-0 items-end gap-0.5 md:h-9 md:gap-1.5">
+                {!isMobile ? (
+                  <ComposerTurboButton
+                    disabled={isRunning}
+                    enabled={turboEnabled}
+                    onToggle={() => onTurboChange(!turboEnabled)}
+                  />
+                ) : null}
                 {speechSupported ? (
                   <ComposerVoiceButton
                     isRecording={isRecording}
@@ -1212,7 +1216,7 @@ function PureAttachmentsButton({
   return (
     <Button
       aria-label="Add attachment"
-      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full p-0 text-white/48 hover:bg-transparent hover:text-white/78 md:h-9 md:w-9 md:text-muted-foreground/80 md:hover:text-foreground"
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full p-0 text-white/48 hover:bg-transparent hover:text-white/78 md:h-9 md:w-9 md:text-muted-foreground/80 md:hover:text-foreground"
       data-testid="attachments-button"
       disabled={status === "submitted" || status === "streaming"}
       onClick={(event) => {
@@ -1223,7 +1227,7 @@ function PureAttachmentsButton({
       type="button"
       variant="ghost"
     >
-      <Plus className="size-4 md:size-[18px]" weight="regular" />
+      <Plus className="size-[17px] md:size-[18px]" weight="regular" />
     </Button>
   );
 }
@@ -1242,7 +1246,7 @@ function PureComposerVoiceButton({
   onToggle: () => void;
 }) {
   return (
-    <div className="relative h-8 w-8 shrink-0 md:h-9 md:w-9">
+    <div className="relative h-7 w-7 shrink-0 md:h-9 md:w-9">
       <motion.span
         animate={
           isRecording
@@ -1272,8 +1276,9 @@ function PureComposerVoiceButton({
       <Button
         aria-label={isRecording ? "Stop recording" : "Start voice input"}
         className={cn(
-          "relative flex h-8 w-8 items-center justify-center rounded-full border border-transparent bg-transparent p-0 text-white/48 transition-colors duration-200 hover:bg-transparent hover:text-white/78 md:h-9 md:w-9 md:text-muted-foreground/80 md:hover:text-foreground",
-          (isRecording || isTranscribing) && "text-white md:text-foreground dark:text-white",
+          "relative flex h-7 w-7 items-center justify-center rounded-full border border-transparent bg-transparent p-0 text-white/48 transition-colors duration-200 hover:bg-transparent hover:text-white/78 md:h-9 md:w-9 md:text-muted-foreground/80 md:hover:text-foreground",
+          (isRecording || isTranscribing) &&
+            "text-white md:text-foreground dark:text-white",
           isRecording &&
             "border-red-500/30 text-red-600 dark:border-red-400/35 dark:text-red-300"
         )}

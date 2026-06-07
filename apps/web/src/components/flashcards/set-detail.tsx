@@ -823,7 +823,7 @@ export function FlashcardSetDetail({
 
   return (
     <div className="h-full overflow-y-auto bg-background">
-      <div className="flex w-full flex-col gap-4 px-4 py-4 md:px-6 lg:px-8">
+      <div className="flex w-full flex-col gap-3 px-4 py-4 md:gap-4 md:px-6 lg:px-8">
         <HeaderLeadingIcon>{headerLeadingIcon}</HeaderLeadingIcon>
         <HeaderBreadcrumbs>{headerBreadcrumbs}</HeaderBreadcrumbs>
         <motion.div
@@ -832,10 +832,10 @@ export function FlashcardSetDetail({
           transition={{ duration: 0.22, ease: "easeOut" }}
         >
           <div>
-            <div className="gap-3 border-border/40 border-b pb-4">
+            <div className="gap-3 border-border/30 border-b pb-3 md:pb-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="space-y-1.5">
-                  <div className="flex flex-wrap items-center gap-2">
+                <div className="min-w-0 space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
                     <Badge className="rounded-md" variant="outline">
                       {set.sourceType === "ai-generated"
                         ? "AI-generated set"
@@ -846,10 +846,10 @@ export function FlashcardSetDetail({
                     </Badge>
                   </div>
                   <div>
-                    <h1 className="font-semibold text-xl tracking-tight">
+                    <h1 className="text-balance font-semibold text-xl leading-tight tracking-tight">
                       {set.title}
                     </h1>
-                    <p className="text-muted-foreground text-sm">
+                    <p className="text-muted-foreground text-sm md:text-sm">
                       {set.description ?? "No description set for this deck."}
                     </p>
                   </div>
@@ -877,14 +877,21 @@ export function FlashcardSetDetail({
                   ) : null}
                 </div>
 
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5 md:gap-2">
                   <Dialog
                     onOpenChange={setSetMetadataEditorOpen}
                     open={setMetadataEditorOpen}
                   >
-                    <DialogTrigger render={<Button variant="outline" />}>
+                    <DialogTrigger
+                      render={
+                        <Button
+                          className="h-8 rounded-full px-3 text-xs md:h-9 md:rounded-md md:text-sm"
+                          variant="outline"
+                        />
+                      }
+                    >
                       <Pencil className="size-4" />
-                      Edit set
+                      <span className="hidden sm:inline">Edit set</span>
                     </DialogTrigger>
                     <DialogContent className="max-w-xl">
                       <DialogHeader>
@@ -929,6 +936,7 @@ export function FlashcardSetDetail({
                     </DialogContent>
                   </Dialog>
                   <Button
+                    className="h-8 rounded-full px-3 text-xs md:h-9 md:rounded-md md:text-sm"
                     onClick={toggleEnrollment}
                     type="button"
                     variant="outline"
@@ -936,19 +944,23 @@ export function FlashcardSetDetail({
                     {set.enrollment?.status === "active" ? (
                       <>
                         <Pause className="size-4" />
-                        Pause
+                        <span className="hidden sm:inline">Pause</span>
                       </>
                     ) : (
                       <>
                         <BookOpenCheck className="size-4" />
-                        Enable Study
+                        <span className="hidden sm:inline">Enable Study</span>
                       </>
                     )}
                   </Button>
                   <Dialog onOpenChange={setEditorOpen} open={editorOpen}>
-                    <DialogTrigger render={<Button />}>
+                    <DialogTrigger
+                      render={
+                        <Button className="h-8 rounded-full px-3 text-xs md:h-9 md:rounded-md md:text-sm" />
+                      }
+                    >
                       <Plus className="size-4" />
-                      Add Card
+                      <span className="hidden sm:inline">Add Card</span>
                     </DialogTrigger>
                     <DialogContent className="max-w-3xl" largeWidth>
                       <DialogHeader>
@@ -1054,6 +1066,7 @@ export function FlashcardSetDetail({
                     </DialogContent>
                   </Dialog>
                   <Button
+                    className="hidden h-8 rounded-full px-3 text-xs md:inline-flex md:h-9 md:rounded-md md:text-sm"
                     disabled={busy}
                     onClick={deleteSet}
                     type="button"
@@ -1067,12 +1080,13 @@ export function FlashcardSetDetail({
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
               <p className="font-medium text-foreground text-sm">Review</p>
               <p className="text-muted-foreground text-xs">{reviewSummary}</p>
             </div>
             <Button
+              className="h-8 rounded-full text-xs md:h-9 md:rounded-md md:text-sm"
               disabled={set.dueCount + set.newCount <= 0}
               onClick={() => {
                 setStudyDeck([]);
@@ -1092,7 +1106,7 @@ export function FlashcardSetDetail({
             </Button>
           </div>
 
-          <div className="flex flex-wrap gap-2 border-border/50 border-y py-3">
+          <div className="flex gap-1.5 overflow-x-auto border-border/40 border-y py-2 md:flex-wrap md:gap-2 md:overflow-visible md:py-3">
             <Badge className="rounded-md" variant="outline">
               {set.sourceType === "ai-generated" ? "AI-generated" : "Manual"}
             </Badge>
@@ -1125,7 +1139,9 @@ export function FlashcardSetDetail({
             </Badge>
           </div>
 
-          <StabilityCurves snapshots={set.cardSnapshots} />
+          <div className="mt-1 md:mt-0">
+            <StabilityCurves snapshots={set.cardSnapshots} />
+          </div>
 
           <Dialog
             onOpenChange={(open) => {
@@ -1235,7 +1251,7 @@ export function FlashcardSetDetail({
                   </p>
                 </div>
                 <Input
-                  className="max-w-xs"
+                  className="h-8 max-w-full rounded-full text-sm md:max-w-xs md:rounded-md"
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Search front, back, notes, or tags"
                   value={search}
