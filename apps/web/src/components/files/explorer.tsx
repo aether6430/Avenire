@@ -5778,7 +5778,7 @@ export function FileExplorer({
         variant="folder"
         workspaceUuid={workspaceUuid}
       />
-      <div className="px-4 pt-0 pb-4">
+      <div className="px-4 pt-0 pb-3 md:pb-4">
         {currentFolder && !isMobile ? (
           <ContextMenu>
             <ContextMenuTrigger {...({ disabled: isMobile } as any)}>
@@ -5878,7 +5878,7 @@ export function FileExplorer({
       />
 
       <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-24 md:pb-0">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 pb-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 pb-3 md:gap-3 md:pb-4">
           <div className="flex min-w-0 items-center gap-2">
             {!isAtWorkspaceRoot && parentFolder ? (
               <Button
@@ -5894,7 +5894,7 @@ export function FileExplorer({
             ) : null}
             <Button
               aria-label="Undo last file operation"
-              className="rounded-md"
+              className="hidden rounded-md md:inline-flex"
               disabled={!canUndoFileOperation || fileOperationHistoryBusy}
               onClick={() => {
                 void undoLatestFileOperation();
@@ -5908,7 +5908,7 @@ export function FileExplorer({
             </Button>
             <Button
               aria-label="Redo last file operation"
-              className="rounded-md"
+              className="hidden rounded-md md:inline-flex"
               disabled={!canRedoFileOperation || fileOperationHistoryBusy}
               onClick={() => {
                 void redoLatestFileOperation();
@@ -5921,7 +5921,7 @@ export function FileExplorer({
               <RotateCw className="size-3.5" />
             </Button>
             <div className="min-w-0">
-              <h2 className="truncate font-semibold text-[1.9rem] tracking-tight">
+              <h2 className="truncate font-semibold text-[1.45rem] tracking-tight md:text-[1.9rem]">
                 {currentLocationTitle}
               </h2>
             </div>
@@ -5992,7 +5992,7 @@ export function FileExplorer({
               </DropdownMenu>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto md:flex-wrap md:gap-2 md:overflow-visible">
             <PropertyFilters
               fields={propertyFilterFields}
               filters={propertyFiltersForUi}
@@ -6000,12 +6000,12 @@ export function FileExplorer({
               size="sm"
               trigger={
                 <Button
-                  className="h-7 rounded-md px-2 text-xs"
+                  className="h-7 rounded-full px-2 text-xs md:rounded-md"
                   size="sm"
                   variant="outline"
                 >
                   <SlidersHorizontal className="size-3.5" />
-                  Filters
+                  <span className="hidden sm:inline">Filters</span>
                 </Button>
               }
             />
@@ -6013,7 +6013,7 @@ export function FileExplorer({
               <DropdownMenuTrigger
                 render={
                   <Button
-                    className="h-7 rounded-md px-2 text-xs"
+                    className="h-7 rounded-full px-2 text-xs md:rounded-md"
                     size="sm"
                     type="button"
                     variant="outline"
@@ -6021,8 +6021,10 @@ export function FileExplorer({
                 }
               >
                 <ArrowUpDown className="size-3.5" />
-                {getSortFieldLabel(sortState)} ·{" "}
-                {getSortDirectionLabel(sortState.direction)}
+                <span className="hidden sm:inline">
+                  {getSortFieldLabel(sortState)} ·{" "}
+                  {getSortDirectionLabel(sortState.direction)}
+                </span>
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="end"
@@ -6141,7 +6143,7 @@ export function FileExplorer({
               <DropdownMenuTrigger
                 render={
                   <Button
-                    className="h-7 rounded-md px-2 text-xs"
+                    className="hidden h-7 rounded-md px-2 text-xs md:inline-flex"
                     size="sm"
                     type="button"
                     variant="outline"
@@ -6291,7 +6293,12 @@ export function FileExplorer({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <ButtonGroup className={HEADER_SEGMENTED_GROUP_CLASS}>
+            <ButtonGroup
+              className={cn(
+                HEADER_SEGMENTED_GROUP_CLASS,
+                "rounded-full md:rounded-md"
+              )}
+            >
               <Button
                 aria-label="Card view"
                 className={cn(
@@ -6462,9 +6469,7 @@ export function FileExplorer({
                                   style={{
                                     containIntrinsicSize: "214px 160px",
                                     contentVisibility: "auto",
-                                    width: isSearchFilteredView
-                                      ? "100%"
-                                      : 160,
+                                    width: isSearchFilteredView ? "100%" : 160,
                                   }}
                                 >
                                   <div
@@ -6794,9 +6799,7 @@ export function FileExplorer({
                                   style={{
                                     containIntrinsicSize: "214px 160px",
                                     contentVisibility: "auto",
-                                    width: isSearchFilteredView
-                                      ? "100%"
-                                      : 160,
+                                    width: isSearchFilteredView ? "100%" : 160,
                                   }}
                                   tabIndex={0}
                                 >
