@@ -58,9 +58,9 @@ export function MobileWorkspaceDock({
   return (
     <nav
       aria-label="Workspace sections"
-      className="fixed right-3 bottom-[calc(0.5rem+env(safe-area-inset-bottom))] left-3 z-40 md:hidden"
+      className="fixed right-0 bottom-[calc(0.7rem+env(safe-area-inset-bottom))] left-0 z-40 flex justify-center px-5 md:hidden"
     >
-      <div className="mx-auto flex h-12 max-w-sm items-center justify-around rounded-xl border border-border/55 bg-background/88 px-1.5 shadow-sm backdrop-blur-xl">
+      <div className="flex h-[3.55rem] items-center gap-1.5 rounded-[1.75rem] border border-white/8 bg-[#0b0b09]/82 px-2 shadow-[0_14px_42px_-26px_rgba(0,0,0,0.9)] backdrop-blur-2xl dark:border-white/8 dark:bg-[#0b0b09]/82">
         {items.map((item) => {
           const Icon = item.icon;
           return (
@@ -68,8 +68,9 @@ export function MobileWorkspaceDock({
               aria-current={item.isActive ? "page" : undefined}
               aria-label={item.label}
               className={cn(
-                "h-9 min-w-0 flex-1 rounded-lg px-0 text-muted-foreground hover:bg-muted/70 hover:text-foreground",
-                item.isActive && "bg-muted text-foreground"
+                "size-11 rounded-full border border-transparent bg-transparent p-0 text-white/48 hover:bg-white/6 hover:text-white/80",
+                item.isActive &&
+                  "border-white/8 bg-white/10 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
               )}
               key={item.label}
               onClick={() => router.push(item.href())}

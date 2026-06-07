@@ -47,12 +47,12 @@ export function TaskFilters({
   );
 
   return (
-    <div className="flex flex-col gap-2 border-border/70 border-b px-1 py-2 md:flex-row md:items-center md:gap-3 md:px-4 md:py-3">
+    <div className="flex flex-col gap-2.5 border-border/50 border-b px-0 py-2.5 md:flex-row md:items-center md:gap-3 md:px-4 md:py-3">
       <Tabs
         onValueChange={(value) => onViewModeChange(value as TaskViewMode)}
         value={viewMode}
       >
-        <TabsList className="h-8 w-full md:w-auto" variant="line">
+        <TabsList className="h-9 w-full md:h-8 md:w-auto" variant="line">
           <TabsTrigger value="list">List</TabsTrigger>
           <TabsTrigger value="kanban">Kanban</TabsTrigger>
         </TabsList>
@@ -63,14 +63,14 @@ export function TaskFilters({
         placeholder="Search tasks..."
         value={searchQuery}
       />
-      <div className="no-scrollbar flex items-center gap-1.5 overflow-x-auto pb-0.5 md:flex-wrap md:gap-2 md:overflow-visible md:pb-0">
+      <div className="no-scrollbar flex items-center gap-2 overflow-x-auto pb-0.5 md:flex-wrap md:overflow-visible md:pb-0">
         <Select
           onValueChange={(value) =>
             onStatusFilterChange(value as TaskStatusFilter)
           }
           value={statusFilter}
         >
-          <SelectTrigger className="h-8 shrink-0 text-xs">
+          <SelectTrigger className="h-8 shrink-0 rounded-lg bg-background/60 text-xs">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -85,7 +85,7 @@ export function TaskFilters({
           onValueChange={(value) => onAssigneeFilterChange(value ?? "all")}
           value={assigneeFilter}
         >
-          <SelectTrigger className="h-8 shrink-0 text-xs">
+          <SelectTrigger className="h-8 shrink-0 rounded-lg bg-background/60 text-xs">
             <SelectValue placeholder="Assignee" />
           </SelectTrigger>
           <SelectContent align="end">
@@ -102,7 +102,7 @@ export function TaskFilters({
             onValueChange={(value) => onGroupingChange(value as TaskGrouping)}
             value={grouping}
           >
-            <SelectTrigger className="h-8 shrink-0 text-xs">
+            <SelectTrigger className="h-8 shrink-0 rounded-lg bg-background/60 text-xs">
               <SelectValue placeholder="Group by" />
             </SelectTrigger>
             <SelectContent align="end">
