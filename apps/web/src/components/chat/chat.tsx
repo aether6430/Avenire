@@ -45,8 +45,10 @@ type SendMessageOptions = Parameters<
   UseChatHelpers<UIMessage>["sendMessage"]
 >[1];
 const ACTIVE_REPLY_MIN_HEIGHT = "calc(100dvh - 250px)";
-const EMPTY_COMPOSER_SHELL_CLASSNAME = "mx-auto mb-3 w-full max-w-3xl";
-const FLOATING_COMPOSER_SHELL_CLASSNAME = "mx-auto mb-3 w-full max-w-3xl";
+const EMPTY_COMPOSER_SHELL_CLASSNAME =
+  "mx-auto mb-3 w-full max-w-3xl md:mb-3";
+const FLOATING_COMPOSER_SHELL_CLASSNAME =
+  "mx-auto mb-[calc(4.25rem+env(safe-area-inset-bottom))] w-full max-w-3xl md:mb-3";
 
 export function Chat({
   id,
@@ -512,7 +514,7 @@ export function Chat({
   return (
     <div
       {...getRootProps()}
-      className="relative flex h-full min-h-0 flex-col bg-[#fdfdfd] px-4 dark:bg-[#141414]"
+      className="relative flex h-full min-h-0 flex-col bg-[#fdfdfd] px-3 md:px-4 dark:bg-[#141414]"
     >
       <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col">
         {hasConversationSurface && (

@@ -980,7 +980,7 @@ function PureMultimodalInput({
       data-empty={!canSend}
       data-running={isRunning}
     >
-      <div className="relative flex w-full grow flex-col overflow-visible rounded-[28px] bg-[#f8f8f8] ring-1 ring-[#e5e5e5] ring-inset transition-colors duration-150 focus-within:ring-[#d7d7d7] dark:bg-[#212121] dark:ring-[#2f2f2f] dark:focus-within:ring-[#424242]">
+      <div className="relative flex w-full grow flex-col overflow-visible rounded-[22px] bg-[#f8f8f8] ring-1 ring-[#e5e5e5] ring-inset transition-colors duration-150 focus-within:ring-[#d7d7d7] md:rounded-[28px] dark:bg-[#212121] dark:ring-[#2f2f2f] dark:focus-within:ring-[#424242]">
         <input
           className="pointer-events-none fixed -top-4 -left-4 size-0.5 opacity-0"
           multiple
@@ -990,7 +990,7 @@ function PureMultimodalInput({
           type="file"
         />
 
-        <div className="relative px-3 py-2">
+        <div className="relative px-2.5 py-1.5 md:px-3 md:py-2">
           <AnimatePresence initial={false}>
             {attachments.length > 0 ? (
               <motion.div
@@ -1085,7 +1085,7 @@ function PureMultimodalInput({
               )}
             </AnimatePresence>
 
-            <div className="relative z-10 flex min-h-9 items-end gap-1.5">
+            <div className="relative z-10 flex min-h-8 items-end gap-1 md:min-h-9 md:gap-1.5">
               <AttachmentsButton
                 onClick={() => fileInputRef.current?.click()}
                 status={status}
@@ -1095,7 +1095,7 @@ function PureMultimodalInput({
                 <Textarea
                   autoFocus
                   className={cn(
-                    "max-h-40 min-h-9 w-full flex-1 resize-none overflow-y-hidden border-none! bg-transparent! px-0 py-1.5 text-[#0d0d0d] text-[15px] leading-6 shadow-none! outline-none ring-0! placeholder:text-muted-foreground/65 focus-visible:border-transparent! focus-visible:ring-0! sm:text-[15px] sm:leading-6 dark:text-white [&::-webkit-scrollbar-thumb]:bg-background",
+                    "max-h-32 min-h-8 w-full flex-1 resize-none overflow-y-hidden border-none! bg-transparent! px-0 py-1 text-[#0d0d0d] text-[16px] leading-6 shadow-none! outline-none ring-0! placeholder:text-muted-foreground/60 focus-visible:border-transparent! focus-visible:ring-0! md:max-h-40 md:min-h-9 md:py-1.5 md:text-[15px] md:leading-6 dark:text-white [&::-webkit-scrollbar-thumb]:bg-background",
                     className
                   )}
                   data-testid="multimodal-input"
@@ -1156,7 +1156,7 @@ function PureMultimodalInput({
                 />
               </div>
 
-              <div className="flex h-9 shrink-0 items-end gap-1.5">
+              <div className="flex h-8 shrink-0 items-end gap-1 md:h-9 md:gap-1.5">
                 <ComposerTurboButton
                   disabled={isRunning}
                   enabled={turboEnabled}
@@ -1212,7 +1212,7 @@ function PureAttachmentsButton({
   return (
     <Button
       aria-label="Add attachment"
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full p-0 text-muted-foreground/80 hover:bg-transparent hover:text-foreground"
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full p-0 text-muted-foreground/80 hover:bg-transparent hover:text-foreground md:h-9 md:w-9"
       data-testid="attachments-button"
       disabled={status === "submitted" || status === "streaming"}
       onClick={(event) => {
@@ -1223,7 +1223,7 @@ function PureAttachmentsButton({
       type="button"
       variant="ghost"
     >
-      <Plus className="size-[18px]" weight="regular" />
+      <Plus className="size-4 md:size-[18px]" weight="regular" />
     </Button>
   );
 }
@@ -1242,7 +1242,7 @@ function PureComposerVoiceButton({
   onToggle: () => void;
 }) {
   return (
-    <div className="relative h-9 w-9 shrink-0">
+    <div className="relative h-8 w-8 shrink-0 md:h-9 md:w-9">
       <motion.span
         animate={
           isRecording
@@ -1272,7 +1272,7 @@ function PureComposerVoiceButton({
       <Button
         aria-label={isRecording ? "Stop recording" : "Start voice input"}
         className={cn(
-          "relative flex h-9 w-9 items-center justify-center rounded-full border border-transparent bg-transparent p-0 text-muted-foreground/80 transition-colors duration-200 hover:bg-transparent hover:text-foreground",
+          "relative flex h-8 w-8 items-center justify-center rounded-full border border-transparent bg-transparent p-0 text-muted-foreground/80 transition-colors duration-200 hover:bg-transparent hover:text-foreground md:h-9 md:w-9",
           (isRecording || isTranscribing) && "text-foreground dark:text-white",
           isRecording &&
             "border-red-500/30 text-red-600 dark:border-red-400/35 dark:text-red-300"
@@ -1302,7 +1302,7 @@ function PureComposerVoiceButton({
               : { duration: 0.18, ease: "easeOut" }
           }
         >
-          <Microphone className="size-4" weight="regular" />
+          <Microphone className="size-[15px] md:size-4" weight="regular" />
         </motion.span>
       </Button>
     </div>
@@ -1331,7 +1331,7 @@ function PureComposerTurboButton({
       aria-label={enabled ? "Disable Apex Turbo" : "Enable Apex Turbo"}
       aria-pressed={enabled}
       className={cn(
-        "flex h-9 w-9 items-center justify-center rounded-full border border-transparent bg-transparent p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring",
+        "flex h-8 w-8 items-center justify-center rounded-full border border-transparent bg-transparent p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring md:h-9 md:w-9",
         enabled && "text-yellow-700 dark:text-yellow-300",
         disabled && "opacity-60"
       )}
@@ -1346,7 +1346,7 @@ function PureComposerTurboButton({
       variant="ghost"
     >
       <Lightning
-        className="size-[17px]"
+        className="size-4 md:size-[17px]"
         weight={enabled ? "fill" : "regular"}
       />
     </Button>
@@ -1378,7 +1378,7 @@ function PureComposerActionButton({
       animate={{
         scale: 1,
       }}
-      className="relative h-9 w-9 shrink-0"
+      className="relative h-8 w-8 shrink-0 md:h-9 md:w-9"
       transition={{ stiffness: 520, damping: 32, mass: 0.7, type: "spring" }}
     >
       <motion.span
@@ -1391,7 +1391,7 @@ function PureComposerActionButton({
       <Button
         aria-label={isRunning ? "Stop generating" : "Send message"}
         className={cn(
-          "absolute inset-0 flex h-9 w-9 items-center justify-center rounded-full bg-transparent p-0 text-primary-foreground transition duration-200 ease-out hover:bg-transparent hover:text-primary-foreground focus-visible:ring-0",
+          "absolute inset-0 flex h-8 w-8 items-center justify-center rounded-full bg-transparent p-0 text-primary-foreground transition duration-200 ease-out hover:bg-transparent hover:text-primary-foreground focus-visible:ring-0 md:h-9 md:w-9",
           disabled && "opacity-55"
         )}
         data-testid={isRunning ? "stop-button" : "send-button"}
@@ -1420,7 +1420,7 @@ function PureComposerActionButton({
               transition={{ duration: 0.18, ease: "easeOut" }}
             >
               <Square
-                className="size-[13px] fill-current"
+                className="size-3 fill-current md:size-[13px]"
                 weight="fill"
               />
             </motion.span>
@@ -1432,7 +1432,7 @@ function PureComposerActionButton({
               key="send"
               transition={{ duration: 0.18, ease: "easeOut" }}
             >
-              <ArrowUpIcon className="size-[18px]" weight="bold" />
+              <ArrowUpIcon className="size-4 md:size-[18px]" weight="bold" />
             </motion.span>
           )}
         </AnimatePresence>
