@@ -31,6 +31,7 @@ import {
   Files,
   FileText,
   ChatText as MessageSquareText,
+  MagnifyingGlass,
   Plus,
   Warning as TriangleAlert,
 } from "@phosphor-icons/react";
@@ -58,6 +59,7 @@ import {
   dashboardUiActions,
   useDashboardUiStore,
 } from "@/stores/dashboardUiStore";
+import { commandPaletteActions } from "@/stores/commandPaletteStore";
 import { usePaneWorkspaceHistoryActions } from "@/stores/workspaceHistoryStore";
 
 const DashboardTaskManager = dynamic(
@@ -518,7 +520,92 @@ export function DashboardHome({
           </p>
         </div>
 
-        <div className="mt-2 grid items-stretch gap-4 md:mt-3 md:gap-6 xl:grid-cols-[minmax(16rem,0.6fr)_minmax(0,1.4fr)]">
+        <div className="md:hidden">
+          <button
+            className="flex h-12 w-full items-center gap-2 rounded-xl border border-border/55 bg-secondary/45 px-4 text-left text-muted-foreground"
+            onClick={() => commandPaletteActions.open()}
+            type="button"
+          >
+            <MagnifyingGlass className="size-4 shrink-0" />
+            <span className="truncate text-sm">Search anything</span>
+          </button>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <button
+              className="min-h-32 rounded-xl bg-secondary/35 p-4 text-left transition-colors hover:bg-secondary/55"
+              onClick={() => navigate("/workspace/chats/new" as Route)}
+              type="button"
+            >
+              <MessageSquareText className="size-5 text-muted-foreground" />
+              <p className="mt-8 text-balance font-medium text-foreground text-lg leading-5">
+                Chat
+              </p>
+              <p className="mt-1 line-clamp-2 text-muted-foreground text-xs">
+                Ask, plan, or turn notes into work.
+              </p>
+            </button>
+            <button
+              className="min-h-32 rounded-xl bg-secondary/35 p-4 text-left transition-colors hover:bg-secondary/55"
+              onClick={() => navigate("/workspace/flashcards" as Route)}
+              type="button"
+            >
+              <BookOpenCheck className="size-5 text-muted-foreground" />
+              <p className="mt-8 text-balance font-medium text-foreground text-lg leading-5">
+                Learn
+              </p>
+              <p className="mt-1 text-muted-foreground text-xs">
+                {flashcardSets.length} decks
+              </p>
+            </button>
+            <button
+              className="min-h-32 rounded-xl bg-secondary/35 p-4 text-left transition-colors hover:bg-secondary/55"
+              onClick={() => navigate("/workspace/tasks" as Route)}
+              type="button"
+            >
+              <Plus className="size-5 text-muted-foreground" />
+              <p className="mt-8 text-balance font-medium text-foreground text-lg leading-5">
+                Tasks
+              </p>
+              <p className="mt-1 line-clamp-2 text-muted-foreground text-xs">
+                Plan the next thing.
+              </p>
+            </button>
+            <button
+              className="min-h-32 rounded-xl bg-secondary/35 p-4 text-left transition-colors hover:bg-secondary/55"
+              onClick={() =>
+                navigate(
+                  `/workspace/files/${workspaceId}/folder/${rootFolderId}` as Route
+                )
+              }
+              type="button"
+            >
+              <Files className="size-5 text-muted-foreground" />
+              <p className="mt-8 text-balance font-medium text-foreground text-lg leading-5">
+                Workspace
+              </p>
+              <p className="mt-1 text-muted-foreground text-xs">
+                Files and notes
+              </p>
+            </button>
+          </div>
+          {activeMisconceptions.length > 0 ? (
+            <button
+              className="mt-4 w-full rounded-xl bg-secondary/25 px-4 py-3 text-left"
+              onClick={() => {
+                setSelectedMisconception(activeMisconceptions[0] ?? null);
+              }}
+              type="button"
+            >
+              <p className="font-medium text-foreground text-sm">
+                {activeMisconceptions[0]?.concept}
+              </p>
+              <p className="mt-1 line-clamp-2 text-muted-foreground text-xs">
+                {activeMisconceptions[0]?.reason}
+              </p>
+            </button>
+          ) : null}
+        </div>
+
+        <div className="mt-2 hidden items-stretch gap-4 md:mt-3 md:grid md:gap-6 xl:grid-cols-[minmax(16rem,0.6fr)_minmax(0,1.4fr)]">
           <div className="flex h-[17rem] flex-col overflow-hidden sm:h-[23rem] xl:h-[26rem]">
             <Tabs
               className="flex h-full min-h-0 flex-col space-y-2 md:space-y-4"
@@ -722,7 +809,7 @@ export function DashboardHome({
           </div>
         </div>
 
-        <div className="mt-0">
+        <div className="mt-0 hidden md:block">
           <h2 className="mb-3 font-medium text-foreground text-sm">
             Student calendar
           </h2>
