@@ -3,6 +3,7 @@
 // ── Phosphor ────────────────────────────────────────────────
 import {
   ArrowRight as PhArrowRight,
+  ArrowUp as PhArrowUp,
   Bell as PhBell,
   Books as PhBooks,
   Brain as PhBrain,
@@ -69,6 +70,7 @@ export type IconName =
   | "settings"
   | "plus"
   | "arrow-right"
+  | "arrow-up"
   | "search"
   | "loader"
   | "users"
@@ -137,6 +139,7 @@ const phosphorMap: Record<IconName, IconComponent> = {
   settings: phosphor(PhGear),
   plus: phosphor(PhPlus),
   "arrow-right": phosphor(PhArrowRight),
+  "arrow-up": phosphor(PhArrowUp),
   search: phosphor(PhMagnifyingGlass),
   loader: phosphor(PhSpinner),
   users: phosphor(PhUsers),

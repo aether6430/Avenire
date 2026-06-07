@@ -46,9 +46,9 @@ export function WorkspaceHeader({
   const isHome = pathname === homeHref;
 
   const segmentedGroupClass =
-    "self-center divide-x divide-border/60 overflow-hidden rounded-md border border-border/60 bg-background shadow-sm";
+    "self-center divide-x divide-border/50 overflow-hidden rounded-md border border-border/50 bg-background/70 shadow-sm";
   const segmentedIconButtonClass =
-    "size-7 rounded-none border-0 bg-transparent text-foreground shadow-none hover:bg-muted/70 disabled:bg-transparent";
+    "size-6 rounded-none border-0 bg-transparent text-foreground shadow-none hover:bg-muted/70 disabled:bg-transparent md:size-7";
   const shouldUseCompactDesktop = compact;
 
   if (!compact) {
@@ -61,12 +61,12 @@ export function WorkspaceHeader({
       >
         <div
           className={cn(
-            "flex w-full shrink-0 flex-row items-center px-3",
+            "flex w-full shrink-0 flex-row items-center px-2.5 md:px-3",
             shouldUseCompactDesktop ? "min-h-10 gap-1.5" : "min-h-11 gap-1"
           )}
         >
           <div className="flex min-w-0 flex-1 items-center gap-1">
-            <SidebarTrigger className="size-8 shrink-0 md:hidden" />
+            <SidebarTrigger className="size-7 shrink-0 md:hidden" />
             <ButtonGroup className={segmentedGroupClass}>
               <Button
                 aria-label="Go back"
@@ -144,7 +144,7 @@ export function WorkspaceHeader({
               </div>
             </div>
           </div>
-          <div className="no-scrollbar flex max-w-[52%] shrink-0 items-center justify-end gap-1 overflow-x-auto pr-4">
+          <div className="no-scrollbar flex max-w-[48%] shrink-0 items-center justify-end gap-1 overflow-x-auto pr-3 md:max-w-[52%] md:pr-4">
             <div className="flex min-w-max items-center justify-end gap-1">
               {actions}
             </div>
@@ -182,9 +182,9 @@ export function WorkspaceHeader({
           }}
         />
 
-        <div className="relative flex h-10 items-center gap-1.5 px-3">
+        <div className="relative flex h-9 items-center gap-1.5 px-2.5 md:h-10 md:px-3">
           <div className="flex shrink-0 items-center gap-1">
-            <SidebarTrigger className="size-8 md:hidden" />
+            <SidebarTrigger className="size-7 md:hidden" />
             <ButtonGroup className={segmentedGroupClass}>
               <Button
                 aria-label="Go back"
@@ -235,7 +235,7 @@ export function WorkspaceHeader({
             {breadcrumbs ?? (
               <div id="workspace-header-breadcrumbs">
                 {title ? (
-                  <h1 className="truncate font-medium text-[13px] text-foreground leading-5">
+                  <h1 className="truncate font-medium text-xs text-foreground leading-4 md:text-[13px] md:leading-5">
                     {title}
                   </h1>
                 ) : (
@@ -251,7 +251,7 @@ export function WorkspaceHeader({
           </div>
         </div>
       </header>
-      {isOverlayCompact ? <div className="h-10 shrink-0" /> : null}
+      {isOverlayCompact ? <div className="h-9 shrink-0 md:h-10" /> : null}
     </>
   );
 }

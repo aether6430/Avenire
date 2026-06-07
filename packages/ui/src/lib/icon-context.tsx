@@ -16,10 +16,10 @@ import {
   type IconName,
   iconLibraryOrder,
   iconMap,
-} from "@/lib/icon-map";
+} from "./icon-map";
 
 // Re-export types for consumers
-export type { IconComponent, IconLibrary, IconName } from "@/lib/icon-map";
+export type { IconComponent, IconLibrary, IconName } from "./icon-map";
 
 interface IconContextValue {
   iconLibrary: IconLibrary;

@@ -274,9 +274,9 @@ function SectionButton({
         }}
         size={size}
       >
-        <Icon className="size-4" />
+        <Icon className="size-3.5" />
         <div className="min-w-0 flex-1 text-left">
-          <p className="truncate text-xs">{label}</p>
+          <p className="truncate text-[11px]">{label}</p>
           {description ? (
             <p className="truncate text-[10px] text-muted-foreground">
               {description}
@@ -2085,8 +2085,8 @@ export function DashboardSidebar({
       >
         <SidebarContent>
           <TooltipProvider delay={280}>
-            <SidebarGroup className="px-2 pb-1">
-              <div className="flex h-8 items-center gap-2 px-2">
+            <SidebarGroup className="px-1.5 pb-1">
+              <div className="flex h-7 items-center gap-1.5 px-2">
                 <SidebarGroupLabel className="h-auto flex-1 px-0">
                   Workspace
                 </SidebarGroupLabel>
@@ -2094,7 +2094,7 @@ export function DashboardSidebar({
                   aria-label={
                     state === "expanded" ? "Collapse sidebar" : "Expand sidebar"
                   }
-                  className="size-7 shrink-0 rounded-md"
+                  className="size-6 shrink-0 rounded-md"
                   onClick={() => {
                     setPeekHovered(false);
                     toggleSidebar();
@@ -2105,7 +2105,7 @@ export function DashboardSidebar({
                 >
                   <PanelLeftIcon
                     className={cn(
-                      "size-4 transition-transform duration-300",
+                      "size-3.5 transition-transform duration-300",
                       state === "expanded" ? "rotate-180" : "rotate-0"
                     )}
                   />
@@ -2113,7 +2113,7 @@ export function DashboardSidebar({
               </div>
               <ExpandableTabs
                 allowDeselect={false}
-                className="mt-1"
+                className="mt-0.5"
                 items={[
                   { value: "chat", label: "Method", icon: MessageSquare },
                   { value: "flashcards", label: "Mindset", icon: Sparkles },
@@ -2175,7 +2175,7 @@ export function DashboardSidebar({
             </SidebarGroup>
             <div className="relative min-h-0 flex-1 overflow-hidden">
               {sidebarView === "workspace" ? (
-                <div className="absolute inset-0 overflow-y-auto px-2 py-2">
+                <div className="absolute inset-0 overflow-y-auto px-1.5 py-1.5">
                   <SidebarGroup>
                     <SidebarGroupLabel>Workspace Home</SidebarGroupLabel>
                     <SidebarGroupContent>
@@ -2435,10 +2435,10 @@ export function DashboardSidebar({
           </TooltipProvider>
         </SidebarContent>
         <SidebarFooter>
-          <div className="mb-2 flex items-center justify-between gap-2 px-2">
+          <div className="mb-1.5 flex items-center justify-between gap-1.5 px-1.5">
             <div className="flex items-center gap-1">
               <Button
-                className="hit-area h-8 w-8"
+                className="hit-area size-7"
                 onClick={() => {
                   void triggerHaptic("selection");
                   openOverlayAfterCollapse(() => setTrashOpen(true));
@@ -2447,11 +2447,11 @@ export function DashboardSidebar({
                 type="button"
                 variant="ghost"
               >
-                <Trash2 className="size-4" />
+                <Trash2 className="size-3.5" />
                 <span className="sr-only">Open trash</span>
               </Button>
               <Button
-                className="hit-area h-8 w-8"
+                className="hit-area size-7"
                 onClick={() => {
                   void triggerHaptic("selection");
                   openOverlayAfterCollapse(() => {
@@ -2462,11 +2462,11 @@ export function DashboardSidebar({
                 type="button"
                 variant="ghost"
               >
-                <Waves className="size-4" />
+                <Waves className="size-3.5" />
                 <span className="sr-only">Open upload activity</span>
               </Button>
               <Button
-                className="hit-area h-8 w-8"
+                className="hit-area size-7"
                 id="dashboard-settings-trigger"
                 onClick={() => {
                   void triggerHaptic("selection");
@@ -2486,7 +2486,7 @@ export function DashboardSidebar({
                 type="button"
                 variant="ghost"
               >
-                <Settings className="size-4" />
+                <Settings className="size-3.5" />
                 <span className="sr-only">Open settings</span>
               </Button>
             </div>
