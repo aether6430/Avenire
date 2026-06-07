@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import { getChatErrorMessage } from "@/lib/chat-errors";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   CHAT_NAME_UPDATED_EVENT,
   CHAT_STREAM_FINISHED_EVENT,
@@ -45,10 +46,9 @@ type SendMessageOptions = Parameters<
   UseChatHelpers<UIMessage>["sendMessage"]
 >[1];
 const ACTIVE_REPLY_MIN_HEIGHT = "calc(100dvh - 250px)";
-const EMPTY_COMPOSER_SHELL_CLASSNAME =
-  "mx-auto mb-3 w-full max-w-3xl md:mb-3";
+const EMPTY_COMPOSER_SHELL_CLASSNAME = "mx-auto mb-3 w-full max-w-3xl md:mb-3";
 const FLOATING_COMPOSER_SHELL_CLASSNAME =
-  "mx-auto mb-[calc(4.75rem+env(safe-area-inset-bottom))] w-full max-w-3xl md:mb-3";
+  "mx-auto mb-[calc(3.9rem+env(safe-area-inset-bottom))] w-full max-w-3xl md:mb-3";
 
 export function Chat({
   id,
@@ -68,6 +68,7 @@ export function Chat({
     null
   );
   const [turboEnabled, setTurboEnabled] = useState(false);
+  const isMobile = useIsMobile();
   const activeSelectedModel = turboEnabled ? "apex-turbo" : selectedModel;
   const lastCompletedMessageIdRef = useRef<string | null>(null);
   const previousStatusRef = useRef<string | null>(null);
@@ -565,26 +566,28 @@ export function Chat({
                 key="composer-bottom"
                 transition={{ duration: 0.22, ease: "easeOut" }}
               >
-                <motion.div
-                  animate={isAutoScrollEnabled ? "hidden" : "visible"}
-                  className="pointer-events-none absolute right-0 bottom-[calc(100%+0.75rem)] z-20 flex justify-end"
-                  initial="hidden"
-                  transition={{ duration: 0.3, ease: "easeInOut" }}
-                  variants={{
-                    visible: { opacity: 1, y: 0 },
-                    hidden: { opacity: 0, y: 8 },
-                  }}
-                >
-                  <Button
-                    className="pointer-events-auto h-9 min-w-9 rounded-full border border-[#e5e5e5] bg-[#f8f8f8] px-2.5 sm:h-10 sm:min-w-10 sm:px-3 dark:border-[#2a2a2a] dark:bg-[#212121]"
-                    onClick={() => reenableAutoScroll("smooth")}
-                    size="sm"
-                    type="button"
-                    variant="outline"
+                {!isMobile ? (
+                  <motion.div
+                    animate={isAutoScrollEnabled ? "hidden" : "visible"}
+                    className="pointer-events-none absolute right-0 bottom-[calc(100%+0.75rem)] z-20 flex justify-end"
+                    initial="hidden"
+                    transition={{ duration: 0.3, ease: "easeInOut" }}
+                    variants={{
+                      visible: { opacity: 1, y: 0 },
+                      hidden: { opacity: 0, y: 8 },
+                    }}
                   >
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </motion.div>
+                    <Button
+                      className="pointer-events-auto h-9 min-w-9 rounded-md border border-border/70 bg-background px-2.5 sm:h-10 sm:min-w-10 sm:px-3"
+                      onClick={() => reenableAutoScroll("smooth")}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </motion.div>
+                ) : null}
                 {inputCard(false)}
               </motion.form>
             )}

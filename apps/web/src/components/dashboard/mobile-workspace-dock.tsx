@@ -3,10 +3,11 @@
 import { Button } from "@avenire/ui/components/button";
 import { cn } from "@avenire/ui/lib/utils";
 import {
+  BookOpenText,
+  House,
   Files,
   ListChecks,
   Chat as MessageSquare,
-  Sparkle as Sparkles,
 } from "@phosphor-icons/react";
 import type { Route } from "next";
 import { usePathname, useRouter } from "next/navigation";
@@ -30,10 +31,16 @@ export function MobileWorkspaceDock({
     : ("/workspace/files" as Route);
   const items = [
     {
-      href: createFreshNewChatHref,
-      icon: MessageSquare,
-      isActive: pathname.startsWith("/workspace/chats"),
-      label: "Method",
+      href: () => "/workspace" as Route,
+      icon: House,
+      isActive: pathname === "/workspace",
+      label: "Home",
+    },
+    {
+      href: () => "/workspace/flashcards" as Route,
+      icon: BookOpenText,
+      isActive: pathname.startsWith("/workspace/flashcards"),
+      label: "Learn",
     },
     {
       href: () => "/workspace/tasks" as Route,
@@ -42,25 +49,25 @@ export function MobileWorkspaceDock({
       label: "Tasks",
     },
     {
-      href: () => "/workspace/flashcards" as Route,
-      icon: Sparkles,
-      isActive: pathname.startsWith("/workspace/flashcards"),
-      label: "Mindset",
-    },
-    {
       href: () => filesHref,
       icon: Files,
       isActive: pathname.startsWith("/workspace/files"),
-      label: "Manage",
+      label: "Workspace",
+    },
+    {
+      href: createFreshNewChatHref,
+      icon: MessageSquare,
+      isActive: pathname.startsWith("/workspace/chats"),
+      label: "Chat",
     },
   ];
 
   return (
     <nav
       aria-label="Workspace sections"
-      className="fixed right-0 bottom-[calc(0.7rem+env(safe-area-inset-bottom))] left-0 z-40 flex justify-center px-5 md:hidden"
+      className="fixed right-0 bottom-[calc(0.55rem+env(safe-area-inset-bottom))] left-0 z-40 flex justify-center px-4 md:hidden"
     >
-      <div className="flex h-[3.35rem] items-center gap-1 rounded-[1.65rem] border border-white/8 bg-[#0b0b09]/82 px-2 shadow-[0_14px_42px_-26px_rgba(0,0,0,0.9)] backdrop-blur-2xl dark:border-white/8 dark:bg-[#0b0b09]/82">
+      <div className="grid h-14 w-full max-w-[24rem] grid-cols-5 items-center gap-1 rounded-xl border border-border/70 bg-background/92 px-1.5 shadow-sm backdrop-blur-xl dark:bg-background/88">
         {items.map((item) => {
           const Icon = item.icon;
           return (
@@ -68,9 +75,9 @@ export function MobileWorkspaceDock({
               aria-current={item.isActive ? "page" : undefined}
               aria-label={item.label}
               className={cn(
-                "size-10 rounded-full border border-transparent bg-transparent p-0 text-white/48 hover:bg-white/6 hover:text-white/80",
+                "flex h-11 w-full flex-col items-center justify-center gap-0.5 rounded-lg border border-transparent bg-transparent p-0 text-muted-foreground hover:bg-accent hover:text-foreground",
                 item.isActive &&
-                  "border-white/8 bg-white/10 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                  "border-border/70 bg-accent text-foreground shadow-[inset_0_1px_0_hsl(var(--foreground)/0.04)]"
               )}
               key={item.label}
               onClick={() => router.push(item.href())}
@@ -78,8 +85,10 @@ export function MobileWorkspaceDock({
               type="button"
               variant="ghost"
             >
-              <Icon className="size-[18px]" />
-              <span className="sr-only">{item.label}</span>
+              <Icon className="size-[17px]" />
+              <span className="max-w-full truncate text-[10px] leading-none">
+                {item.label}
+              </span>
             </Button>
           );
         })}
