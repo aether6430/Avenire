@@ -10,6 +10,7 @@ import {
   DialogTrigger,
 } from "@avenire/ui/components/dialog";
 import { Input } from "@avenire/ui/components/input";
+import { InputMessage } from "@avenire/ui/components/input-message";
 import { Label } from "@avenire/ui/components/label";
 import {
   Select,
@@ -442,13 +443,25 @@ export function QuickCaptureDialog({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="quick-note-content">Content</Label>
-              <Textarea
-                className="min-h-56"
-                id="quick-note-content"
-                onChange={(event) =>
-                  setNote((prev) => ({ ...prev, content: event.target.value }))
+              <InputMessage
+                className="min-h-32"
+                disabled={isBusy}
+                maxRows={8}
+                minRows={4}
+                onSend={() => {
+                  if (note.title.trim() || note.content.trim()) {
+                    void submit("note");
+                  }
+                }}
+                onValueChange={(content) =>
+                  setNote((prev) => ({ ...prev, content }))
                 }
                 placeholder="Write the idea, quote, or sketch here."
+                sendLabel="Capture note"
+                textareaProps={{
+                  "aria-label": "Note content",
+                  id: "quick-note-content",
+                }}
                 value={note.content}
               />
             </div>
