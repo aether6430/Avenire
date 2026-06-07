@@ -980,7 +980,7 @@ function PureMultimodalInput({
       data-empty={!canSend}
       data-running={isRunning}
     >
-      <div className="relative flex w-full grow flex-col overflow-visible rounded-[22px] bg-[#f8f8f8] ring-1 ring-[#e5e5e5] ring-inset transition-colors duration-150 focus-within:ring-[#d7d7d7] md:rounded-[28px] dark:bg-[#212121] dark:ring-[#2f2f2f] dark:focus-within:ring-[#424242]">
+      <div className="relative flex w-full grow flex-col overflow-visible rounded-[1.65rem] bg-[#141411]/86 ring-1 ring-white/8 ring-inset shadow-[0_16px_48px_-30px_rgba(0,0,0,0.95)] backdrop-blur-2xl transition-colors duration-150 focus-within:ring-white/14 md:rounded-[28px] md:bg-[#f8f8f8] md:shadow-none md:backdrop-blur-none md:ring-[#e5e5e5] md:focus-within:ring-[#d7d7d7] dark:bg-[#141411]/86 dark:ring-white/8 dark:focus-within:ring-white/14 md:dark:bg-[#212121] md:dark:ring-[#2f2f2f] md:dark:focus-within:ring-[#424242]">
         <input
           className="pointer-events-none fixed -top-4 -left-4 size-0.5 opacity-0"
           multiple
@@ -990,7 +990,7 @@ function PureMultimodalInput({
           type="file"
         />
 
-        <div className="relative px-2.5 py-1.5 md:px-3 md:py-2">
+        <div className="relative px-2.5 py-2 md:px-3 md:py-2">
           <AnimatePresence initial={false}>
             {attachments.length > 0 ? (
               <motion.div
@@ -1095,7 +1095,7 @@ function PureMultimodalInput({
                 <Textarea
                   autoFocus
                   className={cn(
-                    "max-h-32 min-h-8 w-full flex-1 resize-none overflow-y-hidden border-none! bg-transparent! px-0 py-1 text-[#0d0d0d] text-[16px] leading-6 shadow-none! outline-none ring-0! placeholder:text-muted-foreground/60 focus-visible:border-transparent! focus-visible:ring-0! md:max-h-40 md:min-h-9 md:py-1.5 md:text-[15px] md:leading-6 dark:text-white [&::-webkit-scrollbar-thumb]:bg-background",
+                    "max-h-32 min-h-8 w-full flex-1 resize-none overflow-y-hidden border-none! bg-transparent! px-0 py-1 text-[16px] text-white/86 leading-6 shadow-none! outline-none ring-0! placeholder:text-white/32 focus-visible:border-transparent! focus-visible:ring-0! md:max-h-40 md:min-h-9 md:py-1.5 md:text-[15px] md:text-[#0d0d0d] md:leading-6 md:placeholder:text-muted-foreground/65 dark:text-white md:dark:text-white [&::-webkit-scrollbar-thumb]:bg-background",
                     className
                   )}
                   data-testid="multimodal-input"
@@ -1212,7 +1212,7 @@ function PureAttachmentsButton({
   return (
     <Button
       aria-label="Add attachment"
-      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full p-0 text-muted-foreground/80 hover:bg-transparent hover:text-foreground md:h-9 md:w-9"
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full p-0 text-white/48 hover:bg-transparent hover:text-white/78 md:h-9 md:w-9 md:text-muted-foreground/80 md:hover:text-foreground"
       data-testid="attachments-button"
       disabled={status === "submitted" || status === "streaming"}
       onClick={(event) => {
@@ -1272,8 +1272,8 @@ function PureComposerVoiceButton({
       <Button
         aria-label={isRecording ? "Stop recording" : "Start voice input"}
         className={cn(
-          "relative flex h-8 w-8 items-center justify-center rounded-full border border-transparent bg-transparent p-0 text-muted-foreground/80 transition-colors duration-200 hover:bg-transparent hover:text-foreground md:h-9 md:w-9",
-          (isRecording || isTranscribing) && "text-foreground dark:text-white",
+          "relative flex h-8 w-8 items-center justify-center rounded-full border border-transparent bg-transparent p-0 text-white/48 transition-colors duration-200 hover:bg-transparent hover:text-white/78 md:h-9 md:w-9 md:text-muted-foreground/80 md:hover:text-foreground",
+          (isRecording || isTranscribing) && "text-white md:text-foreground dark:text-white",
           isRecording &&
             "border-red-500/30 text-red-600 dark:border-red-400/35 dark:text-red-300"
         )}
@@ -1331,7 +1331,7 @@ function PureComposerTurboButton({
       aria-label={enabled ? "Disable Apex Turbo" : "Enable Apex Turbo"}
       aria-pressed={enabled}
       className={cn(
-        "flex h-8 w-8 items-center justify-center rounded-full border border-transparent bg-transparent p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring md:h-9 md:w-9",
+        "flex h-8 w-8 items-center justify-center rounded-full border border-transparent bg-transparent p-0 text-white/48 transition-colors hover:bg-transparent hover:text-white/78 focus-visible:ring-1 focus-visible:ring-ring md:h-9 md:w-9 md:text-muted-foreground md:hover:text-foreground",
         enabled && "text-yellow-700 dark:text-yellow-300",
         disabled && "opacity-60"
       )}
@@ -1385,7 +1385,7 @@ function PureComposerActionButton({
         animate={{
           opacity: disabled ? 0.68 : 1,
         }}
-        className="absolute inset-0 rounded-full bg-primary shadow-[0_10px_24px_-14px_var(--primary)]"
+        className="absolute inset-0 rounded-full bg-[#abc4ff] shadow-[0_10px_24px_-14px_#abc4ff]"
         transition={{ duration: 0.18, ease: "easeOut" }}
       />
       <Button

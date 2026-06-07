@@ -71,8 +71,8 @@ export function TaskListRow({
   return (
     <div
       className={cn(
-        "group flex items-start gap-1.5 rounded-lg border border-transparent px-1.5 py-1.5 transition-colors md:gap-2 md:rounded-xl md:px-2 md:py-2",
-        layout === "kanban" && "px-2 py-2 md:px-3 md:py-3",
+        "group flex items-start gap-2 rounded-xl border border-transparent px-1 py-2 transition-colors md:px-2",
+        layout === "kanban" && "px-2.5 py-2.5 md:px-3 md:py-3",
         selected
           ? "border-border/80 bg-secondary/70"
           : "hover:border-border/70 hover:bg-secondary/45"
@@ -89,7 +89,7 @@ export function TaskListRow({
       }}
     >
       <Button
-        className="mt-0.5 size-7 text-muted-foreground md:size-8"
+        className="mt-0.5 size-8 text-muted-foreground"
         onClick={onToggleComplete}
         size="icon-sm"
         type="button"
@@ -109,25 +109,28 @@ export function TaskListRow({
         <div className="flex flex-wrap items-center gap-2">
           <p
             className={cn(
-              "truncate font-medium text-[13px] text-foreground leading-5 md:text-sm",
+              "truncate font-medium text-sm text-foreground leading-5",
               isCompleted && "text-muted-foreground line-through"
             )}
           >
             {task.title}
           </p>
           <Badge
-            className={cn("hidden rounded-sm border text-[10px] sm:inline-flex", statusClass(task.status))}
+            className={cn(
+              "hidden rounded-sm border text-[10px] sm:inline-flex",
+              statusClass(task.status)
+            )}
             variant="outline"
           >
             {getTaskStatusLabel(task.status)}
           </Badge>
         </div>
         {task.description ? (
-          <p className="mt-0.5 line-clamp-1 text-muted-foreground text-[11px] leading-4 md:mt-1 md:text-xs">
+          <p className="mt-1 line-clamp-1 text-muted-foreground text-xs">
             {task.description}
           </p>
         ) : null}
-        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground md:mt-2 md:gap-x-3 md:text-[11px]">
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
           <span className="inline-flex items-center gap-1">
             <CalendarDots className="size-3" />
             {formatTaskDueDate(task.dueAt)}
@@ -155,7 +158,7 @@ export function TaskListRow({
         onClick={onSelect}
         type="button"
       >
-        <Avatar className="size-6 md:size-7" size="sm">
+        <Avatar className="size-7" size="sm">
           {task.assignee?.avatar ? (
             <AvatarImage src={task.assignee.avatar} />
           ) : null}

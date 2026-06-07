@@ -544,7 +544,7 @@ export function TasksWorkspace({
       </HeaderBreadcrumbs>
       <HeaderActions>{headerActions}</HeaderActions>
 
-      <div className="flex w-full flex-col gap-3 px-2.5 py-2.5 pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:gap-4 md:px-6 md:py-4 md:pb-4 lg:px-8">
+      <div className="flex w-full flex-col gap-3 px-4 py-3 pb-[calc(5.25rem+env(safe-area-inset-bottom))] md:gap-4 md:px-6 md:py-4 md:pb-4 lg:px-8">
         <div className="min-h-0 flex-1 overflow-hidden">
           <TaskFilters
             assigneeFilter={assigneeFilter}
