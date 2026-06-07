@@ -519,10 +519,15 @@ export function TasksWorkspace({
   };
 
   const headerActions = (
-    <div className="flex items-center gap-2">
-      <Button onClick={handleCreateTask} type="button">
+    <div className="flex items-center gap-1.5">
+      <Button
+        className="h-8 px-2.5 text-xs md:h-9 md:px-3 md:text-sm"
+        onClick={handleCreateTask}
+        type="button"
+      >
         <Plus className="size-3.5" />
-        New task
+        <span className="hidden sm:inline">New task</span>
+        <span className="sm:hidden">New</span>
       </Button>
     </div>
   );
@@ -539,7 +544,7 @@ export function TasksWorkspace({
       </HeaderBreadcrumbs>
       <HeaderActions>{headerActions}</HeaderActions>
 
-      <div className="flex w-full flex-col gap-4 px-4 py-4 md:px-6 lg:px-8">
+      <div className="flex w-full flex-col gap-3 px-2.5 py-2.5 pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:gap-4 md:px-6 md:py-4 md:pb-4 lg:px-8">
         <div className="min-h-0 flex-1 overflow-hidden">
           <TaskFilters
             assigneeFilter={assigneeFilter}
