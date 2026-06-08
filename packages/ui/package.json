@@ -5,6 +5,8 @@
   "type": "module",
   "exports": {
     "./styles.css": "./src/styles.css",
+    "./lib/springs": "./src/lib/springs.ts",
+    "./hooks/use-proximity-hover": "./src/hooks/use-proximity-hover.ts",
     "./lib/*": "./src/lib/*.ts",
     "./hooks/*": "./src/hooks/*.ts",
     "./components/*": "./src/components/*.tsx",

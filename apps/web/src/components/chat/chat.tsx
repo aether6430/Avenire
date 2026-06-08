@@ -13,8 +13,8 @@ import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
-import { getChatErrorMessage } from "@/lib/chat-errors";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { getChatErrorMessage } from "@/lib/chat-errors";
 import {
   CHAT_NAME_UPDATED_EVENT,
   CHAT_STREAM_FINISHED_EVENT,
@@ -48,7 +48,7 @@ type SendMessageOptions = Parameters<
 const ACTIVE_REPLY_MIN_HEIGHT = "calc(100dvh - 250px)";
 const EMPTY_COMPOSER_SHELL_CLASSNAME = "mx-auto mb-3 w-full max-w-3xl md:mb-3";
 const FLOATING_COMPOSER_SHELL_CLASSNAME =
-  "mx-auto mb-[calc(3.9rem+env(safe-area-inset-bottom))] w-full max-w-3xl md:mb-3";
+  "mx-auto mb-[calc(3.05rem+env(safe-area-inset-bottom))] w-full max-w-3xl md:mb-3";
 
 export function Chat({
   id,
@@ -501,12 +501,12 @@ export function Chat({
         centered={centered}
         handleSubmit={handleSubmit}
         input={input}
+        onTurboChange={setTurboEnabled}
         setAttachments={setAttachments}
         setInput={setInput}
         status={status}
         stop={handleStop}
         turboEnabled={turboEnabled}
-        onTurboChange={setTurboEnabled}
         workspaceUuid={workspaceUuid}
       />
     </div>
@@ -566,7 +566,7 @@ export function Chat({
                 key="composer-bottom"
                 transition={{ duration: 0.22, ease: "easeOut" }}
               >
-                {!isMobile ? (
+                {isMobile ? null : (
                   <motion.div
                     animate={isAutoScrollEnabled ? "hidden" : "visible"}
                     className="pointer-events-none absolute right-0 bottom-[calc(100%+0.75rem)] z-20 flex justify-end"
@@ -587,7 +587,7 @@ export function Chat({
                       <ChevronDown className="h-4 w-4" />
                     </Button>
                   </motion.div>
-                ) : null}
+                )}
                 {inputCard(false)}
               </motion.form>
             )}
