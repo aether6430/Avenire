@@ -6,6 +6,7 @@
   "exports": {
     "./styles.css": "./src/styles.css",
     "./lib/springs": "./src/lib/springs.ts",
+    "./lib/elevated": "./src/lib/elevated.tsx",
     "./hooks/use-proximity-hover": "./src/hooks/use-proximity-hover.ts",
     "./lib/*": "./src/lib/*.ts",
     "./hooks/*": "./src/hooks/*.ts",

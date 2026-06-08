@@ -242,7 +242,7 @@ function PureMessages({
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-14 bg-gradient-to-t from-background via-background/95 to-transparent transition-opacity duration-150"
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-9 bg-gradient-to-t from-background/75 via-background/35 to-transparent transition-opacity duration-150 md:h-14 md:from-background md:via-background/95"
         style={{ opacity: "var(--chat-edge-mask-bottom, 0)" }}
       />
       <div

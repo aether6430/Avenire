@@ -364,6 +364,10 @@ const DASHBOARD_FLASHCARDS_ROUTE_REGEX = /^\/workspace\/flashcards\/([^/?#]+)/;
 const DASHBOARD_FILES_FOLDER_ROUTE_REGEX =
   /^\/workspace\/files\/[^/]+\/folder\/([^/?#]+)/;
 
+function createFreshNewChatHref() {
+  return `/workspace/chats/new?fresh=${Date.now().toString(36)}` as Route;
+}
+
 function getChatDateGroup(chat: ChatSummary) {
   const updated = new Date(chat.updatedAt || chat.lastMessageAt);
   if (Number.isNaN(updated.getTime())) {
@@ -1682,8 +1686,8 @@ export function DashboardSidebar({
     };
   }, [chats, loadChats, workspaceUuid]);
 
-  const createChat = async () => {
-    navigate("/workspace/chats/new" as Route);
+  const createChat = () => {
+    navigate(createFreshNewChatHref());
   };
 
   const updateChat = async (
@@ -1723,8 +1727,7 @@ export function DashboardSidebar({
     setChats(remaining);
 
     if (activeChatSlug === chatSlug) {
-      navigate("/workspace/chats/new" as Route);
-      router.refresh();
+      navigate(createFreshNewChatHref(), { replace: true });
     }
   };
 
@@ -2186,7 +2189,7 @@ export function DashboardSidebar({
                           label="Open Method"
                           onClick={(event) => {
                             closeMobileSidebar();
-                            navigate("/workspace/chats/new" as Route, {
+                            navigate(createFreshNewChatHref(), {
                               openInNewPane: !isMobile && event.altKey,
                             });
                           }}
@@ -2195,7 +2198,7 @@ export function DashboardSidebar({
                               return;
                             }
                             event.preventDefault();
-                            navigate("/workspace/chats/new" as Route, {
+                            navigate(createFreshNewChatHref(), {
                               openInNewPane: true,
                             });
                           }}

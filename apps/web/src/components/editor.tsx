@@ -147,9 +147,12 @@ const MERMAID_ICON_SVG = {
   done: '<svg viewBox="0 0 256 256" aria-hidden="true"><path d="m40 132 56 56L216 68" fill="none" stroke="currentColor" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   edit: '<svg viewBox="0 0 256 256" aria-hidden="true"><path d="M92 216H48a8 8 0 0 1-8-8v-44L156 48a24 24 0 0 1 34 0l18 18a24 24 0 0 1 0 34Z" fill="none" stroke="currentColor" stroke-width="18" stroke-linejoin="round"/><path d="m140 64 52 52" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round"/></svg>',
   full: '<svg viewBox="0 0 256 256" aria-hidden="true"><path d="M88 40H48a8 8 0 0 0-8 8v40M168 40h40a8 8 0 0 1 8 8v40M88 216H48a8 8 0 0 1-8-8v-40M168 216h40a8 8 0 0 0 8-8v-40" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  reset: '<svg viewBox="0 0 256 256" aria-hidden="true"><path d="M64 88H32V56" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/><path d="M65 88a80 80 0 1 1-17 52" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round"/></svg>',
-  zoomIn: '<svg viewBox="0 0 256 256" aria-hidden="true"><circle cx="112" cy="112" r="72" fill="none" stroke="currentColor" stroke-width="18"/><path d="M163 163 216 216M112 80v64M80 112h64" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round"/></svg>',
-  zoomOut: '<svg viewBox="0 0 256 256" aria-hidden="true"><circle cx="112" cy="112" r="72" fill="none" stroke="currentColor" stroke-width="18"/><path d="M163 163 216 216M80 112h64" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round"/></svg>',
+  reset:
+    '<svg viewBox="0 0 256 256" aria-hidden="true"><path d="M64 88H32V56" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/><path d="M65 88a80 80 0 1 1-17 52" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round"/></svg>',
+  zoomIn:
+    '<svg viewBox="0 0 256 256" aria-hidden="true"><circle cx="112" cy="112" r="72" fill="none" stroke="currentColor" stroke-width="18"/><path d="M163 163 216 216M112 80v64M80 112h64" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round"/></svg>',
+  zoomOut:
+    '<svg viewBox="0 0 256 256" aria-hidden="true"><circle cx="112" cy="112" r="72" fill="none" stroke="currentColor" stroke-width="18"/><path d="M163 163 216 216M80 112h64" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round"/></svg>',
 };
 
 interface LowlightTreeNode {
@@ -1695,7 +1698,10 @@ function SelectionBubbleMenu({
       {aiLoading ? (
         <div className="flex min-w-56 items-center justify-between gap-3 rounded-lg border border-border bg-popover px-3 py-2 text-[13px] shadow-black/5 shadow-lg">
           <span className="flex min-w-0 items-center gap-2 text-[var(--text-muted)]">
-            <Sparkle className="h-3.5 w-3.5 text-[var(--accent-color,#3b82f6)]" weight="fill" />
+            <Sparkle
+              className="h-3.5 w-3.5 text-[var(--accent-color,#3b82f6)]"
+              weight="fill"
+            />
             <span className="truncate">
               {aiLoading === "proofread"
                 ? "Proofreading"
@@ -1707,204 +1713,204 @@ function SelectionBubbleMenu({
           <span className="h-3 w-3 animate-pulse rounded-sm bg-[var(--text-muted)]" />
         </div>
       ) : (
-      <div className="flex items-center gap-1 rounded-lg border border-border bg-popover p-1 shadow-black/5 shadow-lg">
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[var(--accent-color,#3b82f6)] hover:bg-accent"
-            onMouseDown={(event) => event.preventDefault()}
-            title="AI tools"
+        <div className="flex items-center gap-1 rounded-lg border border-border bg-popover p-1 shadow-black/5 shadow-lg">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[var(--accent-color,#3b82f6)] hover:bg-accent"
+              onMouseDown={(event) => event.preventDefault()}
+              title="AI tools"
+            >
+              <Sparkle className="h-4 w-4" weight="fill" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" sideOffset={6}>
+              {[
+                ["simplify", "Simplify"],
+                ["explain", "Explain"],
+                ["elaborate", "Elaborate"],
+                ["improve", "Improve writing"],
+                ["proofread", "Proofread"],
+              ].map(([action, label]) => (
+                <DropdownMenuItem
+                  disabled={aiLoading !== null}
+                  key={action}
+                  onClick={() => void runSelectionAiAction(action as AiAction)}
+                >
+                  {aiLoading === action ? "Working..." : label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <ToolbarButton
+            active={state.bold}
+            onClick={() => editor.chain().focus().toggleBold().run()}
+            title="Bold"
           >
-            <Sparkle className="h-4 w-4" weight="fill" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" sideOffset={6}>
-            {[
-              ["simplify", "Simplify"],
-              ["explain", "Explain"],
-              ["elaborate", "Elaborate"],
-              ["improve", "Improve writing"],
-              ["proofread", "Proofread"],
-            ].map(([action, label]) => (
+            <Bold className="h-3.5 w-3.5" />
+          </ToolbarButton>
+          <ToolbarButton
+            active={state.italic}
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+            title="Italic"
+          >
+            <Italic className="h-3.5 w-3.5" />
+          </ToolbarButton>
+          <ToolbarButton
+            active={state.strike}
+            onClick={() => editor.chain().focus().toggleStrike().run()}
+            title="Strikethrough"
+          >
+            <Strikethrough className="h-3.5 w-3.5" />
+          </ToolbarButton>
+          <ToolbarButton
+            active={state.code}
+            onClick={() => editor.chain().focus().toggleCode().run()}
+            title="Code"
+          >
+            <Code className="h-3.5 w-3.5" />
+          </ToolbarButton>
+          <ToolbarButton
+            active={state.highlight}
+            onClick={() => editor.chain().focus().toggleHighlight().run()}
+            title="Highlight"
+          >
+            <Highlighter className="h-3.5 w-3.5" />
+          </ToolbarButton>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-muted-foreground text-xs hover:bg-accent hover:text-accent-foreground"
+              onMouseDown={(event) => event.preventDefault()}
+            >
+              Turn into
+              <ChevronDown className="h-3 w-3" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent sideOffset={6}>
               <DropdownMenuItem
-                disabled={aiLoading !== null}
-                key={action}
-                onClick={() => void runSelectionAiAction(action as AiAction)}
+                onClick={() => editor.chain().focus().setParagraph().run()}
               >
-                {aiLoading === action ? "Working..." : label}
+                Text
               </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <ToolbarButton
-          active={state.bold}
-          onClick={() => editor.chain().focus().toggleBold().run()}
-          title="Bold"
-        >
-          <Bold className="h-3.5 w-3.5" />
-        </ToolbarButton>
-        <ToolbarButton
-          active={state.italic}
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-          title="Italic"
-        >
-          <Italic className="h-3.5 w-3.5" />
-        </ToolbarButton>
-        <ToolbarButton
-          active={state.strike}
-          onClick={() => editor.chain().focus().toggleStrike().run()}
-          title="Strikethrough"
-        >
-          <Strikethrough className="h-3.5 w-3.5" />
-        </ToolbarButton>
-        <ToolbarButton
-          active={state.code}
-          onClick={() => editor.chain().focus().toggleCode().run()}
-          title="Code"
-        >
-          <Code className="h-3.5 w-3.5" />
-        </ToolbarButton>
-        <ToolbarButton
-          active={state.highlight}
-          onClick={() => editor.chain().focus().toggleHighlight().run()}
-          title="Highlight"
-        >
-          <Highlighter className="h-3.5 w-3.5" />
-        </ToolbarButton>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-muted-foreground text-xs hover:bg-accent hover:text-accent-foreground"
-            onMouseDown={(event) => event.preventDefault()}
+              <DropdownMenuItem
+                onClick={() =>
+                  editor.chain().focus().toggleHeading({ level: 1 }).run()
+                }
+              >
+                Heading 1
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  editor.chain().focus().toggleHeading({ level: 2 }).run()
+                }
+              >
+                Heading 2
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  editor.chain().focus().toggleHeading({ level: 3 }).run()
+                }
+              >
+                Heading 3
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => editor.chain().focus().toggleBulletList().run()}
+              >
+                Bullet list
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => editor.chain().focus().toggleOrderedList().run()}
+              >
+                Numbered list
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => editor.chain().focus().toggleTaskList().run()}
+              >
+                To-do list
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+              >
+                Code block
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => editor.chain().focus().toggleBlockquote().run()}
+              >
+                Quote
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-muted-foreground text-xs hover:bg-accent hover:text-accent-foreground"
+              onMouseDown={(event) => event.preventDefault()}
+            >
+              <Palette className="h-3.5 w-3.5" />
+              Color
+              <ChevronDown className="h-3 w-3" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent sideOffset={6}>
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Text</DropdownMenuLabel>
+                {TEXT_COLORS.map((item) => (
+                  <DropdownMenuItem
+                    key={`text-${item.name}`}
+                    onClick={() => {
+                      const chain = editor.chain().focus();
+                      if (!item.value) {
+                        chain.unsetColor().run();
+                        return;
+                      }
+                      chain.setColor(item.value).run();
+                    }}
+                  >
+                    <span
+                      className="h-3.5 w-3.5 rounded-sm border border-border"
+                      style={{ background: item.value ?? "transparent" }}
+                    />
+                    {item.name}
+                    {(item.value === null && !state.textColor) ||
+                    item.value === state.textColor ? (
+                      <Check className="ml-auto h-3.5 w-3.5" />
+                    ) : null}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Background</DropdownMenuLabel>
+                {BG_COLORS.map((item) => (
+                  <DropdownMenuItem
+                    key={`bg-${item.name}`}
+                    onClick={() => {
+                      const chain = editor.chain().focus();
+                      if (!item.value) {
+                        chain.unsetHighlight().run();
+                        return;
+                      }
+                      chain.setHighlight({ color: item.value }).run();
+                    }}
+                  >
+                    <span
+                      className="h-3.5 w-3.5 rounded-sm border border-border"
+                      style={{ background: item.value ?? "transparent" }}
+                    />
+                    {item.name}
+                    {(item.value === null && !state.highlightColor) ||
+                    item.value === state.highlightColor ? (
+                      <Check className="ml-auto h-3.5 w-3.5" />
+                    ) : null}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <ToolbarButton
+            active={state.link}
+            onClick={() => linkPrompt(editor)}
+            title={state.link ? "Edit link" : "Add link"}
           >
-            Turn into
-            <ChevronDown className="h-3 w-3" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent sideOffset={6}>
-            <DropdownMenuItem
-              onClick={() => editor.chain().focus().setParagraph().run()}
-            >
-              Text
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() =>
-                editor.chain().focus().toggleHeading({ level: 1 }).run()
-              }
-            >
-              Heading 1
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() =>
-                editor.chain().focus().toggleHeading({ level: 2 }).run()
-              }
-            >
-              Heading 2
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() =>
-                editor.chain().focus().toggleHeading({ level: 3 }).run()
-              }
-            >
-              Heading 3
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => editor.chain().focus().toggleBulletList().run()}
-            >
-              Bullet list
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => editor.chain().focus().toggleOrderedList().run()}
-            >
-              Numbered list
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => editor.chain().focus().toggleTaskList().run()}
-            >
-              To-do list
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-            >
-              Code block
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => editor.chain().focus().toggleBlockquote().run()}
-            >
-              Quote
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-muted-foreground text-xs hover:bg-accent hover:text-accent-foreground"
-            onMouseDown={(event) => event.preventDefault()}
-          >
-            <Palette className="h-3.5 w-3.5" />
-            Color
-            <ChevronDown className="h-3 w-3" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent sideOffset={6}>
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>Text</DropdownMenuLabel>
-              {TEXT_COLORS.map((item) => (
-                <DropdownMenuItem
-                  key={`text-${item.name}`}
-                  onClick={() => {
-                    const chain = editor.chain().focus();
-                    if (!item.value) {
-                      chain.unsetColor().run();
-                      return;
-                    }
-                    chain.setColor(item.value).run();
-                  }}
-                >
-                  <span
-                    className="h-3.5 w-3.5 rounded-sm border border-border"
-                    style={{ background: item.value ?? "transparent" }}
-                  />
-                  {item.name}
-                  {(item.value === null && !state.textColor) ||
-                  item.value === state.textColor ? (
-                    <Check className="ml-auto h-3.5 w-3.5" />
-                  ) : null}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>Background</DropdownMenuLabel>
-              {BG_COLORS.map((item) => (
-                <DropdownMenuItem
-                  key={`bg-${item.name}`}
-                  onClick={() => {
-                    const chain = editor.chain().focus();
-                    if (!item.value) {
-                      chain.unsetHighlight().run();
-                      return;
-                    }
-                    chain.setHighlight({ color: item.value }).run();
-                  }}
-                >
-                  <span
-                    className="h-3.5 w-3.5 rounded-sm border border-border"
-                    style={{ background: item.value ?? "transparent" }}
-                  />
-                  {item.name}
-                  {(item.value === null && !state.highlightColor) ||
-                  item.value === state.highlightColor ? (
-                    <Check className="ml-auto h-3.5 w-3.5" />
-                  ) : null}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <ToolbarButton
-          active={state.link}
-          onClick={() => linkPrompt(editor)}
-          title={state.link ? "Edit link" : "Add link"}
-        >
-          <Link2 className="h-3.5 w-3.5" />
-        </ToolbarButton>
-      </div>
+            <Link2 className="h-3.5 w-3.5" />
+          </ToolbarButton>
+        </div>
       )}
     </BubbleMenu>
   );
@@ -3934,11 +3940,11 @@ function AvenireEditor({
         />
       </div>
       <div className="scribe-document-row">
+        <EditorTableOfContentsRail items={tableOfContentsItems} />
         <EditorContent
           className="scribe-editor-content [&_.ProseMirror-focused]:outline-none"
           editor={editor}
         />
-        <EditorTableOfContentsRail items={tableOfContentsItems} />
       </div>
 
       <div aria-live="polite" className="scribe-document-stats">
@@ -4175,7 +4181,6 @@ function AvenireEditor({
           </Button>
         </div>
       ) : null}
-
     </div>
   );
 }

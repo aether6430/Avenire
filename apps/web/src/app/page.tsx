@@ -10,7 +10,7 @@ export const metadata = buildPageMetadata({
 
 export const dynamic = "force-static";
 
-export default function Page() {
+export function LandingPage() {
   const websiteSchema = {
     "@context": "https://schema.org",
     "@graph": [
@@ -65,4 +65,8 @@ export default function Page() {
       <LandingPageClient />
     </>
   );
+}
+
+export default function Page() {
+  return <LandingPage />;
 }

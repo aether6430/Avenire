@@ -1108,6 +1108,7 @@ export async function retrieveWorkspaceChunksLexical(input: {
   if (!query) {
     return [];
   }
+  const exactPattern = `%${query.replace(/[%_]/g, "\\$&")}%`;
 
   const whereClause = buildSearchWhereClause({
     workspaceId: input.workspaceId,
@@ -1134,30 +1135,70 @@ export async function retrieveWorkspaceChunksLexical(input: {
   }>`
     WITH search_query AS (
       SELECT websearch_to_tsquery(${DEFAULT_TEXT_SEARCH_CONFIG}, ${query}) AS ts_query
+    ),
+    ranked_chunks AS (
+      SELECT
+        r.id AS resource_id,
+        r.source_type,
+        r.source,
+        r.file_id,
+        r.provider,
+        r.title,
+        c.id AS chunk_id,
+        c.chunk_index,
+        c.content_hash,
+        c.page,
+        c.start_ms,
+        c.end_ms,
+        c.content,
+        c.metadata,
+        (
+          setweight(to_tsvector(${DEFAULT_TEXT_SEARCH_CONFIG}, coalesce(r.title, '')), 'A') ||
+          setweight(to_tsvector(${DEFAULT_TEXT_SEARCH_CONFIG}, coalesce(r.source, '')), 'B') ||
+          setweight(to_tsvector(${DEFAULT_TEXT_SEARCH_CONFIG}, coalesce(r.provider, '')), 'C') ||
+          setweight(c.search_vector, 'D')
+        ) AS weighted_search_vector
+      FROM ingestion_chunk c
+      INNER JOIN ingestion_resource r ON r.id = c.resource_id
+      LEFT JOIN file_asset f ON f.id = r.file_id
+      CROSS JOIN search_query
+      WHERE ${whereClause}
+        AND (r.file_id IS NULL OR f.deleted_at IS NULL)
+        AND (
+          c.search_vector @@ search_query.ts_query OR
+          to_tsvector(${DEFAULT_TEXT_SEARCH_CONFIG}, coalesce(r.title, '')) @@ search_query.ts_query OR
+          to_tsvector(${DEFAULT_TEXT_SEARCH_CONFIG}, coalesce(r.source, '')) @@ search_query.ts_query OR
+          to_tsvector(${DEFAULT_TEXT_SEARCH_CONFIG}, coalesce(r.provider, '')) @@ search_query.ts_query
+        )
     )
     SELECT
-      r.id AS "resourceId",
-      r.source_type AS "sourceType",
-      r.source AS "source",
-      r.file_id AS "fileId",
-      r.provider AS "provider",
-      r.title AS "title",
-      c.id AS "chunkId",
-      c.chunk_index AS "chunkIndex",
-      c.content_hash AS "contentHash",
-      c.page AS "page",
-      c.start_ms AS "startMs",
-      c.end_ms AS "endMs",
-      c.content AS "content",
-      c.metadata AS "metadata",
-      ts_rank_cd(c.search_vector, search_query.ts_query) AS "score"
+      ranked_chunks.resource_id AS "resourceId",
+      ranked_chunks.source_type AS "sourceType",
+      ranked_chunks.source AS "source",
+      ranked_chunks.file_id AS "fileId",
+      ranked_chunks.provider AS "provider",
+      ranked_chunks.title AS "title",
+      ranked_chunks.chunk_id AS "chunkId",
+      ranked_chunks.chunk_index AS "chunkIndex",
+      ranked_chunks.content_hash AS "contentHash",
+      ranked_chunks.page AS "page",
+      ranked_chunks.start_ms AS "startMs",
+      ranked_chunks.end_ms AS "endMs",
+      ranked_chunks.content AS "content",
+      ranked_chunks.metadata AS "metadata",
+      (
+        ts_rank_cd(
+          ARRAY[0.08, 0.18, 0.42, 1.0]::real[],
+          ranked_chunks.weighted_search_vector,
+          search_query.ts_query,
+          32
+        ) +
+        CASE WHEN lower(coalesce(ranked_chunks.title, '')) LIKE lower(${exactPattern}) ESCAPE '\\' THEN 0.12 ELSE 0 END +
+        CASE WHEN lower(ranked_chunks.content) LIKE lower(${exactPattern}) ESCAPE '\\' THEN 0.06 ELSE 0 END
+      ) AS "score"
     FROM search_query
-    INNER JOIN ingestion_chunk c ON c.search_vector @@ search_query.ts_query
-    INNER JOIN ingestion_resource r ON r.id = c.resource_id
-    LEFT JOIN file_asset f ON f.id = r.file_id
-    WHERE ${whereClause}
-      AND (r.file_id IS NULL OR f.deleted_at IS NULL)
-    ORDER BY "score" DESC, c.chunk_index ASC
+    INNER JOIN ranked_chunks ON ranked_chunks.weighted_search_vector @@ search_query.ts_query
+    ORDER BY "score" DESC, ranked_chunks.chunk_index ASC
     LIMIT ${Math.max(1, input.limit)}
   `);
 

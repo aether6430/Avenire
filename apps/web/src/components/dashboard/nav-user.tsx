@@ -159,10 +159,7 @@ export function NavUser({
                   />
                 ) : null}
                 <AvatarFallback className="overflow-hidden rounded-lg bg-muted text-foreground">
-                  <DitherIdenticon
-                    className="size-full"
-                    seed={avatarSeed}
-                  />
+                  <DitherIdenticon className="size-full" seed={avatarSeed} />
                 </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
@@ -182,6 +179,7 @@ export function NavUser({
             <DropdownMenuContent
               align="end"
               className="w-(--radix-dropdown-menu-trigger-width) min-w-64 rounded-lg"
+              mobileSheet={isMobile}
               side={isMobile ? "bottom" : "right"}
               sideOffset={4}
             >
@@ -196,7 +194,10 @@ export function NavUser({
                       </p>
                     </div>
                   </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="min-w-64">
+                  <DropdownMenuSubContent
+                    className="min-w-64"
+                    mobileSheet={isMobile}
+                  >
                     {workspaces.map((workspace) => (
                       <DropdownMenuItem
                         key={workspace.workspaceId}
@@ -229,7 +230,10 @@ export function NavUser({
                       </p>
                     </div>
                   </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="min-w-72">
+                  <DropdownMenuSubContent
+                    className="min-w-72"
+                    mobileSheet={isMobile}
+                  >
                     {invitations.length === 0 ? (
                       <DropdownMenuItem disabled>
                         <Mail className="size-4" />

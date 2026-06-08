@@ -12,7 +12,7 @@ import {
   isChatStreamActive,
   rememberChatStreamStatus,
 } from "@/lib/chat-events";
-import { usePanePathname } from "@/lib/workspace-panes";
+import { usePanePathname, usePaneSearchParams } from "@/lib/workspace-panes";
 
 interface ChatRoutePayload {
   chat?: {
@@ -47,9 +47,15 @@ export function WorkspaceChatRoutePageClient({
   slug?: string;
 }) {
   const pathname = usePanePathname();
+  const searchParams = usePaneSearchParams();
   const { status, user, workspace } = useWorkspaceBootstrap();
   const slug =
     slugProp ?? pathname.match(/^\/workspace\/chats\/([^/?#]+)/)?.[1] ?? "new";
+  const initialPrompt = searchParams.get("prompt")?.trim() || null;
+  const newChatInstanceKey =
+    slug === "new"
+      ? `new:${searchParams.get("fresh") ?? ""}:${initialPrompt ?? ""}`
+      : slug;
   const [streamingChatIds, setStreamingChatIds] = useState<Set<string>>(() =>
     isChatStreamActive(slug) ? new Set([slug]) : new Set()
   );
@@ -110,10 +116,11 @@ export function WorkspaceChatRoutePageClient({
     return (
       <ChatWorkspace
         chatIcon={null}
+        key={newChatInstanceKey}
         chatSlug="new"
         chatTitle="New Method"
         initialMessages={[]}
-        initialPrompt={null}
+        initialPrompt={initialPrompt}
         isReadonly={false}
         userName={user.name ?? undefined}
         workspaceUuid={workspace.workspaceId}

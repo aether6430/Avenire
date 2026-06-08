@@ -10,6 +10,7 @@ import { DashboardSidebar } from "@/components/dashboard/app-sidebar";
 import { MobileWorkspaceDock } from "@/components/dashboard/mobile-workspace-dock";
 import { WorkspacePaneRenderer } from "@/components/dashboard/workspace-pane-renderer";
 import { ChatPet } from "@/components/pets/chat-pet";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
 import { useDashboardUiStore } from "@/stores/dashboardUiStore";
 
@@ -94,6 +95,7 @@ export function DashboardLayout({
   children: _children,
 }: DashboardLayoutProps) {
   const [deferredReady, setDeferredReady] = useState(false);
+  const isMobile = useIsMobile();
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -204,7 +206,10 @@ export function DashboardLayout({
   }, [deferredReady]);
 
   return (
-    <SidebarProvider className="h-svh overflow-hidden">
+    <SidebarProvider
+      className="h-dvh min-h-0 overflow-hidden"
+      style={{ height: "100dvh", minHeight: 0 }}
+    >
       <Suspense fallback={null}>
         <DashboardSidebar
           activeChatSlug={activeChatSlug ?? ""}
@@ -260,7 +265,9 @@ export function DashboardLayout({
           workspaceUuid={activeWorkspace.workspaceId}
         />
       ) : null}
-      <MobileWorkspaceDock activeWorkspace={activeWorkspace} />
+      {isMobile ? (
+        <MobileWorkspaceDock activeWorkspace={activeWorkspace} />
+      ) : null}
       <div className="hidden lg:block">
         <ChatPet />
       </div>

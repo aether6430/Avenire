@@ -249,7 +249,7 @@ function WorkspacePaneSurface({
 
   return (
     <div
-      className="h-full w-full min-w-0"
+      className="h-full min-h-0 w-full min-w-0"
       ref={(node) => {
         surfaceRef.current = node;
         setDropNodeRef(node);
@@ -263,8 +263,11 @@ function WorkspacePaneSurface({
       >
         <div
           className={cn(
-            "relative flex h-full min-w-0 flex-col overflow-hidden border-border/70 border-r bg-background transition-[opacity,box-shadow] duration-150",
-            isActive ? "ring-1 ring-border/90 ring-inset" : "ring-0",
+            "relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-background transition-[opacity,box-shadow] duration-150",
+            isMultiPane && "border-border/70 border-r",
+            isMultiPane && isActive
+              ? "ring-1 ring-border/90 ring-inset"
+              : "ring-0",
             isDragging && "opacity-55",
             isOver && !isDragging && "bg-primary/[0.025]"
           )}
@@ -432,7 +435,7 @@ export function WorkspacePaneRenderer() {
         paneId={mobilePaneId}
         route={browserRoute}
       >
-        <div className="flex h-full min-w-0 flex-col bg-background">
+        <div className="flex h-full w-full flex-col bg-background">
           <WorkspaceHeader
             className="border-border/60 border-b"
             compact
@@ -489,10 +492,10 @@ export function WorkspacePaneRenderer() {
       onDragStart={handlePaneDragStart}
       sensors={sensors}
     >
-      <div className="h-full w-full bg-background">
+      <div className="h-full min-h-0 w-full bg-background">
         <PanelGroup
           autoSaveId="avenire-workspace-panes"
-          className="h-full min-w-0"
+          className="h-full min-h-0 min-w-0"
           direction="horizontal"
           onLayout={(sizes) => {
             if (rowId) {
@@ -526,7 +529,7 @@ export function WorkspacePaneRenderer() {
             return (
               <Fragment key={pane.id}>
                 <Panel
-                  className="min-w-0"
+                  className="h-full min-w-0"
                   defaultSize={pane.size}
                   id={pane.id}
                   minSize={MIN_PANE_SIZE}

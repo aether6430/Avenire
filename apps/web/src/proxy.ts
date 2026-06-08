@@ -2,14 +2,14 @@ import { hasSessionCookie } from "@avenire/auth/middleware";
 import { type NextRequest, NextResponse } from "next/server";
 
 const protectedRoutes = ["/workspace", "/settings", "/chat", "/chats"];
-const publicRoutes = ["/login", "/register"];
+const signedOutOnlyRoutes = ["/login", "/register", "/waitlist"];
 
 function isProtectedRoute(pathname: string) {
   return protectedRoutes.some((route) => pathname.startsWith(route));
 }
 
-function isPublicRoute(pathname: string) {
-  return publicRoutes.some((route) => pathname.startsWith(route));
+function isSignedOutOnlyRoute(pathname: string) {
+  return signedOutOnlyRoutes.some((route) => pathname.startsWith(route));
 }
 
 export async function proxy(request: NextRequest) {
@@ -20,7 +20,7 @@ export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const sessionCookie = hasSessionCookie(request);
 
-  if (isPublicRoute(pathname) && sessionCookie) {
+  if ((pathname === "/" || isSignedOutOnlyRoute(pathname)) && sessionCookie) {
     return NextResponse.redirect(new URL("/workspace", request.url));
   }
 
@@ -37,7 +37,9 @@ export const config = {
     "/settings/:path*",
     "/chat/:path*",
     "/chats/:path*",
+    "/",
     "/login",
     "/register",
+    "/waitlist/:path*",
   ],
 };

@@ -6,13 +6,18 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@avenire/ai", () => ({
+  APOLLO_INGESTION_COHERE_EMBED_MODEL: "cohere-embed-model",
+  APOLLO_INGESTION_GROQ_TRANSCRIPTION_MODEL: "groq-transcription-model",
+  APOLLO_INGESTION_MISTRAL_IMAGE_DESCRIPTION_MODEL:
+    "mistral-image-description-model",
+  APOLLO_INGESTION_MISTRAL_OCR_MODEL: "mistral-ocr-model",
   apollo: {
     languageModel: mocks.languageModel,
   },
   generateText: mocks.generateText,
 }));
 
-import { expandQuery } from "./query-expansion";
+import { expandQuery, generateHydeDocument } from "./query-expansion";
 
 describe("expandQuery", () => {
   beforeEach(() => {
@@ -68,5 +73,31 @@ describe("expandQuery", () => {
     });
 
     await expect(expandQuery("osmosis")).resolves.toBeNull();
+  });
+
+  it("generates a normalized HyDE source excerpt", async () => {
+    mocks.generateText.mockResolvedValue({
+      text: "```text\nOsmosis is the movement of water across a semipermeable membrane along a water potential gradient.\n```",
+    });
+
+    await expect(generateHydeDocument("osmosis")).resolves.toBe(
+      "Osmosis is the movement of water across a semipermeable membrane along a water potential gradient."
+    );
+    expect(mocks.languageModel).toHaveBeenCalledWith("apollo-tiny");
+    expect(mocks.generateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: "osmosis",
+        temperature: 0.2,
+        maxOutputTokens: expect.any(Number),
+      })
+    );
+  });
+
+  it("returns null when HyDE generation matches the original query", async () => {
+    mocks.generateText.mockResolvedValue({
+      text: "osmosis",
+    });
+
+    await expect(generateHydeDocument("osmosis")).resolves.toBeNull();
   });
 });

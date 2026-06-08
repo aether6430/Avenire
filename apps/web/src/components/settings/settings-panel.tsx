@@ -340,12 +340,15 @@ export function SettingsPanel({
   const [profileName, setProfileName] = useState(session?.user?.name ?? "");
   const [profileImage, setProfileImage] = useState(session?.user?.image ?? "");
   const [profileStatus, setProfileStatus] = useState<string | null>(null);
-  const [isSavingProfile, _setIsSavingProfile] = useState(false);
-  const [isUploadingAvatar, _setIsUploadingAvatar] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string>("");
   const [avatarUploading, setAvatarUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { startUpload: startAvatarUpload } = useUploadThing("imageUploader");
+  const savedProfileRef = useRef({
+    image: session?.user?.image ?? "",
+    name: session?.user?.name ?? "",
+  });
 
   // Accounts
   const [accounts, setAccounts] = useState<AccountEntry[]>([]);
@@ -445,6 +448,10 @@ export function SettingsPanel({
   useEffect(() => {
     setProfileName(session?.user?.name ?? "");
     setProfileImage(session?.user?.image ?? "");
+    savedProfileRef.current = {
+      image: session?.user?.image ?? "",
+      name: session?.user?.name ?? "",
+    };
   }, [session?.user?.image, session?.user?.name]);
 
   useEffect(() => {
@@ -637,17 +644,57 @@ export function SettingsPanel({
     }
   };
 
-  const saveProfile = async (nextImage?: string) => {
+  const saveProfile = async (
+    nextImage?: string,
+    options?: { quiet?: boolean }
+  ) => {
     setProfileStatus("Saving...");
-    const result = await updateUser({
-      name: profileName.trim() || undefined,
-      image: (nextImage ?? profileImage).trim() || undefined,
-    });
-    setProfileStatus(
-      result.error ? "Unable to update profile." : "Profile updated."
-    );
-    return !result.error;
+    setIsSavingProfile(true);
+    const nextName = profileName.trim();
+    const resolvedImage = (nextImage ?? profileImage).trim();
+    try {
+      const result = await updateUser({
+        name: nextName || undefined,
+        image: resolvedImage || undefined,
+      });
+      if (!result.error) {
+        savedProfileRef.current = {
+          image: resolvedImage,
+          name: nextName,
+        };
+      }
+      setProfileStatus(
+        result.error
+          ? "Unable to update profile."
+          : options?.quiet
+            ? "Saved."
+            : "Profile updated."
+      );
+      return !result.error;
+    } catch {
+      setProfileStatus("Unable to update profile.");
+      return false;
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
+
+  useEffect(() => {
+    const nextName = profileName.trim();
+    const nextImage = profileImage.trim();
+    if (
+      nextName === savedProfileRef.current.name &&
+      nextImage === savedProfileRef.current.image
+    ) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void saveProfile(undefined, { quiet: true });
+    }, 700);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [profileImage, profileName]);
 
   const handleAvatarFileChange = async (
     event: ChangeEvent<HTMLInputElement>
@@ -917,9 +964,7 @@ export function SettingsPanel({
       setLocalTab(tab);
       return;
     }
-    router.replace(
-      `/workspace?overlay=settings&settingsTab=${tab}` as Route
-    );
+    router.replace(`/workspace?overlay=settings&settingsTab=${tab}` as Route);
   };
 
   useEffect(() => {
@@ -973,7 +1018,10 @@ export function SettingsPanel({
       await authClient.customer.portal();
       return;
     } catch (error) {
-      console.error("[settings] failed to open Better Auth Polar portal", error);
+      console.error(
+        "[settings] failed to open Better Auth Polar portal",
+        error
+      );
     }
 
     const response = await fetch("/api/billing/portal", {
@@ -1186,10 +1234,7 @@ export function SettingsPanel({
               <AvatarImage alt={profileName} src={displayAvatar} />
             ) : null}
             <AvatarFallback className="overflow-hidden bg-muted text-foreground">
-              <DitherIdenticon
-                className="size-full"
-                seed={avatarSeed}
-              />
+              <DitherIdenticon className="size-full" seed={avatarSeed} />
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0">
@@ -1220,7 +1265,7 @@ export function SettingsPanel({
             return (
               <Button
                 className={[
-                  "h-9 shrink-0 gap-1.5 rounded-full px-3 font-medium text-xs transition-colors",
+                  "h-9 shrink-0 gap-1.5 rounded-lg px-3 font-medium text-xs transition-colors",
                   currentTab === tab.key
                     ? "bg-foreground text-background"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -1231,7 +1276,9 @@ export function SettingsPanel({
                 variant="ghost"
               >
                 <Icon className="h-3.5 w-3.5" />
-                <span>{tab.label}</span>
+                <span>
+                  {tab.label.replace("Keyboard Shortcuts", "Shortcuts")}
+                </span>
               </Button>
             );
           })}
@@ -1242,74 +1289,56 @@ export function SettingsPanel({
           {/* ── Account Tab ── */}
           {currentTab === "account" ? (
             <>
-              <Section
-                description="Update your display name and avatar."
-                title="Profile"
-              >
+              <Section description="" title="Profile">
                 <div className="max-w-md space-y-3">
-                  <div className="space-y-1">
-                    <label className="font-medium text-muted-foreground text-xs">
-                      Display Name
-                    </label>
-                    <Input
-                      onChange={(e) => setProfileName(e.target.value)}
-                      placeholder="Your name"
-                      value={profileName}
-                    />
-                  </div>
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-14 w-14">
+                  <div className="flex items-center gap-3">
+                    <button
+                      aria-label="Upload profile photo"
+                      className="group/avatar relative size-16 shrink-0 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                      disabled={avatarUploading}
+                      onClick={() => fileInputRef.current?.click()}
+                      type="button"
+                    >
+                      <Avatar className="size-16 rounded-xl">
                         {displayAvatar ? (
                           <AvatarImage alt={profileName} src={displayAvatar} />
                         ) : null}
-                        <AvatarFallback className="overflow-hidden bg-muted text-foreground">
+                        <AvatarFallback className="overflow-hidden rounded-xl bg-muted text-foreground">
                           <DitherIdenticon
                             className="size-full"
                             seed={avatarSeed}
                           />
                         </AvatarFallback>
                       </Avatar>
-                      <div className="min-w-0">
-                        <p className="font-medium text-sm">Profile photo</p>
-                        <p className="text-muted-foreground text-xs">
-                          Upload an image and we will save the CDN URL to your
-                          account automatically.
-                        </p>
-                      </div>
-                    </div>
-                    <input
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleAvatarFileChange}
-                      ref={fileInputRef}
-                      type="file"
-                    />
-                    <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                      <Button
-                        disabled={avatarUploading}
-                        onClick={() => fileInputRef.current?.click()}
-                        size="sm"
-                        type="button"
-                        variant="outline"
-                      >
-                        <Camera className="mr-2 h-4 w-4" />
-                        {avatarUploading ? "Uploading..." : "Upload Avatar"}
-                      </Button>
+                      <span className="absolute right-1 bottom-1 flex size-6 items-center justify-center rounded-md border border-border/70 bg-background/95 text-foreground shadow-sm transition-colors group-hover/avatar:bg-secondary">
+                        {avatarUploading ? (
+                          <Spinner className="size-3.5" />
+                        ) : (
+                          <Camera className="size-3.5" />
+                        )}
+                      </span>
+                    </button>
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <label className="font-medium text-muted-foreground text-xs">
+                        Display Name
+                      </label>
+                      <Input
+                        onChange={(e) => setProfileName(e.target.value)}
+                        placeholder="Your name"
+                        value={profileName}
+                      />
                     </div>
                   </div>
-                  <Button
-                    disabled={isSavingProfile || isUploadingAvatar}
-                    onClick={() => {
-                      void saveProfile();
-                    }}
-                    size="sm"
-                    type="button"
-                  >
-                    Save Changes
-                  </Button>
+                  <input
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarFileChange}
+                    ref={fileInputRef}
+                    type="file"
+                  />
                   {profileStatus ? (
-                    <p className="text-muted-foreground text-xs">
+                    <p className="inline-flex items-center gap-2 text-muted-foreground text-xs">
+                      {isSavingProfile ? <Spinner className="size-3" /> : null}
                       {profileStatus}
                     </p>
                   ) : null}
@@ -1549,29 +1578,14 @@ export function SettingsPanel({
           {/* ── Security Tab ── */}
           {currentTab === "security" ? (
             <>
-              <Section
-                description="Protected actions will prompt for a 6-digit verification code and stay approved for 12 hours."
-                title="Sensitive Actions"
-              >
-                <div className="max-w-md space-y-3">
+              <Section description="" title="Sensitive Actions">
+                <div className="max-w-md space-y-2">
                   <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-sm">Sudo verification</p>
-                      <p className="text-muted-foreground text-xs">
-                        {sudoActive
-                          ? "Verified for this browser session."
-                          : "You will only be prompted when you start a protected action."}
-                      </p>
-                    </div>
+                    <p className="font-medium text-sm">Sudo verification</p>
                     <Badge variant={sudoActive ? "default" : "secondary"}>
                       {sudoActive ? "Active" : "Inactive"}
                     </Badge>
                   </div>
-                  <p className="text-muted-foreground text-xs">
-                    {sudoActive
-                      ? "Your current sudo session is valid for up to 12 hours."
-                      : "Deleting your account or a workspace will open a verification dialog automatically."}
-                  </p>
                   <Button
                     disabled={sudoActive}
                     onClick={() => {
@@ -1596,10 +1610,7 @@ export function SettingsPanel({
 
               <Divider />
 
-              <Section
-                description="Add or remove passkeys for passwordless sign-in."
-                title="Passkeys"
-              >
+              <Section description="" title="Passkeys">
                 <div className="space-y-3">
                   <Button
                     onClick={() => {
@@ -1693,10 +1704,7 @@ export function SettingsPanel({
 
               <Divider />
 
-              <Section
-                description="Manage and sign out from other devices that are currently logged in to your account."
-                title="Active Sessions"
-              >
+              <Section description="" title="Active Sessions">
                 <Button
                   onClick={() => {
                     void (async () => {
@@ -1725,10 +1733,7 @@ export function SettingsPanel({
 
               <Divider />
 
-              <Section
-                description="Permanently delete your account. This action cannot be undone."
-                title="Danger Zone"
-              >
+              <Section description="" title="Danger Zone">
                 <div className="max-w-md space-y-3">
                   <div className="flex items-start gap-2 text-red-600">
                     <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
@@ -1900,7 +1905,6 @@ export function SettingsPanel({
                     }}
                     onNameChange={setPetName}
                   />
-
                 </div>
               </Section>
 
@@ -1983,39 +1987,45 @@ export function SettingsPanel({
           {/* ── Workspace Tab ── */}
           {currentTab === "workspace" ? (
             <>
-              <Section
-                description="Workspace identity, storage, and member access in one place."
-                title="Current workspace"
-              >
+              <Section description="" title="Current workspace">
                 <div className="space-y-6">
                   <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                     <div className="flex min-w-0 items-start gap-4">
-                      <Avatar className="size-14 shrink-0 rounded-2xl">
-                        <AvatarImage
-                          alt={selectedWorkspace?.name ?? "Workspace icon"}
-                          src={
-                            workspaceIconDraft || selectedWorkspace?.logo || ""
-                          }
-                        />
-                        <AvatarFallback className="rounded-2xl bg-muted font-semibold text-foreground text-lg">
-                          {selectedWorkspaceInitial}
-                        </AvatarFallback>
-                      </Avatar>
+                      <button
+                        aria-label="Upload workspace icon"
+                        className="group/workspace-icon relative size-14 shrink-0 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                        disabled={!selectedWorkspace || workspaceIconUploading}
+                        onClick={() => workspaceIconInputRef.current?.click()}
+                        type="button"
+                      >
+                        <Avatar className="size-14 rounded-2xl">
+                          <AvatarImage
+                            alt={selectedWorkspace?.name ?? "Workspace icon"}
+                            src={
+                              workspaceIconDraft ||
+                              selectedWorkspace?.logo ||
+                              ""
+                            }
+                          />
+                          <AvatarFallback className="rounded-2xl bg-muted font-semibold text-foreground text-lg">
+                            {selectedWorkspaceInitial}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="absolute right-0 bottom-0 flex size-6 items-center justify-center rounded-md border border-border/70 bg-background/95 text-foreground shadow-sm transition-colors group-hover/workspace-icon:bg-secondary">
+                          {workspaceIconUploading ? (
+                            <Spinner className="size-3.5" />
+                          ) : (
+                            <Camera className="size-3.5" />
+                          )}
+                        </span>
+                      </button>
                       <div className="min-w-0">
-                        <p className="font-medium text-muted-foreground text-xs">
-                          Workspace identity
-                        </p>
                         <h3 className="truncate font-semibold text-2xl leading-none">
                           {selectedWorkspace?.name ?? "Workspace"}
                         </h3>
-                        <p className="mt-2 truncate text-muted-foreground text-sm">
-                          {selectedWorkspace
-                            ? "Upload or replace the workspace icon."
-                            : "Select a workspace to inspect its storage and members."}
-                        </p>
                       </div>
                     </div>
-                    <div className="flex flex-col items-start gap-3">
+                    <div className="flex flex-col items-start gap-2">
                       <input
                         accept="image/*"
                         className="hidden"
@@ -2023,21 +2033,7 @@ export function SettingsPanel({
                         ref={workspaceIconInputRef}
                         type="file"
                       />
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Button
-                          disabled={
-                            !selectedWorkspace || workspaceIconUploading
-                          }
-                          onClick={() => workspaceIconInputRef.current?.click()}
-                          size="sm"
-                          type="button"
-                          variant="outline"
-                        >
-                          <Camera className="mr-2 h-4 w-4" />
-                          {workspaceIconUploading
-                            ? "Uploading..."
-                            : "Upload Icon"}
-                        </Button>
+                      {workspaceIconDraft || selectedWorkspace?.logo ? (
                         <Button
                           disabled={
                             !selectedWorkspace || workspaceIconUploading
@@ -2050,9 +2046,9 @@ export function SettingsPanel({
                           type="button"
                           variant="ghost"
                         >
-                          Remove Icon
+                          Remove icon
                         </Button>
-                      </div>
+                      ) : null}
                       {workspaceIconStatus ? (
                         <p className="text-muted-foreground text-xs">
                           {workspaceIconStatus}
@@ -2064,16 +2060,17 @@ export function SettingsPanel({
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <p className="font-medium text-sm">Workspace stats</p>
-                      <p className="inline-flex items-center gap-2 text-muted-foreground text-xs">
-                        {workspaceUsageStatus?.startsWith("Loading") ? (
-                          <Spinner className="size-3.5" />
-                        ) : null}
-                        {workspaceUsageStatus ?? "Live workspace totals"}
-                      </p>
+                      {workspaceUsageStatus ? (
+                        <p className="inline-flex items-center gap-2 text-muted-foreground text-xs">
+                          {workspaceUsageStatus?.startsWith("Loading") ? (
+                            <Spinner className="size-3.5" />
+                          ) : null}
+                          {workspaceUsageStatus}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <UsageStatCard
-                        description="Total bytes stored across workspace files."
                         icon={HardDrive}
                         label="Storage Used"
                         value={
@@ -2088,9 +2085,8 @@ export function SettingsPanel({
                         }
                       />
                       <UsageStatCard
-                        description="Manage records available in this workspace."
                         icon={FileText}
-                        label="Manage"
+                        label="Files"
                         value={
                           workspaceUsage ? (
                             workspaceUsage.fileCount.toLocaleString()
@@ -2103,7 +2099,6 @@ export function SettingsPanel({
                         }
                       />
                       <UsageStatCard
-                        description="Nested folders in the workspace tree."
                         icon={Folder}
                         label="Folders"
                         value={
@@ -2118,11 +2113,6 @@ export function SettingsPanel({
                         }
                       />
                       <UsageStatCard
-                        description={
-                          workspaceUsage
-                            ? `${workspaceUsage.pendingIngestionCount.toLocaleString()} pending ingestion`
-                            : "Waiting for ingestion status."
-                        }
                         icon={Users}
                         label="Indexed"
                         value={
@@ -2339,10 +2329,7 @@ export function SettingsPanel({
 
               <Divider />
 
-              <Section
-                description="Create and switch between workspaces."
-                title="Workspaces"
-              >
+              <Section description="" title="Workspaces">
                 <div className="max-w-2xl space-y-4">
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <Input
@@ -2414,10 +2401,7 @@ export function SettingsPanel({
 
               <Divider />
 
-              <Section
-                description="Delete the selected workspace and all associated files, shares, and access."
-                title="Workspace Danger Zone"
-              >
+              <Section description="" title="Workspace Danger Zone">
                 <div className="max-w-md space-y-3">
                   <div className="flex items-start gap-2 text-red-600">
                     <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
@@ -2636,9 +2620,11 @@ function Section({
   return (
     <div className="space-y-3">
       <div>
-        <h2 className="font-semibold text-lg">{title}</h2>
+        <h2 className="font-semibold text-base md:text-lg">{title}</h2>
         {description ? (
-          <p className="text-muted-foreground text-sm">{description}</p>
+          <p className="hidden text-muted-foreground text-sm sm:block">
+            {description}
+          </p>
         ) : null}
       </div>
       {children}
@@ -2654,12 +2640,10 @@ function UsageStatCard({
   icon: Icon,
   label,
   value,
-  description,
 }: {
   icon: ComponentType<SVGProps<SVGSVGElement>>;
   label: string;
   value: ReactNode;
-  description: string;
 }) {
   return (
     <div className="p-0">
@@ -2669,8 +2653,7 @@ function UsageStatCard({
         </div>
         <div className="min-w-0 flex-1">
           <p className="font-medium text-foreground text-sm">{label}</p>
-          <p className="mt-3 font-semibold text-xl tracking-tight">{value}</p>
-          <p className="mt-2 text-muted-foreground text-xs">{description}</p>
+          <p className="mt-2 font-semibold text-xl tracking-tight">{value}</p>
         </div>
       </div>
     </div>
@@ -2744,9 +2727,7 @@ function PlanCard({
           <p className="mt-0.5 text-muted-foreground text-xs">
             {yearlyPrice}
             {yearlyDiscount ? (
-              <span className="ml-1 text-primary">
-                Save {yearlyDiscount}%
-              </span>
+              <span className="ml-1 text-primary">Save {yearlyDiscount}%</span>
             ) : null}
           </p>
         ) : null}
