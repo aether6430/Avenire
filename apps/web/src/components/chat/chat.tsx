@@ -28,7 +28,7 @@ import { emitPetNotification } from "@/lib/pet-preferences";
 import { type Attachment, createLocalAttachment } from "./attachment";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
-import { Overview } from "./overview";
+import { MobileEmptyChatOverview, Overview } from "./overview";
 import { useChatScroll } from "./use-chat-scroll";
 
 interface ChatProps {
@@ -46,9 +46,10 @@ type SendMessageOptions = Parameters<
   UseChatHelpers<UIMessage>["sendMessage"]
 >[1];
 const ACTIVE_REPLY_MIN_HEIGHT = "calc(100dvh - 250px)";
-const EMPTY_COMPOSER_SHELL_CLASSNAME = "mx-auto mb-3 w-full max-w-3xl md:mb-3";
+const EMPTY_COMPOSER_SHELL_CLASSNAME =
+  "mx-auto mb-3 w-full max-w-3xl px-4 md:mb-3 md:px-0";
 const FLOATING_COMPOSER_SHELL_CLASSNAME =
-  "mx-auto mb-[calc(0.6rem+env(safe-area-inset-bottom))] w-full max-w-3xl md:mb-3";
+  "mx-auto w-full px-3 pb-[calc(0.6rem+env(safe-area-inset-bottom))] md:max-w-3xl md:px-0 md:pb-3";
 const MOBILE_CHAT_COMPOSER_OPEN_EVENT = "avenire:mobile-chat-composer-open";
 const MOBILE_CHAT_COMPOSER_STATE_EVENT = "avenire:mobile-chat-composer-state";
 const MOBILE_CHAT_VOICE_START_EVENT = "avenire:mobile-chat-voice-start";
@@ -491,8 +492,9 @@ export function Chat({
     !hasConversationSurface &&
     (status === "submitted" || status === "streaming");
   const shouldUseCenteredComposerLayout =
-    isEmptyState || isTransitioningFromNewChat;
+    (!isMobile && isEmptyState) || isTransitioningFromNewChat;
   const showBottomComposer = !isMobile || mobileComposerOpen;
+  const isMobileComposerVisible = isMobile && mobileComposerOpen;
   const inputCard = (centered = false) => (
     <div
       className={
@@ -550,10 +552,10 @@ export function Chat({
     }
     window.dispatchEvent(
       new CustomEvent(MOBILE_CHAT_COMPOSER_STATE_EVENT, {
-        detail: { open: mobileComposerOpen },
+        detail: { open: isMobileComposerVisible },
       })
     );
-  }, [isMobile, mobileComposerOpen]);
+  }, [isMobile, isMobileComposerVisible]);
 
   useEffect(() => {
     if (!isMobile) {
@@ -565,7 +567,7 @@ export function Chat({
   return (
     <div
       {...getRootProps()}
-      className="relative flex h-full min-h-0 flex-col bg-[#fdfdfd] px-4 dark:bg-[#141414]"
+      className="relative flex h-full min-h-0 flex-col bg-[#fdfdfd] px-0 md:px-4 dark:bg-[#141414]"
     >
       <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col">
         {hasConversationSurface && (
@@ -589,6 +591,9 @@ export function Chat({
 
         {!isReadonly && (
           <AnimatePresence initial={false} mode="popLayout">
+            {isMobile && isEmptyState ? (
+              <MobileEmptyChatOverview userName={userName} />
+            ) : null}
             {shouldUseCenteredComposerLayout ? (
               <motion.div
                 animate={{ opacity: 1, y: 0 }}
@@ -598,7 +603,7 @@ export function Chat({
                 key="composer-center"
                 transition={{ duration: 0.24, ease: "easeOut" }}
               >
-                <div className="relative flex w-full max-w-3xl flex-col items-center justify-center">
+                <div className="relative flex w-full flex-col items-center justify-center md:max-w-3xl">
                   {isEmptyState ? (
                     <div className="pointer-events-none absolute bottom-[calc(100%+2.25rem)] w-full sm:bottom-[calc(100%+3rem)]">
                       <Overview userName={userName} />
@@ -610,22 +615,10 @@ export function Chat({
             ) : showBottomComposer ? (
               <motion.form
                 animate={{ opacity: 1, y: 0 }}
-                className="relative z-30 w-full"
+                className="fixed inset-x-0 bottom-0 z-30 w-full md:relative md:inset-auto"
                 exit={{ opacity: 0, y: 12 }}
                 initial={{ opacity: 0, y: 20 }}
                 key="composer-bottom"
-                onBlur={(event) => {
-                  if (!isMobile) {
-                    return;
-                  }
-                  const form = event.currentTarget;
-                  window.setTimeout(() => {
-                    if (form.contains(document.activeElement)) {
-                      return;
-                    }
-                    setMobileComposerOpen(false);
-                  }, 80);
-                }}
                 transition={{ duration: 0.22, ease: "easeOut" }}
               >
                 {isMobile ? null : (
