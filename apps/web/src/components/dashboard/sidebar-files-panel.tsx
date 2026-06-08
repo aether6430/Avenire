@@ -1165,7 +1165,7 @@ export function FilesSidebarPanel({
             <Button
               className="h-7 w-7 rounded-md border border-border/60 bg-background/60 p-0 text-muted-foreground shadow-none hover:bg-muted"
               onClick={() => {
-                commandPaletteActions.open();
+                commandPaletteActions.open({ scope: "files" });
               }}
               size="icon"
               type="button"
@@ -1299,7 +1299,7 @@ export function FilesSidebarPanel({
           {workspaceUuid && folderTree.length > 0 ? (
             <div className="h-full min-w-0 pr-1">
               <TreeView
-                className="sidebar-fade-scrollbar h-full min-w-0 overflow-y-auto rounded-xl"
+                className="h-full min-w-0 overflow-y-auto rounded-xl"
                 data={sidebarTreeData}
                 expandedItemIds={expandedTreePathIds}
                 onExpandedChange={(itemIds) => {

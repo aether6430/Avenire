@@ -27,10 +27,19 @@ export interface CommandPaletteWorkspaceIndex {
   workspaceName?: string;
 }
 
+export type CommandPaletteScope =
+  | "all"
+  | "chats"
+  | "files"
+  | "mindset"
+  | "sets"
+  | "tasks";
+
 interface CommandPaletteState {
   fileIndexByWorkspace: Record<string, CommandPaletteWorkspaceIndex>;
   open: boolean;
   recentFileIdsByWorkspace: Record<string, string[]>;
+  scope: CommandPaletteScope;
   workspaceUuid: string | null;
 }
 
@@ -38,6 +47,7 @@ const INITIAL_STATE: CommandPaletteState = {
   fileIndexByWorkspace: {},
   open: false,
   recentFileIdsByWorkspace: {},
+  scope: "all",
   workspaceUuid: null,
 };
 
@@ -60,9 +70,10 @@ export const useCommandPaletteStore = create<CommandPaletteState>()(
 );
 
 export const commandPaletteActions = {
-  open: () =>
+  open: (options?: { scope?: CommandPaletteScope }) =>
     useCommandPaletteStore.setState({
       open: true,
+      scope: options?.scope ?? "all",
     }),
   setFileIndex: (next: {
     files: CommandPaletteFileNode[];
@@ -103,6 +114,7 @@ export const commandPaletteActions = {
   close: () =>
     useCommandPaletteStore.setState({
       open: false,
+      scope: "all",
     }),
   reset: () => useCommandPaletteStore.setState({ ...INITIAL_STATE }),
 };

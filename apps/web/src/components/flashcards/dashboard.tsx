@@ -225,6 +225,20 @@ export function FlashcardsDashboard({
   }, [searchParams]);
 
   useEffect(() => {
+    const misconceptionId = searchParams.get("misconception");
+    if (!(misconceptionId && overviewQuery.data?.activeMisconceptions.length)) {
+      return;
+    }
+
+    const target = overviewQuery.data.activeMisconceptions.find(
+      (misconception) => misconception.id === misconceptionId
+    );
+    if (target) {
+      setSelectedMisconception(target);
+    }
+  }, [overviewQuery.data?.activeMisconceptions, searchParams]);
+
+  useEffect(() => {
     if (!generationRequest || generationStartedRef.current) {
       return;
     }
@@ -829,6 +843,14 @@ export function FlashcardsDashboard({
         onOpenChange={(open) => {
           if (!open) {
             setSelectedMisconception(null);
+            if (searchParams.get("misconception")) {
+              const params = new URLSearchParams(searchParams.toString());
+              params.delete("misconception");
+              const query = params.toString();
+              router.replace(
+                (query ? `${pathname}?${query}` : pathname) as Route
+              );
+            }
           }
         }}
         open={selectedMisconception !== null}

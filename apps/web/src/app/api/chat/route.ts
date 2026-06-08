@@ -15,6 +15,10 @@ import {
 } from "@avenire/ai";
 import type { AgentActivityData, UIMessage } from "@avenire/ai/message-types";
 import { auth } from "@avenire/auth/server";
+import {
+  logRetrievalQualitySignal,
+  type RetrievalQualityCandidate,
+} from "@avenire/ingestion";
 import { headers } from "next/headers";
 import { after, NextResponse } from "next/server";
 import { createResumableStreamContext } from "resumable-stream";
@@ -382,6 +386,129 @@ function extractLatestUserText(messages: UIMessage[]) {
       ? ((latestUserMessage as { text?: string }).text ?? "").trim()
       : "";
   return text;
+}
+
+function getMessageParts(message: UIMessage) {
+  try {
+    const parts = (message as { parts?: unknown }).parts;
+    if (
+      !parts ||
+      typeof (parts as Iterable<unknown>)[Symbol.iterator] !== "function"
+    ) {
+      return [];
+    }
+    return Array.from(parts as Iterable<unknown>);
+  } catch {
+    return [];
+  }
+}
+
+function extractAssistantText(message: UIMessage) {
+  try {
+    return getMessageParts(message)
+      .map((part) =>
+        typeof part === "object" &&
+        part !== null &&
+        "text" in part &&
+        typeof part.text === "string"
+          ? part.text
+          : ""
+      )
+      .join("\n")
+      .trim();
+  } catch {
+    return "";
+  }
+}
+
+function collectRetrievalQualityCandidates(message: UIMessage) {
+  const candidates: RetrievalQualityCandidate[] = [];
+  const queries = new Set<string>();
+
+  for (const part of getMessageParts(message)) {
+    if (typeof part !== "object" || part === null || !("type" in part)) {
+      continue;
+    }
+    const toolPart = part as {
+      output?: unknown;
+      state?: string;
+      type?: unknown;
+    };
+    if (
+      typeof toolPart.type !== "string" ||
+      !toolPart.type.startsWith("tool-") ||
+      toolPart.state !== "output-available"
+    ) {
+      continue;
+    }
+
+    if (typeof toolPart.output !== "object" || toolPart.output === null) {
+      continue;
+    }
+    const output = toolPart.output as {
+      citations?: Array<Record<string, unknown>>;
+      matches?: Array<Record<string, unknown>>;
+      query?: unknown;
+    };
+    if (typeof output.query === "string" && output.query.trim()) {
+      queries.add(output.query.trim());
+    }
+
+    const rows = Array.isArray(output.matches)
+      ? output.matches
+      : Array.isArray(output.citations)
+        ? output.citations
+        : [];
+
+    for (const row of rows) {
+      if (typeof row.chunkId !== "string") {
+        continue;
+      }
+
+      candidates.push({
+        chunkId: row.chunkId,
+        content:
+          typeof row.snippet === "string"
+            ? row.snippet
+            : typeof row.content === "string"
+              ? row.content
+              : null,
+        fileId: typeof row.fileId === "string" ? row.fileId : null,
+        score: typeof row.score === "number" ? row.score : null,
+        sourceType:
+          typeof row.sourceType === "string" ? row.sourceType : null,
+      });
+    }
+  }
+
+  return {
+    candidates,
+    query: Array.from(queries).join("\n"),
+  };
+}
+
+function logCompletedTurnRetrievalQuality(input: {
+  assistantMessage: UIMessage;
+  chatSlug: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  const assistantText = extractAssistantText(input.assistantMessage);
+  const { candidates, query } = collectRetrievalQualityCandidates(
+    input.assistantMessage
+  );
+  if (!assistantText || candidates.length === 0) {
+    return;
+  }
+
+  logRetrievalQualitySignal({
+    assistantText,
+    candidates,
+    chatId: input.chatSlug,
+    query,
+    userId: input.userId,
+    workspaceId: input.workspaceId,
+  });
 }
 
 function buildDetectedSubjectContext(subject: string | null) {
@@ -1808,6 +1935,19 @@ export async function POST(request: Request) {
                   persistedMessages,
                   workspace.workspaceId
                 );
+                try {
+                  logCompletedTurnRetrievalQuality({
+                    assistantMessage: responseMessage as unknown as UIMessage,
+                    chatSlug,
+                    userId: session.user.id,
+                    workspaceId: workspace.workspaceId,
+                  });
+                } catch (telemetryError) {
+                  logWarn("Failed to log retrieval quality telemetry", {
+                    chatId: chatSlug,
+                    error: telemetryError,
+                  });
+                }
                 await invalidateChatReadCaches(workspace.workspaceId);
                 logInfo("Persisted streamed messages", {
                   chatId: chatSlug,

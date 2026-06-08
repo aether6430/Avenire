@@ -10,6 +10,11 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@avenire/ui/components/command";
+import {
+  type Filter,
+  type FilterFieldConfig,
+  Filters as PropertyFilters,
+} from "@avenire/ui/components/filters";
 import { Kbd, KbdGroup } from "@avenire/ui/components/kbd";
 import { Spinner } from "@avenire/ui/components/spinner";
 import type { Icon } from "@phosphor-icons/react";
@@ -56,6 +61,7 @@ import {
 } from "@/lib/dashboard-browser-cache";
 import { warmWorkspaceSurface } from "@/lib/dashboard-warmup";
 import type { FlashcardSetSummary } from "@/lib/flashcards";
+import type { MisconceptionRecord } from "@/lib/learning-data";
 import {
   getTaskStoreSnapshot,
   primeWorkspaceTaskStore,
@@ -78,7 +84,24 @@ import { quickCaptureActions } from "@/stores/quickCaptureStore";
 import { cn } from "@/lib/utils";
 
 type PaletteItemType = "file" | "folder";
-type PaletteSearchType = "chat" | "flashcard";
+type PaletteSearchType = "chat" | "flashcard" | "misconception";
+type PaletteResultKind =
+  | "chat"
+  | "command"
+  | "content"
+  | "file"
+  | "flashcard"
+  | "folder"
+  | "misconception"
+  | "task";
+
+type PalettePropertyValue =
+  | { type: "boolean"; value: boolean }
+  | { type: "date"; value: string | null }
+  | { type: "multi_select"; value: string[] }
+  | { type: "number"; value: number | null }
+  | { type: "select"; value: string | null }
+  | { type: "text"; value: string | null };
 
 interface PaletteItem {
   folderId?: string;
@@ -86,6 +109,7 @@ interface PaletteItem {
   name: string;
   page?: {
     bannerUrl: string | null;
+    properties?: Record<string, unknown> | null;
   } | null;
   path: string;
   type: PaletteItemType;
@@ -100,6 +124,10 @@ interface PaletteSearchItem {
   meta: string;
   path: string;
   type: PaletteSearchType;
+}
+
+interface MindsetOverviewPayload {
+  activeMisconceptions?: MisconceptionRecord[];
 }
 
 interface PaletteCommandItem {
@@ -139,6 +167,7 @@ interface WorkspaceTreePayload {
     name: string;
     page?: {
       bannerUrl: string | null;
+      properties?: Record<string, unknown> | null;
     } | null;
     readOnly?: boolean;
   }>;
@@ -150,7 +179,7 @@ interface WorkspaceTreePayload {
   }>;
 }
 
-  async function hydrateWorkspaceIndex(workspace: WorkspaceSummary) {
+async function hydrateWorkspaceIndex(workspace: WorkspaceSummary) {
     const cached = readWorkspaceTreeCache<
       {
         id: string;
@@ -162,7 +191,10 @@ interface WorkspaceTreePayload {
         folderId: string;
         id: string;
         name: string;
-        page?: { bannerUrl: string | null } | null;
+        page?: {
+          bannerUrl: string | null;
+          properties?: Record<string, unknown> | null;
+        } | null;
         readOnly?: boolean;
       }
     >(workspace.workspaceId);
@@ -209,6 +241,19 @@ interface WorkspaceTreePayload {
     folders,
     files,
   });
+}
+
+async function loadMindsetOverview(signal?: AbortSignal) {
+  const response = await fetch("/api/workspace/overview", {
+    cache: "no-store",
+    signal,
+  });
+
+  if (!response.ok) {
+    return { activeMisconceptions: [] } satisfies MindsetOverviewPayload;
+  }
+
+  return (await response.json()) as MindsetOverviewPayload;
 }
 
 async function queryWorkspaceRetrieval(input: {
@@ -361,10 +406,212 @@ function renderPaletteIcon(icon: unknown, className: string) {
   return <IconComponent className={className} />;
 }
 
-const PALETTE_ITEM_CLASS =
-  "min-h-8 rounded-lg px-2 text-[0.8125rem] text-zinc-300 data-selected:bg-white/12 data-selected:text-zinc-50 data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50";
+function normalizeFilterValue(value: string) {
+  return normalizeSearch(value);
+}
 
-const PALETTE_ICON_CLASS = "mt-0.5 size-[0.95rem] shrink-0 text-zinc-400";
+function normalizeFilterValues(values: string[]) {
+  return values.map(normalizeFilterValue).filter(Boolean);
+}
+
+function propertyValueMatchesFilter(
+  property: PalettePropertyValue | undefined,
+  operator: string,
+  rawValues: string[]
+) {
+  const values = normalizeFilterValues(rawValues);
+
+  if (!property) {
+    return operator === "is_empty";
+  }
+
+  switch (property.type) {
+    case "boolean":
+      return operator === "is_true" ? property.value : !property.value;
+    case "date":
+    case "select":
+    case "text": {
+      const value = normalizeFilterValue(property.value ?? "");
+      const needle = values[0] ?? "";
+      switch (operator) {
+        case "contains":
+          return value.includes(needle);
+        case "eq":
+        case "is":
+          return value === needle;
+        case "gt":
+          return value > needle;
+        case "gte":
+          return value >= needle;
+        case "is_empty":
+          return value.length === 0;
+        case "is_not":
+          return value !== needle;
+        case "is_not_empty":
+          return value.length > 0;
+        case "lt":
+          return value < needle;
+        case "lte":
+          return value <= needle;
+        default:
+          return true;
+      }
+    }
+    case "number": {
+      const value = property.value;
+      const operand = Number(values[0]);
+      if (operator === "is_empty") {
+        return value === null;
+      }
+      if (value === null || !Number.isFinite(operand)) {
+        return false;
+      }
+      switch (operator) {
+        case "eq":
+        case "is":
+          return value === operand;
+        case "gt":
+          return value > operand;
+        case "gte":
+          return value >= operand;
+        case "lt":
+          return value < operand;
+        case "lte":
+          return value <= operand;
+        default:
+          return true;
+      }
+    }
+    case "multi_select": {
+      const selected = property.value.map(normalizeFilterValue);
+      switch (operator) {
+        case "contains_any":
+        case "is_any_of":
+          return values.some((value) => selected.includes(value));
+        case "contains_all":
+          return values.every((value) => selected.includes(value));
+        case "contains_none":
+          return values.every((value) => !selected.includes(value));
+        case "is_empty":
+          return selected.length === 0;
+        default:
+          return true;
+      }
+    }
+  }
+}
+
+function normalizePalettePropertyValue(
+  property: unknown
+): PalettePropertyValue | null {
+  if (!property || typeof property !== "object") {
+    return null;
+  }
+  const record = property as { type?: unknown; value?: unknown };
+
+  if (record.type === "boolean" || record.type === "checkbox") {
+    return { type: "boolean", value: record.value === true };
+  }
+
+  if (record.type === "multi_select") {
+    return {
+      type: "multi_select",
+      value: Array.isArray(record.value)
+        ? record.value.filter(
+            (entry): entry is string => typeof entry === "string"
+          )
+        : [],
+    };
+  }
+
+  if (record.type === "number") {
+    return {
+      type: "number",
+      value: typeof record.value === "number" ? record.value : null,
+    };
+  }
+
+  if (
+    record.type === "date" ||
+    record.type === "select" ||
+    record.type === "text"
+  ) {
+    return {
+      type: record.type,
+      value: typeof record.value === "string" ? record.value : null,
+    };
+  }
+
+  return null;
+}
+
+function matchesPaletteFilters(
+  kind: PaletteResultKind,
+  properties: Record<string, PalettePropertyValue>,
+  filters: Filter<string>[]
+) {
+  if (filters.length === 0) {
+    return true;
+  }
+
+  return filters.every((filter) => {
+    if (filter.field === "type") {
+      const selectedKinds = normalizeFilterValues(filter.values);
+      return (
+        selectedKinds.length === 0 ||
+        selectedKinds.includes(normalizeFilterValue(kind))
+      );
+    }
+
+    return propertyValueMatchesFilter(
+      properties[filter.field],
+      filter.operator,
+      filter.values
+    );
+  });
+}
+
+function hasContentTypeFilter(filters: Filter<string>[]) {
+  return filters.some(
+    (filter) =>
+      filter.field === "type" &&
+      normalizeFilterValues(filter.values).includes("content")
+  );
+}
+
+const PALETTE_TEXT_OPERATORS = [
+  { label: "contains", value: "contains" },
+  { label: "is", value: "eq" },
+  { label: "is empty", value: "is_empty" },
+  { label: "is not empty", value: "is_not_empty" },
+];
+
+const PALETTE_SELECT_OPERATORS = [
+  { label: "is", value: "eq" },
+  { label: "is not", value: "is_not" },
+  { label: "is empty", value: "is_empty" },
+];
+
+const PALETTE_MULTI_SELECT_OPERATORS = [
+  { label: "contains any", value: "contains_any" },
+  { label: "contains all", value: "contains_all" },
+  { label: "contains none", value: "contains_none" },
+  { label: "is empty", value: "is_empty" },
+];
+
+const PALETTE_NUMBER_OPERATORS = [
+  { label: "is", value: "eq" },
+  { label: "greater than", value: "gt" },
+  { label: "greater than or equal", value: "gte" },
+  { label: "less than", value: "lt" },
+  { label: "less than or equal", value: "lte" },
+  { label: "is empty", value: "is_empty" },
+];
+
+const PALETTE_ITEM_CLASS =
+  "min-h-8 rounded-lg px-2 text-[0.8125rem] text-muted-foreground data-selected:bg-accent data-selected:text-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50";
+
+const PALETTE_ICON_CLASS = "mt-0.5 size-[0.95rem] shrink-0 text-muted-foreground";
 
 const PALETTE_CHEVRON_CLASS =
   "mt-0.5 ml-auto size-3.5 shrink-0 opacity-0 transition-opacity duration-150 group-data-[selected=true]:opacity-100 group-hover:opacity-100 text-muted-foreground/45";
@@ -390,6 +637,7 @@ export function CommandPalette({
   );
   const { resolvedTheme, setTheme } = useTheme();
   const open = useCommandPaletteStore((state) => state.open);
+  const scope = useCommandPaletteStore((state) => state.scope);
   const workspaceUuid = useCommandPaletteStore((state) => state.workspaceUuid);
   const fileIndexByWorkspace = useCommandPaletteStore(
     (state) => state.fileIndexByWorkspace
@@ -408,11 +656,33 @@ export function CommandPalette({
   const [selectedValue, setSelectedValue] = useState("");
   const [showPreview, setShowPreview] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
-  const [filterMode, setFilterMode] = useState<"All" | "Commands" | "Files">(
-    "All"
-  );
+  const [paletteFilters, setPaletteFilters] = useState<Filter<string>[]>([]);
   const resolvedWorkspaceUuid = activeWorkspaceUuid ?? workspaceUuid ?? null;
   const ctrlHeldRef = useRef(false);
+  const scopeAllows = useCallback(
+    (kind: PaletteResultKind) => {
+      if (scope === "all") {
+        return true;
+      }
+      if (scope === "mindset") {
+        return kind === "flashcard" || kind === "misconception";
+      }
+      if (scope === "sets") {
+        return kind === "flashcard";
+      }
+      if (scope === "chats") {
+        return kind === "chat";
+      }
+      if (scope === "tasks") {
+        return kind === "task";
+      }
+      if (scope === "files") {
+        return kind === "file" || kind === "folder" || kind === "content";
+      }
+      return true;
+    },
+    [scope]
+  );
 
   const currentRoute = useMemo(() => {
     const nextQuery = searchParams.toString();
@@ -477,6 +747,13 @@ export function CommandPalette({
     primeWorkspaceTaskStore(resolvedWorkspaceUuid);
     void reloadWorkspaceTasks(resolvedWorkspaceUuid, { background: true });
   }, [open, resolvedWorkspaceUuid]);
+
+  const mindsetOverviewQuery = useQuery({
+    queryFn: ({ signal }) => loadMindsetOverview(signal),
+    queryKey: ["command-palette", "mindset-overview", resolvedWorkspaceUuid],
+    enabled: Boolean(open && resolvedWorkspaceUuid && scopeAllows("misconception")),
+    staleTime: 30_000,
+  });
 
   const currentFilesRouteMatch = pathname.match(FILES_ROUTE_PATTERN);
   const currentFilesWorkspaceUuid = currentFilesRouteMatch?.[1] ?? null;
@@ -595,13 +872,55 @@ export function CommandPalette({
 
   const fileItems = workspaceItems.files;
   const folderItems = workspaceItems.folders;
+  const fileItemsForFilters = useMemo(
+    () => {
+      if (!scopeAllows("file")) {
+        return [];
+      }
+      if (hasContentTypeFilter(paletteFilters)) {
+        return fileItems;
+      }
+
+      return fileItems.filter((item) => {
+        const properties: Record<string, PalettePropertyValue> = {
+          "file:workspace": { type: "text", value: item.workspaceName },
+        };
+
+        for (const [key, rawProperty] of Object.entries(
+          item.page?.properties ?? {}
+        )) {
+          const property = normalizePalettePropertyValue(rawProperty);
+          if (property) {
+            properties[`file:${key}`] = property;
+          }
+        }
+
+        return matchesPaletteFilters("file", properties, paletteFilters);
+      });
+    },
+    [fileItems, paletteFilters, scopeAllows]
+  );
+  const folderItemsForFilters = useMemo(
+    () =>
+      folderItems.filter((item) =>
+        scopeAllows("folder") &&
+        matchesPaletteFilters(
+          "folder",
+          {
+            "folder:workspace": { type: "text", value: item.workspaceName },
+          },
+          paletteFilters
+        )
+      ),
+    [folderItems, paletteFilters, scopeAllows]
+  );
 
   const recentItems = useMemo(() => {
     const targetWorkspaceIds = resolvedWorkspaceUuid
       ? [resolvedWorkspaceUuid]
       : workspaces.map((workspace) => workspace.workspaceId);
     const fileByWorkspaceAndId = new Map(
-      fileItems.map((file) => [`${file.workspaceUuid}:${file.id}`, file])
+      fileItemsForFilters.map((file) => [`${file.workspaceUuid}:${file.id}`, file])
     );
     const items: PaletteItem[] = [];
 
@@ -616,11 +935,11 @@ export function CommandPalette({
     }
 
     return items.slice(0, 8);
-  }, [fileItems, recentFileIdsByWorkspace, resolvedWorkspaceUuid, workspaces]);
+  }, [fileItemsForFilters, recentFileIdsByWorkspace, resolvedWorkspaceUuid, workspaces]);
 
   const searchItems = useMemo(
-    () => [...fileItems, ...folderItems],
-    [fileItems, folderItems]
+    () => [...fileItemsForFilters, ...folderItemsForFilters],
+    [fileItemsForFilters, folderItemsForFilters]
   );
 
   const fuse = useMemo(
@@ -649,7 +968,97 @@ export function CommandPalette({
         : [],
     [resolvedWorkspaceUuid]
   );
+  const filePropertyFields = useMemo<FilterFieldConfig<string>[]>(() => {
+    const byKey = new Map<
+      string,
+      { key: string; options: Set<string>; type: PalettePropertyValue["type"] }
+    >();
 
+    for (const item of fileItems) {
+      for (const [key, rawProperty] of Object.entries(
+        item.page?.properties ?? {}
+      )) {
+        const property = normalizePalettePropertyValue(rawProperty);
+        if (!property) {
+          continue;
+        }
+
+        const fieldKey = `file:${key}`;
+        const existing = byKey.get(fieldKey);
+        const options =
+          property.type === "multi_select"
+            ? property.value
+            : property.type === "select" && property.value
+              ? [property.value]
+              : [];
+
+        if (!existing) {
+          byKey.set(fieldKey, {
+            key,
+            type: property.type,
+            options: new Set(options),
+          });
+          continue;
+        }
+
+        for (const option of options) {
+          existing.options.add(option);
+        }
+      }
+    }
+
+    return Array.from(byKey.entries())
+      .filter(([, field]) =>
+        field.type === "multi_select" || field.type === "select"
+          ? field.options.size > 0
+          : true
+      )
+      .sort(([, left], [, right]) => left.key.localeCompare(right.key))
+      .map(([fieldKey, field]) => ({
+        key: fieldKey,
+        label: field.key,
+        type:
+          field.type === "multi_select"
+            ? "multiselect"
+            : field.type === "select"
+              ? "select"
+              : field.type === "boolean"
+                ? "custom"
+                : "text",
+        operators:
+          field.type === "multi_select"
+            ? PALETTE_MULTI_SELECT_OPERATORS
+            : field.type === "select"
+              ? PALETTE_SELECT_OPERATORS
+              : field.type === "number" || field.type === "date"
+                ? PALETTE_NUMBER_OPERATORS
+                : field.type === "boolean"
+                  ? [
+                      { label: "is true", value: "is_true" },
+                      { label: "is false", value: "is_false" },
+                    ]
+                  : PALETTE_TEXT_OPERATORS,
+        options: Array.from(field.options)
+          .sort((left, right) => left.localeCompare(right))
+          .map((option) => ({ label: option, value: option })),
+        defaultOperator:
+          field.type === "multi_select"
+            ? "contains_any"
+            : field.type === "boolean"
+              ? "is_true"
+              : field.type === "text"
+                ? "contains"
+                : "eq",
+        customRenderer:
+          field.type === "boolean"
+            ? ({ operator }) => (
+                <span className="text-muted-foreground">
+                  {operator === "is_true" ? "True" : "False"}
+                </span>
+              )
+            : undefined,
+      }));
+  }, [fileItems]);
   const openFilesRoute = useCallback(
     (options?: { openInNewPane?: boolean }) => {
       const targetWorkspace = workspaces.find(
@@ -886,6 +1295,78 @@ export function CommandPalette({
       toggleTheme,
     ]
   );
+  const commandItemsForFilters = useMemo(
+    () =>
+      commandItems.filter((item) =>
+        scopeAllows("command") &&
+        matchesPaletteFilters(
+          "command",
+          {
+            "command:group": { type: "select", value: item.group },
+          },
+          paletteFilters
+        )
+      ),
+    [commandItems, paletteFilters, scopeAllows]
+  );
+  const workspaceTasksForFilters = useMemo(
+    () =>
+      workspaceTasks.filter((task) =>
+        scopeAllows("task") &&
+        matchesPaletteFilters(
+          "task",
+          {
+            "task:status": { type: "select", value: task.status },
+            "task:priority": { type: "select", value: task.priority },
+            "task:assignee": {
+              type: "text",
+              value: [task.assignee?.name, task.assignee?.email]
+                .filter(Boolean)
+                .join(" "),
+            },
+            "task:due": { type: "date", value: task.dueAt },
+            "task:resources": {
+              type: "number",
+              value: task.resources.length,
+            },
+          },
+          paletteFilters
+        )
+      ),
+    [paletteFilters, scopeAllows, workspaceTasks]
+  );
+  const cachedChatsForFilters = useMemo(
+    () =>
+      cachedChats.filter((chat) =>
+        scopeAllows("chat") &&
+        matchesPaletteFilters(
+          "chat",
+          {
+            "chat:pinned": { type: "boolean", value: chat.pinned },
+            "chat:workspace": { type: "text", value: chat.workspaceId },
+          },
+          paletteFilters
+        )
+      ),
+    [cachedChats, paletteFilters, scopeAllows]
+  );
+  const cachedFlashcardSetsForFilters = useMemo(
+    () =>
+      cachedFlashcardSets.filter((set) =>
+        scopeAllows("flashcard") &&
+        matchesPaletteFilters(
+          "flashcard",
+          {
+            "card:source": { type: "select", value: set.sourceType },
+            "card:tags": { type: "multi_select", value: set.tags },
+            "card:due": { type: "number", value: set.dueCount },
+            "card:new": { type: "number", value: set.newCount },
+          },
+          paletteFilters
+        )
+      ),
+    [cachedFlashcardSets, paletteFilters, scopeAllows]
+  );
 
   const trimmedQuery = normalizeSearch(debouncedQuery);
   const searchQuery = trimmedQuery;
@@ -893,28 +1374,52 @@ export function CommandPalette({
   const filteredCommands = useMemo(() => {
     if (!searchQuery) {
       return {
-        create: commandItems.filter((item) => item.group === "Create"),
-        general: commandItems.filter((item) => item.group === "General"),
+        create: commandItemsForFilters.filter((item) => item.group === "Create"),
+        general: commandItemsForFilters.filter((item) => item.group === "General"),
       };
     }
 
-    const matches = commandItems.filter((item) =>
+    const matches = commandItemsForFilters.filter((item) =>
       commandMatches(item, searchQuery)
     );
     return {
       create: matches.filter((item) => item.group === "Create"),
       general: matches.filter((item) => item.group === "General"),
     };
-  }, [commandItems, searchQuery]);
+  }, [commandItemsForFilters, searchQuery]);
 
   const hasCommandMatches =
     filteredCommands.general.length > 0 || filteredCommands.create.length > 0;
+  const taskResults = useMemo(
+    () => {
+      if (!searchQuery) {
+        return [];
+      }
+
+      return workspaceTasksForFilters
+        .filter((task) =>
+          matchesNeedle(
+            [
+              task.title,
+              task.description ?? "",
+              task.status,
+              task.priority ?? "",
+              task.assignee?.name ?? "",
+              task.assignee?.email ?? "",
+            ].join(" "),
+            searchQuery
+          )
+        )
+        .slice(0, 8);
+    },
+    [searchQuery, workspaceTasksForFilters]
+  );
   const chatResults = useMemo<PaletteSearchItem[]>(() => {
     if (!searchQuery) {
       return [];
     }
 
-    return cachedChats
+    return cachedChatsForFilters
       .filter((chat) =>
         matchesNeedle(
           `${chat.title} ${chat.slug} ${chat.workspaceId}`,
@@ -931,13 +1436,13 @@ export function CommandPalette({
         path: `/workspace/chats/${chat.slug}`,
         type: "chat",
       }));
-  }, [cachedChats, searchQuery]);
+  }, [cachedChatsForFilters, searchQuery]);
   const flashcardResults = useMemo<PaletteSearchItem[]>(() => {
     if (!searchQuery) {
       return [];
     }
 
-    return cachedFlashcardSets
+    return cachedFlashcardSetsForFilters
       .filter((set) => matchesNeedle(`${set.title} ${set.id}`, searchQuery))
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
       .slice(0, 8)
@@ -949,7 +1454,53 @@ export function CommandPalette({
         path: `/workspace/flashcards/${set.id}`,
         type: "flashcard",
       }));
-  }, [cachedFlashcardSets, searchQuery]);
+  }, [cachedFlashcardSetsForFilters, searchQuery]);
+  const activeMisconceptions = useMemo(
+    () =>
+      (mindsetOverviewQuery.data?.activeMisconceptions ?? []).filter(
+        (misconception) =>
+          scopeAllows("misconception") &&
+          matchesPaletteFilters("misconception", {}, paletteFilters)
+      ),
+    [
+      mindsetOverviewQuery.data?.activeMisconceptions,
+      paletteFilters,
+      scopeAllows,
+    ]
+  );
+  const misconceptionResults = useMemo<PaletteSearchItem[]>(() => {
+    if (!searchQuery) {
+      return activeMisconceptions.slice(0, 8).map((misconception) => ({
+        description: `${misconception.subject} / ${misconception.topic}`,
+        id: misconception.id,
+        label: misconception.concept,
+        meta: `${Math.round(misconception.confidence * 100)}%`,
+        path: `/workspace/flashcards?misconception=${encodeURIComponent(
+          misconception.id
+        )}`,
+        type: "misconception",
+      }));
+    }
+
+    return activeMisconceptions
+      .filter((misconception) =>
+        matchesNeedle(
+          `${misconception.concept} ${misconception.subject} ${misconception.topic} ${misconception.reason}`,
+          searchQuery
+        )
+      )
+      .slice(0, 8)
+      .map((misconception) => ({
+        description: `${misconception.subject} / ${misconception.topic}`,
+        id: misconception.id,
+        label: misconception.concept,
+        meta: `${Math.round(misconception.confidence * 100)}%`,
+        path: `/workspace/flashcards?misconception=${encodeURIComponent(
+          misconception.id
+        )}`,
+        type: "misconception",
+      }));
+  }, [activeMisconceptions, searchQuery]);
   const shouldSearchFiles = Boolean(searchQuery) && searchItems.length > 0;
 
   const fuzzyResults = useMemo(() => {
@@ -996,7 +1547,7 @@ export function CommandPalette({
     queryFn: ({ signal }) =>
       resolvedWorkspaceUuid && searchQuery
         ? queryWorkspaceRetrieval({
-            files: fileItems
+            files: fileItemsForFilters
               .filter((file) => file.workspaceUuid === resolvedWorkspaceUuid)
               .map((file) => ({
                 folderId: file.folderId,
@@ -1014,13 +1565,170 @@ export function CommandPalette({
       resolvedWorkspaceUuid,
       searchQuery,
       fileSearchFingerprint,
+      paletteFilters,
     ],
     enabled: Boolean(open && shouldSearchFiles && resolvedWorkspaceUuid),
   });
 
   const retrievalResults =
-    fuzzyResults.length > 0 ? [] : (retrievalQuery.data ?? []);
+    fuzzyResults.length > 0
+      ? []
+      : (retrievalQuery.data ?? []).filter((result) =>
+          matchesPaletteFilters(
+            "content",
+            {
+              "content:source": {
+                type: "select",
+                value: result.sourceType ?? null,
+              },
+            },
+            paletteFilters
+          )
+        );
   const isRetrieving = retrievalQuery.isFetching;
+  const paletteFilterFields = useMemo<FilterFieldConfig<string>[]>(
+    () => [
+      {
+        key: "type",
+        label: "type",
+        type: "multiselect",
+        defaultOperator: "contains_any",
+        operators: [{ label: "is any of", value: "contains_any" }],
+        options: [
+          { label: "Commands", value: "command" },
+          { label: "Files", value: "file" },
+          { label: "Folders", value: "folder" },
+          { label: "Tasks", value: "task" },
+          { label: "Chats", value: "chat" },
+          { label: "Cards", value: "flashcard" },
+          { label: "Misconceptions", value: "misconception" },
+          { label: "Content", value: "content" },
+        ],
+      },
+      ...filePropertyFields,
+      {
+        key: "task:status",
+        label: "task status",
+        type: "select",
+        defaultOperator: "eq",
+        operators: PALETTE_SELECT_OPERATORS,
+        options: ["planned", "drafting", "polishing", "completed"].map(
+          (value) => ({ label: value, value })
+        ),
+      },
+      {
+        key: "task:priority",
+        label: "task priority",
+        type: "select",
+        defaultOperator: "eq",
+        operators: PALETTE_SELECT_OPERATORS,
+        options: ["low", "normal", "high"].map((value) => ({
+          label: value,
+          value,
+        })),
+      },
+      {
+        key: "task:assignee",
+        label: "task assignee",
+        type: "text",
+        defaultOperator: "contains",
+        operators: PALETTE_TEXT_OPERATORS,
+      },
+      {
+        key: "task:due",
+        label: "task due",
+        type: "text",
+        defaultOperator: "eq",
+        operators: PALETTE_NUMBER_OPERATORS,
+      },
+      {
+        key: "task:resources",
+        label: "task resources",
+        type: "text",
+        defaultOperator: "gt",
+        operators: PALETTE_NUMBER_OPERATORS,
+      },
+      {
+        key: "chat:pinned",
+        label: "chat pinned",
+        type: "custom",
+        defaultOperator: "is_true",
+        operators: [
+          { label: "is true", value: "is_true" },
+          { label: "is false", value: "is_false" },
+        ],
+        customRenderer: ({ operator }) => (
+          <span className="text-muted-foreground">
+            {operator === "is_true" ? "True" : "False"}
+          </span>
+        ),
+      },
+      {
+        key: "chat:workspace",
+        label: "chat workspace",
+        type: "text",
+        defaultOperator: "contains",
+        operators: PALETTE_TEXT_OPERATORS,
+      },
+      {
+        key: "card:source",
+        label: "card source",
+        type: "select",
+        defaultOperator: "eq",
+        operators: PALETTE_SELECT_OPERATORS,
+        options: Array.from(
+          new Set(cachedFlashcardSets.map((set) => set.sourceType))
+        )
+          .filter(Boolean)
+          .sort((left, right) => left.localeCompare(right))
+          .map((value) => ({ label: value, value })),
+      },
+      {
+        key: "content:source",
+        label: "content source",
+        type: "select",
+        defaultOperator: "eq",
+        operators: PALETTE_SELECT_OPERATORS,
+        options: Array.from(
+          new Set(
+            (retrievalQuery.data ?? []).flatMap((content) =>
+              typeof content.sourceType === "string" ? [content.sourceType] : []
+            )
+          )
+        )
+          .sort((left, right) => left.localeCompare(right))
+          .map((value) => ({ label: value, value })),
+      },
+      {
+        key: "card:tags",
+        label: "card tags",
+        type: "multiselect",
+        defaultOperator: "contains_any",
+        operators: PALETTE_MULTI_SELECT_OPERATORS,
+        options: Array.from(
+          new Set(cachedFlashcardSets.flatMap((set) => set.tags))
+        )
+          .filter(Boolean)
+          .sort((left, right) => left.localeCompare(right))
+          .map((value) => ({ label: value, value })),
+      },
+      {
+        key: "card:due",
+        label: "cards due",
+        type: "text",
+        defaultOperator: "gt",
+        operators: PALETTE_NUMBER_OPERATORS,
+      },
+      {
+        key: "card:new",
+        label: "new cards",
+        type: "text",
+        defaultOperator: "gt",
+        operators: PALETTE_NUMBER_OPERATORS,
+      },
+    ],
+    [cachedFlashcardSets, filePropertyFields, retrievalQuery.data]
+  );
 
   useEffect(() => {
     if (!(open && resolvedWorkspaceUuid)) {
@@ -1134,8 +1842,9 @@ export function CommandPalette({
       | { kind: "file"; value: string; item: PaletteItem }
       | { kind: "chat"; value: string; item: PaletteSearchItem }
       | { kind: "flashcard"; value: string; item: PaletteSearchItem }
+      | { kind: "misconception"; value: string; item: PaletteSearchItem }
       | { kind: "content"; value: string; item: WorkspaceSearchResult }
-      | { kind: "task"; value: string; item: (typeof workspaceTasks)[number] }
+      | { kind: "task"; value: string; item: (typeof workspaceTasksForFilters)[number] }
     > = [];
 
     if (searchQuery) {
@@ -1151,6 +1860,16 @@ export function CommandPalette({
       for (const item of flashcardResults) {
         items.push({ kind: "flashcard", value: `flashcard-${item.id}`, item });
       }
+      for (const item of misconceptionResults) {
+        items.push({
+          kind: "misconception",
+          value: `misconception-${item.id}`,
+          item,
+        });
+      }
+      for (const item of taskResults) {
+        items.push({ kind: "task", value: `task-${item.id}`, item });
+      }
       for (const item of fuzzyResults) {
         items.push({ kind: "file", value: `${item.type}-${item.id}`, item });
       }
@@ -1164,13 +1883,13 @@ export function CommandPalette({
       return items;
     }
 
-    for (const item of workspaceTasks) {
+    for (const item of workspaceTasksForFilters) {
       items.push({ kind: "task", value: `task-${item.id}`, item });
     }
     for (const item of recentItems) {
       items.push({ kind: "file", value: `recent-${item.id}`, item });
     }
-    for (const item of cachedChats.slice(0, 6)) {
+    for (const item of cachedChatsForFilters.slice(0, 6)) {
       items.push({
         kind: "chat",
         value: `recent-chat-${item.slug}`,
@@ -1184,7 +1903,7 @@ export function CommandPalette({
         },
       });
     }
-    for (const item of cachedFlashcardSets.slice(0, 6)) {
+    for (const item of cachedFlashcardSetsForFilters.slice(0, 6)) {
       items.push({
         kind: "flashcard",
         value: `recent-flashcard-${item.id}`,
@@ -1198,6 +1917,13 @@ export function CommandPalette({
         },
       });
     }
+    for (const item of misconceptionResults.slice(0, 6)) {
+      items.push({
+        kind: "misconception",
+        value: `misconception-${item.id}`,
+        item,
+      });
+    }
     for (const item of filteredCommands.general) {
       items.push({ kind: "command", value: `command-${item.key}`, item });
     }
@@ -1206,17 +1932,19 @@ export function CommandPalette({
     }
     return items;
   }, [
-    cachedChats,
-    cachedFlashcardSets,
+    cachedChatsForFilters,
+    cachedFlashcardSetsForFilters,
     chatResults,
     filteredCommands.create,
     filteredCommands.general,
     flashcardResults,
     fuzzyResults,
+    misconceptionResults,
     recentItems,
     retrievalResults,
     searchQuery,
-    workspaceTasks,
+    taskResults,
+    workspaceTasksForFilters,
   ]);
 
   const hasResults = previewItems.length > 0;
@@ -1249,10 +1977,10 @@ export function CommandPalette({
             >
               {renderPaletteIcon(item.icon, PALETTE_ICON_CLASS)}
               <div className="min-w-0 flex-1">
-                <p className="truncate font-medium text-zinc-100/90">
+                <p className="truncate font-medium text-foreground">
                   {item.label}
                 </p>
-                <p className="truncate text-[0.6875rem] text-zinc-500">
+                <p className="truncate text-[0.6875rem] text-muted-foreground">
                   {item.description}
                 </p>
               </div>
@@ -1261,7 +1989,7 @@ export function CommandPalette({
                   <KbdGroup>
                     {formatShortcut(item.shortcut).map((key) => (
                       <Kbd
-                        className="h-5 min-w-5 rounded bg-black/20 px-1.5 text-[10px] font-medium text-zinc-400"
+                        className="h-5 min-w-5 rounded bg-muted px-1.5 text-[10px] font-medium text-muted-foreground"
                         key={key}
                       >
                         {key}
@@ -1292,10 +2020,10 @@ export function CommandPalette({
             >
               {renderPaletteIcon(item.icon, PALETTE_ICON_CLASS)}
               <div className="min-w-0 flex-1">
-                <p className="truncate font-medium text-zinc-100/90">
+                <p className="truncate font-medium text-foreground">
                   {item.label}
                 </p>
-                <p className="truncate text-[0.6875rem] text-zinc-500">
+                <p className="truncate text-[0.6875rem] text-muted-foreground">
                   {item.description}
                 </p>
               </div>
@@ -1304,7 +2032,7 @@ export function CommandPalette({
                   <KbdGroup>
                     {formatShortcut(item.shortcut).map((key) => (
                       <Kbd
-                        className="h-5 min-w-5 rounded bg-black/20 px-1.5 text-[10px] font-medium text-zinc-400"
+                        className="h-5 min-w-5 rounded bg-muted px-1.5 text-[10px] font-medium text-muted-foreground"
                         key={key}
                       >
                         {key}
@@ -1358,10 +2086,10 @@ export function CommandPalette({
             ctrlHeldRef.current = false;
           }
         }}
-        className="h-full w-full rounded-[1.05rem]! border-zinc-700/70 bg-[#161616]/94 p-3 text-zinc-100 shadow-[0_24px_90px_rgba(0,0,0,0.48)]"
+        className="h-full w-full rounded-[1.05rem]! border-border bg-popover p-3 text-foreground shadow-[0_24px_90px_rgba(0,0,0,0.48)]"
       >
-        <div className="flex h-10 items-center gap-3 px-2 text-zinc-300">
-          {renderPaletteIcon(Search, "size-[1.05rem] text-zinc-400")}
+        <div className="flex h-10 items-center gap-3 px-2 text-muted-foreground">
+          {renderPaletteIcon(Search, "size-[1.05rem] text-muted-foreground")}
           <CommandInput
             placeholder="Search or ask a question in Avenire's Space..."
             value={query}
@@ -1370,7 +2098,7 @@ export function CommandPalette({
             showSearchIcon={false}
             wrapperClassName="flex-1 p-0!"
             inputGroupClassName="h-9! rounded-none! border-0! bg-transparent! p-0! shadow-none! ring-0! dark:bg-transparent!"
-            className="h-9 bg-transparent! text-[0.9rem] text-zinc-100 placeholder:text-zinc-500"
+            className="h-9 bg-transparent! text-[0.9rem] text-foreground placeholder:text-muted-foreground"
           />
           <div className="flex shrink-0 items-center gap-2">
             <button
@@ -1379,8 +2107,8 @@ export function CommandPalette({
               aria-pressed={showFilters}
               onClick={() => setShowFilters((visible) => !visible)}
               className={cn(
-                "grid size-7 place-items-center rounded-full border border-white/12 text-zinc-400 transition-colors hover:bg-white/8 hover:text-zinc-100",
-                showFilters && "border-blue-500/30 bg-blue-500/15 text-blue-300"
+                "grid size-7 place-items-center rounded-full border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+                showFilters && "border-primary/30 bg-primary/15 text-primary"
               )}
             >
               {renderPaletteIcon(ListFilter, "size-4")}
@@ -1391,8 +2119,8 @@ export function CommandPalette({
               aria-pressed={showPreview}
               onClick={() => setShowPreview((visible) => !visible)}
               className={cn(
-                "grid size-7 place-items-center rounded-md text-zinc-400 transition-colors hover:bg-white/8 hover:text-zinc-100",
-                showPreview && "text-blue-400"
+                "grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+                showPreview && "text-primary"
               )}
             >
               {renderPaletteIcon(SidebarSimple, "size-4")}
@@ -1407,28 +2135,30 @@ export function CommandPalette({
           )}
         >
           <div className="min-h-0 overflow-hidden">
-            <div className="flex items-center gap-2 px-2 pb-4 pt-2 text-xs text-zinc-400">
-              {(["All", "Commands", "Files"] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setFilterMode(mode)}
-                  className={cn(
-                    "rounded-md border border-white/10 px-2.5 py-1 transition-colors hover:bg-white/8 hover:text-zinc-100",
-                    filterMode === mode && "border-blue-500/30 bg-blue-500/15 text-blue-300"
-                  )}
-                >
-                  {mode}
-                </button>
-              ))}
-              {filterMode !== "All" || query ? (
+            <div className="flex items-center gap-1.5 px-2 pb-4 pt-2 text-xs text-muted-foreground">
+              <PropertyFilters
+                fields={paletteFilterFields}
+                filters={paletteFilters}
+                onChange={setPaletteFilters}
+                size="sm"
+                trigger={
+                  <button
+                    type="button"
+                    className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border/70 bg-background px-2 text-foreground transition-colors hover:bg-muted/70"
+                  >
+                    {renderPaletteIcon(ListFilter, "size-3.5")}
+                    Filters
+                  </button>
+                }
+              />
+              {paletteFilters.length > 0 || query ? (
                 <button
                   type="button"
                   onClick={() => {
-                    setFilterMode("All");
+                    setPaletteFilters([]);
                     setQuery("");
                   }}
-                  className="ml-auto rounded-md px-2.5 py-1 text-zinc-500 transition-colors hover:bg-white/8 hover:text-zinc-200"
+                  className="ml-auto rounded-md px-2.5 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 >
                   Clear
                 </button>
@@ -1455,6 +2185,7 @@ export function CommandPalette({
                         {renderCommandGroups()}
                         {chatResults.length > 0 ||
                         flashcardResults.length > 0 ||
+                        misconceptionResults.length > 0 ||
                         fuzzyResults.length > 0 ||
                         isRetrieving ||
                         retrievalResults.length > 0 ? (
@@ -1476,14 +2207,14 @@ export function CommandPalette({
                               PALETTE_ICON_CLASS
                             )}
                             <div className="min-w-0 flex-1">
-                              <p className="truncate font-medium text-zinc-100/90">
+                              <p className="truncate font-medium text-foreground">
                                 {chat.label}
                               </p>
-                              <p className="truncate text-[0.6875rem] text-zinc-500">
+                              <p className="truncate text-[0.6875rem] text-muted-foreground">
                                 {chat.description}
                               </p>
                             </div>
-                            <span className="mt-0.5 shrink-0 whitespace-nowrap text-[0.6875rem] text-zinc-500">
+                            <span className="mt-0.5 shrink-0 whitespace-nowrap text-[0.6875rem] text-muted-foreground">
                               {chat.meta}
                             </span>
                           </CommandItem>
@@ -1506,16 +2237,113 @@ export function CommandPalette({
                                 PALETTE_ICON_CLASS
                               )}
                               <div className="min-w-0 flex-1">
-                                <p className="truncate font-medium text-zinc-100/90">
+                                <p className="truncate font-medium text-foreground">
                                   {set.label}
                                 </p>
-                                <p className="truncate text-[0.6875rem] text-zinc-500">
+                                <p className="truncate text-[0.6875rem] text-muted-foreground">
                                   {set.description}
                                 </p>
                               </div>
-                              <span className="mt-0.5 shrink-0 whitespace-nowrap text-[0.6875rem] text-zinc-500">
+                              <span className="mt-0.5 shrink-0 whitespace-nowrap text-[0.6875rem] text-muted-foreground">
                                 {set.meta}
                               </span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                        {fuzzyResults.length > 0 ||
+                        taskResults.length > 0 ||
+                        misconceptionResults.length > 0 ||
+                        isRetrieving ||
+                        retrievalResults.length > 0 ? (
+                          <CommandSeparator />
+                        ) : null}
+                      </>
+                    ) : null}
+                    {misconceptionResults.length > 0 ? (
+                      <>
+                        {(chatResults.length > 0 ||
+                          flashcardResults.length > 0) ? (
+                          <CommandSeparator />
+                        ) : null}
+                        <CommandGroup heading="Misconceptions">
+                          {misconceptionResults.map((misconception) => (
+                            <CommandItem
+                              className={PALETTE_ITEM_CLASS}
+                              key={`misconception-${misconception.id}`}
+                              onSelect={() =>
+                                navigateTo(misconception.path as Route, {
+                                  openInNewPane: ctrlHeldRef.current,
+                                })
+                              }
+                              value={`misconception-${misconception.id}`}
+                            >
+                              {renderPaletteIcon(
+                                TriangleAlert,
+                                PALETTE_ICON_CLASS
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate font-medium text-foreground">
+                                  {misconception.label}
+                                </p>
+                                <p className="truncate text-[0.6875rem] text-muted-foreground">
+                                  {misconception.description}
+                                </p>
+                              </div>
+                              <span className="mt-0.5 shrink-0 whitespace-nowrap text-[0.6875rem] text-muted-foreground">
+                                {misconception.meta}
+                              </span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                        {fuzzyResults.length > 0 ||
+                        taskResults.length > 0 ||
+                        isRetrieving ||
+                        retrievalResults.length > 0 ? (
+                          <CommandSeparator />
+                        ) : null}
+                      </>
+                    ) : null}
+                    {taskResults.length > 0 ? (
+                      <>
+                        {(chatResults.length > 0 ||
+                          flashcardResults.length > 0 ||
+                          misconceptionResults.length > 0) ? (
+                          <CommandSeparator />
+                        ) : null}
+                        <CommandGroup heading="Tasks">
+                          {taskResults.map((task) => (
+                            <CommandItem
+                              className={PALETTE_ITEM_CLASS}
+                              key={`task-${task.id}`}
+                              onSelect={() =>
+                                navigateTo(
+                                  `/workspace/tasks?task=${task.id}` as Route,
+                                  { openInNewPane: ctrlHeldRef.current }
+                                )
+                              }
+                              value={`task-${task.id}`}
+                            >
+                              {renderPaletteIcon(
+                                ListChecks,
+                                PALETTE_ICON_CLASS
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate font-medium text-foreground">
+                                  {task.title}
+                                </p>
+                                <p className="truncate text-[0.6875rem] text-muted-foreground">
+                                  {formatTaskDueDate(task.dueAt)}
+                                  {task.assignee?.name
+                                    ? ` • ${task.assignee.name}`
+                                    : ""}
+                                </p>
+                              </div>
+                              <CommandShortcut>
+                                {renderPaletteIcon(
+                                  ChevronRight,
+                                  PALETTE_CHEVRON_CLASS
+                                )}
+                              </CommandShortcut>
                             </CommandItem>
                           ))}
                         </CommandGroup>
@@ -1551,13 +2379,13 @@ export function CommandPalette({
                               PALETTE_ICON_CLASS
                             )}
                             <div className="min-w-0 flex-1">
-                              <p className="truncate font-medium text-zinc-100/90">
+                              <p className="truncate font-medium text-foreground">
                                 {item.name}
                               </p>
-                              <p className="truncate text-[0.6875rem] text-zinc-500">
+                              <p className="truncate text-[0.6875rem] text-muted-foreground">
                                 {item.path}
                               </p>
-                              <p className="truncate text-[0.6875rem] text-zinc-500">
+                              <p className="truncate text-[0.6875rem] text-muted-foreground">
                                 {item.workspaceName}
                               </p>
                             </div>
@@ -1582,7 +2410,7 @@ export function CommandPalette({
                             value="searching-workspace-content"
                           >
                             <Spinner className={PALETTE_ICON_CLASS} />
-                            <span className="text-zinc-500 text-sm">
+                            <span className="text-muted-foreground text-sm">
                               Searching workspace content...
                             </span>
                           </CommandItem>
@@ -1618,13 +2446,13 @@ export function CommandPalette({
                                 PALETTE_ICON_CLASS
                               )}
                               <div className="min-w-0 flex-1">
-                                <p className="truncate font-medium text-zinc-100/90">
+                                <p className="truncate font-medium text-foreground">
                                   {result.title}
                                 </p>
-                                <p className="truncate text-[0.6875rem] text-zinc-500">
+                                <p className="truncate text-[0.6875rem] text-muted-foreground">
                                   {filePath}
                                 </p>
-                                <p className="truncate text-[0.6875rem] text-zinc-500">
+                                <p className="truncate text-[0.6875rem] text-muted-foreground">
                                   {result.snippet}
                                 </p>
                               </div>
@@ -1645,14 +2473,16 @@ export function CommandPalette({
                     retrievalResults.length === 0 &&
                     !hasCommandMatches &&
                     chatResults.length === 0 &&
-                    flashcardResults.length === 0 ? null : null}
+                    taskResults.length === 0 &&
+                    flashcardResults.length === 0 &&
+                    misconceptionResults.length === 0 ? null : null}
                   </>
                 ) : null
               ) : (
                 <>
-                  {workspaceTasks.length > 0 ? (
+                  {workspaceTasksForFilters.length > 0 ? (
                     <CommandGroup heading="Upcoming tasks">
-                      {workspaceTasks.map((task) => (
+                      {workspaceTasksForFilters.map((task) => (
                         <CommandItem
                           className={PALETTE_ITEM_CLASS}
                           key={`task-${task.id}`}
@@ -1664,10 +2494,10 @@ export function CommandPalette({
                             PALETTE_ICON_CLASS
                           )}
                           <div className="min-w-0 flex-1">
-                            <p className="truncate font-medium text-zinc-100/90">
+                            <p className="truncate font-medium text-foreground">
                               {task.title}
                             </p>
-                            <p className="truncate text-[0.6875rem] text-zinc-500">
+                            <p className="truncate text-[0.6875rem] text-muted-foreground">
                               {formatTaskDueDate(task.dueAt)}
                               {task.assignee?.name
                                 ? ` • ${task.assignee.name}`
@@ -1684,7 +2514,7 @@ export function CommandPalette({
                       ))}
                     </CommandGroup>
                   ) : null}
-                  {workspaceTasks.length > 0 ? <CommandSeparator /> : null}
+                  {workspaceTasksForFilters.length > 0 ? <CommandSeparator /> : null}
                   {recentItems.length > 0 ? (
                     <CommandGroup heading="Recent files">
                       {recentItems.map((item) => (
@@ -1706,10 +2536,10 @@ export function CommandPalette({
                             PALETTE_ICON_CLASS
                           )}
                           <div className="min-w-0 flex-1">
-                            <p className="truncate font-medium text-zinc-100/90">
+                            <p className="truncate font-medium text-foreground">
                               {item.name}
                             </p>
-                            <p className="truncate text-[0.6875rem] text-zinc-500">
+                            <p className="truncate text-[0.6875rem] text-muted-foreground">
                               {item.path}
                             </p>
                           </div>
@@ -1724,10 +2554,10 @@ export function CommandPalette({
                     </CommandGroup>
                   ) : null}
                   {recentItems.length > 0 ? <CommandSeparator /> : null}
-                  {cachedChats.length > 0 ? (
+                  {cachedChatsForFilters.length > 0 ? (
                     <>
                       <CommandGroup heading="Recent chats">
-                        {cachedChats
+                        {cachedChatsForFilters
                           .slice()
                           .sort((left, right) =>
                             right.updatedAt.localeCompare(left.updatedAt)
@@ -1745,10 +2575,10 @@ export function CommandPalette({
                                 PALETTE_ICON_CLASS
                               )}
                               <div className="min-w-0 flex-1">
-                                <p className="truncate font-medium text-zinc-100/90">
+                                <p className="truncate font-medium text-foreground">
                                   {chat.title}
                                 </p>
-                                <p className="truncate text-[0.6875rem] text-zinc-500">
+                                <p className="truncate text-[0.6875rem] text-muted-foreground">
                                   {chat.slug}
                                 </p>
                               </div>
@@ -1764,10 +2594,10 @@ export function CommandPalette({
                       <CommandSeparator />
                     </>
                   ) : null}
-                  {cachedFlashcardSets.length > 0 ? (
+                  {cachedFlashcardSetsForFilters.length > 0 ? (
                     <>
                       <CommandGroup heading="Recent flashcards">
-                        {cachedFlashcardSets
+                        {cachedFlashcardSetsForFilters
                           .slice()
                           .sort((left, right) =>
                             right.updatedAt.localeCompare(left.updatedAt)
@@ -1785,10 +2615,10 @@ export function CommandPalette({
                                 PALETTE_ICON_CLASS
                               )}
                               <div className="min-w-0 flex-1">
-                                <p className="truncate font-medium text-zinc-100/90">
+                                <p className="truncate font-medium text-foreground">
                                   {set.title}
                                 </p>
-                                <p className="truncate text-[0.6875rem] text-zinc-500">
+                                <p className="truncate text-[0.6875rem] text-muted-foreground">
                                   {set.dueCount + set.newCount} ready
                                 </p>
                               </div>
@@ -1804,12 +2634,47 @@ export function CommandPalette({
                       <CommandSeparator />
                     </>
                   ) : null}
+                  {misconceptionResults.length > 0 ? (
+                    <>
+                      <CommandGroup heading="Misconceptions">
+                        {misconceptionResults.slice(0, 6).map((misconception) => (
+                          <CommandItem
+                            className={PALETTE_ITEM_CLASS}
+                            key={`misconception-${misconception.id}`}
+                            onSelect={() =>
+                              navigateTo(misconception.path as Route, {
+                                openInNewPane: ctrlHeldRef.current,
+                              })
+                            }
+                            value={`misconception-${misconception.id}`}
+                          >
+                            {renderPaletteIcon(
+                              TriangleAlert,
+                              PALETTE_ICON_CLASS
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-medium text-foreground">
+                                {misconception.label}
+                              </p>
+                              <p className="truncate text-[0.6875rem] text-muted-foreground">
+                                {misconception.description}
+                              </p>
+                            </div>
+                            <span className="mt-0.5 shrink-0 whitespace-nowrap text-[0.6875rem] text-muted-foreground">
+                              {misconception.meta}
+                            </span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                      <CommandSeparator />
+                    </>
+                  ) : null}
                   {renderCommandGroups()}
                 </>
               )}
             </CommandList>
             {showPreview ? (
-              <Command.Preview className="bg-[#161616]/85">
+              <Command.Preview className="bg-popover">
                 <PalettePreview item={selectedPreview} workspaceUuid={resolvedWorkspaceUuid} />
               </Command.Preview>
             ) : null}
@@ -1817,8 +2682,8 @@ export function CommandPalette({
         ) : (
           <div className="grid min-h-0 flex-1 place-items-center px-4 text-center">
             <div className="space-y-1 text-sm">
-              <p className="font-medium text-zinc-400">No results</p>
-              <p className="text-zinc-500">
+              <p className="font-medium text-muted-foreground">No results</p>
+              <p className="text-muted-foreground">
                 {query
                   ? "No matching commands, files, or content found."
                   : "No recent items yet."}
@@ -1831,7 +2696,7 @@ export function CommandPalette({
                       retrievalQuery.refetch();
                     }
                   }}
-                  className="text-blue-400 transition-colors hover:text-blue-300"
+                  className="text-primary transition-colors hover:text-primary"
                 >
                   Retrieve from Workspace instead?
                 </button>
@@ -1840,13 +2705,13 @@ export function CommandPalette({
           </div>
         )}
 
-        <div className="mt-3 flex h-6 items-center justify-between border-t border-white/10 px-2 pt-2 text-xs text-zinc-500">
+        <div className="mt-3 flex h-6 items-center justify-between border-t border-border px-2 pt-2 text-xs text-muted-foreground">
           <span>Ctrl+Enter Open in new tab</span>
           <button
             type="button"
             aria-label="Open settings"
             onClick={() => openSettings("shortcuts")}
-            className="grid size-6 place-items-center rounded-md text-zinc-500 transition-colors hover:bg-white/8 hover:text-zinc-200"
+            className="grid size-6 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             {renderPaletteIcon(Settings, "size-4")}
           </button>
@@ -1882,7 +2747,7 @@ function MarkdownFilePreview({
   return (
     <div className="flex h-full flex-col">
       {bannerUrl ? (
-        <div className="relative h-24 w-full flex-shrink-0 overflow-hidden bg-white/[0.015]">
+        <div className="relative h-24 w-full flex-shrink-0 overflow-hidden bg-accent">
           <img
             alt={`${item.name} cover`}
             className="h-full w-full object-cover"
@@ -1890,25 +2755,25 @@ function MarkdownFilePreview({
           />
         </div>
       ) : (
-        <div className="relative flex h-[4.5rem] flex-shrink-0 items-start border-white/[0.05] border-b bg-white/[0.015] px-5 pt-3">
+        <div className="relative flex h-[4.5rem] flex-shrink-0 items-start border-border border-b bg-accent px-5 pt-3">
           {renderPaletteIcon(
             FileText,
-            "absolute bottom-[-1rem] left-5 size-8 text-zinc-200"
+            "absolute bottom-[-1rem] left-5 size-8 text-foreground"
           )}
         </div>
       )}
       <div className="flex flex-1 flex-col overflow-hidden">
         <div className="px-5 pt-3">
-          <p className="truncate text-[0.6875rem] text-zinc-500">
+          <p className="truncate text-[0.6875rem] text-muted-foreground">
             {item.path}
           </p>
-          <h2 className="line-clamp-2 text-sm font-semibold tracking-normal text-zinc-50">
+          <h2 className="line-clamp-2 text-sm font-semibold tracking-normal text-foreground">
             {item.name}
           </h2>
         </div>
         <div className="mt-3 min-h-0 flex-1 overflow-y-auto px-5 pb-5">
           {isLoading ? (
-            <div className="flex items-center gap-2 text-xs text-zinc-500">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Spinner className="size-3" />
               Loading content...
             </div>
@@ -1921,7 +2786,7 @@ function MarkdownFilePreview({
               workspaceUuid={item.workspaceUuid}
             />
           ) : (
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-muted-foreground">
               {isError ? "Failed to load content" : "No content available"}
             </p>
           )}
@@ -1940,6 +2805,7 @@ function PalettePreview({
     | { kind: "file"; item: PaletteItem; value: string }
     | { kind: "chat"; item: PaletteSearchItem; value: string }
     | { kind: "flashcard"; item: PaletteSearchItem; value: string }
+    | { kind: "misconception"; item: PaletteSearchItem; value: string }
     | { kind: "content"; item: WorkspaceSearchResult; value: string }
     | {
         kind: "task";
@@ -1951,7 +2817,7 @@ function PalettePreview({
 }) {
   if (!item) {
     return (
-      <div className="grid h-full place-items-center p-6 text-center text-zinc-500 text-sm">
+      <div className="grid h-full place-items-center p-6 text-center text-muted-foreground text-sm">
         No selection
       </div>
     );
@@ -1984,14 +2850,14 @@ function PalettePreview({
           label={item.item.type === "folder" ? "Folder" : "Image"}
           title={item.item.name}
         >
-          <div className="overflow-hidden rounded-lg border border-white/10">
+          <div className="overflow-hidden rounded-lg border border-border">
             <img
               alt={item.item.name}
               className="max-h-48 w-full object-contain"
               src={fileUrl}
             />
           </div>
-          <p className="mt-3 truncate text-[0.6875rem] text-zinc-500">
+          <p className="mt-3 truncate text-[0.6875rem] text-muted-foreground">
             {item.item.path}
           </p>
         </PreviewShell>
@@ -2005,10 +2871,10 @@ function PalettePreview({
           label={isPdf ? "PDF" : "Video"}
           title={item.item.name}
         >
-          <p className="text-sm leading-6 text-zinc-400">
+          <p className="text-sm leading-6 text-muted-foreground">
             {item.item.path}
           </p>
-          <p className="mt-3 text-[0.6875rem] text-zinc-500">
+          <p className="mt-3 text-[0.6875rem] text-muted-foreground">
             {item.item.workspaceName}
           </p>
         </PreviewShell>
@@ -2024,7 +2890,7 @@ function PalettePreview({
     return (
       <div className="flex h-full flex-col">
         {bannerUrl ? (
-          <div className="relative h-24 w-full flex-shrink-0 overflow-hidden bg-white/[0.015]">
+          <div className="relative h-24 w-full flex-shrink-0 overflow-hidden bg-accent">
             <img
               alt={`${item.item.name} cover`}
               className="h-full w-full object-cover"
@@ -2032,24 +2898,24 @@ function PalettePreview({
             />
           </div>
         ) : (
-          <div className="relative flex h-[4.5rem] flex-shrink-0 items-start justify-between border-white/[0.05] border-b bg-white/[0.015] px-5 pt-3">
+          <div className="relative flex h-[4.5rem] flex-shrink-0 items-start justify-between border-border border-b bg-accent px-5 pt-3">
             {renderPaletteIcon(
               item.item.type === "folder" ? Folder : FileText,
-              "absolute bottom-[-1rem] left-5 size-8 text-zinc-200"
+              "absolute bottom-[-1rem] left-5 size-8 text-foreground"
             )}
-            <span className="ml-auto rounded border border-white/10 px-2 py-1 text-[11px] text-zinc-500">
+            <span className="ml-auto rounded border border-border px-2 py-1 text-[11px] text-muted-foreground">
               {item.item.type === "folder" ? "Folder" : "File"}
             </span>
           </div>
         )}
         <div className="flex flex-1 flex-col px-5 pt-9">
-          <p className="mb-3 truncate text-[0.6875rem] text-zinc-500">
+          <p className="mb-3 truncate text-[0.6875rem] text-muted-foreground">
             {item.item.path}
           </p>
-          <h2 className="line-clamp-3 text-lg font-semibold tracking-normal text-zinc-50">
+          <h2 className="line-clamp-3 text-lg font-semibold tracking-normal text-foreground">
             {item.item.name}
           </h2>
-          <p className="mt-auto pb-5 text-xs text-zinc-500">
+          <p className="mt-auto pb-5 text-xs text-muted-foreground">
             {item.item.workspaceName}
           </p>
         </div>
@@ -2064,7 +2930,7 @@ function PalettePreview({
         label="Content match"
         title={item.item.title}
       >
-        <p className="line-clamp-6 text-sm leading-6 text-zinc-400">
+        <p className="line-clamp-6 text-sm leading-6 text-muted-foreground">
           {item.item.snippet}
         </p>
       </PreviewShell>
@@ -2075,13 +2941,13 @@ function PalettePreview({
     const Icon = item.item.icon;
     return (
       <PreviewShell icon={Icon} label={item.item.group} title={item.item.label}>
-        <p className="text-sm leading-6 text-zinc-400">
+        <p className="text-sm leading-6 text-muted-foreground">
           {item.item.description}
         </p>
         {item.item.shortcut ? (
           <KbdGroup className="mt-4">
             {formatShortcut(item.item.shortcut).map((key) => (
-              <Kbd className="bg-white/8 text-zinc-300" key={key}>
+              <Kbd className="bg-accent text-muted-foreground" key={key}>
                 {key}
               </Kbd>
             ))}
@@ -2095,39 +2961,39 @@ function PalettePreview({
     const task = item.item;
     return (
       <PreviewShell icon={ListChecks} label="Task" title={task.title}>
-        <div className="space-y-2 text-sm text-zinc-400">
+        <div className="space-y-2 text-sm text-muted-foreground">
           {task.dueAt ? (
             <div className="flex items-center gap-2">
-              <span className="text-[0.6875rem] text-zinc-500">Due</span>
+              <span className="text-[0.6875rem] text-muted-foreground">Due</span>
               <span>{formatTaskDueDate(task.dueAt)}</span>
             </div>
           ) : null}
           {task.assignee?.name ? (
             <div className="flex items-center gap-2">
-              <span className="text-[0.6875rem] text-zinc-500">Assignee</span>
+              <span className="text-[0.6875rem] text-muted-foreground">Assignee</span>
               <span>{task.assignee.name}</span>
             </div>
           ) : null}
           {task.priority ? (
             <div className="flex items-center gap-2">
-              <span className="text-[0.6875rem] text-zinc-500">Priority</span>
+              <span className="text-[0.6875rem] text-muted-foreground">Priority</span>
               <span className="capitalize">{task.priority.toLowerCase()}</span>
             </div>
           ) : null}
           {task.resources && task.resources.length > 0 ? (
             <div className="flex items-center gap-2">
-              <span className="text-[0.6875rem] text-zinc-500">Resources</span>
+              <span className="text-[0.6875rem] text-muted-foreground">Resources</span>
               <span>{task.resources.length}</span>
             </div>
           ) : null}
           {task.status ? (
             <div className="flex items-center gap-2">
-              <span className="text-[0.6875rem] text-zinc-500">Status</span>
+              <span className="text-[0.6875rem] text-muted-foreground">Status</span>
               <span className="capitalize">{task.status.toLowerCase()}</span>
             </div>
           ) : null}
           {task.description ? (
-            <p className="line-clamp-3 pt-1 text-[0.8125rem] text-zinc-400">
+            <p className="line-clamp-3 pt-1 text-[0.8125rem] text-muted-foreground">
               {task.description}
             </p>
           ) : null}
@@ -2136,14 +3002,24 @@ function PalettePreview({
     );
   }
 
-  const Icon = item.kind === "chat" ? MessageSquareText : Sparkles;
-  const label = item.kind === "chat" ? "Chat" : "Flashcard set";
+  const Icon =
+    item.kind === "chat"
+      ? MessageSquareText
+      : item.kind === "misconception"
+        ? TriangleAlert
+        : Sparkles;
+  const label =
+    item.kind === "chat"
+      ? "Chat"
+      : item.kind === "misconception"
+        ? "Misconception"
+        : "Flashcard set";
   return (
     <PreviewShell icon={Icon} label={label} title={item.item.label}>
-      <p className="text-sm leading-6 text-zinc-400">
+      <p className="text-sm leading-6 text-muted-foreground">
         {item.item.description}
       </p>
-      <p className="mt-2 text-[0.6875rem] text-zinc-500">
+      <p className="mt-2 text-[0.6875rem] text-muted-foreground">
         {item.item.meta}
       </p>
     </PreviewShell>
@@ -2163,15 +3039,15 @@ function PreviewShell({
 }) {
   return (
     <div className="flex h-full flex-col">
-      <div className="relative flex h-[4.5rem] items-start border-white/[0.05] border-b bg-white/[0.015] px-5 pt-3">
+      <div className="relative flex h-[4.5rem] items-start border-border border-b bg-accent px-5 pt-3">
         {renderPaletteIcon(
           Icon,
-          "absolute bottom-[-1rem] left-5 size-8 text-zinc-300"
+          "absolute bottom-[-1rem] left-5 size-8 text-muted-foreground"
         )}
       </div>
       <div className="flex flex-1 flex-col px-5 pt-9">
-        <p className="mb-3 text-[0.6875rem] text-zinc-500">{label}</p>
-        <h2 className="line-clamp-3 text-lg font-semibold tracking-normal text-zinc-50">
+        <p className="mb-3 text-[0.6875rem] text-muted-foreground">{label}</p>
+        <h2 className="line-clamp-3 text-lg font-semibold tracking-normal text-foreground">
           {title}
         </h2>
         <div className="mt-5 min-h-0">{children}</div>

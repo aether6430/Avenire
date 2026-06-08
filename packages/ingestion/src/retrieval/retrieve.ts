@@ -33,6 +33,42 @@ const QUOTED_PHRASE_PATTERN = /"([^"\n]{3,})"/;
 const SYMBOL_HEAVY_PATTERN = /[^\w\s]/;
 const CODE_IDENTIFIER_PATTERN =
   /\b(?:[A-Z0-9]+_[A-Z0-9_]+|[a-z]+[A-Z][A-Za-z0-9]*)\b/;
+const CAMEL_CASE_BOUNDARY_PATTERN = /([a-z0-9])([A-Z])/g;
+const FORMULA_TOKEN_PATTERN =
+  /\b(?:[A-Za-z]\w{0,3}|\d+(?:\.\d+)?|[A-Za-z_][A-Za-z0-9_]*(?:\([^)]*\))?)\b/g;
+const STOPWORD_SET = new Set([
+  "about",
+  "after",
+  "again",
+  "also",
+  "because",
+  "before",
+  "could",
+  "explain",
+  "from",
+  "have",
+  "help",
+  "here",
+  "into",
+  "just",
+  "more",
+  "need",
+  "over",
+  "that",
+  "their",
+  "then",
+  "there",
+  "these",
+  "this",
+  "through",
+  "what",
+  "when",
+  "where",
+  "which",
+  "while",
+  "with",
+  "would",
+]);
 
 type FusionCandidate = VectorSearchResult & {
   fusionScore: number;
@@ -103,6 +139,7 @@ export interface RetrievalDecisionTelemetry {
   latencyMs: number;
   learnerBoostedCandidateCount: number;
   lexicalCandidateCount: number;
+  spladeCandidateCount: number;
   queryCount: number;
   queryShape: {
     charCount: number;
@@ -111,6 +148,7 @@ export interface RetrievalDecisionTelemetry {
     hasQuotedPhrase: boolean;
     provider: string | null;
     searchQueryCount: number;
+    decomposedQueryCount: number;
     sourceType:
       | "pdf"
       | "image"
@@ -184,6 +222,68 @@ export const dedupeQueries = (values: string[]): string[] => {
   }
 
   return out;
+};
+
+export const decomposeQuery = (query: string): string[] => {
+  const normalized = normalizeRetrievalQuery(query);
+  if (!normalized) {
+    return [];
+  }
+
+  const clauses = normalized
+    .split(/\s+(?:and|or|then|vs\.?|versus|compare|contrast|with)\s+|[;,\n]/i)
+    .map((part) => normalizeRetrievalQuery(part))
+    .filter(
+      (part) =>
+        (countQueryTokens(part) >= 2 && part.length >= 8) ||
+        CODE_IDENTIFIER_PATTERN.test(part) ||
+        SYMBOL_HEAVY_PATTERN.test(part)
+    );
+
+  const quoted = Array.from(normalized.matchAll(/"([^"\n]{3,})"/g))
+    .map((match) => normalizeRetrievalQuery(match[1] ?? ""))
+    .filter(Boolean);
+
+  return dedupeQueries([...quoted, ...clauses]).slice(0, 4);
+};
+
+export const buildSpladeExpansionQuery = (query: string): string | null => {
+  const normalized = normalizeRetrievalQuery(query);
+  if (!normalized) {
+    return null;
+  }
+
+  const expandedIdentifiers = normalized
+    .replace(CAMEL_CASE_BOUNDARY_PATTERN, "$1 $2")
+    .replace(/[_./:()[\]{}+\-*=<>^|&%$#@!?,;]/g, " ");
+  const rawTokens = Array.from(
+    `${normalized} ${expandedIdentifiers}`.matchAll(FORMULA_TOKEN_PATTERN)
+  ).map((match) => match[0].toLowerCase());
+
+  const weights = new Map<string, number>();
+  for (const token of rawTokens) {
+    if (token.length < 2 || STOPWORD_SET.has(token)) {
+      continue;
+    }
+
+    const isExactish =
+      /[_./:()[\]{}+\-*=<>^|&%$#@!?,;]/.test(token) ||
+      /\d/.test(token) ||
+      CODE_IDENTIFIER_PATTERN.test(token);
+    weights.set(token, (weights.get(token) ?? 0) + (isExactish ? 3 : 1));
+  }
+
+  const expansion = Array.from(weights.entries())
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+    .slice(0, 18)
+    .flatMap(([token, weight]) =>
+      Array.from({ length: Math.min(3, weight) }, () => token)
+    )
+    .join(" ");
+
+  return expansion && expansion.toLowerCase() !== normalized.toLowerCase()
+    ? expansion
+    : null;
 };
 
 export const diversifyByResource = <T extends { resourceId: string }>(
@@ -515,6 +615,8 @@ function buildRetrievalDecisionTelemetry(input: {
   };
   querySearchResults: VectorSearchResult[][];
   queryCount: number;
+  decomposedQueryCount: number;
+  spladeCandidateCount: number;
   rerankCandidates: FusionCandidate[];
   rerankFallbackUsed: boolean;
   reranked: RetrievedCandidate[];
@@ -599,6 +701,7 @@ function buildRetrievalDecisionTelemetry(input: {
       (total, results) => total + results.length,
       0
     ),
+    spladeCandidateCount: input.spladeCandidateCount,
     learnerBoostedCandidateCount: Array.from(
       input.learnerSignalBoosts.values()
     ).filter((signal) => signal.boost !== 1).length,
@@ -609,6 +712,7 @@ function buildRetrievalDecisionTelemetry(input: {
       hasQuestionMark: input.normalizedQuery.includes("?"),
       hasQuotedPhrase: input.normalizedQuery.includes('"'),
       provider: input.options?.provider ?? null,
+      decomposedQueryCount: input.decomposedQueryCount,
       searchQueryCount: input.queryCount,
       sourceType: input.options?.sourceType ?? null,
       tokenCount: queryTokenCount,
@@ -790,10 +894,17 @@ const searchForQuery = async (params: {
   };
 
   const trigramQuery = extractTrigramQuery(params.query);
-  const [baseCandidates, lexicalCandidates, trigramCandidates] =
+  const spladeQuery = buildSpladeExpansionQuery(params.query);
+  const [baseCandidates, lexicalCandidates, spladeCandidates, trigramCandidates] =
     await Promise.all([
       params.vectorStore.search(params.queryEmbedding, searchOptions),
       params.vectorStore.searchLexical(params.query, searchOptions),
+      spladeQuery
+        ? params.vectorStore.searchLexical(spladeQuery, {
+            ...searchOptions,
+            limit: Math.max(4, Math.floor(params.candidateLimit / 2)),
+          })
+        : Promise.resolve([]),
       trigramQuery
         ? params.vectorStore.searchTrigram(trigramQuery, searchOptions)
         : Promise.resolve([]),
@@ -825,6 +936,14 @@ const searchForQuery = async (params: {
   return fuseCandidatesByRrf([
     baseCandidates,
     lexicalCandidates,
+    spladeCandidates.map((candidate) => ({
+      ...candidate,
+      score: candidate.score * 1.12,
+      metadata: {
+        ...candidate.metadata,
+        sparseExpansion: "splade-lite",
+      },
+    })),
     trigramCandidates,
     ...modalityCandidateLists,
   ]).sort((a, b) => b.fusionScore - a.fusionScore);
@@ -894,10 +1013,16 @@ export const retrieveRelevantChunks = async (
     });
     return null;
   });
+  const decomposedQueries = dedupeQueries(decomposeQuery(normalizedQuery)).slice(
+    0,
+    4
+  );
+  const decomposedQueryCount = decomposedQueries.length;
   const searchQueries = dedupeQueries([
     normalizedQuery,
     expandedQuery ?? "",
-  ]).slice(0, 2);
+    ...decomposedQueries,
+  ]).slice(0, 4);
 
   const { embeddings } = await embedMultimodal(
     searchQueries.map((value) => textToMultimodalInput(value)),
@@ -1006,10 +1131,14 @@ export const retrieveRelevantChunks = async (
       normalizedQuery,
       options,
       queryCount: searchQueries.length,
+      decomposedQueryCount,
       querySearchResults,
       rerankCandidates,
       rerankFallbackUsed,
       reranked: [],
+      spladeCandidateCount: mergedCandidates.filter(
+        (candidate) => candidate.metadata.sparseExpansion === "splade-lite"
+      ).length,
       sortedCandidates,
       visualIntent,
     });
@@ -1112,10 +1241,14 @@ export const retrieveRelevantChunks = async (
     normalizedQuery,
     options,
     queryCount: searchQueries.length,
+    decomposedQueryCount,
     querySearchResults,
     rerankCandidates,
     rerankFallbackUsed,
     reranked,
+    spladeCandidateCount: mergedCandidates.filter(
+      (candidate) => candidate.metadata.sparseExpansion === "splade-lite"
+    ).length,
     sortedCandidates,
     visualIntent,
   });
@@ -1136,6 +1269,7 @@ export const retrieveRelevantChunks = async (
 
 function buildQueryResultPreview(params: {
   audioIntent: boolean;
+  decomposedQueryCount: number;
   limit: number;
   normalizedQuery: string;
   options?: {
@@ -1195,11 +1329,15 @@ function buildQueryResultPreview(params: {
     mergedCandidates: params.queryCandidates,
     normalizedQuery: params.normalizedQuery,
     options: params.options,
+    decomposedQueryCount: params.decomposedQueryCount,
     queryCount: params.queryCount,
     querySearchResults: [params.queryCandidates],
     rerankCandidates: [],
     rerankFallbackUsed: false,
     reranked,
+    spladeCandidateCount: params.queryCandidates.filter(
+      (candidate) => candidate.metadata.sparseExpansion === "splade-lite"
+    ).length,
     sortedCandidates: scoredCandidates,
     visualIntent: params.visualIntent,
   });
@@ -1375,6 +1513,11 @@ export const retrieveRelevantChunksAdaptive = async (
   const visualIntent = hasVisualIntent(normalizedQuery);
   const audioIntent = hasAudioIntent(normalizedQuery);
   const documentIntent = hasDocumentIntent(normalizedQuery);
+  const decomposedQueries = dedupeQueries(decomposeQuery(normalizedQuery)).slice(
+    0,
+    4
+  );
+  const decomposedQueryCount = decomposedQueries.length;
   const limit = options?.limit ?? config.retrievalDefaultLimit;
   const candidateLimit = Math.max(
     limit,
@@ -1399,6 +1542,7 @@ export const retrieveRelevantChunksAdaptive = async (
   });
   const fastPreview = buildQueryResultPreview({
     audioIntent,
+    decomposedQueryCount,
     limit,
     normalizedQuery,
     options,

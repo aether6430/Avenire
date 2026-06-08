@@ -238,57 +238,49 @@ export function MarkdownThumbnail({
   content,
 }: MarkdownThumbnailProps) {
   const markdownContent = typeof content === "string" ? content.trim() : "";
+  const previewLines = markdownContent
+    .split("\n")
+    .map((line) => line.replace(/^#{1,6}\s+/, "").trim())
+    .filter(Boolean)
+    .slice(0, 5);
 
   return (
     <div
-      className={cn(THUMBNAIL_SURFACE_CLASS, "bg-[#151515] p-1.5", className)}
+      className={cn(
+        THUMBNAIL_SURFACE_CLASS,
+        "pointer-events-none select-none bg-[#151515] p-1.5",
+        className
+      )}
+      aria-hidden="true"
     >
       {markdownContent ? (
         <div className="flex h-full w-full flex-col overflow-hidden rounded-[5px] border border-white/8 bg-[#191919]">
           <div className="flex h-6 shrink-0 items-center gap-1.5 border-white/8 border-b px-2">
-            <div className="size-1.5 rounded-sm bg-muted-foreground/35" />
-            <div className="h-1.5 w-14 rounded-sm bg-muted-foreground/25" />
+            <FileText className="size-3 text-muted-foreground/70" />
+            <div className="h-1.5 w-16 rounded-sm bg-muted-foreground/25" />
           </div>
-          <div className="grid flex-1 grid-cols-[1.1fr_0.85fr_0.85fr] grid-rows-4 overflow-hidden">
-            {Array.from({ length: 12 }, (_unused, index) => {
-              const row = Math.floor(index / 3);
-              const column = index % 3;
-              const widths = ["w-10/12", "w-7/12", "w-8/12"];
-              return (
+          <div className="flex min-h-0 flex-1 flex-col gap-1.5 px-2.5 py-2">
+            {(previewLines.length > 0 ? previewLines : ["Untitled note"]).map(
+              (line, index) => (
                 <div
-                  className={cn(
-                    "flex items-center border-white/8 border-b px-2",
-                    column > 0 && "border-l",
-                    row === 3 && "border-b-0"
-                  )}
-                  key={`cell-${index}`}
+                  className="flex h-2.5 min-w-0 items-center"
+                  key={`${line}-${index}`}
                 >
-                  {row === 0 ? (
-                    <div
-                      className={cn(
-                        "h-1.5 rounded-sm bg-muted-foreground/30",
-                        widths[column]
-                      )}
-                    />
-                  ) : (
-                    <div
-                      className={cn(
-                        "h-1 rounded-sm bg-muted-foreground/18",
-                        column === 0 && row === 1 && "w-9/12",
-                        column === 0 && row === 2 && "w-6/12",
-                        column === 0 && row === 3 && "w-8/12",
-                        column === 1 && row === 1 && "w-5/12",
-                        column === 1 && row === 2 && "w-7/12",
-                        column === 1 && row === 3 && "w-4/12",
-                        column === 2 && row === 1 && "w-7/12",
-                        column === 2 && row === 2 && "w-5/12",
-                        column === 2 && row === 3 && "w-6/12"
-                      )}
-                    />
-                  )}
+                  <div
+                    className={cn(
+                      "h-1 rounded-sm bg-muted-foreground/25",
+                      index === 0 && "h-1.5 bg-muted-foreground/40",
+                      index === 0 && line.length > 24 && "w-11/12",
+                      index === 0 && line.length <= 24 && "w-8/12",
+                      index === 1 && "w-10/12",
+                      index === 2 && "w-7/12",
+                      index === 3 && "w-9/12",
+                      index >= 4 && "w-6/12"
+                    )}
+                  />
                 </div>
-              );
-            })}
+              )
+            )}
           </div>
         </div>
       ) : (

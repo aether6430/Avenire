@@ -317,24 +317,49 @@
   height: 6px;
 }
 
+* {
+  scrollbar-color: transparent transparent;
+  scrollbar-width: thin;
+}
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(55, 53, 47, 0.16);
+  background: transparent;
   border-radius: 20px;
 }
 
-.dark ::-webkit-scrollbar-thumb {
-  background: rgba(228, 228, 228, 0.14);
+html[data-scrollbars-active="true"] {
+  scrollbar-color: rgba(55, 53, 47, 0.16) transparent;
 }
 
-::-webkit-scrollbar-thumb:hover {
+html[data-scrollbars-active="true"] * {
+  scrollbar-color: rgba(55, 53, 47, 0.16) transparent;
+}
+
+html[data-scrollbars-active="true"] ::-webkit-scrollbar-thumb {
+  background: rgba(55, 53, 47, 0.16);
+}
+
+html[data-scrollbars-active="true"] ::-webkit-scrollbar-thumb:hover {
   background: rgba(55, 53, 47, 0.3);
 }
 
-.dark ::-webkit-scrollbar-thumb:hover {
+.dark[data-scrollbars-active="true"] {
+  scrollbar-color: rgba(228, 228, 228, 0.14) transparent;
+}
+
+.dark[data-scrollbars-active="true"] * {
+  scrollbar-color: rgba(228, 228, 228, 0.14) transparent;
+}
+
+.dark[data-scrollbars-active="true"] ::-webkit-scrollbar-thumb {
+  background: rgba(228, 228, 228, 0.14);
+}
+
+.dark[data-scrollbars-active="true"] ::-webkit-scrollbar-thumb:hover {
   background: rgba(228, 228, 228, 0.22);
 }
 
