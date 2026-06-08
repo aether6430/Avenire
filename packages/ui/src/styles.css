@@ -446,3 +446,11 @@ html[data-scrollbars-active="true"] ::-webkit-scrollbar-thumb:hover {
     display: none !important;
   }
 }
+
+@media (max-width: 767px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
