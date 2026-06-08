@@ -48,7 +48,9 @@ type SendMessageOptions = Parameters<
 const ACTIVE_REPLY_MIN_HEIGHT = "calc(100dvh - 250px)";
 const EMPTY_COMPOSER_SHELL_CLASSNAME = "mx-auto mb-3 w-full max-w-3xl md:mb-3";
 const FLOATING_COMPOSER_SHELL_CLASSNAME =
-  "mx-auto mb-[calc(3.05rem+env(safe-area-inset-bottom))] w-full max-w-3xl md:mb-3";
+  "mx-auto mb-[calc(0.6rem+env(safe-area-inset-bottom))] w-full max-w-3xl md:mb-3";
+const MOBILE_CHAT_COMPOSER_OPEN_EVENT = "avenire:mobile-chat-composer-open";
+const MOBILE_CHAT_COMPOSER_STATE_EVENT = "avenire:mobile-chat-composer-state";
 
 export function Chat({
   id,
@@ -67,6 +69,7 @@ export function Chat({
   const [agentActivity, setAgentActivity] = useState<AgentActivityData | null>(
     null
   );
+  const [mobileComposerOpen, setMobileComposerOpen] = useState(false);
   const [turboEnabled, setTurboEnabled] = useState(false);
   const isMobile = useIsMobile();
   const activeSelectedModel = turboEnabled ? "apex-turbo" : selectedModel;
@@ -488,6 +491,7 @@ export function Chat({
     (status === "submitted" || status === "streaming");
   const shouldUseCenteredComposerLayout =
     isEmptyState || isTransitioningFromNewChat;
+  const showBottomComposer = !isMobile || mobileComposerOpen;
   const inputCard = (centered = false) => (
     <div
       className={
@@ -511,6 +515,47 @@ export function Chat({
       />
     </div>
   );
+
+  useEffect(() => {
+    const openComposer = () => {
+      setMobileComposerOpen(true);
+      window.dispatchEvent(
+        new CustomEvent(MOBILE_CHAT_COMPOSER_STATE_EVENT, {
+          detail: { open: true },
+        })
+      );
+      requestAnimationFrame(() => {
+        document
+          .querySelector<HTMLTextAreaElement>(
+            "[data-testid='multimodal-input']"
+          )
+          ?.focus();
+      });
+    };
+
+    window.addEventListener(MOBILE_CHAT_COMPOSER_OPEN_EVENT, openComposer);
+    return () => {
+      window.removeEventListener(MOBILE_CHAT_COMPOSER_OPEN_EVENT, openComposer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile) {
+      return;
+    }
+    window.dispatchEvent(
+      new CustomEvent(MOBILE_CHAT_COMPOSER_STATE_EVENT, {
+        detail: { open: mobileComposerOpen },
+      })
+    );
+  }, [isMobile, mobileComposerOpen]);
+
+  useEffect(() => {
+    if (!isMobile) {
+      return;
+    }
+    setMobileComposerOpen((open) => (chatId && open ? false : open));
+  }, [chatId, isMobile]);
 
   return (
     <div
@@ -557,13 +602,25 @@ export function Chat({
                   {inputCard(true)}
                 </div>
               </motion.div>
-            ) : (
+            ) : showBottomComposer ? (
               <motion.form
                 animate={{ opacity: 1, y: 0 }}
                 className="relative z-30 w-full"
                 exit={{ opacity: 0, y: 12 }}
                 initial={{ opacity: 0, y: 20 }}
                 key="composer-bottom"
+                onBlur={(event) => {
+                  if (!isMobile) {
+                    return;
+                  }
+                  const form = event.currentTarget;
+                  window.setTimeout(() => {
+                    if (form.contains(document.activeElement)) {
+                      return;
+                    }
+                    setMobileComposerOpen(false);
+                  }, 80);
+                }}
                 transition={{ duration: 0.22, ease: "easeOut" }}
               >
                 {isMobile ? null : (
@@ -590,7 +647,7 @@ export function Chat({
                 )}
                 {inputCard(false)}
               </motion.form>
-            )}
+            ) : null}
           </AnimatePresence>
         )}
       </div>
