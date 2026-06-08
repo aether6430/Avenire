@@ -13,10 +13,12 @@ import { springs } from "@avenire/ui/lib/springs";
 import { cn } from "@avenire/ui/lib/utils";
 import {
   BookOpenText,
+  DotsThree,
   Files,
   House,
   ListChecks,
   Chat as MessageSquare,
+  Waveform,
 } from "@phosphor-icons/react";
 import { motion } from "motion/react";
 import type { Route } from "next";
@@ -37,7 +39,9 @@ export function MobileWorkspaceDock({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const isChatRoute = pathname.startsWith("/workspace/chats");
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [dockExpanded, setDockExpanded] = useState(false);
   const dockRef = useRef<HTMLDivElement | null>(null);
   const {
     activeIndex: proximityIndex,
@@ -87,6 +91,16 @@ export function MobileWorkspaceDock({
   useEffect(() => {
     measureItems();
   }, [measureItems]);
+  useEffect(() => {
+    setDockExpanded((expanded) => (pathname && expanded ? false : expanded));
+  }, [pathname]);
+
+  const focusChatComposer = () => {
+    const textarea = document.querySelector<HTMLTextAreaElement>(
+      "[data-testid='multimodal-input']"
+    );
+    textarea?.focus();
+  };
 
   return (
     <>
@@ -94,53 +108,93 @@ export function MobileWorkspaceDock({
         aria-label="Workspace sections"
         className="fixed right-0 bottom-[calc(0.35rem+env(safe-area-inset-bottom))] left-0 z-40 flex justify-center px-2.5 md:hidden"
       >
-        <div
-          className="grid h-[3.35rem] w-full max-w-[24.5rem] grid-cols-5 items-center gap-1 rounded-xl border border-border/65 bg-background/96 px-1.5 shadow-[0_12px_38px_-28px_rgba(0,0,0,0.8)] backdrop-blur-xl dark:bg-background/92"
-          ref={dockRef}
-          {...proximityHandlers}
-        >
-          {items.map((item, index) => {
-            const Icon = item.icon;
-            const isNear = proximityIndex === index;
-            return (
-              <motion.div
-                animate={{
-                  y: isNear ? -1 : 0,
-                }}
-                className="relative z-10"
-                key={item.label}
-                ref={(node) => registerItem(index, node)}
-                transition={springs.fast}
-              >
-                <Button
-                  aria-current={item.isActive ? "page" : undefined}
-                  aria-label={item.label}
-                  className={cn(
-                    "flex h-10 w-full flex-col items-center justify-center gap-0.5 rounded-lg border border-transparent bg-transparent p-0 text-muted-foreground hover:bg-accent hover:text-foreground",
-                    item.isActive &&
-                      "border-border/60 bg-secondary/75 text-foreground shadow-none",
-                    isNear && !item.isActive && "text-foreground"
-                  )}
-                  onClick={() => {
-                    if (item.isActive) {
-                      setSheetOpen(true);
-                      return;
-                    }
-                    router.push(item.href());
+        {isChatRoute && !dockExpanded ? (
+          <motion.div
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            className="grid h-12 w-full max-w-[24.5rem] grid-cols-[3rem_minmax(0,1fr)_3rem] items-center gap-2"
+            initial={{ opacity: 0, y: 8, scale: 0.98 }}
+            transition={springs.fast}
+          >
+            <Button
+              aria-label="Open navigation"
+              className="h-12 w-12 rounded-full border border-border/55 bg-background/92 p-0 text-muted-foreground shadow-[0_12px_34px_-28px_rgba(0,0,0,0.85)] backdrop-blur-xl hover:bg-secondary/80 hover:text-foreground"
+              onClick={() => setDockExpanded(true)}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <DotsThree className="size-5" weight="bold" />
+            </Button>
+            <button
+              className="flex h-12 min-w-0 items-center justify-center rounded-full border border-border/45 bg-background/92 px-4 font-medium text-[15px] text-foreground shadow-[0_12px_34px_-30px_rgba(0,0,0,0.85)] backdrop-blur-xl transition-colors hover:bg-secondary/70"
+              onClick={focusChatComposer}
+              type="button"
+            >
+              <span className="truncate">Chat</span>
+            </button>
+            <Button
+              aria-label="Focus composer"
+              className="h-12 w-12 rounded-full border border-border/55 bg-background/92 p-0 text-muted-foreground shadow-[0_12px_34px_-28px_rgba(0,0,0,0.85)] backdrop-blur-xl hover:bg-secondary/80 hover:text-foreground"
+              onClick={focusChatComposer}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <Waveform className="size-5" />
+            </Button>
+          </motion.div>
+        ) : (
+          <motion.div
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            className="grid h-[3.2rem] w-full max-w-[24.5rem] grid-cols-5 items-center gap-1 rounded-full border border-border/55 bg-background/95 px-1.5 shadow-[0_12px_38px_-28px_rgba(0,0,0,0.8)] backdrop-blur-xl dark:bg-background/90"
+            initial={{ opacity: 0, y: 8, scale: 0.98 }}
+            ref={dockRef}
+            transition={springs.fast}
+            {...proximityHandlers}
+          >
+            {items.map((item, index) => {
+              const Icon = item.icon;
+              const isNear = proximityIndex === index;
+              return (
+                <motion.div
+                  animate={{
+                    y: isNear ? -1 : 0,
                   }}
-                  size="icon-sm"
-                  type="button"
-                  variant="ghost"
+                  className="relative z-10"
+                  key={item.label}
+                  ref={(node) => registerItem(index, node)}
+                  transition={springs.fast}
                 >
-                  <Icon className="size-4" />
-                  <span className="max-w-full truncate text-[9.5px] leading-none">
-                    {item.label}
-                  </span>
-                </Button>
-              </motion.div>
-            );
-          })}
-        </div>
+                  <Button
+                    aria-current={item.isActive ? "page" : undefined}
+                    aria-label={item.label}
+                    className={cn(
+                      "flex h-10 w-full flex-col items-center justify-center gap-0.5 rounded-full border border-transparent bg-transparent p-0 text-muted-foreground hover:bg-accent hover:text-foreground",
+                      item.isActive &&
+                        "border-border/50 bg-secondary/75 text-foreground shadow-none",
+                      isNear && !item.isActive && "text-foreground"
+                    )}
+                    onClick={() => {
+                      if (item.isActive) {
+                        setSheetOpen(true);
+                        return;
+                      }
+                      router.push(item.href());
+                    }}
+                    size="icon-sm"
+                    type="button"
+                    variant="ghost"
+                  >
+                    <Icon className="size-4" />
+                    <span className="max-w-full truncate text-[9px] leading-none">
+                      {item.label}
+                    </span>
+                  </Button>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        )}
       </nav>
       <Drawer onOpenChange={setSheetOpen} open={sheetOpen}>
         <DrawerContent className="md:hidden">
