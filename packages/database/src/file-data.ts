@@ -3114,17 +3114,22 @@ export async function listWorkspacePropertyRegistry(workspaceId: string) {
         continue;
       }
 
-      if (existing.type !== entry.type) {
-        continue;
-      }
+      const existingOptions = normalizeSelectOptions(existing.options);
+      const entryOptions = normalizeSelectOptions(entry.options);
 
-      await tx
-        .update(workspacePropertyRegistry)
-        .set({
-          options: entry.options,
-          updatedAt: new Date(),
-        })
-        .where(eq(workspacePropertyRegistry.id, existing.id));
+      if (
+        existing.type !== entry.type ||
+        JSON.stringify(existingOptions) !== JSON.stringify(entryOptions)
+      ) {
+        await tx
+          .update(workspacePropertyRegistry)
+          .set({
+            type: entry.type,
+            options: entryOptions,
+            updatedAt: new Date(),
+          })
+          .where(eq(workspacePropertyRegistry.id, existing.id));
+      }
     }
 
     return tx

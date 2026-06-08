@@ -571,6 +571,14 @@ function matchesPaletteFilters(
   });
 }
 
+function hasContentTypeFilter(filters: Filter<string>[]) {
+  return filters.some(
+    (filter) =>
+      filter.field === "type" &&
+      normalizeFilterValues(filter.values).includes("content")
+  );
+}
+
 const PALETTE_TEXT_OPERATORS = [
   { label: "contains", value: "contains" },
   { label: "is", value: "eq" },
@@ -865,8 +873,15 @@ export function CommandPalette({
   const fileItems = workspaceItems.files;
   const folderItems = workspaceItems.folders;
   const fileItemsForFilters = useMemo(
-    () =>
-      fileItems.filter((item) => {
+    () => {
+      if (!scopeAllows("file")) {
+        return [];
+      }
+      if (hasContentTypeFilter(paletteFilters)) {
+        return fileItems;
+      }
+
+      return fileItems.filter((item) => {
         const properties: Record<string, PalettePropertyValue> = {
           "file:workspace": { type: "text", value: item.workspaceName },
         };
@@ -880,11 +895,9 @@ export function CommandPalette({
           }
         }
 
-        return (
-          scopeAllows("file") &&
-          matchesPaletteFilters("file", properties, paletteFilters)
-        );
-      }),
+        return matchesPaletteFilters("file", properties, paletteFilters);
+      });
+    },
     [fileItems, paletteFilters, scopeAllows]
   );
   const folderItemsForFilters = useMemo(
@@ -1046,134 +1059,6 @@ export function CommandPalette({
             : undefined,
       }));
   }, [fileItems]);
-  const paletteFilterFields = useMemo<FilterFieldConfig<string>[]>(
-    () => [
-      {
-        key: "type",
-        label: "type",
-        type: "multiselect",
-        defaultOperator: "contains_any",
-        operators: [{ label: "is any of", value: "contains_any" }],
-        options: [
-          { label: "Commands", value: "command" },
-          { label: "Files", value: "file" },
-          { label: "Folders", value: "folder" },
-          { label: "Tasks", value: "task" },
-          { label: "Chats", value: "chat" },
-          { label: "Cards", value: "flashcard" },
-          { label: "Misconceptions", value: "misconception" },
-          { label: "Content", value: "content" },
-        ],
-      },
-      ...filePropertyFields,
-      {
-        key: "task:status",
-        label: "task status",
-        type: "select",
-        defaultOperator: "eq",
-        operators: PALETTE_SELECT_OPERATORS,
-        options: ["planned", "drafting", "polishing", "completed"].map(
-          (value) => ({ label: value, value })
-        ),
-      },
-      {
-        key: "task:priority",
-        label: "task priority",
-        type: "select",
-        defaultOperator: "eq",
-        operators: PALETTE_SELECT_OPERATORS,
-        options: ["low", "normal", "high"].map((value) => ({
-          label: value,
-          value,
-        })),
-      },
-      {
-        key: "task:assignee",
-        label: "task assignee",
-        type: "text",
-        defaultOperator: "contains",
-        operators: PALETTE_TEXT_OPERATORS,
-      },
-      {
-        key: "task:due",
-        label: "task due",
-        type: "text",
-        defaultOperator: "eq",
-        operators: PALETTE_NUMBER_OPERATORS,
-      },
-      {
-        key: "task:resources",
-        label: "task resources",
-        type: "text",
-        defaultOperator: "gt",
-        operators: PALETTE_NUMBER_OPERATORS,
-      },
-      {
-        key: "chat:pinned",
-        label: "chat pinned",
-        type: "custom",
-        defaultOperator: "is_true",
-        operators: [
-          { label: "is true", value: "is_true" },
-          { label: "is false", value: "is_false" },
-        ],
-        customRenderer: ({ operator }) => (
-          <span className="text-muted-foreground">
-            {operator === "is_true" ? "True" : "False"}
-          </span>
-        ),
-      },
-      {
-        key: "chat:workspace",
-        label: "chat workspace",
-        type: "text",
-        defaultOperator: "contains",
-        operators: PALETTE_TEXT_OPERATORS,
-      },
-      {
-        key: "card:source",
-        label: "card source",
-        type: "select",
-        defaultOperator: "eq",
-        operators: PALETTE_SELECT_OPERATORS,
-        options: Array.from(
-          new Set(cachedFlashcardSets.map((set) => set.sourceType))
-        )
-          .filter(Boolean)
-          .sort((left, right) => left.localeCompare(right))
-          .map((value) => ({ label: value, value })),
-      },
-      {
-        key: "card:tags",
-        label: "card tags",
-        type: "multiselect",
-        defaultOperator: "contains_any",
-        operators: PALETTE_MULTI_SELECT_OPERATORS,
-        options: Array.from(
-          new Set(cachedFlashcardSets.flatMap((set) => set.tags))
-        )
-          .filter(Boolean)
-          .sort((left, right) => left.localeCompare(right))
-          .map((value) => ({ label: value, value })),
-      },
-      {
-        key: "card:due",
-        label: "cards due",
-        type: "text",
-        defaultOperator: "gt",
-        operators: PALETTE_NUMBER_OPERATORS,
-      },
-      {
-        key: "card:new",
-        label: "new cards",
-        type: "text",
-        defaultOperator: "gt",
-        operators: PALETTE_NUMBER_OPERATORS,
-      },
-    ],
-    [cachedFlashcardSets, filePropertyFields]
-  );
-
   const openFilesRoute = useCallback(
     (options?: { openInNewPane?: boolean }) => {
       const targetWorkspace = workspaces.find(
@@ -1701,6 +1586,149 @@ export function CommandPalette({
           )
         );
   const isRetrieving = retrievalQuery.isFetching;
+  const paletteFilterFields = useMemo<FilterFieldConfig<string>[]>(
+    () => [
+      {
+        key: "type",
+        label: "type",
+        type: "multiselect",
+        defaultOperator: "contains_any",
+        operators: [{ label: "is any of", value: "contains_any" }],
+        options: [
+          { label: "Commands", value: "command" },
+          { label: "Files", value: "file" },
+          { label: "Folders", value: "folder" },
+          { label: "Tasks", value: "task" },
+          { label: "Chats", value: "chat" },
+          { label: "Cards", value: "flashcard" },
+          { label: "Misconceptions", value: "misconception" },
+          { label: "Content", value: "content" },
+        ],
+      },
+      ...filePropertyFields,
+      {
+        key: "task:status",
+        label: "task status",
+        type: "select",
+        defaultOperator: "eq",
+        operators: PALETTE_SELECT_OPERATORS,
+        options: ["planned", "drafting", "polishing", "completed"].map(
+          (value) => ({ label: value, value })
+        ),
+      },
+      {
+        key: "task:priority",
+        label: "task priority",
+        type: "select",
+        defaultOperator: "eq",
+        operators: PALETTE_SELECT_OPERATORS,
+        options: ["low", "normal", "high"].map((value) => ({
+          label: value,
+          value,
+        })),
+      },
+      {
+        key: "task:assignee",
+        label: "task assignee",
+        type: "text",
+        defaultOperator: "contains",
+        operators: PALETTE_TEXT_OPERATORS,
+      },
+      {
+        key: "task:due",
+        label: "task due",
+        type: "text",
+        defaultOperator: "eq",
+        operators: PALETTE_NUMBER_OPERATORS,
+      },
+      {
+        key: "task:resources",
+        label: "task resources",
+        type: "text",
+        defaultOperator: "gt",
+        operators: PALETTE_NUMBER_OPERATORS,
+      },
+      {
+        key: "chat:pinned",
+        label: "chat pinned",
+        type: "custom",
+        defaultOperator: "is_true",
+        operators: [
+          { label: "is true", value: "is_true" },
+          { label: "is false", value: "is_false" },
+        ],
+        customRenderer: ({ operator }) => (
+          <span className="text-muted-foreground">
+            {operator === "is_true" ? "True" : "False"}
+          </span>
+        ),
+      },
+      {
+        key: "chat:workspace",
+        label: "chat workspace",
+        type: "text",
+        defaultOperator: "contains",
+        operators: PALETTE_TEXT_OPERATORS,
+      },
+      {
+        key: "card:source",
+        label: "card source",
+        type: "select",
+        defaultOperator: "eq",
+        operators: PALETTE_SELECT_OPERATORS,
+        options: Array.from(
+          new Set(cachedFlashcardSets.map((set) => set.sourceType))
+        )
+          .filter(Boolean)
+          .sort((left, right) => left.localeCompare(right))
+          .map((value) => ({ label: value, value })),
+      },
+      {
+        key: "content:source",
+        label: "content source",
+        type: "select",
+        defaultOperator: "eq",
+        operators: PALETTE_SELECT_OPERATORS,
+        options: Array.from(
+          new Set(
+            (retrievalQuery.data ?? []).flatMap((content) =>
+              typeof content.sourceType === "string" ? [content.sourceType] : []
+            )
+          )
+        )
+          .sort((left, right) => left.localeCompare(right))
+          .map((value) => ({ label: value, value })),
+      },
+      {
+        key: "card:tags",
+        label: "card tags",
+        type: "multiselect",
+        defaultOperator: "contains_any",
+        operators: PALETTE_MULTI_SELECT_OPERATORS,
+        options: Array.from(
+          new Set(cachedFlashcardSets.flatMap((set) => set.tags))
+        )
+          .filter(Boolean)
+          .sort((left, right) => left.localeCompare(right))
+          .map((value) => ({ label: value, value })),
+      },
+      {
+        key: "card:due",
+        label: "cards due",
+        type: "text",
+        defaultOperator: "gt",
+        operators: PALETTE_NUMBER_OPERATORS,
+      },
+      {
+        key: "card:new",
+        label: "new cards",
+        type: "text",
+        defaultOperator: "gt",
+        operators: PALETTE_NUMBER_OPERATORS,
+      },
+    ],
+    [cachedFlashcardSets, filePropertyFields, retrievalQuery.data]
+  );
 
   useEffect(() => {
     if (!(open && resolvedWorkspaceUuid)) {
