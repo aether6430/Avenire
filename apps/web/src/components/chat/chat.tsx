@@ -51,6 +51,7 @@ const FLOATING_COMPOSER_SHELL_CLASSNAME =
   "mx-auto mb-[calc(0.6rem+env(safe-area-inset-bottom))] w-full max-w-3xl md:mb-3";
 const MOBILE_CHAT_COMPOSER_OPEN_EVENT = "avenire:mobile-chat-composer-open";
 const MOBILE_CHAT_COMPOSER_STATE_EVENT = "avenire:mobile-chat-composer-state";
+const MOBILE_CHAT_VOICE_START_EVENT = "avenire:mobile-chat-voice-start";
 
 export function Chat({
   id,
@@ -517,7 +518,8 @@ export function Chat({
   );
 
   useEffect(() => {
-    const openComposer = () => {
+    const openComposer = (event: Event) => {
+      const detail = (event as CustomEvent<{ voice?: boolean }>).detail;
       setMobileComposerOpen(true);
       window.dispatchEvent(
         new CustomEvent(MOBILE_CHAT_COMPOSER_STATE_EVENT, {
@@ -530,6 +532,9 @@ export function Chat({
             "[data-testid='multimodal-input']"
           )
           ?.focus();
+        if (detail?.voice) {
+          window.dispatchEvent(new CustomEvent(MOBILE_CHAT_VOICE_START_EVENT));
+        }
       });
     };
 

@@ -67,6 +67,7 @@ const ERROR_MESSAGES: Record<InputErrorType, string> = {
 const MAX_MENTION_RESULTS = 20;
 const TEXTAREA_MAX_HEIGHT = 160;
 const WHITESPACE_REGEX = /\s/;
+const MOBILE_CHAT_VOICE_START_EVENT = "avenire:mobile-chat-voice-start";
 
 function readPreferredWorkspaceId() {
   if (typeof window === "undefined") {
@@ -515,6 +516,23 @@ function PureMultimodalInput({
       toast.error(transcriptionError);
     }
   }, [transcriptionError]);
+
+  useEffect(() => {
+    const startVoiceInput = () => {
+      if (!(speechSupported && !isRecording && !isTranscribing && !isRunning)) {
+        return;
+      }
+      void startRecording();
+    };
+
+    window.addEventListener(MOBILE_CHAT_VOICE_START_EVENT, startVoiceInput);
+    return () => {
+      window.removeEventListener(
+        MOBILE_CHAT_VOICE_START_EVENT,
+        startVoiceInput
+      );
+    };
+  }, [isRecording, isRunning, isTranscribing, speechSupported, startRecording]);
 
   useEffect(() => {
     if (!isMentionMenuOpen) {

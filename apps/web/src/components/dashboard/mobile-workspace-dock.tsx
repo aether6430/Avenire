@@ -41,6 +41,26 @@ interface MobileChatSummary {
   title: string;
 }
 
+interface MobileFlashcardSet {
+  dueCount?: number;
+  id: string;
+  newCount?: number;
+  title: string;
+}
+
+interface MobileTask {
+  dueAt?: string | null;
+  id: string;
+  status?: string;
+  title: string;
+}
+
+interface MobileWorkspaceFile {
+  folderId?: string | null;
+  id: string;
+  name: string;
+}
+
 function createFreshNewChatHref() {
   return `/workspace/chats/new?fresh=${Date.now().toString(36)}` as Route;
 }
@@ -56,11 +76,15 @@ export function MobileWorkspaceDock({
   const pathname = usePathname();
   const router = useRouter();
   const isChatRoute = pathname.startsWith("/workspace/chats");
-  const isNewChatRoute = pathname.startsWith("/workspace/chats/new");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [dockExpanded, setDockExpanded] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
   const [recentChats, setRecentChats] = useState<MobileChatSummary[]>([]);
+  const [flashcardSets, setFlashcardSets] = useState<MobileFlashcardSet[]>([]);
+  const [mobileTasks, setMobileTasks] = useState<MobileTask[]>([]);
+  const [workspaceFiles, setWorkspaceFiles] = useState<MobileWorkspaceFile[]>(
+    []
+  );
   const setSettingsOpen = useDashboardOverlayStore(
     (state) => state.setSettingsOpen
   );
@@ -156,8 +180,89 @@ export function MobileWorkspaceDock({
     };
   }, []);
 
-  const openChatComposer = () => {
-    window.dispatchEvent(new CustomEvent(MOBILE_CHAT_COMPOSER_OPEN_EVENT));
+  useEffect(() => {
+    if (!(sheetOpen && pathname.startsWith("/workspace/flashcards"))) {
+      return;
+    }
+    const controller = new AbortController();
+    fetch("/api/flashcards/sets", {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: { sets?: MobileFlashcardSet[] } | null) => {
+        setFlashcardSets((payload?.sets ?? []).slice(0, 12));
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [pathname, sheetOpen]);
+
+  useEffect(() => {
+    if (!(sheetOpen && pathname.startsWith("/workspace/tasks"))) {
+      return;
+    }
+    const controller = new AbortController();
+    fetch("/api/tasks?includeCompleted=false&limit=12", {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: { tasks?: MobileTask[] } | null) => {
+        setMobileTasks(payload?.tasks ?? []);
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [pathname, sheetOpen]);
+
+  useEffect(() => {
+    if (!(sheetOpen && pathname.startsWith("/workspace/files"))) {
+      return;
+    }
+    const workspaceUuid = activeWorkspace?.workspaceId;
+    if (!workspaceUuid) {
+      return;
+    }
+    const controller = new AbortController();
+    fetch(`/api/workspaces/${workspaceUuid}/tree`, {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: { files?: MobileWorkspaceFile[] } | null) => {
+        setWorkspaceFiles((payload?.files ?? []).slice(0, 12));
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [activeWorkspace?.workspaceId, pathname, sheetOpen]);
+
+  useEffect(() => {
+    if (!(dockExpanded && isChatRoute)) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+      if (dockRef.current?.contains(target)) {
+        return;
+      }
+      setDockExpanded(false);
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, [dockExpanded, isChatRoute]);
+
+  const openChatComposer = (options?: { voice?: boolean }) => {
+    window.dispatchEvent(
+      new CustomEvent(MOBILE_CHAT_COMPOSER_OPEN_EVENT, {
+        detail: { voice: options?.voice ?? false },
+      })
+    );
   };
 
   const openSheet = () => {
@@ -169,7 +274,7 @@ export function MobileWorkspaceDock({
     setDockExpanded(true);
   };
 
-  const shouldRenderDock = !(composerOpen || isNewChatRoute);
+  const shouldRenderDock = !composerOpen;
   const showCompactChatDock =
     shouldRenderDock && isChatRoute && !(dockExpanded || composerOpen);
 
@@ -237,6 +342,92 @@ export function MobileWorkspaceDock({
       ) : (
         <p className="px-2.5 py-4 text-muted-foreground text-xs">
           Recent chats will appear here.
+        </p>
+      )}
+    </div>
+  );
+
+  const flashcardSetList = (
+    <div className="space-y-1.5">
+      {flashcardSets.length > 0 ? (
+        flashcardSets.slice(0, 8).map((set) => (
+          <button
+            className="flex h-11 w-full items-center justify-between gap-3 rounded-lg px-2.5 text-left text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            key={set.id}
+            onClick={() => {
+              setSheetOpen(false);
+              router.push(`/workspace/flashcards/${set.id}` as Route);
+            }}
+            type="button"
+          >
+            <span className="min-w-0 truncate text-sm">{set.title}</span>
+            <span className="shrink-0 rounded-md border border-border/50 px-1.5 py-0.5 text-[10px]">
+              {(set.dueCount ?? 0) + (set.newCount ?? 0)} ready
+            </span>
+          </button>
+        ))
+      ) : (
+        <p className="px-2.5 py-4 text-muted-foreground text-xs">
+          Mindset sets will appear here.
+        </p>
+      )}
+    </div>
+  );
+
+  const taskList = (
+    <div className="space-y-1.5">
+      {mobileTasks.length > 0 ? (
+        mobileTasks.slice(0, 8).map((task) => (
+          <button
+            className="flex h-11 w-full items-center justify-between gap-3 rounded-lg px-2.5 text-left text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            key={task.id}
+            onClick={() => {
+              setSheetOpen(false);
+              router.push(`/workspace/tasks?task=${task.id}` as Route);
+            }}
+            type="button"
+          >
+            <span className="min-w-0 truncate text-sm">{task.title}</span>
+            <span className="shrink-0 text-[10px]">
+              {task.dueAt
+                ? new Date(task.dueAt).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                  })
+                : "No date"}
+            </span>
+          </button>
+        ))
+      ) : (
+        <p className="px-2.5 py-4 text-muted-foreground text-xs">
+          Open tasks will appear here.
+        </p>
+      )}
+    </div>
+  );
+
+  const workspaceFileList = (
+    <div className="space-y-1.5">
+      {workspaceFiles.length > 0 ? (
+        workspaceFiles.slice(0, 8).map((file) => (
+          <button
+            className="flex h-10 w-full items-center gap-2 rounded-lg px-2.5 text-left text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            key={file.id}
+            onClick={() => {
+              setSheetOpen(false);
+              router.push(
+                `${filesHref}${filesHref.includes("?") ? "&" : "?"}file=${file.id}` as Route
+              );
+            }}
+            type="button"
+          >
+            <Files className="size-3.5 shrink-0" />
+            <span className="truncate text-sm">{file.name}</span>
+          </button>
+        ))
+      ) : (
+        <p className="px-2.5 py-4 text-muted-foreground text-xs">
+          Workspace files will appear here.
         </p>
       )}
     </div>
@@ -337,6 +528,12 @@ export function MobileWorkspaceDock({
       </div>
       {isChatRoute ? (
         recentChatList
+      ) : pathname.startsWith("/workspace/flashcards") ? (
+        flashcardSetList
+      ) : pathname.startsWith("/workspace/tasks") ? (
+        taskList
+      ) : pathname.startsWith("/workspace/files") ? (
+        workspaceFileList
       ) : (
         <div className="space-y-1.5">
           {items
@@ -404,7 +601,7 @@ export function MobileWorkspaceDock({
                 <motion.button
                   className="flex h-12 min-w-0 items-center justify-center rounded-full border border-border/45 bg-background/92 px-4 font-medium text-[15px] text-foreground shadow-[0_12px_34px_-30px_rgba(0,0,0,0.85)] backdrop-blur-xl transition-colors hover:bg-secondary/70"
                   layoutId="mobile-workspace-dock-title"
-                  onClick={openChatComposer}
+                  onClick={() => openChatComposer()}
                   type="button"
                 >
                   <span className="truncate">{activeChatTitle}</span>
@@ -413,7 +610,7 @@ export function MobileWorkspaceDock({
                   <Button
                     aria-label="Open chat menu"
                     className="h-12 w-12 rounded-full border border-border/55 bg-background/92 p-0 text-muted-foreground shadow-[0_12px_34px_-28px_rgba(0,0,0,0.85)] backdrop-blur-xl hover:bg-secondary/80 hover:text-foreground"
-                    onClick={openSheet}
+                    onClick={() => openChatComposer({ voice: true })}
                     size="icon"
                     type="button"
                     variant="ghost"
