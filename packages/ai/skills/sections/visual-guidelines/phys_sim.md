@@ -10,6 +10,7 @@ Use this module for simulations where motion over time is the point: orbits, pen
 - Left bottom column: a short explanation, one or two sentences max.
 - Right bottom column: sliders, toggles, buttons, and live readouts.
 - Use a second canvas only when the system genuinely benefits from a companion view such as phase space or energy.
+- Do not let the main canvas feel like a dark blank card with faint marks. The simulated system should occupy the canvas, use readable contrast, and include enough labels or legends for the viewer to understand what is moving and what is being measured.
 
 ### Canonical layout
 ```html
@@ -80,6 +81,7 @@ Use this module for simulations where motion over time is the point: orbits, pen
 
   .phys-sim-controls {
     background: var(--color-background-secondary);
+    border: 0.5px solid var(--color-border-tertiary);
     border-radius: 8px;
     padding: 14px;
     display: flex;
@@ -104,6 +106,9 @@ Use this module for simulations where motion over time is the point: orbits, pen
 - Include sliders for almost all meaningful factors.
 - Use toggles or buttons for mode switches, visibility, reset, pause, and demo controls.
 - Do not rely on checkbox rendering. Use button-style toggles or segmented controls instead.
+- Use bare `<button>`, `<input type="range">`, and `<select>` elements unless a custom layout is required. Do not repaint simulation controls with custom blue fills or bespoke button chrome; the host already styles controls.
+- Put each slider in a three-part row: label, slider, rounded value. Keep labels and values aligned with `display: grid; grid-template-columns: 72px minmax(0, 1fr) 48px; gap: 10px; align-items: center;`.
+- Use a compact button row for actions such as reset, pause, drop, or clear. Primary simulation actions can come first, but they should still use the native button treatment rather than custom color fills.
 - Do not rely on KaTeX or math rendering in the widget. Use plain text labels, Unicode symbols, or simple inline text.
 - Every control should expose a real model variable: `g`, `m`, `k`, length, damping, amplitude, frequency, charge, speed, separation, mass ratio, initial angle, and similar values.
 - Round every displayed number with `Math.round()`, `.toFixed()`, or `toLocaleString()`.
@@ -133,6 +138,11 @@ Use this module for simulations where motion over time is the point: orbits, pen
 ### Simulation rules
 - Represent state explicitly instead of hiding it in canvas globals.
 - Use fixed-step integration. `requestAnimationFrame` drives rendering, not physics.
+- If the visual shows collisions, contacts, bouncing, constraints, or barriers, the simulation must implement those interactions in state update code. Do not draw obstacles as decoration while particles pass through them.
+- Use substeps or continuous collision checks when particles move fast enough to tunnel through pegs, walls, or barriers in one frame.
+- After resolving collisions, enforce non-overlap: distance between two circular bodies must be at least `r1 + r2`, and distance from a particle center to a peg must be at least `particleRadius + pegRadius`. Push the particle out along the collision normal before applying bounce velocity.
+- For peg-board, pachinko, Galton board, molecular, billiard, granular, or crowd-style simulations, collisions are the core concept. Use explicit circle-vs-circle and circle-vs-wall collision resolution, add damping/friction only after separation, and clamp velocities to avoid unstable jitter.
+- When many objects would make real physics expensive, reduce the active object count, aggregate inactive objects into bins, or render trails/history. Do not fake collisions by letting objects overlap.
 - Use RK4 for coupled or chaotic systems. Do not fall back to Euler for double pendulums, orbital mechanics, or anything sensitive to drift.
 - Use Verlet only for simple orbit-style motion when it produces the cleanest result.
 - Keep units consistent and label them in plain text.
@@ -144,6 +154,10 @@ Use this module for simulations where motion over time is the point: orbits, pen
 
 ### Canvas rules
 - Size the canvas to the available space and scene, then scale by `devicePixelRatio` for crisp rendering.
+- Draw using visible contrast, not default black. Canvas backgrounds, pegs, paths, bars, particles, axes, and labels must use the theme colors from `updateTheme()` and remain legible in dark mode.
+- Make primary simulation geometry large enough to read: balls/particles at least 5px radius when possible, pegs/markers at least 3px radius, axes at least 1.5px, and important paths at least 2px. If the scene has many marks, use alpha sparingly but never so low that marks disappear.
+- Leave measured padding inside the canvas and scale the scene to fit. For triangular lattices, fields, or orbit paths, calculate bounds first and center the active area instead of hard-coding coordinates.
+- Label the important quantities directly on the canvas or in an adjacent readout: totals, current active count, axis meaning, distribution bins, energy, phase axes, or units. Avoid unlabeled numeric ticks.
 - **CRITICAL: Reactive Theming**: Use a helper to sync colors from CSS variables and redraw whenever the host theme changes. Prefer the canvas theme contract exposed by `WidgetRenderer`:
   ```javascript
   let colors = {};
@@ -170,6 +184,16 @@ Use this module for simulations where motion over time is the point: orbits, pen
 - Keep drawing code in CSS pixels after scaling the context.
 - Draw the primary object, then supporting annotations, then labels.
 - Avoid decorative effects that make the sim harder to read mid-stream.
+
+### Simulation polish checklist
+- The first rendered frame should be useful before any animation starts.
+- The canvas should not be mostly empty unless emptiness is the concept being taught.
+- All user-visible counters and slider values should update immediately after interaction.
+- Pause and reset should be obvious from state: the button label or adjacent readout must reflect whether the sim is running.
+- If random sampling is involved, show the distribution or accumulating result with clear bins, bars, or counts, not only moving particles.
+- If the widget draws colliders, inspect the update loop before calling `show_widget`: every drawn collider must appear in the collision loop, every collision must separate overlapping bodies, and no state update may permit a particle to remain inside a peg, wall, or bin divider.
+- Prefer a simple correctness invariant in code comments or variable names over visual guesswork: `minDistance = ball.r + peg.r`, `overlap = minDistance - distance`, `ball.x += normal.x * overlap`.
+- The final code should be self-auditable from source. Do not require a screenshot, browser devtools, or pixel inspection to prove that collisions, bounds, and controls are wired.
 
 ### Common recipes
 

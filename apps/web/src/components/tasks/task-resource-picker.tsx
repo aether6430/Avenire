@@ -158,6 +158,7 @@ export function TaskResourcePicker({
         <PopoverContent
           align="start"
           className="w-[min(32rem,calc(100vw-1rem))] rounded-xl border border-border/70 p-0 shadow-lg"
+          mobileSheet
           sideOffset={8}
         >
           <Command className="p-0">

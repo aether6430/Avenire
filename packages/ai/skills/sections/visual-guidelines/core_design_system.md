@@ -45,6 +45,17 @@ Output streams token-by-token. Structure code so useful content appears early.
 - Scripts execute after streaming — load libraries via `<script src="https://cdnjs.cloudflare.com/ajax/libs/...">` (UMD globals), then use the global in a plain `<script>` that follows.
 - **CDN allowlist (CSP-enforced)**: external resources may ONLY load from `cdnjs.cloudflare.com`, `esm.sh`, `cdn.jsdelivr.net`, `unpkg.com`. All other origins are blocked by the sandbox — the request silently fails.
 
+### Quality gate
+Before calling `show_widget`, run this mental review. If any item fails, revise the widget first.
+
+- **Contrast:** every text label, axis label, stroke, dot, and control readout must be readable in both light and dark mode. Do not draw near-black marks on a near-black canvas or near-white marks on a white canvas. Use `--color-text-primary`, `--color-text-secondary`, `--color-border-secondary`, semantic tokens, or the canvas theme variables instead.
+- **Ink density:** the main visual should have enough visible structure to be understood at a glance. Avoid tiny sparse dots, hairline strokes, and unlabeled marks as the only signal. Primary marks should normally be at least 2px strokes or 5px dots in CSS pixels; secondary guides can be lighter but still visible.
+- **Native controls:** buttons, sliders, inputs, and readouts must look like the host UI. Use bare form tags or the documented component recipes. Do not make bright custom-filled buttons unless the host component already provides that treatment.
+- **Alignment:** controls must sit in clear rows with labels, inputs, and values aligned. Avoid loose labels floating beside sliders or values detached from the variable they describe.
+- **Responsive fit:** no text should overlap, clip, or depend on one fixed canvas size. Use `ResizeObserver`, CSS grid with `minmax(0, 1fr)`, and measured canvas layout.
+- **Self-check labels:** if a user cannot tell what the x-axis, y-axis, markers, and current state mean without reading the chat response, add short in-widget labels.
+- **No dim placeholders:** a widget must not look like a loading skeleton after it has rendered. Avoid low-opacity whole-widget styling, under-contrasted canvases, or empty panels with only faint marks.
+
 ### CSS Variables
 **Backgrounds**: `--color-background-primary` (white), `-secondary` (surfaces), `-tertiary` (page bg), `-info`, `-danger`, `-success`, `-warning`
 **Text**: `--color-text-primary` (black), `-secondary` (muted), `-tertiary` (hints), `-info`, `-danger`, `-success`, `-warning`

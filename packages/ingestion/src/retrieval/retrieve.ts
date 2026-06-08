@@ -8,7 +8,7 @@ import {
   textToMultimodalInput,
 } from "../ingestion/embeddings";
 import { getLearnerSignalBoosts } from "./learner-signals";
-import { expandQuery } from "./query-expansion";
+import { expandQuery, generateHydeDocument } from "./query-expansion";
 import type { VectorSearchResult, VectorStore } from "./vector-store";
 
 const RETRIEVAL_CONTEXT_TOKEN_BUDGET = 2400;
@@ -33,42 +33,6 @@ const QUOTED_PHRASE_PATTERN = /"([^"\n]{3,})"/;
 const SYMBOL_HEAVY_PATTERN = /[^\w\s]/;
 const CODE_IDENTIFIER_PATTERN =
   /\b(?:[A-Z0-9]+_[A-Z0-9_]+|[a-z]+[A-Z][A-Za-z0-9]*)\b/;
-const CAMEL_CASE_BOUNDARY_PATTERN = /([a-z0-9])([A-Z])/g;
-const FORMULA_TOKEN_PATTERN =
-  /\b(?:[A-Za-z]\w{0,3}|\d+(?:\.\d+)?|[A-Za-z_][A-Za-z0-9_]*(?:\([^)]*\))?)\b/g;
-const STOPWORD_SET = new Set([
-  "about",
-  "after",
-  "again",
-  "also",
-  "because",
-  "before",
-  "could",
-  "explain",
-  "from",
-  "have",
-  "help",
-  "here",
-  "into",
-  "just",
-  "more",
-  "need",
-  "over",
-  "that",
-  "their",
-  "then",
-  "there",
-  "these",
-  "this",
-  "through",
-  "what",
-  "when",
-  "where",
-  "which",
-  "while",
-  "with",
-  "would",
-]);
 
 type FusionCandidate = VectorSearchResult & {
   fusionScore: number;
@@ -131,6 +95,9 @@ export interface RetrievalDecisionTelemetry {
   corpus: Awaited<ReturnType<VectorStore["corpusStats"]>>;
   expansionUsed: boolean;
   fusionCandidateCount: number;
+  hydeCandidateCount: number;
+  hydeFallbackUsed: boolean;
+  hydeUsed: boolean;
   intent: {
     audio: boolean;
     document: boolean;
@@ -139,7 +106,6 @@ export interface RetrievalDecisionTelemetry {
   latencyMs: number;
   learnerBoostedCandidateCount: number;
   lexicalCandidateCount: number;
-  spladeCandidateCount: number;
   queryCount: number;
   queryShape: {
     charCount: number;
@@ -245,45 +211,6 @@ export const decomposeQuery = (query: string): string[] => {
     .filter(Boolean);
 
   return dedupeQueries([...quoted, ...clauses]).slice(0, 4);
-};
-
-export const buildSpladeExpansionQuery = (query: string): string | null => {
-  const normalized = normalizeRetrievalQuery(query);
-  if (!normalized) {
-    return null;
-  }
-
-  const expandedIdentifiers = normalized
-    .replace(CAMEL_CASE_BOUNDARY_PATTERN, "$1 $2")
-    .replace(/[_./:()[\]{}+\-*=<>^|&%$#@!?,;]/g, " ");
-  const rawTokens = Array.from(
-    `${normalized} ${expandedIdentifiers}`.matchAll(FORMULA_TOKEN_PATTERN)
-  ).map((match) => match[0].toLowerCase());
-
-  const weights = new Map<string, number>();
-  for (const token of rawTokens) {
-    if (token.length < 2 || STOPWORD_SET.has(token)) {
-      continue;
-    }
-
-    const isExactish =
-      /[_./:()[\]{}+\-*=<>^|&%$#@!?,;]/.test(token) ||
-      /\d/.test(token) ||
-      CODE_IDENTIFIER_PATTERN.test(token);
-    weights.set(token, (weights.get(token) ?? 0) + (isExactish ? 3 : 1));
-  }
-
-  const expansion = Array.from(weights.entries())
-    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
-    .slice(0, 18)
-    .flatMap(([token, weight]) =>
-      Array.from({ length: Math.min(3, weight) }, () => token)
-    )
-    .join(" ");
-
-  return expansion && expansion.toLowerCase() !== normalized.toLowerCase()
-    ? expansion
-    : null;
 };
 
 export const diversifyByResource = <T extends { resourceId: string }>(
@@ -614,9 +541,12 @@ function buildRetrievalDecisionTelemetry(input: {
     workspaceId?: string;
   };
   querySearchResults: VectorSearchResult[][];
+  lexicalCandidateCount: number;
   queryCount: number;
   decomposedQueryCount: number;
-  spladeCandidateCount: number;
+  hydeCandidateCount: number;
+  hydeDocument: string | null;
+  hydeFallbackUsed: boolean;
   rerankCandidates: FusionCandidate[];
   rerankFallbackUsed: boolean;
   reranked: RetrievedCandidate[];
@@ -627,6 +557,9 @@ function buildRetrievalDecisionTelemetry(input: {
   const expansionUsed =
     typeof input.expandedQuery === "string" &&
     normalizeRetrievalQuery(input.expandedQuery) !== input.normalizedQuery;
+  const hydeUsed =
+    typeof input.hydeDocument === "string" &&
+    normalizeRetrievalQuery(input.hydeDocument).length > 0;
   const topRerankScore = input.reranked[0]?.rerankScore ?? 0;
   const secondRerankScore = input.reranked[1]?.rerankScore ?? 0;
   const ambiguityReasons = Array.from(
@@ -646,6 +579,7 @@ function buildRetrievalDecisionTelemetry(input: {
           ? "mixed_intent"
           : null,
         expansionUsed ? "query_expanded" : null,
+        hydeUsed ? "hyde_generated" : null,
         input.reranked.length > 1 && topRerankScore - secondRerankScore < 0.06
           ? "low_score_margin"
           : null,
@@ -697,11 +631,10 @@ function buildRetrievalDecisionTelemetry(input: {
       visual: input.visualIntent,
     },
     latencyMs: input.latencyMs,
-    lexicalCandidateCount: input.querySearchResults.reduce(
-      (total, results) => total + results.length,
-      0
-    ),
-    spladeCandidateCount: input.spladeCandidateCount,
+    lexicalCandidateCount: input.lexicalCandidateCount,
+    hydeCandidateCount: input.hydeCandidateCount,
+    hydeFallbackUsed: input.hydeFallbackUsed,
+    hydeUsed,
     learnerBoostedCandidateCount: Array.from(
       input.learnerSignalBoosts.values()
     ).filter((signal) => signal.boost !== 1).length,
@@ -877,6 +810,8 @@ const scoreRetrievedCandidate = (
 
 const searchForQuery = async (params: {
   candidateLimit: number;
+  includeLexical?: boolean;
+  metadata?: Record<string, unknown>;
   options?: {
     sourceType?: "pdf" | "image" | "video" | "audio" | "markdown" | "link";
     provider?: string;
@@ -894,18 +829,14 @@ const searchForQuery = async (params: {
   };
 
   const trigramQuery = extractTrigramQuery(params.query);
-  const spladeQuery = buildSpladeExpansionQuery(params.query);
-  const [baseCandidates, lexicalCandidates, spladeCandidates, trigramCandidates] =
+  const includeLexical = params.includeLexical ?? true;
+  const [baseCandidates, lexicalCandidates, trigramCandidates] =
     await Promise.all([
       params.vectorStore.search(params.queryEmbedding, searchOptions),
-      params.vectorStore.searchLexical(params.query, searchOptions),
-      spladeQuery
-        ? params.vectorStore.searchLexical(spladeQuery, {
-            ...searchOptions,
-            limit: Math.max(4, Math.floor(params.candidateLimit / 2)),
-          })
+      includeLexical
+        ? params.vectorStore.searchLexical(params.query, searchOptions)
         : Promise.resolve([]),
-      trigramQuery
+      includeLexical && trigramQuery
         ? params.vectorStore.searchTrigram(trigramQuery, searchOptions)
         : Promise.resolve([]),
     ]);
@@ -934,17 +865,32 @@ const searchForQuery = async (params: {
   );
 
   return fuseCandidatesByRrf([
-    baseCandidates,
-    lexicalCandidates,
-    spladeCandidates.map((candidate) => ({
+    baseCandidates.map((candidate) => ({
       ...candidate,
-      score: candidate.score * 1.12,
+      score:
+        candidate.score *
+        (params.metadata?.hyde ? config.retrievalHydeCandidateWeight : 1),
       metadata: {
         ...candidate.metadata,
-        sparseExpansion: "splade-lite",
+        ...params.metadata,
       },
     })),
-    trigramCandidates,
+    lexicalCandidates.map((candidate) => ({
+      ...candidate,
+      score: candidate.score * config.retrievalLexicalCandidateWeight,
+      metadata: {
+        ...candidate.metadata,
+        retrievalSignal: "lexical",
+      },
+    })),
+    trigramCandidates.map((candidate) => ({
+      ...candidate,
+      score: candidate.score * config.retrievalTrigramCandidateWeight,
+      metadata: {
+        ...candidate.metadata,
+        retrievalSignal: "trigram",
+      },
+    })),
     ...modalityCandidateLists,
   ]).sort((a, b) => b.fusionScore - a.fusionScore);
 };
@@ -1013,6 +959,20 @@ export const retrieveRelevantChunks = async (
     });
     return null;
   });
+  let hydeFallbackUsed = false;
+  const hydeDocument = await generateHydeDocument(normalizedQuery).catch(
+    (error) => {
+      hydeFallbackUsed = true;
+      logWarn({
+        eventName: "retrieval.hyde_fallback",
+        payload: {
+          error: safeError(error),
+          query: normalizedQuery,
+        },
+      });
+      return null;
+    }
+  );
   const decomposedQueries = dedupeQueries(decomposeQuery(normalizedQuery)).slice(
     0,
     4
@@ -1023,17 +983,24 @@ export const retrieveRelevantChunks = async (
     expandedQuery ?? "",
     ...decomposedQueries,
   ]).slice(0, 4);
+  const embeddingQueries = dedupeQueries([
+    ...searchQueries,
+    hydeDocument ?? "",
+  ]);
 
   const { embeddings } = await embedMultimodal(
-    searchQueries.map((value) => textToMultimodalInput(value)),
+    embeddingQueries.map((value) => textToMultimodalInput(value)),
     {
       inputType: "search_query",
     }
   );
+  const embeddingByQuery = new Map(
+    embeddingQueries.map((value, index) => [value, embeddings[index]])
+  );
 
   const querySearchResults = await Promise.all(
-    searchQueries.map((searchQuery, index) => {
-      const queryEmbedding = embeddings[index];
+    searchQueries.map((searchQuery) => {
+      const queryEmbedding = embeddingByQuery.get(searchQuery);
       if (!queryEmbedding) {
         throw new Error("Failed to compute query embedding.");
       }
@@ -1047,9 +1014,38 @@ export const retrieveRelevantChunks = async (
       });
     })
   );
+  const lexicalCandidateCount = querySearchResults.reduce(
+    (total, results) =>
+      total +
+      results.filter((candidate) =>
+        ["lexical", "trigram"].includes(
+          typeof candidate.metadata.retrievalSignal === "string"
+            ? candidate.metadata.retrievalSignal
+            : ""
+        )
+      ).length,
+    0
+  );
+  const hydeSearchResults =
+    hydeDocument && embeddingByQuery.get(hydeDocument)
+      ? await searchForQuery({
+          candidateLimit,
+          includeLexical: false,
+          metadata: {
+            hyde: true,
+            retrievalSignal: "hyde",
+          },
+          options,
+          query: hydeDocument,
+          queryEmbedding: embeddingByQuery.get(hydeDocument) ?? [],
+          vectorStore,
+        })
+      : [];
+  const hydeCandidateCount = hydeSearchResults.length;
+  const allSearchResults = [...querySearchResults, hydeSearchResults];
 
   const mergedCandidates = diversifyByResource(
-    fuseCandidatesByRrf(querySearchResults).sort(
+    fuseCandidatesByRrf(allSearchResults).sort(
       (a, b) => b.fusionScore - a.fusionScore
     ),
     MAX_RESOURCE_DIVERSITY
@@ -1132,13 +1128,14 @@ export const retrieveRelevantChunks = async (
       options,
       queryCount: searchQueries.length,
       decomposedQueryCount,
-      querySearchResults,
+      querySearchResults: allSearchResults,
+      lexicalCandidateCount,
       rerankCandidates,
       rerankFallbackUsed,
       reranked: [],
-      spladeCandidateCount: mergedCandidates.filter(
-        (candidate) => candidate.metadata.sparseExpansion === "splade-lite"
-      ).length,
+      hydeCandidateCount,
+      hydeDocument,
+      hydeFallbackUsed,
       sortedCandidates,
       visualIntent,
     });
@@ -1242,13 +1239,14 @@ export const retrieveRelevantChunks = async (
     options,
     queryCount: searchQueries.length,
     decomposedQueryCount,
-    querySearchResults,
+    querySearchResults: allSearchResults,
+    lexicalCandidateCount,
     rerankCandidates,
     rerankFallbackUsed,
     reranked,
-    spladeCandidateCount: mergedCandidates.filter(
-      (candidate) => candidate.metadata.sparseExpansion === "splade-lite"
-    ).length,
+    hydeCandidateCount,
+    hydeDocument,
+    hydeFallbackUsed,
     sortedCandidates,
     visualIntent,
   });
@@ -1332,12 +1330,21 @@ function buildQueryResultPreview(params: {
     decomposedQueryCount: params.decomposedQueryCount,
     queryCount: params.queryCount,
     querySearchResults: [params.queryCandidates],
+    lexicalCandidateCount: params.queryCandidates.filter((candidate) =>
+      ["lexical", "trigram"].includes(
+        typeof candidate.metadata.retrievalSignal === "string"
+          ? candidate.metadata.retrievalSignal
+          : ""
+      )
+    ).length,
     rerankCandidates: [],
     rerankFallbackUsed: false,
     reranked,
-    spladeCandidateCount: params.queryCandidates.filter(
-      (candidate) => candidate.metadata.sparseExpansion === "splade-lite"
+    hydeCandidateCount: params.queryCandidates.filter(
+      (candidate) => candidate.metadata.hyde === true
     ).length,
+    hydeDocument: null,
+    hydeFallbackUsed: false,
     sortedCandidates: scoredCandidates,
     visualIntent: params.visualIntent,
   });

@@ -616,6 +616,10 @@ const PALETTE_ICON_CLASS = "mt-0.5 size-[0.95rem] shrink-0 text-muted-foreground
 const PALETTE_CHEVRON_CLASS =
   "mt-0.5 ml-auto size-3.5 shrink-0 opacity-0 transition-opacity duration-150 group-data-[selected=true]:opacity-100 group-hover:opacity-100 text-muted-foreground/45";
 
+function createFreshNewChatHref() {
+  return `/workspace/chats/new?fresh=${Date.now().toString(36)}` as Route;
+}
+
 export function CommandPalette({
   workspaceUuid: activeWorkspaceUuid,
   workspaces = [],
@@ -1197,7 +1201,9 @@ export function CommandPalette({
         searchTerms: ["chat", "thread", "method"],
         shortcut: "Ctrl+N",
         onSelect: () => {
-          navigateTo("/workspace/chats/new" as Route, { openInNewPane: ctrlHeldRef.current });
+          navigateTo(createFreshNewChatHref(), {
+            openInNewPane: ctrlHeldRef.current,
+          });
         },
       },
       {

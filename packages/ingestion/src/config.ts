@@ -135,6 +135,21 @@ export const config = {
   retrievalMinScore: Number.parseFloat(
     process.env.RETRIEVAL_MIN_SCORE ?? "0.18"
   ),
+  retrievalHydeEnabled:
+    (process.env.RETRIEVAL_HYDE_ENABLED ?? "true").toLowerCase() !== "false",
+  retrievalHydeMaxOutputTokens: Number.parseInt(
+    process.env.RETRIEVAL_HYDE_MAX_OUTPUT_TOKENS ?? "160",
+    10
+  ),
+  retrievalHydeCandidateWeight: Number.parseFloat(
+    process.env.RETRIEVAL_HYDE_CANDIDATE_WEIGHT ?? "0.92"
+  ),
+  retrievalLexicalCandidateWeight: Number.parseFloat(
+    process.env.RETRIEVAL_LEXICAL_CANDIDATE_WEIGHT ?? "1.08"
+  ),
+  retrievalTrigramCandidateWeight: Number.parseFloat(
+    process.env.RETRIEVAL_TRIGRAM_CANDIDATE_WEIGHT ?? "1.14"
+  ),
   videoKeyframeIntervalSeconds: Number.parseInt(
     process.env.VIDEO_KEYFRAME_INTERVAL_SECONDS ?? "12",
     10

@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
     text: value,
   })),
   expandQuery: vi.fn(),
+  generateHydeDocument: vi.fn(),
   getLearnerSignalBoosts: vi.fn(),
 }));
 
@@ -37,6 +38,7 @@ vi.mock("../ingestion/embeddings", () => ({
 
 vi.mock("./query-expansion", () => ({
   expandQuery: mocks.expandQuery,
+  generateHydeDocument: mocks.generateHydeDocument,
 }));
 
 vi.mock("./learner-signals", () => ({
@@ -48,7 +50,6 @@ import {
   applyModalityScoreAdjustments,
   buildChunkContext,
   buildContextAwareResults,
-  buildSpladeExpansionQuery,
   decomposeQuery,
   dedupeQueries,
   diversifyByResource,
@@ -93,6 +94,7 @@ describe("retrieve helpers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.expandQuery.mockResolvedValue(null);
+    mocks.generateHydeDocument.mockResolvedValue(null);
     mocks.getLearnerSignalBoosts.mockResolvedValue(new Map());
     mocks.rerankByCohereWithQueryEmbedding.mockResolvedValue([]);
   });
@@ -148,7 +150,7 @@ describe("retrieve helpers", () => {
     );
   });
 
-  it("decomposes compound queries and builds sparse SPLADE-style expansions", () => {
+  it("decomposes compound queries", () => {
     expect(
       decomposeQuery(
         'Compare "GraphQL resolver" with calculateEigenValue and F = ma'
@@ -159,16 +161,6 @@ describe("retrieve helpers", () => {
       "calculateEigenValue",
       "F = ma",
     ]);
-
-    expect(buildSpladeExpansionQuery("calculateEigenValue F = ma")).toContain(
-      "calculate"
-    );
-    expect(buildSpladeExpansionQuery("calculateEigenValue F = ma")).toContain(
-      "eigen"
-    );
-    expect(buildSpladeExpansionQuery("calculateEigenValue F = ma")).toContain(
-      "ma"
-    );
   });
 
   it("scores lexical, phrase, trigram, and intent helpers as expected", () => {
@@ -300,6 +292,8 @@ describe("retrieve helpers", () => {
 describe("retrieveRelevantChunks", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.expandQuery.mockResolvedValue(null);
+    mocks.generateHydeDocument.mockResolvedValue(null);
     mocks.getLearnerSignalBoosts.mockResolvedValue(new Map());
     mocks.textToMultimodalInput.mockImplementation((value: string) => ({
       type: "text",
@@ -309,11 +303,16 @@ describe("retrieveRelevantChunks", () => {
 
   it("prefers visual sources, expands fragmentary chunks with adjacent context, and returns corpus stats", async () => {
     mocks.expandQuery.mockResolvedValue("cell membrane diagram labeled");
+    mocks.generateHydeDocument.mockResolvedValue(
+      "A cell membrane diagram labels the phospholipid bilayer, transport proteins, and diffusion gradients."
+    );
+    const embeddings = [
+      [0.1, 0.2],
+      [0.3, 0.4],
+      [0.5, 0.6],
+    ];
     mocks.embedMultimodal.mockResolvedValue({
-      embeddings: [
-        [0.1, 0.2],
-        [0.3, 0.4],
-      ],
+      embeddings,
     });
     mocks.rerank.mockResolvedValue({
       ranking: [
@@ -351,6 +350,14 @@ describe("retrieveRelevantChunks", () => {
       content: "Paragraph from a textbook about membrane transport.",
       score: 0.58,
     });
+    const hydeChunk = makeCandidate({
+      chunkId: "hyde-1",
+      resourceId: "res-hyde",
+      sourceType: "markdown",
+      title: "Membrane study notes",
+      content: "Notes about phospholipid bilayers and transport proteins.",
+      score: 0.61,
+    });
 
     const corpusStats = vi.fn(async () => ({
       chunks: 3,
@@ -367,7 +374,10 @@ describe("retrieveRelevantChunks", () => {
         content: "Previous complete sentence about the membrane.",
       }),
     ]);
-    const search = vi.fn(async (_embedding, options) => {
+    const search = vi.fn(async (embedding, options) => {
+      if (embedding === embeddings[2]) {
+        return [hydeChunk];
+      }
       if (options.filter?.sourceType === "video") {
         return [fragmentaryVideo];
       }
@@ -401,11 +411,17 @@ describe("retrieveRelevantChunks", () => {
       [
         { type: "text", text: "show the cell membrane diagram" },
         { type: "text", text: "cell membrane diagram labeled" },
+        {
+          type: "text",
+          text: "A cell membrane diagram labels the phospholipid bilayer, transport proteins, and diffusion gradients.",
+        },
       ],
       {
         inputType: "search_query",
       }
     );
+    expect(searchLexical).toHaveBeenCalledTimes(2);
+    expect(searchTrigram).not.toHaveBeenCalled();
     expect(
       search.mock.calls.some((call) => call[1]?.filter?.sourceType === "video")
     ).toBe(true);
@@ -425,6 +441,8 @@ describe("retrieveRelevantChunks", () => {
       resources: 3,
     });
     expect(result.results[0]?.chunkId).toBe("video-1");
+    expect(result.decision.hydeUsed).toBe(true);
+    expect(result.decision.hydeCandidateCount).toBeGreaterThan(0);
     expect(result.results[0]?.content).toContain(
       "Previous complete sentence about the membrane."
     );
