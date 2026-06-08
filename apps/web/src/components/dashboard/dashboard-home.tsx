@@ -562,64 +562,6 @@ export function DashboardHome({
               </p>
             </div>
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-2.5">
-            <button
-              className="min-h-28 rounded-xl bg-secondary/35 p-3 text-left transition-colors hover:bg-secondary/55"
-              onClick={() => navigate("/workspace/chats/new" as Route)}
-              type="button"
-            >
-              <MessageSquareText className="size-5 text-muted-foreground" />
-              <p className="mt-6 text-balance font-medium text-base text-foreground leading-5">
-                Chat
-              </p>
-              <p className="mt-1 line-clamp-2 text-muted-foreground text-xs">
-                Ask, plan, or turn notes into work.
-              </p>
-            </button>
-            <button
-              className="min-h-28 rounded-xl bg-secondary/35 p-3 text-left transition-colors hover:bg-secondary/55"
-              onClick={() => navigate("/workspace/flashcards" as Route)}
-              type="button"
-            >
-              <BookOpenCheck className="size-5 text-muted-foreground" />
-              <p className="mt-6 text-balance font-medium text-base text-foreground leading-5">
-                Learn
-              </p>
-              <p className="mt-1 text-muted-foreground text-xs">
-                {dueFlashcardCount} ready
-              </p>
-            </button>
-            <button
-              className="min-h-28 rounded-xl bg-secondary/35 p-3 text-left transition-colors hover:bg-secondary/55"
-              onClick={() => navigate("/workspace/tasks" as Route)}
-              type="button"
-            >
-              <Plus className="size-5 text-muted-foreground" />
-              <p className="mt-6 text-balance font-medium text-base text-foreground leading-5">
-                Tasks
-              </p>
-              <p className="mt-1 line-clamp-2 text-muted-foreground text-xs">
-                Plan the next thing.
-              </p>
-            </button>
-            <button
-              className="min-h-28 rounded-xl bg-secondary/35 p-3 text-left transition-colors hover:bg-secondary/55"
-              onClick={() =>
-                navigate(
-                  `/workspace/files/${workspaceId}/folder/${rootFolderId}` as Route
-                )
-              }
-              type="button"
-            >
-              <Files className="size-5 text-muted-foreground" />
-              <p className="mt-6 text-balance font-medium text-base text-foreground leading-5">
-                Workspace
-              </p>
-              <p className="mt-1 text-muted-foreground text-xs">
-                Files and notes
-              </p>
-            </button>
-          </div>
           {weakestTopic ? (
             <button
               className="mt-3 w-full rounded-xl border border-border/45 bg-secondary/25 px-3.5 py-3 text-left"
