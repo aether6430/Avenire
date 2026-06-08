@@ -382,9 +382,9 @@ function mergePropertyDefinitions(
 
     merged.set(key, {
       ...existing,
-      options: Array.from(
-        new Set([...existing.options, ...property.options])
-      ).sort((left, right) => left.localeCompare(right)),
+      options: Array.from(new Set(property.options)).sort((left, right) =>
+        left.localeCompare(right)
+      ),
     });
   }
 

@@ -1013,10 +1013,15 @@ export const retrieveRelevantChunks = async (
     });
     return null;
   });
+  const decomposedQueries = dedupeQueries(decomposeQuery(normalizedQuery)).slice(
+    0,
+    4
+  );
+  const decomposedQueryCount = decomposedQueries.length;
   const searchQueries = dedupeQueries([
     normalizedQuery,
     expandedQuery ?? "",
-    ...decomposeQuery(normalizedQuery),
+    ...decomposedQueries,
   ]).slice(0, 4);
 
   const { embeddings } = await embedMultimodal(
@@ -1126,7 +1131,7 @@ export const retrieveRelevantChunks = async (
       normalizedQuery,
       options,
       queryCount: searchQueries.length,
-      decomposedQueryCount: Math.max(0, searchQueries.length - 1),
+      decomposedQueryCount,
       querySearchResults,
       rerankCandidates,
       rerankFallbackUsed,
@@ -1236,7 +1241,7 @@ export const retrieveRelevantChunks = async (
     normalizedQuery,
     options,
     queryCount: searchQueries.length,
-    decomposedQueryCount: Math.max(0, searchQueries.length - 1),
+    decomposedQueryCount,
     querySearchResults,
     rerankCandidates,
     rerankFallbackUsed,
@@ -1264,6 +1269,7 @@ export const retrieveRelevantChunks = async (
 
 function buildQueryResultPreview(params: {
   audioIntent: boolean;
+  decomposedQueryCount: number;
   limit: number;
   normalizedQuery: string;
   options?: {
@@ -1323,7 +1329,7 @@ function buildQueryResultPreview(params: {
     mergedCandidates: params.queryCandidates,
     normalizedQuery: params.normalizedQuery,
     options: params.options,
-    decomposedQueryCount: Math.max(0, params.queryCount - 1),
+    decomposedQueryCount: params.decomposedQueryCount,
     queryCount: params.queryCount,
     querySearchResults: [params.queryCandidates],
     rerankCandidates: [],
@@ -1507,6 +1513,11 @@ export const retrieveRelevantChunksAdaptive = async (
   const visualIntent = hasVisualIntent(normalizedQuery);
   const audioIntent = hasAudioIntent(normalizedQuery);
   const documentIntent = hasDocumentIntent(normalizedQuery);
+  const decomposedQueries = dedupeQueries(decomposeQuery(normalizedQuery)).slice(
+    0,
+    4
+  );
+  const decomposedQueryCount = decomposedQueries.length;
   const limit = options?.limit ?? config.retrievalDefaultLimit;
   const candidateLimit = Math.max(
     limit,
@@ -1531,6 +1542,7 @@ export const retrieveRelevantChunksAdaptive = async (
   });
   const fastPreview = buildQueryResultPreview({
     audioIntent,
+    decomposedQueryCount,
     limit,
     normalizedQuery,
     options,
