@@ -977,7 +977,7 @@ function PureMultimodalInput({
       data-empty={!canSend}
       data-running={isRunning}
     >
-      <div className="relative flex w-full grow flex-col overflow-visible rounded-full bg-[#141411]/82 ring-1 ring-white/7 ring-inset shadow-[0_14px_44px_-28px_rgba(0,0,0,0.95)] backdrop-blur-2xl transition-colors duration-150 focus-within:bg-[#171714]/90 focus-within:ring-white/13 md:rounded-[28px] md:bg-[#f8f8f8] md:shadow-none md:backdrop-blur-none md:ring-[#e5e5e5] md:focus-within:ring-[#d7d7d7] dark:bg-[#141411]/82 dark:ring-white/7 dark:focus-within:bg-[#171714]/90 dark:focus-within:ring-white/13 md:dark:bg-[#212121] md:dark:ring-[#2f2f2f] md:dark:focus-within:ring-[#424242]">
+      <div className="relative flex w-full grow flex-col overflow-visible rounded-full bg-[#141411]/82 shadow-[0_14px_44px_-28px_rgba(0,0,0,0.95)] ring-1 ring-white/7 ring-inset backdrop-blur-2xl transition-colors duration-150 focus-within:bg-[#171714]/90 focus-within:ring-white/13 md:rounded-[28px] md:bg-[#f8f8f8] md:shadow-none md:ring-[#e5e5e5] md:backdrop-blur-none md:focus-within:ring-[#d7d7d7] dark:bg-[#141411]/82 dark:ring-white/7 md:dark:bg-[#212121] md:dark:ring-[#2f2f2f] dark:focus-within:bg-[#171714]/90 dark:focus-within:ring-white/13 md:dark:focus-within:ring-[#424242]">
         <input
           className="pointer-events-none fixed -top-4 -left-4 size-0.5 opacity-0"
           multiple
@@ -1097,7 +1097,7 @@ function PureMultimodalInput({
                 <Textarea
                   autoFocus
                   className={cn(
-                    "max-h-28 min-h-7 w-full flex-1 resize-none overflow-y-hidden border-none! bg-transparent! px-0 py-0.5 text-[15px] text-white/86 leading-6 shadow-none! outline-none ring-0! placeholder:text-white/32 focus-visible:border-transparent! focus-visible:ring-0! md:max-h-40 md:min-h-9 md:py-1.5 md:text-[15px] md:text-[#0d0d0d] md:leading-6 md:placeholder:text-muted-foreground/65 dark:text-white md:dark:text-white [&::-webkit-scrollbar-thumb]:bg-background",
+                    "max-h-28 min-h-7 w-full flex-1 resize-none overflow-y-hidden border-none! bg-transparent! px-0 py-0.5 text-[14px] text-white/86 leading-5 shadow-none! outline-none ring-0! placeholder:text-[13.5px] placeholder:text-white/32 focus-visible:border-transparent! focus-visible:ring-0! md:max-h-40 md:min-h-9 md:py-1.5 md:text-[#0d0d0d] md:text-[15px] md:leading-6 md:placeholder:text-[15px] md:placeholder:text-muted-foreground/65 dark:text-white md:dark:text-white [&::-webkit-scrollbar-thumb]:bg-background",
                     className
                   )}
                   data-testid="multimodal-input"
@@ -1159,13 +1159,13 @@ function PureMultimodalInput({
               </div>
 
               <div className="flex h-7 shrink-0 items-end gap-0.5 md:h-9 md:gap-1.5">
-                {!isMobile ? (
+                {isMobile ? null : (
                   <ComposerTurboButton
                     disabled={isRunning}
                     enabled={turboEnabled}
                     onToggle={() => onTurboChange(!turboEnabled)}
                   />
-                ) : null}
+                )}
                 {speechSupported ? (
                   <ComposerVoiceButton
                     isRecording={isRecording}
