@@ -7,6 +7,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { Suspense, useEffect, useState } from "react";
 import { DashboardSidebar } from "@/components/dashboard/app-sidebar";
+import { MobileWorkspaceDock } from "@/components/dashboard/mobile-workspace-dock";
 import { WorkspacePaneRenderer } from "@/components/dashboard/workspace-pane-renderer";
 import { ChatPet } from "@/components/pets/chat-pet";
 import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
@@ -217,8 +218,8 @@ export function DashboardLayout({
           workspaceUuid={activeWorkspace?.workspaceId ?? null}
         />
       ) : null}
-      <SidebarInset className="relative min-h-0 overflow-hidden bg-background md:peer-data-[variant=inset]:mb-0">
-        <div className="min-h-0 flex-1 overflow-hidden">
+      <SidebarInset className="relative h-full min-h-0 overflow-hidden bg-background md:peer-data-[variant=inset]:mb-0">
+        <div className="flex h-full min-h-0 flex-1 overflow-hidden">
           <WorkspacePaneRenderer />
         </div>
         {deferredReady ? (
@@ -259,6 +260,7 @@ export function DashboardLayout({
           workspaceUuid={activeWorkspace.workspaceId}
         />
       ) : null}
+      <MobileWorkspaceDock activeWorkspace={activeWorkspace} />
       <div className="hidden lg:block">
         <ChatPet />
       </div>

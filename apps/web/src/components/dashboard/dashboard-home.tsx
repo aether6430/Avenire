@@ -30,12 +30,14 @@ import {
   BookOpenText as BookOpenCheck,
   Files,
   FileText,
+  MagnifyingGlass,
   ChatText as MessageSquareText,
   Plus,
   Warning as TriangleAlert,
 } from "@phosphor-icons/react";
 import type { Route } from "next";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { startTransition, useEffect, useMemo, useState } from "react";
@@ -54,6 +56,7 @@ import {
   useCurrentWorkspacePaneCompact,
   useWorkspacePaneNavigation,
 } from "@/lib/workspace-panes";
+import { commandPaletteActions } from "@/stores/commandPaletteStore";
 import {
   dashboardUiActions,
   useDashboardUiStore,
@@ -277,6 +280,12 @@ export function DashboardHome({
     () => groupWeakPoints(weakestConcepts, activeMisconceptions),
     [activeMisconceptions, weakestConcepts]
   );
+  const dueFlashcardCount = useMemo(
+    () =>
+      flashcardSets.reduce((sum, set) => sum + set.dueCount + set.newCount, 0),
+    [flashcardSets]
+  );
+  const weakestTopic = weakPointGroups[0];
 
   useEffect(() => {
     recordRoute("/workspace");
@@ -396,15 +405,15 @@ export function DashboardHome({
 
   return (
     <div className="h-full overflow-y-auto overflow-x-hidden bg-background">
-      <div className="flex w-full flex-col gap-4 px-4 py-4 md:px-6 lg:px-8">
+      <div className="flex w-full flex-col gap-4 px-4 pt-4 pb-[calc(5.75rem+env(safe-area-inset-bottom))] md:px-6 md:pb-4 lg:px-8">
         <HeaderBreadcrumbs>
           <div className="min-w-0">
             <p className="truncate text-muted-foreground text-sm">Desktop</p>
           </div>
         </HeaderBreadcrumbs>
 
-        <div className="-mx-6 overflow-hidden rounded-none md:-mx-12 lg:-mx-16">
-          <img
+        <div className="-mx-6 hidden overflow-hidden rounded-none md:-mx-12 md:block lg:-mx-16">
+          <Image
             alt="Workspace banner"
             className="h-28 w-full object-cover md:h-40"
             height={160}
@@ -413,18 +422,18 @@ export function DashboardHome({
           />
         </div>
 
-        <div className="flex w-full flex-wrap justify-around gap-1.5">
+        <div className="grid w-full grid-cols-6 items-center gap-1.5 rounded-full bg-foreground/[0.035] p-1 ring-1 ring-border/35 md:flex md:flex-wrap md:justify-around md:bg-transparent md:p-0 md:ring-0">
           <QuickCaptureDialog
             currentUserId={currentUserId}
             initialKind="task"
             trigger={
               <Button
-                className="h-8 gap-1.5 rounded-md px-2.5 text-muted-foreground text-sm"
+                className="h-8 min-w-0 gap-1 rounded-full px-0 text-muted-foreground text-xs md:px-2.5 md:text-sm"
                 type="button"
                 variant="ghost"
               >
                 <Plus className="size-3.5" />
-                Task
+                <span className="sr-only md:not-sr-only">Task</span>
               </Button>
             }
             workspaceUuid={workspaceId}
@@ -434,12 +443,12 @@ export function DashboardHome({
             initialKind="note"
             trigger={
               <Button
-                className="h-8 gap-1.5 rounded-md px-2.5 text-muted-foreground text-sm"
+                className="h-8 min-w-0 gap-1 rounded-full px-0 text-muted-foreground text-xs md:px-2.5 md:text-sm"
                 type="button"
                 variant="ghost"
               >
                 <FileText className="size-3.5" />
-                Note
+                <span className="sr-only md:not-sr-only">Note</span>
               </Button>
             }
           />
@@ -448,18 +457,18 @@ export function DashboardHome({
             initialKind="misconception"
             trigger={
               <Button
-                className="h-8 gap-1.5 rounded-md px-2.5 text-muted-foreground text-sm"
+                className="h-8 min-w-0 gap-1 rounded-full px-0 text-muted-foreground text-xs md:px-2.5 md:text-sm"
                 type="button"
                 variant="ghost"
               >
                 <TriangleAlert className="size-3.5" />
-                Misconception
+                <span className="sr-only md:not-sr-only">Misconception</span>
               </Button>
             }
           />
 
           <Button
-            className="h-8 gap-1.5 rounded-md px-2.5 text-muted-foreground text-sm"
+            className="h-8 min-w-0 gap-1 rounded-full px-0 text-muted-foreground text-xs md:px-2.5 md:text-sm"
             onClick={() => {
               navigate("/workspace/chats");
             }}
@@ -467,11 +476,11 @@ export function DashboardHome({
             variant="ghost"
           >
             <MessageSquareText className="size-3.5" />
-            Method
+            <span className="sr-only md:not-sr-only">Method</span>
           </Button>
 
           <Button
-            className="h-8 gap-1.5 rounded-md px-2.5 text-muted-foreground text-sm"
+            className="h-8 min-w-0 gap-1 rounded-full px-0 text-muted-foreground text-xs md:px-2.5 md:text-sm"
             onClick={() => {
               navigate("/workspace/flashcards");
             }}
@@ -479,11 +488,11 @@ export function DashboardHome({
             variant="ghost"
           >
             <BookOpenCheck className="size-3.5" />
-            Mindset
+            <span className="sr-only md:not-sr-only">Mindset</span>
           </Button>
 
           <Button
-            className="h-8 gap-1.5 rounded-md px-2.5 text-muted-foreground text-sm"
+            className="h-8 min-w-0 gap-1 rounded-full px-0 text-muted-foreground text-xs md:px-2.5 md:text-sm"
             onClick={() => {
               navigate(
                 `/workspace/files/${workspaceId}/folder/${rootFolderId}` as Route
@@ -493,15 +502,15 @@ export function DashboardHome({
             variant="ghost"
           >
             <Files className="size-3.5" />
-            Manage
+            <span className="sr-only md:not-sr-only">Manage</span>
           </Button>
         </div>
 
-        <div className="mt-2 min-w-0">
+        <div className="mt-1 min-w-0 md:mt-2">
           <h1
             className={cn(
               "max-w-full truncate text-balance font-semibold text-foreground tracking-tight",
-              isCompactPane ? "text-2xl" : "text-3xl"
+              isCompactPane ? "text-[1.7rem]" : "text-3xl"
             )}
             title={greeting.headline}
           >
@@ -518,10 +527,98 @@ export function DashboardHome({
           </p>
         </div>
 
-        <div className="mt-3 grid items-stretch gap-6 xl:grid-cols-[minmax(16rem,0.6fr)_minmax(0,1.4fr)]">
-          <div className="flex h-[20rem] flex-col overflow-hidden sm:h-[23rem] xl:h-[26rem]">
+        <div className="md:hidden">
+          <button
+            className="flex h-11 w-full items-center gap-2 rounded-xl border border-border/55 bg-secondary/45 px-3.5 text-left text-muted-foreground"
+            onClick={() => commandPaletteActions.open()}
+            type="button"
+          >
+            <MagnifyingGlass className="size-4 shrink-0" />
+            <span className="truncate text-[13px]">Search anything</span>
+          </button>
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <div className="rounded-xl border border-border/45 bg-secondary/25 px-3 py-2.5">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                Due
+              </p>
+              <p className="mt-1 font-semibold text-foreground text-lg leading-none">
+                {dueFlashcardCount}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border/45 bg-secondary/25 px-3 py-2.5">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                Gaps
+              </p>
+              <p className="mt-1 font-semibold text-foreground text-lg leading-none">
+                {activeMisconceptions.length}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border/45 bg-secondary/25 px-3 py-2.5">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                Decks
+              </p>
+              <p className="mt-1 font-semibold text-foreground text-lg leading-none">
+                {flashcardSets.length}
+              </p>
+            </div>
+          </div>
+          {weakestTopic ? (
+            <button
+              className="mt-3 w-full rounded-xl border border-border/45 bg-secondary/25 px-3.5 py-3 text-left"
+              onClick={() => navigate("/workspace/flashcards" as Route)}
+              type="button"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-foreground text-sm">
+                    {weakestTopic.topic}
+                  </p>
+                  <p className="mt-1 truncate text-muted-foreground text-xs">
+                    {weakestTopic.subject}
+                  </p>
+                </div>
+                <Badge
+                  className="shrink-0 rounded-md text-[10px]"
+                  variant="outline"
+                >
+                  Focus
+                </Badge>
+              </div>
+              <p className="mt-2 line-clamp-1 text-muted-foreground text-xs">
+                {weakestTopic.concepts[0]?.concept ?? "Review recent concepts"}
+              </p>
+            </button>
+          ) : null}
+          {activeMisconceptions.length > 0 ? (
+            <button
+              className="mt-3 w-full rounded-xl border border-border/45 bg-secondary/25 px-3.5 py-3 text-left"
+              onClick={() => {
+                setSelectedMisconception(activeMisconceptions[0] ?? null);
+              }}
+              type="button"
+            >
+              <p className="font-medium text-foreground text-sm">
+                {activeMisconceptions[0]?.concept}
+              </p>
+              <p className="mt-1 line-clamp-2 text-muted-foreground text-xs">
+                {activeMisconceptions[0]?.reason}
+              </p>
+            </button>
+          ) : null}
+          <div className="mt-5">
+            <h2 className="mb-3 font-medium text-foreground text-sm">
+              Calendar
+            </h2>
+            <div className="rounded-xl border border-border/45 bg-secondary/15 p-3">
+              <StudentCalendar />
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-2 hidden items-stretch gap-4 md:mt-3 md:grid md:gap-6 xl:grid-cols-[minmax(16rem,0.6fr)_minmax(0,1.4fr)]">
+          <div className="flex h-[17rem] flex-col overflow-hidden sm:h-[23rem] xl:h-[26rem]">
             <Tabs
-              className="flex h-full min-h-0 flex-col space-y-4"
+              className="flex h-full min-h-0 flex-col space-y-2 md:space-y-4"
               onValueChange={(value) => {
                 if (value === "tasks" || value === "activity") {
                   dashboardUiActions.setHomeTab(value);
@@ -549,9 +646,9 @@ export function DashboardHome({
             </Tabs>
           </div>
 
-          <div className="flex h-[24rem] flex-col overflow-hidden sm:h-[27rem] xl:h-[30rem]">
+          <div className="flex h-[20rem] flex-col overflow-hidden sm:h-[27rem] xl:h-[30rem]">
             <Tabs
-              className="flex h-full min-h-0 flex-col space-y-4"
+              className="flex h-full min-h-0 flex-col space-y-2 md:space-y-4"
               onValueChange={(value) => {
                 if (
                   value === "weak-points" ||
@@ -722,7 +819,7 @@ export function DashboardHome({
           </div>
         </div>
 
-        <div className="mt-0">
+        <div className="mt-0 hidden md:block">
           <h2 className="mb-3 font-medium text-foreground text-sm">
             Student calendar
           </h2>
@@ -766,7 +863,7 @@ export function DashboardHome({
                       <h3 className="font-medium text-muted-foreground text-sm">
                         Corrected mental model
                       </h3>
-                      <p className="mt-3 text-foreground text-base leading-7">
+                      <p className="mt-3 text-base text-foreground leading-7">
                         {selectedMisconception.blocks?.correctedMentalModel ??
                           "Open this with AI to build a corrected model from the misconception evidence."}
                       </p>
@@ -775,7 +872,7 @@ export function DashboardHome({
                       <h3 className="font-medium text-muted-foreground text-sm">
                         Short explanation
                       </h3>
-                      <p className="mt-3 text-muted-foreground text-base leading-7">
+                      <p className="mt-3 text-base text-muted-foreground leading-7">
                         {selectedMisconception.blocks?.explanation ??
                           selectedMisconception.reason}
                       </p>
@@ -787,7 +884,7 @@ export function DashboardHome({
                         <p className="font-medium text-muted-foreground text-sm">
                           Concept confidence
                         </p>
-                        <p className="font-semibold text-foreground text-2xl">
+                        <p className="font-semibold text-2xl text-foreground">
                           {Math.round(selectedMisconception.confidence * 100)}%
                         </p>
                       </div>
@@ -841,8 +938,9 @@ export function DashboardHome({
                     <Button
                       className="w-full justify-start"
                       onClick={() => {
-                        const prompt =
-                          promptForFlashcards(selectedMisconception);
+                        const prompt = promptForFlashcards(
+                          selectedMisconception
+                        );
                         navigate(`/workspace/chats/new?prompt=${prompt}`);
                       }}
                       type="button"

@@ -71,8 +71,8 @@ export function TaskListRow({
   return (
     <div
       className={cn(
-        "group flex items-start gap-2 rounded-xl border border-transparent px-2 py-2 transition-colors",
-        layout === "kanban" && "px-3 py-3",
+        "group flex items-start gap-2 rounded-xl border border-transparent px-1 py-2 transition-colors md:px-2",
+        layout === "kanban" && "px-2.5 py-2.5 md:px-3 md:py-3",
         selected
           ? "border-border/80 bg-secondary/70"
           : "hover:border-border/70 hover:bg-secondary/45"
@@ -89,7 +89,7 @@ export function TaskListRow({
       }}
     >
       <Button
-        className="mt-0.5 text-muted-foreground"
+        className="mt-0.5 size-8 text-muted-foreground"
         onClick={onToggleComplete}
         size="icon-sm"
         type="button"
@@ -109,14 +109,17 @@ export function TaskListRow({
         <div className="flex flex-wrap items-center gap-2">
           <p
             className={cn(
-              "truncate font-medium text-foreground text-sm",
+              "truncate font-medium text-sm text-foreground leading-5",
               isCompleted && "text-muted-foreground line-through"
             )}
           >
             {task.title}
           </p>
           <Badge
-            className={cn("rounded-sm border", statusClass(task.status))}
+            className={cn(
+              "hidden rounded-sm border text-[10px] sm:inline-flex",
+              statusClass(task.status)
+            )}
             variant="outline"
           >
             {getTaskStatusLabel(task.status)}

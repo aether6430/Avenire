@@ -41,7 +41,7 @@ export function TaskKanbanPane({
 
   return (
     <ScrollArea className="min-h-0 flex-1">
-      <div className="grid gap-4 p-4 xl:grid-cols-4">
+      <div className="flex gap-3 overflow-x-auto p-0 pt-2 md:p-4 xl:grid xl:grid-cols-4 xl:overflow-visible">
         {hasTasks ? null : (
           <div className="col-span-full">
             <TaskEmptyState
@@ -58,7 +58,7 @@ export function TaskKanbanPane({
           return (
             <section
               className={cn(
-                "min-h-[24rem] rounded-2xl border border-border/70 bg-background/70 p-3 transition-colors",
+                "min-h-[22rem] w-[min(82vw,20rem)] shrink-0 rounded-xl border border-border/60 bg-background/50 p-3 transition-colors md:w-[20rem] xl:w-auto xl:min-w-0",
                 isDropTarget && "border-primary/40 bg-primary/5"
               )}
               key={status}
@@ -75,15 +75,15 @@ export function TaskKanbanPane({
                 }
               }}
             >
-              <div className="flex items-center justify-between border-border/60 border-b pb-3">
-                <h2 className="font-medium text-[11px] text-muted-foreground uppercase tracking-[0.12em]">
+              <div className="flex items-center justify-between border-border/60 border-b pb-2.5 md:pb-3">
+                <h2 className="font-medium text-[11px] text-muted-foreground uppercase tracking-[0.08em] md:tracking-[0.12em]">
                   {getTaskGroupLabel(status)}
                 </h2>
                 <span className="text-[11px] text-muted-foreground">
                   {tasks.length}
                 </span>
               </div>
-              <div className="mt-3 space-y-2">
+              <div className="mt-2.5 space-y-1.5 md:mt-3 md:space-y-2">
                 {tasks.map((task) => (
                   <TaskListRow
                     draggable

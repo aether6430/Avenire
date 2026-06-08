@@ -323,6 +323,9 @@ export function WorkspacePaneRenderer() {
   const openPane = useWorkspacePaneStore((state) => state.openPane);
   const reorderPanes = useWorkspacePaneStore((state) => state.reorderPanes);
   const setPaneSizes = useWorkspacePaneStore((state) => state.setPaneSizes);
+  const syncActivePaneFromBrowser = useWorkspacePaneStore(
+    (state) => state.syncActivePaneFromBrowser
+  );
   const setActiveHeaderPaneId = useHeaderStore(
     (state) => state.setActivePaneId
   );
@@ -372,6 +375,9 @@ export function WorkspacePaneRenderer() {
   }, [browserRoute, ensureInitialized, paneStoreHydrated]);
 
   useEffect(() => {
+    if (isMobile) {
+      return;
+    }
     if (!paneStoreHydrated) {
       return;
     }
@@ -395,10 +401,19 @@ export function WorkspacePaneRenderer() {
     activePaneId,
     browserRoute.pathname,
     browserRoute.search,
+    isMobile,
     paneStoreHydrated,
     panes,
     router,
   ]);
+
+  useEffect(() => {
+    if (!(isMobile && paneStoreHydrated)) {
+      return;
+    }
+
+    syncActivePaneFromBrowser(browserRoute);
+  }, [browserRoute, isMobile, paneStoreHydrated, syncActivePaneFromBrowser]);
 
   useEffect(() => {
     setActiveHeaderPaneId(activePaneId);

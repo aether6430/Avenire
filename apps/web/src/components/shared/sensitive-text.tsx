@@ -3,6 +3,10 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
+export function isEmailAddress(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
 export function SensitiveText({
   value,
   privacyMode,
@@ -20,7 +24,9 @@ export function SensitiveText({
     return <span className={className}>{fallback}</span>;
   }
 
-  if (!privacyMode || revealedValue === value) {
+  const shouldHide = privacyMode && isEmailAddress(value);
+
+  if (!shouldHide || revealedValue === value) {
     return <span className={className}>{value}</span>;
   }
 

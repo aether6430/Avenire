@@ -33,6 +33,16 @@
   --border: #14141414;
   --input: #1414141F;
   --ring: #abc4ff;
+  --hover: #1414140A;
+  --active: #14141414;
+  --surface-1: #FCFCFC;
+  --surface-2: #F8F8F8;
+  --surface-3: #F3F3F3;
+  --surface-4: #EDEDED;
+  --surface-5: #E7E7E7;
+  --surface-6: #E1E1E1;
+  --surface-7: #DADADA;
+  --surface-8: #D3D3D3;
 
   /* Status */
   --info: #0B6E99;
@@ -148,6 +158,16 @@
   --border: #E4E4E414;
   --input: #E4E4E41F;
   --ring: #abc4ff;
+  --hover: #E4E4E40A;
+  --active: #E4E4E414;
+  --surface-1: #141414;
+  --surface-2: #181818;
+  --surface-3: #1D1D1D;
+  --surface-4: #222222;
+  --surface-5: #272727;
+  --surface-6: #2C2C2C;
+  --surface-7: #313131;
+  --surface-8: #363636;
 
   --info: #529CCA;
   --info-foreground: #529CCA;
@@ -258,6 +278,16 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-hover: var(--hover);
+  --color-active: var(--active);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-surface-4: var(--surface-4);
+  --color-surface-5: var(--surface-5);
+  --color-surface-6: var(--surface-6);
+  --color-surface-7: var(--surface-7);
+  --color-surface-8: var(--surface-8);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -301,6 +331,28 @@
   --radius-2xl: 0.875rem;
   --radius-3xl: 1rem;
   --radius-full: 9999px;
+  --shadow-surface-1: 0 1px 1px -0.5px rgba(0, 0, 0, 0.08);
+  --shadow-surface-2: 0 1px 1px -0.5px rgba(0, 0, 0, 0.1);
+  --shadow-surface-3: 0 1px 2px -1px rgba(0, 0, 0, 0.12);
+  --shadow-surface-4: 0 2px 4px -3px rgba(0, 0, 0, 0.16);
+  --shadow-surface-5: 0 3px 6px -4px rgba(0, 0, 0, 0.18);
+  --shadow-surface-6: 0 4px 8px -5px rgba(0, 0, 0, 0.2);
+  --shadow-surface-7: 0 6px 12px -8px rgba(0, 0, 0, 0.24);
+  --shadow-surface-8: 0 8px 16px -10px rgba(0, 0, 0, 0.28);
+  @keyframes spinner-move {
+    to {
+      stroke-dashoffset: -100;
+    }
+  }
+  @keyframes spinner-dash {
+    0%,
+    100% {
+      stroke-dasharray: 15 85;
+    }
+    50% {
+      stroke-dasharray: 40 60;
+    }
+  }
 }
 
 @layer base {
@@ -392,5 +444,13 @@ html[data-scrollbars-active="true"] ::-webkit-scrollbar-thumb:hover {
 @media (min-width: 768px) {
   .mobile-only {
     display: none !important;
+  }
+}
+
+@media (max-width: 767px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
   }
 }

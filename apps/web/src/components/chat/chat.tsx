@@ -13,6 +13,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { getChatErrorMessage } from "@/lib/chat-errors";
 import {
   CHAT_NAME_UPDATED_EVENT,
@@ -27,7 +28,7 @@ import { emitPetNotification } from "@/lib/pet-preferences";
 import { type Attachment, createLocalAttachment } from "./attachment";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
-import { Overview } from "./overview";
+import { MobileEmptyChatOverview, Overview } from "./overview";
 import { useChatScroll } from "./use-chat-scroll";
 
 interface ChatProps {
@@ -45,8 +46,13 @@ type SendMessageOptions = Parameters<
   UseChatHelpers<UIMessage>["sendMessage"]
 >[1];
 const ACTIVE_REPLY_MIN_HEIGHT = "calc(100dvh - 250px)";
-const EMPTY_COMPOSER_SHELL_CLASSNAME = "mx-auto mb-3 w-full max-w-3xl";
-const FLOATING_COMPOSER_SHELL_CLASSNAME = "mx-auto mb-3 w-full max-w-3xl";
+const EMPTY_COMPOSER_SHELL_CLASSNAME =
+  "mx-auto mb-3 w-full max-w-3xl px-4 md:mb-3 md:px-0";
+const FLOATING_COMPOSER_SHELL_CLASSNAME =
+  "mx-auto w-full px-3 pb-[calc(0.6rem+env(safe-area-inset-bottom))] md:max-w-3xl md:px-0 md:pb-3";
+const MOBILE_CHAT_COMPOSER_OPEN_EVENT = "avenire:mobile-chat-composer-open";
+const MOBILE_CHAT_COMPOSER_STATE_EVENT = "avenire:mobile-chat-composer-state";
+const MOBILE_CHAT_VOICE_START_EVENT = "avenire:mobile-chat-voice-start";
 
 export function Chat({
   id,
@@ -65,7 +71,9 @@ export function Chat({
   const [agentActivity, setAgentActivity] = useState<AgentActivityData | null>(
     null
   );
+  const [mobileComposerOpen, setMobileComposerOpen] = useState(false);
   const [turboEnabled, setTurboEnabled] = useState(false);
+  const isMobile = useIsMobile();
   const activeSelectedModel = turboEnabled ? "apex-turbo" : selectedModel;
   const lastCompletedMessageIdRef = useRef<string | null>(null);
   const previousStatusRef = useRef<string | null>(null);
@@ -484,7 +492,9 @@ export function Chat({
     !hasConversationSurface &&
     (status === "submitted" || status === "streaming");
   const shouldUseCenteredComposerLayout =
-    isEmptyState || isTransitioningFromNewChat;
+    (!isMobile && isEmptyState) || isTransitioningFromNewChat;
+  const showBottomComposer = !isMobile || mobileComposerOpen;
+  const isMobileComposerVisible = isMobile && mobileComposerOpen;
   const inputCard = (centered = false) => (
     <div
       className={
@@ -498,21 +508,66 @@ export function Chat({
         centered={centered}
         handleSubmit={handleSubmit}
         input={input}
+        onTurboChange={setTurboEnabled}
         setAttachments={setAttachments}
         setInput={setInput}
         status={status}
         stop={handleStop}
         turboEnabled={turboEnabled}
-        onTurboChange={setTurboEnabled}
         workspaceUuid={workspaceUuid}
       />
     </div>
   );
 
+  useEffect(() => {
+    const openComposer = (event: Event) => {
+      const detail = (event as CustomEvent<{ voice?: boolean }>).detail;
+      setMobileComposerOpen(true);
+      window.dispatchEvent(
+        new CustomEvent(MOBILE_CHAT_COMPOSER_STATE_EVENT, {
+          detail: { open: true },
+        })
+      );
+      requestAnimationFrame(() => {
+        document
+          .querySelector<HTMLTextAreaElement>(
+            "[data-testid='multimodal-input']"
+          )
+          ?.focus();
+        if (detail?.voice) {
+          window.dispatchEvent(new CustomEvent(MOBILE_CHAT_VOICE_START_EVENT));
+        }
+      });
+    };
+
+    window.addEventListener(MOBILE_CHAT_COMPOSER_OPEN_EVENT, openComposer);
+    return () => {
+      window.removeEventListener(MOBILE_CHAT_COMPOSER_OPEN_EVENT, openComposer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile) {
+      return;
+    }
+    window.dispatchEvent(
+      new CustomEvent(MOBILE_CHAT_COMPOSER_STATE_EVENT, {
+        detail: { open: isMobileComposerVisible },
+      })
+    );
+  }, [isMobile, isMobileComposerVisible]);
+
+  useEffect(() => {
+    if (!isMobile) {
+      return;
+    }
+    setMobileComposerOpen((open) => (chatId && open ? false : open));
+  }, [chatId, isMobile]);
+
   return (
     <div
       {...getRootProps()}
-      className="relative flex h-full min-h-0 flex-col bg-[#fdfdfd] px-4 dark:bg-[#141414]"
+      className="relative flex h-full min-h-0 flex-col bg-[#fdfdfd] px-0 md:px-4 dark:bg-[#141414]"
     >
       <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col">
         {hasConversationSurface && (
@@ -536,6 +591,9 @@ export function Chat({
 
         {!isReadonly && (
           <AnimatePresence initial={false} mode="popLayout">
+            {isMobile && isEmptyState ? (
+              <MobileEmptyChatOverview userName={userName} />
+            ) : null}
             {shouldUseCenteredComposerLayout ? (
               <motion.div
                 animate={{ opacity: 1, y: 0 }}
@@ -545,7 +603,7 @@ export function Chat({
                 key="composer-center"
                 transition={{ duration: 0.24, ease: "easeOut" }}
               >
-                <div className="relative flex w-full max-w-3xl flex-col items-center justify-center">
+                <div className="relative flex w-full flex-col items-center justify-center md:max-w-3xl">
                   {isEmptyState ? (
                     <div className="pointer-events-none absolute bottom-[calc(100%+2.25rem)] w-full sm:bottom-[calc(100%+3rem)]">
                       <Overview userName={userName} />
@@ -554,38 +612,40 @@ export function Chat({
                   {inputCard(true)}
                 </div>
               </motion.div>
-            ) : (
+            ) : showBottomComposer ? (
               <motion.form
                 animate={{ opacity: 1, y: 0 }}
-                className="relative z-30 w-full"
+                className="fixed inset-x-0 bottom-0 z-30 w-full md:relative md:inset-auto"
                 exit={{ opacity: 0, y: 12 }}
                 initial={{ opacity: 0, y: 20 }}
                 key="composer-bottom"
                 transition={{ duration: 0.22, ease: "easeOut" }}
               >
-                <motion.div
-                  animate={isAutoScrollEnabled ? "hidden" : "visible"}
-                  className="pointer-events-none absolute right-0 bottom-[calc(100%+0.75rem)] z-20 flex justify-end"
-                  initial="hidden"
-                  transition={{ duration: 0.3, ease: "easeInOut" }}
-                  variants={{
-                    visible: { opacity: 1, y: 0 },
-                    hidden: { opacity: 0, y: 8 },
-                  }}
-                >
-                  <Button
-                    className="pointer-events-auto h-9 min-w-9 rounded-full border border-[#e5e5e5] bg-[#f8f8f8] px-2.5 sm:h-10 sm:min-w-10 sm:px-3 dark:border-[#2a2a2a] dark:bg-[#212121]"
-                    onClick={() => reenableAutoScroll("smooth")}
-                    size="sm"
-                    type="button"
-                    variant="outline"
+                {isMobile ? null : (
+                  <motion.div
+                    animate={isAutoScrollEnabled ? "hidden" : "visible"}
+                    className="pointer-events-none absolute right-0 bottom-[calc(100%+0.75rem)] z-20 flex justify-end"
+                    initial="hidden"
+                    transition={{ duration: 0.3, ease: "easeInOut" }}
+                    variants={{
+                      visible: { opacity: 1, y: 0 },
+                      hidden: { opacity: 0, y: 8 },
+                    }}
                   >
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </motion.div>
+                    <Button
+                      className="pointer-events-auto h-9 min-w-9 rounded-md border border-border/70 bg-background px-2.5 sm:h-10 sm:min-w-10 sm:px-3"
+                      onClick={() => reenableAutoScroll("smooth")}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </motion.div>
+                )}
                 {inputCard(false)}
               </motion.form>
-            )}
+            ) : null}
           </AnimatePresence>
         )}
       </div>

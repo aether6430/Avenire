@@ -2,11 +2,11 @@
 
 import { Button } from "@avenire/ui/components/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@avenire/ui/components/dialog";
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@avenire/ui/components/drawer";
 import { Spinner } from "@avenire/ui/components/spinner";
 import {
   Tooltip,
@@ -32,6 +32,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Attachment } from "@/components/chat/attachment";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   primeMediaPlayback,
   releaseMediaPlaybackPrime,
@@ -49,6 +50,60 @@ const MIN_SCALE = 1;
 const MAX_SCALE = 5;
 const ZOOM_STEP = 0.5;
 const DOUBLE_TAP_ZOOM = 2.5;
+
+function AttachmentPreviewDrawer({
+  children,
+  fileSize,
+  isMediaPreview,
+  name,
+  onOpenChange,
+  open,
+  thumbnail,
+}: {
+  children: React.ReactNode;
+  fileSize: string;
+  isMediaPreview: boolean | "" | undefined;
+  name?: string | null;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+  thumbnail: React.ReactNode;
+}) {
+  const isMobile = useIsMobile();
+
+  return (
+    <Drawer
+      direction={isMobile ? "bottom" : "right"}
+      onOpenChange={onOpenChange}
+      open={open}
+    >
+      <DrawerContent className="data-[vaul-drawer-direction=bottom]:max-h-[86dvh] data-[vaul-drawer-direction=right]:w-[min(58rem,92vw)] data-[vaul-drawer-direction=right]:max-w-none">
+        <div className="flex h-full max-h-[inherit] min-h-0 flex-col overflow-hidden">
+          <DrawerHeader className="border-border/60 border-b px-4 py-3 text-left">
+            <DrawerTitle className="flex min-w-0 items-center gap-2">
+              {thumbnail}
+              <span className="min-w-0 flex-1 truncate">
+                {name ?? "Attachment"}
+              </span>
+              {fileSize ? (
+                <span className="shrink-0 text-muted-foreground text-xs">
+                  {fileSize}
+                </span>
+              ) : null}
+            </DrawerTitle>
+          </DrawerHeader>
+          <div
+            className={cn(
+              "min-h-0 flex-1",
+              isMediaPreview ? "overflow-hidden" : "overflow-auto p-4 sm:p-6"
+            )}
+          >
+            {children}
+          </div>
+        </div>
+      </DrawerContent>
+    </Drawer>
+  );
+}
 
 function PanPinchImageViewer({ src, alt }: { src: string; alt: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -438,9 +493,6 @@ const playbackDescriptorCache = new Map<
   string,
   MediaPlaybackDescriptor | Promise<MediaPlaybackDescriptor | null> | null
 >();
-
-const attachmentPreviewDialogClassName =
-  "h-[100dvh] w-screen max-w-none rounded-none border-0 p-0 sm:h-[92vh] sm:w-[96vw] sm:max-w-[1200px] sm:rounded-xl sm:border lg:max-w-[1280px]";
 
 async function fetchWorkspacePlaybackDescriptor(
   workspaceUuid: string,
@@ -950,6 +1002,24 @@ export function PreviewAttachment({
     );
   };
 
+  const previewDrawer = (
+    <AttachmentPreviewDrawer
+      fileSize={fileSize}
+      isMediaPreview={isImagePreview || isVideoPreview}
+      name={name}
+      onOpenChange={(nextOpen) => {
+        setIsModalOpen(nextOpen);
+        if (!nextOpen) {
+          setIsHovered(false);
+        }
+      }}
+      open={isModalOpen}
+      thumbnail={renderThumbnail()}
+    >
+      {renderModalContent()}
+    </AttachmentPreviewDrawer>
+  );
+
   if (variant === "composer") {
     return (
       <TooltipProvider delay={280}>
@@ -1029,43 +1099,7 @@ export function PreviewAttachment({
             </TooltipContent>
           </Tooltip>
 
-          <Dialog
-            onOpenChange={(nextOpen) => {
-              setIsModalOpen(nextOpen);
-              if (!nextOpen) {
-                setIsHovered(false);
-              }
-            }}
-            open={isModalOpen}
-          >
-            <DialogContent className={attachmentPreviewDialogClassName}>
-              <div className="flex h-full flex-col overflow-hidden bg-background sm:rounded-xl">
-                <DialogHeader className="border-border/60 border-b px-4 py-4 sm:px-6">
-                  <DialogTitle className="flex items-center gap-2">
-                    {renderThumbnail()}
-                    <span className="max-w-75 truncate">
-                      {name ?? "Attachment"}
-                    </span>
-                    {fileSize && (
-                      <span className="text-muted-foreground text-sm">
-                        ({fileSize})
-                      </span>
-                    )}
-                  </DialogTitle>
-                </DialogHeader>
-                <div
-                  className={cn(
-                    "min-h-0 flex-1",
-                    isImagePreview || isVideoPreview
-                      ? "overflow-hidden"
-                      : "overflow-auto p-4 sm:p-6"
-                  )}
-                >
-                  {renderModalContent()}
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+          {previewDrawer}
         </motion.div>
       </TooltipProvider>
     );
@@ -1111,43 +1145,7 @@ export function PreviewAttachment({
           </Button>
         ) : null}
 
-        <Dialog
-          onOpenChange={(nextOpen) => {
-            setIsModalOpen(nextOpen);
-            if (!nextOpen) {
-              setIsHovered(false);
-            }
-          }}
-          open={isModalOpen}
-        >
-          <DialogContent className={attachmentPreviewDialogClassName}>
-            <div className="flex h-full flex-col overflow-hidden bg-background sm:rounded-xl">
-              <DialogHeader className="border-border/60 border-b px-4 py-4 sm:px-6">
-                <DialogTitle className="flex items-center gap-2">
-                  {renderThumbnail()}
-                  <span className="max-w-75 truncate">
-                    {name ?? "Attachment"}
-                  </span>
-                  {fileSize && (
-                    <span className="text-muted-foreground text-sm">
-                      ({fileSize})
-                    </span>
-                  )}
-                </DialogTitle>
-              </DialogHeader>
-              <div
-                className={cn(
-                  "min-h-0 flex-1",
-                  isImagePreview || isVideoPreview
-                    ? "overflow-hidden"
-                    : "overflow-auto p-4 sm:p-6"
-                )}
-              >
-                {renderModalContent()}
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        {previewDrawer}
       </motion.div>
     );
   }
@@ -1223,43 +1221,7 @@ export function PreviewAttachment({
           </TooltipContent>
         </Tooltip>
 
-        <Dialog
-          onOpenChange={(nextOpen) => {
-            setIsModalOpen(nextOpen);
-            if (!nextOpen) {
-              setIsHovered(false);
-            }
-          }}
-          open={isModalOpen}
-        >
-          <DialogContent className={attachmentPreviewDialogClassName}>
-            <div className="flex h-full flex-col overflow-hidden bg-background sm:rounded-xl">
-              <DialogHeader className="border-border/60 border-b px-4 py-4 sm:px-6">
-                <DialogTitle className="flex items-center gap-2">
-                  {renderThumbnail()}
-                  <span className="max-w-75 truncate">
-                    {name ?? "Attachment"}
-                  </span>
-                  {fileSize && (
-                    <span className="text-muted-foreground text-sm">
-                      ({fileSize})
-                    </span>
-                  )}
-                </DialogTitle>
-              </DialogHeader>
-              <div
-                className={cn(
-                  "min-h-0 flex-1",
-                  isImagePreview || isVideoPreview
-                    ? "overflow-hidden"
-                    : "overflow-auto p-4 sm:p-6"
-                )}
-              >
-                {renderModalContent()}
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        {previewDrawer}
       </motion.div>
     </TooltipProvider>
   );

@@ -31,7 +31,7 @@ export function TaskListPane({
 
   return (
     <ScrollArea className="min-h-0 flex-1">
-      <div className="space-y-5 p-4">
+      <div className="space-y-5 p-0 pt-2 md:p-4">
         {hasTasks ? null : (
           <TaskEmptyState
             description="Try a different filter, or create the first task for this workspace."
@@ -41,8 +41,8 @@ export function TaskListPane({
         {groups.map((group) =>
           group.tasks.length > 0 ? (
             <section className="space-y-2" key={group.key}>
-              <div className="flex items-center justify-between px-2">
-                <h2 className="font-medium text-[11px] text-muted-foreground uppercase tracking-[0.12em]">
+              <div className="flex items-center justify-between px-1 md:px-2">
+                <h2 className="font-medium text-[11px] text-muted-foreground uppercase tracking-[0.1em] md:tracking-[0.12em]">
                   {group.label}
                 </h2>
                 <span className="text-[11px] text-muted-foreground">
@@ -51,7 +51,7 @@ export function TaskListPane({
               </div>
               <div
                 className={cn(
-                  "space-y-1 rounded-xl border border-transparent border-dashed p-1 transition-colors",
+                  "space-y-1 rounded-xl border border-transparent border-dashed p-0 transition-colors md:p-1",
                   draggedTaskId ? "hover:border-border/70" : ""
                 )}
                 onDragLeave={() => onDragTargetChange(null)}
