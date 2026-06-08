@@ -30,13 +30,14 @@ import {
   BookOpenText as BookOpenCheck,
   Files,
   FileText,
-  ChatText as MessageSquareText,
   MagnifyingGlass,
+  ChatText as MessageSquareText,
   Plus,
   Warning as TriangleAlert,
 } from "@phosphor-icons/react";
 import type { Route } from "next";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { startTransition, useEffect, useMemo, useState } from "react";
@@ -55,11 +56,11 @@ import {
   useCurrentWorkspacePaneCompact,
   useWorkspacePaneNavigation,
 } from "@/lib/workspace-panes";
+import { commandPaletteActions } from "@/stores/commandPaletteStore";
 import {
   dashboardUiActions,
   useDashboardUiStore,
 } from "@/stores/dashboardUiStore";
-import { commandPaletteActions } from "@/stores/commandPaletteStore";
 import { usePaneWorkspaceHistoryActions } from "@/stores/workspaceHistoryStore";
 
 const DashboardTaskManager = dynamic(
@@ -279,6 +280,12 @@ export function DashboardHome({
     () => groupWeakPoints(weakestConcepts, activeMisconceptions),
     [activeMisconceptions, weakestConcepts]
   );
+  const dueFlashcardCount = useMemo(
+    () =>
+      flashcardSets.reduce((sum, set) => sum + set.dueCount + set.newCount, 0),
+    [flashcardSets]
+  );
+  const weakestTopic = weakPointGroups[0];
 
   useEffect(() => {
     recordRoute("/workspace");
@@ -398,15 +405,15 @@ export function DashboardHome({
 
   return (
     <div className="h-full overflow-y-auto overflow-x-hidden bg-background">
-      <div className="flex w-full flex-col gap-4 px-4 py-4 md:px-6 lg:px-8">
+      <div className="flex w-full flex-col gap-4 px-4 pt-4 pb-[calc(5.75rem+env(safe-area-inset-bottom))] md:px-6 md:pb-4 lg:px-8">
         <HeaderBreadcrumbs>
           <div className="min-w-0">
             <p className="truncate text-muted-foreground text-sm">Desktop</p>
           </div>
         </HeaderBreadcrumbs>
 
-        <div className="-mx-6 hidden overflow-hidden rounded-none md:block md:-mx-12 lg:-mx-16">
-          <img
+        <div className="-mx-6 hidden overflow-hidden rounded-none md:-mx-12 md:block lg:-mx-16">
+          <Image
             alt="Workspace banner"
             className="h-28 w-full object-cover md:h-40"
             height={160}
@@ -522,21 +529,47 @@ export function DashboardHome({
 
         <div className="md:hidden">
           <button
-            className="flex h-12 w-full items-center gap-2 rounded-xl border border-border/55 bg-secondary/45 px-4 text-left text-muted-foreground"
+            className="flex h-11 w-full items-center gap-2 rounded-xl border border-border/55 bg-secondary/45 px-3.5 text-left text-muted-foreground"
             onClick={() => commandPaletteActions.open()}
             type="button"
           >
             <MagnifyingGlass className="size-4 shrink-0" />
-            <span className="truncate text-sm">Search anything</span>
+            <span className="truncate text-[13px]">Search anything</span>
           </button>
-          <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <div className="rounded-xl border border-border/45 bg-secondary/25 px-3 py-2.5">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                Due
+              </p>
+              <p className="mt-1 font-semibold text-foreground text-lg leading-none">
+                {dueFlashcardCount}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border/45 bg-secondary/25 px-3 py-2.5">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                Gaps
+              </p>
+              <p className="mt-1 font-semibold text-foreground text-lg leading-none">
+                {activeMisconceptions.length}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border/45 bg-secondary/25 px-3 py-2.5">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                Decks
+              </p>
+              <p className="mt-1 font-semibold text-foreground text-lg leading-none">
+                {flashcardSets.length}
+              </p>
+            </div>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2.5">
             <button
-              className="min-h-32 rounded-xl bg-secondary/35 p-4 text-left transition-colors hover:bg-secondary/55"
+              className="min-h-28 rounded-xl bg-secondary/35 p-3 text-left transition-colors hover:bg-secondary/55"
               onClick={() => navigate("/workspace/chats/new" as Route)}
               type="button"
             >
               <MessageSquareText className="size-5 text-muted-foreground" />
-              <p className="mt-8 text-balance font-medium text-foreground text-lg leading-5">
+              <p className="mt-6 text-balance font-medium text-base text-foreground leading-5">
                 Chat
               </p>
               <p className="mt-1 line-clamp-2 text-muted-foreground text-xs">
@@ -544,25 +577,25 @@ export function DashboardHome({
               </p>
             </button>
             <button
-              className="min-h-32 rounded-xl bg-secondary/35 p-4 text-left transition-colors hover:bg-secondary/55"
+              className="min-h-28 rounded-xl bg-secondary/35 p-3 text-left transition-colors hover:bg-secondary/55"
               onClick={() => navigate("/workspace/flashcards" as Route)}
               type="button"
             >
               <BookOpenCheck className="size-5 text-muted-foreground" />
-              <p className="mt-8 text-balance font-medium text-foreground text-lg leading-5">
+              <p className="mt-6 text-balance font-medium text-base text-foreground leading-5">
                 Learn
               </p>
               <p className="mt-1 text-muted-foreground text-xs">
-                {flashcardSets.length} decks
+                {dueFlashcardCount} ready
               </p>
             </button>
             <button
-              className="min-h-32 rounded-xl bg-secondary/35 p-4 text-left transition-colors hover:bg-secondary/55"
+              className="min-h-28 rounded-xl bg-secondary/35 p-3 text-left transition-colors hover:bg-secondary/55"
               onClick={() => navigate("/workspace/tasks" as Route)}
               type="button"
             >
               <Plus className="size-5 text-muted-foreground" />
-              <p className="mt-8 text-balance font-medium text-foreground text-lg leading-5">
+              <p className="mt-6 text-balance font-medium text-base text-foreground leading-5">
                 Tasks
               </p>
               <p className="mt-1 line-clamp-2 text-muted-foreground text-xs">
@@ -570,7 +603,7 @@ export function DashboardHome({
               </p>
             </button>
             <button
-              className="min-h-32 rounded-xl bg-secondary/35 p-4 text-left transition-colors hover:bg-secondary/55"
+              className="min-h-28 rounded-xl bg-secondary/35 p-3 text-left transition-colors hover:bg-secondary/55"
               onClick={() =>
                 navigate(
                   `/workspace/files/${workspaceId}/folder/${rootFolderId}` as Route
@@ -579,7 +612,7 @@ export function DashboardHome({
               type="button"
             >
               <Files className="size-5 text-muted-foreground" />
-              <p className="mt-8 text-balance font-medium text-foreground text-lg leading-5">
+              <p className="mt-6 text-balance font-medium text-base text-foreground leading-5">
                 Workspace
               </p>
               <p className="mt-1 text-muted-foreground text-xs">
@@ -587,9 +620,36 @@ export function DashboardHome({
               </p>
             </button>
           </div>
+          {weakestTopic ? (
+            <button
+              className="mt-3 w-full rounded-xl border border-border/45 bg-secondary/25 px-3.5 py-3 text-left"
+              onClick={() => navigate("/workspace/flashcards" as Route)}
+              type="button"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-foreground text-sm">
+                    {weakestTopic.topic}
+                  </p>
+                  <p className="mt-1 truncate text-muted-foreground text-xs">
+                    {weakestTopic.subject}
+                  </p>
+                </div>
+                <Badge
+                  className="shrink-0 rounded-md text-[10px]"
+                  variant="outline"
+                >
+                  Focus
+                </Badge>
+              </div>
+              <p className="mt-2 line-clamp-1 text-muted-foreground text-xs">
+                {weakestTopic.concepts[0]?.concept ?? "Review recent concepts"}
+              </p>
+            </button>
+          ) : null}
           {activeMisconceptions.length > 0 ? (
             <button
-              className="mt-4 w-full rounded-xl bg-secondary/25 px-4 py-3 text-left"
+              className="mt-3 w-full rounded-xl border border-border/45 bg-secondary/25 px-3.5 py-3 text-left"
               onClick={() => {
                 setSelectedMisconception(activeMisconceptions[0] ?? null);
               }}
@@ -603,6 +663,14 @@ export function DashboardHome({
               </p>
             </button>
           ) : null}
+          <div className="mt-5">
+            <h2 className="mb-3 font-medium text-foreground text-sm">
+              Calendar
+            </h2>
+            <div className="rounded-xl border border-border/45 bg-secondary/15 p-3">
+              <StudentCalendar />
+            </div>
+          </div>
         </div>
 
         <div className="mt-2 hidden items-stretch gap-4 md:mt-3 md:grid md:gap-6 xl:grid-cols-[minmax(16rem,0.6fr)_minmax(0,1.4fr)]">
@@ -853,7 +921,7 @@ export function DashboardHome({
                       <h3 className="font-medium text-muted-foreground text-sm">
                         Corrected mental model
                       </h3>
-                      <p className="mt-3 text-foreground text-base leading-7">
+                      <p className="mt-3 text-base text-foreground leading-7">
                         {selectedMisconception.blocks?.correctedMentalModel ??
                           "Open this with AI to build a corrected model from the misconception evidence."}
                       </p>
@@ -862,7 +930,7 @@ export function DashboardHome({
                       <h3 className="font-medium text-muted-foreground text-sm">
                         Short explanation
                       </h3>
-                      <p className="mt-3 text-muted-foreground text-base leading-7">
+                      <p className="mt-3 text-base text-muted-foreground leading-7">
                         {selectedMisconception.blocks?.explanation ??
                           selectedMisconception.reason}
                       </p>
@@ -874,7 +942,7 @@ export function DashboardHome({
                         <p className="font-medium text-muted-foreground text-sm">
                           Concept confidence
                         </p>
-                        <p className="font-semibold text-foreground text-2xl">
+                        <p className="font-semibold text-2xl text-foreground">
                           {Math.round(selectedMisconception.confidence * 100)}%
                         </p>
                       </div>
