@@ -32,6 +32,18 @@ const useIsoLayoutEffect =
 
 const DEFAULT_ACCEPT = "image/png,image/jpeg,application/pdf";
 
+function getUuid() {
+  try {
+    const randomUuid = globalThis.crypto?.randomUUID;
+    if (typeof randomUuid === "function") {
+      return randomUuid.call(globalThis.crypto);
+    }
+  } catch {
+    // Fall back below for older or non-secure browser contexts.
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
 interface InputMessageSlotContext {
   /** Opens the native file picker via the hidden `<input type="file">`.
    *  Pass `acceptOverride` (e.g. `"image/*"`) to scope the picker to a
@@ -383,7 +395,7 @@ const InputMessage = forwardRef<HTMLDivElement, InputMessageProps>(
       // then clear the composer and keep focus.
       if (streaming && supportsQueue) {
         const item: QueuedMessage = {
-          id: crypto.randomUUID(),
+          id: getUuid(),
           text: trimmed,
           files: filesArr,
         };
