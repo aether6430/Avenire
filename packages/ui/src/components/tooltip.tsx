@@ -18,15 +18,18 @@ function TooltipProvider({
   )
 }
 
+type TooltipProps = Omit<TooltipPrimitive.Root.Props, "children"> & {
+  children: React.ReactNode
+  content?: React.ReactNode
+  side?: TooltipPrimitive.Positioner.Props["side"]
+}
+
 function Tooltip({
   children,
   content,
   side = "top",
   ...props
-}: TooltipPrimitive.Root.Props & {
-  content?: React.ReactNode
-  side?: TooltipPrimitive.Positioner.Props["side"]
-}) {
+}: TooltipProps) {
   if (content === undefined) {
     return (
       <TooltipPrimitive.Root data-slot="tooltip" {...props}>
@@ -35,9 +38,18 @@ function Tooltip({
     )
   }
 
+  const trigger =
+    React.isValidElement(children) && children.type !== React.Fragment ? (
+      children
+    ) : (
+      <span className="inline-flex" tabIndex={0}>
+        {children}
+      </span>
+    )
+
   return (
     <TooltipPrimitive.Root data-slot="tooltip" {...props}>
-      <TooltipTrigger render={children as React.ReactElement} />
+      <TooltipTrigger render={trigger} />
       <TooltipContent side={side}>{content}</TooltipContent>
     </TooltipPrimitive.Root>
   )

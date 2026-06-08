@@ -6000,6 +6000,7 @@ export function FileExplorer({
               size="sm"
               trigger={
                 <Button
+                  aria-label="Filters"
                   className="h-7 rounded-full px-2 text-xs md:rounded-md"
                   size="sm"
                   variant="outline"
@@ -6013,6 +6014,7 @@ export function FileExplorer({
               <DropdownMenuTrigger
                 render={
                   <Button
+                    aria-label={`Sort by ${getSortFieldLabel(sortState)}, ${getSortDirectionLabel(sortState.direction)}`}
                     className="h-7 rounded-full px-2 text-xs md:rounded-md"
                     size="sm"
                     type="button"

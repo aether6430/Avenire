@@ -75,15 +75,22 @@ function FileThumbnail({ file, size, className }: FileThumbnailProps) {
   // PDFs need async rendering — loading flash is unavoidable for the first
   // ~100–300ms while pdfjs loads. Falls back to the generic icon on error.
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfError, setPdfError] = useState(false);
   useEffect(() => {
     if (!isPdf) return;
     let cancelled = false;
+    setPdfError(false);
     renderPdfFirstPage(file, size)
       .then((url) => {
-        if (!cancelled) setPdfUrl(url);
+        if (!cancelled) {
+          setPdfUrl(url);
+          setPdfError(false);
+        }
       })
       .catch(() => {
-        /* fall through to spinner */
+        if (!cancelled) {
+          setPdfError(true);
+        }
       });
     return () => {
       cancelled = true;
@@ -108,6 +115,17 @@ function FileThumbnail({ file, size, className }: FileThumbnailProps) {
           alt={file.name}
           className="absolute inset-0 w-full h-full object-cover"
         />
+      ) : pdfError ? (
+        <div
+          aria-label="Preview failed"
+          className="absolute inset-0 flex flex-col items-center justify-center gap-1 px-2 text-center text-muted-foreground"
+          role="status"
+        >
+          <span aria-hidden="true" className="text-lg leading-none">
+            !
+          </span>
+          <span className="text-[10px] leading-tight">Preview failed</span>
+        </div>
       ) : (
         // Circular spinner while we wait for the preview to be ready.
         // Used for both images (brief URL-creation gap) and PDFs (longer

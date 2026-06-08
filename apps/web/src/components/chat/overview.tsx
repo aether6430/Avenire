@@ -22,8 +22,9 @@ export const Overview = ({ userName }: { userName?: string }) => {
 };
 
 export function MobileEmptyChatOverview({ userName }: { userName?: string }) {
-  const greeting = userName
-    ? `How can I help, ${userName.split(" ")[0]}?`
+  const firstName = userName?.trim().split(" ")[0];
+  const greeting = firstName
+    ? `How can I help, ${firstName}?`
     : "How can I help?";
 
   return (

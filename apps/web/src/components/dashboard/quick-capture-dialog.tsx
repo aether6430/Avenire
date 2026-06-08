@@ -574,7 +574,9 @@ export function QuickCaptureDialog({
             disabled={
               isBusy ||
               (kind === "task" && !task.title.trim()) ||
-              (kind === "note" && !note.title.trim()) ||
+              (kind === "note" &&
+                !note.title.trim() &&
+                !note.content.trim()) ||
               (kind === "misconception" &&
                 !(
                   misconception.subject.trim() &&
