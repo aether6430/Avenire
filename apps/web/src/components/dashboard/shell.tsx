@@ -218,8 +218,8 @@ export function DashboardLayout({
           workspaceUuid={activeWorkspace?.workspaceId ?? null}
         />
       ) : null}
-      <SidebarInset className="relative min-h-0 overflow-hidden bg-background md:peer-data-[variant=inset]:mb-0">
-        <div className="min-h-0 flex-1 overflow-hidden">
+      <SidebarInset className="relative h-full min-h-0 overflow-hidden bg-background md:peer-data-[variant=inset]:mb-0">
+        <div className="flex h-full min-h-0 flex-1 overflow-hidden">
           <WorkspacePaneRenderer />
         </div>
         {deferredReady ? (
