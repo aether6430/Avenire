@@ -19,7 +19,7 @@ export function WorkspaceLoadingState({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-1 items-center justify-center px-4">
+    <div className="flex h-full min-h-[100dvh] flex-1 items-center justify-center bg-background px-4">
       <div
         className={cn(
           "inline-flex items-center rounded-lg bg-secondary/40 px-4 py-3"

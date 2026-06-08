@@ -45,7 +45,8 @@ export function TaskMobileSheet({
   return (
     <Sheet onOpenChange={onOpenChange} open={isOpen}>
       <SheetContent
-        className="h-[100dvh] w-[100dvw] max-w-[100dvw] overflow-hidden overscroll-contain rounded-none border-0 p-0 sm:inset-y-4 sm:right-4 sm:h-[calc(100dvh-2rem)] sm:w-[min(52rem,calc(100vw-2rem))] sm:max-w-[min(52rem,calc(100vw-2rem))] sm:rounded-2xl sm:border sm:border-border/70 sm:shadow-2xl"
+        className="h-[min(88dvh,44rem)] w-full max-w-full overflow-hidden overscroll-contain rounded-t-xl border-border/70 border-t p-0 sm:inset-y-4 sm:right-4 sm:h-[calc(100dvh-2rem)] sm:w-[min(52rem,calc(100vw-2rem))] sm:max-w-[min(52rem,calc(100vw-2rem))] sm:rounded-xl sm:border sm:shadow-2xl"
+        mobileSide="bottom"
         side="right"
       >
         <div className="flex h-full min-h-0 min-w-0 flex-col">

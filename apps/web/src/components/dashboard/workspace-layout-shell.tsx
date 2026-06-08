@@ -56,7 +56,10 @@ export function WorkspaceLayoutShell({
 }) {
   return (
     <ThemeProvider>
-      <main className="h-svh overflow-hidden bg-background text-foreground">
+      <main
+        className="h-dvh min-h-0 overflow-hidden bg-background text-foreground"
+        style={{ height: "100dvh", minHeight: "100dvh" }}
+      >
         <AppQueryProvider>
           <WorkspaceBootstrapProvider>
             <WorkspaceLayoutFrame>{children}</WorkspaceLayoutFrame>

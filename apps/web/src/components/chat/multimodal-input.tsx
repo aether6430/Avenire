@@ -1325,7 +1325,14 @@ function PureComposerVoiceButton({
               : { duration: 0.18, ease: "easeOut" }
           }
         >
-          <Microphone className="size-[15px] md:size-4" weight="regular" />
+          {isRecording ? (
+            <Square
+              className="size-3 fill-current md:size-[13px]"
+              weight="fill"
+            />
+          ) : (
+            <Microphone className="size-[15px] md:size-4" weight="regular" />
+          )}
         </motion.span>
       </Button>
     </div>

@@ -177,6 +177,7 @@ export function TaskAssigneePicker({
       <PopoverContent
         align="start"
         className="w-[min(24rem,calc(100vw-1rem))] rounded-xl border border-border/70 p-0 shadow-lg"
+        mobileSheet
         sideOffset={8}
       >
         <Command className="p-0">

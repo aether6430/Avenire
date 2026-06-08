@@ -149,6 +149,7 @@ export function TaskDueDatePicker({
       <PopoverContent
         align="start"
         className="w-auto rounded-xl border border-border/70 p-2 shadow-lg"
+        mobileSheet
         sideOffset={8}
       >
         <Calendar

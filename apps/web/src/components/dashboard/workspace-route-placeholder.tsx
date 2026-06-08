@@ -8,7 +8,7 @@ export function WorkspaceRoutePlaceholder({
   label?: string;
 }) {
   return (
-    <div className="flex h-full min-h-0 flex-1 items-center justify-center">
+    <div className="flex h-full min-h-[100dvh] flex-1 items-center justify-center bg-background">
       <div className="inline-flex items-center gap-2 text-muted-foreground text-sm">
         <Spinner className="size-4" />
         {label}

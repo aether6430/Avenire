@@ -1,4 +1,5 @@
 import { type ApolloModelName, apollo, generateText } from "@avenire/ai";
+import { config } from "../config";
 
 const QUERY_EXPANSION_MODEL: ApolloModelName = "apollo-tiny";
 const CODE_FENCE_START_PATTERN = /^```(?:json|text)?\s*/i;
@@ -44,4 +45,34 @@ export async function expandQuery(query: string): Promise<string | null> {
   }
 
   return expanded;
+}
+
+export async function generateHydeDocument(
+  query: string
+): Promise<string | null> {
+  const normalizedQuery = normalizeExpansion(query);
+  if (!(normalizedQuery && config.retrievalHydeEnabled)) {
+    return null;
+  }
+
+  const { text } = await generateText({
+    model: apollo.languageModel(QUERY_EXPANSION_MODEL),
+    system: [
+      "Write a concise hypothetical source excerpt that would directly answer this student search query.",
+      "Make it factual-sounding but generic, include likely technical terms, and do not mention that it is hypothetical.",
+      "Output only the excerpt.",
+    ].join(" "),
+    prompt: normalizedQuery,
+    temperature: 0.2,
+    maxOutputTokens: Math.max(32, config.retrievalHydeMaxOutputTokens),
+  });
+
+  const hydeDocument = normalizeExpansion(stripCodeFences(text));
+  if (!hydeDocument) {
+    return null;
+  }
+
+  return hydeDocument.toLowerCase() === normalizedQuery.toLowerCase()
+    ? null
+    : hydeDocument;
 }

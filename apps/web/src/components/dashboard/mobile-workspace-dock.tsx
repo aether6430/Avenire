@@ -573,13 +573,13 @@ export function MobileWorkspaceDock({
       {shouldRenderDock ? (
         <nav
           aria-label="Workspace sections"
-          className="fixed right-0 bottom-[calc(0.35rem+env(safe-area-inset-bottom))] left-0 z-40 flex justify-center px-2.5 md:hidden"
+          className="fixed inset-x-0 bottom-[calc(0.35rem+env(safe-area-inset-bottom))] z-40 flex justify-center px-3 md:hidden"
         >
           <AnimatePresence initial={false} mode="popLayout">
             {showCompactChatDock ? (
               <motion.div
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                className="grid h-12 w-full max-w-[24.5rem] grid-cols-[3rem_minmax(0,1fr)_3rem] items-center gap-2"
+                className="grid h-12 w-full grid-cols-[3rem_minmax(0,1fr)_3rem] items-center gap-2"
                 exit={{ opacity: 0, y: 8, scale: 0.98 }}
                 initial={{ opacity: 0, y: 8, scale: 0.98 }}
                 key="compact-chat-dock"
@@ -622,7 +622,7 @@ export function MobileWorkspaceDock({
             ) : (
               <motion.div
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                className="grid h-[3.2rem] w-full max-w-[24.5rem] grid-cols-5 items-center gap-1 rounded-full border border-border/55 bg-background/95 px-1.5 shadow-[0_12px_38px_-28px_rgba(0,0,0,0.8)] backdrop-blur-xl dark:bg-background/90"
+                className="grid h-[3.2rem] w-full grid-cols-5 items-center gap-1 rounded-full border border-border/55 bg-background/95 px-1.5 shadow-[0_12px_38px_-28px_rgba(0,0,0,0.8)] backdrop-blur-xl dark:bg-background/90"
                 exit={{ opacity: 0, y: 8, scale: 0.98 }}
                 initial={{ opacity: 0, y: 8, scale: 0.98 }}
                 key="expanded-dock"
@@ -687,12 +687,8 @@ export function MobileWorkspaceDock({
         <DrawerContent className="md:hidden">
           <DrawerHeader className="text-left">
             <DrawerTitle>{activeItem?.label ?? "Workspace"}</DrawerTitle>
-            <DrawerDescription>
-              {isChatRoute
-                ? "Navigation and recent chats"
-                : activeWorkspace
-                  ? "Workspace shortcuts"
-                  : "Workspace context"}
+            <DrawerDescription className="sr-only">
+              Workspace navigation
             </DrawerDescription>
           </DrawerHeader>
           {sheetBody}
