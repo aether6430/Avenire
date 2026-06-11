@@ -57,4 +57,15 @@ describe("/api/flashcards/sets/[setId]/enrollment route", () => {
     expect(upsertFlashcardSetEnrollmentForUserMock).not.toHaveBeenCalled();
     expect(invalidateFlashcardReadCachesMock).not.toHaveBeenCalled();
   });
+
+  it("rejects empty enrollment mutations before upserting", async () => {
+    const response = await postEnrollment({});
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Invalid payload",
+    });
+    expect(upsertFlashcardSetEnrollmentForUserMock).not.toHaveBeenCalled();
+    expect(invalidateFlashcardReadCachesMock).not.toHaveBeenCalled();
+  });
 });

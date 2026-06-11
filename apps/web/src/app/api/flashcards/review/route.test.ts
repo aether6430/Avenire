@@ -67,6 +67,7 @@ describe("/api/flashcards/review route", () => {
     });
     expect(reviewFlashcardForUserMock).not.toHaveBeenCalled();
     expect(invalidateFlashcardReadCachesMock).not.toHaveBeenCalled();
+    expect(publishWorkspaceStreamEventMock).not.toHaveBeenCalled();
   });
 
   it("forwards valid ratings to the review service", async () => {

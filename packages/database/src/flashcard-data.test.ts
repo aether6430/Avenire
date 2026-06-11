@@ -33,6 +33,8 @@ describe("createFlashcardCardForUser", () => {
       ".where(eq(flashcardCard.setId, input.setId))"
     );
     expect(createSource).not.toContain("isNull(flashcardCard.archivedAt)");
-    expect(createSource).toContain("await tx\n      .update(flashcardSet)");
+    expect(createSource).toMatch(
+      /await\s+tx\s*\.\s*update\s*\(\s*flashcardSet\s*\)/
+    );
   });
 });

@@ -78,14 +78,23 @@ const readDataEmbedding = (
 const sortDataEntries = (
   entries: Array<{ item: Record<string, unknown>; originalIndex: number }>
 ): Array<{ item: Record<string, unknown>; originalIndex: number }> => {
-  if (!entries.every((entry) => isFiniteNumber(entry.item.index))) {
-    return entries;
-  }
+  const indexedEntries = entries
+    .filter((entry) => isFiniteNumber(entry.item.index))
+    .sort((a, b) => {
+      const indexA = a.item.index as number;
+      const indexB = b.item.index as number;
+      return indexA - indexB || a.originalIndex - b.originalIndex;
+    });
+  let indexedEntryIndex = 0;
 
-  return [...entries].sort((a, b) => {
-    const indexA = a.item.index as number;
-    const indexB = b.item.index as number;
-    return indexA - indexB || a.originalIndex - b.originalIndex;
+  return entries.map((entry) => {
+    if (!isFiniteNumber(entry.item.index)) {
+      return entry;
+    }
+
+    const sortedEntry = indexedEntries[indexedEntryIndex];
+    indexedEntryIndex += 1;
+    return sortedEntry ?? entry;
   });
 };
 

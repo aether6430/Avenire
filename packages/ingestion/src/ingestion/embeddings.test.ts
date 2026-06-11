@@ -49,6 +49,19 @@ describe("embedding response parsing", () => {
     ).toEqual([[0], [1], [2]]);
   });
 
+  it("sorts indexed data entries without moving unindexed entries", () => {
+    expect(
+      extractEmbeddingsFromResponse({
+        data: [
+          { index: 2, embedding: [2] },
+          { embedding: [9] },
+          { index: 0, embedding: [0] },
+          { index: 1, embedding: [1] },
+        ],
+      })
+    ).toEqual([[0], [9], [1], [2]]);
+  });
+
   it("rejects malformed vector values", () => {
     expect(() =>
       extractEmbeddingsFromResponse({ embeddings: [[1, "2"]] })

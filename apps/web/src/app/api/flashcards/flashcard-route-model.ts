@@ -28,7 +28,13 @@ export const flashcardCardUpdateSchema = z.object({
   tags: z.array(z.string()).optional(),
 });
 
-export const flashcardEnrollmentSchema = z.object({
-  newCardsPerDay: z.number().int().min(1).max(100).optional(),
-  status: z.enum(["active", "paused"]).optional(),
-});
+export const flashcardEnrollmentSchema = z
+  .object({
+    newCardsPerDay: z.number().int().min(1).max(100).optional(),
+    status: z.enum(["active", "paused"]).optional(),
+  })
+  .refine(
+    ({ newCardsPerDay, status }) =>
+      newCardsPerDay !== undefined || status !== undefined,
+    { message: "At least one enrollment field is required" }
+  );
