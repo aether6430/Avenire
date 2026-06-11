@@ -63,6 +63,61 @@ function toPositiveInt(value: string | undefined, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+export async function readResponseBytesWithLimit(
+  response: Response,
+  maxBytes: number
+): Promise<Uint8Array | null> {
+  const contentLength = Number.parseInt(
+    response.headers.get("content-length") ?? "",
+    10
+  );
+  if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+    return null;
+  }
+
+  if (!response.body) {
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    return bytes.byteLength > 0 && bytes.byteLength <= maxBytes ? bytes : null;
+  }
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      if (!value) {
+        continue;
+      }
+
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) {
+        await reader.cancel();
+        return null;
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  if (totalBytes === 0) {
+    return null;
+  }
+
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
+}
+
 function flagInvalidCitations(input: {
   allowedFileIds: string[];
   text: string;
@@ -286,6 +341,10 @@ export async function POST(request: Request) {
             };
           }
 
+          if (file.sizeBytes > attachmentMaxBytes) {
+            return null;
+          }
+
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), fetchTimeoutMs);
 
@@ -306,11 +365,11 @@ export async function POST(request: Request) {
                 ? downloadedType
                 : normalizeMediaType(file.mimeType);
 
-            const bytes = new Uint8Array(await response.arrayBuffer());
-            if (
-              bytes.byteLength === 0 ||
-              bytes.byteLength > attachmentMaxBytes
-            ) {
+            const bytes = await readResponseBytesWithLimit(
+              response,
+              attachmentMaxBytes
+            );
+            if (!bytes) {
               return null;
             }
 

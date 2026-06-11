@@ -52,7 +52,7 @@ vi.mock("@/lib/workspace", () => ({
   getSessionUser: getSessionUserMock,
 }));
 
-import { POST } from "./route";
+import { POST, readResponseBytesWithLimit } from "./route";
 
 const ACCESSIBLE_FILE_ID = "22222222-2222-4222-8222-222222222222";
 const INACCESSIBLE_FILE_ID = "33333333-3333-4333-8333-333333333333";
@@ -195,6 +195,49 @@ describe("/api/ai/retrieval/summary route", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it("stops reading a streamed attachment once it exceeds the byte limit", async () => {
+    const response = new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new Uint8Array([1, 2, 3, 4]));
+          controller.enqueue(new Uint8Array([5, 6, 7, 8]));
+          controller.close();
+        },
+      })
+    );
+
+    await expect(readResponseBytesWithLimit(response, 6)).resolves.toBeNull();
+  });
+
+  it("skips known oversized attachments without fetching them", async () => {
+    vi.stubEnv("RETRIEVAL_SUMMARY_ATTACHMENT_MAX_BYTES", "256000");
+    getFileAssetByIdMock.mockResolvedValue(
+      buildFileRecord({
+        mimeType: "image/png",
+        sizeBytes: 300_000,
+      })
+    );
+
+    const response = await postSummary({
+      matches: [
+        {
+          fileId: ACCESSIBLE_FILE_ID,
+          sourceType: "image",
+        },
+      ],
+      query: "Describe this image",
+      workspaceUuid: WORKSPACE_ID,
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      summary: FALLBACK_SUMMARY,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(generateTextMock).not.toHaveBeenCalled();
   });
 
   it("returns unauthorized without fetching files or calling the model", async () => {

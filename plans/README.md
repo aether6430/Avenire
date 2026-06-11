@@ -12,6 +12,9 @@ honor its STOP conditions, and update your row when done.
 | 002 | Enforce flashcard new-card daily limits across queue refreshes | P1 | M | 001 | DONE |
 | 003 | Verify retrieval-summary evidence before prompting the model | P1 | M | - | DONE |
 | 004 | Replace ingestion response `any` parsing with typed guards | P2 | M | - | DONE |
+| 005 | Sanitize primitive widget HTML without removing the HTML node | P0 | M | - | TODO |
+| 006 | Harden remote ingestion against SSRF and unsafe redirects | P0 | L | - | TODO |
+| 007 | Remediate high-severity production dependency advisories | P0 | M | - | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale - finding fixed independently or approach abandoned)
 
@@ -19,6 +22,8 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 
 - 002 depends on 001 because invalid review ratings should be rejected at the API boundary before any scheduler or queue behavior is changed.
 - 003 and 004 can be executed independently.
+- 005, 006, and 007 can be executed independently. Plan 006 should be reviewed
+  alongside 007 if it adds or changes a direct HTTP-client dependency.
 
 ## Verification baseline
 

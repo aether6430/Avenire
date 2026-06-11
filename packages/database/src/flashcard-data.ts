@@ -1155,44 +1155,47 @@ export async function createFlashcardCardForUser(input: {
     return null;
   }
 
-  const [lastCard] = await db
-    .select({ ordinal: flashcardCard.ordinal })
-    .from(flashcardCard)
-    .where(
-      and(
-        eq(flashcardCard.setId, input.setId),
-        isNull(flashcardCard.archivedAt)
-      )
-    )
-    .orderBy(desc(flashcardCard.ordinal))
-    .limit(1);
-
   const now = new Date();
   const kind = sanitizeCardKind(input.kind);
   const taxonomy = assertFlashcardTaxonomy(input.source, "flashcard creation");
-  const [created] = await db
-    .insert(flashcardCard)
-    .values({
-      backMarkdown: input.backMarkdown.trim(),
-      createdAt: now,
-      createdBy: input.userId,
-      frontMarkdown: input.frontMarkdown.trim(),
-      kind,
-      notesMarkdown: sanitizeDescription(input.notesMarkdown),
-      ordinal: (lastCard?.ordinal ?? 0) + 1,
-      payload: sanitizeCardPayload(kind, input.payload),
-      setId: input.setId,
-      source: buildFlashcardSource(input.source, taxonomy),
-      tags: sanitizeTags(input.tags),
-      updatedAt: now,
-      updatedBy: input.userId,
-    })
-    .returning();
+  const created = await db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${`flashcard-card-ordinal:${input.setId}`}))`
+    );
 
-  await db
-    .update(flashcardSet)
-    .set({ updatedAt: now, updatedBy: input.userId })
-    .where(eq(flashcardSet.id, input.setId));
+    const [lastCard] = await tx
+      .select({ ordinal: flashcardCard.ordinal })
+      .from(flashcardCard)
+      .where(eq(flashcardCard.setId, input.setId))
+      .orderBy(desc(flashcardCard.ordinal))
+      .limit(1);
+
+    const [inserted] = await tx
+      .insert(flashcardCard)
+      .values({
+        backMarkdown: input.backMarkdown.trim(),
+        createdAt: now,
+        createdBy: input.userId,
+        frontMarkdown: input.frontMarkdown.trim(),
+        kind,
+        notesMarkdown: sanitizeDescription(input.notesMarkdown),
+        ordinal: (lastCard?.ordinal ?? 0) + 1,
+        payload: sanitizeCardPayload(kind, input.payload),
+        setId: input.setId,
+        source: buildFlashcardSource(input.source, taxonomy),
+        tags: sanitizeTags(input.tags),
+        updatedAt: now,
+        updatedBy: input.userId,
+      })
+      .returning();
+
+    await tx
+      .update(flashcardSet)
+      .set({ updatedAt: now, updatedBy: input.userId })
+      .where(eq(flashcardSet.id, input.setId));
+
+    return inserted;
+  });
 
   return mapCard(created);
 }

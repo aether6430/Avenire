@@ -6,10 +6,12 @@
   "types": "./index.d.ts",
   "files": [
     "index.d.ts",
+    "react-overrides.d.ts",
     "src/generate-env-types.mjs"
   ],
   "scripts": {
-    "generate": "node ./src/generate-env-types.mjs"
+    "generate": "node ./src/generate-env-types.mjs",
+    "check-types": "node ./src/generate-env-types.mjs --check"
   },
   "engines": {
     "bun": ">=1.0.0"
