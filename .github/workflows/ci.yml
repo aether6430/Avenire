@@ -56,6 +56,7 @@ jobs:
           BETTER_AUTH_SECRET: ci-build-only-secret-not-for-production-123456
           BETTER_AUTH_URL: http://localhost:3000
           NEXT_PUBLIC_APP_URL: http://localhost:3000
+          RESEND_API_KEY: re_ci_build_only
 
       - name: Run tests
         run: pnpm test
