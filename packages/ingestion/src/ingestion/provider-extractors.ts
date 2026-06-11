@@ -37,6 +37,25 @@ const isSocialHost = (host: string, values: string[]): boolean => {
   return values.some((value) => host === value || host.endsWith(`.${value}`));
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const getRecord = (
+  value: Record<string, unknown>,
+  key: string
+): Record<string, unknown> | null => {
+  const nested = value[key];
+  return isRecord(nested) ? nested : null;
+};
+
+const getString = (
+  value: Record<string, unknown>,
+  key: string
+): string | undefined => {
+  const nested = value[key];
+  return typeof nested === "string" ? nested : undefined;
+};
+
 const extractYouTube = async (url: URL): Promise<ProviderExtracted> => {
   const oembedUrl = new URL("https://www.youtube.com/oembed");
   oembedUrl.searchParams.set("url", url.toString());
@@ -84,6 +103,43 @@ const extractPinterest = async (url: URL): Promise<ProviderExtracted> => {
   };
 };
 
+const getFirstRecord = (value: unknown): Record<string, unknown> | null => {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const first = value[0];
+  return isRecord(first) ? first : null;
+};
+
+const extractRedditPost = (
+  payload: unknown
+): Record<string, unknown> | null => {
+  const listing = getFirstRecord(payload);
+  if (!listing) {
+    return null;
+  }
+
+  const listingData = getRecord(listing, "data");
+  const children = listingData?.children;
+  const child = getFirstRecord(children);
+  if (!child) {
+    return null;
+  }
+
+  return getRecord(child, "data");
+};
+
+const extractRedditVideoFallback = (
+  post: Record<string, unknown>
+): string | undefined => {
+  const secureMedia = getRecord(post, "secure_media");
+  const redditVideo = secureMedia
+    ? getRecord(secureMedia, "reddit_video")
+    : null;
+  return redditVideo ? getString(redditVideo, "fallback_url") : undefined;
+};
+
 const extractReddit = async (url: URL): Promise<ProviderExtracted> => {
   const pathname = url.pathname.replace(/\/$/, "");
   const jsonUrl = pathname.endsWith(".json")
@@ -98,27 +154,34 @@ const extractReddit = async (url: URL): Promise<ProviderExtracted> => {
     },
   });
 
-  const payload = (await response.json().catch(() => null)) as any;
-  const post = payload?.[0]?.data?.children?.[0]?.data;
+  const payload: unknown = await response.json().catch(() => null);
+  const post = extractRedditPost(payload);
+  const title = post ? getString(post, "title") : undefined;
+  const selftext = post ? getString(post, "selftext") : undefined;
 
   const mediaUrls: string[] = [];
-  if (typeof post?.url_overridden_by_dest === "string") {
-    mediaUrls.push(post.url_overridden_by_dest);
+  const destinationUrl = post
+    ? getString(post, "url_overridden_by_dest")
+    : undefined;
+  if (destinationUrl) {
+    mediaUrls.push(destinationUrl);
   }
-  if (typeof post?.url === "string") {
-    mediaUrls.push(post.url);
+  const postUrl = post ? getString(post, "url") : undefined;
+  if (postUrl) {
+    mediaUrls.push(postUrl);
   }
-  if (typeof post?.secure_media?.reddit_video?.fallback_url === "string") {
-    mediaUrls.push(post.secure_media.reddit_video.fallback_url);
+  const videoUrl = post ? extractRedditVideoFallback(post) : undefined;
+  if (videoUrl) {
+    mediaUrls.push(videoUrl);
   }
 
   return {
     provider: "reddit",
-    title: post?.title,
+    title,
     content: [
       `Reddit URL: ${url.toString()}`,
-      post?.title ? `Title: ${post.title}` : "",
-      post?.selftext ? `Body: ${post.selftext}` : "",
+      title ? `Title: ${title}` : "",
+      selftext ? `Body: ${selftext}` : "",
     ]
       .filter(Boolean)
       .join("\n\n"),

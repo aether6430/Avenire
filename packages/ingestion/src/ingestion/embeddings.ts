@@ -1,5 +1,9 @@
 import { cosineSimilarity } from "ai";
 import { config } from "../config";
+import {
+  extractEmbeddingsFromResponse,
+  validateEmbeddingDimensions,
+} from "./embedding-response";
 
 export interface MultimodalInput {
   content: Array<
@@ -250,35 +254,6 @@ const toTextOnlyInput = (value: MultimodalInput): MultimodalInput => {
   };
 };
 
-const extractEmbeddingsFromResponse = (json: any): number[][] => {
-  if (Array.isArray(json?.embeddings)) {
-    if (json.embeddings.length === 0) {
-      return [];
-    }
-
-    if (Array.isArray(json.embeddings[0])) {
-      return json.embeddings as number[][];
-    }
-
-    if (Array.isArray(json.embeddings[0]?.embedding)) {
-      return json.embeddings.map((item: any) => item.embedding as number[]);
-    }
-  }
-
-  if (Array.isArray(json?.embeddings?.float)) {
-    return json.embeddings.float as number[][];
-  }
-
-  if (Array.isArray(json?.data)) {
-    return [...json.data]
-      .sort((a: any, b: any) => (a?.index ?? 0) - (b?.index ?? 0))
-      .map((item: any) => item?.embedding ?? item?.embeddings?.float)
-      .filter((value: unknown): value is number[] => Array.isArray(value));
-  }
-
-  return [];
-};
-
 const fetchCohereEmbeddings = async (params: {
   values: MultimodalInput[];
   inputType: CohereEmbedInputType;
@@ -430,6 +405,11 @@ export const embedMultimodal = async (
         `Cohere embeddings length mismatch: expected ${batch.length}, received ${batchEmbeddings.length}.`
       );
     }
+    validateEmbeddingDimensions(
+      batchEmbeddings,
+      config.embeddingDimensions,
+      "Cohere embeddings"
+    );
 
     embeddings.push(...batchEmbeddings);
   }

@@ -15,6 +15,7 @@ import {
 } from "@/lib/route-cache";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
 import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
+import { flashcardSetMutationSchema } from "../flashcard-route-model";
 
 export async function GET() {
   const ctx = await getWorkspaceContextForUser();
@@ -57,11 +58,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = (await request.json().catch(() => ({}))) as {
-    description?: string | null;
-    tags?: string[];
-    title?: string;
-  };
+  const parsed = flashcardSetMutationSchema.safeParse(
+    await request.json().catch(() => ({}))
+  );
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  }
+  const body = parsed.data;
 
   const set = await createFlashcardSetForUser({
     description: body.description,

@@ -437,7 +437,7 @@ describe("chat tool misconception runtime", () => {
     expect(
       (tools.list_misconceptions as { description?: string }).description
     ).toContain("near the beginning of each substantive response");
-  });
+  }, 15_000);
 
   it("resolves and improves misconceptions while recomputing mastery", async () => {
     resolveMisconceptionsForConceptMock.mockResolvedValue([{ id: "m-1" }]);

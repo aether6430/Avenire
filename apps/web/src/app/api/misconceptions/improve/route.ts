@@ -5,10 +5,10 @@ import {
 } from "@avenire/database";
 import { NextResponse } from "next/server";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
-
-function normalizeText(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
-}
+import {
+  misconceptionImproveSchema,
+  misconceptionScopeSchema,
+} from "../misconception-route-model";
 
 export async function POST(request: Request) {
   const ctx = await getWorkspaceContextForUser();
@@ -16,54 +16,40 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = (await request.json().catch(() => ({}))) as {
-    concept?: unknown;
-    delta?: unknown;
-    decay?: unknown;
-    resolveThreshold?: unknown;
-    subject?: unknown;
-    topic?: unknown;
-  };
+  const payload = await request.json().catch(() => ({}));
+  const parsed = misconceptionImproveSchema.safeParse(payload);
+  if (!parsed.success) {
+    if (misconceptionScopeSchema.safeParse(payload).success) {
+      return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    }
 
-  const concept = normalizeText(body.concept);
-  const subject = normalizeText(body.subject);
-  const topic = normalizeText(body.topic);
-  const decayRaw =
-    typeof body.decay === "number" ? body.decay : Number(body.decay);
-  const deltaRaw =
-    typeof body.delta === "number" ? body.delta : Number(body.delta);
-  const resolveThresholdRaw =
-    typeof body.resolveThreshold === "number"
-      ? body.resolveThreshold
-      : Number(body.resolveThreshold);
-
-  if (!(concept && subject && topic)) {
     return NextResponse.json(
       { error: "Concept, subject, and topic are required" },
       { status: 400 }
     );
   }
+  const { concept, decay, delta, resolveThreshold, subject, topic } =
+    parsed.data;
 
-  const improved = Number.isFinite(deltaRaw)
-    ? await adjustMisconceptionConfidenceForConcept({
-        concept,
-        delta: deltaRaw,
-        subject,
-        topic,
-        userId: ctx.user.id,
-        workspaceId: ctx.workspace.workspaceId,
-      })
-    : await improveMisconceptionsForConcept({
-        concept,
-        decay: Number.isFinite(decayRaw) ? decayRaw : undefined,
-        resolveThreshold: Number.isFinite(resolveThresholdRaw)
-          ? resolveThresholdRaw
-          : undefined,
-        subject,
-        topic,
-        userId: ctx.user.id,
-        workspaceId: ctx.workspace.workspaceId,
-      });
+  const improved =
+    typeof delta === "number"
+      ? await adjustMisconceptionConfidenceForConcept({
+          concept,
+          delta,
+          subject,
+          topic,
+          userId: ctx.user.id,
+          workspaceId: ctx.workspace.workspaceId,
+        })
+      : await improveMisconceptionsForConcept({
+          concept,
+          decay,
+          resolveThreshold,
+          subject,
+          topic,
+          userId: ctx.user.id,
+          workspaceId: ctx.workspace.workspaceId,
+        });
 
   await recomputeConceptMastery({
     concept,

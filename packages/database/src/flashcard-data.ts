@@ -18,10 +18,15 @@ import {
   type FlashcardReviewStateName,
   type PersistedFlashcardSchedulerState,
 } from "./flashcard-fsrs";
+import { applyNewCardDailyLimitToQueue } from "./flashcard-queue";
 import {
   createFlashcardReviewCommittedEvent,
   emitFlashcardReviewEvent,
 } from "./flashcard-review-events";
+import {
+  type FlashcardTaxonomy,
+  normalizeFlashcardTaxonomy,
+} from "./learning-taxonomy";
 import {
   flashcardCard,
   flashcardReviewLog,
@@ -30,10 +35,6 @@ import {
   flashcardSetEnrollment,
   workspace,
 } from "./schema";
-import {
-  normalizeFlashcardTaxonomy,
-  type FlashcardTaxonomy,
-} from "./learning-taxonomy";
 
 export type FlashcardSourceType = "manual" | "ai-generated";
 export type FlashcardCardKind = "flashcard" | "multiple_choice_quiz";
@@ -488,6 +489,36 @@ function listReviewLogSetIdsSince(
     );
 }
 
+function listIntroducedNewCardCountsSince(
+  userId: string,
+  setIds: string[],
+  since: Date
+) {
+  if (setIds.length === 0) {
+    return [];
+  }
+
+  return db
+    .select({
+      count: sql<number>`count(*)::int`,
+      setId: flashcardCard.setId,
+    })
+    .from(flashcardReviewLog)
+    .innerJoin(
+      flashcardCard,
+      eq(flashcardCard.id, flashcardReviewLog.flashcardId)
+    )
+    .where(
+      and(
+        eq(flashcardReviewLog.userId, userId),
+        inArray(flashcardCard.setId, setIds),
+        gte(flashcardReviewLog.reviewedAt, since),
+        isNull(flashcardReviewLog.previousState)
+      )
+    )
+    .groupBy(flashcardCard.setId);
+}
+
 function listRecentReviewLogsForSet(
   userId: string,
   setId: string,
@@ -768,11 +799,13 @@ async function hydrateSetSummaries(
   const rows = await listAccessibleSetRows(userId, workspaceId, setId);
   const sets = rows.map((row) => row.set);
   const setIds = sets.map((row) => row.id);
-  const [cards, reviewTodayRows, review7dRows] = await Promise.all([
-    listCardsForSetIds(setIds),
-    listReviewLogSetIdsSince(userId, setIds, startOfDay(now)),
-    listReviewLogSetIdsSince(userId, setIds, sevenDaysAgo(now)),
-  ]);
+  const [cards, reviewTodayRows, review7dRows, introducedNewTodayRows] =
+    await Promise.all([
+      listCardsForSetIds(setIds),
+      listReviewLogSetIdsSince(userId, setIds, startOfDay(now)),
+      listReviewLogSetIdsSince(userId, setIds, sevenDaysAgo(now)),
+      listIntroducedNewCardCountsSince(userId, setIds, startOfDay(now)),
+    ]);
   const states = await listReviewStatesForCardIds(
     userId,
     cards.map((card) => card.id)
@@ -792,6 +825,7 @@ async function hydrateSetSummaries(
   }
   const reviewCountsToday = new Map<string, number>();
   const reviewCounts7d = new Map<string, number>();
+  const introducedNewTodayBySet = new Map<string, number>();
 
   for (const row of reviewTodayRows) {
     reviewCountsToday.set(
@@ -804,8 +838,13 @@ async function hydrateSetSummaries(
     reviewCounts7d.set(row.setId, (reviewCounts7d.get(row.setId) ?? 0) + 1);
   }
 
+  for (const row of introducedNewTodayRows) {
+    introducedNewTodayBySet.set(row.setId, row.count);
+  }
+
   return {
     cards,
+    introducedNewTodayBySet,
     reviewStates,
     rows,
     summaries: buildSetSummaries({
@@ -1130,10 +1169,7 @@ export async function createFlashcardCardForUser(input: {
 
   const now = new Date();
   const kind = sanitizeCardKind(input.kind);
-  const taxonomy = assertFlashcardTaxonomy(
-    input.source,
-    "flashcard creation"
-  );
+  const taxonomy = assertFlashcardTaxonomy(input.source, "flashcard creation");
   const [created] = await db
     .insert(flashcardCard)
     .values({
@@ -1183,10 +1219,7 @@ export async function updateFlashcardCardForUser(input: {
   }
 
   const kind = sanitizeCardKind(input.kind ?? existing.card.kind);
-  const taxonomy = assertFlashcardTaxonomy(
-    input.source,
-    "flashcard update"
-  );
+  const taxonomy = assertFlashcardTaxonomy(input.source, "flashcard update");
   const [updated] = await db
     .update(flashcardCard)
     .set({
@@ -1350,9 +1383,11 @@ export async function listDueFlashcardsForUser(
     if (filterKeys) {
       const taxonomy = normalizeFlashcardTaxonomy(card.source);
       if (
-        !taxonomy ||
-        !filterKeys.has(
-          `${taxonomy.subject}::${taxonomy.topic}::${taxonomy.concept}`
+        !(
+          taxonomy &&
+          filterKeys.has(
+            `${taxonomy.subject}::${taxonomy.topic}::${taxonomy.concept}`
+          )
         )
       ) {
         continue;
@@ -1405,20 +1440,13 @@ export async function listDueFlashcardsForUser(
     )
   );
 
-  const seenNewBySet = new Map<string, number>();
-  const filteredQueue = queue.filter((item) => {
-    if (item.reviewState) {
-      return true;
-    }
-
-    const enrollment = enrollmentBySetId.get(item.card.setId);
-    const nextCount = (seenNewBySet.get(item.card.setId) ?? 0) + 1;
-    if (nextCount > (enrollment?.newCardsPerDay ?? 20)) {
-      return false;
-    }
-
-    seenNewBySet.set(item.card.setId, nextCount);
-    return true;
+  const filteredQueue = applyNewCardDailyLimitToQueue({
+    getNewCardsPerDay: (item) =>
+      enrollmentBySetId.get(item.card.setId)?.newCardsPerDay,
+    getSetId: (item) => item.card.setId,
+    introducedNewTodayBySet: hydrated.introducedNewTodayBySet,
+    isNew: (item) => !item.reviewState,
+    items: queue,
   });
 
   return filteredQueue.slice(0, limit).map((item, index) => ({

@@ -12,7 +12,7 @@ interface OcrPage {
 }
 
 interface OcrResponse {
-  model: string;
+  model?: string;
   pages: OcrPage[];
 }
 
@@ -213,7 +213,203 @@ const streamToText = async (
   return merged.toString("utf-8");
 };
 
-const parseBatchOutputLines = (
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const getRecord = (
+  value: Record<string, unknown>,
+  key: string
+): Record<string, unknown> | null => {
+  const nested = value[key];
+  return isRecord(nested) ? nested : null;
+};
+
+const getString = (
+  value: Record<string, unknown>,
+  key: string
+): string | null => {
+  const nested = value[key];
+  return typeof nested === "string" ? nested : null;
+};
+
+const toCustomId = (value: unknown): string | null => {
+  if (typeof value === "string" && value.trim()) {
+    return value;
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  return null;
+};
+
+const getBatchCustomId = (row: Record<string, unknown>): string | null => {
+  const request = getRecord(row, "request");
+  return (
+    toCustomId(row.custom_id) ??
+    toCustomId(row.customId) ??
+    (request ? toCustomId(request.custom_id) : null) ??
+    (request ? toCustomId(request.customId) : null) ??
+    toCustomId(row.id)
+  );
+};
+
+const getBatchBody = (
+  row: Record<string, unknown>
+): Record<string, unknown> | null => {
+  const response = getRecord(row, "response");
+  return (
+    (response ? getRecord(response, "body") : null) ??
+    getRecord(row, "body") ??
+    getRecord(row, "output") ??
+    getRecord(row, "result")
+  );
+};
+
+const parseOcrImages = (
+  value: unknown
+): OcrPage["images"] | undefined | null => {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const images: NonNullable<OcrPage["images"]> = [];
+  for (const item of value) {
+    if (!isRecord(item)) {
+      return null;
+    }
+
+    const id = getString(item, "id");
+    if (!id) {
+      return null;
+    }
+
+    const imageAnnotation = item.imageAnnotation;
+    if (
+      imageAnnotation !== undefined &&
+      imageAnnotation !== null &&
+      typeof imageAnnotation !== "string"
+    ) {
+      return null;
+    }
+
+    images.push({ id, imageAnnotation });
+  }
+
+  return images;
+};
+
+const parseOcrTables = (
+  value: unknown
+): OcrPage["tables"] | undefined | null => {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const tables: NonNullable<OcrPage["tables"]> = [];
+  for (const item of value) {
+    if (!isRecord(item)) {
+      return null;
+    }
+
+    const id = getString(item, "id");
+    const content = getString(item, "content");
+    if (!id || content === null) {
+      return null;
+    }
+
+    tables.push({ id, content });
+  }
+
+  return tables;
+};
+
+const parseOcrPage = (value: unknown): OcrPage | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const { index, markdown } = value;
+  if (typeof index !== "number" || !Number.isFinite(index)) {
+    return null;
+  }
+  if (typeof markdown !== "string") {
+    return null;
+  }
+
+  const images = parseOcrImages(value.images);
+  if (images === null) {
+    return null;
+  }
+
+  const tables = parseOcrTables(value.tables);
+  if (tables === null) {
+    return null;
+  }
+
+  return {
+    index,
+    markdown,
+    ...(images ? { images } : {}),
+    ...(tables ? { tables } : {}),
+  };
+};
+
+const parseOcrResponse = (value: unknown): OcrResponse | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const model = value.model;
+  if (model !== undefined && typeof model !== "string") {
+    return null;
+  }
+
+  if (!Array.isArray(value.pages)) {
+    return null;
+  }
+
+  const pages: OcrPage[] = [];
+  for (const pageValue of value.pages) {
+    const page = parseOcrPage(pageValue);
+    if (!page) {
+      return null;
+    }
+    pages.push(page);
+  }
+
+  return {
+    ...(model ? { model } : {}),
+    pages,
+  };
+};
+
+const parseBatchOutputRow = (
+  value: unknown
+): { customId: string; body: OcrResponse } | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const customId = getBatchCustomId(value);
+  const body = parseOcrResponse(getBatchBody(value));
+  if (!(customId && body)) {
+    return null;
+  }
+
+  return { customId, body };
+};
+
+export const parseMistralBatchOutputLines = (
   jsonl: string
 ): Array<{ customId: string; body: OcrResponse }> => {
   const rows: Array<{ customId: string; body: OcrResponse }> = [];
@@ -223,21 +419,11 @@ const parseBatchOutputLines = (
     .map((v) => v.trim())
     .filter(Boolean)) {
     try {
-      const parsed = JSON.parse(line) as Record<string, any>;
-      const customId =
-        parsed.custom_id ??
-        parsed.customId ??
-        parsed.request?.custom_id ??
-        parsed.request?.customId ??
-        parsed.id;
-
-      const body =
-        parsed.response?.body ?? parsed.body ?? parsed.output ?? parsed.result;
-      if (!(customId && body?.pages && Array.isArray(body.pages))) {
-        continue;
+      const parsed: unknown = JSON.parse(line);
+      const row = parseBatchOutputRow(parsed);
+      if (row) {
+        rows.push(row);
       }
-
-      rows.push({ customId: String(customId), body });
     } catch {
       // Ignore malformed lines and continue.
     }
@@ -300,15 +486,10 @@ const ocrBatchDocuments = async (
 
   if (Array.isArray(current.outputs) && current.outputs.length > 0) {
     for (const output of current.outputs) {
-      const customId = String(
-        output.custom_id ?? output.customId ?? output.id ?? ""
-      );
-      const body =
-        output.response?.body ?? output.body ?? output.result ?? output.output;
-      if (!(customId && body?.pages && Array.isArray(body.pages))) {
-        continue;
+      const row = parseBatchOutputRow(output);
+      if (row) {
+        result.set(row.customId, row.body);
       }
-      result.set(customId, body as OcrResponse);
     }
   }
 
@@ -318,7 +499,7 @@ const ocrBatchDocuments = async (
       client.files.download({ fileId: outputFileId as string })
     );
     const jsonl = await streamToText(stream);
-    const rows = parseBatchOutputLines(jsonl);
+    const rows = parseMistralBatchOutputLines(jsonl);
     for (const row of rows) {
       result.set(row.customId, row.body);
     }
@@ -346,7 +527,7 @@ const toCanonicalResource = (
       source,
       page: page.index + 1,
       baseMetadata: {
-        ocrModel: ocr.model,
+        ocrModel: ocr.model ?? config.mistralOcrModel,
         includeImageBase64,
       },
     });
@@ -358,7 +539,7 @@ const toCanonicalResource = (
     source,
     metadata: {
       pages: ocr.pages.length,
-      ocrModel: ocr.model,
+      ocrModel: ocr.model ?? config.mistralOcrModel,
     },
     chunks,
   };

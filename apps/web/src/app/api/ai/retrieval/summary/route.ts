@@ -189,16 +189,38 @@ export async function POST(request: Request) {
       groupedMatches.set(match.fileId, group);
     }
 
+    const accessibleFileRecords = (
+      await Promise.all(
+        fileIds.map((fileId) =>
+          getFileAssetById(parsed.data.workspaceUuid, fileId)
+        )
+      )
+    ).filter((record): record is NonNullable<typeof record> => Boolean(record));
+    const accessibleFileRecordsById = new Map(
+      accessibleFileRecords.map((file) => [file.id, file] as const)
+    );
+    const accessibleFileIds = new Set(accessibleFileRecordsById.keys());
+    const allowedFileIds = Array.from(accessibleFileIds);
+
+    if (allowedFileIds.length === 0) {
+      void apiLogger.requestSucceeded(200, {
+        workspaceUuid: parsed.data.workspaceUuid,
+        reason: "no-accessible-files",
+      });
+      return summaryResponse(FALLBACK_SUMMARY, parsed.data.stream);
+    }
+
     const textualEvidence = Array.from(groupedMatches.entries())
-      .filter(([, group]) => {
+      .filter(([fileId, group]) => {
         const sourceType = group.sourceType ?? "";
         return (
-          DOCUMENT_SOURCE_TYPES.has(sourceType) || group.snippets.length > 0
+          accessibleFileIds.has(fileId) &&
+          (DOCUMENT_SOURCE_TYPES.has(sourceType) || group.snippets.length > 0)
         );
       })
       .slice(0, 8)
       .map(([fileId, group]) => {
-        const title = group.title ?? fileId;
+        const title = accessibleFileRecordsById.get(fileId)?.name ?? fileId;
         const topSnippets = group.snippets.slice(0, 3);
         return [
           `Document file: ${title} (${fileId})`,
@@ -209,21 +231,22 @@ export async function POST(request: Request) {
       });
 
     const attachmentCandidateIds = Array.from(groupedMatches.entries())
-      .filter(([, group]) => !DOCUMENT_SOURCE_TYPES.has(group.sourceType ?? ""))
+      .filter(
+        ([fileId, group]) =>
+          accessibleFileIds.has(fileId) &&
+          !DOCUMENT_SOURCE_TYPES.has(group.sourceType ?? "")
+      )
       .map(([fileId]) => fileId);
     if (attachmentCandidateIds.length === 0) {
-      attachmentCandidateIds.push(...fileIds);
+      attachmentCandidateIds.push(...allowedFileIds);
     }
 
-    const fileRecords = (
-      await Promise.all(
-        attachmentCandidateIds
-          .slice(0, attachmentLimit * 2)
-          .map(async (fileId) =>
-            getFileAssetById(parsed.data.workspaceUuid, fileId)
-          )
-      )
-    ).filter((record): record is NonNullable<typeof record> => Boolean(record));
+    const fileRecords = attachmentCandidateIds
+      .slice(0, attachmentLimit * 2)
+      .map((fileId) => accessibleFileRecordsById.get(fileId))
+      .filter((record): record is NonNullable<typeof record> =>
+        Boolean(record)
+      );
 
     if (fileRecords.length === 0 && textualEvidence.length === 0) {
       void apiLogger.requestSucceeded(200, {
@@ -350,7 +373,7 @@ export async function POST(request: Request) {
         maxOutputTokens: 220,
         onFinish: ({ text }) => {
           flagInvalidCitations({
-            allowedFileIds: fileIds,
+            allowedFileIds,
             text,
           });
         },
@@ -396,7 +419,7 @@ export async function POST(request: Request) {
     );
     const summary = text.trim() || FALLBACK_SUMMARY;
     flagInvalidCitations({
-      allowedFileIds: fileIds,
+      allowedFileIds,
       text: summary,
     });
 

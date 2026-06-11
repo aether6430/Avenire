@@ -7,6 +7,7 @@ import {
 } from "@/lib/flashcards";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
 import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
+import { flashcardSetMutationSchema } from "../../flashcard-route-model";
 
 export async function GET(
   _request: Request,
@@ -40,11 +41,13 @@ export async function PATCH(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = (await request.json().catch(() => ({}))) as {
-    description?: string | null;
-    tags?: string[];
-    title?: string;
-  };
+  const parsed = flashcardSetMutationSchema.safeParse(
+    await request.json().catch(() => ({}))
+  );
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  }
+  const body = parsed.data;
   const { setId } = await context.params;
   const set = await updateFlashcardSetForUser({
     description: body.description,

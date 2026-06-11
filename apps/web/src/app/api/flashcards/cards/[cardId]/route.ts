@@ -7,6 +7,7 @@ import {
 } from "@/lib/flashcards";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
 import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
+import { flashcardCardUpdateSchema } from "../../flashcard-route-model";
 
 export async function PATCH(
   request: Request,
@@ -17,13 +18,13 @@ export async function PATCH(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = (await request.json().catch(() => ({}))) as {
-    backMarkdown?: string;
-    frontMarkdown?: string;
-    notesMarkdown?: string | null;
-    source?: Record<string, unknown>;
-    tags?: string[];
-  };
+  const parsed = flashcardCardUpdateSchema.safeParse(
+    await request.json().catch(() => ({}))
+  );
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  }
+  const body = parsed.data;
   const { cardId } = await context.params;
 
   let taxonomy: ReturnType<typeof assertFlashcardTaxonomy> | null = null;

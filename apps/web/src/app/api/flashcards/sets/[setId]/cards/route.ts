@@ -4,6 +4,7 @@ import { invalidateFlashcardReadCaches } from "@/lib/domain-cache";
 import { createFlashcardCardForUser } from "@/lib/flashcards";
 import { getWorkspaceContextForUser } from "@/lib/workspace";
 import { publishWorkspaceStreamEvent } from "@/lib/workspace-event-stream";
+import { flashcardCardCreateSchema } from "../../../flashcard-route-model";
 
 export async function POST(
   request: Request,
@@ -15,13 +16,13 @@ export async function POST(
   }
 
   const { setId } = await context.params;
-  const body = (await request.json().catch(() => ({}))) as {
-    backMarkdown?: string;
-    frontMarkdown?: string;
-    notesMarkdown?: string | null;
-    source?: Record<string, unknown>;
-    tags?: string[];
-  };
+  const parsed = flashcardCardCreateSchema.safeParse(
+    await request.json().catch(() => ({}))
+  );
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  }
+  const body = parsed.data;
 
   if (!(body.frontMarkdown?.trim() && body.backMarkdown?.trim())) {
     return NextResponse.json(
