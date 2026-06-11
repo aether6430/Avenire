@@ -1,43 +1,32 @@
-/// <reference types="react" />
+/// <reference path="./react-overrides.d.ts" />
 
-import type {} from "@phosphor-icons/react";
-import type {} from "@phosphor-icons/react/ssr";
-
-declare module "@phosphor-icons/react" {
-  interface IconProps {
-    "aria-hidden"?: boolean | "true" | "false";
-    className?: string;
-    strokeWidth?: number;
-  }
-}
-
-declare module "@phosphor-icons/react/ssr" {
-  interface IconProps {
-    "aria-hidden"?: boolean | "true" | "false";
-    className?: string;
-    strokeWidth?: number;
-  }
-}
-
+// biome-ignore lint/style/noNamespace: Node environment declarations augment the global namespace.
 declare namespace NodeJS {
+  // biome-ignore assist/source/useSortedInterfaceMembers: Members are generated from sorted environment keys.
   interface ProcessEnv {
+    ADMIN_API_TOKEN?: string;
     AUTH_GITHUB_ID?: string;
     AUTH_GITHUB_SECRET?: string;
     AUTH_GOOGLE_ID?: string;
     AUTH_GOOGLE_SECRET?: string;
     AUTH_NOTION_ID?: string;
     AUTH_NOTION_SECRET?: string;
+    AVENIRE_EXTENSION_APP_ORIGINS?: string;
     BASETEN_API_KEY?: string;
-    BETTER_AUTH_SECRET?: string;
     BETTER_AUTH_EXTENSION_ORIGINS?: string;
+    BETTER_AUTH_SECRET?: string;
     BETTER_AUTH_TRUSTED_ORIGINS?: string;
     BETTER_AUTH_URL?: string;
+    CHAT_CONTEXT_MAX_CHARS?: string;
     CHAT_PROFILE_LOGS?: string;
+    CHAT_TITLE_MODEL?: string;
     CHAT_TOKENS_PER_CREDIT?: string;
-    TURBO_MODEL_CREDIT_MULTIPLIER?: string;
-    WIDGET_GENERATION_CREDITS?: string;
     COHERE_API_KEY?: string;
     COHERE_EMBEDDING_DIMENSIONS?: string;
+    COHERE_IMAGE_TOKEN_ESTIMATE?: string;
+    COHERE_RETRY_BASE_DELAY_MS?: string;
+    COHERE_RETRY_MAX_ATTEMPTS?: string;
+    COHERE_RPM_LIMIT?: string;
     COHERE_TEST_ADAPTIVE_MODE?: string;
     COHERE_TEST_RPM_GUARD_ENABLED?: string;
     COHERE_TEST_SAFE_MODE?: string;
@@ -47,8 +36,10 @@ declare namespace NodeJS {
     COHERE_TEST_TPM_STEP_UP?: string;
     COHERE_TEST_TPM_TARGET_RATIO?: string;
     COHERE_TOKEN_ESTIMATE_SAFETY_FACTOR?: string;
+    COHERE_TPM_LIMIT?: string;
     DATABASE_URL?: string;
     EMAIL_FROM?: string;
+    EMBEDDING_DIMENSIONS?: string;
     ENABLE_ASYNC_MEDIA_OPTIMIZATION?: string;
     FIREWORKS_API_KEY?: string;
     GEMINI_API_KEY?: string;
@@ -59,6 +50,13 @@ declare namespace NodeJS {
     INGESTION_DB_BATCH_SIZE?: string;
     INGESTION_EMBED_BATCH_SIZE?: string;
     INGESTION_EMBED_CONCURRENCY?: string;
+    INGESTION_MAX_INLINE_BYTES?: string;
+    INGESTION_MAX_MARKDOWN_CHARS?: string;
+    INGESTION_MAX_URLS_PER_BATCH?: string;
+    INGESTION_PDF_FAST_PATH_ENABLED?: string;
+    INGESTION_PDF_FAST_PATH_MAX_PAGES?: string;
+    INGESTION_PDF_FAST_PATH_MIN_CHARS?: string;
+    INGESTION_PDF_FETCH_TIMEOUT_MS?: string;
     INGESTION_REMOTE_FETCH_MAX_ATTEMPTS?: string;
     INGESTION_REMOTE_FETCH_TIMEOUT_MS?: string;
     INGESTION_STAGE_TIMING_LOG?: string;
@@ -68,7 +66,10 @@ declare namespace NodeJS {
     INGESTION_WORKER_RECOVERY_SWEEP_MS?: string;
     INGESTION_WORKER_RETRY_BASE_MS?: string;
     INGESTION_WORKER_RETRY_MAX_MS?: string;
+    MAINTENANCE_CRON_TOKEN?: string;
     MISTRAL_API_KEY?: string;
+    MISTRAL_BATCH_POLL_MS?: string;
+    MISTRAL_BATCH_TIMEOUT_MS?: string;
     MUX_POLL_INTERVAL_MS?: string;
     MUX_POLL_MAX_ATTEMPTS?: string;
     MUX_TOKEN_ID?: string;
@@ -81,13 +82,18 @@ declare namespace NodeJS {
     NEXT_PUBLIC_POSTHOG_UI_HOST?: string;
     NEXT_PUBLIC_UPLOAD_DEDUPE_HASH_MAX_BYTES?: string;
     NEXT_PUBLIC_UPLOAD_PREUPLOAD_DEDUPE?: string;
+    NEXT_RUNTIME?: string;
     NODE_ENV?: string;
+    OBSERVABILITY_AI_ENABLED?: string;
+    OBSERVABILITY_AI_RECORD_INPUTS?: string;
+    OBSERVABILITY_AI_RECORD_OUTPUTS?: string;
     OBSERVABILITY_ENABLED?: string;
     OBSERVABILITY_SAMPLE_RATE?: string;
     OBSERVABILITY_SERVICE?: string;
     OLLAMA_API_KEY?: string;
     OLLAMA_BASE_URL?: string;
     OPENROUTER_API_KEY?: string;
+    PG_POOL_MAX?: string;
     POLAR_ACCESS_TOKEN?: string;
     POLAR_ORGANIZATION_ID?: string;
     POLAR_PRODUCT_ID_CORE_MONTHLY?: string;
@@ -96,20 +102,51 @@ declare namespace NodeJS {
     POLAR_PRODUCT_ID_SCHOLAR_YEARLY?: string;
     POLAR_SERVER?: string;
     POLAR_WEBHOOK_SECRET?: string;
+    PORT?: string;
     POSTHOG_HOST?: string;
     POSTHOG_KEY?: string;
     POSTHOG_PERSONAL_API_KEY?: string;
     POSTHOG_PROJECT_ID?: string;
     POSTHOG_UI_HOST?: string;
-    ADMIN_API_TOKEN?: string;
     REDIS_URL?: string;
     RESEND_API_KEY?: string;
+    RETRIEVAL_CANDIDATE_MULTIPLIER?: string;
+    RETRIEVAL_DEFAULT_LIMIT?: string;
+    RETRIEVAL_HYDE_CANDIDATE_WEIGHT?: string;
+    RETRIEVAL_HYDE_ENABLED?: string;
+    RETRIEVAL_HYDE_MAX_OUTPUT_TOKENS?: string;
+    RETRIEVAL_LEXICAL_CANDIDATE_WEIGHT?: string;
+    RETRIEVAL_MIN_SCORE?: string;
     RETRIEVAL_QUERY_CACHE_TTL_SECONDS?: string;
+    RETRIEVAL_RERANK_CANDIDATE_LIMIT?: string;
+    RETRIEVAL_SHADOW_SAMPLE_RATE?: string;
+    RETRIEVAL_SUMMARY_ATTACHMENT_LIMIT?: string;
+    RETRIEVAL_SUMMARY_ATTACHMENT_MAX_BYTES?: string;
+    RETRIEVAL_SUMMARY_FETCH_TIMEOUT_MS?: string;
     RETRIEVAL_SUMMARY_VALIDATION_MIN_CONFIDENCE?: string;
+    RETRIEVAL_TRIGRAM_CANDIDATE_WEIGHT?: string;
+    RETRIEVAL_WARMUP_MIN_CHUNKS?: string;
+    RETRIEVAL_WARMUP_QUERY_LIMIT?: string;
+    RETRIEVAL_WARMUP_SUMMARY_LIMIT?: string;
+    SSE_TOKEN_SECRET?: string;
+    TAVILY_API_KEY?: string;
+    TRUSTED_STORAGE_HOSTS?: string;
+    TURBO_MODEL_CREDIT_MULTIPLIER?: string;
+    UPLOADTHING_CALLBACK_URL?: string;
     UPLOADTHING_TOKEN?: string;
     UPLOAD_SESSION_MAX_PART_BYTES?: string;
-    VIDEO_OPT_FETCH_TIMEOUT_MS?: string;
+    UPLOAD_SESSION_PARTS_DIR?: string;
+    UPLOAD_SESSION_TOKEN_SECRET?: string;
+    VERCEL?: string;
     VERCEL_URL?: string;
+    VIDEO_KEYFRAME_INTERVAL_SECONDS?: string;
+    VIDEO_KEYFRAME_MAX_FRAMES?: string;
+    VIDEO_OPTIMIZATION_MAX_UPLOAD_BUFFER_BYTES?: string;
+    VIDEO_OPT_FETCH_TIMEOUT_MS?: string;
+    VIDEO_TRANSCRIPTION_MAX_SEGMENTS?: string;
+    VIDEO_TRANSCRIPTION_SEGMENT_SECONDS?: string;
+    VOYAGE_EMBEDDING_DIMENSIONS?: string;
+    WIDGET_GENERATION_CREDITS?: string;
     WORKSPACE_EVENTS_STREAM_BLOCK_MS?: string;
     WORKSPACE_EVENTS_STREAM_MAXLEN?: string;
   }
