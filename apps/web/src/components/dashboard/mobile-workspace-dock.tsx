@@ -181,6 +181,30 @@ export function MobileWorkspaceDock({
   }, []);
 
   useEffect(() => {
+    setComposerOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    const closeComposerState = () => {
+      setComposerOpen(false);
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        closeComposerState();
+      }
+    };
+
+    window.addEventListener("pageshow", closeComposerState);
+    window.addEventListener("popstate", closeComposerState);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.removeEventListener("pageshow", closeComposerState);
+      window.removeEventListener("popstate", closeComposerState);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!(sheetOpen && pathname.startsWith("/workspace/flashcards"))) {
       return;
     }
