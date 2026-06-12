@@ -224,7 +224,7 @@ export function DashboardLayout({
         />
       ) : null}
       <SidebarInset className="relative h-full min-h-0 overflow-hidden bg-background md:peer-data-[variant=inset]:mb-0">
-        <div className="flex h-full min-h-0 flex-1 overflow-hidden">
+        <div className="absolute inset-0 flex min-h-0 overflow-hidden">
           <WorkspacePaneRenderer />
         </div>
         {deferredReady ? (
