@@ -33,6 +33,7 @@ import { useDashboardOverlayStore } from "@/stores/dashboardOverlayStore";
 import { quickCaptureActions } from "@/stores/quickCaptureStore";
 
 const MOBILE_CHAT_COMPOSER_OPEN_EVENT = "avenire:mobile-chat-composer-open";
+const MOBILE_CHAT_COMPOSER_CLOSE_EVENT = "avenire:mobile-chat-composer-close";
 const MOBILE_CHAT_COMPOSER_STATE_EVENT = "avenire:mobile-chat-composer-state";
 
 interface MobileChatSummary {
@@ -173,20 +174,25 @@ export function MobileWorkspaceDock({
       const detail = (event as CustomEvent<{ open?: boolean }>).detail;
       setComposerOpen(Boolean(detail?.open));
     };
+    const handleClose = () => {
+      setComposerOpen(false);
+    };
 
     window.addEventListener(MOBILE_CHAT_COMPOSER_STATE_EVENT, handleState);
+    window.addEventListener(MOBILE_CHAT_COMPOSER_CLOSE_EVENT, handleClose);
     return () => {
       window.removeEventListener(MOBILE_CHAT_COMPOSER_STATE_EVENT, handleState);
+      window.removeEventListener(MOBILE_CHAT_COMPOSER_CLOSE_EVENT, handleClose);
     };
   }, []);
 
   useEffect(() => {
-    setComposerOpen(false);
+    window.dispatchEvent(new CustomEvent(MOBILE_CHAT_COMPOSER_CLOSE_EVENT));
   }, [pathname]);
 
   useEffect(() => {
     const closeComposerState = () => {
-      setComposerOpen(false);
+      window.dispatchEvent(new CustomEvent(MOBILE_CHAT_COMPOSER_CLOSE_EVENT));
     };
 
     window.addEventListener("popstate", closeComposerState);

@@ -50,6 +50,7 @@ const EMPTY_COMPOSER_SHELL_CLASSNAME =
   "mx-auto mb-3 w-full max-w-3xl px-4 md:mb-3 md:px-0";
 const FLOATING_COMPOSER_SHELL_CLASSNAME =
   "mx-auto w-full px-3 pb-[calc(0.6rem+env(safe-area-inset-bottom))] md:max-w-3xl md:px-0 md:pb-3";
+const MOBILE_CHAT_COMPOSER_CLOSE_EVENT = "avenire:mobile-chat-composer-close";
 const MOBILE_CHAT_COMPOSER_OPEN_EVENT = "avenire:mobile-chat-composer-open";
 const MOBILE_CHAT_COMPOSER_STATE_EVENT = "avenire:mobile-chat-composer-state";
 const MOBILE_CHAT_VOICE_START_EVENT = "avenire:mobile-chat-voice-start";
@@ -539,10 +540,23 @@ export function Chat({
         }
       });
     };
+    const closeComposer = () => {
+      setMobileComposerOpen(false);
+      window.dispatchEvent(
+        new CustomEvent(MOBILE_CHAT_COMPOSER_STATE_EVENT, {
+          detail: { open: false },
+        })
+      );
+    };
 
     window.addEventListener(MOBILE_CHAT_COMPOSER_OPEN_EVENT, openComposer);
+    window.addEventListener(MOBILE_CHAT_COMPOSER_CLOSE_EVENT, closeComposer);
     return () => {
       window.removeEventListener(MOBILE_CHAT_COMPOSER_OPEN_EVENT, openComposer);
+      window.removeEventListener(
+        MOBILE_CHAT_COMPOSER_CLOSE_EVENT,
+        closeComposer
+      );
     };
   }, []);
 

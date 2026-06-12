@@ -38,7 +38,6 @@ import { AnimatePresence, motion } from "motion/react";
 import type { Route } from "next";
 import Image from "next/image";
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
-import { Markdown } from "@/components/chat/markdown";
 import {
   HeaderActions,
   HeaderBreadcrumbs,
@@ -133,28 +132,6 @@ function getCorrectedMentalModel(misconception: MisconceptionRecord) {
   return (
     misconception.blocks?.correctedMentalModel ??
     "Open this with AI to build the corrected model from the flagged evidence."
-  );
-}
-
-function DashboardMarkdownPreview({
-  className,
-  content,
-  id,
-}: {
-  className?: string;
-  content: string;
-  id: string;
-}) {
-  return (
-    <Markdown
-      className={cn(
-        "max-w-none text-inherit leading-[1.45] [&_*]:my-0 [&_code:not(pre_code)]:rounded-md [&_code:not(pre_code)]:bg-muted [&_code:not(pre_code)]:px-1 [&_li]:my-0 [&_ol]:my-0 [&_ol]:pl-4 [&_p]:my-0 [&_pre]:hidden [&_ul]:my-0 [&_ul]:pl-4",
-        className
-      )}
-      content={content}
-      id={id}
-      parseIncompleteMarkdown={false}
-    />
   );
 }
 

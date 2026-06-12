@@ -780,8 +780,9 @@ export function PreviewAttachment({
       size === "composer" ? "h-20 w-20 rounded-lg" : "h-12 w-12 rounded-md";
     const imageSize = size === "composer" ? 80 : 48;
     const iconClassName = size === "composer" ? "h-8 w-8" : "h-6 w-6";
+    const thumbnailPreviewUrl = previewUrl || url;
 
-    if (contentType?.startsWith("image") && url) {
+    if (contentType?.startsWith("image") && thumbnailPreviewUrl) {
       return (
         <div
           className={cn(
@@ -793,7 +794,7 @@ export function PreviewAttachment({
             alt={name ?? "An image attachment"}
             className="h-full w-full object-cover"
             height={imageSize}
-            src={url}
+            src={thumbnailPreviewUrl}
             width={imageSize}
           />
           {(status === "uploading" || status === "pending") && (
@@ -805,7 +806,7 @@ export function PreviewAttachment({
       );
     }
 
-    if (contentType?.startsWith("video") && url) {
+    if (contentType?.startsWith("video") && thumbnailPreviewUrl) {
       return (
         <div
           className={cn(
@@ -822,7 +823,11 @@ export function PreviewAttachment({
               width={imageSize}
             />
           ) : (
-            <video className="h-full w-full object-cover" muted src={url} />
+            <video
+              className="h-full w-full object-cover"
+              muted
+              src={thumbnailPreviewUrl}
+            />
           )}
           {(status === "uploading" || status === "pending") && (
             <div className="absolute inset-0 flex items-center justify-center rounded-md bg-background/60">

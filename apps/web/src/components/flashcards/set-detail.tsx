@@ -282,7 +282,7 @@ function FlashcardMarkdownPreview({
   return (
     <Markdown
       className={cn(
-        "flashcard-preview-markdown max-w-none text-inherit leading-[1.45] [&_*]:my-0 [&_code:not(pre_code)]:rounded [&_code:not(pre_code)]:bg-muted [&_code:not(pre_code)]:px-1 [&_code:not(pre_code)]:py-0.5 [&_code:not(pre_code)]:text-[0.9em] [&_li]:my-0 [&_ol]:my-0 [&_ol]:pl-4 [&_p]:my-0 [&_pre]:hidden [&_ul]:my-0 [&_ul]:pl-4",
+        "flashcard-preview-markdown max-w-none text-inherit leading-[1.45] [&_*]:my-0 [&_code:not(pre_code)]:rounded [&_code:not(pre_code)]:bg-muted [&_code:not(pre_code)]:px-1 [&_code:not(pre_code)]:py-0.5 [&_code:not(pre_code)]:text-[0.9em] [&_li]:my-0 [&_ol]:my-0 [&_ol]:pl-4 [&_p]:my-0 [&_pre]:max-h-20 [&_pre]:overflow-hidden [&_ul]:my-0 [&_ul]:pl-4",
         className
       )}
       content={content}
