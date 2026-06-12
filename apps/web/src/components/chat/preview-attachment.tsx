@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "@avenire/ui/components/button";
-import { FileThumbnail } from "@avenire/ui/components/file-thumbnail";
 import {
   Drawer,
   DrawerContent,
@@ -15,6 +14,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@avenire/ui/components/tooltip";
+import { springs } from "@avenire/ui/lib/springs";
 import {
   FileMediaPlayer,
   type MediaPlaybackSource,
@@ -23,7 +23,6 @@ import {
 import {
   File,
   FileCode as FileCode2,
-  FileText,
   SpinnerGap as LoaderIcon,
   MagnifyingGlassMinus,
   MagnifyingGlassPlus,
@@ -491,93 +490,6 @@ const isCodeLike = (contentType?: string, name?: string) => {
   return Boolean(extension && CODE_EXTENSIONS.includes(extension));
 };
 
-const isMarkdownLike = (contentType?: string, name?: string) =>
-  contentType === "text/markdown" ||
-  name?.split(".").pop()?.toLowerCase() === "md" ||
-  name?.split(".").pop()?.toLowerCase() === "mdx";
-
-interface MarkdownOutlineItem {
-  id: string;
-  level: number;
-  text: string;
-}
-
-function getMarkdownOutline(markdown: string): MarkdownOutlineItem[] {
-  const outline: MarkdownOutlineItem[] = [];
-  const lines = markdown.split(/\r?\n/);
-  let inFence = false;
-
-  for (const line of lines) {
-    if (/^\s*(```|~~~)/.test(line)) {
-      inFence = !inFence;
-      continue;
-    }
-    if (inFence) {
-      continue;
-    }
-
-    const atx = /^(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line);
-    if (atx) {
-      outline.push({
-        id: `${outline.length}-${atx[2]}`,
-        level: atx[1].length,
-        text: atx[2].trim(),
-      });
-      continue;
-    }
-
-    const listItem = /^\s{0,3}(?:[-*+]|\d+\.)\s+(.+)$/.exec(line);
-    if (listItem && outline.length < 8) {
-      outline.push({
-        id: `${outline.length}-${listItem[1]}`,
-        level: 4,
-        text: listItem[1].trim(),
-      });
-    }
-  }
-
-  return outline.slice(0, 8);
-}
-
-function MarkdownOutlinePreview({
-  markdown,
-  compact = false,
-}: {
-  markdown: string;
-  compact?: boolean;
-}) {
-  const outline = getMarkdownOutline(markdown);
-
-  if (outline.length === 0) {
-    return (
-      <pre className="max-h-64 whitespace-pre-wrap rounded-md bg-muted p-3 font-mono text-xs">
-        {markdown.substring(0, compact ? 220 : 1200)}
-        {markdown.length > (compact ? 220 : 1200) ? "..." : ""}
-      </pre>
-    );
-  }
-
-  return (
-    <div className="min-w-0 rounded-md border border-border bg-background p-3">
-      <div className="mb-2 flex items-center gap-1.5 text-muted-foreground text-xs">
-        <FileText className="size-3.5" />
-        <span>Document outline</span>
-      </div>
-      <ol className="space-y-1.5">
-        {outline.map((item) => (
-          <li
-            className="truncate text-foreground text-xs"
-            key={item.id}
-            style={{ paddingLeft: Math.max(0, item.level - 1) * 10 }}
-          >
-            {item.text}
-          </li>
-        ))}
-      </ol>
-    </div>
-  );
-}
-
 const playbackDescriptorCache = new Map<
   string,
   MediaPlaybackDescriptor | Promise<MediaPlaybackDescriptor | null> | null
@@ -863,61 +775,65 @@ export function PreviewAttachment({
     }
   };
 
-  const renderLoadingOverlay = () =>
-    status === "uploading" || status === "pending" ? (
-      <div className="absolute inset-0 flex items-center justify-center bg-background/55">
-        <LoaderIcon className="h-4 w-4 animate-spin text-muted-foreground" />
-      </div>
-    ) : null;
+  const renderThumbnail = (size: "default" | "composer" = "default") => {
+    const thumbnailClassName =
+      size === "composer" ? "h-20 w-20 rounded-lg" : "h-12 w-12 rounded-md";
+    const imageSize = size === "composer" ? 80 : 48;
+    const iconClassName = size === "composer" ? "h-8 w-8" : "h-6 w-6";
+    const thumbnailPreviewUrl = previewUrl || url;
 
-  const renderThumbnail = (size = 48) => {
-    if (file) {
-      return (
-        <div className="relative shrink-0">
-          <FileThumbnail file={file} size={size} />
-          {renderLoadingOverlay()}
-        </div>
-      );
-    }
-
-    const squareStyle = { height: size, width: size };
-
-    if (contentType?.startsWith("image") && url) {
+    if (contentType?.startsWith("image") && thumbnailPreviewUrl) {
       return (
         <div
-          className="relative shrink-0 overflow-hidden rounded-lg border border-border bg-accent"
-          style={squareStyle}
+          className={cn(
+            "relative shrink-0 overflow-hidden bg-muted",
+            thumbnailClassName
+          )}
         >
           <img
             alt={name ?? "An image attachment"}
             className="h-full w-full object-cover"
-            height={size}
-            src={url}
-            width={size}
+            height={imageSize}
+            src={thumbnailPreviewUrl}
+            width={imageSize}
           />
-          {renderLoadingOverlay()}
+          {(status === "uploading" || status === "pending") && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/60">
+              <LoaderIcon className="h-4 w-4 animate-spin text-foreground" />
+            </div>
+          )}
         </div>
       );
     }
 
-    if (contentType?.startsWith("video") && url) {
+    if (contentType?.startsWith("video") && thumbnailPreviewUrl) {
       return (
         <div
-          className="relative shrink-0 overflow-hidden rounded-lg border border-border bg-accent"
-          style={squareStyle}
+          className={cn(
+            "relative shrink-0 overflow-hidden bg-muted",
+            thumbnailClassName
+          )}
         >
           {playbackDescriptor?.posterUrl ? (
             <img
               alt={name ?? "A video attachment"}
               className="h-full w-full object-cover"
-              height={size}
+              height={imageSize}
               src={playbackDescriptor.posterUrl}
-              width={size}
+              width={imageSize}
             />
           ) : (
-            <video className="h-full w-full object-cover" muted src={url} />
+            <video
+              className="h-full w-full object-cover"
+              muted
+              src={thumbnailPreviewUrl}
+            />
           )}
-          {renderLoadingOverlay()}
+          {(status === "uploading" || status === "pending") && (
+            <div className="absolute inset-0 flex items-center justify-center rounded-md bg-background/60">
+              <LoaderIcon className="h-4 w-4 animate-spin text-foreground" />
+            </div>
+          )}
         </div>
       );
     }
@@ -925,35 +841,58 @@ export function PreviewAttachment({
     if (contentType === "application/pdf") {
       return (
         <div
-          className="relative flex shrink-0 items-center justify-center rounded-lg border border-border bg-accent font-medium text-[10px] text-muted-foreground"
-          style={squareStyle}
+          className={cn(
+            "relative flex shrink-0 items-center justify-center border border-red-200 bg-red-50 font-semibold text-red-600",
+            thumbnailClassName,
+            size === "composer" ? "text-xs" : "text-[10px]"
+          )}
         >
           PDF
-          {renderLoadingOverlay()}
+          {(status === "uploading" || status === "pending") && (
+            <div className="absolute inset-0 flex items-center justify-center rounded-md bg-background/60">
+              <LoaderIcon className="h-4 w-4 animate-spin text-foreground" />
+            </div>
+          )}
         </div>
       );
     }
 
     if (isCodeLike(contentType, name)) {
-      const Icon = isMarkdownLike(contentType, name) ? FileText : FileCode2;
       return (
         <div
-          className="relative flex shrink-0 items-center justify-center rounded-lg border border-border bg-accent text-muted-foreground"
-          style={squareStyle}
+          className={cn(
+            "relative flex shrink-0 items-center justify-center border border-green-200 bg-green-50",
+            thumbnailClassName
+          )}
         >
-          <Icon className="h-5 w-5" />
-          {renderLoadingOverlay()}
+          <FileCode2
+            className={cn(
+              size === "composer" ? "h-7 w-7" : "h-5 w-5",
+              "text-green-700"
+            )}
+          />
+          {(status === "uploading" || status === "pending") && (
+            <div className="absolute inset-0 flex items-center justify-center rounded-md bg-background/60">
+              <LoaderIcon className="h-4 w-4 animate-spin text-foreground" />
+            </div>
+          )}
         </div>
       );
     }
 
     return (
       <div
-        className="relative flex shrink-0 items-center justify-center rounded-lg border border-border bg-accent"
-        style={squareStyle}
+        className={cn(
+          "relative flex shrink-0 items-center justify-center border bg-muted",
+          thumbnailClassName
+        )}
       >
-        <File className="h-6 w-6 text-muted-foreground" />
-        {renderLoadingOverlay()}
+        <File className={cn(iconClassName, "text-muted-foreground")} />
+        {(status === "uploading" || status === "pending") && (
+          <div className="absolute inset-0 flex items-center justify-center rounded-md bg-background/60">
+            <LoaderIcon className="h-4 w-4 animate-spin text-foreground" />
+          </div>
+        )}
       </div>
     );
   };
@@ -1007,14 +946,6 @@ export function PreviewAttachment({
               <track kind="captions" />
             </video>
           )}
-        </div>
-      );
-    }
-
-    if (isMarkdownLike(contentType, name) && textPreview) {
-      return (
-        <div className="max-w-xs">
-          <MarkdownOutlinePreview compact markdown={textPreview} />
         </div>
       );
     }
@@ -1086,21 +1017,6 @@ export function PreviewAttachment({
       );
     }
 
-    if (isMarkdownLike(contentType, name) && status === "completed") {
-      return (
-        <div className="max-h-[70vh] overflow-auto p-4">
-          {isLoadingText ? (
-            <p className="inline-flex items-center gap-2 text-muted-foreground text-sm">
-              <Spinner className="size-4" />
-              Loading preview...
-            </p>
-          ) : (
-            <MarkdownOutlinePreview markdown={textPreview ?? ""} />
-          )}
-        </div>
-      );
-    }
-
     if (isCodeLike(contentType, name) && status === "completed") {
       return (
         <div className="max-h-[70vh] overflow-auto">
@@ -1152,10 +1068,10 @@ export function PreviewAttachment({
         <motion.div
           animate={{ opacity: 1, scale: 1 }}
           className="group relative shrink-0 cursor-default"
-          exit={{ opacity: 0, scale: 0.92 }}
-          initial={{ opacity: 0, scale: 0.92 }}
+          exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.06 } }}
+          initial={{ opacity: 0, scale: 0.9 }}
           layout
-          transition={{ duration: 0.18, ease: "easeOut" }}
+          transition={springs.fast}
         >
           <Tooltip>
             <TooltipTrigger
@@ -1163,7 +1079,7 @@ export function PreviewAttachment({
                 <Button
                   aria-label={name ?? "Attachment"}
                   className={cn(
-                    "relative h-20 w-20 overflow-hidden rounded-lg border-0 bg-transparent p-0 shadow-none hover:bg-transparent"
+                    "relative h-20 w-20 overflow-hidden rounded-lg border border-border/80 bg-background p-0 text-left transition-colors hover:bg-muted"
                   )}
                   onBlur={() => setIsHovered(false)}
                   onClick={() => {
@@ -1183,12 +1099,11 @@ export function PreviewAttachment({
                 />
               }
             >
-              {renderThumbnail(80)}
+              {renderThumbnail("composer")}
 
               {onRemove && id ? (
                 <Button
-                  aria-label={`Remove ${name ?? "attachment"}`}
-                  className="absolute top-1 right-1 z-10 h-5 w-5 rounded-full bg-neutral-900 text-white opacity-0 transition-opacity duration-100 hover:bg-neutral-800 hover:text-white group-hover:opacity-100 focus-visible:opacity-100"
+                  className="absolute top-1 right-1 z-10 h-5 w-5 rounded-full bg-foreground text-background opacity-0 transition-opacity group-hover:opacity-100 hover:bg-foreground hover:text-background focus-visible:opacity-100"
                   onClick={(event) => {
                     event.stopPropagation();
                     onRemove(id);
@@ -1197,7 +1112,7 @@ export function PreviewAttachment({
                   type="button"
                   variant="ghost"
                 >
-                  <X className="h-3 w-3" weight="bold" />
+                  <X className="h-3 w-3" />
                 </Button>
               ) : null}
             </TooltipTrigger>

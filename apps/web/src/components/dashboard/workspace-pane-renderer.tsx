@@ -435,7 +435,7 @@ export function WorkspacePaneRenderer() {
         paneId={mobilePaneId}
         route={browserRoute}
       >
-        <div className="flex h-full w-full flex-col bg-background">
+        <div className="flex h-full min-h-0 w-full flex-col bg-background">
           <WorkspaceHeader
             className="border-border/60 border-b"
             compact

@@ -1,6 +1,5 @@
 "use client";
 
-import { Badge } from "@avenire/ui/components/badge";
 import { Button } from "@avenire/ui/components/button";
 import {
   Dialog,
@@ -37,6 +36,7 @@ import {
   ChatCenteredText as MessageSquareDashed,
   PlusCircle,
 } from "@phosphor-icons/react";
+import { cn } from "@avenire/ui/lib/utils";
 import type { Route } from "next";
 import {
   type MouseEvent,
@@ -408,7 +408,7 @@ export function FlashcardsSidebarPanel({
 
       {activeMisconceptions.length > 0 ? (
         <SidebarGroup>
-          <SidebarGroupLabel>Misconceptions</SidebarGroupLabel>
+          <SidebarGroupLabel>Knowledge gaps</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {activeMisconceptions.slice(0, 5).map((misconception) => (
@@ -433,10 +433,10 @@ export function FlashcardsSidebarPanel({
                       );
                     }}
                   >
-                    <Badge className="rounded-md" variant="outline">
-                      {Math.round(misconception.confidence * 100)}%
-                    </Badge>
-                    <span className="truncate">{misconception.concept}</span>
+                    <WarningDot confidence={misconception.confidence} />
+                    <span className="min-w-0 whitespace-normal break-words leading-4">
+                      {misconception.concept}
+                    </span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -446,7 +446,7 @@ export function FlashcardsSidebarPanel({
       ) : null}
 
       <SidebarGroup className="min-h-0 flex-1">
-        <SidebarGroupLabel>Sets</SidebarGroupLabel>
+        <SidebarGroupLabel>Decks</SidebarGroupLabel>
         <SidebarGroupContent>
           <Input
             className="mb-2 hidden h-8"
@@ -505,8 +505,10 @@ export function FlashcardsSidebarPanel({
                       prefetchFlashcardSet(set.id).catch(() => undefined);
                     }}
                   >
-                    <SparklineChip due={set.dueCount} newCount={set.newCount} />
-                    <span className="truncate">{set.title}</span>
+                    <DeckCountChip due={set.dueCount} newCount={set.newCount} />
+                    <span className="min-w-0 whitespace-normal break-words leading-4">
+                      {set.title}
+                    </span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -518,11 +520,28 @@ export function FlashcardsSidebarPanel({
   );
 }
 
-function SparklineChip({ due, newCount }: { due: number; newCount: number }) {
+function WarningDot({ confidence }: { confidence: number }) {
   return (
-    <span className="inline-flex items-center gap-1">
-      <Badge variant="outline">{due}</Badge>
-      <Badge variant="secondary">{newCount}</Badge>
+    <span
+      aria-hidden="true"
+      className={cn(
+        "size-1.5 shrink-0 rounded-full",
+        confidence >= 0.9
+          ? "bg-destructive"
+          : confidence >= 0.75
+            ? "bg-amber-500"
+            : "bg-emerald-500"
+      )}
+    />
+  );
+}
+
+function DeckCountChip({ due, newCount }: { due: number; newCount: number }) {
+  const total = due + newCount;
+
+  return (
+    <span className="inline-flex min-w-6 shrink-0 justify-center rounded-md border border-border/70 px-1.5 py-0.5 text-[10px] text-muted-foreground tabular-nums">
+      {total}
     </span>
   );
 }

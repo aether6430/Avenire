@@ -10,6 +10,7 @@ import {
   CommandList,
 } from "@avenire/ui/components/command";
 import { Textarea } from "@avenire/ui/components/textarea";
+import { springs } from "@avenire/ui/lib/springs";
 import { surfaceClasses } from "@avenire/ui/lib/surface-classes";
 import {
   ArrowUpIcon,
@@ -486,6 +487,13 @@ function PureMultimodalInput({
     onTranscript: insertTranscript,
     workspaceUuid: effectiveWorkspaceUuid,
   });
+  const composerPlaceholder = isRecording
+    ? "Listening..."
+    : isTranscribing
+      ? "Transcribing..."
+      : isMobile
+        ? "What to learn?"
+        : "What do you want to learn?";
 
   useEffect(() => {
     latestInputRef.current = input;
@@ -1006,8 +1014,7 @@ function PureMultimodalInput({
     >
       <div
         className={cn(
-          "relative flex w-full grow flex-col overflow-visible rounded-xl p-2 transition-[box-shadow,color] duration-100",
-          "focus-within:shadow-[0_0_0_1px_color-mix(in_oklab,var(--foreground)_20%,transparent),0_1px_1px_-0.5px_var(--shadow-color)]",
+          "relative flex w-full grow flex-col overflow-visible rounded-full p-2 transition-colors duration-100 focus-within:ring-1 focus-within:ring-ring",
           surfaceClasses(2, 2)
         )}
       >
@@ -1028,12 +1035,12 @@ function PureMultimodalInput({
                 className="overflow-hidden pb-1"
                 exit={{ height: 0, opacity: 0, y: -8 }}
                 initial={{ height: 0, opacity: 0, y: -8 }}
-                transition={{ duration: 0.18, ease: "easeOut" }}
+                transition={{ ...springs.moderate, bounce: 0 }}
               >
                 <motion.div
                   className="flex flex-wrap items-center gap-2"
                   layout
-                  transition={{ duration: 0.2, ease: "easeOut" }}
+                  transition={{ ...springs.fast, bounce: 0 }}
                 >
                   <AnimatePresence initial={false}>
                     {attachments.map((attachment) => (
@@ -1123,7 +1130,7 @@ function PureMultimodalInput({
 
               <div
                 className={cn(
-                  "flex min-w-0 flex-1",
+                  "flex min-w-0 flex-1 overflow-hidden",
                   centered ? "items-center" : "items-end"
                 )}
               >
@@ -1178,13 +1185,7 @@ function PureMultimodalInput({
                   onSelect={() => {
                     updateTextareaSelection();
                   }}
-                  placeholder={
-                    isRecording
-                      ? "Listening..."
-                      : isTranscribing
-                        ? "Transcribing..."
-                        : "What do you want to learn?"
-                  }
+                  placeholder={composerPlaceholder}
                   ref={textareaRef}
                   rows={1}
                   value={input}
@@ -1249,7 +1250,7 @@ function PureAttachmentsButton({
   return (
     <Button
       aria-label="Add attachment"
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg p-0 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full p-0 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       data-testid="attachments-button"
       disabled={status === "submitted" || status === "streaming"}
       onClick={(event) => {
@@ -1293,7 +1294,7 @@ function PureComposerVoiceButton({
               }
         }
         className={cn(
-          "pointer-events-none absolute inset-0 rounded-lg",
+          "pointer-events-none absolute inset-0 rounded-full",
           isRecording ? "bg-red-500/30" : "bg-foreground/10"
         )}
         transition={
@@ -1309,7 +1310,7 @@ function PureComposerVoiceButton({
       <Button
         aria-label={isRecording ? "Stop recording" : "Start voice input"}
         className={cn(
-          "relative flex h-9 w-9 items-center justify-center rounded-lg border border-transparent bg-transparent p-0 text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground",
+          "relative flex h-9 w-9 items-center justify-center rounded-full border border-transparent bg-transparent p-0 text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground",
           (isRecording || isTranscribing) && "text-foreground",
           isRecording &&
             "border-red-500/30 text-red-600 dark:border-red-400/35 dark:text-red-300"
@@ -1372,7 +1373,7 @@ function PureComposerTurboButton({
       aria-label={enabled ? "Disable Apex Turbo" : "Enable Apex Turbo"}
       aria-pressed={enabled}
       className={cn(
-        "flex h-9 w-9 items-center justify-center rounded-lg border border-transparent bg-transparent p-0 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring",
+        "flex h-9 w-9 items-center justify-center rounded-full border border-transparent bg-transparent p-0 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring",
         enabled && "text-yellow-700 dark:text-yellow-300",
         disabled && "opacity-60"
       )}
@@ -1420,19 +1421,19 @@ function PureComposerActionButton({
         scale: 1,
       }}
       className="relative h-9 w-9 shrink-0"
-      transition={{ stiffness: 520, damping: 32, mass: 0.7, type: "spring" }}
+      transition={springs.fast}
     >
       <motion.span
         animate={{
           opacity: disabled ? 0.68 : 1,
         }}
-        className="absolute inset-0 rounded-lg bg-primary"
-        transition={{ duration: 0.18, ease: "easeOut" }}
+        className="absolute inset-0 rounded-full bg-primary"
+        transition={springs.fast}
       />
       <Button
         aria-label={isRunning ? "Stop generating" : "Send message"}
         className={cn(
-          "absolute inset-0 flex h-9 w-9 items-center justify-center rounded-lg bg-transparent p-0 text-primary-foreground transition duration-150 ease-out hover:bg-transparent hover:text-primary-foreground focus-visible:ring-0",
+          "absolute inset-0 flex h-9 w-9 items-center justify-center rounded-full bg-transparent p-0 text-primary-foreground transition duration-150 ease-out hover:bg-transparent hover:text-primary-foreground focus-visible:ring-0",
           disabled && "opacity-55"
         )}
         data-testid={isRunning ? "stop-button" : "send-button"}
@@ -1458,7 +1459,7 @@ function PureComposerActionButton({
               exit={{ opacity: 0, rotate: -16, scale: 0.72 }}
               initial={{ opacity: 0, rotate: 16, scale: 0.72 }}
               key="stop"
-              transition={{ duration: 0.18, ease: "easeOut" }}
+              transition={springs.fast}
             >
               <Square className="size-[13px] fill-current" weight="fill" />
             </motion.span>
@@ -1468,7 +1469,7 @@ function PureComposerActionButton({
               exit={{ opacity: 0, rotate: 16, scale: 0.72 }}
               initial={{ opacity: 0, rotate: -16, scale: 0.72 }}
               key="send"
-              transition={{ duration: 0.18, ease: "easeOut" }}
+              transition={springs.fast}
             >
               <ArrowUpIcon className="size-[18px]" weight="bold" />
             </motion.span>

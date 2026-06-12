@@ -270,6 +270,28 @@ function StudyCardFace({
   );
 }
 
+function FlashcardMarkdownPreview({
+  className,
+  content,
+  id,
+}: {
+  className?: string;
+  content: string;
+  id: string;
+}) {
+  return (
+    <Markdown
+      className={cn(
+        "flashcard-preview-markdown max-w-none text-inherit leading-[1.45] [&_*]:my-0 [&_code:not(pre_code)]:rounded [&_code:not(pre_code)]:bg-muted [&_code:not(pre_code)]:px-1 [&_code:not(pre_code)]:py-0.5 [&_code:not(pre_code)]:text-[0.9em] [&_li]:my-0 [&_ol]:my-0 [&_ol]:pl-4 [&_p]:my-0 [&_pre]:max-h-20 [&_pre]:overflow-hidden [&_ul]:my-0 [&_ul]:pl-4",
+        className
+      )}
+      content={content}
+      id={id}
+      parseIncompleteMarkdown={false}
+    />
+  );
+}
+
 export function FlashcardSetDetail({
   initialDrillFilters,
   initialQueue,
@@ -849,9 +871,17 @@ export function FlashcardSetDetail({
                     <h1 className="text-balance font-semibold text-xl leading-tight tracking-tight">
                       {set.title}
                     </h1>
-                    <p className="text-muted-foreground text-sm md:text-sm">
-                      {set.description ?? "No description set for this deck."}
-                    </p>
+                    {set.description ? (
+                      <FlashcardMarkdownPreview
+                        className="line-clamp-2 text-muted-foreground text-sm"
+                        content={set.description}
+                        id={`set-description-${set.id}`}
+                      />
+                    ) : (
+                      <p className="text-muted-foreground text-sm">
+                        No description set for this deck.
+                      </p>
+                    )}
                   </div>
                   {drillFilters.length > 0 ? (
                     <div className="rounded-lg border border-amber-200/80 bg-amber-50/80 px-3 py-2 text-xs dark:border-amber-400/20 dark:bg-amber-500/10">
@@ -1185,10 +1215,10 @@ export function FlashcardSetDetail({
                     {studySessionContent}
                   </div>
 
-                  <div className="space-y-1.5 px-0.5 pb-0.5">
+                  <div className="rounded-md border border-border bg-card p-2 sm:p-2.5">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <Button
-                        className="h-6 rounded-md px-2.5 text-xs"
+                        className="h-8 rounded-md px-3 text-xs"
                         disabled={!activeCard}
                         onClick={() =>
                           flipReviewCard(studyRevealed ? "front" : "back")
@@ -1278,12 +1308,16 @@ export function FlashcardSetDetail({
                         <TableRow key={card.id}>
                           <TableCell className="align-top">
                             <div className="space-y-2">
-                              <p className="line-clamp-2 text-foreground text-sm">
-                                {card.frontMarkdown}
-                              </p>
-                              <p className="line-clamp-2 text-muted-foreground text-xs">
-                                {card.backMarkdown}
-                              </p>
+                              <FlashcardMarkdownPreview
+                                className="line-clamp-2 text-foreground text-sm"
+                                content={card.frontMarkdown}
+                                id={`card-bank-front-${card.id}`}
+                              />
+                              <FlashcardMarkdownPreview
+                                className="line-clamp-2 text-muted-foreground text-xs"
+                                content={card.backMarkdown}
+                                id={`card-bank-back-${card.id}`}
+                              />
                             </div>
                           </TableCell>
                           <TableCell className="align-top">
@@ -1363,10 +1397,10 @@ function RatingButton({
   return (
     <Button
       className={cn(
-        "h-7 justify-start rounded-md border px-2.5 font-medium text-[0.72rem] tracking-tight transition-colors sm:justify-center",
+        "h-9 justify-start rounded-md border px-3 font-medium text-[0.78rem] tracking-tight transition-colors sm:justify-center",
         RATING_STYLES[rating],
         disabled &&
-          "border-border/70 bg-muted/30 text-muted-foreground hover:border-border/70 hover:bg-muted/30"
+          "border-border/80 bg-muted/60 text-muted-foreground/80 opacity-100 hover:border-border/80 hover:bg-muted/60"
       )}
       disabled={disabled}
       onClick={onClick}
