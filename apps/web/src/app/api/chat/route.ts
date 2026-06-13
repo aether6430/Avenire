@@ -77,6 +77,7 @@ const DEFAULT_CHAT_TOKENS_PER_CREDIT = 1000;
 const DEFAULT_EXPECTED_OUTPUT_TOKENS = 2000;
 const DEFAULT_WIDGET_GENERATION_CREDITS = 20;
 const DEFAULT_TURBO_MODEL_CREDIT_MULTIPLIER = 2;
+const DEFAULT_APEX_MODEL_CREDIT_MULTIPLIER = 1.5;
 const DEFAULT_CHAT_TITLE_MODEL: ApolloModelName = "apollo-meta";
 const LEARNING_CONTEXT_CACHE_PREFIX = "chat-learning-context:v1:";
 const LEARNING_CONTEXT_CACHE_TTL_SECONDS = 60 * 60 * 3;
@@ -1007,14 +1008,24 @@ function resolveTurboModelCreditMultiplier() {
   return raw;
 }
 
-function modelUsesTurboCreditMultiplier(model: ApolloModelName) {
-  return model === "apex-turbo";
+function resolveApexModelCreditMultiplier() {
+  const raw = Number.parseFloat(
+    process.env.APEX_MODEL_CREDIT_MULTIPLIER ?? ""
+  );
+  if (!Number.isFinite(raw) || raw < 1) {
+    return DEFAULT_APEX_MODEL_CREDIT_MULTIPLIER;
+  }
+  return raw;
 }
 
 function getModelCreditMultiplier(model: ApolloModelName) {
-  return modelUsesTurboCreditMultiplier(model)
-    ? resolveTurboModelCreditMultiplier()
-    : 1;
+  if (model === "apex-turbo") {
+    return resolveTurboModelCreditMultiplier();
+  }
+  if (model === "apollo-apex") {
+    return resolveApexModelCreditMultiplier();
+  }
+  return 1;
 }
 
 function resolveTotalTokens(usage: {

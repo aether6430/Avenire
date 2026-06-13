@@ -160,6 +160,14 @@ function PdfFloatingDock() {
   );
 
   useEffect(() => {
+    setPageInput("");
+  }, [resolvedPage]);
+
+  useEffect(() => {
+    setZoomInput("");
+  }, [resolvedZoom]);
+
+  useEffect(() => {
     const node = viewportRef.current;
     if (!node) {
       return;
