@@ -293,13 +293,30 @@ function PureMultimodalInput({
   const [dismissedMentionKey, setDismissedMentionKey] = useState<string | null>(
     null
   );
+  const [isMultiLine, setIsMultiLine] = useState(false);
   const { width } = useWindowSize();
   const isMobile = useCurrentWorkspacePaneCompact();
   const MAX_FILES = 3;
-  const [localStorageInput, setLocalStorageInput] = useLocalStorage(
-    "chat-input",
-    ""
-  );
+  interface ChatInputDraft {
+    message: string;
+    files_uploaded: string[];
+  }
+
+  const [localStorageInput, setLocalStorageInput] =
+    useLocalStorage<ChatInputDraft>(
+      "chat-input",
+      { message: "", files_uploaded: [] },
+      {
+        deserializer: (value: string) => {
+          try {
+            return JSON.parse(value) as ChatInputDraft;
+          } catch {
+            window.localStorage.removeItem("chat-input");
+            return { message: "", files_uploaded: [] };
+          }
+        },
+      }
+    );
   const [sendMode] = useLocalStorage<ChatComposerSendMode>(
     CHAT_COMPOSER_SEND_MODE_STORAGE_KEY,
     DEFAULT_CHAT_COMPOSER_SEND_MODE
@@ -466,7 +483,10 @@ function PureMultimodalInput({
 
       latestInputRef.current = nextValue;
       setInput(nextValue);
-      setLocalStorageInput(nextValue);
+      setLocalStorageInput({
+        message: nextValue,
+        files_uploaded: [],
+      });
 
       requestAnimationFrame(() => {
         textareaRef.current?.focus();
@@ -501,6 +521,7 @@ function PureMultimodalInput({
       return;
     }
     syncTextareaHeight(textareaRef.current);
+    setIsMultiLine(textareaRef.current.scrollHeight > 40);
   }, [input]);
 
   useEffect(() => {
@@ -508,10 +529,10 @@ function PureMultimodalInput({
       return;
     }
     hasHydratedInputRef.current = true;
-    if (!localStorageInput) {
+    if (!localStorageInput.message) {
       return;
     }
-    setInput(localStorageInput);
+    setInput(localStorageInput.message);
   }, [localStorageInput, setInput]);
 
   useEffect(() => {
@@ -676,7 +697,10 @@ function PureMultimodalInput({
       setQueuedSubmission(null);
       setInput(queuedSubmission.inputValue);
       latestInputRef.current = queuedSubmission.inputValue;
-      setLocalStorageInput(queuedSubmission.inputValue);
+      setLocalStorageInput({
+        message: queuedSubmission.inputValue,
+        files_uploaded: [],
+      });
       toast.error(ERROR_MESSAGES.UPLOAD_ERROR);
       return;
     }
@@ -703,7 +727,10 @@ function PureMultimodalInput({
       } catch {
         setInput(inputValue);
         latestInputRef.current = inputValue;
-        setLocalStorageInput(inputValue);
+        setLocalStorageInput({
+          message: inputValue,
+          files_uploaded: [],
+        });
         toast.error(ERROR_MESSAGES.UNKNOWN_ERROR);
         return;
       }
@@ -863,7 +890,10 @@ function PureMultimodalInput({
 
     latestInputRef.current = "";
     setInput("");
-    setLocalStorageInput("");
+    setLocalStorageInput({
+      message: "",
+      files_uploaded: [],
+    });
     resetHeight();
 
     if (width && width > 768) {
@@ -882,7 +912,10 @@ function PureMultimodalInput({
       await handleSubmit(inputValue, attachmentsToSubmit);
     } catch {
       setInput(inputValue);
-      setLocalStorageInput(inputValue);
+      setLocalStorageInput({
+        message: inputValue,
+        files_uploaded: [],
+      });
       setAttachments(attachmentsToSubmit);
       toast.error(ERROR_MESSAGES.UNKNOWN_ERROR);
       return;
@@ -1014,7 +1047,8 @@ function PureMultimodalInput({
     >
       <div
         className={cn(
-          "relative flex w-full grow flex-col overflow-visible rounded-full p-2 transition-colors duration-100 focus-within:ring-1 focus-within:ring-ring",
+          "relative flex w-full grow flex-col overflow-visible p-2 transition-colors duration-100 focus-within:ring-1 focus-within:ring-ring",
+          isMultiLine ? "rounded-2xl" : "rounded-full",
           surfaceClasses(2, 2)
         )}
       >
@@ -1147,7 +1181,10 @@ function PureMultimodalInput({
                     setDismissedMentionKey(null);
                     latestInputRef.current = nextValue;
                     setInput(nextValue);
-                    setLocalStorageInput(nextValue);
+                    setLocalStorageInput({
+                      message: nextValue,
+                      files_uploaded: [],
+                    });
                     updateTextareaSelection(
                       event.target.selectionStart ?? 0,
                       event.target.selectionEnd ?? 0

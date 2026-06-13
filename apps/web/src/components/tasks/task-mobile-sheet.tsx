@@ -3,7 +3,6 @@
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@avenire/ui/components/sheet";
@@ -45,7 +44,7 @@ export function TaskMobileSheet({
   return (
     <Sheet onOpenChange={onOpenChange} open={isOpen}>
       <SheetContent
-        className="h-[min(88dvh,44rem)] w-full max-w-full overflow-hidden overscroll-contain rounded-t-xl border-border/70 border-t p-0 sm:inset-y-4 sm:right-4 sm:h-[calc(100dvh-2rem)] sm:w-[min(52rem,calc(100vw-2rem))] sm:max-w-[min(52rem,calc(100vw-2rem))] sm:rounded-xl sm:border sm:shadow-2xl"
+        className="h-[min(88dvh,44rem)] w-full max-w-full overflow-hidden overscroll-contain rounded-t-xl border-border/70 border-t p-0 sm:inset-y-4 sm:right-4 sm:h-[calc(100dvh-2rem)] sm:w-[min(64rem,calc(100vw-2rem))] sm:max-w-[min(64rem,calc(100vw-2rem))] sm:rounded-xl sm:border sm:shadow-2xl"
         mobileSide="bottom"
         side="right"
       >
@@ -54,9 +53,6 @@ export function TaskMobileSheet({
             <SheetTitle>
               {mode === "create" ? "New task" : "Task details"}
             </SheetTitle>
-            <SheetDescription>
-              Keep the editor lightweight and precise on small screens.
-            </SheetDescription>
           </SheetHeader>
           <div className="min-h-0 min-w-0 flex-1">
             <TaskDetailPane

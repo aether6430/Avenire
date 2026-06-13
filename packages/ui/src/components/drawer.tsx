@@ -70,7 +70,7 @@ function DrawerContent({
         <div className="bg-muted mx-auto mb-2 hidden h-1.5 w-12 shrink-0 rounded-full group-data-[vaul-drawer-direction=bottom]/drawer-content:block" />
         <div
           data-slot="drawer-surface"
-          className="bg-background/96 border-border/70 overflow-hidden rounded-t-[28px] border shadow-2xl shadow-black/10 backdrop-blur-xl data-[vaul-drawer-direction=top]:rounded-b-[28px] data-[vaul-drawer-direction=left]:rounded-r-[28px] data-[vaul-drawer-direction=right]:rounded-l-[28px]"
+          className="bg-background/96 border-border/70 rounded-t-[28px] border shadow-2xl shadow-black/10 backdrop-blur-xl data-[vaul-drawer-direction=top]:rounded-b-[28px] data-[vaul-drawer-direction=left]:rounded-r-[28px] data-[vaul-drawer-direction=right]:rounded-l-[28px]"
         >
           {children}
         </div>
