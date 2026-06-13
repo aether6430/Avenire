@@ -5,6 +5,7 @@ declare namespace NodeJS {
   // biome-ignore assist/source/useSortedInterfaceMembers: Members are generated from sorted environment keys.
   interface ProcessEnv {
     ADMIN_API_TOKEN?: string;
+    APEX_MODEL_CREDIT_MULTIPLIER?: string;
     AUTH_GITHUB_ID?: string;
     AUTH_GITHUB_SECRET?: string;
     AUTH_GOOGLE_ID?: string;
