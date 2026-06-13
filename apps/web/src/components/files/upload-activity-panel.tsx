@@ -486,7 +486,8 @@ export function UploadActivityPanel() {
           let payload: IngestionJobEvent;
           try {
             payload = JSON.parse(messageEvent.data) as IngestionJobEvent;
-          } catch {
+          } catch (err) {
+            console.warn("Skipping malformed SSE event:", err, messageEvent.data);
             return;
           }
           const cursor =
