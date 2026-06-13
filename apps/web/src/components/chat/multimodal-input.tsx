@@ -71,6 +71,11 @@ const TEXTAREA_MAX_HEIGHT = 160;
 const WHITESPACE_REGEX = /\s/;
 const MOBILE_CHAT_VOICE_START_EVENT = "avenire:mobile-chat-voice-start";
 
+interface ChatInputDraft {
+  message: string;
+  files_uploaded: string[];
+}
+
 function readPreferredWorkspaceId() {
   if (typeof window === "undefined") {
     return null;
@@ -297,10 +302,6 @@ function PureMultimodalInput({
   const { width } = useWindowSize();
   const isMobile = useCurrentWorkspacePaneCompact();
   const MAX_FILES = 3;
-  interface ChatInputDraft {
-    message: string;
-    files_uploaded: string[];
-  }
 
   const [localStorageInput, setLocalStorageInput] =
     useLocalStorage<ChatInputDraft>(
@@ -311,7 +312,11 @@ function PureMultimodalInput({
           try {
             return JSON.parse(value) as ChatInputDraft;
           } catch {
-            window.localStorage.removeItem("chat-input");
+            try {
+              window.localStorage.removeItem("chat-input");
+            } catch {
+              // Ignore errors in restricted contexts
+            }
             return { message: "", files_uploaded: [] };
           }
         },
