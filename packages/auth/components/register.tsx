@@ -18,12 +18,14 @@ const VERIFICATION_EMAIL_STORAGE_KEY = "auth:verification-email"
 
 const clockSubscribers = new Set<() => void>()
 let clockInterval: number | null = null
+let clockSnapshot = Date.now()
 
 function subscribeToClock(callback: () => void) {
   clockSubscribers.add(callback)
 
   if (!clockInterval) {
     clockInterval = window.setInterval(() => {
+      clockSnapshot = Date.now()
       clockSubscribers.forEach((subscriber) => subscriber())
     }, 1000)
   }
@@ -39,7 +41,7 @@ function subscribeToClock(callback: () => void) {
 }
 
 function useClockNow() {
-  return useSyncExternalStore(subscribeToClock, () => Date.now(), () => 0)
+  return useSyncExternalStore(subscribeToClock, () => clockSnapshot, () => 0)
 }
 
 function getVerificationCooldownStorageKey(email: string) {
