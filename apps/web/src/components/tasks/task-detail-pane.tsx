@@ -84,11 +84,6 @@ export function TaskDetailPane({
             <h2 className="font-medium text-foreground text-sm">
               {mode === "create" ? "New task" : "Task details"}
             </h2>
-            <p className="text-muted-foreground text-xs/relaxed">
-              {mode === "create"
-                ? "Draft a task and assign the next owner before you save."
-                : "Keep the task metadata tight and the next step obvious."}
-            </p>
           </div>
           {task ? (
             <Badge className="rounded-sm" variant="outline">

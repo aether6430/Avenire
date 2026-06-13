@@ -3106,11 +3106,20 @@ export function FileExplorer({
         };
 
         eventSource.addEventListener("ingestion.job", (event) => {
-          const payload = JSON.parse((event as MessageEvent).data) as {
+          let payload: {
             jobId: string;
             eventType: string;
             payload?: Record<string, unknown>;
           };
+          try {
+            payload = JSON.parse((event as MessageEvent).data) as {
+              jobId: string;
+              eventType: string;
+              payload?: Record<string, unknown>;
+            };
+          } catch {
+            return;
+          }
 
           setUploadQueue((previous) =>
             previous.map((item) => {

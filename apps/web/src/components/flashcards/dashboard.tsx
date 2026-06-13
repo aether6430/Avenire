@@ -552,7 +552,7 @@ export function FlashcardsDashboard({
           />
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1">
           <div className="space-y-7 px-6 py-7 sm:px-8">
             <div>
               <h2 className="text-balance font-semibold text-3xl text-foreground leading-tight">
@@ -1018,7 +1018,7 @@ export function FlashcardsDashboard({
           open={selectedMisconception !== null}
         >
           <DrawerContent className="data-[vaul-drawer-direction=bottom]:max-h-[86dvh]">
-            <div className="flex h-full max-h-[inherit] min-h-0 flex-col overflow-hidden">
+            <div className="flex h-full max-h-[inherit] min-h-0 flex-col overflow-y-auto">
               {renderMisconceptionPanel()}
             </div>
           </DrawerContent>

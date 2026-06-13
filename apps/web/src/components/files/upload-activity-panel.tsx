@@ -483,7 +483,12 @@ export function UploadActivityPanel() {
         };
         eventSource.addEventListener("ingestion.job", (event) => {
           const messageEvent = event as MessageEvent;
-          const payload = JSON.parse(messageEvent.data) as IngestionJobEvent;
+          let payload: IngestionJobEvent;
+          try {
+            payload = JSON.parse(messageEvent.data) as IngestionJobEvent;
+          } catch {
+            return;
+          }
           const cursor =
             typeof messageEvent.lastEventId === "string" &&
             messageEvent.lastEventId.length > 0
