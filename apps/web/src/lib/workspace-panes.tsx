@@ -115,13 +115,24 @@ function navigatePane(
   router: AppRouterInstance,
   pane: WorkspacePaneContextValue,
   href: string,
-  options?: { openInNewPane?: boolean; replace?: boolean; scroll?: boolean }
+  options?: {
+    openInNewPane?: boolean;
+    openInNewTab?: boolean;
+    replace?: boolean;
+    scroll?: boolean;
+  }
 ) {
   const openInNewPane = options?.openInNewPane ?? false;
+  const openInNewTab = options?.openInNewTab ?? false;
   const replace = options?.replace ?? false;
   const scroll = options?.scroll ?? false;
   const route = buildRouteState(href);
   const store = useWorkspacePaneStore.getState();
+
+  if (openInNewTab) {
+    store.openTab(`${route.pathname}${route.search}`);
+    return;
+  }
 
   if (openInNewPane) {
     store.openPane(`${route.pathname}${route.search}`, {
@@ -225,12 +236,15 @@ export function useWorkspacePaneNavigation() {
         href: string,
         options?: {
           openInNewPane?: boolean;
+          openInNewTab?: boolean;
           replace?: boolean;
           scroll?: boolean;
         }
       ) => navigatePane(router, pane, href, options),
       openInNewPane: (href: string) =>
         navigatePane(router, pane, href, { openInNewPane: true }),
+      openInNewTab: (href: string) =>
+        navigatePane(router, pane, href, { openInNewTab: true }),
     }),
     [pane, router]
   );
@@ -252,14 +266,23 @@ export function useWorkspaceSurfaceNavigation(options?: {
         href: string,
         navigateOptions?: {
           openInNewPane?: boolean;
+          openInNewTab?: boolean;
           replace?: boolean;
           scroll?: boolean;
         }
       ) => {
         const route = buildRouteState(href);
         const openInNewPane = navigateOptions?.openInNewPane ?? false;
+        const openInNewTab = navigateOptions?.openInNewTab ?? false;
         const replace = navigateOptions?.replace ?? false;
         const scroll = navigateOptions?.scroll ?? false;
+
+        if (panesEnabled && openInNewTab) {
+          useWorkspacePaneStore
+            .getState()
+            .openTab(`${route.pathname}${route.search}`);
+          return;
+        }
 
         if (panesEnabled && openInNewPane) {
           openPane(`${route.pathname}${route.search}`, {
@@ -314,7 +337,7 @@ function findNavigableAnchor(target: EventTarget | null) {
 export function WorkspacePaneInteractionBoundary({
   children,
 }: PropsWithChildren) {
-  const { navigate, openInNewPane } = useWorkspacePaneNavigation();
+  const { navigate, openInNewPane, openInNewTab } = useWorkspacePaneNavigation();
 
   const handleClickCapture = (event: MouseEvent<HTMLDivElement>) => {
     const anchor = findNavigableAnchor(event.target);
@@ -323,7 +346,13 @@ export function WorkspacePaneInteractionBoundary({
     }
 
     const href = anchor.href;
-    if (event.metaKey || event.ctrlKey || event.shiftKey) {
+    if (event.shiftKey || event.metaKey) {
+      return;
+    }
+
+    if (event.ctrlKey) {
+      event.preventDefault();
+      openInNewTab(href);
       return;
     }
 
@@ -341,16 +370,6 @@ export function WorkspacePaneInteractionBoundary({
     navigate(href);
   };
 
-  const handleContextMenuCapture = (event: MouseEvent<HTMLDivElement>) => {
-    const anchor = findNavigableAnchor(event.target);
-    if (!anchor) {
-      return;
-    }
-
-    event.preventDefault();
-    openInNewPane(anchor.href);
-  };
-
   const handleDragStartCapture = (event: DragEvent<HTMLDivElement>) => {
     const anchor = findNavigableAnchor(event.target);
     if (!anchor) {
@@ -364,7 +383,6 @@ export function WorkspacePaneInteractionBoundary({
     <div
       className="contents"
       onClickCapture={handleClickCapture}
-      onContextMenuCapture={handleContextMenuCapture}
       onDragStartCapture={handleDragStartCapture}
     >
       {children}

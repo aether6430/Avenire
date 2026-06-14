@@ -13,9 +13,18 @@ interface WorkspacePaneRowRecord {
   size: number;
 }
 
+interface WorkspacePaneTabRecord {
+  activePaneId: string | null;
+  id: string;
+  panes: WorkspacePaneRecord[];
+  title: string;
+}
+
 interface WorkspacePaneStoreState {
   activePaneId: string | null;
+  activeTabId: string | null;
   closePane: (paneId: string) => void;
+  closeTab: (tabId: string) => void;
   ensureInitialized: (route: WorkspacePaneRouteState) => void;
   focusPane: (paneId: string) => void;
   initialized: boolean;
@@ -35,6 +44,7 @@ interface WorkspacePaneStoreState {
       splitPlacement?: "after" | "before";
     }
   ) => void;
+  openTab: (href?: string) => void;
   panes: WorkspacePaneRecord[];
   reorderPanes: (draggedPaneId: string, targetPaneId: string) => void;
   rows: WorkspacePaneRowRecord[];
@@ -45,10 +55,12 @@ interface WorkspacePaneStoreState {
   ) => void;
   setPaneSizes: (rowId: string, sizes: number[]) => void;
   setRowSizes: (sizes: number[]) => void;
+  switchTab: (tabId: string) => void;
   syncActivePaneFromBrowser: (route: WorkspacePaneRouteState) => void;
+  tabs: WorkspacePaneTabRecord[];
 }
 
-const STORAGE_KEY = "workspace-pane-layout-v4";
+const STORAGE_KEY = "workspace-pane-layout-v5";
 const DEFAULT_ROW_ID = "workspace-row";
 
 function createPaneId() {
@@ -64,6 +76,25 @@ function buildRoute(href: string): WorkspacePaneRouteState {
     pathname: pathname || "/workspace",
     search: search ? `?${search}` : "",
   };
+}
+
+function titleForRoute(route: WorkspacePaneRouteState) {
+  if (route.pathname === "/workspace") {
+    return "Home";
+  }
+  if (route.pathname === "/workspace/tasks") {
+    return "Tasks";
+  }
+  if (route.pathname.startsWith("/workspace/chats")) {
+    return "Chats";
+  }
+  if (route.pathname.startsWith("/workspace/flashcards")) {
+    return "Flashcards";
+  }
+  if (route.pathname.startsWith("/workspace/files")) {
+    return "Files";
+  }
+  return "Workspace";
 }
 
 function normalizeSizes<T extends { size: number }>(items: T[]) {
@@ -116,6 +147,79 @@ function sanitizeState(state: {
   };
 }
 
+function createTab(route: WorkspacePaneRouteState): WorkspacePaneTabRecord {
+  const paneId = createPaneId();
+  return {
+    activePaneId: paneId,
+    id: createPaneId(),
+    panes: [{ id: paneId, route, rowId: DEFAULT_ROW_ID, size: 100 }],
+    title: titleForRoute(route),
+  };
+}
+
+function sanitizeTab(tab: WorkspacePaneTabRecord): WorkspacePaneTabRecord | null {
+  const panes = sanitizePanes(tab.panes);
+  if (panes.length === 0) {
+    return null;
+  }
+
+  const activePaneId = panes.some((pane) => pane.id === tab.activePaneId)
+    ? tab.activePaneId
+    : (panes[0]?.id ?? null);
+  const activePane = panes.find((pane) => pane.id === activePaneId) ?? panes[0];
+
+  return {
+    activePaneId,
+    id: tab.id || createPaneId(),
+    panes,
+    title: tab.title || (activePane ? titleForRoute(activePane.route) : "Workspace"),
+  };
+}
+
+function activeTabFromState(state: WorkspacePaneStoreState) {
+  return (
+    state.tabs.find((tab) => tab.id === state.activeTabId) ??
+    state.tabs[0] ??
+    null
+  );
+}
+
+function rowsForPanes(panes: WorkspacePaneRecord[]) {
+  return panes.length > 0 ? [{ id: DEFAULT_ROW_ID, size: 100 }] : [];
+}
+
+function mirrorActiveTab(state: WorkspacePaneStoreState) {
+  const activeTab = activeTabFromState(state);
+  return {
+    activePaneId: activeTab?.activePaneId ?? null,
+    activeTabId: activeTab?.id ?? null,
+    panes: activeTab?.panes ?? [],
+    rows: rowsForPanes(activeTab?.panes ?? []),
+  };
+}
+
+function updateActiveTab(
+  state: WorkspacePaneStoreState,
+  update: (tab: WorkspacePaneTabRecord) => WorkspacePaneTabRecord
+) {
+  const activeTab = activeTabFromState(state);
+  if (!activeTab) {
+    return state;
+  }
+
+  const nextTab = sanitizeTab(update(activeTab));
+  if (!nextTab) {
+    return state;
+  }
+
+  const tabs = state.tabs.map((tab) => (tab.id === activeTab.id ? nextTab : tab));
+  return {
+    tabs,
+    initialized: true,
+    ...mirrorActiveTab({ ...state, tabs, activeTabId: nextTab.id }),
+  };
+}
+
 function insertPane(
   panes: WorkspacePaneRecord[],
   pane: WorkspacePaneRecord,
@@ -156,29 +260,36 @@ export const useWorkspacePaneStore = create<WorkspacePaneStoreState>()(
   persist(
     (set) => ({
       activePaneId: null,
+      activeTabId: null,
       initialized: false,
       panes: [],
       rows: [],
+      tabs: [],
       ensureInitialized: (route) =>
         set((state) => {
-          if (state.initialized && state.panes.length > 0) {
+          if (state.initialized && state.tabs.length > 0) {
             return state;
           }
 
-          const paneId = createPaneId();
+          const tab = createTab(route);
           return {
-            activePaneId: paneId,
+            activePaneId: tab.activePaneId,
+            activeTabId: tab.id,
             initialized: true,
-            panes: [{ id: paneId, route, rowId: DEFAULT_ROW_ID, size: 100 }],
+            panes: tab.panes,
             rows: [{ id: DEFAULT_ROW_ID, size: 100 }],
+            tabs: [tab],
           };
         }),
       focusPane: (paneId) =>
-        set((state) =>
-          state.panes.some((pane) => pane.id === paneId)
-            ? { activePaneId: paneId }
-            : state
-        ),
+        set((state) => {
+          const activeTab = activeTabFromState(state);
+          if (!activeTab?.panes.some((pane) => pane.id === paneId)) {
+            return state;
+          }
+
+          return updateActiveTab(state, (tab) => ({ ...tab, activePaneId: paneId }));
+        }),
       openPane: (href, options) =>
         set((state) => {
           const pane: WorkspacePaneRecord = {
@@ -188,58 +299,119 @@ export const useWorkspacePaneStore = create<WorkspacePaneStoreState>()(
             size: 100,
           };
 
-          return sanitizeState({
-            activePaneId: pane.id,
-            initialized: true,
-            panes: insertPane(
-              state.panes,
-              pane,
-              options?.sourcePaneId ?? state.activePaneId ?? undefined,
-              options?.splitPlacement ?? "after"
-            ),
+          return updateActiveTab(state, (tab) => {
+            const next = sanitizeState({
+              activePaneId: pane.id,
+              initialized: true,
+              panes: insertPane(
+                tab.panes,
+                pane,
+                options?.sourcePaneId ?? tab.activePaneId ?? undefined,
+                options?.splitPlacement ?? "after"
+              ),
+            });
+            return {
+              ...tab,
+              activePaneId: next.activePaneId,
+              panes: next.panes,
+              title: titleForRoute(pane.route),
+            };
           });
+        }),
+      openTab: (href) =>
+        set((state) => {
+          const activeTab = activeTabFromState(state);
+          const activePane = activeTab?.panes.find(
+            (pane) => pane.id === activeTab.activePaneId
+          );
+          const route = href
+            ? buildRoute(href)
+            : (activePane?.route ?? buildRoute("/workspace"));
+          const tab = createTab(route);
+          const tabs = [...state.tabs, tab];
+
+          return {
+            activePaneId: tab.activePaneId,
+            activeTabId: tab.id,
+            initialized: true,
+            panes: tab.panes,
+            rows: rowsForPanes(tab.panes),
+            tabs,
+          };
         }),
       movePaneToSplit: (draggedPaneId, targetPaneId, options) =>
         set((state) => {
-          const draggedPane = state.panes.find(
+          const activeTab = activeTabFromState(state);
+          if (!activeTab) {
+            return state;
+          }
+
+          const draggedPane = activeTab.panes.find(
             (pane) => pane.id === draggedPaneId
           );
           if (!draggedPane || draggedPaneId === targetPaneId) {
             return state;
           }
 
-          const withoutDragged = state.panes.filter(
+          const withoutDragged = activeTab.panes.filter(
             (pane) => pane.id !== draggedPaneId
           );
-          return sanitizeState({
-            activePaneId: draggedPaneId,
-            initialized: true,
-            panes: insertPane(
-              withoutDragged,
-              draggedPane,
-              targetPaneId,
-              options.splitPlacement ?? "after"
-            ),
+          return updateActiveTab(state, (tab) => {
+            const next = sanitizeState({
+              activePaneId: draggedPaneId,
+              initialized: true,
+              panes: insertPane(
+                withoutDragged,
+                draggedPane,
+                targetPaneId,
+                options.splitPlacement ?? "after"
+              ),
+            });
+            return { ...tab, activePaneId: next.activePaneId, panes: next.panes };
           });
         }),
       closePane: (paneId) =>
         set((state) => {
+          const activeTab = activeTabFromState(state);
           if (
-            state.panes.length <= 1 ||
-            !state.panes.some((pane) => pane.id === paneId)
+            !activeTab ||
+            activeTab.panes.length <= 1 ||
+            !activeTab.panes.some((pane) => pane.id === paneId)
           ) {
             return state;
           }
 
-          return sanitizeState({
-            activePaneId: chooseActiveAfterClose(
-              state.panes,
-              paneId,
-              state.activePaneId
-            ),
-            initialized: true,
-            panes: state.panes.filter((pane) => pane.id !== paneId),
+          return updateActiveTab(state, (tab) => {
+            const next = sanitizeState({
+              activePaneId: chooseActiveAfterClose(
+                tab.panes,
+                paneId,
+                tab.activePaneId
+              ),
+              initialized: true,
+              panes: tab.panes.filter((pane) => pane.id !== paneId),
+            });
+            return { ...tab, activePaneId: next.activePaneId, panes: next.panes };
           });
+        }),
+      closeTab: (tabId) =>
+        set((state) => {
+          if (state.tabs.length <= 1 || !state.tabs.some((tab) => tab.id === tabId)) {
+            return state;
+          }
+
+          const closedIndex = state.tabs.findIndex((tab) => tab.id === tabId);
+          const tabs = state.tabs.filter((tab) => tab.id !== tabId);
+          const nextActiveTabId =
+            state.activeTabId === tabId
+              ? (tabs[closedIndex]?.id ?? tabs[closedIndex - 1]?.id ?? tabs[0]?.id ?? null)
+              : state.activeTabId;
+
+          return {
+            initialized: true,
+            tabs,
+            ...mirrorActiveTab({ ...state, tabs, activeTabId: nextActiveTabId }),
+          };
         }),
       reorderPanes: (draggedPaneId, targetPaneId) =>
         set((state) => {
@@ -247,92 +419,150 @@ export const useWorkspacePaneStore = create<WorkspacePaneStoreState>()(
             return state;
           }
 
-          const draggedIndex = state.panes.findIndex(
+          const activeTab = activeTabFromState(state);
+          if (!activeTab) {
+            return state;
+          }
+
+          const draggedIndex = activeTab.panes.findIndex(
             (pane) => pane.id === draggedPaneId
           );
-          const targetIndex = state.panes.findIndex(
+          const targetIndex = activeTab.panes.findIndex(
             (pane) => pane.id === targetPaneId
           );
-          const draggedPane = state.panes[draggedIndex];
+          const draggedPane = activeTab.panes[draggedIndex];
           if (!(draggedPane && targetIndex >= 0)) {
             return state;
           }
 
-          const withoutDragged = state.panes.filter(
+          const withoutDragged = activeTab.panes.filter(
             (pane) => pane.id !== draggedPaneId
           );
-          return sanitizeState({
-            activePaneId: draggedPaneId,
-            initialized: true,
-            panes: insertPane(
-              withoutDragged,
-              draggedPane,
-              targetPaneId,
-              draggedIndex < targetIndex ? "after" : "before"
-            ),
+          return updateActiveTab(state, (tab) => {
+            const next = sanitizeState({
+              activePaneId: draggedPaneId,
+              initialized: true,
+              panes: insertPane(
+                withoutDragged,
+                draggedPane,
+                targetPaneId,
+                draggedIndex < targetIndex ? "after" : "before"
+              ),
+            });
+            return { ...tab, activePaneId: next.activePaneId, panes: next.panes };
           });
         }),
       setPaneRoute: (paneId, route) =>
         set((state) => {
-          if (!state.panes.some((pane) => pane.id === paneId)) {
+          const activeTab = activeTabFromState(state);
+          if (!activeTab?.panes.some((pane) => pane.id === paneId)) {
+            return state;
+          }
+
+          return updateActiveTab(state, (tab) => ({
+            ...tab,
+            activePaneId: paneId,
+            panes: tab.panes.map((pane) =>
+              pane.id === paneId ? { ...pane, route } : pane
+            ),
+            title: titleForRoute(route),
+          }));
+        }),
+      setPaneSizes: (_rowId, sizes) =>
+        set((state) =>
+          updateActiveTab(state, (tab) => ({
+            ...tab,
+            panes: normalizeSizes(
+              tab.panes.map((pane, index) => ({
+                ...pane,
+                size: sizes[index] ?? pane.size,
+              }))
+            ),
+          }))
+        ),
+      setRowSizes: () => set((state) => state),
+      switchTab: (tabId) =>
+        set((state) => {
+          if (!state.tabs.some((tab) => tab.id === tabId)) {
             return state;
           }
 
           return {
-            activePaneId: paneId,
-            panes: state.panes.map((pane) =>
-              pane.id === paneId ? { ...pane, route } : pane
-            ),
+            initialized: true,
+            ...mirrorActiveTab({ ...state, activeTabId: tabId }),
           };
         }),
-      setPaneSizes: (_rowId, sizes) =>
-        set((state) => ({
-          panes: normalizeSizes(
-            state.panes.map((pane, index) => ({
-              ...pane,
-              size: sizes[index] ?? pane.size,
-            }))
-          ),
-        })),
-      setRowSizes: () => set((state) => state),
       syncActivePaneFromBrowser: (route) =>
         set((state) => {
-          const activePaneId = state.activePaneId ?? state.panes[0]?.id ?? null;
+          const activeTab = activeTabFromState(state);
+          if (!activeTab) {
+            return state;
+          }
+
+          const activePaneId =
+            activeTab.activePaneId ?? activeTab.panes[0]?.id ?? null;
           if (!activePaneId) {
             return state;
           }
 
-          return {
+          return updateActiveTab(state, (tab) => ({
+            ...tab,
             activePaneId,
-            panes: state.panes.map((pane) =>
+            panes: tab.panes.map((pane) =>
               pane.id === activePaneId ? { ...pane, route } : pane
             ),
-          };
+            title: titleForRoute(route),
+          }));
         }),
     }),
     {
       name: STORAGE_KEY,
       partialize: (state) => ({
         activePaneId: state.activePaneId,
+        activeTabId: state.activeTabId,
         initialized: state.initialized,
         panes: state.panes,
+        tabs: state.tabs,
       }),
       storage: createJSONStorage(() => localStorage),
-      merge: (persistedState, currentState) =>
-        ({
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as
+          | Partial<WorkspacePaneStoreState>
+          | undefined;
+        const sanitizedTabs = (persisted?.tabs ?? [])
+          .map((tab) => sanitizeTab(tab))
+          .filter((tab): tab is WorkspacePaneTabRecord => Boolean(tab));
+        const tabs =
+          sanitizedTabs.length > 0
+            ? sanitizedTabs
+            : sanitizeState({
+                activePaneId: persisted?.activePaneId ?? currentState.activePaneId,
+                initialized: persisted?.initialized ?? currentState.initialized,
+                panes: persisted?.panes ?? currentState.panes,
+              }).panes.length > 0
+              ? [
+                  {
+                    activePaneId:
+                      persisted?.activePaneId ?? currentState.activePaneId,
+                    id: createPaneId(),
+                    panes: sanitizePanes(
+                      persisted?.panes ?? currentState.panes
+                    ),
+                    title: "Workspace",
+                  },
+                ]
+              : [];
+        const activeTabId = tabs.some((tab) => tab.id === persisted?.activeTabId)
+          ? (persisted?.activeTabId ?? null)
+          : (tabs[0]?.id ?? null);
+
+        return {
           ...currentState,
-          ...sanitizeState({
-            activePaneId:
-              (persistedState as Partial<WorkspacePaneStoreState> | undefined)
-                ?.activePaneId ?? currentState.activePaneId,
-            initialized:
-              (persistedState as Partial<WorkspacePaneStoreState> | undefined)
-                ?.initialized ?? currentState.initialized,
-            panes:
-              (persistedState as Partial<WorkspacePaneStoreState> | undefined)
-                ?.panes ?? currentState.panes,
-          }),
-        }) as WorkspacePaneStoreState,
+          initialized: persisted?.initialized ?? tabs.length > 0,
+          tabs,
+          ...mirrorActiveTab({ ...currentState, tabs, activeTabId }),
+        } as WorkspacePaneStoreState;
+      },
     }
   )
 );
