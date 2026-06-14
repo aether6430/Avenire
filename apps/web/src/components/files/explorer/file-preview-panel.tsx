@@ -39,6 +39,7 @@ import {
   LinkSimple,
   DotsThree as MoreHorizontal,
   Pencil,
+  Plus,
   PushPin as Pin,
   PushPinSlash as PinOff,
   ArrowCounterClockwise as RotateCcw,
@@ -325,6 +326,7 @@ export function FilePreviewPanel({
   const { paneId } = useCurrentWorkspacePane();
   const closePane = useWorkspacePaneStore((state) => state.closePane);
   const openPane = useWorkspacePaneStore((state) => state.openPane);
+  const openTab = useWorkspacePaneStore((state) => state.openTab);
   const paneCount = useWorkspacePaneStore((state) => state.panes.length);
   const canClosePane = paneCount > 1;
 
@@ -1116,6 +1118,18 @@ export function FilePreviewPanel({
                 Split right
               </DropdownMenuItem>
               <DropdownMenuItem
+                onClick={() => {
+                  const params = new URLSearchParams();
+                  params.set("file", activeFile.id);
+                  openTab(
+                    `/workspace/files/${workspaceUuid}/folder/${activeFile.folderId}?${params.toString()}`
+                  );
+                }}
+              >
+                <Plus className="size-3.5" />
+                Open in new tab
+              </DropdownMenuItem>
+              <DropdownMenuItem
                 disabled={!canClosePane}
                 onClick={() => closePane(paneId)}
               >
@@ -1195,6 +1209,7 @@ export function FilePreviewPanel({
     triggerNoteBannerPicker,
     toggleCurrentPinnedItem,
     openPane,
+    openTab,
     paneId,
     workspaceUuid,
     isImage,

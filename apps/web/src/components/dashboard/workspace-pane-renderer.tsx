@@ -1,6 +1,12 @@
 "use client";
 
 import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@avenire/ui/components/context-menu";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -23,6 +29,7 @@ import {
   ArrowsSplit,
   Columns,
   DotsThree as MoreHorizontal,
+  Plus,
   X,
 } from "@phosphor-icons/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -156,6 +163,7 @@ function WorkspacePaneSurface({
   isMultiPane,
   onClose,
   onFocus,
+  onOpenTab,
   onSplitHorizontal,
   pane,
 }: {
@@ -164,6 +172,7 @@ function WorkspacePaneSurface({
   isMultiPane: boolean;
   onClose: () => void;
   onFocus: () => void;
+  onOpenTab: () => void;
   onSplitHorizontal: () => void;
   pane: {
     id: string;
@@ -234,6 +243,10 @@ function WorkspacePaneSurface({
         <DropdownMenuItem onClick={onSplitHorizontal}>
           <Columns className="mr-2 size-4" />
           Split right
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onOpenTab}>
+          <Plus className="mr-2 size-4" />
+          Open in new tab
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
@@ -318,17 +331,22 @@ export function WorkspacePaneRenderer() {
   const { workspace } = useWorkspaceBootstrap();
   const panes = useWorkspacePaneStore((state) => state.panes);
   const activePaneId = useWorkspacePaneStore((state) => state.activePaneId);
+  const activeTabId = useWorkspacePaneStore((state) => state.activeTabId);
   const ensureInitialized = useWorkspacePaneStore(
     (state) => state.ensureInitialized
   );
   const closePane = useWorkspacePaneStore((state) => state.closePane);
+  const closeTab = useWorkspacePaneStore((state) => state.closeTab);
   const focusPane = useWorkspacePaneStore((state) => state.focusPane);
   const openPane = useWorkspacePaneStore((state) => state.openPane);
+  const openTab = useWorkspacePaneStore((state) => state.openTab);
   const reorderPanes = useWorkspacePaneStore((state) => state.reorderPanes);
   const setPaneSizes = useWorkspacePaneStore((state) => state.setPaneSizes);
+  const switchTab = useWorkspacePaneStore((state) => state.switchTab);
   const syncActivePaneFromBrowser = useWorkspacePaneStore(
     (state) => state.syncActivePaneFromBrowser
   );
+  const tabs = useWorkspacePaneStore((state) => state.tabs);
   const setActiveHeaderPaneId = useHeaderStore(
     (state) => state.setActivePaneId
   );
@@ -422,6 +440,37 @@ export function WorkspacePaneRenderer() {
     setActiveHeaderPaneId(activePaneId);
   }, [activePaneId, setActiveHeaderPaneId]);
 
+  useEffect(() => {
+    if (isMobile || !paneStoreHydrated) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        !(
+          event.ctrlKey &&
+          !event.metaKey &&
+          !event.altKey &&
+          !event.shiftKey
+        )
+      ) {
+        return;
+      }
+
+      const tabIndex = Number(event.key) - 1;
+      const tab = tabs[tabIndex];
+      if (!tab || tabIndex < 0 || tabIndex > 8) {
+        return;
+      }
+
+      event.preventDefault();
+      switchTab(tab.id);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isMobile, paneStoreHydrated, switchTab, tabs]);
+
   if (!workspace || panes.length === 0) {
     return <WorkspaceRoutePlaceholder label="Loading workspace..." />;
   }
@@ -492,10 +541,87 @@ export function WorkspacePaneRenderer() {
       onDragStart={handlePaneDragStart}
       sensors={sensors}
     >
-      <div className="h-full min-h-0 w-full bg-background">
+      <div className="flex h-full min-h-0 w-full flex-col bg-background">
+        {tabs.length > 1 ? (
+          <div className="flex h-10 shrink-0 items-center gap-1 border-border/70 border-b bg-background px-2">
+            <div
+              aria-label="Workspace tabs"
+              className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto"
+              role="tablist"
+            >
+              {tabs.map((tab, tabIndex) => {
+                const isActive = tab.id === activeTabId;
+
+                return (
+                  <ContextMenu key={tab.id}>
+                    <ContextMenuTrigger
+                      render={
+                        <div
+                          className={cn(
+                            "group flex h-8 min-w-0 max-w-44 items-center gap-1 rounded-md border px-2 text-left text-sm transition-colors",
+                            isActive
+                              ? "border-border bg-muted text-foreground"
+                              : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                          )}
+                        />
+                      }
+                    >
+                      <button
+                        aria-selected={isActive}
+                        className="min-w-0 flex-1 truncate text-left"
+                        onClick={() => switchTab(tab.id)}
+                        role="tab"
+                        type="button"
+                      >
+                        {tab.title}
+                      </button>
+                      <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+                        {tabIndex + 1}
+                      </span>
+                      <button
+                        aria-label={`Close ${tab.title} tab`}
+                        className="flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground opacity-0 transition hover:bg-foreground/10 hover:text-foreground group-hover:opacity-100 focus:opacity-100"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          closeTab(tab.id);
+                        }}
+                        type="button"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </ContextMenuTrigger>
+                    <ContextMenuContent className="w-44 rounded-lg p-1">
+                      <ContextMenuItem onClick={() => openTab()}>
+                        <Plus className="mr-2 size-4" />
+                        New tab
+                      </ContextMenuItem>
+                      <ContextMenuItem
+                        className="text-destructive focus:text-destructive"
+                        disabled={tabs.length <= 1}
+                        onClick={() => closeTab(tab.id)}
+                      >
+                        <X className="mr-2 size-4" />
+                        Close tab
+                      </ContextMenuItem>
+                    </ContextMenuContent>
+                  </ContextMenu>
+                );
+              })}
+            </div>
+            <button
+              aria-label="New workspace tab"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted/70 hover:text-foreground"
+              onClick={() => openTab()}
+              type="button"
+            >
+              <Plus className="size-4" />
+            </button>
+          </div>
+        ) : null}
         <PanelGroup
           autoSaveId="avenire-workspace-panes"
-          className="h-full min-h-0 min-w-0"
+          className="min-h-0 min-w-0 flex-1"
           direction="horizontal"
           onLayout={(sizes) => {
             if (rowId) {
@@ -541,6 +667,9 @@ export function WorkspacePaneRenderer() {
                     isMultiPane={isMultiPane}
                     onClose={() => closePane(pane.id)}
                     onFocus={() => focusPane(pane.id)}
+                    onOpenTab={() =>
+                      openTab(`${pane.route.pathname}${pane.route.search}`)
+                    }
                     onSplitHorizontal={() =>
                       openPane("/workspace", {
                         sourcePaneId: pane.id,

@@ -205,6 +205,9 @@ const KEYBOARD_SHORTCUT_GROUPS = [
     name: "Workspace",
     items: [
       { label: "Toggle Sidebar", keys: ["Ctrl", "B"] },
+      { label: "Open link in side pane", keys: ["Alt", "Click"] },
+      { label: "Open link in workspace tab", keys: ["Ctrl", "Click"] },
+      { label: "Switch workspace tabs", keys: ["Ctrl", "1-9"] },
       { label: "Open Model Picker", keys: ["Ctrl", "/"] },
       { label: "Show or hide pet", keys: ["Ctrl", "Shift", "Y"] },
     ],
