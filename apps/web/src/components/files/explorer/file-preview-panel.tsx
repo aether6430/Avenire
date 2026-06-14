@@ -1127,7 +1127,7 @@ export function FilePreviewPanel({
                 }}
               >
                 <Plus className="size-3.5" />
-                Open in new tab
+                Open in workspace tab
               </DropdownMenuItem>
               <DropdownMenuItem
                 disabled={!canClosePane}
