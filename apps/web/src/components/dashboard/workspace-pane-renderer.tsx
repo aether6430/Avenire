@@ -4,6 +4,7 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@avenire/ui/components/context-menu";
 import {
@@ -13,6 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@avenire/ui/components/dropdown-menu";
+import { Input } from "@avenire/ui/components/input";
 import { cn } from "@avenire/ui/lib/utils";
 import {
   DndContext,
@@ -29,6 +31,7 @@ import {
   ArrowsSplit,
   Columns,
   DotsThree as MoreHorizontal,
+  Pencil,
   Plus,
   X,
 } from "@phosphor-icons/react";
@@ -64,6 +67,147 @@ import { useWorkspacePaneStore } from "@/stores/workspacePaneStore";
 
 const COMPACT_PANE_WIDTH = 900;
 const MIN_PANE_SIZE = 20;
+
+function TabItem({
+  editingTabTitle,
+  isEditing,
+  isActive,
+  onCancelEdit,
+  onCloseTab,
+  onEditingTitleChange,
+  onFinishEdit,
+  onOpenTab,
+  onStartEdit,
+  onSwitchTab,
+  tab,
+  tabIndex,
+  tabsLength,
+}: {
+  editingTabTitle: string;
+  isEditing: boolean;
+  isActive: boolean;
+  onCancelEdit: () => void;
+  onCloseTab: (tabId: string) => void;
+  onEditingTitleChange: (value: string) => void;
+  onFinishEdit: (tabId: string, title: string) => void;
+  onOpenTab: () => void;
+  onStartEdit: (tabId: string, title: string) => void;
+  onSwitchTab: (tabId: string) => void;
+  tab: { id: string; title: string };
+  tabIndex: number;
+  tabsLength: number;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `tab-item-${tab.id}`,
+    data: { tabId: tab.id },
+    disabled: tabsLength <= 1,
+  });
+  const { isOver, setNodeRef: setDroppableRef } = useDroppable({
+    id: `tab-drop-${tab.id}`,
+    data: { tabId: tab.id },
+    disabled: tabsLength <= 1,
+  });
+
+  const setRef = (node: HTMLDivElement | null) => {
+    setNodeRef(node);
+    setDroppableRef(node);
+  };
+
+  if (isEditing) {
+    return (
+      <div className="flex h-6 min-w-0 max-w-56 items-center rounded-md border border-border bg-muted px-1">
+        <form
+          className="flex-1"
+          onSubmit={(e) => {
+            e.preventDefault();
+            onFinishEdit(tab.id, editingTabTitle);
+          }}
+        >
+          <Input
+            autoFocus
+            className="h-5 px-1 py-0 text-xs"
+            value={editingTabTitle}
+            onChange={(e) => onEditingTitleChange(e.target.value)}
+            onBlur={() => onFinishEdit(tab.id, editingTabTitle)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.preventDefault();
+                onCancelEdit();
+              }
+            }}
+          />
+        </form>
+      </div>
+    );
+  }
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger render={<div className="contents" />}>
+        <div
+          ref={setRef}
+          className={cn(
+            "group flex h-6 min-w-0 max-w-56 cursor-grab items-center gap-1 rounded-md border px-1.5 text-left text-xs transition-colors active:cursor-grabbing",
+            isActive
+              ? "border-border bg-muted text-foreground"
+              : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+            isDragging && "opacity-50",
+            isOver && !isDragging && "bg-primary/10"
+          )}
+          {...attributes}
+          {...listeners}
+        >
+          <button
+            aria-selected={isActive}
+            className="min-w-0 flex-1 truncate text-left"
+            onClick={() => onSwitchTab(tab.id)}
+            role="tab"
+            type="button"
+          >
+            {tab.title}
+          </button>
+          <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+            {tabIndex + 1}
+          </span>
+          <button
+            aria-label={`Close ${tab.title} tab`}
+            className="flex size-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground opacity-0 transition hover:bg-foreground/10 hover:text-foreground group-hover:opacity-100 focus:opacity-100"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onCloseTab(tab.id);
+            }}
+            type="button"
+          >
+            <X className="size-2.5" />
+          </button>
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-44 rounded-lg p-1">
+        <ContextMenuItem
+          onClick={() => onStartEdit(tab.id, tab.title)}
+        >
+          <Pencil className="mr-2 size-3.5" />
+          Rename
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={() => onOpenTab()}>
+          <Plus className="mr-2 size-3.5" />
+          New tab
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          className="text-destructive focus:text-destructive"
+          disabled={tabsLength <= 1}
+          onClick={() => onCloseTab(tab.id)}
+        >
+          <X className="mr-2 size-3.5" />
+          Close tab
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
+  );
+}
 
 function WorkspacePaneScene({
   paneId,
@@ -340,7 +484,9 @@ export function WorkspacePaneRenderer() {
   const focusPane = useWorkspacePaneStore((state) => state.focusPane);
   const openPane = useWorkspacePaneStore((state) => state.openPane);
   const openTab = useWorkspacePaneStore((state) => state.openTab);
+  const renameTab = useWorkspacePaneStore((state) => state.renameTab);
   const reorderPanes = useWorkspacePaneStore((state) => state.reorderPanes);
+  const reorderTabs = useWorkspacePaneStore((state) => state.reorderTabs);
   const setPaneSizes = useWorkspacePaneStore((state) => state.setPaneSizes);
   const switchTab = useWorkspacePaneStore((state) => state.switchTab);
   const syncActivePaneFromBrowser = useWorkspacePaneStore(
@@ -529,6 +675,19 @@ export function WorkspacePaneRenderer() {
     }
   };
 
+  const [editingTabId, setEditingTabId] = useState<string | null>(null);
+  const [editingTabTitle, setEditingTabTitle] = useState("");
+
+  const handleTabDragEnd = (event: DragEndEvent) => {
+    const extractTabId = (id: string) =>
+      id.replace("tab-item-", "").replace("tab-drop-", "");
+    const activeTabId = extractTabId(String(event.active.id));
+    const overTabId = event.over ? extractTabId(String(event.over.id)) : null;
+    if (overTabId && activeTabId !== overTabId) {
+      reorderTabs(activeTabId, overTabId);
+    }
+  };
+
   const handlePaneDragCancel = () => {
     setDragPreview(null);
   };
@@ -543,79 +702,50 @@ export function WorkspacePaneRenderer() {
     >
       <div className="flex h-full min-h-0 w-full flex-col bg-background">
         {tabs.length > 1 ? (
-          <div className="flex h-10 shrink-0 items-center gap-1 border-border/70 border-b bg-background px-2">
-            <div
-              aria-label="Workspace tabs"
-              className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto"
-              role="tablist"
-            >
-              {tabs.map((tab, tabIndex) => {
-                const isActive = tab.id === activeTabId;
-
-                return (
-                  <ContextMenu key={tab.id}>
-                    <ContextMenuTrigger
-                      render={
-                        <div
-                          className={cn(
-                            "group flex h-8 min-w-0 max-w-44 items-center gap-1 rounded-md border px-2 text-left text-sm transition-colors",
-                            isActive
-                              ? "border-border bg-muted text-foreground"
-                              : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                          )}
-                        />
-                      }
-                    >
-                      <button
-                        aria-selected={isActive}
-                        className="min-w-0 flex-1 truncate text-left"
-                        onClick={() => switchTab(tab.id)}
-                        role="tab"
-                        type="button"
-                      >
-                        {tab.title}
-                      </button>
-                      <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
-                        {tabIndex + 1}
-                      </span>
-                      <button
-                        aria-label={`Close ${tab.title} tab`}
-                        className="flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground opacity-0 transition hover:bg-foreground/10 hover:text-foreground group-hover:opacity-100 focus:opacity-100"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          closeTab(tab.id);
-                        }}
-                        type="button"
-                      >
-                        <X className="size-3" />
-                      </button>
-                    </ContextMenuTrigger>
-                    <ContextMenuContent className="w-44 rounded-lg p-1">
-                      <ContextMenuItem onClick={() => openTab()}>
-                        <Plus className="mr-2 size-4" />
-                        New tab
-                      </ContextMenuItem>
-                      <ContextMenuItem
-                        className="text-destructive focus:text-destructive"
-                        disabled={tabs.length <= 1}
-                        onClick={() => closeTab(tab.id)}
-                      >
-                        <X className="mr-2 size-4" />
-                        Close tab
-                      </ContextMenuItem>
-                    </ContextMenuContent>
-                  </ContextMenu>
-                );
-              })}
-            </div>
+          <div className="flex h-9 shrink-0 items-center gap-1 border-border/70 border-b bg-background px-1.5">
+            <DndContext onDragEnd={handleTabDragEnd} sensors={sensors}>
+              <div
+                aria-label="Workspace tabs"
+                className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto"
+                role="tablist"
+              >
+                {tabs.map((tab, tabIndex) => (
+                  <TabItem
+                    editingTabTitle={editingTabTitle}
+                    isActive={tab.id === activeTabId}
+                    isEditing={editingTabId === tab.id}
+                    key={tab.id}
+                    onCancelEdit={() => {
+                      setEditingTabId(null);
+                      setEditingTabTitle("");
+                    }}
+                    onCloseTab={closeTab}
+                    onEditingTitleChange={setEditingTabTitle}
+                    onFinishEdit={(tabId, title) => {
+                      renameTab(tabId, title);
+                      setEditingTabId(null);
+                      setEditingTabTitle("");
+                    }}
+                    onOpenTab={openTab}
+                    onStartEdit={(tabId, title) => {
+                      setEditingTabId(tabId);
+                      setEditingTabTitle(title);
+                    }}
+                    onSwitchTab={switchTab}
+                    tab={tab}
+                    tabIndex={tabIndex}
+                    tabsLength={tabs.length}
+                  />
+                ))}
+              </div>
+            </DndContext>
             <button
               aria-label="New workspace tab"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted/70 hover:text-foreground"
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted/70 hover:text-foreground"
               onClick={() => openTab()}
               type="button"
             >
-              <Plus className="size-4" />
+              <Plus className="size-3.5" />
             </button>
           </div>
         ) : null}

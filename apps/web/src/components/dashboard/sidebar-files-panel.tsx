@@ -2,6 +2,12 @@
 
 import { Button } from "@avenire/ui/components/button";
 import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@avenire/ui/components/context-menu";
+import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -11,10 +17,12 @@ import {
   useSidebar,
 } from "@avenire/ui/components/sidebar";
 import {
+  Columns,
   FilePlus as FilePlus2,
   Files,
   LinkSimple,
   MagnifyingGlass,
+  Plus,
   PushPin as Pin,
   Trash as Trash2,
 } from "@phosphor-icons/react";
@@ -24,6 +32,7 @@ import Image from "next/image";
 import {
   type ComponentType,
   type MouseEvent,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -304,37 +313,52 @@ function collectDescendantFolderIds(
 }
 
 function SectionButton({
+  contextMenuContent,
   dragHref,
   icon: Icon,
   label,
   onClick,
-  onContextMenu,
+  onContextMenu: _onContextMenu,
 }: {
+  contextMenuContent?: ReactNode;
   dragHref?: Route;
   icon: ComponentType<{ className?: string }>;
   label: string;
   onClick?: (event: MouseEvent<HTMLButtonElement>) => void;
   onContextMenu?: (event: MouseEvent<HTMLButtonElement>) => void;
 }) {
-  return (
-    <SidebarMenuItem>
-      <SidebarMenuButton
-        draggable={Boolean(dragHref)}
-        onClick={onClick}
-        onContextMenu={onContextMenu}
-        onDragStart={(event) => {
-          if (!dragHref) {
-            return;
-          }
+  const button = (
+    <SidebarMenuButton
+      draggable={Boolean(dragHref)}
+      onClick={onClick}
+      onContextMenu={_onContextMenu}
+      onDragStart={(event) => {
+        if (!dragHref) {
+          return;
+        }
 
-          setWorkspacePaneDragData(event.dataTransfer, dragHref);
-        }}
-      >
-        <Icon className="size-4" />
-        <span>{label}</span>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
+        setWorkspacePaneDragData(event.dataTransfer, dragHref);
+      }}
+    >
+      <Icon className="size-4" />
+      <span>{label}</span>
+    </SidebarMenuButton>
   );
+
+  if (contextMenuContent) {
+    return (
+      <SidebarMenuItem>
+        <ContextMenu>
+          <ContextMenuTrigger render={<div className="contents" />}>
+            {button}
+          </ContextMenuTrigger>
+          <ContextMenuContent>{contextMenuContent}</ContextMenuContent>
+        </ContextMenu>
+      </SidebarMenuItem>
+    );
+  }
+
+  return <SidebarMenuItem>{button}</SidebarMenuItem>;
 }
 
 export function FilesSidebarPanel({
@@ -347,7 +371,10 @@ export function FilesSidebarPanel({
   currentFileId?: string;
   currentFolderId?: string;
   emitGlobalFileIntent?: (intent: FilesUiIntent) => void | Promise<void>;
-  navigateToFilesRoot: (options?: { openInNewPane?: boolean }) => Promise<void>;
+  navigateToFilesRoot: (options?: {
+    openInNewPane?: boolean;
+    openInNewTab?: boolean;
+  }) => Promise<void>;
   workspaceUuid: string | null;
 }) {
   const { isMobile } = useSidebar();
@@ -380,10 +407,15 @@ export function FilesSidebarPanel({
         return false;
       }
 
+      if (event.ctrlKey && event.shiftKey) {
+        event.preventDefault();
+        navigate(href, { openInNewTab: true });
+        return true;
+      }
+
       if (event.type === "contextmenu") {
         event.preventDefault();
-        navigate(href, { openInNewPane: true });
-        return true;
+        return false;
       }
 
       if (event.altKey) {
@@ -1087,12 +1119,32 @@ export function FilesSidebarPanel({
         onClick: () => {
           navigateToFolder(folder.id, workspaceUuid);
         },
-        onContextMenu: () => {
-          navigate(
-            `/workspace/files/${workspaceUuid}/folder/${folder.id}` as Route,
-            { openInNewPane: true }
-          );
-        },
+        contextMenuContent: (
+          <>
+            <ContextMenuItem
+              onClick={() =>
+                navigate(
+                  `/workspace/files/${workspaceUuid}/folder/${folder.id}` as Route,
+                  { openInNewPane: true }
+                )
+              }
+            >
+              <Columns className="mr-2 size-3.5" />
+              Open in new pane
+            </ContextMenuItem>
+            <ContextMenuItem
+              onClick={() =>
+                navigate(
+                  `/workspace/files/${workspaceUuid}/folder/${folder.id}` as Route,
+                  { openInNewTab: true }
+                )
+              }
+            >
+              <Plus className="mr-2 size-3.5" />
+              Open in new tab
+            </ContextMenuItem>
+          </>
+        ),
         openIcon: TreeFolderOpenIcon,
         selectedIcon: TreeFolderOpenIcon,
       };
@@ -1126,12 +1178,32 @@ export function FilesSidebarPanel({
         onClick: () => {
           navigateToFile(file.id, file.folderId, workspaceUuid);
         },
-        onContextMenu: () => {
-          navigate(
-            `/workspace/files/${workspaceUuid}/folder/${file.folderId}?file=${file.id}` as Route,
-            { openInNewPane: true }
-          );
-        },
+        contextMenuContent: (
+          <>
+            <ContextMenuItem
+              onClick={() =>
+                navigate(
+                  `/workspace/files/${workspaceUuid}/folder/${file.folderId}?file=${file.id}` as Route,
+                  { openInNewPane: true }
+                )
+              }
+            >
+              <Columns className="mr-2 size-3.5" />
+              Open in new pane
+            </ContextMenuItem>
+            <ContextMenuItem
+              onClick={() =>
+                navigate(
+                  `/workspace/files/${workspaceUuid}/folder/${file.folderId}?file=${file.id}` as Route,
+                  { openInNewTab: true }
+                )
+              }
+            >
+              <Plus className="mr-2 size-3.5" />
+              Open in new tab
+            </ContextMenuItem>
+          </>
+        ),
       });
     }
 
@@ -1192,7 +1264,11 @@ export function FilesSidebarPanel({
             <SectionButton
               icon={FilePlus2}
               label="New Note"
-              onClick={() => {
+              onClick={(event) => {
+                if (event.ctrlKey && event.shiftKey) {
+                  emitFileIntentAfterNavigation("newNote");
+                  return;
+                }
                 emitFileIntentAfterNavigation("newNote");
                 triggerHaptic("selection");
               }}
@@ -1200,7 +1276,11 @@ export function FilesSidebarPanel({
             <SectionButton
               icon={LinkSimple}
               label="Import Link"
-              onClick={() => {
+              onClick={(event) => {
+                if (event.ctrlKey && event.shiftKey) {
+                  emitFileIntentAfterNavigation("importLink");
+                  return;
+                }
                 emitFileIntentAfterNavigation("importLink");
                 triggerHaptic("selection");
               }}
@@ -1216,80 +1296,119 @@ export function FilesSidebarPanel({
             <SidebarGroupLabel>Pinned</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {filteredPinnedFolders.map((item) => (
-                  <SidebarMenuItem key={`pinned-folder-${item.id}`}>
-                    <SidebarMenuButton
-                      draggable
-                      onClick={(event) => {
-                        const href =
-                          `/workspace/files/${item.workspaceId}/folder/${item.id}` as Route;
-                        if (handlePaneIntent(event, href)) {
-                          return;
-                        }
-                        navigateToFolder(item.id, item.workspaceId);
-                      }}
-                      onContextMenu={(event) => {
-                        handlePaneIntent(
-                          event,
-                          `/workspace/files/${item.workspaceId}/folder/${item.id}` as Route
-                        );
-                      }}
-                      onDragStart={(event) => {
-                        setWorkspacePaneDragData(
-                          event.dataTransfer,
-                          `/workspace/files/${item.workspaceId}/folder/${item.id}` as Route
-                        );
-                      }}
-                    >
-                      <Pin className="size-4" />
-                      <span className="truncate">{item.name}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-                {filteredPinnedFiles.map((item) => (
-                  <SidebarMenuItem key={`pinned-file-${item.id}`}>
-                    <SidebarMenuButton
-                      draggable={Boolean(item.folderId)}
-                      onClick={(event) => {
-                        if (!item.folderId) {
-                          return;
-                        }
-                        const href =
-                          `/workspace/files/${item.workspaceId}/folder/${item.folderId}?file=${item.id}` as Route;
-                        if (handlePaneIntent(event, href)) {
-                          return;
-                        }
-                        navigateToFile(
-                          item.id,
-                          item.folderId,
-                          item.workspaceId
-                        );
-                      }}
-                      onContextMenu={(event) => {
-                        if (!item.folderId) {
-                          return;
-                        }
-                        handlePaneIntent(
-                          event,
-                          `/workspace/files/${item.workspaceId}/folder/${item.folderId}?file=${item.id}` as Route
-                        );
-                      }}
-                      onDragStart={(event) => {
-                        if (!item.folderId) {
-                          return;
-                        }
-
-                        setWorkspacePaneDragData(
-                          event.dataTransfer,
-                          `/workspace/files/${item.workspaceId}/folder/${item.folderId}?file=${item.id}` as Route
-                        );
-                      }}
-                    >
-                      <Pin className="size-4" />
-                      <span className="truncate">{item.name}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                {filteredPinnedFolders.map((item) => {
+                  const folderHref =
+                    `/workspace/files/${item.workspaceId}/folder/${item.id}` as Route;
+                  return (
+                    <SidebarMenuItem key={`pinned-folder-${item.id}`}>
+                      <ContextMenu>
+                        <ContextMenuTrigger
+                          render={<div className="contents" />}
+                        >
+                          <SidebarMenuButton
+                            draggable
+                            onClick={(event) => {
+                              if (handlePaneIntent(event, folderHref)) {
+                                return;
+                              }
+                              navigateToFolder(item.id, item.workspaceId);
+                            }}
+                            onDragStart={(event) => {
+                              setWorkspacePaneDragData(
+                                event.dataTransfer,
+                                folderHref
+                              );
+                            }}
+                          >
+                            <Pin className="size-4" />
+                            <span className="truncate">{item.name}</span>
+                          </SidebarMenuButton>
+                        </ContextMenuTrigger>
+                        <ContextMenuContent>
+                          <ContextMenuItem
+                            onClick={() =>
+                              navigate(folderHref, { openInNewPane: true })
+                            }
+                          >
+                            <Columns className="mr-2 size-3.5" />
+                            Open in new pane
+                          </ContextMenuItem>
+                          <ContextMenuItem
+                            onClick={() =>
+                              navigate(folderHref, { openInNewTab: true })
+                            }
+                          >
+                            <Plus className="mr-2 size-3.5" />
+                            Open in new tab
+                          </ContextMenuItem>
+                        </ContextMenuContent>
+                      </ContextMenu>
+                    </SidebarMenuItem>
+                  );
+                })}
+                {filteredPinnedFiles.map((item) => {
+                  const fileHref = item.folderId
+                    ? (`/workspace/files/${item.workspaceId}/folder/${item.folderId}?file=${item.id}` as Route)
+                    : undefined;
+                  return (
+                    <SidebarMenuItem key={`pinned-file-${item.id}`}>
+                      <ContextMenu>
+                        <ContextMenuTrigger
+                          render={<div className="contents" />}
+                        >
+                          <SidebarMenuButton
+                            draggable={Boolean(item.folderId)}
+                            onClick={(event) => {
+                              if (!fileHref) {
+                                return;
+                              }
+                              if (handlePaneIntent(event, fileHref)) {
+                                return;
+                              }
+                              navigateToFile(
+                                item.id,
+                                item.folderId!,
+                                item.workspaceId
+                              );
+                            }}
+                            onDragStart={(event) => {
+                              if (!fileHref) {
+                                return;
+                              }
+                              setWorkspacePaneDragData(
+                                event.dataTransfer,
+                                fileHref
+                              );
+                            }}
+                          >
+                            <Pin className="size-4" />
+                            <span className="truncate">{item.name}</span>
+                          </SidebarMenuButton>
+                        </ContextMenuTrigger>
+                        {fileHref ? (
+                          <ContextMenuContent>
+                            <ContextMenuItem
+                              onClick={() =>
+                                navigate(fileHref, { openInNewPane: true })
+                              }
+                            >
+                              <Columns className="mr-2 size-3.5" />
+                              Open in new pane
+                            </ContextMenuItem>
+                            <ContextMenuItem
+                              onClick={() =>
+                                navigate(fileHref, { openInNewTab: true })
+                              }
+                            >
+                              <Plus className="mr-2 size-3.5" />
+                              Open in new tab
+                            </ContextMenuItem>
+                          </ContextMenuContent>
+                        ) : null}
+                      </ContextMenu>
+                    </SidebarMenuItem>
+                  );
+                })}
               </SidebarMenu>
             </SidebarGroupContent>
           </>
@@ -1334,27 +1453,54 @@ export function FilesSidebarPanel({
           ) : (
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton
-                  draggable
-                  onClick={(event) => {
-                    if (handlePaneIntent(event, "/workspace/files" as Route)) {
-                      return;
-                    }
-                    navigateToFilesRoot().catch(() => undefined);
-                  }}
-                  onContextMenu={(event) => {
-                    handlePaneIntent(event, "/workspace/files" as Route);
-                  }}
-                  onDragStart={(event) => {
-                    setWorkspacePaneDragData(
-                      event.dataTransfer,
-                      "/workspace/files" as Route
-                    );
-                  }}
-                >
-                  <Files className="size-4" />
-                  <span>Workspace</span>
-                </SidebarMenuButton>
+                <ContextMenu>
+                  <ContextMenuTrigger
+                    render={<div className="contents" />}
+                  >
+                    <SidebarMenuButton
+                      draggable
+                      onClick={(event) => {
+                        if (
+                          handlePaneIntent(event, "/workspace/files" as Route)
+                        ) {
+                          return;
+                        }
+                        navigateToFilesRoot().catch(() => undefined);
+                      }}
+                      onDragStart={(event) => {
+                        setWorkspacePaneDragData(
+                          event.dataTransfer,
+                          "/workspace/files" as Route
+                        );
+                      }}
+                    >
+                      <Files className="size-4" />
+                      <span>Workspace</span>
+                    </SidebarMenuButton>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    <ContextMenuItem
+                      onClick={() =>
+                        navigate("/workspace/files" as Route, {
+                          openInNewPane: true,
+                        })
+                      }
+                    >
+                      <Columns className="mr-2 size-3.5" />
+                      Open in new pane
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                      onClick={() =>
+                        navigate("/workspace/files" as Route, {
+                          openInNewTab: true,
+                        })
+                      }
+                    >
+                      <Plus className="mr-2 size-3.5" />
+                      Open in new tab
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
               </SidebarMenuItem>
             </SidebarMenu>
           )}
