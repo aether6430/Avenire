@@ -1,6 +1,11 @@
 "use client";
 
 import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuTrigger,
+} from "@avenire/ui/components/context-menu";
+import {
   CaretRight as ChevronRight,
   File,
   Folder,
@@ -15,6 +20,7 @@ export interface TreeDataItem {
   actions?: ReactNode;
   children?: TreeDataItem[];
   className?: string;
+  contextMenuContent?: ReactNode;
   disabled?: boolean;
   draggable?: boolean;
   droppable?: boolean;
@@ -256,23 +262,22 @@ export function TreeView({
         item,
       });
 
-      return (
-        <div className={cn("min-w-0", item.className)} data-tree-id={item.id}>
-          <div
-            aria-expanded={hasChildren ? isExpanded : undefined}
-            className={cn(
-              "group/tree-row flex w-full min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 transition-colors",
-              "hover:bg-primary/6",
-              isSelected && "bg-primary/10 text-primary ring-1 ring-primary/20",
-              isDropTarget && "bg-primary/12 ring-1 ring-primary/30",
-              item.disabled && "pointer-events-none opacity-50"
-            )}
-            draggable={item.draggable}
-            onClick={() => handleSelect(item)}
-            onContextMenu={(event) => {
-              event.preventDefault();
-              item.onContextMenu?.();
-            }}
+      const row = (
+        <div
+          aria-expanded={hasChildren ? isExpanded : undefined}
+          className={cn(
+            "group/tree-row flex w-full min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 transition-colors",
+            "hover:bg-primary/6",
+            isSelected && "bg-primary/10 text-primary ring-1 ring-primary/20",
+            isDropTarget && "bg-primary/12 ring-1 ring-primary/30",
+            item.disabled && "pointer-events-none opacity-50"
+          )}
+          draggable={item.draggable}
+          onClick={() => handleSelect(item)}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            item.onContextMenu?.();
+          }}
             onDragEnd={() => {
               setDraggedItemId(null);
               setDropTargetItemId(null);
@@ -354,6 +359,22 @@ export function TreeView({
               </div>
             ) : null}
           </div>
+      );
+
+      const wrappedRow = item.contextMenuContent ? (
+        <ContextMenu key={item.id}>
+          <ContextMenuTrigger render={<div className="contents" />}>
+            {row}
+          </ContextMenuTrigger>
+          <ContextMenuContent>{item.contextMenuContent}</ContextMenuContent>
+        </ContextMenu>
+      ) : (
+        row
+      );
+
+      return (
+        <div className={cn("min-w-0", item.className)} data-tree-id={item.id}>
+          {wrappedRow}
         </div>
       );
     },

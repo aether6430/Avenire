@@ -4,6 +4,12 @@ import * as React from "react"
 import { AnimatePresence, m } from "framer-motion"
 
 import { cn } from "../lib/utils"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "./context-menu"
 
 type ExpandableTabItem = {
   value: string
@@ -29,6 +35,7 @@ type ExpandableTabsProps = {
   allowDeselect?: boolean
   className?: string
   persistenceKey?: string
+  contextMenuContent?: (item: ExpandableTabItem) => React.ReactNode
 }
 
 const lastMountedValueByPersistenceKey = new Map<string, string | null>()
@@ -57,6 +64,7 @@ export function ExpandableTabs({
   allowDeselect = true,
   className,
   persistenceKey,
+  contextMenuContent,
 }: ExpandableTabsProps) {
   const isControlled = value !== undefined
   const [internalValue, setInternalValue] = React.useState<string | null>(
@@ -147,9 +155,8 @@ export function ExpandableTabs({
         const Icon = item.icon
         const isSelected = currentValue === item.value
 
-        return (
+        const button = (
           <m.button
-            key={item.value}
             ref={(node) => {
               tabRefs.current[index] = node
             }}
@@ -206,6 +213,24 @@ export function ExpandableTabs({
             <span className="sr-only">{item.label}</span>
           </m.button>
         )
+
+        const menuContent = contextMenuContent?.(item)
+        if (menuContent) {
+          return (
+            <ContextMenu key={item.value}>
+              <ContextMenuTrigger
+                render={<div className="contents" />}
+              >
+                {button}
+              </ContextMenuTrigger>
+              <ContextMenuContent side="bottom" align="start">
+                {menuContent}
+              </ContextMenuContent>
+            </ContextMenu>
+          )
+        }
+
+        return button
       })}
     </div>
   )

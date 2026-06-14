@@ -1626,6 +1626,7 @@ export function FileExplorer({
   const { paneId } = useCurrentWorkspacePane();
   const closePane = useWorkspacePaneStore((state) => state.closePane);
   const openPane = useWorkspacePaneStore((state) => state.openPane);
+  const openTab = useWorkspacePaneStore((state) => state.openTab);
   const paneCount = useWorkspacePaneStore((state) => state.panes.length);
   const currentUser = useUserStore((state) => state.user);
   const _setSettingsOpen = useDashboardOverlayStore(
@@ -5608,6 +5609,10 @@ export function FileExplorer({
               <Columns className="size-3.5" />
               Split right
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openTab()}>
+              <Plus className="size-3.5" />
+              Open in new tab
+            </DropdownMenuItem>
             <DropdownMenuItem
               disabled={!canClosePane}
               onClick={() => closePane(paneId)}
@@ -5681,6 +5686,7 @@ export function FileExplorer({
     setHeaderContext,
     toggleCurrentPinnedItem,
     openPane,
+    openTab,
     paneId,
     workspaceUuid,
   ]);
