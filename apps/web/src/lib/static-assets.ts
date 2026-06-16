@@ -1,18 +1,20 @@
 export const STATIC_ASSETS = {
   avenireWorkspace:
-    "https://gtgr46laft.ufs.sh/f/7avzGFBuzbjBiUmhCv9EpBKmolqNC6xuU12eaR8jvStP0ZY5",
+    "https://tv24xdncxt.ufs.sh/f/surKyff0CxwXGu1oYlUBa5vkhudwV0MfUn8FQJOCei2SPgyA",
   banner1:
-    "https://gtgr46laft.ufs.sh/f/7avzGFBuzbjB9vfw3D1PxUaEr7wSqNQiFgMAvYKy35DlcXb0",
+    "https://tv24xdncxt.ufs.sh/f/surKyff0CxwXCqfR778CTaLdye3i5RSWjZtXrfJGF24BvHkV",
   interactiveLearning:
-    "https://gtgr46laft.ufs.sh/f/7avzGFBuzbjBVuDN6ol9UK3JuY1OCHnp476fe5czXtwm0d2V",
+    "https://tv24xdncxt.ufs.sh/f/surKyff0CxwXqMv3NUGHqXLhx8s9yRcAmDI0f7lBGJ4gz1wU",
   pets: {
     bambooCopter:
-      "https://gtgr46laft.ufs.sh/f/7avzGFBuzbjBD4uPSEiLq14AVKRagyem3xO6loQTuE7UiS8z",
-    duck: "https://gtgr46laft.ufs.sh/f/7avzGFBuzbjBJkiA2MfAxtYS37eTm5DsdWU0qOaNgK6uB9pL",
+      "https://tv24xdncxt.ufs.sh/f/surKyff0CxwXQt3FBqTpYGydk4Q02W6bEtKfN7VForlHw1zh",
+    duck: 
+      "https://tv24xdncxt.ufs.sh/f/surKyff0CxwXOc8QDVCSbU7ap4rumKMd0vfNXBFoJZcCw9sA",
     flower:
-      "https://gtgr46laft.ufs.sh/f/7avzGFBuzbjBhpSTecrXy69IPljW47iaE3FXcOegtBkHu5rm",
-    none: "https://gtgr46laft.ufs.sh/f/7avzGFBuzbjBc5JN8f2VmUvPL3WsIJY915rFj7eiQyOf0wkl",
+      "https://tv24xdncxt.ufs.sh/f/surKyff0CxwXWyXJ6GFn4T8O1Zds52FpY0PazvbUlf7Sxe3G",
+    none: 
+      "https://tv24xdncxt.ufs.sh/f/surKyff0CxwX7DDKSxVQTwObaf3ki2VueBYSzELXP5rc6KqJ",
     pencil:
-      "https://gtgr46laft.ufs.sh/f/7avzGFBuzbjBlDJJhVj4jTIVDrPvfayEUGmCuiseYo2RMLZH",
+      "https://tv24xdncxt.ufs.sh/f/surKyff0CxwXG1nWxonUBa5vkhudwV0MfUn8FQJOCei2SPgy",
   },
 } as const;

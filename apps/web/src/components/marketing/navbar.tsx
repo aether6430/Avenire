@@ -70,7 +70,6 @@ const MobileNav = ({ items }: { items: { title: string; href: string }[] }) => {
             showCloseButton={false}
             side="right"
           >
-            <div className="absolute inset-0 bg-[repeating-linear-gradient(315deg,_var(--pattern-fg)_0,_var(--pattern-fg)_1px,_transparent_0,_transparent_50%)] bg-[size:12px_12px] opacity-40" />
             <div className="relative z-10 flex min-h-dvh flex-col">
               <SheetHeader className="flex-row items-center justify-between border-white/10 border-b p-4">
                 <div>

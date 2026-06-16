@@ -103,7 +103,6 @@ const MiddleCard = () => {
   }, []);
   return (
     <div className="relative flex min-h-40 flex-col justify-end overflow-hidden rounded-lg border border-white/8 bg-gray-50 p-4 md:p-5 dark:bg-neutral-900">
-      <div className="absolute inset-0 bg-[repeating-linear-gradient(315deg,_var(--pattern-fg)_0,_var(--pattern-fg)_1px,_transparent_0,_transparent_50%)] bg-[size:12px_12px] opacity-55 mask-radial-from-10% shadow-xl"></div>
 
       <div className="flex items-center justify-center">
         <IconBlock
@@ -134,7 +133,6 @@ const MiddleCard = () => {
         <div className="absolute inset-0 scale-[1.4] animate-spin rounded-full bg-conic from-transparent via-brand via-20% to-transparent to-30% blur-2xl [animation-duration:4s]"></div>
         <div className="via-brand absolute inset-0 scale-[1.4] animate-spin rounded-full bg-conic from-transparent via-20% to-transparent to-30% blur-2xl [animation-delay:2s] [animation-duration:4s]"></div>
         <div className="relative z-20 h-full w-full rounded-[5px] bg-white dark:bg-neutral-900">
-          <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(315deg,_var(--pattern-fg)_0,_var(--pattern-fg)_1px,_transparent_0,_transparent_50%)] bg-[size:12px_12px] opacity-35" />
           <div className="flex items-center justify-between p-4">
             <div className="flex gap-1">
               <div className="size-2 rounded-full bg-red-400"></div>
