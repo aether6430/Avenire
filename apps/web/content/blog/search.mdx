@@ -1,0 +1,70 @@
+---
+title: "Why our AI feels like it remembers"
+description: "Most AI tools that 'know your notes' are surprisingly shallow. Here's how Avenire's layered retrieval pipeline — semantic search, lexical matching, trigram fallback, and query expansion — makes your knowledge actually findable."
+date: "2026-05-12"
+author: "The Avenire Team"
+tags: ["RAG", "Search", "AI", "Retrieval", "Architecture"]
+coverImage: "https://tv24xdncxt.ufs.sh/f/surKyff0CxwXAiVVkcjGTA9IV8qj7hLW0peFMYCXandBkxbi"
+featured: true
+featuredOrder: 5
+---
+
+import { HybridSearchDemo } from "@/components/blog/hybrid-search-demo";
+import { QueryExpansionDemo } from "@/components/blog/query-expansion";
+import { TrigramExplorer } from "@/components/blog/trigram-explorer";
+
+There's a moment every student knows. You are stuck on something and you think: *I know I've studied this before.* You remember the feeling of understanding it. You remember the general shape of the explanation. But you can't find it. It's somewhere in your notes or in a PDF — and that somewhere might as well be nowhere.
+
+This is the problem that Avenire's search is aimed at solving. Not better storage, but better retrieval. And building good retrieval turns out to be a much harder, more interesting problem than it first looks.
+
+## What "search your notes" usually means
+
+Most tools that promise to search your knowledge do something simple: they take your query, convert it into a vector, find the chunks of your notes with the closest vectors, and hand those chunks to a language model. This works fine for most direct lookups — "what did I write about photosynthesis" — and it feels almost magical the first time you try it.
+
+But it breaks down fast, in ways that matter for actual studying:
+
+- A formula buried in a PDF doesn't embed well. Equations don't have semantic neighbours the way words do. For example, "∫ x² dx = x³/3 + C" and "power rule for integration" live in completely different parts of vector space, even though they're the same idea.
+- Chunking destroys context. When you split a document into 512-token pieces, a chunk that says "this differs from the last model" has lost the previous model entirely. The retrieved chunk is technically relevant but practically useless.
+- Vector similarity isn't understanding similarity. "Newton's second law" and "F=ma" are semantically distant but conceptually identical. Naive retrieval misses this constantly.
+
+<HybridSearchDemo />
+
+The demo above illustrates the problem. Try the two scenarios — a conceptual query and a misspelled term — and toggle between vector-only, BM25-only, and hybrid. Notice how vector search handles meaning but misses exact spelling, while BM25 catches exact terms but misses conceptual matches. The hybrid approach combines both: it finds the conceptually relevant chunk *and* the exact-match passage, ranking them together.
+
+## The query problem
+
+Even with a hybrid search index, there's a more fundamental issue: student queries are short. They type "momentum collisions" or "photosynthesis dark reaction" — 2–3 words that capture the gist but often use completely different vocabulary than what appears in their notes or textbooks.
+
+A direct vector search for "momentum collisions" might find some relevant chunks, but it will miss passages that use academic phrasing like "conservation of momentum in elastic and inelastic collisions" or "impulse-momentum theorem." The words don't overlap enough for lexical search to catch them, and the embedding might not bridge the gap either.
+
+This is where query expansion comes in. Before we hit any search index, we take the student's short query and generate 3–5 rephrased variants using a lightweight LLM. These expansions cover alternative phrasings, academic vocabulary, and related concepts. Then we search with *all* variants — the original and the expansions — in parallel across vector, lexical, and trigram indexes.
+
+<QueryExpansionDemo />
+
+The demo above shows query expansion in action. Each scenario takes a short student query, generates multiple expanded forms, and shows the results that become reachable only after expansion. Notice how "∫" — a bare integral symbol — gets expanded into searches about integral calculus notation, the fundamental theorem, and evaluation techniques. Without expansion, that query would return almost nothing.
+
+## What we built instead
+
+Avenire's retrieval system is a layered architecture. Not a single search pass, but a pipeline where each layer handles a different kind of knowledge and different kinds of questions. The reason it's cohesive isn't that everything is in one place. It's that the layers actually talk to each other. We have three strategies that run in parallel:
+
+- **Semantic search:** Embedding-based vector search over your full knowledge corpus. This gives excellent results for conceptual matches and paraphrases.
+- **Lexical search:** An exact-term matching, weighting rare terms more heavily than common ones, and normalising for document length. This catches specific names, technical vocabulary, and course codes.
+- **Trigram Search:** A character-level fallback for symbols, notation, or code-like strings where standard tokenization fails. For searches like "∫x²", this is what catches the result.
+
+<TrigramExplorer defaultText="∫ x² dx" description="Type a formula, equation, or phrase to see how it gets broken into character trigrams. PostgreSQL intersects these posting lists at query time — rows sharing all trigrams are candidates for the final result." />
+
+### Fusion and reranking
+
+The results from all three — plus all query expansion variants — are merged using reciprocal rank fusion: a chunk that ranks highly in multiple strategies scores higher than one surfaced by a single route. Then a reranker makes the final precision pass over the shortlist, judging whether each candidate actually answers the query.
+
+On the ingestion side, documents aren't split into arbitrary token windows. Chunks are cut at semantic boundaries — paragraph breaks, heading transitions, end of a solved example — all labeled by type (concept, proof, derivation, etc). A reranker can judge a coherent passage. It cannot do much with a sentence that starts mid-derivation.
+
+## The part that makes it tailored to you
+
+A generic search system's job ends when it returns relevant results. Ours doesn't.
+
+Avenire tracks your review history and active misconceptions. Retrieval is weighted by what matters to you right now, not only by what matches your query. A concept you've failed to recall multiple times surfaces more readily when it's relevant. The system knows the difference between something you studied last week and something you have actually retained. And that shapes what gets retrieved.
+
+This is what we mean by cohesive. Not that everything lives in one place — that's just convenience. Cohesive means the retrieval layer, the review scheduler, and the tutoring system are all reading from the same model of what you know. When Apollo asks you a question, it isn't working from a generic knowledge base — it's working from yours. It's the same model that powers the spaced repetition and misconception tracking described in [*The story behind Apollo*](/blog/apollo).
+
+That's the loop. Closing it properly is the whole point.

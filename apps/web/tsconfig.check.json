@@ -36,6 +36,7 @@
     "src/lib/**/*.ts",
     "src/stores/**/*.ts",
     "src/types/**/*.ts",
+    "src/mdx-components.tsx",
     "src/instrumentation.ts",
     "src/proxy.ts"
   ],

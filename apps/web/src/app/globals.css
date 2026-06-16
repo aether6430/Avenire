@@ -61,24 +61,6 @@
   --color-canvas-fill: var(--avenire-marketing-canvas-fill);
   --color-footer-link: var(--avenire-marketing-footer-link);
   background-color: #050506;
-  background-image:
-    linear-gradient(#050506, #050506),
-    repeating-linear-gradient(
-      315deg,
-      rgba(255, 255, 255, 0.026) 0,
-      rgba(255, 255, 255, 0.026) 1px,
-      transparent 1px,
-      transparent 12px
-    );
-  background-position:
-    center top,
-    left top;
-  background-repeat:
-    repeat-y,
-    repeat;
-  background-size:
-    min(72rem, calc(100% - 2rem)) 100%,
-    12px 12px;
   color-scheme: dark;
   font-family: var(--font-primary);
 }

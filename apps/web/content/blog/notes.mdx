@@ -1,0 +1,77 @@
+---
+title: "Most notes are useless. Here's why."
+description: "After color-coding, highlighting, and carefully rewriting—why do you still remember almost nothing? The problem isn't note-taking itself, but how most students do it."
+date: "2026-04-14"
+author: "The Avenire Team"
+tags: ["Note-Taking", "Study Techniques", "Active Learning"]
+coverImage: "https://tv24xdncxt.ufs.sh/f/surKyff0CxwX4pEaAXoYM8KbXuO3xtvycgpeVs5C7No9jADQ"
+featured: true
+featuredOrder: 1
+---
+
+import { DiffVisualizer } from "@/components/blog/diff-visualizer";
+import { ForgettingCurve } from "@/components/blog/forgetting-curve";
+import { RetentionTradeoff } from "@/components/blog/retention-tradeoff";
+
+You've spent two hours making notes. Color-coded, detailed, thorough. And somehow, you remember almost none of it.
+
+## The case for notes — and why it's complicated
+
+The idea of using notes to study has opposing opinions. On one hand, it's always highly recommended to make your notes regardless of what subject you're studying. On the other hand, it's time taking and sometimes even counterproductive.
+
+It can't be denied that students have to give a huge chunk of their time to make notes; time they can use to actually learn and understand the material. And this is a well known fact, then why do educators and top students still recommend using notes to study?
+Truth be told, there is a specific way to take notes that helps students learn the material during them, and also helps in revising efficiently to retain the information.
+
+## What most students get wrong
+
+A few mistakes students often make while making notes are as follows:
+
+- Copy the textbook in order to have 'detailed' notes
+- Try to make it look pinterest worthy
+- Cram huge blocks of information
+
+Now what the above mistakes leads to is:
+
+- Extremely time taking
+- Results in no active learning
+- Difficult to review from
+
+## What useful notes actually look like
+
+Notes are beneficial when they help students gain a sense of understanding of the material *while* making the notes. When students can allow themselves to only refer to their notes as a source of revision, and don't feel the need to constantly check their textbooks, or look it up online, that's when they have actual *useful* notes. This brings up the question, how do you do that?
+
+One of the easiest ways to make better notes is to start with the learning objectives. When you exactly know what the chapter is trying to teach, it becomes much easier to separate the core ideas from the supporting details.
+
+From there, a useful exercise is to skim through material and then try to write it down, in your own words in one ink. Instead of copying definitions or highlighting entire pages, briefly explain the concept as you understand it, then compare your explanation against the source material. The gaps between the two often reveal more than the notes themselves and hence you must note them down in another ink.
+
+<ForgettingCurve />
+
+The chart above shows what happens to information you note down but never revisit. The orange curve is the classic Ebbinghaus forgetting curve — within days, most of what you wrote is gone from accessible memory. The blue curve shows what happens when you review at spaced intervals: each review flattens the decay, turning fleeting notes into durable knowledge.
+
+## How notes evolve over time
+
+The real test of a note-taking system isn't how good your notes look on day one — it's how well they adapt when you come back to them. A week later, you realize your definition of entropy was imprecise. A month later, you discover a better way to think about the second law.
+
+A good note system treats revision as a first-class operation. When you edit a note, it shouldn't re-process everything — it should figure out exactly what changed and update only that piece. This is the difference between a static document and a living knowledge base.
+
+<DiffVisualizer />
+
+The step-through above shows what happens when you revise a single sentence in a note. The system compares content hashes, identifies the changed chunk, and re-embeds only that piece. The rest of the note — and its place in the vector index — stays untouched.
+
+## The time problem — and where tools fit in
+
+The challenge, of course, is that this process takes time. Between lectures, assignments, exams and everything else that is competing for attention, many students simply do not have the bandwidth to repeatedly organize, rewrite and refine their notes.
+
+This is where tools can help. Rather than treating notes as static summaries, a system that supports the learning process behind them — organizing information, surfacing important concepts, generating explanations, connecting ideas across your study materials — can reduce the mechanical work of managing information so that more time can be spent actually engaging with the material itself. This is the same philosophy behind the learning system described in the [next piece in this series](/blog/actually-learning), where we talk about the line between reading and real learning.
+
+## When notes become part of a larger system
+
+The deepest problem with notes isn't how you make them — it's what happens to them afterwards. Most students' notes end up archived, unvisited until exam panic forces a re-read. By then, the forgetting curve has already done its work.
+
+This is why note-taking alone, no matter how well done, is never enough. Notes need to be *retrieved*, *questioned*, and *connected* to other ideas to stick. A well-designed learning system doesn't just help you capture information — it schedules review, tests your understanding, and surfaces the gaps before you forget them. This is exactly what [Avenire's Apollo agent](/blog/apollo) was built around, and it's also the thread we pick up in [the final piece of this series](/blog/search), where we dig into how retrieval systems can make your notes feel alive rather than archived.
+
+Good notes are not necessarily the most detailed or even the most aesthetically pleasing. They're the ones that help you return to a concept weeks later and quickly catch up with your understanding. Whether they're written entirely by hand, generated with assistance or created through a combination of both, their value ultimately comes from how effectively they support learning.
+
+<RetentionTradeoff />
+
+Here's the practical tradeoff every student faces: the higher you set your retention target, the more daily review you need. Going from 90% to 95% retention roughly doubles your daily load. The sweet spot — around 90% — balances strong recall with a manageable workload, and it's exactly what systems like FSRS are designed to optimize for.

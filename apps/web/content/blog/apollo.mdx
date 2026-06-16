@@ -1,0 +1,101 @@
+---
+title: "The story behind Apollo"
+description: "Every concept has a YouTube explanation, every question has a thread—and yet students still blank on exam day. Apollo was built to close the gap between encountering information and genuinely understanding it."
+date: "2026-05-05"
+author: "The Avenire Team"
+tags: ["Apollo", "AI Learning", "Spaced Repetition", "Retrieval"]
+coverImage: "https://tv24xdncxt.ufs.sh/f/surKyff0CxwXLpBrx1hT8V27xvhdWiZz65qGRsfPuQY3jlKp"
+featured: true
+featuredOrder: 4
+---
+
+import { ForgettingCurveSimulator } from "@/components/blog/forgetting-curve-simulator";
+import { IntervalCalculator } from "@/components/blog/interval-calculator";
+import { ReviewSimulator } from "@/components/blog/review-simulator";
+import { WordLineage } from "@/components/blog/word-lineage";
+
+We live in the most information-rich moment in history where every concept has a YouTube explanation, every question has a stack overflow thread, and now AI can summarize a 200-page textbook in under 30 seconds and answer follow-up questions about it indefinitely.
+
+Yet students still fail exams on topics they've watched three videos about. They are still blank on questions covering material that they've read twice. They still finish a study session feeling productive and walk into a test feeling empty.
+
+The problem was never the access to information but rather it was always the gap between encountering something and actually understanding it. Between recognizing an explanation when you hear it and being able to produce one yourself. This gap is wider than most people realize and more tools than ever are accidentally making it wider by making passive consumption feel like progress.
+
+Apollo was built to close this.
+
+Apollo is the AI agent that students interact with but behind it sits a learning system built around retrieval, active recall, misconception correction, and interactive exploration. Every capability Apollo has exists to close the gap between encountering information and genuinely understanding it.
+
+## Search is only the first step
+
+The first thing we had to get right was retrieval. If a student can't find the right piece of their own prior work and/or understanding when they need it, everything downstream falls apart. The tutoring, the review, the feedback loops: none of it actually matters or even works if the foundation is broken.
+
+To make Apollo genuinely as useful as a learning partner, we had to solve retrieval properly. Apollo sits on top of a retrieval system that handles the way students actually study — across PDFs, handwritten notes, lecture videos, screenshots, and web sources. All in one place, all searchable with the same query — with semantic search for conceptual matches, a lexical layer for exact terms and formulas, and a fuzzy fallback for notation that standard search can't handle. Results from all three are fused and re-ranked before anything gets surfaced. For the full technical breakdown, see [*Why our AI feels like it remembers*](/blog/search).
+
+But retrieval, even very good retrieval, doesn't create understanding. Finding the right explanation is the start of learning, not the end of it. A student who can locate the definition of osmosis in their notes has not learnt osmosis; they have found it. Those are different things and confusing them is one of the most common traps in how people study — a trap we covered in detail in [*The biggest lie we tell ourselves while studying*](/blog/actually-learning).
+
+## Notes help, but they aren't enough
+
+Notes are where most students store what they've encountered or studied. Done well they encompass the ideas, surface the connections, and give you a mental model of a subject that you can navigate later. The way most students actually do them — a passive transcription exercise — they become an archive, a graveyard of information that was processed once and never retrieved again.
+
+The problem isn't the notes themselves. It's that writing something down feels like learning it so the note becomes the end of the process rather than the beginning. Good notes are designed to be retrieved, questioned, and revised; not filed. Apollo uses your notes as a live knowledge service rather than a storage bucket. They feed into search and review scheduling and into the actual tutoring system. They are meant to be used, not archived. This is exactly the philosophy behind [*Most notes are useless. Here's why.*](/blog/notes) — notes only have value when they're part of a retrieval loop.
+
+## Learning requires active engagement
+
+This is the path that most learning tools skip: reading, watching, and note-taking are all input activities. They feel productive but durable understanding requires output: retrieval practice, being forced to reconstruct knowledge rather than just recognize it, making mistakes and having them corrected before they build up.
+
+Avenire is built around these feedback loops specifically:
+
+- **Spaced repetition** — The FSRS algorithm schedules review at the optimal moment, just before you'd forget.
+- **Retrieval practice and quizzing** — Apollo asks you to explain concepts back, identifying exactly where your understanding breaks down.
+- **Misconception tracking** — Every interaction feeds a model of what you know and where you're confused.
+
+These aren't separate features that happen to exist on the same app. They share the same underlying model of what you know, what you risk forgetting, and where your understanding breaks down. That shared model is what makes a system rather than a list.
+
+<ForgettingCurveSimulator />
+
+Play with the simulator above. Drag the stability slider to see how stronger initial learning flattens the curve. Click "Add Review" to simulate an on-time review — notice how each review pushes the next interval further out. This is the FSRS algorithm in action: every successful review strengthens the memory trace, and the system waits longer before asking you again. The result is maximum retention with minimum daily effort.
+
+<IntervalCalculator />
+
+The table above shows how intervals grow across successive reviews. Pick a first rating — Again, Hard, Good, or Easy — and watch how the spacing diverges. A card rated Easy on first review will be months between reviews within a few cycles, while a Hard card stays on a much tighter schedule. That initial rating encodes the card's perceived difficulty, and the algorithm respects it.
+
+<ReviewSimulator />
+
+And here's the card-level view. Rate the card as you would during a real study session. Watch how a "Good" or "Easy" rating grows stability, while a lapse (via "Again") resets the interval but preserves some prior strength. The difference between rating a card "Hard" vs "Easy" diverges dramatically over just a few reviews — the algorithm is naturally calibrating to each card's difficulty.
+
+## Why Apollo can create interactive widgets
+
+Some concepts don't fit into a paragraph. You can describe gradient descent, the loss surface, the learning rate, and the iterative steps. A student can read the description and feel like they understand it. Then you show them a visualizer where they can move the learning rate slider and watch the line overshoot and diverge and something clicks that the paragraph never produced.
+
+My first encounter with the PHET Labs interactive physics simulations was transformative. Seeing a concept represented as a living model provided a level of understanding that a static textbook could never achieve. The simulation bridged that gap between theory and intuition, anchoring the mechanics of the subject far deeper than conventional instruction allowed.
+
+And that was what inspired me to give Apollo the ability to create interactive widgets. This isn't about making the interface more engaging. It's about the fact that some ideas are genuinely better explored than explained. Interaction forces you to build a model of the system in your head, which is learning rather than borrowing someone else's description of it.
+
+Apollo generates widgets on-demand from your own material or from web sources whenever the concept calls for it. Not every explanation becomes a widget. Text is fine for most things but for things with moving parts, competing variables, or spatial structure, the widget is the explanation.
+
+## Bringing everything together
+
+The honest version of how most students work looks like this:
+
+- Notes in one app
+- Flashcards in another
+- A separate quiz tool
+- AI search happening in a chat window
+- Misconceptions living somewhere, silently accumulating until an exam makes them visible
+
+These are all correct instincts. Spaced repetition works, behavioral practice works, good notes work. The problem is that when they live in separate systems, none of them know about each other and the student pays the coordination cost every time they sit down to study. This is the fragmentation problem we explored in [*Your learning system is probably making you slower*](/blog/learning-tools).
+
+Apollo wasn't built to replace these methods. It was built to bring them together. The agent can search material, generate quizzes, create flashcards, surface misconceptions, and build interactive explanations, all while working from the same underlying view of your learning. Instead of jumping between disconnected tools, students can now focus on things that matter: understanding the concept.
+
+## A note on the name
+
+Before we look ahead, a quick aside on where the name comes from — because it says something about what we're trying to build.
+
+<WordLineage />
+
+The word *Avenire* doesn't exist in any language. It sits in the gap between the Latin *avenire* (to come to pass), the French *avenir* (the future), and the invented *avenoir* (the desire to see your memories from the outside). It's a word that doesn't fully belong to any one tradition — which felt right for something that tries to connect how you learn, what you know, and what you'll remember.
+
+## Looking forward
+
+Apollo today is an AI agent backed by a retrieval and learning system designed around how people actually learn. It can find information, help organize it, test understanding, and reinforce concepts over time.
+
+The version we are building towards is something closer to a persistent tutor — one that understands your knowledge gaps, notices recurring misconceptions, remembers the concepts you almost understand, and adapts its guidance accordingly. The goal has never been to help people collect more information. It is to help them build durable understanding. Most tools optimize for making knowledge easy to access. We are trying to make it harder to forget.

@@ -112,7 +112,7 @@ export const HowItWorks = () => {
               </button>
             ))}
           </div>
-          <div className="relative h-full max-h-[370px] overflow-hidden bg-[repeating-linear-gradient(315deg,_var(--pattern-fg)_0,_var(--pattern-fg)_1px,_transparent_0,_transparent_50%)] bg-[size:12px_12px] mask-r-from-90% mask-l-from-90% mask-radial-from-20%">
+          <div className="relative h-full max-h-[370px] overflow-hidden">
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeTab.id}

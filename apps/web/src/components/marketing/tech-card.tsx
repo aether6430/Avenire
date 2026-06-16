@@ -73,7 +73,7 @@ export const Card = ({
       className={cn("relative h-full text-xs", className)}
       ref={ref}
     >
-      <div className="absolute inset-0 z-10 m-auto h-full w-full rounded-lg border border-(--pattern-fg) bg-white bg-[image:repeating-linear-gradient(315deg,_var(--pattern-fg)_0,_var(--pattern-fg)_1px,_transparent_0,_transparent_50%)] bg-[size:10px_10px] bg-fixed dark:bg-neutral-900"></div>
+      <div className="absolute inset-0 z-10 m-auto h-full w-full rounded-lg border border-(--pattern-fg) bg-white dark:bg-neutral-900"></div>
       <div className="absolute inset-x-0 -top-1.5 mx-auto size-3 rounded-full border-2 border-gray-300 bg-white dark:border-neutral-700 dark:bg-neutral-900"></div>
 
       <motion.div
