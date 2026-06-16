@@ -1053,7 +1053,7 @@ function PureMultimodalInput({
       <div
         className={cn(
           "relative flex w-full grow flex-col overflow-visible p-2 transition-colors duration-100 focus-within:ring-1 focus-within:ring-ring",
-          isMultiLine ? "rounded-2xl" : "rounded-full",
+          isMultiLine || attachments.length > 0 ? "rounded-2xl" : "rounded-full",
           surfaceClasses(2, 2)
         )}
       >

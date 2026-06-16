@@ -55,6 +55,8 @@ interface WorkspacePaneStoreState {
   ) => void;
   setPaneSizes: (rowId: string, sizes: number[]) => void;
   setRowSizes: (sizes: number[]) => void;
+  renameTab: (tabId: string, title: string) => void;
+  reorderTabs: (draggedTabId: string, targetTabId: string) => void;
   switchTab: (tabId: string) => void;
   syncActivePaneFromBrowser: (route: WorkspacePaneRouteState) => void;
   tabs: WorkspacePaneTabRecord[];
@@ -467,6 +469,36 @@ export const useWorkspacePaneStore = create<WorkspacePaneStoreState>()(
             ),
             title: titleForRoute(route),
           }));
+        }),
+      renameTab: (tabId, title) =>
+        set((state) => ({
+          ...state,
+          tabs: state.tabs.map((tab) =>
+            tab.id === tabId ? { ...tab, title } : tab
+          ),
+        })),
+      reorderTabs: (draggedTabId, targetTabId) =>
+        set((state) => {
+          if (draggedTabId === targetTabId) {
+            return state;
+          }
+          const draggedIndex = state.tabs.findIndex(
+            (tab) => tab.id === draggedTabId
+          );
+          const targetIndex = state.tabs.findIndex(
+            (tab) => tab.id === targetTabId
+          );
+          if (draggedIndex === -1 || targetIndex === -1) {
+            return state;
+          }
+          const tabs = [...state.tabs];
+          const [moved] = tabs.splice(draggedIndex, 1);
+          tabs.splice(targetIndex, 0, moved);
+          return {
+            ...state,
+            tabs,
+            ...mirrorActiveTab({ ...state, tabs, activeTabId: state.activeTabId }),
+          };
         }),
       setPaneSizes: (_rowId, sizes) =>
         set((state) =>

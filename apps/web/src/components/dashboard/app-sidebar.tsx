@@ -2,6 +2,12 @@
 
 import { Button } from "@avenire/ui/components/button";
 import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@avenire/ui/components/context-menu";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -40,6 +46,7 @@ import {
 } from "@avenire/ui/components/tooltip";
 import { cn } from "@avenire/ui/lib/utils";
 import {
+  Columns,
   Files,
   GitBranch,
   ListChecks,
@@ -48,9 +55,10 @@ import {
   DotsThree as MoreHorizontal,
   SidebarSimpleIcon as PanelLeftIcon,
   Pencil,
+  Plus,
+  PlusCircle,
   PushPin as Pin,
   PushPinSlash as PinOff,
-  PlusCircle,
   Gear as Settings,
   Sparkle as Sparkles,
   Trash as Trash2,
@@ -243,14 +251,16 @@ async function sendChatSessionClose(payload: {
 }
 
 function SectionButton({
+  contextMenuContent,
   dragHref,
   icon: Icon,
   description,
   label,
   size = "default",
   onClick,
-  onContextMenu,
+  onContextMenu: _onContextMenu,
 }: {
+  contextMenuContent?: ReactNode;
   dragHref?: Route;
   icon: ComponentType<{ className?: string }>;
   description?: string;
@@ -259,33 +269,46 @@ function SectionButton({
   onClick?: (event: MouseEvent<HTMLButtonElement>) => void;
   onContextMenu?: (event: MouseEvent<HTMLButtonElement>) => void;
 }) {
-  return (
-    <SidebarMenuItem>
-      <SidebarMenuButton
-        draggable={Boolean(dragHref)}
-        onClick={onClick}
-        onContextMenu={onContextMenu}
-        onDragStart={(event) => {
-          if (!dragHref) {
-            return;
-          }
+  const button = (
+    <SidebarMenuButton
+      draggable={Boolean(dragHref)}
+      onClick={onClick}
+      onContextMenu={_onContextMenu}
+      onDragStart={(event) => {
+        if (!dragHref) {
+          return;
+        }
 
-          setWorkspacePaneDragData(event.dataTransfer, dragHref);
-        }}
-        size={size}
-      >
-        <Icon className="size-3.5" />
-        <div className="min-w-0 flex-1 text-left">
-          <p className="truncate text-[11px]">{label}</p>
-          {description ? (
-            <p className="truncate text-[10px] text-muted-foreground">
-              {description}
-            </p>
-          ) : null}
-        </div>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
+        setWorkspacePaneDragData(event.dataTransfer, dragHref);
+      }}
+      size={size}
+    >
+      <Icon className="size-3.5" />
+      <div className="min-w-0 flex-1 text-left">
+        <p className="truncate text-[11px]">{label}</p>
+        {description ? (
+          <p className="truncate text-[10px] text-muted-foreground">
+            {description}
+          </p>
+        ) : null}
+      </div>
+    </SidebarMenuButton>
   );
+
+  if (contextMenuContent) {
+    return (
+      <SidebarMenuItem>
+        <ContextMenu>
+          <ContextMenuTrigger render={<div className="contents" />}>
+            {button}
+          </ContextMenuTrigger>
+          <ContextMenuContent>{contextMenuContent}</ContextMenuContent>
+        </ContextMenu>
+      </SidebarMenuItem>
+    );
+  }
+
+  return <SidebarMenuItem>{button}</SidebarMenuItem>;
 }
 
 function SidebarEmptyState({
@@ -409,6 +432,7 @@ function ChatListSection({
   onCancelRename,
   onSelect,
   onSelectInNewPane,
+  onSelectInNewTab,
   onTogglePin,
   onDelete,
   pendingChatSlug,
@@ -424,6 +448,7 @@ function ChatListSection({
   onCancelRename: () => void;
   onSelect: (chatSlug: string) => void;
   onSelectInNewPane?: (chatSlug: string) => void;
+  onSelectInNewTab?: (chatSlug: string) => void;
   onTogglePin: (chatSlug: string, pinned: boolean) => void;
   onDelete: (chatSlug: string) => void;
   pendingChatSlug: string | null;
@@ -552,6 +577,7 @@ function ChatListSection({
                       onFinishRename={onFinishRename}
                       onSelect={onSelect}
                       onSelectInNewPane={onSelectInNewPane}
+                      onSelectInNewTab={onSelectInNewTab}
                       onStartRename={onStartRename}
                       onTogglePin={onTogglePin}
                       pendingChatSlug={pendingChatSlug}
@@ -579,6 +605,7 @@ function ChatListItem({
   onCancelRename,
   onSelect,
   onSelectInNewPane,
+  onSelectInNewTab,
   onTogglePin,
   onDelete,
 }: {
@@ -593,12 +620,54 @@ function ChatListItem({
   onCancelRename: () => void;
   onSelect: (chatSlug: string) => void;
   onSelectInNewPane?: (chatSlug: string) => void;
+  onSelectInNewTab?: (chatSlug: string) => void;
   onTogglePin: (chatSlug: string, pinned: boolean) => void;
   onDelete: (chatSlug: string) => void;
 }) {
   const isEditing = editingChatSlug === chat.slug;
   const isPending = pendingChatSlug === chat.slug;
   const iconName = isChatIconName(chat.icon) ? chat.icon : null;
+
+  const button = (
+    <SidebarMenuButton
+      draggable
+      isActive={activeChatSlug === chat.slug}
+      onClick={(event) => {
+        if (event.ctrlKey && event.shiftKey) {
+          event.preventDefault();
+          onSelectInNewTab?.(chat.slug);
+          return;
+        }
+        if (event.altKey) {
+          event.preventDefault();
+          onSelectInNewPane?.(chat.slug);
+          return;
+        }
+        onSelect(chat.slug);
+      }}
+      onDragStart={(event) => {
+        setWorkspacePaneDragData(
+          event.dataTransfer,
+          `/workspace/chats/${chat.slug}` as Route
+        );
+      }}
+    >
+      {chat.branching ? <GitBranch className="size-4" /> : null}
+      {isPending ? (
+        <Spinner className="size-4 text-foreground/80" />
+      ) : iconName ? (
+        <ChatIcon className="text-muted-foreground" name={iconName} />
+      ) : null}
+      <Tooltip>
+        <TooltipTrigger render={<span className="truncate" />}>
+          {chat.title}
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <span className="max-w-72 break-words">{chat.title}</span>
+        </TooltipContent>
+      </Tooltip>
+    </SidebarMenuButton>
+  );
 
   return (
     <SidebarMenuItem key={chat.slug}>
@@ -626,43 +695,31 @@ function ChatListItem({
         </form>
       ) : (
         <>
-          <SidebarMenuButton
-            draggable
-            isActive={activeChatSlug === chat.slug}
-            onClick={(event) => {
-              if (event.altKey) {
-                event.preventDefault();
-                onSelectInNewPane?.(chat.slug);
-                return;
-              }
-              onSelect(chat.slug);
-            }}
-            onContextMenu={(event) => {
-              event.preventDefault();
-              onSelectInNewPane?.(chat.slug);
-            }}
-            onDragStart={(event) => {
-              setWorkspacePaneDragData(
-                event.dataTransfer,
-                `/workspace/chats/${chat.slug}` as Route
-              );
-            }}
-          >
-            {chat.branching ? <GitBranch className="size-4" /> : null}
-            {isPending ? (
-              <Spinner className="size-4 text-foreground/80" />
-            ) : iconName ? (
-              <ChatIcon className="text-muted-foreground" name={iconName} />
-            ) : null}
-            <Tooltip>
-              <TooltipTrigger render={<span className="truncate" />}>
-                {chat.title}
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                <span className="max-w-72 break-words">{chat.title}</span>
-              </TooltipContent>
-            </Tooltip>
-          </SidebarMenuButton>
+          <ContextMenu>
+            <ContextMenuTrigger render={<div className="contents" />}>
+              {button}
+            </ContextMenuTrigger>
+            <ContextMenuContent>
+              <ContextMenuItem
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSelectInNewPane?.(chat.slug);
+                }}
+              >
+                <Columns className="mr-2 size-3.5" />
+                Open in new pane
+              </ContextMenuItem>
+              <ContextMenuItem
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSelectInNewTab?.(chat.slug);
+                }}
+              >
+                <Plus className="mr-2 size-3.5" />
+                Open in new tab
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
 
           {chat.readOnly ? null : (
             <DropdownMenu>
@@ -1484,7 +1541,7 @@ export function DashboardSidebar({
   );
 
   const navigateToFilesRoot = useCallback(
-    async (options?: { openInNewPane?: boolean }) => {
+    async (options?: { openInNewPane?: boolean; openInNewTab?: boolean }) => {
       try {
         const preferredWorkspaceId =
           typeof window !== "undefined"
@@ -1837,7 +1894,7 @@ export function DashboardSidebar({
   };
 
   useHotkey(
-    "Mod+1",
+    "Mod+Shift+1",
     (event) => {
       event.preventDefault();
       if (!isChatsRoute) {
@@ -1854,7 +1911,7 @@ export function DashboardSidebar({
   );
 
   useHotkey(
-    "Mod+2",
+    "Mod+Shift+2",
     (event) => {
       event.preventDefault();
       if (!pathname.startsWith("/workspace/flashcards")) {
@@ -1866,7 +1923,7 @@ export function DashboardSidebar({
   );
 
   useHotkey(
-    "Mod+3",
+    "Mod+Shift+3",
     (event) => {
       event.preventDefault();
       if (!pathname.startsWith("/workspace/tasks")) {
@@ -1878,7 +1935,7 @@ export function DashboardSidebar({
   );
 
   useHotkey(
-    "Mod+4",
+    "Mod+Shift+4",
     (event) => {
       event.preventDefault();
       if (!pathname.startsWith("/workspace/files")) {
@@ -2117,18 +2174,70 @@ export function DashboardSidebar({
               <ExpandableTabs
                 allowDeselect={false}
                 className="mt-0.5"
+                contextMenuContent={(item) => {
+                  const href = (() => {
+                    switch (item.value) {
+                      case "chat":
+                        return primaryChatRoute;
+                      case "flashcards":
+                        return "/workspace/flashcards" as Route;
+                      case "tasks":
+                        return "/workspace/tasks" as Route;
+                      case "files":
+                        return primaryFilesRoute;
+                      default:
+                        return "/workspace" as Route;
+                    }
+                  })();
+
+                  return (
+                    <>
+                      <ContextMenuItem
+                        onClick={() => navigate(href, { openInNewPane: true })}
+                      >
+                        <Columns className="mr-2 size-3.5" />
+                        Open in new pane
+                      </ContextMenuItem>
+                      <ContextMenuItem
+                        onClick={() => navigate(href, { openInNewTab: true })}
+                      >
+                        <Plus className="mr-2 size-3.5" />
+                        Open in new tab
+                      </ContextMenuItem>
+                    </>
+                  );
+                }}
                 items={[
                   { value: "chat", label: "Method", icon: MessageSquare },
                   { value: "flashcards", label: "Mindset", icon: Sparkles },
                   { value: "tasks", label: "Tasks", icon: ListChecks },
                   { value: "files", label: "Manage", icon: Files },
                 ]}
-                onItemClick={(item, _event) => {
+                onItemClick={(item, event) => {
                   const nextView = item.value as
                     | "chat"
                     | "flashcards"
                     | "files"
                     | "tasks";
+
+                  if (event.ctrlKey && event.shiftKey) {
+                    const href = (() => {
+                      switch (item.value) {
+                        case "chat":
+                          return primaryChatRoute;
+                        case "flashcards":
+                          return "/workspace/flashcards" as Route;
+                        case "tasks":
+                          return "/workspace/tasks" as Route;
+                        case "files":
+                          return primaryFilesRoute;
+                        default:
+                          return "/workspace" as Route;
+                      }
+                    })();
+                    navigate(href, { openInNewTab: true });
+                    return;
+                  }
 
                   if (isMobile) {
                     setMobileSidebarView(nextView);
@@ -2184,31 +2293,82 @@ export function DashboardSidebar({
                     <SidebarGroupContent>
                       <SidebarMenu>
                         <SectionButton
+                          contextMenuContent={
+                            <>
+                              <ContextMenuItem
+                                onClick={() =>
+                                  navigate(createFreshNewChatHref(), {
+                                    openInNewPane: true,
+                                  })
+                                }
+                              >
+                                <Columns className="mr-2 size-3.5" />
+                                Open in new pane
+                              </ContextMenuItem>
+                              <ContextMenuItem
+                                onClick={() =>
+                                  navigate(createFreshNewChatHref(), {
+                                    openInNewTab: true,
+                                  })
+                                }
+                              >
+                                <Plus className="mr-2 size-3.5" />
+                                Open in new tab
+                              </ContextMenuItem>
+                            </>
+                          }
                           dragHref={"/workspace/chats/new" as Route}
                           icon={MessageSquare}
                           label="Open Method"
                           onClick={(event) => {
                             closeMobileSidebar();
+                            if (event.ctrlKey && event.shiftKey) {
+                              navigate(createFreshNewChatHref(), {
+                                openInNewTab: true,
+                              });
+                              return;
+                            }
                             navigate(createFreshNewChatHref(), {
                               openInNewPane: !isMobile && event.altKey,
                             });
                           }}
-                          onContextMenu={(event) => {
-                            if (isMobile) {
-                              return;
-                            }
-                            event.preventDefault();
-                            navigate(createFreshNewChatHref(), {
-                              openInNewPane: true,
-                            });
-                          }}
                         />
                         <SectionButton
+                          contextMenuContent={
+                            <>
+                              <ContextMenuItem
+                                onClick={() =>
+                                  navigate("/workspace/flashcards" as Route, {
+                                    openInNewPane: true,
+                                  })
+                                }
+                              >
+                                <Columns className="mr-2 size-3.5" />
+                                Open in new pane
+                              </ContextMenuItem>
+                              <ContextMenuItem
+                                onClick={() =>
+                                  navigate("/workspace/flashcards" as Route, {
+                                    openInNewTab: true,
+                                  })
+                                }
+                              >
+                                <Plus className="mr-2 size-3.5" />
+                                Open in new tab
+                              </ContextMenuItem>
+                            </>
+                          }
                           dragHref={"/workspace/flashcards" as Route}
                           icon={Sparkles}
                           label="Open Mindset"
                           onClick={(event) => {
                             closeMobileSidebar();
+                            if (event.ctrlKey && event.shiftKey) {
+                              navigate("/workspace/flashcards" as Route, {
+                                openInNewTab: true,
+                              });
+                              return;
+                            }
                             if (!isMobile) {
                               setDesktopSidebarView("flashcards");
                               navigate("/workspace/flashcards" as Route, {
@@ -2220,23 +2380,43 @@ export function DashboardSidebar({
                               openInNewPane: false,
                             });
                           }}
-                          onContextMenu={(event) => {
-                            if (isMobile) {
-                              return;
-                            }
-                            event.preventDefault();
-                            setDesktopSidebarView("flashcards");
-                            navigate("/workspace/flashcards" as Route, {
-                              openInNewPane: true,
-                            });
-                          }}
                         />
                         <SectionButton
+                          contextMenuContent={
+                            <>
+                              <ContextMenuItem
+                                onClick={() =>
+                                  void navigateToFilesRoot({
+                                    openInNewPane: true,
+                                  })
+                                }
+                              >
+                                <Columns className="mr-2 size-3.5" />
+                                Open in new pane
+                              </ContextMenuItem>
+                              <ContextMenuItem
+                                onClick={() =>
+                                  void navigateToFilesRoot({
+                                    openInNewTab: true,
+                                  })
+                                }
+                              >
+                                <Plus className="mr-2 size-3.5" />
+                                Open in new tab
+                              </ContextMenuItem>
+                            </>
+                          }
                           dragHref={primaryFilesRoute}
                           icon={Files}
                           label="Open Manage"
                           onClick={(event) => {
                             closeMobileSidebar();
+                            if (event.ctrlKey && event.shiftKey) {
+                              void navigateToFilesRoot({
+                                openInNewTab: true,
+                              });
+                              return;
+                            }
                             if (!isMobile) {
                               setDesktopSidebarView("files");
                               void navigateToFilesRoot({
@@ -2248,32 +2428,45 @@ export function DashboardSidebar({
                               openInNewPane: false,
                             });
                           }}
-                          onContextMenu={(event) => {
-                            if (isMobile) {
-                              return;
-                            }
-                            event.preventDefault();
-                            setDesktopSidebarView("files");
-                            void navigateToFilesRoot({ openInNewPane: true });
-                          }}
                         />
                         <SectionButton
+                          contextMenuContent={
+                            <>
+                              <ContextMenuItem
+                                onClick={() =>
+                                  navigate("/workspace/tasks" as Route, {
+                                    openInNewPane: true,
+                                  })
+                                }
+                              >
+                                <Columns className="mr-2 size-3.5" />
+                                Open in new pane
+                              </ContextMenuItem>
+                              <ContextMenuItem
+                                onClick={() =>
+                                  navigate("/workspace/tasks" as Route, {
+                                    openInNewTab: true,
+                                  })
+                                }
+                              >
+                                <Plus className="mr-2 size-3.5" />
+                                Open in new tab
+                              </ContextMenuItem>
+                            </>
+                          }
                           dragHref={"/workspace/tasks" as Route}
                           icon={ListChecks}
                           label="Open Tasks"
                           onClick={(event) => {
                             closeMobileSidebar();
-                            navigate("/workspace/tasks" as Route, {
-                              openInNewPane: !isMobile && event.altKey,
-                            });
-                          }}
-                          onContextMenu={(event) => {
-                            if (isMobile) {
+                            if (event.ctrlKey && event.shiftKey) {
+                              navigate("/workspace/tasks" as Route, {
+                                openInNewTab: true,
+                              });
                               return;
                             }
-                            event.preventDefault();
                             navigate("/workspace/tasks" as Route, {
-                              openInNewPane: true,
+                              openInNewPane: !isMobile && event.altKey,
                             });
                           }}
                         />
@@ -2369,6 +2562,13 @@ export function DashboardSidebar({
                         setEditingTitle("");
                         navigate(`/workspace/chats/${chatSlug}` as Route, {
                           openInNewPane: true,
+                        });
+                      }}
+                      onSelectInNewTab={(chatSlug) => {
+                        setEditingChatSlug(null);
+                        setEditingTitle("");
+                        navigate(`/workspace/chats/${chatSlug}` as Route, {
+                          openInNewTab: true,
                         });
                       }}
                       onStartRename={(chat) => {
