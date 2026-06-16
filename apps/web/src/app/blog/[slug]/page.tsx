@@ -140,7 +140,15 @@ export default async function BlogPostPage({
   try {
     const mod = await import(`@/content/blog/${slug}.mdx`);
     PostContent = mod.default;
-  } catch {
+  } catch (err: unknown) {
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      "code" in err &&
+      (err as { code: string }).code !== "MODULE_NOT_FOUND"
+    ) {
+      throw err;
+    }
     const { default: Markdown } = await import("react-markdown");
     const rehypeKatex = (await import("rehype-katex")).default;
     const remarkGfm = (await import("remark-gfm")).default;

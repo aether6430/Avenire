@@ -118,6 +118,7 @@ export function RetrievalSimulator() {
             <button
               key={m.id}
               onClick={() => toggle(m.id)}
+              aria-pressed={isOn}
               className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-left text-sm transition-all duration-150 ${
                 isOn
                   ? "border-white/30 bg-white/5"
@@ -182,6 +183,7 @@ export function RetrievalSimulator() {
             step={1}
             value={days}
             onChange={(e) => setDays(Number(e.target.value))}
+            aria-label="Time elapsed in days"
             className="mb-5 w-full accent-brand"
           />
 

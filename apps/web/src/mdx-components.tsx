@@ -70,14 +70,19 @@ const components: MDXComponents = {
   ),
 
   // Links
-  a: (props) => (
-    <a
-      className="text-brand underline underline-offset-4 transition-colors hover:text-brand/80"
-      target="_blank"
-      rel="noopener noreferrer"
-      {...props}
-    />
-  ),
+  a: ({ href, ...props }) => {
+    const isExternal =
+      typeof href === "string" &&
+      (href.startsWith("http://") || href.startsWith("https://"));
+    return (
+      <a
+        className="text-brand underline underline-offset-4 transition-colors hover:text-brand/80"
+        href={href}
+        {...props}
+        {...(isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      />
+    );
+  },
 
   // Text formatting
   strong: (props) => (

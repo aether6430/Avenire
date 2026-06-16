@@ -56,6 +56,8 @@ export function WordLineage() {
               <button
                 key={i}
                 onClick={() => setStep(i)}
+                aria-current={i === step ? "step" : undefined}
+                aria-label={`Go to step ${i + 1}`}
                 className={`h-1 flex-1 rounded-full transition-all duration-200 ${
                   i <= step ? "bg-brand" : "bg-white/10"
                 }`}

@@ -64,10 +64,11 @@ export function RetentionTradeoff() {
           const isSelected = row.retention === highlightRow;
           const barWidth = Math.min(100, (row.dailyLoad / (deckSize / 5)) * 100);
           return (
-            <div
+            <button
               key={row.retention}
               onClick={() => setHighlightRow(row.retention)}
-              className={`flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 transition-colors duration-150 ${
+              type="button"
+              className={`flex w-full cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 transition-colors duration-150 ${
                 isSelected ? "bg-white/5" : "hover:bg-white/[0.03]"
               }`}
             >
@@ -94,7 +95,7 @@ export function RetentionTradeoff() {
               >
                 ~{row.dailyLoad} cards/day
               </span>
-            </div>
+            </button>
           );
         })}
       </div>

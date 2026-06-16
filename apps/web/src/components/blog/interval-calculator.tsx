@@ -129,9 +129,11 @@ export function IntervalCalculator() {
             min={3}
             max={15}
             value={numReviews}
-            onChange={(e) =>
-              setNumReviews(Math.max(3, Math.min(15, Number(e.target.value))))
-            }
+            onChange={(e) => {
+              const val = Number(e.target.value);
+              if (Number.isNaN(val)) return;
+              setNumReviews(Math.max(3, Math.min(15, val)));
+            }}
             className="w-16 rounded-lg border border-white/20 bg-neutral-950/60 px-2 py-1.5 font-mono text-xs text-white"
           />
         </label>
@@ -193,7 +195,7 @@ export function IntervalCalculator() {
                 key={i}
                 className="h-full transition-all duration-300"
                 style={{
-                  width: `${100 / numReviews}%`,
+                  width: `${width}%`,
                   backgroundColor: ratingColors[firstRating],
                   opacity: 0.3 + (i / numReviews) * 0.7,
                 }}

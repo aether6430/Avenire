@@ -23,6 +23,7 @@ export function ForgettingCurveSimulator() {
   const [reviews, setReviews] = useState<number[]>([]);
 
   const maxDays = Math.max(60, Math.ceil(optimalInterval(stability, 0.7) * 1.4));
+  const optInterval = optimalInterval(stability, targetRetention);
 
   const innerW = WIDTH - PAD.left - PAD.right;
   const innerH = HEIGHT - PAD.top - PAD.bottom;
@@ -60,10 +61,9 @@ export function ForgettingCurveSimulator() {
   }, [stability, reviews, maxDays]);
 
   const retentionLine = toY(targetRetention);
-  const optInterval = optimalInterval(stability, targetRetention);
-
   const handleAddReview = () => {
-    const nextDue = Math.round(optInterval);
+    const optInterval = optimalInterval(stability, targetRetention);
+    const nextDue = Math.max(1, Math.round(optInterval));
     const last = reviews[reviews.length - 1] ?? 0;
     setReviews([...reviews, last + nextDue]);
   };

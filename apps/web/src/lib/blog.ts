@@ -61,6 +61,12 @@ export function getCategoryLabel(slug: string): string {
   return CATEGORIES.find((c) => c.slug === slug)?.label ?? slug;
 }
 
+function normalizeTags(tags: unknown): string[] {
+  if (Array.isArray(tags)) return tags.filter((t): t is string => typeof t === "string");
+  if (typeof tags === "string") return [tags];
+  return [];
+}
+
 function ensureBlogDir() {
   if (!fs.existsSync(BLOG_DIR)) {
     fs.mkdirSync(BLOG_DIR, { recursive: true });
@@ -95,7 +101,7 @@ export function getAllPostMetas(): PostMeta[] {
           ? new Date(data.date).toISOString()
           : new Date().toISOString(),
         author: data.author ?? "Avenire Team",
-        tags: data.tags ?? [],
+        tags: normalizeTags(data.tags),
         readingTime: rt.text,
         coverImage: data.coverImage,
         featured: Boolean(data.featured),
@@ -103,7 +109,7 @@ export function getAllPostMetas(): PostMeta[] {
           typeof data.featuredOrder === "number"
             ? data.featuredOrder
             : undefined,
-        category: mapTagsToCategory(data.tags ?? []),
+        category: mapTagsToCategory(normalizeTags(data.tags)),
       } satisfies PostMeta;
     })
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -128,14 +134,14 @@ export function getPostBySlug(slug: string): Post | null {
       ? new Date(data.date).toISOString()
       : new Date().toISOString(),
     author: data.author ?? "Avenire Team",
-    tags: data.tags ?? [],
+    tags: normalizeTags(data.tags),
     readingTime: rt.text,
     coverImage: data.coverImage,
     featured: Boolean(data.featured),
     featuredOrder:
       typeof data.featuredOrder === "number" ? data.featuredOrder : undefined,
     content,
-    category: mapTagsToCategory(data.tags ?? []),
+    category: mapTagsToCategory(normalizeTags(data.tags)),
   };
 }
 

@@ -194,11 +194,13 @@ function ListRowCompact({ post }: { post: PostMeta }) {
 export default async function BlogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string; q?: string }>;
+  searchParams: Promise<{ category?: string | string[]; q?: string | string[] }>;
 }) {
   const params = await searchParams;
-  const activeCategory = params.category ?? "all";
-  const query = params.q ?? "";
+  const rawCategory = Array.isArray(params.category) ? params.category[0] : params.category;
+  const rawQuery = Array.isArray(params.q) ? params.q[0] : params.q;
+  const activeCategory = rawCategory ?? "all";
+  const query = rawQuery ?? "";
 
   const posts = getAllPostMetas();
 

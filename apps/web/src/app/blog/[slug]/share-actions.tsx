@@ -2,7 +2,7 @@
 
 import { Check, Copy, XLogo, LinkedinLogo } from "@phosphor-icons/react/ssr";
 import type { ElementType } from "react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 const CopyIcon = Copy as ElementType;
 const CheckIcon = Check as ElementType;
@@ -11,12 +11,16 @@ const LinkedinLogoIcon = LinkedinLogo as ElementType;
 
 export function ShareActions({ url, title }: { url: string; title: string }) {
   const [copied, setCopied] = useState(false);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function copyLink() {
+    if (copyTimerRef.current) {
+      clearTimeout(copyTimerRef.current);
+    }
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      copyTimerRef.current = setTimeout(() => setCopied(false), 2000);
     } catch {
       // Fallback
       const textarea = document.createElement("textarea");
@@ -26,7 +30,7 @@ export function ShareActions({ url, title }: { url: string; title: string }) {
       document.execCommand("copy");
       document.body.removeChild(textarea);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      copyTimerRef.current = setTimeout(() => setCopied(false), 2000);
     }
   }
 
