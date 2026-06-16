@@ -5,7 +5,7 @@ import {
   useMediaPlaybackSource,
 } from "@avenire/ui/media";
 import { FileCode as FileCode2, FileText } from "@phosphor-icons/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   primeMediaPlayback,
   releaseMediaPlaybackPrime,
@@ -37,6 +37,59 @@ interface FileCardProps {
   previewUrl?: string;
   variant?: "grid" | "row";
 }
+
+/* ─────────────────────────────────────────────
+   Markdown Thumbnail Types
+───────────────────────────────────────────── */
+
+type MdBlockBase = { readonly endY: number };
+
+type MdH1Block = MdBlockBase & {
+  readonly kind: "h1";
+  readonly text: string;
+};
+
+type MdH2Block = MdBlockBase & {
+  readonly kind: "h2";
+  readonly text: string;
+};
+
+type MdH3Block = MdBlockBase & {
+  readonly kind: "h3";
+  readonly text: string;
+};
+
+type MdParagraphBlock = MdBlockBase & {
+  readonly kind: "paragraph";
+  readonly text: string;
+};
+
+type MdListBlock = MdBlockBase & {
+  readonly kind: "list";
+  readonly items: readonly string[];
+};
+
+type MdTableBlock = MdBlockBase & {
+  readonly kind: "table";
+};
+
+type MdCodeBlock = MdBlockBase & {
+  readonly kind: "code";
+};
+
+type MdImageBlock = MdBlockBase & {
+  readonly kind: "image";
+};
+
+type MdBlock =
+  | MdH1Block
+  | MdH2Block
+  | MdH3Block
+  | MdParagraphBlock
+  | MdListBlock
+  | MdTableBlock
+  | MdCodeBlock
+  | MdImageBlock;
 
 interface MarkdownThumbnailProps {
   className?: string;
@@ -233,16 +286,582 @@ export function FileCard({
   );
 }
 
+/* ─────────────────────────────────────────────
+   Markdown Thumbnail – SVG Generation
+
+   Parses markdown into structural blocks and renders
+   them into a fixed 400×250 SVG. No syntax highlighting,
+   table rendering, or image rendering — just structure.
+───────────────────────────────────────────── */
+
+const THUMB = {
+  W: 400,
+  H: 250,
+  PAD: 20,
+  INNER_W: 360, // W - PAD * 2
+} as const;
+
+const FONT = {
+  H1_SIZE: 16,
+  H1_LINE: 22,
+  H2_SIZE: 13,
+  H2_LINE: 18,
+  H3_SIZE: 11.5,
+  H3_LINE: 16,
+  BODY_SIZE: 10,
+  BODY_LINE: 14,
+  PLACEHOLDER_SIZE: 9,
+  PLACEHOLDER_LINE: 13,
+  CHAR_RATIO: 0.52, // avg char-width / font-size for Inter
+  LINE_RATIO: 1.45, // line-height / font-size
+} as const;
+
+// ── Markdown Block Parser ──────────────────────
+
+function parseMdBlocks(src: string): MdBlock[] {
+  const blocks: MdBlock[] = [];
+  let cursor = 0;
+  let i = 0;
+
+  function addBlock(b: MdBlock) {
+    blocks.push(b);
+    cursor = b.endY;
+  }
+
+  const lines = src.split("\n");
+  const total = lines.length;
+
+  while (i < total && cursor < THUMB.H) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // ── Empty line ──
+    if (trimmed === "") {
+      cursor += 6;
+      i++;
+      continue;
+    }
+
+    // ── Code fence ──
+    if (trimmed.startsWith("```")) {
+      const fenceStart = i;
+      i++;
+      while (i < total && !lines[i].trim().startsWith("```")) i++;
+      i++; // skip closing fence
+      addBlock({ kind: "code", endY: Math.min(cursor + 48, THUMB.H) });
+      void fenceStart;
+      continue;
+    }
+
+    // ── Heading ──
+    const headingMatch = trimmed.match(/^(#{1,3})\s+(.+)/);
+    if (headingMatch) {
+      const level = headingMatch[1].length as 1 | 2 | 3;
+      const text = headingMatch[2];
+      if (level === 1) {
+        addBlock({ kind: "h1", text, endY: Math.min(cursor + 28, THUMB.H) });
+      } else if (level === 2) {
+        addBlock({ kind: "h2", text, endY: Math.min(cursor + 24, THUMB.H) });
+      } else {
+        addBlock({ kind: "h3", text, endY: Math.min(cursor + 22, THUMB.H) });
+      }
+      continue;
+    }
+
+    // ── Horizontal rule ──
+    if (/^[-*_]{3,}\s*$/.test(trimmed)) {
+      addBlock({ kind: "paragraph", text: "", endY: Math.min(cursor + 16, THUMB.H) });
+      continue;
+    }
+
+    // ── Table ──
+    if (trimmed.includes("|") && i + 1 < total && /\|\s*[-:]+/.test(lines[i + 1])) {
+      while (i < total && lines[i].trim().includes("|")) i++;
+      addBlock({ kind: "table", endY: Math.min(cursor + 48, THUMB.H) });
+      continue;
+    }
+
+    // ── Unordered list ──
+    if (/^[-*+]\s+/.test(trimmed)) {
+      const items: string[] = [];
+      while (i < total) {
+        const lt = lines[i].trim();
+        if (lt === "") break;
+        const m = lt.match(/^[-*+]\s+(.*)/);
+        if (!m) break;
+        items.push(m[1]);
+        i++;
+      }
+      if (items.length > 0) {
+        const linesNeeded = items.length * 2;
+        addBlock({
+          kind: "list",
+          items,
+          endY: Math.min(cursor + linesNeeded * FONT.BODY_LINE + 8, THUMB.H),
+        });
+      }
+      continue;
+    }
+
+    // ── Ordered list ──
+    if (/^\d+[.)]\s+/.test(trimmed)) {
+      const items: string[] = [];
+      while (i < total) {
+        const lt = lines[i].trim();
+        if (lt === "") break;
+        const m = lt.match(/^\d+[.)]\s+(.*)/);
+        if (!m) break;
+        items.push(m[1]);
+        i++;
+      }
+      if (items.length > 0) {
+        const linesNeeded = items.length * 2;
+        addBlock({
+          kind: "list",
+          items,
+          endY: Math.min(cursor + linesNeeded * FONT.BODY_LINE + 8, THUMB.H),
+        });
+      }
+      continue;
+    }
+
+    // ── Image ──
+    if (/^!?\[.*\]\(.*\)/.test(trimmed)) {
+      addBlock({ kind: "image", endY: Math.min(cursor + 48, THUMB.H) });
+      i++;
+      continue;
+    }
+
+    // ── Paragraph (default) ──
+    {
+      const paraLines: string[] = [];
+      while (i < total) {
+        const lt = lines[i].trim();
+        if (lt === "") break;
+        // stop if next line starts a new block type
+        if (
+          lt.startsWith("#") ||
+          lt.startsWith("```") ||
+          lt.startsWith("---") ||
+          lt.startsWith("***") ||
+          lt.startsWith("___") ||
+          /^[-*+]\s+/.test(lt) ||
+          /^\d+[.)]\s+/.test(lt) ||
+          /^!?\[.*\]\(.*\)/.test(lt)
+        ) {
+          break;
+        }
+        paraLines.push(lt);
+        i++;
+      }
+      const text = paraLines.join(" ");
+      if (text.length === 0) {
+        cursor += 6;
+        continue;
+      }
+      const est = estimateLines(text, FONT.BODY_SIZE, 52);
+      addBlock({
+        kind: "paragraph",
+        text,
+        endY: Math.min(cursor + est * FONT.BODY_LINE + 10, THUMB.H),
+      });
+    }
+  }
+
+  return blocks;
+}
+
+// ── SVG Text Helpers ───────────────────────────
+
+/** Wrap text into lines by character budget. */
+function wrapText(text: string, fontSize: number, maxChars: number): string[] {
+  if (maxChars <= 0 || text.length === 0) return [text];
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let current = "";
+
+  for (const word of words) {
+    if (current.length === 0) {
+      current = word;
+    } else if (current.length + 1 + word.length <= maxChars) {
+      current += " " + word;
+    } else {
+      lines.push(current);
+      current = word;
+    }
+  }
+  if (current.length > 0) lines.push(current);
+  return lines.length > 0 ? lines : [""];
+}
+
+/** Estimate how many rendered lines a text string will occupy. */
+function estimateLines(text: string, fontSize: number, maxChars: number): number {
+  if (text.length === 0) return 1;
+  return Math.max(1, Math.ceil(text.length / maxChars));
+}
+
+// ── Block Renderers ────────────────────────────
+
+interface RenderedBlock {
+  elements: React.ReactNode;
+  endY: number;
+}
+
+function renderH1Block(
+  block: MdH1Block,
+  y: number
+): RenderedBlock {
+  const text = wrapText(block.text, FONT.H1_SIZE, 42);
+  const elements = text.map((line, li) => (
+    <text
+      key={`h1-${li}`}
+      x={THUMB.PAD}
+      y={y + (li + 1) * FONT.H1_LINE}
+      fill="#e4e4e4"
+      fontSize={FONT.H1_SIZE}
+      fontFamily="Inter, sans-serif"
+      fontWeight="700"
+    >
+      {line}
+    </text>
+  ));
+  return { elements, endY: block.endY };
+}
+
+function renderH2Block(
+  block: MdH2Block,
+  y: number
+): RenderedBlock {
+  const text = wrapText(block.text, FONT.H2_SIZE, 48);
+  const elements = text.map((line, li) => (
+    <text
+      key={`h2-${li}`}
+      x={THUMB.PAD}
+      y={y + (li + 1) * FONT.H2_LINE}
+      fill="#d4d4d4"
+      fontSize={FONT.H2_SIZE}
+      fontFamily="Inter, sans-serif"
+      fontWeight="600"
+    >
+      {line}
+    </text>
+  ));
+  return { elements, endY: block.endY };
+}
+
+function renderH3Block(
+  block: MdH3Block,
+  y: number
+): RenderedBlock {
+  const text = wrapText(block.text, FONT.H3_SIZE, 52);
+  const elements = text.map((line, li) => (
+    <text
+      key={`h3-${li}`}
+      x={THUMB.PAD}
+      y={y + (li + 1) * FONT.H3_LINE}
+      fill="#c4c4c4"
+      fontSize={FONT.H3_SIZE}
+      fontFamily="Inter, sans-serif"
+      fontWeight="600"
+    >
+      {line}
+    </text>
+  ));
+  return { elements, endY: block.endY };
+}
+
+function renderParagraphBlock(
+  block: MdParagraphBlock,
+  y: number
+): RenderedBlock {
+  if (block.text.length === 0) {
+    // Horizontal rule — thin divider line
+    return {
+      elements: (
+        <line
+          key="hr"
+          x1={THUMB.PAD}
+          x2={THUMB.PAD + THUMB.INNER_W}
+          y1={y + 6}
+          y2={y + 6}
+          stroke="#3a3a3a"
+          strokeWidth="1"
+        />
+      ),
+      endY: block.endY,
+    };
+  }
+
+  const lines = wrapText(block.text, FONT.BODY_SIZE, 52);
+  const elements = lines.map((line, li) => (
+    <text
+      key={`p-${li}`}
+      x={THUMB.PAD}
+      y={y + (li + 1) * FONT.BODY_LINE}
+      fill="#9a9a9a"
+      fontSize={FONT.BODY_SIZE}
+      fontFamily="Inter, sans-serif"
+      fontWeight="400"
+    >
+      {line}
+    </text>
+  ));
+  return { elements, endY: block.endY };
+}
+
+function renderListBlock(
+  block: MdListBlock, y: number
+): RenderedBlock {
+  const items = block.items.slice(0, 10); // cap at 10 items for thumbnail
+  const renderedLines: React.ReactNode[] = [];
+
+  for (let idx = 0; idx < items.length; idx++) {
+    const itemY = y + (idx + 1) * FONT.BODY_LINE;
+    // Bullet dot
+    renderedLines.push(
+      <circle
+        key={`lb-${idx}`}
+        cx={THUMB.PAD + 3}
+        cy={itemY - 3}
+        r={1.5}
+        fill="#6a6a6a"
+      />
+    );
+    // Item text (wrapped)
+    const itemLines = wrapText(items[idx], FONT.BODY_SIZE, 48);
+    for (let li = 0; li < itemLines.length; li++) {
+      renderedLines.push(
+        <text
+          key={`lt-${idx}-${li}`}
+          x={THUMB.PAD + 10}
+          y={itemY + li * FONT.BODY_LINE}
+          fill="#9a9a9a"
+          fontSize={FONT.BODY_SIZE}
+          fontFamily="Inter, sans-serif"
+          fontWeight="400"
+        >
+          {itemLines[li]}
+        </text>
+      );
+    }
+  }
+
+  return { elements: renderedLines, endY: block.endY };
+}
+
+function renderTableBlock(y: number): RenderedBlock {
+  const boxH = 36;
+  return {
+    elements: (
+      <g key="table">
+        <rect
+          x={THUMB.PAD}
+          y={y + 4}
+          width={THUMB.INNER_W}
+          height={boxH}
+          rx={4}
+          fill="#1e1e1e"
+          stroke="#2e2e2e"
+          strokeWidth="1"
+        />
+        {/* Simulated row separators */}
+        <line
+          x1={THUMB.PAD + 8}
+          x2={THUMB.PAD + THUMB.INNER_W - 8}
+          y1={y + 16}
+          y2={y + 16}
+          stroke="#2a2a2a"
+          strokeWidth="0.5"
+        />
+        <line
+          x1={THUMB.PAD + 8}
+          x2={THUMB.PAD + THUMB.INNER_W - 8}
+          y1={y + 28}
+          y2={y + 28}
+          stroke="#2a2a2a"
+          strokeWidth="0.5"
+        />
+        <text
+          x={THUMB.PAD + THUMB.INNER_W / 2}
+          y={y + 24}
+          fill="#555"
+          fontSize={FONT.PLACEHOLDER_SIZE}
+          fontFamily="Inter, sans-serif"
+          fontWeight="500"
+          textAnchor="middle"
+        >
+          [TABLE]
+        </text>
+      </g>
+    ),
+    endY: Math.min(y + boxH + 12, THUMB.H),
+  };
+}
+
+function renderCodeBlock(y: number): RenderedBlock {
+  const boxH = 40;
+  return {
+    elements: (
+      <g key="code">
+        <rect
+          x={THUMB.PAD}
+          y={y + 4}
+          width={THUMB.INNER_W}
+          height={boxH}
+          rx={4}
+          fill="#161821"
+          stroke="#2a2d3a"
+          strokeWidth="1"
+        />
+        {/* Fake code lines */}
+        <line
+          x1={THUMB.PAD + 10}
+          x2={THUMB.PAD + 80}
+          y1={y + 16}
+          y2={y + 16}
+          stroke="#3a3f50"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+        <line
+          x1={THUMB.PAD + 10}
+          x2={THUMB.PAD + 120}
+          y1={y + 24}
+          y2={y + 24}
+          stroke="#3a3f50"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+        <line
+          x1={THUMB.PAD + 10}
+          x2={THUMB.PAD + 60}
+          y1={y + 32}
+          y2={y + 32}
+          stroke="#3a3f50"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+        <text
+          x={THUMB.PAD + THUMB.INNER_W / 2}
+          y={y + 26}
+          fill="#555"
+          fontSize={FONT.PLACEHOLDER_SIZE}
+          fontFamily="Inter, sans-serif"
+          fontWeight="500"
+          textAnchor="middle"
+        >
+          [CODE]
+        </text>
+      </g>
+    ),
+    endY: Math.min(y + boxH + 12, THUMB.H),
+  };
+}
+
+function renderImageBlock(y: number): RenderedBlock {
+  const boxH = 40;
+  return {
+    elements: (
+      <g key="image">
+        <rect
+          x={THUMB.PAD}
+          y={y + 4}
+          width={THUMB.INNER_W}
+          height={boxH}
+          rx={4}
+          fill="#1a1a1a"
+          stroke="#2a2a2a"
+          strokeWidth="1"
+        />
+        {/* Mountain icon (simplified) */}
+        <path
+          d={`M${THUMB.PAD + THUMB.INNER_W / 2 - 12},${y + boxH - 6} l-8,-14 l6,8 l4,-6 l10,12z`}
+          fill="#2a2a2a"
+        />
+        <text
+          x={THUMB.PAD + THUMB.INNER_W / 2}
+          y={y + 24}
+          fill="#555"
+          fontSize={FONT.PLACEHOLDER_SIZE}
+          fontFamily="Inter, sans-serif"
+          fontWeight="500"
+          textAnchor="middle"
+        >
+          [IMAGE]
+        </text>
+      </g>
+    ),
+    endY: Math.min(y + boxH + 12, THUMB.H),
+  };
+}
+
+// ── Content Hash for Cache ─────────────────────
+
+function hashContent(s: string): string {
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) {
+    hash = ((hash << 5) - hash + s.charCodeAt(i)) | 0;
+  }
+  return (hash >>> 0).toString(36);
+}
+
+// ── MarkdownThumbnail Component ────────────────
+
 export function MarkdownThumbnail({
   className,
   content,
 }: MarkdownThumbnailProps) {
-  const markdownContent = typeof content === "string" ? content.trim() : "";
-  const previewLines = markdownContent
-    .split("\n")
-    .map((line) => line.replace(/^#{1,6}\s+/, "").trim())
-    .filter(Boolean)
-    .slice(0, 5);
+  const raw = typeof content === "string" ? content.trim() : "";
+
+  const svgData = useMemo(() => {
+    if (raw.length === 0) {
+      return { hash: "empty", blocks: [] as MdBlock[] };
+    }
+    const blocks = parseMdBlocks(raw);
+    return { hash: hashContent(raw), blocks };
+  }, [raw]);
+
+  const renderY = useRef(0);
+  renderY.current = 0;
+
+  const renderedBlocks: RenderedBlock[] = [];
+  for (const block of svgData.blocks) {
+    const y = renderY.current;
+    if (y >= THUMB.H) break;
+
+    let rendered: RenderedBlock;
+    switch (block.kind) {
+      case "h1":
+        rendered = renderH1Block(block, y);
+        break;
+      case "h2":
+        rendered = renderH2Block(block, y);
+        break;
+      case "h3":
+        rendered = renderH3Block(block, y);
+        break;
+      case "paragraph":
+        rendered = renderParagraphBlock(block, y);
+        break;
+      case "list":
+        rendered = renderListBlock(block, y);
+        break;
+      case "table":
+        rendered = renderTableBlock(y);
+        break;
+      case "code":
+        rendered = renderCodeBlock(y);
+        break;
+      case "image":
+        rendered = renderImageBlock(y);
+        break;
+    }
+
+    renderedBlocks.push(rendered);
+    renderY.current = rendered.endY + 10; // 10px gap between blocks
+  }
+
+  const clipId = `md-thumb-${svgData.hash}`;
 
   return (
     <div
@@ -253,36 +872,29 @@ export function MarkdownThumbnail({
       )}
       aria-hidden="true"
     >
-      {markdownContent ? (
-        <div className="flex h-full w-full flex-col overflow-hidden rounded-[5px] border border-white/8 bg-[#191919]">
-          <div className="flex h-6 shrink-0 items-center gap-1.5 border-white/8 border-b px-2">
-            <FileText className="size-3 text-muted-foreground/70" />
-            <div className="h-1.5 w-16 rounded-sm bg-muted-foreground/25" />
-          </div>
-          <div className="flex min-h-0 flex-1 flex-col gap-1.5 px-2.5 py-2">
-            {(previewLines.length > 0 ? previewLines : ["Untitled note"]).map(
-              (line, index) => (
-                <div
-                  className="flex h-2.5 min-w-0 items-center"
-                  key={`${line}-${index}`}
-                >
-                  <div
-                    className={cn(
-                      "h-1 rounded-sm bg-muted-foreground/25",
-                      index === 0 && "h-1.5 bg-muted-foreground/40",
-                      index === 0 && line.length > 24 && "w-11/12",
-                      index === 0 && line.length <= 24 && "w-8/12",
-                      index === 1 && "w-10/12",
-                      index === 2 && "w-7/12",
-                      index === 3 && "w-9/12",
-                      index >= 4 && "w-6/12"
-                    )}
-                  />
-                </div>
-              )
-            )}
-          </div>
-        </div>
+      {raw.length > 0 ? (
+        <svg
+          viewBox={`0 0 ${THUMB.W} ${THUMB.H}`}
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-full w-full rounded-[5px] border border-white/8 bg-[#191919]"
+          style={{ imageRendering: "auto" }}
+        >
+          <defs>
+            <clipPath id={clipId}>
+              <rect
+                x={0}
+                y={0}
+                width={THUMB.W}
+                height={THUMB.H}
+              />
+            </clipPath>
+          </defs>
+          <g clipPath={`url(#${clipId})`}>
+            {renderedBlocks.map((rb, ri) => (
+              <g key={`block-${ri}`}>{rb.elements}</g>
+            ))}
+          </g>
+        </svg>
       ) : (
         <div className="flex h-full w-full items-center justify-center rounded-[5px] bg-muted/30 text-muted-foreground">
           <FileCode2 aria-hidden="true" className="size-4" />

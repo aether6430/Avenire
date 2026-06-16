@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from "@avenire/ui/components/dialog";
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ParticleField } from "@/components/ui/particle-field";
 
 const emptyRoomSrc = "/figures/empty-room.png";
@@ -17,6 +17,15 @@ const emptyRoomSrc = "/figures/empty-room.png";
 export function WaitlistPageClient() {
   const typingImpulse = useRef(0);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  // Ensure dark class is on html element for portal content (dialog)
+  useEffect(() => {
+    const html = document.documentElement;
+    html.classList.add("dark");
+    return () => {
+      html.classList.remove("dark");
+    };
+  }, []);
 
   return (
     <>

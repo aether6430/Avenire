@@ -140,6 +140,7 @@ function PdfPagesView({
 
 function PdfFloatingDock() {
   const currentPage = usePdf((state) => state.currentPage);
+  const pdfDocumentProxy = usePdf((state) => state.pdfDocumentProxy);
   const totalPages = usePdf((state) => state.pdfDocumentProxy.numPages);
   const zoom = usePdf((state) => state.zoom);
   const updateZoom = usePdf((state) => state.updateZoom);
@@ -167,9 +168,28 @@ function PdfFloatingDock() {
     setZoomInput("");
   }, [resolvedZoom]);
 
+  // Show dock briefly on mount regardless of viewportRef availability.
+  // This ensures the dock appears even if the viewport element hasn't
+  // been attached to the store ref yet when this effect runs.
+  useEffect(() => {
+    setIsVisible(true);
+
+    const timer = window.setTimeout(() => {
+      setIsVisible(false);
+    }, 1500);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, []);
+
+  // Set up scroll/pointer-based show/hide when the viewport becomes available.
+  // viewportRef is a stable store ref, so we also depend on pdfDocumentProxy
+  // so the effect re-runs once the document has loaded (by which time the
+  // viewport element is guaranteed to be attached).
   useEffect(() => {
     const node = viewportRef.current;
-    if (!node) {
+    if (!node || !pdfDocumentProxy) {
       return;
     }
 
@@ -183,7 +203,6 @@ function PdfFloatingDock() {
       }, 1200);
     };
 
-    showDock();
     node.addEventListener("scroll", showDock, { passive: true });
     node.addEventListener("pointerenter", showDock);
     node.addEventListener("pointerleave", showDock);
@@ -196,7 +215,7 @@ function PdfFloatingDock() {
         window.clearTimeout(hideTimerRef.current);
       }
     };
-  }, [viewportRef]);
+  }, [viewportRef, pdfDocumentProxy]);
 
   const commitPage = useCallback(() => {
     const raw = (pageInput || resolvedPage).trim();
