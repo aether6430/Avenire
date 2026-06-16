@@ -1,0 +1,17 @@
+.git
+.gitignore
+node_modules
+.pnpm-store
+.turbo
+dist
+*.tsbuildinfo
+.next
+.agents
+.codex
+plans
+scripts
+drizzle
+*.md
+.env
+.env.*
+!.env.example
