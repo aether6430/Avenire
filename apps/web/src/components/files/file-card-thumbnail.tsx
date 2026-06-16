@@ -312,8 +312,7 @@ const FONT = {
   BODY_LINE: 14,
   PLACEHOLDER_SIZE: 9,
   PLACEHOLDER_LINE: 13,
-  CHAR_RATIO: 0.52, // avg char-width / font-size for Inter
-  LINE_RATIO: 1.45, // line-height / font-size
+
 } as const;
 
 // ── Markdown Block Parser ──────────────────────
@@ -365,12 +364,14 @@ function parseMdBlocks(src: string): MdBlock[] {
       } else {
         addBlock({ kind: "h3", text, endY: Math.min(cursor + 22, THUMB.H) });
       }
+      i++;
       continue;
     }
 
     // ── Horizontal rule ──
     if (/^[-*_]{3,}\s*$/.test(trimmed)) {
       addBlock({ kind: "paragraph", text: "", endY: Math.min(cursor + 16, THUMB.H) });
+      i++;
       continue;
     }
 
@@ -459,7 +460,7 @@ function parseMdBlocks(src: string): MdBlock[] {
         cursor += 6;
         continue;
       }
-      const est = estimateLines(text, FONT.BODY_SIZE, 52);
+      const est = estimateLines(text, 52);
       addBlock({
         kind: "paragraph",
         text,
@@ -474,7 +475,7 @@ function parseMdBlocks(src: string): MdBlock[] {
 // ── SVG Text Helpers ───────────────────────────
 
 /** Wrap text into lines by character budget. */
-function wrapText(text: string, fontSize: number, maxChars: number): string[] {
+function wrapText(text: string, maxChars: number): string[] {
   if (maxChars <= 0 || text.length === 0) return [text];
   const words = text.split(/\s+/).filter(Boolean);
   const lines: string[] = [];
@@ -495,7 +496,7 @@ function wrapText(text: string, fontSize: number, maxChars: number): string[] {
 }
 
 /** Estimate how many rendered lines a text string will occupy. */
-function estimateLines(text: string, fontSize: number, maxChars: number): number {
+function estimateLines(text: string, maxChars: number): number {
   if (text.length === 0) return 1;
   return Math.max(1, Math.ceil(text.length / maxChars));
 }
@@ -511,7 +512,7 @@ function renderH1Block(
   block: MdH1Block,
   y: number
 ): RenderedBlock {
-  const text = wrapText(block.text, FONT.H1_SIZE, 42);
+  const text = wrapText(block.text, 42);
   const elements = text.map((line, li) => (
     <text
       key={`h1-${li}`}
@@ -532,7 +533,7 @@ function renderH2Block(
   block: MdH2Block,
   y: number
 ): RenderedBlock {
-  const text = wrapText(block.text, FONT.H2_SIZE, 48);
+  const text = wrapText(block.text, 48);
   const elements = text.map((line, li) => (
     <text
       key={`h2-${li}`}
@@ -553,7 +554,7 @@ function renderH3Block(
   block: MdH3Block,
   y: number
 ): RenderedBlock {
-  const text = wrapText(block.text, FONT.H3_SIZE, 52);
+  const text = wrapText(block.text, 52);
   const elements = text.map((line, li) => (
     <text
       key={`h3-${li}`}
@@ -592,7 +593,7 @@ function renderParagraphBlock(
     };
   }
 
-  const lines = wrapText(block.text, FONT.BODY_SIZE, 52);
+  const lines = wrapText(block.text, 52);
   const elements = lines.map((line, li) => (
     <text
       key={`p-${li}`}
@@ -628,7 +629,7 @@ function renderListBlock(
       />
     );
     // Item text (wrapped)
-    const itemLines = wrapText(items[idx], FONT.BODY_SIZE, 48);
+    const itemLines = wrapText(items[idx], 48);
     for (let li = 0; li < itemLines.length; li++) {
       renderedLines.push(
         <text
@@ -821,12 +822,11 @@ export function MarkdownThumbnail({
     return { hash: hashContent(raw), blocks };
   }, [raw]);
 
-  const renderY = useRef(0);
-  renderY.current = 0;
+  let renderY = 0;
 
   const renderedBlocks: RenderedBlock[] = [];
   for (const block of svgData.blocks) {
-    const y = renderY.current;
+    const y = renderY;
     if (y >= THUMB.H) break;
 
     let rendered: RenderedBlock;
@@ -858,7 +858,7 @@ export function MarkdownThumbnail({
     }
 
     renderedBlocks.push(rendered);
-    renderY.current = rendered.endY + 10; // 10px gap between blocks
+    renderY = rendered.endY + 10; // 10px gap between blocks
   }
 
   const clipId = `md-thumb-${svgData.hash}`;

@@ -21,9 +21,10 @@ export function WaitlistPageClient() {
   // Ensure dark class is on html element for portal content (dialog)
   useEffect(() => {
     const html = document.documentElement;
-    html.classList.add("dark");
+    const hadDark = html.classList.contains("dark");
+    if (!hadDark) html.classList.add("dark");
     return () => {
-      html.classList.remove("dark");
+      if (!hadDark) html.classList.remove("dark");
     };
   }, []);
 
