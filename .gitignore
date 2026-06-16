@@ -23,6 +23,7 @@ drizzle/
 context
 docs/
 writings/
+plans/
 
 .vercel
 .env*.local
