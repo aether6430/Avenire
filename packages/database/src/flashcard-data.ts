@@ -308,7 +308,7 @@ function startOfDay(date = new Date()) {
  * by 8–9 hours (randomised) so the card doesn't appear as immediately due
  * in the same study session.
  */
-function nudgeSameDayDueDate(dueDate: Date, now: Date): Date {
+export function nudgeSameDayDueDate(dueDate: Date, now: Date): Date {
   const dueDay = startOfDay(dueDate);
   const nowDay = startOfDay(now);
 
@@ -1269,26 +1269,9 @@ export async function createFlashcardCardForUser(input: {
         },
       });
 
-    await tx.insert(flashcardReviewLog).values({
-      elapsedDays: initialReview.reviewLog.elapsedDays,
-      flashcardId: inserted.id,
-      metadata: {
-        dueAt: initialReview.reviewLog.dueAt,
-        lastElapsedDays: initialReview.reviewLog.lastElapsedDays,
-        learningSteps: initialReview.reviewLog.learningSteps,
-        synthetic: true,
-      },
-      nextDifficulty: initialReview.nextState.difficulty,
-      nextStability: initialReview.nextState.stability,
-      nextState: initialReview.nextState.state,
-      previousDifficulty: null,
-      previousStability: null,
-      previousState: null,
-      rating: "good",
-      reviewedAt: now,
-      scheduledDays: initialReview.nextState.scheduledDays,
-      userId: input.userId,
-    });
+    // NOTE: No synthetic flashcardReviewLog entry is inserted here.
+    // The review state above is sufficient for scheduling. Inserting a
+    // log would inflate user-facing review-count KPIs and metrics.
 
     return inserted;
   });

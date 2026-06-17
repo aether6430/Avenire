@@ -1283,6 +1283,7 @@ export function FilePreviewPanel({
                         <img
                           alt={`${activeFile.name} cover`}
                           className="h-32 w-full object-cover sm:h-40"
+                          key={noteBannerUrl}
                           loading="lazy"
                           onError={(event) => {
                             const img = event.currentTarget;
