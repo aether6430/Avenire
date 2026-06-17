@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nudgeSameDayDueDate } from "./flashcard-data";
-import { applyFlashcardReview } from "./flashcard-fsrs";
+import { applyFlashcardReview, nudgeSameDayDueDate } from "./flashcard-fsrs";
 
 function startOfDay(date: Date) {
   return new Date(

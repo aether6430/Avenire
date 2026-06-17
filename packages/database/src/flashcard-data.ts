@@ -16,6 +16,7 @@ import {
   compareDueQueueItems,
   type FlashcardRating,
   type FlashcardReviewStateName,
+  nudgeSameDayDueDate,
   type PersistedFlashcardSchedulerState,
 } from "./flashcard-fsrs";
 import { applyNewCardDailyLimitToQueue } from "./flashcard-queue";
@@ -308,20 +309,6 @@ function startOfDay(date = new Date()) {
  * by 8–9 hours (randomised) so the card doesn't appear as immediately due
  * in the same study session.
  */
-export function nudgeSameDayDueDate(dueDate: Date, now: Date): Date {
-  const dueDay = startOfDay(dueDate);
-  const nowDay = startOfDay(now);
-
-  if (dueDay.getTime() !== nowDay.getTime()) {
-    return dueDate;
-  }
-
-  // Random offset between 8 and 9 hours in milliseconds
-  const offsetHours = 8 + Math.random();
-  const offsetMs = Math.round(offsetHours * 60 * 60 * 1000);
-
-  return new Date(dueDate.getTime() + offsetMs);
-}
 
 function sevenDaysAgo(date = new Date()) {
   return new Date(date.getTime() - 7 * 24 * 60 * 60 * 1000);
