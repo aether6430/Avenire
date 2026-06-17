@@ -1,7 +1,6 @@
 "use client";
 import React, { useRef } from "react";
 import { Container } from "./container";
-import Image from "next/image";
 import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
 import { STATIC_ASSETS } from "@/lib/static-assets";
 import { Dot } from "./common/dots";
@@ -71,14 +70,13 @@ export const HeroImage = () => {
             translateY,
           }}
         >
-          <Image
-            src={STATIC_ASSETS.avenireWorkspace}
+          <img
             alt="Avenire workspace with a paper, generated ResNet notes, and an interactive learning widget"
             className="w-full rounded-md border border-white/10 shadow-2xl shadow-black/60"
-            priority
-            width={1918}
-            height={1019}
             draggable={false}
+            fetchPriority="high"
+            loading="eager"
+            src={STATIC_ASSETS.avenireWorkspace}
           />
         </motion.div>
         <div className="absolute inset-0 z-0 m-auto h-[90%] w-[95%] rounded-lg border border-(--pattern-fg)"></div>
