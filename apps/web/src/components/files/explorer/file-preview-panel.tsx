@@ -49,7 +49,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import dynamic from "next/dynamic";
-import Image, { type ImageLoader } from "next/image";
+
 import {
   type ChangeEvent,
   useCallback,
@@ -114,9 +114,9 @@ const PDFViewer = dynamic(() => import("@/components/files/pdf-viewer"), {
   ssr: false,
 });
 
-const DEFAULT_NOTE_COVER_URL =
-  "https://gtgr46laft.ufs.sh/f/7avzGFBuzbjB9vfw3D1PxUaEr7wSqNQiFgMAvYKy35DlcXb0";
-const passthroughImageLoader: ImageLoader = ({ src }) => src;
+import { STATIC_ASSETS } from "@/lib/static-assets";
+const DEFAULT_NOTE_COVER_URL = STATIC_ASSETS.banner1;
+
 
 function normalizeFilePageIcon(icon: string | null | undefined) {
   if (typeof icon !== "string") {
@@ -1280,16 +1280,18 @@ export function FilePreviewPanel({
                     {noteBannerUrl ? (
                       <div className="group/banner relative w-full overflow-hidden border-border/60 bg-muted/30">
                         <div className="absolute inset-0 border-border/60 sm:border-y" />
-                        <Image
+                        <img
                           alt={`${activeFile.name} cover`}
                           className="h-32 w-full object-cover sm:h-40"
-                          height={160}
-                          loader={passthroughImageLoader}
+                          key={noteBannerUrl}
                           loading="lazy"
-                          sizes="100vw"
+                          onError={(event) => {
+                            const img = event.currentTarget;
+                            if (img.dataset.fellBack) return;
+                            img.dataset.fellBack = "1";
+                            img.src = STATIC_ASSETS.banner1;
+                          }}
                           src={noteBannerUrl}
-                          unoptimized
-                          width={1600}
                         />
                         <div className="pointer-events-none absolute top-3 right-3 opacity-0 transition-opacity duration-150 group-focus-within/banner:opacity-100 group-hover/banner:opacity-100">
                           <div className="pointer-events-auto">
@@ -1370,15 +1372,11 @@ export function FilePreviewPanel({
                                               }
                                               type="button"
                                             >
-                                              <Image
+                                              <img
                                                 alt={option.label}
                                                 className="h-full w-full object-cover"
-                                                fill
-                                                loader={passthroughImageLoader}
                                                 loading="lazy"
-                                                sizes="(max-width: 640px) 25vw, 120px"
                                                 src={option.url}
-                                                unoptimized
                                               />
                                             </button>
                                           ))}

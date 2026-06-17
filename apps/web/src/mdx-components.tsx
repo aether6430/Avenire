@@ -1,5 +1,4 @@
 import type { MDXComponents } from "mdx/types";
-import Image, { type ImageProps } from "next/image";
 
 /**
  * Global MDX Components
@@ -119,15 +118,13 @@ const components: MDXComponents = {
   // Horizontal rule
   hr: () => <hr className="my-10 border-divide" />,
 
-  // Images — uses Next.js Image for optimization
+  // Images
   img: ({ alt, ...props }) => (
-    <Image
+    <img
       alt={alt ?? ""}
       className="my-8 h-auto w-full rounded-xl border border-divide"
-      height={900}
-      sizes="(max-width: 768px) 100vw, 672px"
-      width={1600}
-      {...(props as Omit<ImageProps, "alt">)}
+      loading="lazy"
+      {...props}
     />
   ),
 
