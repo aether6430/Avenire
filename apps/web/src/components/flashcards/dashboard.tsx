@@ -36,7 +36,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import type { Route } from "next";
-import Image from "next/image";
+
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import {
   HeaderActions,
@@ -542,13 +542,11 @@ export function FlashcardsDashboard({
               </Button>
             </div>
           ) : null}
-          <Image
+          <img
             alt=""
             className="h-full w-full object-cover"
-            height={192}
+            loading="lazy"
             src={STATIC_ASSETS.banner1}
-            width={720}
-            unoptimized
           />
         </div>
 

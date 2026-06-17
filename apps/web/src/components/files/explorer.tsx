@@ -940,8 +940,8 @@ interface WebkitFileSystemDirectoryEntry extends WebkitFileSystemEntry {
   createReader: () => WebkitFileSystemDirectoryReader;
 }
 
-const DEFAULT_FOLDER_BANNER_URL =
-  "https://gtgr46laft.ufs.sh/f/7avzGFBuzbjB9vfw3D1PxUaEr7wSqNQiFgMAvYKy35DlcXb0";
+import { STATIC_ASSETS } from "@/lib/static-assets";
+const DEFAULT_FOLDER_BANNER_URL = STATIC_ASSETS.banner1;
 
 function getMutationHistoryItemKey(item: FileMutationHistoryItem) {
   return `${item.kind}:${item.id}`;
@@ -5803,6 +5803,12 @@ export function FileExplorer({
                   className="h-full w-full object-cover"
                   fetchPriority="high"
                   loading="eager"
+                  onError={(event) => {
+                    const img = event.currentTarget;
+                    if (img.dataset.fellBack) return;
+                    img.dataset.fellBack = "1";
+                    img.src = STATIC_ASSETS.banner1;
+                  }}
                   src={currentFolderBannerUrl}
                 />
                 {bannerUploadBusy ? (
