@@ -309,6 +309,7 @@ function startOfDay(date = new Date()) {
  * by 8–9 hours (randomised) so the card doesn't appear as immediately due
  * in the same study session.
  */
+
 function sevenDaysAgo(date = new Date()) {
   return new Date(date.getTime() - 7 * 24 * 60 * 60 * 1000);
 }
