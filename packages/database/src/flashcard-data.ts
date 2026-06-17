@@ -303,6 +303,26 @@ function startOfDay(date = new Date()) {
   );
 }
 
+/**
+ * If the due date falls on the same calendar day as `now`, push it forward
+ * by 8–9 hours (randomised) so the card doesn't appear as immediately due
+ * in the same study session.
+ */
+function nudgeSameDayDueDate(dueDate: Date, now: Date): Date {
+  const dueDay = startOfDay(dueDate);
+  const nowDay = startOfDay(now);
+
+  if (dueDay.getTime() !== nowDay.getTime()) {
+    return dueDate;
+  }
+
+  // Random offset between 8 and 9 hours in milliseconds
+  const offsetHours = 8 + Math.random();
+  const offsetMs = Math.round(offsetHours * 60 * 60 * 1000);
+
+  return new Date(dueDate.getTime() + offsetMs);
+}
+
 function sevenDaysAgo(date = new Date()) {
   return new Date(date.getTime() - 7 * 24 * 60 * 60 * 1000);
 }
@@ -1193,6 +1213,82 @@ export async function createFlashcardCardForUser(input: {
       .update(flashcardSet)
       .set({ updatedAt: now, updatedBy: input.userId })
       .where(eq(flashcardSet.id, input.setId));
+
+    // Seed the card with a synthetic Rating.Good review so it doesn't start
+    // from the default createEmptyCard() state. This schedules the first
+    // real review into the future instead of immediately.
+    const initialReview = applyFlashcardReview({
+      now,
+      rating: "good",
+      state: null, // null => createEmptyCard() internally
+    });
+
+    // Nudge the due date forward if it falls on the same calendar day
+    // to avoid redundant same-day reviews.
+    const nudgedDueAt = nudgeSameDayDueDate(
+      new Date(initialReview.nextState.dueAt),
+      now
+    );
+
+    await tx
+      .insert(flashcardReviewState)
+      .values({
+        createdAt: now,
+        difficulty: initialReview.nextState.difficulty,
+        dueAt: nudgedDueAt,
+        elapsedDays: initialReview.nextState.elapsedDays,
+        flashcardId: inserted.id,
+        lapses: initialReview.nextState.lapses,
+        lastRating: "good",
+        lastReviewedAt: now,
+        reps: initialReview.nextState.reps,
+        scheduledDays: initialReview.nextState.scheduledDays,
+        schedulerVersion: 1,
+        stability: initialReview.nextState.stability,
+        state: initialReview.nextState.state,
+        suspended: false,
+        updatedAt: now,
+        userId: input.userId,
+      })
+      .onConflictDoUpdate({
+        target: [flashcardReviewState.flashcardId, flashcardReviewState.userId],
+        set: {
+          difficulty: initialReview.nextState.difficulty,
+          dueAt: nudgedDueAt,
+          elapsedDays: initialReview.nextState.elapsedDays,
+          lapses: initialReview.nextState.lapses,
+          lastRating: "good",
+          lastReviewedAt: now,
+          reps: initialReview.nextState.reps,
+          scheduledDays: initialReview.nextState.scheduledDays,
+          schedulerVersion: 1,
+          stability: initialReview.nextState.stability,
+          state: initialReview.nextState.state,
+          suspended: false,
+          updatedAt: now,
+        },
+      });
+
+    await tx.insert(flashcardReviewLog).values({
+      elapsedDays: initialReview.reviewLog.elapsedDays,
+      flashcardId: inserted.id,
+      metadata: {
+        dueAt: initialReview.reviewLog.dueAt,
+        lastElapsedDays: initialReview.reviewLog.lastElapsedDays,
+        learningSteps: initialReview.reviewLog.learningSteps,
+        synthetic: true,
+      },
+      nextDifficulty: initialReview.nextState.difficulty,
+      nextStability: initialReview.nextState.stability,
+      nextState: initialReview.nextState.state,
+      previousDifficulty: null,
+      previousStability: null,
+      previousState: null,
+      rating: "good",
+      reviewedAt: now,
+      scheduledDays: initialReview.nextState.scheduledDays,
+      userId: input.userId,
+    });
 
     return inserted;
   });
