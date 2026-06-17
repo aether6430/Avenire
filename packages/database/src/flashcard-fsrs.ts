@@ -253,3 +253,29 @@ export function compareDueQueueItems(
 
   return a.id.localeCompare(b.id);
 }
+
+function startOfDay(date = new Date()) {
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+  );
+}
+
+/**
+ * If the due date falls on the same calendar day as `now`, push it forward
+ * by 8–9 hours (randomised) so the card doesn't appear as immediately due
+ * in the same study session.
+ */
+export function nudgeSameDayDueDate(dueDate: Date, now: Date): Date {
+  const dueDay = startOfDay(dueDate);
+  const nowDay = startOfDay(now);
+
+  if (dueDay.getTime() !== nowDay.getTime()) {
+    return dueDate;
+  }
+
+  // Random offset between 8 and 9 hours in milliseconds
+  const offsetHours = 8 + Math.random();
+  const offsetMs = Math.round(offsetHours * 60 * 60 * 1000);
+
+  return new Date(dueDate.getTime() + offsetMs);
+}
