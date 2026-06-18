@@ -300,6 +300,19 @@ const splitMessageParts = (parts: MessagePart[]) => {
 const TOOL_ACTIVITY_AGENT_TYPES = new Set([
   "tool-avenire_agent",
   "tool-file_manager_agent",
+  // Granular file operations (handled by rolling activity)
+  "tool-list_files",
+  "tool-read_file",
+  "tool-move_file",
+  "tool-delete_file",
+  "tool-create_folder",
+  "tool-get_file_info",
+  // Granular note operations (handled by rolling activity)
+  "tool-create_note",
+  "tool-read_note",
+  "tool-update_note",
+  "tool-list_notes",
+  "tool-update_note_tags",
 ]);
 
 const toAgentActivityActions = (
@@ -420,18 +433,34 @@ function GeneratedArtifacts({
       parts
         .filter(
           (part): part is CompletedToolPart =>
-            part.type === "tool-note_agent" && part.state === "output-available"
+            (part.type === "tool-note_agent" ||
+              part.type === "tool-create_note" ||
+              part.type === "tool-read_note" ||
+              part.type === "tool-update_note") &&
+            part.state === "output-available"
         )
         .flatMap((part) => {
-          const output = part.output as NoteToolOutput;
-          return Array.isArray(output.notes)
-            ? output.notes
-                .map((note) => ({
-                  fileId: note.fileId,
-                  title: note.title,
-                  workspacePath: note.workspacePath,
-                }))
-                .filter((note) => typeof note.fileId === "string")
+          if (part.type === "tool-note_agent") {
+            const output = part.output as NoteToolOutput;
+            return Array.isArray(output.notes)
+              ? output.notes
+                  .map((note) => ({
+                    fileId: note.fileId,
+                    title: note.title,
+                    workspacePath: note.workspacePath,
+                  }))
+                  .filter((note) => typeof note.fileId === "string")
+              : [];
+          }
+          const output = part.output as { fileId?: string; title?: string; workspacePath?: string };
+          return output.fileId
+            ? [
+                {
+                  fileId: output.fileId,
+                  title: output.title ?? "",
+                  workspacePath: output.workspacePath ?? "",
+                },
+              ]
             : [];
         }),
     [parts]
