@@ -6,6 +6,11 @@ const sourceTypeSchema = z
   .enum(["pdf", "image", "video", "audio", "markdown", "link"])
   .optional();
 
+const fileOperationResultSchema = z.object({
+  fileId: z.string(),
+  workspacePath: z.string(),
+});
+
 const citationSchema = z.object({
   chunkId: z.string(),
   endMs: z.number().int().nullable().optional(),
@@ -358,6 +363,130 @@ export const chatToolSchemas = {
       task: z.string(),
     }),
   },
+  // --- Granular file operations (replacing file_manager_agent) ---
+  list_files: {
+    input: z.object({
+      folderPath: z.string().optional(),
+      maxResults: z.number().int().min(1).max(200).optional(),
+    }),
+    output: z.object({
+      files: z.array(agentFilePreviewSchema),
+      folders: z.array(
+        z.object({
+          folderId: z.string(),
+          folderPath: z.string(),
+          name: z.string(),
+        })
+      ),
+      totalCount: z.number().int(),
+    }),
+  },
+  read_file: {
+    input: z.object({
+      fileId: z.string().min(1),
+      maxChars: z.number().int().min(100).max(50000).optional(),
+    }),
+    output: z.object({
+      content: z.string(),
+      fileId: z.string(),
+      mimeType: z.string().nullable(),
+      workspacePath: z.string(),
+    }),
+  },
+  move_file: {
+    input: z.object({
+      fileId: z.string().min(1),
+      destinationFolderId: z.string().min(1),
+    }),
+    output: fileOperationResultSchema,
+  },
+  delete_file: {
+    input: z.object({
+      fileId: z.string().min(1),
+    }),
+    output: fileOperationResultSchema,
+  },
+  create_folder: {
+    input: z.object({
+      name: z.string().min(1),
+      parentFolderId: z.string().optional(),
+    }),
+    output: z.object({
+      folderId: z.string(),
+      folderPath: z.string(),
+    }),
+  },
+  get_file_info: {
+    input: z.object({
+      fileId: z.string().min(1),
+    }),
+    output: z.object({
+      fileId: z.string(),
+      mimeType: z.string().nullable(),
+      updatedAt: z.string(),
+      workspacePath: z.string(),
+    }),
+  },
+  // --- Granular note operations (replacing note_agent) ---
+  create_note: {
+    input: z.object({
+      content: z.string().min(1),
+      folderPath: z.string().optional(),
+      tags: z.array(z.string()).max(24).optional(),
+      title: z.string().min(1).max(120),
+    }),
+    output: z.object({
+      fileId: z.string(),
+      title: z.string(),
+      workspacePath: z.string(),
+    }),
+  },
+  read_note: {
+    input: z.object({
+      fileId: z.string().min(1),
+    }),
+    output: z.object({
+      content: z.string(),
+      fileId: z.string(),
+      tags: z.array(z.string()),
+      title: z.string(),
+      updatedAt: z.string(),
+      wordCount: z.number().int(),
+      workspacePath: z.string(),
+    }),
+  },
+  update_note: {
+    input: z.object({
+      content: z.string(),
+      fileId: z.string().min(1),
+      mode: z.enum(["replace_entire", "append"]).optional(),
+    }),
+    output: z.object({
+      fileId: z.string(),
+      updatedAt: z.string(),
+      workspacePath: z.string(),
+    }),
+  },
+  list_notes: {
+    input: z.object({
+      maxNotes: z.number().int().min(1).max(50).optional(),
+    }),
+    output: z.object({
+      notes: z.array(notePreviewSchema),
+      totalCount: z.number().int(),
+    }),
+  },
+  update_note_tags: {
+    input: z.object({
+      fileId: z.string().min(1),
+      mode: z.enum(["replace", "add", "remove"]).optional(),
+      tags: z.array(z.string()).max(24),
+    }),
+    output: z.object({
+      fileId: z.string(),
+      tags: z.array(z.string()),
+    }),
+  },
   generate_flashcards: {
     input: z
       .object({
@@ -575,6 +704,50 @@ export const chatTools = {
   note_agent: tool({
     inputSchema: chatToolSchemas.note_agent.input,
     outputSchema: chatToolSchemas.note_agent.output,
+  }),
+  list_files: tool({
+    inputSchema: chatToolSchemas.list_files.input,
+    outputSchema: chatToolSchemas.list_files.output,
+  }),
+  read_file: tool({
+    inputSchema: chatToolSchemas.read_file.input,
+    outputSchema: chatToolSchemas.read_file.output,
+  }),
+  move_file: tool({
+    inputSchema: chatToolSchemas.move_file.input,
+    outputSchema: chatToolSchemas.move_file.output,
+  }),
+  delete_file: tool({
+    inputSchema: chatToolSchemas.delete_file.input,
+    outputSchema: chatToolSchemas.delete_file.output,
+  }),
+  create_folder: tool({
+    inputSchema: chatToolSchemas.create_folder.input,
+    outputSchema: chatToolSchemas.create_folder.output,
+  }),
+  get_file_info: tool({
+    inputSchema: chatToolSchemas.get_file_info.input,
+    outputSchema: chatToolSchemas.get_file_info.output,
+  }),
+  create_note: tool({
+    inputSchema: chatToolSchemas.create_note.input,
+    outputSchema: chatToolSchemas.create_note.output,
+  }),
+  read_note: tool({
+    inputSchema: chatToolSchemas.read_note.input,
+    outputSchema: chatToolSchemas.read_note.output,
+  }),
+  update_note: tool({
+    inputSchema: chatToolSchemas.update_note.input,
+    outputSchema: chatToolSchemas.update_note.output,
+  }),
+  list_notes: tool({
+    inputSchema: chatToolSchemas.list_notes.input,
+    outputSchema: chatToolSchemas.list_notes.output,
+  }),
+  update_note_tags: tool({
+    inputSchema: chatToolSchemas.update_note_tags.input,
+    outputSchema: chatToolSchemas.update_note_tags.output,
   }),
   generate_flashcards: tool({
     inputSchema: chatToolSchemas.generate_flashcards.input,

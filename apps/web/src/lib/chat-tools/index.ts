@@ -9,7 +9,6 @@ import {
   prewarmActiveMisconceptionsCache,
   resolveMisconceptionForTool,
 } from "@/lib/chat-tools/chat-tool-misconception-runtime";
-import { executeNoteAgent } from "@/lib/chat-tools/chat-tool-note-agent-runtime";
 import {
   generateFlashcardsFromMisconception,
   generateFlashcardsFromSource,
@@ -23,9 +22,23 @@ import {
 } from "@/lib/chat-tools/chat-tool-utility-runtime";
 import {
   executeAvenireAgent,
-  executeFileManagerAgent,
   executeSearchMaterials,
 } from "@/lib/chat-tools/chat-tool-workspace-agent-runtime";
+import {
+  executeCreateFolder,
+  executeDeleteFile,
+  executeGetFileInfo,
+  executeListFiles,
+  executeMoveFile,
+  executeReadFile,
+} from "@/lib/chat-tools/chat-tool-file-operations-runtime";
+import {
+  executeCreateNote,
+  executeListNotes,
+  executeReadNote,
+  executeUpdateNote,
+  executeUpdateNoteTags,
+} from "@/lib/chat-tools/chat-tool-note-operations-runtime";
 
 interface ChatToolContext {
   agentActivityId: string;
@@ -39,6 +52,22 @@ interface ChatToolContext {
 
 export { prewarmActiveMisconceptionsCache };
 
+function fileOpsCtx(ctx: ChatToolContext) {
+  return {
+    rootFolderId: ctx.rootFolderId,
+    userId: ctx.userId,
+    workspaceId: ctx.workspaceId,
+  };
+}
+
+function noteOpsCtx(ctx: ChatToolContext) {
+  return {
+    rootFolderId: ctx.rootFolderId,
+    userId: ctx.userId,
+    workspaceId: ctx.workspaceId,
+  };
+}
+
 export function createChatTools(ctx: ChatToolContext): ToolSet {
   return {
     web_search: tool({
@@ -50,50 +79,104 @@ export function createChatTools(ctx: ChatToolContext): ToolSet {
     }),
     search_materials: tool({
       description:
-        "Semantic search over workspace materials with file citations. Use only when the user asks about their files/workspace or requests a workspace search.",
+        "Semantic search over workspace materials with file citations. Use only when the user asks about their files/workspace or requests a workspace search. Returns real file IDs you must use in subsequent file/note operations.",
       inputSchema: chatToolSchemas.search_materials.input,
       outputSchema: chatToolSchemas.search_materials.output,
       execute: async (input) => executeSearchMaterials(ctx, input),
     }),
     avenire_agent: tool({
       description:
-        "Run the Avenire retrieval agent to gather workspace context and return a consolidated summary. Use only when the user asks about their files/workspace or explicitly wants workspace context.",
+        "Run the Avenire retrieval agent to gather workspace context and return a consolidated summary. Use only when the user asks about their files/workspace or explicitly wants workspace context. Returns real file IDs you must use in subsequent file/note operations.",
       inputSchema: chatToolSchemas.avenire_agent.input,
       outputSchema: chatToolSchemas.avenire_agent.output,
       execute: async (input) => executeAvenireAgent(ctx, input),
     }),
-    file_manager_agent: tool({
-      description: `Inspect and manage workspace files and folders. Handles listing, reading, moving, deleting files, and creating/managing folders. Use when the user asks about their files, wants to organize their workspace, or needs file operations.
 
-Internal capabilities:
-- list_files: List files and folders
-- read_workspace_file: Read file content
-- get_file_summary: Get ingestion metadata
-- move_file: Move file to folder
-- delete_file: Move file to trash
-- create_folder: Create new folder
-- move_folder: Move folder
-- delete_folder: Move folder to trash
+    // --- File operations (granular, replacing file_manager_agent) ---
 
-The agent decides which operations to perform based on the task.`,
-      inputSchema: chatToolSchemas.file_manager_agent.input,
-      outputSchema: chatToolSchemas.file_manager_agent.output,
-      execute: async (input) => executeFileManagerAgent(ctx, input),
+    list_files: tool({
+      description:
+        "List workspace files, optionally filtered by folder path. Returns file IDs you must pass to other tools (read_file, move_file, delete_file, get_file_info). Always start file operations by calling this or search_materials first to discover real file IDs — never invent file IDs.",
+      inputSchema: chatToolSchemas.list_files.input,
+      outputSchema: chatToolSchemas.list_files.output,
+      execute: async (input) => executeListFiles(fileOpsCtx(ctx), input),
     }),
-    note_agent: tool({
-      description: `Manage markdown notes in the workspace. Handles creating, reading, and updating notes. Use when the user asks about their notes or wants to create/modify notes.
-
-Internal capabilities:
-- create_note: Create new markdown note
-- read_note: Read existing note content
-- update_note: Append or replace note content (append, replace_entire, replace_section). Before updating, you must first use the available workspace file tools/search/listing behavior to identify the exact path_dir/workspacePath or the exact file id of the note. Do not update a note from a vague title guess when multiple files could match.
-- update_tags: Read and update note tags stored in file properties
-
-The agent decides which operations to perform based on the task.`,
-      inputSchema: chatToolSchemas.note_agent.input,
-      outputSchema: chatToolSchemas.note_agent.output,
-      execute: async (input) => executeNoteAgent(ctx, input),
+    read_file: tool({
+      description:
+        "Read the content of a workspace file by its file ID. Use file IDs obtained from list_files, search_materials, or avenire_agent. Never guess or hallucinate file IDs — always discover them first.",
+      inputSchema: chatToolSchemas.read_file.input,
+      outputSchema: chatToolSchemas.read_file.output,
+      execute: async (input) => executeReadFile(fileOpsCtx(ctx), input),
     }),
+    move_file: tool({
+      description:
+        "Move a file to a different folder. Requires a real file ID (obtained from list_files or search_materials) and a real destination folder ID (obtained from list_files). Never invent file IDs or folder IDs.",
+      inputSchema: chatToolSchemas.move_file.input,
+      outputSchema: chatToolSchemas.move_file.output,
+      execute: async (input) => executeMoveFile(fileOpsCtx(ctx), input),
+    }),
+    delete_file: tool({
+      description:
+        "Soft-delete (move to trash) a workspace file. Requires a real file ID obtained from list_files or search_materials. Never invent file IDs — always discover them first.",
+      inputSchema: chatToolSchemas.delete_file.input,
+      outputSchema: chatToolSchemas.delete_file.output,
+      execute: async (input) => executeDeleteFile(fileOpsCtx(ctx), input),
+    }),
+    create_folder: tool({
+      description:
+        "Create a new folder in the workspace. Optionally specify a parent folder ID (obtained from list_files).",
+      inputSchema: chatToolSchemas.create_folder.input,
+      outputSchema: chatToolSchemas.create_folder.output,
+      execute: async (input) => executeCreateFolder(fileOpsCtx(ctx), input),
+    }),
+    get_file_info: tool({
+      description:
+        "Get metadata about a workspace file (mime type, updated date, path). Requires a real file ID obtained from list_files or search_materials. Never invent file IDs.",
+      inputSchema: chatToolSchemas.get_file_info.input,
+      outputSchema: chatToolSchemas.get_file_info.output,
+      execute: async (input) => executeGetFileInfo(fileOpsCtx(ctx), input),
+    }),
+
+    // --- Note operations (granular, replacing note_agent) ---
+
+    create_note: tool({
+      description:
+        "Create a new markdown note with explicit title and content. You provide the title and content directly — no AI drafting is used. Specify tags and an optional folder path. Use list_files first to find the folder ID if targeting a specific folder.",
+      inputSchema: chatToolSchemas.create_note.input,
+      outputSchema: chatToolSchemas.create_note.output,
+      execute: async (input) => executeCreateNote(noteOpsCtx(ctx), input),
+    }),
+    read_note: tool({
+      description:
+        "Read a markdown note's full content by file ID. Requires a real file ID obtained from list_notes, list_files, or search_materials. Never invent file IDs — always discover them first.",
+      inputSchema: chatToolSchemas.read_note.input,
+      outputSchema: chatToolSchemas.read_note.output,
+      execute: async (input) => executeReadNote(noteOpsCtx(ctx), input),
+    }),
+    update_note: tool({
+      description:
+        "Update a markdown note's content by file ID. Requires a real file ID obtained from list_notes, list_files, or search_materials. In mode 'replace_entire' the new content replaces everything. In mode 'append' the new content is appended. Without a mode, the content is treated as an edit instruction and the LLM rewrites the note intelligently. Never invent file IDs — always discover them with list_notes or list_files first.",
+      inputSchema: chatToolSchemas.update_note.input,
+      outputSchema: chatToolSchemas.update_note.output,
+      execute: async (input) => executeUpdateNote(noteOpsCtx(ctx), input),
+    }),
+    list_notes: tool({
+      description:
+        "List all markdown notes in the workspace with content previews, tags, and word counts. Returns real file IDs you must use in read_note, update_note, or update_note_tags. Always call this or list_files first to discover real file IDs before operating on notes.",
+      inputSchema: chatToolSchemas.list_notes.input,
+      outputSchema: chatToolSchemas.list_notes.output,
+      execute: async (input) => executeListNotes(noteOpsCtx(ctx), input),
+    }),
+    update_note_tags: tool({
+      description:
+        "Update tags on a markdown note. Requires a real file ID from list_notes or list_files. Use mode 'replace' to set tags, 'add' to append, or 'remove' to delete specific tags. Never invent file IDs.",
+      inputSchema: chatToolSchemas.update_note_tags.input,
+      outputSchema: chatToolSchemas.update_note_tags.output,
+      execute: async (input) => executeUpdateNoteTags(noteOpsCtx(ctx), input),
+    }),
+
+
+
     log_misconception: tool({
       description:
         "Record a misconception only when the user explicitly reports a durable misunderstanding or the conversation clearly establishes a wrong mental model. Use confidence for the learner's current confidence with the concept, not classifier certainty. Do not use it for normal questions, feature checks, or one-off clarifications.",

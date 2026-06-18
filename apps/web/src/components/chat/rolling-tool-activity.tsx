@@ -143,6 +143,19 @@ const ROLLING_TOOL_TYPES = new Set([
   "tool-quiz_me",
   "tool-web_search",
   "tool-search_materials",
+  // Granular file operations
+  "tool-list_files",
+  "tool-read_file",
+  "tool-move_file",
+  "tool-delete_file",
+  "tool-create_folder",
+  "tool-get_file_info",
+  // Granular note operations
+  "tool-create_note",
+  "tool-read_note",
+  "tool-update_note",
+  "tool-list_notes",
+  "tool-update_note_tags",
 ]);
 
 const EXPLORE_KINDS = new Set<ActivityAction["kind"]>([
@@ -194,6 +207,13 @@ function _toReadPreview(part: ToolPart): ReadPreview | undefined {
       path: firstFile.workspacePath,
     };
   }
+  // Granular read_file
+  if (part.type === "tool-read_file" && isOutputAvailable(part)) {
+    return {
+      content: toPreviewContent(part.output.content),
+      path: part.output.workspacePath,
+    };
+  }
   return undefined;
 }
 
@@ -222,15 +242,43 @@ function toSearchPreview(part: ToolPart): SearchPreview | undefined {
 }
 
 function toNotePreview(part: ToolPart): NotePreview | undefined {
-  if (part.type !== "tool-note_agent" || !isOutputAvailable(part)) {
-    return undefined;
+  if (part.type === "tool-note_agent" && isOutputAvailable(part)) {
+    return {
+      noteCount: Array.isArray(part.output.notes) ? part.output.notes.length : 0,
+      operation: part.output.operation,
+      title: part.output.notes[0]?.title,
+    };
   }
-
-  return {
-    noteCount: Array.isArray(part.output.notes) ? part.output.notes.length : 0,
-    operation: part.output.operation,
-    title: part.output.notes[0]?.title,
-  };
+  // Granular note tools
+  if (part.type === "tool-create_note" && isOutputAvailable(part)) {
+    return {
+      noteCount: 1,
+      operation: "created",
+      title: part.output.title,
+    };
+  }
+  if (part.type === "tool-read_note" && isOutputAvailable(part)) {
+    return {
+      noteCount: 1,
+      operation: "read",
+      title: part.output.title,
+    };
+  }
+  if (part.type === "tool-update_note" && isOutputAvailable(part)) {
+    return {
+      noteCount: 1,
+      operation: "updated",
+      title: part.output.workspacePath,
+    };
+  }
+  if (part.type === "tool-list_notes" && isOutputAvailable(part)) {
+    return {
+      noteCount: Array.isArray(part.output.notes) ? part.output.notes.length : 0,
+      operation: "listed",
+      title: part.output.notes[0]?.title,
+    };
+  }
+  return undefined;
 }
 
 function toActionValue(part: ToolPart) {
@@ -261,6 +309,57 @@ function toActionValue(part: ToolPart) {
     part.type === "tool-web_search"
   ) {
     return part.input?.query ?? "search";
+  }
+  // Granular file operations
+  if (
+    part.type === "tool-list_files" ||
+    part.type === "tool-read_file" ||
+    part.type === "tool-get_file_info"
+  ) {
+    if (isOutputAvailable(part) && "workspacePath" in part.output) {
+      return (part.output as { workspacePath?: string }).workspacePath ?? "file";
+    }
+    if (part.input && "fileId" in part.input) {
+      return (part.input as { fileId?: string }).fileId ?? "file";
+    }
+    return "file";
+  }
+  if (part.type === "tool-move_file") {
+    if (isOutputAvailable(part)) {
+      return (part.output as { workspacePath?: string }).workspacePath ?? "file";
+    }
+    return (part.input as { fileId?: string }).fileId ?? "file";
+  }
+  if (part.type === "tool-delete_file") {
+    if (isOutputAvailable(part)) {
+      return (part.output as { workspacePath?: string }).workspacePath ?? "file";
+    }
+    return (part.input as { fileId?: string }).fileId ?? "file";
+  }
+  if (part.type === "tool-create_folder") {
+    if (isOutputAvailable(part)) {
+      return (part.output as { folderPath?: string }).folderPath ?? "folder";
+    }
+    return (part.input as { name?: string }).name ?? "folder";
+  }
+  // Granular note operations
+  if (
+    part.type === "tool-create_note" ||
+    part.type === "tool-read_note" ||
+    part.type === "tool-update_note" ||
+    part.type === "tool-list_notes" ||
+    part.type === "tool-update_note_tags"
+  ) {
+    if (isOutputAvailable(part) && "workspacePath" in part.output) {
+      return (part.output as { workspacePath?: string }).workspacePath ?? "note";
+    }
+    if (isOutputAvailable(part) && "title" in part.output) {
+      return (part.output as { title?: string }).title ?? "note";
+    }
+    if (part.input && "fileId" in part.input) {
+      return (part.input as { fileId?: string }).fileId ?? "note";
+    }
+    return "note";
   }
   return "";
 }
@@ -333,6 +432,85 @@ function toAction(part: ToolPart): ActivityAction | null {
           }
         : undefined,
       value: path,
+    };
+  }
+
+  // Granular file operations
+  if (part.type === "tool-list_files") {
+    return {
+      kind: "list",
+      pending: isPending(part),
+      value: toActionValue(part),
+    };
+  }
+  if (part.type === "tool-read_file" || part.type === "tool-get_file_info") {
+    return {
+      kind: "read",
+      pending: isPending(part),
+      preview: _toReadPreview(part),
+      value: toActionValue(part),
+    };
+  }
+  if (part.type === "tool-move_file") {
+    return {
+      from: toActionValue(part),
+      kind: "move",
+      pending: isPending(part),
+    };
+  }
+  if (part.type === "tool-delete_file") {
+    return {
+      kind: "delete",
+      path: toActionValue(part),
+      pending: isPending(part),
+    };
+  }
+  if (part.type === "tool-create_folder") {
+    return {
+      kind: "create",
+      path: toActionValue(part),
+      pending: isPending(part),
+    };
+  }
+
+  // Granular note operations
+  if (part.type === "tool-create_note") {
+    return {
+      kind: "notes",
+      pending: isPending(part),
+      preview: toNotePreview(part),
+      value: toActionValue(part),
+    };
+  }
+  if (part.type === "tool-read_note") {
+    return {
+      kind: "notes",
+      pending: isPending(part),
+      preview: toNotePreview(part),
+      value: toActionValue(part),
+    };
+  }
+  if (part.type === "tool-update_note") {
+    return {
+      kind: "notes",
+      pending: isPending(part),
+      preview: toNotePreview(part),
+      value: toActionValue(part),
+    };
+  }
+  if (part.type === "tool-list_notes") {
+    return {
+      kind: "notes",
+      pending: isPending(part),
+      preview: toNotePreview(part),
+      value: toActionValue(part),
+    };
+  }
+  if (part.type === "tool-update_note_tags") {
+    return {
+      kind: "edit",
+      path: toActionValue(part),
+      pending: isPending(part),
     };
   }
 
