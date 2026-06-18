@@ -244,6 +244,30 @@ function summarizeToolPart(
     case "tool-file_manager_agent":
     case "tool-note_agent":
       return normalizeText(part.output.summary);
+    // Granular file operations
+    case "tool-list_files":
+      return `Listed ${part.output.totalCount} workspace file(s).`;
+    case "tool-read_file":
+      return `Read file: ${part.output.workspacePath}.`;
+    case "tool-move_file":
+      return `Moved file: ${part.output.workspacePath}.`;
+    case "tool-delete_file":
+      return `Deleted file: ${part.output.workspacePath}.`;
+    case "tool-create_folder":
+      return `Created folder: ${part.output.folderPath}.`;
+    case "tool-get_file_info":
+      return `Got info for file: ${part.output.workspacePath}.`;
+    // Granular note operations
+    case "tool-create_note":
+      return `Created note: ${part.output.title}.`;
+    case "tool-read_note":
+      return `Read note: ${part.output.title}.`;
+    case "tool-update_note":
+      return `Updated note: ${part.output.workspacePath}.`;
+    case "tool-list_notes":
+      return `Listed ${part.output.totalCount} note(s).`;
+    case "tool-update_note_tags":
+      return `Updated tags on note: ${part.output.fileId}.`;
     case "tool-get_due_cards":
       return `Reviewed due-card status with ${part.output.totalDueCount} cards due.`;
     default:

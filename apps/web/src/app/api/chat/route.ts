@@ -92,6 +92,20 @@ const DEFAULT_THINKING_MESSAGES = [
 ];
 const MODEL_TOOL_ALLOW_LIST = new Set([
   "avenire_agent",
+  // Granular file operations (replacing file_manager_agent)
+  "list_files",
+  "read_file",
+  "move_file",
+  "delete_file",
+  "create_folder",
+  "get_file_info",
+  // Granular note operations (replacing note_agent)
+  "create_note",
+  "read_note",
+  "update_note",
+  "list_notes",
+  "update_note_tags",
+  // Deprecated — kept for backward compatibility
   "file_manager_agent",
   "note_agent",
   "generate_flashcards",

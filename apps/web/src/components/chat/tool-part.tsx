@@ -41,6 +41,19 @@ const TOOL_LABELS: Record<string, string> = {
   "tool-show_widget": "Widget",
   "tool-avenire_agent": "Research",
   "tool-file_manager_agent": "Files",
+  // Granular file operations
+  "tool-list_files": "Files",
+  "tool-read_file": "Read file",
+  "tool-move_file": "Move file",
+  "tool-delete_file": "Delete file",
+  "tool-create_folder": "Create folder",
+  "tool-get_file_info": "File info",
+  // Granular note operations
+  "tool-create_note": "Create note",
+  "tool-read_note": "Read note",
+  "tool-update_note": "Update note",
+  "tool-list_notes": "Notes",
+  "tool-update_note_tags": "Update tags",
 };
 
 function getToolLabel(toolType: string): string {
@@ -592,6 +605,103 @@ export function ChatToolPart({ part }: { part: ToolPart }) {
         <ToolRow label="Loaded visual guide">
           <span className="font-mono text-[11px] text-foreground/28">
             loaded
+          </span>
+        </ToolRow>
+      );
+    // Granular file operations
+    case "tool-list_files":
+      return (
+        <ToolRow label="Files">
+          <span className="font-mono text-[11px] text-foreground/28">
+            {completedPart.output.totalCount} file(s)
+          </span>
+        </ToolRow>
+      );
+    case "tool-read_file":
+      return (
+        <div className="mb-2 space-y-1">
+          <ToolRow label="Read file">
+            <span className="font-mono text-[11px] text-foreground/28">
+              {completedPart.output.workspacePath ?? completedPart.output.fileId}
+            </span>
+          </ToolRow>
+          <div className="ml-0 rounded-md border border-border/30 p-2">
+            <p className="mt-0.5 whitespace-pre-wrap font-mono text-[11px] text-foreground/50">
+              {completedPart.output.content.slice(0, 300)}
+            </p>
+          </div>
+        </div>
+      );
+    case "tool-move_file":
+      return (
+        <ToolRow label="Move file">
+          <span className="font-mono text-[11px] text-foreground/28">
+            {completedPart.output.workspacePath}
+          </span>
+        </ToolRow>
+      );
+    case "tool-delete_file":
+      return (
+        <ToolRow label="Delete file">
+          <span className="font-mono text-[11px] text-foreground/28">
+            {completedPart.output.workspacePath}
+          </span>
+        </ToolRow>
+      );
+    case "tool-create_folder":
+      return (
+        <ToolRow label="Create folder">
+          <span className="font-mono text-[11px] text-foreground/28">
+            {completedPart.output.folderPath}
+          </span>
+        </ToolRow>
+      );
+    case "tool-get_file_info":
+      return (
+        <ToolRow label="File info">
+          <span className="font-mono text-[11px] text-foreground/28">
+            {completedPart.output.workspacePath}
+          </span>
+        </ToolRow>
+      );
+    // Granular note operations
+    case "tool-create_note":
+      return (
+        <ToolRow label="Create note">
+          <span className="font-mono text-[11px] text-foreground/28">
+            {completedPart.output.title}
+          </span>
+        </ToolRow>
+      );
+    case "tool-read_note":
+      return (
+        <ToolRow label="Read note">
+          <span className="font-mono text-[11px] text-foreground/28">
+            {completedPart.output.title}
+          </span>
+        </ToolRow>
+      );
+    case "tool-update_note":
+      return (
+        <ToolRow label="Update note">
+          <span className="font-mono text-[11px] text-foreground/28">
+            {completedPart.output.workspacePath}
+          </span>
+        </ToolRow>
+      );
+    case "tool-list_notes":
+      return (
+        <ToolRow label="Notes">
+          <span className="font-mono text-[11px] text-foreground/28">
+            {completedPart.output.totalCount} note(s)
+          </span>
+        </ToolRow>
+      );
+    case "tool-update_note_tags":
+      return (
+        <ToolRow label="Update tags">
+          <span className="font-mono text-[11px] text-foreground/28">
+            {completedPart.output.tags.length} tag(s)
           </span>
         </ToolRow>
       );
