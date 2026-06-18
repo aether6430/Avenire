@@ -1,0 +1,6 @@
+DROP TABLE IF EXISTS "course_map_path" CASCADE;
+DROP TABLE IF EXISTS "course_map_node" CASCADE;
+DROP TABLE IF EXISTS "course_map_version" CASCADE;
+DROP TABLE IF EXISTS "course_map" CASCADE;
+DROP TABLE IF EXISTS "course_method" CASCADE;
+DROP TABLE IF EXISTS "method" CASCADE;

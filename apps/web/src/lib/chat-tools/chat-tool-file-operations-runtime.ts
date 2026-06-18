@@ -63,11 +63,11 @@ export async function executeListFiles(
     }
   }
 
-  files = files
-    .sort(
-      (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)
-    )
-    .slice(0, maxResults);
+  files.sort(
+    (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)
+  );
+  const totalCount = files.length;
+  files = files.slice(0, maxResults);
 
   // Return folders so the model can discover folder IDs for move_file and create_folder
   const folders = await listWorkspaceFolders(ctx.workspaceId, ctx.userId);
@@ -83,7 +83,7 @@ export async function executeListFiles(
       folderPath: maps.folderPathById.get(folder.id) ?? folder.name,
       name: folder.name,
     })),
-    totalCount: files.length,
+    totalCount,
   };
 }
 
@@ -158,9 +158,12 @@ export async function executeMoveFile(
     workspaceId: ctx.workspaceId,
   });
 
+  // Rebuild path maps after the move so workspacePath reflects the new folder
+  const freshMaps = await buildWorkspacePathMaps(ctx.workspaceId, ctx.userId);
+
   return {
     fileId: input.fileId,
-    workspacePath: getWorkspacePathForFile(updated, maps),
+    workspacePath: getWorkspacePathForFile(updated, freshMaps),
   };
 }
 

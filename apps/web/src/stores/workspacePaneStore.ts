@@ -15,6 +15,7 @@ interface WorkspacePaneRowRecord {
 
 interface WorkspacePaneTabRecord {
   activePaneId: string | null;
+  customTitle?: boolean;
   id: string;
   panes: WorkspacePaneRecord[];
   title: string;
@@ -46,7 +47,9 @@ interface WorkspacePaneStoreState {
   ) => void;
   openTab: (href?: string) => void;
   panes: WorkspacePaneRecord[];
+  renameTab: (tabId: string, title: string) => void;
   reorderPanes: (draggedPaneId: string, targetPaneId: string) => void;
+  reorderTabs: (draggedTabId: string, targetTabId: string) => void;
   rows: WorkspacePaneRowRecord[];
   setPaneRoute: (
     paneId: string,
@@ -55,8 +58,6 @@ interface WorkspacePaneStoreState {
   ) => void;
   setPaneSizes: (rowId: string, sizes: number[]) => void;
   setRowSizes: (sizes: number[]) => void;
-  renameTab: (tabId: string, title: string) => void;
-  reorderTabs: (draggedTabId: string, targetTabId: string) => void;
   switchTab: (tabId: string) => void;
   syncActivePaneFromBrowser: (route: WorkspacePaneRouteState) => void;
   tabs: WorkspacePaneTabRecord[];
@@ -97,6 +98,10 @@ function titleForRoute(route: WorkspacePaneRouteState) {
     return "Files";
   }
   return "Workspace";
+}
+
+function normalizeTabTitle(title: string) {
+  return title.trim().replace(/\s+/g, " ");
 }
 
 function normalizeSizes<T extends { size: number }>(items: T[]) {
@@ -159,7 +164,9 @@ function createTab(route: WorkspacePaneRouteState): WorkspacePaneTabRecord {
   };
 }
 
-function sanitizeTab(tab: WorkspacePaneTabRecord): WorkspacePaneTabRecord | null {
+function sanitizeTab(
+  tab: WorkspacePaneTabRecord
+): WorkspacePaneTabRecord | null {
   const panes = sanitizePanes(tab.panes);
   if (panes.length === 0) {
     return null;
@@ -172,9 +179,11 @@ function sanitizeTab(tab: WorkspacePaneTabRecord): WorkspacePaneTabRecord | null
 
   return {
     activePaneId,
+    customTitle: Boolean(tab.customTitle),
     id: tab.id || createPaneId(),
     panes,
-    title: tab.title || (activePane ? titleForRoute(activePane.route) : "Workspace"),
+    title:
+      tab.title || (activePane ? titleForRoute(activePane.route) : "Workspace"),
   };
 }
 
@@ -214,7 +223,9 @@ function updateActiveTab(
     return state;
   }
 
-  const tabs = state.tabs.map((tab) => (tab.id === activeTab.id ? nextTab : tab));
+  const tabs = state.tabs.map((tab) =>
+    tab.id === activeTab.id ? nextTab : tab
+  );
   return {
     tabs,
     initialized: true,
@@ -290,7 +301,10 @@ export const useWorkspacePaneStore = create<WorkspacePaneStoreState>()(
             return state;
           }
 
-          return updateActiveTab(state, (tab) => ({ ...tab, activePaneId: paneId }));
+          return updateActiveTab(state, (tab) => ({
+            ...tab,
+            activePaneId: paneId,
+          }));
         }),
       openPane: (href, options) =>
         set((state) => {
@@ -316,7 +330,7 @@ export const useWorkspacePaneStore = create<WorkspacePaneStoreState>()(
               ...tab,
               activePaneId: next.activePaneId,
               panes: next.panes,
-              title: titleForRoute(pane.route),
+              title: tab.customTitle ? tab.title : titleForRoute(pane.route),
             };
           });
         }),
@@ -369,7 +383,11 @@ export const useWorkspacePaneStore = create<WorkspacePaneStoreState>()(
                 options.splitPlacement ?? "after"
               ),
             });
-            return { ...tab, activePaneId: next.activePaneId, panes: next.panes };
+            return {
+              ...tab,
+              activePaneId: next.activePaneId,
+              panes: next.panes,
+            };
           });
         }),
       closePane: (paneId) =>
@@ -393,12 +411,19 @@ export const useWorkspacePaneStore = create<WorkspacePaneStoreState>()(
               initialized: true,
               panes: tab.panes.filter((pane) => pane.id !== paneId),
             });
-            return { ...tab, activePaneId: next.activePaneId, panes: next.panes };
+            return {
+              ...tab,
+              activePaneId: next.activePaneId,
+              panes: next.panes,
+            };
           });
         }),
       closeTab: (tabId) =>
         set((state) => {
-          if (state.tabs.length <= 1 || !state.tabs.some((tab) => tab.id === tabId)) {
+          if (
+            state.tabs.length <= 1 ||
+            !state.tabs.some((tab) => tab.id === tabId)
+          ) {
             return state;
           }
 
@@ -406,13 +431,20 @@ export const useWorkspacePaneStore = create<WorkspacePaneStoreState>()(
           const tabs = state.tabs.filter((tab) => tab.id !== tabId);
           const nextActiveTabId =
             state.activeTabId === tabId
-              ? (tabs[closedIndex]?.id ?? tabs[closedIndex - 1]?.id ?? tabs[0]?.id ?? null)
+              ? (tabs[closedIndex]?.id ??
+                tabs[closedIndex - 1]?.id ??
+                tabs[0]?.id ??
+                null)
               : state.activeTabId;
 
           return {
             initialized: true,
             tabs,
-            ...mirrorActiveTab({ ...state, tabs, activeTabId: nextActiveTabId }),
+            ...mirrorActiveTab({
+              ...state,
+              tabs,
+              activeTabId: nextActiveTabId,
+            }),
           };
         }),
       reorderPanes: (draggedPaneId, targetPaneId) =>
@@ -451,7 +483,11 @@ export const useWorkspacePaneStore = create<WorkspacePaneStoreState>()(
                 draggedIndex < targetIndex ? "after" : "before"
               ),
             });
-            return { ...tab, activePaneId: next.activePaneId, panes: next.panes };
+            return {
+              ...tab,
+              activePaneId: next.activePaneId,
+              panes: next.panes,
+            };
           });
         }),
       setPaneRoute: (paneId, route) =>
@@ -467,16 +503,32 @@ export const useWorkspacePaneStore = create<WorkspacePaneStoreState>()(
             panes: tab.panes.map((pane) =>
               pane.id === paneId ? { ...pane, route } : pane
             ),
-            title: titleForRoute(route),
+            title: tab.customTitle ? tab.title : titleForRoute(route),
           }));
         }),
       renameTab: (tabId, title) =>
-        set((state) => ({
-          ...state,
-          tabs: state.tabs.map((tab) =>
-            tab.id === tabId ? { ...tab, title } : tab
-          ),
-        })),
+        set((state) => {
+          const nextTitle = normalizeTabTitle(title);
+          return {
+            ...state,
+            tabs: state.tabs.map((tab) =>
+              tab.id === tabId
+                ? {
+                    ...tab,
+                    customTitle: nextTitle.length > 0,
+                    title:
+                      nextTitle ||
+                      titleForRoute(
+                        tab.panes.find((pane) => pane.id === tab.activePaneId)
+                          ?.route ??
+                          tab.panes[0]?.route ??
+                          buildRoute("/workspace")
+                      ),
+                  }
+                : tab
+            ),
+          };
+        }),
       reorderTabs: (draggedTabId, targetTabId) =>
         set((state) => {
           if (draggedTabId === targetTabId) {
@@ -497,7 +549,11 @@ export const useWorkspacePaneStore = create<WorkspacePaneStoreState>()(
           return {
             ...state,
             tabs,
-            ...mirrorActiveTab({ ...state, tabs, activeTabId: state.activeTabId }),
+            ...mirrorActiveTab({
+              ...state,
+              tabs,
+              activeTabId: state.activeTabId,
+            }),
           };
         }),
       setPaneSizes: (_rowId, sizes) =>
@@ -543,7 +599,7 @@ export const useWorkspacePaneStore = create<WorkspacePaneStoreState>()(
             panes: tab.panes.map((pane) =>
               pane.id === activePaneId ? { ...pane, route } : pane
             ),
-            title: titleForRoute(route),
+            title: tab.customTitle ? tab.title : titleForRoute(route),
           }));
         }),
     }),
@@ -568,10 +624,12 @@ export const useWorkspacePaneStore = create<WorkspacePaneStoreState>()(
           sanitizedTabs.length > 0
             ? sanitizedTabs
             : sanitizeState({
-                activePaneId: persisted?.activePaneId ?? currentState.activePaneId,
-                initialized: persisted?.initialized ?? currentState.initialized,
-                panes: persisted?.panes ?? currentState.panes,
-              }).panes.length > 0
+                  activePaneId:
+                    persisted?.activePaneId ?? currentState.activePaneId,
+                  initialized:
+                    persisted?.initialized ?? currentState.initialized,
+                  panes: persisted?.panes ?? currentState.panes,
+                }).panes.length > 0
               ? [
                   {
                     activePaneId:
@@ -584,7 +642,9 @@ export const useWorkspacePaneStore = create<WorkspacePaneStoreState>()(
                   },
                 ]
               : [];
-        const activeTabId = tabs.some((tab) => tab.id === persisted?.activeTabId)
+        const activeTabId = tabs.some(
+          (tab) => tab.id === persisted?.activeTabId
+        )
           ? (persisted?.activeTabId ?? null)
           : (tabs[0]?.id ?? null);
 

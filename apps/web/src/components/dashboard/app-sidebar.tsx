@@ -5,6 +5,7 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@avenire/ui/components/context-menu";
 import {
@@ -55,10 +56,10 @@ import {
   DotsThree as MoreHorizontal,
   SidebarSimpleIcon as PanelLeftIcon,
   Pencil,
-  Plus,
-  PlusCircle,
   PushPin as Pin,
   PushPinSlash as PinOff,
+  Plus,
+  PlusCircle,
   Gear as Settings,
   Sparkle as Sparkles,
   Trash as Trash2,
@@ -181,14 +182,14 @@ function applyChatRealtimeEvent(
     isChatSummary(payload.chat)
   ) {
     const nextChat = payload.chat;
-    const existingIndex = chats.findIndex((chat) => chat.slug === nextChat.slug);
+    const existingIndex = chats.findIndex(
+      (chat) => chat.slug === nextChat.slug
+    );
     if (existingIndex === -1) {
       return [nextChat, ...chats];
     }
 
-    return chats.map((chat) =>
-      chat.slug === nextChat.slug ? nextChat : chat
-    );
+    return chats.map((chat) => (chat.slug === nextChat.slug ? nextChat : chat));
   }
 
   return null;
@@ -703,6 +704,15 @@ function ChatListItem({
               <ContextMenuItem
                 onClick={(event) => {
                   event.stopPropagation();
+                  onSelect(chat.slug);
+                }}
+              >
+                <MessageSquare className="mr-2 size-3.5" />
+                Open
+              </ContextMenuItem>
+              <ContextMenuItem
+                onClick={(event) => {
+                  event.stopPropagation();
                   onSelectInNewPane?.(chat.slug);
                 }}
               >
@@ -718,6 +728,44 @@ function ChatListItem({
                 <Plus className="mr-2 size-3.5" />
                 Open in new tab
               </ContextMenuItem>
+              {chat.readOnly ? null : (
+                <>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onStartRename(chat);
+                    }}
+                  >
+                    <Pencil className="mr-2 size-3.5" />
+                    Rename
+                  </ContextMenuItem>
+                  <ContextMenuItem
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onTogglePin(chat.slug, !chat.pinned);
+                    }}
+                  >
+                    {chat.pinned ? (
+                      <PinOff className="mr-2 size-3.5" />
+                    ) : (
+                      <Pin className="mr-2 size-3.5" />
+                    )}
+                    {chat.pinned ? "Unpin" : "Pin"}
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onDelete(chat.slug);
+                    }}
+                  >
+                    <Trash2 className="mr-2 size-3.5" />
+                    Delete
+                  </ContextMenuItem>
+                </>
+              )}
             </ContextMenuContent>
           </ContextMenu>
 
@@ -1647,27 +1695,6 @@ export function DashboardSidebar({
   }, [deferredStartupReady, loadWorkspaces]);
 
   const activeOrgSyncRef = useRef<string | null>(null);
-  useEffect(() => {
-    const match = pathname.match(/^\/workspace\/files\/([^/]+)/);
-    const workspaceIdFromRoute = match?.[1];
-    if (!(workspaceIdFromRoute && workspaces.length > 0)) {
-      return;
-    }
-    const targetWorkspace = workspaces.find(
-      (workspace) => workspace.workspaceId === workspaceIdFromRoute
-    );
-    if (!targetWorkspace?.organizationId) {
-      return;
-    }
-    const syncKey = `${workspaceIdFromRoute}:${targetWorkspace.organizationId}`;
-    if (activeOrgSyncRef.current === syncKey) {
-      return;
-    }
-    activeOrgSyncRef.current = syncKey;
-    void setActiveOrganization(targetWorkspace.organizationId).catch(() => {
-      activeOrgSyncRef.current = null;
-    });
-  }, [pathname, workspaces]);
 
   const loadInvitations = useCallback(async () => {
     try {
@@ -1788,19 +1815,44 @@ export function DashboardSidebar({
     }
   };
 
-  const setActiveOrganization = async (organizationId?: string | null) => {
-    if (!organizationId) {
+  const setActiveOrganization = useCallback(
+    async (organizationId?: string | null) => {
+      if (!organizationId) {
+        return;
+      }
+      const response = await fetch("/api/auth/organization/set-active", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId }),
+      });
+      if (!response.ok) {
+        throw new Error("Unable to switch active organization");
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    const match = pathname.match(/^\/workspace\/files\/([^/]+)/);
+    const workspaceIdFromRoute = match?.[1];
+    if (!(workspaceIdFromRoute && workspaces.length > 0)) {
       return;
     }
-    const response = await fetch("/api/auth/organization/set-active", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ organizationId }),
-    });
-    if (!response.ok) {
-      throw new Error("Unable to switch active organization");
+    const targetWorkspace = workspaces.find(
+      (workspace) => workspace.workspaceId === workspaceIdFromRoute
+    );
+    if (!targetWorkspace?.organizationId) {
+      return;
     }
-  };
+    const syncKey = `${workspaceIdFromRoute}:${targetWorkspace.organizationId}`;
+    if (activeOrgSyncRef.current === syncKey) {
+      return;
+    }
+    activeOrgSyncRef.current = syncKey;
+    void setActiveOrganization(targetWorkspace.organizationId).catch(() => {
+      activeOrgSyncRef.current = null;
+    });
+  }, [pathname, setActiveOrganization, workspaces]);
 
   const switchWorkspace = async (workspace: {
     workspaceId: string;
@@ -2192,6 +2244,10 @@ export function DashboardSidebar({
 
                   return (
                     <>
+                      <ContextMenuItem onClick={() => navigate(href)}>
+                        <MessageSquare className="mr-2 size-3.5" />
+                        Open
+                      </ContextMenuItem>
                       <ContextMenuItem
                         onClick={() => navigate(href, { openInNewPane: true })}
                       >
@@ -2297,6 +2353,14 @@ export function DashboardSidebar({
                             <>
                               <ContextMenuItem
                                 onClick={() =>
+                                  navigate(createFreshNewChatHref())
+                                }
+                              >
+                                <MessageSquare className="mr-2 size-3.5" />
+                                Open
+                              </ContextMenuItem>
+                              <ContextMenuItem
+                                onClick={() =>
                                   navigate(createFreshNewChatHref(), {
                                     openInNewPane: true,
                                   })
@@ -2336,6 +2400,14 @@ export function DashboardSidebar({
                         <SectionButton
                           contextMenuContent={
                             <>
+                              <ContextMenuItem
+                                onClick={() =>
+                                  navigate("/workspace/flashcards" as Route)
+                                }
+                              >
+                                <Sparkles className="mr-2 size-3.5" />
+                                Open
+                              </ContextMenuItem>
                               <ContextMenuItem
                                 onClick={() =>
                                   navigate("/workspace/flashcards" as Route, {
@@ -2387,6 +2459,16 @@ export function DashboardSidebar({
                               <ContextMenuItem
                                 onClick={() =>
                                   void navigateToFilesRoot({
+                                    openInNewPane: false,
+                                  })
+                                }
+                              >
+                                <Files className="mr-2 size-3.5" />
+                                Open
+                              </ContextMenuItem>
+                              <ContextMenuItem
+                                onClick={() =>
+                                  void navigateToFilesRoot({
                                     openInNewPane: true,
                                   })
                                 }
@@ -2432,6 +2514,14 @@ export function DashboardSidebar({
                         <SectionButton
                           contextMenuContent={
                             <>
+                              <ContextMenuItem
+                                onClick={() =>
+                                  navigate("/workspace/tasks" as Route)
+                                }
+                              >
+                                <ListChecks className="mr-2 size-3.5" />
+                                Open
+                              </ContextMenuItem>
                               <ContextMenuItem
                                 onClick={() =>
                                   navigate("/workspace/tasks" as Route, {

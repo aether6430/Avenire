@@ -246,7 +246,7 @@ export async function executeListNotes(
 
   for (const file of noteFiles.slice(0, maxNotes)) {
     try {
-      const content = await fetchWorkspaceFileText(file, 200);
+      const content = await fetchWorkspaceFileText(file);
       notes.push({
         contentPreview: content.slice(0, 200),
         fileId: file.id,
