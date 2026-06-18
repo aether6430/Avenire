@@ -245,8 +245,11 @@ function summarizeToolPart(
     case "tool-note_agent":
       return normalizeText(part.output.summary);
     // Granular file operations
-    case "tool-list_files":
-      return `Listed ${part.output.totalCount} workspace file(s).`;
+    // Granular file operations
+    case "tool-list_files": {
+      const folderCount = Array.isArray(part.output.folders) ? part.output.folders.length : 0;
+      return `Listed ${part.output.totalCount} workspace file(s)${folderCount > 0 ? ` in ${folderCount} folder(s).` : "."}`;
+    }
     case "tool-read_file":
       return `Read file: ${part.output.workspacePath}.`;
     case "tool-move_file":

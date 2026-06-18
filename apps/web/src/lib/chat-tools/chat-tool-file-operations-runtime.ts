@@ -69,11 +69,19 @@ export async function executeListFiles(
     )
     .slice(0, maxResults);
 
+  // Return folders so the model can discover folder IDs for move_file and create_folder
+  const folders = await listWorkspaceFolders(ctx.workspaceId, ctx.userId);
+
   return {
     files: files.map((file) => ({
       excerpt: "",
       fileId: file.id,
       workspacePath: getWorkspacePathForFile(file, maps),
+    })),
+    folders: folders.map((folder) => ({
+      folderId: folder.id,
+      folderPath: maps.folderPathById.get(folder.id) ?? folder.name,
+      name: folder.name,
     })),
     totalCount: files.length,
   };
@@ -117,8 +125,12 @@ export async function executeMoveFile(
     throw new Error(`File not found: ${input.fileId}`);
   }
 
-  const targetFolder = await getFileAssetById(ctx.workspaceId, input.destinationFolderId);
-  if (!targetFolder) {
+  // Validate destination folder via folder records — getFileAssetById won't find folders
+  const folders = await listWorkspaceFolders(ctx.workspaceId, ctx.userId);
+  const targetFolderExists = folders.some(
+    (folder) => folder.id === input.destinationFolderId
+  );
+  if (!targetFolderExists) {
     throw new Error(`Destination folder not found: ${input.destinationFolderId}`);
   }
 
@@ -184,6 +196,14 @@ export async function executeCreateFolder(
   input: CreateFolderInput
 ) {
   const parentId = input.parentFolderId ?? ctx.rootFolderId;
+
+  if (input.parentFolderId) {
+    const folders = await listWorkspaceFolders(ctx.workspaceId, ctx.userId);
+    const parentExists = folders.some((folder) => folder.id === input.parentFolderId);
+    if (!parentExists) {
+      throw new Error(`Parent folder not found: ${input.parentFolderId}`);
+    }
+  }
 
   const folder = await createFolder(
     ctx.workspaceId,

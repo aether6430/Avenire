@@ -371,6 +371,13 @@ export const chatToolSchemas = {
     }),
     output: z.object({
       files: z.array(agentFilePreviewSchema),
+      folders: z.array(
+        z.object({
+          folderId: z.string(),
+          folderPath: z.string(),
+          name: z.string(),
+        })
+      ),
       totalCount: z.number().int(),
     }),
   },

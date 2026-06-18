@@ -614,6 +614,9 @@ export function ChatToolPart({ part }: { part: ToolPart }) {
         <ToolRow label="Files">
           <span className="font-mono text-[11px] text-foreground/28">
             {completedPart.output.totalCount} file(s)
+            {completedPart.output.folders?.length > 0
+              ? `, ${completedPart.output.folders.length} folder(s)`
+              : ""}
           </span>
         </ToolRow>
       );
