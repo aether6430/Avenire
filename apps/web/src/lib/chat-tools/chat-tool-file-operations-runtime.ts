@@ -164,7 +164,7 @@ export async function executeDeleteFile(
   }
 
   const workspacePath = getWorkspacePathForFile(file, maps);
-  await softDeleteFileAsset(ctx.workspaceId, input.fileId, ctx.userId);
+  await softDeleteFileAsset(ctx.workspaceId, input.fileId);
 
   await publishTreeMutationEvents({
     fileId: input.fileId,

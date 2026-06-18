@@ -175,31 +175,7 @@ export function createChatTools(ctx: ChatToolContext): ToolSet {
       execute: async (input) => executeUpdateNoteTags(noteOpsCtx(ctx), input),
     }),
 
-    // --- Legacy agents (deprecated, kept for backward compatibility) ---
 
-    file_manager_agent: tool({
-      description:
-        "[DEPRECATED] Use list_files, read_file, move_file, delete_file, or create_folder instead. This agent tries to infer intent from a vague task string and often produces poor results.",
-      inputSchema: chatToolSchemas.file_manager_agent.input,
-      outputSchema: chatToolSchemas.file_manager_agent.output,
-      execute: async () => ({
-        files: [],
-        summary: "This tool is deprecated. Use list_files, read_file, move_file, delete_file, or create_folder instead.",
-        task: "",
-      }),
-    }),
-    note_agent: tool({
-      description:
-        "[DEPRECATED] Use create_note, read_note, update_note, list_notes, or update_note_tags instead. This agent tries to infer intent from a vague task string and often produces poor results.",
-      inputSchema: chatToolSchemas.note_agent.input,
-      outputSchema: chatToolSchemas.note_agent.output,
-      execute: async () => ({
-        notes: [],
-        operation: "listed",
-        summary: "This tool is deprecated. Use create_note, read_note, update_note, list_notes, or update_note_tags instead.",
-        task: "",
-      }),
-    }),
 
     log_misconception: tool({
       description:

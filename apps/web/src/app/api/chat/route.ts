@@ -105,9 +105,7 @@ const MODEL_TOOL_ALLOW_LIST = new Set([
   "update_note",
   "list_notes",
   "update_note_tags",
-  // Deprecated — kept for backward compatibility
-  "file_manager_agent",
-  "note_agent",
+
   "generate_flashcards",
   "generate_flashcards_from_misconception",
   "get_due_cards",

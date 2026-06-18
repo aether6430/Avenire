@@ -453,32 +453,23 @@ function toAction(part: ToolPart): ActivityAction | null {
   }
   if (part.type === "tool-move_file") {
     return {
-      kind: "mutation" as const,
-      action: {
-        label: "Moving",
-        path: toActionValue(part),
-        type: "move",
-      },
+      from: toActionValue(part),
+      kind: "move",
+      pending: isPending(part),
     };
   }
   if (part.type === "tool-delete_file") {
     return {
-      kind: "mutation" as const,
-      action: {
-        label: "Deleting",
-        path: toActionValue(part),
-        type: "delete",
-      },
+      kind: "delete",
+      path: toActionValue(part),
+      pending: isPending(part),
     };
   }
   if (part.type === "tool-create_folder") {
     return {
-      kind: "mutation" as const,
-      action: {
-        label: "Creating folder",
-        path: toActionValue(part),
-        type: "create",
-      },
+      kind: "create",
+      path: toActionValue(part),
+      pending: isPending(part),
     };
   }
 
@@ -493,7 +484,7 @@ function toAction(part: ToolPart): ActivityAction | null {
   }
   if (part.type === "tool-read_note") {
     return {
-      kind: "read",
+      kind: "notes",
       pending: isPending(part),
       preview: toNotePreview(part),
       value: toActionValue(part),
@@ -509,7 +500,7 @@ function toAction(part: ToolPart): ActivityAction | null {
   }
   if (part.type === "tool-list_notes") {
     return {
-      kind: "read",
+      kind: "notes",
       pending: isPending(part),
       preview: toNotePreview(part),
       value: toActionValue(part),
@@ -517,12 +508,9 @@ function toAction(part: ToolPart): ActivityAction | null {
   }
   if (part.type === "tool-update_note_tags") {
     return {
-      kind: "mutation" as const,
-      action: {
-        label: "Updating tags",
-        path: toActionValue(part),
-        type: "update",
-      },
+      kind: "edit",
+      path: toActionValue(part),
+      pending: isPending(part),
     };
   }
 
