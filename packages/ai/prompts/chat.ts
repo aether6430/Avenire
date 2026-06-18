@@ -81,7 +81,7 @@ export function APOLLO_PROMPT(
     "Available note operations:",
     "- create_note: Create a new markdown note with explicit title and content.",
     "- read_note: Read a note's full content by file ID.",
-    "- update_note: Update note content by file ID (replace_entire, append, or AI-rewrite).",
+    "- update_note: Update note content by file ID. Pass mode as \"replace_entire\" or \"append\"; omit mode for AI-rewrite based on your instructions.",
     "- list_notes: List all notes with previews, tags, and word counts.",
     "- update_note_tags: Update tags on a note by file ID.",
     "",
