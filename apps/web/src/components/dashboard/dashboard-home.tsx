@@ -37,7 +37,7 @@ import {
 } from "@phosphor-icons/react";
 import type { Route } from "next";
 import dynamic from "next/dynamic";
-import Image from "next/image";
+import { STATIC_ASSETS } from "@/lib/static-assets";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { startTransition, useEffect, useMemo, useState } from "react";
@@ -413,12 +413,18 @@ export function DashboardHome({
         </HeaderBreadcrumbs>
 
         <div className="-mx-6 hidden overflow-hidden rounded-none md:-mx-12 md:block lg:-mx-16">
-          <Image
+          <img
             alt="Workspace banner"
             className="h-28 w-full object-cover md:h-40"
-            height={160}
-            src="https://gtgr46laft.ufs.sh/f/7avzGFBuzbjB9vfw3D1PxUaEr7wSqNQiFgMAvYKy35DlcXb0"
-            width={2400}
+            fetchPriority="high"
+            loading="eager"
+            onError={(event) => {
+              const img = event.currentTarget;
+              if (img.dataset.fellBack) return;
+              img.dataset.fellBack = "1";
+              img.src = STATIC_ASSETS.banner1;
+            }}
+            src={STATIC_ASSETS.banner1}
           />
         </div>
 
